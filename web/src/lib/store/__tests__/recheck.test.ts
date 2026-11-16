@@ -43,6 +43,13 @@ describe('recheckStore', () => {
   });
 
   it('keeps telling a project solved in this build that its loads came from an older generator, until they are generated again', async () => {
+    const chronology = ['gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support'];
+    const headroomVersion = RESULT_CHANGES.changes.find(c => c.id === 'generated-area-loads-headroom')!.resultsVersion;
+    const historicalRegistry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c => chronology.includes(c.id) ? { ...c, resultsVersion: headroomVersion + 1 + chronology.indexOf(c.id) } : c) };
+    const recheckStore = createRecheckStore(async () => {
+      const module = await import('../../provenance/applicability');
+      return { ...module, assessProject: (...args: Parameters<typeof module.assessProject>) => module.assessProject(args[0], args[1], args[2], historicalRegistry, args[4], args[5]) };
+    });
     const generated = (resultsVersion?: number) => ({
       ...(steelTruss() as object),
       loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],
@@ -76,13 +83,13 @@ describe('recheckStore', () => {
     expect(recheckStore.noticeOpen).toBe(true);
     expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support']);
     recheckStore.reset();
-    const previousGravity = RESULT_CHANGES.changes.find(c => c.id === 'gravity-torque-projection-and-carriers')!.resultsVersion;
+    const previousGravity = historicalRegistry.changes.find(c => c.id === 'gravity-torque-projection-and-carriers')!.resultsVersion;
     recheckStore.openProject(generated(previousGravity), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.noticeOpen).toBe(true);
     expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support']);
     recheckStore.reset();
-    const gravity = RESULT_CHANGES.changes.find(c => c.id === 'gravity-stations-and-edits')!.resultsVersion;
+    const gravity = historicalRegistry.changes.find(c => c.id === 'gravity-stations-and-edits')!.resultsVersion;
     recheckStore.openProject(generated(gravity), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual(['snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support']);
@@ -92,6 +99,27 @@ describe('recheckStore', () => {
     recheckStore.openProject(unstamped as never, 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
+  });
+
+  it('keeps the exact gravity notices when the branch changes land in one results version', async () => {
+    const ids = ['gravity-density-extrema', 'gravity-member-loading', 'gravity-moment-support', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers'];
+    const shared = RESULTS_VERSION;
+    const registry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c => ids.includes(c.id) ? { ...c, resultsVersion: shared } : c) };
+    const store = createRecheckStore(async () => {
+      const module = await import('../../provenance/applicability');
+      return { ...module, assessProject: (...args: Parameters<typeof module.assessProject>) => module.assessProject(args[0], args[1], args[2], registry, args[4], args[5]) };
+    });
+    const project = { ...(steelTruss() as object), loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }], designData: { loadBasis: { resultsVersion: shared - 1 } }, solvedWith: store.capture() };
+    store.openProject(project as never, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(ids);
+    store.noteSolved('linear');
+    store.openProject({ ...project, solvedWith: store.capture() } as never, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(ids);
+    store.openProject({ ...project, designData: { loadBasis: { resultsVersion: shared } }, solvedWith: store.capture() } as never, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.changes.map(c => c.id)).toEqual([]);
   });
 
   it.each(['2d', '3d', 'pro'])('#2144 keeps the exact snow regeneration notices after re-solving in %s', async mode => {

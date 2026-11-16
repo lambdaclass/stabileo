@@ -1,4 +1,4 @@
-import { diagramStations, loadPrecedesStation } from './load-station';
+import { diagramStations, loadPrecedesStation, parentStations } from './load-station';
 import { integrateQuadratic } from './member-moments';
 // 3D Diagram Computation — Analytical equations
 // Compute diagram values (My, Mz, Vy, Vz, N, Mx) along each 3D element
@@ -30,7 +30,7 @@ export interface ElementDiagram3D {
  * to capture discontinuities in shear diagrams.
  */
 function samplingPositions(ef: ElementForces3D, kind: Diagram3DKind): number[] {
-  if (ef.pieces?.length) return [...new Set(ef.pieces.flatMap(p => samplingPositions(p.forces, kind).map(t => (p.x0 + t * (p.x1 - p.x0)) / ef.length)))].sort((a, b) => a - b);
+  if (ef.pieces?.length) return [...new Set(ef.pieces.flatMap(p => parentStations(ef.length, p.x0, p.x1, samplingPositions(p.forces, kind))))].sort((a, b) => a - b);
   if (ef.combined) return [...new Set(ef.combined.parts.flatMap(p => samplingPositions(p, kind)))].sort((a, b) => a - b);
   const loads = kind === 'momentZ' || kind === 'shearY' ? ef.pointLoadsY : kind === 'momentY' || kind === 'shearZ' ? ef.pointLoadsZ : kind === 'torsion' ? ef.pointTorques ?? [] : [];
   const densities = [...ef.distributedLoadsY ?? [], ...ef.distributedLoadsZ ?? [], ...ef.distributedLoadsX ?? [], ...ef.memberMoments ?? []];

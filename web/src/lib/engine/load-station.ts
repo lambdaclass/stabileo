@@ -1,20 +1,39 @@
+export function adjacentStation(t: number, step: bigint): number {
+  const bits = new DataView(new ArrayBuffer(8));
+  bits.setFloat64(0, t);
+  bits.setBigUint64(0, bits.getBigUint64(0) + step);
+  return bits.getFloat64(0);
+}
+
+export function parentStations(length: number, x0: number, x1: number, stations: number[]): number[] {
+  const width = Math.max(x1 - x0, 1e-12);
+  const positions = new Set<number>();
+  for (const u of stations) {
+    const t = (x0 + u * (x1 - x0)) / length;
+    positions.add(t);
+    const local = (v: number) => (v * length - x0) / width;
+    for (const step of [-1n, 1n]) {
+      if (step < 0n ? t <= 0 : t >= 1) continue;
+      let v = adjacentStation(t, step);
+      while (v > 0 && v < 1 && (step < 0n ? local(v) >= u : local(v) <= u)) v = adjacentStation(v, step);
+      if (step < 0n ? !(local(v) < u) : !(local(v) > u)) throw new Error('Cannot bracket member diagram station in parent coordinates');
+      positions.add(v);
+    }
+  }
+  return [...positions];
+}
+
 export function loadPrecedesStation(a: number, length: number, t: number): boolean {
   return a / length < t;
 }
 
 export function concentratedLoadStations(length: number, loads: Iterable<{ a: number }>): number[] {
   const positions = new Set(Array.from({ length: 21 }, (_, i) => i / 20));
-  const bits = new DataView(new ArrayBuffer(8));
-  const adjacent = (t: number, step: bigint) => {
-    bits.setFloat64(0, t);
-    bits.setBigUint64(0, bits.getBigUint64(0) + step);
-    return bits.getFloat64(0);
-  };
   for (const { a } of loads) {
     const t = a / length;
-    if (t > 0) positions.add(adjacent(t, -1n));
+    if (t > 0) positions.add(adjacentStation(t, -1n));
     positions.add(t);
-    if (t < 1) positions.add(adjacent(t, 1n));
+    if (t < 1) positions.add(adjacentStation(t, 1n));
   }
   return [...positions].sort((a, b) => a - b);
 }

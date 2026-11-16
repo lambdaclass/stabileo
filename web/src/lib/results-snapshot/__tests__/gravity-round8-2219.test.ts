@@ -23,13 +23,13 @@ const solves = [
   (s: ReturnType<typeof fixture>): AnalysisResults3D => JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results,
   (s: ReturnType<typeof fixture>): AnalysisResults3D => JSON.parse(solve_corotational_3d(JSON.stringify(s), 100, 1e-10, 4)).results,
 ];
-for (const axis of ['x', 'y', 'z'] as const) for (const [a, b] of [[-1e-14, 1e-14], [1 - 1e-14, 1 + 1e-14], [-1e-14, 0], [1, 1 + 1e-14], [0.5, 0.5]]) {
+for (const axis of ['x', 'y', 'z'] as const) for (const [a, b] of [[-1e-14, 1e-14], [1 - 1e-14, 1 + 1e-14], [-1e-14, 0], [1, 1 + 1e-14], [0.5, 0.5], [0.5, 0.5 + Number.EPSILON / 2], [0, 256 * Number.EPSILON], [1 - 256 * Number.EPSILON, 1]]) {
   it(`known wrong result: #2219 WASM refuses unsafe moment support ${axis} [${a},${b}]`, () => {
     for (const solve of solves) expect(() => solve(fixture(a!, b!, axis))).toThrow(/distributed moment span/);
   });
 }
 const allowance = 64 * Number.EPSILON;
-for (const [a, b] of [[0, 1], [0.25, 0.75], [0.5, 0.5 + Number.EPSILON / 2], [-allowance, 0.5], [0.5, 1 + allowance], [0, 4 * allowance], [1 - 4 * allowance, 1]]) {
+for (const [a, b] of [[0, 1], [0.25, 0.75], [0.5, 0.5 + 1e-10], [-allowance, 0.5], [0.5, 1 + allowance], [0, 1e-10], [1 - 1e-9, 1]]) {
   it(`known wrong result: #2219 WASM uses canonical support in assembly and recovery [${a},${b}]`, () => {
     const ca = Math.max(0, a!), cb = Math.min(1, b!), q = 1 / (b! - a!), total = q * (cb - ca);
     for (const solve of solves) {
@@ -51,19 +51,20 @@ for (const [a, b] of [[-allowance, 0.49], [0.51, 1 + allowance], [-allowance, 4 
   });
 }
 
-const round10 = process.env.RUN_KNOWN_WRONG === '2219-round10' ? it : it.skip;
 for (const axis of ['x', 'y', 'z'] as const) {
-  round10(`known wrong result: #2219 round10 WASM refuses subgeometry quadratic ${axis} support`, () => {
-    for (const [a, b] of [[0.5, 0.5 + Number.EPSILON / 2], [0, 1e-10 - 1e-26], [0.5, 0.5 + 5e-11]]) {
+  it(`known wrong result: #2219 round10 WASM refuses subgeometry quadratic ${axis} support`, () => {
+    for (const [length, a, b] of [[1, 0.5, 0.5 + Number.EPSILON / 2], [1, 0, 1e-10 - 1e-26], [1, 0.5, 0.5 + 5e-11], [10, 0, 5e-10], [100, 0, 5e-9]]) {
       const s = fixture(a!, b!, axis), h = b! - a!;
+      s.nodes[2].x = length;
       s.loads[0].data.moments[axis] = [1 / h, -0.5 / h, 1 / h];
       for (const solve of solves) expect(() => solve(s)).toThrow(/1e-10/);
     }
   });
-  round10(`known wrong result: #2219 round10 WASM retains local quadratic ${axis} extrema`, async () => {
+  it(`known wrong result: #2219 round10 WASM retains local quadratic ${axis} extrema`, async () => {
     const { compute_diagrams_3d } = await import('../../wasm/dedaliano_engine.js');
-    for (const [a, b] of [[0, 1e-10], [0, 1e-10 + 1e-26], [0.5, 0.5 + 1e-10], [0.5, 0.5 + 1e-8], [0.25, 0.75]]) {
+    for (const [length, a, b] of [[1, 0, 1e-10], [1, 0, 1e-10 + 1e-26], [1, 0.5, 0.5 + 1e-10], [1, 0.5, 0.5 + 1e-8], [1, 0.25, 0.75], [10, 0, 1e-9], [100, 0, 1e-8]]) {
       const s = fixture(a!, b!, axis), h = b! - a!;
+      s.nodes[2].x = length;
       s.loads[0].data.moments[axis] = [1 / h, -0.5 / h, 1 / h];
       for (const solve of solves) {
         const result = solve(s), ef = result.elementForces[0]!;

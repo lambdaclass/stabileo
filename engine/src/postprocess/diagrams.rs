@@ -48,29 +48,45 @@ pub(crate) fn build_sampling_positions(
     boundaries: impl Iterator<Item = f64>,
     evaluate: &dyn Fn(f64) -> f64,
 ) -> Vec<f64> {
+    let mut positions: Vec<_> = build_sampling_points(length, point_positions, boundaries, evaluate,
+        &|a, b, u| evaluate((a + (b - a) * u) / length))
+        .into_iter().map(|(t, _)| t).collect();
+    positions.dedup();
+    positions
+}
+
+pub(crate) fn build_sampling_points(
+    length: f64,
+    point_positions: impl Iterator<Item = f64>,
+    boundaries: impl Iterator<Item = f64>,
+    evaluate: &dyn Fn(f64) -> f64,
+    local: &dyn Fn(f64, f64, f64) -> f64,
+) -> Vec<(f64, f64)> {
     let mut positions: Vec<f64> = (0..NUM_POINTS)
         .map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect();
-    let mut cuts = vec![0.0, 1.0];
-    for a in point_positions {
-        cuts.push(a / length);
-        let t = a / length;
+    let mut cuts = vec![0.0, length];
+    for a in point_positions { cuts.push(a); }
+    cuts.extend(boundaries);
+    cuts.retain(|x| x.is_finite() && *x >= 0.0 && *x <= length);
+    cuts.sort_by(f64::total_cmp);
+    cuts.dedup();
+    for &x in &cuts {
+        let t = x / length;
         if t > 0.0 { positions.push(t.next_down()); }
         positions.push(t);
         if t < 1.0 { positions.push(t.next_up()); }
     }
-    cuts.extend(boundaries.map(|x| x / length));
-    cuts.retain(|t| t.is_finite() && *t >= 0.0 && *t <= 1.0);
-    cuts.sort_by(f64::total_cmp);
-    cuts.dedup();
-    positions.extend(cuts.iter().copied());
-    for &t in &cuts {
-        if t > 0.0 { positions.push(t.next_down()); }
-        if t < 1.0 { positions.push(t.next_up()); }
-    }
-    for w in cuts.windows(2) { positions.extend(cubic_stationary_points(evaluate, w[0], w[1])); }
     positions.sort_by(f64::total_cmp);
     positions.dedup();
-    positions
+    let mut points: Vec<_> = positions.into_iter().map(|t| (t, evaluate(t))).collect();
+    for w in cuts.windows(2) {
+        let g = |u| local(w[0], w[1], u);
+        for u in cubic_stationary_points(&g, 0.0, 1.0) {
+            points.push(((w[0] + (w[1] - w[0]) * u) / length, g(u)));
+        }
+    }
+    points.sort_by(|a, b| a.0.total_cmp(&b.0));
+    points
 }
 
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {

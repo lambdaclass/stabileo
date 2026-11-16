@@ -27,7 +27,7 @@ use dedaliano_engine::certify::deflection::{deflection_bounds_2d, deflection_bou
 use dedaliano_engine::certify::reactions::{reaction_bounds_2d, reaction_bounds_3d};
 use dedaliano_engine::certify::solver::{shown_bounds_2d, shown_bounds_3d};
 use dedaliano_engine::certify::stations::{
-    diagram_gaps_2d, diagram_gaps_3d, station_bounds_2d, station_bounds_3d, StationBound2D, StationBound3D,
+    diagram_gaps_2d_at, diagram_gaps_3d_at, station_bounds_2d, station_bounds_3d, StationBound2D, StationBound3D,
 };
 use dedaliano_engine::certify::{certify_linear_2d_full, certify_linear_3d_full, certify_results_2d, certify_results_3d, Certificate};
 use dedaliano_engine::element::compute_local_axes_3d;
@@ -667,10 +667,19 @@ fn excess(f: impl Fn(f64) -> f64, stations: &[f64]) -> (f64, f64) {
 }
 
 fn check_gaps_2d(res: &AnalysisResults, worst: &mut HashMap<&'static str, f64>) {
+    check_gaps_2d_at(res, worst, false);
+}
+
+fn coarse_stations() -> Vec<f64> {
+    (0..=20).map(|i| i as f64 / 20.0).collect()
+}
+
+fn check_gaps_2d_at(res: &AnalysisResults, worst: &mut HashMap<&'static str, f64>, coarse: bool) {
     for ef in &res.element_forces {
-        let g = diagram_gaps_2d(ef);
+        let stations = |kind: &str| if coarse { coarse_stations() } else { diagram_positions_2d(ef, kind) };
+        let g = diagram_gaps_2d_at(ef, &stations);
         for (kind, gap) in [("axial", g.axial), ("shear", g.shear), ("moment", g.moment)] {
-            let (up, down) = excess(|t| compute_diagram_value_at(kind, t, ef), &diagram_positions_2d(ef, kind));
+            let (up, down) = excess(|t| compute_diagram_value_at(kind, t, ef), &stations(kind));
             let slack = 1e-9 * (1.0 + gap);
             assert!(up <= gap + slack && down <= gap + slack, "elem {} {kind}: excess {up:e}/{down:e} > gap {gap:e}", ef.element_id);
             if gap > 0.0 {
@@ -692,25 +701,26 @@ fn gaps_cover_the_diagram_between_stations_2d() {
     }
     // Tight where the moment peaks midway between stations.
     let mut tight = HashMap::new();
-    check_gaps_2d(&solve_2d(&propped_cantilever_2d(-10.0)).unwrap(), &mut tight);
+    check_gaps_2d_at(&solve_2d(&propped_cantilever_2d(-10.0)).unwrap(), &mut tight, true);
     eprintln!("gap ratios: random {worst:?}, propped cantilever {tight:?}");
     assert!(tight["moment"] > 0.99, "{tight:?}");
     // A linearly varying load whose zero lies midway between stations: V peaks there.
     let mut input = propped_cantilever_2d(0.0);
     input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -5.25, q_j: 4.75, a: None, b: None })];
     let mut tight = HashMap::new();
-    check_gaps_2d(&solve_2d(&input).unwrap(), &mut tight);
+    check_gaps_2d_at(&solve_2d(&input).unwrap(), &mut tight, true);
     assert!(tight["shear"] > 0.99, "{tight:?}");
 }
 
 #[test]
 fn gaps_cover_the_diagram_between_stations_3d() {
-    let check = |res: &AnalysisResults3D, worst: &mut HashMap<&'static str, f64>| {
+    let check = |res: &AnalysisResults3D, worst: &mut HashMap<&'static str, f64>, coarse: bool| {
         for ef in &res.element_forces {
-            let g = diagram_gaps_3d(ef);
+            let stations = |kind: &str| if coarse { coarse_stations() } else { diagram_positions_3d(ef, kind) };
+            let g = diagram_gaps_3d_at(ef, &stations);
             let gaps = [g.axial, g.shear_y, g.shear_z, g.torsion, g.moment_y, g.moment_z];
             for (kind, gap) in KINDS_3D.into_iter().zip(gaps) {
-                let (up, down) = excess(|t| evaluate_diagram_3d_at(ef, kind, t), &diagram_positions_3d(ef, kind));
+                let (up, down) = excess(|t| evaluate_diagram_3d_at(ef, kind, t), &stations(kind));
                 let slack = 1e-9 * (1.0 + gap);
                 assert!(up <= gap + slack && down <= gap + slack, "elem {} {kind}: {up:e}/{down:e} > {gap:e}", ef.element_id);
                 if gap > 0.0 {
@@ -721,10 +731,10 @@ fn gaps_cover_the_diagram_between_stations_3d() {
         }
     };
     let mut worst = HashMap::new();
-    check(&solve_3d(&feature_frame_3d()).unwrap(), &mut worst);
+    check(&solve_3d(&feature_frame_3d()).unwrap(), &mut worst, false);
     for seed in 0..60u64 {
         if let Ok(res) = solve_3d(&fuzz_models::random_3d_model(100_000 + seed)) {
-            check(&res, &mut worst);
+            check(&res, &mut worst, false);
         }
     }
     // A 3D propped cantilever loaded in both planes: both moments peak at 5L/8.
@@ -741,7 +751,7 @@ fn gaps_cover_the_diagram_between_stations_3d() {
     }))
     .unwrap();
     let mut tight = HashMap::new();
-    check(&solve_3d(&input).unwrap(), &mut tight);
+    check(&solve_3d(&input).unwrap(), &mut tight, true);
     eprintln!("3D gap ratios: random {worst:?}, propped cantilever {tight:?}");
     assert!(tight["momentY"] > 0.99 && tight["momentZ"] > 0.99, "{tight:?}");
     // Loads changing sign midway between two stations: Vy, Vz and N peak there.
@@ -751,7 +761,7 @@ fn gaps_cover_the_diagram_between_stations_3d() {
     }}))
     .unwrap()];
     let mut tight = HashMap::new();
-    check(&solve_3d(&input).unwrap(), &mut tight);
+    check(&solve_3d(&input).unwrap(), &mut tight, true);
     assert!(tight["axial"] > 0.99 && tight["shearY"] > 0.99 && tight["shearZ"] > 0.99, "{tight:?}");
 }
 

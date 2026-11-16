@@ -55,6 +55,17 @@ for(const angle of [0,0.37]) for(const mirror of [1,-1]) for(const split of [fal
     const moments=mapMoments({x:p.first.map(v=>-v[1]) as [number,number,number],y:p.first.map(v=>v[0]) as [number,number,number],z:[0,0,0]},v=>[axes.ex,axes.ey,axes.ez].map(a=>v.reduce((sum,x,k)=>sum+x*a[k]!,0)) as [number,number,number]);
     s.loads.push({type:'distributed',data:{elementId:p.elementId,a:p.a,b:p.b,qYI:0,qYJ:0,qZI:0,qZJ:0,moments}});
   }
+  const unsupported = patch.moments.some(p => ids.includes(p.elementId) && p.b - p.a < 1e-10 * Math.hypot(m.nodes.get(m.elements.get(p.elementId)!.nodeJ)!.x - m.nodes.get(m.elements.get(p.elementId)!.nodeI)!.x, m.nodes.get(m.elements.get(p.elementId)!.nodeJ)!.y - m.nodes.get(m.elements.get(p.elementId)!.nodeI)!.y));
+  if (unsupported) {
+    expect(() => solve_3d(s)).toThrow(/distributed moment span.*1e-10/);
+    expect(() => solve_pdelta_3d(JSON.stringify(s),100,1e-10)).toThrow(/distributed moment span.*1e-10/);
+    s.loads = chains.flatMap((chain,index) => chain.flatMap((elementId,k) => {
+      const [lo,hi] = index === 0 ? [8.89,8.91] : [1.09,1.11];
+      const offset = split ? k*5 : 0, length = split ? 5 : 10;
+      const a = Math.max(0,lo!-offset), b = Math.min(length,hi!-offset);
+      return b > a ? [{type:'distributed',data:{elementId,a,b,qYI:0,qYJ:0,qZI:-0.01,qZJ:-0.01,moments:{x:[-mirror*0.04995,-mirror*0.04995,-mirror*0.04995],y:[0,0,0],z:[0,0,0]}}}] : [];
+    }));
+  }
   for(const result of [solve_3d(s),JSON.parse(solve_pdelta_3d(JSON.stringify(s),100,1e-10)).results] as AnalysisResults3D[]) for(const [index,chain] of chains.entries()) {
     const [a,b]=index===0?[8.89,8.91]:[1.09,1.11],h=b!-a!,center=(a!+b!)/2;
     for(const [k,id] of chain.entries()) {

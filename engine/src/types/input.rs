@@ -477,7 +477,12 @@ impl MemberMoments {
     pub fn integral(values: [f64; 3], a: f64, b: f64, x: f64) -> f64 {
         let h = b - a;
         if h <= 0.0 { return 0.0; }
-        let t = ((x - a) / h).clamp(0.0, 1.0);
+        Self::integral_local(values, h, (x - a) / h)
+    }
+
+    pub(crate) fn integral_local(values: [f64; 3], h: f64, t: f64) -> f64 {
+        if h <= 0.0 { return 0.0; }
+        let t = t.clamp(0.0, 1.0);
         h * (values[0] * t + (-3.0 * values[0] + 4.0 * values[1] - values[2]) * t * t / 2.0 + (2.0 * values[0] - 4.0 * values[1] + 2.0 * values[2]) * t * t * t / 3.0)
     }
 
@@ -530,7 +535,7 @@ impl MemberMomentSpan {
         let ca = a.max(0.0);
         let cb = b.min(length);
         let h = cb - ca;
-        if h <= 0.0 || !h.is_finite() || (ca - a) + (b - cb) > 128.0 * f64::EPSILON * (b - a) {
+        if h < 1e-10 * length || !h.is_finite() || (ca - a) + (b - cb) > 128.0 * f64::EPSILON * (b - a) {
             return Err(());
         }
         if ca / length >= cb / length {
@@ -547,7 +552,7 @@ impl MemberMomentSpan {
 impl SolverDistributedLoad3D {
     pub(crate) fn moment_span(&self, length: f64) -> Result<MemberMomentSpan, String> {
         MemberMomentSpan::new(self.a.unwrap_or(0.0), self.b.unwrap_or(length), length)
-            .map_err(|()| format!("Member {}: distributed moment span must have representable support within the member (a={:?}, b={:?}, L={length})", self.element_id, self.a, self.b))
+            .map_err(|()| format!("Member {}: distributed moment span must have representable support within the member and width at least 1e-10 of member length (a={:?}, b={:?}, L={length})", self.element_id, self.a, self.b))
     }
 
     pub fn fef(&self, l: f64, phi_y: f64, phi_z: f64) -> [f64; 12] {

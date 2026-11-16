@@ -309,6 +309,10 @@ fn xs(ef_len: f64, ts: &[f64]) -> Vec<f64> {
 /// Gaps (axial, shear, moment) of the computed 2D diagrams of one member over
 /// the stations `compute_diagrams_2d` samples.
 pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
+    diagram_gaps_2d_at(ef, &|kind| diagram_positions_2d(ef, kind))
+}
+
+pub fn diagram_gaps_2d_at(ef: &ElementForces, stations: &dyn Fn(&str) -> Vec<f64>) -> DiagramGaps2D {
     let l = ef.length;
     let mut dists = dists_of(&ef.distributed_loads);
     if dists.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) && l >= 1e-12 {
@@ -323,7 +327,7 @@ pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
     };
 
     // M: M'' = −q, kinks |P|, jumps at couples; |M'| = |V| ≤ |V(x_k)|, |V(x_{k+1})| + q·h + Σ|P|.
-    let mt = diagram_positions_2d(ef, "moment");
+    let mt = stations("moment");
     let mx = xs(l, &mt);
     let v_at: Vec<f64> = mt.iter().map(|&t| compute_diagram_value_at_sorted("shear", t, ef, &pls)).collect();
     let moment = gap(
@@ -341,7 +345,7 @@ pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
     );
 
     // V: V'' = q' on pieces, kinks where loads start/end, jumps |P|; |V'| = |q|.
-    let vt = diagram_positions_2d(ef, "shear");
+    let vt = stations("shear");
     let vx = xs(l, &vt);
     let mut ev = load_end_kinks(&dists);
     ev.extend(pls.iter().map(|p| Event { x: p.a, kink: 0.0, jump: p.p }));
@@ -370,7 +374,7 @@ pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
     let axial = if dx.is_empty() {
         0.0
     } else {
-        let ax = xs(l, &diagram_positions_2d(ef, "axial"));
+        let ax = xs(l, &stations("axial"));
         let (lx, ld) = (ax.clone(), dx.clone());
         let lip_ax = move |k: usize, _h: f64| -> f64 {
             let tol = 1e-9 * (1.0 + lx[k + 1].abs());
@@ -385,11 +389,15 @@ pub fn diagram_gaps_2d(ef: &ElementForces) -> DiagramGaps2D {
 /// Gaps of the computed 3D diagrams of one member over the stations
 /// `compute_diagrams_3d` samples.
 pub fn diagram_gaps_3d(ef: &ElementForces3D) -> DiagramGaps3D {
+    diagram_gaps_3d_at(ef, &|kind| diagram_positions_3d(ef, kind))
+}
+
+pub fn diagram_gaps_3d_at(ef: &ElementForces3D, stations: &dyn Fn(&str) -> Vec<f64>) -> DiagramGaps3D {
     let l = ef.length;
     let plane = |dl: &[DistributedLoadInfo], pl: &[PointLoadInfo3D], mkind: &str, vkind: &str| -> (f64, f64) {
         let dists = dists_of(dl);
         let q_on = |x0: f64, x1: f64| -> f64 { dists.iter().filter(|d| d.a <= x1 && d.b >= x0).map(Dist::qmax).sum() };
-        let mx = xs(l, &diagram_positions_3d(ef, mkind));
+        let mx = xs(l, &stations(mkind));
         let moment = gap(
             &mx,
             &Shape {
@@ -399,7 +407,7 @@ pub fn diagram_gaps_3d(ef: &ElementForces3D) -> DiagramGaps3D {
                 lip: Box::new(|_, _| 0.0), // no value jumps
             },
         );
-        let vx = xs(l, &diagram_positions_3d(ef, vkind));
+        let vx = xs(l, &stations(vkind));
         let mut ev = load_end_kinks(&dists);
         ev.extend(pl.iter().map(|p| Event { x: p.a, kink: 0.0, jump: p.p }));
         let shear = gap(
@@ -423,7 +431,7 @@ pub fn diagram_gaps_3d(ef: &ElementForces3D) -> DiagramGaps3D {
     let mut events = load_end_kinks(&dx);
     events.extend(ef.point_loads_x.iter().map(|p| Event { x: p.a, kink: 0.0, jump: -p.p }));
     let axial = gap(
-        &xs(l, &diagram_positions_3d(ef, "axial")),
+        &xs(l, &stations("axial")),
         &Shape { events, dists: dx, curvature: Dist::slope, lip: Box::new(|_, _| 0.0) },
     );
     DiagramGaps3D { axial, shear_y, shear_z, torsion: 0.0, moment_y, moment_z }

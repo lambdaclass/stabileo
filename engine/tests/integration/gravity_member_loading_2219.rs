@@ -367,7 +367,7 @@ fn round8_endpoint_model(a: f64, b: f64, axis: &str) -> SolverInput3D {
 #[test]
 fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
     for axis in ["x", "y", "z"] {
-        for (a, b) in [(-1e-14, 1e-14), (1.0 - 1e-14, 1.0 + 1e-14), (-1e-14, 0.0), (1.0, 1.0 + 1e-14), (0.5, 0.5)] {
+        for (a, b) in [(-1e-14, 1e-14), (1.0 - 1e-14, 1.0 + 1e-14), (-1e-14, 0.0), (1.0, 1.0 + 1e-14), (0.5, 0.5), (0.5, 0.5_f64.next_up()), (0.0, 256.0 * f64::EPSILON), (1.0 - 256.0 * f64::EPSILON, 1.0)] {
             let input = round8_endpoint_model(a, b, axis);
             let mut unloaded = input.clone(); unloaded.loads.clear();
             let prepared = linear::prepare_static_3d(&unloaded).unwrap();
@@ -387,7 +387,7 @@ fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
 #[test]
 fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpoints() {
     let allowance = 64.0 * f64::EPSILON;
-    for (a, b) in [(0.0, 1.0), (0.25, 0.75), (0.5, 0.5_f64.next_up()), (-allowance, 0.5), (0.5, 1.0 + allowance), (0.0, 4.0 * allowance), (1.0 - 4.0 * allowance, 1.0)] {
+    for (a, b) in [(0.0, 1.0), (0.25, 0.75), (0.5, 0.5 + 1e-10), (-allowance, 0.5), (0.5, 1.0 + allowance), (0.0, 1e-10), (1.0 - 1e-9, 1.0)] {
         let input = round8_endpoint_model(a, b, "x");
         let mut unloaded = input.clone(); unloaded.loads.clear();
         let prepared = linear::prepare_static_3d(&unloaded).unwrap();
@@ -414,11 +414,11 @@ fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpo
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round10_subgeometry_quadratic_moment_support_refuses_every_spatial_entry() {
     for axis in ["x", "y", "z"] {
-        for (a, b) in [(0.5, 0.5_f64.next_up()), (0.0, 1e-10_f64.next_down()), (0.5, 0.5 + 5e-11)] {
+        for (length, a, b) in [(1.0, 0.5, 0.5_f64.next_up()), (1.0, 0.0, 1e-10_f64.next_down()), (1.0, 0.5, 0.5 + 5e-11), (10.0, 0.0, 5e-10), (100.0, 0.0, 5e-9)] {
             let mut input = round8_endpoint_model(a, b, axis);
+            input.nodes.get_mut("2").unwrap().x = length;
             if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
                 let v = [1.0 / (b-a), -0.5 / (b-a), 1.0 / (b-a)];
                 let m = d.moments.as_mut().unwrap();
@@ -435,12 +435,12 @@ fn round10_subgeometry_quadratic_moment_support_refuses_every_spatial_entry() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round10_supported_quadratic_extrema_keep_local_parameter_values() {
     use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
     for axis in ["x", "y", "z"] {
-        for (a,b) in [(0.0,1e-10_f64), (0.0,1e-10_f64.next_up()), (0.5,0.5+1e-10), (0.5,0.5+1e-8), (0.25,0.75)] {
+        for (length,a,b) in [(1.0,0.0,1e-10_f64), (1.0,0.0,1e-10_f64.next_up()), (1.0,0.5,0.5+1e-10), (1.0,0.5,0.5+1e-8), (1.0,0.25,0.75), (10.0,0.0,1e-9), (100.0,0.0,1e-8)] {
             let mut input=round8_endpoint_model(a,b,axis);
+            input.nodes.get_mut("2").unwrap().x = length;
             if let SolverLoad3D::Distributed(d)=&mut input.loads[0] {
                 let v=[1.0/(b-a), -0.5/(b-a), 1.0/(b-a)];
                 let m=d.moments.as_mut().unwrap();

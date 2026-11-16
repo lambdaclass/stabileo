@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use super::diagrams::build_sampling_positions;
+use super::diagrams::build_sampling_points;
 
 // ==================== Types ====================
 
@@ -33,6 +33,12 @@ pub struct DiagramResults3D {
 }
 
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
+    let mut positions: Vec<_> = diagram_samples_3d(ef, kind).into_iter().map(|(t, _)| t).collect();
+    positions.dedup();
+    positions
+}
+
+fn diagram_samples_3d(ef: &ElementForces3D, kind: &str) -> Vec<(f64, f64)> {
     let relevant_pl: Vec<f64> = match kind {
         "momentZ" | "shearY" => ef.point_loads_y.iter().map(|p| p.a).collect(),
         "momentY" | "shearZ" => ef.point_loads_z.iter().map(|p| p.a).collect(),
@@ -40,10 +46,11 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
         "torsion" => ef.point_torques.iter().map(|p| p.a).collect(),
         _ => vec![],
     };
-    build_sampling_positions(ef.length, relevant_pl.into_iter(),
+    build_sampling_points(ef.length, relevant_pl.into_iter(),
         ef.distributed_loads_y.iter().chain(ef.distributed_loads_z.iter()).chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b])
             .chain(ef.member_moments.iter().flat_map(|d| [d.a, d.b])),
-        &|t| evaluate_diagram_3d_at(ef, kind, t))
+        &|t| evaluate_diagram_3d_at(ef, kind, t),
+        &|a, b, u| evaluate_diagram_3d_local(ef, kind, a, (b - a) * u, (a + (b - a) * u) / ef.length))
 }
 
 // ==================== Evaluate at t ====================
@@ -66,24 +73,29 @@ pub fn evaluate_diagram_3d_at(
     kind: &str,
     t: f64,
 ) -> f64 {
+    evaluate_diagram_3d_local(ef, kind, 0.0, t * ef.length, t)
+}
+
+fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offset: f64, t: f64) -> f64 {
     let l = ef.length;
-    let x = t * l;
+    let x = origin + offset;
+    let moment_integral = |m: &MemberMomentInfo, values| MemberMoments::integral_local(values, m.b - m.a, ((origin - m.a) + offset) / (m.b - m.a));
 
     match kind {
         "momentZ" => {
             let mut value = ef.mz_start - ef.vy_start * x;
-            for m in &ef.member_moments { value += MemberMoments::integral(m.moments.z, m.a, m.b, x); }
+            for m in &ef.member_moments { value += moment_integral(m, m.moments.z); }
             for dl in &ef.distributed_loads_y {
                 let a = dl.a;
                 let b = dl.b;
                 let span = b - a;
                 if span < 1e-12 { continue; }
                 let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value -= dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                let distance = (origin - a) + offset;
+                let s = distance.min(span);
+                if s <= 0.0 { continue; }
+                value -= dl.q_i * (s * distance - s * s / 2.0)
+                       + dq / span * (s * s / 2.0 * distance - s * s * s / 3.0);
             }
             for pl in &ef.point_loads_y {
                 if super::load_station::load_precedes_station(pl.a, l, t) {
@@ -94,18 +106,18 @@ pub fn evaluate_diagram_3d_at(
         }
         "momentY" => {
             let mut value = ef.my_start + ef.vz_start * x;
-            for m in &ef.member_moments { value += MemberMoments::integral(m.moments.y, m.a, m.b, x); }
+            for m in &ef.member_moments { value += moment_integral(m, m.moments.y); }
             for dl in &ef.distributed_loads_z {
                 let a = dl.a;
                 let b = dl.b;
                 let span = b - a;
                 if span < 1e-12 { continue; }
                 let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                let distance = (origin - a) + offset;
+                let s = distance.min(span);
+                if s <= 0.0 { continue; }
+                value += dl.q_i * (s * distance - s * s / 2.0)
+                       + dq / span * (s * s / 2.0 * distance - s * s * s / 3.0);
             }
             for pl in &ef.point_loads_z {
                 if super::load_station::load_precedes_station(pl.a, l, t) {
@@ -122,9 +134,9 @@ pub fn evaluate_diagram_3d_at(
                 let span = b - a;
                 if span < 1e-12 { continue; }
                 let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
+                let distance = (origin - a) + offset;
+                let s = distance.min(span);
+                if s <= 0.0 { continue; }
                 value += dl.q_i * s + dq * s * s / (2.0 * span);
             }
             for pl in &ef.point_loads_y {
@@ -140,9 +152,9 @@ pub fn evaluate_diagram_3d_at(
                 let span = b - a;
                 if span < 1e-12 { continue; }
                 let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
+                let distance = (origin - a) + offset;
+                let s = distance.min(span);
+                if s <= 0.0 { continue; }
                 value += dl.q_i * s + dq * s * s / (2.0 * span);
             }
             for pl in &ef.point_loads_z {
@@ -166,7 +178,7 @@ pub fn evaluate_diagram_3d_at(
         },
         "torsion" => {
             if ef.member_moments.is_empty() && ef.point_torques.is_empty() { return ef.mx_start + t * (ef.mx_end - ef.mx_start); }
-            ef.mx_start + ef.member_moments.iter().map(|m| MemberMoments::integral(m.moments.x, m.a, m.b, x)).sum::<f64>()
+            ef.mx_start + ef.member_moments.iter().map(|m| moment_integral(m, m.moments.x)).sum::<f64>()
                 + ef.point_torques.iter().filter(|p| super::load_station::load_precedes_station(p.a, l, t)).map(|p| p.p).sum::<f64>()
         },
         _ => 0.0,
@@ -179,15 +191,14 @@ fn compute_single_diagram_3d(
     ef: &ElementForces3D,
     kind: &str,
 ) -> ElementDiagram3D {
-    let positions = diagram_positions_3d(ef, kind);
+    let samples = diagram_samples_3d(ef, kind);
 
     let mut points = Vec::new();
     let mut max_val = f64::NEG_INFINITY;
     let mut min_val = f64::INFINITY;
     let mut max_abs_value: f64 = 0.0;
 
-    for &t in &positions {
-        let value = evaluate_diagram_3d_at(ef, kind, t);
+    for (t, value) in samples {
         points.push(DiagramPoint3D { t, value });
         if value > max_val { max_val = value; }
         if value < min_val { min_val = value; }
