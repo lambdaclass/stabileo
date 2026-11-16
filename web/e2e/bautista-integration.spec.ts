@@ -38,3 +38,42 @@ test.skip('known wrong result: #1986 @smoke an existing offset can switch coordi
   await frame.press('Tab');
   await expect(frame).toHaveValue('local');
 });
+
+for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]] as const) {
+  test.skip(`known wrong result: #2090 @smoke the landing figure controls are readable and tappable on ${label}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const { bootLanding } = await import('./landing-helpers');
+    await bootLanding(page);
+    const figure = page.locator('.landing .hero-figure');
+    await expect(figure.locator('svg')).toBeVisible();
+    const box = (await figure.boundingBox())!;
+    expect(box.y + 100).toBeLessThan(height);
+    const size = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, view: innerWidth }));
+    expect(size.page).toBeLessThanOrEqual(size.view);
+    for (const button of await figure.locator('.hero-fig-switch button').all()) {
+      const b = (await button.boundingBox())!;
+      expect(b.width).toBeGreaterThanOrEqual(44);
+      expect(b.height).toBeGreaterThanOrEqual(44);
+    }
+    const textSize = await figure.locator('.hero-fig-switch button.on').evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    expect(textSize).toBeGreaterThanOrEqual(12);
+    await page.screenshot({ path: `e2e/.artifacts/bautista-${label}-landing.png` });
+  });
+
+  test(`@smoke the axes picker fits and the viewer remains available on ${label}`, async ({ pro: page }) => {
+    await page.setViewportSize({ width, height });
+    const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+    expect(triad.y + triad.height).toBeLessThanOrEqual(height);
+    await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
+    const picker = page.getByTestId('axes-picker');
+    const box = (await picker.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    await expect(picker.getByTestId('axes-done')).toBeVisible();
+    await page.screenshot({ path: `e2e/.artifacts/bautista-${label}-axes.png` });
+    await picker.getByTestId('axes-done').click();
+    await expect(page.locator('canvas:not(.axis-gizmo)').first()).toBeVisible();
+  });
+}
