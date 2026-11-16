@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  "underAudit.text": "审核中：内部审查发现自动荷载生成和钢筋混凝土设计存在错误，修复仍在进行中。在设计中使用这些结果之前，请独立核对。",
+  "underAudit.details": "未结的审核问题",
   "steps.catalog.button": "分步讲解",
   "steps.catalog.title": "分步讲解",
   "steps.catalog.intro": "选择一种方法，即可查看您的结构如何逐步求解。每种方法都列出了模型所需的条件，并附带一个满足这些条件的示例。",
