@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
   /**
    * RC Design tab — orchestrator.
    *
@@ -297,6 +298,7 @@
 </script>
 
 <div class="design-tab" data-testid="pro-design-tab">
+  <OutdatedNotice audit={['rc-design']} />
   <!--
     Every design command arms the diagnostics warning. "I tried to design and it did not work"
     is precisely the moment a blocking diagnostic earns the right to interrupt — and until one
