@@ -1,0 +1,37 @@
+{
+  "id": "snow-ridge-mesh",
+  "date": "2026-11-15",
+  "prs": [
+    2175
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Snow ridges and slopes follow physical roof geometry",
+    "es": "Las cumbreras y pendientes de nieve siguen la geometría física de la cubierta",
+    "pt": "As cumeeiras e inclinações de neve seguem a geometria física da cobertura",
+    "de": "Schneelastfirste und Neigungen folgen der Dachgeometrie",
+    "fr": "Les faîtages et pentes de neige suivent la géométrie physique du toit",
+    "tr": "Kar yükü mahyaları ve eğimleri fiziksel çatı geometrisini izler"
+  },
+  "explanation": {
+    "en": "Unequal subdivision of roof edges could move an inferred snow ridge and change generated loads, including roofs with an entered slope. Ridge, slope and shaped-roof profiles now use the physical roof geometry. Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them (#2144; SA-2026-072). Highest profile points now use the existing elevation tolerance so tiny corner-height perturbations preserve the ridge. Each member segment now receives its own ridge-side pressure, restoring force and moment when split at the ridge. Unsplit crossing members retain their previous uniform treatment (#2176).",
+    "es": "La subdivisión desigual de los bordes podía desplazar la cumbrera inferida y cambiar las cargas de nieve, incluso con pendiente indicada. Las cumbreras, pendientes y perfiles ahora usan la geometría física. Regenere las cargas de nieve y recalcule análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige (#2144; SA-2026-072). Los puntos más altos del perfil ahora usan la tolerancia de elevación existente para que las pequeñas variaciones de altura en las esquinas conserven la cumbrera. Cada segmento recibe ahora la presión de su propio lado de la cumbrera, restableciendo la fuerza y el momento al dividirlo en ella. Los miembros que la cruzan sin dividirse conservan el tratamiento uniforme anterior (#2176).",
+    "pt": "A subdivisão desigual das bordas podia deslocar a cumeeira inferida e alterar as cargas de neve, inclusive com inclinação informada. Cumeeiras, inclinações e perfis agora usam a geometria física. Gere novamente as cargas de neve e recalcule análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige (#2144; SA-2026-072). Os pontos mais altos do perfil agora usam a tolerância de elevação existente para que pequenas variações de altura nos cantos preservem a cumeeira. Cada segmento recebe agora a pressão do seu próprio lado da cumeeira, restaurando a força e o momento ao dividi-lo nela. Membros que a cruzam sem divisão mantêm o tratamento uniforme anterior (#2176).",
+    "de": "Eine ungleiche Unterteilung der Dachränder konnte den abgeleiteten First und die Schneelasten verändern, auch bei vorgegebener Neigung. First, Neigung und Profile folgen jetzt der Dachgeometrie. Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Gespeicherte Lasten werden durch erneutes Lösen allein nicht korrigiert (#2144; SA-2026-072). Die höchsten Profilpunkte verwenden jetzt die bestehende Höhentoleranz, damit kleinste Höhenänderungen an Dachecken den First erhalten. Jedes Stabsegment erhält jetzt den Druck seiner eigenen Firstseite; bei einer Teilung am First stimmen Kraft und Moment wieder. Ungeteilte Stäbe über den First behalten die bisherige gleichmäßige Belastung (#2176).",
+    "fr": "Une subdivision inégale des bords pouvait déplacer le faîtage déduit et modifier les charges de neige, même avec une pente imposée. Faîtages, pentes et profils suivent désormais la géométrie physique. Régénérez les charges de neige puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas (#2144; SA-2026-072). Les points les plus hauts du profil utilisent désormais la tolérance de hauteur existante afin que les très petites variations aux angles préservent le faîtage. Chaque segment reçoit désormais la pression de son propre côté du faîtage, rétablissant force et moment lors d’une division au faîtage. Les barres traversantes non divisées conservent le traitement uniforme antérieur (#2176).",
+    "tr": "Çatı kenarlarının eşit olmayan bölünmesi, eğim girilmiş çatılarda da çıkarılan mahyayı ve kar yüklerini değiştirebiliyordu. Mahya, eğim ve profiller artık fiziksel çatı geometrisinden türetilir. Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri çalıştırın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez (#2144; SA-2026-072). En yüksek profil noktaları artık mevcut kot toleransını kullanır; böylece köşe yüksekliğindeki çok küçük değişimler mahyayı korur. Her çubuk parçası artık mahyanın kendi tarafındaki basıncı alır; mahyada bölündüğünde kuvvet ve moment düzelir. Mahyayı bölünmeden geçen çubuklar önceki düzgün yayılı yük uygulamasını korur (#2176)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-ridge-mesh.md",
+    "heading": "Snow ridges and slopes follow physical roof geometry"
+  }
+}

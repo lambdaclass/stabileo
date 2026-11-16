@@ -1,12 +1,12 @@
 import { roofMembers, type WindModel } from './wind-cases';
-import { roofSurfaceModel, snowCoordinate, type SnowPlane } from './snow-roof-surfaces';
+import { roofSurfaceModel, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
 import { shapedSnow } from './snow-shapes';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
-import { roofSnow, UNBALANCED_WIDTH_LIMIT, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
+import { roofSnow, type SnowInputs, type SnowResult } from '../../codes/cirsoc104/snow';
 import { clause } from '../../codes/regulation';
 
 const REF_PARTIAL = clause('cirsoc-104', '2005', '5.1', 'sistemas de vigas continuas');
@@ -28,39 +28,12 @@ export interface SnowCaseLoads {
   nodal: Array<{ nodeId: number; fx: number; fy: number; fz: number; carrier?: number }>;
 }
 
-export interface RoofGeometry {
-  axis: Axis;
-  ridge: number;
-  W: number;
-  slopeDeg: number;
-  direction: [number, number];
-  transverse: [number, number];
-  origin: { x: number; y: number };
-}
+export type { RoofGeometry } from './snow-roof-surfaces';
 
 const Z = (n: { z?: number }) => n.z ?? 0;
 
 export function roofGeometry(model: WindModel, only?: ReadonlySet<number>, surfaces = roofSurfaceModel(model, only)): RoofGeometry | null {
-  const roof = surfaces.targets;
-  if (!roof.length) return null;
-  const planes = surfaces.targetPlanes;
-  const primary = planes[0];
-  const longest = surfaces.runs.reduce((best, run) => run.length - best.length > 32 * Number.EPSILON * Math.max(run.length, best.length) ? run : best);
-  const norm = primary ? Math.hypot(...primary.gradient) : 1;
-  const direction: [number, number] = primary ? [primary.gradient[0] / norm, primary.gradient[1] / norm] : [-longest.direction[1], longest.direction[0]];
-  const origin = roof[0]!.a;
-  const coord = (p: { x: number; y: number }) => (p.x - origin.x) * direction[0] + (p.y - origin.y) * direction[1];
-  const pts = roof.flatMap(m => [m.a, m.b]);
-  const zMax = Math.max(...pts.map(Z));
-  const top = pts.filter(p => Z(p) > zMax - 0.05);
-  const ridge = top.reduce((s, p) => s + coord(p), 0) / top.length;
-  const low = pts.reduce((a, b) => coord(a) <= coord(b) ? a : b);
-  const width = Math.max(...pts.map(p => snowCoordinate([p.x, p.y], [low.x, low.y], direction, [0, 2 * UNBALANCED_WIDTH_LIMIT]))) / 2;
-  const sloped = roof.filter(m => Math.abs(m.dz) > 1e-8 * m.lh);
-  const weight = sloped.reduce((s, m) => s + m.lh, 0);
-  const slopeDeg = weight ? sloped.reduce((s, m) => s + surfaces.atMember.get(m.id)!.slope * m.lh, 0) / weight : planes.length && only ? planes.reduce((s, p) => s + p.slope, 0) / planes.length : 0;
-  const W = primary ? Math.max(...planes.map(p => p.W)) : width;
-  return { axis: Math.abs(direction[0]) >= Math.abs(direction[1]) ? 'x' : 'y', direction, transverse: surfaces.transverse(direction), origin, ridge, W, slopeDeg };
+  return surfaces.geometry;
 }
 
 export function surfaceSlopes(model: WindModel): Map<number, number> {
@@ -178,10 +151,7 @@ export function snowLoadCases(input: SnowCasesInput): {
   const roof = roofMembers(input.model, chosen);
   const all = new Set(roof.map((r) => r.id));
   const only = chosen ? all : undefined;
-  const fallbackSides = new Map([...input.model.elements.values()].map(e => {
-    const a = input.model.nodes.get(e.nodeI)!, b = input.model.nodes.get(e.nodeJ)!;
-    return [e.id, ((a.x + b.x) / 2 - geometry.origin.x) * geometry.direction[0] + ((a.y + b.y) / 2 - geometry.origin.y) * geometry.direction[1] - geometry.ridge];
-  }));
+  const fallbackSides = surfaceModel.memberSides;
   const layout = input.layout;
   const on = (pOf: (id: number, unit?: SnowUnit) => Intensity): Pick<SnowCaseLoads, 'distributed' | 'nodal'> => (layout
     ? { distributed: panelLoads(input.model, layout, pOf, input.tributaryWidth, only, surfaceModel), nodal: pointLoads(input.model, layout, pOf, only) }
@@ -200,22 +170,13 @@ export function snowLoadCases(input: SnowCasesInput): {
     return Math.abs(x!) > 1 - 1e-9 ? `${x! > 0 ? '+' : '−'}X` : Math.abs(y!) > 1 - 1e-9 ? `${y! > 0 ? '+' : '−'}Y` : `(${round(x!, 4)}, ${round(y!, 4)})`;
   };
 
-  const roofPoint = (p: { x: number; y: number; z?: number }) => ({
-    x: (p.x - geometry.origin.x) * geometry.direction[0] + (p.y - geometry.origin.y) * geometry.direction[1],
-    y: (p.x - geometry.origin.x) * geometry.transverse[0] + (p.y - geometry.origin.y) * geometry.transverse[1], z: p.z,
-  });
-  const roofNodes = [...new Set(roof.flatMap((r) => { const e = input.model.elements.get(r.id)!; return [e.nodeI, e.nodeJ]; }))]
-    .map((id) => input.model.nodes.get(id)!).filter(Boolean);
-  const shaped = shapedKind ? shapedSnow(roofNodes.map(roofPoint), {
+  const roofPoint = surfaceModel.roofPoint;
+  const shaped = shapedKind ? shapedSnow(surfaceModel.profilePoints.map(roofPoint), {
     kind, pf: result.pf, ce: result.ce, ct: result.ct, slippery: input.snow.slippery, gamma: result.gamma, axis: 'x',
     abutting: input.snow.abutting,
   }) : null;
   if (shaped) { derivation.push(...shaped.derivation); refs.push(...shaped.refs); }
-  const atEnds = (f: (pt: { x: number; y: number; z?: number }) => number) => (id: number): Intensity => {
-    const e = input.model.elements.get(id);
-    const a = e && input.model.nodes.get(e.nodeI), b = e && input.model.nodes.get(e.nodeJ);
-    return a && b ? [f(roofPoint(a)), f(roofPoint(b))] : 0;
-  };
+  const atEnds = (f: (pt: { x: number; y: number; z?: number }) => number) => (id: number, unit?: SnowUnit): Intensity => surfaceModel.memberValues(id, p => f(roofPoint(p)), unit && 'panel' in unit ? { x: unit.point[0], y: unit.point[1] } : undefined);
   const bySlope = new Map<string, { slopeDeg: number; result: SnowResult }>();
   const used = new Set<string>();
   const surfaceAt = (deg: number, W = geometry.W): SnowResult => {
