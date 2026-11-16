@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { refineInput } from '../second-order/refine';
 import { splitSpanLoad } from '../member-span-loads';
 import { splitElementLoads } from '../../model/edit/member-split';
 import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
+import type { ModelData } from '../solver-service';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
 import { planeModel } from '../influence/__tests__/fixtures';
 import { targetDisplacement } from '../influence/maxwell';
@@ -10,7 +12,7 @@ import { expandVariableMembers } from '../variable-members';
 import { modelStore } from '../../store';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solve } from '../wasm-solver';
 import model from '../../../../../engine/tests/fixtures/narrow-span-2222.json';
 
 let wasm: any;
@@ -235,6 +237,64 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
     expect(result.added).toHaveLength(2);
     expect((result.added[0].data as any).a).toBe(a);
     expect((result.added[1].data as any).b).toBe(b - 1.5);
+  });
+
+});
+
+
+describe.skip('known wrong result: #2222 — rounded child lengths', () => {
+  for (const dim of [2, 3]) for (const mode of ['edit', 'analysis', 'variable']) it(`${dim}D ${mode} keeps translated partial endpoints inside children`, () => {
+    modelStore.clear();
+    try {
+      const i = dim === 3 ? modelStore.addNode(1000.1, 0, 0) : modelStore.addNode(1000.1, 0);
+      const j = dim === 3 ? modelStore.addNode(1004.1, 0, 0) : modelStore.addNode(1004.1, 0);
+      const id = modelStore.addElement(i, j, 'frame');
+      if (mode === 'variable') {
+        const sections = [0.3, 0.5].map(h => {
+          const params = { b: 0.3, h };
+          return modelStore.addSection(toSectionFields({ kind: 'built', name: `translated${h}`, shapeType: 'concrete-rect', params, props: computeSectionProperties('concrete-rect', params)!, rotationDeg: 0 }, 0) as never);
+        });
+        modelStore.updateElement(id, { sectionId: sections[0], variableSection: { sectionJ: sections[1], segments: 3 } } as never);
+      }
+      const b = 2.66666666666665;
+      const load: any = dim === 2
+        ? { type: 'distributed', data: { id: 1, elementId: id, a: 0.5, b, qI: -2, qJ: -2 } }
+        : { type: 'distributed3d', data: { id: 1, elementId: id, a: 0.5, b, qXI: 2, qXJ: 2, qYI: -2, qYJ: -2, qZI: 3, qZJ: 3 } };
+      modelStore.model.loads = [load];
+      let child;
+      if (mode === 'edit') {
+        expect(modelStore.splitMember(id, [2 / 3])).not.toBeNull();
+        child = modelStore.model;
+      } else child = mode === 'variable' ? expandVariableMembers(modelStore.model) : subdivideForAnalysis(modelStore.model, 3).model;
+      let fragments = 0;
+      for (const load of child.loads) {
+        const d: any = load.data;
+        const e = child.elements.get(d.elementId)!;
+        const a = child.nodes.get(e.nodeI)!, z = child.nodes.get(e.nodeJ)!;
+        const length = Math.hypot(z.x - a.x, z.y - a.y, (z.z ?? 0) - (a.z ?? 0));
+        expect(d.a ?? 0).toBeGreaterThanOrEqual(0);
+        expect(d.b ?? length).toBeLessThanOrEqual(length);
+        expect((d.b ?? length) - (d.a ?? 0)).toBeGreaterThan(0);
+        fragments++;
+      }
+      expect(fragments).toBe(mode === 'edit' ? 1 : 2);
+      expect(() => dim === 2 ? buildSolverInput2D(child, false) : buildSolverInput3D(child, false)).not.toThrow();
+    } finally { modelStore.clear(); }
+  });
+  it('planar refinement keeps translated partial endpoints inside actual children', () => {
+    const m: ModelData = planeModel([[1, 1000.1, 0], [2, 1004.1, 0]], [[1, 1, 2]], [[1, 'fixed']]);
+    m.loads = [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -2, qJ: -2, a: 0.5, b: 2.66666666666665 } }];
+    const input = refineInput(buildSolverInput2D(m, false)!, 3).input;
+    expect(input.loads).toHaveLength(2);
+    for (const load of input.loads) {
+      const d: any = load.data, e = input.elements.get(d.elementId)!;
+      const i = input.nodes.get(e.nodeI)!, j = input.nodes.get(e.nodeJ)!;
+      const dx = j.x - i.x, dz = j.z - i.z, length = Math.sqrt(dx * dx + dz * dz);
+      expect(d.a ?? 0).toBeGreaterThanOrEqual(0);
+      expect(d.b ?? length).toBeLessThanOrEqual(length);
+    }
+    const result = solve(input);
+    expect(result.reactions[0].rz).toBeCloseTo(2 * (2.66666666666665 - 0.5), 10);
   });
 
 });

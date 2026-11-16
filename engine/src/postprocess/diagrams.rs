@@ -878,6 +878,18 @@ mod tests {
             }
         }
     }
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_member_deflection_refuses_start_overhang() {
+        assert!(std::panic::catch_unwind(|| MemberDeflection::new(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, -1.0, 1.0)], vec![])).is_err());
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_member_deflection_refuses_end_overhang() {
+        assert!(std::panic::catch_unwind(|| MemberDeflection::curved(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, 2.0, 4.0)], vec![], 0.0)).is_err());
+    }
+
 }
 
 #[cfg(test)]
