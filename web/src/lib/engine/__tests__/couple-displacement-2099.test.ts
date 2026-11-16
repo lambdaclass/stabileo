@@ -17,6 +17,7 @@ for (const ready of [false, true]) for (const hinges of [false, true]) {
     for (const a of [0, 1e-5, 2, L - 1e-5, L]) {
       const loads = [{ a, p: 0, my: C }];
       const points = computeDeformedShape(0, 0, L, 0, 0, 0, 0, 0, 0, 0, 1, L, hinges, hinges, EI, 0, 0, loads);
+      expect(points).toHaveLength(21);
       for (const [i, point] of points.entries()) {
         const t = i / (points.length - 1);
         expect(point.x).toBeCloseTo(t * L, 12);
@@ -33,6 +34,7 @@ it('an unloaded recovery and zero couple keep the same rigid motion', () => {
     vi.spyOn(engine, 'isWasmReady').mockReturnValue(ready);
     for (const my of [undefined, 0]) {
       const points = computeDeformedShape(0, 0, L, 0, 1, 2, 0.1, 1, 2 + 0.1 * L, 0.1, 1, L, false, false, EI, 0, 0, [{ a: 2, p: 0, my }]);
+      expect(points).toHaveLength(21);
       points.forEach((point, i) => {
         const x = i / (points.length - 1) * L;
         expect(point.x).toBeCloseTo(x + 1, 12);
@@ -46,6 +48,7 @@ it('#2099 — WASM sampling retains its nonuniform distributed-load solution whe
   vi.spyOn(engine, 'isWasmReady').mockReturnValue(true);
   const qJ = 3, a = 2;
   const points = computeDeformedShape(0, 0, L, 0, 0, 0, 0, 0, 0, 0, 1, L, false, false, EI, 0, qJ, [{ a, p: 0, my: C }]);
+  expect(points).toHaveLength(21);
   for (const [i, point] of points.entries()) {
     const x = i / (points.length - 1) * L;
     const force = qJ / L * (x ** 5 / 120 - L * L * x ** 3 / 40 + L ** 3 * x * x / 60) / EI;
