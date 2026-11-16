@@ -1,6 +1,6 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
-       web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed check.quick \
@@ -97,7 +97,7 @@ help:
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
 	@echo "  make e2e.web.smoke [SHARD=1/10] - Playwright smoke suite"
-	@echo "  make e2e.web.slow [SHARD=1/10] / e2e.web.visual - The heavier Playwright suites"
+	@echo "  make e2e.web.slow [SHARD=1/10] - The heavier Playwright suite"
 	@echo "  make e2e.web.flaky       - The quarantined (@flaky) tests, two retries"
 	@echo "  make check.test-targets  - Every engine test file is in exactly one test binary"
 	@echo "  make test-changed        - Only the tests your changes most likely affect"
@@ -391,7 +391,7 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "@flaky" $(if $(SHARD),$$files)'
 
 e2e.web.timing:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/model-fluidity.spec.ts'
@@ -399,9 +399,6 @@ e2e.web.timing:
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep @flaky --retries=2 --pass-with-no-tests'
-
-e2e.web.visual:
-	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "visual baselines" $(if $(UPDATE_SNAPSHOTS),--update-snapshots)'
 
 test.ai-backend:
 	$(NIX_RUN) cargo test -p dedaliano-backend

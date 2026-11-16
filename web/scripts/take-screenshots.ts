@@ -103,7 +103,7 @@ const HAND_CAPTURED = [
   '3d-frame.png',
   'pro-building-model.png',
   'pro-building-axial.png',
-  'pro-rebar-3d.png',
+  'pro-rc-sheets.png',
 ] as const;
 
 const captured: string[] = [];

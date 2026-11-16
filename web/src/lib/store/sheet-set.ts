@@ -1,59 +1,46 @@
 /**
- * The project's sheet set, from the issued document: its drawings (`renderDrawings`, the same path
- * the DXF has always taken) in the documents' language, composed onto sheets of the project's
- * format and numbering, each with the title block from `ProjectInfo` and the rótulo. Exports a zip
- * of DXF (one per sheet) and one PDF.
+ * The project's sheet set: the construction drawings (`work-drawings.ts`) in the documents'
+ * language, composed onto sheets of the project's format and numbering, each with the title block
+ * from `ProjectInfo` and the rótulo. Exports a zip of DXF (one per sheet) and one PDF.
  */
 import { i18n } from '../i18n';
 import { tAt } from '../i18n/store.svelte';
 import { modelStore } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { readinessBanner, renderDrawings } from '../engine/detailing/document-render';
-import { retouchedIn, withExportLog } from './export-log';
-import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
-import { drawingPrimitives } from '../sheets/adapter';
+import { readinessBanner } from '../engine/detailing/document-render';
+import { withExportLog } from './export-log';
 import { buildSheetSet, DEFAULT_SHEET_SETTINGS, sheetSetDxfZip, sheetSetPdf, sheetSetSvgZip, type SetSheet, type SheetRevision } from '../sheets/sheet-set';
 import { currentRevision } from '../model/project-info';
 import type { DocumentModel } from '../engine/detailing/document-model';
 import type { SheetFormat } from '../sheets/formats';
 import type { DrawingInput } from '../sheets/compose';
-import { membersFromModel } from '../engine/detailing/member-geometry';
-import { projectPhysicalFrame } from './physical-frame';
-import { cachedSceneModel } from '../engine/detailing/scene-cache';
 import { dxfWithProvenance, svgWithProvenance, prepareExportProvenance, reportProvenanceLines } from '../export/provenance-attach';
 import type { SetProvenance } from '../sheets/sheet-set';
-import { PLAN_KINDS, planContext, workDrawings, type PlanKind } from './work-drawings';
+import { isPlanKind, PLAN_KINDS, planContext, workDrawings, type PlanKind } from './work-drawings';
 import { defaultEntries, parseSetTemplate, type SheetEntry, type SheetSetTemplate } from '../sheets/sheet-entries';
 import { emptyLayout, type DrawingAdjust, type SheetLayout } from '../sheets/sheet-layout';
 import type { PlacedDrawing } from '../sheets/compose';
 import { drawDetails, placeDetails, type DetailChoice } from '../sheets/details/catalog';
 import { chosenDetails, projectDetailValues } from './detail-catalog';
-import { memberNames } from './member-names';
 
 export const sheetSettings = () => ({ ...DEFAULT_SHEET_SETTINGS, ...designData().sheets });
 export const patchSheetSettings = (p: Partial<ReturnType<typeof sheetSettings>>) => patchDesignData({ sheets: { ...sheetSettings(), ...p } });
 export const sheetLanguage = () => sheetSettings().language ?? i18n.locale;
-/** The kinds of plan the set carries; absent, all of them. */
-export const sheetKinds = (): Set<PlanKind> => new Set((sheetSettings().kinds as PlanKind[] | undefined) ?? PLAN_KINDS);
+/**
+ * The kinds of plan the set carries; absent, all of them. A kind a project saved that the set no
+ * longer draws (the reinforcement drawings, now the reinforcement sheets' export) is left out.
+ */
+export const sheetKinds = (): Set<PlanKind> => new Set(((sheetSettings().kinds as string[] | undefined) ?? PLAN_KINDS).filter(isPlanKind));
 
 /** The set's entries in order: the person's list, or one per kind of the chosen kinds. */
 export function sheetEntries(): SheetEntry[] {
   const st = sheetSettings();
-  if (st.entries?.length) return st.entries;
+  const own = (st.entries ?? []).filter((e) => isPlanKind(e.kind));
+  if (own.length) return own;
   const kinds = sheetKinds();
   return defaultEntries(PLAN_KINDS.filter((k) => kinds.has(k)));
 }
 export const setSheetEntries = (entries: SheetEntry[]) => patchSheetSettings({ entries });
-
-/** The scene the structure-wide sheets are drawn from: the same one the 3-D view renders. */
-function sceneOf(doc: DocumentModel) {
-  const m = modelStore.model;
-  const { members } = membersFromModel({
-    elementIds: [...m.elements.keys()].sort((a, b) => a - b),
-    nodes: [...m.nodes.values()], elements: [...m.elements.values()], sections: [...m.sections.values()],
-  });
-  return cachedSceneModel(doc, members, { physical: projectPhysicalFrame() });
-}
 
 export function setSheetRevision(number: string, r: SheetRevision | null): void {
   const revisions = { ...(sheetSettings().revisions ?? {}) };
@@ -77,18 +64,11 @@ function detailsPlan(doc: DocumentModel | null, entries: readonly SheetEntry[]) 
 /** The chosen details the set has no sheet for: their kind is not in it and neither is a details entry. */
 export const unplacedDetails = (): DetailChoice[] => placeDetails(chosenDetails(), sheetEntries()).unplaced;
 
-function entryDrawings(doc: DocumentModel | null, projectName: string, e: SheetEntry, named: Map<string, number>, details?: ReturnType<typeof detailsPlan>): DrawingInput[] {
+function entryDrawings(e: SheetEntry, named: Map<string, number>, details?: ReturnType<typeof detailsPlan>): DrawingInput[] {
   const locale = sheetLanguage(), st = sheetSettings();
   const kind = e.kind as PlanKind;
   const ctx = planContext(locale, (e.format ?? st.format) as SheetFormat, e);
-  let ds: DrawingInput[];
-  if (kind === 'detailing') {
-    ds = doc
-      ? renderDrawings(doc, { locale, projectName, retouched: retouchedIn(doc), members: sheetMembers(), coverOf: coverForMember, scene: sceneOf(doc), memberName: (id) => memberNames().atLevel(id) }).sheets
-        // The caption names the drawing; the project and the readiness go to the title block.
-        .map((s) => ({ key: s.name, title: s.caption ?? s.name, ...drawingPrimitives(s.sheet, locale) }))
-      : [];
-  } else ds = workDrawings(doc, new Set([kind]), ctx).get(kind) ?? [];
+  const ds = workDrawings(new Set([kind]), ctx).get(kind) ?? [];
   // Two entries of one kind make two groups of sheets, each under its own name.
   const label = e.label || ctx.tr(`sheet.kind.${kind}`);
   const n = (named.get(label) ?? 0) + 1; named.set(label, n);
@@ -104,7 +84,7 @@ function entryDrawings(doc: DocumentModel | null, projectName: string, e: SheetE
 
 export function projectSheetSet(doc: DocumentModel | null, projectName: string): SetSheet[] {
   const named = new Map<string, number>(), entries = sheetEntries(), details = detailsPlan(doc, entries);
-  return assemble(doc, projectName, entries.flatMap((e) => entryDrawings(doc, projectName, e, named, details)));
+  return assemble(doc, projectName, entries.flatMap((e) => entryDrawings(e, named, details)));
 }
 
 /**
@@ -119,7 +99,7 @@ export async function projectSheetSetAsync(doc: DocumentModel | null, projectNam
     opts.onProgress?.(i, entries.length, e);
     await new Promise((r) => setTimeout(r, 0));
     if (opts.signal?.aborted) return null;
-    drawings.push(...entryDrawings(doc, projectName, e, named, details));
+    drawings.push(...entryDrawings(e, named, details));
   }
   if (opts.signal?.aborted) return null;
   return assemble(doc, projectName, drawings);

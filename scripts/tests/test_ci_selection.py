@@ -584,8 +584,8 @@ exit 0
             (e2e / 'deep.ts').write_text("export const t = (n: string) => `${n} @slow`;\n")
             (e2e / 'mid.ts').write_text("export { t } from './deep';\n")
             (e2e / 'via-helper.spec.ts').write_text("import { t } from './mid.ts';\ntest(t('x'), async () => {});\n")
-            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
-            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
+            (e2e / 'heavy.spec.ts').write_text("test('heavy @slow', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('heavy.spec.ts', 'url-title.spec.ts', 'via-helper.spec.ts'))
 
     def test_a_smoke_only_spec_change_selects_no_slow_run(self):
         smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
@@ -621,6 +621,7 @@ exit 0
                                    env={**env, 'E2E_SPECS': specs}, check=True)
                     args = log.read_text().split()
                     self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
+                    self.assertEqual(args[args.index('--grep-invert') + 1], '@flaky')
 
 
 if __name__ == '__main__':

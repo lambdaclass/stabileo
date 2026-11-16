@@ -136,6 +136,7 @@ export interface TestActions {
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
   openDesignTab(): void;
+  turnElements(ids: number[], degrees: number): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
   autoDesign(ids: number[]): unknown;
@@ -643,14 +644,16 @@ export async function openDeskStage(page: Page): Promise<void> {
   await expect(page.getByTestId('design-desk')).toBeVisible();
 }
 
-const PLACE: Record<string, string> = {
+const PLACE = {
   designData: 'desk-rail-designData',
   steel: 'desk-rail-steel',
   connections: 'desk-rail-connections',
   codes: 'desk-rail-codes',
   sheets: 'desk-rail-sheets',
-};
+} as const;
+/** The desk's places with a rail entry, and «Other code» in each of its two modes. */
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
+const isRailPlace = (tab: string): tab is keyof typeof PLACE => Object.hasOwn(PLACE, tab);
 
 /**
  * Go to a place of design, entering design first when it is not on screen. `otherCodes` is «Other
@@ -659,7 +662,7 @@ export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
 export async function designPlace(page: Page, place: DesignPlace): Promise<void> {
   await openDeskStage(page);
   const key = place === 'otherCodes' || place === 'foreignCodes' ? 'codes' : place;
-  await page.getByTestId(PLACE[key]!).click();
+  await page.getByTestId(PLACE[key]).click();
   if (place === 'otherCodes') await page.getByTestId('codes-mode-verify').click();
   if (place === 'foreignCodes') await page.getByTestId('codes-mode-memoria').click();
 }
@@ -692,7 +695,7 @@ const DESK_MENU: Record<string, string> = {
 };
 export async function deskTab(page: Page, tab: string): Promise<void> {
   if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
-  if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
+  if (isRailPlace(tab)) { await designPlace(page, tab); return; }
   await openDeskStage(page);
   const target = page.getByTestId(`desk-tab-${tab}`);
   if (!(await target.isVisible()) && DESK_MENU[tab]) await page.getByTestId(DESK_MENU[tab]!).click();

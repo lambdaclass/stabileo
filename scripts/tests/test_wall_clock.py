@@ -17,9 +17,9 @@ def step(workflow, name):
 
 class WallClockOutsideTheQueue(unittest.TestCase):
     def test_the_slow_suite_runs_every_spec_and_passes_the_switch(self):
-        self.assertIn('NO_WALL_CLOCK=1 npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
+        self.assertIn('NO_WALL_CLOCK=1 npx playwright test --grep "@slow" --grep-invert "@flaky" ',
                       dry_run('e2e.web.slow', 'NO_WALL_CLOCK=1'))
-        self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
+        self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "@flaky" ',
                       dry_run('e2e.web.slow'))
 
     def test_only_the_wall_clock_asserts_of_the_e2e_specs_are_gated(self):

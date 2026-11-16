@@ -4,6 +4,8 @@
   import PublicLink from './PublicLink.svelte';
   import Shot from './Shot.svelte';
 
+  const SHOT_W = 1600, SHOT_H = 1000;
+
   /**
    * The half that will be charged for, and says so.
    *
@@ -31,8 +33,8 @@
 
     <div class="card-row cols-1 cap-shots">
       <article class="card card-media card-wide">
-        <Shot base="pro-rebar-3d" w={1600} h={876} alt={t('landing.shotRebarAlt')} sizes="(max-width: 760px) 92vw, 92vw" />
-        <div class="card-body"><h3>{t('landing.shotRebarTitle')}</h3></div>
+        <Shot base="pro-rc-sheets" w={SHOT_W} h={SHOT_H} alt={t('landing.shotSheetsAlt')} sizes="(max-width: 760px) 92vw, 92vw" />
+        <div class="card-body"><h3>{t('landing.shotSheetsTitle')}</h3></div>
       </article>
     </div>
   </div>

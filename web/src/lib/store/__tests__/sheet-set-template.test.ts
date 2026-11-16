@@ -9,8 +9,8 @@ import { historyStore, modelStore, resultsStore, uiStore } from '..';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
-import { applySetTemplate, projectSheetSet, setSheetEntries, setTemplateFromProject, patchSheetSettings, sheetEntries } from '../sheet-set';
-import { planContext, workDrawings } from '../work-drawings';
+import { applySetTemplate, projectSheetSet, setSheetEntries, setTemplateFromProject, patchSheetSettings, sheetEntries, sheetKinds } from '../sheet-set';
+import { PLAN_KINDS, planContext, workDrawings } from '../work-drawings';
 import { duplicateEntry, patchEntry, parseSetTemplate } from '../../sheets/sheet-entries';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -52,7 +52,7 @@ describe('a sheet set kept as a template', () => {
     project();
     // The office's arrangement: loads by floor first, the formwork twice (all levels, then the
     // first floor alone at 1:50 under its own name), the setting-out without its table.
-    let entries = [{ id: 'loads', kind: 'loads' }, { id: 'formwork', kind: 'formwork' }, { id: 'setout', kind: 'setout' }, { id: 'columns', kind: 'columns' }];
+    let entries = [{ id: 'loads', kind: 'loads' }, { id: 'formwork', kind: 'formwork' }, { id: 'setout', kind: 'setout' }, { id: 'fdnLoads', kind: 'fdnLoads' }];
     entries = duplicateEntry(entries, 'formwork');
     entries = patchEntry(entries, 'formwork-2', { label: 'Encofrado P1', scale: 50, levels: [3] });
     entries = patchEntry(entries, 'setout', { tables: false });
@@ -81,11 +81,22 @@ describe('a sheet set kept as a template', () => {
 
   it('the kinds the set lacked draw from the model', () => {
     project();
-    const got = workDrawings(null, new Set(['setout', 'fdnLoads', 'loads', 'colElev'] as const), planContext('es', 'A1'));
+    const got = workDrawings(new Set(['setout', 'fdnLoads', 'loads'] as const), planContext('es', 'A1'));
     expect(got.get('setout')!.map((d) => d.key)).toEqual(['setout-arranque', 'setout-arranque-table']);
     // Three columns, one load case: three rows of reactions.
     expect(got.get('fdnLoads')!.length).toBe(1);
     expect(got.get('loads')!.map((d) => d.key)).toEqual(['loads-N1', 'loads-N2']);
-    expect(got.get('colElev')!.length).toBe(6);
+  });
+
+  it('a kind saved before the reinforcement drawings moved to the sheets is left out of the set', () => {
+    project();
+    patchSheetSettings({ kinds: ['formwork', 'columns', 'beams', 'bbs', 'details'] as never });
+    expect([...sheetKinds()]).toEqual(['formwork', 'details']);
+    expect(sheetEntries().map((e) => e.kind)).toEqual(['formwork', 'details']);
+    setSheetEntries([{ id: 'columns', kind: 'columns' }, { id: 'setout', kind: 'setout' }, { id: 'detailing', kind: 'detailing' }]);
+    expect(sheetEntries()).toEqual([{ id: 'setout', kind: 'setout' }]);
+    const set = projectSheetSet(null, 'Obra A');
+    expect(set.flatMap((s) => s.drawings).every((d) => d.startsWith('setout:'))).toBe(true);
+    for (const k of ['columns', 'colElev', 'beams', 'slabs', 'walls', 'detailing', 'punching', 'bbs']) expect(PLAN_KINDS).not.toContain(k);
   });
 });

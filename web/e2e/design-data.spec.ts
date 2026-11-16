@@ -1,9 +1,11 @@
 /**
  * The project's design data in one panel: the covers held against CIRSOC 201-2025 Table
  * 20.5.1.3.1, the preset that sets them to it, the steel. Each datum's use is pinned in
- * `store/__tests__/design-data.test.ts`.
+ * `store/__tests__/design-data.test.ts`. The reinforcement sheets read them with design off too,
+ * so they are edited from the sheets and from the building's general data whatever the setting,
+ * and so are the seismic data of the sheets' chapter 18 rows.
  */
-import { test, expect, designPlace } from './fixtures';
+import { test, expect, designPlace, loadModel, solveModel, ribbonCmd } from './fixtures';
 
 test.describe('@smoke design data', () => {
   test('the usual covers are flagged under the table, the CIRSOC preset sets them, it undoes', async ({ pro: page }) => {
@@ -19,5 +21,41 @@ test.describe('@smoke design data', () => {
     await expect(page.getByTestId('design-data-fy')).toHaveValue('500');
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
     await expect(page.getByTestId('design-data-fy')).toHaveValue('420');
+  });
+});
+
+test.describe('@smoke design data with design off', () => {
+  test('the sheets and the building edit the covers, the steel and the seismic data the sheets read', async ({ pro: page }) => {
+    await page.getByTestId('pro-settings').click();
+    await page.getByTestId('cfg-design-in-pro').uncheck();
+    await expect(page.getByTestId('pr-stage-design')).toHaveCount(0);
+    await loadModel(page, 'rc-design-qa-seismic');
+    await solveModel(page);
+
+    await page.getByTestId('pr-stage-analyse').click();
+    await page.getByTestId('pr-cmd-rcSheets').click();
+    const data = page.getByTestId('rc-design-data');
+    await data.locator('> summary').click();
+    const cover = data.getByTestId('design-data-cover-beam');
+    await cover.fill('30');
+    await cover.dispatchEvent('change');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.03\b/);
+    await expect(data.locator('> summary')).toContainText('30 mm');
+
+    await page.getByTestId('rc-design').click();
+    await page.getByTestId('rc-opt-seismic').check();
+    const seismic = page.getByTestId('rc-seismic-data');
+    await seismic.locator('> summary').click();
+    const overstrength = seismic.getByTestId('seismic-overstrength');
+    await overstrength.fill('1.4');
+    await overstrength.dispatchEvent('change');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toContain('"overstrength":1.4');
+
+    await page.getByTestId('pr-stage-model').click();
+    await ribbonCmd(page, 'building');
+    await page.getByTestId('building-rebar-grade').selectOption('ADN 500');
+    await page.getByTestId('building-general-more').locator('> summary').click();
+    await expect(page.getByTestId('building-general-more').getByTestId('design-data-fy')).toHaveValue('500');
+    await expect(page.getByTestId('building-general-more').getByTestId('design-data-cover-beam')).toHaveValue('30');
   });
 });

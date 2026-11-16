@@ -70,7 +70,7 @@ describe('post-tensioned slabs and stairs', () => {
     const m = memoriaInput((k) => k, 'en');
     expect(m.elements.filter((e) => e.id.startsWith('pt-'))).toHaveLength(2);
 
-    const sets = workDrawings(null, new Set(['tendons']), planContext('en', 'A1'));
+    const sets = workDrawings(new Set(['tendons']), planContext('en', 'A1'));
     const tendons = sets.get('tendons')!;
     expect(tendons.map((d) => d.key)).toEqual(['tendons-plan', `tendon-${p.key}-x`, `tendon-${p.key}-y`]);
   });
@@ -109,7 +109,7 @@ describe('post-tensioned slabs and stairs', () => {
     expect(modelStore.loads.filter((l) => (l.data as { generatedBy?: string }).generatedBy === 'stair:st1')).toHaveLength(n);
     expect(stairChecks()[0]!.entry.supports?.foot?.elementId).toBe(beams[0]);
 
-    const sets = workDrawings(null, new Set(['stairs']), planContext('en', 'A1'));
+    const sets = workDrawings(new Set(['stairs']), planContext('en', 'A1'));
     expect(sets.get('stairs')!.map((x) => x.key)).toEqual(['stair-st1', 'stairs-bbs']);
     const m = memoriaInput((k) => k, 'en');
     expect(m.elements.find((e) => e.id === 'st-st1')!.rows.length).toBe(s.rows.length);

@@ -17,7 +17,7 @@
  */
 
 import { test, expect, PRO_URL, ribbonCmd, designPlace } from './fixtures';
-import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
+import { insertGenerated, pickGenerator } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 /** The eight stages, in the order the brief specifies. */

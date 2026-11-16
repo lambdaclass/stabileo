@@ -1,7 +1,8 @@
 /**
  * The sheet set on the Documents stage: the qa-8 frame designed and detailed, its drawings laid
  * out on numbered A1 sheets with the index first, a revision stated on one sheet, the documents'
- * language switched, and both downloads recorded in the export log. The composition, the formats
+ * language switched, and both downloads recorded in the export log. The reinforcement drawings
+ * are not among them: the set points to the reinforcement sheets' export and opens it. The composition, the formats
  * and the three writers are pinned in `lib/sheets/__tests__/sheets.test.ts`.
  */
 import { test, expect, designAll, loadModel, solveModel, designPlace, openSheetsPlace } from './fixtures';
@@ -34,16 +35,19 @@ test.describe('@slow sheets', () => {
       }
     }
 
-    // The construction drawings come before and after the detailing ones.
+    // The construction drawings; the reinforcement drawings are the reinforcement sheets' export.
     const list = page.getByTestId('sheets-list');
-    for (const re of [/General notes|Notas generales/, /Formwork plan|Planta de encofrado/, /Column schedule|Cuadro de columnas/, /bending schedule|Planilla de doblado/i, /Construction details|Detalles constructivos/]) {
+    for (const re of [/General notes|Notas generales/, /Formwork plan|Planta de encofrado/, /Construction details|Detalles constructivos/]) {
       await expect(list).toContainText(re);
     }
+    for (const re of [/Column schedule|Cuadro de columnas/, /bending schedule|Planilla de doblado/i]) await expect(list).not.toContainText(re);
+    await expect(page.getByTestId('sheets-rc-note')).toBeVisible();
     // A kind left out is gone from the set.
     await page.getByTestId('sheets-kinds').locator('summary').click();
     await page.getByTestId('sheets-kind-details').uncheck();
     await expect(list).not.toContainText(/Construction details|Detalles constructivos/);
     await page.getByTestId('sheets-kind-details').check();
+    for (const k of ['columns', 'colElev', 'beams', 'slabs', 'walls', 'detailing', 'punching', 'bbs']) await expect(page.getByTestId(`sheets-kind-${k}`)).toHaveCount(0);
 
     // A revision on one sheet reaches its title block and the index.
     await page.getByTestId('sheets-rev-E-02').fill('B');
@@ -78,6 +82,11 @@ test.describe('@slow sheets', () => {
     // The settings travel with the project.
     const file = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()));
     expect(JSON.stringify(file)).toContain('"prefix":"S-"');
+
+    // The note's link opens the reinforcement sheets, in the Analyse stage.
+    await page.getByTestId('sheets-rc-open').click();
+    await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
+    await expect(page.getByTestId('design-desk')).toHaveCount(0);
   });
 
   test('a steel building without detailing: framing, anchors and a sheet per joint', async ({ pro: page }) => {

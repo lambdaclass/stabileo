@@ -25,7 +25,7 @@
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
 # adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
 # Only pull_request and merge_group selection is narrowed by path. The merge queue skips the heavy jobs that
-# combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
+# combining PRs rarely breaks (slow E2E, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
 # everything, and post-merge.yml opens a revert PR when a main push fails. A push to main whose
 # tree a successful merge-queue CI run built (main-tested.py, checked through the API) runs only
@@ -1784,26 +1784,6 @@ jobs:
           else
             make e2e.web.slow SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }} NO_WALL_CLOCK="$NO_WALL_CLOCK"
           fi
-      # Non-blocking until the Linux baselines under web/e2e/__screenshots__/linux/
-      # prove stable. Never pass --update-snapshots by default: it would overwrite
-      # the baselines and leave the gate inert. UPDATE_SNAPSHOTS=1 refreshes them once.
-      - name: E2E visual baselines (non-blocking comparison)
-        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
-        continue-on-error: true
-        run: |
-          if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.visual UPDATE_SNAPSHOTS=${{ vars.UPDATE_SNAPSHOTS == '1' && '1' || '' }} NIX_RUN=
-          else
-            make e2e.web.visual UPDATE_SNAPSHOTS=${{ vars.UPDATE_SNAPSHOTS == '1' && '1' || '' }}
-          fi
-      - name: Upload Linux screenshot baselines / diffs
-        if: always() && matrix.shard == 1
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: linux-screenshot-baselines
-          path: web/e2e/__screenshots__/linux
-          retention-days: 30
-          if-no-files-found: ignore
       - name: Slow suite outcome
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:

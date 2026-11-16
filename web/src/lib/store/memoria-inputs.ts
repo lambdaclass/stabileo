@@ -49,6 +49,9 @@ import { quantitiesBy } from '../report/memoria/quantities';
 import { levelNamer, measure } from './takeoff';
 import type { MemoriaElement, MemoriaInput, ScopeEntry } from '../report/memoria/types';
 import { lateralAnchorageRow, lateralReadingKey } from '../engine/design/lateral-anchorage-row';
+import { sheetsForDocuments } from './rc-sheets-documents';
+import { rowsCode, sheetsSchedule } from './rc-sheets-schedule';
+import { sheetsMemoriaElements } from '../rc-sheets-readers/memoria';
 
 const TOL = 0.05;
 type Tr = (key: string, params?: Record<string, string | number>) => string;
@@ -284,6 +287,8 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     };
     elements.push({ id: `e${id}`, family: c.elementType, name: elName(id, c.elementType), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: [...memberData(id), ...lateralDatum(id)], rows: [row, ...(jointRows.get(id) ?? [])], notes: [] });
   }
+  const sheets = sheetsForDocuments();
+  if (sheets) elements.push(...sheetsMemoriaElements(sheets, rowsCode(sheets), tr, n2));
   for (const v of verificationStore.steel) {
     const id = (v as { elementId: number }).elementId;
     elements.push({ id: `s${id}`, family: 'steel', name: elName(id, vertical(m.elements.get(id) ?? { nodeI: 0, nodeJ: 0 }) ? 'column' : 'beam'), ...(levelOfElement(id) ? { level: levelOfElement(id)! } : {}), data: memberData(id), rows: steelCheckRows(v), notes: [] });
@@ -530,7 +535,8 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     quantities: {
       byLevel: q.byLevel,
       byType: q.byType.filter((r) => r.kind !== 'rebar').map(({ kind, concrete, formwork, steel, count }) => ({ kind, concrete, formwork, steel, count })),
-      rebar: (rebar?.byDiameter ?? []).map((r) => ({ diameter: r.diameterMm, length: r.lengthM, mass: r.massKg })),
+      rebar: rebar?.byDiameter.length ? rebar.byDiameter.map((r) => ({ diameter: r.diameterMm, length: r.lengthM, mass: r.massKg }))
+        : sheets ? sheetsSchedule(sheets).byDiameter.map((r) => ({ diameter: r.dia, length: r.length, mass: r.kg })) : [],
       steel: st.rows.map((r) => ({ profile: r.profile, count: r.members, length: r.length, mass: r.kg })),
       connections,
     },
