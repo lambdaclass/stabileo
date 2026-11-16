@@ -12,3 +12,9 @@ for (const script of ['bench-design.mjs', 'bench-collision-worker.mjs']) {
     });
   }, 120_000);
 }
+
+test('solve benchmark builds its standalone entry', async () => {
+  await run(process.execPath, ['scripts/bench-design.mjs', '--solve', '--build-only'], {
+    cwd: root, maxBuffer: 10 * 1024 * 1024,
+  });
+}, 120_000);

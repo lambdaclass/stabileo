@@ -102,6 +102,27 @@ Recognize moved Markdown and JSON documents in the results snapshot build classi
 
 ### Performance
 
+#### Reuse diagram sampling work during results display (2026-11-16)
+
+3D diagrams reuse the regular sampling grid while retaining point-load jumps and
+variable-section boundaries. Mesh construction reuses the sampled diagrams it
+already computed for scaling. Sample counts, force values, and diagram geometry
+are unchanged.
+
+#### Reuse support anchorage plans within candidate verification (2026-11-16)
+
+Concrete candidate verification computes its support plan once and shares it
+with bottom-bar reach, anchorage checks, and joint-threading checks. Each new
+candidate still gets a fresh plan; verification rules and verdicts are unchanged.
+
+#### Transfer 3D case results to WASM once for all combinations (2026-11-16)
+
+The parallel 3D solve now combines load cases in one WASM call, avoiding repeated
+conversion of the same case results for each combination. Worker solving, shell
+stress recovery, and envelope calculation retain their existing paths. Regression
+checks compare batched and individual combination results, including shell stresses
+and containment refusals.
+
 #### Sample reinforcement coordinates once before projecting the workspace (2026-11-15)
 
 Bar-path sampling now copies source coordinates into plain points before bounds and mesh construction. Opening and reopening the reinforcement workspace no longer carry reactive endpoint objects through those passes, and arc sampling reads each source coordinate once. Sampling tolerance, subdivision counts, geometry and analysis results are unchanged. Regression checks count source reads instead of depending on runner speed; the existing workspace timing budgets are unchanged.

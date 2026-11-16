@@ -17,6 +17,7 @@
        fmt check clean
 
 NIX_RUN = nix develop --command
+
 # The e2e shell supplies immutable browser builds; Ubuntu keeps its existing installer.
 PLAYWRIGHT_INSTALL = bash scripts/playwright-install.sh
 
@@ -316,6 +317,13 @@ mutants.safety.report:
 
 mutants.safety.record:
 	python3 -I scripts/mutants-safety.py record $(or $(REPORT),mutants-safety-report.json) $(ARGS)
+
+.PHONY: bench.web.solve bench.web.design
+bench.web.solve:
+	$(NIX_RUN) bash -c 'cd web && node scripts/bench-design.mjs --solve $(ARGS)'
+
+bench.web.design:
+	$(NIX_RUN) bash -c 'cd web && node scripts/bench-design.mjs $(ARGS)'
 
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
