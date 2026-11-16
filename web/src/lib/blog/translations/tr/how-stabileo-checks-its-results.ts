@@ -115,13 +115,13 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/TRUSTED_BASE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/TRUSTED_BASE.md",
       "label": "Sertifikaların güvenilen tabanı",
       "t": "Bileşen bileşen neyin kanıtlandığı, neyin test edildiği ve neye güvenildiği:"
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Doğrulama olgunluk matrisi",
       "t": "Her analiz, eleman ve tasarım yönetmeliği için ulaşılan doğrulama düzeyi ve kanıtları:"
     }

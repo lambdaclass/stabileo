@@ -1,4 +1,4 @@
-//! Seed corpora for the fuzz targets in testing/fuzz (docs/verification/FUZZ_MUTANTS.md).
+//! Seed corpora for the fuzz targets in testing/fuzz (testing/docs/FUZZ_MUTANTS.md).
 //!
 //!   cargo run --release --example fuzz_seeds [OUT_DIR]
 //!
@@ -59,7 +59,7 @@ fn main() {
             count += 1;
         }
     }
-    // Past findings (docs/verification/FUZZ_MUTANTS.md), one directory per target.
+    // Past findings (testing/docs/FUZZ_MUTANTS.md), one directory per target.
     if let Ok(targets) = fs::read_dir("../testing/fuzz/regressions") {
         for t in targets.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()) {
             let dir = out.join(t.file_name());

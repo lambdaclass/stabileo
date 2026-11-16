@@ -1,4 +1,4 @@
-//! Certificates for linear time-history integration (docs/verification/CERTIFY.md,
+//! Certificates for linear time-history integration (testing/docs/CERTIFY.md,
 //! "Time-history integration").
 //!
 //! What is certified is the *discrete* problem the solver integrates — the f64
@@ -213,7 +213,7 @@ fn pts(x: &[f64]) -> Vec<Interval> {
 /// (and tiny) for an identically zero solution, where the interval residual
 /// of exact zeros is a subnormal and `a / 0` would be +∞ — serialized as
 /// `null` in a field the web reads as a number (found by fuzzing,
-/// docs/verification/FUZZ_MUTANTS.md).
+/// testing/docs/FUZZ_MUTANTS.md).
 fn up_div(a: f64, b: f64) -> f64 {
     if a == 0.0 {
         return 0.0;

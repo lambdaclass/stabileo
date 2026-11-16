@@ -1,6 +1,6 @@
 /**
  * The certificates of the analyses beyond the linear static solve, as the engine's `certify_*`
- * exports return them (docs/verification/CERTIFY.md; Rust types in `engine/src/certify/*.rs`,
+ * exports return them (testing/docs/CERTIFY.md; Rust types in `engine/src/certify/*.rs`,
  * serde camelCase). An f64 that is +∞ in Rust arrives as null.
  */
 

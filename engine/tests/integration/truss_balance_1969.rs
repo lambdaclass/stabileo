@@ -245,7 +245,7 @@ fn frame_distributed_and_point_actions_reach_linear_and_nonlinear_solvers() {
 #[test]
 fn issue_2075_constrained_nodal_answers_match_independent_high_precision_solution() {
     let audit: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../docs/verification/constraint-rounding-2075.json"
+        "../../../testing/docs/audits/constraint-rounding-2075.json"
     ))
     .unwrap();
     for (case, slave) in [(1, 2), (2, 3)] {

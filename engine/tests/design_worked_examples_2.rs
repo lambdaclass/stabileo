@@ -6,7 +6,7 @@
 //! inputs in its units, every check compared is unit-agnostic unless stated,
 //! and the tolerance is the example's printed rounding (0.5 % for three
 //! significant figures unless a test says otherwise). Coverage, discrepancies
-//! and their resolution are in `docs/verification/DESIGN_EXAMPLES.md`.
+//! and their resolution are in `testing/docs/DESIGN_EXAMPLES.md`.
 //!
 //! ── Sources ───────────────────────────────────────────────────────────────
 //!

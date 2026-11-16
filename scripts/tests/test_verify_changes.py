@@ -122,7 +122,7 @@ class VerifyChanges(unittest.TestCase):
     def test_kani_runs_only_when_its_inputs_change(self):
         for paths, verify, kani in [
             (['engine/src/solver/buckling.rs'], True, False),
-            (['engine/src/certify/buckling.rs', 'docs/verification/CONTAINMENT.md'], True, False),
+            (['engine/src/certify/buckling.rs', 'testing/docs/CONTAINMENT.md'], True, False),
             (['engine/tests/metamorphic/regressions.rs', 'web/src/App.svelte'], False, False),
             (['verify/Certify/Bundle.lean'], True, False),
             (['testing/symbolic/gen.py'], True, False),

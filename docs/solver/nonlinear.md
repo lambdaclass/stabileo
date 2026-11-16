@@ -283,7 +283,7 @@ against the 2D one in any vertical plane, with pinned beams.
 
 Released members: a Gerber beam with a released member end matches the linear solution at small
 load (`nl_corot3d_released_member_small_load_matches_linear`). The leaning-column reproduction in
-[SYMBOLIC.md](../verification/SYMBOLIC.md) item 5 (`corotational_3d_leaning_column_matches_pdelta`,
+[SYMBOLIC.md](../../testing/docs/SYMBOLIC.md) item 5 (`corotational_3d_leaning_column_matches_pdelta`,
 still `#[ignore]`d in `geometric_stiffness_releases.rs`) **passes at this revision**. The three
 changes documented in the code comments are the plausible cause: $\beta$ is now projected to the
 co-rotated frame before it is subtracted, the log map replaces $\sin\theta$, and the shears are

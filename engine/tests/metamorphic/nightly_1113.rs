@@ -308,7 +308,7 @@ fn issue_2012_archived_pair_preserves_source_and_scaled_physics() {
     let archive: Value = serde_json::from_str(
         &std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../docs/verification/triage/2026-11-13.json"
+            "/../testing/docs/audits/triage/2026-11-13.json"
         ))
         .unwrap(),
     )

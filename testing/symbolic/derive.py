@@ -5,7 +5,7 @@ expression, never from a textbook table typed in; the tables are what the
 derivation is checked against (in the module's self-checks, `checks()`, which
 `gen.py` runs before writing anything).
 
-Conventions (stabileo's, see docs/verification/SYMBOLIC.md):
+Conventions (stabileo's, see testing/docs/SYMBOLIC.md):
 
 * 2D frame DOFs [u1, v1, θ1, u2, v2, θ2]; θ is the section rotation about z,
   counter-clockwise, which equals v' for Euler–Bernoulli members.

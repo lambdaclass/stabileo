@@ -214,7 +214,7 @@ function runCompleteOtherCode(code: OtherCode, complete: CompleteMemberContexts,
 }
 
 /**
- * Certify the check `runOtherCode` made (docs/verification/CERTIFY.md, "Certified design checks"):
+ * Certify the check `runOtherCode` made (testing/docs/CERTIFY.md, "Certified design checks"):
  * the same members and governing demands, each force with its bound from the certified station
  * bounds of its combination (`stationBound`, null when that combination is not certified), sent
  * to the code's certified checker, which encloses every utilization in interval arithmetic.

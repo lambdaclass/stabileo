@@ -1,4 +1,4 @@
-//! Certified plastic collapse load factor for 2D frames (docs/verification/CERTIFY.md,
+//! Certified plastic collapse load factor for 2D frames (testing/docs/CERTIFY.md,
 //! "Plastic collapse load factor").
 //!
 //! The solver (`solver::plastic::solve_plastic_2d`) runs an event-to-event

@@ -1,6 +1,6 @@
 //! Kani bounded-model-checking harnesses. Run with `cargo kani`.
 //!
-//! See `docs/verification/KANI.md` for what each harness proves, under which
+//! See `testing/docs/KANI.md` for what each harness proves, under which
 //! input assumptions, and the counterexamples Kani found.
 //!
 //! Conventions:
@@ -709,7 +709,7 @@ fn dense_extract_scatter_subvec_roundtrip() {
 
 // ─── certify/interval.rs: outward-rounded interval arithmetic ───────────────
 //
-// What is proved, and how (details and the full table: docs/verification/KANI.md):
+// What is proved, and how (details and the full table: testing/docs/KANI.md):
 //
 // 1. Structure, over every finite input: for + and −, each endpoint is the
 //    outward neighbour (next_down / next_up) of the round-to-nearest result of

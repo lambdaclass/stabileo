@@ -1,4 +1,4 @@
-//! Shared harness for the engine fuzz targets (docs/verification/FUZZ_MUTANTS.md).
+//! Shared harness for the engine fuzz targets (testing/docs/FUZZ_MUTANTS.md).
 //!
 //! Every target feeds an entry point the WASM layer exposes (engine/src/lib.rs)
 //! and checks the outcome:

@@ -1,5 +1,5 @@
 /**
- * The certified bounds on what the views show (docs/verification/CERTIFY.md, "Diagrams, extremes,
+ * The certified bounds on what the views show (testing/docs/CERTIFY.md, "Diagrams, extremes,
  * deflections and reactions"): the engine's certificate carries them, the TypeScript diagram and
  * deflection the canvas draws lie inside the bound around the engine's value, and reading them
  * against a value on screen keeps a bound a bound.

@@ -18,7 +18,7 @@ import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
-import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
+import { checkTorsion2025, providedTorsionStirrups } from '../../../codes/cirsoc201/torsion';
 
 // ─── Rebar Database ─────────────────────────────────────────────
 
@@ -737,7 +737,7 @@ export function checkColumn(
  * fyt ≤ 420 MPa in the torsion steel (22.7.2.2 → 20.2.1.3). The default '2005' is unchanged.
  */
 export function checkTorsion(params: ConcreteDesignParams, demand: ConcurrentSectionDemand, edition: Cirsoc201EditionLike = '2005'): TorsionResult {
-  const Tu = demand.Tu, Vu = demand.Vu;
+  const Tu = demand.Tu;
   const { fc, b, h, cover, stirrupDia } = params;
   const lim = editionCode(edition) === 2025;
   const fy = lim ? shearFy(params.fy) : params.fy;
@@ -783,7 +783,6 @@ export function checkTorsion(params: ConcreteDesignParams, demand: ConcurrentSec
    * removed, not repaired: one limit, one place.
    */
   const d = effectiveDepth(h, cover, stirrupDia, 16);
-  const VuAbs = Math.abs(Vu);
 
   // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fyt·cotθ), cotθ = 1 (θ = 45°).
   // kN·m / (m²·kN/m²) = m²/m; ×1e4 is cm²/m. It was ×1e6, a hundred times too large.
@@ -803,14 +802,14 @@ export function checkTorsion(params: ConcreteDesignParams, demand: ConcurrentSec
    * section ratio r(T) = √(vV² + vT²)/φ(vc + 0,66√f'c), linear in T under the root, that torque is
    * Tu·√(1 − r(0)²)/√(r(Tu)² − r(0)²), nil when the shear alone fills the section.
    */
-  const section = (t: number) => checkTorsion2025({
-    b, h, d, cover, stirrupDiaMm: stirrupDia, fc, fy: params.fy, fyt: params.fy, Vu: VuAbs, Tu: t,
+  const combined = checkTorsion2025({
+    b, h, d, dSecondary: effectiveDepth(b, cover, stirrupDia, 16), cover, stirrupDiaMm: stirrupDia,
+    fc, fy: params.fy, fyt: params.fy, demand,
   });
-  const combined = section(TuAbs);
-  const r0 = section(0).sectionRatio, r1 = combined.sectionRatio;
+  const r0 = combined.shearSectionRatio, r1 = combined.sectionRatio;
   const phiTn = r0 >= 1 ? 0 : TuAbs * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
   const ratio = phiTn > 0 ? TuAbs / phiTn : Number.POSITIVE_INFINITY;
-  steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${VuAbs.toFixed(2)} kN (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
+  steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${demand.Vu.toFixed(2)} kN${demand.VuSecondary > 0 ? `, Vu,sec = ${demand.VuSecondary.toFixed(2)} kN` : ''} (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
 
   // The status the ratio states: a section the torque overfills fails (§22.7.7.1(a)).
   let status: VerifStatus = 'ok';
@@ -1294,12 +1293,11 @@ function verifySlenderness(input: VerificationInput) {
 
 type FixedVerificationReinforcement = { torsion?: { AlProv: number }; column?: { barCount: number; barDia: number }; flexure?: Pick<FlexureResult, 'AsProv' | 'barDia' | 'barCount' | 'bars' | 'AsComp' | 'barDiaComp' | 'barCountComp' | 'barsComp' | 'isDoublyReinforced'>; shear?: { spacing: number; legs: number } };
 
-function torsionStirrupProvision(params: ConcreteDesignParams, shear: ShearResult) {
-  return checkTorsion2025({ ...params, d: shear.d, stirrupDiaMm: params.stirrupDia, fyt: params.fy, Vu: shear.Vu, Tu: 0,
-    stirrup: { diameter: shear.stirrupDia, legs: shear.stirrupLegs, spacing: shear.spacing } });
+function torsionStirrupProvision(shear: ShearResult) {
+  return providedTorsionStirrups({ diameter: shear.stirrupDia, legs: shear.stirrupLegs, spacing: shear.spacing });
 }
 
-export function sharedTorsionReinforcement(params: ConcreteDesignParams, results: readonly ElementVerification[]) {
+export function sharedTorsionReinforcement(results: readonly ElementVerification[]) {
   const active = results.flatMap((v, index) => v.torsion && !v.torsion.neglect ? [{ v, index }] : []);
   const requirements = active.reduce<{ AtOverS: number; AlReq: number; index: number }>((a, { v, index }) => ({
     AtOverS: Math.max(a.AtOverS, v.torsion!.AtOverS), AlReq: Math.max(a.AlReq, v.torsion!.AlReq),
@@ -1310,7 +1308,7 @@ export function sharedTorsionReinforcement(params: ConcreteDesignParams, results
   for (const { v } of active) {
     const t = v.torsion!;
     for (const s of [v.shear, ...(v.shearSecondary ? [v.shearSecondary] : [])]) {
-      const area = torsionStirrupProvision(params, { ...s, spacing: 1 }).outerLegProvided * 1e4;
+      const area = torsionStirrupProvision({ ...s, spacing: 1 }).outerLegProvided * 1e4;
       const combined = Math.max(s.AvOverS, (s.AvOverSReq ?? s.AvOverS) + 2 * t.AtOverS);
       const limit = Math.min(spacing, t.spacingMax!, area / t.AtOverS, legs * area / combined);
       spacing = Math.min(spacing, Math.max(0.05, Math.floor(limit * 40) / 40));
@@ -1319,9 +1317,9 @@ export function sharedTorsionReinforcement(params: ConcreteDesignParams, results
   return { shear: { spacing, legs }, requirements };
 }
 
-function checkProvidedTorsion(params: ConcreteDesignParams, t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined): TorsionResult {
+function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined): TorsionResult {
   const AtOverSProv = Math.min(...shears.map(s => {
-    const provision = torsionStirrupProvision(params, s);
+    const provision = torsionStirrupProvision(s);
     return Math.max(0, Math.min(provision.outerLegProvided * 1e4,
       (provision.transverseProvided * 1e4 - (s.AvOverSReq ?? s.AvOverS)) / 2));
   }));
@@ -1421,7 +1419,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     // Torsion check if Tu is provided
     if (input.Tu && Math.abs(input.Tu) > 0.001) {
       torsionResult = checkTorsion(params, concurrent.demand, edition);
-      torsionResult = checkProvidedTorsion(params, torsionResult,
+      torsionResult = checkProvidedTorsion(torsionResult,
         [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed?.torsion?.AlProv);
     }
 

@@ -7,10 +7,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'docs/verification/soundness-regression-audit-2026-11-11'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'testing/docs/audits/soundness-regression-audit-2026-11-11'))
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT = ROOT / 'docs/verification/soundness-regression-audit-2026-11-11'
+AUDIT = ROOT / 'testing/docs/audits/soundness-regression-audit-2026-11-11'
 
 
 def execute_audit_script(filename, area):
@@ -149,7 +149,8 @@ class References(unittest.TestCase):
 
     def test_issue_review_accounts_for_every_original_frozen_case(self):
         report = json.loads(AUDIT.with_suffix('.json').read_text())
-        review = json.loads((ROOT / report['frozen_inventory_review']).read_text())
+        review_path = AUDIT.parent / Path(report['frozen_inventory_review']).relative_to('docs/verification')
+        review = json.loads(review_path.read_text())
         exclusions = json.loads((ROOT / review['exclusions']).read_text())
         excluded = {model: int(issue) for issue, models in exclusions.items() for model in models}
         outputs = {file.name for file in (ROOT / 'web/results-frozen').glob('*.json')}

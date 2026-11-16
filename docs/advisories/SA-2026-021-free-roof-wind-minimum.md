@@ -69,5 +69,5 @@ are the members most likely to change.
 
 ## Credits and references
 
-Recorded as an open item of the loads verification (docs/verification/LOADS.md) and fixed by #581.
+Recorded as an open item of the loads verification (testing/docs/LOADS.md) and fixed by #581.
 CIRSOC 102-2025 §2.1.5 and its commentary C 2.1.5 and C 4.8; §2.4.3, Figuras 2.4-4 to 2.4-7.

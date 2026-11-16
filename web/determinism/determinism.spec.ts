@@ -1,6 +1,6 @@
 /**
  * The WASM engine gives bit-identical results in every runtime it ships to
- * (docs/verification/TRUSTED_BASE.md, "Determinism across runtimes"): a fixed set of solves
+ * (testing/docs/TRUSTED_BASE.md, "Determinism across runtimes"): a fixed set of solves
  * and certificates (cases.mjs) runs in this browser and in Node, and every output must be
  * the same string, floats compared by bit pattern. The Node run must also meet the
  * requirements of checks.mjs (the certified cases certify, field by field), so agreement is

@@ -1,3 +1,4 @@
+import type { TorsionInput } from '../../codes/cirsoc201/torsion';
 import type { ConcurrentDemand, ConcurrentSectionDemand } from '../concurrent-demand';
 import type { ElementDesignDemands } from '../station-design-forces';
 import type { VerificationInput, verifyElement, checkColumn, checkBiaxial, checkTorsion } from '../codes/argentina/cirsoc201';
@@ -14,6 +15,9 @@ export const envelopeCannotReachSteel: Assert<Refuses<ElementDesignDemands, Para
 export const stationForcesNeedProvenance: Assert<Refuses<ConcurrentDemand['forces'], ConcurrentSectionDemand>> = true;
 export const envelopeCannotReachSteelVerifier: Assert<Refuses<SteelVerificationInput, Parameters<typeof verifySteelElement>[0]>> = true;
 
+export const scalarTorsionCannotReachSection: Assert<Refuses<{ Vu: number; Tu: number }, TorsionInput['demand']>> = true;
+export const partialTorsionCannotReachSection: Assert<Refuses<Pick<ConcurrentSectionDemand, 'Vu' | 'Tu'>, TorsionInput['demand']>> = true;
+export const secondaryDepthIsRequired: Assert<Refuses<Omit<TorsionInput, 'dSecondary'>, TorsionInput>> = true;
 import type { CompleteDemandSet, ScopedDemand, DemandScope } from '../complete-demand-set';
 import type { CompleteMemberContexts } from '../member-demand-gate';
 import type { MemberContext } from '../design/other-codes/types';

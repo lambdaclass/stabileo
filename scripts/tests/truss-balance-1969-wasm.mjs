@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import * as engine from '../../web/src/lib/wasm/dedaliano_engine.js';
 
 engine.initSync({ module: readFileSync(new URL('../../web/src/lib/wasm/dedaliano_engine_bg.wasm', import.meta.url)) });
-const audit = JSON.parse(readFileSync(new URL('../../docs/verification/constraint-rounding-2075.json', import.meta.url)));
+const audit = JSON.parse(readFileSync(new URL('../../testing/docs/audits/constraint-rounding-2075.json', import.meta.url)));
 const fixtures = JSON.parse(readFileSync(new URL('../../engine/tests/fixtures/truss-balance-1969.json', import.meta.url)));
 function assertDisplacements(result, input, dimension) {
   assert.equal(result.displacements.length, Object.keys(input.nodes).length);

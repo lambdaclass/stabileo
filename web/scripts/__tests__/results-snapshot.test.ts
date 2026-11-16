@@ -330,8 +330,14 @@ describe('the examples-only equivalence proof, with both engines', () => {
 
 describe('the base checkout reuses this build\'s engine', () => {
   it('when only the app, the docs, the changelog or research papers changed', () => {
-    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'docs/verification/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
+    expect(headEngineServesBase(['web/src/lib/templates/fixtures/torsion.json', 'testing/docs/PROVENANCE.md', 'changelog.d/x.md', 'research/papers.yaml'])).toBe(true);
     expect(headEngineServesBase([])).toBe(true);
+  });
+  it.each(['testing/docs/PROVENANCE.md', 'testing/docs/dashboard.json', 'testing/docs/audits/triage/2026-11-13.json'])('reuses the engine for moved documentation: %s', (path) => {
+    expect(headEngineServesBase([path])).toBe(true);
+  });
+  it.each(['testing/docs/audits/triage/2026-11-13-wasm.mjs', 'testing/docs/audits/cause-c-replay-audit.py', 'testing/docs/engine.rs', 'testing/fuzz/Cargo.toml', 'testing/docs-extra/file.md'])('NEGATIVE: does not reuse the engine for testing code: %s', (path) => {
+    expect(headEngineServesBase([path])).toBe(false);
   });
   it('NEGATIVE: not when only the WASM build script changed', () => {
     expect(headEngineServesBase(['web/src/x.ts', 'scripts/wasm-cached.sh'])).toBe(false);

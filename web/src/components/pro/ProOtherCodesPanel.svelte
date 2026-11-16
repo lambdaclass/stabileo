@@ -75,7 +75,7 @@
   }
 
   /*
-   * ── Certified utilizations (docs/verification/CERTIFY.md, "Certified design checks") ──
+   * ── Certified utilizations (testing/docs/CERTIFY.md, "Certified design checks") ──
    *
    * Once the check is shown and the combinations it read are certified (`certificate.svelte.ts`),
    * the same members and demands go to the code's certified checker, each force with its certified

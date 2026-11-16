@@ -72,4 +72,4 @@ property alongside confidentiality and availability.
 - A compromised user machine or browser extension.
 - The AI provider's own handling of prompts.
 - Physical/engineering correctness of the solver beyond input validation
-  (covered by `docs/VERIFICATION.md` and `docs/verification/`).
+  (covered by `docs/VERIFICATION.md` and `testing/docs/`).

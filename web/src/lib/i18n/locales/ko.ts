@@ -3652,7 +3652,7 @@ const ko: Translations = {
   'design.enable': "Turn on design",
   'design.linkAsks': "This link opens normative design, which is off in PRO's settings.",
   'design.enableForVisit': "Turn on design for this visit",
-  // ─── Certified results (docs/verification/CERTIFY.md) ───
+  // ─── Certified results (testing/docs/CERTIFY.md) ───
   'certificate.certified': '인증됨: 변위 오차 ≤ {abs} (상대 {rel})',
   'certificate.notCertified': '인증되지 않음: {reason}',
   'certificate.pending': '인증 중…',
@@ -3660,7 +3660,7 @@ const ko: Translations = {
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (인증됨)',
   'certificate.bucklingNotCertified': 'λ_cr 인증되지 않음: {reason}',
   'certificate.bucklingTooltip': 'Lean으로 증명된 엄밀한 구간: 구조물은 하한값까지의 모든 하중 계수에서 안정함이 보장되고 상한값에서 불안정함이 보장됩니다.',
-  // ─── Certified results: combinations, design checks, dynamics, plastic (docs/verification/CERTIFY.md) ───
+  // ─── Certified results: combinations, design checks, dynamics, plastic (testing/docs/CERTIFY.md) ───
   'certificate.certifiedAbs': '인증됨: 변위 오차 ≤ {abs}',
   'certificate.envelopeCertified': '포락선 인증됨: 모든 값이 정확한 포락선에서 {abs} 이내 (변위)',
   'certificate.comboTooltip': 'Lean으로 증명된 엄밀한 한계: 각 하중 케이스는 조립된 시스템의 정확해에 대해 인증됩니다. 조합의 한계는 케이스 한계에 |계수|를 곱한 합에 조합 자체의 반올림을 더한 것이며, 포락선은 정확한 포락선에서 가장 큰 조합 한계 이내에 있습니다. 부재력 옆의 ±도 같은 방식으로 오차를 제한합니다.',

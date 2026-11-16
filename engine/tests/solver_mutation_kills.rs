@@ -1,5 +1,5 @@
 //! Tests written to kill mutants that survived cargo-mutants on the solver
-//! core (testing/scripts/mutants.sh, docs/verification/FUZZ_MUTANTS.md): each pins a
+//! core (testing/scripts/mutants.sh, testing/docs/FUZZ_MUTANTS.md): each pins a
 //! behaviour of DOF numbering, assembly or reactions that no other test in the
 //! mutation test set checked.
 

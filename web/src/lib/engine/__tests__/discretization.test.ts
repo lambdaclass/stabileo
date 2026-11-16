@@ -1,5 +1,5 @@
 /**
- * The discretization-error exports (docs/verification/DISCRETIZATION.md): an estimate that is
+ * The discretization-error exports (testing/docs/DISCRETIZATION.md): an estimate that is
  * never presented as certified, and a convergence check that refines and re-solves.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
