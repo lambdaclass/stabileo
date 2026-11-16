@@ -178,6 +178,31 @@ export function buildRepairEnvelope(members: Iterable<EnvelopeMember>): RepairEn
     return s;
   };
 
+  const sectionSamples = (bar: BarPath, owners: Frame[], offset: Point3): Point3[] => {
+    const path = sampled(bar);
+    const points = [...path];
+    for (let i = 1; i < path.length; i++) {
+      const p = path[i - 1]!, q = path[i]!;
+      const cuts = new Set([0, 1]);
+      for (const f of owners) {
+        const a = dot(sub(p, f.o), f.u);
+        const span = dot(sub(q, p), f.u);
+        if (Math.abs(span) < 1e-12) continue;
+        for (const shift of [0, dot(offset, f.u)]) for (const boundary of [0, f.L]) {
+          const t = (boundary - a - shift) / span;
+          if (t > 0 && t < 1) cuts.add(t);
+        }
+      }
+      const ordered = [...cuts].sort((a, b) => a - b);
+      const at = (t: number) => ({ x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y), z: p.z + t * (q.z - p.z) });
+      for (let j = 1; j < ordered.length; j++) {
+        points.push(at(ordered[j]!));
+        points.push(at((ordered[j - 1]! + ordered[j]!) / 2));
+      }
+    }
+    return points;
+  };
+
   /** Worst excess of a point among the members that hold it, and the member; null if none does. */
   const judge = (owners: Frame[], p: Point3, diaMm: number): { e: number; element: number } | null => {
     let best: { e: number; element: number } | null = null;
@@ -239,7 +264,7 @@ export function buildRepairEnvelope(members: Iterable<EnvelopeMember>): RepairEn
 
       // ── Section ──
       let worst: { by: number; element: number } | null = null;
-      for (const p of sampled(bar)) {
+      for (const p of sectionSamples(bar, owners, offset)) {
         const after = judge(owners, add(p, offset), bar.diameterMm);
         if (!after || after.e <= TOL) continue;
         const before = judge(owners, p, bar.diameterMm);

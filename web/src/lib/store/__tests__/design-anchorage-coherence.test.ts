@@ -75,7 +75,7 @@ describe('feasible: the span fixture on 40×40 columns', () => {
       if (process.env.COHERENCE_PRINT) console.log(`mesh ${mesh}: ${coherence.compared} ends compared, ${coherence.atEnds} at end supports, ${coherence.mismatches.length} differ`);
       expect(coherence.mismatches, `mesh ${mesh}`).toEqual([]);
       expect(coherence.compared, `mesh ${mesh}`).toBe(recorded);
-      expect(coherence.atEnds, `mesh ${mesh}`).toBeGreaterThan(100);
+      expect(coherence.atEnds, `mesh ${mesh}`).toBe(new Map([[1, 110], [0.5, 100], [2, 106], [6, 120]]).get(mesh));
     }
   });
 

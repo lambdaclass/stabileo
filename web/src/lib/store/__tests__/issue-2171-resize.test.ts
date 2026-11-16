@@ -5,8 +5,7 @@ import { verificationStore } from '../verification.svelte';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
-knownWrong('known wrong result: #2171 sizing a narrow beam must grow the secondary depth before exhausting the round bound', async () => {
+it('known wrong result: #2171 sizing a narrow beam must grow the secondary depth before exhausting the round bound', async () => {
   building(1);
   const run = await designWithResizing({ edited: 'overwrite', steel: false });
   expect(run.rounds).toBeLessThanOrEqual(RESIZE_MAX_ROUNDS);
@@ -29,7 +28,7 @@ it('an intentionally zero-round sizing limit leaves refused members without cert
   }
 },180_000);
 
-for (const maxRounds of [1, 2]) knownWrong(`known wrong result: #2171 sizing reports the boundary at ${maxRounds} rounds`, async () => {
+for (const maxRounds of [1, 2]) it(`known wrong result: #2171 sizing reports the boundary at ${maxRounds} rounds`, async () => {
   building(1);
   const run=await designWithResizing({edited:'overwrite',steel:false,maxRounds});
   expect(run.rounds).toBe(maxRounds);

@@ -172,8 +172,18 @@ export function plannedGrowth(): Grow[] {
     const e = modelStore.elements.get(id)!;
     const sec = modelStore.sections.get(e.sectionId);
     const colWidth = Math.min(...[e.nodeI, e.nodeJ].flatMap(columnsAt).map((c) => { const k = modelStore.sections.get(modelStore.elements.get(c)!.sectionId); return Math.min(k?.b ?? Infinity, k?.h ?? Infinity); }));
-    const across = rest.some((l) => /spacing|width/i.test(l)) && (sec?.b ?? 0) + RESIZE_STEP_M <= colWidth + 1e-9;
-    want({ ...memberOf(id), kind: 'beam', db: across ? RESIZE_STEP_M : 0, dh: across ? 0 : RESIZE_STEP_M, reason: across ? 'spacing' : rest.some((l) => /shear/i.test(l)) ? 'shear' : 'flexure' });
+    const checks = verificationStore.outcomeFor(id)?.provisional?.verdict.checks ?? [];
+    const torsion = rest.includes('torsion');
+    const secondary = checks.some(c => c.status === 'fail' && (c.limiting === 'shear' || c.limiting === 'tieSpacing')
+      && (c.shearDirection === 'secondary' || c.demandCategory === ctx.axes.secondaryShear));
+    const directionalSpacing = checks.some(c => c.status === 'fail' && c.limiting === 'tieSpacing' && c.shearDirection);
+    const spacing = !directionalSpacing && rest.some(l => /spacing|width/i.test(l)) && (sec?.b ?? 0) + RESIZE_STEP_M <= colWidth + 1e-9;
+    const primaryDepth = ctx.axes.flexure === 'My' ? 'h' : 'b';
+    const secondaryDepth = primaryDepth === 'h' ? 'b' : 'h';
+    const dimension = secondary ? secondaryDepth : spacing ? 'b' : primaryDepth;
+    want({ ...memberOf(id), kind: 'beam', db: torsion || dimension === 'b' ? RESIZE_STEP_M : 0,
+      dh: torsion || dimension === 'h' ? RESIZE_STEP_M : 0,
+      reason: torsion || secondary || rest.includes('shear') ? 'shear' : spacing ? 'spacing' : 'flexure' });
   }
   return [...byMember.values()];
 }

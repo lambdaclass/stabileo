@@ -89,7 +89,7 @@ function coverageOf(r: RunDetailingResult): Coverage {
  */
 const FIXTURES: Array<{
   name: string; data: unknown;
-  fullyRestrained: boolean; clashFree: boolean; outcome: string; why?: string;
+  unsupported?: string[]; fullyRestrained: boolean; clashFree: boolean; outcome: string; why?: string;
 }> = [
   {
     name: 'rc-design-qa-8', data: qa8,
@@ -127,6 +127,7 @@ const FIXTURES: Array<{
     // crossties' 135° tails turned into the core against the top bars beside them and the
     // stirrup's top leg, reported.
     fullyRestrained: true, clashFree: false, outcome: 'ASSIGNMENT_FOUND',
+    unsupported: [1, 2, 3, 4].map(id => `Declared secondary leg count (3) for column ${id} is not verified against generated horizontal crossties.`),
   },
   {
     name: 'rc-design-frame', data: rcFrame,
@@ -161,7 +162,8 @@ describe('every fixture carries a physical transverse cage', () => {
       // ── Per fixture, with the reason recorded above ──
       if (f.fullyRestrained) {
         expect(c.witnessedBends, `unwitnessed bends (${f.why ?? ''})`).toBe(c.requiredBends);
-        expect(c.unsupported, 'unsupported').toEqual([]);
+        expect(c.unsupported, 'unsupported').toEqual(f.unsupported ?? []);
+        if (c.unsupported.length) expect(c.verdicts).not.toContain('CONSTRUCTIBLE');
       } else {
         expect(c.witnessedBends, `${f.name} should still fall short: ${f.why}`)
           .toBeLessThan(c.requiredBends);

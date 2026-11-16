@@ -4,9 +4,8 @@ import { plannedGrowth, RESIZE_STEP_M } from '../design-resize';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 for (const constraint of ['shear', 'tieSpacing'] as const) for (const flexure of ['My','Mz'] as const) for (const direction of ['primary','secondary','torsion'] as const) {
- knownWrong(`known wrong result: #2171 resizing follows the failing dimension ${constraint} ${flexure} ${direction}`,()=>{
+ it(`known wrong result: #2171 resizing follows the failing dimension ${constraint} ${flexure} ${direction}`,()=>{
   building(null);
   const element=[...modelStore.elements.values()].find(e=>modelStore.nodes.get(e.nodeI)?.z===modelStore.nodes.get(e.nodeJ)?.z)!;
   const id=element.id;

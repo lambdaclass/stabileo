@@ -43,8 +43,11 @@ describe('«Size» on the span fixture at 30×30', () => {
     // The changes: columns, for the anchorage of the beams framing in, 5 cm a round.
     expect(run.changes.length).toBeGreaterThan(0);
     for (const c of run.changes) {
-      expect(c.kind).toBe('column');
-      expect(c.reason).toBe('anchorage');
+      expect([c.kind, c.reason]).toEqual(c.kind === 'column' ? ['column', 'anchorage'] : ['beam', 'shear']);
+      if (c.kind === 'beam') {
+        expect(c.to.b - c.from.b).toBeCloseTo(RESIZE_STEP_M, 6);
+        expect(c.to.h - c.from.h).toBeCloseTo(RESIZE_STEP_M, 6);
+      }
       expect(Math.max(c.to.b - c.from.b, c.to.h - c.from.h)).toBeCloseTo(RESIZE_STEP_M, 6);
     }
     // A physical column holds one section from bottom to top.

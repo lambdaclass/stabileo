@@ -1269,6 +1269,7 @@ export function formatLayers(layers: RebarLayer[]): string {
  *  capacity/demand here and demand/capacity in the code-check baseline, and the
  *  two were reconciled by an ad-hoc `1/ratio` inversion in the UI. */
 export interface ProvidedRebarCheck {
+  shearDirection?: ShearDirection;
   category: string;           // e.g., "Bottom Span (My+)", "Shear Support (Vz)"
   demandCategory: GoverningDemand['category'] | null;  // linked governing demand
   /** For capacity checks: demand (kN·m or kN) and capacity (kN·m or kN). */
@@ -1997,7 +1998,7 @@ export function verifyProvidedReinforcement(
     if (!transverseSpacingIsSupported(tbl.limits)) {
 
       pushSpacingCheck({
-        category: `${label} s,max`, demandCategory: null,
+        category: `${label} s,max`, demandCategory: null, shearDirection: direction,
         required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
         unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: range,
         description: `Table 9.7.6.2.2 not evaluated — ${tbl.limits.unsupported.join(', ')}`,
@@ -2006,7 +2007,7 @@ export function verifyProvidedReinforcement(
     } else {
       if (!tbl.alongOk) {
         pushSpacingCheck({
-          category: `${label} s,max`, demandCategory: null,
+          category: `${label} s,max`, demandCategory: null, shearDirection: direction,
           required: +(tbl.limits.alongMax * 100).toFixed(1),
           provided: +(cage.spacing * 100).toFixed(1),
           utilization: tbl.alongUtilization,
@@ -2017,7 +2018,7 @@ export function verifyProvidedReinforcement(
       }
       if (!tbl.acrossOk) {
         pushSpacingCheck({
-          category: `${label} s,max across`, demandCategory: null,
+          category: `${label} s,max across`, demandCategory: null, shearDirection: direction,
           required: +(tbl.limits.acrossMax * 100).toFixed(1),
           provided: +(tbl.acrossProvided * 100).toFixed(1),
           utilization: tbl.acrossUtilization,

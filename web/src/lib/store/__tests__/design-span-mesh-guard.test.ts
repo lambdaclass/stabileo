@@ -66,6 +66,7 @@ interface BeamTally {
   spans: number;
   longitudinal: number;
   stirrups: number;
+  stirrupBound: number;
   /** Rows of the planilla holding a bar of the beam. */
   rows: number;
   /** Σ of the beam's part of each row, kg. */
@@ -298,6 +299,15 @@ function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>)
       spans: new Set(pb.elements.map((id) => pieceSpan.get(id) ?? `e${id}`)).size,
       longitudinal: own.filter((x) => x.b.role === 'longitudinal').length,
       stirrups: own.filter((x) => x.b.role !== 'longitudinal').length,
+      stirrupBound: [...new Map(pb.elements.map(id => {
+        const ctx = verificationStore.contextFor(id)!;
+        return [ctx.span?.key ?? `e${id}`, ctx] as const;
+      })).values()].reduce((total, ctx) => {
+        const regions = modelStore.elements.get(ctx.elementId)!.reinforcement!.regions!;
+        const spacing = Math.min(regions.stirrupsSupport!.spacing, regions.stirrupsSpan!.spacing);
+        const clearLength = ctx.L - (ctx.criticalSections?.start.halfDepth ?? 0) - (ctx.criticalSections?.end.halfDepth ?? 0);
+        return total + Math.ceil(clearLength / spacing) + 1 + 2 * 12;
+      }, 0),
       rows: shares.length,
       mass: shares.reduce((s, v) => s + v, 0),
       barMass: own.reduce((s, { b }) => s + markMassKg(b.diameterMm, b.cuttingLength, 1), 0),
@@ -382,10 +392,7 @@ describe('the same building designed and detailed under four slab meshes', () =>
       // 1,770, 1,810 and 1,830 m). A cage laid per piece would still give 3 to 12 times a span's.
       expect(b.longitudinal / b.spans, `${b.name} at ${m} m`).toBeLessThanOrEqual(12);
       expect(b.rows / b.spans, `${b.name} at ${m} m`).toBeLessThanOrEqual(8);
-      // At the tightest spacing the design gives these beams (0,10 m) 57 closed stirrups fit the
-      // 5,7 m between faces, and §9.7.3.5(c)'s cut-off zones add at most 12 each at both
-      // cut-offs: 81. Measured at most 62; a cage per piece would put 3 to 12 times a span's.
-      expect(b.stirrups / b.spans, `${b.name} at ${m} m`).toBeLessThanOrEqual(81);
+      expect(b.stirrups, `${b.name} at ${m} m`).toBeLessThanOrEqual(b.stirrupBound);
     }
   });
 });
@@ -406,9 +413,9 @@ describe('the same building designed and detailed under four slab meshes', () =>
  * (`design-anchorage-coherence.test.ts`).
  */
 const EXPECTED_ENDS: unknown[] = [
-  [1, { 'end/hook': 66, 'end/straight': 40 }, 0],
-  [0.5, { 'end/hook': 68, 'end/straight': 40 }, 0],
-  [2, { 'end/hook': 62, 'end/straight': 40 }, 0],
+  [1, { 'end/hook': 70, 'end/straight': 40 }, 0],
+  [0.5, { 'end/hook': 60, 'end/straight': 40 }, 0],
+  [2, { 'end/hook': 66, 'end/straight': 40 }, 0],
   [6, { 'end/hook': 80, 'end/straight': 40 }, 0],
 ];
 

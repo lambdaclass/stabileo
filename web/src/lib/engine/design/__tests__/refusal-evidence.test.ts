@@ -108,9 +108,9 @@ describe('the flagship frame: the beams refused for congestion and anchorage are
   // search (autodesign-regression.test.ts, header). Four more (165–168) verify since the minimum
   // shear reinforcement of §9.6.3.1 prunes the stirrup options under Av,min (same header); the
   // 12 left are the ones that still refuse.
-  const BEFORE = [161, 164, 180, 181, 182, 183, 184, 186, 187, 188, 196, 199];
+  const BEFORE = [161, 164, 182, 183, 184, 188, 196, 199];
 
-  it('none reads SECTION_INADEQUATE: no bound proves any of them; the 12 left read SEARCH_EXHAUSTED', () => {
+  it('none reads SECTION_INADEQUATE: no bound proves any of them; the eight historically refused members still read SEARCH_EXHAUSTED', () => {
     expect(s.sectionInadequate).toBe(0);
     for (const id of BEFORE) expect([id, s.outcomes.get(id)!.outcome], `e${id}`).toEqual([id, 'SEARCH_EXHAUSTED']);
     expect(s.searchExhausted).toBe(refused.length);

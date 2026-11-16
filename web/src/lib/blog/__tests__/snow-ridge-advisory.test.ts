@@ -34,3 +34,18 @@ function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
   expect(notice.explanation[locale]).toContain('SA-2026-072');
   expect(post.updated).toBe('2026-11-16');
 }
+
+it('#2144 follows the assigned advisory structure and retains only the recorded main witness', () => {
+  const structure = (text: string) => text.split('\n').filter(line => line.startsWith('## ') || /^\| [A-Z][^|]+ \|/.test(line)).map(line => line.startsWith('## ') ? line : line.split('|')[1]!.trim());
+  expect(structure(advisory)).toEqual(structure(document('advisories/SA-2026-068-provided-torsion-stirrups.md')));
+  expect(advisory).toContain('Draft 2026-11-15; fixed in PR #2175, pending release');
+  expect(advisory).toContain('historical release binaries not assessed');
+  expect(advisory).toContain('snow-ridge-mesh.json');
+  for (const value of ['8e5c026b7', '16 by 4 m', '20 degrees', 'eight members', '0.8076923076923077', '0.40384615384615385']) {
+    expect(record).toContain(value);
+    expect(advisory).toContain(value);
+  }
+  expect(document('advisories/README.md')).toContain('[SA-2026-072](SA-2026-072-snow-ridge-subdivision.md)');
+  expect(notice.when).toEqual({ all: ['snow', 'generatedLoads'] });
+  expect(record).toContain('RUN_KNOWN_WRONG=2172');
+});

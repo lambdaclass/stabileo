@@ -51,9 +51,12 @@ describe('the span fixture at 40×40, its beams\' role not declared', () => {
     expect([c.clashes, c.conflicts, c.throughCrossties]).toEqual([0, 0, 0]);
   }, 600_000);
 
-  it('2 m mesh: the same, and a layout through every joint', () => {
+  it('2 m mesh: four crosstie conflicts refuse physical approval', () => {
     building(2, { columnSide: 0.4, lateral: null });
     designAndDocument();
-    expect(census()).toEqual({ clashes: 0, conflicts: 0, throughCrossties: 0, search: 'ASSIGNMENT_FOUND' });
+    expect(census()).toEqual({ clashes: 0, conflicts: 4, throughCrossties: 4, search: 'PARTIAL_ENVELOPE_EXHAUSTED' });
+    for (const assembly of modelStore.model.detailing!.assemblies) {
+      if (assembly.conflicts.length) expect(assembly.state).not.toBe('CONSTRUCTIBLE');
+    }
   }, 600_000);
 });

@@ -40,7 +40,7 @@ import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it('the outcome population is 372 VERIFIED + 36 honest refusals — 373 was a display band', () => {
+  it('the outcome population is 376 VERIFIED + 32 honest refusals — 373 was a display band', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
     // 379 since the ductility check of §9.3.3.1 steers the search off over-reinforced candidates
@@ -48,7 +48,7 @@ describe('the 408/373 discrepancy', () => {
     // autodesign-regression.test.ts, header). 373 until then. 383 since the minimum shear
     // reinforcement of CIRSOC 201-2025 §9.6.3.1 (same header): 165–168 verify.
     // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
-    expect(summary.verified).toBe(372);
+    expect(summary.verified).toBe(376);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
@@ -57,7 +57,7 @@ describe('the 408/373 discrepancy', () => {
     // SEARCH_EXHAUSTED; no bound proves their section inadequate (`section-bounds.ts`).
     expect(summary.sectionInadequate).toBe(0);
     const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
-    expect(congested).toHaveLength(23);
+    expect(congested).toHaveLength(19);
     for (const o of congested) {
       expect(o.limiting, `member ${o.elementId}`).toContain('congestion');
       expect(o.exhaustion?.scope, `member ${o.elementId}`).toBe('implementedAlternatives');

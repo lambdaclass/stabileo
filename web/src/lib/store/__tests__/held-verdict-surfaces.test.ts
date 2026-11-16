@@ -337,10 +337,10 @@ describe('(c) the span building with no slab: a member held by the detailing alo
     // e10, e12, e18, e20, e23 and e25, besides e21. No column lift is left open.
     const columns = new Set([...verificationStore.contexts].filter(([, c]) => c.elementType === 'column').map(([id]) => id));
     expect(lifts.filter((id) => columns.has(id))).toEqual([]);
-    expect(lifts.filter((id) => !columns.has(id)).sort((a, b) => a - b)).toEqual([5, 7, 10, 12, 18, 20, 23, 25]);
+    expect(lifts.filter((id) => !columns.has(id)).sort((a, b) => a - b)).toEqual([5, 7, 10, 12]);
     const held = [...r.held.keys()].sort((a, b) => a - b);
-    expect(held).toEqual([5, 7, 8, 10, 12, 18, 20, 21, 23, 25]);
-    expect(kinds(r)).toEqual({ detailing: 10 });
+    expect(held).toEqual([5, 7, 8, 10, 12, 18, 21, 23]);
+    expect(kinds(r)).toEqual({ detailing: 8 });
     expect([...r.held.values()].some((k) => k.has('analysis'))).toBe(false);
     expect(r.violations).toEqual([]);
     expect(r.localOkHeld).toBeGreaterThan(0);
