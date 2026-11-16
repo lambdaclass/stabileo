@@ -127,7 +127,6 @@
   }
 
   const at = () => new Date().toISOString();
-  /** The reinforcement drawings are the sheets' export: their panel, in the Analyse stage. */
   function openRcSheets() { uiStore.proActiveTab = 'rcSheets'; uiStore.proPanelVisible = true; }
 </script>
 
@@ -243,7 +242,7 @@
 <style>
   .sheets { border-top: 1px solid var(--st-hair); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
   .lead, .muted { margin: 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
-  .lead.rc .link { font-size: inherit; padding: 0; background: none; border: none; color: var(--st-interactive); text-decoration: underline; cursor: pointer; }
+  .lead.rc .link { margin-left: 4px; font-size: 0.66rem; padding: 1px 8px; background: var(--st-surface-2); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer; }
   .lead.rc .link:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .settings { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .settings label, .rev { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.64rem; color: var(--st-text-2); }

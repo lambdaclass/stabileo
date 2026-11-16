@@ -1,5 +1,4 @@
 <script lang="ts">
-  /** Each level's weight, centre of mass, centre of rigidity and the eccentricity between them (`store/level-centres.ts`). */
   import Hint from './Hint.svelte';
   import { t } from '../../lib/i18n';
   import { modelStore } from '../../lib/store';
