@@ -6,7 +6,7 @@ type P2 = [number, number];
 type Point = { x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
 
-class SnowRoofPlaneRefusal extends Error {
+export class SnowRoofPlaneRefusal extends Error {
   constructor() { super('snow.refused.roofPlane'); }
 }
 const cross = (a: P2, b: P2, c: P2) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);

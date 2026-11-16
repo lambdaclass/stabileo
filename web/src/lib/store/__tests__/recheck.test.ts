@@ -115,6 +115,31 @@ describe('recheckStore', () => {
     expect(recheckStore.noticeOpen).toBe(false);
   });
 
+  it.each(['2d', '3d', 'pro'])('keeps the exact wind regeneration notices after re-solving in %s', async mode => {
+    for (const type of ['W', 'Wa']) {
+      const snapshot = { analysisMode: mode, loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } }, solvedWith: recheckStore.capture() };
+      const expected = ['generated-area-loads-headroom', 'wind-physical-pressure-field'];
+      recheckStore.openProject(snapshot, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+      recheckStore.acknowledge();
+      for (const analysis of ['linear', 'pdelta', 'plastic'] as const) {
+        recheckStore.noteSolved(analysis);
+        const saved = { ...snapshot, solvedWith: recheckStore.capture() };
+        recheckStore.reset();
+        recheckStore.openProject(saved, mode);
+        await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+        expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+        expect(recheckStore.noticeOpen).toBe(true);
+      }
+      recheckStore.reset();
+      recheckStore.openProject({ ...snapshot, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } }, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual([]);
+      expect(recheckStore.noticeOpen).toBe(false);
+    }
+  });
+
   it('keeps the notice up when live calc re-solves before it was read', async () => {
     recheckStore.openProject(steelTruss(), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));

@@ -267,7 +267,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const types = new Set(cases.map((c) => c.type));
   if (types.has('E') || cases.some((c) => c.spectral) || s.massSource) f.add('seismic');
   if (types.has('S')) f.add('snow');
-  if (types.has('W')) f.add('wind');
+  if (types.has('W') || types.has('Wa')) f.add('wind');
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');

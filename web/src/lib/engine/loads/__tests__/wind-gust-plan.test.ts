@@ -35,7 +35,7 @@ const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', ...wind },
 });
-const yForce = (p: ReturnType<typeof buildLoadPlan>, nodeIds: number[]) => p.nodal.filter((n) => n.caseType === 'W' && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
+const yForce = (p: ReturnType<typeof buildLoadPlan>, nodeIds: number[]) => p.nodal.filter((n) => n.caseType === 'W' && n.caseIndex !== undefined && p.cases[n.caseIndex]!.nameKey.startsWith('autoLoad.windCase1') && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
 
 describe('a flexible building in the load plan', () => {
   it('a 60 m concrete frame by the approximate frequency: G_f 0,978 along Y, its level forces 1,151 times the rigid ones', () => {
@@ -110,7 +110,7 @@ describe('a flexible building in the load plan', () => {
     }, tower(13, 2, 2));
     expect(p.factors.windGust?.x?.kind).toBe('flexible');
     expect(p.unsupportedKeys).toContainEqual({ key: `loads.cirsoc102.gust.no${n1Source === 'typed' ? 'Typed' : 'Modal'}Frequency`, params: { axis: 'Y' } });
-    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '-X']);
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X', '-X', '-X']);
     expect(p.nodal.some((n) => n.fx !== 0)).toBe(true);
     expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
   });
@@ -122,11 +122,11 @@ describe('a flexible building in the load plan', () => {
       dynamics: { n1Source: 'typed', n1: { x: 0.4 }, beta: 0.02, rigidG: 'default' },
     };
     const missing = plan(wind, tower(13, 2, 2));
-    expect(missing.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
+    expect(missing.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X']);
     expect(missing.nodal.every((n) => n.fy === 0)).toBe(true);
     expect(missing.unsupportedKeys.some((m) => m.key.endsWith('noTypedFrequency'))).toBe(true);
     const complete = plan({ ...wind, dynamics: { ...wind.dynamics!, n1: { x: 0.4, y: 0.5 } } }, tower(13, 2, 2));
-    expect(complete.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X+Y']);
+    expect(complete.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X', '+X+Y', '+X+Y']);
     expect(complete.nodal.some((n) => n.fy !== 0)).toBe(true);
   });
 
@@ -146,7 +146,7 @@ describe('a flexible building in the load plan', () => {
       dynamics: { n1Source: 'typed', n1: { x: 1.2, y: 0.4 }, beta: 0, rigidG: 'default' },
     }, tower(13, 2, 2));
     expect(p.unsupportedKeys.some((m) => m.key.endsWith('noResonance'))).toBe(true);
-    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X']);
     expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
   });
 

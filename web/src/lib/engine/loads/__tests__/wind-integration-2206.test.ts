@@ -2,9 +2,8 @@ import { expect, it } from 'vitest';
 import { otherStructureWind, type OtherStructure } from '../wind-other';
 import { mesh, windProject, remeshWind, variants, windResultants, assertWindResultants } from './wind-integration-fixture';
 
-const wrong = process.env.RUN_KNOWN_WRONG === '2206' ? it : it.skip;
 for (const kind of ['chimney', 'openSign', 'latticeTower', 'solidSign'] as const) for (const variant of variants) for (const dir of ['+x', '-x', '+y', '-y'] as const) {
-  wrong(`known wrong result: #2206 uniform pressure centroid ${kind} ${variant} ${dir}`, () => {
+  it(`#2206 uniform pressure centroid ${kind} ${variant} ${dir}`, () => {
     const cross = dir.endsWith('x') ? [0, 2] : [2, 0];
     const original = kind === 'solidSign' ? mesh([[[0, 0, 0], [0, 0, 6]], [[cross[0]!, cross[1]!, 0], [cross[0]!, cross[1]!, 6]]]) : mesh([[[0, 0, 0], [0, 0, 6]]]);
     const m = remeshWind(original, variant), d = m.direction(dir);
@@ -16,3 +15,23 @@ for (const kind of ['chimney', 'openSign', 'latticeTower', 'solidSign'] as const
     expect(c.nodal.some(n => m.model.nodes.get(n.nodeId)!.z === 0 && Math.hypot(n.fx, n.fy) > 0)).toBe(true);
   });
 }
+
+it('#2206 below-ground support carriers carry the above-ground field without inventing buried wind area', () => {
+  const model = mesh([[[0, 0, -2], [0, 0, 6]]]);
+  const c = otherStructureWind({ model, structure: { kind: 'chimney', section: 'squareNormal', diameter: 2 }, project: { ...windProject, basicSpeed: 1 }, directions: ['+x'], tributaryWidth: 1 }).cases[0]!;
+  assertWindResultants(windResultants(model, [], c.nodal), [9.6, 0, 0, 0, 28.8, 0]);
+});
+
+it('#2206 the uniform minimum is a separate physical case, preserving the calculated height field', () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 20]]]);
+  const project = { ...windProject, structureKind: 'chimneyRound' as const, basicSpeed: 45, meanRoofHeight: 20 };
+  const out = otherStructureWind({ model, structure: { kind: 'chimney', section: 'roundRough', diameter: 3 }, project, directions: ['+x'], tributaryWidth: 1 });
+  expect(out.cases.map(c => c.nameKey).sort()).toEqual(['wind.other.case', 'wind.other.minimumOtherCase']);
+  const minimum = out.cases.find(c => c.nameKey === 'wind.other.minimumOtherCase')!;
+  assertWindResultants(windResultants(model, [], minimum.nodal), [48, 0, 0, 0, 480, 0]);
+  const exponent = 2 / 9.8, cf = 0.7 + (0.8 - 0.7) * (20 / 3 - 1) / 6;
+  const factor = 3 * 0.85 * cf * 0.613 * 2.41 * 45 ** 2 / 750 ** exponent / 1000;
+  const force = factor * (5 * 5 ** exponent + (20 ** (1 + exponent) - 5 ** (1 + exponent)) / (1 + exponent));
+  const first = factor * (25 / 2 * 5 ** exponent + (20 ** (2 + exponent) - 5 ** (2 + exponent)) / (2 + exponent));
+  assertWindResultants(windResultants(model, [], out.cases.find(c => c.nameKey === 'wind.other.case')!.nodal), [force, 0, 0, 0, first, 0]);
+});

@@ -5,11 +5,12 @@
  */
 import {
   applyMinimumWindLoad, computeWindPressures, internalPressureCoefficient, velocityPressure, G_RIGID,
-  SERVICE_WIND_FACTOR, type WindProject,
+  SERVICE_WIND_FACTOR, EXPOSURE_CONSTANTS, type WindProject,
 } from '../../codes/cirsoc102/wind';
-import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, effectiveLength, type GustResult } from '../../codes/cirsoc102/gust';
+import { gustEffectFactor, dynamicSensitivity, meanHourlySpeed, equivalentHeight, type GustResult } from '../../codes/cirsoc102/gust';
 import { gustInputsFor, isLowRise } from './wind-dynamics';
 import { windLoadCases, type WindAxis, type WindLevel } from './wind-cases';
+import { integrateWindPressure, windHeightField, WindPressureRefusal } from './wind-pressure-field';
 import { otherStructureWind } from './wind-other';
 import { REF_FREE_ROOF, REF_SIGN, REF_OTHER, REF_MIN_OTHER } from '../../codes/cirsoc102/other-structures';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
@@ -18,7 +19,21 @@ import { windDirectionsOf, type LevelMass, type LoadPlanInput, type PlanSink } f
 
 const R102 = (c: string, l?: string) => clause('cirsoc-102', '2025', c, l);
 
-export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined; windGust?: Partial<Record<'x' | 'y', GustResult>> } {
+export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSink): ReturnType<typeof planWindUnchecked> {
+  const keys = ['cases', 'nodal', 'distributed', 'derivation', 'refs', 'assumptions', 'unsupportedKeys', 'blockedKeys'] as const;
+  const work = { ...sink, cases: [...sink.cases], nodal: [...sink.nodal], distributed: [...sink.distributed], derivation: [...sink.derivation], refs: [...sink.refs], assumptions: [...sink.assumptions], unsupportedKeys: [...sink.unsupportedKeys], blockedKeys: [...sink.blockedKeys] };
+  try {
+    const result = planWindUnchecked(input, levels, work);
+    for (const key of keys) (sink[key] as unknown[]).push(...work[key].slice(sink[key].length));
+    return result;
+  } catch (error) {
+    if (!(error instanceof WindPressureRefusal)) throw error;
+    sink.blockedKeys.push(msg(error.message));
+    return { windQh: undefined };
+  }
+}
+
+function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined; windGust?: Partial<Record<'x' | 'y', GustResult>> } {
   const { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys } = sink;
   const windAxes: WindAxis[] = [];
   let windQh: ProvenancedValue<number> | undefined;
@@ -80,7 +95,22 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
       if (span > STICK || !(declared !== undefined && declared > 0) || st?.kind === 'openSign') return span;
       return st?.kind === 'latticeTower' && st.section === 'triangle' ? declared * Math.sqrt(3) / 2 : declared;
     };
-    const rawGust = (axis: 'x' | 'y') => gustInputsFor(dyn, axis, h, levels.map((l) => ({ elevation: l.elevation, along: extent(l.nodeIds, axis) })), lowRise, kind);
+    const meanDimensions = new Map<'x' | 'y', number>();
+    const physicalMeanDimension = (axis: 'x' | 'y') => {
+      if (meanDimensions.has(axis)) return meanDimensions.get(axis)!;
+      const span = axis === 'x' ? bx : by;
+      const fallback = widthOr(span);
+      if (!(fallback > 0)) return 0;
+      if (kind === 'freeRoof') return fallback;
+      const lowest = Math.min(...levels.map(l => l.elevation));
+      const from = lowest > 0 ? Math.max(0, ...modelElevations.filter(z => z < lowest - 1e-6)) : Math.max(0, lowest);
+      if (!(h > from)) return fallback;
+      const field = windHeightField({ model: input.model, axis: axis === 'x' ? 'y' : 'x', from, to: h, region: region ?? undefined, width: fallback, pressure: () => 1 });
+      const mean = [...field.loads.values(), ...field.baseLoads.values()].reduce((sum, f) => sum + f, 0) / (h - from);
+      meanDimensions.set(axis, mean);
+      return mean;
+    };
+    const rawGust = (axis: 'x' | 'y') => dyn ? gustInputsFor(dyn, axis, h, [{ elevation: h, along: physicalMeanDimension(axis) }], lowRise, kind) : undefined;
     /** A refusal once, however many axes or passes meet it. */
     const refuse = (m: EngineMessage) => { if (!unsupportedKeys.some((u) => messageIdentity(u) === messageIdentity(m))) unsupportedKeys.push(m); };
     let sensitive: EngineMessage[] = [];
@@ -91,9 +121,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
        * the wind: a setback tower's, not its podium's. Trigger III reads the lowest natural
        * frequency of the structure, a torsional mode's included, which the modal reading carries.
        */
-      const elevated = levels.filter((l) => l.elevation > 0);
-      const weighted = (['x', 'y'] as const).map((a) => effectiveLength(elevated.map((l) => ({ h: l.elevation, L: acrossAt(l.nodeIds, a) }))));
-      const bMin = elevated.length ? Math.min(...weighted) : Math.min(acrossAt(null, 'x'), acrossAt(null, 'y'));
+      const bMin = Math.min(physicalMeanDimension('x'), physicalMeanDimension('y'));
       const n1s = (['x', 'y'] as const).map((a) => { const g = rawGust(a); return g && !('refused' in g) ? g.n1 : undefined; }).filter((v): v is number => v !== undefined);
       if (dyn.n1Source === 'modal' && dyn.modal?.lowest !== undefined && dyn.modal.lowest > 0) n1s.push(dyn.modal.lowest);
       const n1 = n1s.length ? Math.min(...n1s) : undefined;
@@ -123,7 +151,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
           basicSpeed: speed, exposure: input.wind!.exposure,
           siteAltitudeM: input.wind!.siteAltitudeM, kzt: input.wind!.kzt,
           kztSurveyed: input.wind!.kztSurveyed, structureKind: 'building',
-          enclosure: input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
+          enclosure: profile ? 'enclosed' : input.wind!.enclosure, meanRoofHeight: Math.max(h, 1),
           L: Math.max(along, 1), B: Math.max(across, 1),
           roofSlopeDeg: input.wind!.roofSlopeDeg, rigid: input.wind!.rigid,
         };
@@ -169,55 +197,28 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
          * itself, so Wa was W.
          */
         const profileScale = service ? (speed / input.wind!.basicSpeed) ** 2 : 1;
-        const bandNet = (z0: number, z1: number) => profile ? profileScale * profileMean(profile, z0, z1) : codeBandNet(z0, z1);
-        const codeBandNet = (z0: number, z1: number) => {
-          if (z1 <= z0) return (qz(z0) * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
-          // Simpson over the band: q_z is smooth in z (a power law of height past 5 m).
-          const n = 8, hh = (z1 - z0) / n;
-          let sum = qz(z0) + qz(z1);
-          for (let k = 1; k < n; k++) sum += (k % 2 ? 4 : 2) * qz(z0 + k * hh);
-          const meanQz = (sum * hh / 3) / (z1 - z0);
-          return (meanQz * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
-        };
-        const net = bandNet(h, h);   // kPa, at the roof: what the summary line reports
+        const density = (z: number) => profile ? profileScale * profileMean(profile, z, z) : (qz(z) * G * cpWw - res.qhNm2 * G * cpLw) / 1000;
+        const net = density(h);
 
-        const elevated = levels.filter((l) => l.elevation > 0);
-        const windLevels: WindLevel[] = [];
-        for (let i = 0; i < elevated.length; i++) {
-          const lv = elevated[i];
-          /*
-           * Under a region's lowest level, the model's level below it: a box over the upper
-           * storeys gave its lowest level the wall down to the ground (90 kN at +6 m of a 3 m
-           * storey tower for the 60 of its band).
-           */
-          const below = i === 0 ? Math.max(0, ...modelElevations.filter((z) => z < lv.elevation - 1e-6)) : elevated[i - 1].elevation;
-          const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1].elevation;
-          // The lower half of the first storey goes straight to the foundation, as before.
-          const z0 = (below + lv.elevation) / 2;
-          const z1 = (lv.elevation + above) / 2;
-          const tribH = z1 - z0;
-          const levelNet = bandNet(z0, z1);
-          const force = levelNet * across * tribH;
-          if (!service) derivation.push(msg('loadPlan.derivation.windLevel', {
-            dir: dir.toUpperCase(), level: round(lv.elevation, 2),
-            z0: round(z0, 2), z1: round(z1, 2), net: round(levelNet, 3), force: round(force, 1),
-          }));
-          // A profile of the user's is the design pressure itself: the code's minimum is the code's.
-          const min = profile ? { totalN: force * 1000, governedByMinimum: false, refs: [] } : applyMinimumWindLoad(force * 1000, across * tribH, 0);
-          const applied = min.totalN / 1000;
-          if (!service && min.governedByMinimum) {
-            // Per direction: the minimum can govern a level in X and in Y, and those are two
-            // findings. Without `dir` they read identically and could not be told apart.
-            unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', {
-              dir: dir.toUpperCase(), level: round(lv.elevation, 2),
-            }));
-            refs.push(...min.refs);
+        const lowest = Math.min(...levels.map(l => l.elevation));
+        const from = lowest > 0 ? Math.max(0, ...modelElevations.filter(z => z < lowest - 1e-6)) : Math.max(0, lowest);
+        const boundaries = [5, EXPOSURE_CONSTANTS[project.exposure].zg, ...(profile?.map(([z]) => z) ?? [])];
+        const pressure = region && across === 0 ? { loads: new Map<number, number>(), baseLoads: new Map<number, number>() } : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: density, width: across > 0 ? across : input.tributaryWidth });
+        const design = service || profile || (region && across === 0) ? pressure : windHeightField({ model: input.model, axis: dir, from, to: h, region: region ?? undefined, boundaries, pressure: () => 0.75, width: across > 0 ? across : input.tributaryWidth });
+        const atNodes = (loads: Map<number, number>, raw: Map<number, number>): WindLevel[] => [...loads].map(([id, force]) => ({ elevation: input.model.nodes.get(id)!.z ?? 0, nodeIds: [id], force, pressureForce: raw.get(id) ?? 0 }));
+        const windLevels = atNodes(pressure.loads, pressure.loads);
+        const baseLoads = atNodes(pressure.baseLoads, pressure.baseLoads);
+        const minimumLevels = service || profile || (region && across === 0) ? undefined : [...atNodes(design.baseLoads, design.baseLoads), ...atNodes(design.loads, design.loads)];
+        if (!service) {
+          for (const lv of [...baseLoads, ...windLevels]) derivation.push(msg('loadPlan.derivation.windLevel', { dir: dir.toUpperCase(), level: round(lv.elevation, 2), z0: from, z1: h, net: round(density(lv.elevation), 3), force: round(lv.force, 1) }));
+          if (!profile && [...design.baseLoads, ...design.loads].some(([id, force]) => force > (pressure.baseLoads.get(id) ?? pressure.loads.get(id) ?? 0) + 1e-9)) {
+            const minimum = applyMinimumWindLoad(0, 1, 0);
+            unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', { dir: dir.toUpperCase(), level: round(h, 2) }));
+            refs.push(...minimum.refs);
           }
-          // §2.1.5's minimum is a design load; service wind (Wa) is the pressures alone.
-          windLevels.push({ elevation: lv.elevation, nodeIds: lv.nodeIds, force: service ? force : applied, pressureForce: force });
         }
         out.push({
-          axis: dir, across, along, levels: windLevels, project, qhNm2: res.qhNm2,
+          axis: dir, across, along, levels: windLevels, baseLoads, minimumLevels, project, qhNm2: res.qhNm2,
           gcpi: internalPressureCoefficient(input.wind!.enclosure),
           G, ...(res.gust ? { gust: res.gust, eR: dyn?.eR?.[dir] ?? 0 } : {}),
         });
@@ -275,7 +276,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         const index = cases.length;
         cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
-        for (const d of c.distributed) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qX: d.qX, qY: d.qY, frame: 'global' });
+        for (const d of c.distributed) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.qZ, qX: d.qX, qY: d.qY, frame: 'global' });
       }
     } else windAxes.push(...axesFor(input.wind.basicSpeed, false));
     if (windAxes.length > 0) {
@@ -294,7 +295,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
         const index = cases.length;
         cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-        for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+        for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
       }
     }
 
@@ -323,7 +324,7 @@ export function planWind(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
           const index = cases.length;
           cases.push({ existingId: null, type: 'Wa', nameKey: c.nameKey.replace('windCase1', 'windCaseWa'), nameParams: { ...c.nameParams, mri: sw.mri } });
           for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'Wa', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-          for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
+          for (const d of c.distributed) if (roofLoaded(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'Wa', caseIndex: index, q: d.q });
         }
       }
     }
@@ -352,8 +353,5 @@ export function profileMean(profile: ReadonlyArray<readonly [number, number]>, z
     return pa + (pb - pa) * (z - za) / (zb - za);
   };
   if (z1 <= z0) return at(z0);
-  const cuts = [z0, ...profile.map(([z]) => z).filter((z) => z > z0 && z < z1), z1];
-  let area = 0;
-  for (let i = 0; i + 1 < cuts.length; i++) area += (at(cuts[i]!) + at(cuts[i + 1]!)) / 2 * (cuts[i + 1]! - cuts[i]!);
-  return area / (z1 - z0);
+  return integrateWindPressure(z1 - z0, profile.map(([z]) => z - z0), s => at(z0 + s)).reduce((sum, p) => sum + p.force, 0) / (z1 - z0);
 }

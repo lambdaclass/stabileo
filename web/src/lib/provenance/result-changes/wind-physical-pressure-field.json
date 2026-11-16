@@ -1,0 +1,40 @@
+{
+  "id": "wind-physical-pressure-field",
+  "date": "2026-11-16",
+  "prs": [
+    2203,
+    2204,
+    2205,
+    2206
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "wind",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Wind enclosure and pressure fields follow the physical structure",
+    "es": "La clasificación y las presiones de viento siguen la estructura física",
+    "pt": "A classificação e as pressões de vento seguem a estrutura física",
+    "de": "Windklassifizierung und Druckfelder folgen der physischen Struktur",
+    "fr": "Le classement et les pressions du vent suivent la structure physique",
+    "tr": "Rüzgâr sınıflandırması ve basınç alanları fiziksel yapıyı izler"
+  },
+  "explanation": {
+    "en": "One open wall could incorrectly classify an otherwise closed building as open. Generated wall wind omitted foundation force; roof and other-structure pressure placement depended on member subdivision. Review every wall and roof opening area, reclassify the enclosure, regenerate W and Wa loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them (#2203–#2206). Minimum horizontal cases are kept separate from calculated pressure fields.",
+    "es": "Una pared abierta podía clasificar erróneamente como abierto un edificio con las demás paredes cerradas. El viento generado omitía fuerzas en la fundación y las presiones de cubiertas y otras estructuras dependían de la subdivisión. Revise las aberturas de todas las paredes y la cubierta, reclasifique, regenere W y Wa y recalcule análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige (#2203–#2206). Los casos mínimos horizontales se mantienen separados de las presiones calculadas.",
+    "pt": "Uma parede aberta podia classificar incorretamente como aberto um edifício com as outras paredes fechadas. O vento gerado omitia forças na fundação e as pressões de coberturas e outras estruturas dependiam da subdivisão. Revise todas as aberturas, reclassifique, gere W e Wa novamente e recalcule análises, combinações e verificações. Recalcular apenas as cargas salvas não as corrige (#2203–#2206). Os casos mínimos horizontais permanecem separados das pressões calculadas.",
+    "de": "Eine offene Wand konnte ein sonst geschlossenes Gebäude fälschlich als offen einstufen. Erzeugte Windlasten ließen Fundamentkräfte aus; Dachlasten und Lasten anderer Strukturen hingen von der Stabteilung ab. Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht (#2203–#2206). Horizontale Mindestlastfälle bleiben von berechneten Druckfeldern getrennt.",
+    "fr": "Une paroi ouverte pouvait faire classer comme ouvert un bâtiment autrement fermé. Les charges générées omettaient des forces aux fondations ; les pressions sur les toits et autres structures dépendaient de la subdivision. Vérifiez toutes les ouvertures, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées seules ne les corrige pas (#2203–#2206). Les cas horizontaux minimaux restent séparés des pressions calculées.",
+    "tr": "Tek bir açık duvar, diğer duvarları kapalı bir binayı yanlışlıkla açık sınıflandırabiliyordu. Üretilen rüzgâr yüklerinde temel kuvvetleri eksikti; çatı ve diğer yapı basınçları çubuk bölünmesine bağlıydı. Tüm duvar ve çatı açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2203–#2206). Asgari yatay yük durumları hesaplanan basınç alanlarından ayrı tutulur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-physical-pressure-field.md",
+    "heading": "Wind enclosure and pressure fields follow the physical structure"
+  }
+}

@@ -39,8 +39,13 @@
   }: Props = $props();
 
   // ── Enclosure from the openings ──
-  let a0 = $state(0), ag = $state(0), a0i = $state(0), agi = $state(0);
-  const classified = $derived(ag > 0 ? classifyEnclosure({ a0, ag, a0i, agi }) : null);
+  let walls = $state(Array.from({ length: 4 }, () => ({ openings: 0, gross: 0 })));
+  let roofOpenings = $state({ openings: 0, gross: 0 });
+  const classification = $derived.by(() => {
+    try { return { value: classifyEnclosure({ walls, roof: roofOpenings }), reason: null }; }
+    catch (error) { return { value: null, reason: (error as Error).message }; }
+  });
+  const classified = $derived(classification.value);
 
   // ── qz profile ──
   const project = $derived({
@@ -107,11 +112,15 @@
     <summary>{t('autoLoad.windOpenings')}</summary>
     <Hint text={t('autoLoad.windOpeningsHint')} />
     <div class="al-grid">
-      <label class="al-field"><span class="al-label">A₀</span><QuantityInput bind:value={a0} quantity="planArea" min={0} testid="al-wind-a0" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A_g</span><QuantityInput bind:value={ag} quantity="planArea" min={0} testid="al-wind-ag" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A₀i</span><QuantityInput bind:value={a0i} quantity="planArea" min={0} testid="al-wind-a0i" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A_gi</span><QuantityInput bind:value={agi} quantity="planArea" min={0} testid="al-wind-agi" wrap="al-unit-field" /></label>
+      {#each walls as wall, i}
+        <label class="al-field"><span class="al-label">{t('autoLoad.windWall')} {i + 1} · A₀</span><QuantityInput bind:value={wall.openings} quantity="planArea" min={0} testid="al-wind-wall-{i}-openings" wrap="al-unit-field" /></label>
+        <label class="al-field"><span class="al-label">{t('autoLoad.windWall')} {i + 1} · A_g</span><QuantityInput bind:value={wall.gross} quantity="planArea" min={0} testid="al-wind-wall-{i}-gross" wrap="al-unit-field" /></label>
+      {/each}
+      <label class="al-field"><span class="al-label">{t('autoLoad.windRoof')} · A₀</span><QuantityInput bind:value={roofOpenings.openings} quantity="planArea" min={0} testid="al-wind-roof-openings" wrap="al-unit-field" /></label>
+      <label class="al-field"><span class="al-label">{t('autoLoad.windRoof')} · A_g</span><QuantityInput bind:value={roofOpenings.gross} quantity="planArea" min={0} testid="al-wind-roof-gross" wrap="al-unit-field" /></label>
     </div>
+    <button class="al-link" onclick={() => { walls = [...walls, { openings: 0, gross: 0 }]; }}>{t('autoLoad.windAddWall')}</button>
+    {#if classification.reason}<p class="al-warn" data-testid="al-wind-classification-refused">{t(classification.reason)}</p>{/if}
     {#if classified}
       <div class="al-row">
         <span data-testid="al-wind-classified">{tp('autoLoad.windOpeningsResult', { e: t(`loads.cirsoc102.enclosure.${classified}`) })}</span>

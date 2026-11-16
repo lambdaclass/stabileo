@@ -155,10 +155,9 @@ describe('service wind Wa on a profile and on a region', () => {
     const wa = p.cases.filter((c) => c.type === 'Wa');
     expect(wa).toHaveLength(1);
     expect(p.distributed.filter((d) => d.caseType === 'Wa')).toHaveLength(0);
-    // W: 1 kPa on the 20 m front from 1,5 to 12 m, 210 kN; Wa scaled by the speeds squared.
-    expect(shear(p, 'W')).toBeCloseTo(210, 6);
+    expect(shear(p, 'W')).toBeCloseTo(240, 6);
     const vs = 30 * SERVICE_WIND_FACTOR[10];
-    expect(shear(p, 'Wa')).toBeCloseTo(210 * (vs / 45) ** 2, 6);
+    expect(shear(p, 'Wa')).toBeCloseTo(240 * (vs / 45) ** 2, 6);
   });
 
   it('a region: Wa’s roof loads only on the members inside, as W’s', () => {

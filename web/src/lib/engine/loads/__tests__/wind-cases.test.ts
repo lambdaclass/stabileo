@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { levelLoads, roofMembers, roofLoads, windLoadCases, WIND_DIRECTIONS, type WindAxis, type WindModel } from '../wind-cases';
-import { flatRoofCp, G_RIGID, type WindProject } from '../../../codes/cirsoc102/wind';
+import { G_RIGID, type WindProject } from '../../../codes/cirsoc102/wind';
 
 /** A one-storey box: 4 columns at the corners of Bx × By, 4 roof beams at height h. */
 function box(bx: number, by: number, h: number): WindModel {
@@ -138,18 +138,15 @@ describe('roof pressures', () => {
 
   it('read Cp by distance from the windward edge, with the internal pressure that adds to suction', () => {
     const q = roofLoads(roof, ax, 1, 1, 2, bounds);
-    // Member 5 runs along x at y = 0, midpoint x = 15 m from the windward edge: beyond 2h.
-    const cp = flatRoofCp(h / bx, 15, h).cp;
-    const p = 800 * G_RIGID * Math.min(...cp) - 0.18 * 800;
-    expect(q.get(5)).toBeCloseTo((-p / 1000) * 2, 10);
-    // Member 8 (x = 0, parallel to the wind's front) sits on the windward edge: −0,9.
+    const q5 = q.filter(p => p.elementId === 5);
+    expect(q5.reduce((sum, p) => sum + p.q * (p.b - p.a), 0)).toBeCloseTo(2 * (800 * G_RIGID / 1000 * (0.9 * h + 0.5 * h + 0.3 * (bx - 2 * h)) + 0.18 * 800 / 1000 * bx), 10);
     const p8 = 800 * G_RIGID * -0.9 - 0.18 * 800;
-    expect(q.get(8)).toBeCloseTo((-p8 / 1000) * 2, 10);
+    expect(q.find(p => p.elementId === 8)!.q).toBeCloseTo((-p8 / 1000) * 2, 10);
   });
 
   it('mirror their zones for wind from the other side, and reverse nothing', () => {
     const plus = roofLoads(roof, ax, 1, 1, 2, bounds), minus = roofLoads(roof, ax, -1, 1, 2, bounds);
-    expect(minus.get(6)).toBeCloseTo(plus.get(8)!, 10);   // x = 30 is windward for −X
-    for (const v of minus.values()) expect(v).toBeGreaterThan(0);   // still suction
+    expect(minus.find(p => p.elementId === 6)!.q).toBeCloseTo(plus.find(p => p.elementId === 8)!.q, 10);   // x = 30 is windward for −X
+    for (const v of minus) expect(v.q).toBeGreaterThan(0);   // still suction
   });
 });

@@ -20,15 +20,13 @@ describe('wind on other structures', () => {
   it('a square trussed tower: F = qz G Cf ε B Δz per level, along each direction', () => {
     const pts: Array<[number, number, number]> = [];
     for (const z of [0, 3, 6, 9]) for (const [x, y] of [[0, 0], [2, 0], [2, 2], [0, 2]]) pts.push([x, y, z]);
-    const m = model(pts, [[1, 5], [5, 9], [9, 13]]);
+    const m = model(pts, Array.from({ length: 4 }, (_, i) => [[1 + i, 5 + i], [5 + i, 9 + i], [9 + i, 13 + i]] as Array<[number, number]>).flat());
     const p = project('latticeTowerTriangularOrRect');
     const out = otherStructureWind({ model: m, structure: { kind: 'latticeTower', section: 'square', round: false, solidity: 0.2, diagonal: true }, project: p, directions: ['+x'], tributaryWidth: 1 });
     // Only +x asked: the one diagonal beside it, toward +y (no sense asked on y).
-    expect(out.cases.map((c) => c.nameParams.dir)).toEqual(['+X', '+X+Y']);
+    expect(out.cases.filter(c => c.nameKey === 'wind.other.case').map((c) => c.nameParams.dir)).toEqual(['+X', '+X+Y']);
     const cf = towerCf(0.2, 'square', false);
-    // Levels 3, 6, 9: bands [0, 4,5], [4,5, 7,5], [7,5, 9].
-    const bands: Array<[number, number]> = [[0, 4.5], [4.5, 7.5], [7.5, 9]];
-    const expected = bands.reduce((s, [a, b]) => s + Math.max(velocityPressure((a + b) / 2, p) / 1000 * G_RIGID * cf, 0.8) * 0.2 * 2 * (b - a), 0);
+    const expected = referenceIntegral(9, z => (velocityPressure(z, p) / 1000 * G_RIGID * cf) * 0.2 * 2);
     const fx = out.cases[0]!.nodal.reduce((s, n) => s + n.fx, 0);
     expect(fx).toBeCloseTo(expected, 6);
   });
@@ -39,10 +37,11 @@ describe('wind on other structures', () => {
     const m = model(pts, [[1, 3], [3, 5], [2, 4], [4, 6]]);
     const p = project('solidSign');
     const out = otherStructureWind({ model: m, structure: { kind: 'solidSign', clearance: 3 }, project: p, directions: ['+x'], tributaryWidth: 1 });
-    expect(out.cases).toHaveLength(3);
+    expect(out.cases).toHaveLength(4);
     const cf = solidSignCf(4 / 2, 2 / 5);
     const F = (velocityPressure(5, p) / 1000) * G_RIGID * cf * 4 * 2;
-    for (const c of out.cases) expect(c.nodal.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(F, 6);
+    for (const c of out.cases.filter(c => c.nameKey === 'wind.other.signCase')) expect(c.nodal.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(F, 6);
+    expect(out.cases.find(c => c.nameKey === 'wind.other.minimumOtherCase')!.nodal.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(0.8 * 4 * 2, 6);
     // B: no net force across, a moment of F · 0,2 B about the vertical.
     const b = out.cases[1]!.nodal;
     expect(b.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
@@ -105,11 +104,10 @@ describe('wind on other structures: a monoslope free roof, and stick models', ()
     expect(none.cases).toHaveLength(0);
     expect(none.notes.map((n) => n.key)).toEqual(['wind.other.noDiameter']);
     const out = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'roundRough', diameter: 3 }, project: p, directions: ['+x'], tributaryWidth: 1 });
-    // Levels 10 and 20: bands [0, 15] and [15, 20].
-    const expected = ([[0, 15], [15, 20]] as const).reduce((t, [a, b]) => {
-      const q = velocityPressure((a + b) / 2, p) / 1000;
-      return t + Math.max(q * G_RIGID * chimneyCf('roundRough', 20 / 3, 3 * Math.sqrt(q * 1000)), 0.8) * 3 * (b - a);
-    }, 0);
+    const expected = referenceIntegral(20, z => {
+      const q = velocityPressure(z, p) / 1000;
+      return (q * G_RIGID * chimneyCf('roundRough', 20 / 3, 3 * Math.sqrt(q * 1000))) * 3;
+    });
     expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
   });
 
@@ -122,7 +120,7 @@ describe('wind on other structures: a monoslope free roof, and stick models', ()
     expect(none.notes.map((n) => n.key)).toEqual(['wind.other.noWidth']);
     const out = otherStructureWind({ model: m, structure: { ...tower, width: 2 }, project: p, directions: ['+x'], tributaryWidth: 1 });
     const cf = towerCf(0.2, 'square', false);
-    const expected = ([[0, 9], [9, 12]] as const).reduce((t, [a, b]) => t + Math.max(velocityPressure((a + b) / 2, p) / 1000 * G_RIGID * cf, 0.8) * 0.2 * 2 * (b - a), 0);
+    const expected = referenceIntegral(12, z => (velocityPressure(z, p) / 1000 * G_RIGID * cf) * 0.2 * 2);
     expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
   });
 });
@@ -131,7 +129,7 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
   const tower = () => {
     const pts: Array<[number, number, number]> = [];
     for (const z of [0, 3, 6, 9]) for (const [x, y] of [[0, 0], [2, 0], [2, 2], [0, 2]]) pts.push([x, y, z]);
-    return model(pts, [[1, 5], [5, 9], [9, 13]]);
+    return model(pts, Array.from({ length: 4 }, (_, i) => [[1 + i, 5 + i], [5 + i, 9 + i], [9 + i, 13 + i]] as Array<[number, number]>).flat());
   };
 
   it('a square tower on its diagonals: all four when ±x and ±y are asked, each pushing its own way', () => {
@@ -140,7 +138,7 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
       model: tower(), structure: { kind: 'latticeTower', section: 'square', round: false, solidity: 0.2, diagonal: true },
       project: p, directions: ['+x', '-x', '+y', '-y'], tributaryWidth: 1,
     });
-    const diag = out.cases.filter((c) => String(c.nameParams.dir).length === 4);
+    const diag = out.cases.filter((c) => c.nameKey === 'wind.other.case' && String(c.nameParams.dir).length === 4);
     expect(diag.map((c) => c.nameParams.dir)).toEqual(['+X+Y', '+X-Y', '-X+Y', '-X-Y']);
     const along = out.cases.find((c) => c.nameParams.dir === '+X')!.nodal.reduce((s, n) => s + n.fx, 0);
     for (const c of diag) {
@@ -158,10 +156,10 @@ describe('wind on other structures: diagonals, the projected width, and a flexib
     const m = model([[0, 0, 0], [0, 0, 10], [0, 0, 20]], [[1, 2], [2, 3]]);
     const p = project('chimneySquare');
     const out = otherStructureWind({ model: m, structure: { kind: 'chimney', section: 'squareDiagonal', diameter: 2 }, project: p, directions: ['+x'], tributaryWidth: 1 });
-    const expected = ([[0, 15], [15, 20]] as const).reduce((t, [a, b]) => {
-      const q = velocityPressure((a + b) / 2, p) / 1000;
-      return t + Math.max(q * G_RIGID * chimneyCf('squareDiagonal', 20 / 2, 2 * Math.sqrt(q * 1000)), 0.8) * 2 * Math.SQRT2 * (b - a);
-    }, 0);
+    const expected = referenceIntegral(20, z => {
+      const q = velocityPressure(z, p) / 1000;
+      return (q * G_RIGID * chimneyCf('squareDiagonal', 20 / 2, 2 * Math.sqrt(q * 1000))) * 2 * Math.SQRT2;
+    });
     expect(out.cases[0]!.nodal.reduce((t, n) => t + n.fx, 0)).toBeCloseTo(expected, 6);
   });
 
@@ -222,3 +220,15 @@ describe('§2.1.5: the minimum wind force on an open building, for a free roof',
     expect(fx(min[0]!)).toBeCloseTo(0.75 * 5 * 3, 9);
   });
 });
+
+function referenceIntegral(h: number, density: (z: number) => number) {
+  const cuts = [0, Math.min(5, h), h];
+  let sum = 0;
+  for (let j = 1; j < cuts.length; j++) {
+    const a = cuts[j - 1]!, b = cuts[j]!, n = 8192, dz = (b - a) / n;
+    let v = density(a) + density(b);
+    for (let k = 1; k < n; k++) v += (k % 2 ? 4 : 2) * density(a + k * dz);
+    sum += v * dz / 3;
+  }
+  return sum;
+}

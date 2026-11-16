@@ -1,53 +1,10 @@
-/**
- * The design wind load cases of CIRSOC 102-2025 §2.4.6 (Fig. 2.4-8), as nodal forces per level
- * and line loads on the roof members.
- *
- *   Case 1  the full pressures along each principal axis, one axis at a time;
- *   Case 2  ¾ of case 1 along one axis with a torsional moment MT = 0,75·F·e, e = ±0,15·B;
- *   Case 3  ¾ of case 1 along both axes at once;
- *   Case 4  ¾ of case 2 along both axes at once (0,563), with the torsion of both.
- *
- * Roofs: ¾ of case 1 in cases 2 and 4; in cases 3 and 4, note 2 asks for the larger of the two
- * directions' roof pressure on each area, which is what `roofLoads` takes member by member.
- *
- * ── Levels and torsion ───────────────────────────────────────────
- *
- * Each level's force is the net windward and leeward pressure integrated over its band of
- * height (`load-plan.ts`). It is spread over the level's nodes, and MT over the same nodes as
- * forces proportional to their distance from the nodes' centroid, perpendicular to it: a set
- * with no resultant force and moment MT about the vertical, which is note 4's "otro método
- * racional" for floors without a rigid diaphragm, and on a rigid one the diaphragm receives MT
- * whatever the split. A level with one node takes MT as a nodal moment.
- *
- * Case 4 applies both eccentricities with the same sense of rotation, the pair that gives the
- * largest torsional moment. The sign of e (§2.4.6: "el que cause el efecto de carga más
- * severo") is covered by generating both senses.
- *
- * ── The four directions ──────────────────────────────────────────
- *
- * Wind from +X, −X, +Y and −Y are four different load states: the windward and leeward faces
- * swap, and the roof sees its suction from the other edge. Each direction chosen is generated
- * explicitly rather than by a sign in the combination, because a case multiplied by −1 would
- * turn roof suction into pressure. Cases 1 and 2 run over every direction chosen; cases 3 and
- * 4, which act on both axes at once, over every pair of a chosen X direction and a chosen Y one.
- *
- * ── Roof members ─────────────────────────────────────────────────
- *
- * A roof member is a beam-like member (|Δz|/L ≤ 0,5, the same test the gravity loads use)
- * whose two nodes are above the ground and that nothing higher covers in plan. The pressure is
- * normal to the member, so it goes on the member's local z, with the tributary width the
- * gravity loads use. Below 10°, or with wind parallel to the ridge, the coefficient is read by
- * distance from the windward edge (`flatRoofCp`); above, the windward and leeward slopes of
- * Fig. 2.4-1 by the member's slope relative to the wind. The internal pressure is taken with
- * each sign in case 1; cases 2 to 4 carry the roof with the positive sign, the larger suction.
- *
- * Pure: no store.
- */
 import {
   flatRoofCp, roofCp, G_RIGID, type WindProject,
 } from '../../codes/cirsoc102/wind';
 import { msg, type EngineMessage } from '../../codes/message';
 import { flexibleEccentricity, type GustResult } from '../../codes/cirsoc102/gust';
+import { integrateWindPressure, windStationCuts, windPressureCoordinate } from './wind-pressure-field';
+import { windRoofCarriers } from './wind-roof-geometry';
 import { gravityLayout } from './plan-gravity';
 
 export type WindCaseSet = 'case1' | 'cases13' | 'all';
@@ -80,6 +37,8 @@ export interface WindAxis {
   /** Plan dimension along the wind, m. */
   along: number;
   levels: WindLevel[];
+  baseLoads?: WindLevel[];
+  minimumLevels?: WindLevel[];
   project: WindProject;
   qhNm2: number;
   /** (GC_pi) magnitude for the building's enclosure. */
@@ -112,7 +71,8 @@ export interface WindCaseLoads {
   nameKey: string;
   nameParams: Record<string, string | number>;
   nodal: Array<{ nodeId: number; fx: number; fy: number; mz: number }>;
-  distributed: Array<{ elementId: number; q: number }>;
+  distributed: WindRoofLoad[];
+  baseLoads: WindCaseLoads['nodal'];
 }
 
 const Z = (n: { z?: number }) => n.z ?? 0;
@@ -140,7 +100,8 @@ export function levelLoads(
   }));
 }
 
-interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number }
+export interface RoofMember { id: number; mid: { x: number; y: number }; dx: number; dy: number; dz: number; lh: number; a: { x: number; y: number; z?: number }; b: { x: number; y: number; z?: number }; facets?: Array<{ a: number; b: number; gradient: [number, number]; share: number }> }
+export interface WindRoofLoad { elementId: number; q: number; a: number; b: number; qX: number; qY: number; frame: 'global'; facet: number }
 
 /**
  * The members the roof pressures go on (see the header): beam-like members above the ground
@@ -162,45 +123,40 @@ export function roofMembers(model: WindModel, only?: ReadonlySet<number>): RoofM
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     if (Z(a) <= 0.05 || Z(b) <= 0.05) continue;
     const dx = b.x - a.x, dy = b.y - a.y, dz = Z(b) - Z(a);
-    out.push({ id: e.id, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dx, dy, dz, lh: Math.hypot(dx, dy) });
+    out.push({ id: e.id, a, b, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, dx, dy, dz, lh: Math.hypot(dx, dy) });
   }
   return out;
 }
 
-/**
- * The roof line loads for wind along `w.axis` in `sense`, kN/m on local z (upward positive).
- * `gcpiSign` +1 takes the internal pressure that adds to suction, −1 the one that adds to
- * pressure, each with the external coefficient that makes it worse.
- */
 export function roofLoads(
   roof: RoofMember[], w: WindAxis, sense: Sense, gcpiSign: 1 | -1, tributaryWidth: number,
   bounds: { minX: number; maxX: number; minY: number; maxY: number },
-): Map<number, number> {
-  const out = new Map<number, number>();
+): WindRoofLoad[] {
+  const out: WindRoofLoad[] = [];
   const h = w.project.meanRoofHeight, hOverL = h / Math.max(w.along, 1e-9);
   const qh = w.qhNm2, qi = gcpiSign * w.gcpi * qh;
-  const theta = w.project.roofSlopeDeg;
-  const gable = theta >= 10 ? roofCp(hOverL, theta) : null;
+  const gable = w.project.roofSlopeDeg >= 10 ? roofCp(hOverL, w.project.roofSlopeDeg) : null;
   for (const m of roof) {
-    const along = w.axis === 'x' ? m.dx : m.dy;
-    // Distance from the windward edge, along the wind.
-    const s = w.axis === 'x'
-      ? (sense > 0 ? m.mid.x - bounds.minX : bounds.maxX - m.mid.x)
-      : (sense > 0 ? m.mid.y - bounds.minY : bounds.maxY - m.mid.y);
-    const slopedAlongWind = gable && m.lh > 0 && Math.abs(m.dz) / m.lh > Math.tan((5 * Math.PI) / 180)
-      && Math.abs(along) > 0.5 * m.lh;
-    let cps: number[];
-    if (slopedAlongWind) {
-      // Windward: the member rises in the direction the wind blows.
-      const windward = m.dz * along * sense > 0;
-      cps = windward ? gable!.windward : gable!.leeward;
-    } else {
-      cps = flatRoofCp(hOverL, Math.max(s, 0), h).cp;
+    const length = Math.hypot(m.lh, m.dz);
+    const start = w.axis === 'x' ? m.a.x : m.a.y;
+    const end = w.axis === 'x' ? m.b.x : m.b.y;
+    const edge = w.axis === 'x' ? (sense > 0 ? bounds.minX : bounds.maxX) : (sense > 0 ? bounds.minY : bounds.maxY);
+    const s0 = sense * (start - edge), s1 = sense * (end - edge);
+    const fallback: [number, number] = [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
+    for (const [facetIndex, facet] of (m.facets ?? [{ a: 0, b: length, gradient: fallback, share: 1 }]).entries()) {
+      const gradient = facet.gradient, norm = Math.hypot(...gradient, 1);
+      const alongSlope = gradient[w.axis === 'x' ? 0 : 1] * sense;
+      const cuts = windStationCuts(s0, s1, [h / 2, h, 2 * h], length).map(s => s - facet.a);
+      const parts = integrateWindPressure(facet.b - facet.a, cuts, s => {
+        const distance = windPressureCoordinate(s0 + (s1 - s0) * (s + facet.a) / length, [0, h / 2, h, 2 * h]);
+        const cps = gable && Math.abs(alongSlope) > Math.tan(5 * Math.PI / 180)
+          ? (alongSlope > 0 ? gable.windward : gable.leeward)
+          : flatRoofCp(hOverL, Math.max(distance, 0), h).cp;
+        const cp = gcpiSign > 0 ? Math.min(...cps) : Math.max(...cps);
+        return -(qh * (w.G ?? G_RIGID) * cp - qi) / 1000 * tributaryWidth * facet.share;
+      });
+      for (const p of parts) out.push({ elementId: m.id, a: p.a + facet.a, b: p.b + facet.a, q: p.q / norm, qX: -p.q * gradient[0] / norm, qY: -p.q * gradient[1] / norm, frame: 'global', facet: facetIndex });
     }
-    if (cps.length === 0) continue;
-    const cp = gcpiSign > 0 ? Math.min(...cps) : Math.max(...cps);
-    const p = qh * (w.G ?? G_RIGID) * cp - qi;   // N/m², positive toward the roof
-    out.set(m.id, (-p / 1000) * tributaryWidth); // kN/m, upward positive
   }
   return out;
 }
@@ -221,7 +177,7 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   const notes: EngineMessage[] = [];
   const cases: WindCaseLoads[] = [];
   const sensesOf = (a: Axis) => sensesOn(input.directions, a);
-  const roof = roofMembers(model);
+  const roof = windRoofCarriers(model).members;
   const xs = [...model.nodes.values()].map((n) => n.x), ys = [...model.nodes.values()].map((n) => n.y);
   const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
   const byAxis = new Map(input.axes.map((a) => [a.axis, a]));
@@ -230,35 +186,52 @@ export function windLoadCases(input: WindCasesInput): { cases: WindCaseLoads[]; 
   const v = input.speed;
 
   const roofFor = (a: WindAxis, s: Sense, g: 1 | -1) => roofLoads(roof, a, s, g, input.tributaryWidth, bounds);
-  const push = (nameKey: string, nameParams: WindCaseLoads['nameParams'], nodal: WindCaseLoads['nodal'], roofQ: Map<number, number>) => {
-    cases.push({
-      nameKey, nameParams, nodal,
-      distributed: [...roofQ].filter(([, q]) => Math.abs(q) > 1e-4).map(([elementId, q]) => ({ elementId, q })),
-    });
+  const baseIds = new Set(input.axes.flatMap(a => (a.baseLoads ?? []).flatMap(l => l.nodeIds)));
+  const push = (nameKey: string, nameParams: WindCaseLoads['nameParams'], nodal: WindCaseLoads['nodal'], roofQ: WindRoofLoad[]) => {
+    cases.push({ nameKey, nameParams, nodal, baseLoads: nodal.filter(n => baseIds.has(n.nodeId)), distributed: roofQ.filter(p => Math.hypot(p.q, p.qX, p.qY) > 0) });
   };
-  const scaled = (m: Map<number, number>, k: number) => new Map([...m].map(([id, q]) => [id, q * k]));
-  /** Note 2: on each member, the larger (in magnitude) of the two directions' roof load. */
-  const larger = (a: Map<number, number>, b: Map<number, number>) => {
-    const out = new Map(a);
-    for (const [id, q] of b) if (!out.has(id) || Math.abs(q) > Math.abs(out.get(id)!)) out.set(id, q);
+  const scaled = (loads: WindRoofLoad[], k: number) => loads.map(p => ({ ...p, q: p.q * k, qX: p.qX * k, qY: p.qY * k }));
+  const larger = (a: WindRoofLoad[], b: WindRoofLoad[]) => {
+    const out: WindRoofLoad[] = [];
+    for (const key of new Set([...a, ...b].map(p => `${p.elementId}:${p.facet}`))) {
+      const [id, facet] = key.split(':').map(Number) as [number, number];
+      const aa = a.filter(p => p.elementId === id && p.facet === facet), bb = b.filter(p => p.elementId === id && p.facet === facet);
+      const cuts = [...new Set([...aa, ...bb].flatMap(p => [p.a, p.b]))].sort((a, b) => a - b);
+      for (let k = 1; k < cuts.length; k++) {
+        const lo = cuts[k - 1]!, hi = cuts[k]!, mid = (lo + hi) / 2;
+        const sum = (rows: WindRoofLoad[]) => rows.filter(p => p.a <= mid && p.b >= mid).reduce((s, p) => ({ ...s, q: s.q + p.q, qX: s.qX + p.qX, qY: s.qY + p.qY }), { elementId: id, a: lo, b: hi, q: 0, qX: 0, qY: 0, frame: 'global' as const, facet });
+        const p = sum(aa), q = sum(bb);
+        out.push(Math.hypot(p.q, p.qX, p.qY) >= Math.hypot(q.q, q.qX, q.qY) ? p : q);
+      }
+    }
     return out;
   };
+  const allLevels = (a: WindAxis) => [...(a.baseLoads ?? []), ...a.levels];
 
   // ── Case 1 ──
   for (const a of input.axes) {
     for (const s of sensesOf(a.axis)) {
-      const nodal = a.levels.flatMap((lv) => levelLoads(model.nodes, lv.nodeIds,
+      const nodal = allLevels(a).flatMap((lv) => levelLoads(model.nodes, lv.nodeIds,
         a.axis === 'x' ? s * lv.force : 0, a.axis === 'y' ? s * lv.force : 0, 0));
+      const minimum = a.minimumLevels;
+      const minimumFirst = minimum && minimum.reduce((sum, l) => sum + l.force, 0) > allLevels(a).reduce((sum, l) => sum + l.force, 0);
+      const pushMinimum = () => {
+        if (!minimum) return;
+        const forces = minimum.flatMap(l => levelLoads(model.nodes, l.nodeIds, a.axis === 'x' ? s * l.force : 0, a.axis === 'y' ? s * l.force : 0, 0));
+        push('autoLoad.windMinimumCase', { dir: dirTxt(a.axis, s), v }, forces, []);
+      };
+      if (minimumFirst) pushMinimum();
       const gSigns: Array<1 | -1> = roof.length > 0 && a.gcpi > 0 ? [1, -1] : [1];
       for (const g of gSigns) {
         push(gSigns.length > 1 ? 'autoLoad.windCase1Gcpi' : 'autoLoad.windCase1',
           { dir: dirTxt(a.axis, s), v, gcpi: signTxt(g) }, nodal, roofFor(a, s, g));
       }
+      if (!minimumFirst) pushMinimum();
     }
   }
   if (set === 'case1') return { cases, notes };
 
-  const lateral = (a: WindAxis, s: Sense, k: number, e: number) => a.levels.flatMap((lv) => {
+  const lateral = (a: WindAxis, s: Sense, k: number, e: number) => allLevels(a).flatMap((lv) => {
     const F = s * k * lv.pressureForce;
     // MT = F·e about the vertical, e = ±0,15 B measured across the wind.
     const mt = Math.abs(F) * e;
