@@ -1,3 +1,4 @@
+import { dwellingFloorLoads, expectLoadGenerationRefusal } from './load-generator-inputs';
 import { test, expect, loadModel, alSection } from './fixtures';
 
 /**
@@ -30,6 +31,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'live');
     await page.getByTestId('al-live-reduction').check();
     await alSection(page, 'wind');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     await page.getByTestId('al-back').click();
@@ -44,6 +46,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'live');
     await page.getByTestId('al-live-reduction').uncheck();
     await alSection(page, 'wind');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     await page.getByTestId('al-back').click();
@@ -65,9 +68,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'roof');
     await page.getByTestId('al-roof-dead').fill('0.25');
     await page.getByTestId('al-roof-dead').press('Tab');
-    await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-delta')).toBeVisible();
-    await page.getByTestId('al-back').click();
+    await expectLoadGenerationRefusal(page, /concentrated roof actions/);
     await alSection(page, 'wind');
     await expect(page.getByTestId('wind-gust-y')).toContainText('n₁ = 0.400 Hz < 1 Hz → flexible');
   });
@@ -82,6 +83,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-x').fill('0,8');
     await page.getByTestId('wind-n1-y').fill('0.6');
     await page.getByTestId('wind-n1-y').press('Tab');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     // The reading sits with the wind's inputs, one step back from the before-and-after.
