@@ -106,6 +106,7 @@ snow loads before re-solving.
 | [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in PR #2175 | Pending release | Draft 2026-11-15 |
 | [SA-2026-073](SA-2026-073-snow-crossing-moment.md) | Ridge-crossing members lost the snow load moment | High | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) | pending | Not released | Draft 2026-11-16 |
 | [SA-2026-074](SA-2026-074-snow-panel-subdivision.md) | Rafter subdivision removed explicit-panel eave snow | High | [#2172](https://github.com/lambdaclass/stabileo/issues/2172) | pending | Not released | Draft 2026-11-16 |
+| [SA-2026-082](SA-2026-082-snow-companion-basis.md) | Companion combinations selected the wrong snow member loading | High | [#2211](https://github.com/lambdaclass/stabileo/issues/2211) | Pending (#2233) | Not released | Draft 2026-11-16; pending merge and release |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

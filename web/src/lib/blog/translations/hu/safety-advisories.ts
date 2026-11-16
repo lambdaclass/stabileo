@@ -78,6 +78,8 @@ const body: PostBody = {
       "label": "SA-2026-074",
       "t": "Érintett modellek és szükséges teendők."
     },
+    {"k": "note", "t": "SA-2026-082 — Tervezet 2026-11-16; beolvasztásra és kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -507,7 +509,8 @@ const body: PostBody = {
           "A ferde szarufa felosztása a megadott tetőpanelt födémmé minősíthette, és figyelmeztetés nélkül eltüntethette az eresz hóterhét. Az osztályozás most a panelek fizikai alaprajzát használja. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2172). Egy különálló alsó panel fölötti felosztatlan ferde szarufa is tetőnek minősíthette a panelt, megváltoztatva a tető és födém felületi terheit, és szélességalapú módban figyelmeztetés nélkül hóterhet adhatott hozzá.",
           "Magas",
           "PR #2197; egyesítésre és kiadásra vár"
-        ]
+        ],
+        ["SA-2026-082", "A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211).", "Magas", "Tervezet 2026-11-16; beolvasztásra és kiadásra vár"],
       ]
     },
     {

@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import type { LoadCombinationSpec } from '../../../codes/cirsoc101/combinations';
 import { expandCombinations } from '../combination-cases';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2211' ? it : it.skip;
 const cases = [
   { id: 1, name: 'D', type: 'D' },
   { id: 2, name: 'L', type: 'L' },
@@ -11,12 +10,12 @@ const cases = [
   { id: 5, name: 'pf', type: 'S', alternatives: 'roof', snowBasis: 'flatRoof' as const },
 ];
 const legacy = (factor: number): LoadCombinationSpec => ({
-  id: '5', basic: 5, label: `1.2 D + E + L + ${factor} S`,
+  id: '5', basic: 5, refs: [], label: `1.2 D + E + L + ${factor} S`,
   terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'E', factor: 1 }, { symbol: 'L', factor: 1 }, { symbol: 'S', factor }],
   notes: [{ key: 'loads.cirsoc101.note.snowAsFlatRoof' }],
 });
 
-knownWrong('known wrong result: #2211 legacy seismic f2=0.7 refuses ambiguous snow even after snow regeneration', () => {
+it('#2211 legacy seismic f2=0.7 refuses ambiguous snow even after snow regeneration', () => {
   for (const factor of [0.7, 0.2]) for (const bothSenses of [false, true]) for (const patternsInCompanions of [false, true]) {
     const spec = legacy(factor);
     for (const input of [cases, cases.filter(c => c.type !== 'L'), cases.filter(c => c.type !== 'S')]) {
@@ -25,12 +24,12 @@ knownWrong('known wrong result: #2211 legacy seismic f2=0.7 refuses ambiguous sn
   }
 });
 
-knownWrong('known wrong result: #2211 required flat-roof snow refuses before absent-symbol omission', () => {
+it('#2211 required flat-roof snow refuses before absent-symbol omission', () => {
   for (const typed of [false, true]) for (const physicalOnly of [false, true]) for (const missingLive of [false, true]) {
     const spec: LoadCombinationSpec = {
-      id: '2-S', label: '1.2 D + 1.6 L + 0.5 S',
+      id: '2-S', refs: [], label: '1.2 D + 1.6 L + 0.5 S',
       terms: [{ symbol: 'D', factor: 1.2 }, { symbol: 'L', factor: 1.6 }, { symbol: 'S', factor: 0.5, ...(typed ? { snowBasis: 'flatRoof' as const } : {}) }],
-      ...(typed ? {} : { notes: [{ key: 'loads.cirsoc101.note.snowAsFlatRoof' }] }),
+      notes: typed ? [] : [{ key: 'loads.cirsoc101.note.snowAsFlatRoof' }],
     };
     const input = cases.filter(c => c.id !== 5 && (physicalOnly || c.type !== 'S') && (!missingLive || c.type !== 'L'));
     expect.soft(() => expandCombinations([spec], input)).toThrow();

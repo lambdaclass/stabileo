@@ -11749,6 +11749,7 @@ const es: Record<string, string> = {
   'snow.derivation.sliding': "Nieve deslizada sobre la cubierta de +{z} m (Cap. 9): pendiente {slope} %, W = {W} m, 0,4 pf W = {perMetre} kN/m en 4,5 m, {p} kN/m², sumada a la nieve balanceada.",
   'snow.derivation.noSliding': "La cubierta sobre +{z} m tiene {slope} % de pendiente: no alcanza para que la nieve deslice (Cap. 9).",
   "snow.case.flatRoof": "Nieve complementaria de cubierta plana (pf)",
+  "snow.refused.legacyCombination": "Esta combinación sísmica guardada tiene una base de nieve ambigua. Regenere las combinaciones antes de usarla; regenerar solo las cargas de nieve no es suficiente.",
   "snow.refused.flatRoofCase": "Esta combinación requiere un caso separado de nieve de cubierta plana. Regenere las cargas de nieve antes de generar combinaciones.",
   'snow.case.balanced': 'Nieve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "No balanceada (§6.3, Figura 6): de 0,5 pf en las cumbreras a {valley} kN/m² en los valles, sin que la nieve del valle supere la de la cumbrera.",

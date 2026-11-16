@@ -136,16 +136,20 @@ export function expandCombinations(
   const out: CaseCombination[] = [];
   for (const spec of specs) {
     const terms = spec.terms.filter((t) => t.factor !== 0);
-    if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
-    const casesFor = (t: (typeof terms)[number]) => {
+    const legacyFlatRoof = spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof');
+    const seismic = terms.some(t => t.symbol === 'E');
+    const selected = new Map(terms.map(t => {
       if (t.snowBasis && t.symbol !== 'S') throw new Error(translate('snow.refused.flatRoofCase'));
-      const all = bySymbol.get(t.symbol)!;
-      const basis = t.snowBasis ?? (t.symbol === 'S' && spec.notes?.some(n => n.key === 'loads.cirsoc101.note.snowAsFlatRoof') ? 'flatRoof' : undefined);
+      if (t.symbol === 'S' && !t.snowBasis && legacyFlatRoof && seismic) throw new Error(translate('snow.refused.legacyCombination'));
+      const all = bySymbol.get(t.symbol) ?? [];
+      const basis = t.snowBasis ?? (t.symbol === 'S' && legacyFlatRoof ? 'flatRoof' : undefined);
       const matching = all.filter(c => t.symbol !== 'S' || c.snowBasis === basis);
       if (basis === 'flatRoof' && all.some(c => !c.snowBasis && !matching.some(m => m.alternatives && m.alternatives === c.alternatives))) throw new Error(translate('snow.refused.flatRoofCase'));
-      if (!matching.length) throw new Error(translate('snow.refused.flatRoofCase'));
-      return matching;
-    };
+      if ((basis === 'flatRoof' || all.length > 0) && !matching.length) throw new Error(translate('snow.refused.flatRoofCase'));
+      return [t, matching] as const;
+    }));
+    if (terms.some((t) => !bySymbol.has(t.symbol))) continue;
+    const casesFor = (t: (typeof terms)[number]) => selected.get(t)!;
     /*
      * Each term offers one or more picks, and a combination takes one pick of every term.
      * A directional symbol (W, Wa, E) offers each of its cases on its own, and each sense when

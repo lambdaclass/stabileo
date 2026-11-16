@@ -11233,6 +11233,7 @@ const tr: Translations = {
   'snow.derivation.sliding': '+{z} m kotundaki çatıya kayan kar (Bölüm 9): eğim %{slope}, W = {W} m, 4,5 m boyunca 0.4 pf W = {perMetre} kN/m, {p} kN/m², dengeli kara eklenir.',
   'snow.derivation.noSliding': '+{z} m kotunun üzerindeki çatının eğimi %{slope}: karın kayması için yeterli değil (Bölüm 9).',
   "snow.case.flatRoof": "Düz çatı eşlikçi kar yükü (pf)",
+  "snow.refused.legacyCombination": "Bu kayıtlı deprem birleşiminin kar yükü temeli belirsiz. Kullanmadan önce birleşimleri yeniden üretin; yalnızca kar yüklerini yeniden üretmek yeterli değildir.",
   "snow.refused.flatRoofCase": "Bu birleşim ayrı bir düz çatı kar yükü durumu gerektirir. Birleşimleri oluşturmadan önce kar yüklerini yeniden üretin.",
   'snow.case.balanced': 'Dengeli kar (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Dengesiz (§6.3, Şekil 6): mahyalarda 0,5 pf değerinden derelerde {valley} kN/m² değerine; bir dere üzerindeki kar, mahya üzerindeki karın altında tutulur.',

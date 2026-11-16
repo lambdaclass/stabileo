@@ -50,6 +50,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-074 — PR #2197; birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-082 — Taslak 2026-11-16; birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -434,6 +436,7 @@ const body: PostBody = {
         ["SA-2026-072", "Çatı kenarlarının eşit olmayan bölünmesi mahyayı kaydırıp üretilen kar yüklerini değiştirebiliyordu (#2144). Kar yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez.", "Yüksek", "PR #2175 ile düzeltildi, yayın bekleniyor"],
         ["SA-2026-073", "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176).", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
         ["SA-2026-074", "Eğimli bir merteğin bölünmesi, açık çatı panelini döşeme olarak sınıflandırıp saçak karını uyarı vermeden kaldırabiliyordu. Sınıflandırma artık fiziksel panel izdüşümlerini kullanır. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2172). Ayrı bir alt panelin üzerindeki bölünmemiş eğimli mertek de paneli çatı olarak sınıflandırabiliyor, çatı ve döşeme alan yüklerini değiştiriyor ve genişlik modunda uyarısız kar ekleyebiliyordu.", "Yüksek", "PR #2197; birleştirme ve yayın bekleniyor"],
+        ["SA-2026-082", "Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).", "Yüksek", "Taslak 2026-11-16; birleştirme ve yayın bekleniyor"],
       ]
     },
     {

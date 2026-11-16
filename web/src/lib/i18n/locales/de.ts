@@ -11224,6 +11224,7 @@ const de: Translations = {
   'snow.derivation.sliding': 'Abrutschender Schnee auf das Dach auf +{z} m (Kap. 9): Neigung {slope} %, W = {W} m, 0,4 pf W = {perMetre} kN/m über 4,5 m, {p} kN/m², zur gleichmäßigen Schneelast addiert.',
   'snow.derivation.noSliding': 'Das Dach über +{z} m hat {slope} % Neigung: nicht genug, damit Schnee abrutscht (Kap. 9).',
   "snow.case.flatRoof": "Begleitschnee für Flachdach (pf)",
+  "snow.refused.legacyCombination": "Die gespeicherte Erdbebenkombination hat eine mehrdeutige Schneelastbasis. Kombinationen vor der Verwendung neu erzeugen; allein die Schneelasten neu zu erzeugen reicht nicht aus.",
   "snow.refused.flatRoofCase": "Diese Kombination benötigt einen eigenen Flachdach-Schneelastfall. Schneelasten vor den Kombinationen neu erzeugen.",
   'snow.case.balanced': 'Gleichmäßige Schneelast (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': 'Ungleichmäßig (§6.3, Abbildung 6): von 0,5 pf an den Firsten bis {valley} kN/m² in den Kehlen, wobei der Schnee über einer Kehle unter dem über dem First bleibt.',

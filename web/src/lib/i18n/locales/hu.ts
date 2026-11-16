@@ -10933,6 +10933,7 @@ const hu: Translations = {
   "snow.derivation.sliding": "A +{z} m-es tetőre lecsúszó hó (9. fej.): lejtés {slope} %, W = {W} m, 0,4 pf W = {perMetre} kN/m 4,5 m-en, {p} kN/m², a kiegyensúlyozott hóhoz adva.",
   "snow.derivation.noSliding": "A +{z} m feletti tető lejtése {slope} %: nem elég ahhoz, hogy a hó lecsússzon (9. fej.).",
   "snow.case.flatRoof": "Lapos tető kísérő hóterhe (pf)",
+  "snow.refused.legacyCombination": "A mentett földrengési kombináció hóteheralapja nem egyértelmű. Használat előtt generálja újra a kombinációkat; önmagában a hóterhek újragenerálása nem elegendő.",
   "snow.refused.flatRoofCase": "Ehhez a kombinációhoz külön lapostető-hótehereset szükséges. A kombinációk létrehozása előtt generálja újra a hóterheket.",
   "snow.case.balanced": "Kiegyensúlyozott hó (ps = {ps} kN/m²)",
   "snow.derivation.multipleUnbalanced": "Kiegyensúlyozatlan (§6.3, 6. ábra): a gerinceknél 0,5 pf-től a völgyekben {valley} kN/m²-ig, a völgy feletti hó a gerinc feletti hó alatt tartva.",

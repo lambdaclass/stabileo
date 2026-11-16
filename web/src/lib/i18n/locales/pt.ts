@@ -11121,6 +11121,7 @@ const pt: Translations = {
   'snow.derivation.sliding': "Neve deslizada sobre a cobertura de +{z} m (Cap. 9): inclinação {slope} %, W = {W} m, 0,4 pf W = {perMetre} kN/m em 4,5 m, {p} kN/m², somada à neve balanceada.",
   'snow.derivation.noSliding': "A cobertura sobre +{z} m tem {slope} % de inclinação: não basta para a neve deslizar (Cap. 9).",
   "snow.case.flatRoof": "Neve acompanhante de cobertura plana (pf)",
+  "snow.refused.legacyCombination": "Esta combinação sísmica salva tem uma base de neve ambígua. Gere novamente as combinações antes de usá-la; gerar apenas as cargas de neve não é suficiente.",
   "snow.refused.flatRoofCase": "Esta combinação exige um caso separado de neve de cobertura plana. Gere novamente as cargas de neve antes das combinações.",
   'snow.case.balanced': 'Neve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "Não balanceada (§6.3, Figura 6): de 0,5 pf nas cumeeiras a {valley} kN/m² nos vales, sem que a neve do vale supere a da cumeeira.",
