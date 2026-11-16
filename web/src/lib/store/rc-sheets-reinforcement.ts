@@ -49,7 +49,7 @@ export function lineSpanBars(a: LineAdopted, k: number, stirrupDia: number): Omi
 }
 
 /** The group's elements on the way from one node to another along the chain they form. */
-function elementsBetween(ids: readonly number[], from: number, to: number): number[] {
+export function elementsBetween(ids: readonly number[], from: number, to: number): number[] {
   const els = ids.map((id) => modelStore.elements.get(id)).filter((e): e is NonNullable<typeof e> => !!e);
   for (const first of els.filter((e) => e.nodeI === from || e.nodeJ === from)) {
     const out = [first.id];

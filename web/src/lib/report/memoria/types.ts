@@ -15,7 +15,7 @@ export const MEMBER_FAMILIES: readonly MemberFamily[] = ['beam', 'column', 'wall
  */
 export const CAUTIOUS_FAMILIES: ReadonlySet<string> = new Set(['steel', 'connection', 'timber', 'aluminium', 'coldFormed', 'composite', 'fire']);
 /** The codes those results come from, read as experimental in the scope chapter. */
-export const EXPERIMENTAL_CODES: ReadonlySet<string> = new Set(['cirsoc-301', 'cirsoc-601', 'cirsoc-303', 'en-1999-1-1', 'aisc-360', 'nds', 'en-1993-1-2', 'fema-356', 'timber-fire', 'project-fire-table', 'aci-318', 'en-1992-1-1', 'bs-en-1992-1-1', 'en-1993-1-1', 'bs-en-1993-1-1']);
+export const EXPERIMENTAL_CODES: ReadonlySet<string> = new Set(['cirsoc-301', 'cirsoc-601', 'cirsoc-303', 'en-1999-1-1', 'aisc-360', 'nds', 'en-1993-1-2', 'fema-356', 'timber-fire', 'project-fire-table', 'aci-318', 'en-1992-1-1', 'bs-en-1992-1-1', 'en-1993-1-1', 'bs-en-1993-1-1', 'ts-500']);
 
 /** The chapters of the catalog, in the order they print; some have parts of their own. */
 export const CHAPTERS = {
