@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} için CIRSOC 101 {article} uyarınca tekil yük kontrolü gerekir. En elverişsiz konumlar değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} için CIRSOC 101 §4.4 uyarınca {force} kN tekil hareketli yük kontrolü gerekir. En elverişsiz konumlar ve düzgün yayılı/tekil yük alternatifi değerlendirilmez. Otomatik üretim engellendi; bu etkileri elle modelleyip kontrol edin.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4, §4.8 çatı hareketli yükünden ayrı olarak, en elverişsiz konumlarda tekil çatı etkileri gerektirir. Bu kontroller değerlendirilmez. Otomatik üretim engellendi; çatı etkilerini elle modelleyip kontrol edin.",
   "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   "advanced.finiteSpectrumOne": "Yalnızca 1 sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   "advanced.modalIncomplete": "Modal analiz reddedildi: hesaplanan {m} moddan yalnızca {n} tanesinin frekansı pozitif (ω² > 0). Eksik bir mod kümesi döndürülmedi. Rijitlik ve kütle koşullanmasını ve mesnetleri kontrol edin.",

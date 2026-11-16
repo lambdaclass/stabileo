@@ -1,4 +1,7 @@
 const en: Record<string, string> = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} requires a concentrated load check under CIRSOC 101 {article}. Governing placements are not evaluated. Automatic generation is blocked; model and check these actions manually.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} requires a {force} kN concentrated live load check under CIRSOC 101 §4.4. Governing placements and the uniform/concentrated alternative are not evaluated. Automatic generation is blocked; model and check these actions manually.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 requires concentrated roof actions at their most unfavourable positions, separately from §4.8 roof live loading. These checks are not evaluated. Automatic generation is blocked; model and check the roof actions manually.",
   'steps.catalog.button': 'Explained step by step',
   'steps.catalog.title': 'Explained step by step',
   'steps.catalog.intro': 'Pick a method to see your structure solved step by step. Each one lists what the model needs and comes with an example that meets it.',

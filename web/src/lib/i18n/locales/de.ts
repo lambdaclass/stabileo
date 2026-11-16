@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} erfordert einen Nachweis konzentrierter Lasten nach CIRSOC 101 {article}. Maßgebende Laststellungen werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} erfordert nach CIRSOC 101 §4.4 den Nachweis einer konzentrierten Nutzlast von {force} kN. Maßgebende Laststellungen und die Alternative zwischen Flächenlast und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 verlangt konzentrierte Dacheinwirkungen in den ungünstigsten Laststellungen, getrennt von der Dachnutzlast nach §4.8. Diese Nachweise werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",
   "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
   "advanced.finiteSpectrumOne": "Es existiert nur 1 endliche Eigenmode. Masselose Richtungen haben keine endliche Eigenfrequenz.",
   "advanced.modalIncomplete": "Modalanalyse abgelehnt: nur {n} von {m} berechneten Moden haben eine positive Frequenz (ω² > 0). Es wurde kein unvollständiger Satz von Moden zurückgegeben. Prüfen Sie die Konditionierung von Steifigkeit und Masse sowie die Lager.",

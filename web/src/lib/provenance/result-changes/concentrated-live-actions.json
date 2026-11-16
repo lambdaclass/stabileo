@@ -1,0 +1,49 @@
+{
+  "id": "concentrated-live-actions",
+  "date": "2026-11-16",
+  "prs": [],
+  "area": "loads",
+  "when": {
+    "any": [
+      "generatedLoads"
+    ]
+  },
+  "title": {
+    "en": "Concentrated live actions require a check",
+    "es": "Las acciones concentradas requieren verificación",
+    "pt": "Ações concentradas exigem verificação",
+    "de": "Konzentrierte Nutzlasten erfordern einen Nachweis",
+    "fr": "Les actions concentrées exigent une vérification",
+    "tr": "Tekil hareketli etkiler kontrol gerektirir",
+    "hu": "A koncentrált hasznos terheket ellenőrizni kell",
+    "it": "Le azioni concentrate richiedono una verifica",
+    "hi": "केंद्रित उपयोगी भार की जाँच आवश्यक है",
+    "ja": "集中積載荷重には検討が必要です",
+    "ko": "집중 활하중 검토가 필요합니다",
+    "ru": "Сосредоточенные временные нагрузки требуют проверки",
+    "zh": "集中活荷载需要验算",
+    "ar": "الأحمال الحية المركزة تتطلب فحصًا",
+    "id": "Aksi hidup terpusat memerlukan pemeriksaan"
+  },
+  "explanation": {
+    "en": "CIRSOC 101 automatic load generation blocks concentrated occupancy and roof actions whose governing placements are not evaluated (§4.4). Previously generated uniform loads may omit governing actions. Review affected models and check concentrated actions manually before rerunning analysis and design.",
+    "es": "La generación automática de CIRSOC 101 bloquea las acciones concentradas de uso y cubierta cuyas posiciones más desfavorables no se evalúan (§4.4). Las cargas uniformes generadas previamente pueden omitir acciones determinantes. Revisá los modelos afectados y verificá las acciones concentradas manualmente antes de repetir análisis y diseño.",
+    "pt": "A geração automática de CIRSOC 101 bloqueia ações concentradas de uso e cobertura cujas posições mais desfavoráveis não são avaliadas (§4.4). Cargas uniformes geradas anteriormente podem omitir ações determinantes. Revise os modelos afetados e verifique as ações concentradas manualmente antes de repetir análise e dimensionamento.",
+    "de": "Die automatische Lasterzeugung nach CIRSOC 101 sperrt konzentrierte Nutzlasten und Dacheinwirkungen, deren maßgebende Laststellungen nicht ausgewertet werden (§4.4). Zuvor erzeugte Flächenlasten können maßgebende Einwirkungen auslassen. Betroffene Modelle prüfen und konzentrierte Einwirkungen vor erneuter Analyse und Bemessung manuell nachweisen.",
+    "fr": "La génération automatique CIRSOC 101 bloque les actions concentrées d’usage et de toiture dont les positions défavorables ne sont pas évaluées (§4.4). Les charges uniformes générées auparavant peuvent omettre des actions déterminantes. Examiner les modèles concernés et vérifier les actions concentrées manuellement avant de relancer analyses et dimensionnement.",
+    "tr": "CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin.",
+    "hu": "A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt.",
+    "it": "La generazione automatica CIRSOC 101 blocca le azioni concentrate d’uso e di copertura le cui posizioni più sfavorevoli non sono valutate (§4.4). I carichi uniformi generati in precedenza possono omettere azioni determinanti. Esaminare i modelli interessati e verificare manualmente le azioni concentrate prima di ripetere analisi e dimensionamento.",
+    "hi": "CIRSOC 101 का स्वचालित भार निर्माण उन केंद्रित उपयोगी और छत क्रियाओं को रोकता है जिनकी सबसे प्रतिकूल स्थितियों का मूल्यांकन नहीं होता (§4.4)। पहले बने समान रूप से वितरित भार निर्णायक क्रियाएँ छोड़ सकते हैं। विश्लेषण और डिज़ाइन दोहराने से पहले प्रभावित मॉडल की समीक्षा करें और केंद्रित क्रियाओं की मैन्युअल जाँच करें।",
+    "ja": "CIRSOC 101の自動荷重生成は、最不利位置を評価できない用途別および屋根の集中荷重を停止します（§4.4）。以前に生成した等分布荷重には支配的な作用が欠けている場合があります。解析と設計を再実行する前に、対象モデルを見直し、集中作用を手動で検討してください。",
+    "ko": "CIRSOC 101 자동 하중 생성은 가장 불리한 위치가 평가되지 않는 용도별 집중 하중과 지붕 작용을 차단합니다(§4.4). 이전에 생성된 등분포 하중은 지배적인 작용을 누락했을 수 있습니다. 해석과 설계를 다시 수행하기 전에 해당 모델을 검토하고 집중 작용을 수동으로 확인하세요.",
+    "ru": "Автоматическое создание нагрузок CIRSOC 101 блокирует сосредоточенные временные нагрузки и воздействия на крышу, если наиболее невыгодные положения не оцениваются (§4.4). Ранее созданные равномерные нагрузки могут не учитывать определяющие воздействия. Перед повторным анализом и проектированием проверьте затронутые модели и сосредоточенные воздействия вручную.",
+    "zh": "CIRSOC 101自动荷载生成会阻止未评估最不利位置的用途相关集中荷载和屋面作用（§4.4）。以前生成的均布荷载可能遗漏控制作用。重新进行分析和设计之前，请审查受影响模型并手动验算集中作用。",
+    "ar": "يحظر التوليد التلقائي للأحمال وفق CIRSOC 101 الأحمال المركزة المرتبطة بالاستخدام وتأثيرات السقف إذا لم تُقيّم مواضعها الأشد تأثيرًا (§4.4). قد تُغفل الأحمال المنتظمة المولدة سابقًا تأثيرات حاكمة. راجع النماذج المتأثرة وافحص التأثيرات المركزة يدويًا قبل إعادة التحليل والتصميم.",
+    "id": "Pembuatan beban otomatis CIRSOC 101 memblokir aksi terpusat menurut penggunaan dan aksi atap yang posisi paling merugikannya tidak dievaluasi (§4.4). Beban merata yang dibuat sebelumnya mungkin mengabaikan aksi penentu. Tinjau model yang terdampak dan periksa aksi terpusat secara manual sebelum mengulang analisis dan desain."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-concentrated-live-actions.md",
+    "heading": "Concentrated live actions require an explicit check"
+  }
+}

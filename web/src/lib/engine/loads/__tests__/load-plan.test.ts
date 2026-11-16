@@ -901,7 +901,8 @@ describe('the companion live load factor reads the roof occupancy too', () => {
   it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
     const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
     const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
     expect(companions.length).toBeGreaterThan(0);
     for (const t of companions) expect(t.factor).toBe(1);
