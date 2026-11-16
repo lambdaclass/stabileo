@@ -96,7 +96,7 @@
   {/snippet}
   {#snippet app()}
     <div class="experiment" bind:this={host}>
-      <StabileoViewer xy={[0, 0, 1, 0]} cells={[0, 1]} cellSize={2} lineWidth={6}
+      <StabileoViewer plane="elevation" xy={[0, 0, 1, 0]} cells={[0, 1]} cellSize={2} lineWidth={6}
         values={[0, run.u[index] * 1000]} range={{ min: 0, max: 20 }} title={s.displacement} unit="mm"
         displacement={[0, 0, run.u[index], 0]} deformScale={10} view={[-0.15, -0.9, 1.3, 0.1]}
         height="15rem" editorButton={false} oninteract={stop} />

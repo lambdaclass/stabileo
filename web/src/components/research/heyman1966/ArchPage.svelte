@@ -190,7 +190,7 @@
       <p class="caption result-settings">{s.computedWith}: {#if tab === 'weight'}α = {num(run.alpha)}°, N = {run.n}, {(run.weights === 'centreline' ? s.centrelineShort : s.trueShort).toLocaleLowerCase(publicI18n.locale)}{:else}N = {run.n}, t = {num(run.t_max, { dp: 2 })} m, {s.position.toLocaleLowerCase(publicI18n.locale)} {num(run.position ?? 0, { dp: 2 })}{/if}.</p>
       {#if stale}<p class="result-stale" role="status">{thin ? s.thin : s.staleResult}</p>{/if}
       <div id={`rs-panel-${tab}`} role="tabpanel" aria-labelledby={`rs-tab-${tab}`} class:stale={stale}>
-        <StabileoViewer editorButton={false} xy={geometry.xy} cells={geometry.cells} cellSize={2} values={shown.values} displacement={shown.displacement} deformScale={1}
+        <StabileoViewer plane="elevation" editorButton={false} xy={geometry.xy} cells={geometry.cells} cellSize={2} values={shown.values} displacement={shown.displacement} deformScale={1}
           range={{ min: -1, max: 1 }} colourMap="diverging" title={s.viewerTitle} height="max(280px, min(22rem, 42svh))" {view} lineWidth={2} showAxes={false}
           lengthUnit={tab === 'load' ? 'm' : undefined} oninteract={() => playback.interact()} />
         <p class="caption">{tab === 'weight' ? s.captionWeight : s.captionLoad}{#if tab === 'load'}{' '}{s.notOrduna}{/if}</p>

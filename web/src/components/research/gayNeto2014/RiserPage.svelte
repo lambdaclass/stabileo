@@ -148,7 +148,7 @@
         bind:active={() => tab, setTab} oninteract={() => playback.interact()} />
       <p class="source">{source === 'replay' || tab === 'cantilever' ? shared.replaySource : shared.liveSource}</p>
       <div id="rs-panel-riser" role="tabpanel" aria-labelledby="rs-tab-riser" hidden={tab !== 'riser'}>
-        <StabileoViewer editorButton={false} xy={riserXY} cells={riserCells} cellSize={2} values={riserValues} displacement={riserDisplacement} deformScale={1}
+        <StabileoViewer plane="elevation" editorButton={false} xy={riserXY} cells={riserCells} cellSize={2} values={riserValues} displacement={riserDisplacement} deformScale={1}
           range={{ min: -300, max: 300 }} colourMap="diverging" title={s.moment} unit="N·m" height="max(240px, min(20rem, 38svh))" view={[-30, -330, 1300, 220]} lineWidth={4} showAxes={false} lengthUnit="m" />
         <p class="caption">{s.coordinates}</p>
       </div>
@@ -161,7 +161,7 @@
       </div>
       <div id="rs-panel-cantilever" role="tabpanel" aria-labelledby="rs-tab-cantilever" hidden={tab !== 'cantilever'}>
         {#if tab === 'cantilever'}
-          <StabileoViewer editorButton={false} xy={beamXY} cells={beamCells} cellSize={2} values={nodal(beam.m)} displacement={beamDisplacement} deformScale={1}
+          <StabileoViewer plane="elevation" editorButton={false} xy={beamXY} cells={beamCells} cellSize={2} values={nodal(beam.m)} displacement={beamDisplacement} deformScale={1}
             range={{ min: -900, max: 900 }} colourMap="diverging" title={s.moment} unit="N·m" height="max(220px, min(17rem, 32svh))" view={[-0.2, -0.1, 1.1, 1.1]} lineWidth={8} showAxes={false} lengthUnit="m" />
           <p class="caption">{s.cantileverNote}</p>
           <LineChart dataTable series={tipSeries} xLabel={s.time} yLabel={`${s.tipX} · ${s.tipZ}`} height={200} marker={beam.t} />
