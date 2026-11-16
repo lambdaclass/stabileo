@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import main from './fixtures/issue-2171-main.json';
 import { afterEach, expect, it } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
@@ -12,7 +13,7 @@ import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
 const p = { b: 0.2, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
-const demand = (secondary: number, torque: number, axis: 'My' | 'Mz') => ConcurrentDemand.fromTuples([
+const demand = (secondary: number, torque: number, axis: 'My' | 'Mz') => declaredTestDemands([
   { comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 20 : 0,
     mz: axis === 'Mz' ? 20 : 0, vy: axis === 'My' ? secondary : 0, vz: axis === 'Mz' ? secondary : 0, torsion: torque } },
 ])[0]!.section(axis);
@@ -98,7 +99,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 10, my: 20 } }] };
     const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
     const ef = raw.elementForces[0]!;
-    const inputs = ConcurrentDemand.fromTuples(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
+    const inputs = declaredTestDemands(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
       t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart, my: t ? ef.mEnd : ef.mStart, mz: 0,
       vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
     } }))).map(d => ({ ...p, edition, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));

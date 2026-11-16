@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { syntheticBeamContext } from '../design/__tests__/helpers';
 import { buildStirrupOptions, BEAM_LIMITS } from '../design/candidate-enumerate-beam';
@@ -39,7 +40,7 @@ for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 2, spacing: 0.1 }));
     const st = stations(260, 10);
     const result = verifyProvidedReinforcement(1, 'beam', { regions: { bottomSpan: bars, topStart: bars, topEnd: bars, stirrupsStart: cages[0], stirrupsSpan: cages[1], stirrupsEnd: cages[2] } }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
-    const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'C1', forces: st.comboResults[0]!.stations[0]! }])[0]!.section('My');
+    const demand = declaredTestDemands([{ comboId: 1, comboName: 'C1', forces: st.comboResults[0]!.stations[0]! }])[0]!.section('My');
     for (const [i, label] of ['Support Start', 'Span', 'Support End'].entries()) {
       const cage = cages[i]!;
       const expected = checkTorsion2025({ ...section, d: section.h - section.cover - section.stirrupDia / 1000 - bars.diameter / 2000, dSecondary: section.b - section.cover - cage.diameter / 1000 - bars.diameter / 2000, stirrupDiaMm: cage.diameter, fyt: section.fy, demand, stirrup: cage });
@@ -48,28 +49,31 @@ for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
   });
 }
 
-for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const needed of [2, 3, 4, 5]) {
-  it(`known wrong result: #2198 enumerate secondary strength ${kind} ${axis} needs ${needed} legs`, () => {
-    const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
+const round7 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
+
+for (const edition of ['2005', '2025'] as const) for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const needed of [2, 3, 4, 5]) {
+  (edition === '2005' ? round7 : it)(`known wrong result: #2198 enumerate secondary strength ${edition} ${kind} ${axis} needs ${needed} legs`, () => {
+    const ctx = syntheticBeamContext({ elementType: kind, codeEdition: edition });
     ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
     ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45, ...(axis === 'Mz' ? { flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-' } : {}) };
     ctx.material = { ...ctx.material, fc: 25, stirrupDiametersMm: [6] };
     const depth = 0.45 - ctx.material.cover - 0.006 - 0.008;
-    const demand = capacity(6, needed - 0.1, 0.05, 0.45, depth);
+    const demand = capacity(6, needed - 0.1, 0.05, 0.45, depth, edition);
     ctx.stations = stations(demand);
     if (axis === 'Mz') for (const c of ctx.stations.comboResults) for (const s of c.stations) { s.vz = s.vy; s.vy = 0; }
     const options = kind === 'beam' ? buildStirrupOptions(ctx, 0) : buildTieOptions(ctx, 16);
+    if (kind === 'beam' && edition === '2005') { expect(options).toHaveLength(0); return; }
     const supported = kind === 'beam' ? BEAM_LIMITS : COLUMN_LIMITS;
-    const adequate = options.filter(c => capacity(c.diameter, c.secondaryLegs ?? 2, c.spacing, 0.45, depth) >= demand);
+    const adequate = options.filter(c => capacity(c.diameter, c.secondaryLegs ?? 2, c.spacing, 0.45, depth, edition) >= demand);
     if (needed > supported.maxLegs) expect(adequate).toHaveLength(0);
     else {
       expect(adequate.length).toBeGreaterThan(0);
       expect(adequate.some(c => (c.secondaryLegs ?? 2) === needed)).toBe(true);
       const cage = adequate.find(c => (c.secondaryLegs ?? 2) === needed)!;
-      if (needed === 3) expect(transverseSpacingForDemand('2025', { Vu: demand, bw: 0.45, d: depth, fc: 25, cover: ctx.material.cover, stirrupDiaMm: 6 }).requiredLegs).toBe(2);
+      if (needed === 3 && edition === '2025') expect(transverseSpacingForDemand('2025', { Vu: demand, bw: 0.45, d: depth, fc: 25, cover: ctx.material.cover, stirrupDiaMm: 6 }).requiredLegs).toBe(2);
       const reinforcement = kind === 'beam' ? { bottom: bars, top: bars, stirrups: cage } : { longitudinal: { count: 12, diameter: 16 }, stirrups: cage };
       const verified = verifyProvidedReinforcement(1, kind, reinforcement, undefined, {}, { ...ctx.section, ...ctx.material }, ctx.stations, undefined,
-        { axes: ctx.axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
+        { axes: ctx.axes, spacingRule: { edition, maxAggregateSizeMm: 0 } });
       const shear = verified.checks.filter(c => c.demandCategory === ctx.axes.secondaryShear && c.limiting === 'shear');
       expect(shear.length).toBeGreaterThan(0);
       for (const c of shear) expect(c.status).not.toBe('fail');

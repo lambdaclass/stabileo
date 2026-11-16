@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
@@ -6,7 +7,7 @@ import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
-const demand = (secondary: number, torque = 30, axis: 'My' | 'Mz' = 'My', primary = 0) => ConcurrentDemand.fromTuples([
+const demand = (secondary: number, torque = 30, axis: 'My' | 'Mz' = 'My', primary = 0) => declaredTestDemands([
   { comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 20 : 0,
     mz: axis === 'Mz' ? 20 : 0, vy: axis === 'My' ? secondary : primary, vz: axis === 'Mz' ? secondary : primary, torsion: torque } },
 ])[0]!.section(axis);

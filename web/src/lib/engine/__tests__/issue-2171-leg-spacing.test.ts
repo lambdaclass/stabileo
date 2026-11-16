@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { afterEach, expect, it } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
@@ -10,7 +11,7 @@ import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
 const p = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
-const demand = (axis: 'My' | 'Mz') => ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'low demand',
+const demand = (axis: 'My' | 'Mz') => declaredTestDemands([{ comboId: 1, comboName: 'low demand',
   forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 1 : 0, mz: axis === 'Mz' ? 1 : 0, vy: 1, vz: 1, torsion: 0 },
 }])[0]!.section(axis);
 
@@ -123,7 +124,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
     };
     const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
     const ef = raw.elementForces[0]!;
-    const inputs = ConcurrentDemand.fromTuples(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
+    const inputs = declaredTestDemands(([0, 1] as const).map(t => ({ comboId: 1, comboName: '2D', forces: {
       t, x: t * ef.length, n: t ? ef.nEnd : ef.nStart, my: t ? ef.mEnd : ef.mStart, mz: 0, vy: 0, vz: t ? ef.vEnd : ef.vStart, torsion: 0,
     } }))).map(d => ({ ...section, edition, elementId: 1, elementType: 'beam' as const, demand: d.section('My') }));
     for (const count of [2, 5]) {
