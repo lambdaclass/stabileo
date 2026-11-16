@@ -625,6 +625,10 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   } else if (ratio > 0.9) {
     status = 'warn';
   }
+  if (legs < table.requiredLegs) {
+    status = 'fail';
+    { emissions.push(() => steps.push(`⚠ Ramas ${direction}: ${legs} < ${table.requiredLegs} (§9.7.6.2.2, separación transversal)`)); }
+  }
   if (chosen.avBelowMin && h > 0.25) {
     status = 'fail';
     { emissions.push(() => steps.push(`⚠ Av < Av,mín (§9.6.3.4)`)); }

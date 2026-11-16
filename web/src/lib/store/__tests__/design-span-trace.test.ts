@@ -188,9 +188,10 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
   it('the designed steel, its regions, and the verifier reading the anchorage along the span', () => {
     const steel = t.spans.map((p) => {
       const g = p.reinf.regions!;
+      expect([p.ctx.section.b, p.ctx.section.h]).toEqual([0.2, 0.5]);
       return [p.span.label, g.bottomSpan, g.topStart, g.topEnd, g.stirrupsSupport, g.stirrupsSpan, [p.regions.start, p.regions.span, p.regions.end].map(r3)];
     });
-    const st = { diameter: 6, legs: 2, spacing: STIRRUP_SPACING };
+    const st = { diameter: 6, legs: 2, secondaryLegs: 2, spacing: STIRRUP_SPACING };
     expect(steel).toEqual([
       ['V2-1', { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, st, st, [0.659, 4.682, 0.659]],
       ['V2-2', { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, st, st, [0.659, 4.682, 0.659]],

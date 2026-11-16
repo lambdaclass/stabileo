@@ -71,7 +71,11 @@ describe('repeated frames in the design', () => {
     expect(equalizeFrames(g)).toContain(p2);
     const e1 = modelStore.elements.get(p1)!, e2 = modelStore.elements.get(p2)!;
     const same = modelStore.nodes.get(e1.nodeI)!.x === modelStore.nodes.get(e2.nodeI)!.x;
-    expect(e2.reinforcement).toEqual(same ? heavy : mirrorReinforcement(heavy as never));
+    const expected = { regions: { ...heavy.regions,
+      stirrupsSupport: { ...heavy.regions.stirrupsSupport, secondaryLegs: 2 },
+      stirrupsSpan: { ...heavy.regions.stirrupsSpan, secondaryLegs: 2 },
+    } };
+    expect(e2.reinforcement).toEqual(same ? expected : mirrorReinforcement(expected as never));
     historyStore.undo();
     expect(modelStore.elements.get(p2)!.reinforcement).toEqual(before);
   });

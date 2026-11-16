@@ -1,0 +1,2370 @@
+{
+  "mainRevision": "9d925a78093db05bf8b50eb125aa829fa5dd955d",
+  "branchParent": "64896fb45c0c46a894212dd4cbb0038d7e2e9d50",
+  "records": {
+    "main": [
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 298.12499999999994,
+          "ratio": 0.003354297693920336,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 298.12 kN"
+          ]
+        },
+        "secondary": null,
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 298.12499999999994,
+          "ratio": 0.003354297693920336,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 298.12 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 5,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": null,
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 5,
+          "phiVn": 298.12499999999994,
+          "ratio": 0.003354297693920336,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 298.12 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 296.93250000000006,
+          "ratio": 0.00336776876899632,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 296.93 kN"
+          ]
+        },
+        "secondary": null,
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 296.93250000000006,
+          "ratio": 0.00336776876899632,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 296.93 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 5,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": null,
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 5,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 5,
+          "phiVn": 296.93250000000006,
+          "ratio": 0.00336776876899632,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 5 ramas Ø8 c/5 cm",
+            "φVn = 296.93 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 94.6422855,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 4,
+          "phiVn": 140.52102,
+          "ratio": 0.6735098101337437,
+          "status": "ok"
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      },
+      {
+        "edition": "2025",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 95.4770355,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 4,
+          "phiVn": 141.31601999999998,
+          "ratio": 0.6756278269087964,
+          "status": "ok"
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      }
+    ],
+    "branchParent": [
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN"
+          ]
+        },
+        "overallStatus": "ok"
+      },
+      {
+        "edition": "2005",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 94.6422855,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 90.13551,
+          "ratio": 1.05,
+          "status": "fail"
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 1.05,
+              "phiVn": 90.13551,
+              "Vu": 94.6422855
+            }
+          }
+        ]
+      },
+      {
+        "edition": "2025",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 95.4770355,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 90.93051,
+          "ratio": 1.05,
+          "status": "fail"
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 1.05,
+              "phiVn": 90.93051,
+              "Vu": 95.4770355
+            }
+          }
+        ]
+      }
+    ],
+    "fixed": [
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN",
+            "⚠ Ramas primary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2005",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN",
+            "⚠ Ramas primary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN",
+            "⚠ Ramas secondary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2005",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 349.37499999999994,
+          "ratio": 0.002862254025044723,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 69.88 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.57 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 349.37 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 160.39602,
+          "ratio": 0.0062345686632374045,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2005) = 59.63 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 4.71 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 160.40 kN",
+            "⚠ Ramas secondary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN",
+            "⚠ Ramas primary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2025",
+        "direction": "primary",
+        "input": {
+          "b": 0.6,
+          "h": 0.2,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN",
+            "⚠ Ramas primary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "beam",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN",
+            "⚠ Ramas secondary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2025",
+        "direction": "secondary",
+        "input": {
+          "b": 0.2,
+          "h": 0.6,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "low demand",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 1,
+                "mz": 0,
+                "vy": 1,
+                "vz": 1,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  1,
+                  1
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 1,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.05,
+            "legs": 2,
+            "secondaryLegs": 2
+          }
+        },
+        "primary": {
+          "legs": 2,
+          "phiVn": 347.97749999999996,
+          "ratio": 0.00287374902112924,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 1.67 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 347.98 kN"
+          ]
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 161.58852,
+          "ratio": 0.0061885584446221805,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 15.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 2 ramas Ø8 c/5 cm",
+            "φVn = 161.59 kN",
+            "⚠ Ramas secondary: 2 < 5 (§9.7.6.2.2, separación transversal)"
+          ]
+        },
+        "overallStatus": "fail"
+      },
+      {
+        "edition": "2005",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2005",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 94.6422855,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 90.13551,
+          "ratio": 1.05,
+          "status": "fail"
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 1.05,
+              "phiVn": 90.13551,
+              "Vu": 94.6422855
+            }
+          }
+        ]
+      },
+      {
+        "edition": "2025",
+        "witness": "silent overall pass",
+        "input": {
+          "b": 0.2,
+          "h": 0.4,
+          "fc": 25,
+          "fy": 420,
+          "cover": 0.025,
+          "stirrupDia": 8,
+          "edition": "2025",
+          "elementId": 1,
+          "elementType": "column",
+          "demand": {
+            "source": {
+              "comboId": 1,
+              "comboName": "silent main pass",
+              "forces": {
+                "t": 0,
+                "x": 0,
+                "n": 0,
+                "my": 20,
+                "mz": 0,
+                "vy": 95.4770355,
+                "vz": 0,
+                "torsion": 0
+              },
+              "transverseLoading": {},
+              "ends": {
+                "my": [
+                  20,
+                  20
+                ],
+                "mz": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "axis": "My",
+            "Mu": 20,
+            "Muy": 0
+          }
+        },
+        "provided": {
+          "shear": {
+            "spacing": 0.1,
+            "legs": 4
+          }
+        },
+        "secondary": {
+          "legs": 2,
+          "phiVn": 90.93051,
+          "ratio": 1.05,
+          "status": "fail"
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 1.05,
+              "phiVn": 90.93051,
+              "Vu": 95.4770355
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

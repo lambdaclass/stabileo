@@ -9,7 +9,6 @@ import { computeStationDemands, runCirsocDesign, runUnifiedVerification, setComp
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const p = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const demand = (axis: 'My' | 'Mz') => ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'low demand',
   forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 1 : 0, mz: axis === 'Mz' ? 1 : 0, vy: 1, vz: 1, torsion: 0 },
@@ -18,7 +17,7 @@ const demand = (axis: 'My' | 'Mz') => ConcurrentDemand.fromTuples([{ comboId: 1,
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const direction of ['primary', 'secondary'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
     for (const entry of ['direct', 'prepared', 'concurrent'] as const) for (const count of [2, 4, 5, 6]) {
-      regression(`known wrong result: #2171 low-demand leg distribution ${edition} ${axis} ${direction} ${elementType} ${entry} ${count}`, () => {
+      it(`known wrong result: #2171 low-demand leg distribution ${edition} ${axis} ${direction} ${elementType} ${entry} ${count}`, () => {
         const section = direction === 'primary' ? { ...p, b: p.h, h: p.b } : p;
         const input = { ...section, edition, elementId: 1, elementType, demand: demand(axis) };
         const cage = { spacing: 0.05, legs: direction === 'primary' ? count : 2, secondaryLegs: direction === 'secondary' ? count : 2 };
@@ -41,7 +40,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     }
   }
   for (const direction of ['primary', 'secondary'] as const) for (const offset of [-0.00001, 0, 0.00001]) {
-    regression(`known wrong result: #2171 two-leg geometry boundary ${edition} ${axis} ${direction} ${offset}`, () => {
+    it(`known wrong result: #2171 two-leg geometry boundary ${edition} ${axis} ${direction} ${offset}`, () => {
       const depth = p.b - p.cover - p.stirrupDia / 1000 - 16 / 2000;
       const width = depth + 2 * p.cover + p.stirrupDia / 1000 + offset;
       const section = { ...p, b: direction === 'primary' ? width : p.b, h: direction === 'primary' ? p.b : width };
@@ -56,7 +55,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   }
 }
 for (const edition of ['2005', '2025'] as const) {
-  regression(`known wrong result: #2171 scalar primary shear preserves insufficient fixed legs ${edition}`, () => {
+  it(`known wrong result: #2171 scalar primary shear preserves insufficient fixed legs ${edition}`, () => {
     const section = { ...p, b: p.h, h: p.b };
     const fixed = checkShear(section, 1, 0, { edition, legs: 2, spacing: 0.05 });
     expect(fixed.stirrupLegs).toBe(2);
@@ -66,7 +65,7 @@ for (const edition of ['2005', '2025'] as const) {
     expect(designed.stirrupLegs).toBe(5);
     expect(designed.status).toBe('ok');
   });
-  regression(`known wrong result: #2171 secondary default is provided two legs, not a design increase ${edition}`, () => {
+  it(`known wrong result: #2171 secondary default is provided two legs, not a design increase ${edition}`, () => {
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'beam', demand: demand('My') });
     expect(v.shearSecondary!.stirrupLegs).toBe(2);
     expect(v.shearSecondary!.ratio).toBeLessThan(1);
@@ -87,12 +86,13 @@ it('the wide low-demand fixture requires five distributed legs from the existing
 
 afterEach(() => setCompactStationTransfer(true));
 for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  regression(`known wrong result: #2171 3D low-demand wrappers reject missing distributed secondary legs ${edition} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2171 3D low-demand wrappers reject missing distributed secondary legs ${edition} ${nonlinear} ${compact}`, () => {
     const model = {
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),
       sections: new Map([[1, { id: 1, name: 'RC', b: p.b, h: p.h, a: p.b * p.h, iy: p.b * p.h ** 3 / 12, iz: p.h * p.b ** 3 / 12, j: 0.001 }]]),
       materials: new Map([[1, { id: 1, name: 'H25', fc: p.fc, fy: p.fy, e: 25000, nu: 0.2 }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
     };
     const solver: SolverInput3D = { ...model,
       elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
@@ -111,7 +111,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       expect(v.overallStatus).toBe('fail');
     }
   });
-  regression(`known wrong result: #2171 2D low-demand fixed primary legs fail after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
+  it(`known wrong result: #2171 2D low-demand fixed primary legs fail after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
     const section = { ...p, b: p.h, h: p.b };
     const solver: SolverInput = {
       nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0.04, z: 0 }]]),
