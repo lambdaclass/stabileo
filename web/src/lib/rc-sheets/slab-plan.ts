@@ -468,8 +468,8 @@ export interface PlanBarDrawing {
   label: string;
   /** Where the label stands, m. */
   at: [number, number];
-  /** Each straight leg's length beside its middle, m. */
-  legs: Array<{ at: [number, number]; length: number }>;
+  /** Each straight leg's length beside its middle, m, and the way out from the rest of the bar. */
+  legs: Array<{ at: [number, number]; length: number; out: [number, number] }>;
 }
 
 /** Package labels: diameter, spacing and the cut length. */
@@ -479,9 +479,10 @@ export const packageLabel = (pk: Pick<SlabPackage, 'bars' | 'length'> & Partial<
 /**
  * One bar drawn for each package, its legs and bends folded 90° about its axis so they show in plan
  * (`fold` scales what was vertical); packages sharing a stretch stand side by side across their strip.
+ * `show` draws the base mesh's packages by `base`, the other bottom ones by `bottom`, the top ones by `top`.
  */
 export function planDrawing(plan: LevelPlan, show: { bottom: boolean; top: boolean; base?: boolean }, fmt: Fmt, fold = 1): PlanBarDrawing[] {
-  const drawn = plan.packages.filter((pk) => show[pk.layer] && (!pk.base || show.base));
+  const drawn = plan.packages.filter((pk) => (pk.base ? show.base === true : show[pk.layer]));
   return drawn.map((pk) => {
     const near = drawn.filter((q) => q.dir === pk.dir && overlap(q.from, q.to, pk.from, pk.to) > TOL && overlap(q.band.from, q.band.to, pk.band.from, pk.band.to) > TOL);
     const slot = near.indexOf(pk), n = near.length;
@@ -495,9 +496,12 @@ export function planDrawing(plan: LevelPlan, show: { bottom: boolean; top: boole
     };
     const pts = pk.shape.pts.map(toPlan);
     const lens = legLengths(pk.shape);
+    const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
     const legs = lens.map((length, i) => {
-      const [p, q] = [pts[i]!, pts[i + 1]!];
-      return { at: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] as [number, number], length };
+      const [p, q] = [pts[i]!, pts[i + 1]!], at: [number, number] = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+      const L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, n: [number, number] = [-(q[1] - p[1]) / L, (q[0] - p[0]) / L];
+      const side = Math.sign(n[0] * (at[0] - cx) + n[1] * (at[1] - cy)) || 1;
+      return { at, length, out: [n[0] * side, n[1] * side] as [number, number] };
     });
     const mid = (pk.from + pk.to) / 2, bandAt = pk.from + 0.3 * (pk.to - pk.from);
     const band: PlanBarDrawing['band'] = pk.dir === 'x' ? [[bandAt, pk.band.from], [bandAt, pk.band.to]] : [[pk.band.from, bandAt], [pk.band.to, bandAt]];

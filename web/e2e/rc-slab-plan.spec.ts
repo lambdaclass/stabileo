@@ -2,7 +2,8 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 
 /**
  * The slabs of a level of the seven-storey example in one plan: one bar per package with its legs
- * folded onto the plan, bottom and top switched apart, the strips adding up to what the panels
+ * folded onto the plan, the base mesh, the other bottom bars and the top bars switched apart, the
+ * labels clear of each other on a plan as wide as the window, the strips adding up to what the panels
  * require, the corner bars of the exterior corners, and the bent-bar option laying every other span
  * bar over both supports, bent at ln/8 of a two-way panel.
  */
@@ -41,9 +42,17 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"][data-kind="support"]').first()).toBeVisible();
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]').first()).toContainText(/Ø\d+ c\/\d+ L=\d+,\d\d/);
   expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="top"] [data-testid="rc-plan-leg"]').count()).toBeGreaterThan(0);
-  await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas: (\d+) de \1 /);
+  await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas con el área que piden los paños: (\d+) de \1$/);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await expect(fig.getByTestId('rc-plan-cantilever')).toHaveCount(1);
+  const svg = fig.getByTestId('rc-plan-svg');
+  expect((await svg.boundingBox())!.width).toBeGreaterThan((await fig.boundingBox())!.width - 40);
+  const labels = await fig.getByTestId('rc-plan-label').evaluateAll((xs) => xs.map((x) => { const r = x.getBoundingClientRect(); return { x0: r.left, y0: r.top, x1: r.right, y1: r.bottom, t: x.textContent }; }));
+  for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+    const a = labels[i]!, b = labels[j]!;
+    expect(a.x0 < b.x1 - 1 && b.x0 < a.x1 - 1 && a.y0 < b.y1 - 1 && b.y0 < a.y1 - 1, `${a.t} / ${b.t}`).toBe(false);
+  }
+  expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="bottom"] [data-testid="rc-plan-leg"]').count()).toBeGreaterThan(0);
   await expect(fig.getByTestId('rc-plan-corners')).toContainText('§8.7.3.1');
   await fig.screenshot({ path: test.info().outputPath('slab-plan.png') });
 
@@ -51,9 +60,15 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]')).toHaveCount(0);
   expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="bottom"]').count()).toBeGreaterThan(0);
   await fig.getByTestId('rc-plan-show-top').check();
-  await fig.getByTestId('rc-plan-show-bottom').uncheck();
+  if (base) {
+    await fig.getByTestId('rc-plan-show-base').uncheck();
+    await expect(fig.getByTestId('rc-plan-base-note')).toBeVisible();
+    expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]').count()).toBeGreaterThan(0);
+    await fig.getByTestId('rc-plan-show-base').check();
+  }
+  if (await fig.getByTestId('rc-plan-show-bottom').isEnabled()) await fig.getByTestId('rc-plan-show-bottom').uncheck();
+  if (base) await fig.getByTestId('rc-plan-show-base').uncheck();
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="bottom"]')).toHaveCount(0);
-  if (base) await expect(fig.getByTestId('rc-plan-show-base')).toBeDisabled();
   await fig.screenshot({ path: test.info().outputPath('slab-plan-top.png') });
 
   await ws.getByTestId('rc-slab-view-panels').click();
@@ -69,7 +84,7 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="bent"]').first()).toBeVisible();
   await expect(fig.getByTestId('rc-plan-bend')).toContainText('1/8·ln');
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="corner"]').first()).toBeVisible();
-  await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas: (\d+) de \1 /);
+  await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas con el área que piden los paños: (\d+) de \1$/);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await fig.screenshot({ path: test.info().outputPath('slab-plan-bent.png') });
 });
