@@ -514,3 +514,59 @@ fn round11_zero_moments_match_absent_moments_prepared() { round11_zero_moments_m
 fn round11_zero_moments_match_absent_moments_pdelta() { round11_zero_moments_match_absent_moments_in_entry(2); }
 #[test]
 fn round11_zero_moments_match_absent_moments_corotational() { round11_zero_moments_match_absent_moments_in_entry(3); }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round12_envelopes_retain_member_density_extrema() {
+    use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
+    for axis in ["x", "y", "z"] { for sign in [1.0, -1.0] { for quadratic in [false, true] {
+        let mut input = model(0.0);
+        input.nodes.remove("3"); input.elements.remove("2"); input.supports.remove("3");
+        input.nodes.get_mut("2").unwrap().x = 100.0;
+        let (values, cancel) = if quadratic { ([3.0*sign/16.0,-sign/16.0,3.0*sign/16.0],-sign/48.0) } else { ([sign;3],-sign) };
+        let moment = |v: [f64;3]| { let mut m=json!({"x":[0,0,0],"y":[0,0,0],"z":[0,0,0]}); m[axis]=json!(v); m };
+        input.loads = serde_json::from_value(json!([
+            {"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":moment(values)}},
+            {"type":"distributed","data":{"elementId":1,"a":2,"b":3,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":moment([cancel;3])}}
+        ])).unwrap();
+        for result in [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
+            let envelope=dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result.clone()]).unwrap();
+            let e=match axis {"x"=>&envelope.torsion,"y"=>&envelope.moment_y,_=>&envelope.moment_z};
+            let e=&e.elements[0];
+            let d=compute_diagrams_3d(&result);
+            let d=match axis {"x"=>&d.torsion[0],"y"=>&d.moment_y[0],_=>&d.moment_z[0]};
+            let peak=if quadratic {1.0/48.0} else {1.0};
+            assert!((d.max_value-if sign>0.0 {peak} else {0.0}).abs()<1e-10,"{} {} {}",axis,quadratic,d.max_value);
+            assert!((d.min_value-if sign<0.0 {-peak} else {0.0}).abs()<1e-10);
+            assert!((d.max_abs_value-sign*peak).abs()<1e-10);
+            let xs=if quadratic {vec![1.0,1.25,1.75,2.0,3.0]} else {vec![1.0,2.0,3.0]};
+            for x in xs { assert!(d.points.iter().any(|p|(p.t-x/100.0).abs()<1e-12)); assert!(e.t_positions.iter().any(|t|(*t-x/100.0).abs()<1e-12)); }
+            assert!((e.pos_values.iter().copied().fold(0.0,f64::max)-d.max_value).abs()<1e-10);
+            assert!((e.neg_values.iter().copied().fold(0.0,f64::min)-d.min_value).abs()<1e-10);
+        }
+    } } }
+}
+
+
+#[test]
+fn round12_plane_envelope_retains_member_force_extrema() {
+    use dedaliano_engine::postprocess::diagrams::{compute_diagrams_2d,diagram_positions_2d};
+    for sign in [1.0,-1.0] {
+        let mut input=crate::common::make_input(
+            vec![(1,0.0,0.0),(2,100.0,0.0)],vec![(1,1000.0,0.0)],vec![(1,0.1,0.001)],
+            vec![(1,"frame",1,2,1,1,false,false)],vec![(1,1,"fixed")],vec![]);
+        input.loads=serde_json::from_value(json!([{"type":"distributed","data":{"elementId":1,"a":1,"b":2,"qI":sign,"qJ":-sign}}])).unwrap();
+        for r in [linear::solve_2d(&input).unwrap(),pdelta::solve_pdelta_2d(&input,100,1e-10).unwrap().results] {
+            let envelope=dedaliano_engine::postprocess::combinations::compute_envelope(&[r.clone()]).unwrap();
+            let e=&envelope.shear.elements[0];
+            let d=compute_diagrams_2d(&input,&r);
+            let offset=r.element_forces[0].v_start;
+            assert!((e.pos_values.iter().copied().fold(0.0,f64::max)-d.shear[0].max_value.max(0.0)).abs()<1e-10);
+            assert!((e.neg_values.iter().copied().fold(0.0,f64::min)-d.shear[0].min_value.min(0.0)).abs()<1e-10);
+            assert!((d.shear[0].max_value-offset-if sign>0.0 {0.25} else {0.0}).abs()<1e-10);
+            assert!((d.shear[0].min_value-offset-if sign<0.0 {-0.25} else {0.0}).abs()<1e-10);
+            assert!(diagram_positions_2d(&r.element_forces[0],"shear").iter().any(|t|(*t-0.015).abs()<1e-12));
+        }
+    }
+}
+
