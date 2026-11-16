@@ -80,7 +80,7 @@ pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
     if kind == "axial" && !has_axial_pl {
         (0..NUM_POINTS).map(|i| i as f64 / (NUM_POINTS - 1) as f64).collect()
     } else {
-        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a))
+        build_sampling_positions(ef.length, ef.point_loads.iter().map(|p| p.a).chain(narrow_positions(&ef.distributed_loads).filter(|_| kind != "axial")))
     }
 }
 
@@ -134,8 +134,8 @@ pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[Poi
     }
     let mut out = Vec::new();
     let mut cuts = vec![0.0, 1.0];
-    for pl in sorted_pl {
-        let t = (pl.a / len).clamp(0.0, 1.0);
+    for a in sorted_pl.iter().map(|p| p.a).chain(narrow_positions(&ef.distributed_loads)) {
+        let t = (a / len).clamp(0.0, 1.0);
         cuts.push(t);
         out.push((t - 1e-9).max(0.0));
         out.push((t + 1e-9).min(1.0));
@@ -220,16 +220,7 @@ pub fn compute_diagram_value_at_sorted(
                 value -= ef.q_i * xi * xi / 2.0 + dq * xi * xi * xi / (6.0 * ef.length);
             }
             for dl in d_loads {
-                if xi > dl.a + 1e-10 {
-                    let x_end = xi.min(dl.b);
-                    let s = x_end - dl.a;
-                    let span = dl.b - dl.a;
-                    if span < 1e-12 || s < 1e-12 { continue; }
-                    let dq = (dl.q_j - dl.q_i) / span;
-                    let d = xi - dl.a;
-                    value -= dl.q_i * (d * s - s * s / 2.0)
-                           + dq * (d * s * s / 2.0 - s * s * s / 3.0);
-                }
+                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).1;
             }
 
             // Point loads
@@ -255,14 +246,7 @@ pub fn compute_diagram_value_at_sorted(
                 value += ef.q_i * xi + dq * xi * xi / (2.0 * ef.length);
             }
             for dl in d_loads {
-                if xi > dl.a + 1e-10 {
-                    let x_end = xi.min(dl.b);
-                    let s = x_end - dl.a;
-                    let span = dl.b - dl.a;
-                    if span < 1e-12 || s < 1e-12 { continue; }
-                    let dq = (dl.q_j - dl.q_i) / span;
-                    value += dl.q_i * s + dq * s * s / 2.0;
-                }
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).0;
             }
 
             for pl in sorted_pl {
@@ -388,6 +372,7 @@ pub fn compute_diagrams_2d(
 enum MemberLoad {
     Force { a: f64, p: f64 },
     Couple { a: f64, c: f64 },
+    ForceCouple { a: f64, c: f64 },
     Distributed { qi: f64, qj: f64, a: f64, b: f64 },
 }
 
@@ -433,17 +418,18 @@ impl MemberDeflection {
         for load in &self.loads {
             match *load {
                 MemberLoad::Force { a, p } => add(&mut out, p, x - a),
-                MemberLoad::Couple { a, c } => {
+                MemberLoad::Couple { a, c } | MemberLoad::ForceCouple { a, c } => {
                     let d = x - a;
                     if d > 0.0 {
                         out[0] -= c;
                         out[1] -= c * d;
                         out[2] -= c * d * d / 2.0;
+                        if matches!(load, MemberLoad::ForceCouple { .. }) { out[3] -= c; }
                     }
                 }
                 MemberLoad::Distributed { qi, qj, a, b } => {
                     let hi = b.min(x);
-                    if hi <= a || b - a < 1e-12 {
+                    if hi <= a {
                         continue;
                     }
                     let g = (0.6f64).sqrt();
@@ -477,7 +463,11 @@ impl MemberDeflection {
         kappa: f64,
     ) -> Self {
         let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
-            .chain(dist.into_iter().map(|(qi, qj, a, b)| MemberLoad::Distributed { qi, qj, a, b }))
+            .chain(dist.into_iter().flat_map(|(qi, qj, a, b)| {
+                if let Some((p, c, at)) = crate::element::narrow_distributed_load(qi, qj, a, b) {
+                    vec![MemberLoad::Force { a: at, p }, MemberLoad::ForceCouple { a: at, c }]
+                } else { vec![MemberLoad::Distributed { qi, qj, a, b }] }
+            }))
             .chain(couples.into_iter().map(|(a, c)| MemberLoad::Couple { a, c }))
             .collect();
         let mut d = MemberDeflection { ei, flex_s, v_i, theta_i: 0.0, m0: 0.0, s0: 0.0, loads };
@@ -491,7 +481,7 @@ impl MemberDeflection {
         );
         let end_couples: f64 = d.loads.iter().filter_map(|load| match *load {
             MemberLoad::Couple { a, c } if a >= l => Some(c),
-            MemberLoad::Couple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
+            MemberLoad::Couple { .. } | MemberLoad::ForceCouple { .. } | MemberLoad::Force { .. } | MemberLoad::Distributed { .. } => None,
         }).sum();
         let r3 = if hinge_end {
             ([0.0, 1.0, l], free + end_couples - mql)
@@ -1147,4 +1137,10 @@ mod recovery_round4_2143 {
         }
     }
 
+}
+
+
+pub(super) fn narrow_positions(loads: &[DistributedLoadInfo]) -> impl Iterator<Item = f64> + '_ {
+    loads.iter().filter_map(|d| crate::element::narrow_distributed_load(d.q_i,d.q_j,d.a,d.b)
+        .map(|(_,_,a)| a))
 }

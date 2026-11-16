@@ -1740,6 +1740,9 @@ fn fiber_reactions_and_equilibrium_2d(
     let (a, r) = (balance.applied, balance.reactions);
     balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
     balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
+    let forces=super::applied_loads::plane(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
     Ok((reactions, balance))
 }
 
@@ -1783,6 +1786,9 @@ fn fiber_reactions_and_equilibrium_3d(
     let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     balance.summary.applied_force_sum = balance.applied.to_vec();
     balance.summary.reaction_force_sum = balance.reactions.to_vec();
+    let forces=super::applied_loads::space(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
     Ok((reactions, balance))
 }
 

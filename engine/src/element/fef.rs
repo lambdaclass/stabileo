@@ -122,8 +122,14 @@ pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64, phi: f64) -> [f64; 6] {
 /// degree 3 and left a ~1e-6 relative error, found by differential testing
 /// against OpenSees.)
 pub fn fef_partial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64, phi: f64) -> [f64; 6] {
-    if (b - a).abs() < 1e-12 {
-        return [0.0; 6];
+    if let Some((p, m, x)) = narrow_distributed_load(q_i, q_j, a, b) {
+        let mut f = fef_point_load_2d(p, 0.0, m, x, l, phi);
+        let shear = m * phi / (1.0 + phi);
+        f[1] -= shear / l;
+        f[2] -= shear * 0.5;
+        f[4] += shear / l;
+        f[5] -= shear * 0.5;
+        return f;
     }
 
     let half = 0.5 * (b - a);
@@ -811,4 +817,36 @@ pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64
 pub fn fef_axial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 6] {
     let [f_i, f_j] = axial_distributed_fef(q_i, q_j, a, b, l);
     [f_i, 0.0, 0.0, f_j, 0.0, 0.0]
+}
+
+
+pub fn distributed_resultant(q_i: f64, q_j: f64, a: f64, b: f64) -> f64 {
+    let span = b - a;
+    let weight = |q: f64| if span.abs() < f64::MIN_POSITIVE { (q * span) * 0.5 } else { q * (span * 0.5) };
+    weight(q_i) + weight(q_j)
+}
+
+pub fn narrow_distributed_load(q_i: f64, q_j: f64, a: f64, b: f64) -> Option<(f64, f64, f64)> {
+    let span = b - a;
+    if span.abs() >= 1e-12 { return None; }
+    let force = distributed_resultant(q_i, q_j, a, b);
+    let moment = (q_i * span) * (span / 6.0) + (q_j * span) * (span / 3.0);
+    let mut position = a + moment / force;
+    if force == 0.0 || !position.is_finite() || position < a || position > b {
+        position = a + span * 0.5;
+    }
+    if span > 0.0 && position == b { position = a; }
+    Some((force, moment - force * (position - a), position))
+}
+
+pub fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
+    if let Some((p, m, at)) = narrow_distributed_load(q_i, q_j, a, b) {
+        return if at < x - 1e-10 { (p, p * (x - at) - m) } else { (0.0, 0.0) };
+    }
+    let span = b - a;
+    let s = (x - a).clamp(0.0, span);
+    let dq = (q_j - q_i) / span;
+    let d = x - a;
+    (q_i * s + dq * s * s / 2.0,
+     q_i * (d * s - s * s / 2.0) + dq * (d * s * s / 2.0 - s * s * s / 3.0))
 }

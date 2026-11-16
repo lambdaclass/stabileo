@@ -828,7 +828,7 @@ impl PreparedStatic2D<'_> {
         })?;
         r.structured_diagnostics.push(residual);
         super::conditioning_accuracy::member_balance_2d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
-        super::self_checks::static_2d(&mut r, &[])?;
+        super::self_checks::static_2d(&mut r, &[], &self.input, loads)?;
         Ok(r)
     }
 
@@ -1959,7 +1959,7 @@ impl PreparedStatic3D {
         })?;
         r.structured_diagnostics.push(residual);
         super::conditioning_accuracy::member_balance_3d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
-        super::self_checks::static_3d(&mut r, &[])?;
+        super::self_checks::static_3d(&mut r, &[], &self.input, loads)?;
         Ok(r)
     }
 
@@ -3509,6 +3509,7 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
             crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depth", l.depth)])?;
         }
     }
+    let element_map: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id,e)).collect();
     let node_ids: std::collections::HashSet<usize> =
         crate::ordered::values(&input.nodes).map(|n| n.id).collect();
     let elem_ids: std::collections::HashSet<usize> =
@@ -3562,6 +3563,28 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
                         elem.id, pl.a, l
                     ));
                 }
+            }
+        }
+    }
+
+    for load in loads {
+        let (id, components, a, b) = match load {
+            SolverLoad::Distributed(d) => (d.element_id, vec![(d.q_i,d.q_j)], d.a,d.b),
+            SolverLoad::AxialDistributed(d) => (d.element_id, vec![(d.q_i,d.q_j)], d.a,d.b),
+            _ => continue,
+        };
+        let e=element_map[&id];
+        let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
+        let l=((j.x-i.x).powi(2)+(j.z-i.z).powi(2)).sqrt();
+        let (a,b)=(a.unwrap_or(0.0),b.unwrap_or(l));
+        let full = a.abs() < 1e-12 && (b-l).abs() < 1e-12;
+        if !a.is_finite() || !b.is_finite() || b < a || (!full && (a < 0.0 || b > l)) {
+            return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {l}"));
+        }
+        for (qi,qj) in components {
+            if !qi.is_finite() || !qj.is_finite() || !crate::element::distributed_resultant(qi,qj,a,b).is_finite()
+                || crate::element::narrow_distributed_load(qi,qj,a,b).is_some_and(|(p,m,x)| !p.is_finite() || !m.is_finite() || !x.is_finite()) {
+                return Err(format!("Element {id}: non-finite distributed load resultant"));
             }
         }
     }
@@ -3989,6 +4012,7 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
             crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depthY", l.depth_y), ("depthZ", l.depth_z)])?;
         }
     }
+    let element_map: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id,e)).collect();
     let node_ids: std::collections::HashSet<usize> =
         crate::ordered::values(&input.nodes).map(|n| n.id).collect();
     let elem_ids: std::collections::HashSet<usize> =
@@ -4080,6 +4104,27 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
                         elem.id, pl.a, l
                     ));
                 }
+            }
+        }
+    }
+
+    for load in loads {
+        let (id, components, a, b) = match load {
+            SolverLoad3D::Distributed(d) => (d.element_id, vec![(d.q_xi,d.q_xj),(d.q_yi,d.q_yj),(d.q_zi,d.q_zj)], d.a,d.b),
+            _ => continue,
+        };
+        let e=element_map[&id];
+        let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
+        let l=((j.x-i.x).powi(2)+(j.y-i.y).powi(2)+(j.z-i.z).powi(2)).sqrt();
+        let (a,b)=(a.unwrap_or(0.0),b.unwrap_or(l));
+        let full = a.abs() < 1e-12 && (b-l).abs() < 1e-12;
+        if !a.is_finite() || !b.is_finite() || b < a || (!full && (a < 0.0 || b > l)) {
+            return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {l}"));
+        }
+        for (qi,qj) in components {
+            if !qi.is_finite() || !qj.is_finite() || !crate::element::distributed_resultant(qi,qj,a,b).is_finite()
+                || crate::element::narrow_distributed_load(qi,qj,a,b).is_some_and(|(p,m,x)| !p.is_finite() || !m.is_finite() || !x.is_finite()) {
+                return Err(format!("Element {id}: non-finite distributed load resultant"));
             }
         }
     }

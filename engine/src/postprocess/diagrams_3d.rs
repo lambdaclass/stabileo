@@ -1,6 +1,6 @@
 use crate::types::*;
 use serde::{Deserialize, Serialize};
-use super::diagrams::build_sampling_positions;
+use super::diagrams::{build_sampling_positions,narrow_positions};
 
 // ==================== Types ====================
 
@@ -42,7 +42,12 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
         "axial" => &ef.point_loads_x,
         _ => &[],
     };
-    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a))
+    let dist: &[DistributedLoadInfo] = match kind {
+        "momentZ" | "shearY" => &ef.distributed_loads_y,
+        "momentY" | "shearZ" => &ef.distributed_loads_z,
+        _ => &[],
+    };
+    build_sampling_positions(ef.length, relevant_pl.iter().map(|p| p.a).chain(narrow_positions(dist)))
 }
 
 // ==================== Evaluate at t ====================
@@ -72,16 +77,7 @@ pub fn evaluate_diagram_3d_at(
         "momentZ" => {
             let mut value = ef.mz_start - ef.vy_start * x;
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value -= dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_y {
                 if pl.a < x - 1e-10 {
@@ -93,16 +89,7 @@ pub fn evaluate_diagram_3d_at(
         "momentY" => {
             let mut value = ef.my_start + ef.vz_start * x;
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_z {
                 if pl.a < x - 1e-10 {
@@ -114,15 +101,7 @@ pub fn evaluate_diagram_3d_at(
         "shearY" => {
             let mut value = ef.vy_start;
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_y {
                 if pl.a < x - 1e-10 { value += pl.p; }
@@ -132,15 +111,7 @@ pub fn evaluate_diagram_3d_at(
         "shearZ" => {
             let mut value = ef.vz_start;
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_z {
                 if pl.a < x - 1e-10 { value += pl.p; }

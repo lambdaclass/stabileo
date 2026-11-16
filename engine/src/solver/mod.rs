@@ -75,3 +75,5 @@ mod web_mechanism_regressions;
 
 pub(crate) mod load_work;
 pub(crate) mod reaction_recovery;
+
+mod applied_loads;

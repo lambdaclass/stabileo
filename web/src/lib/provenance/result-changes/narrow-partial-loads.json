@@ -1,0 +1,34 @@
+{
+  "id": "narrow-partial-loads",
+  "date": "2026-11-16",
+  "prs": [
+    2222
+  ],
+  "area": "analysis",
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Narrow partial member loads retain force and couple",
+    "es": "Las cargas parciales estrechas conservan fuerza y momento",
+    "pt": "Cargas parciais estreitas preservam força e momento",
+    "de": "Sehr kurze Teillasten behalten Kraft und Moment",
+    "fr": "Les charges partielles très courtes conservent force et moment",
+    "hu": "A keskeny részleges terhek ereje és nyomatéka megmarad",
+    "tr": "Çok kısa kısmi yüklerde kuvvet ve moment korunur"
+  },
+  "explanation": {
+    "en": "Very narrow distributed member loads could disappear from the solution and recovery while balance checks passed (#2222). These loads now retain their force and couple, and applied totals are checked independently of assembly. Rerun affected analyses and review reactions, deflections, forces and dependent designs.",
+    "es": "Las cargas distribuidas muy estrechas podían desaparecer de la solución y recuperación pese a superar el equilibrio (#2222). Ahora conservan su fuerza y momento; los totales aplicados se verifican independientemente del ensamblaje. Repita los análisis afectados y revise reacciones, deformaciones, esfuerzos y diseños derivados.",
+    "pt": "Cargas distribuídas muito estreitas podiam desaparecer da solução e recuperação com verificações de equilíbrio aprovadas (#2222). Agora preservam força e momento, e os totais aplicados são verificados independentemente da montagem. Execute novamente as análises afetadas e reveja reações, deslocamentos, esforços e projetos dependentes.",
+    "de": "Sehr kurze verteilte Stablasten konnten trotz bestandener Gleichgewichtsprüfung aus Lösung und Rückrechnung verschwinden (#2222). Kraft und Moment bleiben nun erhalten; die Lastsummen werden unabhängig von der Assemblierung geprüft. Betroffene Analysen erneut berechnen und Reaktionen, Verformungen, Schnittgrößen sowie abhängige Bemessungen prüfen.",
+    "fr": "Des charges réparties sur des segments très courts pouvaient disparaître des résultats malgré un équilibre validé (#2222). Leur force et leur moment sont désormais conservés et les totaux appliqués sont vérifiés indépendamment de l’assemblage. Relancez les analyses concernées et vérifiez réactions, déformations, efforts et dimensionnements associés.",
+    "hu": "A nagyon keskeny megoszló rúdterhek eltűnhettek a megoldásból és a visszaszámításból sikeres egyensúlyellenőrzés mellett (#2222). Erejük és nyomatékuk most megmarad, a terhek összege az összeállítástól függetlenül ellenőrzött. Futtassa újra az érintett elemzéseket, és ellenőrizze a reakciókat, alakváltozásokat, igénybevételeket és méretezéseket.",
+    "tr": "Çok kısa aralıklara uygulanan yayılı çubuk yükleri denge kontrolü geçerken çözümden kaybolabiliyordu (#2222). Artık kuvvet ve moment korunuyor; uygulanan yük toplamları montajdan bağımsız denetleniyor. Etkilenen analizleri yeniden çalıştırın, tepkileri, yer değiştirmeleri, iç kuvvetleri ve bunlara bağlı tasarımları inceleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Narrow partial member loads retain force and couple (2026-11-16)"
+  }
+}
