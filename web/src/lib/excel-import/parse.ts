@@ -1,3 +1,6 @@
+const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
+const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
+import { quantityTransform } from '../axes/quantity-transform';
 /**
  * A workbook becomes a `JSONModel`, and nothing else.
  *
@@ -36,7 +39,7 @@ import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from 
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
-import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, supportTypeToModel, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, relabelAxesWith, supportTypeToModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
 import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
@@ -389,29 +392,24 @@ function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean):
     for (const [target, source] of [['kx', `k${h.name.toLowerCase()}`], ['ky', `k${v.name.toLowerCase()}`], ['kz', `kr${normal.name.toLowerCase()}`]]) {
       if (src[source!] !== undefined) s[target!] = src[source!]!;
     }
-    if (src[`d${h.name.toLowerCase()}`] !== undefined) s.dx = h.sign * src[`d${h.name.toLowerCase()}`]! + 0;
-    if (src[`d${v.name.toLowerCase()}`] !== undefined) s.dz = v.sign * src[`d${v.name.toLowerCase()}`]! + 0;
-    if (s.angle !== undefined) s.angle = h.sign * v.sign * s.angle + 0;
+    if (src[`d${h.name.toLowerCase()}`] !== undefined) s.dx = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: src[`d${h.name.toLowerCase()}`]! }) + 0;
+    if (src[`d${v.name.toLowerCase()}`] !== undefined) s.dz = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: src[`d${v.name.toLowerCase()}`]! }) + 0;
+    if (s.angle !== undefined) s.angle = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: s.angle }) + 0;
     return;
   }
   const permute = (keys: readonly [string, string, string]) => {
     const src = keys.map((k) => s[k]);
     if (src.every((x) => x === undefined)) return;
-    f.rows.forEach((row, i) => {
-      const m = row.findIndex((c) => c !== 0);
-      if (src[i] === undefined) delete s[keys[m]!]; else s[keys[m]!] = src[i]!;
-    });
+    const out = quantityTransform(f, 'toModel').permute(src as [number | undefined, number | undefined, number | undefined]);
+    keys.forEach((key, k) => { if (out[k] === undefined) delete s[key]; else s[key] = out[k]!; });
   };
   permute(['kx', 'ky', 'kz']);
   permute(['krx', 'kry', 'krz']);
   const d = ['dx', 'dy', 'dz'] as const;
-  const had = d.map((k) => s[k] !== undefined);
+  const had = quantityTransform(f, 'toModel').permute(d.map(k => s[k] !== undefined) as [boolean, boolean, boolean]);
   if (!had.some(Boolean)) return;
-  const out = toModel(f, [s.dx ?? 0, s.dy ?? 0, s.dz ?? 0]);
-  f.rows.forEach((row, i) => {
-    const m = row.findIndex((c) => c !== 0);
-    if (had[i] || out[m] !== 0) s[d[m]!] = out[m]! + 0; else delete s[d[m]!];
-  });
+  const out = modelVector(f, [s.dx ?? 0, s.dy ?? 0, s.dz ?? 0]);
+  d.forEach((key, k) => { if (had[k] || out[k] !== 0) s[key] = out[k]! + 0; else delete s[key]; });
 }
 
 function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
@@ -425,18 +423,7 @@ function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
 }
 
 function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['region'] {
-  if (region.kind !== 'box') return region;
-  const out: { kind: 'box'; x?: [number, number]; y?: [number, number]; z?: [number, number] } = { kind: 'box' };
-  const keys = ['x', 'y', 'z'] as const;
-  f.rows.forEach((row, i) => {
-    const range = region[keys[i]!];
-    if (!range) return;
-    const m = row.findIndex((c) => c !== 0);
-    const sign = row[m]!;
-    const a = sign * range[0] + 0, b = sign * range[1] + 0;
-    out[keys[m]!] = a <= b ? [a, b] : [b, a];
-  });
-  return out;
+  return quantityTransform(f, 'toModel').box(region);
 }
 
 /**
@@ -503,7 +490,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
     if (!firstNode(id, row)) continue;
-    const [x, y, z] = toModel(frame, [cell('x') ?? 0, cell('y') ?? 0, cell('z') ?? 0]).map((v) => v + 0);
+    const [x, y, z] = modelVector(frame, [cell('x') ?? 0, cell('y') ?? 0, cell('z') ?? 0]).map((v) => v + 0);
     // Written by `safeText`: a leading "-" went out as "−" and comes back as it was.
     const nodeName = unguardText(str(row.cells.name));
     model.nodes.push({
@@ -944,8 +931,8 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       const elements = membersText === '' ? [] : membersText.split(/\s+/).map(Number);
       if (scope === 'members' ? !elements.length || elements.some(id => !memberIds.has(id)) : elements.length > 0) { invalid('members'); continue; }
       const userIndex = 'XYZ'.indexOf(dir);
-      const modelIndex = frame.rows[userIndex]!.findIndex(v => v !== 0);
-      selfWeight.push({ caseId, direction: (['X', 'Y', 'Z'] as const)[modelIndex]!, factor: factor * frame.rows[userIndex]![modelIndex]! + 0, ...(scope === 'members' ? { elements } : {}) });
+      const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
+      selfWeight.push({ caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) });
     }
     model.analysis = { ...model.analysis, selfWeight };
     counts.SelfWeight = selfWeight.length;
@@ -1018,16 +1005,16 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const data: Record<string, unknown> = { id: loadId++, caseId };
     if (wantsNode && !frame.identity) {
       data.nodeId = target;
-      const [fx, fy, fz] = toModel(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
+      const [fx, fy, fz] = modelVector(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
       if (type === 'nodal3d') {
-        const [mx, my, mz] = pseudoToModel(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
+        const [mx, my, mz] = modelRotation(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
         Object.assign(data, { fx, fy, fz, mx, my, mz });
       } else {
         const h = userAxisAlong(frame, 0), v = userAxisAlong(frame, 2), nrm = userAxisAlong(frame, 1);
         const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? num(row.cells[`f${nrm.name.toLowerCase()}`]) ?? 0;
         Object.assign(data, {
-          fx: h.sign * n(`f${h.name.toLowerCase()}`) + 0, fy: 0, fz: v.sign * vertical + 0,
-          my: h.sign * v.sign * n(`m${nrm.name.toLowerCase()}`) + 0,
+          fx: quantityTransform(frame).plane({ kind: 'vector', axis: 'x', value: n(`f${h.name.toLowerCase()}`) }) + 0, fy: 0, fz: quantityTransform(frame).plane({ kind: 'vector', axis: 'z', value: vertical }) + 0,
+          my: quantityTransform(frame).plane({ kind: 'pseudovector', axis: 'rot', value: n(`m${nrm.name.toLowerCase()}`) }) + 0,
         });
       }
     } else if (wantsNode) {
@@ -1058,9 +1045,9 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
         if (dir === 'global') {
           data.isGlobal = true;
           if (!frame.identity) {
-            const sv = userAxisAlong(frame, 2).sign;
-            if (typeof data.qI === 'number') data.qI = sv * data.qI + 0;
-            if (typeof data.qJ === 'number') data.qJ = sv * data.qJ + 0;
+            const mapped = (value: number) => quantityTransform(frame).plane({ kind: 'vector', axis: 'z', value });
+            if (typeof data.qI === 'number') data.qI = mapped(data.qI) + 0;
+            if (typeof data.qJ === 'number') data.qJ = mapped(data.qJ) + 0;
           }
         }
         else if (dir !== '' && dir !== 'local') {
@@ -1090,7 +1077,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
           data.frame = dir;
           if (!frame.identity) {
             for (const end of ['I', 'J'] as const) {
-              const [qx, qy, qz] = toModel(frame, [0, data[`qY${end}`] as number, data[`qZ${end}`] as number]).map((v) => v + 0);
+              const [qx, qy, qz] = modelVector(frame, [0, data[`qY${end}`] as number, data[`qZ${end}`] as number]).map((v) => v + 0);
               Object.assign(data, { [`qY${end}`]: qy, [`qZ${end}`]: qz, ...(qx !== 0 ? { [`qX${end}`]: qx } : {}) });
             }
           }

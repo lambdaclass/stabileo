@@ -1,3 +1,4 @@
+import { twoD } from '../../axes/display';
 import type { ConversationMessage, ModelContext, SolverDiagnosticMsg } from '../client';
 import { gravityLabel, signedLabel, userAxisAlong, type AxesFrame } from '../../axes/frame';
 import { type BuildAction, isEdit, isPlainObject, parseAction, parseActionResponse, validateAction } from './actions';
@@ -241,7 +242,7 @@ export function actionSummary(a: BuildAction): string {
     case 'change_section': return sectionSummary(a.params);
     case 'set_all_supports': return tp('ai.sum.supports', { type: supportTypeShown(String(a.params.support_type), false) });
     case 'set_all_beam_loads': return tp('ai.sum.beamLoads', { q: a.params.q });
-    case 'add_lateral_loads': return tp('ai.sum.lateral', { h: a.params.h });
+    case 'add_lateral_loads': return `${tp('ai.sum.lateral', { h: twoD.x(a.params.h) })} (${twoD.horizontal})`;
     case 'add_distributed_load': return tp('ai.sum.distLoad', { q: a.params.q, id: a.params.element_id });
     case 'add_nodal_load': return tp('ai.sum.nodalLoad', { id: a.params.node_id });
     case 'delete_element': return tp('ai.sum.deleteElement', { id: a.params.element_id });

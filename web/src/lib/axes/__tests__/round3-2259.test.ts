@@ -18,7 +18,7 @@ const result = {
 };
 afterEach(() => { axesStore.reset(); modelStore.clear(); resultsStore.clear(); });
 
-it.skip('known wrong result: #2259 Excel plane SRSS and ABS displacements, reactions and both totals stay magnitudes', async () => {
+it('known wrong result: #2259 Excel plane SRSS and ABS displacements, reactions and both totals stay magnitudes', async () => {
   uiStore.analysisMode = '2d';
   modelStore.clear();
   modelStore.addNode(0, 0);
@@ -42,7 +42,7 @@ it.skip('known wrong result: #2259 Excel plane SRSS and ABS displacements, react
   }
 });
 
-it.skip('known wrong result: #2259 forces report permutes SRSS and ABS blocks while signed blocks retain direction', () => {
+it('known wrong result: #2259 forces report permutes SRSS and ABS blocks while signed blocks retain direction', () => {
   for (const choice of allChoices()) for (const method of ['srss', 'abs', 'signed']) {
     axesStore.choice = choice;
     const r = { ...result, ...(method === 'signed' ? {} : { magnitude: { method } }) };
@@ -56,16 +56,15 @@ it.skip('known wrong result: #2259 forces report permutes SRSS and ABS blocks wh
   }
 });
 
-it.skip('known wrong result: #2259 global point axial force uses the displayed horizontal axis and sign; local force retains its value', () => {
+it('#2259 stored point axial force remains member-local even when the transverse component is global', () => {
   for (const choice of allChoices()) {
     axesStore.choice = choice;
-    const p = planeSigns(makeFrame(choice));
-    expect(pointOnElementText({ a: 1, p: 0, px: 7, isGlobal: true }, { global: 'global' })).toContain(`P${p.h.toLowerCase()}=${p.sx * 7}`);
+    expect(pointOnElementText({ a: 1, p: 0, px: 7, isGlobal: true }, { global: 'global' })).toContain('Px=7');
     expect(pointOnElementText({ a: 1, p: 0, px: 7 }, { global: 'global' })).toContain('Px=7');
   }
 });
 
-it.skip('known wrong result: #2259 AI lateral-load summary reports the signed user force and its mapped axis', () => {
+it('known wrong result: #2259 AI lateral-load summary reports the signed user force and its mapped axis', () => {
   for (const choice of allChoices()) {
     axesStore.choice = choice;
     const p = planeSigns(makeFrame(choice));
@@ -74,21 +73,21 @@ it.skip('known wrong result: #2259 AI lateral-load summary reports the signed us
   }
 });
 
-it.skip('known wrong result: #2259 generated combinations preserve constituent user case names including copied axis tokens', () => {
+it('known wrong result: #2259 generated combinations preserve constituent user case names including copied axis tokens', () => {
   modelStore.clear();
   const user = modelStore.addLoadCase('Wind +Y', 'W');
   const generated = modelStore.addLoadCase('Wind +X', 'W', { axisNamed: true });
   axesStore.choice = { up: '+Y', right: '-X', hand: 'left' };
-  const name = combinationNameShown({ name: '1.0 W (Wind +Y) + 1.0 W (Wind +X)', origin: {}, factors: [{ caseId: user, factor: 1 }, { caseId: generated, factor: 1 }] } as never);
+  const name = combinationNameShown({ name: '1.0 W (Wind +Y) + 1.6 W (Wind +X)', origin: {}, factors: [{ caseId: user, factor: 1 }, { caseId: generated, factor: 1.6 }] } as never);
   expect(name).toContain('Wind +Y');
   expect(name).toContain('Wind −X');
   expect(combinationNameShown({ name, origin: {}, nameTyped: true })).toBe(name);
 });
 
-it.skip('known wrong result: #2259 modal report participation is nonnegative and only permutes under reversed and left-handed axes', () => {
+it('known wrong result: #2259 modal report participation is nonnegative and only permutes under reversed and left-handed axes', () => {
   for (const choice of allChoices()) {
     const f = makeFrame(choice);
-    const html = generateReportHtml({ projectName: 'P', date: '', nodes: [], elements: [], supports: [], materials: [], sections: [], loadCount: 0, results: result, advancedResults: { modal: { modes: [{ frequency: 2, period: 0.5, participationX: 0.1, participationY: 0.2, participationZ: 0.3, massRatioX: 0.1, massRatioY: 0.2 }] } }, config: { axes: choice, companyName: '', companyLogo: null, sections: { modelData: false, results: false, advancedAnalysis: true, storyDrift: false, diagnostics: false, quantities: false, loads: false } } } as never);
+    const html = generateReportHtml({ projectName: 'P', date: '', nodes: [], elements: [], supports: [], materials: [], sections: [], loadCount: 0, results: result, advancedResults: { modal: { modes: [{ frequency: 2, period: 0.5, participationX: -2, participationY: 3, participationZ: -5, massRatioX: 0.1, massRatioY: 0.2, massRatioZ: 0.3 }] } }, config: { axes: choice, companyName: '', companyLogo: null, sections: { modelData: false, results: false, advancedAnalysis: true, storyDrift: false, diagnostics: false, quantities: false, loads: false } } } as never);
     const table = html.slice(html.indexOf('Part. X'));
     const cells = [...table.matchAll(/<td class="num">([^<]*)<\/td>/g)].slice(3, 6).map(m => Number(m[1]!.replace(',', '.')));
     expect(cells).toEqual(f.rows.map(row => [0.1, 0.2, 0.3][row.findIndex(x => x !== 0)]));

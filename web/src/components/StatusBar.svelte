@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { along, twoD } from '../lib/axes/display';
+  import { userComponent, along, twoD } from '../lib/axes/display';
   import '../styles/viewer-chrome.css';
   import { displayUnits } from '../lib/store/display-units.svelte';
   import { uiStore, modelStore } from '../lib/store';
@@ -68,7 +68,7 @@
   const pointer = $derived.by(() => {
     if (!uiStore.is3DWorkspace) return [{ name: twoD.horizontal, value: twoD.x(uiStore.worldX) }, { name: twoD.vertical, value: twoD.z(uiStore.worldY) }];
     const a = along(0), b = along(1);
-    return [{ name: a.name, value: a.sign * uiStore.worldX }, { name: b.name, value: b.sign * uiStore.worldY }].sort((p, q) => p.name.localeCompare(q.name));
+    return [{ name: a.name, value: userComponent(0, uiStore.worldX, 'vector') }, { name: b.name, value: userComponent(1, uiStore.worldY, 'vector') }].sort((p, q) => p.name.localeCompare(q.name));
   });
 </script>
 

@@ -253,7 +253,7 @@ const fr: Translations = {
   'landing.bldMoment': "Moment fléchissant",
   'landing.bldMMax': "M max",
   'landing.secTitle': "Analyse de section du mode Basique le long de la poutre d’un portique",
-  'landing.secDesc': "Une coupe parcourt la poutre du portique. Le noyau central NC de la section rectangulaire reste fixe et dépend de sa géométrie. Le diagramme des contraintes normales, l’axe neutre EN et le centre de pression CP dépendent du chargement à chaque position.",
+  'landing.secDesc': "Une coupe parcourt la poutre du portique. Le noyau central NC de la section rectangulaire reste fixe et dépend de sa géométrie. Le diagramme des contraintes normales, l’axe neutre AN et le centre de pression CP dépendent du chargement à chaque position.",
   'landing.secTag': "MODE BASIQUE",
   'landing.secOut': "hors de la vue",
   'landing.topTitle': "Optimisation topologique d’Andreassen et al. (2011), reproduite dans Stabileo Research",

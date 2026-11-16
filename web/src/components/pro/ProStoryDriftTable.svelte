@@ -1,6 +1,6 @@
 <script lang="ts">
   import { caseNameShown } from '../../lib/axes/case-names';
-  import { along, axisName } from '../../lib/axes/display';
+  import { userComponent, axisName } from '../../lib/axes/display';
   /**
    * Story drift under each seismic case, checked against INPRES-CIRSOC 103 Tabla 6.4
    * (`engine/seismic-drift.ts`). C_d and the destination group come from the project's seismic
@@ -75,7 +75,7 @@
             {#each tb.stories as s (s.level)}
               {@const worst = Math.max(s.ratioX, s.ratioY)}
               <tr onclick={() => pick([s.columnX, s.columnY])} style="cursor:pointer">
-                <td class="col-num">{s.levelName ? `${s.levelName} (${(along(2).sign * s.level).toFixed(2)})` : (along(2).sign * s.level).toFixed(2)}</td>
+                <td class="col-num">{s.levelName ? `${s.levelName} (${(userComponent(2, s.level, 'vector')).toFixed(2)})` : (userComponent(2, s.level, 'vector')).toFixed(2)}</td>
                 <td class="col-num">{s.height.toFixed(2)}</td>
                 <td class="col-num">{pct(s.ratioX)}</td>
                 <td class="col-num">{pct(s.ratioY)}</td>

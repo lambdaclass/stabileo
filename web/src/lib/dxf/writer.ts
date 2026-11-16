@@ -1,3 +1,6 @@
+import { quantityTransform } from '../axes/quantity-transform';
+const pseudoToUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'pseudovector', values });
+const toUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
 /**
  * PRO's DXF: the model and its results as a drawing, in space or projected.
  *
@@ -51,7 +54,7 @@ import { distributedGlobalEnds, memberFrame3D } from '../engine/member-loads';
 import { projectNodeToScene } from '../geometry/coordinate-system';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { magnitudeLabel } from '../engine/result-scopes';
-import { AXIS_NAMES, DEFAULT_AXES, makeFrame, pseudoToUser, signedLabel, supportTypeIn, toUser, userAxisAlong, type AxesChoice, type AxesFrame, type AxisName, type Sign } from '../axes/frame';
+import { AXIS_NAMES, DEFAULT_AXES, makeFrame, signedLabel, supportTypeIn, userAxisAlong, type AxesChoice, type AxesFrame, type AxisName, type Sign } from '../axes/frame';
 
 export type DxfProjection = 'space' | 'top' | 'front' | 'side';
 

@@ -17,10 +17,11 @@ it('known wrong result: #2259 explicit renames compare against displayed case an
   modelStore.updateLoadCase(id, 'Wind +X');
   expect(caseNameShown(lc)).toBe('Wind +X');
   expect(lc.axisNamed).toBeUndefined();
-  const cid = modelStore.addCombination('Wind +X', [], { code: 'test' } as never);
+  const generated = modelStore.addLoadCase('Wind +X', '', { axisNamed: true });
+  const cid = modelStore.addCombination('1.0 Wind +X', [{ caseId: generated, factor: 1 }], { code: 'test' } as never);
   const combo = modelStore.combinations.find(c => c.id === cid)!;
-  expect(combinationNameShown(combo)).toBe('Wind +Y');
-  modelStore.updateCombination(cid, { name: 'Wind +Y' });
+  expect(combinationNameShown(combo)).toBe('1.0 Wind +Y');
+  modelStore.updateCombination(cid, { name: '1.0 Wind +Y' });
   expect(combo.nameTyped).toBeUndefined();
   modelStore.updateCombination(cid, { name: 'Wind +X' });
   expect(combinationNameShown(combo)).toBe('Wind +X');

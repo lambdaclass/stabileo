@@ -12,9 +12,8 @@
   import type { Underlay } from '../../../lib/model/underlay';
   import type { Level } from '../../../lib/model/grid';
   import UnderlayConvertDialog from './UnderlayConvertDialog.svelte';
-  import { along, axisName } from '../../../lib/axes/display';
-  import { axesStore } from '../../../lib/axes/axes.svelte';
-  import { planNamesIn } from '../../../lib/axes/typed-frame';
+  import { userComponent, along, axisName } from '../../../lib/axes/display';
+    import { planNamesIn } from '../../../lib/axes/typed-frame';
 
   let { u, levels }: { u: Underlay; levels: Level[] } = $props();
   let open = $state(false);
@@ -26,7 +25,7 @@
   const atLevel = (id: string) => { const lv = levels.find((l) => l.id === id); if (lv) edit({ levelId: lv.id, z: lv.z }); };
   const num = (s: string) => Number(s.trim().replace(',', '.'));
   const s0 = $derived(along(0).sign), s1 = $derived(along(1).sign);
-  const turn = $derived(axesStore.frame.det * along(2).sign);
+  const turn = $derived(userComponent(2, 1, 'pseudovector'));
   const h0 = $derived(axisName(0).toLowerCase()), h1 = $derived(axisName(1).toLowerCase());
   function align() {
     // The pairs filled in, in drawing metres → model metres.
@@ -54,7 +53,7 @@
   <td><button class="ul-link" onclick={() => (open = !open)} aria-expanded={open} data-testid="underlay-open-{u.name}">{open ? '▾' : '▸'} {u.name}</button></td>
   <td>
     <select value={u.levelId ?? ''} disabled={u.locked} onchange={(e) => atLevel(e.currentTarget.value)}>
-      {#if !u.levelId}<option value="">{axisName(2).toLowerCase()} = {along(2).sign * u.z}</option>{/if}
+      {#if !u.levelId}<option value="">{axisName(2).toLowerCase()} = {userComponent(2, u.z, 'vector')}</option>{/if}
       {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
     </select>
   </td>

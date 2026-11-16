@@ -4,7 +4,7 @@
  * reaction of 45 kN and for a flexibility coefficient of 1e-5 m/kN.
  */
 import { t } from '../../lib/i18n';
-import { along } from '../../lib/axes/display';
+import { userComponent, twoD, along } from '../../lib/axes/display';
 import { axesStore } from '../../lib/axes/axes.svelte';
 import { planeSigns } from '../../lib/axes/frame';
 import type { Redundant, Geometry } from '../../lib/engine/force-method/solve';
@@ -73,7 +73,7 @@ export function componentShown(c: number, rotated = false, is3D = false): { name
   if (is3D) {
     if (rotated && c === 0) return { name: 'Rn', sign: 1 };
     const a = along((c % 3) as 0 | 1 | 2);
-    return { name: `${c < 3 ? 'R' : 'M'}${a.name.toLowerCase()}`, sign: c < 3 ? a.sign : axesStore.frame.det * a.sign };
+    return { name: `${c < 3 ? 'R' : 'M'}${a.name.toLowerCase()}`, sign: userComponent(c % 3, 1, c < 3 ? 'vector' : 'pseudovector') };
   }
   const p = planeSigns(axesStore.frame);
   if (c === 2) return { name: 'M', sign: p.sr };
@@ -86,4 +86,11 @@ export function redundantUnit(r: Redundant, is3D = false): string {
   const moment = (r.kind === 'spring' && r.component === 2) || r.kind === 'cutM' || r.kind === 'cutMy' || r.kind === 'cutMz' || r.kind === 'cutT'
     || (r.kind === 'reaction' && (is3D ? (r.component ?? 0) >= 3 : r.component === 2));
   return moment ? 'kN·m' : 'kN';
+}
+
+export function componentValue(c: number, value: number, rotated = false, is3D = false): number {
+  if (is3D) return rotated && c === 0 ? value : userComponent(c % 3, value, c < 3 ? 'vector' : 'pseudovector');
+  if (c === 2) return twoD.rot(value);
+  if (rotated) return value;
+  return c === 0 ? twoD.x(value) : twoD.z(value);
 }

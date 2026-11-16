@@ -50,7 +50,7 @@ import {
   get2DDisplayRotation,
   get2DDisplayedVertical,
 } from '../geometry/coordinate-system';
-import { coordLabels, shownCoords, twoD } from '../axes/display';
+import { coordLabels, shownCoords } from '../axes/display';
 import { nodeShown3D, standingPlane } from '../axes/node-coords';
 import { axesStore } from '../axes/axes.svelte';
 import { axesStatement } from '../axes/statement';
@@ -218,9 +218,9 @@ function createSummarySheet(): Xlsx.WorkSheet {
 
     let sumRx = 0, sumRz = 0, sumMy = 0;
     for (const r of r2d.reactions) {
-      sumRx += twoD.x(r.rx);
-      sumRz += twoD.z(get2DDisplayReactionVertical(r));
-      sumMy += twoD.rot(get2DDisplayMoment(r));
+      sumRx += resultComponents(axesStore.frame, r2d).plane(r.rx, 'x');
+      sumRz += resultComponents(axesStore.frame, r2d).plane(get2DDisplayReactionVertical(r), 'z');
+      sumMy += resultComponents(axesStore.frame, r2d).plane(get2DDisplayMoment(r), 'rot');
     }
     data.push([t('excel.equilibriumCheck')]);
     data.push([`Σ${TWO_D_REACTION_LABELS.horizontal}`, sumRx.toFixed(4), 'kN']);
@@ -367,9 +367,9 @@ function createNodesSheet(): Xlsx.WorkSheet {
       const disp = r2d.displacements.find(d => d.nodeId === node.id);
       if (disp) {
         row.push(
-          Number((twoD.x(disp.ux) * 1000).toFixed(4)),
-          Number((twoD.z(get2DDisplayDisplacementVertical(disp)) * 1000).toFixed(4)),
-          Number((twoD.rot(get2DDisplayRotation(disp)) * 1000).toFixed(4)),
+          Number((resultComponents(axesStore.frame, r2d).plane(disp.ux, 'x') * 1000).toFixed(4)),
+          Number((resultComponents(axesStore.frame, r2d).plane(get2DDisplayDisplacementVertical(disp), 'z') * 1000).toFixed(4)),
+          Number((resultComponents(axesStore.frame, r2d).plane(get2DDisplayRotation(disp), 'rot') * 1000).toFixed(4)),
         );
       } else {
         row.push('-', '-', '-');
@@ -445,12 +445,12 @@ function createReactionsSheet(): Xlsx.WorkSheet {
 
     data.push([
       r.nodeId, supShown,
-      Number(twoD.x(r.rx).toFixed(4)), Number(twoD.z(get2DDisplayReactionVertical(r)).toFixed(4)), Number(twoD.rot(get2DDisplayMoment(r)).toFixed(4)),
+      Number(resultComponents(axesStore.frame, r2d).plane(r.rx, 'x').toFixed(4)), Number(resultComponents(axesStore.frame, r2d).plane(get2DDisplayReactionVertical(r), 'z').toFixed(4)), Number(resultComponents(axesStore.frame, r2d).plane(get2DDisplayMoment(r), 'rot').toFixed(4)),
     ]);
   }
 
   const totals = r2d!.reactions.reduce(
-    (acc, r) => ({ rx: acc.rx + twoD.x(r.rx), rz: acc.rz + twoD.z(get2DDisplayReactionVertical(r)), my: acc.my + twoD.rot(get2DDisplayMoment(r)) }),
+    (acc, r) => ({ rx: acc.rx + resultComponents(axesStore.frame, r2d).plane(r.rx, 'x'), rz: acc.rz + resultComponents(axesStore.frame, r2d).plane(get2DDisplayReactionVertical(r), 'z'), my: acc.my + resultComponents(axesStore.frame, r2d).plane(get2DDisplayMoment(r), 'rot') }),
     { rx: 0, rz: 0, my: 0 }
   );
   data.push([]);

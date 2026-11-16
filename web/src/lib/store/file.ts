@@ -791,7 +791,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.displacements')}`);
     lines.push(`${t('file.node')},${TWO_D_DISPLACEMENT_LABELS.horizontal} (m),${TWO_D_DISPLACEMENT_LABELS.vertical} (m),r${twoD.normal.toLowerCase()} (rad)`);
     for (const d of r2d.displacements) {
-      lines.push(`${d.nodeId},${twoD.x(d.ux)},${twoD.z(get2DDisplayDisplacementVertical(d))},${twoD.rot(get2DDisplayRotation(d))}`);
+      lines.push(`${d.nodeId},${resultComponents(axesStore.frame, r2d).plane(d.ux, 'x')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayDisplacementVertical(d), 'z')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayRotation(d), 'rot')}`);
     }
     lines.push('');
 
@@ -799,7 +799,7 @@ export function exportResultsCSV(solveError?: string, record?: ResultProvenance)
     lines.push(`# ${t('file.reactions')}`);
     lines.push(`${t('file.node')},${TWO_D_REACTION_LABELS.horizontal} (kN),${TWO_D_REACTION_LABELS.vertical} (kN),${TWO_D_REACTION_LABELS.moment} (kN·m)`);
     for (const r of r2d.reactions) {
-      lines.push(`${r.nodeId},${twoD.x(r.rx)},${twoD.z(get2DDisplayReactionVertical(r))},${twoD.rot(get2DDisplayMoment(r))}`);
+      lines.push(`${r.nodeId},${resultComponents(axesStore.frame, r2d).plane(r.rx, 'x')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayReactionVertical(r), 'z')},${resultComponents(axesStore.frame, r2d).plane(get2DDisplayMoment(r), 'rot')}`);
     }
     lines.push('');
 

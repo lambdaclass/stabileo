@@ -19,7 +19,7 @@ function springModel(curve = points) {
   return { s, snapshot: { ...modelStore.snapshot(), analysisMode: 'pro' } };
 }
 
-it.skip('known wrong result: #2259 symmetric spring branch coordinates change signs together through every frame and both code directions', () => {
+it('known wrong result: #2259 symmetric spring branch coordinates change signs together through every frame and both code directions', () => {
   for (const c of allChoices()) for (const mode of ['3d', 'pro']) for (const k of [0, 1, 2]) {
     const snap = { analysisMode: mode, nodes: [[1, { x: 1, y: 2, z: 3 }]], supports: [[1, { curves: { ['xyz'[k]!]: points } }]] };
     const user = transformSnapshot(snap, c, 'toUser') as any;
@@ -33,7 +33,7 @@ it.skip('known wrong result: #2259 symmetric spring branch coordinates change si
   }
 });
 
-it.skip('known wrong result: #2259 valid user-frame spring branches retain the actual nonlinear WASM answer', () => {
+it('known wrong result: #2259 valid user-frame spring branches retain the actual nonlinear WASM answer', () => {
   const { s, snapshot } = springModel();
   const base = modelStore.solve3D(false, false, true);
   if (!base || typeof base === 'string') throw new Error(String(base));

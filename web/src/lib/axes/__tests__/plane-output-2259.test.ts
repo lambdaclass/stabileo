@@ -8,7 +8,7 @@ import { resultsStore, uiStore } from '../../store';
 
 afterEach(() => { axesStore.reset(); resultsStore.clear(); });
 
-it.skip('known wrong result: #2259 Basic plane table and CSV preserve SRSS and ABS magnitudes under all user axes', () => {
+it('known wrong result: #2259 Basic plane table and CSV preserve SRSS and ABS magnitudes under all user axes', () => {
   uiStore.analysisMode = '2d';
   for (const choice of allChoices()) for (const method of ['srss', 'abs', 'signed']) {
     axesStore.choice = choice;

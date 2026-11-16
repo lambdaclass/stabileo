@@ -124,8 +124,8 @@ test('known wrong result: #2259 @smoke a solved automatic modal note follows the
   await expect(note).toHaveText(before.replace(/\bY\b/g, 'Z'));
 });
 
-for (const hand of ['right', 'left'] as const) {
-  test(`@smoke #2259 the distributed tool stores the reflected ${hand}-handed vertical direction`, async ({ page }) => {
+for (const hand of ['right', 'left'] as const) for (const frame of ['global', 'projected'] as const) {
+  test(`@smoke #2259 the ${frame} distributed tool stores the reflected ${hand}-handed vertical direction`, async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions);
     await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
@@ -136,7 +136,7 @@ for (const hand of ['right', 'left'] as const) {
     await page.getByTestId('axes-done').click();
     await page.getByTestId('rb-cmd-load').click();
     await page.getByRole('button', { name: /Distributed/ }).first().click();
-    await page.getByTestId('dist-frame-global').click();
+    await page.getByTestId(`dist-frame-${frame}`).click();
     await page.locator('label.ft-input-group').filter({ hasText: 'qYI:' }).locator('input').fill('7');
     await page.locator('label.ft-input-group').filter({ hasText: 'qYJ:' }).locator('input').fill('11');
     const m = await page.evaluate(() => {
@@ -148,6 +148,6 @@ for (const hand of ['right', 'left'] as const) {
     await page.mouse.click(m.x + 4, m.y + 4);
     await expect.poll(() => page.evaluate(() => window.__stabileo.allLoads().length)).toBe(before + 1);
     const last = await page.evaluate(() => window.__stabileo.allLoads().at(-1));
-    expect(last).toMatchObject({ type: 'distributed3d', data: { elementId: 5, frame: 'global', qZI: -7, qZJ: -11 } });
+    expect(last).toMatchObject({ type: 'distributed3d', data: { elementId: 5, frame, qZI: -7, qZJ: -11 } });
   });
 }

@@ -1,9 +1,8 @@
 <script lang="ts">
   import { resultComponents } from '../../lib/axes/result-components';
   import { axesStore } from '../../lib/axes/axes.svelte';
-  const components = $derived(resultComponents(axesStore.frame, resultsStore.results3D));
-  import { twoD } from '../../lib/axes/display';
-  import { resultCaseName } from '../../lib/engine/settlement-case';
+  const components = $derived(resultComponents(axesStore.frame, uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results));
+    import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { knownIssueMessage } from '../../lib/engine/known-issue-message';
@@ -212,9 +211,9 @@
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(twoD.x(d.ux))}</td>
-              <td class="num">{dsp(twoD.z(get2DDisplayDisplacementVertical(d)))}</td>
-              <td class="num">{(twoD.rot(get2DDisplayRotation(d)) * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(components.plane(d.ux, 'x'))}</td>
+              <td class="num">{dsp(components.plane(get2DDisplayDisplacementVertical(d), 'z'))}</td>
+              <td class="num">{(components.plane(get2DDisplayRotation(d), 'rot') * 1000).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>
@@ -229,9 +228,9 @@
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(twoD.x(r.rx))}</td>
-              <td class="num">{frc(twoD.z(get2DDisplayReactionVertical(r)))}</td>
-              <td class="num">{mom(twoD.rot(-get2DDisplayMoment(r)))}</td>
+              <td class="num">{frc(components.plane(r.rx, 'x'))}</td>
+              <td class="num">{frc(components.plane(get2DDisplayReactionVertical(r), 'z'))}</td>
+              <td class="num">{mom(components.plane(get2DDisplayMoment(r), 'rot', -1))}</td>
             </tr>
           {/each}
         </tbody>

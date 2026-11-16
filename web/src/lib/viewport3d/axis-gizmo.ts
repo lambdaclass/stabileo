@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import { Vector3 } from 'three';
+import { quantityTransform } from '../axes/quantity-transform';
 import { axesStore } from '../axes/axes.svelte';
 import { AXIS_NAMES } from '../axes/frame';
 
@@ -12,7 +13,7 @@ export function drawAxisGizmoOn(canvas: HTMLCanvasElement, camera: THREE.Camera)
   camera.updateMatrixWorld();
   const viewMat = camera.matrixWorldInverse;
   const colors = ['#ff4444', '#44ff44', '#4488ff'];
-  const axes = axesStore.frame.rows.map((r, i) => ({ label: AXIS_NAMES[i], color: colors[i], dir: new Vector3(r[0], r[1], r[2]) }));
+  const axes = AXIS_NAMES.map((label, i) => ({ label, color: colors[i], dir: new Vector3(...quantityTransform(axesStore.frame, 'toModel').triple({ kind: 'vector', values: [i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0] })) }));
   const cx = s / 2, cy = s / 2, len = s * 0.35;
   const projected = axes
     .map((a) => {

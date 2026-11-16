@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { axesKey } from '../../lib/axes/display';
+  import { quantityTransform } from '../../lib/axes/quantity-transform';
+
+  const toModel = (f: import('../../lib/axes/frame').AxesFrame, values: import('../../lib/axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
+
+  const toUser = (f: import('../../lib/axes/frame').AxesFrame, values: import('../../lib/axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
+
+  import { userComponent, axesKey } from '../../lib/axes/display';
   import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   /**
@@ -21,8 +27,7 @@
   import { onDestroy } from 'svelte';
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import QuantityInput from './loads/QuantityInput.svelte';
-  import { along, axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
-  import { toModel, toUser } from '../../lib/axes/frame';
+  import { axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
   import { axesStore } from '../../lib/axes/axes.svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
@@ -157,7 +162,7 @@
       if (deg < -180) deg += 360;
       point = userVec(...c!);
       axis = axisName(2);
-      angle = Math.round(axesStore.frame.det * along(2).sign * deg * 1e6) / 1e6;
+      angle = Math.round(userComponent(2, deg, 'pseudovector') * 1e6) / 1e6;
     });
   }
   /** The repeat step, as the vector between two clicked points. */

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { along, axisName } from '../../lib/axes/display';
+  import { userComponent, axisName } from '../../lib/axes/display';
   import { userPlane } from '../../lib/axes/typed-frame';
   import { editorActivity } from '../../lib/utils/editor-activity';
   const editorActive = editorActivity();
@@ -100,7 +100,7 @@
           </select>
         </label>
         <label>{levelAxis} =
-          <QuantityInput value={along(levelK).sign * uiStore.nodeCreateZ} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = along(levelK).sign * v)} testid="draw-level" />
+          <QuantityInput value={userComponent(levelK, uiStore.nodeCreateZ, 'vector')} quantity="length" cls="db-num" onchange={(v) => (uiStore.nodeCreateZ = userComponent(levelK, v, 'vector'))} testid="draw-level" />
         </label>
       {:else if tool === 'element'}
         <NextMemberFields />

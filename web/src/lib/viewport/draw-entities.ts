@@ -5,7 +5,7 @@
  * arguments so it never reads from Svelte stores directly.
  */
 
-import { along, twoD } from '../axes/display';
+import { userComponent, along, twoD } from '../axes/display';
 import { drawMomentSymbol } from '../canvas/draw-loads';
 import type { LabelCollector } from '../canvas/label-layout';
 import { addMemberTags } from '../canvas/member-tags';
@@ -138,11 +138,11 @@ export function drawAxes(
   const h = along(0), v = along(2);
   ctx.font = '11px sans-serif';
   ctx.strokeStyle = colors[h.name];
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + h.sign * len, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + userComponent(0, len, 'vector'), cy); ctx.stroke();
   ctx.fillStyle = colors[h.name];
   ctx.fillText(h.name, h.sign > 0 ? cx + len + 3 : cx - len - 11, cy + 4);
   ctx.strokeStyle = colors[v.name];
-  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - v.sign * len); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - userComponent(2, len, 'vector')); ctx.stroke();
   ctx.fillStyle = colors[v.name];
   ctx.fillText(v.name, cx - 4, v.sign > 0 ? cy - len - 5 : cy + len + 11);
 }

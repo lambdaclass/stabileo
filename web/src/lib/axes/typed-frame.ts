@@ -1,5 +1,4 @@
-import { along, axisName, modelAxisOf, modelFlags, modelRot, modelVec, signedModelName, userFlags, userRot, userVec } from './display';
-import { axesStore } from './axes.svelte';
+import { userComponent, along, axisName, modelAxisOf, modelFlags, modelRot, modelVec, signedModelName, userFlags, userRot, userVec } from './display';
 import type { AxisName, Sign } from './frame';
 import type { ToModelFrame } from '../model/loads/write-load';
 
@@ -13,9 +12,9 @@ export const gravityNameIn = (s: string): string => s.replace('−Z', signedMode
 export const gravityFactorIn = (s: string): string => verticalNameIn(s).replace('−1', along(2).sign > 0 ? '−1' : '+1');
 export const verticalCoordIn = (s: string): string => s.replace(/\(([^()]+) − z\)/, (_, level: string) => along(2).sign < 0 ? `(${axisName(2).toLowerCase()} − ${level})` : `(${level} − ${axisName(2).toLowerCase()})`);
 
-export function userSlot(i: number, moment = false): { k: 0 | 1 | 2; sign: Sign } {
+export function userSlot(i: number, moment = false): { k: 0 | 1 | 2; sign: Sign; value: (v: number) => number } {
   const m = modelAxisOf((['X', 'Y', 'Z'] as const)[i]!);
-  return { k: m.index, sign: (moment ? axesStore.frame.det * m.sign : m.sign) as Sign };
+  return { k: m.index, sign: userComponent(m.index, 1, moment ? 'pseudovector' : 'vector') as Sign, value: (v) => userComponent(m.index, v, moment ? 'pseudovector' : 'vector') };
 }
 
 export interface Six { fx: number; fy: number; fz: number; mx: number; my: number; mz: number }
@@ -49,8 +48,7 @@ export function userDof(name: string, value: number): { dof: string; value: numb
   if (!m) return { dof: name, value };
   const k = 'xyz'.indexOf(m[2]!) as 0 | 1 | 2;
   const a = along(k);
-  const sign = m[1] === 'r' ? axesStore.frame.det * a.sign : a.sign;
-  return { dof: `${m[1]}${a.name.toLowerCase()}`, value: sign * value };
+  return { dof: `${m[1]}${a.name.toLowerCase()}`, value: userComponent(k, value, m[1] === 'r' ? 'pseudovector' : 'vector') };
 }
 
 export function modelFlags6<T>(u: readonly T[]): T[] {
@@ -77,3 +75,9 @@ export const modelAxisText = (k: 0 | 1 | 2): string => signedModelName(k, 1).rep
 export const signedNamesIn = (s: string): string => s.replace(/[+−][XYZ]\b/g, (m) => signedAxisText(m));
 
 export const axisNamesIn = (s: string): string => s.replace(/\b[XYZ]\b/g, (m) => axisName(XYZi(m)));
+
+export function modelDofValue(name: string, value: number): number {
+  const m = /^([ur])([xyz])$/.exec(name.trim());
+  if (!m) throw new Error(`Invalid user DOF: ${name}`);
+  return userSlot('xyz'.indexOf(m[2]!), m[1] === 'r').value(value);
+}

@@ -1,12 +1,15 @@
-import { planeSigns, pseudoToUser, toUser, type AxesFrame, type Vec3 } from './frame';
+import { type AxesFrame } from './frame';
+import { quantityTransform } from './quantity-transform';
 
 export function resultComponents(frame: AxesFrame, result: object | null | undefined) {
   const magnitude = !!result && 'magnitude' in result && !!result.magnitude;
-  const permute = (v: Vec3): [number, number, number] => frame.rows.map(row => v[row.findIndex(x => x !== 0)]!) as [number, number, number];
-  const p = planeSigns(frame);
+  const transform = quantityTransform(frame);
   return {
-    vec: (x: number, y: number, z: number) => magnitude ? permute([x, y, z]) : toUser(frame, [x, y, z]),
-    rot: (x: number, y: number, z: number, sense: 1 | -1 = 1) => magnitude ? permute([x, y, z]) : pseudoToUser(frame, [sense * x, sense * y, sense * z]),
-    plane: (v: number, axis: 'x' | 'z' | 'rot') => magnitude ? v : v * (axis === 'x' ? p.sx : axis === 'z' ? p.sz : p.sr),
+    vec: (x: number, y: number, z: number) => transform.triple({ kind: magnitude ? 'magnitude' : 'vector', values: [x, y, z] }),
+    rot: (x: number, y: number, z: number, sense: 1 | -1 = 1) => transform.triple({ kind: magnitude ? 'magnitude' : 'pseudovector', values: magnitude ? [x, y, z] : [sense * x, sense * y, sense * z] }),
+    plane: (value: number, axis: 'x' | 'z' | 'rot', sense: 1 | -1 = 1) => magnitude
+      ? transform.plane({ kind: 'magnitude', value, axis })
+      : axis === 'rot' ? transform.plane({ kind: 'pseudovector', value: sense * value, axis })
+      : transform.plane({ kind: 'vector', value: sense * value, axis }),
   };
 }

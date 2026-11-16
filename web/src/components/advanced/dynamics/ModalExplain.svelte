@@ -4,7 +4,7 @@
    * participation and effective mass, and their sum; with the participation
    * factors of the mode on screen, which the panel's line leaves out.
    */
-  import { along, modelAxisOf, twoD } from '../../../lib/axes/display';
+  import { userComponent, along, modelAxisOf, twoD } from '../../../lib/axes/display';
   import CourseSection from './CourseSection.svelte';
   import { t, tp } from '../../../lib/i18n';
   import { numText } from '../../../lib/engine/steps/format';
@@ -31,7 +31,7 @@
       <thead><tr><th></th><th>Γ</th><th>M_ef (t)</th><th>%</th></tr></thead>
       <tbody>
         {#each dirs as d}
-          <tr><td>{d.name}</td><td>{numText(d.sign * gamma(d.d), 4)}</td><td>{numText(meff(d.d), 4)}</td><td>{result.totalMass > 0 ? numText((100 * meff(d.d)) / result.totalMass, 3) : '—'}</td></tr>
+          <tr><td>{d.name}</td><td>{numText(userComponent(d.d === 'X' ? 0 : d.d === 'Y' ? 1 : 2, gamma(d.d), 'vector'), 4)}</td><td>{numText(meff(d.d), 4)}</td><td>{result.totalMass > 0 ? numText((100 * meff(d.d)) / result.totalMass, 3) : '—'}</td></tr>
         {/each}
       </tbody>
     </table>

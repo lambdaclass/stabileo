@@ -27,7 +27,7 @@
     needsPlaneChoice, collapsedByPlane, cutsOn, projectOnto, sliceAt,
     eraseAndSwitch, switchPlain, type DrawPlane,
   } from '../lib/store/switch-2d';
-  import { along } from '../lib/axes/display';
+  import { userComponent, along } from '../lib/axes/display';
   import { planeName, relabelAxes } from '../lib/axes/user-names';
   import { PROJECTION_COLLAPSE_ERROR } from '../lib/geometry/plane-projection';
   import { t } from '../lib/i18n';
@@ -57,9 +57,10 @@
   const cuts = $derived(open ? cutsOn(plane) : []);
   const normalAxis = $derived(along(plane === 'xy' ? 2 : plane === 'xz' ? 1 : 0));
   const normal = $derived(normalAxis.name);
+  const normalValue = (value: number) => userComponent(plane === 'xy' ? 2 : plane === 'xz' ? 1 : 0, value, 'vector');
 
   /** Empty is not zero: an unanswered field must not silently cut at the origin. */
-  const offset = $derived(offsetText.trim() === '' ? null : normalAxis.sign * Number(offsetText));
+  const offset = $derived(offsetText.trim() === '' ? null : normalValue(Number(offsetText)));
   const offsetValid = $derived(offset !== null && Number.isFinite(offset));
 
   /** The cut the typed distance names, if it names one. */
@@ -181,7 +182,7 @@
                 step="any"
                 value={offsetText}
                 oninput={(e) => (offsetText = e.currentTarget.value)}
-                placeholder={cuts.length ? fmt(normalAxis.sign * cuts[0].value) : '0'}
+                placeholder={cuts.length ? fmt(normalValue(cuts[0].value)) : '0'}
                 data-testid="s2d-offset"
               />
               <span class="s2d-unit">m</span>
@@ -194,10 +195,10 @@
                   <button
                     class="s2d-cut" class:on={matching?.value === c.value}
                     class:barren={c.elements === 0}
-                    onclick={() => (offsetText = fmt(normalAxis.sign * c.value))}
+                    onclick={() => (offsetText = fmt(normalValue(c.value)))}
                     data-testid={`s2d-cut-${fmt(c.value)}`}
                   >
-                    <span class="s2d-cut-at">{normal} = {fmt(normalAxis.sign * c.value)}</span>
+                    <span class="s2d-cut-at">{normal} = {fmt(normalValue(c.value))}</span>
                     <span class="s2d-cut-n">
                       {c.elements} {t('switch2d.members')}
                       <!--

@@ -39,7 +39,11 @@ describe('generated case names', () => {
 
   it('a generated combination reads in the user axes until the user renames it', () => {
     axesStore.choice = Y_UP;
-    expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {} })).toBe('1.0 D + 1.6 W (Viento −Z)');
+    modelStore.clear();
+    const d = modelStore.model.loadCases.find(c => c.type === 'D')!.id;
+    const w = modelStore.addLoadCase('Viento +Y', 'W', { axisNamed: true });
+    modelStore.addLoadCase('Viento +X', 'W', { axisNamed: true });
+    expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {}, factors: [{ caseId: d, factor: 1 }, { caseId: w, factor: 1.6 }] })).toBe('1.0 D + 1.6 W (Viento −Z)');
     expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {}, nameTyped: true })).toBe('1.0 D + 1.6 W (Viento +Y)');
     expect(combinationNameShown({ name: 'Mine Y' })).toBe('Mine Y');
   });

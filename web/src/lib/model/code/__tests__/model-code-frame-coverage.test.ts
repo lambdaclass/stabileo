@@ -117,7 +117,7 @@ describe('model code carries every global direction in the user axes', () => {
     for (let d = 0; d < 6; d++) expect(ecc.releases[(d >= 3 ? 3 : 0) + userIndexOf(d % 3)]).toBe(rel[d]);
   });
 
-  it.skip('known wrong result: #2259 transforms both coordinates of a support spring with its axes', () => {
+  it('known wrong result: #2259 transforms both coordinates of a support spring with its axes', () => {
     const u = transformSnapshot(spaceSnapshot(), YUP, 'toUser');
     const [, sp] = u.supports[0];
     expect(sp.curves).toEqual({ z: [[-0.01, -5]], y: [[0.02, 8]] });
@@ -144,7 +144,7 @@ describe('model code carries every global direction in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #2259 asymmetric spring pairs keep physical direction, ordering and inverse through all frame directions', () => {
+it('known wrong result: #2259 asymmetric spring pairs keep physical direction, ordering and inverse through all frame directions', () => {
   const curve = [[-0.02, -3], [0, 0], [0.01, 5]];
   for (const choice of allChoices()) for (const k of [0, 1, 2]) for (const way of ['toUser', 'toModel'] as const) {
     const f = makeFrame(choice);

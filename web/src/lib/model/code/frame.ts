@@ -1,40 +1,33 @@
 import {
-  makeFrame, pseudoToModel, pseudoToUser, toModel, toUser, userAxisAlong,
+  makeFrame,
   type AxesChoice, type AxesFrame, type Vec3,
 } from '../../axes/frame';
+
+import { quantityTransform } from '../../axes/quantity-transform';
 
 type Obj = Record<string, any>;
 type Way = 'toUser' | 'toModel';
 
-const vec = (f: AxesFrame, way: Way, v: Vec3) => (way === 'toUser' ? toUser(f, v) : toModel(f, v));
-const rot = (f: AxesFrame, way: Way, v: Vec3) => (way === 'toUser' ? pseudoToUser(f, v) : pseudoToModel(f, v));
+const vec = (f: AxesFrame, way: Way, v: Vec3) => quantityTransform(f, way).triple({ kind: 'vector', values: v });
+const rot = (f: AxesFrame, way: Way, v: Vec3) => quantityTransform(f, way).triple({ kind: 'pseudovector', values: v });
 
 function mapTriple(f: AxesFrame, way: Way, o: Obj, keys: readonly [string, string, string], kind: 'vec' | 'rot' = 'vec'): void {
   if (!keys.some((k) => o[k] !== undefined)) return;
   const v: Vec3 = [o[keys[0]] ?? 0, o[keys[1]] ?? 0, o[keys[2]] ?? 0];
   const out = kind === 'vec' ? vec(f, way, v) : rot(f, way, v);
-  const had = keys.map((k) => o[k] !== undefined);
-  const has = [...had];
-  f.rows.forEach((row, i) => {
-    const m = row.findIndex((c) => c !== 0);
-    if (way === 'toUser') has[i] = had[m]!; else has[m] = had[i]!;
-  });
+  const has = quantityTransform(f, way).permute(keys.map(k => o[k] !== undefined) as [boolean, boolean, boolean]);
   keys.forEach((k, i) => { if (has[i] || out[i] !== 0) o[k] = out[i]! + 0; else delete o[k]; });
 }
 
 function permute(f: AxesFrame, way: Way, o: Obj, keys: readonly [string, string, string]): void {
   if (!keys.some((k) => o[k] !== undefined)) return;
-  const src = keys.map((k) => o[k]);
-  const out: unknown[] = [...src];
-  f.rows.forEach((row, i) => {
-    const m = row.findIndex((c) => c !== 0);
-    if (way === 'toUser') out[i] = src[m]; else out[m] = src[i];
-  });
+  const out = quantityTransform(f, way).permute(keys.map(k => o[k]) as [unknown, unknown, unknown]);
   keys.forEach((k, i) => { if (out[i] === undefined) delete o[k]; else o[k] = out[i]; });
 }
 
 function plane(f: AxesFrame) {
-  return { h: userAxisAlong(f, 0).sign, v: userAxisAlong(f, 2).sign, r: userAxisAlong(f, 0).sign * userAxisAlong(f, 2).sign };
+  const t = quantityTransform(f);
+  return { h: t.plane({ kind: 'vector', value: 1, axis: 'x' }), v: t.plane({ kind: 'vector', value: 1, axis: 'z' }), r: t.plane({ kind: 'pseudovector', value: 1, axis: 'rot' }) };
 }
 
 function planeGlobal(d: Obj, keys: readonly string[], p: { h: number; v: number }): void {
@@ -62,18 +55,19 @@ function vecXYZ(f: AxesFrame, way: Way, o: unknown): void {
 
 function axisMap(f: AxesFrame, way: Way): { index: number[]; sign: number[] } {
   const index = [0, 1, 2], sign = [1, 1, 1];
-  f.rows.forEach((row, i) => {
-    const m = row.findIndex((c) => c !== 0);
-    if (way === 'toUser') { index[m] = i; sign[m] = row[m]!; } else { index[i] = m; sign[i] = row[m]!; }
-  });
+  for (let k = 0; k < 3; k++) {
+    const a = quantityTransform(f, way).component(k, 1, 'vector');
+    index[k] = a.index; sign[k] = a.value;
+  }
   return { index, sign };
 }
 
-function mapDof(f: AxesFrame, way: Way, dof: number): { dof: number; sign: number } {
-  if (!Number.isInteger(dof) || dof < 0 || dof > 5) return { dof, sign: 1 };
-  const { index, sign } = axisMap(f, way);
-  const k = dof % 3, rot = dof >= 3;
-  return { dof: index[k]! + (rot ? 3 : 0), sign: sign[k]! * (rot ? f.det : 1) };
+function mapDof(f: AxesFrame, way: Way, dof: number): { dof: number; value: (v: number) => number } {
+  if (!Number.isInteger(dof) || dof < 0 || dof > 5) return { dof, value: v => v };
+  const kind = dof >= 3 ? 'pseudovector' : 'vector';
+  const transform = quantityTransform(f, way);
+  const mapped = transform.component(dof % 3, 1, kind);
+  return { dof: mapped.index + (dof >= 3 ? 3 : 0), value: v => transform.component(dof % 3, v, kind).value };
 }
 
 function transformConstraint(f: AxesFrame, way: Way, c: Obj): void {
@@ -86,7 +80,7 @@ function transformConstraint(f: AxesFrame, way: Way, c: Obj): void {
       if (typeof t.dof !== 'number') continue;
       const m = mapDof(f, way, t.dof);
       t.dof = m.dof;
-      if (typeof t.coefficient === 'number') t.coefficient = m.sign * t.coefficient + 0;
+      if (typeof t.coefficient === 'number') t.coefficient = m.value(t.coefficient) + 0;
     }
   } else if (c.type === 'diaphragm' && typeof c.plane === 'string' && /^[XYZ]{2}$/.test(c.plane)) {
     const { index } = axisMap(f, way);
@@ -187,7 +181,7 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     }
     permute(f, way, sp, ['kx', 'ky', 'kz']);
     permute(f, way, sp, ['krx', 'kry', 'krz']);
-    if (sp.curves && typeof sp.curves === 'object') permute(f, way, sp.curves as Obj, ['x', 'y', 'z']);
+    if (sp.curves && typeof sp.curves === 'object') sp.curves = quantityTransform(f, way).springCurves(sp.curves);
     mapTriple(f, way, sp, ['dx', 'dy', 'dz']);
     mapTriple(f, way, sp, ['drx', 'dry', 'drz'], 'rot');
     mapTriple(f, way, sp, ['normalX', 'normalY', 'normalZ']);

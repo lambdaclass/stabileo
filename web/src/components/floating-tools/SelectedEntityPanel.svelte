@@ -5,7 +5,7 @@
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
-  import { along, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
+  import { globalComponent, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
   import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
 
@@ -317,14 +317,14 @@
       {/each}
     {:else if selectedLoad.type === 'distributed3d'}
       {@const dl3 = selectedLoad.data as DistributedLoad3D}
-      {@const qa = (k: 0 | 1 | 2) => (dl3.frame === 'global' || dl3.frame === 'projected' ? along(k) : { name: 'XYZ'[k], sign: 1 })}
+      {@const qa = (k: 0 | 1 | 2) => globalComponent(dl3.frame === 'global' || dl3.frame === 'projected', k, 'vector')}
       {#each [[1, 'qYI', dl3.qYI], [1, 'qYJ', dl3.qYJ], [2, 'qZI', dl3.qZI], [2, 'qZJ', dl3.qZJ]] as const as [k, f, q] (f)}
-        <label class="ft-input-group"><span>q{qa(k).name}{f[2]}:</span><UnitInput value={qa(k).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(k).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+        <label class="ft-input-group"><span>q{qa(k).name}{f[2]}:</span><UnitInput value={qa(k).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(k).value(v)))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       {/each}
       <!-- Along X in Global; in Local, along the member: shown whenever it loads the member. -->
       {#if dl3.frame === 'global' || dl3.frame === 'projected' || dl3.qXI || dl3.qXJ}
         {#each [['qXI', dl3.qXI ?? 0], ['qXJ', dl3.qXJ ?? 0]] as const as [f, q] (f)}
-          <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+          <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).value(v)))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
         {/each}
       {/if}
       {@render frameToggle(dl3.id, dl3.frame === 'global')}

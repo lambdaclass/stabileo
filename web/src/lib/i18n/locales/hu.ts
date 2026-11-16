@@ -14594,7 +14594,7 @@ const hu: Translations = {
   "landing.bldMoment": "Hajlítónyomaték",
   "landing.bldMMax": "M max",
   "landing.secTitle": "Keresztmetszet-vizsgálat egy keret gerendája mentén, Alap módban",
-  "landing.secDesc": "A metszet a keret gerendája mentén halad. A téglalap keresztmetszet NC magja állandó, a geometriától függ. A normálfeszültségi ábra, az EN semleges tengely és a CP nyomásközéppont a terhelést követi.",
+  "landing.secDesc": "A metszet a keret gerendája mentén halad. A téglalap keresztmetszet KM magja állandó, a geometriától függ. A normálfeszültségi ábra, az ST semleges tengely és a NK nyomásközéppont a terhelést követi.",
   "landing.secTag": "ALAP MÓD",
   "landing.secOut": "a nézeten kívül",
   "landing.topTitle": "Andreassen és szerzőtársai (2011) topológiai optimalizálása a Stabileo kutatási részében",

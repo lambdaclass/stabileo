@@ -19,7 +19,7 @@
   import { drawAxisGizmoOn } from '../lib/viewport3d/axis-gizmo';
   import { axesStore } from '../lib/axes/axes.svelte';
   import { forgetGizmoPress, pressOnGizmo, releaseOnGizmo } from '../lib/axes/gizmo-press';
-  import { XYZ, along, modelAxisOf, modelLoad3D, planeDistributedLoad, planeGlobalAngle, twoD } from '../lib/axes/display';
+  import { userComponent, XYZ, along, modelAxisOf, modelLoad3D, planeDistributedLoad, planeGlobalAngle, twoD } from '../lib/axes/display';
   import { nodeMoveArgs3D, nodeShown3D } from '../lib/axes/node-coords';
   import { relabelComponents, supportTypeShown } from '../lib/axes/user-names';
   import { createViewerScene, createViewerPerspectiveCamera, createViewerOrthographicCamera, createViewerRenderer, createViewerControls, applyDefaultNavigation, addViewerLights } from '../lib/viewport3d/scene-setup';
@@ -2695,12 +2695,13 @@
         }
         // Global by default: "qZ" on the bar reads as the vertical, gravity on a beam, a column
         // or a rafter alike. Local follows the member's own axes.
-        const frame = uiStore.distLoadFrame3D === 'global' ? { frame: 'global' as const } : {};
+        const global = uiStore.distLoadFrame3D !== 'local';
+        const frame = global ? { frame: uiStore.distLoadFrame3D } : {};
         const L = loadedLength(modelStore.model as never, elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);
         if (!st.ok) { uiStore.toast(t('float.distStretchRefused').replace('{id}', String(elemId)).replace('{L}', fixedQuantity(L, 'length', 2, uiStore.unitSystem)), 'error'); return; }
-        const sy = uiStore.distLoadFrame3D === 'global' ? along(1).sign : 1, sz = uiStore.distLoadFrame3D === 'global' ? along(2).sign : 1;
-        modelStore.addDistributedLoad3D(elemId, sy * uiStore.loadValueY3D, sy * uiStore.loadValueYJ3D, sz * uiStore.loadValueZ, sz * uiStore.loadValueZJ, st.a, st.b, uiStore.activeLoadCaseId, frame);
+        const component = (k: 1 | 2, value: number) => global ? userComponent(k, value, 'vector') : value;
+        modelStore.addDistributedLoad3D(elemId, component(1, uiStore.loadValueY3D), component(1, uiStore.loadValueYJ3D), component(2, uiStore.loadValueZ), component(2, uiStore.loadValueZJ), st.a, st.b, uiStore.activeLoadCaseId, frame);
       } else {
         const L = modelStore.getElementLength(elemId);
         const st = toolStretch(uiStore.distLoadPartial, uiStore.distLoadFrom, uiStore.distLoadTo, L);

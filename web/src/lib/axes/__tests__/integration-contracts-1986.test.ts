@@ -40,7 +40,7 @@ it('reported #1986 planeInputIn receives resolved local loads and resolved suppo
   }
 });
 
-it('reported #1986 the shell card converts its selected vertical elevation before calling buildShellLoads', () => {
+it('reported #1986 hydrostatic builder preserves a model elevation under frame-independent inputs', () => {
   const wall = { id: 1, nodes: [1, 2, 3, 4], pts: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 2, z: 0 }, { x: 0, y: 2, z: 4 }, { x: 0, y: 0, z: 4 }] };
   const fields: ShellLoadFields = {
     dirMode: 'down', dirAxis: 'Z', field: 'uniform', q: null, qc: '',

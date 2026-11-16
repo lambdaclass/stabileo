@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resultComponents } from '../lib/axes/result-components';
   import { displayUnits, fmtQ, fmtCoord, unitQ, toQ } from '../lib/store/display-units.svelte';
   import { certificateStore, formatBound } from '../lib/store/certificate.svelte';
   import { diagramBound2D, forceReactionBound } from '../lib/engine/certificate-read';
@@ -1606,7 +1607,7 @@
           if (r) {
             const rb = forceReactionBound(certificateStore.reactionBound<ReactionBound2D>(false, hoverNode.id));
             const pm = rb === null ? '' : ` ± ${formatBound(toQ(rb, 'force'))}`;
-            lines.push(`R: ${fmtQ(twoD.x(r.rx), 'force')}; ${fmtQ(twoD.z(r.rz), 'force')}${pm} ${unitQ('force')}`);
+            lines.push(`R: ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rx, 'x'), 'force')}; ${fmtQ(resultComponents(axesStore.frame, resultsStore.results).plane(r.rz, 'z'), 'force')}${pm} ${unitQ('force')}`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -2533,9 +2534,9 @@
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
-                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(twoD.x(ux) / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(twoD.z(uz) / 1000, 3, uiStore.unitSystem)}`,
-                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${twoD.rot(ry).toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.horizontal}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(ux, 'x') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${displacementText(resultComponents(axesStore.frame, resultsStore.results).plane(uz, 'z') / 1000, 3, uiStore.unitSystem)}`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${resultComponents(axesStore.frame, resultsStore.results).plane(ry, 'rot').toFixed(4)} rad`,
                   ],
                 };
               } else {

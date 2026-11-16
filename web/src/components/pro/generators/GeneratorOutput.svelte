@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { along, modelVec, userVec } from '../../../lib/axes/display';
-  import { axesStore } from '../../../lib/axes/axes.svelte';
-  import { signedAxisText, userPlane } from '../../../lib/axes/typed-frame';
+  import { userComponent, modelVec, userVec } from '../../../lib/axes/display';
+    import { signedAxisText, userPlane } from '../../../lib/axes/typed-frame';
   import Hint from '../Hint.svelte';
   /**
    * Where a generated structure goes, as a paste does: with the mouse (its ghost follows the
@@ -77,7 +76,7 @@
   });
   $effect(() => { if (part === 'actions' && st.anchorIndex >= anchors.length) st.anchorIndex = 0; });
 
-  const turn = $derived(axesStore.frame.det * along(2).sign);
+  const turn = $derived(userComponent(2, 1, 'pseudovector'));
   const atShown = () => userVec(Number(st.px) || 0, Number(st.py) || 0, Number(st.pz) || 0);
   function setAt(i: number, v: number) {
     const u = atShown();

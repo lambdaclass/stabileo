@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { quantityTransform } from '../../lib/axes/quantity-transform';
   import { caseNameShown } from '../../lib/axes/case-names';
-  import { along, axisName, signedModelName } from '../../lib/axes/display';
+  import { axisName, signedModelName } from '../../lib/axes/display';
   import { axisNamesIn, planNamesIn } from '../../lib/axes/typed-frame';
   import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueResultDisposition } from '../../lib/engine/known-issues';
@@ -303,7 +305,7 @@
             participationX: m.participationX ?? m.partX,
             participationY: m.participationY ?? m.partY,
             participationZ: m.participationZ ?? m.partZ,
-            massRatioX: m.massRatioX, massRatioY: m.massRatioY,
+            massRatioX: m.massRatioX, massRatioY: m.massRatioY, massRatioZ: m.massRatioZ,
           }),
         }));
         advancedResults = { ...advancedResults, modal: { disposition: containment, modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
@@ -1132,9 +1134,10 @@
         <ProRecordVideo testid="modal-record" />
         <div class="adv-table-scroll">
           <table class="adv-table modal-table">
-            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} {axisName(0)}</th><th>{t('adv.participationAbbr')} {axisName(1)}</th><th>{t('adv.participationAbbr')} {axisName(2)}</th><th>ΣM {axisName(0)}</th><th>ΣM {axisName(1)}</th></tr></thead>
+            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} X</th><th>{t('adv.participationAbbr')} Y</th><th>{t('adv.participationAbbr')} Z</th><th>ΣM {axisName(0)}</th><th>ΣM {axisName(1)}</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
+                {@const participation = quantityTransform(axesStore.frame).permute([mode.massRatioX ?? 0, mode.massRatioY ?? 0, mode.massRatioZ ?? 0])}
                 <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
                   title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
                   <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
@@ -1144,9 +1147,9 @@
                   {#if modalConstrained}
                     <td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td>
                   {:else}
-                  <td class="col-num">{fmtNum(along(0).sign * (mode.participationX ?? 0) + 0)}</td>
-                  <td class="col-num">{fmtNum(along(1).sign * (mode.participationY ?? 0) + 0)}</td>
-                  <td class="col-num">{fmtNum(along(2).sign * (mode.participationZ ?? 0) + 0)}</td>
+                  <td class="col-num">{fmtNum(participation[0])}</td>
+                  <td class="col-num">{fmtNum(participation[1])}</td>
+                  <td class="col-num">{fmtNum(participation[2])}</td>
                   <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
                   <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
                   {/if}

@@ -149,9 +149,9 @@
     else el.value = plainNumber(prev, 6);
   }
   function slotKey(keys: readonly string[], i: number, global: boolean, moment = false) {
-    if (!global) return { key: keys[i]!, sign: 1 };
+    if (!global) return { key: keys[i]!, value: (v: number) => v };
     const s = userSlot(i, moment);
-    return { key: keys[s.k]!, sign: s.sign };
+    return { key: keys[s.k]!, value: s.value };
   }
   const swReach = (w: SelfWeightLoad) => (w.groupId !== undefined
     ? tp('loadTables.swGroup', { name: modelStore.model.groups.get(w.groupId)?.name ?? String(w.groupId) })
@@ -224,10 +224,10 @@
   {:else}{#key redraw}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/key}{/if}
 {/snippet}
 
-{#snippet scell(id: number, s: { key: string; sign: number }, row: object, q: Quantity)}
+{#snippet scell(id: number, s: { key: string; value: (v: number) => number }, row: object, q: Quantity)}
   {@const v = (row as Record<string, number | undefined>)[s.key]}
-  {#if defOf(id) !== undefined}<td class="col-num">{fmtQ(s.sign * (v ?? 0), q)}</td>
-  {:else}{#key redraw}<td class="col-num"><QuantityInput value={s.sign * (v ?? 0)} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, s.key, v, s.sign * si)} /></td>{/key}{/if}
+  {#if defOf(id) !== undefined}<td class="col-num">{fmtQ(s.value(v ?? 0), q)}</td>
+  {:else}{#key redraw}<td class="col-num"><QuantityInput value={s.value(v ?? 0)} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, s.key, v, s.value(si))} /></td>{/key}{/if}
 {/snippet}
 
 <div class="pro-loads-table-wrap" bind:this={wrap} data-testid="load-tables">

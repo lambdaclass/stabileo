@@ -25,7 +25,7 @@
   // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
   // the all-caps acronym; using camelCase here surfaces as a runtime
   // `Parse error: unknown variant ...` from the solver.
-  import { modelDof, modelFlags6, modelPlane, typedFrame, userPlane } from '../../lib/axes/typed-frame';
+  import { modelDofValue, modelDof, modelFlags6, modelPlane, typedFrame, userPlane } from '../../lib/axes/typed-frame';
   type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
@@ -182,7 +182,7 @@
       const coefficient = parseNum(parts[2]);
       const dof = modelDof(dofName);
       if (isNaN(nodeId) || isNaN(coefficient) || !dof) return;
-      parsed.push({ nodeId, dof: dof.index, coefficient: dof.sign * coefficient });
+      parsed.push({ nodeId, dof: dof.index, coefficient: modelDofValue(dofName, coefficient) });
     }
     if (parsed.length === 0) return;
     modelStore.addConstraint({

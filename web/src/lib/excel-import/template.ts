@@ -1,3 +1,6 @@
+import { quantityTransform } from '../axes/quantity-transform';
+const pseudoToUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'pseudovector', values });
+const toUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
 /**
  * The empty workbook a reader downloads to find out what to fill in.
  *
@@ -28,7 +31,7 @@ import { t } from '../i18n';
 import { uiStore } from '../store';
 import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
 import { axesStore } from '../axes/axes.svelte';
-import { makeFrame, pseudoToUser, relabelAxesWith, toUser, userAxisAlong, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
+import { makeFrame, relabelAxesWith, userAxisAlong, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
 import type { SheetSpec } from './schema';
 
 /** Column widths, so a header is readable without dragging anything. */
@@ -123,33 +126,33 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
     if (sheet.name === 'Nodes') {
       const [x, z] = [num(example[at('x')]), num(example[at('z')])];
       for (const k of ['x', 'y', 'z']) row[at(k)] = '';
-      row[at(lower(h))] = h.sign * x + 0;
-      row[at(lower(v))] = v.sign * z + 0;
+      row[at(lower(h))] = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: x }) + 0;
+      row[at(lower(v))] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: z }) + 0;
     } else if (sheet.name === 'Supports') {
       row[at('type')] = supportTypeIn(f, String(example[at('type')]), false);
       for (const key of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) row[at(key)] = '';
       const normal = userAxisAlong(f, 1);
       for (const [source, target, sign] of [
         ['kx', `k${lower(h)}`, 1], ['ky', `k${lower(v)}`, 1], ['kz', `kr${lower(normal)}`, 1],
-        ['dx', `d${lower(h)}`, h.sign], ['dy', `d${lower(v)}`, v.sign], ['dz', `d${lower(v)}`, v.sign],
+        ['dx', `d${lower(h)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: 1 })], ['dy', `d${lower(v)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: 1 })], ['dz', `d${lower(v)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: 1 })],
       ] as const) if (example[at(source)] !== '' && example[at(source)] !== undefined) row[at(target)] = sign * num(example[at(source)]) + 0;
-      if (example[at('angle')] !== '') row[at('angle')] = h.sign * v.sign * num(example[at('angle')]) + 0;
+      if (example[at('angle')] !== '') row[at('angle')] = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: num(example[at('angle')]) }) + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'nodal') {
       const fx = num(example[at('fx')]), fz = num(example[at('fz')]) || num(example[at('fy')]);
       for (const k of ['fx', 'fy', 'fz']) row[at(k)] = '';
-      row[at(`f${lower(h)}`)] = h.sign * fx + 0;
-      row[at(`f${lower(v)}`)] = v.sign * fz + 0;
+      row[at(`f${lower(h)}`)] = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: fx }) + 0;
+      row[at(`f${lower(v)}`)] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: fz }) + 0;
       const normal = userAxisAlong(f, 1);
       const moment = num(example[at('mz')]);
       for (const key of ['mx', 'my', 'mz']) row[at(key)] = '';
-      row[at(`m${lower(normal)}`)] = h.sign * v.sign * moment + 0;
+      row[at(`m${lower(normal)}`)] = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: moment }) + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'nodal3d') {
       const F = toUser(f, [num(example[at('fx')]), num(example[at('fy')]), num(example[at('fz')])]);
       const M = pseudoToUser(f, [num(example[at('mx')]), num(example[at('my')]), num(example[at('mz')])]);
       ['fx', 'fy', 'fz'].forEach((k, i) => { row[at(k)] = F[i]! + 0; });
       ['mx', 'my', 'mz'].forEach((k, i) => { row[at(k)] = M[i]! + 0; });
     } else if (sheet.name === 'Loads' && example[0] === 'distributed' && String(example[at('dir')]).toLowerCase() === 'global') {
-      for (const k of ['qi', 'qj']) if (example[at(k)] !== '') row[at(k)] = v.sign * num(example[at(k)]) + 0;
+      for (const k of ['qi', 'qj']) if (example[at(k)] !== '') row[at(k)] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: num(example[at(k)]) }) + 0;
     } else if (sheet.name === 'Loads' && example[0] === 'distributed3d' && example[at('dir')] !== 'local') {
       const I = toUser(f, [0, num(example[at('qi')]), num(example[at('qzi')])]);
       const J = toUser(f, [0, num(example[at('qj')]), num(example[at('qzj')])]);
@@ -166,7 +169,7 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
 export function columnHelpIn(frame: AxesFrame, helpKey: string): string {
   const m = /^(xls\.col\.(?:|f|m|k|kr|d))([xyz])$/.exec(helpKey);
   if (!m) return t(helpKey);
-  const model = frame.rows['xyz'.indexOf(m[2]!)]!.findIndex((c) => c !== 0);
+  const model = quantityTransform(frame, 'toModel').component('xyz'.indexOf(m[2]!), 1, 'vector').index;
   return relabelAxesWith(frame, t(`${m[1]}${'xyz'[model]}`));
 }
 

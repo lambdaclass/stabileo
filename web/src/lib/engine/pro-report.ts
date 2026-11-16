@@ -1,3 +1,4 @@
+import { quantityTransform } from '../axes/quantity-transform';
 import { resultComponents } from '../axes/result-components';
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
 import { standingPlane } from '../axes/node-coords';
@@ -29,7 +30,7 @@ import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
 import { membranePrincipals } from './shell-stress';
-import { DEFAULT_AXES, makeFrame, supportTypeIn, toUser, userAxisAlong, type AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, supportTypeIn, userAxisAlong, type AxesChoice } from '../axes/frame';
 import { axesStatement } from '../axes/statement';
 
 /** Translation function type — accepts key, returns translated string */
@@ -136,7 +137,7 @@ export interface ReportData {
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
     pdelta?: { disposition?: ReturnType<typeof knownIssueDisposition>; converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { disposition?: ReturnType<typeof knownIssueDisposition>; modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
+    modal?: { disposition?: ReturnType<typeof knownIssueDisposition>; modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number; massRatioZ?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
     buckling?: { disposition?: ReturnType<typeof knownIssueDisposition>; factors: number[] };
     spectral?: { disposition?: ReturnType<typeof knownIssueDisposition>; baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
@@ -279,7 +280,7 @@ export function generateReportHtml(data: ReportData): string {
   const tr: TFunc = data.t ?? ((k: string) => k);
   const axes = data.config?.axes ?? DEFAULT_AXES;
   const frame = makeFrame(axes);
-  const vec = (x: number, y: number, z: number) => toUser(frame, [x, y, z]).map((v) => v + 0);
+  const vec = (x: number, y: number, z: number) => quantityTransform(frame).triple({ kind: 'vector', values: [x, y, z] }).map((v) => v + 0);
   const { vec: resultVec, rot } = resultComponents(frame, results);
   const alongName = (k: 0 | 1 | 2) => userAxisAlong(frame, k).name;
 
@@ -733,8 +734,8 @@ export function generateReportHtml(data: ReportData): string {
         const m = adv.modal.modes[i];
         cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
         const has = m.massRatioX != null;
-        const model = [m.participationX, m.participationY, m.participationZ];
-        const part = frame.rows.map((row) => { const k = row.findIndex((c) => c !== 0); const v = model[k]; return v != null ? row[k]! * v + 0 : null; });
+        const model = [m.massRatioX, m.massRatioY, m.massRatioZ];
+        const part = quantityTransform(frame).permute(model as [number | undefined, number | undefined, number | undefined]);
         html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td>${part.map((v) => `<td class="num">${v != null ? fmtNum(v, 3) : '—'}</td>`).join('')}<td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
       }
       html.push(`</tbody></table>`);

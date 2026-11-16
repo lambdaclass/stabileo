@@ -16,7 +16,7 @@
    * component's: see whatif.svelte.ts for why, and for how it recomputes.
    */
   let { docked = false }: { docked?: boolean } = $props();
-  import { planeGlobalValue } from '../lib/axes/display';
+  import { planeGlobalValue, twoD } from '../lib/axes/display';
   import { supportNameShown, userVecParts } from '../lib/axes/user-names';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { whatIf, type MemberFactors } from '../lib/store/whatif.svelte';
