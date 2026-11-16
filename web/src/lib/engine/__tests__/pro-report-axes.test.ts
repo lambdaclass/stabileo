@@ -63,7 +63,8 @@ describe('the report in the user axes', () => {
     expect(html).toContain(`Fx=${lx}, Fy=${ly}, Fz=${lz} kN`);
     axesStore.reset();
     const v = comparePrintedReport(html, { kind: 'case', id: 1 });
-    expect(v?.differences ?? []).toEqual([]);
-    expect(v?.structural ?? []).toEqual([]);
+    expect(v).not.toBeNull();
+    expect(v!.differences).toEqual([]);
+    expect(v!.structural).toEqual([]);
   });
 });
