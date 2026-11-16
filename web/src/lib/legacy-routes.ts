@@ -1,4 +1,4 @@
-import { publicLocaleEnabled, publicFeatures, type PublicFeatures } from './features';
+import { publicFeatures, type PublicFeatures } from './features';
 import { EXAMPLE_PATHS } from './public-surface';
 import { PUBLIC_LOCALES } from './i18n/offered';
 
@@ -35,15 +35,4 @@ export function restoreMovedRoute(): boolean {
   if (next === null) return false;
   history.replaceState(history.state, '', next);
   return true;
-}
-
-export function unpublishedResearchAddress(loc: Pick<Location, 'pathname' | 'search' | 'hash'>): string | null {
-  const match = loc.pathname.match(/^\/([a-z]{2})(\/research(?:\/.*)?)$/);
-  if (!match || publicLocaleEnabled(match[2], match[1])) return null;
-  return `/en${match[2]}${loc.search}${loc.hash}`;
-}
-
-export function restoreUnpublishedResearchRoute(): void {
-  const next = unpublishedResearchAddress(location);
-  if (next) history.replaceState(history.state, '', next);
 }

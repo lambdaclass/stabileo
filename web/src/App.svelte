@@ -407,7 +407,7 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { skipNextAnalysis } from './lib/tracking/activity.svelte';
   import { routeKind, isAppPath, isDemoPath, isRegisterPath } from './lib/public-route';
-  import { restoreMovedRoute, restoreUnpublishedResearchRoute } from './lib/legacy-routes';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
@@ -637,7 +637,11 @@
   async function syncRouteState() {
     const token = ++publicRevision;
     if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
-    restoreUnpublishedResearchRoute();
+    if (location.pathname.startsWith('/hu/')) {
+      const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
+      if (token !== publicRevision) return;
+      restoreUnpublishedResearchRoute();
+    }
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;

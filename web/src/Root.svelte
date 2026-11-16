@@ -19,7 +19,7 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, ensurePublicLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
-  import { restoreMovedRoute, restoreUnpublishedResearchRoute } from './lib/legacy-routes';
+  import { restoreMovedRoute } from './lib/legacy-routes';
   import { modeToPath } from './lib/app-mode';
 
   function adoptLocaleFromPath() {
@@ -56,7 +56,11 @@
   async function sync() {
     const token = ++revision;
     if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
-    restoreUnpublishedResearchRoute();
+    if (location.pathname.startsWith('/hu/')) {
+      const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
+      if (token !== revision) return;
+      restoreUnpublishedResearchRoute();
+    }
     const next = routeKind();
     const hash = location.hash;
     try {

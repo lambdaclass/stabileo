@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { afterEach, expect, it, vi } from 'vitest';
-import { restoreMovedRoute, restoreUnpublishedResearchRoute } from '../lib/legacy-routes';
+import { restoreMovedRoute } from '../lib/legacy-routes';
+import { restoreUnpublishedResearchRoute } from '../lib/research-fallback';
 import main from './fixtures/origin-main-public-surface.json';
 
 const entries = [
@@ -12,7 +13,7 @@ const entries = [
 
 function script(file: string) {
   const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-  const script = source.match(/<script[^>]*>([\s\S]*?)<\/script>/)![1];
+  const script = file.endsWith('.svelte') ? source.match(/<script[^>]*>([\s\S]*?)<\/script>/)![1] : source;
   return ts.createSourceFile(file, script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 }
 
@@ -67,7 +68,7 @@ it.each(entries)('%s retains published Hungarian research and unrelated addresse
   }
 });
 
-it.skip.each(entries)('known wrong result: #2099 — %s keeps the research fallback out of static imports', (file) => {
+it.each([...entries.map(([file]) => file), 'main.ts'])('known wrong result: #2099 — %s keeps the research fallback out of static imports', (file) => {
   for (const node of script(file).statements) {
     if (!ts.isImportDeclaration(node)) continue;
     expect(node.importClause?.getText() ?? '').not.toContain('restoreUnpublishedResearchRoute');
@@ -75,7 +76,7 @@ it.skip.each(entries)('known wrong result: #2099 — %s keeps the research fallb
   }
 });
 
-it.skip.each(entries)('known wrong result: #2099 — %s loads the fallback only on Hungarian paths', async (file, name) => {
+it.each(entries)('known wrong result: #2099 — %s loads the fallback only on Hungarian paths', async (file, name) => {
   for (const flag of ['', '0', '1']) {
     for (const path of ['/hu/', '/hu/research', '/hu/research/', '/hu/researching/', '/hu/tools/', '/hu/blog/']) {
       const expected = flag !== '1' && /^\/hu\/research(?:\/|$)/.test(path) ? path.replace('/hu/', '/en/') : path;
@@ -85,4 +86,31 @@ it.skip.each(entries)('known wrong result: #2099 — %s loads the fallback only 
       await resolve(file, name, flag, path, path, true);
     }
   }
+});
+
+it.each(entries)('%s discards Hungarian navigation superseded while the helper loads', async (file, name) => {
+  const location = new URL('https://stabileo.test/hu/research/?round=2#checks');
+  const restore = vi.fn();
+  let loaded!: (module: { restoreUnpublishedResearchRoute: typeof restore }) => void;
+  const pending = new Promise<{ restoreUnpublishedResearchRoute: typeof restore }>(resolve => { loaded = resolve; });
+  const checkpoint = new Error('current route resolution');
+  const routeKind = vi.fn(() => { throw checkpoint; });
+  const context = {
+    env: { VITE_RESEARCH: '0', VITE_TOOLS: '0' },
+    revision: 0,
+    publicRevision: 0,
+    location,
+    loadResearchFallback: vi.fn(() => pending),
+    routeKind,
+  };
+  const first = runInNewContext(navigation(file, name), context);
+  expect(context.loadResearchFallback).toHaveBeenCalledOnce();
+  expect(routeKind).not.toHaveBeenCalled();
+  location.pathname = '/en/';
+  await expect(runInNewContext(navigation(file, name), context)).rejects.toBe(checkpoint);
+  loaded({ restoreUnpublishedResearchRoute: restore });
+  await first;
+  expect(routeKind).toHaveBeenCalledOnce();
+  expect(restore).not.toHaveBeenCalled();
+  expect(location.pathname).toBe('/en/');
 });

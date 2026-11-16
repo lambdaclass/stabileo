@@ -82,7 +82,7 @@ it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950
 
 it('known wrong result: #1916 — unpublished Hungarian research addresses fall back to English while retaining query and fragment', async () => {
   off();
-  const { unpublishedResearchAddress } = await import('../lib/legacy-routes');
+  const { unpublishedResearchAddress } = await import('../lib/research-fallback');
   for (const path of main.research) {
     const location = { pathname: `/hu${path}/`, search: '?round=2', hash: '#checks' };
     expect(unpublishedResearchAddress(location)).toBe(`/en${path}/?round=2#checks`);
