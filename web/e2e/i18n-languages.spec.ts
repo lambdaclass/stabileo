@@ -33,6 +33,7 @@ import de from '../src/lib/i18n/locales/full/de';
 import fr from '../src/lib/i18n/locales/full/fr';
 import tr from '../src/lib/i18n/locales/full/tr';
 import hu from '../src/lib/i18n/locales/full/hu';
+import zh from '../src/lib/i18n/locales/full/zh';
 import type { Page } from '@playwright/test';
 import { OFFERED_LOCALES, isComplete } from '../src/lib/i18n/offered';
 
@@ -40,7 +41,7 @@ const DICTS: Record<string, Record<string, string>> = {
   en: en as unknown as Record<string, string>,
   es: es as unknown as Record<string, string>,
   pt: pt as unknown as Record<string, string>,
-  de, fr, tr, hu,
+  de, fr, tr, hu, zh,
 };
 
 /** What a key renders as in a language: a language still being translated shows the English for what it lacks. */
