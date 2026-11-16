@@ -221,7 +221,7 @@ fn issue_2222_recovered_diagrams_keep_narrow_resultants() {
             let b = a + width;
             for ratio in [0.0, 1.0, -1.0] {
                 let mut i = witness();
-                let qi = if b == a { -7.0 } else { -1.0 / (b - a) };
+                let qi = if b == a || !(1.0 / (b - a)).is_finite() { -7.0 } else { -1.0 / (b - a) };
                 let qj = qi * ratio;
                 i.loads = vec![SolverLoad::Distributed(SolverDistributedLoad {
                     element_id: 1,
@@ -651,6 +651,162 @@ fn issue_2222_cancelling_nodal_forces_spatial() {
                     assert_eq!(eq.applied_force_sum[if matches!(plane, Plane::XY) { 1 } else { 2 }], 1.0, "{entry}");
                 } else { assert_eq!(entry, "corotational"); }
             }
+        }
+    }
+}
+
+fn refusal_cases_2222() -> Vec<(f64, f64, bool)> {
+    let limit = 3.0e-10_f64;
+    vec![
+        (0.0, 0.0, false), (1.5, 1.5, false), (3.0, 3.0, false),
+        (0.0, limit.next_down(), false), (0.0, limit, true), (0.0, limit.next_up(), true),
+        (1.5, 1.5 + 5e-13, false), (1.5, 1.5_f64.next_up(), false), (3.0_f64.next_down(), 3.0, false),
+        (0.0, f64::from_bits(1), false), (1.0, 2.0, true), (0.0, 3.0, true),
+    ]
+}
+
+fn refusal_result_2222(result: Result<(), String>, valid: bool, entry: &str, a: f64, b: f64) {
+    if valid {
+        result.unwrap_or_else(|e| panic!("{entry}: [{a}, {b}]: {e}"));
+    } else {
+        let e = result.expect_err(&format!("{entry} accepted [{a}, {b}]"));
+        assert!(e.contains("Element 1") && e.contains("interval") && e.contains("geometry limit"), "{entry}: {e}");
+        assert!(e.contains(&format!("[{a}, {b}]")), "{entry}: {e}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_refuses_sublimit_planar_entry_points() {
+    use dedaliano_engine::{load_session::LoadSession2D, solver::fiber_nonlinear::*};
+    for (a, b, valid) in refusal_cases_2222() {
+        for axial in [false, true] {
+            for ratio in [0.0, 1.0, -1.0] {
+                let mut input = witness();
+                let q = if b == a || !(1.0 / (b - a)).is_finite() { -7.0 } else { -1.0 / (b - a) };
+                input.loads = vec![if axial {
+                    SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: q, q_j: q * ratio, a: Some(a), b: Some(b) })
+                } else {
+                    SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: q, q_j: q * ratio, a: Some(a), b: Some(b) })
+                }];
+                let mut base = input.clone(); base.loads.clear();
+                let typed = serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap();
+                let fiber = FiberNonlinearInput { solver: input.clone(), fiber_sections: Default::default(),
+                    n_integration_points: 5, max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false };
+                for (entry, result) in [
+                    ("linear", linear::solve_2d(&input)),
+                    ("typed", linear::solve_2d_typed(&typed)),
+                    ("prepared", linear::prepare_static_2d(&base).unwrap().solve_loads(&input.loads)),
+                    ("dense", linear::prepare_static_2d_dense_reference(&base).unwrap().solve_loads(&input.loads)),
+                    ("session", LoadSession2D::from_input(base).unwrap().solve_loads(&input.loads)),
+                    ("pdelta", pdelta::solve_pdelta_2d(&input, 20, 1e-9).map(|r| r.linear_results)),
+                    ("corotational", corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).map(|r| r.results)),
+                    ("fiber", solve_fiber_nonlinear_2d(&fiber).map(|r| r.results)),
+                ] {
+                    if valid {
+                        let r = result.as_ref().unwrap_or_else(|e| panic!("{entry}: {e}"));
+                        near(r.reactions.iter().map(|r| if axial { r.rx } else { r.rz }).sum(), (1.0 + ratio) / 2.0);
+                    }
+                    refusal_result_2222(result.map(|_| ()), valid, entry, a, b);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_refuses_sublimit_spatial_entry_points() {
+    use dedaliano_engine::{load_session::LoadSession3D, solver::fiber_nonlinear::*};
+    for (a, b, valid) in refusal_cases_2222() {
+        for plane in [Plane::XY, Plane::XZ] {
+            for axial in [false, true] {
+                let mut planar = witness();
+                let q = if b == a || !(1.0 / (b - a)).is_finite() { -7.0 } else { -1.0 / (b - a) };
+                planar.loads = vec![if axial {
+                    SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: q, q_j: q, a: Some(a), b: Some(b) })
+                } else {
+                    SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: q, q_j: q, a: Some(a), b: Some(b) })
+                }];
+                let input = embed_2d(&planar, plane).unwrap();
+                let mut base = input.clone(); base.loads.clear();
+                let fiber = FiberNonlinearInput3D { solver: input.clone(), fiber_sections: Default::default(),
+                    n_integration_points: 5, max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false };
+                for (entry, result) in [
+                    ("linear", linear::solve_3d(&input)),
+                    ("prepared", linear::prepare_static_3d(&base).unwrap().solve_loads(&input.loads)),
+                    ("session", LoadSession3D::from_input(base).unwrap().solve_loads(&input.loads)),
+                    ("pdelta", pdelta::solve_pdelta_3d(&input, 20, 1e-9).map(|r| r.linear_results)),
+                    ("corotational", corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).map(|r| r.results)),
+                    ("fiber", solve_fiber_nonlinear_3d(&fiber).map(|r| r.results)),
+                ] {
+                    if valid {
+                        let r = result.as_ref().unwrap_or_else(|e| panic!("{entry}: {e}"));
+                        near(r.reactions.iter().map(|r| if axial { r.fx } else if matches!(plane, Plane::XY) { r.fy } else { r.fz }).sum(), 1.0);
+                    }
+                    refusal_result_2222(result.map(|_| ()), valid, entry, a, b);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_refuses_sublimit_recovery() {
+    use dedaliano_engine::postprocess::diagrams::{recover_member, MemberRecoveryInput};
+    for space in ["planar", "spatial"] {
+        for (a, b, valid) in refusal_cases_2222() {
+            let input: MemberRecoveryInput = serde_json::from_value(serde_json::json!({
+                "space":space,"length":3.0,"ei":1000.0,"gas":1700.0,"vI":0.0,"rI":0.0,"vJ":0.0,"rJ":0.0,
+                "positions":[0.0,0.25,0.75,1.0],"dist":[{"qI":-2.0,"qJ":-2.0,"a":a,"b":b}]
+            })).unwrap();
+            let r = recover_member(&input);
+            if valid { assert!(r.unwrap().iter().any(|s| s.v != 0.0)); }
+            else {
+                let e = r.err().expect("recovery accepted a sublimit interval");
+                assert!(e.contains("Member recovery") && e.contains("geometry limit") && e.contains(&format!("[{a}, {b}]")), "{e}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_refuses_sublimit_raw_load_kernels_and_diagrams() {
+    use dedaliano_engine::{element::*, postprocess::{diagrams::*, diagrams_3d::*}};
+    for length in [0.03, 3.0, 300.0] {
+        let width = length * 1e-10_f64;
+        assert!(std::panic::catch_unwind(|| fef_partial_distributed_2d(-2.0, -2.0, 0.0, width.next_down(), length, 0.7)).is_err());
+        for b in [width, width.next_up()] {
+            let q = -1.0 / b;
+            let f = fef_partial_distributed_2d(q, q, 0.0, b, length, 0.7);
+            assert!((f[1] + f[4] + 1.0).abs() < 1e-13);
+        }
+    }
+    let mut input = witness();
+    input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -2.0, q_j: -2.0, a: Some(1.0), b: Some(2.0) })];
+    let base = linear::solve_2d(&input).unwrap();
+    for (a, b, valid) in refusal_cases_2222() {
+        for mode in 0..3 {
+            let r = std::panic::catch_unwind(|| match mode {
+                0 => { fef_partial_distributed_2d(-2.0, -2.0, a, b, 3.0, 0.7); }
+                1 => { fef_partial_distributed_3d(-2.0, -2.0, -2.0, -2.0, a, b, 3.0, 0.7, 0.7); }
+                _ => { axial_distributed_fef(-2.0, -2.0, a, b, 3.0); }
+            });
+            assert_eq!(r.is_ok(), valid, "kernel {mode}: [{a}, {b}]");
+        }
+        let mut ef = base.element_forces[0].clone();
+        ef.distributed_loads = vec![DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b }];
+        assert_eq!(std::panic::catch_unwind(|| compute_diagram_value_at("shear", 0.9, &ef)).is_ok(), valid);
+        assert_eq!(std::panic::catch_unwind(|| diagram_positions_2d(&ef, "shear")).is_ok(), valid);
+        for plane in [Plane::XY, Plane::XZ] {
+            let mut ef = linear::solve_3d(&embed_2d(&input, plane).unwrap()).unwrap().element_forces[0].clone();
+            for loads in [&mut ef.distributed_loads_x, &mut ef.distributed_loads_y, &mut ef.distributed_loads_z] {
+                *loads = vec![DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b }];
+            }
+            assert_eq!(std::panic::catch_unwind(|| evaluate_diagram_3d_at(&ef, "shearY", 0.9)).is_ok(), valid);
+            assert_eq!(std::panic::catch_unwind(|| diagram_positions_3d(&ef, "shearZ")).is_ok(), valid);
         }
     }
 }
