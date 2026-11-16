@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 import { test, expect, loadModel, alSection, designAll, designPlace, open3D } from './fixtures';
 import type { DedalFile } from '../src/lib/store/file';
 
@@ -37,8 +38,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await page.getByTestId('pro-auto-loads-btn').click();
     await alSection(page, 'wind');
     await page.getByTestId('al-enable-wind').check();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-preview').getByTestId('under-audit-notice')).toBeVisible();
+    await expect(page.getByTestId('al-delta')).toBeVisible();
+    await expect(page.getByTestId('al-apply')).toBeEnabled();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0);
     expect((await page.evaluate(() => window.__stabileo.loadCaseNames())).some((name) => /wind/i.test(name))).toBe(true);
