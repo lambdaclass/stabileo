@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { standsUp, type ProjectedAxes } from '../src/components/viewport/scalar-field-plane';
 
 const ELEVATION = [
   '/research/benchmarks/lee-frame-1968',
@@ -21,57 +22,64 @@ const ELEVATION = [
   '/research/benchmarks/riks-crisfield',
 ];
 
-type Axis = [number, number];
-
-async function yAxis(canvas: Locator, projection: 'plan' | 'orbit'): Promise<Axis> {
+async function axes(canvas: Locator, projection: 'plan' | 'orbit'): Promise<ProjectedAxes> {
   await expect(canvas).toHaveAttribute('data-projection', projection);
-  await expect.poll(async () => JSON.parse(await canvas.getAttribute('data-y-axis') ?? 'null')).not.toBeNull();
-  return JSON.parse((await canvas.getAttribute('data-y-axis'))!);
+  const read = async (): Promise<ProjectedAxes | null> => JSON.parse(await canvas.getAttribute('data-axes') ?? 'null');
+  await expect.poll(async () => Math.hypot(...((await read())?.y ?? [0, 0]))).toBeGreaterThan(1);
+  return (await read())!;
 }
 
-async function firstViewer(page: Page, plane: 'plan' | 'elevation') {
-  const canvas = page.locator(`.sfv-canvas canvas[data-plane="${plane}"]`).first();
-  await expect(canvas).toBeVisible({ timeout: 30_000 }); // slow-ok: a research page loads its viewer bundle and replay before drawing.
+async function firstViewer(page: Page) {
+  const canvas = page.locator('.sfv-canvas canvas').first();
+  await expect(canvas).toHaveAttribute('data-axes', /./, { timeout: 30_000 }); // slow-ok: a research page loads its viewer bundle and replay before drawing.
   return { canvas, toggle: page.locator('.sfv-wrap', { has: canvas }).locator('.sfv-mode').first() };
 }
 
-async function standsUp(page: Page) {
-  const { canvas, toggle } = await firstViewer(page, 'elevation');
-  const [dx2, dy2] = await yAxis(canvas, 'plan');
-  expect(Math.abs(dx2)).toBeLessThan(0.5);
-  expect(dy2).toBeLessThan(0);
-  await toggle.click();
-  const [dx3, dy3] = await yAxis(canvas, 'orbit');
-  expect(Math.abs(dx3)).toBeLessThan(0.1 * Math.abs(dy3));
-  expect(dy3 / dy2).toBeGreaterThan(0.75);
-  await toggle.click();
-  await yAxis(canvas, 'plan');
+async function switchTo(canvas: Locator, toggle: Locator, projection: 'plan' | 'orbit') {
+  await expect(async () => {
+    if (await canvas.getAttribute('data-projection') !== projection) await toggle.click();
+    await expect(canvas).toHaveAttribute('data-projection', projection, { timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
+async function expectStandsUp(page: Page) {
+  const { canvas, toggle } = await firstViewer(page);
+  await expect(canvas).toHaveAttribute('data-plane', 'elevation');
+  const flat = await axes(canvas, 'plan');
+  expect(Math.abs(flat.y[0])).toBeLessThan(0.5);
+  expect(flat.y[1]).toBeLessThan(0);
+  await switchTo(canvas, toggle, 'orbit');
+  const oblique = await axes(canvas, 'orbit');
+  expect(standsUp(flat, oblique), JSON.stringify({ flat, oblique })).toBe(true);
+  await switchTo(canvas, toggle, 'plan');
 }
 
 for (const path of ELEVATION) {
   test(`@smoke research viewer: ${path} stands its elevation up in 3D`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/en${path}/`);
-    await standsUp(page);
+    await expectStandsUp(page);
   });
 }
 
 test('@smoke research viewer: MacNeal–Harder draws its shell meshes in plan and its frames in elevation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/en/research/benchmarks/macneal-harder-1985/');
-  const { canvas } = await firstViewer(page, 'plan');
+  const { canvas } = await firstViewer(page);
+  await expect(canvas).toHaveAttribute('data-plane', 'plan');
   await page.locator('.mh-control select').selectOption('frame-shear-4-uz');
   await expect(canvas).toHaveAttribute('data-plane', 'elevation');
-  await standsUp(page);
+  await expectStandsUp(page);
 });
 
 test('@smoke research viewer: the Navier plate lies in plan and the gridshell switches between section and plan', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/en/research/benchmarks/navier-plate/');
-  await firstViewer(page, 'plan');
+  await expect((await firstViewer(page)).canvas).toHaveAttribute('data-plane', 'plan');
   await expect(page.locator('.sfv-canvas canvas[data-plane="elevation"]')).toHaveCount(0);
   await page.goto('/en/research/optimisation/fairclough-2026/');
-  const { canvas } = await firstViewer(page, 'elevation');
+  const { canvas } = await firstViewer(page);
+  await expect(canvas).toHaveAttribute('data-plane', 'elevation');
   await page.getByRole('button', { name: 'Plan', exact: true }).click();
   await expect(canvas).toHaveAttribute('data-plane', 'plan');
 });

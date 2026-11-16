@@ -8,7 +8,7 @@
   import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';
   import { formatLocalizedContourLabel } from './scalar-field-labels';
   import { scalarFieldScale } from './scalar-field-scale';
-  import { fitScalarFieldCamera, pickingPlane, planeRotationX, projectedDataYAxis, worldToPlane, type ScalarFieldPlane } from './scalar-field-plane';
+  import { fitScalarFieldCamera, pickingPlane, planeRotationX, projectedDataAxes, worldToPlane, type ScalarFieldPlane } from './scalar-field-plane';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
    * have a mesh and a field but no editor model (research experiments). Shares the app's scene
@@ -162,7 +162,7 @@
       canvas.dataset.geometryBounds = JSON.stringify([box.min.toArray(), box.max.toArray()]);
       canvas.dataset.plane = plane;
       canvas.dataset.projection = projection;
-      canvas.dataset.yAxis = JSON.stringify(projectedDataYAxis(plane, camera, bounds(), container.clientWidth, container.clientHeight));
+      canvas.dataset.axes = JSON.stringify(projectedDataAxes(plane, camera, bounds(), container.clientWidth, container.clientHeight));
     }
     drawAxisGizmoOn(gizmo, camera);
     if (damping > 0) {

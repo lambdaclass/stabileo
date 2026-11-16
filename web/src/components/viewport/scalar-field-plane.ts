@@ -82,16 +82,30 @@ export function fitScalarFieldCamera(
   };
 }
 
-/** Screen-space vector, in pixels with y down, of the data segment (cx, y0) → (cx, y1): how the data's y axis is drawn. */
-export function projectedDataYAxis(
+export type ProjectedAxes = { x: [number, number]; y: [number, number] };
+
+/** Screen-space vectors, in pixels with y down, of the data's x and y spans through the centre of [x0, y0, x1, y1]. */
+export function projectedDataAxes(
   plane: ScalarFieldPlane,
   camera: THREE.Camera,
   [x0, y0, x1, y1]: readonly [number, number, number, number],
   width: number,
   height: number,
-): [number, number] {
+): ProjectedAxes {
   const cx = (x0 + x1) / 2;
-  const a = planeToWorld(plane, cx, y0).project(camera);
-  const b = planeToWorld(plane, cx, y1).project(camera);
-  return [((b.x - a.x) * width) / 2, (-(b.y - a.y) * height) / 2];
+  const cy = (y0 + y1) / 2;
+  const screen = (ax: number, ay: number, bx: number, by: number): [number, number] => {
+    const a = planeToWorld(plane, ax, ay).project(camera);
+    const b = planeToWorld(plane, bx, by).project(camera);
+    return [((b.x - a.x) * width) / 2, (-(b.y - a.y) * height) / 2];
+  };
+  return { x: screen(x0, cy, x1, cy), y: screen(cx, y0, cx, y1) };
+}
+
+/** Whether a 3D view keeps an elevation standing: its data y axis stays screen-vertical and keeps its proportion to the x axis seen in 2D. */
+export function standsUp(flat: ProjectedAxes, oblique: ProjectedAxes): boolean {
+  const length = ([dx, dy]: [number, number]) => Math.hypot(dx, dy);
+  if (!(oblique.y[1] < 0) || Math.abs(oblique.y[0]) >= 0.1 * Math.abs(oblique.y[1])) return false;
+  if (length(flat.x) < 1 || length(oblique.x) < 1) return length(oblique.y) > 0.5 * length(flat.y);
+  return length(oblique.y) / length(oblique.x) > 0.75 * (length(flat.y) / length(flat.x));
 }

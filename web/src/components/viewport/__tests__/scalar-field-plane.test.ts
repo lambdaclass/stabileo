@@ -6,7 +6,8 @@ import {
   pickingPlane,
   planeRotationX,
   planeToWorld,
-  projectedDataYAxis,
+  projectedDataAxes,
+  standsUp,
   worldToPlane,
   type ScalarFieldPlane,
   type ScalarFieldProjection,
@@ -16,7 +17,7 @@ const WIDTH = 600;
 const HEIGHT = 400;
 const ARCH: [number, number, number, number] = [-5, 0, 5, 4];
 
-function fitted(plane: ScalarFieldPlane, projection: ScalarFieldProjection, bounds = ARCH) {
+function fitted(plane: ScalarFieldPlane, projection: ScalarFieldProjection, bounds: readonly [number, number, number, number] = ARCH) {
   const camera = createViewerPerspectiveCamera();
   camera.aspect = WIDTH / HEIGHT;
   const fit = fitScalarFieldCamera(plane, projection, bounds, camera.aspect, camera.fov);
@@ -94,19 +95,22 @@ describe('the camera fit', () => {
     expect(screenUp(fitted('elevation', 'orbit')).z).toBeGreaterThan(0.9);
   });
 
-  it('draws the data y axis of an elevation screen-vertical and nearly full height in both 2D and 3D', () => {
-    const [dx2, dy2] = projectedDataYAxis('elevation', fitted('elevation', 'plan'), ARCH, WIDTH, HEIGHT);
-    expect(Math.abs(dx2)).toBeLessThan(1e-6);
-    expect(dy2).toBeLessThan(0);
-    const [dx3, dy3] = projectedDataYAxis('elevation', fitted('elevation', 'orbit'), ARCH, WIDTH, HEIGHT);
-    expect(Math.abs(dx3)).toBeLessThan(0.1 * Math.abs(dy3));
-    expect(dy3 / dy2).toBeGreaterThan(0.75);
+  const axes = (plane: ScalarFieldPlane, projection: ScalarFieldProjection, bounds: readonly [number, number, number, number] = ARCH) => projectedDataAxes(plane, fitted(plane, projection, bounds), bounds, WIDTH, HEIGHT);
+
+  it('draws the data y axis of an elevation screen-vertical in 2D and keeps it standing in 3D', () => {
+    const flat = axes('elevation', 'plan');
+    expect(Math.abs(flat.y[0])).toBeLessThan(1e-6);
+    expect(flat.y[1]).toBeLessThan(0);
+    expect(Math.abs(flat.x[1])).toBeLessThan(1e-6);
+    expect(flat.x[0]).toBeGreaterThan(0);
+    expect(standsUp(flat, axes('elevation', 'orbit'))).toBe(true);
+    for (const tall of [[0, 0, 0.5, 10], [0, 0, 10, 0.5]] as const) expect(standsUp(axes('elevation', 'plan', tall), axes('elevation', 'orbit', tall))).toBe(true);
   });
 
   it('would catch an elevation drawn lying on the floor: the plan 3D view fails the same check', () => {
-    const [, dy2] = projectedDataYAxis('plan', fitted('plan', 'plan'), ARCH, WIDTH, HEIGHT);
-    const [dx3, dy3] = projectedDataYAxis('plan', fitted('plan', 'orbit'), ARCH, WIDTH, HEIGHT);
-    expect(Math.abs(dx3) >= 0.1 * Math.abs(dy3) || dy3 / dy2 <= 0.75).toBe(true);
+    for (const bounds of [ARCH, [0, 0, 0.5, 10], [0, 0, 10, 0.5]] as const) {
+      expect(standsUp(axes('plan', 'plan', bounds), axes('plan', 'orbit', bounds))).toBe(false);
+    }
   });
 
   it('keeps the plan default exactly where the viewer always put it', () => {
