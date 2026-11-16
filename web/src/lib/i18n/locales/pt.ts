@@ -581,7 +581,7 @@ const pt: Translations = {
   'landing.bldMoment': "Momento fletor",
   'landing.bldMMax': "M máx",
   'landing.secTitle': "Análise de seção do modo Básico ao longo da viga de um pórtico",
-  'landing.secDesc': "Uma seção percorre a viga de um pórtico. Ao lado, a seção retangular de 20 × 50 cm com seu diagrama de tensões normais hachurado, azul na compressão e vermelho na tração, o eixo neutro EN, o núcleo central NC e o centro de pressão CP, que mudam com o momento M de cada posição.",
+  'landing.secDesc': "Uma seção percorre a viga do pórtico. O núcleo central NC da seção retangular é fixo e depende da geometria. O diagrama de tensões normais, o eixo neutro EN e o centro de pressão CP dependem do carregamento em cada posição.",
   'landing.secTag': "MODO BÁSICO",
   'landing.secOut': "fora da vista",
   'landing.topTitle': "Otimização topológica de Andreassen et al. (2011), reproduzida no Stabileo Research",

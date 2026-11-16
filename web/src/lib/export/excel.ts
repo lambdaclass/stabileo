@@ -440,7 +440,7 @@ function createReactionsSheet(): Xlsx.WorkSheet {
       rollerXY: t('selEntity.supRollerXY'), rollerXZ: t('selEntity.supRollerXZ'), rollerYZ: t('selEntity.supRollerYZ'),
       spring3d: t('excel.spring'), custom3d: t('selEntity.supCustom3d'),
     } as Record<string, string>)[sup.type] ?? sup.type : '-';
-    const supShown = sup ? supportNameShown(sup.type, supType) : supType;
+    const supShown = sup ? supportNameShown(sup.type, supType, false) : supType;
 
     data.push([
       r.nodeId, supShown,

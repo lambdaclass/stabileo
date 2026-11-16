@@ -7,7 +7,7 @@
  * check, with the checks that do not apply numbered under the table. Chapters are numbered as
  * they are printed, so leaving one out renumbers the rest.
  */
-import { axisLetter } from '../../axes/display';
+import { along, axisLetter } from '../../axes/display';
 import type { CheckRow, DesignStatus } from '../../design-contract';
 import type { EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
@@ -152,7 +152,7 @@ export function renderMemoriaHtml(m: MemoriaInput, chosen: ReadonlySet<ChapterId
   const g = m.global;
   add('global',
     (part('global', 'modal') && g.modal?.length ? `<h3>${esc(c.tr('memo.glob.modal'))}</h3>` + table([c.tr('memo.glob.mode'), 'T (s)', `M${axisLetter(0)} (%)`, `M${axisLetter(1)} (%)`, `ΣM${axisLetter(0)} (%)`, `ΣM${axisLetter(1)} (%)`], g.modal.map((r) => [String(r.mode), num(r.period, 3), num(r.mx * 100, 1), num(r.my * 100, 1), num(r.cumX * 100, 1), num(r.cumY * 100, 1)])) : '')
-    + (part('global', 'storeyShear') && g.storeyShear?.length ? `<h3>${esc(c.tr('memo.glob.shear'))}</h3>` + table([c.tr('memo.hyp.level'), 'Vx (kN)', 'Vy (kN)', 'Kx (kN/m)', 'Ky (kN/m)', c.tr('memo.glob.soft')], g.storeyShear.map((r) => [esc(r.level), num(r.vx, 1), num(r.vy, 1), r.kx === null ? '—' : num(r.kx, 0), r.ky === null ? '—' : num(r.ky, 0), r.soft ? `<span class="s-fail">${esc(c.tr('memo.glob.yes'))}</span>` : '—'])) + `<p class="muted">${esc(c.tr('memo.glob.softBasis'))}</p>` : '')
+    + (part('global', 'storeyShear') && g.storeyShear?.length ? `<h3>${esc(c.tr('memo.glob.shear'))}</h3>` + table([c.tr('memo.hyp.level'), `V${axisLetter(0)} (kN)`, `V${axisLetter(1)} (kN)`, `K${axisLetter(0)} (kN/m)`, `K${axisLetter(1)} (kN/m)`, c.tr('memo.glob.soft')], g.storeyShear.map((r) => [esc(r.level), num(along(0).sign * r.vx + 0, 1), num(along(1).sign * r.vy + 0, 1), r.kx === null ? '—' : num(r.kx, 0), r.ky === null ? '—' : num(r.ky, 0), r.soft ? `<span class="s-fail">${esc(c.tr('memo.glob.yes'))}</span>` : '—'])) + `<p class="muted">${esc(c.tr('memo.glob.softBasis'))}</p>` : '')
     + (part('global', 'drift') && g.drift?.rows.length ? `<h3>${esc(c.tr('memo.glob.drift'))}</h3><p class="muted">${esc(c.tr('memo.glob.driftBasis', { cd: num(g.drift.cd, 1), limit: num(g.drift.limit, 4) }))}</p>` + table([c.tr('memo.hyp.level'), `Δ${axisLetter(0)}/h`, `Δ${axisLetter(1)}/h`, c.tr('memo.summary.state')], g.drift.rows.map((r) => [esc(r.level), num(r.ratioX, 4), num(r.ratioY, 4), esc(r.status)])) : ''));
 
   // ── Summary of the structure

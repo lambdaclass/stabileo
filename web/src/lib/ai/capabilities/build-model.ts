@@ -239,7 +239,7 @@ export function actionSummary(a: BuildAction): string {
     case 'add_bay': return `${tp(a.params.side?.trim().toLowerCase() === 'left' ? 'ai.sum.addBayLeft' : 'ai.sum.addBayRight', { width: a.params.width })}. ${t('ai.sum.newMembersUnloaded')}`;
     case 'add_story': return `${tp('ai.sum.addStory', { height: a.params.height })}. ${t('ai.sum.newMembersUnloaded')}`;
     case 'change_section': return sectionSummary(a.params);
-    case 'set_all_supports': return tp('ai.sum.supports', { type: supportTypeShown(String(a.params.support_type)) });
+    case 'set_all_supports': return tp('ai.sum.supports', { type: supportTypeShown(String(a.params.support_type), false) });
     case 'set_all_beam_loads': return tp('ai.sum.beamLoads', { q: a.params.q });
     case 'add_lateral_loads': return tp('ai.sum.lateral', { h: a.params.h });
     case 'add_distributed_load': return tp('ai.sum.distLoad', { q: a.params.q, id: a.params.element_id });

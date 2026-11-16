@@ -197,14 +197,16 @@
   .hero-fig-switch {
     display: flex;
     gap: 0.35rem;
+    flex-wrap: wrap;
     margin-top: 0.9rem;
   }
   .hero-fig-switch button {
     position: relative;
     flex: 1 1 0;
-    min-width: 0;
+    min-width: 44px;
+    min-height: 44px;
     font-family: var(--lp-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1.2;
     text-align: left;
     color: var(--fg-2);
@@ -250,7 +252,7 @@
       white-space: nowrap;
     }
     .hero-fig-switch button:not(.on) {
-      min-height: 1.6rem;
+      min-height: 44px;
     }
   }
   .hero-fig-progress {

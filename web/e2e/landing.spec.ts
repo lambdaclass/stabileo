@@ -8,6 +8,14 @@ import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
 
+async function installHeroClock(page: Page) {
+  await page.clock.install({ time: 0 });
+  await page.addInitScript(() => {
+    window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(performance.now()), 100);
+    window.cancelAnimationFrame = (handle) => window.clearTimeout(handle);
+  });
+}
+
 async function showHeroTruss(page: Page) {
   await page.locator('.landing [data-figure="truss"]').click();
   await page.mouse.move(0, 0);
@@ -379,16 +387,23 @@ test.describe('@landing landing page', () => {
 
 
   test('the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
+    await installHeroClock(page);
     await bootLanding(page);
-    const chips = page.locator('.landing .hero-fig-switch button');
-    await expect(chips).toHaveCount(7);
-    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    await page.mouse.move(0, 0);
+    await page.clock.pauseAt(60_000);
+    const active = page.locator('.landing .hero-fig-switch button.on');
+    await expect(page.locator('.landing .hero-fig-switch button')).toHaveCount(7);
+    await expect(active).toHaveAttribute('data-figure', 'building');
     await expect(page.locator('.landing .hero-figure .bld-fig')).toHaveCount(1);
     const bar = page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span');
-    const width = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
-    const before = await width();
-    await expect.poll(width, { message: 'the active figure shows how far through its loop it is', timeout: 15000 }).toBeGreaterThan(before);
-    await expect.poll(() => page.locator('.landing .hero-fig-switch button.on').getAttribute('data-figure'), { timeout: 30000 }).not.toBe('building'); // slow-ok: the first figure holds for its 18 s loop before the hero moves on
+    const before = await bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    await page.clock.runFor(100);
+    expect(await bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a)).toBeGreaterThan(before);
+    for (const [seconds, figure] of [[16.9, 'shed'], [17, 'truss'], [18, 'section'], [16, 'mohr'], [16, 'modal'], [18, 'topopt'], [14.4, 'building']] as const) {
+      await page.clock.runFor(seconds * 1000 + 100);
+      await expect(active).toHaveAttribute('data-figure', figure);
+      await expect(page.locator('.landing .hero-fig-slot svg')).toHaveCount(1);
+    }
   });
 
   test('a figure chosen from the row starts moving with the pointer still on its button', async ({ page }) => {
@@ -426,11 +441,16 @@ test.describe('@landing landing page', () => {
 
   test('a figure that fails to load is skipped, not requested every frame', async ({ page }) => {
     let requests = 0;
+    await installHeroClock(page);
     await page.route('**/ShedFigure-*.js', (route) => { requests++; return route.abort(); });
     await bootLanding(page);
     await page.mouse.move(0, 0);
-    await page.waitForTimeout(19_000); // slow-ok: the rotation reaches the failing figure only after the building's 17 s loop
+    await page.clock.pauseAt(60_000);
+    await page.clock.runFor(17_500);
+    expect(requests, 'the failing chunk was actually requested').toBeGreaterThan(0);
     await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    await page.clock.runFor(17_500);
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'truss');
     expect(requests, 'one attempt per switch, not one per frame').toBeLessThan(5);
   });
 

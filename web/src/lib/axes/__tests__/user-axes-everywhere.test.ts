@@ -77,16 +77,16 @@ describe('generated case names', () => {
 describe('support names', () => {
   it('a roller id is shown in the user axes, the 2D ones on the plane', () => {
     axesStore.choice = Y_UP;
-    expect(supportTypeShown('rollerXY')).toBe('rollerXZ');
-    expect(supportTypeShown('rollerYZ')).toBe('rollerYZ');
-    expect(supportTypeShown('rollerX')).toBe('rollerX');
-    expect(supportTypeShown('rollerZ')).toBe('rollerY');
-    expect(supportTypeShown('rollerY')).toBe('rollerY');
-    expect(supportNameShown('rollerXY', 'Roller XY')).toBe('Roller XZ');
-    expect(supportNameShown('rollerZ', 'Roller Y')).toBe('Roller Y');
+    expect(supportTypeShown('rollerXY', false)).toBe('rollerXZ');
+    expect(supportTypeShown('rollerYZ', false)).toBe('rollerYZ');
+    expect(supportTypeShown('rollerX', false)).toBe('rollerX');
+    expect(supportTypeShown('rollerZ', false)).toBe('rollerY');
+    expect(supportTypeShown('rollerY', false)).toBe('rollerY');
+    expect(supportNameShown('rollerXY', 'Roller XY', true)).toBe('Roller XZ');
+    expect(supportNameShown('rollerZ', 'Roller Y', false)).toBe('Roller Y');
     expect(planeLettersShown('Global axes: X horizontal, Z vertical')).toBe('Global axes: X horizontal, Y vertical');
     axesStore.choice = { up: '+X', right: '+Y', hand: 'right' };
-    expect(supportTypeShown('rollerZ')).toBe('rollerX');
+    expect(supportTypeShown('rollerZ', false)).toBe('rollerX');
     expect(planeLettersShown('Restrains vertical displacement (Z reaction). Free in X.')).toBe('Restrains vertical displacement (X reaction). Free in Y.');
   });
 

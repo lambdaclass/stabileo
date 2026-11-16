@@ -262,7 +262,7 @@ const tr: Translations = {
   'landing.bldMoment': "Eğilme momenti",
   'landing.bldMMax': "M maks",
   'landing.secTitle': "Temel modda bir çerçeve kirişi boyunca kesit analizi",
-  'landing.secDesc': "Bir kesit, çerçevenin kirişi boyunca ilerler. Yanında 20 × 50 cm dikdörtgen kesit; taralı normal gerilme diyagramı basınçta mavi, çekmede kırmızı, tarafsız eksen EN, kesit çekirdeği NC ve basınç merkezi CP her konumdaki M momentiyle değişir.",
+  'landing.secDesc': "Bir kesit çerçevenin kirişi boyunca ilerler. Dikdörtgen kesitin merkez çekirdeği NC sabittir ve geometriye bağlıdır. Normal gerilme diyagramı, tarafsız eksen EN ve basınç merkezi CP her konumdaki yüklemeye bağlıdır.",
   'landing.secTag': "TEMEL MOD",
   'landing.secOut': "görünüm dışında",
   'landing.topTitle': "Andreassen ve ark. (2011) topoloji optimizasyonu, Stabileo Research’te yeniden üretildi",

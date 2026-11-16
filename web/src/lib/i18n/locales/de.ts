@@ -253,7 +253,7 @@ const de: Translations = {
   'landing.bldMoment': "Biegemoment",
   'landing.bldMMax': "M max",
   'landing.secTitle': "Querschnittsanalyse im Basismodus entlang des Riegels eines Rahmens",
-  'landing.secDesc': "Ein Schnitt wandert entlang des Riegels eines Rahmens. Daneben der Rechteckquerschnitt 20 × 50 cm mit seiner schraffierten Normalspannungsverteilung, blau unter Druck und rot unter Zug, der Nulllinie EN, dem Querschnittskern NC und dem Druckpunkt CP, die sich mit dem Moment M an jeder Stelle ändern.",
+  'landing.secDesc': "Ein Schnitt wandert entlang des Rahmenriegels. Der Zentralkern NC des Rechteckquerschnitts ist fest und hängt von der Geometrie ab. Normalspannungsdiagramm, Nulllinie EN und Druckmittelpunkt CP folgen der Belastung an jeder Stelle.",
   'landing.secTag': "BASISMODUS",
   'landing.secOut': "außerhalb der Ansicht",
   'landing.topTitle': "Topologieoptimierung nach Andreassen et al. (2011), nachgerechnet in Stabileo Research",

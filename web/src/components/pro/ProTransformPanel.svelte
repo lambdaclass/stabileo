@@ -22,6 +22,7 @@
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import QuantityInput from './loads/QuantityInput.svelte';
   import { along, axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
+  import { toModel, toUser } from '../../lib/axes/frame';
   import { axesStore } from '../../lib/axes/axes.svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
@@ -41,12 +42,13 @@
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>(axisName(2));
   let axisCustom = $state<Vec3>(userVec(0, 0, 1));
 
+  let previousFrame = axesStore.frame;
   let shownAxes = axesKey();
   $effect(() => {
     const k = axesKey();
     if (k === shownAxes) return;
     shownAxes = k;
-    untrack(() => { d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
+    untrack(() => { point = toUser(axesStore.frame, toModel(previousFrame, point)); previousFrame = axesStore.frame; d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
   });
   let angle = $state(90);
   let asCopy = $state(true);

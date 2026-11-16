@@ -126,7 +126,7 @@ function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number
       row[at(lower(h))] = h.sign * x + 0;
       row[at(lower(v))] = v.sign * z + 0;
     } else if (sheet.name === 'Supports') {
-      row[at('type')] = supportTypeIn(f, String(example[at('type')]));
+      row[at('type')] = supportTypeIn(f, String(example[at('type')]), false);
       for (const key of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) row[at(key)] = '';
       const normal = userAxisAlong(f, 1);
       for (const [source, target, sign] of [

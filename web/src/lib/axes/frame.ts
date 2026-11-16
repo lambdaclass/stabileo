@@ -136,7 +136,7 @@ export function relabelAxesWith(f: AxesFrame, text: string): string {
   });
 }
 
-export function supportTypeIn(f: AxesFrame, type: string, is3D = false): string {
+export function supportTypeIn(f: AxesFrame, type: string, is3D: boolean): string {
   const m = /^(roller|guided)([XYZ]{1,2})$/.exec(type);
   // 2D's legacy rollerY is the vertical, the model's Z.
   return m ? `${m[1]}${relabelAxesWith(f, !is3D && m[2] === 'Y' ? 'Z' : m[2]!)}` : type;

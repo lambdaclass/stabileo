@@ -583,7 +583,7 @@ const en: Record<string, string> = {
   'landing.bldMoment': "Bending moment",
   'landing.bldMMax': "M max",
   'landing.secTitle': "Basic mode section analysis along the beam of a frame",
-  'landing.secDesc': "A section travels along the beam of a frame. Beside it, the 20 × 50 cm rectangular section with its hatched normal stress diagram, blue in compression and red in tension, the neutral axis EN, the central core NC and the pressure center CP, which change with the moment M at each position.",
+  'landing.secDesc': "A section travels along the frame beam. The rectangular section has a fixed central kern NC determined by its geometry. Its normal stress diagram, neutral axis EN and pressure centre CP follow the loading at each position.",
   'landing.secTag': "BASIC MODE",
   'landing.secOut': "out of view",
   'landing.topTitle': "Topology optimization from Andreassen et al. (2011), reproduced in Stabileo Research",

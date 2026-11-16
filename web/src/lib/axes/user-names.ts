@@ -68,7 +68,7 @@ export function ilText(q: string, text: string): string {
   return text.replace(new RegExp(`(?<![A-Za-z])${q}(?![A-Za-z])|(?<![A-Za-z0-9])[+−-]?[XYZ](?![A-Za-z])`, 'g'), (token) => token === q ? symbol : axisTokensIn(axesStore.frame, token));
 }
 
-export const supportTypeShown = (type: string, is3D = false): string => supportTypeIn(axesStore.frame, type, is3D);
+export const supportTypeShown = (type: string, is3D: boolean): string => supportTypeIn(axesStore.frame, type, is3D);
 
 /** A 2D text whose X is the horizontal and whose Y or Z is the vertical, in the user's names. */
 export const planeLettersShown = (text: string): string => planeLettersIn(axesStore.frame, text);
@@ -81,4 +81,4 @@ export function userAxisText(tr: (key: string) => string, key: (modelLetter: 'X'
 }
 
 /** A support type's label, its letters in the user's names: a 2D roller's Y is the vertical. */
-export const supportNameShown = (type: string, label: string): string => (/^(roller|guided)[XYZ]$/.test(type) ? planeLettersShown(label) : relabelAxes(label));
+export const supportNameShown = (type: string, label: string, is3D: boolean): string => (!is3D && /^(roller|guided)[XYZ]$/.test(type) ? planeLettersShown(label) : relabelAxes(label));

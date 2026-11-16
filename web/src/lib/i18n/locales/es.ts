@@ -583,7 +583,7 @@ const es: Record<string, string> = {
   'landing.bldMoment': "Momento flector",
   'landing.bldMMax': "M máx",
   'landing.secTitle': "Análisis de sección del modo Básico sobre la viga de un pórtico",
-  'landing.secDesc': "Una sección recorre la viga de un pórtico. Al lado, la sección rectangular de 20 × 50 cm con su diagrama de tensiones normales rayado, azul en compresión y rojo en tracción, el eje neutro EN, el núcleo central NC y el centro de presiones CP, que cambian con el momento M de cada posición.",
+  'landing.secDesc': "Una sección recorre la viga del pórtico. El núcleo central NC de la sección rectangular es fijo y depende de su geometría. El diagrama de tensiones normales, el eje neutro EN y el centro de presión CP dependen de la carga en cada posición.",
   'landing.secTag': "MODO BÁSICO",
   'landing.secOut': "fuera de vista",
   'landing.topTitle': "Optimización topológica de Andreassen et al. (2011), reproducida en Stabileo Research",

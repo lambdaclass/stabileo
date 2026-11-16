@@ -27,7 +27,7 @@ it('known wrong result: #2090 the truss visibly identifies normalized deformatio
     const caption = /<figcaption[^>]*>([\s\S]*?)<\/figcaption>/.exec(html)![1];
     expect(caption).toContain('data-testid="truss-normalized"');
     expect(caption).toContain('data-testid="truss-zero"');
-    expect(caption).not.toContain('landing.fig');
+    expect(caption).not.toContain(['landing', 'fig'].join('.'));
   }
 });
 
@@ -38,7 +38,7 @@ it('known wrong result: #2090 every section description distinguishes the fixed 
   }
 });
 
-it.skip('known wrong result: #2090 #1986 main Hungarian coverage includes every new hero and axes label', async () => {
+it('known wrong result: #2090 #1986 main Hungarian coverage includes every new hero and axes label', async () => {
   const en = (await import('../../../lib/i18n/locales/en')).default;
   const hu = (await import('../../../lib/i18n/locales/hu')).default;
   const keys = Object.keys(en).filter((k) => /^(axes\.|landing\.(heroFig|bld|shed|truss|sec|mohr|top))/.test(k));

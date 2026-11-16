@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 
-test.skip('known wrong result: #1986 @smoke changing global axes preserves a transform centre', async ({ pro: page }) => {
+test('known wrong result: #1986 @smoke changing global axes preserves a transform centre', async ({ pro: page }) => {
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-transform').click();
   await page.getByTestId('tp-mode-rotate').click();
@@ -16,7 +16,7 @@ test.skip('known wrong result: #1986 @smoke changing global axes preserves a tra
   await expect(page.getByTestId('tp-pz')).toHaveValue('-3');
 });
 
-test.skip('known wrong result: #1986 @smoke an existing offset can switch coordinate frames in both directions', async ({ pro: page }) => {
+test('known wrong result: #1986 @smoke an existing offset can switch coordinate frames in both directions', async ({ pro: page }) => {
   await page.evaluate(async () => {
     await window.__stabileoActions.loadExample('3d-portal-frame');
     const saved = JSON.parse(window.__stabileo.serializeProject());
@@ -40,7 +40,7 @@ test.skip('known wrong result: #1986 @smoke an existing offset can switch coordi
 });
 
 for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]] as const) {
-  test.skip(`known wrong result: #2090 @smoke the landing figure controls are readable and tappable on ${label}`, async ({ page }) => {
+  test(`known wrong result: #2090 @smoke the landing figure controls are readable and tappable on ${label}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const { bootLanding } = await import('./landing-helpers');
     await bootLanding(page);
@@ -63,7 +63,7 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 768, 1024]
     await page.screenshot({ path: `../.handoff-assets/bautista-${label}-landing.png` });
   });
 
-  test.skip(`known wrong result: #1986 @smoke the axes picker fits and the viewer remains available on ${label}`, async ({ pro: page }) => {
+  test(`known wrong result: #1986 @smoke the axes picker fits and the viewer remains available on ${label}`, async ({ pro: page }) => {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.__stabileoActions.openProTab('nodes'));
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;

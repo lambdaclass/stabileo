@@ -171,6 +171,7 @@
   .ax-caption { margin: 4px 0 10px; font-size: 0.76rem; color: var(--st-text-2); line-height: 1.4; }
   .ax-presets { display: flex; flex-wrap: wrap; gap: 6px; }
   .ax-chip, .ax-opt, .ax-btn {
+    min-width: 44px; min-height: 44px;
     font: inherit; font-size: 0.78rem; color: var(--st-text); cursor: pointer;
     background: var(--st-surface-3); border: 1px solid var(--st-border); border-radius: var(--st-radius);
   }
@@ -192,7 +193,7 @@
   .ax-disclosure-body { margin-top: 4px; padding: 8px; border: 1px solid var(--st-hair); border-radius: 4px; }
   .ax-check { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; margin-bottom: 8px; cursor: pointer; }
   .ax-options { display: flex; flex-wrap: wrap; gap: 6px; }
-  .ax-opt { min-width: 42px; padding: 6px 8px; font-weight: 600; }
+  .ax-opt { min-width: 44px; padding: 6px 8px; font-weight: 600; }
   .ax-opt.wide { display: flex; flex-direction: column; align-items: flex-start; flex: 1 1 120px; font-weight: 500; }
   .ax-opt small { color: var(--st-text-2); font-size: 0.72rem; }
   .ax-figures { background: var(--st-surface-2); border-radius: var(--st-radius); padding: 10px; position: sticky; top: 0; }

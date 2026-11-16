@@ -16,7 +16,7 @@
    * component's: see whatif.svelte.ts for why, and for how it recomputes.
    */
   let { docked = false }: { docked?: boolean } = $props();
-  import { twoD } from '../lib/axes/display';
+  import { planeGlobalValue, twoD } from '../lib/axes/display';
   import { userVecParts } from '../lib/axes/user-names';
   import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { whatIf, type MemberFactors } from '../lib/store/whatif.svelte';
@@ -139,10 +139,10 @@
     }
     if (l.type === 'pointOnElement') {
       // A point load on a member may be a force, an axial force, a moment, or any mix.
-      const d = l.data as { p: number; px?: number; my?: number; mz?: number; elementId: number };
+      const d = l.data as { p: number; px?: number; my?: number; mz?: number; elementId: number; isGlobal?: boolean };
       const m = d.my ?? d.mz;
       const parts: string[] = [];
-      if (d.p) parts.push(`P=${F(d.p)}`);
+      if (d.p) parts.push(`P=${F(d.isGlobal ? planeGlobalValue(d.p) : d.p)}`);
       if (d.px) parts.push(`Px=${F(d.px)}`);
       if (m) parts.push(`${TWO_D_NODAL_LOAD_LABELS.moment}=${M(twoD.rot(m))}`);
       return `${parts.join(', ') || 'P=0'} (B${d.elementId})`;
