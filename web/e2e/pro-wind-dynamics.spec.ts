@@ -64,8 +64,10 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-typed').check();
     await page.getByTestId('wind-n1-x').fill('0.4');
     await page.getByTestId('wind-n1-y').fill('0.4');
+    await dwellingFloorLoads(page);
     // A shed has no floors to take the roof's dead load from: it is stated.
     await alSection(page, 'roof');
+    await page.getByTestId('al-roof').check();
     await page.getByTestId('al-roof-dead').fill('0.25');
     await page.getByTestId('al-roof-dead').press('Tab');
     await expectLoadGenerationRefusal(page, /concentrated roof actions/);
