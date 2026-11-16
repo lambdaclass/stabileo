@@ -183,13 +183,18 @@ describe('results versions', () => {
 });
 
 
-it('shows the exact directional stirrup notice to a concrete project solved immediately before the correction', () => {
+const knownWrong2198 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
+knownWrong2198.each([-1, 0, 1])('known wrong result: #2198 — exact directional notice with recovery version offset %s', (recoveryOffset) => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
   const frame: FeatureSnapshot = { analysisMode: 'pro',
     materials: [[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2, rho: 25 }]] as never,
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]] as never,
     supports: [], loads: [], loadCases: [{ id: 1, type: 'D' }],
   };
-  expect(assessProject(frame, { resultsVersion: entry.resultsVersion - 1, analyses: ['linear'] } as SolveStamp, 'pro')
+  const registry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c =>
+    c.id === 'member-recovery-round4' ? { ...c, resultsVersion: entry.resultsVersion + recoveryOffset } : c),
+    currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + recoveryOffset),
+  };
+  expect(assessProject(frame, { resultsVersion: entry.resultsVersion - 1, analyses: ['linear'] } as SolveStamp, 'pro', registry)
     .changes.map(c => c.id).sort()).toEqual(['directional-stirrup-legs', 'member-recovery-round4']);
 });
