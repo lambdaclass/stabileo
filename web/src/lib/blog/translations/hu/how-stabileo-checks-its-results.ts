@@ -122,13 +122,13 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/TRUSTED_BASE.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/TRUSTED_BASE.md",
       "label": "A tanúsítványok megbízható bázisa",
       "t": "Mi bizonyított, mi tesztelt és miben bízunk, komponensenként:"
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/verification/MATURITY.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/testing/docs/MATURITY.md",
       "label": "Ellenőrzési érettségi mátrix",
       "t": "Minden analízisre, elemre és méretezési szabványra az elért ellenőrzési szint és a bizonyítékok:"
     }
