@@ -103,7 +103,6 @@ defmodule StabileoInsights.FeedbackSafety2099Test do
     end
   end
 
-  @tag skip: "known wrong result: #2099"
   test "model links retain main's 8192 character bound", %{token: token} do
     prefix = "https://stabileo.com/#s="
     link = prefix <> String.duplicate("x", 8192 - String.length(prefix))
@@ -116,7 +115,6 @@ defmodule StabileoInsights.FeedbackSafety2099Test do
     assert [_] = body["details"]["model_link"]
   end
 
-  @tag skip: "known wrong result: #2099"
   test "browser metadata retains main's 512 character bound", %{token: token} do
     for size <- [512, 513] do
       conn =
@@ -136,7 +134,6 @@ defmodule StabileoInsights.FeedbackSafety2099Test do
     end
   end
 
-  @tag skip: "known wrong result: #2099"
   test "the shared creation path refuses non-object bodies without raising", %{account: account} do
     for params <- [nil, [note()], 42, "text"] do
       assert {:error, changeset} = FeedbackInbox.create(params, account, %{})

@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  "account.err.invalid_credentials": "电子邮箱或密码不正确。",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

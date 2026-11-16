@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  "account.err.invalid_credentials": "メールアドレスまたはパスワードが正しくありません。",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

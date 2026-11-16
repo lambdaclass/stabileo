@@ -76,6 +76,7 @@ const tr: Translations = {
   'account.saved': 'Değişiklikler kaydedildi',
   'account.logout': 'Oturumu kapat',
   'account.err.account_disabled': 'Bu hesap devre dışı.',
+  'account.err.invalid_credentials': 'E-posta veya parola hatalı.',
   'account.err.refresh_failed': 'Oturumunuzun süresi doldu. Lütfen yeniden oturum açın.',
   'account.err.network_error': 'Hesap sunucusuna ulaşılamadı.',
   'account.err.validation_error': 'İşaretli alanları kontrol edin.',

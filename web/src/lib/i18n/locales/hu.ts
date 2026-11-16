@@ -56,6 +56,7 @@ const hu: Translations = {
   "account.saved": "A módosítások mentve",
   "account.logout": "Kijelentkezés",
   "account.err.account_disabled": "Ez a fiók le van tiltva.",
+  "account.err.invalid_credentials": "Az e-mail-cím vagy a jelszó hibás.",
   "account.err.refresh_failed": "A munkamenet lejárt. Jelentkezzen be újra.",
   "account.err.network_error": "A fiókszerver nem érhető el.",
   "account.err.validation_error": "Ellenőrizze a kiemelt mezőket.",

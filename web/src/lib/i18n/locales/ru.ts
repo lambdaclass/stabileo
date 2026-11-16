@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  "account.err.invalid_credentials": "Неверный адрес электронной почты или пароль.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

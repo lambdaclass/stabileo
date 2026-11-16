@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import * as budget from '../../../scripts/research-route-budget.mjs';
+
+const budget = await import(new URL('../../../scripts/research-route-budget.mjs', import.meta.url).href);
 
 async function measure(worker: boolean) {
   const manifest = {
@@ -47,7 +48,7 @@ async function measure(worker: boolean) {
 }
 
 describe('route worker footprint', () => {
-  it.skip('known wrong result: #2099 — first-navigation tools count solver workers and their assets exactly once', async () => {
+  it('known wrong result: #2099 — first-navigation tools count solver workers and their assets exactly once', async () => {
     const { logs, files } = await measure(true);
     for (const [route, detail] of [
       ['simply-supported-beam', 'CalculatorTool'], ['continuous-beam', 'BatchTool'], ['beam-frame', 'ModelTool'],

@@ -52,7 +52,8 @@ defmodule StabileoRepo.Schemas.Feedback do
     |> validate_length(:contact_email, max: 255)
     |> validate_length(:page, max: 255)
     |> validate_length(:app_version, max: 32)
-    |> validate_length(:model_link, max: 500_000)
+    |> validate_length(:model_link, max: 8192)
+    |> validate_length(:user_agent, max: 512)
     |> assoc_constraint(:account)
   end
 

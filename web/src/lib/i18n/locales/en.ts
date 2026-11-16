@@ -69,6 +69,7 @@ const en: Record<string, string> = {
   'account.saved': 'Changes saved',
   'account.logout': 'Sign out',
   'account.err.account_disabled': 'This account is disabled.',
+  'account.err.invalid_credentials': 'The email or password is incorrect.',
   'account.err.refresh_failed': 'Your session has expired. Please sign in again.',
   'account.err.network_error': 'Could not reach the accounts server.',
   'account.err.validation_error': 'Check the highlighted fields.',

@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  "account.err.invalid_credentials": "L'indirizzo e-mail o la password non sono corretti.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

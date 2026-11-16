@@ -6,7 +6,6 @@
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
- * A tool page adds its own detail chunk's static closure (never the solver, which is lazy, nor the worker that runs it).
  * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
 import { build } from 'vite';
@@ -83,7 +82,7 @@ try {
       if (!/\.(?:js|css|html)$/.test(file)) continue;
       for (const match of readFileSync(join(outDir, file), 'utf8').matchAll(/["'(](\/[^"'()\s]+)["')]/g)) {
         const relative = match[1].slice(1).split('?')[0];
-        if (!relative.includes('..') && !/(?:^|\/)solver-worker-[\w-]+\.js$/.test(relative) && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
+        if (!relative.includes('..') && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
       }
     }
     const size = (file) => statSync(join(outDir, file)).size;

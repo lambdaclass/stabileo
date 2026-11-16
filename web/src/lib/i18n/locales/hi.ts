@@ -1,5 +1,6 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  "account.err.invalid_credentials": "ईमेल या पासवर्ड गलत है।",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

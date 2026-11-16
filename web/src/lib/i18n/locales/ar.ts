@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  "account.err.invalid_credentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

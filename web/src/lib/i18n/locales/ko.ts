@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  "account.err.invalid_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

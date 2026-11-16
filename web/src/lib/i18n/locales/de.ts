@@ -67,6 +67,7 @@ const de: Translations = {
   'account.saved': 'Änderungen gespeichert',
   'account.logout': 'Abmelden',
   'account.err.account_disabled': 'Dieses Konto ist deaktiviert.',
+  'account.err.invalid_credentials': 'E-Mail-Adresse oder Passwort ist falsch.',
   'account.err.refresh_failed': 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
   'account.err.network_error': 'Der Kontoserver ist nicht erreichbar.',
   'account.err.validation_error': 'Prüfen Sie die markierten Felder.',

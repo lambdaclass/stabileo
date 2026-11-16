@@ -9,7 +9,7 @@ defmodule StabileoInsights.FeedbackInbox do
 
   @input ~w(kind message contact_email page app_version model_link)
 
-  def create(params, account, metadata) do
+  def create(params, account, metadata) when is_map(params) do
     attrs =
       params
       |> Map.take(@input)
@@ -21,6 +21,8 @@ defmodule StabileoInsights.FeedbackInbox do
     |> Ecto.Changeset.validate_change(:model_link, &own_share_link/2)
     |> Repo.insert()
   end
+
+  def create(_params, account, metadata), do: create(%{}, account, metadata)
 
   defp own_share_link(:model_link, link) do
     base = GoogleOAuth.app_frontend_url()

@@ -69,6 +69,7 @@ const pt: Translations = {
   'account.saved': 'Alterações salvas',
   'account.logout': 'Sair',
   'account.err.account_disabled': 'Esta conta está desativada.',
+  'account.err.invalid_credentials': 'O e-mail ou a senha estão incorretos.',
   'account.err.refresh_failed': 'Sua sessão expirou. Entre novamente.',
   'account.err.network_error': 'Não foi possível conectar ao servidor de contas.',
   'account.err.validation_error': 'Verifique os campos destacados.',

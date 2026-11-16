@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  "account.err.invalid_credentials": "Email atau kata sandi salah.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───

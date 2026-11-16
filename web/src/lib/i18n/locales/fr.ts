@@ -67,6 +67,7 @@ const fr: Translations = {
   'account.saved': 'Modifications enregistrées',
   'account.logout': 'Se déconnecter',
   'account.err.account_disabled': 'Ce compte est désactivé.',
+  'account.err.invalid_credentials': 'L\'adresse e-mail ou le mot de passe est incorrect.',
   'account.err.refresh_failed': 'Votre session a expiré. Veuillez vous reconnecter.',
   'account.err.network_error': 'Impossible de joindre le serveur des comptes.',
   'account.err.validation_error': 'Vérifiez les champs signalés.',

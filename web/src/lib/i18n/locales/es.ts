@@ -69,6 +69,7 @@ const es: Record<string, string> = {
   'account.saved': 'Cambios guardados',
   'account.logout': 'Cerrar sesión',
   'account.err.account_disabled': 'Esta cuenta está deshabilitada.',
+  'account.err.invalid_credentials': 'El email o la contraseña no son correctos.',
   'account.err.refresh_failed': 'Tu sesión expiró. Volvé a iniciar sesión.',
   'account.err.network_error': 'No se pudo conectar con el servidor de cuentas.',
   'account.err.validation_error': 'Revisá los campos marcados.',
