@@ -101,10 +101,15 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     building(mesh, flipped ? { flip: interiorPiece } : {});
     let comparedFixtureRuns = 0;
     const original = autoVerification.autoVerifyFromResults;
+    const verify = vi.spyOn(concurrentVerification, 'verifyConcurrentElement');
     const spy = vi.spyOn(autoVerification, 'autoVerifyFromResults').mockImplementation((results, model, governing, options, demands) => {
       comparedFixtureRuns++;
       const cached = original(results, model, governing, options, demands);
-      const uncached = results.elementForces.flatMap(ef => original({ ...results, elementForces: [ef] }, model, governing, options, demands).concrete);
+      const uncachedDemands = demands && new Map([...demands].map(([id, d]) =>
+        [id, { ...d, concurrent: d.concurrent ? [...d.concurrent] : undefined }]));
+      verify.mockClear();
+      const uncached = original(results, model, governing, options, uncachedDemands).concrete;
+      expect(verify).toHaveBeenCalledTimes(cached.concrete.length);
       deepStrictEqual(cached.concrete, uncached);
       return cached;
     });
@@ -113,6 +118,7 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
       expect(comparedFixtureRuns).toBe(1);
     } finally {
       spy.mockRestore();
+      verify.mockRestore();
     }
   });
 

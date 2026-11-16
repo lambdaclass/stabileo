@@ -1,6 +1,6 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import tower from '../../../../results-snapshots/design-steel-3d-tower.json';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { normalizeCirsoc201 } from '../design-check-results';
 import { prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
@@ -15,7 +15,7 @@ it('#2080 tower e12 stores the concurrent interaction in its engine summary and 
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const elementType of ['column', 'wall'] as const) for (const sign of [-1, 1]) {
     it(`#2080 biaxial row keeps its concurrent resultant ${edition} ${axis} ${elementType} ${sign}`, () => {
-      const demands = ConcurrentDemand.fromTuples([
+      const demands = declaredTestDemands([
         { comboId: 1, comboName: 'primary', forces: { n: -100, my: axis === 'My' ? sign * 100 : 1, mz: axis === 'Mz' ? sign * 100 : 1, vy: 0, vz: 0, torsion: 0, t: 0, x: 0 } },
         { comboId: 2, comboName: 'biaxial', forces: { n: -100, my: sign * 80, mz: 80, vy: 0, vz: 0, torsion: 0, t: 1, x: 1 } },
       ]);

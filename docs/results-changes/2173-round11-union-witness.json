@@ -1,0 +1,214 @@
+{
+  "mainRevision": "d0f23b375e82242f302fff7a9b66af96358bf818",
+  "method": "Exact main beam-line-demand.ts and concurrent-demand.ts source replay against current numerical dependencies; no historical release binary replay.",
+  "input": {
+    "elementId": 1,
+    "length": 4,
+    "stationTs": [
+      0,
+      1
+    ],
+    "comboResults": [
+      {
+        "comboId": 1,
+        "comboName": "A",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 0,
+            "torsion": 0
+          },
+          {
+            "t": 0.5,
+            "x": 2,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 0,
+            "torsion": 0
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 0,
+            "torsion": 0
+          }
+        ]
+      },
+      {
+        "comboId": 2,
+        "comboName": "B",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 100,
+            "mz": 0,
+            "vy": 0,
+            "vz": 200,
+            "torsion": 30
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 100,
+            "mz": 0,
+            "vy": 0,
+            "vz": 200,
+            "torsion": 30
+          }
+        ]
+      }
+    ]
+  },
+  "main": {
+    "flexure": [
+      {
+        "x": 0,
+        "mPos": 100,
+        "mNeg": 0,
+        "asBottom": 4.890780594174299,
+        "asTop": 0,
+        "d": 0.5569999999999999
+      },
+      {
+        "x": 4,
+        "mPos": 100,
+        "mNeg": 0,
+        "asBottom": 4.890780594174299,
+        "asTop": 0,
+        "d": 0.5569999999999999
+      }
+    ],
+    "transverse": [
+      {
+        "x": 0,
+        "shear": 5.286722321606043,
+        "torsion": 8.542345302611302,
+        "min": 2.5
+      },
+      {
+        "x": 4,
+        "shear": 5.286722321606043,
+        "torsion": 8.542345302611302,
+        "min": 2.5
+      }
+    ]
+  },
+  "fixed": {
+    "flexure": [
+      {
+        "x": 0,
+        "mPos": 100,
+        "mNeg": 0,
+        "asBottom": 4.890780594174299,
+        "asTop": 0,
+        "d": 0.5569999999999999
+      },
+      {
+        "x": 2,
+        "mPos": 100,
+        "mNeg": 0,
+        "asBottom": 4.890780594174299,
+        "asTop": 0,
+        "d": 0.5569999999999999
+      },
+      {
+        "x": 4,
+        "mPos": 100,
+        "mNeg": 0,
+        "asBottom": 4.890780594174299,
+        "asTop": 0,
+        "d": 0.5569999999999999
+      }
+    ],
+    "transverse": [
+      {
+        "x": 0,
+        "shear": 5.286722321606043,
+        "torsion": 8.542345302611302,
+        "min": 2.5
+      },
+      {
+        "x": 2,
+        "shear": 5.286722321606043,
+        "torsion": 8.542345302611302,
+        "min": 2.5
+      },
+      {
+        "x": 4,
+        "shear": 5.286722321606043,
+        "torsion": 8.542345302611302,
+        "min": 2.5
+      }
+    ]
+  },
+  "declaredMissingMidpoint": {
+    "stationTs": [
+      0,
+      0.5,
+      1
+    ],
+    "main": {
+      "flexure": [
+        {
+          "x": 0,
+          "mPos": 100,
+          "mNeg": 0,
+          "asBottom": 4.890780594174299,
+          "asTop": 0,
+          "d": 0.5569999999999999
+        },
+        {
+          "x": 2,
+          "mPos": 100,
+          "mNeg": 0,
+          "asBottom": 4.890780594174299,
+          "asTop": 0,
+          "d": 0.5569999999999999
+        },
+        {
+          "x": 4,
+          "mPos": 0,
+          "mNeg": 0,
+          "asBottom": 0,
+          "asTop": 0,
+          "d": 0.5569999999999999
+        }
+      ],
+      "transverse": [
+        {
+          "x": 0,
+          "shear": 5.286722321606043,
+          "torsion": 8.542345302611302,
+          "min": 2.5
+        },
+        {
+          "x": 2,
+          "shear": 5.286722321606043,
+          "torsion": 8.542345302611302,
+          "min": 2.5
+        },
+        {
+          "x": 4,
+          "shear": 0,
+          "torsion": 0,
+          "min": 2.5
+        }
+      ]
+    },
+    "fixed": "incomplete-concurrent-demand"
+  }
+}

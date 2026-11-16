@@ -1,3 +1,5 @@
+import { completeMemberDemands } from '../member-demand-gate';
+import { ConcurrentDemand } from '../concurrent-demand';
 /**
  * The span a beam is designed as: from support to support, whatever the analysis cut it into.
  *
@@ -36,7 +38,7 @@ import {
   type ElementStationResult, type StationForces,
 } from '../station-design-forces';
 import { resolveDesignAxes, uprightBeam } from './design-axes';
-import type { ContextModelData, MemberContext } from './member-context';
+import { declaredContextMembers, type ContextModelData, type MemberContext } from './member-context';
 import type { LimitingConstraint } from './outcome';
 import { spanLateralReading } from '../../model/lateral-system';
 
@@ -249,6 +251,10 @@ export function applySpanContexts(
   spans: readonly DesignSpan[],
   label: (span: DesignSpan) => string | undefined = () => undefined,
 ): DesignSpan[] {
+  completeMemberDemands([...contexts.values()].filter(c => c.stations || c.demands).map(c => ({ elementId: c.elementId,
+    demands: c.demands?.demands ?? [], tuples: c.stations ? ConcurrentDemand.fromStations(c.stations) : c.demands?.concurrent,
+    expectedCombinationIds: c.demands?.expectedCombinationIds, stationTs: c.stations?.stationTs,
+  })), declaredContextMembers([...contexts.values()]));
   const done: DesignSpan[] = [];
   for (const span of spans) {
     const pieces = span.elements.map((id) => contexts.get(id));
@@ -281,9 +287,24 @@ export function applySpanContexts(
       ...(pieces.some((c) => c!.lateral) ? { lateral: spanLateralReading(pieces.map((c) => c!.lateral)) } : {}),
     };
     span.elements.forEach((id, index) => {
-      contexts.set(id, { ...base, elementId: id, span: { ...span, ...(name ? { label: name } : {}), index } });
+      contexts.set(id, { ...base, elementId: id,
+        stations: { ...merged, elementId: id }, demands: { ...demands, elementId: id },
+        span: { ...span, ...(name ? { label: name } : {}), index } });
     });
     done.push(span);
+  }
+  if (done.length) {
+    const stations = [...contexts.values()].flatMap(c => c.stations ? [{ ...c.stations, elementId: c.elementId }] : []);
+    const inventory = ConcurrentDemand.inventoryForStations(stations);
+    const converted = new WeakMap<readonly ConcurrentDemand[], readonly ConcurrentDemand[]>();
+    for (const c of contexts.values()) {
+      if (!c.stations || !c.demands) continue;
+      c.stations = { ...c.stations, elementId: c.elementId, inventory };
+      const source = c.demands.concurrent;
+      const concurrent = source && converted.get(source) || ConcurrentDemand.fromStations(c.stations);
+      if (source) converted.set(source, concurrent);
+      c.demands = { ...c.demands, concurrent };
+    }
   }
   return done;
 }

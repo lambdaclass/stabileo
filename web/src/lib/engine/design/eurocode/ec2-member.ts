@@ -1,3 +1,5 @@
+import { completeMemberDemands, completeMemberCases } from '../../member-demand-gate';
+import type { CompleteDemandSet, DemandCoverage } from '../../complete-demand-set';
 import { ConcurrentDemand } from '../../concurrent-demand';
 /**
  * One rectangular concrete member designed to EN 1992-1-1 from simultaneous forces: every tuple
@@ -40,6 +42,9 @@ import { biaxialRow, ec2ColumnRows, ec2ColumnSolve, type Ec2ColumnInput } from '
 import { beamBarsAt, columnBars } from './ec2-provided';
 
 export interface Ec2MemberInput {
+  elementId?: number;
+  readonly expectedCombinationIds?: readonly number[];
+  readonly stationTs?: readonly number[];
   kind: 'beam' | 'column';
   /** Section width (along local z) and depth (along local y), m. */
   b: number; h: number;
@@ -76,9 +81,14 @@ export const BEAM_AXIAL_COMPRESSION_SHARE = 0.1;
 export const BEAM_AXIAL_TENSION_SHARE = 0.01;
 
 export function ec2MemberDesign(i: Ec2MemberInput): Ec2MemberDesign {
+  const complete = completeMemberCases(completeMemberDemands([{ ...i, elementId: i.elementId ?? 0 }], [i.elementId ?? 0]));
+  return designCompleteEc2Member(i, complete);
+}
+
+function designCompleteEc2Member(i: Ec2MemberInput, complete: CompleteDemandSet<{ elementId: number; comboId: number; stationT: number; tuple: StationTuple; coverage: DemandCoverage }>): Ec2MemberDesign {
   // One tuple per combination and station: categories that peak at the same place are one demand.
   const seen = new Set<string>();
-  const ds = ConcurrentDemand.fromTuples([...i.demands, ...(i.tuples ?? [])]).filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const ds = ConcurrentDemand.fromCompleteTuples(complete).values.map(r => r.demand).filter((d) => { const k = `${d.comboId}|${d.stationT}`; if (seen.has(k)) return false; seen.add(k); return true; });
   if (!ds.length || ds.every(idle)) return { skip: 'otherCodes.skip.noDemand' };
   return i.kind === 'beam' ? beam(i, ds) : column(i, ds);
 }

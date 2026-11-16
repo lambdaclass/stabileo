@@ -1,3 +1,4 @@
+import { checkDeclaredSteelMember } from '../../../__tests__/helpers/declared-demands';
 /**
  * CIRSOC 301-2018 E.7 for every shape the checker classifies, E.4 where it is not carried, and the
  * member checked as rolled and as welded when the section does not declare which.
@@ -8,7 +9,6 @@
 import { describe, it, expect } from 'vitest';
 import { checkSteelCompression, type SteelDesignParams } from '../cirsoc301';
 import { verifySteelElement, manualSteelDemand } from '../../../__tests__/helpers/manual-interactions';
-import { checkSteelMember } from '../../../verification-service';
 
 const E = 200_000, Fy = 235;
 const base = (p: Partial<SteelDesignParams>): SteelDesignParams => ({
@@ -153,11 +153,11 @@ describe('rolled or welded: evaluated at both when the section does not declare 
     // The load on the web, declared, as in the hand values above (only the fabrication is read both ways).
     const lengths = { L: 5, Lb: 5, loadPosition: 'web' as const };
     // A catalogue family is not a declaration: still checked as both.
-    const undeclared = checkSteelMember(1, demand as never, section as never, material, lengths)!;
+    const undeclared = checkDeclaredSteelMember(1, demand as never, section as never, material, lengths)!;
     expect(undeclared.fabrication?.basis).toBe('undeclared');
-    const rolled = checkSteelMember(1, demand as never, { ...section, fabrication: 'rolled' } as never, material, lengths)!;
+    const rolled = checkDeclaredSteelMember(1, demand as never, { ...section, fabrication: 'rolled' } as never, material, lengths)!;
     expect(rolled.fabrication).toEqual({ basis: 'declared', welded: false });
-    const welded = checkSteelMember(1, demand as never, { ...section, fabrication: 'welded' } as never, material, lengths)!;
+    const welded = checkDeclaredSteelMember(1, demand as never, { ...section, fabrication: 'welded' } as never, material, lengths)!;
     expect(welded.fabrication).toEqual({ basis: 'declared', welded: true });
     expect(welded.flexureZ.phiMn).toBeLessThan(rolled.flexureZ.phiMn);
   });
