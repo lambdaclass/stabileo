@@ -6,6 +6,7 @@
 import type { SolverDiagnostic } from '../engine/types';
 import { checkModel } from '../engine/model-diagnostics';
 import { mergeFindings } from '../engine/model-findings';
+import { withoutIssueRef } from '../engine/known-issue-message';
 import { reviewModelSanity, sanityDiagnostics } from '../engine/model-sanity';
 import { plateDiagnostics, zoneDiagnostics } from '../store/plate-diagnostics';
 import { modelStore } from '../store/model.svelte';
@@ -81,10 +82,7 @@ export function groupDiagnostics(list: readonly SolverDiagnostic[]): DiagnosticG
   return [...groups.values()];
 }
 
-/** The engine's own issue numbers, "(#762)", which mean nothing to the reader of the sentence. */
-export function withoutIssueRef(text: string): string {
-  return text.replace(/\s*\(#\d+\)/g, '');
-}
+export { withoutIssueRef };
 
 export interface ReviewCount { model: number; results: number; total: number }
 

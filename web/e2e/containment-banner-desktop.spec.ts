@@ -34,7 +34,10 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
   const panel = page.locator('[data-testid="basic-panel"]');
   await page.getByTestId('rb-cmd-deformed').first().click();
   await panel.getByRole('button', { name: /^Diagnostics \(\d+\)$/ }).click();
-  await expect(panel.locator('.results-content table').filter({ hasText: '#1551' })).toBeVisible();
+  const diagRow = panel.locator('.results-content table [data-testid="results-diag-message"]').filter({ hasText: /second-order/i }).first();
+  await expect(diagRow).toBeVisible();
+  await expect(diagRow).not.toContainText('#1551');
+  await expect(diagRow).toHaveAttribute('title', /#1551/);
   await page.getByTestId('rb-cmd-solve').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false)).toBe(true);
   await expect(notice).toHaveCount(0);
