@@ -3,11 +3,12 @@ import { syntheticBeamContext } from '../design/__tests__/helpers';
 import { buildStirrupOptions, BEAM_LIMITS } from '../design/candidate-enumerate-beam';
 import { buildTieOptions, COLUMN_LIMITS } from '../design/candidate-enumerate-column';
 import { verifyProvidedReinforcement } from '../station-design-forces';
+import { transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 
-const known = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198');
+const known = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const section = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
 const axes = syntheticBeamContext().axes;
@@ -51,20 +52,28 @@ for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
 for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const needed of [2, 3, 4, 5]) {
   known(`known wrong result: #2198 enumerate secondary strength ${kind} ${axis} needs ${needed} legs`, () => {
     const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
-    ctx.section = { ...ctx.section, b: 0.5, h: 0.5 };
-    ctx.axes = { ...ctx.axes, bFlex: 0.5, hFlex: 0.5, ...(axis === 'Mz' ? { flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-' } : {}) };
+    ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
+    ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45, ...(axis === 'Mz' ? { flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-' } : {}) };
     ctx.material = { ...ctx.material, fc: 25, stirrupDiametersMm: [6] };
-    const depth = 0.5 - ctx.material.cover - 0.006 - 0.008;
-    const demand = capacity(6, needed - 0.1, 0.05, 0.5, depth);
+    const depth = 0.45 - ctx.material.cover - 0.006 - 0.008;
+    const demand = capacity(6, needed - 0.1, 0.05, 0.45, depth);
     ctx.stations = stations(demand);
     if (axis === 'Mz') for (const c of ctx.stations.comboResults) for (const s of c.stations) { s.vz = s.vy; s.vy = 0; }
     const options = kind === 'beam' ? buildStirrupOptions(ctx, 0) : buildTieOptions(ctx, 16);
     const supported = kind === 'beam' ? BEAM_LIMITS : COLUMN_LIMITS;
-    const adequate = options.filter(c => capacity(c.diameter, c.secondaryLegs ?? 2, c.spacing, 0.5, depth) >= demand);
+    const adequate = options.filter(c => capacity(c.diameter, c.secondaryLegs ?? 2, c.spacing, 0.45, depth) >= demand);
     if (needed > supported.maxLegs) expect(adequate).toHaveLength(0);
     else {
       expect(adequate.length).toBeGreaterThan(0);
       expect(adequate.some(c => (c.secondaryLegs ?? 2) === needed)).toBe(true);
+      const cage = adequate.find(c => (c.secondaryLegs ?? 2) === needed)!;
+      if (needed === 3) expect(transverseSpacingForDemand('2025', { Vu: demand, bw: 0.45, d: depth, fc: 25, cover: ctx.material.cover, stirrupDiaMm: 6 }).requiredLegs).toBe(2);
+      const reinforcement = kind === 'beam' ? { bottom: bars, top: bars, stirrups: cage } : { longitudinal: { count: 12, diameter: 16 }, stirrups: cage };
+      const verified = verifyProvidedReinforcement(1, kind, reinforcement, undefined, {}, { ...ctx.section, ...ctx.material }, ctx.stations, undefined,
+        { axes: ctx.axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
+      const shear = verified.checks.filter(c => c.demandCategory === ctx.axes.secondaryShear && c.limiting === 'shear');
+      expect(shear.length).toBeGreaterThan(0);
+      for (const c of shear) expect(c.status).not.toBe('fail');
     }
     expect(options.length).toBeLessThanOrEqual(kind === 'beam' ? BEAM_LIMITS.maxStirrupOptions : COLUMN_LIMITS.maxTieOptions);
     for (const c of options) expect(c.secondaryLegs ?? 2).toBeLessThanOrEqual(supported.maxLegs);
@@ -83,8 +92,11 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
     const sections = new Map([[1, { id: 1, name: 'RC', ...section, a: section.b * section.h, iy: section.b * section.h ** 3 / 12, iz: section.h * section.b ** 3 / 12, j: 0.001 }]]);
     const materials = new Map([[1, { id: 1, name: 'H25', fc: section.fc, fy: section.fy, e: 25000, nu: 0.2 }]]);
     const model = { nodes, elements, sections, materials, supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]) };
-    const solver3D = { nodes, elements, sections, materials, supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: 1, fz: 0, mx: 0, my: 0, mz: 0 } }] };
-    const solver2D = { ...model, loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: 1, my: 0 } }] };
+    const spatialElements = new Map([...elements].map(([id, { hingeStart, hingeEnd, ...e }]) => [id, e]));
+    const solver3D = { nodes, elements: spatialElements, sections, materials, supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fy: 1, fz: 0, mx: 0, my: 0, mz: 0 } }] };
+    const planarNodes = new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }]));
+    const planarElements = new Map([...elements].map(([id, e]) => [id, { id, type: e.type, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, materialId: e.materialId, hingeStart: false, hingeEnd: false }]));
+    const solver2D = { ...model, nodes: planarNodes, elements: planarElements, loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: 1, my: 0 } }] };
     const st = spatial ? (() => {
       const raw = nonlinear ? solvePDelta3D(solver3D).results : solve3D(solver3D);
       setCompactStationTransfer(compact);
