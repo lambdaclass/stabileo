@@ -81,6 +81,40 @@ describe('recheckStore', () => {
     expect(recheckStore.assessment?.changes.map((c) => c.id)).toContain('generated-area-loads-headroom');
   });
 
+  it.each(['2d', '3d', 'pro'])('#2144 keeps the exact snow regeneration notices after re-solving in %s', async mode => {
+    const snapshot = {
+      analysisMode: mode,
+      loadCases: [{ id: 1, type: 'S' }],
+      loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }],
+      designData: { loadBasis: { resultsVersion: 0 } },
+      solvedWith: recheckStore.capture(),
+    };
+    const expected = [
+      'generated-area-loads-headroom', 'snow-drift-coverage', 'snow-fallback-runs',
+      'snow-flat-frame', 'snow-local-boundaries', 'snow-orientation-factors',
+      'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
+      'snow-roof-rotation', 'snow-roof-step', 'snow-surface-regions', 'snow-surface-support',
+    ];
+    recheckStore.openProject(snapshot, mode);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+    recheckStore.acknowledge();
+    for (const analysis of ['linear', 'pdelta', 'plastic'] as const) {
+      recheckStore.noteSolved(analysis);
+      const saved = { ...snapshot, solvedWith: recheckStore.capture() };
+      recheckStore.reset();
+      recheckStore.openProject(saved, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);
+      expect(recheckStore.noticeOpen).toBe(true);
+    }
+    recheckStore.reset();
+    recheckStore.openProject({ ...snapshot, designData: { loadBasis: { resultsVersion: RESULTS_VERSION } } }, mode);
+    await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+    expect(recheckStore.assessment?.changes.map(c => c.id)).toEqual([]);
+    expect(recheckStore.noticeOpen).toBe(false);
+  });
+
   it('keeps the notice up when live calc re-solves before it was read', async () => {
     recheckStore.openProject(steelTruss(), 'pro');
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));

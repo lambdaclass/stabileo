@@ -28,6 +28,7 @@
  * Pure: no store.
  */
 import { slopeFactor } from '../../codes/cirsoc104/snow';
+import { snowCoordinate } from './snow-roof-surfaces';
 import { clause, type ClauseRef } from '../../codes/regulation';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
@@ -77,7 +78,8 @@ function profileOf(points: Array<{ s: number; z: number }>): Array<{ s: number; 
 /** The profile's slope at s, degrees, from the points around it. */
 function slopeAt(prof: Array<{ s: number; z: number }>, s: number): number {
   if (prof.length < 2) return 0;
-  let k = prof.findIndex((p) => p.s >= s);
+  const station = snowCoordinate([s, 0], [0, 0], [1, 0], prof.map(p => p.s));
+  let k = prof.findIndex((p) => p.s >= station);
   if (k <= 0) k = 1;
   if (k === -1 || k >= prof.length) k = prof.length - 1;
   const a = prof[k - 1]!, b = prof[k]!;

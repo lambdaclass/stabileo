@@ -4,15 +4,15 @@ import { RESULT_CHANGES } from '../full-registry';
 import { stampSolve } from '../solve-stamp';
 import type { FeatureSnapshot } from '../model-features';
 
-const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions', 'snow-ridge-orientations', 'snow-orientation-factors', 'snow-surface-support', 'snow-drift-coverage', 'snow-local-boundaries', 'snow-fallback-runs', 'snow-roof-connectivity', 'snow-flat-frame'];
+const ids = ['snow-roof-step', 'snow-roof-rotation', 'snow-surface-regions', 'snow-ridge-orientations', 'snow-orientation-factors', 'snow-surface-support', 'snow-drift-coverage', 'snow-local-boundaries', 'snow-fallback-runs', 'snow-roof-connectivity', 'snow-flat-frame', 'snow-ridge-mesh'];
 
 function snapshot(type = 'S', generatedBy: string | undefined = 'load-plan'): FeatureSnapshot {
   return { loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1, q: -1, generatedBy } }] };
 }
 
-for (const mode of ['2d', '3d', 'pro']) {
-  it(`re-solving old generated snow retains the regeneration notice in ${mode}`, () => {
-    const assessment = assessProject(snapshot(), stampSolve('linear', null), mode, RESULT_CHANGES, undefined, 0);
+for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelta', 'plastic'] as const) {
+  it(`re-solving old generated snow retains the regeneration notice in ${mode} after ${analysis}`, () => {
+    const assessment = assessProject(snapshot(), stampSolve(analysis, null), mode, RESULT_CHANGES, undefined, 0);
     for (const id of ids) expect(assessment.changes.map(c => c.id)).toContain(id);
   });
 }
