@@ -637,7 +637,7 @@
   async function syncRouteState() {
     const token = ++publicRevision;
     if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
-    if (import.meta.env.VITE_RESEARCH === '1') restoreUnpublishedResearchRoute();
+    restoreUnpublishedResearchRoute();
     const next = routeKind();
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;

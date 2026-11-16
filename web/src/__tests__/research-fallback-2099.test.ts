@@ -46,7 +46,7 @@ async function resolve(file: string, name: string, flag: string, path: string, e
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-it.skip.each(entries.flatMap(([file, name]) => ['', '0'].map(flag => [file, name, flag] as const)))('known wrong result: #2099 — %s %s restores unpublished Hungarian research with research=%j', async (file, name, flag) => {
+it.each(entries.flatMap(([file, name]) => ['', '0'].map(flag => [file, name, flag] as const)))('known wrong result: #2099 — %s %s restores unpublished Hungarian research with research=%j', async (file, name, flag) => {
   for (const path of main.research) {
     for (const slash of ['', '/']) await resolve(file, name, flag, `/hu${path}${slash}`, `/en${path}${slash}`);
   }

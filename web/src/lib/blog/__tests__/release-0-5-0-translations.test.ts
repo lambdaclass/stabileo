@@ -137,3 +137,29 @@ describe('0.5.0 release-note review regressions', () => {
     });
   });
 });
+
+it.each(['', '0'])('keeps main release-note languages public with research=%j', async (research) => {
+  vi.stubEnv('VITE_RESEARCH', research);
+  vi.resetModules();
+  try {
+    const { PUBLIC_LOCALES: defaults } = await import('../../i18n/offered');
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) expect(defaults).toContain(locale);
+  } finally {
+    vi.stubEnv('VITE_RESEARCH', '1');
+    vi.resetModules();
+  }
+});
+
+it('hu preserves every 0.6.1 block and its safety data', () => {
+  const post = findPost('stabileo-0-6-1')!;
+  const body = post.i18n.hu;
+  expect(PUBLIC_LOCALES).toContain('hu');
+  expect(body).toBeDefined();
+  expect(body!.blocks.map((block) => block.k)).toEqual(post.i18n.en.blocks.map((block) => block.k));
+  body!.blocks.forEach((block, index) => {
+    const source = post.i18n.en.blocks[index];
+    expect(safetyData(block, 'hu'), `hu: block ${index}`).toEqual(safetyData(source));
+    if (block.k === 'ext' && source.k === 'ext') expect(block.href).toBe(source.href);
+    if (block.k === 'link' && source.k === 'link') expect(block.slug).toBe(source.slug);
+  });
+});

@@ -17,6 +17,5 @@ function checkMetadata(locale: Locale) {
 }
 
 describe('search metadata for every German, French, Turkish and Hungarian blog post', () => {
-  it.each(['de', 'fr', 'tr'] as const)('%s fits the published URL title and description limits', checkMetadata);
-  it.skip('known wrong result: #2099 — hu fits the published URL title and description limits', () => checkMetadata('hu'));
+  it.each(['de', 'fr', 'tr', 'hu'] as const)('%s fits the published URL title and description limits', checkMetadata);
 });

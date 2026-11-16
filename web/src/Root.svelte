@@ -56,7 +56,7 @@
   async function sync() {
     const token = ++revision;
     if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
-    if (import.meta.env.VITE_RESEARCH === '1') restoreUnpublishedResearchRoute();
+    restoreUnpublishedResearchRoute();
     const next = routeKind();
     const hash = location.hash;
     try {
