@@ -3498,6 +3498,29 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
     Ok(())
 }
 
+fn validate_distributed_load(
+    id: usize,
+    length: f64,
+    a: Option<f64>,
+    b: Option<f64>,
+    components: impl IntoIterator<Item = (f64, f64)>,
+) -> Result<(), String> {
+    let (a, b) = (a.unwrap_or(0.0), b.unwrap_or(length));
+    if !a.is_finite() || !b.is_finite() || a < 0.0 || b < a || b > length {
+        return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {length}"));
+    }
+    for (qi, qj) in components {
+        if !qi.is_finite() || !qj.is_finite()
+            || !crate::element::distributed_resultant(qi, qj, a, b).is_finite()
+            || crate::element::narrow_distributed_load(qi, qj, a, b)
+                .is_some_and(|(p, m, x)| !p.is_finite() || !m.is_finite() || !x.is_finite())
+        {
+            return Err(format!("Element {id}: non-finite distributed load resultant"));
+        }
+    }
+    Ok(())
+}
+
 /// Validate load references for 2D (load → node/element integrity and
 /// point-load positions). Split from `validate_input_2d` so multi-case solves
 /// can validate each case's loads independently of the structure.
@@ -3576,17 +3599,7 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
         let e=element_map[&id];
         let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
         let l=((j.x-i.x).powi(2)+(j.z-i.z).powi(2)).sqrt();
-        let (a,b)=(a.unwrap_or(0.0),b.unwrap_or(l));
-        let full = a.abs() < 1e-12 && (b-l).abs() < 1e-12;
-        if !a.is_finite() || !b.is_finite() || b < a || (!full && (a < 0.0 || b > l)) {
-            return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {l}"));
-        }
-        for (qi,qj) in components {
-            if !qi.is_finite() || !qj.is_finite() || !crate::element::distributed_resultant(qi,qj,a,b).is_finite()
-                || crate::element::narrow_distributed_load(qi,qj,a,b).is_some_and(|(p,m,x)| !p.is_finite() || !m.is_finite() || !x.is_finite()) {
-                return Err(format!("Element {id}: non-finite distributed load resultant"));
-            }
-        }
+        validate_distributed_load(id, l, a, b, components)?;
     }
 
     refuse_moments_without_rotation_2d(input, loads)?;
@@ -4116,17 +4129,7 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
         let e=element_map[&id];
         let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
         let l=((j.x-i.x).powi(2)+(j.y-i.y).powi(2)+(j.z-i.z).powi(2)).sqrt();
-        let (a,b)=(a.unwrap_or(0.0),b.unwrap_or(l));
-        let full = a.abs() < 1e-12 && (b-l).abs() < 1e-12;
-        if !a.is_finite() || !b.is_finite() || b < a || (!full && (a < 0.0 || b > l)) {
-            return Err(format!("Element {id}: invalid distributed load interval [{a}, {b}] on length {l}"));
-        }
-        for (qi,qj) in components {
-            if !qi.is_finite() || !qj.is_finite() || !crate::element::distributed_resultant(qi,qj,a,b).is_finite()
-                || crate::element::narrow_distributed_load(qi,qj,a,b).is_some_and(|(p,m,x)| !p.is_finite() || !m.is_finite() || !x.is_finite()) {
-                return Err(format!("Element {id}: non-finite distributed load resultant"));
-            }
-        }
+        validate_distributed_load(id, l, a, b, components)?;
     }
 
     refuse_moments_without_rotation_3d(input, loads)?;
@@ -5722,7 +5725,6 @@ mod distributed_interval_review_tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2222"]
     fn issue_2222_near_full_bounds_every_analysis() {
         let original: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/narrow-span-2222.json")).unwrap();
         for analysis in analyses() {

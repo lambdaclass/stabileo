@@ -240,7 +240,6 @@ fn steel_fiber_yield_moment_matches_my() {
 // (b) The maximum compressive stress is nonzero.
 // ---------------------------------------------------------------------------
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn concrete_fiber_cracking_tensile_fibers_crack() {
     let b = 0.3;
     let h = 0.5;
@@ -827,7 +826,6 @@ fn fiber_sparse_path_parity_with_dense() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_fiber_increment_satisfies_independent_balance() {
     use dedaliano_engine::metamorphic::planes::{embed_2d, Plane};
     use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_3d, FiberNonlinearInput3D};

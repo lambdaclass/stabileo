@@ -139,7 +139,7 @@ it('#2222 WASM endpoint moment assertion rejects omission', () => {
 });
 
 for (const dim of [2, 3]) {
-  it.skip(`#2222 ${dim}D WASM refuses near-full intervals outside the member`, () => {
+  it(`#2222 ${dim}D WASM refuses near-full intervals outside the member`, () => {
     for (const axis of dim === 2 ? ['y', 'x'] : ['y', 'z', 'x']) {
       const base: any = structuredClone(model);
       base.loads = [];
@@ -177,7 +177,7 @@ for (const dim of [2, 3]) {
     }
   });
 
-  it.skip(`#2222 ${dim}D WASM fiber increments satisfy independent balance`, () => {
+  it(`#2222 ${dim}D WASM fiber increments satisfy independent balance`, () => {
     for (const [dimension, original] of fiberCases as Array<[number,any]>) {
       if (dimension !== dim) continue;
       for (const elastic of [false,true]) for (const tolerance of [1e-3,1e-6,1e-9]) {

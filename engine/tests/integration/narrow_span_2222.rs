@@ -512,7 +512,6 @@ fn interval_result(result: Result<(), String>, valid: bool, entry: &str, a: f64,
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_near_full_bounds_planar() {
     for (a, b, valid) in bounded_interval_cases() {
         for axial in [false, true] {
@@ -549,7 +548,6 @@ fn issue_2222_near_full_bounds_planar() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_near_full_bounds_spatial() {
     for (a, b, valid) in bounded_interval_cases() {
         for plane in [Plane::XY, Plane::XZ] {

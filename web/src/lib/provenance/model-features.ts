@@ -34,7 +34,7 @@ export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -165,6 +165,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const released = new Set<number>();
   const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
+  const fiberSections = new Set(Object.entries(s.fiberSections ?? {})
+    .filter(([, section]) => (section.materials?.length ?? 0) > 0).map(([id]) => id));
   const hognestadSections = new Set(Object.entries(s.fiberSections ?? {})
     .filter(([, section]) => section.materials?.some((material) => material.type === 'concrete_hognestad'))
     .map(([id]) => id));
@@ -178,6 +180,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     else if (e.type === 'frame') f.add('frameMembers');
     if (hasRelease(e.releaseI) || hasRelease(e.releaseJ) || e.semiRigid) { f.add('hinges'); if (e.type !== 'truss') released.add(e.id); }
     if (e.type !== 'truss' && e.sectionId !== undefined && sheared.has(e.sectionId)) f.add('shearAreas');
+    if (e.type !== 'truss' && e.type !== 'cable' && e.sectionId !== undefined && fiberSections.has(String(e.sectionId))) f.add('fiberMembers');
     if (e.type !== 'truss' && e.type !== 'cable' && e.sectionId !== undefined && hognestadSections.has(String(e.sectionId))) f.add('hognestadFiberMembers');
     if (e.arc) f.add('arcMembers');
     if (offsetMoves(e.offset?.i) || offsetMoves(e.offset?.j)) f.add('eccentricities');

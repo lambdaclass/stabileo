@@ -337,8 +337,14 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                 }
             }
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_2d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, &art, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             // Solve
@@ -550,7 +556,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
     )?;
-    if !balance.summary.residual_ok || !balance.gate {
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -1199,8 +1205,14 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
 
             inc_residual = rel_error;
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_3d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             let r_s = if let Some(ref cs) = cs {
@@ -1367,7 +1379,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
     )?;
-    if !balance.summary.residual_ok || !balance.gate {
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -1694,6 +1706,12 @@ pub(crate) struct WrenchBalance {
     pub applied: [f64; 6],
     pub reactions: [f64; 6],
     pub gate: bool,
+}
+
+impl WrenchBalance {
+    fn accepts_increment(&self) -> bool {
+        self.summary.residual_ok && self.gate
+    }
 }
 
 /// Support reactions in global axes: on restrained DOFs the unbalanced force, on free DOFs only
