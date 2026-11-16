@@ -1,4 +1,4 @@
-import { expectWindTips } from './wind-tip-assertions';
+import { expectHeightCarrierTips, expectWindTips } from './wind-tip-assertions';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { computeDiagramValueAt } from '../../diagrams';
 import { evaluateDiagramAt } from '../../diagrams-3d';
@@ -70,7 +70,8 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
     const carrierScale = (nodeId: number) => 1 + eccentricity * 0.4 * (1 - (rotated ? -model.nodes.get(nodeId)!.x : model.nodes.get(nodeId)!.y));
     const scales = Object.fromEntries([...model.elements].map(([id, e]) => [id, carrierScale(e.nodeI)]));
     const base = [...model.nodes.values()].find(n => n.z === 0)!.id;
-    const tip = [...model.nodes.values()].find(n => n.z === 6)!.id;
+    const tips = [...model.nodes.values()].filter(n => n.z === 6).map(n => n.id);
+    const tip = tips[0]!;
     const input: SolverInput = {
       nodes: new Map([...model.nodes].map(([id, n]) => [id, { id, x: rotated ? n.y : n.x, z: n.z ?? 0 }])),
       elements: new Map([...model.elements].map(([id, e]) => [id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
@@ -95,7 +96,7 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
       assertCarrierForces();
       const out = nonlinear ? solvePDelta3D(input3).results : solve3D(input3);
       expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
-      expect(out.displacements.find((d: { nodeId: number; ux: number; uy: number }) => d.nodeId === tip)![rotated ? 'uy' : 'ux']).toBeCloseTo(w * carrierScale(tip) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
+      expectHeightCarrierTips(out.displacements, tips, rotated ? 'uy' : 'ux', id => w * carrierScale(id) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
       for (const f of out.elementForces) {
         const memberW = w * scales[f.elementId]!;
         const z = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.z!;
@@ -115,7 +116,7 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
       assertCarrierForces();
       const out = nonlinear ? solvePDelta(input).results : solve(input);
       expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
-      expect(out.displacements.find((d: { nodeId: number; ux: number }) => d.nodeId === tip)!.ux).toBeCloseTo(w * carrierScale(tip) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
+      expectHeightCarrierTips(out.displacements, tips, 'ux', id => w * carrierScale(id) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
       for (const f of out.elementForces) {
         const memberW = w * scales[f.elementId]!;
         const z = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.z!;
