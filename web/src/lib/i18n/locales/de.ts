@@ -7637,6 +7637,7 @@ const de: Translations = {
   'loadPlan.derivation.level': 'Geschoss +{elevation} m: Grundrissfläche {area} m² (aus der tatsächlichen Ausdehnung der Knoten), Eigengewicht {selfWeight} kN, zusätzliche ständige Last {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Wind {dir}: qh = {qh} N/m², Nettodruck {net} kPa auf einer Front von {front} m.',
   'loadPlan.derivation.windLevel': 'Wind {dir}, Höhe {level} m: Band {z0}–{z1} m, mittlerer Nettodruck {net} kPa, Kraft {force} kN.',
+  "loadPlan.derivation.windNodalShare": "Wind {dir}, Knoten {node} auf {level} m: Knotenanteil des integrierten Wanddrucks, {force} kN.",
   'loadPlan.derivation.seismic': 'Erdbeben: W = {weight} kN aus den tatsächlichen Geschossmassen, C = {coefficient}, V0 = {baseShear} kN.',
   'loadPlan.derivation.seismicSnow': 'Schnee im Erdbebengewicht und in der Kombination (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, gleichmäßige Schneelast auf dem Dach {snow} kN, {added} kN den Geschossen hinzugefügt.',
   'loadPlan.derivation.combinationCount': '{count} Kombination(en) erzeugt.',

@@ -9,7 +9,10 @@ fn issue_2220_generated_pressure_reaches_native_members() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|case| !case["kind"].as_str().unwrap().starts_with("cubicGrid:"))
+        .filter(|case| {
+            let kind = case["kind"].as_str().unwrap();
+            !kind.starts_with("cubicGrid:") && !kind.starts_with("towerMast:")
+        })
         .collect();
     assert_eq!(cases.len(), 184);
     check_pressure_cases(cases);
@@ -25,6 +28,19 @@ fn issue_2220_cubic_grid_reaches_native_members() {
         .filter(|case| case["kind"].as_str().unwrap().starts_with("cubicGrid:"))
         .collect();
     assert_eq!(cases.len(), 32);
+    check_pressure_cases(cases);
+}
+
+#[test]
+fn issue_2220_tower_mast_reaches_native_members() {
+    let fixtures: Value = serde_json::from_str(include_str!("wind_member_2220.json")).unwrap();
+    let cases: Vec<_> = fixtures
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| case["kind"].as_str().unwrap().starts_with("towerMast:"))
+        .collect();
+    assert_eq!(cases.len(), 36);
     check_pressure_cases(cases);
 }
 
@@ -113,6 +129,20 @@ fn check_pressure_cases(cases: Vec<&Value>) {
             );
             let tip_coordinate =
                 &case["input"]["nodes"][tip.to_string()][case["axis"].as_str().unwrap()];
+            for (id, node) in case["input"]["nodes"].as_object().unwrap() {
+                if &node[case["axis"].as_str().unwrap()] == tip_coordinate {
+                    let id: u64 = id.parse().unwrap();
+                    assert_eq!(
+                        result["displacements"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .filter(|d| d["nodeId"].as_u64() == Some(id))
+                            .count(),
+                        1
+                    );
+                }
+            }
             for displacement in result["displacements"].as_array().unwrap() {
                 let node = displacement["nodeId"].as_u64().unwrap();
                 if &case["input"]["nodes"][node.to_string()][case["axis"].as_str().unwrap()]

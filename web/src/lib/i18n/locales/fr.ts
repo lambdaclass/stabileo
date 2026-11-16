@@ -7637,6 +7637,7 @@ const fr: Translations = {
   'loadPlan.derivation.level': 'Niveau +{elevation} m : surface en plan {area} m² (d\'après l\'emprise réelle des nœuds), poids propre {selfWeight} kN, charge permanente rapportée {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Vent {dir} : qh = {qh} N/m², pression nette {net} kPa sur une façade de {front} m.',
   'loadPlan.derivation.windLevel': 'Vent {dir}, niveau {level} m : bande {z0}–{z1} m, pression nette moyenne {net} kPa, force {force} kN.',
+  "loadPlan.derivation.windNodalShare": "Vent {dir}, nœud {node} à {level} m : part nodale de la pression intégrée du mur, {force} kN.",
   'loadPlan.derivation.seismic': 'Séisme : W = {weight} kN à partir des masses réelles par niveau, C = {coefficient}, V0 = {baseShear} kN.',
   'loadPlan.derivation.seismicSnow': 'Neige dans le poids sismique et la combinaison (INPRES-CIRSOC 103 [3.15], [3.16]) : f2 = {f2}, neige équilibrée sur la toiture {snow} kN, {added} kN ajoutés aux niveaux.',
   'loadPlan.derivation.combinationCount': '{count} combinaison(s) générée(s).',

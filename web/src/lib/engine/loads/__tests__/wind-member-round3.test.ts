@@ -399,3 +399,60 @@ for (const entry of ['field', 'planner'] as const) for (const variant of variant
     check(nonlinear ? solvePDelta(input).results : solve(input));
   }
 });
+
+for (const entry of ['field', 'other', 'planner'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) it(`#2220 tower mast mechanics ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
+  const source = mesh([[[0, -1, 0], [0, -0.5, 2]], [[0, 1, 0], [0, 0.5, 2]], [[0, 0, 2], [0, 0, 4]]]);
+  const { model, sources } = remeshWind(source, variant), rotated = variant === 'rotate', axis = rotated ? 'y' : 'x';
+  const structure = { kind: 'latticeTower' as const, section: 'square' as const, round: false, solidity: 1, diagonal: false, width: 2 };
+  const factor = entry === 'field' ? 1 : 0.8;
+  let lines: Array<{ elementId: number; a: number; b: number; qX: number; qXJ?: number; qY: number; qYJ?: number }>;
+  if (entry === 'field') lines = windHeightLoads(windHeightField({ model, axis, from: 0, to: 4, width: 2, pressure: () => 1 }), rotated ? 0 : 1, rotated ? 1 : 0).distributed;
+  else if (entry === 'other') {
+    const result = otherStructureWind({ model, structure, project: { ...windProject, basicSpeed: 1 }, directions: [rotated ? '+y' : '+x'], tributaryWidth: 2 });
+    expect(result.notes).toEqual([]); expect(result.cases.length).toBeGreaterThan(0);
+    lines = result.cases[0]!.distributed;
+  } else {
+    const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
+    const levels = levelsWithPlanArea(model).map(l => ({ ...l, selfWeightKN: 0, superimposedKN: 0, liveTotalKN: 0, liveParticipatingKN: 0, weightKN: 0 }));
+    planWind({ model, tributaryWidth: 2, wind: { enabled: true, basicSpeed: 1, exposure: 'C', enclosure: 'open', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, senses: [rotated ? '+y' : '+x'], structure } } as LoadPlanInput, levels, sink);
+    expect(sink.blockedKeys).toEqual([]); expect(sink.cases.length).toBeGreaterThan(0);
+    lines = sink.distributed.filter(p => p.caseIndex === 0).map(p => ({ elementId: p.elementId, a: p.a!, b: p.b!, qX: p.qX ?? 0, qXJ: p.qXJ, qY: p.qY ?? 0, qYJ: p.qYJ }));
+  }
+  expect([...new Set(lines.map(p => p.elementId))].sort((a, b) => a - b)).toEqual([...model.elements.keys()]);
+  for (const e of model.elements.values()) {
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const length = Math.hypot(b.x - a.x, b.y - a.y, b.z! - a.z!), scale = (b.z! - a.z!) / length;
+    const widthShare = (z: number) => sources.get(e.id)! <= 2 ? 1 - z / 4 : 2;
+    const q = sign * factor * widthShare(a.z!) * scale, qJ = sign * factor * widthShare(b.z!) * scale;
+    const integral = (at: number, power: number) => q * (length ** (power + 1) - at ** (power + 1)) / (power + 1) + (qJ - q) / length * (length ** (power + 2) - at ** (power + 2)) / (power + 2);
+    const parts = lines.filter(p => p.elementId === e.id);
+    expect(parts.length).toBeGreaterThan(0);
+    const component = (p: typeof parts[number], end = false) => sign * (rotated ? end ? p.qYJ ?? p.qY : p.qY : end ? p.qXJ ?? p.qX : p.qX);
+    const common = { materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]), sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]) };
+    const check = (out: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
+      expectWindTips(out.displacements, [2], 'ux', (3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4), 10);
+      expect(out.elementForces).toHaveLength(1);
+      const f = out.elementForces[0]!;
+      for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+        const at = t * length, shear = integral(at, 0), moment = integral(at, 1) - at * shear;
+        if ('vyStart' in f) {
+          expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-shear, 10);
+          expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-moment, 10);
+          expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
+        } else {
+          expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(shear, 10);
+          expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(moment, 10);
+        }
+      }
+    };
+    let wire: unknown;
+    if (spatial) {
+      const input: SolverInput3D = { ...common, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: length }]]), elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'frame', localYx: 1, localYy: 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]), supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: 1, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })) };
+      wire = input3DToWireObject(input); check(nonlinear ? solvePDelta3D(input).results : solve3D(input));
+    } else {
+      const input: SolverInput = { ...common, nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: length }]]), elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, type: 'frame', hingeStart: false, hingeEnd: false }]]), supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]), loads: parts.map(p => ({ type: 'distributed', data: { elementId: 1, a: p.a, b: p.b, qI: -component(p), qJ: -component(p, true) } })) };
+      wire = input2DToWireObject(input); check(nonlinear ? solvePDelta(input).results : solve(input));
+    }
+    if (variant === 'base' && !nonlinear) nativeCases.push({ kind: `towerMast:${entry}`, variant: `${e.id}:${sign}`, dimension: spatial ? 3 : 2, axis: 'z', displacement: 'ux', tip: 2, length, segments: [{ a: 0, b: length, q, qJ }], input: wire });
+  }
+});

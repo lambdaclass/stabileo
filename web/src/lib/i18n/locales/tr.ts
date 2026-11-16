@@ -7646,6 +7646,7 @@ const tr: Translations = {
   'loadPlan.derivation.level': '+{elevation} m kotu: plan alanı {area} m² (gerçek düğüm sınırlarından), öz ağırlık {selfWeight} kN, ilave ölü yük {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Rüzgar {dir}: qh = {qh} N/m², {front} m cephe boyunca net basınç {net} kPa.',
   'loadPlan.derivation.windLevel': 'Rüzgar {dir}, {level} m kotu: {z0}–{z1} m bandı, ortalama net basınç {net} kPa, kuvvet {force} kN.',
+  "loadPlan.derivation.windNodalShare": "{dir} rüzgârı, {level} m kotunda {node} düğümü: duvar basıncı integralinin düğüm payı, {force} kN.",
   'loadPlan.derivation.seismic': 'Deprem: gerçek kat kütlelerinden W = {weight} kN, C = {coefficient}, V0 = {baseShear} kN.',
   'loadPlan.derivation.seismicSnow': 'Deprem ağırlığında ve kombinasyonunda kar (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, dengeli çatı karı {snow} kN, katlara {added} kN eklendi.',
   'loadPlan.derivation.combinationCount': '{count} kombinasyon oluşturuldu.',

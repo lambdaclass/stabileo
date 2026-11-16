@@ -189,7 +189,6 @@ describe('§2.1.5: the minimum wind force on an open building, for a free roof',
     expect(fx(min[0]!)).toBeCloseTo(0.75 * 5 * 6, 9);
     expect(fx(min[1]!)).toBeCloseTo(-0.75 * 5 * 6, 9);
     expect(force(min[2]!, 'y')).toBeCloseTo(0.75 * 5 * 10, 9);
-    // At the roof's nodes only, never on the column bases.
     expect(min[0]!.nodal).toEqual([]);
     expect(new Set(min[0]!.distributed.map(d => d.elementId))).toEqual(new Set([1, 2, 3, 4, 5]));
     expect(out.derivation.filter((m) => m.key === 'wind.other.minimumOpenEnvelope')).toHaveLength(3);

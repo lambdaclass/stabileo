@@ -8088,6 +8088,7 @@ const es: Record<string, string> = {
   'loadPlan.derivation.level': 'Nivel +{elevation} m: área en planta {area} m² (de la extensión real de los nodos), peso propio {selfWeight} kN, permanente {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Viento {dir}: qh = {qh} N/m², presión neta {net} kPa sobre un frente de {front} m.',
   'loadPlan.derivation.windLevel': 'Viento {dir}, nivel {level} m: franja {z0}–{z1} m, presión neta media {net} kPa, fuerza {force} kN.',
+  "loadPlan.derivation.windNodalShare": "Viento {dir}, nodo {node} a {level} m: parte nodal de la presión integrada de pared, {force} kN.",
   'loadPlan.derivation.seismic': 'Sismo: W = {weight} kN de las masas reales por nivel, C = {coefficient}, V0 = {baseShear} kN.',
   'loadPlan.derivation.seismicSnow': 'Nieve en el peso sísmico y la combinación (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, nieve balanceada de cubierta {snow} kN, {added} kN sumados a los niveles.',
   'loadPlan.derivation.combinationCount': '{count} combinación(es) generadas.',

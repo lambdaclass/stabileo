@@ -7377,6 +7377,7 @@ const hu: Translations = {
   "loadPlan.derivation.level": "+{elevation} m szint: alaprajzi terület {area} m² (a tényleges csomóponti kiterjedésből), önsúly {selfWeight} kN, ráterhelt állandó {superimposed} kN, Wi = {weight} kN.",
   "loadPlan.derivation.wind": "{dir} szél: qh = {qh} N/m², nettó nyomás {net} kPa {front} m homlokzati szélességen.",
   "loadPlan.derivation.windLevel": "{dir} szél, {level} m szint: sáv {z0}–{z1} m, átlagos nettó nyomás {net} kPa, erő {force} kN.",
+  "loadPlan.derivation.windNodalShare": "{dir} szél, {node} csomópont {level} m magasságban: az integrált falnyomás csomóponti része, {force} kN.",
   "loadPlan.derivation.seismic": "Szeizmikus: W = {weight} kN a tényleges szinti tömegekből, C = {coefficient}, V0 = {baseShear} kN.",
   "loadPlan.derivation.seismicSnow": "Hó a szeizmikus súlyban és kombinációban (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, kiegyensúlyozott tetőhóteher {snow} kN, {added} kN hozzáadva a szintekhez.",
   "loadPlan.derivation.combinationCount": "{count} kombináció generálva.",

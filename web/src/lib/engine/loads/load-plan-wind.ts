@@ -214,7 +214,7 @@ function planWindUnchecked(input: LoadPlanInput, levels: LevelMass[], sink: Plan
         const baseLoads = atNodes(pressure.baseLoads, pressure.baseLoads);
         const minimumLevels = service || profile || (region && across === 0) ? undefined : [...atNodes(design.baseLoads, design.baseLoads), ...atNodes(design.loads, design.loads)];
         if (!service) {
-          for (const lv of [...baseLoads, ...windLevels]) derivation.push(msg('loadPlan.derivation.windLevel', { dir: dir.toUpperCase(), level: round(lv.elevation, 2), z0: from, z1: h, net: round(density(lv.elevation), 3), force: round(lv.force, 1) }));
+          for (const lv of [...baseLoads, ...windLevels]) derivation.push(msg('loadPlan.derivation.windNodalShare', { dir: dir.toUpperCase(), node: lv.nodeIds[0]!, level: round(lv.elevation, 2), force: round(lv.force, 1) }));
           if (!profile && [...design.baseLoads, ...design.loads].some(([id, force]) => force > (pressure.baseLoads.get(id) ?? pressure.loads.get(id) ?? 0) + 1e-9)) {
             const minimum = applyMinimumWindLoad(0, 1, 0);
             unsupportedKeys.push(msg('loadPlan.note.windMinimumGoverns', { dir: dir.toUpperCase(), level: round(h, 2) }));

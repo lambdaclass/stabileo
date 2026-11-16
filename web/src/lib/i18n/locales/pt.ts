@@ -4345,6 +4345,7 @@ const pt: Translations = {
   'loadPlan.derivation.seismicSnow': 'Neve no peso sísmico e na combinação (INPRES-CIRSOC 103 [3.15], [3.16]): f2 = {f2}, neve balanceada da cobertura {snow} kN, {added} kN somados aos níveis.',
   'loadPlan.derivation.wind': 'Vento {dir}: qh = {qh} N/m², pressão líquida {net} kPa sobre uma frente de {front} m.',
   'loadPlan.derivation.windLevel': 'Vento {dir}, nível {level} m: faixa {z0}–{z1} m, pressão líquida média {net} kPa, força {force} kN.',
+  "loadPlan.derivation.windNodalShare": "Vento {dir}, nó {node} a {level} m: parcela nodal da pressão integrada da parede, {force} kN.",
   'loadPlan.note.windMinimumGoverns': 'Vento {dir}: no nível +{level} m governa a carga mínima de vento do artigo 2.1.5 sobre as pressões calculadas.',
   'loadPlan.unsupported.noSeismicMass': 'Não foi possível obter massa sísmica do modelo, de modo que não foram geradas forças sísmicas.',
   'loadPlan.warning.addedOnTopOfExisting': 'O plano SOMA-SE a {count} caso(s) existente(s) ({cases}) em vez de substituí-los, portanto as suas cargas serão contadas duas vezes. Marque "substituir cargas geradas" para regenerar o que o gerador escreveu; o que foi digitado à mão se mantém.',

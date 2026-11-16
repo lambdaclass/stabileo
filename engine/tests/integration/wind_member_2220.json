@@ -105386,5 +105386,3227 @@
       [2,1.1158503286156178,1.1169421586827564,0.05590108709902248,0.05590156618869477],
       [2,1.1169421586827564,1.118033988749895,0.05590156623034477,0.05590172607267725]
     ]
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "1:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.9701425001453319,
+        "qJ": -0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.9701425001453317,
+            "qJ": 0.48507125007266616
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "2:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.9701425001453319,
+        "qJ": -0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.9701425001453317,
+            "qJ": 0.48507125007266616
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "3:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -2,
+        "qJ": -2
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": 2,
+            "qJ": 2
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "1:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.9701425001453319,
+        "qJ": 0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.9701425001453317,
+            "qJ": -0.48507125007266616
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "2:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.9701425001453319,
+        "qJ": 0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.9701425001453317,
+            "qJ": -0.48507125007266616
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "3:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 2,
+        "qJ": 2
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": -2,
+            "qJ": -2
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "1:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.9701425001453319,
+        "qJ": -0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.9701425001453317,
+            "qYJ": -0.48507125007266616,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "2:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.9701425001453319,
+        "qJ": -0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.9701425001453317,
+            "qYJ": -0.48507125007266616,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "3:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -2,
+        "qJ": -2
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": -2,
+            "qYJ": -2,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "1:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.9701425001453319,
+        "qJ": 0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.9701425001453317,
+            "qYJ": 0.48507125007266616,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "2:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.9701425001453319,
+        "qJ": 0.48507125007266594
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.9701425001453317,
+            "qYJ": 0.48507125007266616,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:field",
+    "variant": "3:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 2,
+        "qJ": 2
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": 2,
+            "qYJ": 2,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "1:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.7761140001162655,
+            "qJ": 0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "2:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.7761140001162655,
+            "qJ": 0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "3:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -1.6,
+        "qJ": -1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": 1.6,
+            "qJ": 1.6
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "1:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.7761140001162655,
+            "qJ": -0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "2:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.7761140001162655,
+            "qJ": -0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "3:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 1.6,
+        "qJ": 1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": -1.6,
+            "qJ": -1.6
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "1:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.7761140001162655,
+            "qYJ": -0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "2:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.7761140001162655,
+            "qYJ": -0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "3:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -1.6,
+        "qJ": -1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": -1.6,
+            "qYJ": -1.6,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "1:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.7761140001162655,
+            "qYJ": 0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "2:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.7761140001162655,
+            "qYJ": 0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:other",
+    "variant": "3:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 1.6,
+        "qJ": 1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": 1.6,
+            "qYJ": 1.6,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "1:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.7761140001162655,
+            "qJ": 0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "2:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": 0.7761140001162655,
+            "qJ": 0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "3:-1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -1.6,
+        "qJ": -1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": 1.6,
+            "qJ": 1.6
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "1:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.7761140001162655,
+            "qJ": -0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "2:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qI": -0.7761140001162655,
+            "qJ": -0.3880570000581329
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "3:1",
+    "dimension": 2,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 1.6,
+        "qJ": 1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "hingeStart": false,
+          "hingeEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "id": 1,
+          "nodeId": 1,
+          "type": "fixed"
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qI": -1.6,
+            "qJ": -1.6
+          }
+        }
+      ],
+      "constraints": [],
+      "connectors": {}
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "1:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.7761140001162655,
+            "qYJ": -0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "2:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": -0.7761140001162655,
+        "qJ": -0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": -0.7761140001162655,
+            "qYJ": -0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "3:-1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": -1.6,
+        "qJ": -1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": -1.6,
+            "qYJ": -1.6,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "1:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.7761140001162655,
+            "qYJ": 0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "2:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2.0615528128088303,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2.0615528128088303,
+        "q": 0.7761140001162655,
+        "qJ": 0.38805700005813276
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2.0615528128088303
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2.0615528128088303,
+            "qYI": 0.7761140001162655,
+            "qYJ": 0.3880570000581329,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
+  },
+  {
+    "kind": "towerMast:planner",
+    "variant": "3:1",
+    "dimension": 3,
+    "axis": "z",
+    "displacement": "ux",
+    "tip": 2,
+    "length": 2,
+    "segments": [
+      {
+        "a": 0,
+        "b": 2,
+        "q": 1.6,
+        "qJ": 1.6
+      }
+    ],
+    "input": {
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 0,
+          "y": 0,
+          "z": 2
+        }
+      },
+      "materials": {
+        "1": {
+          "id": 1,
+          "e": 200000,
+          "nu": 0.3
+        }
+      },
+      "sections": {
+        "1": {
+          "id": 1,
+          "a": 0.01,
+          "iy": 0.0001,
+          "iz": 0.0001,
+          "j": 0.0001
+        }
+      },
+      "elements": {
+        "1": {
+          "id": 1,
+          "nodeI": 1,
+          "nodeJ": 2,
+          "materialId": 1,
+          "sectionId": 1,
+          "type": "frame",
+          "localYx": 1,
+          "localYy": 0,
+          "localYz": 0,
+          "releaseMyStart": false,
+          "releaseMyEnd": false,
+          "releaseMzStart": false,
+          "releaseMzEnd": false,
+          "releaseTStart": false,
+          "releaseTEnd": false
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rx": true,
+          "ry": true,
+          "rz": true,
+          "rrx": true,
+          "rry": true,
+          "rrz": true
+        }
+      },
+      "loads": [
+        {
+          "type": "distributed",
+          "data": {
+            "elementId": 1,
+            "a": 0,
+            "b": 2,
+            "qYI": 1.6,
+            "qYJ": 1.6,
+            "qZI": 0,
+            "qZJ": 0
+          }
+        }
+      ],
+      "plates": {},
+      "quads": {},
+      "curvedShells": {},
+      "constraints": [],
+      "connectors": {},
+      "leftHand": false
+    }
   }
 ]

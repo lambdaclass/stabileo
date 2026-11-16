@@ -1,5 +1,5 @@
 import type { WindModel, WindCaseLoads } from './wind-cases';
-import { levelLoads } from './wind-plan-forces';
+import { prepareLevelLoads } from './wind-plan-forces';
 
 export class WindPressureRefusal extends Error {}
 
@@ -117,13 +117,13 @@ function heightMembers(model: WindModel, from: number, to: number, region?: Read
     const slope = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) / (Z(m.b) - Z(m.a));
     return { m, lo, hi, slope };
   });
-  return members.filter((m, i) => {
-    if (Z(m.b) <= from || Z(m.a) >= to) return false;
-    if (region && !(region.has(m.a.id) && region.has(m.b.id)) && !(region.has(m.b.id) && Z(m.a) <= from)) return false;
+  return members.flatMap((m, i) => {
+    if (Z(m.b) <= from || Z(m.a) >= to) return [];
+    if (region && !(region.has(m.a.id) && region.has(m.b.id)) && !(region.has(m.b.id) && Z(m.a) <= from)) return [];
     const chain = chains[i]!;
     const legs = chains.filter(c => c.lo <= chain.lo && c.hi >= chain.hi && c.slope < chain.slope - 64 * Number.EPSILON * Math.max(c.slope, chain.slope));
     const connectsLegs = legs.some(c => coincides(at(c.m, chain.lo), at(m, chain.lo))) && legs.some(c => coincides(at(c.m, chain.hi), at(m, chain.hi)));
-    return !connectsLegs;
+    return connectsLegs ? [] : [{ ...m, lo: chain.lo, hi: chain.hi }];
   });
 }
 
@@ -194,41 +194,50 @@ export function windHeightField(input: {
   const memberLoads: WindHeightResult['members'] = [];
   const add = (id: number, f: number) => { const map = Z(model.nodes.get(id)!) <= from ? baseLoads : loads; map.set(id, (map.get(id) ?? 0) + f); };
   const cross = axis === 'x' ? 'y' : 'x';
-  const widthKind = heightWidth(members, axis, from, to) > 0.05 ? 'physical' : 'declared';
+  const carrierCuts = [...new Set([from, to, ...members.flatMap(m => [m.lo, m.hi])])].filter(z => z >= from && z <= to).sort((a, b) => a - b);
+  const widthModes: Array<'physical' | 'declared'> = carrierCuts.slice(1).map((hi, k) => heightWidth(members, axis, carrierCuts[k]!, hi) > 0.05 ? 'physical' : 'declared');
   for (let k = 1; k < cuts.length; k++) {
     const lo = cuts[k - 1]!, hi = cuts[k]!, mid = (lo + hi) / 2;
     const active = members.filter(m => Z(m.a) < mid && Z(m.b) > mid);
     if (!active.length) throw new WindPressureRefusal('wind.pressure.heightGap');
-    const weights = (z: number) => {
+    const band = carrierCuts.findIndex(z => z > mid);
+    const widthKind = widthModes[band - 1]!;
+    const stationary = active.every(m => m.a.x === m.b.x && m.a.y === m.b.y);
+    const geometry = (z: number) => {
       const pts = sectionAt(active, z);
       const coords = [...new Set(pts.map(p => p[cross]))].sort((a, b) => a - b);
       const width = coords[coords.length - 1]! - coords[0]!;
       const actual = widthKind === 'physical' ? width : input.width;
       if (!(actual !== undefined && actual > 0)) throw new WindPressureRefusal('wind.pressure.missingWidth');
       const shares = carrierShares(pts);
-      return pts.map((_p, j) => ({ width: actual, share: actual * shares[j]! }));
+      const points = new Map(pts.map((p, id) => [id, { ...p, id }]));
+      return { width: actual, weights: pts.map((_p, j) => actual * shares[j]!), torsion: prepareLevelLoads(points, [...points.keys()]) };
     };
-    const stations = new Map<number, { weights: ReturnType<typeof weights>; torsion: ReturnType<typeof levelLoads> }>();
+    const fixedGeometry = stationary ? geometry(mid) : undefined;
+    const stations = new Map<number, { density: number[]; torsion: WindCaseLoads['nodal'] }>();
     const station = (z: number) => {
       if (!stations.has(z)) {
-        const w = weights(z);
-        const pts = new Map(sectionAt(active, z).map((p, id) => [id, { ...p, id }]));
-        const torque = w.reduce((sum, p) => sum + input.pressure(z, p.width, widthKind) * p.share, 0);
-        stations.set(z, { weights: w, torsion: levelLoads(pts, [...pts.keys()], 0, 0, torque) });
+        const g = fixedGeometry ?? geometry(z);
+        const pressure = input.pressure(z, g.width, widthKind);
+        const density = g.weights.map(share => pressure * share);
+        const torque = density.reduce((sum, p) => sum + p, 0);
+        stations.set(z, { density, torsion: g.torsion(0, 0, torque) });
       }
       return stations.get(z)!;
     };
     active.forEach((m, j) => {
-      const density = (z: number) => { const w = station(z).weights[j]!; return input.pressure(z, w.width, widthKind) * w.share; };
+      const density = (z: number) => station(z).density[j]!;
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
       const components = [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => station(z).torsion[j]![c])];
       const parts = components.map(f => integrateWindPressure(hi - lo, [], s => f(lo + s)));
       const cuts = [...new Set(parts.flatMap(ps => ps.flatMap(p => [p.a, p.b])))].sort((a, b) => a - b);
+      const cursors = parts.map(() => 0);
       for (let k = 1; k < cuts.length; k++) {
         const a = cuts[k - 1]!, b = cuts[k]!;
-        const values = parts.map(ps => {
-          const p = ps.find(p => p.a <= (a + b) / 2 && p.b >= (a + b) / 2)!;
+        const values = parts.map((ps, i) => {
+          while (ps[cursors[i]!]!.b < (a + b) / 2) cursors[i]!++;
+          const p = ps[cursors[i]!]!;
           const q = p.q + (p.qJ - p.q) * (a - p.a) / (p.b - p.a), qJ = p.q + (p.qJ - p.q) * (b - p.a) / (p.b - p.a);
           const force = (q + qJ) * (b - a) / 2;
           const first = (b - a) ** 2 * (q + 2 * qJ) / 6;
