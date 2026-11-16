@@ -36,13 +36,12 @@ const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', ...wind },
 }), testModel: model });
-const forces = (p: ReturnType<typeof plan>, caseIndex?: number) => windEndResultants(p.testModel, p.distributed, p.nodal);
+const forces = (p: ReturnType<typeof plan>, caseIndex?: number) => windEndResultants(p.testModel, caseIndex === undefined ? p.distributed : p.distributed.filter(n => n.caseIndex === caseIndex), caseIndex === undefined ? p.nodal : p.nodal.filter(n => n.caseIndex === caseIndex));
 const yForce = (p: ReturnType<typeof plan>, nodeIds: number[]) => forces(p).filter((n) => n.caseType === 'W' && n.caseIndex !== undefined && p.cases[n.caseIndex]!.nameKey.startsWith('autoLoad.windCase1') && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
 
-const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-for (const selection of ['first', 'torsion', 'last', 'absent'] as const) round10(`known wrong result: #2220 resultants select only the requested case ${selection}`, () => {
+for (const selection of ['first', 'torsion', 'last', 'absent'] as const) it(`#2220 resultants select only the requested case ${selection}`, () => {
   const p = plan({ caseSet: 'all', directions: { x: true, y: true }, senses: ['+x', '+y'] }, tower(2));
-  const index = selection === 'first' ? 0 : selection === 'last' ? p.cases.length - 1 : selection === 'absent' ? p.cases.length : p.cases.findIndex(c => c.nameKey === 'autoLoad.windCase2');
+  const index = selection === 'first' ? p.cases.findIndex(c => c.type === 'W') : selection === 'last' ? p.cases.length - 1 : selection === 'absent' ? p.cases.length : p.cases.findIndex(c => c.nameKey === 'autoLoad.windCase2');
   expect(index).toBeGreaterThanOrEqual(0);
   const expected = forces(p).filter(n => n.caseIndex === index);
   if (selection !== 'absent') expect(expected.length).toBeGreaterThan(0);
@@ -84,7 +83,7 @@ describe('a flexible building in the load plan', () => {
       const i = p.cases.findIndex((c) => c.nameKey === 'autoLoad.windCase2' && String((c.nameParams as { dir?: string }).dir).includes('Y'));
       // About the plan's centre: the torsion is spread as forces over each level's nodes.
       let mz = 0, fy = 0;
-      for (const n of forces(p).filter((x) => x.caseIndex === i)) {
+      for (const n of forces(p, i)) {
         const nd = model.nodes.get(n.nodeId)!;
         mz += (nd.x - 15) * n.fy - (nd.y - 10) * n.fx + (n.mz ?? 0);
         fy += n.fy;

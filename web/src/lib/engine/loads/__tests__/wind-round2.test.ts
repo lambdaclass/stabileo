@@ -71,28 +71,33 @@ for (const variant of variants) it(`#2204 integrated eccentric wind stays a plan
   }
 });
 
-function compareWindMemberForces(ids: Iterable<number>, a: { elementId: number }[], b: { elementId: number }[], compare: (x: unknown, y: unknown) => void) {
+function compareWindMemberForces(ids: Iterable<number>, a: { elementId: number }[], b: { elementId: number }[], compare: (x: unknown, y: unknown) => void, dimension: '2d' | '3d') {
   const expected = [...ids].sort((a, b) => a - b);
   for (const rows of [a, b]) expect(rows.map(f => f.elementId).sort((a, b) => a - b)).toEqual(expected);
+  const components = dimension === '2d' ? ['n', 'v', 'm'] : ['n', 'vy', 'vz', 'mx', 'my', 'mz'];
+  const keys = components.flatMap(c => [`${c}Start`, `${c}End`]);
+  for (const rows of [a, b]) expect(rows.every(row => keys.every(key => {
+    const value = (row as unknown as Record<string, unknown>)[key];
+    return typeof value === 'number' && Number.isFinite(value);
+  }))).toBe(true);
   for (const f of b) { const actual = a.find(p => p.elementId === f.elementId)!;
-    for (const [key, value] of Object.entries(f)) if (key.endsWith('Start') || key.endsWith('End')) compare((actual as unknown as Record<string, unknown>)[key], value);
+    for (const key of keys) compare((actual as unknown as Record<string, unknown>)[key], (f as unknown as Record<string, unknown>)[key]);
   }
 }
 
 for (const missing of ['both-empty', 'both-partial', 'actual', 'reference', 'duplicate', 'extra']) it(`#2220 member-force comparison rejects ${missing}`, () => {
-  const row = (elementId: number) => ({ elementId, vStart: 1, vEnd: 0 });
+  const row = (elementId: number) => ({ elementId, nStart: 0, nEnd: 0, vStart: 1, vEnd: 0, mStart: 0, mEnd: 0 });
   const complete = [row(1), row(2)];
   const a = missing === 'both-empty' ? [] : missing === 'duplicate' ? [row(1), row(1)] : missing === 'extra' ? [...complete, row(3)] : missing === 'reference' ? complete : [row(1)];
   const b = missing === 'both-empty' ? [] : ['both-partial', 'reference'].includes(missing) ? [row(1)] : complete;
-  expect(() => compareWindMemberForces([1, 2], a, b, (x, y) => expect(x).toEqual(y))).toThrow();
+  expect(() => compareWindMemberForces([1, 2], a, b, (x, y) => expect(x).toEqual(y), '2d')).toThrow();
 });
 it('#2220 member-force comparison accepts every model member in either order', () => {
-  const rows = [{ elementId: 1, vStart: 1, vEnd: 0 }, { elementId: 2, vStart: 2, vEnd: 0 }];
-  compareWindMemberForces([1, 2], rows, rows.toReversed(), (x, y) => expect(x).toEqual(y));
+  const rows = [1, 2].map(elementId => ({ elementId, nStart: 0, nEnd: 0, vStart: elementId, vEnd: 0, mStart: elementId, mEnd: 0 }));
+  compareWindMemberForces([1, 2], rows, rows.toReversed(), (x, y) => expect(x).toEqual(y), '2d');
 });
 
-const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-for (const dimension of ['2d', '3d'] as const) for (const side of ['actual', 'reference', 'both'] as const) for (const defect of ['id-only', 'missing-start', 'missing-end', 'wrong-dimension', 'nan', 'infinity', 'string'] as const) round10(`known wrong result: #2220 force comparison rejects ${dimension} ${side} ${defect}`, () => {
+for (const dimension of ['2d', '3d'] as const) for (const side of ['actual', 'reference', 'both'] as const) for (const defect of ['id-only', 'missing-start', 'missing-end', 'wrong-dimension', 'nan', 'infinity', 'string'] as const) it(`#2220 force comparison rejects ${dimension} ${side} ${defect}`, () => {
   const components = dimension === '2d' ? ['n', 'v', 'm'] : ['n', 'vy', 'vz', 'mx', 'my', 'mz'];
   const row = { elementId: 1, ...Object.fromEntries(components.flatMap(c => [[`${c}Start`, 1], [`${c}End`, 0]])) };
   const broken: Record<string, unknown> = { ...row };
@@ -101,10 +106,26 @@ for (const dimension of ['2d', '3d'] as const) for (const side of ['actual', 're
   else if (defect.startsWith('missing')) delete broken[`${components[1]}${defect === 'missing-start' ? 'Start' : 'End'}`];
   else broken[`${components[1]}Start`] = defect === 'nan' ? NaN : defect === 'infinity' ? Infinity : '1';
   const a = side === 'reference' ? row : broken as typeof row, b = side === 'actual' ? row : broken as typeof row;
-  expect(() => compareWindMemberForces([1], [a], [b], (x, y) => expect(x).toEqual(y))).toThrow();
+  expect(() => compareWindMemberForces([1], [a], [b], (x, y) => expect(x).toEqual(y), dimension)).toThrow();
 });
 
-for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) for (const dimension of ['2d', '3d']) it(`#2204 hand wind distribution matches member forces and reactions ${dimension} nonlinear=${nonlinear} diaphragm=${diaphragm}`, () => {
+for (const dimension of ['2d', '3d'] as const) it(`#2220 member-force comparison visits every required ${dimension} component`, () => {
+  const components = dimension === '2d' ? ['n', 'v', 'm'] : ['n', 'vy', 'vz', 'mx', 'my', 'mz'];
+  const keys = components.flatMap(c => [`${c}Start`, `${c}End`]);
+  const row = { elementId: 1, ...Object.fromEntries(keys.map((key, i) => [key, i])) };
+  let compared = 0;
+  compareWindMemberForces([1], [row], [row], (x, y) => { expect(x).toEqual(y); compared++; }, dimension);
+  expect(compared).toBe(keys.length);
+  for (const key of keys) for (const side of ['actual', 'reference', 'both']) {
+    const broken: Record<string, unknown> & { elementId: number } = { ...row };
+    delete broken[key];
+    expect(() => compareWindMemberForces([1], [side === 'reference' ? row : broken], [side === 'actual' ? row : broken], (x, y) => expect(x).toEqual(y), dimension)).toThrow();
+    const changed = { ...row, [key]: -1 };
+    expect(() => compareWindMemberForces([1], [changed], [row], (x, y) => expect(x).toEqual(y), dimension)).toThrow();
+  }
+});
+
+for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) for (const dimension of ['2d', '3d'] as const) it(`#2204 hand wind distribution matches member forces and reactions ${dimension} nonlinear=${nonlinear} diaphragm=${diaphragm}`, () => {
   const model = columns();
   const sink = generate(model);
   for (const [caseIndex, c] of sink.cases.entries()) {
@@ -148,7 +169,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
       else expect(x).toEqual(y);
     };
     compare(a.reactions, b.reactions);
-    compareWindMemberForces(model.elements.keys(), a.elementForces, b.elementForces, compare);
+    compareWindMemberForces(model.elements.keys(), a.elementForces, b.elementForces, compare, dimension);
     compare(a.displacements, b.displacements);
   }
 });

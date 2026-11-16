@@ -12,13 +12,15 @@ export interface WindPressurePart {
   first: number;
 }
 
+const inner = Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), outer = Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7);
+const innerWeight = (18 + Math.sqrt(30)) / 36, outerWeight = (18 - Math.sqrt(30)) / 36;
+const quadrature = [[-outer, outerWeight], [-inner, innerWeight], [inner, innerWeight], [outer, outerWeight]] as const;
+
 export function integrateWindPressure(length: number, boundaries: readonly number[], pressure: (s: number) => number): WindPressurePart[] {
   if (!(Number.isFinite(length) && length > 0)) throw new WindPressureRefusal('wind.pressure.invalidCarrier');
   const cuts = [...new Set([0, ...boundaries.filter(s => s > 0 && s < length), length])].sort((a, b) => a - b);
   type Moments = [number, number, number, number];
   type Integral = { moments: Moments; min: number; max: number };
-  const inner = Math.sqrt((3 - 2 * Math.sqrt(6 / 5)) / 7), outer = Math.sqrt((3 + 2 * Math.sqrt(6 / 5)) / 7);
-  const innerWeight = (18 + Math.sqrt(30)) / 36, outerWeight = (18 - Math.sqrt(30)) / 36;
   const value = (s: number) => {
     const p = pressure(s);
     if (!Number.isFinite(p)) throw new WindPressureRefusal('wind.pressure.nonFinite');
@@ -28,10 +30,14 @@ export function integrateWindPressure(length: number, boundaries: readonly numbe
     const mid = (a + b) / 2, half = (b - a) / 2;
     const moments: Moments = [0, 0, 0, 0];
     let min = Infinity, max = -Infinity;
-    for (const [x, w] of [[-outer, outerWeight], [-inner, innerWeight], [inner, innerWeight], [outer, outerWeight]]) {
+    for (const [x, w] of quadrature) {
       const s = mid + half * x!, p = value(s);
       min = Math.min(min, p); max = Math.max(max, p);
-      for (const k of [0, 1, 2, 3]) moments[k]! += half * w! * p * (s - origin) ** k;
+      const weighted = half * w * p, offset = s - origin;
+      moments[0] += weighted;
+      moments[1] += weighted * offset;
+      moments[2] += weighted * offset ** 2;
+      moments[3] += weighted * offset ** 3;
     }
     return { moments, min, max };
   };
@@ -250,12 +256,20 @@ export function windHeightField(input: {
       const pressure = input.pressure(z, width, 'physical');
       return apex.map(p => ({ nodeId: p.nodeId, fx: pressure * p.fx, fy: pressure * p.fy, mz: 0 }));
     };
+    const fixedIntegrals = new Map<string, WindPressurePart[]>();
     active.forEach((m, j) => {
       const density = (z: number) => station(z).density[j]!;
       const length = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y, Z(m.b) - Z(m.a));
       const scale = (Z(m.b) - Z(m.a)) / length;
       const components = torqueSupported ? [density, ...(['fx', 'fy', 'mz'] as const).map(c => (z: number) => torsion(z)[j]![c])] : [density];
-      const parts = components.map(f => integrateWindPressure(hi - lo, [], s => f(lo + s)));
+      const componentKeys = fixedGeometry ? [`density:${fixedGeometry.weights[j]}`, `fx:${m.a.y}`, `fy:${m.a.x}`, 'mz'] : [];
+      const parts = components.map((f, i) => {
+        const key = componentKeys[i];
+        if (key !== undefined && fixedIntegrals.has(key)) return fixedIntegrals.get(key)!;
+        const parts = integrateWindPressure(hi - lo, [], s => f(lo + s));
+        if (key !== undefined) fixedIntegrals.set(key, parts);
+        return parts;
+      });
       const cuts = [...new Set(parts.flatMap(ps => ps.flatMap(p => [p.a, p.b])))].sort((a, b) => a - b);
       const cursors = parts.map(() => 0);
       for (let k = 1; k < cuts.length; k++) {

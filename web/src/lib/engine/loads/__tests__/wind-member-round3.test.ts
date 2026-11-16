@@ -46,11 +46,10 @@ const generate = (model: ReturnType<typeof mesh>, kind: string, rotated = false)
 
 function memberIntensity(p: { qX?: number; qXJ?: number; qY?: number; qYJ?: number }, rotated: boolean, sign: number): [number, number] {
   const start = sign * ((rotated ? p.qY : p.qX) ?? 0);
-  return [start, start];
+  return [start, sign * ((rotated ? p.qYJ ?? p.qY : p.qXJ ?? p.qX) ?? 0)];
 }
 
-const round10 = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
-for (const rotated of [false, true]) for (const sign of [1, -1]) round10(`known wrong result: #2220 solver member intensities retain both endpoints rotated=${rotated} sign=${sign}`, () => {
+for (const rotated of [false, true]) for (const sign of [1, -1]) it(`#2220 solver member intensities retain both endpoints rotated=${rotated} sign=${sign}`, () => {
   expect(memberIntensity({ qX: 2, qXJ: 3, qY: 4, qYJ: 5 }, rotated, sign)).toEqual(rotated ? [4 * sign, 5 * sign] : [2 * sign, 3 * sign]);
   expect(memberIntensity({ qX: 2, qY: 4 }, rotated, sign)).toEqual(rotated ? [4 * sign, 4 * sign] : [2 * sign, 2 * sign]);
 });
@@ -82,7 +81,8 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 
     const assertMemberLoads = () => { expect(points).toEqual([]); expect(lines.length).toBeGreaterThan(0); };
     const assertCarrierForces = () => { for (const e of model.elements.values()) {
       const a = model.nodes.get(e.nodeI)!.z!, b = model.nodes.get(e.nodeJ)!.z!;
-      expect(lines.filter(d => d.elementId === e.id).reduce((s, d) => s + component(d) * (d.b! - d.a!), 0)).toBeCloseTo(w * carrierScale(e.nodeI) * (b - a), 10);
+      expect(lines.filter(d => d.elementId === e.id).reduce((s, d) => s + (component(d) + component(d, 1)) * (d.b! - d.a!) / 2, 0)).toBeCloseTo(w * carrierScale(e.nodeI) * (b - a), 10);
+      for (const d of lines.filter(d => d.elementId === e.id)) for (const endpoint of [0, 1]) expect(component(d, endpoint)).toBeCloseTo(w * carrierScale(e.nodeI), 10);
     } };
     if (spatial) {
       const input3: SolverInput3D = { ...input, nodes: new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
