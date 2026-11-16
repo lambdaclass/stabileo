@@ -1,3 +1,4 @@
+import { checkDeclaredSteelMember } from './helpers/declared-demands';
 import { manualSteelDemand } from './helpers/manual-interactions';
 /**
  * A steel member of variable section checked station by station: a welded I from 600 to 300 mm
@@ -8,7 +9,7 @@ import { manualSteelDemand } from './helpers/manual-interactions';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
-import { checkSteelMember, checkVariableSteelMember, steelGoverningRatio, type SteelMemberDemand } from '../verification-service';
+import { checkVariableSteelMember, steelGoverningRatio, type SteelMemberDemand } from '../verification-service';
 import { toSectionFields } from '../../section/section-choice';
 import { computeSectionProperties } from '../../data/section-shapes';
 
@@ -27,8 +28,8 @@ describe('a steel member of variable section', () => {
     const v = checkVariableSteelMember(1, { sectionId: deepId, variableSection: { sectionJ: shallowId } }, sections as never, material, stations, { L: 6, Lb: 6 })!;
     expect(v).not.toBeNull();
     const demand = (M: number): SteelMemberDemand => ({ Nc: 0, Nt: 0, MuStrong: M, MuWeak: 0, Vu: 20, VuStrong: 20, VuWeak: 0, diagram: [] });
-    const shallow = checkSteelMember(1, manualSteelDemand(demand(60)), sections.get(shallowId)! as never, material, { L: 6, Lb: 6 })!;
-    const deep = checkSteelMember(1, manualSteelDemand(demand(100)), sections.get(deepId)! as never, material, { L: 6, Lb: 6 })!;
+    const shallow = checkDeclaredSteelMember(1, manualSteelDemand(demand(60)), sections.get(shallowId)! as never, material, { L: 6, Lb: 6 })!;
+    const deep = checkDeclaredSteelMember(1, manualSteelDemand(demand(100)), sections.get(deepId)! as never, material, { L: 6, Lb: 6 })!;
     const worst = Math.max(steelGoverningRatio(shallow), steelGoverningRatio(deep));
     expect(steelGoverningRatio(v)).toBeCloseTo(worst, 9);
     expect(v.steps[0]).toContain('sección variable');

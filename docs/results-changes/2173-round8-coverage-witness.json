@@ -1,0 +1,960 @@
+{
+  "issue": 2096,
+  "pr": 2173,
+  "parent": "254e0df2b1e67e4f2e6d1b6ca7c9e16b35607731",
+  "main": {
+    "source": "origin/main 9d925a78093db05bf8b50eb125aa829fa5dd955d exact tuple and verification sources, current imported kernels",
+    "tuples": [
+      {
+        "comboId": 1,
+        "comboName": "C1",
+        "forces": {
+          "t": 0,
+          "x": 0,
+          "n": 0,
+          "my": 20,
+          "mz": 0,
+          "vy": 0,
+          "vz": 0,
+          "torsion": 0
+        }
+      },
+      {
+        "comboId": 2,
+        "comboName": "C2",
+        "forces": {
+          "t": 0,
+          "x": 0,
+          "n": 0,
+          "my": 2000,
+          "mz": 0,
+          "vy": 0,
+          "vz": 0,
+          "torsion": 0
+        }
+      }
+    ],
+    "complete": {
+      "status": "fail",
+      "AsReq": 160.00000000000003,
+      "ratio": 5.497722648793581,
+      "Mu": 2000,
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_FLEXURE",
+          "message": "diag.verifFailFlexure",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.054977226487935814,
+            "phiMn": 363.78699468203973,
+            "Mu": 20
+          }
+        },
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_FLEXURE",
+          "message": "diag.verifFailFlexure",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 5.497722648793581,
+            "phiMn": 363.78699468203973,
+            "Mu": 2000
+          }
+        }
+      ],
+      "checks": 2
+    },
+    "partial": {
+      "status": "ok",
+      "AsReq": 4.76,
+      "ratio": 0.24471740822304575,
+      "Mu": 20,
+      "diagnostics": [],
+      "checks": 1
+    }
+  },
+  "removalCases": 360,
+  "parentAccepted": 128,
+  "fixedRefused": 360,
+  "parentRemovalDecisions": [
+    {
+      "entry": "auto",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "auto",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "auto",
+      "removal": "member",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "auto",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "auto",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-member",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-member",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-member",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-member",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-member",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-result",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-result",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-result",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-result",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-result",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "cached-store",
+      "removal": "combination",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-store",
+      "removal": "combination-only-station",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-store",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-store",
+      "removal": "station",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "cached-store",
+      "removal": "tuple",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "checkSteelMember",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "checkSteelMember",
+      "removal": "combination-only-station",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "checkSteelMember",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "checkSteelMember",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "checkSteelMember",
+      "removal": "tuple",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "foreign",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "foreign",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign-cert",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign-cert",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign-cert",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "foreign-cert",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "foreign-cert",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "fromTuples",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "fromTuples",
+      "removal": "combination-only-station",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "fromTuples",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "fromTuples",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "fromTuples",
+      "removal": "tuple",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "verifyConcurrentElement",
+      "removal": "combination",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "verifyConcurrentElement",
+      "removal": "combination-only-station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "verifyConcurrentElement",
+      "removal": "member",
+      "refused": false,
+      "count": 8
+    },
+    {
+      "entry": "verifyConcurrentElement",
+      "removal": "station",
+      "refused": true,
+      "count": 8
+    },
+    {
+      "entry": "verifyConcurrentElement",
+      "removal": "tuple",
+      "refused": true,
+      "count": 8
+    }
+  ],
+  "completeVerdicts": [
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "auto",
+      "verdict": [
+        "fail",
+        "ok"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "foreign",
+      "verdict": [
+        3.9999999999999876,
+        1.6000000000000016
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "foreign-cert",
+      "verdict": [
+        3.9999999999999876,
+        1.6000000000000016
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "verifyConcurrentElement",
+      "verdict": "ok"
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "auto",
+      "verdict": [
+        "fail",
+        "ok"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "foreign",
+      "verdict": [
+        3.9999999999999876,
+        1.6000000000000016
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "foreign-cert",
+      "verdict": [
+        3.9999999999999876,
+        1.6000000000000016
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "verifyConcurrentElement",
+      "verdict": "ok"
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "auto",
+      "verdict": [
+        "fail",
+        "ok"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "foreign",
+      "verdict": [
+        4,
+        1.6000000000000034
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "foreign-cert",
+      "verdict": [
+        4,
+        1.6000000000000034
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "verifyConcurrentElement",
+      "verdict": "ok"
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "auto",
+      "verdict": [
+        "fail",
+        "ok"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "foreign",
+      "verdict": [
+        4,
+        1.6000000000000034
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "foreign-cert",
+      "verdict": [
+        4,
+        1.6000000000000034
+      ]
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": false,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "verifyConcurrentElement",
+      "verdict": "ok"
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "auto",
+      "verdict": [
+        "warn",
+        "warn"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "foreign",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "foreign-cert",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": false,
+      "entry": "verifyConcurrentElement",
+      "verdict": "warn"
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "auto",
+      "verdict": [
+        "warn",
+        "warn"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "foreign",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "foreign-cert",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": false,
+      "compact": true,
+      "entry": "verifyConcurrentElement",
+      "verdict": "warn"
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "auto",
+      "verdict": [
+        "warn",
+        "warn"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "foreign",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "foreign-cert",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": false,
+      "entry": "verifyConcurrentElement",
+      "verdict": "warn"
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "auto",
+      "verdict": [
+        "warn",
+        "warn"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-member",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-result",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "cached-store",
+      "verdict": "fail"
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "checkSteelMember",
+      "verdict": [
+        "fail",
+        "fail"
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "foreign",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "foreign-cert",
+      "verdict": [
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "fromTuples",
+      "verdict": 14
+    },
+    {
+      "spatial": true,
+      "nonlinear": true,
+      "compact": true,
+      "entry": "verifyConcurrentElement",
+      "verdict": "warn"
+    }
+  ]
+}

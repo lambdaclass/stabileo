@@ -1,8 +1,8 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { checkFlexure, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { checkFlexureFlanged } from '../codes/argentina/cirsoc201-flanged';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 
 const p = { fc: 25, fy: 420, cover: 0.02, b: 0.12, h: 0.40, stirrupDia: 6 };
@@ -28,7 +28,7 @@ for (const edition of ['2005', '2025'] as const) {
   });
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
     it(`known wrong result: #2080 all verification entries separate depths ${edition} ${axis} ${elementType}`, () => {
-      const inputs = ConcurrentDemand.fromTuples([20, 52].map((m, k) => ({ comboId: k + 1, comboName: 'depth', forces: {
+      const inputs = declaredTestDemands([20, 52].map((m, k) => ({ comboId: k + 1, comboName: 'depth', forces: {
         t: k, x: k, n: 0, my: m, mz: m, vy: 0, vz: 0, torsion: 0,
       } }))).map(d => ({ ...p, edition, elementType, elementId: 1, demand: d.section(axis) }));
       const fixed = { ...checkFlexure(p, 52, 0, { edition }), d: 1, providedDepth: 1 };

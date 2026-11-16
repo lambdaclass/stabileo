@@ -1,6 +1,6 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { NO_RELEASE } from '../../store/model.svelte';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { extractGoverningDemands } from '../station-design-forces';
 import { designDemands, maskAxialDemand, maskDemands } from '../design/behaviour-demands';
 import { memberContexts, runOtherCode } from '../design/other-codes/run';
@@ -73,7 +73,7 @@ for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {
 it('inactive members are excluded and an empty map stays empty', () => {
   expect(designDemands(new Map([[1, demands(100)]]), () => 'inactive').size).toBe(0);
   expect(designDemands(new Map(), () => undefined).size).toBe(0);
-  expect(ConcurrentDemand.fromTuples([])).toEqual([]);
+  expect(declaredTestDemands([])).toEqual([]);
 });
 
 for (const behaviour of ['tensionOnly', 'cable', 'compressionOnly']) {

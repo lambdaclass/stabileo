@@ -65,8 +65,7 @@ describe('EN 1993-1-1 on every combination at every station', () => {
   it('#2080 empty tuples refuse; every tuple finds C3 at 1,413', () => {
     const ctx = column('HEB 200');
     expect(ctx.demands.some((d) => d.comboName === 'C3')).toBe(false);
-    const peaks = runOtherCode(EC3, [{ ...ctx, tuples: [] }]).rows[0]!;
-    expect(peaks.status).toBe('skipped');
+    expect(() => runOtherCode(EC3, [{ ...ctx, tuples: [] }])).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
     const all = runOtherCode(EC3, [ctx]).rows[0]!;
     expect(all.status).toBe('checked');
     if (all.status !== 'checked') return;
