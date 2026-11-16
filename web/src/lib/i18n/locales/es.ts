@@ -1,4 +1,6 @@
 const es: Record<string, string> = {
+  "underAudit.text": "En revisión: una revisión interna detectó errores en la generación automática de cargas y en el diseño de hormigón armado. Las correcciones siguen en curso. Verifique estos resultados de forma independiente antes de utilizarlos en un proyecto.",
+  "underAudit.details": "Hallazgos pendientes de la revisión",
   'steps.catalog.button': 'Paso a paso explicado',
   'steps.catalog.title': 'Paso a paso explicado',
   'steps.catalog.intro': 'Elegí un método para ver la resolución de tu estructura paso a paso. Cada uno dice qué tiene que cumplir el modelo y trae un ejemplo que lo cumple.',

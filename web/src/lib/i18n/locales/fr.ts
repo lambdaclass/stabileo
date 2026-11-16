@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "underAudit.text": "En cours de vérification : un examen interne a révélé des erreurs dans la génération automatique des charges et le dimensionnement du béton armé. Les corrections sont en cours. Vérifiez ces résultats de manière indépendante avant de les utiliser pour un dimensionnement.",
+  "underAudit.details": "Anomalies restant à corriger",
   "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",
   "advanced.finiteSpectrumOne": "Il n’existe qu’un seul mode fini. Les directions sans masse n’ont pas de fréquence finie.",
   "advanced.modalIncomplete": "Analyse modale refusée : seuls {n} des {m} modes calculés ont une fréquence positive (ω² > 0). Aucun ensemble incomplet de modes n’a été renvoyé. Vérifiez le conditionnement de la rigidité et de la masse ainsi que les appuis.",

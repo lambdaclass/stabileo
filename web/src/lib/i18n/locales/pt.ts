@@ -1,5 +1,7 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  "underAudit.text": "Em revisão: uma revisão interna encontrou erros na geração automática de cargas e no dimensionamento de concreto armado. As correções ainda estão em andamento. Verifique estes resultados de forma independente antes de usá-los em um projeto.",
+  "underAudit.details": "Constatações pendentes da revisão",
   'steps.catalog.button': 'Passo a passo explicado',
   'steps.catalog.title': 'Passo a passo explicado',
   'steps.catalog.intro': 'Escolha um método para ver a sua estrutura resolvida passo a passo. Cada um diz o que o modelo precisa atender e traz um exemplo que atende.',
