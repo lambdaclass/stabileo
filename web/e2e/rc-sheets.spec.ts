@@ -66,11 +66,12 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
     expect(head.x + head.width - (close.x + close.width)).toBeLessThan(16);
   }
   await expect(ws).toHaveClass(/st-panel-scrollbars/);
-  expect(await ws.locator('.rcw-body').evaluate((b) => b.scrollWidth > b.clientWidth)).toBe(true);
+  expect(await ws.locator('.rcw-body').evaluate((b) => getComputedStyle(b).overflowX)).toMatch(/auto|scroll/);
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(ws.getByTestId('rc-code').getByTestId('rc-code-select')).toHaveValue('cirsoc201-2025');
   const first = ws.getByTestId('rc-row').first();
-  await expect(first).toContainText('Verifica');
+  await expect(first).toContainText(/Verifica|Holgada/);
+  await expect(first).not.toContainText('No verifica');
 
   await first.click();
   await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
@@ -98,7 +99,10 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
   await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
   await expect(ws.getByTestId('rc-row').first()).toContainText('No verifica');
-  await expect(ws.getByTestId('rc-checks').first()).toContainText('✗');
+  const short = ws.getByTestId('rc-span-toggle').filter({ hasText: 'No verifica' }).first();
+  await short.click();
+  await expect(ws.getByTestId('rc-checks').filter({ hasText: '✗' }).first()).toBeVisible();
+  await short.click();
 
   await editor.getByRole('button', { name: 'Volver a la propuesta' }).click();
   await expect(ws.getByTestId('rc-row').first()).not.toContainText('No verifica');

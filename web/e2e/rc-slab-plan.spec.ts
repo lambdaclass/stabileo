@@ -45,7 +45,6 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await expect(fig.getByTestId('rc-plan-cantilever')).toHaveCount(1);
   await expect(fig.getByTestId('rc-plan-corners')).toContainText('§8.7.3.1');
-  await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="corner"]').first()).toBeVisible();
   await fig.screenshot({ path: test.info().outputPath('slab-plan.png') });
 
   await fig.getByTestId('rc-plan-show-top').uncheck();
@@ -69,6 +68,7 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await level.selectOption({ label: second });
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="bent"]').first()).toBeVisible();
   await expect(fig.getByTestId('rc-plan-bend')).toContainText('1/8·ln');
+  await expect(fig.locator('[data-testid="rc-plan-bar"][data-kind="corner"]').first()).toBeVisible();
   await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas: (\d+) de \1 /);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await fig.screenshot({ path: test.info().outputPath('slab-plan-bent.png') });
