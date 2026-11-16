@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2173, pending merge and release |
+| Status | Published 2026-11-16; drafted 2026-11-15 |
 | Issue | [#2096](https://github.com/lambdaclass/stabileo/issues/2096) |
-| Fix | PR [#2173](https://github.com/lambdaclass/stabileo/pull/2173); pending merge and release |
-| Fixed release | Pending |
+| Fix | PR [#2173](https://github.com/lambdaclass/stabileo/pull/2173); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on main `8e5c026b7125f920c7a29141aa375c98c178f9b3`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`shared-demand-completeness`](../../web/src/lib/provenance/result-changes/shared-demand-completeness.json) |
 
@@ -57,7 +57,7 @@ that an older direct verification call was unaffected.
 
 ## Fixed in
 
-PR #2173 is pending merge and release. A shared completeness comparison validates
+Fixed in **0.6.2**, PR #2173. A shared completeness comparison validates
 the requested combinations, members and declared stations before numerical checks.
 Opaque complete-demand sets guard checking and certification cores. Requested scope
 is retained through extraction, conversion and caller dispatch. Missing cells
@@ -67,7 +67,7 @@ span demands. Complete-input numerical rules and tolerances are unchanged.
 
 ## Workaround
 
-Until a release containing PR #2173 is available, independently establish that
+Until you upgrade to 0.6.2, independently establish that
 every requested combination, eligible member and declared station is present
 before accepting a design verdict or certificate. Do not rely on a passing subset.
 

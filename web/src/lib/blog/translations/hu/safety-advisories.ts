@@ -28,9 +28,11 @@ const body: PostBody = {
       "k": "note",
       "t": "SA-2026-063 — Javítva a #2009 PR-ben, közzétételre vár."
     },
+    {"k": "note", "t": "SA-2026-069 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "note",
-      "t": "SA-2026-070 — Javítva a #2170 PR-ben, kiadásra vár."
+      "t": "SA-2026-070 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -40,7 +42,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-071 — Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár."
+      "t": "SA-2026-071 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -50,7 +52,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-072 — Javítva a #2175 PR-ben, kiadásra vár."
+      "t": "SA-2026-072 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -60,7 +62,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-073 — PR #2197; egyesítésre és kiadásra vár."
+      "t": "SA-2026-073 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -70,7 +72,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-074 — PR #2197; egyesítésre és kiadásra vár."
+      "t": "SA-2026-074 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -478,35 +480,36 @@ const body: PostBody = {
           "Magas",
           "Javítva a #2009 PR-ben, közzétételre vár"
         ],
+        ["SA-2026-069", "A csavarási szelvényhatár ellenőrzése kihagyta az egyidejű másodlagos nyíróerőt (#2142). Számítsa újra a betonrudak méretezését, és ellenőrizze a szelvényhibákat és a hiányzó kengyeleket; több kengyel nem teszi megfelelővé a határát túllépő betonszelvényt.", "Magas", "Javítva a 0.6.2 verzióban"],
         [
           "SA-2026-070",
           "A rúdon belüli lehajlás és elfordulás számítása kihagyta a rúd menti terheket, köztük a rúd belsejében ható koncentrált erőpárokat (#2143). Ellenőrizze újra a deformált alakokat, az oktatási kijelzéseket és az acél- és betonszerkezetek használhatósági ellenőrzéseit, a teljes és részleges trapézterheket is beleértve. Terhelt rúd esetén a program elegendő EI hajlítási merevség hiányában most kifejezetten elutasítja a belső elmozdulás és elfordulás számítását.",
           "Magas",
-          "Javítva a #2170 PR-ben, kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-071",
           "A rúdelemek ellenőrzése hiányos egyidejű igénybevételekkel is megfelelt eredményt adhatott (#2096). Számítsa újra a beton- és acélszerkezetek méretezését, és ellenőrizze a teherkombinációkat, a rúdelemeket, a vizsgált szelvényeket és a tanúsítványokat.",
           "Magas",
-          "Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-072",
           "A tetőélek egyenlőtlen felosztása eltolhatta a gerinc helyzetét és megváltoztathatta a generált hóterheket (#2144). Generálja újra a hóterheket, majd ismételje meg az analíziseket, a teherkombinációkat és a méretezési ellenőrzéseket. A mentett terhek puszta újraszámítása nem javítja ki őket.",
           "Magas",
-          "Javítva a #2175 PR-ben, kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-073",
           "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176).",
           "Magas",
-          "PR #2197; egyesítésre és kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-074",
           "A ferde szarufa felosztása a megadott tetőpanelt födémmé minősíthette, és figyelmeztetés nélkül eltüntethette az eresz hóterhét. Az osztályozás most a panelek fizikai alaprajzát használja. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2172). Egy különálló alsó panel fölötti felosztatlan ferde szarufa is tetőnek minősíthette a panelt, megváltoztatva a tető és födém felületi terheit, és szélességalapú módban figyelmeztetés nélkül hóterhet adhatott hozzá.",
           "Magas",
-          "PR #2197; egyesítésre és kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ]
       ]
     },

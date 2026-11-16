@@ -100,12 +100,12 @@ snow loads before re-solving.
 | [SA-2026-066](SA-2026-066-cirsoc201-transverse-cm.md) | CIRSOC 201 Cm gave end-moment credit with transverse load, understating magnified moments in slender concrete columns and walls | High | [#2089](https://github.com/lambdaclass/stabileo/issues/2089) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
 | [SA-2026-067](SA-2026-067-snow-roof-rotation.md) | Snow loads use roof axes under plan rotation | High | [#2093](https://github.com/lambdaclass/stabileo/issues/2093) | [#2095](https://github.com/lambdaclass/stabileo/pull/2095) | 0.6.1 | Published 2026-11-15; drafted 2026-11-14 |
 | [SA-2026-068](SA-2026-068-provided-torsion-stirrups.md) | Concrete torsion accepted inadequate designed stirrups | High | [#2141](https://github.com/lambdaclass/stabileo/issues/2141) | [#2080](https://github.com/lambdaclass/stabileo/pull/2080) | 0.6.1 | Published 2026-11-15 |
-| [SA-2026-069](SA-2026-069-torsion-secondary-shear.md) | Concrete torsion section limits omitted concurrent secondary shear | High | [#2142](https://github.com/lambdaclass/stabileo/issues/2142) | [#2169](https://github.com/lambdaclass/stabileo/pull/2169) | Pending | Draft 2026-11-15; fixed in PR #2169, pending merge and release |
-| [SA-2026-070](SA-2026-070-interior-member-couples.md) | Interior member deflection and rotation omitted span loads; distributed-load recovery also affected serviceability | High | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) | #2170 | not yet released | Draft 2026-11-15; pending release |
-| [SA-2026-071](SA-2026-071-incomplete-concurrent-demands.md) | Member verification accepted incomplete concurrent demands | High | [#2096](https://github.com/lambdaclass/stabileo/issues/2096) | [#2173](https://github.com/lambdaclass/stabileo/pull/2173) | Pending | Draft 2026-11-15; fixed in PR #2173, pending merge and release |
-| [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | Fixed in PR #2175 | Pending release | Draft 2026-11-15 |
-| [SA-2026-073](SA-2026-073-snow-crossing-moment.md) | Ridge-crossing members lost the snow load moment | High | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) | pending | Not released | Draft 2026-11-16 |
-| [SA-2026-074](SA-2026-074-snow-panel-subdivision.md) | Rafter subdivision removed explicit-panel eave snow | High | [#2172](https://github.com/lambdaclass/stabileo/issues/2172) | pending | Not released | Draft 2026-11-16 |
+| [SA-2026-069](SA-2026-069-torsion-secondary-shear.md) | Concrete torsion section limits omitted concurrent secondary shear | High | [#2142](https://github.com/lambdaclass/stabileo/issues/2142) | [#2169](https://github.com/lambdaclass/stabileo/pull/2169) | 0.6.2 | Published 2026-11-16; drafted 2026-11-15 |
+| [SA-2026-070](SA-2026-070-interior-member-couples.md) | Interior member deflection and rotation omitted span loads; distributed-load recovery also affected serviceability | High | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) | [#2170](https://github.com/lambdaclass/stabileo/pull/2170) | 0.6.2 | Published 2026-11-16; drafted 2026-11-15 |
+| [SA-2026-071](SA-2026-071-incomplete-concurrent-demands.md) | Member verification accepted incomplete concurrent demands | High | [#2096](https://github.com/lambdaclass/stabileo/issues/2096) | [#2173](https://github.com/lambdaclass/stabileo/pull/2173) | 0.6.2 | Published 2026-11-16; drafted 2026-11-15 |
+| [SA-2026-072](SA-2026-072-snow-ridge-subdivision.md) | Unequal roof subdivision moved the inferred snow ridge and changed generated loads | High | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) | [#2175](https://github.com/lambdaclass/stabileo/pull/2175) | 0.6.2 | Published 2026-11-16; drafted 2026-11-15 |
+| [SA-2026-073](SA-2026-073-snow-crossing-moment.md) | Ridge-crossing members lost the snow load moment | High | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) | [#2197](https://github.com/lambdaclass/stabileo/pull/2197) | 0.6.2 | Published 2026-11-16; drafted 2026-11-16 |
+| [SA-2026-074](SA-2026-074-snow-panel-subdivision.md) | Rafter subdivision removed explicit-panel eave snow | High | [#2172](https://github.com/lambdaclass/stabileo/issues/2172) | [#2197](https://github.com/lambdaclass/stabileo/pull/2197) | 0.6.2 | Published 2026-11-16; drafted 2026-11-16 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
@@ -119,5 +119,8 @@ SA-2026-064 through SA-2026-068 are published with 0.6.1. The snow advisories
 have moved from `drafts/` into this catalog. Regenerate affected snow loads
 before re-solving projects.
 
-**SA-2026-070 is a draft** (2026-11-15). PR #2170 is pending release;
-review member-load deflections, rotations and serviceability when the fix is released.
+
+**SA-2026-069…074 are published with 0.6.2** (2026-11-16). Re-run affected
+concrete and steel checks and member-load analyses. Regenerate all affected
+generated area loads before re-solving; review earlier calculations and sizing.
+See the [release notes](../releases/v0.6.2.md) for every result change and open findings.

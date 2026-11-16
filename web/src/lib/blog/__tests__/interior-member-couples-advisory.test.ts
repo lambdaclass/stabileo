@@ -11,16 +11,16 @@ const readAdvisory = (file: string) => readFileSync(new URL(`../../../../../docs
 
 describe('SA-2026-070 interior member recovery', () => {
   it.each<[PublicLocale, string, string]>([
-    ['en', 'High', 'Fixed in PR #2170, pending release'],
-    ['es', 'Alta', 'Corregido en PR #2170, pendiente de publicación'],
-    ['pt', 'Alta', 'Corrigido no PR #2170, aguardando publicação'],
-    ['de', 'Hoch', 'Behoben in PR #2170, Veröffentlichung ausstehend'],
-    ['fr', 'Élevée', 'Corrigé dans PR #2170, publication en attente'],
-    ['tr', 'Yüksek', 'PR #2170 içinde düzeltildi, yayın bekleniyor'],
-  ])('%s lists the pending fix in the catalog, status, link and saved-project notice', checkAdvisory);
+    ['en', 'High', 'Fixed in 0.6.2'],
+    ['es', 'Alta', 'Corregido en 0.6.2'],
+    ['pt', 'Alta', 'Corrigido em 0.6.2'],
+    ['de', 'Hoch', 'Behoben in 0.6.2'],
+    ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
+    ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
+  ])('%s lists the released fix in the catalog, status, link and saved-project notice', checkAdvisory);
 
   it('known wrong result: #2099 — hu lists the interior recovery advisory and saved-project notice', () => {
-    checkAdvisory('hu', 'Magas', 'Javítva a #2170 PR-ben, kiadásra vár');
+    checkAdvisory('hu', 'Magas', 'Javítva a 0.6.2 verzióban');
   });
 
   function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
@@ -36,7 +36,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-070' && b.href.endsWith(`/docs/advisories/${advisoryFile}`))).toBe(true);
     expect((notice.title as Record<string, string>)[locale]?.trim()).toBeTruthy();
     expect((notice.explanation as Record<string, string>)[locale]).toContain('SA-2026-070');
-    expect(post.updated).toBe('2026-11-15');
+    expect(post.updated).toBe('2026-11-16');
   }
 
   it('known wrong result: #2099 — Hungarian recovery wording preserves the engineering scope and actions', () => {
@@ -63,15 +63,15 @@ describe('SA-2026-070 interior member recovery', () => {
     }
   });
 
-  it('retains the reference structure and distinguishes a merged fix from a released version', () => {
+  it('retains the reference structure and records the fixed release without claiming a historical replay', () => {
     const text = readAdvisory(advisoryFile);
     const reference = readAdvisory('SA-2026-068-provided-torsion-stirrups.md');
     expect(text.match(/^## .+$/gm)).toEqual(reference.match(/^## .+$/gm));
     const fields = (s: string) => [...s.matchAll(/^\| ([^|]+) \|/gm)].map(m => m[1]);
     expect(fields(text)).toEqual(fields(reference));
     expect(text).toContain('| Severity | High |');
-    expect(text).toContain('Draft 2026-11-15; fixed in PR #2170, pending release');
-    expect(text).toContain('| Fixed release | Not yet released |');
+    expect(text).toContain('Published 2026-11-16; drafted 2026-11-15');
+    expect(text).toContain('| Fixed release | 0.6.2 |');
     expect(text).toContain('44966b6e75f72ce268ec87798d5cd880a6dba144');
     expect(readAdvisory('README.md')).toContain(`[SA-2026-070](${advisoryFile})`);
     expect(notice.prs).toEqual([2170]);

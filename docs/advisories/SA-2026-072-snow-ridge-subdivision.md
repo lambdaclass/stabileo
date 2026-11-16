@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2175, pending release |
+| Status | Published 2026-11-16; drafted 2026-11-15 |
 | Issue | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) |
-| Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); pending release |
-| Fixed release | Not released |
+| Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `8e5c026b7`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-ridge-mesh`](../../web/src/lib/provenance/result-changes/snow-ridge-mesh.json) |
 
@@ -50,7 +50,7 @@ roof had an incorrect load.
 
 ## Fixed in
 
-Fixed in PR #2175, pending release. One shared
+Fixed in **0.6.2**, PR #2175. One shared
 roof-surface model now owns geometry, complete connected collinear runs,
 profile points, side classification and interpolation to member stations.
 The ridge uses the projected extent of the highest physical profile points;
@@ -58,20 +58,19 @@ representative slopes use plane slopes and complete run lengths. Every snow
 allocation path uses this representation. Existing engineering inequalities,
 geometric matching limits and test tolerances are unchanged.
 
-The separate explicit-panel faceted-dome roof-classification defect is tracked
-as #2172 and remains outside this correction. Its known-wrong reproducer is
-retained. This fix does not establish end-to-end invariance for that configuration.
+The separate explicit-panel faceted-dome roof-classification defect (#2172) is
+also fixed in 0.6.2 by PR #2197; see [SA-2026-074](SA-2026-074-snow-panel-subdivision.md).
 
 ## Workaround
 
-Until the correction is released, independently verify the physical
+Until you upgrade to 0.6.2, independently verify the physical
 ridge, snow pressures and load allocation, including a subdivision-invariance
 check. Do not rely on an earlier generated snow field solely because the solve
 completed without refusal.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction, regenerate affected
+After upgrading to 0.6.2, regenerate affected
 snow loads, then rerun analyses, combinations and design checks. Re-solving
 stored generated loads alone does not correct them. Review load distributions,
 governing cases, member sizing, calculations and deliverables based on the old
@@ -82,4 +81,4 @@ loads. Review explicit-panel faceted domes separately under #2172.
 The exposure is tracked as #2144. The coordinator assigned SA-2026-072.
 The [results-change record](../results-changes/2026-11-snow-ridge-mesh.md)
 retains the main witness, shared-path coverage, boundary tests and correct
-controls. The fix is in PR #2175, pending release.
+controls. The fix is in PR #2175, released in 0.6.2.

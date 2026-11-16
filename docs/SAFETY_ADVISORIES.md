@@ -127,14 +127,15 @@ and [SA-2026-068](advisories/SA-2026-068-provided-torsion-stirrups.md) (torsion 
 Re-run affected design checks; regenerate snow loads before re-solving.
 See the [release notes](releases/v0.6.1.md) for every results-change notice and known limitations.
 
-Draft 2026-11-15; fixed in PR #2169, pending merge and release:
-[SA-2026-069](advisories/SA-2026-069-torsion-secondary-shear.md)
-(torsion section limits omitted concurrent secondary shear, #2142).
+Published with 0.6.2 (2026-11-16):
+- [SA-2026-069](advisories/SA-2026-069-torsion-secondary-shear.md)
+- [SA-2026-070](advisories/SA-2026-070-interior-member-couples.md)
+- [SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
+- [SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
+- [SA-2026-073](advisories/SA-2026-073-snow-crossing-moment.md)
+- [SA-2026-074](advisories/SA-2026-074-snow-panel-subdivision.md)
 
-Draft 2026-11-15; fixed in PR #2173, pending merge and release:
-[SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
-(member verdicts from incomplete concurrent demands, #2096).
-
-Draft 2026-11-15; fixed in PR #2175, pending merge and release:
-[SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
-(unequal roof subdivision moved the snow ridge and changed generated loads, #2144).
+Re-run affected concrete and steel checks and member-load analyses. Regenerate
+all affected generated area loads before re-solving. Review earlier calculations
+and sizing. See the [release notes](releases/v0.6.2.md) for all result changes
+and known open findings.

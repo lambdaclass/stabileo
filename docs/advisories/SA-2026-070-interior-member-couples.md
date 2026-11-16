@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2170, pending release |
+| Status | Published 2026-11-16; drafted 2026-11-15 |
 | Issue | [#2143](https://github.com/lambdaclass/stabileo/issues/2143) |
-| Fix | PR [#2170](https://github.com/lambdaclass/stabileo/pull/2170); pending release |
-| Fixed release | Not yet released |
+| Fix | PR [#2170](https://github.com/lambdaclass/stabileo/pull/2170); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on main `44966b6e75f72ce268ec87798d5cd880a6dba144`; earlier introduction not yet bisected and historical release binaries not assessed |
 | Re-check registry | [`interior-member-couples`](../../web/src/lib/provenance/result-changes/interior-member-couples.json) |
 
@@ -96,8 +96,7 @@ insufficient bending stiffness must be resolved before accepting a loaded curve.
 
 ## Fixed in
 
-PR #2170 merged the recovery fix from branch `fix/2143`; it is pending release.
-No released version is claimed to contain the fix. A single Rust
+Fixed in **0.6.2**, PR #2170. A single Rust
 `MemberDeflection` solution now recovers interior displacement and section
 rotation for every member-load variant through `recover_member`. Full point
 records survive the native/WASM shape boundary. TypeScript hover and both
@@ -109,7 +108,7 @@ unchanged.
 
 ## Workaround
 
-Until the fix is merged and released, independently calculate interior
+Until you upgrade to 0.6.2, independently calculate interior
 member deflections and rotations for affected loads, and review serviceability
 using those independent values. A split-member model with a nodal couple is a
 supported equivalent for an interior couple, but splitting alone does not
@@ -118,7 +117,7 @@ interior display or a serviceability pass solely from the affected curves.
 
 ## What to do with results you already have
 
-After upgrading to a release containing PR #2170, reopen affected saved projects,
+After upgrading to 0.6.2, reopen affected saved projects,
 rerun their analyses and review interior deflections, rotations, deformed shapes,
 education readouts and steel/concrete serviceability checks. Revisit sizing,
 calculations and deliverables that relied on those values. Resolve any explicit
@@ -127,7 +126,7 @@ missing-EI refusal before using a recovered curve.
 ## Credits and references
 
 The omission was tracked as #2143 and fixed in PR #2170. The coordinator
-explicitly assigned SA-2026-070 during the second review round. The
+explicitly assigned SA-2026-070 during the investigation. The
 [results-change record](../results-changes/2026-11-interior-member-couples.md)
 retains the main witness, entry-point coverage, EI boundary tests, trapezoid
 replays and correct controls. Commit `53634442f3b5daf4cb2ad79dad4cd5f67b7440fb`
