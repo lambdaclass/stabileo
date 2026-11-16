@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { windHeightField, windHeightLoads } from '../wind-pressure-field';
 import { windLoadCases } from '../wind-cases';
 import { otherStructureWind } from '../wind-other';
@@ -12,12 +12,24 @@ const refusal = 'wind.pressure.triangularCentroidUnsupported';
 const structure = { kind: 'latticeTower' as const, section: 'triangle' as const, round: false, solidity: 1, diagonal: false, width: 2 };
 const sink = (): PlanSink => ({ cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] });
 
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
+function expectWindCaseRefusal(model: ReturnType<typeof mesh>, axis: 'x' | 'y', direction: '+x' | '-x' | '+y' | '-y', generate = windLoadCases) {
+  expect(() => generate({ model, axes: [{ ...windAxis, axis, pressureField: windHeightField({ model, axis, from: 0, to: 4, pressure: () => 1 }) }], set: 'all', directions: [direction], tributaryWidth: 2, speed: 40 })).toThrow(refusal);
+}
+
+knownWrong('known wrong result: #2220 case refusal rejects a generator that silently accepts the input', () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 4]], [[0, 2, 0], [0, 2, 4]], [[2, 0, 0], [2, 0, 4]]]);
+  const broken = vi.fn(() => ({ cases: [], notes: [] }));
+  expect(() => expectWindCaseRefusal(model, 'x', '+x', broken)).toThrow();
+  expect(broken).toHaveBeenCalledOnce();
+});
+
 for (const entry of ['field', 'cases', 'other', 'planner', 'plannerOther', 'loadPlan', 'loadPlanOther'] as const) for (const variant of variants) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 asymmetric triangle refuses ${entry} ${variant} ${direction}`, () => {
   const { model, direction: transformDirection } = remeshWind(mesh([[[0, 0, 0], [0, 0, 4]], [[0, 2, 0], [0, 2, 4]], [[2, 0, 0], [2, 0, 4]]]), variant);
   const d = transformDirection(direction), axis = d.endsWith('x') ? 'x' : 'y';
   const field = () => windHeightField({ model, axis, from: 0, to: 4, pressure: () => 1 });
   if (entry === 'field') expect(field).toThrow(refusal);
-  else if (entry === 'cases') expect(() => windLoadCases({ model, axes: [{ ...windAxis, axis, pressureField: field() }], set: 'all', directions: [d], tributaryWidth: 2, speed: 40 })).toThrow(refusal);
+  else if (entry === 'cases') expectWindCaseRefusal(model, axis, d);
   else if (entry === 'other') expect(() => otherStructureWind({ model, structure, project: windProject, directions: [d], tributaryWidth: 2 })).toThrow(refusal);
   else {
     const other = entry.endsWith('Other');
