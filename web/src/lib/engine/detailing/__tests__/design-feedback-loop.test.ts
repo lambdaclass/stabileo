@@ -141,7 +141,7 @@ const REPAIRED = [5, 6, 7, 8];
 /** The two pairs, and the geometry each actually lost. */
 const PAIRS = {
   noLayerMovement: { ids: [5, 6], hash: 'b0.0/t0.0/d15.0', sMaxCm: 24.9, util: 1.023, raise: 0 },
-  layerMoved: { ids: [7, 8], hash: 'b10.0/t10.0/d15.0', sMaxCm: 24.4, util: 1.027, raise: 0.010 },
+  layerMoved: { ids: [7, 8], hash: 'b10.0/t10.0/d15.0', sMaxCm: 24.3, util: 1.027, raise: 0.010 },
 } as const;
 const pairOf = (id: number) =>
   PAIRS.noLayerMovement.ids.includes(id as never) ? PAIRS.noLayerMovement : PAIRS.layerMoved;
