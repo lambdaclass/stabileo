@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
@@ -207,7 +208,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) {
     for (const [k, c] of out.cases.entries()) for (const id of selected) {
       const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
       const cos2 = mode === 'projected' ? (b.y - a.y) ** 2 / ((b.y - a.y) ** 2 + ((b.z ?? 0) - (a.z ?? 0)) ** 2) : 1;
-      const d = c.distributed.find(d => d.elementId === id);
+      const d = (mode === 'projected' ? transverseSnowLoads(model, c.distributed) : c.distributed).find(d => d.elementId === id);
       expect(-(d?.q ?? 0)).toBeCloseTo(expected[k]!(a) * 0.1 * cos2, 10);
       expect(-(d ? d.qJ ?? d.q : 0)).toBeCloseTo(expected[k]!(b) * 0.1 * cos2, 10);
     }

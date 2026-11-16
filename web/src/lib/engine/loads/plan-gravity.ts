@@ -42,8 +42,9 @@
  *
  * Pure: no store.
  */
+import { physicalRoofRuns } from './physical-roof-geometry';
 import polygonClipping from 'polygon-clipping';
-import { floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
+import { physicalFloorLoad as floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
@@ -998,13 +999,17 @@ function nearSegment(p: [number, number], a: [number, number], b: [number, numbe
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
 }
 
+export function connectedRoofFootprints(polys: Array<Array<[number, number]>>) {
+  return polys.length ? polygonClipping.union(polys.map(poly => [closeRing(poly)])).map(rings => rings.map(openRing)) : [];
+}
+
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
-  type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]> };
+  type Cover = { z: number; polys: Array<Array<[number, number]>> };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
     let c = covers.find((x) => Math.abs(x.z - z) <= TOL);
-    if (!c) { c = { z, polys: [], segs: [] }; covers.push(c); }
+    if (!c) { c = { z, polys: [] }; covers.push(c); }
     return c;
   };
   for (const [z, polys] of panelsAt) coverAt(z).polys.push(...polys);
@@ -1013,13 +1018,55 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     if (pts.some((p) => !p)) continue;
     coverAt(Math.min(...pts.map((p) => p!.z ?? 0))).polys.push(pts.map((p) => [p!.x, p!.y] as [number, number]));
   }
-  for (const id of zOf.keys()) {
-    const e = model.elements.get(id)!;
-    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
-  }
-  return (pt, zTop) => covers.reduce((h, c) => (c.z > zTop + 0.05
-    && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
+  const geometry = [...zOf.keys()].map(id => {
+    const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
+    return { id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy) };
+  });
+  const footprints = [...panelsAt].flatMap(([z, polys]) => connectedRoofFootprints(polys).map(rings => ({ z, rings })));
+  const contains = (pt: [number, number], rings: Array<Array<[number, number]>>) => inside(pt, rings[0]!, TOL)
+    && rings.slice(1).every(hole => !inside(pt, hole, 0) || hole.some((p, i) => nearSegment(pt, p, hole[(i + 1) % hole.length]!, TOL)));
+  const runs = physicalRoofRuns(geometry).map(({ a, b }) => {
+    const start: [number, number] = [a.x, a.y], end: [number, number] = [b.x, b.y];
+    const dx = b.x - a.x, dy = b.y - a.y, length2 = dx * dx + dy * dy;
+    const eave = (a.z ?? 0) <= (b.z ?? 0) ? a : b;
+    const within = (rings: Array<Array<[number, number]>>) => {
+      if (!contains(start, rings) || !contains(end, rings)) return false;
+      const cuts = [0, 1];
+      rings.forEach(poly => poly.forEach((p, i) => {
+        const q = poly[(i + 1) % poly.length]!;
+        const ex = q[0] - p[0], ey = q[1] - p[1], det = dx * ey - dy * ex;
+        if (Math.abs(det) <= 1e-12) return;
+        const t = ((p[0] - a.x) * ey - (p[1] - a.y) * ex) / det;
+        const u = ((p[0] - a.x) * dy - (p[1] - a.y) * dx) / det;
+        if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t);
+      }));
+      cuts.sort((x, y) => x - y);
+      return cuts.slice(1).every((t, i) => {
+        const mid = (cuts[i]! + t) / 2;
+        return contains([a.x + mid * dx, a.y + mid * dy], rings);
+      });
+    };
+    const ownPanels = footprints.filter(({ z, rings }) => Math.abs(z - (eave.z ?? 0)) <= TOL
+      && rings.some(poly => poly.some((p, i) => nearSegment([eave.x, eave.y], p, poly[(i + 1) % poly.length]!, TOL))) && within(rings));
+    return {
+      start, end, ownPanels,
+      heightAt: (pt: [number, number]) => {
+        const t = Math.max(0, Math.min(1, ((pt[0] - a.x) * dx + (pt[1] - a.y) * dy) / length2));
+        return (a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0));
+      },
+    };
+  });
+  return (pt: [number, number], zTop: number) => {
+    let h = covers.reduce((h, c) => c.z > zTop + 0.05 && c.polys.some(poly => inside(pt, poly)) ? Math.min(h, c.z - zTop) : h, Infinity);
+    for (const run of runs) {
+      if (!nearSegment(pt, run.start, run.end, 0.05)) continue;
+      if (run.ownPanels.some(({ z, rings }) => Math.abs(z - zTop) <= TOL && contains(pt, rings))) continue;
+      const z = run.heightAt(pt);
+      if (z > zTop + 0.05) h = Math.min(h, z - zTop);
+    }
+    return h;
+  };
 }
 
 /**

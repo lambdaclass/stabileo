@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { snowLoadCases, surfaceSlopes } from '../snow-loads';
 import { buildLoadPlan } from '../load-plan';
@@ -30,5 +31,5 @@ it('a skew rafter takes the roof plane pitch #2082', () => {
   const pitch = Math.atan(0.5) * 180 / Math.PI;
   expect(surfaceSlopes(model).get(5)).toBeCloseTo(pitch, 9);
   const cos2 = 72 / 81;
-  expect(pressure(out.cases[0]!.distributed, 5)).toBeCloseTo(0.7 * (70 - pitch) / 65 * cos2, 9);
+  expect(pressure(transverseSnowLoads(model, out.cases[0]!.distributed), 5)).toBeCloseTo(0.7 * (70 - pitch) / 65 * cos2, 9);
 });

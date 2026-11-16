@@ -11137,6 +11137,7 @@ const pt: Translations = {
   'snow.derivation.parapet': "Platibanda de {hp} m em uma borda da cobertura de +{z} m (Cap. 8): lu = {lu} m, hb = {hb} m, hc = {hc} m, 0,75 hd = {hd} m; triângulo de {h} m de altura e {w} m de largura, pd = {pd} kN/m², somado à neve balanceada.",
   'snow.derivation.partialExempt': "Os vãos ao longo de {axis}, perpendiculares à cumeeira, não levam cargas parciais: a inclinação de {slope}° supera 21/W + 0,5 = {limit}° (§5.1).",
   'snow.derivation.noPartial': "Cargas parciais (§5.1): a cobertura não tem três vãos seguidos em nenhuma direção; não há disposição a acrescentar.",
+  'snow.derivation.intensityBound': "As intensidades tributárias quadráticas usam cargas lineares por trechos que conservam a força e ambos os momentos em planta. O erro pontual não supera {relativePercent}% da intensidade máxima amostrada em cada franja física completa; o maior limite absoluto é {absolute} kN/m.",
   'snow.derivation.partial': "Cargas parciais (§5.1): {n} disposições da neve balanceada, completa em alguns vãos e pela metade no resto, que entram nas combinações no lugar da balanceada onde a neve é a ação principal.",
   'snow.case.unbalancedValleys': "Neve não balanceada, acumulada nos vales",
   'snow.case.partialPair': "Neve parcial, vãos junto a {axis} = {at} m",
