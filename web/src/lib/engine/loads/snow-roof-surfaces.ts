@@ -9,6 +9,11 @@ type Point = { x: number; y: number; z?: number };
 const Z = (p: Point) => p.z ?? 0;
 export const SNOW_INTENSITY_RELATIVE_ERROR = 1e-4;
 
+export function onSnowRoof(layout: GravityLayout, piece: { elementId: number; roof: boolean }, only?: ReadonlySet<number>): boolean {
+  if (!only) return piece.roof;
+  return only.has(piece.elementId) && (piece.roof || !layout.roof.has(piece.elementId));
+}
+
 class SnowRoofPlaneRefusal extends Error {
   constructor() { super('snow.refused.roofPlane'); }
 }
@@ -445,24 +450,33 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
         }
         return -q;
       };
+      const activeStrips = strips.filter(p => {
+        const source = [...p.sources][0]!;
+        return strip.sources.has(source) && onSnowRoof(layout, source, only);
+      });
       const sourceEvents = strips.filter(p => strip.sources.has([...p.sources][0]!))
-        .flatMap(p => [{ x: p.a, delta: 1 }, { x: p.b, delta: -1 }]).sort((a, b) => a.x - b.x);
+        .flatMap(p => {
+          const active = activeStrips.includes(p) ? 1 : 0;
+          return [{ x: p.a, delta: 1, active }, { x: p.b, delta: -1, active: -active }];
+        }).sort((a, b) => a.x - b.x);
       const coverageChanges: typeof sourceEvents = [];
       for (const event of sourceEvents) {
         const last = coverageChanges[coverageChanges.length - 1];
-        if (last && Math.abs(last.x - event.x) < 1e-8) last.delta += event.delta;
+        if (last && Math.abs(last.x - event.x) < 1e-8) { last.delta += event.delta; last.active += event.active; }
         else coverageChanges.push({ ...event });
       }
-      const xs = [x0, x1, ...coverageChanges.filter(e => e.delta !== 0).map(e => e.x)];
+      const xs = [x0, x1, ...coverageChanges.filter(e => e.delta !== 0 || e.active !== 0).map(e => e.x)];
       for (const d of [0, 1]) for (const t of cuts(point(x0, d * depth(x0)), point(x1, d * depth(x1)))) xs.push(x0 + (x1 - x0) * t);
       for (const polygon of polygons) for (const v of polygon) {
         const x = ((v[0] - a.x) * dir[0] + (v[1] - a.y) * dir[1]) / (dir[0] ** 2 + dir[1] ** 2);
         if (x > x0 && x < x1) xs.push(x);
       }
       const sorted = [x0, ...xs.filter(x => x > x0 + 1e-8 && x < x1 - 1e-8).sort((a, b) => a - b).filter((x, k, all) => k === 0 || x - all[k - 1]! > 1e-8), x1];
-      const intervals = sorted.slice(1).map((hi, k) => {
+      const intervals = sorted.slice(1).flatMap((hi, k) => {
         const lo = sorted[k]!, mid = (lo + hi) / 2;
-        return { lo, hi, qI: intensity(lo, lo + (hi - lo) * 1e-6), qJ: intensity(hi, hi - (hi - lo) * 1e-6), centre: intensity(mid, mid) };
+        const active = coverageChanges.reduce((count, event) => count + (event.x <= mid ? event.active : 0), 0);
+        if (active === 0) return [];
+        return [{ lo, hi, qI: intensity(lo, lo + (hi - lo) * 1e-6), qJ: intensity(hi, hi - (hi - lo) * 1e-6), centre: intensity(mid, mid) }];
       });
       const referenceScale = intervals.reduce((scale, p) => Math.max(scale, Math.abs(p.qI), Math.abs(p.qJ), Math.abs(p.centre)), 0);
       for (const { lo, hi, qI, qJ, centre } of intervals) {
@@ -538,7 +552,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!layout) return true;
     if (!layout.panels.every((p, k) => !p.roof || readPanel(k, layout).resolved)) return false;
     try {
-      for (const pc of layout.pieces) if (targetIds.has(pc.elementId) && (pc.roof || only && !layout.roof.has(pc.elementId))) pieceLoads(pc, layout, () => 0);
+      for (const pc of layout.pieces) if (targetIds.has(pc.elementId) && onSnowRoof(layout, pc, only)) pieceLoads(pc, layout, () => 0);
     } catch (error) {
       if (error instanceof SnowRoofPlaneRefusal) return false;
       throw error;

@@ -9,7 +9,7 @@ import { roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR } from '../snow-roof-su
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { memberResponse, remeshSnowRoof, snowDistributedResultant } from './snow-remesh-invariance';
 
-const regression = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2197');
+const regression = it;
 afterEach(() => vi.restoreAllMocks());
 
 const integral = (q: number[], a: number, b: number) => q.reduce((sum, c, k) => sum + c * (b ** (k + 1) - a ** (k + 1)) / (k + 1), 0);

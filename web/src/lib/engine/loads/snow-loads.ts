@@ -1,5 +1,5 @@
 import { roofMembers, type WindModel } from './wind-cases';
-import { roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
+import { onSnowRoof, roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
@@ -80,15 +80,10 @@ export interface SnowCasesInput {
   layout?: GravityLayout;
 }
 
-function onRoof(layout: GravityLayout, piece: { elementId: number; roof: boolean }, only?: ReadonlySet<number>): boolean {
-  if (!only) return piece.roof;
-  return only.has(piece.elementId) && (piece.roof || !layout.roof.has(piece.elementId));
-}
-
 function pointLoads(model: WindModel, layout: GravityLayout, profile: PressureProfile, surfaces: ReturnType<typeof roofSurfaceModel>, only?: ReadonlySet<number>): SnowCaseLoads['nodal'] {
   const out: SnowCaseLoads['nodal'] = [];
   for (const pt of layout.points) {
-    if (!onRoof(layout, pt, only)) continue;
+    if (!onSnowRoof(layout, pt, only)) continue;
     const node = model.nodes.get(pt.nodeId)!;
     const surface = surfaces.panel(pt.panel, layout).planeAt([node.x, node.y]);
     const p = profile.at(pt.elementId, node, node, surface, pt.panel);
@@ -100,7 +95,7 @@ function pointLoads(model: WindModel, layout: GravityLayout, profile: PressurePr
 function panelLoads(model: WindModel, layout: GravityLayout, tributaryWidth: number, only: ReadonlySet<number> | undefined, surfaces: ReturnType<typeof roofSurfaceModel>, profile: PressureProfile): SnowCaseLoads['distributed'] {
   const out: SnowCaseLoads['distributed'] = [];
   for (const pc of layout.pieces) {
-    if (!onRoof(layout, pc, only)) continue;
+    if (!onSnowRoof(layout, pc, only)) continue;
     const loads = surfaces.pieceLoads(pc, layout, (surface, point, inside) => {
       return profile.at(pc.elementId, { x: point[0], y: point[1] }, { x: inside[0], y: inside[1] }, surface, pc.panel);
     }, profile.boundaries);
