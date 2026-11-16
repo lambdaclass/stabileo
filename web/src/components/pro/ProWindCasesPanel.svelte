@@ -15,7 +15,7 @@
   import { t, tp } from '../../lib/i18n';
   import QuantityInput from './loads/QuantityInput.svelte';
   import {
-    classifyEnclosure, velocityPressure, velocityPressureExposureCoefficient, SERVICE_WIND_FACTOR,
+    classifyEnclosure, MIN_ENCLOSURE_WALLS, velocityPressure, velocityPressureExposureCoefficient, SERVICE_WIND_FACTOR,
     type Enclosure, type Exposure, type ServiceRecurrence,
   } from '../../lib/codes/cirsoc102/wind';
   const RECURRENCES: ServiceRecurrence[] = [5, 10, 25, 50, 100, 200, 500];
@@ -40,8 +40,13 @@
   }: Props = $props();
 
   // ── Enclosure from the openings ──
-  let a0 = $state(0), ag = $state(0), a0i = $state(0), agi = $state(0);
-  const classified = $derived(ag > 0 ? classifyEnclosure({ a0, ag, a0i, agi }) : null);
+  let walls = $state(Array.from({ length: 4 }, () => ({ openings: 0, gross: 0 })));
+  let roofOpenings = $state({ openings: 0, gross: 0 });
+  const classification = $derived.by(() => {
+    try { return { value: classifyEnclosure({ walls, roof: roofOpenings }), reason: null }; }
+    catch (error) { return { value: null, reason: (error as Error).message }; }
+  });
+  const classified = $derived(classification.value);
 
   // ── qz profile ──
   const project = $derived({
@@ -107,12 +112,22 @@
   <details class="al-sub" data-testid="al-wind-openings">
     <summary>{t('autoLoad.windOpenings')}</summary>
     <Hint text={t('autoLoad.windOpeningsHint')} />
-    <div class="al-grid">
-      <label class="al-field"><span class="al-label">A₀</span><QuantityInput bind:value={a0} quantity="planArea" min={0} testid="al-wind-a0" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A_g</span><QuantityInput bind:value={ag} quantity="planArea" min={0} testid="al-wind-ag" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A₀i</span><QuantityInput bind:value={a0i} quantity="planArea" min={0} testid="al-wind-a0i" wrap="al-unit-field" /></label>
-      <label class="al-field"><span class="al-label">A_gi</span><QuantityInput bind:value={agi} quantity="planArea" min={0} testid="al-wind-agi" wrap="al-unit-field" /></label>
+    <div class="wc-envelope">
+      {#each walls as wall, i}
+        <div class="wc-wall">
+          <div class="wc-wall-title"><span>{t('autoLoad.windWall')} {i + 1}</span><button class="al-link" disabled={walls.length <= MIN_ENCLOSURE_WALLS} onclick={() => { walls = walls.filter((_, index) => index !== i); }} aria-label={`${t('autoLoad.windRemoveWall')} ${i + 1}`} data-testid="al-wind-remove-wall-{i}">{t('autoLoad.windRemoveWall')}</button></div>
+          <label class="al-field"><span class="al-label">A₀</span><QuantityInput bind:value={wall.openings} quantity="planArea" min={0} ariaLabel={`${t('autoLoad.windWall')} ${i + 1} · A₀`} testid="al-wind-wall-{i}-openings" wrap="al-unit-field" /></label>
+          <label class="al-field"><span class="al-label">A_g</span><QuantityInput bind:value={wall.gross} quantity="planArea" min={0} ariaLabel={`${t('autoLoad.windWall')} ${i + 1} · A_g`} testid="al-wind-wall-{i}-gross" wrap="al-unit-field" /></label>
+        </div>
+      {/each}
+      <div class="wc-wall">
+        <span class="wc-wall-title">{t('autoLoad.windRoof')}</span>
+        <label class="al-field"><span class="al-label">A₀</span><QuantityInput bind:value={roofOpenings.openings} quantity="planArea" min={0} testid="al-wind-roof-openings" wrap="al-unit-field" /></label>
+        <label class="al-field"><span class="al-label">A_g</span><QuantityInput bind:value={roofOpenings.gross} quantity="planArea" min={0} testid="al-wind-roof-gross" wrap="al-unit-field" /></label>
+      </div>
     </div>
+    <button class="al-link" onclick={() => { walls = [...walls, { openings: 0, gross: 0 }]; }}>{t('autoLoad.windAddWall')}</button>
+    {#if classification.reason}<p class="al-warn" data-testid="al-wind-classification-refused">{t(classification.reason)}</p>{/if}
     {#if classified}
       <div class="al-row">
         <span data-testid="al-wind-classified">{tp('autoLoad.windOpeningsResult', { e: t(`loads.cirsoc102.enclosure.${classified}`) })}</span>
@@ -157,6 +172,10 @@
 <style>
   /* Fields and subsections take the dialog's look (`ProAutoLoadsDialog`); the plot is this panel's. */
   .wc { display: flex; flex-direction: column; gap: 8px; }
+  .wc-envelope { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .wc-wall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; min-width: 0; }
+  .wc-wall-title { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; }
+  .wc-wall :global(.al-field), .wc-wall :global(.al-unit-field), .wc-wall :global(input) { min-width: 0; max-width: 100%; }
   .wc-plot { width: 100%; max-width: 340px; display: block; margin: 4px 0; }
   .wc-axis { stroke: var(--st-hair-strong); stroke-width: 1; }
   .wc-tick, .wc-tip { font-size: 8px; fill: var(--st-text-3); }

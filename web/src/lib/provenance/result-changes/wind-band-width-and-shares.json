@@ -1,0 +1,39 @@
+{
+  "id": "wind-band-width-and-shares",
+  "date": "2026-11-16",
+  "prs": [
+    2220
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Wind width at tower-to-mast transitions",
+    "es": "Ancho de viento en transiciones de torre a mástil",
+    "pt": "Largura de vento nas transições de torre para mastro",
+    "de": "Windbreite beim Übergang vom Turm zum Mast",
+    "fr": "Largeur au vent aux transitions de tour à mât",
+    "tr": "Kule ile direk geçişlerinde rüzgâr genişliği",
+    "hu": "Szélterhelési szélesség torony és árbóc átmeneténél"
+  },
+  "explanation": {
+    "en": "Unmerged PR #2220 builds could refuse a tower with multiple legs below a single mast despite a valid declared mast width. Width mode now follows continuous carrier bands and preserves physical taper. Wall force derivations identify equivalent nodal shares rather than claiming a whole-wall mean pressure. Regenerate W/Wa and rerun analyses, combinations and design checks (#2220).",
+    "es": "Las versiones sin integrar de PR #2220 podían rechazar una torre con varias patas bajo un mástil único aunque tuviera un ancho declarado válido. El modo de ancho sigue las franjas de portadores continuos y conserva el estrechamiento físico. La derivación identifica fuerzas nodales equivalentes. Regenerá W/Wa y repetí análisis, combinaciones y verificaciones (#2220).",
+    "pt": "Versões não integradas do PR #2220 podiam recusar uma torre com várias pernas sob um único mastro apesar da largura declarada válida. O modo de largura acompanha faixas de portadores contínuos e preserva o afunilamento físico. A derivação identifica forças nodais equivalentes. Gere W/Wa novamente e refaça análises, combinações e verificações (#2220).",
+    "de": "Nicht zusammengeführte Builds von PR #2220 konnten einen Turm mit mehreren Beinen unter einem einzelnen Mast trotz gültiger deklarierter Mastbreite ablehnen. Der Breitenmodus folgt nun durchgehenden Trägerbändern und erhält die physische Verjüngung. Die Herleitung kennzeichnet äquivalente Knotenkräfte. W/Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2220).",
+    "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser une tour à plusieurs pieds sous un mât unique malgré une largeur déclarée valide. Le mode de largeur suit les bandes de porteurs continus et conserve le rétrécissement physique. La dérivation identifie les forces nodales équivalentes. Régénérez W/Wa et relancez analyses, combinaisons et vérifications (#2220).",
+    "tr": "Birleştirilmemiş PR #2220 sürümleri, geçerli direk genişliğine rağmen üstünde tek direk bulunan çok ayaklı kuleyi reddedebiliyordu. Genişlik modu artık sürekli taşıyıcı bantlarını izler ve fiziksel daralmayı korur. Türetim eşdeğer düğüm kuvvetlerini belirtir. W/Wa yüklerini yeniden üretip analiz, birleşim ve kontrolleri tekrarlayın (#2220).",
+    "hu": "A még nem egyesített #2220 PR az érvényes megadott árbócszélesség ellenére elutasíthatta a több lábon álló, felül egyetlen árbóccal folytatódó tornyot. A szélesség módja most a folytonos teherhordók sávjait követi és megőrzi a fizikai szűkülést. A levezetés egyenértékű csomóponti erőket jelöl. Állítsa elő újra a W/Wa terheket, és ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2220)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-band-width-and-shares.md",
+    "heading": "Wind width at tower-to-mast transitions"
+  }
+}
