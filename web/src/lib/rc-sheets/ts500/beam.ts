@@ -1,7 +1,7 @@
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from '../bars';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
-import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups } from '../types';
+import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups, isGenerous } from '../types';
 import { toConfirm as U, ts500Mat, type Ts500Mat } from './basis';
 import { barsAt, flexChecks, flexureNeeds, mrOf, sectionOf, type SectionNeed, type Ts500Flexure } from './beam-flexure';
 import { shearState, torsionState, vrOf, type ShearState, type TorsionState } from './beam-shear';
@@ -133,9 +133,9 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   }
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, t, a, req) : ev;
-  const generous = groupsArea(a.bottom) > 1.2 * bottomReq + 1e-6 || (topReq > 0 && groupsArea(a.top) > 1.2 * topReq + 1e-6);
   const verifications = checks(d, e, a, bottomReq, topReq, skin, fmt);
   const allOk = verifications.every((v) => v.ok);
+  const generous = isGenerous(verifications);
   const steps: StepGroup[] = [
     dataSteps(d, c, t, fmt),
     flexureSteps('rcSheets.g.flexBottom', t, gPos, a.bottom, e.flex.filter((x) => x.sign === 'pos'), fmt),

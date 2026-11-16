@@ -94,6 +94,8 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await ws.getByTestId('rc-marks-toggle').check();
   await expect(ws.getByTestId('rc-line-envelope')).toBeVisible();
   await expect(ws.getByTestId('rc-env-phivn')).toHaveAttribute('d', /^(M[\d.]+,[\d.]+( L[\d.]+,[\d.]+)+ ?)+$/);
+  await expect(ws.getByTestId('rc-env-mu-scale')).toHaveText(/^\d+ kN·m$/);
+  await expect(ws.getByTestId('rc-env-vu-scale')).toHaveText(/^\d+ kN$/);
   await ws.getByTestId('rc-envelope-toggle').uncheck();
   await expect(ws.getByTestId('rc-line-envelope')).toHaveCount(0);
   await ws.getByTestId('rc-envelope-toggle').check();
@@ -193,6 +195,20 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   }
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
+
+  // Exact reinforcement: every line either bends bars up or says why it cannot, span by span.
+  await page.getByTestId('rc-opt-bent-bars').check();
+  await page.getByTestId('rc-redesign').click();
+  await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
+  await page.getByTestId('rc-open-beam').click();
+  for (const text of await ws.getByTestId('rc-line-spans').allTextContents()) expect(text).toMatch(/lev\./);
+  const v4 = ws.getByTestId('rc-row').filter({ has: page.locator('td.nm', { hasText: /^V4\D*$/ }) }).first();
+  await v4.click();
+  if (await v4.getByTestId('rc-line-no-bent').count()) {
+    await expect(ws.getByTestId('rc-line-bent-note').first()).toBeVisible();
+    for (const reason of await ws.getByTestId('rc-line-bent-note').evaluateAll((xs) => xs.map((x) => x.getAttribute('data-reason')))) expect(['noSagging', 'noHogging', 'short']).toContain(reason);
+  } else await expect(ws.getByTestId('rc-bent-bar').first()).toBeVisible();
+  await page.keyboard.press('Escape');
 
   // The project's denser column ends, the design's own setting, drawn in the elevation.
   await page.getByTestId('rc-opt-end-zones').check();

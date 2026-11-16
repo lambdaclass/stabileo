@@ -128,3 +128,13 @@ export const check = (label: string, ok: boolean, o: Omit<CheckLine, 'label' | '
 
 export const ratioOf = (demand: number, capacity: number): number =>
   capacity > 1e-9 ? Math.abs(demand) / capacity : Math.abs(demand) > 1e-9 ? Number.POSITIVE_INFINITY : 0;
+
+/** Below this governing demand-to-capacity ratio a member that verifies reads as generous. */
+export const GENEROUS_BELOW = 0.5;
+
+/** The highest demand-to-capacity ratio among the checks that give one. */
+export const governingRatio = (checks: readonly CheckLine[]): number =>
+  Math.max(0, ...checks.map((c) => c.ratio ?? 0).filter((r) => Number.isFinite(r)));
+
+export const isGenerous = (checks: readonly CheckLine[]): boolean =>
+  checks.some((c) => c.ratio !== undefined) && checks.every((c) => c.ok) && governingRatio(checks) < GENEROUS_BELOW;

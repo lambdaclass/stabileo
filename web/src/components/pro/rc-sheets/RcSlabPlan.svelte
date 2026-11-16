@@ -1,14 +1,17 @@
 <script lang="ts">
-  import { i18n, t, tp } from '../../../lib/i18n';
+  import { i18n, t, tp, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { meshArea, meshLabel } from '../../../lib/rc-sheets/bars';
-  import { planDrawing, type LevelPlan } from '../../../lib/rc-sheets/slab-plan';
+  import { planDrawing, type LevelPlan, type PlanBarDrawing } from '../../../lib/rc-sheets/slab-plan';
+  import { legLabelBox, placePlanLabels } from '../../../lib/rc-sheets/slab-plan-labels';
 
   let { plan, highlight = [] }: { plan: LevelPlan; highlight?: string[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  let show = $state({ bottom: true, top: true, base: true });
+  let show = $state({ base: true, bottom: true, top: true });
+  let width = $state(1100);
 
-  const W = 1100, PAD = 44, LEG_PX = 14;
+  const PAD = 44, LEG_PX = 14, LABEL_PX = 9, CHAR_PX = 5.6, LEG_FONT_PX = 8, LEG_CHAR_PX = 4.9, GAP_PX = 3;
+  const W = $derived(Math.max(640, Math.floor(width)));
   const box = $derived.by(() => {
     const xs = [...plan.panels.flatMap((p) => [p.rect.x0, p.rect.x1]), ...plan.beams.flatMap((b) => [b.x1, b.x2])];
     const ys = [...plan.panels.flatMap((p) => [p.rect.y0, p.rect.y1]), ...plan.beams.flatMap((b) => [b.y1, b.y2])];
@@ -31,7 +34,14 @@
   const short = $derived(plan.checks.filter((c) => !c.ok));
   const anchorsShort = $derived(plan.packages.filter((pk) => pk.anchor && !pk.anchor.ok));
   const reachShort = $derived(plan.packages.filter((pk) => pk.reach.some((r) => r.length < r.needed - 1e-6)));
-  const has = (layer: 'bottom' | 'top') => plan.packages.some((pk) => pk.layer === layer);
+  const has = (which: 'base' | 'bottom' | 'top') => plan.packages.some((pk) => (which === 'base' ? pk.base : pk.layer === which && !pk.base));
+  const labelOf = (b: PlanBarDrawing) => `${b.mark} · ${b.label}`;
+  const textSize = $derived({ char: CHAR_PX / k, height: LABEL_PX / k, gap: GAP_PX / k, legChar: LEG_CHAR_PX / k, legHeight: LEG_FONT_PX / k });
+  const nameBoxes = $derived(plan.panels.map((p) => {
+    const w = `${p.name} · h=${cm(p.h)}`.length * CHAR_PX / k, x = (p.rect.x0 + p.rect.x1) / 2, y = p.rect.y1 - 12 / k;
+    return { x0: x - w / 2, y0: y - 2 / k, x1: x + w / 2, y1: y + LABEL_PX / k };
+  }));
+  const places = $derived(placePlanLabels(bars, labelOf, (m) => cm(m), textSize, nameBoxes));
   const corners = $derived(plan.checks.filter((c) => c.kind === 'corner'));
   const integrity = $derived(plan.checks.filter((c) => c.kind === 'integrity'));
   const fraction = (x: number) => `1/${Math.round(1 / x)}`;
@@ -40,11 +50,12 @@
 <figure class="rsp" data-testid="rc-slab-plan-level" data-level={plan.level}>
   <figcaption>{tp('rcSheets.planFig.title', { level: plan.level || '—' })}</figcaption>
   <div class="rsp-toggles" role="group" aria-label={t('rcSheets.slabFig.layers')}>
-    <label class="tg tg-bottom" class:off={!has('bottom')}><input type="checkbox" bind:checked={show.bottom} disabled={!has('bottom')} data-testid="rc-plan-show-bottom" /> {t('rcSheets.planFig.bottom')}</label>
+    {#if plan.baseMesh}<label class="tg tg-base" class:off={!has('base')}><input type="checkbox" bind:checked={show.base} disabled={!has('base')} data-testid="rc-plan-show-base" /> {t('rcSheets.planFig.base')}</label>{/if}
+    <label class="tg tg-bottom" class:off={!has('bottom')}><input type="checkbox" bind:checked={show.bottom} disabled={!has('bottom')} data-testid="rc-plan-show-bottom" /> {t(plan.baseMesh ? 'rcSheets.planFig.bottomExtra' : 'rcSheets.planFig.bottom')}</label>
     <label class="tg tg-top" class:off={!has('top')}><input type="checkbox" bind:checked={show.top} disabled={!has('top')} data-testid="rc-plan-show-top" /> {t('rcSheets.planFig.top')}</label>
-    {#if plan.baseMesh}<label class="tg" class:off={!show.bottom}><input type="checkbox" bind:checked={show.base} disabled={!show.bottom} data-testid="rc-plan-show-base" /> {t('rcSheets.planFig.base')}</label>{/if}
   </div>
-  <svg viewBox="0 0 {W} {H}" width="100%" style="max-width: {W}px" role="img" aria-label={tp('rcSheets.planFig.title', { level: plan.level || '—' })} data-testid="rc-plan-svg">
+  <div class="rsp-fit" bind:clientWidth={width}>
+  <svg viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label={tp('rcSheets.planFig.title', { level: plan.level || '—' })} data-testid="rc-plan-svg">
     {#each plan.panels as p (p.key)}
       <rect x={sx(p.rect.x0)} y={sy(p.rect.y1)} width={(p.rect.x1 - p.rect.x0) * k} height={(p.rect.y1 - p.rect.y0) * k} class="panel st-{p.status}" />
       <text x={sx((p.rect.x0 + p.rect.x1) / 2)} y={sy(p.rect.y1) + 12} class="pname">{p.name} · h={cm(p.h)}</text>
@@ -57,27 +68,29 @@
     {/each}
     {#each bars as b (b.id)}
       {@const main = b.legs.reduce((m, l, j) => (l.length > b.legs[m]!.length ? j : m), 0)}
+      {@const at = places.get(b.id)?.at ?? b.at}
       <g class="bar {b.layer}-{b.dir} k-{b.kind}" class:hl={highlight.includes(b.mark)} data-testid="rc-plan-bar" data-layer={b.layer} data-dir={b.dir} data-kind={b.kind} data-mark={b.mark}>
         <line x1={sx(b.band[0][0])} y1={sy(b.band[0][1])} x2={sx(b.band[1][0])} y2={sy(b.band[1][1])} class="band" />
         <polygon points={arrow(b.band[0], b.band[1])} class="tip" />
         <polygon points={arrow(b.band[1], b.band[0])} class="tip" />
         <polyline points={pts(b.pts)} class="rod" />
         {#each b.legs as l, j (j)}
-          {#if j !== main}<text x={sx(l.at[0])} y={sy(l.at[1])} class="leg" dy="-2" data-testid="rc-plan-leg">{cm(l.length)}</text>{/if}
+          {#if j !== main}{@const lb = legLabelBox(l, cm(l.length), textSize)}<text x={sx(lb.at[0])} y={sy(lb.at[1])} text-anchor={lb.anchor} class="leg" data-testid="rc-plan-leg">{cm(l.length)}</text>{/if}
         {/each}
         {#if b.dir === 'x'}
-          <text x={sx(b.at[0])} y={sy(b.at[1]) - 4} class="lbl">{b.mark} · {b.label}</text>
+          <text x={sx(at[0])} y={sy(at[1])} class="lbl" data-testid="rc-plan-label">{labelOf(b)}</text>
         {:else}
-          <text x={sx(b.at[0]) - 4} y={sy(b.at[1])} class="lbl" transform="rotate(-90 {sx(b.at[0]) - 4} {sy(b.at[1])})">{b.mark} · {b.label}</text>
+          <text x={sx(at[0])} y={sy(at[1])} class="lbl" transform="rotate(-90 {sx(at[0])} {sy(at[1])})" data-testid="rc-plan-label">{labelOf(b)}</text>
         {/if}
       </g>
     {/each}
   </svg>
+  </div>
   {#if plan.baseMesh && !show.base}<p class="note" data-testid="rc-plan-base-note">{tp('rcSheets.planFig.baseNote', { mesh: meshLabel(plan.baseMesh) })}</p>{/if}
   <p class="note">{t('rcSheets.planFig.folded')}</p>
   <p class="note">{tp('rcSheets.planFig.rules', { interior: fmt(plan.rules.reach.interior, 2), end: fmt(plan.rules.reach.end, 2), clause: plan.rules.clause.topReach })}</p>
   {#each plan.cantilevers as c (c.panel + c.dir)}<p class="note" data-testid="rc-plan-cantilever">{tp('rcSheets.planFig.cantilever', { panel: c.panel, length: fmt(c.length, 2) })}</p>{/each}
-  <p class="note" class:bad={short.length > 0} data-testid="rc-plan-checks">{tp('rcSheets.planFig.checks', { ok: plan.checks.length - short.length, n: plan.checks.length })}</p>
+  <p class="note" class:bad={short.length > 0} data-testid="rc-plan-checks">{tpn('rcSheets.planFig.checks', plan.checks.length, { ok: plan.checks.length - short.length })}</p>
   {#if plan.bent}<p class="note" data-testid="rc-plan-bend">{tp('rcSheets.planFig.bendAt', { oneWay: fraction(plan.rules.bendAt.oneWay), twoWay: fraction(plan.rules.bendAt.twoWay), clause: plan.rules.clause.bendAt ?? '' })}</p>{/if}
   {#if plan.rules.corners && corners.length}<p class="note" data-testid="rc-plan-corners">{tp('rcSheets.planFig.corners', { side: fraction(plan.rules.corners.side), n: corners.length / (2 * plan.rules.corners.faces.length), clause: plan.rules.clause.corners ?? '' })}</p>{/if}
   {#if plan.rules.integrity && integrity.length}<p class="note" data-testid="rc-plan-integrity">{tp('rcSheets.planFig.integrity', { n: plan.rules.integrity.bars, columns: integrity.length / 2, clause: plan.rules.clause.integrity ?? '' })}</p>{/if}
@@ -119,7 +132,8 @@
   .rod { fill: none; stroke: var(--c); stroke-width: 1.8; stroke-linejoin: round; }
   .band { stroke: var(--c); stroke-width: 0.8; stroke-dasharray: 4 3; }
   .tip { fill: var(--c); }
-  .leg { font-size: 8px; fill: var(--c); text-anchor: middle; font-family: var(--st-mono); }
+  .rsp-fit { width: 100%; overflow-x: auto; }
+  .leg { font-size: 8px; fill: var(--c); font-family: var(--st-mono); }
   .lbl { font-size: 9px; fill: var(--c); text-anchor: middle; font-family: var(--st-mono); font-weight: 600; }
   .bottom-x { --c: #2a9d8f; }
   .bottom-y { --c: #3d6fd6; }

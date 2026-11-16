@@ -3,7 +3,7 @@ import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-k
 import { concreteBelowTopBars, confinementOf, deriveDevelopment, deriveLap, topBarFactor, type DevelopmentResult } from '../codes/cirsoc201/anchorage';
 import { meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
-import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type Materials, type RowStatus, type Signed, type Step, type StepGroup, type SlabAdopted } from './types';
+import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type Materials, type RowStatus, type Signed, type Step, type StepGroup, type SlabAdopted, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 
@@ -171,6 +171,7 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
     ] : []),
   ];
   const allOk = SLAB_FACES.every((f) => faces[f].ok) && verifications.every((v) => v.ok);
+  const generous = isGenerous(verifications);
   const cap = (f: SlabFace) => faces[f].phiMn;
   const combos: ComboTable = {
     headers: ['rcSheets.face.bottomX', 'rcSheets.face.bottomY', 'rcSheets.face.topX', 'rcSheets.face.topY', 'qx', 'qy'],
@@ -180,7 +181,6 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
       return { combo: k.combo, values: [fmt(k.bottomX, 1), fmt(k.bottomY, 1), fmt(k.topX, 1), fmt(k.topY, 1), fmt(k.qx, 1), fmt(k.qy, 1)], ratio, ok: ratio <= 1 + 1e-6 };
     }),
   };
-  const generous = SLAB_FACES.some((f) => faces[f].asReq > 0 && meshArea(a[f]) > 1.2 * faces[f].asReq + 1e-6 && faces[f].asReq > faces[f].asMin + 1e-6);
 
   const steps: StepGroup[] = [
     {

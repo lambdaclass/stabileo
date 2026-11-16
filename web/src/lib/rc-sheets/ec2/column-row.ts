@@ -3,7 +3,7 @@ import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
 import { columnArea, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
-import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup } from '../types';
+import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
 
 const KPA = 1000;
@@ -152,7 +152,6 @@ export function makeColumnRow(set: Ec2Set) {
     const barMinOk = thinnest >= set.colBarMin;
     const puMax = Math.max(0, ...d.cases.map((k) => k.pu));
     const compressionDominated = puMax > 0.1 * c.mat.fc * KPA * Ac;
-    const generous = area > 1.2 * Math.max(ast, asMin) + 1e-6 && ast > asMin + 1e-6;
     const lap = lapLength(m, longest, true);
     const gov = res?.governing;
 
@@ -170,6 +169,7 @@ export function makeColumnRow(set: Ec2Set) {
       ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${longest})` })] : []),
     ];
     const ok = verifications.every((v) => v.ok) && !impossible;
+    const generous = isGenerous(verifications);
 
     const combos: ComboTable = {
       headers: ['Pu', 'Mx', 'My', 'Vx', 'Vy'],

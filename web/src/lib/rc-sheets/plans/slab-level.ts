@@ -10,6 +10,7 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { meshLabel } from '../bars';
 import { planDrawing, type LevelPlan, type PlanLayer, type SlabPackage } from '../slab-plan';
+import { legLabelBox, placePlanLabels } from '../slab-plan-labels';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
@@ -48,7 +49,10 @@ function frame(plan: LevelPlan, c: PlanCtx): Primitive[] {
 export function slabLayerPrimitives(plan: LevelPlan, layer: PlanLayer, c: PlanCtx): Primitive[] {
   const s = c.scale, ps = frame(plan, c);
   const byId = new Map(plan.packages.map((p) => [p.id, p]));
-  for (const b of planDrawing(plan, { bottom: layer === 'bottom', top: layer === 'top', base: false }, c.fmt, 1)) {
+  const bars = planDrawing(plan, { bottom: layer === 'bottom', top: layer === 'top', base: false }, c.fmt, 1);
+  const size = { char: (1.5 * s) / K, height: (2.5 * s) / K, gap: (1.2 * s) / K, legChar: (1.2 * s) / K, legHeight: (2 * s) / K };
+  const places = placePlanLabels(bars, (b) => `${b.mark} · ${b.label}`, (m) => cm(c.fmt, m), size);
+  for (const b of bars) {
     const pk = byId.get(b.id)!, L = arm(packageLayer(pk), pk.bars.dia), dia = pk.bars.dia;
     ps.push({ kind: 'polyline', layer: L, points: b.pts.map(([x, y]) => pt(x * K, y * K)), dia });
     const [a, e] = b.band.map(([x, y]) => pt(x * K, y * K)) as [ReturnType<typeof pt>, ReturnType<typeof pt>];
@@ -56,9 +60,13 @@ export function slabLayerPrimitives(plan: LevelPlan, layer: PlanLayer, c: PlanCt
     const tick = 1.5 * s, along = pk.dir === 'x';
     for (const q of [a, e]) ps.push(seg(L, pt(q.x - (along ? tick : 0), q.y - (along ? 0 : tick)), pt(q.x + (along ? tick : 0), q.y + (along ? 0 : tick)), dia));
     const main = b.legs.reduce((m, l, j) => (l.length > b.legs[m]!.length ? j : m), 0);
-    b.legs.forEach((l, j) => { if (j !== main) ps.push(label(pt(l.at[0] * K, l.at[1] * K + 1 * s), cm(c.fmt, l.length), 2, 'center')); });
-    const at = pt(b.at[0] * K, b.at[1] * K);
-    ps.push(along ? label(pt(at.x, at.y + 1.2 * s), `${b.mark} · ${b.label}`, 2.5, 'center') : label(pt(at.x - 1.2 * s, at.y), `${b.mark} · ${b.label}`, 2.5, 'center', 90));
+    b.legs.forEach((l, j) => {
+      if (j === main) return;
+      const lb = legLabelBox(l, cm(c.fmt, l.length), size);
+      ps.push(label(pt(lb.at[0] * K, lb.at[1] * K), cm(c.fmt, l.length), 2, lb.anchor === 'middle' ? 'center' : lb.anchor === 'start' ? 'left' : 'right'));
+    });
+    const at = places.get(b.id)?.at ?? b.at;
+    ps.push(along ? label(pt(at[0] * K, at[1] * K), `${b.mark} · ${b.label}`, 2.5, 'center') : label(pt(at[0] * K, at[1] * K), `${b.mark} · ${b.label}`, 2.5, 'center', 90));
     if (pk.layer !== 'top') continue;
     const across = along ? b.pts[1]![1] * K : b.pts[1]![0] * K;
     for (const r of pk.reach) {

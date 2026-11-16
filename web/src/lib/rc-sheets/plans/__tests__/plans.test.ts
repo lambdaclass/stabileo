@@ -36,15 +36,16 @@ describe('beam elevation', () => {
   const axes = lineSupports(line).map((x) => x * 1000);
 
   it('dimensions the spans axis to axis, adding up to the line, and the line overall', () => {
-    const chain = axes.slice(1).map((x, j) => dims(elev).find((d) => close(d.a.x, axes[j]!) && close(d.b.x, x) && d.offset < -30));
+    const chain = axes.slice(1).map((x, j) => dims(elev).find((d) => close(d.a.x, axes[j]!) && close(d.b.x, x) && d.offset < -25));
     expect(chain.every(Boolean)).toBe(true);
     expect(chain.reduce((s, d) => s + len(d!), 0)).toBeCloseTo(line.length * 1000, 6);
     expect(dims(elev).some((d) => close(d.a.x, axes[0]!) && close(d.b.x, axes[axes.length - 1]!) && close(len(d), line.length * 1000))).toBe(true);
-    expect(chain.map((d) => d!.text)).toEqual(line.spans.map((s) => fmt(s.x1 - s.x0, 2)));
+    expect(chain.map((d) => d!.text)).toEqual(line.spans.map((s) => fmt((s.x1 - s.x0) * 100, 0)));
   });
 
   it('dimensions every stirrup zone over its length, and draws as many stirrups as the schedule counts', () => {
-    for (const z of line.zones) expect(dims(elev).some((d) => close(d.a.x, z.from * 1000) && close(d.b.x, z.to * 1000) && d.text === fmt((z.to - z.from) * 100, 0))).toBe(true);
+    const spanned = (z: { from: number; to: number }) => axes.slice(1).some((x, j) => Math.abs(axes[j]! - z.from * 1000) < 10 && Math.abs(x - z.to * 1000) < 10);
+    for (const z of line.zones) expect(dims(elev).some((d) => close(d.a.x, z.from * 1000) && close(d.b.x, z.to * 1000) && d.text === fmt((z.to - z.from) * 100, 0)) || spanned(z)).toBe(true);
     const drawn = onLayer(elev, /^ST-ARM-EST-Ø/).filter((p) => p.kind === 'line').length;
     const counted = beamScheduleRows(line, 'cirsoc201-2025').filter((r) => r.kind === 'stirrup').reduce((s, r) => s + r.total, 0);
     expect(drawn).toBe(counted);
@@ -96,7 +97,7 @@ describe('beam elevation', () => {
     expect(ds.map((d) => d.key)).toEqual([`${long.line.key}:elev-1`, `${long.line.key}:elev-2`]);
     for (const d of ds) expect(d.width / 20).toBeLessThanOrEqual(300 + 30);
     const ax = lineSupports(long.line).map((x) => x * 1000);
-    const chain = ds.flatMap((d) => dims(d).filter((q) => ax.some((x) => close(q.a.x, x)) && ax.some((x) => close(q.b.x, x)) && q.offset < -30 && len(q) < long.line.length * 1000 - 1));
+    const chain = ds.flatMap((d) => dims(d).filter((q) => ax.some((x) => close(q.a.x, x)) && ax.some((x) => close(q.b.x, x)) && q.offset < -25 && len(q) < long.line.length * 1000 - 1));
     expect(chain.reduce((s, d) => s + len(d), 0)).toBeCloseTo(long.line.length * 1000, 6);
   });
 });
@@ -185,10 +186,10 @@ describe('scales and sheets', () => {
 
   it('draws elevations and sections at 1:20 and plans at 1:50 unless asked otherwise', () => {
     const { drawings } = planDrawings(pr, { families: ['beam', 'slab'], levels: null }, o);
-    expect(drawings.filter((d) => !d.paper && d.key.startsWith('beam')).every((d) => d.scale === 20)).toBe(true);
+    expect(drawings.filter((d) => !d.paper && d.key.startsWith('line') && !d.key.endsWith(':bars')).every((d) => d.scale === 20)).toBe(true);
     expect(drawings.filter((d) => !d.paper && d.key.startsWith('slabplan')).every((d) => d.scale === 50)).toBe(true);
     const other = planDrawings(pr, { families: ['beam'], levels: null }, { ...o, scales: { elevation: 25, plan: 100 } });
-    expect(other.drawings.filter((d) => !d.paper).every((d) => d.scale === 25)).toBe(true);
+    expect(other.drawings.filter((d) => !d.paper && !d.key.endsWith(':bars')).every((d) => d.scale === 25)).toBe(true);
   });
 
   it('places model millimetres on paper at the scale: a 250 mm wide section is 12.5 mm on the sheet', () => {

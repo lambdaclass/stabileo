@@ -8,7 +8,7 @@ import { barActsAt, type LineBar, type LineLayout } from './beam-line';
 import type { BeamRow } from './beam-row';
 import { groupsLabel, stirrupsLabel } from './bars';
 import { beamSection, type SectionDrawing } from './drawing';
-import { stirrupsOver } from './schedule/pieces';
+import { zoneStirrups } from './schedule/pieces';
 import type { Fmt } from './format';
 
 type Spans = Pick<LineLayout, 'spans'>;
@@ -46,12 +46,9 @@ export function hookTurn(bar: Pick<LineBar, 'shape' | 'hooks'>, end: 0 | 1): num
 /** Every stirrup along the line as the schedule counts them; `every` keeps one in so many of a spacing, for a drawing too small to show them all. */
 export function stirrupPositions(line: Pick<LineLayout, 'spans' | 'zones'>, every: (spacing: number) => number = () => 1): Array<{ x: number; span: number; zone: number }> {
   return line.zones.flatMap((z, zi) => {
-    const s = z.stirrups.spacing, n = stirrupsOver(z.from, z.to, s), first = Math.min(0.05, s / 2);
     const span = spanIndexAt(line, (z.from + z.to) / 2);
-    const out: Array<{ x: number; span: number; zone: number }> = [];
-    const k = Math.max(1, Math.floor(every(s)));
-    for (let i = 0; i < n; i += k) out.push({ x: z.from + first + i * s, span, zone: zi });
-    return out;
+    const k = Math.max(1, Math.floor(every(z.stirrups.spacing)));
+    return zoneStirrups(z).filter((_, i) => i % k === 0).map((x) => ({ x, span, zone: zi }));
   });
 }
 
@@ -114,17 +111,22 @@ export function placeLabels(wanted: readonly number[], gap: number, fixed: reado
   return out;
 }
 
-/** Where each bar's mark stands along the line, m: over the middle of its longest piece, the marks of a face at least `gap` apart. */
-export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number): Map<string, number> {
+/**
+ * Where each bar's mark stands along the line, m: over the middle of its longest piece within
+ * `window` (the whole line when absent), the marks of a face at least `gap` apart and `fixedGap`
+ * from every `fixed` place (the cuts drawn beside the beam).
+ */
+export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number, o: { window?: [number, number]; fixed?: readonly number[]; fixedGap?: number } = {}): Map<string, number> {
   const out = new Map<string, number>();
+  const [w0, w1] = o.window ?? [-Infinity, Infinity];
   for (const face of ['top', 'bottom'] as const) {
     const list = line.bars.filter((b) => b.face === face).flatMap((b) => {
-      const t = barTrace(line, b);
+      const t = barTrace(line, b).map((g) => ({ from: Math.max(g.from, w0), to: Math.min(g.to, w1) })).filter((g) => g.to - g.from > 1e-6);
       if (!t.length) return [];
       const g = t.reduce((a, c) => (c.to - c.from > a.to - a.from ? c : a));
       return [{ mark: b.mark, x: (g.from + g.to) / 2 }];
     });
-    const xs = placeLabels(list.map((m) => m.x), gap);
+    const xs = placeLabels(list.map((m) => m.x), gap, o.fixed ?? [], o.fixedGap ?? gap);
     list.forEach((m, i) => out.set(m.mark, xs[i]!));
   }
   return out;

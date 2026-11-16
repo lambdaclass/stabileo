@@ -138,7 +138,7 @@
                 <td class="n">{r.count}</td>
                 <td class="sk"><RcBarSketch shape={r.shape} /></td>
                 <td class="n">{fmt(r.unitLength, 2)}{#if r.long}<span class="warn" title={t('rcSheets.bbs.long')}> ⚠</span>{/if}</td>
-                <td class="n">{fmt(r.totalLength, 2)}</td><td class="n">{fmt(r.kg, 1)}</td><td></td>
+                <td class="n">{fmt(r.totalLength, 2)}</td><td class="n">{fmt(r.kg, 1)}</td><td class="n">{fmt(r.withWaste, 1)}</td>
               </tr>
             {/each}
           {/if}

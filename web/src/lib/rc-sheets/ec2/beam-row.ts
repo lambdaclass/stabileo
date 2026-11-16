@@ -2,7 +2,7 @@ import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
 import { barArea, faceLayout, groupsArea, proposeBeamFace, roundDown } from '../bars';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type FlexureCheck, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
-import { type BarGroup, type BeamAdopted, type Signed, type Stirrups } from '../types';
+import { type BarGroup, type BeamAdopted, type Signed, type Stirrups, isGenerous } from '../types';
 import { GAMMA_G, flexuralSteel, matOf, minSteel, shearCapacity, type Ec2Set, type FlexReq, type Mat } from './basis';
 import { barsAt, beamCapacity, geomOf, hoopPerimeter, tensionWidth } from './beam-section';
 import { crackFace, interactionStrut, skinBars, torsionGeom, torsionMax, torsionSteel, type CrackRead, type Skin, type TorsionGeom } from './beam-checks';
@@ -224,9 +224,9 @@ export function makeBeamRow(set: Ec2Set) {
     }
     const a = adopted ?? proposed;
     const e = adopted ? evaluate(set, d, c, a, req, m) : ev;
-    const generous = groupsArea(a.bottom) > 1.2 * req.bottom + 1e-6 || (req.top > 0 && groupsArea(a.top) > 1.2 * req.top + 1e-6);
     const verifications = beamVerifications(set, d, req, e, a, m, fmt);
     const allOk = verifications.every((v) => v.ok);
+    const generous = isGenerous(verifications);
     const gPos = req.items.filter((x) => x.sign === 'pos').reduce((w, x) => (x.req > w.req + 1e-9 || (Math.abs(x.req - w.req) <= 1e-9 && x.mu > w.mu) ? x : w));
     const hog = req.items.filter((x) => x.sign === 'neg' && x.mu > 1e-6);
     const gNeg = hog.length ? hog.reduce((w, x) => (x.req > w.req + 1e-9 ? x : w)) : req.items.find((x) => x.sign === 'neg')!;

@@ -28,7 +28,8 @@ export function sketchOf(s: BarShape): RcShapeDiagram {
   };
 }
 
-export interface SketchBox { w: number; h: number; pad: number }
+/** `text`: the labels' size, px, so the bar keeps room for them around it: `h` high, `char` per digit. */
+export interface SketchBox { w: number; h: number; pad: number; text?: { h: number; char: number } }
 
 type Diagram = Pick<RcShapeDiagram, 'points' | 'legs' | 'extent'>;
 
@@ -43,20 +44,40 @@ export function labelledLegs(d: Pick<RcShapeDiagram, 'legs'>): RcShapeLeg[] {
   });
 }
 
-/** The diagram fitted to a box, SVG y down: the path, and the labelled legs where they stand. */
-export function fitSketch(d: Diagram, box: SketchBox): { d: string; legs: Array<RcShapeLeg & { pos: Pt2 }> } {
+/** How far the sketch may stretch one way over the other, so a hoop and a hook still read. */
+const STRETCH = 3;
+
+/**
+ * The diagram fitted to a box, SVG y down: the path, and the orthogonal legs' labels where they stand,
+ * each on the side of the bar away from its middle. With `text`, the bar keeps room for its labels
+ * and may stretch up to three times one way (a sketch, its legs written).
+ */
+export function fitSketch(d: Diagram, box: SketchBox): { d: string; legs: Array<RcShapeLeg & { pos: Pt2; side: 'above' | 'below' | 'left' | 'right' }> } {
   const { min, max } = d.extent;
   const w = Math.max(max.x - min.x, 1e-9);
   const h = Math.max(max.y - min.y, 1e-9);
-  const s = Math.min((box.w - 2 * box.pad) / w, (box.h - 2 * box.pad) / h);
-  const ox = (box.w - w * s) / 2 - min.x * s;
-  const oy = (box.h + h * s) / 2 + min.y * s;
-  const at = (p: Pt2) => ({ x: ox + p.x * s, y: oy - p.y * s });
+  const cx = (min.x + max.x) / 2, cy = (min.y + max.y) / 2;
+  const orthogonal = (l: RcShapeLeg) => {
+    const i = d.legs.indexOf(l), a = d.points[i], b = d.points[i + 1];
+    return !a || !b || Math.abs(a.x - b.x) < 1e-6 || Math.abs(a.y - b.y) < 1e-6;
+  };
+  const labels = labelledLegs(d).filter((l) => !box.text || orthogonal(l));
+  const sideOf = (l: RcShapeLeg) => (l.horizontal ? (l.at.y >= cy - 1e-9 ? 'above' as const : 'below' as const) : (l.at.x < cx - 1e-9 ? 'left' as const : 'right' as const));
+  const digits = Math.max(1, ...labels.map((l) => String(Math.round(l.lengthM * 100)).length));
+  const tw = box.text ? digits * box.text.char + 4 : 0, th = box.text ? box.text.h + 3 : 0;
+  const room = (side: 'above' | 'below' | 'left' | 'right', size: number) => (labels.some((l) => sideOf(l) === side) ? size : 0);
+  const left = box.pad + room('left', tw), right = box.pad + room('right', tw), top = box.pad + room('above', th), bottom = box.pad + room('below', th);
+  let sx = (box.w - left - right) / w, sy = (box.h - top - bottom) / h;
+  if (box.text) { sx = Math.min(sx, STRETCH * sy); sy = Math.min(sy, STRETCH * sx); }
+  else sx = sy = Math.min(sx, sy);
+  const ox = left + (box.w - left - right - w * sx) / 2 - min.x * sx;
+  const oy = top + (box.h - top - bottom + h * sy) / 2 + min.y * sy;
+  const at = (p: Pt2) => ({ x: ox + p.x * sx, y: oy - p.y * sy });
   return {
     d: d.points.map((p, i) => {
       const q = at(p);
       return `${i === 0 ? 'M' : 'L'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`;
     }).join(' '),
-    legs: labelledLegs(d).map((l) => ({ ...l, pos: at(l.at) })),
+    legs: labels.map((l) => ({ ...l, pos: at(l.at), side: sideOf(l) })),
   };
 }

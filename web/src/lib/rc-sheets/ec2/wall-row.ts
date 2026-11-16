@@ -4,7 +4,7 @@ import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
 import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted } from '../types';
+import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapLength, matOf, momentCapacity, shearCapacity, type Ec2Set, type Layer, type Mat } from './basis';
 
 const KPA = 1000;
@@ -127,7 +127,7 @@ export function makeWallRow(set: Ec2Set) {
       check('rcSheets.ec2.v.wallLinks', ev.rhoV <= 0.02 + 1e-9, { clause: '9.6.4(1)', demand: `${fmt(ev.rhoV * 100, 3)} %`, capacity: '≤ 2 %' }),
     ];
     const allOk = verifications.every((v) => v.ok);
-    const generous = ev.rhoV > 1.2 * ev.rhoVMin + 1e-6 && ev.rhoH > 1.2 * ev.rhoHMin + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...outU) < 0.5;
+    const generous = isGenerous(verifications);
     const combos: ComboTable = {
       headers: ['Pu', 'Mu', 'Vu', 'Mv', 'Mh'],
       rows: d.combos.map((k, i) => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BeamRow } from '../../../lib/rc-sheets/beam-row';
@@ -30,6 +30,7 @@
 
 <RcResize row={line} {spans} {onleave} />
 <RcLineEditor {line} />
+{#each line.bentNotes as n, i (i)}<p class="rcd-note" data-testid="rc-line-bent-note" data-reason={n.reason}>{tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? line.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })}</p>{/each}
 <div class="rcd-toggles">
   <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
@@ -91,6 +92,7 @@
   .st-warn .rcd-toggle span { color: var(--st-text-2); }
   .st-fail .rcd-toggle span { color: var(--st-danger); }
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .rcd-note { margin: 2px 0 4px; font-size: 0.7rem; color: var(--st-text-2); }
   .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
 </style>

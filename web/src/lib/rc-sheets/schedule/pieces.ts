@@ -51,12 +51,20 @@ const STOCK = 12;
 /** Bars at a spacing over a length, both ends included. */
 export const spread = (length: number, spacing: number): number => (spacing > 0 ? Math.max(2, Math.floor(length / spacing + 1e-9) + 1) : 0);
 
-/** Stirrups over a zone as the elevation places them: the first at min(5 cm; s/2), then one each spacing. */
-export const stirrupsOver = (from: number, to: number, spacing: number): number => {
+/** Stirrups over a zone as the elevation places them: the first at `first` (min(5 cm; s/2) when not given), then one each spacing. */
+export const stirrupsOver = (from: number, to: number, spacing: number, first = Math.min(0.05, spacing / 2)): number => {
   if (spacing <= 0 || to - from < 1e-6) return 0;
-  const first = Math.min(0.05, spacing / 2);
   return Math.max(1, Math.floor((to - from - first) / spacing + 1e-9) + 1);
 };
+
+/** A zone of stirrups: `first` from the end it is set out from, the start or, with `fromEnd`, the end. */
+export interface StirrupZone { from: number; to: number; stirrups: { spacing: number }; first?: number; fromEnd?: boolean }
+
+/** Where each stirrup of a zone stands, m, as the elevation, the schedule and the model all place them. */
+export function zoneStirrups(z: StirrupZone): number[] {
+  const s = z.stirrups.spacing, first = z.first ?? Math.min(0.05, s / 2), n = stirrupsOver(z.from, z.to, s, first);
+  return Array.from({ length: n }, (_, i) => (z.fromEnd ? z.to - first - i * s : z.from + first + i * s));
+}
 
 const hoop = (w: number, h: number, dia: number, R: BendRules): Piece['shape'] =>
   closedHoop(w, h, dia, R.mandrel(dia, 'transverse'), R.extension(dia, 135, 'transverse'));
@@ -91,7 +99,7 @@ function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
   for (const z of line.zones) {
     const sp = line.spans[z.span];
     if (!sp) continue;
-    const n = stirrupsOver(z.from, z.to, z.stirrups.spacing);
+    const n = zoneStirrups(z).length;
     if (!n) continue;
     const st: Stirrups = z.stirrups, d = st.dia / 1000;
     const w = sp.b - 2 * line.cover - d, h = sp.h - 2 * line.cover - d;

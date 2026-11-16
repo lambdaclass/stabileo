@@ -41,6 +41,19 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   const sketch = rows.first().getByTestId('rc-bbs-sketch');
   await expect(sketch.locator('path')).toHaveAttribute('d', /^M[\d.]+ [\d.]+ L/);
   expect(await sketch.locator('text').count()).toBeGreaterThan(0);
+  // Legible: its numbers at least 10 px, the sketch as tall as its row lets it be.
+  for (const size of await view.getByTestId('rc-bbs-sketch-leg').evaluateAll((xs) => xs.slice(0, 20).map((x) => parseFloat(getComputedStyle(x).fontSize)))) expect(size).toBeGreaterThanOrEqual(10);
+  const [rowBox, sketchBox] = [(await rows.first().boundingBox())!, (await sketch.boundingBox())!];
+  expect(sketchBox.height).toBeGreaterThan(rowBox.height * 0.8);
+  // Each row carries its kg with the waste, merged marks read in order, and the header drops the filters the schedule does not read.
+  for (const r of await rows.evaluateAll((xs) => xs.map((x) => [...x.querySelectorAll('td')].map((td) => td.textContent?.trim() ?? '')))) {
+    const kgRow = Number(r[r.length - 2]!.replace(/\./g, '').replace(',', '.')), waste = Number(r[r.length - 1]!.replace(/\./g, '').replace(',', '.'));
+    expect(waste).toBeCloseTo(kgRow * 1.1, 0);
+    const marks = r[0]!.split(', ');
+    expect(marks).toEqual([...marks].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+  }
+  await expect(ws.getByTestId('rc-level-filter')).toHaveCount(0);
+  await expect(ws.getByTestId('rc-only-edited')).toHaveCount(0);
   await expect(view.getByText('Estribo').first()).toBeVisible();
   const kg = await kgOf(3);
   expect(await grandKg()).toBeCloseTo(kg, 0);
