@@ -9,11 +9,13 @@ import { otherStructureWind } from '../wind-other';
 import { integrateWindPressure, windHeightField, windHeightLoads } from '../wind-pressure-field';
 import { planWind } from '../load-plan-wind';
 import { levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
-import { mesh, remeshWind, variants, windProject } from './wind-integration-fixture';
+import { mesh, remeshWind, variants, windProject, windResultants, assertWindResultants } from './wind-integration-fixture';
 import { input2DToWireObject, input3DToWireObject, solve, solvePDelta, solve3D, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
+const knownWrongReason = 'known wrong result: #2220';
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 const nativeCases: Array<{ kind: string; variant: string; dimension: number; [key: string]: unknown }> = [];
 afterAll(() => {
   if (process.env.WIND_MEMBER_CASES) { writeFileSync(process.env.WIND_MEMBER_CASES, JSON.stringify(nativeCases, null, 2) + '\n'); return; }
@@ -23,10 +25,12 @@ afterAll(() => {
 
 const generate = (model: ReturnType<typeof mesh>, kind: string, rotated = false) => {
   if (kind !== 'wall') {
-    const structure = kind === 'solidSign' ? { kind: 'solidSign' as const, clearance: 0 } : kind === 'chimney' ? { kind: 'chimney' as const, section: 'squareNormal' as const, diameter: 2 }
+    const structure = kind.startsWith('solidSign') ? { kind: 'solidSign' as const, clearance: 0 } : kind === 'chimney' ? { kind: 'chimney' as const, section: 'squareNormal' as const, diameter: 2 }
       : kind === 'openSign' ? { kind: 'openSign' as const, members: 'flat' as const, solidity: 1, width: 2 }
-      : { kind: 'latticeTower' as const, section: 'square' as const, round: false, solidity: 1, diagonal: false, width: 2 };
-    const c = otherStructureWind({ model, structure, project: { ...windProject, basicSpeed: 1 }, directions: [rotated ? '+y' : '+x'], tributaryWidth: 2 }).cases[0]!;
+      : { kind: 'latticeTower' as const, section: kind === 'triangularTower' ? 'triangle' as const : 'square' as const, round: false, solidity: 1, diagonal: false, width: 2 };
+    const generated = otherStructureWind({ model, structure, project: { ...windProject, basicSpeed: 1 }, directions: [rotated ? '+y' : '+x'], tributaryWidth: 2 });
+    const c = kind.startsWith('solidSignMinimum') ? generated.cases.find(c => c.nameKey === 'wind.other.minimumSignCase' && c.nameParams.c === (kind.endsWith('Positive') ? 'B+' : 'B−'))! : generated.cases[0]!;
+    expect(c).toBeDefined();
     return { points: c.nodal, lines: c.distributed.map(d => ({ ...d, q: d.qZ })) };
   }
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
@@ -36,13 +40,21 @@ const generate = (model: ReturnType<typeof mesh>, kind: string, rotated = false)
   return { points: sink.nodal.filter(n => n.caseIndex === 0), lines: sink.distributed.filter(n => n.caseIndex === 0) };
 };
 
-for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign']) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  it(`#2220 ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear}`, () => {
-    const { model } = remeshWind(mesh(kind === 'solidSign' ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), variant);
+for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 'triangularTower', 'solidSignMinimumPositive', 'solidSignMinimumNegative']) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) {
+  (kind === 'triangularTower' || kind.startsWith('solidSignMinimum') ? knownWrong : it)(`#2220 ${kind === 'triangularTower' || kind.startsWith('solidSignMinimum') ? knownWrongReason : ''} ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
+    const { model } = remeshWind(mesh(kind === 'triangularTower' ? [[[-2, -1, 0], [-2, -1, 6]], [[2, -1, 0], [2, -1, 6]], [[0, 2, 0], [0, 2, 6]]] : kind.startsWith('solidSign') ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), variant);
     const rotated = variant === 'rotate';
     const { points, lines } = generate(model, kind, rotated);
-    const component = (p: { qX?: number; qY?: number }) => (rotated ? p.qY : p.qX) ?? 0;
-    const w = kind === 'wall' ? 2 : kind === 'solidSign' ? 0.8 : 1.6;
+    const component = (p: { qX?: number; qY?: number }) => pressureSign * ((rotated ? p.qY : p.qX) ?? 0);
+    const w = pressureSign * (kind === 'wall' ? 2 : kind.startsWith('solidSign') || kind === 'triangularTower' ? 0.8 : 1.6);
+    if (kind === 'triangularTower') assertWindResultants(windResultants(model, lines.map(p => ({ ...p, q: 0 }))), rotated ? [0, 0.8 * 3 * 6, 0, -0.8 * 3 * 18, 0, 0] : [0.8 * 3 * 6, 0, 0, 0, 0.8 * 3 * 18, 0]);
+    if (kind.startsWith('solidSignMinimum')) {
+      const F = 0.8 * 2 * 6, ecc = kind.endsWith('Positive') ? 1 : -1;
+      assertWindResultants(windResultants(model, lines.map(p => ({ ...p, q: 0 }))), rotated ? [0, F, 0, -3 * F, 0, -F + ecc * 0.4 * F] : [F, 0, 0, 0, 3 * F, -F + ecc * 0.4 * F]);
+    }
+    const eccentricity = kind === 'solidSignMinimumPositive' ? 1 : kind === 'solidSignMinimumNegative' ? -1 : 0;
+    const carrierScale = (nodeId: number) => 1 + eccentricity * 0.4 * (1 - (rotated ? -model.nodes.get(nodeId)!.x : model.nodes.get(nodeId)!.y));
+    const scales = Object.fromEntries([...model.elements].map(([id, e]) => [id, carrierScale(e.nodeI)]));
     const base = [...model.nodes.values()].find(n => n.z === 0)!.id;
     const tip = [...model.nodes.values()].find(n => n.z === 6)!.id;
     const input: SolverInput = {
@@ -55,7 +67,7 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign'])
     const assertMemberLoads = () => { expect(points).toEqual([]); expect(lines.length).toBeGreaterThan(0); };
     const assertCarrierForces = () => { for (const e of model.elements.values()) {
       const a = model.nodes.get(e.nodeI)!.z!, b = model.nodes.get(e.nodeJ)!.z!;
-      expect(lines.filter(d => d.elementId === e.id).reduce((s, d) => s + component(d) * (d.b! - d.a!), 0)).toBeCloseTo(w * (b - a), 10);
+      expect(lines.filter(d => d.elementId === e.id).reduce((s, d) => s + component(d) * (d.b! - d.a!), 0)).toBeCloseTo(w * carrierScale(e.nodeI) * (b - a), 10);
     } };
     if (spatial) {
       const input3: SolverInput3D = { ...input, nodes: new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }])),
@@ -63,36 +75,40 @@ for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign'])
         sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]), supports: new Map([...model.nodes.values()].filter(n => n.z === 0).map(n => [n.id, { nodeId: n.id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
         loads: [...lines.map(d => ({ type: 'distributed' as const, data: { elementId: d.elementId, qYI: component(d), qYJ: component(d), qZI: 0, qZJ: 0, a: d.a, b: d.b } })), ...points.map(p => ({ type: 'nodal' as const, data: { nodeId: p.nodeId, fx: p.fx, fy: p.fy, fz: 0, mx: 0, my: 0, mz: p.mz ?? 0 } }))],
       };
-      if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind, variant, dimension: 3, axis: 'z', displacement: rotated ? 'uy' : 'ux', length: 6, segments: [{ a: 0, b: 6, q: w }], base, tip, input: input3DToWireObject(input3) });
+      if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind, variant: `${variant}:${pressureSign}`, dimension: 3, axis: 'z', displacement: rotated ? 'uy' : 'ux', length: 6, segments: [{ a: 0, b: 6, q: w }], scales, tipScale: carrierScale(tip), base, tip, input: input3DToWireObject(input3) });
       assertMemberLoads();
       assertCarrierForces();
       const out = nonlinear ? solvePDelta3D(input3).results : solve3D(input3);
-      expect(out.displacements.find((d: { nodeId: number; ux: number; uy: number }) => d.nodeId === tip)![rotated ? 'uy' : 'ux']).toBeCloseTo(w * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
+      expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
+      expect(out.displacements.find((d: { nodeId: number; ux: number; uy: number }) => d.nodeId === tip)![rotated ? 'uy' : 'ux']).toBeCloseTo(w * carrierScale(tip) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
       for (const f of out.elementForces) {
+        const memberW = w * scales[f.elementId]!;
         const z = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.z!;
-        expect(Math.abs(f.vyStart)).toBeCloseTo(w * (6 - z), 8);
-        expect(Math.abs(f.mzStart)).toBeCloseTo(w * (6 - z) ** 2 / 2, 8);
+        expect(f.vyStart).toBeCloseTo(-memberW * (6 - z), 8);
+        expect(f.mzStart).toBeCloseTo(-memberW * (6 - z) ** 2 / 2, 8);
         expect(f.mxStart).toBeCloseTo(0, 10);
         for (const t of [0.2, 0.5, 0.8]) {
           const station = z + t * f.length;
-          expect(Math.abs(evaluateDiagramAt(f, 'shearY', t))).toBeCloseTo(w * (6 - station), 8);
-          expect(Math.abs(evaluateDiagramAt(f, 'momentZ', t))).toBeCloseTo(w * (6 - station) ** 2 / 2, 8);
+          expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-memberW * (6 - station), 8);
+          expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-memberW * (6 - station) ** 2 / 2, 8);
           expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
         }
       }
     } else {
-      if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind, variant, dimension: 2, axis: 'z', displacement: 'ux', length: 6, segments: [{ a: 0, b: 6, q: w }], base, tip, input: input2DToWireObject(input) });
+      if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind, variant: `${variant}:${pressureSign}`, dimension: 2, axis: 'z', displacement: 'ux', length: 6, segments: [{ a: 0, b: 6, q: w }], scales, tipScale: carrierScale(tip), base, tip, input: input2DToWireObject(input) });
       assertMemberLoads();
       assertCarrierForces();
       const out = nonlinear ? solvePDelta(input).results : solve(input);
-      expect(out.displacements.find((d: { nodeId: number; ux: number }) => d.nodeId === tip)!.ux).toBeCloseTo(w * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
+      expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
+      expect(out.displacements.find((d: { nodeId: number; ux: number }) => d.nodeId === tip)!.ux).toBeCloseTo(w * carrierScale(tip) * 6 ** 4 / (8 * 200000 * 1000 * 1e-4), 8);
       for (const f of out.elementForces) {
+        const memberW = w * scales[f.elementId]!;
         const z = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.z!;
-        expect(Math.abs(f.vStart)).toBeCloseTo(w * (6 - z), 8);
-        expect(Math.abs(f.mStart)).toBeCloseTo(w * (6 - z) ** 2 / 2, 8);
+        expect(f.vStart).toBeCloseTo(memberW * (6 - z), 8);
+        expect(f.mStart).toBeCloseTo(memberW * (6 - z) ** 2 / 2, 8);
         for (const t of [0.2, 0.5, 0.8]) { const station = z + t * f.length;
-          expect(Math.abs(computeDiagramValueAt('shear', t, f))).toBeCloseTo(w * (6 - station), 8);
-          expect(Math.abs(computeDiagramValueAt('moment', t, f))).toBeCloseTo(w * (6 - station) ** 2 / 2, 8);
+          expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(memberW * (6 - station), 8);
+          expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(memberW * (6 - station) ** 2 / 2, 8);
         }
       }
     }
@@ -126,8 +142,8 @@ for (const angle of [0, 0.37, Math.PI / 2, 2.1]) for (const split of [false, tru
   }
 });
 
-it('#2220 a nonrectangular carrier partition refuses instead of using axis-dependent slices', () => {
-  const model = mesh([[[0, 0, 0], [0, 0, 4]], [[4, 0, 0], [4, 0, 4]], [[0, 3, 0], [0, 3, 4]]]);
+it('#2220 a four-carrier nonrectangular partition refuses instead of using axis-dependent slices', () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 4]], [[4, 0, 0], [4, 0, 4]], [[0, 3, 0], [0, 3, 4]], [[3, 2, 0], [3, 2, 4]]]);
   expect(() => windHeightField({ model, axis: 'x', from: 0, to: 4, pressure: () => 1 })).toThrow('wind.pressure.carrierPartitionUnresolved');
 });
 
@@ -142,11 +158,12 @@ for (const sign of [1, -1]) it(`#2220 a reversed carrier retains partial trapezo
   }
 });
 
-for (const free of [false, true]) for (const variant of ['base', 'uniform', 'uneven'] as const) for (const spatial of [false, true]) for (const nonlinear of [false, true]) it(`#2220 zoned roof member forces and deflection free=${free} ${variant} spatial=${spatial} nonlinear=${nonlinear}`, () => {
+for (const free of [false, true]) for (const variant of ['base', 'uniform', 'uneven'] as const) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) it(`#2220 zoned roof member forces and deflection free=${free} ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
   const { model } = remeshWind(mesh([[[0, 0, 3], [12, 0, 3]]]), variant);
   const lines = free ? otherStructureWind({ model, structure: { kind: 'freeRoof', roof: 'monoslope', blocked: false }, project: windProject, directions: ['+x'], tributaryWidth: 1 }).cases[0]!.distributed.map(p => ({ ...p, q: p.qZ, qJ: p.qZJ }))
     : windLoadCases({ model, axes: [{ ...windAxis, along: 12 }], set: 'case1', directions: ['+x'], tributaryWidth: 1, speed: 40 }).cases[0]!.distributed;
-  const pressure = free ? velocityPressure(3, windProject) / 1000 * 0.85 : 0.85;
+  for (const p of lines) { p.q *= pressureSign; if (p.qJ !== undefined) p.qJ *= pressureSign; }
+  const pressure = pressureSign * (free ? velocityPressure(3, windProject) / 1000 * 0.85 : 0.85);
   const coefficients = free ? [0.8, 0.6, 0.3] : [0.9, 0.5, 0.3];
   const cuts = [0, 3, 6, 12];
   const integral = (station: number, power: number) => coefficients.reduce((sum, c, i) => { const a = Math.max(station, cuts[i]!), b = cuts[i + 1]!; return sum + (b > a ? pressure * c * (b ** (power + 1) - a ** (power + 1)) / (power + 1) : 0); }, 0);
@@ -166,21 +183,23 @@ for (const free of [false, true]) for (const variant of ['base', 'uniform', 'une
       sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]), supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
       loads: lines.map(p => ({ type: 'distributed', data: { elementId: p.elementId, qYI: 0, qYJ: 0, qZI: p.q, qZJ: p.qJ ?? p.q, a: p.a, b: p.b } })),
     };
-    if (!nonlinear) nativeCases.push({ kind: free ? 'freeRoof' : 'roof', variant, dimension: 3, axis: 'x', displacement: 'uz', length: 12, segments, tip, input: input3DToWireObject(input3) });
+    if (!nonlinear) nativeCases.push({ kind: free ? 'freeRoof' : 'roof', variant: `${variant}:${pressureSign}`, dimension: 3, axis: 'x', displacement: 'uz', length: 12, segments, tip, input: input3DToWireObject(input3) });
     const out = nonlinear ? solvePDelta3D(input3).results : solve3D(input3);
+    expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
     expect(out.displacements.find((d: { nodeId: number; uz: number }) => d.nodeId === tip)!.uz).toBeCloseTo(expectedDeflection, 8);
     for (const f of out.elementForces) for (const t of [0.2, 0.5, 0.8]) { const station = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.x + t * f.length;
-      expect(Math.abs(evaluateDiagramAt(f, 'shearZ', t))).toBeCloseTo(integral(station, 0), 8);
-      expect(Math.abs(evaluateDiagramAt(f, 'momentY', t))).toBeCloseTo(integral(station, 1) - station * integral(station, 0), 8);
+      expect(evaluateDiagramAt(f, 'shearZ', t)).toBeCloseTo(-integral(station, 0), 8);
+      expect(evaluateDiagramAt(f, 'momentY', t)).toBeCloseTo(integral(station, 1) - station * integral(station, 0), 8);
       expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
     }
   } else {
-    if (!nonlinear) nativeCases.push({ kind: free ? 'freeRoof' : 'roof', variant, dimension: 2, axis: 'x', displacement: 'uz', length: 12, segments, tip, input: input2DToWireObject(input) });
+    if (!nonlinear) nativeCases.push({ kind: free ? 'freeRoof' : 'roof', variant: `${variant}:${pressureSign}`, dimension: 2, axis: 'x', displacement: 'uz', length: 12, segments, tip, input: input2DToWireObject(input) });
     const out = nonlinear ? solvePDelta(input).results : solve(input);
+    expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
     expect(out.displacements.find((d: { nodeId: number; uz: number }) => d.nodeId === tip)!.uz).toBeCloseTo(expectedDeflection, 8);
     for (const f of out.elementForces) for (const t of [0.2, 0.5, 0.8]) { const station = model.nodes.get(model.elements.get(f.elementId)!.nodeI)!.x + t * f.length;
-      expect(Math.abs(computeDiagramValueAt('shear', t, f))).toBeCloseTo(integral(station, 0), 8);
-      expect(Math.abs(computeDiagramValueAt('moment', t, f))).toBeCloseTo(integral(station, 1) - station * integral(station, 0), 8);
+      expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(-integral(station, 0), 8);
+      expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(-(integral(station, 1) - station * integral(station, 0)), 8);
     }
   }
 });
