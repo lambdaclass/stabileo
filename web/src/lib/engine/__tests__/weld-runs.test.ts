@@ -3,10 +3,10 @@ import fixture from '../../../../../engine/tests/integration/fixtures/weld-runs.
 import { checkWeldGroups } from '../wasm-solver';
 
 function expectWeldValue(actual: unknown, expected: number, key: string) {
+  expect(typeof actual, key).toBe('number');
+  expect(Number.isFinite(actual), key).toBe(true);
   expect(Math.abs((actual as number) - expected), key).toBeLessThanOrEqual(1e-12 * Math.max(Math.abs(expected), 1e-12));
 }
-
-const invalidReferenceTest = process.env.RUN_KNOWN_WRONG === '2258' ? it : it.skip;
 
 for (const [name, actual] of [
   ['null', null],
@@ -14,7 +14,7 @@ for (const [name, actual] of [
   ['numeric string', '0'],
   ['boolean', false],
 ] as const) {
-  invalidReferenceTest(`known wrong result: #2258 rejects ${name} for a zero weld reference`, () => {
+  it(`#2258 rejects ${name} for a zero weld reference`, () => {
     expect(() => expectWeldValue(actual, 0, 'unityRatio')).toThrow();
   });
 }
