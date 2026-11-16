@@ -1257,3 +1257,8 @@ test.testing-move:
 
 test.design.completeness-2096:
 	$(SUBMAKE) test.web.unit FILE='src/lib/engine/__tests__/issue-2096-completeness.test.ts src/lib/engine/__tests__/issue-2096-solved-entries.test.ts src/lib/engine/__tests__/issue-2096-reference.test.ts src/lib/store/__tests__/issue-2096-active-scope.test.ts' VITEST_WORKERS=$(or $(VITEST_WORKERS),2)
+
+.PHONY: test.engine.kinematics-2222
+
+test.engine.kinematics-2222:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)

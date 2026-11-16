@@ -328,3 +328,36 @@ fn issue_2222_refuses_sublimit_raw_load_kernels_and_diagrams() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_kinematics_identifies_only_finite_unsupported_nodal_moments() {
+    let mut input = witness();
+    input.elements.get_mut("1").unwrap().hinge_end = true;
+    input.elements.get_mut("2").unwrap().hinge_start = true;
+    input.loads = serde_json::from_value(serde_json::json!([
+        {"type":"nodal", "data":{"nodeId":2,"fx":0,"fz":0,"my":1}}
+    ])).unwrap();
+    let result = serde_json::to_value(dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input)).unwrap();
+    assert_eq!(result["invalidInputKind"], "unsupportedNodalMoment");
+    assert_eq!(result["isSolvable"], false);
+    for moment in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut bad = input.clone();
+        if let SolverLoad::Nodal(n) = &mut bad.loads[0] { n.my = moment; }
+        let result = serde_json::to_value(dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&bad)).unwrap();
+        assert!(result["invalidInputKind"].is_null(), "{result}");
+        assert!(result["invalidInput"].is_string(), "{result}");
+    }
+    let mut bad = input.clone();
+    bad.loads.extend(serde_json::from_value::<Vec<SolverLoad>>(serde_json::json!([
+        {"type":"distributed", "data":{"elementId":1,"a":-1,"b":2,"qI":1,"qJ":1}}
+    ])).unwrap());
+    let result = serde_json::to_value(dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&bad)).unwrap();
+    assert!(result["invalidInputKind"].is_null(), "{result}");
+    assert!(result["invalidInput"].is_string(), "{result}");
+    input.elements.get_mut("1").unwrap().hinge_end = false;
+    let result = serde_json::to_value(dedaliano_engine::solver::kinematic::analyze_kinematics_2d(&input)).unwrap();
+    assert!(result["invalidInputKind"].is_null(), "{result}");
+    assert!(result["invalidInput"].is_null(), "{result}");
+    assert_eq!(result["isSolvable"], true);
+}
