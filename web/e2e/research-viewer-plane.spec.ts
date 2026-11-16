@@ -68,6 +68,7 @@ test('@smoke research viewer: MacNeal–Harder draws its shell meshes in plan an
   const { canvas } = await firstViewer(page);
   await expect(canvas).toHaveAttribute('data-plane', 'plan');
   await page.locator('.mh-control select').selectOption('frame-shear-4-uz');
+  await page.locator('.mh-control input[type="range"]').fill('20');
   await expect(canvas).toHaveAttribute('data-plane', 'elevation');
   await expectStandsUp(page);
 });
