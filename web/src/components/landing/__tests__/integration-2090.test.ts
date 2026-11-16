@@ -31,9 +31,16 @@ it('known wrong result: #2090 the truss visibly identifies normalized deformatio
   }
 });
 
-it.skip('known wrong result: #2090 every section description distinguishes the fixed kern from load-dependent quantities', async () => {
+it('known wrong result: #2090 every section description distinguishes the fixed kern from load-dependent quantities', async () => {
   const dictionaries = import.meta.glob('../../../lib/i18n/locales/{en,es,pt,de,fr,tr}.ts', { eager: true }) as Record<string, { default: Record<string, string> }>;
   for (const [path, { default: dict }] of Object.entries(dictionaries)) {
     expect(dict['landing.secDesc'], path).toMatch(/fixed|fijo|fixo|fest|fixe|sabit/i);
   }
+});
+
+it.skip('known wrong result: #2090 #1986 main Hungarian coverage includes every new hero and axes label', async () => {
+  const en = (await import('../../../lib/i18n/locales/en')).default;
+  const hu = (await import('../../../lib/i18n/locales/hu')).default;
+  const keys = Object.keys(en).filter((k) => /^(axes\.|landing\.(heroFig|bld|shed|truss|sec|mohr|top))/.test(k));
+  for (const key of keys) expect(hu[key], key).toBeTypeOf('string');
 });
