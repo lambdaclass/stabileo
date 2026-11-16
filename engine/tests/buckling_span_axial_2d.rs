@@ -142,7 +142,6 @@ fn cantilever_with_an_axial_point_load_at_mid_span_mesh() {
 
 /// A partial trapezoid: the fine mesh puts each element under its own share of the same load.
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn a_partial_trapezoid_matches_the_mesh() {
     let (a, b, qa, qb) = (1.0, 3.0, 30.0, 70.0);
     let one = make_input(
@@ -153,10 +152,10 @@ fn a_partial_trapezoid_matches_the_mesh() {
     let q = |x: f64| qa + (qb - qa) * (x - a) / (b - a);
     let n = 40;
     let mesh = column(n, "fixed", "free", false, |id, x0| {
-        let x1 = x0 + L / n as f64;
+        let x1 = id as f64 * (L / n as f64);
         let (s, e) = (x0.max(a), x1.min(b));
         if e > s + 1e-12 {
-            vec![SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: id, q_i: q(s), q_j: q(e), a: Some(s - x0), b: Some(e - x0) })]
+            vec![SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: id, q_i: q(s), q_j: q(e), a: (s != x0).then_some(s - x0), b: (e != x1).then_some(e - x0) })]
         } else {
             vec![]
         }

@@ -15,14 +15,15 @@ vi.mock('../kinematic-2d', async (orig) => {
 
 beforeEach(() => { state.calls = 0; });
 
-for (const rank of ['invalid', 'unavailable']) {
-  for (const at of [1, 2, 3]) {
-    it.skip(`known wrong result: #2222 propagates ${rank} kinematics at check ${at} instead of collapse #2222`, () => {
+for (const moment of [0, 1]) for (const rank of ['invalid', 'unavailable']) {
+  for (const [at, maxEvents] of [[1, 200], [2, 200], [3, 200], [3, 1]]) {
+    it(`propagates ${rank} kinematics at check ${at} with ${maxEvents} events and moment ${moment} instead of collapse #2222`, () => {
       state.rank = rank;
       state.at = at;
       const input = buildSolverInput2D(planeModel([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'rollerX']]), false)!;
       input.loads = [{ type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } }];
-      expect(() => plasticCollapse2D(input, { mp: () => 100, np: () => Infinity })).toThrow(rank === 'invalid' ? 'planted invalid interval' : 'unavailable');
+      input.loads.push({ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: moment } });
+      expect(() => plasticCollapse2D(input, { mp: () => 100, np: () => Infinity, maxEvents })).toThrow(rank === 'invalid' ? 'planted invalid interval' : 'unavailable');
       expect(state.calls).toBeGreaterThanOrEqual(at);
     });
   }

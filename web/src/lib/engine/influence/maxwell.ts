@@ -8,6 +8,7 @@
  * of its end displacements, exact. A section on a truss bar is read between its end nodes, along
  * which the bar stays straight.
  */
+import { memberLength, splitSpanLoad } from '../member-span-loads';
 import { solve } from '../wasm-solver';
 import { computeDisplacementAt } from '../diagrams';
 import type { AnalysisResults, SolverInput, SolverLoad } from '../types';
@@ -121,18 +122,10 @@ export function targetDisplacement(solver: SolverInput, quantity: InfluenceQuant
         ? { type: 'pointOnElement', data: { ...l.data, elementId: pc.first } }
         : { type: 'pointOnElement', data: { ...l.data, elementId: pc.second, a: l.data.a - cutAt } }];
     }
-    const a = l.data.a ?? 0, b = l.data.b ?? L;
-    const qAt = (x: number) => l.data.qI + ((l.data.qJ - l.data.qI) * (x - a)) / Math.max(b - a, 1e-12);
-    const out: SolverLoad[] = [];
-    if (a < cutAt) {
-      const e = Math.min(b, cutAt);
-      out.push({ type: l.type, data: { elementId: pc.first, qI: l.data.qI, qJ: qAt(e), a, b: e } } as SolverLoad);
-    }
-    if (b > cutAt) {
-      const s = Math.max(a, cutAt);
-      out.push({ type: l.type, data: { elementId: pc.second, qI: qAt(s), qJ: l.data.qJ, a: s - cutAt, b: b - cutAt } } as SolverLoad);
-    }
-    return out;
+    return splitSpanLoad(l, L, [
+      { id: pc.first, start: 0, end: cutAt, length: memberLength(split.solver, pc.first) },
+      { id: pc.second, start: cutAt, end: L, length: memberLength(split.solver, pc.second) },
+    ]);
   });
   const res = solve({ ...split.solver, loads: moved });
   const d = res.displacements.find((x) => x.nodeId === split.node);
