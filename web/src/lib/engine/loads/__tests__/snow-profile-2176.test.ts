@@ -6,10 +6,10 @@ import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases } from '../snow-loads';
 import type { LoadModelData } from '../load-plan';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2176' ? it : it.skip;
+const regression = it;
 
 for (const mode of ['projected', 'width', 'panels'] as const) for (const angle of [0, 0.37]) for (const selected of [false, true]) for (const W of [2, 6 - 1e-12, 6, 6 + 1e-12]) {
-  regression(`known wrong result: #2176 physical ridge force and moment ${mode} ${angle} ${selected} ${W}`, () => {
+  regression(`#2176 physical ridge force and moment ${mode} ${angle} ${selected} ${W}`, () => {
     const model = transform(mesh([[[0, -W, 3], [16, -W, 3], [16, W, 3], [0, W, 3]]]), angle, 0);
     const polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const generate = (m: LoadModelData) => {
@@ -32,6 +32,13 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
       const [force, moment] = snowDistributedResultant(model, out.cases[k!]!.distributed, new Set([id]), [0, 0], [-Math.sin(angle), Math.cos(angle)]);
       expect(force).toBeCloseTo(-W * (leeward + windward), 10);
       expect(moment).toBeCloseTo(-sign! * W * W * (leeward - windward) / 2, 10);
+      for (const side of [-1, 1]) {
+        const p = side === sign ? leeward : windward;
+        const region: [number, number] = side < 0 ? [-W, 0] : [0, W];
+        const values = snowDistributedResultant(model, out.cases[k!]!.distributed, new Set([id]), [0, 0], [-Math.sin(angle), Math.cos(angle)], region);
+        expect(values[0]).toBeCloseTo(-p * W, 10);
+        expect(values[1]).toBeCloseTo(-side * p * W * W / 2, 10);
+      }
     }
     for (const subdivisions of [new Map([[2, 2], [4, 2]]), new Map([[2, 3], [4, 5]]), new Map([[1, 8], [2, 5], [3, 3], [4, 7]])]) assertSnowRemeshInvariant(model, subdivisions, generate);
   });

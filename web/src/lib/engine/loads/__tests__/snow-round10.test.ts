@@ -3,6 +3,7 @@ import { mesh, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
 import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases, type SnowCasesInput } from '../snow-loads';
+import { snowDistributedResultant } from './snow-remesh-invariance';
 import { roofSurfaceModel } from '../snow-roof-surfaces';
 import { roofSnow } from '../../../codes/cirsoc104/snow';
 import { planSnow } from '../load-plan-snow';
@@ -44,7 +45,7 @@ function generate(splits: number, mode: 'projected' | 'width' | 'panels', angle 
     expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
     expect(sink.nodal.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.nodal);
   }
-  return out;
+  return { ...out, model };
 }
 
 for (const mode of ['projected', 'width', 'panels'] as const) {
@@ -68,11 +69,17 @@ function equivalent(base: ReturnType<typeof generate>, out: ReturnType<typeof ge
     expect(c.nameKey).toBe(base.cases[k]!.nameKey);
     expect(c.nameParams).toEqual(base.cases[k]!.nameParams);
     expect(c.nodal).toEqual([]);
+    for (const source of [1, 2, 3, 4]) for (const direction of [[1, 0], [0, 1]]) {
+      const ids = [...out.model.elements.keys()].filter(id => (id <= splits ? 1 : id === splits + 1 ? 2 : id <= 2 * splits + 1 ? 3 : 4) === source);
+      const expected = snowDistributedResultant(base.model, base.cases[k]!.distributed, new Set([source]), [0, 0], direction);
+      const actual = snowDistributedResultant(out.model, c.distributed, new Set(ids), [0, 0], direction);
+      for (const [j, value] of actual.entries()) expect(value).toBeCloseTo(expected[j]!, 10);
+    }
     for (let id = 1; id <= 2 * splits + 2; id++) {
       const horizontal = id !== splits + 1 && id !== 2 * splits + 2;
       const baseId = id <= splits ? 1 : id === splits + 1 ? 2 : id <= 2 * splits + 1 ? 3 : 4;
       const offset = id <= splits ? id - 1 : id - splits - 2;
-      for (const t of [0.25, 0.5, 0.75]) {
+      for (const t of [0.125, 0.25, 0.375, 0.625, 0.75, 0.875]) {
         const station = t * (horizontal ? 16 / splits : 2 * W);
         const baseStation = horizontal ? ((reverse ? splits - offset - 1 : offset) + t) * 16 / splits : station;
         expect(pressure(c.distributed, id, station)).toBeCloseTo(pressure(base.cases[k]!.distributed, baseId, baseStation), 10);

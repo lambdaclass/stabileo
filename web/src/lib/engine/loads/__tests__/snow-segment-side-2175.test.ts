@@ -78,13 +78,16 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
 }
 
 for (const mode of ['projected', 'width', 'panels'] as const) for (const angle of [0, 0.37]) for (const selected of [false, true]) {
-  it(`unsplit ridge crossing retains main uniform pressure #2176 ${mode} ${angle} ${selected}`, () => {
+  it(`unsplit ridge crossing preserves physical pressure #2176 ${mode} ${angle} ${selected}`, () => {
     const model = flat(2, angle), out = generate(model, mode, selected), ps = 0.7 * 50 / 65;
     for (const id of [2, 4]) for (const k of [1, 2]) {
-      for (const x of [0.5, 1.5, 2.5, 3.5]) expect(pressure(out.cases[k]!.distributed, id, x)).toBeCloseTo(1.5 * ps / 2, 10);
+      for (const x of [0.5, 1.5, 2.5, 3.5]) {
+        const positive = id === 2 ? x > 2 : x < 2;
+        expect(pressure(out.cases[k]!.distributed, id, x)).toBeCloseTo(positive === (k === 1) ? 1.5 * ps : 0, 10);
+      }
       const [force, moment] = resultant(model, out.cases[k]!.distributed, id, angle);
       expect(force).toBeCloseTo(-1.5 * ps * 2, 10);
-      expect(moment).toBeCloseTo(0, 10);
+      expect(moment).toBeCloseTo((k === 1 ? -1 : 1) * 1.5 * ps * 2, 10);
     }
   });
 }
@@ -108,8 +111,8 @@ for (const mode of ['width', 'panels'] as const) {
   });
 }
 
-for (const mode of ['projected', 'width', 'panels'] as const) for (const offset of [-0.01 - 1e-12, -0.01 + 1e-12, 0, 0.01 - 1e-12, 0.01 + 1e-12]) {
-  it(`#2175 segment midpoint side boundary ${mode} ${offset}`, () => {
+for (const mode of ['projected', 'width', 'panels'] as const) for (const offset of [-0.1 - 1e-12, -0.1 + 1e-12, -0.01 - 1e-12, -0.01 + 1e-12, 0, 0.01 - 1e-12, 0.01 + 1e-12, 0.1 - 1e-12, 0.1 + 1e-12]) {
+  it(`#2176 crossing pressure at the physical ridge ${mode} ${offset}`, () => {
     const model = flat(2, 0);
     model.nodes.set(5, { id: 5, x: 16, y: offset - 0.1, z: 3 });
     model.nodes.set(6, { id: 6, x: 16, y: offset + 0.1, z: 3 });
@@ -118,8 +121,12 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const offset 
     model.elements.set(5, { ...edge, id: 5, nodeI: 5, nodeJ: 6 });
     model.elements.set(6, { ...edge, id: 6, nodeI: 6 });
     const out = generate(model, mode, false), leeward = 1.5 * 0.7 * 50 / 65;
-    const p = Math.abs(offset) < 0.01 ? leeward / 2 : offset > 0 ? leeward : 0;
+    const p = offset > 0 ? leeward : offset < 0 ? 0 : leeward;
     expect(pressure(out.cases[1]!.distributed, 5, 0.1)).toBeCloseTo(p, 10);
+    const [force, moment] = resultant(model, out.cases[1]!.distributed, 5, 0);
+    const lo = Math.max(0, offset - 0.1), hi = Math.max(0, offset + 0.1);
+    expect(force).toBeCloseTo(-leeward * (hi - lo), 10);
+    expect(moment).toBeCloseTo(-leeward * (hi * hi - lo * lo) / 2, 10);
   });
 }
 

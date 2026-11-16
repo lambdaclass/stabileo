@@ -179,7 +179,7 @@ for (const y of [-0.011, -0.009, 0, 0.009, 0.011]) {
     const out = generate(model, 'projected', { ...snow, roofSlopeDeg: 20 });
     const u = out.result.unbalanced!;
     for (const [k, c] of out.cases.filter(c => c.nameKey === 'snow.case.unbalanced').entries()) {
-      const expected = Math.abs(y) <= 0.01 ? (u.leeward + u.windward) / 2 : y * (k === 0 ? 1 : -1) > 0 ? u.leeward : u.windward;
+      const expected = y === 0 ? (u.leeward + u.windward) / 2 : y * (k === 0 ? 1 : -1) > 0 ? u.leeward : u.windward;
       expect(pressure(c.distributed, id)).toBeCloseTo(expected, 10);
     }
   });

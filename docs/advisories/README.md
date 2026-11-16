@@ -114,3 +114,4 @@ It has no result-version entry because this change does not fix or alter engine 
 SA-2026-064 through SA-2026-068 are published with 0.6.1. The snow advisories
 have moved from `drafts/` into this catalog. Regenerate affected snow loads
 before re-solving projects.
+| [SA-2026-073](SA-2026-073-snow-crossing-moment.md) | Ridge-crossing members lost the snow load moment | High | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) | pending | Not released | Draft 2026-11-16 |

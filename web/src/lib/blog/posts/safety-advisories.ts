@@ -19,7 +19,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main/docs/advisories'
 export const safetyAdvisories: Post = {
   slug: 'safety-advisories',
   date: '2026-10-20',
-  updated: '2026-11-15',
+  updated: '2026-11-16',
   order: 7,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification'],
@@ -49,6 +49,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-072 — Corregido en PR #2175, pendiente de integración y publicación."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-073 — Pendiente."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -127,6 +129,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-068", "La torsión podía aprobar con estribos diseñados insuficientes (#2141). Repetí las verificaciones de hormigón y revisá capacidad transversal real, separación de estribos y fallas por torsión. La armadura longitudinal sin verificar no constituye una jaula aprobada.", "Alta", "Corregido en 0.6.1"],
             ["SA-2026-069", "El límite de sección por torsión omitía el corte secundario concurrente (#2142). Repetí los diseños de hormigón y revisá las fallas de sección y los estribos ausentes; agregar estribos no resuelve una sección excedida.", "Alta", "Borrador 2026-11-15; corregido en PR #2169, pendiente de integración y publicación"],
             ["SA-2026-072", "La subdivisión desigual de los bordes de la cubierta podía desplazar la cumbrera y cambiar las cargas de nieve (#2144). Regenerá las cargas y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige.", "Alta", "Corregido en PR #2175, pendiente de integración y publicación"],
+            ["SA-2026-073", "Los miembros que cruzaban una cumbrera recibían una presión uniforme y perdían el momento físico. Las cargas ahora se dividen en la cumbrera física. Regenere las cargas de nieve y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2176).", "Alta", "Pendiente"],
           ],
         },
         {
@@ -331,6 +334,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-072 — Fixed in PR #2175, pending merge and release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-073 — Pending."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -409,6 +414,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-068", "Torsion could pass with inadequate designed stirrups (#2141). Re-run concrete design checks and review actual transverse capacity, stirrup spacing and torsion failures. Unchecked longitudinal provision is not a passing cage.", "High", "Fixed in 0.6.1"],
             ["SA-2026-069", "The torsion section limit omitted concurrent secondary shear (#2142). Re-run concrete designs and review section failures and missing stirrups; adding stirrups cannot repair an exceeded section limit.", "High", "Draft 2026-11-15; fixed in PR #2169, pending merge and release"],
             ["SA-2026-072", "Unequal roof-edge subdivision could move the snow ridge and change generated loads (#2144). Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them.", "High", "Fixed in PR #2175, pending merge and release"],
+            ["SA-2026-073", "Members crossing a snow ridge received one uniform pressure and lost the physical load moment. Loads now split at the physical ridge. Regenerate snow loads, then rerun analyses, combinations and design checks. Re-solving stored generated loads alone does not correct them. (#2176).", "High", "Pending"],
           ],
         },
         {
@@ -613,6 +619,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-072 — Corrigido no PR #2175, aguardando integração e publicação."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-073 — Pendente."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -691,6 +699,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-068", "A torção podia passar com estribos dimensionados insuficientes (#2141). Refaça as verificações de concreto e revise capacidade transversal real, espaçamento dos estribos e falhas por torção. Armadura longitudinal não verificada não constitui uma gaiola aprovada.", "Alta", "Corrigido em 0.6.1"],
             ["SA-2026-069", "O limite da seção à torção omitia o esforço cortante secundário simultâneo (#2142). Refaça os projetos de concreto e revise falhas de seção e estribos ausentes; adicionar estribos não corrige uma seção que excede o limite.", "Alta", "Rascunho 2026-11-15; corrigido no PR #2169, aguardando integração e lançamento"],
             ["SA-2026-072", "A subdivisão desigual das bordas da cobertura podia deslocar a cumeeira e alterar as cargas de neve (#2144). Gere novamente as cargas e refaça análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige.", "Alta", "Corrigido no PR #2175, aguardando integração e publicação"],
+            ["SA-2026-073", "Membros que cruzavam a cumeeira recebiam pressão uniforme e perdiam o momento físico. As cargas agora são divididas na cumeeira física. Gere novamente as cargas de neve e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2176).", "Alta", "Pendente"],
           ],
         },
         {

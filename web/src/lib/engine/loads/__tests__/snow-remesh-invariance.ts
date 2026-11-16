@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import type { snowLoadCases } from '../snow-loads';
 import type { LoadModelData } from '../load-plan';
+import { snowCoordinate } from '../snow-roof-surfaces';
 import { pressure } from './snow-roof-plane-fixture';
 
 type Model = LoadModelData;
@@ -27,14 +28,25 @@ export function remeshSnowRoof(model: Model, subdivisions: ReadonlyMap<number, n
   return { model: { ...model, nodes, elements }, segments };
 }
 
-export function snowDistributedResultant(model: Model, loads: Output['cases'][number]['distributed'], ids: ReadonlySet<number>, origin = [0, 0], direction = [0, 1]) {
+export function snowDistributedResultant(model: Model, loads: Output['cases'][number]['distributed'], ids: ReadonlySet<number>, origin = [0, 0], direction = [0, 1], region?: [number, number]) {
   return loads.filter(d => ids.has(d.elementId)).reduce(([force, moment], d) => {
     const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const length = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
-    const lo = d.a ?? 0, hi = d.b ?? length, span = hi - lo;
-    const q0 = d.q, q1 = d.qJ ?? q0, f = span * (q0 + q1) / 2;
-    const station = (a.x - origin[0]!) * direction[0]! + (a.y - origin[1]!) * direction[1]!;
-    const rate = ((b.x - a.x) * direction[0]! + (b.y - a.y) * direction[1]!) / length;
+    const start = d.a ?? 0, end = d.b ?? length;
+    const station = snowCoordinate([a.x, a.y], [origin[0]!, origin[1]!], [direction[0]!, direction[1]!], region?.filter(Number.isFinite));
+    const rate = snowCoordinate([b.x, b.y], [a.x, a.y], [direction[0]!, direction[1]!], [0]) / length;
+    let lo = start, hi = end;
+    if (region) {
+      if (rate === 0 && (station < region[0] || station > region[1])) return [force!, moment!];
+      if (rate !== 0) {
+        const cuts = region.map(x => (x - station) / rate).sort((a, b) => a - b);
+        lo = Math.max(lo, cuts[0]!); hi = Math.min(hi, cuts[1]!);
+      }
+    }
+    if (hi <= lo) return [force!, moment!];
+    const cos = Math.hypot(b.x - a.x, b.y - a.y) / length;
+    const q = (x: number) => (d.q + ((d.qJ ?? d.q) - d.q) * (x - start) / (end - start)) * cos;
+    const span = hi - lo, q0 = q(lo), q1 = q(hi), f = span * (q0 + q1) / 2;
     return [force! + f, moment! + (station + rate * lo) * f + rate * span * span * (q0 + 2 * q1) / 6];
   }, [0, 0]);
 }
@@ -54,6 +66,19 @@ export function assertSnowRemeshInvariant(model: Model, subdivisions: ReadonlyMa
     const reference = base.cases[k]!;
     expect(c.nameKey).toBe(reference.nameKey);
     expect(c.nameParams).toEqual(reference.nameParams);
+    for (const source of model.elements.keys()) for (const direction of [[1, 0], [0, 1]]) {
+      const ids = new Set(refined.segments.filter(s => s.source === source).map(s => s.id));
+      const expected = snowDistributedResultant(model, reference.distributed, new Set([source]), [0, 0], direction);
+      const actual = snowDistributedResultant(refined.model, c.distributed, ids, [0, 0], direction);
+      for (const [j, value] of actual.entries()) expect(value, `physical region ${source}, resultant ${j}, case ${k}`).toBeCloseTo(expected[j]!, 10);
+    }
+    for (const source of model.elements.keys()) for (const region of [[-Infinity, base.geometry.ridge], [base.geometry.ridge, Infinity]] as Array<[number, number]>) {
+      const ids = new Set(refined.segments.filter(s => s.source === source).map(s => s.id));
+      const origin = [base.geometry.origin.x, base.geometry.origin.y], direction = base.geometry.direction;
+      const expected = snowDistributedResultant(model, reference.distributed, new Set([source]), origin, direction, region);
+      const actual = snowDistributedResultant(refined.model, c.distributed, ids, origin, direction, region);
+      for (const [j, value] of actual.entries()) expect(value, `roof region ${region}, edge ${source}, resultant ${j}, case ${k}`).toBeCloseTo(expected[j]!, 10);
+    }
     for (const s of refined.segments) for (const t of [0.125, 0.375, 0.625, 0.875]) {
       const refinedLoads = c.distributed.map(d => ({ ...d, b: d.b ?? (s.to - s.from) * s.length }));
       const baseLoads = reference.distributed.map(d => ({ ...d, b: d.b ?? s.length }));

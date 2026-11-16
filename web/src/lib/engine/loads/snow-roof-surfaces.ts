@@ -377,7 +377,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     if (!value.resolved) throw new SnowRoofPlaneRefusal();
     return value;
   };
-  const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2) => number) => {
+  const pieceLoads = (pc: GravityLayout['pieces'][number], layout: GravityLayout, pressure: (plane: SnowPlane | undefined, pt: P2, inside: P2) => number, boundaries: P2[][] = []) => {
     const e = model.elements.get(pc.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const L = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a));
@@ -389,7 +389,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const depth = (x: number) => pc.wI + (pc.wJ - pc.wI) * (x - x0) / (x1 - x0);
     const point = (x: number, d: number): P2 => [a.x + dir[0] * x + inward[0] * d, a.y + dir[1] * x + inward[1] * d];
     const sf = panel(pc.panel, layout);
-    const cuts = (a: P2, b: P2) => snowSegmentCuts(a, b, planes.map(p => p.polygon));
+    const cuts = (a: P2, b: P2) => snowSegmentCuts(a, b, [...planes.map(p => p.polygon), ...boundaries]);
     const intensity = (x: number, insideX: number) => {
       const dep = depth(x);
       if (dep <= 0) return 0;
@@ -399,7 +399,7 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
         const lo = ts[k - 1]!, hi = ts[k]!, pt = point(x, dep * (lo + hi) / 2);
         const plane = sf.planeAt(point(insideX, depth(insideX) * (lo + hi) / 2));
         if (pitched && !plane) throw new SnowRoofPlaneRefusal();
-        q += dep * (hi - lo) * pressure(plane, pt);
+        q += dep * (hi - lo) * pressure(plane, pt, point(insideX, depth(insideX) * (lo + hi) / 2));
       }
       return q;
     };
@@ -498,12 +498,9 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
   const roofCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction)) : [];
   const transverseCoordinates = geometry ? profilePoints.map(p => snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse)) : [];
   const roofPoint = (p: Point) => geometry ? {
-    x: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction, roofCoordinates),
+    x: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge, ...roofCoordinates]),
     y: snowCoordinate([p.x, p.y], [geometry.origin.x, geometry.origin.y], geometry.transverse, transverseCoordinates), z: p.z,
   } : p;
-  const memberSides = new Map(targets.map(m => {
-    return [m.id, geometry ? snowCoordinate([(m.a.x + m.b.x) / 2, (m.a.y + m.b.y) / 2], [geometry.origin.x, geometry.origin.y], geometry.direction, [geometry.ridge]) - geometry.ridge : 0];
-  }));
   const memberValues = (id: number, field: (p: Point) => number, point?: Point): [number, number] => {
     const run = runAtMember.get(id), m = targets.find(m => m.id === id);
     if (!run || !m) return [0, 0];
@@ -511,7 +508,28 @@ export function roofSurfaceModel(model: WindModel, only?: ReadonlySet<number>) {
     const at = (p: Point) => a + (b - a) * snowCoordinate([p.x, p.y], [run.a.x, run.a.y], run.direction, [0, run.length]) / run.length;
     return point ? [at(point), at(point)] : [at(m.a), at(m.b)];
   };
-  return { geometry, roofPoint, profilePoints, memberSides, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
+  const pressureProfile = (field: (id: number, point: Point, inside: Point, surface?: SnowPlane, panel?: number) => number, splitRidge = false) => {
+    const boundaries: P2[][] = [];
+    if (splitRidge && geometry && targets.some(m => supportFor(m.id).planes.length === 0)) {
+      const centre: P2 = [geometry.origin.x + geometry.ridge * geometry.direction[0], geometry.origin.y + geometry.ridge * geometry.direction[1]];
+      const extent = 1 + Math.max(...profilePoints.map(p => Math.hypot(p.x - centre[0], p.y - centre[1])));
+      boundaries.push([-1, 1].map(sign => [centre[0] + sign * extent * geometry.transverse[0], centre[1] + sign * extent * geometry.transverse[1]]));
+    }
+    const memberLoads = (id: number, from = 0, to?: number) => {
+      const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+      const length = Math.hypot(b.x - a.x, b.y - a.y, Z(b) - Z(a)), end = to ?? length;
+      const point = (x: number): Point => ({ x: a.x + (b.x - a.x) * x / length, y: a.y + (b.y - a.y) * x / length, z: Z(a) + (Z(b) - Z(a)) * x / length });
+      const startStation = roofPoint(a).x, endStation = roofPoint(b).x;
+      const crossing = boundaries.length && startStation !== endStation ? (geometry!.ridge - startStation) * length / (endStation - startStation) : undefined;
+      const cuts = [from, ...(crossing !== undefined && crossing > from && crossing < end ? [crossing] : []), end];
+      return cuts.slice(1).map((hi, k) => {
+        const lo = cuts[k]!, inside = point((lo + hi) / 2);
+        return { a: lo, b: hi, q: field(id, point(lo), inside), qJ: field(id, point(hi), inside) };
+      });
+    };
+    return { at: field, boundaries, memberLoads };
+  };
+  return { geometry, roofPoint, profilePoints, pressureProfile, memberValues, planes, targetPlanes, orientations, edgeRanges, edgeHeights, atMember, transverse, memberPlanes, sourceWidth, pieceLoads, roof: roof.filter(m => roofIds.has(m.id)), targets, runs, panel, resolves };
 }
 
 export function snowRoofSurfaces(model: WindModel, layout?: GravityLayout, surfaces = roofSurfaceModel(model)) {

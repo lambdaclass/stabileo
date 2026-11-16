@@ -43,9 +43,9 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
     const generate = generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon);
     const base = generate(model);
     const ps = 0.7 * (70 - 20) / (70 - 5), leeward = 1.5 * ps;
-    expect(pressure(base.cases[1]!.distributed, 2, 1)).toBeCloseTo(leeward / 2, 10);
+    expect(pressure(base.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
     const witness = generate(remeshSnowRoof(model, new Map([[1, 8]])).model);
-    expect(pressure(witness.cases[1]!.distributed, 2, 1)).toBeCloseTo(leeward / 2, 10);
+    expect(pressure(witness.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
     const resolved = remeshSnowRoof(model, new Map([[2, 2], [4, 2]])).model;
     for (const edges of [[1], [3], [2], [4], [5], [6], [1, 3], [2, 4], [...resolved.elements.keys()]]) {
       const splits = new Map(edges.map(id => [id, id % 2 ? 8 : 3]));
@@ -60,7 +60,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const W of [6
     const model = flat(W), polygon = [...model.nodes.values()].map(n => [n.x, n.y] as [number, number]);
     const { out } = assertSnowRemeshInvariant(model, new Map([[1, 8]]), generator(mode, { ...snow, roofSlopeDeg: 20 }, polygon));
     const ps = 0.7 * 50 / 65, windward = W <= 6 ? 0 : 0.3 * ps, leeward = (W <= 6 ? 1.5 : 1.2 * 1.5) * ps;
-    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo((windward + leeward) / 2, 10);
+    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(windward, 10);
   });
 }
 
@@ -70,7 +70,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) {
     const { out } = assertSnowRemeshInvariant(model, new Map([[1, 8], [3, 8]]), generate);
     const ps = 0.7 * 50 / 65;
     expect(pressure(out.cases[0]!.distributed, 2, 1)).toBeCloseTo(ps, 10);
-    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(1.5 * ps / 2, 10);
+    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
   });
 }
 
@@ -103,7 +103,7 @@ for (const mode of ['width', 'panels'] as const) {
     const plan = buildLoadPlan({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode }, tributaryWidth: 1, snow: config });
     expect(plan.outcome).toBe('READY');
     const c = plan.cases.findIndex(c => c.type === 'S' && c.nameKey === 'snow.case.unbalanced');
-    const expected = 1.5 * 0.7 * 50 / 65 / 2;
+    const expected = 0;
     const q = pressure(plan.distributed.filter(d => d.caseIndex === c), 2, 1);
     expect(q).toBeCloseTo(expected, 10);
   });
@@ -166,7 +166,7 @@ it('#2144 nodal tributaries receive the same ridge-crossing pressure', () => {
     layout.points = [{ elementId: 2, nodeId: m.elements.get(2)!.nodeI, panel: 0, roof: true, w: 1 }];
     const out = snowLoadCases({ model: m, layout, snow: { ...snow, roofSlopeDeg: 20 }, tributaryWidth: 1 })!;
     expect(out.result.refused).toBeUndefined();
-    expect(out.cases[1]!.nodal[0]!.fz).toBeCloseTo(-1.5 * 0.7 * 50 / 65 / 2, 10);
+    expect(out.cases[1]!.nodal).toEqual([]);
     return out;
   };
   assertSnowRemeshInvariant(model, new Map([[1, 8]]), generate);
@@ -187,7 +187,7 @@ for (const mode of ['projected', 'width', 'panels'] as const) for (const angle o
     expect(roofGeometry(model, new Set(config.roof))).toEqual({ ...base.geometry, origin: model.nodes.get(1)! });
     expect(out.geometry).toEqual({ ...base.geometry, origin: model.nodes.get(1)! });
     expect(out.cases).toEqual(base.cases);
-    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(1.5 * 0.7 * 50 / 65 / 2, 10);
+    expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(0, 10);
   });
 }
 
@@ -198,7 +198,7 @@ for (const delta of [0, 1e-8 - 1e-12, 1e-8, 1e-8 + 1e-12]) for (const corner of 
     const higher = delta > 1e-8;
     expect(out.geometry.ridge).toBe(higher ? (corner === 1 ? 0 : 4) : 2);
     expect(roofGeometry(model)).toEqual(out.geometry);
-    const expected = 1.5 * 0.7 * 50 / 65 * (higher ? (corner === 1 ? 1 : 0) : 0.5);
+    const expected = 1.5 * 0.7 * 50 / 65 * (higher && corner === 1 ? 1 : 0);
     expect(pressure(out.cases[1]!.distributed, 2, 1)).toBeCloseTo(expected, 10);
     if (!higher) {
       expect(out.cases.map(({ nodal, ...c }) => c)).toEqual(base.cases.map(({ nodal, ...c }) => c));
@@ -224,7 +224,7 @@ for (const mode of ['width', 'panels'] as const) for (const delta of [-1e-12, 1e
     expect(out.distributed).toEqual(base.distributed);
     expect(out.nodal).toEqual(base.nodal);
     const c = out.cases.findIndex(c => c.type === 'S' && c.nameKey === 'snow.case.unbalanced');
-    expect(pressure(out.distributed.filter(d => d.caseIndex === c), 2, 1)).toBeCloseTo(1.5 * 0.7 * 50 / 65 / 2, 10);
+    expect(pressure(out.distributed.filter(d => d.caseIndex === c), 2, 1)).toBeCloseTo(0, 10);
   });
 }
 
@@ -235,6 +235,6 @@ for (const delta of [-1e-12, 1e-12]) {
     layout.points = [{ elementId: 2, nodeId: model.elements.get(2)!.nodeI, panel: 0, roof: true, w: 1 }];
     const out = snowLoadCases({ model, layout, snow: { ...snow, roofSlopeDeg: 20 }, tributaryWidth: 1 })!;
     expect(out.result.refused).toBeUndefined();
-    expect(out.cases[1]!.nodal[0]!.fz).toBeCloseTo(-1.5 * 0.7 * 50 / 65 / 2, 10);
+    expect(out.cases[1]!.nodal).toEqual([]);
   });
 }
