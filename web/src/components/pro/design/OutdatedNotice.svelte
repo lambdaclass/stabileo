@@ -32,5 +32,5 @@
   }
   .under-audit { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.75rem; padding: 0.4rem 0.6rem; font-size: 0.75rem; line-height: 1.5; color: var(--st-text); overflow-wrap: anywhere; }
   .under-audit span { flex: 1 1 24rem; min-width: 0; }
-  .under-audit a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; max-width: 100%; color: var(--st-accent); text-decoration: underline; }
+  .under-audit a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; max-width: 100%; color: var(--st-interactive); text-decoration: underline; }
 </style>

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import OutdatedNotice from './OutdatedNotice.svelte';
   import { editorActivity } from '../../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -320,7 +319,6 @@
     />
 
     <ProvisionalBanner count={built?.scene.provisionalMembers.length ?? 0} />
-    <OutdatedNotice audit={['rc-detailing']} />
     <TorsionBanner count={built?.scene.torsionUnevaluatedMembers.length ?? 0} />
 
     <div class="body" class:rail-open={railOpen}>

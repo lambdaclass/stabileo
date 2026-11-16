@@ -2,7 +2,7 @@ import { test, expect, loadModel, alSection, designAll, designPlace, open3D } fr
 import type { DedalFile } from '../src/lib/store/file';
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }, { width: 820, height: 1180 }]) {
-  test.skip(`@smoke known wrong result: #2228 RC results independently trigger the main-view notice at ${viewport.width}px`, async ({ pro: page }) => {
+  test(`@smoke known wrong result: #2228 RC results independently trigger the main-view notice at ${viewport.width}px`, async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     const checkManualLoads = async () => {
       const { snapshot } = JSON.parse(await page.evaluate(() => window.__stabileo.serializeProject())) as DedalFile;

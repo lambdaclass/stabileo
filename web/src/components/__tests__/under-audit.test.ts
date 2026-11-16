@@ -59,7 +59,7 @@ it('known wrong result: #2199 every generator and design view requires a registr
 it('known wrong result: #2199 the shared notice reaches generated loads and independent RC result surfaces', () => {
   for (const path of [
     '../../App.svelte', '../pro/ProAutoLoadsDialog.svelte', '../pro/ProFloorLoadSection.svelte',
-    '../pro/ProDesignTab.svelte', '../pro/desk/DesignDesk.svelte', '../pro/desk/DeskInspector.svelte', '../pro/design/RebarWorkspace.svelte',
+    '../pro/ProDesignTab.svelte', '../pro/desk/DesignDesk.svelte', '../pro/desk/DeskInspector.svelte', '../pro/design/RebarWorkspaceHeader.svelte',
     '../pro/design/SheetsPanel.svelte', '../pro/design/MemoriaDialog.svelte', '../pro/ProOtherCodesPanel.svelte', '../pro/desk/codes/ForeignCodesEditor.svelte',
   ]) expect(/<OutdatedNotice[^>]*\baudit=/.test(source(path)), path).toBe(true);
 });
@@ -78,7 +78,7 @@ it('known wrong result: #2199 the audit notice is translated in every shipped lo
 });
 
 
-it.skip('known wrong result: #2228 the cage header owns the audit notice within the component ceiling', () => {
+it('known wrong result: #2228 the cage header owns the audit notice within the component ceiling', () => {
   const html = render(RebarWorkspaceHeader, { props: {
     readiness: null, revision: null, summary: null, fmt: String, railOpen: false,
     canGoBack: false, onBack: () => {}, onFitView: () => {}, onClose: () => {},
