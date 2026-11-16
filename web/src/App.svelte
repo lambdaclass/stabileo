@@ -1,4 +1,7 @@
 <script lang="ts">
+  import OutdatedNotice from './components/pro/design/OutdatedNotice.svelte';
+  import { modelAuditFeatures } from './lib/provenance/under-audit';
+  import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
@@ -1372,7 +1375,7 @@
    */
   let mainAreaEl = $state<HTMLDivElement | null>(null);
   /** The viewers' legends, which the toasts keep clear of. */
-  const LEGEND_SELECTOR = '.diagram-legend, .shell-legend, .cs-legend';
+  const LEGEND_SELECTOR = '.diagram-legend, .shell-legend, .cs-legend, [data-testid="under-audit-notice"]';
   $effect(() => {
     const root = document.documentElement;
     const el = mainAreaEl;
@@ -2106,6 +2109,9 @@
           <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
+      {#if !deskUi.open && !rebarWorkspace.open}
+        <OutdatedNotice audit={[...modelAuditFeatures(modelStore.model), ...(verificationStore.concrete.length ? ['rc-design' as const] : [])]} />
+      {/if}
     </div>
 
     <!--

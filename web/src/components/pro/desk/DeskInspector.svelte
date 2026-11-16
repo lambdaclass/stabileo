@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
+  import { DESIGN_AUDIT_FEATURES, underAudit } from '../../../lib/provenance/under-audit';
   /**
    * The member open on the desk: what it is and how it stands, the decision on its bars with the
    * buttons that change it (lock, revert, redesign, equalize), its checks with their notices, and
@@ -115,6 +117,7 @@
 {/if}
 
 <aside class="di" data-testid="desk-inspector">
+  <OutdatedNotice audit={row?.material === 'concrete' && !underAudit([DESIGN_AUDIT_FEATURES[deskUi.tab]]) ? ['rc-design'] : []} />
   {#if !row}
     <p class="di-hint">{t('desk.pickMember')}</p>
   {:else}
