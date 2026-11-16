@@ -41,18 +41,18 @@ import {
   transverseSpacingSupportedForEdition,
 } from '../../../codes/cirsoc201/transverse-spacing';
 import { jointThreading, jointThreadingChecks } from '../joint-threading-check';
-import { supportInputOf, bottomReach, endSupportChecks, endSupportVerdicts, inflectionChecks, type EndSupportInput } from '../end-support-anchorage';
+import { supportInputOf, bottomReach, endSupportChecks, endSupportPlan, inflectionChecks, type EndSupportInput } from '../end-support-anchorage';
 
 /**
  * Every row of bars that ends in a column, checked by `planSupportEnd` on that column, and
  * §9.7.3.8.3 for the positive steel. An end no column can anchor fails here, so the search looks
  * for bars that anchor.
  */
-function withSupportAnchorage(ctx: MemberContext, input: EndSupportInput, res: ProvidedRebarResult): ProvidedRebarResult {
-  const verdicts = endSupportVerdicts(input);
+function withSupportAnchorage(ctx: MemberContext, input: EndSupportInput, res: ProvidedRebarResult, plan: ReturnType<typeof endSupportPlan>): ProvidedRebarResult {
+  const { verdicts } = plan;
   const extra = [...endSupportChecks(verdicts, input.lateral), ...inflectionChecks({ ...input, ...(ctx.stations ? { stations: ctx.stations } : {}), axes: ctx.axes, L: ctx.L })];
   // The bars through the column cages at its joints, as the detailing coordinates them.
-  const threading = jointThreading(ctx, input.rebar, input);
+  const threading = jointThreading(ctx, input.rebar, input, plan);
   const checks = [...res.checks, ...extra, ...jointThreadingChecks(threading)];
   const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
   const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
@@ -187,6 +187,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
 
   verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
     const support = supportInputOf(ctx, rebar);
+    const supportPlan = support ? endSupportPlan(support) : null;
     const res = verifyProvidedReinforcement(
       ctx.elementId,
       ctx.elementType,
@@ -219,10 +220,10 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
         // layer centroids and nothing else — the section and its true cover are unchanged.
         finalGeometry: ctx.finalGeometry,
         // The bottom bars' ends as the detailing lays them: the region rows measure to there.
-        ...(support ? { bottomReach: bottomReach(support) } : {}),
+        ...(support && supportPlan ? { bottomReach: bottomReach(support, supportPlan) } : {}),
       },
     );
-    if (support && res.hasProvided) return withSupportAnchorage(ctx, support, res);
+    if (support && supportPlan && res.hasProvided) return withSupportAnchorage(ctx, support, res, supportPlan);
     // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
     if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
     const { b, h } = ctx.section;
