@@ -8,7 +8,6 @@ const ELEVATION = [
   '/research/optimisation/fairclough-2026',
   '/research/benchmarks/mattiasson-elastica',
   '/research/benchmarks/shell-obstacle-course',
-  '/research/benchmarks/macneal-harder-1985',
   '/research/benchmarks/newmark-1959',
   '/research/benchmarks/plastic-collapse',
   '/research/benchmarks/dadeppo-arch-1975',
@@ -36,22 +35,35 @@ async function firstViewer(page: Page, plane: 'plan' | 'elevation') {
   return { canvas, toggle: page.locator('.sfv-wrap', { has: canvas }).locator('.sfv-mode').first() };
 }
 
+async function standsUp(page: Page) {
+  const { canvas, toggle } = await firstViewer(page, 'elevation');
+  const [dx2, dy2] = await yAxis(canvas, 'plan');
+  expect(Math.abs(dx2)).toBeLessThan(0.5);
+  expect(dy2).toBeLessThan(0);
+  await toggle.click();
+  const [dx3, dy3] = await yAxis(canvas, 'orbit');
+  expect(Math.abs(dx3)).toBeLessThan(0.1 * Math.abs(dy3));
+  expect(dy3 / dy2).toBeGreaterThan(0.75);
+  await toggle.click();
+  await yAxis(canvas, 'plan');
+}
+
 for (const path of ELEVATION) {
   test(`@smoke research viewer: ${path} stands its elevation up in 3D`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/en${path}/`);
-    const { canvas, toggle } = await firstViewer(page, 'elevation');
-    const [dx2, dy2] = await yAxis(canvas, 'plan');
-    expect(Math.abs(dx2)).toBeLessThan(0.5);
-    expect(dy2).toBeLessThan(0);
-    await toggle.click();
-    const [dx3, dy3] = await yAxis(canvas, 'orbit');
-    expect(Math.abs(dx3)).toBeLessThan(0.1 * Math.abs(dy3));
-    expect(dy3 / dy2).toBeGreaterThan(0.75);
-    await toggle.click();
-    await yAxis(canvas, 'plan');
+    await standsUp(page);
   });
 }
+
+test('@smoke research viewer: MacNeal–Harder draws its shell meshes in plan and its frames in elevation', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/en/research/benchmarks/macneal-harder-1985/');
+  const { canvas } = await firstViewer(page, 'plan');
+  await page.locator('.mh-control select').selectOption('frame-shear-4-uz');
+  await expect(canvas).toHaveAttribute('data-plane', 'elevation');
+  await standsUp(page);
+});
 
 test('@smoke research viewer: the Navier plate lies in plan and the gridshell switches between section and plan', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -101,7 +101,7 @@
     lineWidth = 3,
     values,
     displayMode = 'field',
-    renderDiagnostics = false,
+    renderDiagnostics = import.meta.env.VITE_E2E === '1',
     perCell = false,
     range,
     title,
