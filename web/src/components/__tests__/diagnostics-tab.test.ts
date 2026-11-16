@@ -6,9 +6,11 @@ const loose = (plate: string, nodes: string): SolverDiagnostic => ({
   source: 'model', severity: 'warning', code: 'PLATE_LOOSE_CORNER', message: 'plates.diag.looseCorner', objects: [{ kind: 'plate', id: 1 }], details: { plate, nodes },
 });
 
+const dof = (n: number): SolverDiagnostic => ({ source: 'solver', severity: 'warning', code: 'DOF_OVERCONSTRAINED', message: `DOF ${n} (node 121) is constrained twice`, nodeIds: [121] });
+
 vi.mock('../../lib/pro/diagnostics-list', async (original) => ({
   ...(await original<typeof import('../../lib/pro/diagnostics-list')>()),
-  collectDiagnostics: () => [loose('M2', '118'), loose('M3', '119'), loose('L4', '17, 27')],
+  collectDiagnostics: () => [loose('M2', '118'), loose('M3', '119'), loose('L4', '17, 27'), dof(648), dof(649)],
 }));
 
 const { default: ProDiagnosticsTab } = await import('../pro/ProDiagnosticsTab.svelte');
@@ -28,14 +30,16 @@ describe('PRO Diagnostics', () => {
     resultsStore.setResults3D({ displacements: [], reactions: [], elementForces: [],
       structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'NUM-INVARIANCE', value: 762, message: 'ENGINE' }] } as never);
     const html = render(ProDiagnosticsTab).body;
-    expect(html.match(/data-testid="diag-group"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="diag-group"/g)).toHaveLength(2);
     expect(html).toContain('data-count="3"');
-    expect(html.match(/data-testid="diag-group-item"/g)).toHaveLength(3);
+    expect(html.match(/data-testid="diag-group-item"/g)).toHaveLength(5);
+    expect(visible(html)).toContain('DOF … (node …) is constrained twice');
+    expect(visible(html)).toContain('DOF 649 (node 121) is constrained twice');
     expect(visible(html)).toContain('×3');
     expect(visible(html)).toContain('nodos: 17, 27');
     expect(visible(html)).not.toMatch(/\bnodes:/);
     expect(visible(html)).not.toContain('#762');
-    expect(html).toContain('data-testid="diag-review-count" data-count="2"');
-    expect(visible(html)).toContain('2 avisos para revisar (1 del modelo, 1 de los resultados)');
+    expect(html).toContain('data-testid="diag-review-count" data-count="3"');
+    expect(visible(html)).toContain('3 avisos para revisar (2 del modelo, 1 de los resultados)');
   });
 });

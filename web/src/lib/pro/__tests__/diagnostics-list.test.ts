@@ -17,6 +17,13 @@ describe('the diagnostics list', () => {
     expect(groups[0]!.items.map((d) => d.details?.plate)).toEqual(['M2', 'M3', 'L4']);
   });
 
+  it('groups messages that differ only in their numbers', () => {
+    const dof = (n: number): SolverDiagnostic => ({ source: 'solver', severity: 'warning', code: 'DOF_OVERCONSTRAINED', message: `DOF ${n} (node 121) is constrained by 2 constraints`, nodeIds: [121] });
+    const groups = groupDiagnostics([dof(648), dof(649), dof(650)]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.items).toHaveLength(3);
+  });
+
   it('keeps the engine issue numbers out of the sentence', () => {
     expect(withoutIssueRef('Verify the stability independently before designing. (#762)')).toBe('Verify the stability independently before designing.');
     expect(withoutIssueRef('Run a P-Delta analysis (#1551) first')).toBe('Run a P-Delta analysis first');

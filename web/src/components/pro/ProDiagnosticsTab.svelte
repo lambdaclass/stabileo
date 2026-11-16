@@ -5,7 +5,7 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { selectionOf, shellRef } from '../../lib/engine/model-findings';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
-  import { collectDiagnostics, groupDiagnostics, withoutIssueRef } from '../../lib/pro/diagnostics-list';
+  import { collectDiagnostics, groupDiagnostics, numbersMasked, withoutIssueRef } from '../../lib/pro/diagnostics-list';
   import { postAnalysisLines, partLines, postAnalysisRows, postAnalysisHtml, type PostAnalysisLine } from '../../lib/engine/post-analysis';
   import { staticsRows } from '../../lib/store/statics-rows';
   import { instability } from '../../lib/store/instability.svelte';
@@ -154,6 +154,8 @@
       .join(' | ');
   }
 
+  const messageOf = (d: SolverDiagnostic) => withoutIssueRef(t(d.message) !== d.message ? t(d.message) : d.message);
+
   function shellLabel(key: string): string {
     const { kind, id } = shellRef(key);
     return t(kind === 'plate' ? 'results.plateLabel' : 'results.quadLabel').replace('{id}', String(id));
@@ -291,11 +293,11 @@
       {/if}
     </div>
 
-    {#snippet headline(diag: SolverDiagnostic, tooltip: string)}
+    {#snippet headline(diag: SolverDiagnostic, tooltip: string, masked = false)}
       <span class="diag-icon {severityClass(diag.severity)}">{severityIcon(diag.severity)}</span>
       <span class="diag-source">{sourceLabel(diag.source)}</span>
       <div class="diag-content">
-        <span class="diag-msg">{withoutIssueRef(t(diag.message) !== diag.message ? t(diag.message) : diag.message)}</span>
+        <span class="diag-msg">{masked ? numbersMasked(messageOf(diag)) : messageOf(diag)}</span>
         {#if tooltip}
           <span class="diag-tooltip-text">{tooltip}</span>
         {/if}
@@ -324,14 +326,15 @@
             {@render refs(g.first)}
           </button>
         {:else}
+          {@const varies = g.items.some((d) => d.message !== g.first.message)}
           <details class="diag-group" data-testid="diag-group" data-count={g.items.length}>
             <summary class="diag-item {severityClass(g.first.severity)}" title={tooltip || undefined} data-tour="diagnostic-item">
-              {@render headline(g.first, tooltip)}
+              {@render headline(g.first, tooltip, varies)}
               <span class="diag-count" data-testid="diag-group-count">×{g.items.length}</span>
             </summary>
             <div class="diag-group-items">
               {#each g.items as item, k (k)}
-                <button class="diag-sub" onclick={() => handleClick(item)} data-testid="diag-group-item">{@render refs(item)}</button>
+                <button class="diag-sub" onclick={() => handleClick(item)} data-testid="diag-group-item">{#if varies}<span class="diag-sub-msg">{messageOf(item)}</span>{/if}{@render refs(item)}</button>
               {/each}
             </div>
           </details>
@@ -537,6 +540,7 @@
   .diag-sub { display: flex; flex-wrap: wrap; gap: 6px; text-align: left; border: none; background: none; color: inherit; padding: 3px 6px; cursor: pointer; border-radius: 3px; }
   .diag-sub:hover { background: rgba(127, 212, 204, 0.05); }
   .diag-sub .diag-details { width: auto; padding-left: 0; }
+  .diag-sub-msg { width: 100%; font-size: 0.72rem; }
 
   .diag-refs {
     font-family: monospace;

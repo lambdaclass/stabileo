@@ -64,11 +64,16 @@ export function collectDiagnostics(is3D: boolean): SolverDiagnostic[] {
   return [...objects, ...mergeFindings([...modelChecks(), ...sanityChecks(is3D)], general, solver, fromGates)].filter((d) => d.code !== 'known_issue');
 }
 
+/** A message with its numbers left out: "DOF 648 (node 121)…" and "DOF 649 (node 121)…" say the same thing. */
+export function numbersMasked(text: string): string {
+  return text.replace(/\d+(?:[.,]\d+)?/g, '…');
+}
+
 /** Findings that say the same thing (one per plate, say) as one group, in the order they first appear. */
 export function groupDiagnostics(list: readonly SolverDiagnostic[]): DiagnosticGroup[] {
   const groups = new Map<string, DiagnosticGroup>();
   for (const d of list) {
-    const key = `${d.severity}\u0000${d.source}\u0000${d.code}\u0000${d.message}`;
+    const key = `${d.severity}\u0000${d.source}\u0000${d.code}\u0000${numbersMasked(d.message)}`;
     const g = groups.get(key);
     if (g) g.items.push(d);
     else groups.set(key, { key, first: d, items: [d] });
