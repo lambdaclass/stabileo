@@ -8,7 +8,7 @@ import { mesh, windProject, windResultants } from './wind-integration-fixture';
 
 const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 const neck = 1e-7;
-const source = () => mesh([-1, 1].map(side => [[0, side, 0], [0, side * neck, 6], [0, side, 10]]));
+const source = () => mesh([-1, 1].flatMap(side => [[[0, side, 0], [0, side * neck, 6]], [[0, side * neck, 6], [0, side, 10]]]));
 
 for (const sign of [-1, 1]) knownWrong(`known wrong result: #2220 eccentric transfer cannot skip a narrow neck sign=${sign}`, () => {
   const model = source();
@@ -23,7 +23,7 @@ knownWrong('known wrong result: #2220 solid sign eccentric cases refuse a narrow
   expect(() => otherStructureWind({ model: source(), structure: { kind: 'solidSign', clearance: 0 }, project: windProject, directions: ['+x'], tributaryWidth: 2 })).toThrow('wind.pressure.distributedTorqueUnsupported');
 });
 
-for (const entry of ['profile', 'solidSign'] as const) for (const complete of [false, true]) knownWrong(`known wrong result: #2220 planner refuses unsupported neck torque ${entry} complete=${complete}`, () => {
+for (const entry of ['profile', 'solidSign'] as const) for (const complete of [false, true]) knownWrong(`known wrong result: #2220 planner handles neck pressure and torque ${entry} complete=${complete}`, () => {
   const model = source();
   const input = { model, tributaryWidth: 2, wind: { enabled: true, basicSpeed: 40, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, senses: ['+x'], caseSet: 'all', ...(entry === 'profile' ? { profile: [[0, 1], [10, 1]] } : { structure: { kind: 'solidSign', clearance: 0 } }) } } as LoadPlanInput;
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
@@ -34,6 +34,14 @@ for (const entry of ['profile', 'solidSign'] as const) for (const complete of [f
     for (const key of Object.keys(regulations) as Array<keyof typeof regulations>) if (regulations[key].adapterId) regulations[key] = { ...regulations[key], configComplete: true, state: 'applied' };
     result = buildLoadPlan({ ...input, regulations, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false });
   } else planWind(input, levels, sink);
+  if (entry === 'profile') {
+    expect(result.blockedKeys).toEqual([]);
+    expect(result.cases.length).toBeGreaterThan(0);
+    const lines = result.distributed.filter(p => p.caseIndex === 0);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(windResultants(model, lines)[0]).toBeCloseTo(10 * (1 + neck), 10);
+    return;
+  }
   expect(result.blockedKeys.map(m => m.key)).toContain('wind.pressure.distributedTorqueUnsupported');
   expect(result.cases).toEqual([]);
   expect(result.distributed).toEqual([]);
