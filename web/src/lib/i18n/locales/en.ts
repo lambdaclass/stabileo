@@ -14372,6 +14372,7 @@ const en: Record<string, string> = {
   "rcSheets.plans.done.other": "{n} sheets exported",
   "rcSheets.plans.beamElevation": "{name} · elevation",
   "rcSheets.plans.beamBars": "{name} · bar breakdown",
+  "rcSheets.plans.beamElevationBars": "{name} · elevation and bar breakdown",
   "rcSheets.plans.section": "Section {n}–{n}",
   "rcSheets.plans.schedule": "{name} · bar schedule",
   "rcSheets.plans.slabLayer": "{level} · slab bars, {layer}",

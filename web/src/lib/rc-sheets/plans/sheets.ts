@@ -6,7 +6,7 @@
  * the next larger size; a beam's elevation is cut at its axes instead.
  */
 import { zipSync } from 'fflate';
-import { CAPTION_MM, type DrawingInput } from '../../sheets/compose';
+import { CAPTION_MM, fitsDense, type DrawingInput } from '../../sheets/compose';
 import { fittingScale, formatGeometry, type SheetFormat } from '../../sheets/formats';
 import { buildSheetSet, type SetSheet } from '../../sheets/sheet-set';
 import { sheetsToPdf } from '../../sheets/to-pdf';
@@ -50,8 +50,8 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
   const drawings: DrawingInput[] = [], levels = new Map<string, string>();
   const e = { scale: o.scales.elevation, fmt: o.fmt, tr: o.tr }, p = { scale: o.scales.plan, fmt: o.fmt, tr: o.tr };
   const fam = (f: PlanFamily) => o.tr(`rcSheets.family.${f}`);
-  const group = (f: PlanFamily, level: string | undefined, name?: string) => {
-    const g = [fam(f), level || '—', ...(name ? [name] : [])].join(' · ');
+  const group = (f: PlanFamily, level: string | undefined) => {
+    const g = [fam(f), level || '—'].join(' · ');
     levels.set(g, level ?? '');
     return g;
   };
@@ -61,7 +61,7 @@ export function planDrawings(rows: PlanRows, sel: PlanSelection, o: PlanOptions)
   for (const line of rows.line) {
     if (!want('beam', line.key, line.level)) continue;
     const spans = rows.beam.filter((r) => r.demand.line?.group === line.group);
-    drawings.push(...beamPlans(line, spans, { ...e, code: o.code, maxWidth, group: group('beam', line.level, line.name) }));
+    drawings.push(...beamPlans(line, spans, { ...e, code: o.code, maxWidth, group: group('beam', line.level) }));
   }
   for (const row of rows.column) {
     if (!want('column', row.key, row.level)) continue;
@@ -84,10 +84,7 @@ const ORDER: readonly SheetFormat[] = ['A3', 'A2', 'A1', 'A0'];
 /** Each drawing on the chosen size when it fits there at its scale, else on the smallest larger one that holds it; on A0 at a smaller scale when none does. */
 export function fitFormats(drawings: readonly DrawingInput[], format: PlanFormat): { drawings: DrawingInput[]; moved: string[] } {
   const moved: string[] = [];
-  const holds = (d: DrawingInput, f: SheetFormat, s: number) => {
-    const g = formatGeometry(f).drawable;
-    return d.width / s <= g.x1 - g.x0 + 1e-6 && d.height / s + CAPTION_MM <= g.y1 - g.y0 + 1e-6;
-  };
+  const holds = (d: DrawingInput, f: SheetFormat, s: number) => fitsDense(formatGeometry(f), d.width / s, d.height / s + CAPTION_MM);
   const out = drawings.map((d) => {
     const s = d.paper ? 1 : d.scale ?? 1;
     if (holds(d, format, s)) return d;
@@ -105,7 +102,7 @@ export interface PlanProject { name: string; author: string; licence: string; da
 export function planSheets(drawings: readonly DrawingInput[], levels: ReadonlyMap<string, string>, format: PlanFormat, project: PlanProject, tr: Tr): SetSheet[] {
   const L = (k: string) => tr(`rcSheets.plans.tb.${k}`);
   return buildSheetSet({
-    drawings: fitFormats(drawings, format).drawings, settings: { format, prefix: 'E-', start: 0 }, label: (k) => tr(k),
+    drawings: fitFormats(drawings, format).drawings, settings: { format, prefix: 'E-', start: 0 }, label: (k) => tr(k), dense: true,
     project: { project: project.name, ...(project.client ? { client: project.client } : {}), designer: project.author, ...(project.checker ? { checker: project.checker } : {}), ...(project.approver ? { approver: project.approver } : {}) },
     titleBlock: {
       layout: 'standard',

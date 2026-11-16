@@ -14212,6 +14212,7 @@ const de: Translations = {
   "rcSheets.plans.done.other": "{n} Blätter exportiert",
   "rcSheets.plans.beamElevation": "{name} · Ansicht",
   "rcSheets.plans.beamBars": "{name} · Stabauszug",
+  "rcSheets.plans.beamElevationBars": "{name} · Ansicht und Stabauszug",
   "rcSheets.plans.section": "Schnitt {n}–{n}",
   "rcSheets.plans.schedule": "{name} · Stahlliste",
   "rcSheets.plans.slabLayer": "{level} · Deckenbewehrung, {layer}",

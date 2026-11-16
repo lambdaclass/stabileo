@@ -14013,6 +14013,7 @@ const pt: Translations = {
   "rcSheets.plans.done.other": "{n} folhas exportadas",
   "rcSheets.plans.beamElevation": "{name} · elevação",
   "rcSheets.plans.beamBars": "{name} · detalhamento das barras",
+  "rcSheets.plans.beamElevationBars": "{name} · elevação e detalhamento das barras",
   "rcSheets.plans.section": "Seção {n}–{n}",
   "rcSheets.plans.schedule": "{name} · tabela de barras",
   "rcSheets.plans.slabLayer": "{level} · armadura de lajes, {layer}",

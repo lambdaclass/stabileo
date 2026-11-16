@@ -111,17 +111,22 @@ export function placeLabels(wanted: readonly number[], gap: number, fixed: reado
   return out;
 }
 
-/** Where each bar's mark stands along the line, m: over the middle of its longest piece, the marks of a face at least `gap` apart. */
-export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number): Map<string, number> {
+/**
+ * Where each bar's mark stands along the line, m: over the middle of its longest piece within
+ * `window` (the whole line when absent), the marks of a face at least `gap` apart and `fixedGap`
+ * from every `fixed` place (the cuts drawn beside the beam).
+ */
+export function markPlaces(line: Spans & Pick<LineLayout, 'bars'>, gap: number, o: { window?: [number, number]; fixed?: readonly number[]; fixedGap?: number } = {}): Map<string, number> {
   const out = new Map<string, number>();
+  const [w0, w1] = o.window ?? [-Infinity, Infinity];
   for (const face of ['top', 'bottom'] as const) {
     const list = line.bars.filter((b) => b.face === face).flatMap((b) => {
-      const t = barTrace(line, b);
+      const t = barTrace(line, b).map((g) => ({ from: Math.max(g.from, w0), to: Math.min(g.to, w1) })).filter((g) => g.to - g.from > 1e-6);
       if (!t.length) return [];
       const g = t.reduce((a, c) => (c.to - c.from > a.to - a.from ? c : a));
       return [{ mark: b.mark, x: (g.from + g.to) / 2 }];
     });
-    const xs = placeLabels(list.map((m) => m.x), gap);
+    const xs = placeLabels(list.map((m) => m.x), gap, o.fixed ?? [], o.fixedGap ?? gap);
     list.forEach((m, i) => out.set(m.mark, xs[i]!));
   }
   return out;

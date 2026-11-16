@@ -32,7 +32,7 @@
 
   const MARK_GAP = 17;
   const marksAlong = $derived.by(() => {
-    const along = markPlaces(line, MARK_GAP / sx), out = new Map<string, { x: number; y: number }>();
+    const along = markPlaces(line, MARK_GAP / sx, { fixed: cuts.map((c) => c.x), fixedGap: MARK_GAP / sx }), out = new Map<string, { x: number; y: number }>();
     for (const b of line.bars) {
       const segs = trace(b), x = along.get(b.mark);
       if (!segs.length || x === undefined) continue;

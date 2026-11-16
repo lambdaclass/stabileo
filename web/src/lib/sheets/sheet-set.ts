@@ -52,6 +52,8 @@ export interface SheetSetInput {
   floorOf?: (group: string | undefined) => string | undefined;
   /** The person's adjustments to the composition (`sheet-layout.ts`). */
   layout?: SheetLayout;
+  /** Pack the drawings densely (`composeSheets`). */
+  dense?: boolean;
 }
 
 export function buildSheetSet(i: SheetSetInput): SetSheet[] {
@@ -66,7 +68,7 @@ export function buildSheetSet(i: SheetSetInput): SetSheet[] {
   const arranged = arrangeDrawings(i.drawings, i.layout);
   const conflicts = [...arranged.conflicts];
   const byKey = new Map(arranged.drawings.map((d) => [d.key, d]));
-  const composed = composeSheets(arranged.drawings, i.settings.format, geometryOf);
+  const composed = composeSheets(arranged.drawings, i.settings.format, geometryOf, i.dense === true);
   // The adjustments that place: a drawing at its point, texts moved inside it, annotations.
   for (const c of composed) {
     for (const p of c.drawings) {

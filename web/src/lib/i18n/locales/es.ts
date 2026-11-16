@@ -14361,6 +14361,7 @@ const es: Record<string, string> = {
   "rcSheets.plans.done.other": "{n} láminas exportadas",
   "rcSheets.plans.beamElevation": "{name} · alzado",
   "rcSheets.plans.beamBars": "{name} · despiece",
+  "rcSheets.plans.beamElevationBars": "{name} · alzado y despiece",
   "rcSheets.plans.section": "Sección {n}–{n}",
   "rcSheets.plans.schedule": "{name} · planilla de barras",
   "rcSheets.plans.slabLayer": "{level} · armadura de losas, {layer}",

@@ -14212,6 +14212,7 @@ const fr: Translations = {
   "rcSheets.plans.done.other": "{n} feuilles exportées",
   "rcSheets.plans.beamElevation": "{name} · élévation",
   "rcSheets.plans.beamBars": "{name} · façonnage des barres",
+  "rcSheets.plans.beamElevationBars": "{name} · élévation et façonnage des barres",
   "rcSheets.plans.section": "Coupe {n}–{n}",
   "rcSheets.plans.schedule": "{name} · nomenclature des barres",
   "rcSheets.plans.slabLayer": "{level} · armatures de dalles, {layer}",

@@ -14212,6 +14212,7 @@ const tr: Translations = {
   "rcSheets.plans.done.other": "{n} pafta dışa aktarıldı",
   "rcSheets.plans.beamElevation": "{name} · görünüş",
   "rcSheets.plans.beamBars": "{name} · donatı açılımı",
+  "rcSheets.plans.beamElevationBars": "{name} · görünüş ve donatı açılımı",
   "rcSheets.plans.section": "Kesit {n}–{n}",
   "rcSheets.plans.schedule": "{name} · donatı çizelgesi",
   "rcSheets.plans.slabLayer": "{level} · döşeme donatısı, {layer}",
