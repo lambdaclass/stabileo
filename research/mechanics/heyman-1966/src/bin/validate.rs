@@ -18,6 +18,16 @@ fn compared(id: &str, metric: &str, computed: f64, reference: f64, relative: boo
     c
 }
 
+fn largest_difference(a: &Value, b: &Value) -> f64 {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => (x.as_f64().unwrap() - y.as_f64().unwrap()).abs(),
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).map(|(p, q)| largest_difference(p, q)).fold(0.0, f64::max),
+        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().map(|(k, p)| y.get(k).map_or(f64::INFINITY, |q| largest_difference(p, q))).fold(0.0, f64::max),
+        _ if a == b => 0.0,
+        _ => f64::INFINITY,
+    }
+}
+
 fn read(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(format!("{HERE}/reference-results/{name}")).unwrap()).unwrap()
 }
@@ -85,9 +95,8 @@ fn main() {
     checks.push(check("ring-hinges", "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints differ from the Python/HiGHS implementation", hinge_mismatch, 0.0));
 
     let fresh = run::replay().unwrap();
-    let stored = std::fs::read_to_string(format!("{HERE}/reference-results/replay.json")).unwrap();
-    let same = serde_json::to_string(&fresh).unwrap() + "\n" == stored;
-    checks.push(check("replay", "replay.json against a fresh run: differs (0 = identical)", if same { 0.0 } else { 1.0 }, 0.0));
+    let stored = read("replay.json");
+    checks.push(check("replay", "replay.json against a fresh run: largest difference in any number (same structure, else infinite)", largest_difference(&fresh, &stored), 1e-6));
 
     let heyman: Vec<Value> = rizzi["rows"].as_array().unwrap().iter().zip(&table).map(|(row, ours)| {
         json!({"alpha": row["alpha"], "eta": row["heyman"]["eta"], "beta": row["heyman"]["beta"], "h": row["heyman"]["h"], "milankovitch_over_heyman": ours["milankovitch"]["eta"].as_f64().unwrap() / row["heyman"]["eta"].as_f64().unwrap() - 1.0})

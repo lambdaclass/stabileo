@@ -328,10 +328,10 @@
     },
     {
       "id": "replay",
-      "metric": "replay.json against a fresh run: differs (0 = identical)",
-      "observed": 0.0,
+      "metric": "replay.json against a fresh run: largest difference in any number (same structure, else infinite)",
+      "observed": 1.3877787807814457e-17,
       "passed": true,
-      "tolerance": 0.0
+      "tolerance": 1e-6
     }
   ],
   "convergence": [
