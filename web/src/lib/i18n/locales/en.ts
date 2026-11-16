@@ -1,4 +1,6 @@
 const en: Record<string, string> = {
+  "underAudit.text": "Under audit: an internal review found errors in automatic load generation and concrete design, and fixes are still in progress. Check these results independently before using them in a design.",
+  "underAudit.details": "Open audit findings",
   'steps.catalog.button': 'Explained step by step',
   'steps.catalog.title': 'Explained step by step',
   'steps.catalog.intro': 'Pick a method to see your structure solved step by step. Each one lists what the model needs and comes with an example that meets it.',

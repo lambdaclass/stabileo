@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
+  import { AUTO_LOAD_AUDIT_FEATURES, LOAD_AUDIT_FEATURES } from '../../lib/provenance/under-audit';
   import Hint from './Hint.svelte';
   import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
@@ -64,7 +66,8 @@
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
   /** Which load the reader came in to define. */
-  export type AutoLoadFocus = 'dead' | 'live' | 'roof' | 'wind' | 'snow' | 'seismic' | 'special' | 'combos';
+  import type { AutoLoadFocus } from './auto-loads-sections';
+  export type { AutoLoadFocus } from './auto-loads-sections';
 
   interface Props {
     open: boolean;
@@ -732,6 +735,7 @@
           <div class="al-pane-head"><h3>{t('autoLoad.previewTitle')}</h3></div>
           <div class="al-pane-scroll">
           <div class="al-preview" data-testid="al-preview">
+            <OutdatedNotice audit={plan.cases.map((c) => LOAD_AUDIT_FEATURES[c.type])} />
             {#if plan.outcome === 'BLOCKED'}
               <p class="al-error" data-testid="al-blocked">{t('autoLoad.blocked')}</p>
               <ul class="al-list">
@@ -842,6 +846,7 @@
           </div>
         {:else}
           <!-- The chosen section: its name, its regulation and what it comes to, then its fields. -->
+          <OutdatedNotice audit={[section in AUTO_LOAD_AUDIT_FEATURES ? AUTO_LOAD_AUDIT_FEATURES[section as AutoLoadFocus] : null]} />
           {#if section === 'regulations'}
             <div class="al-pane-head"><h3>{t('autoLoad.appliedRegulations')}</h3></div>
             <div class="al-pane-scroll">
