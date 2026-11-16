@@ -13447,6 +13447,7 @@ const tr: Translations = {
   "rcSheets.v.shearY": "b doğrultusunda kesme",
   "rcSheets.v.tieDia": "Etriye çapı",
   "rcSheets.v.mainCover": "Boyuna donatının paspayı",
+  "rcSheets.v.seisColMn": "Güçlü kolon kuralının istediği nominal moment",
   "rcSheets.v.colMinSide": "Kolonun en küçük boyutu",
   "rcSheets.v.colMinBar": "Boyuna donatının en küçük çapı",
   "rcSheets.v.tieSpacing": "Etriye aralığı",

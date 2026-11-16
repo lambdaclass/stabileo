@@ -13596,6 +13596,7 @@ const es: Record<string, string> = {
   "rcSheets.v.shearY": "Corte en dirección b",
   "rcSheets.v.tieDia": "Diámetro de estribos",
   "rcSheets.v.mainCover": "Recubrimiento de la armadura principal",
+  "rcSheets.v.seisColMn": "Momento nominal que pide la columna fuerte",
   "rcSheets.v.colMinSide": "Dimensión mínima de la columna",
   "rcSheets.v.colMinBar": "Diámetro mínimo de la armadura principal",
   "rcSheets.v.tieSpacing": "Separación de estribos",

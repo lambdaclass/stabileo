@@ -13607,6 +13607,7 @@ const en: Record<string, string> = {
   "rcSheets.v.shearY": "Shear along b",
   "rcSheets.v.tieDia": "Tie diameter",
   "rcSheets.v.mainCover": "Cover to the main bars",
+  "rcSheets.v.seisColMn": "Nominal moment the strong-column rule asks",
   "rcSheets.v.colMinSide": "Least column dimension",
   "rcSheets.v.colMinBar": "Least main bar diameter",
   "rcSheets.v.tieSpacing": "Tie spacing",

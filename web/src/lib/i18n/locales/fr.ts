@@ -13447,6 +13447,7 @@ const fr: Translations = {
   "rcSheets.v.shearY": "Effort tranchant selon b",
   "rcSheets.v.tieDia": "Diamètre des cadres",
   "rcSheets.v.mainCover": "Enrobage des armatures principales",
+  "rcSheets.v.seisColMn": "Moment nominal exigé par la règle du poteau fort",
   "rcSheets.v.colMinSide": "Plus petite dimension du poteau",
   "rcSheets.v.colMinBar": "Plus petit diamètre des armatures principales",
   "rcSheets.v.tieSpacing": "Espacement des cadres",

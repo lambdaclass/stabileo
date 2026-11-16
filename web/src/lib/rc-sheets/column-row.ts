@@ -9,10 +9,13 @@ import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc2
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnSeismic, type Seismic } from './seismic';
+import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import type { Fmt } from './format';
 import { COLUMN_BAR_RANGE, check, inRange, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
 const EDITION = '2025' as const;
+/** §18.7.4.1: a special moment frame's column holds at most 6 % of steel. */
+const SEISMIC_RHO_MAX = 0.06;
 
 /** Moments about the section's x axis bend it over its depth h; about y, over its width b. */
 export interface ColumnCase {
@@ -47,6 +50,8 @@ export interface ColumnContext {
   seismic?: Seismic;
   /** Check the main bars' cover of CIRSOC 201 Table 20.5.1.3.1, under execution control or not. */
   coverTable?: { control: boolean };
+  /** The least nominal moment its joints ask of it for the strong-column rule (§18.7.3.2), kN·m, as `columnLeastMn` reads it. */
+  minMn?: number;
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
@@ -309,20 +314,36 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     }
   }
 
-  const first = proposeColumn(d, c, ast, dias, all, stack.pattern, tieDiaFor);
-  let proposed = first.layout, iterations = first.iterations;
-  if (c.seismic) {
-    for (let guard = 0; guard < 12; guard++) {
-      const ct0 = { x: crossties(d.b, proposed.nx, proposed.dx, proposed.corner, c, proposed.tieDia), y: crossties(d.h, proposed.ny, proposed.dy, proposed.corner, c, proposed.tieDia) };
-      const s0 = columnSeismic(d, { ...c, overstrength: c.seismic!.overstrength }, proposed, columnBars(d, proposed, c), ct0, fmt);
-      const bad = (l: string) => s0.checks.some((k) => k.label === l && !k.ok);
-      if (!bad('rcSheets.v.seisColSo') && !bad('rcSheets.v.seisColAsh') && !bad('rcSheets.v.seisColVe')) break;
-      iterations++;
-      if (proposed.tieSpacing > s0.so + 1e-6) proposed = { ...proposed, tieSpacing: roundDown(s0.so) };
-      else if (proposed.tieDia < 12) proposed = { ...proposed, tieDia: proposed.tieDia + 2 };
-      else if (proposed.tieSpacing > 0.075 + 1e-9) proposed = { ...proposed, tieSpacing: roundDown(proposed.tieSpacing - 0.025) };
-      else break;
+  const pus = d.cases.map((cs) => cs.pu);
+  const axial = { min: pus.length ? Math.min(...pus) : 0, max: pus.length ? Math.max(...pus) : 0 };
+  const mnOf = (a: ColumnAdopted) => columnLeastMn({ outline: { kind: 'rect', b: d.b, h: d.h }, bars: columnBars(d, a, c) }, c.mat.fc, c.mat.fy, axial);
+  const minMn = c.seismic && c.minMn ? c.minMn : 0;
+  const rhoTop = c.seismic ? SEISMIC_RHO_MAX : COLUMN_STEEL_RATIO.max;
+  const shortOf = (target: number) => (a: ColumnAdopted) => target > 0 && mnOf(a) < target - 1e-6;
+  const proposeFor = (target: number) => {
+    const first = proposeColumn(d, c, ast, dias, all, stack.pattern, tieDiaFor, { short: shortOf(target), rhoMax: rhoTop });
+    let layout = first.layout, iterations = first.iterations;
+    if (c.seismic) {
+      for (let guard = 0; guard < 12; guard++) {
+        const ct0 = { x: crossties(d.b, layout.nx, layout.dx, layout.corner, c, layout.tieDia), y: crossties(d.h, layout.ny, layout.dy, layout.corner, c, layout.tieDia) };
+        const s0 = columnSeismic(d, { ...c, overstrength: c.seismic!.overstrength }, layout, columnBars(d, layout, c), ct0, fmt);
+        const bad = (l: string) => s0.checks.some((k) => k.label === l && !k.ok);
+        if (!bad('rcSheets.v.seisColSo') && !bad('rcSheets.v.seisColAsh') && !bad('rcSheets.v.seisColVe')) break;
+        iterations++;
+        const thicker = { ...layout, tieDia: layout.tieDia + 2 };
+        if (layout.tieSpacing > s0.so + 1e-6) layout = { ...layout, tieSpacing: roundDown(s0.so) };
+        else if (layout.tieDia < 12 && clearOk(d, c, thicker)) layout = thicker;
+        else if (layout.tieSpacing > 0.075 + 1e-9) layout = { ...layout, tieSpacing: roundDown(layout.tieSpacing - 0.025) };
+        else break;
+      }
     }
+    return { layout, iterations, exhausted: first.exhausted };
+  };
+  let { layout: proposed, iterations } = proposeFor(minMn);
+  for (const margin of [1.02, 1.05, 1.1]) {
+    if (!shortOf(minMn)(proposed)) break;
+    const next = proposeFor(minMn * margin);
+    if (!next.exhausted && mnOf(next.layout) > mnOf(proposed)) ({ layout: proposed, iterations } = next);
   }
   const a = adopted ?? proposed;
   const perTuple = withSection({ kind: 'rect', b: d.b, h: d.h }, columnBars(d, a, c), { fc: c.mat.fc, fy: c.mat.fy, edition: EDITION }, (s) =>
@@ -366,6 +387,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
     ...((stack.offset ?? 0) > 0.075 + 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '> 7.5 cm' })] : []),
     ...(seis?.checks ?? []),
+    ...(minMn > 0 ? [((mn) => check('rcSheets.v.seisColMn', mn >= minMn - 1e-6, { clause: '§18.7.3.2', demand: `Mn ≥ ${fmt(minMn)} kN·m`, capacity: `Mn = ${fmt(mn)} kN·m`, ratio: ratioOf(minMn, mn) }))(mnOf(a))] : []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
   const generous = isGenerous(verifications);
@@ -440,14 +462,31 @@ function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
   return { title: 'rcSheets.g.slenderness', steps: [{ label: 'rcSheets.s.governs', formula: '', value: g.c.combo }, ...ax('x', g.x), ...ax('y', g.y)] };
 }
 
-function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern: StackPlace['pattern'], tieDiaFor: (longDia: number) => number): { layout: ColumnAdopted; iterations: number } {
+function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern: StackPlace['pattern'], tieDiaFor: (longDia: number) => number, joint: { short: (a: ColumnAdopted) => boolean; rhoMax: number }): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
   const demands = governing(tuples);
+  const utilOver = (a: ColumnAdopted) => demands.length > 0 && utilisation(d, c, a, demands) > 1 + 1e-6;
+  const over = (a: ColumnAdopted) => utilOver(a) || joint.short(a);
+  const tooMuch = (a: ColumnAdopted) => columnArea(a) > joint.rhoMax * d.b * d.h * 1e4 + 1e-6;
+  let strongest: { a: ColumnAdopted; dia: number; it: number } | null = null;
+  const shearTies = (start: ColumnAdopted, dia: number, it: number): { layout: ColumnAdopted; iterations: number } => {
+    let a = start, tie = start.tieDia;
+    for (let guard = 0; guard < 40; guard++) {
+      const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
+      const sh = shearRatios(d, c, a, ct);
+      if (sh.every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) break;
+      it++;
+      if (a.tieSpacing > 0.075 + 1e-9) a = { ...a, tieSpacing: roundDown(a.tieSpacing - 0.025) };
+      else if (tie < 12) { tie += 2; a = { ...a, tieDia: tie, tieSpacing: Math.min(0.15, roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing)) }; }
+      else break;
+    }
+    return { layout: a, iterations: it };
+  };
   if (pattern) {
     for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
       const tie = tieDiaFor(dia);
       const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
       if (columnArea(a) < ast - 1e-6 || !clearOk(d, c, a)) continue;
-      if (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) continue;
+      if (over(a)) continue;
       const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
       if (!shearRatios(d, c, a, ct).every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) continue;
       return { layout: a, iterations: 0 };
@@ -478,28 +517,24 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
         if (!next) break;
         a = next;
       }
-      if (!clearOk(d, c, a) || columnArea(a) < ast - 1e-6 || columnArea(a) > COLUMN_STEEL_RATIO.max * d.b * d.h * 1e4 + 1e-6) continue;
+      if (!clearOk(d, c, a) || columnArea(a) < ast - 1e-6 || tooMuch(a)) continue;
       a = { ...a, tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) };
-      while (demands.length && utilisation(d, c, a, demands) > 1 + 1e-6 && it < 24) {
+      while (over(a) && it < 24) {
         it++;
         const next = grow(a, dia, inside);
-        if (!next) break;
+        if (!next || tooMuch(next)) break;
         a = next;
       }
-      if ((demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) || columnArea(a) > COLUMN_STEEL_RATIO.max * d.b * d.h * 1e4 + 1e-6) continue;
-      for (let guard = 0; guard < 40; guard++) {
-        const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
-        const sh = shearRatios(d, c, a, ct);
-        if (sh.every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) break;
-        it++;
-        if (a.tieSpacing > 0.075 + 1e-9) a = { ...a, tieSpacing: roundDown(a.tieSpacing - 0.025) };
-        else if (tie < 12) { tie += 2; a = { ...a, tieDia: tie, tieSpacing: Math.min(0.15, roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing)) }; }
-        else break;
+      if (tooMuch(a)) continue;
+      if (over(a)) {
+        if (!utilOver(a) && (!strongest || columnArea(a) > columnArea(strongest.a))) strongest = { a, dia, it };
+        continue;
       }
-      return { layout: a, iterations: it };
+      return shearTies(a, dia, it);
     }
   }
+  if (strongest) return shearTies(strongest.a, strongest.dia, strongest.it);
   const dia = dias[dias.length - 1] ?? 25;
   const tie = tieDiaFor(dia);
-  return { layout: { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) }, iterations: 0 };
+  return { layout: { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing) }, iterations: 0, exhausted: true };
 }

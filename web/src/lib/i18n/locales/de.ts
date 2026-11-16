@@ -13447,6 +13447,7 @@ const de: Translations = {
   "rcSheets.v.shearY": "Querkraft in Richtung b",
   "rcSheets.v.tieDia": "Bügeldurchmesser",
   "rcSheets.v.mainCover": "Betondeckung der Längsbewehrung",
+  "rcSheets.v.seisColMn": "Nennmoment, das die Regel starke Stütze verlangt",
   "rcSheets.v.colMinSide": "Kleinste Stützenabmessung",
   "rcSheets.v.colMinBar": "Kleinster Durchmesser der Längsbewehrung",
   "rcSheets.v.tieSpacing": "Bügelabstand",

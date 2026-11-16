@@ -13248,6 +13248,7 @@ const pt: Translations = {
   "rcSheets.v.shearY": "Cisalhamento na direção b",
   "rcSheets.v.tieDia": "Diâmetro dos estribos",
   "rcSheets.v.mainCover": "Cobrimento da armadura principal",
+  "rcSheets.v.seisColMn": "Momento nominal exigido pela regra do pilar forte",
   "rcSheets.v.colMinSide": "Dimensão mínima do pilar",
   "rcSheets.v.colMinBar": "Diâmetro mínimo da armadura principal",
   "rcSheets.v.tieSpacing": "Espaçamento dos estribos",

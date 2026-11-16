@@ -12,7 +12,8 @@ import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { beamFlangeSides } from '../engine/design/beam-flange';
-import { jointChecks } from '../rc-sheets/joints';
+import { columnJointSection, frameJoints, jointChecks, type JointContext } from '../rc-sheets/joints';
+import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { concreteFc } from '../model/design-data';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
@@ -397,9 +398,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
-  const column: ColumnRow[] = [];
-  for (const d of D.columns) {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic, ...coverTable };
+  const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: dd.covers.column, tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}) };
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -410,9 +410,15 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const row = cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack));
     redesigners.set(d.key, ((x: typeof d) => rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {})) as Redesign);
     below.set(g, row);
-    column.push(row);
+    return row;
+  };
+  let column: ColumnRow[] = [];
+  for (const d of D.columns) {
+    column.push(columnAt(d, new Map()));
     yield step();
   }
+  const joint = { fc: (r: ColumnRow) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b: BeamRow) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() };
+  if (seismic) column = strongColumns(column, beam, joint, (minMn) => { below.clear(); return D.columns.map((d) => columnAt(d, minMn)); });
   const slab: SlabRow[] = [];
   for (const d of D.slabs) {
     const g = groupOf(d.key);
@@ -468,11 +474,40 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     footing.push(f.row);
     yield step();
   }
-  const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, { fc: (r) => fcOfElement(groupOf(r.key)?.members.elements?.[0]), beamFc: (b) => fcOfElement(groupOf(b.key)?.members.elements?.[0]), fy, cover: dd.covers.column, beamCover: dd.covers.beam, settings: seismicSettings() }) : column;
+  const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length };
 }
 
+
+/**
+ * The columns grown, joint by joint, until the strong-column rule holds (§18.7.3.2) with the beams'
+ * bars framing in, as the joint check reads both: each column at a joint short of it is asked for its
+ * share of what is missing, and those adopted are left as they are.
+ */
+function strongColumns(columns: ColumnRow[], beams: BeamRow[], c: JointContext, design: (minMn: ReadonlyMap<string, number>) => ColumnRow[]): ColumnRow[] {
+  const minMn = new Map<string, number>();
+  let rows = columns;
+  for (let round = 0; round < 6; round++) {
+    const { joints, columnId } = frameJoints(rows, beams, modelStore.nodes, c);
+    const byId = new Map([...columnId].map(([r, id]) => [id, r]));
+    let grown = false;
+    for (const j of joints) {
+      const sc = j.strongColumn;
+      if (sc.ok || sc.roof || sc.sumColumns <= 1e-9) continue;
+      for (const id of j.columns) {
+        const r = byId.get(id);
+        if (!r || r.isAdopted) continue;
+        const own = columnJointSection(r, c.fc(r), c.fy, c.cover);
+        const want = columnLeastMn(own.section, c.fc(r), c.fy, own.axial) * (sc.required / sc.sumColumns) * 1.01;
+        if (want > (minMn.get(r.key) ?? 0) + 1e-3) { minMn.set(r.key, want); grown = true; }
+      }
+    }
+    if (!grown) break;
+    rows = design(minMn);
+  }
+  return rows;
+}
 
 export const familyRows = (rows: SheetRows, f: SheetFamily): SheetRow[] => rows[f];
 
