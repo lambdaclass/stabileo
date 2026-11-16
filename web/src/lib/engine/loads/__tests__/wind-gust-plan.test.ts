@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { windEndResultants } from './wind-integration-fixture';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { defaultWindDynamics, fundamentalFrequencies } from '../wind-dynamics';
 
@@ -30,12 +31,25 @@ const applied = (reg: ProjectRegulations): ProjectRegulations => {
   for (const k of Object.keys(out) as Array<keyof ProjectRegulations>) if (out[k].adapterId) out[k] = { ...out[k], configComplete: true, state: 'applied' };
   return out;
 };
-const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()) => buildLoadPlan({
+const plan = (wind: Partial<NonNullable<LoadPlanInput['wind']>>, model = tower()) => ({ ...buildLoadPlan({
   regulations: applied(defaultRegulations()), model, dead: [{ labelKey: 'a', q: 1 }], occupancyKey: 'vivienda', tributaryWidth: 3,
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false,
   wind: { enabled: true, basicSpeed: 45, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, directions: { x: false, y: true }, senses: ['+y'], caseSet: 'case1', ...wind },
+}), testModel: model });
+const forces = (p: ReturnType<typeof plan>, caseIndex?: number) => windEndResultants(p.testModel, caseIndex === undefined ? p.distributed : p.distributed.filter(n => n.caseIndex === caseIndex), caseIndex === undefined ? p.nodal : p.nodal.filter(n => n.caseIndex === caseIndex));
+const yForce = (p: ReturnType<typeof plan>, nodeIds: number[]) => forces(p).filter((n) => n.caseType === 'W' && n.caseIndex !== undefined && p.cases[n.caseIndex]!.nameKey.startsWith('autoLoad.windCase1') && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
+
+for (const selection of ['first', 'torsion', 'last', 'absent'] as const) it(`#2220 resultants select only the requested case ${selection}`, () => {
+  const p = plan({ caseSet: 'all', directions: { x: true, y: true }, senses: ['+x', '+y'] }, tower(2));
+  const index = selection === 'first' ? p.cases.findIndex(c => c.type === 'W') : selection === 'last' ? p.cases.length - 1 : selection === 'absent' ? p.cases.length : p.cases.findIndex(c => c.nameKey === 'autoLoad.windCase2');
+  expect(index).toBeGreaterThanOrEqual(0);
+  const expected = forces(p).filter(n => n.caseIndex === index);
+  if (selection !== 'absent') expect(expected.length).toBeGreaterThan(0);
+  else expect(expected).toEqual([]);
+  const actual = forces(p, index);
+  expect(actual).toHaveLength(expected.length);
+  expect(actual).toEqual(expected);
 });
-const yForce = (p: ReturnType<typeof buildLoadPlan>, nodeIds: number[]) => p.nodal.filter((n) => n.caseType === 'W' && nodeIds.includes(n.nodeId)).reduce((s, n) => s + n.fy, 0);
 
 describe('a flexible building in the load plan', () => {
   it('a 60 m concrete frame by the approximate frequency: G_f 0,978 along Y, its level forces 1,151 times the rigid ones', () => {
@@ -65,11 +79,11 @@ describe('a flexible building in the load plan', () => {
     const flex = plan({ dynamics: dyn, caseSet: 'all', directions: { x: true, y: true }, senses: ['+x', '+y'] });
     const rigid = plan({ caseSet: 'all', directions: { x: true, y: true }, senses: ['+x', '+y'] });
     const model = tower();
-    const torsion = (p: ReturnType<typeof buildLoadPlan>) => {
+    const torsion = (p: ReturnType<typeof plan>) => {
       const i = p.cases.findIndex((c) => c.nameKey === 'autoLoad.windCase2' && String((c.nameParams as { dir?: string }).dir).includes('Y'));
       // About the plan's centre: the torsion is spread as forces over each level's nodes.
       let mz = 0, fy = 0;
-      for (const n of p.nodal.filter((x) => x.caseIndex === i)) {
+      for (const n of forces(p, i)) {
         const nd = model.nodes.get(n.nodeId)!;
         mz += (nd.x - 15) * n.fy - (nd.y - 10) * n.fx + (n.mz ?? 0);
         fy += n.fy;
@@ -82,9 +96,9 @@ describe('a flexible building in the load plan', () => {
   });
 
   it('a structure declared flexible with nothing to compute G_f with is refused, building or chimney', () => {
-    expect(plan({ rigid: false }).nodal.some((n) => n.caseType === 'W')).toBe(false);
+    expect(forces(plan({ rigid: false })).some((n) => n.caseType === 'W')).toBe(false);
     const chimney = plan({ rigid: false, structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 } as never }, tower(13, 2, 2));
-    expect(chimney.nodal.some((n) => n.caseType === 'W')).toBe(false);
+    expect(forces(chimney).some((n) => n.caseType === 'W')).toBe(false);
     expect(chimney.unsupportedKeys.map((u) => u.key)).toContain('loads.cirsoc102.unsupported.flexibleBuilding');
     const withN1 = plan({ structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 } as never, dynamics: { n1Source: 'typed', n1: { x: 0.8, y: 0.8 }, beta: 0.005, rigidG: 'default' } }, tower(13, 2, 2));
     expect(withN1.factors.windGust?.y?.kind).toBe('flexible');
@@ -110,9 +124,9 @@ describe('a flexible building in the load plan', () => {
     }, tower(13, 2, 2));
     expect(p.factors.windGust?.x?.kind).toBe('flexible');
     expect(p.unsupportedKeys).toContainEqual({ key: `loads.cirsoc102.gust.no${n1Source === 'typed' ? 'Typed' : 'Modal'}Frequency`, params: { axis: 'Y' } });
-    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '-X']);
-    expect(p.nodal.some((n) => n.fx !== 0)).toBe(true);
-    expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X', '-X', '-X']);
+    expect(forces(p).some((n) => n.fx !== 0)).toBe(true);
+    expect(forces(p).every((n) => n.fy === 0)).toBe(true);
   });
 
   it('requires both gust factors for tower diagonals, even with only X selected', () => {
@@ -122,12 +136,12 @@ describe('a flexible building in the load plan', () => {
       dynamics: { n1Source: 'typed', n1: { x: 0.4 }, beta: 0.02, rigidG: 'default' },
     };
     const missing = plan(wind, tower(13, 2, 2));
-    expect(missing.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
-    expect(missing.nodal.every((n) => n.fy === 0)).toBe(true);
+    expect(missing.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X']);
+    expect(forces(missing).every((n) => n.fy === 0)).toBe(true);
     expect(missing.unsupportedKeys.some((m) => m.key.endsWith('noTypedFrequency'))).toBe(true);
     const complete = plan({ ...wind, dynamics: { ...wind.dynamics!, n1: { x: 0.4, y: 0.5 } } }, tower(13, 2, 2));
-    expect(complete.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X+Y']);
-    expect(complete.nodal.some((n) => n.fy !== 0)).toBe(true);
+    expect(complete.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X', '+X+Y', '+X+Y']);
+    expect(forces(complete).some((n) => n.fy !== 0)).toBe(true);
   });
 
   it('does not require an unused axis, or warn of a rigid assumption when G_f was computed', () => {
@@ -135,7 +149,7 @@ describe('a flexible building in the load plan', () => {
       rigid: false, structure: { kind: 'chimney', section: 'roundSmooth', diameter: 2 },
       dynamics: { n1Source: 'typed', n1: { y: 0.4 }, beta: 0.02, rigidG: 'default' },
     }, tower(13, 2, 2));
-    expect(p.nodal.some((n) => n.fy !== 0)).toBe(true);
+    expect(forces(p).some((n) => n.fy !== 0)).toBe(true);
     expect(p.unsupportedKeys.some((m) => m.key.endsWith('noTypedFrequency') || m.key === 'wind.other.flexibleAssumedRigid')).toBe(false);
   });
 
@@ -146,8 +160,8 @@ describe('a flexible building in the load plan', () => {
       dynamics: { n1Source: 'typed', n1: { x: 1.2, y: 0.4 }, beta: 0, rigidG: 'default' },
     }, tower(13, 2, 2));
     expect(p.unsupportedKeys.some((m) => m.key.endsWith('noResonance'))).toBe(true);
-    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X']);
-    expect(p.nodal.every((n) => n.fy === 0)).toBe(true);
+    expect(p.cases.filter((c) => c.type === 'W').map((c) => c.nameParams?.dir)).toEqual(['+X', '+X']);
+    expect(forces(p).every((n) => n.fy === 0)).toBe(true);
   });
 
   it('a free roof keeps its flexible response regardless of the building enclosure setting', () => {
@@ -181,7 +195,7 @@ function setback(storeys: number, podium: number, bx: number, by: number, byTowe
   for (const n of m.nodes.values()) if ((n.z ?? 0) > podium * 3 && n.y > 0) n.y = byTower;
   return m;
 }
-const sensitive = (p: ReturnType<typeof buildLoadPlan>) => p.unsupportedKeys.filter((m) => m.key.startsWith('loads.cirsoc102.gust.sensitive')).map((m) => m.key.split('.').pop());
+const sensitive = (p: ReturnType<typeof plan>) => p.unsupportedKeys.filter((m) => m.key.startsWith('loads.cirsoc102.gust.sensitive')).map((m) => m.key.split('.').pop());
 
 describe('where n₁, B and β come from (C 1.9, C 1.1.2)', () => {
   it('takes each direction\'s fundamental frequency: the lowest mode with a tenth of the mass along it, not the one with the most', () => {
@@ -213,7 +227,7 @@ describe('where n₁, B and β come from (C 1.9, C 1.1.2)', () => {
     }, tower(10, 10, 10));
     expect(p.factors.windGust?.y).toBeUndefined();
     expect(p.unsupportedKeys.map((m) => m.key)).toContain('loads.cirsoc102.gust.approxNotBuilding');
-    expect(p.nodal.some((n) => n.caseType === 'W')).toBe(false);
+    expect(forces(p).some((n) => n.caseType === 'W')).toBe(false);
     // A free roof is an open building (§2.4.3): the approximate frequency stays open to it.
     const roof = plan({
       structure: { kind: 'freeRoof', roof: 'monoslope', blocked: false },
@@ -263,7 +277,7 @@ describe('where n₁, B and β come from (C 1.9, C 1.1.2)', () => {
     const p = plan({ dynamics: { n1Source: 'approximate', system: 'concreteMomentFrame', beta: 0.02, rigidG: 'default' } }, tower(26));
     expect(p.unsupportedKeys.map((m) => m.key)).toContain('loads.cirsoc102.gust.approxSensitive');
     expect(p.factors.windGust?.y).toBeUndefined();
-    expect(p.nodal.some((n) => n.caseType === 'W')).toBe(false);
+    expect(forces(p).some((n) => n.caseType === 'W')).toBe(false);
   });
 
   it('B_min of trigger II is the height-weighted width, least over the directions: a setback tower', () => {

@@ -102,7 +102,7 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
 }
 
 export function concernsLoadBasis(c: ResultChange): boolean {
-  return c.requiresLoadRegeneration === true || conditionGroups(c.when ?? {}).some(g => g.includes('generatedLoads'));
+  return c.requiresLoadRegeneration === true || conditionGroups(c.when ?? {}).some(g => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
