@@ -10,21 +10,45 @@ test.describe('@smoke solve progress', () => {
     await page.evaluate(() => window.__stabileoActions.loadExample('rc-design-qa-8'));
     await page.waitForFunction(() => window.__stabileo.solverReady());
     await page.evaluate(() => {
-      const w = window as unknown as { phases: string[] };
+      const w = window as unknown as { phases: string[]; unnamed: number; live: string[] };
       w.phases = [];
+      w.unnamed = 0;
+      w.live = [];
       new MutationObserver(() => {
-        const ph = document.querySelector('[data-testid="solve-progress"]')?.getAttribute('data-phase');
+        const card = document.querySelector('[data-testid="solve-progress"]');
+        const ph = card?.getAttribute('data-phase');
         if (ph && w.phases[w.phases.length - 1] !== ph) w.phases.push(ph);
-      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-phase'] });
+        w.unnamed += card?.querySelectorAll('progress:not([aria-label])').length ?? 0;
+        if (card) {
+          const spoken = [...card.querySelectorAll('*')].filter((el) => !el.closest('[aria-hidden="true"]') && el.childElementCount === 0).map((el) => el.textContent).join('|');
+          if (w.live[w.live.length - 1] !== spoken) w.live.push(spoken);
+        }
+      }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-phase', 'value'] });
     });
     await page.evaluate(() => window.__stabileoActions.solve());
     const card = page.getByTestId('solve-progress');
     await expect(card).toHaveAttribute('data-phase', 'done');
-    const phases = await page.evaluate(() => (window as unknown as { phases: string[] }).phases);
-    expect(phases).toContain('cases');
-    expect(phases[phases.length - 1]).toBe('done');
+    const seen = await page.evaluate(() => { const w = window as unknown as { phases: string[]; unnamed: number; live: string[] }; return { phases: w.phases, unnamed: w.unnamed, live: w.live }; });
+    expect(seen.phases).toContain('cases');
+    expect(seen.phases[seen.phases.length - 1]).toBe('done');
+    expect(seen.unnamed, 'every progress bar has a name').toBe(0);
+    expect(seen.live.every((text) => !/\d+[.,]\d s/.test(text)), 'the elapsed time is not read out').toBe(true);
+    await expect(card.getByTestId('solve-progress-elapsed')).toHaveAttribute('aria-hidden', 'true');
     await card.getByTestId('solve-progress-done').click();
     await expect(card).toHaveCount(0);
+  });
+
+  test('Basic counts its notices in the singular or plural and sends the reader to the results table', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
+    await page.goto('/app/basic?e2e=1');
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-second-order'));
+    await page.waitForFunction(() => window.__stabileo.solverReady());
+    await page.evaluate(() => window.__stabileoActions.solve());
+    const card = page.getByTestId('solve-progress');
+    await expect(card).toHaveAttribute('data-phase', 'done');
+    const count = card.getByTestId('solve-progress-warnings');
+    await expect(count).toHaveText(/^(1 notice|(?!1 )\d+ notices) to review in the results table$/);
+    await expect(card.getByTestId('solve-progress-diagnostics')).toHaveCount(0);
   });
 
   test('a solve that cannot finish says why on the card', async ({ page }) => {

@@ -53,6 +53,7 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   expect(await grandKg()).toBeCloseTo(kg, 0);
   const familyRows = await rows.count();
   const firstGroupRows = await view.getByTestId('rc-bbs-group').first().getByTestId('rc-bbs-row').count();
+  await expect(heads.first().getByTestId('rc-bbs-fold')).toHaveAccessibleName('Bars of this group');
   await heads.first().getByTestId('rc-bbs-fold').click();
   await expect(rows).toHaveCount(familyRows - firstGroupRows);
   await view.getByTestId('rc-bbs-unfold-all').click();

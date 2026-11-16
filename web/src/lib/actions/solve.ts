@@ -15,11 +15,12 @@
  */
 
 import { uiStore, resultsStore, modelStore } from '../store';
-import { t, tp } from '../i18n';
+import { t } from '../i18n';
 import { hasInvalid2DDisplacements } from '../geometry/coordinate-system';
 import { reportModelDiagnostics, solverNoticeCount } from '../engine/solve-diagnostics';
 import { runGlobalSolve, lastSolveFailure } from '../engine/live-calc';
 import { requestAutosave } from '../store/autosave-service';
+import { noticesToReview } from '../store/solve-progress.svelte';
 import { spectralCaseResults } from '../store/spectral-cases';
 import { errorText } from '../utils/error-text';
 
@@ -132,7 +133,7 @@ function runSolve2D(): SolveOutcome {
       }
     }
     const noticeCount = solverNoticeCount(results);
-    const noticeText = noticeCount > 0 ? ` · ${tp('solveProgress.warnings', { n: noticeCount })}` : '';
+    const noticeText = noticeCount > 0 ? ` · ${noticesToReview(noticeCount, uiStore.analysisMode === 'pro')}` : '';
     uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}${noticeText}`, 'success');
     // A solve is the expensive operation autosave exists for; only live-calc asked for one.
     void requestAutosave('solve');
