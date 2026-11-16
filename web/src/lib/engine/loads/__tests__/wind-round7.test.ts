@@ -6,7 +6,7 @@ import { planWind } from '../load-plan-wind';
 import { levelsWithPlanArea, type LoadPlanInput, type PlanSink } from '../load-plan';
 import { mesh, remeshWind, variants, windProject, windResultants } from './wind-integration-fixture';
 
-const regression = it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220');
+const regression = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 
 for (const rows of [[], [{ nodeId: 1, ux: 2, uy: 2 }]]) regression.each(['ux', 'uy'] as const)('known wrong result: #2220 requires every expected tip row for %s', component => {
   expect(() => expectWindTips(rows, [1, 2], component, 2, 12)).toThrow();
