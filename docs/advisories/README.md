@@ -107,6 +107,9 @@ snow loads before re-solving.
 | [SA-2026-073](SA-2026-073-snow-crossing-moment.md) | Ridge-crossing members lost the snow load moment | High | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) | pending | Not released | Draft 2026-11-16 |
 | [SA-2026-074](SA-2026-074-snow-panel-subdivision.md) | Rafter subdivision removed explicit-panel eave snow | High | [#2172](https://github.com/lambdaclass/stabileo/issues/2172) | pending | Not released | Draft 2026-11-16 |
 | [SA-2026-075](SA-2026-075-directional-stirrup-legs.md) | Primary stirrup legs were credited to secondary shear, allowing silent overall passes | High | [#2171](https://github.com/lambdaclass/stabileo/issues/2171) | PR #2198; pending merge and release | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-076](SA-2026-076-wind-enclosure.md) | One open wall could misclassify a building as open | High | [#2203](https://github.com/lambdaclass/stabileo/issues/2203) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-077](SA-2026-077-wind-wall-height-transfer.md) | Wall wind loads omitted foundation forces and depended on subdivision | High | [#2204](https://github.com/lambdaclass/stabileo/issues/2204) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-078](SA-2026-078-wind-roof-pressure-zones.md) | Roof pressure zones depended on member subdivision | High | [#2205](https://github.com/lambdaclass/stabileo/issues/2205) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

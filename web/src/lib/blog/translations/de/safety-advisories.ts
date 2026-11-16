@@ -52,6 +52,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-075 — In PR #2198 behoben, Zusammenführung und Veröffentlichung ausstehend."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-directional-stirrup-legs.md", "label": "SA-2026-075", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-076 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-077 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-078 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -416,13 +422,13 @@ const body: PostBody = {
           "Hoch",
           "In PR #1921 behoben, Veröffentlichung ausstehend"
         ],
+        ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         [
           "SA-2026-061",
           "Bogenlängen- und Verschiebungssteuerung ließen Reaktionen weg und verwendeten unskalierte Stablasten; auch fehlende Ergebnisse bei 2D/3D-Zwangsbedingungen, Guyan, Bauphasen und Zeitverläufen prüfen. Betroffene Ergebnisse neu berechnen oder unabhängig prüfen; 0.2.0–0.5.0 und spätere betroffene main-Builds.",
           "Hoch",
           "Behoben in PR #1952, Veröffentlichung ausstehend"
         ],
-        ["SA-2026-060", "Die Bauphasenanalyse konnte reale Drehungen nach Einheitenwechseln oder an freigegebenen Enden mit Auflagerfedern ohne Warnung versteifen; Bauphasenmodelle mit Freigaben erneut prüfen", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-062", "Die rohe plastische 3D-Analyse konnte beim Scheitern des elastischen Anfangszustands ohne Warnung null melden; ältere zertifizierte Versionen behielten diesen Faktor. Main liefert bereits eine positive zertifizierte Schranke mit Warnung; PR #1943 gibt die anfängliche Ablehnung weiter", "Hoch", "Entwurf: lokale Korrektur wartet auf Prüfung und Veröffentlichung"],
         ["SA-2026-063", "Bauphasen- und nichtlineare Analysen mit Zwangsbedingungen verloren vorgegebene Masterbewegungen; Seil- und Zeitverlaufsanalysen lehnen nicht unterstützte Auflagerbewegungen nun ab. Bestehende allgemeine Dynamikwarnungen benannten diese Auslassung nicht", "Hoch", "In PR #2009 behoben, Veröffentlichung ausstehend"],
         ["SA-2026-064", "Cb für Stahl konnte aus einer anderen Kombination oder einem kurzen Abschnitt ohne bekannte Halterungspositionen stammen (#1316, #2088). CIRSOC-301-Nachweise erneut ausführen und Biegetragfähigkeit, Interaktionsausnutzung und maßgebende Kombinationen prüfen.", "Hoch", "Behoben in 0.6.1"],
@@ -437,6 +443,9 @@ const body: PostBody = {
         ["SA-2026-073", "Stäbe über den First erhielten gleichmäßigen Druck und verloren das physikalische Lastmoment. Lasten werden jetzt am geometrischen First geteilt. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2176).", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
         ["SA-2026-074", "Die Unterteilung eines geneigten Sparrens konnte ein explizites Dachfeld als Geschossdecke einstufen und seine Traufschneelast ohne Warnung entfernen. Die Einstufung verwendet jetzt die physischen Feldgrundrisse. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2172). Ein ungeteilter geneigter Sparren über einem separaten tieferen Feld konnte dieses ebenfalls als Dach einstufen, Dach- und Geschossflächenlasten ändern und im Breitenmodus ohne Warnung Schnee hinzufügen.", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
         ["SA-2026-075", "Primäre Bügelschenkel wurden auch für die sekundäre Querkraft angerechnet. Dadurch konnten Bauteile trotz zu weniger horizontaler Schenkel ohne Warnung insgesamt bestehen (#2171). Betonbauteile erneut prüfen und sekundäre Querkraft, Torsion sowie die angegebenen Schenkel je Richtung kontrollieren.", "Hoch", "In PR #2198 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-076", "Eine offene Wand konnte das Gebäude als offen einstufen und den Innendruck entfallen lassen (#2203). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-077", "Windlasten an Wänden ließen Fundamentkräfte aus und änderten sich bei Unterteilung (#2204). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-078", "Dachdruckzonen und ihre ersten Momente hingen von der Unterteilung ab (#2205). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
       ]
     },
     {

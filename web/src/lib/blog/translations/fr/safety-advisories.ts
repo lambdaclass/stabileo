@@ -52,6 +52,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-075 — Corrigé dans la PR #2198, fusion et publication en attente."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-directional-stirrup-legs.md", "label": "SA-2026-075", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-076 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-077 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-078 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -416,13 +422,13 @@ const body: PostBody = {
           "Élevée",
           "Corrigé dans PR #1921, en attente de publication"
         ],
+        ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         [
           "SA-2026-061",
           "La longueur d’arc et le contrôle en déplacement omettaient les réactions et utilisaient les charges de barres sans mise à l’échelle ; vérifier aussi les omissions des résultats 2D/3D avec liaisons, Guyan, phases et historiques temporels. Recalculer ou vérifier indépendamment ; 0.2.0–0.5.0 et compilations ultérieures de main concernées.",
           "Élevée",
           "Corrigé dans PR #1952, publication en attente"
         ],
-        ["SA-2026-060", "Le calcul par phases pouvait raidir sans avertissement des rotations réelles après un changement d’unités ou aux extrémités articulées avec ressorts d’appui ; revérifiez les modèles par phases avec libérations", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-062", "Le calcul plastique 3D brut pouvait annoncer zéro sans avertissement en cas d’échec de l’état élastique initial ; les anciennes versions certifiées conservaient ce facteur. Main renvoie déjà une borne certifiée positive avec avertissement ; la PR #1943 transmet le refus initial", "Haute", "Brouillon : correction locale en attente de revue et de publication"],
         ["SA-2026-063", "Les analyses par phases et non linéaires avec contraintes perdaient le mouvement imposé du maître ; les analyses de câbles et les historiques temporels refusent désormais les mouvements d’appui non pris en charge. Les avertissements dynamiques généraux existants ne signalaient pas cette omission", "Haute", "Corrigé dans PR #2009, en attente de publication"],
         ["SA-2026-064", "Le Cb de l’acier pouvait provenir d’une autre combinaison ou d’un court tronçon dont les maintiens étaient inconnus (#1316, #2088). Relancez les vérifications CIRSOC 301 et examinez résistance en flexion, taux d’interaction et combinaisons déterminantes.", "Élevée", "Corrigé dans 0.6.1"],
@@ -437,6 +443,9 @@ const body: PostBody = {
         ["SA-2026-073", "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176).", "Élevée", "PR #2197; fusion et publication en attente"],
         ["SA-2026-074", "Subdiviser un chevron incliné pouvait classer un panneau explicite du toit comme plancher et supprimer silencieusement sa neige en rive. Le classement utilise désormais les emprises physiques des panneaux. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2172). Un chevron incliné non subdivisé au-dessus d’un panneau inférieur distinct pouvait aussi le classer comme toit, modifier les charges surfaciques de toit et de plancher et ajouter silencieusement de la neige en mode par largeur.", "Élevée", "PR #2197; fusion et publication en attente"],
         ["SA-2026-075", "Les brins principaux des étriers étaient aussi comptés pour le cisaillement secondaire, permettant une validation globale sans avertissement avec trop peu de brins horizontaux (#2171). Relancez les vérifications béton et examinez cisaillement secondaire, torsion et brins déclarés dans chaque direction.", "Élevée", "Corrigé dans la PR #2198, fusion et publication en attente"],
+        ["SA-2026-076", "Une paroi ouverte pouvait faire classer le bâtiment comme ouvert et supprimer la pression intérieure (#2203). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
+        ["SA-2026-077", "Le vent sur les parois omettait des forces aux fondations et variait avec la subdivision (#2204). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
+        ["SA-2026-078", "Les zones de pression du toit et leurs premiers moments dépendaient de la subdivision (#2205). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
       ]
     },
     {
