@@ -625,7 +625,7 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   } else if (ratio > 0.9) {
     status = 'warn';
   }
-  if (legs < table.requiredLegs) {
+  if ((direction === 'primary' || VuAbs > 0) && legs < table.requiredLegs) {
     status = 'fail';
     { emissions.push(() => steps.push(`⚠ Ramas ${direction}: ${legs} < ${table.requiredLegs} (§9.7.6.2.2, separación transversal)`)); }
   }
@@ -1417,7 +1417,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     const secondaryLegs = stirrupLegs(cage ?? { legs: 2 }, 'secondary');
     const primary = (spacing?: number) => checkDirectionalShear('primary', params, input.Vu, input.NuShear ?? input.Nu,
       { edition, AsTensionCm2: flexure.AsProv, spacing, effectiveLegs: primaryLegs });
-    const secondary = (spacing?: number) => checkDirectionalShear('secondary', { ...params, b: params.h, h: params.b }, input.VuSecondary ?? 0, input.NuShear ?? input.Nu,
+    const secondary = (spacing?: number) => checkDirectionalShear('secondary', { ...params, b: params.h, h: params.b }, concurrent.demand.VuSecondary, input.NuShear ?? input.Nu,
       { edition, spacing, effectiveLegs: secondaryLegs });
     let shear = primary(cage?.spacing);
     let shearSecondary = input.VuSecondary !== undefined || torsionResult && !torsionResult.neglect ? secondary(cage?.spacing) : undefined;

@@ -106,3 +106,5 @@ text as directed by the coordinator. SA-2026-075 screening now includes equal
 counts and omitted checks, including two-primary/two-secondary cages.
 
 Round 7 also corrects missing secondary counts without a spacing seed, candidate-diameter spacing seeds and overridden seismic fallback cages. See the [round-7 results record](2198-round7-candidates.md).
+
+Round 9 limits secondary shear distribution checks to nonzero checked secondary shear while retaining the outer-leg torsion provision. It also strengthens fallback end-cage capacity assertions and restores safety warnings in five translations. See the [round-9 results record](2198-round9-pure-torsion.md).

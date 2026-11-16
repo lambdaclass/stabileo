@@ -1,12 +1,11 @@
 import { afterEach, expect, it } from 'vitest';
 import { declaredTestDemands } from './helpers/declared-demands';
-import { prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
+import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { autoVerifyFromResults } from '../auto-verify';
 import { computeStationDemands, runCirsocDesign, runUnifiedVerification, setCompactStationTransfer } from '../verification-service';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 
-const round9 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const demand = (secondary: number, torque: number, axis: 'My' | 'Mz') => declaredTestDemands([{ comboId: 1, comboName: 'C1',
   forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
@@ -16,12 +15,13 @@ const area = Math.PI * (p.stirrupDia / 1000) ** 2 / 4;
 const x = p.b - 2 * p.cover - p.stirrupDia / 1000;
 const y = p.h - 2 * p.cover - p.stirrupDia / 1000;
 const ph = 2 * (x + y);
-const at = 10 / (0.75 * 2 * 0.85 * x * y * p.fy * 1000) * 1e4;
+const torsionArea = (torque: number) => torque / (0.75 * 2 * (0.85 * (x * y)) * p.fy * 1000) * 1e4;
+const at = torsionArea(10);
 
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const elementType of ['beam', 'column', 'wall'] as const) for (const entry of ['direct', 'prepared', 'concurrent'] as const) {
-    for (const secondary of [-0.010001, 0, 0.010001]) for (const secondaryLegs of [2, 4]) {
-      round9(`known wrong result: #2198 torsion keeps two outer legs without secondary shear ${edition} ${axis} ${elementType} ${entry} ${secondary} ${secondaryLegs}`, () => {
+    for (const secondary of [-0.010001, -0.01, -0.009999, -1e-12, 0, 1e-12, 0.009999, 0.01, 0.010001]) for (const secondaryLegs of [2, 4]) {
+      it(`known wrong result: #2198 torsion keeps two outer legs without secondary shear ${edition} ${axis} ${elementType} ${entry} ${secondary} ${secondaryLegs}`, () => {
         const input = { ...p, edition, elementId: 1, elementType, demand: demand(secondary, 10, axis) };
         const fixed = { shear: { spacing: 0.1, legs: 2, secondaryLegs }, torsion: { AlProv: 100 } };
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed) : verifyConcurrentElement([input], fixed);
@@ -40,7 +40,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     }
   }
   for (const factor of [0.999, 1, 1.001]) {
-    round9(`known wrong result: #2198 pure torsion retains its own hoop spacing boundary ${edition} ${axis} ${factor}`, () => {
+    it(`known wrong result: #2198 pure torsion retains its own hoop spacing boundary ${edition} ${axis} ${factor}`, () => {
       const spacing = Math.min(ph / 8, 0.3) * factor;
       const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'beam', demand: demand(0, 10, axis) },
         { shear: { spacing, legs: 2 }, torsion: { AlProv: 100 } });
@@ -56,7 +56,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
 
 afterEach(() => setCompactStationTransfer(true));
 for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  round9(`known wrong result: #2198 spatial pure torsion wrappers retain closed hoops ${edition} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2198 spatial pure torsion wrappers retain closed hoops ${edition} ${nonlinear} ${compact}`, () => {
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -79,7 +79,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       expect(v.shearSecondary!.stirrupLegs).toBe(2);
       expect(v.shearSecondary!.status).toBe('ok');
       expect(v.torsion!.neglect).toBe(false);
-      expect(v.torsion!.AtOverS).toBe(at);
+      expect(v.torsion!.AtOverS).toBe(torsionArea(v.torsion!.Tu));
       expect(v.torsion!.AtOverSProv).toBeGreaterThanOrEqual(at);
       expect(v.torsion!.status).not.toBe('fail');
       expect(v.overallStatus).not.toBe('fail');
@@ -110,5 +110,14 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       expect(v.shear.status).toBe('ok');
       expect(v.overallStatus).toBe('ok');
     }
+  });
+}
+
+for (const edition of ['2005', '2025'] as const) for (const legs of [2, 4]) {
+  it(`zero primary shear retains its distribution check ${edition} ${legs}`, () => {
+    const v = checkShear({ ...p, b: p.h, h: p.b }, 0, 0, { edition, legs, spacing: 0.1 });
+    expect(v.ratio).toBe(0);
+    expect(v.stirrupLegs).toBe(legs);
+    expect(v.status).toBe(legs < 4 ? 'fail' : 'ok');
   });
 }

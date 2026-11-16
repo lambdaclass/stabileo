@@ -32,7 +32,6 @@ it('provides the saved-project notice in all six locales and links the numerical
   }
 });
 
-const round9 = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 for (const [locale, safetyTerms] of [
   ['es', ['corte de vigas y muros', 'torsión nula', 'distribución de los estribos de columnas', 'jaulas distintas en los extremos', 'trabas horizontales adicionales no verificadas']],
   ['pt', ['cisalhamento de vigas e paredes', 'torção nula', 'distribuição dos estribos de pilares', 'gaiolas distintas nas extremidades', 'grampos horizontais adicionais não verificados']],
@@ -40,12 +39,12 @@ for (const [locale, safetyTerms] of [
   ['fr', ['cisaillement des poutres et des voiles', 'torsion nulle', 'répartition des cadres de poteaux', 'cages distinctes aux extrémités', 'épingles horizontales supplémentaires non vérifiées']],
   ['tr', ['Kiriş ve perdelerin kesmesi', 'burulma sıfır', 'kolon etriyelerinin dağılımı', 'kiriş uçlarındaki farklı kafesler', 'doğrulanmamış ilave yatay çirozlar']],
 ] as const) {
-  round9(`known wrong result: #2198 ${locale} retains every safety warning`, () => {
+  it(`known wrong result: #2198 ${locale} retains every safety warning`, () => {
     const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
     for (const term of safetyTerms) expect(entry.explanation[locale]).toContain(term);
   });
 }
-round9('known wrong result: #2198 German stirrup legs use Bügelschenkel', () => {
+it('known wrong result: #2198 German stirrup legs use Bügelschenkel', () => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === id)!;
   expect(entry.title.de).toContain('Bügelschenkel');
   expect(entry.explanation.de).toContain('wirksamen Bügelschenkel');
