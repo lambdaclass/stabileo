@@ -20,7 +20,8 @@
     "pt": "A torção verifica todos os estribos fornecidos",
     "de": "Torsion prüft jede ausgegebene Bügelbewehrung",
     "fr": "La torsion vérifie tous les étriers fournis",
-    "tr": "Burulma verilen tüm etriyeleri kontrol eder"
+    "tr": "Burulma verilen tüm etriyeleri kontrol eder",
+    "zh": "扭转验算每个返回的箍筋笼"
   },
   "explanation": {
     "en": "Concrete verification now checks torsion capacity and spacing of fixed or designed stirrups even without a fixed longitudinal torsion allocation. Insufficient cages fail. Flexural sizing depth stays with required-steel quantities; providedDepth records the actual checked bars. Re-run saved concrete designs and review stirrups and torsion failures (SA-2026-068, #2141; PR #2080).",
@@ -28,7 +29,8 @@
     "pt": "A verificação de concreto confere a capacidade e o espaçamento dos estribos fixados ou dimensionados para torção mesmo sem fixar a armadura longitudinal. Estribos insuficientes falham. A altura útil de dimensionamento acompanha a armadura necessária; providedDepth registra as barras verificadas. Refaça os projetos e revise estribos e falhas por torção (SA-2026-068, #2141; PR #2080).",
     "de": "Die Betonprüfung prüft Torsionstragfähigkeit und Abstand festgelegter oder bemessener Bügel auch ohne festgelegte Längsbewehrung. Unzureichende Bügel führen zum Versagen. Die Bemessungshöhe gehört zu den erforderlichen Bewehrungswerten; providedDepth erfasst die tatsächlich geprüften Stäbe. Gespeicherte Bemessungen erneut ausführen und Bügel sowie Torsionsfehler prüfen (SA-2026-068, #2141; PR #2080).",
     "fr": "La vérification béton contrôle la capacité en torsion et l’espacement des étriers imposés ou dimensionnés même sans armature longitudinale imposée. Les étriers insuffisants échouent. La hauteur utile de dimensionnement accompagne les armatures requises ; providedDepth indique les barres réellement vérifiées. Relancer les calculs et examiner les étriers et les échecs en torsion (SA-2026-068, #2141; PR #2080).",
-    "tr": "Beton doğrulaması, boyuna burulma donatısı sabitlenmese bile sabit veya tasarlanan etriyelerin burulma kapasitesini ve aralığını kontrol eder. Yetersiz etriyeler başarısız olur. Boyutlandırma derinliği gerekli donatı değerleriyle kalır; providedDepth kontrol edilen çubukları kaydeder. Kayıtlı tasarımları yeniden çalıştırıp etriyeleri ve burulma hatalarını inceleyin (SA-2026-068, #2141; PR #2080)."
+    "tr": "Beton doğrulaması, boyuna burulma donatısı sabitlenmese bile sabit veya tasarlanan etriyelerin burulma kapasitesini ve aralığını kontrol eder. Yetersiz etriyeler başarısız olur. Boyutlandırma derinliği gerekli donatı değerleriyle kalır; providedDepth kontrol edilen çubukları kaydeder. Kayıtlı tasarımları yeniden çalıştırıp etriyeleri ve burulma hatalarını inceleyin (SA-2026-068, #2141; PR #2080).",
+    "zh": "混凝土验证现在会验算固定或设计的箍筋的抗扭承载力和间距，即使没有固定的纵向抗扭分配也是如此。不足的箍筋笼判为不通过。受弯截面高度仍与所需钢筋量对应；providedDepth 记录实际验算的钢筋。请重新运行已保存的混凝土设计，并复核箍筋和扭转的不通过情况（SA-2026-068，#2141；PR #2080）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-provided-torsion-stirrups.md",
