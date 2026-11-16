@@ -67,7 +67,7 @@ describe('Mattiasson evidence', () => {
       expect(compare(c, o).pass).toBe(ratio < 1);
     }
   });
-  it('has seven complete, translated dictionaries and no unresolved claims', () => {
+  it('has eight complete, translated dictionaries and no unresolved claims', () => {
     expect(Object.keys(strings)).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']);
     for (const [locale, dictionary] of Object.entries(strings)) {
       expect(Object.keys(dictionary)).toEqual(Object.keys(strings.en));

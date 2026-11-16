@@ -363,16 +363,16 @@ export const hubTranslations: Record<string, Record<string, string>> = {
     "tools.legend.deformed": "变形 ×{scale}",
     "tools.legend.mode": "振型，已归一化",
     "tools.beam-frame": "梁与框架演练场",
-    "tools.beam-frame.subtitle": "钢梁或门式刚架的支座、跨度和荷载，实时显示弯矩、剪力和挠度。",
+    "tools.beam-frame.subtitle": "调整钢梁或门式刚架的支座、跨度和荷载，弯矩、剪力和挠度随之实时更新，全部由 Stabileo 计算引擎在浏览器中求解。",
     "tools.slab-on-columns": "柱支承楼板",
-    "tools.slab-on-columns.subtitle": "柱网上的平板混凝土楼板，以 MITC4 壳单元划分网格，实时显示挠度场。",
+    "tools.slab-on-columns.subtitle": "柱网上的平板混凝土楼板，以 MITC4 壳单元划分网格；每次调整参数，挠度场都会在浏览器中重新求解并实时显示。",
     "tools.earthquake-frame": "地震作用下框架的时程分析",
-    "tools.earthquake-frame.subtitle": "底部受震动的钢筋混凝土框架，采用 Newmark 平均加速度法逐步积分。",
+    "tools.earthquake-frame.subtitle": "底部受地面震动激励的钢筋混凝土框架，在浏览器中采用 Newmark 平均加速度法逐步积分，求解其随时间变化的动力响应。",
     "tools.rc-column": "钢筋混凝土柱",
-    "tools.rc-column.subtitle": "配箍筋的矩形柱：按比例绘制截面和箍筋，给出 CIRSOC 201 相互作用图并验算荷载。",
+    "tools.rc-column.subtitle": "配箍筋的矩形柱：按比例绘制截面和箍筋，给出按 CIRSOC 201 计算的相互作用图，并验算一组荷载是否落在图内。",
     "tools.outrigger": "高层核心筒的伸臂桁架位置扫描",
     "tools.outrigger.subtitle": "混凝土核心筒通过一道伸臂桁架连接两根外围柱：移动伸臂桁架，观察全高范围内的顶点位移，并与解析解对比。",
     "tools.tower": "钢塔：振型与屈曲",
-    "tools.tower.subtitle": "顶部可加质量的钢管悬臂：前三阶弯曲振型和屈曲荷载，均与精确解并列对比。"
+    "tools.tower.subtitle": "顶部可附加质量的钢管悬臂：前三阶弯曲振型和屈曲荷载，每一项结果都与精确解并列对比，便于检验计算引擎。"
   }
 };

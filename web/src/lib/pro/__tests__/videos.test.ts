@@ -17,7 +17,7 @@ describe("PRO's videos", () => {
     expect(publishedVideos('en', [v({})])).toEqual([]);
   });
 
-  it('names every video in the seven languages', async () => {
+  it('names every video in the eight languages', async () => {
     for (const lang of ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu', 'zh']) {
       const d = (await import(`../../i18n/locales/${lang}.ts`)).default as Record<string, string>;
       for (const x of PRO_VIDEOS) for (const k of [x.titleKey, x.descKey]) expect(d[k], `${lang}: ${k}`).toBeTruthy();

@@ -565,7 +565,7 @@ test.describe('blog', () => {
       // post's path because a default that jumps to the home page sends every
       // unmatched reader away from the thing they were about to be shown.
       `x-default https://stabileo.com/en/blog/${SLUG}/`,
-    ]);
+    ].sort());
   });
 
   test('@smoke the tables render as tables, with every row filled', async ({ page }) => {

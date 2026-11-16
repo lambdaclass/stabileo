@@ -27,7 +27,7 @@
     "fr": "P-Delta préserve la déformation axiale malgré les annulations",
     "hu": "A P-Delta megőrzi a tengelyirányú alakváltozást kivonási veszteség mellett",
     "tr": "P-Delta birbirini götüren terimlerde eksenel şekil değiştirmeyi korur",
-    "zh": "P-Delta 通过抵消保留轴向应变"
+    "zh": "P-Delta 在发生数值相消时仍保留轴向应变"
   },
   "explanation": {
     "en": "Compensated member axial strain prevents false nonconvergence after rotation. P-Delta displacements, forces and convergence may change. Re-run affected analyses (PR #1940).",

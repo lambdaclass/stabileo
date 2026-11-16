@@ -111,7 +111,7 @@ describe('detecting the browser language', () => {
     ['fr', reach('fr')], ['fr-FR', reach('fr')], ['fr-CA', reach('fr')], ['fr-BE', reach('fr')],
     ['tr', reach('tr')], ['tr-TR', reach('tr')],
     ['hu', reach('hu')], ['hu-HU', reach('hu')],
-    ['zh', reach('zh')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['zh-Hans', reach('zh')],
+    ['zh', reach('zh')], ['zh-CN', reach('zh')], ['zh-TW', reach('zh')], ['zh-Hans', reach('zh')], ['zh-Hant', reach('zh')], ['zh-Hant-HK', reach('zh')],
   ] as const) {
     it(`a browser set to ${lang} opens in ${expected}`, async () => {
       const { store } = await boot([lang]);

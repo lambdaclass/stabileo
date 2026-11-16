@@ -1163,7 +1163,7 @@ const steelZh: Translations = {
   "steel.tc.col.ratio": "比值",
   "steel.tc.chainNote": "由共线分段绘制的杆件只需描述其两个外端；其内部的节点视为连续，除非该处的杆端被释放或已描述。",
   "steel.tc.results.title": "受拉杆件：净截面断裂",
-  "steel.tc.results.hint": "当前分析中承受拉力的杆件，按 Ae = An·U 验算屈服（D.2.1）和断裂（D.2.2）。",
+  "steel.tc.results.hint": "当前分析中承受拉力的杆件，验算屈服（D.2.1），并按 Ae = An·U 验算断裂（D.2.2）。",
   "steel.tc.results.none": "当前分析中没有钢杆件承受拉力。",
   "steel.tc.results.solveFirst": "请先按荷载组合求解模型，以列出受拉杆件。",
   "steel.tc.results.notEvaluated": "未验算",

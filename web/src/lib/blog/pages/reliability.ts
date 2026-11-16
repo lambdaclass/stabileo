@@ -23,7 +23,7 @@ export const reliabilityPage: StandingPage = {
       description:
         'Cómo verifica Stabileo sus resultados: siete programas de elementos finitos, ejemplos publicados, cotas probadas en Lean y avisos públicos. Y qué no garantiza.',
       eyebrow: 'Confiabilidad',
-      lead: 'Los resultados de Stabileo se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error cuya matemática central está demostrada en Lean. Los errores que pudieron afectar resultados ya usados se publican como avisos de seguridad (algunos hallazgos siguen en evaluación, en público), y los veinticuatro avisos publicados están corregidos (los últimos, en la versión 0.4.0). Como cualquier programa de cálculo, no verifica tu modelo: las cargas, los apoyos y la idealización los decide quien calcula.',
+      lead: 'Los resultados de Stabileo se verifican de cinco maneras independientes, entre ellas la comparación con otros siete programas de elementos finitos y cotas de error cuya matemática central está demostrada en Lean. Los errores que pudieron afectar resultados ya usados se publican como avisos de seguridad (algunos hallazgos siguen en evaluación, en público), y la lista de abajo dice cuáles están corregidos y en qué versión. Como cualquier programa de cálculo, no verifica tu modelo: las cargas, los apoyos y la idealización los decide quien calcula.',
       blocks: [
         { k: 'h', t: 'Cinco formas de buscar errores' },
         {
@@ -79,7 +79,7 @@ export const reliabilityPage: StandingPage = {
       description:
         'How Stabileo checks its results: seven other FE programs, published examples, error bounds proved in Lean and public advisories. And what no check can promise.',
       eyebrow: 'Reliability',
-      lead: 'Stabileo’s results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds whose core mathematics is proved in Lean. Defects that could have affected results already in use are published as safety advisories (some findings are still being triaged, in public), and all twenty-four published advisories are fixed (the latest four in version 0.4.0). Like any analysis program, it does not check your model: loads, supports and idealisation are the engineer’s decisions.',
+      lead: 'Stabileo’s results are checked in five independent ways, including comparison with seven other finite-element programs and error bounds whose core mathematics is proved in Lean. Defects that could have affected results already in use are published as safety advisories (some findings are still being triaged, in public), and the list below says which are fixed and in which version. Like any analysis program, it does not check your model: loads, supports and idealisation are the engineer’s decisions.',
       blocks: [
         { k: 'h', t: 'Five ways of looking for errors' },
         {
@@ -135,7 +135,7 @@ export const reliabilityPage: StandingPage = {
       description:
         'Como o Stabileo verifica resultados: sete programas de elementos finitos, exemplos publicados, cotas provadas em Lean e avisos públicos. E o que não garante.',
       eyebrow: 'Confiabilidade',
-      lead: 'Os resultados do Stabileo são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro cuja matemática central está provada em Lean. Os erros que podem ter afetado resultados já usados são publicados como avisos de segurança (alguns achados seguem em avaliação, em público), e os vinte e quatro avisos publicados estão corrigidos (os últimos, na versão 0.4.0). Como qualquer programa de cálculo, ele não verifica o seu modelo: as cargas, os apoios e a idealização são decisões de quem calcula.',
+      lead: 'Os resultados do Stabileo são verificados de cinco maneiras independentes, entre elas a comparação com outros sete programas de elementos finitos e cotas de erro cuja matemática central está provada em Lean. Os erros que podem ter afetado resultados já usados são publicados como avisos de segurança (alguns achados seguem em avaliação, em público), e a lista abaixo diz quais estão corrigidos e em qual versão. Como qualquer programa de cálculo, ele não verifica o seu modelo: as cargas, os apoios e a idealização são decisões de quem calcula.',
       blocks: [
         { k: 'h', t: 'Cinco formas de procurar erros' },
         {

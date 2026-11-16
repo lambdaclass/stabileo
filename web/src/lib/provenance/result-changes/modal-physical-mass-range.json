@@ -23,7 +23,7 @@
     "fr": "L’analyse modale préserve l’espace physique de la masse",
     "hu": "A modális vizsgálat megőrzi a fizikai tömegtartományt",
     "tr": "Modal analiz fiziksel kütle uzayını korur",
-    "zh": "模态分析保留物理质量范围"
+    "zh": "模态分析保留物理质量子空间"
   },
   "explanation": {
     "en": "Support rotations and MPC reduction could create spurious inertia in a physically massless direction, causing modal analysis to withhold valid modes. Modal assembly now preserves massive rows and condenses massless coordinates before solving. The existing equation, orthogonality and certificate checks still apply. Re-run affected modal analyses and dependent dynamic responses.",

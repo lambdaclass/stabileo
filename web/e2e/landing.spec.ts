@@ -9,8 +9,8 @@ import fullTr from '../src/lib/i18n/locales/full/tr';
 import fullHu from '../src/lib/i18n/locales/full/hu';
 import fullZh from '../src/lib/i18n/locales/full/zh';
 
-const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar' };
-const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU' };
+const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar', zh: '中文' };
+const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU', zh: 'zh_CN' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
 const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 

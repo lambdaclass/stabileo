@@ -42,7 +42,7 @@
     "fr": "Les résidus compensés, le raffinement limité et la réduction séparée des raideurs du sol et de la structure préservent l’équilibre sans modifier les tolérances. Convergence, déplacements, efforts et réactions peuvent changer. Relancer les analyses P-Delta et SSI (#761 ; PR #1940).",
     "hu": "A kompenzált maradékok, a korlátos finomítás és a talaj-, illetve szerkezeti merevség külön kényszerredukciója a konvergenciatűrések módosítása nélkül tartja fenn a szigorú egyensúlyt. A konvergencia, elmozdulások, erők és reakciók változhatnak. Futtassa újra a P-Delta és SSI vizsgálatokat (#761; PR #1940).",
     "tr": "Dengelenmiş artıklar, sınırlı iyileştirme ve zemin ile yapı rijitliklerinin ayrı indirgenmesi toleransları değiştirmeden dengeyi korur. Yakınsama, yer değiştirmeler, kuvvetler ve tepkiler değişebilir. P-Delta ve SSI analizlerini yeniden çalıştırın (#761; PR #1940).",
-    "zh": "对土和结构刚度分别做补偿残差、有界细化和约束消元，可在不改变收敛容差的前提下保持严格的平衡。收敛性、位移、内力和反力可能变化。请重新运行 P-Delta 和 SSI 分析（#761；PR #1940）。"
+    "zh": "补偿残差、有界迭代改进，以及对土刚度和结构刚度分别进行的约束消元，可在不改变收敛容差的前提下保持严格平衡。收敛性、位移、内力和反力可能变化。请重新运行 P-Delta 和 SSI 分析（#761；PR #1940）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-nonlinear-equilibrium-arithmetic.md",

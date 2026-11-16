@@ -44,7 +44,8 @@ describe('0.6.1 release article', () => {
     const sections = notes(locale).split(/^## /m);
     expect(body!.title).toBe(notes(locale).split('\n')[0].slice(2));
     const action = plain(sections[1].trim().split('\n\n')[1]);
-    expect(body!.excerpt).toBe(action.split(/(?<=\.) /).slice(0, 2).join(' '));
+    // Chinese ends a sentence with 。 and no space.
+    expect(body!.excerpt).toBe(action.split(/(?<=\.) |(?<=。)/).slice(0, 2).join(locale === 'zh' ? '' : ' '));
     expect(body!.blocks[0]).toEqual({ k: 'p', t: plain(sections[1].trim().split('\n\n')[1]) });
     expect(body!.blocks[1]).toEqual({ k: 'note', t: plain(sections[2].trim().split('\n\n')[1]) });
     const expected = rows(sections[2]);

@@ -448,7 +448,7 @@ const stepsZh: Translations = {
   "steps.trusses.joints.solveTitle": "结点平衡",
   "steps.trusses.joints.cosLead": "在每个结点处，α 是杆件从 +x 起算的角度，方向为从该结点指向杆件另一端。拉力 N 沿该方向拉结点，分量为 N cos α 和 N sin α。",
   "steps.trusses.joints.jointTitle": "结点 {j}",
-  "steps.trusses.joints.fbd": "结点 {j} 的隔离体：杆件内力按拉力绘出，拉向结点。",
+  "steps.trusses.joints.fbd": "结点 {j} 的隔离体：杆件内力按拉力绘出，背离结点，沿杆轴指向另一端。",
   "steps.trusses.joints.towards": "指向",
   "steps.trusses.joints.cosCaption": "汇交于结点的各杆件的方向余弦，由结点向外量取。",
   "steps.trusses.joints.pair": "联立求解两个方程",

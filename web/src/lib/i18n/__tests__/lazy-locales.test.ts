@@ -60,7 +60,7 @@ describe('a lazily loaded language', () => {
     await expect(store.ensureLocale('xx')).resolves.toBeUndefined();
   });
 
-  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu'].includes(locale)))('in a build, where the public %s entries are a lazy chunk, shows both its public and its app strings', async (loc) => {
+  it.each(PUBLIC_LOCALES.filter(locale => ['de', 'fr', 'tr', 'hu', 'zh'].includes(locale)))('in a build, where the public %s entries are a lazy chunk, shows both its public and its app strings', async (loc) => {
     vi.resetModules();
     vi.doMock('virtual:public-i18n', () => ({
       en: {}, es: {}, pt: {}, de: {}, fr: {}, tr: {}, hu: {}, zh: {},

@@ -27,7 +27,7 @@
     "fr": "Les ressorts modifiés par phases retiennent les efforts non récupérables",
     "hu": "A megváltozott fázisos támaszrugók visszatartják a nem támogatott erőket",
     "tr": "Aşamalarda değişen mesnet yayları desteklenmeyen kuvvetleri sunmaz",
-    "zh": "改变分阶段支座弹簧会使无支撑的内力暂不提供"
+    "zh": "分阶段支座弹簧变更后，暂不提供无法可靠恢复的内力"
   },
   "explanation": {
     "en": "Adding, removing or changing support spring stiffness after earlier loading or motion now withholds staged reactions and forces with structured unavailability warnings. Later stages remain unavailable; retained incremental displacements do not certify equilibrium. Unchanged springs and changes before loading retain their answers. Re-check saved staged results (#1952).",
