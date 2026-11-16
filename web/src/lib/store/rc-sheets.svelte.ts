@@ -130,6 +130,10 @@ export function setColumnEndZones(on: boolean): void {
 export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars', on: boolean): void {
   const d = { ...rcSheetsData() };
   if (on) d[option] = true; else delete d[option];
+  if (option === 'bentBars') {
+    const edited = new Set(d.edited ?? []);
+    d.adopted = Object.fromEntries(Object.entries(d.adopted).filter(([k]) => !k.startsWith('line:') || edited.has(k) || d.bentLines?.[k] !== undefined));
+  }
   save(d);
 }
 
@@ -382,17 +386,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const ctx = beamCtx(d);
     redesigners.set(d.key, ((x: typeof d) => rules.beamRow(x, ctx, undefined, fmt)) as Redesign);
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
-    let a = own ?? derived.get(d.key);
-    let row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
+    const a = own ?? derived.get(d.key);
+    const row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
     const lineAdopted = linesAdopted.has(d.line?.group ?? -1);
-    for (let guard = 0; ctx.seismic && !own && !lineAdopted && a && guard < 8; guard++) {
-      const bad = row.verifications.some((v) => (v.label === 'rcSheets.v.seisBeamVe' || v.label === 'rcSheets.v.seisBeamHoops') && !v.ok);
-      if (!bad || a.stirrups.spacing <= 0.05 + 1e-9) break;
-      a = { ...a, stirrups: { ...a.stirrups, spacing: Math.max(0.05, Math.round((a.stirrups.spacing - 0.025) * 40) / 40) } };
-      const tight = a;
-      row = cached(d, [code, ctx, tight, dec], () => rules.beamRow(d, ctx, tight, fmt));
-      derived.set(d.key, tight);
-    }
     beam.push(own ? row : { ...row, isAdopted: lineAdopted, proposed: derived.get(d.key) ?? row.proposed });
     yield step();
   }

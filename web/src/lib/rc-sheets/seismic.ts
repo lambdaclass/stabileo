@@ -18,7 +18,7 @@ export function beamSeismic(
   d: { b: number; h: number; length: number; faces?: { start: number; end: number }; combos: Array<{ seismic?: boolean; v: number }>; vu: { value: number } },
   c: { mat: { fc: number; fy: number }; cover: number; overstrength: number },
   a: BeamAdopted, at: (s: 'start' | 'span' | 'end') => BeamSide, fmt: Fmt,
-): { checks: CheckLine[]; steps: Step[]; sZone: number } {
+): { checks: CheckLine[]; steps: Step[]; sZone: number; ve: number; vg: number; ln: number } {
   const sd = a.stirrups.dia;
   const S = at('start'), E = at('end'), M = at('span');
   const area = (g: BarGroup[]) => groupsArea(g);
@@ -39,7 +39,7 @@ export function beamSeismic(
   const rho = Math.max(...[S, M, E].flatMap((x) => [area(x.top), area(x.bottom)])) * 1e-4 / (d.b * dEff);
   const halfOk = area(S.bottom) >= 0.5 * area(S.top) - 1e-6 && area(E.bottom) >= 0.5 * area(E.top) - 1e-6;
   return {
-    sZone,
+    sZone, ve: cap.ve, vg, ln,
     checks: [
       check('rcSheets.v.seisBeamVe', cap.utilization <= 1 + 1e-6, { clause: '§18.6.5', demand: `Ve = ${fmt(cap.ve)} kN`, capacity: `${fmt(cap.phiVn)} kN`, ratio: cap.utilization }),
       check('rcSheets.v.seisBeamHoops', a.stirrups.spacing <= sZone + 1e-6, { clause: '§18.6.4.4', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sZone * 100, 1)} cm (2h = ${fmt(2 * d.h * 100, 0)} cm)` }),

@@ -17,7 +17,7 @@
   import RcChecks from './RcChecks.svelte';
   import RcCombos from './RcCombos.svelte';
   import RcLineDetail from './RcLineDetail.svelte';
-  import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
+  import { lineRowStatus, type LineLayout } from '../../../lib/rc-sheets/beam-line';
   import RcRowEditor from './RcRowEditor.svelte';
   import RcSectionSvg from './RcSectionSvg.svelte';
   import { columnSection } from '../../../lib/rc-sheets/drawing';
@@ -58,7 +58,7 @@
   const rows = $derived(sheetsRun.rows ?? EMPTY);
   const basisText = $derived(rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`));
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
-  const lineStatus = (l: LineLayout) => (l.status === 'fail' || spansOf(l).some((r) => r.status === 'fail') ? 'fail' : spansOf(l).some((r) => r.status === 'warn') ? 'warn' : 'ok');
+  const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
   const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : rows[family]) as ListRow[]);
   const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
@@ -205,7 +205,7 @@
                 <td>{r.adopted.bottom.count} Ø{r.adopted.bottom.dia}</td>
                 <td>{r.adopted.top.count} Ø{r.adopted.top.dia}</td>
                 <td data-testid="rc-line-supports">{extra.supports}</td>
-                <td data-testid="rc-line-spans">{extra.spans}</td>
+                <td data-testid="rc-line-spans">{extra.spans}{#if r.bentNotes.length && !r.bars.some((b) => b.kind === 'bent')} <span class="dim" title={r.bentNotes.map((n) => tp(`rcSheets.line.noBent.${n.reason}`, { span: n.span !== undefined ? r.spans[n.span]?.name ?? '' : '', clause: n.clause ?? '' })).join(' ')} data-testid="rc-line-no-bent">· {t('rcSheets.line.noBentShort')}</span>{/if}</td>
                 <td>{[...new Set((r.adopted.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'beam'}

@@ -382,6 +382,30 @@ describe('reinforcement sheets from a solved model', () => {
     expect(buildSheetRows().line[0]!.bars.some((b) => b.kind === 'bent')).toBe(true);
   });
 
+  it('turning bent bars on lays out again the lines adopted from a proposal, and keeps the ones edited by hand', () => {
+    frame();
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const wide = modelStore.addSection({ name: '60×60', a: 0.36, iy: 0.6 ** 4 / 12, iz: 0.6 ** 4 / 12, j: 0.1406 * 0.6 ** 4, b: 0.6, h: 0.6, shape: 'rect' } as never);
+    for (const e of modelStore.elements.values()) {
+      const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
+      if (Math.abs((a.z ?? 0) - (b.z ?? 0)) < 1e-6) modelStore.addDistributedLoad3D(e.id, 0, 0, -60, -60, undefined, undefined, D);
+      else modelStore.updateElementSection(e.id, wide);
+    }
+    solve();
+    adoptAll(buildSheetRows().line);
+    setRcOption('bentBars', true);
+    let line = buildSheetRows().line[0]!;
+    expect(line.isAdopted).toBe(false);
+    expect(line.bars.some((b) => b.kind === 'bent')).toBe(true);
+    setRcOption('bentBars', false);
+    setAdopted(line.key, { ...line.proposed, bent: undefined } as never, true);
+    setRcOption('bentBars', true);
+    line = buildSheetRows().line[0]!;
+    expect(line.isAdopted).toBe(true);
+    expect(line.bars.some((b) => b.kind === 'bent')).toBe(false);
+    expect(line.bentNotes).toEqual([{ reason: 'adopted' }]);
+  });
+
   it('keeps the bars adopted before adoptions were stamped as set by hand, whatever is adopted or chosen after', () => {
     frame(); solve();
     setSheetCode('cirsoc201-2025');

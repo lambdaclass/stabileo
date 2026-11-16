@@ -10,7 +10,7 @@ import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnSeismic, type Seismic } from './seismic';
 import type { Fmt } from './format';
-import { COLUMN_BAR_RANGE, check, inRange, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup } from './types';
+import { COLUMN_BAR_RANGE, check, inRange, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 
@@ -344,7 +344,6 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
-  const generous = area > 1.2 * ast + 1e-6 && ast > lo0 + 1e-6;
   const splice = columnSplice(c, longest, !!c.seismic || d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
   const seis = c.seismic ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), ct, fmt) : null;
 
@@ -369,6 +368,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     ...(seis?.checks ?? []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
+  const generous = isGenerous(verifications);
 
   const combos: ComboTable = {
     headers: ['Pu', 'Mx', 'My', 'Vx', 'Vy'],

@@ -5,7 +5,7 @@ import { tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
-import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted } from './types';
+import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 
@@ -140,7 +140,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     ...(seis?.checks ?? []),
   ];
   const allOk = verifications.every((v) => v.ok);
-  const generous = ev.rhoL > 1.2 * ev.rhoLMin + 1e-6 && ev.rhoT > 1.2 * ev.rhoTMin + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...ev.out) < 0.5;
+  const generous = isGenerous(verifications);
 
   const combos: ComboTable = {
     headers: ['Pu', 'Mu', 'Vu', 'Mv', 'Mh'],

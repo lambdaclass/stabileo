@@ -1,7 +1,7 @@
 import { meshArea, meshLabel, proposeMesh } from '../bars';
 import type { Fmt } from '../format';
 import { SLAB_FACES, slabSpan, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup } from '../types';
+import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup, isGenerous } from '../types';
 import { toConfirm as U, ts500Mat, vcrOf, type Ts500Mat } from './basis';
 import { designFlexure, stripCapacity } from './section';
 import { materialSteps } from './steps';
@@ -79,6 +79,7 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
     ] : []),
   ];
   const allOk = SLAB_FACES.every((f) => faces[f].ok) && verifications.every((v) => v.ok);
+  const generous = isGenerous(verifications);
   const cap = (f: SlabFace) => faces[f].phiMn;
   const combos: ComboTable = {
     headers: ['rcSheets.face.bottomX', 'rcSheets.face.bottomY', 'rcSheets.face.topX', 'rcSheets.face.topY', 'qx', 'qy'],
@@ -88,7 +89,6 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
       return { combo: k.combo, values: [fmt(k.bottomX, 1), fmt(k.bottomY, 1), fmt(k.topX, 1), fmt(k.topY, 1), fmt(k.qx, 1), fmt(k.qy, 1)], ratio, ok: ratio <= 1 + 1e-6 };
     }),
   };
-  const generous = SLAB_FACES.some((f) => faces[f].asReq > 0 && meshArea(a[f]) > 1.2 * faces[f].asReq + 1e-6 && faces[f].asReq > faces[f].asMin + 1e-6);
 
   const steps: StepGroup[] = [
     {

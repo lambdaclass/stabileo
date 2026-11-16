@@ -2,7 +2,7 @@ import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
 import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted } from '../types';
+import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapOf, toConfirm as U, ts500Mat, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { axialLimits, capacityAt, type RectSection } from './biaxial';
 import { stripCapacity } from './section';
@@ -87,7 +87,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     check(U('rcSheets.v.wallThickness'), d.thickness >= T_MIN - 1e-6, { clause: 'TS 500', demand: `${fmt(d.thickness * 100, 0)} cm`, capacity: `≥ ${fmt(T_MIN * 100, 0)} cm` }),
   ];
   const allOk = verifications.every((v) => v.ok);
-  const generous = ev.rhoL > 1.2 * RHO_MIN + 1e-6 && ev.rhoT > 1.2 * Math.max(RHO_MIN, ev.rhoTShear) + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...ev.out) < 0.5;
+  const generous = isGenerous(verifications);
 
   const combos: ComboTable = {
     headers: ['Nd', 'Md', 'Vd', 'Mv', 'Mh'],

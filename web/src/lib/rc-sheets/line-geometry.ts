@@ -8,7 +8,7 @@ import { barActsAt, type LineBar, type LineLayout } from './beam-line';
 import type { BeamRow } from './beam-row';
 import { groupsLabel, stirrupsLabel } from './bars';
 import { beamSection, type SectionDrawing } from './drawing';
-import { stirrupsOver } from './schedule/pieces';
+import { zoneStirrups } from './schedule/pieces';
 import type { Fmt } from './format';
 
 type Spans = Pick<LineLayout, 'spans'>;
@@ -46,12 +46,9 @@ export function hookTurn(bar: Pick<LineBar, 'shape' | 'hooks'>, end: 0 | 1): num
 /** Every stirrup along the line as the schedule counts them; `every` keeps one in so many of a spacing, for a drawing too small to show them all. */
 export function stirrupPositions(line: Pick<LineLayout, 'spans' | 'zones'>, every: (spacing: number) => number = () => 1): Array<{ x: number; span: number; zone: number }> {
   return line.zones.flatMap((z, zi) => {
-    const s = z.stirrups.spacing, n = stirrupsOver(z.from, z.to, s), first = Math.min(0.05, s / 2);
     const span = spanIndexAt(line, (z.from + z.to) / 2);
-    const out: Array<{ x: number; span: number; zone: number }> = [];
-    const k = Math.max(1, Math.floor(every(s)));
-    for (let i = 0; i < n; i += k) out.push({ x: z.from + first + i * s, span, zone: zi });
-    return out;
+    const k = Math.max(1, Math.floor(every(z.stirrups.spacing)));
+    return zoneStirrups(z).filter((_, i) => i % k === 0).map((x) => ({ x, span, zone: zi }));
   });
 }
 

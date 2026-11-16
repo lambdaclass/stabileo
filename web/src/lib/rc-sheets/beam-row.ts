@@ -9,7 +9,7 @@ import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
 import { beamSeismic, type Seismic } from './seismic';
-import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode } from './types';
+import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
@@ -320,7 +320,6 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, a, req) : ev;
   const seisA = adopted ? seisOf(a) : seis;
-  const generous = groupsArea(a.bottom) > 1.2 * bottomReq + 1e-6 || (topReq > 0 && groupsArea(a.top) > 1.2 * topReq + 1e-6);
 
   const f2 = (v: number) => fmt(v);
   const verifications: CheckLine[] = [
@@ -348,6 +347,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
     ...(seisA?.checks ?? []),
   ];
   const allOk = verifications.every((v) => v.ok);
+  const generous = isGenerous(verifications);
 
   const steps: StepGroup[] = [
     dataSteps(d, c, fmt),

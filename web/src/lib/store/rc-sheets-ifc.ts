@@ -11,7 +11,7 @@ import { physicalGroups } from './physical';
 import { elementsBetween } from './rc-sheets-reinforcement';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { memberOffsetAt } from '../engine/member-offsets';
-import { stirrupsOver } from '../rc-sheets/schedule/pieces';
+import { stirrupsOver, zoneStirrups } from '../rc-sheets/schedule/pieces';
 import { columnBars, type ColumnContext } from '../rc-sheets/column-row';
 import type { SheetRows } from './rc-sheets.svelte';
 import type { IfcExportInput, V3 } from '../ifc/ifc-writer';
@@ -55,11 +55,8 @@ function lineBars(rows: SheetRows): Bar[] {
     }
     l.zones.forEach((z, zi) => {
       const s = l.spans[z.span]!, d = z.stirrups.dia / 1000;
-      const n = stirrupsOver(z.from, z.to, z.stirrups.spacing);
-      const first = Math.min(0.05, z.stirrups.spacing / 2);
       const w = s.b - 2 * l.cover - d, h = s.h - 2 * l.cover - d;
-      for (let j = 0; j < n; j++) {
-        const x = z.from + first + j * z.stirrups.spacing;
+      for (const [j, x] of zoneStirrups(z).entries()) {
         const centre = add(soffit, [u, x], [UP, hMax - s.h / 2]);
         out.push({ id: `${l.key}:st${zi}:${j}`, mark: `Ø${z.stirrups.dia}`, diameter: d, role: 'ligature', assembly: l.name, length: 2 * (w + h), points: hoop(centre, v, UP, w, h) });
       }

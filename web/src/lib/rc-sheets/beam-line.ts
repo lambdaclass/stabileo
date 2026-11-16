@@ -6,10 +6,11 @@ import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-k
 import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceLayout, groupsArea, groupsLabel, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
+import { beamSeismic } from './seismic';
 import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
-import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
+import { check, governingRatio, GENEROUS_BELOW, isGenerous, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
 const EDITION = '2025' as const;
 const STOCK_LENGTH = 12;
@@ -116,7 +117,12 @@ export interface LineBar {
 export const barActsAt = (b: Pick<LineBar, 'runs'>, face: 'top' | 'bottom', x: number, tol = 1e-9): boolean =>
   b.runs.some((r) => r.face === face && x >= r.from - tol && x <= r.to + tol);
 
+/** Why a line laid out with bent bars has none in a span (or anywhere, with no span). */
+export type BentReason = 'seismic' | 'noSagging' | 'noHogging' | 'short' | 'adopted';
+
 const BEND_ANGLE = 45;
+/** The first hoop of a seismic end zone from the support face, and the closest the zone's hoops are spaced, m (§18.6.4.4). */
+const SEISMIC_FIRST = 0.05;
 /** The most bars the proposal puts in a continuous run before it takes a larger diameter. */
 const RUN_BARS = 4;
 /** Clear distance between the two halves of a staggered lap, m. */
@@ -132,7 +138,8 @@ export interface LineLayout {
   cover: number;
   proposed: LineAdopted; adopted: LineAdopted; isAdopted: boolean; iterations: number;
   bars: LineBar[];
-  zones: Array<{ span: number; from: number; to: number; stirrups: Stirrups }>;
+  /** Stirrups by zone; a zone set out from its end (`fromEnd`) or with its first stirrup at `first` holds a seismic end zone's spacing from the support face. */
+  zones: Array<{ span: number; from: number; to: number; stirrups: Stirrups; first?: number; fromEnd?: boolean }>;
   /** Where each bar longer than a stock bar is lapped, the mark it belongs to, how many of its bars, the lap's length, m, and its class: half the bars a lap and a little apart from the other half where there are two or more. */
   splices: Array<{ mark: string; face: 'top' | 'bottom'; x: number; length: number; bars: number; spliceClass: 'A' | 'B' }>;
   /** Steel to hang an end that bears on another beam from it, in that beam: Vu there, cm² and closed stirrups of this line's. */
@@ -147,6 +154,8 @@ export interface LineLayout {
   ends: { from: number; to: number; start?: BeamEnd; end?: BeamEnd };
   spanAdopted: BeamAdopted[];
   verifications: CheckLine[];
+  /** With bent bars asked for, why each span left without them has none. */
+  bentNotes: Array<{ span?: number; reason: BentReason; clause?: string }>;
   utilization: number;
   status: RowStatus;
   steps: StepGroup[];
@@ -236,6 +245,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     return Math.max(0.25 * Math.max(...sorted.map((r) => r.req.bottom)), spans.length ? at(endStart, 0, true) : 0, spans.length ? at(endEnd, last, false) : 0);
   };
 
+  let bentNotes: LineLayout['bentNotes'] = [];
   const propose = (): LineAdopted => {
     const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
     const aCb = Math.max(minBottom, bottomRunNeed());
@@ -253,10 +263,28 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       const extra = r.req.bottom - groupsArea([bottom]);
       return { dia: botDia, count: extra > 1e-6 ? Math.ceil(extra / barArea(botDia) - 1e-9) : 0 };
     });
-    if (!c.bentBars || c.seismic) return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
-    const bentDia = topDia;
-    const share = supportTop.map((g, j) => (g.count * barArea(g.dia)) / (j === 0 || j === supports.length - 1 ? 1 : 2));
-    const bent = sorted.map((_, k) => ({ dia: bentDia, count: Math.floor(Math.min(share[k] ?? 0, share[k + 1] ?? 0) / barArea(bentDia) + 1e-9) }));
+    bentNotes = [];
+    if (!c.bentBars) return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
+    if (c.seismic) {
+      bentNotes = [{ reason: 'seismic', clause: code.text.clause.seismicBent ?? '' }];
+      return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
+    }
+    const bentDia = topDia, bentA = barArea(bentDia);
+    const last = supports.length - 1;
+    const hogShare = (j: number): number | null => {
+      const area = (supportTop[j]?.count ?? 0) * barArea(supportTop[j]?.dia ?? bentDia);
+      if (j === 0 || j === last) return area > 1e-6 ? area : null;
+      return area / 2;
+    };
+    const bent = sorted.map((r, k) => {
+      const sag = Math.max(0, ...(r.demand.env ?? []).map((e) => e.pos), r.demand.span.pos.value);
+      const hogs = [hogShare(k), hogShare(k + 1)].filter((x): x is number => x !== null);
+      const hog = hogs.length ? Math.min(...hogs) : 0;
+      const s = spans[k]!, rise = s.h - 2 * (c.cover + c.stirrupDia / 1000) - bentDia / 1000;
+      const reason: BentReason | null = sag <= 1e-6 ? 'noSagging' : hog <= 1e-6 ? 'noHogging' : s.L < 2 * rise + 0.2 - 1e-9 ? 'short' : null;
+      if (reason) { bentNotes.push({ span: k, reason }); return { dia: bentDia, count: 0 }; }
+      return { dia: bentDia, count: Math.max(1, Math.floor(hog / bentA + 1e-9)) };
+    });
     sorted.forEach((r, k) => {
       const rest = r.req.bottom - groupsArea([bottom]) - bent[k]!.count * barArea(bentDia);
       spanBottom[k] = rest > 1e-6 ? { dia: bentDia, count: Math.ceil(rest / barArea(bentDia) - 1e-9) } : { dia: botDia, count: 0 };
@@ -383,8 +411,9 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
         const half = env.map((e, i) => ({ e, i, dist: fromStart ? e.x : s.L - e.x })).filter((o) => o.dist <= s.L / 2 + 1e-9);
         const posNeed = Math.min(s.L / 2, ...half.filter((o) => o.e.pos > (capPos[k]![o.i] ?? 0) + 1e-6).map((o) => o.dist));
         const negNeed = Math.max(0, ...half.filter((o) => o.e.neg > (capNeg[k]![o.i] ?? 0) + 1e-6).map((o) => o.dist));
-        const upper = Math.min(s.L / 2 - run - 0.05, posNeed - ext - run);
-        return Math.max(0, Math.floor(Math.min(upper, Math.max(negNeed + ext, s.L / 7)) / 0.05 + 1e-9) * 0.05);
+        const room = s.L / 2 - run - 0.05, want = Math.max(negNeed + ext, s.L / 7);
+        const upper = Math.min(room, posNeed - ext - run);
+        return Math.max(0, Math.floor(Math.min(upper >= 0.05 ? upper : room, want) / 0.05 + 1e-9) * 0.05);
       };
       const xl = s.x0 + bendAt(true), xr = s.x0 + s.L - bendAt(false);
       if (xr - xl < 2 * run + 0.1 || xl - s.x0 < 0.05 || s.x0 + s.L - xr < 0.05) return;
@@ -498,6 +527,11 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     }
   }
   const a = adopted ?? proposed;
+  const adoptedBentNotes = (): LineLayout['bentNotes'] => {
+    if (!c.bentBars) return [];
+    if (c.seismic) return [{ reason: 'seismic', clause: code.text.clause.seismicBent ?? '' }];
+    return a.bent?.some((g) => g.count > 0) ? [] : [{ reason: 'adopted' }];
+  };
   if (adopted) { bars = layout(a); env = verify(a, bars); }
   const nearest = (x: number) => env.reduce((b, e) => (Math.abs(e.xl - x) < Math.abs(b.xl - x) ? e : b), env[0]!);
   const classA = (b: LineBar) => !perimeter && env.length > 0 && b.kind === 'continuous' && b.bars.count >= 2 && lastSplices.filter((sp) => sp.mark === b.mark).every((sp) => {
@@ -517,7 +551,49 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     return area > 0 ? [{ end, vu, area, count: Math.max(1, Math.ceil(area / (Math.max(2, st.legs) * barArea(st.dia)) - 1e-9)), stirrups: st }] : [];
   });
 
+  const spanAdopted: BeamAdopted[] = spans.map((s, k) => {
+    const sd = a.stirrups?.[k]?.dia ?? c.stirrupDia;
+    const at = (xl: number) => {
+      const full = (face: 'top' | 'bottom') => bars.filter((b) => b.kind !== 'continuous' && barActsAt(b, face, xl, 1e-6)).reduce<BarGroup | undefined>((acc, b) => (acc ? { dia: acc.dia, count: acc.count + b.bars.count } : b.bars), undefined);
+      return { top: sectionGroups(a.top, full('top'), s.b, c, sd), bottom: sectionGroups(a.bottom, full('bottom'), s.b, c, sd) };
+    };
+    const own = s.row.proposed;
+    return {
+      bottom: [a.bottom], top: [a.top], stirrups: a.stirrups?.[k] ?? own.stirrups,
+      ...(own.torsionLong ? { torsionLong: own.torsionLong } : {}),
+      at: { start: at(s.x0 + (s.row.demand.start.x)), span: at(s.x0 + s.row.demand.span.x), end: at(s.x0 + s.row.demand.end.x) },
+    };
+  });
+
+  const seismicZones = (k: number): LineLayout['zones'] | null => {
+    if (!c.seismic) return null;
+    const s = spans[k]!, sa = spanAdopted[k]!, st = sa.stirrups;
+    const faceL = Math.min(line[k] ?? 0, s.L / 2), faceR = Math.max(faceL, s.L - (line[k + 1] ?? 0));
+    const seisOf = (x: Stirrups) => beamSeismic(s.row.demand, { ...c, overstrength: c.seismic!.overstrength }, { ...sa, stirrups: x }, (sec) => sa.at![sec]!, fmt);
+    const holds = (r: ReturnType<typeof seisOf>) => r.checks.every((v) => (v.label !== 'rcSheets.v.seisBeamVe' && v.label !== 'rcSheets.v.seisBeamHoops') || v.ok);
+    let end = st, seis = seisOf(end);
+    for (let guard = 0; !adopted && !holds(seis) && end.spacing > SEISMIC_FIRST + 1e-9 && guard < 16; guard++) {
+      end = { ...end, spacing: Math.max(SEISMIC_FIRST, roundDown(Math.min(end.spacing - 0.025, seis.sZone))) };
+      seis = seisOf(end);
+    }
+    const zone = Math.min(2 * s.h, (faceR - faceL) / 2);
+    const vMid = seis.ve - seis.vg + seis.vg * Math.max(0, 1 - (2 * zone) / seis.ln);
+    const perLeg = s.row.req.stirrupPerLeg;
+    let mid = { ...end, spacing: Math.max(end.spacing, roundDown(Math.min(s.row.req.sMax, s.d / 2, perLeg > 0 ? barArea(end.dia) / perLeg : Infinity))) };
+    while (mid.spacing > end.spacing + 1e-9 && code.shear(c, query(s, [a.bottom], [a.top], mid.dia, false), mid).design < vMid - 1e-6) mid = { ...mid, spacing: Math.max(end.spacing, mid.spacing - 0.025) };
+    sa.stirrups = end;
+    if (!adopted && a.stirrups) a.stirrups[k] = end;
+    if (faceR - faceL - 2 * zone < 0.05) return [{ span: k, from: s.x0 + faceL, to: s.x0 + faceR, stirrups: end, first: SEISMIC_FIRST }];
+    return [
+      { span: k, from: s.x0 + faceL, to: s.x0 + faceL + zone, stirrups: end, first: SEISMIC_FIRST },
+      { span: k, from: s.x0 + faceL + zone, to: s.x0 + faceR - zone, stirrups: mid },
+      { span: k, from: s.x0 + faceR - zone, to: s.x0 + faceR, stirrups: end, first: SEISMIC_FIRST, fromEnd: true },
+    ];
+  };
+
   const zones = spans.flatMap((s, k) => {
+    const seismicZone = seismicZones(k);
+    if (seismicZone) return seismicZone;
     const st = a.stirrups?.[k] ?? s.row.proposed.stirrups;
     const env1 = s.row.demand.env ?? [];
     const faceL = Math.min(line[k] ?? 0, s.L / 2), faceR = Math.max(faceL, s.L - (line[k + 1] ?? 0));
@@ -563,20 +639,6 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   const worstPi = inflections.reduce<(typeof inflections)[number] | undefined>((w, x) => (!w || x.ld / x.reach > w.ld / w.reach ? x : w), undefined);
   const runNeed = bottomRunNeed();
   const integrityTop = Math.max(2 * barArea(a.top.dia), negMax / 6);
-
-  const spanAdopted: BeamAdopted[] = spans.map((s, k) => {
-    const sd = a.stirrups?.[k]?.dia ?? c.stirrupDia;
-    const at = (xl: number) => {
-      const full = (face: 'top' | 'bottom') => bars.filter((b) => b.kind !== 'continuous' && barActsAt(b, face, xl, 1e-6)).reduce<BarGroup | undefined>((acc, b) => (acc ? { dia: acc.dia, count: acc.count + b.bars.count } : b.bars), undefined);
-      return { top: sectionGroups(a.top, full('top'), s.b, c, sd), bottom: sectionGroups(a.bottom, full('bottom'), s.b, c, sd) };
-    };
-    const own = s.row.proposed;
-    return {
-      bottom: [a.bottom], top: [a.top], stirrups: a.stirrups?.[k] ?? own.stirrups,
-      ...(own.torsionLong ? { torsionLong: own.torsionLong } : {}),
-      at: { start: at(s.x0 + (s.row.demand.start.x)), span: at(s.x0 + s.row.demand.span.x), end: at(s.x0 + s.row.demand.end.x) },
-    };
-  });
 
   const worst = env.reduce((w, e) => Math.max(w, ratioOf(e.pos, e.phiPos), ratioOf(e.neg, e.phiNeg)), 0);
   const hookOk = spans.length > 0;
@@ -626,6 +688,12 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, hangers, cutoffs: lastCuts, anchorage,
     envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })), shear,
     ends: { from: xFrom, to: xTo, ...(endStart ? { start: endStart } : {}), ...(endEnd ? { end: endEnd } : {}) },
-    spanAdopted, verifications, utilization: worst, status: ok ? 'ok' : 'fail', steps,
+    spanAdopted, verifications, bentNotes: adopted ? adoptedBentNotes() : bentNotes, utilization: worst, status: ok ? (isGenerous(verifications) ? 'warn' : 'ok') : 'fail', steps,
   };
+}
+
+/** A line's row: failing when it or a span fails, generous when every check of the line and its spans has room to spare. */
+export function lineRowStatus(line: Pick<LineLayout, 'status' | 'verifications'>, spans: ReadonlyArray<Pick<BeamRow, 'status' | 'verifications'>>): 'ok' | 'warn' | 'fail' {
+  if (line.status === 'fail' || spans.some((r) => r.status === 'fail')) return 'fail';
+  return governingRatio([...line.verifications, ...spans.flatMap((r) => r.verifications)]) < GENEROUS_BELOW ? 'warn' : 'ok';
 }
