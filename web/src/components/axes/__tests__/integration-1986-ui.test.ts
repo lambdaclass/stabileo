@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
 import { modelStore, uiStore } from '../../../lib/store';
+import { allChoices, makeFrame } from '../../../lib/axes/frame';
 import { axesStore } from '../../../lib/axes/axes.svelte';
 import { whatIf } from '../../../lib/store/whatif.svelte';
 import { initSolver } from '../../../lib/engine/wasm-solver';
@@ -50,4 +51,19 @@ it('known wrong result: #1986 storey shear magnitudes use the axis names of thei
   expect(html).toContain('Vx (kN)');
   expect(html).toContain('Kz (kN/m)');
   expect(html).toContain('<td>6.0</td><td>8.0</td>');
+});
+
+it.skip('known wrong result: #2259 Explore maps every spatial roller option to its selected user axis', async () => {
+  uiStore.analysisMode = 'pro';
+  await modelStore.loadExample('3d-portal-frame');
+  whatIf.open();
+  for (const c of allChoices()) {
+    axesStore.choice = c;
+    const f = makeFrame(c);
+    const html = render(WhatIf).body;
+    for (const [index, axis] of ['X', 'Y', 'Z'].entries()) {
+      const shown = 'XYZ'[f.rows.findIndex(row => row[index] !== 0)];
+      expect(html).toMatch(new RegExp(`<option value="roller${axis}"[^>]*>Roller ${shown}</option>`));
+    }
+  }
 });
