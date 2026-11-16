@@ -1,6 +1,7 @@
 /**
  * Every bar the sheets place, element by element, as the piece a bender makes: its shape and how
- * many an element takes. Beams give their line bars as laid out and the stirrups of each zone;
+ * many an element takes. Beams give their line bars as laid out, the stirrups of each zone and the
+ * closed stirrups that hang an end bearing on another beam (placed in that beam);
  * columns their bars per storey (lapped into the storey above, cranked where its faces step in by
  * 75 mm at most, hooked into the slab at the top or where they step in more, and dowels then),
  * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
@@ -17,7 +18,7 @@ import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
-export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
+export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
   | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie';
 
 export interface Piece {
@@ -76,6 +77,12 @@ function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
     const w = sp.b - 2 * line.cover - d, h = sp.h - 2 * line.cover - d;
     out.push({ kind: 'stirrup', count: n, shape: hoop(w, h, st.dia, R) });
     if (st.legs > 2) out.push({ kind: 'stirrupTie', count: n * (st.legs - 2), shape: tieAcross(h, st.dia, R) });
+  }
+  for (const hg of line.hangers ?? []) {
+    const sp = line.spans[hg.end === 'start' ? 0 : line.spans.length - 1];
+    if (!sp) continue;
+    const d = hg.stirrups.dia / 1000;
+    out.push({ kind: 'hanger', count: hg.count, shape: hoop(sp.b - 2 * line.cover - d, sp.h - 2 * line.cover - d, hg.stirrups.dia, R) });
   }
   return out;
 }

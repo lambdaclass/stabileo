@@ -26,9 +26,9 @@ const column: BeamEnd = { kind: 'column', half: 0.2 };
 interface SpanSpec { L: number; h: number }
 
 /** A continuous line on columns, hogging 80 kN·m over every support and sagging 140 kN·m mid-span. */
-function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column, column], torsion?: (x: number, L: number) => number) {
+function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column, column], torsion?: (x: number, L: number) => number, hog = 80) {
   const n = spans.length;
-  const mAt = (t: number) => 220 * 4 * t * (1 - t) - 80;
+  const mAt = (t: number) => (140 + hog) * 4 * t * (1 - t) - hog;
   return spans.map(({ L, h }, k) => {
     const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L, t = x / L, m = mAt(t); return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: 200 * Math.abs(1 - 2 * t) + 40, ...(torsion ? { t: torsion(x, L) } : {}) }; });
     const tu = torsion ? Math.max(...stations.map((e) => e.t ?? 0)) : 0;
@@ -44,9 +44,9 @@ function rowsOf(spans: SpanSpec[], c: object, ends: [BeamEnd, BeamEnd] = [column
   });
 }
 
-const lineOf = (spans: SpanSpec[], extra: object = {}, adopted?: LineAdopted, ends?: [BeamEnd, BeamEnd]) => {
+const lineOf = (spans: SpanSpec[], extra: object = {}, adopted?: LineAdopted, ends?: [BeamEnd, BeamEnd], hog = 80) => {
   const c = { ...bctx, ...extra };
-  const rows = rowsOf(spans, c, ends);
+  const rows = rowsOf(spans, c, ends, undefined, hog);
   return { line: beamLine(rows, c, adopted, fmt), rows };
 };
 
@@ -85,7 +85,7 @@ describe('hooks of a beam line', () => {
 
 describe('bent bars', () => {
   it('are marked on the top face where they run on top and on the bottom face in the span', () => {
-    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true });
+    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true }, undefined, undefined, 160);
     const bent = line.bars.filter((b) => b.kind === 'bent');
     expect(bent.length).toBeGreaterThan(0);
     expect(marksAt(line, 'top', 6)).toContain(bent[0]!.mark);
@@ -94,7 +94,7 @@ describe('bent bars', () => {
   });
 
   it('are set out by their legs, and the table names them with the support and span bars they work beside', () => {
-    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true });
+    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], { bentBars: true }, undefined, undefined, 160);
     const bent = line.bars.find((b) => b.kind === 'bent')!;
     expect(setOut(line, bent)).toBeNull();
     const legs = bentLegs(bent);
@@ -106,7 +106,7 @@ describe('bent bars', () => {
   });
 
   it('run in the deepest span\'s frame, the spans aligned at the top', () => {
-    const { line } = lineOf([{ L: 6, h: 0.6 }, { L: 6, h: 0.45 }], { bentBars: true });
+    const { line } = lineOf([{ L: 6, h: 0.6 }, { L: 6, h: 0.45 }], { bentBars: true }, undefined, undefined, 160);
     const bent = line.bars.find((b) => b.kind === 'bent' && b.runs[1]!.from > 6)!;
     expect(bent).toBeDefined();
     const inner = bctx.cover + (line.adopted.stirrups?.[1]?.dia ?? bctx.stirrupDia) / 1000 + bent.bars.dia / 2000;
@@ -116,9 +116,9 @@ describe('bent bars', () => {
   });
 
   it('adopted ones under the seismic provisions fail a check instead of being laid out silently', () => {
-    const { line: l0 } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true });
+    const { line: l0 } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true }, undefined, undefined, 160);
     expect(l0.adopted.bent?.some((g) => g.count > 0)).toBe(true);
-    const { line } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true, seismic: { overstrength: 1.25 } }, l0.adopted);
+    const { line } = lineOf([{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }], { bentBars: true, seismic: { overstrength: 1.25 } }, l0.adopted, undefined, 160);
     const v = line.verifications.find((x) => x.label === 'rcSheets.v.lineSeismicBent')!;
     expect(v.ok).toBe(false);
     expect(v.clause).toBe('§18.6.3');
@@ -164,9 +164,11 @@ describe('a line longer than a stock bar', () => {
     for (const b of cont) {
       const at = line.splices.filter((sp) => sp.mark === b.mark);
       expect(at.length).toBeGreaterThan(0);
-      expect(b.shape.laps).toEqual({ count: at.length, length: at[0]!.length });
+      expect(at.length).toBe(2 * b.shape.laps!.count);
+      expect(b.shape.laps!.length).toBe(at[0]!.length);
+      expect(at.reduce((n, sp) => n + sp.bars, 0)).toBe(b.bars.count * b.shape.laps!.count);
       const bare = developedLength({ ...b.shape, laps: undefined });
-      expect(b.length).toBeCloseTo(bare + at.length * at[0]!.length, 9);
+      expect(b.length).toBeCloseTo(bare + b.shape.laps!.count * at[0]!.length, 9);
       expect(b.weight).toBeCloseTo(b.bars.count * (Math.PI * (b.bars.dia / 1000) ** 2 / 4) * b.length * 7850, 6);
       const edges = [b.from - 1, ...at.map((sp) => sp.x), b.to + 1];
       for (let i = 1; i < edges.length; i++) expect(edges[i]! - edges[i - 1]!).toBeGreaterThan(0);
@@ -199,3 +201,76 @@ describe('TS 500 lines', () => {
     expect(TS500_LINE.mandrel!(32)).toBeCloseTo(8 * 0.032, 12);
   });
 });
+
+describe('the course notes and CIRSOC 201-2025 on a line', () => {
+  const simple: BeamEnd = { kind: 'support', half: 0.15 };
+
+  it('carries a third of the span steel and 0.75·Vu/fy into a simple support, a quarter into a column', () => {
+    const { line, rows } = lineOf([{ L: 6, h: 0.5 }], {}, undefined, [simple, simple], 0);
+    const area = line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2;
+    const need = Math.max(rows[0]!.req.bottom / 3, (0.75 * rows[0]!.demand.env![0]!.v * 10) / 420);
+    expect(area).toBeGreaterThanOrEqual(need - 1e-9);
+    const v = line.verifications.find((x) => x.label === 'rcSheets.v.lineBottomRun')!;
+    expect(v.ok).toBe(true);
+    expect(v.demand).toContain(fmt(Math.max(need, rows[0]!.req.bottom / 4)));
+    const framed = lineOf([{ L: 6, h: 0.5 }], {}, undefined, [column, column], 0);
+    expect(framed.line.verifications.find((x) => x.label === 'rcSheets.v.lineBottomRun')!.demand).toContain(fmt(Math.max(framed.rows[0]!.req.bottom / 4, 0)));
+  });
+
+  it('hangs the top with bars no thinner than the stirrup or half the bottom bar, at least a sixth of the support steel, and checks a perimeter beam\'s integrity', () => {
+    const { line, rows } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], {}, undefined, undefined, 160);
+    const negMax = Math.max(...rows.flatMap((r) => r.req.bySection.filter((x) => x.sign === 'neg').map((x) => x.req)));
+    expect(line.adopted.top.dia).toBeGreaterThanOrEqual(Math.max(8, Math.ceil(line.adopted.bottom.dia / 2)));
+    expect(line.adopted.top.count * Math.PI * (line.adopted.top.dia / 20) ** 2).toBeGreaterThanOrEqual(negMax / 6 - 1e-9);
+    expect(line.verifications.find((x) => x.label === 'rcSheets.v.lineIntegrity')?.ok).toBe(true);
+    const inner = rowsOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], bctx, undefined, undefined, 160);
+    inner.forEach((r) => { r.demand.perimeter = false; });
+    expect(beamLine(inner, bctx, undefined, fmt).verifications.find((x) => x.label === 'rcSheets.v.lineIntegrity')).toBeUndefined();
+  });
+
+  it('staggers the laps of the continuous bars, class A where they may be (an inner beam, twice the steel needed), class B in a perimeter beam', () => {
+    const spans = [{ L: 6, h: 0.55 }, { L: 6, h: 0.55 }, { L: 6, h: 0.55 }];
+    const edge = lineOf(spans).line;
+    const rows = rowsOf(spans, bctx);
+    rows.forEach((r) => { r.demand.perimeter = false; });
+    const inner = beamLine(rows, bctx, undefined, fmt);
+    const of = (l: typeof edge) => l.splices.filter((sp) => sp.face === 'bottom' && l.bars.find((b) => b.mark === sp.mark)!.kind === 'continuous');
+    expect(of(edge).every((sp) => sp.spliceClass === 'B')).toBe(true);
+    expect(of(inner).every((sp) => sp.spliceClass === 'A')).toBe(true);
+    expect(of(inner)[0]!.length).toBeLessThan(of(edge)[0]!.length);
+    const [p, q] = of(edge);
+    expect(q!.x - p!.x).toBeGreaterThanOrEqual(p!.length - 1e-9);
+    expect(p!.bars + q!.bars).toBe(edge.adopted.bottom.count);
+  });
+
+  it('keeps the positive bars\' ld within Mn/Vu + ℓa at the points of inflection (§9.7.3.8.3(b)), the proposal by a thinner bar', () => {
+    const { line } = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], {}, undefined, undefined, 160);
+    const v = line.verifications.find((x) => x.label === 'rcSheets.v.lineInflectionLd')!;
+    expect(v).toBeDefined();
+    expect(v.ok).toBe(true);
+    const thick = lineOf([{ L: 6, h: 0.5 }, { L: 6, h: 0.5 }], {}, { ...line.adopted, bottom: { count: 2, dia: 25 } }, undefined, 160).line;
+    const t = thick.verifications.find((x) => x.label === 'rcSheets.v.lineInflectionLd')!;
+    expect(t.ok).toBe(false);
+    expect(t.ratio!).toBeGreaterThan(1);
+  });
+
+  it('carries a third of the support bars past the point of inflection by ln/16 of the clear span', () => {
+    const L = 12, half = 0.6;
+    const mAt = (t: number) => 300 * 4 * t * (1 - t) - 150;
+    const rows = [0, 1].map((k) => {
+      const stations = Array.from({ length: 49 }, (_, i) => { const x = (i / 48) * L, t = x / L, m = mAt(t); return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: 200 * Math.abs(1 - 2 * t) + 40 }; });
+      const d: BeamDemand = {
+        key: `beam:1:${k}`, name: `V1-${k + 1}`, level: 'N1', length: L, b: 0.3, h: 0.5, start: env(0, 0, 150), span: env(6, 150, 0), end: env(L, 0, 150),
+        negAny: { value: 0 }, nNegAny: 0, vu: { value: 240 }, nAtV: 0, tu: { value: 0 }, combos: [], env: stations,
+        supportHalf: { start: half, end: half }, ends: { start: { kind: 'column', half }, end: { kind: 'column', half } }, line: { group: 1, index: k, spans: 2, startNode: k + 1, endNode: k + 2, lineName: 'V1' },
+      };
+      return beamRow(d, bctx, undefined, fmt);
+    });
+    const line = beamLine(rows, bctx, undefined, fmt);
+    const bar = line.bars.find((b) => b.kind === 'support' && b.from < L && b.to > L)!;
+    const pi = rows[1]!.demand.env!.find((e) => e.neg <= 1e-6)!.x, d = 0.5 - 0.025 - 0.008 - 0.01;
+    expect(bar.to - L).toBeCloseTo(Math.ceil((pi + Math.max(d, (L - 2 * half) / 16)) / 0.05 - 1e-9) * 0.05, 9);
+    expect(bar.to - L).toBeLessThan(pi + L / 16);
+  });
+});
+

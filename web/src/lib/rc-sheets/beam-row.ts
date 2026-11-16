@@ -54,6 +54,8 @@ export interface BeamDemand {
   supportHalf?: { start: number; end: number };
   /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
   ends?: { start: BeamEnd; end: BeamEnd };
+  /** Slab on one side of it at most: an edge beam, held to the integrity rules of perimeter beams (§9.7.7.1); absent, taken as one. */
+  perimeter?: boolean;
 }
 
 export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }

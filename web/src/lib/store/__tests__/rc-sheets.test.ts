@@ -134,6 +134,37 @@ describe('reinforcement sheets from a solved model', () => {
     expect(rcSheetsData().faces).toBeUndefined();
   });
 
+  it('reads the shear of a beam bearing on another at the face, and hangs its end from that beam (§9.4.3.2)', async () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
+    const bm = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.3 * 0.6 ** 3 / 12, iz: 0.6 * 0.3 ** 3 / 12, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const columnAt = (x: number, y: number) => { const b = modelStore.addNode(x, y, 0), t = modelStore.addNode(x, y, 3); const e = modelStore.addElement(b, t, 'frame'); modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, conc); modelStore.addSupport(b, 'fixed3d'); return t; };
+    const beamOf = (i: number, j: number) => { const e = modelStore.addElement(i, j, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, conc); modelStore.addDistributedLoad3D(e, 0, 0, -40, -40, undefined, undefined, D); return e; };
+    const a = columnAt(0, 0), b = columnAt(6, 0), c = columnAt(3, 5);
+    const mid = modelStore.addNode(3, 0, 3);
+    beamOf(a, mid); beamOf(mid, b); beamOf(mid, c);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    solve();
+    setRcOption('faces', true);
+    const rows = buildSheetRows();
+    const sec = rows.beam.find((r) => r.demand.ends?.start.kind === 'beam' || r.demand.ends?.end.kind === 'beam')!;
+    expect(sec).toBeDefined();
+    const atStart = sec.demand.ends!.start.kind === 'beam';
+    const x0 = atStart ? sec.demand.faces!.start : sec.demand.length - sec.demand.faces!.end;
+    const vFace = sec.demand.env!.reduce((p, q) => (Math.abs(q.x - x0) < Math.abs(p.x - x0) ? q : p)).v;
+    expect(sec.demand.vu.value).toBeGreaterThanOrEqual(vFace - 1e-6);
+    const line = rows.line.find((l) => l.spans.some((s) => s.name === sec.name))!;
+    expect(line.hangers).toHaveLength(1);
+    const { hangerArea } = await import('../../engine/design/beam-hangers');
+    expect(line.hangers[0]!.area).toBeCloseTo(hangerArea(line.hangers[0]!.vu, 420), 9);
+    expect(line.hangers[0]!.count * line.hangers[0]!.stirrups.legs * Math.PI * (line.hangers[0]!.stirrups.dia / 20) ** 2).toBeGreaterThanOrEqual(line.hangers[0]!.area - 1e-9);
+    const { bendingSchedule } = await import('../../rc-sheets/schedule/schedule');
+    const sched = bendingSchedule({ line: [line], column: [], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const { stirrupPositions } = await import('../../rc-sheets/line-geometry');
+    expect(sched.rows.filter((r) => r.kind === 'hanger' || r.kind === 'stirrup').reduce((n, r) => n + r.total, 0)).toBe(stirrupPositions(line).length + line.hangers[0]!.count);
+  });
+
   it('takes the slab on one side as an L flange for the sagging moment when asked', () => {
     frame();
     const conc = [...modelStore.materials.values()][0]!.id;

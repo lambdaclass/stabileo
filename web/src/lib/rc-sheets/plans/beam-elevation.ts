@@ -173,7 +173,7 @@ export function beamPlans(line: LineLayout, spans: readonly BeamRow[], o: BeamPl
     out.push(framed(`${line.key}:sec-${g.label}`, o.tr('rcSheets.plans.section', { n: g.label }), ps2, s, o.group));
   }
   const marks = new Map(line.bars.map((b) => [b.mark, b]));
-  const layerOf = (r: ScheduleRow): ArmLayer => (r.kind === 'stirrup' || r.kind === 'stirrupTie' ? 'EST' : marks.get(r.mark) ? barLayer(marks.get(r.mark)!) : 'INF');
+  const layerOf = (r: ScheduleRow): ArmLayer => (r.kind === 'stirrup' || r.kind === 'stirrupTie' || r.kind === 'hanger' ? 'EST' : marks.get(r.mark) ? barLayer(marks.get(r.mark)!) : 'INF');
   out.push(...scheduleTables(line.key, o.tr('rcSheets.plans.schedule', { name: line.name }), beamScheduleRows(line, o.code), layerOf, o, o.group));
   return out;
 }

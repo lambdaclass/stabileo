@@ -190,7 +190,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
-    ...(opts.flange ? { flangeSides: ((f) => (id: number) => f.get(id)?.sides)(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })) } : {}),
+    ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
       const sec = e ? modelStore.sections.get(e.sectionId) : undefined;

@@ -52,6 +52,8 @@ export interface DemandInput {
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
   /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
+  /** On how many sides a beam element has slab. */
+  slabSides?: (elementId: number) => number;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -212,7 +214,10 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const faceJ = m.faces && m.faceOffset ? Math.min(L / 3, m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i')) : 0;
       const x0 = faceI, x1 = L - faceJ;
       const dv = 0.9 * (turned ? sec.b : sec.h);
-      const v0 = m.faces ? Math.min(x0 + dv, L / 2) : 0, v1 = m.faces ? Math.max(x1 - dv, L / 2) : L;
+      const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
+      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0);
+      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0);
+      const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
@@ -250,10 +255,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         faces: m.faces ? { start: faceI, end: faceJ, shearAt: dv } : undefined,
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
-        ends: {
-          start: endOf(m, inc, mine, span[0]!.forward ? first.nodeI : first.nodeJ, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0),
-          end: endOf(m, inc, mine, lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0),
-        },
+        ends: { start: endS, end: endE },
+        ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
       });
