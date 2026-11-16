@@ -28,6 +28,33 @@ import { CHANGELOG } from '../src/lib/changelog';
 
 const SLUG = 'the-determinism-boundary';
 
+async function expectChangelogMonths(page: Page, locale: (typeof PUBLIC_LOCALES)[number]) {
+  const months = [...new Set(CHANGELOG.map((entry) => entry.date.slice(0, 7)))];
+  const sections = page.locator('.cl-timeline > .cl-month');
+  await expect(sections).toHaveCount(months.length);
+  for (const [index, month] of months.entries()) {
+    const entries = CHANGELOG.filter((entry) => entry.date.startsWith(month));
+    const section = sections.nth(index);
+    await expect(section).toHaveAttribute('id', `m-${month}`);
+    await expect(section.getByTestId('changelog-entry')).toHaveCount(entries.length);
+    await expect(section.getByRole('heading', { level: 3 })).toHaveText(entries.map((entry) => entry.i18n[locale].title));
+    const expected = entries.map((entry) => ({
+      date: entry.date,
+      groups: [...new Set(entry.areas)].map((area) => ({
+        area,
+        items: entry.i18n[locale].items.filter((_, index) => entry.areas[index] === area),
+      })),
+    }));
+    await expect.poll(() => section.getByTestId('changelog-entry').evaluateAll((articles) => articles.map((article) => ({
+      date: article.getAttribute('data-date'),
+      groups: [...article.querySelectorAll('.cl-group')].map((group) => ({
+        area: group.querySelector('h4')?.getAttribute('data-area'),
+        items: [...group.querySelectorAll('li')].map((item) => item.textContent),
+      })),
+    })))).toEqual(expected);
+  }
+}
+
 async function boot(page: Page, path: string, locale = 'en') {
   await page.addInitScript((l) => {
     try {
@@ -47,6 +74,7 @@ test.describe('blog', () => {
       await boot(page, `/${locale}/changelog/`, locale);
       const weeks = page.getByTestId('changelog-entry');
       await expect(weeks).toHaveCount(CHANGELOG.length);
+      await expectChangelogMonths(page, locale);
       await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n[locale].title);
       await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
       expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
@@ -68,6 +96,7 @@ test.describe('blog', () => {
     await expect(weeks.first().getByRole('heading', { level: 4 }).first()).toHaveText('Motor');
     await expect(weeks.first().locator('li').first()).toHaveText(CHANGELOG[0].i18n.es.items[0]);
     await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
+    await expectChangelogMonths(page, 'es');
     const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
     await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
     const chipCounts = await page.locator('.cl-filter .cl-chip-n').allInnerTexts();
