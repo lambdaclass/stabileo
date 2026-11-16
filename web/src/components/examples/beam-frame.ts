@@ -124,7 +124,7 @@ export const beamFrame = defineExample<Model>({
     const h = size * 0.03;
     const deformScale = size * 0.08 / Math.max(...samples.map(p => Math.hypot(...p.at)), 1e-12);
     const views: Record<string, View> = {};
-    for (const key of ['moment', 'shear', 'deflection'] as const) {
+    for (const key of ['structure', 'moment', 'shear', 'deflection'] as const) {
       const s = new Sketch();
       for (const el of model.elements.values()) {
         const ni = model.nodes.get(el.nodeI)!, nj = model.nodes.get(el.nodeJ)!;
@@ -146,8 +146,14 @@ export const beamFrame = defineExample<Model>({
         }
       }
       s.category = 1;
-      if (key === 'deflection') {
+      let peak: View['peak'];
+      if (key === 'structure') {
+        views[key] = s.view(key, '', boundsOf(s.xy, 0.08));
+        continue;
+      } else if (key === 'deflection') {
         for (const member of deformed) s.polyline(member.map(p => [p.base[0] + p.at[0] * deformScale, p.base[1] + p.at[1] * deformScale]));
+        const top = samples.reduce((a, b) => (model.portal ? Math.hypot(...b.at) : Math.abs(b.at[1])) > (model.portal ? Math.hypot(...a.at) : Math.abs(a.at[1])) ? b : a);
+        peak = { value: deflectionPeak * 1000, at: [top.base[0] + top.at[0] * deformScale, top.base[1] + top.at[1] * deformScale] };
       } else {
         const scale = size * 0.15 / Math.max(...station(key).map(p => Math.abs(p.value)), 1e-12);
         for (const d of diagrams[key]) {
@@ -155,10 +161,13 @@ export const beamFrame = defineExample<Model>({
           const ni = model.nodes.get(el.nodeI)!, nj = model.nodes.get(el.nodeJ)!;
           const len = Math.hypot(nj.x - ni.x, nj.z - ni.z);
           const nx = -(nj.z - ni.z) / len, nz = (nj.x - ni.x) / len;
-          s.polyline(d.points.map(p => [ni.x + p.t * (nj.x - ni.x) + nx * p.value * scale, ni.z + p.t * (nj.z - ni.z) + nz * p.value * scale]));
+          const drawnAt = (p: { t: number; value: number }): [number, number] => [ni.x + p.t * (nj.x - ni.x) + nx * p.value * scale, ni.z + p.t * (nj.z - ni.z) + nz * p.value * scale];
+          s.polyline(d.points.map(drawnAt));
+          const largest = d.points.reduce((a, b) => Math.abs(b.value) > Math.abs(a.value) ? b : a);
+          if (!peak || Math.abs(largest.value) > peak.value) peak = { value: Math.abs(largest.value), at: drawnAt(largest) };
         }
       }
-      const drawn = s.view(key, key === 'moment' ? 'kN·m' : key === 'shear' ? 'kN' : 'mm', boundsOf(s.xy, 0.08));
+      const drawn = { ...s.view(key, key === 'moment' ? 'kN·m' : key === 'shear' ? 'kN' : 'mm', boundsOf(s.xy, 0.08)), peak };
       views[key] = key === 'deflection' ? { ...drawn, legend: { shape: 'deformed', scale: deformScale } } : drawn;
     }
     const charts: Chart[] = [];

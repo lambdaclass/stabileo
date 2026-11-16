@@ -4,32 +4,23 @@ defmodule StabileoAuth do
   access/refresh token pair and the account. `app` is `"app"` for the product
   and `"admin"` for the admin site; a refresh token only refreshes for the app
   it was issued to.
+
+  The product signs in with Google only (`StabileoAuth.UserOAuth`).
   """
 
-  alias StabileoAuth.{AccountJSON, Accounts, Sessions, Tokens}
+  alias StabileoAuth.{AccountJSON, Accounts, Consents, Sessions, Tokens}
   alias StabileoRepo.Features
   alias StabileoRepo.Schemas.{Account, Session}
 
-  @doc "Closed while `user_login_enabled` is off; see `StabileoRepo.Features`."
-  def register(attrs, metadata \\ %{}) do
-    with :ok <- user_login_open(),
-         {:ok, account} <- Accounts.register(attrs) do
-      start_session(account, metadata, "app")
-    end
-  end
-
-  @doc "Closed while `user_login_enabled` is off. Refresh is not: existing sessions keep working."
-  def login(email, password, metadata \\ %{}) do
-    with :ok <- user_login_open(),
-         {:ok, account} <- Accounts.authenticate(email, password) do
-      sign_in(account, metadata, "app")
-    end
-  end
-
-  def config, do: %{user_login_enabled: Features.user_login_enabled?()}
-
-  defp user_login_open do
-    if Features.user_login_enabled?(), do: :ok, else: {:error, :user_login_disabled}
+  def config do
+    %{
+      user_login_enabled: Features.user_login_enabled?(),
+      terms_version: Consents.terms_version(),
+      usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
+      cloud_projects_enabled: Features.cloud_projects_enabled?(),
+      save_requires_account: Features.save_requires_account?(),
+      google_login: StabileoAuth.GoogleOAuth.app_configured?()
+    }
   end
 
   def refresh(refresh_token, metadata \\ %{}, app \\ "app", allowed? \\ fn _ -> true end) do
@@ -77,7 +68,7 @@ defmodule StabileoAuth do
          access_token: access_token,
          refresh_token: refresh_token,
          expires_in: Tokens.access_token_ttl(),
-         account: AccountJSON.render(account)
+         account: AccountJSON.render_with_consents(account)
        }}
     end
   end

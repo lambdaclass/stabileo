@@ -31,7 +31,7 @@ const en = {
 
 export type CqcStrings = typeof en;
 
-export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', CqcStrings> = {
+export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', CqcStrings> = {
   en,
   es: {
     srss: 'SRSS', cqc: 'CQC',
@@ -172,6 +172,34 @@ export const translations: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', CqcSt
     viewer: 'Çatı X yerdeğiştirmesi · mm', viewNote: 'Stabileo görüntüleyicisinde aksonometrik izdüşüm. Şekil değiştirme ×40; animasyon zarfı ölçekler, bir zaman tanım alanı analizi değildir.',
     step: 'Zarf gösterimi', rule: 'Birleştirme',
     error: 'Canlı hesaplama başarısız oldu',
+  },
+  hu: {
+    srss: 'SRSS', cqc: 'CQC',
+    title: 'Egymáshoz közeli rezgésalakok: SRSS és CQC',
+    metaTitle: 'SRSS és CQC (1981) — Stabileo Research',
+    metaDescription: 'Egy épület egymáshoz közeli rezgésalakjai zárt alakú referenciamegoldással összevetve.',
+    lead: 'Egy kis, nyírási épületként idealizált 3D szerkezet, az alkalmazás modális és válaszspektrum-megoldójával számítva.',
+    citation: '”, a módszer szemléltetése a következő alapján:',
+    model: 'A példa', description: 'Négy befogott oszlop, 3 m magas, 4 × 3 m-es alaprajzon. Minden tetőcsomópontban 5 t tömeg van X irányban. A tető elfordulásai és Y/Z irányú eltolódásai gátoltak; az azonos X-elmozdulást előíró kényszerek összekötik a keresztirányú párokat. Két tengelyirányú tetővonórúd kapcsolja össze a megmaradó két koordinátát. Ez a módszer saját szemléltetése, nem a cikk eredeti épülete.',
+    method: 'Zárt alakú referencia', equations: 'A redukált mátrixok M = diag(10, 10) t és K = [[1020, −20], [−20, 1230]] kN/m. Megoldjuk a det(K − ω²M) = 0 egyenletet, és minden rezgésalakot egységnyi modális tömegre normálunk. Sa = 1 m/s² esetén a modális talpnyíróerők Γ²Sa. Az SRSS elhagyja a vegyes tagokat; a CQC megtartja azok korrelációját egyenlő ξ = 5% csillapítás mellett.',
+    rhoSource: 'Ez Wilson, Der Kiureghian és Bayo (1981) egyenlő csillapításra vonatkozó korrelációs együtthatója, (14) egyenlet, 191. o.; a 190. oldal magyarázza el, miért tartják meg előjelüket a vegyes tagok. Feltételezi, hogy a modális csillapítás egyenlő, a talajmozgás a sajátperiódusokhoz képest hosszú, a spektrum pedig széles és sima. Az alábbi referenciaértékek ennek a példának a zárt alakú eredményei, nem a cikk I. táblázatának adatai.',
+    explanation: 'A cikk a modális kombináció hibáinak csökkentésére javasolja a CQC-t, amely jól elkülönülő frekvenciáknál visszaadja az SRSS-t. Itt az SRSS kisebb talpnyíróerőt ad, mint a CQC. Ez az eltérés a CQC-becsléshez viszonyított, nem egy földrengés-felvétellel szemben mért hiba.',
+    referenceLabel: 'Összevetés a zárt alakú megoldással',
+    publishedNote: 'A cikk épületét és táblázatait nem használjuk: ez az oldal a saját, kétrezgésalakos példáját veti össze a zárt alakú megoldással.',
+    comparison: 'Talpnyíróerő · kN', roofHeading: 'A tető X irányú elmozdulásának burkolója · mm', node: 'Csomópont',
+    modalHeading: 'Modális adatok', quantity: 'Mennyiség', f1: '1. frekvencia · Hz', f2: '2. frekvencia · Hz', rho: 'Modális korreláció ρ',
+    impliedNote: 'A Stabileo ρ értékét saját eredményeiből állítjuk vissza: ρ = (V_CQC² − V_SRSS²) / (2 V₁ V₂), ahol Vᵢ a modális talpnyíróerők.',
+    reference: 'Zárt alak', result: 'Stabileo', delta: 'Eltérés · %',
+    deficit: 'SRSS a CQC-hez képest · %',
+    checksHeading: 'Ellenőrzések',
+    tolerance: 'Regressziós korlát: a relatív eltérés 1 × 10⁻⁸ alatt marad mindkét frekvenciára, az X irányú tömegrészvételre, mindkét talpnyíróerőre és mindkét tetőelmozdulásra (9 ellenőrzés). A natív futtatás legfeljebb 6.4 × 10⁻¹⁵ értékkel tér el. A korlát ezt a kicsi, jól kondicionált, kétkoordinátás feladatot védi a regressziók ellen; nem pontossági cél, és a megoldó és a zárt alak egyezése semmit sem mond a fizikai pontosságról.',
+    scope: 'Hatókör',
+    limitations: ['Az összevetés ennek a kétkoordinátás példának a zárt alakú megoldásával történik; a cikk saját épületét és számtáblázatait nem reprodukáljuk.', 'Nincs időtörténeti analízis: egyik szabályt sem mérjük földrengés-felvételhez.', 'Egy szint, csavarási válasz és paramétervizsgálat nélkül.'],
+    run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás', running: 'Számítás…',
+    replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő eredmény (az alkalmazás WASM-megoldója)',
+    viewer: 'A tető X irányú elmozdulása · mm', viewNote: 'Axonometrikus vetület a Stabileo nézőjében. Torzítás ×40; az animáció a burkolót skálázza, nem időtörténeti analízis.',
+    step: 'Burkoló megjelenítése', rule: 'Kombináció',
+    error: 'Az élő számítás nem sikerült',
   },
 };
 

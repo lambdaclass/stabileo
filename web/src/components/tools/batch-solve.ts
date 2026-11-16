@@ -1,7 +1,7 @@
 import { initSolver, solve, solveModal, analyzeKinematics, prepareLoadSession2D } from '../../lib/engine/wasm-solver';
 import { computeElementDiagram, computeDeformedShape } from '../../lib/engine/diagrams';
 import type { Displacement, SolverInput } from '../../lib/engine/types';
-import { batchModel, continuousInfluence, continuousReactions, frequencies, jointForces, numbers, portalSway, sectionPosition, simpleInfluence, type BatchId, type BatchParameters } from './batch';
+import { BatchToolError, batchModel, continuousInfluence, continuousReactions, frequencies, jointForces, numbers, portalSway, sectionPosition, simpleInfluence, type BatchId, type BatchParameters } from './batch';
 import { comparisonDifference, validityWarnings } from './validity';
 export type Series = { name: string; points: [number,number][] };
 export type Comparison = { label: string; engine: number; reference: number; unit: string; difference: number | null; absolute: boolean };
@@ -15,7 +15,7 @@ function axle(model:SolverInput,x:number,load:number,tol:number):SolverInput['lo
 
 export async function calculateBatch(id:BatchId,p:BatchParameters) {
   const model=batchModel(id,p); await initSolver();
-  if(id==='truss-2d' && analyzeKinematics(model).mechanismModes > 0) throw new Error('tools.batch.unstable');
+  if(id==='truss-2d' && analyzeKinematics(model).mechanismModes > 0) throw new BatchToolError('tools.batch.unstable');
   const raw:Omit<Comparison,'difference'|'absolute'>[]=[];
   const compare=(label:string,engine:number,reference:number,unit:string)=>raw.push({label,engine,reference,unit});
   let influence:[number,number][]=[]; let maximum:[number,number]=[0,0];

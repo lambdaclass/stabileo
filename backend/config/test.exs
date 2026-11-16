@@ -12,6 +12,10 @@ config :stabileo_repo, StabileoRepo.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
+config :stabileo_marketing, Oban, testing: :manual
+
+config :stabileo_marketing, StabileoMarketing.HttpClient, StabileoMarketing.HttpStub
+
 config :stabileo_web, StabileoWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4102 + instance * 10],
   secret_key_base:
@@ -26,12 +30,20 @@ config :stabileo_auth,
   admin_domains: ["example.com"],
   admin_password_login: true,
   admin_frontend_url: "http://localhost:4001",
+  app_frontend_url: "http://localhost:4000",
   google_strategy: StabileoAuth.GoogleStrategyStub
 
 config :stabileo_auth, :google_oauth,
   client_id: "test-google-client-id",
   client_secret: "test-google-client-secret",
-  redirect_uri: "http://localhost:4102/api/v1/admin/auth/google/callback"
+  app_client_id: "test-google-app-client-id",
+  app_client_secret: "test-google-app-client-secret",
+  redirect_uri: "http://localhost:4102/api/v1/admin/auth/google/callback",
+  app_redirect_uri: "http://localhost:4000/api/v1/auth/google/callback"
+
+config :stabileo_utils, rate_limit: false
+
+config :stabileo_insights, retention: false
 
 config :logger, level: :warning
 

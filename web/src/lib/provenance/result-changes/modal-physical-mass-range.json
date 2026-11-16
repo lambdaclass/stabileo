@@ -21,6 +21,7 @@
     "pt": "A análise modal preserva o espaço físico da massa",
     "de": "Die Modalanalyse erhält den physikalischen Massenraum",
     "fr": "L’analyse modale préserve l’espace physique de la masse",
+    "hu": "A modális vizsgálat megőrzi a fizikai tömegtartományt",
     "tr": "Modal analiz fiziksel kütle uzayını korur"
   },
   "explanation": {
@@ -29,6 +30,7 @@
     "pt": "Rotações de apoios e a redução MPC podiam criar inércia espúria numa direção sem massa física, impedindo o retorno de modos válidos. A montagem modal agora preserva as linhas com massa e condensa coordenadas sem massa antes da solução. As verificações de equação, ortogonalidade e certificado permanecem. Refaça análises afetadas e respostas dinâmicas dependentes.",
     "de": "Lagerdrehungen und MPC-Reduktion konnten künstliche Trägheit in einer physikalisch masselosen Richtung erzeugen und gültige Eigenformen zurückhalten. Die Modalanalyse erhält nun die massebehafteten Zeilen und kondensiert masselose Koordinaten vor der Lösung. Gleichungs-, Orthogonalitäts- und Zertifikatsprüfungen bleiben bestehen. Betroffene Analysen und abhängige dynamische Antworten erneut berechnen.",
     "fr": "Les rotations d’appuis et la réduction MPC pouvaient créer une inertie artificielle dans une direction physiquement sans masse et empêcher le retour de modes valides. L’assemblage modal conserve désormais les lignes massiques et condense les coordonnées sans masse avant la résolution. Les contrôles d’équation, d’orthogonalité et de certification restent applicables. Relancer les analyses concernées et les réponses dynamiques dépendantes.",
+    "hu": "A támaszforgatások és az MPC-redukció téves tehetetlenséget hozhattak létre fizikailag tömeg nélküli irányokban, így érvényes módusokat tarthatott vissza a számítás. Az összeállítás most megőrzi a tömeggel rendelkező sorokat, és a megoldás előtt kondenzálja a tömeg nélküli koordinátákat. Az egyenlet-, ortogonalitási és tanúsítási ellenőrzések változatlanok. Futtassa újra az érintett modális vizsgálatokat és a kapcsolódó dinamikai válaszokat.",
     "tr": "Mesnet dönüşleri ve MPC indirgemesi, fiziksel olarak kütlesiz bir yönde yapay atalet oluşturarak geçerli modların döndürülmesini engelleyebiliyordu. Modal birleştirme artık kütleli satırları korur ve çözümden önce kütlesiz koordinatları yoğunlaştırır. Denklem, ortogonallik ve sertifika kontrolleri geçerlidir. Etkilenen modal analizleri ve bağlı dinamik tepkileri yeniden hesaplayın."
   },
   "changelog": {

@@ -26,6 +26,7 @@
     "pt": "Esforços por etapas sem recuperação válida são retidos",
     "de": "Bauphasenkräfte ohne unterstützte Ermittlung werden zurückgehalten",
     "fr": "Les efforts par phases sans récupération prise en charge sont retenus",
+    "hu": "A fázistörténet erőinek visszatartása nem támogatott helyreállításnál",
     "tr": "Desteklenmeyen aşama geçmişi kuvvetleri sunulmaz"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "pt": "Alterar membros ou cascas ativos após cargas ou movimentos retém reações, esforços e tensões com avisos estruturados. Etapas posteriores permanecem indisponíveis. Deslocamentos incrementais não certificam equilíbrio. Resultados sem mudança de rigidez ou com mudança antes de carregar são mantidos. Reveja resultados por etapas (#1952, #1996).",
     "de": "Änderungen aktiver Stäbe oder Schalen nach Belastung oder Bewegung unterdrücken Reaktionen, Kräfte und Spannungen mit strukturierten Hinweisen. Spätere Phasen bleiben unverfügbar. Inkrementelle Verschiebungen bestätigen kein Gleichgewicht. Änderungen vor Belastung und unveränderte Steifigkeit behalten ihre Ergebnisse. Prüfen Sie gespeicherte Bauphasenergebnisse (#1952, #1996).",
     "fr": "Modifier les barres ou coques actives après chargement ou mouvement retient réactions, efforts et contraintes avec avertissements structurés. Les phases suivantes restent indisponibles. Les déplacements incrémentaux ne certifient pas l’équilibre. Les changements avant chargement et la rigidité inchangée conservent leurs résultats. Revérifiez les résultats par phases (#1952, #1996).",
+    "hu": "Az aktív rudak vagy héjak korábbi terhelés vagy mozgás utáni változtatása strukturált figyelmeztetéssel visszatartja a reakciókat, rúd- és kényszererőket, valamint héjfeszültségeket. A későbbi fázisok is nem elérhetők. A megőrzött növekményes elmozdulások nem tanúsított egyensúlyi eredmények. A terheletlen topológiaváltozások és a változatlan merevség válaszai megmaradnak. Ellenőrizze újra a mentett fázisos eredményeket (#1952, #1996).",
     "tr": "Önceki yük veya hareketten sonra etkin eleman ya da kabuk değişince tepkiler, kuvvetler ve gerilmeler yapılandırılmış uyarılarla sunulmaz. Sonraki aşamalar da kullanılamaz. Artımlı yer değiştirmeler dengeyi doğrulamaz. Yüksüz topoloji değişiklikleri ve değişmeyen rijitlik sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952, #1996)."
   },
   "changelog": {

@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { EXAMPLE_IDS } from '../src/components/examples/ids';
+import { BUILD_FEATURES } from './build-features';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+
+test.skip(BUILD_FEATURES.tools, 'The enabled Tools build moves examples to tools; covered by tools-models.spec.ts');
 
 const value = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-value'));
 const slide = (page: Page, key: string, to: number) => page.getByTestId(`param-${key}`).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);

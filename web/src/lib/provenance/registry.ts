@@ -17,9 +17,12 @@ import { conditionGroups } from '../../../scripts/results-snapshot/applicability
 
 export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
 export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
-export type Localised = Record<RegistryLocale, string>;
+export type Localised = Record<RegistryLocale, string> & { hu?: string };
 
-export function registryLocale(locale: string): RegistryLocale {
+export function registryLocale(locale: string): RegistryLocale;
+export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
+export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
+  if (locale === 'hu' && import.meta.env.VITE_RESEARCH === '1' && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 

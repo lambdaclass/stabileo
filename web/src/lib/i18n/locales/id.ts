@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  "account.err.invalid_credentials": "Email atau kata sandi salah.",
   // ─── Auth / Login ───
 
   // ─── Landing Page ───
@@ -795,28 +796,6 @@ const id: Translations = {
   'float.vShear': 'V geser',
   'float.ilHint': 'Klik titik simpul (reaksi) atau batang (M/V dalam)',
 
-  // ─── FeedbackWidget.svelte ───
-  'feedback.reportSuggest': 'Laporkan / Sarankan',
-  'feedback.close': 'Tutup',
-  'feedback.reportCreated': 'Laporan #{n} dibuat',
-  'feedback.bugError': 'Bug / Error',
-  'feedback.suggestion': 'Saran',
-  'feedback.other': 'Lainnya',
-  'feedback.namePlaceholder': 'Nama atau alias Anda (opsional)',
-  'feedback.textPlaceholder': 'Jelaskan masalah atau saran...',
-  'feedback.linkAttached': 'Tautan ke struktur Anda akan dilampirkan',
-  'feedback.copy': 'Salin',
-  'feedback.sending': 'Mengirim...',
-  'feedback.submitReport': 'Kirim laporan',
-  'feedback.toastCreated': 'Laporan #{n} dibuat — terima kasih!',
-  'feedback.toastError': 'Gagal mengirim laporan',
-  'feedback.toastConnectionError': 'Kesalahan koneksi — coba lagi',
-  'feedback.toastEmptyText': 'Tuliskan deskripsi masalah atau saran',
-  'feedback.toastSecurityWait': 'Menunggu verifikasi keamanan...',
-  'feedback.toastLinkCopied': 'Tautan disalin',
-  'feedback.reportBug': 'Laporkan Bug / Saran',
-  'feedback.communityTelegram': 'Komunitas Telegram',
-  'feedback.buyCoffee': 'Traktir saya kopi',
 
   // ─── SectionEditor.svelte ───
   'secEdit.title': 'Penampang {id}',
@@ -2218,6 +2197,7 @@ const id: Translations = {
   'lang.fr': 'Français',
   'lang.it': 'Italiano',
   'lang.tr': 'Türkçe',
+  'lang.hu': 'Magyar',
   'lang.hi': 'हिन्दी',
   'lang.zh': '中文',
   'lang.ja': '日本語',

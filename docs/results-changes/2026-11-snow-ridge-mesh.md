@@ -60,7 +60,7 @@ the test names, as Vitest has no Rust ignore attribute. All #2144 class tests ar
 active. The new `snow-subdivided-override` snapshot captures the corrected witness;
 existing snow snapshots retain their baselines. The coordinator assigned
 [SA-2026-072](../advisories/SA-2026-072-snow-ridge-subdivision.md) for the silent
-#2144 main-source exposure. The fix is pending merge and release; historical
+#2144 main-source exposure. The fix is pending release; historical
 release binaries were not replayed.
 
 PR #2175 round 3 also corrects exact-elevation equality introduced by the physical

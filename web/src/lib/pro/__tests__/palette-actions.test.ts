@@ -18,8 +18,8 @@ describe('the command search beyond the ribbon', () => {
     }
   });
 
-  it('names every action in the six languages', async () => {
-    for (const lang of ['es', 'en', 'pt', 'de', 'fr', 'tr']) {
+  it('names every action in the seven languages', async () => {
+    for (const lang of ['es', 'en', 'pt', 'de', 'fr', 'tr', 'hu']) {
       const d = (await import(`../../i18n/locales/${lang}.ts`)).default as Record<string, string>;
       for (const a of paletteActions()) {
         expect(d[a.cmd.labelKey], `${lang}: ${a.cmd.labelKey}`).toBeTruthy();

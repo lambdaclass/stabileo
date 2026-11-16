@@ -31,6 +31,7 @@
     "pt": "A continuação não linear e as reações do solo preservam o equilíbrio",
     "de": "Nichtlineare Fortsetzung und Bodenreaktionen erhalten das Gleichgewicht",
     "fr": "La continuation non linéaire et les réactions du sol préservent l’équilibre",
+    "hu": "A nemlineáris folytatás és talajreakciók megőrzik az egyensúlyt",
     "tr": "Doğrusal olmayan devam ve zemin tepkileri dengeyi korur"
   },
   "explanation": {
@@ -39,6 +40,7 @@
     "pt": "Refaça as análises não lineares e SSI afetadas. A continuação verifica os apoios ativos, barras giradas preservam pequenas rotações e SSI verifica as reações do solo apresentadas. Origens inválidas e deslocamentos duplicados em curvas personalizadas são recusados (#761, PR #1940).",
     "de": "Betroffene nichtlineare und SSI-Berechnungen erneut ausführen. Die Fortsetzung prüft aktuelle Auflagerlagen, gedrehte Stäbe erhalten kleine Sehnendrehungen und SSI prüft die ausgegebenen Bodenreaktionen. Ungültige Kurvenursprünge und doppelte Verschiebungswerte werden abgewiesen (#761, PR #1940).",
     "fr": "Relancer les analyses non linéaires et SSI concernées. La continuation vérifie les appuis actifs, les barres tournées conservent les petites rotations de corde et SSI vérifie les réactions du sol affichées. Les origines invalides et déplacements dupliqués des courbes personnalisées sont refusés (#761, PR #1940).",
+    "hu": "Futtassa újra az érintett nemlineáris és SSI vizsgálatokat. A folytatás ellenőrzi az aktív támaszhelyzeteket, a forgatott rudak megőrzik a kis húrforgásokat, az SSI pedig csak a közölt talajreakciókkal egyensúlyban levő állapotot fogadja el. A hibás egyedi görbekezdetek és ismételt elmozduláspontok elutasítást kapnak (#761, PR #1940).",
     "tr": "Etkilenen doğrusal olmayan ve SSI analizlerini yeniden çalıştırın. Devam analizi etkin mesnet konumlarını, SSI ise bildirilen zemin tepkilerini denetler; döndürülmüş çubuklar küçük kiriş dönüşlerini korur. Geçersiz özel eğri başlangıçları ve yinelenen yer değiştirmeler reddedilir (#761, PR #1940)."
   },
   "changelog": {

@@ -16,6 +16,7 @@ export const RELATED_COPY: Record<string, string[]> = {
   de: ['Verwandte Forschung und Rechner', 'Forschungsgalerie', 'Kostenlose Rechner', 'Ingenieurblog'],
   fr: ['Recherche et calculateurs associés', 'Galerie de recherche', 'Calculateurs gratuits', 'Blog d’ingénierie'],
   tr: ['İlgili araştırmalar ve hesaplayıcılar', 'Araştırma galerisi', 'Ücretsiz hesaplayıcılar', 'Mühendislik blogu'],
+  hu: ['Kapcsolódó kutatások és kalkulátorok', 'Kutatási galéria', 'Ingyenes kalkulátorok', 'Mérnöki blog'],
 };
 export function relatedPaths(path: string) {
   const clean = path.replace(/\/$/, '');
