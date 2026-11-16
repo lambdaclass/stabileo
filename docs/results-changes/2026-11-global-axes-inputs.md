@@ -6,8 +6,10 @@ No numerical solver algorithm or tolerance changes here.
 
 The unmerged axes branch inferred a spatial snapshot from any explicit node `z`,
 even when the snapshot explicitly declared 2D analysis. Explicit 2D now wins.
-Nonlinear support curves now transform both force and displacement with their axis
-sign, and retain ascending displacement order. Member-local curves stay local.
+Nonlinear support curves store the nonnegative branch of a symmetric law.
+Their magnitude pairs are retained when directions are permuted, including under
+reflection. Signed asymmetric branches remain refused by the engine. Member-local
+curves stay local.
 The shared snapshot transformer applies this rule to both model-code directions
 and project-workbook export.
 
@@ -23,7 +25,7 @@ importer on main or this integration. They are explicitly returned in
 `unknownSheets`; this change does not claim a complete project-workbook import.
 
 Regressions exercise all 48 signed frames, explicit 2D snapshots with zero depth,
-both spatial modes, asymmetric and local spring curves, workbook support fields
+both spatial modes, valid symmetric and refused asymmetric spring curves, workbook support fields
 and their units, and nonzero template couples. Tests compare the sign and physical
 meaning, as well as round trips; a wrong forward/inverse pair cannot pass merely
 by cancelling itself. The reproducer-only commit is a0191e25c; enabling its skipped

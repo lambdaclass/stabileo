@@ -187,16 +187,7 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     }
     permute(f, way, sp, ['kx', 'ky', 'kz']);
     permute(f, way, sp, ['krx', 'kry', 'krz']);
-    if (sp.curves && typeof sp.curves === 'object') {
-      const { index, sign } = axisMap(f, way);
-      const curves: Obj = {};
-      for (let k = 0; k < 3; k++) {
-        const curve = sp.curves['xyz'[k]!];
-        if (!Array.isArray(curve)) continue;
-        curves['xyz'[index[k]!]!] = curve.map(([d, force]: [number, number]) => [sign[k]! * d + 0, sign[k]! * force + 0]).sort((a: number[], b: number[]) => a[0]! - b[0]!);
-      }
-      sp.curves = curves;
-    }
+    if (sp.curves && typeof sp.curves === 'object') permute(f, way, sp.curves as Obj, ['x', 'y', 'z']);
     mapTriple(f, way, sp, ['dx', 'dy', 'dz']);
     mapTriple(f, way, sp, ['drx', 'dry', 'drz'], 'rot');
     mapTriple(f, way, sp, ['normalX', 'normalY', 'normalZ']);

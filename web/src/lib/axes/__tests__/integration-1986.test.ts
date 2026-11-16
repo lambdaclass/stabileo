@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { axesStore } from '../axes.svelte';
-import { allChoices, makeFrame, planeSigns, supportTypeIn, userAxisAlong } from '../frame';
+import { allChoices, makeFrame, planeSigns, supportTypeIn } from '../frame';
 import { transformSnapshot } from '../../model/code/frame';
 import { axisTokensIn } from '../case-names';
 import { stepTextIn } from '../step-doc-frame';
@@ -30,23 +30,6 @@ it('known wrong result: #1986 explicit 2D snapshots with zero z stay in the solv
     expect(u.nodes[0]![1]).toEqual({ id: 1, x: p.sx * 2, y: p.sz * 3, z: 0 });
     expect(u.loads[0]!.data).toEqual({ fx: p.sx * 5, fz: p.sz * 7, my: p.sr * 11 });
     expect(transformSnapshot(u, c, 'toModel')).toEqual(snap);
-  }
-});
-
-it('known wrong result: #1986 asymmetric spring curves carry signed displacement and force in both directions', () => {
-  for (const c of allChoices()) {
-    const f = makeFrame(c);
-    for (const mode of ['3d', 'pro']) for (const k of [0, 1, 2]) {
-      const curve = [[-0.02, -3], [0, 0], [0.01, 8]];
-      const snap = { analysisMode: mode, nodes: [[1, { x: 2, y: 3, z: 4 }]], supports: [[1, { type: 'spring3d', curves: { ['xyz'[k]!]: curve } }]] };
-      const u = transformSnapshot(snap, c, 'toUser') as any;
-      const a = userAxisAlong(f, k);
-      expect(u.supports[0][1].curves[a.name.toLowerCase()]).toEqual(curve.map((pair) => pair.map((v) => a.sign * v + 0)).sort((a, b) => a[0]! - b[0]!));
-      expect(transformSnapshot(u, c, 'toModel')).toEqual(snap);
-      const local = structuredClone(snap) as any;
-      local.supports[0][1].dofFrame = 'local';
-      expect((transformSnapshot(local, c, 'toUser') as any).supports).toEqual(local.supports);
-    }
   }
 });
 
