@@ -8,6 +8,23 @@ export interface Seismic { overstrength: number }
 
 interface BeamSide { top: BarGroup[]; bottom: BarGroup[] }
 
+/**
+ * §18.6.3.2 by areas at the start, middle and end of a span: every section holds, top and bottom, a
+ * quarter of the most steel at either face, and the bottom at each face half the top there. With what
+ * each run needs more of, cm², for the sections to hold it.
+ */
+export function faceRule(S: BeamSide, M: BeamSide, E: BeamSide): { maxEnd: number; minAny: number; quarterOk: boolean; halfOk: boolean; more: { top: number; bottom: number } } {
+  const area = (g: BarGroup[]) => groupsArea(g);
+  const maxEnd = Math.max(area(S.top), area(S.bottom), area(E.top), area(E.bottom));
+  const least = (face: 'top' | 'bottom') => Math.min(...[S, M, E].map((x) => area(x[face])));
+  const minAny = Math.min(least('top'), least('bottom'));
+  const halfShort = Math.max(0, 0.5 * area(S.top) - area(S.bottom), 0.5 * area(E.top) - area(E.bottom));
+  return {
+    maxEnd, minAny, quarterOk: minAny >= 0.25 * maxEnd - 1e-6, halfOk: halfShort <= 1e-6,
+    more: { top: Math.max(0, 0.25 * maxEnd - least('top')), bottom: Math.max(halfShort, 0.25 * maxEnd - least('bottom')) },
+  };
+}
+
 /** Gravity shear at the ends: the largest of the combinations with no earthquake case, else half the design shear. */
 function gravityShear(combos: Array<{ seismic?: boolean; v: number }>, vu: number): number {
   const g = combos.filter((k) => !k.seismic);
@@ -34,17 +51,15 @@ export function beamSeismic(
   });
   const sVe = hoopSpacingFor(cap.ve, cap.vcZero, d.b, dEff, c.mat.fc, c.mat.fy, sd, a.stirrups.legs);
   const sZone = Math.min(cap.hoops.spacing, sVe ?? 0.05);
-  const maxEnd = Math.max(area(S.top), area(S.bottom), area(E.top), area(E.bottom));
-  const minAny = Math.min(...[S, M, E].flatMap((x) => [area(x.top), area(x.bottom)]));
+  const { maxEnd, minAny, quarterOk, halfOk } = faceRule(S, M, E);
   const rho = Math.max(...[S, M, E].flatMap((x) => [area(x.top), area(x.bottom)])) * 1e-4 / (d.b * dEff);
-  const halfOk = area(S.bottom) >= 0.5 * area(S.top) - 1e-6 && area(E.bottom) >= 0.5 * area(E.top) - 1e-6;
   return {
     sZone, ve: cap.ve, vg, ln,
     checks: [
       check('rcSheets.v.seisBeamVe', cap.utilization <= 1 + 1e-6, { clause: '§18.6.5', demand: `Ve = ${fmt(cap.ve)} kN`, capacity: `${fmt(cap.phiVn)} kN`, ratio: cap.utilization }),
       check('rcSheets.v.seisBeamHoops', a.stirrups.spacing <= sZone + 1e-6, { clause: '§18.6.4.4', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sZone * 100, 1)} cm (2h = ${fmt(2 * d.h * 100, 0)} cm)` }),
       check('rcSheets.v.seisBeamHalf', halfOk, { clause: '§18.6.3.2' }),
-      check('rcSheets.v.seisBeamQuarter', minAny >= 0.25 * maxEnd - 1e-6, { clause: '§18.6.3.2', demand: `${fmt(minAny)} cm²`, capacity: `≥ ${fmt(0.25 * maxEnd)} cm²` }),
+      check('rcSheets.v.seisBeamQuarter', quarterOk, { clause: '§18.6.3.2', demand: `${fmt(minAny)} cm²`, capacity: `≥ ${fmt(0.25 * maxEnd)} cm²` }),
       check('rcSheets.v.seisBeamRho', rho <= 0.025 + 1e-9, { clause: '§18.6.3.1', demand: `${fmt(rho * 100, 2)} %`, capacity: '≤ 2.5 %' }),
     ],
     steps: [

@@ -208,6 +208,13 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   return { flex, fitBottom: fb.fits, fitTop: ft.fits, areaBottom, areaTop, crackBottom, crackTop, shear, perLegProvided, perLegRequired, transverseMin, transverseProvided, alProvided, alSpacing, alDiaMin, ok, all };
 }
 
+/** The section that asks the most of a face's steel against the bars it holds there, with both, cm²: a line's span holds its support bars only at its ends. */
+function areaAt(a: BeamAdopted, req: Pick<Requirement, 'bySection'>, sign: 'pos' | 'neg', fallback: number): { req: number; area: number } {
+  const face = sign === 'pos' ? 'bottom' : 'top';
+  const at = req.bySection.filter((x) => x.sign === sign).map((x) => ({ req: x.req, area: groupsArea(barsAt(a, x.section)[face]) }));
+  return at.reduce((w, x) => (ratioOf(x.req, x.area) > ratioOf(w.req, w.area) ? x : w), at[0] ?? { req: fallback, area: groupsArea(a[face]) });
+}
+
 const LONG = (c: BeamContext) => c.diameters.filter((x) => inRange(x, BEAM_BAR_RANGE));
 
 function bumpFace(groups: BarGroup[], d: BeamDemand, c: BeamContext, sd: number): BarGroup[] {
@@ -327,8 +334,8 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
       clause: '§22.2, §21.2', demand: `${f2(x.mu)} kN·m`, capacity: `${f2(x.phiMn)} kN·m`, ratio: ratioOf(x.mu, x.phiMn),
     })),
     ...e.flex.filter((x) => x.mu > 1e-6 && !x.ductile).map((x) => check('rcSheets.v.ductility', false, { clause: '§9.3.3.1', demand: `εt = ${fmt(x.epsT * 1000)} ‰`, capacity: `≥ ${fmt(x.epsTMin * 1000)} ‰` })),
-    check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(bottomReq)} cm²`, capacity: `${f2(groupsArea(a.bottom))} cm²`, ratio: ratioOf(bottomReq, groupsArea(a.bottom)) }),
-    ...(topReq > 0 ? [check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(topReq)} cm²`, capacity: `${f2(groupsArea(a.top))} cm²`, ratio: ratioOf(topReq, groupsArea(a.top)) })] : []),
+    ((g) => check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(g.req)} cm²`, capacity: `${f2(g.area)} cm²`, ratio: ratioOf(g.req, g.area) }))(areaAt(a, req, 'pos', bottomReq)),
+    ...(topReq > 0 ? [((g) => check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(g.req)} cm²`, capacity: `${f2(g.area)} cm²`, ratio: ratioOf(g.req, g.area) }))(areaAt(a, req, 'neg', topReq))] : []),
     check('rcSheets.v.fitBottom', e.fitBottom, { clause: '§25.2.1' }),
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
@@ -351,8 +358,8 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
   const steps: StepGroup[] = [
     dataSteps(d, c, fmt),
-    flexureSteps('rcSheets.g.flexBottom', d, c, gPos.r, gPos.env, gPos.n, `rcSheets.sec.${gPos.s}`, a.bottom, e.flex.filter((x) => x.sign === 'pos'), fmt),
-    ...(topReq > 0 ? [flexureSteps('rcSheets.g.flexTop', d, c, gNeg.r, gNeg.env, gNeg.n, `rcSheets.sec.${gNeg.s}`, a.top, e.flex.filter((x) => x.sign === 'neg'), fmt)] : []),
+    flexureSteps('rcSheets.g.flexBottom', d, c, gPos.r, gPos.env, gPos.n, `rcSheets.sec.${gPos.s}`, barsAt(a, gPos.s).bottom, e.flex.filter((x) => x.sign === 'pos'), fmt),
+    ...(topReq > 0 ? [flexureSteps('rcSheets.g.flexTop', d, c, gNeg.r, gNeg.env, gNeg.n, `rcSheets.sec.${gNeg.s}`, barsAt(a, gNeg.s).top, e.flex.filter((x) => x.sign === 'neg'), fmt)] : []),
     shearSteps(d, c, shear, e.shear, a.stirrups, sMax, fmt),
     torsionSteps(d, tor0, tor, tuDesign, e, alReq, alMin, a, fmt),
     ...(seisA ? [{ title: 'rcSheets.g.seismic', steps: seisA.steps }] : []),

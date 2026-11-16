@@ -6,7 +6,7 @@ import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-k
 import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceLayout, groupsArea, groupsLabel, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
-import { beamSeismic } from './seismic';
+import { beamSeismic, faceRule } from './seismic';
 import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
@@ -246,13 +246,15 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   };
 
   let bentNotes: LineLayout['bentNotes'] = [];
-  const propose = (): LineAdopted => {
+  const faceNeg = Math.max(0, ...sorted.flatMap((r) => [reqAt(r, 'neg', 'start'), reqAt(r, 'neg', 'end')]));
+  const propose = (floor: { top: number; bottom: number }): LineAdopted => {
     const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
-    const aCb = Math.max(minBottom, bottomRunNeed());
+    const seis = c.seismic ? { top: 0.25 * faceNeg, bottom: 0.5 * faceNeg } : { top: 0, bottom: 0 };
+    const aCb = Math.max(minBottom, bottomRunNeed(), seis.bottom, floor.bottom);
     const runDia = [...c.diameters].filter((d) => d >= botDia).sort((p, q) => p - q).find((d) => Math.ceil(aCb / barArea(d) - 1e-9) <= RUN_BARS) ?? botDia;
     const bottom = { dia: runDia, count: Math.max(2, Math.ceil(aCb / barArea(runDia) - 1e-9)) };
     const spanHog = Math.max(0, ...sorted.map((r) => reqAt(r, 'neg', 'span')));
-    const topNeed = Math.max(spanHog, negMax / 6), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
+    const topNeed = Math.max(spanHog, negMax / 6, seis.top, floor.top), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
     const top = hangers <= 3 ? { dia: hanger, count: hangers } : { dia: topDia, count: Math.max(2, Math.ceil(topNeed / barArea(topDia) - 1e-9)) };
     const supportTop = supports.map((_, j) => {
       const left = j > 0 ? reqAt(sorted[j - 1]!, 'neg', 'end') : 0, right = j < sorted.length ? reqAt(sorted[j]!, 'neg', 'start') : 0;
@@ -480,7 +482,22 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     }
     return out;
   });
-  let proposed = adopted ?? propose(), iterations = 0;
+  /** Each span's bars as its row reads them: the runs, and at its start, middle and end what else acts there. */
+  const spanAdoptedOf = (a: LineAdopted, bars: LineBar[]): BeamAdopted[] => spans.map((s, k) => {
+    const sd = a.stirrups?.[k]?.dia ?? c.stirrupDia;
+    const at = (xl: number) => {
+      const full = (face: 'top' | 'bottom') => bars.filter((b) => b.kind !== 'continuous' && barActsAt(b, face, xl, 1e-6)).reduce<BarGroup | undefined>((acc, b) => (acc ? { dia: acc.dia, count: acc.count + b.bars.count } : b.bars), undefined);
+      return { top: sectionGroups(a.top, full('top'), s.b, c, sd), bottom: sectionGroups(a.bottom, full('bottom'), s.b, c, sd) };
+    };
+    const own = s.row.proposed;
+    return {
+      bottom: [a.bottom], top: [a.top], stirrups: a.stirrups?.[k] ?? own.stirrups,
+      ...(own.torsionLong ? { torsionLong: own.torsionLong } : {}),
+      at: { start: at(s.x0 + (s.row.demand.start.x)), span: at(s.x0 + s.row.demand.span.x), end: at(s.x0 + s.row.demand.end.x) },
+    };
+  });
+  let floor = { top: 0, bottom: 0 };
+  let proposed = adopted ?? propose(floor), iterations = 0;
   let bars = layout(proposed), env = verify(proposed, bars);
   const iterate = () => {
     while (iterations < 16) {
@@ -495,7 +512,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       proposed = next; bars = layout(proposed); env = verify(proposed, bars);
     }
   };
-  if (!adopted) {
+  const designFrom = () => {
     iterate();
     const rooms = [endStart, endEnd].filter((e): e is BeamEnd => !!e && e.kind === 'column' && e.half > 0).map((e) => 2 * e.half - inset);
     if (rooms.length) {
@@ -525,6 +542,23 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
       }
       if (!found) ({ proposed, bars, env, iterations } = kept);
     }
+  };
+  if (!adopted) {
+    designFrom();
+    for (let guard = 0; c.seismic && guard < 8; guard++) {
+      const more = spanAdoptedOf(proposed, bars).reduce((m, sa) => {
+        const r = faceRule(sa.at!.start!, sa.at!.span!, sa.at!.end!).more;
+        return { top: Math.max(m.top, r.top), bottom: Math.max(m.bottom, r.bottom) };
+      }, { top: 0, bottom: 0 });
+      if (more.top <= 1e-6 && more.bottom <= 1e-6) break;
+      floor = {
+        top: more.top > 1e-6 ? Math.max(floor.top, groupsArea([proposed.top]) + more.top) : floor.top,
+        bottom: more.bottom > 1e-6 ? Math.max(floor.bottom, groupsArea([proposed.bottom]) + more.bottom) : floor.bottom,
+      };
+      iterations++;
+      proposed = propose(floor); bars = layout(proposed); env = verify(proposed, bars);
+      designFrom();
+    }
   }
   const a = adopted ?? proposed;
   const adoptedBentNotes = (): LineLayout['bentNotes'] => {
@@ -551,19 +585,7 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     return area > 0 ? [{ end, vu, area, count: Math.max(1, Math.ceil(area / (Math.max(2, st.legs) * barArea(st.dia)) - 1e-9)), stirrups: st }] : [];
   });
 
-  const spanAdopted: BeamAdopted[] = spans.map((s, k) => {
-    const sd = a.stirrups?.[k]?.dia ?? c.stirrupDia;
-    const at = (xl: number) => {
-      const full = (face: 'top' | 'bottom') => bars.filter((b) => b.kind !== 'continuous' && barActsAt(b, face, xl, 1e-6)).reduce<BarGroup | undefined>((acc, b) => (acc ? { dia: acc.dia, count: acc.count + b.bars.count } : b.bars), undefined);
-      return { top: sectionGroups(a.top, full('top'), s.b, c, sd), bottom: sectionGroups(a.bottom, full('bottom'), s.b, c, sd) };
-    };
-    const own = s.row.proposed;
-    return {
-      bottom: [a.bottom], top: [a.top], stirrups: a.stirrups?.[k] ?? own.stirrups,
-      ...(own.torsionLong ? { torsionLong: own.torsionLong } : {}),
-      at: { start: at(s.x0 + (s.row.demand.start.x)), span: at(s.x0 + s.row.demand.span.x), end: at(s.x0 + s.row.demand.end.x) },
-    };
-  });
+  const spanAdopted: BeamAdopted[] = spanAdoptedOf(a, bars);
 
   const seismicZones = (k: number): LineLayout['zones'] | null => {
     if (!c.seismic) return null;
