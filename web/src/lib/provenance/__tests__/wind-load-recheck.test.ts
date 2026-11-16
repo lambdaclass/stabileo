@@ -19,3 +19,13 @@ it('current generated loads clear wind notices; manual wind and generated gravit
   const assessment = assessProject(snapshot(), stampSolve('linear', null), '3d', RESULT_CHANGES, undefined, RESULT_CHANGES.currentResultsVersion);
   expect(assessment.changes.map(c => c.id)).toEqual([]);
 });
+
+(process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip)('known wrong result: #2220 manual wind plus generated gravity does not require wind regeneration', () => {
+  const s: FeatureSnapshot = { loadCases: [{ id: 1, type: 'W' }, { id: 2, type: 'D' }], loads: [
+    { type: 'nodal3d', data: { caseId: 1, nodeId: 1, fx: 1 } },
+    { type: 'distributed3d', data: { caseId: 2, elementId: 1, qZI: -1, qZJ: -1, generatedBy: 'load-plan' } },
+  ] };
+  const ids = assessProject(s, null).changes.map(c => c.id);
+  expect(ids).not.toContain('wind-physical-pressure-field');
+  expect(ids).not.toContain('wind-plan-couple-and-sign-face');
+});
