@@ -28,7 +28,7 @@
     "fr": "L’analyse plastique 3D vérifiée renvoie la borne inférieure certifiée",
     "hu": "Az ellenőrzött 3D képlékeny analízis a tanúsított alsó korlátot adja vissza",
     "tr": "Doğrulanan 3D plastik analiz sertifikalı alt sınırı döndürüyor",
-    "zh": "经检验的三维塑性分析返回经认证的下限"
+    "zh": "经检验的 3D 塑性分析返回经认证的下限"
   },
   "explanation": {
     "en": "The combined certify_plastic_3d API now reports the certified lower bound as collapseFactor whenever a sound finite ordered interval exists, whether the raw factor is below, inside or above it. The raw factor remains in solverCollapseFactor; mismatches in either direction produce a warning reporting the raw factor and interval. The API refuses when no sound certificate is available. Incremental steps and hinges retain their raw values.",

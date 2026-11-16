@@ -1564,7 +1564,7 @@
         "fr": "Au centroïde des SHB8, sigmaXx, sigmaYy et tauXy utilisent désormais le repère local de la coque ; leur Von Mises dans le plan n'omet plus les contraintes portées par l'axe Z global sur les panneaux verticaux, inclinés ou courbes. Les déplacements, les réactions et le Von Mises 3D complet aux points d'intégration ne changent pas. Relancez les modèles avec des coques volumiques. Les autres familles de coques ne sont pas affectées.",
         "hu": "Az SHB8 súlyponti sigmaXx, sigmaYy és tauXy értékei most a héj lokális koordináta-rendszerét használják; síkbeli von Mises-feszültségük már nem hagyja ki a globális Z irányban viselt feszültségeket függőleges, ferde vagy íves paneleken. Az elmozdulások, a támaszerők és a teljes 3D integrációs pontbeli von Mises nem változnak. Futtassa újra a tömör héjelemes modelleket. A többi héjelemcsalád nem érintett.",
         "tr": "SHB8 ağırlık merkezindeki sigmaXx, sigmaYy ve tauXy artık yerel kabuk eksen takımını kullanıyor; bunların düzlem içi von Mises değeri artık düşey, eğimli veya eğrisel panellerde global Z'nin taşıdığı gerilmeleri atlamıyor. Yer değiştirmeler, mesnet tepkileri ve tam 3B integrasyon noktası von Mises değerleri değişmiyor. Katı kabuklu modelleri yeniden çalıştırın. Diğer kabuk aileleri etkilenmez.",
-        "zh": "SHB8 形心处的 sigmaXx、sigmaYy 和 tauXy 现在使用局部壳坐标系；其面内 von Mises 应力不再漏掉竖向、倾斜或曲面板上由整体 Z 方向承担的应力。位移、反力和完整三维积分点的 von Mises 应力不变。请重新运行含实体壳的模型。其他壳单元族不受影响。"
+        "zh": "SHB8 形心处的 sigmaXx、sigmaYy 和 tauXy 现在使用局部壳坐标系；其面内 von Mises 应力不再漏掉竖向、倾斜或曲面板上由整体 Z 方向承担的应力。位移、反力和完整 3D 积分点的 von Mises 应力不变。请重新运行含实体壳的模型。其他壳单元族不受影响。"
       },
       "changelog": {
         "file": "docs/results-changes/2026-10-solid-shell-stress-axes.md",
@@ -1963,7 +1963,7 @@
         "fr": "La ruine plastique 3D ne dépend plus de la numérotation des éléments",
         "hu": "A 3D képlékeny tönkremenetel már nem függ az elemek számozásától",
         "tr": "3B plastik göçme artık eleman numaralandırmasına bağlı değil",
-        "zh": "三维塑性倒塌不再依赖单元编号"
+        "zh": "3D 塑性倒塌不再依赖单元编号"
       },
       "explanation": {
         "en": "When the hinge reversal checks cycled under biaxial bending, the solver went on from a state chosen by the element order and could report up to 2.4 times the collapse load. It now stops at the last consistent state and reports that factor as a lower bound, the same for any numbering (SA-2026-014).",
@@ -2002,7 +2002,7 @@
         "fr": "Les barres au comportement de câble dont le matériau a une densité recevaient trop peu de tension là où elles partagent la charge avec d'autres barres (un mât haubané : 4,34 kN au lieu de 5,18 kN), et les barres voisines trop ; l'itération pouvait aussi ne pas converger (SA-2026-015). Cela concerne les modèles 3D avec des barres câbles.",
         "hu": "A kábel viselkedésű, sűrűséggel rendelkező anyagú rudak túl kis húzóerőt kaptak ott, ahol a terhet más rudakkal megosztva viselik (egy kikötött árbocnál 5,18 kN helyett 4,34 kN), a szomszédos rudak pedig túl nagyot; az iteráció konvergálása is elmaradhatott (SA-2026-015). Ez a kábelrudakat tartalmazó 3D modelleket érinti.",
         "tr": "Malzemesinin yoğunluğu olan kablo davranışlı çubuklar, yükü diğer çubuklarla paylaştıkları yerlerde çok az çekme kuvveti alıyordu (gergili bir direk: 5,18 kN yerine 4,34 kN), komşu çubuklar ise çok fazla; yineleme de yakınsamayabiliyordu (SA-2026-015). Kablo çubuklu 3B modelleri etkiler.",
-        "zh": "具有索行为且材料有密度的杆件，在与其他杆件共同承担荷载之处，得到的拉力过小（拉索桅杆：4.34 kN 而不是 5.18 kN），而与之相邻的杆件拉力过大；迭代也可能不收敛（SA-2026-015）。此项涉及含索杆件的三维模型。"
+        "zh": "具有索行为且材料有密度的杆件，在与其他杆件共同承担荷载之处，得到的拉力过小（拉索桅杆：4.34 kN 而不是 5.18 kN），而与之相邻的杆件拉力过大；迭代也可能不收敛（SA-2026-015）。此项涉及含索杆件的 3D 模型。"
       },
       "changelog": { "file": "docs/advisories/SA-2026-015-cable-tension-chord-law.md", "heading": "SA-2026-015: cable analysis gave cables with self-weight too little tension in statically indeterminate structures" }
     },
@@ -2108,7 +2108,7 @@
         "fr": "Le flambement 3D inclut les modes de torsion et de flexion-torsion",
         "hu": "A 3D kihajlás tartalmazza a csavarási és a hajlítási-csavarási alakokat",
         "tr": "3B burkulma burulmalı ve eğilmeli-burulmalı modları içeriyor",
-        "zh": "三维屈曲包含扭转和弯扭模态"
+        "zh": "3D 屈曲包含扭转和弯扭模态"
       },
       "explanation": {
         "en": "The 3D geometric stiffness had only the bending terms, so torsional and flexural-torsional buckling never appeared; for open thin-walled sections (crosses, angles, tees, channels) the buckling load could be up to 96 % high (SA-2026-007).",
@@ -2118,7 +2118,7 @@
         "fr": "La rigidité géométrique 3D n'avait que les termes de flexion, de sorte que le flambement par torsion et par flexion-torsion n'apparaissait jamais ; pour les sections ouvertes à parois minces (croix, cornières, T, U), la charge de flambement pouvait être jusqu'à 96 % trop élevée (SA-2026-007).",
         "hu": "A 3D geometriai merevség csak a hajlítási tagokat tartalmazta, így csavarási és hajlítási-csavarási kihajlás sosem jelent meg; nyitott vékonyfalú keresztmetszeteknél (kereszt-, szög-, T- és U-szelvények) a kritikus teher akár 96%-kal nagyobb lehetett (SA-2026-007).",
         "tr": "3B geometrik rijitlik yalnızca eğilme terimlerini içeriyordu, bu yüzden burulmalı ve eğilmeli-burulmalı burkulma hiç ortaya çıkmıyordu; açık ince cidarlı kesitlerde (artı, korniyer, T, U kesitler) burkulma yükü %96'ya kadar yüksek olabiliyordu (SA-2026-007).",
-        "zh": "三维几何刚度只有弯曲项，因此扭转屈曲和弯扭屈曲从未出现；对于开口薄壁截面（十字形、角钢、T 形、槽钢），屈曲荷载可能偏高达 96 %（SA-2026-007）。"
+        "zh": "3D 几何刚度只有弯曲项，因此扭转屈曲和弯扭屈曲从未出现；对于开口薄壁截面（十字形、角钢、T 形、槽钢），屈曲荷载可能偏高达 96 %（SA-2026-007）。"
       },
       "changelog": { "file": "docs/advisories/SA-2026-007-torsional-buckling.md", "heading": "SA-2026-007: 3D buckling missed torsional and flexural-torsional buckling (up to 96 % too high)" }
     },
@@ -2137,7 +2137,7 @@
         "fr": "Modèles plans calculés en 3D : les moments nodaux agissent dans le bon sens",
         "hu": "3D-ben számított sík modellek: a csomóponti nyomatékok a helyes irányban hatnak",
         "tr": "3B'de çözülen düz modeller: düğüm momentleri doğru yönde etkiyor",
-        "zh": "按三维求解的平面模型：节点弯矩方向正确"
+        "zh": "按 3D 求解的平面模型：节点弯矩方向正确"
       },
       "explanation": {
         "en": "A flat model solved with the 3D solver applied its nodal moments and prescribed support rotations mirrored; combined with forces they could add instead of cancel (SA-2026-006). It concerns flat models with nodal moments or prescribed rotations solved in 3D mode.",
@@ -2147,7 +2147,7 @@
         "fr": "Un modèle plan calculé avec le solveur 3D appliquait ses moments nodaux et ses rotations d'appui imposées en miroir ; combinés à des forces, ils pouvaient s'additionner au lieu de s'annuler (SA-2026-006). Cela concerne les modèles plans avec des moments nodaux ou des rotations imposées calculés en mode 3D.",
         "hu": "A 3D megoldóval számított sík modell csomóponti nyomatékait és előírt támaszelfordulásait tükrözve alkalmazta; erőkkel kombinálva ezek összeadódhattak ahelyett, hogy kioltották volna egymást (SA-2026-006). Ez a csomóponti nyomatékokat vagy előírt elfordulásokat tartalmazó, 3D módban számított sík modelleket érinti.",
         "tr": "3B çözücüyle çözülen düz bir model, düğüm momentlerini ve zorlanmış mesnet dönmelerini aynalanmış olarak uyguluyordu; kuvvetlerle birleştiğinde birbirini götürmek yerine toplanabiliyorlardı (SA-2026-006). Düğüm momentleri veya zorlanmış dönmeleri olan ve 3B modda çözülen düz modelleri etkiler.",
-        "zh": "用三维求解器求解的平面模型，其节点弯矩和给定的支座转角被镜像施加；与力组合时，它们可能叠加而不是抵消（SA-2026-006）。此项涉及在三维模式下求解、带节点弯矩或给定转角的平面模型。"
+        "zh": "用 3D 求解器求解的平面模型，其节点弯矩和给定的支座转角被镜像施加；与力组合时，它们可能叠加而不是抵消（SA-2026-006）。此项涉及在 3D 模式下求解、带节点弯矩或给定转角的平面模型。"
       },
       "changelog": { "file": "docs/advisories/SA-2026-006-mirrored-moments-2d-in-3d.md", "heading": "SA-2026-006: Flat 2D model solved in 3D: nodal moments and prescribed rotations acted mirrored" }
     },
@@ -2176,7 +2176,7 @@
         "fr": "En 2D, la partie d'une charge de barre dirigée le long d'une barre inclinée allait directement à ses nœuds d'extrémité, de sorte que l'effort normal de la barre était sa moyenne au lieu de varier le long de celle-ci (l'effort normal à la base d'un arbalétrier était 26 % trop faible). Les couples appliqués sur les barres étaient omis lorsqu'un modèle plan était calculé en 3D (SA-2026-005).",
         "hu": "2D-ben a ferde rúdra ható rúdteher rúdirányú része közvetlenül a végcsomópontokra került, így a rúd normálereje az átlagértéke volt, ahelyett hogy a rúd mentén változott volna (egy szarufa tövénél a normálerő 26%-kal kisebb volt). A rudakra működő erőpárok elvesztek, amikor a sík modellt 3D-ben számította (SA-2026-005).",
         "tr": "2B'de, bir çubuk yükünün eğik çubuk boyunca olan kısmı doğrudan uç düğümlerine gidiyordu; bu yüzden çubuğun eksenel kuvveti boyunca değişmek yerine ortalaması oluyordu (bir merteğin alt ucundaki eksenel kuvvet %26 düşüktü). Düz bir model 3B'de çözüldüğünde çubuklara uygulanan kuvvet çiftleri atılıyordu (SA-2026-005).",
-        "zh": "在二维中，杆件荷载沿斜杆方向的分量直接传给其端节点，因此杆件轴力取为平均值，而不是沿杆变化（屋面斜梁底部轴力偏低 26 %）。当平面模型按三维求解时，作用在杆件上的力偶被丢弃（SA-2026-005）。"
+        "zh": "在 2D 中，杆件荷载沿斜杆方向的分量直接传给其端节点，因此杆件轴力取为平均值，而不是沿杆变化（屋面斜梁底部轴力偏低 26 %）。当平面模型按 3D 求解时，作用在杆件上的力偶被丢弃（SA-2026-005）。"
       },
       "changelog": { "file": "docs/advisories/SA-2026-005-inclined-member-loads.md", "heading": "SA-2026-005: 2D inclined members missed the along-member part of their loads; member couples dropped in the 3D solve" }
     },
@@ -2205,7 +2205,7 @@
         "fr": "Un appui 3D dont le type avait été changé de ressort à encastré, articulé ou à rouleau conservait ses constantes de ressort et était calculé comme un ressort. Chaque degré de liberté bloqué est désormais calculé comme bloqué (SA-2026-011).",
         "hu": "Az a 3D támasz, amelynek típusát rugósról befogottra, csuklósra vagy görgősre változtatták, megtartotta rugóállandóit, és rugóként számította. Ma már minden megfogott szabadságfokot megfogottként számít (SA-2026-011).",
         "tr": "Türü yaydan ankastre, sabit mafsallı veya kayıcı mesnede değiştirilmiş bir 3B mesnet, yay sabitlerini koruyor ve yay olarak çözülüyordu. Tutulmuş her serbestlik derecesi artık tutulmuş olarak çözülüyor (SA-2026-011).",
-        "zh": "类型由弹簧改为固定、铰支或滚动的三维支座，保留了其弹簧常数，并被当作弹簧求解。现在每个受约束的自由度都按受约束求解（SA-2026-011）。"
+        "zh": "类型由弹簧改为固定、铰支或滚动的 3D 支座，保留了其弹簧常数，并被当作弹簧求解。现在每个受约束的自由度都按受约束求解（SA-2026-011）。"
       },
       "changelog": { "file": "docs/advisories/SA-2026-011-springs-on-fixed-supports.md", "heading": "SA-2026-011: 3D support switched from spring to fixed (or pinned) was solved as elastic" }
     },
@@ -2264,7 +2264,7 @@
         "fr": "Chaque nœud d'un diaphragme rigide tourne désormais dans le plan avec son maître ; auparavant, la rotation dans le plan des nœuds esclaves était libre, de sorte que les niveaux étaient trop souples en torsion et les couples de torsion aux extrémités des poteaux étaient nuls. Les diaphragmes 3D XZ avaient aussi le signe de la rotation inversé.",
         "hu": "A merev tárcsa minden csomópontja ma már a fő csomóponttal együtt fordul el a síkjában; korábban a függő csomópontok síkbeli elfordulása szabad volt, így a szintek csavarásra túl lágyak voltak, az oszlopvégek csavarónyomatéka pedig nullára jött ki. A 3D XZ tárcsáknál az elfordulás előjele is fordított volt.",
         "tr": "Rijit bir diyaframın her düğümü artık ana düğümüyle birlikte düzlem içinde dönüyor; önceden bağımlı düğümlerin düzlem içi dönmesi serbestti, bu yüzden katlar burulmada fazla esnekti ve kolon uç burulma momentleri sıfır çıkıyordu. 3B XZ diyaframlarında ayrıca dönmenin işareti tersti.",
-        "zh": "刚性隔板的每个节点现在都与其主节点一起在平面内转动；此前从节点的面内转角是自由的，因此各楼层的抗扭刚度过小，柱端扭矩为零。三维 XZ 隔板的转角符号也曾相反。"
+        "zh": "刚性隔板的每个节点现在都与其主节点一起在平面内转动；此前从节点的面内转角是自由的，因此各楼层的抗扭刚度过小，柱端扭矩为零。3D XZ 隔板的转角符号也曾相反。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Rigid diaphragm rotates as one body (2026-10-18)" }
     },
@@ -2723,7 +2723,7 @@
         "fr": "Le flambement 2D et l'analyse temporelle 2D utilisent la rigidité du calcul linéaire",
         "hu": "A 2D kihajlás és időtörténeti analízis a lineáris számítás merevségét használja",
         "tr": "2B burkulma ve zaman tanım alanında analiz doğrusal çözümün rijitliğini kullanıyor",
-        "zh": "二维屈曲和时程分析使用线性路径的刚度"
+        "zh": "2D 屈曲和时程分析使用线性路径的刚度"
       },
       "explanation": {
         "en": "Angled springs, inclined rollers, springs on restrained DOFs and truss-only nodes are now assembled in 2D buckling and time history exactly as in the linear solve.",
@@ -2733,7 +2733,7 @@
         "fr": "Les ressorts inclinés, les rouleaux inclinés, les ressorts sur des degrés de liberté bloqués et les nœuds uniquement de treillis sont désormais assemblés dans le flambement 2D et l'analyse temporelle 2D exactement comme dans le calcul linéaire.",
         "hu": "A ferde rugókat, ferde görgős támaszokat, megfogott szabadságfokokon lévő rugókat és a csak rácsrudakhoz kapcsolódó csomópontokat ma már a 2D kihajlásban és időtörténeti analízisben pontosan úgy állítja össze, mint a lineáris számításban.",
         "tr": "Açılı yaylar, eğik kayıcı mesnetler, tutulmuş serbestlik derecelerindeki yaylar ve yalnızca kafes çubuklarına bağlı düğümler artık 2B burkulma ve zaman tanım alanında analizde doğrusal çözümdekiyle tam olarak aynı şekilde birleştiriliyor.",
-        "zh": "斜向弹簧、斜向滚动支座、受约束自由度上的弹簧以及仅含桁架的节点，现在在二维屈曲和时程分析中的装配方式与线性求解完全相同。"
+        "zh": "斜向弹簧、斜向滚动支座、受约束自由度上的弹簧以及仅含桁架的节点，现在在 2D 屈曲和时程分析中的装配方式与线性求解完全相同。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "2D buckling and time integration use the linear path's stiffness (2026-10-17)" }
     },
@@ -2762,7 +2762,7 @@
         "fr": "Le flambement prend N à partir de EA·δ/L au lieu de la moyenne des extrémités (λ changeait jusqu'à 3× avec des charges axiales ponctuelles ou partielles) ; la rigidité géométrique 2D est condensée aux rotules (un portique articulé donnait λ ≈ 5e-6) ; les efforts d'extrémité des barres en P-Delta incluent Kg·u et, en 3D, le Kg des coques. Les facteurs de flambement des coques sont corrigés (les coques courbes étaient 200× trop élevés).",
         "hu": "A kihajlás N-et az EA·δ/L-ből veszi a rúdvégek átlaga helyett (λ rúdirányú koncentrált vagy részleges terheknél akár 3×-osára változott); a 2D geometriai merevséget a csuklóknál kondenzálja (egy csuklós végű rudakból álló keret λ ≈ 5e-6 értéket adott); a P-Delta rúdvégi erők tartalmazzák a Kg·u-t, 3D-ben pedig a héjak Kg-jét. A héjak kritikusteher-tényezői javítva (a görbült héjaké 200×-osan túl nagy volt).",
         "tr": "Burkulma N'yi uç ortalaması yerine EA·δ/L'den alıyor (eksenel tekil veya kısmi yüklerle λ 3 katına kadar değişiyordu); 2B geometrik rijitlik mafsallarda kondanse ediliyor (uçları mafsallı bir çerçeve λ ≈ 5e-6 veriyordu); P-Delta çubuk uç kuvvetleri Kg·u'yu ve 3B'de kabuk Kg'sini içeriyor. Kabuk burkulma katsayıları düzeltildi (eğrisel kabuklarda 200 kat fazla yüksekti).",
-        "zh": "屈曲现在按 EA·δ/L 取 N，而不是取杆端平均值（带轴向集中荷载或局部荷载时 λ 最多变化 3 倍）；二维几何刚度在铰处凝聚（两端铰接的框架曾给出 λ ≈ 5e-6）；P-Delta 杆端力包含 Kg·u，三维中还包含壳的 Kg。壳屈曲系数已更正（曲面壳曾偏高 200 倍）。"
+        "zh": "屈曲现在按 EA·δ/L 取 N，而不是取杆端平均值（带轴向集中荷载或局部荷载时 λ 最多变化 3 倍）；2D 几何刚度在铰处凝聚（两端铰接的框架曾给出 λ ≈ 5e-6）；P-Delta 杆端力包含 Kg·u，3D 中还包含壳的 Kg。壳屈曲系数已更正（曲面壳曾偏高 200 倍）。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Solver fixes found by extending the OpenSees comparison to buckling, modal, P-Delta and time history (2026-10-17)" }
     },
@@ -2878,7 +2878,7 @@
         "fr": "L'analyse plastique 2D surestimait la ruine et ignorait les rotules qui se déchargent ; en 3D, les rotules ne se formaient qu'aux extrémités des barres (2,3× non sécuritaire). En 2D, les rotules se forment désormais aux nœuds avec des ressorts en rotation, des liaisons ou des connecteurs (un exemple 150 → 83,3) ; l'analyse plastique 3D refuse les liaisons, les connecteurs et les ressorts.",
         "hu": "A 2D képlékeny analízis túlbecsülte a tönkremenetelt, és figyelmen kívül hagyta a tehermentesülő csuklókat; a 3D csak a rúdvégeken képzett csuklókat (2,3×-osan a biztonság kárára). A 2D ma már csuklót képez az elfordulási rugós, kényszeres vagy összekötős csomópontokban (egy példában 150 → 83,3); a 3D képlékeny analízis elutasítja a kényszereket, összekötőket és rugókat.",
         "tr": "2B plastik analiz göçmeyi fazla tahmin ediyor ve yükü boşalan mafsalları göz ardı ediyordu; 3B yalnızca çubuk uçlarında mafsal oluşturuyordu (2,3 kat güvensiz). 2B artık dönme yayları, bağlar veya bağlayıcılar olan düğümlerde mafsal oluşturuyor (bir örnek 150 → 83,3); 3B plastik analiz bağları, bağlayıcıları ve yayları reddediyor.",
-        "zh": "二维塑性分析高估了倒塌荷载，并忽略了卸载的铰；三维只在杆端形成铰（偏不安全 2.3 倍）。二维现在会在带转动弹簧、约束或连接件的节点处形成铰（一个算例由 150 变为 83.3）；三维塑性分析会拒绝约束、连接件和弹簧。"
+        "zh": "2D 塑性分析高估了倒塌荷载，并忽略了卸载的铰；3D 只在杆端形成铰（偏不安全 2.3 倍）。2D 现在会在带转动弹簧、约束或连接件的节点处形成铰（一个算例由 150 变为 83.3）；3D 塑性分析会拒绝约束、连接件和弹簧。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Every analysis supports a model feature or refuses it by name (2026-10-17)" }
     },
@@ -2907,7 +2907,7 @@
         "fr": "Le co-rotationnel 3D a une rotation rigide exacte et les efforts des barres incluent les efforts d'encastrement parfait (il manquait qL²/12) ; un calcul non convergé renvoie le dernier incrément convergé et son facteur de charge. Le contact indique l'état de contact convergé (en 2D, il indiquait la solution linéaire), les jeux agissent à partir de leur fermeture, le glissement de Coulomb est modélisé et l'amortissement n'est plus un ressort vers le sol.",
         "hu": "A 3D korotációs megoldó merevtest-forgatása pontos, és a rúderők tartalmazzák a befogási erőket (korábban qL²/12-vel kevesebbek voltak); a nem konvergált számítás az utolsó konvergált lépést és annak tehertényezőjét adja vissza. A kontakt a konvergált kontaktállapotot adja meg (a 2D a lineáris megoldást adta), a hézagok a záródástól hatnak, a Coulomb-féle csúszás modellezett, a csillapítás pedig már nem egy talajhoz kötött rugó.",
         "tr": "3B korotasyonel çözüm tam rijit dönmeye sahip ve çubuk kuvvetleri ankastrelik uç kuvvetlerini içeriyor (qL²/12 kadar eksikti); yakınsamayan bir çözüm son yakınsamış artımı ve onun yük katsayısını döndürüyor. Temas, yakınsamış temas durumunu bildiriyor (2B doğrusal çözümü bildiriyordu), boşluklar kapandıkları andan itibaren etkiyor, Coulomb kayması modelleniyor ve sönüm artık zemine bağlı bir yay değil.",
-        "zh": "三维共旋分析具有精确的刚体转动，杆件内力包含固端力（以前少了 qL²/12）；未收敛的求解返回最后一个收敛的增量及其荷载系数。接触分析报告收敛后的接触状态（二维以前报告的是线性解），间隙自闭合起作用，模拟库仑滑动，阻尼不再是接地弹簧。"
+        "zh": "3D 共旋分析具有精确的刚体转动，杆件内力包含固端力（以前少了 qL²/12）；未收敛的求解返回最后一个收敛的增量及其荷载系数。接触分析报告收敛后的接触状态（2D 以前报告的是线性解），间隙自闭合起作用，模拟库仑滑动，阻尼不再是接地弹簧。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Nonlinear and special solvers answer for the model as given (2026-10-17)" }
     },
@@ -2937,7 +2937,7 @@
         "fr": "Les quadrilatères MITC4 gauchis reçoivent une correction de gauchissement et les coques volumiques utilisent des déformations supposées dans l'épaisseur (Scordelis-Lo 0,39 → 0,95). La régularisation creuse 3D lit désormais la plus grande diagonale sur tous les degrés de liberté. Les modèles avec des coques se calculent différemment.",
         "hu": "A vetemedett MITC4 négyszögelemek vetemedési korrekciót kapnak, a tömör héjak pedig a vastagság mentén feltételezett alakváltozásokat használnak (Scordelis–Lo 0,39 → 0,95). A ritka 3D regularizáció ma már minden szabadságfok közül a legnagyobb főátlóbeli elemet olvassa. A héjas modellek eredménye eltér.",
         "tr": "Çarpık MITC4 dörtgenleri bir çarpıklık düzeltmesi alıyor ve katı kabuklar kalınlık boyunca varsayılmış şekil değiştirmeler kullanıyor (Scordelis-Lo 0,39 → 0,95). Seyrek 3B düzenlileştirme artık tüm serbestlik dereceleri üzerindeki en büyük köşegen terimini okuyor. Kabuk modelleri farklı çözülüyor.",
-        "zh": "翘曲的 MITC4 四边形单元增加了翘曲修正，实体壳沿厚度采用假定应变（Scordelis-Lo 由 0.39 变为 0.95）。稀疏三维正则化现在读取所有自由度上的最大对角元素。壳模型的求解结果会不同。"
+        "zh": "翘曲的 MITC4 四边形单元增加了翘曲修正，实体壳沿厚度采用假定应变（Scordelis-Lo 由 0.39 变为 0.95）。稀疏 3D 正则化现在读取所有自由度上的最大对角元素。壳模型的求解结果会不同。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Solid shell: assumed strains in the thickness direction; MITC4 warping correction (2026-10-17)" }
     },
@@ -3025,7 +3025,7 @@
         "fr": "Les barres de Timoshenko sous charges de barre, les charges réparties partielles, les charges axiales ponctuelles de treillis 2D, les rouleaux sur ressort 2D, les efforts des barres en analyse spectrale, les réponses harmoniques, les analyses temporelles HHT-α et les analyses plastiques se calculent différemment. Les tracés de déformée incluent la flèche due à l'effort tranchant de Timoshenko.",
         "hu": "A rúdterhekkel terhelt Timoshenko-rudak, a részleges megoszló terhek, a 2D rácsrudak rúdirányú koncentrált terhei, a 2D rugós görgők, a spektrális rúderők, a harmonikus válaszok, a HHT-α időtörténeti és a képlékeny analízisek eredménye eltér. A lehajlási ábrák tartalmazzák a Timoshenko-féle nyírási lehajlást.",
         "tr": "Çubuk yükleri altındaki Timoshenko çubukları, kısmi yayılı yükler, 2B kafes eksenel tekil yükleri, 2B yaylı kayıcı mesnetler, spektral çubuk kuvvetleri, harmonik tepkiler, HHT-α zaman tanım alanında analizleri ve plastik analizler farklı çözülüyor. Sehim çizimleri Timoshenko kesme sehimini içeriyor.",
-        "zh": "受杆件荷载作用的 Timoshenko 杆件、局部分布荷载、二维桁架轴向集中荷载、二维弹簧滚动支座、反应谱杆件内力、谐响应、HHT-α 时程分析以及塑性分析，求解结果会不同。挠度图包含 Timoshenko 剪切挠度。"
+        "zh": "受杆件荷载作用的 Timoshenko 杆件、局部分布荷载、2D 桁架轴向集中荷载、2D 弹簧滚动支座、反应谱杆件内力、谐响应、HHT-α 时程分析以及塑性分析，求解结果会不同。挠度图包含 Timoshenko 剪切挠度。"
       },
       "changelog": { "file": "CHANGELOG.md", "heading": "Solver fixes found by result certificates and OpenSees differential testing (2026-10-15)" }
     },

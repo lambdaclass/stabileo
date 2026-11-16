@@ -29,7 +29,7 @@ for (const research of ['0', '1']) {
     } finally {
       rmSync(outfile, { force: true });
     }
-    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', ...(research === '1' ? ['hu'] : [])];
+    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', ...(research === '1' ? ['hu'] : [])];
     assert.deepEqual([...result.offered].sort(), [...expected].sort());
     assert.deepEqual(result.public, expected);
     assert.deepEqual(result.sitemap, expected);
