@@ -352,6 +352,11 @@ pub fn check_weld_groups(input: &WeldGroupInput) -> Vec<WeldGroupResult> {
     results
 }
 
+struct PhysicalWeldGroup<'a> {
+    runs: Vec<PhysicalWeldRun<'a>>,
+    total_length: f64,
+}
+
 struct PhysicalWeldRun<'a> {
     segments: Vec<&'a WeldSegment>,
     beta: f64,
@@ -370,10 +375,11 @@ fn weld_coordinate_key(value: f64) -> u64 {
     }
 }
 
-fn physical_weld_runs(segments: &[WeldSegment]) -> Result<Vec<PhysicalWeldRun<'_>>, &'static str> {
+fn normalize_weld_group(segments: &[WeldSegment]) -> Result<PhysicalWeldGroup<'_>, &'static str> {
     use std::collections::BTreeMap;
 
     let mut active = Vec::new();
+    let mut total_length = 0.0_f64;
     for segment in segments {
         if ![segment.x1, segment.y1, segment.x2, segment.y2, segment.size]
             .iter()
@@ -383,10 +389,11 @@ fn physical_weld_runs(segments: &[WeldSegment]) -> Result<Vec<PhysicalWeldRun<'_
             return Err(INVALID_WELD_GEOMETRY);
         }
         let length = (segment.x2 - segment.x1).hypot(segment.y2 - segment.y1);
-        if !length.is_finite() {
+        total_length += length;
+        if !length.is_finite() || !total_length.is_finite() {
             return Err(INVALID_WELD_GEOMETRY);
         }
-        if length > 0.0 {
+        if length > 0.0 && segment.size > 0.0 {
             active.push(segment);
         }
     }
@@ -460,7 +467,7 @@ fn physical_weld_runs(segments: &[WeldSegment]) -> Result<Vec<PhysicalWeldRun<'_
             throat,
         });
     }
-    Ok(runs)
+    Ok(PhysicalWeldGroup { runs, total_length })
 }
 
 fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> WeldGroupResult {
@@ -470,8 +477,8 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
     let fnw = 0.60 * group.fexx;
     let phi_fnw = phi * fnw;
 
-    let runs = match physical_weld_runs(&group.segments) {
-        Ok(runs) => runs,
+    let PhysicalWeldGroup { runs, total_length } = match normalize_weld_group(&group.segments) {
+        Ok(normalized) => normalized,
         Err(reason) => {
             return WeldGroupResult {
                 connection_id: group.connection_id,
@@ -485,7 +492,6 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
             }
         }
     };
-    let mut total_length = 0.0_f64;
     let mut total_throat_area = 0.0_f64;
     let mut weld_cx = 0.0_f64;
     let mut weld_cy = 0.0_f64;
@@ -515,7 +521,6 @@ fn check_single_weld_group(group: &WeldGroupData, forces: &WeldGroupForces) -> W
         .collect();
 
     for sp in &seg_props {
-        total_length += sp.length;
         total_throat_area += sp.throat_area;
         weld_cx += sp.throat_area * sp.mid_x;
         weld_cy += sp.throat_area * sp.mid_y;
