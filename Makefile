@@ -1252,3 +1252,11 @@ check.docs-links:
 
 test.testing-move:
 	python3 -B -I scripts/tests/test_testing_move.py $(FILTER)
+
+.PHONY: test.engine.snow-audit test.web.loads
+
+test.engine.snow-audit:
+	$(NIX_RUN) cargo test -p dedaliano-engine --lib audit_snow_tests -- --nocapture $(if $(IGNORED),--ignored)
+
+test.web.loads:
+	$(MAKE) test.web.unit FILE=src/lib/engine/loads/__tests__ VITEST_WORKERS=2

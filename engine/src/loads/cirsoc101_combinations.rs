@@ -457,3 +457,28 @@ pub fn generate_combinations(i: &CombinationInputs) -> Vec<Combination> {
     }
     out
 }
+
+#[cfg(test)]
+mod audit_snow_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2211"]
+    fn issue_2211_companion_terms_request_flat_roof_snow() {
+        let inputs: CombinationInputs = serde_json::from_value(json!({
+            "present": { "L": true, "Lr": false, "S": true, "R": false,
+                "W": true, "E": true, "F": false, "H": false },
+            "notActing": false
+        })).unwrap();
+        for c in generate_combinations(&inputs) {
+            for t in c.terms.iter().filter(|t| t.symbol == LoadSymbol::S) {
+                let wire = serde_json::to_value(t).unwrap();
+                if matches!(c.basic, Some(2 | 4 | 5)) {
+                    assert_eq!(wire.get("snowBasis"), Some(&json!("flatRoof")), "{}", c.id);
+                } else {
+                    assert!(wire.get("snowBasis").is_none(), "{}", c.id);
+                }
+            }
+        }
+    }
+}
