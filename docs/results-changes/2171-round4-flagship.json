@@ -33532,7 +33532,14 @@
       "demand": 103.18,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.14,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 180,
@@ -33550,7 +33557,14 @@
       "demand": 0.17,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.96,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 180,
@@ -33568,7 +33582,14 @@
       "demand": 63.11,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.14,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 180,
@@ -33586,7 +33607,14 @@
       "demand": 0.17,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.96,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 181,
@@ -33604,7 +33632,14 @@
       "demand": 100.18,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.08,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 181,
@@ -33622,7 +33657,14 @@
       "demand": 0.88,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.95,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 181,
@@ -33640,7 +33682,14 @@
       "demand": 60.11,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.08,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 181,
@@ -33658,7 +33707,14 @@
       "demand": 0.88,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.95,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 186,
@@ -33676,7 +33732,14 @@
       "demand": 103.18,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.14,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 186,
@@ -33694,7 +33757,14 @@
       "demand": 0.17,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.96,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 186,
@@ -33712,7 +33782,14 @@
       "demand": 63.11,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.14,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 186,
@@ -33730,7 +33807,14 @@
       "demand": 0.17,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.96,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 187,
@@ -33748,7 +33832,14 @@
       "demand": 100.18,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.08,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 187,
@@ -33766,7 +33857,14 @@
       "demand": 0.88,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.95,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 187,
@@ -33784,7 +33882,14 @@
       "demand": 60.11,
       "acrossSpan": 0.288,
       "acrossMax": 0.4,
-      "alongMax": 0.2985
+      "alongMax": 0.2985,
+      "additionalSeatedLayout": {
+        "depth": 0.593,
+        "capacity": 425.08,
+        "alongMax": 0.2965,
+        "acrossMax": 0.4,
+        "passesStrengthAndDistribution": true
+      }
     },
     {
       "id": 187,
@@ -33802,7 +33907,14 @@
       "demand": 0.88,
       "acrossSpan": 0.588,
       "acrossMax": 0.31199999999999994,
-      "alongMax": 0.15599999999999997
+      "alongMax": 0.15599999999999997,
+      "additionalSeatedLayout": {
+        "depth": 0.30799999999999994,
+        "capacity": 357.95,
+        "alongMax": 0.15399999999999997,
+        "acrossMax": 0.30799999999999994,
+        "passesStrengthAndDistribution": true
+      }
     }
   ],
   "undeclared": {
