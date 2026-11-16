@@ -13839,6 +13839,8 @@ const es: Record<string, string> = {
   "rcSheets.s.lineCut": "Punto de corte de los refuerzos",
   "rcSheets.s.lineCutoff": "Corte en zona traccionada",
   "rcSheets.s.lineBent": "Levantada: baja y sube",
+  "rcSheets.s.lineStraightEnd": "Anclaje recto en un apoyo simple: ld desde el punto de momento nulo",
+  "rcSheets.s.lineHook180": "Gancho a 180°: la pata del gancho a 90° no entra en la altura",
   "rcSheets.s.lineThird": "Un tercio del negativo más allá del punto de inflexión",
   "rcSheets.s.lineDev": "Barras no ancladas: se cuentan en proporción a su anclaje",
   "rcSheets.s.ldRow": "Longitudes",

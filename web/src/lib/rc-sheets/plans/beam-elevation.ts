@@ -12,7 +12,7 @@ import type { P, Primitive } from '../../sheets/primitives';
 import type { LineBar, LineLayout } from '../beam-line';
 import type { BeamRow } from '../beam-row';
 import { stirrupsLabel } from '../bars';
-import { barTrace, hookTurn, lineSections, lineSupports, markPlaces, placeLabels, setOut, spanIndexAt, stirrupPositions } from '../line-geometry';
+import { barTrace, hookBack, hookTurn, lineSections, lineSupports, markPlaces, placeLabels, setOut, spanIndexAt, stirrupPositions } from '../line-geometry';
 import { SCALES } from '../../sheets/formats';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
@@ -58,7 +58,9 @@ export function barPolyline(line: LineLayout, bar: LineBar, offset: number): P[]
   }
   if (!pts.length) return pts;
   if (bar.hooks[0]) pts.unshift(pt(pts[0]!.x, pts[0]!.y + hookTurn(bar, 0) * K));
+  if (bar.hook180?.[0]) pts.unshift(pt(pts[0]!.x + hookBack(bar, 0) * K, pts[0]!.y));
   if (bar.hooks[1]) { const e = pts[pts.length - 1]!; pts.push(pt(e.x, e.y + hookTurn(bar, 1) * K)); }
+  if (bar.hook180?.[1]) { const e = pts[pts.length - 1]!; pts.push(pt(e.x + hookBack(bar, 1) * K, e.y)); }
   return pts;
 }
 

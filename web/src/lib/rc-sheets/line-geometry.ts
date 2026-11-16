@@ -37,10 +37,18 @@ export function hookLegOf(bar: Pick<LineBar, 'shape' | 'hooks'>): number {
 }
 
 /** How far the hook at an end runs from the bar, m: up positive, down negative, 0 with none there. */
-export function hookTurn(bar: Pick<LineBar, 'shape' | 'hooks'>, end: 0 | 1): number {
+export function hookTurn(bar: Pick<LineBar, 'shape' | 'hooks' | 'hook180'>, end: 0 | 1): number {
   if (!bar.hooks[end]) return 0;
-  const p = bar.shape.pts, [a, b] = end === 0 ? [p[0]!, p[1]!] : [p[p.length - 1]!, p[p.length - 2]!];
+  const k = bar.hook180?.[end] ? 1 : 0, p = bar.shape.pts, n = p.length - 1;
+  const [a, b] = end === 0 ? [p[k]!, p[k + 1]!] : [p[n - k]!, p[n - k - 1]!];
   return a[1] - b[1];
+}
+
+/** How far a 180° hook at an end runs back along the bar from its turn, m, signed along the line; 0 for any other end. */
+export function hookBack(bar: Pick<LineBar, 'shape' | 'hook180'>, end: 0 | 1): number {
+  if (!bar.hook180?.[end]) return 0;
+  const p = bar.shape.pts, n = p.length - 1;
+  return end === 0 ? p[0]![0] - p[1]![0] : p[n]![0] - p[n - 1]![0];
 }
 
 /** Every stirrup along the line as the schedule counts them; `every` keeps one in so many of a spacing, for a drawing too small to show them all. */

@@ -13492,6 +13492,8 @@ const pt: Translations = {
   "rcSheets.s.lineCut": "Ponto de corte dos reforços",
   "rcSheets.s.lineCutoff": "Corte em zona tracionada",
   "rcSheets.s.lineBent": "Barra dobrada: desce e sobe",
+  "rcSheets.s.lineStraightEnd": "Ancoragem reta em apoio simples: ld a partir do ponto de momento nulo",
+  "rcSheets.s.lineHook180": "Gancho a 180°: a perna do gancho a 90° não cabe na altura",
   "rcSheets.s.lineThird": "Um terço do negativo além do ponto de inflexão",
   "rcSheets.s.lineDev": "Barras não ancoradas contam na proporção da ancoragem",
   "rcSheets.s.ldRow": "Comprimentos",

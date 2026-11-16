@@ -13690,6 +13690,8 @@ const de: Translations = {
   "rcSheets.s.lineCut": "Abschnittpunkt der Zulagen",
   "rcSheets.s.lineCutoff": "Abschnitt in der Zugzone",
   "rcSheets.s.lineBent": "Aufgebogener Stab: ab und auf",
+  "rcSheets.s.lineStraightEnd": "Gerade Verankerung am einfachen Auflager: ld ab dem Momentennullpunkt",
+  "rcSheets.s.lineHook180": "180°-Haken: Der Schenkel des 90°-Hakens passt nicht in die Höhe",
   "rcSheets.s.lineThird": "Ein Drittel der Stützbewehrung über den Wendepunkt",
   "rcSheets.s.lineDev": "Nicht verankerte Stäbe zählen anteilig",
   "rcSheets.s.ldRow": "Längen",

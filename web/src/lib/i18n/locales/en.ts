@@ -13850,6 +13850,8 @@ const en: Record<string, string> = {
   "rcSheets.s.lineCut": "Cut-off of the extra bars",
   "rcSheets.s.lineCutoff": "Cut-off in a tension zone",
   "rcSheets.s.lineBent": "Bent-up bar: down and up",
+  "rcSheets.s.lineStraightEnd": "Straight anchorage at a simple support: ld from the point of zero moment",
+  "rcSheets.s.lineHook180": "180° hook: the 90° hook's leg does not fit the depth",
   "rcSheets.s.lineThird": "A third of the hogging steel past the inflection point",
   "rcSheets.s.lineDev": "Undeveloped bars count in proportion to their development",
   "rcSheets.s.ldRow": "Lengths",

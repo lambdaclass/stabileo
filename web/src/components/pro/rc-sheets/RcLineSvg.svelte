@@ -3,7 +3,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
-  import { barTrace, bentLegs, hookTurn, lineSupports, markPlaces, placeLabels, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
+  import { barTrace, bentLegs, hookBack, hookTurn, lineSupports, markPlaces, placeLabels, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
 
   let { line, marks = false, envelope = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
@@ -119,7 +119,9 @@
       <line x1={sg.x1} y1={sg.y} x2={sg.x2} y2={sg.y} class="bar {bar.kind}" class:hl={hl(bar)} />
     {/each}
     {#if segs.length && bar.hooks[0]}<line x1={segs[0]!.x1} y1={segs[0]!.y} x2={segs[0]!.x1} y2={hookTo(bar, segs[0]!.y, 0)} class="bar {bar.kind}" />{/if}
+    {#if segs.length && bar.hook180?.[0]}<line x1={segs[0]!.x1} y1={hookTo(bar, segs[0]!.y, 0)} x2={segs[0]!.x1 + hookBack(bar, 0) * sx} y2={hookTo(bar, segs[0]!.y, 0)} class="bar {bar.kind}" data-testid="rc-hook-180" />{/if}
     {#if segs.length && bar.hooks[1]}<line x1={segs[segs.length - 1]!.x2} y1={segs[segs.length - 1]!.y} x2={segs[segs.length - 1]!.x2} y2={hookTo(bar, segs[segs.length - 1]!.y, 1)} class="bar {bar.kind}" />{/if}
+    {#if segs.length && bar.hook180?.[1]}<line x1={segs[segs.length - 1]!.x2} y1={hookTo(bar, segs[segs.length - 1]!.y, 1)} x2={segs[segs.length - 1]!.x2 + hookBack(bar, 1) * sx} y2={hookTo(bar, segs[segs.length - 1]!.y, 1)} class="bar {bar.kind}" data-testid="rc-hook-180" />{/if}
   {/each}
   {#if marks}
     <g data-testid="rc-line-marks">

@@ -9,7 +9,7 @@ import { beamRow, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam
 import { beamLine, CIRSOC_LINE, type LineAdopted } from '../beam-line';
 import { makeFmt } from '../format';
 import { developedLength, lapLength } from '../shape';
-import { bentLegs, extraBarsText, hookLegOf, hookTurn, marksAt, setOut, stirrupPositions } from '../line-geometry';
+import { bentLegs, extraBarsText, hookBack, hookLegOf, hookTurn, marksAt, setOut, stirrupPositions } from '../line-geometry';
 import { barPolyline } from '../plans/beam-elevation';
 import { bendingSchedule } from '../schedule/schedule';
 import { scheduleView, SCHEDULE_VIEWS } from '../schedule/views';
@@ -66,20 +66,82 @@ describe('hooks of a beam line', () => {
     expect(line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')).toBeUndefined();
   });
 
-  it('keeps a cantilever tip\'s hooks within the depth, and fails the check rather than shorten a leg that does not fit', () => {
+  it('turns a cantilever tip\'s hook through 180° where a 90° one does not fit the depth, rather than shorten its leg', () => {
     const free: BeamEnd = { kind: 'free', half: 0 };
     const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed, [column, free]);
     const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
     expect(hookTurn(b, 0)).toBeLessThan(0);
-    expect(hookTurn(b, 1)).toBeGreaterThan(0);
-    const leg = hookTurn(b, 1);
-    expect(leg).toBeCloseTo(hookLegOf({ ...b, hooks: [false, true] }), 9);
+    expect(b.hook180).toEqual([false, true]);
+    const rise = (6 * 25 + 25) / 1000;
+    expect(hookTurn(b, 1)).toBeCloseTo(rise, 9);
+    expect(hookBack(b, 1)).toBeCloseTo(-(rise / 2 + 0.1), 9);
+    expect(line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')).toBeUndefined();
+    expect(line.steps.flatMap((g) => g.steps).some((s) => s.label === 'rcSheets.s.lineHook180' && s.formula?.startsWith(`${b.mark} →`))).toBe(true);
+    const pts = barPolyline(line, b, 0);
+    const [p2, p1, p0] = [pts[pts.length - 3]!, pts[pts.length - 2]!, pts[pts.length - 1]!];
+    expect((p1.y - p2.y) / 1000).toBeCloseTo(rise, 6);
+    expect((p0.x - p1.x) / 1000).toBeCloseTo(hookBack(b, 1), 6);
+  });
+
+  it('fails the check, naming the depth that would hold the hook, when not even a 180° hook fits', () => {
+    const free: BeamEnd = { kind: 'free', half: 0 };
+    const { line } = lineOf([{ L: 3, h: 0.25 }, { L: 3, h: 0.25 }], {}, fixed, [column, free]);
+    const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(b.hook180).toBeUndefined();
     const fit = line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')!;
     expect(fit.ok).toBe(false);
-    expect(fit.demand).toContain(`${b.mark}: Ø25`);
+    expect(fit.demand).toBe(`${b.mark}: Ø25 18 cm`);
+    expect(fit.capacity).toBe('17 cm · h ≥ 26 cm');
     expect(line.status).toBe('fail');
-    const pts = barPolyline(line, b, 0);
-    expect((pts[pts.length - 1]!.y - pts[pts.length - 2]!.y) / 1000).toBeCloseTo(leg, 6);
+  });
+
+  it('stops the bottom run straight at a simple support where a hook would not fit, §9.7.3.8.1 into it and §9.7.3.8.3(a) holding', () => {
+    const support: BeamEnd = { kind: 'support', half: 0 };
+    const rows = rowsOf([{ L: 5, h: 0.4 }], bctx, [support, support], undefined, 0);
+    for (const e of rows[0]!.demand.env!) e.v = 75 * Math.abs(1 - 2 * e.x / 5);
+    const line = beamLine(rows, bctx as never, { ...fixed, supportTop: [{ count: 0, dia: 16 }, { count: 0, dia: 16 }], spanBottom: [{ count: 0, dia: 16 }] }, fmt);
+    const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(b.hooks).toEqual([false, false]);
+    expect(b.hook180).toBeUndefined();
+    expect(b.from).toBeCloseTo(-0.15, 9);
+    expect(b.to).toBeCloseTo(5.15, 9);
+    expect(line.ends.from).toBeCloseTo(-0.15, 9);
+    expect(line.verifications.find((v) => v.label === 'rcSheets.v.lineHookFit')).toBeUndefined();
+    const st = line.steps.flatMap((g) => g.steps).filter((s) => s.label === 'rcSheets.s.lineStraightEnd');
+    expect(st.map((s) => s.formula!.slice(0, 3))).toEqual([`${b.mark} ←`, `${b.mark} →`]);
+    const top = line.bars.find((x) => x.kind === 'continuous' && x.face === 'top')!;
+    expect(top.hooks).toEqual([true, true]);
+  });
+
+  it('proposes the run in a smaller bar whose 90° hook fits the depth where it may not stop straight, before any 180° hook', () => {
+    const support: BeamEnd = { kind: 'support', half: 0 };
+    const L = 5, m = 160, v = 260;
+    const stations = Array.from({ length: 33 }, (_, i) => { const x = (i / 32) * L, t = x / L; return { x, pos: m * 4 * t * (1 - t), neg: 0, v: v * Math.abs(1 - 2 * t) }; });
+    const d: BeamDemand = {
+      key: 'beam:1:0', name: 'V1', level: 'N1', length: L, b: 0.25, h: 0.4, start: env(0, 0, 0), span: env(L / 2, m, 0), end: env(L, 0, 0),
+      negAny: { value: 0 }, nNegAny: 0, vu: { value: v }, nAtV: 0, tu: { value: 0 }, combos: [], env: stations,
+      supportHalf: { start: 0, end: 0 }, ends: { start: support, end: support }, line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V1' },
+    };
+    const row = beamRow(d, bctx as never, undefined, fmt);
+    expect(row.proposed.bottom[0]!.dia).toBe(25);
+    const line = beamLine([row], bctx as never, undefined, fmt);
+    const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(b.bars).toEqual({ dia: 20, count: 4 });
+    expect(b.hooks).toEqual([true, true]);
+    expect(b.hook180).toBeUndefined();
+    expect(line.verifications.filter((x) => !x.ok)).toEqual([]);
+  });
+
+  it('keeps the hook at a simple support where it fits, and turns through 180° a bar §9.7.3.8.3(a) does not let stop straight under a high end shear', () => {
+    const support: BeamEnd = { kind: 'support', half: 0 };
+    const own = { ...fixed, bottom: { count: 2, dia: 16 }, supportTop: [{ count: 0, dia: 16 }, { count: 0, dia: 16 }], spanBottom: [{ count: 3, dia: 16 }] };
+    const { line } = lineOf([{ L: 5, h: 0.4 }], {}, own, [support, support], 0);
+    expect(line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!.hooks).toEqual([true, true]);
+    const tight = lineOf([{ L: 5, h: 0.4 }], {}, { ...own, bottom: { count: 2, dia: 25 } }, [support, support], 0).line;
+    const b = tight.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
+    expect(b.hooks).toEqual([true, true]);
+    expect(b.hook180).toEqual([true, true]);
+    expect(tight.steps.flatMap((g) => g.steps).some((s) => s.label === 'rcSheets.s.lineStraightEnd')).toBe(false);
   });
 });
 

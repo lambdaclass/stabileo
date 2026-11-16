@@ -13690,6 +13690,8 @@ const tr: Translations = {
   "rcSheets.s.lineCut": "İlave çubukların kesim noktası",
   "rcSheets.s.lineCutoff": "Çekme bölgesinde kesim",
   "rcSheets.s.lineBent": "Pilye: iner ve çıkar",
+  "rcSheets.s.lineStraightEnd": "Basit mesnette düz kenetlenme: ld sıfır moment noktasından",
+  "rcSheets.s.lineHook180": "180° kanca: 90° kancanın bacağı yüksekliğe sığmıyor",
   "rcSheets.s.lineThird": "Negatif donatının üçte biri dönüm noktasının ötesine",
   "rcSheets.s.lineDev": "Kenetlenmemiş çubuklar kenetlenme oranında sayılır",
   "rcSheets.s.ldRow": "Boylar",

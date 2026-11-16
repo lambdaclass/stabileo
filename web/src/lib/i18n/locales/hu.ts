@@ -14664,6 +14664,8 @@ const hu: Translations = {
   "rcSheets.v.lineHookFit": "A kampó szára a gerenda magasságán belül",
   "rcSheets.v.lineSeismicBent": "Felhajlított vasak szeizmikus előírások mellett: a 18. fejezet szerinti gerendák egyenes vasakat kapnak",
   "rcSheets.s.lineBent": "Felhajlított vas: le és fel",
+  "rcSheets.s.lineStraightEnd": "Egyenes lehorgonyzás egyszerű támasznál: ld a nulla nyomaték pontjától",
+  "rcSheets.s.lineHook180": "180°-os kampó: a 90°-os kampó szára nem fér el a magasságban",
   "rcSheets.g.slabAnchorage": "A vasak lehorgonyzása",
   "rcSheets.v.mainCover": "A fővasak betonfedése",
   "rcSheets.v.seisColMn": "Az erős oszlop szabálya által megkövetelt névleges nyomaték",

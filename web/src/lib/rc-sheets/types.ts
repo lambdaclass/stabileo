@@ -94,7 +94,7 @@ export interface RcSheetsData {
 }
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 1;
+export const RC_SHEETS_LOGIC = 2;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 
