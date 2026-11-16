@@ -77,3 +77,35 @@ it('#2222 WASM keeps narrow loads in plane and space linear and nonlinear solves
   expect(result.equilibrium.appliedForceSum[1]).toBeCloseTo(-1,10);
   modelStore.clear();
 });
+
+
+it.skipIf(process.env.REPRO_2222_ENDPOINTS !== '1')('known wrong result: #2222: WASM diagrams include collapsed loads at exact member endpoints', () => {
+  for (const dim of [2, 3]) for (const axis of dim === 2 ? ['y'] : ['y', 'z']) {
+    for (const [a, b] of [[3 - 5e-13, 3], [0, 5e-13]]) {
+      const input: any = structuredClone(model);
+      const q = -1 / (b - a);
+      Object.assign(input.loads[0].data, {a, b, qI:q, qJ:q});
+      if (dim === 3) {
+        for (const node of Object.values(input.nodes) as any[]) node.y = 0;
+        for (const section of Object.values(input.sections) as any[]) Object.assign(section, {iy:1, j:1});
+        for (const support of Object.values(input.supports) as any[]) Object.assign(support, {rx:true, ry:true, rz:true, rrx:true, rry:true, rrz:true});
+        Object.assign(input.loads[0].data, {qYI:axis === 'y' ? q : 0, qYJ:axis === 'y' ? q : 0, qZI:axis === 'z' ? q : 0, qZJ:axis === 'z' ? q : 0});
+      }
+      for (const mode of ['linear', 'pdelta', 'corotational']) {
+        const result = mode === 'linear' ? wasm[`solve_${dim}d`](input) : mode === 'pdelta' ? JSON.parse(wasm[`solve_pdelta_${dim}d`](JSON.stringify(input),20,1e-9)).linearResults : JSON.parse(wasm[`solve_corotational_${dim}d`](JSON.stringify(input),40,1e-9,1)).results;
+        const f = result.elementForces.find((f: any) => f.elementId === 1);
+        const evaluate = (kind: string, t: number) => (dim === 2 ? wasm.compute_diagram_value_at : wasm.compute_diagram_value_at_3d)(JSON.stringify({kind,t,elementForces:f}));
+        const shear = dim === 2 ? 'shear' : axis === 'y' ? 'shearY' : 'shearZ';
+        const moment = dim === 2 ? 'moment' : axis === 'y' ? 'momentZ' : 'momentY';
+        const v = dim === 2 ? f.vStart : axis === 'y' ? f.vyStart : f.vzStart;
+        const m = dim === 2 ? f.mStart : axis === 'y' ? f.mzStart : f.myStart;
+        const sign = axis === 'z' ? 1 : -1;
+        expect(evaluate(shear,0)).toBeCloseTo(v,10);
+        expect(evaluate(moment,0)).toBeCloseTo(m,10);
+        expect(evaluate(shear,1)).toBeCloseTo(v-1,10);
+        expect(evaluate(shear,b/3)).toBeCloseTo(v-1,10);
+        expect(evaluate(moment,1)).toBeCloseTo(m+sign*(v*3-3+a+(b-a)/2),10);
+      }
+    }
+  }
+});

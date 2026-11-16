@@ -381,3 +381,32 @@ impl Surfaces {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2222"]
+    fn issue_2222_independent_force_check_preserves_the_wrench_verdict() {
+        for dimensions in [2, 3] {
+            for imbalance in [0.0, 0.5e-6, 1e-6, 2e-6] {
+                for prior_ok in [false, true] {
+                    let mut eq = EquilibriumSummary {
+                        relative_residual: 0.0, residual_ok: true,
+                        applied_force_components: vec![],
+                        applied_force_sum: vec![0.0; if dimensions == 2 {3} else {6}],
+                        reaction_force_sum: vec![0.0; if dimensions == 2 {3} else {6}],
+                        max_imbalance: 0.01, equilibrium_ok: prior_ok,
+                    };
+                    let mut force = vec![0.0; dimensions];
+                    force[0] = imbalance;
+                    replace(&mut eq, vec![force]);
+                    assert_eq!(eq.equilibrium_ok, prior_ok && imbalance < 1e-6);
+                    assert_eq!(eq.max_imbalance, 0.01);
+                }
+            }
+        }
+    }
+}

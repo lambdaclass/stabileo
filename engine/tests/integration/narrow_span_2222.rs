@@ -347,3 +347,76 @@ fn issue_2222_narrow_opposing_load_retains_its_finite_couple() {
         }
     }
 }
+
+
+fn endpoint_input(a: f64, b: f64) -> SolverInput {
+    let mut input = witness();
+    let q = -1.0 / (b - a);
+    input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad {
+        element_id: 1, q_i: q, q_j: q, a: Some(a), b: Some(b),
+    })];
+    input
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_collapsed_endpoints_planar() {
+    for (a, b) in [(3.0 - 5e-13, 3.0), (0.0, 5e-13)] {
+        let input = endpoint_input(a, b);
+        for result in [
+            linear::solve_2d(&input).unwrap(),
+            linear::solve_2d_typed(&serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap()).unwrap(),
+            linear::prepare_static_2d(&input).unwrap().solve_loads(&input.loads).unwrap(),
+            linear::prepare_static_2d_dense_reference(&input).unwrap().solve_loads(&input.loads).unwrap(),
+            pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().linear_results,
+            corotational::solve_corotational_2d(&input, 40, 1e-9, 1, false).unwrap().results,
+        ] {
+            let f = &result.element_forces[0];
+            for (t, force, moment) in [(0.0, 0.0, 0.0), (1.0, -1.0, -3.0 + a + (b - a) / 2.0), (b / 3.0, -1.0, -(b - a) / 2.0)] {
+                near(compute_diagram_value_at("shear", t, f), f.v_start + force);
+                near(compute_diagram_value_at("moment", t, f), f.m_start - f.v_start * t * 3.0 - moment);
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_collapsed_endpoints_spatial() {
+    for (a, b) in [(3.0 - 5e-13, 3.0), (0.0, 5e-13)] {
+        for plane in [Plane::XY, Plane::XZ] {
+            let input = embed_2d(&endpoint_input(a, b), plane).unwrap();
+            for result in [
+                linear::solve_3d(&input).unwrap(),
+                linear::prepare_static_3d(&input).unwrap().solve_loads(&input.loads).unwrap(),
+                pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().linear_results,
+                corotational::solve_corotational_3d(&input, 40, 1e-9, 1, false).unwrap().results,
+            ] {
+                let f = &result.element_forces[0];
+                for (t, force, moment) in [(0.0, 0.0, 0.0), (1.0, -1.0, -3.0 + a + (b - a) / 2.0), (b / 3.0, -1.0, -(b - a) / 2.0)] {
+                    let (py, pz, my, mz) = if matches!(plane, Plane::XY) { (force, 0.0, 0.0, -moment) } else { (0.0, force, moment, 0.0) };
+                    near(evaluate_diagram_3d_at(f, "shearY", t), f.vy_start + py);
+                    near(evaluate_diagram_3d_at(f, "shearZ", t), f.vz_start + pz);
+                    near(evaluate_diagram_3d_at(f, "momentZ", t), f.mz_start - f.vy_start * t * 3.0 + mz);
+                    near(evaluate_diagram_3d_at(f, "momentY", t), f.my_start + f.vz_start * t * 3.0 + my);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn issue_2222_empty_reversed_and_one_sided_interval_terms() {
+    for (a, b) in [(0.0, 0.0), (1.0, 0.0), (1.0, -1e300)] {
+        assert_eq!(distributed_load_terms(-2.0, -2.0, a, b, 0.5), (0.0, 0.0));
+    }
+    let a = 1.5;
+    let b = a + 5e-13;
+    let q = -1.0 / (b - a);
+    let (_, _, at) = narrow_distributed_load(q, q, a, b).unwrap();
+    assert_eq!(distributed_load_terms(q, q, a, b, at).0, 0.0);
+    assert_eq!(distributed_load_terms(q, q, a, b, at.next_down()).0, 0.0);
+    assert_eq!(distributed_load_terms(q, q, a, b, at.next_up()).0, -1.0);
+    assert_eq!(distributed_load_terms(-2.0, -2.0, 0.0, 3.0, 3.0), (-6.0, -9.0));
+}
