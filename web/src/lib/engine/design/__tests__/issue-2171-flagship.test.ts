@@ -18,10 +18,10 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
   const bottom=r.bottomSpanLayers!;
   expect(bottom.map(l=>[l.count,l.diameter,l.row])).toEqual([[8,10,0],[6,10,1]]);
   const primaryDepth=ctx.section.h-(8*(ctx.material.cover+ctx.material.stirrupDia/1000+0.005)+6*(ctx.material.cover+ctx.material.stirrupDia/1000+0.005+0.01+0.025))/14;
-  const secondaryDepth=ctx.section.b-ctx.material.cover-ctx.material.stirrupDia/1000-0.005;
   const verdict=cirsoc201Adapter.verify(ctx,rebar);
   for(const region of ['Support','Span']) for(const direction of ['primary','secondary'] as const) {
    const cage=region==='Support'?r.stirrupsSupport!:r.stirrupsSpan!;
+   const secondaryDepth=ctx.section.b-ctx.material.cover-cage.diameter/1000-0.005;
    const primary=direction==='primary';
    const axis=primary?ctx.axes.shear:ctx.axes.secondaryShear;
    const check=verdict.checks.find(c=>c.category===`Shear ${region} (${axis})`)!;

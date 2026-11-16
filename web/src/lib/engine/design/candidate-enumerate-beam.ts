@@ -18,10 +18,12 @@
  * Pure: no store access, no side effects.
  */
 
+import { boundedDirectionalOptions, secondaryLegCounts } from './directional-cage-options';
+import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import { proposeSkin } from '../../codes/cirsoc201/skin';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
-import { layerCentroid, transverseSpacingFor, SHALLOW_BEAM_MAX_H } from '../station-design-forces';
+import { layerCentroid, transverseSpacingFor, SHALLOW_BEAM_MAX_H, computeDirectionalShearCapacity } from '../station-design-forces';
 import { shearSqrtFc } from '../codes/argentina/cirsoc201-basis';
 import type { MemberContext } from './member-context';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
@@ -140,6 +142,7 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
   const { cover, stirrupDia } = ctx.material;
   const d = h - cover - stirrupDia / 1000 - 0.008;
   const out: StirrupDef[] = [];
+  const minimumOptions: StirrupDef[] = [];
   /*
    * §9.6.3.1, as the verifier reads it (`verifyProvidedReinforcement`): on a beam deeper than
    * 250 mm, Av,min wherever Vu > φ·0,085·√f'c·bw·d (2005: φVc/2), Av,min/s of §9.6.3.4
@@ -158,8 +161,8 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
     // centre), so the limits are evaluated per diameter rather than once per member.
     const table = transverseSpacingFor(Vu, b, d, ctx.material.fc, cover, dia, ctx.codeEdition);
     const secondary = VuSecondary >= 0.001 ? transverseSpacingFor(VuSecondary, h, b - cover - stirrupDia / 1000 - 0.008, ctx.material.fc, cover, dia, ctx.codeEdition) : undefined;
-    const secondaryLegs = secondary?.requiredLegs ?? 2;
-    if (secondaryLegs > BEAM_LIMITS.maxLegs) continue;
+    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs, BEAM_LIMITS.maxLegs);
+    if (!secondaryCounts.length) continue;
     const top = Math.floor(Math.min(table.alongMax, secondary?.alongMax ?? Infinity) / SPACING_GRID) * SPACING_GRID;
     for (let legs = table.requiredLegs; legs <= BEAM_LIMITS.maxLegs; legs += 1) {
       // A wide member needs more legs; a narrow one cannot host them.
@@ -168,13 +171,19 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
       const legArea = (REBAR_DB.find((r) => r.diameter === dia)?.area ?? (Math.PI / 4) * (dia / 10) ** 2) * 1e-4; // m²
       for (let s = top; s >= BEAM_LIMITS.minSpacing - 1e-9; s -= SPACING_GRID) {
         if (avMinPerS > 0 && (legs * legArea) / s < avMinPerS * (1 - 1e-9)) continue;
-        out.push({ diameter: dia, legs, ...(secondary ? { secondaryLegs } : {}), spacing: +s.toFixed(4) });
+        for (const secondaryLegs of secondaryCounts) {
+          const cage = { diameter: dia, legs, ...(secondaryLegs !== undefined ? { secondaryLegs } : {}), spacing: +s.toFixed(4) };
+          out.push(cage);
+          if (secondaryLegs === secondaryCounts[0]) minimumOptions.push(cage);
+        }
       }
     }
   }
   // Preference: fewer legs, smaller diameter, wider spacing (least steel).
-  out.sort((x, y) => x.legs - y.legs || x.diameter - y.diameter || y.spacing - x.spacing);
-  return out.slice(0, BEAM_LIMITS.maxStirrupOptions);
+  out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
+  return boundedDirectionalOptions(out, BEAM_LIMITS.maxStirrupOptions, cage => VuSecondary / computeDirectionalShearCapacity(
+    'secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, h, b - cover - cage.diameter / 1000 - 0.008, ctx.material.fc, ctx.material.fy, 0,
+    { Ag: b * h, h: b, edition: ctx.codeEdition }).phiVn, minimumOptions);
 }
 
 /** Region-wise seed demands, computed on the GOVERNING axis. */

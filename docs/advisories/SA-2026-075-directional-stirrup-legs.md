@@ -12,12 +12,15 @@
 
 ## Affected features
 
-CIRSOC 201-2005 and 2025 concrete member checks with secondary shear or combined
-shear and torsion, where the primary stirrup leg count exceeds the effective
-horizontal legs. This includes designed members and provided reinforcement.
+CIRSOC 201-2005 and 2025 concrete member checks with secondary shear, combined
+shear and torsion, insufficient leg distribution or omitted secondary-shear checks,
+regardless of the relationship between primary and secondary leg counts. This
+includes designed members and provided reinforcement, including cages with
+two primary and two secondary legs.
 The saved-project notice selects concrete members in 2D, 3D and Pro. Planar
-models have no secondary shear or torsion degrees of freedom; the directional
-failure is exercised by spatial models. Both editions use the native section
+models have no secondary shear or torsion degrees of freedom. Primary leg
+distribution still applies in 2D; spatial models also expose the secondary
+direction. Both editions use the native section
 evaluator through WASM; the direction selection occurs in the web layer.
 
 ## What was wrong
@@ -42,15 +45,20 @@ also changing overall `ok` to `fail`.
 
 These values come only from the [results-change record](../results-changes/2026-11-directional-stirrup-legs.md)
 and its [numerical evidence](../results-changes/2171-directional-stirrup-legs-diff.json).
-They are witnesses, not error bounds for other members. This is a main-source
+The [leg-spacing evidence](../results-changes/2171-leg-spacing-diff.json) also records
+a two-primary/two-secondary-leg beam that passes on main and fails the corrected
+primary distribution check. Extra primary legs are not a condition of exposure.
+These are witnesses, not error bounds for other members. This is a main-source
 replay, not a historical release-binary replay. Earlier introduction and
 historical release exposure have not been assessed.
 
 ## How to tell if your model is affected
 
-Review concrete cages with more than two primary legs and secondary shear or
-torsion. Check how many legs actually resist each direction, including any
-horizontal crossties. A previous overall pass or successful solve does not
+Review concrete cages with secondary shear or torsion and every cage whose leg
+distribution may be insufficient, including two-leg cages with equal directional
+counts. Check both shear directions even at zero torsion. Check how many legs
+actually resist each direction, including any horizontal crossties, and verify
+the spacing of those legs across each web independently of strength. A previous overall pass or successful solve does not
 establish that the steel credited in each direction exists. The saved-project
 notice conservatively selects concrete members; it does not prove every
 selected member had an incorrect result.

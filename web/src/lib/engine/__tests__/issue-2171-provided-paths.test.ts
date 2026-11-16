@@ -141,7 +141,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
         { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
       const rows = result.checks.filter(c => c.demandCategory === 'Vy' && c.limiting === 'shear');
       expect(rows.length).toBeGreaterThan(0);
-      const depth = section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, section.stirrupDia);
+      const depth = section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, kind === 'column' ? section.stirrupDia : diameter);
       const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(cage, 'secondary'), cage.spacing, section.h, depth, section.fc, section.fy, 0,
         { edition, Ag: section.b * section.h, h: kind === 'column' ? section.h : section.b, rhoW: kind === 'column' ? rebarGroupArea(bars) / 3 / (section.b * section.h * 1e4) : 0 });
       for (const row of rows) {

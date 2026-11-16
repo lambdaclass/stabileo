@@ -28,6 +28,8 @@
  * not declared. The 23 lost now refuse on congestion (13), anchorage (7), anchorage and
  * congestion (2), and anchorage, congestion and shear (1).
  */
+import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
+import { REBAR_DB } from '../../codes/argentina/cirsoc201';
 import { describe, it, expect } from 'vitest';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
@@ -82,12 +84,45 @@ describe('rc-design-frame, 408 members', () => {
   const gravity = run(frame, { beams: 'gravity' }), undeclared = run(frame, null);
 
   // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages. Not declared: 359; of the 13 it loses, 6 refuse on their anchorage and 7 on congestion.
-  it('outside the system 376 designed; not declared 360, the 16 it loses refusing on their anchorage or congestion', () => {
+  it('outside the system 376 designed; not declared 362, the 14 it loses refusing on their anchorage or congestion', () => {
     expect(counts(gravity.s)).toEqual({ verified: 376, searchExhausted: 19, provisionalBiaxial: 13, sectionInadequate: 0 });
-    expect(counts(undeclared.s)).toEqual({ verified: 360, searchExhausted: 35, provisionalBiaxial: 13, sectionInadequate: 0 });
+    expect(counts(undeclared.s)).toEqual({ verified: 362, searchExhausted: 33, provisionalBiaxial: 13, sectionInadequate: 0 });
     const l = lost(gravity.s, undeclared.s);
-    expect(l.ids).toHaveLength(16);
-    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 9, 'SEARCH_EXHAUSTED congestion': 7 });
+    expect(l.ids).toHaveLength(14);
+    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 7, 'SEARCH_EXHAUSTED congestion': 7 });
     expect(lost(undeclared.s, gravity.s).ids).toEqual([]);
   });
+
+  it('retains every previously verified undeclared member and independently checks the two recovered cages', () => {
+    for (const id of evidence.previousVerifiedIds) expect(undeclared.s.outcomes.get(id)?.outcome, `e${id}`).toBe('VERIFIED');
+    expect(evidence.changes.map(c => c.id)).toEqual([204, 207]);
+    for (const id of [204, 207]) {
+      const ctx = undeclared.solved.contexts.get(id)!;
+      const outcome = undeclared.s.outcomes.get(id)!;
+      expect(outcome.outcome).toBe('VERIFIED');
+      expect(outcome.certificate).toBeDefined();
+      const recorded = evidence.changes.find(c => c.id === id)!;
+      expect(outcome.accepted).toEqual(recorded.accepted);
+      const cage = outcome.accepted!.regions!.stirrupsSupport!;
+      expect(cage).toEqual({ diameter: 6, legs: 3, secondaryLegs: 3, spacing: 0.15 });
+      const { b, h } = ctx.section, { fc, fy, cover } = ctx.material;
+      const depth = b - cover - cage.diameter / 1000 - 12 / 2000;
+      expect(depth).toBe(0.31299999999999994);
+      const Av = cage.secondaryLegs! * REBAR_DB.find(r => r.diameter === cage.diameter)!.area * 1e-4;
+      const sq = Math.sqrt(fc);
+      const Vs = Math.min(Av * fy * 1000 * depth / cage.spacing, 0.66 * sq * h * depth * 1000);
+      for (const c of ctx.stations!.comboResults) for (const station of c.stations) {
+        const Vu = Math.abs(station.vy);
+        const vcStress = Math.max(0, Math.min(0.17 * sq - station.n / (6 * b * h * 1000), 0.42 * sq));
+        const Vc = vcStress * h * depth * 1000;
+        expect(Vu / (0.75 * (Vc + Vs))).toBeLessThan(1);
+        const row2 = Math.max(0, Vu / 0.75 - Vc) > 0.33 * sq * h * depth * 1000;
+        const along = Math.min(depth / (row2 ? 4 : 2), row2 ? 0.2 : 0.4);
+        const across = Math.min(depth / (row2 ? 2 : 1), row2 ? 0.2 : 0.4);
+        expect(cage.spacing).toBeLessThanOrEqual(along);
+        expect((h - 2 * cover - cage.diameter / 1000) / (cage.secondaryLegs! - 1)).toBeLessThanOrEqual(across);
+      }
+    }
+  });
+
 });

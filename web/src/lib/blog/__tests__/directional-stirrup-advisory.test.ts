@@ -49,8 +49,7 @@ it('#2171 follows the assigned advisory structure and retains only the recorded 
 });
 
 
-const known = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
-known('known wrong result: #2198 advisory screening includes equal directional counts and omitted checks', () => {
+it('known wrong result: #2198 advisory screening includes equal directional counts and omitted checks', () => {
   expect(advisory).toContain('regardless of the relationship between primary and secondary leg counts');
   expect(advisory).toContain('insufficient leg distribution');
   expect(advisory).toContain('omitted secondary-shear checks');

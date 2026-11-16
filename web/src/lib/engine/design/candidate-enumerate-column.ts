@@ -16,11 +16,13 @@
  * Pure: no store access, no side effects.
  */
 
+import { boundedDirectionalOptions, secondaryLegCounts } from './directional-cage-options';
+import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import type { RegulationEdition } from '../../codes/regulation';
 import { transverseSpacingForDemand, columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
-import { computeColumnLayout } from '../station-design-forces';
+import { computeColumnLayout, computeDirectionalShearCapacity } from '../station-design-forces';
 import { tupleShear } from './design-axes';
 import type { MemberContext } from './member-context';
 import { grossAreaOf, minClear, shapedBarPositions, shapedShearWebs, type ColumnShape } from './shaped-column';
@@ -89,6 +91,7 @@ export function maxTieSpacing(cornerDia: number, tieDia: number, b: number, h: n
 export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupDef[] {
   const { b, h } = ctx.section;
   const out: StirrupDef[] = [];
+  const minimumOptions: StirrupDef[] = [];
   for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
     const peak = (axis: 'Vy' | 'Vz') => Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, axis)))));
     const limits = (width: number, depth: number, Vu: number) => Vu >= 0.001 && ctx.codeEdition === '2025'
@@ -102,8 +105,8 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
     const secondaryWeb = webs.find(web => web.axis === ctx.axes.secondaryShear)!;
     const primary = limits(primaryWeb.bw, primaryWeb.d, peak(primaryWeb.axis));
     const secondary = limits(secondaryWeb!.bw, secondaryWeb!.d, peak(secondaryWeb!.axis));
-    const secondaryLegs = secondary?.requiredLegs ?? 2;
-    if (secondaryLegs > COLUMN_LIMITS.maxLegs) continue;
+    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs, COLUMN_LIMITS.maxLegs);
+    if (!secondaryCounts.length) continue;
     const sMax = Math.min(maxTieSpacing(cornerDia, dia, ctx.shape ? primaryWeb!.bw : b, ctx.shape ? secondaryWeb!.bw : h, ctx.codeEdition), primary?.alongMax ?? Infinity, secondary?.alongMax ?? Infinity);
     if (sMax < COLUMN_LIMITS.minSpacing) continue;
     for (let legs = Math.max(2, primary?.requiredLegs ?? 2); legs <= COLUMN_LIMITS.maxLegs; legs += primary ? 1 : 2) {
@@ -112,12 +115,22 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
       const atTarget = Math.floor((sMax * DESIGN_TARGET_UTILIZATION + 1e-9) / SPACING_GRID) * SPACING_GRID;
       const top = atTarget >= COLUMN_LIMITS.minSpacing - 1e-9 ? atTarget : Math.floor(sMax / SPACING_GRID) * SPACING_GRID;
       for (let s = top; s >= COLUMN_LIMITS.minSpacing - 1e-9; s -= SPACING_GRID) {
-        out.push({ diameter: dia, legs, ...(secondary ? { secondaryLegs } : {}), spacing: +s.toFixed(4) });
+        for (const secondaryLegs of secondaryCounts) {
+          const cage = { diameter: dia, legs, ...(secondaryLegs !== undefined ? { secondaryLegs } : {}), spacing: +s.toFixed(4) };
+          out.push(cage);
+          if (secondaryLegs === secondaryCounts[0]) minimumOptions.push(cage);
+        }
       }
     }
   }
-  out.sort((x, y) => x.legs - y.legs || x.diameter - y.diameter || y.spacing - x.spacing);
-  return out.slice(0, COLUMN_LIMITS.maxTieOptions);
+  out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
+  return boundedDirectionalOptions(out, COLUMN_LIMITS.maxTieOptions, cage => {
+    const depth = ctx.axes.bFlex - ctx.material.cover - cage.diameter / 1000 - 0.008;
+    const web = ctx.shape ? shapedShearWebs(ctx.shape).find(w => w.axis === ctx.axes.secondaryShear)! : { bw: ctx.axes.hFlex, d: depth };
+    return Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, ctx.axes.secondaryShear)))))
+      / computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, web.bw, web.d, ctx.material.fc, ctx.material.fy, 0,
+        { Ag: ctx.shape ? grossAreaOf(ctx.shape) : b * h, h: Math.max(b, h), edition: ctx.codeEdition }).phiVn;
+  }, minimumOptions);
 }
 
 type Knob = 'long' | 'tie';

@@ -410,5 +410,5 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // also lose the flexural strength their axial tension takes: with that check off they verify
 // and the other seven stay exhausted. 173, 347 and 350 change bars and stay verified (347 and
 // 350: bottom 7Ø12 → 5Ø25). Utilization moved on 85 (57 up, 28 down, −0,224 to +0,032); the
-// worst stays 0,998. The counts are 372 verified, 23 exhausted, 13 provisional.
+// worst stays 0,998. The counts are 376 verified, 19 exhausted, 13 provisional.
 const RECORDED_FINGERPRINT = '88cfb03b363bf253';

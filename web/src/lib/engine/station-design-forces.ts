@@ -2199,7 +2199,7 @@ export function verifyProvidedReinforcement(
     const d = bottomLayers.length > 0 ? dBottom : 0.9 * section.h;
     const sideDiameters = [...bottomLayers, ...topStartLayers, ...topEndLayers].filter(layer => layer.count > 0).map(layer => layer.diameter);
     const sideBarDiameter = sideDiameters.length ? Math.max(...sideDiameters) : ASSUMED_FLEXURE_BAR_DIA_MM;
-    const dSecondary = section.b - layerCentroid([{ count: 1, diameter: sideBarDiameter, row: 0 }], section.cover, section.stirrupDia);
+    const secondaryDepthFor = (cage: StirrupDef | undefined) => section.b - layerCentroid([{ count: 1, diameter: sideBarDiameter, row: 0 }], section.cover, cage?.diameter ?? section.stirrupDia);
 
     const userT = reg?.regionT;
     const tStartEnd = critSections ? critSections.start.tCritShear : (userT ?? 0.25);
@@ -2626,9 +2626,10 @@ export function verifyProvidedReinforcement(
       .flatMap(ss => (['primary', 'secondary'] as const).map(direction => {
         const primary = direction === 'primary';
         const axis = primary ? axes.shear : axes.secondaryShear;
+        const dSecondary = secondaryDepthFor(ss.stir);
         const depth = primary ? d : dSecondary;
         return { ...ss, label: `Shear ${ss.label} (${axis})`, direction, axis, read: primary ? V : V2,
-          width: primary ? section.b : section.h, depth, height: primary ? section.h : section.b, rhoW: primary ? ss.rhoW : 0 };
+          width: primary ? section.b : section.h, depth, dSecondary, height: primary ? section.h : section.b, rhoW: primary ? ss.rhoW : 0 };
       }));
     /*
      * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt
@@ -2743,7 +2744,7 @@ export function verifyProvidedReinforcement(
         const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
+          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary: ss.dSecondary, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
           if (!r.neglect) evaluated.push({ r, t });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;

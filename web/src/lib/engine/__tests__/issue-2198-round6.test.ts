@@ -8,7 +8,6 @@ import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 
-const known = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const section = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
 const axes = syntheticBeamContext().axes;
@@ -17,7 +16,7 @@ const area = (dia: number) => REBAR_DB.find(r => r.diameter === dia)!.area * 1e-
 const capacity = (dia: number, legs: number, spacing: number, width: number, depth: number, edition: '2005' | '2025' = '2025') => 0.75 * ((edition === '2005' ? 1 / 6 : 0.17) * Math.sqrt(section.fc) * width * depth * 1000 + Math.min(legs * area(dia) * section.fy * 1000 * depth / spacing, (edition === '2005' ? 2 / 3 : 0.66) * Math.sqrt(section.fc) * width * depth * 1000));
 
 for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) for (const factor of [0.999, 1.001]) {
-  known(`known wrong result: #2198 actual secondary depth ${kind} ${edition} ${axis} ${diameters} ${factor}`, () => {
+  it(`known wrong result: #2198 actual secondary depth ${kind} ${edition} ${axis} ${diameters} ${factor}`, () => {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 4, spacing: 0.1 }));
     const minCapacity = Math.min(...diameters.map(dia => capacity(dia, 4, 0.1, section.h, section.b - section.cover - dia / 1000 - bars.diameter / 2000, edition)));
     const st = stations(minCapacity * factor);
@@ -36,7 +35,7 @@ for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '20
 }
 
 for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
-  known(`known wrong result: #2198 torsion uses each cage secondary depth ${diameters}`, () => {
+  it(`known wrong result: #2198 torsion uses each cage secondary depth ${diameters}`, () => {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 2, spacing: 0.1 }));
     const st = stations(260, 10);
     const result = verifyProvidedReinforcement(1, 'beam', { regions: { bottomSpan: bars, topStart: bars, topEnd: bars, stirrupsStart: cages[0], stirrupsSpan: cages[1], stirrupsEnd: cages[2] } }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
@@ -50,7 +49,7 @@ for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
 }
 
 for (const kind of ['beam', 'column'] as const) for (const axis of ['My', 'Mz'] as const) for (const needed of [2, 3, 4, 5]) {
-  known(`known wrong result: #2198 enumerate secondary strength ${kind} ${axis} needs ${needed} legs`, () => {
+  it(`known wrong result: #2198 enumerate secondary strength ${kind} ${axis} needs ${needed} legs`, () => {
     const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
     ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
     ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45, ...(axis === 'Mz' ? { flexure: 'Mz', shear: 'Vy', secondaryFlexure: 'My', secondaryShear: 'Vz', sagCategory: 'Mz+', hogCategory: 'Mz-' } : {}) };
@@ -86,7 +85,7 @@ import { computeStationDemands, setCompactStationTransfer } from '../verificatio
 
 afterEach(() => setCompactStationTransfer(true));
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  known(`known wrong result: #2198 solved actual-cage depth ${spatial} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2198 solved actual-cage depth ${spatial} ${nonlinear} ${compact}`, () => {
     const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]);
     const elements = new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]);
     const sections = new Map([[1, { id: 1, name: 'RC', ...section, a: section.b * section.h, iy: section.b * section.h ** 3 / 12, iz: section.h * section.b ** 3 / 12, j: 0.001 }]]);
@@ -116,7 +115,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) for 
 }
 
 for (const kind of ['beam', 'column'] as const) {
-  known(`known wrong result: #2198 retain every supported secondary count even below the strength seed ${kind}`, () => {
+  it(`known wrong result: #2198 retain every supported secondary count even below the strength seed ${kind}`, () => {
     const ctx = syntheticBeamContext({ elementType: kind, codeEdition: '2025' });
     ctx.section = { ...ctx.section, b: 0.45, h: 0.45 };
     ctx.axes = { ...ctx.axes, bFlex: 0.45, hFlex: 0.45 };

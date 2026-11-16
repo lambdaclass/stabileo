@@ -94,3 +94,13 @@ The four two-metre-mesh conflicts are retained exactly in the span trace record.
 | `e54-topI-1` | `joint-14:ties:crosstie1:0.2274` | 15, 48, 54 |
 | `e60-topJ-2` | `joint-17:ties:crosstie1:0.2274` | 22, 60, 66 |
 | `e63-topJ-1` | `joint-18:ties:crosstie1:0.2274` | 24, 63, 66 |
+
+## Actual cage depths and complete secondary options (round 6)
+
+The [round-6 record](2198-round6-cage-depth.md) documents cage-local secondary
+depths shared by shear and torsion, seismic hoop spacing sized for every end,
+and bounded enumeration through all supported secondary counts. It records
+parent failures, independent capacity arithmetic, correct controls and refusal
+boundaries. Two pre-existing main defects are deferred with ready-to-file issue
+text as directed by the coordinator. SA-2026-075 screening now includes equal
+counts and omitted checks, including two-primary/two-secondary cages.

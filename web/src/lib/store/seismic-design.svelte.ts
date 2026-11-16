@@ -246,12 +246,14 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
     const r: ProvidedReinforcement = JSON.parse(JSON.stringify(r0));
     if (m.kind === 'beam' && m.beam) {
       const cur = r.regions?.stirrupsSupport ?? r.stirrups ?? { diameter: 8, legs: 2, spacing: 0.2 };
-      const st = beamSteel(r), d = (ctx.axes.hFlex || ctx.section.h) - ctx.material.cover - (cur.diameter + st.minDia / 2) / 1000;
+      const st = beamSteel(r);
       let pick: { diameter: number; spacing: number } | null = null;
       const endCages = [cur, r.regions?.stirrupsStart, r.regions?.stirrupsEnd].flatMap(cage => cage ? [cage] : []);
       for (const dia of BAR_STEPS.filter((x) => x >= Math.max(...endCages.map(cage => cage.diameter)))) {
-        const s = hoopSpacingFor(m.beam.ve, m.beam.vcZero, ctx.axes.bFlex || ctx.section.b, d, ctx.material.fc, ctx.material.fy, dia, cur.legs);
-        if (s === null) continue;
+        const d = (ctx.axes.hFlex || ctx.section.h) - ctx.material.cover - (dia + st.minDia / 2) / 1000;
+        const limits = endCages.map(cage => hoopSpacingFor(m.beam!.ve, m.beam!.vcZero, ctx.axes.bFlex || ctx.section.b, d, ctx.material.fc, ctx.material.fy, dia, cage.legs));
+        if (limits.some(s => s === null)) continue;
+        const s = Math.min(...limits as number[]);
         pick = { diameter: dia, spacing: Math.max(0.05, Math.min(m.beam.hoops.spacing, s, ...endCages.map(cage => cage.spacing))) };
         pick.spacing = Math.floor(pick.spacing * 40 + 1e-9) / 40 || 0.05;
         break;

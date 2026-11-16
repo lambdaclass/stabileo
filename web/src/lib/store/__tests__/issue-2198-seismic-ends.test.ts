@@ -16,7 +16,6 @@ vi.mock('../lateral-system', () => ({ declareLateral: vi.fn(), lateralResolver: 
 vi.mock('../../engine/design/seismic/frame-checks', async importOriginal => ({ ...await importOriginal<typeof import('../../engine/design/seismic/frame-checks')>(), seismicFrameChecks: () => ({ members: [{ id: 1, kind: 'beam', role: 'primary', ok: false, beam: { ve: state.ve, vcZero: state.vcZero, hoops: { spacing: 0.15, length: 1.2 } } }], joints: [] }) }));
 import { applySeismicDetailing } from '../seismic-design.svelte';
 
-const known = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 
 beforeEach(() => {
   state.revisions++;
@@ -25,7 +24,7 @@ beforeEach(() => {
 });
 
 for (const swap of [false, true]) for (const vcZero of [false, true]) for (const endLegs of [2, 3, 4]) for (const demand of [120, 240, 1000]) {
-  known(`known wrong result: #2198 seismic end hoops ${swap} ${vcZero} ${endLegs} ${demand}`, () => {
+  it(`known wrong result: #2198 seismic end hoops ${swap} ${vcZero} ${endLegs} ${demand}`, () => {
     state.ve = demand;
     state.vcZero = vcZero;
     const shared = { diameter: 8, legs: 4, secondaryLegs: 3, spacing: 0.2 };
