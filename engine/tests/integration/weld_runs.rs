@@ -1,4 +1,6 @@
-use dedaliano_engine::postprocess::connection_check::{check_weld_groups, WeldGroupInput};
+use dedaliano_engine::postprocess::connection_check::{
+    check_weld_groups, WeldGroupInput, WeldSegment, INVALID_WELD_GEOMETRY,
+};
 use serde_json::Value;
 
 fn weld_run_case(name: &str) {
@@ -251,4 +253,271 @@ fn issue_2243_ambiguous_branch() {
 #[test]
 fn invalid_nonpositive_size() {
     weld_run_case("invalid_nonpositive_size");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size() {
+    weld_run_case("invalid_negative_size");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size_along_length() {
+    weld_run_case("invalid_negative_size_along_length");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size_default() {
+    weld_run_case("invalid_negative_size_default");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_smallest_negative_size() {
+    weld_run_case("invalid_smallest_negative_size");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size_unloaded() {
+    weld_run_case("invalid_negative_size_unloaded");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size_zero_length() {
+    weld_run_case("invalid_negative_size_zero_length");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_negative_size_with_valid_run() {
+    weld_run_case("invalid_negative_size_with_valid_run");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_x_forward() {
+    weld_run_case("invalid_overflow_x_forward");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_x_reverse() {
+    weld_run_case("invalid_overflow_x_reverse");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_y_forward() {
+    weld_run_case("invalid_overflow_y_forward");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_y_reverse() {
+    weld_run_case("invalid_overflow_y_reverse");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_hypot() {
+    weld_run_case("invalid_overflow_hypot");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn invalid_overflow_run_length() {
+    weld_run_case("invalid_overflow_run_length");
+}
+
+#[test]
+fn zero_size_unloaded() {
+    weld_run_case("zero_size_unloaded");
+}
+
+#[test]
+fn negative_zero_size_loaded() {
+    weld_run_case("negative_zero_size_loaded");
+}
+
+fn invalid_native_geometry(segment: WeldSegment, loaded: bool) {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/weld-runs.json")).unwrap();
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "correct_unreduced_answer")
+        .unwrap();
+    let mut input: WeldGroupInput = serde_json::from_value(case["input"].clone()).unwrap();
+    input.groups[0].segments.push(segment);
+    if !loaded {
+        input.forces[0].vx = 0.0;
+        input.forces[0].vy = 0.0;
+        input.forces[0].m = Some(0.0);
+    }
+    let result = check_weld_groups(&input).remove(0);
+    assert_eq!(result.unity_ratio, f64::INFINITY);
+    assert_eq!(result.unevaluated, vec![INVALID_WELD_GEOMETRY]);
+}
+
+macro_rules! nonfinite_geometry_case {
+    ($loaded:ident, $unloaded:ident, $field:ident, $value:expr) => {
+        #[test]
+        #[ignore = "known wrong result: #2258"]
+        fn $loaded() {
+            invalid_native_geometry(
+                WeldSegment {
+                    $field: $value,
+                    ..finite_segment()
+                },
+                true,
+            );
+        }
+
+        #[test]
+        #[ignore = "known wrong result: #2258"]
+        fn $unloaded() {
+            invalid_native_geometry(
+                WeldSegment {
+                    $field: $value,
+                    ..finite_segment()
+                },
+                false,
+            );
+        }
+    };
+}
+
+fn finite_segment() -> WeldSegment {
+    WeldSegment {
+        x1: 1.0,
+        y1: 0.0,
+        x2: 1.2,
+        y2: 0.0,
+        size: 0.006,
+        end_loaded: Some(false),
+    }
+}
+
+nonfinite_geometry_case!(invalid_x1_nan, invalid_x1_nan_unloaded, x1, f64::NAN);
+
+nonfinite_geometry_case!(
+    invalid_x1_positive_infinity,
+    invalid_x1_positive_infinity_unloaded,
+    x1,
+    f64::INFINITY
+);
+
+nonfinite_geometry_case!(
+    invalid_x1_negative_infinity,
+    invalid_x1_negative_infinity_unloaded,
+    x1,
+    f64::NEG_INFINITY
+);
+
+nonfinite_geometry_case!(invalid_y1_nan, invalid_y1_nan_unloaded, y1, f64::NAN);
+
+nonfinite_geometry_case!(
+    invalid_y1_positive_infinity,
+    invalid_y1_positive_infinity_unloaded,
+    y1,
+    f64::INFINITY
+);
+
+nonfinite_geometry_case!(
+    invalid_y1_negative_infinity,
+    invalid_y1_negative_infinity_unloaded,
+    y1,
+    f64::NEG_INFINITY
+);
+
+nonfinite_geometry_case!(invalid_x2_nan, invalid_x2_nan_unloaded, x2, f64::NAN);
+
+nonfinite_geometry_case!(
+    invalid_x2_positive_infinity,
+    invalid_x2_positive_infinity_unloaded,
+    x2,
+    f64::INFINITY
+);
+
+nonfinite_geometry_case!(
+    invalid_x2_negative_infinity,
+    invalid_x2_negative_infinity_unloaded,
+    x2,
+    f64::NEG_INFINITY
+);
+
+nonfinite_geometry_case!(invalid_y2_nan, invalid_y2_nan_unloaded, y2, f64::NAN);
+
+nonfinite_geometry_case!(
+    invalid_y2_positive_infinity,
+    invalid_y2_positive_infinity_unloaded,
+    y2,
+    f64::INFINITY
+);
+
+nonfinite_geometry_case!(
+    invalid_y2_negative_infinity,
+    invalid_y2_negative_infinity_unloaded,
+    y2,
+    f64::NEG_INFINITY
+);
+
+nonfinite_geometry_case!(invalid_size_nan, invalid_size_nan_unloaded, size, f64::NAN);
+
+nonfinite_geometry_case!(
+    invalid_size_positive_infinity,
+    invalid_size_positive_infinity_unloaded,
+    size,
+    f64::INFINITY
+);
+
+nonfinite_geometry_case!(
+    invalid_size_negative_infinity,
+    invalid_size_negative_infinity_unloaded,
+    size,
+    f64::NEG_INFINITY
+);
+
+#[test]
+fn finite_endpoint_limit() {
+    weld_run_case("finite_endpoint_limit");
+}
+
+#[test]
+fn finite_difference_limit() {
+    weld_run_case("finite_difference_limit");
+}
+
+#[test]
+fn finite_hypot_limit() {
+    weld_run_case("finite_hypot_limit");
+}
+
+#[test]
+fn finite_run_length_limit() {
+    weld_run_case("finite_run_length_limit");
+}
+
+#[test]
+fn finite_maximum_size_keeps_positive_answer() {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/weld-runs.json")).unwrap();
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "correct_unreduced_answer")
+        .unwrap();
+    let mut input: WeldGroupInput = serde_json::from_value(case["input"].clone()).unwrap();
+    input.groups[0].segments = vec![WeldSegment {
+        size: f64::MAX,
+        ..finite_segment()
+    }];
+    let result = check_weld_groups(&input).remove(0);
+    assert!(result.unevaluated.is_empty());
+    assert!(result.unity_ratio.is_finite() && result.unity_ratio > 0.0);
+    assert!(result.total_throat_area.is_finite() && result.total_throat_area > 0.0);
 }

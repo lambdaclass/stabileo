@@ -3346,6 +3346,677 @@
         ]
       },
       "expectedUnevaluated": "loaded weld group without a positive throat area"
+    },
+    {
+      "name": "invalid_negative_size",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_negative_size_along_length",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": false
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_negative_size_default",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": null
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_smallest_negative_size",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -5e-324,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_negative_size_unloaded",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_negative_size_zero_length",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_negative_size_with_valid_run",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1,
+                "y1": 0,
+                "x2": 1.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_x_forward",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -1.7976931348623157e+308,
+                "y1": 0,
+                "x2": 1.7976931348623157e+308,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_x_reverse",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 1.7976931348623157e+308,
+                "y1": 0,
+                "x2": -1.7976931348623157e+308,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_y_forward",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": -1.7976931348623157e+308,
+                "x2": 0.2,
+                "y2": 1.7976931348623157e+308,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_y_reverse",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 1.7976931348623157e+308,
+                "x2": 0.2,
+                "y2": -1.7976931348623157e+308,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_hypot",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 1.4381545078898526e+308,
+                "y2": 1.4381545078898526e+308,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "invalid_overflow_run_length",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -1e+308,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 1e+308,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "zero_size_unloaded",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expected": {
+        "unityRatio": 0,
+        "totalLength": 0.2,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "negative_zero_size_loaded",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": -0.0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 1000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "loaded weld group without a positive throat area"
+    },
+    {
+      "name": "finite_endpoint_limit",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 1.7976931348623157e+308,
+                "y2": 0,
+                "size": 0
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expected": {
+        "unityRatio": 0,
+        "totalLength": 1.7976931348623157e+308,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "finite_difference_limit",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -8.988465674311579e+307,
+                "y1": 0,
+                "x2": 8.988465674311579e+307,
+                "y2": 0,
+                "size": 0
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expected": {
+        "unityRatio": 0,
+        "totalLength": 1.7976931348623157e+308,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "finite_hypot_limit",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 8.988465674311579e+307,
+                "y2": 8.988465674311579e+307,
+                "size": 0
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expected": {
+        "unityRatio": 0,
+        "totalLength": 1.2711610061536462e+308,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
+    },
+    {
+      "name": "finite_run_length_limit",
+      "issue": null,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -8.988465674311579e+307,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "size": 0
+              },
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 8.988465674311579e+307,
+                "y2": 0,
+                "size": 0
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expected": {
+        "unityRatio": 0,
+        "totalLength": 1.7976931348623157e+308,
+        "totalThroatArea": 0,
+        "minBeta": 1
+      }
     }
   ]
 }
