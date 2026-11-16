@@ -2,6 +2,9 @@ use crate::types::*;
 use std::collections::HashMap;
 
 pub(super) fn plane(input: &SolverInput, loads: &[SolverLoad]) -> Vec<Vec<f64>> {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let nodes: HashMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
     let elements: HashMap<_, _> = input.elements.values().map(|e| (e.id, e)).collect();
     loads
@@ -39,6 +42,9 @@ pub(super) fn plane(input: &SolverInput, loads: &[SolverLoad]) -> Vec<Vec<f64>> 
 }
 
 pub(super) fn space(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Vec<Vec<f64>> {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let nodes: HashMap<_, _> = input.nodes.values().map(|n| (n.id, n)).collect();
     let elements: HashMap<_, _> = input.elements.values().map(|e| (e.id, e)).collect();
     let mut out = Vec::new();

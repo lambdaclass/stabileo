@@ -329,12 +329,13 @@ describe('known wrong result: #2222 — rounded child lengths', () => {
 
 describe('known wrong result: #2222 — wind endpoint arithmetic', () => {
   for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
-    it.skip(`${dim}D ${mode} maps coincident wind endpoints and refuses distinct overhangs`, () => {
-      for (const [origin, tip, endpoint] of [
-        [[1000.1, 0], [1004.1, 0], adjacent(4, 1n)],
-        [[-0.665, 0.17], [-0.435, 0.63], 0.5142956348249517],
-        [[0, 4.4999812501171865], [0, 6], 1.500018749882814],
-      ] as Array<[number[], number[], number]>) {
+    it(`${dim}D ${mode} maps coincident wind endpoints and refuses distinct overhangs`, () => {
+      for (const [origin, tip, endpoint, overhang] of [
+        [[1000.1, 0], [1004.1, 0], adjacent(4, 1n), 4 + 1e-10],
+        [[1000.1, 0], [1004.1, 0], 4 + 16 * Number.EPSILON, adjacent(4 + 16 * Number.EPSILON, 1n)],
+        [[-0.665, 0.17], [-0.435, 0.63], 0.5142956348249517, 0.5142956348249517 + 1e-10],
+        [[0, 4.4999812501171865], [0, 6], 1.500018749882814, 1.500018749882814 + 1e-10],
+      ] as Array<[number[], number[], number, number]>) {
         const base: any = structuredClone(model);
         base.materials[1].e = 200000;
         const dx = tip[0] - origin[0], dz = tip[1] - origin[1];
@@ -355,11 +356,18 @@ describe('known wrong result: #2222 — wind endpoint arithmetic', () => {
           : mode === 'pdelta' ? JSON.parse(wasm[`solve_pdelta_${dim}d`](JSON.stringify(input), 20, 1e-9)).linearResults
           : JSON.parse(wasm[`solve_corotational_${dim}d`](JSON.stringify(input), 40, 1e-12, 1)).results;
         try {
-          for (const b of [endpoint, endpoint + 1e-10]) {
+          for (const b of [endpoint, overhang]) {
             const a = b * 0.2;
             const input = { ...base, loads: [{ type: 'distributed', data: dim === 2
               ? { elementId: 1, a, b, qI: -2, qJ: -4 }
               : { elementId: 1, a, b, qYI: -2, qYJ: -4, qZI: 0, qZJ: 0 } }] };
+            if (b === adjacent(4, 1n) && origin[0] === 1000.1) {
+              const q = 1.5 * 2 ** 53;
+              const unrepresentable = { ...input, loads: [{ type: 'distributed', data: dim === 2
+                ? { elementId: 1, a, b, qI: q, qJ: -q + 2 }
+                : { elementId: 1, a, b, qYI: q, qYJ: -q + 2, qZI: 0, qZJ: 0 } }] };
+              expect(() => run(unrepresentable)).toThrow(/invalid distributed load interval/);
+            }
             if (b !== endpoint) expect(() => run(input)).toThrow(/interval/);
             else {
               const result = run(input);

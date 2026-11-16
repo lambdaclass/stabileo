@@ -3521,6 +3521,9 @@ fn validate_distributed_load(
 /// point-load positions). Split from `validate_input_2d` so multi-case solves
 /// can validate each case's loads independently of the structure.
 pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Result<(), String> {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     // A load set solved on a prepared model (load cases, WASM load sessions) skips the model
     // validation, so the thermal properties are checked here too (#407).
     for load in loads {
@@ -4015,6 +4018,9 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
 /// point-load positions). Split from `validate_input_3d` so multi-case solves
 /// can validate each case's loads independently of the structure.
 pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<(), String> {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     // As `validate_loads_2d`: prepared solves check the thermal properties here (#407).
     for load in loads {
         if let SolverLoad3D::Thermal(l) = load {
@@ -4312,6 +4318,9 @@ fn compute_internal_forces_2d_typed(
     input: &SolverInput, loads: &[SolverLoad], dof_num: &DofNumbering, u: &[f64],
     properties: &ElasticProperties2D,
 ) -> Vec<ElementForces> {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let mut forces = Vec::new();
 
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -4550,6 +4559,9 @@ pub fn compute_internal_forces_3d_with_loads(
     dof_num: &DofNumbering,
     u: &[f64],
 ) -> Vec<ElementForces3D> {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let mut forces = Vec::new();
     let left_hand = input.left_hand.unwrap_or(false);
 

@@ -362,15 +362,16 @@ fn issue_2222_kinematics_identifies_only_finite_unsupported_nodal_moments() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_wind_endpoint_arithmetic_across_solvers() {
     use dedaliano_engine::{load_session::*, solver::fiber_nonlinear::*};
-    for (origin, tip, endpoint) in [
-        ([1000.1, 0.0], [1004.1, 0.0], 4.0_f64.next_up()),
-        ([-0.665, 0.17], [-0.435, 0.63], 0.5142956348249517),
-        ([0.0, 4.4999812501171865], [0.0, 6.0], 1.500018749882814),
+    for (origin, tip, endpoint, overhang, density_safe) in [
+        ([1000.1, 0.0], [1004.1, 0.0], 4.0_f64.next_up(), 4.0 + 1e-10, true),
+        ([1000.1, 0.0], [1004.1, 0.0], 4.0 + 16.0 * f64::EPSILON, (4.0 + 16.0 * f64::EPSILON).next_up(), true),
+        ([-0.665, 0.17], [-0.435, 0.63], 0.5142956348249517, 0.5142956348249517 + 1e-10, true),
+        ([0.0, 4.4999812501171865], [0.0, 6.0], 1.500018749882814, 1.500018749882814 + 1e-10, true),
+        ([1000.1, 0.0], [1004.1, 0.0], 4.0_f64.next_up(), 4.0 + 1e-10, false),
     ] {
-        for b in [endpoint, endpoint + 1e-10] {
+        for b in [endpoint, overhang] {
             for axial in [false, true] {
                 let mut input = witness();
                 input.materials.values_mut().next().unwrap().e = 200_000.0;
@@ -381,10 +382,11 @@ fn issue_2222_wind_endpoint_arithmetic_across_solvers() {
                 }
                 let length = (delta[0] * delta[0] + delta[1] * delta[1]).sqrt();
                 let a = b * 0.2;
+                let (q_i, q_j) = if density_safe { (-2.0, -4.0) } else { let q = 1.5 * 2.0_f64.powi(53); (q, -q + 2.0) };
                 input.loads = vec![if axial {
-                    SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: -2.0, q_j: -4.0, a: Some(a), b: Some(b) })
+                    SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i, q_j, a: Some(a), b: Some(b) })
                 } else {
-                    SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -2.0, q_j: -4.0, a: Some(a), b: Some(b) })
+                    SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i, q_j, a: Some(a), b: Some(b) })
                 }];
                 let mut base = input.clone(); base.loads.clear();
                 let fiber = FiberNonlinearInput { solver: input.clone(), fiber_sections: Default::default(), n_integration_points: 5, max_iter: 40, tolerance: 1e-9, n_increments: 1, modified_nr: false };
@@ -398,7 +400,10 @@ fn issue_2222_wind_endpoint_arithmetic_across_solvers() {
                     ("corotational", corotational::solve_corotational_2d(&input, 40, 1e-12, 1, false).map(|r| r.results)),
                     ("fiber", solve_fiber_nonlinear_2d(&fiber).map(|r| r.results)),
                 ] {
-                    if b != endpoint { assert!(result.is_err(), "{entry} accepted {b}"); continue; }
+                    if b != endpoint || !density_safe {
+                        assert!(result.expect_err(&format!("{entry} accepted {b}")).contains("invalid distributed load interval"));
+                        continue;
+                    }
                     let r = result.unwrap_or_else(|e| panic!("{entry}: {e}"));
                     let f = -3.0 * (b - a);
                     let expected = if axial { [f * delta[0] / length, f * delta[1] / length] } else { [-f * delta[1] / length, f * delta[0] / length] };
@@ -417,7 +422,10 @@ fn issue_2222_wind_endpoint_arithmetic_across_solvers() {
                         ("corotational", corotational::solve_corotational_3d(&spatial, 40, 1e-12, 1, false).map(|r| r.results)),
                         ("fiber", solve_fiber_nonlinear_3d(&fiber).map(|r| r.results)),
                     ] {
-                        if b != endpoint { assert!(result.is_err(), "3D {entry} accepted {b}"); continue; }
+                        if b != endpoint || !density_safe {
+                            assert!(result.expect_err(&format!("3D {entry} accepted {b}")).contains("invalid distributed load interval"));
+                            continue;
+                        }
                         let r = result.unwrap_or_else(|e| panic!("3D {entry}: {e}"));
                         let sum = r.reactions.iter().fold([0.0; 3], |s, r| [s[0] + r.fx, s[1] + r.fy, s[2] + r.fz]);
                         near(sum.iter().map(|f| f * f).sum::<f64>().sqrt(), 3.0 * (b - a));

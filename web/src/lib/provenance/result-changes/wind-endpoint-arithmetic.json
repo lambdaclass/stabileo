@@ -1,0 +1,43 @@
+{
+  "id": "wind-endpoint-arithmetic",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "solve.ok",
+    "displacements",
+    "reactions",
+    "elementForces"
+  ],
+  "title": {
+    "en": "Supported wind member endpoints remain solvable",
+    "es": "Los extremos compatibles de cargas de viento se resuelven",
+    "pt": "Extremos compatíveis de cargas de vento são resolvidos",
+    "de": "Unterstützte Windlastintervalle bleiben berechenbar",
+    "fr": "Les intervalles de vent pris en charge restent calculables",
+    "hu": "A támogatott szélteher-intervallumok megoldhatók",
+    "tr": "Desteklenen rüzgâr yükü aralıkları çözülebilir"
+  },
+  "explanation": {
+    "en": "Rerun member-load analyses refused at rounded wind endpoints. Shared geometry mapping now carries coordinates and densities together through validation, assembly and recovery. Distinct overhangs and sub-limit intervals still refuse (#2222, #2223).",
+    "es": "Repita los análisis rechazados por extremos redondeados de cargas de viento. El mapeo geométrico transforma coordenadas y densidades en validación, ensamblaje y recuperación. Los excesos distintos y los intervalos inferiores al límite siguen rechazándose (#2222, #2223).",
+    "pt": "Refaça análises recusadas por extremos arredondados de cargas de vento. O mapeamento geométrico transforma coordenadas e densidades na validação, montagem e recuperação. Excedentes distintos e intervalos abaixo do limite continuam recusados (#2222, #2223).",
+    "de": "An abgerundeten Windlastenden abgelehnte Analysen erneut berechnen. Die gemeinsame Geometrieabbildung transformiert Koordinaten und Lastdichten bei Prüfung, Assemblierung und Rückgewinnung. Echte Überstände und Intervalle unter der Grenze bleiben abgelehnt (#2222, #2223).",
+    "fr": "Relancer les analyses refusées aux extrémités arrondies des charges de vent. Le mappage géométrique transforme coordonnées et densités dans la validation, l’assemblage et la récupération. Les dépassements distincts et les intervalles sous la limite restent refusés (#2222, #2223).",
+    "hu": "Újra kell futtatni a kerekített széltehervégpontok miatt elutasított elemzéseket. A közös geometriai leképezés együtt alakítja a koordinátákat és tehersűrűségeket az ellenőrzésben, összeállításban és visszanyerésben. A különálló túlnyúlások és határ alatti intervallumok továbbra is elutasítottak (#2222, #2223).",
+    "tr": "Yuvarlanmış rüzgâr yükü uçlarında reddedilen analizleri yeniden çalıştırın. Ortak geometri eşlemesi doğrulama, montaj ve geri hesaplamada koordinatları ve yük yoğunluklarını birlikte dönüştürür. Ayrı taşmalar ve sınır altı aralıklar reddedilmeye devam eder (#2222, #2223)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-endpoint-arithmetic.md",
+    "heading": "Wind member endpoint arithmetic (2026-11-16)"
+  },
+  "when": {
+    "all": [
+      "members",
+      "memberLoads"
+    ]
+  }
+}
