@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { snow, run, pressure, skewRoof, regulations } from './snow-roof-plane-fixture';
 import { stepRoof } from './snow-step-fixture';
@@ -37,7 +38,7 @@ for (const angle of [0, 0.37, -0.8, 1.1, Math.PI / 2, Math.PI]) for (const mirro
     const width = run(model, 'width');
     expect(pressure(width.cases[0]!.distributed, 500)).toBeCloseTo(ps, 9);
     const projected = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
-    expect(pressure(projected.cases[0]!.distributed, 500)).toBeCloseTo(ps * Math.cos(20 * Math.PI / 180) ** 2, 9);
+    expect(pressure(transverseSnowLoads(model, projected.cases[0]!.distributed), 500)).toBeCloseTo(ps * Math.cos(20 * Math.PI / 180) ** 2, 9);
   });
   it(`skew roof plane elevations are invariant: ${angle}, mirror ${mirror}, shift ${shift}`, () => {
     const model = transformed(skewRoof(), angle, mirror, shift);
@@ -149,7 +150,7 @@ for (const angle of [0, 0.37, 1.1]) {
     const out = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
     expect(out.result.refused).toBeUndefined();
     expect(out.geometry.W).toBeCloseTo(1, 12);
-    for (const d of out.cases[0]!.distributed) expect(-d.q).toBeCloseTo((70 - 20) / 65 * Math.cos(20 * Math.PI / 180) ** 2, 12);
+    for (const d of transverseSnowLoads(model, out.cases[0]!.distributed)) expect(-d.q).toBeCloseTo((70 - 20) / 65 * Math.cos(20 * Math.PI / 180) ** 2, 12);
   });
 }
 

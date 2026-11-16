@@ -13,11 +13,11 @@ for (const groups of [[true, false], [false, true], [false], []]) {
   for (const axis of ['My', 'Mz'] as const) {
     it(`#2080 incomplete station combinations ${groups} refuse before ${axis} verification`, () => {
       const data = result(groups);
-      expect(() => ConcurrentDemand.fromStations(data)).toThrow(/complete|combination/i);
-      expect(() => extractGoverningDemands(data)).toThrow(/complete|combination/i);
+      expect(() => ConcurrentDemand.fromStations(data)).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
+      expect(() => extractGoverningDemands(data)).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
       expect(() => verifyConcurrentElement(ConcurrentDemand.fromStations(data).map(d => ({
         elementId: 1, elementType: 'beam', demand: d.section(axis), b: 0.4, h: 0.4, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8,
-      })))).toThrow(/complete|combination/i);
+      })))).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
     });
   }
 }
@@ -45,13 +45,13 @@ for (const id of ['aisc360', 'ec3', 'aci318', 'ec2', 'aisiS100'] as const) {
     it(`#2080 ${id} refuses missing or incomplete tuples length=${tuples?.length}`, async () => {
       const c = code(id), input = { ...ctx, tuples };
       const run = vi.spyOn(c, 'run');
-      expect(runOtherCode(c, [input]).rows[0]!.status).toBe('skipped');
+      expect(() => runOtherCode(c, [input])).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
       expect(run).not.toHaveBeenCalled();
     });
     it(`#2080 ${id} cannot certify missing or incomplete tuples length=${tuples?.length}`, async () => {
       const c = code(id), input = { ...ctx, tuples };
       const call = vi.fn(async () => [{ elementId: 1, certified: true, utilizationLower: 0.5, utilizationUpper: 0.5 }]);
-      expect((await certifyOtherCode(c, [input], () => ({} as never), call)).get(1)?.status).toBe('uncertified');
+      await expect(certifyOtherCode(c, [input], () => ({} as never), call)).rejects.toMatchObject({ code: 'incomplete-concurrent-demand' });
       expect(call).not.toHaveBeenCalled();
     });
   }

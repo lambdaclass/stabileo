@@ -1,3 +1,4 @@
+import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, separateRoofs, asymmetric, concave, disjoint, twoPitch, transform } from './snow-surface-round2-fixture';
 import { snow, pressure, regulations } from './snow-roof-plane-fixture';
@@ -166,7 +167,7 @@ it('disjoint sections retain the correct balanced pressure through the public ge
   const model = transform(disjoint(), 0.37);
   const out = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
   expect(out.result.refused).toBeUndefined();
-  for (const d of out.cases[0]!.distributed) expect(-d.q).toBeCloseTo(expected(Math.atan(0.1) * 180 / Math.PI, 2).ps / 1.01, 9);
+  for (const d of transverseSnowLoads(model, out.cases[0]!.distributed)) expect(-d.q).toBeCloseTo(expected(Math.atan(0.1) * 180 / Math.PI, 2).ps / 1.01, 9);
 });
 
 it('closed disjoint coplanar footprints keep their widths and the empty gap', () => {
@@ -208,5 +209,5 @@ it('a sloped cantilever beyond a closed footprint retains a width-section answer
   model.elements.set(100, { id: 100, nodeI: 4, nodeJ: 100, sectionId: 1, materialId: 1 });
   const out = snowLoadCases({ model, snow, tributaryWidth: 1 })!;
   expect(out.result.refused).toBeUndefined();
-  expect(pressure(out.cases[0]!.distributed, 100)).toBeCloseTo(expected(Math.atan(0.5) * 180 / Math.PI, 7).ps / 1.25, 9);
+  expect(pressure(transverseSnowLoads(model, out.cases[0]!.distributed), 100)).toBeCloseTo(expected(Math.atan(0.5) * 180 / Math.PI, 7).ps / 1.25, 9);
 });

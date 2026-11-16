@@ -1,10 +1,10 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { checkTorsion, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 function input(edition: '2005' | '2025', axis: 'My' | 'Mz', elementType: 'beam' | 'column' | 'wall', Tu: number): ConcurrentVerificationInput {
-  const d = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'torsion', forces: {
+  const d = declaredTestDemands([{ comboId: 1, comboName: 'torsion', forces: {
     t: 0, x: 0, n: 0, my: 20, mz: 20, vy: 0, vz: 0, torsion: Tu,
   } }])[0]!;
   return { ...p, edition, elementId: 1, elementType, demand: d.section(axis) };

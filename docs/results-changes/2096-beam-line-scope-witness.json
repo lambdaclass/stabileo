@@ -1,0 +1,306 @@
+{
+  "replayContext": "Differing production TypeScript engine modules were overlaid from the recorded main commit, then restored. Both runs use unchanged local WASM and current worktree non-engine dependencies. Direct API inputs; not a full application or historical release replay.",
+  "input": {
+    "elementId": 1,
+    "length": 4,
+    "stationTs": [
+      0,
+      1
+    ],
+    "comboResults": [
+      {
+        "comboId": 1,
+        "comboName": "C1",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          },
+          {
+            "t": 0.5,
+            "x": 2,
+            "n": 0,
+            "my": 60,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 6
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          }
+        ]
+      },
+      {
+        "comboId": 2,
+        "comboName": "C2",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          }
+        ]
+      }
+    ]
+  },
+  "declaredMissingMidpoint": {
+    "elementId": 1,
+    "length": 4,
+    "stationTs": [
+      0,
+      0.5,
+      1
+    ],
+    "comboResults": [
+      {
+        "comboId": 1,
+        "comboName": "C1",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          },
+          {
+            "t": 0.5,
+            "x": 2,
+            "n": 0,
+            "my": 60,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 6
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          }
+        ]
+      },
+      {
+        "comboId": 2,
+        "comboName": "C2",
+        "stations": [
+          {
+            "t": 0,
+            "x": 0,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          },
+          {
+            "t": 1,
+            "x": 4,
+            "n": 0,
+            "my": 0,
+            "mz": 0,
+            "vy": 0,
+            "vz": 20,
+            "torsion": 0
+          }
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "engineSources": "84e079651e5368dc6db70d81e2666f564b5e787c",
+      "unchangedWasm": true,
+      "flexure": {
+        "returned": [
+          {
+            "x": 0,
+            "mPos": 0,
+            "mNeg": 0,
+            "asBottom": 0,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          },
+          {
+            "x": 4,
+            "mPos": 60,
+            "mNeg": 0,
+            "asBottom": 2.8992058728149273,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          }
+        ]
+      },
+      "transverse": {
+        "returned": [
+          {
+            "x": 0,
+            "shear": 0,
+            "torsion": 0,
+            "min": 2.5
+          },
+          {
+            "x": 4,
+            "shear": 0,
+            "torsion": 1.7084690605222606,
+            "min": 2.5
+          }
+        ]
+      },
+      "missingDeclaredStationFlexure": {
+        "returned": [
+          {
+            "x": 0,
+            "mPos": 0,
+            "mNeg": 0,
+            "asBottom": 0,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          },
+          {
+            "x": 2,
+            "mPos": 60,
+            "mNeg": 0,
+            "asBottom": 2.8992058728149273,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          },
+          {
+            "x": 4,
+            "mPos": 0,
+            "mNeg": 0,
+            "asBottom": 0,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          }
+        ]
+      },
+      "missingDeclaredStationTransverse": {
+        "returned": [
+          {
+            "x": 0,
+            "shear": 0,
+            "torsion": 0,
+            "min": 2.5
+          },
+          {
+            "x": 2,
+            "shear": 0,
+            "torsion": 1.7084690605222606,
+            "min": 2.5
+          },
+          {
+            "x": 4,
+            "shear": 0,
+            "torsion": 0,
+            "min": 2.5
+          }
+        ]
+      }
+    },
+    {
+      "engineSources": "fix/2096 round4",
+      "unchangedWasm": true,
+      "flexure": {
+        "returned": [
+          {
+            "x": 0,
+            "mPos": 0,
+            "mNeg": 0,
+            "asBottom": 0,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          },
+          {
+            "x": 2,
+            "mPos": 60,
+            "mNeg": 0,
+            "asBottom": 2.8992058728149273,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          },
+          {
+            "x": 4,
+            "mPos": 0,
+            "mNeg": 0,
+            "asBottom": 0,
+            "asTop": 0,
+            "d": 0.5569999999999999
+          }
+        ]
+      },
+      "transverse": {
+        "returned": [
+          {
+            "x": 0,
+            "shear": 0,
+            "torsion": 0,
+            "min": 2.5
+          },
+          {
+            "x": 2,
+            "shear": 0,
+            "torsion": 1.7084690605222606,
+            "min": 2.5
+          },
+          {
+            "x": 4,
+            "shear": 0,
+            "torsion": 0,
+            "min": 2.5
+          }
+        ]
+      },
+      "missingDeclaredStationFlexure": {
+        "refused": {
+          "name": "IncompleteConcurrentDemandError",
+          "code": "incomplete-concurrent-demand"
+        }
+      },
+      "missingDeclaredStationTransverse": {
+        "refused": {
+          "name": "IncompleteConcurrentDemandError",
+          "code": "incomplete-concurrent-demand"
+        }
+      }
+    }
+  ]
+}

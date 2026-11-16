@@ -1,3 +1,6 @@
+import { DemandInventory, memberDemandScope, type DemandCoverage } from '../../engine/complete-demand-set';
+import { ConcurrentDemand } from '../../engine/concurrent-demand';
+import { completeMemberDemands } from '../../engine/member-demand-gate';
 /**
  * The building the per-span tests read, and what the documents print of it.
  *
@@ -132,7 +135,7 @@ export function designPlace(c: MemberContext): string {
 }
 
 /** What the design reads of the analysis for one member: its stations and slenderness factors. */
-export interface PrescribedForces { stations: ElementStationResult; slenderDeltaNs: number; slenderDeltaS: number }
+export interface PrescribedForces { coverage: DemandCoverage; stations: ElementStationResult; slenderDeltaNs: number; slenderDeltaS: number }
 
 /**
  * The design forces of the building as solved, by place: every design member's stations (for a
@@ -141,10 +144,15 @@ export interface PrescribedForces { stations: ElementStationResult; slenderDelta
  */
 export function forcesByPlace(compute = true): Map<string, PrescribedForces> {
   if (compute) designRunStore.computeDemands();
+  completeMemberDemands([...verificationStore.contexts.values()].filter(c => c.stations).map(c => ({ elementId: c.elementId,
+    demands: c.demands?.demands ?? [], tuples: ConcurrentDemand.fromStations(c.stations!),
+    expectedCombinationIds: c.demands?.expectedCombinationIds, stationTs: c.stations!.stationTs,
+  })));
   const out = new Map<string, PrescribedForces>();
   for (const c of verificationStore.contexts.values()) {
     if (!c.stations || out.has(designPlace(c))) continue;
-    out.set(designPlace(c), { stations: structuredClone(c.stations), slenderDeltaNs: c.slenderDeltaNs, slenderDeltaS: c.slenderDeltaS });
+    const { inventory: _sourceInventory, ...coverage } = ConcurrentDemand.completeStations(c.stations).inventory.coverageForMember(c.elementId);
+    out.set(designPlace(c), { coverage, stations: structuredClone({ ...c.stations, inventory: undefined }), slenderDeltaNs: c.slenderDeltaNs, slenderDeltaS: c.slenderDeltaS });
   }
   return out;
 }
@@ -160,10 +168,18 @@ export function forcesByPlace(compute = true): Map<string, PrescribedForces> {
 export function designAndDocumentUnder(forces: ReadonlyMap<string, PrescribedForces>): DocumentModel {
   designRunStore.computeDemands();
   const next = new Map<number, MemberContext>();
+  const transferred = new Map<number, { context: MemberContext; forces: PrescribedForces; stations: ElementStationResult }>();
   for (const [id, c] of verificationStore.contexts) {
     const f = forces.get(designPlace(c));
     expect(f, `forces for ${designPlace(c)}`).toBeTruthy();
-    const stations: ElementStationResult = { ...structuredClone(f!.stations), elementId: c.stations!.elementId };
+    const stations: ElementStationResult = { ...structuredClone(f!.stations), inventory: undefined, elementId: c.stations!.elementId };
+    transferred.set(id, { context: c, forces: f!, stations });
+  }
+  const inventory = DemandInventory.declare(memberDemandScope([...transferred.values()].map(r => ({
+    elementId: r.stations.elementId, ...r.forces.coverage,
+  }))));
+  for (const [id, { context: c, forces: f, stations: source }] of transferred) {
+    const stations = { ...source, inventory };
     const demands = extractGoverningDemands(stations);
     next.set(id, {
       ...c, stations, demands, axes: resolveDesignAxes(c.elementType, { b: c.section.b, h: c.section.h }, demands),

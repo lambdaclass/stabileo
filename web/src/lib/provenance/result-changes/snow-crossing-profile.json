@@ -1,0 +1,39 @@
+{
+  "id": "snow-crossing-profile",
+  "date": "2026-11-16",
+  "prs": [
+    2197
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "snow",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Snow loads retain their ridge-crossing moment",
+    "es": "Las cargas de nieve conservan el momento al cruzar la cumbrera",
+    "pt": "As cargas de neve preservam o momento ao cruzar a cumeeira",
+    "de": "Schneelasten erhalten ihr Moment beim Überqueren des Firsts",
+    "fr": "Les charges de neige conservent leur moment au passage du faîtage",
+    "tr": "Kar yükleri mahyayı geçerken yük momentini korur",
+    "hu": "A hóterhek megőrzik a gerinckeresztezés nyomatékát"
+  },
+  "explanation": {
+    "en": "Members crossing a snow ridge received one uniform pressure and lost the physical load moment. Loads now split at the physical ridge. Regenerate all affected generated area loads, then rerun analyses, combinations and design checks. Re-solving stored generated loads alone does not correct them. (#2176; SA-2026-073).",
+    "es": "Los miembros que cruzaban una cumbrera recibían una presión uniforme y perdían el momento físico. Las cargas ahora se dividen en la cumbrera física. Regenere todas las cargas de área generadas afectadas y repita análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige. (#2176; SA-2026-073).",
+    "pt": "Membros que cruzavam a cumeeira recebiam pressão uniforme e perdiam o momento físico. As cargas agora são divididas na cumeeira física. Gere novamente todas as cargas de área geradas afetadas e repita análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige. (#2176; SA-2026-073).",
+    "de": "Stäbe über den First erhielten gleichmäßigen Druck und verloren das physikalische Lastmoment. Lasten werden jetzt am geometrischen First geteilt. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2176; SA-2026-073).",
+    "fr": "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176; SA-2026-073).",
+    "tr": "Mahyayı geçen çubuklara düzgün basınç uygulanıyor ve fiziksel yük momenti kayboluyordu. Yükler artık fiziksel mahyada bölünür. Etkilenen tüm üretilmiş alan yüklerini yeniden üretip analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yalnızca yeniden çözmek yükleri düzeltmez. (#2176; SA-2026-073).",
+    "hu": "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176; SA-2026-073)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-snow-crossing-profile.md",
+    "heading": "Snow loads retain their ridge-crossing moment"
+  }
+}

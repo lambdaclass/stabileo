@@ -1,11 +1,11 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
-import { ConcurrentDemand } from '../concurrent-demand';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 
 const params = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 function inputs(edition: '2005' | '2025', axis: 'My' | 'Mz', elementType: 'beam' | 'column' | 'wall', pairs = [[300, 5], [0, 30]]): ConcurrentVerificationInput[] {
-  return ConcurrentDemand.fromTuples(pairs.map(([v, t], i) => ({ comboId: i + 1, comboName: `C${i + 1}`, forces: {
+  return declaredTestDemands(pairs.map(([v, t], i) => ({ comboId: i + 1, comboName: `C${i + 1}`, forces: {
     t: i, x: 0.4 * i, n: 0, my: 20, mz: 20, vy: axis === 'Mz' ? v! : 0, vz: axis === 'My' ? v! : 0, torsion: t!,
   } }))).map(d => ({ ...params, edition, elementId: 1, elementType, demand: d.section(axis) }));
 }

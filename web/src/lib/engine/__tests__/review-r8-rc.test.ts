@@ -1,3 +1,4 @@
+import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it } from 'vitest';
 import { ConcurrentDemand } from '../concurrent-demand';
 import { checkFlexure, prepareElementVerification, verifyElement, amplifiedDemand, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
@@ -10,7 +11,7 @@ const station = (t: number, m: number) => ({ t, x: 4 * t, n: -300, my: m, mz: m,
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const elementType of ['beam', 'column', 'wall'] as const) {
     it(`#2080 selected bars determine depth and shared capacity ${edition} ${axis} ${elementType}`, () => {
-      const inputs = ConcurrentDemand.fromTuples([20, 100].map((m, i) => ({ comboId: i, comboName: `${i}`, forces: { ...station(0.5, m), n: 0 } })))
+      const inputs = declaredTestDemands([20, 100].map((m, i) => ({ comboId: i, comboName: `${i}`, forces: { ...station(0.5, m), n: 0 } })))
         .map(d => ({ ...geometry, edition, elementId: 1, elementType, demand: d.section(axis) }));
       const large = verifyElement(inputs[1]!).flexure;
       const depth = geometry.h - geometry.cover - geometry.stirrupDia / 1000 - large.barDia / 2000;
@@ -72,7 +73,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   });
 }
 for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) it(`unknown loading uses the conservative slenderness boundary ${factor}`, () => {
-  const d = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'unknown', forces: station(0.5, 20) }])[0]!;
+  const d = declaredTestDemands([{ comboId: 1, comboName: 'unknown', forces: station(0.5, 20) }])[0]!;
   const v = verifyElement({ ...geometry, elementId: 1, elementType: 'column', Lu: 0.3 * geometry.h * 22 * factor, demand: d.section('My') });
   expect(v.slender!.isSlender).toBe(factor > 1);
   expect(v.slender!.Cm).toBe(1);
@@ -80,7 +81,7 @@ for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) it(`unknown loading uses the conse
 for (const delta of [-1e-7, 0, 1e-7]) it(`fixed selected cage keeps its capacity boundary ${delta}`, () => {
   const cage = checkFlexure(geometry, 100);
   const oracle = cage.phiMn;
-  const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'boundary', forces: { ...station(0.5, oracle * (1 + delta)), n: 0 } }])[0]!;
+  const demand = declaredTestDemands([{ comboId: 1, comboName: 'boundary', forces: { ...station(0.5, oracle * (1 + delta)), n: 0 } }])[0]!;
   const v = verifyElement({ ...geometry, elementId: 1, elementType: 'beam', demand: demand.section('My') }, { flexure: cage });
   expect(v.flexure.phiMn).toBe(oracle);
   expect(v.flexure.ratio).toBeCloseTo(1 + delta, 12);
@@ -90,7 +91,7 @@ for (const delta of [-1e-7, 0, 1e-7]) it(`fixed selected cage keeps its capacity
 for (const stirrupDia of [8, 12]) it(`#2080 a fixed cage derives depth from the receiving section and stirrups ${stirrupDia}`, () => {
   const cage = checkFlexure(geometry, 100);
   const section = { ...geometry, h: 0.45, stirrupDia };
-  const demand = ConcurrentDemand.fromTuples([{ comboId: 1, comboName: 'fixed', forces: { ...station(0.5, 20), n: 0 } }])[0]!;
+  const demand = declaredTestDemands([{ comboId: 1, comboName: 'fixed', forces: { ...station(0.5, 20), n: 0 } }])[0]!;
   const v = verifyElement({ ...section, elementId: 1, elementType: 'beam', demand: demand.section('My') }, { flexure: cage });
   const d = section.h - section.cover - stirrupDia / 1000 - cage.barDia / 2000;
   expect(v.flexure.providedDepth).toBe(d);

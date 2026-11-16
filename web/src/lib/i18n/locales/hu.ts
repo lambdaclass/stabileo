@@ -10850,6 +10850,7 @@ const hu: Translations = {
   "loadPlan.blocked.snowRoleUnusable": "A hó be van kapcsolva, de a projektben nincs hóelőírás beállítva.",
   "snow.refused.roofPlane": "A hóteher generálásához tetősík szükséges. Adjon meg nem egy egyenesre eső tetőpontokat; egyetlen szarufa nem határoz meg felületet ezen az alaprajzon.",
   "snow.refused.slidingOverlap": "A hóteher generálása nem tudja meghatározni a lecsúszást részben átfedő vagy megszakított ereszekről. Használjon teljesen illeszkedő, folytonos kiinduló és fogadó éleket. Nem keletkeztek hóterhek.",
+  "snow.derivation.intensityBound": "A másodfokú teherintenzitást szakaszonként lineáris terhek közelítik, megőrizve az erőt és mindkét alaprajzi nyomatékot. A pontonkénti hiba legfeljebb a teljes fizikai sáv legnagyobb mintavételezett intenzitásának {relativePercent}%-a; a legnagyobb abszolút korlát {absolute} kN/m.",
   "snow.derivation.edgeInterval": "Élszakasz az él első csúcsától mérve: {from}–{to} m; az értékek helye: {at} m.",
   "snow.refused.exposureNA": "A 2. táblázat nem ad Ce értéket arra a terepkategóriára azzal a tetőkitettséggel (N/A).",
   "snow.derivation.pf": "Hó: pg = {pg} kN/m² ({source}); Ce = {ce}, Ct = {ct}, I = {i}; pf = 0,7·Ce·Ct·I·pg = {pf} kN/m² (1. kifejezés).",

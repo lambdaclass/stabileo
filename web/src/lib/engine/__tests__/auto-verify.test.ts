@@ -302,7 +302,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     }]]);
     const forces = column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80, vzStart: 150, vzEnd: 150 });
     const demands = extractGoverningDemands({ elementId: 1, length: 3, stationTs: [0, 1], comboResults:
-      ['1.2D+1.6L', '0.9D+1.0E'].map((comboName, k) => ({ comboId: k + 1, comboName, stations: ConcurrentDemand.endpoints(forces.elementForces[0]).map(d => ({
+      ['1.2D+1.6L', '0.9D+1.0E'].map((comboName, k) => ({ comboId: k === 0 ? 1 : 3, comboName, stations: ConcurrentDemand.endpoints(forces.elementForces[0]).map(d => ({
         ...d.forces, vy: d.forces.vy * (k === 0 ? 1 : 0.5), vz: d.forces.vz * (k === 0 ? 0.5 : 1),
       })) })) });
     const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing, undefined, new Map([[1, demands]])).concrete;

@@ -1,3 +1,4 @@
+import type { LoadModelData } from '../load-plan';
 import { gravityLayout } from '../plan-gravity';
 import { snowLoadCases } from '../snow-loads';
 import { stepRoof } from './snow-step-fixture';
@@ -28,4 +29,14 @@ export function skewRoof() {
   for (const [id, x, y] of [[1, 0, 0], [2, 6, 0], [3, 6, 6], [4, 0, 6]] as const) model.nodes.set(id, { id, x, y, z: 3 + 0.5 * y });
   for (const [id, nodeI, nodeJ] of [[1, 1, 2], [2, 2, 3], [3, 3, 4], [4, 4, 1], [5, 1, 3]] as const) model.elements.set(id, { id, nodeI, nodeJ, sectionId: 1, materialId: 1 });
   return model;
+}
+
+export function transverseSnowLoads<T extends { elementId: number; q: number; qJ?: number; frame?: string }>(model: LoadModelData, loads: T[]): T[] {
+  return loads.map(d => {
+    if (d.frame !== 'projected') return d;
+    const e = model.elements.get(d.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const horizontal2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+    const factor = horizontal2 / (horizontal2 + ((b.z ?? 0) - (a.z ?? 0)) ** 2);
+    return { ...d, q: d.q * factor, ...(d.qJ !== undefined ? { qJ: d.qJ * factor } : {}) };
+  });
 }
