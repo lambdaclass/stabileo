@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "underAudit.text": "İnceleme sürüyor: iç denetimde otomatik yük oluşturma ve betonarme tasarımında hatalar bulundu. Düzeltmeler henüz tamamlanmadı. Bu sonuçları bir tasarımda kullanmadan önce bağımsız olarak kontrol edin.",
+  "underAudit.details": "İncelemede açık kalan bulgular",
   "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   "advanced.finiteSpectrumOne": "Yalnızca 1 sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   "advanced.modalIncomplete": "Modal analiz reddedildi: hesaplanan {m} moddan yalnızca {n} tanesinin frekansı pozitif (ω² > 0). Eksik bir mod kümesi döndürülmedi. Rijitlik ve kütle koşullanmasını ve mesnetleri kontrol edin.",
