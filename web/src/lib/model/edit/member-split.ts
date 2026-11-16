@@ -44,7 +44,7 @@ import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
   DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D,
 } from '../../store/model.svelte';
-import { remapSpanInterval, validateMemberLoadInterval } from '../../engine/member-span-loads';
+import { generatedMemberBounds, remapSpanInterval, validateMemberLoadInterval } from '../../engine/member-span-loads';
 import { tendonStretch } from '../../engine/prestress';
 
 const EPS = 1e-9;
@@ -73,7 +73,7 @@ function clipTrapezoid(
   const { lo, hi } = interval;
   const out = {
     a: interval.a, b: interval.b,
-    values: values.map(([qa, qb]): [number, number] => [lerp(qa, qb, a, b, lo), lerp(qa, qb, a, b, hi)]),
+    values: values.map(([qa, qb]): [number, number] => [lerp(qa, qb, a, b, lo) * interval.scale, lerp(qa, qb, a, b, hi) * interval.scale]),
   };
   return out;
 }
@@ -250,6 +250,25 @@ function flexibleMemberEnds(
 export function flexibleMemberLength(...args: Parameters<typeof flexibleMemberEnds>): number {
   const [a, b] = flexibleMemberEnds(...args);
   return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+}
+
+export function memberLoadBounds(
+  elem: Element,
+  nodes: ReadonlyMap<number, { id: number; x: number; y: number; z?: number }>,
+  elements: ReadonlyMap<number, Element>,
+  ids: readonly number[],
+  sectionRotation = 0,
+): number[] {
+  const length = memberLoadLength(elem, nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, sectionRotation);
+  const source = flexibleMemberEnds(elem, nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, sectionRotation);
+  const ends = ids.map(id => {
+    const child = elements.get(id)!;
+    return flexibleMemberEnds(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, sectionRotation);
+  });
+  return generatedMemberBounds(length, ends.map(([a, b]) => {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }), [source[0], ...ends.flat(), source[1]].map(p => [p.x, p.y, p.z]));
 }
 
 export function memberLoadLength(...args: Parameters<typeof flexibleMemberEnds>): number {

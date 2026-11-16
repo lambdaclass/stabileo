@@ -44,7 +44,7 @@
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
-import { memberLength, splitSpanLoad } from './member-span-loads';
+import { generatedMemberBounds, memberLength, splitSpanLoad } from './member-span-loads';
 import { solve } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
@@ -127,7 +127,9 @@ const len = (input: SolverInput, e: SolverElement) => memberLength(input, e.id);
 
 function checkedKinematics(input: SolverInput, stage: 'initial' | 'released') {
   const result = analyzeKinematics(input);
-  if (result.rankAnalysis === 'invalid' && stage === 'released' && input.loads.some((l) => l.type === 'nodal' && l.data.my !== 0)) {
+  if (result.rankAnalysis === 'invalid' && stage === 'released' && result.invalidInputKind === 'unsupportedNodalMoment'
+    && input.loads.every(l => l.type !== 'nodal' || Number.isFinite(l.data.my))
+    && input.loads.some(l => l.type === 'nodal' && l.data.my !== 0)) {
     const probe = analyzeKinematics({
       ...input,
       loads: input.loads.map((load): SolverLoad => load.type === 'nodal' ? { type: 'nodal', data: { ...load.data, my: 0 } } : load),
@@ -155,12 +157,13 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
   input.elements.set(rightId, { ...e, id: rightId, nodeI: nodeId, nodeJ: e.nodeJ, hingeStart: false, hingeEnd: e.hingeEnd });
   input.elements.set(id, { ...e, nodeJ: nodeId, hingeEnd: false });
 
+  const bounds = generatedMemberBounds(L, [memberLength(input, id), memberLength(input, rightId)], [a, input.nodes.get(nodeId)!, b].map(p => [p.x, p.z]));
   const out: SolverLoad[] = [];
   for (const l of input.loads) {
     if ((l.type === 'distributed' || l.type === 'axialDistributed') && l.data.elementId === id) {
       out.push(...splitSpanLoad(l, L, [
-        { id, start: 0, end: s, length: memberLength(input, id) },
-        { id: rightId, start: s, end: L, length: memberLength(input, rightId) },
+        { id, start: 0, end: bounds[1], length: memberLength(input, id) },
+        { id: rightId, start: bounds[1], end: L, length: memberLength(input, rightId) },
       ]));
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       out.push(l.data.a <= s + 1e-12

@@ -56,7 +56,7 @@ import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength, memberLoadLength } from '../model/edit/member-split';
+import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength, memberLoadBounds, memberLoadLength } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
@@ -117,7 +117,6 @@ interface Planned {
   exp: VariableExpansion;
   nodes: Array<{ id: number; x: number; y: number; z?: number }>;
   pieces: Array<{ parent: El; k: number; n: number; t0: number; t1: number; piece: VariablePiece; section: Section }>;
-  bounds: Map<number, number[]>;
   /** The joined ends given a node of their own: the node, its helper, and how they are tied. */
   ends: Array<{ parentId: number; node: number; helper: number; tie: AnchorEnd }>;
 }
@@ -242,7 +241,7 @@ export function anchorEndsUnplaced(model: ModelData): number[] {
 
 /** Which members, and every id: from `base`'s highest ids, so the same model always plans alike. */
 function planExpansion(model: ModelData, base: ModelData): Planned {
-  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map(), ends: [] };
+  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], ends: [] };
   const cuts = loadCuts(model);
   const anchored = anchorEnds(model);
   const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id) || anchored.has(e.id)) as El[];
@@ -299,7 +298,6 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       pieces.push(piece);
       out.pieces.push({ parent: e, k, n, t0: fractions[k]!, t1: fractions[k + 1]!, piece, section });
     }
-    out.bounds.set(e.id, bounds);
     out.exp.members.set(e.id, { parentId: e.id, length: L, pieces, innerNodes: inner });
   }
   return out;
@@ -358,7 +356,9 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       const child = elements.get(id)!;
       return memberLoadLength(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, model.sections.get(child.sectionId)?.rotation);
     });
-    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++, lengths);
+    const bounds = memberLoadBounds(model.elements.get(m.parentId)!, nodes, elements, ids, model.sections.get(model.elements.get(m.parentId)!.sectionId)?.rotation);
+    m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

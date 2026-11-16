@@ -30,7 +30,7 @@ for (const moment of [0, 1]) for (const rank of ['invalid', 'unavailable']) {
   }
 }
 
-for (const nonfinite of [false, true]) for (const at of [2, 3]) it.skip(`known wrong result: #2222 — invalid check ${at} remains an error when moment-free probe succeeds, nonfinite=${nonfinite}`, () => {
+for (const nonfinite of [false, true]) for (const at of [2, 3]) it(`known wrong result: #2222 — invalid check ${at} remains an error when moment-free probe succeeds, nonfinite=${nonfinite}`, () => {
   state.once = true;
   state.nonfinite = nonfinite;
   state.at = at;
@@ -41,7 +41,7 @@ for (const nonfinite of [false, true]) for (const at of [2, 3]) it.skip(`known w
   expect(state.calls).toBe(at);
 });
 
-for (const moment of [NaN, Infinity, -Infinity]) for (const at of [2, 3]) it.skip(`known wrong result: #2222 — orphan diagnostic with generated moment ${moment} at ${at} refuses before a successful probe`, () => {
+for (const moment of [NaN, Infinity, -Infinity]) for (const at of [2, 3]) it(`known wrong result: #2222 — orphan diagnostic with generated moment ${moment} at ${at} refuses before a successful probe`, () => {
   state.once = true;
   state.nonfinite = true;
   state.orphan = true;

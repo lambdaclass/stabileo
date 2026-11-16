@@ -8,6 +8,7 @@
 import type { AnalysisResults, ElementForces, SolverInput, SolverLoad } from '../types';
 import type { Load } from '../../store/model.svelte';
 import { segmentBounds, splitElementLoads } from '../../model/edit/member-split';
+import { generatedMemberBounds } from '../member-span-loads';
 import { memberLoadsOf } from './pdelta';
 import { throughMoments } from './beam-column-interior';
 
@@ -83,7 +84,9 @@ export function refineInput(input: SolverInput, n: number): Refined {
       const dx = b.x - a.x, dz = b.z - a.z;
       return Math.sqrt(dx * dx + dz * dz);
     });
-    const split = splitElementLoads(loads, id, bounds, ids, () => nextLoad++, lengths);
+    const actualBounds = generatedMemberBounds(L, lengths, chain.map(id => { const p = nodes.get(id)!; return [p.x, p.z]; }));
+    list.forEach((piece, k) => { piece.x0 = actualBounds[k]; piece.x1 = actualBounds[k + 1]; });
+    const split = splitElementLoads(loads, id, actualBounds, ids, () => nextLoad++, lengths);
     loads = [...split.kept, ...split.added];
   }
 

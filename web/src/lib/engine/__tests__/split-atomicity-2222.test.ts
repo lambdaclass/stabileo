@@ -68,7 +68,7 @@ describe('known wrong result: #2222 — rounded geometry conserves or refuses', 
     });
   }
   for (const dim of [2, 3]) for (const mode of ['edit', 'analysis', 'variable']) {
-    it.skip(`known wrong result: #2222 — ${dim}D ${mode} conserves thirds at rounded actual cuts`, () => {
+    it(`${dim}D ${mode} conserves thirds at rounded actual cuts`, () => {
       try {
         const id = setup(dim, 2 ** 49 + 0.125);
         modelStore.model.loads = [load(dim, id) as never];
@@ -94,7 +94,7 @@ describe('known wrong result: #2222 — rounded geometry conserves or refuses', 
       } finally { modelStore.clear(); }
     });
   }
-  it.skip('known wrong result: #2222 — planar nonlinear refinement conserves rounded geometry without modifying its input', () => {
+  it('planar nonlinear refinement conserves rounded geometry without modifying its input', () => {
     try {
       const id = setup(2, 2 ** 49 + 0.125);
       modelStore.model.loads = [load(2, id) as never];
@@ -112,7 +112,7 @@ describe('known wrong result: #2222 — rounded geometry conserves or refuses', 
       { id: 3, start: 2, end: 3, length: 0.875 },
     ])).toThrow(/geometry/);
   });
-  for (const length of [2 - 2 ** -52, 2, 2 + 2 ** -51]) it.skip(`known wrong result: #2222 — conservative local mapping boundary ${length}`, () => {
+  for (const length of [2 - 2 ** -52, 2, 2 + 2 ** -51]) it(`conservative local mapping boundary ${length}`, () => {
     const run = () => splitSpanLoad({ type: 'distributed', data: { elementId: 1, qI: 2, qJ: 4 } }, 2, [{ id: 1, start: 0, end: 2, length }]);
     if (length === 2) expect(run()).toEqual([{ type: 'distributed', data: { elementId: 1, qI: 2, qJ: 4, a: undefined, b: undefined } }]);
     else {

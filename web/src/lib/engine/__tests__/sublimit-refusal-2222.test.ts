@@ -119,7 +119,7 @@ describe('known wrong result: #2222 — sublimit refusal', () => {
     });
   }
 
-  for (const entry of ['Maxwell', 'plastic']) it.skip(`known wrong result: #2222 — ${entry} uses rounded actual geometry before returning an answer`, () => {
+  for (const entry of ['Maxwell', 'plastic']) it(`${entry} uses rounded actual geometry before returning an answer`, () => {
     const origin = 2 ** 49 + 0.125;
     const input = buildSolverInput2D(planeModel([[1, origin, 0], [2, origin + 4, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']]), false)!;
     const loads: any = [{ type: 'distributed', data: { elementId: 1, qI: -2, qJ: -4 } }];

@@ -1,0 +1,51 @@
+{
+  "id": "generated-member-cuts",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "solve.ok",
+    "displacements",
+    "reactions",
+    "elementForces",
+    "collapseFactor",
+    "hinges",
+    "steps",
+    "isMechanism",
+    "unresolved"
+  ],
+  "title": {
+    "en": "Generated member cuts conserve load integrals",
+    "es": "Los cortes generados conservan las integrales de carga",
+    "pt": "Cortes gerados conservam as integrais das cargas",
+    "de": "Erzeugte Stabteilungen erhalten Lastintegrale",
+    "fr": "Les divisions générées conservent les intégrales de charge",
+    "hu": "A generált rúdfelosztás megőrzi a teherintegrálokat",
+    "tr": "Oluşturulan çubuk bölmeleri yük integrallerini korur"
+  },
+  "explanation": {
+    "en": "Rerun analyses that split loaded members. Source cuts now follow generated geometry, so ordinary translated and rotated models solve while load resultants and first moments are conserved. Inconsistent geometry and sub-limit intervals still refuse. Plastic collapse propagates invalid released states unless the engine identifies an orphan rotation and all nodal moments are finite (#2222, #2223).",
+    "es": "Repita los análisis que dividen barras cargadas. Los cortes siguen la geometría generada: los modelos trasladados y girados se resuelven conservando resultantes y primeros momentos. La geometría inconsistente y los intervalos inferiores al límite se rechazan. El colapso plástico propaga estados liberados inválidos salvo una rotación huérfana identificada por el motor con momentos nodales finitos (#2222, #2223).",
+    "pt": "Refaça análises que dividem barras carregadas. Os cortes seguem a geometria gerada: modelos transladados e girados são resolvidos conservando resultantes e primeiros momentos. Geometria inconsistente e intervalos abaixo do limite são recusados. O colapso plástico propaga estados liberados inválidos, exceto uma rotação órfã identificada pelo motor com momentos nodais finitos (#2222, #2223).",
+    "de": "Analysen geteilter belasteter Stäbe erneut berechnen. Schnitte folgen der erzeugten Geometrie; verschobene und gedrehte Modelle werden unter Erhaltung von Lastresultierenden und ersten Momenten berechnet. Inkonsistente Geometrie und zu kleine Intervalle werden abgelehnt. Ungültige freigegebene Zustände bleiben Fehler, außer bei einer vom Solver erkannten verwaisten Rotation mit endlichen Knotenmomenten (#2222, #2223).",
+    "fr": "Relancer les analyses divisant des barres chargées. Les coupes suivent la géométrie générée : les modèles translatés et tournés sont résolus en conservant les résultantes et premiers moments. La géométrie incohérente et les intervalles sous la limite restent refusés. Les états libérés invalides restent des erreurs sauf rotation orpheline identifiée par le moteur avec moments nodaux finis (#2222, #2223).",
+    "hu": "Újra kell futtatni a terhelt rudakat felosztó számításokat. A metszetek a generált geometriát követik; az eltolt és elforgatott modellek megoldhatók az eredő és első nyomaték megőrzésével. A hibás geometria és a határ alatti intervallum továbbra is elutasított. Az érvénytelen feloldott állapot hiba marad, kivéve a motor által azonosított árva forgást véges csomóponti nyomatékokkal (#2222, #2223).",
+    "tr": "Yüklü çubukları bölen analizleri yeniden çalıştırın. Kesimler oluşturulan geometriyi izler; ötelenmiş ve döndürülmüş modeller yük bileşkeleri ve birinci momentleri korunarak çözülür. Tutarsız geometri ve sınır altındaki aralıklar reddedilir. Motorun belirlediği yetim dönme ve sonlu düğüm momentleri dışında geçersiz serbest bırakılmış durumlar hata olarak iletilir (#2222, #2223)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-member-cuts.md",
+    "heading": "Generated member cuts and invalid plastic states (2026-11-16)"
+  },
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "nodalMoments"
+    ]
+  }
+}

@@ -52,7 +52,7 @@ it('preserves all CI plastic mechanisms #2222', () => {
   }
 });
 
-it.skip('known wrong result: #2222 — retains member shear, bending and deflection under rotations and mirrors #2222', () => {
+it('retains member shear, bending and deflection under rotations and mirrors #2222', () => {
   const probe = vi.spyOn(wasm, 'solve');
   try {
     for (const [dx, dz] of [[1.25, 0.25], [1.25, -0.25], [-1.25, 0.25], [0, 2], [2, 0]]) {

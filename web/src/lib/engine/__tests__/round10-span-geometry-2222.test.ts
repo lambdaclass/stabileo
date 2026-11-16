@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { analyzeKinematics } from '../kinematic-2d';
+import { generatedMemberBounds } from '../member-span-loads';
 import { modelStore } from '../../store';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
 import { subdivideForAnalysis } from '../../model/edit/analysis-subdivision';
@@ -12,7 +14,7 @@ import { computeSectionProperties } from '../../data/section-shapes';
 
 beforeAll(async () => { await initSolver(); });
 
-describe.skip('known wrong result: #2222 — actual generated cuts', () => {
+describe('known wrong result: #2222 — actual generated cuts', () => {
   for (const dim of [2, 3]) for (const rotated of [false, true]) for (const qJ of [2, 4, -2]) for (const partial of [false, true]) for (const entry of ['edit', 'analysis', 'variable', 'refine']) {
     if (dim === 3 && entry === 'refine') continue;
     it(`${dim}D rotated=${rotated} qJ=${qJ} partial=${partial} ${entry} solves translated thirds and conserves force and first moment`, () => {
@@ -82,3 +84,48 @@ describe.skip('known wrong result: #2222 — actual generated cuts', () => {
   });
 });
 
+it('checks generated geometry on both sides of the arithmetic bound and rejects inconsistent children #2222', () => {
+  const adjacent = (x: number, step: bigint) => {
+    const view = new DataView(new ArrayBuffer(8));
+    view.setFloat64(0, x);
+    view.setBigUint64(0, view.getBigUint64(0) + step);
+    return view.getFloat64(0);
+  };
+  for (const direction of [-1n, 1n]) {
+    let last = 2, next = adjacent(last, direction);
+    while (Math.abs(next - 2) <= Number.EPSILON * 3 * Math.max(2, next)) {
+      last = next;
+      next = adjacent(next, direction);
+    }
+    expect(generatedMemberBounds(2, [last])).toEqual([0, 2]);
+    expect(() => generatedMemberBounds(2, [next])).toThrow(/geometry/);
+  }
+  for (const lengths of [[], [0, 4], [-1, 5], [NaN], [Infinity], [1, 2], [2, 3]]) {
+    expect(() => generatedMemberBounds(4, lengths)).toThrow(/geometry/);
+  }
+  expect(generatedMemberBounds(4, [1.375, 1.25, 1.375])).toEqual([0, 1.375, 2.625, 4]);
+  for (const points of [[[0, 0], [1, 1e-8], [2, 0]], [[0, 0], [1.5, 0], [1, 0], [2, 0]], [[0, 0], [NaN, 0], [2, 0]]]) {
+    expect(() => generatedMemberBounds(2, [1, 1], points)).toThrow(/geometry/);
+  }
+  expect(generatedMemberBounds(2, [1, 1], [[1000.1, 0], [1001.1, 0], [1002.1, 0]])).toEqual([0, 1, 2]);
+});
+
+it('normalizes the engine orphan-rotation kind through WASM and retains unrelated invalid input #2222', () => {
+  modelStore.clear();
+  try {
+    const i = modelStore.addNode(0, 0), j = modelStore.addNode(4, 0);
+    const id = modelStore.addElement(i, j, 'frame');
+    modelStore.addSupport(i, 'fixed');
+    const input = buildSolverInput2D(modelStore.model, false)!;
+    input.elements.get(id)!.hingeEnd = true;
+    input.loads = [{ type: 'nodal', data: { nodeId: j, fx: 0, fz: 0, my: 1 } }];
+    expect(analyzeKinematics(input).invalidInputKind).toBe('unsupportedNodalMoment');
+    input.loads.push({ type: 'distributed', data: { elementId: id, a: -1, b: 2, qI: 1, qJ: 1 } });
+    expect(analyzeKinematics(input).invalidInputKind).toBeUndefined();
+    expect(analyzeKinematics(input).rankAnalysis).toBe('invalid');
+    input.loads.pop();
+    input.elements.get(id)!.hingeEnd = false;
+    expect(analyzeKinematics(input).invalidInputKind).toBeUndefined();
+    expect(analyzeKinematics(input).isSolvable).toBe(true);
+  } finally { modelStore.clear(); }
+});

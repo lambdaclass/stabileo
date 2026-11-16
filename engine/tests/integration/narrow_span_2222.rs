@@ -330,7 +330,6 @@ fn issue_2222_refuses_sublimit_raw_load_kernels_and_diagrams() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn issue_2222_kinematics_identifies_only_finite_unsupported_nodal_moments() {
     let mut input = witness();
     input.elements.get_mut("1").unwrap().hinge_end = true;

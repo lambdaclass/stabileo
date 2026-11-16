@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import totals from '../result-changes/compensated-applied-force-totals.json';
+import generated from '../result-changes/generated-member-cuts.json';
 import remapping from '../result-changes/planar-remapped-load-integrals.json';
 import { conditionHolds } from '../applicability';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
@@ -35,4 +36,14 @@ it('#2223 compensated force summaries require a model with structural stiffness'
     for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([structure, `analysis:${analysis}`]))).toBe(true);
   }
   for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([`analysis:${analysis}`]))).toBe(false);
+});
+
+it('#2223 generated cuts cover loaded members and nodal moments without explaining empty models', () => {
+  for (const feature of ['memberLoads', 'nodalMoments']) {
+    for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(generated.when, new Set(['members', feature, `analysis:${analysis}`]))).toBe(true);
+    expect(conditionHolds(generated.when, new Set([feature]))).toBe(false);
+  }
+  expect(conditionHolds(generated.when, new Set(['members']))).toBe(false);
+  expect(conditionHolds(generated.when, new Set())).toBe(false);
+  expect(generated.quantities).not.toContain('*');
 });

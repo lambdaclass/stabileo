@@ -45,7 +45,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
-import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength, memberLoadLength } from '../model/edit/member-split';
+import { splitElementLoads, segmentFields, memberLoadBounds, memberLoadLength } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
@@ -1511,9 +1511,6 @@ function createModelStore() {
     const ids = { ...nextId };
     const hasZ = ni.z !== undefined || nj.z !== undefined;
     const embed3D = shouldEmbedFlat2DModelIn3D(model);
-    const L = elem.offset && !embed3D
-      ? flexibleMemberLength(elem, ni, nj, sections.get(elem.sectionId)?.rotation)
-      : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
     const fractions = [0, ...cuts, 1];
     const nodeIds = cutAt.map((k) => {
       if (k.id !== null) return k.id;
@@ -1534,7 +1531,7 @@ function createModelStore() {
         ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
       });
     }
-    const bounds = segmentBounds(L, cuts);
+    const bounds = memberLoadBounds(embed3D ? { ...original, offset: undefined } : original, nodes, elements, segmentIds, sections.get(elem.sectionId)?.rotation);
     const lengths = segmentIds.map((sid) => {
       const child = elements.get(sid)!;
       const a = nodes.get(child.nodeI)!, b = nodes.get(child.nodeJ)!;
