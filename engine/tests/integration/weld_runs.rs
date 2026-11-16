@@ -506,3 +506,89 @@ fn finite_maximum_size_keeps_positive_answer() {
     assert!(result.unity_ratio.is_finite() && result.unity_ratio > 0.0);
     assert!(result.total_throat_area.is_finite() && result.total_throat_area > 0.0);
 }
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_true() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_true");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_false() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_false");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_default() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_default");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_reversed() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_reversed");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_signed_zero() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_signed_zero");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_mixed_unloaded() {
+    weld_run_case("issue_2258_zero_size_branch_mixed_unloaded");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_single_piece_eccentric() {
+    weld_run_case("issue_2258_zero_size_single_piece_eccentric");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_two_pieces_eccentric() {
+    weld_run_case("issue_2258_zero_size_two_pieces_eccentric");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_only_loaded() {
+    weld_run_case("issue_2258_zero_size_branch_only_loaded");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_branch_only_unloaded() {
+    weld_run_case("issue_2258_zero_size_branch_only_unloaded");
+}
+
+#[test]
+fn issue_2258_positive_size_branch_refused() {
+    weld_run_case("issue_2258_positive_size_branch_refused");
+}
+
+#[test]
+fn issue_2258_smallest_positive_size_branch_refused() {
+    weld_run_case("issue_2258_smallest_positive_size_branch_refused");
+}
+
+#[test]
+fn issue_2258_positive_size_two_piece_run() {
+    weld_run_case("issue_2258_positive_size_two_piece_run");
+}
+
+#[test]
+fn issue_2258_zero_size_connected_length_overflow() {
+    weld_run_case("issue_2258_zero_size_connected_length_overflow");
+}
+
+#[test]
+#[ignore = "known wrong result: #2258"]
+fn issue_2258_zero_size_disconnected_length_overflow() {
+    weld_run_case("issue_2258_zero_size_disconnected_length_overflow");
+}

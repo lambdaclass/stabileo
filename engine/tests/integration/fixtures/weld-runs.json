@@ -4017,6 +4017,1009 @@
         "totalThroatArea": 0,
         "minBeta": 1
       }
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_true",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.8280000000000007e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 5893446.487505893,
+        "unityRatio": 0.03274136937503275
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_false",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": false
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": false
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": false
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_default",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_reversed",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 1,
+                "y1": 2,
+                "x2": 2,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 3,
+                "x2": 2,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 3,
+                "y1": 2,
+                "x2": 2,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_signed_zero",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": -0.0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": -0.0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_mixed_unloaded",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 3.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 0,
+        "unityRatio": 0
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_single_piece_eccentric",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 1.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 1
+    },
+    {
+      "name": "issue_2258_zero_size_two_pieces_eccentric",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.828e-06,
+      "expected": {
+        "totalLength": 2.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 2
+    },
+    {
+      "name": "issue_2258_zero_size_branch_only_loaded",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [],
+      "referenceCentroid": null,
+      "referencePolarInertia": 0,
+      "knownWrong": true,
+      "expectedUnevaluated": "loaded weld group without a positive throat area",
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_zero_size_branch_only_unloaded",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "referenceRuns": [],
+      "referenceCentroid": null,
+      "referencePolarInertia": 0,
+      "expected": {
+        "totalLength": 3,
+        "totalThroatArea": 0,
+        "minBeta": 1,
+        "maxWeldStress": 0,
+        "phiFnw": 179999999.99999997,
+        "unityRatio": 0
+      },
+      "knownWrong": true,
+      "referenceNonresistingLength": 3
+    },
+    {
+      "name": "issue_2258_positive_size_branch_refused",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "knownWrong": false,
+      "expectedUnevaluated": "ambiguous physical weld run at a branching endpoint"
+    },
+    {
+      "name": "issue_2258_smallest_positive_size_branch_refused",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 3,
+                "y2": 2,
+                "size": 5e-324,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 2,
+                "y2": 3,
+                "size": 5e-324,
+                "endLoaded": true
+              },
+              {
+                "x1": 2,
+                "y1": 2,
+                "x2": 1,
+                "y2": 2,
+                "size": 5e-324,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "knownWrong": false,
+      "expectedUnevaluated": "ambiguous physical weld run at a branching endpoint"
+    },
+    {
+      "name": "issue_2258_positive_size_two_piece_run",
+      "issue": 2258,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.1,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              },
+              {
+                "x1": 0.1,
+                "y1": 0,
+                "x2": 0.2,
+                "y2": 0,
+                "size": 0.006,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 5000,
+            "vy": 0,
+            "m": 1000.0
+          }
+        ]
+      },
+      "referenceRuns": [
+        [
+          {
+            "x1": 0,
+            "y1": 0,
+            "x2": 0.2,
+            "y2": 0,
+            "size": 0.006,
+            "endLoaded": true
+          }
+        ]
+      ],
+      "referenceCentroid": [
+        0.1,
+        0.0
+      ],
+      "referencePolarInertia": 2.8280000000000007e-06,
+      "expected": {
+        "totalLength": 0.2,
+        "totalThroatArea": 0.0008484,
+        "minBeta": 1,
+        "phiFnw": 179999999.99999997,
+        "maxWeldStress": 35848435.4685185,
+        "unityRatio": 0.19915797482510283
+      },
+      "knownWrong": false
+    },
+    {
+      "name": "issue_2258_zero_size_connected_length_overflow",
+      "issue": 2258,
+      "knownWrong": false,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -1e+308,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 0,
+                "y1": 0,
+                "x2": 1e+308,
+                "y2": 0,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
+    },
+    {
+      "name": "issue_2258_zero_size_disconnected_length_overflow",
+      "issue": 2258,
+      "knownWrong": true,
+      "input": {
+        "groups": [
+          {
+            "connectionId": 1,
+            "segments": [
+              {
+                "x1": -1e+308,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "size": 0,
+                "endLoaded": true
+              },
+              {
+                "x1": 0,
+                "y1": 1,
+                "x2": 1e+308,
+                "y2": 1,
+                "size": 0,
+                "endLoaded": true
+              }
+            ],
+            "fexx": 400000000.0,
+            "phi": 0.75
+          }
+        ],
+        "forces": [
+          {
+            "connectionId": 1,
+            "vx": 0,
+            "vy": 0,
+            "m": 0
+          }
+        ]
+      },
+      "expectedUnevaluated": "physical weld run requires finite coordinates, finite length and nonnegative size"
     }
   ]
 }
