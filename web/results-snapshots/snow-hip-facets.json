@@ -1417,7 +1417,7 @@
     "generatedLoads.item8.nameKey": "snow.case.unbalanced",
     "generatedLoads.item8.nameParams.dir": "−Y",
     "snowDerivation[0]": {"key":"snow.derivation.partial","params.n":4},
-    "snowDerivation[1]": {"key":"snow.derivation.intensityBound","params.absolute":6.926244879e-17,"params.relativePercent":0.01},
+    "snowDerivation[1]": {"key":"snow.derivation.intensityBound","params.absolute":2.077331362e-16,"params.relativePercent":0.01},
     "snowResult.ce": 1,
     "snowResult.cs": 0.6682299819,
     "snowResult.ct": 1,

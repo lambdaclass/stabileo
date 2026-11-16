@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { solve_3d, solve_pdelta_3d } from '../wasm/dedaliano_engine.js';
 
 type Profile = Array<[number, number, number, number]>;
 interface Input {

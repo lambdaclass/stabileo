@@ -161,6 +161,15 @@ describe('Vitest harness architecture', () => {
     expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
       'applicability-context.test.ts', 'coverage.test.ts', 'examples-equivalence.test.ts', 'frozen-engine.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', 'self-checks-preserve-snapshots.test.ts',
       'gallery-isolation-2099.test.ts',
+      'gravity-envelope-2219.test.ts',
+      'gravity-member-loading-2219.test.ts',
+      'gravity-round4-2219.test.ts',
+      'gravity-round5-2219.test.ts',
+      'gravity-round6-2219.test.ts',
+      'gravity-round7-2219.test.ts',
+      'gravity-round8-2219.test.ts',
+      'gravity-round8-plane-2219.test.ts',
+      'gravity-slivers-2222.test.ts',
       ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
   });

@@ -1,4 +1,4 @@
-import { refusesMomentFringes } from './gravity-supported-hand-profile';
+import { refusesMomentFringes } from '../gravity-supported-hand-profile';
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver, solve3D, solvePDelta3D } from '../../engine/wasm-solver';
 import { floorLoad } from '../../engine/loads/floor-loads';

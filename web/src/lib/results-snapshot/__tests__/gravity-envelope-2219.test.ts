@@ -3,12 +3,8 @@ import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
 import { solve_2d, solve_pdelta_2d, compute_diagrams_2d, solve_3d, solve_pdelta_3d, compute_diagrams_3d, compute_envelope_3d, compute_envelope_2d } from '../../wasm/dedaliano_engine.js';
 import { computeElementDiagram } from '../../engine/diagrams';
-import { computeDiagram3D, evaluateDiagramAt } from '../../engine/diagrams-3d';
+import { computeDiagram3D } from '../../engine/diagrams-3d';
 import type { AnalysisResults3D } from '../../engine/types-3d';
-import { physicalRegion, transferRegionToCarriers } from '../../engine/loads/physical-region-loads';
-import { regionModel } from '../../engine/loads/__tests__/physical-region-invariance';
-import { computeLocalAxes3D } from '../../engine/local-axes-3d';
-import { mapMoments } from '../../engine/member-moments';
 
 beforeAll(async () => { await initSolver(); });
 function fixture() {
@@ -18,8 +14,7 @@ function fixture() {
   for(const k of ['releaseMyStart','releaseMyEnd','releaseMzStart','releaseMzEnd','releaseTStart','releaseTEnd']) s.elements['1'][k]=false;
   return s;
 }
-const regression = process.env.STABILEO_GRAVITY_REPRODUCER === "2219" ? it : it.skip;
-for(const axis of ['x','y','z'] as const) for(const sign of [1,-1]) for(const quadratic of [false,true]) regression(`envelopes retain WASM density extrema ${axis} sign=${sign} quadratic=${quadratic}`,()=>{
+for(const axis of ['x','y','z'] as const) for(const sign of [1,-1]) for(const quadratic of [false,true]) it(`envelopes retain WASM density extrema ${axis} sign=${sign} quadratic=${quadratic}`,()=>{
   const s=fixture();
   s.nodes={1:{id:1,x:0,y:0,z:0},2:{id:2,x:100,y:0,z:0}};
   s.elements={1:{...s.elements['1'],nodeI:1,nodeJ:2}};

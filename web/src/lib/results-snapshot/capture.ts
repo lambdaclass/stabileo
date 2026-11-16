@@ -143,9 +143,9 @@ function captureEnvelope(env: unknown, governing: Map<number, unknown>, perCombo
   if (!env || typeof env !== 'object') return;
   const { maxAbsResults, maxAbsResults3D, ...diagrams } = env as Record<string, unknown>;
   for (const [kind, d] of Object.entries(diagrams)) {
-    const { elements, ...rest } = (d ?? {}) as { elements?: Array<{ elementId: number; posValues: number[]; negValues: number[] }> };
+    const { elements, ...rest } = (d ?? {}) as { elements?: Array<{ elementId: number; tPositions: number[]; posValues: number[]; negValues: number[] }> };
     flatten(rest, `envelope.${kind}`, out, ENVELOPE_SKIP);
-    for (const e of elements ?? []) flatten({ posValues: e.posValues, negValues: e.negValues }, `envelope.${kind}[e${e.elementId}]`, out);
+    for (const e of elements ?? []) flatten({ ...(maxAbsResults3D ? { tPositions: e.tPositions } : {}), posValues: e.posValues, negValues: e.negValues }, `envelope.${kind}[e${e.elementId}]`, out);
   }
   analysis('envelope.maxAbs', maxAbsResults3D ?? maxAbsResults, out);
   for (const [id, g] of [...governing].sort(([a], [b]) => a - b)) {
@@ -158,7 +158,6 @@ function captureEnvelope(env: unknown, governing: Map<number, unknown>, perCombo
   }
 }
 
-/** The station positions are each member's geometry, not a result. */
 const ENVELOPE_SKIP = new Set(['tPositions', 'kind']);
 
 function captureResults(out: Values): void {

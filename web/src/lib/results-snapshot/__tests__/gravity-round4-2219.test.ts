@@ -1,4 +1,4 @@
-import { refusesMomentFringes, handMemberLoads } from './gravity-supported-hand-profile';
+import { refusesMomentFringes, handMemberLoads } from '../gravity-supported-hand-profile';
 import { buildSolverLoads3D, type ModelData } from '../../engine/solver-service';
 import { floorLoad } from '../../engine/loads/floor-loads';
 import { physicalRegion, transferRegionToCarriers } from '../../engine/loads/physical-region-loads';

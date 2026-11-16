@@ -134,8 +134,6 @@ const body: PostBody = {
         "Állapot"
       ],
       "rows": [
-        ["SA-2026-079", "A részleges héjlefedés figyelmeztetés nélkül elveszíthette vagy eltolhatta a generált gravitációs terheket (#2199). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
-        ["SA-2026-080", "A födémterhelési zónák figyelmeztetés nélkül elveszíthették a rudak külpontos terhelését (#2201). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
         [
           "SA-2026-001",
           "A generált kombinációk és terhek (CIRSOC 101, 102, 103) a biztonság kárára tévedtek",
@@ -561,7 +559,9 @@ const body: PostBody = {
           "A tető nyomászónái és első nyomatékai a felosztástól függtek (#2205). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
           "Magas",
           "Javítva a #2220 PR-ben, összevonásra és kiadásra vár"
-        ]
+        ],
+        ["SA-2026-079", "A részleges héjlefedés figyelmeztetés nélkül elveszíthette vagy eltolhatta a generált gravitációs terheket (#2199). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
+        ["SA-2026-080", "A födémterhelési zónák figyelmeztetés nélkül elveszíthették a rudak külpontos terhelését (#2201). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"]
       ]
     },
     {

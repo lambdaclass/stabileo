@@ -516,7 +516,6 @@ fn round11_zero_moments_match_absent_moments_pdelta() { round11_zero_moments_mat
 fn round11_zero_moments_match_absent_moments_corotational() { round11_zero_moments_match_absent_moments_in_entry(3); }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round12_envelopes_retain_member_density_extrema() {
     use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
     for axis in ["x", "y", "z"] { for sign in [1.0, -1.0] { for quadratic in [false, true] {

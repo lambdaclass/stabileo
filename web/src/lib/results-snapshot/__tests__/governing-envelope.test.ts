@@ -14,7 +14,7 @@ function governingBelowEnvelope(values: Values): string[] {
       const component = field.slice(0, -'.value'.length);
       const env = values[`envelope.${component}[e${m[1]}]`] as Record<string, unknown> | undefined;
       if (!env) continue;
-      const stations = Object.values(env).flatMap((v) => (Array.isArray(v) ? v : [v])).filter((v): v is number => typeof v === 'number');
+      const stations = Object.entries(env).filter(([key]) => /^(posValues|negValues)(\[|$)/.test(key)).map(([, value]) => value).flatMap((v) => (Array.isArray(v) ? v : [v])).filter((v): v is number => typeof v === 'number');
       if (stations.length === 0) continue;
       const peak = Math.max(...stations.map(Math.abs));
       const globalMax = Math.abs(Number(values[`envelope.${component}.globalMax`] ?? peak));

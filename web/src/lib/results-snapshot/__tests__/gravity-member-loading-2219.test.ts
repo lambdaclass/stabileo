@@ -1,4 +1,4 @@
-import { refusesMomentFringes, handMemberLoads } from './gravity-supported-hand-profile';
+import { refusesMomentFringes, handMemberLoads } from '../gravity-supported-hand-profile';
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';

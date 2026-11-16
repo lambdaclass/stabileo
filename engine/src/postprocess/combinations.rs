@@ -753,8 +753,11 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
                 .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
                 .collect();
 
-            for j in 0..N_POINTS {
-                let t = j as f64 / (N_POINTS - 1) as f64;
+            let mut stations: Vec<_> = element_cases.iter().flat_map(|(_, ef)|
+                crate::postprocess::diagrams_3d::diagram_positions_3d(ef, kind)).collect();
+            stations.sort_by(f64::total_cmp);
+            stations.dedup();
+            for t in stations {
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
