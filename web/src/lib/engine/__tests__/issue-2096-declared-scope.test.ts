@@ -129,7 +129,7 @@ for (const entry of ['flexure', 'transverse'] as const) {
     expect(actual.map(p => p.x)).toEqual([0, 2, 4]);
     const c1 = run({ ...input, stationTs: [0, 0.5, 1], comboResults: [input.comboResults[0]!] });
     expect(actual).toEqual(c1);
-    expect(run(input, 2).map(p => p.x)).toEqual([0, 4]);
+    expect(run(input, 2).map(p => p.x)).toEqual([0, 2, 4]);
   });
   for (const t of [0, 0.5, 1]) it(`known wrong result: #2096 round4 beam line ${entry} refuses missing declared station ${t} before filtering`, () => {
     const input = stations();
