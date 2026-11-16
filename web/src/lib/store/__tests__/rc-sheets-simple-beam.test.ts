@@ -35,6 +35,5 @@ describe('a simply supported 20×40 beam of 5 m', () => {
     const straight = line.steps.flatMap((g) => g.steps).filter((s) => s.label === 'rcSheets.s.lineStraightEnd');
     expect(straight).toHaveLength(2);
     expect(line.verifications.some((v) => v.label === 'rcSheets.v.lineHookFit')).toBe(false);
-    console.log('LINE', line.status, JSON.stringify(line.adopted), line.utilization, JSON.stringify(line.verifications.map((v) => [v.label, v.ratio, v.demand, v.capacity])), JSON.stringify(straight), JSON.stringify(rows.beam.map((r) => [r.name, r.status, JSON.stringify(r.adopted)])));
   }, 300000);
 });

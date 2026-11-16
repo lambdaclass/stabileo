@@ -332,7 +332,7 @@ test.describe('blog', () => {
     await expect(embed.locator('iframe')).toHaveCount(0);
     const caption = await embed.locator('figcaption').innerText();
     for (const button of ['"Calcular"', '"Armado por planillas"', '"Dimensionar armaduras"', '"Vigas"']) expect(caption).toContain(button);
-    expect(caption).toContain('0,79');
+    expect(caption).toContain('0,80');
 
     await embed.locator('.post-embed-start').click();
     await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?.*proTab=rcSheets/);
@@ -368,8 +368,10 @@ test.describe('blog', () => {
     const row = ws.getByTestId('rc-row').first();
     await expect(row).toContainText('V1');
     await expect(row).toContainText('2 Ø25');
-    await expect(row).toContainText('0,79');
-    await expect(row).toContainText('Holgada');
+    await expect(row).toContainText('2 Ø16');
+    await expect(row).toContainText('0,80');
+    await expect(row).toContainText('Verifica');
+    await expect(row).not.toContainText('No verifica');
     await row.click();
     await expect(ws).toContainText('Envolvente cubierta en toda la viga, con las barras ancladas');
   });

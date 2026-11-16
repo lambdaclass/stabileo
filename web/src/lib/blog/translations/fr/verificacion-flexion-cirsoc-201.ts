@@ -175,14 +175,14 @@ const body: PostBody = {
       "base": "blog/cirsoc-201-sheets",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, feuilles de ferraillage selon le CIRSOC 201-2025, la feuille des poutres ouverte sur V1 après calcul et dimensionnement. La ligne propose 2 Ø25 filants en partie basse, 2 Ø12 filants en partie haute et des étriers Ø8 tous les 18 cm, avec un taux de 0,79 et l'état Large. En dessous, l'élévation avec les repères des barres et les enveloppes de moment et d'effort tranchant face à la capacité.",
-      "caption": "La poutre ci-dessous dans la feuille des poutres, après « Dimensionner les armatures » : les 2 Ø25 que propose Stabileo se ferment sur 0,79."
+      "alt": "Stabileo PRO, feuilles de ferraillage selon le CIRSOC 201-2025, la feuille des poutres ouverte sur V1 après calcul et dimensionnement. La ligne propose 2 Ø25 filants en partie basse, 2 Ø16 filants en partie haute et des étriers Ø8 tous les 18 cm, avec un taux de 0,80 et l'état Vérifié. En dessous, l'élévation avec les repères des barres et les enveloppes de moment et d'effort tranchant face à la capacité.",
+      "caption": "La poutre ci-dessous dans la feuille des poutres, après « Dimensionner les armatures » : les 2 Ø25 que propose Stabileo se ferment sur 0,80."
     },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=rcSheets",
-      "label": "La poutre dans Stabileo, dans les feuilles de ferraillage de PRO. Quatre boutons, dans cet ordre : « Calculer », « Feuilles de ferraillage » (sous Sortie), « Dimensionner les armatures » et « Poutres ». Le premier calcule le modèle et affiche les résultats, le deuxième ramène aux feuilles, le troisième dimensionne les armatures et le quatrième ouvre la feuille des poutres : la ligne de V1 propose 2 Ø25 filants en partie basse et 2 Ø12 en partie haute, se ferme sur un taux de 0,79 et indique « Large ». Ouvrez-la pour voir l'enveloppe des moments face à la capacité et chaque vérification ; celle qui donne ce taux est « Enveloppe couverte sur toute la poutre, barres ancrées ». Changez la charge et recalculez. Les feuilles de ferraillage sont encore en développement : vérifiez les résultats."
+      "label": "La poutre dans Stabileo, dans les feuilles de ferraillage de PRO. Quatre boutons, dans cet ordre : « Calculer », « Feuilles de ferraillage » (sous Sortie), « Dimensionner les armatures » et « Poutres ». Le premier calcule le modèle et affiche les résultats, le deuxième ramène aux feuilles, le troisième dimensionne les armatures et le quatrième ouvre la feuille des poutres : la ligne de V1 propose 2 Ø25 filants en partie basse et 2 Ø16 en partie haute, se ferme sur un taux de 0,80 et indique « Vérifié ». Ouvrez-la pour voir l'enveloppe des moments face à la capacité et chaque vérification ; celle qui donne ce taux est « Enveloppe couverte sur toute la poutre, barres ancrées ». Changez la charge et recalculez. Les feuilles de ferraillage sont encore en développement : vérifiez les résultats."
     },
     {
       "k": "h",
@@ -199,7 +199,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Tous les chiffres de cet article proviennent du module CIRSOC 201 de Stabileo, exécuté sur les sections indiquées, et non d'un tableau. Un avertissement qui mérite d'être transmis, parce que la première version de cet article s'est trompée : le calcul à la main donnait S/R = 0,74 parce qu'il oubliait le poids propre, 2 kN/m que l'application ajoute au cas des charges permanentes. Avec lui, la poutre sur appuis simples porte 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m et, avec 2 Ø25 (φMn = 113,55 kN·m), S/R = 0,81. La feuille ci-dessus propose précisément 2 Ø25 en partie basse et se ferme sur 0,79. Si un chiffre de cet article cesse un jour de correspondre à l'éditeur, croyez l'éditeur."
+      "t": "Tous les chiffres de cet article proviennent du module CIRSOC 201 de Stabileo, exécuté sur les sections indiquées, et non d'un tableau. Un avertissement qui mérite d'être transmis, parce que la première version de cet article s'est trompée : le calcul à la main donnait S/R = 0,74 parce qu'il oubliait le poids propre, 2 kN/m que l'application ajoute au cas des charges permanentes. Avec lui, la poutre sur appuis simples porte 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m et, avec 2 Ø25 (φMn = 113,55 kN·m), S/R = 0,81. La feuille ci-dessus propose précisément 2 Ø25 en partie basse et se ferme sur 0,80. Elle donne 0,80 et non 0,81 parce qu'elle prend l'enrobage du tableau 20.5.1.3.1 (30 mm jusqu'à l'étrier, d = 34,95 cm) et compte en compression les 2 Ø16 du haut : φMn = 115,31 kN·m, et 92,5/115,31 = 0,80. Si un chiffre de cet article cesse un jour de correspondre à l'éditeur, croyez l'éditeur."
     },
     {
       "k": "note",
