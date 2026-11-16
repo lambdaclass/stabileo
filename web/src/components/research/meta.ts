@@ -20,7 +20,7 @@ function surname(name: string): string {
   return name.trim().split(/\s+/).at(-1) ?? name;
 }
 
-const AND: Record<PublicLocale, string> = { en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' };
+const AND: Record<PublicLocale, string> = { en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've', hu: 'és' };
 
 function shortAuthors(authors: string[], locale: PublicLocale): string {
   if (authors.length === 0) return '';

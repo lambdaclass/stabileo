@@ -26,6 +26,7 @@
     "pt": "Reações por etapas usam rigidez física",
     "de": "Bauphasenreaktionen verwenden physikalische Steifigkeit",
     "fr": "Les réactions par phases utilisent la rigidité physique",
+    "hu": "A fázisos reakciók fizikai merevséget használnak",
     "tr": "Aşama tepkileri fiziksel rijitlik kullanır"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "pt": "A recuperação de reações por etapas monta a rigidez física por um único tipo privado de matriz. A estabilização artificial armazenada não pode gerar forças de restrição ou reações. Molas físicas, cargas acumuladas e protensão permanecem incluídas. Revise os esforços por etapas salvos (#1952).",
     "de": "Die Bauphasenreaktionsermittlung baut physikalische Steifigkeit über einen privaten Matrixtyp auf. Gespeicherte künstliche Stabilisierung kann keine Zwangskräfte oder Auflagerreaktionen erzeugen. Physikalische Federn, kumulierte Lasten und Vorspannung bleiben enthalten. Prüfen Sie gespeicherte Bauphasenkräfte erneut (#1952).",
     "fr": "La récupération des réactions par phases assemble la rigidité physique via un type de matrice privé unique. La stabilisation artificielle stockée ne peut produire de forces de liaison ni de réactions. Ressorts physiques, charges cumulées et précontrainte restent inclus. Revérifiez les efforts par phases enregistrés (#1952).",
+    "hu": "Minden fázisos reakció-helyreállítás egyetlen privát mátrixtípuson keresztül állítja össze a fizikai merevséget. A gyorsítótárazott mesterséges stabilizálás nem válhat kényszererővé vagy támaszreakcióvá. A fizikai rugók, az összegzett terhek és az előfeszítés megmaradnak. Ellenőrizze újra a mentett fázisos erőeredményeket (#1952).",
     "tr": "Aşama tepkilerinin hesabı fiziksel rijitliği tek bir özel matris türüyle oluşturur. Önbellekteki yapay stabilizasyon kısıt kuvvetine veya mesnet tepkisine dönüşemez. Fiziksel yaylar, birikmiş yükler ve öngerme korunur. Kayıtlı aşama kuvvetlerini yeniden denetleyin (#1952)."
   },
   "changelog": {

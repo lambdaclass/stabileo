@@ -13,6 +13,7 @@ const caseWords: Record<string, string[]> = {
   de: ['Druckkraft an der Spitze', 'entgegengesetzten axialen Einzellast in Feldmitte', 'Hälfte zur Spitze hin gedrückt'],
   fr: ['poussée à la pointe', 'charge axiale ponctuelle égale et opposée à mi-portée', 'moitié côté pointe est comprimée'],
   tr: ['uçta bir itme', 'eşit ve zıt yönde eksenel tekil yük', 'uca doğru olan yarısı basınç altında'],
+  hu: ['a végén nyomóerő', 'azzal egyenlő, ellentétes irányú tengelyirányú koncentrált erő', 'csak a vége felé eső fele nyomott'],
 };
 
 describe('SA-2026-042 re-check notice', () => {

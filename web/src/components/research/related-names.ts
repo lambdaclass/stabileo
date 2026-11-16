@@ -131,5 +131,27 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "riks-crisfield": "Riks–Crisfield: yay uzunluğu ve ani atlama",
     "newmark-1959": "Newmark zaman integrasyonu: tek serbestlik",
     "cqc-1981": "SRSS ve CQC: modal birleştirme kıyaslaması"
+  },
+  "hu": {
+    "simply-supported-beam": "Kéttámaszú gerenda kalkulátor",
+    "cantilever-beam": "Konzolos gerenda lehajlás-kalkulátor",
+    "column-buckling": "Euler-féle oszlopkihajlás kalkulátor",
+    "continuous-beam": "Többtámaszú gerenda kalkulátor",
+    "portal-frame": "Keretszerkezet kalkulátor",
+    "truss-2d": "Síkbeli rácsos tartó kalkulátor",
+    "influence-line": "Hatásvonal-kalkulátor",
+    "beam-natural-frequency": "Gerenda sajátfrekvencia-kalkulátor",
+    "macneal-harder-1985": "MacNeal–Harder végeselemes referenciafeladatok",
+    "navier-plate": "Navier-féle lemezhajlítás: Fourier-sor",
+    "mattiasson-elastica": "Mattiasson-elasztika: nagy konzollehajlás",
+    "ferrari-sigmund-2025": "Roorda-keret kihajlása: Ferrari–Sigmund",
+    "biggins-2026": "Ív átpattanása görbületmintázattal",
+    "lee-frame-1968": "Lee-keret: nemlineáris referenciafeladat (1968)",
+    "plastic-collapse": "Keret képlékeny tönkremenetele: referenciafeladat",
+    "grossman-2026": "Auxetikus rugóhálózatok: Grossman–Boudaoud",
+    "pastrana-2026": "Kötélszerkezet alakkeresése: erősűrűség-módszer",
+    "riks-crisfield": "Riks–Crisfield: ívhossz-módszer és átpattanás",
+    "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
+    "cqc-1981": "SRSS és CQC: modális kombináció"
   }
 };

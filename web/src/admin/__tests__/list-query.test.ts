@@ -8,9 +8,9 @@ describe('list query in the URL', () => {
   });
 
   it('round-trips every field', () => {
-    const q = { search: 'ada lovelace', status: 'disabled' as const, sortBy: 'email' as const, sortDir: 'asc' as const, page: 3, user: 'u-1' };
+    const q = { search: 'ada lovelace', status: 'disabled' as const, sortBy: 'email' as const, sortDir: 'asc' as const, page: 3, user: 'u-1', channel: 'meta' };
     const search = toSearch(q);
-    expect(search).toBe('?q=ada+lovelace&status=disabled&sort=email&dir=asc&page=3&user=u-1');
+    expect(search).toBe('?q=ada+lovelace&status=disabled&sort=email&dir=asc&page=3&channel=meta&user=u-1');
     expect(parseQuery(search)).toEqual(q);
   });
 

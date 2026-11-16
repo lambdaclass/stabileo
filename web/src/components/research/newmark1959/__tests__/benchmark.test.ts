@@ -74,7 +74,7 @@ describe('Newmark SDOF benchmark', () => {
   });
   it('has complete research translations with every placeholder filled', () => {
     const values = { L: '1', E: '10', A: '0.01', rho: '300000', m: '1', k: '100', F: '1', omega: '10', T: '0.628319', i: '0', n: '80', t: '0', x: '2.5' };
-    for (const locale of ['en', 'es', 'pt'] as const) {
+    for (const locale of ['en', 'es', 'pt', 'hu'] as const) {
       expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
       expect(Object.values(translations[locale]).every(v => Array.isArray(v) ? v.length === 3 : v.length > 0)).toBe(true);
       for (const v of Object.values(translations[locale]).flat()) expect(fill(v, values)).not.toMatch(/\{\w+\}/);

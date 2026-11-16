@@ -24,6 +24,7 @@
     "pt": "A certificação plástica exata recusa trabalho excessivo do programa linear",
     "de": "Exakte plastische Zertifizierung lehnt übermäßigen LP-Aufwand ab",
     "fr": "La certification plastique exacte refuse un travail excessif du programme linéaire",
+    "hu": "A pontos képlékeny tanúsítás elutasítja a túl nagy LP-felépítési munkát",
     "tr": "Kesin plastik sertifikalama aşırı doğrusal program işini reddediyor"
   },
   "explanation": {
@@ -32,6 +33,7 @@
     "pt": "Esta entrada histórica introduziu limites de recursos para a certificação plástica exata. PR #1888 substitui o limite inicial de pivôs e a estimativa incompleta por armazenamento somado e controles de palavras de máquina (limbs) dos números racionais; a pequena grelha agora é admitida. Veja plastic-exact-storage-accounting.",
     "de": "Dieser historische Eintrag führte Ressourcenlimits für exakte plastische Zertifizierung ein. PR #1888 ersetzt das anfängliche Pivot-Limit und die unvollständige Schätzung durch summierten Speicher und Prüfungen der Maschinenwörter (Glieder) rationaler Zahlen; der kleine Gitterrost wird nun zugelassen. Siehe plastic-exact-storage-accounting.",
     "fr": "Cette entrée historique a introduit des limites de ressources pour la certification plastique exacte. PR #1888 remplace la limite initiale de pivots et l’estimation incomplète par le stockage cumulé et des contrôles des mots machine (limbs) des nombres rationnels ; le petit grillage est désormais admis. Voir plastic-exact-storage-accounting.",
+    "hu": "Ez a korábbi bejegyzés vezette be a pontos képlékeny számítás erőforrás-ellenőrzését. A #1888-as PR a kezdeti pivotmunka-korlátot és a csak beágyazott tárolást figyelembe vevő becslést összesített tárolási és racionális limbellenőrzésekkel váltja fel; a kis tárolásigényű rácsot a program most elfogadja. Lásd a plastic-exact-storage-accounting bejegyzést.",
     "tr": "Bu tarihsel kayıt kesin plastik sertifikalama için kaynak sınırlarını getirdi. PR #1888 ilk pivot sınırını ve eksik tahmini toplam depolama ve rasyonel sayıların makine sözcükleri (limb) üzerindeki denetimlerle değiştirir; küçük ızgara artık kabul edilir. plastic-exact-storage-accounting kaydına bakın."
   },
   "changelog": {

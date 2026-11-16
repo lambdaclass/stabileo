@@ -30,6 +30,7 @@
     "pt": "Histórico de momentos por etapas e subespaços de rotação",
     "de": "Momentenverlauf in Bauphasen und kinematische Drehräume",
     "fr": "Historique des moments par phases et sous-espaces de rotation",
+    "hu": "Fázisos nyomatéktörténet és kinematikai forgási alterek",
     "tr": "Aşamalı moment geçmişi ve kinematik dönme alt uzayları"
   },
   "explanation": {
@@ -38,6 +39,7 @@
     "pt": "As verificações de rotações livres por etapas usam cargas acumuladas e recusam momentos sem apoio após remover membros. A cinemática conta movimentos independentes dos braços rígidos e trata molas positivas como vínculos independentemente da rigidez. O cálculo elástico mantém as verificações de condicionamento. Recalcule os modelos afetados (#1846, PR #1943).",
     "de": "Freie Drehungen werden in Bauphasen mit kumulierten Lasten geprüft; nach Stabentfernung ungestützte Momente werden abgelehnt. Die Kinematik zählt unabhängige Starrarmbewegungen und behandelt positive Federn unabhängig von ihrer Steifigkeit als Bindungen. Elastische Löser behalten ihre Konditionsprüfungen. Betroffene Modelle neu berechnen (#1846, PR #1943).",
     "fr": "Les rotations libres par phases sont vérifiées avec les charges cumulées ; les moments sans appui après retrait de barres sont refusés. La cinématique compte les mouvements indépendants des bras rigides et traite les ressorts positifs comme des liaisons quelle que soit leur rigidité. Le calcul élastique conserve ses contrôles de conditionnement. Recalculer les modèles concernés (#1846, PR #1943).",
+    "hu": "A fázisos szabadforgás-ellenőrzés az összegzett terheket használja, és elutasítja az elemeltávolítás után megtámasztatlan nyomatékokat. A kinematika a független merevkaros eltolási mozgásokat számolja, és a pozitív rugókat merevségüktől függetlenül megtámasztásnak tekinti. A rugalmas megoldások eredeti kondicionálási ellenőrzései megmaradnak. Futtassa újra az érintett fázisos és kényszeres modelleket (#1846, PR #1943).",
     "tr": "Aşamalı serbest dönme denetimleri birikmiş yükleri kullanır ve eleman kaldırıldıktan sonra desteksiz kalan momentleri reddeder. Kinematik bağımsız rijit kol hareketlerini sayar ve pozitif yayları rijitlikten bağımsız bağ olarak ele alır. Elastik çözümler mevcut koşullandırma denetimlerini korur. Etkilenen modelleri yeniden çözün (#1846, PR #1943)."
   },
   "changelog": {

@@ -571,7 +571,7 @@ const stepsTr: Translations = {
   'steps.trusses.compat.meaning': 'Kuvvet',
   'steps.trusses.compat.PTable': 'Her eleman koordinatının p şekil değiştirmeleri ve P kuvvetleri.',
   'steps.trusses.compat.endsTitle': 'Tepkiler ve denge',
-  'steps.trusses.compat.endsLeadTruss': 'Her çubuk, eksenel kuvvetine göre düğümlerini çeker veya iter. Bir mesnette tepki, orada birleşen k çubuklarının bu kuvvetlerinin toplamı eksi düğüm yüküdür.',
+  "steps.trusses.compat.endsLeadTruss": "Her çubuk, eksenel kuvvetine göre düğümlerini çeker veya iter. Bir mesnette tepki, orada birleşen k çubuklarının bu kuvvetlerinin toplamının negatifi eksi uygulanan P düğüm yüküdür: R = −ΣF_k − P.",
   'steps.trusses.compat.endsLeadFrame': 'Uç momentleri her çubuğun kesme kuvvetlerini tamamlar ve her mesnet düğümünün dengesi tepkisini verir: orada birleşen k çubuklarının uç kuvvetlerinin toplamı eksi düğüm yükü.',
   'steps.trusses.compat.shearNote': 'V^s, çubuk basit mesnetliyken çubuk yüküne karşı oluşan tepkilerdir; ikinci terim uç momentlerini dengeler.',
   'steps.trusses.compat.endsTable': 'Çubuk uç kuvvetleri (N çekmede pozitif, V yerel +y boyunca, M saat yönünün tersine).',

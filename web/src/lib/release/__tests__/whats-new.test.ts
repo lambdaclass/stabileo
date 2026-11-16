@@ -59,3 +59,9 @@ describe("what's-new notice", () => {
     expect(cmp(RESULTS_CHANGED_IN, pkg.version)).toBeLessThanOrEqual(0);
   });
 });
+
+
+it('links Hungarian release notes that exist in the repository', () => {
+  expect(releaseNotesUrl('hu')).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}.hu.md`);
+  expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}.hu.md`))).toBe(true);
+});

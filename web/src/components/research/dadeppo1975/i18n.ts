@@ -192,5 +192,37 @@ const tr: Strings = {
   chartLabel: 'Adım numarasına göre PR²/EI', chartData: 'Eğri verileri (her 20 adımda)', slider: 'Adım {step}: PR²/EI = {load}',
 };
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', Strings> = { en, es, pt, de, fr, tr };
+const hu: Strings = {
+  title: 'DaDeppo–Schmidt: mély ív a határterhénél',
+  hook: 'Egy 215°-os ív, egy kulcsponti teher és az alkalmazás ívhossz-megoldója, összevetve a közölt határteherrel és a kulcspont állapotával.',
+  model: 'Egy befogott–csuklós ív',
+  description: 'Egy körív bal vége befogott, jobb vége csuklós, a kulcspontjában pedig állandó irányú, lefelé mutató koncentrált erő hat. Negyven egyenes, korotációs keretelem közelíti a 215°-os nyílásszöget. Az aszimmetrikus megtámasztás miatt a kulcspont az első határpont előtt a csuklós vég felé tér ki.',
+  units: 'R = 1 m, EI = 1 kN·m² és EA = 10⁶ kN értékeket használunk. A referenciateher 1 kN, így a megoldó teherszorzója megegyezik PR²/EI értékével. A gyakran idézett P = 897 érték R = 100 és EI = 10⁶ mellett adódik: normált értéke 8,97, nem 897.',
+  comparison: 'Összevetés a cikkel',
+  referenceText: 'Az 1975-ös cikk 1. táblázatával vetjük össze, ahogyan azt társszerzője, R. Schmidt egy 2000-es hozzászólásban idézi (J. Eng. Mech. 126(12), 1308. o.): a határpontban PR²/EI = 8,97, a kulcspontban u/R = 0,6116, v/R = 1,1372, az elfordulás 0,0498, a megadott jegyekre kerekítve.',
+  signs: 'u a csuklós vég felé, v lefelé pozitív; az elfordulást a Stabileo kulcsponti ry elfordulásával vetjük össze, amely a határpontban pozitív.',
+  sourceLink: 'Schmidt idézett értékeinek megtekintése',
+  method: 'Az alkalmazás Crisfield-féle ívhossz-megoldója a meglévő korotációs keretelemekkel a csúcson túl is követi az egyensúlyt. A határpontot a legnagyobb teher körüli három lépésen átfektetett parabola adja; az ottani kulcsponti állapotot az ennél a három lépésnél leállított futásokból interpoláljuk. A néző valós léptékben mutatja az elmozdulásokat.',
+  studyHeading: 'Hálóvizsgálat és tűrések',
+  studyText: 'Ugyanezt az ívet 20, 40 és 80 elemmel is kiszámítottuk. Minden tűrés a 40 elemes becsült diszkretizációs hiba 1,25-szöröse (Richardson-extrapoláció a megfigyelt renddel), plusz a legutolsó közölt jegy fél egysége. Nulla elemhosszra extrapolálva minden mennyiség a kerekítésén és a 80 elemes hibabecslésen belül egyezik a közölt értékkel, így a határteher 40 elemnél mutatott +0,46%-os eltérése diszkretizációs hiba. Az ívhossz-lépés felezése kevesebb mint 10⁻⁶ (relatív) értékkel változtatja meg a határterhet, a tízszeres tengelyirányú merevség pedig kevesebb mint 10⁻⁴ értékkel.',
+  studyCaption: 'Értékek a határpontban 20, 40 és 80 elemmel',
+  extrapolated: 'Extrapolált',
+  inspect: 'Az ív megtekintése a csúcs közelében (260. lépés)',
+  replayNote: 'A visszajátszás képkockái ugyanazon megoldó ismételt, húszlépésenként leállított futásainak végeredményei. Az élő worker megismétli ezeket a futásokat, mert az alkalmazás API-ja a teljes csomóponti elmozdulásokat csak a végpontban adja vissza. A görbe minden konvergált lépést mutat; vízszintes tengelye a lépésszám, nem a kulcspont elmozdulása.',
+  notYet: 'Ezen az oldalon kívül',
+  limitations: ['A teljes közölt egyensúlyi görbe és a második határpont.', 'Más nyílásszögek, síkból kilépő kihajlás, érintkezés vagy anyagi nemlinearitás.'],
+  noAuthorCode: 'Nincs összevetve: a szerzők kódját nem használtuk.',
+  livePath: 'Élő út', shortPath: 'Rövid út · 20 lépés (a csúcs előtt)', fullPath: 'Teljes benchmark · 400 lépés',
+  replay: 'Előre kiszámított visszajátszás (ugyanaz a megoldó)', live: 'Élő számítás', cached: 'A böngészőben tárolt eredmény', running: 'Számítás…',
+  run: 'Újraszámítás élőben', stop: 'Leállítás', restart: 'Újraindítás', step: 'Lépés', displacement: 'Elmozdulás nagysága',
+  limit: 'A határpontban', quantity: 'Mennyiség', reference: 'Közölt', stabileo: 'Stabileo, 40 elem', difference: 'Eltérés', tolerance: 'Tűrés',
+  pass: 'Megfelel', fail: 'Nem felel meg',
+  verdictPass: 'Mind a négy tűrésen belül; a leszálló ág elérve', verdictFail: 'Tűrésen kívül', incomplete: 'Hiányos út: {n} / {total} lépés',
+  errorSolve: 'A megoldó nem fejezte be ezt az utat.', errorInvalid: 'A megoldó hiányos eredményt adott vissza.',
+  qLoad: 'Határteher PR²/EI', qU: 'Kulcspont u/R', qV: 'Kulcspont v/R', qRot: 'Kulcsponti elfordulás (rad)',
+  largest: 'Legnagyobb PR²/EI az úton',
+  chartLabel: 'PR²/EI a lépésszám függvényében', chartData: 'A görbe adatai (20 lépésenként)', slider: '{step}. lépés: PR²/EI = {load}',
+};
+
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', Strings> = { en, es, pt, de, fr, tr, hu };
 export const archStrings = (locale: string): Strings => strings[locale as keyof typeof strings] ?? en;
