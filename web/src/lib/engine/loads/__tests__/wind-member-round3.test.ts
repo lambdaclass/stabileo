@@ -14,8 +14,6 @@ import { input2DToWireObject, input3DToWireObject, solve, solvePDelta, solve3D, 
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
 
-const knownWrongReason = 'known wrong result: #2220';
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 const nativeCases: Array<{ kind: string; variant: string; dimension: number; [key: string]: unknown }> = [];
 afterAll(() => {
   if (process.env.WIND_MEMBER_CASES) { writeFileSync(process.env.WIND_MEMBER_CASES, JSON.stringify(nativeCases, null, 2) + '\n'); return; }
@@ -41,7 +39,7 @@ const generate = (model: ReturnType<typeof mesh>, kind: string, rotated = false)
 };
 
 for (const kind of ['chimney', 'wall', 'openSign', 'latticeTower', 'solidSign', 'triangularTower', 'solidSignMinimumPositive', 'solidSignMinimumNegative']) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const pressureSign of [1, -1]) {
-  (kind === 'triangularTower' || kind.startsWith('solidSignMinimum') ? knownWrong : it)(`#2220 ${kind === 'triangularTower' || kind.startsWith('solidSignMinimum') ? knownWrongReason : ''} ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
+  it(`#2220 ${kind} member loading ${variant} spatial=${spatial} nonlinear=${nonlinear} pressure=${pressureSign}`, () => {
     const { model } = remeshWind(mesh(kind === 'triangularTower' ? [[[-2, -1, 0], [-2, -1, 6]], [[2, -1, 0], [2, -1, 6]], [[0, 2, 0], [0, 2, 6]]] : kind.startsWith('solidSign') ? [[[0, 0, 0], [0, 0, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, 0, 0], [0, 0, 6]]]), variant);
     const rotated = variant === 'rotate';
     const { points, lines } = generate(model, kind, rotated);

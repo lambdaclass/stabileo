@@ -14673,5 +14673,6 @@ const pt: Translations = {
   "wind.pressure.openBuildingRequiresFreeRoof": "Um edifício aberto exige declarar o tipo de cobertura livre e sua obstrução.",
   "wind.pressure.distributedTorqueUnsupported": "Este campo de vento exige torção distribuída nos membros, que o solver não pode representar.",
   "wind.pressure.carrierPartitionUnresolved": "Não é possível determinar a partição tributária física do vento para estes membros.",
+  "wind.other.minimumSignCase": "Vento {dir}, mínimo de placa sólida {c} (§4.8)",
 };
 export default pt;

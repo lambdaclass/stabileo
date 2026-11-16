@@ -144,10 +144,13 @@ export function otherStructureWind(i: {
       derivation.push(msg('wind.other.solidSign', { dir: dirLabel(d), b: round(B, 2), s: round(sH, 2), h: round(H, 2), cf: round(cf, 3), f: round(F, 1) }));
       const field = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => pressure, width: B });
       const minimum = windHeightField({ model, axis, from: s.clearance, to: H, pressure: () => MIN_OTHER_KNM2, width: B });
-      const minimumCase: OtherWindCase = { nameKey: 'wind.other.minimumOtherCase', nameParams: { dir: dirLabel(d) }, ...heightLoads(minimum, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0) };
-      if (pressure < MIN_OTHER_KNM2) cases.push(minimumCase);
-      for (const ecc of [0, 1, -1] as const) cases.push({ nameKey: 'wind.other.signCase', nameParams: { dir: dirLabel(d), c: ecc === 0 ? 'A' : `B${ecc > 0 ? '+' : '−'}` }, ...heightLoads(field, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0, ecc * sign * 0.2 * B) });
-      if (pressure >= MIN_OTHER_KNM2) cases.push(minimumCase);
+      const signCases = (field: ReturnType<typeof windHeightField>, minimum: boolean): OtherWindCase[] => [0, 1, -1].map(ecc => ({
+        nameKey: minimum ? ecc === 0 ? 'wind.other.minimumOtherCase' : 'wind.other.minimumSignCase' : 'wind.other.signCase',
+        nameParams: { dir: dirLabel(d), c: ecc === 0 ? 'A' : `B${ecc > 0 ? '+' : '−'}` },
+        ...heightLoads(field, axis === 'x' ? sign : 0, axis === 'y' ? sign : 0, ecc * sign * 0.2 * B),
+      }));
+      const calculatedCases = signCases(field, false), minimumCases = signCases(minimum, true);
+      cases.push(...(pressure < MIN_OTHER_KNM2 ? [...minimumCases, ...calculatedCases] : [...calculatedCases, ...minimumCases]));
       if (B / sH >= 2) notes.push(msg('wind.other.signCaseC'));
     }
     return { cases, derivation, notes };

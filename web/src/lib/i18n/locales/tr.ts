@@ -14871,6 +14871,7 @@ const tr: Translations = {
   "wind.pressure.openBuildingRequiresFreeRoof": "Açık bir bina için serbest çatı tipi ve engelleme durumu belirtilmelidir.",
   "wind.pressure.distributedTorqueUnsupported": "Bu rüzgâr alanı, çözücünün temsil edemediği yayılı çubuk burulması gerektirir.",
   "wind.pressure.carrierPartitionUnresolved": "Bu çubuklar için fiziksel rüzgâr yük alanı paylaşımı belirlenemiyor.",
+  "wind.other.minimumSignCase": "Rüzgâr {dir}, dolu levha asgari yükü {c} (§4.8)",
 };
 
 export default tr;

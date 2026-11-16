@@ -27,7 +27,9 @@ On origin/main `9d925a780`, the #2204 witness is a 12 × 6 × 6 m frame of corne
 columns under a +X net pressure profile of 1 kPa. The coarse mesh returns
 18 instead of 36 kN total force; splitting the columns at midheight returns
 27 instead of 36 kN. The overturning moment is 108 kN·m in the coarse case,
-but the missing foundation share is 18 kN. These values come from the
+but the missing equivalent endpoint foundation share is 18 kN. This is an
+endpoint diagnostic of the continuous wall load, not a separate applied
+foundation force in the corrected model. These values come from the
 [results-change record](../results-changes/2026-11-wind-physical-pressure-field.md)
 and its independent wall integral. They are a witness, not an error bound.
 
@@ -52,11 +54,12 @@ solve does not establish that the complete wall load was generated.
 Fixed in PR #2220, pending merge and release.
 
 The shared height-field integrator evaluates physical pressure and projected
-width, conserves force and first moment, and transfers each station to its
-actual carrier endpoints. Foundation forces remain explicit applied loads.
-Eccentric torsion is distributed across the active cross-section as a plan
-force couple before endpoint transfer. The field representation requires this
-couple, so cases 2 and 4 cannot infer it from singleton endpoint levels.
+width and emits distributed member loading over partial carrier intervals.
+It preserves force, first moment and the load-work moments needed for member
+response. Eccentric cases distribute a plan force couple over the active
+cross-section as distributed member loads. The 18 kN equivalent endpoint
+foundation share is diagnostic only; no explicit foundation nodal force is
+applied. Unsupported distributed member torque is refused explicitly.
 
 ## Workaround
 

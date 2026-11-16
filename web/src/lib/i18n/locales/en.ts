@@ -15031,5 +15031,6 @@ const en: Record<string, string> = {
   "wind.pressure.openBuildingRequiresFreeRoof": "An open building requires an explicit free-roof kind and blockage declaration.",
   "wind.pressure.distributedTorqueUnsupported": "This wind field requires distributed member torque, which the solver cannot represent.",
   "wind.pressure.carrierPartitionUnresolved": "The physical wind tributary partition cannot be resolved for these carriers.",
+  "wind.other.minimumSignCase": "Wind {dir}, solid-sign minimum {c} (§4.8)",
 };
 export default en;

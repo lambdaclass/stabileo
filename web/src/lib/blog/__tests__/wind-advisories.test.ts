@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { findPost } from '..';
 import notice from '../../provenance/result-changes/wind-physical-pressure-field.json';
+import hu from '../translations/hu/safety-advisories';
 import type { PublicLocale } from '../../i18n/store.svelte';
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
@@ -11,16 +12,17 @@ const entries = [
   ['SA-2026-078', 2205, 'wind-roof-pressure-zones'],
 ] as const;
 
-it.each<[PublicLocale, string, string]>([
+it.each<[PublicLocale | 'hu', string, string]>([
   ['en', 'High', 'Fixed in PR #2220, pending merge and release'],
   ['es', 'Alta', 'Corregido en PR #2220, pendiente de integración y publicación'],
   ['pt', 'Alta', 'Corrigido no PR #2220, aguardando integração e publicação'],
   ['de', 'Hoch', 'In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend'],
   ['fr', 'Élevée', 'Corrigé dans la PR #2220, fusion et publication en attente'],
+  ['hu', 'Magas', 'Javítva a #2220 PR-ben, összevonásra és kiadásra vár'],
   ['tr', 'Yüksek', 'PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor'],
 ])('%s catalogs the three assigned wind advisories with regeneration instructions', (locale, severity, status) => {
   const post = findPost('safety-advisories')!;
-  const blocks = post.i18n[locale]!.blocks;
+  const blocks = locale === 'hu' ? hu.blocks : post.i18n[locale]!.blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
   for (const [id, issue, slug] of entries) {
@@ -51,5 +53,5 @@ it('wind advisories preserve the assigned template and pending release boundary'
     expect(document('advisories/README.md')).toContain(`[${id}](${id}-${slug}.md)`);
   }
   expect(document('advisories/SA-2026-077-wind-wall-height-transfer.md')).toContain('only on the unmerged PR #2220 branch');
-  expect(notice.when).toEqual({ all: ['wind', 'generatedLoads'] });
+  expect(notice.when).toEqual({ all: ['generatedWindLoads'] });
 });

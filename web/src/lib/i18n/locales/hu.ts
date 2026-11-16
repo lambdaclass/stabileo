@@ -10628,7 +10628,7 @@ const hu: Translations = {
   "autoLoad.windCaseSet.cases13": "1. és 3. eset (mentesített épület, §2.4.7)",
   "autoLoad.windCaseSet.case1": "Csak az 1. eset",
   "autoLoad.windOpenings": "Zártság a nyílásokból",
-  "autoLoad.windOpeningsHint": "§1.10: A₀ a pozitív külső nyomást kapó fal nyílásainak területe, A_g a bruttó területe; A₀i és A_gi ugyanez a burkolat többi részére.",
+  "autoLoad.windOpeningsHint": "Adja meg minden fal és a tető nyílásainak és teljes felületének területét (1.2. cikk). Nyitott épülethez minden falnak teljesítenie kell a nyílási feltételt.",
   "autoLoad.windOpeningsResult": "Osztályozás a nyílásokból: {e}.",
   "autoLoad.windOpeningsUse": "Ennek az osztályozásnak a használata",
   "autoLoad.windProfile": "q_z a magasság függvényében",
@@ -14562,12 +14562,11 @@ const hu: Translations = {
   "advHelp.mohr.text": "Mohr-kör síkbeli feszültségállapotra, illetve a három Mohr-kör térbeli állapotra. Adja meg a feszültségkomponenseket, vagy vegye át őket a keresztmetszet-vizsgálat valamely szálából: megkapja a főfeszültségeket és főirányokat, a legnagyobb nyírófeszültséget, a feszültséget bármely elforgatott síkon és a von Mises-féle egyenértékű feszültséget. Nem szükséges hozzá kiszámított modell. Ugyanez az eszköz a Stabileo nyilvános eszközei között is elérhető, és mindkettő azonos értékekkel nyitja meg a másikat.",
   "stress.openMohr": "Megnyitás a Mohr-körben",
   "edu.game.open": "Válassza ki a helyes ábrát",
-  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
+  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
   "autoLoad.windWall": "Fal",
   "autoLoad.windRoof": "Tető",
   "autoLoad.windRemoveWall": "Fal eltávolítása",
   "autoLoad.windAddWall": "Fal hozzáadása",
-  "autoLoad.windOpeningsHint": "Adja meg minden fal és a tető nyílásainak és teljes felületének területét (1.2. cikk). Nyitott épülethez minden falnak teljesítenie kell a nyílási feltételt.",
   "autoLoad.windMinimumCase": "Szél {dir}, épület minimális terhe (§2.1.5)",
   "wind.other.minimumOtherCase": "Szél {dir}, egyéb szerkezet minimális terhe (§4.8)",
   "loads.cirsoc102.unsupported.openBuildingProcedure": "Nyitott épülethez a szabad tető eljárása szükséges, a tető típusának és elzártságának megadásával; az épület fal- és tetőtényezői nem használhatók.",
@@ -14583,6 +14582,7 @@ const hu: Translations = {
   "wind.pressure.openBuildingRequiresFreeRoof": "Nyitott épülethez meg kell adni a szabad tető típusát és elzártságát.",
   "wind.pressure.distributedTorqueUnsupported": "Ez a szélmező megoszló rúdcsavarást igényel, amelyet a megoldó nem tud ábrázolni.",
   "wind.pressure.carrierPartitionUnresolved": "A fizikai szélteher hatásterületi felosztása nem határozható meg ezekhez a teherviselőkhöz.",
+  "wind.other.minimumSignCase": "Szél {dir}, tömör tábla minimális terhe {c} (§4.8)",
 };
 
 export default hu;

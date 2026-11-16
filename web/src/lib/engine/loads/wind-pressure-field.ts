@@ -116,6 +116,11 @@ function carrierShares(points: Array<{ x: number; y: number }>): number[] {
   const origin = unique[0]!;
   const diameter = Math.max(...unique.flatMap(p => unique.map(q => Math.hypot(p.x - q.x, p.y - q.y))));
   const tolerance = 64 * Number.EPSILON * diameter;
+  if (unique.length === 3) {
+    const [a, b, c] = unique;
+    const area2 = (b!.x - a!.x) * (c!.y - a!.y) - (b!.y - a!.y) * (c!.x - a!.x);
+    if (Math.abs(area2) > tolerance * diameter) return points.map(p => 1 / (3 * points.filter(q => p.x === q.x && p.y === q.y).length));
+  }
   for (const p of unique.slice(1)) {
     const length = Math.hypot(p.x - origin.x, p.y - origin.y), ux = (p.x - origin.x) / length, uy = (p.y - origin.y) / length;
     const local = points.map(p => [(p.x - origin.x) * ux + (p.y - origin.y) * uy, -(p.x - origin.x) * uy + (p.y - origin.y) * ux] as const);

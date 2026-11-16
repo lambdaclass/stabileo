@@ -5,7 +5,7 @@ use serde_json::Value;
 #[test]
 fn issue_2220_generated_pressure_reaches_native_members() {
     let fixtures: Value = serde_json::from_str(include_str!("wind_member_2220.json")).unwrap();
-    assert_eq!(fixtures.as_array().unwrap().len(), 104);
+    assert_eq!(fixtures.as_array().unwrap().len(), 152);
     for case in fixtures.as_array().unwrap() {
         let integral = |station: f64, power: i32| -> f64 {
             case["segments"]
@@ -49,7 +49,8 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                 .find(|d| d["nodeId"].as_u64() == Some(tip))
                 .unwrap();
             let length = case["length"].as_f64().unwrap();
-            let expected = case["tipScale"].as_f64().unwrap_or(1.0) * (3.0 * length * integral(0.0, 2) - integral(0.0, 3))
+            let expected = case["tipScale"].as_f64().unwrap_or(1.0)
+                * (3.0 * length * integral(0.0, 2) - integral(0.0, 3))
                 / (6.0 * 200000.0 * 1000.0 * 1e-4);
             assert!(
                 (displacement[case["displacement"].as_str().unwrap()]
@@ -59,8 +60,18 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                     .abs()
                     < 5e-9
             );
-            let mut expected_ids: Vec<u64> = case["input"]["elements"].as_object().unwrap().keys().map(|id| id.parse().unwrap()).collect();
-            let mut actual_ids: Vec<u64> = result["elementForces"].as_array().unwrap().iter().map(|f| f["elementId"].as_u64().unwrap()).collect();
+            let mut expected_ids: Vec<u64> = case["input"]["elements"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(|id| id.parse().unwrap())
+                .collect();
+            let mut actual_ids: Vec<u64> = result["elementForces"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|f| f["elementId"].as_u64().unwrap())
+                .collect();
             expected_ids.sort_unstable();
             actual_ids.sort_unstable();
             assert_eq!(actual_ids, expected_ids);
@@ -81,12 +92,26 @@ fn issue_2220_generated_pressure_reaches_native_members() {
                 } else {
                     ("vzStart", "myStart", Some("mxStart"))
                 };
-                let shear_sign = if case["dimension"] == 2 && case["axis"] == "z" { 1.0 } else { -1.0 };
-                let moment_sign = if (case["dimension"] == 2) == (case["axis"] == "z") { 1.0 } else { -1.0 };
-                assert!((force[shear].as_f64().unwrap() - scale * shear_sign * integral(station, 0)).abs() < 5e-9);
+                let shear_sign = if case["dimension"] == 2 && case["axis"] == "z" {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let moment_sign = if (case["dimension"] == 2) == (case["axis"] == "z") {
+                    1.0
+                } else {
+                    -1.0
+                };
+                assert!(
+                    (force[shear].as_f64().unwrap() - scale * shear_sign * integral(station, 0))
+                        .abs()
+                        < 5e-9
+                );
                 assert!(
                     (force[moment].as_f64().unwrap()
-                        - scale * moment_sign * (integral(station, 1) - station * integral(station, 0)))
+                        - scale
+                            * moment_sign
+                            * (integral(station, 1) - station * integral(station, 0)))
                     .abs()
                         < 5e-9
                 );

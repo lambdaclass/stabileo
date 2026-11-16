@@ -7,9 +7,8 @@ import { velocityPressure } from '../../../codes/cirsoc102/wind';
 import { solidSignCf } from '../../../codes/cirsoc102/other-structures';
 import { mesh, windProject, windResultants, assertWindResultants } from './wind-integration-fixture';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2220' ? it : it.skip;
 
-for (const pressure of [0.4, 0.8, 1.2]) for (const direction of ['+x', '-x', '+y', '-y'] as const) knownWrong(`known wrong result: #2220 solid sign eccentric minimum pressure=${pressure} ${direction}`, () => {
+for (const pressure of [0.4, 0.8, 1.2]) for (const direction of ['+x', '-x', '+y', '-y'] as const) it(`#2220 solid sign eccentric minimum pressure=${pressure} ${direction}`, () => {
   const axis = direction.endsWith('x') ? 'x' : 'y', sign = direction.startsWith('-') ? -1 : 1;
   const model = mesh([[[0, -1, 0], [0, -1, 6]], [[0, 1, 0], [0, 1, 6]]]);
   if (axis === 'y') for (const n of model.nodes.values()) { n.x = n.y; n.y = 0; }
@@ -31,13 +30,13 @@ for (const pressure of [0.4, 0.8, 1.2]) for (const direction of ['+x', '-x', '+y
   }
 });
 
-for (const height of [0, 1e-10, 3]) knownWrong(`known wrong result: #2220 triangular median partitions and collinear boundary height=${height}`, () => {
+for (const height of [0, 576 * Number.EPSILON, 2304 * Number.EPSILON, 1e-10, 3]) it(`#2220 triangular median partitions and collinear boundary height=${height}`, () => {
   const model = mesh([[[0, 0, 0], [0, 0, 4]], [[2, 0, 0], [2, 0, 4]], [[6, height, 0], [6, height, 4]]]);
   const loads = windHeightLoads(windHeightField({ model, axis: 'y', from: 0, to: 4, pressure: () => 1 }), 0, 1).distributed;
-  for (const [i, p] of loads.entries()) expect(p.qY).toBeCloseTo(height === 0 ? [1, 3, 2][i]! : 2, 10);
+  for (const [i, p] of loads.entries()) expect(p.qY).toBeCloseTo(height <= 1152 * Number.EPSILON ? [1, 3, 2][i]! : 2, 10);
 });
 
-for (const angle of [0, 0.37, 2.1]) for (const split of [false, true]) knownWrong(`known wrong result: #2220 scalene triangular median cells rotate and split ${angle} ${split}`, () => {
+for (const angle of [0, 0.37, 2.1]) for (const split of [false, true]) it(`#2220 scalene triangular median cells rotate and split ${angle} ${split}`, () => {
   const model = mesh([[[0, 0, 0], [0, 0, 4]], [[4, 0, 0], [4, 0, 4]], [[0, 3, 0], [0, 3, 4]]]);
   for (const n of model.nodes.values()) { const { x, y } = n; n.x = x * Math.cos(angle) - y * Math.sin(angle); n.y = x * Math.sin(angle) + y * Math.cos(angle); }
   if (split) {
@@ -51,7 +50,7 @@ for (const angle of [0, 0.37, 2.1]) for (const split of [false, true]) knownWron
   assertWindResultants(windResultants(model, loads), [4, 0, 0, 0, 8, -4 * (4 * Math.sin(angle) + 3 * Math.cos(angle)) / 3]);
 });
 
-for (const kind of ['latticeTower', 'solidSign'] as const) knownWrong(`known wrong result: #2220 planner retains ${kind} transfer`, () => {
+for (const kind of ['latticeTower', 'solidSign'] as const) it(`#2220 planner retains ${kind} transfer`, () => {
   const model = mesh(kind === 'latticeTower' ? [[[-2, -1, 0], [-2, -1, 6]], [[2, -1, 0], [2, -1, 6]], [[0, 2, 0], [0, 2, 6]]] : [[[0, -1, 0], [0, -1, 6]], [[0, 1, 0], [0, 1, 6]]]);
   const structure = kind === 'latticeTower' ? { kind, section: 'triangle', round: false, solidity: 1, diagonal: false, width: 3 } : { kind, clearance: 0 };
   const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
@@ -71,4 +70,16 @@ for (const kind of ['latticeTower', 'solidSign'] as const) knownWrong(`known wro
       expect(r[0]).toBeCloseTo(9.6, 10); expect(Math.abs(r[5]!)).toBeCloseTo(3.84, 10);
     }
   }
+});
+
+it('#2220 coincident carriers divide a triangular median cell', () => {
+  const model = mesh([[[0, 0, 0], [0, 0, 4]], [[2, 0, 0], [2, 0, 4]], [[6, 3, 0], [6, 3, 4]]]);
+  model.elements.set(4, { ...model.elements.get(1)!, id: 4 });
+  const loads = windHeightLoads(windHeightField({ model, axis: 'y', from: 0, to: 4, pressure: () => 1 }), 0, 1).distributed;
+  expect([...new Set(loads.map(p => p.elementId))].sort()).toEqual([1, 2, 3, 4]);
+  for (const p of loads) {
+    const expected = p.elementId === 1 || p.elementId === 4 ? 1 : 2;
+    expect(p.qY).toBeCloseTo(expected, 10); expect(p.qYJ).toBeCloseTo(expected, 10);
+  }
+  assertWindResultants(windResultants(model, loads), [0, 24, 0, -48, 0, 64]);
 });

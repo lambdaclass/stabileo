@@ -11,7 +11,7 @@ were assembled. Each endpoint became a singleton level, so the eccentric
 moment was applied as a local column torque. Total Mz remained correct, while
 member bending, torsion and reactions could change. The shared height field
 now carries a required unit-eccentricity plan couple, distributed at each
-active cross-section before endpoint transfer. A disjoint WindAxis type
+active cross-section as distributed member loading. A disjoint WindAxis type
 separates physical levels from integrated fields. One function applies the
 field's force and couple for both buildings and solid signs. There is no
 second native Rust wind generator; generation precedes solver selection.

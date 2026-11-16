@@ -15020,5 +15020,6 @@ const es: Record<string, string> = {
   "wind.pressure.openBuildingRequiresFreeRoof": "Un edificio abierto requiere declarar el tipo de cubierta libre y su obstrucción.",
   "wind.pressure.distributedTorqueUnsupported": "Este campo de viento requiere torsión distribuida sobre los miembros, que el solver no puede representar.",
   "wind.pressure.carrierPartitionUnresolved": "No se puede determinar la partición tributaria física del viento para estos miembros.",
+  "wind.other.minimumSignCase": "Viento {dir}, mínimo de cartel macizo {c} (§4.8)",
 };
 export default es;

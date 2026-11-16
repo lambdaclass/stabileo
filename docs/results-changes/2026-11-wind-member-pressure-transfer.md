@@ -27,7 +27,8 @@ combinations recognize member loading as well as nodal loading.
 The tributary grid is constructed in coordinates inferred from physical
 carriers, independent of global-axis row grouping. Collinear carriers and
 rectangular grids support uneven spacings, arbitrary plan rotations and
-reflections. A geometry that cannot establish that partition refuses with
+reflections. Triangular cross-sections use equal-area median tributary cells,
+including scalene triangles and subdivision on only one carrier. A geometry that cannot establish that partition refuses with
 `wind.pressure.carrierPartitionUnresolved`. An eccentric field that requires
 distributed local torque refuses with
 `wind.pressure.distributedTorqueUnsupported`, because the engine's member-load
@@ -68,6 +69,7 @@ SHELL
 make test.engine.targeted TEST=integration FILTER=issue_2220_generated_pressure
 ```
 
-The fixture contains 52 cases, covering the seven physical structure types,
+The fixture contains 152 cases, covering the physical structure types,
+triangular towers, eccentric solid-sign minima and reversed pressures,
 subdivision and rotated force directions. Each native input is solved in
 linear and P-delta modes against the independent distributed-load integrals.

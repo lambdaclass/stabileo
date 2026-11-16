@@ -38,7 +38,7 @@ describe('wind on other structures', () => {
     const m = model(pts, [[1, 3], [3, 5], [2, 4], [4, 6]]);
     const p = project('solidSign');
     const out = otherStructureWind({ model: m, structure: { kind: 'solidSign', clearance: 3 }, project: p, directions: ['+x'], tributaryWidth: 1 });
-    expect(out.cases).toHaveLength(4);
+    expect(out.cases).toHaveLength(6);
     const cf = solidSignCf(4 / 2, 2 / 5);
     const F = (velocityPressure(5, p) / 1000) * G_RIGID * cf * 4 * 2;
     for (const c of out.cases.filter(c => c.nameKey === 'wind.other.signCase')) expect(force(c, 'x')).toBeCloseTo(F, 6);

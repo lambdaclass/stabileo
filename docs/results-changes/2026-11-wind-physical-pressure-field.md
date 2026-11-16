@@ -47,11 +47,12 @@ One pressure integrator splits carriers at physical zone boundaries and height
 breaks, integrates force and the first moment, and transfers loads with those
 same resultants. Roof loads retain partial member intervals and global surface
 normal components. Combined directions compare pressures on each intersected
-interval. Walls and other structures distribute height-varying fields to the
-actual carrier endpoints by their lever arms. Foundation shares are explicit
-base loads and are also present in the applied nodal loads. The horizontal
-minimum is a separate case, without roof pressure or sign eccentricity; it is
-never blended point by point into the calculated pressure field. Effective
+interval. Walls and other structures retain height-varying fields as distributed member
+loading over partial carrier intervals, including both endpoint intensities.
+The 18 kN foundation share below is an equivalent endpoint diagnostic, not an
+explicit applied foundation nodal load. The horizontal minimum is separate
+from calculated pressure and roof pressure. Solid signs retain A and B± for
+both calculated and minimum pressure, including their prescribed eccentricity. Effective
 dimensions for the gust applicability checks use the same integrated physical
 geometry, so a node inserted on one column cannot create a false narrow storey.
 
@@ -59,7 +60,7 @@ geometry, so a node inserted on one column cannot create a false narrow storey.
 | --- | ---: | ---: |
 | #2204, 12 × 6 × 6 m corner columns, +X, 1 kPa profile: force | 18 kN | 36 kN |
 | Same, moment about foundation | 108 kN·m | 108 kN·m |
-| Same, force at foundation | 0 kN | 18 kN |
+| Same, equivalent endpoint foundation share (diagnostic) | 0 kN | 18 kN |
 | Same, columns split at midheight: force | 27 kN | 36 kN |
 | #2205, two 12 m roof carriers: uplift | 10.2 kN | 10.2 kN |
 | Same, first moment along X | 61.2 kN·m | 45.9 kN·m |
@@ -96,8 +97,8 @@ windward-edge roof pressure and the minimum other-structure force stay the
 same; the corrected moment tests retain their magnitude checks too. Existing
 midpoint-pressure expectations are replaced by independent physical integrals
 at their original tolerances. No tolerance or baseline is relaxed. The pressure-growth check retains its
-original ratio threshold on an eleven-storey fixture, using the corrected
-endpoint shape functions. Case-count checks include the additional independent
+original ratio threshold on an eleven-storey fixture, using the integrated
+member pressure field. Case-count checks include the additional independent
 minimum cases. A zero-projection region still has zero wall force while
 retaining its roof loads.
 
@@ -117,9 +118,8 @@ a column torque instead of a force couple across the plan. Total Mz was
 preserved, but member bending, torsion and reactions changed. The height-field
 representation now requires an integrated unit-eccentricity couple. At each
 pressure station the shared plan distributor forms the couple on the active
-cross-section, then the same endpoint shape functions transfer all components.
-The same representation carries solid-sign eccentricity. Only a physically
-coincident cross-section uses the existing local-moment fallback.
+cross-section and retains all components as distributed member loads.
+The same representation carries solid-sign eccentricity. A cross-section that would require distributed local torque refuses explicitly.
 
 Solid-sign B used every model level, including supports below the face. A
 2 m face on a 6 m base therefore took B = 6 for the coefficient and the
@@ -155,5 +155,9 @@ fourth wall. Spanish instructions use voseo. The coordinator assigned
 [SA-2026-076](../advisories/SA-2026-076-wind-enclosure.md) to #2203,
 [SA-2026-077](../advisories/SA-2026-077-wind-wall-height-transfer.md) to #2204 and
 [SA-2026-078](../advisories/SA-2026-078-wind-roof-pressure-zones.md) to #2205.
-Their catalogs and regeneration notice cover all six public locales. #2206's
+Their catalogs and regeneration notice cover all public locales and Hungarian. #2206's
 main witness is conservative and has no advisory.
+
+The [fourth-review correction](2026-11-wind-triangular-and-sign-minimum.md)
+restores triangular carrier partitions and eccentric minimum sign cases on
+this unmerged branch.
