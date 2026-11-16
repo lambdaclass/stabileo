@@ -14565,7 +14565,6 @@ const hu: Translations = {
   "advHelp.mohr.text": "Mohr-kör síkbeli feszültségállapotra, illetve a három Mohr-kör térbeli állapotra. Adja meg a feszültségkomponenseket, vagy vegye át őket a keresztmetszet-vizsgálat valamely szálából: megkapja a főfeszültségeket és főirányokat, a legnagyobb nyírófeszültséget, a feszültséget bármely elforgatott síkon és a von Mises-féle egyenértékű feszültséget. Nem szükséges hozzá kiszámított modell. Ugyanez az eszköz a Stabileo nyilvános eszközei között is elérhető, és mindkettő azonos értékekkel nyitja meg a másikat.",
   "stress.openMohr": "Megnyitás a Mohr-körben",
   "edu.game.open": "Válassza ki a helyes ábrát",
-  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
   "landing.heroFigTruss": "Rácsos tartók",
   "landing.heroFigMohr": "Feszültségvizsgálat",
   "landing.mohrFigTitle": "Forgó metszősík térbeli feszültségállapotban",
@@ -14646,6 +14645,7 @@ const hu: Translations = {
   "steps.common.dirCw": "az óramutató járásával megegyezően",
   "proExport.dxfAxes": "Rajzi tengelyek: {axes}.",
   "proExport.dxfLeftHandNote": "A választott tengelyrendszer balkezes, a CAD jobbkezes: {axis} ellentétes előjellel kerül a fájlba, így a rajz nem tükröződik.",
+  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
 };
 
 export default hu;
