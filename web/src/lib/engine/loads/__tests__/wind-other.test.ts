@@ -44,8 +44,7 @@ describe('wind on other structures', () => {
     for (const c of out.cases.filter(c => c.nameKey === 'wind.other.signCase')) expect(force(c, 'x')).toBeCloseTo(F, 6);
     expect(force(out.cases.find(c => c.nameKey === 'wind.other.minimumOtherCase')!, 'x')).toBeCloseTo(0.8 * 4 * 2, 6);
     // B: no net force across, a moment of F · 0,2 B about the vertical.
-    const b = out.cases[1]!.nodal;
-    expect(b.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
+    expect(force(out.cases[1]!, 'y')).toBeCloseTo(0, 9);
   });
 
   it('a pitched free roof: windward and leeward halves, normal to their slopes, cases A and B', () => {

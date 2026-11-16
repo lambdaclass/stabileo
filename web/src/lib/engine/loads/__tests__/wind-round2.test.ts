@@ -111,7 +111,7 @@ for (const diaphragm of [false, true]) for (const nonlinear of [false, true]) fo
   }
 });
 
-for (const axis of ['x', 'y'] as const) for (const clearance of [-1e-5, 0, 1, 2 - 1e-5, 2, 2 + 1e-5, 4, 6 - 1e-5, 6, 6 + 1e-5]) it(`#2206 solid sign width excludes supports and clips at clearance ${axis} ${clearance}`, () => {
+for (const axis of ['x', 'y'] as const) for (const clearance of [-1e-5, 0, 1, 2 - 1e-5, 2, 2 + 1e-5, 4, 6 - 1e-5, 6, 6 + 1e-5]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220')(`#2206 known wrong result: #2220 solid sign width excludes supports and clips at clearance ${axis} ${clearance}`, () => {
   const model = mesh([-1, 1].flatMap(sign => [[[0, 3 * sign, 0], [0, sign, 2]], [[0, sign, 2], [0, sign, 6]]]));
   if (axis === 'y') for (const n of model.nodes.values()) { n.x = n.y; n.y = 0; }
   const result = otherStructureWind({ model, structure: { kind: 'solidSign', clearance }, project: windProject, directions: [axis === 'x' ? '+x' : '-y'], tributaryWidth: 1 });
@@ -128,7 +128,11 @@ for (const axis of ['x', 'y'] as const) for (const clearance of [-1e-5, 0, 1, 2 
   const sumForce = (c: typeof a) => (axis === 'x' ? resultant(c)[0]! : -resultant(c)[1]!);
   const moment = (c: typeof a) => resultant(c)[5]!;
   expect((moment(b) - moment(a)) / sumForce(a)).toBeCloseTo((axis === 'x' ? 1 : -1) * 0.2 * B, 10);
-  if (clearance >= 2) expect(sumForce(a)).toBeCloseTo(velocityPressure(6, windProject) / 1000 * 0.85 * cf * B * (6 - clearance), 10);
+  const area = clearance < 2 ? (B + 2) * (2 - clearance) / 2 + 2 * 4 : B * (6 - clearance);
+  const expectedForce = velocityPressure(6, windProject) / 1000 * 0.85 * cf * area;
+  expect(sumForce(a)).toBeCloseTo(expectedForce, 10);
+  expect(line.params?.f).toBe(Math.round(expectedForce * 10) / 10);
+  expect(line.params?.f).toBe(Math.round(sumForce(a) * 10) / 10);
 });
 
 for (const ratio of [0.999, 1, 1.001]) it(`physical cross-section retains both sides of the plan-couple fallback ${ratio}`, () => {

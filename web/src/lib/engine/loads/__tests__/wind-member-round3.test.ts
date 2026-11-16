@@ -313,3 +313,83 @@ for (const kind of ['bracedTower', 'taperCrossing'] as const) for (const variant
     check(nonlinear ? solvePDelta(input).results : solve(input));
   }
 });
+
+for (const entry of ['field', 'planner'] as const) for (const variant of variants) for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const sign of [-1, 1]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2220')(`#2220 known wrong result: #2220 cubic grid ${entry} ${variant} spatial=${spatial} nonlinear=${nonlinear} sign=${sign}`, () => {
+  const source = mesh([0, 1, 2].flatMap(column => [-1, 1].map(side => [[column === 1 ? 0 : column, side * 0.75, 0], [column, side * 0.25, 1]])));
+  const { model, sources } = remeshWind(source, variant), rotated = variant === 'rotate';
+  const axis = rotated ? 'y' : 'x';
+  let lines: ReturnType<typeof windHeightLoads>['distributed'];
+  if (entry === 'field') lines = windHeightLoads(windHeightField({ model, axis, from: 0, to: 1, pressure: z => z }), rotated ? 0 : 1, rotated ? 1 : 0).distributed;
+  else {
+    const sink: PlanSink = { cases: [], nodal: [], distributed: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
+    const levels = levelsWithPlanArea(model).map(l => ({ ...l, selfWeightKN: 0, superimposedKN: 0, liveTotalKN: 0, liveParticipatingKN: 0, weightKN: 0 }));
+    planWind({ model, tributaryWidth: 1, wind: { enabled: true, basicSpeed: 40, exposure: 'C', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true, senses: [rotated ? '+y' : '+x'], caseSet: 'case1', profile: [[0, 0], [1, 1]] } } as LoadPlanInput, levels, sink);
+    expect(sink.blockedKeys).toEqual([]); expect(sink.cases).toHaveLength(1); expect(sink.nodal).toEqual([]);
+    lines = sink.distributed.map(p => ({ ...p, q: p.q, qJ: p.qJ ?? p.q, qX: p.qX ?? 0, qXJ: p.qXJ ?? p.qX ?? 0, qY: p.qY ?? 0, qYJ: p.qYJ ?? p.qY ?? 0, a: p.a!, b: p.b!, frame: 'global' as const, facet: -1 }));
+  }
+  const component = (p: typeof lines[number], end = false) => rotated ? end ? p.qYJ! : p.qY! : end ? p.qXJ! : p.qX!;
+  const coefficientsFor = (id: number) => sources.get(id)! <= 2 ? [0, 0, 1.5 / 8, -1 / 8] : sources.get(id)! <= 4 ? [0, 1.5 / 4, -1 / 4] : [0, 3 / 8, -3.5 / 8, 1 / 8];
+  const polynomialIntegral = (coefficients: number[], a: number, b: number, power: number) => coefficients.reduce((sum, c, k) => sum + c * (b ** (k + power + 1) - a ** (k + power + 1)) / (k + power + 1), 0);
+  const checkLoads = () => {
+  expect([...new Set(lines.map(p => p.elementId))].sort((a, b) => a - b)).toEqual([...model.elements.keys()].sort((a, b) => a - b));
+  for (const e of model.elements.values()) {
+    const start = model.nodes.get(e.nodeI)!.z!, end = model.nodes.get(e.nodeJ)!.z!;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const scale = (end - start) / Math.hypot(b.x - a.x, b.y - a.y, end - start);
+    const parts = lines.filter(p => p.elementId === e.id);
+    expect(parts.length).toBeGreaterThan(0);
+    for (const p of parts) { expect(component(p)).toBeGreaterThanOrEqual(0); expect(component(p, true)).toBeGreaterThanOrEqual(0); }
+    for (const power of [0, 1, 2, 3]) {
+      const actual = parts.reduce((sum, p) => {
+        const lo = start + scale * p.a, hi = start + scale * p.b;
+        const gradient = (component(p, true) - component(p)) / (hi - lo) / scale;
+        return sum + polynomialIntegral([component(p) / scale - gradient * lo, gradient], lo, hi, power);
+      }, 0);
+      expect(actual).toBeCloseTo(polynomialIntegral(coefficientsFor(e.id), start, end, power), 10);
+    }
+  }
+  };
+  const carriers = [...model.elements.values()].filter(e => sources.get(e.id)! <= 2);
+  const used = new Set(carriers.flatMap(e => [e.nodeI, e.nodeJ]));
+  const nodes = new Map([...model.nodes].filter(([id]) => used.has(id)));
+  const scale = 1 / Math.hypot(1, 0.5), length = 1 / scale;
+  const coefficients = [0, 0, sign * 1.5 * scale ** 3 / 8, -sign * scale ** 4 / 8];
+  const integral = (at: number, power: number) => polynomialIntegral(coefficients, at, length, power);
+  const tip = [...nodes.values()].find(n => n.z === 1)!.id;
+  const input: SolverInput = {
+    nodes: new Map([...nodes].map(([id, n]) => [id, { id, x: 0, z: n.z! / scale }])),
+    elements: new Map(carriers.map(e => [e.id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]), sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+    supports: new Map([...nodes.values()].filter(n => n.z === 0).map(n => [n.id, { id: n.id, nodeId: n.id, type: 'fixed' }])),
+    loads: lines.filter(p => carriers.some(e => e.id === p.elementId)).map(p => ({ type: 'distributed', data: { elementId: p.elementId, qI: -sign * component(p), qJ: -sign * component(p, true), a: p.a, b: p.b } })),
+  };
+  const check = (out: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
+    checkLoads();
+    expect(out.elementForces.map((f: { elementId: number }) => f.elementId).sort((a: number, b: number) => a - b)).toEqual(carriers.map(e => e.id).sort((a, b) => a - b));
+    for (const d of out.displacements) if (nodes.get(d.nodeId)!.z === 1) expect(rotated && 'uy' in d ? d.uy : d.ux).toBeCloseTo((3 * length * integral(0, 2) - integral(0, 3)) / (6 * 200000 * 1000 * 1e-4), 12);
+    for (const f of out.elementForces) for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+      const at = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z! / scale + t * f.length;
+      const shear = integral(at, 0), moment = integral(at, 1) - at * shear;
+      if ('vyStart' in f) {
+        expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-shear, 10);
+        expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-moment, 10);
+        expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
+      } else {
+        expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(shear, 10);
+        expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(moment, 10);
+      }
+    }
+  };
+  if (spatial) {
+    const input3: SolverInput3D = { ...input, nodes: new Map([...nodes].map(([id, n]) => [id, { ...n, z: n.z! }])),
+      elements: new Map(carriers.map(e => [e.id, { ...e, type: 'frame', localYx: rotated ? 0 : 1, localYy: rotated ? 1 : 0, localYz: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
+      sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]), supports: new Map([...nodes.values()].filter(n => n.z === 0).map(n => [n.id, { nodeId: n.id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }])),
+      loads: lines.filter(p => carriers.some(e => e.id === p.elementId)).map(p => ({ type: 'distributed', data: { elementId: p.elementId, qYI: sign * component(p), qYJ: sign * component(p, true), qZI: 0, qZJ: 0, a: p.a, b: p.b } })),
+    };
+    if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind: `cubicGrid:${entry}`, variant: `${variant}:${sign}`, dimension: 3, axis: 'z', coordinateScale: 1 / scale, displacement: rotated ? 'uy' : 'ux', length, polynomial: coefficients, segments: [], tip, input: input3DToWireObject(input3) });
+    check(nonlinear ? solvePDelta3D(input3).results : solve3D(input3));
+  } else {
+    if (!nonlinear && variant !== 'mirror') nativeCases.push({ kind: `cubicGrid:${entry}`, variant: `${variant}:${sign}`, dimension: 2, axis: 'z', displacement: 'ux', length, polynomial: coefficients, segments: [], tip, input: input2DToWireObject(input) });
+    check(nonlinear ? solvePDelta(input).results : solve(input));
+  }
+});
