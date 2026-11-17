@@ -1,6 +1,6 @@
 import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
 import { wallInPlane, wallOutOfPlane } from './wall-member';
-import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
+import { shearFy, shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import { tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
@@ -93,7 +93,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const vc = 0.17 * shearSqrtFc(c.mat.fc) * acv * 1000;
   // §18.10.2.2 under chapter 18, §11.7.2.3 always.
   const curtains: 1 | 2 = d.thickness > 0.25 || (c.seismic && (vuMax > vc || d.height / d.length >= 2)) ? 2 : 1;
-  const rhoTShear = Math.max(0, vuMax / PHI_WALL_SHEAR - vc) / (c.mat.fy * 1000 * acv);
+  const rhoTShear = Math.max(0, vuMax / PHI_WALL_SHEAR - vc) / (shearFy(c.mat.fy) * 1000 * acv);
 
   const meshFor = (dia: number, rho: number, sMax: number) => ({ diameter: dia, spacing: roundDown(Math.max(0.075, Math.min(sMax, curtains * barArea(dia) * 1e-4 / Math.max(rho * d.thickness, 1e-9)))) });
   const first = evaluate(d, c, { vertical: { diameter: c.barDia, spacing: 0.2 }, horizontal: { diameter: c.barDia, spacing: 0.2 }, curtains });

@@ -32,6 +32,7 @@
 
 import { clause, type ClauseRef, type RegulationEdition } from '../codes/regulation';
 import { sqrtFcCapped } from '../engine/detailing/punching-shear';
+import { shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 
 /** §21.2 — φ for shear and for compression-controlled sections. */
 export const PHI_WALL_SHEAR = 0.75;
@@ -175,7 +176,7 @@ export function checkWallInPlaneShear(opts: {
 
   // Vc for a wall, the simple lower-bound form: 0,17 λ √f'c A_cv.
   const vc = 0.17 * lambda * root * acv * 1000;
-  const vs = opts.rhoT * opts.fy * acv * 1000;
+  const vs = opts.rhoT * shearFy(opts.fy) * acv * 1000;
   // §11.5.4.2: Vn is capped at 0,66·√f'c·Acv. (0,83 was the CIRSOC 201-2005
   // value, reduced in the 2025 edition because Acv grew from h·d to h·ℓw.)
   const vnLimit = 0.66 * root * acv * 1000;
