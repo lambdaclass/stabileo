@@ -335,6 +335,9 @@ pub(crate) fn flexure_inputs_valid(m: &Cirsoc201MemberData) -> bool {
 /// the strength), the tension steel strain falls. It is −As·fy − Nu as c → 0, so the root is
 /// unique where it is strictly increasing. With Nu = 0 the moment is the internal couple, and
 /// the arithmetic is the one this module used before the axial force was added.
+///
+/// Each rounded f64 operation in the residual must stay non-decreasing in c: the root search
+/// (`increasing_root_rounded_monotone`) returns the bisection's bits only then.
 fn flexure_at<T: Real>(m: &Cirsoc201MemberData, b1: T, c: T, nu: T) -> (T, T, T, T, T, T) {
     let es = T::exact(m.es.unwrap_or(200e9));
     let fy = T::exact(m.fy);

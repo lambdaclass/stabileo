@@ -98,5 +98,12 @@ it('a verification scope solves a column section once per exact section and axia
     expect(solved).toBe(2);
     withBiaxialCapacityCache(() => { run(base); withBiaxialCapacityCache(() => run(base)); run(base); });
     expect(solved).toBe(4);
+    const doubled = withBiaxialCapacityCache(() => {
+      run(base);
+      registerColumnCapacityKernel((...args) => { solved++; return kernel(...args).map((v, i) => (i % 4 === 0 ? 2 * v : v)); });
+      return run(base);
+    });
+    expect(solved).toBe(6);
+    expect(doubled.phiMn).toBeCloseTo(2 * expected[0]!.phiMn, 1);
   } finally { registerColumnCapacityKernel(kernel); }
 });

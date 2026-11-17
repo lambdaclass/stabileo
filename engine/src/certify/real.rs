@@ -124,8 +124,8 @@ pub fn bracket_rounded_monotone(g: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64
         return f64::NAN;
     }
     let mut bisect = false;
-    let mut kept_lo = 0u8;
-    let mut kept_hi = 0u8;
+    let mut raised_lo_last = false;
+    let mut lowered_hi_last = false;
     loop {
         let mid = 0.5 * (lo + hi);
         if mid <= lo || mid >= hi {
@@ -143,19 +143,19 @@ pub fn bracket_rounded_monotone(g: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64
         if g_x < 0.0 {
             lo = x;
             g_lo = g_x;
-            kept_lo = 0;
-            kept_hi += 1;
-            if kept_hi > 1 {
+            if raised_lo_last {
                 g_hi *= 0.5;
             }
+            raised_lo_last = true;
+            lowered_hi_last = false;
         } else {
             hi = x;
             g_hi = g_x;
-            kept_hi = 0;
-            kept_lo += 1;
-            if kept_lo > 1 {
+            if lowered_hi_last {
                 g_lo *= 0.5;
             }
+            lowered_hi_last = true;
+            raised_lo_last = false;
         }
         bisect = !bisect && hi - lo > 0.5 * width;
     }
@@ -420,6 +420,13 @@ mod tests {
                     assert!(calls.get() <= 200, "{name}, root {root}: {} evaluations", calls.get());
                 }
             }
+        }
+        // One end kept for hundreds of evaluations in a row: a step far from the bracket's scale.
+        for (step, lo, hi) in [(1.0, 1e-9, 1e100), (1e-200, 1e-300, 1e300), (1e250, 1e-300, 1e300)] {
+            let g = |x: f64| if x < step { -1e200 } else { 1e-200 };
+            assert_eq!(bracket_rounded_monotone(g, lo, hi).to_bits(), bisect_increasing(g, lo, hi).to_bits(), "step at {step}");
+            let g = |x: f64| if x < step { -1e-200 } else { 1e200 };
+            assert_eq!(bracket_rounded_monotone(g, lo, hi).to_bits(), bisect_increasing(g, lo, hi).to_bits(), "step at {step}");
         }
         assert!(bracket_rounded_monotone(|x| x, 1.0, 2.0).is_nan());
         assert!(bracket_rounded_monotone(|x| x - 5.0, 1.0, 2.0).is_nan());

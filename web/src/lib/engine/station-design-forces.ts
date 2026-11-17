@@ -1692,8 +1692,11 @@ function solveColumnSection(data: ColumnSectionData, Nu: number): ColumnSectionS
     ...data.barData.flatMap(bar => [bar.d, bar.area_m2])];
   if (!values.every(Number.isFinite)) return solveColumnSections(data, [Nu])[0];
   const key = `${data.edition}:${values.map(exactNumberKey).join()}`;
-  let solution = columnScope.get(key);
-  if (!solution) { solution = Object.freeze(solveColumnSections(data, [Nu])[0]); columnScope.set(key, solution); }
+  const kernel = getColumnCapacityKernel();
+  let solutions = columnScope.get(kernel);
+  if (!solutions) { solutions = new Map(); columnScope.set(kernel, solutions); }
+  let solution = solutions.get(key);
+  if (!solution) { solution = Object.freeze(solveColumnSections(data, [Nu])[0]); solutions.set(key, solution); }
   return solution;
 }
 const exactNumberKey = (value: number): string => Object.is(value, -0) ? '-0' : String(value);
@@ -1725,7 +1728,7 @@ export function computeBiaxialCapacity(
 
 type ScopedBiaxialSection = ReturnType<typeof prepareBiaxialSection> & { ratios: Map<string, number> };
 let biaxialScope: Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>> | undefined;
-let columnScope: Map<string, ColumnSectionSolution> | undefined;
+let columnScope: Map<ReturnType<typeof getColumnCapacityKernel>, Map<string, ColumnSectionSolution>> | undefined;
 
 export function withBiaxialCapacityCache<T>(run: () => T): T {
   const previous = biaxialScope;
