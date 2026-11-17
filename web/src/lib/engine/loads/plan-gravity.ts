@@ -1,3 +1,4 @@
+import { memberMomentToGlobal } from '../member-loads';
 import { pointGlobal } from '../member-point-loads';
 import { mapMoments } from '../member-moments';
 import { computeLocalAxes3D } from '../local-axes-3d';
@@ -444,7 +445,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         if (l.moments) {
           const e = model.elements.get(l.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
           const axes = computeLocalAxes3D({ ...a, id: e.nodeI, z: a.z ?? 0 }, { ...b, id: e.nodeJ, z: b.z ?? 0 }, undefined, 0, false);
-          out.moments.push({ elementId: l.elementId, a: l.a, b: l.b, moments: mapMoments(l.moments, v => [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*axes.ey[i]! + v[2]*axes.ez[i]!) as [number, number, number]), roof, panel: index });
+          out.moments.push({ elementId: l.elementId, a: l.a, b: l.b, moments: mapMoments(l.moments, v => memberMomentToGlobal(v, axes)), roof, panel: index });
         }
         if (l.qI === 0 && l.qJ === 0) continue;
         addSides(l.elementId, one.sides.get(l.elementId));

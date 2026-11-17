@@ -50,7 +50,7 @@ for (const distribution of ['twoWay', 'oneWay'] as const) for (const leftHand of
         if (moments) torque += evaluate(moments.x, t);
       }
       expect(force).toBeCloseTo(depth, 8);
-      expect(torque).toBeCloseTo(-depth * depth / 2, 8);
+      expect(torque).toBeCloseTo((leftHand ? 1 : -1) * depth * depth / 2, 8);
     }
     expect(out.nodal.filter(n => n.transfer !== 'roundoff' && (n.mx !== 0 || n.my !== 0))).toHaveLength(0);
   });

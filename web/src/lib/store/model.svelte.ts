@@ -1,3 +1,4 @@
+import { mapMoments, type MemberMoments } from '../engine/member-moments';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { memberFrame3D } from '../engine/member-loads';
 import { migrateDesignData } from '../model/design-data';
@@ -3783,6 +3784,10 @@ function createModelStore() {
         if (data.mz !== undefined) d.mz = data.mz as number;
       } else if (load.type === 'distributed3d') {
         const d = load.data as DistributedLoad3D;
+        if ('moments' in data) {
+          if (data.moments === undefined) delete d.moments;
+          else d.moments = mapMoments(data.moments as MemberMoments, v => [...v]);
+        }
         // The axes: 'local' (or an empty value) is the default and is stored as absent.
         if ('frame' in data) {
           const f = data.frame as string | undefined;

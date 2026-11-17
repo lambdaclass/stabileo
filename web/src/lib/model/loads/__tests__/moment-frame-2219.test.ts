@@ -11,7 +11,7 @@ import '../../../store/index';
 
 beforeAll(async () => { await initSolver(); });
 
-const regression = it.skip;
+const regression = it;
 
 for (const leftHand of [false, true]) for (const frame of ['global', 'local', 'projected'] as const) {
   regression(`known wrong result: #2219 axial density components leftHand=${leftHand} frame=${frame}`, () => {
@@ -57,7 +57,7 @@ for (const initialFrame of ['local', 'global'] as const) for (const leftHand of 
       const solvers = [solve3D, (i: typeof input) => solvePDelta3D(i, 100, 1e-10).results];
       if (axis === 'x') solvers.push(i => solveCorotational3D({ ...i, loads: i.loads.map(l => l.type === 'distributed' ? { ...l, data: { ...l.data, qZI: 0, qZJ: 0 } } : l) }, 100, 1e-10, 4).results);
       for (const [solverIndex, solve] of solvers.entries()) {
-        const result = solve(input);
+        const result: ReturnType<typeof solve3D> = solve(input);
         for (const ef of result.elementForces) {
           const element = modelStore.elements.get(ef.elementId)!;
           const start = modelStore.nodes.get(element.nodeI)!;
@@ -96,4 +96,28 @@ regression('known wrong result: #2219 plane input refuses a nonzero axial densit
   modelStore.model.loads = modelStore.loads.filter(l => l.data.id !== id);
   modelStore.addDistributedLoad(e, -1);
   expect(buildSolverInput2D(modelStore.model)).not.toBeNull();
+});
+
+for (const leftHand of [false, true]) for (const magnitude of [0, 0.5e-9, 1e-9, 1.5e-9]) {
+  it(`moment frame conversion preserves density at the force display cutoff: leftHand=${leftHand} magnitude=${magnitude}`, () => {
+    const axes = { ex: [1, 0, 0] as [number, number, number], ey: [0, 1, 0] as [number, number, number], ez: [0, 0, 1] as [number, number, number], L: 3 };
+    const d = { elementId: 1, a: 1, b: 2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [magnitude, magnitude, magnitude], y: [0, 0, 0], z: [0, 0, 0] } } satisfies Omit<DistributedLoad3D, 'id'>;
+    const global = reframedDistributed(d, axes, 'global', leftHand);
+    expect(global.moments!.x).toEqual([0, 0, 0].map(() => leftHand && magnitude !== 0 ? -magnitude : magnitude));
+    expect(reframedDistributed({ ...d, ...global }, axes, 'local', leftHand).moments).toEqual(d.moments);
+  });
+}
+
+it('the moment editor replaces and removes densities without retaining a caller-owned array', () => {
+  modelStore.clear();
+  uiStore.analysisMode = '3d';
+  const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3), e = modelStore.addElement(a, b);
+  const id = modelStore.addDistributedLoad3D(e, 0, 0, -1, -1);
+  const moments = { x: [1, 2, 3], y: [0, 0, 0], z: [0, 0, 0] } satisfies NonNullable<DistributedLoad3D['moments']>;
+  expect(modelStore.updateLoad(id, { moments })).toBe(true);
+  moments.x[0] = 7;
+  const read = () => (modelStore.loads.find(l => l.data.id === id)!.data as DistributedLoad3D).moments;
+  expect(read()!.x).toEqual([1, 2, 3]);
+  expect(modelStore.updateLoad(id, { moments: undefined })).toBe(true);
+  expect(read()).toBeUndefined();
 });

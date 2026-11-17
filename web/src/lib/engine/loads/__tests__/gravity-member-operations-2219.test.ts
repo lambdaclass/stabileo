@@ -40,9 +40,9 @@ it('unequal member cuts keep the quadratic moment at its physical station',()=>{
 for(const leftHand of [false,true]) it(`reframing a member density preserves the global moment, leftHand=${leftHand}`,()=>{
   const axes={ex:[0,1,0] as [number,number,number],ey:[-1,0,0] as [number,number,number],ez:[0,0,1] as [number,number,number],L:6};
   const original=load().data,global={...original,...reframedDistributed(original,axes,'global',leftHand)};
-  expect(global.moments!.x).toEqual((leftHand?[2,18,50]:[-2,-18,-50]));
-  expect(global.moments!.y).toEqual([1,9,25]);
-  expect(global.moments!.z).toEqual([-1,-9,-25]);
+  expect(global.moments!.x).toEqual([-2,-18,-50]);
+  expect(global.moments!.y).toEqual(leftHand?[-1,-9,-25]:[1,9,25]);
+  expect(global.moments!.z).toEqual(leftHand?[1,9,25]:[-1,-9,-25]);
   expect(reframedDistributed(global,axes,'local',leftHand).moments).toEqual(original.moments);
 });
 

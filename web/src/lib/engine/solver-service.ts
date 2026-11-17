@@ -25,7 +25,7 @@ import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from '
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
-import { distributedGlobalEnds, distributedGlobalMoments, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
+import { distributedGlobalEnds, distributedGlobalMoments, globalMomentToMember, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
 import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
@@ -1555,7 +1555,7 @@ export function buildSolverLoads3D(
       if (d.moments) {
         if (hasMemberMoments(d.moments) && memberTakesNoBending(model.elements.get(d.elementId)!)) throw new MemberMomentRefusal(d.elementId, 'frame');
         const global = distributedGlobalMoments(d,m.axes,userLeftHand)!;
-        const local = mapMoments(global, v => [m.axes.ex,m.axes.ey,m.axes.ez].map(axis => v.reduce((sum,x,i) => sum+x*axis[i]!,0)) as [number,number,number]);
+        const local = mapMoments(global, v => globalMomentToMember(v, m.axes));
         solverLoads.push({ type: 'distributed', data: { elementId: d.elementId, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, a: g.a, b: g.b, moments: local } });
       }
     } else if (l.type === 'pointOnElement') {

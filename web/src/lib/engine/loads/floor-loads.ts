@@ -1,3 +1,4 @@
+import { globalMomentToMember } from '../member-loads';
 import { positionallyCollinear } from './physical-region-loads';
 import { MIN_GRAVITY_MEMBER_SPAN, memberLoadSpans } from './member-load-spans';
 import { linearProfile } from '../linear-profile';
@@ -375,7 +376,7 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
         const values = moment.first.map(([dx, dy]) => {
           const mx = -qEff * ((plane?.e1[1] ?? 0) * dx + (plane?.e2[1] ?? 1) * dy);
           const my = qEff * ((plane?.e1[0] ?? 1) * dx + (plane?.e2[0] ?? 0) * dy);
-          return [mx * axes.ex[0] + my * axes.ex[1], (mx * axes.ey[0] + my * axes.ey[1]) * (input.leftHand ? -1 : 1), mx * axes.ez[0] + my * axes.ez[1]];
+          return globalMomentToMember([mx, my, 0], axes, input.leftHand);
         });
         const h = moment.s1 - moment.s0;
         const moments = sliceMoments({ x: values.map(v => v[0]!) as [number, number, number], y: values.map(v => v[1]!) as [number, number, number], z: values.map(v => v[2]!) as [number, number, number] },

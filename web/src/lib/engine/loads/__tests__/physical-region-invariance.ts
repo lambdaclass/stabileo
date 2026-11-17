@@ -150,7 +150,7 @@ export function floorResultant(m: LoadModelData, out: FloorLoadResult, leftHand 
     const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0));
     const field = distributedGlobalEnds(l, { ...axes, L }, leftHand);
     for (const g of [field.gI, field.gJ]) { expect(g[0]).toBeCloseTo(0, 10); expect(g[1]).toBeCloseTo(0, 10); }
-    return { ...(l.moments ? { moments: mapMoments(l.moments, v => [0,1,2].map(i => v[0]*axes.ex[i]! + v[1]*(leftHand ? -1 : 1)*axes.ey[i]! + v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: l.elementId, q: field.gI[2], qJ: field.gJ[2], a: field.a, b: field.b };
+    return { ...(l.moments ? { moments: mapMoments(l.moments, v => [0,1,2].map(i => (leftHand ? -1 : 1)*v[0]*axes.ex[i]! + v[1]*axes.ey[i]! + (leftHand ? -1 : 1)*v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: l.elementId, q: field.gI[2], qJ: field.gJ[2], a: field.a, b: field.b };
   });
   return loadResultant(m, { distributed, concentrated: out.concentrated, nodal: out.nodal, surface: [] });
 }

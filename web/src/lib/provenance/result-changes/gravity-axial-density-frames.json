@@ -1,0 +1,43 @@
+{
+  "id": "gravity-axial-density-frames",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "displacements",
+    "reactions",
+    "elementForces"
+  ],
+  "requiresMemberLoadRestoration": true,
+  "title": {
+    "en": "Axial moment density frames",
+    "es": "Ejes de densidades de momento axial",
+    "pt": "Eixos de densidades de momento axial",
+    "de": "Achsen für axiale Momentdichten",
+    "fr": "Repères des densités de moment axial",
+    "tr": "Eksenel moment yoğunluğu koordinatları",
+    "hu": "Axiális nyomatéksűrűség koordinátái"
+  },
+  "explanation": {
+    "en": "Distributed moments now use axial-vector handedness and frame edits store their converted densities. Regenerate affected left-handed floor loading, restore suspect manual loads from their physical specification, then rerun analyses, combinations and checks. Re-solving cannot repair earlier stored load edits (#2219).",
+    "es": "Los momentos distribuidos usan la transformación de vectores axiales y los cambios de ejes guardan las densidades convertidas. Regenere las cargas de piso afectadas con ejes izquierdos, restaure las cargas manuales desde su especificación física y repita análisis, combinaciones y verificaciones. Recalcular no repara ediciones anteriores (#2219).",
+    "pt": "Momentos distribuídos usam a transformação de vetores axiais e mudanças de eixos salvam as densidades convertidas. Gere novamente as cargas de piso afetadas com eixos esquerdos, restaure as cargas manuais a partir da especificação física e repita análises, combinações e verificações. Resolver não repara edições anteriores (#2219).",
+    "de": "Verteilte Momente verwenden die Händigkeit axialer Vektoren; Achsenwechsel speichern die umgerechneten Dichten. Betroffene Deckenlasten mit linkshändigen Achsen neu erzeugen, verdächtige manuelle Lasten aus der physikalischen Vorgabe wiederherstellen und Analysen, Kombinationen und Nachweise wiederholen. Neuberechnung repariert frühere Laständerungen nicht (#2219).",
+    "fr": "Les moments répartis utilisent la transformation des vecteurs axiaux et les changements de repère enregistrent les densités converties. Régénérez les charges de plancher affectées en repère gauche, restaurez les charges manuelles selon leur définition physique, puis relancez analyses, combinaisons et vérifications. Recalculer ne répare pas les modifications antérieures (#2219).",
+    "tr": "Dağıtılmış momentler eksenel vektör dönüşümünü kullanır; koordinat değişiklikleri dönüştürülen yoğunlukları kaydeder. Etkilenen sol elli döşeme yüklerini yeniden üretin, şüpheli elle girilen yükleri fiziksel tanımından geri yükleyin ve analizleri, birleşimleri ve kontrolleri tekrarlayın. Yeniden çözüm eski yük düzenlemelerini onarmaz (#2219).",
+    "hu": "A megoszló nyomatékok axiális vektortranszformációt használnak, a koordinátaváltás menti az átszámított sűrűségeket. Generálja újra az érintett balkezes födémterheket, állítsa helyre a gyanús kézi terheket a fizikai előírásból, majd ismételje meg a számításokat, kombinációkat és ellenőrzéseket. Az újraszámítás nem javítja a korábbi teherszerkesztéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round14.md",
+    "heading": "Axial moment density frames"
+  }
+}

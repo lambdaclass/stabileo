@@ -27,7 +27,7 @@ function resultant(loads: Load[]) {
       const e = modelStore.elements.get(l.data.elementId)!, a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
       const axes = computeLocalAxes3D({ ...a, z: a.z ?? 0 }, { ...b, z: b.z ?? 0 }, undefined, 0, false);
       const global = distributedGlobalEnds(l.data, { ...axes, L: Math.hypot(b.x - a.x, b.y - a.y, (b.z ?? 0) - (a.z ?? 0)) }, uiStore.axisConvention3D === 'leftHand');
-      return [{ ...(l.data.moments ? { moments: l.data.frame && l.data.frame !== 'local' ? l.data.moments : mapMoments(l.data.moments,v => [0,1,2].map(i=>v[0]*axes.ex[i]!+v[1]*(uiStore.axisConvention3D==='leftHand'?-1:1)*axes.ey[i]!+v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: e.id, q: global.gI[2], qJ: global.gJ[2], a: global.a, b: global.b }];
+      return [{ ...(l.data.moments ? { moments: l.data.frame && l.data.frame !== 'local' ? l.data.moments : mapMoments(l.data.moments,v => [0,1,2].map(i=>(uiStore.axisConvention3D==='leftHand'?-1:1)*v[0]*axes.ex[i]!+v[1]*axes.ey[i]!+(uiStore.axisConvention3D==='leftHand'?-1:1)*v[2]*axes.ez[i]!) as [number,number,number]) } : {}), elementId: e.id, q: global.gI[2], qJ: global.gJ[2], a: global.a, b: global.b }];
     }),
     nodal: loads.flatMap(l => l.type === 'nodal3d' ? [l.data] : []),
     surface: loads.flatMap(l => l.type === 'surface3d' ? [l.data] : []),

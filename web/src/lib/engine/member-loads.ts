@@ -58,8 +58,18 @@ function distributedGlobalVector(frame: MemberFrame | undefined, axes: MemberAxe
   return v.map((value, k) => value * (frame === 'projected' ? Math.sqrt(Math.max(0, 1 - axes.ex[k]! ** 2)) : 1)) as Vec3;
 }
 
+export function memberMomentToGlobal(v: Vec3, axes: MemberAxes, leftHand = false): Vec3 {
+  const sign = leftHand ? -1 : 1;
+  return add(add(scale(axes.ex, sign * v[0]), axes.ey, v[1]), axes.ez, sign * v[2]);
+}
+
+export function globalMomentToMember(v: Vec3, axes: MemberAxes, leftHand = false): Vec3 {
+  const sign = leftHand ? -1 : 1;
+  return [sign * dot(v, axes.ex), dot(v, axes.ey), sign * dot(v, axes.ez)];
+}
+
 export function distributedGlobalMoments(d: DistributedLoad3DLike, axes: MemberAxes, leftHand = false): MemberMoments | undefined {
-  return d.moments && mapMoments(d.moments, v => distributedGlobalVector(d.frame, axes, v, leftHand));
+  return d.moments && mapMoments(d.moments, v => !d.frame || d.frame === 'local' ? memberMomentToGlobal(v, axes, leftHand) : distributedGlobalVector(d.frame, axes, v, false));
 }
 
 export function normalizedProjectedLoad<T extends DistributedLoad3DLike>(d: T, axes: MemberAxes | undefined): T {

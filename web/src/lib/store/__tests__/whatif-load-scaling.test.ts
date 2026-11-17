@@ -108,7 +108,7 @@ function proveLinear(types: Load['type'][]) {
     }
   });
 
-  it.skip('known wrong result: #2219 scales every magnitude field of every load, and nothing else', () => {
+  it('known wrong result: #2219 scales every magnitude field of every load, and nothing else', () => {
     whatIf.open();
     // The baseline as Explore rebuilds it (restore() writes the canonical fz/my of a legacy load).
     setAll(1);
@@ -121,7 +121,7 @@ function proveLinear(types: Load['type'][]) {
       const a = after[i].data as unknown as Record<string, unknown>;
       expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort());
       for (const [k, v] of Object.entries(b)) {
-        if (positions.has(k) || typeof v !== 'number') expect(a[k], `${before[i].type}.${k}`).toEqual(v);
+        if (positions.has(k) || k.endsWith('Version') || typeof v !== 'number') expect(a[k], `${before[i].type}.${k}`).toEqual(v);
         else expect(a[k], `${before[i].type}.${k}`).toBeCloseTo(3 * v, 12);
       }
     }
