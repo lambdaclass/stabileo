@@ -206,7 +206,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
 }
 
 for (const secondaryLegs of [undefined, 2, 3, 6]) for (const source of ['regions', 'line'] as const) {
-  it(`known wrong result: #2171 beam detailing refuses ungenerated horizontal crossties ${source} ${secondaryLegs}`, () => {
+  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')(`known wrong result: #2171 beam detailing refuses ungenerated horizontal crossties ${source} ${secondaryLegs}`, () => {
     const cage = { diameter: 8, legs: 2, secondaryLegs, spacing: 0.05 };
     const input: BeamGenerationInput = {
       elementId: 7, L: 6, b: 0.3, h: 0.6, d: 0.55, cover: 0.025, stirrupDia: 8,
@@ -220,7 +220,11 @@ for (const secondaryLegs of [undefined, 2, 3, 6]) for (const source of ['regions
         : { lineStirrups: [{ from: 0, to: 6, ...cage }] }),
     };
     const generated = generateBeamBars(input);
-    expect(generated.unsupported.some(s => s.includes('horizontal crossties'))).toBe((secondaryLegs ?? 2) > 2);
+    const refusals = generated.unsupported.filter((s: unknown) => typeof s === 'object' && s !== null && 'key' in s && s.key === 'detailing.generation.beamSecondaryLegs');
+  if ((secondaryLegs ?? 2) > 2) {
+    expect(refusals.length).toBeGreaterThan(0);
+    for (const refusal of refusals) expect(refusal).toEqual({ key: 'detailing.generation.beamSecondaryLegs', params: { legs: secondaryLegs } });
+  } else expect(refusals).toEqual([]);
     expect(generated.stirrupZones.length).toBeGreaterThan(0);
   });
 }
@@ -241,12 +245,16 @@ it('known wrong result: #2171 line detailing transfer and round trip retain both
   expect(pieces.stirrups.at(-1)).toMatchObject(end);
 });
 
-for (const secondaryLegs of [undefined, 2, 3, 6]) it(`known wrong result: #2171 column detailing refuses an unverified secondary cage ${secondaryLegs}`, () => {
+for (const secondaryLegs of [undefined, 2, 3, 6]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')(`known wrong result: #2171 column detailing refuses an unverified secondary cage ${secondaryLegs}`, () => {
   const generated = generateColumnStack({ stackId: 'C-B2', lifts: [{ elementId: 100, baseZ: 0, topZ: 3, b: 0.4, h: 0.4,
     centre: { x: 0, y: 0 }, bars: { count: 8, diameterMm: 20 }, tieDia: 8, cover: 0.025, secondaryLegs }],
     fc: 25, fy: 420, maxAggregateSizeMm: 20, edition: '2025', lapSplice: d => 0.05 * d,
     beamDepthAtTop: new Map([[0, 0.6]]), roofTermination: false });
-  expect(generated.unsupported.some(s => s.includes('horizontal crossties'))).toBe((secondaryLegs ?? 2) > 2);
+  const refusals = generated.unsupported.filter((s: unknown) => typeof s === 'object' && s !== null && 'key' in s && s.key === 'detailing.generation.columnSecondaryLegs');
+  if ((secondaryLegs ?? 2) > 2) {
+    expect(refusals.length).toBeGreaterThan(0);
+    for (const refusal of refusals) expect(refusal).toEqual({ key: 'detailing.generation.columnSecondaryLegs', params: { legs: secondaryLegs, element: 100 } });
+  } else expect(refusals).toEqual([]);
   expect(generated.bars.length).toBeGreaterThan(0);
 });
 

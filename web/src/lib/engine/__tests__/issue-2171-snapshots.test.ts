@@ -7,7 +7,12 @@ import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 import { transverseSpacingLimits } from '../../codes/cirsoc201/transverse-spacing';
 
-for (const name of ['design-rc-design-qa-row2', 'design-rc-qa-diagnostic']) {
+const fixtures = [
+  { name: 'design-rc-design-qa-row2', secondaryIds: [1, 2, 3, 4] },
+  { name: 'design-rc-qa-diagnostic', secondaryIds: Array.from({ length: 26 }, (_, i) => i + 1) },
+];
+
+for (const { name, secondaryIds } of fixtures) {
   it(`#2171 snapshot shear capacities use the actual directional counts: ${name}`, async () => {
     const snapshot = await capture(CORPUS.find(c => c.name === name)!);
     const rows = [];
@@ -39,6 +44,7 @@ for (const name of ['design-rc-design-qa-row2', 'design-rc-qa-diagnostic']) {
       }
     }
     expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter(r => r.direction === 'secondary').map(r => r.elementId).sort((a, b) => a - b)).toEqual(secondaryIds);
     if (process.env.DIRECTIONAL_SNAPSHOT_AUDIT) {
       const before = JSON.parse(readFileSync(new URL(`../../../../results-snapshots/${name}.json`, import.meta.url), 'utf8'));
       writeFileSync(`${process.env.DIRECTIONAL_SNAPSHOT_AUDIT}/${name}.json`, JSON.stringify({ before, after: snapshot, rows }, null, 2));
