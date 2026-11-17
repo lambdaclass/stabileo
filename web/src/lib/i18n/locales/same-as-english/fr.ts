@@ -366,7 +366,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'kin.via',
   'kit.options',
   'landing.bldMMax',
-  'landing.bldNMax',
   'landing.blogEyebrow',
   'landing.footBlog',
   'landing.footDocs',

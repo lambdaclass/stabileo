@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
   import { NODES, PIECES, AXIAL, MOMENT, COMBINATION } from './building-data';
+  import { normalValueFormatter } from './normal-value';
   import { mouseOnly, HeroLoop, clamp01, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
@@ -31,7 +32,8 @@
   const START = new Array<number>(PIECES.length);
   ORDER.forEach((p, k) => { START[p] = k * STEP; });
   const KIND = (p: number[]) => p[p.length - 1];
-  const N_MAX = Math.max(...AXIAL.map(Math.abs));
+  const N_GOVERNING = AXIAL.reduce((governing, n) => Math.abs(n) > Math.abs(governing) ? n : governing, 0);
+  const N_SCALE = Math.abs(N_GOVERNING) || 1;
   const M_MAX = Math.max(...MOMENT.map((m) => (m ? Math.max(...m.map(Math.abs)) : 0)));
   const M_SCALE = 1.3 / M_MAX;
   const BASE_RGB = [185, 194, 202], AXIAL_RGB = [79, 143, 214], ACCENT_RGB = [229, 72, 42];
@@ -42,7 +44,7 @@
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   };
   function axialStroke(i: number, amount: number): string {
-    return mix(BASE_RGB, AXIAL_RGB, amount * Math.min(1, Math.abs(AXIAL[i]) / N_MAX) ** 0.7);
+    return mix(BASE_RGB, AXIAL_RGB, amount * Math.min(1, Math.abs(AXIAL[i]) / N_SCALE) ** 0.7);
   }
 
   const CENTER = [9, 5, 10.75];
@@ -66,6 +68,7 @@
   const axialMix = $derived(smooth((time - AXIAL_AT) / BLEND) * (1 - smooth((time - MOMENT_AT) / BLEND)));
   const momentMix = $derived(smooth((time - MOMENT_AT) / BLEND));
   const phase = $derived(time < AXIAL_AT ? 'build' : time < MOMENT_AT ? 'axial' : 'moment');
+  const axialLabel = $derived(normalValueFormatter(i18n.locale, 0)(N_GOVERNING));
   const fmt0 = $derived(new Intl.NumberFormat(i18n.locale, { maximumFractionDigits: 0 }));
   const diagrams = $derived.by(() => {
     if (momentMix <= 0) return [];
@@ -98,7 +101,7 @@
         const a = pts[piece[0]], b0 = pts[piece[1]];
         const e = smooth(p);
         const b = { x: a.x + (b0.x - a.x) * e, y: a.y + (b0.y - a.y) * e };
-        const k = Math.min(1, Math.abs(AXIAL[i]) / N_MAX);
+        const k = Math.min(1, Math.abs(AXIAL[i]) / N_SCALE);
         out.push({
           id: i, kind, depth: (a.z + b0.z) / 2, d: `M${a.x.toFixed(1)} ${a.y.toFixed(1)}L${b.x.toFixed(1)} ${b.y.toFixed(1)}`, p,
           stroke: axialMix > 0 ? axialStroke(i, axialMix) : mix(BASE_RGB, ACCENT_RGB, glow),
@@ -162,7 +165,7 @@
     {#if phase === 'build'}
       <span class="hf-item">{t('landing.bldFloor')} <b>{level} / {LEVELS.length}</b></span>
     {:else if phase === 'axial'}
-      <span class="hf-item"><i class="hf-sw" style="background: rgb(79,143,214)"></i>{t('landing.bldAxial')} <b>{t('landing.bldNMax')} {fmt0.format(N_MAX)} kN</b></span>
+      <span class="hf-item"><i class="hf-sw" style="background: rgb(79,143,214)"></i>{t('landing.bldGoverningN')} <b>{axialLabel.text} kN</b> ({t(axialLabel.label)})</span>
       <span class="hf-item">{COMBINATION}</span>
     {:else}
       <span class="hf-item"><i class="hf-sw" style="background: var(--lp-accent)"></i>{t('landing.bldMoment')} <b>{t('landing.bldMMax')} {fmt0.format(M_MAX)} kN·m</b></span>

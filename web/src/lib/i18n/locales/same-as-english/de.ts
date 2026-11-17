@@ -283,7 +283,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'kin.plural_n',
   'kin.slideAxisGlobal',
   'landing.bldMMax',
-  'landing.bldNMax',
   'landing.blogEyebrow',
   'landing.footBlog',
   'landing.footRepo',

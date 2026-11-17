@@ -5,7 +5,6 @@ import Building from '../hero/BuildingFigure.svelte';
 import Section from '../hero/SectionFigure.svelte';
 import { AXIAL, COMBINATION } from '../hero/building-data';
 
-const reproduce = process.env.RUN_KNOWN_WRONG === '2285' ? it : it.skip;
 const frame = vi.hoisted(() => ({ progress: 0 }));
 
 vi.mock('../hero/loop.svelte', async (importOriginal) => {
@@ -26,7 +25,7 @@ const terms = {
   es: { compression: 'Compresión' },
   pt: { compression: 'Compressão' },
   de: { compression: 'Druck' },
-  fr: { compression: 'Compression' },
+  fr: { compression: 'En compression' },
   tr: { compression: 'Basınç' },
   hu: { compression: 'Nyomás' },
 };
@@ -44,7 +43,7 @@ afterEach(() => {
   i18n.locale = 'en';
 });
 
-reproduce('known wrong result: #2285 the building caption keeps the sign of the governing axial force in every locale', async () => {
+it('#2285 the building caption keeps the sign of the governing axial force in every locale', async () => {
   frame.progress = 0.5;
   const compression = Math.min(...AXIAL);
   expect(-compression).toBeGreaterThan(Math.max(...AXIAL));
@@ -56,10 +55,11 @@ reproduce('known wrong result: #2285 the building caption keeps the sign of the 
     expect.soft(text, locale).toContain(`<b>${force} kN</b>`);
     expect.soft(text, locale).toContain(`(${terms[locale].compression})`);
     expect.soft(text, locale).toContain(COMBINATION);
+    if (locale === 'en') expect.soft(text).toContain('Governing N');
   }
 });
 
-reproduce('known wrong result: #2285 section stress extrema use the colour and wording of the displayed sign', async () => {
+it('#2285 section stress extrema use the colour and wording of the displayed sign', async () => {
   const compression = 'var(--sa-c)';
   const tension = 'var(--sa-t)';
   const zero = 'var(--fg-2)';
@@ -90,7 +90,7 @@ reproduce('known wrong result: #2285 section stress extrema use the colour and w
       { color: maxColor, extreme: 'σ max', value: max, sense: `(${terms.en[maxSense]})` },
       { color: compression, extreme: 'σ min', value: min, sense: '(Compression)' },
     ]);
-    const fibres = [...html.matchAll(/<text class="sa-val"[^>]*fill="([^"]+)"[^>]*>([^<]+)<\/text>/g)]
+    const fibres = [...html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<text(?=[^>]*class="sa-val[ "])[^>]*fill="([^"]+)"[^>]*>([^<]+)<\/text>/g)]
       .map(([, color, value]) => ({ color, value }));
     expect.soft(fibres, `cut at ${progress}`).toEqual(expect.arrayContaining([
       { color: maxColor, value: max },

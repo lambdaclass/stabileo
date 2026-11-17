@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { tPublic as t, i18n } from '../../../lib/i18n/store.svelte';
+  import { normalValueFormatter } from './normal-value';
   import { mouseOnly, HeroLoop, smooth } from './loop.svelte';
 
   type Props = { prefersReducedMotion?: boolean; paused?: boolean };
@@ -26,6 +27,7 @@
 
   const SEC = { cx: 330, cy: 90, k: 240 };
   const BASE = 440, S_SCALE = 11, HATCH = 26;
+  const STRESS_COLOR = { compression: 'var(--sa-c)', tension: 'var(--sa-t)', zero: 'var(--fg-2)' };
   const sy = (y: number) => SEC.cy - y * SEC.k;
 
   const xi = $derived(0.06 + 0.88 * (0.5 - 0.5 * Math.cos(2 * Math.PI * loop.u)));
@@ -44,9 +46,10 @@
     return { y: sy(y), x: BASE + s * S_SCALE, s };
   }));
   const outline = $derived(`M${BASE} ${sy(H / 2)}L${(BASE + top * S_SCALE).toFixed(1)} ${sy(H / 2)}L${(BASE + bottom * S_SCALE).toFixed(1)} ${sy(-H / 2)}L${BASE} ${sy(-H / 2)}`);
-  const fmt2 = $derived(new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const max = $derived(Math.max(top, bottom));
-  const min = $derived(Math.min(top, bottom));
+  const formatStress = $derived(normalValueFormatter(i18n.locale, 2));
+  const topLabel = $derived(formatStress(top));
+  const bottomLabel = $derived(formatStress(bottom));
+  const extrema = $derived(top >= bottom ? [topLabel, bottomLabel] : [bottomLabel, topLabel]);
   const pulse = $derived(0.6 + 0.4 * smooth(Math.abs(Math.sin(Math.PI * 2 * loop.u))));
   const KERN = { h: (H / 6) * SEC.k, b: (B / 6) * SEC.k };
   const LEFT_EDGE = SEC.cx - (B / 2) * SEC.k;
@@ -85,12 +88,12 @@
       <text class="sa-tag-nc" x={SEC.cx} y={SEC.cy - KERN.h - 4}>NC</text>
 
       {#each hatch as h}
-        <line class="sa-hatch" x1={BASE} y1={h.y} x2={h.x} y2={h.y} stroke={h.s < 0 ? 'var(--sa-c)' : 'var(--sa-t)'} />
+        <line class="sa-hatch" x1={BASE} y1={h.y} x2={h.x} y2={h.y} stroke={STRESS_COLOR[h.s < 0 ? 'compression' : h.s > 0 ? 'tension' : 'zero']} />
       {/each}
       <path class="sa-outline" d={outline} />
       <line class="sa-base" x1={BASE} y1={sy(H / 2) - 4} x2={BASE} y2={sy(-H / 2) + 4} />
-      <text class="sa-val" x={BASE + top * S_SCALE + (top < 0 ? -3 : 3)} y={sy(H / 2) - 3} text-anchor={top < 0 ? 'end' : 'start'} fill={top < 0 ? 'var(--sa-c)' : 'var(--sa-t)'}>{fmt2.format(top)}</text>
-      <text class="sa-val" x={BASE + bottom * S_SCALE + (bottom < 0 ? -3 : 3)} y={sy(-H / 2) + 11} text-anchor={bottom < 0 ? 'end' : 'start'} fill={bottom < 0 ? 'var(--sa-c)' : 'var(--sa-t)'}>{fmt2.format(bottom)}</text>
+      <text class="sa-val" x={BASE + top * S_SCALE + (top < 0 ? -3 : 3)} y={sy(H / 2) - 3} text-anchor={top < 0 ? 'end' : 'start'} fill={STRESS_COLOR[topLabel.sign]}>{topLabel.text}</text>
+      <text class="sa-val" x={BASE + bottom * S_SCALE + (bottom < 0 ? -3 : 3)} y={sy(-H / 2) + 11} text-anchor={bottom < 0 ? 'end' : 'start'} fill={STRESS_COLOR[bottomLabel.sign]}>{bottomLabel.text}</text>
 
       {#if axisInside && axisY !== null}
         <line class="sa-en" x1={LEFT_EDGE - 14} y1={sy(axisY)} x2={BASE + 12} y2={sy(axisY)} />
@@ -108,8 +111,9 @@
   </svg>
   <figcaption class="hf-row">
     <span class="hf-tag">{t('landing.secTag')}</span>
-    <span class="hf-item"><i class="hf-sw" style="background: var(--sa-t)"></i>σ max <b>{fmt2.format(max)} MPa</b></span>
-    <span class="hf-item"><i class="hf-sw" style="background: var(--sa-c)"></i>σ min <b>{fmt2.format(min)} MPa</b></span>
+    {#each extrema as value, i (i)}
+      <span class="hf-item"><i class="hf-sw" style="background: {STRESS_COLOR[value.sign]}"></i>σ {i === 0 ? 'max' : 'min'} <b>{value.text} MPa</b> ({t(value.label)})</span>
+    {/each}
   </figcaption>
 </figure>
 
