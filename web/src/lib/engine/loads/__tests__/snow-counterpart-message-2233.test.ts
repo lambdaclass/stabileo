@@ -5,7 +5,7 @@ import { allDictFor } from '../../../i18n/locales/all';
 
 for (const basis of [undefined, 'flatRoof'] as const) {
   const key = basis === 'flatRoof' ? 'snow.refused.flatRoofCase' : 'snow.refused.physicalCase';
-  const spec = { id: 'S', label: 'S', refs: [], terms: [{ symbol: 'S' as const, factor: 1, snowBasis: basis }] };
+  const spec = { id: 'S', label: 'S', refs: [], notes: [], terms: [{ symbol: 'S' as const, factor: 1, snowBasis: basis }] };
   const snow = completeSnowPair.filter(c => c.type === 'S');
   const incomplete = snow.filter(c => !(c.alternatives === 'B' && c.snowBasis === basis));
   const onlyOpposite = snow.filter(c => c.snowBasis !== basis);

@@ -24,10 +24,10 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
       const cases = completeSnowPair.filter(c => !(c.alternatives === 'B' && c.snowBasis === basis));
       const plan: LoadPlan = { ...base, distributed: [], nodal: [], surface: [], thermal: [],
         cases: cases.map(({ id, name, ...c }) => ({ ...c, existingId: null, nameKey: name })),
-        combinations: [{ id: 'S', label: 'S', refs: [], terms: [{ symbol: 'S', factor: 1, snowBasis: basis }] }] };
+        combinations: [{ id: 'S', label: 'S', refs: [], notes: [], terms: [{ symbol: 'S', factor: 1, snowBasis: basis }] }] };
       const action = () => entry === 'preview'
         ? describePlanDelta(plan, empty, { replaceExisting: true })
-        : applyLoadPlan(plan, { clearExisting: true, nameOf: key => key });
+        : applyLoadPlan(plan, { clearExisting: true, bothSenses: false, nameOf: key => key });
       const key = basis === 'flatRoof' ? 'snow.refused.flatRoofCase' : 'snow.refused.physicalCase';
       expect(action).toThrow(key);
       try {
