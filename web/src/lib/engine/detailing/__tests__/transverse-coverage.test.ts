@@ -138,7 +138,7 @@ const FIXTURES: Array<{
     // crossties' 135° tails turned into the core against the top bars beside them and the
     // stirrup's top leg, reported.
     fullyRestrained: true, clashFree: false, outcome: 'ASSIGNMENT_FOUND',
-    unsupported: [1, 2, 3, 4].map(id => `Declared secondary leg count (3) for column ${id} is not verified against generated horizontal crossties.`),
+    unsupported: [],
   },
   {
     name: 'rc-design-frame', data: rcFrame,
@@ -152,7 +152,7 @@ const FIXTURES: Array<{
 
 describe('every fixture carries a physical transverse cage', () => {
   for (const f of FIXTURES) {
-    it.skipIf(f.name === 'rc-design-qa-row2' && process.env.RUN_KNOWN_WRONG !== '2198')(`${f.name === 'rc-design-qa-row2' ? 'known wrong result: #2198 — ' : ''}${f.name}`, () => {
+    it(`${f.name}`, () => {
       const c = coverageOf(detail(f.data));
       // Logged so a change shows up in the diff; asserted as invariants below, because a
       // pinned count fails on a legitimate fixture change and proves nothing about the cage.
@@ -322,7 +322,7 @@ function expectOrdinaryColumnShear(ctx: MemberContext, cage: { diameter: number;
 }
 
 describe('row-2 column generation follows its declared cage', () => {
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — the warning inventory agrees with all four selected and generated column cages', () => {
+  it('the warning inventory agrees with all four selected and generated column cages', () => {
     const { solved, summary, result } = designAndDetail(row2);
     const bars = result.assemblies.flatMap(a => a.bars);
     expect([...solved.contexts.values()].filter(c => c.elementType === 'column').map(c => c.elementId)).toEqual([1, 2, 3, 4]);
