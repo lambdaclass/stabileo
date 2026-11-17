@@ -260,3 +260,108 @@ it('#2171 a shared support cage cannot credit incompatible end declarations', ()
   const projected = membersFromLine({ ...line, stirrups: [start, end] }, members).get(1)?.regions?.stirrupsSupport;
   expect(projected).toEqual({ ...cage, secondaryCrossties: null });
 });
+
+const torque = 20;
+const outerLegArea = Math.PI * (0.008 / 2) ** 2;
+const atRequired = torque / (0.75 * 2 * 0.85 * 0.242 * 0.542 * 420 * 1000);
+const secondaryDepth = 0.259;
+
+for (const [edition, vcStress] of [['2005', 5000 / 6], ['2025', 0.17 * 5000]] as const) {
+  for (const factor of [0.999, 1.001]) {
+    it.skip(`known wrong result: #2171 beam member checks the secondary torsion face at capacity (${edition}, ${factor})`, () => {
+      const shear = { ...cage, spacing: edition === '2025' ? 0.075 : cage.spacing };
+      const secondaryVc = vcStress * section.h * secondaryDepth;
+      const capacity = 0.75 * (secondaryVc + (2 * outerLegArea / shear.spacing - 2 * atRequired) * 420 * 1000 * secondaryDepth);
+      const secondaryDemand = capacity * factor;
+      const avRequired = (secondaryDemand / 0.75 - secondaryVc) / (420 * 1000 * secondaryDepth);
+      const atProvided = (2 * outerLegArea / shear.spacing - avRequired) / 2;
+      const v = { ...input(secondaryDemand, torque, edition), elementType: 'beam' as const };
+      const reinforcement = { ...fixed, shear };
+      for (const row of [verifyElement(v, reinforcement).torsion, prepareElementVerification(v)(reinforcement).torsion]) {
+        expect(row?.AtOverSProv).toBeCloseTo(atProvided * 1e4, 10);
+        expect(row?.reinforcementRatio).toBeCloseTo(atRequired / atProvided, 10);
+        expect(row?.status).toBe(factor > 1 ? 'fail' : 'ok');
+      }
+    });
+  }
+
+  it.skip(`known wrong result: #2171 beam refuses unknown secondary legs at active torsion (${edition})`, () => {
+    const threshold = 0.75 * (0.33 * 5 * (section.b * section.h) ** 2 * 1000 / (2 * (section.b + section.h))) / 4;
+    const check = (vy: number, tu: number, shear = { ...cage, secondaryCrossties: null as number | null }) =>
+      verifyElement({ ...input(vy, tu, edition), elementType: 'beam' }, { ...fixed, shear });
+    expect(check(0, threshold * 1.001).torsion).toMatchObject({ neglect: false, status: 'ok' });
+    expect(check(0.001, threshold * 0.999).torsion).toMatchObject({ neglect: true, status: 'ok' });
+    expect(check(0.001, threshold * 1.001).torsion).toMatchObject({ neglect: false, status: 'fail', reinforcementRatio: Infinity });
+    expect(check(150, 20, { ...cage, secondaryCrossties: 1 }).torsion).toMatchObject({ status: 'ok' });
+  });
+}
+
+it.skip('known wrong result: #2171 concurrent member cases retain simultaneous secondary shear', () => {
+  const demands = declaredTestDemands([0, 150].map((vy, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
+    forces: { t: 0, x: 0, n: 0, my: 20, mz: 0, vy, vz: 0, torsion: torque } })));
+  const inputs = demands.map(demand => ({ ...section, elementId: 1, elementType: 'beam' as const,
+    edition: '2025' as const, secondaryCrossties: null, demand: demand.section('My') }));
+  const rows = verifyConcurrentElement(inputs).concurrentChecks!.map(c => c.verification.torsion);
+  expect(rows[0]).toMatchObject({ neglect: false, longitudinalProvision: 'not-checked' });
+  expect(rows[1]).toMatchObject({ neglect: false, status: 'fail', reinforcementRatio: Infinity });
+});
+
+for (const [startSpacing, endSpacing] of [[0.1, 0.15], [0.15, 0.1]] as const) {
+  for (const factor of [0.999, 1.001]) {
+    it.skip(`known wrong result: #2171 projected support checks the actual secondary cage (${startSpacing}, ${factor})`, () => {
+      const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: {
+        top: { count: 3, diameter: 16 }, bottom: { count: 3, diameter: 16 },
+      } }];
+      const stirrup = (spacing: number) => ({ ...cage, legs: spacing === 0.1 ? 2 : 4, spacing });
+      const line = { ...lineFromMembers(members), stirrups: [
+        { id: 'start', from: 0, to: 1, ...stirrup(startSpacing) },
+        { id: 'end', from: 3, to: 4, ...stirrup(endSpacing) },
+      ] };
+      const vc = 0.17 * 5000 * section.h * secondaryDepth;
+      const capacity = 0.75 * (vc + (2 * outerLegArea / 0.15 - 2 * atRequired) * 420 * 1000 * secondaryDepth);
+      const vy = capacity * factor;
+      const required = (vy / 0.75 - vc) / (420 * 1000 * secondaryDepth) + 2 * atRequired;
+      const stations = [0, 0.5, 1].map(t => ({ t, x: 4 * t, n: 0, my: 0, mz: 0,
+        vy: t === 0.5 ? 0 : vy, vz: 0, torsion: t === 0.5 ? 0 : torque }));
+      const result = verifyProvidedReinforcement(1, 'beam', membersFromLine(line, members).get(1), undefined, {}, section,
+        { elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+        undefined, { axes });
+      const rows = result.checks.filter(c => c.category.startsWith('Torsion Support'));
+      const governing = rows.reduce((worst, row) => row.ratio > worst.ratio ? row : worst);
+      expect(governing).toMatchObject({ ratio: +(required / (2 * outerLegArea / 0.15)).toFixed(3),
+        stationX: endSpacing === 0.15 ? 4 : 0, status: factor > 1 ? 'fail' : 'warn' });
+      expect(rows).toHaveLength(2);
+    });
+  }
+}
+
+for (const nonlinear of [false, true]) {
+  it.skip(`known wrong result: #2171 spatial beam checks secondary torsion steel through result adapters (nonlinear=${nonlinear})`, () => {
+    const beam = { ...model, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]) };
+    const solver: SolverInput3D = { ...beam,
+      elements: new Map([[1, { ...beam.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 150, fz: 0, mx: torque, my: 20, mz: 0 } }],
+    };
+    const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    const { demands } = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], beam);
+    const opts = { edition: '2025' as const };
+    for (const v of [autoVerifyFromResults(raw, beam, null, opts, demands).concrete[0]!,
+      runUnifiedVerification(raw, beam, null, demands, opts)[0]!,
+      runCirsocDesign(raw, beam, demands, new Map(), null, opts).concrete[0]!]) {
+      expect(v.elementType).toBe('beam');
+      const demand = v.concurrentChecks![0]!.demand.section('My');
+      expect(demand.Tu).toBeCloseTo(torque, 10);
+      expect(demand.VuSecondary).toBeCloseTo(150, 10);
+      const avRequired = (150 / 0.75 - 0.17 * 5000 * section.h * secondaryDepth) / (420 * 1000 * secondaryDepth);
+      const atProvided = Math.max(0, Math.min(outerLegArea / v.shear.spacing, (2 * outerLegArea / v.shear.spacing - avRequired) / 2));
+      expect(v.torsion?.AtOverSProv).toBeCloseTo(atProvided * 1e4, 10);
+      expect(v.torsion?.status).toBe('fail');
+    }
+    const unknownSection = { ...beam, sections: new Map([[1, { ...beam.sections.get(1)!, shape: 'circle' }]]) };
+    const held = autoVerifyFromResults(raw, unknownSection, null, opts, demands).concrete[0]!;
+    expect(held.torsion).toMatchObject({ status: 'fail', reinforcementRatio: Infinity });
+    expect(held.diagnostics?.map(d => d.code)).toContain('VERIF_SECONDARY_STIRRUP_LEGS_UNAVAILABLE');
+  });
+}

@@ -12,6 +12,9 @@ import { modelBeamLines } from '../frame-equalize';
 import { checkDraft, frameGroupOf, lineMembers, openLine, saveLine, savedMemberCuts, setFrameGroup } from '../beam-line-store';
 import { addBar, areaAt, cutBar, deleteZone, equalizeZones, joinBars, lapBars, lineFromMembers, membersFromLine, removeBar, setHook, splitZone, stretchBar, updateZone } from '../../engine/design/beam-line';
 import { lineKey } from '../../design-contract/beam-line';
+import { mirrorReinforcement } from '../../engine/design/repeated-frames';
+import { rebarHash } from '../../engine/design/rebar-hash';
+import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
@@ -161,4 +164,33 @@ describe('predefined spans', () => {
     expect(bottom[0]!.count * bottom[0]!.diameter ** 2).toBe(heaviest);
     expect(splitSpans(u, 1).spans).toEqual([]);
   });
+});
+
+it.skip('known wrong result: #2171 rechecks the two support cages of a previously saved line', () => {
+  const line = designed();
+  const members = lineMembers(line);
+  const first = members[0]!;
+  const start = { diameter: 8, legs: 2, spacing: 0.1 };
+  const end = { diameter: 8, legs: 4, spacing: 0.15 };
+  const saved = { ...lineFromMembers(members), stirrups: [
+    { id: 'start', from: 0, to: first.L * first.tStart, ...start },
+    { id: 'end', from: first.L * (1 - first.tEnd), to: first.L, ...end },
+  ] };
+  const key = lineKey(line.members);
+  const before = modelStore.elements.get(first.id)!.reinforcement!;
+  const legacy = { ...before, regions: { ...before.regions, stirrupsSupport: start } };
+  const memberHashes = Object.fromEntries(line.members.map(id => [String(id),
+    rebarHash(id === first.id ? legacy : modelStore.elements.get(id)?.reinforcement)]));
+  modelStore.reinforcementTransaction(api => {
+    api.setReinforcement(first.id, legacy);
+    const decisions = storedDecisions();
+    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: { ...saved, memberHashes } } });
+  });
+  expect(openLine(first.id)?.saved).toBe(true);
+  const rebar = verificationStore.reinforcementFor(first.id);
+  const reinforcement = rebar && line.forward[0] === false ? mirrorReinforcement(rebar) : rebar;
+  const rebuilt = lineFromMembers([{ ...first, reinforcement }]);
+  const at = (x: number) => rebuilt.stirrups.find(z => z.from < x && z.to > x);
+  expect(at(first.L * first.tStart / 2)).toMatchObject(start);
+  expect(at(first.L * (1 - first.tEnd / 2))).toMatchObject(end);
 });
