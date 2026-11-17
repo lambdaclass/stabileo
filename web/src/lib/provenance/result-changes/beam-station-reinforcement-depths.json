@@ -1,0 +1,30 @@
+{
+  "id": "beam-station-reinforcement-depths",
+  "date": "2026-11-17",
+  "prs": [2198],
+  "area": "design",
+  "when": { "all": ["concreteMembersWithSection", "cirsoc201"] },
+  "quantities": ["member", "rc"],
+  "title": {
+    "en": "Beam shear and torsion use reinforcement depths at each station",
+    "es": "El corte y la torsión de vigas usan las alturas útiles de la armadura en cada sección",
+    "pt": "O cisalhamento e a torção de vigas usam a altura útil da armadura em cada seção",
+    "de": "Querkraft und Torsion von Balken berücksichtigen die statische Nutzhöhe je Querschnitt",
+    "fr": "Le cisaillement et la torsion des poutres utilisent la hauteur utile à chaque section",
+    "hu": "A gerendák nyírás- és csavarásvizsgálata a szelvényenkénti hasznos magasságot használja",
+    "tr": "Kiriş kesme ve burulma kontrolleri her kesitteki faydalı yüksekliği kullanır"
+  },
+  "explanation": {
+    "en": "Recheck beam shear and combined torsion. Negative bending in each half of the span uses the developed top steel from its own end. Secondary shear and combined torsion use the seated lateral corner bars. Spacing-only edits preserve distinct end cages.",
+    "es": "Vuelva a verificar el corte y la torsión combinada de las vigas. Para momento negativo, cada mitad del vano usa las barras superiores desarrolladas desde su extremo. El corte secundario y la torsión combinada usan la posición de las barras de esquina laterales. Un cambio de separación conserva las jaulas de los extremos.",
+    "pt": "Reverifique o cisalhamento e a torção combinada das vigas. Sob momento negativo, cada metade do vão usa a armadura superior ancorada a partir da sua extremidade. O cisalhamento secundário e a torção combinada usam a posição das barras laterais de canto. Uma alteração de espaçamento preserva as gaiolas de extremidade.",
+    "de": "Querkraft und kombinierte Torsion von Balken erneut prüfen. Bei negativem Moment wird in jeder Feldhälfte die vom jeweiligen Ende verankerte obere Bewehrung angesetzt. Nebenquerkraft und kombinierte Torsion berücksichtigen die Lage der seitlichen Eckstäbe. Eine reine Abstandsänderung erhält die unterschiedlichen Endbügel.",
+    "fr": "Revérifier le cisaillement et la torsion combinée des poutres. Sous moment négatif, chaque moitié de travée utilise les armatures supérieures ancrées depuis son extrémité. Le cisaillement secondaire et la torsion combinée utilisent la position des barres latérales d’angle. Une modification du pas conserve les cages distinctes aux extrémités.",
+    "hu": "Ellenőrizze újra a gerendák nyírását és együttes csavarását. Negatív nyomatéknál a fesztáv mindkét fele a saját vége felől lehorgonyzott felső vasalást használja. A másodlagos nyírás és a csavarás az oldalsó sarokvasak helyét veszi figyelembe. Az osztásköz módosítása megőrzi a különböző végkengyeleket.",
+    "tr": "Kirişlerin kesme ve birleşik burulma kontrollerini yeniden yapın. Negatif momentte açıklığın her yarısı kendi ucundan kenetlenen üst donatıyı kullanır. İkincil kesme ve birleşik burulma, yandaki köşe donatılarının konumuna göre hesaplanır. Sadece etriye aralığı değiştirilirse farklı uç kafesleri korunur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round30-station-depth.md",
+    "heading": "Beam station depths and support cage edits (2026-11-17)"
+  }
+}

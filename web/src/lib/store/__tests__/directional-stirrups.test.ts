@@ -76,7 +76,7 @@ it('known wrong result: #2171 manual support edits preserve both actual cages an
   expect(getReinforcement(1)!.regions!.stirrupsEnd).toEqual({ ...end, spacing: 0.075, secondaryLegs: 6 });
 });
 
-it.skip('known wrong result: #2198 manual spacing edits preserve distinct end cages when leg fields are undefined', () => {
+it('known wrong result: #2198 manual spacing edits preserve distinct end cages when leg fields are undefined', () => {
   restore(6);
   const r = getReinforcement(1)!;
   const start = { diameter: 6, legs: 2, secondaryLegs: 2, spacing: 0.1 };

@@ -60,8 +60,7 @@ function torsionAt(axis: 'My' | 'Mz', f: StationForces, depth: number, spacing =
 for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapter'] as const) {
   for (const edition of ['2005', '2025'] as const) {
     for (const t of [0.5, 0.5001, 0.7]) {
-      const test = t <= 0.5 ? it : it.skip;
-      test(`known wrong result: #2198 span hogging depth follows its end ${axis} ${entry} ${edition} t=${t}`, () => {
+      it(`known wrong result: #2198 span hogging depth follows its end ${axis} ${entry} ${edition} t=${t}`, () => {
         const ctx = context(axis, edition);
         const depth = t <= 0.5 ? dStart : dEnd;
         const cap = strength(depth, 'primary', edition);
@@ -83,8 +82,7 @@ for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapte
     }
 
     for (const spacing of [0.165, edition === '2005' ? 0.185 : 0.175]) {
-      const test = edition === '2025' && spacing === 0.175 ? it : it.skip;
-      test(`known wrong result: #2198 seated side depth in shear ${axis} ${entry} ${edition} spacing=${spacing}`, () => {
+      it(`known wrong result: #2198 seated side depth in shear ${axis} ${entry} ${edition} spacing=${spacing}`, () => {
         const ctx = context(axis, edition);
         const rebar = { bottom: outer[0], top: outer[0], stirrups: { ...cage, spacing } };
         const cap = strength(dSide, 'secondary', edition, spacing);
@@ -101,7 +99,7 @@ for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapte
   }
 
   for (const spacing of [0.165, 0.175]) {
-    it.skip(`known wrong result: #2198 seated side depth in combined torsion ${axis} ${entry} spacing=${spacing}`, () => {
+    it(`known wrong result: #2198 seated side depth in combined torsion ${axis} ${entry} spacing=${spacing}`, () => {
       const ctx = context(axis, '2025');
       const rebar = { bottom: outer[0], top: outer[0], stirrups: { ...cage, spacing } };
       const torque = 10;
@@ -122,7 +120,7 @@ for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapte
 }
 
 for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
-  it.skip(`known wrong result: #2198 solved span geometry nonlinear=${nonlinear} spatial=${spatial}`, () => {
+  it(`known wrong result: #2198 solved span geometry nonlinear=${nonlinear} spatial=${spatial}`, () => {
     const frame = { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 };
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),

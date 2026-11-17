@@ -23,7 +23,11 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
   expect(verdict.checks.filter(c=>c.status==='fail')).toEqual([]);
   for(const region of ['Support','Span']) for(const direction of ['primary','secondary'] as const) {
    const cage=region==='Support'?r.stirrupsSupport!:r.stirrupsSpan!;
-   const secondaryDepth=ctx.section.b-ctx.material.cover-cage.diameter/1000-0.020/2;
+   const tie = cage.diameter / 1000;
+   const bar = region === 'Support' ? r.topStartLayers![0]!.diameter / 1000 : bottom[0]!.diameter / 1000;
+   const cornerRadius = (4 * tie + tie) / 2;
+   const cornerInset = cornerRadius - (cornerRadius - (tie + bar) / 2) / Math.sqrt(2);
+   const secondaryDepth = ctx.section.b - ctx.material.cover - tie / 2 - cornerInset;
    const primary=direction==='primary';
    const axis=primary?ctx.axes.shear:ctx.axes.secondaryShear;
    const check=verdict.checks.find(c=>c.category===`Shear ${region} (${axis})`)!;

@@ -643,7 +643,7 @@
       "notReached": 0,
       "aborted": false
     },
-    "fingerprint": "e61212184720b0b6",
+    "fingerprint": "a3627ad3ec5fc929",
     "members": [
       "1|VERIFIED||0.9930",
       "2|VERIFIED||0.9510",
@@ -806,9 +806,9 @@
       "159|VERIFIED||0.9380",
       "160|VERIFIED||0.9380",
       "161|SEARCH_EXHAUSTED|anchorage,congestion|—",
-      "162|SEARCH_EXHAUSTED|anchorage|—",
+      "162|SEARCH_EXHAUSTED|anchorage,congestion|—",
       "163|SEARCH_EXHAUSTED|anchorage,congestion|—",
-      "164|SEARCH_EXHAUSTED|anchorage,congestion|—",
+      "164|SEARCH_EXHAUSTED|congestion|—",
       "165|SEARCH_EXHAUSTED|congestion|—",
       "166|SEARCH_EXHAUSTED|anchorage,congestion|—",
       "167|SEARCH_EXHAUSTED|congestion|—",

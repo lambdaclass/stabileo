@@ -5,6 +5,7 @@ import { verifyElement, prepareElementVerification } from '../codes/argentina/ci
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
+import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import { autoVerifyFromResults } from '../auto-verify';
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
 import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
@@ -21,12 +22,16 @@ const capacity = (edition: '2005' | '2025', legs: number) => evaluateBeamSection
   As: 0, Av: legs * 0.503 * 1e-4, s: 0.1, fyt: p.fy * 1e6, Ag: p.b * p.h, NuCompression: 0,
 })!.phiVn / 1000;
 
+const straightLegDepthMm = 159;
+const seatedColumnDepthMm = 200 - 25 - 4 - (20 - 8 / Math.sqrt(2));
+const expectedColumnRatio = 1.05 * straightLegDepthMm / seatedColumnDepthMm;
+
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
   for (const torque of [0, 10]) it(`known wrong result: #2171 silent main overall pass becomes secondary shear failure ${edition} ${axis} torque=${torque}`, () => {
     const input = { ...p, edition, elementId: 1, elementType: 'column' as const, demand: demand(capacity(edition, 2) * 1.05, torque, axis) };
     for (const v of [verifyElement(input, { shear: { legs: 4, spacing: 0.1 }, torsion: { AlProv: 100 } }),
       prepareElementVerification(input)({ shear: { legs: 4, spacing: 0.1 }, torsion: { AlProv: 100 } })]) {
-      expect(v.shearSecondary!.ratio).toBeCloseTo(1.05, 12);
+      expect(v.shearSecondary!.ratio).toBeCloseTo(expectedColumnRatio, 12);
       expect(v.shearSecondary!.status).toBe('fail');
       expect(v.overallStatus).toBe('fail');
       expect(v.flexure.status).toBe('ok');
@@ -34,7 +39,11 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(v.shear.status).toBe('fail');
       expect(v.shear.stirrupLegs).toBeLessThan(4);
       expect(v.shear.steps.some(s => typeof s === 'string' && s.includes('25.3.5(d)'))).toBe(true);
-      if (edition === '2005') expect(v.shear.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
+      if (edition === '2005') {
+        expect(v.shear.Vu).toBe(0);
+        expect(v.shear.steps).not.toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
+        expect(v.shearSecondary!.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
+      }
       if (torque === 0) {
         expect(v.torsion).toBeUndefined();
         expect(v.shearSecondary!.ratio).toBeGreaterThan(v.flexure.ratio);
@@ -131,7 +140,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       { spacingRule: { edition, maxAggregateSizeMm: 0 }, axes: { flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy',
         secondaryFlexure: axis === 'My' ? 'Mz' : 'My', secondaryShear: axis === 'My' ? 'Vy' : 'Vz',
         bFlex: section.b, hFlex: section.h, biaxial: false, sagCategory: `${axis}+`, hogCategory: `${axis}-`, basis: 'stress-proxy', secondaryRatio: 0 } });
-      const ds = section.b - section.cover - 0.008 - 0.008;
+      const ds = section.b / 2 + seatedLongitudinalHalfExtents(section.b, section.h, section.cover, cage.diameter, 16).corner.halfAcross;
       const Aoh = (section.b - 2 * section.cover - 0.008) * (section.h - 2 * section.cover - 0.008);
       const ph = 2 * (section.b + section.h - 4 * section.cover - 0.016);
       const AbOverS = Math.PI * (cage.diameter / 1000) ** 2 / 4 / cage.spacing;

@@ -30,10 +30,17 @@ export function migrateDirectionalStirrups(provided: ProvidedReinforcement | und
   };
 }
 
-export function patchSupportEnds(regions: NonNullable<ProvidedReinforcement['regions']>, patch: Partial<StirrupDef>): void {
+export function patchSupportEnds(
+  regions: NonNullable<ProvidedReinforcement['regions']>, patch: Partial<StirrupDef>, resolved?: StirrupDef,
+): void {
+  const applied: Partial<StirrupDef> = {};
+  for (const key of Object.keys(patch) as Array<keyof StirrupDef>) {
+    const value = patch[key];
+    if (value !== undefined) applied[key] = resolved?.[key] ?? value;
+  }
   for (const key of ['stirrupsStart', 'stirrupsEnd'] as const) {
     const cage = regions[key];
-    if (cage) regions[key] = { ...cage, ...patch };
+    if (cage) regions[key] = { ...cage, ...applied };
   }
 }
 

@@ -131,11 +131,7 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
     secondaryLegs: Math.max(2, Math.min(6, Math.round(patch.secondaryLegs ?? cur?.secondaryLegs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
-  if (field === 'stirrupsSupport') {
-    const applied: Partial<StirrupDef> = {};
-    for (const key of Object.keys(patch) as Array<keyof StirrupDef>) applied[key] = p.regions[field]![key];
-    patchSupportEnds(p.regions, applied);
-  }
+  if (field === 'stirrupsSupport') patchSupportEnds(p.regions, patch, p.regions[field]);
   commitManual(elemId, p);
 }
 

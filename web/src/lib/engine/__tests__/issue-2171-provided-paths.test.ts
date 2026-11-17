@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { verifyProvidedReinforcement, computeDirectionalShearCapacity, columnShearSection, computeColumnLayout, layerCentroid } from '../station-design-forces';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
+import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import { LENGTH_EPS, transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import type { ProvidedReinforcement, StirrupDef } from '../../design-contract/reinforcement';
@@ -14,6 +15,8 @@ import type { DesignAxes } from '../design/design-axes';
 
 const section = { b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
+const beamSideDepth = (tie: number) => section.b / 2
+  + seatedLongitudinalHalfExtents(section.b, section.h, section.cover, tie, bars.diameter).corner.halfAcross;
 const expectedPrimaryCapacity = (cage: StirrupDef, sec: Pick<typeof section, 'b' | 'h' | 'fc' | 'fy' | 'cover'> = section, edition: '2005' | '2025' = '2025') =>
   computeDirectionalShearCapacity('primary', cage.diameter, stirrupLegs(cage, 'primary'), cage.spacing,
     sec.b, sec.h - sec.cover - cage.diameter / 1000 - bars.diameter / 2000, sec.fc, sec.fy, 0,
@@ -57,8 +60,9 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   for (const kind of ['beam', 'wall'] as const) for (const primary of [2, 6]) for (const secondary of [5, 6]) for (const factor of [0.999, 1.001]) {
     it(`known wrong result: #2171 provided ${kind} zero-torque secondary strength ${edition} ${axis} ${primary}/${secondary} ${factor}`, () => {
       const cage = { diameter: 8, legs: primary, secondaryLegs: secondary, spacing: 0.05 };
+      const depth = kind === 'beam' ? beamSideDepth(cage.diameter) : section.b - section.cover - 0.008 - 0.008;
       const cap = computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing,
-        section.h, section.b - section.cover - 0.008 - 0.008, section.fc, section.fy, 0, { h: section.b, Ag: section.b * section.h, edition });
+        section.h, depth, section.fc, section.fy, 0, { h: section.b, Ag: section.b * section.h, edition });
       const result = verify(kind, cage, edition, axis, 'secondary', cap.phiVn * factor);
       const rows = result.checks.filter(c => c.category.startsWith('Shear ') && c.demandCategory === axesFor(axis).secondaryShear);
       expect(rows).toHaveLength(2);
@@ -169,7 +173,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       const geometry = kind === 'column' ? columnShearSection(
         computeColumnLayout(bars.count, bars.diameter, section.b, section.h, section.cover, diameter),
         'secondary', section.h, section.b,
-      ) : { d: section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, diameter), asCm2: 0 };
+      ) : { d: kind === 'beam' ? beamSideDepth(diameter) : section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, diameter), asCm2: 0 };
       const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(kind === 'column' ? { legs: 2 } : cage, 'secondary'),
         cage.spacing, section.h, geometry.d, section.fc, section.fy, 0,
         { edition, Ag: section.b * section.h, h: section.b, rhoW: geometry.asCm2 * 1e-4 / (section.h * geometry.d) });

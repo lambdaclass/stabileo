@@ -1,11 +1,14 @@
 import { expect, it } from 'vitest';
 import { computeDirectionalShearCapacity, layerCentroid, verifyProvidedReinforcement } from '../station-design-forces';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
+import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 
 function check(kind: 'beam' | 'column', axis: 'My' | 'Mz', nominal: number, diameter: number, factor: number, longDiameter = 16, direction: 'primary' | 'secondary' = 'primary', edition: '2005' | '2025' = '2025') {
   const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: nominal };
   const cage = { diameter, legs: 2, secondaryLegs: 6, spacing: 0.05 };
-  const depth = (direction === 'primary' ? section.h : section.b) - layerCentroid([{ count: 4, diameter: longDiameter, row: 0 }], section.cover, diameter);
+  const depth = direction === 'secondary'
+    ? section.b / 2 + seatedLongitudinalHalfExtents(section.b, section.h, section.cover, diameter, longDiameter).corner.halfAcross
+    : section.h - layerCentroid([{ count: 4, diameter: longDiameter, row: 0 }], section.cover, diameter);
   const cap = computeDirectionalShearCapacity(direction, diameter, stirrupLegs(cage, direction), cage.spacing, direction === 'primary' ? section.b : section.h, depth, section.fc, section.fy, 0,
     { h: direction === 'primary' ? section.h : section.b, Ag: section.b * section.h, edition });
   const bars = { count: kind === 'beam' ? 4 : 12, diameter: longDiameter };

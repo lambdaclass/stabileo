@@ -117,7 +117,7 @@ it('known wrong result: #2198 an unsafe secondary beam check cannot pass by roun
   const bottom = { count: 4, diameter: 16 };
   const resistance = (section: typeof properties) => evaluateBeamSection({
     edition: '2025', b: section.h, h: section.b,
-    d: section.b - section.cover - stirrups.diameter / 1000 - bottom.diameter / 2000,
+    d: section.b / 2 + seatedLongitudinalHalfExtents(section.b, section.h, section.cover, stirrups.diameter, bottom.diameter).corner.halfAcross,
     fc: section.fc * 1e6, fy: section.fy * 1e6, As: 0,
     Av: 2 * REBAR_DB.find(bar => bar.diameter === stirrups.diameter)!.area * 1e-4,
     s: stirrups.spacing, Ag: section.b * section.h, NuCompression: 0,

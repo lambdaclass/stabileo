@@ -320,9 +320,9 @@ it('every mesh piece retains the exact secondary-cage refusal and display status
   expect(verificationStore.providedFor(27)!.checks.filter(c => c.category.startsWith('Shear '))
     .map(c => [c.category, c.demand, c.capacity, c.status])).toEqual([
       ['Shear Support (Vz)', 22.61, 173.9, 'ok'],
-      ['Shear Support (Vy)', 0.24, 133.68, 'ok'],
+      ['Shear Support (Vy)', 0.24, 132.24, 'ok'],
       ['Shear Span (Vz)', 20.51, 173.9, 'ok'],
-      ['Shear Span (Vy)', 0.24, 133.68, 'ok'],
+      ['Shear Span (Vy)', 0.24, 132.24, 'ok'],
     ]);
   const twoLeg = structuredClone(verificationStore.outcomeFor(27)!.accepted!);
   twoLeg.regions!.stirrupsSupport!.secondaryLegs = 2;
@@ -330,7 +330,7 @@ it('every mesh piece retains the exact secondary-cage refusal and display status
   expect(cirsoc201Adapter.verify(verificationStore.contextFor(27)!, twoLeg).checks
     .filter(c => c.category.endsWith('s,max across')).map(c => [c.category, c.required, c.provided, c.status]))
     .toEqual([
-      ['Shear Support (Vy) s,max across', 16.3, 44.4, 'fail'],
-      ['Shear Span (Vy) s,max across', 16.3, 44.4, 'fail'],
+      ['Shear Support (Vy) s,max across', 16.1, 44.4, 'fail'],
+      ['Shear Span (Vy) s,max across', 16.1, 44.4, 'fail'],
     ]);
 }, 120_000);

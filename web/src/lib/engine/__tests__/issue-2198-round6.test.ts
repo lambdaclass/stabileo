@@ -7,11 +7,14 @@ import { buildTieOptions, COLUMN_LIMITS } from '../design/candidate-enumerate-co
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
+import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 
 const section = { b: 0.4, h: 0.4, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const bars = { count: 4, diameter: 16 };
 const axes = syntheticBeamContext().axes;
+const sideDepth = (seatingDiameter: number) => section.b / 2
+  + seatedLongitudinalHalfExtents(section.b, section.h, section.cover, seatingDiameter, bars.diameter).corner.halfAcross;
 const stations = (secondary: number, torque = 0) => ({ elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 0.5, 1].map(t => ({ t, x: 6 * t, n: 0, my: 0, mz: 0, vy: secondary, vz: 0, torsion: torque })) }] });
 const area = (dia: number) => REBAR_DB.find(r => r.diameter === dia)!.area * 1e-4;
 const capacity = (dia: number, legs: number, spacing: number, width: number, depth: number, edition: '2005' | '2025' = '2025') => 0.75 * ((edition === '2005' ? 1 / 6 : 0.17) * Math.sqrt(section.fc) * width * depth * 1000 + Math.min(legs * area(dia) * section.fy * 1000 * depth / spacing, (edition === '2005' ? 2 / 3 : 0.66) * Math.sqrt(section.fc) * width * depth * 1000));
@@ -19,7 +22,9 @@ const capacity = (dia: number, legs: number, spacing: number, width: number, dep
 for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) for (const factor of [0.999, 1.001]) {
   it(`known wrong result: #2198 actual secondary depth ${kind} ${edition} ${axis} ${diameters} ${factor}`, () => {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 4, spacing: 0.1 }));
-    const minCapacity = Math.min(...diameters.map(dia => capacity(dia, 4, 0.1, section.h, section.b - section.cover - dia / 1000 - bars.diameter / 2000, edition)));
+    const depthFor = (diameter: number) => kind === 'beam' ? sideDepth(Math.max(...diameters))
+      : section.b - section.cover - diameter / 1000 - bars.diameter / 2000;
+    const minCapacity = Math.min(...diameters.map(dia => capacity(dia, 4, 0.1, section.h, depthFor(dia), edition)));
     const st = stations(minCapacity * factor);
     if (axis === 'Mz') for (const c of st.comboResults) for (const s of c.stations) { s.vz = s.vy; s.vy = 0; }
     const a = axis === 'My' ? axes : { ...axes, flexure: 'Mz' as const, shear: 'Vy' as const, secondaryFlexure: 'My' as const, secondaryShear: 'Vz' as const, sagCategory: 'Mz+' as const, hogCategory: 'Mz-' as const };
@@ -28,7 +33,7 @@ for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '20
     expect(rows).toHaveLength(3);
     for (const [i, label] of ['Support Start', 'Span', 'Support End'].entries()) {
       const c = rows.find(c => c.category.includes(label))!;
-      const expected = +capacity(diameters[i]!, 4, 0.1, section.h, section.b - section.cover - diameters[i]! / 1000 - bars.diameter / 2000, edition).toFixed(2);
+      const expected = +capacity(diameters[i]!, 4, 0.1, section.h, depthFor(diameters[i]!), edition).toFixed(2);
       expect(c.capacity).toBe(expected);
       expect(c.status === 'fail').toBe(minCapacity * factor / expected > 1);
     }
@@ -36,14 +41,14 @@ for (const kind of ['beam', 'wall'] as const) for (const edition of ['2005', '20
 }
 
 for (const diameters of [[6, 8, 12], [12, 8, 6], [8, 8, 8]]) {
-  it(`known wrong result: #2198 torsion uses each cage secondary depth ${diameters}`, () => {
+  it(`known wrong result: #2198 torsion uses seated depth with each region cage ${diameters}`, () => {
     const cages = diameters.map(diameter => ({ diameter, legs: 4, secondaryLegs: 2, spacing: 0.1 }));
     const st = stations(260, 10);
     const result = verifyProvidedReinforcement(1, 'beam', { regions: { bottomSpan: bars, topStart: bars, topEnd: bars, stirrupsStart: cages[0], stirrupsSpan: cages[1], stirrupsEnd: cages[2] } }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'C1', forces: st.comboResults[0]!.stations[0]! }])[0]!.section('My');
     for (const [i, label] of ['Support Start', 'Span', 'Support End'].entries()) {
       const cage = cages[i]!;
-      const expected = checkTorsion2025({ ...section, d: section.h - section.cover - cage.diameter / 1000 - bars.diameter / 2000, dSecondary: section.b - section.cover - cage.diameter / 1000 - bars.diameter / 2000, stirrupDiaMm: cage.diameter, fyt: section.fy, demand, stirrup: cage });
+      const expected = checkTorsion2025({ ...section, d: section.h - section.cover - cage.diameter / 1000 - bars.diameter / 2000, dSecondary: sideDepth(Math.max(...diameters)), stirrupDiaMm: cage.diameter, fyt: section.fy, demand, stirrup: cage });
       expect(result.checks.find(c => c.category === `Torsion ${label} (Vz)`)?.ratio).toBe(+expected.ratio.toFixed(3));
     }
   });
@@ -112,7 +117,8 @@ for (const edition of ['2005', '2025'] as const) for (const spatial of [false, t
     const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, st, undefined, { axes, spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === (spatial && !primary ? 'Vy' : 'Vz') && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
-    const depth = 0.4 - section.cover - cage.diameter / 1000 - bars.diameter / 2000;
+    const depth = spatial && !primary ? sideDepth(cage.diameter)
+      : section.h - section.cover - cage.diameter / 1000 - bars.diameter / 2000;
     for (const r of rows) { expect(r.capacity).toBe(+capacity(12, 4, 0.1, 0.4, depth, edition).toFixed(2)); expect(r.status).toBe('ok'); }
   });
 }
@@ -129,13 +135,13 @@ for (const kind of ['beam', 'column'] as const) {
   });
 }
 
-for (const [edition, expected] of [['2005', 443.75], ['2025', 441.98]] as const) {
+for (const [edition, expected] of [['2005', 437.89], ['2025', 436.14]] as const) {
   it(`round-six documented secondary capacity selects edition ${edition}`, () => {
     const cage = { diameter: 12, legs: 4, secondaryLegs: 4, spacing: 0.1 };
     const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, stations(1), undefined, { axes, spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === axes.secondaryShear && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) expect(row.capacity).toBe(expected);
-    expect(+capacity(12, 4, 0.1, 0.4, 0.355, edition).toFixed(2)).toBe(expected);
+    expect(+capacity(12, 4, 0.1, 0.4, sideDepth(cage.diameter), edition).toFixed(2)).toBe(expected);
   });
 }

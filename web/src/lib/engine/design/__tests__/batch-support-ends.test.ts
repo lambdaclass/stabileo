@@ -69,7 +69,7 @@ it('a span edit leaves the support and end cages unchanged', () => {
   expect(result.changes.map(c => c.field)).toEqual(['stirrups span']);
 });
 
-it.skip('known wrong result: #2198 batch spacing edits preserve distinct end cages when leg fields are undefined', () => {
+it('known wrong result: #2198 batch spacing edits preserve distinct end cages when leg fields are undefined', () => {
   const start = { diameter: 6, legs: 2, secondaryLegs: 2, spacing: 0.1 };
   const end = { diameter: 10, legs: 6, secondaryLegs: 4, spacing: 0.075 };
   const provided = current({ stirrupsStart: start, stirrupsEnd: end, stirrupsSupport: { ...base, secondaryLegs: 6 } });

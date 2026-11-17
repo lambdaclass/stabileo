@@ -414,7 +414,7 @@ describe('the same building designed and detailed under four slab meshes', () =>
  */
 const EXPECTED_ENDS: unknown[] = [
   [1, { 'end/hook': 70, 'end/straight': 40 }, 0],
-  [0.5, { 'end/hook': 60, 'end/straight': 40 }, 0],
+  [0.5, { 'end/hook': 64, 'end/straight': 40 }, 0],
   [2, { 'end/hook': 66, 'end/straight': 40 }, 0],
   [6, { 'end/hook': 80, 'end/straight': 40 }, 0],
 ];
