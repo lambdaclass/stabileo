@@ -28,19 +28,32 @@ fn largest_difference(a: &Value, b: &Value) -> f64 {
     }
 }
 
-/// Like `largest_difference`, relative to each number with an absolute floor of 10⁻¹², so the
-/// last-digit differences between platforms pass and any real change to a value does not.
-fn drift(a: &Value, b: &Value) -> f64 {
+/// How far this run's numbers are from the committed ones, as a fraction of what is allowed: a
+/// result may move by 10⁻⁹ of itself, and a check's `observed` (itself a small difference, which
+/// round-off on another platform changes far more in relative terms) by 10⁻³ of its tolerance;
+/// 10⁻¹² is allowed for everything. A different structure or text is infinite.
+fn drift(a: &Value, b: &Value, allowed: Option<f64>, path: &str) -> (f64, String) {
+    let worst = |items: Vec<(f64, String)>| items.into_iter().fold((0.0, String::new()), |m, x| if x.0 > m.0 { x } else { m });
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
             let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
-            let d = (x - y).abs();
-            if d <= 1e-12 { 0.0 } else { d / y.abs() }
+            let limit = 1e-12 + allowed.unwrap_or(1e-9 * y.abs());
+            ((x - y).abs() / limit, format!("{path} = {x:e} (committed {y:e})"))
         }
-        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).map(|(p, q)| drift(p, q)).fold(0.0, f64::max),
-        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().map(|(k, p)| y.get(k).map_or(f64::INFINITY, |q| drift(p, q))).fold(0.0, f64::max),
-        _ if a == b => 0.0,
-        _ => f64::INFINITY,
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => worst(x.iter().zip(y).enumerate().map(|(i, (p, q))| drift(p, q, None, &format!("{path}[{i}]"))).collect()),
+        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => {
+            let tolerance = y.get("tolerance").and_then(Value::as_f64);
+            worst(
+                x.iter()
+                    .map(|(k, p)| {
+                        let allowed = (k == "observed").then(|| tolerance.map(|t| 1e-3 * t)).flatten();
+                        y.get(k).map_or((f64::INFINITY, format!("{path}.{k}")), |q| drift(p, q, allowed, &format!("{path}.{k}")))
+                    })
+                    .collect(),
+            )
+        }
+        _ if a == b => (0.0, String::new()),
+        _ => (f64::INFINITY, path.to_string()),
     }
 }
 
@@ -147,9 +160,9 @@ fn main() {
     if write {
         std::fs::write(format!("{HERE}/VALIDATION.json"), serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();
     } else {
-        let drift = drift(&out, &read_root("VALIDATION.json"));
-        println!("{} VALIDATION.json against this run: largest relative difference {drift:.3e} (≤ 1e-9)", if drift <= 1e-9 { "ok  " } else { "FAIL" });
-        if drift > 1e-9 {
+        let (drift, at) = drift(&out, &read_root("VALIDATION.json"), None, "");
+        println!("{} VALIDATION.json against this run: largest difference {drift:.3e} of the allowed one{}{at}", if drift <= 1.0 { "ok  " } else { "FAIL" }, if at.is_empty() { "" } else { ", at " });
+        if drift > 1.0 {
             std::process::exit(1);
         }
     }
