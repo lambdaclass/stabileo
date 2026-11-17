@@ -2,9 +2,11 @@ import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
 import { hasNonlinearBehaviour } from '../../engine/member-behaviour';
 import {
-  solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
+  buildSolverInput2D, solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../../engine/solver-service';
+import { solvePDelta } from '../../engine/wasm-solver';
+import type { PDeltaResult } from '../../engine/result-types';
 import { rotation, translation } from '../../model/edit/affine';
 import { detach, fragmentOf } from '../../model/edit/fragment';
 import { copyTransformed, insertFragment } from '../../model/edit/transformed-copy';
@@ -72,6 +74,19 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
     expect(embedded.reactions.find(r => r.nodeId === bearing)!.fz).toBeCloseTo(-1, 9);
   });
 }
+
+it('#2277 the 2D second-order solve uses the rotated bearing axis', () => {
+  const { bearing, member } = bearingModel();
+  transformInPlace({ nodes: [], elements: [member] }, rotation([0, 0, 0], [0, 0, 1], 90));
+  modelStore.addNodalLoad(bearing, 1, -1);
+  const input = buildSolverInput2D(modelStore.model);
+  if (!input) throw new Error('Expected a plane solver input');
+  const result: PDeltaResult = solvePDelta(input);
+  expect(result.isStable).toBe(true);
+  expect(result.iterations).toBeGreaterThan(0);
+  expect(result.results.reactions.find(r => r.nodeId === bearing)!.rx).toBeCloseTo(0, 9);
+  expect(result.results.reactions.reduce((sum, r) => sum + r.rx, 0)).toBeCloseTo(-1, 9);
+});
 
 for (const nonlinear of [false, true]) {
   it(`#2277 a standing plane copy carries the bearing through an XZ quarter-turn (nonlinear=${nonlinear})`, async () => {
