@@ -46,7 +46,7 @@ pub(crate) fn diagram_samples_3d(ef: &ElementForces3D, kind: &str) -> Vec<(f64, 
         "torsion" => ef.point_torques.iter().map(|p| p.a).collect(),
         _ => vec![],
     };
-    build_sampling_points(ef.length, relevant_pl.into_iter(),
+    build_sampling_points(ef.length, relevant_pl.into_iter().chain(ef.point_torques.iter().map(|p|p.a)),
         ef.distributed_loads_y.iter().chain(ef.distributed_loads_z.iter()).chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b])
             .chain(ef.member_moments.iter().flat_map(|d| [d.a, d.b])),
         &|t| evaluate_diagram_3d_at(ef, kind, t),
@@ -85,6 +85,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
         "momentZ" => {
             let mut value = ef.mz_start - ef.vy_start * x;
             for m in &ef.member_moments { value += moment_integral(m, m.moments.z); }
+            for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.z.unwrap_or(0.0); } }
             for dl in &ef.distributed_loads_y {
                 let a = dl.a;
                 let b = dl.b;
@@ -107,6 +108,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
         "momentY" => {
             let mut value = ef.my_start + ef.vz_start * x;
             for m in &ef.member_moments { value += moment_integral(m, m.moments.y); }
+            for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.y.unwrap_or(0.0); } }
             for dl in &ef.distributed_loads_z {
                 let a = dl.a;
                 let b = dl.b;

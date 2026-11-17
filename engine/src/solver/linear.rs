@@ -4016,7 +4016,7 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
                     if m.x.iter().chain(&m.y).chain(&m.z).any(|v| *v != 0.0) {
                         if let Some(e) = crate::ordered::values(&input.elements).find(|e| e.id == l.element_id) {
                             let sec = crate::ordered::values(&input.sections).find(|s| s.id == e.section_id).unwrap();
-                            if e.release_t_start && e.release_t_end && m.x.iter().any(|v| *v != 0.0) { return Err(format!("Member {}: distributed torsion with both ends released is unsupported",l.element_id)); }
+                            if e.release_t_start && e.release_t_end && !m.torsion_resultant_is_zero() { return Err(format!("Member {}: distributed torsion with both ends released cannot equilibrate a nonzero resultant",l.element_id)); }
                             if e.elem_type == "truss" || e.elem_type == "cable" || sec.cw.is_some_and(|v| v > 0.0) {
                                 return Err(format!("Member {}: distributed moments require a frame without warping", l.element_id));
                             }

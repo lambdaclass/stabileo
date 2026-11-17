@@ -34,7 +34,7 @@ function samplingPositions(ef: ElementForces3D, kind: Diagram3DKind): number[] {
   if (ef.combined) return [...new Set(ef.combined.parts.flatMap(p => samplingPositions(p, kind)))].sort((a, b) => a - b);
   const loads = kind === 'momentZ' || kind === 'shearY' ? ef.pointLoadsY : kind === 'momentY' || kind === 'shearZ' ? ef.pointLoadsZ : kind === 'torsion' ? ef.pointTorques ?? [] : [];
   const densities = [...ef.distributedLoadsY ?? [], ...ef.distributedLoadsZ ?? [], ...ef.distributedLoadsX ?? [], ...ef.memberMoments ?? []];
-  return diagramStations(ef.length, loads, densities.flatMap(d => [d.a, d.b]), t => evaluateDiagramAt(ef, kind, t));
+  return diagramStations(ef.length, [...loads, ...ef.pointTorques ?? []], densities.flatMap(d => [d.a, d.b]), t => evaluateDiagramAt(ef, kind, t));
 }
 
 /**
@@ -143,6 +143,7 @@ export function evaluateDiagramAt(
     case 'momentZ': {
       let value = ef.mzStart - ef.vyStart * x;
       for (const m of ef.memberMoments ?? []) value += integrateQuadratic(m.moments.z, m.a, m.b, x);
+      for (const p of ef.pointTorques ?? []) if (loadPrecedesStation(p.a, L, t)) value += p.z ?? 0;
       for (const dl of ef.distributedLoadsY ?? []) {
         const a = dl.a;
         const b = dl.b;
@@ -163,6 +164,7 @@ export function evaluateDiagramAt(
     case 'momentY': {
       let value = ef.myStart + ef.vzStart * x;
       for (const m of ef.memberMoments ?? []) value += integrateQuadratic(m.moments.y, m.a, m.b, x);
+      for (const p of ef.pointTorques ?? []) if (loadPrecedesStation(p.a, L, t)) value += p.y ?? 0;
       for (const dl of ef.distributedLoadsZ ?? []) {
         const a = dl.a;
         const b = dl.b;

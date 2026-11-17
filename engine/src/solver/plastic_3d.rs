@@ -104,7 +104,7 @@ impl Member3 {
         };
         let pl = |v: &Vec<PointLoadInfo3D>| -> Vec<PointLoadInfo3D> { v.iter().map(|p| PointLoadInfo3D { a: p.a, p: p.p * scale }).collect() };
         let t = self.template.as_ref();
-        ElementForces3D { point_torques: t.map(|t| t.point_torques.iter().map(|p| PointTorqueInfo { a: p.a, p: p.p * scale }).collect()).unwrap_or_default(), member_moments: self.template.as_ref().map(|t| t.member_moments.iter().map(|m| MemberMomentInfo { a: m.a, b: m.b, moments: m.moments.scaled(scale) }).collect()).unwrap_or_default(),
+        ElementForces3D { point_torques: t.map(|t| t.point_torques.iter().map(|p| PointTorqueInfo { a: p.a, p: p.p * scale, y: p.y.map(|v|v*scale), z: p.z.map(|v|v*scale) }).collect()).unwrap_or_default(), member_moments: self.template.as_ref().map(|t| t.member_moments.iter().map(|m| MemberMomentInfo { a: m.a, b: m.b, moments: m.moments.scaled(scale) }).collect()).unwrap_or_default(),
             element_id: self.id,
             length: self.l,
             n_start: v[0],

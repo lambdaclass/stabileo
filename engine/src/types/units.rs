@@ -1659,7 +1659,7 @@ impl From<&super::ElementForces3D> for TypedElementForces3D {
             bimoment_end,
         } = f;
         Self {
-            point_torques: point_torques.iter().map(|p| super::PointTorqueInfo { a: Length::from_m(p.a), p: Moment::from_kn_m(p.p) }).collect(),
+            point_torques: point_torques.iter().map(|p| super::PointTorqueInfo { a: Length::from_m(p.a), p: Moment::from_kn_m(p.p), y: p.y.map(Moment::from_kn_m), z: p.z.map(Moment::from_kn_m) }).collect(),
             member_moments: member_moments.iter().map(|m| super::MemberMomentInfo { a: Length::from_m(m.a), b: Length::from_m(m.b), moments: super::MemberMoments { x: m.moments.x.map(Force::from_kn), y: m.moments.y.map(Force::from_kn), z: m.moments.z.map(Force::from_kn) } }).collect(),
             element_id: *element_id,
             length: Length::from_m(*length),

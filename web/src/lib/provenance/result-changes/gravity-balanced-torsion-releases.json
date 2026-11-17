@@ -1,0 +1,39 @@
+{
+  "id": "gravity-balanced-torsion-releases",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "doublyReleasedMemberCouples"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Balanced torque on released members",
+    "es": "Torsión equilibrada en barras liberadas",
+    "pt": "Torção equilibrada em barras liberadas",
+    "de": "Ausgeglichene Torsion an freigegebenen Stäben",
+    "fr": "Torsion équilibrée des barres libérées",
+    "tr": "Serbest elemanlarda dengeli burulma",
+    "hu": "Kiegyensúlyozott csavarás feloldott rudakon"
+  },
+  "explanation": {
+    "en": "Members released in torsion at both ends accept a distributed torque only with zero resultant. Nonzero resultants remain refused. Rerun affected analyses (#2219).",
+    "es": "Las barras con torsión liberada en ambos extremos admiten momentos distribuidos de resultante nula. Las resultantes no nulas se rechazan. Repita los análisis afectados (#2219).",
+    "pt": "Barras com torção liberada nas duas extremidades aceitam momentos distribuídos de resultante nula. Resultantes não nulas são recusadas. Refaça as análises afetadas (#2219).",
+    "de": "Beidseitig torsionsfreie Stäbe akzeptieren verteilte Torsion nur bei verschwindender Resultierender. Andere Resultierende werden abgelehnt. Betroffene Analysen erneut ausführen (#2219).",
+    "fr": "Les barres libérées en torsion aux deux extrémités acceptent un couple réparti de résultante nulle. Les résultantes non nulles restent refusées. Relancez les analyses concernées (#2219).",
+    "tr": "İki ucunda burulma serbest olan elemanlar yalnızca bileşkesi sıfır olan yayılı momentleri kabul eder. Sıfır olmayan bileşkeler reddedilir. Etkilenen analizleri yineleyin (#2219).",
+    "hu": "A mindkét végén csavarásra feloldott rúd csak nulla eredőjű megoszló nyomatékot fogad el. A nem nulla eredő elutasítást kap. Ismételje meg az érintett elemzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round22.md",
+    "heading": "Released torsion and rotated member couples"
+  }
+}

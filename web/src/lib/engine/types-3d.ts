@@ -421,7 +421,7 @@ export interface Reaction3D {
 }
 
 export interface ElementForces3D {
-  pointTorques?: Array<{ a: number; p: number }>;
+  pointTorques?: Array<{ a: number; p: number; y?: number; z?: number }>;
   memberMoments?: Array<{ a: number; b: number; moments: import('./member-moments').MemberMoments }>;
   elementId: number;
   length: number;  // m

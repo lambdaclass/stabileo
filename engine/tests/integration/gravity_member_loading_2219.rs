@@ -669,10 +669,22 @@ fn round16_small_displacement_moment_profiles_match_linear_recovery() {
         }
         input.loads.push(serde_json::from_value(json!({"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":1e-6,"my":0,"mz":0}})).unwrap());
         let expected = linear::solve_3d(&input).unwrap();
-        for result in [pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
+        for (entry,result) in [pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results].into_iter().enumerate() {
             for ef in &result.element_forces {
                 let reference = expected.element_forces.iter().find(|f| f.element_id == ef.element_id).unwrap();
-                assert_eq!(serde_json::to_value(&ef.member_moments).unwrap(), serde_json::to_value(&reference.member_moments).unwrap());
+                if entry == 0 {
+                    assert_eq!(serde_json::to_value(&ef.member_moments).unwrap(), serde_json::to_value(&reference.member_moments).unwrap());
+                } else {
+                    assert_eq!(ef.member_moments.len(), reference.member_moments.len());
+                    for (current, original) in ef.member_moments.iter().zip(&reference.member_moments) {
+                        assert_eq!((current.a,current.b),(original.a,original.b));
+                        for values in [current.moments.x,current.moments.y,current.moments.z] {
+                            assert_eq!(values,[values[0],-0.5*values[0],values[0]]);
+                        }
+                        if axis == "y" { assert_ne!(current.moments.z[0],0.0); }
+                        if axis == "z" { assert_ne!(current.moments.y[0],0.0); }
+                    }
+                }
                 for kind in ["axial", "torsion", "shearY", "shearZ", "momentY", "momentZ"] {
                     for t in [0.0, 0.2, 0.5, 0.8, 1.0] {
                         assert!((evaluate_diagram_3d_at(ef, kind, t) - evaluate_diagram_3d_at(reference, kind, t)).abs() < 1e-10, "{axis}: {kind}, t={t}");
@@ -796,9 +808,8 @@ fn round17_zero_and_absent_densities_keep_their_certificate_and_answer() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
-    for values in [[1.0, 0.0, -1.0], [0.0; 3], [1.0; 3], [-1.0; 3], [1e-30; 3]] {
+    for values in [[1.0, 0.0, -1.0], [1.0, -0.5, 1.0], [0.0; 3], [1.0; 3], [-1.0; 3], [1e-30; 3], [1.0, 0.0, -1.0 + f64::EPSILON]] {
         let balanced = values[0] + 4.0 * values[1] + values[2] == 0.0;
         let mut input = model(0.0);
         let e = input.elements.values_mut().find(|e|e.id==1).unwrap();
@@ -808,13 +819,17 @@ fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
         if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
             d.moments = Some(MemberMoments { x: values, y: [0.0;3], z: [0.0;3] });
         }
-        for result in [linear::solve_3d(&input), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
+        let mut unloaded = input.clone();
+        unloaded.loads.clear();
+        let prepared = linear::prepare_static_3d(&unloaded).unwrap();
+        for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
             if balanced {
                 let r = result.expect("zero resultant torque must remain admissible");
                 let ef = r.element_forces.iter().find(|ef|ef.element_id==1).unwrap();
                 assert_eq!(ef.mx_start, 0.0);
                 assert_eq!(ef.mx_end, 0.0);
-                assert!((evaluate_diagram_3d_at(ef,"torsion",0.5) - 0.75 * values[0]).abs() < 1e-12);
+                assert!((evaluate_diagram_3d_at(ef,"torsion",0.5) - (if values[1] == 0.0 {0.75} else {0.0}) * values[0]).abs() < 1e-12);
+                assert!((evaluate_diagram_3d_at(ef,"torsion",0.25) - (if values[1] == 0.0 {9.0/16.0} else {9.0/32.0}) * values[0]).abs() < 1e-12);
             } else {
                 assert!(result.unwrap_err().contains("both ends released"));
             }

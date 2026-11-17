@@ -274,7 +274,10 @@ pub fn adjust_fef_for_hinges_3d(
     match (hinge.release_t_start, hinge.release_t_end) {
         (true, false) => { fef[9] += fef[3]; fef[3] = 0.0; }
         (false, true) => { fef[3] += fef[9]; fef[9] = 0.0; }
-        (true, true) => { fef[3] = 0.0; fef[9] = 0.0; }
+        (true, true) => {
+            assert_eq!(fef[3] + fef[9], 0.0, "distributed torsion with both ends released cannot equilibrate a nonzero resultant");
+            fef[3] = 0.0; fef[9] = 0.0;
+        }
         (false, false) => {}
     }
     // --- Y-bending plane (shear-y / moment-z) — controlled by release_mz_* ---
@@ -824,7 +827,6 @@ mod round22_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2219"]
     fn fef_double_torsion_release_never_discards_a_resultant() {
         let hinge = super::super::frame::Hinge3D { release_t_start: true, release_t_end: true, ..Default::default() };
         for torque in [-1.0, 1e-30, 1.0] {
@@ -834,6 +836,14 @@ mod round22_tests {
                 adjust_fef_for_hinges_3d(&mut f, 3.0, hinge, 0.0, 0.0);
             });
             assert!(result.is_err(), "released torque {torque} was silently discarded");
+        }
+        for (start,end) in [(false,false),(true,false),(false,true)] {
+            let hinge = super::super::frame::Hinge3D { release_t_start:start, release_t_end:end, ..Default::default() };
+            let mut f = [0.0; 12]; f[3] = 1.0; f[9] = 2.0;
+            adjust_fef_for_hinges_3d(&mut f, 3.0, hinge, 0.0, 0.0);
+            assert_eq!(f[3]+f[9],3.0);
+            if start { assert_eq!(f[3],0.0); }
+            if end { assert_eq!(f[9],0.0); }
         }
         let mut f = [0.0; 12];
         f[3] = 1.0; f[9] = -1.0;

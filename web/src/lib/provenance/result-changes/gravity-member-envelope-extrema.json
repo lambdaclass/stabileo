@@ -1,0 +1,40 @@
+{
+  "id": "gravity-member-envelope-extrema",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "combinations"
+    ]
+  },
+  "quantities": [
+    "envelope"
+  ],
+  "title": {
+    "en": "Spatial envelope extrema",
+    "es": "Extremos de envolventes espaciales",
+    "pt": "Extremos de envoltórias espaciais",
+    "de": "Extrema räumlicher Hüllkurven",
+    "fr": "Extrema des enveloppes spatiales",
+    "tr": "Uzaysal zarf uç değerleri",
+    "hu": "Térbeli burkológörbe-szélsőértékek"
+  },
+  "explanation": {
+    "en": "Spatial combination envelopes retain evaluated interior extrema. Rerun envelopes and dependent checks (#2219).",
+    "es": "Las envolventes espaciales conservan los extremos interiores evaluados. Repita las envolventes y verificaciones dependientes (#2219).",
+    "pt": "As envoltórias espaciais preservam os extremos interiores avaliados. Refaça as envoltórias e verificações dependentes (#2219).",
+    "de": "Räumliche Kombinationshüllkurven behalten berechnete innere Extrema. Hüllkurven und abhängige Nachweise erneut ausführen (#2219).",
+    "fr": "Les enveloppes spatiales conservent les extrema intérieurs évalués. Relancez les enveloppes et vérifications associées (#2219).",
+    "tr": "Uzaysal birleşim zarfları hesaplanan iç uç değerleri korur. Zarfları ve bağlı kontrolleri yineleyin (#2219).",
+    "hu": "A térbeli kombinációs burkolók megőrzik a számított belső szélsőértékeket. Ismételje meg a burkolókat és kapcsolódó ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round19.md",
+    "heading": "Gravity member frames and envelope extrema"
+  }
+}

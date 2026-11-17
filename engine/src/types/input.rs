@@ -488,6 +488,12 @@ impl MemberMoments {
         h * (values[0] * t + (-3.0 * values[0] + 4.0 * values[1] - values[2]) * t * t / 2.0 + (2.0 * values[0] - 4.0 * values[1] + 2.0 * values[2]) * t * t * t / 3.0)
     }
 
+    pub(crate) fn torsion_resultant_is_zero(&self) -> bool {
+        crate::solver::load_work::nonzero_nodal_moments(
+            [self.x[0], self.x[1], self.x[1], self.x[1], self.x[1], self.x[2]].into_iter().map(|v| (0, [v]))
+        ).is_empty()
+    }
+
     pub fn is_zero(&self) -> bool {
         self.x.iter().chain(&self.y).chain(&self.z).all(|v| *v == 0.0)
     }
@@ -594,6 +600,9 @@ impl SolverDistributedLoad3D {
                     for k in 0..4 { f[indices[k]] += signs[k] * value * shapes[k]; }
                 }
             }
+        }
+        if self.moments().is_some_and(MemberMoments::torsion_resultant_is_zero) {
+            f[9] = -f[3];
         }
         f
     }

@@ -1,0 +1,41 @@
+{
+  "id": "gravity-corotational-couple-frames",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "memberCouples",
+      "analysis:nonlinear"
+    ]
+  },
+  "quantities": [
+    "elementForces",
+    "envelope"
+  ],
+  "title": {
+    "en": "Corotational member couple frames",
+    "es": "Ejes de momentos de barra corrotacionales",
+    "pt": "Eixos dos momentos de barra corrotacionais",
+    "de": "Stabmomentachsen bei korotierender Berechnung",
+    "fr": "Axes des couples de barre corotationnels",
+    "tr": "Eşdönen eleman moment eksenleri",
+    "hu": "Korotációs rúdnyomatékok tengelyei"
+  },
+  "explanation": {
+    "en": "Corotational recovery rotates distributed and concentrated member couples into the same final frame as the end actions. Rerun nonlinear analyses and dependent diagrams and checks (#2219).",
+    "es": "La recuperación corrotacional gira los momentos distribuidos y concentrados al mismo sistema final que las acciones de extremo. Repita los análisis no lineales, diagramas y verificaciones dependientes (#2219).",
+    "pt": "A recuperação corrotacional gira momentos distribuídos e concentrados para os mesmos eixos finais das ações de extremidade. Refaça análises não lineares, diagramas e verificações dependentes (#2219).",
+    "de": "Verteilte und konzentrierte Stabmomente werden wie die Endkräfte in das endgültige Stabsystem gedreht. Nichtlineare Analysen, Diagramme und abhängige Nachweise erneut ausführen (#2219).",
+    "fr": "La récupération corotationnelle transforme les couples répartis et concentrés dans le même repère final que les efforts aux extrémités. Relancez les analyses non linéaires, diagrammes et vérifications associées (#2219).",
+    "tr": "Eşdönen kuvvet hesabı yayılı ve tekil eleman momentlerini uç kuvvetlerle aynı son eksen takımına dönüştürür. Doğrusal olmayan analizleri, diyagramları ve bağlı kontrolleri yineleyin (#2219).",
+    "hu": "A korotációs kiértékelés a megoszló és koncentrált nyomatékokat a végerőkkel azonos végső tengelyrendszerbe forgatja. Ismételje meg a nemlineáris elemzéseket, diagramokat és kapcsolódó ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round22.md",
+    "heading": "Released torsion and rotated member couples"
+  }
+}

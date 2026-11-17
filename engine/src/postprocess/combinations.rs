@@ -611,7 +611,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             out.my_end += f * ef.my_end;
             out.mz_start += f * ef.mz_start;
             out.mz_end += f * ef.mz_end;
-            out.point_torques.extend(ef.point_torques.iter().map(|p| PointTorqueInfo { a: p.a, p: p.p * f }));
+            out.point_torques.extend(ef.point_torques.iter().map(|p| PointTorqueInfo { a: p.a, p: p.p * f, y: p.y.map(|v|v*f), z: p.z.map(|v|v*f) }));
             out.member_moments.extend(ef.member_moments.iter().map(|m| MemberMomentInfo { a: m.a, b: m.b, moments: m.moments.scaled(f) }));
             out.q_yi += f * ef.q_yi;
             out.q_yj += f * ef.q_yj;

@@ -744,6 +744,10 @@ pub struct MemberMomentInfo<L = f64, F = f64> {
 pub struct PointTorqueInfo<L = f64, M = f64> {
     pub a: L,
     pub p: M,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<M>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z: Option<M>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

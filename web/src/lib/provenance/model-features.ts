@@ -39,7 +39,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
-  'floorLoads', 'nonDefaultFrameMomentDensities',
+  'floorLoads', 'nonDefaultFrameMomentDensities', 'orientedFloorCouples', 'memberCouples', 'doublyReleasedMemberCouples',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -53,6 +53,7 @@ interface Elem {
   id: number; type?: string; behaviour?: string; materialId: number; sectionId?: number; nodeI: number; nodeJ: number;
   releaseI?: object; releaseJ?: object;
   semiRigid?: unknown; reinforcement?: unknown;
+  localYx?: number; localYy?: number; localYz?: number; rollAngle?: number;
   tensionConnection?: { i?: TensionEndSnapshot; j?: TensionEndSnapshot };
   unbracedLength?: number;
   bracing?: { top?: readonly unknown[]; bottom?: readonly unknown[] };
@@ -76,7 +77,7 @@ export interface FeatureSnapshot {
   upliftSupports?: unknown[];
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
-  sections?: Entries<{ id: number; shearAreas?: unknown }>;
+  sections?: Entries<{ id: number; shearAreas?: unknown; rotation?: number }>;
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
@@ -257,6 +258,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (connectors.length) f.add('connectors');
   if (connectors.some((c) => positive(c.kShear) || positive(c.kShearZ))) f.add('connectorsWithShear');
 
+  const sectionRotations = new Map(values(s.sections).map(section => [section.id, section.rotation]));
+  const orientedMembers = new Set(elements.filter(e => e.type === 'frame' && (
+    [e.localYx, e.localYy, e.localYz].some(v => v !== undefined)
+    || nonZero(e.rollAngle) || nonZero(sectionRotations.get(e.sectionId ?? -1))
+  )).map(e => e.id));
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
@@ -272,6 +278,21 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (t === 'distributed3d' && (d.frame === 'global' || d.frame === 'projected')) {
       const moments = d.moments as Record<string, unknown> | undefined;
       if (moments && ['x', 'y', 'z'].some(axis => Array.isArray(moments[axis]) && (moments[axis] as unknown[]).some(nonZero))) f.add('nonDefaultFrameMomentDensities');
+    }
+    if (t === 'distributed3d') {
+      const moments = d.moments as Record<string, unknown> | undefined;
+      if (moments && ['x', 'y', 'z'].some(axis => Array.isArray(moments[axis]) && (moments[axis] as unknown[]).some(nonZero))) {
+        f.add('memberCouples');
+        const member = elements.find(e => e.id === d.elementId);
+        const start = member?.releaseI as { t?: boolean } | undefined;
+        const end = member?.releaseJ as { t?: boolean } | undefined;
+        if (start?.t && end?.t) f.add('doublyReleasedMemberCouples');
+      }
+    }
+    if (t === 'distributed3d' && orientedMembers.has(d.elementId as number)
+      && (d.fromDef !== undefined || d.floorLoadsVersion !== undefined || fromLoadPlan(d.generatedBy))) {
+      const moments = d.moments as Record<string, unknown> | undefined;
+      if (moments && ['x', 'y', 'z'].some(axis => Array.isArray(moments[axis]) && (moments[axis] as unknown[]).some(nonZero))) f.add('orientedFloorCouples');
     }
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal') f.add('memberThermalLoads');

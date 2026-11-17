@@ -167,7 +167,7 @@ function scaledForces(ef: ElementForces3D, f: number): ElementForces3D {
     distributedLoadsY: q(ef.distributedLoadsY), distributedLoadsZ: q(ef.distributedLoadsZ),
     ...(ef.distributedLoadsX ? { distributedLoadsX: q(ef.distributedLoadsX) } : {}),
     pointLoadsY: p(ef.pointLoadsY), pointLoadsZ: p(ef.pointLoadsZ),
-    pointTorques: p(ef.pointTorques ?? []),
+    pointTorques: (ef.pointTorques ?? []).map(p => ({ ...p, p: p.p*f, ...(p.y !== undefined ? {y:p.y*f} : {}), ...(p.z !== undefined ? {z:p.z*f} : {}) })),
     memberMoments: (ef.memberMoments ?? []).map(m => ({ ...m, moments: mapMoments(m.moments,v => v.map(x => x*f) as [number,number,number]) })),
     ...(ef.pieces ? { pieces: ef.pieces.map((pc): ResultPiece => ({
       ...pc, forces: scaledForces(pc.forces, f),
