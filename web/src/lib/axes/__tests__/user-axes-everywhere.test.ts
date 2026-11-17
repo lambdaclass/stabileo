@@ -71,7 +71,7 @@ describe('generated case names', () => {
   });
 
   it('the generators name their cases through the flag, and the lists show them', () => {
-    expect(read('lib/store/apply-load-plan.ts')).toContain('axisNamed: true');
+    expect(read('lib/store/apply-load-plan.ts')).toContain('if (!existingCases.has(id)) modelStore.markLoadCaseAxisNamed(id)');
     for (const f of ['components/pro/ProLoadCases.svelte', 'components/toolbar/ResultsViewPicker.svelte', 'components/tables/LoadsTable.svelte', 'components/pro/ProCombinationsList.svelte', 'lib/pro/export-results.ts', 'lib/engine/pro-report-inputs.ts', 'lib/store/project-workbook.ts', 'lib/pro/dxf-export.ts']) {
       expect(read(f), f).toMatch(/caseNameShown|caseNameIn|combinationNameShown/);
     }

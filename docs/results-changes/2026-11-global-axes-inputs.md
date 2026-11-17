@@ -173,15 +173,12 @@ assertion threshold, or safety advisory is changed.
 
 ## Round 5 integration checks (#2259)
 
-The Hungarian `wb.conv.selfWeight` replacement is intentional. Main's
-`f8f364d2f` says the SelfWeight sheet is a record that the model importer does
-not read. Round 4's `b9adbb25b` adds standalone gravity import alongside explicit
-case rules and updates that sentence to describe the accepted forms and reported
-unsupported scopes. Restoring the old sentence would contradict the importer.
+Round 5 replaced the Hungarian `wb.conv.selfWeight` text to explain the new
+standalone gravity import. Round 7 restores main's original key verbatim and
+uses the separate `wb.conv.selfWeightImport` key for the importable workbook's
+conventions, preserving both the main line and accurate current instructions.
 The workbook axes regressions exercise standalone imports with zero, one and two
-dead cases and check both plane and spatial solver input builders. This is the
-single deletion reported by the revert check against `origin/main` at `d972912815`;
-it does not discard an unrelated main change.
+dead cases and check both plane and spatial solver input builders.
 
 The browser modal table already calls `modalPresentation` through
 `ModalResultsTable`. Its three participation columns contain signed factors;
@@ -237,8 +234,52 @@ nonzero directional quantities, and the assertions require negative signed
 factors. This resolves the round-5 test-contract conflict without making factors
 unsigned or requiring unrelated directional percentages to stay in place.
 
-The merge's snow-store replacements combine `axisNamed` with `snowBasis` in
-case creation and reuse. The snow case's `solve: false` update remains intact.
-The revert guard reports the combined lines as replacements of main's snow-only
-lines; no snow behavior is intentionally removed. The earlier Hungarian
-workbook-import explanation remains an intentional replacement as described above.
+Round 7 restores main's snow-case signatures, creation literals and load-plan
+call verbatim. Axis-name metadata is applied through a separate store adapter;
+the snow case's `solve: false` update and its reuse rules remain intact.
+
+## Round 7 pending geometry and workbook loads (#2259)
+
+Pending node rows, the node write card, the table's add row, moves, repeats,
+rotations, mirrors, diaphragm planes, constraint DOFs and offsets, MPC terms and
+underlay alignment targets now retain their physical meaning across frame
+changes. These paths share `reframeDraft`. A missing required coordinate stays
+required even when it moves into the third column; optional blank coordinates
+keep their zero default. Malformed MPC text requires re-entry after a frame
+change instead of becoming a partial constraint. Support drafts already store
+model DOFs. All support editors now share the member-local predicate, including
+supports identified only by `dofLocalElementId`.
+
+`LoadData` was previously an unsupported sheet: import reported it and imported
+no loads. The importer now validates whole load groups and converts them back
+through the same `transformSnapshot` path used by export. It preserves forces,
+couples, local/global/projected directions and case membership, including absent
+case membership. The fixture loader carries partial plane load extents and
+thermal case membership. The supported long-form types are nodal, nodal3d,
+distributed, distributed3d, pointOnElement and thermal. Other types, unsupported
+fields, incomplete or duplicate fields, incompatible units, conflicting targets
+and mixed Loads/LoadData input are reported rather than silently accepted.
+These workbook sheets are not a full project backup; other unsupported sheets
+continue to be reported.
+
+The reviewed `planeInputIn` concern does not reproduce through its caller. Its
+`SolverInput` contains resolved local transverse and axial loads, without global
+flags or load angles. Mirroring these local components by the plane determinant
+preserves the physical global forces. Targeted tests verify global and local
+vertical, oblique and horizontal loads across all frames through the real model
+builder and reference solve. Applying a second global-load transformation here
+would change an already resolved physical load.
+
+The landing modal animation now uses the displayed frequency ratio for the third
+mode as well as the first two, without a cap. A browser regression checks all
+three against the rendered component's frequency calculation.
+
+Canonical saved solver results and the results version are unchanged. Input
+through the previously faulty draft and workbook paths changes to the intended
+physical model; small 2D and 3D workbook fixtures retain exact linear and nonlinear
+WASM answers across all 48 frames. No engine code, numerical tolerance, assertion
+threshold or advisory is changed. The unmerged global-axes registry entry is
+updated. Main lacks the axes feature, and its LoadData import is explicitly unsupported.
+The shared fixture loader also previously discarded partial plane load extents
+and thermal load-case membership. The coordinator must assess the main/release
+impact of those loader omissions separately from the unmerged axes feature.

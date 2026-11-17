@@ -2,7 +2,7 @@ import { afterEach, beforeAll, expect, it } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import { axesStore } from '../../axes/axes.svelte';
 import { allChoices } from '../../axes/frame';
-import { initSolver } from '../../engine/wasm-solver';
+import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { applyWorkbook } from '../../excel-import/apply';
@@ -11,7 +11,7 @@ import { buildSolverInput2D, buildSolverInput3D } from '../../engine/solver-serv
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { modelStore.clear(); axesStore.reset(); });
 
-for (const space of [false, true]) it.skip('known wrong result: #2259 LoadData round trips physical forces and moments in ' + (space ? '3D' : '2D'), () => {
+for (const space of [false, true]) it('known wrong result: #2259 LoadData round trips physical forces and moments in ' + (space ? '3D' : '2D'), () => {
   uiStore.analysisMode = space ? 'pro' : '2d';
   uiStore.includeSelfWeight = false;
   modelStore.clear();
@@ -22,15 +22,26 @@ for (const space of [false, true]) it.skip('known wrong result: #2259 LoadData r
     modelStore.addNodalLoad3D(b, 5, 2, -1, 3, -7, 11);
     modelStore.addDistributedLoad3D(e, 2, 3, -5, -7, undefined, undefined, undefined, { frame: 'global', qXI: 11, qXJ: 13 });
     modelStore.addDistributedLoad3D(e, -2, 3, 5, -7);
+    modelStore.addDistributedLoad3D(e, 2, 3, 5, -7, 0.5, 1.5, 1, { frame: 'projected', qXI: 1, qXJ: 2 });
   } else {
     modelStore.addNodalLoad(b, 5, -7, 11);
     modelStore.addDistributedLoad(e, -5, -7, 30, true);
-    modelStore.addDistributedLoad(e, 2, 3, -30, false);
+    modelStore.addDistributedLoad(e, 2, 3, -30, false, 1, 0.5, 1.5);
     modelStore.addPointLoadOnElement(e, 1, -3, { isGlobal: true, angle: -30, my: 7 });
   }
+  modelStore.addThermalLoad(e, 2, 3, 1);
   const original = JSON.parse(JSON.stringify(modelStore.loads));
   const build = () => space ? buildSolverInput3D(modelStore.model, false)!.loads : buildSolverInput2D(modelStore.model, false)!.loads;
   const expected = build();
+  const analyze = () => {
+    const input = space ? buildSolverInput3D(modelStore.model, false)! : buildSolverInput2D(modelStore.model, false)!;
+    const linear = space ? solve3D(input as never) : solve(input as never);
+    const nonlinear = space ? solvePDelta3D(input as never) : solvePDelta(input as never);
+    expect(linear.displacements.length).toBeGreaterThan(0);
+    expect(nonlinear.converged).toBe(true);
+    return [linear, nonlinear].map(r => ({ displacements: r.displacements, reactions: r.reactions, elementForces: r.elementForces }));
+  };
+  const answers = analyze();
   for (const choice of allChoices()) {
     axesStore.choice = choice;
     const sheets = Object.fromEntries(currentWorkbookSheets(2, { results: false }).map(s => [s.name, s.rows as unknown[][]]));
@@ -40,5 +51,51 @@ for (const space of [false, true]) it.skip('known wrong result: #2259 LoadData r
     expect(parsed.model.loads).toEqual(original);
     applyWorkbook(sheets);
     expect(build()).toEqual(expected);
+    expect(analyze()).toEqual(answers);
   }
+});
+
+it('LoadData refuses malformed loads as a whole and preserves a valid zero load', () => {
+  uiStore.analysisMode = 'pro'; modelStore.clear(); axesStore.reset();
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(1, 2, 3);
+  modelStore.addElement(a, b);
+  modelStore.addNodalLoad3D(b, 0, 0, 0, 0, 0, 0, 1);
+  const sheets = Object.fromEntries(currentWorkbookSheets(2, { results: false }).map(s => [s.name, s.rows as unknown[][]]));
+  const original = sheets.LoadData!;
+  const copy = () => original.map(row => [...row]);
+  const check = (rows: unknown[][]) => parseWorkbook({ ...sheets, LoadData: rows });
+  expect(check(original).problems.filter(p => p.sheet === 'LoadData')).toEqual([]);
+  expect(check(original).model.loads).toEqual(modelStore.loads);
+  for (const mutation of [
+    (r: unknown[][]) => { r.push([...r[1]!]); },
+    (r: unknown[][]) => { r.splice(1, 1); },
+    (r: unknown[][]) => { r[1]![7] = 'bad'; },
+    (r: unknown[][]) => { r[1]![7] = Infinity; },
+    (r: unknown[][]) => { r[1]![8] = 'm'; },
+    (r: unknown[][]) => { r[1]![8] = ''; },
+    (r: unknown[][]) => { r[1]![6] = 'unexpected'; },
+    (r: unknown[][]) => { r[1]![2] = 'pointOnElement3d'; },
+    ...['constructor', '__proto__', 'toString'].map(type => (r: unknown[][]) => { r[1]![2] = type; }),
+    (r: unknown[][]) => { r[1]![3] = 999; },
+    (r: unknown[][]) => { r[1]![1] = 999; },
+    (r: unknown[][]) => { r[1]![0] = 0; },
+    (r: unknown[][]) => { r[1]![0] = -1; },
+    (r: unknown[][]) => { r[1]![0] = Number.MAX_SAFE_INTEGER + 1; },
+    (r: unknown[][]) => { r[0]![0] = 'case'; },
+  ]) {
+    const rows = copy(); mutation(rows);
+    const parsed = check(rows);
+    expect(parsed.problems.some(p => p.sheet === 'LoadData')).toBe(true);
+    expect(parsed.model.loads).toEqual([]);
+  }
+  for (const id of [1, Number.MAX_SAFE_INTEGER]) {
+    const rows = copy(); rows.slice(1).forEach(r => { r[0] = id; });
+    expect(check(rows).model.loads[0]!.data.id).toBe(id);
+    expect(check(rows).problems.filter(p => p.sheet === 'LoadData')).toEqual([]);
+  }
+  const units = copy(); units[1]![7] = 2000; units[1]![8] = 'N';
+  expect(check(units).model.loads[0]!.data.fx).toBe(2);
+  const both = parseWorkbook({ ...sheets, Loads: [['type'], ['nodal3d']] });
+  expect(both.problems.some(p => p.sheet === 'LoadData')).toBe(true);
+  expect(both.model.loads).toEqual([]);
 });

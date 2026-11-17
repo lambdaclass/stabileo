@@ -24,7 +24,7 @@
   const mode = $derived(Math.min(SHOWN, Math.floor(time / SEGMENT) + 1));
   const local = $derived(time - (mode - 1) * SEGMENT);
   const envelope = $derived(Math.sin((Math.PI * local) / SEGMENT) ** 2);
-  const freq = $derived(0.75 * Math.min(RATIO[mode - 1], 3.2));
+  const freq = $derived(0.75 * RATIO[mode - 1]);
   const swing = $derived(envelope * Math.sin(2 * Math.PI * freq * local));
   const drift = $derived(Array.from({ length: STORIES + 1 }, (_, i) => (i === 0 ? 0 : (AMP * swing * shape(mode, i)) / PEAK[mode - 1])));
 

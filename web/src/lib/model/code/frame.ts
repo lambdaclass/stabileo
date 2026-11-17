@@ -138,10 +138,10 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
         vecList(f, way, region.points);
         if (Array.isArray(region.holes)) for (const h of region.holes) vecList(f, way, h);
       }
-    } else if (l.type === 'pointOnElement' && !space) {
+    } else if (l.type === 'pointOnElement') {
       for (const k of ['my', 'mz']) if (d[k] !== undefined) d[k] = p.r * d[k] + 0;
       if (d.isGlobal) planeGlobal(d, ['p'], p);
-    } else if (l.type === 'distributed' && !space && d.isGlobal) {
+    } else if (l.type === 'distributed' && d.isGlobal) {
       planeGlobal(d, ['qI', 'qJ'], p);
     }
   }

@@ -1,10 +1,5 @@
 <script lang="ts">
-  import { quantityTransform } from '../../lib/axes/quantity-transform';
-
-  const toModel = (f: import('../../lib/axes/frame').AxesFrame, values: import('../../lib/axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
-
-  const toUser = (f: import('../../lib/axes/frame').AxesFrame, values: import('../../lib/axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
-
+  import { reframeDraft } from '../../lib/axes/reframe-draft';
   import { userComponent, axesKey } from '../../lib/axes/display';
   import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
@@ -49,11 +44,19 @@
 
   let previousFrame = axesStore.frame;
   let shownAxes = axesKey();
-  $effect(() => {
+  $effect.pre(() => {
     const k = axesKey();
     if (k === shownAxes) return;
     shownAxes = k;
-    untrack(() => { point = toUser(axesStore.frame, toModel(previousFrame, point)); previousFrame = axesStore.frame; d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
+    untrack(() => {
+      const reframe = reframeDraft(previousFrame, axesStore.frame);
+      point = reframe.triple(point) as Vec3;
+      d = reframe.triple(d) as Vec3;
+      const kind = mode === 'mirror' ? 'vector' : 'pseudovector';
+      axisCustom = reframe.triple(axisVec, kind) as Vec3;
+      axis = 'custom';
+      previousFrame = axesStore.frame;
+    });
   });
   let angle = $state(90);
   let asCopy = $state(true);
@@ -115,7 +118,7 @@
   }
 
   function transforms(): Affine[] {
-    const dm = modelVec(...d), pm = modelVec(...point), turn = modelRot(...axisVec), normal = modelVec(...axisVec);
+    const dm = modelVec(...d), pm = modelVec(...point), turn = modelRot(...axisVec).map(v => v + 0) as Vec3, normal = modelVec(...axisVec).map(v => v + 0) as Vec3;
     switch (mode) {
       case 'repeat': return repeatOffsets(dm, copies, spacings ?? undefined).map((o) => translation(o));
       case 'polar': return Array.from({ length: copies }, (_, k) => rotation(pm, turn, angle * (k + 1)));

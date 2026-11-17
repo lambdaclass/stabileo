@@ -16,7 +16,7 @@ const fixture = (loads: JSONModel['loads']): JSONModel => ({
   loadCases: [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }], combinations: [],
 });
 
-it.skip('known wrong result: #2259 the shared fixture loader preserves a partial plane load and its reaction', () => {
+it('known wrong result: #2259 the shared fixture loader preserves a partial plane load and its reaction', () => {
   uiStore.analysisMode = '2d'; modelStore.clear();
   const a = 0.5, b = 1.5, q = -2;
   loadFixture(fixture([{ type: 'distributed', data: { elementId: 1, qI: q, qJ: q, a, b } }]), modelStore.fixtureApi() as never);
@@ -26,7 +26,7 @@ it.skip('known wrong result: #2259 the shared fixture loader preserves a partial
   expect(modelStore.loads[0]!.data).toMatchObject({ a, b });
 });
 
-it.skip('known wrong result: #2259 the shared fixture loader preserves thermal case membership', () => {
+it('known wrong result: #2259 the shared fixture loader preserves thermal case membership', () => {
   uiStore.analysisMode = '2d'; modelStore.clear();
   loadFixture(fixture([{ type: 'thermal', data: { elementId: 1, dtUniform: 2, dtGradient: 3, caseId: 2 } }]), modelStore.fixtureApi() as never);
   expect(modelStore.loads[0]!.data).toMatchObject({ dtUniform: 2, dtGradient: 3, caseId: 2 });

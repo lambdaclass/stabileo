@@ -1,3 +1,4 @@
+import { readLoadData } from './load-data';
 import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
 const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
 const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
@@ -439,7 +440,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const model = EMPTY_MODEL();
   const counts: Record<string, number> = {};
 
-  const defined = new Set([...SHEETS.map((s) => s.name.toLowerCase()), 'selfweight']);
+  const defined = new Set([...SHEETS.map((s) => s.name.toLowerCase()), 'selfweight', 'loaddata']);
   const unknownSheets = Object.keys(sheets).filter(
     (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones' && n.trim().toLowerCase() !== AXES_SHEET.toLowerCase(),
   );
@@ -1096,6 +1097,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       }
     }
     model.loads.push({ type, data });
+  }
+  if (grab('LoadData').length > 1) {
+    if (grab('Loads').length > 1) {
+      problems.push({ sheet: 'LoadData', row: 1, message: 'Use either Loads or LoadData, not both.' });
+      model.loads = [];
+    } else model.loads = readLoadData(grab('LoadData'), frame, model, problems, unitFactor);
   }
   counts.Loads = model.loads.length;
 

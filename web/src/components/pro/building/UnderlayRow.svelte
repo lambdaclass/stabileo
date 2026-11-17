@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { reframeDraft } from '../../../lib/axes/reframe-draft';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
   import Hint from '../Hint.svelte';
   /**
    * One template (`store/underlays.ts`): seen or not, its level, lock and strength, and, open,
@@ -20,6 +23,20 @@
   let convertOpen = $state(false);
   let message = $state<string | null>(null);
   let pairs = $state([{ fx: '', fy: '', tx: '', ty: '' }, { fx: '', fy: '', tx: '', ty: '' }]);
+
+  let previousFrame = axesStore.frame;
+  $effect.pre(() => {
+    const frame = axesStore.frame;
+    if (frame === previousFrame) return;
+    untrack(() => {
+      const reframe = reframeDraft(previousFrame, frame);
+      pairs = pairs.map(p => {
+        const [tx, ty] = reframe.planText([p.tx, p.ty]);
+        return { ...p, tx, ty };
+      });
+      previousFrame = frame;
+    });
+  });
 
   const edit = (patch: Partial<Underlay>) => { if (!editUnderlay(u.id, patch)) message = t('underlay.lockedRefused'); };
   const atLevel = (id: string) => { const lv = levels.find((l) => l.id === id); if (lv) edit({ levelId: lv.id, z: lv.z }); };

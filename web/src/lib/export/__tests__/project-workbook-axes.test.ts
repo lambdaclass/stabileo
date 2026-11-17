@@ -83,6 +83,10 @@ describe('the project workbook in the user axes', () => {
 
     const back = parseWorkbook(asImport(sheets));
     const plainBack = parseWorkbook(asImport(plain));
+    expect(back.model.loads).toHaveLength(modelStore.loads.length);
+    expect(back.model.loads).toEqual(plainBack.model.loads);
+    const nodal = back.model.loads.find(l => l.type === 'nodal3d')!;
+    expect(nodal.data).toMatchObject({ fx: 5, fy: 2, fz: -1, mx: 0.5, my: 0, mz: 1 });
     for (const [a, b] of back.model.nodes.map((n, i) => [n, plainBack.model.nodes[i]!] as const)) {
       expect(a.x).toBeCloseTo(b.x, 12); expect(a.y).toBeCloseTo(b.y, 12); expect(a.z ?? 0).toBeCloseTo(b.z ?? 0, 12);
     }

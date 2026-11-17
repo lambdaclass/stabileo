@@ -79,7 +79,7 @@ const CONVENTIONS = [
 
 function conventionsSheet(tr: (key: string) => string, axes?: AxesChoice | null): WorkbookSheet {
   const user = workbookFrame(axes);
-  const text = (k: string) => (k === 'axes' && user ? axesStatement(tr, user.choice) : tr(`wb.conv.${k}`));
+  const text = (k: string) => (k === 'axes' && user ? axesStatement(tr, user.choice) : tr(`wb.conv.${k === 'selfWeight' ? 'selfWeightImport' : k}`));
   return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(text(k))])] };
 }
 

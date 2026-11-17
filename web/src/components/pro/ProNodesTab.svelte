@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../lib/axes/reframe-draft';
   import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import { modelStore, uiStore } from '../../lib/store';
@@ -27,6 +30,7 @@
     y: string;
     z: string;
     name: string;
+    required?: [boolean, boolean, boolean];
   }
   /** A coordinate as the cell shows it. */
   const shown = (m: number) => String(+toDisplay(m, 'length', uiStore.unitSystem).toPrecision(12));
@@ -43,6 +47,21 @@
    * when the list of ids changed, so a node moved elsewhere (Transform, a drag, the quick editor,
    * undo) kept its old text here, and leaving one of its cells wrote that old position back.
    */
+  let draftFrame = axesStore.frame;
+  $effect.pre(() => {
+    const frame = axesStore.frame;
+    if (frame === draftFrame) return;
+    untrack(() => {
+      const reframe = reframeDraft(draftFrame, frame);
+      rows = rows.map(r => {
+        if (r.id !== null) return r;
+        const [x, y, z] = reframe.text([r.x, r.y, r.z]);
+        return { ...r, x, y, z, required: reframe.flags(r.required ?? [true, true, false]) as [boolean, boolean, boolean] };
+      });
+      [wX, wY, wZ] = reframe.triple([wX, wY, wZ]);
+      draftFrame = frame;
+    });
+  });
   let synced = '';
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
@@ -70,9 +89,11 @@
   function commitRow(idx: number) {
     const row = rows[idx];
     if (!row) return;
-    const ux = parseNumber(row.x);
-    const uy = parseNumber(row.y);
-    const uz = row.z.trim() === '' ? 0 : parseNumber(row.z);
+    const required = row.required ?? [true, true, false];
+    const coordinate = (value: string, index: number) => !required[index] && value.trim() === '' ? 0 : parseNumber(value);
+    const ux = coordinate(row.x, 0);
+    const uy = coordinate(row.y, 1);
+    const uz = coordinate(row.z, 2);
     if (ux === null || uy === null || uz === null) return;
     const [x, y, z] = nodeMoveArgs3D([ux, uy, uz]);
 

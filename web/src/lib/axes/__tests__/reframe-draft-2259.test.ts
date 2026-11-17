@@ -31,3 +31,18 @@ it('#2259 every draft frame pair preserves populated, zero and absent vector and
     }
   }
 });
+
+it('#2259 text, nullable node coordinates, physical planes and DOF flags retain their meaning in every frame pair', () => {
+  for (const a of allChoices()) for (const b of allChoices()) {
+    const from = makeFrame(a), to = makeFrame(b), forward = reframeDraft(from, to), backward = reframeDraft(to, from);
+    for (const values of [['2', '-3', '4'], ['', '-', '0'], ['2,5', '', '-4']] as const) {
+      const actual = forward.text(values);
+      expect(backward.text(actual)).toEqual(values);
+      const flags = [true, false, true, false, true, false];
+      expect(backward.flags(forward.flags(flags))).toEqual(flags);
+      for (const p of ['XY', 'XZ', 'YZ'] as const) expect(backward.plane(forward.plane(p))).toBe(p);
+    }
+    for (const values of [[0, 0], [2, -3]] as const) expect(backward.planeVector(forward.planeVector(values))).toEqual(values);
+    for (const values of [['', '-'], ['2,5', '-3']] as const) expect(backward.planText(forward.planText(values))).toEqual(values);
+  }
+});

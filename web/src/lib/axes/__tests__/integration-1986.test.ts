@@ -105,10 +105,12 @@ it('reported #1986 stored axial point load is projected along the member before 
   expect(F.pz).toBeCloseTo(4, 12);
 });
 
-it('reported #1986 LoadData stays unsupported while explicit SelfWeight reads its declared direction', () => {
+it('reported #1986 incomplete LoadData is refused while explicit SelfWeight reads its declared direction', () => {
   const r = parseWorkbook({ [AXES_SHEET]: axes(), Nodes: [head('Nodes'), row('Nodes', { id: 1, x: 1, y: 2, z: 3 })], LoadData: [['load', 'type', 'field', 'value'], [1, 'nodal3d', 'fx', 5]], SelfWeight: [['source', 'case', 'direction', 'factor', 'scope'], ['case', 1, 'Y', -1, 'all']] });
-  expect(r.unknownSheets).toEqual(['LoadData']);
-  expect(r.problems).toEqual([]);
+  expect(r.unknownSheets).toEqual([]);
+  expect(r.problems.filter(p => p.sheet === 'LoadData')).toEqual([{ sheet: 'LoadData', row: 1, message: 'LoadData requires one of each exported column.' }]);
+  expect(r.model.loads).toEqual([]);
+  expect(r.problems).toEqual([{ sheet: 'LoadData', row: 1, message: 'LoadData requires one of each exported column.' }]);
   expect(r.model.analysis?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor: -1 }]);
   expect(r.model.loads).toEqual([]);
 });

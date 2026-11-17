@@ -1,3 +1,4 @@
+import { loadFieldUnit } from '../model/load-field-unit';
 /**
  * The model sheets of the project workbook.
  *
@@ -162,19 +163,6 @@ function massSourceSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet |
   return { name: 'MassSource', rows };
 }
 
-/** The unit of a load field, by the model's naming. Empty where the field has none. */
-function loadFieldUnit(type: string, field: string): string {
-  const f = field.toLowerCase();
-  if (/^(fx|fy|fz|p|px|py|pz)$/.test(f)) return 'kN';
-  if (/^(mx|my|mz)$/.test(f)) return 'kN·m';
-  if (/^q/.test(f)) return type === 'surface3d' ? 'kN/m²' : 'kN/m';
-  if (f === 'pressure') return 'kN/m²';
-  if (/^(a|b|x|position|start|end|length)$/.test(f)) return 'm';
-  if (/^(dt|dtg|dtuniform|dtgradient|dty|dtz)$/.test(f)) return '°C';
-  if (f === 'angle') return '°';
-  return '';
-}
-
 /**
  * Every load, one row per field: its case, its type, what it acts on, the field and its value.
  * Long rather than wide because the nine load types share few fields, and a wide sheet of them
@@ -191,7 +179,7 @@ function loadsSheet(m: WorkbookModel): WorkbookSheet {
     for (const [field, value] of Object.entries(d)) {
       if (['id', 'caseId', 'nodeId', 'elementId', 'quadId', 'plateId'].includes(field) || value === undefined || value === null) continue;
       const cell = typeof value === 'number' ? value : typeof value === 'boolean' ? b(value) : safeText(typeof value === 'string' ? value : JSON.stringify(value));
-      rows.push([id, typeof d.caseId === 'number' ? d.caseId : 1, l.type, node, member, shell, field, cell, loadFieldUnit(l.type, field)]);
+      rows.push([id, typeof d.caseId === 'number' ? d.caseId : '', l.type, node, member, shell, field, cell, loadFieldUnit(l.type, field)]);
     }
   });
   return { name: 'LoadData', rows };

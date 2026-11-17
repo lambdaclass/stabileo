@@ -20,6 +20,6 @@ export function nodeShown3D(node: { x: number; y: number; z?: number }, plane = 
 }
 
 export function nodeMoveArgs3D(shown: readonly number[], plane = standingPlane()): [number, number, number] {
-  const [x, y, z] = modelVec(shown[0], shown[1], shown[2]);
+  const [x, y, z] = modelVec(shown[0], shown[1], shown[2]).map(v => v + 0);
   return plane ? [x, z, y] : [x, y, z];
 }

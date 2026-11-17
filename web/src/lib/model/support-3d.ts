@@ -46,3 +46,7 @@ export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean>
   const d = supportDofs3D({ type } as Support);
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }
+
+export function supportIsLocal(support: { dofFrame?: string; dofLocalElementId?: number }): boolean {
+  return support.dofFrame === 'local' || support.dofLocalElementId !== undefined;
+}
