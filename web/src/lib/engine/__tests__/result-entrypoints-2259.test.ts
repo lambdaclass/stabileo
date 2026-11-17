@@ -2,7 +2,7 @@ import { afterEach, beforeAll, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import * as XLSX from 'xlsx';
 import { axesStore } from '../../axes/axes.svelte';
-import { allChoices } from '../../axes/frame';
+import { allChoices, makeFrame } from '../../axes/frame';
 import { modelStore, uiStore, resultsStore } from '../../store';
 import { initSolver, solve3D } from '../wasm-solver';
 import { exportResultsCSV } from '../../store/file';
@@ -40,10 +40,15 @@ it.each(['basic table', 'pro table', 'CSV', 'Excel'] as const)('known wrong resu
         const wb = await buildExcelWorkbook({ provenance: false });
         expect(wb).not.toBeNull();
         const reactions = XLSX.utils.sheet_to_json<unknown[]>(wb!.Sheets[t('excel.sheetReactions')]!, { header: 1 });
-        expect(reactions.length).toBeGreaterThan(1);
-        expect(reactions[1]!.slice(2).every(n => typeof n === 'number' && n >= 0)).toBe(true);
+        const f = makeFrame(choice);
+        const permute = (v: number[]) => f.rows.map(row => v[row.findIndex(x => x !== 0)]!);
+        expect(reactions[0]).toHaveLength(8);
+        expect(reactions[1]).toHaveLength(8);
+        expect(reactions[1]!.slice(2)).toEqual([...permute([1, 2, 3]), ...permute([4, 5, 6])]);
         const nodes = XLSX.utils.sheet_to_json<unknown[]>(wb!.Sheets[t('excel.sheetNodes')]!, { header: 1 });
-        expect(nodes[1]!.slice(4).every(n => typeof n === 'number' && n >= 0)).toBe(true);
+        expect(nodes[0]).toHaveLength(10);
+        expect(nodes[1]).toHaveLength(10);
+        expect(nodes[1]!.slice(4)).toEqual([...permute([1, 2, 3]), ...permute([4, 5, 6])]);
       }
     }
   }
