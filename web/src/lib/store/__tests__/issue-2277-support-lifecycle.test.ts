@@ -1,4 +1,4 @@
-import { beforeEach, expect, it as test } from 'vitest';
+import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
 import type { Support } from '../model.svelte';
 import { imposedUnsupported } from '../../engine/case-displacements';
@@ -11,7 +11,6 @@ import { loadFixture, type JSONModel } from '../../templates/load-fixture';
 import beamFixture from '../../templates/fixtures/rc-beam-flexure.json';
 import portalFixture from '../../templates/fixtures/portal-frame-braced.json';
 
-const it = process.env.RUN_KNOWN_WRONG === '2277' ? test : test.skip;
 const ambiguous = /rollerZ.*ambiguous.*explicit/i;
 const verticalSlider = { tx: true, ty: true, tz: false, rx: false, ry: false, rz: true };
 const fixed = { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
@@ -22,8 +21,15 @@ function supportAt(nodeId: number): Support {
 
 function bareBeam(): JSONModel {
   return {
-    ...beamFixture,
+    ...beamFixture as JSONModel,
     supports: beamFixture.supports.map(({ id, nodeId, type }) => ({ id, nodeId, type: type === 'rollerZ' ? type : 'fixed3d' })),
+  };
+}
+
+function recordedPortal(): JSONModel {
+  return {
+    ...portalFixture as JSONModel,
+    supports: portalFixture.supports.map(({ id, nodeId, type }) => ({ id, nodeId, type })),
   };
 }
 
@@ -34,7 +40,7 @@ beforeEach(() => {
 });
 
 for (const path of ['single', 'bulk', 'record', 'edit'] as const) {
-  it(`known wrong result: #2277 a bare rollerZ stays unresolved through ${path}`, async () => {
+  it(`#2277 a bare rollerZ stays unresolved through ${path}`, async () => {
     await modelStore.loadExample('rc-beam-flexure');
     const node = 3;
     const id = path === 'single' ? modelStore.addSupport(node, 'rollerZ')
@@ -54,7 +60,7 @@ for (const path of ['single', 'bulk', 'record', 'edit'] as const) {
 }
 
 for (const operation of ['translate copy', 'rotate copy', 'rotate in place'] as const) {
-  it(`known wrong result: #2277 ${operation} carries unresolved supports to the solver refusal`, async () => {
+  it(`#2277 ${operation} carries unresolved supports to the solver refusal`, async () => {
     await modelStore.loadExample('rc-beam-flexure');
     const original = supportAt(3);
     modelStore.model.supports.set(original.id, { id: original.id, nodeId: original.nodeId, type: 'rollerZ' });
@@ -64,7 +70,8 @@ for (const operation of ['translate copy', 'rotate copy', 'rotate in place'] as 
     if (operation === 'rotate in place') {
       transformInPlace(source, transform);
     } else {
-      node = copyTransformed(source, [transform], { withSupports: true }).nodes[0]!;
+      const copy = copyTransformed({ nodes: [], elements: [...modelStore.elements.keys()] }, [transform], { withSupports: true });
+      node = copy.maps[0]!.nodes.get(original.nodeId)!;
       modelStore.removeSupport(original.id);
     }
     expect(supportAt(node).type).toBe('rollerZ');
@@ -74,7 +81,7 @@ for (const operation of ['translate copy', 'rotate copy', 'rotate in place'] as 
 }
 
 for (const nonlinear of [false, true]) {
-  it(`known wrong result: #2277 selecting fixed3d restrains every DOF nonlinear=${nonlinear}`, async () => {
+  it(`#2277 selecting fixed3d restrains every DOF nonlinear=${nonlinear}`, async () => {
     await modelStore.loadExample('rc-beam-flexure');
     const id = modelStore.addSupport(3, 'rollerYZ');
     modelStore.updateSupport(id, { type: 'fixed3d' });
@@ -93,7 +100,7 @@ for (const nonlinear of [false, true]) {
 }
 
 for (const type of ['fixed3d', 'pinned3d', 'spring3d', 'rollerY', 'rollerXY'] as const) {
-  it(`known wrong result: #2277 ${type} replaces a rotated local restraint definition`, async () => {
+  it(`#2277 ${type} replaces a rotated local restraint definition`, async () => {
     await modelStore.loadExample('3d-portal-frame');
     const member = [...modelStore.elements.values()].find(e => modelStore.nodes.get(e.nodeI)!.x === modelStore.nodes.get(e.nodeJ)!.x)!;
     const node = member.nodeI;
@@ -108,13 +115,17 @@ for (const type of ['fixed3d', 'pinned3d', 'spring3d', 'rollerY', 'rollerXY'] as
     expect(imposedUnsupported(modelStore.supports, [load])).toEqual(type === 'spring3d' ? [{ loadId: 1, nodeId: node, field: 'dz' }] : []);
     modelStore.updateSupport(id, { type: 'custom3d', dofRestraints: verticalSlider, dofFrame: 'local', dofLocalElementId: member.id });
     expect(supportAt(node)).toMatchObject({ dofRestraints: verticalSlider, dofFrame: 'local', dofLocalElementId: member.id });
+    modelStore.updateSupport(id, { type, dofRestraints: verticalSlider });
+    expect(supportAt(node).dofRestraints).toEqual(verticalSlider);
+    expect(supportAt(node).dofFrame).toBeUndefined();
+    expect(supportAt(node).dofLocalElementId).toBeUndefined();
   });
 }
 
 for (const mode of ['3d', 'pro'] as const) {
   for (const nonlinear of [false, true]) {
     for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
-      it(`known wrong result: #2277 recorded bare bearing refuses through ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
+      it(`#2277 recorded bare bearing refuses through ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
         uiStore.analysisMode = mode;
         await modelStore.loadExample('rc-beam-flexure', async () => bareBeam());
         const m = modelStore.model;
@@ -140,17 +151,13 @@ for (const mode of ['3d', 'pro'] as const) {
   }
 }
 
-it('known wrong result: #2277 replay in the upright workspace leaves geometry and its loads in recorded coordinates', async () => {
+it('#2277 replay in the upright workspace leaves geometry and its loads in recorded coordinates', async () => {
   await modelStore.loadExample('portal-frame-braced');
   expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
   const nodes = [...modelStore.nodes.values()].map(n => ({ ...n }));
   const supports = [...modelStore.supports.values()].map(s => ({ ...s }));
   const loads = JSON.parse(JSON.stringify(modelStore.loads));
-  const recorded: JSONModel = {
-    ...portalFixture,
-    supports: portalFixture.supports.map(({ id, nodeId, type }) => ({ id, nodeId, type })),
-  };
-  modelStore.bulkMutate(() => loadFixture(recorded, modelStore.fixtureApi() as never));
+  loadFixture(recordedPortal(), modelStore.fixtureApi() as never);
   expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
   expect([...modelStore.nodes.values()].slice(0, nodes.length)).toEqual(nodes);
   expect([...modelStore.supports.values()].slice(0, supports.length)).toEqual(supports);
@@ -160,13 +167,9 @@ it('known wrong result: #2277 replay in the upright workspace leaves geometry an
   expect(supportAt(portalFixture.supports.find(s => s.type === 'rollerZ')!.nodeId + nodes.length).dofRestraints).toBeUndefined();
 });
 
-test('#2277 a recorded plane roller retains its plane and embedded answers', async () => {
+it('#2277 a recorded plane roller retains its plane and embedded answers', async () => {
   uiStore.analysisMode = '2d';
-  const fixture: JSONModel = {
-    ...portalFixture,
-    supports: portalFixture.supports.map(({ id, nodeId, type }) => ({ id, nodeId, type })),
-  };
-  await modelStore.loadExample('portal-frame-braced', async () => fixture);
+  await modelStore.loadExample('portal-frame-braced', async () => recordedPortal());
   const m = modelStore.model;
   const roller = [...m.supports.values()].find(s => s.type === 'rollerZ')!;
   expect(roller.dofRestraints).toBeUndefined();

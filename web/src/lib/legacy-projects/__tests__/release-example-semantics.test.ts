@@ -55,9 +55,9 @@ describe('release example semantics #2091', () => {
               e: drift === 'name' ? material.e : material.e * 2,
             });
           });
-          const apiSpy = vi.spyOn(modelStore, 'fixtureApi').mockImplementation((supportSource) => {
+          const apiSpy = vi.spyOn(modelStore, 'fixtureApi').mockImplementation(() => {
             atResolution.push(structuredClone(modelStore.materials.get(1)!));
-            return fixtureApi(supportSource);
+            return fixtureApi();
           });
           try {
             const result = await againstExample('future material identity', version, entry, opened, false);

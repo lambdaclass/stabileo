@@ -23,7 +23,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
-import { DOF_SPRING, dofRestraintsOfType3D, explicitRoller3D, is3DSupportType, type SpringKey } from '../model/support-3d';
+import { DOF_SPRING, dofRestraintsOfType3D, rollerPreset3D, is3DSupportType, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -1425,6 +1425,7 @@ function createModelStore() {
   // skip their per-call Map / array reassignment while this flag is true;
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
+  let _replayingFixture = false;
   let _bulkLoadBuffer: Load[] | null = null;
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
@@ -1611,14 +1612,18 @@ function createModelStore() {
     }
   }
 
-  type SupportSource = 'placement' | 'recorded';
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
+
+  function needsSpaceForSupport(type: SupportType | undefined, dofs?: Support['dofRestraints']): boolean {
+    return !!dofs || (type !== undefined && (
+      type.endsWith('3d') || is3DSupportType(type) || (uiStore.is3DWorkspace && type.startsWith('roller'))
+    ));
+  }
 
   /** The support `addSupport` and `addSupports` write: only the fields given, and no zero offsets. */
   function supportOf(
     id: number, nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
-    source: SupportSource = 'placement',
   ): Support {
     const sup: Support = { id, nodeId, type: uiStore.is3DWorkspace ? type : normalize2DSupportType(type) };
     if (springs) {
@@ -1642,7 +1647,8 @@ function createModelStore() {
     if (opts?.dofRestraints) sup.dofRestraints = { ...opts.dofRestraints };
     if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
     if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
-    return source === 'placement' && uiStore.is3DWorkspace ? { ...sup, ...explicitRoller3D(sup) } : sup;
+    if (uiStore.is3DWorkspace && !sup.dofRestraints) Object.assign(sup, rollerPreset3D(type));
+    return sup;
   }
 
   /**
@@ -2594,7 +2600,7 @@ function createModelStore() {
      * outside the space workspace, or when the model is not a standing plane one.
      */
     ensureSpaceCoordinates(): boolean {
-      if (!uiStore.is3DWorkspace) return false;
+      if (_replayingFixture || !uiStore.is3DWorkspace) return false;
       if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
       const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
       if (changed) {
@@ -2756,13 +2762,12 @@ function createModelStore() {
      */
     addSupportEntry(fields: Omit<Support, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
-      if (fields.dofRestraints || (uiStore.is3DWorkspace && fields.type.startsWith('roller'))) this.ensureSpaceCoordinates();
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === fields.nodeId) { model.supports.delete(existingId); break; }
       }
       const id = nextId.support++;
       const support = { ...JSON.parse(JSON.stringify(fields)), id } as Support;
-      model.supports.set(id, uiStore.is3DWorkspace ? { ...support, ...explicitRoller3D(support) } : support);
+      model.supports.set(id, support);
       if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
@@ -2885,12 +2890,10 @@ function createModelStore() {
 
     addSupport(
       nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
-      source: SupportSource = 'placement',
     ): number {
       if (!_undoBatching) _pushUndo?.();
       // A space support on a standing plane model makes it a space one.
-      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)
-        || (uiStore.is3DWorkspace && type.startsWith('roller'))) this.ensureSpaceCoordinates();
+      if (needsSpaceForSupport(type, opts?.dofRestraints)) this.ensureSpaceCoordinates();
       // Remove existing support on this node (only one support per node allowed)
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === nodeId) {
@@ -2899,7 +2902,7 @@ function createModelStore() {
         }
       }
       const id = nextId.support++;
-      model.supports.set(id, supportOf(id, nodeId, type, springs, opts, source));
+      model.supports.set(id, supportOf(id, nodeId, type, springs, opts));
       if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
@@ -2912,8 +2915,7 @@ function createModelStore() {
     addSupports(nodeIds: readonly number[], type: SupportType, springs?: SupportSprings, opts?: SupportOpts): number[] {
       if (nodeIds.length === 0) return [];
       if (!_undoBatching) _pushUndo?.();
-      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)
-        || (uiStore.is3DWorkspace && type.startsWith('roller'))) this.ensureSpaceCoordinates();
+      if (needsSpaceForSupport(type, opts?.dofRestraints)) this.ensureSpaceCoordinates();
       const into = _bulkMutating ? model.supports : new Map(model.supports);
       const held = new Map<number, number>();
       for (const [id, s] of into) held.set(s.nodeId, id);
@@ -3669,7 +3671,7 @@ function createModelStore() {
     updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean; curves: Support['curves']; isInclined: boolean; normalX: number; normalY: number; normalZ: number }>): void {
       if (!_undoBatching) _pushUndo?.();
       if (!model.supports.has(id)) return;
-      if (data.dofRestraints || (uiStore.is3DWorkspace && data.type?.startsWith('roller'))) this.ensureSpaceCoordinates();
+      if (needsSpaceForSupport(data.type, data.dofRestraints)) this.ensureSpaceCoordinates();
       const sup = model.supports.get(id);
       if (!sup) return;
       // If changing nodeId, remove any existing support on the target node
@@ -3684,10 +3686,16 @@ function createModelStore() {
       // A 3D support keeps springs only on the DOFs it leaves free: switching
       // a spring support to fixed (or ticking a DOF) used to keep the spring,
       // and the engine then solved the "fixed" DOF as elastic (#488).
-      const selected = uiStore.is3DWorkspace && data.type
-        ? explicitRoller3D({ type: data.type, dofRestraints: data.dofRestraints }) : undefined;
-      const nextType = selected?.type ?? (data.type ? normalize2DSupportType(data.type) : sup.type);
-      const nextDofs = selected?.dofRestraints ?? data.dofRestraints ?? sup.dofRestraints;
+      const nextType = data.type === undefined ? sup.type
+        : uiStore.is3DWorkspace ? data.type : normalize2DSupportType(data.type);
+      const preset = uiStore.is3DWorkspace && data.type && !data.dofRestraints ? rollerPreset3D(nextType) : undefined;
+      const typeChanged = nextType !== sup.type;
+      const configuration = preset ?? (typeChanged && !data.dofRestraints ? undefined : {
+        dofRestraints: data.dofRestraints ? { ...data.dofRestraints } : sup.dofRestraints,
+        dofFrame: data.dofFrame ?? (typeChanged ? undefined : sup.dofFrame),
+        dofLocalElementId: data.dofFrame === 'global' ? undefined : data.dofLocalElementId ?? (typeChanged ? undefined : sup.dofLocalElementId),
+      });
+      const nextDofs = configuration?.dofRestraints;
       const restrained = nextDofs ?? (is3DSupportType(nextType) ? dofRestraintsOfType3D(nextType) : undefined);
       const spring = (key: SpringKey, value: number | undefined) => {
         const dof = DOF_SPRING.find(([, k]) => k === key)![0];
@@ -3712,9 +3720,7 @@ function createModelStore() {
         kry: spring('kry', data.kry ?? sup.kry),
         krz: spring('krz', data.krz ?? sup.krz),
         // Per-DOF 3D configuration
-        dofRestraints: nextDofs,
-        dofFrame: data.dofFrame ?? sup.dofFrame,
-        dofLocalElementId: data.dofLocalElementId ?? sup.dofLocalElementId,
+        ...configuration,
         // Inclined support fields: kept unless stated
         normalX: 'normalX' in data ? data.normalX : sup.normalX,
         normalY: 'normalY' in data ? data.normalY : sup.normalY,
@@ -4680,12 +4686,21 @@ function createModelStore() {
      * drift the first time a loader gained a method, and the generated model would silently
      * lose whatever the second copy forgot.
      */
-    fixtureApi(supportSource?: SupportSource) {
+    fixtureApi() {
       return {
+        replay: (load: () => void) => {
+          const wasReplaying = _replayingFixture;
+          _replayingFixture = true;
+          try {
+            this.bulkMutate(load);
+          } finally {
+            _replayingFixture = wasReplaying;
+          }
+        },
         addNode: this.addNode.bind(this),
         addElement: this.addElement.bind(this),
         addSupport: (nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts) =>
-          this.addSupport(nodeId, type, springs, opts, supportSource),
+          this.addSupportEntry({ nodeId, type, ...springs, ...opts }),
         updateSupport: this.updateSupport.bind(this),
         addMaterial: this.addMaterial.bind(this),
         addSection: this.addSection.bind(this),
@@ -4712,7 +4727,6 @@ function createModelStore() {
     async loadExample(name: string, fixture?: () => Promise<unknown>, opts: {
       keepCombinations?: boolean;
       defaults?: { material: Material; section: Section };
-      supportSource?: SupportSource;
     } = {}): Promise<void> {
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
@@ -4730,11 +4744,7 @@ function createModelStore() {
         model.materials.set(1, structuredClone(opts.defaults.material));
         model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
       }
-      const api = this.fixtureApi(opts.supportSource);
-
-      this.bulkMutate(() => {
-        loadFixture(json as any, api as any, opts);
-      });
+      loadFixture(json as any, this.fixtureApi() as any, opts);
 
       // Settle canonical state once the whole model is in place. Sections the
       // fixture added are already resolved (addSection resolves per add, and

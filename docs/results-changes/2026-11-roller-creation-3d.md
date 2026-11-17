@@ -3,6 +3,9 @@
 Issue [#2277](https://github.com/lambdaclass/stabileo/issues/2277), round 2 of
 [#2276](https://github.com/lambdaclass/stabileo/issues/2276).
 
+The [round 6 correction](2026-11-support-lifecycle.md) supersedes the placement,
+copy and preset-edit behavior described here for the original round 2 change.
+
 ## What changed
 
 The model store normalized every newly written `rollerY` to `rollerZ`, including

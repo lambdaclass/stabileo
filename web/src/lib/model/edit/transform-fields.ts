@@ -168,7 +168,7 @@ export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap
     out.normalX = n[0]; out.normalY = n[1]; out.normalZ = n[2];
   }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
-  if (translationOnly) return out;
+  if (translationOnly || (s.type === 'rollerZ' && !s.dofRestraints)) return out;
   // Named rollers encode their mask in `type`; carry that mask just as an explicit one.
   // Use the solver's mapping so a permutation cannot silently leave the old axis fixed.
   if (!s.dofRestraints && !SYMMETRIC_SUPPORTS.has(String(s.type))) {

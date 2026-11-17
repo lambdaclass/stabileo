@@ -49,7 +49,7 @@ for (const [direction, mask] of Object.entries(directions)) {
 }
 
 for (const type of ['rollerX', 'rollerY', 'rollerZ', 'rollerXY', 'rollerXZ', 'rollerYZ'] as const) {
-  it(`known wrong result: #2277 selected 3D ${type} exposes its explicit DOFs without plane direction buttons`, () => {
+  it(`#2277 selected 3D ${type} exposes its explicit DOFs without plane direction buttons`, () => {
     const node = modelStore.addNode(0, 0, 0);
     const id = modelStore.addSupport(node, type, undefined, { dofRestraints: directions.XY });
     uiStore.selectSupport(id, false);
@@ -67,7 +67,7 @@ for (const [type, mask] of Object.entries({
   rollerXZ: [false, true, false, false, false, false],
   rollerYZ: [true, false, false, false, false, false],
 } as const)) {
-  it(`known wrong result: #2277 selected unmasked ${type} shows its effective restraints`, () => {
+  it(`#2277 selected unmasked ${type} shows its effective restraints`, () => {
     const nodeId = modelStore.addNode(0, 0, 0);
     modelStore.model.supports.set(1, { id: 1, nodeId, type: type as SupportType });
     uiStore.selectSupport(1, false);

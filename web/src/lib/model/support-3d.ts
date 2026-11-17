@@ -47,10 +47,11 @@ export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean>
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }
 
-export function explicitRoller3D(support: Pick<Support, 'type' | 'dofRestraints'>): Pick<Support, 'type' | 'dofRestraints'> {
-  if (support.dofRestraints) return { type: support.type, dofRestraints: { ...support.dofRestraints } };
-  const type = support.type === 'rollerZ' ? 'rollerY' : support.type;
-  return type.startsWith('roller')
-    ? { type, dofRestraints: dofRestraintsOfType3D(type) }
-    : { type };
+export function rollerPreset3D(type: SupportType): {
+  dofRestraints: Record<Dof3D, boolean>;
+  dofFrame: 'global';
+  dofLocalElementId: undefined;
+} | undefined {
+  if (!type.startsWith('roller') || type === 'rollerZ') return undefined;
+  return { dofRestraints: dofRestraintsOfType3D(type), dofFrame: 'global', dofLocalElementId: undefined };
 }

@@ -331,7 +331,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fx</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.ty} onchange={() => {
@@ -340,7 +343,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fy</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.tz} onchange={() => {
@@ -349,7 +355,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fz</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.rx} onchange={() => {
@@ -358,7 +367,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Mx</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.ry} onchange={() => {
@@ -367,7 +379,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>My</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.rz} onchange={() => {
@@ -376,7 +391,10 @@
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Mz</span></label>
       <!-- Spring stiffnesses for unchecked DOFs -->

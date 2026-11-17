@@ -74,6 +74,7 @@ export interface JSONModel {
  * (model store, test mock, or solver input builder).
  */
 export interface FixtureLoader {
+  replay?(load: () => void): void;
   addNode(x: number, y: number, z?: number): number;
   addElement(nI: number, nJ: number, type?: 'frame' | 'truss'): number;
   addSupport(nodeId: number, type: string, springK?: Record<string, number>, opts?: Record<string, unknown>): number;
@@ -110,6 +111,12 @@ export interface FixtureLoader {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean } = {}): void {
+  const load = () => replayFixture(json, api, opts);
+  if (api.replay) api.replay(load);
+  else load();
+}
+
+function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean }): void {
   const { loadCases, combinations, rebuilt } = opts.keepCombinations ? keptLoadCases(json, api.model) : fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
@@ -221,7 +228,10 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
     const supportId = api.addSupport(nodeId, type, hasSpring, hasOpts);
     const created = api.model.supports.get(supportId);
     if (!created) throw new Error(`Fixture support ${supportId} was not stored.`);
-    Object.assign(created, structuredClone(rest));
+    for (const field of ['dofRestraints', 'dofFrame', 'dofLocalElementId']) {
+      if (!(field in rest)) delete (created as Record<string, unknown>)[field];
+    }
+    Object.assign(created, structuredClone(rest), { type });
   }
 
   // Loads

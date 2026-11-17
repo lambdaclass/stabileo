@@ -8,43 +8,42 @@ import { hasNonlinearBehaviour } from '../../engine/member-behaviour';
 const masks = {
   rollerX: { tx: false, ty: true, tz: true, rx: true, ry: true, rz: false },
   rollerY: { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false },
-  rollerZ: { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false },
   rollerXY: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
   rollerXZ: { tx: false, ty: true, tz: false, rx: false, ry: false, rz: false },
   rollerYZ: { tx: true, ty: false, tz: false, rx: false, ry: false, rz: false },
-} as const satisfies Record<Extract<SupportType, `roller${string}`>, NonNullable<Support['dofRestraints']>>;
-const paths = ['single', 'bulk', 'entry', 'edit'] as const;
+} as const satisfies Record<Exclude<Extract<SupportType, `roller${string}`>, 'rollerZ'>, NonNullable<Support['dofRestraints']>>;
+const paths = ['single', 'bulk', 'edit'] as const;
 
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
 
 for (const mode of ['3d', 'pro'] as const) {
   for (const path of paths) {
     for (const type of Object.keys(masks) as Array<keyof typeof masks>) {
-      it(`known wrong result: #2277 ${mode} ${path} creates explicit ${type} restraints`, () => {
+      it(`#2277 ${mode} ${path} creates explicit ${type} restraints`, () => {
         uiStore.analysisMode = mode;
         const nodeId = modelStore.addNode(0, 0, 0);
         const id = path === 'single' ? modelStore.addSupport(nodeId, type)
           : path === 'bulk' ? modelStore.addSupports([nodeId], type)[0]!
-          : path === 'entry' ? modelStore.addSupportEntry({ nodeId, type })
           : modelStore.addSupport(nodeId, 'fixed3d');
         if (path === 'edit') modelStore.updateSupport(id, { type });
         const s = modelStore.supports.get(id)!;
         expect(s.dofRestraints).toEqual(masks[type]);
-        expect(s.type).toBe(type === 'rollerZ' ? 'rollerY' : type);
+        expect(s.type).toBe(type);
+        expect(s.dofFrame).toBe('global');
         expect(() => supportDofs3D(s)).not.toThrow();
       });
     }
   }
 }
 
-it('known wrong result: #2277 changing a roller direction replaces the previous mask', () => {
+it('#2277 changing a roller direction replaces the previous mask', () => {
   const node = modelStore.addNode(0, 0, 0);
   const id = modelStore.addSupport(node, 'rollerX', undefined, { dofRestraints: masks.rollerX });
-  modelStore.updateSupport(id, { type: 'rollerZ' });
+  modelStore.updateSupport(id, { type: 'rollerY' });
   expect(modelStore.supports.get(id)!.dofRestraints).toEqual(masks.rollerY);
 });
 
-it('#2277 an explicit mask takes precedence over a creation alias and survives field edits', () => {
+it('#2277 an explicit mask takes precedence over the ambiguous stored name and survives field edits', () => {
   const mask = { tx: true, ty: true, tz: false, rx: false, ry: false, rz: true };
   const node = modelStore.addNode(0, 0, 0);
   const id = modelStore.addSupport(node, 'rollerZ', undefined, { dofRestraints: mask });
@@ -73,7 +72,7 @@ it('#2277 plane creation retains its unmasked vertical roller', () => {
 
 for (const nonlinear of [false, true]) {
   for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
-    it(`known wrong result: #2277 newly selected Y roller solves nonlinear=${nonlinear} entry=${entry}`, async () => {
+    it(`#2277 newly selected Y roller solves nonlinear=${nonlinear} entry=${entry}`, async () => {
       await modelStore.loadExample('rc-beam-flexure');
       const left = modelStore.addSupport(1, 'fixed3d');
       modelStore.addSupport(3, 'rollerY');
@@ -98,7 +97,7 @@ for (const nonlinear of [false, true]) {
 }
 
 for (const path of paths) {
-  it(`known wrong result: #2277 ${path} creates its global roller in the standing model's space coordinates`, async () => {
+  it(`#2277 ${path} creates its global roller in the standing model's space coordinates`, async () => {
     uiStore.analysisMode = '2d';
     await modelStore.loadExample('portal-frame');
     const before = [...modelStore.nodes.values()].map(n => ({ ...n }));
@@ -108,7 +107,7 @@ for (const path of paths) {
     expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
     const id = path === 'single' ? modelStore.addSupport(nodeId, 'rollerY')
       : path === 'bulk' ? modelStore.addSupports([nodeId], 'rollerY')[0]!
-      : path === 'entry' ? modelStore.addSupportEntry({ nodeId, type: 'rollerY' }) : original.id;
+      : original.id;
     if (path === 'edit') modelStore.updateSupport(id, { type: 'rollerY' });
     expect(uiStore.viewportPresentation3D).toBe('native3d');
     expect(modelStore.supports.get(id)!.dofRestraints).toEqual(masks.rollerY);

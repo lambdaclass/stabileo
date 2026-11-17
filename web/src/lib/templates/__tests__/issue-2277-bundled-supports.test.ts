@@ -43,21 +43,22 @@ function apiFor(adapter: typeof adapters[number]): FixtureLoader {
 
 function expectAdmitted() {
   expect(modelStore.supports.size).toBeGreaterThan(0);
-  for (const support of modelStore.supports.values()) {
-    expect(() => supportDofs3D(support), `support ${support.id}: ${support.type}`).not.toThrow();
-  }
+  for (const support of modelStore.supports.values()) supportDofs3D(support);
 }
 
 for (const { name, json } of fixtures) {
   for (const adapter of adapters) {
-    it(`known wrong result: #2277 ${name} preserves support metadata through ${adapter}`, () => {
+    it(`#2277 ${name} preserves support metadata through ${adapter}`, () => {
       if (is2DFixture(name)) uiStore.useUpright2DIn3DPresentation();
       loadFixture(json, apiFor(adapter));
       const loaded = [...modelStore.supports.values()];
       expect(loaded).toHaveLength(json.supports.length);
       json.supports.forEach((source, i) => {
         const { id, nodeId, type, ...metadata } = source;
-        expect(loaded[i]).toMatchObject(metadata);
+        expect(loaded[i].type).toBe(type);
+        for (const [key, value] of Object.entries(metadata)) {
+          expect(loaded[i][key as keyof Support]).toEqual(value);
+        }
         if (type === 'rollerZ') expect(loaded[i].dofRestraints).toBeDefined();
       });
       expectAdmitted();
@@ -83,7 +84,7 @@ for (const id of Object.keys(VALIDATION_MODELS) as ValidationModelId[]) {
   });
 }
 
-it('known wrong result: #2277 a loader cannot silently discard a support with metadata', () => {
+it('#2277 a loader cannot silently discard a support with metadata', () => {
   const json = fixtures.find(f => f.name === 'rc-beam-flexure')!.json;
   const api = apiFor('four arguments');
   api.addSupport = () => 999;
@@ -99,7 +100,7 @@ it('#2277 a raw ambiguous support is still refused and an explicit mask is admit
 for (const mode of modes) {
   for (const nonlinear of [false, true]) {
     for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
-      it(`known wrong result: #2277 rc-beam-flexure three-argument loader ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
+      it(`#2277 rc-beam-flexure three-argument loader ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
         uiStore.analysisMode = mode;
         const json = fixtures.find(f => f.name === 'rc-beam-flexure')!.json;
         loadFixture(json, apiFor('three arguments'));
@@ -158,7 +159,7 @@ it('#2277 the braced portal retains its plane answer through the fixture loader'
   }
 });
 
-it('known wrong result: #2277 loaded masks are independent of fixture objects', () => {
+it('#2277 loaded masks are independent of fixture objects', () => {
   const json = structuredClone(fixtures.find(f => f.name === 'rc-beam-flexure')!.json);
   loadFixture(json, apiFor('four arguments'));
   const source = json.supports.find(s => s.type === 'rollerZ')!;
