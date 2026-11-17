@@ -49,3 +49,28 @@ describe('a column under chapter 18', () => {
     expect(cap(loose)).toBeLessThan(cap(tight) - 1);
   });
 });
+
+describe('a wall\'s hoops and the design data\'s least spacing', () => {
+  const demand = { key: 'wall:1:0', name: 'M1', length: 3, height: 3, thickness: 0.3, combos: [{ combo: 'U', pu: 3000, mu: 5000, vu: 300, muV: 0, muH: 0 }] };
+  const wctx = { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 8, diameters: [8, 10, 12, 16, 20], minTieSpacing: 0.075, seismic: { overstrength: 1.25 } };
+  const thin = { vertical: { diameter: 8, spacing: 0.15 }, horizontal: { diameter: 10, spacing: 0.15 }, curtains: 2 as const, boundary: { count: 8, diameter: 8 } };
+
+  it('fail where 6·db of the bars held spaces them under the floor, saying thicker bars lift it', async () => {
+    const { wallRow } = await import('../wall-row');
+    const r = wallRow(demand, wctx, thin, f);
+    expect(r.seismic!.special).toBe(true);
+    const v = r.verifications.find((x) => x.label === 'rcSheets.v.wallTieFloorBars')!;
+    expect(v.ok).toBe(false);
+    expect(v.capacity).toBe('≥ 7.5 cm');
+    expect(r.status).toBe('fail');
+    expect(r.minTieSpacing).toBe(0.075);
+  });
+
+  it('propose bars thick enough that the hoops stand at the floor or wider', async () => {
+    const { wallRow } = await import('../wall-row');
+    const r = wallRow(demand, wctx, undefined, f);
+    expect(r.seismic!.special).toBe(true);
+    expect(r.seismic!.hoops!.spacing).toBeGreaterThanOrEqual(0.075 - 1e-9);
+    expect(r.verifications.some((x) => x.label.startsWith('rcSheets.v.wallTieFloor'))).toBe(false);
+  });
+});

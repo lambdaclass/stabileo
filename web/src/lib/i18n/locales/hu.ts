@@ -15036,6 +15036,8 @@ const hu: Translations = {
   "rcSheets.v.colLapFit": "Az alsó szintről érkező vasak toldása a szabvány által adott helyen belül",
   "rcSheets.v.axialOnly": "Normálerő ott, ahol nincs nyomaték",
   "rcSheets.v.everyCombo": "Minden kombináció a választott vasalással",
+  "rcSheets.v.wallTieFloorBars": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: vastagabb függőleges vasakkal a 6·db vagy 8·db eléri azt",
+  "rcSheets.v.wallTieFloor": "Szélső kengyelek nem sűrűbben a tervezési adatok legkisebb távolságánál: a fal vastagsága vagy hx akadályozza, nem a vasak",
   "detailing.schedule.spliceNote": "A(z) {mark} jelű vas ({length} m) hosszabb a {stock} m-es kereskedelmi szálnál, toldás kell.",
   "rcSheets.v.lineSplices": "A végigfutó vasak toldásai (12 m-es vasak)",
   "rcSheets.g.lineMethod": "A folytatólagos gerenda vasalása",

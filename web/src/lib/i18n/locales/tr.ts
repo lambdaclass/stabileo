@@ -13706,6 +13706,8 @@ const tr: Translations = {
   "rcSheets.v.colLapFit": "Alt kattan gelen donatıların bindirmesi yönetmeliğin tanıdığı bölge içinde",
   "rcSheets.v.axialOnly": "Momentin olmadığı yerde eksenel kuvvet",
   "rcSheets.v.everyCombo": "Seçilen donatıyla her kombinasyon",
+  "rcSheets.v.wallTieFloorBars": "Kenar etriyeleri tasarım verilerinin en küçük aralığından sık değil: daha kalın düşey donatı 6·db veya 8·db'yi ona çıkarır",
+  "rcSheets.v.wallTieFloor": "Kenar etriyeleri tasarım verilerinin en küçük aralığından sık değil: buna donatı değil perde kalınlığı veya hx engel",
   "detailing.schedule.spliceNote": "{mark} işaretli donatı ({length} m) {stock} m'lik ticari boydan uzun ve bindirme gerektirir.",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineSplices": "Sürekli çubuk bindirmeleri (12 m çubuk)",

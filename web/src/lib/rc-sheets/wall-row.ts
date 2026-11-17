@@ -53,6 +53,8 @@ export interface WallRow {
   seismic?: WallSeismic;
   /** The stirrups and ties the project allows, mm, which its boundary and cross ties are drawn with. */
   tieDiameters?: readonly number[];
+  /** The closest spacing they are placed at, m. */
+  minTieSpacing?: number;
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -122,6 +124,19 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, a);
   }
+  const seisOf = (x: WallAdopted) => wallSeismic(d, c, x, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: { vertical: x.vertical, horizontal: x.horizontal, curtains: x.curtains, ...(x.boundary && x.boundary.count > 0 ? { boundary: x.boundary } : {}) } }).c), fmt);
+  // Hoops the code spaces closer than the project allows: the thinnest of the bars they hold grows, so 6·db (8·db) lifts the spacing.
+  for (let guard = 0; c.seismic && !adopted && guard < 8; guard++) {
+    if (!seisOf(a).underFloor?.byBars) break;
+    const ext = a.boundary && a.boundary.count > 0 ? a.boundary : null;
+    const thinner = ext && ext.diameter < a.vertical.diameter ? 'boundary' : 'vertical';
+    const grown = thinner === 'boundary'
+      ? { ...a, boundary: { ...ext!, diameter: boundaryBars(c.diameters).sort((p, q) => p - q).find((x) => x > ext!.diameter) ?? ext!.diameter } }
+      : { ...a, vertical: { ...a.vertical, diameter: nextWallBar(c.diameters, a.vertical.diameter) } };
+    if (JSON.stringify(grown) === JSON.stringify(a)) break;
+    a = grown; iterations++;
+    e = evaluate(d, c, a);
+  }
   const proposed = a;
   const ad = adopted ?? proposed;
   const ev = adopted ? evaluate(d, c, ad) : e;
@@ -129,7 +144,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const worst = (xs: number[]) => xs.reduce((w, x, i) => (x > xs[w]! ? i : w), 0);
   const ipm = worst(ev.pm), iout = worst(ev.out), ish = worst(ev.shear);
 
-  const seis = c.seismic ? wallSeismic(d, c, ad, d.combos.map((k) => wallInPlane({ length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy, pu: k.pu, mu: k.mu, r: { vertical: ad.vertical, horizontal: ad.horizontal, curtains: ad.curtains, ...(ad.boundary && ad.boundary.count > 0 ? { boundary: ad.boundary } : {}) } }).c), fmt) : null;
+  const seis = c.seismic ? seisOf(ad) : null;
   const verifications: CheckLine[] = [
     ...((d.baseElements ?? 2) < 2 ? [check('rcSheets.v.wallMesh', false, { clause: '', demand: String(d.baseElements ?? 0), capacity: '≥ 2' })] : []),
     ...(d.base && d.base.held < d.base.nodes ? [check('rcSheets.v.wallBase', false, { clause: '', demand: `${d.base.held} / ${d.base.nodes}`, capacity: `${d.base.nodes} / ${d.base.nodes}` })] : []),
@@ -203,6 +218,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: tensionLap(c.mat, dia) })),
     ...(seis ? { seismic: seis } : {}),
     ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
+    ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
   };
 }
 

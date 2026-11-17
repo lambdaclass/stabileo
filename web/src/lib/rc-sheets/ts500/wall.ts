@@ -144,6 +144,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapOf(t, dia, false, 1) })),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
+    ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
   };
 }
 

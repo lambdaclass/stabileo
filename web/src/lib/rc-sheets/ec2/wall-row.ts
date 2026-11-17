@@ -185,6 +185,7 @@ export function makeWallRow(set: Ec2Set) {
       cover: c.cover, hLap: lapLength(m, ad.horizontal.diameter, true),
       vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapLength(m, dia, true) })),
       ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
+    ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
     };
   };
 }
