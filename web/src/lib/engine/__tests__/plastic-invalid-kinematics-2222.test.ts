@@ -55,7 +55,7 @@ for (const moment of [NaN, Infinity, -Infinity]) for (const at of [2, 3]) it(`kn
   expect(state.calls).toBe(at);
 });
 
-for (const locale of OFFERED_LOCALES) for (const at of [1, 2, 3]) it.skip(`known wrong result: #2223 — ${locale} preserves the unavailable rank diagnosis at check ${at}`, async () => {
+for (const locale of OFFERED_LOCALES) for (const at of [1, 2, 3]) it(`known wrong result: #2223 — ${locale} preserves the unavailable rank diagnosis at check ${at}`, async () => {
   const previousLocale = i18n.locale;
   try {
     await ensureLocale(locale);

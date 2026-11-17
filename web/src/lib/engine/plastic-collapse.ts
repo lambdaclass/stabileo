@@ -137,7 +137,7 @@ function checkedKinematics(input: SolverInput, stage: 'initial' | 'released') {
     if (probe.rankAnalysis === 'available') return { ...probe, isSolvable: false };
   }
   if (result.rankAnalysis === 'invalid') throw new Error(result.invalidInput ?? result.diagnosis);
-  if (result.rankAnalysis !== 'available') throw new Error('Plastic collapse: kinematic rank analysis unavailable');
+  if (result.rankAnalysis !== 'available') throw new Error(result.diagnosis);
   return result;
 }
 

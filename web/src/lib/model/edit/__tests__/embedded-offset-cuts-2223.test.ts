@@ -7,7 +7,7 @@ import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D, solveCorotation
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-describe.skip('known wrong result: #2223 — embedded offset member cuts', () => {
+describe('known wrong result: #2223 — embedded offset member cuts', () => {
   for (const offset of [0, 0.25]) for (const partial of [false, true]) {
     for (const entry of ['direct', 'point', 'subdivide', 'nodes', 'allNodes', 'intersection'] as const) {
       it(`offset=${offset} partial=${partial} ${entry} solves with the prescribed load through 2D and embedded 3D`, () => {
@@ -75,6 +75,6 @@ for (const offset of [0, 0.25]) for (const partial of [false, true]) it(`3D offs
   expect(modelStore.splitMember(id, [0.5], { keepOriginalId: true })!.segmentIds).toHaveLength(2);
   const input = buildSolverInput3D(modelStore.model, false)!;
   for (const result of [solve3D(input), solvePDelta3D(input).linearResults]) {
-    expect(result.reactions.find(r => r.nodeId === i)!.fz).toBeCloseTo(-(qI + qJ) * (b - a) / 2, 10);
+    expect(result.reactions.find((r: { nodeId: number }) => r.nodeId === i)!.fz).toBeCloseTo(-(qI + qJ) * (b - a) / 2, 10);
   }
 });

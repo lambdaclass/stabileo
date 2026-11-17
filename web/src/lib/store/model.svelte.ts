@@ -1531,13 +1531,12 @@ function createModelStore() {
         ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
       });
     }
-    const bounds = () => memberLoadBounds(embed3D ? { ...original, offset: undefined } : original, nodes, elements, segmentIds, sections.get(elem.sectionId)?.rotation);
+    const loadGeometry = (member: Element) => embed3D ? { ...member, offset: undefined } : member;
+    const loadElements = new Map(segmentIds.map(id => [id, loadGeometry(elements.get(id)!)]));
+    const bounds = () => memberLoadBounds(loadGeometry(original), nodes, loadElements, segmentIds, sections.get(elem.sectionId)?.rotation);
     const lengths = segmentIds.map((sid) => {
-      const child = elements.get(sid)!;
-      const a = nodes.get(child.nodeI)!, b = nodes.get(child.nodeJ)!;
-      return child.offset && !embed3D
-        ? memberLoadLength(child, a, b, sections.get(child.sectionId)?.rotation)
-        : memberLoadLength({ ...child, offset: undefined }, a, b);
+      const child = loadElements.get(sid)!;
+      return memberLoadLength(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, sections.get(child.sectionId)?.rotation);
     });
     const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths);
 
