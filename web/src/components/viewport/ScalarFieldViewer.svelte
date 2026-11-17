@@ -387,7 +387,7 @@
   {#if chrome}
   <div class="status-bar sfv-status">
     {#if pointer}<div class="status-item" data-testid="sfv-position"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>{/if}
-    <div class="status-item"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
+    <div class="status-item" data-testid="sfv-zoom"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
     {#if !geometryOnly}<div class="status-item"><span class="status-label">{t('scalarViewer.model')}</span><span class="status-value">{tp(cellSize === 2 ? 'scalarViewer.bars' : 'scalarViewer.elements', { nodes: nodeCount, cells: cellCount })}</span></div>{/if}
     {#each status as s (s.label)}
       <div class="status-item"><span class="status-label">{s.label}:</span><span class="status-value">{s.value}</span></div>
