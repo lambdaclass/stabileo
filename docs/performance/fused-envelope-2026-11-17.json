@@ -1,0 +1,1629 @@
+{
+  "date": "2026-11-17",
+  "parentBenchmark": "solver-kernels-2026-11-17.json",
+  "notes": [
+    "Both arms contain the previous kernel optimizations and corrected preparation loop.",
+    "Same-page isolated API comparisons alternate order on identical case results. Shell and nonlinear models are excluded from those comparisons.",
+    "Full captured outputs omit only timings fields. All four exact strings match.",
+    "Whole-solve control differences are noise; shell and nonlinear service paths are unchanged.",
+    "Final baseline uses the same WASM binary and extended benchmark, temporarily forcing separate calls in the service. Optimized source was restored. The optimized run preceded this reference run."
+  ],
+  "sourceSHA256": {
+    "engine/src/lib.rs": "2d67c743e80a2903f55a0d6ec6bab9c35fcaa77273270923e41a36250281faca",
+    "engine/src/postprocess/combinations.rs": "1ff6d8d2163d09556ba3ce5a9ef3833a9695cc19f9745b054449108b95c85f1c",
+    "web/src/lib/engine/wasm-solver.ts": "d466b9d63805ab58044e4d9247181d0ba731a8d8ff3454bf31b2a2623e90b137",
+    "web/src/lib/engine/solver-service.ts": "25e729e5eb23e8e5452bce32856259bd698eac45e5494bbf115bb0930878b182",
+    "web/scripts/solve-benchmark.ts": "8597b96ffe7f7bd3a4b2f8940234e15565902f20481d6ef43415d356dce0b01a",
+    "web/src/lib/wasm/dedaliano_engine_bg.wasm": "7d3fb573f3e16dc5967759fee1134577bc5ed2e90e240121e55d2370305cd418"
+  },
+  "measurements": [
+    {
+      "example": "xl-diagrid-tower",
+      "eligibleForFusedService": true,
+      "baseline": {
+        "example": "xl-diagrid-tower",
+        "nodes": 1090,
+        "members": 3414,
+        "cases": 4,
+        "combinations": 4,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 2024.6000000014901,
+          "medianWarmSolveMs": 951.9499999992549,
+          "medianGoverningMs": 37.999999998137355
+        },
+        "multiCase": {
+          "firstSolveMs": 1051.4000000022352,
+          "medianWarmSolveMs": 1030.4000000003725,
+          "medianGoverningMs": 38.55000000074506
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 2024.6000000014901,
+            "governingMs": 41.19999999925494,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 1533 ms | Combine+envelope: 433 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 1051.4000000022352,
+            "governingMs": 38.099999997764826,
+            "phases": [
+              "[solveCombinations3D] WASM: 896 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 1023.3000000007451,
+            "governingMs": 36,
+            "phases": [
+              "[solveCombinations3D] WASM: 876 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 977.7000000029802,
+            "governingMs": 40.29999999701977,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 503 ms | Combine+envelope: 458 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 967.1000000014901,
+            "governingMs": 36.5,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 520 ms | Combine+envelope: 429 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 1026.699999999255,
+            "governingMs": 40.400000002235174,
+            "phases": [
+              "[solveCombinations3D] WASM: 883 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 1040.5999999977648,
+            "governingMs": 39.69999999925494,
+            "phases": [
+              "[solveCombinations3D] WASM: 890 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 953.6999999992549,
+            "governingMs": 41,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 508 ms | Combine+envelope: 431 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 945.8999999985099,
+            "governingMs": 36.100000001490116,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 508 ms | Combine+envelope: 422 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 1032.800000000745,
+            "governingMs": 38.80000000074506,
+            "phases": [
+              "[solveCombinations3D] WASM: 890 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 1076.5999999977648,
+            "governingMs": 38.30000000074506,
+            "phases": [
+              "[solveCombinations3D] WASM: 886 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 950.1999999992549,
+            "governingMs": 37.19999999925494,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 510 ms | Combine+envelope: 424 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 924.2000000029802,
+            "governingMs": 38.79999999701977,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 489 ms | Combine+envelope: 420 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 1028,
+            "governingMs": 36.69999999925494,
+            "phases": [
+              "[solveCombinations3D] WASM: 886 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 335.9000000022352,
+            "batchMs": 271.8999999985099,
+            "diagramBuildMs": 90.90000000223517,
+            "separateEnvelopeMs": 398.6000000014901,
+            "fusedEnvelopeMs": 342.69999999925494
+          },
+          {
+            "round": 1,
+            "individualMs": 339.19999999925494,
+            "batchMs": 269.3999999985099,
+            "diagramBuildMs": 73.80000000074506,
+            "separateEnvelopeMs": 398.69999999925494,
+            "fusedEnvelopeMs": 344
+          },
+          {
+            "round": 2,
+            "individualMs": 332.8999999985099,
+            "batchMs": 274.80000000074506,
+            "diagramBuildMs": 74.79999999701977,
+            "separateEnvelopeMs": 404.80000000074506,
+            "fusedEnvelopeMs": 346.8999999985099
+          },
+          {
+            "round": 3,
+            "individualMs": 340.5,
+            "batchMs": 269.9000000022352,
+            "diagramBuildMs": 73.69999999925494,
+            "separateEnvelopeMs": 404.1000000014901,
+            "fusedEnvelopeMs": 341
+          },
+          {
+            "round": 4,
+            "individualMs": 335.69999999925494,
+            "batchMs": 271.30000000074506,
+            "diagramBuildMs": 72.89999999850988,
+            "separateEnvelopeMs": 399.6000000014901,
+            "fusedEnvelopeMs": 348
+          },
+          {
+            "round": 5,
+            "individualMs": 338.5,
+            "batchMs": 269.30000000074506,
+            "diagramBuildMs": 72.10000000149012,
+            "separateEnvelopeMs": 403.8999999985099,
+            "fusedEnvelopeMs": 339.6000000014901
+          },
+          {
+            "round": 6,
+            "individualMs": 333.5,
+            "batchMs": 271.19999999925494,
+            "diagramBuildMs": 70.60000000149012,
+            "separateEnvelopeMs": 396.5,
+            "fusedEnvelopeMs": 343.5999999977648
+          }
+        ],
+        "medianIndividualCombineMs": 337.09999999962747,
+        "medianBatchCombineMs": 270.55000000074506,
+        "medianDiagramBuildMs": 73.29999999888241,
+        "medianSeparateEnvelopeMs": 401.75,
+        "medianFusedEnvelopeMs": 343.7999999988824
+      },
+      "optimized": {
+        "example": "xl-diagrid-tower",
+        "nodes": 1090,
+        "members": 3414,
+        "cases": 4,
+        "combinations": 4,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 1981,
+          "medianWarmSolveMs": 890.8499999996275,
+          "medianGoverningMs": 38.09999999962747
+        },
+        "multiCase": {
+          "firstSolveMs": 1047,
+          "medianWarmSolveMs": 1026.550000000745,
+          "medianGoverningMs": 37.44999999925494
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 1981,
+            "governingMs": 43.400000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 1543 ms | Combine+envelope: 376 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 1047,
+            "governingMs": 39.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 896 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 1032.0999999977648,
+            "governingMs": 37.100000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 886 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 939.4000000022352,
+            "governingMs": 38.5,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 555 ms | Combine+envelope: 369 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 887,
+            "governingMs": 39.600000001490116,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 489 ms | Combine+envelope: 379 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 1022.2000000029802,
+            "governingMs": 37.399999998509884,
+            "phases": [
+              "[solveCombinations3D] WASM: 875 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 1017.3999999985099,
+            "governingMs": 37.5,
+            "phases": [
+              "[solveCombinations3D] WASM: 870 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 873.6999999992549,
+            "governingMs": 36.900000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 492 ms | Combine+envelope: 366 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 907.6000000014901,
+            "governingMs": 37.79999999701977,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 514 ms | Combine+envelope: 376 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 1027.800000000745,
+            "governingMs": 38.80000000074506,
+            "phases": [
+              "[solveCombinations3D] WASM: 885 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 1028.800000000745,
+            "governingMs": 36.30000000074506,
+            "phases": [
+              "[solveCombinations3D] WASM: 885 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 893,
+            "governingMs": 37.80000000074506,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 504 ms | Combine+envelope: 374 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 888.6999999992549,
+            "governingMs": 38.399999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 497 ms | Combine+envelope: 376 ms | Cases: 4 | Combos: 4 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 1025.300000000745,
+            "governingMs": 38.099999997764826,
+            "phases": [
+              "[solveCombinations3D] WASM: 884 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 4"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 334.19999999925494,
+            "batchMs": 270.9000000022352,
+            "diagramBuildMs": 96.39999999850988,
+            "separateEnvelopeMs": 396.5,
+            "fusedEnvelopeMs": 345.3999999985099
+          },
+          {
+            "round": 1,
+            "individualMs": 337.5,
+            "batchMs": 266.5,
+            "diagramBuildMs": 73.70000000298023,
+            "separateEnvelopeMs": 400,
+            "fusedEnvelopeMs": 343.3999999985099
+          },
+          {
+            "round": 2,
+            "individualMs": 334.3999999985099,
+            "batchMs": 271.1000000014901,
+            "diagramBuildMs": 71.80000000074506,
+            "separateEnvelopeMs": 399.69999999925494,
+            "fusedEnvelopeMs": 343
+          },
+          {
+            "round": 3,
+            "individualMs": 339.5999999977648,
+            "batchMs": 267.5,
+            "diagramBuildMs": 72.40000000223517,
+            "separateEnvelopeMs": 400.69999999925494,
+            "fusedEnvelopeMs": 345.69999999925494
+          },
+          {
+            "round": 4,
+            "individualMs": 333.19999999925494,
+            "batchMs": 271.5,
+            "diagramBuildMs": 69,
+            "separateEnvelopeMs": 396.20000000298023,
+            "fusedEnvelopeMs": 386.19999999925494
+          },
+          {
+            "round": 5,
+            "individualMs": 337.6000000014901,
+            "batchMs": 267.30000000074506,
+            "diagramBuildMs": 71.60000000149012,
+            "separateEnvelopeMs": 397.70000000298023,
+            "fusedEnvelopeMs": 340.3999999985099
+          },
+          {
+            "round": 6,
+            "individualMs": 332.6000000014901,
+            "batchMs": 270.0999999977648,
+            "diagramBuildMs": 71.5,
+            "separateEnvelopeMs": 395.3999999985099,
+            "fusedEnvelopeMs": 346.19999999925494
+          }
+        ],
+        "medianIndividualCombineMs": 335.94999999925494,
+        "medianBatchCombineMs": 268.7999999988824,
+        "medianDiagramBuildMs": 71.70000000111759,
+        "medianSeparateEnvelopeMs": 398.7000000011176,
+        "medianFusedEnvelopeMs": 344.5499999988824
+      },
+      "exactCapturedOutputMatch": true,
+      "outputSHA256": "192e49ea277d1bab3817d82be60080240626ada04d25f5538d22422966eac3aa"
+    },
+    {
+      "example": "pipe-rack@20",
+      "eligibleForFusedService": true,
+      "baseline": {
+        "example": "pipe-rack@20",
+        "nodes": 64,
+        "members": 138,
+        "cases": 4,
+        "combinations": 20,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 144.69999999925494,
+          "medianWarmSolveMs": 99.75,
+          "medianGoverningMs": 8.100000001490116
+        },
+        "multiCase": {
+          "firstSolveMs": 114.10000000149012,
+          "medianWarmSolveMs": 112.45000000111759,
+          "medianGoverningMs": 8
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 144.69999999925494,
+            "governingMs": 9.399999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 32 ms | Combine+envelope: 92 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 114.10000000149012,
+            "governingMs": 9,
+            "phases": [
+              "[solveCombinations3D] WASM: 90 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 113,
+            "governingMs": 8,
+            "phases": [
+              "[solveCombinations3D] WASM: 90 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 101.19999999925494,
+            "governingMs": 7.699999999254942,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 11 ms | Combine+envelope: 89 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 100,
+            "governingMs": 8.899999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 10 ms | Combine+envelope: 89 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 112,
+            "governingMs": 8,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 113.89999999850988,
+            "governingMs": 7.900000002235174,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 100.30000000074506,
+            "governingMs": 7.800000000745058,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 10 ms | Combine+envelope: 90 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 99.5,
+            "governingMs": 8.300000000745058,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 90 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 112.40000000223517,
+            "governingMs": 8.199999999254942,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 112.19999999925494,
+            "governingMs": 8,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 99.39999999850988,
+            "governingMs": 8.400000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 10 ms | Combine+envelope: 89 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 99.29999999701977,
+            "governingMs": 7.900000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 90 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 112.5,
+            "governingMs": 8.400000002235174,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 92.60000000149012,
+            "batchMs": 67.79999999701977,
+            "diagramBuildMs": 3.699999999254942,
+            "separateEnvelopeMs": 91.89999999850988,
+            "fusedEnvelopeMs": 76
+          },
+          {
+            "round": 1,
+            "individualMs": 91.79999999701977,
+            "batchMs": 67.80000000074506,
+            "diagramBuildMs": 2.800000000745058,
+            "separateEnvelopeMs": 88.89999999850988,
+            "fusedEnvelopeMs": 75.80000000074506
+          },
+          {
+            "round": 2,
+            "individualMs": 91.5,
+            "batchMs": 67.40000000223517,
+            "diagramBuildMs": 2.699999999254942,
+            "separateEnvelopeMs": 88.89999999850988,
+            "fusedEnvelopeMs": 76.10000000149012
+          },
+          {
+            "round": 3,
+            "individualMs": 91.40000000223517,
+            "batchMs": 66.79999999701977,
+            "diagramBuildMs": 2.699999999254942,
+            "separateEnvelopeMs": 89.19999999925494,
+            "fusedEnvelopeMs": 75.70000000298023
+          },
+          {
+            "round": 4,
+            "individualMs": 91,
+            "batchMs": 67.20000000298023,
+            "diagramBuildMs": 3.599999997764826,
+            "separateEnvelopeMs": 88.80000000074506,
+            "fusedEnvelopeMs": 75.59999999776483
+          },
+          {
+            "round": 5,
+            "individualMs": 92.90000000223517,
+            "batchMs": 67.09999999776483,
+            "diagramBuildMs": 3.300000000745058,
+            "separateEnvelopeMs": 90.19999999925494,
+            "fusedEnvelopeMs": 75.69999999925494
+          },
+          {
+            "round": 6,
+            "individualMs": 91.19999999925494,
+            "batchMs": 68.19999999925494,
+            "diagramBuildMs": 3.599999997764826,
+            "separateEnvelopeMs": 89.19999999925494,
+            "fusedEnvelopeMs": 77.59999999776483
+          }
+        ],
+        "medianIndividualCombineMs": 91.45000000111759,
+        "medianBatchCombineMs": 67.3000000026077,
+        "medianDiagramBuildMs": 3.050000000745058,
+        "medianSeparateEnvelopeMs": 89.04999999888241,
+        "medianFusedEnvelopeMs": 75.75000000186265
+      },
+      "optimized": {
+        "example": "pipe-rack@20",
+        "nodes": 64,
+        "members": 138,
+        "cases": 4,
+        "combinations": 20,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 130.30000000074506,
+          "medianWarmSolveMs": 86.50000000186265,
+          "medianGoverningMs": 8.050000000745058
+        },
+        "multiCase": {
+          "firstSolveMs": 112.10000000149012,
+          "medianWarmSolveMs": 112.20000000111759,
+          "medianGoverningMs": 8.300000000745058
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 130.30000000074506,
+            "governingMs": 9.300000000745058,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 32 ms | Combine+envelope: 77 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 112.10000000149012,
+            "governingMs": 7.800000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 114.19999999925494,
+            "governingMs": 7.699999999254942,
+            "phases": [
+              "[solveCombinations3D] WASM: 91 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 86.60000000149012,
+            "governingMs": 8,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 10 ms | Combine+envelope: 76 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 86.69999999925494,
+            "governingMs": 7.900000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 76 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 111.59999999776483,
+            "governingMs": 8.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 112.19999999925494,
+            "governingMs": 8.300000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 86.40000000223517,
+            "governingMs": 8.300000000745058,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 10 ms | Combine+envelope: 76 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 86.19999999925494,
+            "governingMs": 7.799999997019768,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 76 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 112,
+            "governingMs": 8.300000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 112.30000000074506,
+            "governingMs": 8,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 87,
+            "governingMs": 8.399999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 77 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 86.19999999925494,
+            "governingMs": 8.100000001490116,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 9 ms | Combine+envelope: 76 ms | Cases: 4 | Combos: 20 | Workers: 4"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 112.20000000298023,
+            "governingMs": 8.399999998509884,
+            "phases": [
+              "[solveCombinations3D] WASM: 89 ms | Shell enrichment: 0 ms | Cases: 4 | Combos: 20"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 91.90000000223517,
+            "batchMs": 66.69999999925494,
+            "diagramBuildMs": 3.599999997764826,
+            "separateEnvelopeMs": 89.30000000074506,
+            "fusedEnvelopeMs": 76.39999999850988
+          },
+          {
+            "round": 1,
+            "individualMs": 91.39999999850988,
+            "batchMs": 67.30000000074506,
+            "diagramBuildMs": 2.899999998509884,
+            "separateEnvelopeMs": 88.80000000074506,
+            "fusedEnvelopeMs": 76
+          },
+          {
+            "round": 2,
+            "individualMs": 92,
+            "batchMs": 67.30000000074506,
+            "diagramBuildMs": 3.5,
+            "separateEnvelopeMs": 88.79999999701977,
+            "fusedEnvelopeMs": 76.10000000149012
+          },
+          {
+            "round": 3,
+            "individualMs": 92.39999999850988,
+            "batchMs": 67.5,
+            "diagramBuildMs": 3.300000000745058,
+            "separateEnvelopeMs": 88.79999999701977,
+            "fusedEnvelopeMs": 75.70000000298023
+          },
+          {
+            "round": 4,
+            "individualMs": 91.60000000149012,
+            "batchMs": 68.59999999776483,
+            "diagramBuildMs": 3.199999999254942,
+            "separateEnvelopeMs": 88.90000000223517,
+            "fusedEnvelopeMs": 77.5
+          },
+          {
+            "round": 5,
+            "individualMs": 92.80000000074506,
+            "batchMs": 66.80000000074506,
+            "diagramBuildMs": 3.2999999970197678,
+            "separateEnvelopeMs": 91.20000000298023,
+            "fusedEnvelopeMs": 76
+          },
+          {
+            "round": 6,
+            "individualMs": 91.60000000149012,
+            "batchMs": 67.89999999850988,
+            "diagramBuildMs": 2.7000000029802322,
+            "separateEnvelopeMs": 89.30000000074506,
+            "fusedEnvelopeMs": 77.40000000223517
+          }
+        ],
+        "medianIndividualCombineMs": 91.80000000074506,
+        "medianBatchCombineMs": 67.40000000037253,
+        "medianDiagramBuildMs": 3.249999998137355,
+        "medianSeparateEnvelopeMs": 88.85000000149012,
+        "medianFusedEnvelopeMs": 76.05000000074506
+      },
+      "exactCapturedOutputMatch": true,
+      "outputSHA256": "3975d6495dea528cc79ef5d44c4cd36647a74e6e0cc60edb4c8cd5de4439cb55"
+    },
+    {
+      "example": "pro-edificio-7p",
+      "eligibleForFusedService": false,
+      "baseline": {
+        "example": "pro-edificio-7p",
+        "nodes": 141,
+        "members": 203,
+        "cases": 7,
+        "combinations": 7,
+        "shells": 77,
+        "declaredConstraints": 28,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 193.5,
+          "medianWarmSolveMs": 58.5,
+          "medianGoverningMs": 10.150000000372529
+        },
+        "multiCase": {
+          "firstSolveMs": 114.69999999925494,
+          "medianWarmSolveMs": 109.84999999962747,
+          "medianGoverningMs": 10.100000001490116
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 193.5,
+            "governingMs": 5.699999999254942,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 128 ms | Combine+envelope: 33 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 114.69999999925494,
+            "governingMs": 13.400000002235174,
+            "phases": [
+              "[solveCombinations3D] WASM: 110 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 111.39999999850988,
+            "governingMs": 10.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 106 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 62.5,
+            "governingMs": 10.400000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 29 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 58.400000002235174,
+            "governingMs": 9.899999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 25 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 109.69999999925494,
+            "governingMs": 9.900000002235174,
+            "phases": [
+              "[solveCombinations3D] WASM: 105 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 110.39999999850988,
+            "governingMs": 10.100000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 107 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 55.599999997764826,
+            "governingMs": 10.199999999254942,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 23 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 57.5,
+            "governingMs": 10.199999999254942,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 25 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 110,
+            "governingMs": 9.899999998509884,
+            "phases": [
+              "[solveCombinations3D] WASM: 106 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 109,
+            "governingMs": 10.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 105 ms | Shell enrichment: 0 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 59.099999997764826,
+            "governingMs": 9.900000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 25 ms | Combine+envelope: 29 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 58.599999997764826,
+            "governingMs": 10.100000001490116,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 26 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 108.80000000074506,
+            "governingMs": 10.100000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 105 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 37.400000002235174,
+            "batchMs": 15.5,
+            "diagramBuildMs": 5.800000000745058
+          },
+          {
+            "round": 1,
+            "individualMs": 36.19999999925494,
+            "batchMs": 15.400000002235174,
+            "diagramBuildMs": 6.600000001490116
+          },
+          {
+            "round": 2,
+            "individualMs": 35.5,
+            "batchMs": 15.5,
+            "diagramBuildMs": 5.399999998509884
+          },
+          {
+            "round": 3,
+            "individualMs": 35.19999999925494,
+            "batchMs": 15.5,
+            "diagramBuildMs": 6.699999999254942
+          },
+          {
+            "round": 4,
+            "individualMs": 35.80000000074506,
+            "batchMs": 15.5,
+            "diagramBuildMs": 6.600000001490116
+          },
+          {
+            "round": 5,
+            "individualMs": 35.30000000074506,
+            "batchMs": 15.5,
+            "diagramBuildMs": 5.5
+          },
+          {
+            "round": 6,
+            "individualMs": 35.19999999925494,
+            "batchMs": 15.300000000745058,
+            "diagramBuildMs": 6.5
+          }
+        ],
+        "medianIndividualCombineMs": 35.40000000037253,
+        "medianBatchCombineMs": 15.5,
+        "medianDiagramBuildMs": 6.550000000745058
+      },
+      "optimized": {
+        "example": "pro-edificio-7p",
+        "nodes": 141,
+        "members": 203,
+        "cases": 7,
+        "combinations": 7,
+        "shells": 77,
+        "declaredConstraints": 28,
+        "nonlinear": false,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 189.60000000149012,
+          "medianWarmSolveMs": 58.84999999962747,
+          "medianGoverningMs": 9.900000000372529
+        },
+        "multiCase": {
+          "firstSolveMs": 114,
+          "medianWarmSolveMs": 109.75,
+          "medianGoverningMs": 10.050000000745058
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 189.60000000149012,
+            "governingMs": 5.5,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 128 ms | Combine+envelope: 33 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 114,
+            "governingMs": 13.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 109 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 111.40000000223517,
+            "governingMs": 10.5,
+            "phases": [
+              "[solveCombinations3D] WASM: 106 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 61.5,
+            "governingMs": 10,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 28 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 59.099999997764826,
+            "governingMs": 9.900000002235174,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 26 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 109.59999999776483,
+            "governingMs": 9.800000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 105 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 109.90000000223517,
+            "governingMs": 9.800000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 106 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 55.100000001490116,
+            "governingMs": 10.099999997764826,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 23 ms | Combine+envelope: 29 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 58.5,
+            "governingMs": 9.799999997019768,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 26 ms | Combine+envelope: 29 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 110.30000000074506,
+            "governingMs": 9.600000001490116,
+            "phases": [
+              "[solveCombinations3D] WASM: 107 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 108.89999999850988,
+            "governingMs": 10.899999998509884,
+            "phases": [
+              "[solveCombinations3D] WASM: 105 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 59.899999998509884,
+            "governingMs": 9.600000001490116,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 26 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 58.600000001490116,
+            "governingMs": 9.899999998509884,
+            "phases": [
+              "[solveCombinations3D parallel] Solve: 26 ms | Combine+envelope: 30 ms | Cases: 7 | Combos: 7 | Workers: 7"
+            ]
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 107.90000000223517,
+            "governingMs": 10.300000000745058,
+            "phases": [
+              "[solveCombinations3D] WASM: 104 ms | Shell enrichment: 1 ms | Cases: 7 | Combos: 7"
+            ]
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 37,
+            "batchMs": 15.600000001490116,
+            "diagramBuildMs": 5.5
+          },
+          {
+            "round": 1,
+            "individualMs": 36.30000000074506,
+            "batchMs": 15.399999998509884,
+            "diagramBuildMs": 6.400000002235174
+          },
+          {
+            "round": 2,
+            "individualMs": 35.79999999701977,
+            "batchMs": 15.600000001490116,
+            "diagramBuildMs": 5.300000000745058
+          },
+          {
+            "round": 3,
+            "individualMs": 35.30000000074506,
+            "batchMs": 15.099999997764826,
+            "diagramBuildMs": 6.699999999254942
+          },
+          {
+            "round": 4,
+            "individualMs": 36.099999997764826,
+            "batchMs": 15.400000002235174,
+            "diagramBuildMs": 6.300000000745058
+          },
+          {
+            "round": 5,
+            "individualMs": 35.400000002235174,
+            "batchMs": 15.299999997019768,
+            "diagramBuildMs": 5.300000000745058
+          },
+          {
+            "round": 6,
+            "individualMs": 35.600000001490116,
+            "batchMs": 15.300000000745058,
+            "diagramBuildMs": 6.5
+          }
+        ],
+        "medianIndividualCombineMs": 35.69999999925494,
+        "medianBatchCombineMs": 15.349999999627471,
+        "medianDiagramBuildMs": 6.350000001490116
+      },
+      "exactCapturedOutputMatch": true,
+      "outputSHA256": "61a840c6c5b15363ec91ed6f2f8e9578ed3c34ddac6e226f1fb0fc0252795d01"
+    },
+    {
+      "example": "3d-nave-industrial",
+      "eligibleForFusedService": false,
+      "baseline": {
+        "example": "3d-nave-industrial",
+        "nodes": 232,
+        "members": 729,
+        "cases": 3,
+        "combinations": 7,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": true,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 1395.199999999255,
+          "medianWarmSolveMs": 1377.3999999985099,
+          "medianGoverningMs": 32.399999998509884
+        },
+        "multiCase": {
+          "firstSolveMs": 1387,
+          "medianWarmSolveMs": 1376.2000000011176,
+          "medianGoverningMs": 32.65000000037253
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 1395.199999999255,
+            "governingMs": 33.69999999925494,
+            "phases": []
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 1387,
+            "governingMs": 32.600000001490116,
+            "phases": []
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 1381.0999999977648,
+            "governingMs": 33.100000001490116,
+            "phases": []
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 1377.3999999985099,
+            "governingMs": 32.100000001490116,
+            "phases": []
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 1381.5,
+            "governingMs": 33,
+            "phases": []
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 1383.699999999255,
+            "governingMs": 32.70000000298023,
+            "phases": []
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 1376.199999999255,
+            "governingMs": 32.900000002235174,
+            "phases": []
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 1377.5,
+            "governingMs": 32.399999998509884,
+            "phases": []
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 1377.3999999985099,
+            "governingMs": 32.399999998509884,
+            "phases": []
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 1374.1000000014901,
+            "governingMs": 32.399999998509884,
+            "phases": []
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 1376.2000000029802,
+            "governingMs": 32.5,
+            "phases": []
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 1372.3999999985099,
+            "governingMs": 32,
+            "phases": []
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 1375.699999999255,
+            "governingMs": 32.599999997764826,
+            "phases": []
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 1375.4000000022352,
+            "governingMs": 32.599999997764826,
+            "phases": []
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 115.80000000074506,
+            "batchMs": 80.19999999925494,
+            "diagramBuildMs": 18.699999999254942
+          },
+          {
+            "round": 1,
+            "individualMs": 112.19999999925494,
+            "batchMs": 79.80000000074506,
+            "diagramBuildMs": 16
+          },
+          {
+            "round": 2,
+            "individualMs": 112.39999999850988,
+            "batchMs": 79.70000000298023,
+            "diagramBuildMs": 15.899999998509884
+          },
+          {
+            "round": 3,
+            "individualMs": 112.5,
+            "batchMs": 80.90000000223517,
+            "diagramBuildMs": 16
+          },
+          {
+            "round": 4,
+            "individualMs": 114,
+            "batchMs": 79.80000000074506,
+            "diagramBuildMs": 15.900000002235174
+          },
+          {
+            "round": 5,
+            "individualMs": 112.80000000074506,
+            "batchMs": 81.19999999925494,
+            "diagramBuildMs": 16
+          },
+          {
+            "round": 6,
+            "individualMs": 113.79999999701977,
+            "batchMs": 79.60000000149012,
+            "diagramBuildMs": 16.399999998509884
+          }
+        ],
+        "medianIndividualCombineMs": 112.65000000037253,
+        "medianBatchCombineMs": 79.80000000074506,
+        "medianDiagramBuildMs": 16
+      },
+      "optimized": {
+        "example": "3d-nave-industrial",
+        "nodes": 232,
+        "members": 729,
+        "cases": 3,
+        "combinations": 7,
+        "shells": 0,
+        "declaredConstraints": 0,
+        "nonlinear": true,
+        "perCombination": "linear",
+        "parallel": {
+          "firstSolveMs": 1392.699999999255,
+          "medianWarmSolveMs": 1375.050000000745,
+          "medianGoverningMs": 31.100000001490116
+        },
+        "multiCase": {
+          "firstSolveMs": 1384.6000000014901,
+          "medianWarmSolveMs": 1376.75,
+          "medianGoverningMs": 31.399999998509884
+        },
+        "numericalParity": true,
+        "rows": [
+          {
+            "round": 0,
+            "strategy": "parallel",
+            "solveMs": 1392.699999999255,
+            "governingMs": 34.599999997764826,
+            "phases": []
+          },
+          {
+            "round": 0,
+            "strategy": "multiCase",
+            "solveMs": 1384.6000000014901,
+            "governingMs": 33.099999997764826,
+            "phases": []
+          },
+          {
+            "round": 1,
+            "strategy": "multiCase",
+            "solveMs": 1382.8999999985099,
+            "governingMs": 31.600000001490116,
+            "phases": []
+          },
+          {
+            "round": 1,
+            "strategy": "parallel",
+            "solveMs": 1404.5,
+            "governingMs": 30.800000000745058,
+            "phases": []
+          },
+          {
+            "round": 2,
+            "strategy": "parallel",
+            "solveMs": 1389.0999999977648,
+            "governingMs": 31.600000001490116,
+            "phases": []
+          },
+          {
+            "round": 2,
+            "strategy": "multiCase",
+            "solveMs": 1377.699999999255,
+            "governingMs": 31.599999997764826,
+            "phases": []
+          },
+          {
+            "round": 3,
+            "strategy": "multiCase",
+            "solveMs": 1373.9000000022352,
+            "governingMs": 31.399999998509884,
+            "phases": []
+          },
+          {
+            "round": 3,
+            "strategy": "parallel",
+            "solveMs": 1371.5,
+            "governingMs": 31.200000002980232,
+            "phases": []
+          },
+          {
+            "round": 4,
+            "strategy": "parallel",
+            "solveMs": 1372.199999999255,
+            "governingMs": 31,
+            "phases": []
+          },
+          {
+            "round": 4,
+            "strategy": "multiCase",
+            "solveMs": 1372.300000000745,
+            "governingMs": 30.899999998509884,
+            "phases": []
+          },
+          {
+            "round": 5,
+            "strategy": "multiCase",
+            "solveMs": 1375.800000000745,
+            "governingMs": 31.099999997764826,
+            "phases": []
+          },
+          {
+            "round": 5,
+            "strategy": "parallel",
+            "solveMs": 1374.4000000022352,
+            "governingMs": 30.800000000745058,
+            "phases": []
+          },
+          {
+            "round": 6,
+            "strategy": "parallel",
+            "solveMs": 1375.699999999255,
+            "governingMs": 32.100000001490116,
+            "phases": []
+          },
+          {
+            "round": 6,
+            "strategy": "multiCase",
+            "solveMs": 1384.1000000014901,
+            "governingMs": 31.399999998509884,
+            "phases": []
+          }
+        ],
+        "postprocess": [
+          {
+            "round": 0,
+            "individualMs": 114,
+            "batchMs": 79.30000000074506,
+            "diagramBuildMs": 18.400000002235174
+          },
+          {
+            "round": 1,
+            "individualMs": 112.90000000223517,
+            "batchMs": 81.59999999776483,
+            "diagramBuildMs": 16.399999998509884
+          },
+          {
+            "round": 2,
+            "individualMs": 112.89999999850988,
+            "batchMs": 79.90000000223517,
+            "diagramBuildMs": 14.800000000745058
+          },
+          {
+            "round": 3,
+            "individualMs": 112.30000000074506,
+            "batchMs": 81,
+            "diagramBuildMs": 15
+          },
+          {
+            "round": 4,
+            "individualMs": 113.19999999925494,
+            "batchMs": 81,
+            "diagramBuildMs": 14
+          },
+          {
+            "round": 5,
+            "individualMs": 114.60000000149012,
+            "batchMs": 79.69999999925494,
+            "diagramBuildMs": 14.300000000745058
+          },
+          {
+            "round": 6,
+            "individualMs": 113.59999999776483,
+            "batchMs": 83.80000000074506,
+            "diagramBuildMs": 15.100000001490116
+          }
+        ],
+        "medianIndividualCombineMs": 113.05000000074506,
+        "medianBatchCombineMs": 81,
+        "medianDiagramBuildMs": 14.900000000372529
+      },
+      "exactCapturedOutputMatch": true,
+      "outputSHA256": "791aef49747cf0d1abf6370c1157946c106a1cb92a9ed70c750c4558cc7a361f"
+    }
+  ]
+}

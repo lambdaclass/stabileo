@@ -17,7 +17,7 @@ import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, combineResultsBatch3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -3026,10 +3026,11 @@ async function solveCombinations3DParallelCore(
 
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
-    const combinedResults = combineResultsBatch3D(
-      combinations.map(combo => combo.factors.map(f => ({ caseId: f.caseId, factor: f.factor }))),
-      perCase, model.plates ?? new Map(),
-    );
+    const factors = combinations.map(combo => combo.factors.map(f => ({ caseId: f.caseId, factor: f.factor })));
+    const fused = !hasShells && new Set(combinations.map(combo => combo.id)).size === combinations.length
+      ? combineResultsEnvelope3D(factors, perCase, model.plates ?? new Map())
+      : null;
+    const combinedResults = fused?.combinations ?? combineResultsBatch3D(factors, perCase, model.plates ?? new Map());
     for (const [index, combo] of combinations.entries()) {
       const combined = combinedResults[index];
       if (combined) {
@@ -3040,9 +3041,7 @@ async function solveCombinations3DParallelCore(
       }
     }
 
-    // Compute envelope from all combo results
-    const allComboResults = Array.from(perCombo.values());
-    const envelope = computeEnvelope3D(allComboResults);
+    const envelope = fused ? fused.envelope : computeEnvelope3D([...perCombo.values()]);
     if (!envelope) return t('svc.envelopeError3d');
     if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
     /*

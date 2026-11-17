@@ -81,7 +81,11 @@ function pruneModel<M extends ModelData>(model: M, dropLoose: boolean): M {
   const elements = inactive.size === 0 ? model.elements : new Map([...model.elements].filter(([id]) => !inactive.has(id)));
   const used = nodesInUse(model, elements);
   const heldByAny = inactive.size === 0 ? used : nodesInUse(model, model.elements);
-  for (const id of model.nodes.keys()) if (!dropLoose && !heldByAny.has(id)) used.add(id);
+  if (!dropLoose) {
+    for (const id of model.nodes.keys()) {
+      if (!heldByAny.has(id)) used.add(id);
+    }
+  }
   for (const l of model.loads) {
     const n = (l.data as { nodeId?: number }).nodeId;
     if (n !== undefined && !heldByAny.has(n)) used.add(n);

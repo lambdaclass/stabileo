@@ -774,6 +774,23 @@ pub fn combine_results_batch_3d(input: JsValue) -> Result<JsValue, JsValue> {
     to_js_value(&typed)
 }
 
+#[wasm_bindgen]
+pub fn combine_results_envelope_3d(input: JsValue) -> Result<Vec<JsValue>, JsValue> {
+    let input: postprocess::combinations::BatchCombinationInput3D = from_js_value(input)?;
+    let combined = postprocess::combinations::combine_results_batch_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    let combinations = to_js_value(&combined)?;
+    let results: Vec<_> = combined.into_iter().flatten().collect();
+    let envelope = if results.is_empty() {
+        JsValue::NULL
+    } else {
+        let envelope = postprocess::combinations::compute_envelope_3d(&results)
+            .map_err(|e| JsValue::from_str(&e))?;
+        to_js_value(&envelope)?
+    };
+    Ok(vec![combinations, envelope])
+}
+
 /// Compute 2D envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn compute_envelope_2d(input: JsValue) -> Result<JsValue, JsValue> {

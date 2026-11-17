@@ -1,11 +1,12 @@
 import { modelStore, resultsStore, uiStore } from '../src/lib/store';
-import { initSolver, combineResults3D, combineResultsBatch3D } from '../src/lib/engine/wasm-solver';
+import { initSolver, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../src/lib/engine/wasm-solver';
 import { destroyPool } from '../src/lib/engine/solver-pool';
 import { computeGoverning3D } from '../src/lib/engine/governing-case';
 import { compareSolveResults } from './solve-benchmark-comparison';
 import { createDiagramGroup3D } from '../src/lib/three/diagram-render-3d';
 import { disposeObject } from '../src/lib/three/selection-helpers';
 import { hasNonlinearBehaviour } from '../src/lib/engine/member-behaviour';
+import { checkSolvePreparation } from './solve-preparation-check';
 
 type Strategy = 'parallel' | 'multiCase';
 type Bundle = Exclude<ReturnType<typeof modelStore.solveCombinations3D>, string | null>;
@@ -14,7 +15,8 @@ const median = (values: number[]) => {
   return (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.floor(sorted.length / 2)]) / 2;
 };
 
-export async function benchmark(exampleIds: string[]) {
+export async function benchmark(exampleIds: string[], capture = false) {
+  checkSolvePreparation();
   await initSolver();
   const output = [];
   try {
@@ -38,7 +40,8 @@ export async function benchmark(exampleIds: string[]) {
       }
       const names = new Map(modelStore.model.combinations.map(c => [c.id, c.name]));
       const rows: Array<{ round: number; strategy: Strategy; solveMs: number; governingMs: number; phases: string[] }> = [];
-      const postprocess: Array<{ round: number; individualMs: number; batchMs: number; diagramBuildMs: number }> = [];
+      const postprocess: Array<{ round: number; individualMs: number; batchMs: number; diagramBuildMs: number; separateEnvelopeMs?: number; fusedEnvelopeMs?: number }> = [];
+      let outputs: string | undefined;
       for (let round = 0; round < 7; round++) {
         const bundles = {} as Record<Strategy, Bundle>;
         const order: Strategy[] = round % 2 ? ['multiCase', 'parallel'] : ['parallel', 'multiCase'];
@@ -69,6 +72,8 @@ export async function benchmark(exampleIds: string[]) {
           await new Promise(resolve => setTimeout(resolve, 0));
         }
         compareSolveResults(bundles.parallel, bundles.multiCase, example);
+        if (capture && round === 1) outputs = JSON.stringify(bundles.parallel, (key, value) =>
+          key === 'timings' ? undefined : value instanceof Map ? [...value] : value);
         const factors = modelStore.model.combinations.map(c => c.factors.map(f => ({ caseId: f.caseId, factor: f.factor })));
         const combine = (batch: boolean) => batch
           ? combineResultsBatch3D(factors, bundles.parallel.perCase, modelStore.plates)
@@ -80,12 +85,28 @@ export async function benchmark(exampleIds: string[]) {
           times[Number(batch)] = performance.now() - start;
         }
         compareSolveResults(combined[0], combined[1], `${example}.combinations`);
+        let separateEnvelopeMs: number | undefined, fusedEnvelopeMs: number | undefined;
+        if (!modelStore.plates.size && !modelStore.quads.size && !hasNonlinearBehaviour(modelStore.model)) {
+          const combinedEnvelope: unknown[] = [];
+          for (const fused of round % 2 ? [true, false] : [false, true]) {
+            const start = performance.now();
+            if (fused) {
+              combinedEnvelope[1] = combineResultsEnvelope3D(factors, bundles.parallel.perCase, modelStore.plates);
+              fusedEnvelopeMs = performance.now() - start;
+            } else {
+              const combinations = combineResultsBatch3D(factors, bundles.parallel.perCase, modelStore.plates);
+              combinedEnvelope[0] = { combinations, envelope: computeEnvelope3D(combinations.filter(r => r !== null)) };
+              separateEnvelopeMs = performance.now() - start;
+            }
+          }
+          compareSolveResults(combinedEnvelope[0], combinedEnvelope[1], `${example}.combinedEnvelope`);
+        }
         const forces = bundles.parallel.perCombo.values().next().value?.elementForces ?? [];
         const start = performance.now();
         const diagram = createDiagramGroup3D(modelStore.elements, modelStore.nodes, forces, 'momentY', 1, false, false, modelStore.sections);
         const diagramBuildMs = performance.now() - start;
         disposeObject(diagram);
-        postprocess.push({ round, individualMs: times[0], batchMs: times[1], diagramBuildMs });
+        postprocess.push({ round, individualMs: times[0], batchMs: times[1], diagramBuildMs, separateEnvelopeMs, fusedEnvelopeMs });
       }
       const timings = (strategy: Strategy) => {
         const runs = rows.filter(row => row.strategy === strategy);
@@ -101,10 +122,14 @@ export async function benchmark(exampleIds: string[]) {
         declaredConstraints: modelStore.model.constraints?.length ?? 0,
         nonlinear: hasNonlinearBehaviour(modelStore.model),
         perCombination: modelStore.model.analysis?.perCombination ?? 'linear',
-        parallel: timings('parallel'), multiCase: timings('multiCase'), numericalParity: true, rows,
+        parallel: timings('parallel'), multiCase: timings('multiCase'), numericalParity: true, rows, outputs,
         postprocess, medianIndividualCombineMs: median(postprocess.slice(1).map(r => r.individualMs)),
         medianBatchCombineMs: median(postprocess.slice(1).map(r => r.batchMs)),
         medianDiagramBuildMs: median(postprocess.slice(1).map(r => r.diagramBuildMs)),
+        ...(postprocess[0].fusedEnvelopeMs === undefined ? {} : {
+          medianSeparateEnvelopeMs: median(postprocess.slice(1).map(r => r.separateEnvelopeMs!)),
+          medianFusedEnvelopeMs: median(postprocess.slice(1).map(r => r.fusedEnvelopeMs!)),
+        }),
       });
     }
     return output;

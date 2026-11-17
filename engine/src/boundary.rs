@@ -94,18 +94,33 @@ impl ser::Error for Stop {
     }
 }
 
+enum PathSegment {
+    Field(&'static str),
+    Key(String),
+    Index(usize),
+}
+
 struct Walker {
-    path: Vec<String>,
+    path: Vec<PathSegment>,
 }
 
 impl Walker {
     fn here(&self) -> String {
         let mut s = String::new();
-        for p in &self.path {
-            if !s.is_empty() && !p.starts_with('[') {
+        for segment in &self.path {
+            let text = match segment {
+                PathSegment::Index(i) => {
+                    use std::fmt::Write;
+                    write!(&mut s, "[{i}]").unwrap();
+                    continue;
+                },
+                PathSegment::Field(name) => *name,
+                PathSegment::Key(key) => key.as_str(),
+            };
+            if !s.is_empty() && !text.starts_with('[') {
                 s.push('.');
             }
-            s.push_str(p);
+            s.push_str(text);
         }
         if s.is_empty() { "the result".into() } else { s }
     }
@@ -114,7 +129,7 @@ impl Walker {
         if v.is_finite() { Ok(()) } else { Err(Stop::NonFinite(NonFinite { path: self.here(), value: v })) }
     }
 
-    fn within<T: Serialize + ?Sized>(&mut self, segment: String, value: &T) -> Result<(), Stop> {
+    fn within<T: Serialize + ?Sized>(&mut self, segment: PathSegment, value: &T) -> Result<(), Stop> {
         self.path.push(segment);
         let r = value.serialize(&mut *self).map_err(|e| match e {
             Stop::Custom(msg) => match msg.strip_prefix(crate::check::NON_FINITE).and_then(|v| v.parse().ok()) {
@@ -146,7 +161,7 @@ struct Compound<'a> {
 impl<'a> Compound<'a> {
     fn new(w: &'a mut Walker, variant: Option<&'static str>) -> Self {
         if let Some(v) = variant {
-            w.path.push(v.to_string());
+            w.path.push(PathSegment::Field(v));
         }
         Compound { w, index: 0, key: None, variant: variant.is_some() }
     }
@@ -154,7 +169,7 @@ impl<'a> Compound<'a> {
     fn element<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Stop> {
         let i = self.index;
         self.index += 1;
-        self.w.within(format!("[{i}]"), value)
+        self.w.within(PathSegment::Index(i), value)
     }
 
     fn done(self) -> Result<(), Stop> {
@@ -218,7 +233,7 @@ impl ser::SerializeMap for Compound<'_> {
     }
     fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Stop> {
         let k = self.key.take().unwrap_or_else(|| "?".into());
-        self.w.within(k, value)
+        self.w.within(PathSegment::Key(k), value)
     }
     fn end(self) -> Result<(), Stop> {
         self.done()
@@ -229,7 +244,7 @@ impl ser::SerializeStruct for Compound<'_> {
     type Ok = ();
     type Error = Stop;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Stop> {
-        self.w.within(key.to_string(), value)
+        self.w.within(PathSegment::Field(key), value)
     }
     fn end(self) -> Result<(), Stop> {
         self.done()
@@ -240,7 +255,7 @@ impl ser::SerializeStructVariant for Compound<'_> {
     type Ok = ();
     type Error = Stop;
     fn serialize_field<T: Serialize + ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Stop> {
-        self.w.within(key.to_string(), value)
+        self.w.within(PathSegment::Field(key), value)
     }
     fn end(self) -> Result<(), Stop> {
         self.done()
@@ -325,7 +340,7 @@ impl<'a> ser::Serializer for &'a mut Walker {
         value.serialize(self)
     }
     fn serialize_newtype_variant<T: Serialize + ?Sized>(self, _: &'static str, _: u32, variant: &'static str, value: &T) -> Result<(), Stop> {
-        self.within(variant.to_string(), value)
+        self.within(PathSegment::Field(variant), value)
     }
     fn serialize_seq(self, _: Option<usize>) -> Result<Compound<'a>, Stop> {
         Ok(Compound::new(self, None))
@@ -451,5 +466,51 @@ mod tests {
     fn a_scalar_is_refused_when_not_finite() {
         assert_eq!(finite_scalar(2.0, "M").unwrap(), 2.0);
         assert!(finite_scalar(f64::NAN, "M").unwrap_err().contains("non_finite_result"));
+    }
+
+    #[test]
+    fn paths_preserve_variants_tuples_and_dynamic_keys() {
+        #[derive(Serialize)]
+        enum Variant {
+            Newtype(Vec<f64>),
+            Tuple(f64, Option<f64>),
+            Struct { rows: BTreeMap<String, [f64; 2]> },
+        }
+        for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            for (value, path) in [
+                (Variant::Newtype(vec![0.0, bad]), "[0].Newtype[1]"),
+                (Variant::Tuple(0.0, Some(bad)), "[0].Tuple[1]"),
+                (Variant::Struct { rows: BTreeMap::from([("[case]".into(), [0.0, bad])]) }, "[0].Struct.rows[case][1]"),
+                (Variant::Struct { rows: BTreeMap::from([("".into(), [bad, 0.0])]) }, "[0].Struct.rows.[0]"),
+            ] {
+                let failure = find_non_finite(&[value]).unwrap().unwrap();
+                assert_eq!(failure.path, path);
+                assert!(if bad.is_nan() { failure.value.is_nan() } else { failure.value == bad });
+            }
+        }
+        let numeric = BTreeMap::from([(7, (1.0, f64::INFINITY))]);
+        assert_eq!(find_non_finite(&numeric).unwrap().unwrap().path, "7[1]");
+        assert_eq!(find_non_finite(&f64::INFINITY).unwrap().unwrap().path, "the result");
+    }
+
+    #[test]
+    fn first_failure_and_custom_serializer_paths_are_preserved() {
+        let mut value = out();
+        value.displacements[0].ux = f64::INFINITY;
+        value.extra = Some(f64::NAN);
+        assert_eq!(find_non_finite(&value).unwrap().unwrap().path, "displacements[0].ux");
+
+        #[derive(Serialize)]
+        struct Ratio(#[serde(serialize_with = "crate::check::ser_ratio")] f64);
+        assert_eq!(find_non_finite(&[Ratio(f64::NEG_INFINITY)]).unwrap().unwrap().path, "[0]");
+        assert!(find_non_finite(&[Ratio(f64::INFINITY)]).unwrap().is_none());
+
+        struct Refused;
+        impl Serialize for Refused {
+            fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+                Err(serde::ser::Error::custom("custom refusal"))
+            }
+        }
+        assert_eq!(find_non_finite(&(1.0, Refused)).unwrap_err(), "Serialize error: custom refusal");
     }
 }

@@ -703,6 +703,13 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
     stations.sort_by(f64::total_cmp);
     stations.dedup();
     let nodes: [f64; 4] = std::array::from_fn(|k| 0.5 * (1.0 - ((2 * k + 1) as f64 * std::f64::consts::PI / 8.0).cos()));
+    let basis: [([f64; 3], f64); 4] = std::array::from_fn(|k| {
+        let others = std::array::from_fn(|j| nodes[if j < k { j } else { j + 1 }]);
+        let denominator = others.iter().map(|&t| nodes[k] - t).product::<f64>();
+        (others, denominator)
+    });
+    let thirds = [0.5 - 0.5 * 0.75f64.sqrt(), 0.5, 0.5 + 0.5 * 0.75f64.sqrt()];
+    let shear_denominators: [f64; 3] = std::array::from_fn(|k| thirds.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| thirds[k] - t).product());
     let mut worst = 0.0f64;
     for w in stations.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -711,19 +718,16 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
         for p in planes {
             let m = nodes.map(|t| p.moment(a + (b - a) * t));
             let mut c = [0.0; 4];
-            for (k, &tk) in nodes.iter().enumerate() {
-                let others: Vec<f64> = nodes.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| t).collect();
-                let scale = m[k] / others.iter().map(|&t| tk - t).product::<f64>();
-                let (r0, r1, r2) = (others[0], others[1], others[2]);
+            for (k, &([r0, r1, r2], denominator)) in basis.iter().enumerate() {
+                let scale = m[k] / denominator;
                 c[0] -= scale * r0 * r1 * r2;
                 c[1] += scale * (r0 * r1 + r0 * r2 + r1 * r2);
                 c[2] -= scale * (r0 + r1 + r2);
                 c[3] += scale;
             }
             let (h, f, ei) = (b - a, p.shear_flexibility(), p.ei());
-            let thirds = [0.5 - 0.5 * 0.75f64.sqrt(), 0.5, 0.5 + 0.5 * 0.75f64.sqrt()];
             let v = thirds.map(|t| p.shear(a + h * t));
-            let w = std::array::from_fn::<f64, 3, _>(|k| v[k] / thirds.iter().enumerate().filter(|&(j, _)| j != k).map(|(_, &t)| thirds[k] - t).product::<f64>());
+            let w = std::array::from_fn::<f64, 3, _>(|k| v[k] / shear_denominators[k]);
             let s = [
                 w[0] * thirds[1] * thirds[2] + w[1] * thirds[0] * thirds[2] + w[2] * thirds[0] * thirds[1],
                 -(w[0] * (thirds[1] + thirds[2]) + w[1] * (thirds[0] + thirds[2]) + w[2] * (thirds[0] + thirds[1])),
@@ -1854,3 +1858,6 @@ mod span_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod span_rotation_tests;

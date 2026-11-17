@@ -102,6 +102,21 @@ Recognize moved Markdown and JSON documents in the results snapshot build classi
 
 ### Performance
 
+#### Keep combined results in WASM for their envelope (2026-11-17)
+
+Parallel linear solves without shells and with unique combination IDs compute
+combinations and their envelope in one call, avoiding a second transfer of the
+combined results into WASM. Existing numerical checks and refusal ordering are
+preserved. Shell models and repeated combination IDs retain their existing path.
+
+#### Reduce allocation and repeated interpolation work in solver checks (2026-11-17)
+
+Result validation retains typed diagnostic-path segments and renders them only
+when reporting a non-finite value. Span-rotation checks reuse interpolation
+nodes and denominators across station intervals. All values, station intervals,
+root searches, and refusal thresholds remain checked. The standalone solve
+benchmark now detects and avoids a bundling-induced repeated load scan.
+
 #### Reuse diagram sampling work during results display (2026-11-16)
 
 3D diagrams reuse the regular sampling grid while retaining point-load jumps and

@@ -2,6 +2,18 @@
 
 Branch: `perf/solve-and-results`, based on `d877e0b532`.
 
+Follow-up correction: the standalone benchmark introduces a model-preparation
+loop that the normal application bundle does not contain. It adds about 511 ms
+on the tower and 4.6 ms on the building in a later run. Treat the whole-workflow
+timings below as harness measurements, not application latency. The isolated
+combination timings exclude this preparation. See the
+[follow-up analysis](SOLVE-FOLLOWUP-2026-11.md) for evidence, corrected prototype
+timings, and the next optimization targets.
+
+The [November 17 kernel changes](SOLVER-KERNELS-2026-11.md) use the corrected
+benchmark in both arms and reduce warm solve time by a further 7–16% on the
+measured models.
+
 ## Findings
 
 The main opportunities are repeated result transfer, repeated diagram sampling,
