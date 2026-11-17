@@ -106,3 +106,21 @@ inclined-member regression and both model builders confirm that contract.
 Changing only its report would misstate the physical direction of an existing
 load. The coordinator must resolve this scope conflict before a stored-load
 contract change or migration is attempted.
+
+## Workspace classification CI correction (#2259)
+
+Framed snapshots now use the shared workspace classifier for every explicit
+mode. Both Basic 2D and educational models retain the plane transformation when
+a node includes an explicit zero depth; Basic 3D and PRO remain spatial. Only a
+snapshot without an analysis mode infers its dimension from node depth. This
+removes the duplicate spatial-mode list and the direct dimension comparison
+rejected by the workspace source guard. Import and export share the decision.
+
+The educational zero-depth reproducer fails through direct snapshot conversion
+and model-code import and export on 6095436ea. The workbook adapter explicitly
+requests PRO and retains its existing spatial conversion. These are corrections
+to experimental framed input conversion; no engine algorithm, tolerance or
+canonical saved-model result changes. The existing registry entry still declares
+no numerical quantities. A direct legacy-judge regression verifies that even an
+axes-marked model cannot use this notice to explain changed solver values or a
+changed solve outcome.

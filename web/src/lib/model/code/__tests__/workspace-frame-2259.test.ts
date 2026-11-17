@@ -37,7 +37,7 @@ function expectPlane(snap: Snapshot, choice: AxesChoice, entry: Entry): void {
   expect(shown.loads[0].data).toEqual({ id: 1, nodeId: 1, fx: p.sx * 5, fz: p.sz * 7, my: p.sr * 11 });
 }
 
-it.skip.each(entries)('known wrong result: #2259 explicit plane modes override zero depth through %s', entry => {
+it.each(entries)('known wrong result: #2259 explicit plane modes override zero depth through %s', entry => {
   for (const choice of allChoices()) for (const mode of ['2d', 'edu']) for (const depth of [undefined, 0]) {
     expectPlane(snapshot(mode, depth), choice, entry);
   }

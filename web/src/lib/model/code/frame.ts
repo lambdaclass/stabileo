@@ -4,6 +4,7 @@ import {
 } from '../../axes/frame';
 
 import { quantityTransform } from '../../axes/quantity-transform';
+import { is3DWorkspace } from '../../utils/workspace';
 
 type Obj = Record<string, any>;
 type Way = 'toUser' | 'toModel';
@@ -34,8 +35,6 @@ function planeGlobal(d: Obj, keys: readonly string[], p: { h: number; v: number 
   for (const k of keys) if (typeof d[k] === 'number') d[k] = p.v * d[k] + 0;
   if (typeof d.angle === 'number') d.angle = p.h * p.v * d.angle + 0;
 }
-
-const SPACE_MODES = new Set(['3d', 'pro']);
 
 const AXIS = ['X', 'Y', 'Z'] as const;
 
@@ -100,7 +99,9 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
   const f = makeFrame(choice);
   if (f.identity) return snap;
   const s = JSON.parse(JSON.stringify(snap)) as Obj;
-  const space = s.analysisMode !== '2d' && (SPACE_MODES.has(s.analysisMode) || (s.nodes ?? []).some(([, n]: [number, Obj]) => n.z !== undefined));
+  const space = s.analysisMode === undefined
+    ? (s.nodes ?? []).some(([, n]: [number, Obj]) => n.z !== undefined)
+    : is3DWorkspace(s.analysisMode);
   const p = plane(f);
   for (const [, n] of (s.nodes ?? []) as Array<[number, Obj]>) {
     if (space) {
