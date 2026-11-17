@@ -59,7 +59,7 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
   });
   if (!groups) return [];
   const row = beamRow(groups);
-  const ownTails = hookTails(support, { start: el.nodeI, end: el.nodeJ });
+  const ownTails = hookTails(support, { start: el.nodeI, end: el.nodeJ }, supportPlan);
   const keepAt = (nodeId: number): { keep: KeepOut[]; bars: number } => {
     // Where this beam ends here, its own tails stand beside the column's bars (below).
     const cage = nodeId === el.nodeI ? support.cages.start : support.cages.end;

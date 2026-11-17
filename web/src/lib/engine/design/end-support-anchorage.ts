@@ -459,9 +459,9 @@ export function supportInputOf(ctx: MemberContext, rebar: ProvidedReinforcement)
  * row the plan hooks (`endSupportPlan`), as the detailing lays it (`run-detailing` `hookTails`) —
  * the posts a crossing beam's bars thread past at that joint.
  */
-export function hookTails(input: EndSupportInput, nodes: { start: number; end: number }): Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> {
+export function hookTails(input: EndSupportInput, nodes: { start: number; end: number }, plan = endSupportPlan(input)): Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> {
   const out: Array<{ nodeId: number; at: number; diameterMm: number; row: number; position: 'top' | 'bottom' }> = [];
-  for (const v of endSupportPlan(input).verdicts) {
+  for (const v of plan.verdicts) {
     if (v.solution !== 'hook') continue;
     out.push({ nodeId: v.end === 'start' ? nodes.start : nodes.end, at: v.available - v.cage.face - v.diameterMm / 2000, diameterMm: v.diameterMm, row: v.row, position: v.position });
   }

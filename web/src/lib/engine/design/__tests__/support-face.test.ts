@@ -14,6 +14,7 @@ import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
 import * as anchorage from '../end-support-anchorage';
+import * as supportEnds from '../../detailing/support-anchorage';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 
 beforeAll(async () => {
@@ -56,19 +57,26 @@ describe('support moments at the column face', () => {
     const ctx = { ...verificationStore.contextFor(b)!, columnBars: new Map([[column, { count: 4, diameterMm: 16 }]]) };
     const rebar = modelStore.elements.get(b)!.reinforcement!;
     const input = anchorage.supportInputOf(ctx, rebar)!;
+    const ends = vi.spyOn(supportEnds, 'planSupportEnd');
     const expected = anchorage.endSupportPlan(input);
+    anchorage.bottomReach(input, expected);
+    const endsPlannedOnce = ends.mock.calls.length;
+    expect(endsPlannedOnce).toBeGreaterThan(0);
     expect(anchorage.bottomReach(input, expected)).toEqual(anchorage.bottomReach(input));
     const spy = vi.spyOn(anchorage, 'endSupportPlan');
     try {
+      ends.mockClear();
       const result = cirsoc201Adapter.verify(ctx, rebar);
       expect(spy).toHaveBeenCalledTimes(1);
+      expect(result.jointThreading?.length).toBeGreaterThan(0);
+      expect(ends).toHaveBeenCalledTimes(endsPlannedOnce);
       expect(result.supportAnchorage).toEqual(expected.verdicts);
       const changed = structuredClone(rebar);
       changed.regions!.topStart = { count: 2, diameter: 12 };
       changed.regions!.topStartLayers = [{ count: 2, diameter: 12, row: 0 }];
       cirsoc201Adapter.verify(ctx, changed);
       expect(spy).toHaveBeenCalledTimes(2);
-    } finally { spy.mockRestore(); }
+    } finally { spy.mockRestore(); ends.mockRestore(); }
   });
   it('the face follows the column extent along the beam, and the hogging is taken there', () => {
     const faces: number[] = [];
