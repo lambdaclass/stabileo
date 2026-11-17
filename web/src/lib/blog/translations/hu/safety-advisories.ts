@@ -121,6 +121,16 @@ const body: PostBody = {
       "t": "Érintett modellek és szükséges teendők."
     },
     {
+      "k": "note",
+      "t": "SA-2026-089 — Tervezet 2026-11-17; koordinátori felülvizsgálatra, egyesítésre és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md",
+      "label": "SA-2026-089",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -574,6 +584,12 @@ const body: PostBody = {
           "SA-2026-083: A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt. (#2207).",
           "Magas",
           "PR #2236; egyesítésre és kiadásra vár"
+        ],
+        [
+          "SA-2026-089",
+          "Egy rollerZ típusú 3D görgős támaszt vagy egy ismeretlen támasztípust a program figyelmeztetés nélkül teljesen befogottként számított. Ellenőrizze a támaszok tervezett megfogásait, majd ismételje meg az analízist, a kombinációkat és a méretezést. (#2276).",
+          "Magas",
+          "Tervezet 2026-11-17; koordinátori felülvizsgálatra, egyesítésre és kiadásra vár"
         ]
       ]
     },

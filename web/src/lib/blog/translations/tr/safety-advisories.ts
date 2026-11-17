@@ -60,6 +60,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-083 — PR #2236; birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-089 — Taslak 2026-11-17; koordinatör incelemesi, birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -449,6 +451,7 @@ const body: PostBody = {
         ["SA-2026-078", "Çatı basınç bölgeleri ve bunların birinci momentleri bölünmeye bağlıydı (#2205). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-082", "Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).", "Yüksek", "Taslak 2026-11-16; birleştirme ve yayın bekleniyor"],
         ["SA-2026-083", "SA-2026-083: CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin. (#2207).", "Yüksek", "PR #2236; birleştirme ve yayın bekleniyor"],
+        ["SA-2026-089", "rollerZ türündeki bir 3B kayar mesnet veya bilinmeyen bir mesnet türü, uyarı verilmeden tam ankastre olarak analiz ediliyordu. Amaçlanan mesnet kısıtlarını gözden geçirip analizi, birleşimleri ve tasarımı yeniden çalıştırın. (#2276).", "Yüksek", "Taslak 2026-11-17; koordinatör incelemesi, birleştirme ve yayın bekleniyor"],
       ]
     },
     {
