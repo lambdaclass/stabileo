@@ -215,7 +215,22 @@ export function adoptCurrentMesh(id: number, opts: { original?: boolean } = {}):
 /** The type of a node's support when it is a plain one (a type and nothing else). */
 function plainSupport(n: number) {
   const sp = [...modelStore.supports.values()].find((x) => x.nodeId === n);
-  return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
+  return sp && Object.entries(sp).every(([k, v]) => k === 'id' || k === 'nodeId' || k === 'type' || v === undefined) ? sp.type : undefined;
+}
+
+/** The outline sides whose two ends carry the same plain support: the sides a plate of a model built before `edgeSupports` held all along. */
+export function impliedEdgeSupports(outer: readonly number[]): NonNullable<PlateSurface['edgeSupports']> {
+  return outer.flatMap((a, i) => {
+    const b = outer[(i + 1) % outer.length]!, type = plainSupport(a);
+    return type && plainSupport(b) === type ? [{ from: a, to: b, type }] : [];
+  });
+}
+
+/** Every plate whose definition predates `edgeSupports` gets the sides that rule held, as data; how many. Part of no undo step. */
+export function declareLegacyEdgeSupports(): number {
+  const legacy = physicalPlates().filter((p) => p.surface.edgeSupports === undefined);
+  if (legacy.length) modelStore.withoutUndo(() => { for (const p of legacy) writeSurface(p.id, (s) => ({ ...s, edgeSupports: impliedEdgeSupports(plateLoops(p.group).outer) })); });
+  return legacy.length;
 }
 
 /** The nodes given that are on a held side of the plate and have no support get the side's; returns them. */
@@ -382,7 +397,7 @@ export function createPlate(p: NewPlate): { id: number } | { problem: PlateProbl
   if (problem) return { problem };
   p = { ...p, outline: arcs.outline };
   const mids = [...arcs.arcMids, ...(p.holeArcMids ?? []).map((i) => p.outline.length + i)];
-  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(mids.length ? { arcMids: mids } : {}) };
+  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, edgeSupports: [], ...(mids.length ? { arcMids: mids } : {}) };
   const temp = { id: 0, members: { nodes: [...p.outline, ...holes.flat()] }, data: { surface } };
   const geo = plateGeometry(plateModel(), temp)!;
   const kind = plateKindOf(geo);
@@ -927,14 +942,15 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const supported = supportSides(e.surface.edgeSupports, [...new Set(r.nodeIds)]);
+    const edges = e.surface.edgeSupports ?? impliedEdgeSupports(plateLoops(e.group).outer);
+    const supported = supportSides(edges, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }
-    writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
+    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
     cellsOf.set(p.id, r.quads.length + r.plates.length);
     report.plates = cellsOf.size;
     report.cells = [...cellsOf.values()].reduce((a, b) => a + b, 0);
