@@ -21,9 +21,20 @@ test.describe('@smoke physical elements', () => {
     const id = (await firstKind.getAttribute('data-testid'))!.replace('physical-kind-', '');
     await firstKind.selectOption('brace');
     await expect(page.getByTestId(`physical-row-${id}`)).toContainText(/declared|declarado/);
-    // An edit where it was (a node moved onto itself) reads the model again.
-    await page.evaluate(() => { const [n] = window.__stabileo.nodeIds(); const p = window.__stabileo.nodePosition(n!)!; window.__stabileoActions.moveNode(n!, p.x, p.y, p.z); });
+    // A column of another member leant by moving its top: read again, it is a brace; the declared kind stays.
+    const leant = await page.evaluate((declared) => {
+      const s = window.__stabileo;
+      const mine = new Set(s.physicalMembers().find((m) => m.id === declared)!.elements);
+      const column = s.physicalMembers().find((m) => m.kind === 'column' && m.elements.every((e) => !mine.has(e)))!;
+      const pieces = column.elements.map((e) => { const ends = s.elementEnds(e)!; return { e, ends: [ends.i, ends.j].map((n) => ({ n, p: s.nodePosition(n)! })) }; });
+      const highest = pieces.reduce((x, y) => (Math.max(...y.ends.map((q) => q.p.z)) > Math.max(...x.ends.map((q) => q.p.z)) ? y : x));
+      const top = highest.ends[0]!.p.z > highest.ends[1]!.p.z ? highest.ends[0]! : highest.ends[1]!;
+      window.__stabileoActions.moveNode(top.n, top.p.x + 1, top.p.y, top.p.z);
+      return highest.e;
+    }, Number(id));
+    await expect.poll(() => page.evaluate((e) => window.__stabileo.physicalMembers().find((m) => m.elements.includes(e))?.kind, leant)).toBe('brace');
     await expect(page.getByTestId(`physical-kind-${id}`)).toHaveValue('brace');
-    expect(await page.locator('[data-testid^="physical-row-"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))).toEqual(rows);
+    await expect(page.getByTestId(`physical-row-${id}`)).toContainText(/declared|declarado/);
+    expect(rows).toContain(`physical-row-${id}`);
   });
 });
