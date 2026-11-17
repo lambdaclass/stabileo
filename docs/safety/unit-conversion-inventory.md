@@ -577,7 +577,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/ifc/ifc-parser.ts` | explicit scale | 262, 332, 391, 407, 477, 510 |
 | `web/src/lib/ifc/ifc-physical.ts` | explicit scale | 51 |
 | `web/src/lib/ifc/ifc-writer.ts` | explicit scale | 55, 113, 242 |
-| `web/src/lib/rc-sheets/schedule/bvbs.ts` | explicit scale | 53, 61, 65, 67 |
 | `web/src/lib/material/data-sheet.ts` | unit declaration/factor | 194, 195, 196, 200 |
 | `web/src/lib/material/material-choice.ts` | unit declaration/factor | 61, 64, 66, 68 |
 | `web/src/lib/model/building/column-footprints.ts` | explicit scale | 61, 62 |
@@ -619,6 +618,7 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/profiles/csv-sections.ts` | explicit scale | 93 |
 | `web/src/lib/profiles/properties.ts` | explicit scale | 189, 190, 269 |
 | `web/src/lib/profiles/properties.ts` | unit declaration/factor | 268 |
+| `web/src/lib/rc-sheets/schedule/bvbs.ts` | explicit scale | 53, 61, 65, 67 |
 | `web/src/lib/report/memoria/render.ts` | explicit scale | 134, 153 |
 | `web/src/lib/section/canonical.ts` | explicit scale | 143, 181, 223, 403 |
 | `web/src/lib/section/drawn-design.ts` | explicit scale | 55, 59 |

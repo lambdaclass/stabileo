@@ -46,10 +46,10 @@ test.describe('@smoke design data with design off', () => {
     const data = page.getByTestId('rc-design-data');
     await data.locator('> summary').click();
     const cover = data.getByTestId('design-data-cover-beam');
-    await cover.fill('30');
+    await cover.fill('35');
     await cover.dispatchEvent('change');
-    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.03\b/);
-    await expect(page.getByTestId('rc-dd-summary')).toContainText('30 mm');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.035\b/);
+    await expect(page.getByTestId('rc-dd-summary')).toContainText('35 mm');
 
     await page.getByTestId('rc-design').click();
     await expect(page.getByTestId('rc-open-column')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
@@ -76,6 +76,6 @@ test.describe('@smoke design data with design off', () => {
     await page.getByTestId('building-rebar-grade').selectOption('ADN 500');
     await page.getByTestId('building-general-more').locator('> summary').click();
     await expect(page.getByTestId('building-general-more').getByTestId('design-data-fy')).toHaveValue('500');
-    await expect(page.getByTestId('building-general-more').getByTestId('design-data-cover-beam')).toHaveValue('30');
+    await expect(page.getByTestId('building-general-more').getByTestId('design-data-cover-beam')).toHaveValue('35');
   });
 });
