@@ -10,8 +10,6 @@ import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } 
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { snowDriftRefusal } from '../snow-drift-loads';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
-
 /** A level of `nx` × `ny` bays of `bx` × `by` m at height `z`, beams on every grid line. */
 function floor(nx: number, ny: number, bx: number, by: number, z = 3): GravityModel & LoadModelData {
   const nodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
@@ -294,7 +292,7 @@ function gableWithLeanTo(mesh: number, y: number, drop: number, angle = 0) {
   return model;
 }
 
-knownWrong('known wrong result: #2282 a descending lean-to leaves the main bay loaded only by its roof shells', () => {
+it('#2282 a descending lean-to leaves the main bay loaded only by its roof shells', () => {
   for (const [mesh, angle] of [[1, 0], [3, 0.37]] as const) {
     const model = gableWithLeanTo(mesh, -4, 1, angle);
     for (const loadEveryPanel of [false, true]) {
@@ -303,39 +301,39 @@ knownWrong('known wrong result: #2282 a descending lean-to leaves the main bay l
         const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
         const plan = buildLoadPlan(planInput(model, { gravity }));
         const shellDead = 2 * 10 * (2 * Math.hypot(5, 2) + Math.hypot(4, 1));
-        expect.soft(plan.outcome).toBe('READY');
-        expect.soft(plan.blockedKeys).toEqual([]);
-        expect.soft(totalKN(plan.distributed.filter(d => d.caseType === 'D'), model)).toBeCloseTo(0, 6);
-        expect.soft(plan.nodal).toEqual([]);
-        expect.soft(plan.distributed).toEqual([]);
-        expect.soft(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(shellDead, 6);
-        expect.soft(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(shellDead, 6);
-        expect.soft(layout.panels).toEqual([]);
-        expect.soft(layout.widthMembers).toEqual([]);
-        expect.soft(layout.shellQuads.reduce((sum, q) => sum + q.area, 0)).toBeCloseTo(140, 6);
+        expect(plan.outcome).toBe('READY');
+        expect(plan.blockedKeys).toEqual([]);
+        expect(totalKN(plan.distributed.filter(d => d.caseType === 'D'), model)).toBeCloseTo(0, 6);
+        expect(plan.nodal).toEqual([]);
+        expect(plan.distributed).toEqual([]);
+        expect(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(shellDead, 6);
+        expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(shellDead, 6);
+        expect(layout.panels).toEqual([]);
+        expect(layout.widthMembers).toEqual([]);
+        expect(layout.shellQuads.reduce((sum, q) => sum + q.area, 0)).toBeCloseTo(140, 6);
       }
     }
   }
 });
 
-knownWrong('known wrong result: #2282 a descending shell projecting into the eave bay refuses at every layout consumer', () => {
+it('#2282 a descending shell projecting into the eave bay refuses at every layout consumer', () => {
   const model = gableWithLeanTo(2, 0.01, 0.004);
   const reason = { key: 'loadPlan.gravity.differentSlopedDeck' };
   for (const loadEveryPanel of [false, true]) {
     for (const slab of ['oneWay', 'twoWay'] as const) {
       const gravity = { mode: 'panels', loadEveryPanel, slab } as const;
       const plan = buildLoadPlan(planInput(model, { gravity }));
-      expect.soft(plan.outcome).toBe('BLOCKED');
-      expect.soft(plan.blockedKeys).toEqual([reason]);
-      expect.soft(plan.distributed).toEqual([]);
-      expect.soft(plan.nodal).toEqual([]);
-      expect.soft(plan.surface).toEqual([]);
-      expect.soft(plan.levels).toEqual([]);
-      expect.soft(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
-      expect.soft(() => roofWeightFor(model, gravity, 3, 2)).toThrow(expect.objectContaining(reason));
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual([reason]);
+      expect(plan.distributed).toEqual([]);
+      expect(plan.nodal).toEqual([]);
+      expect(plan.surface).toEqual([]);
+      expect(plan.levels).toEqual([]);
+      expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
+      expect(() => roofWeightFor(model, gravity, 3, 2)).toThrow(expect.objectContaining(reason));
     }
   }
-  expect.soft(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
   expect(buildLoadPlan(planInput(model, { gravity: { mode: 'width' } })).outcome).toBe('READY');
 });
 

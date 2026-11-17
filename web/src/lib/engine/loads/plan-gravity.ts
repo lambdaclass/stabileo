@@ -508,6 +508,8 @@ function connectedShellRoofs(sloped: SlopedCarrier[]): SlopedCarrier[][] {
 
 function deckFootprints(boundary: Polygon, corners: number[], z: number, level: ShellCarrier[], roofs: SlopedCarrier[][]): Polygon[] {
   const atLevel = (height: number) => height >= z - TOL && height <= z + TOL;
+  const nodesAtLevel = (roof: SlopedCarrier[]) =>
+    new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
   const footprints: Polygon[] = [];
   try {
     for (const shell of level) {
@@ -517,16 +519,26 @@ function deckFootprints(boundary: Polygon, corners: number[], z: number, level: 
       }
     }
     for (const roof of roofs) {
-      if (!atLevel(Math.min(...roof.map(shell => shell.z0)))) continue;
-      const polygons = roof.map(shell => [shell.poly]);
+      const eaveNodes = nodesAtLevel(roof);
+      const isAttached = corners.some(id => eaveNodes.has(id));
+      const springsAtLevel = (shell: SlopedCarrier) => atLevel(shell.z0);
+      if (!isAttached && !roof.some(springsAtLevel)) continue;
+      const startsBelow = (shell: SlopedCarrier) => shell.z0 < z - TOL;
+      const below = roof.filter(startsBelow);
+      const overlaps = (shell: SlopedCarrier) => regionArea(polygonClipping.intersection(boundary, [shell.poly])) > 0;
+      if (!isAttached && below.length > 0 && !roof.some(shell => springsAtLevel(shell) && overlaps(shell))) continue;
+      if (below.some(overlaps)) refuseGravityGeometry(msg('loadPlan.gravity.differentSlopedDeck'));
+      const covering = below.length > 0 ? roof.filter(shell => !startsBelow(shell)) : roof;
+      if (covering.length === 0) continue;
+      const polygons = covering.map(shell => [shell.poly]);
       const projection = polygonClipping.union(polygons[0]!, ...polygons.slice(1));
       if (!(regionArea(polygonClipping.intersection(boundary, projection)) > 0)) continue;
-      const eaveNodes = new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
-      if (boundary.length === 1 && corners.every(id => eaveNodes.has(id)) && polygonClipping.difference(boundary, projection).length === 0) {
-        footprints.push(...polygons);
-      } else {
+      const supportingNodes = covering === roof ? eaveNodes : nodesAtLevel(covering);
+      if (boundary.length !== 1 || !corners.every(id => supportingNodes.has(id))
+        || polygonClipping.difference(boundary, projection).length !== 0) {
         refuseGravityGeometry(msg('loadPlan.gravity.differentSlopedDeck'));
       }
+      footprints.push(...polygons);
     }
   } catch (err) {
     if (err instanceof EngineMessageError) throw err;

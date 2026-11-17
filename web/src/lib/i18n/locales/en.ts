@@ -8103,7 +8103,7 @@ const en: Record<string, string> = {
   'loadPlan.gravity.mixedExposure': "The uncovered shell strips have mixed roof and floor exposure.",
   'loadPlan.gravity.stripSpan': "The uncovered shell strip exceeds the maximum deck span.",
   'loadPlan.gravity.headroomCheckFailed': "Uncovered shell strip headroom check failed: {detail}",
-  'loadPlan.gravity.stripHeadroom': "The uncovered shell strip has insufficient or unresolved storey headroom.",
+  'loadPlan.gravity.stripHeadroom': "The uncovered shell strip has insufficient or unresolved story headroom.",
   'loadPlan.gravity.stripInterval': "Gravity strip on member {id} is below the supported member-load span.",
   'loadPlan.gravity.panels': "Area loads by real tributary area: {members} members take what they collect from the panels they close.",
   'loadPlan.gravity.width': "{n} members close no panel ({sloped} of them sloped) and are loaded with the {width} m tributary width.",
