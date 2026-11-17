@@ -15,24 +15,27 @@ it('the longitudinal torsion boundary fixture satisfies both transverse leg coun
   expect(required).toEqual([adequateShear.legs, adequateShear.secondaryLegs]);
 });
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
+  const unsupportedShear = edition === '2005' && elementType !== 'beam';
   const input = (torque: number) => ({ ...params, edition, elementId: 1, elementType,
     demand: declaredTestDemands([{ comboId: 1, comboName: 'torsion', forces: {
       t: 0, x: 0, n: 0, my: 20, mz: 20, vy: 0, vz: 0, torsion: torque,
     } }])[0]!.section(axis) });
   for (const entry of ['direct', 'prepared', 'concurrent'] as const) {
-    it.skip(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
+    it(`known wrong result: #2080 missing longitudinal provision is not checked ${edition} ${axis} ${elementType} ${entry}`, () => {
       const i = input(6);
       const fixed = { shear: adequateShear };
       const v = entry === 'direct' ? verifyElement(i, fixed) : entry === 'prepared' ? prepareElementVerification(i)(fixed) : verifyConcurrentElement([i], fixed);
-      expect(v.shear.status).toBe('ok');
-      expect(v.shearSecondary!.status).toBe('ok');
+      for (const shear of [v.shear, v.shearSecondary!]) {
+        expect(shear.status).toBe(unsupportedShear ? 'fail' : 'ok');
+        expect(shear.steps.includes('Column shear spacing not evaluated for CIRSOC 201-2005')).toBe(unsupportedShear);
+      }
       expect(v.torsion!.AlReq).toBeGreaterThan(0);
       expect(v.torsion!.AlProv).toBeUndefined();
       expect(v.torsion).toHaveProperty('longitudinalProvision', 'not-checked');
       expect(v.torsion!.status).toBe('warn');
       expect(v.overallStatus).not.toBe('ok');
       const normalized = normalizeCirsoc201([v], new Map())[0]!;
-      expect(normalized.status).toBe('held');
+      expect(normalized.status).toBe(unsupportedShear ? 'fail' : 'held');
       const torsion = normalized.checks.find(c => c.name === 'Torsion')!;
       expect(torsion).toBeDefined();
       expect(torsion).toHaveProperty('longitudinalProvision', 'not-checked');
@@ -47,11 +50,13 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const factor of [0, 1 - 1e-8, 1, 1 + 1e-8]) {
-    it.skip(`known wrong result: #2198 explicit longitudinal provision retains its boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
+    it(`known wrong result: #2198 explicit longitudinal provision retains its boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
       const i = input(6), need = checkTorsion(params, i.demand, edition);
       const v = verifyElement(i, { shear: adequateShear, torsion: { AlProv: need.AlReq * factor } });
-      expect(v.shear.status).toBe('ok');
-      expect(v.shearSecondary!.status).toBe('ok');
+      for (const shear of [v.shear, v.shearSecondary!]) {
+        expect(shear.status).toBe(unsupportedShear ? 'fail' : 'ok');
+        expect(shear.steps.includes('Column shear spacing not evaluated for CIRSOC 201-2005')).toBe(unsupportedShear);
+      }
       expect(v.torsion!.AlProv).toBe(need.AlReq * factor);
       expect(v.torsion!.status === 'fail').toBe(factor < 1);
       expect(v.torsion!.reinforcementRatio).toBe(factor === 0 ? Infinity : 1 / factor);
@@ -60,14 +65,16 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(torsion.demand).toBe(Math.abs(v.torsion!.Tu));
       expect(torsion.capacity).toBe(v.torsion!.phiTn);
       expect(torsion.ratio).toBe(v.torsion!.ratio);
-      expect(normalized.status === 'fail').toBe(factor < 1);
+      expect(normalized.status === 'fail').toBe(unsupportedShear || factor < 1);
       expect(normalized.status).not.toBe('held');
     });
   }
-  it.skip(`known wrong result: #2198 zero torque keeps the correct answer ${edition} ${axis} ${elementType}`, () => {
+  it(`known wrong result: #2198 zero torque keeps the correct answer ${edition} ${axis} ${elementType}`, () => {
     const v = verifyConcurrentElement([input(0)]);
     expect(v.torsion).toBeUndefined();
-    expect(v.overallStatus).not.toBe('fail');
+    expect(v.overallStatus).toBe(unsupportedShear ? 'fail' : 'ok');
+    expect(v.shear.status).toBe(unsupportedShear ? 'fail' : 'ok');
+    expect(v.shear.steps.includes('Column shear spacing not evaluated for CIRSOC 201-2005')).toBe(unsupportedShear);
     const normalized = normalizeCirsoc201([v], new Map())[0]!;
     expect(normalized.checks.some(c => c.name.startsWith('Torsion'))).toBe(false);
     expect(normalized.status).not.toBe('held');

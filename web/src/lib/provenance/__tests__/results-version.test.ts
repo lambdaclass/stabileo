@@ -183,30 +183,33 @@ describe('results versions', () => {
 });
 
 
-for (const spacingOrder of ['together', 'later'] as const) for (const completenessOffset of [-1, 0, 1]) it.skip.each([-1, 0, 1])(`known wrong result: #2198 shows exact notices across recovery merge orders ${spacingOrder}, offset %s, completeness ${completenessOffset}`, (recoveryOffset) => {
+for (const spacingOrder of ['together', 'later'] as const) for (const completenessOffset of [-1, 0, 1]) it.each([-1, 0, 1])(`known wrong result: #2198 shows exact notices across recovery merge orders ${spacingOrder}, offset %s, completeness ${completenessOffset}`, (recoveryOffset) => {
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
   const frame: FeatureSnapshot = { analysisMode: 'pro',
     materials: [[1, { id: 1, name: 'H25', fc: 25, fy: 25, e: 25000, nu: 0.2, rho: 25 }]] as never,
     elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]] as never,
     supports: [], loads: [], loadCases: [{ id: 1, type: 'D' }],
   };
-  const registry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c =>
-    spacingOrder === 'together' && ['column-tie-shear-spacing', 'fixed-beam-directional-spacing'].includes(c.id) ? { ...c, resultsVersion: entry.resultsVersion }
+  const registry = { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.filter(c => [
+    'directional-stirrup-legs', 'member-recovery-round4', 'shared-demand-completeness', 'column-tie-shear-spacing', 'fixed-beam-directional-spacing',
+  ].includes(c.id)).map(c =>
+    c.id === 'column-tie-shear-spacing' ? { ...c, resultsVersion: entry.resultsVersion + (spacingOrder === 'together' ? 0 : 1) }
+      : c.id === 'fixed-beam-directional-spacing' ? { ...c, resultsVersion: entry.resultsVersion + (spacingOrder === 'together' ? 0 : 2) }
       : c.id === 'member-recovery-round4' ? { ...c, resultsVersion: entry.resultsVersion + recoveryOffset }
       : c.id === 'shared-demand-completeness' ? { ...c, resultsVersion: entry.resultsVersion + completenessOffset } : c),
-    currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + recoveryOffset, entry.resultsVersion + completenessOffset),
+    currentResultsVersion: Math.max(RESULT_CHANGES.currentResultsVersion, entry.resultsVersion + 2),
   };
   for (const analysisMode of ['2d', 'pro']) for (const analysis of ['linear', 'pdelta', 'nonlinear'] as const) {
     const seen = (snapshot: FeatureSnapshot, resultsVersion: number) => assessProject(
       { ...snapshot, analysisMode }, { resultsVersion, analyses: [analysis], recorded: [...ANALYSIS_KINDS] } as SolveStamp, analysisMode, registry,
     ).changes.map(c => c.id).sort();
     const prior = ['column-tie-shear-spacing', 'directional-stirrup-legs', 'fixed-beam-directional-spacing', ...(recoveryOffset < 0 ? [] : ['member-recovery-round4']), ...(completenessOffset < 0 ? [] : ['shared-demand-completeness'])];
-    const current = ['column-tie-shear-spacing', 'fixed-beam-directional-spacing', ...(recoveryOffset > 0 ? ['member-recovery-round4'] : []), ...(completenessOffset > 0 ? ['shared-demand-completeness'] : [])];
+    const current = [...(spacingOrder === 'together' ? [] : ['column-tie-shear-spacing', 'fixed-beam-directional-spacing']), ...(recoveryOffset > 0 ? ['member-recovery-round4'] : []), ...(completenessOffset > 0 ? ['shared-demand-completeness'] : [])];
     expect(seen(frame, entry.resultsVersion - 1)).toEqual(prior);
     expect(seen(frame, entry.resultsVersion)).toEqual(current);
-    const later = ['column-tie-shear-spacing', 'fixed-beam-directional-spacing'].map(id => RESULT_CHANGES.changes.find(c => c.id === id)!);
+    const later = ['column-tie-shear-spacing', 'fixed-beam-directional-spacing'].map(id => registry.changes.find(c => c.id === id)!);
     expect(seen(frame, entry.resultsVersion + 1)).toEqual(later.filter(c => c.resultsVersion > entry.resultsVersion + 1).map(c => c.id));
-    for (const change of later) expect(seen(frame, change.resultsVersion)).toEqual(later.filter(c => c.resultsVersion > change.resultsVersion).map(c => c.id));
+    for (const change of later) expect(seen(frame, change.resultsVersion)).toEqual(change.resultsVersion === entry.resultsVersion ? current : later.filter(c => c.resultsVersion > change.resultsVersion).map(c => c.id));
     expect(seen(frame, Math.max(entry.resultsVersion + 1, ...later.map(c => c.resultsVersion)))).toEqual([]);
     expect(seen({ ...frame, materials: [] }, entry.resultsVersion - 1)).toEqual(
       recoveryOffset < 0 ? [] : ['member-recovery-round4'],

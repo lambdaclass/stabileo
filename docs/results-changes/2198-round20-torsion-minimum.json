@@ -1,0 +1,60 @@
+{
+  "source": {
+    "mainCommit": "44d527d64933c07c8a812f04ad2373e4d83eb72c",
+    "branchParent": "9b8e70737",
+    "scope": "isolated torsion module replay with branch dependencies"
+  },
+  "input": {
+    "b": 0.3,
+    "h": 0.9,
+    "d": 0.861,
+    "dSecondary": 0.261,
+    "cover": 0.025,
+    "stirrupDiaMm": 6,
+    "fc": 25,
+    "fy": 420,
+    "fyt": 420,
+    "demand": {
+      "Tu": 10,
+      "Vu": 0,
+      "VuSecondary": 1
+    },
+    "stirrup": {
+      "diameter": 6,
+      "legs": 2,
+      "secondaryLegs": 2,
+      "spacing": 0.09
+    }
+  },
+  "main": {
+    "phiTth": 9.454218750000003,
+    "neglect": false,
+    "sectionRatio": 0.09697934815354499,
+    "shearSectionRatio": 0.0013677528333854783,
+    "transverseRequired": 0.00025,
+    "AtOverS": 9.06793194060055e-05,
+    "transverseProvided": 0.0006283185307179586,
+    "outerLegProvided": 0.0003141592653589793,
+    "Al": 0.000197318199027468,
+    "AlMin": 0.001078,
+    "sMax": 0.272,
+    "ratio": 0.3978873577297384
+  },
+  "current": {
+    "phiTth": 9.454218750000003,
+    "neglect": false,
+    "sectionRatio": 0.09697934815354499,
+    "shearSectionRatio": 0.0013677528333854783,
+    "transverseRequired": 0.00075,
+    "transversePrimaryRequired": 0.00025,
+    "transverseSecondaryRequired": 0.00075,
+    "transverseSecondaryProvided": 0.0006283185307179586,
+    "AtOverS": 9.06793194060055e-05,
+    "transverseProvided": 0.0006283185307179586,
+    "outerLegProvided": 0.0003141592653589793,
+    "Al": 0.000197318199027468,
+    "AlMin": 0.001078,
+    "sMax": 0.272,
+    "ratio": 1.1936620731892151
+  }
+}

@@ -73,13 +73,14 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
-  const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
-  const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
-  const AvOverS = Vs / (i.fyt * 1000 * i.d);
-  const AvSecondaryOverS = VsSecondary / (i.fyt * 1000 * i.dSecondary);
-  const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
-  const transversePrimaryRequired = Math.max(AvOverS + 2 * AtOverS, min);
-  const transverseSecondaryRequired = Math.max(AvSecondaryOverS + 2 * AtOverS, min);
+  const transverseFor = (width: number, depth: number, shear: number) => {
+    const Vs = Math.max(0, shear / PHI - vc * width * depth);
+    const AvOverS = Vs / (i.fyt * 1000 * depth);
+    const minimum = Math.max(0.062 * sq, 0.35) * width / i.fyt;
+    return Math.max(AvOverS + 2 * AtOverS, minimum);
+  };
+  const transversePrimaryRequired = transverseFor(i.b, i.d, Vu);
+  const transverseSecondaryRequired = transverseFor(i.h, i.dSecondary, VuSecondary);
   const transverseRequired = Math.max(transversePrimaryRequired, transverseSecondaryRequired);
   const { transverseProvided, transverseSecondaryProvided, outerLegProvided } = i.stirrup
     ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, transverseSecondaryProvided: 0, outerLegProvided: 0 };

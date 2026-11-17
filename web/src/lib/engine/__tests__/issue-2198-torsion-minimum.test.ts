@@ -22,13 +22,13 @@ function provided(torque: number, secondary: number, axis: 'My' | 'Mz', factor: 
   const bars = { count: 4, diameter: 20 };
   return verifyProvidedReinforcement(1, 'beam', { regions: { bottomSpan: bars, topStart: bars, topEnd: bars,
     stirrupsSupport: cage, stirrupsSpan: cage } }, undefined, {}, section,
-  stations ?? { elementId: 1, length: 0.04, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'minimum',
-    stations: [0, 0.5, 1].map(t => ({ ...demand(torque, secondary, axis).source.forces, t, x: t * 0.04 })) }] },
+  stations ?? { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'minimum',
+    stations: [0, 0.5, 1].map(t => ({ ...demand(torque, secondary, axis).source.forces, t, x: t * 6 })) }] },
   undefined, { spacingRule: { edition, maxAggregateSizeMm: 0 }, axes: axes(axis) });
 }
 
 for (const axis of ['My', 'Mz'] as const) for (const secondary of [0, 1]) for (const factor of [0.999, 1, 1.001]) {
-  it.skip(`known wrong result: #2198 active torsion secondary minimum ${axis} ${secondary} ${factor}`, () => {
+  it(`known wrong result: #2198 active torsion secondary minimum ${axis} ${secondary} ${factor}`, () => {
     const r = checkTorsion2025({ ...section, d: section.h - 0.039, dSecondary: section.b - 0.039,
       stirrupDiaMm: section.stirrupDia, fyt: section.fy, demand: demand(threshold * 1.01, secondary, axis),
       stirrup: { diameter: section.stirrupDia, legs: 2, spacing: spacingLimit * factor } });
@@ -43,6 +43,7 @@ for (const axis of ['My', 'Mz'] as const) for (const secondary of [0, 1]) for (c
       const result = provided(threshold * 1.01, secondary, axis, factor, edition);
       const rows = result.checks.filter(c => c.category.startsWith('Torsion ') && !c.category.startsWith('Torsion Al'));
       expect(rows).toHaveLength(2);
+      if (secondary === 0) expect(result.overallStatus === 'fail').toBe(factor > 1);
       for (const row of rows) {
         expect(row.ratio).toBeCloseTo(factor, 12);
         expect(row.status === 'fail').toBe(factor > 1);
@@ -50,7 +51,7 @@ for (const axis of ['My', 'Mz'] as const) for (const secondary of [0, 1]) for (c
     }
   });
 }
-for (const ratio of [0.999, 1, 1.001]) it.skip(`known wrong result: #2198 torsion minimum activation ${ratio}`, () => {
+for (const ratio of [0.999, 1, 1.001]) it(`known wrong result: #2198 torsion minimum activation ${ratio}`, () => {
   const r = checkTorsion2025({ ...section, d: 0.861, dSecondary: 0.261, stirrupDiaMm: 6, fyt: section.fy,
     demand: demand(threshold * ratio, 0, 'My'), stirrup: { diameter: 6, legs: 2, spacing: spacingLimit * 1.1 } });
   expect(r.neglect).toBe(ratio < 1);
@@ -58,7 +59,7 @@ for (const ratio of [0.999, 1, 1.001]) it.skip(`known wrong result: #2198 torsio
   const result = provided(threshold * ratio, 0, 'My', 1.1, '2025');
   expect(result.checks.some(c => c.category.startsWith('Torsion '))).toBe(ratio >= 1);
 });
-for (const width of [0.2, 0.3, 0.9]) it.skip(`known wrong result: #2198 each torsion minimum uses its own width ${width}`, () => {
+for (const width of [0.2, 0.3, 0.9]) it(`known wrong result: #2198 each torsion minimum uses its own width ${width}`, () => {
   const r = checkTorsion2025({ ...section, h: width, d: width - 0.039, dSecondary: 0.261, stirrupDiaMm: 6, fyt: section.fy,
     demand: demand(0, 0, 'My') });
   expect(r.transversePrimaryRequired).toBe(minimum(section.b));
@@ -68,8 +69,8 @@ for (const width of [0.2, 0.3, 0.9]) it.skip(`known wrong result: #2198 each tor
 
 afterEach(() => setCompactStationTransfer(true));
 for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  it.skip(`known wrong result: #2198 solved torsion minimum ${nonlinear} ${compact}`, () => {
-    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]);
+  it(`known wrong result: #2198 solved torsion minimum ${nonlinear} ${compact}`, () => {
+    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]]);
     const elements = new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1,
       releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]);
     const sections = new Map([[1, { id: 1, name: 'RC', ...section, a: section.b * section.h,
@@ -91,7 +92,7 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
         expect(row.status === 'fail').toBe(factor > 1);
       }
     }
-    const planar = { nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0.04, z: 0 }]]),
+    const planar = { nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 6, z: 0 }]]),
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
       sections, materials, supports: model.supports, loads: [{ type: 'nodal' as const, data: { nodeId: 2, fx: 0, fz: 1, my: 0 } }] };
     const plane = nonlinear ? solvePDelta(planar).results : solve(planar);
@@ -102,6 +103,7 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
     })) }] };
     const control = provided(0, 0, 'My', 1.001, '2025', planarStations);
     expect(control.checks.some(c => c.category.startsWith('Torsion'))).toBe(false);
+    expect(control.checks.filter(c => c.status === 'fail')).toEqual([]);
     expect(control.overallStatus).not.toBe('fail');
   });
 }

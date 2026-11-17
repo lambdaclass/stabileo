@@ -1,0 +1,39 @@
+{
+  "id": "torsion-directional-minimum",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Torsion minimum reinforcement uses each shear direction’s width",
+    "es": "La armadura mínima de torsión usa el ancho de cada dirección de corte",
+    "pt": "A armadura mínima de torção usa a largura de cada direção de cisalhamento",
+    "de": "Die Mindesttorsionsbewehrung nutzt die Breite jeder Querkraftrichtung",
+    "fr": "Le minimum d’armatures de torsion utilise la largeur de chaque direction de cisaillement",
+    "hu": "A minimális csavarási vasalás minden nyírási irány saját szélességét használja",
+    "tr": "Minimum burulma donatısı her kesme yönünün kendi genişliğini kullanır"
+  },
+  "explanation": {
+    "en": "Recompute provided concrete beam cages under active torsion. The combined shear and torsion minimum now uses the width of each shear direction. For a section deeper than it is wide, low secondary shear can require more secondary transverse reinforcement than previously reported. A previously passing torsion check can fail. Review both directional minima.",
+    "es": "Recalcule las jaulas provistas de vigas de hormigón con torsión activa. El mínimo combinado de corte y torsión usa ahora el ancho de cada dirección de corte. En secciones más altas que anchas, un corte secundario bajo puede requerir más armadura transversal secundaria que la informada antes. Una verificación de torsión antes aprobada puede fallar. Revise ambos mínimos direccionales.",
+    "pt": "Recalcule as gaiolas fornecidas de vigas de concreto com torção ativa. O mínimo combinado de cisalhamento e torção agora usa a largura de cada direção. Em seções mais altas que largas, um cisalhamento secundário baixo pode exigir mais armadura transversal secundária do que antes. Uma verificação de torção antes aprovada pode falhar. Revise os dois mínimos direcionais.",
+    "de": "Vorgegebene Betonbalkenbewehrung bei aktiver Torsion erneut prüfen. Die Mindestbewehrung für Querkraft und Torsion verwendet nun die Breite jeder Querkraftrichtung. Bei höheren als breiten Querschnitten kann geringe sekundäre Querkraft mehr sekundäre Querbewehrung erfordern. Eine bisher bestandene Torsionsprüfung kann fehlschlagen. Beide Richtungsminima prüfen.",
+    "fr": "Recalculez les cages fournies des poutres en béton soumises à une torsion active. Le minimum combiné de cisaillement et de torsion utilise désormais la largeur de chaque direction. Pour une section plus haute que large, un faible cisaillement secondaire peut exiger davantage d’armatures transversales secondaires. Une vérification de torsion auparavant acceptée peut échouer. Examinez les deux minima directionnels.",
+    "hu": "Számítsa újra az aktív csavarásnak kitett betongerendák megadott vasalását. A nyírás és csavarás együttes minimuma minden nyírási irány saját szélességét használja. A szélességüknél magasabb keresztmetszetek kis másodlagos nyírás mellett is több másodlagos keresztirányú vasalást igényelhetnek. Egy korábban megfelelő csavarási ellenőrzés megbukhat. Ellenőrizze mindkét irány minimumát.",
+    "tr": "Aktif burulma altındaki beton kirişlerin sağlanan donatı kafeslerini yeniden hesaplayın. Birleşik kesme ve burulma minimumu artık her kesme yönünün genişliğini kullanır. Yüksekliği genişliğinden fazla kesitlerde düşük ikincil kesme, daha fazla ikincil enine donatı gerektirebilir. Önceden geçen bir burulma denetimi başarısız olabilir. Her iki yönün minimumunu inceleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round20-torsion-minimum.md",
+    "heading": "Directional transverse minimum under active torsion (2026-11-17)"
+  }
+}
