@@ -7,10 +7,10 @@ import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
 import { beamSeismic, faceRule } from './seismic';
-import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
+import { beamContext, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
-import { check, governingRatio, GENEROUS_BELOW, isGenerous, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
+import { check, governingRatio, GENEROUS_BELOW, isGenerous, nextTie, ratioOf, tieFloorOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
 const EDITION = '2025' as const;
 const STOCK_LENGTH = 12;
@@ -225,7 +225,8 @@ function commonDia(groups: BarGroup[][], fallback: number): number {
   return [...counts].sort((p, q) => q[1] - p[1] || q[0] - p[0])[0]?.[0] ?? fallback;
 }
 
-export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted | undefined, fmt: Fmt, code: LineCode = CIRSOC_LINE): LineLayout {
+export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopted | undefined, fmt: Fmt, code: LineCode = CIRSOC_LINE): LineLayout {
+  const c = beamContext(given);
   const dev = (_c: BeamContext, dia: number, top: boolean, h: number, layer?: BarLayer) => code.development(c, dia, top, h, layer);
   const lapOf = (_c: BeamContext, dia: number, top: boolean, h: number, spliceClass?: 'A' | 'B', layer?: BarLayer) => code.lap(c, dia, top, h, spliceClass, layer);
   const sorted = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
@@ -706,9 +707,15 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
     const faceL = Math.min(line[k] ?? 0, s.L / 2), faceR = Math.max(faceL, s.L - (line[k + 1] ?? 0));
     const seisOf = (x: Stirrups) => beamSeismic(s.row.demand, { ...c, overstrength: c.seismic!.overstrength }, { ...sa, stirrups: x }, (sec) => sa.at![sec]!, fmt);
     const holds = (r: ReturnType<typeof seisOf>) => r.checks.every((v) => (v.label !== 'rcSheets.v.seisBeamVe' && v.label !== 'rcSheets.v.seisBeamHoops') || v.ok);
+    const floor = tieFloorOf(c);
     let end = st, seis = seisOf(end);
-    for (let guard = 0; !adopted && !holds(seis) && end.spacing > SEISMIC_FIRST + 1e-9 && guard < 16; guard++) {
-      end = { ...end, spacing: Math.max(SEISMIC_FIRST, roundDown(Math.min(end.spacing - 0.025, seis.sZone))) };
+    for (let guard = 0; !adopted && !holds(seis) && guard < 24; guard++) {
+      const closer = Math.max(floor, roundDown(Math.min(end.spacing - 0.025, seis.sZone)));
+      const thicker = nextTie(c, end.dia);
+      if (closer < end.spacing - 1e-9) end = { ...end, spacing: closer };
+      else if (thicker) end = { ...end, dia: thicker };
+      else if (!seis.veCapped && end.legs + 2 <= Math.max(2, sa.bottom[0]?.count ?? 0)) end = { ...end, legs: end.legs + 2 };
+      else break;
       seis = seisOf(end);
     }
     const zone = Math.min(2 * s.h, (faceR - faceL) / 2);

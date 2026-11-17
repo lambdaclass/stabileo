@@ -16,11 +16,39 @@ export const SHEET_CODES: Record<SheetCode, { name: string; country: string }> =
 
 export type RowStatus = 'ok' | 'warn' | 'fail' | 'none';
 
-/** The bars each family's rows choose from, mm: the slabs' meshes, and the range of the project's list beams and columns take their longitudinal bars from. */
-export const SLAB_MESH_DIAMETERS: readonly number[] = [6, 8, 10, 12, 16];
+/** The slabs' meshes when the project states none, mm, and the ranges of the project's lists each family takes its bars from. */
+export const SLAB_MESH_DIAMETERS: readonly number[] = [8, 10, 12, 16];
+export const SLAB_BAR_RANGE = { min: 6, max: 16 } as const;
 export const BEAM_BAR_RANGE = { min: 10, max: 25 } as const;
 export const COLUMN_BAR_RANGE = { min: 12, max: 32 } as const;
+export const FOOTING_BAR_RANGE = { min: 10, max: 25 } as const;
 export const inRange = (dia: number, r: { min: number; max: number }): boolean => dia >= r.min && dia <= r.max;
+
+/** The stirrups, hoops and ties a context may use when it states none, mm. */
+export const DEFAULT_TIE_DIAMETERS: readonly number[] = [6, 8, 10, 12];
+/** The closest stirrups, hoops and ties are proposed, m, when the project states none: room for the concrete to pass. */
+export const DEFAULT_MIN_TIE_SPACING = 0.075;
+
+export interface TransverseList {
+  /** The diameters the project allows for stirrups, hoops and ties, mm. */
+  tieDiameters?: readonly number[];
+  /** The closest spacing they are proposed at, m. */
+  minTieSpacing?: number;
+}
+
+export const tieDiametersOf = (c: TransverseList): number[] =>
+  [...(c.tieDiameters?.length ? c.tieDiameters : DEFAULT_TIE_DIAMETERS)].sort((p, q) => p - q);
+
+export const tieFloorOf = (c: TransverseList): number => c.minTieSpacing ?? DEFAULT_MIN_TIE_SPACING;
+
+/** The smallest allowed transverse diameter of at least `least` mm; null when the list holds none. */
+export const allowedTie = (c: TransverseList, least: number): number | null => tieDiametersOf(c).find((x) => x >= least - 1e-9) ?? null;
+
+/** The next allowed transverse diameter above `dia`, mm; null when there is none. */
+export const nextTie = (c: TransverseList, dia: number): number | null => tieDiametersOf(c).find((x) => x > dia + 1e-9) ?? null;
+
+/** The diameters of a list inside a family's range, ascending. */
+export const listIn = (list: readonly number[], r: { min: number; max: number }): number[] => list.filter((x) => inRange(x, r)).sort((p, q) => p - q);
 
 /** Diameters in mm, spacings in m. */
 export interface BarGroup { count: number; dia: number }
@@ -93,10 +121,12 @@ export interface RcSheetsData {
   adoptedSeismic?: true;
   /** The version of the proposals' logic they were adopted under (`RC_SHEETS_LOGIC`): under another, those not edited by hand are designed again. Absent: before any. */
   adoptedLogic?: number;
+  /** The design data the proposals were adopted under, as `proposalBasis` writes it: under others, those not edited by hand are designed again. Absent: before any. */
+  adoptedBasis?: string;
 }
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 5;
+export const RC_SHEETS_LOGIC = 6;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

@@ -1,6 +1,6 @@
 import { meshArea, meshLabel, proposeMesh } from '../bars';
 import type { Fmt } from '../format';
-import { SLAB_FACES, slabSpan, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
+import { SLAB_FACES, slabSpan, withBase, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup, isGenerous } from '../types';
 import { flexuralSteel, matOf, maxBarSpacing, minSteel, modifiedMaxDia, momentCapacity, shearCapacity, xuLimit, GAMMA_G, type Ec2Set, type Mat } from './basis';
 
@@ -74,6 +74,7 @@ export function makeSlabRow(set: Ec2Set) {
       proposed = next;
       ev = evalAll(proposed);
     }
+    if (c.base) { proposed = withBase(proposed, c.base); ev = evalAll(proposed); }
     const a = adopted ?? proposed;
     const faces = adopted ? evalAll(a) : ev;
 

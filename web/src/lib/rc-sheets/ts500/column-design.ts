@@ -3,6 +3,7 @@ import { columnArea, columnBars, type ColumnCase, type ColumnContext, type Colum
 import { ratioOf, type ColumnAdopted } from '../types';
 import { minEccentricity, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { utilisation, type RectSection } from './biaxial';
+import { heldBars } from '../column-layout';
 
 export interface AxisResult { k: number; lk: number; lambda: number; lim: number; slender: boolean; m1: number; m2: number; cm: number; nk: number; beta: number; emin: number }
 export interface Tuple { pu: number; mx: number; my: number }
@@ -79,14 +80,11 @@ export const tieMaxOf = (thinnest: number): number => Math.min(12 * thinnest / 1
 
 export const HELD_SPACING = 0.3;
 
-/** The face bars (1 … n between the corners) a crosstie holds so that held bars are at most 300 mm apart, centre to centre; null where two neighbours are already farther apart. */
+/** The face bars (1 … n between the corners) a crosstie holds so that held bars are at most 300 mm apart, centre to centre, symmetric about the face's middle; null where two neighbours are already farther apart. */
 export function heldFaceBars(side: number, n: number, cornerDia: number, c: ColumnContext, tie: number): number[] | null {
   const pitch = (side - 2 * coverToBar(c, tie, cornerDia)) / (n + 1);
   if (pitch > HELD_SPACING + 1e-9) return null;
-  const step = Math.max(1, Math.floor(HELD_SPACING / pitch + 1e-9));
-  const out: number[] = [];
-  for (let last = 0; (n + 1 - last) * pitch > HELD_SPACING + 1e-9;) { last += step; out.push(last); }
-  return out;
+  return heldBars(n, pitch, 0, { maxRun: HELD_SPACING });
 }
 
 export function crosstiesOf(d: ColumnDemand, a: ColumnAdopted, c: ColumnContext): { x: number; y: number; ok: boolean } {

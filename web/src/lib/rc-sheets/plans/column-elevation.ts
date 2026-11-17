@@ -8,9 +8,11 @@
  */
 import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
-import { columnLabel, tieLabel, type ColumnRow } from '../column-row';
+import { columnLabel, crosstiesText, tieLabel, type ColumnRow } from '../column-row';
 import { columnTieLayout, tieSegments, tiesIn } from '../column-ties';
-import { columnSection } from '../drawing';
+import { columnSection, type ColumnSectionOptions } from '../drawing';
+import { legLengths } from '../shape';
+import { rulesFor } from '../codes';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
@@ -61,8 +63,22 @@ export function columnScheduleRows(row: ColumnRow, all: readonly ColumnRow[], o:
   return scheduleOf(el, { code: o.code, scope: 'element' }).rows;
 }
 
+/** The marks the storey's bending schedule gives its hoop and, by length, its crossties, for the section to carry. */
+export function columnSectionMarks(row: ColumnRow, all: readonly ColumnRow[], o: Pick<ColumnPlanOptions, 'code' | 'endZones'>): NonNullable<ColumnSectionOptions['marks']> {
+  const rows = columnScheduleRows(row, all, o);
+  const hoop = rows.find((r) => r.kind === 'hoop')?.mark;
+  const ties = rows.filter((r) => r.kind === 'crossTie').map((r) => ({ mark: r.mark, length: legLengths(r.shape)[1] ?? 0 }));
+  return { ...(hoop ? { hoop } : {}), crossTie: (length) => ties.find((t) => Math.abs(t.length - length) < 2e-3)?.mark };
+}
+
+/** The section a storey's sheets and workspace draw: lo's crossties under chapter 18, the schedule's marks, the code's hooks. */
+export const columnSectionOf = (row: ColumnRow, all: readonly ColumnRow[], o: Pick<ColumnPlanOptions, 'code' | 'endZones'>) =>
+  columnSection(row.b, row.h, row.cover, row.adopted, { confined: !!row.confinement, bends: rulesFor(o.code).bends, marks: columnSectionMarks(row, all, o) });
+
 export function columnPlans(row: ColumnRow, all: readonly ColumnRow[], o: ColumnPlanOptions): DrawingInput[] {
-  const sec = sectionPrimitives(columnSection(row.b, row.h, row.cover, row.adopted), o, undefined, [columnLabel(row.adopted), tieLabel(row.adopted)], () => 'LONG');
+  const drawing = columnSectionOf(row, all, o);
+  const notes = [columnLabel(row.adopted), `${tieLabel(row.adopted)} · ${o.tr('rcSheets.col.crossties')} ${crosstiesText(row.checks.crossties)}`, ...(drawing.zone === 'lo' ? [o.tr('rcSheets.sec.loTies')] : [])];
+  const sec = sectionPrimitives(drawing, o, undefined, notes, () => 'LONG');
   return [
     framed(`${row.key}:elev`, o.tr('rcSheets.elev.title', { name: row.name }), columnElevationPrimitives(row, o), o.scale, o.group),
     framed(`${row.key}:sec`, `${row.name} · ${cm(o.fmt, row.b)}×${cm(o.fmt, row.h)}`, sec, o.scale, o.group),

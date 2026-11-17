@@ -5,7 +5,7 @@ import { tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
-import { check, ratioOf, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted, isGenerous } from './types';
+import { check, ratioOf, type TransverseList, type CheckLine, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, type WallAdopted, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 
@@ -25,7 +25,7 @@ export interface WallDemand {
   combos: WallComboForces[];
 }
 
-export interface WallContext { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic }
+export interface WallContext extends TransverseList { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic }
 
 export interface WallRow {
   family: 'wall';
@@ -51,6 +51,8 @@ export interface WallRow {
   vLaps?: Array<{ dia: number; lap: number }>;
   /** Chapter 18, where the sheets apply it. */
   seismic?: WallSeismic;
+  /** The stirrups and ties the project allows, mm, which its boundary and cross ties are drawn with. */
+  tieDiameters?: readonly number[];
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -104,7 +106,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   };
   let iterations = 0;
   let e = evaluate(d, c, a);
-  const boundaries = [12, 16, 20, 25].flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
+  const boundaries = boundaryBars(c.diameters).flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
     .sort((p, q) => p.count * barArea(p.diameter) - q.count * barArea(q.diameter));
   while (iterations < 12) {
     const allOk = e.pm.every(ok1) && e.out.every(ok1) && e.shear.every(ok1) && e.rhoL >= e.rhoLMin - 1e-9 && e.rhoT >= e.rhoTMin - 1e-9;
@@ -116,8 +118,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
       if (next) a = { ...a, boundary: next };
       else a = { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
     }
-    if (!e.out.every(ok1) || e.rhoL < e.rhoLMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextDia(a.vertical.diameter), spacing: a.vertical.spacing } };
-    if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextDia(a.horizontal.diameter), spacing: a.horizontal.spacing } };
+    if (!e.out.every(ok1) || e.rhoL < e.rhoLMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
+    if (!e.shear.every(ok1) || e.rhoT < e.rhoTMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, a);
   }
   const proposed = a;
@@ -200,7 +202,12 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     hLap: tensionLap(c.mat, ad.horizontal.diameter),
     vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: tensionLap(c.mat, dia) })),
     ...(seis ? { seismic: seis } : {}),
+    ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
   };
 }
 
-const nextDia = (d: number) => [8, 10, 12, 16, 20, 25].find((x) => x > d) ?? d;
+/** The bars a wall's boundary takes from the project's list, mm: Ø12 to Ø25, or the whole list when none falls there. */
+export const boundaryBars = (list: readonly number[]): number[] => { const own = list.filter((x) => x >= 12 && x <= 25); return own.length ? own : [...list]; };
+
+/** The next bar of the project's list above `d` a wall's web steps up to, mm; `d` when the list has none. */
+export const nextWallBar = (list: readonly number[], d: number): number => [...list].sort((p, q) => p - q).find((x) => x > d && x >= 8 && x <= 25) ?? d;

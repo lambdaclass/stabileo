@@ -1,8 +1,9 @@
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
-import { barArea, faceLayout, groupsArea, proposeBeamFace, roundDown } from '../bars';
+import { barArea, faceLayout, groupsArea, moreStirrup, proposeBeamFace, proposeStirrups, roundDown } from '../bars';
+import { beamBarWhere, hangerBar } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type FlexureCheck, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
-import { type BarGroup, type BeamAdopted, type Signed, type Stirrups, isGenerous } from '../types';
+import { type BarGroup, type BeamAdopted, type Signed, isGenerous } from '../types';
 import { GAMMA_G, flexuralSteel, matOf, minSteel, shearCapacity, type Ec2Set, type FlexReq, type Mat } from './basis';
 import { barsAt, beamCapacity, geomOf, hoopPerimeter, tensionWidth } from './beam-section';
 import { crackFace, interactionStrut, skinBars, torsionGeom, torsionMax, torsionSteel, type CrackRead, type Skin, type TorsionGeom } from './beam-checks';
@@ -178,31 +179,20 @@ function improve(a: BeamAdopted, e: BeamEval, req: BeamReq, d: BeamDemand, c: Be
   if (!e.ok.legs) next.stirrups.legs = req.legs;
   if (!e.ok.spacing) next.stirrups.spacing = roundDown(req.sMax);
   if (!e.shearOk || !e.ok.stirrups || !e.ok.linkMin) {
-    if (next.stirrups.spacing > 0.075 + 1e-9) next.stirrups.spacing = roundDown(next.stirrups.spacing - 0.025);
-    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2, spacing: Math.min(0.15, roundDown(req.sMax)) };
+    const more = moreStirrup(next.stirrups, c, Math.min(0.15, roundDown(req.sMax)));
+    if (more) next.stirrups = more;
     else next.stirrups.legs += 2;
   }
   if (!e.ok.al || !e.ok.alSpacing) {
     const ph = hoopPerimeter(d, c, sd);
     const al = next.torsionLong ?? { count: 4, dia: 10 };
     const count = Math.max(4, al.count, 2 * Math.ceil(ph / 0.35 / 2));
-    const dia = !e.ok.al ? [10, 12, 16, 20, 25].find((x) => count * barArea(x) >= req.alReq - 1e-6) ?? 25 : al.dia;
-    next.torsionLong = { count: dia === 25 && count * barArea(25) < req.alReq ? count + 2 : count, dia };
+    const dia = !e.ok.al ? beamBarWhere(c, (x) => count * barArea(x) >= req.alReq - 1e-6) : al.dia;
+    next.torsionLong = { count: count * barArea(dia) < req.alReq - 1e-6 ? count + 2 : count, dia };
   }
   return next;
 }
 
-export function proposeStirrups(perLeg: number, legs: number, sMax: number, prefer: number): Stirrups {
-  const list = [prefer, ...[6, 8, 10, 12].filter((x) => x > prefer)];
-  for (const floor of [0.1, 0.075]) {
-    for (const dia of list) {
-      const s = roundDown(Math.min(sMax, perLeg > 0 ? barArea(dia) / perLeg : sMax));
-      if (s >= floor - 1e-9) return { dia, legs, spacing: s };
-    }
-  }
-  const dia = list[list.length - 1]!;
-  return { dia, legs, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(perLeg, 1e-9)))) };
-}
 
 export function makeBeamRow(set: Ec2Set) {
   return function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
@@ -211,8 +201,8 @@ export function makeBeamRow(set: Ec2Set) {
     const ph = hoopPerimeter(d, c, c.stirrupDia);
     const initial: BeamAdopted = {
       bottom: proposeBeamFace(req.bottom, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-      top: req.top > 0 ? proposeBeamFace(req.top, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: c.diameters.includes(10) ? 10 : 12 }],
-      stirrups: proposeStirrups(req.perLeg, req.legs, roundDown(req.sMax), c.stirrupDia),
+      top: req.top > 0 ? proposeBeamFace(req.top, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+      stirrups: proposeStirrups(req.perLeg, req.legs, roundDown(req.sMax), c),
       ...(req.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.35 / 2)), dia: 10 } }),
     };
     let proposed = initial, iterations = 0;

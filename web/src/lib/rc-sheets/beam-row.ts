@@ -7,10 +7,10 @@ import { ConcurrentDemand } from '../engine/concurrent-demand';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { proposeSkin } from '../codes/cirsoc201/skin';
 import { mainBarCoverMm } from '../codes/cirsoc201/cover';
-import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
+import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
-import { beamSeismic, faceRule, type Seismic } from './seismic';
-import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
+import { beamSeismic, faceRule, seismicBeamDiameters, type Seismic } from './seismic';
+import { BEAM_BAR_RANGE, check, inRange, listIn, nextTie, ratioOf, tieFloorOf, type TransverseList, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
@@ -66,7 +66,7 @@ export interface BeamDemand {
 
 export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }
 
-export interface BeamContext {
+export interface BeamContext extends TransverseList {
   mat: Materials;
   /** m, clear cover to the stirrup. */
   cover: number;
@@ -252,8 +252,8 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, p
   if (!e.crackTop.ok) next.top = finerFace(next.top, d, c, sd);
   else if (!e.fitTop) next.top = proposeBeamFace(groupsArea(next.top), d.b, d.h, c.cover, sd, LONG(c));
   if ((e.shear.status === 'fail' && !shearCapped(e.shear.Vs, d.b, e.shear.d, c.mat.fc)) || !e.ok.stirrups || !e.ok.transverseMin) {
-    if (next.stirrups.spacing > 0.075 + 1e-9) next.stirrups.spacing = roundDown(next.stirrups.spacing - 0.025);
-    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2, spacing: 0.15 };
+    const more = moreStirrup(next.stirrups, c, 0.15);
+    if (more) next.stirrups = more;
     else if (moreLegsHold(next)) next.stirrups.legs += 2;
   }
   if (!e.ok.al || !e.ok.alSpacing || !e.ok.alDia) {
@@ -261,7 +261,7 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, p
     const count = Math.max(4, al.count, 2 * Math.ceil(ph / 0.3 / 2));
     let dia = Math.max(al.dia, e.alDiaMin);
     if (!e.ok.al && count === al.count && dia <= al.dia) dia = al.dia + 1;
-    next.torsionLong = { count, dia: [10, 12, 16, 20, 25].find((x) => x >= dia - 1e-9) ?? 25 };
+    next.torsionLong = { count, dia: torsionBar(c, dia) };
   }
   return next;
 }
@@ -270,9 +270,10 @@ function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSei
   const next: BeamAdopted = JSON.parse(JSON.stringify(a));
   const bad = (label: string) => s.checks.some((k) => k.label === label && !k.ok);
   if (bad('rcSheets.v.seisBeamHoops') || bad('rcSheets.v.seisBeamVe')) {
-    const target = roundDown(Math.max(0.05, Math.min(next.stirrups.spacing - 0.025, s.sZone)));
-    if (target >= 0.05 && target < next.stirrups.spacing - 1e-9) next.stirrups.spacing = target;
-    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2 };
+    const target = Math.max(tieFloorOf(c), roundDown(Math.min(next.stirrups.spacing - 0.025, s.sZone)));
+    const thicker = nextTie(c, next.stirrups.dia);
+    if (target < next.stirrups.spacing - 1e-9) next.stirrups.spacing = target;
+    else if (thicker) next.stirrups = { ...next.stirrups, dia: thicker };
     else if (!s.veCapped && moreLegsHold(next)) next.stirrups.legs += 2;
   }
   if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) {
@@ -283,7 +284,11 @@ function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSei
   return next;
 }
 
-export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
+/** The context a beam is designed in: under chapter 18 only bars whose 6·db leaves room for hoops at the project's floor (`seismicBeamDiameters`). */
+export const beamContext = (c: BeamContext): BeamContext => (c.seismic ? { ...c, diameters: seismicBeamDiameters(c.diameters, tieFloorOf(c)) } : c);
+
+export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
+  const c = beamContext(given);
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
 
@@ -322,9 +327,9 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: c.diameters.includes(10) ? 10 : 12 }],
-    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), [6, 8, 10, 12], c.stirrupDia),
-    ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: 10 } }),
+    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c),
+    ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: torsionBar(c, 10) } }),
   };
   const seisOf = (x: BeamAdopted) => (c.seismic ? beamSeismic(d, { ...c, overstrength: c.seismic.overstrength }, x, (sec) => barsAt(x, sec), fmt) : null);
   let proposed = initial, iterations = 0;
@@ -431,17 +436,17 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
   return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
 }
 
-function proposeStirrups(perLeg: number, legs: number, sMax: number, dias: readonly number[], prefer: number): Stirrups {
-  const list = [prefer, ...dias.filter((x) => x > prefer && x <= 12)];
-  for (const floor of [0.1, 0.075]) {
-    for (const dia of list) {
-      const s = roundDown(Math.min(sMax, perLeg > 0 ? barArea(dia) / perLeg : sMax));
-      if (s >= floor - 1e-9) return { dia, legs, spacing: s };
-    }
-  }
-  const dia = list[list.length - 1]!;
-  return { dia, legs, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(perLeg, 1e-9)))) };
+/** The thinnest of the beams' bars in the project's list that `ok` takes, else the thickest of them, mm. */
+export function beamBarWhere(c: Pick<BeamContext, 'diameters'>, ok: (dia: number) => boolean): number {
+  const own = listIn(c.diameters, BEAM_BAR_RANGE);
+  const pool = own.length ? own : [...c.diameters].sort((p, q) => p - q);
+  return pool.find(ok) ?? pool[pool.length - 1] ?? 25;
 }
+
+export const torsionBar = (c: Pick<BeamContext, 'diameters'>, least: number): number => beamBarWhere(c, (x) => x >= least - 1e-9);
+
+/** The two top bars a beam with no hogging moment carries its stirrups on: the thinnest of the list from Ø10. */
+export const hangerBar = (c: Pick<BeamContext, 'diameters'>): number => torsionBar(c, 10);
 
 function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
   const src = (s: Signed) => (s.source ? ` (${s.source.combo})` : '');

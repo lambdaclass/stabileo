@@ -2,10 +2,19 @@ import { beamCapacityShear, columnCapacityShear, columnConfinement, hoopSpacingF
 import { faceLayout, groupsArea } from './bars';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import type { Fmt } from './format';
-import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ColumnAdopted, type Step } from './types';
+import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ColumnAdopted, type Step } from './types';
 
 /** Chapter 18 as the project sets it: λo, the probable over nominal strength of the bars. */
 export interface Seismic { overstrength: number }
+
+/**
+ * The bars a special moment frame's beams choose from: those whose 6·db (§18.6.4.4) leaves room for
+ * hoops at the closest spacing proposed, `floor` m; the whole list when none does.
+ */
+export function seismicBeamDiameters(list: readonly number[], floor: number): number[] {
+  const own = list.filter((d) => inRange(d, BEAM_BAR_RANGE) && 6 * d / 1000 >= floor - 1e-9);
+  return own.length ? [...list.filter((d) => !inRange(d, BEAM_BAR_RANGE)), ...own].sort((p, q) => p - q) : [...list];
+}
 
 interface BeamSide { top: BarGroup[]; bottom: BarGroup[] }
 
@@ -52,7 +61,7 @@ export function beamSeismic(
   });
   const sVe = hoopSpacingFor(cap.ve, cap.vcZero, d.b, dEff, c.mat.fc, c.mat.fy, sd, a.stirrups.legs);
   const veCapped = cap.ve / 0.75 - (cap.vcZero ? 0 : 0.17 * shearSqrtFc(c.mat.fc) * d.b * dEff * 1000) > 0.66 * Math.sqrt(c.mat.fc) * d.b * dEff * 1000;
-  const sZone = Math.min(cap.hoops.spacing, sVe ?? 0.05);
+  const sZone = Math.min(cap.hoops.spacing, sVe ?? cap.hoops.spacing);
   const { maxEnd, minAny, quarterOk, halfOk } = faceRule(S, M, E);
   const rho = Math.max(...[S, M, E].flatMap((x) => [area(x.top), area(x.bottom)])) * 1e-4 / (d.b * dEff);
   return {

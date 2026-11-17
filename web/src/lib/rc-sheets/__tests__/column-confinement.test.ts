@@ -34,7 +34,8 @@ describe('chapter 18 confinement of a column', () => {
     const r = columnRow(upper, ctx, undefined, f, { pattern: { nx: 3, ny: 4, maxDia: 12 } });
     const ct = r.checks.crossties, more = (ct.confined!.x - ct.x) + (ct.confined!.y - ct.y);
     expect(more).toBeGreaterThan(0);
-    expect(columnSection(r.b, r.h, r.cover, r.adopted).ties).toHaveLength(ct.confined!.x + ct.confined!.y);
+    expect(columnSection(r.b, r.h, r.cover, r.adopted, { confined: true }).crossties).toHaveLength(ct.confined!.x + ct.confined!.y);
+    expect(columnSection(r.b, r.h, r.cover, r.adopted).crossties).toHaveLength(ct.x + ct.y);
     const layout = columnTieLayout(r, 'cirsoc201-2025');
     const n = layout.ties.length, nc = confinedTieCount(layout);
     expect(nc).toBeGreaterThan(0);

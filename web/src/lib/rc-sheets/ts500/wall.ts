@@ -1,7 +1,7 @@
 import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
-import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
+import { boundaryBars, nextWallBar, wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type Step, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapOf, toConfirm as U, ts500Mat, vcrOf, vmaxOf, type Ts500Mat } from './basis';
 import { axialLimits, capacityAt, type RectSection } from './biaxial';
@@ -53,7 +53,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   let a: WallAdopted = { vertical: meshFor(c.barDia, RHO_MIN), horizontal: meshFor(c.barDia, Math.max(RHO_MIN, probe.rhoTShear)), curtains };
   let iterations = 0;
   let e = evaluate(d, c, t, a);
-  const boundaries = [12, 16, 20, 25].flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
+  const boundaries = boundaryBars(c.diameters).flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
     .sort((p, q) => p.count * barArea(p.diameter) - q.count * barArea(q.diameter));
   while (iterations < 12) {
     if (e.pm.every(ok1) && e.out.every(ok1) && e.shear.every(ok1) && e.rhoL >= RHO_MIN - 1e-9 && e.rhoT >= RHO_MIN - 1e-9) break;
@@ -63,8 +63,8 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
       const next = boundaries.find((b) => b.count * barArea(b.diameter) > cur + 1e-9);
       a = next ? { ...a, boundary: next } : { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
     }
-    if (!e.out.every(ok1) || e.rhoL < RHO_MIN - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextDia(a.vertical.diameter), spacing: a.vertical.spacing } };
-    if (!e.shear.every(ok1) || e.rhoT < RHO_MIN - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextDia(a.horizontal.diameter), spacing: a.horizontal.spacing } };
+    if (!e.out.every(ok1) || e.rhoL < RHO_MIN - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
+    if (!e.shear.every(ok1) || e.rhoT < RHO_MIN - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
     e = evaluate(d, c, t, a);
   }
   const proposed = a;
@@ -143,7 +143,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     cover: c.cover, hLap: lapOf(t, ad.horizontal.diameter, false, 1),
     vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapOf(t, dia, false, 1) })),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
+    ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
   };
 }
 
-const nextDia = (d: number) => [8, 10, 12, 16, 20, 25].find((x) => x > d) ?? d;

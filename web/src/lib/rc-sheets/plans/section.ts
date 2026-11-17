@@ -13,8 +13,17 @@ const K = 1000;
 export function sectionPrimitives(d: SectionDrawing, c: PlanCtx, marks?: { top: string[]; bottom: string[] }, notes: readonly string[] = [], barLayer: (y: number) => ArmLayer = (y) => (y > d.h / 2 ? 'SUP' : 'INF')): Primitive[] {
   const s = c.scale, b = d.b * K, h = d.h * K, inset = d.cover * K + d.tieDia / 2;
   const est = arm('EST', d.tieDia);
-  const ps: Primitive[] = [rect(HORM, 0, 0, b, h), rect(est, inset, inset, b - inset, h - inset, d.tieDia)];
+  const poly = (pts: ReadonlyArray<[number, number]>): Primitive => ({ kind: 'polyline', layer: est, points: pts.map(([x, y]) => pt(x * K, y * K)), dia: d.tieDia });
+  const ps: Primitive[] = [rect(HORM, 0, 0, b, h), d.hoop ? poly(d.hoop.pts) : rect(est, inset, inset, b - inset, h - inset, d.tieDia)];
   for (const t of d.ties) ps.push(seg(est, pt(t.x1 * K, t.y1 * K), pt(t.x2 * K, t.y2 * K), d.tieDia));
+  for (const t of d.crossties ?? []) {
+    ps.push(poly(t.pts));
+    if (t.mark) { const [mx, my] = t.across === 'h' ? [t.pts[1]![0], (t.pts[1]![1] + t.pts[2]![1]) / 2] : [(t.pts[1]![0] + t.pts[2]![0]) / 2, t.pts[1]![1]]; ps.push(label(pt(mx * K + 1.2 * s, my * K + 1.2 * s), t.mark, 2.2)); }
+  }
+  if (d.hoop) {
+    ps.push(dim(pt(inset, h - inset), pt(b - inset, h - inset), 5 + inset / s, cm(c.fmt, d.hoop.w)), dim(pt(b - inset, inset), pt(b - inset, h - inset), -(5 + inset / s), cm(c.fmt, d.hoop.h)));
+    if (d.hoop.mark) ps.push(label(pt(0, h + 9 * s), `${d.hoop.mark} Ø${d.tieDia} ${cm(c.fmt, d.hoop.w)}×${cm(c.fmt, d.hoop.h)}`, 2.5));
+  }
   for (const bar of d.bars) ps.push({ kind: 'circle', layer: arm(barLayer(bar.y), bar.dia), c: pt(bar.x * K, bar.y * K), r: bar.dia / 2, fill: true, dia: bar.dia });
   ps.push(dim(pt(0, 0), pt(b, 0), -5, cm(c.fmt, d.b)), dim(pt(0, 0), pt(0, h), 5, cm(c.fmt, d.h)));
   if (marks) {

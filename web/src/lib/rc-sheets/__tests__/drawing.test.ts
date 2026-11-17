@@ -15,11 +15,30 @@ describe('section drawings', () => {
     expect(d.ties).toHaveLength(2);
   });
 
-  it('draws a column\'s bars on its faces and the crossties §25.7.2.3 asks for', () => {
+  it('draws a column\'s bars on its faces and the crossties §25.7.2.3 asks for, one per pair of facing bars held', () => {
     const d = columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieDia: 6, tieSpacing: 0.15 });
     expect(d.bars).toHaveLength(12);
     expect(d.bars.every((b) => b.x > 0 && b.x < 0.5 && b.y > 0 && b.y < 0.5)).toBe(true);
-    expect(d.ties).toHaveLength(4);
-    expect(columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieDia: 10, tieSpacing: 0.15 }).ties).toHaveLength(0);
+    expect(d.crossties).toHaveLength(4);
+    expect(columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 3, dx: 16, ny: 3, dy: 16, tieDia: 10, tieSpacing: 0.15 }).crossties).toHaveLength(2);
+  });
+
+  it('draws the hoop closed by two 135° hooks into the core at one corner, and each crosstie between the bars it engages with a 135° and a 90° hook alternating', () => {
+    const d = columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 5, dx: 16, ny: 5, dy: 16, tieDia: 8, tieSpacing: 0.1 });
+    const hoop = d.hoop!;
+    expect(hoop.pts).toHaveLength(7);
+    const inCore = ([x, y]: [number, number]) => x > 0.03 + 0.008 && x < 0.5 - 0.038 && y > 0.038 && y < 0.5 - 0.038;
+    expect(inCore(hoop.pts[0]!) && inCore(hoop.pts[6]!)).toBe(true);
+    expect(hoop.w).toBeCloseTo(0.5 - 0.06 - 0.008, 9);
+    const across = d.crossties!.filter((t) => t.across === 'h');
+    expect(across.map((t) => t.hooks)).toEqual([[135, 90], [90, 135]]);
+    const xs = across.map((t) => t.pts[1]![0]);
+    expect(xs[0]! + xs[1]!).toBeCloseTo(0.5, 9);
+    for (const t of across) {
+      const engaged = d.bars.filter((b) => Math.abs(b.x - t.pts[1]![0]) < 1e-9);
+      expect(engaged.map((b) => b.y).sort()).toHaveLength(2);
+      expect(t.pts[1]![1]).toBeLessThan(Math.min(...engaged.map((b) => b.y)));
+      expect(t.pts[2]![1]).toBeGreaterThan(Math.max(...engaged.map((b) => b.y)));
+    }
   });
 });

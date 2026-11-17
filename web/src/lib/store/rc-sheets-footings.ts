@@ -13,12 +13,15 @@ import type { SheetRules } from '../rc-sheets/codes';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { DemandSet } from '../rc-sheets/demands';
 import type { Fmt } from '../rc-sheets/format';
-import type { Adopted } from '../rc-sheets/types';
+import { FOOTING_BAR_RANGE, listIn, type Adopted } from '../rc-sheets/types';
 import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingRow, FootingSizing, FootingSoil } from '../rc-sheets/footing-types';
 
 const DEFAULT_FC = 25;
 export const FOOTING_DIAMETERS: readonly number[] = [10, 12, 16, 20, 25];
+
+/** The bars a footing's mats choose from: the project's longitudinal list within the footings' range, or the whole list when none falls in it. */
+export const footingDiameters = (list: readonly number[]): number[] => { const own = listIn(list, FOOTING_BAR_RANGE); return own.length ? own : [...list].sort((p, q) => p - q); };
 
 const fcOfMaterial = (id: number | null | undefined): number | undefined =>
   id === null || id === undefined ? undefined : concreteFc(modelStore.materials.get(id) as never);
@@ -74,7 +77,7 @@ export function footingContext(d: FootingDemand, sizing: FootingSizing, columns:
   const a = col?.adopted;
   return {
     fc: fcOfMaterial(f?.concreteMaterialId) ?? colFc, fy: dd.rebarFy, cover: d.footing?.cover ?? dd.covers.footing, sizing,
-    diameters: FOOTING_DIAMETERS, preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
+    diameters: footingDiameters(dd.longDiametersMm), preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
     ...(a && col ? { columnBars: {
       count: 4 + 2 * a.nx + 2 * a.ny + (a.inner ? 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny) : 0),
       dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: !col.req.compressionDominated,

@@ -15,7 +15,7 @@ import { wallVerticalBars } from './wall-member';
 import { barArea } from './bars';
 import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';
-import type { SheetCode } from './types';
+import { allowedTie, tieDiametersOf, type SheetCode } from './types';
 
 export interface WallDetailNote { key: string; clause: string; params?: Record<string, string | number> }
 
@@ -73,10 +73,10 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
     const big = Math.max(...inZone.map((v) => v.dia)), small = Math.min(...inZone.map((v) => v.dia));
     let ties: NonNullable<WallDetail['boundary']>['ties'] = null;
     if (fam === 'aci' && rho > 0.01) {
-      const dia = tieDiaFor(big);
+      const dia = allowedTie(row, tieDiaFor(big)) ?? tieDiametersOf(row).at(-1)!;
       ties = { dia, spacing: floorTo(tieSpacingLimit(small, dia, t), 0.025), clause: '§11.7.4.1, §25.7.2.1' };
     } else if (fam === 'ec2' && rho > 0.02) {
-      ties = { dia: Math.max(6, Math.ceil(big / 4)), spacing: floorTo(Math.min(20 * small / 1000, t, 0.4), 0.025), clause: '9.6.4(1), 9.5.3(3)' };
+      ties = { dia: allowedTie(row, Math.max(6, big / 4)) ?? tieDiametersOf(row).at(-1)!, spacing: floorTo(Math.min(20 * small / 1000, t, 0.4), 0.025), clause: '9.6.4(1), 9.5.3(3)' };
     }
     boundary = { length: zone, rho, ties };
     notes.push(ties
@@ -91,10 +91,10 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const rhoV = curtains * barArea(a.vertical.diameter) * 1e-4 / (a.vertical.spacing * t);
   if (fam === 'ec2' && curtains === 2) {
     const along = floorTo(0.5, a.vertical.spacing);
-    crossTies = { along, up: floorTo(0.25 / along, a.horizontal.spacing), dia: 6, clause: '9.6.4(2)' };
+    crossTies = { along, up: floorTo(0.25 / along, a.horizontal.spacing), dia: allowedTie(row, 6) ?? tieDiametersOf(row).at(-1)!, clause: '9.6.4(2)' };
     notes.push({ key: 'rcSheets.wallFig.n.links', clause: '9.6.4(2)', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2 && rhoV > 0.01) {
-    const dia = tieDiaFor(a.vertical.diameter);
+    const dia = allowedTie(row, tieDiaFor(a.vertical.diameter)) ?? tieDiametersOf(row).at(-1)!;
     crossTies = { along: 2 * a.vertical.spacing, up: floorTo(tieSpacingLimit(a.vertical.diameter, dia, t), a.horizontal.spacing), dia, clause: '§11.7.4.1' };
     notes.push({ key: 'rcSheets.wallFig.n.ties', clause: '§11.7.4.1', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2) {

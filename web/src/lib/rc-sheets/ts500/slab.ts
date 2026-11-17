@@ -1,6 +1,6 @@
 import { meshArea, meshLabel, proposeMesh } from '../bars';
 import type { Fmt } from '../format';
-import { SLAB_FACES, slabSpan, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
+import { SLAB_FACES, slabSpan, withBase, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup, isGenerous } from '../types';
 import { toConfirm as U, ts500Mat, vcrOf, type Ts500Mat } from './basis';
 import { designFlexure, stripCapacity } from './section';
@@ -48,7 +48,7 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
   const shortfall = Math.max(0, sumMin - pre.bottomX.asReq - pre.bottomY.asReq);
   const target = (f: SlabFace) => pre[f].asReq + (f === shortBottom ? shortfall : 0);
   const meshFor = (f: SlabFace): MeshBars => (target(f) > 0 ? proposeMesh(target(f), pre[f].sMax, c.diameters) : { dia: 0, spacing: 0 });
-  const proposed: SlabAdopted = { bottomX: meshFor('bottomX'), bottomY: meshFor('bottomY'), topX: meshFor('topX'), topY: meshFor('topY') };
+  const proposed: SlabAdopted = withBase({ bottomX: meshFor('bottomX'), bottomY: meshFor('bottomY'), topX: meshFor('topX'), topY: meshFor('topY') }, c.base);
   const a = adopted ?? proposed;
 
   const faces = {} as Record<SlabFace, SlabFaceResult>;

@@ -281,11 +281,16 @@ describe('column row', () => {
     expect(columnSplice(ctx, 16, true).length).toBeGreaterThan(columnSplice(ctx, 16, false).length);
   });
 
-  it('braces every bar more than min(15·dbe; 150 mm) clear from a braced one', () => {
+  it('holds every corner and alternate bar, and none more than min(15·dbe; 150 mm) clear from a held one (§25.7.2.3), symmetrically on each face', async () => {
+    const { bracedFaceBars } = await import('../column-row');
     const wide = { ...base, b: 0.5, h: 0.5 };
     const layout = { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieSpacing: 0.15 };
     expect(columnRow(wide, ctx, { ...layout, tieDia: 6 }, f).checks.crossties.x).toBe(2);
-    expect(columnRow(wide, ctx, { ...layout, tieDia: 10 }, f).checks.crossties.x).toBe(0);
+    expect(columnRow(wide, ctx, { ...layout, tieDia: 10 }, f).checks.crossties.x).toBe(2);
+    expect(columnRow(wide, ctx, { ...layout, nx: 3, ny: 3, tieDia: 10 }, f).checks.crossties.x).toBe(1);
+    expect(bracedFaceBars(0.5, 3, 16, 16, { cover: 0.03 }, 10)).toEqual([2]);
+    expect(bracedFaceBars(0.5, 5, 16, 16, { cover: 0.03 }, 10)).toEqual([2, 4]);
+    expect(bracedFaceBars(0.5, 4, 16, 16, { cover: 0.03 }, 10)).toEqual([2, 3]);
   });
 
   it('refuses the approximate method past k·lu/r = 100', () => {

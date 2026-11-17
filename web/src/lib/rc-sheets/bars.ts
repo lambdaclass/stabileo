@@ -3,7 +3,7 @@ import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
 import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
 import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
 import type { BendRules } from './shape';
-import type { BarGroup, MeshBars, Stirrups } from './types';
+import { SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
 
 export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
 
@@ -112,8 +112,33 @@ const nearest = (list: readonly number[], d: number): number =>
 
 export const roundDown = (s: number, step = 0.025): number => Math.max(step, Math.floor(s / step + 1e-9) * step);
 
+/**
+ * Stirrups for `perLeg` cm²/m a leg: the project's default stirrup, or the next allowed one, as wide
+ * as `sMax` and the steel let them; 10 cm or more when a diameter allows it, never closer than the
+ * project's floor (`TransverseList`). Where none holds at the floor, the thickest at it.
+ */
+export function proposeStirrups(perLeg: number, legs: number, sMax: number, c: TransverseList & { stirrupDia: number }): Stirrups {
+  const list = tieDiametersOf(c), floor = tieFloorOf(c);
+  const prefer = allowedTie(c, c.stirrupDia) ?? list[list.length - 1]!;
+  const order = [prefer, ...list.filter((x) => x > prefer)];
+  const at = (dia: number) => roundDown(Math.min(sMax, perLeg > 0 ? barArea(dia) / perLeg : sMax));
+  for (const least of [Math.max(0.1, floor), floor]) {
+    for (const dia of order) if (at(dia) >= least - 1e-9) return { dia, legs, spacing: at(dia) };
+  }
+  const dia = order[order.length - 1]!;
+  return { dia, legs, spacing: Math.max(floor, at(dia)) };
+}
+
+/** One step more of stirrup steel within the project's lists: closer down to the floor, then the next allowed diameter at `reset`; null when neither is left. */
+export function moreStirrup(st: Stirrups, c: TransverseList, reset: number): Stirrups | null {
+  const floor = tieFloorOf(c);
+  if (st.spacing > floor + 1e-9) return { ...st, spacing: Math.max(floor, roundDown(st.spacing - 0.025)) };
+  const next = nextTie(c, st.dia);
+  return next ? { ...st, dia: next, spacing: Math.max(floor, reset) } : null;
+}
+
 export function proposeMesh(AsCm2: number, sMax: number, diameters: readonly number[]): MeshBars {
-  const ds = diameters.filter((d) => d >= 8 && d <= 16);
+  const ds = diameters.filter((d) => inRange(d, SLAB_BAR_RANGE));
   for (const floor of [0.1, 0.075]) {
     for (const dia of ds.length ? ds : [8, 10, 12]) {
       const s = roundDown(Math.min(sMax, barArea(dia) / Math.max(AsCm2, 1e-9)));

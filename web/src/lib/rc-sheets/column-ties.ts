@@ -41,9 +41,9 @@ const END_MIN_SPACING = 0.05;
 const END_SPACING_GRID = 0.025;
 
 /** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
-export function columnEndZone(b: number, h: number, clear: number, spacing: number): { endLength: number; endSpacing: number } {
+export function columnEndZone(b: number, h: number, clear: number, spacing: number, floor = END_MIN_SPACING): { endLength: number; endSpacing: number } {
   const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
-  const endSpacing = Math.max(END_MIN_SPACING, Math.floor((spacing / 2) / END_SPACING_GRID + 1e-9) * END_SPACING_GRID);
+  const endSpacing = Math.min(spacing, Math.max(floor, Math.floor((spacing / 2) / END_SPACING_GRID + 1e-9) * END_SPACING_GRID));
   return { endLength, endSpacing: +endSpacing.toFixed(4) };
 }
 
@@ -75,7 +75,7 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   };
   /** The project's denser ends over a code that asks for one spacing. */
   const projectEnds = (clause: string) => {
-    const z = columnEndZone(row.b, row.h, clear, s);
+    const z = columnEndZone(row.b, row.h, clear, s, row.tieFloor);
     const lo = Math.min(z.endLength, clear / 2);
     zones.push({ kind: 'end', from: 0, to: lo, spacing: z.endSpacing, clause }, { kind: 'end', from: clear - lo, to: clear, spacing: z.endSpacing, clause });
     notes.push('rcSheets.elev.n.projectEnds');

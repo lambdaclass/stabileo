@@ -28,7 +28,28 @@ export interface SlabComboForces { combo: string; bottomX: number; bottomY: numb
 /** A panel the level's plan reads as a cantilever: spanning `dir` from its one support, `length` m clear. */
 export interface SlabSpan { kind: 'cantilever'; dir: 'x' | 'y'; length: number }
 
-export interface SlabContext { mat: Materials; cover: number; diameters: readonly number[]; span?: SlabSpan }
+export interface SlabContext {
+  mat: Materials; cover: number; diameters: readonly number[]; span?: SlabSpan;
+  /** The project's base mat by face (`slabBase`): no face is proposed lighter than it. */
+  base?: Partial<Record<SlabFace, MeshBars>>;
+}
+
+/**
+ * The proposal with each face the base mat does for set to it: one that needs no steel, or where
+ * `holds` says the base mat meets the face's demand (absent: as much steel as the proposal, no wider
+ * apart).
+ */
+export function withBase(proposed: SlabAdopted, base: SlabContext['base'], holds?: (f: SlabFace, m: MeshBars) => boolean): SlabAdopted {
+  if (!base) return proposed;
+  const out = { ...proposed };
+  for (const f of SLAB_FACES) {
+    const b = base[f], p = proposed[f];
+    if (!b || !(b.dia > 0) || !(b.spacing > 0)) continue;
+    const enough = holds ? holds(f, b) : meshArea(b) >= meshArea(p) - 1e-9 && b.spacing <= p.spacing + 1e-9;
+    if (!(p.dia > 0) || enough) out[f] = { dia: b.dia, spacing: b.spacing };
+  }
+  return out;
+}
 
 /** How a panel spans: as its plan says when it is a cantilever, one way along it with one-way shear only across its support; else one-way past 2:1, both ways checked in shear. */
 export function slabSpan(d: Pick<SlabDemand, 'lx' | 'ly'>, c: Pick<SlabContext, 'span'>, fmt: Fmt): { oneWay: boolean; mainIsX: boolean; shear: { x: boolean; y: boolean }; step?: Step } {
@@ -141,6 +162,11 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
   for (const f of SLAB_FACES.filter(isDistribution)) {
     const r = reqWith(proposed)[f];
     if (meshArea(proposed[f]) < r.asReq - 1e-6) proposed = { ...proposed, [f]: proposeMesh(r.asReq, r.sMax, c.diameters) };
+  }
+  if (c.base) {
+    const req = reqWith(proposed);
+    proposed = withBase(proposed, c.base, (f, m) => meshArea(m) >= req[f].asReq - 1e-6 && m.spacing <= req[f].sMax + 1e-9
+      && (req[f].mu <= 1e-6 || stripCapacity(meshArea(m), d.h, req[f].d, c.mat.fc, c.mat.fy, EDITION) >= req[f].mu - 1e-6));
   }
   const a = adopted ?? proposed;
 

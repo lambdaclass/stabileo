@@ -1,4 +1,5 @@
-import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from '../bars';
+import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from '../bars';
+import { beamBarWhere, hangerBar } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups, isGenerous } from '../types';
@@ -63,30 +64,21 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext): 
   if (!e.fitTop) next.top = proposeBeamFace(groupsArea(next.top), d.b, d.h, c.cover, sd, LONG(c));
   if (!e.ok.shear || !e.ok.stirrups || !e.ok.spacing) {
     if (!e.ok.spacing && next.stirrups.spacing > e.sMax + 1e-9) next.stirrups.spacing = roundDown(e.sMax);
-    else if (next.stirrups.spacing > 0.075 + 1e-9) next.stirrups.spacing = roundDown(next.stirrups.spacing - 0.025);
-    else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2, spacing: Math.min(0.15, roundDown(e.sMax)) };
-    else next.stirrups.legs += 2;
+    else {
+      const more = moreStirrup(next.stirrups, c, Math.min(0.15, roundDown(e.sMax)));
+      if (more) next.stirrups = more;
+      else next.stirrups.legs += 2;
+    }
   }
   if (!e.ok.al) {
     const al = next.torsionLong ?? { count: 4, dia: 10 };
     const count = Math.max(4, al.count, 2 * Math.ceil(e.tor.uk / 0.3 / 2));
-    const dia = [10, 12, 16, 20, 25].find((x) => count * barArea(x) >= e.tor.asl - 1e-9) ?? 25;
-    next.torsionLong = { count: dia === 25 && count * barArea(25) < e.tor.asl ? count + 2 : count, dia };
+    const dia = beamBarWhere(c, (x) => count * barArea(x) >= e.tor.asl - 1e-9);
+    next.torsionLong = { count: count * barArea(dia) < e.tor.asl - 1e-9 ? count + 2 : count, dia };
   }
   return next;
 }
 
-function proposeStirrups(perLeg: number, legs: number, sMax: number, prefer: number): Stirrups {
-  const list = [prefer, ...[8, 10, 12].filter((x) => x > prefer)];
-  for (const floor of [0.1, 0.075]) {
-    for (const dia of list) {
-      const s = roundDown(Math.min(sMax, perLeg > 0 ? barArea(dia) / perLeg : sMax));
-      if (s >= floor - 1e-9) return { dia, legs, spacing: s };
-    }
-  }
-  const dia = list[list.length - 1]!;
-  return { dia, legs, spacing: roundDown(Math.max(0.05, Math.min(sMax, barArea(dia) / Math.max(perLeg, 1e-9)))) };
-}
 
 function proposeSkin(d: BeamDemand, c: BeamContext, dEff: number): MeshBars | null {
   if (d.h <= 0.6 + 1e-9) return null;
@@ -120,8 +112,8 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
 
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: c.diameters.includes(10) ? 10 : 12 }],
-    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c.stirrupDia),
+    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+    stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c),
     ...(tor0.design ? { torsionLong: { count: Math.max(4, 2 * Math.ceil(tor0.uk / 0.3 / 2)), dia: 10 } } : {}),
   };
   let proposed = initial, iterations = 0;

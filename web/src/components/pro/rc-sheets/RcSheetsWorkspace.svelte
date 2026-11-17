@@ -9,7 +9,7 @@
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
-  import { columnLabel, tieLabel } from '../../../lib/rc-sheets/column-row';
+  import { columnLabel, crosstiesText, tieLabel } from '../../../lib/rc-sheets/column-row';
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
   import { wallLabel } from '../../../lib/rc-sheets/wall-row';
   import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
@@ -20,8 +20,7 @@
   import RcLineDetail from './RcLineDetail.svelte';
   import { lineRowStatus, type LineLayout } from '../../../lib/rc-sheets/beam-line';
   import RcRowEditor from './RcRowEditor.svelte';
-  import RcSectionSvg from './RcSectionSvg.svelte';
-  import { columnSection } from '../../../lib/rc-sheets/drawing';
+  import RcColumnSection from './RcColumnSection.svelte';
   import RcColumnElevation from './RcColumnElevation.svelte';
   import RcSlabLayers from './RcSlabLayers.svelte';
   import RcSlabPlan from './RcSlabPlan.svelte';
@@ -268,7 +267,7 @@
                 <td class="n">{f2(r.req.rho * 100)} %</td>
                 <td>{columnLabel(r.adopted)} <span class="dim">({f2(r.checks.area)})</span></td>
                 <td>{tieLabel(r.adopted)}</td>
-                <td>{r.checks.crossties.x} · {r.checks.crossties.y}{#if r.checks.crossties.inner} + {r.checks.crossties.inner.x + r.checks.crossties.inner.y}{/if}</td>
+                <td data-testid="rc-col-crossties">{crosstiesText(r.checks.crossties)}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
               {:else if r.family === 'punching'}
                 <td>{r.position}</td>
@@ -312,8 +311,7 @@
                   {#if r.family !== 'punching' && r.family !== 'footing'}<RcRowEditor row={r} />{/if}
                   {#if r.family === 'column'}
                     <div class="rcw-secs">
-                      <RcSectionSvg drawing={columnSection(r.b, r.h, r.cover, r.adopted)} title="{r.name} · {fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}"
-                        notes={[columnLabel(r.adopted), `${tieLabel(r.adopted)} · ${t('rcSheets.col.crossties')} ${r.checks.crossties.x} · ${r.checks.crossties.y}${r.checks.crossties.inner ? ` + ${r.checks.crossties.inner.x + r.checks.crossties.inner.y}` : ''}`]} />
+                      <RcColumnSection row={r} all={rows.column} {code} {endZones} />
                       <RcColumnElevation row={r} {code} {endZones} />
                     </div>
                   {:else if r.family === 'slab'}

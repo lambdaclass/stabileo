@@ -3,7 +3,7 @@ import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
-import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
+import { boundaryBars, nextWallBar, wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
 import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapLength, matOf, momentCapacity, shearCapacity, type Ec2Set, type Layer, type Mat } from './basis';
 
@@ -11,7 +11,6 @@ const KPA = 1000;
 const MAX_ITERATIONS = 12;
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? (curtains * barArea(m.diameter) * 1e-4) / (m.spacing * t) : 0);
-const nextDia = (d: number) => [8, 10, 12, 16, 20, 25].find((x) => x > d) ?? d;
 
 function inPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: number, M: number): number {
   const bars = wallVerticalBars(d.length, d.thickness, c.cover, a);
@@ -90,7 +89,7 @@ export function makeWallRow(set: Ec2Set) {
     const first = evaluate(set, d, c, { vertical: { diameter: c.barDia, spacing: 0.2 }, horizontal: { diameter: c.barDia, spacing: 0.2 }, curtains }, m);
     let a: WallAdopted = { vertical: meshFor(c.barDia, first.rhoVMin, first.sMaxV), horizontal: meshFor(c.barDia, Math.max(first.rhoHMin, first.rhoHShear), first.sMaxH), curtains };
     let e = evaluate(set, d, c, a, m), iterations = 0;
-    const boundaries = [12, 16, 20, 25].flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
+    const boundaries = boundaryBars(c.diameters).flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
       .sort((p, q) => p.count * barArea(p.diameter) - q.count * barArea(q.diameter));
     const holds = (x: Eval) => x.pm.every(ok1) && x.out.every((o) => ok1(o.u)) && x.outH.every(ok1) && x.shear.every(ok1) && x.rhoV >= x.rhoVMin - 1e-9 && x.rhoH >= x.rhoHMin - 1e-9;
     while (!holds(e) && iterations < MAX_ITERATIONS) {
@@ -100,8 +99,8 @@ export function makeWallRow(set: Ec2Set) {
         const next = boundaries.find((b) => b.count * barArea(b.diameter) > cur + 1e-9);
         a = next ? { ...a, boundary: next } : { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
       }
-      if (!e.out.every((o) => ok1(o.u)) || e.rhoV < e.rhoVMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextDia(a.vertical.diameter), spacing: a.vertical.spacing } };
-      if (!e.shear.every(ok1) || !e.outH.every(ok1) || e.rhoH < e.rhoHMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextDia(a.horizontal.diameter), spacing: a.horizontal.spacing } };
+      if (!e.out.every((o) => ok1(o.u)) || e.rhoV < e.rhoVMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
+      if (!e.shear.every(ok1) || !e.outH.every(ok1) || e.rhoH < e.rhoHMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
       e = evaluate(set, d, c, a, m);
     }
     const proposed = a;
@@ -182,6 +181,7 @@ export function makeWallRow(set: Ec2Set) {
       status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       cover: c.cover, hLap: lapLength(m, ad.horizontal.diameter, true),
       vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapLength(m, dia, true) })),
+      ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
     };
   };
 }

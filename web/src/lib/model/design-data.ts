@@ -9,7 +9,7 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
-import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, SHEET_CODE_LIST, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
+import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
@@ -53,6 +53,10 @@ export interface ProjectDesignData {
   /** Diameters the design may choose from, mm. */
   longDiametersMm: number[];
   stirrupDiametersMm: number[];
+  /** The diameters a slab's meshes may choose from, mm, within `SLAB_BAR_RANGE`. */
+  slabDiametersMm: number[];
+  /** The closest spacing stirrups, hoops and ties are proposed at, mm: room for the concrete to pass between them. */
+  minTieSpacingMm: number;
   /** The diameter of a wall's vertical and horizontal bars, mm. */
   wallBarDiaMm: number;
   /**
@@ -134,7 +138,7 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'wallBarDiaMm'] as const;
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'wallBarDiaMm'] as const;
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -155,6 +159,9 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   return out as StoredDesignData;
 }
 
+/** The floor of the stirrups' spacing the project may state, mm. */
+export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
+
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
 
@@ -167,6 +174,8 @@ export function defaultDesignData(): ProjectDesignData {
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
+    slabDiametersMm: [...SLAB_MESH_DIAMETERS],
+    minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
     wallBarDiaMm: 12,
   };
 }
@@ -187,7 +196,7 @@ export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number 
 /** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
 export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
   if (kind === 'wall') return d.wallBarDiaMm;
-  if (kind === 'slab') return Math.max(...SLAB_MESH_DIAMETERS);
+  if (kind === 'slab') return Math.max(...d.slabDiametersMm);
   const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
   const own = range ? d.longDiametersMm.filter((x) => inRange(x, range)) : d.longDiametersMm;
   return Math.max(0, ...(own.length ? own : d.longDiametersMm));
@@ -245,12 +254,14 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
     longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
     stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
+    slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
+    minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), ...((e.rcSheets as { bentBars?: unknown }).bentBars === true ? { bentBars: true } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...((e.rcSheets as { slabBentBars?: unknown }).slabBentBars === true ? { slabBentBars: true } : {}), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), ...((e.rcSheets as { bentBars?: unknown }).bentBars === true ? { bentBars: true } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...((e.rcSheets as { slabBentBars?: unknown }).slabBentBars === true ? { slabBentBars: true } : {}), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

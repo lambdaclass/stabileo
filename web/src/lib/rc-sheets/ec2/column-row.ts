@@ -1,9 +1,10 @@
 import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2DemandReading } from '../../engine/design/eurocode/ec2-column';
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
-import { columnArea, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { COLUMN_PRACTICAL_CLEAR, growSymmetric, heldBars as symmetricHeld, pickPractical } from '../column-layout';
+import { barCount, columnArea, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
-import { check, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
+import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
 
 const KPA = 1000;
@@ -17,18 +18,14 @@ export function effectiveLength(lu: number, psiTop: number, psiBot: number): { l
 }
 
 export const tieDiaMin = (longDia: number) => Math.max(6, longDia / 4);
-const stockTie = (dia: number) => [6, 8, 10, 12].find((x) => x >= tieDiaMin(dia) - 1e-9) ?? 12;
+const stockTie = (c: ColumnContext, dia: number) => allowedTie(c, tieDiaMin(dia)) ?? tieDiametersOf(c).at(-1)!;
 
 export const tieSpacingMax = (thinnest: number, b: number, h: number) => Math.min((20 * thinnest) / 1000, Math.min(b, h), 0.4);
 export const TIE_REDUCTION = 0.6;
 
+/** The face bars a link or crosstie holds so none is more than 150 mm from a held bar (9.5.3(6)), symmetric about the face's middle. */
 export function heldBars(side: number, n: number, cornerDia: number, c: ColumnContext, tie: number): number[] {
-  if (n <= 0) return [];
-  const pitch = (side - 2 * coverToBar(c, tie, cornerDia)) / (n + 1);
-  const out: number[] = [];
-  let last = 0;
-  for (let i = 1; i <= n; i++) if ((i - last) * pitch > RESTRAINED + 1e-9 && (n + 1 - i) * pitch > RESTRAINED + 1e-9) { out.push(i); last = i; }
-  return out;
+  return symmetricHeld(n, (side - 2 * coverToBar(c, tie, cornerDia)) / (n + 1), 0, { limit: RESTRAINED });
 }
 
 const crossties = (d: ColumnDemand, a: ColumnAdopted, c: ColumnContext) => ({ x: heldBars(d.b, a.nx, a.corner, c, a.tieDia).length, y: heldBars(d.h, a.ny, a.corner, c, a.tieDia).length });
@@ -39,10 +36,15 @@ function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   return gap(d.b, a.nx, dx) >= minClear(dx) - 1e-4 && gap(d.h, a.ny, dy) >= minClear(dy) - 1e-4;
 }
 
+function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number {
+  const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
+  return Math.min(gap(d.b, a.nx, Math.max(a.corner, a.dx)), gap(d.h, a.ny, Math.max(a.corner, a.dy)));
+}
+
 function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, pitch: number): ColumnAdopted {
-  const tie = stockTie(dia);
+  const tie = stockTie(c, dia);
   const n = (side: number) => Math.max(0, Math.ceil((side - 2 * coverToBar(c, tie, dia)) / pitch) - 1);
-  return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: roundDown(TIE_REDUCTION * tieSpacingMax(dia, d.b, d.h)) };
+  return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: Math.max(tieFloorOf(c), roundDown(TIE_REDUCTION * tieSpacingMax(dia, d.b, d.h))) };
 }
 
 export interface ColumnModel { input: Ec2ColumnInput; l0: ReturnType<typeof effectiveLength>; phiInf: number; ratio: number }
@@ -91,9 +93,8 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
     let a = a0, it = 0;
     for (let guard = 0; guard < 30 && !shearOf(set, d, c, a, m).every((s) => s.x <= 1 + 1e-6 && s.y <= 1 + 1e-6); guard++) {
       it++;
-      if (a.tieSpacing > 0.075 + 1e-9) a = { ...a, tieSpacing: roundDown(a.tieSpacing - 0.025) };
-      else if (a.tieDia < 12) a = { ...a, tieDia: a.tieDia + 2 };
-      else break;
+      if (a.tieSpacing > tieFloorOf(c) + 1e-9) a = { ...a, tieSpacing: Math.max(tieFloorOf(c), roundDown(a.tieSpacing - 0.025)) };
+      else { const t = nextTie(c, a.tieDia); if (!t) break; a = { ...a, tieDia: t }; }
     }
     return { a, it };
   };
@@ -106,7 +107,7 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
   const ok: Array<{ a: ColumnAdopted; it: number }> = [];
   for (const dia of dias.length ? dias : [16]) {
     let a = evenLayout(d, c, dia, 0.3), it = 0;
-    const grow = (x: ColumnAdopted) => (d.h >= d.b ? (x.ny <= x.nx ? { ...x, ny: x.ny + 1 } : { ...x, nx: x.nx + 1 }) : (x.nx <= x.ny ? { ...x, nx: x.nx + 1 } : { ...x, ny: x.ny + 1 }));
+    const grow = (x: ColumnAdopted) => growSymmetric(d, x, (side) => side - 2 * coverToBar(c, x.tieDia, x.corner));
     while (!fine(a) && it < 20) {
       const g = grow(a);
       if (!clearOk(d, c, g)) break;
@@ -116,11 +117,9 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
     const s = shearFix(a);
     ok.push({ a: s.a, it: it + s.it });
   }
-  if (ok.length) {
-    const least = Math.min(...ok.map((x) => columnArea(x.a)));
-    const pick = ok.filter((x) => columnArea(x.a) <= 1.1 * least + 1e-6).sort((p, q) => p.a.nx + p.a.ny - (q.a.nx + q.a.ny) || columnArea(p.a) - columnArea(q.a))[0]!;
-    return { layout: pick.a, iterations: pick.it };
-  }
+  const roomy = ok.filter((x) => outerClear(d, c, x.a) >= COLUMN_PRACTICAL_CLEAR - 1e-4);
+  const pick = pickPractical(roomy.length ? roomy : ok, (x) => columnArea(x.a), (x) => barCount(x.a), (x) => x.a.corner);
+  if (pick) return { layout: pick.a, iterations: pick.it };
   return { layout: evenLayout(d, c, dias[dias.length - 1] ?? 25, 0.15), iterations: 0 };
 }
 
@@ -164,6 +163,7 @@ export function makeColumnRow(set: Ec2Set) {
       check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(Math.max(0, ...d.cases.map((k) => k.vx ?? 0)))} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
       check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(Math.max(0, ...d.cases.map((k) => k.vy ?? 0)))} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
       check('rcSheets.v.tieDia', tieDiaOk, { clause: '9.5.3(1)', demand: `Ø${a.tieDia}`, capacity: `≥ ${fmt(tieDiaMin(longest), 1)} mm` }),
+      ...(!tieDiaOk && allowedTie(c, tieDiaMin(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: '9.5.3(1)', demand: `≥ ${fmt(tieDiaMin(longest), 1)} mm`, capacity: tieDiametersOf(c).map((x) => `Ø${x}`).join(' ') })] : []),
       check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '9.5.3(3), 9.5.3(4)', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ 0.6 × ${fmt(sclMax * 100, 1)} = ${fmt(tieMax * 100, 1)} cm` }),
       check('rcSheets.v.crossties', true, { clause: '9.5.3(6)', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
       ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${longest})` })] : []),
@@ -227,6 +227,7 @@ export function makeColumnRow(set: Ec2Set) {
       checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       ...(stack.fromBelow ? { lap: { length: lap } } : {}),
+      tieFloor: tieFloorOf(c),
     };
   };
 }
