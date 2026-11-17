@@ -136,8 +136,7 @@ for (const axis of ['x', 'y', 'z'] as const) it(`known wrong result: #2219 round
   }
 });
 
-const round17 = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
-for (const axis of ['x', 'y', 'z'] as const) round17(`known wrong result: #2219 round17 density certificates refuse ${axis}`, async () => {
+for (const axis of ['x', 'y', 'z'] as const) it(`known wrong result: #2219 round17 density certificates refuse ${axis}`, async () => {
   const { certify_linear_3d, certify_multi_case_3d, export_linear_bundle_3d, export_combination_bundle_3d } = await import('../../wasm/dedaliano_engine.js');
   for (const values of [[1, -0.5, 1], [1, 1, 1], [-1, 0, 1], [Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE], [-Number.MIN_VALUE, -Number.MIN_VALUE, -Number.MIN_VALUE]]) {
     const s = fixture(0, 1, axis);

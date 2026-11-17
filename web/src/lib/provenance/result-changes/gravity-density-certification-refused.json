@@ -1,0 +1,40 @@
+{
+  "id": "gravity-density-certification-refused",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Member moment density certification refused",
+    "es": "Certificación de densidades de momento de barra rechazada",
+    "pt": "Certificação de densidades de momento de barra recusada",
+    "de": "Zertifizierung von Stabmomentdichten abgelehnt",
+    "fr": "Certification des densités de moment de barre refusée",
+    "tr": "Eleman moment yoğunluğu sertifikası reddedildi",
+    "hu": "Rúdnyomatéksűrűség tanúsításának elutasítása"
+  },
+  "explanation": {
+    "en": "Spatial linear, load-case, combination and bundle certificates are withheld for nonzero member moment densities because their polynomial diagram gaps are unsupported. Zero densities retain their certification. Rerun affected certification (#2219).",
+    "es": "Se rechazan los certificados espaciales lineales, de casos, combinaciones y paquetes con densidades de momento de barra no nulas porque no se admiten las cotas entre estaciones de sus diagramas polinómicos. Las densidades nulas conservan la certificación. Repetí la certificación afectada (#2219).",
+    "pt": "Certificados espaciais lineares, de casos, combinações e pacotes são recusados para densidades de momento de barra não nulas, pois as cotas entre estações dos diagramas polinomiais não são suportadas. Densidades nulas mantêm a certificação. Repita a certificação afetada (#2219).",
+    "de": "Räumliche lineare Lastfall-, Kombinations- und Bündelzertifikate werden für Stabmomentdichten ungleich null zurückgehalten, da Schranken zwischen Stationen ihrer Polynomdiagramme nicht unterstützt sind. Nulldichten behalten ihre Zertifizierung. Betroffene Zertifizierung erneut ausführen (#2219).",
+    "fr": "Les certificats spatiaux linéaires, de cas, de combinaisons et de paquets sont refusés pour les densités de moment de barre non nulles, faute de bornes entre stations des diagrammes polynomiaux. Les densités nulles conservent leur certification. Refaire la certification concernée (#2219).",
+    "tr": "Sıfır olmayan eleman moment yoğunluklarının polinom diyagramlarında istasyonlar arası sınırlar desteklenmediği için uzaysal doğrusal, yük durumu, birleşim ve paket sertifikaları verilmez. Sıfır yoğunluklar sertifikayı korur. Etkilenen sertifikasyonu yineleyin (#2219).",
+    "hu": "Nem nulla rúdnyomatéksűrűség esetén a térbeli lineáris, tehereset-, kombináció- és csomagtanúsítás elutasított, mert a polinomdiagramok állomások közötti korlátai nem támogatottak. A nulla sűrűség tanúsítása megmarad. Ismételje meg az érintett tanúsítást (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round17.md",
+    "heading": "Member moment density certification refused"
+  }
+}

@@ -392,7 +392,29 @@ pub fn diagram_gaps_3d(ef: &ElementForces3D) -> DiagramGaps3D {
     diagram_gaps_3d_at(ef, &|kind| diagram_positions_3d(ef, kind))
 }
 
+pub(crate) fn check_member_moment_scope(loads: &[SolverLoad3D], forces: &[ElementForces3D]) -> Result<(), String> {
+    let loads = loads.iter().filter_map(|l| match l {
+        SolverLoad3D::Distributed(d) => d.moments.as_ref(),
+        _ => None,
+    });
+    let recovered = forces.iter().flat_map(|ef| ef.member_moments.iter().map(|m| &m.moments));
+    if loads.chain(recovered).any(|m| !m.is_zero()) {
+        return Err("unsupported: distributed member moment densities have no certified diagram gap bounds".into());
+    }
+    Ok(())
+}
+
 pub fn diagram_gaps_3d_at(ef: &ElementForces3D, stations: &dyn Fn(&str) -> Vec<f64>) -> DiagramGaps3D {
+    if check_member_moment_scope(&[], std::slice::from_ref(ef)).is_err() {
+        return DiagramGaps3D {
+            axial: f64::INFINITY,
+            shear_y: f64::INFINITY,
+            shear_z: f64::INFINITY,
+            torsion: f64::INFINITY,
+            moment_y: f64::INFINITY,
+            moment_z: f64::INFINITY,
+        };
+    }
     let l = ef.length;
     let plane = |dl: &[DistributedLoadInfo], pl: &[PointLoadInfo3D], mkind: &str, vkind: &str| -> (f64, f64) {
         let dists = dists_of(dl);

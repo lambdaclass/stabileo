@@ -52,13 +52,14 @@ describe('result-change registry', () => {
   });
 
   it('refuses an entry naming an unknown feature or a version beyond the current one', () => {
+    const futureVersion = RESULT_CHANGES.currentResultsVersion + 1;
     const bad = {
       ...RESULT_CHANGES,
-      changes: [{ ...RESULT_CHANGES.changes[0], id: 'x', resultsVersion: 99, when: { any: ['noSuchFeature'] } }],
+      changes: [{ ...RESULT_CHANGES.changes[0], id: 'x', resultsVersion: futureVersion, when: { any: ['noSuchFeature'] } }],
     };
     const problems = validateRegistry(bad, new Set(FEATURE_IDS));
     expect(problems.some((p) => p.includes('noSuchFeature'))).toBe(true);
-    expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
+    expect(problems.some((p) => p.includes(`resultsVersion ${futureVersion}`))).toBe(true);
   });
 
   it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('refuses an entry without its %s title or explanation', (locale) => {

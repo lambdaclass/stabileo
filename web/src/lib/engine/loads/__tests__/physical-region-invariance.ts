@@ -134,10 +134,10 @@ export function expectResultant(actual: Resultant, expected: Resultant, label = 
   actual.forEach((v, i) => expect(v, `${label} resultant component ${i}`).toBeCloseTo(expected[i]!, 8));
 }
 
-export function assertRegionInvariant<T extends LoadModelData>(model: T, generate: (m: T, point: (p: number[]) => [number, number, number]) => Resultant, expected?: Resultant): void {
+export function assertRegionInvariant<T extends LoadModelData>(model: T, generate: (m: T, point: (p: number[]) => [number, number, number]) => Resultant, expected?: Resultant, variants: ReadonlyArray<Exclude<RegionVariant, 'base'>> = ['rotate', 'mirror', 'remesh', 'ids']): void {
   const base = generate(model, p => [p[0]!, p[1]!, p[2] ?? 3]);
   if (expected) expectResultant(base, expected);
-  for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) {
+  for (const variant of variants) {
     const changed = regionVariant(model, variant);
     expectResultant(changed.back(generate(changed.model, changed.point)), expected ?? base, variant);
   }

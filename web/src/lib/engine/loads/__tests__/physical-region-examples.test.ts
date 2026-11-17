@@ -16,7 +16,7 @@ const captured: Record<string, Resultant> = {};
 const capture = process.env.REGION_CAPTURE;
 const controlFile = new URL('./physical-region-example-controls.json', import.meta.url);
 const controls: Record<string, Resultant> = existsSync(controlFile) ? JSON.parse(readFileSync(controlFile, 'utf8')) : {};
-for (const example of examples) it(`physical gravity region invariance: ${example.id}`, () => {
+for (const example of examples) for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) it(`physical gravity region invariance: ${example.id}, ${variant}`, () => {
   const text = readFileSync(example.file, 'utf8');
   const data = example.code ? codeToModel(text).snapshot! : JSON.parse(text);
   const entries = (items: unknown[] = []): Array<[number, unknown]> => items.map((v, i) => Array.isArray(v) ? [v[0] as number, v[1]] : [(v as { id?: number }).id ?? i + 1, v]);
@@ -58,7 +58,7 @@ for (const example of examples) it(`physical gravity region invariance: ${exampl
     let area = 0; polygon.forEach((p, i) => { const b = polygon[(i + 1) % polygon.length]!; area += p[0] * b[1] - b[0] * p[1]; });
     if (area !== 0) regions.push(polygon);
   }
-  for (const region of regions) assertRegionInvariant(regionModel([region]), generate);
+  for (const region of regions) assertRegionInvariant(regionModel([region]), generate, undefined, [variant]);
 });
 
 const forceInvariant = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;

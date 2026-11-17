@@ -28,7 +28,7 @@ use super::finite::{self, Guarded};
 use super::deflection::{deflection_bounds_2d, deflection_bounds_3d, DeflectionBound};
 use super::forces::{force_bounds_2d, force_bounds_3d, shell_bounds_3d, ForceBound2D, ForceBound3D, ShellBound};
 use super::reactions::{reaction_bounds_2d, reaction_bounds_3d, ReactionBound2D, ReactionBound3D};
-use super::stations::{station_bounds_2d, station_bounds_3d, with_gaps_2d, with_gaps_3d, StationBound2D, StationBound3D};
+use super::stations::{check_member_moment_scope, station_bounds_2d, station_bounds_3d, with_gaps_2d, with_gaps_3d, StationBound2D, StationBound3D};
 use super::interval::Interval;
 use super::reassembly::{end_to_end_2d, end_to_end_3d, EndToEnd};
 use super::linear::{
@@ -570,12 +570,7 @@ pub fn certify_results_3d(input: &SolverInput3D, results: &AnalysisResults3D) ->
     if let Err(e) = finite::check_input(input).and_then(|()| finite::check_results(results)) {
         return Certificate::uncertified(e);
     }
-    let expanded = expand_curved_beams_3d(input);
-    let mut c = if needs_general_3d(&expanded) {
-        certify_general_3d(input, results)
-    } else {
-        certify_load_cases_3d(input, &[(&input.loads, results)]).pop().expect("one case")
-    };
+    let mut c = certify_load_cases_3d(input, &[(&input.loads, results)]).pop().expect("one case");
     finite::guard(&mut c);
     c
 }
@@ -694,10 +689,21 @@ pub fn certify_load_cases_3d(
     if let Err(e) = finite::check_input(input) {
         return vec![Certificate::uncertified(e); cases.len()];
     }
-    let bad: Vec<Option<String>> =
-        cases.iter().map(|(l, r)| finite::check_input(l).and_then(|()| finite::check_results(r)).err()).collect();
-    let mut out = load_cases_3d(input, cases);
-    guard_cases(&mut out, bad);
+    let bad: Vec<Option<String>> = cases.iter().map(|(l, r)| {
+        finite::check_input(l)
+            .and_then(|()| finite::check_results(r))
+            .and_then(|()| check_member_moment_scope(l, &r.element_forces))
+            .err()
+    }).collect();
+    let supported: Vec<_> = cases.iter().zip(&bad).filter_map(|(case, reason)| reason.is_none().then_some(*case)).collect();
+    let mut certified = if supported.is_empty() { Vec::new() } else { load_cases_3d(input, &supported) }.into_iter();
+    let mut out: Vec<_> = bad.into_iter().map(|reason| match reason {
+        Some(reason) => Certificate::uncertified(reason),
+        None => certified.next().expect("one certificate per supported case"),
+    }).collect();
+    for certificate in &mut out {
+        finite::guard(certificate);
+    }
     out
 }
 
@@ -820,6 +826,7 @@ fn reduced_sparse_3d_expanded(
     input: &SolverInput3D,
     results: &AnalysisResults3D,
 ) -> Result<(CscMatrix, Vec<Interval>, Vec<f64>), Certificate> {
+    check_member_moment_scope(&input.loads, &results.element_forces).map_err(Certificate::uncertified)?;
     if !input.constraints.is_empty() {
         return Err(Certificate::uncertified("unsupported: constraints (constrained solver path)"));
     }

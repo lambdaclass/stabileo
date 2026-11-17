@@ -705,7 +705,6 @@ fn round17_refused(c: &dedaliano_engine::certify::Certificate) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round17_density_station_gaps_cannot_claim_a_finite_bound() {
     use dedaliano_engine::certify::stations::diagram_gaps_3d_at;
     let input = round17_model("x", [1.0, -0.5, 1.0]);
@@ -720,7 +719,6 @@ fn round17_density_station_gaps_cannot_claim_a_finite_bound() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round17_density_certificates_refuse_all_axes_and_nonzero_boundaries() {
     use dedaliano_engine::certify::{certify_linear_3d_full, certify_linear_3d, certify_results_3d, certify_load_cases_3d, CertificateLevel};
     for axis in ["x", "y", "z"] {
@@ -731,6 +729,11 @@ fn round17_density_certificates_refuse_all_axes_and_nonzero_boundaries() {
             assert_eq!(full.certificate_level, CertificateLevel::None);
             assert!(full.force_bounds.is_empty() && full.shown.station_bounds.is_empty() && full.shown.deflection_bounds.is_empty() && full.shown.reaction_bounds.is_empty());
             round17_refused(&certify_linear_3d(&input).unwrap().1);
+            let mut inclined = input.clone();
+            let support = inclined.supports.values_mut().next().unwrap();
+            support.is_inclined = Some(true);
+            support.normal_x = Some(0.0); support.normal_y = Some(0.0); support.normal_z = Some(1.0);
+            round17_refused(&certify_results_3d(&inclined, &full.results));
             let prepared = linear::prepare_static_3d(&input).unwrap();
             for result in [prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
                 round17_refused(&certify_results_3d(&input, &result));
@@ -745,19 +748,26 @@ fn round17_density_certificates_refuse_all_axes_and_nonzero_boundaries() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round17_density_multi_case_and_bundle_exports_refuse() {
     use dedaliano_engine::certify::{combinations::certify_multi_case_3d, bundle::export_linear_bundle_3d, combination_bundle::export_combination_bundle_3d};
     use dedaliano_engine::solver::load_cases::{MultiCaseInput3D, LoadCase3D, CombinationDef};
     for axis in ["x", "y", "z"] {
         let mut input = round17_model(axis, [1.0, -0.5, 1.0]);
         let loads = std::mem::take(&mut input.loads);
-        let multi = MultiCaseInput3D { solver: input.clone(), load_cases: vec![LoadCase3D { name: "density".into(), loads: loads.clone() }], combinations: vec![CombinationDef { name: "one".into(), factors: [("density".into(), 1.0)].into() }] };
+        let force_loads = round17_model(axis, [0.0; 3]).loads;
+        let multi = MultiCaseInput3D {
+            solver: input.clone(),
+            load_cases: vec![LoadCase3D { name: "force".into(), loads: force_loads.clone() }, LoadCase3D { name: "density".into(), loads: loads.clone() }, LoadCase3D { name: "force2".into(), loads: force_loads }],
+            combinations: vec![CombinationDef { name: "one".into(), factors: [("density".into(), 1.0)].into() }, CombinationDef { name: "force only".into(), factors: [("density".into(), 0.0), ("force".into(), 1.0)].into() }],
+        };
         let out = certify_multi_case_3d(&multi).unwrap();
-        round17_refused(&out.cases[0].certificate);
+        round17_refused(&out.cases[1].certificate);
+        assert!(out.cases[0].certificate.is_certified() && out.cases[2].certificate.is_certified());
+        assert_eq!(serde_json::to_value(&out.cases[0].shown).unwrap(), serde_json::to_value(&out.cases[2].shown).unwrap());
         assert!(!out.envelope.certified);
-        assert!(out.cases[0].shown.station_bounds.is_empty());
-        assert!(out.combinations.iter().all(|c| !c.certified && c.station_bounds.is_empty()));
+        assert!(out.cases[1].shown.station_bounds.is_empty());
+        assert!(!out.combinations[0].certified && out.combinations[0].station_bounds.is_empty());
+        assert!(out.combinations[1].certified && !out.combinations[1].station_bounds.is_empty());
         input.loads = loads;
         let err = export_linear_bundle_3d(&input).unwrap_err();
         assert!(err.contains("member moment densities"), "{err}");
@@ -768,9 +778,12 @@ fn round17_density_multi_case_and_bundle_exports_refuse() {
 
 #[test]
 fn round17_zero_and_absent_densities_keep_their_certificate_and_answer() {
-    use dedaliano_engine::certify::{certify_linear_3d_full, certify_linear_3d, certify_results_3d, certify_load_cases_3d, CertificateLevel};
+    use dedaliano_engine::certify::certify_linear_3d_full;
     for axis in ["x", "y", "z"] {
-        let input = round17_model(axis, [0.0, -0.0, 0.0]);
+        let mut input = round17_model(axis, [0.0, -0.0, 0.0]);
+        for load in &mut input.loads {
+            if let SolverLoad3D::Distributed(d) = load { d.moments = Some(MemberMoments { x: [0.0, -0.0, 0.0], y: [0.0; 3], z: [0.0; 3] }); }
+        }
         let mut absent = input.clone();
         for l in &mut absent.loads { if let SolverLoad3D::Distributed(d) = l { d.moments = None; } }
         let actual = certify_linear_3d_full(&input).unwrap();

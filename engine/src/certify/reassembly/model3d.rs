@@ -113,7 +113,7 @@ pub(super) fn local_axes(
 }
 
 pub(super) fn build(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<Model, String> {
-    if loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(d) if d.moments.as_ref().is_some_and(|m| m.x.iter().chain(&m.y).chain(&m.z).any(|v| *v != 0.0)))) { return Err("unsupported: distributed member moments are not independently certified".into()); }
+    crate::certify::stations::check_member_moment_scope(loads, &[])?;
     if !input.plates.is_empty()
         || !input.quads.is_empty()
         || !input.quad9s.is_empty()
