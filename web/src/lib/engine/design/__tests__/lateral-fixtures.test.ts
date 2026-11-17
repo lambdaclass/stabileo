@@ -28,6 +28,12 @@
  * not declared. The 23 lost now refuse on congestion (13), anchorage (7), anchorage and
  * congestion (2), and anchorage, congestion and shear (1).
  */
+import audit from '../../../../../../docs/results-changes/2198-round22-lateral-audit.json';
+import priorClosure from '../../../../../../docs/results-changes/2198-rc-baseline-closure.json';
+import { jointThreading } from '../joint-threading-check';
+import { supportInputOf } from '../end-support-anchorage';
+import type { MemberContext } from '../member-context';
+import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
 import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
 import { REBAR_DB } from '../../codes/argentina/cirsoc201';
 import { describe, it, expect } from 'vitest';
@@ -40,10 +46,18 @@ import type { LateralSystemData } from '../../../model/lateral-system';
 
 function run(fixture: unknown, lateral: LateralSystemData | null) {
   const solved = solveFixture(fixture as never, { lateral });
-  return { solved, s: runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 }) };
+  const contexts = new Map<number, MemberContext>();
+  const adapter: typeof cirsoc201Adapter = { ...cirsoc201Adapter, verify(ctx, rebar) {
+    contexts.set(ctx.elementId, ctx);
+    return cirsoc201Adapter.verify(ctx, rebar);
+  } };
+  return { solved, contexts, s: runDesign(adapter, solved.contexts.values(), { maxRunMs: 180_000 }) };
 }
-const gravityCounts = { verified: 376, searchExhausted: 19, provisionalBiaxial: 13, sectionInadequate: 0 };
-const counts = (s: ReturnType<typeof run>['s']) => ({ verified: s.verified, searchExhausted: s.searchExhausted, provisionalBiaxial: s.provisionalBiaxial, sectionInadequate: s.sectionInadequate });
+const counts = (s: Pick<ReturnType<typeof run>['s'], 'verified' | 'searchExhausted' | 'provisionalBiaxial' | 'sectionInadequate'>) => ({ verified: s.verified, searchExhausted: s.searchExhausted, provisionalBiaxial: s.provisionalBiaxial, sectionInadequate: s.sectionInadequate });
+const gravityCounts = counts(evidence.declaredGravity.counts);
+const digest = (s: ReturnType<typeof run>['s']) => [...s.outcomes.values()]
+  .sort((a, b) => a.elementId - b.elementId)
+  .map(o => `${o.elementId}|${o.outcome}|${[...o.limiting].sort().join(',')}|${o.certificate?.worstUtilization.toFixed(4) ?? '—'}`);
 /** The members one reading designs and the other does not, by what limits them under the second. */
 function lost(a: ReturnType<typeof run>['s'], b: ReturnType<typeof run>['s']) {
   const by: Record<string, number> = {}, ids: number[] = [];
@@ -84,32 +98,77 @@ describe('rc-design-qa-8', () => {
 describe('rc-design-frame, 408 members', () => {
   const gravity = run(frame, { beams: 'gravity' }), undeclared = run(frame, null);
 
-  it.skip('known wrong result: #2198 — keeps the stated gravity counts equal to the audited per-member digest', () => {
+  it('keeps the stated gravity counts equal to the audited per-member digest', () => {
     const tally = (kind: string) => evidence.declaredGravity.members.filter(line => line.split('|')[1] === kind).length;
     expect(gravityCounts).toEqual({ verified: tally('VERIFIED'), searchExhausted: tally('SEARCH_EXHAUSTED'),
       provisionalBiaxial: tally('PROVISIONAL_BIAXIAL'), sectionInadequate: tally('SECTION_INADEQUATE') });
   });
 
-  it.skip('known wrong result: #2198 — outside the system 376 designed; not declared 362, the 14 it loses refusing on their anchorage or congestion', () => {
+  it('outside the system 372 designed; not declared 350, with exact member digests and refusal reasons', () => {
     expect(counts(gravity.s)).toEqual(gravityCounts);
-    expect(counts(undeclared.s)).toEqual(evidence.after);
+    expect(counts(undeclared.s)).toEqual(audit.undeclared.counts);
+    expect(digest(gravity.s)).toEqual(evidence.declaredGravity.members);
+    expect(digest(undeclared.s)).toEqual(audit.undeclared.members);
     const l = lost(gravity.s, undeclared.s);
-    expect(l.ids).toHaveLength(14);
-    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 7, 'SEARCH_EXHAUSTED congestion': 7 });
-    expect(lost(undeclared.s, gravity.s).ids).toEqual([]);
+    expect(l.ids).toHaveLength(24);
+    expect(l.ids).toEqual(audit.lost.ids);
+    expect(l.by).toEqual(audit.lost.by);
+    expect(Object.values(l.by).reduce((sum, n) => sum + n, 0)).toBe(l.ids.length);
+    expect(lost(undeclared.s, gravity.s)).toEqual(audit.reverse);
+    expect(audit.reverse.ids).toHaveLength(2);
+    for (const held of audit.gravityAdditionalRefusals) {
+      const outcome = gravity.s.outcomes.get(held.id)!;
+      expect(outcome.outcome, `e${held.id}`).toBe('SEARCH_EXHAUSTED');
+      expect(outcome.limiting).toEqual(held.limiting);
+      expect(outcome.accepted).toBeUndefined();
+      expect(outcome.certificate).toBeUndefined();
+      expect(outcome.exhaustion?.scope).toBe('implementedAlternatives');
+      const previous = priorClosure.members.find(m => m.id === held.id)!.before.accepted! as ProvidedReinforcement;
+      const ctx = gravity.contexts.get(held.id)!;
+      const support = supportInputOf(ctx, previous);
+      expect(support).not.toBeNull();
+      expect(jointThreading(ctx, previous, support!)).toEqual(held.previousThreading);
+      expect(cirsoc201Adapter.verify(ctx, previous).overallStatus).toBe('fail');
+    }
   });
 
-  it.skip('known wrong result: #2198 — retains every previously verified undeclared member and independently checks the two recovered cages', () => {
-    for (const id of evidence.previousVerifiedIds) expect(undeclared.s.outcomes.get(id)?.outcome, `e${id}`).toBe('VERIFIED');
+  it('checks every previously verified undeclared member and independently checks the two former recovered cages', () => {
+    expect(audit.undeclared.previouslyVerifiedNowRefused.map(o => o.id)).toEqual([177, 178, 179, 180, 181, 186, 187, 189, 190, 191]);
+    for (const id of evidence.previousVerifiedIds) {
+      const outcome = undeclared.s.outcomes.get(id)!;
+      const held = audit.undeclared.previouslyVerifiedNowRefused.find(o => o.id === id);
+      expect(outcome.outcome, `e${id}`).toBe(held ? 'SEARCH_EXHAUSTED' : 'VERIFIED');
+      if (held) {
+        expect(outcome.limiting).toEqual(held.limiting);
+        expect(outcome.accepted).toBeUndefined();
+        expect(outcome.certificate).toBeUndefined();
+        expect(outcome.exhaustion?.scope).toBe('implementedAlternatives');
+        const ctx = undeclared.contexts.get(id)!;
+        const candidate = outcome.provisional!.candidate;
+        const support = supportInputOf(ctx, candidate);
+        expect(support).not.toBeNull();
+        expect(jointThreading(ctx, candidate, support!)).toEqual(held.threading);
+      } else {
+        expect(outcome.certificate).toBeDefined();
+        expect(cirsoc201Adapter.verify(undeclared.contexts.get(id)!, outcome.accepted!).overallStatus).not.toBe('fail');
+      }
+    }
     expect(evidence.changes.map(c => c.id)).toEqual([204, 207]);
     for (const id of [204, 207]) {
       const ctx = undeclared.solved.contexts.get(id)!;
       const outcome = undeclared.s.outcomes.get(id)!;
-      expect(outcome.outcome).toBe('VERIFIED');
-      expect(outcome.certificate).toBeDefined();
+      expect(outcome.outcome).toBe('SEARCH_EXHAUSTED');
+      expect(outcome.certificate).toBeUndefined();
+      expect(outcome.accepted).toBeUndefined();
+      expect(outcome.limiting).toEqual(['anchorage', 'congestion']);
+      expect(outcome.exhaustion?.scope).toBe('implementedAlternatives');
       const recorded = evidence.changes.find(c => c.id === id)!;
-      expect(outcome.accepted).toEqual(recorded.accepted);
-      const cage = outcome.accepted!.regions!.stirrupsSupport!;
+      const finalCtx = undeclared.contexts.get(id)!;
+      const support = supportInputOf(finalCtx, recorded.accepted);
+      expect(support).not.toBeNull();
+      expect(jointThreading(finalCtx, recorded.accepted, support!)).toEqual(audit.undeclared.formerRecoveries.find(o => o.id === id)!.threading);
+      expect(cirsoc201Adapter.verify(finalCtx, recorded.accepted).checks.filter(c => c.status === 'fail').map(c => c.limiting)).toEqual(['congestion']);
+      const cage = recorded.accepted.regions.stirrupsSupport;
       expect(cage).toEqual({ diameter: 6, legs: 3, secondaryLegs: 3, spacing: 0.15 });
       const { b, h } = ctx.section, { fc, fy, cover } = ctx.material;
       const depth = b - cover - cage.diameter / 1000 - 12 / 2000;
