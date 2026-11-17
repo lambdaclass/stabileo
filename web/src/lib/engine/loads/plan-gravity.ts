@@ -37,7 +37,7 @@
  * Pure: no store.
  */
 import { assertPlanarShell, refuseGravityGeometry, ringArea, type UncoveredStrips } from './gravity-shell-partition';
-import { physicalRoofRuns } from './physical-roof-geometry';
+import { physicalRoofRuns, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
@@ -374,6 +374,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [{ panel, own: panel.own, why, strips, region, footprint }];
   })]));
 
+  const slopedWidthRuns: Segment[] = opts.tributaryWidth > 0
+    && [...selectedPanels.values()].some(panels => panels.some(panel => panel.strips))
+    ? physicalRoofRuns(memberGeometry(model, out.widthMembers.map(m => m.elementId)),
+      (a, b) => a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0),
+    ).map(({ a, b }) => [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]])
+    : [];
+
   // Second pass: each panel on its own, as a floor or as a roof.
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
@@ -381,13 +388,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const [z, { beams, res }] of levels) {
     unresolved += res.skipped.unresolved;
     const loaded = panelLoadedAt.get(z)!;
-    let overhead: Polygon[] | undefined;
+    let overhead: ReturnType<typeof higherFootprints> | undefined;
     for (const { panel, own: one, why, strips, region } of selectedPanels.get(z) ?? []) {
       if (why === 'lowHeadroom') fringes++;
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
       if (strips) partly++;
       const roof = strips
-        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers))
+        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers, slopedWidthRuns, opts.tributaryWidth))
         : why === 'lowHeadroom' || !covered(centroid(panel.polygon), z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
@@ -560,22 +567,38 @@ function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {
   return above;
 }
 
-function higherFootprints(z: number, selectedPanels: ReadonlyMap<number, ReadonlyArray<{ footprint: Region }>>, carriers: ShellCarrier[]): Polygon[] {
+function higherFootprints(
+  z: number,
+  selectedPanels: ReadonlyMap<number, ReadonlyArray<{ footprint: Region }>>,
+  carriers: ShellCarrier[],
+  widthRuns: Segment[],
+  tributaryWidth: number,
+) {
   const elevation = z + MIN_COVER_RISE;
   const covers = [...selectedPanels].filter(([above]) => above > elevation).flatMap(([, panels]) => panels.flatMap(panel => panel.footprint));
   for (const carrier of carriers) {
     const above = shellAbove(carrier, elevation);
     if (ringArea(above) > 0) covers.push([above]);
   }
-  return covers;
+  const widthCovers = widthRuns.flatMap(run => {
+    const range = lowRange(run[0][2], run[1][2], elevation, Infinity);
+    return range ? [widthCover(run, range, tributaryWidth)] : [];
+  });
+  covers.push(...widthCovers.map(cover => cover.footprint));
+  return { covers, widthCovers };
 }
 
-function uncoveredStripIsRoof({ polygons }: UncoveredStrips, covers: Polygon[]): boolean {
+function uncoveredStripIsRoof({ polygons }: UncoveredStrips, { covers, widthCovers }: ReturnType<typeof higherFootprints>): boolean {
   if (covers.length === 0) return true;
   const exposure = new Set<boolean>();
   try {
-    const above = polygonClipping.union(covers[0]!, ...covers.slice(1));
+    let above: Region | undefined;
     for (const poly of polygons) {
+      if (widthCovers.some(cover => cover.contains(poly))) {
+        exposure.add(false);
+        continue;
+      }
+      above ??= polygonClipping.union(covers[0]!, ...covers.slice(1));
       if (regionArea(polygonClipping.intersection([poly], above)) > 0) exposure.add(false);
       if (regionArea(polygonClipping.difference([poly], above)) > 0) exposure.add(true);
     }
@@ -666,8 +689,7 @@ function notADeck(
     for (const [a, b] of held.members) {
       const range = lowRange(a[2] - z, b[2] - z, TOL, MIN_STOREY_HEADROOM);
       if (!range || Math.hypot(b[0] - a[0], b[1] - a[1]) * (range[1] - range[0]) <= 1e-9) continue;
-      const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-      cover.push([[closeRing(tributaryStrip(at(range[0]), at(range[1]), tributaryWidth))]]);
+      cover.push([[closeRing(widthFootprint([a, b], range, tributaryWidth))]]);
     }
     if (cover.length === 0) return { share: 1, kept: whole };
     const o = area[0]!;
@@ -1091,6 +1113,32 @@ function tributaryStrip(a: [number, number], b: [number, number], width: number)
   return [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]];
 }
 
+function widthFootprint([a, b]: Segment, [start, end]: [number, number], width: number): Array<[number, number]> {
+  const at = (t: number): [number, number] => {
+    return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+  };
+  return tributaryStrip(at(start), at(end), width);
+}
+
+function widthCover(run: Segment, [start, end]: [number, number], width: number) {
+  const [a, b] = run;
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+  const length = Math.hypot(dx, dy);
+  const origin: [number, number] = [a[0], a[1]];
+  const axis: [number, number] = [dx / length, dy / length];
+  const normal: [number, number] = [-axis[1], axis[0]];
+  const [lo, hi] = [start * length, end * length];
+  const half = width / 2;
+  return {
+    footprint: [widthFootprint(run, [start, end], width)] as Polygon,
+    contains: (polygon: Polygon[number]) => polygon.every(point => {
+      const station = snowCoordinate(point, origin, axis, [lo, hi]);
+      const offset = snowCoordinate(point, origin, normal, [-half, half]);
+      return station >= lo && station <= hi && Math.abs(offset) <= half;
+    }),
+  };
+}
+
 function centroid(poly: Array<[number, number]>): [number, number] {
   return [poly.reduce((s, p) => s + p[0], 0) / poly.length, poly.reduce((s, p) => s + p[1], 0) / poly.length];
 }
@@ -1124,6 +1172,14 @@ export function connectedRoofFootprints(polys: Array<Array<[number, number]>>) {
   return polys.length ? polygonClipping.union(polys.map(poly => [closeRing(poly)])).map(rings => rings.map(openRing)) : [];
 }
 
+function memberGeometry(model: GravityModel, ids: Iterable<number>) {
+  return [...ids].map(id => {
+    const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
+    return { id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy) };
+  });
+}
+
 /** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
 function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
   type Cover = { z: number; polys: Array<Array<[number, number]>> };
@@ -1139,15 +1195,10 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     if (pts.some((p) => !p)) continue;
     coverAt(Math.min(...pts.map((p) => p!.z ?? 0))).polys.push(pts.map((p) => [p!.x, p!.y] as [number, number]));
   }
-  const geometry = [...zOf.keys()].map(id => {
-    const e = model.elements.get(id)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    const dx = b.x - a.x, dy = b.y - a.y, dz = (b.z ?? 0) - (a.z ?? 0);
-    return { id, a, b, dx, dy, dz, lh: Math.hypot(dx, dy) };
-  });
   const footprints = [...panelsAt].flatMap(([z, polys]) => connectedRoofFootprints(polys).map(rings => ({ z, rings })));
   const contains = (pt: [number, number], rings: Array<Array<[number, number]>>) => inside(pt, rings[0]!, TOL)
     && rings.slice(1).every(hole => !inside(pt, hole, 0) || hole.some((p, i) => nearSegment(pt, p, hole[(i + 1) % hole.length]!, TOL)));
-  const runs = physicalRoofRuns(geometry).map(({ a, b }) => {
+  const runs = physicalRoofRuns(memberGeometry(model, zOf.keys())).map(({ a, b }) => {
     const start: [number, number] = [a.x, a.y], end: [number, number] = [b.x, b.y];
     const dx = b.x - a.x, dy = b.y - a.y, length2 = dx * dx + dy * dy;
     const eave = (a.z ?? 0) <= (b.z ?? 0) ? a : b;

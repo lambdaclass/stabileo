@@ -47,7 +47,7 @@ import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
 import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
-import type { Polygon } from 'polygon-clipping';
+import polygonClipping, { type Polygon } from 'polygon-clipping';
 import type { P2 } from './floor-skeleton';
 
 type P3 = [number, number, number];
@@ -362,9 +362,21 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const partition = partitionShellCoverage(sides, holes, footprints, input.distribution === 'oneWay' ? spanDir : undefined);
     if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
     if (partition.kind === 'shell') return;
+    let panelZone = zone;
+    if (zone) {
+      const boundary: Polygon = [sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))];
+      const footprint: Polygon = [zone.outer, ...zone.holes];
+      try {
+        if (polygonClipping.intersection(boundary, footprint).length === 0) return;
+        if (polygonClipping.difference(boundary, footprint).length === 0) panelZone = undefined;
+      } catch {
+        res.refusal = 'eccentricZone';
+        return;
+      }
+    }
     const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'
-      ? oneWayShares(sides, holes, spanDir, 1, zone)
-      : twoWayShares(sides, holes, 1, zone);
+      ? oneWayShares(sides, holes, spanDir, 1, panelZone)
+      : twoWayShares(sides, holes, 1, panelZone);
     if (!shares) {
       if (zone && input.distribution === 'oneWay') res.refusal = 'eccentricZone';
       panel.reason = input.distribution === 'oneWay' && zone ? 'zoneAcrossSpan' : 'unresolved';

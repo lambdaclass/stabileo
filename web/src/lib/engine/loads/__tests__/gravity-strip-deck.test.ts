@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest';
 import { teAt } from '../../../i18n/engine-text';
 import { buildLoadPlan, roofWeightFor, type LoadPlanInput } from '../load-plan';
-import { gravityLayout, MAX_DECK_SPAN } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN, type GravityOptions } from '../plan-gravity';
+import { snowDriftRefusal } from '../snow-drift-loads';
 import { checkResponse } from './gravity-carrier-response';
 import { bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
@@ -247,7 +248,7 @@ function widthRoof(model: Model, x: number, z0: number, z1: number, split = fals
   return first;
 }
 
-it.skip('known wrong result: #2282 — a width-loaded roof covers the full strip', () => {
+it('#2282 — a width-loaded roof covers the full strip', () => {
   for (const [angle, mirror, mesh, width] of [[0, 1, 1, 10], [0.37, 1, 3, 10.5], [1.16, -1, 2, 10.5]] as const) {
     const fixture = bay(4, 0, 1, mesh, mesh > 1);
     const { model, physical } = fixture;
@@ -258,7 +259,7 @@ it.skip('known wrong result: #2282 — a width-loaded roof covers the full strip
       const layout = gravityLayout(model, settings);
       expect(layout.widthMembers.map(member => member.elementId)).toEqual([...model.elements.keys()].filter(id => id >= first));
       expect(layout.pieces.every(piece => !piece.roof)).toBe(true);
-      const result = plan(model, roof, settings);
+      const result = buildLoadPlan(input(model, { gravity: settings, roof, tributaryWidth: width }));
       const lower = result.distributed.filter(load => load.elementId < first);
       expect([...new Set(lower.map(load => load.caseType))].sort()).toEqual(['D', 'L']);
       const dead = lower.filter(load => load.caseType === 'D');
@@ -284,25 +285,47 @@ it.skip('known wrong result: #2282 — a width-loaded roof covers the full strip
   }
 });
 
-it.skip('known wrong result: #2282 — partial width cover refuses mixed exposure', () => {
+it('#2282 — partial width cover refuses mixed exposure', () => {
   for (const options of [automatic, gravity]) {
     for (const [x, width] of [[5, 9.75], [5, 2], [-0.99, 10]] as const) {
       const { model } = bay(4);
       widthRoof(model, x, 6, 8);
-      const settings = { ...options, tributaryWidth: width };
-      const result = plan(model, undefined, settings);
-      const key = 'loadPlan.gravity.mixedExposure';
-      expect(result).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key }], distributed: [], nodal: [], surface: [], levels: [] });
-      expect(() => gravityLayout(model, settings)).toThrow(expect.objectContaining({ key }));
-      expect(() => roofWeightFor(model, settings, width, 2)).toThrow(expect.objectContaining({ key }));
+      expectBlockedWithWidth(model, { ...options, tributaryWidth: width });
     }
   }
+  const { model } = bay(4);
+  widthRoof(model, 5, 3.02, 3.051);
+  expectBlockedWithWidth(model, { ...gravity, tributaryWidth: 10 });
+
+  const gapped = bay(4).model;
+  const first = widthRoof(gapped, 5, 6, 8, true);
+  const second = gapped.elements.get(first + 1)!;
+  const start = gapped.nodes.get(second.nodeI)!;
+  const id = gapped.nodes.size + 1;
+  const gap = 1e-9;
+  gapped.nodes.set(id, { ...start, id, y: start.y + gap, z: start.z! + gap / 3 });
+  second.nodeI = id;
+  expectBlockedWithWidth(gapped, { ...gravity, tributaryWidth: 10 });
+
+  const snowFallback = bay(4).model;
+  widthRoof(snowFallback, 5, 6, 8);
+  expect(() => snowDriftRefusal(snowFallback)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
 });
 
-it('leaves strips exposed when the width footprint only touches them or has zero width', () => {
-  for (const [x, width] of [[-1, 10], [5, 0]] as const) {
+function expectBlockedWithWidth(model: Model, gravityOptions: GravityOptions) {
+  const { tributaryWidth } = gravityOptions;
+  const key = 'loadPlan.gravity.mixedExposure';
+  expect(buildLoadPlan(input(model, { gravity: gravityOptions, tributaryWidth }))).toMatchObject({
+    outcome: 'BLOCKED', blockedKeys: [{ key }], distributed: [], nodal: [], surface: [], levels: [],
+  });
+  expect(() => gravityLayout(model, gravityOptions)).toThrow(expect.objectContaining({ key }));
+  expect(() => roofWeightFor(model, gravityOptions, tributaryWidth, 2)).toThrow(expect.objectContaining({ key }));
+}
+
+it('leaves strips exposed without area from a width footprint above the cover rise', () => {
+  for (const [x, width, z0, z1] of [[-1, 10, 6, 8], [5, 0, 6, 8], [5, 10, 3.02, 3.05]] as const) {
     const { model } = bay(4);
-    widthRoof(model, x, 6, 8);
+    widthRoof(model, x, z0, z1);
     const layout = gravityLayout(model, { ...gravity, tributaryWidth: width });
     expect(layout.pieces.map(piece => [piece.elementId, piece.a, piece.roof])).toEqual([[1, 4, true], [2, 4, true]]);
   }

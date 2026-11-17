@@ -78,7 +78,7 @@ function checkCarriers(fixture: ReturnType<typeof bay>, result: ReturnType<typeo
   ]);
 }
 
-it.skip('known wrong result: #2282 — a complete bay zone delivers its member loads', () => {
+it('#2282 — a complete bay zone delivers its member loads', () => {
   for (const [angle, mirror, subdivide] of [[0, 1, false], [0.37, 1, true], [1.16, -1, true]] as const) {
     const { fixture, model, rectangle } = twoBays(angle, mirror, subdivide);
     const input: FloorLoadInput = {
