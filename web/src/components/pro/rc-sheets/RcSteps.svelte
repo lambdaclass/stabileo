@@ -1,11 +1,12 @@
 <script lang="ts">
   import { t, i18n } from '../../../lib/i18n';
   import { decimalFor } from '../../../lib/rc-sheets/format';
+  import { localizeDecimals } from '../../../lib/rc-sheets/view-helpers';
   import type { StepGroup } from '../../../lib/rc-sheets/types';
 
   let { groups }: { groups: StepGroup[] } = $props();
   const comma = $derived(decimalFor(i18n.locale) === ',');
-  const num = (s: string | undefined) => (s && comma ? s.replace(/(?<![\d.§])(\d+)\.(\d+)(?![\d.])/g, '$1,$2') : s ?? '');
+  const num = (s: string | undefined) => localizeDecimals(s, comma);
 </script>
 
 <div class="rcs-steps" data-testid="rc-steps">
@@ -18,7 +19,7 @@
             <tr class:bad={s.ok === false} class:good={s.ok === true}>
               <td class="lab">{t(s.label)}</td>
               <td class="fx">{num(s.formula)}</td>
-              <td class="val">{s.value}</td>
+              <td class="val">{num(s.value)}</td>
               <td class="st">{s.ok === true ? '✓' : s.ok === false ? '✗' : ''}</td>
             </tr>
           {/each}

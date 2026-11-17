@@ -163,10 +163,10 @@ export function lineSections(line: LineLayout, spans: readonly BeamRow[], fmt: F
       ['span', `x* = ${fmt(xStar)} m`, sp.x0 + xStar, sp.x0 + xStar],
       ['end', 'j', sp.x1 - 1e-3, sp.x1 - Math.max(sp.x1 - sp.x0 - (d?.end.x ?? sp.x1 - sp.x0), (line.supportWidths[k + 1] ?? 0) / 2 || 0.1)],
     ];
-    for (const [sec, tag, x, cutAt] of places) {
+    for (const [sec, tag, , cutAt] of places) {
       const g = sa.at?.[sec] ?? { top: sa.top, bottom: sa.bottom };
       const notes = [`↑ ${groupsLabel(g.top)}`, `↓ ${groupsLabel(g.bottom)}`, stirrupsLabel(sa.stirrups)];
-      const marks = { top: marksAt(line, 'top', x), bottom: marksAt(line, 'bottom', x) };
+      const marks = { top: marksAt(line, 'top', cutAt), bottom: marksAt(line, 'bottom', cutAt) };
       const key = `${sp.b}×${sp.h}|${notes.join('|')}|${sa.stirrups.legs}${withMarks ? `|${marks.top.join()}|${marks.bottom.join()}` : ''}`;
       const same = out.find((q) => q.key === key);
       if (same) { same.tags.push(`${sp.name} · ${tag}`); same.at.push(cutAt); }

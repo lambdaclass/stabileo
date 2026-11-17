@@ -5,7 +5,7 @@ import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/arg
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { layerClearBetween, minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
-import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { compressionLapMm, confinementOf, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } from './seismic';
@@ -313,9 +313,26 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
 /** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
 export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number }; fromBelow?: boolean; offset?: number }
 
-/** A class B tension splice (§25.5.2), m. */
-export const tensionLap = (mat: Materials, dia: number): number =>
-  deriveLap(deriveDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, edition: EDITION }), { edition: EDITION }).lapM;
+/** Where a column's bars are lapped: clear cover to them and the least centre spacing along a face, mm, and Ktr of the ties over the lap (§25.4.2.4). */
+export interface LapLayout { clearCoverMm: number; spacingMm: number; ktrMm: number }
+
+/** A class B tension splice (§25.5.2), m: by the general expression with the bars' cover, spacing and ties where they are known, else by Table 25.4.2.3's least favourable row. */
+export const tensionLap = (mat: Materials, dia: number, layout?: LapLayout): number =>
+  deriveLap(deriveDevelopment({
+    diameterMm: dia, fy: mat.fy, fc: mat.fc, favourableSpacing: false, edition: EDITION,
+    ...(layout ? { confinement: { ...confinementOf(dia, layout.clearCoverMm, layout.spacingMm), ktrMm: layout.ktrMm } } : {}),
+  }), { edition: EDITION }).lapM;
+
+/** A column's lap layout: its outer bars' cover and pitch, and Ktr = 40·Atr/(s·n) of the tie's two legs over the face with the most bars. */
+export function columnLapLayout(d: { b: number; h: number }, c: Pick<ColumnContext, 'cover'>, a: ColumnAdopted): LapLayout {
+  const pitch = (side: number, n: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner)) / (n + 1);
+  const n = Math.max(a.nx, a.ny) + 2;
+  return {
+    clearCoverMm: (c.cover + a.tieDia / 1000) * 1000,
+    spacingMm: Math.min(pitch(d.b, a.nx), pitch(d.h, a.ny)) * 1000,
+    ktrMm: a.tieSpacing > 0 ? (40 * 2 * barArea(a.tieDia) * 100) / (a.tieSpacing * 1000 * n) : 0,
+  };
+}
 
 /** The largest tie spacing of §25.7.2.1, m. */
 export const tieSpacingLimit = (longDia: number, tieDia: number, least: number): number => columnTieSpacing(EDITION, longDia, tieDia, least).spacing;
@@ -327,8 +344,8 @@ export function barsInTension(d: { b: number; h: number }, bars: ReadonlyArray<{
 }
 
 /** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where a bar is in tension. */
-export function columnSplice(c: ColumnContext, dia: number, tension: boolean): { length: number; tension: boolean } {
-  if (tension) return { length: tensionLap(c.mat, dia), tension };
+export function columnSplice(c: ColumnContext, dia: number, tension: boolean, layout?: LapLayout): { length: number; tension: boolean } {
+  if (tension) return { length: tensionLap(c.mat, dia, layout), tension };
   return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
 }
 
@@ -421,7 +438,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
-  const splice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all));
+  const splice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all), columnLapLayout(d, c, a));
   const seis = c.seismic && cct ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), cct, fmt) : null;
 
   const verifications: CheckLine[] = [

@@ -7,11 +7,12 @@
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { PunchingFigure } from '../../../lib/rc-sheets/punching-row';
+  import { ringPath, type PlanSide } from '../../../lib/rc-sheets/view-helpers';
 
   let { fig, name }: { fig: PunchingFigure; name: string } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
 
-  type Side = 'px' | 'py' | 'nx' | 'ny';
+  type Side = PlanSide;
   const DIRS: Array<[Side, number]> = [['px', 0], ['py', 90], ['nx', 180], ['ny', 270]];
   const gap = (a: number, b: number) => { const d = Math.abs((((a - b) % 360) + 360) % 360); return Math.min(d, 360 - d); };
   /** The sides the slab stops at the column face: the one the free edge faces, or the two of a corner. */
@@ -35,30 +36,7 @@
   const Y = (y: number) => PAD + (box.y1 - y) * k;
   const W = $derived(2 * PAD + (box.x1 - box.x0) * k), H = $derived(2 * PAD + (box.y1 - box.y0) * k);
 
-  /** A ring at `off` from the faces, cut where the slab stops, as an SVG path; rounded corners when asked. */
-  function ring(off: number, rounded: boolean): string {
-    const ex = bx + off, ey = by + off;
-    const xa = free.has('nx') ? -bx : -ex, xb = free.has('px') ? bx : ex;
-    const ya = free.has('ny') ? -by : -ey, yb = free.has('py') ? by : ey;
-    const parts: string[] = [];
-    const seg = (x1: number, y1: number, x2: number, y2: number) => parts.push(`M ${X(x1)} ${Y(y1)} L ${X(x2)} ${Y(y2)}`);
-    const arc = (cx: number, cy: number, a0: number, a1: number) => {
-      const p0 = [cx + off * Math.cos(a0), cy + off * Math.sin(a0)], p1 = [cx + off * Math.cos(a1), cy + off * Math.sin(a1)];
-      parts.push(`M ${X(p0[0]!)} ${Y(p0[1]!)} A ${off * k} ${off * k} 0 0 1 ${X(p1[0]!)} ${Y(p1[1]!)}`);
-    };
-    const r = rounded;
-    if (!free.has('ny')) seg(r && !free.has('nx') ? -bx : xa, -ey, r && !free.has('px') ? bx : xb, -ey);
-    if (!free.has('px')) seg(ex, r && !free.has('ny') ? -by : ya, ex, r && !free.has('py') ? by : yb);
-    if (!free.has('py')) seg(r && !free.has('px') ? bx : xb, ey, r && !free.has('nx') ? -bx : xa, ey);
-    if (!free.has('nx')) seg(-ex, r && !free.has('py') ? by : yb, -ex, r && !free.has('ny') ? -by : ya);
-    if (r) {
-      if (!free.has('ny') && !free.has('px')) arc(bx, -by, -Math.PI / 2, 0);
-      if (!free.has('px') && !free.has('py')) arc(bx, by, 0, Math.PI / 2);
-      if (!free.has('py') && !free.has('nx')) arc(-bx, by, Math.PI / 2, Math.PI);
-      if (!free.has('nx') && !free.has('ny')) arc(-bx, -by, Math.PI, (3 * Math.PI) / 2);
-    }
-    return parts.join(' ');
-  }
+  const ring = (off: number, rounded: boolean): string => ringPath({ bx, by, off, rounded, free, X, Y, k });
   const lines = $derived(fig.reinforcement ? Array.from({ length: fig.reinforcement.lines }, (_, i) => fig.reinforcement!.spacing / 2 + i * fig.reinforcement!.spacing) : []);
   const cm = (m: number) => fmt(m * 100, 0);
   const offLabel = $derived(fig.rounded ? `2d = ${cm(fig.offset)} cm` : `d/2 = ${cm(fig.offset)} cm`);
@@ -89,7 +67,7 @@
     <li>{t(`rcSheets.punchFig.pos.${fig.position}`)}</li>
     {#if fig.integrity}<li>{tp('rcSheets.punchFig.integrity', { n: fig.integrity.bars, dia: fig.integrity.dia })} — §8.7.4.2.2</li>{/if}
     {#if fig.reinforcement}
-      <li class="warn">{tpn('rcSheets.punchFig.stirrups', fig.reinforcement.lines, { dia: fig.reinforcement.legDiameter, s: cm(fig.reinforcement.spacing), legs: fig.reinforcement.legs, ext: cm(fig.reinforcement.extent) })} — §22.6.7</li>
+      <li class="warn">{tpn('rcSheets.punchFig.stirrups', fig.reinforcement.lines, { dia: fig.reinforcement.legDiameter, s: cm(fig.reinforcement.spacing), legs: fig.reinforcement.legs, ext: cm(fig.reinforcement.extent) })} — {fig.reinforcement.clause}</li>
       {#if fig.reinforcement.overCeiling}<li class="bad">{t('rcSheets.punchFig.overCeiling')}</li>{/if}
     {/if}
   </ul>

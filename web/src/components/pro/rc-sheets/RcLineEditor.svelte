@@ -5,19 +5,22 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { LineAdopted, LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BarGroup } from '../../../lib/rc-sheets/types';
+  import { designData } from '../../../lib/store/design-data';
+  import { editorDiameters, numberInput } from '../../../lib/rc-sheets/view-helpers';
 
   let { line }: { line: LineLayout } = $props();
   const bentChoice = $derived.by(() => { void modelStore.designData; const v = rcSheetsData().bentLines?.[line.key]; return v === undefined ? 'project' : v ? 'on' : 'off'; });
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const LONG = [10, 12, 16, 20, 25, 32];
-  const SMALL = [6, 8, 10, 12];
+  const dd = $derived.by(() => { void modelStore.designData; return designData(); });
+  const LONG = $derived(editorDiameters(dd, 'beam', [line.adopted.bottom.dia, line.adopted.top.dia, ...line.adopted.supportTop.map((g) => g.dia), ...line.adopted.spanBottom.map((g) => g.dia), ...(line.adopted.bent ?? []).map((g) => g.dia)]));
+  const SMALL = $derived(editorDiameters(dd, 'tie', (line.adopted.stirrups ?? []).map((s) => s.dia)));
   // A number box cleared or typed past its limits takes the nearest limit: a spacing or a count of 0 would stall the drawings.
   const num = (e: Event) => {
     const el = e.currentTarget as HTMLInputElement | HTMLSelectElement;
     const v = Number(el.value);
     if (!(el instanceof HTMLInputElement) || el.type !== 'number') return v;
     const lo = el.min === '' ? -Infinity : Number(el.min), hi = el.max === '' ? Infinity : Number(el.max);
-    const c = el.value.trim() !== '' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    const c = numberInput(el.value, lo, hi, el.step === '' ? 1 : el.step === 'any' ? undefined : Number(el.step));
     if (Number.isFinite(c) && c !== v) el.value = String(c);
     return c;
   };

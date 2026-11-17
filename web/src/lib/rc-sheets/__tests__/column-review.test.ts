@@ -55,3 +55,15 @@ describe('a column\'s splice and shear', () => {
     expect(withLapFit(row, 'cirsoc201-2025', fmt).verifications.at(-1)!.ok).toBe(true);
   });
 });
+
+describe('a column\'s tension lap', () => {
+  it('reads §25.4.2.4 with the bars\' cover, spacing and ties, not the table\'s least favourable row', async () => {
+    const { tensionLap, columnLapLayout } = await import('../column-row');
+    const a: ColumnAdopted = { corner: 16, nx: 1, dx: 16, ny: 1, dy: 16, tieDia: 8, tieSpacing: 0.1 };
+    const layout = columnLapLayout({ b: 0.4, h: 0.4 }, { cover: 0.03 }, a);
+    expect(layout.clearCoverMm).toBeCloseTo(38, 9);
+    // (cb + Ktr)/db passes 2.5: ld = fy·ψs/(1.1·λ·√f'c·2.5)·db = 420·0.8/(1.1·5·2.5)·16 = 391 mm; class B 1.3·ld.
+    expect(tensionLap({ fc: 25, fy: 420 }, 16, layout)).toBeCloseTo(1.3 * 0.391, 2);
+    expect(tensionLap({ fc: 25, fy: 420 }, 16, layout)).toBeLessThan(tensionLap({ fc: 25, fy: 420 }, 16) - 0.2);
+  });
+});

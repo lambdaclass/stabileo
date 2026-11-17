@@ -3,12 +3,22 @@
   import { setAdopted, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { SLAB_FACES } from '../../../lib/rc-sheets/slab-row';
   import type { BarGroup, BeamAdopted, ColumnAdopted, MeshBars, SlabAdopted, WallAdopted } from '../../../lib/rc-sheets/types';
+  import { modelStore } from '../../../lib/store';
+  import { designData } from '../../../lib/store/design-data';
+  import { editorDiameters, numberInput } from '../../../lib/rc-sheets/view-helpers';
 
   let { row }: { row: Exclude<SheetRow, { family: 'punching' | 'footing' }> } = $props();
 
-  const LONG = [10, 12, 16, 20, 25, 32];
-  const SMALL = [6, 8, 10, 12];
-  const MESH = [6, 8, 10, 12, 16];
+  const dd = $derived.by(() => { void modelStore.designData; return designData(); });
+  const held = $derived.by((): { long: number[]; tie: number[]; mesh: number[] } => {
+    if (row.family === 'beam') { const a = row.adopted; return { long: [...a.top, ...a.bottom].map((g) => g.dia).concat(a.torsionLong?.dia ?? 0), tie: [a.stirrups.dia], mesh: [] }; }
+    if (row.family === 'column') { const a = row.adopted; return { long: [a.corner, a.dx, a.dy, a.inner?.dia ?? 0], tie: [a.tieDia], mesh: [] }; }
+    if (row.family === 'slab') { const a = row.adopted; return { long: [], tie: [], mesh: SLAB_FACES.map((f) => a[f].dia) }; }
+    const a = row.adopted; return { long: [a.boundary?.diameter ?? 0], tie: [], mesh: [a.vertical.diameter, a.horizontal.diameter] };
+  });
+  const LONG = $derived(editorDiameters(dd, row.family === 'column' ? 'column' : 'beam', held.long));
+  const SMALL = $derived(editorDiameters(dd, 'tie', held.tie));
+  const MESH = $derived(editorDiameters(dd, row.family === 'wall' ? 'wall' : 'slab', held.mesh));
 
   // A number box cleared or typed past its limits takes the nearest limit: a spacing or a count of 0 would stall the drawings.
   const num = (e: Event) => {
@@ -16,7 +26,7 @@
     const v = Number(el.value);
     if (!(el instanceof HTMLInputElement) || el.type !== 'number') return v;
     const lo = el.min === '' ? -Infinity : Number(el.min), hi = el.max === '' ? Infinity : Number(el.max);
-    const c = el.value.trim() !== '' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo;
+    const c = numberInput(el.value, lo, hi, el.step === '' ? 1 : el.step === 'any' ? undefined : Number(el.step));
     if (Number.isFinite(c) && c !== v) el.value = String(c);
     return c;
   };

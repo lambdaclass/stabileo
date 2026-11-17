@@ -55,28 +55,37 @@ export function sheetsStale(): boolean {
 
 let runId = 0;
 
-/** Design every member, letting the page draw every ~30 ms; one run at a time, the newest wins. */
+/**
+ * Design every member, letting the page draw every ~30 ms; one run at a time, the newest wins. What
+ * changed while it ran is designed again: reading the forces can settle what the design data hold,
+ * so a run whose inputs moved runs once more from them, and rows only ever carry the inputs they
+ * were designed from.
+ */
 export async function designSheets(): Promise<void> {
   const id = ++runId;
-  const stamp = stampNow();
-  const it = sheetRowsSteps(makeFmt(decimalFor(stamp.locale)));
-  setProgress({ phase: 'demands', done: 0, total: 1 });
-  await nextFrame();
   try {
-    let last = performance.now();
-    for (;;) {
-      if (id !== runId) return;
-      const r = it.next();
-      if (r.done) {
-        sheetsRun.rows = r.value;
-        // Taken again at the end: reading the forces can settle what the design data hold.
-        sheetsRun.stamp = stampNow();
-        break;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const stamp = stampNow();
+      const it = sheetRowsSteps(makeFmt(decimalFor(stamp.locale)));
+      setProgress({ phase: 'demands', done: 0, total: 1 });
+      await nextFrame();
+      let rows: SheetRows | null = null;
+      let last = performance.now();
+      for (;;) {
+        if (id !== runId) return;
+        const r = it.next();
+        if (r.done) { rows = r.value; break; }
+        if (performance.now() - last > 30) {
+          setProgress(r.value);
+          await nextFrame();
+          last = performance.now();
+        }
       }
-      if (performance.now() - last > 30) {
-        setProgress(r.value);
-        await nextFrame();
-        last = performance.now();
+      const end = stampNow();
+      if (sameInputs(stamp, end) || attempt === 3) {
+        sheetsRun.rows = rows;
+        sheetsRun.stamp = sameInputs(stamp, end) ? end : stamp;
+        return;
       }
     }
   } finally {

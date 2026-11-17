@@ -270,7 +270,7 @@
                 <td data-testid="rc-col-crossties">{crosstiesText(r.checks.crossties)}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
               {:else if r.family === 'punching'}
-                <td>{r.position}</td>
+                <td>{r.position === 'interior' || r.position === 'edge' || r.position === 'corner' ? t(`rcSheets.punchPos.${r.position}`) : '—'}</td>
                 <td class="n">{f1(r.vu)}</td>
                 <td class="n">{f1(r.phiVc)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>

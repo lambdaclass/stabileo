@@ -3,7 +3,7 @@
  * how far they have got, and out of date (not designed again) when what they were designed from
  * changes. A bar layout adopted in them is their own edit and makes them no older.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -12,7 +12,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setAdopted, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
+import { buildSheetRows, setAdopted, setRcOption, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
@@ -132,5 +132,22 @@ describe('solving from the sheets', () => {
     expect(solved).toBe(1);
     expect(sheetsRun.rows!.beam.length).toBeGreaterThan(0);
     expect(sheetsStale()).toBe(false);
+  });
+});
+
+describe('a design run the inputs change under', () => {
+  it('designs again from what holds when it ends, instead of marking rows of the old inputs current', async () => {
+    solvedFrame();
+    let clock = 0;
+    const now = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 100));
+    try {
+      const run = designSheets();
+      for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
+      expect(sheetsRun.progress).not.toBeNull();
+      setRcOption('faces', true);
+      await run;
+    } finally { now.mockRestore(); }
+    expect(sheetsStale()).toBe(false);
+    expect(sheetsRun.rows!.beam.every((r) => !!r.demand.faces)).toBe(true);
   });
 });

@@ -44,7 +44,7 @@ export interface PunchingFigure {
   position: 'interior' | 'edge' | 'corner';
   /** Bearing the free edge faces, degrees CCW from +x; null inside a slab. */
   openBearingDeg: number | null;
-  reinforcement?: { legDiameter: number; legs: number; spacing: number; lines: number; extent: number; overCeiling: boolean };
+  reinforcement?: { legDiameter: number; legs: number; spacing: number; lines: number; extent: number; overCeiling: boolean; clause: string };
   /** Bottom bars drawn through the column, each way, and their diameter. */
   integrity?: { bars: number; dia: number };
 }
@@ -86,7 +86,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
     ...(p && position.position ? { figure: {
       b: d.joint.b, h: d.joint.h, d: p.d, offset: p.halfX - d.joint.b / 2, rounded: false, bo: p.bo, clause: '§22.6.4.1',
       position: position.position, openBearingDeg: position.openBearingDeg, integrity,
-      ...(r.reinforcement ? { reinforcement: { legDiameter: r.reinforcement.legDiameter, legs: r.reinforcement.legs, spacing: r.reinforcement.spacing, lines: r.reinforcement.lines, extent: r.reinforcement.extent, overCeiling: r.reinforcement.overCeiling } } : {}),
+      ...(r.reinforcement ? { reinforcement: { legDiameter: r.reinforcement.legDiameter, legs: r.reinforcement.legs, spacing: r.reinforcement.spacing, lines: r.reinforcement.lines, extent: r.reinforcement.extent, overCeiling: r.reinforcement.overCeiling, clause: '§22.6.7' } } : {}),
     } satisfies PunchingFigure } : {}),
   };
 }
