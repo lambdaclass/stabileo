@@ -210,8 +210,10 @@
   {:else}
     <figcaption class="hf-row">
       <span class="hf-tag">{t('landing.trussTag')}</span>
-      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-tension)"></i>{t('landing.trussTension')} <b>{t('landing.trussTMax')} {fmtP.format(forceRange.max)} P</b></span>
-      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-compression)"></i>{t('landing.trussCompression')} <b>{t('landing.trussCMax')} {fmtP.format(-forceRange.min)} P</b></span>
+      <span class="hf-item">{t('landing.figDeformedNorm')}</span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-zero)"></i>{t('landing.figZero')}</span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-tension)"></i>{t('landing.trussTension')} + <b>{t('landing.trussTMax')} {fmtP.format(forceRange.max)} P</b></span>
+      <span class="hf-item"><i class="hf-sw" style="background: var(--tf-compression)"></i>{t('landing.trussCompression')} − <b>{t('landing.trussCMax')} {fmtP.format(-forceRange.min)} P</b></span>
     </figcaption>
   {/if}
 </figure>

@@ -14,11 +14,11 @@
   const hover = mouseOnly((on) => (loop.hovered = on));
   $effect(() => { loop.paused = paused; });
 
-  const DENSITY = FRAMES.map((b64) => {
+  const SOLVED_FRAMES = FRAMES.map((b64, index) => {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const out = new Float32Array(NELX * NELY);
     bytes.forEach((v, k) => { out[2 * k] = (v >> 4) / 15; out[2 * k + 1] = (v & 15) / 15; });
-    return out;
+    return { density: out, iteration: FRAME_ITERATION[index], compliance: FRAME_COMPLIANCE[index] };
   });
 
   const CELL = 3.3, X0 = 10, Y0 = 62;
@@ -26,12 +26,11 @@
 
   const time = $derived(loop.seconds);
   const position = $derived(smooth(time / RUN) * 0.35 + clamp01(time / RUN) * 0.65);
-  const frame = $derived(Math.round(position * (FRAMES.length - 1) * 8) / 8);
+  const frame = $derived(SOLVED_FRAMES[Math.round(position * (SOLVED_FRAMES.length - 1))]);
   const fade = $derived(Math.min(loop.laps > 0 ? smooth(time / 0.6) : 1, 1 - smooth((time - FADE_AT) / (PERIOD - FADE_AT))));
 
   const layers = $derived.by(() => {
-    const i = Math.min(FRAMES.length - 2, Math.floor(frame)), w = frame - i;
-    const a = DENSITY[i], b = DENSITY[i + 1];
+    const { density } = frame;
     const paths = Array.from({ length: LEVELS }, () => '');
     for (let row = 0; row < NELY; row++) {
       let runStart = 0, runLevel = -1;
@@ -41,7 +40,7 @@
       for (let col = 0; col < 2 * NELX; col++) {
         const src = col < NELX ? NELX - 1 - col : col - NELX;
         const k = src * NELY + row;
-        const level = Math.round((a[k] + (b[k] - a[k]) * w) * LEVELS);
+        const level = Math.round(density[k] * LEVELS);
         if (level !== runLevel) { flush(col); runStart = col; runLevel = level; }
       }
       flush(2 * NELX);
@@ -49,24 +48,13 @@
     return paths;
   });
 
-  const exactIteration = $derived.by(() => {
-    const i = Math.min(FRAMES.length - 2, Math.floor(frame)), w = frame - i;
-    return FRAME_ITERATION[i] + (FRAME_ITERATION[i + 1] - FRAME_ITERATION[i]) * w;
-  });
-  const iteration = $derived(Math.round(exactIteration));
-  const compliance = $derived.by(() => {
-    const i = Math.min(FRAMES.length - 2, Math.floor(frame)), w = frame - i;
-    return FRAME_COMPLIANCE[i] + (FRAME_COMPLIANCE[i + 1] - FRAME_COMPLIANCE[i]) * w;
-  });
-
   const CH = { x: 452, y: 44, w: 96, h: 84 };
-  const INITIAL = FRAME_COMPLIANCE[0];
+  const INITIAL = SOLVED_FRAMES[0].compliance;
   const share = (c: number) => (100 * c) / INITIAL;
   const cx = (it: number) => CH.x + ((it - 1) / (ITERATIONS - 1)) * CH.w;
   const cy = (c: number) => CH.y + CH.h - (share(c) / 100) * CH.h;
-  const CURVE = FRAME_ITERATION.map((it, i) => `${cx(it).toFixed(1)},${cy(FRAME_COMPLIANCE[i]).toFixed(1)}`).join(' ');
+  const CURVE = SOLVED_FRAMES.map(({ iteration, compliance }) => `${cx(iteration).toFixed(1)},${cy(compliance).toFixed(1)}`).join(' ');
   const fmt0 = $derived(new Intl.NumberFormat(i18n.locale, { maximumFractionDigits: 0 }));
-  const fmt = $derived(new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
   const W = 2 * NELX * CELL, HGT = NELY * CELL;
 </script>
@@ -107,7 +95,7 @@
       <text class="hf-axis to-tick" x={CH.x - 4} y={CH.y + 4}>100 %</text>
       <text class="hf-axis to-tick" x={CH.x - 4} y={CH.y + CH.h}>0</text>
       <polyline class="to-curve" points={CURVE} />
-      <circle class="to-dot" cx={cx(exactIteration)} cy={cy(compliance)} r="3" />
+      <circle class="to-dot" cx={cx(frame.iteration)} cy={cy(frame.compliance)} r="3" />
       <text class="hf-axis" x={CH.x} y={CH.y + CH.h + 14}>1</text>
       <text class="hf-axis to-end" x={CH.x + CH.w} y={CH.y + CH.h + 14}>{ITERATIONS}</text>
       <text class="hf-axis to-mid" x={CH.x + CH.w / 2} y={CH.y + CH.h + 28}>{t('landing.topIteration')}</text>
@@ -115,8 +103,8 @@
   </svg>
   <figcaption class="hf-row">
     <span class="hf-tag">{t('landing.topTag')} · {CITATION}</span>
-    <span class="hf-item">{t('landing.topIteration')} <b>{iteration} / {ITERATIONS}</b></span>
-    <span class="hf-item">{t('landing.topCompliance')} <b>{tp('landing.topShare', { v: fmt0.format(share(compliance)) })}</b></span>
+    <span class="hf-item">{t('landing.topIteration')} <b>{frame.iteration} / {ITERATIONS}</b></span>
+    <span class="hf-item">{t('landing.topCompliance')} <b>{tp('landing.topShare', { v: fmt0.format(share(frame.compliance)) })}</b></span>
   </figcaption>
 </figure>
 

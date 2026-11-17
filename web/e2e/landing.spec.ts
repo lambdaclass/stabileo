@@ -68,6 +68,17 @@ const SECTIONS = [
   'blog',
 ] as const;
 
+async function bootWithHeroClock(page: Page) {
+  await page.clock.install({ time: 0 });
+  await page.addInitScript(() => {
+    window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(performance.now()), 100);
+    window.cancelAnimationFrame = (handle) => window.clearTimeout(handle);
+  });
+  await bootLanding(page);
+  await page.mouse.move(0, 0);
+  await page.clock.pauseAt(60_000);
+}
+
 async function showHeroTruss(page: Page) {
   await page.locator('.landing [data-figure="truss"]').click();
   await page.mouse.move(0, 0);
@@ -378,7 +389,7 @@ test.describe('@landing landing page', () => {
 
 
   for (const [width, height] of [[390, 844], [820, 1180]] as const) {
-    test.skip(`known wrong result: #2090 the hero is above the fold and tappable at ${width}×${height}`, async ({ page }) => {
+    test(`#2090 the hero is above the fold and tappable at ${width}×${height}`, async ({ page }) => {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await bootLanding(page);
@@ -393,7 +404,9 @@ test.describe('@landing landing page', () => {
       expect.soft(pageWidth).toBeLessThanOrEqual(width);
       const controls = figure.locator('.hero-fig-switch button');
       await expect(controls).toHaveCount(7);
-      for (const target of await controls.all()) {
+      const actions = page.locator('.landing .hero-ctas :is(button, a), .landing .hero-blog');
+      await expect(actions).toHaveCount(3);
+      for (const target of [...await controls.all(), ...await actions.all()]) {
         const hitArea = (await target.boundingBox())!;
         const name = (await target.textContent())!.trim();
         expect.soft(hitArea.width, name).toBeGreaterThanOrEqual(44);
@@ -402,17 +415,30 @@ test.describe('@landing landing page', () => {
     });
   }
 
-  test('the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
-    await bootLanding(page);
-    const chips = page.locator('.landing .hero-fig-switch button');
-    await expect(chips).toHaveCount(7);
-    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
-    await expect(page.locator('.landing .hero-figure .bld-fig')).toHaveCount(1);
-    const bar = page.locator('.landing .hero-fig-switch button.on .hero-fig-progress span');
-    const width = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
-    const before = await width();
-    await expect.poll(width, { message: 'the active figure shows how far through its loop it is', timeout: 15000 }).toBeGreaterThan(before);
-    await expect.poll(() => page.locator('.landing .hero-fig-switch button.on').getAttribute('data-figure'), { timeout: 30000 }).not.toBe('building'); // slow-ok: the first figure holds for its 18 s loop before the hero moves on
+  test('#2090 the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
+    await bootWithHeroClock(page);
+    const active = page.locator('.landing .hero-fig-switch button.on');
+    await expect(page.locator('.landing .hero-fig-switch button')).toHaveCount(7);
+    await expect(active).toHaveAttribute('data-figure', 'building');
+    await expect(page.locator('.landing .hero-figure .bld-fig')).toBeVisible();
+    const bar = active.locator('.hero-fig-progress span');
+    const progress = () => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a);
+    const before = await progress();
+    await page.clock.runFor(100);
+    expect(await progress(), 'the active figure shows how far through its loop it is').toBeGreaterThan(before);
+
+    const sequence = [
+      [16_900, 'shed', 'shed-fig'], [17_000, 'truss', 'truss-fig'], [18_000, 'section', 'sa-fig'],
+      [16_000, 'mohr', 'mohr-fig'], [16_000, 'modal', 'md-fig'], [18_000, 'topopt', 'to-fig'],
+      [14_400, 'building', 'bld-fig'],
+    ] as const;
+    for (const [duration, figure, figureClass] of sequence) {
+      await page.clock.runFor(duration + 200);
+      await expect(active).toHaveAttribute('data-figure', figure);
+      await page.clock.runFor(300);
+      await expect(page.locator('.landing .hero-fig-slot svg')).toHaveCount(1);
+      await expect(page.locator(`.landing .hero-figure .${figureClass} svg`)).toBeVisible();
+    }
   });
 
   test('a figure chosen from the row starts moving with the pointer still on its button', async ({ page }) => {
@@ -448,13 +474,26 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
   });
 
-  test('a figure that fails to load is skipped, not requested every frame', async ({ page }) => {
+  test('#2090 a figure that fails to load is skipped without repeated requests', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'connection', { value: { saveData: true } });
+    });
     let requests = 0;
-    await page.route('**/ShedFigure-*.js', (route) => { requests++; return route.abort(); });
-    await bootLanding(page);
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(19_000); // slow-ok: the rotation reaches the failing figure only after the building's 17 s loop
-    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
+    await page.route('**/ShedFigure-*.js', (route) => {
+      requests++;
+      return route.abort();
+    });
+    await bootWithHeroClock(page);
+    expect(requests, 'data saving skips idle preloading').toBe(0);
+    const active = page.locator('.landing .hero-fig-switch button.on');
+    await page.clock.runFor(17_500);
+    await expect.poll(() => requests, { message: 'the failing figure chunk was actually requested' }).toBeGreaterThan(0);
+    await expect(active).toHaveAttribute('data-figure', 'building');
+    const bar = active.locator('.hero-fig-progress span');
+    await expect.poll(() => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a)).toBeLessThan(0.1);
+    await page.clock.runFor(17_500);
+    await expect(active).toHaveAttribute('data-figure', 'truss');
+    await expect(page.locator('.landing .hero-figure .truss-fig svg')).toBeVisible();
     expect(requests, 'one attempt per switch, not one per frame').toBeLessThan(5);
   });
 
@@ -470,11 +509,11 @@ test.describe('@landing landing page', () => {
   });
 
   test('choosing a figure keeps it on screen instead of rotating on', async ({ page }) => {
-    await bootLanding(page);
-    await page.locator('.landing [data-figure="section"]').click();
+    await bootWithHeroClock(page);
+    await page.locator('.landing [data-figure="section"]').dispatchEvent('click');
     await page.mouse.move(0, 0);
     await expect(page.locator('.landing .hero-figure .sa-fig')).toHaveCount(1);
-    await page.waitForTimeout(17_500); // slow-ok: one full 16 s loop of the chosen figure must pass without the hero moving on
+    await page.clock.runFor(17_500);
     await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'section');
   });
 
@@ -544,6 +583,8 @@ test.describe('@landing landing page', () => {
       const legend = (await page.locator('.landing .hero-figure .truss-fig .hf-row').textContent()) ?? '';
       expect(legend).toMatch(locale === 'en' ? /Tension/ : /Tracción/);
       expect(legend).toMatch(locale === 'en' ? /Compression/ : /Compresión/);
+      expect(legend).toContain('+');
+      expect(legend).toContain('−');
       await ctx.close();
     }
   });
@@ -590,6 +631,10 @@ test.describe('@landing landing page', () => {
     const legend = (await page.locator('.landing .hero-figure .truss-fig .hf-row').textContent()) ?? '';
     expect(legend).toContain('Tension');
     expect(legend).toContain('Compression');
+    expect(legend).toContain('+');
+    expect(legend).toContain('−');
+    expect(legend.toLowerCase()).toContain('zero');
+    await expect(page.locator('.landing .hero-figure figcaption')).toContainText('DEFORMED SHAPE · NORMALISED');
   });
 
 

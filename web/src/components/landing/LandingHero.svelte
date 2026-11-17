@@ -111,9 +111,43 @@
 
 <section class="sec sec--ink hero" data-section="hero" id="top" aria-labelledby="hero-title">
   <div class="wrap hero-grid">
-    <div class="hero-copy">
+    <div class="hero-heading">
       <Eyebrow n="01" label={t('landing.ebHero')} />
       <h1 id="hero-title">{t('landing.heroH')}</h1>
+    </div>
+
+    <div class="hero-figure">
+      <div class="hero-fig-stack" role="group" onpointerenter={hoverStack.enter} onpointerleave={hoverStack.leave}>
+        {#key shown}
+          <div class="hero-fig-slot" in:fade={{ duration: prefersReducedMotion ? 0 : 260 }} out:fade={{ duration: prefersReducedMotion ? 0 : 160 }}>
+            {#if FIGURES[shown].id === 'building'}
+              <BuildingFigure {prefersReducedMotion} paused={hovered} />
+            {:else if loaded[FIGURES[shown].id]}
+              {@const Shown = loaded[FIGURES[shown].id]}
+              <Shown {prefersReducedMotion} paused={hovered} />
+            {/if}
+          </div>
+        {/key}
+      </div>
+      <div class="hero-fig-switch">
+        {#each FIGURES as f, i}
+          <button
+            type="button"
+            data-figure={f.id}
+            aria-pressed={shown === i}
+            class:on={shown === i}
+            onclick={() => pick(i)}
+          >
+            <span class="hero-fig-label">{t(f.label)}</span>
+            <span class="hero-fig-progress" aria-hidden="true">
+              <span style="transform: scaleX({shown === i && !prefersReducedMotion ? progress : 0})"></span>
+            </span>
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="hero-copy">
       <p class="lead">{t('landing.heroP')}</p>
 
       <div class="hero-ctas">
@@ -151,36 +185,6 @@
       </dl>
     </div>
 
-    <div class="hero-figure">
-      <div class="hero-fig-stack" role="group" onpointerenter={hoverStack.enter} onpointerleave={hoverStack.leave}>
-        {#key shown}
-          <div class="hero-fig-slot" in:fade={{ duration: prefersReducedMotion ? 0 : 260 }} out:fade={{ duration: prefersReducedMotion ? 0 : 160 }}>
-            {#if FIGURES[shown].id === 'building'}
-              <BuildingFigure {prefersReducedMotion} paused={hovered} />
-            {:else if loaded[FIGURES[shown].id]}
-              {@const Shown = loaded[FIGURES[shown].id]}
-              <Shown {prefersReducedMotion} paused={hovered} />
-            {/if}
-          </div>
-        {/key}
-      </div>
-      <div class="hero-fig-switch">
-        {#each FIGURES as f, i}
-          <button
-            type="button"
-            data-figure={f.id}
-            aria-pressed={shown === i}
-            class:on={shown === i}
-            onclick={() => pick(i)}
-          >
-            <span class="hero-fig-label">{t(f.label)}</span>
-            <span class="hero-fig-progress" aria-hidden="true">
-              <span style="transform: scaleX({shown === i && !prefersReducedMotion ? progress : 0})"></span>
-            </span>
-          </button>
-        {/each}
-      </div>
-    </div>
   </div>
 </section>
 
@@ -196,15 +200,17 @@
   }
   .hero-fig-switch {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.35rem;
     margin-top: 0.9rem;
   }
   .hero-fig-switch button {
     position: relative;
     flex: 1 1 0;
-    min-width: 0;
+    min-width: 44px;
+    min-height: 44px;
     font-family: var(--lp-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1.2;
     text-align: left;
     color: var(--fg-2);
@@ -228,12 +234,11 @@
   }
   .hero-fig-label {
     display: block;
+    overflow-wrap: anywhere;
   }
   @container (max-width: 540px) {
     .hero-fig-switch {
       gap: 0.25rem;
-      min-height: 2.1rem;
-      align-items: flex-end;
     }
     .hero-fig-switch button {
       padding-bottom: 0.55rem;
@@ -248,9 +253,6 @@
       overflow: hidden;
       clip-path: inset(50%);
       white-space: nowrap;
-    }
-    .hero-fig-switch button:not(.on) {
-      min-height: 1.6rem;
     }
   }
   .hero-fig-progress {
