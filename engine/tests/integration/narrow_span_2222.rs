@@ -490,7 +490,6 @@ fn issue_2223_translated_decimal_endpoint_across_solvers() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2223"]
 fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
     use dedaliano_engine::postprocess::{diagrams::*, diagrams_3d::*};
     let mut input = witness();
@@ -499,33 +498,133 @@ fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
     let b = a + 2.0_f64.powi(-28);
     let q = 2.0_f64.powi(1000);
     let load = DistributedLoadInfo { q_i: 0.0, q_j: q, a, b };
-    let mut result = linear::solve_2d(&input).unwrap();
-    let ef = &mut result.element_forces[0];
-    ef.distributed_loads = vec![load.clone()];
-    for kind in ["shear", "moment"] {
-        for x in [0.0, a / 2.0, a] {
-            assert_eq!(compute_diagram_value_at(kind, x / ef.length, ef), 0.0);
-            assert_eq!(compute_diagram_value_at_sorted(kind, x / ef.length, ef, &[]), 0.0);
+    let fiber = dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput {
+        solver: input.clone(),
+        fiber_sections: Default::default(),
+        n_integration_points: 5,
+        max_iter: 40,
+        tolerance: 1e-9,
+        n_increments: 1,
+        modified_nr: false,
+    };
+    for mut result in [
+        linear::solve_2d(&input),
+        linear::solve_2d_typed(&serde_json::from_value(serde_json::to_value(&input).unwrap()).unwrap()),
+        linear::prepare_static_2d_dense_reference(&input).unwrap().solve_loads(&[]),
+        linear::prepare_static_2d(&input).unwrap().solve_loads(&[]),
+        dedaliano_engine::load_session::LoadSession2D::from_input(input.clone())
+            .unwrap()
+            .solve_loads(&[]),
+        pdelta::solve_pdelta_2d(&input, 20, 1e-9).map(|r| r.results),
+        corotational::solve_corotational_2d(&input, 40, 1e-12, 1, false).map(|r| r.results),
+        dedaliano_engine::solver::fiber_nonlinear::solve_fiber_nonlinear_2d(&fiber).map(|r| r.results),
+    ]
+    .map(Result::unwrap)
+    {
+        let ef = &mut result.element_forces[0];
+        ef.distributed_loads = vec![load.clone()];
+        let section =
+            serde_json::json!({"elementForces": ef, "section": {"shape": "rect", "a": 1, "iy": 1, "iz": 1, "h": 1, "b": 1}, "t": 0});
+        let stress = dedaliano_engine::postprocess::section_stress::compute_section_stress_2d(&serde_json::from_value(section).unwrap());
+        assert_eq!((stress.v, stress.m), (0.0, 0.0));
+        for kind in ["shear", "moment"] {
+            for x in [0.0, a / 2.0, a] {
+                assert_eq!(compute_diagram_value_at(kind, x / ef.length, ef), 0.0);
+                assert_eq!(compute_diagram_value_at_sorted(kind, x / ef.length, ef, &[]), 0.0);
+            }
         }
-    }
-    let diagrams = compute_diagrams_2d(&input, &result);
-    for diagram in diagrams.shear.iter().chain(&diagrams.moment) {
-        assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+        let diagrams = compute_diagrams_2d(&input, &result);
+        for diagram in diagrams.shear.iter().chain(&diagrams.moment) {
+            assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+        }
+        let request = serde_json::json!({
+            "members": [{"elementId": 1, "materialId": 1, "sectionId": 1, "length": 3.0}],
+            "combinations": [{"comboId": 1, "results": result}], "numStations": 3
+        });
+        let stations =
+            dedaliano_engine::postprocess::beam_stations::extract_beam_stations(&serde_json::from_value(request.clone()).unwrap());
+        assert_eq!(
+            (stations.stations[0].combo_forces[0].v, stations.stations[0].combo_forces[0].m),
+            (0.0, 0.0)
+        );
+        let grouped =
+            dedaliano_engine::postprocess::beam_stations::extract_beam_stations_grouped(&serde_json::from_value(request).unwrap());
+        assert_eq!(grouped.members[0].stations[0].combo_forces[0].v, 0.0);
+        let envelope = dedaliano_engine::postprocess::combinations::compute_envelope(&[result]).unwrap();
+        assert_eq!(envelope.shear.elements[0].pos_values[0], 0.0);
+        assert_eq!(envelope.moment.elements[0].neg_values[0], 0.0);
     }
     for plane in [Plane::XY, Plane::XZ] {
         let spatial = embed_2d(&input, plane).unwrap();
-        let mut result = linear::solve_3d(&spatial).unwrap();
-        let ef = &mut result.element_forces[0];
-        ef.distributed_loads_y = vec![load.clone()];
-        ef.distributed_loads_z = vec![load.clone()];
-        for kind in ["shearY", "shearZ", "momentY", "momentZ"] {
-            for x in [0.0, a / 2.0, a] {
-                assert_eq!(evaluate_diagram_3d_at(ef, kind, x / ef.length), 0.0);
+        let fiber = dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput3D {
+            solver: spatial.clone(),
+            fiber_sections: Default::default(),
+            n_integration_points: 5,
+            max_iter: 40,
+            tolerance: 1e-9,
+            n_increments: 1,
+            modified_nr: false,
+        };
+        for mut result in [
+            linear::solve_3d(&spatial),
+            linear::prepare_static_3d(&spatial).unwrap().solve_loads(&[]),
+            dedaliano_engine::load_session::LoadSession3D::from_input(spatial.clone())
+                .unwrap()
+                .solve_loads(&[]),
+            pdelta::solve_pdelta_3d(&spatial, 20, 1e-9).map(|r| r.results),
+            corotational::solve_corotational_3d(&spatial, 40, 1e-12, 1, false).map(|r| r.results),
+            dedaliano_engine::solver::fiber_nonlinear::solve_fiber_nonlinear_3d(&fiber).map(|r| r.results),
+        ]
+        .map(Result::unwrap)
+        {
+            let ef = &mut result.element_forces[0];
+            ef.distributed_loads_y = vec![load.clone()];
+            ef.distributed_loads_z = vec![load.clone()];
+            let section =
+                serde_json::json!({"elementForces": ef, "section": {"shape": "rect", "a": 1, "iy": 1, "iz": 1, "h": 1, "b": 1}, "t": 0});
+            let stress =
+                dedaliano_engine::postprocess::section_stress_3d::compute_section_stress_3d(&serde_json::from_value(section).unwrap());
+            assert_eq!((stress.vy, stress.vz, stress.my, stress.mz), (0.0, 0.0, 0.0, 0.0));
+            let buffer = dedaliano_engine::postprocess::station_buffer::extract(
+                &serde_json::from_value(serde_json::json!({
+                    "members": [{"elementId": 1, "length": 3}],
+                    "combinations": [{"comboId": 1, "elementForces": [ef]}], "numStations": 3
+                }))
+                .unwrap(),
+            );
+            assert!(buffer.iter().all(|v| v.is_finite()));
+            assert_eq!(&buffer[7..13], &[0.0; 6]);
+            for kind in ["shearY", "shearZ", "momentY", "momentZ"] {
+                for x in [0.0, a / 2.0, a] {
+                    assert_eq!(evaluate_diagram_3d_at(ef, kind, x / ef.length), 0.0);
+                }
             }
-        }
-        let diagrams = compute_diagrams_3d(&result);
-        for diagram in diagrams.shear_y.iter().chain(&diagrams.shear_z).chain(&diagrams.moment_y).chain(&diagrams.moment_z) {
-            assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+            let diagrams = compute_diagrams_3d(&result);
+            for diagram in diagrams
+                .shear_y
+                .iter()
+                .chain(&diagrams.shear_z)
+                .chain(&diagrams.moment_y)
+                .chain(&diagrams.moment_z)
+            {
+                assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+            }
+            let request = serde_json::json!({
+                "members": [{"elementId": 1, "materialId": 1, "sectionId": 1, "length": 3.0}],
+                "combinations": [{"comboId": 1, "results": result}], "numStations": 3
+            });
+            let stations =
+                dedaliano_engine::postprocess::beam_stations::extract_beam_stations_3d(&serde_json::from_value(request.clone()).unwrap());
+            assert_eq!(
+                (stations.stations[0].combo_forces[0].vy, stations.stations[0].combo_forces[0].vz),
+                (0.0, 0.0)
+            );
+            let grouped =
+                dedaliano_engine::postprocess::beam_stations::extract_beam_stations_grouped_3d(&serde_json::from_value(request).unwrap());
+            assert_eq!(grouped.members[0].stations[0].combo_forces[0].mz, 0.0);
+            let envelope = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result]).unwrap();
+            assert_eq!(envelope.shear_y.elements[0].pos_values[0], 0.0);
+            assert_eq!(envelope.moment_z.elements[0].neg_values[0], 0.0);
         }
     }
 }

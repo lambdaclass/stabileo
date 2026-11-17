@@ -1,4 +1,5 @@
 import { beforeAll, afterEach, expect, it, vi } from 'vitest';
+import { GRAVITY_SELF_WEIGHT } from '../analysis-settings';
 import { initSolver } from '../wasm-solver';
 import { ALL_DICTS } from '../../i18n/locales/all';
 import { ensureLocale, setLocale, tp, t, OFFERED_LOCALES } from '../../i18n';
@@ -95,15 +96,19 @@ it('opening a self-weight-only frame retains its force-summary notice', async ()
   const { recheckStore } = await import('../../store/recheck.svelte');
   const { onProjectOpened } = await import('../../store/file');
   const wasSelfWeight = uiStore.includeSelfWeight;
+  recheckStore.reset();
   modelStore.clear();
   modelStore.addElement(modelStore.addNode(0, 0), modelStore.addNode(1, 0), 'frame');
-  const snapshot = { ...modelStore.snapshot(), solvedWith: { ...recheckStore.capture()!, resultsVersion: 4, analyses: ['modal'], recorded: [...ANALYSIS_KINDS] } } as any;
   try {
-    for (const mode of ['2d', '3d', 'pro']) for (const enabled of [false, true]) {
+    for (const mode of ['2d', '3d', 'pro']) for (const enabled of [false, true]) for (const rule of [undefined, [], [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }]]) {
+      modelStore.withoutUndo(() => modelStore.setAnalysis({ selfWeight: rule }));
+      recheckStore.reset();
+      const snapshot = { ...modelStore.snapshot(), solvedWith: { ...recheckStore.capture()!, resultsVersion: 4, analyses: ['modal'], recorded: [...ANALYSIS_KINDS] } } as any;
       uiStore.includeSelfWeight = enabled;
       onProjectOpened(snapshot, mode);
       await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
-      expect(recheckStore.assessment!.changes.some(c => c.id === totals.id)).toBe(enabled && mode !== 'pro');
+      const expected = !!rule?.length || (enabled && (mode !== 'pro' || rule === undefined));
+      expect(recheckStore.assessment!.changes.some(c => c.id === totals.id), `${mode}, toggle=${enabled}, rule=${JSON.stringify(rule)}`).toBe(expected);
     }
   } finally {
     uiStore.includeSelfWeight = wasSelfWeight;
