@@ -2,7 +2,7 @@ import { beforeAll, expect, it } from 'vitest';
 import { initSolver, solve3D, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { readFileSync } from 'node:fs';
-import { solve_3d } from '../../wasm/dedaliano_engine.js';
+import { solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -37,6 +37,25 @@ it('matches individual combinations and their envelope exactly', () => {
   expect(combineResultsEnvelope3D(combinations, perCase, new Map()))
     .toEqual({ combinations: batch, envelope: computeEnvelope3D(batch.filter(r => r !== null)) });
   expect(batch[0]!.reactions[0].fz).toBeCloseTo(44, 10);
+});
+
+it('preserves raw WASM payloads with repeated factors and reversed case-table order', () => {
+  const entries = [...cases()].reverse().map(([caseId, results]) => ({ caseId, results }));
+  const combinations = [[{ caseId: 1, factor: 1 }, { caseId: 1, factor: 0.5 }, { caseId: 2, factor: -0.2 }]];
+  const input = { combinations, cases: entries };
+  const reference = combinations.map(factors => combine_results_3d({
+    factors, cases: factors.map(f => entries.find(c => c.caseId === f.caseId)!),
+  }));
+  expect(combine_results_batch_3d(input)).toEqual(reference);
+  expect(combine_results_envelope_3d(input)).toEqual([reference, compute_envelope_3d(reference)]);
+});
+
+it('refuses duplicate case-table ids in both new WASM exports', () => {
+  const entries = [...cases().values()].map(results => ({ caseId: 1, results }));
+  entries[1].results.structuredDiagnostics = [{ code: 'known_issue', severity: 'warning', phase: 'NUM-INVARIANCE', message: 'second record' }];
+  const input = { combinations: [[{ caseId: 1, factor: 1 }]], cases: entries };
+  expect(() => combine_results_batch_3d(input)).toThrow('duplicate case id 1');
+  expect(() => combine_results_envelope_3d(input)).toThrow('duplicate case id 1');
 });
 
 it('preserves empty and missing-case slots', () => {

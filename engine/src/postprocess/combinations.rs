@@ -48,7 +48,9 @@ pub fn combine_results_batch_3d(input: &BatchCombinationInput3D) -> Result<Vec<O
     let thicknesses = input.plate_thicknesses.iter().copied().collect();
     let mut by_id = std::collections::HashMap::new();
     for case in &input.cases {
-        by_id.entry(case.case_id).or_insert(&case.results);
+        if by_id.insert(case.case_id, &case.results).is_some() {
+            return Err(format!("Cannot combine results: duplicate case id {}", case.case_id));
+        }
     }
     input.combinations.iter().map(|factors| {
         let cases: Vec<_> = factors.iter().filter_map(|f| {
