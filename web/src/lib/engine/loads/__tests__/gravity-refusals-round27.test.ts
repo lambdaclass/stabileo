@@ -4,7 +4,7 @@ import { gravityLayout } from '../plan-gravity';
 import { defaultRegulations } from '../../../codes/roles';
 import { rectangle, regionModel, regionVariant, type RegionModel } from './physical-region-invariance';
 
-const regression = it.skip;
+const regression = it;
 
 function plan(model: RegionModel) {
   const regulations = defaultRegulations();
@@ -56,4 +56,28 @@ for (const factor of [0.5, 2]) regression(`known wrong result: #2255 first-momen
   const model = regionModel([rectangle(0, 0, length, length)]);
   if (factor < 1) expect(plan(model).outcome).toBe('READY');
   else check(model, 'first-moment precision');
+});
+
+it('unused distant nodes do not change the supported carrier geometry', () => {
+  const model = regionModel([rectangle(0, 0, 6, 4)]);
+  model.nodes.set(100, { id: 100, x: 1e9, y: 1e9, z: 3 });
+  expect(plan(model).outcome).toBe('READY');
+});
+
+for (const gap of [0.04, 0.06]) for (const variant of ['base', 'rotate', 'mirror', 'remesh'] as const) it(`shell coverage tolerance transitions ${gap} ${variant}`, () => {
+  const model = regionModel([], [rectangle(0, 0, 1, 1)]);
+  model.nodes.set(5, { id: 5, x: -0.2, y: -gap, z: 3 });
+  model.nodes.set(6, { id: 6, x: 1.2, y: -gap, z: 3 });
+  model.elements.set(1, { id: 1, nodeI: 5, nodeJ: 6, sectionId: 1, materialId: 1 });
+  const changed = regionVariant(model, variant).model;
+  if (gap < 0.05) check(changed, 'partial member shell coverage');
+  else expect(plan(changed).outcome).toBe('READY');
+});
+
+it('shell coverage changes in height also refuse midpoint classification', () => {
+  const model = regionModel([], [rectangle(0, 0, 1, 1)]);
+  model.nodes.set(5, { id: 5, x: 0.25, y: 0.5, z: 2.9 });
+  model.nodes.set(6, { id: 6, x: 0.75, y: 0.5, z: 3.1 });
+  model.elements.set(1, { id: 1, nodeI: 5, nodeJ: 6, sectionId: 1, materialId: 1 });
+  check(model, 'partial member shell coverage');
 });

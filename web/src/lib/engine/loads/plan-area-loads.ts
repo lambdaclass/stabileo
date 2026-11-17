@@ -1,4 +1,4 @@
-import { plannedMemberLoadSpans } from './member-load-spans';
+import { memberLoadSpans, plannedMemberLoadSpans } from './member-load-spans';
 import { mapMoments } from '../member-moments';
 import type { ShellLoadSpec } from '../shell-load-integration';
 /**
@@ -233,7 +233,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       if (adjacent > 0) out.derivation.push(msg('loadPlan.derivation.adjacentSpans', { n: adjacent, x: spans!.lines.x.length, y: spans!.lines.y.length }));
     }
   }
-  const bounded = plannedMemberLoadSpans(out.distributed, i.model);
+  const bounded = i.model ? plannedMemberLoadSpans(out.distributed, i.model) : memberLoadSpans(out.distributed, id => layout.memberLengths.get(id) ?? NaN);
   out.distributed = bounded.distributed;
   out.concentrated.push(...bounded.concentrated);
   return out;

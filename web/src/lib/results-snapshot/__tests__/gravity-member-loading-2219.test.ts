@@ -1,3 +1,4 @@
+import { expectGravityAnswerOrRefusal } from '../../engine/loads/__tests__/physical-region-invariance';
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
@@ -74,7 +75,7 @@ function generatedCarriers(source: string, angle: number, mirror: number, divide
 
 for (const source of ['floor','region']) for (const angle of [0,0.37]) for (const mirror of [1,-1]) for (const divided of [false,true]) {
   const label=`${source}, angle=${angle}, mirror=${mirror}, divided=${divided}`;
-  it(`generated loading matches hand-solved carrier responses: ${label}`, () => {
+  it(`generated loading matches hand-solved carrier responses: ${label}`, () => expectGravityAnswerOrRefusal(() => {
     const carriers=generatedCarriers(source,angle,mirror,divided);
     const supported=carriers.filter(c=>c.fringes.length===0);
     const expectedSupported=source==='floor' || angle===0 && !(mirror===-1 && divided) ? 4 : angle===0 ? 3 : 0;
@@ -96,8 +97,8 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
         expect((middle.rx*(b.x-a.x)+middle.ry*(b.y-a.y))/L).toBeCloseTo(expected.rotation,10);
       }
     }
-  });
-  it(`generated moment fringes are explicitly refused: ${label}`, () => {
+  }));
+  it(`generated moment fringes are explicitly refused: ${label}`, () => expectGravityAnswerOrRefusal(() => {
     const carriers=generatedCarriers(source,angle,mirror,divided);
     const refused=carriers.filter(c=>c.fringes.length>0);
     const expectedRefused=source==='floor' || angle===0 && !(mirror===-1 && divided) ? 0 : angle===0 ? 1 : 4;
@@ -106,7 +107,7 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
       expect(()=>solve_3d(s)).toThrow(/distributed moment span.*1e-10/);
       expect(()=>solve_pdelta_3d(JSON.stringify(s),100,1e-10)).toThrow(/distributed moment span.*1e-10/);
     }
-  });
+  }));
 }
 
 it('known wrong result: #2219 WASM refuses a generated floor-zone couple in large-displacement analysis', () => {

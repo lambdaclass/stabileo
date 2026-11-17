@@ -1,3 +1,6 @@
+import { EngineCheckError } from '../../engine-unavailable';
+import { GRAVITY_FIRST_MOMENT_PRECISION } from '../gravity-geometry-refusal';
+import { MemberLoadSpanRefusal, MIN_NATIVE_MEMBER_LOAD_SPAN } from '../member-load-spans';
 import { pointGlobal, type PointLoad3DLike } from '../../member-point-loads';
 import { mapMoments, integrateQuadratic, type MemberMoments } from '../../member-moments';
 import type { FloorLoadResult } from '../floor-loads';
@@ -134,12 +137,59 @@ export function expectResultant(actual: Resultant, expected: Resultant, label = 
   actual.forEach((v, i) => expect(v, `${label} resultant component ${i}`).toBeCloseTo(expected[i]!, 8));
 }
 
+export function expectGeneratedSpanMessage(message: string): void {
+  const span = message.match(/span \[([^,]+), ([^\]]+)\]/);
+  expect(span, message).not.toBeNull();
+  const a = Number(span![1]), b = Number(span![2]);
+  expect(Number.isFinite(a) && Number.isFinite(b), message).toBe(true);
+  if (message.includes('native supported minimum')) {
+    expect(b - a, message).toBeGreaterThanOrEqual(0);
+    expect(b - a, message).toBeLessThan(MIN_NATIVE_MEMBER_LOAD_SPAN);
+  } else {
+    const length = message.match(/outside member length (\S+)/);
+    expect(length, message).not.toBeNull();
+    expect(a < 0 || b < a || b > Number(length![1]), message).toBe(true);
+  }
+}
+
+export function expectGravityAnswerOrRefusal(run: () => void): void {
+  try { run(); } catch (err) {
+    if (err instanceof EngineCheckError && err.engineMessage.startsWith('Gravity first-moment precision:')) {
+      const budget = err.engineMessage.match(/roundoff budget (\S+) exceeds/);
+      expect(budget).not.toBeNull();
+      expect(Number(budget![1])).toBeGreaterThan(GRAVITY_FIRST_MOMENT_PRECISION);
+      return;
+    }
+    expect(err).toBeInstanceOf(MemberLoadSpanRefusal);
+    expectGeneratedSpanMessage((err as MemberLoadSpanRefusal).engineMessage);
+  }
+}
+
+export function expectPlanSpanRefusal(plan: import('../load-plan').LoadPlan): void {
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(plan.blockedKeys).toHaveLength(1);
+  expect(plan.blockedKeys[0]!.key).toBe('engine.failedWith');
+  expectGeneratedSpanMessage(String(plan.blockedKeys[0]!.params?.message));
+  for (const loads of [plan.distributed, plan.surface, plan.nodal, plan.combinations]) expect(loads).toEqual([]);
+}
+
 export function assertRegionInvariant<T extends LoadModelData>(model: T, generate: (m: T, point: (p: number[]) => [number, number, number]) => Resultant, expected?: Resultant, variants: ReadonlyArray<Exclude<RegionVariant, 'base'>> = ['rotate', 'mirror', 'remesh', 'ids']): void {
-  const base = generate(model, p => [p[0]!, p[1]!, p[2] ?? 3]);
-  if (expected) expectResultant(base, expected);
+  let reference = expected;
+  const run = (m: T, point: (p: number[]) => [number, number, number]): Resultant | undefined => {
+    let value: Resultant | undefined;
+    expectGravityAnswerOrRefusal(() => { value = generate(m, point); });
+    return value;
+  };
+  const base = run(model, p => [p[0]!, p[1]!, p[2] ?? 3]);
+  if (base && expected) expectResultant(base, expected);
+  reference ??= base;
   for (const variant of variants) {
     const changed = regionVariant(model, variant);
-    expectResultant(changed.back(generate(changed.model, changed.point)), expected ?? base, variant);
+    const result = run(changed.model, changed.point);
+    if (!result) continue;
+    const restored = changed.back(result);
+    if (reference) expectResultant(restored, reference, variant);
+    else reference = restored;
   }
 }
 

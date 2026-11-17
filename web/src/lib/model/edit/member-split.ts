@@ -148,7 +148,7 @@ export function splitElementLoads(
           };
           if (c.a !== undefined) data.a = c.a;
           if (c.b !== undefined) data.b = c.b;
-          const bounded = memberLoadSpans([data], () => bounds[k+1]!-bounds[k]!);
+          const bounded = memberLoadSpans([data], () => segmentLengths[k]!);
           added.push(...bounded.distributed.map(data => ({ type: 'distributed3d' as const, data: { ...data, id: newId() } })));
         }
         break;

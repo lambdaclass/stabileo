@@ -28,9 +28,14 @@ for (const width of [0.5e-12, 1.5e-12, 1e-10, 2e-10, 0.5e-9, 1.5e-9]) for (const
   const { j, elementId } = cantilever(angle);
   const a = at === 'j' ? 2 - width : 1, b = at === 'j' ? 2 : a + width, h = b - a;
   const load = { id: 1, elementId, a, b, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1 / h, 1 / h, 1 / h] as [number, number, number], y: [0, 0, 0] as [number, number, number], z: [0, 0, 0] as [number, number, number] } };
+  if (h < 1e-12) { expect(() => memberLoadSpans([load], () => 2)).toThrow(/native supported minimum/); return; }
   const bounded = memberLoadSpans([load], () => 2);
   expect(bounded.concentrated).toEqual([]);
   for (const data of bounded.distributed) modelStore.addLoadEntry({ type: 'distributed3d', data });
+  if (h / 2 < 1e-10) {
+    expect(() => count === 1 ? buildSolverInput3D(modelStore.model) : subdivideForAnalysis(modelStore.model, count)).toThrow(/relative geometry limit/);
+    return;
+  }
   const subdivided = count === 1 ? modelStore.model : subdivideForAnalysis(modelStore.model, count).model;
   const input = buildSolverInput3D(subdivided)!;
   expect(input.loads.every(l => l.type === 'distributed')).toBe(true);
@@ -71,7 +76,7 @@ for (const plane of [true, false]) it(`unsupported direct density refuses before
   else modelStore.addLoadEntry({ type: 'distributed3d', data: { id: 1, elementId, a, b: 2, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [1, 1, 1], y: [0, 0, 0], z: [0, 0, 0] } } });
   for (const build of plane ? [() => buildSolverInput2D(modelStore.model), () => buildSolverInput3D(modelStore.model)] : [() => buildSolverInput3D(modelStore.model)]) {
     let refused = false;
-    try { build(); } catch (err) { refused = true; expect(loadRefusal(err)).toContain(String(elementId)); expect(loadRefusal(err)).toContain('minimum'); }
+    try { build(); } catch (err) { refused = true; expect(loadRefusal(err)).toContain(String(elementId)); expect(loadRefusal(err)).toContain('relative geometry limit'); }
     expect(refused).toBe(true);
   }
 });
@@ -83,7 +88,7 @@ for (const plane of [true, false]) for (const frame of ['local', 'global', 'proj
   else modelStore.addLoadEntry({ type: 'distributed3d', data: { id: 1, elementId, a, b, frame, qYI: 0, qYJ: 0, qZI: 1 / h, qZJ: 1 / h } });
   const builders = plane ? [() => buildSolverInput2D(modelStore.model), () => buildSolverInput3D(modelStore.model)] : [() => buildSolverInput3D(modelStore.model)];
   for (const build of builders) {
-    if (h < 1e-12) expect(build).toThrow(new RegExp(`Member ${elementId}:.*span.*native`));
+    if (h / 2 < 1e-10) expect(build).toThrow(/relative geometry limit/);
     else {
       const input = build()!;
       expect(input.loads.some(l => l.type === 'nodal')).toBe(false);
@@ -93,23 +98,15 @@ for (const plane of [true, false]) for (const frame of ['local', 'global', 'proj
   }
 });
 
-for (const plane of [true, false]) it(`positive axial-only density below the transverse limit stays distributed, plane=${plane}`, () => {
+for (const plane of [true, false]) it(`axial-only density also respects the member geometry limit, plane=${plane}`, () => {
   const { j, elementId } = cantilever(), h = 0.5e-12;
   if (plane) {
     modelStore.updateNode(j, 0, 2, 0);
     modelStore.addLoadEntry({ type: 'distributed', data: { id: 1, elementId, a: 0, b: h, qI: 1 / h, qJ: 1 / h, isGlobal: true } });
-    const input = buildSolverInput2D(modelStore.model)!;
-    expect(input.loads).toEqual([{ type: 'axialDistributed', data: { elementId, a: 0, b: h, qI: 1 / h, qJ: 1 / h } }]);
+    expect(() => buildSolverInput2D(modelStore.model)).toThrow(/relative geometry limit/);
   } else {
     modelStore.addLoadEntry({ type: 'distributed3d', data: { id: 1, elementId, a: 0, b: h, qXI: 1 / h, qXJ: 1 / h, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0 } });
-    const input = buildSolverInput3D(modelStore.model)!;
-    expect(input.loads).toHaveLength(1);
-    expect(input.loads[0]).toMatchObject({ type: 'distributed', data: { elementId, a: 0, b: h, qXI: 1 / h, qXJ: 1 / h } });
-    for (const result of [solve3D(input), solvePDelta3D(input, 100, 1e-10).results]) {
-      expect(result.reactions[0].fx).toBeCloseTo(-1, 12);
-      const tip = result.displacements.find((d: Displacement3D) => d.nodeId === j)!;
-      expect(tip.ux / (h / 2)).toBeCloseTo(1e-5, 12);
-    }
+    expect(() => buildSolverInput3D(modelStore.model)).toThrow(/relative geometry limit/);
   }
 });
 
@@ -118,7 +115,7 @@ it('plane synchronous, worker and combination solves return the localized span r
   const support = [...modelStore.supports.values()][0]!;
   modelStore.updateSupport(support.id, { type: 'fixed' });
   modelStore.addLoadEntry({ type: 'distributed', data: { id: 1, elementId, a: 0, b: 0.5e-12, qI: 1, qJ: 1 } });
-  const expected = `Member ${elementId}:`;
+  const expected = `Element ${elementId}:`;
   expect(validateAndSolve2D(modelStore.model)).toContain(expected);
   expect(await validateAndSolve2DAsync(modelStore.model)).toContain(expected);
   expect(solveCombinations2D(modelStore.model, [{ id: 1, name: 'D', type: 'D' }], [{ id: 1, name: 'D', factors: [{ caseId: 1, factor: 1 }] }], false)).toContain(expected);

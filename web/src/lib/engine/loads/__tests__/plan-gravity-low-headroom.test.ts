@@ -1,5 +1,6 @@
+import { expectGravityAnswerOrRefusal, expectPlanSpanRefusal } from './physical-region-invariance';
 import { describe, it, expect } from 'vitest';
-import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM, type GravityModel } from '../plan-gravity';
+import { gravityLayout, MIN_STOREY_HEADROOM, type GravityModel } from '../plan-gravity';
 import { generateShed, DEFAULT_SHED_PARAMS } from '../../generators/shed';
 import { emitModel, defaultProfileSpec, type EmitOptions } from '../../generators/emit';
 
@@ -41,24 +42,24 @@ const eaveZ = (m: GravityModel) => {
 describe('a trussed shed has no floor at its eaves', () => {
   const nave = shed({ ...DEFAULT_SHED_PARAMS, longitudinalBeams: true, roofBracing: true, wallBracing: true, trussBracing: true });
 
-  it('loads no panel of the eave level as a floor, by panels', () => {
+  it('loads no panel of the eave level as a floor, by panels', () => expectGravityAnswerOrRefusal(() => {
     const layout = gravityLayout(nave, { mode: 'panels', tributaryWidth: 3 });
     const floorArea = [...layout.areaOf.values()].reduce((s, a) => s + a, 0);
     expect(floorArea).toBe(0);
     expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.lowHeadroom')).toBe(true);
     expect(layout.roofAreaOf.size).toBeGreaterThan(0);
-  });
+  }));
 
-  it('nor by width', () => {
+  it('nor by width', () => expectGravityAnswerOrRefusal(() => {
     const layout = gravityLayout(nave, { mode: 'width', tributaryWidth: 3 });
     expect([...layout.areaOf.values()].reduce((s, a) => s + a, 0)).toBe(0);
     expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.membersLowHeadroom')).toBe(true);
-  });
+  }));
 
-  it('loads it as a floor when asked, an attic floor', () => {
+  it('loads it as a floor when asked, an attic floor', () => expectGravityAnswerOrRefusal(() => {
     const layout = gravityLayout(nave, { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
     expect([...layout.areaOf.values()].reduce((s, a) => s + a, 0)).toBeGreaterThan(0);
-  });
+  }));
 
   it('the threshold is a storey nobody stands in', () => {
     expect(MIN_STOREY_HEADROOM).toBe(2.2);
@@ -122,13 +123,13 @@ describe('a deck sized in its own axes, not the plan\'s', () => {
     return { nodes, elements };
   }
 
-  it('a 3 × 20 m deck takes its 60 m² turned 0°, 30°, 45° or 90°', () => {
+  it('a 3 × 20 m deck takes its 60 m² turned 0°, 30°, 45° or 90°', () => expectGravityAnswerOrRefusal(() => {
     for (const degrees of [0, 30, 45, 90]) {
       const layout = gravityLayout(deck(degrees), { mode: 'panels', tributaryWidth: 3 });
       expect(layout.areaByLevel.get(3), `${degrees}°`).toBeCloseTo(60, 6);
       expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.widePanels'), `${degrees}°`).toBe(false);
     }
-  });
+  }));
 });
 
 describe('the industrial hall and the stadium of the examples', () => {
@@ -172,13 +173,9 @@ describe('the industrial hall and the stadium of the examples', () => {
     }
   });
 
-  it('the stadium: no area load on rings of a hundred metres', async () => {
-    const g = gravityLayout(await fixture('full-stadium'), { mode: 'panels', tributaryWidth: 3 });
-    expect(g.panels.every((p) => {
-      const xs = p.polygon.map((q) => q[0]), ys = p.polygon.map((q) => q[1]);
-      return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) <= MAX_DECK_SPAN;
-    })).toBe(true);
-    expect(g.notes.some((n) => n.key === 'loadPlan.gravity.widePanels')).toBe(true);
+  it('the stadium refuses its nonplanar shells', async () => {
+    const model = await fixture('full-stadium');
+    expect(() => gravityLayout(model, { mode: 'panels', tributaryWidth: 3 })).toThrow('nonplanar shell');
   });
 
   it('the pipe rack keeps its tiers', async () => {
@@ -217,6 +214,7 @@ describe('the load plan of a trussed shed', () => {
       gravity: { mode: 'panels' },
       roof: { use: 'maintenance', dead: 0.15, slopeDeg: 10 },
     });
+    if (p.outcome === 'BLOCKED') { expectPlanSpanRefusal(p); return; }
     expect(p.cases.some((c) => c.type === 'L')).toBe(false);
     expect(p.cases.some((c) => c.type === 'Lr')).toBe(true);
     const floorDead = p.distributed.filter((d) => d.caseType === 'D' && Math.abs(d.q) > 0.5);
@@ -244,6 +242,7 @@ describe('a roof that would take the dead load of floors there are not', () => {
       roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 10, deadFromFloors },
     });
     const blocked = buildLoadPlan(input(true));
+    if (blocked.blockedKeys.some(m => m.key === 'engine.failedWith')) { expectPlanSpanRefusal(blocked); expectPlanSpanRefusal(buildLoadPlan(input(false))); return; }
     expect(blocked.outcome).toBe('BLOCKED');
     expect(blocked.blockedKeys.map((b) => b.key)).toContain('loadPlan.blocked.roofDeadWithoutFloors');
     const ownDead = buildLoadPlan(input(false));

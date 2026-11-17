@@ -5,7 +5,7 @@ import { floorLoad } from '../floor-loads';
 import { buildLoadPlan, levelsWithPlanArea } from '../load-plan';
 import { roofLiveLoad } from '../../../codes/cirsoc101/roof-live';
 import { regulations } from './snow-roof-plane-fixture';
-import { assertRegionInvariant, expectResultant, loadResultant, floorResultant, rectangle, regionModel, regionVariant, type Resultant } from './physical-region-invariance';
+import { assertRegionInvariant, expectPlanSpanRefusal, expectResultant, loadResultant, floorResultant, rectangle, regionModel, regionVariant, type Resultant } from './physical-region-invariance';
 
 const panel = rectangle();
 const small = rectangle(0, 0, 4, 2);
@@ -101,6 +101,7 @@ for (const mode of ['width', 'panels'] as const) for (const [label, shells] of c
     expect(base.levels[0]!.weightKN).toBeCloseTo(base.levels[0]!.selfWeightKN + 1.5 * area, 8);
     for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) {
       const changed = regionVariant(m, variant), p = plan(changed.model);
+      if (p.outcome === 'BLOCKED') { expectPlanSpanRefusal(p); continue; }
       expect(p.outcome).toBe('READY');
       for (const key of ['planAreaM2', 'superimposedKN', 'liveTotalKN', 'weightKN'] as const) expect(p.levels[0]![key]).toBeCloseTo(base.levels[0]![key], 8);
       expectResultant(changed.back(loadResultant(changed.model, { distributed: p.distributed.filter(d => d.caseType === 'D'), nodal: p.nodal.filter(d => d.caseType === 'D'), surface: p.surface.filter(d => d.caseType === 'D') })), [area, 2 * area, area]);

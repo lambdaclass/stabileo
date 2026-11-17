@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
-import { floorLoad, type FloorBeam } from '../floor-loads';
 import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
@@ -430,6 +429,7 @@ describe('every member along a panel’s sides is the panel’s, never loaded by
     const want: Array<[string, number]> = [['pipe-rack', 1890], ['3d-nave-industrial', 2844], ['suspension-bridge', 30144.6]];
     for (const [id, area] of want) {
       const f = (await import(`../../../templates/fixtures/${id}.json`)).default;
+      if (id === 'suspension-bridge') { expect(() => gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true })).toThrow('first-moment precision'); continue; }
       expect(collected(gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true })), id).toBeCloseTo(area, 6);
     }
   });
@@ -456,24 +456,9 @@ describe('an opening’s ring is loaded once, by its own panel', () => {
     expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m) + atCorners).toBeCloseTo(-200, 6);
   });
 
-  it('the stadium: each level as the Floor tool loads it, once (18 674 m² were counted twice)', async () => {
+  it('the stadium refuses its nonplanar shells before generating area loads', async () => {
     const f = (await import('../../../templates/fixtures/full-stadium.json')).default;
-    const m = fixtureModel(f);
-    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
-    const byLevel = new Map<number, FloorBeam[]>();
-    for (const e of m.elements.values()) {
-      const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;
-      if (e.type === 'truss' || Math.abs((a.z ?? 0) - (b.z ?? 0)) > 1e-3) continue;
-      const z = Math.round((a.z ?? 0) / 1e-3) * 1e-3;
-      (byLevel.get(z) ?? byLevel.set(z, []).get(z)!).push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: 1 });
-    }
-    let levels = 0;
-    for (const [z, beams] of byLevel) {
-      const tool = floorLoad({ nodes: m.nodes, beams, q: 1, distribution: 'twoWay' }).loadedArea;
-      if (tool > 0) levels++;
-      expect(g.areaByLevel.get(z) ?? 0, `z = ${z}`).toBeCloseTo(tool, 6);
-    }
-    expect(levels).toBeGreaterThan(3);
+    expect(() => gravityLayout(fixtureModel(f), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true })).toThrow('nonplanar shell');
   });
 });
 

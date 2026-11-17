@@ -53,6 +53,7 @@ for (const kind of ['components', 'opposite', 'forceAndMoment'] as const) regres
   if (kind === 'opposite') { d.a = 2 - h; d.b = 2; d.qYJ = -1; }
   if (kind === 'forceAndMoment') d.moments = { x: [1, 1, 1], y: [0, 0, 0], z: [0, 0, 0] };
   let id = 10;
+  if (kind === 'opposite' && (d.b! - d.a!) / 6 < 1e-10) { expect(() => splitElementLoads([{ type: 'distributed3d', data: d }], 1, [0, 2, 6], [2, 3], () => id++, [2, 4])).toThrow(/relative geometry limit/); return; }
   const result = splitElementLoads([{ type: 'distributed3d', data: d }], 1, [0, 2, 6], [2, 3], () => id++, [2, 4]);
   const points = result.added.filter(l => l.type === 'pointOnElement3d');
   expect(points).toEqual([]);
@@ -85,6 +86,7 @@ for (const operation of ['store', 'analysis', 'variable'] as const) for (const w
     first = variableExpansionFor(modelStore.model)!.members.get(id)!.pieces[0]!.id; loads = split.loads;
   }
   };
+  if ((cut-original.a!)/cut < 1e-10) { expect(run).toThrow(/relative geometry limit/); return; }
   run();
   const part = loads.filter(l => 'elementId' in l.data && l.data.elementId === first);
   const h = cut - original.a!;

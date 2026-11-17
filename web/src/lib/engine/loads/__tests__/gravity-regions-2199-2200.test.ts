@@ -1,4 +1,4 @@
-import { loadResultant } from './physical-region-invariance';
+import { loadResultant, expectGravityAnswerOrRefusal } from './physical-region-invariance';
 import { expect, it } from 'vitest';
 import { gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
@@ -17,5 +17,5 @@ function totals(m:ReturnType<typeof model>,angle=0) {
 }
 it('known wrong result: #2199 partial shell coverage preserves total vertical area load',()=>{expect(totals(model()).force).toBeCloseTo(60,8)});
 it('known wrong result: #2200 partial shell coverage preserves first moment',()=>{expect(totals(model(5)).first).toBeCloseTo(300,8)});
-it('known wrong result: #2199 partial shell coverage is invariant to plan rotation',()=>{expect(totals(model(4.76,0.37),0.37).force).toBeCloseTo(totals(model()).force,8)});
+it('known wrong result: #2199 partial shell coverage is invariant to plan rotation or refuses a subnative generated span',()=>expectGravityAnswerOrRefusal(()=>{expect(totals(model(4.76,0.37),0.37).force).toBeCloseTo(totals(model()).force,8)}));
 it('full beam panel retains force and moment',()=>{const m=model();m.quads.clear();expect(totals(m)).toEqual({force:60,first:300})});

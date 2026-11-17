@@ -1,3 +1,4 @@
+import { assertGravityShells, assertGravitySlope, assertConstantShellCoverage, assertGravityPrecision, GRAVITY_SHELL_COVERAGE_TOLERANCE } from './gravity-geometry-refusal';
 import { memberMomentToGlobal } from '../member-loads';
 import { pointGlobal } from '../member-point-loads';
 import { mapMoments } from '../member-moments';
@@ -85,6 +86,7 @@ export function widthSpans(m: { spans?: WidthSpan[] }, tributaryWidth: number): 
 }
 
 export interface GravityLayout {
+  memberLengths: Map<number, number>;
   moments: Array<{ elementId: number; a?: number; b?: number; moments: import('../member-moments').MemberMoments; roof: boolean; panel: number }>;
   concentrated?: Array<import('../member-point-loads').PointLoad3DLike & { roof: boolean; panel: number }>;
   pieces: GravityPiece[];
@@ -146,7 +148,9 @@ function planArea(pts: Array<{ x: number; y: number }>): number {
 }
 
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
+  if (opts.mode === 'panels') assertGravityShells(model);
   const out: GravityLayout = {
+    memberLengths: new Map(),
     pieces: [], points: [], couples: [], moments: [], concentrated: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
     roof: new Set(), roofQuads: new Set(), zOf: new Map(), panelColour: [], widthColour: new Map(), panels: [], oneSided: [], notes: [],
   };
@@ -160,6 +164,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const addArea = (map: Map<number, number>, id: number, a: number) => map.set(id, (map.get(id) ?? 0) + a);
 
   const candidates = [...model.elements.values()].filter((e) => e.type !== 'truss');
+  for (const e of model.elements.values()) {
+    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+    if (!a || !b) continue;
+    out.memberLengths.set(e.id, Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2+((b.z??0)-(a.z??0))**2));
+    if (e.type !== 'truss') assertGravitySlope(e.id, [a.x,a.y,a.z??0], [b.x,b.y,b.z??0]);
+  }
   for (const e of candidates) {
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
     if (a && b && beamLike(model, e).ok) out.zOf.set(e.id, ((a.z ?? 0) + (b.z ?? 0)) / 2);
@@ -216,7 +226,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   /** A point lies in a carrying shell's surface: inside its plan and at its height there. */
   const inShell = (p: [number, number, number]) => opts.mode === 'panels'
-    && carriers.some((c) => inside([p[0], p[1]], c.poly) && Math.abs(heightIn(c.pts, p) - p[2]) <= 0.05);
+    && carriers.some((c) => inside([p[0], p[1]], c.poly, GRAVITY_SHELL_COVERAGE_TOLERANCE) && Math.abs(heightIn(c.pts, p) - p[2]) <= GRAVITY_SHELL_COVERAGE_TOLERANCE);
   const footprints = new Map<number, PhysicalRegion>();
   const shellFootprint = (z: number) => {
     let region = footprints.get(z);
@@ -295,6 +305,18 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       for (const b of beams) if (members ? members.has(b.id) : onBoundary(model, b, panel.polygon)) loaded.add(b.id);
     }
     panelLoadedAt.set(z, loaded);
+  }
+  if (opts.mode === 'panels') for (const e of candidates) {
+    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+    if (!a || !b || !beamLike(model,e).ok || panelLoadedAt.get(levelKey(a.z??0))?.has(e.id)) continue;
+    const tolerance = GRAVITY_SHELL_COVERAGE_TOLERANCE;
+    const relevant = carriers.filter(c => {
+      const xs=c.pts.map(p=>p[0]), ys=c.pts.map(p=>p[1]), zs=c.pts.map(p=>p[2]);
+      return Math.min(a.x,b.x)<=Math.max(...xs)+tolerance && Math.max(a.x,b.x)>=Math.min(...xs)-tolerance
+        && Math.min(a.y,b.y)<=Math.max(...ys)+tolerance && Math.max(a.y,b.y)>=Math.min(...ys)-tolerance
+        && Math.min(a.z??0,b.z??0)<=Math.max(...zs)+tolerance && Math.max(a.z??0,b.z??0)>=Math.min(...zs)-tolerance;
+    });
+    assertConstantShellCoverage(e.id, [a.x,a.y,a.z??0], [b.x,b.y,b.z??0], relevant, inShell);
   }
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
     for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {
@@ -508,6 +530,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (lowPanels > 0) out.notes.push(msg('loadPlan.gravity.lowHeadroom', { n: lowPanels, h: MIN_STOREY_HEADROOM }));
     if (widePanels > 0) out.notes.push(msg('loadPlan.gravity.widePanels', { n: widePanels, span: MAX_DECK_SPAN }));
   }
+  assertGravityPrecision(model, out, opts.tributaryWidth);
   return out;
 }
 

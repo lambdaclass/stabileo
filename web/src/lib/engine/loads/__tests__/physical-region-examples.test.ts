@@ -6,7 +6,7 @@ import { defaultRegulations } from '../../../codes/roles';
 import { floorLoad } from '../floor-loads';
 import { beamLike, gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
-import { assertRegionInvariant, regionModel, expectResultant, loadResultant, regionVariant, type RegionModel, type Resultant } from './physical-region-invariance';
+import { assertRegionInvariant, expectGravityAnswerOrRefusal, expectPlanSpanRefusal, regionModel, expectResultant, loadResultant, regionVariant, type RegionModel, type Resultant } from './physical-region-invariance';
 
 const fixtureDir = new URL('../../../templates/fixtures/', import.meta.url);
 const codeDir = new URL('../../../templates/examples/', import.meta.url);
@@ -33,7 +33,7 @@ const captured: Record<string, Resultant> = {};
 const capture = process.env.REGION_CAPTURE;
 const controlFile = new URL('./physical-region-example-controls.json', import.meta.url);
 const controls: Record<string, Resultant> = existsSync(controlFile) ? JSON.parse(readFileSync(controlFile, 'utf8')) : {};
-for (const example of examples) for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) it(`physical gravity region invariance: ${example.id}, ${variant}`, () => {
+for (const example of examples) for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) for (const source of ['members', 'panels', 'shells'] as const) it(`physical gravity region invariance: ${example.id}, ${variant}, ${source}`, () => expectGravityAnswerOrRefusal(() => {
   const text = readFileSync(example.file, 'utf8');
   const data = example.code ? codeToModel(text).snapshot! : JSON.parse(text);
   const entries = (items: unknown[] = []): Array<[number, unknown]> => items.map((v, i) => Array.isArray(v) ? [v[0] as number, v[1]] : [(v as { id?: number }).id ?? i + 1, v]);
@@ -43,7 +43,13 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
     return loadResultant(model, planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 } }));
   };
-  if ((capture || controls[example.id]) && !refusalReasons[example.id]) {
+  if (source === 'members' && (capture || controls[example.id]) && refusalReasons[example.id]) {
+    const out = plan(m);
+    expect(out.outcome).toBe('BLOCKED');
+    if (String(out.blockedKeys[0]?.params?.message).includes(refusalReasons[example.id]!)) expect(out.blockedKeys).toContainEqual({ key: 'engine.failedWith', params: { message: expect.stringContaining(refusalReasons[example.id]!) } });
+    else expectPlanSpanRefusal(out);
+  }
+  if (source === 'members' && (capture || controls[example.id]) && !refusalReasons[example.id]) {
     const base = generate(m);
     expect(base.every(Number.isFinite)).toBe(true);
     if (capture) { captured[example.id] = base; writeFileSync(capture, JSON.stringify(captured, null, 2) + '\n'); return; }
@@ -62,13 +68,13 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     const L = Math.hypot(b.x - a.x, b.y - a.y);
     if (L === 0) continue;
     const nx = -(b.y - a.y) / L / 2, ny = (b.x - a.x) / L / 2;
-    regions.push([[a.x + nx, a.y + ny], [b.x + nx, b.y + ny], [b.x - nx, b.y - ny], [a.x - nx, a.y - ny]]);
+    if (source === 'members') regions.push([[a.x + nx, a.y + ny], [b.x + nx, b.y + ny], [b.x - nx, b.y - ny], [a.x - nx, a.y - ny]]);
   }
-  for (const elements of levels.values()) {
+  for (const elements of source === 'panels' ? levels.values() : []) {
     const floor = floorLoad({ nodes: m.nodes, beams: [...elements.values()].map(e => ({ ...e, type: e.type === 'truss' ? 'truss' as const : 'frame' as const })), q: 1, distribution: 'twoWay', outlineOnly: true });
     regions.push(...floor.panels.filter(p => p.reason !== 'crossing').map(p => p.polygon));
   }
-  for (const q of m.quads.values()) {
+  for (const q of source === 'shells' ? m.quads.values() : []) {
     const points = q.nodes.map(id => m.nodes.get(id)!);
     if (points.some(p => !p)) continue;
     const polygon = points.map(n => [n.x, n.y] as [number, number]);
@@ -76,9 +82,9 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     if (area !== 0) regions.push(polygon);
   }
   for (const region of regions) assertRegionInvariant(regionModel([region]), generate, undefined, [variant]);
-});
+}));
 
-const refusalRegression = it.skip;
+const refusalRegression = it;
 const knownWrongForceVariants = new Set([
   'cad-arch-structure-dxf, remesh',
   'full-stadium, remesh',
@@ -89,7 +95,7 @@ const knownWrongForceVariants = new Set([
 ]);
 
 for (const example of examples) for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) {
-  const check = () => {
+  const check = () => expectGravityAnswerOrRefusal(() => {
     const text = readFileSync(example.file, 'utf8');
     const data = example.code ? codeToModel(text).snapshot! : JSON.parse(text);
     const entries = (items: unknown[] = []): Array<[number, unknown]> => items.map((v, i) => Array.isArray(v) ? [v[0] as number, v[1]] : [(v as { id?: number }).id ?? i + 1, v]);
@@ -101,7 +107,8 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
       for (const m of [model, changed.model]) {
         const result = plan(m);
         expect(result.outcome).toBe('BLOCKED');
-        expect(result.blockedKeys).toContainEqual({ key: 'engine.failedWith', params: { message: expect.stringContaining(refusalReasons[example.id]!) } });
+        if (String(result.blockedKeys[0]?.params?.message).includes(refusalReasons[example.id]!)) expect(result.blockedKeys).toContainEqual({ key: 'engine.failedWith', params: { message: expect.stringContaining(refusalReasons[example.id]!) } });
+        else expectPlanSpanRefusal(result);
         for (const loads of [result.distributed, result.nodal, result.surface]) expect(loads).toEqual([]);
       }
       return;
@@ -109,7 +116,7 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     const expected = generate(model);
     expect(expected.every(Number.isFinite)).toBe(true);
     expectResultant(changed.back(generate(changed.model)), expected, `${example.id} ${variant}`);
-  };
+  });
   if (knownWrongForceVariants.has(`${example.id}, ${variant}`)) {
     refusalRegression(`known wrong result: #2254 complete physical gravity fixture: ${example.id}, ${variant}`, check);
   } else if (example.id === 'suspension-bridge' && variant === 'mirror') {

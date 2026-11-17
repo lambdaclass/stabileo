@@ -1,0 +1,41 @@
+{
+  "id": "gravity-generation-domain",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "floorLoads",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity generation refuses unsupported geometry and spans",
+    "es": "La generación gravitatoria rechaza geometrías y tramos no admitidos",
+    "pt": "Geração gravitacional recusa geometrias e intervalos não suportados",
+    "de": "Schwerkraftlasterzeugung lehnt unzulässige Geometrien und Lastintervalle ab",
+    "fr": "La génération gravitaire refuse les géométries et intervalles non pris en charge",
+    "tr": "Yerçekimi yük üretimi desteklenmeyen geometri ve aralıkları reddeder",
+    "hu": "A gravitációs tehergenerálás elutasítja a nem támogatott geometriát és intervallumokat"
+  },
+  "explanation": {
+    "en": "Gravity generation now blocks nonplanar shells, partial member shell coverage, ambiguous slope eligibility, excessive first-moment roundoff and distributed spans outside the member or below the native minimum. Regenerate floor and area loads, then rerun analyses and dependent checks. Unsupported geometry requires a supported model or independently verified loads; re-solving stored loads alone does not validate generation (#2219, #2254, #2255).",
+    "es": "La generación gravitatoria bloquea losas no planas, cobertura parcial de barras por losas, pendientes ambiguas, redondeo excesivo del primer momento y tramos fuera de la barra o menores al mínimo nativo. Regenere cargas de piso y área y repita análisis y verificaciones. Las geometrías no admitidas requieren otro modelo o cargas verificadas independientemente; recalcular cargas guardadas no valida su generación (#2219, #2254, #2255).",
+    "pt": "A geração gravitacional bloqueia lajes não planas, cobertura parcial de barras por lajes, inclinações ambíguas, arredondamento excessivo do primeiro momento e intervalos fora da barra ou abaixo do mínimo nativo. Gere novamente cargas de piso e área e refaça análises e verificações. Geometrias não suportadas exigem outro modelo ou cargas verificadas independentemente; recalcular cargas salvas não valida sua geração (#2219, #2254, #2255).",
+    "de": "Die Schwerkraftlasterzeugung sperrt nicht ebene Schalen, teilweise Schalenabdeckung von Stäben, uneindeutige Neigungen, übermäßige Rundung erster Momente und Lastintervalle außerhalb des Stabs oder unter dem nativen Minimum. Decken- und Flächenlasten neu erzeugen und Analysen und Nachweise wiederholen. Unzulässige Geometrien benötigen ein unterstütztes Modell oder unabhängig geprüfte Lasten; erneutes Lösen gespeicherter Lasten validiert deren Erzeugung nicht (#2219, #2254, #2255).",
+    "fr": "La génération gravitaire bloque les coques non planes, la couverture partielle des barres par les coques, les pentes ambiguës, un arrondi excessif des premiers moments et les intervalles hors barre ou sous le minimum natif. Régénérez les charges de plancher et de surface puis relancez analyses et vérifications. Une géométrie non prise en charge exige un modèle adapté ou des charges vérifiées indépendamment ; recalculer les charges stockées ne valide pas leur génération (#2219, #2254, #2255).",
+    "tr": "Yerçekimi yük üretimi düzlemsel olmayan kabukları, kısmi kabuk örtüsünü, belirsiz eğimleri, aşırı birinci moment yuvarlamasını ve eleman dışındaki veya yerel alt sınırın altındaki yük aralıklarını engeller. Döşeme ve alan yüklerini yeniden üretip analizleri ve kontrolleri yineleyin. Desteklenmeyen geometri uygun bir model veya bağımsız doğrulanmış yükler gerektirir; kayıtlı yükleri yeniden çözmek üretimi doğrulamaz (#2219, #2254, #2255).",
+    "hu": "A gravitációs tehergenerálás blokkolja a nem síkbeli héjakat, a rudak részleges héjfedését, a bizonytalan lejtéseket, az első nyomaték túlzott kerekítését és a rúdon kívüli vagy a natív minimum alatti teherintervallumokat. Generálja újra a födém- és felületi terheket, majd ismételje meg az elemzéseket és ellenőrzéseket. A nem támogatott geometria megfelelő modellt vagy függetlenül ellenőrzött terheket igényel; a tárolt terhek újraszámítása nem igazolja a generálást (#2219, #2254, #2255)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round27.md",
+    "heading": "Gravity generation refuses unsupported geometry and spans"
+  },
+  "requiresFloorLoadRegeneration": true,
+  "requiresLoadRegeneration": true
+}

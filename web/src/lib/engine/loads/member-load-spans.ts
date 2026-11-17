@@ -1,3 +1,4 @@
+import { EngineCheckError } from '../engine-unavailable';
 import type { Load } from '../../store/model.svelte';
 import { hasMemberMoments, type MemberMoments } from '../member-moments';
 
@@ -18,15 +19,15 @@ export interface GravityMemberLoad {
   frame?: 'local' | 'global' | 'projected';
 }
 
-export class MemberLoadSpanRefusal extends Error {
-  constructor(readonly elementId: number, a: number, b: number) {
-    super(`Member ${elementId}: distributed force or moment span [${a}, ${b}] is below the native supported minimum ${MIN_NATIVE_MEMBER_LOAD_SPAN}; the load step was refused to avoid relocating member loading to a node`);
+export class MemberLoadSpanRefusal extends EngineCheckError {
+  constructor(readonly elementId: number, readonly a: number, readonly b: number, reason?: string) {
+    super('member loading', reason ?? `Member ${elementId}: distributed force or moment span [${a}, ${b}] is below the native supported minimum ${MIN_NATIVE_MEMBER_LOAD_SPAN}; the load step was refused to avoid relocating member loading to a node`);
   }
 }
 
 export function assertMemberLoadSpan(elementId: number, a: number, b: number, spanLength = b - a, minimumSpan = MIN_NATIVE_MEMBER_LOAD_SPAN): void {
   const span = Math.min(b - a, spanLength);
-  if (!Number.isFinite(span) || !(span > 0) || span < minimumSpan) {
+  if (!Number.isFinite(spanLength) || !Number.isFinite(span) || !(span > 0) || span < minimumSpan) {
     throw new MemberLoadSpanRefusal(elementId, a, b);
   }
 }
@@ -52,10 +53,24 @@ export function nonemptyMemberForceLoads(loads: readonly Load[], model: { nodes:
   });
 }
 
-export function memberLoadSpans<T extends { elementId: number }>(loads: readonly T[], _length?: (id: number) => number): { distributed: T[]; concentrated: never[] } {
+export function memberLoadSpans<T extends { elementId: number; a?: number; b?: number; spanLength?: number }>(loads: readonly T[], length?: (id: number) => number): { distributed: T[]; concentrated: never[] } {
+  for (const load of loads) {
+    const memberLength = length?.(load.elementId) ?? NaN;
+    const a = load.a ?? 0, b = load.b ?? memberLength;
+    if (!Number.isFinite(memberLength) || memberLength <= 0) {
+      throw new MemberLoadSpanRefusal(load.elementId, a, b, `Member ${load.elementId}: missing or invalid member geometry for distributed loading`);
+    }
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b > memberLength || b < a) {
+      throw new MemberLoadSpanRefusal(load.elementId, a, b, `Member ${load.elementId}: distributed load span [${a}, ${b}] is outside member length ${memberLength}`);
+    }
+    assertMemberLoadSpan(load.elementId, a, b, load.spanLength);
+  }
   return { distributed: [...loads], concentrated: [] };
 }
 
-export function plannedMemberLoadSpans<T extends { elementId: number; q: number; qJ?: number; qX?: number; qY?: number; a?: number; b?: number; frame?: 'local' | 'global' | 'projected'; moments?: MemberMoments }>(loads: readonly T[], _model?: { nodes: Map<number, { x: number; y: number; z?: number }>; elements: Map<number, { nodeI: number; nodeJ: number }> }) {
-  return memberLoadSpans(loads);
+export function plannedMemberLoadSpans<T extends { elementId: number; q: number; qJ?: number; qX?: number; qY?: number; a?: number; b?: number; frame?: 'local' | 'global' | 'projected'; moments?: MemberMoments }>(loads: readonly T[], model?: { nodes: Map<number, { x: number; y: number; z?: number }>; elements: Map<number, { nodeI: number; nodeJ: number }> }) {
+  return memberLoadSpans(loads, id => {
+    const e = model?.elements.get(id), a = e && model?.nodes.get(e.nodeI), b = e && model?.nodes.get(e.nodeJ);
+    return a && b ? Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2 + ((b.z ?? 0) - (a.z ?? 0)) ** 2) : NaN;
+  });
 }

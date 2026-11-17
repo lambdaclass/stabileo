@@ -497,7 +497,7 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
       res.loads.push(merged); res.panels[panel]!.own?.loads.push(merged);
     }
   }
-  const length = (id: number) => { const beam = beamById.get(id)!; const a = P(beam.nodeI), b = P(beam.nodeJ); return Math.hypot(...a.map((v, i) => b[i]! - v)); };
+  const length = (id: number) => { const beam = beamById.get(id)!; return memberAxes(beam).L; };
   const bounded = memberLoadSpans(res.loads, length);
   res.loads = bounded.distributed;
   res.concentrated = bounded.concentrated;

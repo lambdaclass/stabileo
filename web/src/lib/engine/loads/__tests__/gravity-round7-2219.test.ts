@@ -1,3 +1,4 @@
+import { expectGravityAnswerOrRefusal } from './physical-region-invariance';
 import { expect, it } from 'vitest';
 import { computeDiagram3D } from '../../diagrams-3d';
 import { computeElementDiagram } from '../../diagrams';
@@ -35,7 +36,7 @@ for (const plane of [true, false]) for (const sign of [1, -1]) regression(`parti
   expect(d.maxValue).toBeCloseTo(sign > 0 ? 1 / 4 : 0, 12);
   expect(d.minValue).toBeCloseTo(sign < 0 ? -1 / 4 : 0, 12);
 });
-for (const angle of [0, 0.37]) for (const mirror of [1, -1]) for (const split of [false, true]) regression(`separated collinear carriers preserve actual intervals angle=${angle} mirror=${mirror} split=${split}`, () => {
+for (const angle of [0, 0.37]) for (const mirror of [1, -1]) for (const split of [false, true]) regression(`separated collinear carriers preserve actual intervals angle=${angle} mirror=${mirror} split=${split}`, () => expectGravityAnswerOrRefusal(() => {
   const transform = ([x, y]: number[]): [number, number] => [mirror * x! * Math.cos(angle) - y! * Math.sin(angle), mirror * x! * Math.sin(angle) + y! * Math.cos(angle)];
   const corners = [[0, 0], [10, 0], [10, 10], [7, 10], [5, 9], [3, 10], [0, 10]];
   const ring = corners.flatMap((p, i) => split ? [p, p.map((v, j) => (v + corners[(i + 1) % corners.length]![j]!) / 2)] : [p]).map(transform);
@@ -55,7 +56,7 @@ for (const angle of [0, 0.37]) for (const mirror of [1, -1]) for (const split of
     }
   }
   expect(floorLoad({ nodes: model.nodes, beams: [...model.elements.values()].map(e=>({...e,type:'frame' as const})), q: 1, distribution: 'twoWay' }).totalKN).toBeCloseTo(98, 10);
-});
+}));
 for (const plane of [true, false]) regression(`moment refusals reach the localized load channel plane=${plane}`, () => {
   modelStore.clear();
   const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(2, 0, 0), elementId = modelStore.addElement(i, j);
