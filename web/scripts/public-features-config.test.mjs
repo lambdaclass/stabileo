@@ -7,10 +7,10 @@ import { withFeatureConfig } from './public-features-test-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 
-test('empty legacy environment variables do not expose account UI in production', async t => {
+test('conflicting legacy environment variables do not change production features', async t => {
   const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME'];
   const previous = keys.map(key => process.env[key]);
-  for (const key of keys) process.env[key] = '';
+  for (const key of keys) process.env[key] = key === 'VITE_ACCOUNTS' || key === 'VITE_DIAGRAM_GAME' ? '1' : '0';
   t.after(() => {
     for (const [index, key] of keys.entries()) {
       if (previous[index] === undefined) delete process.env[key];
@@ -53,7 +53,7 @@ for (const [command, mode, expected] of [
   });
 }
 
-test.skip('known wrong result: #2286 — the copied route checker gets the committed production switches', async t => {
+test('known wrong result: #2286 — the copied route checker gets the committed production switches', async t => {
   const key = 'STABILEO_ROUTE_BUDGET_LEGACY';
   const previous = process.env[key];
   t.after(() => {

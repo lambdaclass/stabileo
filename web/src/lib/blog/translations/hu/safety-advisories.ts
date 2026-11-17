@@ -614,7 +614,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-068",
-          "A csavarási ellenőrzés elégtelen méretezett kengyelezéssel is megfelelést jelezhetett (#2141). Futtassa újra a beton méretezési ellenőrzéseit, és vizsgálja felül a tényleges keresztirányú teherbírást, a kengyeltávolságot és a csavarási nemmegfeleléseket. A nem ellenőrzött hosszvasalás nem igazolja a vasalás megfelelőségét.",
+          "A csavarási ellenőrzés elégtelen megadott kengyelezéssel is megfelelést jelezhetett (#2141). Futtassa újra a beton méretezési ellenőrzéseit, és vizsgálja felül a tényleges keresztirányú teherbírást, a kengyeltávolságot és a csavarási nemmegfeleléseket. A nem ellenőrzött hosszvasalás nem igazolja a vasalás megfelelőségét.",
           "Magas",
           "Javítva a 0.6.1-es verzióban"
         ],

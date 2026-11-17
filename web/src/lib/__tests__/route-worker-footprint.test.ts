@@ -93,6 +93,7 @@ describe('route size build switches', () => {
     ];
     const { logs, files } = await measure(false, {
       switches: { research: research === '1', tools: tools === '1' }, missing,
+      env: { VITE_RESEARCH: research === '1' ? '0' : '1', VITE_TOOLS: tools === '1' ? '0' : '1' },
     });
     const bytes = Buffer.byteLength(files['index.html']);
     for (const route of ['/en/', '/es/', '/pt/', '/app/basic', '/app/education', '/app/pro']) {

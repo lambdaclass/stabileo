@@ -130,6 +130,11 @@ jobs:
           fi
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          if [ ! -f route-main/web/config/features.json ] && [ -f web/config/features.json ]; then
+            legacy_features=$(nix develop . -c node --input-type=module -e 'import { featuresForMode } from "./web/config/public-features.mjs"; const { research, tools } = featuresForMode("production"); console.log(Number(research), Number(tools));')
+            read -r VITE_RESEARCH VITE_TOOLS <<< "$legacy_features"
+            export VITE_RESEARCH VITE_TOOLS STABILEO_ROUTE_BUDGET_LEGACY=1
+          fi
           nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
           nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node .route-base/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs

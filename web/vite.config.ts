@@ -53,7 +53,12 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
       testing = !!process.env.VITEST && command === 'serve';
       features = featuresForMode(testing ? 'test' : mode, featureConfig);
       if (testing) return;
-      return { define: featureDefines(features, command === 'build') };
+      const define = featureDefines(features, command === 'build');
+      if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
+        define['import.meta.env.VITE_RESEARCH'] = JSON.stringify(features.research ? '1' : '0');
+        define['import.meta.env.VITE_TOOLS'] = JSON.stringify(features.tools ? '1' : '0');
+      }
+      return { define };
     },
     configResolved(config) {
       e2e = config.env.VITE_E2E === '1';
