@@ -5,7 +5,6 @@ import { checkResponse } from './gravity-carrier-response';
 import { bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
 
-const reproduce = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
 const gravity = { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true } as const;
 const roof = { use: 'maintenance', weight: 'heavy', dead: 2, slopeDeg: 0 } as const;
 
@@ -38,7 +37,7 @@ function expectBlocked(model: Model, reason: RegExp) {
   expect(() => roofWeightFor(model, gravity, 1, 2)).toThrow(reason);
 }
 
-reproduce('known wrong result: #2200 a sloped shell springing at a beam level does not establish a shared deck', () => {
+it('#2200 a sloped shell springing at a beam level does not establish a shared deck', () => {
   for (const width of [0.1, 10]) {
     const { model } = bay(0);
     addShell(model, 0, width, 3, 6);
@@ -55,8 +54,8 @@ function rotated(model: Model, angle: number, mirror: number) {
   }
 }
 
-reproduce('known wrong result: #2200 an exposed strip takes roof pressures even with a covered bay centre', () => {
-  for (const [angle, mirror, mesh, upperWidth] of [[0, 1, 1, 6], [0.37, 1, 3, 5.5], [1.16, -1, 2, 5.5]] as const) {
+it('#2200 an exposed strip takes roof pressures even with a covered bay centre', () => {
+  for (const [angle, mirror, mesh, upperWidth] of [[0, 1, 1, 6], [0.37, 1, 3, 6], [1.16, -1, 2, 5.5]] as const) {
     const fixture = bay(6, 0, 1, mesh, mesh > 1);
     const { model, physical } = fixture;
     addShell(model, 0, upperWidth, 6);
@@ -91,7 +90,7 @@ reproduce('known wrong result: #2200 an exposed strip takes roof pressures even 
   }
 });
 
-reproduce('known wrong result: #2200 a strip with both covered and exposed area refuses', () => {
+it('#2200 a strip with both covered and exposed area refuses', () => {
   for (const upper of [6.001, 6.25, 9.999]) {
     const { model } = bay(6);
     addShell(model, 0, upper, 6);
@@ -108,7 +107,7 @@ reproduce('known wrong result: #2200 a strip with both covered and exposed area 
   expectBlocked(model, /mixed roof and floor exposure/i);
 });
 
-reproduce('known wrong result: #2200 a shell outside the elevation band cannot subtract a beam deck', () => {
+it('#2200 a shell outside the elevation band cannot subtract a beam deck', () => {
   const { model } = bay(0);
   addShell(model, 0, 4, 3.00125);
   expectBlocked(model, /same deck/i);
@@ -140,7 +139,7 @@ it('treats a deck at and below the cover rise as exposed', () => {
   }
 });
 
-reproduce('known wrong result: #2200 overhead cover just above the exposure threshold can make a strip mixed', () => {
+it('#2200 overhead cover just above the exposure threshold can make a strip mixed', () => {
   const { model } = bay(6);
   addShell(model, 0, 8, 3.051);
   expectBlocked(model, /mixed roof and floor exposure/i);

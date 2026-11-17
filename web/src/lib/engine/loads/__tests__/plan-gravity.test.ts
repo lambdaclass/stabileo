@@ -278,9 +278,15 @@ function gable(n: number): LoadModelData {
 
 describe('a ring of beams under a roof of shells', () => {
   it('the eave ring takes no area load, however many quads make up each slope', () => {
-    for (const n of [1, 2, 3]) {
+    for (const n of [1, 2, 3]) for (const angle of [0, 0.37]) {
       const m = gable(n);
+      for (const node of m.nodes.values()) {
+        const { x, y } = node;
+        node.x = x * Math.cos(angle) - y * Math.sin(angle);
+        node.y = x * Math.sin(angle) + y * Math.cos(angle);
+      }
       const p = buildLoadPlan(planInput(m));
+      expect(p.outcome).toBe('READY');
       expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m)).toBeCloseTo(0, 6);
       expect(totalKN(p.distributed.filter((d) => d.caseType === 'L'), m)).toBeCloseTo(0, 6);
       // The shells carry the roof: 2 kN/m² over their surface.

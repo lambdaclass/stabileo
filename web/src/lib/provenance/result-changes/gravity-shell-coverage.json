@@ -28,13 +28,13 @@
     "hu": "Gerendamezők részleges héjfedése"
   },
   "explanation": {
-    "en": "Regenerate gravity for panel-mode models with shells. Uncovered full-span strips apply their line reactions to the opposite beams. Unsupported partial coverage or nonplanar shells block the plan.",
-    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas de luz completa aplican sus reacciones lineales en las vigas opuestas. La cobertura parcial no admitida o las placas alabeadas bloquean el plan.",
-    "pt": "Gere novamente a gravidade no modo de painéis com cascas. As faixas descobertas descarregam reações lineares nas vigas opostas. Cobertura parcial sem suporte ou cascas não planas bloqueiam o plano.",
-    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Unbedeckte Streifen über die volle Spannweite tragen Linienreaktionen in die gegenüberliegenden Träger ein. Nicht unterstützte Geometrie blockiert den Plan.",
-    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes sur toute la portée appliquent leurs réactions linéaires aux poutres opposées. Une géométrie non prise en charge bloque le plan.",
-    "tr": "Kabuklu panel modelleri için yerçekimi yüklerini yeniden üretin. Açıkta kalan tam açıklıklı şeritlerin çizgisel tepkileri karşılıklı kirişlere uygulanır. Desteklenmeyen geometri planı durdurur.",
-    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A teljes fesztávú fedetlen sávok vonalreakcióit a szemközti gerendák viselik. A nem támogatott geometria leállítja a tervet."
+    "en": "Regenerate gravity for panel-mode models with shells. The uncovered strips take roof or floor pressures according to their exposure. Ambiguous shell deck geometry or mixed exposure blocks the plan.",
+    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas reciben presiones de cubierta o de entrepiso según su exposición. Una geometría ambigua o una exposición mixta bloquea el plan.",
+    "pt": "Gere novamente as cargas gravitacionais no modo de painéis com cascas. As faixas descobertas recebem pressões de cobertura ou de piso conforme a exposição. Geometria ambígua ou exposição mista bloqueia o plano.",
+    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Freie Streifen erhalten je nach Überdeckung Dach- oder Geschosslasten. Mehrdeutige Schalengeometrie oder gemischte Überdeckung blockiert den Lastplan.",
+    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes reçoivent les charges de toiture ou de plancher selon leur exposition. Une géométrie ambiguë ou une exposition mixte bloque le plan.",
+    "tr": "Kabuklu panel modellerinde yerçekimi yüklerini yeniden üretin. Açıkta kalan şeritlere, üzerlerindeki örtüye göre çatı veya döşeme yükleri uygulanır. Belirsiz geometri veya karma örtü yük planını durdurur.",
+    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A szabad sávok a fedettségüktől függően kapnak tető- vagy födémterhelést. A bizonytalan héjgeometria vagy a vegyes fedettség leállítja a tervezést."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-core.md",

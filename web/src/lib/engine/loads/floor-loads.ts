@@ -72,7 +72,7 @@ export interface FloorLoadInput {
   zone?: { outer: P3[]; holes?: P3[][] };
   /** An inclined floor's q per plan area (q·cos of the slope) instead of per true area. */
   perPlanArea?: boolean;
-  shellFootprints?: Polygon[];
+  shellFootprints?: Polygon[] | ((boundary: Polygon, corners: number[]) => Polygon[]);
   distribution: 'twoWay' | 'oneWay';
   /** One way: the plan direction the slab spans. */
   spanAxis?: 'x' | 'y';
@@ -350,7 +350,10 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const onSides = (p: P2) => all.some((sd) => nearSegment(p, sd.a, sd.b, tol));
     const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
     panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
-    const partition = partitionShellCoverage(sides, holes, input.shellFootprints ?? [], input.distribution === 'oneWay' ? spanDir : undefined);
+    const footprints = typeof input.shellFootprints === 'function'
+      ? input.shellFootprints([sides.map(side => side.a), ...holes.map(hole => hole.map(side => side.a))], sides.map(side => side.nodeA))
+      : input.shellFootprints ?? [];
+    const partition = partitionShellCoverage(sides, holes, footprints, input.distribution === 'oneWay' ? spanDir : undefined);
     if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
     if (partition.kind === 'shell') return;
     const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'

@@ -1,14 +1,12 @@
-import { beforeAll, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildLoadPlan } from '../../engine/loads/load-plan';
-import { witness, input } from '../../engine/loads/__tests__/gravity-width-mass-fixture';
-import { initSolver } from '../../engine/wasm-solver';
-import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
-import { evaluateDiagramAt } from '../../engine/diagrams-3d';
-import type { AnalysisResults3D } from '../../engine/types-3d';
+import { buildLoadPlan } from '../load-plan';
+import { witness, input } from './gravity-width-mass-fixture';
+import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
+import { evaluateDiagramAt } from '../../diagrams-3d';
+import type { AnalysisResults3D } from '../../types-3d';
 
-beforeAll(async () => { await initSolver(); });
-const fixture = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
+const fixture = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
 for (const separation of [3, 6]) for (const angle of [0, 37]) for (const pieces of [1, 3]) {
   it(`#2269 width carrier hand solution y=${separation} angle=${angle} pieces=${pieces}`, () => {

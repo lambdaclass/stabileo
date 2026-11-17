@@ -12,13 +12,7 @@
  * ── Slabs drawn as shells ─────────────────────────────────────────
  *
  * A floor or roof drawn with quads already carries its load in the shells: the quads take the
- * area load as a surface load, and what lies under them takes nothing, or the area would be
- * loaded twice. Under them means a panel the shells springing from its level cover in plan (a
- * slab at the level, or a sloped roof starting from it: the ring of beams at the eaves closes the
- * roof's own plan, and a roof of several quads down each slope springs from its eaves as a whole),
- * the beams around such a panel, and a member lying in a shell's surface (a rafter, a ridge). A
- * panel only partly covered gives its beams the uncovered share. The rest of the level is loaded
- * through its beams as any other: a slab over one bay does not unload the bay beside it.
+ * area load as a surface load.
  *
  * A sloped quad is loaded like a sloped member: the dead load per square metre of its surface,
  * the live loads per square metre of its plan projection (`cos` below), both along global −Z, as
@@ -43,8 +37,9 @@
  * Pure: no store.
  */
 import { assertPlanarShell, refuseGravityGeometry, ringArea, type UncoveredStrips } from './gravity-shell-partition';
+import { EngineCheckError } from '../engine-unavailable';
 import { physicalRoofRuns } from './physical-roof-geometry';
-import polygonClipping from 'polygon-clipping';
+import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
@@ -122,6 +117,9 @@ export interface GravityLayout {
 }
 
 const TOL = 1e-3;
+const MIN_COVER_RISE = 0.05;
+type ShellCarrier = { z0: number; poly: Polygon[number]; pts: Array<[number, number, number]> };
+type SlopedCarrier = ShellCarrier & { nodes: number[] };
 const levelKey = (z: number) => Math.round(z / TOL) * TOL;
 
 /** True when a member is close enough to horizontal to carry an area load (|Δz|/L ≤ 0.5). */
@@ -154,12 +152,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (a && b && beamLike(model, e).ok) out.zOf.set(e.id, ((a.z ?? 0) + (b.z ?? 0)) / 2);
   }
 
-  // The quads that carry an area load: horizontal ones by level, and sloped ones no steeper than
-  // a member that carries one (`beamLike`). Each with what it covers in plan, from the level it
-  // springs from.
   const quadsAt = new Map<number, Array<{ quadId: number; area: number }>>();
   const slopedQuads: Array<{ quadId: number; area: number; z: number; cos: number }> = [];
-  const carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }> = [];
+  const levelCarriers: ShellCarrier[] = [];
+  const slopedCarriers: SlopedCarrier[] = [];
   const steep: number[] = [];
   for (const q of model.quads?.values() ?? []) {
     const pts = q.nodes.map((id) => model.nodes.get(id));
@@ -174,7 +170,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const list = quadsAt.get(key) ?? [];
       list.push({ quadId: q.id, area: plan });
       quadsAt.set(key, list);
-      carriers.push({ z0: key, poly, pts: xyz });
+      if (plan > 0) levelCarriers.push({ z0: key, poly, pts: xyz });
       continue;
     }
     const surface = surfaceArea(xyz);
@@ -182,28 +178,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     // |sin| ≤ 0,5, the members' rule: a roof; past 80° a wall; between, named.
     if (cos >= Math.sqrt(0.75) - 1e-9) {
       slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
-      carriers.push({ z0: levelKey(Math.min(...zs)), poly, pts: xyz, nodes: q.nodes });
+      slopedCarriers.push({ z0: levelKey(Math.min(...zs)), poly, pts: xyz, nodes: q.nodes });
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
-  // A sloped roof springs from its eaves as a whole: each of its quads from the lowest point of
-  // the sloped shells joined to it through shared nodes, not from its own lowest corner. With two
-  // quads down a slope the upper ones sprang from mid-slope, the eave panel's centre fell under
-  // them, and the ring at the eaves was loaded as a floor beneath the roof the shells already carry.
-  {
-    const sloped = carriers.filter((c) => c.nodes);
-    const parent = sloped.map((_, i) => i);
-    const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i]!)));
-    const byNode = new Map<number, number>();
-    sloped.forEach((c, i) => {
-      for (const id of c.nodes!) {
-        const j = byNode.get(id);
-        if (j === undefined) byNode.set(id, i); else parent[root(i)] = root(j);
-      }
-    });
-    const low = new Map<number, number>();
-    sloped.forEach((c, i) => low.set(root(i), Math.min(low.get(root(i)) ?? Infinity, c.z0)));
-    sloped.forEach((c, i) => { c.z0 = low.get(root(i))!; });
-  }
+  const carriers = [...levelCarriers, ...slopedCarriers];
+  const roofs = opts.mode === 'panels' ? connectedShellRoofs(slopedCarriers) : [];
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
     if (opts.mode !== 'panels' || !carriers.length) return false;
@@ -267,7 +246,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
   for (const [z, beams] of beamsAt) {
-    const shellFootprints = opts.mode === 'panels' ? carriers.filter(c => Math.abs(c.z0 - z) <= TOL).map(c => [c.poly]) : [];
+    const shellFootprints = opts.mode === 'panels'
+      ? (boundary: Polygon, corners: number[]) => deckFootprints(boundary, corners, z, levelCarriers, roofs)
+      : undefined;
     const res = floorLoad({ nodes: model.nodes, beams, q: 1, shellFootprints, ...slab });
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
@@ -390,6 +371,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const [z, { beams, res }] of levels) {
     unresolved += res.skipped.unresolved;
     const loaded = panelLoadedAt.get(z)!;
+    let overhead: Polygon[] | undefined;
     for (const panel of res.panels) {
       if (!panel.loaded || !panel.own) continue;
       const why = deckReasons.get(panel);
@@ -397,10 +379,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      if (panel.shellCoverage?.kind === 'strips') partly++;
+      const strips = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage : undefined;
+      if (strips) partly++;
       const one = panel.own;
-      const c = centroid(panel.polygon);
-      const roof = why === 'lowHeadroom' || !covered(c, z);
+      const roof = strips
+        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, panelsAt, carriers))
+        : why === 'lowHeadroom' || !covered(centroid(panel.polygon), z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
@@ -432,7 +416,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       }
       for (const n of one.nodal) {
         out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });
-                addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
+        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
       }
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);
@@ -498,10 +482,99 @@ const FRINGE_BINS = 200;
 /** A ring of beams wider than this both ways, with no beam or slab inside, is no deck: no slab spans it. */
 export const MAX_DECK_SPAN = 12;
 
+function connectedShellRoofs(sloped: SlopedCarrier[]): SlopedCarrier[][] {
+  const parent = sloped.map((_, i) => i);
+  const root = (i: number): number => parent[i] === i ? i : (parent[i] = root(parent[i]!));
+  const byNode = new Map<number, number>();
+  sloped.forEach((carrier, i) => {
+    for (const id of carrier.nodes) {
+      const other = byNode.get(id);
+      if (other === undefined) byNode.set(id, i);
+      else parent[root(i)] = root(other);
+    }
+  });
+  const groups = new Map<number, SlopedCarrier[]>();
+  sloped.forEach((carrier, i) => {
+    const id = root(i);
+    const group = groups.get(id) ?? [];
+    group.push(carrier);
+    groups.set(id, group);
+  });
+  return [...groups.values()];
+}
+
+function deckFootprints(boundary: Polygon, corners: number[], z: number, level: ShellCarrier[], roofs: SlopedCarrier[][]): Polygon[] {
+  const atLevel = (height: number) => height >= z - TOL && height <= z + TOL;
+  const footprints: Polygon[] = [];
+  try {
+    for (const shell of level) {
+      if (shell.pts.every(p => atLevel(p[2]))) footprints.push([shell.poly]);
+      else if (atLevel(shell.z0) && regionArea(polygonClipping.intersection(boundary, [shell.poly])) > 0) {
+        refuseGravityGeometry('A covering shell must represent the same deck as the beam panel.');
+      }
+    }
+    for (const roof of roofs) {
+      if (!atLevel(Math.min(...roof.map(shell => shell.z0)))) continue;
+      const polygons = roof.map(shell => [shell.poly]);
+      const projection = polygonClipping.union(polygons[0]!, ...polygons.slice(1));
+      if (!(regionArea(polygonClipping.intersection(boundary, projection)) > 0)) continue;
+      const eaveNodes = new Set(roof.flatMap(shell => shell.nodes.filter((_, i) => atLevel(shell.pts[i]![2]))));
+      if (boundary.length === 1 && corners.every(id => eaveNodes.has(id)) && polygonClipping.difference(boundary, projection).length === 0) {
+        footprints.push(...polygons);
+      } else {
+        refuseGravityGeometry('A sloped covering shell must represent the same deck as the beam panel.');
+      }
+    }
+  } catch (err) {
+    if (err instanceof EngineCheckError) throw err;
+    refuseGravityGeometry(`Shell deck coverage check failed: ${String(err)}`);
+  }
+  return footprints;
+}
+
+function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {
+  const above: Polygon[number] = [];
+  carrier.pts.forEach(([x, y, height], i) => {
+    const [xx, yy, next] = carrier.pts[(i + 1) % carrier.pts.length]!;
+    if (height > z) above.push([x, y]);
+    if ((height > z) !== (next > z)) {
+      const t = (z - height) / (next - height);
+      above.push([x + t * (xx - x), y + t * (yy - y)]);
+    }
+  });
+  return above;
+}
+
+function higherFootprints(z: number, panelsAt: Map<number, Polygon[number][]>, carriers: ShellCarrier[]): Polygon[] {
+  const elevation = z + MIN_COVER_RISE;
+  const covers = [...panelsAt].filter(([above]) => above > elevation).flatMap(([, polygons]) => polygons.map(poly => [poly]));
+  for (const carrier of carriers) {
+    const above = shellAbove(carrier, elevation);
+    if (ringArea(above) > 0) covers.push([above]);
+  }
+  return covers;
+}
+
+function uncoveredStripIsRoof({ polygons }: UncoveredStrips, covers: Polygon[]): boolean {
+  if (covers.length === 0) return true;
+  const exposure = new Set<boolean>();
+  try {
+    const above = polygonClipping.union(covers[0]!, ...covers.slice(1));
+    for (const poly of polygons) {
+      if (regionArea(polygonClipping.intersection([poly], above)) > 0) exposure.add(false);
+      if (regionArea(polygonClipping.difference([poly], above)) > 0) exposure.add(true);
+    }
+  } catch (err) {
+    refuseGravityGeometry(`Uncovered shell strip exposure check failed: ${String(err)}`);
+  }
+  if (exposure.size !== 1) refuseGravityGeometry('The uncovered shell strips have mixed roof and floor exposure.');
+  return exposure.has(true);
+}
+
 /** Why a panel of beams is not a floor or a roof deck, if it is not. */
 function notADeck(
   model: GravityModel,
-  carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
+  carriers: Array<ShellCarrier | SlopedCarrier>,
   panelsAt: Map<number, Array<Array<[number, number]>>>,
   coverAbove: (pt: [number, number], zTop: number) => number,
   tributaryWidth: number,
@@ -518,7 +591,7 @@ function notADeck(
     if (Number.isFinite(coverAbove([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0)))) continue;
     roofMembers.push([[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]]);
   }
-  const roofShells = carriers.filter((c) => c.nodes);
+  const roofShells = carriers.filter(c => 'nodes' in c);
   const heightAbove = (p: [number, number], z: number): number => {
     let h = Infinity;
     for (const [a, b] of roofMembers) {
@@ -1091,12 +1164,12 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     };
   });
   return (pt: [number, number], zTop: number) => {
-    let h = covers.reduce((h, c) => c.z > zTop + 0.05 && c.polys.some(poly => inside(pt, poly)) ? Math.min(h, c.z - zTop) : h, Infinity);
+    let h = covers.reduce((h, c) => c.z > zTop + MIN_COVER_RISE && c.polys.some(poly => inside(pt, poly)) ? Math.min(h, c.z - zTop) : h, Infinity);
     for (const run of runs) {
       if (!nearSegment(pt, run.start, run.end, 0.05)) continue;
       if (run.ownPanels.some(({ z, rings }) => Math.abs(z - zTop) <= TOL && contains(pt, rings))) continue;
       const z = run.heightAt(pt);
-      if (z > zTop + 0.05) h = Math.min(h, z - zTop);
+      if (z > zTop + MIN_COVER_RISE) h = Math.min(h, z - zTop);
     }
     return h;
   };
