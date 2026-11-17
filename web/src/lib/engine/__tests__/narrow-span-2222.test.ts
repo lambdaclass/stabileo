@@ -52,6 +52,9 @@ for (const dim of [2, 3]) {
     for (const [dimension, original] of fiberCases as Array<[number,any]>) {
       if (dimension !== dim) continue;
       for (const elastic of [false,true]) for (const tolerance of [1e-3,1e-6,1e-9]) {
+        const expectedForce = ['fx', dim === 2 ? 'fz' : 'fy', 'fz'].slice(0, dim)
+          .map(axis => original.solver.loads.reduce((sum: number, load: any) => sum + (load.type === 'nodal' ? load.data[axis] : 0), 0));
+        expect(expectedForce.some(force => force !== 0)).toBe(true);
         const input = structuredClone(original);
         input.tolerance = tolerance;
         if (elastic) input.fiberSections['1'].materials = [{type:'elastic',e:200000}];
@@ -60,6 +63,11 @@ for (const dim of [2, 3]) {
         expect(result.lastConvergedLoadFactor).toBe(1);
         const eq = result.results.equilibrium;
         expect(eq.residualOk && eq.equilibriumOk).toBe(true);
+        const forceScale = Math.max(1, ...expectedForce.map(Math.abs));
+        for (let k = 0; k < dim; k++) {
+          expect(Math.abs(eq.appliedForceSum[k] - expectedForce[k])).toBeLessThan(1e-6 * forceScale);
+          expect(Math.abs(eq.reactionForceSum[k] + expectedForce[k])).toBeLessThan(1e-6 * forceScale);
+        }
         for (let k=0;k<dim;k++) expect(Math.abs(eq.appliedForceSum[k]+eq.reactionForceSum[k])).toBeLessThan(1e-6*Math.max(1,...eq.appliedForceSum.slice(0,dim).map(Math.abs),...eq.reactionForceSum.slice(0,dim).map(Math.abs)));
       }
     }
