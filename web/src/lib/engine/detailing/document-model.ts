@@ -306,8 +306,8 @@ export interface OpenIssue {
 
 /** Conditions that keep any document holding them a draft, whatever its assemblies' states. */
 const DRAFT_ONLY_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
-/** A lap the detailing could not check as built, or checked and found wanting (`splice-checks.ts`). */
-export const isDraftOnlyIssue = (key: string) => DRAFT_ONLY_ISSUES.has(key) || key.startsWith('detailing.lapCheck.');
+export const isDraftOnlyIssue = (key: string) => DRAFT_ONLY_ISSUES.has(key) || key.startsWith('detailing.lapCheck.')
+  || key.startsWith('detailing.generation.') || key === 'generation' || key === 'memberNoBars';
 
 export interface OpenConflict {
   assemblyId: string;

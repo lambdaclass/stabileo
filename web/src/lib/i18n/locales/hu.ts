@@ -14600,6 +14600,7 @@ const hu: Translations = {
   "codes.cirsoc201.shear.primary": "Nyírási vasalás a főirányban",
   "codes.cirsoc201.shear.secondary": "Nyírási vasalás a másodlagos irányban",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} szár van megadva, {requiredLegs} szükséges (§9.7.6.2.2, keresztirányú távolság)",
+  'verdict.detailing.generation': 'hiányos vasalásgenerálás',
 };
 
 export default hu;

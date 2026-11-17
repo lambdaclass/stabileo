@@ -9791,6 +9791,7 @@ const es: Record<string, string> = {
   'design.gap.lateralRoleUndeclared': 'No está declarado si la viga integra el sistema resistente a fuerzas laterales, así que se diseñó como parte de él, con fy desarrollada en la cara del apoyo (§9.7.3.8.2). Declararla fuera de ese sistema podría cambiar este veredicto de anclaje.',
   'flex.step.exhausted': '⚠ Ninguna disposición de las barras que prueba la calculadora entra: se agotó su búsqueda, no se demostró que la sección no alcance.',
   'flex.out.noArrangementFits': 'Ninguna disposición probada entra',
+  'verdict.detailing.generation': 'generación de armadura incompleta',
   'verdict.detailing.splice': 'empalme',
   'verdict.detailing.anchorage': 'anclaje',
   'verdict.detailing.cover': 'barra fuera de la sección',

@@ -33,6 +33,7 @@ import { rebarWorkspace } from './rebar-workspace.svelte';
 import { pruneDeletedMembers } from './selection-prune';
 import { recheckStore } from './recheck.svelte';
 import { noteBaseSolve } from './result-provenance';
+import { isDraftOnlyIssue } from '../engine/detailing/document-model';
 
 // Wire model mutations to automatically clear stale results.
 // This ensures results never persist after the model changes,
@@ -221,18 +222,13 @@ verificationStore._setRefusalProvider(
   (elementId) => (modelStore.elements.get(elementId)?.reinforcement ? undefined : storedRefusal(elementId)),
 );
 
-// The members the detailing left an unresolved anchorage, a bar outside the section or a clash the
-// repair could not separate on: read from the persisted assemblies, as the memoria reads them, and
-// indexed once per set.
-const DETAILING_ISSUES = new Set(['detailing.anchorage.unresolved', 'detailing.cover.violated', 'detailing.clash.unresolved']);
 let issueIndex: { of: unknown; ids: Map<number, string[]> } | null = null;
 verificationStore._setDetailingIssueProvider((elementId) => {
   const assemblies = modelStore.model.detailing?.assemblies ?? detailingStore.assemblies;
   if (issueIndex?.of !== assemblies) {
     const ids = new Map<number, string[]>();
     for (const a of assemblies ?? []) for (const u of a.unsupported ?? []) {
-      // A lap held open (`detailing.lapCheck.*`, `splice-checks.ts`) holds its members as well.
-      if (DETAILING_ISSUES.has(u.key) || u.key.startsWith('detailing.lapCheck.')) for (const id of u.scope.elementIds ?? []) ids.set(id, [...(ids.get(id) ?? []), u.key]);
+      if (isDraftOnlyIssue(u.key)) for (const id of u.scope.elementIds ?? []) ids.set(id, [...(ids.get(id) ?? []), u.key]);
     }
     issueIndex = { of: assemblies, ids };
   }

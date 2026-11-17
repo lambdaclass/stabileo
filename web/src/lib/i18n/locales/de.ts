@@ -9334,6 +9334,7 @@ const de: Translations = {
   'design.gap.lateralRoleUndeclared': 'Die Rolle des Balkens im Aussteifungssystem ist nicht deklariert, daher wurde er als Teil davon bemessen, mit fy an der Auflagerfläche erreicht (§9.7.3.8.2). Ihn als nicht zu diesem System gehörend zu deklarieren, könnte dieses Verankerungsergebnis ändern.',
   'flex.step.exhausted': '⚠ Keine der von diesem Rechner versuchten Stabanordnungen passt: Seine Suche ist erschöpft, was nicht zeigt, dass der Querschnitt nicht funktionieren kann.',
   'flex.out.noArrangementFits': 'Keine versuchte Anordnung passt',
+  'verdict.detailing.generation': 'unvollständige Bewehrungserzeugung',
   'verdict.detailing.splice': 'Stoß',
   'verdict.detailing.anchorage': 'Verankerung',
   'verdict.detailing.cover': 'Stab außerhalb des Querschnitts',

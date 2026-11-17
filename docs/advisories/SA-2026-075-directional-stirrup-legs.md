@@ -101,9 +101,14 @@ resolver. Each provided beam and wall support, explicit end and span check uses
 its actual cage diameter consistently for primary shear capacity, steel ratio
 and spacing.
 
-The separate secondary-width minimum and edition-specific torsion minimum
-questions remain outside this correction. This fix does not add native
-torsion verification or certify fabrication of manually declared crossties.
+The active combined shear–torsion minimum now uses each shear direction’s
+width, through one shared calculation of concrete shear, required transverse
+steel and its minimum (CIRSOC 201-2025 §9.6.4.2). See the
+[round-20 result-change record](../results-changes/2198-round20-torsion-minimum.md).
+The existing use of this 2025 torsion policy with the 2005 strength edition is
+preserved; edition-specific torsion minimum questions remain outside this
+correction. This fix does not add native torsion verification or certify
+fabrication of manually declared crossties.
 Existing engineering limits, tolerances and strength assertions are unchanged.
 
 ## Workaround

@@ -247,7 +247,7 @@ describe('documentReadiness is pessimistic by construction', () => {
 
 for (const key of ['detailing.generation.beamSecondaryLegs', 'detailing.generation.columnSecondaryLegs', 'detailing.generation.futureRefusal', 'generation', 'memberNoBars']) {
   for (const state of ['CONSTRUCTIBLE', 'REVIEWED', 'ISSUED'] as const) {
-    it.skip(`known wrong result: #2198 ${key} keeps even ${state} documents draft`, () => {
+    it(`known wrong result: #2198 ${key} keeps even ${state} documents draft`, () => {
       const d = build({ assemblies: [assembly({ state, unsupported: [{ key, message: key, scope: { elementIds: [1] }, refs: [] }] })] });
       expect(d.readiness).toBe('REVIEW_DRAFT');
       expect(isConstructionReady(d)).toBe(false);

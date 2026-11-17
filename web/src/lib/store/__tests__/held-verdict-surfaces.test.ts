@@ -324,7 +324,7 @@ describe('(c) the span building with no slab: a member held by the detailing alo
     show('C', r);
   }, 600_000);
 
-  it.skip('known wrong result: #2198 it is held by the detailing alone, and no surface reads it or the project as approved', () => {
+  it('known wrong result: #2198 it is held by the detailing alone, and no surface reads it or the project as approved', () => {
     const columns = new Set([...verificationStore.contexts].filter(([, c]) => c.elementType === 'column').map(([id]) => id));
     expect(lifts.filter((id) => columns.has(id))).toEqual([]);
     expect(lifts.filter((id) => !columns.has(id)).sort((a, b) => a - b)).toEqual([]);
@@ -338,34 +338,34 @@ describe('(c) the span building with no slab: a member held by the detailing alo
   });
 
 
-for (const mode of ['2d', 'pro'] as const) for (const kind of ['beam', 'column'] as const) {
-  for (const key of [`detailing.generation.${kind}SecondaryLegs`, 'detailing.generation.futureRefusal', 'generation', 'memberNoBars']) {
-    it.skip(`known wrong result: #2198 ${mode} ${kind} ${key} holds only its scoped member`, () => {
-      const originalMode = uiStore.analysisMode;
-      uiStore.analysisMode = mode;
-      const id = [...verificationStore.contexts].find(([id, c]) => c.elementType === kind && ['ok', 'warn'].includes(verificationStore.memberVerdict(id).status))![0];
-      const detailing = modelStore.model.detailing!;
-      const original = detailing.assemblies;
-      const makeAssemblies = (keys: string[]) => original.map((a, i) => ({ ...a, unsupported: i === 0 ? keys.map(key => ({ key, message: key, scope: { elementIds: [id] }, refs: [] })) : [] }));
-      try {
-        detailing.assemblies = makeAssemblies([]);
-        const before = verificationStore.memberVerdict(id);
-        expect(before.holds).toEqual([]);
-        expect(['ok', 'warn']).toContain(before.status);
-        detailing.assemblies = makeAssemblies([key]);
-        const held = verificationStore.memberVerdict(id);
-        expect(held.local).toBe(before.local);
-        expect(held.holds).toContainEqual(expect.objectContaining({ kind: 'detailing', params: expect.objectContaining({ keys: key }) }));
-        expect(held.status).toBe('fail');
-        for (const other of verificationStore.contexts.keys()) if (other !== id) expect(verificationStore.memberVerdict(other).holds.some(h => h.kind === 'detailing')).toBe(false);
-        detailing.assemblies = makeAssemblies([]);
-        expect(verificationStore.memberVerdict(id)).toEqual(before);
-      } finally {
-        detailing.assemblies = original;
-        uiStore.analysisMode = originalMode;
-      }
-    });
+  for (const mode of ['2d', 'pro'] as const) for (const kind of ['beam', 'column'] as const) {
+    for (const key of [`detailing.generation.${kind}SecondaryLegs`, 'detailing.generation.futureRefusal', 'generation', 'memberNoBars']) {
+      it(`known wrong result: #2198 ${mode} ${kind} ${key} holds only its scoped member`, () => {
+        const originalMode = uiStore.analysisMode;
+        uiStore.analysisMode = mode;
+        const id = [...verificationStore.contexts].find(([id, c]) => c.elementType === kind && ['ok', 'warn'].includes(verificationStore.memberVerdict(id).status))![0];
+        const detailing = modelStore.model.detailing!;
+        const original = detailing.assemblies;
+        const makeAssemblies = (keys: string[]) => original.map((a, i) => ({ ...a, unsupported: i === 0 ? keys.map(key => ({ key, message: key, scope: { elementIds: [id] }, refs: [] })) : [] }));
+        try {
+          detailing.assemblies = makeAssemblies([]);
+          const before = verificationStore.memberVerdict(id);
+          expect(before.holds).toEqual([]);
+          expect(['ok', 'warn']).toContain(before.status);
+          detailing.assemblies = makeAssemblies([key]);
+          const held = verificationStore.memberVerdict(id);
+          expect(held.local).toBe(before.local);
+          expect(held.holds).toContainEqual(expect.objectContaining({ kind: 'detailing', params: expect.objectContaining({ keys: key }) }));
+          expect(held.status).toBe('fail');
+          for (const other of verificationStore.contexts.keys()) if (other !== id) expect(verificationStore.memberVerdict(other).holds.some(h => h.kind === 'detailing')).toBe(false);
+          detailing.assemblies = makeAssemblies([]);
+          expect(verificationStore.memberVerdict(id)).toEqual(before);
+        } finally {
+          detailing.assemblies = original;
+          uiStore.analysisMode = originalMode;
+        }
+      });
+    }
   }
-}
 
 });

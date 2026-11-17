@@ -1,0 +1,39 @@
+{
+  "id": "generation-refusal-verdicts",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Generation refusals hold concrete member approvals",
+    "es": "Las negativas de generación impiden aprobar elementos de hormigón",
+    "pt": "Recusas de geração impedem a aprovação de elementos de concreto",
+    "de": "Erzeugungsfehler verhindern die Freigabe von Betonbauteilen",
+    "fr": "Les refus de génération bloquent l’approbation des éléments en béton",
+    "hu": "A vasalásgenerálás elutasítása megakadályozza a betonelemek jóváhagyását",
+    "tr": "Donatı üretimi retleri beton eleman onaylarını engeller"
+  },
+  "explanation": {
+    "en": "Rebuild concrete member detailing and review saved approvals. A passing section check no longer approves a member whose reinforcement generation is incomplete or unsupported. Generation refusals also keep its document in draft. Local strength results are unchanged.",
+    "es": "Regenere el detallado de los elementos de hormigón y revise las aprobaciones guardadas. Una verificación local favorable ya no aprueba un elemento cuya generación de armadura está incompleta o no soportada. Estas negativas también mantienen el documento como borrador. Las resistencias locales no cambian.",
+    "pt": "Refaça o detalhamento dos elementos de concreto e revise as aprovações salvas. Uma verificação local favorável não aprova um elemento cuja geração de armadura está incompleta ou não é suportada. Essas recusas também mantêm o documento como rascunho. As resistências locais não mudam.",
+    "de": "Betonbewehrung erneut detaillieren und gespeicherte Freigaben prüfen. Ein bestandener Querschnittsnachweis gibt kein Bauteil frei, dessen Bewehrung unvollständig oder nicht unterstützt erzeugt wird. Solche Meldungen halten auch das Dokument im Entwurf. Lokale Tragfähigkeiten bleiben unverändert.",
+    "fr": "Régénérez le ferraillage des éléments en béton et examinez les approbations enregistrées. Une vérification locale favorable n’approuve plus un élément dont la génération des armatures est incomplète ou non prise en charge. Ces refus maintiennent aussi le document au stade de brouillon. Les résistances locales restent inchangées.",
+    "hu": "Generálja újra a betonelemek vasalását, és vizsgálja felül a mentett jóváhagyásokat. A megfelelő helyi keresztmetszeti ellenőrzés nem hagy jóvá olyan elemet, amelynek vasalásgenerálása hiányos vagy nem támogatott. Az ilyen elutasítások a dokumentumot is vázlatként tartják. A helyi teherbírások nem változnak.",
+    "tr": "Beton eleman donatı detaylarını yeniden üretin ve kaydedilmiş onayları inceleyin. Geçen bir yerel kesit denetimi, donatı üretimi eksik veya desteklenmeyen bir elemanı artık onaylamaz. Bu retler belgeyi de taslakta tutar. Yerel dayanım sonuçları değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round21-generation-verdicts.md",
+    "heading": "Generation refusals hold member and document verdicts (2026-11-17)"
+  }
+}

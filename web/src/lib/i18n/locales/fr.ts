@@ -9334,6 +9334,7 @@ const fr: Translations = {
   'design.gap.lateralRoleUndeclared': 'Le rôle de la poutre dans le système de contreventement n\'est pas déclaré ; elle a donc été dimensionnée comme en faisant partie, avec fy développé au nu de l\'appui (§9.7.3.8.2). La déclarer comme n\'en faisant pas partie pourrait changer ce verdict d\'ancrage.',
   'flex.step.exhausted': '⚠ Aucune disposition des barres essayées par ce calculateur ne tient : sa recherche s\'est épuisée, ce qui ne démontre pas que la section ne peut pas fonctionner.',
   'flex.out.noArrangementFits': 'Aucune disposition essayée ne tient',
+  'verdict.detailing.generation': 'génération incomplète des armatures',
   'verdict.detailing.splice': 'recouvrement',
   'verdict.detailing.anchorage': 'ancrage',
   'verdict.detailing.cover': 'barre hors de la section',

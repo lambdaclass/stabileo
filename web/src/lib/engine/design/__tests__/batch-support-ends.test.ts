@@ -18,7 +18,7 @@ const current = (ends: Partial<NonNullable<ProvidedReinforcement['regions']>>): 
 
 for (const end of ['stirrupsStart', 'stirrupsEnd'] as const) {
   for (const [field, value] of [['diameter', 10], ['legs', 4], ['secondaryLegs', 4], ['spacing', 0.1]] as const) {
-    it.skip(`known wrong result: #2198 reports ${end} ${field} overwritten despite unchanged support default`, () => {
+    it(`known wrong result: #2198 reports ${end} ${field} overwritten despite unchanged support default`, () => {
       const before = { ...base, [field]: value };
       const provided = current({ [end]: before });
       const snapshot = structuredClone(provided);
@@ -38,7 +38,7 @@ for (const end of ['stirrupsStart', 'stirrupsEnd'] as const) {
   }
 }
 
-it.skip('known wrong result: #2198 reports both end overrides and retains their unselected fields', () => {
+it('known wrong result: #2198 reports both end overrides and retains their unselected fields', () => {
   const start = { ...base, diameter: 10, spacing: 0.1 };
   const end = { ...base, legs: 4, spacing: 0.075 };
   const result = applyPatch(ctx, current({ stirrupsStart: start, stirrupsEnd: end }), { stirrupsSupport: { spacing: base.spacing } });

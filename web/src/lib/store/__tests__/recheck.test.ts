@@ -445,7 +445,7 @@ describe('edited projects with older provenance', () => {
       'safety-containment-diagnostics', 'shared-demand-completeness', 'shared-span-axis-and-torsion-provision',
       'soft-rotation-not-orphan', 'span-check-shear-thermal', 'steel-cb-combination',
       'steel-station-coordinates-and-shear', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates',
-      'torsion-directional-minimum', 'torsion-secondary-shear',
+      'generation-refusal-verdicts', 'torsion-directional-minimum', 'torsion-secondary-shear',
       ...(includeSSI ? ['ssi-support-reactions'] : []),
     ].sort());
     expect(store.noticeOpen).toBe(true);

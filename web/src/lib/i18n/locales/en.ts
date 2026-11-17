@@ -9798,6 +9798,7 @@ const en: Record<string, string> = {
   'design.gap.lateralRoleUndeclared': 'The beam\'s role in the lateral-force-resisting system is not declared, so it was designed as part of it, with fy developed at the support face (§9.7.3.8.2). Declaring it as not part of that system could change this anchorage verdict.',
   'flex.step.exhausted': '⚠ No arrangement of the bars this calculator tries fits: its search ran out, which does not show the section cannot work.',
   'flex.out.noArrangementFits': 'No arrangement tried fits',
+  'verdict.detailing.generation': 'incomplete reinforcement generation',
   'verdict.detailing.splice': 'splice',
   'verdict.detailing.anchorage': 'anchorage',
   'verdict.detailing.cover': 'bar outside the section',

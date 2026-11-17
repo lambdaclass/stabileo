@@ -109,6 +109,12 @@ function fmtStir(s: StirrupDef | undefined): string {
   return s ? `eØ${s.diameter} ${s.legs}/${s.secondaryLegs ?? 2}L c/${(s.spacing * 100).toFixed(0)}` : '—';
 }
 
+function recordStirrupChange(changes: BatchPreviewRow['changes'], field: string, before: StirrupDef | undefined, after: StirrupDef): void {
+  if (!before || before.diameter !== after.diameter || before.legs !== after.legs || (before.secondaryLegs ?? 2) !== (after.secondaryLegs ?? 2) || Math.abs(before.spacing - after.spacing) > 1e-9) {
+    changes.push({ field, before: fmtStir(before), after: fmtStir(after) });
+  }
+}
+
 /** Rebuild a region's layers for a new (count, diameter), honouring bars-per-row. */
 function layersFor(count: number, diameter: number, perRow: number): RebarLayer[] | null {
   if (count < BEAM_LIMITS.minBarsPerRow || perRow < BEAM_LIMITS.minBarsPerRow) return null;
@@ -235,11 +241,15 @@ export function applyPatch(
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsOutOfRange', params: { field: sk, legs: merged.secondaryLegs! } });
         continue;
       }
+      const beforeStart = reg.stirrupsStart;
+      const beforeEnd = reg.stirrupsEnd;
       reg[sk] = merged;
-      if (sk === 'stirrupsSupport') patchSupportEnds(reg, p);
-      if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || (before.secondaryLegs ?? 2) !== merged.secondaryLegs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
-        changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
+      if (sk === 'stirrupsSupport') {
+        patchSupportEnds(reg, p);
+        if (reg.stirrupsStart) recordStirrupChange(changes, 'stirrups start', beforeStart, reg.stirrupsStart);
+        if (reg.stirrupsEnd) recordStirrupChange(changes, 'stirrups end', beforeEnd, reg.stirrupsEnd);
       }
+      recordStirrupChange(changes, sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before, merged);
     }
 
     if (patch.skin !== undefined) {

@@ -22,6 +22,7 @@ type Tr = (key: string, params?: Record<string, string | number>) => string;
 /** The detailing conditions a member can be held on, by the key's family, as the reason names them. */
 function detailingWhat(keys: string, tr: Tr): string {
   const kinds = new Set(String(keys).split(', ').map((k) => (k.startsWith('detailing.lapCheck.') ? 'splice'
+    : k.startsWith('detailing.generation.') || k === 'generation' || k === 'memberNoBars' ? 'generation'
     : k === 'detailing.anchorage.unresolved' ? 'anchorage' : k === 'detailing.cover.violated' ? 'cover' : 'clash')));
   return [...kinds].map((k) => tr(`verdict.detailing.${k}`)).join(', ');
 }

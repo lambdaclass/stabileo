@@ -107,7 +107,7 @@ describe('the flagship frame: the beams refused for congestion and anchorage are
   // Six of them (169–172, 197, 198) verify since the ductility check of §9.3.3.1 steers the
   // search (autodesign-regression.test.ts, header). Four more (165–168) verify since the minimum
   // shear reinforcement of §9.6.3.1 prunes the stirrup options under Av,min (same header); the
-  // 12 left are the ones that still refuse.
+  // eight left are the ones that still refuse.
   const BEFORE = [161, 164, 182, 183, 184, 188, 196, 199];
 
   it('none reads SECTION_INADEQUATE: no bound proves any of them; the eight historically refused members still read SEARCH_EXHAUSTED', () => {

@@ -9343,6 +9343,7 @@ const tr: Translations = {
   'design.gap.lateralRoleUndeclared': 'Kirişin yatay yük taşıyıcı sistemdeki rolü tanımlanmadığından sistemin parçası olarak, mesnet yüzünde fy geliştirilerek tasarlandı (§9.7.3.8.2). Sistemin parçası olmadığını tanımlamak bu ankraj kararını değiştirebilir.',
   'flex.step.exhausted': '⚠ Bu hesaplayıcının denediği çubuk düzenlerinin hiçbiri sığmıyor: araması tükendi; bu, kesitin çalışamayacağını göstermez.',
   'flex.out.noArrangementFits': 'Denenen hiçbir düzen sığmıyor',
+  'verdict.detailing.generation': 'eksik donatı üretimi',
   'verdict.detailing.splice': 'ek',
   'verdict.detailing.anchorage': 'ankraj',
   'verdict.detailing.cover': 'kesit dışında çubuk',

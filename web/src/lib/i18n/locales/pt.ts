@@ -10266,6 +10266,7 @@ const pt: Translations = {
   'design.gap.lateralRoleUndeclared': 'Não está declarado se a viga integra o sistema resistente a forças laterais, então ela foi dimensionada como parte dele, com fy desenvolvida na face do apoio (§9.7.3.8.2). Declará-la fora desse sistema poderia mudar este veredito de ancoragem.',
   'flex.step.exhausted': '⚠ Nenhuma disposição das barras que a calculadora testa cabe: a busca se esgotou, não se demonstrou que a seção não atende.',
   'flex.out.noArrangementFits': 'Nenhuma disposição testada cabe',
+  'verdict.detailing.generation': 'geração de armadura incompleta',
   'verdict.detailing.splice': 'emenda',
   'verdict.detailing.anchorage': 'ancoragem',
   'verdict.detailing.cover': 'barra fora da seção',
