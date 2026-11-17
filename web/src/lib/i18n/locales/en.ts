@@ -16052,7 +16052,7 @@ const en: Record<string, string> = {
   "loads.asce7.live.partitionExempt": "§4.3.2 does not require a partition load: the live load is {lo} kN/m², at least {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "No allowance for light partitions. TS 498 counts them as live load (§0.2.1) and gives no value: their weight goes in where they stand, or as an allowance of the project's.",
   "loads.tr.live.partitionApplied": "Light partitions: {q} kN/m², the project's value (TS 498 §0.2.1 counts them as live load and gives none), added unreduced to the floor live load.",
-  "loads.ec.reduction.alphaNWithPsi": "αn is in the live load case, so it also enters the combinations where L accompanies at ψ0, ψ1 or ψ2; EN 1991-1-1 §3.3.2(2)P allows only one of ψ and αn there. Check columns with the reduction off for those combinations.",
+  "loads.ec.reduction.alphaNWithPsi": "The live load case carries αn = {alpha}; where L accompanies at ψ0, ψ1 or ψ2 it enters at ψ/αn, so the combination applies ψ alone and not both factors (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Partitions ({ref})",
   "autoLoad.live.partitionOnCode": "Add a partition allowance to the floors",
   "autoLoad.live.partitionValueCode": "Partition allowance",

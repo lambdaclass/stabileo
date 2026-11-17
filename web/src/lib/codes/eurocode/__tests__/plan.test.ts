@@ -157,3 +157,29 @@ describe('EN 1991-1-3 sk', () => {
     expect(p.blockedKeys.map((m) => m.key)).toEqual(['loads.ec.blocked.sk']);
   });
 });
+
+describe('EN 1991-1-1 §3.3.2(2)P: ψ or αn, not both', () => {
+  const run = (applyLiveReduction: boolean, elementKind: LoadPlanInput['reductionElementKind'] = 'interiorColumn') => buildLoadPlan(input('eurocode', {
+    model: frame(5), occupancyKey: 'ec-B', applyLiveReduction, reductionElementKind: elementKind, floorsSupported: 4, combinationSet: 'both',
+    codeInputs: { 'en1991-1-4': { vb0: 26, terrain: 'III', directions: { x: true, y: false } } },
+    wind: { ...cirsocWind, enabled: true },
+  }));
+  const lOf = (p: ReturnType<typeof buildLoadPlan>, want: (c: (typeof p.combinations)[number]) => boolean) =>
+    p.combinations.filter(want).map((c) => c.terms.find((t) => t.symbol === 'L')?.factor);
+  it('a column under four floors: αn = 0,85 leads, and L accompanies at 1,5·0,7·Lo = 1,05·Lo, not 0,595·1,5·Lo', () => {
+    const alpha = (2 + 2 * 0.7) / 4;
+    const p = run(true);
+    expect(p.outcome).toBe('READY');
+    const leadW = lOf(p, (c) => c.id.startsWith('6.10b-W'));
+    expect(leadW.length).toBeGreaterThan(0);
+    for (const f of leadW.filter((x) => x !== undefined)) expect(f! * alpha).toBeCloseTo(1.5 * 0.7, 5);
+    for (const f of lOf(p, (c) => c.id.startsWith('6.10b-L'))) expect(f).toBeCloseTo(1.5, 9);
+    expect(p.derivation.map((m) => m.key)).toContain('loads.ec.reduction.alphaNWithPsi');
+  });
+  it('a beam keeps ψ as is, and so does an unreduced column', () => {
+    for (const p of [run(true, 'interiorBeam'), run(false)]) {
+      expect(p.derivation.map((m) => m.key)).not.toContain('loads.ec.reduction.alphaNWithPsi');
+      for (const f of lOf(p, (c) => c.id.startsWith('6.10b-W')).filter((x) => x !== undefined)) expect(f).toBeCloseTo(1.05, 9);
+    }
+  });
+});

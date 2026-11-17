@@ -15892,7 +15892,7 @@ const fr: Translations = {
   "loads.asce7.live.partitionExempt": "Le §4.3.2 n’exige pas de charge de cloisons : la charge d’exploitation est de {lo} kN/m², au moins {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Pas de charge pour cloisons légères. La TS 498 les compte comme charge d’exploitation (§0.2.1) sans donner de valeur : leur poids est appliqué là où elles se trouvent, ou comme une charge du projet.",
   "loads.tr.live.partitionApplied": "Cloisons légères : {q} kN/m², valeur du projet (la TS 498 §0.2.1 les compte comme charge d’exploitation sans en donner), ajoutée sans réduction à la charge d’exploitation des planchers.",
-  "loads.ec.reduction.alphaNWithPsi": "αn figure dans le cas de charge d’exploitation et entre donc aussi dans les combinaisons où L accompagne avec ψ0, ψ1 ou ψ2 ; l’EN 1991-1-1 §3.3.2(2)P n’y admet que ψ ou αn. Vérifiez les poteaux sans réduction pour ces combinaisons.",
+  "loads.ec.reduction.alphaNWithPsi": "Le cas de charge d’exploitation porte αn = {alpha} ; là où L accompagne avec ψ0, ψ1 ou ψ2, il entre avec ψ/αn, de sorte que la combinaison n’applique que ψ et non les deux facteurs (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Cloisons ({ref})",
   "autoLoad.live.partitionOnCode": "Ajouter une charge de cloisons aux planchers",
   "autoLoad.live.partitionValueCode": "Charge de cloisons",

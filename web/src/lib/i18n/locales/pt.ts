@@ -15694,7 +15694,7 @@ const pt: Translations = {
   "loads.asce7.live.partitionExempt": "A §4.3.2 não exige carga de divisórias: a sobrecarga é {lo} kN/m², de pelo menos {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Sem sobrecarga de divisórias leves. A TS 498 as conta como carga viva (§0.2.1) e não dá valor: seu peso é carregado onde estão, ou como uma sobrecarga do projeto.",
   "loads.tr.live.partitionApplied": "Divisórias leves: {q} kN/m², valor do projeto (a TS 498 §0.2.1 as conta como carga viva e não dá um), somada sem reduzir à sobrecarga dos pisos.",
-  "loads.ec.reduction.alphaNWithPsi": "αn está no caso de sobrecarga, então também entra nas combinações em que L acompanha com ψ0, ψ1 ou ψ2; a EN 1991-1-1 §3.3.2(2)P admite ali só um de ψ e αn. Verifique os pilares com a redução desligada para essas combinações.",
+  "loads.ec.reduction.alphaNWithPsi": "O caso de sobrecarga leva αn = {alpha}; onde L acompanha com ψ0, ψ1 ou ψ2 entra com ψ/αn, assim a combinação aplica só ψ e não os dois fatores (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Divisórias ({ref})",
   "autoLoad.live.partitionOnCode": "Somar uma sobrecarga de divisórias aos pisos",
   "autoLoad.live.partitionValueCode": "Sobrecarga de divisórias",

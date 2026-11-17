@@ -15892,7 +15892,7 @@ const tr: Translations = {
   "loads.asce7.live.partitionExempt": "§4.3.2 bölme duvarı yükü istemez: hareketli yük {lo} kN/m², en az {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Hafif bölme duvarları için ek yük yok. TS 498 bunları hareketli yük sayar (§0.2.1) ve değer vermez: ağırlıkları bulundukları yerde ya da projenin ek yükü olarak alınır.",
   "loads.tr.live.partitionApplied": "Hafif bölmeler: {q} kN/m², projenin değeri (TS 498 §0.2.1 bunları hareketli yük sayar ve değer vermez), katların hareketli yüküne azaltılmadan eklenir.",
-  "loads.ec.reduction.alphaNWithPsi": "αn hareketli yük durumunun içinde olduğundan L'nin ψ0, ψ1 veya ψ2 ile eşlik ettiği kombinasyonlara da girer; EN 1991-1-1 §3.3.2(2)P orada ψ ile αn'den yalnızca birine izin verir. Bu kombinasyonlar için kolonları azaltma kapalıyken kontrol edin.",
+  "loads.ec.reduction.alphaNWithPsi": "Hareketli yük durumu αn = {alpha} taşır; L’nin ψ0, ψ1 veya ψ2 ile eşlik ettiği yerde ψ/αn ile girer, böylece birleşim iki katsayıyı birden değil yalnız ψ’yi uygular (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Bölme duvarları ({ref})",
   "autoLoad.live.partitionOnCode": "Katlara bölme duvarı ek yükü ekle",
   "autoLoad.live.partitionValueCode": "Bölme duvarı ek yükü",

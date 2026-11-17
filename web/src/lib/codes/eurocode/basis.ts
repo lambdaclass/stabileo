@@ -94,17 +94,18 @@ function contextFor(family: EcFamily, ctx?: EcPlanContext) {
    * with a roof of another category is one action of two parts (EN 1991-1-1 §3.3.1(2)P), each at
    * its own ψ: they lead together and accompany together.
    */
+  const alphaN = ctx?.alphaN ?? 1;
   const terms = (v: Variable, k: 0 | 1 | 2 | 'lead', gamma = 1): CombinationTerm[] => [
-    { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k]) },
+    { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k] / (v === 'L' ? alphaN : 1)) },
     ...(v === 'L' && roof ? [{ symbol: 'L' as LoadSymbol, group: roof, factor: gamma * (k === 'lead' ? 1 : PSI[family].imposed[roof][k]) }] : []),
   ];
   /** Whether the action enters at ψk at all: any of its parts. */
   const has = (v: Variable, k: 0 | 1 | 2) => terms(v, k).some((t) => t.factor > 0);
-  return { psi, known: !!ctx?.categories.size, terms, has, roof };
+  return { psi, known: !!ctx?.categories.size, terms, has, roof, alphaN };
 }
 
 export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] } {
-  const { known, terms, has, roof } = contextFor(family, ctx);
+  const { known, terms, has, roof, alphaN } = contextFor(family, ctx);
   const xi = XI[family];
   const tableRefs = family === 'uk'
     ? [UK_NA_1990('Table NA.A1.2(B)', 'STR set B'), UK_NA_1990('Table NA.A1.1', 'psi')]
@@ -137,6 +138,7 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
   if (vars.includes('Lr')) notes.push(msg('loads.ec.combo.roofAlone'));
   if (ci.present.H || ci.present.F) notes.push(msg('loads.ec.combo.hfAsPermanent'));
   if (!known) notes.push(msg('loads.ec.combo.noContext'));
+  if (alphaN < 1 && vars.includes('L')) notes.push(msg('loads.ec.reduction.alphaNWithPsi', { alpha: Math.round(alphaN * 1000) / 1000 }));
   if (roof && vars.includes('L')) notes.push(msg('loads.ec.combo.roofPart', { floor: ctx?.floor ?? '—', roof }));
   const refs = [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs, ...(vars.includes('Lr') ? [EN1991_1_1('3.3.2(1)', 'roofs')] : [])];
   return { combinations: b.out, refs, notes };

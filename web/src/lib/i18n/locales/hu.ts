@@ -14569,7 +14569,8 @@ const hu: Translations = {
   "loads.ec.snow.skZero": "sk = 0 kN/m²: a helyszínen nincs karakterisztikus talajszinti hóteher, ezért hóhatás nem keletkezik (EN 1991-1-3 §4.1).",
   "loads.asce7.reduction.assembly": "§4.7.5: gyülekezési célú használatban a hasznos terhek nem csökkenthetők.",
   "loads.asce7.seismic.blocked.noS1": "Hiányzik az S1: adja meg az 1 másodperces térképi spektrális gyorsulást a USGS Seismic Design Geodatabase-ből (§11.4.2). Ez határozza meg az E és F kategóriát (§11.6) és a 12.8-6. egyenlet szerinti legkisebb Cs értéket.",
-  "loads.asce7.live.partitionBelowMinimum": "A megadott {q} kN/m² válaszfalteher kisebb a §4.3.2 által előírt {min} kN/m²-nél (15 psf): {min} kN/m² kerül alkalmazásra, csökkentés nélkül hozzáadva a födém hasznos terhéhez."
+  "loads.asce7.live.partitionBelowMinimum": "A megadott {q} kN/m² válaszfalteher kisebb a §4.3.2 által előírt {min} kN/m²-nél (15 psf): {min} kN/m² kerül alkalmazásra, csökkentés nélkül hozzáadva a födém hasznos terhéhez.",
+  "loads.ec.reduction.alphaNWithPsi": "A hasznos teher esete αn = {alpha} tényezőt tartalmaz; ahol L ψ0, ψ1 vagy ψ2 tényezővel kísér, ψ/αn tényezővel lép be, így a kombináció csak ψ-t alkalmazza, nem mindkét tényezőt (EN 1991-1-1 §3.3.2(2)P)."
 };
 
 export default hu;
