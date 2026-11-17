@@ -42,7 +42,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   ]];
   for (const r of rows.column) {
     columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), r2(Math.max(0, ...r.demand.cases.map((c) => c.pu))), r2(r.req.rho * 100), r2(r.req.ast),
-      columnLabel(r.adopted), r2(r.checks.area), tieLabel(r.adopted), `${r.checks.crossties.x} · ${r.checks.crossties.y}`, r3(worst(r.verifications)), state(r.status)]);
+      columnLabel(r.adopted), r2(r.checks.area), tieLabel(r.adopted), `${r.checks.crossties.x} · ${r.checks.crossties.y}${r.checks.crossties.confined ? ` (lo: ${r.checks.crossties.confined.x} · ${r.checks.crossties.confined.y})` : ''}`, r3(worst(r.verifications)), state(r.status)]);
   }
   const slabs: WorkbookSheet['rows'] = [head, [
     name, level, 'h (cm)', 'Lx (m)', 'Ly (m)',

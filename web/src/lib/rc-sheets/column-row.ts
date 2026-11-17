@@ -8,8 +8,9 @@ import { barArea, roundDown } from './bars';
 import { compressionLapMm, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
-import { columnSeismic, type Seismic } from './seismic';
+import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } from './seismic';
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
+import { highAxialColumn } from '../engine/design/seismic/capacity';
 import type { Fmt } from './format';
 import { COLUMN_BAR_RANGE, check, inRange, ratioOf, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
@@ -69,7 +70,7 @@ export interface ColumnRow {
   proposed: ColumnAdopted;
   adopted: ColumnAdopted;
   isAdopted: boolean;
-  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number; inner?: { x: number; y: number } }; rhoOk: boolean; shearX: number; shearY: number };
+  checks: { ratio: number; ok: boolean; area: number; spacingOk: boolean; tieOk: boolean; tieMax: number; crossties: { x: number; y: number; inner?: { x: number; y: number }; confined?: { x: number; y: number } }; rhoOk: boolean; shearX: number; shearY: number };
   verifications: CheckLine[];
   combos: ComboTable;
   iterations: number;
@@ -206,6 +207,34 @@ export function bracedFaceBars(side: number, n: number, dia: number, cornerDia: 
 
 const crossties = (side: number, n: number, dia: number, cornerDia: number, c: ColumnContext, tie: number): number => bracedFaceBars(side, n, dia, cornerDia, c, tie).length;
 
+/** The face bars a crosstie holds in the confinement zones: §25.7.2.3's and, up to `count`, one more at a time in the middle of the longest run between held bars. */
+export function confinedFaceBars(side: number, n: number, dia: number, cornerDia: number, c: { cover: number }, tie: number, count: number): number[] {
+  const held = new Set(bracedFaceBars(side, n, dia, cornerDia, c, tie));
+  while (held.size < Math.min(count, n)) {
+    const at = [0, ...[...held].sort((p, q) => p - q), n + 1];
+    let k = 0;
+    for (let i = 1; i < at.length - 1; i++) if (at[i + 1]! - at[i]! > at[k + 1]! - at[k]!) k = i;
+    if (at[k + 1]! - at[k]! < 2) break;
+    held.add(Math.floor((at[k]! + at[k + 1]!) / 2));
+  }
+  return [...held].sort((p, q) => p - q);
+}
+
+/** The crossties in the confinement zones, each face's bars held and the widest run between held bars, hx (§18.7.5.2), m. */
+export function confinedTies(d: { b: number; h: number }, a: ColumnAdopted, c: { cover: number }): ConfinedTies & { along: { b: number[]; h: number[] } } {
+  const alongB = confinedFaceBars(d.b, a.nx, a.dx, a.corner, c, a.tieDia, a.confined?.x ?? 0);
+  const alongH = confinedFaceBars(d.h, a.ny, a.dy, a.corner, c, a.tieDia, a.confined?.y ?? 0);
+  const run = (side: number, n: number, held: number[]) => {
+    const pitch = (side - 2 * coverToBar(c, a.tieDia, a.corner)) / (n + 1), at = [0, ...held, n + 1];
+    return Math.max(...at.slice(1).map((x, i) => (x - at[i]!) * pitch));
+  };
+  return {
+    x: alongB.length, y: alongH.length, along: { b: alongB, h: alongH },
+    hx: Math.max(run(d.b, a.nx, alongB), run(d.h, a.ny, alongH)),
+    held: 4 + 2 * (alongB.length + alongH.length), perimeter: 4 + 2 * (a.nx + a.ny),
+  };
+}
+
 /** Table 25.7.2.2 of CIRSOC 201-2025: Ø6 up to Ø16, Ø8 up to Ø25, Ø10 up to Ø32, Ø12 above and for bundles. */
 export const tieDiaFor = (longDia: number): number => (longDia <= 16 ? 6 : longDia <= 25 ? 8 : longDia <= 32 ? 10 : 12);
 
@@ -324,18 +353,16 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     const first = proposeColumn(d, c, ast, dias, all, stack.pattern, tieDiaFor, { short: shortOf(target), rhoMax: rhoTop });
     let layout = first.layout, iterations = first.iterations;
     if (c.seismic) {
-      for (let guard = 0; guard < 12; guard++) {
-        const ct0 = { x: crossties(d.b, layout.nx, layout.dx, layout.corner, c, layout.tieDia), y: crossties(d.h, layout.ny, layout.dy, layout.corner, c, layout.tieDia) };
-        const s0 = columnSeismic(d, { ...c, overstrength: c.seismic!.overstrength }, layout, columnBars(d, layout, c), ct0, fmt);
-        const bad = (l: string) => s0.checks.some((k) => k.label === l && !k.ok);
-        if (!bad('rcSheets.v.seisColSo') && !bad('rcSheets.v.seisColAsh') && !bad('rcSheets.v.seisColVe')) break;
-        iterations++;
-        const thicker = { ...layout, tieDia: layout.tieDia + 2 };
-        if (layout.tieSpacing > s0.so + 1e-6) layout = { ...layout, tieSpacing: roundDown(s0.so) };
-        else if (layout.tieDia < 12 && clearOk(d, c, thicker)) layout = thicker;
-        else if (layout.tieSpacing > 0.075 + 1e-9) layout = { ...layout, tieSpacing: roundDown(layout.tieSpacing - 0.025) };
-        else break;
+      const fits = (a: ColumnAdopted) => clearOk(d, c, a) && !(demands.length && utilisation(d, c, a, demands) > 1 + 1e-6) && columnArea(a) <= rhoTop * Ag * 1e4 + 1e-6;
+      let confined = confineColumn(d, c, layout, fmt, fits);
+      for (const dia of dias.filter((x) => x > Math.max(layout.corner, layout.dx, layout.dy)).sort((p, q) => p - q)) {
+        if (confined.ok) break;
+        const thicker = proposeColumn(d, c, ast, dias.filter((x) => x >= dia), all, undefined, tieDiaFor, { short: shortOf(target), rhoMax: rhoTop });
+        if (thicker.exhausted) break;
+        const again = confineColumn(d, c, thicker.layout, fmt, fits);
+        if (again.ok) confined = { ...again, iterations: confined.iterations + again.iterations };
       }
+      layout = confined.layout; iterations += confined.iterations;
     }
     return { layout, iterations, exhausted: first.exhausted };
   };
@@ -361,12 +388,13 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const tieOk = a.tieSpacing <= tieMax + 1e-6 && tieDiaOk;
   const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
   const ict = innerCrossties(d, a, c);
-  const ctText = `${ct.x} (b) · ${ct.y} (h)${ict.x + ict.y ? ` · ${ict.x} (b, 2) · ${ict.y} (h, 2)` : ''}`;
+  const cct = c.seismic ? confinedTies(d, a, c) : null;
+  const ctText = `${ct.x} (b) · ${ct.y} (h)${ict.x + ict.y ? ` · ${ict.x} (b, 2) · ${ict.y} (h, 2)` : ''}${cct && (cct.x > ct.x || cct.y > ct.y) ? ` · lo: ${cct.x} (b) · ${cct.y} (h)` : ''}`;
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
   const splice = columnSplice(c, longest, !!c.seismic || d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
-  const seis = c.seismic ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), ct, fmt) : null;
+  const seis = c.seismic && cct ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), cct, fmt) : null;
 
   const verifications: CheckLine[] = [
     check('rcSheets.v.biaxial', ratio <= 1 + 1e-6, { clause: '§22.4, §22.2', demand: gov?.c.combo ?? '', capacity: '', ratio }),
@@ -445,12 +473,65 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
     req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations,
-    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
+    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}), ...(cct && (cct.x > ct.x || cct.y > ct.y) ? { confined: { x: cct.x, y: cct.y } } : {}) }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: splice } : {}),
     ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
   };
+}
+
+/** The closest spacing chapter 18's hoops are proposed at, m. */
+const CONFINED_MIN_SPACING = 0.05;
+
+/**
+ * The hoops of a special moment frame's column over lo, as practice tries them (§18.7.5): the
+ * spacing first, as wide as so, Ash and the capacity shear let it, down to `CONFINED_MIN_SPACING`;
+ * then a crosstie more across one side or both (hx ≤ 350 mm, every perimeter bar held above
+ * 0.3·Ag·f'c); then a thicker hoop; and only then a bar more on each face for a crosstie to hold.
+ * Where nothing does, the most it reached, and the row fails.
+ */
+function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, fmt: Fmt, fits: (a: ColumnAdopted) => boolean): { layout: ColumnAdopted; iterations: number; ok: boolean } {
+  const seismic = { ...c, overstrength: c.seismic!.overstrength };
+  const high = highAxialColumn({ b: d.b, h: d.h, fc: c.mat.fc, pu: Math.max(0, ...d.cases.map((k) => k.pu)) });
+  let iterations = 0, last = start;
+  const settle = (base: ColumnAdopted): ColumnAdopted | null => {
+    let mpr: { x: number; y: number } | undefined;
+    const bx = crossties(d.b, base.nx, base.dx, base.corner, c, base.tieDia), by = crossties(d.h, base.ny, base.dy, base.corner, c, base.tieDia);
+    const pairs: Array<[number, number]> = [];
+    for (let x = high ? base.nx : bx; x <= base.nx; x++) for (let y = high ? base.ny : by; y <= base.ny; y++) pairs.push([x, y]);
+    pairs.sort((p, q) => p[0] + p[1] - (q[0] + q[1]) || Math.max(...p) - Math.max(...q));
+    for (const [x, y] of pairs) {
+      const held = x > bx || y > by ? { ...base, confined: { x, y } } : base;
+      const ct = confinedTies(d, held, c);
+      const conf = columnConfinementOf(d, c, { ...held, tieSpacing: 1 }, ct);
+      iterations++;
+      last = { ...held, tieSpacing: CONFINED_MIN_SPACING };
+      if (ct.hx > conf.hxMax + 1e-6 || (high && ct.held < ct.perimeter)) continue;
+      for (let s = roundDown(Math.min(start.tieSpacing, conf.so, conf.ashSpacing) + 1e-9); s >= CONFINED_MIN_SPACING - 1e-9; s = Math.round((s - 0.025) * 1000) / 1000) {
+        const a = { ...held, tieSpacing: s };
+        const run = columnSeismic(d, seismic, a, columnBars(d, a, c), ct, fmt, mpr);
+        mpr = run.mpr;
+        const k = run.checks;
+        if (['rcSheets.v.seisColSo', 'rcSheets.v.seisColAsh', 'rcSheets.v.seisColVe', 'rcSheets.v.seisColHx'].every((l) => k.find((v) => v.label === l)?.ok !== false)) return a;
+      }
+    }
+    return null;
+  };
+  const ties = [6, 8, 10, 12].filter((t) => t >= start.tieDia);
+  let bars = start;
+  for (let more = 0; more <= 2; more++) {
+    for (const tieDia of ties) {
+      const base = { ...bars, tieDia };
+      if ((more > 0 || tieDia !== start.tieDia) && !fits(base)) continue;
+      const done = settle(base);
+      if (done) return { layout: done, iterations, ok: true };
+    }
+    const next = { ...bars, nx: bars.nx + 1, ny: bars.ny + 1 };
+    if (!fits(next)) break;
+    bars = next;
+  }
+  return { layout: last, iterations, ok: false };
 }
 
 function slenderSteps(g: CaseResult, f: Fmt): StepGroup {

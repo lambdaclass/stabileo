@@ -1,5 +1,5 @@
 import { faceBars } from './bars';
-import { bracedFaceBars, columnBars, innerCrossties } from './column-row';
+import { columnBars, confinedTies, innerCrossties } from './column-row';
 import type { BarGroup, ColumnAdopted, Stirrups } from './types';
 
 /** A rectangular section to draw, in metres from its bottom-left corner. */
@@ -25,17 +25,18 @@ export function beamSection(b: number, h: number, cover: number, top: readonly B
   return { b, h, cover, tieDia: sd, bars, ties };
 }
 
-/** A column section: its bars as the design places them, and the crossties §25.7.2.3 asks for, the inner row's among them. */
+/** A column section: its bars as the design places them, and the crossties §25.7.2.3 asks for, the inner row's among them, with chapter 18's in the confinement zones where the design has more. */
 export function columnSection(b: number, h: number, cover: number, a: ColumnAdopted): SectionDrawing {
   const ctx = { mat: { fc: 0, fy: 0 }, cover, tieDia: a.tieDia, diameters: [] };
   const diaAt = (i: number) => (i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner?.dia ?? a.dy);
   const bars = columnBars({ b, h }, a, ctx).map((x, i) => ({ x: x.x + b / 2, y: x.y + h / 2, dia: diaAt(i) }));
   const leg = cover + a.tieDia / 2000, edge = cover + a.tieDia / 1000 + a.corner / 2000, ties: SectionDrawing['ties'] = [];
-  for (const i of bracedFaceBars(b, a.nx, a.dx, a.corner, { cover }, a.tieDia)) {
+  const held = confinedTies({ b, h }, a, { cover }).along;
+  for (const i of held.b) {
     const x = edge + (i * (b - 2 * edge)) / (a.nx + 1);
     ties.push({ x1: x, y1: leg, x2: x, y2: h - leg });
   }
-  for (const i of bracedFaceBars(h, a.ny, a.dy, a.corner, { cover }, a.tieDia)) {
+  for (const i of held.h) {
     const y = edge + (i * (h - 2 * edge)) / (a.ny + 1);
     ties.push({ x1: leg, y1: y, x2: b - leg, y2: y });
   }

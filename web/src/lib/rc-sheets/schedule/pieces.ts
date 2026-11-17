@@ -9,7 +9,7 @@
  */
 import type { LineBar, LineLayout } from '../beam-line';
 import { innerCrossties, type ColumnRow } from '../column-row';
-import { columnTieLayout } from '../column-ties';
+import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { SLAB_FACES, type SlabRow } from '../slab-row';
 import type { LevelPlan } from '../slab-plan';
 import { wallDetail } from '../wall-detail';
@@ -164,11 +164,13 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
     for (const { dia, count } of columnDias(r)) pieces.push({ kind: 'dowel', count, shape: straight(2 * lap, dia, R) });
   }
   const t = r.adopted.tieDia, d = t / 1000;
-  const n = columnTieLayout(r, o.code, { endZones: o.endZones }).ties.length;
+  const layout = columnTieLayout(r, o.code, { endZones: o.endZones });
+  const n = layout.ties.length, nc = confinedTieCount(layout);
   const w = r.b - 2 * r.cover - d, h = r.h - 2 * r.cover - d;
+  const ct = r.checks.crossties, more = { x: Math.max(0, (ct.confined?.x ?? 0) - ct.x), y: Math.max(0, (ct.confined?.y ?? 0) - ct.y) };
   pieces.push({ kind: 'hoop', count: n, shape: hoop(w, h, t, R) });
-  if (r.checks.crossties.x) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.x, shape: tieAcross(h, t, R) });
-  if (r.checks.crossties.y) pieces.push({ kind: 'crossTie', count: n * r.checks.crossties.y, shape: tieAcross(w, t, R) });
+  if (ct.x + more.x) pieces.push({ kind: 'crossTie', count: n * ct.x + nc * more.x, shape: tieAcross(h, t, R) });
+  if (ct.y + more.y) pieces.push({ kind: 'crossTie', count: n * ct.y + nc * more.y, shape: tieAcross(w, t, R) });
   for (const tie of innerCrossties(r, r.adopted, r).ties) pieces.push({ kind: 'crossTie', count: n, shape: tieAcross(tie.length, t, R) });
   return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
 }

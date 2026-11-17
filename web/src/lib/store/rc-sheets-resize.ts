@@ -14,7 +14,7 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 
-export type ResizeWhat = 'beamH' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
+export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
 /**
  * `to` null: not even at the limit searched (twice the size). Lengths in m. A capital's `to` is its
  * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
@@ -60,7 +60,8 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     case 'beam': {
       if (!fail) return [];
       const d = row.demand;
-      return [{ what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) }];
+      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
+      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], 0.05, [2 * d.b], ([b]) => ({ ...d, b })) }];
     }
     case 'column': {
       const d = row.demand;
@@ -120,13 +121,16 @@ function dropPanel(key: string, d: import('../rc-sheets/punching-row').PunchingD
   return null;
 }
 
-/** A continuous beam's depth: the deepest any of its failing spans needs. */
+/** A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice does, the widest width they need. */
 export function lineResizeHint(spans: readonly BeamRow[]): ResizeHint | null {
   const hints = spans.filter((s) => s.status === 'fail').flatMap((s) => resizeHints(s));
   if (!hints.length) return null;
-  const from = Math.max(...spans.map((s) => s.demand.h));
-  const to = hints.some((h) => h.to === null) ? null : [Math.max(...hints.map((h) => h.to![0]!))];
-  return { what: 'beamH', direction: 'grow', from: [from], to };
+  const of = (what: ResizeWhat, side: (s: BeamRow) => number): ResizeHint => {
+    const mine = hints.filter((h) => h.what === what);
+    return { what, direction: 'grow', from: [Math.max(...spans.map(side))], to: mine.some((h) => h.to === null) ? null : [Math.max(...mine.map((h) => h.to![0]!))] };
+  };
+  const deeper = of('beamH', (s) => s.demand.h);
+  return deeper.to || !hints.some((h) => h.what === 'beamB') ? deeper : of('beamB', (s) => s.demand.b);
 }
 
 const groupOf = (key: string) => Number(key.split(':')[1]);

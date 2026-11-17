@@ -4,6 +4,8 @@ import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
+import { materialFamilyOf } from '../model/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
@@ -200,7 +202,9 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
     id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer),
-    elements: g.members.elements ?? [], quads: g.members.quads ?? [], plates: g.members.plates ?? [],
+    elements: (g.members.elements ?? []).filter((id) => inConcrete(modelStore.elements.get(id)?.materialId)),
+    quads: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)),
+    plates: (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)),
   }));
   return {
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
@@ -219,6 +223,12 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     levelAt: namer,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
+}
+
+/** A member of steel, timber or another metal is none of the sheets' business; one with no strength recorded is read as concrete. */
+function inConcrete(materialId: number | undefined): boolean {
+  const family = materialFamilyOf(materialId !== undefined ? (modelStore.materials.get(materialId) as never) : undefined, catalogueGradeFamily).family;
+  return family === 'concrete' || family === 'unknown';
 }
 
 function fcOfElement(id: number | undefined): number {
@@ -475,10 +485,28 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
+  if (seismic) for (const r of columnsFinal) jointAwareRedesign(r, columnsFinal, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length };
 }
 
+
+/**
+ * A column redesigned for its resize hint is checked for the shear of the joint at its top too, the
+ * members framing into it as they are. The strong-column rule stays with the column's own Mn: the
+ * joint's share of it falls to the columns above as well, which the hint does not resize.
+ */
+function jointAwareRedesign(r: ColumnRow, columns: readonly ColumnRow[], beams: readonly BeamRow[], check: (rows: ColumnRow[], beams: BeamRow[]) => ColumnRow[]): void {
+  const own = redesigners.get(r.key), top = r.demand.nodes?.top;
+  if (!own || top === undefined) return;
+  const near = columns.filter((x) => x.demand.nodes?.top === top || x.demand.nodes?.bottom === top);
+  const framing = beams.filter((b) => b.demand.line?.startNode === top || b.demand.line?.endNode === top);
+  redesigners.set(r.key, ((x: never) => {
+    const row = own(x) as ColumnRow;
+    const joint = check(near.map((c) => (c.key === r.key ? row : c)), framing).find((c) => c.key === r.key)?.verifications.find((v) => v.label === 'rcSheets.v.seisJoint');
+    return joint ? { ...row, verifications: [...row.verifications, joint], ...(joint.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) } : row;
+  }) as Redesign);
+}
 
 /**
  * The columns grown, joint by joint, until the strong-column rule holds (§18.7.3.2) with the beams'

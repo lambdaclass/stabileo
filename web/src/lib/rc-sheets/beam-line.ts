@@ -4,7 +4,7 @@ import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { evaluateCutoff, type CutoffLegality } from './cutoff';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
-import { barArea, faceLayout, groupsArea, groupsLabel, roundDown, stirrupsLabel } from './bars';
+import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
 import { beamSeismic, faceRule } from './seismic';
 import { phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
@@ -258,24 +258,31 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
 
   let bentNotes: LineLayout['bentNotes'] = [];
   const faceNeg = Math.max(0, ...sorted.flatMap((r) => [reqAt(r, 'neg', 'start'), reqAt(r, 'neg', 'end')]));
+  const inTwo = (g: BarGroup[], width: number, sd = c.stirrupDia) => faceLayout(g, width, c.cover, sd).fits && new Set(faceBars(g, width, c.cover, sd).map((x) => x.row)).size <= 2;
+  /** The extra bars for an area beside a run, in the thinnest diameter from `least` that lays the face in two layers. */
+  const extraBars = (area: number, least: number, run: BarGroup, width: number): BarGroup => {
+    if (area <= 1e-6) return { dia: least, count: 0 };
+    const dias = [...c.diameters].filter((d) => d >= least).sort((p, q) => p - q);
+    const of = (dia: number) => ({ dia, count: Math.ceil(area / barArea(dia) - 1e-9) });
+    return of(dias.find((dia) => inTwo(sectionGroups(run, of(dia), width, c, c.stirrupDia), width)) ?? dias[dias.length - 1] ?? least);
+  };
   const propose = (floor: { top: number; bottom: number }): LineAdopted => {
     const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
     const seis = c.seismic ? { top: 0.25 * faceNeg, bottom: 0.5 * faceNeg } : { top: 0, bottom: 0 };
     const aCb = Math.max(minBottom, bottomRunNeed(), seis.bottom, floor.bottom);
-    const runDia = [...c.diameters].filter((d) => d >= botDia).sort((p, q) => p - q).find((d) => Math.ceil(aCb / barArea(d) - 1e-9) <= RUN_BARS) ?? botDia;
+    const narrowest = Math.min(...spans.map((s) => s.b));
+    const runDia = [...c.diameters].filter((d) => d >= botDia).sort((p, q) => p - q)
+      .find((d) => Math.ceil(aCb / barArea(d) - 1e-9) <= RUN_BARS && inTwo([{ dia: d, count: Math.max(2, Math.ceil(aCb / barArea(d) - 1e-9)) }], narrowest)) ?? botDia;
     const bottom = { dia: runDia, count: Math.max(2, Math.ceil(aCb / barArea(runDia) - 1e-9)) };
     const spanHog = Math.max(0, ...sorted.map((r) => reqAt(r, 'neg', 'span')));
     const topNeed = Math.max(spanHog, negMax / 6, seis.top, floor.top), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
     const top = hangers <= 3 ? { dia: hanger, count: hangers } : { dia: topDia, count: Math.max(2, Math.ceil(topNeed / barArea(topDia) - 1e-9)) };
     const supportTop = supports.map((_, j) => {
       const left = j > 0 ? reqAt(sorted[j - 1]!, 'neg', 'end') : 0, right = j < sorted.length ? reqAt(sorted[j]!, 'neg', 'start') : 0;
-      const extra = Math.max(left, right) - groupsArea([top]);
-      return { dia: topDia, count: extra > 1e-6 ? Math.ceil(extra / barArea(topDia) - 1e-9) : 0 };
+      const width = Math.min(...[spans[j - 1]?.b, spans[j]?.b].filter((x): x is number => x !== undefined));
+      return extraBars(Math.max(left, right) - groupsArea([top]), topDia, top, width);
     });
-    const spanBottom = sorted.map((r) => {
-      const extra = r.req.bottom - groupsArea([bottom]);
-      return { dia: botDia, count: extra > 1e-6 ? Math.ceil(extra / barArea(botDia) - 1e-9) : 0 };
-    });
+    const spanBottom = sorted.map((r, k) => extraBars(r.req.bottom - groupsArea([bottom]), botDia, bottom, spans[k]!.b));
     bentNotes = [];
     if (!c.bentBars) return { bottom, top, supportTop, spanBottom, stirrups: sorted.map((r) => r.proposed.stirrups) };
     if (c.seismic) {
@@ -551,17 +558,47 @@ export function beamLine(rows: BeamRow[], c: BeamContext, adopted: LineAdopted |
   let floor = { top: 0, bottom: 0 };
   let proposed = adopted ?? propose(floor), iterations = 0;
   let bars = layout(proposed), env = verify(proposed, bars);
+  const worstOf = (e: typeof env) => e.reduce((w, x) => Math.max(w, ratioOf(x.pos, x.phiPos), ratioOf(x.neg, x.phiNeg)), 0);
+  const thicker = (g: BarGroup): BarGroup => {
+    const dia = [...c.diameters].filter((d) => d > g.dia).sort((p, q) => p - q)[0];
+    return dia && g.count > 0 ? { dia, count: Math.ceil((g.count * barArea(g.dia)) / barArea(dia) - 1e-9) } : { dia: g.dia, count: g.count + 1 };
+  };
+  const oneMore = (g: BarGroup): BarGroup => ({ dia: g.dia, count: g.count + 1 });
+  const inTwoLayers = (a: LineAdopted, laid: LineBar[]) => spanAdoptedOf(a, laid).every((sa, k) => (['start', 'span', 'end'] as const).every((sec) => (['top', 'bottom'] as const).every((f) => inTwo(sa.at![sec]![f], spans[k]!.b, sa.stirrups.dia))));
+  /**
+   * Where the envelope is short: one bar more at the span or support, the same area there in a
+   * thicker bar, then the same two on the run along the line, the first that raises the worst
+   * station and still lays each face in two layers. A grade beam on soil, bent the other way, is short at its
+   * supports in the bottom, which only the run reaches.
+   */
   const iterate = () => {
     while (iterations < 16) {
       const bad = env.filter((e) => e.pos > e.phiPos + 1e-6 || e.neg > e.phiNeg + 1e-6);
       if (!bad.length) break;
       iterations++;
-      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
       const spansBad = new Set(bad.filter((e) => e.pos > e.phiPos + 1e-6).map((e) => e.k));
-      for (const k of spansBad) next.spanBottom[k] = { dia: next.spanBottom[k]!.dia, count: next.spanBottom[k]!.count + 1 };
       const supportsBad = new Set(bad.filter((e) => e.neg > e.phiNeg + 1e-6).map((e) => (e.xl - spans[e.k]!.x0 < spans[e.k]!.L / 2 ? e.k : e.k + 1)));
-      for (const j of supportsBad) next.supportTop[j] = { dia: next.supportTop[j]!.dia, count: next.supportTop[j]!.count + 1 };
-      proposed = next; bars = layout(proposed); env = verify(proposed, bars);
+      const local = (step: (g: BarGroup) => BarGroup): LineAdopted => {
+        const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+        for (const k of spansBad) next.spanBottom[k] = step(next.spanBottom[k]!);
+        for (const j of supportsBad) next.supportTop[j] = step(next.supportTop[j]!);
+        return next;
+      };
+      const run = (step: (g: BarGroup) => BarGroup): LineAdopted => {
+        const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+        if (spansBad.size) next.bottom = step(next.bottom);
+        if (supportsBad.size) next.top = step(next.top);
+        return next;
+      };
+      const before = worstOf(env), fitted = inTwoLayers(proposed, bars);
+      let taken = false;
+      for (const next of [local(oneMore), local(thicker), run(oneMore), run(thicker)]) {
+        const nextBars = layout(next), nextEnv = verify(next, nextBars);
+        if (worstOf(nextEnv) >= before - 1e-9 || (fitted && !inTwoLayers(next, nextBars))) continue;
+        proposed = next; bars = nextBars; env = nextEnv; taken = true;
+        break;
+      }
+      if (!taken) { bars = layout(proposed); break; }
     }
   };
   const fitsFaces = (a: LineAdopted, laid: LineBar[]) => spanAdoptedOf(a, laid).every((sa, k) => (['start', 'span', 'end'] as const).every((sec) => faceLayout(sa.at![sec]!.top, spans[k]!.b, c.cover, sa.stirrups.dia).fits && faceLayout(sa.at![sec]!.bottom, spans[k]!.b, c.cover, sa.stirrups.dia).fits));

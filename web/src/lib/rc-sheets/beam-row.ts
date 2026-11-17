@@ -9,7 +9,7 @@ import { proposeSkin } from '../codes/cirsoc201/skin';
 import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceLayout, groupsArea, groupsLabel, proposeBeamFace, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
-import { beamSeismic, type Seismic } from './seismic';
+import { beamSeismic, faceRule, type Seismic } from './seismic';
 import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
 
 const EDITION = '2025' as const;
@@ -233,6 +233,12 @@ function finerFace(groups: BarGroup[], d: BeamDemand, c: BeamContext, sd: number
   return proposeBeamFace(groupsArea(groups), d.b, d.h, c.cover, sd, pool.length ? pool : LONG(c));
 }
 
+/** Vs beyond 0.66·√f'c·bw·d (§22.5.1.2): no stirrup helps, only a larger section. */
+const shearCapped = (vs: number, b: number, d: number, fc: number) => vs > 0.66 * shearSqrtFc(fc) * b * d * 1000 + 1e-6;
+
+/** Two legs more still each hold a bar of the outer bottom layer. */
+const moreLegsHold = (a: BeamAdopted) => a.stirrups.legs + 2 <= Math.max(2, a.bottom[0]?.count ?? 0);
+
 function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, ph: number): BeamAdopted {
   const sd = a.stirrups.dia;
   const next: BeamAdopted = JSON.parse(JSON.stringify(a));
@@ -245,10 +251,10 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext, p
   else if (!e.fitBottom) next.bottom = proposeBeamFace(groupsArea(next.bottom), d.b, d.h, c.cover, sd, LONG(c));
   if (!e.crackTop.ok) next.top = finerFace(next.top, d, c, sd);
   else if (!e.fitTop) next.top = proposeBeamFace(groupsArea(next.top), d.b, d.h, c.cover, sd, LONG(c));
-  if (e.shear.status === 'fail' || !e.ok.stirrups || !e.ok.transverseMin) {
+  if ((e.shear.status === 'fail' && !shearCapped(e.shear.Vs, d.b, e.shear.d, c.mat.fc)) || !e.ok.stirrups || !e.ok.transverseMin) {
     if (next.stirrups.spacing > 0.075 + 1e-9) next.stirrups.spacing = roundDown(next.stirrups.spacing - 0.025);
     else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2, spacing: 0.15 };
-    else next.stirrups.legs += 2;
+    else if (moreLegsHold(next)) next.stirrups.legs += 2;
   }
   if (!e.ok.al || !e.ok.alSpacing || !e.ok.alDia) {
     const al = next.torsionLong ?? { count: 4, dia: 10 };
@@ -267,10 +273,13 @@ function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSei
     const target = roundDown(Math.max(0.05, Math.min(next.stirrups.spacing - 0.025, s.sZone)));
     if (target >= 0.05 && target < next.stirrups.spacing - 1e-9) next.stirrups.spacing = target;
     else if (next.stirrups.dia < 12) next.stirrups = { ...next.stirrups, dia: next.stirrups.dia + 2 };
-    else next.stirrups.legs += 2;
+    else if (!s.veCapped && moreLegsHold(next)) next.stirrups.legs += 2;
   }
-  if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) next.bottom = bumpFace(next.bottom, d, c, next.stirrups.dia);
-  if (bad('rcSheets.v.seisBeamQuarter') && groupsArea(next.top) < groupsArea(next.bottom)) next.top = bumpFace(next.top, d, c, next.stirrups.dia);
+  if (bad('rcSheets.v.seisBeamHalf') || bad('rcSheets.v.seisBeamQuarter')) {
+    const more = faceRule(barsAt(a, 'start'), barsAt(a, 'span'), barsAt(a, 'end')).more;
+    if (more.bottom > 1e-6) next.bottom = bumpFace(next.bottom, d, c, next.stirrups.dia);
+    if (more.top > 1e-6) next.top = bumpFace(next.top, d, c, next.stirrups.dia);
+  }
   return next;
 }
 
