@@ -28,13 +28,13 @@
     "hu": "Gerendamezők részleges héjfedése"
   },
   "explanation": {
-    "en": "Regenerate gravity for panel-mode models with shells. The uncovered strips take roof or floor pressures according to their exposure. Ambiguous shell deck geometry or mixed exposure blocks the plan.",
-    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas reciben presiones de cubierta o de entrepiso según su exposición. Una geometría ambigua o una exposición mixta bloquea el plan.",
-    "pt": "Gere novamente as cargas gravitacionais no modo de painéis com cascas. As faixas descobertas recebem pressões de cobertura ou de piso conforme a exposição. Geometria ambígua ou exposição mista bloqueia o plano.",
-    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Freie Streifen erhalten je nach Überdeckung Dach- oder Geschosslasten. Mehrdeutige Schalengeometrie oder gemischte Überdeckung blockiert den Lastplan.",
-    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes reçoivent les charges de toiture ou de plancher selon leur exposition. Une géométrie ambiguë ou une exposition mixte bloque le plan.",
-    "tr": "Kabuklu panel modellerinde yerçekimi yüklerini yeniden üretin. Açıkta kalan şeritlere, üzerlerindeki örtüye göre çatı veya döşeme yükleri uygulanır. Belirsiz geometri veya karma örtü yük planını durdurur.",
-    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A szabad sávok a fedettségüktől függően kapnak tető- vagy födémterhelést. A bizonytalan héjgeometria vagy a vegyes fedettség leállítja a tervezést."
+    "en": "Regenerate gravity for panel-mode models with shells. The uncovered strips take roof or floor pressures according to their exposure. Ambiguous shell deck geometry or mixed exposure blocks the plan. A bare beam ring rejected by deck selection leaves the strip exposed.",
+    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas reciben presiones de cubierta o de entrepiso según su exposición. Una geometría ambigua o una exposición mixta bloquea el plan. Un anillo de vigas descartado por la selección de tableros deja la franja expuesta.",
+    "pt": "Gere novamente as cargas gravitacionais no modo de painéis com cascas. As faixas descobertas recebem pressões de cobertura ou de piso conforme a exposição. Geometria ambígua ou exposição mista bloqueia o plano. Um anel de vigas rejeitado pela seleção de tabuleiros deixa a faixa exposta.",
+    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Freie Streifen erhalten je nach Überdeckung Dach- oder Geschosslasten. Mehrdeutige Schalengeometrie oder gemischte Überdeckung blockiert den Lastplan. Ein bei der Deckenauswahl verworfener Trägerring lässt den Streifen frei.",
+    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes reçoivent les charges de toiture ou de plancher selon leur exposition. Une géométrie ambiguë ou une exposition mixte bloque le plan. Un anneau de poutres écarté lors de la sélection des planchers laisse la bande exposée.",
+    "tr": "Kabuklu panel modellerinde yerçekimi yüklerini yeniden üretin. Açıkta kalan şeritlere, üzerlerindeki örtüye göre çatı veya döşeme yükleri uygulanır. Belirsiz geometri veya karma örtü yük planını durdurur. Döşeme seçiminde reddedilen çıplak bir kiriş halkası şeridi açıkta bırakır.",
+    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A szabad sávok a fedettségüktől függően kapnak tető- vagy födémterhelést. A bizonytalan héjgeometria vagy a vegyes fedettség leállítja a tervezést. A födémkiválasztáskor elvetett csupasz gerendagyűrű nyitva hagyja a sávot."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-core.md",

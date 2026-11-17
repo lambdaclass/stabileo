@@ -6,7 +6,7 @@ import { stampSolve } from '../solve-stamp';
 
 const change = RESULT_CHANGES.changes.find(c => c.id === 'gravity-shell-coverage')!;
 const legacy = {
-  elements: [{ id: 1, type: 'frame', materialId: 1 }],
+  elements: [[1, { id: 1, type: 'frame', materialId: 1, nodeI: 1, nodeJ: 2 }]],
   loadCases: [{ id: 1, type: 'D' }],
   loads: [{ type: 'distributed3d', data: { elementId: 1, caseId: 1, generatedBy: 'cirsoc-101' } }],
 } satisfies FeatureSnapshot;
@@ -17,9 +17,7 @@ function changes(snapshot: FeatureSnapshot) {
   return assessProject(snapshot, stamp).changes.map(c => c.id);
 }
 
-const knownWrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
-
-knownWrong2200('known wrong result: #2200 a partial-shell derivation flags legacy plans with only stored beam loads', () => {
+it('#2200 a partial-shell derivation flags legacy plans with only stored beam loads', () => {
   for (const analysisMode of ['3d', 'pro']) {
     const snapshot = { ...legacy, analysisMode, designData: { loadBasis: { derivation } } };
     expect(modelFeatures(snapshot).has('generatedPanelGravityShells')).toBe(true);

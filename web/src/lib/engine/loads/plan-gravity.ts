@@ -37,11 +37,10 @@
  * Pure: no store.
  */
 import { assertPlanarShell, refuseGravityGeometry, ringArea, type UncoveredStrips } from './gravity-shell-partition';
-import { EngineCheckError } from '../engine-unavailable';
 import { physicalRoofRuns } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
-import { msg, round, type EngineMessage } from '../../codes/message';
+import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -217,7 +216,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const center: [number, number] = [p[0] + t * dx, p[1] + t * dy];
       return [onPlane.some(c => inside(center, c.poly, error))];
     }));
-    if (classes.size > 1) refuseGravityGeometry(`Member ${e.id} is only partly covered by a shell and has no resolved panel transfer.`);
+    if (classes.size > 1) refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     const covered = classes.has(true);
     shellMembership.set(e.id, covered);
     return covered;
@@ -278,8 +277,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   };
   const isSloped = (m: { length: number; horizontalLength: number }) => Math.abs(m.length - m.horizontalLength) > TOL;
   const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), kept: [] };
-  const dropped = new Set<object>();
-  const fringeKept = new Map<object, Region>();
+  const dropped = new Set<FloorPanel>();
+  const fringeKept = new Map<FloorPanel, Region>();
   const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
@@ -364,6 +363,17 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (steep.length > 0) out.notes.push(msg('loadPlan.gravity.steepShells', { n: steep.length, ids: steep.slice(0, 10).join(', ') + (steep.length > 10 ? '…' : '') }));
   }
 
+  const selectedPanels = new Map([...levels].map(([z, { res }]) => [z, res.panels.flatMap(panel => {
+    if (!panel.loaded || !panel.own) return [];
+    if (dropped.has(panel)) { lowPanels++; return []; }
+    const why = deckReasons.get(panel);
+    if (why === 'wide') { widePanels++; return []; }
+    const strips = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage : undefined;
+    const region = fringeKept.get(panel);
+    const footprint = region ?? (strips ? strips.polygons.map(poly => [poly]) : [[panel.polygon, ...(panel.holes ?? [])]]);
+    return [{ panel, own: panel.own, why, strips, region, footprint }];
+  })]));
+
   // Second pass: each panel on its own, as a floor or as a roof.
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
@@ -372,24 +382,17 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     unresolved += res.skipped.unresolved;
     const loaded = panelLoadedAt.get(z)!;
     let overhead: Polygon[] | undefined;
-    for (const panel of res.panels) {
-      if (!panel.loaded || !panel.own) continue;
-      const why = deckReasons.get(panel);
-      if (dropped.has(panel)) { lowPanels++; continue; }
+    for (const { panel, own: one, why, strips, region } of selectedPanels.get(z) ?? []) {
       if (why === 'lowHeadroom') fringes++;
-      if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      const strips = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage : undefined;
       if (strips) partly++;
-      const one = panel.own;
       const roof = strips
-        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, panelsAt, carriers))
+        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers))
         : why === 'lowHeadroom' || !covered(centroid(panel.polygon), z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
-      const region = fringeKept.get(panel);
       if (region) {
         let kept = 0;
         const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
@@ -510,7 +513,7 @@ function deckFootprints(boundary: Polygon, corners: number[], z: number, level: 
     for (const shell of level) {
       if (shell.pts.every(p => atLevel(p[2]))) footprints.push([shell.poly]);
       else if (atLevel(shell.z0) && regionArea(polygonClipping.intersection(boundary, [shell.poly])) > 0) {
-        refuseGravityGeometry('A covering shell must represent the same deck as the beam panel.');
+        refuseGravityGeometry(msg('loadPlan.gravity.differentDeck'));
       }
     }
     for (const roof of roofs) {
@@ -522,12 +525,12 @@ function deckFootprints(boundary: Polygon, corners: number[], z: number, level: 
       if (boundary.length === 1 && corners.every(id => eaveNodes.has(id)) && polygonClipping.difference(boundary, projection).length === 0) {
         footprints.push(...polygons);
       } else {
-        refuseGravityGeometry('A sloped covering shell must represent the same deck as the beam panel.');
+        refuseGravityGeometry(msg('loadPlan.gravity.differentSlopedDeck'));
       }
     }
   } catch (err) {
-    if (err instanceof EngineCheckError) throw err;
-    refuseGravityGeometry(`Shell deck coverage check failed: ${String(err)}`);
+    if (err instanceof EngineMessageError) throw err;
+    refuseGravityGeometry(msg('loadPlan.gravity.deckCheckFailed', { detail: String(err) }));
   }
   return footprints;
 }
@@ -545,9 +548,9 @@ function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {
   return above;
 }
 
-function higherFootprints(z: number, panelsAt: Map<number, Polygon[number][]>, carriers: ShellCarrier[]): Polygon[] {
+function higherFootprints(z: number, selectedPanels: ReadonlyMap<number, ReadonlyArray<{ footprint: Region }>>, carriers: ShellCarrier[]): Polygon[] {
   const elevation = z + MIN_COVER_RISE;
-  const covers = [...panelsAt].filter(([above]) => above > elevation).flatMap(([, polygons]) => polygons.map(poly => [poly]));
+  const covers = [...selectedPanels].filter(([above]) => above > elevation).flatMap(([, panels]) => panels.flatMap(panel => panel.footprint));
   for (const carrier of carriers) {
     const above = shellAbove(carrier, elevation);
     if (ringArea(above) > 0) covers.push([above]);
@@ -565,9 +568,9 @@ function uncoveredStripIsRoof({ polygons }: UncoveredStrips, covers: Polygon[]):
       if (regionArea(polygonClipping.difference([poly], above)) > 0) exposure.add(true);
     }
   } catch (err) {
-    refuseGravityGeometry(`Uncovered shell strip exposure check failed: ${String(err)}`);
+    refuseGravityGeometry(msg('loadPlan.gravity.exposureCheckFailed', { detail: String(err) }));
   }
-  if (exposure.size !== 1) refuseGravityGeometry('The uncovered shell strips have mixed roof and floor exposure.');
+  if (exposure.size !== 1) refuseGravityGeometry(msg('loadPlan.gravity.mixedExposure'));
   return exposure.has(true);
 }
 
@@ -690,7 +693,7 @@ function notADeck(
     return narrowestWidth(poly) > MAX_DECK_SPAN ? 'wide' : clearance;
   };
   const checkStrips = ({ span, polygons }: UncoveredStrips, z: number) => {
-    if (span > MAX_DECK_SPAN) refuseGravityGeometry('The uncovered shell strip exceeds the maximum deck span.');
+    if (span > MAX_DECK_SPAN) refuseGravityGeometry(msg('loadPlan.gravity.stripSpan'));
     const lowPanels = [...panelsAt].filter(([elevation]) => elevation - z > TOL && elevation - z < MIN_STOREY_HEADROOM)
       .flatMap(([, polys]) => polys);
     const lowShells = carriers.filter(({ pts }) => {
@@ -702,7 +705,7 @@ function notADeck(
         try {
           return polygonClipping.intersection([poly], [above]).map(([outer]) => outer!).filter(ring => ringArea(ring) > 0);
         } catch (err) {
-          return refuseGravityGeometry(`Uncovered shell strip headroom check failed: ${String(err)}`);
+          return refuseGravityGeometry(msg('loadPlan.gravity.headroomCheckFailed', { detail: String(err) }));
         }
       };
       const shellBelowHeadroom = ({ poly: above, pts }: (typeof lowShells)[number]) => overlap(above).some(ring => {
@@ -710,7 +713,7 @@ function notADeck(
         return !heights.every(Number.isFinite) || (Math.max(...heights) > TOL && Math.min(...heights) < MIN_STOREY_HEADROOM);
       });
       if (headroom(poly, z) || lowPanels.some(above => overlap(above).length) || lowShells.some(shellBelowHeadroom)) {
-        refuseGravityGeometry('The uncovered shell strip has insufficient or unresolved storey headroom.');
+        refuseGravityGeometry(msg('loadPlan.gravity.stripHeadroom'));
       }
     }
   };

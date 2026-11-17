@@ -72,9 +72,7 @@ it('#2201 a symmetric two-way zone loads its internal carrier and an offset zone
   expect(load(4, 6.001)).toMatchObject({ refusal: 'eccentricZone', loads: [], nodal: [] });
 });
 
-const knownWrong2201 = process.env.RUN_KNOWN_WRONG === '2201' ? it : it.skip;
-
-knownWrong2201('known wrong result: #2201 a zone cannot be combined with shell footprints', () => {
+it('#2201 a zone cannot be combined with shell footprints', () => {
   const fullStrip: NonNullable<FloorLoadInput['shellFootprints']> = [[[[0, 0], [6, 0], [6, 6], [0, 6]]]];
   for (const calculate of [floorLoad, physicalFloorLoad]) {
     const supply = () => fullStrip;

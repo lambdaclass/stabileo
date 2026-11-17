@@ -2,7 +2,8 @@
   "id": "floor-zone-eccentricity",
   "date": "2026-11-17",
   "prs": [
-    2201
+    2201,
+    2282
   ],
   "area": "loads",
   "when": {

@@ -1,3 +1,4 @@
+import { teAt } from '../../../i18n/engine-text';
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
 import { floorLoad, type FloorBeam } from '../floor-loads';
@@ -465,7 +466,9 @@ describe('an opening’s ring is loaded once, by its own panel', () => {
     const f = (await import('../../../templates/fixtures/full-stadium.json')).default;
     const m = fixtureModel(f);
     const options = { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true } as const;
-    expect(() => gravityLayout(m, options)).toThrow(/quad 1 is nonplanar/i);
+    const refusal = { key: 'loadPlan.gravity.nonplanarShell', params: { id: 1 } };
+    expect(() => gravityLayout(m, options)).toThrow(expect.objectContaining(refusal));
+    expect(teAt(refusal, 'en')).toMatch(/quad 1 is nonplanar/i);
     const g = gravityLayout({ ...m, quads: undefined }, options);
     const byLevel = new Map<number, FloorBeam[]>();
     for (const e of m.elements.values()) {

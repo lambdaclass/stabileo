@@ -42,6 +42,7 @@
  *
  * Pure: no store.
  */
+import { msg } from '../../codes/message';
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
 import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
@@ -98,6 +99,7 @@ export interface FloorMemberLoad {
 
 export interface FloorPanel {
   polygon: P2[];
+  holes?: P2[][];
   area: number;
   loaded: boolean;
   /**
@@ -120,7 +122,7 @@ export interface FloorPanel {
 export interface SideStretch { t0: number; t1: number; side: 1 | -1 }
 
 export interface FloorLoadResult {
-  refusal?: 'eccentricZone';
+  refusal?: 'eccentricZone' | 'zoneWithShellFootprints';
   z: number | null;
   panels: FloorPanel[];
   loads: FloorMemberLoad[];
@@ -137,6 +139,8 @@ export interface FloorLoadResult {
 
 const EPS = 1e-9;
 
+export function floorLoad(input: FloorLoadInput & { shellFootprints?: undefined }): FloorLoadResult & { refusal?: 'eccentricZone' };
+export function floorLoad(input: FloorLoadInput): FloorLoadResult;
 export function floorLoad(input: FloorLoadInput): FloorLoadResult {
   return calculateFloorLoad(input, round);
 }
@@ -149,6 +153,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
   const res: FloorLoadResult = { z: null, panels: [], loads: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
+  if (input.zone !== undefined && input.shellFootprints !== undefined) return { ...res, refusal: 'zoneWithShellFootprints' };
   const pos = (id: number) => input.nodes.get(id);
   const P = (id: number): P3 => { const n = pos(id)!; return [n.x, n.y, n.z ?? 0]; };
 
@@ -340,6 +345,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const sides = mergeSides(cycle, poly, elementOf, (e, p) => beamById.get(e)!.nodeI === p);
     const holeCycles = [...inner, ...(holesOf.get(k) ?? [])];
     const panel: FloorPanel = { polygon: poly, area, loaded: false };
+    if (holeCycles.length) panel.holes = holeCycles.map(hole => hole.map(xy));
     res.panels.push(panel);
     if (face.some((n) => invalid.has(n))) { panel.reason = 'crossing'; return; }
     if (holeCycles.some((h) => h.some((n) => invalid.has(n)))) { panel.reason = 'crossing'; return; }
@@ -398,7 +404,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
       const s0 = Math.max(pc.s0, seg.s0), s1 = Math.min(pc.s1, seg.s1);
       if (s1 <= s0) continue;
       if (exact && (s1 - s0) / (seg.s1 - seg.s0) < MEMBER_GEOMETRY_LIMIT) {
-        if (!zone) refuseGravityGeometry(`Gravity strip on member ${seg.elementId} is below the supported member-load span.`);
+        if (!zone) refuseGravityGeometry(msg('loadPlan.gravity.stripInterval', { id: seg.elementId }));
         res.refusal = 'eccentricZone';
         return;
       }

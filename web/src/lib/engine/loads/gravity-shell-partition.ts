@@ -1,12 +1,12 @@
 import polygonClipping, { type MultiPolygon, type Polygon } from 'polygon-clipping';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
-import { EngineCheckError } from '../engine-unavailable';
+import { EngineMessageError, msg, type EngineMessage } from '../../codes/message';
 import { signedArea, type Side, type SideShare } from './floor-tributary';
 
 type Point = [number, number];
 
-export function refuseGravityGeometry(reason: string): never {
-  throw new EngineCheckError('gravity load plan', reason);
+export function refuseGravityGeometry(reason: EngineMessage): never {
+  throw new EngineMessageError(reason);
 }
 
 export function ringArea(ring: Point[]): number {
@@ -35,7 +35,7 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   const boxPoints = [...corners, ...holes.flat().map(side => side.a)];
   const error = 64 * Number.EPSILON * Math.max(...boxPoints.flat().map(Math.abs), ...sides.map(side => side.len));
   if (error / Math.min(...sides.map(side => side.len)) >= MEMBER_GEOMETRY_LIMIT) {
-    refuseGravityGeometry('Shell coverage coordinates exceed the supported member interval precision.');
+    refuseGravityGeometry(msg('loadPlan.gravity.coveragePrecision'));
   }
   const project = (p: Point): Point => {
     const x = p[0] - basis.a[0], y = p[1] - basis.a[1];
@@ -50,13 +50,13 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
       const footprint = polygonClipping.union(localShells[0]!, ...localShells.slice(1));
       return [polygonClipping.difference(boundary, footprint), polygonClipping.intersection(boundary, footprint)];
     } catch (err) {
-      return refuseGravityGeometry(`Shell footprint partition failed: ${String(err)}`);
+      return refuseGravityGeometry(msg('loadPlan.gravity.partitionFailed', { detail: String(err) }));
     }
   })();
   if (!remaining.length) return { kind: 'shell' };
   if (!(area(covered) > 0)) return { kind: 'uncovered' };
 
-  const fail = (): never => refuseGravityGeometry('Partial shell coverage requires full-span strips between opposite carriers of a rectangular beam panel.');
+  const fail = (): never => refuseGravityGeometry(msg('loadPlan.gravity.unsupportedStrips'));
   if (holes.length || sides.length !== 4) return fail();
 
   const bounds = (ring: Point[], k: number): [number, number] => {
@@ -85,7 +85,7 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   if (span) {
     const direction = stationAxis === 0 ? basis.n : basis.u;
     if (!(Math.abs(direction[0] * span[1] - direction[1] * span[0]) <= 64 * Number.EPSILON)) {
-      refuseGravityGeometry('The requested one-way span must align with the span of the uncovered shell strips.');
+      refuseGravityGeometry(msg('loadPlan.gravity.stripDirection'));
     }
   }
 
@@ -122,5 +122,5 @@ export function assertPlanarShell(id: number, vertices: Array<[number, number, n
   const normal = [cross(a, b), cross(a, c), cross(b, c)].sort((u, v) => Math.hypot(...v) - Math.hypot(...u))[0]!;
   const scale = Math.max(...vertices.flat().map(Math.abs), Math.hypot(...a), Math.hypot(...b), Math.hypot(...c));
   const distance = Math.max(...[a, b, c].map(p => Math.abs(p.reduce((sum, v, k) => sum + v * normal[k]!, 0))));
-  if (distance > 64 * Number.EPSILON * scale * Math.hypot(...normal)) refuseGravityGeometry(`Quad ${id} is nonplanar. Gravity shell coverage requires a planar shell.`);
+  if (distance > 64 * Number.EPSILON * scale * Math.hypot(...normal)) refuseGravityGeometry(msg('loadPlan.gravity.nonplanarShell', { id }));
 }

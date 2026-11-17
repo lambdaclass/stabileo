@@ -250,12 +250,11 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
-  const loadNotes = Array.isArray(loadBasis?.derivation) ? loadBasis.derivation : [];
-  const gravityNotes = loadNotes.filter(n => typeof n?.key === 'string' && n.key.startsWith('loadPlan.gravity.'));
+  const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
   const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
   let memberGravity = false;
   let shellGravity = false;
-  let generatedSeismic = !!loadBasis?.seismic || loadNotes.some(n => n?.key === 'loadPlan.derivation.seismic');
+  let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -291,10 +290,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('pathAnalysis');
   }
   if (loadBasis) f.add('generatedLoads');
-  if (shellGravity || gravityNotes.some(n => n.key === 'loadPlan.gravity.shellLevel' || n.key === 'loadPlan.gravity.slopedShells')) {
-    f.add('generatedPanelGravityShells');
-  }
-  const inferredPanelMode = shellGravity || gravityNotes.some(n => /^loadPlan\.gravity\.(panels|width|shellLevel|slopedShells|partlyUnderShells)$/.test(n.key ?? ''));
+  const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
+  if (hasShellGravity) f.add('generatedPanelGravityShells');
+  const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
   const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
   if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');

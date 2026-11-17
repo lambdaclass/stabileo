@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { teAt } from '../../../i18n/engine-text';
 import { floorLoad, physicalFloorLoad } from '../floor-loads';
 import { buildLoadPlan, roofWeightFor } from '../load-plan';
 import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM, type GravityOptions } from '../plan-gravity';
@@ -32,16 +33,17 @@ function overheadBay(headroom: number, covered = 0.1, upperWidth = 10): Model {
   return model;
 }
 
-function expectBlocked(model: Model, gravity: GravityOptions, reason: RegExp) {
+function expectBlocked(model: Model, gravity: GravityOptions, key: string, reason: RegExp) {
   const plan = buildLoadPlan(input(model, { gravity }));
   expect(plan.outcome).toBe('BLOCKED');
-  expect(plan.blockedKeys[0]?.params?.message).toMatch(reason);
+  expect(plan.blockedKeys).toEqual([{ key }]);
+  expect(teAt(plan.blockedKeys[0]!, 'en')).toMatch(reason);
   expect(plan.distributed).toEqual([]);
   expect(plan.nodal).toEqual([]);
   expect(plan.surface).toEqual([]);
   expect(plan.levels).toEqual([]);
-  expect(() => gravityLayout(model, gravity)).toThrow(reason);
-  expect(() => roofWeightFor(model, gravity, 1, 1)).toThrow(reason);
+  expect(() => gravityLayout(model, gravity)).toThrow(expect.objectContaining({ key }));
+  expect(() => roofWeightFor(model, gravity, 1, 1)).toThrow(expect.objectContaining({ key }));
 }
 
 it('#2200 refuses partial strips oblique to the requested one-way span', () => {
@@ -57,20 +59,20 @@ it('#2200 refuses partial strips oblique to the requested one-way span', () => {
         return [x, y] as [number, number];
       })]),
     };
-    const reason = /one-way span.*align/i;
-    expectBlocked(model, gravity, reason);
-    expect(() => floorLoad(floor)).toThrow(reason);
-    expect(() => physicalFloorLoad(floor)).toThrow(reason);
+    const key = 'loadPlan.gravity.stripDirection';
+    expectBlocked(model, gravity, key, /one-way span.*align/i);
+    expect(() => floorLoad(floor)).toThrow(expect.objectContaining({ key }));
+    expect(() => physicalFloorLoad(floor)).toThrow(expect.objectContaining({ key }));
   }
 });
 
 it('#2200 refuses uncovered strips whose carrier span exceeds the deck limit', () => {
-  expectBlocked(wideBay(100, 100, 1), panels, /deck span/i);
-  expectBlocked(wideBay(10, MAX_DECK_SPAN + 0.125, 9), panels, /deck span/i);
+  expectBlocked(wideBay(100, 100, 1), panels, 'loadPlan.gravity.stripSpan', /deck span/i);
+  expectBlocked(wideBay(10, MAX_DECK_SPAN + 0.125, 9), panels, 'loadPlan.gravity.stripSpan', /deck span/i);
 });
 
 it('#2200 refuses uncovered strips without storey headroom', () => {
-  expectBlocked(overheadBay(MIN_STOREY_HEADROOM - 0.125), panels, /headroom/i);
+  expectBlocked(overheadBay(MIN_STOREY_HEADROOM - 0.125), panels, 'loadPlan.gravity.stripHeadroom', /headroom/i);
 });
 
 it('keeps valid shell strips at and below the span limit', () => {

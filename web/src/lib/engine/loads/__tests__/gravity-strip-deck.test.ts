@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { teAt } from '../../../i18n/engine-text';
 import { buildLoadPlan, roofWeightFor, type LoadPlanInput } from '../load-plan';
 import { gravityLayout, MAX_DECK_SPAN } from '../plan-gravity';
 import { checkResponse } from './gravity-carrier-response';
@@ -25,23 +26,24 @@ function addShell(model: Model, x0: number, x1: number, z0: number, z1 = z0) {
   model.quads.set(id, { id, nodes });
 }
 
-function expectBlocked(model: Model, reason: RegExp) {
+function expectBlocked(model: Model, key: string, reason: RegExp) {
   const result = plan(model);
   expect(result.outcome).toBe('BLOCKED');
-  expect(result.blockedKeys[0]?.params?.message).toMatch(reason);
+  expect(result.blockedKeys).toEqual([{ key }]);
+  expect(teAt(result.blockedKeys[0]!, 'en')).toMatch(reason);
   expect(result.distributed).toEqual([]);
   expect(result.nodal).toEqual([]);
   expect(result.surface).toEqual([]);
   expect(result.levels).toEqual([]);
-  expect(() => gravityLayout(model, gravity)).toThrow(reason);
-  expect(() => roofWeightFor(model, gravity, 1, 2)).toThrow(reason);
+  expect(() => gravityLayout(model, gravity)).toThrow(expect.objectContaining({ key }));
+  expect(() => roofWeightFor(model, gravity, 1, 2)).toThrow(expect.objectContaining({ key }));
 }
 
 it('#2200 a sloped shell springing at a beam level does not establish a shared deck', () => {
   for (const width of [0.1, 10]) {
     const { model } = bay(0);
     addShell(model, 0, width, 3, 6);
-    expectBlocked(model, /same deck/i);
+    expectBlocked(model, 'loadPlan.gravity.differentSlopedDeck', /same deck/i);
     expect(plan(model, undefined, { mode: 'width' }).outcome).toBe('READY');
   }
 });
@@ -94,7 +96,7 @@ it('#2200 a strip with both covered and exposed area refuses', () => {
   for (const upper of [6.001, 6.25, 9.999]) {
     const { model } = bay(6);
     addShell(model, 0, upper, 6);
-    expectBlocked(model, /mixed roof and floor exposure/i);
+    expectBlocked(model, 'loadPlan.gravity.mixedExposure', /mixed roof and floor exposure/i);
   }
   const { model } = bay(6);
   addShell(model, 0, 6.25, 6);
@@ -104,13 +106,13 @@ it('#2200 a strip with both covered and exposed area refuses', () => {
     const id = model.elements.size + 1;
     model.elements.set(id, { id, nodeI, nodeJ: ring[(i + 1) % ring.length]!, sectionId: 1, materialId: 1 });
   });
-  expectBlocked(model, /mixed roof and floor exposure/i);
+  expectBlocked(model, 'loadPlan.gravity.mixedExposure', /mixed roof and floor exposure/i);
 });
 
 it('#2200 a shell outside the elevation band cannot subtract a beam deck', () => {
   const { model } = bay(0);
   addShell(model, 0, 4, 3.00125);
-  expectBlocked(model, /same deck/i);
+  expectBlocked(model, 'loadPlan.gravity.differentDeck', /same deck/i);
 });
 
 it('uses a level shell at the elevation band edge and leaves a separate higher deck in place', () => {
@@ -142,7 +144,7 @@ it('treats a deck at and below the cover rise as exposed', () => {
 it('#2200 overhead cover just above the exposure threshold can make a strip mixed', () => {
   const { model } = bay(6);
   addShell(model, 0, 8, 3.051);
-  expectBlocked(model, /mixed roof and floor exposure/i);
+  expectBlocked(model, 'loadPlan.gravity.mixedExposure', /mixed roof and floor exposure/i);
 });
 
 it('keeps the floor load where the uncovered strip is entirely under a higher deck', () => {
@@ -162,8 +164,6 @@ it('keeps the floor load where the uncovered strip is entirely under a higher de
   }
   expect(result.levels.find(level => level.elevation === 3)!.superimposedKN).toBeCloseTo(60, 10);
 });
-
-const knownWrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
 
 function upperRing(model: Model, width: number) {
   const corners = [[-2, -3], [12, -3], [12, -3 + width], [-2, -3 + width]] as const;
@@ -211,10 +211,12 @@ function checkStripUnderRing(fixture: ReturnType<typeof bay>, upperFirst: number
     expect(load!.q).toBeCloseTo(-3 * pressure, 10);
     expect(load!.qJ ?? load!.q).toBeCloseTo(-3 * pressure, 10);
   }
-  checkResponse(fixture, dead, 6, 10, 3 * pressure);
+  const elements = new Map([...model.elements].filter(([id]) => id < upperFirst));
+  checkResponse({ ...fixture, model: { ...model, elements } }, dead, 6, 10, 3 * pressure);
+  if (exposed) expect(roofWeightFor(model, options, 1, 0)).toBe('heavy');
 }
 
-knownWrong2200('known wrong result: #2200 a rejected bare upper ring leaves the lower strip exposed', () => {
+it('#2200 a rejected bare upper ring leaves the lower strip exposed', () => {
   for (const [angle, mirror, mesh] of [[0, 1, 1], [0.37, 1, 3], [1.16, -1, 2]] as const) {
     const fixture = bay(6, 0, 1, mesh, mesh > 1);
     const first = upperRing(fixture.model, MAX_DECK_SPAN + 0.125);

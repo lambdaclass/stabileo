@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { teAt } from '../../../i18n/engine-text';
 import { buildLoadPlan } from '../load-plan';
 import { areaLoads, bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
@@ -67,13 +68,16 @@ it('#2199 a thin uncovered band is loaded and full coverage loads the shells alo
   check(9.99, bay(9.99, 0.37, -1, 3, true), 'force');
   expect(areaLoads(bay(10, 0.37, -1, 3, true).model).distributed).toEqual([]);
   check(10 - 1e-8, bay(10 - 1e-8), 'force');
-  expect(() => areaLoads(bay(10 - 1e-11).model)).toThrow(/below the supported member-load span/);
+  const refusal = { key: 'loadPlan.gravity.stripInterval', params: { id: 1 } };
+  expect(() => areaLoads(bay(10 - 1e-11).model)).toThrow(expect.objectContaining(refusal));
+  expect(teAt(refusal, 'en')).toMatch(/below the supported member-load span/);
 });
 
 it('#2200 unsupported partial shell geometry blocks the plan', () => {
   const plan = buildLoadPlan(input(bay(4, 0.37, 1, 1, false, 1).model, { gravity: { mode: 'panels', loadEveryPanel: true } }));
   expect(plan.outcome).toBe('BLOCKED');
-  expect(plan.blockedKeys[0]?.params?.message).toMatch(/partial shell coverage.*full-span/i);
+  expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.gravity.unsupportedStrips' }]);
+  expect(teAt(plan.blockedKeys[0]!, 'en')).toMatch(/partial shell coverage.*full-span/i);
   expect(plan.distributed).toEqual([]);
   expect(plan.surface).toEqual([]);
 });
