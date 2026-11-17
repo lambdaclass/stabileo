@@ -65,6 +65,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Datos afectados y acciones necesarias."},
         {"k": "note", "t": "SA-2026-082 — Borrador 2026-11-16; pendiente de integración y publicación."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Datos afectados y acciones necesarias."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; pendiente de integración y publicación."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Datos afectados y acciones necesarias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO con un pórtico de hormigón guardado antes de que los resultados tuvieran versión. Un aviso abajo indica que los resultados están desactualizados porque el proyecto se resolvió con una versión anterior y 19 cambios registrados lo afectan, con los botones para ver qué cambió y volver a calcular.', caption: 'Cómo llega una corrección a un proyecto guardado: hasta que se resuelve de nuevo, sus resultados quedan marcados como desactualizados, con los cambios que lo afectan a un clic.' },
 
         { k: 'h', t: 'Resumen' },
@@ -151,6 +153,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-077", "El viento en paredes omitía fuerzas en la fundación y cambiaba con la subdivisión (#2204). Revisá las aberturas de cada pared y la cubierta, reclasificá el cerramiento, regenerá W y Wa y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige.", "Alta", "Corregido en PR #2220, pendiente de integración y publicación"],
             ["SA-2026-078", "Las zonas de presión de cubierta y sus primeros momentos dependían de la subdivisión (#2205). Revisá las aberturas de cada pared y la cubierta, reclasificá el cerramiento, regenerá W y Wa y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige.", "Alta", "Corregido en PR #2220, pendiente de integración y publicación"],
             ["SA-2026-082", "Las combinaciones complementarias usaban nieve reducida por pendiente en lugar de carga de miembro de cubierta plana, sin aviso. Las especificaciones sísmicas antiguas también pueden confundir la nieve física con la de cubierta plana. Regenere las cargas de nieve y las combinaciones y repita los análisis y verificaciones. (#2211).", "Alta", "Borrador 2026-11-16; pendiente de integración y publicación"],
+            ["SA-2026-083", "SA-2026-083: La generación automática de CIRSOC 101 bloquea las acciones concentradas de uso y cubierta cuyas posiciones más desfavorables no se evalúan (§4.4). Las cargas uniformes generadas previamente pueden omitir acciones determinantes. Revisá los modelos afectados y verificá las acciones concentradas manualmente antes de repetir análisis y diseño. (#2207).", "Alta", "PR #2236; pendiente de integración y publicación"],
           ],
         },
         {
@@ -371,6 +374,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Affected inputs and user action."},
         {"k": "note", "t": "SA-2026-082 — Draft 2026-11-16; pending merge and release."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Affected inputs and user action."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; pending merge and release."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Affected inputs and user action."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO with a concrete frame saved before results were versioned. A banner at the bottom reads “Results stale: this project was last solved with an older version, and 19 registered changes concern it”, with the buttons “What changed” and “Re-run”.', caption: 'How a fix reaches a saved project: until it is solved again, its results stay marked stale, with the changes that concern it one click away.' },
 
         { k: 'h', t: 'Summary' },
@@ -457,6 +462,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-077", "Wall wind omitted foundation forces and changed under subdivision (#2204). Review every wall and roof opening record, reclassify the enclosure, regenerate W and Wa, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them.", "High", "Fixed in PR #2220, pending merge and release"],
             ["SA-2026-078", "Roof pressure zones and their first moments depended on subdivision (#2205). Review every wall and roof opening record, reclassify the enclosure, regenerate W and Wa, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not correct them.", "High", "Fixed in PR #2220, pending merge and release"],
             ["SA-2026-082", "Companion combinations silently used slope-reduced snow instead of flat-roof member loading. Legacy seismic specifications can also conflate physical snow and flat-roof snow. Regenerate snow loads and combinations, then rerun analyses and design checks. (#2211).", "High", "Draft 2026-11-16; pending merge and release"],
+            ["SA-2026-083", "SA-2026-083: CIRSOC 101 automatic load generation blocks concentrated occupancy and roof actions whose governing placements are not evaluated (§4.4). Previously generated uniform loads may omit governing actions. Review affected models and check concentrated actions manually before rerunning analysis and design. (#2207).", "High", "PR #2236; pending merge and release"],
           ],
         },
         {
@@ -677,6 +683,8 @@ export const safetyAdvisories: Post = {
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Entradas afetadas e ações necessárias."},
         {"k": "note", "t": "SA-2026-082 — Rascunho 2026-11-16; aguardando integração e publicação."},
         {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Entradas afetadas e ações necessárias."},
+        {"k": "note", "t": "SA-2026-083 — PR #2236; aguardando integração e publicação."},
+        {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Entradas afetadas e ações necessárias."},
         { k: 'img', base: 'blog/recheck-stale', w: 1600, h: 1000, alt: 'Stabileo PRO com um pórtico de concreto salvo antes de os resultados terem versão. Um aviso embaixo indica que os resultados estão desatualizados porque o projeto foi resolvido com uma versão anterior e 19 mudanças registradas o afetam, com os botões para ver o que mudou e recalcular.', caption: 'Como uma correção chega a um projeto salvo: até ser resolvido de novo, seus resultados ficam marcados como desatualizados, com as mudanças que o afetam a um clique.' },
 
         { k: 'h', t: 'Resumo' },
@@ -763,6 +771,7 @@ export const safetyAdvisories: Post = {
             ["SA-2026-077", "O vento nas paredes omitia forças na fundação e mudava com a subdivisão (#2204). Revise as aberturas de cada parede e da cobertura, reclassifique, gere W e Wa novamente e refaça análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige.", "Alta", "Corrigido no PR #2220, aguardando integração e publicação"],
             ["SA-2026-078", "As zonas de pressão da cobertura e seus primeiros momentos dependiam da subdivisão (#2205). Revise as aberturas de cada parede e da cobertura, reclassifique, gere W e Wa novamente e refaça análises, combinações e verificações. Recalcular somente as cargas salvas não as corrige.", "Alta", "Corrigido no PR #2220, aguardando integração e publicação"],
             ["SA-2026-082", "As combinações acompanhantes usavam neve reduzida pela inclinação em vez da carga de membro de cobertura plana, sem aviso. Especificações sísmicas antigas também podem confundir a neve física com a de cobertura plana. Gere novamente as cargas de neve e combinações e repita análises e verificações. (#2211).", "Alta", "Rascunho 2026-11-16; aguardando integração e publicação"],
+            ["SA-2026-083", "SA-2026-083: A geração automática de CIRSOC 101 bloqueia ações concentradas de uso e cobertura cujas posições mais desfavoráveis não são avaliadas (§4.4). Cargas uniformes geradas anteriormente podem omitir ações determinantes. Revise os modelos afetados e verifique as ações concentradas manualmente antes de repetir análise e dimensionamento. (#2207).", "Alta", "PR #2236; aguardando integração e publicação"],
           ],
         },
         {

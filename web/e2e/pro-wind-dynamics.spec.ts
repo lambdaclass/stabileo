@@ -1,3 +1,4 @@
+import { dwellingFloorLoads, expectLoadGenerationRefusal } from './load-generator-inputs';
 import { test, expect, loadModel, alSection } from './fixtures';
 
 /**
@@ -30,6 +31,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'live');
     await page.getByTestId('al-live-reduction').check();
     await alSection(page, 'wind');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
@@ -45,6 +47,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await alSection(page, 'live');
     await page.getByTestId('al-live-reduction').uncheck();
     await alSection(page, 'wind');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
@@ -63,10 +66,14 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-typed').check();
     await page.getByTestId('wind-n1-x').fill('0.4');
     await page.getByTestId('wind-n1-y').fill('0.4');
+    await dwellingFloorLoads(page);
     // A shed has no floors to take the roof's dead load from: it is stated.
     await alSection(page, 'roof');
+    await page.getByTestId('al-roof').check();
     await page.getByTestId('al-roof-dead').fill('0.25');
     await page.getByTestId('al-roof-dead').press('Tab');
+    await expectLoadGenerationRefusal(page, /concentrated roof actions/);
+    await page.getByTestId('al-roof').uncheck();
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);
@@ -85,6 +92,7 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-x').fill('0,8');
     await page.getByTestId('wind-n1-y').fill('0.6');
     await page.getByTestId('wind-n1-y').press('Tab');
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     expect(Number(await page.getByTestId('al-after-dist').innerText())).toBeGreaterThan(0);

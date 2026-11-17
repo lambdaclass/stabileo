@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 import { test, expect, loadModel, alSection, designPlace } from './fixtures';
 
 /**
@@ -211,6 +212,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
       // Service wind Wa at 10 years from a 40 m/s 50-year speed.
       await page.getByTestId('al-wind-service').check();
       await page.getByTestId('al-wind-service-v50').fill('40');
+      await dwellingFloorLoads(page);
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
       await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -226,6 +228,7 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
 test.describe('@smoke story drift is checked on the seismic cases', () => {
   test('the generated seismic cases reach the drift table, against Tabla 6.4', async ({ pro: page }) => {
     await openWithSeismic(page);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -290,6 +293,7 @@ test.describe('@smoke the project states its own combination rules', () => {
     const typed = await page.evaluate(() => window.__stabileo.modelCensus().combinations);
     await alSection(page, 'applying');
     await page.getByTestId('al-clear').check();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-after-combos')).toHaveText(String(typed + 1));
     await page.getByTestId('al-apply').click();
@@ -308,6 +312,7 @@ test.describe('@smoke snow from CIRSOC 104', () => {
     await page.getByTestId('al-enable-snow').check();
     await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
     await expect(page.getByTestId('al-snow-preview')).toContainText(/pf = /);
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });

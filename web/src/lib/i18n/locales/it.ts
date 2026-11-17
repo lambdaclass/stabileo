@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} richiede la verifica di carichi concentrati secondo CIRSOC 101 {article}. Le posizioni più sfavorevoli non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} richiede la verifica di un sovraccarico concentrato di {force} kN secondo CIRSOC 101 §4.4. Le posizioni più sfavorevoli e l’alternativa tra carico uniforme e concentrato non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 richiede azioni concentrate sulla copertura nelle posizioni più sfavorevoli, separatamente dal sovraccarico di copertura di §4.8. Queste verifiche non sono valutate. La generazione automatica è bloccata; modellare e verificare le azioni di copertura manualmente.",
   "account.err.invalid_credentials": "L'indirizzo e-mail o la password non sono corretti.",
   // ─── Auth / Login ───
 
