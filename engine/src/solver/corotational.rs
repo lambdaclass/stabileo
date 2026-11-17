@@ -2451,7 +2451,6 @@ fn compute_corotational_forces_3d(
             ElementForces3D {
                 member_moments,
                 point_torques,
-                length: el.length,
                 n_start: -el.actions[0] - actions[0],
                 n_end: el.actions[6] + actions[6],
                 vy_start: el.actions[1] + actions[1],
@@ -2500,7 +2499,6 @@ fn add_wagner_torque(
 
 struct ElasticMemberActions3D {
     element_id: usize,
-    length: f64,
     actions: [f64; 12],
 }
 
@@ -2551,7 +2549,6 @@ fn elastic_corotational_forces_3d(
 
             forces.push(ElasticMemberActions3D {
                 element_id: elem.id,
-                length: l_n,
                 actions: [-n_axial, 0.0, 0.0, 0.0, 0.0, 0.0, n_axial, 0.0, 0.0, 0.0, 0.0, 0.0],
             });
             continue;
@@ -2642,7 +2639,6 @@ fn elastic_corotational_forces_3d(
 
         forces.push(ElasticMemberActions3D {
             element_id: elem.id,
-            length: l_n,
             actions: f_local,
         });
     }
@@ -3603,26 +3599,48 @@ mod round23_tests {
     use serde_json::json;
 
     #[test]
-    #[ignore = "known wrong result: #2219"]
     fn shortening_and_extension_keep_couple_diagrams_in_reference_coordinates() {
         for strain in [-0.1, 0.0, 0.1] {
             for (a, b) in [(0.0, 3.0), (0.3, 2.4)] {
-                for values in [[2.0; 3], [1.0, 2.0, 3.0]] {
-                    let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
-                    v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"a":a,"b":b,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":values,"y":[0,0,0],"z":[0,0,0]}}}]);
-                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
-                    let dofs = DofNumbering::build_3d(&input);
-                    let mut u = vec![0.0; dofs.n_total];
-                    u[dofs.global_dof(1, 0).unwrap()] = strain * 3.0;
-                    let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
-                    let ef = &result[0];
-                    assert!((evaluate_diagram_3d_at(ef, "torsion", 1.0) - ef.mx_end).abs() < 1e-10, "strain={strain} span=({a},{b}) {ef:?}");
-                    for t in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
-                        let integral = MemberMoments::integral_local(values, b - a, (3.0 * t - a) / (b - a));
-                        assert!((evaluate_diagram_3d_at(ef, "torsion", t) - ef.mx_start - integral).abs() < 1e-10);
-                    }
+                for (axis, kind) in [(0, "torsion"), (1, "momentY"), (2, "momentZ")] {
+                    for values in [[2.0; 3], [1.0, 2.0, 3.0]] {
+                        let mut moments = [[0.0; 3]; 3];
+                        moments[axis] = values;
+                        let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                        v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"a":a,"b":b,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":moments[0],"y":moments[1],"z":moments[2]}}}]);
+                        let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                        let dofs = DofNumbering::build_3d(&input);
+                        let mut u = vec![0.0; dofs.n_total];
+                        u[dofs.global_dof(1, 0).unwrap()] = strain * 3.0;
+                        let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                        let ef = &result[0];
+                        let (start, end, slope) = match axis { 0 => (ef.mx_start, ef.mx_end, 0.0), 1 => (ef.my_start, ef.my_end, ef.vz_start), _ => (ef.mz_start, ef.mz_end, -ef.vy_start) };
+                        assert!((evaluate_diagram_3d_at(ef, kind, 1.0) - end).abs() < 1e-10, "strain={strain} span=({a},{b}) {ef:?}");
+                        for t in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
+                            let integral = MemberMoments::integral_local(values, b - a, (3.0 * t - a) / (b - a));
+                            assert!((evaluate_diagram_3d_at(ef, kind, t) - start - slope * 3.0 * t - integral).abs() < 1e-10);
+                        }
+                }
                 }
             }
         }
+    }
+
+    #[test]
+    fn absent_transverse_point_torque_components_are_exactly_zero() {
+        let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+        let dofs = DofNumbering::build_3d(&input);
+        let mut ef = compute_corotational_forces_3d(&input, &dofs, &vec![0.0; dofs.n_total], false).remove(0);
+        ef.point_torques = vec![PointTorqueInfo { a: 1.5, p: 2.0, y: None, z: None }];
+        assert_eq!(evaluate_diagram_3d_at(&ef, "momentY", 0.75), 0.0);
+        assert_eq!(evaluate_diagram_3d_at(&ef, "momentZ", 0.75), 0.0);
+        ef.point_torques[0].y = Some(3.0);
+        ef.point_torques[0].z = Some(-4.0);
+        assert_eq!(evaluate_diagram_3d_at(&ef, "momentY", 0.75), 3.0);
+        assert_eq!(evaluate_diagram_3d_at(&ef, "momentZ", 0.75), -4.0);
+        ef.point_torques[0].y = Some(f64::NAN);
+        ef.point_torques[0].z = Some(f64::NAN);
+        assert!(evaluate_diagram_3d_at(&ef, "momentY", 0.75).is_nan());
+        assert!(evaluate_diagram_3d_at(&ef, "momentZ", 0.75).is_nan());
     }
 }

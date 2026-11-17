@@ -1,0 +1,41 @@
+{
+  "id": "member-diagram-reference-coordinates",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "members",
+      "analysis:nonlinear"
+    ]
+  },
+  "quantities": [
+    "elementForces",
+    "envelope"
+  ],
+  "title": {
+    "en": "Corotational diagram reference coordinates",
+    "es": "Coordenadas de referencia de diagramas corrotacionales",
+    "pt": "Coordenadas de referência dos diagramas corrotacionais",
+    "de": "Referenzkoordinaten korotierender Diagramme",
+    "fr": "Coordonnées de référence des diagrammes corotationnels",
+    "tr": "Eşdönen diyagramların referans koordinatları",
+    "hu": "Korotációs diagramok referenciakoordinátái"
+  },
+  "explanation": {
+    "en": "Corotational member diagrams retain the reference length together with load supports and densities. Shortening no longer truncates the integrated couple. Rerun nonlinear analyses and dependent diagrams and checks (#2219).",
+    "es": "Los diagramas corrotacionales conservan la longitud de referencia junto con los tramos e intensidades de carga. El acortamiento ya no trunca el momento integrado. Repita análisis no lineales, diagramas y verificaciones (#2219).",
+    "pt": "Os diagramas corrotacionais conservam o comprimento de referência com os trechos e intensidades de carga. O encurtamento não trunca mais o momento integrado. Refaça análises não lineares, diagramas e verificações (#2219).",
+    "de": "Korotierende Stabdiagramme behalten die Referenzlänge mit Lastbereichen und Lastdichten. Verkürzung schneidet das integrierte Moment nicht mehr ab. Nichtlineare Analysen, Diagramme und Nachweise erneut ausführen (#2219).",
+    "fr": "Les diagrammes corotationnels conservent la longueur de référence avec les portées et densités de charge. Le raccourcissement ne tronque plus le couple intégré. Relancez analyses non linéaires, diagrammes et vérifications (#2219).",
+    "tr": "Eşdönen eleman diyagramları yük aralıkları ve yoğunluklarıyla birlikte referans uzunluğunu korur. Kısalma artık tümleşik momenti kesmez. Doğrusal olmayan analizleri, diyagramları ve kontrolleri yineleyin (#2219).",
+    "hu": "A korotációs rúddiagramok a terhelési szakaszokkal és sűrűségekkel együtt megőrzik a referenciahosszt. A rövidülés nem csonkítja az integrált nyomatékot. Ismételje meg a nemlineáris elemzéseket, diagramokat és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round23.md",
+    "heading": "Combined diagram extrema and reference coordinates"
+  }
+}

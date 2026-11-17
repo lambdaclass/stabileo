@@ -1,3 +1,4 @@
+import { cubicOnInterval, polynomialDerivative, polynomialRootCandidates } from './polynomial-stations';
 export function adjacentStation(t: number, step: bigint): number {
   const bits = new DataView(new ArrayBuffer(8));
   bits.setFloat64(0, t);
@@ -45,24 +46,7 @@ export function diagramStations(length: number, loads: Iterable<{ a: number }>, 
   for (let k = 0; k + 1 < cuts.length; k++) {
     const lo = cuts[k]!, hi = cuts[k + 1]!, width = hi - lo;
     if (!(width > 0)) continue;
-    const s = Array.from({ length: 4 }, (_, i) => (1 - Math.cos((2 * i + 1) * Math.PI / 8)) / 2);
-    const c = s.map(u => evaluate(lo + width * u));
-    for (let j = 1; j < 4; j++) for (let i = 3; i >= j; i--) c[i] = (c[i]! - c[i - 1]!) / (s[i]! - s[i - j]!);
-    const a = 3 * c[3]!, b = 2 * (c[2]! - c[3]! * (s[0]! + s[1]! + s[2]!));
-    const d = c[1]! - c[2]! * (s[0]! + s[1]!) + c[3]! * (s[0]! * s[1]! + s[0]! * s[2]! + s[1]! * s[2]!);
-    const scale = Math.max(Math.abs(a), Math.abs(b), Math.abs(d));
-    const roots: number[] = [];
-    if (!(scale > 0)) continue;
-    if (Math.abs(a) <= 1e-12 * scale) {
-      if (b !== 0) roots.push(-d / b);
-    } else {
-      const disc = b * b - 4 * a * d;
-      if (disc >= 0) {
-        const q = -0.5 * (b + (b < 0 ? -1 : 1) * Math.sqrt(disc));
-        roots.push(q / a);
-        if (q !== 0) roots.push(d / q);
-      }
-    }
+    const roots = polynomialRootCandidates(polynomialDerivative(cubicOnInterval(evaluate, lo, hi)));
     for (const root of roots) if (root > 0 && root < 1) positions.add(lo + width * root);
   }
   return [...positions].sort((a, b) => a - b);

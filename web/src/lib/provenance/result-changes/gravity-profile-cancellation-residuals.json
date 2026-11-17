@@ -1,0 +1,41 @@
+{
+  "id": "gravity-profile-cancellation-residuals",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "floorLoads",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity profile cancellation residuals",
+    "es": "Residuos de cancelación en perfiles de carga",
+    "pt": "Resíduos de cancelamento em perfis de carga",
+    "de": "Restlasten nach Profiladdition",
+    "fr": "Résidus de compensation des profils de charge",
+    "tr": "Yük profillerinin iptal sonrası kalanları",
+    "hu": "Teherprofilok kioltási maradékai"
+  },
+  "explanation": {
+    "en": "Linear gravity profile superposition retains nonzero compensated sums instead of replacing them with zero. Regenerate affected floor and area loads, then rerun analyses and dependent checks (#2219).",
+    "es": "La superposición de perfiles conserva las sumas compensadas no nulas en lugar de sustituirlas por cero. Regenere las cargas de piso y área afectadas y repita análisis y verificaciones (#2219).",
+    "pt": "A superposição de perfis conserva somas compensadas não nulas em vez de substituí-las por zero. Gere novamente as cargas de piso e área afetadas e refaça análises e verificações (#2219).",
+    "de": "Die Profilüberlagerung behält von null verschiedene kompensierte Summen. Betroffene Decken- und Flächenlasten neu erzeugen und Analysen und Nachweise wiederholen (#2219).",
+    "fr": "La superposition des profils conserve les sommes compensées non nulles. Régénérez les charges de plancher et de surface concernées, puis relancez analyses et vérifications (#2219).",
+    "tr": "Profil birleşimi sıfır olmayan düzeltilmiş toplamları sıfıra çevirmeden korur. Etkilenen döşeme ve alan yüklerini yeniden üretip analizleri ve kontrolleri yineleyin (#2219).",
+    "hu": "A profilok szuperpozíciója megőrzi a nem nulla kompenzált összegeket. Generálja újra az érintett födém- és felületi terheket, majd ismételje meg az elemzéseket és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round23.md",
+    "heading": "Combined diagram extrema and reference coordinates"
+  },
+  "requiresFloorLoadRegeneration": true,
+  "requiresLoadRegeneration": true
+}

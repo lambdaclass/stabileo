@@ -7,7 +7,7 @@ import type { AnalysisResults3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
 
-it.skip('known wrong result: #2219 WASM shortening member torque diagrams match recovered end actions', () => {
+it('known wrong result: #2219 WASM shortening member torque diagrams match recovered end actions', () => {
   const fixture = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/reaction-recovery-3d.json', import.meta.url), 'utf8'));
   for (const strain of [-0.0001, 0, 0.0001]) {
     const s = structuredClone(fixture);

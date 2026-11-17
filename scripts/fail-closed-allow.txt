@@ -332,3 +332,7 @@ engine/src/solver/buckling.rs: let at = |node: usize, i: usize| dof_num.global_d
 
 ## A geometric-stiffness term without a mean axial-force entry contributes no axial work.
 engine/src/solver/buckling.rs: let n = mean_n.get(&t.element_id).copied().unwrap_or(0.0);
+
+## PointTorqueInfo stores the axial component in p; absent optional y/z mean exactly zero transverse couple in legacy data. Rotation writes Some for all components. Some(NaN) is preserved, never replaced.
+engine/src/postprocess/diagrams_3d.rs: for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.z.unwrap_or(0.0); } }
+engine/src/postprocess/diagrams_3d.rs: for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.y.unwrap_or(0.0); } }

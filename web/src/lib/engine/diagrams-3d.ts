@@ -1,4 +1,5 @@
 import { diagramStations, loadPrecedesStation, parentStations } from './load-station';
+import { magnitudeStations } from './polynomial-stations';
 import { integrateQuadratic } from './member-moments';
 // 3D Diagram Computation — Analytical equations
 // Compute diagram values (My, Mz, Vy, Vz, N, Mx) along each 3D element
@@ -31,10 +32,23 @@ export interface ElementDiagram3D {
  */
 function samplingPositions(ef: ElementForces3D, kind: Diagram3DKind): number[] {
   if (ef.pieces?.length) return [...new Set(ef.pieces.flatMap(p => parentStations(ef.length, p.x0, p.x1, samplingPositions(p.forces, kind))))].sort((a, b) => a - b);
-  if (ef.combined) return [...new Set(ef.combined.parts.flatMap(p => samplingPositions(p, kind)))].sort((a, b) => a - b);
+  if (ef.combined) {
+    const parts = ef.combined.parts;
+    const cuts = [...new Set(parts.flatMap(polynomialCuts))].sort((a, b) => a - b);
+    const extrema = magnitudeStations(parts.map(p => t => evaluateDiagramAt(p, kind, t)), ef.combined.method, cuts);
+    return [...new Set([...parts.flatMap(p => samplingPositions(p, kind)), ...extrema, 0, 1])].sort((a, b) => a - b);
+  }
   const loads = kind === 'momentZ' || kind === 'shearY' ? ef.pointLoadsY : kind === 'momentY' || kind === 'shearZ' ? ef.pointLoadsZ : kind === 'torsion' ? ef.pointTorques ?? [] : [];
   const densities = [...ef.distributedLoadsY ?? [], ...ef.distributedLoadsZ ?? [], ...ef.distributedLoadsX ?? [], ...ef.memberMoments ?? []];
   return diagramStations(ef.length, [...loads, ...ef.pointTorques ?? []], densities.flatMap(d => [d.a, d.b]), t => evaluateDiagramAt(ef, kind, t));
+}
+
+function polynomialCuts(ef: ElementForces3D): number[] {
+  if (ef.combined) throw new Error('Nested magnitude combination diagrams require polynomial components');
+  if (ef.pieces?.length) return ef.pieces.flatMap(p => polynomialCuts(p.forces).map(t => (p.x0 + (p.x1 - p.x0) * t) / ef.length));
+  return [0, 1, ...[...ef.pointLoadsY, ...ef.pointLoadsZ, ...ef.pointTorques ?? []].map(p => p.a / ef.length),
+    ...[...ef.distributedLoadsY, ...ef.distributedLoadsZ, ...ef.distributedLoadsX ?? [], ...ef.memberMoments ?? []].flatMap(p => [p.a / ef.length, p.b / ef.length])]
+    .filter(t => Number.isFinite(t) && t >= 0 && t <= 1);
 }
 
 /**

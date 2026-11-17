@@ -17,7 +17,7 @@ function parabola(a: number, kind: Diagram3DKind): ElementForces3D {
   return ef;
 }
 
-it.skip('known wrong result: #2219 combined functions include their own governing extrema', () => {
+it('known wrong result: #2219 combined functions include their own governing extrema', () => {
   for (const kind of ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'] as const) {
     for (const method of ['abs', 'srss'] as const) {
       const ef = { ...empty(), combined: { method, parts: [parabola(0.21, kind), parabola(0.66, kind)] } };
@@ -32,7 +32,7 @@ it.skip('known wrong result: #2219 combined functions include their own governin
   }
 });
 
-it.skip('known wrong result: #2219 SRSS cubic components retain the quintic stationary point', () => {
+it('known wrong result: #2219 SRSS cubic components retain the quintic stationary point', () => {
   const first = empty(), second = empty();
   first.memberMoments = [{ a: 0, b: 1, moments: { x: [0, 0.75, 3], y: [0, 0, 0], z: [0, 0, 0] } }];
   second.mxStart = 1;
@@ -43,16 +43,18 @@ it.skip('known wrong result: #2219 SRSS cubic components retain the quintic stat
   expect(d.points.some(p => Math.abs(p.t - t) < 1e-10)).toBe(true);
 });
 
-it.skip('known wrong result: #2219 compensated profile residuals survive cancellation', () => {
+it('known wrong result: #2219 compensated profile residuals survive cancellation', () => {
   for (const sign of [-1, 1]) {
     for (const residual of [0.5, 1, 2]) {
       const pieces = [{ a: 0, b: 1, qa: sign * 2 ** 50, qb: sign * 2 ** 50 }, { a: 0, b: 1, qa: sign * (-(2 ** 50) + residual), qb: sign * (-(2 ** 50) + residual) }];
       for (const list of [pieces, [...pieces].reverse()]) expect(linearProfile(list)).toEqual([{ a: 0, b: 1, qa: sign * residual, qb: sign * residual }]);
     }
   }
+  const magnitude = 2 ** 50;
+  expect(linearProfile([{ a: 0, b: 1, qa: magnitude, qb: magnitude }, { a: 0, b: 0.5, qa: -magnitude + 1, qb: -magnitude + 1 }, { a: 0.5, b: 1, qa: -magnitude + 2, qb: -magnitude + 2 }])).toEqual([{ a: 0, b: 0.5, qa: 1, qb: 1 }, { a: 0.5, b: 1, qa: 2, qb: 2 }]);
 });
 
-it.skip('known wrong result: #2219 component sign changes and combination boundaries', () => {
+it('known wrong result: #2219 component sign changes and combination boundaries', () => {
   expect(linearProfile([{ a: 0, b: 1, qa: 2, qb: 2 }, { a: 0, b: 1, qa: -2, qb: -2 }])).toEqual([]);
   expect(linearProfile([{ a: 0, b: 1, qa: 1, qb: 2 }])).toEqual([{ a: 0, b: 1, qa: 1, qb: 2 }]);
   for (const method of ['abs', 'srss'] as const) {
@@ -63,5 +65,22 @@ it.skip('known wrong result: #2219 component sign changes and combination bounda
       expect(d.maxValue).toBeCloseTo(Math.max(root, 1 - root), 12);
     }
     expect(computeDiagram3D({ ...empty(), combined: { method, parts: [] } }, 'torsion').maxValue).toBe(0);
+  }
+});
+
+it('refuses nested magnitude components and keeps ordinary piece components', () => {
+  const inner = { ...empty(), combined: { method: 'srss' as const, parts: [parabola(0.21, 'momentZ'), parabola(0.66, 'momentZ')] } };
+  const outer = { ...empty(), combined: { method: 'abs' as const, parts: [inner, parabola(0.21, 'momentZ')] } };
+  expect(() => computeDiagram3D(outer, 'momentZ')).toThrow(/polynomial components/);
+  const piece = { ...empty(), pieces: [{ x0: 0, x1: 1, sectionId: 1, forces: parabola(0.21, 'momentZ') }] };
+  const ordinary = { ...empty(), combined: { method: 'abs' as const, parts: [piece, parabola(0.66, 'momentZ')] } };
+  expect(computeDiagram3D(ordinary, 'momentZ').maxValue).toBeCloseTo(2 * (1 - 0.225 ** 2), 12);
+});
+
+it('keeps correct zero diagrams and ordinary single-component peaks', () => {
+  for (const method of ['abs', 'srss'] as const) {
+    const ef = { ...empty(), combined: { method, parts: [parabola(0.21, 'momentZ')] } };
+    expect(computeDiagram3D(ef, 'momentZ').maxValue).toBeCloseTo(1, 12);
+    expect(computeDiagram3D({ ...empty(), combined: { method, parts: [empty()] } }, 'momentZ').maxValue).toBe(0);
   }
 });

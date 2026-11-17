@@ -126,7 +126,7 @@ fn transverse_member_moments_use_section_rotation_shapes_and_recovery() {
         let mut input=model(0.0);
         for l in &mut input.loads { if let SolverLoad3D::Distributed(d)=l {
             d.q_zi=0.0;d.q_zj=0.0;
-            let m=d.moments.as_mut().unwrap();
+            let m=d.moments.get_or_insert(MemberMoments { x: [0.0;3], y: [0.0;3], z: [0.0;3] });
             if axis=="y" {m.y=[2.0;3];} else {m.z=[2.0;3];}
         } }
         for r in [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
@@ -358,7 +358,7 @@ fn round8_endpoint_model(a: f64, b: f64, axis: &str) -> SolverInput3D {
     if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
         d.q_zi = 0.0; d.q_zj = 0.0; d.a = Some(a); d.b = Some(b);
         let values = [if b > a { 1.0 / (b - a) } else { 1.0 }; 3];
-        let m = d.moments.as_mut().unwrap();
+        let m = d.moments.get_or_insert(MemberMoments { x: [0.0;3], y: [0.0;3], z: [0.0;3] });
         match axis { "x" => m.x = values, "y" => m.y = values, "z" => m.z = values, _ => unreachable!() }
     }
     input
@@ -838,7 +838,6 @@ fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round23_shortening_member_torque_diagram_matches_recovered_end_actions() {
     for strain in [-0.0001, 0.0, 0.0001] {
         let mut v: Value = serde_json::from_str(include_str!("../fixtures/reaction-recovery-3d.json")).unwrap();
