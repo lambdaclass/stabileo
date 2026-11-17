@@ -219,7 +219,7 @@ export function topBarAt(slabs: readonly SlabRow[], level: string | undefined, a
   return tops.length ? Math.max(...tops) : Math.max(0, ...allowed) || 12;
 }
 
-export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; dead: AnalysisResults3D[] } {
+export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; perCase: AnalysisResults3D[] } {
   const combos = modelStore.combinations;
   const deadIds = new Set(modelStore.model.loadCases.filter((c) => isDeadCase(c.type)).map((c) => c.id));
   const dead = [...deadIds].map((id) => resultsStore.perCase3D.get(id)).filter((r): r is AnalysisResults3D => !!r);
@@ -231,10 +231,10 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
       const factors = c?.factors ?? [];
       return { name: c?.name ?? `#${id}`, result, deadFactor: factors.filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0) };
     });
-    return { sets, basis: 'combinations', dead };
+    return { sets, basis: 'combinations', perCase: dead };
   }
   const r = activeResultSet3D();
-  return r ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
+  return r ? { sets: [{ name: '—', result: r }], basis: 'single', perCase: [] } : { sets: [], basis: 'none', perCase: [] };
 }
 
 function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean }): DemandInput {
@@ -250,7 +250,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
     supportNodes: new Set(supportsByNode.keys()),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
-    groups, sets, dead, faces: opts.faces,
+    groups, sets, perCase: dead, faces: opts.faces,
     ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })),
     faceOffset: (id, end) => {
       const e = modelStore.elements.get(id);
@@ -340,7 +340,7 @@ export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
  * (`rc-sheets-view.svelte.ts`). The rows are those of `buildSheetRows`.
  */
 export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgress, SheetRows, void> {
-  const { sets, basis, dead } = designSets();
+  const { sets, basis, perCase: dead } = designSets();
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;

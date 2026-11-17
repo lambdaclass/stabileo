@@ -1,10 +1,9 @@
 import { expect, it } from 'vitest';
 import { checkFlexure } from '../../engine/codes/argentina/cirsoc201';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2092' ? it : it.skip;
 const params = { fc: 30, fy: 420, b: 0.3, h: 0.8, cover: 0.025, stirrupDia: 8 };
 
-regression('known wrong result: #2092 sheet minimum policy cannot alter canonical engine flexure answers', () => {
+it('known wrong result: #2092 sheet minimum policy cannot alter canonical engine flexure answers', () => {
   for (const edition of ['2005', '2025'] as const) {
     for (const moment of [0, 25, 216.265, 309.248, 10000]) {
       for (const flange of [undefined, { bf: 1.2, hf: 0.12 }]) {

@@ -1,0 +1,38 @@
+{
+  "id": "sheet-policy-isolation",
+  "date": "2026-11-17",
+  "prs": [
+    2279
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "rc"
+  ],
+  "title": {
+    "en": "Sheet flexure policy stays outside engine checks",
+    "es": "La política de flexión de las planillas queda fuera del motor",
+    "pt": "A política de flexão das planilhas fica fora do motor",
+    "de": "Biegerichtlinien der Tabellen bleiben außerhalb der Engine",
+    "fr": "La règle de flexion des feuilles reste hors du moteur",
+    "hu": "A táblázatok hajlítási szabálya a motoron kívül marad",
+    "tr": "Çizelge eğilme kuralı motorun dışında kalır"
+  },
+  "explanation": {
+    "en": "The unmerged sheet preview could alter canonical flexure answers with a sheet-only option. The canonical engine is restored; sheets derive their minimum exemption from its result. Rebuild preview sheets before issuing them. Released engine answers and numerical snapshots are unchanged.",
+    "es": "La vista previa no integrada podía modificar la flexión canónica con una opción exclusiva de planillas. Se restaura el motor; las planillas calculan su excepción al mínimo desde ese resultado. Regenerá las planillas de la vista previa antes de emitirlas. Los resultados publicados y las instantáneas numéricas no cambian.",
+    "pt": "A prévia não integrada podia alterar a flexão canônica com uma opção das planilhas. O motor foi restaurado; as planilhas calculam a exceção ao mínimo a partir do resultado. Refaça as planilhas da prévia antes de emiti-las. Resultados publicados e referências numéricas não mudam.",
+    "de": "Die noch nicht integrierte Tabellenvorschau konnte kanonische Biegeergebnisse durch eine Tabellenoption ändern. Die Engine ist wiederhergestellt; Tabellen leiten ihre Mindestbewehrungsausnahme aus deren Ergebnis ab. Vorschautabellen vor der Ausgabe neu erstellen. Veröffentlichte Ergebnisse und numerische Referenzen bleiben unverändert.",
+    "fr": "La préversion non intégrée pouvait modifier la flexion canonique avec une option des feuilles. Le moteur est rétabli ; les feuilles calculent leur exception au minimum depuis son résultat. Régénérer les feuilles de préversion avant émission. Les résultats publiés et références numériques restent inchangés.",
+    "hu": "A még nem integrált táblázat-előnézet egy saját beállítással módosíthatta a motor hajlítási eredményeit. A motor visszaállt; a táblázatok annak eredményéből számítják a minimum alóli kivételt. Kiadás előtt készítse újra az előnézeti táblázatokat. A közzétett eredmények és numerikus referenciák nem változnak.",
+    "tr": "Birleştirilmemiş çizelge önizlemesi çizelgeye özgü bir seçenekle motorun eğilme sonuçlarını değiştirebiliyordu. Motor geri yüklendi; çizelgeler minimum istisnasını onun sonucundan türetiyor. Önizleme çizelgelerini yayımlamadan önce yeniden oluşturun. Yayımlanan sonuçlar ve sayısal referanslar değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2279-sheet-policy-isolation.md",
+    "heading": "Sheet flexure policy stays outside canonical engine checks (2026-11-17)"
+  }
+}

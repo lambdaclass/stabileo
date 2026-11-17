@@ -305,7 +305,10 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const p = paramsOf(d, c);
   const fc = c.mat.fc, fy = c.mat.fy;
 
-  const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, minimumExemption: true, ...(sagging && d.flange ? { flange: d.flange } : {}) });
+  const flexReq = (mu: number, nc: number, sagging = false) => {
+    const r = checkFlexure(p, mu, nc, { edition: EDITION, ...(sagging && d.flange ? { flange: d.flange } : {}) });
+    return { ...r, AsReq: Math.max(r.AsFlexural, Math.min(r.AsMin, (4 / 3) * r.AsFlexural)) };
+  };
   const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos, true), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
   const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
   if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });

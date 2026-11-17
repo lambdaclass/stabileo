@@ -14594,7 +14594,6 @@ const hu: Translations = {
   "wind.pressure.triangularCentroidUnsupported": "A háromszög alaprajzú szélteherhordóknak a szélirányra szimmetrikusnak kell lenniük; más háromszög alaprajz nem támogatott, mert ez a felosztás nem őrzi meg a vetített nyomás súlypontját.",
   "wind.pressure.carrierPartitionUnresolved": "A fizikai szélteher hatásterületi felosztása nem határozható meg ezekhez a teherviselőkhöz.",
   "wind.other.minimumSignCase": "Szél {dir}, tömör tábla minimális terhe {c} (§4.8)",
-  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
 
   "designData.minTieSpacing": "Legkisebb kengyeltávolság",
   "designData.minTieSpacingHint": "A gerendák és oszlopok kengyeleit és közbenső kengyeleit soha nem javasolja sűrűbben: így marad hely a betonnak. Ha egy követelmény ezen a távolságon nem teljesül, a sor megbukása előtt nagyobb engedélyezett átmérőt és több szárat próbál.",
@@ -15495,6 +15494,7 @@ const hu: Translations = {
 
   "footing.ui.inSheets": "Az alap méretezése, vasalása és rajza a vasalási táblázatokban, az Alapok családban található.",
   "footing.ui.openSheets": "A vasalási táblázatok megnyitása",
+  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
 };
 
 export default hu;

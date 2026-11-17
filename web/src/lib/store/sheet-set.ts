@@ -7,8 +7,8 @@ import { i18n } from '../i18n';
 import { tAt } from '../i18n/store.svelte';
 import { modelStore } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { readinessBanner } from '../engine/detailing/document-render';
-import { withExportLog } from './export-log';
+import { readinessBanner, renderDrawings } from '../engine/detailing/document-render';
+import { retouchedIn, withExportLog } from './export-log';
 import { buildSheetSet, DEFAULT_SHEET_SETTINGS, sheetSetDxfZip, sheetSetPdf, sheetSetSvgZip, type SetSheet, type SheetRevision } from '../sheets/sheet-set';
 import { currentRevision } from '../model/project-info';
 import type { DocumentModel } from '../engine/detailing/document-model';
@@ -22,15 +22,17 @@ import { emptyLayout, type DrawingAdjust, type SheetLayout } from '../sheets/she
 import type { PlacedDrawing } from '../sheets/compose';
 import { drawDetails, placeDetails, type DetailChoice } from '../sheets/details/catalog';
 import { chosenDetails, projectDetailValues } from './detail-catalog';
+import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
+import { drawingPrimitives } from '../sheets/adapter';
+import { membersFromModel } from '../engine/detailing/member-geometry';
+import { projectPhysicalFrame } from './physical-frame';
+import { cachedSceneModel } from '../engine/detailing/scene-cache';
+import { memberNames } from './member-names';
 import { saveFile } from '../export/save-file';
 
 export const sheetSettings = () => ({ ...DEFAULT_SHEET_SETTINGS, ...designData().sheets });
 export const patchSheetSettings = (p: Partial<ReturnType<typeof sheetSettings>>) => patchDesignData({ sheets: { ...sheetSettings(), ...p } });
 export const sheetLanguage = () => sheetSettings().language ?? i18n.locale;
-/**
- * The kinds of plan the set carries; absent, all of them. A kind a project saved that the set no
- * longer draws (the reinforcement drawings, now the reinforcement sheets' export) is left out.
- */
 export const sheetKinds = (): Set<PlanKind> => new Set(((sheetSettings().kinds as string[] | undefined) ?? PLAN_KINDS).filter(isPlanKind));
 
 /** The set's entries in order: the person's list, or one per kind of the chosen kinds. */
@@ -42,6 +44,15 @@ export function sheetEntries(): SheetEntry[] {
   return defaultEntries(PLAN_KINDS.filter((k) => kinds.has(k)));
 }
 export const setSheetEntries = (entries: SheetEntry[]) => patchSheetSettings({ entries });
+
+function sceneOf(doc: DocumentModel) {
+  const m = modelStore.model;
+  const { members } = membersFromModel({
+    elementIds: [...m.elements.keys()].sort((a, b) => a - b),
+    nodes: [...m.nodes.values()], elements: [...m.elements.values()], sections: [...m.sections.values()],
+  });
+  return cachedSceneModel(doc, members, { physical: projectPhysicalFrame() });
+}
 
 export function setSheetRevision(number: string, r: SheetRevision | null): void {
   const revisions = { ...(sheetSettings().revisions ?? {}) };
@@ -65,11 +76,17 @@ function detailsPlan(doc: DocumentModel | null, entries: readonly SheetEntry[]) 
 /** The chosen details the set has no sheet for: their kind is not in it and neither is a details entry. */
 export const unplacedDetails = (): DetailChoice[] => placeDetails(chosenDetails(), sheetEntries()).unplaced;
 
-function entryDrawings(e: SheetEntry, named: Map<string, number>, details?: ReturnType<typeof detailsPlan>): DrawingInput[] {
+function entryDrawings(doc: DocumentModel | null, projectName: string, e: SheetEntry, named: Map<string, number>, details?: ReturnType<typeof detailsPlan>): DrawingInput[] {
   const locale = sheetLanguage(), st = sheetSettings();
   const kind = e.kind as PlanKind;
   const ctx = planContext(locale, (e.format ?? st.format) as SheetFormat, e);
-  const ds = workDrawings(new Set([kind]), ctx).get(kind) ?? [];
+  let ds: DrawingInput[];
+  if (kind === 'detailing') {
+    ds = doc
+      ? renderDrawings(doc, { locale, projectName, retouched: retouchedIn(doc), members: sheetMembers(), coverOf: coverForMember, scene: sceneOf(doc), memberName: (id) => memberNames().atLevel(id) }).sheets
+        .map((s) => ({ key: s.name, title: s.caption ?? s.name, ...drawingPrimitives(s.sheet, locale) }))
+      : [];
+  } else ds = workDrawings(doc, new Set([kind]), ctx).get(kind) ?? [];
   // Two entries of one kind make two groups of sheets, each under its own name.
   const label = e.label || ctx.tr(`sheet.kind.${kind}`);
   const n = (named.get(label) ?? 0) + 1; named.set(label, n);
@@ -85,7 +102,7 @@ function entryDrawings(e: SheetEntry, named: Map<string, number>, details?: Retu
 
 export function projectSheetSet(doc: DocumentModel | null, projectName: string): SetSheet[] {
   const named = new Map<string, number>(), entries = sheetEntries(), details = detailsPlan(doc, entries);
-  return assemble(doc, projectName, entries.flatMap((e) => entryDrawings(e, named, details)));
+  return assemble(doc, projectName, entries.flatMap((e) => entryDrawings(doc, projectName, e, named, details)));
 }
 
 /**
@@ -100,7 +117,7 @@ export async function projectSheetSetAsync(doc: DocumentModel | null, projectNam
     opts.onProgress?.(i, entries.length, e);
     await new Promise((r) => setTimeout(r, 0));
     if (opts.signal?.aborted) return null;
-    drawings.push(...entryDrawings(e, named, details));
+    drawings.push(...entryDrawings(doc, projectName, e, named, details));
   }
   if (opts.signal?.aborted) return null;
   return assemble(doc, projectName, drawings);

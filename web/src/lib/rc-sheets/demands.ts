@@ -40,7 +40,7 @@ export interface DemandInput {
   groups: readonly DemandGroup[];
   sets: readonly DemandSet[];
   /** The dead-load cases at factor 1, for the sustained part of a column's load. */
-  dead?: readonly AnalysisResults3D[];
+  perCase?: readonly AnalysisResults3D[];
   psi?: (elementId: number) => { psiA: number; psiB: number };
   /** The name of the level at an elevation, m. */
   levelAt?: (z: number) => string;
@@ -287,7 +287,7 @@ function slabNodes(m: DemandInput): Set<number> {
 export function columnDemands(m: DemandInput): ColumnDemand[] {
   const inc = incidence(m);
   const out: ColumnDemand[] = [];
-  const deadBy = (m.dead ?? []).map((r) => new Map(r.elementForces.map((f) => [f.elementId, f])));
+  const deadBy = (m.perCase ?? []).map((r) => new Map(r.elementForces.map((f) => [f.elementId, f])));
   const floorNodes = slabNodes(m);
   for (const g of m.groups) {
     if (g.kind !== 'column') continue;
@@ -328,7 +328,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           .map((x) => ({ pu: -x.s.n, mx: x.s.my, my: x.s.mz }));
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
-          ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
+          ...(m.perCase?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
           ...(inner.length ? { inner } : {}),
         });
