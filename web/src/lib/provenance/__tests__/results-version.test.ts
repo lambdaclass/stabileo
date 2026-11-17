@@ -182,11 +182,13 @@ describe('results versions', () => {
   });
 });
 
-for (const merged of [false, true]) it.skipIf(process.env.RUN_KNOWN_WRONG !== '2219').each(['2d', '3d', 'pro'])(`known wrong result: #2219 retains the exact gravity regeneration notices after a current solve in %s, merged=${merged}`, mode => {
+for (const merged of [false, true]) it.each(['2d', '3d', 'pro'])(`known wrong result: #2219 retains the exact gravity regeneration notices after a current solve in %s, merged=${merged}`, mode => {
   const registry = merged ? { ...RESULT_CHANGES, changes: RESULT_CHANGES.changes.map(c => c.id.startsWith('gravity-') ? { ...c, resultsVersion: RESULT_CHANGES.currentResultsVersion } : c) } : RESULT_CHANGES;
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'D' }], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'load-plan' } }], designData: { loadBasis: { resultsVersion: 0 } } };
   const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, analyses: ['linear'], recorded: [...ANALYSIS_KINDS] } as unknown as SolveStamp;
-  expect(assessProject(snapshot, stamp, mode, registry).changes.map(c => c.id)).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support']);
+  const changes = assessProject(snapshot, stamp, mode, registry).changes;
+  expect(changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'gravity-physical-regions', 'gravity-member-loading', 'gravity-torque-projection-and-carriers', 'gravity-stations-and-edits', 'snow-panel-geometry', 'gravity-density-extrema', 'gravity-moment-support'].sort());
+  expect(changes).toEqual([...changes].sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)));
 });
 
 for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {

@@ -257,7 +257,7 @@ export async function openExample(
   return { values, fingerprint };
 }
 
-const LOAD_REFERENCES = new Set(['id', 'nodeId', 'elementId', 'quadId', 'caseId', 'fromDef', 'carrier', 'memberLoadsVersion']);
+const LOAD_REFERENCES = new Set(['id', 'nodeId', 'elementId', 'quadId', 'caseId', 'fromDef', 'carrier', 'memberLoadsVersion', 'floorLoadsVersion']);
 const LOAD_TARGETS = ['nodeId', 'elementId', 'quadId', 'elementIds', 'quadIds', 'nodeIds'] as const;
 
 /**

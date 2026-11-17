@@ -10,7 +10,7 @@ const loads: Load[] = [
 ];
 
 for (const mode of ['2d', '3d', 'pro'] as const) for (const load of loads) {
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2219')(`known wrong result: #2219 ${mode}/${load.type} provenance stamps preserve the physical fingerprint`, () => {
+  it(`known wrong result: #2219 ${mode}/${load.type} provenance stamps preserve the physical fingerprint`, () => {
     reset(mode);
     modelStore.replaceLoads([structuredClone(load)]);
     const before = modelFingerprint();
