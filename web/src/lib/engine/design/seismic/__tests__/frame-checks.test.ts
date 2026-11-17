@@ -74,3 +74,17 @@ describe('a seismic portal by hand', () => {
     expect(r2.joints).toHaveLength(0);
   });
 });
+
+const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
+regression('known wrong result: #2198 seismic shear and confinement credit only anchored column ties', () => {
+  const run = (legs: number) => {
+    const m = column(1, 1, 2);
+    m.r = { ...m.r, longitudinal: { count: 4, diameter: 20 }, column: undefined,
+      stirrups: { ...m.r!.stirrups!, legs, secondaryLegs: legs } };
+    m.section = { ...m.section!, bars: bars.filter(p => p.x !== 0 && p.y !== 0) };
+    return seismicFrameChecks({ nodes, members: [m], settings: defaultSeismicDesign() }).members[0]!;
+  };
+  expect(run(2).confinement).toBeDefined();
+  expect(run(3).confinement).toEqual(run(2).confinement);
+  expect(run(3).shear).toEqual(run(2).shear);
+});
