@@ -90,14 +90,16 @@
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
-    if (perCombo.size === 0 && resultsStore.results3D) {
-      // No combination solved: the result set on screen, named as what it is.
+    if (perCombo.size === 0 && combos.length > 0) return [];
+    if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
+      // Nothing combined: the result set on screen, named as what it is.
       perCombo = new Map([[0, resultsStore.results3D]]);
       combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;
     }
     return maxByType(computeStationDemands(perCombo, combos, md as never).demands, entities);
   }));
   const byType = $derived(guardedByType.value ?? []);
+  const combosUnsolved = $derived(activeCombinations().length > 0 && activePerCombo3D().size === 0);
 
   function fmt(n: number): string {
     if (!Number.isFinite(n)) return '—';
@@ -256,6 +258,8 @@
     </table>
     <p class="tm-cap">{withStations ? t('tables.envelopeHintStations') : t('tables.envelopeHint')}</p>
   </div>
+{:else if mode === 'maxType' && combosUnsolved}
+  <p class="tm-cap" role="alert" data-testid="tm-maxtype-unsolved">{t('design.error.combinationsUnsolved')}</p>
 {:else if mode === 'maxType' && guardedByType.error}
   <p class="tm-cap" role="alert" data-testid="tm-maxtype-engine">{guardedByType.error}</p>
 {:else if mode === 'maxType'}
