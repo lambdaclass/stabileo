@@ -857,3 +857,41 @@ pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64)
 fn require_member_load_interval(length: f64, a: f64, b: f64) {
     assert!(member_load_interval_is_supported(length, a, b), "unsupported distributed member load interval");
 }
+
+#[cfg(test)]
+mod distributed_terms_2223_tests {
+    use super::distributed_load_terms;
+
+    #[test]
+    #[ignore = "known wrong result: #2223"]
+    fn issue_2223_integrates_large_intensities_without_a_slope() {
+        let span = 2.0_f64.powi(-28);
+        let a = 2.0_f64.powi(-20);
+        let b = a + span;
+        for scale in [2.0_f64.powi(1000), 1.0] {
+            for (left, right) in [(0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (-1.0, 1.0)] {
+                for x in [a / 2.0, a, a.next_up(), a + span / 2.0, b.next_down(), b, b.next_up(), b + span, 3.0] {
+                    let (force, moment) = distributed_load_terms(left * scale, right * scale, a, b, x);
+                    if x <= a {
+                        assert_eq!((force, moment), (0.0, 0.0), "{left}, {right}, {scale}, {x}");
+                        continue;
+                    }
+                    let u = ((x - a) / span).min(1.0);
+                    let g = (3.0_f64 / 5.0).sqrt();
+                                        let mut expected_moment = 0.0;
+                    for (t, weight) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
+                        let station = (t + 1.0) * u / 2.0;
+                        let force = (left * (1.0 - station) + right * station) * weight * u / 2.0;
+                        expected_moment += force * (u - station);
+                    }
+                    let expected_force = left * (u - u * u / 2.0) + right * u * u / 2.0;
+                    expected_moment += expected_force * (((x - a) / span) - u);
+                    let actual_force = force / (scale * span);
+                    let actual_moment = moment / (scale * span * span);
+                    assert!((actual_force - expected_force).abs() <= 1e-13 * expected_force.abs().max(1.0), "force {actual_force} != {expected_force}");
+                    assert!((actual_moment - expected_moment).abs() <= 1e-13 * expected_moment.abs().max(1.0), "moment {actual_moment} != {expected_moment}");
+                }
+            }
+        }
+    }
+}

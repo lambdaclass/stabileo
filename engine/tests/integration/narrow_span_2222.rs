@@ -488,3 +488,44 @@ fn issue_2223_translated_decimal_endpoint_across_solvers() {
     }
 }
 }
+
+#[test]
+#[ignore = "known wrong result: #2223"]
+fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
+    use dedaliano_engine::postprocess::{diagrams::*, diagrams_3d::*};
+    let mut input = witness();
+    input.loads.clear();
+    let a = 2.0_f64.powi(-20);
+    let b = a + 2.0_f64.powi(-28);
+    let q = 2.0_f64.powi(1000);
+    let load = DistributedLoadInfo { q_i: 0.0, q_j: q, a, b };
+    let mut result = linear::solve_2d(&input).unwrap();
+    let ef = &mut result.element_forces[0];
+    ef.distributed_loads = vec![load.clone()];
+    for kind in ["shear", "moment"] {
+        for x in [0.0, a / 2.0, a] {
+            assert_eq!(compute_diagram_value_at(kind, x / ef.length, ef), 0.0);
+            assert_eq!(compute_diagram_value_at_sorted(kind, x / ef.length, ef, &[]), 0.0);
+        }
+    }
+    let diagrams = compute_diagrams_2d(&input, &result);
+    for diagram in diagrams.shear.iter().chain(&diagrams.moment) {
+        assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+    }
+    for plane in [Plane::XY, Plane::XZ] {
+        let spatial = embed_2d(&input, plane).unwrap();
+        let mut result = linear::solve_3d(&spatial).unwrap();
+        let ef = &mut result.element_forces[0];
+        ef.distributed_loads_y = vec![load.clone()];
+        ef.distributed_loads_z = vec![load.clone()];
+        for kind in ["shearY", "shearZ", "momentY", "momentZ"] {
+            for x in [0.0, a / 2.0, a] {
+                assert_eq!(evaluate_diagram_3d_at(ef, kind, x / ef.length), 0.0);
+            }
+        }
+        let diagrams = compute_diagrams_3d(&result);
+        for diagram in diagrams.shear_y.iter().chain(&diagrams.shear_z).chain(&diagrams.moment_y).chain(&diagrams.moment_z) {
+            assert!(diagram.points.iter().all(|p| p.value.is_finite()));
+        }
+    }
+}
