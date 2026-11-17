@@ -6,6 +6,8 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
 import { ensurePhysicalModel, platesFromShells } from '../plates-from-shells';
+import { physicalPlates, preparePlatesForAnalysis } from '../physical-plates';
+import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -27,6 +29,15 @@ describe('the seven-storey example in the sheets', () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
     ensurePhysicalModel();
+    meshBeforeAnalysis.value = true;
+    expect(preparePlatesForAnalysis()).toMatchObject({ ok: true });
+    const held = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
+    const baseZ = Math.min(...[...modelStore.nodes.values()].map((n) => n.z ?? 0));
+    const wallBase = physicalPlates().filter((p) => p.physical.kind === 'wall')
+      .flatMap((p) => (p.group.members.quads ?? []).flatMap((q) => modelStore.quads.get(q)!.nodes))
+      .filter((n) => Math.abs((modelStore.nodes.get(n)!.z ?? 0) - baseZ) < 1e-6);
+    expect(wallBase.length).toBeGreaterThan(12);
+    expect(wallBase.filter((n) => !held.has(n))).toEqual([]);
     solve(true);
     const rows = buildSheetRows();
     expect(rows.wall).toHaveLength(21);

@@ -2,9 +2,10 @@
  * Slabs and walls the building tool places are physical plates:
  *  - a slab placed to wait has no shell and its beams stay whole; the analysis meshes it with its
  *    columns' sections in it (grid lines on their faces, the nodes inside tied to the columns), and it
- *    moves as the slab meshed at placement within 5 %;
- *  - its mesh can be taken out and made again, the model returning to what was placed;
- *  - a waffle slab is meshed no coarser than its ribs;
+ *    moves as the slab meshed at placement within 5 %, in its middle and at a beam's midspan;
+ *  - its mesh can be taken out and made again, the model returning to what was placed and the
+ *    columns holding the whole load each time;
+ *  - a waffle slab is meshed no coarser than its ribs, a solid one at its own size whatever ribs are on record;
  *  - a wall with a window is a plate with a hole, its mesh current.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -56,7 +57,8 @@ describe('slabs placed by the building tool', () => {
     const placedNow = build(false);
     const now = census();
     expect(plateStatus(placedNow)).toBe('current');
-    const meshedNow = uzAt(solve(), 3, 2);
+    const now0 = solve();
+    const meshedNow = { mid: uzAt(now0, 3, 2), beam: uzAt(now0, 3, 0) };
 
     const id = build(true);
     expect(census()).toEqual({ nodes: 8, elements: 8, quads: 0, ties: 0 });
@@ -66,9 +68,12 @@ describe('slabs placed by the building tool', () => {
     const atSolveCensus = census();
     expect(atSolveCensus.elements).toBe(now.elements);
     expect(atSolveCensus.ties).toBe(12);
-    const atSolve = uzAt(solve(), 3, 2);
-    expect(Math.abs(atSolve)).toBeGreaterThan(1e-4);
-    expect(Math.abs(atSolve / meshedNow - 1)).toBeLessThan(0.05);
+    const r = solve();
+    const atSolve = { mid: uzAt(r, 3, 2), beam: uzAt(r, 3, 0) };
+    expect(Math.abs(atSolve.mid)).toBeGreaterThan(1e-4);
+    expect(Math.abs(atSolve.beam)).toBeGreaterThan(1e-5);
+    expect(Math.abs(atSolve.mid / meshedNow.mid - 1)).toBeLessThan(0.05);
+    expect(Math.abs(atSolve.beam / meshedNow.beam - 1)).toBeLessThan(0.05);
   });
 
   it('give their mesh back and take it again, the load following and each step undoable', () => {
@@ -77,10 +82,13 @@ describe('slabs placed by the building tool', () => {
     preparePlatesForAnalysis();
     const meshed = census();
     expect(meshed.quads).toBeGreaterThan(20);
+    const held = () => solve().reactions.reduce((s, r) => s + r.fz, 0);
+    expect(held()).toBeCloseTo(5 * 6 * 5, 3);
     clearPlateMesh(id);
     expect(census()).toEqual(placed);
     expect(preparePlatesForAnalysis()).toMatchObject({ ok: true, meshed: 1 });
     expect(census()).toEqual(meshed);
+    expect(held()).toBeCloseTo(5 * 6 * 5, 3);
     historyStore.undo();
     expect(census()).toEqual(placed);
     const total = solve().reactions.reduce((s, r) => s + r.fz, 0);
@@ -94,6 +102,8 @@ describe('slabs placed by the building tool', () => {
     expect(planPlateMesh(id)!.spec.size).toBe(1);
     patchOwnDesignData({ specialFloors: { systems: { [`S${id}`]: { ribbed: { h: 0.3, c: 0.05, spacingX: 0.8, spacingY: 0.6, ribBottom: 0.12, filler: 'permanent' } } } } });
     expect(planPlateMesh(id)!.spec.size).toBe(0.6);
+    modelStore.setGroupData(id, { ...modelStore.model.groups.get(id)!.data, typology: 'solid' });
+    expect(planPlateMesh(id)!.spec.size).toBe(1);
   });
 });
 
@@ -121,6 +131,21 @@ describe('a slab panel meshed with its columns\' sections', () => {
     expect(rows).toBeLessThan(cols);
     const square = planPlateMesh(id, { element: 'quad', size: 0.5, pattern: 'square' })!;
     expect(square.cells).toBeGreaterThan(alongX.cells);
+  });
+
+  it('meets an interior beam across it, cut at the mesh nodes on it, still with the columns\' sections', () => {
+    const id = build(true);
+    const a = modelStore.addNode(2.3, 0, 3), b = modelStore.addNode(2.3, 5, 3);
+    const rib = modelStore.addElement(a, b, 'frame');
+    const plan = planPlateMesh(id, { element: 'quad', size: 1, pattern: 'free', followMembers: true })!;
+    expect(plan.footprints).toBeDefined();
+    const onRib = (plan.mesh!.points as number[][]).filter((q) => Math.abs(q[0]! - 2.3) < 1e-9);
+    expect(onRib.length).toBeGreaterThan(5);
+    applyPlateMeshes([plan]);
+    expect(modelStore.elements.has(rib)).toBe(false);
+    const pieces = [...modelStore.elements.values()].filter((e) => [e.nodeI, e.nodeJ].every((n) => Math.abs(modelStore.nodes.get(n)!.x - 2.3) < 1e-9));
+    expect(pieces.length).toBeGreaterThan(4);
+    expect((modelStore.model.constraints ?? []).length).toBe(12);
   });
 
   it('solves in equilibrium with a triangular mesh', () => {
@@ -164,6 +189,8 @@ describe('walls placed by the building tool', () => {
     expect(modelStore.quads.size).toBeGreaterThan(20);
     const base = [...modelStore.nodes.values()].filter((n) => Math.abs(n.z ?? 0) < 1e-6 && Math.abs(n.y) < 1e-6);
     expect(base.length).toBeGreaterThan(10);
+    const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+    expect(base.every((n) => held.has(n.id))).toBe(true);
     expect(plateEntry(wall!.id)!.surface.meshed!.quality.minAngle).toBeCloseTo(90, 6);
     const r3 = solve();
     expect(r3.reactions.length).toBeGreaterThan(2);

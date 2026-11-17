@@ -6,6 +6,7 @@
    * curved by its sagitta. The drawing is the plate's mesh when it has a current one, else the mesh
    * its settings would give.
    */
+  import { untrack } from 'svelte';
   import { modelStore } from '../../../lib/store';
   import { t, tp } from '../../../lib/i18n';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
@@ -72,6 +73,8 @@
   /** A press on a cell toggles it; a drag from it marks (or unmarks, from a marked one) every cell whose centre the box takes. */
   let svgEl = $state<SVGSVGElement | null>(null);
   let drag = $state<{ cell: number; adding: boolean; base: Set<number>; from: P2; to: P2; moved: boolean } | null>(null);
+  // Cell indices name cells of one figure only: a figure drawn again would read them as other cells.
+  $effect.pre(() => { void figure; untrack(() => { chosen = new Set(); drag = null; }); });
   const svgPoint = (e: PointerEvent): P2 => {
     const m = svgEl?.getScreenCTM();
     if (!m) return [0, 0];

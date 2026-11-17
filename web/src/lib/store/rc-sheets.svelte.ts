@@ -339,7 +339,8 @@ export function meshWallsForSheets(): number {
       if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
       if (plateShellKeys(id).length === 1) clearPlateMesh(id);
     }
-    const plans = ids.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
+    const meshedAgain = new Set(ids.flatMap(plateShellKeys));
+    const plans = ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
     meshed = applyPlateMeshes(plans).plates;
   });
   return meshed;
@@ -352,6 +353,11 @@ export const redesignerOf = (key: string): Redesign | undefined => redesigners.g
 
 import type { SheetProgress } from './rc-sheets-progress.svelte';
 export type { SheetProgress };
+
+/** Whether the model has a physical member the sheets design: a slab or wall plate counts, whatever bars are still unread. */
+export function sheetsHavePhysical(): boolean {
+  return physicalGroups().length > 0;
+}
 
 /** The sheets' rows at once (`sheetRowsSteps` run to its end). */
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {

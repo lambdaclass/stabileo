@@ -3013,17 +3013,16 @@ async function solveCombinations3DParallelCore(
 
     // Collect results (already plain objects — no JSON.parse) and build per-case map
     const perCase = new Map<number, AnalysisResults3D>();
-    let shellsDone = 0;
-    for (const ci of caseInputs) {
+    if (hasShells) await solveStep('shells', 0, caseInputs.length);
+    for (const [k, ci] of caseInputs.entries()) {
       const result: AnalysisResults3D | undefined = caseResults.get(ci.caseId);
-      if (!result) continue;
-      const mech = excitedMechanism3D(result);
-      if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
-      if (hasShells) {
-        await solveStep('shells', shellsDone++, caseInputs.length);
-        postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
+      if (result) {
+        const mech = excitedMechanism3D(result);
+        if (mech) return t('svc.errorInCase3d').replace('{n}', loadCases.find((c) => c.id === ci.caseId)?.name ?? String(ci.caseId)).replace('{err}', mech);
+        if (hasShells) postProcessShellStresses(result, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
+        perCase.set(ci.caseId, result);
       }
-      perCase.set(ci.caseId, result);
+      if (hasShells) await solveStep('shells', k + 1, caseInputs.length);
     }
 
     if (perCase.size === 0) return t('svc.noLoadsApplied');
@@ -3036,9 +3035,8 @@ async function solveCombinations3DParallelCore(
     // Needs an engine-side batch export (e.g. combine_multi_3d) first.
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
-    let combosDone = 0;
-    for (const combo of combinations) {
-      await solveStep('combine', combosDone++, combinations.length);
+    await solveStep('combine', 0, combinations.length);
+    for (const [k, combo] of combinations.entries()) {
       const factors = combo.factors.map(f => ({
         caseId: f.caseId,
         factor: f.factor,
@@ -3050,6 +3048,7 @@ async function solveCombinations3DParallelCore(
         }
         perCombo.set(combo.id, combined);
       }
+      await solveStep('combine', k + 1, combinations.length);
     }
 
     // Compute envelope from all combo results
