@@ -1612,6 +1612,7 @@ function createModelStore() {
     }
   }
 
+  type SupportSnapshotOptions = { preserveSupportTypes?: boolean };
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
 
@@ -1643,7 +1644,7 @@ function createModelStore() {
     if (opts?.drx !== undefined && opts.drx !== 0) sup.drx = opts.drx;
     const supportDry = opts?.dry ?? opts?.drz;
     if (supportDry !== undefined && supportDry !== 0) sup.dry = supportDry;
-    return { ...sup, ...supportConfiguration(opts ?? {}, undefined, uiStore.is3DWorkspace ? type : undefined) };
+    return { ...sup, ...supportConfiguration(opts ?? {}, uiStore.is3DWorkspace ? sup.type : undefined) };
   }
 
   /**
@@ -2161,7 +2162,7 @@ function createModelStore() {
     get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
-    snapshot(): ModelSnapshot {
+    snapshot(options?: SupportSnapshotOptions): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
       // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
@@ -2190,7 +2191,7 @@ function createModelStore() {
         }]) as ModelSnapshot['elements'],
         supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
           ...v,
-          type: normalize2DSupportType(v.type),
+          type: options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type),
           dz: canonicalSupportDz(v),
           dry: canonicalSupportDry(v),
         }]) as ModelSnapshot['supports'],
@@ -2336,7 +2337,7 @@ function createModelStore() {
       _captureProvenance = fn;
     },
 
-    restore(rawSnapshot: ModelSnapshot): void {
+    restore(rawSnapshot: ModelSnapshot, options?: SupportSnapshotOptions): void {
       loadEpoch++;
       _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
@@ -2388,7 +2389,8 @@ function createModelStore() {
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
       const supEntries = s.supports.map(([k, v]) => {
-        const sup = { ...v, type: normalize2DSupportType(v.type as SupportType) } as Support;
+        const type = options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type as SupportType);
+        const sup = { ...v, type } as Support;
         return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
       });
       const seenNodes = new Set<number>();
@@ -3665,8 +3667,12 @@ function createModelStore() {
 
     updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean; curves: Support['curves']; isInclined: boolean; normalX: number; normalY: number; normalZ: number }>): void {
       if (!_undoBatching) _pushUndo?.();
-      if (!model.supports.has(id)) return;
-      if (needsSpaceForSupport(data.type, data.dofRestraints)) this.ensureSpaceCoordinates();
+      const current = model.supports.get(id);
+      if (!current) return;
+      const typeInWorkspace = uiStore.is3DWorkspace ? (type: SupportType) => type : normalize2DSupportType;
+      const requestedType = typeInWorkspace(data.type ?? current.type);
+      const changedType = requestedType !== typeInWorkspace(current.type) ? requestedType : undefined;
+      if (needsSpaceForSupport(changedType, data.dofRestraints)) this.ensureSpaceCoordinates();
       const sup = model.supports.get(id);
       if (!sup) return;
       // If changing nodeId, remove any existing support on the target node
@@ -3681,10 +3687,9 @@ function createModelStore() {
       // A 3D support keeps springs only on the DOFs it leaves free: switching
       // a spring support to fixed (or ticking a DOF) used to keep the spring,
       // and the engine then solved the "fixed" DOF as elastic (#488).
-      const nextType = data.type === undefined ? sup.type
-        : uiStore.is3DWorkspace ? data.type : normalize2DSupportType(data.type);
-      const configuration = supportConfiguration(data, nextType === sup.type ? sup : undefined,
-        uiStore.is3DWorkspace && data.type !== undefined ? nextType : undefined);
+      const nextType = changedType ?? sup.type;
+      const configuration = supportConfiguration(data, changedType === undefined ? sup
+        : uiStore.is3DWorkspace ? changedType : undefined);
       const nextDofs = configuration.dofRestraints;
       const restrained = nextDofs ?? (is3DSupportType(nextType) ? dofRestraintsOfType3D(nextType) : undefined);
       const spring = (key: SpringKey, value: number | undefined) => {

@@ -78,3 +78,25 @@ Fixture replay also remaps a local support's member reference before insertion
 and refuses a reference missing from the fixture. A preset change clears the
 old mask and axes as defaults and applies axes explicitly supplied in the edit.
 Single and bulk support placement use the same rule for explicit axes.
+
+## Unchanged support types preserve bearing directions
+
+Round 8 of #2277 corrects the support edit that produces the solver input. An
+unchanged type carries the recorded DOF mask, frame and local member reference.
+Explicit fields in the edit take precedence. An actual type change applies the
+new preset and discards the previous mask and axes unless the edit supplies
+replacements. Explore preserves the recorded type in its temporary baseline and
+uses the same rule as the support editor. Resubmitting a plane roller in the upright view keeps the model in its embedded plane.
+
+The branch could replace a bearing's explicit mask with the global roller
+preset during a settlement edit. The existing Explore path can also replace a
+mask on the same type in main. In the regression, a unit horizontal force has
+an opposing unit reaction at the bearing with its recorded restraint. The
+Explore override silently produces zero reaction at the bearing on main. In an
+upright plane model, the branch instead refuses the solve after interpreting the
+unchanged plane roller as a bare space roller.
+
+The recheck notice covers space rollers and masked named supports. Review the
+bearing definition and rerun analyses that used an affected edit or Explore
+trial. Saved models record the resulting restraints, so the notice does not
+declare numerical changes when the same stored model is sent to the solver.

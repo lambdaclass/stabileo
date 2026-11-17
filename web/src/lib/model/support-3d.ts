@@ -51,16 +51,16 @@ type SupportConfiguration = Pick<Support, 'dofRestraints' | 'dofFrame' | 'dofLoc
 
 export function supportConfiguration(
   edit: SupportConfiguration,
-  inherited: SupportConfiguration | undefined,
-  rollerPreset: SupportType | undefined,
+  base?: SupportConfiguration | SupportType,
 ): SupportConfiguration {
-  const preset = rollerPreset !== undefined && rollerPreset.startsWith('roller') && rollerPreset !== 'rollerZ' && !edit.dofRestraints;
-  const restraints = edit.dofRestraints ?? (preset ? dofRestraintsOfType3D(rollerPreset) : inherited?.dofRestraints);
+  const inherited = typeof base === 'object' ? base : undefined;
+  const preset = typeof base === 'string' && base.startsWith('roller') && base !== 'rollerZ' && !edit.dofRestraints
+    ? base : undefined;
+  const restraints = edit.dofRestraints ?? (preset ? dofRestraintsOfType3D(preset) : inherited?.dofRestraints);
   const reference = edit.dofFrame === 'global' ? undefined
-    : 'dofLocalElementId' in edit ? edit.dofLocalElementId
-    : preset ? undefined : inherited?.dofLocalElementId;
+    : 'dofLocalElementId' in edit ? edit.dofLocalElementId : inherited?.dofLocalElementId;
   const frame = 'dofFrame' in edit ? edit.dofFrame
-    : preset ? (reference === undefined ? 'global' : undefined) : inherited?.dofFrame;
+    : preset && reference === undefined ? 'global' : inherited?.dofFrame;
   return {
     ...(restraints ? { dofRestraints: { ...restraints } } : {}),
     ...(frame !== undefined ? { dofFrame: frame } : {}),

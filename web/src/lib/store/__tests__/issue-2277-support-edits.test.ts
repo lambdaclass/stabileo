@@ -8,7 +8,6 @@ import {
   validateAndSolve2D, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../../engine/solver-service';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
 const vertical = { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false };
 const horizontal = { ...vertical, tx: true, tz: false };
 const bearingRestraints = { ...vertical, tx: true };
@@ -62,7 +61,7 @@ function reactionX(node: number): number {
 
 for (const mode of ['3d', 'pro'] as const) {
   for (const nonlinear of [false, true]) {
-    regression(`known wrong result: #2277 unchanged roller with settlement in ${mode}, nonlinear=${nonlinear}`, async () => {
+    it(`#2277 unchanged roller with settlement in ${mode}, nonlinear=${nonlinear}`, async () => {
       const { id, node, member, fixed } = localBearing();
       uiStore.analysisMode = mode;
       if (nonlinear) modelStore.updateSupport(fixed, { uplift: true });
@@ -95,7 +94,7 @@ for (const mode of ['3d', 'pro'] as const) {
   }
 }
 
-regression('known wrong result: #2277 the same recorded plane type accepts a replacement mask and keeps its axes', () => {
+it('#2277 the same recorded plane type accepts a replacement mask and keeps its axes', () => {
   const { id, member } = planeBearing('rollerY', true);
   modelStore.updateSupport(id, { type: 'rollerY', dofRestraints: horizontal });
   expect(modelStore.supports.get(id)).toMatchObject({
@@ -106,7 +105,7 @@ regression('known wrong result: #2277 the same recorded plane type accepts a rep
   expect(modelStore.supports.get(id)!.dofLocalElementId).toBeUndefined();
 });
 
-regression('known wrong result: #2277 resubmitting a standing plane roller keeps the embedded answer', () => {
+it('#2277 resubmitting a standing plane roller keeps the embedded answer', () => {
   const { id, node } = planeBearing('rollerZ', false);
   const plane = validateAndSolve2D(modelStore.model);
   if (!plane || typeof plane === 'string') throw new Error(String(plane));
@@ -127,7 +126,7 @@ regression('known wrong result: #2277 resubmitting a standing plane roller keeps
 });
 
 for (const type of ['rollerXY', 'rollerY'] as const) {
-  regression(`known wrong result: #2277 Explore preserves the original bearing when ${type} is resubmitted`, () => {
+  it(`#2277 Explore preserves the original bearing when ${type} is resubmitted`, () => {
     const { id, node, member } = localBearing(type);
     expect(reactionX(node)).toBeCloseTo(-1, 9);
     vi.useFakeTimers();
@@ -141,7 +140,7 @@ for (const type of ['rollerXY', 'rollerY'] as const) {
   });
 }
 
-regression('known wrong result: #2277 changing a preset in Explore resets the mask and local axes', () => {
+it('#2277 changing a preset in Explore resets the mask and local axes', () => {
   const { id, node } = localBearing();
   vi.useFakeTimers();
   whatIf.open();
