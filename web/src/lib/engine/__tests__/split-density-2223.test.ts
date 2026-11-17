@@ -17,7 +17,7 @@ afterEach(() => { modelStore.clear(); historyStore.clear(); });
 
 for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['distributed', 'distributed3d']) {
   for (const entry of ['direct', 'point', 'subdivide', 'nodes', 'allNodes', 'intersection', 'analysis', 'variable', ...(dim === 2 ? ['refine'] : [])]) {
-    it.skip(`known wrong result: #2223 — ${dim}D ${kind} ${entry} keeps dense diagonal load densities exact`, () => {
+    it(`known wrong result: #2223 — ${dim}D ${kind} ${entry} keeps dense diagonal load densities exact`, () => {
       const unit = entry === 'point' ? 0.15 : 0.0015;
       const i = modelStore.addNode(0, 0, ...(dim === 3 ? [0] as const : []));
       const j = modelStore.addNode(unit, unit, ...(dim === 3 ? [unit] as const : []));
@@ -86,7 +86,7 @@ for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['dis
 }
 
 for (const type of ['distributed', 'distributed3d'] as const) {
-  it.skip(`known wrong result: #2223 — ${type} measures additive stations without changing density`, () => {
+  it(`known wrong result: #2223 — ${type} measures additive stations without changing density`, () => {
     const lengths = Array.from({ length: 20 }, (_, k) => Math.sqrt(3 * (((k + 1) * 0.0015 / 20 - k * 0.0015 / 20) ** 2)));
     const L = Math.sqrt(3 * 0.0015 ** 2), bounds = generatedMemberBounds(L, lengths);
     const ids = lengths.map((_, k) => k + 1);
@@ -102,7 +102,7 @@ for (const type of ['distributed', 'distributed3d'] as const) {
   });
 }
 
-it.skip('known wrong result: #2223 — member-defined density is distinct from an explicit interval remap', () => {
+it('known wrong result: #2223 — member-defined density is distinct from an explicit interval remap', () => {
   const length = 0.1, start = 0.3, end = start + length;
   for (const explicit of [false, true]) {
     let nextId = 2;

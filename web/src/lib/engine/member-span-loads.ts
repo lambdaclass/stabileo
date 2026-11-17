@@ -1,5 +1,6 @@
 import { tp } from '../i18n';
-import { requireEngine } from './engine-unavailable';
+import { canonicalMemberLoadInterval, type MemberEndpoints } from './member-interval-kernel';
+export type { MemberEndpoints } from './member-interval-kernel';
 import type { SolverInput, SolverLoad } from './types';
 
 type SpanLoad = Extract<SolverLoad, { type: 'distributed' | 'axialDistributed' }>;
@@ -14,17 +15,11 @@ export function memberLength(input: Pick<SolverInput, 'nodes' | 'elements'>, id:
 
 export const MEMBER_GEOMETRY_LIMIT = 1e-10;
 
-export type MemberEndpoints = readonly [readonly number[], readonly number[]];
-type MemberIntervalKernel = (i: Float64Array, j: Float64Array, a: number, b: number, values?: Float64Array) => Float64Array;
-let intervalKernel: MemberIntervalKernel | null = null;
-export function registerMemberIntervalKernel(kernel: MemberIntervalKernel | null): void { intervalKernel = kernel; }
-
 export class MemberLoadIntervalError extends Error {}
 
 export function validateMemberLoadInterval(id: number, a: number, b: number, length: number, points?: MemberEndpoints): void {
   if (b > length && points) {
-    requireEngine(intervalKernel !== null, 'member load interval');
-    [a, b, length] = intervalKernel!(Float64Array.from(points[0]), Float64Array.from(points[1]), a, b);
+    [a, b, length] = canonicalMemberLoadInterval(points, a, b);
   }
   if (!Number.isFinite(length) || length <= 0 || !Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < a || b > length) {
     throw new MemberLoadIntervalError(tp('engine.memberLoad.invalidInterval', { id, a, b, length }));
@@ -37,8 +32,7 @@ export function validateMemberLoadInterval(id: number, a: number, b: number, len
 export function canonicalSpanLoad(id: number, a: number, b: number, length: number, values: ReadonlyArray<readonly [number, number]>, points?: MemberEndpoints): { a: number; b: number; values: Array<[number, number]> } {
   let mapped = values.map(([i, j]): [number, number] => [i, j]);
   if (b > length && points) {
-    requireEngine(intervalKernel !== null, 'member load interval');
-    const result = intervalKernel!(Float64Array.from(points[0]), Float64Array.from(points[1]), a, b, Float64Array.from(values.flat()));
+    const result = canonicalMemberLoadInterval(points, a, b, values);
     [a, b, length] = result;
     mapped = values.map((_, k) => [result[3 + 2 * k], result[4 + 2 * k]]);
   }
@@ -83,7 +77,13 @@ export function generatedMemberBounds(length: number, lengths: readonly number[]
   return bounds;
 }
 
-export function remapSpanInterval(id: number, a: number, b: number, start: number, end: number, length: number): { lo: number; hi: number; scale: number; a?: number; b?: number } | null {
+export type SpanMeasure = 'member' | 'interval';
+
+export function spanMeasure(load: { a?: number; b?: number }): SpanMeasure {
+  return load.a === undefined && load.b === undefined ? 'member' : 'interval';
+}
+
+export function remapSpanInterval(id: number, a: number, b: number, start: number, end: number, length: number, measure: SpanMeasure = 'interval'): { lo: number; hi: number; scale: number; a?: number; b?: number } | null {
   if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(length) || end <= start || length <= 0) {
     throw new Error(tp('engine.memberLoad.invalidPiece'));
   }
@@ -93,7 +93,7 @@ export function remapSpanInterval(id: number, a: number, b: number, start: numbe
   const lo = Math.max(a, start), hi = Math.min(b, end);
   if (hi <= lo) return null;
   validateMemberLoadInterval(id, lo - start, hi - start, end - start);
-  const scale = (end - start) / length;
+  const scale = measure === 'member' ? 1 : (end - start) / length;
   const local = (x: number) => (x - start) / scale;
   const endpoints = spanEndpoints(lo === start ? 0 : local(lo), hi === end ? length : local(hi), length, id);
   return { lo, hi, scale, ...endpoints };

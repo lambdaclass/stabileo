@@ -53,7 +53,7 @@ describe('the solver worker import graph', () => {
 });
 
 for (const root of ['../solver-worker.ts', '../../../components/examples/run.worker.ts']) {
-  it.skip(`known wrong result: #2223 — ${root} keeps interval kernel registration outside the UI graph`, () => {
+  it(`known wrong result: #2223 — ${root} keeps interval kernel registration outside the UI graph`, () => {
     const { files, offenders } = walk(resolve(here, root));
     expect(files.size).toBeGreaterThan(1);
     expect(offenders).toEqual([]);

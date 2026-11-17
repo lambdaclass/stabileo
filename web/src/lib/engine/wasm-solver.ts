@@ -1,4 +1,4 @@
-import { registerMemberIntervalKernel } from './member-span-loads';
+import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
