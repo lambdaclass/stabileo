@@ -419,6 +419,7 @@ struct MemberDeflection {
 impl MemberDeflection {
     /// (m_q(x), ∫₀ˣ m_q, ∫₀ˣ (x − t) m_q(t) dt, ∫₀ˣ s_q, s_q(x)) of the member loads: couples
     /// change m_q but carry no shear.
+    #[inline(always)]
     fn load_terms(&self, x: f64) -> [f64; 5] {
         let mut out = [0.0; 5];
         let add = |out: &mut [f64; 5], p: f64, d: f64| {

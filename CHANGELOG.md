@@ -102,6 +102,11 @@ Recognize moved Markdown and JSON documents in the results snapshot build classi
 
 ### Performance
 
+#### Avoid unused load integrals in span checks (2026-11-17)
+
+Inline member-load evaluation so moment, shear, and rotation queries can omit
+unused integrals. Load formulas, arithmetic order, and refusal checks are unchanged.
+
 #### Keep combined results in WASM for their envelope (2026-11-17)
 
 Parallel linear solves without shells and with unique combination IDs compute
