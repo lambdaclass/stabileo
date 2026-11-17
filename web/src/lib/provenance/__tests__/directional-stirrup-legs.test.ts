@@ -51,3 +51,28 @@ it('known wrong result: #2198 German stirrup legs use Bügelschenkel', () => {
   expect(entry.explanation.de).not.toContain('Schnitte');
   expect(entry.explanation.de).not.toContain('Bügelschnitte');
 });
+
+it('known wrong result: #2198 — directional design notices cannot excuse unrelated analysis values', async () => {
+  const { declaresMove, judge } = await import('../../legacy-projects/legacy');
+  const { fieldCovered } = await import('../../../../scripts/results-snapshot/applicability.mjs');
+  const { default: quantities } = await import('virtual:result-change-quantities');
+  const metadata = RESULT_CHANGES.changes.find(c => c.id === 'directional-stirrup-legs')!;
+  const entry = { ...metadata, quantities: quantities[metadata.id] };
+  for (const dimension of ['plane2D', 'space3D']) {
+    const features = [dimension, 'members', 'concreteMembers', 'analysis:linear', 'analysis:pdelta', 'analysis:nonlinear'];
+    for (const family of ['base', 'case[1]', 'combo[1]', 'envelope.maxAbs', 'pdelta.results', 'nonlinear.results']) {
+      for (const quantity of ['displacements[n1].uz', 'elementForces[e1].nStart', 'reactions[n1].mz']) {
+        const path = `${family}.${quantity}`;
+        expect(fieldCovered(entry, path, features), path).toBe(false);
+        expect(declaresMove(entry, path), path).toBe(false);
+        if (['base', 'case[1]', 'combo[1]'].includes(family)) {
+          const before = { 'solve.ok': true, [path]: 1 };
+          expect(judge(path, before, { ...before, [path]: 2 }, [entry]).kind).toBe('unexplained');
+          expect(judge(path, before, before, [entry]).kind).toBe('same');
+        }
+      }
+    }
+    expect(fieldCovered(entry, 'design.rc[e1].shearVu', features)).toBe(true);
+    expect(fieldCovered(entry, 'design.rc[e1].shearVu', features.filter(f => f !== 'concreteMembers'))).toBe(false);
+  }
+});
