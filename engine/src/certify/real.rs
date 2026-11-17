@@ -80,6 +80,12 @@ pub trait Real:
     /// enclosures): by continuity the exact root is inside, by monotonicity
     /// it is the only one. NaN if no bracket up to `δ = 1e-3·|r|` certifies.
     fn increasing_root(g64: impl Fn(f64) -> f64, g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self;
+    /// [`Real::increasing_root`] for a `g64` whose computed values never decrease as its argument
+    /// grows (every rounded operation in it is monotone in the right direction). Only then is the
+    /// result the bisection's, bit for bit.
+    fn increasing_root_rounded_monotone(g64: impl Fn(f64) -> f64, g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
+        Self::increasing_root(g64, g, lo, hi)
+    }
     /// A representative f64 (the value itself; an interval's midpoint, NaN if
     /// not finite). For reporting only — never for a decision a result rests on.
     fn mid(self) -> f64;
@@ -103,6 +109,56 @@ pub fn bisect_increasing(g: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
         }
     }
     0.5 * (lo + hi)
+}
+
+/// The value [`bisect_increasing`] returns, in fewer evaluations, for a `g` whose computed values
+/// never decrease as its argument grows. The sign of such a `g` changes between one pair of
+/// adjacent floats, which is where any bracketing search ends.
+pub fn bracket_rounded_monotone(g: impl Fn(f64) -> f64, lo: f64, hi: f64) -> f64 {
+    if !(lo < hi) {
+        return f64::NAN;
+    }
+    let (mut lo, mut hi) = (lo, hi);
+    let (mut g_lo, mut g_hi) = (g(lo), g(hi));
+    if !(g_lo < 0.0) || !(g_hi > 0.0) {
+        return f64::NAN;
+    }
+    let mut bisect = false;
+    let mut kept_lo = 0u8;
+    let mut kept_hi = 0u8;
+    loop {
+        let mid = 0.5 * (lo + hi);
+        if mid <= lo || mid >= hi {
+            return mid;
+        }
+        let mut x = if bisect { mid } else { lo - g_lo * (hi - lo) / (g_hi - g_lo) };
+        if !(x > lo) {
+            x = lo.next_up();
+        }
+        if !(x < hi) {
+            x = hi.next_down();
+        }
+        let width = hi - lo;
+        let g_x = g(x);
+        if g_x < 0.0 {
+            lo = x;
+            g_lo = g_x;
+            kept_lo = 0;
+            kept_hi += 1;
+            if kept_hi > 1 {
+                g_hi *= 0.5;
+            }
+        } else {
+            hi = x;
+            g_hi = g_x;
+            kept_hi = 0;
+            kept_lo += 1;
+            if kept_lo > 1 {
+                g_lo *= 0.5;
+            }
+        }
+        bisect = !bisect && hi - lo > 0.5 * width;
+    }
 }
 
 /// `if c { a } else { b }`, taking the hull of both arms when `c` is undecided.
@@ -183,6 +239,9 @@ impl Real for f64 {
     }
     fn increasing_root(g64: impl Fn(f64) -> f64, _g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
         bisect_increasing(g64, lo, hi)
+    }
+    fn increasing_root_rounded_monotone(g64: impl Fn(f64) -> f64, _g: impl Fn(Self) -> Self, lo: f64, hi: f64) -> Self {
+        bracket_rounded_monotone(g64, lo, hi)
     }
     #[inline]
     fn mid(self) -> f64 {
@@ -338,6 +397,35 @@ impl Real for Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bracket_search_ends_where_the_bisection_does() {
+        use std::cell::Cell;
+        let shapes: [(&str, fn(f64, f64) -> f64); 6] = [
+            ("line", |x, r| x - r),
+            ("cube", |x, r| (x - r) * (x - r) * (x - r)),
+            ("kink", |x, r| if x < r { 1e-3 * (x - r) } else { 1e6 * (x - r) }),
+            ("saturating", |x, r| (1e9 * (x - r)).max(-1.0).min(1.0)),
+            ("plateau at zero", |x, r| if x < r { x - r } else { (x - 2.0 * r).max(0.0) }),
+            ("hyperbola", |x, r| 1.0 / r - 1.0 / x),
+        ];
+        for (name, shape) in shapes {
+            for k in 0..400 {
+                let root = 1e-6 * 1.0471f64.powi(k);
+                for (lo, hi) in [(1e-9, 2e3), (root * 0.999, root * 1.001), (1e-9, root * 1.5)] {
+                    let calls = Cell::new(0);
+                    let fast = bracket_rounded_monotone(|x| { calls.set(calls.get() + 1); shape(x, root) }, lo, hi);
+                    let slow = bisect_increasing(|x| shape(x, root), lo, hi);
+                    assert_eq!(fast.to_bits(), slow.to_bits(), "{name}, root {root}, ({lo}, {hi})");
+                    assert!(calls.get() <= 200, "{name}, root {root}: {} evaluations", calls.get());
+                }
+            }
+        }
+        assert!(bracket_rounded_monotone(|x| x, 1.0, 2.0).is_nan());
+        assert!(bracket_rounded_monotone(|x| x - 5.0, 1.0, 2.0).is_nan());
+        assert!(bracket_rounded_monotone(|x| x - 1.5, 2.0, 1.0).is_nan());
+        assert!(bracket_rounded_monotone(|_| f64::NAN, 1.0, 2.0).is_nan());
+    }
 
     fn iv(lo: f64, hi: f64) -> Interval {
         Interval::new(lo, hi)
