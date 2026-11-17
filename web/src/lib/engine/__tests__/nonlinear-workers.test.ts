@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import * as native from '../../wasm/dedaliano_engine.js';
 import { initSolver } from '../wasm-solver';
+import { finishSolve3D } from '../solve-finish';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from '../nonlinear-worker-session';
 import { destroyPool, initPool, setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
 import { solveCombinations3D, solveCombinations3DParallel, validateAndSolve3DAsync, type ModelData } from '../solver-service';
@@ -18,6 +19,10 @@ class FakeWorker implements WorkerLike {
       if (this.terminated) return;
       const reply = (data: any) => this.onmessage?.({ data: structuredClone(data) } as MessageEvent);
       if (msg.type === 'init') { reply({ type: 'ready' }); return; }
+      if (msg.type === 'solve3d') {
+        reply({ type: 'result', id: msg.id, result: finishSolve3D(native.solve_3d(msg.input), msg.input) });
+        return;
+      }
       if (msg.type === 'nonlinear-free') freed++;
       else if (msg.type === 'nonlinear-step') steps.push(msg.input.kind);
       else throw new Error(`Unexpected job ${msg.type}`);
@@ -106,6 +111,71 @@ it('captures model and combinations before yielding, including proxy-backed nest
   model.nodes.get(c)!.x += 3;
   combos[0]!.factors[0]!.factor = 2;
   expect(output(await pending)).toBe(output(expected));
+});
+
+it.skip('rejects a single nonlinear result when the model changes during worker cleanup (#2283)', async () => {
+  const { c } = beam();
+  const model = md();
+  const options = { isCancelled: () => model.nodes.get(c)!.x !== originalX };
+  const originalX = model.nodes.get(c)!.x;
+  const expected = modelStore.solve3D(false, false, true);
+  expect(expected && typeof expected === 'object').toBe(true);
+  expect(output(await validateAndSolve3DAsync(model, false, false, options))).toBe(output(expected));
+
+  setWorkerFactoryForTests(() => {
+    const worker = new FakeWorker(), post = worker.postMessage.bind(worker);
+    worker.postMessage = msg => {
+      post(msg);
+      if (msg.type === 'nonlinear-free') queueMicrotask(() => { model.nodes.get(c)!.x += 3; });
+    };
+    return worker;
+  });
+  await expect(validateAndSolve3DAsync(model, false, false, options)).rejects.toMatchObject({ name: 'AbortError' });
+  expect(freed).toBe(2);
+});
+
+it.skip.each(['delete case', 'edit row'] as const)('captures nonlinear spectral results before a caller can %s (#2283)', async edit => {
+  beam();
+  const model = md(), combos = modelStore.model.combinations;
+  const [down, up] = modelStore.model.loadCases;
+  const cases = [down!, { ...up!, spectral: { source: { kind: 'code' as const }, factors: { x: 1, y: 0, z: 0 }, rule: 'srss' as const, xi: 0.05 } }];
+  const result = modelStore.solve3D(false, false, true);
+  if (!result || typeof result === 'string') throw new Error('Expected a solved fixture');
+  const row = new Proxy({ ...result.displacements[0]!, ux: 1 }, {});
+  const spectral = new Map([[up!.id, { ...result, displacements: [row, ...result.displacements.slice(1)] }]]);
+  const expected = solveCombinations3D(model, cases, combos, false, false, spectral);
+  if (!expected || typeof expected === 'string') throw new Error('Expected a solved bundle');
+  expect(expected.perCase.get(up!.id)?.displacements[0]?.ux).toBe(1);
+  const snapshot = output(expected);
+
+  const pending = solveCombinations3DParallel(model, cases, combos, false, false, spectral);
+  if (edit === 'delete case') spectral.delete(up!.id);
+  else row.ux = 2;
+  expect(output(await pending)).toBe(snapshot);
+});
+
+it.skip.each(['linear', 'pdelta', 'solveEach', 'superpose'] as const)('refuses a missing factored 3D case with %s (#2283)', async method => {
+  beam();
+  if (method === 'linear' || method === 'pdelta') {
+    const support = [...modelStore.supports.values()].find(s => s.uplift)!;
+    modelStore.updateSupport(support.id, { uplift: false });
+    if (method === 'pdelta') modelStore.adoptAnalysis({ perCombination: 'pdelta' });
+  } else {
+    modelStore.adoptAnalysis({ combinationMethod: method });
+  }
+  const model = md(), cases = modelStore.model.loadCases, combos = modelStore.model.combinations;
+  const withFactor = (factor: number) => [{ ...combos[0]!, factors: [...combos[0]!.factors, { caseId: 99, factor }] }];
+  const expected = solveCombinations3D(model, cases, combos);
+  expect(expected && typeof expected === 'object').toBe(true);
+  expect(output(solveCombinations3D(model, cases, withFactor(0)))).toBe(output(expected));
+  const parallel = await solveCombinations3DParallel(model, cases, combos);
+  expect(parallel && typeof parallel === 'object').toBe(true);
+  expect(output(await solveCombinations3DParallel(model, cases, withFactor(0)))).toBe(output(parallel));
+  const refusal = 'Cannot combine results: missing result for load case 99';
+  expect([
+    solveCombinations3D(model, cases, withFactor(2)),
+    await solveCombinations3DParallel(model, cases, withFactor(2)),
+  ]).toEqual([refusal, refusal]);
 });
 
 it('reports worker solve failures without silently rerunning on the main thread', async () => {

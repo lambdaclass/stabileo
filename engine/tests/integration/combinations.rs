@@ -383,3 +383,85 @@ fn envelope_3d_refuses_unmatched_pdelta_results() {
     let error = compute_envelope_3d(&[solved, other]).unwrap_err();
     assert!(error.contains("result 1 displacements are missing node id"), "{error}");
 }
+
+fn assert_missing_case_coverage<T: serde::Serialize>(
+    expected: &T,
+    combine: impl Fn(Vec<CombinationFactor>, bool) -> Result<Option<T>, String>,
+) {
+    let known = CombinationFactor { case_id: 2, factor: 1.0 };
+    let expected = serde_json::to_value(expected).unwrap();
+    let answer = combine(vec![known.clone()], true).unwrap().unwrap();
+    let answer = serde_json::to_value(answer).unwrap();
+    assert_eq!(answer["displacements"], expected["displacements"]);
+
+    for factor in [0.0, -0.0] {
+        let missing = CombinationFactor { case_id: 99, factor };
+        let combined = combine(vec![missing, known.clone()], true).unwrap().unwrap();
+        assert_eq!(serde_json::to_value(combined).unwrap(), answer);
+    }
+    let refusal = "Cannot combine results: missing result for load case 99";
+    for factor in [2.0, f64::from_bits(1), -f64::from_bits(1)] {
+        let missing = CombinationFactor { case_id: 99, factor };
+        assert_eq!(combine(vec![missing, known.clone()], true).err().as_deref(), Some(refusal));
+    }
+    let missing = CombinationFactor { case_id: 99, factor: 2.0 };
+    assert_eq!(combine(vec![missing], false).err().as_deref(), Some(refusal));
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_2d_refuse_missing_factored_cases() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results;
+    for result in [linear, nonlinear] {
+        assert_missing_case_coverage(&result, |factors, has_result| {
+            let cases = if has_result { vec![CaseEntry { case_id: 2, results: result.clone() }] } else { vec![] };
+            combine_results_checked(&CombinationInput { factors, cases })
+        });
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_2d_optional_api_refuses_missing_factored_cases() {
+    let results = envelope_rows_2d([1, 2], [1.0, 2.0]);
+    let factors = vec![
+        CombinationFactor { case_id: 99, factor: 2.0 },
+        CombinationFactor { case_id: 2, factor: 1.0 },
+    ];
+    let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 2, results: results.clone() }] };
+    assert!(combine_results(&input).is_none());
+    assert!(combine_results_refs(&input.factors, &[(2, &results)]).is_none());
+}
+
+fn assert_missing_case_coverage_3d(combine: impl Fn(CombinationInput3D) -> Result<Option<AnalysisResults3D>, String>) {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results;
+    for result in [linear, nonlinear] {
+        assert_missing_case_coverage(&result, |factors, has_result| {
+            let cases = if has_result { vec![CaseEntry3D { case_id: 2, results: result.clone() }] } else { vec![] };
+            combine(CombinationInput3D { factors, cases, plate_thicknesses: vec![] })
+        });
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_3d_single_refuses_missing_factored_cases() {
+    assert_missing_case_coverage_3d(|input| combine_results_3d(&input));
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_3d_batch_refuses_missing_factored_cases() {
+    assert_missing_case_coverage_3d(|input| {
+        let batch = BatchCombinationInput3D {
+            combinations: vec![input.factors],
+            cases: input.cases,
+            plate_thicknesses: input.plate_thicknesses,
+        };
+        Ok(combine_results_batch_3d(&batch)?.pop().unwrap())
+    });
+}

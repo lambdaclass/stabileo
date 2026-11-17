@@ -169,6 +169,16 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     expect(reaction.rz).toBeCloseTo(15, 8);
   });
 
+  it.skip.each([false, true])('refuses a missing factored 2D case (per-case path: %s) (#2283)', fallback => {
+    const model = beamModel();
+    if (fallback) model.constraints = [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] } as any];
+    const withFactor = (factor: number) => [{ ...combos[0], factors: [...combos[0].factors, { caseId: 99, factor }] }];
+    const control = solveCombinations2D(model, cases, combos);
+    expect(control && typeof control === 'object').toBe(true);
+    expect(solveCombinations2D(model, cases, withFactor(0))).toEqual(control);
+    expect(solveCombinations2D(model, cases, withFactor(2))).toBe('Cannot combine results: missing result for load case 99');
+  });
+
   it('skips ghost combos while keeping valid ones (no zeroed combos)', () => {
     const mixedCombos = [
       { id: 10, name: 'VALID', factors: [{ caseId: 1, factor: 1.0 }] },

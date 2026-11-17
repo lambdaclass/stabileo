@@ -1,8 +1,8 @@
 import { beforeAll, expect, it } from 'vitest';
-import { initSolver, solve3D, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
+import { initSolver, solve3D, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { readFileSync } from 'node:fs';
-import { compute_envelope_2d, solve_pdelta_2d, solve_pdelta_3d, solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
+import { combine_results_2d, compute_envelope_2d, solve_pdelta_2d, solve_pdelta_3d, solve_2d, solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -58,18 +58,71 @@ it('refuses duplicate case-table ids in both new WASM exports', () => {
   expect(() => combine_results_envelope_3d(input)).toThrow('duplicate case id 1');
 });
 
-it('preserves empty and missing-case slots', () => {
+it('preserves empty combination slots', () => {
   const perCase = cases();
-  const combinations = [[], [{ caseId: 99, factor: 1 }], [{ caseId: 99, factor: 2 }, { caseId: 2, factor: 1 }]];
-  expect(combineResultsBatch3D(combinations, perCase, new Map()))
-    .toEqual(combinations.map(factors => combineResults3D(factors, perCase, new Map())));
   expect(combineResultsBatch3D([], perCase, new Map())).toEqual([]);
-  const batch = combineResultsBatch3D(combinations, perCase, new Map());
-  expect(combineResultsEnvelope3D(combinations, perCase, new Map()))
-    .toEqual({ combinations: batch, envelope: computeEnvelope3D(batch.filter(r => r !== null)) });
+  expect(combineResultsBatch3D([[]], perCase, new Map())).toEqual([null]);
   expect(combineResultsEnvelope3D([], perCase, new Map())).toEqual({ combinations: [], envelope: null });
-  expect(combineResultsEnvelope3D(combinations.slice(0, 2), perCase, new Map()))
-    .toEqual({ combinations: [null, null], envelope: null });
+  expect(combineResultsEnvelope3D([[]], perCase, new Map())).toEqual({ combinations: [null], envelope: null });
+});
+
+const combinationPaths3D = {
+  'single wrapper': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combineResults3D(factors, perCase, new Map()),
+  'batch wrapper': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combineResultsBatch3D([factors], perCase, new Map())[0],
+  'fused wrapper': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combineResultsEnvelope3D([factors], perCase, new Map()).combinations[0],
+  'single export': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combine_results_3d({ factors, cases: [...perCase].map(([caseId, results]) => ({ caseId, results })) }),
+  'batch export': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combine_results_batch_3d({ combinations: [factors], cases: [...perCase].map(([caseId, results]) => ({ caseId, results })) })[0],
+  'fused export': (factors: Array<{ caseId: number; factor: number }>, perCase: Map<number, AnalysisResults3D>) =>
+    combine_results_envelope_3d({ combinations: [factors], cases: [...perCase].map(([caseId, results]) => ({ caseId, results })) })[0][0],
+};
+
+const portalInput = (dimension: '2d' | '3d') => readFileSync(new URL(
+  dimension === '2d' ? '../../../../../engine/tests/fixtures/ex-portal-frame-input.json'
+    : '../../../../../engine/tests/fixtures/ex-3d-portal-frame-input.json', import.meta.url), 'utf8');
+const missingCase = { caseId: 99, factor: 2 };
+const presentCase = { caseId: 2, factor: 1 };
+const missingCaseReason = 'Cannot combine results: missing result for load case 99';
+
+it.skip.each(Object.entries(combinationPaths3D))('refuses a missing factored 3D case in the %s (#2283)', (_path, combine) => {
+  const linear = cases().get(2)!;
+  const nonlinear = JSON.parse(solve_pdelta_3d(portalInput('3d'), 20, 1e-9)).results;
+  for (const result of [linear, nonlinear]) {
+    const perCase = new Map([[2, result]]);
+    const expected = combine([presentCase], perCase);
+    expect(expected.displacements).toEqual(result.displacements);
+    for (const factor of [0, -0]) {
+      expect(combine([{ ...missingCase, factor }, presentCase], perCase)).toEqual(expected);
+    }
+    for (const factor of [2, Number.MIN_VALUE, -Number.MIN_VALUE]) {
+      expect(() => combine([{ ...missingCase, factor }, presentCase], perCase)).toThrow(missingCaseReason);
+    }
+    expect(() => combine([missingCase], new Map())).toThrow(missingCaseReason);
+  }
+});
+
+it.skip.each(['wrapper', 'export'])('refuses a missing factored 2D case in the %s (#2283)', path => {
+  const input = portalInput('2d');
+  const linear = solve_2d(JSON.parse(input));
+  const nonlinear = JSON.parse(solve_pdelta_2d(input, 20, 1e-9)).results;
+  for (const result of [linear, nonlinear]) {
+    const combine = (factors: typeof missingCase[], hasResult = true) => path === 'wrapper'
+      ? combineResults(factors, hasResult ? new Map([[2, result]]) : new Map())
+      : combine_results_2d({ factors, cases: hasResult ? [{ caseId: 2, results: result }] : [] });
+    const expected = combine([presentCase]);
+    expect(expected.displacements).toEqual(result.displacements);
+    for (const factor of [0, -0]) {
+      expect(combine([{ ...missingCase, factor }, presentCase])).toEqual(expected);
+    }
+    for (const factor of [2, Number.MIN_VALUE, -Number.MIN_VALUE]) {
+      expect(() => combine([{ ...missingCase, factor }, presentCase])).toThrow(missingCaseReason);
+    }
+    expect(() => combine([missingCase], false)).toThrow(missingCaseReason);
+  }
 });
 
 it('rejects non-finite factors', () => {
