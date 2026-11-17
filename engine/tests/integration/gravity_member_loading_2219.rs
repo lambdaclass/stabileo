@@ -618,3 +618,73 @@ fn plane_distributed_load_ids_reach_the_solver_and_preserve_strict_fields() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round16_zero_resultant_quadratic_torque_keeps_its_interior_profile() {
+    use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
+    let mut input = model(0.0);
+    input.nodes.retain(|_, n| n.id != 3);
+    input.nodes.values_mut().find(|n| n.id == 2).unwrap().x = 1.0;
+    input.elements.retain(|_, e| e.id == 1);
+    let mut support = input.supports.values().next().unwrap().clone();
+    input.supports.retain(|_, s| s.node_id == 1);
+    support.node_id = 2;
+    support.rx = false;
+    input.supports.insert("2".into(), support);
+    input.loads = vec![serde_json::from_value(json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":[1,-0.5,1],"y":[0,0,0],"z":[0,0,0]}}})).unwrap()];
+    let prepared = linear::prepare_static_3d(&input).unwrap();
+    for (entry, result) in [
+        ("linear", linear::solve_3d(&input).unwrap()),
+        ("prepared", prepared.solve_loads(&input.loads).unwrap()),
+        ("pdelta", pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results),
+        ("corotational", corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results),
+    ] {
+        let ef = &result.element_forces[0];
+        assert!(ef.mx_start.abs() < 1e-10, "{entry}: {ef:?}");
+        assert!(ef.mx_end.abs() < 1e-10, "{entry}: {ef:?}");
+        assert_eq!(ef.member_moments.len(), 1, "{entry}");
+        for x in [0.0, (3.0 - 3.0_f64.sqrt()) / 6.0, 0.25, 0.5, 0.75, (3.0 + 3.0_f64.sqrt()) / 6.0, 1.0] {
+            let expected = x - 3.0 * x * x + 2.0 * x * x * x;
+            assert!((evaluate_diagram_3d_at(ef, "torsion", x) - expected).abs() < 1e-10, "{entry}: x={x}");
+        }
+        let diagrams = compute_diagrams_3d(&result);
+        let peak = 3.0_f64.sqrt() / 18.0;
+        assert!((diagrams.torsion[0].max_value - peak).abs() < 1e-10, "{entry}");
+        assert!((diagrams.torsion[0].min_value + peak).abs() < 1e-10, "{entry}");
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round16_small_displacement_moment_profiles_match_linear_recovery() {
+    for axis in ["x", "y", "z"] {
+        let mut input = model(0.0);
+        for load in &mut input.loads {
+            if let SolverLoad3D::Distributed(d) = load {
+                d.q_zi = 0.0;
+                d.q_zj = 0.0;
+                let mut moments = json!({"x":[0,0,0],"y":[0,0,0],"z":[0,0,0]});
+                moments[axis] = json!([1e-6, -0.5e-6, 1e-6]);
+                d.moments = Some(serde_json::from_value(moments).unwrap());
+            }
+        }
+        input.loads.push(serde_json::from_value(json!({"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":1e-6,"my":0,"mz":0}})).unwrap());
+        let expected = linear::solve_3d(&input).unwrap();
+        for result in [pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
+            for ef in &result.element_forces {
+                let reference = expected.element_forces.iter().find(|f| f.element_id == ef.element_id).unwrap();
+                assert_eq!(serde_json::to_value(&ef.member_moments).unwrap(), serde_json::to_value(&reference.member_moments).unwrap());
+                for kind in ["axial", "torsion", "shearY", "shearZ", "momentY", "momentZ"] {
+                    for t in [0.0, 0.2, 0.5, 0.8, 1.0] {
+                        assert!((evaluate_diagram_3d_at(ef, kind, t) - evaluate_diagram_3d_at(reference, kind, t)).abs() < 1e-10, "{axis}: {kind}, t={t}");
+                    }
+                }
+            }
+            let middle = result.displacements.iter().find(|d| d.node_id == 2).unwrap();
+            let reference = expected.displacements.iter().find(|d| d.node_id == 2).unwrap();
+            assert!(reference.rx.abs() > 0.0);
+            assert!((middle.rx - reference.rx).abs() < 1e-10);
+        }
+    }
+}

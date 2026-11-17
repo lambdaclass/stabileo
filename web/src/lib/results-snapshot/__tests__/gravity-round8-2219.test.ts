@@ -102,3 +102,20 @@ for (const [entry, solve] of solves.entries()) it(`known wrong result: #2219 rou
     expect(actual.displacements.find(d=>d.nodeId===2)!.uz).toBeCloseTo(deflection,10);
   }
 });
+
+for (const [entry, solve] of solves.entries()) it.skip(`known wrong result: #2219 round16 zero-resultant quadratic torque entry=${entry}`, async () => {
+  const { compute_diagrams_3d } = await import('../../wasm/dedaliano_engine.js');
+  const s = fixture(0, 1, 'x');
+  s.supports[2] = { nodeId: 2, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+  s.loads[0].data.moments.x = [1, -0.5, 1];
+  const result = solve(s), ef = result.elementForces[0]!;
+  expect(Math.abs(ef.mxStart)).toBeLessThan(1e-10);
+  expect(Math.abs(ef.mxEnd)).toBeLessThan(1e-10);
+  expect(ef.memberMoments).toHaveLength(1);
+  for (const x of [0, (3 - Math.sqrt(3)) / 6, 0.25, 0.5, 0.75, (3 + Math.sqrt(3)) / 6, 1]) {
+    expect(Math.abs(evaluateDiagramAt(ef, 'torsion', x) - (x - 3*x*x + 2*x*x*x))).toBeLessThan(1e-10);
+  }
+  const d = JSON.parse(compute_diagrams_3d(JSON.stringify(result))).torsion[0];
+  expect(Math.abs(d.maxValue - Math.sqrt(3)/18)).toBeLessThan(1e-10);
+  expect(Math.abs(d.minValue + Math.sqrt(3)/18)).toBeLessThan(1e-10);
+});
