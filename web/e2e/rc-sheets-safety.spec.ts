@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { setDesignOption } from './design-options';
 import { test, expect, loadModel, solveModel } from './fixtures';
 import type { Page } from '@playwright/test';
 
@@ -168,7 +169,7 @@ test('@smoke every file that leaves the sheets is recorded, and says when the mo
   }
   await page.keyboard.press('Escape');
 
-  await page.getByTestId('rc-opt-faces').check();
+  await setDesignOption(page, 'faces');
   await expect(page.getByTestId('rc-stale')).toBeVisible();
   await expect(page.getByTestId('rc-exports-outdated')).toHaveText(/^2 archivos exportados de estas planillas salieron de un estado anterior del modelo/);
   await expect(page.getByTestId('rc-export-workbook')).toBeDisabled();

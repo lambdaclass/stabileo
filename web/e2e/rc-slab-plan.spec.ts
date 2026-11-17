@@ -87,7 +87,8 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   const panel = ws.getByTestId('rc-row').filter({ has: page.locator('td:nth-child(2)', { hasText: new RegExp(`^${second}$`) }) }).first();
   await panel.click();
   const bottomX = ws.getByTestId('rc-editor').locator('fieldset').first();
-  await bottomX.locator('select').selectOption('6');
+  // The thinnest bar the design data offer, at the widest spacing the box takes.
+  await bottomX.locator('select').selectOption((await bottomX.locator('select option').first().getAttribute('value'))!);
   await bottomX.locator('input[type="number"]').fill('40');
   await bottomX.locator('input[type="number"]').press('Tab');
   await expect(panel.locator('td.stc')).toHaveText('No verifica');
