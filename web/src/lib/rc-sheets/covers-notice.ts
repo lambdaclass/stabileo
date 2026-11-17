@@ -2,7 +2,6 @@
  * What the sheets say about covers under CIRSOC 201-2025 Table 20.5.1.3.1: where each value comes
  * from, the table's arithmetic for it, and what the one action changes, in words.
  */
-import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { DESIGN_KINDS, largestBar, minimumCoverFor, withCirsocCovers, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
 
 /** The covers the program stored in every project before it kept only what someone stated, m. */
@@ -27,23 +26,25 @@ export function coverOrigin(stored: Pick<StoredDesignData, 'covers'>, kind: Desi
   return DESIGN_KINDS.every((k) => own[k] === OLD_DEFAULT_COVER) ? 'oldDefault' : 'stored';
 }
 
-function ruleOf(d: ProjectDesignData, kind: DesignKind): CoverRule {
+type MainBarMm = (dbMm: number, control: boolean) => number;
+
+function ruleOf(d: ProjectDesignData, kind: DesignKind, mainBarMm: MainBarMm): CoverRule {
   const control = d.executionControl !== false, add = control ? 0 : 5, dbAdd = control ? 5 : 10, db = largestBar(d, kind);
   if (kind === 'footing') return { kind: 'ground' };
   if (d.exposure[kind] !== 'interior') return { kind: 'exposed' };
   if (kind === 'slab' || kind === 'wall') return { kind: 'mesh', db, base: 25 + add, dbAdd };
-  const need = mainBarCoverMm(db, control);
+  const need = mainBarMm(db, control);
   return need - d.stirrupDiaMm >= 25 + add ? { kind: 'main', stirrup: d.stirrupDiaMm, db, base: control ? 35 : 40, dbAdd, need } : { kind: 'stirrup' };
 }
 
 const mm = (m: number) => Math.round(m * 1000);
 
 /** The kinds under the table, with where their cover comes from and why the table asks more. */
-export function coverShortfalls(d: ProjectDesignData, stored: Pick<StoredDesignData, 'covers'>): CoverShortfall[] {
+export function coverShortfalls(d: ProjectDesignData, stored: Pick<StoredDesignData, 'covers'>, mainBarMm: MainBarMm): CoverShortfall[] {
   const table = withCirsocCovers(d).covers;
   return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCoverFor(d, kind) }))
     .filter((x) => x.cover < x.minimum - 1e-9)
-    .map((x) => ({ kind: x.kind, cover: mm(x.cover), minimum: mm(x.minimum), target: mm(table[x.kind]), origin: coverOrigin(stored, x.kind), rule: ruleOf(d, x.kind) }));
+    .map((x) => ({ kind: x.kind, cover: mm(x.cover), minimum: mm(x.minimum), target: mm(table[x.kind]), origin: coverOrigin(stored, x.kind), rule: ruleOf(d, x.kind, mainBarMm) }));
 }
 
 export interface CoverWords {

@@ -1,6 +1,7 @@
 /** The covers notice in words: where each value comes from, the table's arithmetic for it, what the button changes and the button saying so. */
 import { describe, it, expect } from 'vitest';
 import { defaultDesignData, type ProjectDesignData } from '../../model/design-data';
+import { mainBarCoverMm } from '../../codes/cirsoc201/cover';
 import { coverCheckText, coverChanges, coverOrigin, coverShortfalls, coversButton, coversNotice, OLD_DEFAULT_COVER, type CoverWords } from '../covers-notice';
 import es from '../../i18n/locales/es';
 import en from '../../i18n/locales/en';
@@ -30,7 +31,7 @@ describe('where a cover comes from', () => {
 
 describe('a project that kept the program\'s old 25 mm covers', () => {
   const d = withCovers(old.covers);
-  const list = coverShortfalls(d, old);
+  const list = coverShortfalls(d, old, mainBarCoverMm);
 
   it('falls short in beams, columns and footings, by the table\'s own arithmetic', () => {
     expect(list.map((s) => [s.kind, s.cover, s.target, s.origin])).toEqual([['beam', 25, 30, 'oldDefault'], ['column', 25, 30, 'oldDefault'], ['footing', 25, 55, 'oldDefault']]);
@@ -62,7 +63,7 @@ describe('a project that kept the program\'s old 25 mm covers', () => {
 describe('covers the person stored', () => {
   it('say so, and group what goes from one value to the same other', () => {
     const stored = { covers: { beam: 0.02, column: 0.025 } };
-    const list = coverShortfalls(withCovers(stored.covers), stored);
+    const list = coverShortfalls(withCovers(stored.covers), stored, mainBarCoverMm);
     expect(list.map((s) => s.origin)).toEqual(['stored', 'stored']);
     expect(coverChanges(list)).toEqual([{ kinds: ['beam'], from: 20, to: 30 }, { kinds: ['column'], from: 25, to: 30 }]);
     expect(coversButton(list, ES)).toBe('Pasar a 30 mm (vigas y columnas) y volver a dimensionar');
@@ -71,7 +72,7 @@ describe('covers the person stored', () => {
 
   it('read the slabs\' and walls\' rule without a stirrup, and the exposed elements\' fixed value', () => {
     const d = { ...withCovers({ slab: 0.015 }), exposure: { ...defaultDesignData().exposure, wall: 'exterior' as const }, covers: { ...defaultDesignData().covers, slab: 0.015, wall: 0.025 } };
-    const list = coverShortfalls(d, { covers: { slab: 0.015, wall: 0.025 } });
+    const list = coverShortfalls(d, { covers: { slab: 0.015, wall: 0.025 } }, mainBarCoverMm);
     expect(list.map((s) => s.rule.kind)).toEqual(['mesh', 'exposed']);
     const n = coversNotice(list, ES);
     expect(n.items[0]).toBe('Losas: 15 mm (guardado en el proyecto). La tabla pide recubrimiento ≥ máx(25; db + 5) mm; con barras de hasta Ø16, al menos 25 mm.');

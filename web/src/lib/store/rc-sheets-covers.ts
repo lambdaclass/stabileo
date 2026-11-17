@@ -18,8 +18,9 @@ export function sheetCoversUnder(): Array<{ kind: DesignKind; cover: number; min
 
 /** The same kinds with where their cover comes from and the table's arithmetic for it. */
 export function sheetCoverShortfalls(): CoverShortfall[] {
-  if (!rulesFor(sheetCode()).coverTable) return [];
-  return coverShortfalls(designData(), storedDesignData());
+  const table = rulesFor(sheetCode()).coverTable;
+  if (!table) return [];
+  return coverShortfalls(designData(), storedDesignData(), table.mainBarMm);
 }
 
 /** Those covers set to the table's, rounded up to 5 mm, as one undoable change; the sheets are designed again with them. */
