@@ -14564,6 +14564,8 @@ const hu: Translations = {
   "stress.openMohr": "Megnyitás a Mohr-körben",
   "edu.game.open": "Válassza ki a helyes ábrát",
   "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
+  "loads.ec.snow.ukSk": "sk = 0,15 + (0,1·Z + 0,05) + (A − 100)/525, ahol Z = {z} és A = {a} m (A legalább 100 m): sk = {sk} kN/m² (az EN 1991-1-3 brit nemzeti melléklete).",
+  "loads.ec.snow.skZero": "sk = 0 kN/m²: a helyszínen nincs karakterisztikus talajszinti hóteher, ezért hóhatás nem keletkezik (EN 1991-1-3 §4.1).",
   "loads.asce7.reduction.assembly": "§4.7.5: gyülekezési célú használatban a hasznos terhek nem csökkenthetők.",
   "loads.asce7.seismic.blocked.noS1": "Hiányzik az S1: adja meg az 1 másodperces térképi spektrális gyorsulást a USGS Seismic Design Geodatabase-ből (§11.4.2). Ez határozza meg az E és F kategóriát (§11.6) és a 12.8-6. egyenlet szerinti legkisebb Cs értéket.",
   "loads.asce7.live.partitionBelowMinimum": "A megadott {q} kN/m² válaszfalteher kisebb a §4.3.2 által előírt {min} kN/m²-nél (15 psf): {min} kN/m² kerül alkalmazásra, csökkentés nélkül hozzáadva a födém hasznos terhéhez."
