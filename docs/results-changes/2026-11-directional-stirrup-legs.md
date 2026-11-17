@@ -146,3 +146,19 @@ member design changes. Its design quantities do not explain analysis forces,
 reactions or displacements. New checks exercise that restriction through both
 the snapshot gate and legacy judge, including unchanged-answer controls. No
 analysis result, tolerance, historical result or physical acceptance limit changes.
+
+
+## Audited declared-gravity flagship baseline (#2198)
+
+The [member-by-member baseline audit](2198-rc-baseline-closure.md) attributes
+the change from 376 verified / 19 exhausted to 368 verified / 27 exhausted
+entirely to mandatory stirrup closure. Members 180, 181, 186, 187, 192, 195,
+197 and 198 lose acceptance because their former arrangements fail threading
+at both joints under closure eligibility; no member gains acceptance. Six
+already exhausted members gain an anchorage constraint and six verified
+members change reinforcement. Replaying only the pre-closure domain restores
+the old fingerprint exactly; main's merged changes add no digest difference
+on this declared-gravity model. The shared source now includes separate
+declared-gravity counts and all 408 digest lines. No production result changes
+in this baseline-recording task; the existing registry entry covers the
+previously documented closure correction.

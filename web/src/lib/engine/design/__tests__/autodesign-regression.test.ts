@@ -57,6 +57,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import qa8 from '../../../templates/fixtures/rc-design-qa-8.json';
@@ -91,12 +92,11 @@ describe('flagship 408-member RC frame designs completely', () => {
     // threshold; this verifier only checks the primary axis for beams, so it
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
-    // 376 verified after the engine capacity and cage-depth corrections (rc-baseline-digest.test.ts, fingerprint).
-    expect(s.verified).toBe(376);   // 383 until main's concrete in the engine, 379 until §9.6.3.1 (header)
+    expect(s).toMatchObject(evidence.declaredGravity.counts);
     // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
     // 22 until the ductility check (header).
     expect(s.sectionInadequate).toBe(0);
-    expect(s.searchExhausted).toBe(19);   // 12 until main's concrete in the engine, 16 until §9.6.3.1 (header)
+    expect(s.searchExhausted).toBe(evidence.declaredGravity.counts.searchExhausted);
     expect(s.demandUnavailable).toBe(0);
     /**
      * The 13 biaxial beams: PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
@@ -119,7 +119,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     // 13 + 23 = 36 since main's concrete in the engine (rc-baseline-digest.test.ts); 13 + 12 = 25
     // since the minimum shear reinforcement of §9.6.3.1 (header); 13 + 16 = 29 since the
     // ductility check, 13 + 22 = 35 before.
-    expect(s.provisionalRetained).toBe(32);
+    expect(s.provisionalRetained).toBe(evidence.declaredGravity.counts.provisionalRetained);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
@@ -164,7 +164,7 @@ describe('flagship 408-member RC frame designs completely', () => {
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
     expect(refused).toBe(13);
-    expect(congested).toBe(19);
+    expect(congested).toBe(evidence.declaredGravity.counts.searchExhausted);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

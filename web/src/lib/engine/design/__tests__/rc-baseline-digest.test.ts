@@ -34,8 +34,6 @@
 
 import { describe, it, expect } from 'vitest';
 import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
-
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import { runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
@@ -105,10 +103,8 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * the 22 reach a passing arrangement that threads the cages (see the fingerprint).
      */
     // 383 and 12 since the minimum shear reinforcement of §9.6.3.1 (see the fingerprint).
-    // 376 verified and 19 exhausted after the engine capacity and cage-depth corrections (see the fingerprint).
-    expect(summary.verified).toBe(376);
-    // The 19 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
-    expect(summary.searchExhausted).toBe(19);
+    expect(summary).toMatchObject(evidence.declaredGravity.counts);
+    expect(summary.searchExhausted).toBe(evidence.declaredGravity.counts.searchExhausted);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
@@ -116,7 +112,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     expect(summary.aborted).toBe(false);
   });
 
-  knownWrong('known wrong result: #2198 — matches every declared-gravity member in the shared accepted baseline', () => {
+  it('matches every declared-gravity member in the shared accepted baseline', () => {
     expect(lines).toEqual(evidence.declaredGravity.members);
   });
 
@@ -238,10 +234,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // 16 of them since the ductility check (see the fingerprint): 169–172, 197 and 198 verify.
     // 12 since the minimum shear reinforcement (§9.6.3.1, see the fingerprint): 165–168 verify.
     const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
-    // 23 since main's concrete in the engine (see the fingerprint): 162, 163, 165–172 and 185.
-    expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual([
-      161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 182, 183, 184, 185, 188, 196, 199,
-    ]);
+    const expectedIds = evidence.declaredGravity.members
+      .filter((line) => line.split('|')[1] === 'SEARCH_EXHAUSTED')
+      .map((line) => Number(line.split('|')[0]));
+    expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual(expectedIds);
     for (const o of congested) {
       expect(o.limiting).toContain('congestion');
       expect(o.insufficiency).toBeUndefined();
@@ -416,4 +412,4 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // and the other seven stay exhausted. 173, 347 and 350 change bars and stay verified (347 and
 // 350: bottom 7Ø12 → 5Ø25). Utilization moved on 85 (57 up, 28 down, −0,224 to +0,032); the
 // worst stays 0,998. The counts are 376 verified, 19 exhausted, 13 provisional.
-const RECORDED_FINGERPRINT = '88cfb03b363bf253';
+const RECORDED_FINGERPRINT = evidence.declaredGravity.fingerprint;
