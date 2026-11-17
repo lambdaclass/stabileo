@@ -93,7 +93,7 @@ function open(entry: typeof entries[number], file: ReturnType<typeof buildProjec
 
 for (const entry of entries) {
   for (const spatial of [false, true]) {
-    it.skip.each(['file', 'autosave', 'session'].includes(entry) ? cases : cases.filter(c => c.rule === undefined))(`known wrong result: #2223 — ${entry}, ${spatial ? 'spatial' : 'planar'} PRO, $name keeps notice features through migration and recovery`, async ({ enabled, rule, expected }) => {
+    it.each(['file', 'autosave', 'session'].includes(entry) ? cases : cases.filter(c => c.rule === undefined))(`known wrong result: #2223 — ${entry}, ${spatial ? 'spatial' : 'planar'} PRO, $name keeps notice features through migration and recovery`, async ({ enabled, rule, expected }) => {
       const file = project(spatial, enabled, rule);
       open(entry, file);
       await vi.waitFor(() => expect(recheckStore.loadFailed).toBe(true));
@@ -116,7 +116,7 @@ for (const entry of entries) {
 }
 
 for (const mode of ['2d', '3d'] as const) {
-  it.skip.each(cases)(`known wrong result: #2223 — Basic ${mode}, $name retains conservative self-weight notice applicability`, async ({ enabled, rule }) => {
+  it.each(cases)(`known wrong result: #2223 — Basic ${mode}, $name retains conservative self-weight notice applicability`, async ({ enabled, rule }) => {
     uiStore.analysisMode = mode;
     const file = project(mode === '3d', enabled, rule);
     expect(deserializeProject(JSON.stringify(file))).toBe(true);
