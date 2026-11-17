@@ -122,10 +122,26 @@ export interface ModelData {
   groups?: Map<number, { id: number; members: { elements?: number[]; plates?: number[]; quads?: number[] } }>;
 }
 
+function snapshotMap<T>(map: ReadonlyMap<number, T>): Map<number, T> {
+  return new Map([...map].map(([id, value]) => [id, plainDeepCopy(value)]));
+}
+
 function snapshotNonlinearModel(model: ModelData): ModelData {
   return Object.fromEntries(Object.entries(model).map(([key, value]) => [key,
-    value instanceof Map ? new Map([...value].map(([id, row]) => [id, plainDeepCopy(row)])) : plainDeepCopy(value),
+    value instanceof Map ? snapshotMap(value) : plainDeepCopy(value),
   ])) as unknown as ModelData;
+}
+
+function missingCombinationCaseRefusal(
+  caseIds: Iterable<number>,
+  combinations: readonly LoadCombination[],
+): string | null {
+  const available = new Set(caseIds);
+  for (const { factors } of combinations) {
+    const missing = factors.find(({ caseId, factor }) => factor !== 0 && !available.has(caseId));
+    if (missing) return `Cannot combine results: missing result for load case ${missing.caseId}`;
+  }
+  return null;
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -1212,6 +1228,8 @@ export function solveCombinations2D(
   combinations: LoadCombination[],
   includeSelfWeight = false,
 ): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations);
+  if (refused) return refused;
   if (!hasSettlement(model.supports.values())) return solveCombinations2DCore(model, loadCases, combinations, includeSelfWeight);
   const solved = solveCombinations2DCore({ ...model, supports: withoutSettlement(model.supports) }, loadCases, combinations, includeSelfWeight);
   if (!solved || typeof solved === 'string') return solved;
@@ -1289,9 +1307,6 @@ function solveCombinations2DCore(
       // case. A Record keyed by name would silently keep only the last entry.
       if (lc) factors[lc.name] = (factors[lc.name] ?? 0) + f.factor;
     }
-    // The per-case path skips combos whose factors all reference missing cases
-    // (combineResults → null); the engine would instead emit a zeroed combo that
-    // also enters the envelope. Skip here to keep perCombo/envelope identical.
     if (Object.keys(factors).length === 0) continue;
     mcCombinations.push({ name: combo.name, factors });
     comboNameToId.set(combo.name, combo.id);
@@ -1363,6 +1378,8 @@ function solveCombinations2DFallback(
     if (result) perCase.set(lc.id, result);
   }
 
+  const missing = missingCombinationCaseRefusal(perCase.keys(), combinations);
+  if (missing) return missing;
   if (perCase.size === 0) return t('svc.noLoadsApplied');
 
   const perCombo = new Map<number, AnalysisResults>();
@@ -2334,7 +2351,10 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     } catch (err: any) {
       if (err?.name === 'AbortError') throw err;
       return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
-    } finally { await session?.free(); }
+    } finally {
+      await session?.free();
+      checkSolveCancelled(options);
+    }
   }
 
   const wire = input3DToWireObject(input);
@@ -2463,7 +2483,8 @@ export function solveCombinations3D(
   /** The spectral cases' results (`store/spectral-cases.ts`), by case id. */
   spectral?: Map<number, AnalysisResults3D>,
 ): Bundle3D | string | null {
-  const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
+  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
+    ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
   if (refused) return refused;
   // Each case with its composition, notional loads and reduction written out (`case-effects.ts`);
   // only the cases listed or taken by a combination solved (`combination-methods.ts`).
@@ -2709,6 +2730,8 @@ function solveCombinations3DFallback(
     }
   }
 
+  const missing = missingCombinationCaseRefusal(perCase.keys(), combinations);
+  if (missing) return missing;
   if (perCase.size === 0) return t('svc.noLoadsApplied');
 
   const perCombo = new Map<number, AnalysisResults3D>();
@@ -2811,8 +2834,11 @@ function* nonlinearCombinationSteps(
   };
   try {
     const perCase = new Map<number, AnalysisResults3D>();
+    const required = new Set(method === 'superpose'
+      ? combinations.flatMap(({ factors }) => factors.filter(({ factor }) => factor !== 0).map(({ caseId }) => caseId))
+      : []);
     for (const [id, loads] of caseLoads) {
-      if (loads.length === 0 && !imposedCases.has(id)) continue;
+      if (loads.length === 0 && !imposedCases.has(id) && !required.has(id)) continue;
       const on = withImposed(base, free, (c) => (c === id ? 1 : 0));
       if (typeof on === 'string') return on;
       perCase.set(id, yield* run(on, loads));
@@ -3011,8 +3037,10 @@ export async function solveCombinations3DParallel(
     model = snapshotNonlinearModel(model);
     loadCases = plainDeepCopy(loadCases);
     combinations = plainDeepCopy(combinations);
+    spectral = spectral && snapshotMap(spectral);
   }
-  const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
+  const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations)
+    ?? orphanLoadRefusal(model) ?? imposedRefusal(model);
   if (refused) return refused;
   model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
   const solving = casesToSolve(loadCases, combinations);
@@ -3103,6 +3131,8 @@ async function solveCombinations3DParallelCore(
       perCase.set(ci.caseId, result);
     }
 
+    const missing = missingCombinationCaseRefusal(perCase.keys(), combinations);
+    if (missing) return missing;
     if (perCase.size === 0) return t('svc.noLoadsApplied');
 
     const t1 = performance.now();

@@ -169,7 +169,7 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     expect(reaction.rz).toBeCloseTo(15, 8);
   });
 
-  it.skip.each([false, true])('refuses a missing factored 2D case (per-case path: %s) (#2283)', fallback => {
+  it.each([false, true])('refuses a missing factored 2D case (per-case path: %s) (#2283)', fallback => {
     const model = beamModel();
     if (fallback) model.constraints = [{ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] } as any];
     const withFactor = (factor: number) => [{ ...combos[0], factors: [...combos[0].factors, { caseId: 99, factor }] }];
@@ -179,10 +179,10 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     expect(solveCombinations2D(model, cases, withFactor(2))).toBe('Cannot combine results: missing result for load case 99');
   });
 
-  it('skips ghost combos while keeping valid ones (no zeroed combos)', () => {
+  it('skips an absent case with a zero factor while keeping valid combinations', () => {
     const mixedCombos = [
       { id: 10, name: 'VALID', factors: [{ caseId: 1, factor: 1.0 }] },
-      { id: 11, name: 'GHOST', factors: [{ caseId: 99, factor: 1.4 }] },
+      { id: 11, name: 'GHOST', factors: [{ caseId: 99, factor: 0 }] },
     ] as any;
     const oneCase = [{ id: 1, type: 'D', name: 'Dead' }] as any;
     const model = beamModel();
@@ -194,7 +194,7 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     expect(r.perCombo.has(11)).toBe(false);
   });
 
-  it('all-ghost factors: same string error as the legacy path (no zeroed combo)', () => {
+  it('refuses a nonzero factor on an absent case even without a valid factor', () => {
     const ghostCombos = [
       { id: 10, name: 'GHOST', factors: [{ caseId: 99, factor: 1.4 }] },
     ] as any;
@@ -202,8 +202,6 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     const model = beamModel();
     (model.loads as any) = model.loads.filter(l => (l.data as any).caseId === 1);
     const r = solveCombinations2D(model, oneCase, ghostCombos);
-    // The legacy path produces no combos → envelope error string, and the
-    // batch path must surface the same refusal rather than a zeroed combo.
-    expect(typeof r).toBe('string');
+    expect(r).toBe('Cannot combine results: missing result for load case 99');
   });
 });

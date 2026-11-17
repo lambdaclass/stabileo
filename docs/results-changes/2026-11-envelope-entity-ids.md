@@ -5,3 +5,5 @@ The 2D and 3D envelope kernels used the first result's entity labels and took ex
 Both dimensions now match displacement and reaction rows by node ID and member force rows by element ID before taking extrema or evaluating diagrams. Equal ID sets can arrive in any order. The first result determines output order and the existing tie rule still selects the first governing value. Missing, unexpected and duplicate IDs cause a refusal that names the result, the field and the ID. Single, batched and fused 3D superposition apply the same matching requirement before summing.
 
 Re-run saved combination analyses if case records may have arrived in a different order or represented different node or element sets. The existing snapshot fixtures and comparison tolerances are unchanged.
+
+The combination kernels also refuse an absent case result when any factor for that case is nonzero. Previously, a request for twice case 99 plus case 2 silently returned case 2 when its result was the only one supplied. A missing case with an exact zero factor is allowed. The refusal applies to native and WASM combination requests and names the case ID.

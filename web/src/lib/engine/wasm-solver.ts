@@ -1487,7 +1487,6 @@ export function combineResults(
   const cases = factors
     .filter(f => perCase.has(f.caseId))
     .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
-  if (cases.length === 0) return null;
   // Guard the FACTORS only (user data, cheap). The per-case results are solver
   // output — produced after the input-side guard already rejected non-finite
   // model data — so re-walking multi-MB result trees per combo was pure cost.
@@ -1509,7 +1508,6 @@ export function combineResults3D(
   const cases = factors
     .filter(f => perCase.has(f.caseId))
     .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
-  if (cases.length === 0) return null;
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
   const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });

@@ -409,7 +409,6 @@ fn assert_missing_case_coverage<T: serde::Serialize>(
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_2d_refuse_missing_factored_cases() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&input).unwrap();
@@ -423,7 +422,6 @@ fn combinations_2d_refuse_missing_factored_cases() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_2d_optional_api_refuses_missing_factored_cases() {
     let results = envelope_rows_2d([1, 2], [1.0, 2.0]);
     let factors = vec![
@@ -448,13 +446,11 @@ fn assert_missing_case_coverage_3d(combine: impl Fn(CombinationInput3D) -> Resul
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_3d_single_refuses_missing_factored_cases() {
     assert_missing_case_coverage_3d(|input| combine_results_3d(&input));
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_3d_batch_refuses_missing_factored_cases() {
     assert_missing_case_coverage_3d(|input| {
         let batch = BatchCombinationInput3D {

@@ -88,7 +88,7 @@ const missingCase = { caseId: 99, factor: 2 };
 const presentCase = { caseId: 2, factor: 1 };
 const missingCaseReason = 'Cannot combine results: missing result for load case 99';
 
-it.skip.each(Object.entries(combinationPaths3D))('refuses a missing factored 3D case in the %s (#2283)', (_path, combine) => {
+it.each(Object.entries(combinationPaths3D))('refuses a missing factored 3D case in the %s (#2283)', (_path, combine) => {
   const linear = cases().get(2)!;
   const nonlinear = JSON.parse(solve_pdelta_3d(portalInput('3d'), 20, 1e-9)).results;
   for (const result of [linear, nonlinear]) {
@@ -105,7 +105,7 @@ it.skip.each(Object.entries(combinationPaths3D))('refuses a missing factored 3D 
   }
 });
 
-it.skip.each(['wrapper', 'export'])('refuses a missing factored 2D case in the %s (#2283)', path => {
+it.each(['wrapper', 'export'])('refuses a missing factored 2D case in the %s (#2283)', path => {
   const input = portalInput('2d');
   const linear = solve_2d(JSON.parse(input));
   const nonlinear = JSON.parse(solve_pdelta_2d(input, 20, 1e-9)).results;

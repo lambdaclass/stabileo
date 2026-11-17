@@ -113,7 +113,7 @@ it('captures model and combinations before yielding, including proxy-backed nest
   expect(output(await pending)).toBe(output(expected));
 });
 
-it.skip('rejects a single nonlinear result when the model changes during worker cleanup (#2283)', async () => {
+it('rejects a single nonlinear result when the model changes during worker cleanup (#2283)', async () => {
   const { c } = beam();
   const model = md();
   const options = { isCancelled: () => model.nodes.get(c)!.x !== originalX };
@@ -134,11 +134,11 @@ it.skip('rejects a single nonlinear result when the model changes during worker 
   expect(freed).toBe(2);
 });
 
-it.skip.each(['delete case', 'edit row'] as const)('captures nonlinear spectral results before a caller can %s (#2283)', async edit => {
+it.each(['delete case', 'edit row'] as const)('captures nonlinear spectral results before a caller can %s (#2283)', async edit => {
   beam();
   const model = md(), combos = modelStore.model.combinations;
   const [down, up] = modelStore.model.loadCases;
-  const cases = [down!, { ...up!, spectral: { source: { kind: 'code' as const }, factors: { x: 1, y: 0, z: 0 }, rule: 'srss' as const, xi: 0.05 } }];
+  const cases = [down!, { ...up!, spectral: { source: { kind: 'code' as const }, factors: { x: 1, y: 0, z: 0 }, rule: 'srss' as const, xi: 0.05, scale: 1 } }];
   const result = modelStore.solve3D(false, false, true);
   if (!result || typeof result === 'string') throw new Error('Expected a solved fixture');
   const row = new Proxy({ ...result.displacements[0]!, ux: 1 }, {});
@@ -154,7 +154,7 @@ it.skip.each(['delete case', 'edit row'] as const)('captures nonlinear spectral 
   expect(output(await pending)).toBe(snapshot);
 });
 
-it.skip.each(['linear', 'pdelta', 'solveEach', 'superpose'] as const)('refuses a missing factored 3D case with %s (#2283)', async method => {
+it.each(['linear', 'pdelta', 'solveEach', 'superpose'] as const)('refuses a missing factored 3D case with %s (#2283)', async method => {
   beam();
   if (method === 'linear' || method === 'pdelta') {
     const support = [...modelStore.supports.values()].find(s => s.uplift)!;
