@@ -1,3 +1,4 @@
+import type { SupportType } from '../model/support-types';
 import { te } from '../i18n/engine-text';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
@@ -499,9 +500,7 @@ export type ReleaseEnd = 'i' | 'j';
 /** Boolean rotational/torsional release axes (excludes the non-boolean slide fields). */
 export type ReleaseAxis = 'my' | 'mz' | 't';
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
-  | 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d'
-  | 'custom3d';
+export type { SupportType } from '../model/support-types';
 
 export interface Support {
   id: number;

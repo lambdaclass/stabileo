@@ -1,0 +1,76 @@
+# SA-2026-089: A 3D roller or unknown support name silently became fixed
+
+| | |
+|---|---|
+| Severity | High |
+| Status | Draft 2026-11-17; requested for #2276; pending coordinator review, merge and release |
+| Issue | [#2276](https://github.com/lambdaclass/stabileo/issues/2276) |
+| Fix | Worktree fix for #2276; pending merge and release |
+| Fixed release | Not released |
+| Affected versions | Confirmed on origin/main `44d527d64933c07c8a812f04ad2373e4d83eb72c`; historical releases and introduction not assessed |
+| Re-check registry | [`roller-z-fixed`](../../web/src/lib/provenance/result-changes/roller-z-fixed.json), [`roller-z-fixed-design`](../../web/src/lib/provenance/result-changes/roller-z-fixed-design.json) |
+
+## Affected features
+
+A 3D model with a `rollerZ` or previously unknown support type, in Basic 3D or PRO.
+The web support-name conversion precedes linear/nonlinear and case/combination dispatch
+to WASM. The defined projection of a plane `rollerZ` is unaffected. The Rust 3D API
+already takes restraint booleans and has no corresponding support-name conversion.
+
+## What was wrong
+
+The 3D named-support switch had no `rollerZ` case. Its default restrained all six
+translations and rotations, also applying that condition to any unknown name. A
+successful solve therefore described a different support condition without a warning.
+Member forces, reactions, displacements and downstream design could be wrong.
+
+The shipped `rc-beam-flexure` example is described as simply supported but used
+`rollerZ` at its second bearing. The main-source probe completed with no solver
+warning and returned a right reaction moment of 68.75 kN·m and a right member-end
+moment of −68.75 kN·m. A simply supported end has zero bending moment. The original
+left/right vertical reactions were 41.25/68.75 kN; equilibrium for the intended
+simply supported model gives 55/55 kN and midspan bending moment 68.75 kN·m.
+
+The [results-change record](../results-changes/2026-11-roller-z-fixed.md) derives
+these values from the fixture's geometry, explicit loads and self-weight. This
+witness proves a silent wrong result on main; it is not an error bound for other models.
+
+## How to tell if your model is affected
+
+Inspect 3D support names and explicit restraint masks. An unmasked `rollerZ`, or an
+unknown support name, used the fixed fallback. A correct explicit mask on a recognized
+name already took precedence. The saved-project notice deliberately selects the
+requested stored-type scope, including `rollerZ` supports that already have masks.
+An equilibrium check of the substituted fixed model cannot verify that its supports
+match the intended structure.
+
+## Fixed in
+
+The #2276 worktree correction, pending merge and release. The named switch is exhaustive
+at compile time and refuses unknown runtime values, including values accompanied by a
+mask. The legacy `rollerZ` has contradictory 2D, gizmo and example meanings; genuine 3D
+solves now require explicit restraints instead of guessing. The 2D projection remains
+defined. Solver export and imposed-displacement validation share the same mapping.
+The bundled beam now carries an explicit simply supported bearing mask.
+
+## Workaround
+
+Establish each intended translation and rotation restraint explicitly using the 3D
+support editor and a recognized support type. Include the torsional reference needed
+by the structural model. Verify end conditions and the resulting reactions and moment
+distribution independently. Do not accept a fixed fallback as a slider condition.
+
+## What to do with results you already have
+
+Review the intended supports before re-solving affected saved projects. After upgrading
+to a release containing the correction, rerun analysis, load cases, combinations and
+design. Review forces, reactions, deflections, member sizing and prior deliverables
+that relied on the earlier results. The correction does not choose the intended mask
+for an existing ambiguous saved bearing.
+
+## Credits and references
+
+The task explicitly requested this SA-2026-089 draft. Publication and advisory disposition
+remain with the coordinator. See issue #2276 and the
+[results-change record](../results-changes/2026-11-roller-z-fixed.md) for the main-source
+witness, physical derivation and parent-failing regressions. No release claim is made.

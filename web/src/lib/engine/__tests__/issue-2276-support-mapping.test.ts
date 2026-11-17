@@ -7,7 +7,6 @@ import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, v
 import { hasNonlinearBehaviour } from '../member-behaviour';
 import { addSupportFromTool3D } from '../../store/support-tool-3d';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2276' ? it : it.skip;
 const keys = ['rx', 'ry', 'rz', 'rrx', 'rry', 'rrz'] as const;
 const bits = (s: ReturnType<typeof supportDofs3D>) => keys.map(k => s[k]);
 const support = (type: SupportType): Support => ({ id: 2, nodeId: 3, type });
@@ -28,7 +27,7 @@ const masks = {
 } satisfies Record<SupportType, readonly boolean[] | 'ambiguous'>;
 const bearing = { tx: true, ty: false, tz: true, rx: true, ry: false, rz: false };
 
-beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
+beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; modelStore.clear(); });
 
 it('#2276 every unambiguous inventoried name retains its defined mask', () => {
   for (const [type, mask] of Object.entries(masks)) {
@@ -37,14 +36,14 @@ it('#2276 every unambiguous inventoried name retains its defined mask', () => {
   }
 });
 
-regression('known wrong result: #2276 every inventoried name has explicit 3D semantics or a refusal', () => {
+it('known wrong result: #2276 every inventoried name has explicit 3D semantics or a refusal', () => {
   for (const type of Object.keys(masks) as SupportType[]) {
     if (type === 'rollerZ') expect(() => supportDofs3D(support(type))).toThrow(/rollerZ.*ambiguous.*explicit/i);
     else expect(bits(supportDofs3D(support(type)))).toEqual(masks[type]);
   }
 });
 
-regression('known wrong result: #2276 unknown support names never acquire fixed restraints in either projection', () => {
+it('known wrong result: #2276 unknown support names never acquire fixed restraints in either projection', () => {
   for (const type of ['unrecognised-bearing', '', 'constructor', '__proto__', undefined, null]) {
     for (const project of [false, true]) {
       for (const explicit of [false, true]) {
@@ -55,7 +54,7 @@ regression('known wrong result: #2276 unknown support names never acquire fixed 
   }
 });
 
-regression('known wrong result: #2276 explicit restraints resolve a legacy roller without guessing its name', () => {
+it('known wrong result: #2276 explicit restraints resolve a legacy roller without guessing its name', () => {
   expect(bits(supportDofs3D({ ...support('rollerZ'), dofRestraints: bearing }))).toEqual([true, false, true, true, false, false]);
 });
 
@@ -65,7 +64,7 @@ it('#2276 both sides of the 2D projection retain the declared vertical slider', 
   }
 });
 
-regression('known wrong result: #2276 imposed displacements cannot use invented fixed DOFs', () => {
+it('known wrong result: #2276 imposed displacements cannot use invented fixed DOFs', () => {
   const loads = [{ type: 'displacement3d' as const, data: { id: 1, nodeId: 3, dry: 1 } }];
   for (const type of ['rollerZ', 'unrecognised-bearing']) {
     expect(() => imposedUnsupported(new Map([[2, support(type as SupportType)]]), loads)).toThrow(new RegExp(type));
@@ -75,7 +74,7 @@ regression('known wrong result: #2276 imposed displacements cannot use invented 
 for (const type of ['rollerZ', 'unrecognised-bearing']) {
   for (const nonlinear of [false, true]) {
     for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
-      regression(`known wrong result: #2276 ${type} refuses at ${entry} nonlinear=${nonlinear}`, async () => {
+      it(`known wrong result: #2276 ${type} refuses at ${entry} nonlinear=${nonlinear}`, async () => {
         await modelStore.loadExample('rc-beam-flexure');
         const s = [...modelStore.supports.values()].find(s => s.nodeId === 3)!;
         modelStore.model.supports.set(s.id, { ...s, type: type as SupportType, dofRestraints: undefined });
@@ -100,11 +99,19 @@ for (const type of ['rollerZ', 'unrecognised-bearing']) {
   }
 }
 
-regression('known wrong result: #2276 rc-beam-flexure retains the simply supported hand solution in PRO', async () => {
+it('known wrong result: #2276 rc-beam-flexure retains the simply supported hand solution in PRO', async () => {
   await modelStore.loadExample('rc-beam-flexure');
   const m = modelStore.model;
   const L = m.nodes.get(3)!.x - m.nodes.get(1)!.x;
-  const w = -m.loads.filter(l => l.type === 'distributed3d' && l.data.elementId === 1)
+  const e = m.elements.get(1)!;
+  const weight = m.materials.get(e.materialId)!.rho * m.sections.get(e.sectionId)!.a;
+  const selfWeight = (m.analysis?.selfWeight ?? []).reduce((sum, row) => {
+    expect(row.direction).toBe('Z');
+    expect(row.elements).toBeUndefined();
+    expect(row.groupId).toBeUndefined();
+    return sum - row.factor * weight;
+  }, 0);
+  const w = selfWeight - m.loads.filter(l => l.type === 'distributed3d' && l.data.elementId === 1)
     .reduce((sum, l) => sum + (l.data as { qZI: number }).qZI, 0);
   const r = validateAndSolve3D(m);
   expect(r).toBeTruthy();
@@ -143,7 +150,7 @@ it('#2276 a 2D vertical slider still solves its plane and embedded models', asyn
   const m = { ...base,
     nodes: new Map([...base.nodes].map(([id, n]) => [id, { ...n, x: 0, y: n.x, z: 0 }])),
     supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }], [2, support('rollerZ')]]),
-    loads: [{ type: 'nodal' as const, data: { id: 1, nodeId: 2, fx: P, fy: 0, mz: 0 } }],
+    loads: [{ type: 'nodal' as const, data: { id: 1, nodeId: 2, fx: P, fz: 0, my: 0 } }],
     loadCases: [], combinations: [],
   };
   const r2 = validateAndSolve2D(m);

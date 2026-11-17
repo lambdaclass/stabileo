@@ -16,7 +16,7 @@ import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNon
 import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
-import { supportDofs3D } from './support-dofs-3d';
+import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -1813,13 +1813,7 @@ export function buildSolverInput3D(
     })),
     supports: (() => {
       const supMap = new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
-        let dofs: { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
-        if (s.dofRestraints) {
-          const r = s.dofRestraints;
-          dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
-        } else {
-          dofs = supportDofs3D(s, project2DToXZ);
-        }
+        const dofs = supportDofs3D(s, project2DToXZ);
         const supportDz = s.dz ?? s.dy;
         const supportDry = s.dry ?? s.drz;
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
@@ -1947,6 +1941,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
   try {
     return buildSolverInput3D(...args);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (!(err instanceof SemiRigidError)) throw err;
@@ -1974,9 +1969,14 @@ export function orphanLoadRefusal(model: Pick<ModelData, 'nodes' | 'elements' | 
 
 /** Displacements imposed where nothing restrains them, said by node and direction. */
 export function imposedRefusal(model: ModelData): string | null {
-  const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
-  if (bad.length === 0) return null;
-  return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
+  try {
+    const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
+    if (bad.length === 0) return null;
+    return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
+  } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
+    throw err;
+  }
 }
 
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
@@ -2444,6 +2444,7 @@ export function solveCombinations3D(
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -2949,6 +2950,7 @@ export async function solveCombinations3DParallel(
     const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
