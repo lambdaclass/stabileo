@@ -1,6 +1,6 @@
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { modelFeatures } from '../../provenance/model-features';
+import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import { conditionHolds } from '../../provenance/applicability';
 import change from '../../provenance/result-changes/distributed-load-diagram-integration.json';
 import model from '../../../../../engine/tests/fixtures/narrow-span-2222.json';
@@ -119,20 +119,35 @@ for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'co
   });
 }
 
-it.skip.each(['distributed', 'distributed3d'])('known wrong result: #2223 — registers diagram changes for %s member loads', (type) => {
-  const features = modelFeatures({ loads: [{ type, data: {} }] });
+const memberSnapshot = (overrides: FeatureSnapshot = {}): FeatureSnapshot => ({
+  elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+  loads: [],
+  ...overrides,
+});
+
+it.each(['distributed', 'distributed3d'])('known wrong result: #2223 — registers diagram changes for %s member loads', (type) => {
+  const data = type === 'distributed' ? { elementId: 1, qI: 0, qJ: 1 }
+    : { elementId: 1, qYI: 0, qYJ: 1, qZI: 0, qZJ: 1 };
+  const features = modelFeatures(memberSnapshot({ loads: [{ type, data }] }));
+  expect(features.has('members')).toBe(true);
   expect(conditionHolds(change.when, features), type).toBe(true);
 });
 
-it.skip('known wrong result: #2223 — registers diagram changes for member self-weight', () => {
-  expect(conditionHolds(change.when, modelFeatures({ loads: [], includeSelfWeight: true }))).toBe(true);
+it('known wrong result: #2223 — registers diagram changes for member self-weight', () => {
+  const features = modelFeatures(memberSnapshot({ includeSelfWeight: true }));
+  expect(features.has('members')).toBe(true);
+  expect(conditionHolds(change.when, features)).toBe(true);
 });
 
 it.each(['axialDistributed', 'pointOnElement', 'nodal'])('registers no diagram change for %s loads', (type) => {
-  const features = modelFeatures({ loads: [{ type, data: {} }] });
-  expect(conditionHolds(change.when, features), type).toBe(false);
+  for (const elements of [[], memberSnapshot().elements]) {
+    const features = modelFeatures({ elements, loads: [{ type, data: { elementId: 1 } }] });
+    expect(conditionHolds(change.when, features), type).toBe(false);
+  }
 });
 
 it('registers no diagram change without loads', () => {
-  expect(conditionHolds(change.when, modelFeatures({ loads: [] }))).toBe(false);
+  for (const elements of [[], memberSnapshot().elements]) {
+    expect(conditionHolds(change.when, modelFeatures({ elements, loads: [] }))).toBe(false);
+  }
 });
