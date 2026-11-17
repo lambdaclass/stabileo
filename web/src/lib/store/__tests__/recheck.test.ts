@@ -390,6 +390,24 @@ describe('edited projects with older provenance', () => {
     }
   });
 
+  it.skip('known wrong result: #2198 shear geometry notices require a concrete design section', async () => {
+    const { assessProject } = await import('../../provenance/applicability');
+    const notice = 'column-shear-cage-geometry';
+    const stamp = { ...oldStamp(), resultsVersion: 30 };
+    const base = {
+      ...frame(),
+      materials: [[1, { id: 1, name: 'H30', e: 25000, fy: 30 }]],
+      sections: [[1, { id: 1 }]],
+    } satisfies import('../../provenance/model-features').FeatureSnapshot;
+    const changes = (sectionId?: number) => assessProject({
+      ...base,
+      elements: [[1, { ...base.elements![0]![1], sectionId }]],
+    }, stamp, 'pro', CURRENT_RESULT_CHANGES).changes.map(c => c.id);
+    expect(changes(1)).toContain(notice);
+    expect(changes(2)).not.toContain(notice);
+    expect(changes()).not.toContain(notice);
+  });
+
   describe.each([false, true])('SSI notice registered: %s', (includeSSI) => {
     const RESULT_CHANGES = includeSSI ? CURRENT_RESULT_CHANGES : { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'ssi-support-reactions') };
   it('#2080 a frame solved before the containment diagnostics opens with exactly that notice and the ones after it', async () => {

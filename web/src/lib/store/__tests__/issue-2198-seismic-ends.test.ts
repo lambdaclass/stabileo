@@ -3,7 +3,7 @@ import type { ProvidedReinforcement } from '../../design-contract/reinforcement'
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
 import { hoopSpacingFor } from '../../engine/design/seismic/capacity';
 
-const state = vi.hoisted(() => ({ reinforcement: {} as ProvidedReinforcement, contexts: new Map(), ve: 240, vcZero: true, revisions: 0 }));
+const state = vi.hoisted(() => ({ reinforcement: {} as ProvidedReinforcement, contexts: new Map(), ve: 240, vcZero: true, bound: 0.15, revisions: 0 }));
 vi.mock('../verification.svelte', () => ({ verificationStore: { get contexts() { return state.contexts; }, get analysisRevision() { return state.revisions; }, demandRevision: 0 } }));
 vi.mock('../model.svelte', () => ({ modelStore: {
   model: { nodes: new Map(), elements: new Map(), loadCases: [], materials: new Map() }, quads: new Map(), plates: new Map(),
@@ -13,7 +13,7 @@ vi.mock('../rebar-edit', () => ({ getReinforcement: () => state.reinforcement })
 vi.mock('../design-data', () => ({ designData: () => ({ seismic: {} }), patchDesignData: vi.fn() }));
 vi.mock('../active-results', () => ({ activeCombinations: () => [] }));
 vi.mock('../lateral-system', () => ({ declareLateral: vi.fn(), lateralResolver: () => () => ({ role: 'lateral' }), setMemberLateral: vi.fn() }));
-vi.mock('../../engine/design/seismic/frame-checks', async importOriginal => ({ ...await importOriginal<typeof import('../../engine/design/seismic/frame-checks')>(), seismicFrameChecks: () => ({ members: [{ id: 1, kind: 'beam', role: 'primary', ok: false, beam: { ve: state.ve, vcZero: state.vcZero, hoops: { spacing: 0.15, length: 1.2 } } }], joints: [] }) }));
+vi.mock('../../engine/design/seismic/frame-checks', async importOriginal => ({ ...await importOriginal<typeof import('../../engine/design/seismic/frame-checks')>(), seismicFrameChecks: () => ({ members: [{ id: 1, kind: 'beam', role: 'primary', ok: false, beam: { ve: state.ve, vcZero: state.vcZero, hoops: { spacing: state.bound, length: 1.2 } } }], joints: [] }) }));
 import { applySeismicDetailing } from '../seismic-design.svelte';
 
 
@@ -21,6 +21,7 @@ beforeEach(() => {
   state.revisions++;
   state.contexts = new Map([[1, syntheticBeamContext({ material: { ...syntheticBeamContext().material, fc: 25 } })]]);
   state.ve = 240;
+  state.bound = 0.15;
 });
 
 for (const swap of [false, true]) for (const vcZero of [false, true]) for (const endLegs of [2, 3, 4]) for (const demand of [120, 240, 1000]) {
@@ -90,6 +91,37 @@ for (const swap of [false, true]) for (const fallback of [
     }
     if (explicit !== 'both') {
       expect(state.reinforcement.regions!.stirrupsSupport).toEqual({ ...fallback, ...candidates[0] });
+    }
+  });
+}
+
+for (const override of ['stirrupsStart', 'stirrupsEnd'] as const) {
+  it.skip(`known wrong result: #2198 preserves an existing sub-floor ${override}`, () => {
+    state.vcZero = true;
+    state.ve = 100;
+    const shared = { diameter: 8, legs: 2, spacing: 0.15 };
+    const end = { ...shared, spacing: 0.045 };
+    const original = { bottom: { count: 4, diameter: 16 }, top: { count: 4, diameter: 16 },
+      regions: { stirrupsSupport: shared, [override]: end } };
+    state.reinforcement = structuredClone(original);
+    expect(applySeismicDetailing().beams).toBe(0);
+    expect(state.reinforcement).toEqual(original);
+  });
+}
+
+for (const limit of [0.049, 0.05, 0.074, 0.075]) {
+  it.skip(`known wrong result: #2198 rounds the seismic hoop limit ${limit} down`, () => {
+    state.vcZero = true;
+    state.ve = 100;
+    state.bound = limit;
+    const shared = { diameter: 8, legs: 2, spacing: 0.15 };
+    const original = { bottom: { count: 4, diameter: 16 }, top: { count: 4, diameter: 16 },
+      regions: { stirrupsSupport: shared, stirrupsStart: { ...shared, legs: 4 }, stirrupsEnd: shared } };
+    state.reinforcement = structuredClone(original);
+    expect(applySeismicDetailing().beams).toBe(limit >= 0.05 ? 1 : 0);
+    if (limit < 0.05) expect(state.reinforcement).toEqual(original);
+    else for (const key of ['stirrupsStart', 'stirrupsEnd'] as const) {
+      expect(state.reinforcement.regions![key]!.spacing).toBe(limit >= 0.075 ? 0.075 : 0.05);
     }
   });
 }

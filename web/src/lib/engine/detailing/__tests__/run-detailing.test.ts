@@ -373,3 +373,28 @@ it('known wrong result: #2198 generated rectangular column ties use the verified
   expect(stations.length).toBeGreaterThan(1);
   expect(Math.max(...stations.slice(1).map((z, i) => z - stations[i]!))).toBeLessThanOrEqual(0.125 + 1e-9);
 });
+
+for (const override of ['stirrupsStart', 'stirrupsEnd'] as const) {
+  it.skip(`known wrong result: #2198 ${override} sets the shared seating diameter`, () => {
+    const detail = (fallbackDia: number, overrideDia: number) => {
+      const s = scenario();
+      const beam = verifiedBeam(12);
+      const cage = beam.accepted!.stirrups!;
+      beam.accepted = { ...beam.accepted, stirrups: { ...cage, diameter: fallbackDia }, regions: {
+        ...beam.accepted!.regions, stirrupsSupport: cage, stirrupsSpan: cage, [override]: { ...cage, diameter: overrideDia },
+      } };
+      s.outcomes.set(12, beam);
+      const r = runDetailing(s);
+      return {
+        geometry: r.layoutSearch,
+        bars: r.assemblies.flatMap(a => a.bars).filter(bar => bar.ownerElementIds.includes(12)),
+      };
+    };
+    const withOverride = detail(8, 12);
+    expect(withOverride.bars.some(bar => bar.role === 'transverse' && bar.diameterMm === 12)).toBe(true);
+    const withSameSeating = detail(12, 12);
+    expect(withOverride.geometry).toEqual(withSameSeating.geometry);
+    expect(withOverride.bars).toEqual(withSameSeating.bars);
+    expect(withOverride.bars).not.toEqual(detail(8, 8).bars);
+  });
+}
