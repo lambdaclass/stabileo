@@ -13498,6 +13498,7 @@ const pt: Translations = {
   "rcSheets.v.lineBottomRun": "Armadura inferior que chega aos apoios",
   "rcSheets.v.lineFit": "As barras de cada seção cabem na largura",
   "rcSheets.v.lineHooks": "Ancoragem com gancho nas extremidades",
+  "rcSheets.v.forcesMissing": "Esforços de todas as combinações (faltam os destas: o elemento não foi verificado com elas)",
   "rcSheets.v.lineEndAnchor": "Gancho dentro do pilar de extremidade",
   "rcSheets.v.lineSplices": "Emendas das barras corridas (barras de 12 m)",
   "rcSheets.v.lineIntegrity": "Integridade de viga de borda: armadura corrida em cima e embaixo",

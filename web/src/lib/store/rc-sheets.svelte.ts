@@ -29,7 +29,7 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_BAR_RANGE, listIn, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
+import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_BAR_RANGE, listIn, withMissingForces, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
@@ -429,7 +429,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const la = own && ctx.seismic && !edited.has(`line:${g}`) && own.bent?.some((x) => x.count > 0) ? undefined : own;
     if (la) linesAdopted.add(g);
     const layout = cachedLine(first.demand, [code, ctx, la, dec, rows.map((r) => r.key)], () => rules.beamLine(rows, ctx, la, fmt));
-    line.push(layout);
+    line.push(withMissingForces(layout, rows.flatMap((r) => r.demand.missing ?? [])));
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
     sortedRows.forEach((r, k) => { const sa = layout.spanAdopted[k]; if (sa) derived.set(r.key, sa); });
   }
@@ -437,10 +437,10 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const beam: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
-    redesigners.set(d.key, ((x: typeof d) => rules.beamRow(x, ctx, undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d) => withMissingForces(rules.beamRow(x, ctx, undefined, fmt), x.missing)) as Redesign);
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
     const a = own ?? derived.get(d.key);
-    const row = cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt));
+    const row = withMissingForces(cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt)), d.missing);
     const lineAdopted = linesAdopted.has(d.line?.group ?? -1);
     beam.push(own ? row : { ...row, isAdopted: lineAdopted, proposed: derived.get(d.key) ?? row.proposed });
     yield step();
@@ -455,8 +455,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       pattern: { nx: prev.adopted.nx, ny: prev.adopted.ny, maxDia: Math.max(prev.adopted.corner, prev.adopted.dx, prev.adopted.dy) },
       fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
     } : {};
-    const row = cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack));
-    redesigners.set(d.key, ((x: typeof d) => rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {})) as Redesign);
+    const row = withMissingForces(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), d.missing);
+    redesigners.set(d.key, ((x: typeof d) => withMissingForces(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };

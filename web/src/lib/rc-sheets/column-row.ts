@@ -29,6 +29,8 @@ export interface ColumnCase {
   mxTop: number; mxBot: number; myTop: number; myBot: number;
   /** Largest shear along the storey that pairs with Mx (acting along h) and with My (along b), kN. */
   vx?: number; vy?: number;
+  /** Where a moment between the ends exceeds both ends' (a load along the storey): the axial force and moments there. */
+  inner?: Array<{ pu: number; mx: number; my: number }>;
 }
 
 export interface ColumnDemand {
@@ -42,6 +44,8 @@ export interface ColumnDemand {
   nodes?: { bottom: number; top: number };
   /** Depth of the deepest beam framing in at each end, m; 0 where none does. */
   joints?: { bottom: number; top: number };
+  /** The combinations whose results lack a force of this storey: its demand is incomplete. */
+  missing?: string[];
 }
 
 export interface ColumnContext extends TransverseList {
@@ -56,7 +60,7 @@ export interface ColumnContext extends TransverseList {
   minMn?: number;
 }
 
-interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number }
+interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number; cm: number }
 interface CaseResult { c: ColumnCase; x: AxisResult; y: AxisResult; tuples: Tuple[]; ratio: number }
 interface Tuple { pu: number; mx: number; my: number }
 
@@ -174,7 +178,7 @@ function axis(d: ColumnDemand, c: ColumnContext, cs: ColumnCase, about: 'x' | 'y
     M1: m1, M2: m2, psiA: d.psiTop, psiB: d.psiBot,
     ...(cs.puD !== undefined ? { PuD: cs.puD, PuL: Math.max(0, cs.pu - cs.puD) } : {}),
   });
-  return { klr: s.klu_r, lim: s.lambda_lim, slender: s.isSlender, m1, m2, delta: s.delta_ns, mc: s.isSlender ? s.Mc : m2, k: s.k };
+  return { klr: s.klu_r, lim: s.lambda_lim, slender: s.isSlender, m1, m2, delta: s.delta_ns, mc: s.isSlender ? s.Mc : m2, k: s.k, cm: s.Cm };
 }
 
 function utilisation(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, demands: Array<{ pu: number; mx: number; my: number }>): number {
@@ -261,10 +265,22 @@ export const ACI_COLUMN: ColumnCode = {
 
 
 
-/** The demands a case puts on the section: each end as it is, or the magnified moments where a direction is slender. */
+/**
+ * The demands a case puts on the section: each end as it is and any peak between them, or where a
+ * direction is slender the magnified moments with both end axial forces (δ read at the larger, the
+ * one that magnifies most), a peak between the ends magnified with Cm = 1.
+ */
 function tuplesOf(cs: ColumnCase, x: AxisResult, y: AxisResult): Tuple[] {
-  if (x.slender || y.slender) return [{ pu: cs.pu, mx: x.mc, my: y.mc }];
-  return [{ pu: cs.puMin ?? cs.pu, mx: cs.mxTop, my: cs.myTop }, { pu: cs.pu, mx: cs.mxBot, my: cs.myBot }];
+  const inner = cs.inner ?? [];
+  if (x.slender || y.slender) {
+    const amp = (a: AxisResult) => (a.slender ? Math.max(1, a.delta / Math.max(a.cm, 1e-9)) : 1);
+    return [
+      { pu: cs.pu, mx: x.mc, my: y.mc },
+      ...(cs.puMin !== undefined && cs.puMin < cs.pu - 1e-9 ? [{ pu: cs.puMin, mx: x.mc, my: y.mc }] : []),
+      ...inner.map((t) => ({ pu: t.pu, mx: Math.max(x.mc, amp(x) * Math.abs(t.mx)), my: Math.max(y.mc, amp(y) * Math.abs(t.my)) })),
+    ];
+  }
+  return [{ pu: cs.puMin ?? cs.pu, mx: cs.mxTop, my: cs.myTop }, { pu: cs.pu, mx: cs.mxBot, my: cs.myBot }, ...inner];
 }
 
 /** At most eight tuples that bound the others: the most and least compression, each moment and their sum, the largest eccentricity. */

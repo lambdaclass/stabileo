@@ -13696,6 +13696,7 @@ const de: Translations = {
   "rcSheets.v.lineBottomRun": "Untere Bewehrung bis in die Auflager",
   "rcSheets.v.lineFit": "Die Stäbe jedes Querschnitts passen in die Breite",
   "rcSheets.v.lineHooks": "Hakenverankerung an den Enden",
+  "rcSheets.v.forcesMissing": "Schnittgrößen aller Kombinationen (diesen fehlen sie: das Bauteil wurde dafür nicht nachgewiesen)",
   "rcSheets.v.lineEndAnchor": "Haken innerhalb der Endstütze",
   "rcSheets.v.lineSplices": "Stöße der durchlaufenden Stäbe (12-m-Stäbe)",
   "rcSheets.v.lineIntegrity": "Integrität des Randbalkens: durchlaufende Stäbe oben und unten",

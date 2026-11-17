@@ -62,6 +62,8 @@ export interface BeamDemand {
   ends?: { start: BeamEnd; end: BeamEnd };
   /** Slab on one side of it at most: an edge beam, held to the integrity rules of perimeter beams (§9.7.7.1); absent, taken as one. */
   perimeter?: boolean;
+  /** The combinations whose results lack a force of this span: its demand is incomplete. */
+  missing?: string[];
 }
 
 export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }

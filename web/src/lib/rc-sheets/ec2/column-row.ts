@@ -59,7 +59,8 @@ export function columnModel(set: Ec2Set, d: ColumnDemand, c: ColumnContext): Col
   const demands: Ec2ColumnDemand[] = d.cases.flatMap((k) => {
     const planes = [{ M: big(k.mxTop, k.mxBot), ends: [k.mxTop, k.mxBot] as [number, number] }, { M: big(k.myTop, k.myBot), ends: [k.myTop, k.myBot] as [number, number] }];
     const ns = k.puMin !== undefined && Math.abs(k.puMin - k.pu) > 1e-6 ? [k.pu, k.puMin] : [k.pu];
-    return ns.map((N) => ({ N, planes, combination: k.combo }));
+    const inner = (k.inner ?? []).map((t) => ({ N: t.pu, planes: [{ M: t.mx, ends: [t.mx, t.mx] as [number, number] }, { M: t.my, ends: [t.my, t.my] as [number, number] }], combination: k.combo }));
+    return [...ns.map((N) => ({ N, planes, combination: k.combo })), ...inner];
   });
   const input: Ec2ColumnInput = {
     planes: [{ b: d.b, h: d.h, l0: l0.l0, phiEf: phiInf * ratio }, { b: d.h, h: d.b, l0: l0.l0, phiEf: phiInf * ratio }],

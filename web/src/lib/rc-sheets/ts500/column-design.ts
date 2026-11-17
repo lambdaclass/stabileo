@@ -39,14 +39,22 @@ export function tuplesOf(cs: ColumnCase, x: AxisResult, y: AxisResult): Tuple[] 
     const nc = Math.max(0, n);
     return [{ pu: n, mx: Math.max(Math.abs(mx), nc * x.emin), my: Math.abs(my) }, { pu: n, mx: Math.abs(mx), my: Math.max(Math.abs(my), nc * y.emin) }];
   };
+  const inner = cs.inner ?? [];
   if (x.slender || y.slender) {
-    const nc = Math.max(0, cs.pu);
+    const amplified = (n: number, m2x: number, m2y: number): Tuple[] => {
+      const nc = Math.max(0, n);
+      return [
+        { pu: n, mx: x.beta * Math.max(m2x, nc * x.emin), my: y.beta * m2y },
+        { pu: n, mx: x.beta * m2x, my: y.beta * Math.max(m2y, nc * y.emin) },
+      ];
+    };
+    const both = cs.puMin !== undefined && cs.puMin < cs.pu - 1e-9 ? [cs.pu, cs.puMin] : [cs.pu];
     return [
-      { pu: cs.pu, mx: x.beta * Math.max(x.m2, nc * x.emin), my: y.beta * y.m2 },
-      { pu: cs.pu, mx: x.beta * x.m2, my: y.beta * Math.max(y.m2, nc * y.emin) },
+      ...both.flatMap((n) => amplified(n, x.m2, y.m2)),
+      ...inner.flatMap((t) => amplified(t.pu, Math.max(x.m2, Math.abs(t.mx) / Math.max(x.cm, 1e-9)), Math.max(y.m2, Math.abs(t.my) / Math.max(y.cm, 1e-9)))),
     ];
   }
-  return [...raise(cs.puMin ?? cs.pu, cs.mxTop, cs.myTop), ...raise(cs.pu, cs.mxBot, cs.myBot)];
+  return [...raise(cs.puMin ?? cs.pu, cs.mxTop, cs.myTop), ...raise(cs.pu, cs.mxBot, cs.myBot), ...inner.flatMap((t) => raise(t.pu, t.mx, t.my))];
 }
 
 export function governing(tuples: Tuple[]): Tuple[] {

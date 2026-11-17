@@ -178,3 +178,15 @@ export const governingRatio = (checks: readonly CheckLine[]): number =>
 
 export const isGenerous = (checks: readonly CheckLine[]): boolean =>
   checks.some((c) => c.ratio !== undefined) && checks.every((c) => c.ok) && governingRatio(checks) < GENEROUS_BELOW;
+
+/** A row whose demand lacks the forces of some combinations fails with them named: what was read from the rest is no verdict. */
+export function withMissingForces<R extends { verifications: CheckLine[]; status: RowStatus }>(row: R, missing: readonly string[] | undefined): R {
+  if (!missing?.length) return row;
+  const checks = (row as { checks?: { ok: boolean } }).checks;
+  return {
+    ...row,
+    verifications: [check('rcSheets.v.forcesMissing', false, { demand: [...new Set(missing)].join(', ') }), ...row.verifications],
+    status: 'fail',
+    ...(checks ? { checks: { ...checks, ok: false } } : {}),
+  };
+}

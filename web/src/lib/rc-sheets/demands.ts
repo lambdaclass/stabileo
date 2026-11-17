@@ -225,10 +225,12 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const combos: BeamComboForces[] = [];
       const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), x0, x1, xStar].map((x) => Math.round(x * 1e4) / 1e4))].sort((p, q) => p - q);
       const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0, t: 0 }));
+      const missing: string[] = [];
       m.sets.forEach((set, i) => {
         const list = stations[i]!;
-        if (!list.length) return;
-        const at = (x: number) => forcesAt(m, span, set, x) ?? list.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a)).s;
+        const by = forcesOf(set);
+        if (!list.length || span.some(({ e }) => !by.has(e.id))) { missing.push(set.name); return; }
+        const at = (x: number) => forcesAt(m, span, set, x)!;
         xs.forEach((x, k) => { const f = at(x); const e = env[k]!; e.pos = Math.max(e.pos, f[flex]); e.neg = Math.max(e.neg, -f[flex]); e.v = Math.max(e.v, Math.abs(f[shear])); e.vPos = Math.max(e.vPos, f[shear]); e.vNeg = Math.max(e.vNeg, -f[shear]); e.t = Math.max(e.t, Math.abs(f.torsion)); });
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
@@ -259,6 +261,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),
+        ...(missing.length ? { missing } : {}),
       });
     });
   }
@@ -305,21 +308,29 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
         ef ? extractForcesAtStation(ef, (end === 'bottom') === forward ? 0 : 1) : undefined;
       const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
       const cases: ColumnCase[] = [];
+      const missing: string[] = [];
       for (const set of m.sets) {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
-        if (!b || !t) continue;
+        if (!b || !t || st.some(({ e }) => !by.has(e.id))) { missing.push(set.name); continue; }
         let vx = 0, vy = 0;
-        for (const { s } of runStations(m, st, set)) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); }
+        const stations = runStations(m, st, set);
+        for (const { s } of stations) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); }
+        const ends = { mx: Math.max(Math.abs(t.my), Math.abs(b.my)), my: Math.max(Math.abs(t.mz), Math.abs(b.mz)) };
+        const peak = (k: 'my' | 'mz') => stations.reduce<Station | undefined>((w, x) => (!w || Math.abs(x.s[k]) > Math.abs(w.s[k]) ? x : w), undefined);
+        const inner = [peak('my'), peak('mz')].filter((x): x is Station => !!x && (Math.abs(x.s.my) > ends.mx + 1e-6 || Math.abs(x.s.mz) > ends.my + 1e-6))
+          .map((x) => ({ pu: -x.s.n, mx: x.s.my, my: x.s.mz }));
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy,
+          ...(inner.length ? { inner } : {}),
         });
       }
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
         b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        ...(missing.length ? { missing } : {}),
       });
     });
   }
@@ -352,20 +363,21 @@ function slabPosts(m: DemandInput, keys: ReadonlySet<string>, h: number): Array<
  * whole cut of the panel, averaged along it, on every cut farther than c/2 + d from the posts.
  * Its largest |qx| and |qy|, kN/m; null for a slab with no posts, which reads its elements' peak.
  */
-function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, centre: ReadonlyMap<string, { x: number; y: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number; qy: number } | null {
+export function wideBeamShear(rows: ReadonlyArray<{ key: string; q: readonly number[] }>, boxes: ReadonlyMap<string, { x0: number; x1: number; y0: number; y1: number }>, posts: ReadonlyArray<{ p: Pt; r: number }>): { qx: number; qy: number } | null {
   if (!posts.length) return null;
   const cut = (axis: 'x' | 'y', comp: 0 | 1) => {
-    const bins = new Map<number, { sum: number; n: number }>();
+    const bins = new Map<number, { sum: number; width: number }>();
     for (const r of rows) {
-      const c = centre.get(r.key);
-      if (!c) continue;
-      const at = Math.round(c[axis] * 1000) / 1000;
+      const box = boxes.get(r.key);
+      if (!box) continue;
+      const at = Math.round((axis === 'x' ? (box.x0 + box.x1) / 2 : (box.y0 + box.y1) / 2) * 1000) / 1000;
       if (posts.some(({ p, r: reach }) => Math.abs(at - p[axis]) < reach)) continue;
-      const b = bins.get(at) ?? { sum: 0, n: 0 };
-      b.sum += Math.abs(r.q[comp]!); b.n++;
+      const w = axis === 'x' ? box.y1 - box.y0 : box.x1 - box.x0;
+      const b = bins.get(at) ?? { sum: 0, width: 0 };
+      b.sum += Math.abs(r.q[comp]!) * w; b.width += w;
       bins.set(at, b);
     }
-    return Math.max(0, ...[...bins.values()].map((b) => b.sum / b.n));
+    return Math.max(0, ...[...bins.values()].filter((b) => b.width > 1e-12).map((b) => b.sum / b.width));
   };
   return { qx: cut('x', 0), qy: cut('y', 1) };
 }
@@ -485,7 +497,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         const sh = row.global.shear;
         if (sh && !nearColumn.has(key)) { shears.push({ key, q: sh }); c.qx = Math.max(c.qx, Math.abs(sh[0])); c.qy = Math.max(c.qy, Math.abs(sh[1])); }
       }
-      const wide = wideBeamShear(shears, centre, posts);
+      const wide = wideBeamShear(shears, boxOf, posts);
       if (wide) { c.qx = wide.qx; c.qy = wide.qy; }
       else if (shears.length) {
         const along = (axis: 'x' | 'y', comp: 0 | 1) => shearAtCritical(shears.flatMap((r) => { const ct = centre.get(r.key); return ct ? [{ dist: fromFace(ct, axis), q: Math.abs(r.q[comp]!) }] : []; }), dSlab);

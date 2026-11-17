@@ -13696,6 +13696,7 @@ const tr: Translations = {
   "rcSheets.v.lineBottomRun": "Mesnetlere uzanan alt donatı",
   "rcSheets.v.lineFit": "Her kesitin çubukları genişliğe sığıyor",
   "rcSheets.v.lineHooks": "Uçlarda kancalı kenetlenme",
+  "rcSheets.v.forcesMissing": "Tüm kombinasyonların iç kuvvetleri (bunlarınki eksik: eleman bunlar için doğrulanmadı)",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineSplices": "Sürekli çubuk bindirmeleri (12 m çubuk)",
   "rcSheets.v.lineIntegrity": "Kenar kirişi bütünlüğü: üstte ve altta sürekli çubuklar",
