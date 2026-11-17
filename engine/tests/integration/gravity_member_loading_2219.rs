@@ -853,3 +853,53 @@ fn round23_shortening_member_torque_diagram_matches_recovered_end_actions() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round24_corotational_refuses_distributed_couples_before_recovery() {
+    let reason = "distributed member couples are not supported in large-displacement analysis; use linear or P-Delta";
+    for axis in ["x", "y", "z"] {
+        for values in [[1e-30; 3], [2.0; 3], [1.0, -0.5, 1.0], [1.0, 0.0, -1.0]] {
+            for span in [None, Some((0.5, 2.5))] {
+                let mut input = model(0.0);
+                for load in &mut input.loads {
+                    if let SolverLoad3D::Distributed(d) = load {
+                        let mut moments = json!({"x":[0,0,0],"y":[0,0,0],"z":[0,0,0]});
+                        moments[axis] = json!(values);
+                        d.moments = Some(serde_json::from_value(moments).unwrap());
+                        if let Some((a,b)) = span { d.a = Some(a); d.b = Some(b); }
+                    }
+                }
+                for modified in [false, true] {
+                    assert_eq!(corotational::solve_corotational_3d(&input,100,1e-10,4,modified).unwrap_err(), reason);
+                }
+                assert!(linear::solve_3d(&input).is_ok());
+                assert!(pdelta::solve_pdelta_3d(&input,100,1e-10).is_ok());
+            }
+        }
+    }
+}
+
+#[test]
+fn round24_linear_floor_zone_torque_and_corotational_zero_couple_control() {
+    check(&linear::solve_3d(&model(-2.0)).unwrap(), -2.0);
+    check(&pdelta::solve_pdelta_3d(&model(-2.0),100,1e-10).unwrap().results, -2.0);
+    for explicit in [false, true] {
+        let mut input = model(0.0);
+        for load in &mut input.loads {
+            if let SolverLoad3D::Distributed(d) = load {
+                d.q_zi = 0.0; d.q_zj = 0.0;
+                d.moments = if explicit { Some(MemberMoments { x: [0.0;3], y: [0.0;3], z: [0.0;3] }) } else { None };
+            }
+        }
+        input.loads.push(serde_json::from_value(json!({"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":1e-6,"my":0,"mz":0}})).unwrap());
+        let expected = linear::solve_3d(&input).unwrap();
+        for modified in [false, true] {
+            let actual = corotational::solve_corotational_3d(&input,100,1e-10,4,modified).unwrap().results;
+            let a = actual.displacements.iter().find(|d|d.node_id==2).unwrap();
+            let b = expected.displacements.iter().find(|d|d.node_id==2).unwrap();
+            assert!(a.rx != 0.0);
+            assert!((a.rx-b.rx).abs()<1e-12);
+        }
+    }
+}

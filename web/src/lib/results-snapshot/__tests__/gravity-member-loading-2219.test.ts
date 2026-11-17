@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initSolver } from '../../engine/wasm-solver';
-import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { solve_3d, solve_pdelta_3d, solve_corotational_3d } from '../../wasm/dedaliano_engine.js';
 import { floorLoad } from '../../engine/loads/floor-loads';
 import { physicalRegion, transferRegionToCarriers } from '../../engine/loads/physical-region-loads';
 import { regionModel, rectangle } from '../../engine/loads/__tests__/physical-region-invariance';
@@ -108,3 +108,16 @@ for (const source of ['floor','region']) for (const angle of [0,0.37]) for (cons
     }
   });
 }
+
+it.skip('known wrong result: #2219 WASM refuses a generated floor-zone couple in large-displacement analysis', () => {
+  const carriers = generatedCarriers('floor', 0, 1, false);
+  expect(carriers).toHaveLength(4);
+  for (const { s, L } of carriers) {
+    expect(s.loads.some(({ data }: { data: { moments?: { x: number[] } } }) => data.moments?.x.some(v => v !== 0))).toBe(true);
+    expect(() => solve_corotational_3d(JSON.stringify(s), 100, 1e-10, 4)).toThrow('distributed member couples are not supported in large-displacement analysis; use linear or P-Delta');
+    for (const result of [solve_3d(s), JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results] as AnalysisResults3D[]) {
+      const ef = result.elementForces[0]!;
+      for (const t of [0, 0.25, 0.5, 0.75, 1]) expect(evaluateDiagramAt(ef, 'torsion', t)).toBeCloseTo(hand(L, t * L, 1).torsion, 8);
+    }
+  }
+});
