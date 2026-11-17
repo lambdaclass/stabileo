@@ -19,6 +19,9 @@ async function openFoundations(page: Page) {
 }
 
 test('@smoke the footing sheets size, check and draw a footing under every column base', async ({ pro: page }) => {
+  await page.getByTestId('pro-settings').click();
+  await page.getByTestId('cfg-design-in-pro').uncheck();
+  await expect(page.getByTestId('pr-stage-design')).toHaveCount(0);
   await loadModel(page, 'rc-design-qa-8');
   await openFoundations(page);
   await page.getByTestId('soil-add').click();
@@ -74,6 +77,7 @@ test('@smoke the footing sheets size, check and draw a footing under every colum
   await ws.getByTestId('rc-footing-to-model').click();
   await expect(ws.getByTestId('rc-stale')).toBeVisible();
   await ws.getByTestId('rc-close').click();
+  await expect(ws).toHaveCount(0);
   await openFoundations(page);
   await expect(page.getByTestId('footing-count')).toHaveText('2');
 });

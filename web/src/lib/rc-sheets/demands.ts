@@ -223,7 +223,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const start = emptySection(x0), mid = emptySection(xStar), end = emptySection(x1);
       let negAny: Signed = { value: 0 }, nNegAny = 0, vu: Signed = { value: 0 }, nV = 0, tu: Signed = { value: 0 };
       const combos: BeamComboForces[] = [];
-      const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), x0, x1, xStar].map((x) => Math.round(x * 1e4) / 1e4))].sort((p, q) => p - q);
+      const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), ...stations.flatMap((list) => list.map(({ x }) => x)), x0, x1, xStar])].sort((p, q) => p - q);
       const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0, t: 0, nPos: 0, nNeg: 0, nV: 0 }));
       const missing: string[] = [];
       m.sets.forEach((set, i) => {

@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { portal } from '../../../lib/utils/portal';
   import OutdatedNotice from '../design/OutdatedNotice.svelte';
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
-  import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
@@ -86,10 +86,7 @@
   const f1 = (v: number) => fmt(v, 1);
   const f2 = (v: number) => fmt(v, 2);
 
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node);
-    return { destroy() { node.remove(); } };
-  }
+
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
   const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
@@ -117,7 +114,6 @@
     await tick();
     document.querySelector(`[data-testid="rc-row"][data-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'start' });
   }
-  $effect(() => fullScreenWorkspace.enter());
 
   let head = $state<HTMLElement | null>(null);
   const FIT_STEPS = 3;
@@ -145,6 +141,7 @@
 
 <svelte:window onkeydown={onkey} />
 
+<div style="display: contents">
 <div class="rcw" class:st-panel-scrollbars={uiStore.panelScrollbars && !uiStore.isMobile} use:portal role="dialog" aria-modal="true" aria-label={t('rcSheets.title')} data-testid="rc-sheets-workspace">
   <header class="rcw-head" title={basisText} bind:this={head} data-testid="rc-head" data-fit={fitStart}>
     <strong class="rcw-name">{t('rcSheets.title')}</strong>
@@ -346,6 +343,7 @@
       <p class="rcw-note">{t('rcSheets.scopeNote')}</p>
     {/if}
   </div>
+</div>
 </div>
 
 <style>

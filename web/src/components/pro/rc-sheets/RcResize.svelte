@@ -6,7 +6,7 @@
    */
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
+  import { nextFrame } from '../../../lib/store/rc-sheets-progress.svelte';
   import { goToRow, lineResizeHint, resizeHints, rowTargets, wallsToHold, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
   import type { SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';

@@ -8,7 +8,6 @@ import { clearSheets, designSheets, sheetsRun } from '../rc-sheets-view.svelte';
 import { initSolver } from '../../engine/wasm-solver';
 import type { ElementForces3D } from '../../engine/types-3d';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2092' ? it : it.skip;
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { clearSheets(); resultsStore.clear(); modelStore.clear(); uiStore.analysisMode = '2d'; });
 
@@ -30,7 +29,7 @@ function input(secondOrder: boolean) {
   resultsStore.setResults3D({ displacements: [], reactions: [], elementForces: [forces], ...(secondOrder ? { secondOrder: { converged: true, iterations: 1, stable: true, b2: 1 } } : {}) });
 }
 
-knownWrong('known wrong result: #2092 every sheet design entry retains critical stations from linear and second-order results', async () => {
+it('known wrong result: #2092 every sheet design entry retains critical stations from linear and second-order results', async () => {
   const check = (rows: SheetRows) => {
     expect(rows.beam).toHaveLength(1);
     expect(rows.beam[0]!.demand.env!.find((p) => p.x === 0.37)).toMatchObject({ neg: 0.37, nNeg: 10 });

@@ -62,7 +62,7 @@ import { loadFixture } from '../templates/load-fixture';
 import { currentResultProvenance, provenanceForExport, captureProvenanceToken } from '../store/result-provenance';
 import { recheckStore } from '../store/recheck.svelte';
 import { physicalPlates, plateLoadDefs, plateStatus } from '../store/physical-plates';
-import { physicalGroups, recognizePhysicalElements } from '../store/physical';
+import { recognizePhysicalElements } from '../store/physical';
 
 export const E2E_QUERY_FLAG = 'e2e';
 
@@ -194,7 +194,6 @@ export interface StabileoTestHooks {
   /** The physical plates: each one's mesh state and the shells it holds (`store/physical-plates.ts`). */
   plates(): Array<{ id: number; name: string; status: string; shells: number; loads: number }>;
   /** The plates selected whole, and the shells selected. */
-  physicalMembers(): Array<{ id: number; kind: string; provenance: string; elements: number[] }>;
   plateSelection(): { plates: number[]; shells: string[]; scope: string };
   /** How many local-axis triads the 3-D viewport draws now. */
   localAxesTriads(): number;
@@ -785,7 +784,6 @@ export function installE2EHooks(): void {
     })),
     worldScreenPos: (x: number, y: number, z: number) => projectWorld(x, y, z),
     localAxesTriads: () => (window as unknown as { __localAxesTriads?: number }).__localAxesTriads ?? 0,
-    physicalMembers: () => physicalGroups().map((g) => ({ id: g.id, kind: g.physical.kind, provenance: g.physical.provenance, elements: [...(g.members.elements ?? [])] })),
     plateSelection: () => ({ plates: [...uiStore.selectedPlates].sort((a, b) => a - b), shells: [...uiStore.selectedShells].sort(), scope: uiStore.shellPickScope }),
     selectionByKind: () => {
       const sorted = (s: Iterable<number>) => [...s].sort((a, b) => a - b);
