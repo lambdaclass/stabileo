@@ -582,14 +582,35 @@ fn round12_plane_envelope_retains_member_force_extrema() {
 
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn plane_distributed_load_ids_reach_the_solver_and_preserve_strict_fields() {
     for id in [None, Some(0), Some(17)] {
         let mut load = json!({"type":"distributed","data":{"elementId":1,"qI":-1,"qJ":-2,"a":0.5,"b":1.5}});
         if let Some(id) = id { load["data"]["id"] = json!(id); }
         let raw: SolverLoad = serde_json::from_value(load.clone()).unwrap();
         let typed: dedaliano_engine::types::units::TypedLoad = serde_json::from_value(load.clone()).unwrap();
-        assert_eq!(serde_json::to_value(raw).unwrap(), serde_json::to_value(typed).unwrap());
+        let canonical_load = serde_json::to_value(raw).unwrap();
+        assert_eq!(canonical_load, serde_json::to_value(typed).unwrap());
+        let spatial = model(0.0);
+        let value = json!({
+            "nodes":{"1":{"id":1,"x":0,"z":0},"2":{"id":2,"x":3,"z":0}},
+            "elements":{"1":{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1}},
+            "materials":spatial.materials,"sections":spatial.sections,
+            "supports":{"1":{"id":1,"nodeId":1,"type":"fixed"}},"loads":[load.clone()]
+        });
+        let input: SolverInput = serde_json::from_value(value.clone()).unwrap();
+        let mut canonical = value; canonical["loads"] = json!([canonical_load]);
+        let control: SolverInput = serde_json::from_value(canonical).unwrap();
+        for entry in 0..3 {
+            let solve = |input: &SolverInput| match entry {
+                0 => linear::solve_2d(input),
+                1 => pdelta::solve_pdelta_2d(input, 100, 1e-10).map(|r| r.results),
+                _ => corotational::solve_corotational_2d(input, 100, 1e-10, 4, false).map(|r| r.results),
+            };
+            let expected = solve(&control).unwrap();
+            let actual = solve(&input).unwrap();
+            assert!(actual.displacements.iter().any(|d| d.uz != 0.0));
+            assert_eq!(serde_json::to_value(actual).unwrap(), serde_json::to_value(expected).unwrap());
+        }
         for (field, value) in [("moments", json!({"x":[1,1,1],"y":[0,0,0],"z":[0,0,0]})), ("moments", Value::Null), ("qTypo", json!(1))] {
             let mut bad = load.clone(); bad["data"][field] = value;
             assert!(serde_json::from_value::<SolverLoad>(bad.clone()).is_err());

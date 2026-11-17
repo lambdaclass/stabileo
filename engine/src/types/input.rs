@@ -89,6 +89,8 @@ fn refuse_plane_member_moments<'de, D: serde::Deserializer<'de>>(_: D) -> Result
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PlaneDistributedLoadData<Q, L> {
+    #[serde(default, rename = "id")]
+    _id: Option<usize>,
     pub(crate) element_id: usize,
     #[serde(rename = "qI")]
     pub(crate) q_i: Q,

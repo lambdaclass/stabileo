@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { MIN_GRAVITY_MEMBER_SPAN, memberLoadSpans, plannedMemberLoadSpans } from '../member-load-spans';
+import { MIN_GRAVITY_MEMBER_SPAN, retainMemberLoadSpan, memberLoadSpans, plannedMemberLoadSpans } from '../member-load-spans';
 import { planAreaLoads } from '../plan-area-loads';
 import { gravityLayout } from '../plan-gravity';
 import { regionModel, rectangle } from './physical-region-invariance';
@@ -43,4 +43,12 @@ it('planned area forces and eccentric moments share the span boundary',()=>{
   for (const load of out.distributed) { expect(load.a).toBe(a); expect(load.b).toBe(b); }
   expect(out.distributed.find(l => !l.moments)!.q).toBe(-1 / h);
   expect(out.distributed.find(l => l.moments)!.moments!.x).toEqual([-0.5 / h, -0.5 / h, -0.5 / h]);
+});
+
+it('empty-interval normalization cannot discard invalid density or support data', () => {
+  for (const a of [-1, 2, NaN, Infinity]) expect(() => retainMemberLoadSpan(1, a, a, 1, [-2, -3])).toThrow();
+  for (const q of [NaN, Infinity, -Infinity]) expect(() => retainMemberLoadSpan(1, 0.5, 0.5, 1, [q, -3])).toThrow();
+  expect(retainMemberLoadSpan(1, 0.5, 0.5, 1, [-2, -3])).toBe(false);
+  expect(retainMemberLoadSpan(1, 0, 1, 1, [-2, -3])).toBe(true);
+  expect(retainMemberLoadSpan(1, 0.5, 0.5, 1, [-2, -3], { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] })).toBe(false);
 });

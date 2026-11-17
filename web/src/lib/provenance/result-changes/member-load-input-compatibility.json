@@ -1,0 +1,39 @@
+{
+  "id": "member-load-input-compatibility",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "frameMembers",
+      "memberLoads"
+    ]
+  },
+  "quantities": [
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Empty force intervals and load IDs retain their meaning",
+    "es": "Los intervalos vacíos y los ID de carga conservan su significado",
+    "pt": "Intervalos vazios e IDs de carga mantêm seu significado",
+    "de": "Leere Lastintervalle und Last-IDs behalten ihre Bedeutung",
+    "fr": "Les intervalles vides et les identifiants de charge gardent leur sens",
+    "hu": "Az üres terhelési szakaszok és teherazonosítók megőrzik jelentésüket",
+    "tr": "Boş yük aralıkları ve yük kimlikleri anlamlarını korur"
+  },
+  "explanation": {
+    "en": "Exactly empty finite manual force intervals no longer cause a false refusal in 2D or 3D. Numeric distributed-load IDs are accepted, and 2D plastic collapse still receives its required safety refusal. Unsupported positive force spans and member moments retain their limits. Re-run affected models (#2219).",
+    "es": "Los intervalos manuales de fuerza finitos y exactamente vacíos ya no causan rechazos falsos en 2D o 3D. Se aceptan los ID numéricos y el colapso plástico 2D mantiene su rechazo de seguridad. Los límites de los tramos positivos y los momentos no cambian. Recalculá los modelos afectados (#2219).",
+    "pt": "Intervalos manuais de força finitos e exatamente vazios não causam mais recusa indevida em 2D ou 3D. IDs numéricos são aceitos e o colapso plástico 2D mantém sua recusa de segurança. Limites de trechos positivos e momentos permanecem. Recalcule os modelos afetados (#2219).",
+    "de": "Endliche, exakt leere manuelle Kraftintervalle führen in 2D und 3D nicht mehr zur falschen Ablehnung. Numerische Last-IDs werden akzeptiert; plastische 2D-Analysen behalten ihre Sicherheitsablehnung. Grenzen für positive Lastintervalle und Stabmomente bleiben bestehen. Betroffene Modelle neu berechnen (#2219).",
+    "fr": "Les intervalles manuels de force finis et exactement vides ne causent plus de refus erroné en 2D ou 3D. Les identifiants numériques sont acceptés ; le calcul plastique 2D conserve son refus de sécurité. Les limites des intervalles positifs et des moments restent en place. Recalculer les modèles concernés (#2219).",
+    "hu": "A véges, pontosan üres kézi erőszakaszok már nem okoznak téves elutasítást 2D-ben és 3D-ben. A numerikus teherazonosítók elfogadottak, a 2D képlékeny számítás biztonsági elutasítása megmarad. A pozitív szakaszok és rúdnyomatékok korlátai változatlanok. Számítsa újra az érintett modelleket (#2219).",
+    "tr": "Sonlu ve tam boş elle girilen kuvvet aralıkları 2D ve 3D için yanlış ret oluşturmaz. Sayısal yük kimlikleri kabul edilir; 2D plastik analiz güvenlik reddini korur. Pozitif yük aralıklarının ve eleman momentlerinin sınırları değişmez. Etkilenen modelleri yeniden çözün (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-member-load-input-compatibility.md",
+    "heading": "Empty force intervals and distributed-load IDs"
+  }
+}
