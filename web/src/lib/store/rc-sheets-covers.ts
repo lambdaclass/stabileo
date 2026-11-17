@@ -1,9 +1,10 @@
+import type { DesignKind } from '../model/design-data';
 /**
  * The covers the project stores against CIRSOC 201 Table 20.5.1.3.1, where the sheets' code checks
  * them: said once for the project, and set to the table's with one change that the sheets then
  * design with.
  */
-import { coversUnderMinimum, withCirsocCovers, type DesignKind } from '../model/design-data';
+import { coversUnderMinimum, withCirsocCovers } from '../rc-sheets/cover-data';
 import { rulesFor } from '../rc-sheets/codes';
 import { coverShortfalls, type CoverShortfall } from '../rc-sheets/covers-notice';
 import { designData, patchDesignData, storedDesignData } from './design-data';

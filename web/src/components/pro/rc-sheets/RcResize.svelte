@@ -8,7 +8,6 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
   import { goToRow, lineResizeHint, resizeHints, rowTargets, wallsToHold, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
-  import { holdWallBasesAndDesign, sheetsSolve } from '../../../lib/store/rc-sheets-solve.svelte';
   import type { SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import type { LineLayout } from '../../../lib/rc-sheets/beam-line';
   import type { BeamRow } from '../../../lib/rc-sheets/beam-row';
@@ -52,14 +51,6 @@
       </span>
     {/each}
     {#if hints.length}<span class="dim">{t('rcSheets.resize.note')}</span>{/if}
-  {/if}
-  {#if baseUnheld > 0 && onFoundation}
-    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheld', baseUnheld)}</span>
-    <button type="button" class="rcz-btn" onclick={() => holdWallBasesAndDesign(toHold)} disabled={sheetsSolve.busy} data-testid="rc-wall-hold-base">
-      {toHold.length > 1 ? tp('rcSheets.resize.holdBases', { n: toHold.length }) : t('rcSheets.resize.holdBase')}
-    </button>
-  {:else if baseUnheld > 0}
-    <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheldAbove', baseUnheld)}</span>
   {/if}
   <span class="sp"></span>
   {#each targets as g (g)}

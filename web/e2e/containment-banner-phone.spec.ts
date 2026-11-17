@@ -37,10 +37,10 @@ test('@smoke on a phone the second-order notice is one line, opens on a tap, and
   await toggle.tap();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   expect((await notice.boundingBox())!.height).toBeGreaterThan(56);
-  await expect(notice.getByTestId('containment-row').first()).toBeVisible();
+  await expect(notice.locator('p').first()).toBeVisible();
   const scroll = await notice.evaluate((el) => {
-    const first = el.querySelector('[data-testid="containment-row"]')!;
-    for (let i = 0; i < 12; i++) first.parentElement!.appendChild(first.cloneNode(true));
+    const first = el.querySelector('p')!;
+    for (let i = 0; i < 12; i++) el.appendChild(first.cloneNode(true));
     const r = el.getBoundingClientRect(), style = getComputedStyle(el);
     return { bottom: r.bottom, overflows: el.scrollHeight > el.clientHeight, overflowY: style.overflowY, pointerEvents: style.pointerEvents };
   });

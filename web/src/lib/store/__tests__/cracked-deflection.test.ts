@@ -36,8 +36,8 @@ describe('a reinforced concrete beam deflects on its cracked section', () => {
     const row = deflectionChecks([e]).rows.get(e)!;
     expect(row.cracked).toBeDefined();
     expect(row.cracked!.Ma).toBeCloseTo(25 * 36 / 8, 1);
-    const d = 0.6 - 0.03 - 0.008 - 0.01;
-    const Icr = crackedInertia({ b: 0.3, h: 0.6, d, dPrime: 0.046, As: 4 * Math.PI * 0.01 ** 2, AsPrime: 0, n: 200000 / 23500 }).Icr;
+    const d = 0.6 - 0.025 - 0.008 - 0.01;
+    const Icr = crackedInertia({ b: 0.3, h: 0.6, d, dPrime: 0.041, As: 4 * Math.PI * 0.01 ** 2, AsPrime: 0, n: 200000 / 23500 }).Icr;
     const Ie = effectiveInertia(0.0054, Icr, crackingMoment(0.3, 0.6, 25), 112.5);
     expect(row.cracked!.Ie).toBeCloseTo(Ie, 9);
     expect(row.cracked!.lambda).toBe(2); // the top bars stop at the supports: no ρ′ at midspan

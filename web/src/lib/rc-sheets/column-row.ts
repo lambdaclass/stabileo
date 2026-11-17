@@ -10,7 +10,7 @@ import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } from './seismic';
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
-import { highAxialColumn } from '../engine/design/seismic/capacity';
+import { highAxialColumn } from './seismic-capacity';
 import type { Fmt } from './format';
 import { COLUMN_PITCH, COLUMN_PRACTICAL_CLEAR, growSymmetric, heldBars, heldOptions, isSquare, pickPractical, startCounts, tiedRule } from './column-layout';
 import { COLUMN_BAR_RANGE, allowedTie, check, listIn, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type TransverseList, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';

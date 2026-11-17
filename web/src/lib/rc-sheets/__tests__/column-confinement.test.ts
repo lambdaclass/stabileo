@@ -3,7 +3,7 @@ import { columnRow, confinedFaceBars, confinedTies, type ColumnCase, type Column
 import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { columnSection } from '../drawing';
 import { scheduleElements } from '../schedule/pieces';
-import { columnConfinement } from '../../engine/design/seismic/capacity';
+import { columnConfinement } from '../seismic-capacity';
 import { makeFmt } from '../format';
 
 const f = makeFmt('.');

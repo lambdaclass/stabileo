@@ -1,4 +1,4 @@
-import { beamCapacityShear, columnCapacityShear, columnConfinement, hoopSpacingFor, nominalMomentAt } from '../engine/design/seismic/capacity';
+import { beamCapacityShear, columnCapacityShear, columnConfinement, hoopSpacingFor, nominalMomentAt } from './seismic-capacity';
 import { faceLayout, groupsArea } from './bars';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import type { Fmt } from './format';

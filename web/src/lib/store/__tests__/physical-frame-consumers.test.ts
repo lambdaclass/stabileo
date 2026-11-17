@@ -156,9 +156,10 @@ describe('one geometry for every output that draws or measures the concrete', ()
     expect(Math.abs(total - frameVolume(f))).toBeLessThan(1e-5 * frameVolume(f));
   });
 
-  it('each of the three reads the store\'s one projection, none sweeps its own', () => {
+  it('each of the four reads the store\'s one projection, none sweeps its own', () => {
     const read = (p: string) => readFileSync(p, 'utf8');
-    for (const p of ['src/lib/viewport3d/scene-sync.ts', 'src/lib/store/takeoff.ts', 'src/lib/store/ifc-export.ts']) {
+    for (const p of ['src/lib/viewport3d/scene-sync.ts', 'src/lib/store/takeoff.ts', 'src/lib/store/ifc-export.ts', 'src/lib/store/sheet-set.ts',
+      'src/components/pro/design/RebarWorkspace.svelte', 'src/components/pro/design/RebarScenePanel.svelte']) {
       expect(read(p), p).toMatch(/projectPhysicalFrame\(\)/);
     }
     // Nothing else builds a frame of its own.

@@ -185,8 +185,5 @@ scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in war
 web/src/lib/api/error-text.ts: if (message === 'must be accepted') return t('account.field.mustAccept');
 web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account.field.tooLarge');
 
-web/src/lib/i18n/engine-text.ts: out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
-
 web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
-
 web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);

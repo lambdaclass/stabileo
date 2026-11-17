@@ -4,7 +4,7 @@
  * until the viewer has drawn it. The physical view stays within a small multiple of the
  * wireframe one and under a frame budget a person feels as immediate.
  */
-import { test, expect, designAll, loadModel } from './fixtures';
+import { test, expect, designAll, loadModel, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';
 
@@ -35,6 +35,8 @@ test.describe('@slow model fluidity with design', () => {
     test.setTimeout(600_000);
     await loadModel(page, 'pro-edificio-7p');
     await designAll(page);
+    await designPlace(page, 'detailing');
+    await page.getByTestId('cmd-generate-detailing').click();
     await expect.poll(async () => page.evaluate(() =>
       (window.__stabileo as unknown as { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 }).toBeGreaterThan(0);
     await page.keyboard.press('Escape');

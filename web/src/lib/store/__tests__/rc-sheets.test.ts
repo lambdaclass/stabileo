@@ -1,3 +1,7 @@
+import { applyRecognition, planRecognition } from '../physical-recognition';
+import { createPlate } from '../physical-plates';
+import { defaultDesignData } from '../../model/design-data';
+import { withCirsocCovers } from '../../rc-sheets/cover-data';
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
@@ -7,11 +11,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements, physicalGroups } from '../physical';
-import { clearPlateMesh, holdPlateSidesAt, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
-import { ensurePhysicalModel, ensurePlates } from '../plates-from-shells';
-import { meshBeforeAnalysis } from '../mesh-policy.svelte';
-const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, sheetsHavePhysical, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, sheetsHavePhysical, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
@@ -21,6 +21,7 @@ import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
   modelStore.clear(); historyStore.clear(); resultsStore.clear();
+  modelStore.setDesignData(withCirsocCovers(defaultDesignData()));
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
   uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = false;
 });
@@ -75,7 +76,7 @@ describe('reinforcement sheets from a solved model', () => {
     const a = modelStore.addNode(2, 2, 0), b = [...modelStore.nodes.values()].find((n) => n.x === 2 && n.y === 2 && n.z === 3)!.id;
     modelStore.addElement(a, b, 'frame');
     modelStore.addSupport(a, 'fixed3d');
-    ensurePlates();
+    applyRecognition(planRecognition(), (p) => p.draft.kind === 'slab');
     expect(physicalGroups().length).toBeGreaterThan(0);
     expect(physicalGroups().every((g) => g.physical.kind === 'slab')).toBe(true);
     expect(sheetsHavePhysical()).toBe(true);
@@ -566,101 +567,6 @@ describe('reinforcement sheets from a solved model', () => {
     expect(k.mu / (1.4 * 100 * H)).toBeLessThan(1.05);
   });
 
-  it('makes a wall drawn as one shell a plate that, meshed for the sheets, resolves its in-plane moment', () => {
-    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 3), d = modelStore.addNode(0, 0, 3);
-    modelStore.addQuad([a, b, c, d], conc, 0.2);
-    modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
-    const D = modelStore.model.loadCases.find((x) => x.type === 'D')!.id;
-    modelStore.addNodalLoad3D(c, 50, 0, -300, 0, 0, 0, D); modelStore.addNodalLoad3D(d, 50, 0, -300, 0, 0, 0, D);
-    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
-    ensurePhysicalModel();
-    holdPlateSidesAt(physicalGroups().find((g) => g.physical.kind === 'wall')!.id, 0, 'fixed3d');
-    expect(meshWallsForSheets()).toBe(1);
-    const wall = physicalGroups().find((g) => g.physical.kind === 'wall')!;
-    expect(plateStatus(wall.id)).toBe('current');
-    expect((physicalGroups().find((g) => g.id === wall.id)!.members.quads ?? []).length).toBeGreaterThan(4);
-    const bottom = [...modelStore.nodes.values()].filter((p) => Math.abs(p.z ?? 0) < 1e-9);
-    expect(bottom.length).toBeGreaterThan(2);
-    expect(bottom.every((p) => [...modelStore.supports.values()].some((sp) => sp.nodeId === p.id && sp.type === 'fixed3d'))).toBe(true);
-    const all = modelStore.solve3D(false, false, true); if (!all || typeof all === 'string') throw new Error(String(all));
-    resultsStore.setResults3D(all);
-    const bb = modelStore.solveCombinations3D(false, false, true); if (!bb || typeof bb === 'string') throw new Error(String(bb));
-    publishCombinations3D(bb);
-    const row = buildSheetRows().wall[0]!;
-    expect(row.demand.baseElements).toBeGreaterThan(1);
-    expect(row.verifications.find((v) => v.label === 'rcSheets.v.wallMesh')).toBeUndefined();
-    expect(row.demand.combos[0]!.mu).toBeGreaterThan(0.6 * 1.4 * 100 * 3);
-    expect(row.demand.combos[0]!.pu).toBeCloseTo(1.4 * 600, -1);
-    expect(row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')).toBeUndefined();
-    clearPlateMesh(wall.id);
-    expect([...modelStore.supports.values()].map((sp) => sp.nodeId).sort()).toEqual([a, b].sort());
-  });
-
-  it('fails a wall whose base rests on nothing but one corner', () => {
-    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 3), d = modelStore.addNode(0, 0, 3);
-    modelStore.addQuad([a, b, c, d], conc, 0.2);
-    modelStore.addSupport(a, 'fixed3d');
-    const D = modelStore.model.loadCases.find((x) => x.type === 'D')!.id;
-    modelStore.addNodalLoad3D(c, 0, 0, -100, 0, 0, 0, D);
-    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
-    ensurePhysicalModel();
-    expect(meshWallsForSheets()).toBe(1);
-    solve();
-    const row = buildSheetRows().wall[0]!;
-    const base = row.verifications.find((v) => v.label === 'rcSheets.v.wallBase')!;
-    expect(base.ok).toBe(false);
-    expect(row.demand.base).toMatchObject({ nodes: row.demand.baseElements! + 1, held: 1 });
-    expect(row.demand.base!.unheld).toHaveLength(row.demand.baseElements!);
-    expect(row.status).toBe('fail');
-  });
-
-  it('keeps a loaded one-shell wall\'s shell and its load as the plate\'s mesh, and does not mesh it for the sheets', () => {
-    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
-    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 3), d = modelStore.addNode(0, 0, 3);
-    const q = modelStore.addQuad([a, b, c, d], conc, 0.2);
-    modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
-    modelStore.addSurfaceLoad3D(q, 2, modelStore.model.loadCases[0]!.id);
-    ensurePhysicalModel();
-    expect(meshWallsForSheets()).toBe(0);
-    const wall = physicalGroups().find((g) => g.physical.kind === 'wall')!;
-    expect(wall.members.quads).toEqual([q]);
-    expect(plateStatus(wall.id)).toBe('current');
-    expect(modelStore.loads.filter((l) => l.type === 'surface3d')).toHaveLength(1);
-  });
-
-  it('meshes for the sheets the walls that are one element, and leaves one loaded by hand as it is', () => {
-    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
-    const wall = (x: number) => {
-      const a = modelStore.addNode(x, 0, 0), b = modelStore.addNode(x + 4, 0, 0), c = modelStore.addNode(x + 4, 0, 3), d = modelStore.addNode(x, 0, 3);
-      modelStore.addSupport(a, 'fixed3d'); modelStore.addSupport(b, 'fixed3d');
-      return modelStore.addQuad([a, b, c, d], conc, 0.2);
-    };
-    const bare = wall(0), loaded = wall(10);
-    modelStore.addSurfaceLoad3D(loaded, 2, modelStore.model.loadCases[0]!.id);
-    ensurePhysicalModel();
-    const plateOf = (q: number) => physicalPlates().find((p) => p.group.members.quads?.includes(q))!;
-    const bareId = plateOf(bare).id, loadedId = plateOf(loaded).id;
-    expect([plateStatus(bareId), plateStatus(loadedId)]).toEqual(['current', 'current']);
-    expect(wallsToMeshForSheets()).toEqual([bareId]);
-    const undo = historyStore.undoCount;
-    expect(meshWallsForSheets()).toBe(1);
-    expect(historyStore.undoCount).toBe(undo + 1);
-    expect(physicalPlates().find((p) => p.id === bareId)!.surface.mesh.size).toBe(WALL_MESH_SIZE);
-    expect(plateStatus(bareId)).toBe('current');
-    expect(modelEntryShells(bareId)).toBeGreaterThan(1);
-    expect(plateStatus(loadedId)).toBe('current');
-    expect(modelStore.loads.filter((l) => l.type === 'surface3d' && (l.data as { quadId: number }).quadId === loaded)).toHaveLength(1);
-    expect(wallsToMeshForSheets()).toEqual([]);
-    meshBeforeAnalysis.value = false;
-    try {
-      expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
-    } finally {
-      meshBeforeAnalysis.value = true;
-    }
-  });
-
   it('checks punching where a flat slab sits on a column', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);
@@ -714,7 +620,10 @@ describe('reinforcement sheets from a solved model', () => {
     modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, conc);
     modelStore.addSupport(base, 'fixed3d');
     modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
-    ensurePhysicalModel();
+    const plate = createPlate({ outline: [id[0]![0]!, id[N]![0]!, id[N]![N]!, id[0]![N]!], materialId: conc, thickness: h });
+    if (!('id' in plate)) throw new Error(String(plate.problem));
+    modelStore.setGroupMembers(plate.id, { ...modelStore.model.groups.get(plate.id)!.members, quads: [...modelStore.quads.keys()] });
+    recognizePhysicalElements();
     solve();
     return e;
   }

@@ -1,12 +1,11 @@
-import { modelStore } from './model.svelte';
 import { loadFamilyOfRegulations, type LoadFamilyChoice } from '../codes/families/stacks';
 import { regulationsStore } from './regulations.svelte';
+import { modelStore } from './model.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
 import { materialFamilyOf } from '../model/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
-import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
@@ -314,44 +313,6 @@ function cached<D extends object, R extends SheetRow>(demand: D, inputs: unknown
   if (m.size > 4) m.clear();
   m.set(k, row);
   return row;
-}
-
-/** The element size the wall sheets read a wall's in-plane moment at, m. */
-export const WALL_MESH_SIZE = 0.5;
-
-const loadedByHand = (key: string) => modelStore.loads.some((l) => (l.type === 'surface3d' || l.type === 'thermalQuad3d')
-  && `${(l.data as { on?: string }).on === 'plate' ? 'p' : 'q'}${(l.data as { quadId: number }).quadId}` === key && (l.data as { fromDef?: number }).fromDef === undefined);
-
-/**
- * The walls the sheets cannot read yet: with no mesh or an out-of-date one, or whole as one element
- * (a storey-high quad has no in-plane moment to speak of), unless a load put on that element by hand
- * would be lost with it.
- */
-export function wallsToMeshForSheets(): number[] {
-  return physicalPlates().filter((p) => {
-    if (p.physical.kind !== 'wall') return false;
-    if (plateStatus(p.id) !== 'current') return true;
-    const keys = plateShellKeys(p.id);
-    return keys.length === 1 && !loadedByHand(keys[0]!);
-  }).map((p) => p.id);
-}
-
-/** Those walls meshed now at `WALL_MESH_SIZE` at most, whatever "mesh before analysis" says. One undo step; how many. */
-export function meshWallsForSheets(): number {
-  const ids = wallsToMeshForSheets();
-  if (!ids.length) return 0;
-  let meshed = 0;
-  modelStore.batch(() => {
-    for (const id of ids) {
-      const e = physicalPlates().find((p) => p.id === id);
-      if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
-      if (plateShellKeys(id).length === 1) clearPlateMesh(id);
-    }
-    const meshedAgain = new Set(ids.flatMap(plateShellKeys));
-    const plans = ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
-    meshed = applyPlateMeshes(plans).plates;
-  });
-  return meshed;
 }
 
 /** A row designed again from its demand with other dimensions, its context as the last build had it; by row key. */

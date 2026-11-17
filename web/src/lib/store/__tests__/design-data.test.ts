@@ -5,14 +5,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore, resultsStore } from '../index';
 import { verificationStore } from '../verification.svelte';
-import { designData, designContextOptions, patchDesignData, patchOwnDesignData, setDesignData, verifyOptions } from '../design-data';
-import { setColumnEndZones, setRcOption, setTorsionMode } from '../rc-sheets.svelte';
-import { coversUnderMinimum, concreteFc, defaultDesignData, largestBar, migrateDesignData, migrateStoredDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
-import { buildMemberContext, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
+import { designData, designContextOptions, patchDesignData, setDesignData, verifyOptions } from '../design-data';
+import { coversUnderMinimum, concreteFc, defaultDesignData, migrateDesignData, minimumCover, withCirsocCovers } from '../../model/design-data';
+import { buildMemberContext, DEFAULT_COVER, DEFAULT_REBAR_FY, DEFAULT_STIRRUP_DIA } from '../../engine/design/member-context';
 import { buildRegionOptions } from '../../engine/design/candidate-enumerate-beam';
 import { syntheticBeamContext } from '../../engine/design/__tests__/helpers';
-import { wallBarDiameterMm } from '../detailing-project-inputs';
-import { resolveConcreteProperties } from '../concrete-properties';
+import { resolveConcreteProperties, wallBarDiameterMm } from '../detailing-project-inputs';
 import { applyTemplate, templateFromProject } from '../office-templates';
 
 const model = {
@@ -28,25 +26,11 @@ const model = {
 describe('the project design data', () => {
   beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-  it('states nothing: the steel the code always used, and the covers of Table 20.5.1.3.1', () => {
+  it('states nothing: the values the code always used', () => {
     expect(designContextOptions()).toMatchObject({ stirrupDia: DEFAULT_STIRRUP_DIA, rebarFy: DEFAULT_REBAR_FY });
-    expect(designContextOptions().coverFor('beam')).toBe(0.03);
-    expect(verifyOptions()).toEqual({ rebarFy: 420, cover: 0.03, columnCover: 0.03, stirrupDia: 8 });
+    expect(designContextOptions().coverFor('beam')).toBe(DEFAULT_COVER);
+    expect(verifyOptions()).toEqual({ rebarFy: 420, cover: 0.025, columnCover: 0.025, stirrupDia: 8 });
     expect(wallBarDiameterMm()).toBe(12);
-    expect(defaultDesignData().covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 });
-    expect(withCirsocCovers(defaultDesignData()).covers).toEqual(defaultDesignData().covers);
-    expect(coversUnderMinimum(defaultDesignData())).toEqual([]);
-  });
-
-  it('a saved project keeps the covers it stored; one that stored none takes the new defaults', () => {
-    const saved = JSON.parse(JSON.stringify({ ...defaultDesignData(), covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } }));
-    modelStore.setDesignData(migrateDesignData(saved));
-    expect(designContextOptions().coverFor('beam')).toBe(0.025);
-    expect(designData().covers.footing).toBe(0.025);
-    modelStore.setDesignData(migrateDesignData(JSON.parse(JSON.stringify({ rebarFy: 500 }))));
-    expect(designData().covers).toEqual(defaultDesignData().covers);
-    modelStore.setDesignData(null);
-    expect(verifyOptions().cover).toBe(0.03);
   });
 
   it('the steel and the covers reach the member contexts, a column\'s and a beam\'s apart', () => {
@@ -110,68 +94,22 @@ describe('the project design data', () => {
   });
 });
 
-describe('what the project stores of it', () => {
-  beforeEach(() => { modelStore.clear(); historyStore.clear(); });
-
-  it('touching a sheets option stores that option and leaves the covers and the steel to the defaults', () => {
-    setRcOption('seismic', true);
-    setTorsionMode('compatibility');
-    setColumnEndZones(true);
-    patchOwnDesignData({ frameToleranceMm: 10 });
-    patchDesignData({ rebarFy: 500 });
-    const stored = modelStore.designData as Record<string, unknown>;
-    expect(stored.covers).toBeUndefined();
-    expect(stored.exposure).toBeUndefined();
-    expect(stored.longDiametersMm).toBeUndefined();
-    expect(stored).toMatchObject({ rebarFy: 500, columnEndZones: true, frameToleranceMm: 10, designOptions: { seismic: true, torsion: 'compatibility' } });
-    expect(designData().covers).toEqual(defaultDesignData().covers);
-  });
-
-  it('a cover set by hand is stored alone, its kind\'s, and survives a save and reopen without the others', () => {
-    patchDesignData({ covers: { beam: 0.04 } });
-    const reopened = migrateStoredDesignData(JSON.parse(JSON.stringify(modelStore.snapshot().designData)));
-    expect(reopened?.covers).toEqual({ beam: 0.04 });
-    modelStore.setDesignData(reopened ?? null);
-    expect(designData().covers).toEqual({ ...defaultDesignData().covers, beam: 0.04 });
-  });
-
-  it('reading a stored shape keeps only what it states', () => {
-    expect(migrateStoredDesignData({ rcSheets: { adopted: {} }, covers: { column: 0.035, slab: 'x' } })).toEqual({ version: 1, rcSheets: { version: 1, adopted: {} }, covers: { column: 0.035 } });
-    expect(migrateStoredDesignData(null)).toBeUndefined();
-  });
-});
-
 describe('covers against CIRSOC 201-2025 Table 20.5.1.3.1', () => {
-  it('knows the minimum by kind, exposure and bar, under execution control or not', () => {
-    expect(minimumCover('beam', 'interior', 25, { stirrupMm: 8 })).toBe(0.027);
-    expect(minimumCover('beam', 'interior', 32, { stirrupMm: 6 })).toBe(0.031);
-    expect(minimumCover('beam', 'interior', 16, { stirrupMm: 12 })).toBe(0.025);
-    expect(minimumCover('column', 'interior', 25)).toBe(0.035);
-    expect(minimumCover('beam', 'interior', 25, { stirrupMm: 8, control: false })).toBe(0.032);
-    expect(minimumCover('slab', 'interior', 16)).toBe(0.025);
-    expect(minimumCover('slab', 'interior', 25)).toBe(0.03);
-    expect(minimumCover('slab', 'interior', 16, { control: false })).toBe(0.03);
-    expect(minimumCover('wall', 'interior', 40)).toBe(0.045);
-    expect(minimumCover('slab', 'exterior', 16)).toBe(0.035);
-    expect(minimumCover('column', 'exterior', 20)).toBe(0.04);
-    expect(minimumCover('column', 'ground', 20, { control: false })).toBe(0.045);
-    expect(minimumCover('footing', 'ground', 16)).toBe(0.055);
-    expect(minimumCover('footing', 'interior', 16, { control: false })).toBe(0.06);
+  it('knows the minimum by kind, exposure and bar', () => {
+    expect(minimumCover('beam', 'interior', 25)).toBe(0.04);
+    expect(minimumCover('slab', 'interior', 16)).toBe(0.02);
+    expect(minimumCover('slab', 'exterior', 16)).toBe(0.04);
+    expect(minimumCover('column', 'exterior', 20)).toBe(0.05);
+    expect(minimumCover('footing', 'interior', 16)).toBe(0.075);
   });
 
-  it('says which covers are under it, and the preset sets them all to it, rounded up to 5 mm', () => {
-    const d = { ...defaultDesignData(), covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } };
+  it('says which covers are under it, and the preset sets them all to it', () => {
+    const d = defaultDesignData();
+    // The usual 25 mm is under the table for beams, columns and footings; slabs and walls take 20 mm.
     expect(coversUnderMinimum(d).map((x) => x.kind)).toEqual(['beam', 'column', 'footing']);
     const p = withCirsocCovers(d);
-    expect(p.covers).toEqual({ beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 });
+    expect(p.covers).toEqual({ beam: 0.04, column: 0.04, slab: 0.02, wall: 0.02, footing: 0.075 });
     expect(coversUnderMinimum(p)).toEqual([]);
-    expect(coversUnderMinimum({ ...p, executionControl: false }).map((x) => x.kind)).toEqual(['beam', 'column', 'slab', 'wall', 'footing']);
-    expect(largestBar(p, 'slab')).toBe(16);
-    expect(largestBar(p, 'beam')).toBe(25);
-    expect(largestBar(p, 'column')).toBe(32);
-    expect(largestBar({ ...p, longDiametersMm: [32] }, 'beam')).toBe(32);
-    expect(migrateDesignData(JSON.parse(JSON.stringify({ executionControl: false }))).executionControl).toBe(false);
-    expect(migrateDesignData({ executionControl: true }).executionControl).toBeUndefined();
   });
 
   it('a stored shape is read back, and anything it does not state or states wrong is the default', () => {

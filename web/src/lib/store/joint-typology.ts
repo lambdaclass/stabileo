@@ -6,7 +6,7 @@
 import { modelStore } from './model.svelte';
 import { jointDesignStore } from './joint-design.svelte';
 import { activePerCombo3D, activeResultSet3D, designCombinationsWithheld } from './active-results';
-import { resolveConcreteProperties } from './concrete-properties';
+import { resolveConcreteProperties } from './detailing-project-inputs';
 import { detectJoints } from '../engine/connection-design';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';

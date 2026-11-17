@@ -63,7 +63,7 @@ describe('the detail catalogue in the drawing set', () => {
 
   it('puts each chosen detail on its kind’s sheet at its own scale, the rest on the details sheet', () => {
     project();
-    setSheetEntries([{ id: 'formwork', kind: 'formwork', scale: 50 }, { id: 'foundations', kind: 'foundations' }, { id: 'details', kind: 'details' }]);
+    setSheetEntries([{ id: 'beams', kind: 'beams', scale: 50 }, { id: 'columns', kind: 'columns' }, { id: 'details', kind: 'details' }]);
     patchSheetSettings({ format: 'A1' });
     // Before choosing: the basic details and the anchorage table on the details sheet, and as the
     // frame carries an earthquake case, the joint, beam and column in their seismic variant.
@@ -74,8 +74,8 @@ describe('the detail catalogue in the drawing set', () => {
     const keys = set.flatMap((s) => s.drawings);
     expect(keys).toEqual(expect.arrayContaining(['details:detail-hooks', 'details:detail-joint-interior-seismic', 'details:detail-chars-anchorage']));
 
-    // Chosen: the seismic beam and the column ties, whose own sheets are the reinforcement
-    // sheets' export now, go to the details sheet; a raft goes on the foundations sheet.
+    // Chosen: the seismic beam on the beams sheet, the column ties on the columns one, a raft
+    // (no foundations sheet in the set: it goes to details), the beams' characteristics table.
     toggleDetail('beam-seismic', false);
     toggleDetail('beam-seismic', true);
     toggleDetail('column-ties', true);
@@ -85,28 +85,28 @@ describe('the detail catalogue in the drawing set', () => {
     expect(unplacedDetails()).toEqual([]);
     set = projectSheetSet(null, 'Obra');
     const where = (k: string) => set.find((s) => s.drawings.includes(k));
-    expect(where('details:detail-beam-seismic')).toBeTruthy();
-    expect(where('details:detail-column-ties')).toBeTruthy();
-    expect(where('foundations:detail-raft')).toBeTruthy();
-    expect(where('details:detail-chars-beam')).toBeTruthy();
-    // At the detail's own 1:25.
-    const placed = where('details:detail-beam-seismic')!.placed!.find((p) => p.key === 'details:detail-beam-seismic')!;
+    expect(where('beams:detail-beam-seismic')).toBeTruthy();
+    expect(where('columns:detail-column-ties')).toBeTruthy();
+    expect(where('details:detail-raft')).toBeTruthy();
+    expect(where('beams:detail-chars-beam')).toBeTruthy();
+    // On the beams sheet, at the detail's own 1:25, not the entry's 1:50.
+    const placed = where('beams:detail-beam-seismic')!.placed!.find((p) => p.key === 'beams:detail-beam-seismic')!;
     expect(placed.scale).toBe(25);
 
     // Drawn with the project: the section's 550 mm gives 2h = 1100; the cover and lengths of H-30.
-    const sheetTexts = texts(where('details:detail-beam-seismic')!.primitives);
+    const sheetTexts = texts(where('beams:detail-beam-seismic')!.primitives);
     expect(sheetTexts).toContain('2h = 1100');
-    const beamTable = texts(where('details:detail-chars-beam')!.primitives);
+    const beamTable = texts(where('beams:detail-chars-beam')!.primitives);
     const v = projectDetailValues(null), d = v.bars.beam[0]!;
     expect(beamTable.some((s) => s.includes('30 mm'))).toBe(true);
     expect(beamTable).toContain(String(barLengths(v, d).lap));
     expect(v.typical).not.toContain('beam');
 
     // Moved to another sheet; then a set without a details sheet lists what has nowhere to go.
-    setDetailTarget('raft', 'formwork');
-    expect(projectSheetSet(null, 'Obra').some((s) => s.drawings.includes('formwork:detail-raft'))).toBe(true);
-    setSheetEntries([{ id: 'formwork', kind: 'formwork' }]);
-    expect(unplacedDetails().map((c) => c.id)).toEqual(expect.arrayContaining(['column-ties', 'hooks']));
+    setDetailTarget('raft', 'columns');
+    expect(projectSheetSet(null, 'Obra').some((s) => s.drawings.includes('columns:detail-raft'))).toBe(true);
+    setSheetEntries([{ id: 'beams', kind: 'beams' }]);
+    expect(unplacedDetails().map((c) => c.id)).toEqual(expect.arrayContaining(['raft', 'column-ties', 'hooks']));
     // Back to the defaults.
     setChosenDetails(undefined);
     expect(chosenDetails().map((c) => c.id)).toContain('joint-interior-seismic');

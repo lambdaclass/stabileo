@@ -13,7 +13,6 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { deserializeProject } from '../file';
 import { adoptAll, buildSheetRows, rcSheetsData, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, type SheetRows } from '../rc-sheets.svelte';
@@ -75,7 +74,7 @@ function flatPlate() {
   modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, conc);
   modelStore.addSupport(base, 'fixed3d');
   modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
-  ensurePhysicalModel();
+  recognizePhysicalElements();
   solve();
   setSheetCode('cirsoc201-2025');
 }

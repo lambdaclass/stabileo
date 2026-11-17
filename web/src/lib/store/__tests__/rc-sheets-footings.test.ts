@@ -8,7 +8,6 @@ import { readFileSync } from 'node:fs';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
 import { deserializeProject } from '../file';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -87,7 +86,7 @@ describe('the seven-storey example', () => {
   it('designs a footing under each column base on a 200 kPa soil', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
-    ensurePhysicalModel();
+    recognizePhysicalElements();
     const soil = modelStore.addSoilProfile('Suelo');
     modelStore.updateSoilProfile(soil, { bearing: { kind: 'allowablePressure', allowableBearingKPa: 200 } });
     solve();

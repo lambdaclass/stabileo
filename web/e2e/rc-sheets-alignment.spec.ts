@@ -1,4 +1,4 @@
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel } from './rc-sheets-fixtures';
 import type { Locator } from '@playwright/test';
 
 /**

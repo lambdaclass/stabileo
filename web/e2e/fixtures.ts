@@ -57,6 +57,34 @@ export async function alSection(page: import('@playwright/test').Page, id: 'regu
   await page.getByTestId(`al-nav-${id}`).click();
 }
 
+/**
+ * The bar and concrete families the 3-D scene batches by.
+ *
+ * Restated here rather than imported: `e2e/` is compiled by Playwright, not by the app's Vite
+ * pipeline, and reaching into `src/lib/three` from a spec would drag Three.js into the test
+ * process to read seven strings. `rebar-toggles.spec.ts` asserts that this list matches the
+ * renderer's own, so a family added on one side cannot go unnoticed on the other.
+ */
+export const SOLID_FAMILIES = [
+  'column', 'beam', 'joint', 'slab', 'wall', 'footing', 'pedestal',
+] as const;
+
+export type SolidFamily = typeof SOLID_FAMILIES[number];
+
+/** What the renderer is drawing right now, per family. See `rebarSceneCensus`. */
+export interface RebarSceneCensus {
+  /** Bars drawn, per family — plus `unknown` for steel no family could claim. */
+  bars: Record<SolidFamily | 'unknown', number>;
+  /** Concrete solids drawn, per family. */
+  solids: Record<SolidFamily, number>;
+  /** Conflict markers on screen. */
+  markers: number;
+  /** Triangles drawn, bars and concrete together. */
+  triangles: number;
+  /** Meshes a raycast would consider — what is selectable. */
+  pickable: number;
+}
+
 export interface TestHooks {
   version: number;
   solverReady(): boolean;
@@ -102,6 +130,19 @@ export interface TestHooks {
   orientationSuspectCount(): number;
   undoCount(): number;
   canvasInkRatio(): number;
+  /** How many times the 3-D viewport has built its tube geometry. */
+  rebarSceneBuilds(): number;
+  /**
+   * What the open 3-D workspace is DRAWING, per family. Null when none is open.
+   *
+   * Read off the meshes, not off the filter. The on-screen tally is the filter's own account of
+   * itself and was updating perfectly while every layer switch reached nothing.
+   */
+  rebarSceneCensus(): RebarSceneCensus | null;
+  /** Canvases in the page, of any kind. A layer switch must not add one. */
+  canvasCount(): number;
+  /** Scene-projection cache hits and misses. */
+  sceneCacheStats(): { hits: number; misses: number };
   /** Every autosave revision currently stored in IndexedDB, newest first. */
   autosaveRevisions(): Promise<Array<{ revision: number; timestamp: string; status: string }>>;
   /** The project as File → Save writes it, as JSON text. */
@@ -136,7 +177,6 @@ export interface TestActions {
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
   openDesignTab(): void;
-  turnElements(ids: number[], degrees: number): void;
   computeDemands(): unknown;
   codeCheck(): unknown;
   autoDesign(ids: number[]): unknown;
@@ -215,6 +255,7 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
     .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000, message: 'real WASM solver must be initialised (not the Vite stub)' })
     .toBe(true);
 
+  // The RC Design tab must be the active PRO tab for its table to exist.
   await page.evaluate(() => window.__stabileoActions.openDesignTab());
 }
 
@@ -225,18 +266,16 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
  * needs Spanish sets `test.use({ appLocale: 'es' })` — which is how the bilingual journeys
  * prove that engine output is translated rather than pasted.
  */
-export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'continue' | 'assert' }>({
+export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'acknowledge' | 'assert' }>({
   appLocale: ['en', { option: true }],
   /**
    * The re-check notice (`RecheckNotice.svelte`) opens over a project solved with an earlier
    * results version, which every committed fixture becomes at the next results-version bump.
-   * By default, whenever it would block an action, it is closed the way a person closes it:
-   * «Continue, results stay marked stale», which keeps the results stale and the banner up. A
-   * bump then does not fail specs that are about something else (eight of them did, the last
-   * time). A spec about the notice itself sets `test.use({ recheckNotice: 'assert' })` and sees
-   * it untouched.
+   * By default it is acknowledged whenever it would block an action, so a bump does not fail
+   * specs that are about something else (eight of them did, the last time). A spec about the
+   * notice itself sets `test.use({ recheckNotice: 'assert' })` and sees it untouched.
    */
-  recheckNotice: ['continue', { option: true }],
+  recheckNotice: ['acknowledge', { option: true }],
   /**
    * `page.goto` to the application, with the test hooks asked for, returns once the hooks are
    * there. The application is loaded on demand (main.ts imports it for an app address), so it can
@@ -244,8 +283,9 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
    * `goto` used to find it already installed beside an application that mounted at once.
    */
   page: async ({ page, recheckNotice }, use) => {
-    if (recheckNotice === 'continue') {
+    if (recheckNotice === 'acknowledge') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
+        await page.getByTestId('recheck-ack').check();
         await page.getByTestId('recheck-later').click();
       });
     }
@@ -578,6 +618,22 @@ export async function openBasicProjectPanel(page: Page): Promise<void> {
 export { expect };
 
 /**
+ * Make sure the Documents stage is open before reaching a control inside it.
+ *
+ * ── Why this exists, and why it is a helper and not a UI change ────
+ *
+ * PR20 moved the report, the drawings, the schedule, the 3-D view and the professional review out
+ * of the coordinated-detailing panel and into a stage of their own, collapsed by default like
+ * every other stage. Fourteen specs reach `doc-3d`, `doc-report`, `doc-dxf`, `doc-xlsx` or the
+ * review controls, and a collapsed `<details>` keeps its children in the DOM — so a locator
+ * RESOLVES, reports the right element, and then waits forever for it to become visible. That is
+ * the failure signature every one of them showed.
+ *
+ * The assertions are unchanged. What changed is which container holds the controls, and this is
+ * the one line that says so. Opening the stage by default would have hidden the problem instead
+ * of describing it, and would undo the point of making Documents a stage.
+ */
+/**
  * The drawings place of design, its set laid out on arrival; `setup` also opens the set's
  * configuration (format, kinds, entries, display, title block, details), which folds below the
  * sheets there.
@@ -591,11 +647,9 @@ export async function openSheetsPlace(page: Page, opts: { setup?: boolean } = {}
   }
 }
 
-/** The steel workflow's documents stage, which holds the memoria, the sheets and the exchange. */
-export async function openSteelDocuments(page: Page): Promise<void> {
-  await designPlace(page, 'steel');
-  const stage = page.getByTestId('steel-stage-documents');
-  if (await stage.getAttribute('open') === null) await stage.locator('> summary').click();
+export async function openDocumentsStage(page: Page): Promise<void> {
+  if (await page.getByTestId('documents-stage').isVisible()) return;
+  await designPlace(page, 'documents');
 }
 
 /**
@@ -639,34 +693,93 @@ export function appLanguage(page: Page): Promise<string | null> {
 
 /**
  * The Design stage is one workspace: the desk, docked around the viewer. `openDeskStage` lands on
- * it, on the place it was left; `designPlace` presses a place's rail entry, as a person does.
+ * it, on the place it was left. The screens the stage used to open beside the viewer (the
+ * concrete workflow with its member table and its detailing, the steel profiles, the steel
+ * connections, the design data, the check under other codes) are places of the desk now, reached
+ * with `designPlace`, which presses the step the place belongs to and then its rail entry, as a
+ * person does.
  */
 export async function openDeskStage(page: Page): Promise<void> {
   if (!(await page.getByTestId('design-desk').isVisible())) await page.getByTestId('pr-stage-design').click();
   await expect(page.getByTestId('design-desk')).toBeVisible();
 }
 
-const PLACE = {
-  designData: 'desk-rail-designData',
-  steel: 'desk-rail-steel',
-  connections: 'desk-rail-connections',
-  codes: 'desk-rail-codes',
-  sheets: 'desk-rail-sheets',
-} as const;
-/** The desk's places with a rail entry, and «Other code» in each of its two modes. */
+/** The places of design and the step each belongs to (`stepOf` in `design-desk-ui.svelte.ts`). */
+const PLACE: Record<string, { step: string; rail: string }> = {
+  prepare: { step: 'prepare', rail: 'desk-rail-prepare' },
+  designData: { step: 'prepare', rail: 'desk-rail-designData' },
+  plan: { step: 'size', rail: 'desk-tab-plan' },
+  levels: { step: 'size', rail: 'desk-tab-levels' },
+  list: { step: 'size', rail: 'desk-rail-list' },
+  steel: { step: 'size', rail: 'desk-rail-steel' },
+  connections: { step: 'size', rail: 'desk-rail-connections' },
+  codes: { step: 'size', rail: 'desk-rail-codes' },
+  detailing: { step: 'detail', rail: 'desk-rail-detailing' },
+  documents: { step: 'document', rail: 'desk-rail-documents' },
+  sheets: { step: 'document', rail: 'desk-rail-sheets' },
+  listings: { step: 'document', rail: 'desk-rail-listings' },
+};
 export type DesignPlace = keyof typeof PLACE | 'otherCodes' | 'foreignCodes';
-const isRailPlace = (tab: string): tab is keyof typeof PLACE => Object.hasOwn(PLACE, tab);
 
 /**
  * Go to a place of design, entering design first when it is not on screen. `otherCodes` is «Other
- * code» in its independent-check mode, `foreignCodes` in its equivalences mode.
+ * code» in its independent-check mode (the ribbon's former «Check members»), `foreignCodes` in its
+ * equivalences mode (the desk's former «Foreign codes»).
  */
 export async function designPlace(page: Page, place: DesignPlace): Promise<void> {
   await openDeskStage(page);
   const key = place === 'otherCodes' || place === 'foreignCodes' ? 'codes' : place;
-  await page.getByTestId(PLACE[key]).click();
+  const p = PLACE[key]!;
+  const rail = page.getByTestId(p.rail);
+  if (!(await rail.isVisible())) await page.getByTestId(`desk-step-${p.step}`).click();
+  await rail.click();
   if (place === 'otherCodes') await page.getByTestId('codes-mode-verify').click();
   if (place === 'foreignCodes') await page.getByTestId('codes-mode-memoria').click();
+}
+
+/** Kept for the specs written against the classic screens: design on screen, on the member list. */
+export async function openClassicDesign(page: Page): Promise<void> {
+  await designPlace(page, 'list');
+}
+
+/** «Size…» over every member, from the top of the Design stage, keeping what was edited by hand. */
+/**
+ * «Size…» over every member, in one pass: the sections kept, as the specs that read a design's
+ * counts were written. Enlarging the sections until every member verifies is the dialog's default
+ * and is pinned in `design-resize.test.ts`; on the 408-member frame its rounds outlast a spec.
+ */
+export async function sizeAll(page: Page, o: { resize?: boolean } = {}): Promise<void> {
+  await openDeskStage(page);
+  if (!(await page.getByTestId('desk-design').isVisible())) await page.getByTestId('desk-step-size').click();
+  await page.getByTestId('desk-design').click();
+  await page.getByTestId('desk-run-scope-all').check();
+  await page.getByTestId('desk-run-resize').setChecked(o.resize ?? false);
+  await page.getByTestId('desk-run').click();
+}
+
+/** Generate the coordinated detailing, from the Detail step at the top of the Design stage. */
+export async function generateDetailing(page: Page): Promise<void> {
+  await designPlace(page, 'detailing');
+  await page.getByTestId('cmd-generate-detailing').click();
+}
+
+/**
+ * Open the 3-D reinforcement view from where design is: the member list's toolbar holds
+ * `cmd-open-3d`, the Detail step's rail `desk-rail-3d`; both are `openRebar3DView`.
+ */
+export async function open3D(page: Page): Promise<void> {
+  const list = page.getByTestId('cmd-open-3d');
+  if (await list.isVisible()) { await list.click(); return; }
+  await designPlace(page, 'detailing');
+  await page.getByTestId('desk-rail-3d').click();
+}
+
+/** The floor pass (slabs, walls, foundations), a sub-step under the member list, opened. */
+export async function openFloorPass(page: Page): Promise<void> {
+  await designPlace(page, 'list');
+  const d = page.getByTestId('floor-families-disclosure');
+  if (await d.getAttribute('open') === null) await d.locator('> summary').click();
+  await expect(d).toHaveAttribute('open', '');
 }
 
 /** Leave design for the model stage, by the stage bar (the desktop has no close of its own). */
@@ -677,29 +790,41 @@ export async function leaveDesign(page: Page): Promise<void> {
 
 /**
  * Declare the beams NOT part of the lateral-force-resisting system, through the design data
- * place. Call it after `loadModel` and before designing: a beam that declares no role is designed
- * as part of the system (§9.7.3.8.2), and on that reading the frame fixtures refuse beams of their
- * own.
+ * panel, and come back to the design table. Call it after `loadModel` and before designing.
+ *
+ * Since 292b87f68 a beam that declares no role is designed as part of the system (§9.7.3.8.2:
+ * its bottom bars develop fy at the column face), and on that reading the frame fixtures refuse
+ * beams of their own: `rc-design-qa-8` e5 and e6, `pro-edificio-7p` all 119 beams,
+ * `rc-qa-diagnostic` five (SEARCH_EXHAUSTED, on that anchorage). A spec whose subject needs a
+ * design that converges (a converged claim, a constructible level, a provisional proposal on a
+ * beam) declares the role, which is the statement a user of these frames makes, and says so.
  */
 export async function declareBeamsNotLateral(page: Page): Promise<void> {
   await designPlace(page, 'designData');
   await page.getByTestId('design-data-lateral-beams').selectOption('gravity');
+  await designPlace(page, 'list');
 }
 
 /**
- * The desk's other places: the pieces under «Piece», the specialties and the project's surfaces
- * in the menus at the foot of the rail.
+ * The desk's views: the piece editors are under «Piece» and what is pending under «Pending», in
+ * the Size step, with the specialties in its menu; the project's surfaces are in the menu at the
+ * foot of every step.
  */
 const DESK_MENU: Record<string, string> = {
-  stairs: 'desk-mode-piece', joint: 'desk-mode-piece', elements: 'desk-mode-piece',
+  frame: 'desk-mode-piece', column: 'desk-mode-piece', wall: 'desk-mode-piece', slab: 'desk-mode-piece', joist: 'desk-mode-piece',
+  special: 'desk-mode-piece', pt: 'desk-mode-piece', stairs: 'desk-mode-piece', footing: 'desk-mode-piece', joint: 'desk-mode-piece',
+  elements: 'desk-mode-piece', geometry: 'desk-mode-pending', report: 'desk-mode-pending',
   seismic: 'desk-menu-specialties', fire: 'desk-menu-specialties', materials: 'desk-menu-specialties',
-  collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
+  budget: 'desk-menu-project', collab: 'desk-menu-project', arch: 'desk-menu-project', site: 'desk-menu-project',
 };
+const PROJECT_SURFACES = ['budget', 'collab', 'arch', 'site'];
 export async function deskTab(page: Page, tab: string): Promise<void> {
   if (tab === 'codes') { await designPlace(page, 'foreignCodes'); return; }
-  if (isRailPlace(tab)) { await designPlace(page, tab); return; }
-  await openDeskStage(page);
+  if (tab === 'documents') { await designPlace(page, 'documents'); return; }
+  if (PLACE[tab]) { await designPlace(page, tab as DesignPlace); return; }
   const target = page.getByTestId(`desk-tab-${tab}`);
+  if (await target.isVisible()) { await target.click(); return; }
+  if (!PROJECT_SURFACES.includes(tab) && !(await page.getByTestId('desk-mode-piece').isVisible())) await page.getByTestId('desk-step-size').click();
   if (!(await target.isVisible()) && DESK_MENU[tab]) await page.getByTestId(DESK_MENU[tab]!).click();
   await target.click();
 }
@@ -719,9 +844,13 @@ export async function clickStage(page: Page, stage: string): Promise<void> {
  * lives, opening that menu first when the command is inside it.
  */
 export const MORE_TOOLS = ['building', 'foundations', 'physical', 'generators'] as const;
-/* The Design stage's commands are places of the desk; a spec that pressed one goes to its place. */
+/*
+ * The Design stage's commands are places of the desk (interface A); the ribbon draws them only
+ * while the desk is not on screen. A spec that pressed one goes to its place instead.
+ */
 const DESIGN_CMD: Record<string, DesignPlace> = {
-  designData: 'designData', steel: 'steel', connections: 'connections', otherCodes: 'otherCodes', sheets: 'sheets',
+  design: 'list', designList: 'list', designData: 'designData', designPrepare: 'prepare', steel: 'steel',
+  connections: 'connections', otherCodes: 'otherCodes', detailing: 'detailing', documents: 'documents',
 };
 export async function ribbonCmd(page: Page, id: string): Promise<void> {
   if (DESIGN_CMD[id] && !(await page.getByTestId(`pr-cmd-${id}`).isVisible())) { await designPlace(page, DESIGN_CMD[id]!); return; }

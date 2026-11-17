@@ -25,14 +25,13 @@ import { memberContexts } from '../../engine/design/other-codes';
 import { activePerCombo3D, activeCombinations } from '../active-results';
 import { ec2ColumnDesign } from '../../engine/design/eurocode/ec2-column';
 import { EC2_RECOMMENDED } from '../../engine/design/eurocode/ec2-params';
-import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
-const reset = () => { modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro'; stateSuiteCovers(); };
+const reset = () => { modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro'; };
 const solve = () => {
   const r = modelStore.solveCombinations3D(false, false, true);
   if (!r || typeof r === 'string') throw new Error(String(r));

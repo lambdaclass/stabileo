@@ -1,4 +1,4 @@
-import { test, expect, loadModel, ribbonCmd, solveModel } from './fixtures';
+import { test, expect, loadModel, ribbonCmd, solveModel } from './rc-sheets-fixtures';
 import type { Page } from '@playwright/test';
 
 /**

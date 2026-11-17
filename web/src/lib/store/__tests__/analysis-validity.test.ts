@@ -1,6 +1,6 @@
 /**
  * The slab-column joint indicator of a design run (`engine/design/analysis-validity.ts`), read by
- * everything that states a member or a document as verified: the memoria, the workbook,
+ * everything that states a member or a document as verified: the desk, the memoria, the workbook,
  * the IFC, the certificates, the assemblies' constructibility, the document's readiness and open
  * issues, and the banner every sheet prints.
  *
@@ -27,6 +27,7 @@ import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
 import { detailingStore } from '../detailing.svelte';
+import { deskMembers } from '../design-desk';
 import { memoriaInput } from '../memoria-inputs';
 import { designSheets } from '../design-exchange';
 import { projectIfcInput } from '../ifc-export';
@@ -120,6 +121,7 @@ interface Readings {
   summaryKey: string;
   openIssues: number;
   certificates: number;
+  desk: { ok: number; d124: number };
   memoria: number;
   workbookOk: number;
   ifc: { joint: number; satisfies: number };
@@ -132,6 +134,7 @@ interface Readings {
 function read(doc: DocumentModel): Readings {
   const v = currentSlabColumnJoint();
   const flagged = new Set(v.pointJoints.map((m) => m.elementId));
+  const desk = deskMembers().filter((m) => verificationStore.contextFor(m.id));
   const mem = memoriaInput(tr, 'es');
   const [elements] = designSheets(tr, 'es');
   const ifc = projectIfcInput(tr, 'es', 'p').members;
@@ -145,6 +148,7 @@ function read(doc: DocumentModel): Readings {
     summaryKey: doc.summary.key,
     openIssues: (doc.openIssues ?? []).filter((i) => i.key.startsWith('slabColumnJoint.')).length,
     certificates: doc.certificates.filter((c) => c.loadSplit === 'notEstablished').length,
+    desk: { ok: desk.filter((m) => m.status === 'ok').length, d124: desk.filter((m) => m.codes.includes('D124')).length },
     memoria: mem.elements.filter((e) => e.rows.some((r) => r.titleKey === 'check.slabColumnJoint' && r.status === 'unsupported')).length,
     workbookOk: elements!.rows.slice(1).filter((r) => r[6] === 'memo.state.ok').length,
     ifc: { joint: ifc.filter((m) => String(m.props?.SlabColumnJoint ?? '').startsWith('one node')).length, satisfies: ifc.filter((m) => m.props?.DesignState === 'satisfies').length },
@@ -197,9 +201,11 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       expect(x.verdict, `mesh ${m}`).toBe('pointJoint');
       // 14 spans and 12 columns.
       expect(x.pointJoints, `mesh ${m}`).toBe(26);
-      // The memoria and the certificates list a span's pieces; the IFC one member per span, 26; the memoria's 12 joints read the beams' end forces and are
+      // The memoria and the certificates list a span's pieces; the desk (`member-names.ts`) and the
+      // IFC one member per span, 26; the memoria's 12 joints read the beams' end forces and are
       // held too.
       const pieces = x.certificates;
+      expect(x.desk, `mesh ${m}: desk`).toEqual({ ok: 0, d124: 26 });
       expect(x.memoria, `mesh ${m}: memoria`).toBe(pieces + 12);
       expect(x.workbookOk, `mesh ${m}: workbook`).toBe(0);
       expect(x.ifc, `mesh ${m}: IFC`).toEqual({ joint: 26, satisfies: 0 });
@@ -229,15 +235,16 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
     }
   });
 
-  it('6 m with the verdict left out reads as it did: an assembly CONSTRUCTIBLE, members ok in the IFC and the workbook', () => {
+  it('6 m with the verdict left out reads as it did: an assembly CONSTRUCTIBLE, members ok in the desk, the IFC and the workbook', () => {
     expect(before!.verdict).toBe('notApplicable');
     expect(before!.constructible).toBeGreaterThan(0);
+    expect(before!.desk.ok).toBeGreaterThan(0);
     expect(before!.ifc.satisfies).toBeGreaterThan(0);
     expect(before!.workbookOk).toBeGreaterThan(0);
-    expect([before!.memoria, before!.ifc.joint, before!.certificates, before!.openIssues]).toEqual([0, 0, 0, 0]);
+    expect([before!.desk.d124, before!.memoria, before!.ifc.joint, before!.certificates, before!.openIssues]).toEqual([0, 0, 0, 0, 0]);
     // And with it: none.
     const x = r.get(6)!;
-    expect([x.constructible, x.ifc.satisfies, x.workbookOk]).toEqual([0, 0, 0]);
+    expect([x.constructible, x.desk.ok, x.ifc.satisfies, x.workbookOk]).toEqual([0, 0, 0, 0]);
   });
 
   it.runIf(!!process.env.SPAN_FINE)('0,125 m: under 1 % straight into the columns, and still a point joint (the previous criterion validated it)', () => {
@@ -258,7 +265,7 @@ describe('the span building with each column\'s section tied to the slab (0,2 m)
     const x = read(doc);
     if (PRINT) console.log(`TIED: ${JSON.stringify(x)}`);
     expect(x.verdict).toBe('sectionRepresented');
-    expect([x.pointJoints, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0]);
+    expect([x.pointJoints, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
     expect(x.summaryKey).not.toBe('detailing.document.slabColumnPointJoint');
     expect(x.readiness).toBe(x.readinessWithout);
   }, 300_000);
@@ -284,7 +291,7 @@ describe('qa-8: no slab, the indicator does not apply and nothing changes', () =
     if (PRINT) console.log(`QA-8: ${JSON.stringify(x)}`);
     expect([...verificationStore.contexts.values()].map((c) => c.slabColumnJoint?.verdict)).toEqual(Array(8).fill('notApplicable'));
     expect(x.verdict).toBe('notApplicable');
-    expect([x.pointJoints, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0]);
+    expect([x.pointJoints, x.desk.d124, x.memoria, x.ifc.joint, x.certificates, x.openIssues]).toEqual([0, 0, 0, 0, 0, 0]);
     expect(x.readiness).toBe(x.readinessWithout);
     expect(doc.slabColumnJoint?.verdict).toBe('notApplicable');
   });

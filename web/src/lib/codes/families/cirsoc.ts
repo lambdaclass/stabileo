@@ -33,9 +33,9 @@ export const CIRSOC101_BASIS: CombinationCode = {
   categoryOf: (symbol) => CIRSOC_CATEGORY[symbol] ?? 'other',
 };
 
-export const CIRSOC101_LOADS = {
+export const CIRSOC101_LOADS: ImposedLoadCode = {
   adapterId: 'cirsoc101-2025-loads', role: 'loads', family: 'cirsoc', edition: '2025',
-  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8', partition: '§4.3.2', reduction: '§4.7.2', patterns: '§4.3.3' },
+  title: 'CIRSOC 101-2025', sections: { dead: 'Tabla 3.1', live: 'Tabla 4.1', roof: '§4.8' },
   occupancy: (key) => findOccupancy(key),
   generationBlockers({ occupancies, roof }) {
     const messages = [...new Map(occupancies.map(o => [o.key, o])).values()]
@@ -47,7 +47,7 @@ export const CIRSOC101_LOADS = {
     return { messages, refs: messages.length ? [clause('cirsoc-101', '2025', '4.4', 'cargas concentradas')] : [] };
   },
   reduce: (o) => reduceLiveLoad(o),
-} satisfies ImposedLoadCode;
+};
 
 export const CIRSOC102_WIND: WindCode = {
   adapterId: 'cirsoc102-2025', role: 'wind', family: 'cirsoc', edition: '2025', title: 'CIRSOC 102-2025',

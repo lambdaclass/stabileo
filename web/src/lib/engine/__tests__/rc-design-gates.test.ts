@@ -22,12 +22,26 @@ const SRC = resolve(__dirname, '../../..');
 describe('GATE: the reinforcement-edit path never destroys verification state', () => {
   const designDir = resolve(SRC, 'components/pro/design');
   const designFiles = readdirSync(designDir).filter(f => f.endsWith('.svelte') || f.endsWith('.ts'));
+  const tab = readCode('../../../components/pro/ProDesignTab.svelte');
+
+  it('ProDesignTab does not call verificationStore.clear()', () => {
+    // This single line was the reported regression: it emptied the design table and
+    // destroyed the data the live provided-rebar verification needs as input.
+    expect(tab).not.toContain('verificationStore.clear()');
+  });
 
   it('no design component calls verificationStore.clear()', () => {
     for (const f of designFiles) {
       const s = stripComments(readFileSync(resolve(designDir, f), 'utf8'));
       expect(s, `${f} must not clear the verification store`).not.toContain('verificationStore.clear()');
     }
+  });
+
+  it('ProDesignTab does not reassign model.elements directly', () => {
+    // Reinforcement must be written through modelStore.reinforcementTransaction so the
+    // edit is undoable and does not bump the model version.
+    expect(tab).not.toMatch(/model\.elements\s*=\s*new Map/);
+    expect(tab).not.toContain('_reinfVersion');
   });
 
   it('rebar-edit routes every write through reinforcementTransaction', () => {
@@ -196,8 +210,21 @@ describe('GATE: new user-facing strings are localised', () => {
   });
 });
 
-describe('GATE: the design components stay small', () => {
-  it('every component stays inside the ceiling', () => {
+describe('GATE: ProDesignTab was decomposed', () => {
+  it('is far below the 600-LOC component ceiling and delegates to components', () => {
+    const s = read('../../../components/pro/ProDesignTab.svelte');
+    const loc = s.split('\n').length;
+    expect(loc).toBeLessThan(600);
+    for (const c of [
+      'DesignToolbar', 'DesignFilterBar', 'DesignTable', 'RebarEditorBeam',
+      'RebarEditorColumn', 'RebarSchematics', 'VerificationDetail',
+      'BatchEditDialog', 'ChangedMembersPanel', 'SectionAdviceDialog',
+    ]) {
+      expect(s, `must render ${c}`).toContain(`<${c}`);
+    }
+  });
+
+  it('every extracted component stays inside the ceiling', () => {
     const dir = resolve(SRC, 'components/pro/design');
     for (const f of readdirSync(dir).filter(x => x.endsWith('.svelte'))) {
       const loc = readFileSync(resolve(dir, f), 'utf8').split('\n').length;

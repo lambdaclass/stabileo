@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -24,7 +23,7 @@ describe('reinforcement sheets on a building', () => {
   it('read the shells of each combination once for all its slabs and walls', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('pro-edificio-7p');
-    ensurePhysicalModel();
+    recognizePhysicalElements();
     syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
     resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);

@@ -16,7 +16,14 @@ export default mergeConfig(rest, defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     pool: 'threads',
     testTimeout: 30_000,
-    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**', '**/.stryker-tmp/**'],
+    exclude: [
+      '**/node_modules/**', '**/dist/**', 'e2e/**', '**/.stryker-tmp/**',
+      // Reads outcome.ts as text and parses its switch: under Stryker that file is the
+      // instrumented copy, the parse finds nothing and the dry run fails before any mutant is
+      // tried. It checks source structure, not behaviour, so it has nothing to say about a
+      // mutant; it runs in the normal unit pass.
+      'src/lib/engine/design/__tests__/run-summary-reported.test.ts',
+    ],
     include: [
       'src/lib/engine/__tests__/differential/**/*.test.ts',
       'src/lib/engine/__tests__/cirsoc201-engine-gate*.test.ts',

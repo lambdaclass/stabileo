@@ -155,7 +155,6 @@ describe('the document', () => {
 
   it('every text the document and the catalog use exists in es, en and pt', () => {
     const src = readFileSync(new URL('../render.ts', import.meta.url), 'utf8') + readFileSync(new URL('../../../store/memoria-inputs.ts', import.meta.url), 'utf8')
-      + readFileSync(new URL('../../../rc-sheets-readers/memoria.ts', import.meta.url), 'utf8')
       + readFileSync(new URL('../../../../components/pro/design/MemoriaDialog.svelte', import.meta.url), 'utf8');
     const keys = new Set([...src.matchAll(/\bt?r?\('((?:memo|check|sheet)\.[\w.]+)'/g)].map((m) => m[1]!));
     for (const k of Object.keys(CHAPTERS)) keys.add(`memo.ch.${k}`);

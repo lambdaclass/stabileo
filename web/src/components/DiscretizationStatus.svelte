@@ -14,7 +14,6 @@
   } from '../lib/store/discretization.svelte';
   import { localizeEngineText } from '../lib/i18n/engine-text';
   import { shellContourColor } from '../lib/three/stress-heatmap';
-  import { noticePrefs } from '../lib/store/notice-prefs.svelte';
 
   const is3D = $derived(uiStore.is3DWorkspace);
   const est = $derived(discretizationStore.estimate);
@@ -72,7 +71,7 @@
       const v = r.min + (i / 10) * (r.max - r.min);
       stops.push('#' + shellContourColor(v, r.min, r.max).toString(16).padStart(6, '0'));
     }
-    return { max: r.max, clipped: r.clipped, tick: thresholdTick(thresholdPct, r.max), gradient: `linear-gradient(to right, ${stops.join(', ')})` };
+    return { max: r.max, tick: thresholdTick(thresholdPct, r.max), gradient: `linear-gradient(to right, ${stops.join(', ')})` };
   });
 </script>
 
@@ -94,12 +93,8 @@
 
     {#if claims?.warnUnestimable}
       <div class="warning" data-testid="discretization-warning">{t(claims.warnUnestimable)}</div>
-    {:else if warn && !noticePrefs.isHidden('discretization')}
-      <div class="warning" data-testid="discretization-warning">
-        <strong>{t('notices.kind.discretization')}</strong>
-        {t('discretization.warning').replace('{threshold}', threshold)}
-        <button class="link" onclick={() => noticePrefs.hide('discretization')} data-testid="notice-hide-kind">{t('notices.hideKind')}</button>
-      </div>
+    {:else if warn}
+      <div class="warning" data-testid="discretization-warning">{t('discretization.warning').replace('{threshold}', threshold)}</div>
     {/if}
 
     {#if claims?.framesExact}
@@ -131,7 +126,7 @@
           <div class="ticks">
             <span>0 %</span>
             {#if legend.tick.label}<span class="thr" style:left="{legend.tick.at}%" data-testid="discretization-legend-threshold">{threshold} %</span>{/if}
-            <span data-testid="discretization-legend-max">{legend.clipped ? '≥ ' : ''}{legend.max.toFixed(0)} %</span>
+            <span>{legend.max.toFixed(0)} %</span>
           </div>
           <div class="note">{t('discretization.mapExplain')}</div>
         </div>
@@ -185,19 +180,18 @@
 {/if}
 
 <style>
-  .disc { margin: 4px 0; padding: 3px 7px; border: 1px solid var(--st-hair); border-radius: 4px; font-size: 12px; line-height: 1.4; color: var(--st-text-2); }
-  .disc.warn { border-color: var(--st-info); }
+  .disc { margin: 4px 0; padding: 3px 7px; border: 1px solid var(--st-hair); border-radius: 4px; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); }
+  .disc.warn { border-color: var(--st-warn); }
   .line { cursor: help; }
   .sep { margin: 0 4px; opacity: 0.6; }
-  .warning { margin-top: 3px; padding-left: 6px; border-left: 3px solid var(--st-info); }
-  .warning strong { display: block; font-weight: 600; color: var(--st-text); }
+  .warning { margin-top: 3px; color: var(--st-warn); font-weight: 600; }
   .note { margin-top: 2px; opacity: 0.8; }
   .toggle { display: flex; gap: 4px; align-items: center; margin-top: 3px; cursor: pointer; }
   .legend { margin-top: 3px; }
   .bar { position: relative; height: 8px; border-radius: 2px; }
   .mark { position: absolute; top: -1px; bottom: -1px; width: 1px; background: var(--st-text-2); }
   /* 0 and the maximum at the ends; the threshold where its colour is (`thresholdTick`). */
-  .ticks { position: relative; display: flex; justify-content: space-between; font-size: 11px; }
+  .ticks { position: relative; display: flex; justify-content: space-between; font-size: 0.6rem; }
   .thr { position: absolute; top: 0; transform: translateX(-50%); }
   .study { margin-top: 3px; }
   .link { padding: 0; border: none; background: none; color: var(--st-accent); font: inherit; text-decoration: underline; cursor: pointer; }

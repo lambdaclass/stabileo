@@ -14,7 +14,7 @@
   import { t, tp, i18n } from '../../lib/i18n';
   import { exportProjectIfc } from '../../lib/store/ifc-export';
   import { prepareExportProvenance } from '../../lib/export/provenance-attach';
-  import { downloadText } from '../../lib/store/file';
+  import { downloadBlob } from '../../lib/store/document-exports';
   import { tellIfEmpty } from '../../lib/export/empty-model';
   import { uiStore, modelStore } from '../../lib/store';
   import {
@@ -228,7 +228,7 @@
     const record = await prepareExportProvenance();
     if (!record) return;
     const name = modelStore.model.name || 'stabileo';
-    downloadText(exportProjectIfc(t, i18n.locale, name, record), `${name.replace(/\s+/g, '-')}.ifc`, 'application/x-step');
+    downloadBlob(`${name.replace(/\s+/g, '-')}.ifc`, 'application/x-step', exportProjectIfc(t, i18n.locale, name, record));
     tellIfEmpty();
   }
 

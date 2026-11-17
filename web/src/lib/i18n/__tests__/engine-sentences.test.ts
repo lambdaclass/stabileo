@@ -14,12 +14,6 @@ describe('engine sentences', () => {
     expect(localizeEngineText('Singular stiffness matrix — structure is a mechanism')).toBe('Matriz de rigidez singular: a estrutura é um mecanismo');
   });
 
-  it('reads a degree of freedom tied by two constraints in Spanish', () => {
-    setLocale('es');
-    expect(localizeEngineText('DOF 648 (node 121) is constrained by 2 constraints — last one wins'))
-      .toBe('El grado de libertad 648 (nodo 121) está sujeto a 2 restricciones; sólo vale la última');
-  });
-
   it('leaves a sentence it does not know as it is', () => {
     setLocale('es');
     expect(localizeEngineText('Residual 1.2e-3 exceeds tolerance')).toBe('Residual 1.2e-3 exceeds tolerance');

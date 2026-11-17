@@ -19,18 +19,6 @@ async function results(page: import('@playwright/test').Page, example = '3d-port
 }
 
 test.describe('@smoke PRO results, report, view and tools', () => {
-  test('the centres of mass and rigidity by level, beside the story drift', async ({ pro: page }) => {
-    await results(page);
-    await page.getByTestId('res-tab-centres').click();
-    const table = page.getByTestId('level-centres');
-    await expect(table).toBeVisible();
-    const rows = table.locator('[data-testid^="level-centres-row-"]');
-    expect(await rows.count()).toBeGreaterThanOrEqual(2);
-    await expect(rows.nth(1)).toContainText(/\d+ kN/);
-    await expect(rows.nth(1).locator('td').nth(2)).toHaveText(/^-?\d+\.\d{2} · -?\d+\.\d{2}$/);
-    await expect(rows.nth(1).locator('td').nth(3)).toHaveText(/^-?\d+\.\d{2} · -?\d+\.\d{2}$/);
-  });
-
   test('tables across the load cases, by member with stations, and a statics table', async ({ pro: page }) => {
     await results(page);
     await page.getByTestId('res-tab-forces').click();

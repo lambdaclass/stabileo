@@ -1,3 +1,5 @@
+import { defaultDesignData } from '../../model/design-data';
+import { withCirsocCovers } from '../../rc-sheets/cover-data';
 /**
  * The CIRSOC 201 flexure post's beam: 20×40, H-25, 5 m simply supported, D = 12 kN/m plus self-weight
  * and L = 8 kN/m. A 90° hook on its Ø25 bottom bars does not fit 40 cm, and a simple support
@@ -6,7 +8,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -18,7 +19,9 @@ describe('a simply supported 20×40 beam of 5 m', () => {
   it('designs itself with no failing check, its bottom bars straight into the supports', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('rc-beam-flexure');
-    ensurePhysicalModel(); syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
+    modelStore.setDesignData(withCirsocCovers(defaultDesignData()));
+    modelStore.updateSupport(2, { type: 'custom3d', dofRestraints: { tx: false, ty: true, tz: true, rx: true, ry: false, rz: false } });
+    recognizePhysicalElements(); syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
     resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
     const rows = buildSheetRows();

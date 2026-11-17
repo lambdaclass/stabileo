@@ -3,7 +3,8 @@
   import { t, tp, tpn, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { downloadRcSheets, meshWallsForSheets, rcSheetsData, sheetsHavePhysical, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { downloadRcSheets, rcSheetsData, sheetsHavePhysical, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
+  import { recognizePhysicalElements } from '../../../lib/store/physical';
   import { uiStore } from '../../../lib/store/ui.svelte';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
@@ -20,7 +21,7 @@
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
   import { designData } from '../../../lib/store/design-data';
-  import ProDesignDataPanel from '../ProDesignDataPanel.svelte';
+  import ProDesignDataPanel from './RcDesignDataPanel.svelte';
 
   let open = $state(false);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
@@ -50,14 +51,6 @@
 
   function openAt(f: SheetFamily) { family = f; open = true; }
   let solving = $state(false);
-  const wallsToMesh = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return wallsToMeshForSheets().length; });
-  async function meshWalls() {
-    meshWallsForSheets();
-    solving = true;
-    try { await runGlobalSolve(); }
-    catch (err) { uiStore.toast(err instanceof Error ? err.message : String(err), 'error'); }
-    finally { solving = false; }
-  }
 </script>
 
 <div class="rcp" data-testid="rc-sheets-panel">
@@ -70,23 +63,16 @@
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
   {:else if !hasPhysical}
     <p class="rcp-note">{t('rcSheets.noPhysical')}</p>
+    <button type="button" class="rcs-btn" onclick={recognizePhysicalElements} data-testid="rc-recognize">{t('physical.recognize')}</button>
   {:else if sheetsRun.progress}
     {@const z = sheetSize()}
     <p class="rcp-basis" role="status" data-testid="rc-building">{tp('rcSheets.building', { combos: z.combos, members: z.members, shells: z.shells })}</p>
     <RcSheetsProgress progress={sheetsRun.progress} />
   {:else if !rows}
-    {#if wallsToMesh > 0}
-      <p class="rcp-basis warn">{tpn('rcSheets.wallsToMesh', wallsToMesh)}</p>
-      <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
-    {/if}
     <div data-testid="rc-panel-code"><RcCodePicker /></div>
     <p class="rcp-note">{t('rcSheets.designHint')}</p>
     <button type="button" class="rcs-btn primary" onclick={designSheets} disabled={solving} data-testid="rc-design">{t('rcSheets.design')}</button>
   {:else}
-    {#if wallsToMesh > 0}
-      <p class="rcp-basis warn">{tpn('rcSheets.wallsToMesh', wallsToMesh)}</p>
-      <button type="button" class="rcs-btn" onclick={meshWalls} disabled={solving} data-testid="rc-mesh-walls">{t('rcSheets.meshWalls')}</button>
-    {/if}
     {#if stale}
       <p class="rcp-basis warn" data-testid="rc-stale">{t('rcSheets.stale')}</p>
       <button type="button" class="rcs-btn primary" onclick={designSheets} data-testid="rc-redesign">{t('rcSheets.redesign')}</button>

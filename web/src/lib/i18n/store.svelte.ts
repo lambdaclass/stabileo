@@ -188,7 +188,6 @@ export function tp(key: string, params?: Record<string, string | number>): strin
 	});
 }
 
-/** `key.one` for one, `key.other` for any other count, with `{n}` filled in. */
 export function tpn(key: string, n: number, params?: Record<string, string | number>): string {
 	return tp(`${key}.${n === 1 ? 'one' : 'other'}`, { ...params, n });
 }

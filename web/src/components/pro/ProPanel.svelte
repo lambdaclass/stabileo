@@ -41,7 +41,6 @@
   import { runEngineActionAsync } from '../../lib/store/engine-action';
   import { t } from '../../lib/i18n';
   import { leaveSelfWeightRule, selfWeightRuleEffect } from '../../lib/store/self-weight-migration';
-  import { ensurePhysicalModelEffect } from '../../lib/store/plates-from-shells';
   import SelectionPanel from '../SelectionPanel.svelte';
   import ToolbarConfig from '../toolbar/ToolbarConfig.svelte';
   import ProTransformPanel from './ProTransformPanel.svelte';
@@ -191,7 +190,6 @@
 
   // A model without a self-weight rule (older file, link, tab, first member) is given one.
   $effect(selfWeightRuleEffect);
-  $effect(ensurePhysicalModelEffect);
   // What is drawn in another mode is not drawn in PRO: a model seen empty here is migrated on return.
   onDestroy(leaveSelfWeightRule);
 

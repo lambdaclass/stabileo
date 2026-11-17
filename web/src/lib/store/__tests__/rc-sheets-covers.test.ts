@@ -16,6 +16,7 @@ import { clearSheets, designSheets, sheetsRun } from '../rc-sheets-view.svelte';
 import { applyTableCovers, sheetCoversUnder } from '../rc-sheets-covers';
 import { designData, patchDesignData } from '../design-data';
 import { defaultDesignData } from '../../model/design-data';
+import { withCirsocCovers } from '../../rc-sheets/cover-data';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -46,7 +47,7 @@ describe('stored covers under the table', () => {
   it('are said by kind and value, and one action sets them to the table, designs again, and undoes in one step', async () => {
     frame();
     setSheetCode('cirsoc201-2025');
-    patchDesignData({ covers: { ...defaultDesignData().covers, beam: 0.025, column: 0.025 } });
+    patchDesignData({ covers: { ...withCirsocCovers(defaultDesignData()).covers, beam: 0.025, column: 0.025 } });
     expect(sheetCoversUnder().map((u) => [u.kind, u.cover])).toEqual([['beam', 0.025], ['column', 0.025]]);
     await designSheets();
     expect(coverFails()).toBeGreaterThan(0);
@@ -62,7 +63,7 @@ describe('stored covers under the table', () => {
 
   it('are not said under a code that does not hold the sheets to the table', () => {
     frame();
-    patchDesignData({ covers: { beam: 0.02 } });
+    patchDesignData({ covers: { ...withCirsocCovers(defaultDesignData()).covers, beam: 0.02 } });
     setSheetCode('en1992-1-1');
     expect(sheetCoversUnder()).toEqual([]);
     setSheetCode('cirsoc201-2025');

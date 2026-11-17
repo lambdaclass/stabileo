@@ -1,6 +1,7 @@
 /** The covers notice in words: where each value comes from, the table's arithmetic for it, what the button changes and the button saying so. */
 import { describe, it, expect } from 'vitest';
 import { defaultDesignData, type ProjectDesignData } from '../../model/design-data';
+import { withCirsocCovers } from '../../rc-sheets/cover-data';
 import { mainBarCoverMm } from '../../codes/cirsoc201/cover';
 import { coverCheckText, coverChanges, coverOrigin, coverShortfalls, coversButton, coversNotice, OLD_DEFAULT_COVER, type CoverWords } from '../covers-notice';
 import es from '../../i18n/locales/es';
@@ -16,7 +17,7 @@ const words = (dict: Record<string, string>, locale: string): CoverWords => ({
 });
 const ES = words(es, 'es'), EN = words(en, 'en');
 const old = { covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } };
-const withCovers = (c: Partial<ProjectDesignData['covers']>): ProjectDesignData => ({ ...defaultDesignData(), covers: { ...defaultDesignData().covers, ...c } });
+const withCovers = (c: Partial<ProjectDesignData['covers']>): ProjectDesignData => ({ ...defaultDesignData(), covers: { ...withCirsocCovers(defaultDesignData()).covers, ...c } });
 
 describe('where a cover comes from', () => {
   it('is the old default only when the project stores 25 mm for every kind', () => {
@@ -71,7 +72,7 @@ describe('covers the person stored', () => {
   });
 
   it('read the slabs\' and walls\' rule without a stirrup, and the exposed elements\' fixed value', () => {
-    const d = { ...withCovers({ slab: 0.015 }), exposure: { ...defaultDesignData().exposure, wall: 'exterior' as const }, covers: { ...defaultDesignData().covers, slab: 0.015, wall: 0.025 } };
+    const d = { ...withCovers({ slab: 0.015 }), exposure: { ...defaultDesignData().exposure, wall: 'exterior' as const }, covers: { ...withCirsocCovers(defaultDesignData()).covers, slab: 0.015, wall: 0.025 } };
     const list = coverShortfalls(d, { covers: { slab: 0.015, wall: 0.025 } }, mainBarCoverMm);
     expect(list.map((s) => s.rule.kind)).toEqual(['mesh', 'exposed']);
     const n = coversNotice(list, ES);

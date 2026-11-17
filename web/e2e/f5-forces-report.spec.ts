@@ -4,16 +4,16 @@
  * The unit tests in `forces-report.test.ts` hold the rules about what comes out. This spec holds
  * the ones that only exist in a browser:
  *
- *   · it is reachable, and from Results rather than from the design documents — §5 keeps raw
- *     solver output and reinforcement design as two documents, and the reinforcement sheets and the
- *     steel documents stage are where a reader would most reasonably assume they belong together;
+ *   · it is reachable, and from Results rather than from Documentos — §5 keeps raw solver output
+ *     and reinforcement design as two documents, and Documentos is where a reader would most
+ *     reasonably assume they belong together;
  *   · every refusal is in WORDS beside the command, instead of a grey button;
  *   · every choice is on screen, and the quarter convention names itself as a convention;
  *   · it says what it is not, before the button rather than only inside the file;
  *   · it produces a file and says which one.
  */
 
-import { test, expect, bootPro, loadModel, solveModel, openSteelDocuments } from './fixtures';
+import { test, expect, bootPro, loadModel, solveModel, openClassicDesign, designPlace } from './fixtures';
 
 /** Small on purpose: 18 nodes and 26 members solve in seconds. */
 const MODEL = 'rc-qa-diagnostic';
@@ -33,7 +33,7 @@ async function openForcesReport(page: import('@playwright/test').Page) {
 }
 
 test.describe('@smoke F5 — the raw forces report', () => {
-  test('FR1 — it lives on Results, and not among the design documents', async ({ pro: page }) => {
+  test('FR1 — it lives on Results, and not in Documentos', async ({ pro: page }) => {
     await loadModel(page, MODEL);
     await solveModel(page);
     await openForcesReport(page);
@@ -42,11 +42,8 @@ test.describe('@smoke F5 — the raw forces report', () => {
     // when they are empty; this one is a configuration, and it explains itself in words.
     await expect(page.getByTestId('res-tab-report')).toBeEnabled();
 
-    await page.getByTestId('pr-cmd-rcSheets').click();
-    await expect(page.getByTestId('rc-sheets-panel')).toBeVisible();
-    await expect(page.getByTestId('forces-report')).toHaveCount(0);
-    await openSteelDocuments(page);
-    await expect(page.getByTestId('steel-stage-documents')).toHaveAttribute('open', '');
+    // And it is NOT among the Documentos actions, which are the detailing document's.
+    await designPlace(page, 'documents');
     await expect(page.getByTestId('forces-report')).toHaveCount(0);
   });
 

@@ -167,6 +167,8 @@ export function gradeFactor(fy: number): number {
  *
  * Returns metres because every consumer in the detailing pipeline works in metres.
  */
+export function deriveDevelopment(input: Omit<DevelopmentInputs, 'confinement'> & { confinement?: undefined }): Omit<DevelopmentResult, 'tableRow'> & { tableRow: 'favourable' | 'other' };
+export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult;
 export function deriveDevelopment(input: DevelopmentInputs): DevelopmentResult {
   const { diameterMm: db, fy, fc, favourableSpacing, edition } = input;
   const psiT = input.psiT ?? 1.0;

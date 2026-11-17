@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { setDesignOption } from './design-options';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel } from './rc-sheets-fixtures';
 import type { Page } from '@playwright/test';
 
 /**

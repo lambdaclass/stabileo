@@ -1,3 +1,5 @@
+import { defaultDesignData } from '../../model/design-data';
+import { withCirsocCovers } from '../../rc-sheets/cover-data';
 /**
  * Under the seismic provisions the sheets grow a column's bars, within the 6 % chapter 18 allows,
  * until the joints it frames hold ΣMnc ≥ 1.2·ΣMnb with the beams' bars as the joint check reads them
@@ -18,6 +20,7 @@ import { resizeHints } from '../rc-sheets-resize';
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
   modelStore.clear(); historyStore.clear(); resultsStore.clear();
+  modelStore.setDesignData(withCirsocCovers(defaultDesignData()));
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
   uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = false;
 });

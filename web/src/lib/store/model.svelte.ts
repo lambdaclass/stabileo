@@ -1,6 +1,5 @@
 import { te } from '../i18n/engine-text';
 import { defaultDesignData, migrateStoredDesignData } from '../model/design-data';
-import { markLoadedModel, takeLoadedModel } from './loaded-model';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -2864,19 +2863,6 @@ function createModelStore() {
       return id;
     },
 
-    /**
-     * Many loads at once, each under a new id, in one write of the list. One at a time, every
-     * write copied the whole list: a building's thousands of slab loads took a minute.
-     */
-    addLoadEntries(loads: readonly Load[]): number[] {
-      if (!loads.length) return [];
-      if (!_undoBatching) _pushUndo?.();
-      const entries = loads.map((load) => ({ type: load.type, data: { ...JSON.parse(JSON.stringify(load.data)), id: nextId.load++ } }) as Load);
-      if (_bulkLoadBuffer) _bulkLoadBuffer.push(...entries);
-      else model.loads = [...model.loads, ...entries];
-      return entries.map((e) => (e.data as { id: number }).id);
-    },
-
     /** Add a quad or a plate with every field it carries. For the edit layer. */
     addShellEntry(kind: 'quad' | 'plate', fields: Omit<Quad, 'id'> | Omit<Plate, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
@@ -3664,16 +3650,6 @@ function createModelStore() {
       return true;
     },
 
-    /** Remove several loads in one pass, under the same rule as `removeLoad`. How many went. */
-    removeLoads(loadIds: Iterable<number>): number {
-      const ids = new Set(loadIds);
-      const gone = model.loads.filter(l => ids.has(l.data.id) && !isDefinedLoadData(l)).length;
-      if (!gone) return 0;
-      if (!_undoBatching) _pushUndo?.();
-      model.loads = model.loads.filter(l => !ids.has(l.data.id) || isDefinedLoadData(l));
-      return gone;
-    },
-
     removeSupport(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.supports.delete(id);
@@ -3851,7 +3827,6 @@ function createModelStore() {
     },
 
     clear(): void {
-      takeLoadedModel();
       loadEpoch++;
       _onReplaced?.();
       _onNewProject?.();
@@ -4744,7 +4719,6 @@ function createModelStore() {
       this.bulkMutate(() => {
         loadFixture(json as any, api as any, opts);
       });
-      markLoadedModel();
 
       // Settle canonical state once the whole model is in place. Sections the
       // fixture added are already resolved (addSection resolves per add, and

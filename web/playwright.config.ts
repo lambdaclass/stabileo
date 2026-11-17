@@ -140,6 +140,7 @@ const BASE_URL = `http://${HOST}:${PORT}`;
 export default defineConfig({
   testDir: './e2e',
   outputDir: './e2e/.artifacts',
+  snapshotPathTemplate: '{testDir}/__screenshots__/{platform}/{arg}{ext}',
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
@@ -149,6 +150,9 @@ export default defineConfig({
   timeout: 60_000,
   expect: {
     timeout: 10_000,
+    // Only two screenshot comparisons exist; keep the tolerance small but non-zero
+    // for font/AA differences between platforms.
+    toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
   },
   // On a pull request in CI the default diff runs `git fetch --depth=1` of the PR base, which cuts the checkout's history there and breaks the results registry (scripts/result-changes/registry.mjs).
   globalSetup: './e2e/global-setup.ts',

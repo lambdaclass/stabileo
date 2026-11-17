@@ -17,7 +17,6 @@ import { historyStore, modelStore, resultsStore, uiStore } from '../index';
 import { deflectionChecks } from '../serviceability';
 import { crackedInertia, crackingMoment, effectiveInertia } from '../../codes/cirsoc201/effective-inertia';
 import * as wasmSolver from '../../engine/wasm-solver';
-import { stateSuiteCovers } from './suite-covers';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -26,7 +25,6 @@ beforeAll(async () => {
 
 function beam(n: number): number {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
-  stateSuiteCovers();
   const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 0, fy: 25, fc: 25 });
   const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
   const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3);

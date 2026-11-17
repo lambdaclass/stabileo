@@ -1,5 +1,5 @@
 import { roofMembers, type WindModel } from './wind-cases';
-import { onSnowRoof, roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, SnowRoofPlaneRefusal, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
+import { onSnowRoof, roofSurfaceModel, SNOW_INTENSITY_RELATIVE_ERROR, type SnowPlane, type RoofGeometry } from './snow-roof-surfaces';
 import type { GravityLayout, GravityModel } from './plan-gravity';
 import { driftAndSlidingLoads, snowDriftRefusal } from './snow-drift-loads';
 import { layoutSpans, layoutUnits, partialSnowPatterns } from './plan-spans';
@@ -39,37 +39,6 @@ export function roofGeometry(model: WindModel, only?: ReadonlySet<number>, surfa
 export function surfaceSlopes(model: WindModel): Map<number, number> {
   const surfaces = roofSurfaceModel(model);
   return new Map(surfaces.roof.map(m => [m.id, surfaces.atMember.get(m.id)?.slope ?? 0]));
-}
-
-/**
- * The slope every code-family snow plan reads its shape factor at: a member the slope of the roof
- * plane it carries (its own where it carries none), a panel the slope of the roof plane over its
- * centre, flat where none is over it or the planes over it are ambiguous.
- */
-export function snowSlopes(model: WindModel, layout?: GravityLayout): {
-  member: (id: number) => number; panel: (index: number) => number;
-  of: (elementId: number, panel?: number) => number;
-} {
-  const surfaces = roofSurfaceModel(model);
-  const own = (id: number) => {
-    const e = model.elements.get(id);
-    const a = e && model.nodes.get(e.nodeI), b = e && model.nodes.get(e.nodeJ);
-    if (!a || !b) return 0;
-    return (Math.atan(Math.abs(Z(b) - Z(a)) / Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-9)) * 180) / Math.PI;
-  };
-  const member = (id: number) => surfaces.atMember.get(id)?.slope ?? own(id);
-  const cache = new Map<number, number>();
-  const panel = (index: number) => {
-    let deg = cache.get(index);
-    if (deg !== undefined) return deg;
-    deg = 0;
-    if (layout?.panels[index]) {
-      try { deg = surfaces.panel(index, layout).slope; } catch (error) { if (!(error instanceof SnowRoofPlaneRefusal)) throw error; }
-    }
-    cache.set(index, deg);
-    return deg;
-  };
-  return { member, panel, of: (elementId, p) => (p === undefined ? member(elementId) : panel(p)) };
 }
 
 type SnowUnit = { panel: number; point: [number, number]; surface?: SnowPlane; inside?: [number, number]; region?: true } | { member: number; point?: [number, number]; inside?: [number, number] };

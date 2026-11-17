@@ -6,7 +6,7 @@
 import { modelStore } from './model.svelte';
 import { detailingStore } from './detailing.svelte';
 import { designData } from './design-data';
-import { resolveConcreteProperties } from './concrete-properties';
+import { resolveConcreteProperties } from './detailing-project-inputs';
 import { concreteFrame, isSeismicProject } from './seismic-design.svelte';
 import { storedDecisions } from './design-decisions';
 import { stairEntries } from './stairs-pt';

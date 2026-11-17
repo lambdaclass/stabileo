@@ -1,20 +1,9 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { knownIssueDiagnosticsIn, knownIssueMessage } from '../lib/engine/known-issues';
-  import { groupKnownIssues, visibleNotices } from '../lib/store/result-notices';
-  import { t } from '../lib/i18n';
-  import { noticePrefs } from '../lib/store/notice-prefs.svelte';
-  import NoticeRow from './notices/NoticeRow.svelte';
+  import { knownIssueResultDisposition } from '../lib/engine/known-issues';
   let { result, children }: { result: unknown; children: Snippet } = $props();
-  const notices = $derived(visibleNotices(groupKnownIssues(knownIssueDiagnosticsIn(result), knownIssueMessage), (k) => noticePrefs.isHidden(k)));
-  const refused = $derived(notices.some((n) => n.level === 'blocking'));
+  const disposition = $derived(knownIssueResultDisposition(result));
 </script>
 
-{#if notices.length}
-  <div role="alert" data-testid="known-issue-result">
-    {#each notices as notice (notice.kind)}
-      <NoticeRow kind={notice.kind} level={notice.level} summary={t(`notices.kind.${notice.kind}`)} details={notice.details} open={notice.level === 'blocking'} />
-    {/each}
-  </div>
-{/if}
-{#if !refused}{@render children()}{/if}
+{#each disposition.messages as message}<div role="alert">{message}</div>{/each}
+{#if !disposition.refused}{@render children()}{/if}

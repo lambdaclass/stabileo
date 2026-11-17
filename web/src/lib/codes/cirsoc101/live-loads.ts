@@ -7,10 +7,10 @@
  * §4.7.3–4.7.6 the limits on that reduction
  * §4.8        minimum roof imposed loads
  *
- * Table 4.1 lives in its code profile, `code-profiles/profiles/loads/cirsoc-101-2025.json`,
- * transcribed cell by cell from the normative column of the official text (Edición Julio
- * 2025, pp. 78–95). Where Table 4.1 refers the reader to an article instead of giving a
- * number, the row records that rather than inventing a value.
+ * Every entry below is transcribed cell by cell from the normative column of the
+ * official text (Edición Julio 2025, pp. 78–95) and carries the table it came from.
+ * Where Table 4.1 refers the reader to an article instead of giving a number, the entry
+ * records that rather than inventing a value.
  *
  * This replaces the single free-typed `occupancyQ` the app used to accept. Manual loads
  * remain fully supported — this is an additional, code-grounded path, not a replacement

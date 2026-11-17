@@ -1,8 +1,9 @@
+import { largestBar, minimumCoverFor, withCirsocCovers } from './cover-data';
 /**
  * What the sheets say about covers under CIRSOC 201-2025 Table 20.5.1.3.1: where each value comes
  * from, the table's arithmetic for it, and what the one action changes, in words.
  */
-import { DESIGN_KINDS, largestBar, minimumCoverFor, withCirsocCovers, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
+import { DESIGN_KINDS, type DesignKind, type ProjectDesignData, type StoredDesignData } from '../model/design-data';
 
 /** The covers the program stored in every project before it kept only what someone stated, m. */
 export const OLD_DEFAULT_COVER = 0.025;

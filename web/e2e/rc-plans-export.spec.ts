@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel } from './rc-sheets-fixtures';
 
 /**
  * The reinforcement drawings exported from the sheets workspace on the seven-storey example: a

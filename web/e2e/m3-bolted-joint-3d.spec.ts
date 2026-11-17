@@ -19,7 +19,7 @@
  * are asserted exactly. Frame times on a shared machine measure the machine, so they are logged.
  */
 
-import { test, expect, PRO_URL, loadModel, solveModel, designPlace } from './fixtures';
+import { test, expect, PRO_URL, loadModel, solveModel, openClassicDesign, designPlace } from './fixtures';
 import type { Page } from '@playwright/test';
 
 interface JointScene {

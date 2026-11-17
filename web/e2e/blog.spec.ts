@@ -349,65 +349,115 @@ test.describe('blog', () => {
     await expect(app.locator('body')).toContainText('12.73');
   });
 
-  test('@smoke the CIRSOC post opens PRO on the reinforcement sheets of its beam', async ({ page }) => {
+  test('@smoke the CIRSOC post opens PRO on the check it describes', async ({ page }) => {
     /*
-     * Booted in Spanish: `boot`'s init script runs in every frame, the embedded editor included,
-     * and the caption has to name the buttons in the language the editor runs in.
+     * The other half of the embed contract: this post's subject lives in PRO's
+     * design workflow, not in Basic's section panel, so it opens `/app/pro`.
+     *
+     * The caption names the three buttons the reader has to press, and the
+     * editor inside the frame runs in the reader's language — so the caption
+     * has to name them in that language too. An English caption on a Spanish
+     * page sends someone hunting for a button that says something else.
+     */
+    /*
+     * Booted explicitly in Spanish. `boot`'s init script runs in EVERY frame,
+     * the embedded editor included, so leaving the default would have the
+     * harness itself force the iframe into English and then assert it is not.
      */
     await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
 
     const embed = page.locator('.post-embed');
     await embed.scrollIntoViewIfNeeded();
     await expect(embed.locator('iframe')).toHaveCount(0);
+
     const caption = await embed.locator('figcaption').innerText();
-    for (const button of ['"Calcular"', '"Armado por planillas"', '"Dimensionar armaduras"', '"Vigas"']) expect(caption).toContain(button);
-    expect(caption).toContain('0,80');
+    expect(caption).toContain('Calcular solicitaciones');
+    /*
+     * «Calcular acero requerido», not «Verificar según norma».
+     *
+     * H2 renamed this command, and the rename is the correction: `runCodeCheck` reads results,
+     * demands and the code adapter and never looks at a provided bar — it publishes what the
+     * CODE REQUIRES. Sitting in a group labelled "Verify", ahead of "Design", it said the
+     * reinforcement had been checked before any existed.
+     *
+     * This caption had ALREADY worked around the old name in prose — "hasta que no hay barras
+     * no hay nada que verificar" — which is the same point the rename makes structurally. The
+     * post now names the button for what it does and keeps the explanation.
+     */
+    expect(caption).toContain('Calcular acero requerido');
+    // «Size…» is the one design command of interface A (it was «Diseñar todo»).
+    expect(caption).toContain('Dimensionar…');
 
     await embed.locator('.post-embed-start').click();
-    await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?.*proTab=rcSheets/);
+    await expect(embed.locator('iframe')).toHaveAttribute('src', /\/app\/pro\?/);
+
     const app = page.frameLocator('.post-embed iframe');
-    // Design off asks nothing: the sheets are a view of the analysis, open on the post's beam.
-    await expect(app.getByTestId('rc-sheets-panel')).toContainText('Calculá el modelo para ver las planillas.', { timeout: 45_000 });
-    await expect(app.getByTestId('toast-enable-design-link')).toHaveCount(0);
-    await expect(app.getByTestId('pr-cmd-solve')).toHaveText(/Calcular/);
-  });
-
-  test('@slow the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
-    test.slow();
-    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
-    const embed = page.locator('.post-embed');
-    await embed.scrollIntoViewIfNeeded();
-    await embed.locator('.post-embed-start').click();
-    const app = page.frameLocator('.post-embed iframe');
-
-    // The four presses the caption asks for, in its order: the solve shows the results, and the
-    // command under Output goes back to the sheets.
-    await app.getByTestId('pr-cmd-solve').click({ timeout: 60_000 });
-    await expect(app.getByTestId('pr-cmd-rcSheets')).toBeEnabled({ timeout: 60_000 });
-    await expect(app.getByTestId('pr-cmd-rcSheets')).toContainText('Armado por planillas');
-    await app.getByTestId('pr-cmd-rcSheets').click();
-    await expect(app.getByTestId('rc-design')).toHaveText('Dimensionar armaduras', { timeout: 60_000 });
-    await app.getByTestId('rc-design').click();
-    const beams = app.getByTestId('rc-open-beam');
-    await expect(beams).toContainText('Vigas', { timeout: 60_000 });
-    await beams.click();
-
-    // The row and the check the caption and the closing note quote.
-    const ws = app.getByTestId('rc-sheets-workspace');
-    const row = ws.getByTestId('rc-row').first();
-    await expect(row).toContainText('V1');
-    await expect(row).toContainText('2 Ø25');
-    await expect(row).toContainText('2 Ø16');
-    await expect(row).toContainText('0,80');
-    await expect(row).toContainText('Verifica');
-    await expect(row).not.toContainText('No verifica');
-    await row.click();
-    await expect(ws).toContainText('Envolvente cubierta en toda la viga, con las barras ancladas');
+    // Design is off in a fresh browser: the link asks, and nothing of design is on until the
+    // reader answers. The caption names the answer, in this language.
+    expect(caption).toContain('Activar el diseño en esta visita');
+    const ask = app.getByTestId('toast-enable-design-link');
+    await expect(ask).toHaveText('Activar el diseño en esta visita', { timeout: 45_000 });
+    await expect(app.getByTestId('pr-stage-design')).toHaveCount(0);
+    await ask.click();
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 45_000 });
+    // The buttons the caption promises are really there, in this language.
+    await expect(app.getByTestId('cmd-compute-demands')).toHaveText('Calcular solicitaciones');
+    await expect(app.getByTestId('cmd-code-check')).toHaveText('Calcular acero requerido');
   });
 
   /*
-   * The kinematic embed, checked by driving it to the end and reading the panel
-   * back, not by asserting a button exists.
+   * The caption promises a RESULT, not just two labelled buttons — and that is
+   * the half that broke. It used to name two buttons and quote D/C = 0.81; the
+   * two buttons leave the table reading "no reinforcement / not verified", and
+   * 0.81 never appeared on screen at all. Asserting the labels exist could not
+   * catch that. This runs the flow the caption describes, to the end, and reads
+   * the number back.
+   */
+  test('@slow the CIRSOC embed reaches the state its caption promises', async ({ page }) => {
+    test.slow();
+    await boot(page, '/es/blog/verificacion-flexion-cirsoc-201', 'es');
+
+    const embed = page.locator('.post-embed');
+    await embed.scrollIntoViewIfNeeded();
+    // The numbers read back below are the ones the caption quotes.
+    const caption = await embed.locator('figcaption').innerText();
+    expect(caption).toContain('D/C = 0,90');
+    expect(caption).toContain('gobernados por el corte en el tramo');
+    await embed.locator('.post-embed-start').click();
+
+    const app = page.frameLocator('.post-embed iframe');
+    // The reader's answer to the link's question first: design is off in a fresh browser.
+    await app.getByTestId('toast-enable-design-link').click({ timeout: 60_000 });
+    await expect(app.locator('body')).toContainText('CIRSOC 201', { timeout: 60_000 });
+
+    // Exactly the three presses the caption asks for, in its order. Each wait is
+    // the toolbar's own disabled state — the workflow's real gate: code check arms
+    // only once demands exist and the previous run is no longer busy. A bare
+    // `toBeVisible` on the body would wait on nothing.
+    await app.getByTestId('cmd-compute-demands').click();
+    await expect(app.getByTestId('cmd-code-check')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-code-check').click();
+    await expect(app.getByTestId('cmd-autodesign')).toBeEnabled({ timeout: 60_000 });
+    await app.getByTestId('cmd-autodesign').click();
+    await app.getByTestId('desk-run').click();
+
+    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
+    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
+    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
+    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
+    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
+    const table = app.locator('body');
+    for (const id of [1, 2]) {
+      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
+      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
+      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+    }
+    await expect(table).not.toContainText('sin armadura');
+  });
+
+  /*
+   * The kinematic embed, checked the way the CIRSOC one had to be: by driving
+   * it to the end and reading the panel back, not by asserting a button exists.
    *
    * Two real defects were found this way while writing the post. The fixture
    * was missing `plates`, which threw inside the example loader and was

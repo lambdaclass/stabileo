@@ -150,12 +150,7 @@ export interface ConfinementInput {
   /** Largest distance between laterally supported bars, m. */
   hx: number;
   provided: { length: number; spacing: number };
-  /** Largest factored axial load, kN, and the perimeter bars held by a hoop corner or a seismic hook: with them, expression (c) of Table 18.7.5.4 where it applies. */
-  pu?: number; nl?: number;
 }
-
-/** §18.7.5.2(f) and Table 18.7.5.4: above 0.3·Ag·f'c of axial load, or with f'c above 70 MPa, every perimeter bar held, hx ≤ 200 mm and Ash by expression (c) too. */
-export const highAxialColumn = (i: { b: number; h: number; fc: number; pu?: number }): boolean => (i.pu ?? 0) > 0.3 * i.b * i.h * i.fc * 1000 || i.fc > 70;
 
 /** §18.7.5: the critical length lo, the spacing so and Ash in both directions. */
 export function columnConfinement(i: ConfinementInput) {
@@ -164,18 +159,13 @@ export function columnConfinement(i: ConfinementInput) {
   const so = Math.min(Math.min(i.b, i.h) / 4, (6 * i.longMinDiaMm) / 1000, s0);
   const bc = (x: number) => x - 2 * i.cover;
   const Ach = bc(i.b) * bc(i.h), Ag = i.b * i.h;
-  const high = highAxialColumn(i);
-  const kf = Math.max(1, i.fc / 175 + 0.6), nl = Math.max(i.nl ?? 4, 3), kn = nl / (nl - 2);
-  const perArea = Math.max(0.3 * (i.fc / i.fyt) * (Ag / Ach - 1), 0.09 * i.fc / i.fyt, high ? (0.2 * kf * kn * (i.pu ?? 0) / 1000) / (i.fyt * Ach) : 0);
-  const ashReq = (core: number, s: number) => perArea * s * core * 1e4; // cm²
+  const ashReq = (core: number, s: number) => Math.max(0.3 * ((s * core * i.fc) / i.fyt) * (Ag / Ach - 1), (0.09 * s * core * i.fc) / i.fyt) * 1e4; // cm²
   const ash = (legs: number) => legs * area(i.tieDiaMm);
   // Each direction against its own core: the legs crossing b against bc = b − 2·cover, and so on.
   const ashB = ashReq(bc(i.b), i.provided.spacing), ashH = ashReq(bc(i.h), i.provided.spacing);
   return {
-    lo, so, high, hxMax: high ? 0.2 : 0.35, ashRequired: { acrossB: ashB, acrossH: ashH },
+    lo, so, ashRequired: { acrossB: ashB, acrossH: ashH },
     ashProvided: { acrossB: ash(i.legsB), acrossH: ash(i.legsH) },
-    /** The widest spacing the legs provided meet Ash at, m. */
-    ashSpacing: Math.min(ash(i.legsB) / Math.max(ashReq(bc(i.b), 1), 1e-12), ash(i.legsH) / Math.max(ashReq(bc(i.h), 1), 1e-12)),
     lengthOk: i.provided.length >= lo - 1e-9, spacingOk: i.provided.spacing <= so + 1e-9,
     ashOk: ash(i.legsB) >= ashB - 1e-9 && ash(i.legsH) >= ashH - 1e-9,
   };

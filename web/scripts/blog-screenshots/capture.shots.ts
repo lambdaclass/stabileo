@@ -127,19 +127,18 @@ test('torsion: the tube with the torsion panel open', async ({ page }) => {
   await shot(page, 'blog-torsion-tube');
 });
 
-test('CIRSOC 201: the beam in the reinforcement sheets', async ({ page }) => {
+test('CIRSOC 201: the beam in PRO design', async ({ page }) => {
   await english(page);
-  await page.goto('/app/pro?e2e=1&example=rc-beam-flexure&proTab=rcSheets');
+  await page.addInitScript(() => { try { localStorage.setItem('stabileo-design-in-pro', '1'); } catch { /* private mode */ } });
+  await page.goto('/app/pro?e2e=1&example=rc-beam-flexure&proTab=design');
   await page.waitForTimeout(6000);
   await solveModel(page);
-  await page.getByTestId('rc-design').click();
-  await page.getByTestId('rc-open-beam').click({ timeout: 60_000 });
-  const ws = page.getByTestId('rc-sheets-workspace');
-  await ws.getByTestId('rc-row').first().click();
-  await expect(ws.getByTestId('rc-line-svg')).toBeVisible();
-  await hide(page, '.toast-container, [data-testid="solve-progress"]');
+  await page.evaluate(() => window.__stabileoActions.designAll());
+  await page.waitForTimeout(6000);
+  await page.getByText('V1 · Viga 20×40').first().click();
+  await hide(page, '.toast-container');
   await page.waitForTimeout(2000);
-  await shot(page, 'blog-cirsoc-201-sheets');
+  await shot(page, 'blog-cirsoc-201-beam');
 });
 
 test('bars or finite elements: the deep beam as a shell', async ({ page }) => {

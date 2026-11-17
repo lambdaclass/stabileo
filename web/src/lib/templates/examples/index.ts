@@ -5,7 +5,6 @@
  * fixture JSON because the fixture loader carries neither member behaviour, releases per axis,
  * offsets nor self-weight as a case load, and these use them. They load as they are.
  */
-import { markLoadedModel } from '../../store/loaded-model';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { codeToModel } from '../../model/code/format';
@@ -36,7 +35,6 @@ export async function loadCodeExample(id: CodeExampleId): Promise<void> {
   modelStore.clear();
   const { snapshot } = mergeCode(modelStore.snapshot(), parsed.snapshot);
   modelStore.batch(() => modelStore.restore(snapshot));
-  markLoadedModel();
   modelStore.refreshCanonicalSections();
   uiStore.useNative3DPresentation();
 }

@@ -60,11 +60,7 @@ cover it. Its `quantities` must declare the moved collection or field (`*` for a
 entry's area). `solve.ok` must be explicit for a change in solve success or refusal. Design
 fields require a design entry. Missing model context or undeclared fields fail closed. Multiple
 applicable entries can cover different fields. An examples-scoped entry covers only its listed
-examples and still requires the two-engine equivalence proof, even alongside engine entries. In
-that proof a value may differ only where an entry with `when` added by the same pull request holds
-for the fixture solved (the example as it was, for this build; as it is now, for the base's
-engine) and declares the value: a saved model like it is told of that change, so the examples
-entry does not have to explain it. Anything else that differs still fails the proof.
+examples and still requires the two-engine equivalence proof, even alongside engine entries.
 
 ## Exact frozen outputs
 

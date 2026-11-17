@@ -1,16 +1,18 @@
 import { afterEach, expect, it } from 'vitest';
 import { modelStore } from '../model.svelte';
+import { uiStore } from '../ui.svelte';
 import { designContextOptions, designData, patchOwnDesignData, verifyOptions } from '../design-data';
 import { defaultDesignData, migrateDesignData, migrateStoredDesignData } from '../../model/design-data';
 import { modelFeatures } from '../../provenance/model-features';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2092' ? it : it.skip;
 const mainCovers = { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 };
 
-afterEach(() => modelStore.clear());
+afterEach(() => { modelStore.clear(); uiStore.analysisMode = '2d'; });
 
-knownWrong('known wrong result: #2092 reinforcement sheets preserve every unstated main design cover', () => {
+it('known wrong result: #2092 reinforcement sheets preserve every unstated main design cover', () => {
   expect(defaultDesignData().covers).toEqual(mainCovers);
+  for (const mode of ['2d', '3d', 'pro'] as const) {
+  uiStore.analysisMode = mode;
   for (const saved of [undefined, {}, { version: 1 }, { version: 1, covers: { slab: mainCovers.slab } }]) {
     expect(migrateDesignData(saved).covers).toEqual(mainCovers);
     modelStore.setDesignData(migrateStoredDesignData(saved) ?? null);
@@ -26,6 +28,7 @@ knownWrong('known wrong result: #2092 reinforcement sheets preserve every unstat
     }
     modelStore.clear();
   }
+  }
 });
 
 it('#2092 reinforcement sheets retain explicitly stated covers and per-member overrides', () => {
@@ -38,7 +41,7 @@ it('#2092 reinforcement sheets retain explicitly stated covers and per-member ov
   expect(verifyOptions()).toMatchObject({ cover: covers.beam, columnCover: covers.column });
 });
 
-knownWrong('known wrong result: #2092 sheet metadata preserves generated wind and snow recheck applicability', () => {
+it('known wrong result: #2092 sheet metadata preserves generated wind and snow recheck applicability', () => {
   for (const type of ['W', 'Wa', 'S']) {
     const saved = { loadCases: [{ id: 1, type }], loads: [{ type: 'point3d', data: { caseId: 1, generatedBy: 'cirsoc' } }] };
     const features = modelFeatures(saved);

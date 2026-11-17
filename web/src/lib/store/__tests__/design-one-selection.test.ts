@@ -77,6 +77,30 @@ describe('design\'s current member is the model\'s selection', () => {
   });
 });
 
+describe('the active modelling level and design\'s level', () => {
+  it('a level chosen in the model is design\'s level on entry, and the default leaves «all levels»', () => {
+    frame();
+    deskUi.open = true;
+    expect(deskUi.levelZ).toBeNull();
+    deskUi.open = false;
+    uiStore.nodeCreateZ = 3;
+    deskUi.open = true;
+    expect(deskUi.levelZ).toBe(3);
+  });
+
+  it('a level chosen in design survives a visit to the model that did not change the model\'s level', () => {
+    frame();
+    uiStore.nodeCreateZ = 3;
+    deskUi.open = true;
+    deskUi.levelZ = 6;
+    deskUi.open = false;
+    // Leaving writes it back: the model is on the floor design was on.
+    expect(uiStore.nodeCreateZ).toBe(6);
+    deskUi.open = true;
+    expect(deskUi.levelZ).toBe(6);
+  });
+});
+
 describe('the 3-D reinforcement view uses the same selection', () => {
   it('opens on the members selected in the model', () => {
     const [, beam] = frame();
@@ -126,26 +150,43 @@ describe('drafts', () => {
     pruneDeletedMembers();
     expect(designDrafts.frames.map((d) => d.key)).toEqual(['b']);
   });
+
+  it('are said when design is left, not applied', () => {
+    const [, beam] = frame();
+    const before = JSON.stringify(modelStore.elements.get(beam!)?.reinforcement ?? null);
+    designDrafts.setFrame(draft('a', [beam!]));
+    deskUi.open = true;
+    const toasts = uiStore.toasts.length;
+    deskUi.open = false;
+    expect(uiStore.toasts.length).toBe(toasts + 1);
+    expect(JSON.stringify(modelStore.elements.get(beam!)?.reinforcement ?? null)).toBe(before);
+  });
 });
 
 describe('a project tab keeps its own design state', () => {
-  it('a new tab starts from the defaults; coming back restores the place, member and drafts', () => {
+  it('a new tab starts from the defaults; coming back restores the level, view, filter, member and drafts', () => {
     tabManager.init();
     const first = tabManager.activeTabId!;
     const [, beam] = frame();
     deskUi.open = true;
-    deskUi.tab = 'connections';
+    deskUi.levelZ = 3;
+    deskUi.tab = 'levels';
+    deskUi.filter = 'ok';
     deskUi.selected = beam!;
     designDrafts.setFrame(draft('a', [beam!]));
 
     tabManager.createTab();
-    expect(deskUi.tab).toBe('steel');
+    expect(deskUi.levelZ).toBeNull();
+    expect(deskUi.tab).toBe('plan');
+    expect(deskUi.filter).toBe('all');
     expect(deskUi.selected).toBeNull();
     expect(designDrafts.count).toBe(0);
     expect(rebarWorkspace.selection).toBeNull();
 
     tabManager.switchTab(first);
-    expect(deskUi.tab).toBe('connections');
+    expect(deskUi.levelZ).toBe(3);
+    expect(deskUi.tab).toBe('levels');
+    expect(deskUi.filter).toBe('ok');
     expect(deskUi.selected).toBe(beam);
     expect(designDrafts.frames.map((d) => d.key)).toEqual(['a']);
   });

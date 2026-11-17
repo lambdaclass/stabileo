@@ -9,6 +9,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../index';
 import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
+import { deskMembers } from '../design-desk';
 import { memoriaInput } from '../memoria-inputs';
 import { designSheets } from '../design-exchange';
 import { projectIfcInput } from '../ifc-export';
@@ -59,7 +60,7 @@ const bars = (extensionStart: number) => ({
 });
 
 function readers(id: number) {
-  const desk = { status: verificationStore.getDisplayStatus(id), ratio: verificationStore.getDisplayRatio(id) };
+  const desk = deskMembers().find((m) => m.id === id)!;
   const mem = memoriaInput(tr, 'es').elements.find((e) => e.id === `e${id}`)!;
   const [elements, checks] = designSheets(tr, 'es');
   const wbElement = elements!.rows.find((r) => String(r[0]) === mem.name)!;

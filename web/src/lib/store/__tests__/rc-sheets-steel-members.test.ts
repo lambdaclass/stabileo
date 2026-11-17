@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -17,7 +16,7 @@ async function rowsWith(steel: boolean) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
   await modelStore.loadExample('rc-beam-flexure');
   if (steel) for (const m of [...modelStore.materials.values()]) modelStore.updateMaterial(m.id, { name: 'Acero F-24', e: 200000, fy: 240, fu: 370 } as never);
-  ensurePhysicalModel(); syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
+  recognizePhysicalElements(); syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
   return buildSheetRows();

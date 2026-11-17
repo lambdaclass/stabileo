@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore, resultsStore } from '..';
-import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
@@ -17,7 +16,7 @@ describe('cantilever slabs of a building', () => {
   it('take their span from the level plan', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await modelStore.loadExample('pro-edificio-7p');
-    ensurePhysicalModel();
+    recognizePhysicalElements();
     syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
     resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);

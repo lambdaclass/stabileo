@@ -9,12 +9,6 @@
   import './lib/i18n/full-dictionaries';
   import { seedProStarterLibrary } from './lib/pro/pro-starter-library';
   import ProQuickEdit from './components/pro/ProQuickEdit.svelte';
-  import MeshProgressCard from './components/pro/plates/MeshProgressCard.svelte';
-  import SolveProgressCard from './components/SolveProgressCard.svelte';
-  import { solveProgress } from './lib/store/solve-progress.svelte';
-  import RcSheetsProgressCard from './components/pro/rc-sheets/RcSheetsProgressCard.svelte';
-  import { sheetsProgress } from './lib/store/rc-sheets-progress.svelte';
-  import { meshProgress } from './lib/store/mesh-progress.svelte';
   import { is3DWorkspace } from './lib/utils/workspace';
   import { captureFigure } from './lib/export/figure';
   import { viewportCanvas } from './lib/utils/viewport-canvas';
@@ -353,11 +347,12 @@
   import { OPEN_PANEL_EVENT } from './lib/tool-keys';
   import Icon from './components/ribbon/Icon.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
+  import RebarWorkspace from './components/pro/design/RebarWorkspace.svelte';
   import DesignDesk from './components/pro/desk/DesignDesk.svelte';
   import { deskUi, deskLayout } from './lib/store/design-desk-ui.svelte';
-  import { syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
-  import { enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
-  import { openProTabFromQuery } from './lib/pro/pro-tab-link';
+  import { isDesignTab, syncDeskWithTab, syncTabWithDesk } from './lib/pro/design-navigation';
+  import { askDesignForLink, enableDesignForLink, announceDesignOn } from './lib/store/design-presence';
+  import { rebarWorkspace } from './lib/store/rebar-workspace.svelte';
   /** Design docks beside the viewer on a desktop PRO screen; elsewhere it is a full-screen sheet. */
   const deskDocked = $derived(uiStore.appMode === 'pro' && !uiStore.isMobile);
   /*
@@ -373,14 +368,15 @@
     untrack(() => { if (uiStore.appMode === 'pro') syncTabWithDesk(open); });
   });
   /*
-   * Design switched off in PRO's settings (or restored off from storage): its desk and its
-   * verification colouring go, and a design view goes back to the
+   * Design switched off in PRO's settings (or restored off from storage): its desk, its 3-D
+   * reinforcement workspace and its verification colouring go, and a design view goes back to the
    * model. What the project holds of design stays as it was.
    */
   $effect(() => {
     if (uiStore.designInPro) return;
     untrack(() => {
       if (deskUi.open) deskUi.open = false;
+      if (rebarWorkspace.open) rebarWorkspace.close();
       if (uiStore.appMode === 'pro') syncDeskWithTab(uiStore.proActiveTab);
     });
   });
@@ -531,6 +527,17 @@
   }
 
   /**
+   * `?proTab=<id>` opens PRO on one of its tabs.
+   *
+   * The companion of `?inspect` for the other half of the application. A post
+   * about CIRSOC verification has to land the reader on the verification, and
+   * that lives in PRO's `design` tab rather than in Basic's section panel.
+   *
+   * NOT named `tab`: that parameter already carries the project tab's slug
+   * (see `replaceAppUrl`), and quietly overloading it would make a shared
+   * link rename someone's project.
+   */
+  /**
    * `?kin=1` opens the kinematic analysis panel.
    *
    * The third of the deep links a post can use, beside `?inspect` and
@@ -553,6 +560,21 @@
      * the example loader resolves, both are in place.
      */
     if (uiStore.appMode === 'basico' && !uiStore.isMobile) openBasicPanel('advanced', { toggle: false });
+  }
+
+  function openProTabFromUrl(params: URLSearchParams) {
+    const tab = params.get('proTab');
+    if (!tab) return;
+    // Mirrors the `ProTab` union in components/pro/ProPanel.svelte — a tab added
+    // there but not here makes `?proTab=` silently no-op for it.
+    const VALID = ['project', 'nodes', 'elements', 'shells', 'materials', 'sections', 'supports',
+      'specifications', 'constraints', 'loads', 'advanced', 'results', 'design', 'connections', 'diagnostics',
+      'settings', 'selection', 'steel', 'grid', 'generators', 'transform', 'edit', 'groups', 'code', 'view',
+      'otherCodes', 'designData', 'desk'];
+    if (!VALID.includes(tab)) return;
+    // A link to a place of design while design is off asks the reader; it turns nothing on.
+    if (isDesignTab(tab) && !uiStore.designInPro) { askDesignForLink(tab); return; }
+    uiStore.proActiveTab = tab;
   }
 
   /** `?mohr=plane|space&…` opens the Mohr circle function with the state the public tool encoded. */
@@ -1014,7 +1036,7 @@
           };
           tryFit(0);
           openInspectFromUrl(queryParams);
-          openProTabFromQuery(queryParams);
+          openProTabFromUrl(queryParams);
           openKinematicFromUrl(queryParams);
         }).catch((err) => {
           /*
@@ -1358,7 +1380,8 @@
     const root = document.documentElement;
     const el = mainAreaEl;
     const docked = deskDocked && deskUi.open;
-    if (uiStore.appMode !== 'pro' || !el) {
+    // The 3-D reinforcement view covers the viewer: the toasts go back to the window's corner.
+    if (uiStore.appMode !== 'pro' || !el || rebarWorkspace.open) {
       root.style.removeProperty('--st-toast-right');
       root.style.removeProperty('--st-toast-bottom');
       return;
@@ -1962,7 +1985,7 @@
 
     <div class="main-area" bind:this={mainAreaEl}>
       <main class="viewport-container">
-        <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues} diagnostics={uiStore.is3DWorkspace ? resultsStore.knownIssueDiagnostics3D : resultsStore.knownIssueDiagnostics}>
+        <ContainmentBanner preserveModel disposition={uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues}>
         {#if !uiStore.is3DWorkspace}
           <Viewport />
         {:else}
@@ -2305,13 +2328,22 @@
 <MaterialEditor />
 <SectionEditor />
 
+<!--
+  The 3-D reinforcement workspace.
+
+  Mounted HERE, at the root, and not inside the PRO sidebar where its launcher lives. The
+  sidebar is `aside.pro-sidebar` with a fixed pixel width, so anything nested in it is capped
+  by that width no matter what it asks for — which is the entire reason the viewer was a few
+  hundred pixels wide. An overlay at this level is bounded by the window instead.
+
+  It renders nothing at all until opened, and its state lives in `rebarWorkspace`, so opening
+  and closing costs the model nothing.
+-->
+<RebarWorkspace />
 {#if !deskDocked}<DesignDesk />{/if}
 
-{#if solveProgress.now || uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
+{#if uiStore.toasts.length > 0}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
-    <SolveProgressCard />
-    {#if !(solveProgress.now && solveProgress.now.phase === 'mesh')}<MeshProgressCard />{/if}
-    <RcSheetsProgressCard />
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>

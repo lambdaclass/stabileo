@@ -1,4 +1,4 @@
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel } from './rc-sheets-fixtures';
 import type { Locator, Page } from '@playwright/test';
 
 /**
@@ -55,10 +55,7 @@ test('@slow the sheets explain old covers and draw the beams, columns and walls 
   await solveModel(page);
   await page.getByTestId('pr-stage-analyse').click();
   await page.getByTestId('pr-cmd-rcSheets').click();
-  if (await page.getByTestId('rc-mesh-walls').count()) {
-    await page.getByTestId('rc-mesh-walls').click();
-    await expect(page.getByTestId('rc-mesh-walls')).toHaveCount(0, { timeout: 120_000 });
-  }
+
   await expect(page.getByTestId('rc-design')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('rc-design').click();
   await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 90_000 });

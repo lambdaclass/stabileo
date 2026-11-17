@@ -13,7 +13,7 @@
  */
 import type { ProvidedReinforcement, RebarGroup, RebarLayer, LongBarGroup } from '../../design-contract/reinforcement';
 import type { ProvidedRebarCheck } from '../station-design-forces';
-import { minimumWallRatios } from '../../rc-sheets/wall-design';
+import { minimumWallRatios } from '../detailing/wall-design';
 import { utilizationStatus } from './outcome';
 
 const bar = (dMm: number) => (Math.PI * (dMm / 1000) ** 2) / 4;

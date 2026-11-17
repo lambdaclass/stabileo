@@ -100,5 +100,5 @@ describe('a composition adjusted by hand', () => {
 import { planContext, workDrawings } from '../work-drawings';
 function projectSheetSetDrawing(key: string) {
   const [entry, k] = key.split(':') as [string, string];
-  return workDrawings(new Set([entry as never]), planContext(sheetLanguage(), 'A1')).get(entry as never)!.find((d) => d.key === k)!.primitives;
+  return workDrawings(null, new Set([entry as never]), planContext(sheetLanguage(), 'A1')).get(entry as never)!.find((d) => d.key === k)!.primitives;
 }

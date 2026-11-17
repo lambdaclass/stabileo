@@ -36,6 +36,9 @@ export { designOutcomeMap };
 import { DAGG_ASSUMED_MM } from '../codes/project-code-settings';
 import type { RegulationEdition } from '../codes/regulation';
 import type { BentUpPolicy } from '../engine/detailing/generate-beam';
+import { materialFamilyOf } from '../engine/steel/material-family';
+import { catalogueGradeFamily } from '../engine/steel/grade-family';
+import { concreteFc } from '../model/design-data';
 import { designData } from './design-data';
 import { designRunStore } from './design-run.svelte';
 import type { DesignFamily } from '../engine/design/design-families';
@@ -378,6 +381,32 @@ export const CONCRETE_REGULATION_ID = 'cirsoc-201';
 
 
 /**
+ * Concrete and steel properties for the shell families.
+ *
+ * Resolved exactly the way `member-context.ts` resolves them for frames, so the two paths
+ * cannot disagree about the same project: f'c is the concrete `Material.fy` field — the
+ * app's established convention for a concrete material — and the reinforcement fy and the
+ * cover are the shared defaults. The MINIMUM f'c across the concretes in use governs,
+ * which is the conservative reading when a model mixes mixes.
+ */
+export function resolveConcreteProperties(): { fc: number; fy: number; cover: number } {
+  let fc = Infinity;
+  // Only the concretes: a steel's yield or a timber's strength is not an f'c.
+  for (const m of modelStore.model.materials.values()) {
+    if (materialFamilyOf(m, catalogueGradeFamily).family !== 'concrete') continue;
+    const v = concreteFc(m);
+    if (typeof v === 'number' && v > 0) fc = Math.min(fc, v);
+  }
+  const d = designData();
+  return {
+    fc: Number.isFinite(fc) ? fc : 0,
+    fy: d.rebarFy,
+    cover: d.covers.slab,
+  };
+}
+
+
+/**
  * Members whose reinforcement the engineer pinned.
  *
  * Derived from the bars actually locked rather than kept as a second list: a locked bar's
@@ -441,5 +470,3 @@ export function regenerationImpact(): RcRegenerationImpact {
     lockedMemberIds(),
   );
 }
-
-export { resolveConcreteProperties } from './concrete-properties';

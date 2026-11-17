@@ -13,24 +13,22 @@
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
-    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, minimumCoverFor, withCirsocCovers,
+    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, largestBar, minimumCover, withCirsocCovers,
     type DesignKind, type Exposure, type ProjectDesignData,
   } from '../../lib/model/design-data';
-  import { designData, patchDesignData, setDesignData, storedDesignData } from '../../lib/store/design-data';
+  import { designData, patchDesignData, setDesignData } from '../../lib/store/design-data';
   import ProDeflectionLimits from './ProDeflectionLimits.svelte';
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
-  import DesignOptionsSections from './design/DesignOptionsSections.svelte';
   import { setBeamsLateral } from '../../lib/store/lateral-system';
-  import { SLAB_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
 
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const stated = $derived(modelStore.designData !== undefined);
   const under = $derived(coversUnderMinimum(d));
   const EXPOSURES: Exposure[] = ['interior', 'exterior', 'ground'];
 
-  const setCover = (k: DesignKind, mm: number) => { if (mm >= 0) patchDesignData({ covers: { ...storedDesignData().covers, [k]: mm / 1000 } }); };
-  const setExposure = (k: DesignKind, e: Exposure) => patchDesignData({ exposure: { ...storedDesignData().exposure, [k]: e } });
-  const toggle = (key: 'longDiametersMm' | 'stirrupDiametersMm' | 'slabDiametersMm', dia: number) => {
+  const setCover = (k: DesignKind, mm: number) => { if (mm >= 0) patchDesignData({ covers: { ...d.covers, [k]: mm / 1000 } }); };
+  const setExposure = (k: DesignKind, e: Exposure) => patchDesignData({ exposure: { ...d.exposure, [k]: e } });
+  const toggle = (key: 'longDiametersMm' | 'stirrupDiametersMm', dia: number) => {
     const list = d[key];
     const next = list.includes(dia) ? list.filter((x) => x !== dia) : [...list, dia].sort((a, b) => a - b);
     if (next.length > 0) patchDesignData({ [key]: next } as Partial<ProjectDesignData>);
@@ -47,7 +45,7 @@
     <h4 class="pk-heading">{t('designData.title')}</h4>
     <Hint text={t('designData.explain')} />
     <div class="dd-row">
-      <button class="pk-btn pk-btn-primary" onclick={() => patchDesignData({ rebarGrade: 'ADN 420', rebarFy: 420, covers: withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }).covers })} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
+      <button class="pk-btn pk-btn-primary" onclick={() => setDesignData(withCirsocCovers({ ...d, rebarGrade: 'ADN 420', rebarFy: 420 }))} data-testid="design-data-cirsoc">{t('designData.cirsocPreset')}</button>
       {#if stated}<button class="pk-btn" onclick={() => setDesignData(null)} data-testid="design-data-reset">{t('designData.reset')}</button>{/if}
     </div>
   </section>
@@ -73,12 +71,11 @@
   <section class="pk-card" data-testid="design-data-covers">
     <h5 class="dd-h">{t('designData.covers')}</h5>
     <Hint text={t('designData.coversHint')} />
-    <label class="dd-inline"><input type="checkbox" checked={d.executionControl !== false} onchange={(e) => patchDesignData({ executionControl: e.currentTarget.checked ? undefined : false })} data-testid="design-data-control" /> {t('designData.executionControl')}</label>
     <table class="dd-table">
       <thead><tr><th></th><th>{t('designData.exposure')}</th><th>{t('designData.cover')}</th><th>{t('designData.minimum')}</th></tr></thead>
       <tbody>
         {#each DESIGN_KINDS as k (k)}
-          {@const min = minimumCoverFor(d, k)}
+          {@const min = minimumCover(k, d.exposure[k], largestBar(d, k))}
           <tr class:dd-under={d.covers[k] < min - 1e-9}>
             <td>{t(`designData.kind.${k}`)}</td>
             <td>
@@ -108,23 +105,17 @@
     <div class="dd-sub">{t('designData.stirrups')}</div>
     <div class="dd-chips">
       {#each BAR_DIAMETERS_MM.filter((x) => x <= 16) as dia}
-        <button class="dd-chip" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)} data-testid="design-data-ties-{dia}">Ø{dia}</button>
+        <button class="dd-chip" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)}>Ø{dia}</button>
       {/each}
     </div>
-    <div class="dd-sub">{t('designData.slabBars')}</div>
-    <div class="dd-chips">
-      {#each BAR_DIAMETERS_MM.filter((x) => inRange(x, SLAB_BAR_RANGE)) as dia}
-        <button class="dd-chip" class:on={d.slabDiametersMm.includes(dia)} aria-pressed={d.slabDiametersMm.includes(dia)} onclick={() => toggle('slabDiametersMm', dia)} data-testid="design-data-slab-{dia}">Ø{dia}</button>
-      {/each}
-    </div>
+    <label class="dd-inline dd-check"><input type="checkbox" checked={d.columnEndZones === true} onchange={(e) => patchDesignData({ columnEndZones: e.currentTarget.checked })} data-testid="design-data-end-zones" /> {t('designData.columnEndZones')}</label>
+    <Hint text={t('designData.columnEndZonesHint')} />
     <label class="dd-inline">{t('designData.wallBar')}
       <select value={d.wallBarDiaMm} onchange={(e) => patchDesignData({ wallBarDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-wall">
         {#each BAR_DIAMETERS_MM.filter((x) => x >= 8 && x <= 20) as dia}<option value={dia}>Ø{dia}</option>{/each}
       </select>
     </label>
   </section>
-
-  <DesignOptionsSections />
 
   <section class="pk-card" data-testid="design-data-lateral">
     <h5 class="dd-h">{t('lateral.title')}</h5>

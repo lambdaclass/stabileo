@@ -69,12 +69,11 @@ function basicKeys(): Set<string> {
   return keys;
 }
 /*
- * The detailing, design, footing, generator, steel, connection and reinforcement
- * sheet engines are imported by shared code (the model store keeps their data,
- * the deflection check reads the sheets' bars), but what they say is shown only
- * by PRO's panels.
+ * The detailing, design, footing, generator, steel and connection engines are
+ * imported by shared code (the model store keeps their data), but what they
+ * say is shown only by PRO's panels.
  */
-const PRO_ONLY = /^(detailing|design|footing|generator|steel|bolt|conn|battens|regulations|codes|seismic|rcSheets)\./;
+const PRO_ONLY = /^(detailing|design|footing|generator|steel|bolt|conn|battens|regulations|codes|seismic)\./;
 const BASIC = new Set([...basicKeys()].filter((k) => !PRO_ONLY.test(k)));
 
 function offenders(dict: Record<string, string>, re: RegExp): string[] {

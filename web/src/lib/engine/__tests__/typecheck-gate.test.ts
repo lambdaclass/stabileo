@@ -62,11 +62,4 @@ describe('the typecheck gate cannot report a false green', () => {
     expect(src).toContain('crashed && errors.length === 0');
     expect(src).toMatch(/reported no parseable diagnostics/);
   });
-
-  it('typechecks the e2e specs that drive the design desk, so a deleted place fails the gate', () => {
-    const src = readFileSync(SCRIPT, 'utf8');
-    expect(src).toContain("'tsconfig.e2e.json'");
-    const e2e = JSON.parse(readFileSync(resolve(WEB, 'tsconfig.e2e.json'), 'utf8')) as { include: string[] };
-    expect(e2e.include).toEqual(expect.arrayContaining(['e2e/fixtures.ts', 'e2e/pro-panel-consistency.spec.ts', 'e2e/design-data.spec.ts']));
-  });
 });

@@ -36,17 +36,6 @@ export function reportSolverDiagnostics(diags?: SolverDiagnostic[]): void {
   }
 }
 
-/** A solve's errors as toasts. Its warnings are counted by the solve card and listed in Diagnostics, so a toast would say them twice. */
-export function reportSolverErrors(diags?: SolverDiagnostic[]): void {
-  reportSolverDiagnostics(diags?.filter((d) => d.severity === 'error'));
-}
-
-/** The warnings a 2D solve leaves for Diagnostics, counted for the success toast. */
-export function solverNoticeCount(results: { diagnostics?: Array<{ metric?: string }>; solverDiagnostics?: Array<{ severity: string }> }): number {
-  return (results.diagnostics ?? []).filter((d) => d.metric === 'negative_jacobian').length
-    + (results.solverDiagnostics ?? []).filter((d) => d.severity === 'warning').length;
-}
-
 /**
  * `checkModel` against the live store.
  *

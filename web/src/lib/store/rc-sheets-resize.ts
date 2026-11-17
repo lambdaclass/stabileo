@@ -7,7 +7,7 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { holdPlateSidesAt, plateOfShell } from './physical-plates';
+import { plateOfShell } from './physical-plates';
 import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
@@ -166,25 +166,6 @@ export function wallsToHold(rows: readonly SheetRow[]): WallRow[] {
   const ground = supported.length ? Math.min(...supported) : Math.min(...[...modelStore.nodes.values()].map((n) => n.z ?? 0));
   return rows.filter((r): r is WallRow => r.family === 'wall' && !!r.demand.base?.unheld?.length
     && r.demand.base.unheld.every((n) => modelStore.nodes.has(n) && Math.abs(zOf(n) - ground) < 1e-3));
-}
-
-/** Each base node gets the support most common at the foundation's level, fixed where it has none, and each wall's base is held all along with every mesh; one undo step. */
-export function supportWallBases(rows: readonly SheetRow[]): number {
-  const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
-  const nodes = [...new Set(wallsToHold(rows).flatMap((r) => r.demand.base!.unheld!))].filter((n) => !held.has(n));
-  if (!nodes.length) return 0;
-  const ground = modelStore.nodes.get(nodes[0]!)?.z ?? 0;
-  const kinds = new Map<string, number>();
-  for (const s of modelStore.supports.values()) {
-    const p = modelStore.nodes.get(s.nodeId);
-    if (p && Math.abs((p.z ?? 0) - ground) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
-  }
-  const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
-  modelStore.batch(() => {
-    for (const n of nodes) modelStore.addSupport(n, type);
-    for (const id of new Set(wallsToHold(rows).map((r) => groupOf(r.key)))) holdPlateSidesAt(id, ground, type);
-  });
-  return nodes.length;
 }
 
 /** Selects the row's element in the model and opens the tab where its dimensions are changed. */

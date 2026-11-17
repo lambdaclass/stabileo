@@ -28,7 +28,6 @@
   import type { DocumentModel } from '../../../lib/engine/detailing/document-model';
   import { designFingerprint } from '../../../lib/store/design-fingerprint';
   import OutdatedNotice from './OutdatedNotice.svelte';
-  import { uiStore } from '../../../lib/store/ui.svelte';
 
   /**
    * `autoBuild`: the drawings place of the design desk. The set is laid out on arrival, the sheets
@@ -127,16 +126,12 @@
   }
 
   const at = () => new Date().toISOString();
-  function openRcSheets() { uiStore.proActiveTab = 'rcSheets'; uiStore.proPanelVisible = true; }
 </script>
 
 <section class="sheets" data-testid="sheets-panel" aria-labelledby="sheets-title">
   <OutdatedNotice audit={auditNotice ? ['rc-sheets'] : []} />
   <h4 id="sheets-title">{t('sheet.ui.title')}</h4>
   <p class="lead">{t('sheet.ui.lead')}</p>
-  <p class="lead rc" data-testid="sheets-rc-note">{t('sheet.ui.rcFromSheets')}
-    <button class="link" onclick={openRcSheets} data-testid="sheets-rc-open">{t('sheet.ui.rcFromSheetsOpen')}</button>
-  </p>
 
   <details class="setup" bind:open={setupOpen} data-testid="sheets-setup">
     <summary>{t('sheet.ui.setup')} <span class="muted">· {st.format} · {tp('sheet.ui.kindsSummary', { n: kinds.size, m: PLAN_KINDS.length })}</span></summary>
@@ -243,8 +238,6 @@
 <style>
   .sheets { border-top: 1px solid var(--st-hair); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
   .lead, .muted { margin: 0; font-size: 0.68rem; color: var(--st-text-2); line-height: 1.35; }
-  .lead.rc .link { margin-left: 4px; font-size: 0.66rem; padding: 1px 8px; background: var(--st-surface-2); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 3px; cursor: pointer; }
-  .lead.rc .link:focus-visible { outline: 2px solid var(--st-value); outline-offset: 1px; }
   .settings { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .settings label, .rev { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.64rem; color: var(--st-text-2); }
   .settings select, .settings input, .rev input {

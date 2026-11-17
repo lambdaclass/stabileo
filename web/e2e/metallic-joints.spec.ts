@@ -15,7 +15,7 @@
  */
 
 import { test, expect, ribbonCmd, designPlace } from './fixtures';
-import { insertGenerated, pickGenerator } from './generator-helpers';
+import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
 
 test.use({ viewport: { width: 1280, height: 720 } });

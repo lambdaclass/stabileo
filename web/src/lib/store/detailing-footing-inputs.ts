@@ -39,7 +39,7 @@ import type { ModelData } from '../engine/solver-service';
 // A store is a locale boundary, and these readings cross it where the store did.
 import { t } from '../i18n';
 import type { ElementForces3D } from '../engine/types-3d';
-import type { SlabColumnJoint, SlabJointForce } from '../rc-sheets/slab-punching';
+import type { SlabColumnJoint, SlabJointForce } from '../engine/detailing/slab-punching';
 import type {
   CaseReaction, CombinationReaction, FootingColumn, NodeReactions,
 } from '../engine/detailing/run-footing-design';

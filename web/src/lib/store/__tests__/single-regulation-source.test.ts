@@ -32,6 +32,35 @@ import { listDesignCodes } from '../../engine/design/code-adapter';
 const SRC = join(__dirname, '../../..');
 const read = (rel: string) => readFileSync(join(SRC, rel), 'utf8');
 
+describe('the design toolbar carries no regulation selector', () => {
+  /**
+   * The read-out moved to `DesignOverview.svelte`. The prohibition — no second selector, no
+   * registry enumeration — is about the design surface, not about one file, so it now covers both.
+   */
+  const toolbar = [
+    read('components/pro/design/DesignToolbar.svelte'),
+    read('components/pro/design/DesignOverview.svelte'),
+    // The read-out itself, shared by the overview and the member list (interface A).
+    read('components/pro/design/ActiveConcreteCode.svelte'),
+  ].join('\n');
+
+  it('has no code-select control', () => {
+    expect(toolbar).not.toContain('code-select');
+    expect(toolbar).not.toMatch(/<select/);
+  });
+
+  it('does not enumerate the adapter registry', () => {
+    // Listing every registered adapter is what produced the duplicate label and offered an
+    // unsourced edition. The toolbar has no business knowing the registry exists.
+    expect(toolbar).not.toContain('listDesignCodes');
+  });
+
+  it('shows the active code as a read-out, and a way to change it', () => {
+    expect(toolbar).toContain('data-testid="active-concrete-code"');
+    expect(toolbar).toContain('data-testid="goto-project-regulations"');
+  });
+});
+
 describe('no independent design-code state survives', () => {
   it('the verification store no longer owns a writable active code', () => {
     const src = read('lib/store/verification.svelte.ts');
@@ -44,6 +73,7 @@ describe('no independent design-code state survives', () => {
       'lib/store/verification.svelte.ts',
       'lib/store/design-run.svelte.ts',
       'lib/store/detailing.svelte.ts',
+      'components/pro/design/BatchEditDialog.svelte',
     ]) {
       const src = read(rel);
       expect(src, `${rel} still reads a toolbar adapter`)

@@ -1,20 +1,25 @@
 <!--
-  Particular elements: coupling beams (found where a beam joins two walls), masonry walls, masonry infills (with their struts put in the model), tubular
+  Particular elements: corbels, coupling beams (found where a beam joins two walls), openings
+  through beams, masonry walls, masonry infills (with their struts put in the model), tubular
   truss joints and timber dowel connections. Each family lists its elements with their state;
   picking one opens its rows.
 -->
 <script lang="ts">
   import { t, tp } from '../../../../lib/i18n';
-  import { couplingChecks, removeEntry, setCouplingChoice } from '../../../../lib/store/special-elements';
+  import { corbelChecks, couplingChecks, openingChecks, removeEntry, setCouplingChoice } from '../../../../lib/store/special-elements';
   import { infillChecks, masonryWallChecks, placeInfillStruts, removeInfillStruts } from '../../../../lib/store/masonry-infill';
   import { dowelChecks, hssJointChecks } from '../../../../lib/store/special-connections';
   import type { CheckRow } from '../../../../lib/design-contract';
   import SteelMemberSheet from '../steel/SteelMemberSheet.svelte';
+  import CorbelForm from './CorbelForm.svelte';
+  import OpeningForm from './OpeningForm.svelte';
   import MasonryForm from './MasonryForm.svelte';
   import InfillForm from './InfillForm.svelte';
   import ConnectionForms from './ConnectionForms.svelte';
 
+  const corbels = $derived(corbelChecks());
   const coupling = $derived(couplingChecks());
+  const openings = $derived(openingChecks());
   const masonry = $derived(masonryWallChecks());
   const infills = $derived(infillChecks());
   const hss = $derived(hssJointChecks());
@@ -25,8 +30,8 @@
   const pick = (k: string) => { selected = selected === k ? null : k; note = ''; };
   const rowsOf = (k: string): CheckRow[] | null => {
     const [fam, id] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];
-    const f = fam === 'coupling' ? coupling.find((c) => String(c.elementId) === id)
-      : fam === 'masonry' ? masonry.find((c) => c.key === id)
+    const f = fam === 'corbel' ? corbels.find((c) => c.entry.id === id) : fam === 'coupling' ? coupling.find((c) => String(c.elementId) === id)
+      : fam === 'opening' ? openings.find((c) => c.entry.id === id) : fam === 'masonry' ? masonry.find((c) => c.key === id)
       : fam === 'infill' ? infills.find((c) => c.entry.id === id) : fam === 'hss' ? hss.find((c) => c.entry.id === id) : dowels.find((c) => c.entry.id === id);
     return f?.rows ?? null;
   };
@@ -43,6 +48,20 @@
   {#snippet sheet(fam: string)}
     {#if current && family === fam}<SteelMemberSheet rows={current} note={t(`sel.note.${fam}`)} />{/if}
   {/snippet}
+
+  <details class="sf-sec" data-testid="sel-corbels">
+    <summary>{t('sel.corbels')} <span class="muted">· {tp('sfl.count', { n: corbels.length })}</span></summary>
+    <table class="sf-t"><tbody>
+      {#each corbels as c (c.entry.id)}
+        <tr class:on={selected === `corbel:${c.entry.id}`} onclick={() => pick(`corbel:${c.entry.id}`)} data-testid="corbel-row-{c.entry.id}">
+          <td>{c.entry.name}</td><td>{c.vu !== null ? `Vu ${c.vu.toFixed(1)} kN` : '—'}</td><td>{c.design ? `As ${(c.design.asPrimary * 1e4).toFixed(2)} cm²` : ''}</td><td>{t(stateKey(c.status))}</td>
+          <td><button class="link" onclick={(e) => { e.stopPropagation(); removeEntry('corbels', c.entry.id); }}>{t('mat.timber.drop')}</button></td>
+        </tr>
+      {/each}
+    </tbody></table>
+    <CorbelForm onsaved={(id) => (selected = `corbel:${id}`)} />
+    {@render sheet('corbel')}
+  </details>
 
   <details class="sf-sec" data-testid="sel-coupling">
     <summary>{t('sel.coupling')} <span class="muted">· {tp('sfl.count', { n: coupling.length })}</span></summary>
@@ -61,6 +80,20 @@
       </div>
     {/if}
     {@render sheet('coupling')}
+  </details>
+
+  <details class="sf-sec" data-testid="sel-openings">
+    <summary>{t('sel.openings')} <span class="muted">· {tp('sfl.count', { n: openings.length })}</span></summary>
+    <table class="sf-t"><tbody>
+      {#each openings as c (c.entry.id)}
+        <tr class:on={selected === `opening:${c.entry.id}`} onclick={() => pick(`opening:${c.entry.id}`)} data-testid="opening-row-{c.entry.id}">
+          <td>{t('sel.beam')} {c.entry.elementId} · x = {c.entry.x.toFixed(2)} m</td><td>{Math.round(c.entry.lo * 100)} × {Math.round(c.entry.ho * 100)} cm</td><td>{c.mu !== null ? `Mu ${c.mu.toFixed(1)} · Vu ${c.vu!.toFixed(1)}` : '—'}</td><td>{t(stateKey(c.status))}</td>
+          <td><button class="link" onclick={(e) => { e.stopPropagation(); removeEntry('openings', c.entry.id); }}>{t('mat.timber.drop')}</button></td>
+        </tr>
+      {/each}
+    </tbody></table>
+    <OpeningForm onsaved={(id) => (selected = `opening:${id}`)} />
+    {@render sheet('opening')}
   </details>
 
   <details class="sf-sec" data-testid="sel-masonry">

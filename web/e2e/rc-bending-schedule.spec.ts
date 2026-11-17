@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { test, expect, loadModel, solveModel } from './fixtures';
+import { test, expect, loadModel, solveModel } from './rc-sheets-fixtures';
 
 /**
  * The bending schedule of the reinforcement sheets on the eight-member concrete frame: unified,

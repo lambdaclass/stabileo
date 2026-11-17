@@ -259,15 +259,6 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ ...frame, ...combos }))).not.toContain('design-on-unfactored-results');
   });
 
-  it('tells concrete projects that never stored their covers about the Table 20.5.1.3.1 defaults, and no project that stored its own', () => {
-    const frame = { elements: [member(1, 2, 'frame')] };
-    expect(ids(model(frame))).toContain('default-covers-table-20-5-1-3-1');
-    expect(ids(model({ footings: [[1, { nodeId: 1 }]] as never }))).toContain('default-covers-table-20-5-1-3-1');
-    expect(ids(model({ ...frame, designData: { covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 } } }))).not.toContain('default-covers-table-20-5-1-3-1');
-    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain('default-covers-table-20-5-1-3-1');
-    expect(modelFeatures(model({ ...frame, designData: { loadBasis: {} } })).has('defaultDesignCovers')).toBe(true);
-  });
-
   it('names the ACI change for an ACI-bound concrete model and not the CIRSOC 201 one', () => {
     const aci = model({ elements: [member(1, 2, 'frame')], regulations: { roles: { concrete: { adapterId: 'aci-aisc' } } } });
     expect(ids(aci)).toContain('aci318-strain-and-axial');
