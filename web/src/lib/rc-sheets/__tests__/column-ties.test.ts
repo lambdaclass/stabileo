@@ -24,7 +24,7 @@ describe('column ties along the storey', () => {
       expect(l.ties[0]).toBeCloseTo(0.1, 9);
       expect(Math.max(...gaps(l.ties))).toBeLessThanOrEqual(0.2 + 1e-9);
       expect(l.ties.at(-1)).toBeCloseTo(3.6 - 0.1, 9);
-      expect(l.lap).toEqual({ from: 0, to: 0.6 });
+      expect(l.lap).toEqual({ from: 0, to: 0.6, fits: true });
       expect(tieSegments(l).map((z) => [z.kind, z.spacing])).toEqual([['lap', 0.2], ['middle', 0.2], ['joint', 0.2]]);
       expect(tieSegments(l).find((z) => z.kind === 'lap')!.clause).toBe('§25.5.5.1');
     }

@@ -56,6 +56,7 @@ describe('the code the sheets design to', () => {
     const first = buildSheetRows();
     const beam = first.beam[0]!;
     setAdopted(beam.key, beam.proposed);
+    const capacity = new Map<string, number>();
     for (const code of SHEET_CODE_LIST) {
       setSheetCode(code);
       const rows = buildSheetRows();
@@ -65,7 +66,15 @@ describe('the code the sheets design to', () => {
       expect(JSON.stringify(b.adopted.bottom)).toBe(JSON.stringify(beam.proposed.bottom));
       expect(rows.column.length).toBe(first.column.length);
       expect(b.verifications.length).toBeGreaterThan(0);
+      capacity.set(code, b.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn);
     }
+    // The same bars read under each code's own rules: EN 1992 and TS 500 with their own material factors, ACI as CIRSOC adopts it.
+    expect(capacity.get('aci318-19')).toBeCloseTo(capacity.get('cirsoc201-2025')!, 9);
+    for (const other of ['en1992-1-1', 'ts500-2000'] as const) expect(Math.abs(capacity.get(other)! - capacity.get('cirsoc201-2025')!)).toBeGreaterThan(1);
+    expect(capacity.get('bs-en1992-1-1')).toBeLessThan(capacity.get('en1992-1-1')!);
+    setSheetCode('cirsoc201-2025');
+    const back = buildSheetRows().beam.find((r) => r.key === beam.key)!;
+    expect(back.flexure.find((x) => x.section === 'span' && x.sign === 'pos')!.phiMn).toBe(capacity.get('cirsoc201-2025'));
   });
 
   it('designs to ACI 318-19 with the provisions CIRSOC 201-2025 adopts from it: the same bars and capacities, its own column ties and no Argentine cover table', () => {

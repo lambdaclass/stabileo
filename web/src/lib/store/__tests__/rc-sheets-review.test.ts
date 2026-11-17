@@ -7,7 +7,8 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows } from '../rc-sheets.svelte';
+import { buildSheetRows, setAdopted, setRcOption } from '../rc-sheets.svelte';
+import { setMemberLateral } from '../lateral-system';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -81,5 +82,92 @@ describe('the forces the sheets read', () => {
     const inner = k.inner![0]!;
     expect(Math.max(Math.abs(inner.mx), Math.abs(inner.my))).toBeCloseTo(1.4 * 40 * 3 / 4, 0);
     expect(r.checks.ratio).toBeGreaterThan(0.05);
+  });
+});
+
+/** Two 40×40 columns two storeys high, a 30×60 beam at each floor, 30 kN/m D. */
+function twoStoreys() {
+  const m = conc(), col = rect(0.4, 0.4), bm = rect(0.3, 0.6);
+  const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+  const n = [0, 3, 6].map((z) => [0, 5].map((x) => modelStore.addNode(x, 0, z)));
+  for (const k of [0, 1]) for (const lvl of [0, 1]) { const e = modelStore.addElement(n[lvl]![k]!, n[lvl + 1]![k]!, 'frame'); modelStore.updateElementSection(e, col); modelStore.updateElementMaterial(e, m); }
+  const beams = [1, 2].map((lvl) => { const e = modelStore.addElement(n[lvl]![0]!, n[lvl]![1]!, 'frame'); modelStore.updateElementSection(e, bm); modelStore.updateElementMaterial(e, m); modelStore.addDistributedLoad3D(e, 0, 0, -30, -30, undefined, undefined, D); return e; });
+  for (const k of [0, 1]) modelStore.addSupport(n[0]![k]!, 'fixed3d');
+  modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+  return { beams, top: n[2]! };
+}
+const has = (r: { verifications: Array<{ label: string }> }, label: string) => r.verifications.some((v) => v.label === label);
+const verdict = (r: { verifications: Array<{ label: string; ok: boolean }> }, label: string) => r.verifications.find((v) => v.label === label)?.ok;
+
+describe('chapter 18 in the sheets', () => {
+  it('checks the shear of a roof joint, which only the strong-column rule leaves out', () => {
+    const { top } = twoStoreys();
+    solve();
+    setRcOption('seismic', true);
+    const rows = buildSheetRows();
+    const roof = rows.column.filter((r) => top.includes(r.demand.nodes!.top));
+    expect(roof).toHaveLength(2);
+    for (const r of roof) { expect(has(r, 'rcSheets.v.seisJoint')).toBe(true); expect(has(r, 'rcSheets.v.seisScwb')).toBe(false); }
+    expect(rows.column.filter((r) => !top.includes(r.demand.nodes!.top)).every((r) => has(r, 'rcSheets.v.seisScwb'))).toBe(true);
+  });
+
+  it('applies to the beams of the lateral system: one declared outside it takes the ordinary rules, one not declared is read as part of it', () => {
+    const { beams } = twoStoreys();
+    solve();
+    setRcOption('seismic', true);
+    setMemberLateral([beams[0]!], 'gravity');
+    const rows = buildSheetRows();
+    const byElement = (e: number) => rows.beam.find((r) => r.demand.line && modelStore.model.groups.get(r.demand.line.group)!.members.elements!.includes(e))!;
+    const gravity = byElement(beams[0]!), lateral = byElement(beams[1]!);
+    expect(has(gravity, 'rcSheets.v.seisBeamVe')).toBe(false);
+    expect(has(lateral, 'rcSheets.v.seisBeamVe')).toBe(true);
+    const lines = (e: number) => rows.line.find((l) => modelStore.model.groups.get(l.group)!.members.elements!.includes(e))!;
+    expect(lines(beams[0]!).zones.some((z) => z.first !== undefined)).toBe(false);
+    expect(lines(beams[1]!).zones.some((z) => z.first !== undefined)).toBe(true);
+  });
+
+  it('fails the strong-column rule, the joint shear and a beam capacity shear where the adopted bars fall short, and the rows with them', () => {
+    twoStoreys();
+    solve();
+    setRcOption('seismic', true);
+    const first = buildSheetRows();
+    const lowCol = first.column.find((r) => has(r, 'rcSheets.v.seisScwb'))!;
+    for (const c of first.column) setAdopted(c.key, { corner: 12, nx: 0, dx: 12, ny: 0, dy: 12, tieDia: 10, tieSpacing: 0.1 });
+    const beam = first.beam.find((r) => r.demand.line!.startNode === lowCol.demand.nodes!.top || r.demand.line!.endNode === lowCol.demand.nodes!.top)!;
+    const { at: _at, ...plain } = beam.adopted;
+    setAdopted(beam.key, { ...plain, top: [{ count: 6, dia: 25 }, { count: 4, dia: 25 }], stirrups: { dia: 8, legs: 2, spacing: 0.3 } });
+    const rows = buildSheetRows();
+    const col = rows.column.find((r) => r.key === lowCol.key)!;
+    expect(verdict(col, 'rcSheets.v.seisScwb')).toBe(false);
+    expect(col.status).toBe('fail');
+    const b = rows.beam.find((r) => r.key === beam.key)!;
+    expect(verdict(b, 'rcSheets.v.seisBeamHoops')).toBe(false);
+    expect(b.status).toBe('fail');
+    const joint = rows.column.filter((r) => r.demand.nodes!.top === beam.demand.line!.startNode || r.demand.nodes!.top === beam.demand.line!.endNode);
+    expect(joint.some((r) => verdict(r, 'rcSheets.v.seisJoint') === false && r.status === 'fail')).toBe(true);
+  });
+});
+
+describe('a flat slab punching', () => {
+  it('reads the slab concrete, not the stronger column concrete', () => {
+    const build = (colFc: number) => {
+      modelStore.clear(); resultsStore.clear();
+      for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
+      const slabM = modelStore.addMaterial({ name: 'H-25', e: 25000, nu: 0.2, rho: 25, fy: 25, fc: 25 });
+      const colM = modelStore.addMaterial({ name: `H-${colFc}`, e: 30000, nu: 0.2, rho: 25, fy: colFc, fc: colFc });
+      const col = rect(0.4, 0.4), D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id, N = 6;
+      const id: number[][] = [];
+      for (let i = 0; i <= N; i++) { id.push([]); for (let j = 0; j <= N; j++) id[i]!.push(modelStore.addNode(-3 + i, -3 + j, 3)); }
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) modelStore.addSurfaceLoad3D(modelStore.addQuad([id[i]![j]!, id[i + 1]![j]!, id[i + 1]![j + 1]!, id[i]![j + 1]!], slabM, 0.2), 12, D);
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) if (i === 0 || j === 0 || i === N || j === N) modelStore.addSupport(id[i]![j]!, 'pinned3d');
+      const base = modelStore.addNode(0, 0, 0), c = modelStore.addElement(base, id[3]![3]!, 'frame');
+      modelStore.updateElementSection(c, col); modelStore.updateElementMaterial(c, colM);
+      modelStore.addSupport(base, 'fixed3d');
+      modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+      solve();
+      return buildSheetRows().punching[0]!;
+    };
+    const weak = build(25), strong = build(50);
+    expect(strong.phiVc).toBeCloseTo(weak.phiVc, 3);
   });
 });

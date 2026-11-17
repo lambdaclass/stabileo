@@ -49,7 +49,7 @@ export function wallSeismic(
   const rhoOf = (m: { diameter: number; spacing: number }) => (m.spacing > 0 ? a.curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
   const rhoL = rhoOf(a.vertical), rhoT = rhoOf(a.horizontal);
   const ig = t * L ** 3 / 12;
-  const sigmas = d.combos.map((k) => (Math.max(0, k.pu) / acv + k.mu * (L / 2) / ig) / 1000);
+  const sigmas = d.combos.map((k) => (Math.max(0, k.pu) / acv + Math.abs(k.mu) * (L / 2) / ig) / 1000);
   const sigma = Math.max(0, ...sigmas);
   const special = sigma >= 0.2 * fc - 1e-9;
   const c = Math.max(0, ...cs.filter((x): x is number => x !== undefined && Number.isFinite(x)));
@@ -85,17 +85,16 @@ export function wallSeismic(
     );
   } else {
     const ext = a.boundary && a.boundary.count > 0 ? a.boundary : null;
-    if (ext) {
-      const pitch = Math.max(0.05, 2 * ext.diameter / 1000);
-      const per = Math.ceil(ext.count / a.curtains);
-      const zone = Math.min(L / 2, ctx.cover + per * pitch + pitch / 2);
-      const along = Math.max(1, Math.floor(zone / a.vertical.spacing) + 1);
-      const rho = (ext.count * barArea(ext.diameter) + a.curtains * along * barArea(a.vertical.diameter)) * 1e-4 / (zone * t);
-      if (rho > 2.8 / fy) {
-        boundaryLength = zone;
-        hoops = { dia: allowedTie(ctx, tieDiaFor(ext.diameter)) ?? tieDiametersOf(ctx).at(-1)!, spacing: floorTo(Math.min(0.2, (8 * dbMin) / 1000), 0.025), legsAcross: 2, legsAlong: 2, clause: '§18.10.6.5(a)' };
-        checks.push(check('rcSheets.v.wallEdgeTies', true, { clause: '§18.10.6.5(a)', demand: `ρ = ${fmt(rho * 100, 2)} % > 2.8/fy = ${fmt(280 / fy, 2)} %`, capacity: `Ø${hoops.dia} c/${fmt(hoops.spacing * 100, 1)}` }));
-      }
+    const pitch = Math.max(0.05, 2 * (ext?.diameter ?? a.vertical.diameter) / 1000);
+    const zone = ext
+      ? Math.min(L / 2, ctx.cover + Math.ceil(ext.count / a.curtains) * pitch + pitch / 2)
+      : Math.min(L / 2, Math.max(c - 0.1 * L, c / 2, ctx.cover + a.vertical.spacing));
+    const along = Math.max(1, Math.floor(zone / a.vertical.spacing) + 1);
+    const rho = ((ext ? ext.count * barArea(ext.diameter) : 0) + a.curtains * along * barArea(a.vertical.diameter)) * 1e-4 / (zone * t);
+    if (rho > 2.8 / fy) {
+      boundaryLength = zone;
+      hoops = { dia: allowedTie(ctx, tieDiaFor(ends)) ?? tieDiametersOf(ctx).at(-1)!, spacing: floorTo(Math.min(0.2, (8 * dbMin) / 1000), 0.025), legsAcross: 2, legsAlong: 2, clause: '§18.10.6.5(a)' };
+      checks.push(check('rcSheets.v.wallEdgeTies', true, { clause: '§18.10.6.5(a)', demand: `ρ = ${fmt(rho * 100, 2)} % > 2.8/fy = ${fmt(280 / fy, 2)} %`, capacity: `Ø${hoops.dia} c/${fmt(hoops.spacing * 100, 1)}` }));
     }
     steps.push({ label: 'rcSheets.s.wallSigma', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig < 0.2·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` });
   }

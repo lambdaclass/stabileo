@@ -13857,6 +13857,7 @@ const en: Record<string, string> = {
   "rcSheets.v.lineFit": "The bars of each section fit in the width",
   "rcSheets.v.lineHooks": "Hooked anchorage at the ends",
   "rcSheets.v.forcesMissing": "Forces of every combination (these lack them: the member was not checked for them)",
+  "rcSheets.v.colLapFit": "Lap of the bars from the storey below within the room its code gives it",
   "rcSheets.v.lineEndAnchor": "Hook inside the end column",
   "rcSheets.v.lineSplices": "Splices of the continuous bars (12 m bars)",
   "rcSheets.v.lineIntegrity": "Perimeter beam integrity: continuous top and bottom bars",

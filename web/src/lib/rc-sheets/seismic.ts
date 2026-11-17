@@ -107,7 +107,7 @@ export function columnSeismic(
   const outline = { kind: 'rect' as const, b: d.b, h: d.h };
   const mprX = probable?.x ?? nominalMomentAt(outline, bars, c.mat.fc, c.overstrength * c.mat.fy, Math.PI / 2, puMax);
   const mprY = probable?.y ?? nominalMomentAt(outline, bars, c.mat.fc, c.overstrength * c.mat.fy, 0, puMax);
-  const ties = (legs: number) => ({ diameter: a.tieDia, legs, spacing: Math.min(a.tieSpacing, conf.so) });
+  const ties = (legs: number) => ({ diameter: a.tieDia, legs, spacing: a.tieSpacing });
   const vx = Math.max(0, ...d.cases.map((k) => k.vx ?? 0)), vy = Math.max(0, ...d.cases.map((k) => k.vy ?? 0));
   const shX = columnCapacityShear({ b: d.b, h: d.h, d: d.h - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprX, mprX], lu: d.lu, vu: vx, pu: puMax, ties: ties(2 + ct.x) });
   const shY = columnCapacityShear({ b: d.h, h: d.b, d: d.b - c.cover - 0.02, fc: c.mat.fc, fyt: c.mat.fy, mpr: [mprY, mprY], lu: d.lu, vu: vy, pu: puMax, ties: ties(2 + ct.y) });

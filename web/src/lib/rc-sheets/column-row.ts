@@ -293,7 +293,7 @@ function governing(tuples: Tuple[]): Tuple[] {
 
 function shearQueries(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { x: number; y: number }, pu: number): BeamSectionQuery[] {
   const ab = barArea(a.tieDia) * 1e-4;
-  const base = { edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, s: a.tieSpacing, fyt: shearFy(c.mat.fy) * 1e6, Ag: d.b * d.h, NuCompression: Math.max(0, pu) * 1e3 };
+  const base = { edition: EDITION, fc: c.mat.fc * 1e6, fy: c.mat.fy * 1e6, s: a.tieSpacing, fyt: shearFy(c.mat.fy) * 1e6, Ag: d.b * d.h, NuCompression: pu * 1e3 };
   return [
     { ...base, b: d.b, h: d.h, d: d.h - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.nx * barArea(a.dx)) * 1e-4, Av: (2 + ct.x) * ab },
     { ...base, b: d.h, h: d.b, d: d.b - coverToBar(c, a.tieDia, a.corner), As: (2 * barArea(a.corner) + a.ny * barArea(a.dy)) * 1e-4, Av: (2 + ct.y) * ab },
@@ -320,7 +320,13 @@ export const tensionLap = (mat: Materials, dia: number): number =>
 /** The largest tie spacing of §25.7.2.1, m. */
 export const tieSpacingLimit = (longDia: number, tieDia: number, least: number): number => columnTieSpacing(EDITION, longDia, tieDia, least).spacing;
 
-/** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where the column is not compression-dominated. */
+/** Whether any demand puts a bar in tension: the gross section's elastic stress at the bar, the moments taken the way that pulls it (§10.7.5.2.1 reads the bars' stress). */
+export function barsInTension(d: { b: number; h: number }, bars: ReadonlyArray<{ x: number; y: number }>, demands: ReadonlyArray<{ pu: number; mx: number; my: number }>): boolean {
+  const ag = d.b * d.h, ix = (d.b * d.h ** 3) / 12, iy = (d.h * d.b ** 3) / 12;
+  return demands.some((q) => bars.some((p) => q.pu / ag - (Math.abs(q.mx) * Math.abs(p.y)) / ix - (Math.abs(q.my) * Math.abs(p.x)) / iy < -1e-9));
+}
+
+/** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where a bar is in tension. */
 export function columnSplice(c: ColumnContext, dia: number, tension: boolean): { length: number; tension: boolean } {
   if (tension) return { length: tensionLap(c.mat, dia), tension };
   return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
@@ -415,7 +421,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
-  const splice = columnSplice(c, longest, !!c.seismic || d.cases.some((cs) => (cs.puMin ?? cs.pu) < 0.1 * c.mat.fc * 1000 * Ag));
+  const splice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all));
   const seis = c.seismic && cct ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), cct, fmt) : null;
 
   const verifications: CheckLine[] = [

@@ -57,12 +57,13 @@ export function jointChecks(columns: ColumnRow[], beams: BeamRow[], nodes: Reado
   const { joints, columnId } = frameJoints(columns, beams, nodes, c);
   return columns.map((r) => {
     const top = r.demand.nodes?.top, id = columnId.get(r);
-    const mine = joints.filter((j) => j.nodeId === top && id !== undefined && j.columns.includes(id) && !j.strongColumn.roof);
+    const mine = joints.filter((j) => j.nodeId === top && id !== undefined && j.columns.includes(id));
     if (!mine.length) return r;
-    const scwb = mine.reduce((w, j) => (j.strongColumn.utilization > w.strongColumn.utilization ? j : w));
+    const below = mine.filter((j) => !j.strongColumn.roof);
+    const scwb = below.length ? below.reduce((w, j) => (j.strongColumn.utilization > w.strongColumn.utilization ? j : w)) : null;
     const shear = mine.reduce((w, j) => (j.shear.utilization > w.shear.utilization ? j : w));
     const extra: CheckLine[] = [
-      check('rcSheets.v.seisScwb', scwb.strongColumn.ok, { clause: '§18.7.3.2', demand: `${fmt(c.settings.strongColumn)}·ΣMnb = ${fmt(scwb.strongColumn.required)} kN·m`, capacity: `ΣMnc = ${fmt(scwb.strongColumn.sumColumns)} kN·m`, ratio: scwb.strongColumn.utilization }),
+      ...(scwb ? [check('rcSheets.v.seisScwb', scwb.strongColumn.ok, { clause: '§18.7.3.2', demand: `${fmt(c.settings.strongColumn)}·ΣMnb = ${fmt(scwb.strongColumn.required)} kN·m`, capacity: `ΣMnc = ${fmt(scwb.strongColumn.sumColumns)} kN·m`, ratio: scwb.strongColumn.utilization })] : []),
       check('rcSheets.v.seisJoint', shear.shear.utilization <= 1 + 1e-6, { clause: '§18.8.4', demand: `Vj = ${fmt(shear.shear.vj)} kN`, capacity: `${fmt(shear.shear.phiVn)} kN`, ratio: ratioOf(shear.shear.vj, shear.shear.phiVn) }),
     ];
     const fail = extra.some((x) => !x.ok);

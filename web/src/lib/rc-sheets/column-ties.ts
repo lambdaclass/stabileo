@@ -15,7 +15,8 @@
  */
 import { roundDown } from './bars';
 import type { ColumnRow } from './column-row';
-import type { SheetCode } from './types';
+import type { Fmt } from './format';
+import { check, type CheckLine, type SheetCode } from './types';
 
 export type TieZoneKind = 'end' | 'middle' | 'lap' | 'joint';
 /** `confined`: where chapter 18 asks its Ash of the hoops (§18.7.5.4, §18.8.3.1), with the crossties the design gives that zone. */
@@ -29,7 +30,8 @@ export interface ColumnTieLayout {
   clear: number;
   /** Depth of the joints below and above, m. */
   jointBottom: number; jointTop: number;
-  lap: { from: number; to: number } | null;
+  /** Drawn within the storey; `fits` false where the lap the bars need is longer than the room the code gives it. */
+  lap: { from: number; to: number; fits: boolean } | null;
   /** Measured up from the face of the joint below; the joint above runs from `clear` to `clear + jointTop`. */
   zones: TieZone[];
   ties: number[];
@@ -87,8 +89,8 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true });
     if (row.lap) {
       const l = Math.min(row.lap.length, clear / 2);
-      lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2 };
-      zones.push({ kind: 'lap', ...lap, spacing: s, clause: '§18.7.4.3' });
+      lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2, fits: row.lap.length <= clear / 2 + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.7.4.3' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '§18.8.3.1', confined: true });
   } else if (fam === 'ec2') {
@@ -97,8 +99,8 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     middle(scl, '9.5.3(3)', '6.2');
     zones.push({ kind: 'end', from: 0, to: near, spacing: s, clause: '9.5.3(4)' }, { kind: 'end', from: clear - near, to: clear, spacing: s, clause: '9.5.3(4)' });
     if (row.lap) {
-      lap = { from: 0, to: Math.min(row.lap.length, clear) };
-      if (longest > 14) zones.push({ kind: 'lap', ...lap, spacing: Math.min(s, roundDown((lap.to - lap.from) / 3, 0.005)), clause: '9.5.3(4)' });
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      if (longest > 14) zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: Math.min(s, roundDown((lap.to - lap.from) / 3, 0.005)), clause: '9.5.3(4)' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: '9.5.3(4)' });
   } else {
@@ -106,8 +108,8 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     if (opts.endZones) projectEnds(fam === 'aci' ? '§25.7.2.1' : '7.4.1');
     else notes.push(fam === 'aci' ? 'rcSheets.elev.n.oneSpacingAci' : 'rcSheets.elev.n.oneSpacingTs500');
     if (row.lap) {
-      lap = { from: 0, to: Math.min(row.lap.length, clear) };
-      zones.push({ kind: 'lap', ...lap, spacing: s, clause: fam === 'aci' ? (row.lap.tension ? '§25.5.2' : '§25.5.5.1') : '9.3' });
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: fam === 'aci' ? (row.lap.tension ? '§25.5.2' : '§25.5.5.1') : '9.3' });
     }
     if (jointTop > 0) zones.push({ kind: 'joint', from: clear, to: clear + jointTop, spacing: s, clause: fam === 'aci' ? '§15.7.1' : '7.4.1' });
   }
@@ -167,4 +169,21 @@ export function tieSegments(layout: ColumnTieLayout): TieZone[] {
     else out.push(piece);
   }
   return out;
+}
+
+/** The lap of the bars from below against the room its code gives it in the storey: the middle half under chapter 18 (§18.7.4.3), the clear height otherwise; null with none. */
+export function lapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): CheckLine | null {
+  if (!row.lap) return null;
+  const fam = family(code), clear = Math.max(0.1, row.demand.lu);
+  const middle = fam === 'aci' && !!row.confinement;
+  const room = middle ? clear / 2 : clear;
+  const clause = fam === 'aci' ? (middle ? '§18.7.4.3' : row.lap.tension ? '§25.5.2' : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
+  return check('rcSheets.v.colLapFit', row.lap.length <= room + 1e-6, { clause, demand: `${fmt(row.lap.length * 100, 0)} cm`, capacity: `≤ ${fmt(room * 100, 0)} cm`, ratio: row.lap.length / room });
+}
+
+/** A column row with its lap's room checked: one that does not fit fails the row. */
+export function withLapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): ColumnRow {
+  const v = lapFit(row, code, fmt);
+  if (!v) return row;
+  return { ...row, verifications: [...row.verifications, v], ...(v.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) };
 }

@@ -13846,6 +13846,7 @@ const es: Record<string, string> = {
   "rcSheets.v.lineFit": "Las barras de cada sección entran en el ancho",
   "rcSheets.v.lineHooks": "Anclaje con gancho en los extremos",
   "rcSheets.v.forcesMissing": "Esfuerzos de todas las combinaciones (faltan los de estas: el elemento no se verificó con ellas)",
+  "rcSheets.v.colLapFit": "Empalme de las barras del piso de abajo dentro del lugar que le da el reglamento",
   "rcSheets.v.lineEndAnchor": "Gancho dentro de la columna extrema",
   "rcSheets.v.lineSplices": "Empalmes de las barras corridas (barras de 12 m)",
   "rcSheets.v.lineIntegrity": "Integridad de viga perimetral: armadura corrida arriba y abajo",

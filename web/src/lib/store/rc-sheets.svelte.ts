@@ -16,8 +16,10 @@ import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
 import { beamFlangeSides } from '../engine/design/beam-flange';
 import { columnJointSection, frameJoints, jointChecks, type JointContext } from '../rc-sheets/joints';
+import { withLapFit } from '../rc-sheets/column-ties';
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { concreteFc, type DesignKind, type ProjectDesignData } from '../model/design-data';
+import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/lateral-system';
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
@@ -78,7 +80,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null,
   });
 }
 
@@ -273,6 +275,12 @@ function fcOfElement(id: number | undefined): number {
   return concreteFc(m as never) ?? DEFAULT_FC;
 }
 
+/** A punching joint's concrete: the weakest of the slab's elements around it, the column's where none is recorded. */
+function slabFcAt(d: { slab?: Array<{ kind: 'quad' | 'plate'; id: number }>; joint: { columnElementId: number } }): number {
+  const own = (d.slab ?? []).map((s) => fcOfShells(s.kind === 'quad' ? [s.id] : [], s.kind === 'plate' ? [s.id] : []));
+  return own.length ? Math.min(...own) : fcOfElement(d.joint.columnElementId);
+}
+
 function fcOfShells(quads: number[], plates: number[]): number {
   const s = quads.length ? modelStore.quads.get(quads[0]!) : plates.length ? modelStore.plates.get(plates[0]!) : undefined;
   const m = s ? modelStore.materials.get((s as { materialId: number }).materialId) : undefined;
@@ -409,7 +417,12 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const coverTable = rules.coverTable ? { coverTable: { control: dd.executionControl !== false } } : {};
   const ties = { tieDiameters: dd.stirrupDiametersMm, minTieSpacing: dd.minTieSpacingMm / 1000 };
   const coverOf = (kind: DesignKind, key: string) => memberCover(dd, kind, groupOf(key)?.members.elements ?? []);
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, seismic, ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable });
+  /** Chapter 18 for the beams of the lateral system only: a beam declared outside it takes the ordinary rules; one not declared is read as part of it. */
+  const lateralBeam = (key: string) => {
+    const g = groupOf(key);
+    return developsAtFace(spanLateralReading((g?.members.elements ?? []).map((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'beam' }))));
+  };
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -455,8 +468,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       pattern: { nx: prev.adopted.nx, ny: prev.adopted.ny, maxDia: Math.max(prev.adopted.corner, prev.adopted.dx, prev.adopted.dy) },
       fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
     } : {};
-    const row = withMissingForces(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), d.missing);
-    redesigners.set(d.key, ((x: typeof d) => withMissingForces(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), x.missing)) as Redesign);
+    const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
+    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), code, fmt), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };
@@ -513,7 +526,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const plan = slabPlans.find((p) => p.level === (d.level ?? ''));
     const at = (dir: 'x' | 'y') => plan?.integrity.find((k) => k.dir === dir && Math.hypot(k.x - d.joint.at.x, k.y - d.joint.at.y) < 0.05);
     const ix = at('x'), iy = at('y');
-    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: topBarAt(slab, d.level, slabBars), ...(ix && iy ? { integrity: { x: ix.bars, y: iy.bars, required: ix.required, dia: Math.max(ix.dia, iy.dia) } } : {}) };
+    const ctx = { fc: slabFcAt(d), fy, cover: dd.covers.slab, topBarDia: topBarAt(slab, d.level, slabBars), ...(ix && iy ? { integrity: { x: ix.bars, y: iy.bars, required: ix.required, dia: Math.max(ix.dia, iy.dia) } } : {}) };
     redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();

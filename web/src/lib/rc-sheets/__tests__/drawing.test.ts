@@ -23,6 +23,13 @@ describe('section drawings', () => {
     expect(columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 3, dx: 16, ny: 3, dy: 16, tieDia: 10, tieSpacing: 0.15 }).crossties).toHaveLength(2);
   });
 
+  it('holds every corner and alternate bar whatever the tie (§25.7.2.3(a)): a thicker tie does not take crossties away', () => {
+    const at = (n: number, tie: number) => columnSection(0.5, 0.5, 0.03, { corner: 16, nx: n, dx: 16, ny: n, dy: 16, tieDia: tie, tieSpacing: 0.15 }).crossties!.length;
+    expect([at(3, 6), at(3, 10)]).toEqual([2, 2]);
+    expect([at(2, 6), at(2, 10)]).toEqual([4, 4]);
+    expect([at(5, 6), at(5, 10)].every((x) => x >= 4)).toBe(true);
+  });
+
   it('draws the hoop closed by two 135° hooks into the core at one corner, and each crosstie between the bars it engages with a 135° and a 90° hook alternating', () => {
     const d = columnSection(0.5, 0.5, 0.03, { corner: 16, nx: 5, dx: 16, ny: 5, dy: 16, tieDia: 8, tieSpacing: 0.1 });
     const hoop = d.hoop!;

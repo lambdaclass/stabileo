@@ -13697,6 +13697,7 @@ const fr: Translations = {
   "rcSheets.v.lineFit": "Les barres de chaque section tiennent dans la largeur",
   "rcSheets.v.lineHooks": "Ancrage par crochet aux extrémités",
   "rcSheets.v.forcesMissing": "Efforts de toutes les combinaisons (ils manquent pour celles-ci : l'élément n'a pas été vérifié pour elles)",
+  "rcSheets.v.colLapFit": "Recouvrement des barres de l'étage inférieur dans la place que lui donne le règlement",
   "rcSheets.v.lineEndAnchor": "Crochet dans le poteau d'extrémité",
   "rcSheets.v.lineSplices": "Recouvrements des barres filantes (barres de 12 m)",
   "rcSheets.v.lineIntegrity": "Intégrité de la poutre de rive : barres filantes en haut et en bas",

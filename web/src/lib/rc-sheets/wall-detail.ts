@@ -33,6 +33,8 @@ export interface WallDetail {
 
 const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1-1' || code === 'bs-en1992-1-1' ? 'ec2' : code === 'ts500-2000' ? 'ts500' : 'aci');
 const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floor(x / step + 1e-9) * step) * 1e6) / 1e6;
+/** At most `limit`, on the grid of `step` where `step` fits under it, else on 25 mm: never above the limit. */
+const notAbove = (limit: number, step: number) => (step <= limit + 1e-9 ? floorTo(limit, step) : floorTo(limit, 0.025));
 
 export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const fam = family(code);
@@ -90,12 +92,12 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   let crossTies: WallDetail['crossTies'] = null;
   const rhoV = curtains * barArea(a.vertical.diameter) * 1e-4 / (a.vertical.spacing * t);
   if (fam === 'ec2' && curtains === 2) {
-    const along = floorTo(0.5, a.vertical.spacing);
-    crossTies = { along, up: floorTo(0.25 / along, a.horizontal.spacing), dia: allowedTie(row, 6) ?? tieDiametersOf(row).at(-1)!, clause: '9.6.4(2)' };
+    const along = notAbove(0.5, a.vertical.spacing);
+    crossTies = { along, up: notAbove(0.25 / along, a.horizontal.spacing), dia: allowedTie(row, 6) ?? tieDiametersOf(row).at(-1)!, clause: '9.6.4(2)' };
     notes.push({ key: 'rcSheets.wallFig.n.links', clause: '9.6.4(2)', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2 && rhoV > 0.01) {
     const dia = allowedTie(row, tieDiaFor(a.vertical.diameter)) ?? tieDiametersOf(row).at(-1)!;
-    crossTies = { along: 2 * a.vertical.spacing, up: floorTo(tieSpacingLimit(a.vertical.diameter, dia, t), a.horizontal.spacing), dia, clause: '§11.7.4.1' };
+    crossTies = { along: 2 * a.vertical.spacing, up: notAbove(tieSpacingLimit(a.vertical.diameter, dia, t), a.horizontal.spacing), dia, clause: '§11.7.4.1' };
     notes.push({ key: 'rcSheets.wallFig.n.ties', clause: '§11.7.4.1', params: { a: Math.round(crossTies.along * 100), u: Math.round(crossTies.up * 100) } });
   } else if (fam === 'aci' && curtains === 2) {
     notes.push({ key: 'rcSheets.wallFig.n.noTies', clause: '§11.7.4.1', params: { rho: (rhoV * 100).toFixed(2) } });

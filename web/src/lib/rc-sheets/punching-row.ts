@@ -7,6 +7,8 @@ export interface PunchingDemand {
   key: string; name: string; level?: string;
   joint: SlabColumnJoint;
   adjoining: AdjoiningShell[];
+  /** The slab's elements at the joint, by kind: its concrete is theirs, not the column's. */
+  slab?: Array<{ kind: 'quad' | 'plate'; id: number }>;
   /** m. */
   thickness: number;
 }

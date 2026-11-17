@@ -654,8 +654,9 @@ function basePlan(pts: readonly Pt[], uOf: (p: Pt) => number): { x1: number; y1:
 
 export function punchingDemands(m: DemandInput): PunchingDemand[] {
   const inc = incidence(m);
-  const shellsAt = new Map<number, Array<{ id: number; nodes: readonly number[]; thickness: number }>>();
-  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+  const shellsAt = new Map<number, Array<{ id: number; nodes: readonly number[]; thickness: number; kind: 'quad' | 'plate' }>>();
+  for (const [kind, map] of [['quad', m.shells.quads], ['plate', m.shells.plates]] as const) for (const s of map?.values() ?? []) {
+    const sh = { id: s.id, nodes: s.nodes, thickness: s.thickness, kind };
     const pts = sh.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
     if (pts.length < 3) continue;
     const ax = shellLocalAxes(pts.length === 4 ? 'quad' : 'plate', pts);
@@ -691,6 +692,7 @@ export function punchingDemands(m: DemandInput): PunchingDemand[] {
         thickness: Math.min(...shells.map((sh) => sh.thickness)),
         joint: { nodeId: node, at: { x: p.x, y: p.y }, columnElementId: r.e.id, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3, elementBelow: r.e.id, elementAbove: above?.e.id ?? null, forces },
         adjoining: shells.map((sh) => ({ elementId: sh.id, nodeIds: sh.nodes, points: sh.nodes.map((n) => m.nodes.get(n)!).map((q) => ({ id: q.id, x: q.x, y: q.y, z: q.z ?? 0 })) })),
+        slab: shells.map((sh) => ({ kind: sh.kind, id: sh.id })),
       });
     });
   }
