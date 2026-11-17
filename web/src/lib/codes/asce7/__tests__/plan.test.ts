@@ -110,6 +110,31 @@ describe('a plan generated with the ASCE/SEI 7-22 stack', () => {
     const p = buildLoadPlan(input({ codeInputs: { [ADAPTER.wind]: { exposure: 'C' }, [ADAPTER.snow]: { pg: 1 }, [ADAPTER.seismic]: { sds: 1, sd1: 0.6, tl: 8 } } }));
     expect(p.outcome).toBe('BLOCKED');
     expect(p.blockedKeys.map((m) => m.key)).toContain('loads.asce7.wind.blocked.noSpeed');
+    expect(p.blockedKeys.map((m) => m.key)).toContain('loads.asce7.seismic.blocked.noS1');
+  });
+
+  it('refuses the seismic plan without S1, which sets categories E and F and Eq. 12.8-6', () => {
+    const p = buildLoadPlan(input({ codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, tl: 8 } } }));
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map((m) => m.key)).toEqual(['loads.asce7.seismic.blocked.noS1']);
+    expect(buildLoadPlan(input({ codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, s1: 0, tl: 8 } } })).outcome).toBe('READY');
+  });
+
+  it('the 30 % companion carries its own accidental torsion, 5 % of the plan across it', () => {
+    const model = frame(3, 6, 3.5);
+    for (const n of model.nodes.values()) if (n.x > 0) n.x = 12;
+    const p = buildLoadPlan(input({ model, codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, s1: 0.5, tl: 8, orthogonal: true } } }));
+    const e = p.cases.map((c, i) => [c, i] as const).filter(([c]) => c.type === 'E' && c.nameKey === 'loads.asce7.case.seismicOrthEcc');
+    const of = (i: number) => p.nodal.filter((n) => n.caseType === 'E' && n.caseIndex === i);
+    const torque = (i: number) => of(i).reduce((s, n) => {
+      const at = model.nodes.get(n.nodeId)!;
+      return s + (at.x - 6) * n.fy - (at.y - 3) * n.fx + (n.mz ?? 0);
+    }, 0);
+    const sum = (i: number, k: 'fx' | 'fy' | 'mz') => (k === 'mz' ? torque(i) : of(i).reduce((s, n) => s + n[k], 0));
+    const byDir = (d: string) => e.find(([c]) => c.nameParams!.dir === d && c.nameParams!.sign === '+')![1];
+    const x = byDir('X'), y = byDir('Y');
+    expect(sum(x, 'mz')).toBeCloseTo(0.05 * sum(x, 'fx') * (6 + 0.3 * 12), 6);
+    expect(sum(y, 'mz')).toBeCloseTo(0.05 * sum(y, 'fy') * (12 + 0.3 * 6), 6);
   });
 
   it('100 % + 30 % cases of §12.5.3 when asked', () => {

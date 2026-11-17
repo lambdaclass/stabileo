@@ -18,7 +18,7 @@
   const sys = $derived(systemKey === 'custom' ? null : SYSTEMS[systemKey]);
   const dirs = $derived(v.directions ?? SEISMIC_DEFAULTS.directions);
   const sdc = $derived(sds !== undefined && sd1 !== undefined ? designCategory(sds, sd1, v.s1, rc) : null);
-  const missing = $derived(sds === undefined || sd1 === undefined ? 'loads.asce7.seismic.blocked.noSpectrum' : !(v.tl! > 0) ? 'loads.asce7.seismic.blocked.noTl' : (v.siteClass === 'F' ? 'loads.asce7.seismic.blocked.siteF' : null));
+  const missing = $derived(sds === undefined || sd1 === undefined ? 'loads.asce7.seismic.blocked.noSpectrum' : !(v.s1! >= 0) ? 'loads.asce7.seismic.blocked.noS1' : !(v.tl! > 0) ? 'loads.asce7.seismic.blocked.noTl' : (v.siteClass === 'F' ? 'loads.asce7.seismic.blocked.siteF' : null));
 </script>
 
 <div class="pk-card" data-testid="asce7-seismic">
@@ -41,7 +41,7 @@
       <Field label={SYM.sds} unit="g" value={v.sds} testid="asce7-sds" onchange={(n) => set({ sds: n })} />
       <Field label={SYM.sd1} unit="g" value={v.sd1} testid="asce7-sd1" onchange={(n) => set({ sd1: n })} />
     {/if}
-    <Field label="S1" unit="g" value={v.s1} hint={t('loads.asce7.ui.s1Hint')} onchange={(n) => set({ s1: n })} />
+    <Field label="S1" unit="g" value={v.s1} testid="asce7-s1" hint={t('loads.asce7.ui.s1Hint')} onchange={(n) => set({ s1: n })} />
     <Field label="TL" unit="s" value={v.tl} testid="asce7-tl" onchange={(n) => set({ tl: n })} />
   </div>
   <Hint text={t('loads.asce7.ui.spectrumHint')} />
