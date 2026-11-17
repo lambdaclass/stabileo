@@ -280,3 +280,58 @@ fn issue_2222_checked_combinations_report_overflow_before_recovery() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2223"]
+fn issue_2223_invalid_saved_intervals_never_become_diagnostic_results() {
+    for axis in 0..2 {
+        for (a, b) in [(f64::NAN, 1.0), (0.0, f64::INFINITY), (-1.0, 1.0), (0.0, 0.0)] {
+            for force in [0.0, f64::NAN] {
+                let mut case = results_2d().remove(0);
+                let ef = &mut case.element_forces[0];
+                ef.length = 3.0;
+                ef.n_start = force;
+                ef.distributed_loads.clear();
+                ef.distributed_loads_x.clear();
+                let loads = if axis == 0 { &mut ef.distributed_loads } else { &mut ef.distributed_loads_x };
+                loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b });
+                let input = CombinationInput { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+                assert!(combine_results(&input).is_none(), "axis={axis} interval=[{a},{b}] force={force}");
+                assert!(combine_results_refs(&input.factors, &[(1, &case)]).is_none());
+                assert!(combine_results_checked(&input).is_err());
+                assert!(compute_envelope(&[case]).is_err());
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_2223_valid_saved_interval_boundaries_keep_combination_answers() {
+    for axis in 0..2 {
+        let width = 2.0 * dedaliano_engine::element::MEMBER_GEOMETRY_LIMIT;
+        for b in [width.next_down(), width, width.next_up(), 2.0, 2.0_f64.next_up()] {
+            let mut case = results_2d().remove(0);
+            let ef = &mut case.element_forces[0];
+            ef.length = 2.0;
+            ef.distributed_loads.clear(); ef.distributed_loads_x.clear();
+            let loads = if axis == 0 { &mut ef.distributed_loads } else { &mut ef.distributed_loads_x };
+            loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a: 0.0, b });
+            let input = CombinationInput { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+            if b < width || b > 2.0 {
+                assert!(combine_results(&input).is_none());
+                assert!(combine_results_refs(&input.factors, &[(1, &case)]).is_none());
+                assert!(combine_results_checked(&input).is_err());
+                assert!(compute_envelope(&[case]).is_err());
+            } else {
+                for combined in [combine_results(&input).unwrap(), combine_results_refs(&input.factors, &[(1, &case)]).unwrap(), combine_results_checked(&input).unwrap().unwrap()] {
+                    assert_eq!(combined.element_forces.len(), case.element_forces.len());
+                    let ef = &combined.element_forces[0];
+                    let loads = if axis == 0 { &ef.distributed_loads } else { &ef.distributed_loads_x };
+                    assert_eq!(loads[0].b, b);
+                    dedaliano_engine::boundary::require_finite(&combined).unwrap();
+                }
+                dedaliano_engine::boundary::require_finite(&compute_envelope(&[case]).unwrap()).unwrap();
+            }
+        }
+    }
+}
