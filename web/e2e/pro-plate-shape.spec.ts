@@ -57,11 +57,8 @@ test('@smoke a hole is cut by marking cells on the plate\'s drawing, a side is c
   expect(cut.status).toBe('current');
   expect(cut.minAngle).toBeCloseTo(90, 3);
 
-  await page.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.36);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.72, box.y + box.height * 0.55, { steps: 8 });
-  await page.mouse.up();
-  await expect(page.getByTestId('plate-shape-cut')).not.toHaveText(/\(0\)/);
+  await page.getByTestId('plate-shape-cell-0').click();
+  await expect(page.getByTestId('plate-shape-cut')).toHaveText(/\(1\)/);
   await page.getByTestId('plate-shape-close-0').click();
   await expect(page.getByTestId('plate-shape-message')).toHaveText('Hole closed.');
   await expect(page.getByTestId('plate-shape-hole-row-0')).toHaveCount(0);

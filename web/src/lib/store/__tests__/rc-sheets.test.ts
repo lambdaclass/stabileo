@@ -7,7 +7,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements, physicalGroups } from '../physical';
-import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
+import { clearPlateMesh, holdPlateSidesAt, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
 import { ensurePhysicalModel, ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
@@ -575,6 +575,7 @@ describe('reinforcement sheets from a solved model', () => {
     modelStore.addNodalLoad3D(c, 50, 0, -300, 0, 0, 0, D); modelStore.addNodalLoad3D(d, 50, 0, -300, 0, 0, 0, D);
     modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
     ensurePhysicalModel();
+    holdPlateSidesAt(physicalGroups().find((g) => g.physical.kind === 'wall')!.id, 0, 'fixed3d');
     expect(meshWallsForSheets()).toBe(1);
     const wall = physicalGroups().find((g) => g.physical.kind === 'wall')!;
     expect(plateStatus(wall.id)).toBe('current');
