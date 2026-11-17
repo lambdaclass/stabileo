@@ -84,6 +84,41 @@ for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'co
   });
 }
 
+for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
+  it.skip(`known wrong result: #2223 — ${dim}D ${mode} uniform diagrams preserve in-range arithmetic`, () => {
+    const input: any = structuredClone(model);
+    input.loads = [];
+    if (dim === 3) {
+      for (const node of Object.values(input.nodes) as any[]) node.y = 0;
+      for (const section of Object.values(input.sections) as any[]) Object.assign(section, { iy: 1, j: 1 });
+      for (const support of Object.values(input.supports) as any[]) Object.assign(support, { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true });
+    }
+    const session = new wasm[`LoadSession${dim}D`](input);
+    try {
+      const result = mode === 'linear' ? wasm[`solve_${dim}d`](input)
+        : mode === 'session' ? session.solve([])
+        : mode === 'pdelta' ? JSON.parse(wasm[`solve_pdelta_${dim}d`](JSON.stringify(input), 20, 1e-9)).results
+        : mode === 'corotational' ? JSON.parse(wasm[`solve_corotational_${dim}d`](JSON.stringify(input), 40, 1e-12, 1)).results
+        : JSON.parse(wasm[`solve_fiber_nonlinear_${dim}d`](JSON.stringify({ solver: input, fiberSections: {}, nIntegrationPoints: 5, maxIter: 40, tolerance: 1e-9, nIncrements: 1 }))).results;
+      for (const q of [-15, 0, 15]) for (const [a, b] of [[0, 3], [0.2, 2.7]]) {
+        const ef = structuredClone(result.elementForces[0]);
+        for (const key of dim === 2 ? ['distributedLoads'] : ['distributedLoadsY', 'distributedLoadsZ']) ef[key] = [{ a, b, qI: q, qJ: q }];
+        for (const t of [0, a / ef.length, 0.13, b / ef.length, 1]) {
+          const x = t * ef.length;
+          const s = Math.max(0, Math.min(x - a, b - a));
+          const force = q * s;
+          const moment = q * ((x - a) * s - s * s / 2);
+          for (const kind of dim === 2 ? ['shear', 'moment'] : ['shearY', 'shearZ', 'momentY', 'momentZ']) {
+            const expected = kind.startsWith('shear') ? force : kind === 'momentY' ? moment : -moment;
+            const actual = wasm[dim === 2 ? 'compute_diagram_value_at' : 'compute_diagram_value_at_3d'](JSON.stringify({ kind, t, elementForces: ef }));
+            expect(actual, `${kind} ${q} ${a} ${b} ${t}`).toBe(0 + expected);
+          }
+        }
+      }
+    } finally { session.free(); }
+  });
+}
+
 it('registers diagram changes only for distributed transverse member loads', () => {
   for (const type of ['distributed', 'distributed3d', 'axialDistributed', 'pointOnElement', 'nodal']) {
     const features = modelFeatures({ loads: [{ type, data: {} }] });

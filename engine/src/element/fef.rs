@@ -866,6 +866,24 @@ mod distributed_terms_2223_tests {
     use super::distributed_load_terms;
 
     #[test]
+    #[ignore = "known wrong result: #2223"]
+    fn issue_2223_uniform_diagrams_preserve_in_range_arithmetic() {
+        for q in [-15.0_f64, 0.0, 15.0] {
+            for (a, b) in [(0.0_f64, 6.0_f64), (0.2, 2.7)] {
+                for x in [a / 2.0, a, if a == 0.0 { f64::EPSILON } else { a.next_up() }, a + (b - a) * 0.13, b.next_down(), b, b.next_up(), b + 1.0] {
+                    let expected = if x <= a { (0.0_f64, 0.0_f64) } else {
+                        let s = (x - a).min(b - a);
+                        (q * s + 0.0, q * ((x - a) * s - s * s / 2.0) + 0.0)
+                    };
+                    let actual = distributed_load_terms(q, q, a, b, x);
+                    assert_eq!(actual.0.to_bits(), expected.0.to_bits(), "force {q}, {a}, {b}, {x}");
+                    assert_eq!(actual.1.to_bits(), expected.1.to_bits(), "moment {q}, {a}, {b}, {x}");
+                }
+            }
+        }
+    }
+
+    #[test]
     fn issue_2223_integrates_large_intensities_without_a_slope() {
         let span = 2.0_f64.powi(-28);
         let a = 2.0_f64.powi(-20);

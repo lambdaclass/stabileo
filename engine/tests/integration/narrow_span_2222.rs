@@ -491,13 +491,23 @@ fn issue_2223_translated_decimal_endpoint_across_solvers() {
 
 #[test]
 fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
+    check_saved_diagrams_2223(false);
+}
+
+#[test]
+#[ignore = "known wrong result: #2223"]
+fn issue_2223_uniform_saved_diagrams_preserve_in_range_arithmetic() {
+    check_saved_diagrams_2223(true);
+}
+
+fn check_saved_diagrams_2223(uniform: bool) {
     use dedaliano_engine::postprocess::{diagrams::*, diagrams_3d::*};
     let mut input = witness();
     input.loads.clear();
-    let a = 2.0_f64.powi(-20);
-    let b = a + 2.0_f64.powi(-28);
-    let q = 2.0_f64.powi(1000);
-    let load = DistributedLoadInfo { q_i: 0.0, q_j: q, a, b };
+    let a = if uniform { 0.2 } else { 2.0_f64.powi(-20) };
+    let b = if uniform { 2.7 } else { a + 2.0_f64.powi(-28) };
+    let q = if uniform { 15.0 } else { 2.0_f64.powi(1000) };
+    let load = DistributedLoadInfo { q_i: if uniform { q } else { 0.0 }, q_j: q, a, b };
     let fiber = dedaliano_engine::solver::fiber_nonlinear::FiberNonlinearInput {
         solver: input.clone(),
         fiber_sections: Default::default(),
@@ -531,6 +541,16 @@ fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
             for x in [0.0, a / 2.0, a] {
                 assert_eq!(compute_diagram_value_at(kind, x / ef.length, ef), 0.0);
                 assert_eq!(compute_diagram_value_at_sorted(kind, x / ef.length, ef, &[]), 0.0);
+            }
+        }
+        if uniform {
+            for t in [0.0, a / ef.length, 0.13, b / ef.length, 1.0] {
+                let x = t * ef.length;
+                let s = (x - a).clamp(0.0, b - a);
+                for (kind, expected) in [("shear", q * s), ("moment", -q * ((x - a) * s - s * s / 2.0))] {
+                    assert_eq!(compute_diagram_value_at(kind, t, ef), 0.0 + expected, "{kind} {t}");
+                    assert_eq!(compute_diagram_value_at_sorted(kind, t, ef, &[]), 0.0 + expected, "{kind} {t}");
+                }
             }
         }
         let diagrams = compute_diagrams_2d(&input, &result);
@@ -597,6 +617,16 @@ fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
             for kind in ["shearY", "shearZ", "momentY", "momentZ"] {
                 for x in [0.0, a / 2.0, a] {
                     assert_eq!(evaluate_diagram_3d_at(ef, kind, x / ef.length), 0.0);
+                }
+            }
+            if uniform {
+                for t in [0.0, a / ef.length, 0.13, b / ef.length, 1.0] {
+                    let x = t * ef.length;
+                    let s = (x - a).clamp(0.0, b - a);
+                    let moment = q * ((x - a) * s - s * s / 2.0);
+                    for (kind, expected) in [("shearY", q * s), ("shearZ", q * s), ("momentY", moment), ("momentZ", -moment)] {
+                        assert_eq!(evaluate_diagram_3d_at(ef, kind, t), 0.0 + expected, "{kind} {t}");
+                    }
                 }
             }
             let diagrams = compute_diagrams_3d(&result);
