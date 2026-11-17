@@ -54,6 +54,7 @@ export interface CombinationCode extends CodeModule {
 export interface ImposedLoadCode extends CodeModule {
   role: 'loads';
   occupancy(key: string): OccupancyEntry | undefined;
+  generationBlockers(input: { occupancies: readonly OccupancyEntry[]; roof: boolean }): { messages: EngineMessage[]; refs: ClauseRef[] };
   reduce(o: {
     loKNm2: number; tributaryAreaM2: number; elementKind: ElementKind; floorsSupported: number;
     passengerGarage: boolean; publicAssembly: boolean; noReduction: boolean;

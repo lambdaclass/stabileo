@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} exige verificar cargas concentradas conforme CIRSOC 101 {article}. As posições mais desfavoráveis não são avaliadas. A geração automática está bloqueada; modele e verifique essas ações manualmente.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} exige verificar uma sobrecarga concentrada de {force} kN conforme CIRSOC 101 §4.4. As posições mais desfavoráveis e a alternativa entre carga uniforme e concentrada não são avaliadas. A geração automática está bloqueada; modele e verifique essas ações manualmente.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige ações concentradas na cobertura nas posições mais desfavoráveis, separadamente da sobrecarga de cobertura de §4.8. Essas verificações não são avaliadas. A geração automática está bloqueada; modele e verifique as ações da cobertura manualmente.",
   "underAudit.text": "Em revisão: uma revisão interna encontrou erros na geração automática de cargas e no dimensionamento de concreto armado. As correções ainda estão em andamento. Verifique estes resultados de forma independente antes de usá-los em um projeto.",
   "underAudit.details": "Constatações pendentes da revisão",
   'steps.catalog.button': 'Passo a passo explicado',

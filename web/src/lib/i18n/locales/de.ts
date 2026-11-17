@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} erfordert einen Nachweis konzentrierter Lasten nach CIRSOC 101 {article}. Maßgebende Laststellungen werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} erfordert nach CIRSOC 101 §4.4 den Nachweis einer konzentrierten Nutzlast von {force} kN. Maßgebende Laststellungen und die Alternative zwischen Flächenlast und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 verlangt konzentrierte Dacheinwirkungen in den ungünstigsten Laststellungen, getrennt von der Dachnutzlast nach §4.8. Diese Nachweise werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",
   "underAudit.text": "Wird überprüft: Bei einer internen Prüfung wurden Fehler in der automatischen Lasterzeugung und der Stahlbetonbemessung festgestellt. Die Korrekturen sind noch nicht abgeschlossen. Prüfen Sie diese Ergebnisse unabhängig, bevor Sie sie für eine Bemessung verwenden.",
   "underAudit.details": "Offene Prüfbefunde",
   "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
@@ -253,7 +256,7 @@ const de: Translations = {
   'landing.bldMoment': "Biegemoment",
   'landing.bldMMax': "M max",
   'landing.secTitle': "Querschnittsanalyse im Basismodus entlang des Riegels eines Rahmens",
-  'landing.secDesc': "Ein Schnitt wandert entlang des Rahmenriegels. Der Zentralkern des Rechteckquerschnitts ist fest und hängt von der Geometrie ab. Normalspannungsdiagramm, Nulllinie NL und Druckmittelpunkt DM folgen der Belastung an jeder Stelle.",
+  'landing.secDesc': "Ein Schnitt wandert entlang des Rahmenriegels. Der Zentralkern des Rechteckquerschnitts ist fest und hängt von der Geometrie ab. Er ist in der Abbildung als Kern markiert. Normalspannungsdiagramm, Nulllinie NL und Druckmittelpunkt DM folgen der Belastung an jeder Stelle.",
   'landing.secTag': "BASISMODUS",
   'landing.secOut': "außerhalb der Ansicht",
   'landing.topTitle': "Topologieoptimierung nach Andreassen et al. (2011), nachgerechnet in Stabileo Research",

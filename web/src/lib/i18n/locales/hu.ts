@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  "loadPlan.blocked.concentratedRule": "A(z) {occupancy} rendeltetéshez a CIRSOC 101 {article} szerint koncentrált terhek ellenőrzése szükséges. A legkedvezőtlenebb helyzeteket a program nem értékeli. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze ezeket a hatásokat kézzel.",
+  "loadPlan.blocked.concentratedLive": "A(z) {occupancy} rendeltetéshez a CIRSOC 101 §4.4 szerint {force} kN koncentrált hasznos teher ellenőrzése szükséges. A legkedvezőtlenebb helyzeteket és az egyenletes, illetve koncentrált teher közötti alternatívát a program nem értékeli. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze ezeket a hatásokat kézzel.",
+  "loadPlan.blocked.concentratedRoof": "A CIRSOC 101 §4.4 koncentrált tetőterheket ír elő a legkedvezőtlenebb helyzetekben, a §4.8 szerinti tető hasznos terhétől külön. A program ezeket nem ellenőrzi. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze a tetőterheket kézzel.",
   "underAudit.text": "Felülvizsgálat alatt: egy belső ellenőrzés hibákat tárt fel az automatikus tehergenerálásban és a vasbeton méretezésben. A javítások még folyamatban vannak. A tervezésben való felhasználás előtt ellenőrizze ezeket az eredményeket független számítással.",
   "underAudit.details": "A felülvizsgálat nyitott hibajegyei",
   "advanced.finiteSpectrum": "Csak {n} véges rezgésalak létezik. A tömeg nélküli irányokhoz nem tartozik véges frekvencia.",
