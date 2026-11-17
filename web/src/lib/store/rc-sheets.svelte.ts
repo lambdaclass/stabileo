@@ -228,7 +228,8 @@ export function meshWallsForSheets(): number {
       if (e && e.surface.mesh.size > WALL_MESH_SIZE) setPlateMeshSpec([id], { size: WALL_MESH_SIZE });
       if (plateShellKeys(id).length === 1) clearPlateMesh(id);
     }
-    const plans = ids.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
+    const meshedAgain = new Set(ids.flatMap(plateShellKeys));
+    const plans = ids.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p && p.localLoads === 0);
     meshed = applyPlateMeshes(plans).plates;
   });
   return meshed;
