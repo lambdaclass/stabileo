@@ -849,6 +849,17 @@ pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64)
     let span = b - a;
     let d = x - a;
     let s = d.min(span);
+    if q_i == q_j {
+        let rectangle = d * s;
+        let square = s * s;
+        if rectangle.is_normal() && square.is_normal() {
+            let force = q_i * s;
+            let moment = q_i * (rectangle - square / 2.0);
+            if force.is_finite() && moment.is_finite() {
+                return (force + 0.0, moment + 0.0);
+            }
+        }
+    }
     let u = s / span;
     let left = q_i * s;
     let right = q_j * s;
@@ -866,7 +877,6 @@ mod distributed_terms_2223_tests {
     use super::distributed_load_terms;
 
     #[test]
-    #[ignore = "known wrong result: #2223"]
     fn issue_2223_uniform_diagrams_preserve_in_range_arithmetic() {
         for q in [-15.0_f64, 0.0, 15.0] {
             for (a, b) in [(0.0_f64, 6.0_f64), (0.2, 2.7)] {
@@ -884,12 +894,31 @@ mod distributed_terms_2223_tests {
     }
 
     #[test]
+    fn issue_2223_uniform_diagrams_keep_finite_integrals_outside_legacy_product_range() {
+        for (q_exp, span_exp) in [(1000, -539), (1000, -538), (1000, -512), (1000, -511), (-1000, 511), (-1000, 512), (-1000, 513)] {
+            let q = 2.0_f64.powi(q_exp);
+            let span = 2.0_f64.powi(span_exp);
+            for sign in [-1.0, 1.0] {
+                for (x, force_exp, moment_exp) in [
+                    (span / 2.0, q_exp + span_exp - 1, q_exp + 2 * span_exp - 3),
+                    (span, q_exp + span_exp, q_exp + 2 * span_exp - 1),
+                    (span * 2.0, q_exp + span_exp, q_exp + 2 * span_exp - 1),
+                ] {
+                    let (force, moment) = distributed_load_terms(q * sign, q * sign, 0.0, span, x);
+                    assert_eq!(force, sign * 2.0_f64.powi(force_exp));
+                    assert_eq!(moment, sign * 2.0_f64.powi(moment_exp) * if x > span { 3.0 } else { 1.0 });
+                }
+            }
+        }
+    }
+
+    #[test]
     fn issue_2223_integrates_large_intensities_without_a_slope() {
         let span = 2.0_f64.powi(-28);
         let a = 2.0_f64.powi(-20);
         let b = a + span;
         for scale in [2.0_f64.powi(1000), 2.0_f64.powi(995), 2.0_f64.powi(996), 2.0_f64.powi(1023), 1.0] {
-            for (left, right) in [(0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (-1.0, 1.0)] {
+            for (left, right) in [(0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (1.0, 1.0_f64.next_down()), (1.0, 1.0_f64.next_up()), (-1.0, 1.0)] {
                 for x in [
                     a / 2.0,
                     a,

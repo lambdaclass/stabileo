@@ -85,7 +85,7 @@ for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'co
 }
 
 for (const dim of [2, 3]) for (const mode of ['linear', 'session', 'pdelta', 'corotational', 'fiber']) {
-  it.skip(`known wrong result: #2223 — ${dim}D ${mode} uniform diagrams preserve in-range arithmetic`, () => {
+  it(`known wrong result: #2223 — ${dim}D ${mode} uniform diagrams preserve in-range arithmetic`, () => {
     const input: any = structuredClone(model);
     input.loads = [];
     if (dim === 3) {

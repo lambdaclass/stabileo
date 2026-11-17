@@ -495,7 +495,6 @@ fn issue_2223_large_intensity_saved_diagrams_keep_unloaded_stations_zero() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2223"]
 fn issue_2223_uniform_saved_diagrams_preserve_in_range_arithmetic() {
     check_saved_diagrams_2223(true);
 }
