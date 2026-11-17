@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { buildLoadPlan, roofWeightFor, type LoadPlanInput } from '../load-plan';
-import { gravityLayout } from '../plan-gravity';
+import { gravityLayout, MAX_DECK_SPAN } from '../plan-gravity';
 import { checkResponse } from './gravity-carrier-response';
 import { bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
@@ -161,4 +161,72 @@ it('keeps the floor load where the uncovered strip is entirely under a higher de
     expect(load.qJ).toBeCloseTo(-3, 10);
   }
   expect(result.levels.find(level => level.elevation === 3)!.superimposedKN).toBeCloseTo(60, 10);
+});
+
+const knownWrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
+
+function upperRing(model: Model, width: number) {
+  const corners = [[-2, -3], [12, -3], [12, -3 + width], [-2, -3 + width]] as const;
+  const nodes = corners.map(([x, y]) => {
+    const id = model.nodes.size + 1;
+    model.nodes.set(id, { id, x, y, z: 6 });
+    return id;
+  });
+  const first = model.elements.size + 1;
+  nodes.forEach((nodeI, i) => {
+    const id = first + i;
+    model.elements.set(id, { id, nodeI, nodeJ: nodes[(i + 1) % nodes.length]!, sectionId: 1, materialId: 1 });
+  });
+  return first;
+}
+
+const automatic = { ...gravity, loadEveryPanel: false };
+
+function checkStripUnderRing(fixture: ReturnType<typeof bay>, upperFirst: number, options: typeof automatic, exposed: boolean) {
+  const { model, physical } = fixture;
+  const result = plan(model, roof, options);
+  expect(result.blockedKeys.map(key => key.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
+  const layout = gravityLayout(model, options);
+  expect(layout.pieces.filter(piece => piece.elementId < upperFirst).map(piece => piece.roof)).toEqual([exposed, exposed]);
+  expect(layout.pieces.some(piece => piece.elementId >= upperFirst)).toBe(!exposed);
+  const lower = result.distributed.filter(load => load.elementId < upperFirst);
+  expect(lower.filter(load => load.caseType === (exposed ? 'L' : 'Lr'))).toEqual([]);
+  expect([...new Set(lower.map(load => load.caseType))].sort()).toEqual(['D', exposed ? 'Lr' : 'L']);
+  expect(result.nodal).toEqual([]);
+  const pressure = exposed ? roof.dead : 1;
+  const dead = lower.filter(load => load.caseType === 'D');
+  for (const [id, { nodeI, nodeJ }] of model.elements) {
+    if (id >= upperFirst) continue;
+    const [xi, yi] = physical.get(nodeI)!;
+    const [xj, yj] = physical.get(nodeJ)!;
+    const loads = dead.filter(load => load.elementId === id);
+    if (yi !== yj || xj <= 6) {
+      expect(loads).toEqual([]);
+      continue;
+    }
+    expect(loads).toHaveLength(1);
+    const [load] = loads;
+    expect(load!.a ?? 0).toBeCloseTo(6 - xi, 10);
+    expect(load!.b ?? xj - xi).toBeCloseTo(xj - xi, 10);
+    expect(load!.q).toBeCloseTo(-3 * pressure, 10);
+    expect(load!.qJ ?? load!.q).toBeCloseTo(-3 * pressure, 10);
+  }
+  checkResponse(fixture, dead, 6, 10, 3 * pressure);
+}
+
+knownWrong2200('known wrong result: #2200 a rejected bare upper ring leaves the lower strip exposed', () => {
+  for (const [angle, mirror, mesh] of [[0, 1, 1], [0.37, 1, 3], [1.16, -1, 2]] as const) {
+    const fixture = bay(6, 0, 1, mesh, mesh > 1);
+    const first = upperRing(fixture.model, MAX_DECK_SPAN + 0.125);
+    rotated(fixture.model, angle, mirror);
+    checkStripUnderRing(fixture, first, automatic, true);
+  }
+});
+
+it('a deck at or below the span limit and an explicitly loaded wider deck cover the strip', () => {
+  for (const [span, options] of [[MAX_DECK_SPAN - 0.125, automatic], [MAX_DECK_SPAN, automatic], [MAX_DECK_SPAN + 0.125, gravity]] as const) {
+    const fixture = bay(6);
+    const first = upperRing(fixture.model, span);
+    checkStripUnderRing(fixture, first, options, false);
+  }
 });

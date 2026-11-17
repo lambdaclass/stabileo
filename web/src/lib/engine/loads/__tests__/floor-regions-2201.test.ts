@@ -71,3 +71,31 @@ it('#2201 a symmetric two-way zone loads its internal carrier and an offset zone
   }
   expect(load(4, 6.001)).toMatchObject({ refusal: 'eccentricZone', loads: [], nodal: [] });
 });
+
+const knownWrong2201 = process.env.RUN_KNOWN_WRONG === '2201' ? it : it.skip;
+
+knownWrong2201('known wrong result: #2201 a zone cannot be combined with shell footprints', () => {
+  const fullStrip: NonNullable<FloorLoadInput['shellFootprints']> = [[[[0, 0], [6, 0], [6, 6], [0, 6]]]];
+  for (const calculate of [floorLoad, physicalFloorLoad]) {
+    const supply = () => fullStrip;
+    for (const distribution of ['twoWay', 'oneWay'] as const) {
+      for (const shellFootprints of [fullStrip, supply, []]) {
+        const result = calculate({ ...base, distribution, spanAxis: 'y', zone: zone(0, 1, 0, 6), shellFootprints });
+        expect(result).toMatchObject({ refusal: 'zoneWithShellFootprints', panels: [], loads: [], nodal: [], loadedArea: 0, totalKN: 0 });
+        expect(result.perBeam.size).toBe(0);
+      }
+    }
+  }
+});
+
+it('shell footprints alone transfer pressure to the actual uncovered carrier intervals', () => {
+  const shellFootprints: NonNullable<FloorLoadInput['shellFootprints']> = [[[[0, 0], [6, 0], [6, 6], [0, 6]]]];
+  for (const calculate of [floorLoad, physicalFloorLoad]) {
+    const result = calculate({ ...base, distribution: 'oneWay', spanAxis: 'y', shellFootprints });
+    expect(result.refusal).toBeUndefined();
+    expect(result.nodal).toEqual([]);
+    expect(result.loads.map(load => [load.elementId, load.a, load.b ?? 10, load.qZI, load.qZJ])).toEqual([
+      [1, 6, 10, -3, -3], [2, 6, 10, -3, -3],
+    ]);
+  }
+});
