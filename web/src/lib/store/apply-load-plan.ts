@@ -80,7 +80,7 @@ export function replaceScope(
   const targets = new Set<number>();
   for (const pc of p.cases) {
     const found = nameOf
-      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own, reduced: pc.reduced })
+      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis })
       : cases.find((c) => c.id === pc.existingId);
     if (found) targets.add(found.id);
   }
@@ -194,7 +194,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis });
+      if (pc.snowBasis === 'flatRoof') modelStore.updateLoadCaseFields(id, { solve: false });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -251,7 +252,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     // −Y is generated as cases of its own (`wind-cases.ts`); earthquake is reversed by the sign.
     const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
       const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
+      return { id, type, name: lc?.name ?? type, ...(lc?.snowBasis ? { snowBasis: lc.snowBasis } : {}), ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}) };
     }));
     addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
 
