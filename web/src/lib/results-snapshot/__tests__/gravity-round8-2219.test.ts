@@ -135,3 +135,37 @@ for (const axis of ['x', 'y', 'z'] as const) it(`known wrong result: #2219 round
     expect(Math.abs(result.displacements.find(d => d.nodeId === 2)!.rx - expected.displacements.find(d => d.nodeId === 2)!.rx)).toBeLessThan(1e-10);
   }
 });
+
+const round17 = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
+for (const axis of ['x', 'y', 'z'] as const) round17(`known wrong result: #2219 round17 density certificates refuse ${axis}`, async () => {
+  const { certify_linear_3d, certify_multi_case_3d, export_linear_bundle_3d, export_combination_bundle_3d } = await import('../../wasm/dedaliano_engine.js');
+  for (const values of [[1, -0.5, 1], [1, 1, 1], [-1, 0, 1], [Number.MIN_VALUE, Number.MIN_VALUE, Number.MIN_VALUE], [-Number.MIN_VALUE, -Number.MIN_VALUE, -Number.MIN_VALUE]]) {
+    const s = fixture(0, 1, axis);
+    s.loads[0].data.qZI = s.loads[0].data.qZJ = -0.001;
+    s.loads[0].data.moments[axis] = values;
+    const out = certify_linear_3d(s);
+    expect(out.certificate.status).toBe('uncertified');
+    expect(out.certificate.reason).toContain('member moment densities');
+    expect(out.certificateLevel).toBe('none');
+    for (const field of ['forceBounds', 'stationBounds', 'deflectionBounds', 'reactionBounds']) expect(out[field]).toEqual([]);
+    const multi = { solver: { ...s, loads: [] }, loadCases: [{ name: 'density', loads: s.loads }], combinations: [{ name: 'one', factors: { density: 1 } }] };
+    const cases = certify_multi_case_3d(multi);
+    expect(cases.cases[0].certificate.status).toBe('uncertified');
+    expect(cases.cases[0].certificate.reason).toContain('member moment densities');
+    expect(cases.envelope.certified).toBe(false);
+    expect(() => export_linear_bundle_3d(JSON.stringify(s))).toThrow(/member moment densities/);
+    expect(() => export_combination_bundle_3d(JSON.stringify(multi))).toThrow(/member moment densities/);
+  }
+});
+
+it('known wrong result: #2219 round17 zero densities keep the WASM certificate and answer', async () => {
+  const { certify_linear_3d } = await import('../../wasm/dedaliano_engine.js');
+  const s = fixture(0, 1, 'x');
+  s.loads[0].data.moments.x = [0, -0, 0];
+  s.loads[0].data.qZI = s.loads[0].data.qZJ = -0.001;
+  const absent = structuredClone(s); delete absent.loads[0].data.moments;
+  const actual = certify_linear_3d(s), expected = certify_linear_3d(absent);
+  expect(actual.certificate.status).toBe('certified');
+  expect(actual).toEqual(expected);
+  expect(actual.results.displacements.find((d: { nodeId: number }) => d.nodeId === 2).uz).not.toBe(0);
+});
