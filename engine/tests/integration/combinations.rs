@@ -261,7 +261,6 @@ fn envelope_rows_3d(ids: [usize; 2], values: [f64; 2]) -> AnalysisResults3D {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_2d_matches_reordered_nodes_and_members() {
     let first = envelope_rows_2d([1, 2], [1.0, 2.0]);
     let ordered = envelope_rows_2d([1, 2], [-4.0, 3.0]);
@@ -275,7 +274,6 @@ fn envelope_2d_matches_reordered_nodes_and_members() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_3d_matches_reordered_nodes_and_members() {
     let first = envelope_rows_3d([1, 2], [1.0, 2.0]);
     let ordered = envelope_rows_3d([1, 2], [-4.0, 3.0]);
@@ -305,7 +303,6 @@ fn corrupt_rows<T: Clone>(rows: &mut Vec<T>, shape: &str, id: impl Fn(&mut T) ->
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_2d_refuses_unmatched_rows() {
     for field in ["displacements", "reactions", "element forces"] {
         for shape in ["replaced", "missing", "extra", "duplicate"] {
@@ -323,7 +320,6 @@ fn envelope_2d_refuses_unmatched_rows() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_and_combinations_3d_refuse_unmatched_rows() {
     for field in ["displacements", "reactions", "element forces"] {
         for shape in ["replaced", "missing", "extra", "duplicate"] {
@@ -360,7 +356,6 @@ fn envelope_and_combinations_3d_refuse_unmatched_rows() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_3d_refuses_duplicate_ids_in_the_first_result() {
     let duplicate = envelope_rows_3d([1, 1], [1.0, 2.0]);
     let error = compute_envelope_3d(&[duplicate]).expect_err("expected duplicate IDs to be refused");
@@ -368,7 +363,6 @@ fn envelope_3d_refuses_duplicate_ids_in_the_first_result() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_2d_refuses_unmatched_pdelta_results() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let solved = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results;
@@ -380,7 +374,6 @@ fn envelope_2d_refuses_unmatched_pdelta_results() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn envelope_3d_refuses_unmatched_pdelta_results() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
     let solved = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results;

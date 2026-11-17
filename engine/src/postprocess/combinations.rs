@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, collections::HashMap};
 
 // ==================== Input Types ====================
 
@@ -131,6 +132,108 @@ struct EnvelopedFields<'a, D, R, E> {
     displacements: &'a [D],
     reactions: &'a [R],
     element_forces: &'a [E],
+}
+
+struct RowLayout<'a, T, Id> {
+    rows: &'a [T],
+    slots: HashMap<usize, usize>,
+    id: Id,
+    field: &'static str,
+    entity: &'static str,
+}
+
+impl<'a, T: Clone, Id: Fn(&T) -> usize> RowLayout<'a, T, Id> {
+    fn new(rows: &'a [T], id: Id, field: &'static str, entity: &'static str) -> Result<Self, String> {
+        let mut slots = HashMap::with_capacity(rows.len());
+        for (slot, row) in rows.iter().enumerate() {
+            let key = id(row);
+            if slots.insert(key, slot).is_some() {
+                return Err(format!("{field} contain duplicate {entity} id {key}"));
+            }
+        }
+        Ok(Self { rows, slots, id, field, entity })
+    }
+
+    fn align(&self, rows: &'a [T]) -> Result<Cow<'a, [T]>, String> {
+        if self.rows.iter().map(&self.id).eq(rows.iter().map(&self.id)) {
+            return Ok(Cow::Borrowed(rows));
+        }
+
+        let mut ordered = vec![None; self.rows.len()];
+        for row in rows {
+            let key = (self.id)(row);
+            let Some(&slot) = self.slots.get(&key) else {
+                return Err(format!("{} contain unexpected {} id {key}", self.field, self.entity));
+            };
+            if ordered[slot].replace(row).is_some() {
+                return Err(format!("{} contain duplicate {} id {key}", self.field, self.entity));
+            }
+        }
+        if let Some(slot) = ordered.iter().position(Option::is_none) {
+            let key = (self.id)(&self.rows[slot]);
+            return Err(format!("{} are missing {} id {key}", self.field, self.entity));
+        }
+        Ok(Cow::Owned(ordered.into_iter().flatten().cloned().collect()))
+    }
+}
+
+struct AlignedResultFields<'a, D: Clone, R: Clone, E: Clone> {
+    displacements: Cow<'a, [D]>,
+    reactions: Cow<'a, [R]>,
+    element_forces: Cow<'a, [E]>,
+}
+
+fn align_result_fields<'a, D: Clone, R: Clone, E: Clone>(
+    operation: &str,
+    label: &str,
+    mut cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
+    displacement_id: impl Fn(&D) -> usize,
+    reaction_id: impl Fn(&R) -> usize,
+    element_id: impl Fn(&E) -> usize,
+) -> Result<Vec<AlignedResultFields<'a, D, R, E>>, String> {
+    let Some((first_id, first)) = cases.next() else { return Ok(Vec::new()) };
+    let err = |id, reason| format!("{operation}: {label} {id} {reason}");
+    let displacements = RowLayout::new(first.displacements, displacement_id, "displacements", "node")
+        .map_err(|reason| err(first_id, reason))?;
+    let reactions = RowLayout::new(first.reactions, reaction_id, "reactions", "node")
+        .map_err(|reason| err(first_id, reason))?;
+    let element_forces = RowLayout::new(first.element_forces, element_id, "element forces", "element")
+        .map_err(|reason| err(first_id, reason))?;
+
+    let mut aligned = Vec::with_capacity(1 + cases.size_hint().0);
+    aligned.push(AlignedResultFields {
+        displacements: Cow::Borrowed(first.displacements),
+        reactions: Cow::Borrowed(first.reactions),
+        element_forces: Cow::Borrowed(first.element_forces),
+    });
+    for (id, fields) in cases {
+        aligned.push(AlignedResultFields {
+            displacements: displacements.align(fields.displacements).map_err(|reason| err(id, reason))?,
+            reactions: reactions.align(fields.reactions).map_err(|reason| err(id, reason))?,
+            element_forces: element_forces.align(fields.element_forces).map_err(|reason| err(id, reason))?,
+        });
+    }
+    Ok(aligned)
+}
+
+impl<'a, D, R, E> From<&'a AnalysisResults<D, R, E>> for EnvelopedFields<'a, D, R, E> {
+    fn from(result: &'a AnalysisResults<D, R, E>) -> Self {
+        Self {
+            displacements: &result.displacements,
+            reactions: &result.reactions,
+            element_forces: &result.element_forces,
+        }
+    }
+}
+
+impl<'a, D, R, E> From<&'a AnalysisResults3D<D, R, E>> for EnvelopedFields<'a, D, R, E> {
+    fn from(result: &'a AnalysisResults3D<D, R, E>) -> Self {
+        Self {
+            displacements: &result.displacements,
+            reactions: &result.reactions,
+            element_forces: &result.element_forces,
+        }
+    }
 }
 
 fn check_result_fields<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
@@ -362,7 +465,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
-        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+        (i, EnvelopedFields::from(r))
     }))?;
     for result in results {
         for ef in &result.element_forces {
@@ -370,35 +473,36 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
         }
     }
 
-    // maxAbsResults
+    let aligned = align_result_fields(
+        "Cannot compute the envelope",
+        "result",
+        results.iter().map(EnvelopedFields::from).enumerate(),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
     let mut displacements = first.displacements.clone();
     let mut reactions = first.reactions.clone();
     let mut element_forces = first.element_forces.clone();
 
-    for r in results.iter().skip(1) {
-        for (i, d) in r.displacements.iter().enumerate() {
-            if i < displacements.len() {
-                if d.ux.abs() > displacements[i].ux.abs() { displacements[i].ux = d.ux; }
-                if d.uz.abs() > displacements[i].uz.abs() { displacements[i].uz = d.uz; }
-                if d.ry.abs() > displacements[i].ry.abs() { displacements[i].ry = d.ry; }
-            }
+    for result in &aligned[1..] {
+        for (out, d) in displacements.iter_mut().zip(result.displacements.iter()) {
+            if d.ux.abs() > out.ux.abs() { out.ux = d.ux; }
+            if d.uz.abs() > out.uz.abs() { out.uz = d.uz; }
+            if d.ry.abs() > out.ry.abs() { out.ry = d.ry; }
         }
-        for (i, rx) in r.reactions.iter().enumerate() {
-            if i < reactions.len() {
-                if rx.rx.abs() > reactions[i].rx.abs() { reactions[i].rx = rx.rx; }
-                if rx.rz.abs() > reactions[i].rz.abs() { reactions[i].rz = rx.rz; }
-                if rx.my.abs() > reactions[i].my.abs() { reactions[i].my = rx.my; }
-            }
+        for (out, rx) in reactions.iter_mut().zip(result.reactions.iter()) {
+            if rx.rx.abs() > out.rx.abs() { out.rx = rx.rx; }
+            if rx.rz.abs() > out.rz.abs() { out.rz = rx.rz; }
+            if rx.my.abs() > out.my.abs() { out.my = rx.my; }
         }
-        for (i, ef) in r.element_forces.iter().enumerate() {
-            if i < element_forces.len() {
-                if ef.n_start.abs() > element_forces[i].n_start.abs() { element_forces[i].n_start = ef.n_start; }
-                if ef.n_end.abs() > element_forces[i].n_end.abs() { element_forces[i].n_end = ef.n_end; }
-                if ef.v_start.abs() > element_forces[i].v_start.abs() { element_forces[i].v_start = ef.v_start; }
-                if ef.v_end.abs() > element_forces[i].v_end.abs() { element_forces[i].v_end = ef.v_end; }
-                if ef.m_start.abs() > element_forces[i].m_start.abs() { element_forces[i].m_start = ef.m_start; }
-                if ef.m_end.abs() > element_forces[i].m_end.abs() { element_forces[i].m_end = ef.m_end; }
-            }
+        for (out, ef) in element_forces.iter_mut().zip(result.element_forces.iter()) {
+            if ef.n_start.abs() > out.n_start.abs() { out.n_start = ef.n_start; }
+            if ef.n_end.abs() > out.n_end.abs() { out.n_end = ef.n_end; }
+            if ef.v_start.abs() > out.v_start.abs() { out.v_start = ef.v_start; }
+            if ef.v_end.abs() > out.v_end.abs() { out.v_end = ef.v_end; }
+            if ef.m_start.abs() > out.m_start.abs() { out.m_start = ef.m_start; }
+            if ef.m_end.abs() > out.m_end.abs() { out.m_end = ef.m_end; }
         }
     }
 
@@ -408,7 +512,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
     let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_diagram(kind: &str, results: &[AlignedResultFields<'_, Displacement, Reaction, ElementForces>]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -421,22 +525,13 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
 
             // Sort point loads once per element-force record (invariant across
             // stations) instead of on every diagram evaluation.
-            let sorted_pls: Vec<Option<Vec<PointLoadInfo>>> = results
-                .iter()
-                .map(|res| {
-                    if e_idx >= res.element_forces.len() {
-                        None
-                    } else {
-                        Some(sorted_point_loads(&res.element_forces[e_idx]))
-                    }
-                })
+            let sorted_pls: Vec<_> = results.iter()
+                .map(|res| sorted_point_loads(&res.element_forces[e_idx]))
                 .collect();
 
             let mut stations: Vec<f64> = (0..N_POINTS).map(|j| j as f64 / (N_POINTS - 1) as f64).collect();
-            for (r_idx, res) in results.iter().enumerate() {
-                if let Some(ref spl) = sorted_pls[r_idx] {
-                    stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
-                }
+            for (res, spl) in results.iter().zip(&sorted_pls) {
+                stations.extend(diagram_peak_stations_2d(&res.element_forces[e_idx], kind, spl));
             }
             stations.sort_by(|a, b| a.total_cmp(b));
             stations.dedup_by(|b, a| (*b - *a).abs() <= 1e-12);
@@ -447,8 +542,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
                 let mut max_neg = 0.0f64;
 
                 for (r_idx, res) in results.iter().enumerate() {
-                    let Some(ref spl) = sorted_pls[r_idx] else { continue; };
-                    let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], spl);
+                    let val = compute_diagram_value_at_sorted(kind, t, &res.element_forces[e_idx], &sorted_pls[r_idx]);
                     if !val.is_finite() {
                         return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
                     }
@@ -468,9 +562,9 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
     }
 
     Ok(FullEnvelope {
-        moment: compute_env_diagram("moment", results)?,
-        shear: compute_env_diagram("shear", results)?,
-        axial: compute_env_diagram("axial", results)?,
+        moment: compute_env_diagram("moment", &aligned)?,
+        shear: compute_env_diagram("shear", &aligned)?,
+        axial: compute_env_diagram("axial", &aligned)?,
         max_abs_results,
     })
 }
@@ -630,6 +724,14 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
     }
     let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
+    let aligned = align_result_fields(
+        "Cannot combine results",
+        "case",
+        cases.iter().map(|&(id, result)| (id, EnvelopedFields::from(result))),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
 
     let mut displacements: Vec<Displacement3D> = tr.displacements.iter()
         .map(|d| Displacement3D { node_id: d.node_id, ux: 0.0, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None })
@@ -652,39 +754,32 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
             distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
-    let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
-    let reaction_slot = index_by_id(reactions.iter().map(|r| r.node_id));
-    let element_slot = index_by_id(element_forces.iter().map(|e| e.element_id));
     let case_slot = index_by_id(cases.iter().map(|c| c.0));
 
     for cf in factors {
         let r = match case_slot.get(&cf.case_id) {
-            Some(&i) => cases[i].1,
+            Some(&i) => &aligned[i],
             None => continue,
         };
         let f = cf.factor;
 
-        for d in &r.displacements {
-            let Some(&i) = disp_slot.get(&d.node_id) else { continue };
-            displacements[i].ux += f * d.ux;
-            displacements[i].uy += f * d.uy;
-            displacements[i].uz += f * d.uz;
-            displacements[i].rx += f * d.rx;
-            displacements[i].ry += f * d.ry;
-            displacements[i].rz += f * d.rz;
+        for (out, d) in displacements.iter_mut().zip(r.displacements.iter()) {
+            out.ux += f * d.ux;
+            out.uy += f * d.uy;
+            out.uz += f * d.uz;
+            out.rx += f * d.rx;
+            out.ry += f * d.ry;
+            out.rz += f * d.rz;
         }
-        for rx in &r.reactions {
-            let Some(&i) = reaction_slot.get(&rx.node_id) else { continue };
-            reactions[i].fx += f * rx.fx;
-            reactions[i].fy += f * rx.fy;
-            reactions[i].fz += f * rx.fz;
-            reactions[i].mx += f * rx.mx;
-            reactions[i].my += f * rx.my;
-            reactions[i].mz += f * rx.mz;
+        for (out, rx) in reactions.iter_mut().zip(r.reactions.iter()) {
+            out.fx += f * rx.fx;
+            out.fy += f * rx.fy;
+            out.fz += f * rx.fz;
+            out.mx += f * rx.mx;
+            out.my += f * rx.my;
+            out.mz += f * rx.mz;
         }
-        for ef in &r.element_forces {
-            let Some(&i) = element_slot.get(&ef.element_id) else { continue };
-            let out = &mut element_forces[i];
+        for (out, ef) in element_forces.iter_mut().zip(r.element_forces.iter()) {
             out.n_start += f * ef.n_start;
             out.n_end += f * ef.n_end;
             out.vy_start += f * ef.vy_start;
@@ -769,7 +864,7 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope
 pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
     check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
-        (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
+        (i, EnvelopedFields::from(r))
     }))?;
     for result in results {
         for ef in &result.element_forces {
@@ -777,48 +872,48 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
         }
     }
 
-    // maxAbsResults3D
+    let aligned = align_result_fields(
+        "Cannot compute the envelope",
+        "result",
+        results.iter().map(EnvelopedFields::from).enumerate(),
+        |row| row.node_id,
+        |row| row.node_id,
+        |row| row.element_id,
+    )?;
     let mut displacements = first.displacements.clone();
     let mut reactions = first.reactions.clone();
     let mut element_forces = first.element_forces.clone();
 
-    for r in results.iter().skip(1) {
-        for (i, d) in r.displacements.iter().enumerate() {
-            if i < displacements.len() {
-                if d.ux.abs() > displacements[i].ux.abs() { displacements[i].ux = d.ux; }
-                if d.uy.abs() > displacements[i].uy.abs() { displacements[i].uy = d.uy; }
-                if d.uz.abs() > displacements[i].uz.abs() { displacements[i].uz = d.uz; }
-                if d.rx.abs() > displacements[i].rx.abs() { displacements[i].rx = d.rx; }
-                if d.ry.abs() > displacements[i].ry.abs() { displacements[i].ry = d.ry; }
-                if d.rz.abs() > displacements[i].rz.abs() { displacements[i].rz = d.rz; }
-            }
+    for result in &aligned[1..] {
+        for (out, d) in displacements.iter_mut().zip(result.displacements.iter()) {
+            if d.ux.abs() > out.ux.abs() { out.ux = d.ux; }
+            if d.uy.abs() > out.uy.abs() { out.uy = d.uy; }
+            if d.uz.abs() > out.uz.abs() { out.uz = d.uz; }
+            if d.rx.abs() > out.rx.abs() { out.rx = d.rx; }
+            if d.ry.abs() > out.ry.abs() { out.ry = d.ry; }
+            if d.rz.abs() > out.rz.abs() { out.rz = d.rz; }
         }
-        for (i, rx) in r.reactions.iter().enumerate() {
-            if i < reactions.len() {
-                if rx.fx.abs() > reactions[i].fx.abs() { reactions[i].fx = rx.fx; }
-                if rx.fy.abs() > reactions[i].fy.abs() { reactions[i].fy = rx.fy; }
-                if rx.fz.abs() > reactions[i].fz.abs() { reactions[i].fz = rx.fz; }
-                if rx.mx.abs() > reactions[i].mx.abs() { reactions[i].mx = rx.mx; }
-                if rx.my.abs() > reactions[i].my.abs() { reactions[i].my = rx.my; }
-                if rx.mz.abs() > reactions[i].mz.abs() { reactions[i].mz = rx.mz; }
-            }
+        for (out, rx) in reactions.iter_mut().zip(result.reactions.iter()) {
+            if rx.fx.abs() > out.fx.abs() { out.fx = rx.fx; }
+            if rx.fy.abs() > out.fy.abs() { out.fy = rx.fy; }
+            if rx.fz.abs() > out.fz.abs() { out.fz = rx.fz; }
+            if rx.mx.abs() > out.mx.abs() { out.mx = rx.mx; }
+            if rx.my.abs() > out.my.abs() { out.my = rx.my; }
+            if rx.mz.abs() > out.mz.abs() { out.mz = rx.mz; }
         }
-        for (i, ef) in r.element_forces.iter().enumerate() {
-            if i < element_forces.len() {
-                let o = &mut element_forces[i];
-                if ef.n_start.abs() > o.n_start.abs() { o.n_start = ef.n_start; }
-                if ef.n_end.abs() > o.n_end.abs() { o.n_end = ef.n_end; }
-                if ef.vy_start.abs() > o.vy_start.abs() { o.vy_start = ef.vy_start; }
-                if ef.vy_end.abs() > o.vy_end.abs() { o.vy_end = ef.vy_end; }
-                if ef.vz_start.abs() > o.vz_start.abs() { o.vz_start = ef.vz_start; }
-                if ef.vz_end.abs() > o.vz_end.abs() { o.vz_end = ef.vz_end; }
-                if ef.mx_start.abs() > o.mx_start.abs() { o.mx_start = ef.mx_start; }
-                if ef.mx_end.abs() > o.mx_end.abs() { o.mx_end = ef.mx_end; }
-                if ef.my_start.abs() > o.my_start.abs() { o.my_start = ef.my_start; }
-                if ef.my_end.abs() > o.my_end.abs() { o.my_end = ef.my_end; }
-                if ef.mz_start.abs() > o.mz_start.abs() { o.mz_start = ef.mz_start; }
-                if ef.mz_end.abs() > o.mz_end.abs() { o.mz_end = ef.mz_end; }
-            }
+        for (out, ef) in element_forces.iter_mut().zip(result.element_forces.iter()) {
+            if ef.n_start.abs() > out.n_start.abs() { out.n_start = ef.n_start; }
+            if ef.n_end.abs() > out.n_end.abs() { out.n_end = ef.n_end; }
+            if ef.vy_start.abs() > out.vy_start.abs() { out.vy_start = ef.vy_start; }
+            if ef.vy_end.abs() > out.vy_end.abs() { out.vy_end = ef.vy_end; }
+            if ef.vz_start.abs() > out.vz_start.abs() { out.vz_start = ef.vz_start; }
+            if ef.vz_end.abs() > out.vz_end.abs() { out.vz_end = ef.vz_end; }
+            if ef.mx_start.abs() > out.mx_start.abs() { out.mx_start = ef.mx_start; }
+            if ef.mx_end.abs() > out.mx_end.abs() { out.mx_end = ef.mx_end; }
+            if ef.my_start.abs() > out.my_start.abs() { out.my_start = ef.my_start; }
+            if ef.my_end.abs() > out.my_end.abs() { out.my_end = ef.my_end; }
+            if ef.mz_start.abs() > out.mz_start.abs() { out.mz_start = ef.mz_start; }
+            if ef.mz_end.abs() > out.mz_end.abs() { out.mz_end = ef.mz_end; }
         }
     }
 
@@ -828,7 +923,7 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
     }
     let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: None, solver_run_meta: None };
 
-    fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> Result<EnvelopeDiagramData, String> {
+    fn compute_env_3d(kind: &str, results: &[AlignedResultFields<'_, Displacement3D, Reaction3D, ElementForces3D>]) -> Result<EnvelopeDiagramData, String> {
         let first = &results[0];
         let mut elements = Vec::new();
         let mut global_max = 0.0f64;
@@ -845,7 +940,7 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
             let element_cases: Vec<(usize, &ElementForces3D)> = results
                 .iter()
                 .enumerate()
-                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
+                .map(|(r_idx, res)| (r_idx, &res.element_forces[e_idx]))
                 .collect();
 
             for j in 0..N_POINTS {
@@ -875,12 +970,12 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
     }
 
     Ok(FullEnvelope3D {
-        moment_y: compute_env_3d("momentY", results)?,
-        moment_z: compute_env_3d("momentZ", results)?,
-        shear_y: compute_env_3d("shearY", results)?,
-        shear_z: compute_env_3d("shearZ", results)?,
-        axial: compute_env_3d("axial", results)?,
-        torsion: compute_env_3d("torsion", results)?,
+        moment_y: compute_env_3d("momentY", &aligned)?,
+        moment_z: compute_env_3d("momentZ", &aligned)?,
+        shear_y: compute_env_3d("shearY", &aligned)?,
+        shear_z: compute_env_3d("shearZ", &aligned)?,
+        axial: compute_env_3d("axial", &aligned)?,
+        torsion: compute_env_3d("torsion", &aligned)?,
         max_abs_results_3d,
     })
 }

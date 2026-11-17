@@ -163,7 +163,7 @@ it('preserves combination overflow paths before envelope processing', () => {
   ]);
 });
 
-it.skip('known wrong result: #2283 — refuses node 2 and node 9 in the same slot', () => {
+it('refuses node 2 and node 9 in the same slot', () => {
   const perCase = cases();
   perCase.get(2)!.displacements[1].nodeId = 9;
   const factors = [[{ caseId: 1, factor: 1 }], [{ caseId: 2, factor: 1 }]];
@@ -176,7 +176,7 @@ it.skip('known wrong result: #2283 — refuses node 2 and node 9 in the same slo
   expect(() => compute_envelope_3d([...perCase.values()])).toThrow(expected);
 });
 
-it.skip('known wrong result: #2283 — refuses mismatched IDs within one combination', () => {
+it('refuses mismatched IDs within one combination', () => {
   const perCase = cases();
   perCase.get(2)!.reactions[0].nodeId = 9;
   const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
@@ -186,7 +186,7 @@ it.skip('known wrong result: #2283 — refuses mismatched IDs within one combina
   expect(() => combineResultsEnvelope3D([factors], perCase, new Map())).toThrow(expected);
 });
 
-it.skip('known wrong result: #2283 — matches permuted rows in the fused and standalone envelopes', () => {
+it('matches permuted rows in the fused and standalone envelopes', () => {
   const perCase = cases();
   const second = perCase.get(2)!;
   const reaction = second.reactions[0];
@@ -209,7 +209,7 @@ it.skip('known wrong result: #2283 — matches permuted rows in the fused and st
   expect(combineResultsBatch3D([together], perCase, new Map())).toEqual([sum]);
 });
 
-it.skip('known wrong result: #2283 — refuses different node sets in the 2D WASM envelope', () => {
+it('refuses different node sets in the 2D WASM envelope', () => {
   const result = (id: number) => ({
     displacements: [{ nodeId: id, ux: id, uz: 0, ry: 0 }],
     reactions: [],
@@ -219,7 +219,7 @@ it.skip('known wrong result: #2283 — refuses different node sets in the 2D WAS
     .toThrow(/Cannot compute the envelope: result 1.*displacements.*node id 9/);
 });
 
-it.skip('known wrong result: #2283 — refuses unmatched P-Delta results in both WASM envelopes', () => {
+it('refuses unmatched P-Delta results in both WASM envelopes', () => {
   const input2D = readFileSync(new URL('../../../../../engine/tests/fixtures/ex-portal-frame-input.json', import.meta.url), 'utf8');
   const input3D = readFileSync(new URL('../../../../../engine/tests/fixtures/ex-3d-portal-frame-input.json', import.meta.url), 'utf8');
   const cases = [
