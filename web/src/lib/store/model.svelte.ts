@@ -1531,7 +1531,7 @@ function createModelStore() {
         ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
       });
     }
-    const bounds = memberLoadBounds(embed3D ? { ...original, offset: undefined } : original, nodes, elements, segmentIds, sections.get(elem.sectionId)?.rotation);
+    const bounds = () => memberLoadBounds(embed3D ? { ...original, offset: undefined } : original, nodes, elements, segmentIds, sections.get(elem.sectionId)?.rotation);
     const lengths = segmentIds.map((sid) => {
       const child = elements.get(sid)!;
       const a = nodes.get(child.nodeI)!, b = nodes.get(child.nodeJ)!;

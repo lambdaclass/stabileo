@@ -93,17 +93,20 @@ const segmentOf = (bounds: readonly number[], x: number): number => {
 export function splitElementLoads(
   loads: readonly Load[],
   elementId: number,
-  bounds: readonly number[],
+  sourceBounds: readonly number[] | (() => readonly number[]),
   segmentIds: readonly number[],
   newId: () => number,
   segmentLengths: readonly number[],
 ): { kept: Load[]; added: Load[] } {
   const kept: Load[] = [];
   const added: Load[] = [];
-  const L = bounds[bounds.length - 1]!;
   const onThis = (l: Load) => (l.data as { elementId?: number }).elementId === elementId
     && (l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
       || l.type === 'distributed3d' || l.type === 'pointOnElement3d' || l.type === 'prestress3d');
+
+  if (!loads.some(onThis)) return { kept: [...loads], added };
+  const bounds = typeof sourceBounds === 'function' ? sourceBounds() : sourceBounds;
+  const L = bounds[bounds.length - 1]!;
 
   for (const l of loads) {
     if (!onThis(l)) { kept.push(l); continue; }

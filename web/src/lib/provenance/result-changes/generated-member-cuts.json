@@ -8,9 +8,6 @@
   "area": "analysis",
   "quantities": [
     "solve.ok",
-    "displacements",
-    "reactions",
-    "elementForces",
     "collapseFactor",
     "hinges",
     "steps",
