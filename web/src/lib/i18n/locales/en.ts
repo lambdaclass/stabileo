@@ -8307,6 +8307,8 @@ const en: Record<string, string> = {
   'detailing.note.torsion': 'TORSION NOT EVALUATED — feature in development. {n} member(s) on this sheet ({list}) carry torsion according to the analysis, and no check in this application verifies it. The reinforcement shown does NOT account for torsion. Do not use as a final verification; check the torsion separately before issuing.',
   'detailing.note.hanger': 'TOP ASSEMBLY REINFORCEMENT — {n} member(s) on this sheet ({list}) have no envelope hogging moment at any support. Their top bars satisfy 25.7.1.2 (every stirrup bend contains a longitudinal bar) and are NOT load-resisting reinforcement: no hogging capacity was verified for them. The regulation does not fix their diameter; the one shown is this application\'s convention.',
   'detailing.note.unsupported': 'NOT VERIFIED — {key}: {message}',
+  "detailing.generation.beamSecondaryLegs": "Secondary stirrup legs ({legs}) require horizontal crossties that beam detailing does not generate.",
+  "detailing.generation.columnSecondaryLegs": "Declared secondary leg count ({legs}) for column {element} is not verified against generated horizontal crossties.",
   'detailing.note.conflicts': 'CONFLICTS: {n} unresolved ({overlaps} interpenetration, {spacing} spacing). NOT CONSTRUCTIBLE WITHOUT REVIEW — this sheet documents the reinforcement and its conflicts; it does not authorise building it.',
   'detailing.note.conflictOverlap': 'OVERLAP CONFLICT — bars {a}/{b}{elements}: {clear} mm clear against {required} mm required{pair}.',
   'detailing.note.conflictSpacing': 'SPACING CONFLICT — bars {a}/{b}{elements}: {clear} mm clear against {required} mm required{pair}.',

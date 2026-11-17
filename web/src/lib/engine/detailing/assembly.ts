@@ -160,6 +160,8 @@ export interface JointRecord {
   unresolved: BarConflict[];
 }
 
+export type GenerationIssue = string | { key: string; params: Record<string, string | number> };
+
 export interface UnsupportedCondition {
   /** Stable key, matching a CapabilityKey where one applies. */
   key: string;

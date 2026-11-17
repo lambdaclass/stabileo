@@ -7584,6 +7584,8 @@ const hu: Translations = {
   "detailing.note.torsion": "A CSAVARÁS NINCS VIZSGÁLVA – fejlesztés alatt álló funkció. A lap {n} rúdja ({list}) az analízis szerint csavarást hordoz, és az alkalmazás egyetlen ellenőrzése sem vizsgálja. A feltüntetett vasalás NEM veszi figyelembe a csavarást. Ne használja végleges ellenőrzésként; kiadás előtt külön ellenőrizze a csavarást.",
   "detailing.note.hanger": "FELSŐ SZERELŐVASALÁS – A lap {n} rúdjának ({list}) egyik támaszánál sincs burkoló negatív nyomaték. Felső szálaik megfelelnek a 25.7.1.2. pontnak (minden kengyelhajlatban van hosszirányú szál), és NEM teherviselő vasalások: negatív nyomatéki teherbírásukat nem ellenőrizték. Az előírás nem rögzíti az átmérőjüket; a feltüntetett az alkalmazás megállapodása.",
   "detailing.note.unsupported": "NEM ELLENŐRZÖTT – {key}: {message}",
+  "detailing.generation.beamSecondaryLegs": "A másodlagos kengyelszárak ({legs}) olyan vízszintes keresztkötéseket igényelnek, amelyeket a gerendarészletezés nem állít elő.",
+  "detailing.generation.columnSecondaryLegs": "A(z) {element} oszlop megadott másodlagos kengyelszárszáma ({legs}) nincs ellenőrizve az előállított vízszintes keresztkötésekkel.",
   "detailing.note.conflicts": "ÜTKÖZÉSEK: {n} megoldatlan ({overlaps} egymásba hatolás, {spacing} távolság). FELÜLVIZSGÁLAT NÉLKÜL NEM KIVITELEZHETŐ – ez a lap a vasalást és ütközéseit dokumentálja; nem engedélyezi az építését.",
   "detailing.note.conflictOverlap": "ÁTFEDÉSI ÜTKÖZÉS – szálak {a}/{b}{elements}: {clear} mm szabad távolság a szükséges {required} mm helyett{pair}.",
   "detailing.note.conflictSpacing": "TÁVOLSÁGI ÜTKÖZÉS – szálak {a}/{b}{elements}: {clear} mm szabad távolság a szükséges {required} mm helyett{pair}.",

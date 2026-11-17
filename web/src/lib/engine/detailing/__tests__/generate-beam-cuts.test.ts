@@ -5,6 +5,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { generateBeamBars, type BeamGenerationInput, type MomentStation } from '../generate-beam';
+import { teAt } from '../../../i18n/engine-text';
+import type { GenerationIssue } from '../assembly';
+
+const issueText = (u: GenerationIssue): string => typeof u === 'string' ? u : teAt(u, 'es');
 
 function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): MomentStation[] {
   return Array.from({ length: 11 }, (_, i) => {
@@ -33,12 +37,12 @@ describe('cuts from the frame editor', () => {
     expect(cut).toHaveLength(2);
     for (const b of cut) expect(span(b)).toEqual([0.3, 5.7]);
     expect(g.bars.filter((b) => b.id.includes('-bot-cont-'))).toHaveLength(4);
-    expect(g.unsupported.some((u) => u.includes('Corte editado'))).toBe(false);
+    expect(g.unsupported.some((u) => issueText(u).includes('Corte editado'))).toBe(false);
   });
 
   it('a cut shorter than §9.7.3.3 allows is said', () => {
     const g = generateBeamBars(input({ cuts: { bottomFrom: 2.5, bottomTo: 3.5, bottomShort: 2 } }));
-    expect(g.unsupported.some((u) => u.startsWith('Corte editado de 2Ø20 inferiores'))).toBe(true);
+    expect(g.unsupported.some((u) => issueText(u).startsWith('Corte editado de 2Ø20 inferiores'))).toBe(true);
   });
 
   it('the top bars at a support reach where the person stretched them', () => {
@@ -49,8 +53,8 @@ describe('cuts from the frame editor', () => {
     const top = g.bars.filter((b) => b.id.startsWith('e7-topI-'));
     expect(top.length).toBeGreaterThan(0);
     for (const b of top) expect(span(b)[1]).toBeCloseTo(reach, 9);
-    expect(g.unsupported.some((u) => u.includes('superior I'))).toBe(false);
+    expect(g.unsupported.some((u) => issueText(u).includes('superior I'))).toBe(false);
     const short = generateBeamBars(input({ cuts: { topI: 0.3 } }));
-    expect(short.unsupported.some((u) => u.startsWith('Corte editado de la armadura superior I'))).toBe(true);
+    expect(short.unsupported.some((u) => issueText(u).startsWith('Corte editado de la armadura superior I'))).toBe(true);
   });
 });

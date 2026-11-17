@@ -2351,6 +2351,8 @@ const pt: Translations = {
   'detailing.note.torsion': 'TORÇÃO NÃO AVALIADA — função em desenvolvimento. {n} elemento(s) desta folha ({list}) recebem torção segundo a análise, e nenhuma verificação deste aplicativo a verifica. A armadura indicada NÃO considera a torção. Não usar como verificação final; verifique a torção à parte antes de emitir.',
   'detailing.note.hanger': 'ARMADURA SUPERIOR DE MONTAGEM — {n} elemento(s) desta folha ({list}) não têm momento negativo de envoltória em nenhum apoio. Suas barras superiores atendem ao 25.7.1.2 (cada dobra do estribo contém uma barra longitudinal) e NÃO são armadura resistente: não se verificou capacidade a momento negativo. O regulamento não fixa seu diâmetro; o indicado é um critério deste aplicativo.',
   'detailing.note.unsupported': 'NÃO VERIFICADO — {key}: {message}',
+  "detailing.generation.beamSecondaryLegs": "Os ramos secundários do estribo ({legs}) exigem grampos horizontais que o detalhamento de vigas não gera.",
+  "detailing.generation.columnSecondaryLegs": "O número declarado de ramos secundários ({legs}) do pilar {element} não está verificado com os grampos horizontais gerados.",
   'detailing.note.conflicts': 'CONFLITOS: {n} não resolvidos ({overlaps} interpenetração, {spacing} espaçamento). NÃO CONSTRUÍVEL SEM REVISÃO — esta folha documenta a armadura e seus conflitos; não autoriza sua execução.',
   'detailing.note.conflictOverlap': 'CONFLITO DE SOBREPOSIÇÃO — barras {a}/{b}{elements}: {clear} mm livres contra {required} mm exigidos{pair}.',
   'detailing.note.conflictSpacing': 'CONFLITO DE ESPAÇAMENTO — barras {a}/{b}{elements}: {clear} mm livres contra {required} mm exigidos{pair}.',

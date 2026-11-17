@@ -183,7 +183,8 @@ export function plannedGrowth(): Grow[] {
     const dimension = secondary ? secondaryDepth : spacing ? 'b' : primaryDepth;
     want({ ...memberOf(id), kind: 'beam', db: torsion || dimension === 'b' ? RESIZE_STEP_M : 0,
       dh: torsion || dimension === 'h' ? RESIZE_STEP_M : 0,
-      reason: torsion || secondary || rest.includes('shear') ? 'shear' : spacing ? 'spacing' : 'flexure' });
+      reason: torsion || rest.includes('shear') ? 'shear'
+        : rest.includes('tieSpacing') || spacing ? 'spacing' : secondary ? 'shear' : 'flexure' });
   }
   return [...byMember.values()];
 }

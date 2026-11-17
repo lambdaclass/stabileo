@@ -24,7 +24,7 @@ import {
 } from '../engine/detailing/assembly';
 import { provisionalKeys } from '../engine/detailing/coordinate-floor';
 import type { BarConflict } from '../engine/detailing/collision';
-import { buildSchedule } from '../engine/detailing/drawings';
+import { buildSchedule, noteKey } from '../engine/detailing/drawings';
 import {
   rcEditConsequence, type RcEditConsequence, type RcRegenerationImpact,
 } from '../flow/rc-selection';
@@ -700,7 +700,7 @@ function createDetailingStore() {
     get schedule() {
       if (!selected) return null;
       return buildSchedule(selected.marks, 12,
-        selected.unsupported.map((u) => `${u.key}: ${u.message}`));
+        selected.unsupported.map((u) => u.params ? noteKey(u.key, u.params) : `${u.key}: ${u.message}`));
     },
 
     /**

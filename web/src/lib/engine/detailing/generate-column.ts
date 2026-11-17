@@ -31,6 +31,7 @@
  * Pure: no store, no runes.
  */
 
+import type { GenerationIssue } from './assembly';
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import {
   buildStraightBarWithHooks, standardHook, straightSegment, developedLength, type BarPath, type Point3,
@@ -543,7 +544,7 @@ function emitDowels(
   input: ColumnStackInput,
   t: ColumnTransition,
   refs: ClauseRef[],
-  unsupported: string[],
+  unsupported: GenerationIssue[],
   trace: string[],
 ): BarPath[] {
   const lo = input.lifts[t.liftIndex];
@@ -639,14 +640,14 @@ export interface GeneratedColumnStack {
   ties: Array<{ liftIndex: number; from: number; to: number; spacing: number; diameterMm: number }>;
   trace: string[];
   refs: ClauseRef[];
-  unsupported: string[];
+  unsupported: GenerationIssue[];
 }
 
 /** Generate the physical bars for a whole column stack. */
 export function generateColumnStack(input: ColumnStackInput): GeneratedColumnStack {
   const trace: string[] = [];
-  const unsupported: string[] = input.lifts.filter(l => (l.secondaryLegs ?? 2) > 2)
-    .map(l => `Declared secondary leg count (${l.secondaryLegs}) for column ${l.elementId} is not verified against generated horizontal crossties.`);
+  const unsupported: GenerationIssue[] = input.lifts.filter(l => (l.secondaryLegs ?? 2) > 2)
+    .map(l => ({ key: 'detailing.generation.columnSecondaryLegs', params: { legs: l.secondaryLegs!, element: l.elementId } }));
   const bars: BarPath[] = [];
   const refs: ClauseRef[] = [];
   const ties: GeneratedColumnStack['ties'] = [];

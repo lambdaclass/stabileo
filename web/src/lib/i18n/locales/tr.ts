@@ -7857,6 +7857,8 @@ const tr: Translations = {
   'detailing.note.torsion': 'BURULMA DEĞERLENDİRİLMEDİ — özellik geliştirme aşamasında. Bu paftadaki {n} eleman ({list}) analize göre burulma taşımaktadır ve bu uygulamadaki hiçbir kontrol bunu doğrulamamaktadır. Gösterilen donatı burulmayı HESABA KATMAZ. Nihai kontrol olarak kullanmayın; yayımlamadan önce burulmayı ayrıca kontrol edin.',
   'detailing.note.hanger': 'MONTAJ DONATISI — Bu paftadaki {n} elemanın ({list}) hiçbir mesnedinde zarf negatif momenti yoktur. Üst çubukları 25.7.1.2\'yi sağlar (her etriye bükümünde bir boyuna çubuk bulunur) ve yük taşıyan donatı DEĞİLDİR: bunlar için negatif moment kapasitesi doğrulanmamıştır. Yönetmelik çaplarını belirlemez; gösterilen çap bu uygulamanın kabulüdür.',
   'detailing.note.unsupported': 'KONTROL EDİLMEDİ — {key}: {message}',
+  "detailing.generation.beamSecondaryLegs": "İkincil etriye kolları ({legs}), kiriş detaylandırmasının üretmediği yatay çirozlar gerektirir.",
+  "detailing.generation.columnSecondaryLegs": "{element} kolonunun beyan edilen ikincil kol sayısı ({legs}), üretilen yatay çirozlarla doğrulanmamıştır.",
   'detailing.note.conflicts': 'ÇAKIŞMALAR: {n} çözülmemiş ({overlaps} iç içe geçme, {spacing} aralık). İNCELEME OLMADAN UYGULANAMAZ — bu pafta donatıyı ve çakışmalarını belgeler; uygulanmasına izin vermez.',
   'detailing.note.conflictOverlap': 'ÜST ÜSTE BİNME ÇAKIŞMASI — {a}/{b}{elements} çubukları: gereken {required} mm\'ye karşı {clear} mm net{pair}.',
   'detailing.note.conflictSpacing': 'ARALIK ÇAKIŞMASI — {a}/{b}{elements} çubukları: gereken {required} mm\'ye karşı {clear} mm net{pair}.',

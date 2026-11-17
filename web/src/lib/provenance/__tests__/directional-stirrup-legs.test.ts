@@ -77,24 +77,25 @@ it('known wrong result: #2198 — directional design notices cannot excuse unrel
   }
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 German input labels count Bügelschenkel', async () => {
-  const { tAt } = await import('../../i18n/store.svelte');
+it('known wrong result: #2198 German input labels count Bügelschenkel', async () => {
+  const { default: de } = await import('../../i18n/locales/de');
   for (const key of ['legs', 'secondaryLegs', 'legsTooFew', 'legsOutOfRange']) {
-    const text = tAt(`design.batch.${key}`, 'de');
+    const text = de[`design.batch.${key}`];
     expect(text).toContain('Bügelschenkel');
     expect(text).not.toContain('Schnitte');
   }
 });
 
 for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')(`known wrong result: #2198 ${locale} translates secondary detailing refusals`, async () => {
-    const { tAt } = await import('../../i18n/store.svelte');
+  it(`known wrong result: #2198 ${locale} translates secondary detailing refusals`, async () => {
+    const { allDictFor } = await import('../../i18n/locales/all');
+    const dictionary = allDictFor(locale);
     const { teAt } = await import('../../i18n/engine-text');
     for (const kind of ['beam', 'column']) {
       const key = `detailing.generation.${kind}SecondaryLegs`;
-      expect(tAt(key, locale)).not.toBe(key);
-      expect(tAt(key, locale)).toContain('{legs}');
-      if (kind === 'column') expect(tAt(key, locale)).toContain('{element}');
+      expect(dictionary[key]).not.toBe(key);
+      expect(dictionary[key]).toContain('{legs}');
+      if (kind === 'column') expect(dictionary[key]).toContain('{element}');
       const rendered = teAt({ key, params: { legs: 3, element: 100 } }, locale);
       expect(rendered).toContain('3');
       if (kind === 'column') expect(rendered).toContain('100');

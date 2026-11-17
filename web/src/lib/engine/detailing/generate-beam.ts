@@ -39,6 +39,7 @@
  * Pure: no store, no runes. Lengths m, forces kN, moments kN·m.
  */
 
+import type { GenerationIssue } from './assembly';
 import {
   buildStraightBarWithHooks, standardHook,
   type BarEndAnchorage, type BarPath, type BarSegment, type HookAngle, type Point3,
@@ -672,7 +673,7 @@ export interface GeneratedBeam {
   trace: string[];
   refs: ClauseRef[];
   /** Conditions the generator could not satisfy; the caller surfaces these. */
-  unsupported: string[];
+  unsupported: GenerationIssue[];
   /**
    * Layer index per bar id.
    *
@@ -708,7 +709,7 @@ function shift(p: Point3, o: Point3): Point3 {
 export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const closureCache = input.closureCache ?? new StirrupClosureCache();
   const trace: string[] = [];
-  const unsupported: string[] = [];
+  const unsupported: GenerationIssue[] = [];
   const cutoffs: Cutoff[] = [];
   const bars: BarPath[] = [];
   const refs: ClauseRef[] = [];
@@ -1497,7 +1498,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
     from: number, to: number, reason: StirrupZone['reason'], refs: ClauseRef[],
     set?: { diameter: number; legs: number; secondaryLegs?: number; spacing: number },
   ): StirrupZone => {
-    if ((set?.secondaryLegs ?? 2) > 2) unsupported.push(`Secondary stirrup legs (${set!.secondaryLegs}) require horizontal crossties that beam detailing does not generate.`);
+    if ((set?.secondaryLegs ?? 2) > 2) unsupported.push({ key: 'detailing.generation.beamSecondaryLegs', params: { legs: set!.secondaryLegs! } });
     const dia = set?.diameter ?? designed?.span.diameter ?? input.stirrupDia;
     const table = transverseSpacingForDemand(input.edition, {
       Vu: peakShearIn(from, to), bw: input.b, d: dTable, fc: input.fc,

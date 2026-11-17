@@ -8300,6 +8300,8 @@ const es: Record<string, string> = {
   'detailing.note.torsion': 'TORSIÓN NO EVALUADA — función en desarrollo. {n} elemento(s) de esta lámina ({list}) reciben torsión según el análisis, y ninguna comprobación de esta aplicación la verifica. La armadura indicada NO contempla torsión. No usar como verificación final; verificar la torsión aparte antes de emitir.',
   'detailing.note.hanger': 'ARMADURA SUPERIOR DE ARMADO — {n} elemento(s) de esta lámina ({list}) no tienen momento negativo de envolvente en ningún apoyo. Sus barras superiores cumplen 25.7.1.2 (cada doblez del estribo contiene una barra longitudinal) y NO son armadura resistente: no se les verificó capacidad a momento negativo. El Reglamento no fija su diámetro; el indicado es un criterio de esta aplicación.',
   'detailing.note.unsupported': 'NO VERIFICADO — {key}: {message}',
+  "detailing.generation.beamSecondaryLegs": "Los ramales secundarios del estribo ({legs}) requieren trabas horizontales que el detallado de vigas no genera.",
+  "detailing.generation.columnSecondaryLegs": "El número declarado de ramales secundarios ({legs}) de la columna {element} no está verificado con las trabas horizontales generadas.",
   'detailing.note.conflicts': 'CONFLICTOS: {n} sin resolver ({overlaps} interpenetración, {spacing} separación). NO CONSTRUIBLE SIN REVISIÓN — esta lámina documenta el armado y sus conflictos, no autoriza su ejecución.',
   'detailing.note.conflictOverlap': 'CONFLICTO SOLAPE — barras {a}/{b}{elements}: {clear} mm libres contra {required} mm requeridos{pair}.',
   'detailing.note.conflictSpacing': 'CONFLICTO SEPARACIÓN — barras {a}/{b}{elements}: {clear} mm libres contra {required} mm requeridos{pair}.',

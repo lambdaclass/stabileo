@@ -29,8 +29,8 @@
 import type { BarPath, Point3 } from '../../codes/cirsoc201/bar-geometry';
 import { samplePath } from '../../codes/cirsoc201/bar-geometry';
 import { PROVISIONAL_DRAWING_NOTE, type Maturity } from '../../codes/maturity';
-import type { EngineMessage } from '../../codes/message';
 import { teAt } from '../../i18n/engine-text';
+import type { EngineMessage } from '../../codes/message';
 import { tAt } from '../../i18n/store.svelte';
 import { formatClause, type ClauseRef } from '../../codes/regulation';
 import type { BarConflict } from './collision';
@@ -302,7 +302,7 @@ function hangerTopMembersOf(a: DetailingAssembly): number[] {
  * language, or bare keys printed as they were. `noteText` turns one into words in the
  * document's language, and the sheet keeps the key a test or a reader can match.
  */
-export function noteKey(key: string, params?: Record<string, string | number | boolean | null | undefined>): string {
+export function noteKey(key: string, params?: Record<string, string | number | boolean | EngineMessage | null | undefined>): string {
   if (!params) return key;
   const kept = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null));
   return `${key}|${JSON.stringify(kept)}`;
@@ -312,7 +312,7 @@ export function noteKey(key: string, params?: Record<string, string | number | b
 export function noteText(note: string, locale: string): string {
   const bar = note.indexOf('|{');
   if (bar > 0) {
-    let params: Record<string, string | number> = {};
+    let params: NonNullable<EngineMessage['params']> = {};
     try { params = JSON.parse(note.slice(bar + 1)); } catch { /* words with a bar in them */ return note; }
     return teAt({ key: note.slice(0, bar), params }, locale);
   }
@@ -376,7 +376,8 @@ function noteLines(
     out.push(noteKey('detailing.note.hanger', { n: hangerTopMembers.length, list: hangerTopMembers.join(', ') }));
   }
   for (const u of unsupported) {
-    out.push(noteKey('detailing.note.unsupported', { key: u.key, message: u.message }));
+    out.push(noteKey('detailing.note.unsupported', { key: u.key,
+      message: u.params ? { key: u.key, params: u.params } : u.message }));
   }
   /**
    * Conflicts: a legend, then a bounded list.
@@ -1040,7 +1041,7 @@ export function scheduleToAoa(s: ScheduleTable, title: TitleBlock, locale = 'es'
   if (s.notes.length > 0) {
     out.push([]);
     out.push([h('notes')]);
-    for (const n of s.notes) out.push([n]);
+    for (const n of s.notes) out.push([noteText(n, locale)]);
   }
   return out;
 }

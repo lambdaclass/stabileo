@@ -34,7 +34,7 @@ import { worstMaturity, type Maturity } from '../../codes/maturity';
 import type { ClauseRef, RegulationEdition } from '../../codes/regulation';
 import {
   assignMarks, evaluateState, type DetailingAssembly, type JointRecord,
-  type UnsupportedCondition,
+  type GenerationIssue, type UnsupportedCondition,
 } from './assembly';
 import {
   DEFAULT_TOLERANCES, detectCollisions, prepareCollisionRepair, type BarConflict, type CollisionTolerances,
@@ -50,7 +50,7 @@ export interface MemberBars {
   elementId: number;
   bars: BarPath[];
   /** Unsupported conditions the generator reported for this member. */
-  unsupported: string[];
+  unsupported: GenerationIssue[];
   /** Maturity of the calculations behind this member's bars. */
   maturity: Maturity;
   /** Clauses applied. */
@@ -753,9 +753,9 @@ export function coordinateFloor(input: FloorCoordinationInput): FloorCoordinatio
     }
     for (const u of m.unsupported) {
       unsupported.push({
-        key: 'generation',
+        ...(typeof u === 'string' ? { key: 'generation', message: u }
+          : { key: u.key, params: u.params, message: u.key }),
         scope: { elementIds: [m.elementId] },
-        message: u,
         refs: m.refs,
       });
     }

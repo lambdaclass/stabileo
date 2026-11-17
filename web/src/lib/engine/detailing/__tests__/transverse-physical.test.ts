@@ -23,6 +23,10 @@ import {
   bendsWithoutLongitudinalBar, legsProvided, stirrupCentrelineHalfExtents,
 } from '../../../codes/cirsoc201/transverse-cage';
 import { acrossWidthSpan } from '../../../codes/cirsoc201/transverse-spacing';
+import { teAt } from '../../../i18n/engine-text';
+import type { GenerationIssue } from '../assembly';
+
+const issueText = (u: GenerationIssue): string => typeof u === 'string' ? u : teAt(u, 'es');
 
 /**
  * Solve → design → generate, for every beam, with nothing seeded.
@@ -112,7 +116,7 @@ describe('qa-8 — row 1 everywhere, so real stirrups and NO crossties', () => {
     for (const [id, g] of out) {
       expect(bendsWithoutLongitudinalBar(g.transverse), `element ${id}`).toEqual([]);
       expect(g.transverseFindings.bendsWithoutBar, `element ${id}`).toBe(0);
-      expect(g.unsupported.filter((u) => u.includes('25.7.1.2')), `element ${id}`).toEqual([]);
+      expect(g.unsupported.filter((u) => issueText(u).includes('25.7.1.2')), `element ${id}`).toEqual([]);
       for (const p of g.transverse) {
         for (const c of p.cornerContainment) {
           expect(c.longitudinalBarId, `element ${id} ${p.path.id}`).toBeTruthy();
@@ -125,7 +129,7 @@ describe('qa-8 — row 1 everywhere, so real stirrups and NO crossties', () => {
     // §25.7.2.3 is under "Estribos cerrados de COLUMNAS". Reporting it against a beam would
     // be applying a clause to a member it does not govern.
     for (const [id, g] of out) {
-      expect(g.unsupported.filter((u) => u.includes('25.7.2.3')), `element ${id}`).toEqual([]);
+      expect(g.unsupported.filter((u) => issueText(u).includes('25.7.2.3')), `element ${id}`).toEqual([]);
     }
   });
 
@@ -144,7 +148,7 @@ describe('qa-8 — row 1 everywhere, so real stirrups and NO crossties', () => {
 
   it('hook anchorage §25.7.1.3 is satisfied — no condition reported for it', () => {
     for (const [id, g] of out) {
-      expect(g.unsupported.filter((u) => u.includes('25.7.1.3')), `element ${id}`).toEqual([]);
+      expect(g.unsupported.filter((u) => issueText(u).includes('25.7.1.3')), `element ${id}`).toEqual([]);
     }
   });
 });
@@ -249,7 +253,7 @@ describe('row-2 fixture — crossties are FABRICATED, not counted', () => {
       // Reported under §25.3.5(d): every loose bend here belongs to a crosstie, and that
       // clause states both the requirement and the remedy — the hooks must embrace peripheral
       // bars, so the missing thing is a bar line, not a different cage.
-      expect(g.unsupported.some((u) => u.includes('25.3.5(d)')), `element ${id}`).toBe(true);
+      expect(g.unsupported.some((u) => issueText(u).includes('25.3.5(d)')), `element ${id}`).toBe(true);
     }
   });
 
@@ -267,7 +271,7 @@ describe('row-2 fixture — crossties are FABRICATED, not counted', () => {
     // §25.7.2.3 is under "Estribos cerrados de COLUMNAS". Reporting it against a beam would
     // be applying a clause to a member it does not govern.
     for (const [id, g] of out) {
-      expect(g.unsupported.filter((u) => u.includes('25.7.2.3')), `element ${id}`).toEqual([]);
+      expect(g.unsupported.filter((u) => issueText(u).includes('25.7.2.3')), `element ${id}`).toEqual([]);
     }
   });
 

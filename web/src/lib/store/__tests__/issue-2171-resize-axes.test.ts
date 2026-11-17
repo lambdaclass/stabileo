@@ -5,7 +5,7 @@ import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 
 for (const constraint of ['shear', 'tieSpacing'] as const) for (const flexure of ['My','Mz'] as const) for (const direction of ['primary','secondary','torsion'] as const) {
- it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')(`known wrong result: #2171 resizing follows the failing dimension ${constraint} ${flexure} ${direction}`,()=>{
+ it(`known wrong result: #2171 resizing follows the failing dimension ${constraint} ${flexure} ${direction}`,()=>{
   building(null);
   const element=[...modelStore.elements.values()].find(e=>modelStore.nodes.get(e.nodeI)?.z===modelStore.nodes.get(e.nodeJ)?.z)!;
   const id=element.id;
