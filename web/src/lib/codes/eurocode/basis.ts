@@ -73,6 +73,15 @@ const permanent = (ci: CombinationInputs, g: number): CombinationTerm[] => [
   ...(ci.present.F ? [{ symbol: 'F' as LoadSymbol, factor: g }] : []),
 ];
 
+function permanentSets(ci: CombinationInputs, sup: number, inf: number): Array<{ terms: CombinationTerm[]; tag: string }> {
+  const symbols = (['D', 'H', 'F'] as const).filter((s) => s === 'D' || ci.present[s]);
+  return Array.from({ length: 1 << symbols.length }, (_, m) => {
+    const low = symbols.filter((_, i) => m & (1 << i));
+    const tag = low.length === 0 ? '' : low.length === symbols.length ? '-inf' : `-inf${low.join('')}`;
+    return { terms: symbols.map((symbol) => ({ symbol: symbol as LoadSymbol, factor: low.includes(symbol) ? inf : sup })), tag };
+  });
+}
+
 function presentVariables(ci: CombinationInputs): Variable[] {
   return VARIABLES.filter((v) => (v === 'T' ? !!ci.present.T : ci.present[v]));
 }
@@ -105,15 +114,16 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs] };
   const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => has(v, 0));
 
+  const permanentA = permanentSets(ci, GAMMA.gSup, GAMMA.gInf).filter((g) => g.tag !== '-inf');
+  const permanentB = permanentSets(ci, xi * GAMMA.gSup, GAMMA.gInf);
   companionSets(withPsi0(vars), notActing).forEach((set, k) => {
-    push(b, `6.10a-${k + 1}`, [...permanent(ci, GAMMA.gSup), ...set.flatMap((v) => terms(v, 0, GAMMA.q))], 'strength');
+    for (const g of permanentA) push(b, `6.10a-${k + 1}${g.tag}`, [...g.terms, ...set.flatMap((v) => terms(v, 0, GAMMA.q))], 'strength');
   });
   for (const lead of vars) {
     const others = withPsi0(vars.filter((v) => v !== lead && compatible([lead, v])));
     companionSets(others, notActing).forEach((set, k) => {
       const q: CombinationTerm[] = [...terms(lead, 'lead', GAMMA.q), ...set.flatMap((v) => terms(v, 0, GAMMA.q))];
-      push(b, `6.10b-${lead}-${k + 1}`, [...permanent(ci, xi * GAMMA.gSup), ...q], 'strength');
-      push(b, `6.10b-${lead}-${k + 1}-inf`, [...permanent(ci, GAMMA.gInf), ...q], 'strength');
+      for (const g of permanentB) push(b, `6.10b-${lead}-${k + 1}${g.tag}`, [...g.terms, ...q], 'strength');
     });
   }
   if (ci.present.E) {

@@ -15507,7 +15507,7 @@ const en: Record<string, string> = {
   "loads.ec.blocked.ukSnow": "The snow zone (Figure NA.1) or the site altitude for sk is missing (UK National Annex).",
   "loads.ec.blocked.ukWindSpeed": "vb,map (Figure NA.1) or the site altitude for calt is missing (UK National Annex, NA.2.4).",
   "loads.ec.blocked.windSpeed": "The fundamental basic wind velocity vb,0 is missing (EN 1991-1-4 §4.2). Enter it in the wind panel.",
-  "loads.ec.combo.hfAsPermanent": "Earth pressure H and fluid pressure F are taken as permanent actions, with the same γG as G.",
+  "loads.ec.combo.hfAsPermanent": "Earth pressure H and fluid pressure F are taken as permanent actions from sources of their own: each takes γG,sup or γG,inf independently of G (EN 1990 Table A1.2(B), note 3).",
   "loads.ec.combo.noContext": "The category of use is not known: the imposed load ψ factors were taken for category A.",
   "loads.ec.combo.roofAlone": "The roof imposed load (category H) is not combined with snow or wind (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Strength combinations by expressions 6.10a and 6.10b (EN 1990 §6.4.3.2), set B, with ξ = {xi}; γG = 1.0 where the permanent load is favorable.",

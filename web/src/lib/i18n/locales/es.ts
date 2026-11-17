@@ -15496,7 +15496,7 @@ const es: Record<string, string> = {
   "loads.ec.blocked.ukSnow": "Faltan la zona de nieve (Figura NA.1) o la altitud del sitio para sk (NA del Reino Unido).",
   "loads.ec.blocked.ukWindSpeed": "Faltan vb,map (Figura NA.1) o la altitud del sitio para calt (NA del Reino Unido, NA.2.4).",
   "loads.ec.blocked.windSpeed": "Falta la velocidad básica fundamental vb,0 (EN 1991-1-4 §4.2). Indicala en el panel de viento.",
-  "loads.ec.combo.hfAsPermanent": "El empuje de suelo H y la presión de fluido F se toman como acciones permanentes, con el mismo γG que G.",
+  "loads.ec.combo.hfAsPermanent": "El empuje de suelo H y la presión de fluido F se toman como acciones permanentes de origen propio: cada una lleva γG,sup o γG,inf con independencia de G (EN 1990 Tabla A1.2(B), nota 3).",
   "loads.ec.combo.noContext": "No se conoce la categoría de uso: los ψ de la sobrecarga se tomaron de la categoría A.",
   "loads.ec.combo.roofAlone": "La sobrecarga de cubierta (categoría H) no se combina con la nieve ni con el viento (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Combinaciones de resistencia por las expresiones 6.10a y 6.10b (EN 1990 §6.4.3.2), conjunto B, con ξ = {xi}; γG = 1,0 cuando la carga permanente es favorable.",

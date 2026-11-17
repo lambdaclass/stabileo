@@ -15149,7 +15149,7 @@ const pt: Translations = {
   "loads.ec.blocked.ukSnow": "Faltam a zona de neve (Figura NA.1) ou a altitude do local para sk (Anexo Nacional do Reino Unido).",
   "loads.ec.blocked.ukWindSpeed": "Faltam vb,map (Figura NA.1) ou a altitude do local para calt (Anexo Nacional do Reino Unido, NA.2.4).",
   "loads.ec.blocked.windSpeed": "Falta a velocidade básica fundamental vb,0 (EN 1991-1-4 §4.2). Informe-a no painel de vento.",
-  "loads.ec.combo.hfAsPermanent": "O empuxo de solo H e a pressão de fluido F são tomados como ações permanentes, com o mesmo γG de G.",
+  "loads.ec.combo.hfAsPermanent": "O empuxo de solo H e a pressão de fluido F são tomados como ações permanentes de origem própria: cada uma leva γG,sup ou γG,inf independentemente de G (EN 1990 Tabela A1.2(B), nota 3).",
   "loads.ec.combo.noContext": "A categoria de uso não é conhecida: os ψ da sobrecarga foram tomados da categoria A.",
   "loads.ec.combo.roofAlone": "A sobrecarga de cobertura (categoria H) não é combinada com neve nem vento (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Combinações de resistência pelas expressões 6.10a e 6.10b (EN 1990 §6.4.3.2), conjunto B, com ξ = {xi}; γG = 1,0 quando a carga permanente é favorável.",
