@@ -3702,6 +3702,9 @@ const ar: Translations = {
   "codes.cirsoc201.shear.secondary": "تسليح القص في الاتجاه الثانوي",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: عدد الأفرع المتوفرة {legs}، والمطلوبة {requiredLegs} (§9.7.6.2.2، التباعد عبر العرض)",
 
+  "detailing.generation.beamSecondaryLegs": "تتطلب أرجل الكانات الثانوية ({legs}) روابط عرضية أفقية لا يولدها تفصيل تسليح الكمرات.",
+  "detailing.generation.columnSecondaryLegs": "لم يتم التحقق من عدد أرجل الكانات الثانوية المعلن ({legs}) للعمود {element} بمقارنته بالروابط العرضية الأفقية المولدة.",
+
 } as const satisfies Record<string, string>;
 
 export default ar;

@@ -128,3 +128,14 @@ for (const kind of ['beam', 'column'] as const) {
     expect([...new Set(options.map(c => c.secondaryLegs))].sort()).toEqual([2, 3, 4]);
   });
 }
+
+for (const [edition, expected] of [['2005', 443.75], ['2025', 441.98]] as const) {
+  it(`round-six documented secondary capacity selects edition ${edition}`, () => {
+    const cage = { diameter: 12, legs: 4, secondaryLegs: 4, spacing: 0.1 };
+    const result = verifyProvidedReinforcement(1, 'beam', { bottom: bars, top: bars, stirrups: cage }, undefined, {}, section, stations(1), undefined, { axes, spacingRule: { edition, maxAggregateSizeMm: 0 } });
+    const rows = result.checks.filter(c => c.demandCategory === axes.secondaryShear && c.limiting === 'shear');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.capacity).toBe(expected);
+    expect(+capacity(12, 4, 0.1, 0.4, 0.355, edition).toFixed(2)).toBe(expected);
+  });
+}

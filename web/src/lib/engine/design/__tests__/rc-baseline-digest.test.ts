@@ -223,7 +223,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     expect(actual).toBe(RECORDED_FINGERPRINT);
   });
 
-  it('keeps the members that refuse, refusing for the same reason', () => {
+  it('pins each refused member and its exact audited constraints', () => {
     // The same 22 members are the fixture's BEAM-Y set, refused on unchecked biaxial demand.
     // Pinned separately from the fingerprint because this is the assertion whose meaning a
     // reader can check without recomputing a hash — and it is where main's drift is visible in
@@ -239,7 +239,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
       .map((line) => Number(line.split('|')[0]));
     expect(congested.map((o) => o.elementId).sort((a, b) => a - b)).toEqual(expectedIds);
     for (const o of congested) {
-      expect(o.limiting).toContain('congestion');
+      expect(o.limiting).toEqual(evidence.declaredGravity.members.find(line => Number(line.split('|')[0]) === o.elementId)!.split('|')[2]!.split(','));
       expect(o.insufficiency).toBeUndefined();
       expect(o.exhaustion?.scope).toBe('implementedAlternatives');
       expect(o.certificate).toBeUndefined();

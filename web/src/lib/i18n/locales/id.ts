@@ -3704,6 +3704,9 @@ const id: Translations = {
   "codes.cirsoc201.shear.secondary": "Tulangan geser pada arah sekunder",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} kaki tersedia, {requiredLegs} diperlukan (§9.7.6.2.2, jarak melintang)",
 
+  "detailing.generation.beamSecondaryLegs": "Kaki sengkang sekunder ({legs}) memerlukan pengikat silang horizontal yang tidak dihasilkan oleh pendetailan balok.",
+  "detailing.generation.columnSecondaryLegs": "Jumlah kaki sekunder yang dinyatakan ({legs}) untuk kolom {element} belum diverifikasi terhadap pengikat silang horizontal yang dihasilkan.",
+
 } as const satisfies Record<string, string>;
 
 export default id;

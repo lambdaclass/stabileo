@@ -9,19 +9,27 @@ for (const axis of ['My', 'Mz'] as const) for (const b of [0.2, 0.3, 0.4]) for (
   it(`known wrong result: #2171 automatic ${kind} cage keeps directional distribution ${axis} ${b}`, () => {
     const ctx = syntheticBeamContext({ codeEdition: '2025', elementType: kind });
     ctx.section = { ...ctx.section, b, h: 0.6 };
+    if (kind === 'column') ctx.material = { ...ctx.material, stirrupDiametersMm: [12] };
     ctx.axes = { ...ctx.axes, flexure: axis, secondaryFlexure: axis === 'My' ? 'Mz' : 'My', shear: axis === 'My' ? 'Vz' : 'Vy', secondaryShear: axis === 'My' ? 'Vy' : 'Vz', bFlex: b, hFlex: 0.6 };
     ctx.stations = { elementId: 1, length: 6, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 0.5, 1].map(t => ({ t, x: 6 * t, n: 0,
       my: axis === 'My' ? 1 : 0, mz: axis === 'Mz' ? 1 : 0, vy: 1, vz: 1, torsion: 0 })) }] };
     const options = kind === 'beam' ? buildStirrupOptions(ctx, 1) : buildTieOptions(ctx, 16);
     const limit = kind === 'beam' ? BEAM_LIMITS.maxLegs : COLUMN_LIMITS.maxLegs;
     const required = transverseSpacingForDemand('2025', { Vu: 1, bw: 0.6, d: b - ctx.material.cover - 0.008 - 0.008, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: 8 });
-    if (required.requiredLegs > limit) expect(options).toHaveLength(0);
-    else expect(options.length).toBeGreaterThan(0);
-    for (const cage of options) {
-      const secondary = transverseSpacingForDemand('2025', { Vu: 1, bw: 0.6, d: b - ctx.material.cover - cage.diameter / 1000 - 0.008, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: cage.diameter });
-      expect(cage.secondaryLegs).toBeGreaterThanOrEqual(secondary.requiredLegs);
-      expect(cage.secondaryLegs).toBeLessThanOrEqual(limit);
-      expect(cage.spacing).toBeLessThanOrEqual(secondary.alongMax);
+    if (kind === 'column') {
+      const unloaded = { ...ctx, stations: undefined };
+      const ordinary = (cage: { legs: number; secondaryLegs?: number }) => cage.legs === 2 && (cage.secondaryLegs ?? 2) === 2;
+      expect(options.filter(ordinary)).toEqual(buildTieOptions(unloaded, 16).filter(ordinary));
+      expect(options.length).toBeGreaterThan(0);
+    } else {
+      if (required.requiredLegs > limit) expect(options).toHaveLength(0);
+      else expect(options.length).toBeGreaterThan(0);
+      for (const cage of options) {
+        const secondary = transverseSpacingForDemand('2025', { Vu: 1, bw: 0.6, d: b - ctx.material.cover - cage.diameter / 1000 - 0.008, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: cage.diameter });
+        expect(cage.secondaryLegs).toBeGreaterThanOrEqual(secondary.requiredLegs);
+        expect(cage.secondaryLegs).toBeLessThanOrEqual(limit);
+        expect(cage.spacing).toBeLessThanOrEqual(secondary.alongMax);
+      }
     }
     if (kind === 'beam') {
       const first = createBeamCandidateGenerator(ctx).next(null)?.reinforcement;
@@ -56,7 +64,7 @@ for (const shape of [
     for (const limiting of ['tieSpacing', 'shear']) {
       const checks = checked.checks.filter(c => c.limiting === limiting);
       expect(checks.length, limiting).toBeGreaterThan(0);
-      expect(checks.every(c => c.status !== 'fail'), limiting).toBe(true);
+      expect(checks.filter(c => c.status === 'fail'), limiting).toEqual([]);
     }
   }
 });

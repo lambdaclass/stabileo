@@ -199,11 +199,13 @@ for (const completenessOffset of [-1, 0, 1]) it.each([-1, 0, 1])(`#2198 shows ex
     const seen = (snapshot: FeatureSnapshot, resultsVersion: number) => assessProject(
       { ...snapshot, analysisMode }, { resultsVersion, analyses: [analysis], recorded: [...ANALYSIS_KINDS] } as SolveStamp, analysisMode, registry,
     ).changes.map(c => c.id).sort();
-    const prior = ['directional-stirrup-legs', ...(recoveryOffset < 0 ? [] : ['member-recovery-round4']), ...(completenessOffset < 0 ? [] : ['shared-demand-completeness'])];
-    const current = [...(recoveryOffset > 0 ? ['member-recovery-round4'] : []), ...(completenessOffset > 0 ? ['shared-demand-completeness'] : [])];
+    const prior = ['column-tie-shear-spacing', 'directional-stirrup-legs', ...(recoveryOffset < 0 ? [] : ['member-recovery-round4']), ...(completenessOffset < 0 ? [] : ['shared-demand-completeness'])];
+    const current = ['column-tie-shear-spacing', ...(recoveryOffset > 0 ? ['member-recovery-round4'] : []), ...(completenessOffset > 0 ? ['shared-demand-completeness'] : [])];
     expect(seen(frame, entry.resultsVersion - 1)).toEqual(prior);
     expect(seen(frame, entry.resultsVersion)).toEqual(current);
-    expect(seen(frame, entry.resultsVersion + 1)).toEqual([]);
+    const columnEntry = RESULT_CHANGES.changes.find(c => c.id === 'column-tie-shear-spacing')!;
+    expect(seen(frame, entry.resultsVersion + 1)).toEqual(columnEntry.resultsVersion > entry.resultsVersion + 1 ? ['column-tie-shear-spacing'] : []);
+    expect(seen(frame, Math.max(entry.resultsVersion + 1, columnEntry.resultsVersion))).toEqual([]);
     expect(seen({ ...frame, materials: [] }, entry.resultsVersion - 1)).toEqual(
       recoveryOffset < 0 ? [] : ['member-recovery-round4'],
     );

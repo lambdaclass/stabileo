@@ -3703,6 +3703,9 @@ const zh: Translations = {
   "codes.cirsoc201.shear.secondary": "次方向抗剪钢筋",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}：已配置 {legs} 肢，需要 {requiredLegs} 肢（§9.7.6.2.2，横向间距）",
 
+  "detailing.generation.beamSecondaryLegs": "次方向箍筋肢（{legs} 肢）需要水平拉筋，而梁配筋详图不会生成这些拉筋。",
+  "detailing.generation.columnSecondaryLegs": "柱 {element} 所声明的次方向箍筋肢数（{legs} 肢）尚未根据生成的水平拉筋进行验证。",
+
 } as const satisfies Record<string, string>;
 
 export default zh;

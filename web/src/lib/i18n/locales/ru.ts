@@ -3706,6 +3706,9 @@ const ru: Translations = {
   "codes.cirsoc201.shear.secondary": "Поперечная арматура во второстепенном направлении",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: предусмотрено ветвей {legs}, требуется {requiredLegs} (§9.7.6.2.2, расстояние по ширине)",
 
+  "detailing.generation.beamSecondaryLegs": "Второстепенные ветви хомута ({legs}) требуют горизонтальных поперечных связей, которые не создаются при деталировке балок.",
+  "detailing.generation.columnSecondaryLegs": "Заявленное число второстепенных ветвей ({legs}) колонны {element} не проверено на соответствие созданным горизонтальным поперечным связям.",
+
 } as const satisfies Record<string, string>;
 
 export default ru;

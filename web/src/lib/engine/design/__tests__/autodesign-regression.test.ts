@@ -131,7 +131,7 @@ describe('flagship 408-member RC frame designs completely', () => {
         // Refused because no layout of its bars the search enumerates passes the columns' bars
         // at its joints: never a certificate, the reason stated, and no claim on the section.
         expect(o.elementType, `element ${id}`).toBe('beam');
-        expect(o.limiting, `element ${id}`).toContain('congestion');
+        expect(o.limiting, `element ${id}`).toEqual(evidence.declaredGravity.members.find(line => Number(line.split('|')[0]) === id)!.split('|')[2]!.split(','));
         expect(o.insufficiency, `element ${id} proof`).toBeUndefined();
         expect(o.exhaustion?.scope, `element ${id} exhaustion`).toBe('implementedAlternatives');
         expect(o.certificate, `element ${id} certificate`).toBeUndefined();

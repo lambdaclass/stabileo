@@ -3701,6 +3701,9 @@ const ko: Translations = {
   "codes.cirsoc201.shear.secondary": "부방향 전단 보강근",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: 배치된 다리 수 {legs}, 필요한 다리 수 {requiredLegs} (§9.7.6.2.2, 폭 방향 간격)",
 
+  "detailing.generation.beamSecondaryLegs": "보조 방향 스터럽 다리({legs}개)에는 보 배근 상세에서 생성하지 않는 수평 크로스타이가 필요합니다.",
+  "detailing.generation.columnSecondaryLegs": "기둥 {element}에 지정된 보조 방향 띠철근 다리 수({legs}개)는 생성된 수평 크로스타이와 대조하여 검증되지 않았습니다.",
+
 } as const satisfies Record<string, string>;
 
 export default ko;

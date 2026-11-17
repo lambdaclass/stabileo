@@ -3714,5 +3714,8 @@ const hi: Translations = {
   "codes.cirsoc201.shear.secondary": "द्वितीयक दिशा में अपरूपण प्रबलन",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} शाखाएँ दी गई हैं, {requiredLegs} आवश्यक हैं (§9.7.6.2.2, चौड़ाई में अंतराल)",
 
+  "detailing.generation.beamSecondaryLegs": "कड़ी की द्वितीयक शाखाओं ({legs}) के लिए क्षैतिज क्रॉस टाई आवश्यक हैं, जिन्हें बीम का सुदृढीकरण विवरण उत्पन्न नहीं करता।",
+  "detailing.generation.columnSecondaryLegs": "स्तंभ {element} के लिए घोषित द्वितीयक शाखाओं की संख्या ({legs}) को उत्पन्न क्षैतिज क्रॉस टाई से सत्यापित नहीं किया गया है।",
+
 };
 export default hi;

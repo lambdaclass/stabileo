@@ -23,7 +23,7 @@ shear capacity implementation to obtain the expected answer. For a 0.4 by 0.4 m
 H25/420 section with 25 mm cover, four 16 mm longitudinal bars, nominal 8 mm
 stirrups and four secondary legs at 0.1 m, a 12 mm cage has secondary depth
 0.355 m. The old depth was 0.359 m. Under 2005 the reported capacity changes
-from 448.75 to 441.98 kN. Under 2025 it changes from 446.96 to 441.98 kN.
+from 448.75 to 443.75 kN (448.75 × 0.355 / 0.359). Under 2025 it changes from 446.96 to 441.98 kN.
 Tests retain exact capacity comparisons, both sides of the strength boundary,
 reversed start/end diameters, and unchanged nominal cages.
 

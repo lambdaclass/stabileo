@@ -3694,6 +3694,9 @@ const ja: Translations = {
   "codes.cirsoc201.shear.secondary": "副方向のせん断補強筋",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}：配置脚数 {legs}、必要脚数 {requiredLegs}（§9.7.6.2.2、幅方向の間隔）",
 
+  "detailing.generation.beamSecondaryLegs": "副方向のあばら筋の脚（{legs}本）には、梁の配筋詳細では生成されない水平クロスタイが必要です。",
+  "detailing.generation.columnSecondaryLegs": "柱 {element} で指定された副方向の帯筋の脚数（{legs}本）は、生成された水平クロスタイとの整合性が検証されていません。",
+
 } as const satisfies Record<string, string>;
 
 export default ja;

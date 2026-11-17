@@ -19,7 +19,7 @@
 import { boundedDirectionalOptions, candidateShearDepth, secondaryLegCounts } from './directional-cage-options';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import type { RegulationEdition } from '../../codes/regulation';
-import { transverseSpacingForDemand, columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
+import { transverseSpacingForDemand, columnTieSpacing, columnShearSpacing } from '../../codes/cirsoc201/transverse-spacing';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout, computeDirectionalShearCapacity } from '../station-design-forces';
@@ -93,9 +93,18 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
   const out: StirrupDef[] = [];
   const minimumOptions: StirrupDef[] = [];
   for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
-    const peak = (axis: 'Vy' | 'Vz') => Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, axis)))));
-    const limits = (width: number, depth: number, Vu: number) => Vu >= 0.001 && ctx.codeEdition === '2025'
-      ? transverseSpacingForDemand(ctx.codeEdition, { Vu, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia }) : undefined;
+    const limits = (width: number, depth: number, axis: 'Vy' | 'Vz') => {
+      if (ctx.codeEdition !== '2025') return undefined;
+      const required = (ctx.stations?.comboResults ?? []).flatMap(c => c.stations).filter(s => {
+        const Vu = Math.abs(tupleShear(s, axis));
+        const cap = computeDirectionalShearCapacity('primary', dia, stirrupLegs({ legs: 2 }, 'primary'), ordinaryTop,
+          width, depth, ctx.material.fc, ctx.material.fy, -s.n, { Ag: ctx.shape ? grossAreaOf(ctx.shape) : b * h, edition: ctx.codeEdition });
+        return columnShearSpacing(ctx.codeEdition, { Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: width, d: depth, fc: ctx.material.fc }).kind === 'required';
+      });
+      if (!required.length) return undefined;
+      const Vu = Math.max(...required.map(s => Math.abs(tupleShear(s, axis))));
+      return transverseSpacingForDemand(ctx.codeEdition, { Vu, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia });
+    };
     const effectiveDepth = (depth: number) => candidateShearDepth(depth, ctx.material.cover, dia);
     const webs = ctx.shape ? shapedShearWebs(ctx.shape) : [
       { axis: ctx.axes.shear, bw: ctx.axes.bFlex, d: effectiveDepth(ctx.axes.hFlex) },
@@ -103,11 +112,13 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
     ];
     const primaryWeb = webs.find(web => web.axis === ctx.axes.shear)!;
     const secondaryWeb = webs.find(web => web.axis === ctx.axes.secondaryShear)!;
-    const primary = limits(primaryWeb.bw, primaryWeb.d, peak(primaryWeb.axis));
-    const secondary = limits(secondaryWeb!.bw, secondaryWeb!.d, peak(secondaryWeb!.axis));
-    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs, COLUMN_LIMITS.maxLegs);
+    const ordinaryMax = maxTieSpacing(cornerDia, dia, ctx.shape ? primaryWeb.bw : b, ctx.shape ? secondaryWeb.bw : h, ctx.codeEdition);
+    const ordinaryTop = Math.floor((ordinaryMax * DESIGN_TARGET_UTILIZATION + 1e-9) / SPACING_GRID) * SPACING_GRID;
+    const primary = limits(primaryWeb.bw, primaryWeb.d, primaryWeb.axis);
+    const secondary = limits(secondaryWeb!.bw, secondaryWeb!.d, secondaryWeb!.axis);
+    const secondaryCounts = secondaryLegCounts(secondary?.requiredLegs ?? (ctx.codeEdition === '2025' ? 2 : undefined), COLUMN_LIMITS.maxLegs);
     if (!secondaryCounts.length) continue;
-    const sMax = Math.min(maxTieSpacing(cornerDia, dia, ctx.shape ? primaryWeb!.bw : b, ctx.shape ? secondaryWeb!.bw : h, ctx.codeEdition), primary?.alongMax ?? Infinity, secondary?.alongMax ?? Infinity);
+    const sMax = Math.min(ordinaryMax, primary?.alongMax ?? Infinity, secondary?.alongMax ?? Infinity);
     if (sMax < COLUMN_LIMITS.minSpacing) continue;
     for (let legs = Math.max(2, primary?.requiredLegs ?? 2); legs <= COLUMN_LIMITS.maxLegs; legs += primary ? 1 : 2) {
       // The design target (O5) applies to the tie spacing too: c/25 against a 25,6 cm maximum

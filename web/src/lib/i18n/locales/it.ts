@@ -3714,5 +3714,8 @@ const it: Translations = {
   "codes.cirsoc201.shear.primary": "Armatura a taglio nella direzione principale",
   "codes.cirsoc201.shear.secondary": "Armatura a taglio nella direzione secondaria",
   "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} bracci presenti, {requiredLegs} richiesti (§9.7.6.2.2, spaziatura trasversale)",
+  "detailing.generation.beamSecondaryLegs": "I bracci secondari delle staffe ({legs}) richiedono legature trasversali orizzontali che il dettaglio delle travi non genera.",
+  "detailing.generation.columnSecondaryLegs": "Il numero dichiarato di bracci secondari ({legs}) del pilastro {element} non è verificato rispetto alle legature trasversali orizzontali generate.",
+
 };
 export default it;
