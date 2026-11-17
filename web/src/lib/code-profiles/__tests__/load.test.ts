@@ -3,6 +3,7 @@ import { indexProfiles, mergeInto, ProfileError, resolveProfile } from '../load'
 import { toConfirmPaths, validateProfile } from '../validate';
 import { loadsProfile, rcProfile, SHIPPED_PROFILES } from '../registry';
 import { clauseOf } from '../cite';
+import { FORMULAS } from '../formulas';
 import { PSF, LBF_KN, MPH } from '../units';
 import type { KeyedTable, LoadsProfile, RcProfile, Val } from '../types';
 import en1992 from '../profiles/rc/en-1992-1-1.json';
@@ -110,6 +111,21 @@ describe('required fields', () => {
     expect(validateProfile(doc)).toContainEqual({ path: 'columns.rhoMax', message: 'a value needs a cite' });
   });
 
+  it('a required value that is not a finite number, inside or outside a range', () => {
+    for (const bad of [null, '1.5', Number.NaN, true]) {
+      const doc: Doc = copy(en1992);
+      doc.resistance.gammaC.v = bad;
+      doc.materials.steel.es.v = bad;
+      expect(validateProfile(doc), String(bad)).toEqual(expect.arrayContaining([
+        { path: 'resistance.gammaC', message: 'must be a finite number' },
+        { path: 'materials.steel.es', message: 'must be a finite number' },
+      ]));
+    }
+    const doc: Doc = copy(en1992);
+    doc.resistance.gammaC.v = 1.5;
+    expect(validateProfile(doc)).toEqual([]);
+  });
+
   it('a formula outside the catalog, or with a coefficient missing or extra', () => {
     const doc: Doc = copy(en1992);
     doc.beams.minSteel.f = 'minSteel.free';
@@ -175,5 +191,11 @@ describe('status', () => {
     expect(validateProfile(doc)).toEqual([{ path: 'resistance.alphaCT', message: 'a validated profile cannot hold a value to confirm' }]);
     const p = resolveProfile('en-1992-1-1', indexProfiles([{ ...doc, meta: { ...doc.meta, maturity: 'provisional' } }])) as RcProfile;
     expect((p.resistance as { alphaCT: Val }).alphaCT.status).toBe('toConfirm');
+  });
+});
+
+describe('the formula catalog', () => {
+  it('EN 1992 VRd,c: both stress branches inside max, plus k1·σcp, times bw·d (6.2.2(1), eq. 6.2a and 6.2b)', () => {
+    expect(FORMULAS['shear.variableStrut']!.expression).toMatch(/^VRd,c = \[max\(\(crdc\/γc\)·k·\(100·ρl·fck\)\^\(1\/3\); vmin·k\^1\.5·fck\^0\.5\) \+ k1·σcp\]·bw·d;/);
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { asce7Service, asce7Strength, liveCompanion } from '../combinations';
 import { findAsce7Occupancy, reduceAsce7 } from '../live-loads';
 import { asce7Vertical } from '../seismic-plan';
+import { asce7Partition, ASCE7_PARTITION_MIN } from '../../families/partitions';
 import { PSF } from '../refs';
 import type { CombinationInputs } from '../../cirsoc101/combinations';
 import type { PlanSink } from '../../../engine/loads/load-plan';
@@ -81,5 +82,21 @@ describe('ASCE 7-22 Table 4.3-1 and §4.7', () => {
     expect(reduceAsce7({ ...b, loKNm2: 40 * PSF, passengerGarage: true, floorsSupported: 1 }).lKNm2).toBeCloseTo(40 * PSF, 9);
     expect(reduceAsce7({ ...b, loKNm2: 40 * PSF, passengerGarage: true, floorsSupported: 2 }).lKNm2).toBeCloseTo(32 * PSF, 9);
     expect(reduceAsce7({ ...b, loKNm2: 100 * PSF, publicAssembly: true, floorsSupported: 3 }).lKNm2).toBeCloseTo(100 * PSF, 9);
+  });
+});
+
+describe('§4.7.5 and §4.3.2', () => {
+  it('an assembly use above 100 psf is not reduced either, on any number of floors', () => {
+    const b = { tributaryAreaM2: 100, elementKind: 'interiorColumn' as const, passengerGarage: false, publicAssembly: true, noReduction: false };
+    const r = reduceAsce7({ ...b, loKNm2: 125 * PSF, floorsSupported: 3 });
+    expect(r.lKNm2).toBeCloseTo(125 * PSF, 9);
+    expect(r.reason.key).toBe('loads.asce7.reduction.assembly');
+  });
+  it('a partition load typed below 15 psf is raised to it, and turned off it stays off', () => {
+    const low = asce7Partition(50 * PSF, 10 * PSF);
+    expect(low.qKNm2).toBeCloseTo(ASCE7_PARTITION_MIN, 12);
+    expect(low.message.key).toBe('loads.asce7.live.partitionBelowMinimum');
+    expect(asce7Partition(50 * PSF, 20 * PSF).qKNm2).toBeCloseTo(20 * PSF, 12);
+    expect(asce7Partition(50 * PSF, 0).qKNm2).toBe(0);
   });
 });

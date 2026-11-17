@@ -39,7 +39,7 @@ import { meshBeforeAnalysis } from './mesh-policy.svelte';
 import { endMeshProgress, meshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
 import { historyStore } from './history.svelte';
 export { meshBeforeAnalysis };
-import type { FloorLoadDef } from '../model/loads/floor-definitions';
+import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
@@ -509,6 +509,18 @@ export function plateSides(id: number): Array<{ from: number; to: number; mid: n
 /** An area load on the whole plate, kept as a definition so that it follows every mesh. */
 export function plateLoadDef(id: number, caseId: number, q: number): FloorLoadDef {
   return { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };
+}
+
+/** One definition per plate picked whole, as the floor-load panel adds them. */
+export function pickedPlateDefs(ids: readonly number[], caseId: number, q: number, perPlanArea: boolean): Array<{ id: number; def: FloorLoadDef }> {
+  return ids.map((id) => ({ id, def: { ...plateLoadDef(id, caseId, q), ...(perPlanArea ? { perPlanArea: true } : {}) } }));
+}
+
+/** What those definitions write together, previewed before they are added. */
+export function previewPlateDefs(defs: ReadonlyArray<{ def: FloorLoadDef }>, opts: { leftHand: boolean }): Expansion {
+  const each = defs.map(({ def }) => expandDefinition(modelStore.model as unknown as DefinitionModel, def, {}, -1, opts));
+  const loads = each.flatMap((e) => e.loads);
+  return { defId: -1, loads, result: null, totalKN: NaN, ...(loads.length ? {} : { problem: each[0]?.problem ?? 'nothingTargeted' }) };
 }
 
 export function addPlateLoad(id: number, caseId: number, q: number, name?: string): number | null {

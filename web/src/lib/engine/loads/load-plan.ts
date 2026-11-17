@@ -733,7 +733,6 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     liveDesign = red.lKNm2;
     refs.push(...red.refs);
     derivation.push(red.reason);
-    unsupportedKeys.push(...(codes.loads.reductionNotes?.({ elementKind: input.reductionElementKind, floorsSupported: input.floorsSupported }) ?? []));
   } else {
     derivation.push(msg('loadPlan.derivation.reductionDisabled'));
   }

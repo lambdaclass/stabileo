@@ -15,7 +15,7 @@ import {
 
 export interface TbdyDetail {
   spectrum: Spectrum; importance: number; dts: Dts; bys: number; hn: number; n: number; tpa: number;
-  byAxis: Partial<Record<'x' | 'y', { t: number; r: number; d: number; ra: number; sae: number; sar: number; vt: number; minimumGoverns: boolean; deltaFN: number; forces: number[] }>>;
+  byAxis: Partial<Record<'x' | 'y', { t: number; tpa: number; r: number; d: number; ra: number; sae: number; sar: number; vt: number; minimumGoverns: boolean; deltaFN: number; forces: number[] }>>;
 }
 
 export type TbdyPlanDetail = SeismicPlanDetail & { tbdy: TbdyDetail };
@@ -108,23 +108,21 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     return { t: tpa, tpa, capped: false, ct };
   };
 
-  const needed = ti.orthogonal ? { x: dirs.x || dirs.y, y: dirs.x || dirs.y } : dirs;
+  const needed = { x: true, y: true };
   const levelsHW = elevated.map((x) => ({ h: x.l.elevation - base, w: x.w }));
   const byAxis: TbdyDetail['byAxis'] = {};
-  let tpaShown = 0;
   for (const axis of ['x', 'y'] as const) {
     if (!needed[axis]) continue;
     const s = axis === 'x' ? sysX : sysY;
     const p = periodOf(s);
     if (!p) return out;
-    tpaShown = p.tpa;
     sink.derivation.push(msg(p.capped ? 'loads.tr.seismic.derivation.periodCapped' : ti.tp! > 0 ? 'loads.tr.seismic.derivation.periodGiven' : 'loads.tr.seismic.derivation.period', {
       dir: axis.toUpperCase(), ct: p.ct, hn: round(hn, 2), tpa: round(p.tpa, 3), t: round(p.t, 3),
     }));
     const raT = ra(p.t, s.r, s.d, importance, spec.tb), saeT = sae(p.t, spec), sar = saeT / raT;
     const v = baseShear(W, sar, importance, spec.sds);
     const dist = storeyForces(levelsHW, v.vt);
-    byAxis[axis] = { t: p.t, r: s.r, d: s.d, ra: raT, sae: saeT, sar, vt: v.vt, minimumGoverns: v.minimumGoverns, deltaFN: dist.deltaFN, forces: dist.forces };
+    byAxis[axis] = { t: p.t, tpa: p.tpa, r: s.r, d: s.d, ra: raT, sae: saeT, sar, vt: v.vt, minimumGoverns: v.minimumGoverns, deltaFN: dist.deltaFN, forces: dist.forces };
     sink.derivation.push(msg('loads.tr.seismic.derivation.shear', {
       dir: axis.toUpperCase(), system: s.key, r: s.r, d: s.d, ra: round(raT, 3), sae: round(saeT, 4), sar: round(sar, 4),
       w: round(W, 1), v: round(W * sar, 1), min: round(0.04 * W * importance * spec.sds, 1), vt: round(v.vt, 1),
@@ -136,12 +134,11 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   sink.refs.push(TBDY('4.2.1.2', 'Denk. 4.1'), TBDY('4.4.1', 'Denk. 4.8'), TBDY('4.7.1.1', 'Denk. 4.19'), TBDY('4.7.2', 'Denk. 4.21–4.23'));
 
   const dbi = eta > 1.2 && eta <= 2 ? (eta / 1.2) ** 2 : 1;
-  const e = ti.eccentricity ? ECCENTRICITY * dbi : 0;
-  if (e > 0) {
-    sink.refs.push(TBDY('4.5.10.2', 'Denk. 4.17'), ...(dbi > 1 ? [TBDY('4.7.4', 'Denk. 4.29')] : []));
-    sink.derivation.push(msg('loads.tr.seismic.derivation.torsion', { e: round(ECCENTRICITY * 100, 1), dbi: round(dbi, 3) }));
-  }
-  if (ti.orthogonal) { sink.refs.push(TBDY('4.4.2.1', 'Denk. 4.9')); sink.derivation.push(msg('loads.tr.seismic.derivation.orthogonal')); }
+  const e = ECCENTRICITY * dbi;
+  sink.refs.push(TBDY('4.5.10.2', 'Denk. 4.17'), ...(dbi > 1 ? [TBDY('4.7.4', 'Denk. 4.29')] : []));
+  sink.derivation.push(msg('loads.tr.seismic.derivation.torsion', { e: round(ECCENTRICITY * 100, 1), dbi: round(dbi, 3) }));
+  sink.refs.push(TBDY('4.4.2.1', 'Denk. 4.9'));
+  sink.derivation.push(msg('loads.tr.seismic.derivation.orthogonal'));
 
   const extent = (ids: number[], k: 'x' | 'y') => {
     const v = ids.map((id) => input.model.nodes.get(id)?.[k]).filter((c): c is number => c !== undefined);
@@ -151,8 +148,8 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
     if (!dirs[axis]) continue;
     const other = axis === 'x' ? 'y' : 'x';
     const main = byAxis[axis]!.forces, cross = byAxis[other]?.forces;
-    const orthoSigns = ti.orthogonal && cross ? [1, -1] : [0];
-    for (const s of e > 0 ? [1, -1] : [0]) {
+    const orthoSigns = cross ? [1, -1] : [0];
+    for (const s of [1, -1]) {
       for (const o of orthoSigns) {
         const index = sink.cases.length;
         sink.cases.push({
@@ -176,9 +173,9 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   if (input.seismic.modal?.modes.length) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.modalIgnored'));
   sink.unsupportedKeys.push(msg('loads.tr.seismic.note.base'));
 
-  const main = byAxis.x ?? byAxis.y!;
-  const tbdy: TbdyDetail = { spectrum: spec, importance, dts, bys, hn, n, tpa: tpaShown, byAxis };
-  const detail: TbdyPlanDetail = { source: 'manual', c: main.vt / W, t: main.t, ta: tpaShown, r: main.r, tbdy };
+  const main = (dirs.x ? byAxis.x : byAxis.y)!;
+  const tbdy: TbdyDetail = { spectrum: spec, importance, dts, bys, hn, n, tpa: main.tpa, byAxis };
+  const detail: TbdyPlanDetail = { source: 'manual', c: main.vt / W, t: main.t, ta: main.tpa, r: main.r, tbdy };
   out.seismicWeight = fromProject(W, 'kN');
   out.baseShear = fromProject(main.vt, 'kN');
   out.seismicDetail = detail;

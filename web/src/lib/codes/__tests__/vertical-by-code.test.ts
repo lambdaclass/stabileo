@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { expandCombinations } from '../../engine/loads/combination-cases';
 import { planInput, SEISMIC_ON } from './family-plan-helpers';
 
 const keys = (p: ReturnType<typeof buildLoadPlan>) => [...p.derivation, ...p.unsupportedKeys].map((m) => m.key);
@@ -55,10 +56,26 @@ describe('EN 1998-1: by avg against 0,25 g, or as typed', () => {
     expect(lead.length).toBeGreaterThan(0);
     for (const c of lead) {
       expect(c.terms.find((t) => t.symbol === 'D')?.factor).toBeCloseTo(1 + kv, 4);
-      expect(c.terms.find((t) => t.symbol === 'E')?.factor).toBeCloseTo(0.3, 9);
+      expect(c.terms.find((t) => t.symbol === 'E')).toEqual({ symbol: 'E', factor: 1, group: '0.3EH' });
     }
     const horizontal = p.combinations.filter((c) => c.id.endsWith('-0.3Ez'));
-    for (const c of horizontal) expect(c.terms.find((t) => t.symbol === 'D')?.factor).toBeCloseTo(1 - 0.3 * kv, 4);
+    for (const c of horizontal) {
+      expect(c.terms.find((t) => t.symbol === 'D')?.factor).toBeCloseTo(1 - 0.3 * kv, 4);
+      expect(c.terms.find((t) => t.symbol === 'E')).toEqual({ symbol: 'E', factor: 1, group: 'EH' });
+    }
+    const sum = (i: number, k: 'fx' | 'fy') => p.nodal.filter((n) => n.caseType === 'E' && n.caseIndex === i).reduce((a, n) => a + n[k], 0);
+    const full = p.cases.findIndex((c) => c.type === 'E' && c.group === 'EH' && c.nameKey === 'loads.ec.seismicCase30');
+    const vertical = p.cases.map((c, i) => [c, i] as const).filter(([c]) => c.type === 'E' && c.group === '0.3EH');
+    expect(vertical).toHaveLength(4);
+    const cases = p.cases.map((c, i) => ({ id: i, type: c.type, name: `c${i}`, ...(c.group ? { group: c.group } : {}) }));
+    const expanded = expandCombinations(p.combinations, cases, { bothSenses: { E: true } });
+    const eCases = (specEnd: string) => new Set(expanded.filter((x) => x.specId.endsWith(specEnd)).flatMap((x) => x.factors.filter((f) => p.cases[f.caseId]!.type === 'E').map((f) => p.cases[f.caseId]!.group)));
+    expect(eCases('+Ez')).toEqual(new Set(['0.3EH']));
+    expect(eCases('+0.3Ez')).toEqual(new Set(['EH']));
+    for (const [, i] of vertical) {
+      expect(sum(i, 'fx')).toBeCloseTo(0.3 * sum(full, 'fx'), 6);
+      expect(Math.abs(sum(i, 'fy'))).toBeCloseTo(0.3 * sum(full, 'fx'), 6);
+    }
     // No combination with E is left without the vertical component.
     expect(p.combinations.filter((c) => c.terms.some((t) => t.symbol === 'E') && !c.id.includes('Ez'))).toEqual([]);
   });
