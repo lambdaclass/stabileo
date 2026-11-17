@@ -232,3 +232,78 @@ it('a deck at or below the span limit and an explicitly loaded wider deck cover 
     checkStripUnderRing(fixture, first, options, false);
   }
 });
+
+function widthRoof(model: Model, x: number, z0: number, z1: number, split = false) {
+  const nodes = (split ? [0, 3, 6] : [0, 6]).map(y => {
+    const id = model.nodes.size + 1;
+    model.nodes.set(id, { id, x, y, z: z0 + (z1 - z0) * y / 6 });
+    return id;
+  });
+  const first = model.elements.size + 1;
+  nodes.slice(1).forEach((nodeJ, i) => {
+    const id = first + i;
+    model.elements.set(id, { id, nodeI: nodes[i]!, nodeJ, sectionId: 1, materialId: 1 });
+  });
+  return first;
+}
+
+it.skip('known wrong result: #2282 — a width-loaded roof covers the full strip', () => {
+  for (const [angle, mirror, mesh, width] of [[0, 1, 1, 10], [0.37, 1, 3, 10.5], [1.16, -1, 2, 10.5]] as const) {
+    const fixture = bay(4, 0, 1, mesh, mesh > 1);
+    const { model, physical } = fixture;
+    const first = widthRoof(model, 5, 6, 8, mesh > 1);
+    rotated(model, angle, mirror);
+    for (const options of [automatic, gravity]) {
+      const settings = { ...options, tributaryWidth: width };
+      const layout = gravityLayout(model, settings);
+      expect(layout.widthMembers.map(member => member.elementId)).toEqual([...model.elements.keys()].filter(id => id >= first));
+      expect(layout.pieces.every(piece => !piece.roof)).toBe(true);
+      const result = plan(model, roof, settings);
+      const lower = result.distributed.filter(load => load.elementId < first);
+      expect([...new Set(lower.map(load => load.caseType))].sort()).toEqual(['D', 'L']);
+      const dead = lower.filter(load => load.caseType === 'D');
+      for (const [id, { nodeI, nodeJ }] of model.elements) {
+        if (id >= first) continue;
+        const [xi, yi] = physical.get(nodeI)!;
+        const [xj, yj] = physical.get(nodeJ)!;
+        const loads = dead.filter(load => load.elementId === id);
+        if (yi !== yj || xj <= 4) {
+          expect(loads).toEqual([]);
+          continue;
+        }
+        expect(loads).toHaveLength(1);
+        const [load] = loads;
+        expect(load!.a ?? 0).toBeCloseTo(Math.max(0, 4 - xi), 10);
+        expect(load!.b ?? xj - xi).toBeCloseTo(xj - xi, 10);
+        expect(load!.q).toBeCloseTo(-3, 10);
+        expect(load!.qJ ?? load!.q).toBeCloseTo(-3, 10);
+      }
+      const elements = new Map([...model.elements].filter(([id]) => id < first));
+      checkResponse({ ...fixture, model: { ...model, elements } }, dead, 4, 10, 3);
+    }
+  }
+});
+
+it.skip('known wrong result: #2282 — partial width cover refuses mixed exposure', () => {
+  for (const options of [automatic, gravity]) {
+    for (const [x, width] of [[5, 9.75], [5, 2], [-0.99, 10]] as const) {
+      const { model } = bay(4);
+      widthRoof(model, x, 6, 8);
+      const settings = { ...options, tributaryWidth: width };
+      const result = plan(model, undefined, settings);
+      const key = 'loadPlan.gravity.mixedExposure';
+      expect(result).toMatchObject({ outcome: 'BLOCKED', blockedKeys: [{ key }], distributed: [], nodal: [], surface: [], levels: [] });
+      expect(() => gravityLayout(model, settings)).toThrow(expect.objectContaining({ key }));
+      expect(() => roofWeightFor(model, settings, width, 2)).toThrow(expect.objectContaining({ key }));
+    }
+  }
+});
+
+it('leaves strips exposed when the width footprint only touches them or has zero width', () => {
+  for (const [x, width] of [[-1, 10], [5, 0]] as const) {
+    const { model } = bay(4);
+    widthRoof(model, x, 6, 8);
+    const layout = gravityLayout(model, { ...gravity, tributaryWidth: width });
+    expect(layout.pieces.map(piece => [piece.elementId, piece.a, piece.roof])).toEqual([[1, 4, true], [2, 4, true]]);
+  }
+});
