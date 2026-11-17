@@ -56,7 +56,7 @@ import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength } from '../model/edit/member-split';
+import { segmentBounds, segmentFields, splitElementLoads, memberLoadGeometry } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
@@ -117,7 +117,6 @@ interface Planned {
   exp: VariableExpansion;
   nodes: Array<{ id: number; x: number; y: number; z?: number }>;
   pieces: Array<{ parent: El; k: number; n: number; t0: number; t1: number; piece: VariablePiece; section: Section }>;
-  bounds: Map<number, number[]>;
   /** The joined ends given a node of their own: the node, its helper, and how they are tied. */
   ends: Array<{ parentId: number; node: number; helper: number; tie: AnchorEnd }>;
 }
@@ -242,7 +241,7 @@ export function anchorEndsUnplaced(model: ModelData): number[] {
 
 /** Which members, and every id: from `base`'s highest ids, so the same model always plans alike. */
 function planExpansion(model: ModelData, base: ModelData): Planned {
-  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], bounds: new Map(), ends: [] };
+  const out: Planned = { exp: { members: new Map(), innerNodes: new Set() }, nodes: [], pieces: [], ends: [] };
   const cuts = loadCuts(model);
   const anchored = anchorEnds(model);
   const vars = [...model.elements.values()].filter((e) => isVariableMember(model, e as El) || cuts.has(e.id) || anchored.has(e.id)) as El[];
@@ -251,6 +250,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
   let nextNode = Math.max(maxOf(base.nodes.keys()), maxOf(model.nodes.keys())) + 1;
   let nextElem = Math.max(maxOf(base.elements.keys()), maxOf(model.elements.keys())) + 1;
   let nextSec = Math.max(maxOf(base.sections.keys()), maxOf(model.sections.keys())) + 1;
+  const geometry = memberLoadGeometry(model);
   for (const e of vars) {
     const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
     if (!ni || !nj) continue;
@@ -284,9 +284,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       return id;
     };
     const chain = [endNode('i', e.nodeI, ni), ...inner, endNode('j', e.nodeJ, nj)];
-    const L = e.offset
-      ? flexibleMemberLength(e, ni, nj, model.sections.get(e.sectionId)?.rotation)
-      : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+    const L = geometry.length(e);
     const bounds = segmentBounds(L, ts);
     const pieces: VariablePiece[] = [];
     for (let k = 0; k < n; k++) {
@@ -299,7 +297,6 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       pieces.push(piece);
       out.pieces.push({ parent: e, k, n, t0: fractions[k]!, t1: fractions[k + 1]!, piece, section });
     }
-    out.bounds.set(e.id, bounds);
     out.exp.members.set(e.id, { parentId: e.id, length: L, pieces, innerNodes: inner });
   }
   return out;
@@ -351,10 +348,14 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       connectors = new Map(connectors ?? []).set(id, { id, nodeI: node, nodeJ: helper, ...c } as unknown as ConnectorElement);
     }
   }
+  const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
-    const split = splitElementLoads(loads, m.parentId, planned.bounds.get(m.parentId)!, ids, () => nextLoad++);
+    const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
+    const bounds = partition.bounds(), lengths = partition.lengths;
+    m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }

@@ -1,0 +1,48 @@
+{
+  "id": "generated-member-cuts",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "quantities": [
+    "solve.ok",
+    "collapseFactor",
+    "hinges",
+    "steps",
+    "isMechanism",
+    "unresolved"
+  ],
+  "title": {
+    "en": "Generated member cuts conserve load integrals",
+    "es": "Los cortes generados conservan las integrales de carga",
+    "pt": "Cortes gerados conservam as integrais das cargas",
+    "de": "Erzeugte Stabteilungen erhalten Lastintegrale",
+    "fr": "Les divisions générées conservent les intégrales de charge",
+    "hu": "A generált rúdfelosztás megőrzi a teherintegrálokat",
+    "tr": "Oluşturulan çubuk bölmeleri yük integrallerini korur"
+  },
+  "explanation": {
+    "en": "Rerun analyses that split loaded members. Source cuts now follow generated geometry, so ordinary translated and rotated models solve while load resultants and first moments are conserved. Inconsistent geometry and sub-limit intervals still refuse. Plastic collapse propagates invalid released states unless the engine identifies an orphan rotation and all nodal moments are finite (#2222, #2223). Embedded flat-2D cuts use the same offset-free load geometry for parent and children; true 3D cuts retain flexible geometry. Unavailable rank checks preserve the localized diagnosis. Manual cuts, analysis subdivision and variable-member expansion and recovery now share one model-aware load geometry API. Member-defined distributed loads without explicit endpoints now keep their densities exactly through splits; explicit intervals retain their existing mapping.",
+    "es": "Repita los análisis que dividen barras cargadas. Los cortes siguen la geometría generada: los modelos trasladados y girados se resuelven conservando resultantes y primeros momentos. La geometría inconsistente y los intervalos inferiores al límite se rechazan. El colapso plástico propaga estados liberados inválidos salvo una rotación huérfana identificada por el motor con momentos nodales finitos (#2222, #2223). Los cortes de modelos planos 2D embebidos usan la misma geometría de carga sin excentricidades para la barra original y sus tramos; los cortes 3D conservan la geometría flexible. Si la verificación de rango no está disponible, se conserva el diagnóstico traducido. Los cortes manuales, la subdivisión de análisis y la expansión y recuperación de barras variables comparten ahora una sola API de geometría de cargas adaptada al modelo. Las cargas distribuidas sin extremos explícitos conservan exactamente sus intensidades al dividir barras; los intervalos explícitos mantienen su mapeo.",
+    "pt": "Refaça análises que dividem barras carregadas. Os cortes seguem a geometria gerada: modelos transladados e girados são resolvidos conservando resultantes e primeiros momentos. Geometria inconsistente e intervalos abaixo do limite são recusados. O colapso plástico propaga estados liberados inválidos, exceto uma rotação órfã identificada pelo motor com momentos nodais finitos (#2222, #2223). Cortes de modelos planos 2D incorporados usam a mesma geometria de carga sem excentricidades para a barra original e seus trechos; cortes 3D mantêm a geometria flexível. Verificações de posto indisponíveis preservam o diagnóstico traduzido. Cortes manuais, subdivisão de análise e expansão e recuperação de barras variáveis agora compartilham uma única API de geometria de cargas adaptada ao modelo. Cargas distribuídas sem extremos explícitos mantêm exatamente suas intensidades nas divisões; intervalos explícitos conservam o mapeamento existente.",
+    "de": "Analysen geteilter belasteter Stäbe erneut berechnen. Schnitte folgen der erzeugten Geometrie; verschobene und gedrehte Modelle werden unter Erhaltung von Lastresultierenden und ersten Momenten berechnet. Inkonsistente Geometrie und zu kleine Intervalle werden abgelehnt. Ungültige freigegebene Zustände bleiben Fehler, außer bei einer vom Solver erkannten verwaisten Rotation mit endlichen Knotenmomenten (#2222, #2223). Bei eingebetteten ebenen 2D-Modellen verwenden Ursprungsstab und Teilstäbe dieselbe Lastgeometrie ohne Exzentrizitäten; echte 3D-Teilungen behalten die flexible Geometrie. Nicht verfügbare Rangprüfungen bewahren die übersetzte Diagnose. Manuelle Teilungen, Analyseunterteilungen sowie Erweiterung und Ergebnisrückführung veränderlicher Stäbe verwenden nun dieselbe modellabhängige Lastgeometrie-API. Streckenlasten ohne explizite Intervallenden behalten bei Teilungen ihre Lastdichten exakt; explizite Intervalle behalten ihre bisherige Abbildung.",
+    "fr": "Relancer les analyses divisant des barres chargées. Les coupes suivent la géométrie générée : les modèles translatés et tournés sont résolus en conservant les résultantes et premiers moments. La géométrie incohérente et les intervalles sous la limite restent refusés. Les états libérés invalides restent des erreurs sauf rotation orpheline identifiée par le moteur avec moments nodaux finis (#2222, #2223). Les coupes des modèles plans 2D intégrés utilisent la même géométrie de charge sans excentrement pour la barre initiale et ses tronçons ; les coupes 3D conservent la géométrie flexible. Les vérifications de rang indisponibles conservent le diagnostic traduit. Les coupes manuelles, la subdivision pour analyse et la décomposition et restitution des barres variables partagent désormais une seule API de géométrie des charges adaptée au modèle. Les charges réparties sans extrémités explicites conservent exactement leurs intensités lors des divisions ; les intervalles explicites gardent leur mappage.",
+    "hu": "Újra kell futtatni a terhelt rudakat felosztó számításokat. A metszetek a generált geometriát követik; az eltolt és elforgatott modellek megoldhatók az eredő és első nyomaték megőrzésével. A hibás geometria és a határ alatti intervallum továbbra is elutasított. Az érvénytelen feloldott állapot hiba marad, kivéve a motor által azonosított árva forgást véges csomóponti nyomatékokkal (#2222, #2223). A beágyazott síkbeli 2D-modellek felosztásakor az eredeti rúd és részei azonos, külpontosság nélküli tehergeometriát használnak; a valódi 3D-felosztás megtartja a rugalmas geometriát. A nem elérhető rangellenőrzés megőrzi a lefordított diagnózist. A kézi felosztás, a számítási felosztás és a változó keresztmetszetű rudak felbontása és eredmény-visszaállítása most közös, modellfüggő tehergeometriai API-t használ. A megadott intervallumvégek nélküli megoszló terhek intenzitása a felosztáskor pontosan megmarad; az explicit intervallumok leképezése változatlan.",
+    "tr": "Yüklü çubukları bölen analizleri yeniden çalıştırın. Kesimler oluşturulan geometriyi izler; ötelenmiş ve döndürülmüş modeller yük bileşkeleri ve birinci momentleri korunarak çözülür. Tutarsız geometri ve sınır altındaki aralıklar reddedilir. Motorun belirlediği yetim dönme ve sonlu düğüm momentleri dışında geçersiz serbest bırakılmış durumlar hata olarak iletilir (#2222, #2223). Gömülü düzlemsel 2B modellerde ana çubuk ve parçaları aynı eksantrisitesiz yük geometrisini kullanır; gerçek 3B bölmeler esnek geometriyi korur. Kullanılamayan rank kontrolleri çevrilmiş tanıyı korur. Elle kesimler, analiz alt bölümleri ve değişken çubukların genişletilmesi ve sonuçlarının geri birleştirilmesi artık modele göre çalışan tek bir yük geometrisi API’sini paylaşır. Açık aralık uçları olmayan yayılı yükler bölmelerde yoğunluklarını tam olarak korur; açık aralıklar mevcut eşlemeyi korur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-generated-member-cuts.md",
+    "heading": "Generated member cuts and invalid plastic states (2026-11-16)"
+  },
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "memberLoads",
+      "nodalMoments"
+    ]
+  }
+}

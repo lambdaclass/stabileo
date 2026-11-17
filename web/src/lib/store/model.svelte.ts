@@ -47,7 +47,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
-import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { splitElementLoads, segmentFields, memberLoadGeometry } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
@@ -59,7 +59,7 @@ import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ 
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
-import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -1447,12 +1447,12 @@ function createModelStore() {
    * whose cuts no section can name is not cut (null), and `variableCutRefused` says why.
    */
   /** A section of the model equal to `data` in what it is (geometry, rotation, shear areas), or a new one. */
-  function sectionLike(data: Omit<Section, 'id'>): number {
+  function sectionLike(data: Omit<Section, 'id'>, sections: Map<number, Section>, ids: typeof nextId): number {
     const what = (s: Omit<Section, 'id'>) => JSON.stringify([s.built ?? null, s.drawn ?? null, s.rotation ?? 0, s.shearAreas ?? null]);
     const key = what(data);
-    for (const s of model.sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
-    const id = nextId.section++;
-    model.sections = new Map(model.sections).set(id, resolveOnCreate({ id, ...data }));
+    for (const s of sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
+    const id = ids.section++;
+    sections.set(id, resolveOnCreate({ id, ...data }));
     return id;
   }
 
@@ -1508,42 +1508,42 @@ function createModelStore() {
       : [];
     if (cutSections.some((c) => c === null)) return null;
 
+    const nodes = new Map(model.nodes);
+    const elements = new Map(model.elements);
+    const sections = new Map(model.sections);
+    const ids = { ...nextId };
+    const hasZ = ni.z !== undefined || nj.z !== undefined;
+    const fractions = [0, ...cuts, 1];
+    const nodeIds = cutAt.map((k) => {
+      if (k.id !== null) return k.id;
+      const id = ids.node++, p = pointAt(k.t);
+      nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
+      return id;
+    });
+    const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
+    const count = chain.length - 1;
+    const segmentIds = Array.from({ length: count }, (_, k) =>
+      k === 0 && opts.keepOriginalId ? elementId : ids.element++);
+    const original = JSON.parse(JSON.stringify(elem)) as Element;
+    if (!opts.keepOriginalId) elements.delete(elementId);
+    const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!, sections, ids)), variable.sectionJ] : [];
+    for (let k = 0; k < count; k++) {
+      elements.set(segmentIds[k]!, {
+        id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
+        ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
+      });
+    }
+    const { bounds, lengths, points } = memberLoadGeometry({ ...model, sections }).partition(original, nodes, elements, segmentIds);
+    const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths, points);
+
     if (!_undoBatching) _pushUndo?.();
     const outerBatching = _undoBatching;
     _undoBatching = true;
     try {
-      const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const L = elem.offset && !shouldEmbedFlat2DModelIn3D(model)
-        ? flexibleMemberLength(elem, ni, nj, model.sections.get(elem.sectionId)?.rotation)
-        : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
-      const fractions = [0, ...cuts, 1];
-      const nodeIds: number[] = [];
-      for (const k of cutAt) {
-        const p = pointAt(k.t);
-        let id = k.id;
-        if (id === null) {
-          id = nextId.node++;
-          model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
-        }
-        nodeIds.push(id);
-      }
-      const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
-      const count = chain.length - 1;
-      const segmentIds = Array.from({ length: count }, (_, k) =>
-        k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
-      const original = JSON.parse(JSON.stringify(elem)) as Element;
-      if (!opts.keepOriginalId) model.elements.delete(elementId);
-      // A member of variable section: end I's section, each cut's (an equal one the model has, or a new one), end J's.
-      const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!)), variable.sectionJ] : [];
-      for (let k = 0; k < count; k++) {
-        model.elements.set(segmentIds[k]!, {
-          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
-          ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
-        });
-      }
-
-      const bounds = segmentBounds(L, cuts);
-      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
+      Object.assign(nextId, ids);
+      model.nodes = nodes;
+      model.elements = elements;
+      model.sections = sections;
       model.loads = [...kept, ...added];
 
       // A group that held the member now holds every segment of it.

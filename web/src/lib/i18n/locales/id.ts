@@ -1,6 +1,15 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'engine.memberLoad.geometryOrdering': "Urutan geometri batang yang dihasilkan tidak valid",
+  'engine.memberLoad.geometryLine': "Geometri batang yang dihasilkan menyimpang dari garis asal",
+  'engine.memberLoad.invalidGeometry': "Geometri batang yang dihasilkan tidak valid",
+  'engine.memberLoad.geometryPartition': "Geometri yang dihasilkan tidak membagi batang asal secara lengkap",
+  'engine.memberLoad.invalidPiece': "Segmen beban batang yang dihasilkan tidak valid",
+  'engine.memberLoad.geometrySpan': "Elemen {id}: geometri yang dihasilkan mengubah bentang asal {span} menjadi panjang {length}; beban terdistribusi tidak dapat diskalakan ulang",
+  "engine.memberLoad.invalidInterval": "Elemen {id}: interval beban terdistribusi [{a}, {b}] tidak valid pada panjang {length}",
+  "engine.memberLoad.geometryLimit": "Elemen {id}: interval beban terdistribusi [{a}, {b}] pada panjang {length} berada di bawah batas geometri relatif {limit}",
+
   "loadPlan.blocked.concentratedRule": "{occupancy} memerlukan pemeriksaan beban terpusat menurut CIRSOC 101 {article}. Posisi paling merugikan tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
   "loadPlan.blocked.concentratedLive": "{occupancy} memerlukan pemeriksaan beban hidup terpusat {force} kN menurut CIRSOC 101 §4.4. Posisi paling merugikan dan alternatif beban merata/terpusat tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 mensyaratkan aksi atap terpusat pada posisi paling merugikan, terpisah dari beban hidup atap §4.8. Pemeriksaan ini tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi atap secara manual.",

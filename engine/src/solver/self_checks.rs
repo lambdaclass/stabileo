@@ -85,7 +85,8 @@ fn statics(eq: &EquilibriumSummary, reactions: impl Iterator<Item = Vec<f64>>, d
     ])
 }
 
-pub(super) fn static_2d(r: &mut AnalysisResults, constraint_resultant: &[f64]) -> Result<(), String> {
+pub(super) fn static_2d(r: &mut AnalysisResults, constraint_resultant: &[f64], input: &SolverInput, loads: &[SolverLoad]) -> Result<(), String> {
+    if let Some(eq) = &mut r.equilibrium { super::applied_loads::replace(eq, super::applied_loads::plane(input, loads)); }
     if let Some(eq) = &r.equilibrium {
         let relative_residual = r.structured_diagnostics.iter()
             .find(|d| d.phase.as_deref() == Some("self_check:static_residual"))
@@ -96,7 +97,8 @@ pub(super) fn static_2d(r: &mut AnalysisResults, constraint_resultant: &[f64]) -
     Ok(())
 }
 
-pub(super) fn static_3d(r: &mut AnalysisResults3D, constraint_resultant: &[f64]) -> Result<(), String> {
+pub(super) fn static_3d(r: &mut AnalysisResults3D, constraint_resultant: &[f64], input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<(), String> {
+    if let Some(eq) = &mut r.equilibrium { super::applied_loads::replace(eq, super::applied_loads::space(input, loads)); }
     if let Some(eq) = &r.equilibrium {
         let relative_residual = r.structured_diagnostics.iter()
             .find(|d| d.phase.as_deref() == Some("self_check:static_residual"))
@@ -509,5 +511,30 @@ mod tests {
         let mut checks = ModalChecks::default();
         checks.check(&[1.0,0.0], 1.0, &[1e308,0.0], &[1e308,0.0], &[1e308,0.0]).unwrap();
         assert!(checks.check(&[f64::NAN,1.0], 1.0, &[0.0,1.0], &[0.0,1.0], &[0.0,1.0]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod narrow_span_2222 {
+    use super::*;
+    #[test]
+    fn issue_2222_planted_dropped_load_cannot_balance_itself() {
+        let input: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/narrow-span-2222.json")).unwrap();
+        for q in [f64::MAX/4.0,f64::MAX] {
+            let mut boundary=input.clone();
+            boundary.loads=vec![SolverLoad::Distributed(SolverDistributedLoad {element_id:1,q_i:q,q_j:q,a:Some(0.0),b:Some(3.0)})];
+            assert_eq!(crate::solver::linear::validate_loads_2d(&boundary,&boundary.loads).is_ok(),q<f64::MAX);
+            let boundary=crate::metamorphic::planes::embed_2d(&boundary,crate::metamorphic::planes::Plane::XY).unwrap();
+            assert_eq!(crate::solver::linear::validate_loads_3d(&boundary,&boundary.loads).is_ok(),q<f64::MAX);
+        }
+        let dofs = crate::solver::dof::DofNumbering::build_2d(&input);
+        let zero = vec![0.0; dofs.n_total];
+        let eq = crate::solver::reaction_recovery::balance_2d(&input,&dofs,&zero,&zero,&[],&[],1e-9);
+        assert!(statics(&eq, std::iter::empty(), 2, 0.0).unwrap_err().contains("static_balance"));
+        let input = crate::metamorphic::planes::embed_2d(&input,crate::metamorphic::planes::Plane::XY).unwrap();
+        let dofs = crate::solver::dof::DofNumbering::build_3d(&input);
+        let zero = vec![0.0; dofs.n_total];
+        let eq = crate::solver::reaction_recovery::balance_3d(&input,&dofs,&zero,&zero,&[],&[],1e-9);
+        assert!(statics(&eq, std::iter::empty(), 3, 0.0).unwrap_err().contains("static_balance"));
     }
 }

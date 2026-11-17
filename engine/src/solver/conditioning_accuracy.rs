@@ -458,7 +458,8 @@ mod tests {
             if which != index { continue; }
             let mut variants = vec![load.clone()];
             if which == 0 {
-                for span in [1e-15*(1.0-1e-4), 1e-15*(1.0+1e-4), 2.0] {
+                let minimum_span = 2.0 * crate::element::MEMBER_GEOMETRY_LIMIT;
+                for span in [1e-15*(1.0-1e-4), 1e-15*(1.0+1e-4), minimum_span.next_down(), minimum_span, minimum_span.next_up(), 2.0] {
                     let mut v = load.clone();
                     v["data"]["a"] = 0.0.into();
                     v["data"]["b"] = span.into();
@@ -480,6 +481,19 @@ mod tests {
             let mut input = beam(false);
             input.elements.get_mut("1").unwrap().elem_type = kind.into();
             input.loads = serde_json::from_value(serde_json::json!([load])).unwrap();
+            if let Some((a, b)) = input.loads.iter().find_map(|load| match load {
+                SolverLoad::Distributed(d) => Some((d.a.unwrap_or(0.0), d.b.unwrap_or(2.0))),
+                _ => None,
+            }) {
+                if b - a < 2.0 * crate::element::MEMBER_GEOMETRY_LIMIT {
+                    assert!(super::super::linear::solve_2d(&input).unwrap_err().contains("relative geometry limit"));
+                    for plane in [crate::metamorphic::planes::Plane::XZ, crate::metamorphic::planes::Plane::XY, crate::metamorphic::planes::Plane::YZ] {
+                        let spatial = crate::metamorphic::planes::embed_2d(&input, plane).unwrap();
+                        assert!(super::super::linear::solve_3d(&spatial).unwrap_err().contains("relative geometry limit"));
+                    }
+                    continue;
+                }
+            }
             let mut r = super::super::linear::solve_2d(&input).unwrap();
             let dof = DofNumbering::build_2d(&input);
             if dimension == 2 {

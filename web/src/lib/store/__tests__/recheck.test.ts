@@ -424,6 +424,7 @@ describe('edited projects with older provenance', () => {
     }
     expect(combined.noticeOpen).toBe(true);
     expect(combined.stale).toBe(true);
+    expect(store.assessment?.changes.filter(c => c.id === 'compensated-applied-force-totals')).toHaveLength(1);
     const withoutBeamSpacing = module.assessProject(snapshot, { ...oldStamp(), resultsVersion: 30 }, 'pro', {
       ...precedingRegistry,
       changes: precedingRegistry.changes.filter(c => c.id !== 'fixed-beam-directional-spacing'),
@@ -432,7 +433,7 @@ describe('edited projects with older provenance', () => {
       ...withoutBeamSpacing.changes.map(c => c.id), 'fixed-beam-directional-spacing',
     ].sort());
     expect(store.assessment?.changes.map(c => c.id).sort()).toEqual([
-      'active-combination-completeness', 'column-tie-shear-spacing', 'complete-concurrent-demands',
+      'active-combination-completeness', 'column-tie-shear-spacing', 'compensated-applied-force-totals', 'complete-concurrent-demands',
       'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands',
       'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'directional-stirrup-legs',
       'fail-closed-ratios', 'fixed-beam-directional-spacing', 'fixed-reinforcement-practical-maximum',
@@ -454,7 +455,7 @@ describe('edited projects with older provenance', () => {
   });
 
   const openingNoticeIds = (registry = RESULT_CHANGES) => [
-    'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+    'compensated-applied-force-totals', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
     'safety-containment-diagnostics', 'harmonic-modal-residual-checked',
     'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency',
     'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'linear-stability-refusals', 'linear-pin-coupling', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
@@ -487,7 +488,7 @@ describe('edited projects with older provenance', () => {
     await vi.waitFor(() => expect(store.pending).toBe(false));
     const received = store.assessment?.changes.map(c => c.id);
     const expected = openingNoticeIds(mergedRegistry);
-    const tail = ['connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
+    const tail = ['compensated-applied-force-totals', 'connector-arm-mechanism-3d-refused', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness']
       .map(id => mergedRegistry.changes.find(c => c.id === id)!)
       .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
       .map(c => c.id);
@@ -496,9 +497,9 @@ describe('edited projects with older provenance', () => {
         .map(id => mergedRegistry.changes.find(c => c.id === id)!)
         .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
         .map(c => c.id);
-      expect(expected.slice(-10)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
+      expect(expected.slice(-11)).toEqual([...combinedTail, 'linear-stability-refusals', 'linear-pin-coupling']);
     } else {
-    expect(expected.slice(-9)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
+    expect(expected.slice(-10)).toEqual([...tail, 'linear-stability-refusals', 'linear-pin-coupling']);
     }
     expect(received, JSON.stringify({ expected, received }, null, 2)).toEqual(expected);
   });
