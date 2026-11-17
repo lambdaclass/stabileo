@@ -11,7 +11,6 @@ import { initSolver, solve, solve3D, solvePDelta, solvePDelta3D, solveCorotation
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { modelStore.clear(); historyStore.clear(); });
 
-const wrong = process.env.RUN_KNOWN_WRONG === '2223' ? it : it.skip;
 type Entry = 'analysis' | 'variable' | 'pointCut';
 
 function fixture(entry: Entry, offset: number, spatial = false, frame: 'global' | 'local' = 'global', a = 0, b = spatial ? 6 - 2 * offset : 6) {
@@ -40,8 +39,7 @@ function transform(entry: Entry): ModelData {
 }
 
 for (const offset of [0, 0.25]) for (const partial of [false, true]) for (const frame of ['global', 'local'] as const) for (const entry of ['analysis', 'variable', 'pointCut'] as const) {
-  const check = offset === 0 ? it : wrong;
-  check(`known wrong result: #2223 ${entry} ${frame} offset=${offset} partial=${partial} preserves planar loads through 2D and embedded 3D linear and nonlinear solves`, () => {
+  it(`known wrong result: #2223 ${entry} ${frame} offset=${offset} partial=${partial} preserves planar loads through 2D and embedded 3D linear and nonlinear solves`, () => {
     const { i, id, a, b } = fixture(entry, offset, false, frame, partial ? 1 : 0, partial ? 5 : 6);
     expect(shouldEmbedFlat2DModelIn3D(modelStore.model)).toBe(true);
     const before = JSON.stringify(modelStore.snapshot());
@@ -99,8 +97,7 @@ for (const entry of ['analysis', 'variable', 'pointCut'] as const) for (const pa
 });
 
 for (const entry of ['analysis', 'variable'] as const) for (const b of [5.5 - 2 ** -50, 5.5, 5.5 + 2 ** -50, 6, 6 + 2 ** -50]) {
-  const check = b <= 6 ? wrong : it;
-  check(`known wrong result: #2223 ${entry} embedded load endpoint ${b} uses the node-to-node boundary`, () => {
+  it(`known wrong result: #2223 ${entry} embedded load endpoint ${b} uses the node-to-node boundary`, () => {
     fixture(entry, 0.25, false, 'global', 0, b);
     const before = JSON.stringify(modelStore.snapshot());
     if (b > 6) expect(() => transform(entry)).toThrow(/interval/);
@@ -108,6 +105,20 @@ for (const entry of ['analysis', 'variable'] as const) for (const b of [5.5 - 2 
       const child = transform(entry);
       const input = buildSolverInput2D(child, false)!;
       expect(solve(input).reactions[0].rz).toBeCloseTo(3 * b, 10);
+    }
+    expect(JSON.stringify(modelStore.snapshot())).toBe(before);
+  });
+}
+
+for (const entry of ['analysis', 'variable', 'pointCut'] as const) for (const b of [5.5 - 2 ** -50, 5.5, 5.5 + 2 ** -50, 6]) {
+  it(`#2223 ${entry} true 3D load endpoint ${b} retains the flexible boundary`, () => {
+    fixture(entry, 0.25, true, 'global', 0, b);
+    const before = JSON.stringify(modelStore.snapshot());
+    if (b > 5.5) expect(() => transform(entry)).toThrow(/interval/);
+    else {
+      const child = transform(entry);
+      const input = buildSolverInput3D(child, false)!;
+      expect(solve3D(input).reactions[0].fz).toBeCloseTo(3 * b, 10);
     }
     expect(JSON.stringify(modelStore.snapshot())).toBe(before);
   });

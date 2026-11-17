@@ -45,7 +45,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
-import { splitElementLoads, segmentFields, memberLoadBounds, memberLoadLength } from '../model/edit/member-split';
+import { splitElementLoads, segmentFields, memberLoadGeometry } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
@@ -57,7 +57,7 @@ import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ 
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
 import { t, tp } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
-import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -1510,7 +1510,6 @@ function createModelStore() {
     const sections = new Map(model.sections);
     const ids = { ...nextId };
     const hasZ = ni.z !== undefined || nj.z !== undefined;
-    const embed3D = shouldEmbedFlat2DModelIn3D(model);
     const fractions = [0, ...cuts, 1];
     const nodeIds = cutAt.map((k) => {
       if (k.id !== null) return k.id;
@@ -1531,13 +1530,7 @@ function createModelStore() {
         ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
       });
     }
-    const loadGeometry = (member: Element) => embed3D ? { ...member, offset: undefined } : member;
-    const loadElements = new Map(segmentIds.map(id => [id, loadGeometry(elements.get(id)!)]));
-    const bounds = () => memberLoadBounds(loadGeometry(original), nodes, loadElements, segmentIds, sections.get(elem.sectionId)?.rotation);
-    const lengths = segmentIds.map((sid) => {
-      const child = loadElements.get(sid)!;
-      return memberLoadLength(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, sections.get(child.sectionId)?.rotation);
-    });
+    const { bounds, lengths } = memberLoadGeometry({ ...model, sections }).partition(original, nodes, elements, segmentIds);
     const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths);
 
     if (!_undoBatching) _pushUndo?.();

@@ -37,6 +37,8 @@
  * Pure: no store.
  */
 
+import type { ModelData } from '../../engine/solver-service';
+import { shouldEmbedFlat2DModelIn3D } from '../../engine/model-embedding';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import { offsetVecToSolver } from '../../engine/member-offsets';
 
@@ -250,32 +252,29 @@ function flexibleMemberEnds(
   return [a, b] as const;
 }
 
-export function flexibleMemberLength(...args: Parameters<typeof flexibleMemberEnds>): number {
-  const [a, b] = flexibleMemberEnds(...args);
-  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-}
-
-export function memberLoadBounds(
-  elem: Element,
-  nodes: ReadonlyMap<number, { id: number; x: number; y: number; z?: number }>,
-  elements: ReadonlyMap<number, Element>,
-  ids: readonly number[],
-  sectionRotation = 0,
-): number[] {
-  const length = memberLoadLength(elem, nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, sectionRotation);
-  const source = flexibleMemberEnds(elem, nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, sectionRotation);
-  const ends = ids.map(id => {
-    const child = elements.get(id)!;
-    return flexibleMemberEnds(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, sectionRotation);
-  });
-  return generatedMemberBounds(length, ends.map(([a, b]) => {
+export function memberLoadGeometry(model: ModelData) {
+  const embedded = shouldEmbedFlat2DModelIn3D(model);
+  const ends = (elem: Element, nodes: ModelData['nodes']) => flexibleMemberEnds(
+    embedded ? { ...elem, offset: undefined } : elem,
+    nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, model.sections.get(elem.sectionId)?.rotation,
+  );
+  const measuredLength = ([a, b]: ReturnType<typeof flexibleMemberEnds>) => {
     const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
-  }), [source[0], ...ends.flat(), source[1]].map(p => [p.x, p.y, p.z]));
-}
-
-export function memberLoadLength(...args: Parameters<typeof flexibleMemberEnds>): number {
-  const [a, b] = flexibleMemberEnds(...args);
-  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  };
+  return {
+    length: (elem: Element) => measuredLength(ends(elem, model.nodes)),
+    partition: (elem: Element, nodes: ModelData['nodes'], elements: ReadonlyMap<number, Element>, ids: readonly number[]) => {
+      const children = ids.map(id => ends(elements.get(id)!, nodes));
+      const lengths = children.map(measuredLength);
+      return {
+        lengths,
+        bounds: () => {
+          const source = ends(elem, nodes);
+          return generatedMemberBounds(measuredLength(source), lengths,
+            [source[0], ...children.flat(), source[1]].map(p => [p.x, p.y, p.z]));
+        },
+      };
+    },
+  };
 }

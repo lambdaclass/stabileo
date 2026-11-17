@@ -1,3 +1,5 @@
+import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
+export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { validateMemberLoadInterval } from './member-span-loads';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
@@ -56,7 +58,6 @@ import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
   projectNodeToScene,
-  shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
 
 import { loadMemberId, loadNodeId } from '../store/model.svelte';
@@ -117,19 +118,6 @@ export interface ModelData {
   analysis?: import('./analysis-settings').AnalysisSettings;
   /** Named groups, for a self-weight load that covers a group. */
   groups?: Map<number, { id: number; members: { elements?: number[]; plates?: number[]; quads?: number[] } }>;
-}
-
-/** Exported so UI affordances (e.g. the member-offset editor) can tell when a
- *  flat 2D-typed model will solve through the embedding — where offsets are
- *  intentionally NOT expanded — instead of claiming an analysis effect. */
-export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
-  return shouldProjectModelToXZ({
-    nodes: model.nodes.values(),
-    supports: model.supports.values(),
-    loads: model.loads,
-    plateCount: model.plates?.size ?? 0,
-    quadCount: model.quads?.size ?? 0,
-  });
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {

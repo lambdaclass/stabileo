@@ -56,7 +56,7 @@ import type { ModelData } from './solver-service';
 import type { AnalysisResults3D, ElementForces3D, Displacement3D, FullEnvelope3D, EnvelopeDiagramData3D, Constraint3D, ConnectorElement } from './types-3d';
 import type { ElementBucklingData3D } from './result-types';
 import type { Element, Section } from '../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads, flexibleMemberLength, memberLoadBounds, memberLoadLength } from '../model/edit/member-split';
+import { segmentBounds, segmentFields, splitElementLoads, memberLoadGeometry } from '../model/edit/member-split';
 import { variableSectionPlan, isVariableMember as solvedAsVariable } from '../section/variable';
 import { eiOf, type ElementEI } from './member-deflection';
 import { memberFrame3D, takesNoBending, type Vec3 } from './member-loads';
@@ -250,6 +250,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
   let nextNode = Math.max(maxOf(base.nodes.keys()), maxOf(model.nodes.keys())) + 1;
   let nextElem = Math.max(maxOf(base.elements.keys()), maxOf(model.elements.keys())) + 1;
   let nextSec = Math.max(maxOf(base.sections.keys()), maxOf(model.sections.keys())) + 1;
+  const geometry = memberLoadGeometry(model);
   for (const e of vars) {
     const ni = model.nodes.get(e.nodeI), nj = model.nodes.get(e.nodeJ);
     if (!ni || !nj) continue;
@@ -283,9 +284,7 @@ function planExpansion(model: ModelData, base: ModelData): Planned {
       return id;
     };
     const chain = [endNode('i', e.nodeI, ni), ...inner, endNode('j', e.nodeJ, nj)];
-    const L = e.offset
-      ? flexibleMemberLength(e, ni, nj, model.sections.get(e.sectionId)?.rotation)
-      : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
+    const L = geometry.length(e);
     const bounds = segmentBounds(L, ts);
     const pieces: VariablePiece[] = [];
     for (let k = 0; k < n; k++) {
@@ -349,14 +348,12 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
       connectors = new Map(connectors ?? []).set(id, { id, nodeI: node, nodeJ: helper, ...c } as unknown as ConnectorElement);
     }
   }
+  const geometry = memberLoadGeometry({ ...model, sections });
   const renamed = new Map<number, number[]>();
   for (const m of exp.members.values()) {
     const ids = m.pieces.map((p) => p.id);
-    const lengths = ids.map((id) => {
-      const child = elements.get(id)!;
-      return memberLoadLength(child, nodes.get(child.nodeI)!, nodes.get(child.nodeJ)!, model.sections.get(child.sectionId)?.rotation);
-    });
-    const bounds = memberLoadBounds(model.elements.get(m.parentId)!, nodes, elements, ids, model.sections.get(model.elements.get(m.parentId)!.sectionId)?.rotation);
+    const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
+    const bounds = partition.bounds(), lengths = partition.lengths;
     m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
     const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths);
     loads = [...split.kept, ...split.added];
