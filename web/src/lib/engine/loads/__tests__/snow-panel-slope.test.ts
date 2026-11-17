@@ -51,15 +51,17 @@ describe('the snow codes read the panel at the roof slope', () => {
     model: shed(), tributaryWidth: 1, gravity: { mode: 'panels' }, codeInputs,
     snow: { enabled: true, pg: 1, source: 'site', terrain: 'C', exposure: 'partial', thermal: 'normal', category: 'II', roofKind: 'mono', slippery, partial: false } as LoadPlanInput['snow'],
   }));
-  /** The balanced snow per m² of plan on the eaves' roof pieces. */
+  /** The balanced snow per m² of plan on the eaves' roof pieces: every piece loaded, and at one intensity. */
   const onPanels = (p: ReturnType<typeof buildLoadPlan>) => {
     const pieces = layoutOf().pieces.filter((x) => x.roof && x.wI > 1e-6);
+    expect(pieces.length).toBeGreaterThan(0);
     const s = p.cases.findIndex((c) => c.type === 'S');
     const ratios = pieces.map((pc) => {
       const d = p.distributed.find((x) => x.caseIndex === s && x.elementId === pc.elementId && (x.a ?? 0) === (pc.a ?? 0) && Math.abs(x.q) > 0);
-      return d ? -d.q / pc.wI : NaN;
-    }).filter(Number.isFinite);
-    expect(ratios.length).toBeGreaterThan(0);
+      expect(d, `roof piece on element ${pc.elementId} at a = ${pc.a ?? 0}`).toBeDefined();
+      return -d!.q / pc.wI;
+    });
+    for (const r of ratios) expect(r).toBeCloseTo(ratios[0]!, 9);
     return ratios[0]!;
   };
   it('CIRSOC 104: Cs of a slippery roof at the roof slope', () => {
