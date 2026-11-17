@@ -31,9 +31,9 @@ different reactions, displacements and member forces after a preset is changed.
 A correct explicit support continues to reach the same solver. The change is
 in web model preparation. Native Rust receives explicit restraint booleans.
 
-The recheck entry covers 3D projects with a roller or a stored restraint mask.
-A stale mask can persist on a named fixed, pinned or spring support, so the
-current presence of a roller alone cannot identify every affected model. Review
+The recheck entry covers 3D projects with a roller or a stored restraint mask
+on a named preset. A stale mask can persist on a named fixed, pinned or spring
+support. A mask on `custom3d` is the definition of the support itself. Review
 the recorded bearing directions and rerun analysis, combinations and design
 after editing the supports.
 
@@ -53,3 +53,28 @@ nonlinear input building, direct sync and async solves, and sequential and
 parallel combination entry points. Node uses the existing fallback for browser
 workers. The plane control solves direct and combination cases and compares the
 embedded direct reactions.
+
+## Plane rollers follow quarter-turn edits
+
+Round 7 of #2277 corrects how plane geometry and support restraints are carried
+before solving. A plane `rollerZ` restrains X. After a quarter-turn in the plane,
+a force applied along the rotated restrained axis is resisted entirely by the
+roller. The branch previously kept the original restraint and returned a
+reaction along X. On main, the old upright-copy path could instead turn this
+bearing into a fully restrained support. The plane edit now exchanges the
+named roller axes. A model
+shown upright in a 3D workspace is materialized into XZ before the copy is
+captured, so the ordinary space transform carries its explicit restraint mask.
+A genuinely spatial bare `rollerZ` keeps its unresolved name and the solver's
+refusal still applies. An off-axis turn a named support cannot encode reports
+the dropped support.
+
+The results record flags plane projects with a bare `rollerZ` for review of
+previous edits. Saved records do not carry rotation history. The entry declares
+no numerical differences for the same stored model, because the correction
+changes the edit that produces the model.
+
+Fixture replay also remaps a local support's member reference before insertion
+and refuses a reference missing from the fixture. A preset change clears the
+old mask and axes as defaults and applies axes explicitly supplied in the edit.
+Single and bulk support placement use the same rule for explicit axes.

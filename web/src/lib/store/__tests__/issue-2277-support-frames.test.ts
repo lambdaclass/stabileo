@@ -11,7 +11,6 @@ import { copyTransformed, insertFragment } from '../../model/edit/transformed-co
 import { transformInPlace } from '../../model/edit/transform-in-place';
 import { loadFixture, type FixtureLoader, type JSONModel } from '../../templates/load-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
 const noRestraints = { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false };
 
 function supportAt(nodeId: number) {
@@ -25,6 +24,9 @@ beforeEach(() => {
   modelStore.clear();
 });
 
+const loadCase = { id: 1, type: 'D' as const, name: 'Applied load' };
+const combination = { id: 1, name: 'Applied load only', factors: [{ caseId: loadCase.id, factor: 1 }] };
+
 function bearingModel() {
   const fixed = modelStore.addNode(0, 0);
   const bearing = modelStore.addNode(2, 1);
@@ -35,7 +37,7 @@ function bearingModel() {
 }
 
 for (const operation of ['copy', 'detached copy', 'in place'] as const) {
-  regression(`known wrong result: #2277 a plane quarter-turn carries the bearing reactions (${operation})`, async () => {
+  it(`#2277 a plane quarter-turn carries the bearing reactions (${operation})`, async () => {
     const source = bearingModel();
     modelStore.addNodalLoad(source.bearing, 1, 0);
     const before = validateAndSolve2D(modelStore.model);
@@ -55,10 +57,11 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
     const m = modelStore.model;
     const direct = validateAndSolve2D(m);
     const asyncDirect = await validateAndSolve2DAsync(m);
-    const cases = solveCombinations2D(m, m.loadCases, m.combinations);
+    const cases = solveCombinations2D(m, [loadCase], [combination]);
     if (!cases || typeof cases === 'string') throw new Error(String(cases));
-    expect(cases.perCase.size).toBeGreaterThan(0);
-    for (const result of [direct, asyncDirect, ...cases.perCase.values()]) {
+    expect(cases.perCase.size).toBe(1);
+    expect(cases.perCombo.size).toBe(1);
+    for (const result of [direct, asyncDirect, ...cases.perCase.values(), ...cases.perCombo.values()]) {
       if (!result || typeof result === 'string') throw new Error(String(result));
       const reaction = result.reactions.find(r => r.nodeId === bearing)!;
       expect(reaction.rx).toBeCloseTo(0, 9);
@@ -71,7 +74,7 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
 }
 
 for (const nonlinear of [false, true]) {
-  regression(`known wrong result: #2277 a standing plane copy carries the bearing through an XZ quarter-turn (nonlinear=${nonlinear})`, async () => {
+  it(`#2277 a standing plane copy carries the bearing through an XZ quarter-turn (nonlinear=${nonlinear})`, async () => {
     const source = bearingModel();
     uiStore.analysisMode = 'pro';
     uiStore.useUpright2DIn3DPresentation();
@@ -88,13 +91,15 @@ for (const nonlinear of [false, true]) {
     expect(hasNonlinearBehaviour(m)).toBe(nonlinear);
     const direct = validateAndSolve3D(m);
     const asyncDirect = await validateAndSolve3DAsync(m);
-    const cases = solveCombinations3D(m, m.loadCases, m.combinations);
-    const parallel = await solveCombinations3DParallel(m, m.loadCases, m.combinations);
+    const cases = solveCombinations3D(m, [loadCase], [combination]);
+    const parallel = await solveCombinations3DParallel(m, [loadCase], [combination]);
     if (!cases || typeof cases === 'string') throw new Error(String(cases));
     if (!parallel || typeof parallel === 'string') throw new Error(String(parallel));
-    expect(cases.perCase.size).toBeGreaterThan(0);
+    expect(cases.perCase.size).toBe(1);
+    expect(cases.perCombo.size).toBe(1);
     expect(parallel.perCase.size).toBe(cases.perCase.size);
-    for (const result of [direct, asyncDirect, ...cases.perCase.values(), ...parallel.perCase.values()]) {
+    expect(parallel.perCombo.size).toBe(cases.perCombo.size);
+    for (const result of [direct, asyncDirect, ...cases.perCase.values(), ...cases.perCombo.values(), ...parallel.perCase.values(), ...parallel.perCombo.values()]) {
       if (!result || typeof result === 'string') throw new Error(String(result));
       const reaction = result.reactions.find(r => r.nodeId === bearing)!;
       expect(reaction.fx).toBeCloseTo(0, 9);
@@ -118,7 +123,7 @@ function localBearing(elementId: number | undefined): JSONModel {
 }
 
 for (const mode of ['2d', '3d', 'pro'] as const) {
-  regression(`known wrong result: #2277 ${mode} fixture replay binds the local support to the replayed member`, async () => {
+  it(`#2277 ${mode} fixture replay binds the local support to the replayed member`, async () => {
     uiStore.analysisMode = mode;
     const fixture = localBearing(1);
     await modelStore.loadExample(fixture.name, async () => fixture);
@@ -139,7 +144,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) {
 }
 
 for (const reference of [undefined, 3]) {
-  regression(`known wrong result: #2277 fixture replay rejects an unresolved local member (${reference}) before edits`, async () => {
+  it(`#2277 fixture replay rejects an unresolved local member (${reference}) before edits`, async () => {
     const source = bearingModel();
     const api = modelStore.fixtureApi() as unknown as FixtureLoader;
     const fixture = localBearing(reference);
@@ -153,7 +158,7 @@ for (const reference of [undefined, 3]) {
 
 for (const mode of ['3d', 'pro'] as const) {
   for (const type of ['spring3d', 'rollerY'] as const) {
-    regression(`known wrong result: #2277 ${mode} ${type} keeps axes supplied in the preset edit`, () => {
+    it(`#2277 ${mode} ${type} keeps axes supplied in the preset edit`, () => {
       const { fixed, bearing, member } = bearingModel();
       const other = modelStore.addElement(fixed, modelStore.addNode(0, 0, 2));
       uiStore.analysisMode = mode;
@@ -171,11 +176,25 @@ for (const mode of ['3d', 'pro'] as const) {
   }
 }
 
-regression('known wrong result: #2277 roller placement keeps axes explicitly supplied with the preset', () => {
-  const { bearing, member } = bearingModel();
-  uiStore.analysisMode = 'pro';
-  modelStore.addSupport(bearing, 'rollerY', undefined, { dofFrame: 'local', dofLocalElementId: member });
-  expect(supportAt(bearing)).toMatchObject({ dofFrame: 'local', dofLocalElementId: member });
-  modelStore.addSupports([bearing], 'rollerY', undefined, { dofFrame: 'local', dofLocalElementId: member });
-  expect(supportAt(bearing)).toMatchObject({ dofFrame: 'local', dofLocalElementId: member });
-});
+for (const bulk of [false, true]) {
+  it(`#2277 roller placement keeps axes explicitly supplied with the preset (bulk=${bulk})`, () => {
+    const { bearing, member } = bearingModel();
+    uiStore.analysisMode = 'pro';
+    const axes = { dofFrame: 'local', dofLocalElementId: member } as const;
+    if (bulk) modelStore.addSupports([bearing], 'rollerY', undefined, axes);
+    else modelStore.addSupport(bearing, 'rollerY', undefined, axes);
+    expect(supportAt(bearing)).toMatchObject(axes);
+  });
+}
+
+for (const inPlace of [false, true]) {
+  it(`#2277 a plane turn off the coordinate axes reports the unrepresentable bearing (in place=${inPlace})`, () => {
+    const { bearing, member } = bearingModel();
+    const set = { nodes: [], elements: [member] };
+    const turn = rotation([0, 0, 0], [0, 0, 1], 45);
+    const report = inPlace ? transformInPlace(set, turn) : copyTransformed(set, [turn], { withSupports: true });
+    const target = 'maps' in report ? report.maps[0]!.nodes.get(bearing)! : bearing;
+    expect(report.warnings.supportDropped).toBe(1);
+    expect(supportAt(target)).toBeUndefined();
+  });
+}

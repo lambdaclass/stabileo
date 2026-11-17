@@ -5,8 +5,11 @@
   "area": "analysis",
   "when": {
     "all": [
-      "space3D",
-      "rollerZOrUnknownSupport"
+      "space3D"
+    ],
+    "any": [
+      "bareRollerZ",
+      "unknownSupportType"
     ]
   },
   "quantities": [
@@ -22,12 +25,12 @@
     "tr": "Belirsiz veya bilinmeyen 3D mesnet adları artık ankastreye dönüşmüyor"
   },
   "explanation": {
-    "en": "A 3D model with a rollerZ or previously unknown support type silently received six fixed restraints. rollerZ has conflicting legacy meanings and now requires explicit 3D restraints; unknown names are refused even with a mask. The defined 2D projection is preserved. Review the intended restraints, rerun analysis, combinations and design, and review prior deliverables. The bundled rc-beam-flexure example now defines its simply supported bearing explicitly.",
-    "es": "Un modelo 3D con rollerZ o un tipo de apoyo antes desconocido recibía seis restricciones fijas sin aviso. rollerZ tiene significados históricos contradictorios y ahora exige restricciones 3D explícitas; se rechazan nombres desconocidos incluso con una máscara. Se conserva la proyección 2D definida. Revise los apoyos previstos, repita análisis, combinaciones y diseño, y revise entregables anteriores. El ejemplo rc-beam-flexure define ahora su apoyo simple explícitamente.",
-    "pt": "Um modelo 3D com rollerZ ou um tipo de apoio antes desconhecido recebia seis restrições fixas sem aviso. rollerZ tem significados históricos contraditórios e agora exige restrições 3D explícitas; nomes desconhecidos são recusados mesmo com máscara. A projeção 2D definida é preservada. Revise os apoios pretendidos, repita análise, combinações e dimensionamento e revise entregas anteriores. O exemplo rc-beam-flexure agora define seu apoio simples explicitamente.",
-    "de": "Ein 3D-Modell mit rollerZ oder einem zuvor unbekannten Lagertyp erhielt ohne Warnung sechs feste Bindungen. rollerZ hat widersprüchliche historische Bedeutungen und verlangt nun explizite 3D-Bindungen; unbekannte Namen werden auch mit Maske abgelehnt. Die definierte 2D-Projektion bleibt erhalten. Prüfen Sie die vorgesehenen Lager, berechnen Sie Analyse, Kombinationen und Bemessung neu und prüfen Sie frühere Unterlagen. Das Beispiel rc-beam-flexure definiert sein einfaches Lager nun explizit.",
-    "fr": "Un modèle 3D avec rollerZ ou un type d’appui auparavant inconnu recevait six blocages sans avertissement. rollerZ a des significations historiques contradictoires et exige désormais des blocages 3D explicites ; les noms inconnus sont refusés même avec un masque. La projection 2D définie est conservée. Vérifiez les appuis prévus, relancez analyse, combinaisons et dimensionnement, puis examinez les livrables antérieurs. L’exemple rc-beam-flexure définit désormais son appui simple explicitement.",
-    "tr": "rollerZ veya önceden bilinmeyen mesnet türü içeren bir 3D modele uyarısız altı sabit kısıt atanıyordu. rollerZ çelişkili eski anlamlara sahiptir ve artık açık 3D kısıtlar gerektirir; bilinmeyen adlar maske olsa bile reddedilir. Tanımlı 2D izdüşümü korunur. Amaçlanan mesnetleri kontrol edin, analiz, kombinasyon ve tasarımı yeniden çalıştırın ve önceki teslimleri inceleyin. rc-beam-flexure örneği artık basit mesnedini açıkça tanımlar."
+    "en": "A 3D model with a bare rollerZ or previously unknown support type silently received six fixed restraints. rollerZ has conflicting legacy meanings and now requires explicit 3D restraints; unknown names are refused even with a mask. The defined 2D projection is preserved. Review the intended restraints, rerun analysis, combinations and design, and review prior deliverables. The bundled rc-beam-flexure example now defines its simply supported bearing explicitly.",
+    "es": "Un modelo 3D con rollerZ sin restricciones explícitas o un tipo de apoyo antes desconocido recibía seis restricciones fijas sin aviso. rollerZ tiene significados históricos contradictorios y ahora exige restricciones 3D explícitas; se rechazan nombres desconocidos incluso con una máscara. Se conserva la proyección 2D definida. Revise los apoyos previstos, repita análisis, combinaciones y diseño, y revise entregables anteriores. El ejemplo rc-beam-flexure define ahora su apoyo simple explícitamente.",
+    "pt": "Um modelo 3D com rollerZ sem restrições explícitas ou um tipo de apoio antes desconhecido recebia seis restrições fixas sem aviso. rollerZ tem significados históricos contraditórios e agora exige restrições 3D explícitas; nomes desconhecidos são recusados mesmo com máscara. A projeção 2D definida é preservada. Revise os apoios pretendidos, repita análise, combinações e dimensionamento e revise entregas anteriores. O exemplo rc-beam-flexure agora define seu apoio simples explicitamente.",
+    "de": "Ein 3D-Modell mit rollerZ ohne explizite Bindungen oder einem zuvor unbekannten Lagertyp erhielt ohne Warnung sechs feste Bindungen. rollerZ hat widersprüchliche historische Bedeutungen und verlangt nun explizite 3D-Bindungen; unbekannte Namen werden auch mit Maske abgelehnt. Die definierte 2D-Projektion bleibt erhalten. Prüfen Sie die vorgesehenen Lager, berechnen Sie Analyse, Kombinationen und Bemessung neu und prüfen Sie frühere Unterlagen. Das Beispiel rc-beam-flexure definiert sein einfaches Lager nun explizit.",
+    "fr": "Un modèle 3D avec rollerZ sans blocages explicites ou un type d’appui auparavant inconnu recevait six blocages sans avertissement. rollerZ a des significations historiques contradictoires et exige désormais des blocages 3D explicites ; les noms inconnus sont refusés même avec un masque. La projection 2D définie est conservée. Vérifiez les appuis prévus, relancez analyse, combinaisons et dimensionnement, puis examinez les livrables antérieurs. L’exemple rc-beam-flexure définit désormais son appui simple explicitement.",
+    "tr": "Açık kısıtları olmayan rollerZ veya önceden bilinmeyen mesnet türü içeren bir 3D modele uyarısız altı sabit kısıt atanıyordu. rollerZ çelişkili eski anlamlara sahiptir ve artık açık 3D kısıtlar gerektirir; bilinmeyen adlar maske olsa bile reddedilir. Tanımlı 2D izdüşümü korunur. Amaçlanan mesnetleri kontrol edin, analiz, kombinasyon ve tasarımı yeniden çalıştırın ve önceki teslimleri inceleyin. rc-beam-flexure örneği artık basit mesnedini açıkça tanımlar."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-roller-z-fixed.md",

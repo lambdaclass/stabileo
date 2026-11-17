@@ -15,9 +15,7 @@ it('known wrong result: #2276 the recheck notice selects exactly spatial rollerZ
   }
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2276' ? it : it.skip;
-
-regression('known wrong result: #2276 explicit 3D rollerZ masks exclude the notice, unknown types still qualify', () => {
+it('#2276 explicit 3D rollerZ masks exclude the notice, unknown types still qualify', () => {
   const mask = { tx: true, ty: true, tz: false, rx: false, ry: false, rz: true };
   for (const mode of ['2d', '3d', 'pro']) {
     for (const [type, dofRestraints, unresolved] of [
@@ -28,6 +26,8 @@ regression('known wrong result: #2276 explicit 3D rollerZ masks exclude the noti
       const expected = mode !== '2d' && unresolved;
       expect(changes.includes('roller-z-fixed'), `analysis ${mode} ${type}`).toBe(expected);
       expect(changes.includes('roller-z-fixed-design'), `design ${mode} ${type}`).toBe(expected);
+      expect(changes.includes('plane-roller-transforms'), `plane edit ${mode} ${type}`)
+        .toBe(mode === '2d' && type === 'rollerZ' && dofRestraints === undefined);
     }
   }
 });

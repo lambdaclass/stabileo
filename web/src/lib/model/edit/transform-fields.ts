@@ -26,6 +26,7 @@
  */
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
+import { isUnresolvedSpaceSupport, remapSupportElement } from '../support-types';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
@@ -153,22 +154,44 @@ const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed']);
  * `elementMap` renames the member a locally framed support refers to; a support framed by a
  * member that is not copied is dropped.
  */
-export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap: Map<number, number>): Omit<Support, 'id'> | null {
+export function carriedSupport(
+  T: Affine, s: Support, nodeId: number, elementMap: ReadonlyMap<number, number>, plane: boolean,
+): Omit<Support, 'id'> | null {
   const { id: _id, ...rest } = s;
   const out: Omit<Support, 'id'> = JSON.parse(JSON.stringify(rest));
   out.nodeId = nodeId;
-  if (s.dofFrame === 'local' || s.dofLocalElementId !== undefined) {
-    const m = s.dofLocalElementId !== undefined ? elementMap.get(s.dofLocalElementId) : undefined;
-    if (m === undefined) return null;
-    out.dofLocalElementId = m;
-    return out; // local restraints move with the member's frame
+  const reference = remapSupportElement(s, id => elementMap.get(id));
+  if (reference === null) return null;
+  if (reference !== undefined) {
+    out.dofLocalElementId = reference;
+    if (s.dofFrame !== 'global') return out;
   }
   if (s.normalX !== undefined || s.normalY !== undefined || s.normalZ !== undefined) {
     const n = applyVector(T, [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0]);
     out.normalX = n[0]; out.normalY = n[1]; out.normalZ = n[2];
   }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
-  if (translationOnly || (s.type === 'rollerZ' && !s.dofRestraints)) return out;
+  if (translationOnly || (!plane && isUnresolvedSpaceSupport(s))) return out;
+  if (plane && !s.dofRestraints && (s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ')) {
+    const axes = axisPermutation(T.A);
+    if (!axes || axes.perm[2] !== 2) return null;
+    const { perm, sign } = axes;
+    const orientation = (isReflection(T) ? -1 : 1) * sign[2];
+    if (s.angle !== undefined) out.angle = orientation * s.angle;
+    if (s.isGlobal === false) return out;
+
+    const restrained = supportDofs3D(s, true).rx ? 0 : 1;
+    out.type = perm[restrained] === 0 ? 'rollerZ' : 'rollerX';
+    const settlement = [s.dx, s.dz ?? s.dy];
+    out.dx = settlement[perm[0]] === undefined ? undefined : sign[perm[0]]! * settlement[perm[0]]!;
+    out.dz = settlement[perm[1]] === undefined ? undefined : sign[perm[1]]! * settlement[perm[1]]!;
+    delete out.dy;
+    const rotation = s.dry ?? s.drz;
+    out.dry = rotation === undefined ? undefined : orientation * rotation;
+    delete out.drz;
+    if (perm[0] === 1) { out.kx = s.ky; out.ky = s.kx; }
+    return out;
+  }
   // Named rollers encode their mask in `type`; carry that mask just as an explicit one.
   // Use the solver's mapping so a permutation cannot silently leave the old axis fixed.
   if (!s.dofRestraints && !SYMMETRIC_SUPPORTS.has(String(s.type))) {

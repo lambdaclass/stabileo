@@ -17,7 +17,7 @@
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
-import { isSupportType } from '../model/support-types';
+import { isBareRollerZ, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
   'linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi',
@@ -37,7 +37,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'rollerZOrUnknownSupport', 'rollerSupports', 'supportRestraintMasks', 'settlements', 'caseDisplacements',
+  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
@@ -227,8 +227,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const supports = values(s.supports);
   if (supports.some(sp => isSupportType(sp.type) && sp.type.startsWith('roller'))) f.add('rollerSupports');
-  if (supports.some(sp => sp.dofRestraints)) f.add('supportRestraintMasks');
-  if (supports.some(sp => sp.type === 'rollerZ' || !isSupportType(sp.type))) f.add('rollerZOrUnknownSupport');
+  if (supports.some(sp => sp.dofRestraints && isSupportType(sp.type) && sp.type !== 'custom3d')) f.add('namedSupportRestraintMasks');
+  if (supports.some(isBareRollerZ)) f.add('bareRollerZ');
+  if (supports.some(sp => !isSupportType(sp.type))) f.add('unknownSupportType');
   if (supports.some((s) => s.uplift)) f.add('contactElements');
   const supportedNodes = new Map<number, number>();
   for (const sp of supports) {

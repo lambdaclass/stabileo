@@ -85,11 +85,10 @@ The existing snapshot independently records the wrong clamped-bearing result. On
 `design-rc-beam-flexure` is regenerated, with no tolerance or comparison-rule change.
 
 The analysis entry `roller-z-fixed` and design entry `roller-z-fixed-design` have the
-same applicability, exactly **3D model with a `rollerZ` or previously unknown support
-type**. Both Basic 3D and PRO qualify. Plane models, recognized other names and models
-without supports do not. Explicitly masked `rollerZ` models receive the notice too,
-as the requested stored-type applicability requires. The design entry accounts for
-design outputs downstream of the changed force distribution; it uses the same scope.
+same applicability, exactly **3D model with a bare `rollerZ` or an unknown support
+type**. Both Basic 3D and PRO qualify. A `rollerZ` with an explicit mask has defined
+restraints. An unknown name remains unresolved with or without a mask. The design
+entry covers outputs downstream of the changed force distribution.
 Re-establish the intended restraints, then rerun analyses, cases, combinations and
 design checks, and review prior deliverables. Historical released binaries were not
 assessed. The requested advisory is a draft pending coordinator review and release.

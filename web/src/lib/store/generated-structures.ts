@@ -407,7 +407,7 @@ export function regenerate(groupId: number, g: GeneratedModel, meta: GeneratedMe
       const n = nodes[s.nodeId - 1]!;
       if (!n.owned && !weldTargets.has(n.id)) continue;
       if (!n.owned && supportAt.has(n.id)) { out.supportKept++; continue; }
-      const c = carriedSupport(T, { ...(s as unknown as Support), id: 0 }, n.id, elementMap);
+      const c = carriedSupport(T, { ...(s as unknown as Support), id: 0 }, n.id, elementMap, false);
       if (c) modelStore.addSupportEntry(c);
     }
 

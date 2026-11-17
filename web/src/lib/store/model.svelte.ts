@@ -23,7 +23,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
-import { DOF_SPRING, dofRestraintsOfType3D, rollerPreset3D, is3DSupportType, type SpringKey } from '../model/support-3d';
+import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -53,7 +53,7 @@ import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
-import { loadFixture } from '../templates/load-fixture';
+import { loadFixture, validateFixtureSupportFrames, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
@@ -1643,12 +1643,7 @@ function createModelStore() {
     if (opts?.drx !== undefined && opts.drx !== 0) sup.drx = opts.drx;
     const supportDry = opts?.dry ?? opts?.drz;
     if (supportDry !== undefined && supportDry !== 0) sup.dry = supportDry;
-    // Per-DOF 3D configuration; a copy, so supports added together do not share one.
-    if (opts?.dofRestraints) sup.dofRestraints = { ...opts.dofRestraints };
-    if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
-    if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
-    if (uiStore.is3DWorkspace && !sup.dofRestraints) Object.assign(sup, rollerPreset3D(type));
-    return sup;
+    return { ...sup, ...supportConfiguration(opts ?? {}, undefined, uiStore.is3DWorkspace ? type : undefined) };
   }
 
   /**
@@ -3688,14 +3683,9 @@ function createModelStore() {
       // and the engine then solved the "fixed" DOF as elastic (#488).
       const nextType = data.type === undefined ? sup.type
         : uiStore.is3DWorkspace ? data.type : normalize2DSupportType(data.type);
-      const preset = uiStore.is3DWorkspace && data.type && !data.dofRestraints ? rollerPreset3D(nextType) : undefined;
-      const typeChanged = nextType !== sup.type;
-      const configuration = preset ?? (typeChanged && !data.dofRestraints ? undefined : {
-        dofRestraints: data.dofRestraints ? { ...data.dofRestraints } : sup.dofRestraints,
-        dofFrame: data.dofFrame ?? (typeChanged ? undefined : sup.dofFrame),
-        dofLocalElementId: data.dofFrame === 'global' ? undefined : data.dofLocalElementId ?? (typeChanged ? undefined : sup.dofLocalElementId),
-      });
-      const nextDofs = configuration?.dofRestraints;
+      const configuration = supportConfiguration(data, nextType === sup.type ? sup : undefined,
+        uiStore.is3DWorkspace && data.type !== undefined ? nextType : undefined);
+      const nextDofs = configuration.dofRestraints;
       const restrained = nextDofs ?? (is3DSupportType(nextType) ? dofRestraintsOfType3D(nextType) : undefined);
       const spring = (key: SpringKey, value: number | undefined) => {
         const dof = DOF_SPRING.find(([, k]) => k === key)![0];
@@ -4731,59 +4721,57 @@ function createModelStore() {
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
-      if (!_undoBatching) _pushUndo?.();
-      _undoBatching = true;
-
       // Fetched before the model is cleared, so no effect ever sees it empty mid-load. Cleared
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const json = await loader();
-      this.clear();
-      if (opts.defaults) {
-        model.materials.set(1, structuredClone(opts.defaults.material));
-        model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
-      }
-      loadFixture(json as any, this.fixtureApi() as any, opts);
-
-      // Settle canonical state once the whole model is in place. Sections the
-      // fixture added are already resolved (addSection resolves per add, and
-      // the refresh skips those), so this repairs only sections that loaded
-      // before the engine was ready — without it those would keep reporting
-      // no known geometry for the rest of the session.
-      this.refreshCanonicalSections();
-
-      if (is2DFixture(name) && uiStore.is3DWorkspace) {
-        uiStore.useUpright2DIn3DPresentation();
-      } else {
-        uiStore.useNative3DPresentation();
-      }
-
-      // Switch to plain 3D mode only when the current app mode is the basic app.
-      // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
-      if (is3DFixture(name)) {
-        if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
-          uiStore.analysisMode = '3d';
+      const json = await loader() as JSONModel;
+      validateFixtureSupportFrames(json);
+      this.batch(() => {
+        this.clear();
+        if (opts.defaults) {
+          model.materials.set(1, structuredClone(opts.defaults.material));
+          model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
         }
-      }
+        loadFixture(json, this.fixtureApi() as any, opts);
 
-      // A shipped example that states no self-weight rule is given the one it was built for, and
-      // quietly: nothing of the user's changed. A project the user saved is migrated by the PRO
-      // panel instead, with a notice (`self-weight-migration.ts`). Shells are structure too.
-      if (uiStore.analysisMode === 'pro' && model.analysis?.selfWeight === undefined
-        && (model.elements.size > 0 || model.quads.size > 0 || model.plates.size > 0)) {
-        const plan = planSelfWeight(model.loadCases, uiStore.includeSelfWeight);
-        let selfWeight = plan.selfWeight;
-        if (uiStore.includeSelfWeight && plan.caseId === null) {
-          selfWeight = [{ caseId: this.addLoadCase(t('selfWeight.caseName'), 'D'), ...GRAVITY_SELF_WEIGHT }];
+        // Settle canonical state once the whole model is in place. Sections the
+        // fixture added are already resolved (addSection resolves per add, and
+        // the refresh skips those), so this repairs only sections that loaded
+        // before the engine was ready — without it those would keep reporting
+        // no known geometry for the rest of the session.
+        this.refreshCanonicalSections();
+
+        if (is2DFixture(name) && uiStore.is3DWorkspace) {
+          uiStore.useUpright2DIn3DPresentation();
+        } else {
+          uiStore.useNative3DPresentation();
         }
-        model.analysis = { ...(model.analysis ?? {}), selfWeight };
-      }
 
-      // Basic opens an example with load cases and combinations on when it uses more than one case.
-      uiStore.loadCasesEnabled = loadCasesInUse(model.loads);
+        // Switch to plain 3D mode only when the current app mode is the basic app.
+        // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
+        if (is3DFixture(name)) {
+          if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
+            uiStore.analysisMode = '3d';
+          }
+        }
 
-      _undoBatching = false;
+        // A shipped example that states no self-weight rule is given the one it was built for, and
+        // quietly: nothing of the user's changed. A project the user saved is migrated by the PRO
+        // panel instead, with a notice (`self-weight-migration.ts`). Shells are structure too.
+        if (uiStore.analysisMode === 'pro' && model.analysis?.selfWeight === undefined
+          && (model.elements.size > 0 || model.quads.size > 0 || model.plates.size > 0)) {
+          const plan = planSelfWeight(model.loadCases, uiStore.includeSelfWeight);
+          let selfWeight = plan.selfWeight;
+          if (uiStore.includeSelfWeight && plan.caseId === null) {
+            selfWeight = [{ caseId: this.addLoadCase(t('selfWeight.caseName'), 'D'), ...GRAVITY_SELF_WEIGHT }];
+          }
+          model.analysis = { ...(model.analysis ?? {}), selfWeight };
+        }
+
+        // Basic opens an example with load cases and combinations on when it uses more than one case.
+        uiStore.loadCasesEnabled = loadCasesInUse(model.loads);
+      });
     },
 
     // ─── Material CRUD ───

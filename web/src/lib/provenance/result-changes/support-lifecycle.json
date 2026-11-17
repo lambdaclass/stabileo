@@ -5,7 +5,7 @@
   "area": "analysis",
   "when": {
     "all": ["space3D"],
-    "any": ["rollerSupports", "supportRestraintMasks"]
+    "any": ["rollerSupports", "namedSupportRestraintMasks"]
   },
   "quantities": ["*", "solve.ok"],
   "title": {

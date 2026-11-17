@@ -15,9 +15,7 @@ it('#2277 the lifecycle notice reaches space rollers and masked presets', () => 
   }
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
-
-regression('known wrong result: #2277 the v0.4.0 deep-beam shell has only intentional custom masks', () => {
+it('#2277 the v0.4.0 deep-beam shell has only intentional custom masks', () => {
   const { snapshot } = JSON.parse(readFileSync('legacy-projects/v0.4.0/deep-beam-shell.ded', 'utf8'));
   const changes = assessProject(snapshot, null, 'pro').changes.map(c => c.id);
   expect(changes).not.toContain('support-lifecycle');

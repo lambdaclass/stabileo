@@ -11,6 +11,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
+import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
   name: string;
@@ -51,7 +52,7 @@ export interface JSONModel {
     /** A member of variable section: the section at end J, by the same ids as `sectionId`. */
     variableSection?: { sectionJ: number; segments?: number };
   }>;
-  supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
+  supports: Array<{ id: number; nodeId: number; type: string; dofFrame?: unknown; dofLocalElementId?: unknown; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
   plates: Array<{ id: number; nodes: number[]; materialId: number; thickness: number }>;
   quads: Array<{ id: number; nodes: number[]; materialId: number; thickness: number }>;
@@ -111,9 +112,23 @@ export interface FixtureLoader {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean } = {}): void {
+  validateFixtureSupportFrames(json);
   const load = () => replayFixture(json, api, opts);
   if (api.replay) api.replay(load);
   else load();
+}
+
+function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
+  const reference = remapSupportElement(support, elementId);
+  if (reference === null) {
+    throw new Error(`Fixture support ${support.id} has an unresolved local element reference (${String(support.dofLocalElementId)}).`);
+  }
+  return reference;
+}
+
+export function validateFixtureSupportFrames(json: JSONModel): void {
+  const ids = new Set(json.elements.map(e => e.id));
+  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
 }
 
 function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean }): void {
@@ -216,7 +231,9 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinat
   const springKeys = new Set(['kx', 'ky', 'kz', 'krx', 'kry', 'krz']);
   for (const s of json.supports) {
     const nodeId = nodeMap.get(s.nodeId)!;
-    const { id: _id, nodeId: _nid, type, ...rest } = s;
+    const { id: _id, nodeId: _nid, type, dofLocalElementId: _reference, ...rest } = s;
+    const reference = fixtureSupportElement(s, id => elemMap.get(id));
+    if (reference !== undefined) rest.dofLocalElementId = reference;
     const springs: Record<string, number> = {};
     const opts: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rest)) {

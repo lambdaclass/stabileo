@@ -99,7 +99,8 @@ export function materializeStandingPlaneModel(model: ModelData, nextLoadId: () =
       nodeId: s.nodeId,
       type: all ? 'fixed3d' : (s.type === 'spring' ? 'spring3d' : 'custom3d'),
       dofRestraints,
-      dofFrame: 'global',
+      dofFrame: s.dofFrame ?? (s.dofLocalElementId === undefined ? 'global' : undefined),
+      ...(s.dofLocalElementId !== undefined ? { dofLocalElementId: s.dofLocalElementId } : {}),
     } as Support;
     if (s.type === 'spring') {
       if (s.kx) next.kx = s.kx;

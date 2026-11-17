@@ -47,11 +47,23 @@ export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean>
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }
 
-export function rollerPreset3D(type: SupportType): {
-  dofRestraints: Record<Dof3D, boolean>;
-  dofFrame: 'global';
-  dofLocalElementId: undefined;
-} | undefined {
-  if (!type.startsWith('roller') || type === 'rollerZ') return undefined;
-  return { dofRestraints: dofRestraintsOfType3D(type), dofFrame: 'global', dofLocalElementId: undefined };
+type SupportConfiguration = Pick<Support, 'dofRestraints' | 'dofFrame' | 'dofLocalElementId'>;
+
+export function supportConfiguration(
+  edit: SupportConfiguration,
+  inherited: SupportConfiguration | undefined,
+  rollerPreset: SupportType | undefined,
+): SupportConfiguration {
+  const preset = rollerPreset !== undefined && rollerPreset.startsWith('roller') && rollerPreset !== 'rollerZ' && !edit.dofRestraints;
+  const restraints = edit.dofRestraints ?? (preset ? dofRestraintsOfType3D(rollerPreset) : inherited?.dofRestraints);
+  const reference = edit.dofFrame === 'global' ? undefined
+    : 'dofLocalElementId' in edit ? edit.dofLocalElementId
+    : preset ? undefined : inherited?.dofLocalElementId;
+  const frame = 'dofFrame' in edit ? edit.dofFrame
+    : preset ? (reference === undefined ? 'global' : undefined) : inherited?.dofFrame;
+  return {
+    ...(restraints ? { dofRestraints: { ...restraints } } : {}),
+    ...(frame !== undefined ? { dofFrame: frame } : {}),
+    ...(reference !== undefined ? { dofLocalElementId: reference } : {}),
+  };
 }
