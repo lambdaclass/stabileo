@@ -74,7 +74,7 @@ export interface FlexReq { as: number; as2: number; x: number; z: number; ms: nu
 
 export function flexuralSteel(M: number, N: number, s: Shape, d: number, d2: number, m: Mat, p: Ec2Params): FlexReq {
   const ms = M + N * (d - s.h / 2);
-  if (!(M > 1e-9)) return { as: 0, as2: 0, x: 0, z: 0, ms, mlim: 0 };
+  if (!(M > 1e-9)) return { as: N < 0 ? -N / (2 * m.fyd * KPA) : 0, as2: 0, x: 0, z: 0, ms, mlim: 0 };
   const xl = xuLimit(m.fck, p) * d;
   const mOf = (x: number) => { const c = block(x, s, m); return { mc: c.f * (d - c.yc), f: c.f, z: d - c.yc }; };
   const lim = mOf(xl);

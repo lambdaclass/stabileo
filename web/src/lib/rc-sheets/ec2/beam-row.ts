@@ -104,10 +104,19 @@ export function flexChecks(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAd
     const bars = barsAt(a, it.section);
     const [t, k] = it.sign === 'pos' ? [bars.bottom, bars.top] : [bars.top, bars.bottom];
     const r = beamCapacity(g, c.cover, sd, t, k, it.sign === 'pos', it.n, m, set.p);
-    const active = it.mu > 1e-6;
-    const ductile = !active || r.ductile;
-    return { section: it.section, sign: it.sign, phiMn: r.mrd, mu: it.mu, epsT: r.epsS, epsTMin: r.epsMin, d: r.d, ductile, ok: !active || (r.mrd >= it.mu - 1e-6 && ductile) };
+    const ductile = !(it.mu > 1e-6) || r.ductile;
+    const active = it.mu > 1e-6 || Math.abs(it.n) > 1e-6;
+    return { section: it.section, sign: it.sign, phiMn: r.mrd, mu: it.mu, nc: it.n, epsT: r.epsS, epsTMin: r.epsMin, d: r.d, ductile, ok: !active || (r.feasible && r.mrd >= it.mu - 1e-6 && ductile) };
   });
+}
+
+/** The effective depth the stirrups work over, m: the shallowest tension face the adopted bars give at a section. */
+export function shearDepth(d: BeamDemand, c: BeamContext, a: BeamAdopted, hogging: boolean): number {
+  const sd = a.stirrups.dia;
+  return Math.min(...SECTION_NAMES.flatMap((s) => {
+    const g = barsAt(a, s);
+    return [g.bottom, ...(hogging ? [g.top] : [])].filter((x) => x.some((y) => y.count > 0)).map((x) => d.h - faceLayout(x, d.b, c.cover, sd).centroidFromFace);
+  }));
 }
 
 function evaluate(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAdopted, req: BeamReq, m: Mat): BeamEval {
@@ -131,7 +140,7 @@ function evaluate(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAdopted, re
   const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
   const forShear = Math.max(0, legs * (perLegProvided - req.tPerLeg)) * 1e-4;
   const asl = Math.min(groupsArea(a.bottom), req.top > 0 ? groupsArea(a.top) : groupsArea(a.bottom)) * 1e-4;
-  const cap = shearCapacity(d.b, req.dShear, asl, forShear, m, p, req.sigmaCp, req.neglect ? p.cotThetaMax : req.cot);
+  const cap = shearCapacity(d.b, shearDepth(d, c, a, req.top > 0), asl, forShear, m, p, req.sigmaCp, req.neglect ? p.cotThetaMax : req.cot);
   const rhoW = a.stirrups.spacing > 0 ? (legs * ab * 1e-4) / (a.stirrups.spacing * d.b) : 0;
   const al = a.torsionLong;
   const alProvided = al ? al.count * barArea(al.dia) : 0;

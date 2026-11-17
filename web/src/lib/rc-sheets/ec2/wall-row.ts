@@ -25,7 +25,7 @@ interface OutRead { u: number; lambda: number; lambdaLim: number; slender: boole
 
 function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: number, muV: number, muH: number): { v: OutRead; h: number } {
   const t = d.thickness, hd = a.horizontal.diameter / 1000, vd = a.vertical.diameter / 1000;
-  const n = Math.max(0, N / Math.max(d.length, 1e-6));
+  const nSigned = N / Math.max(d.length, 1e-6), n = Math.max(0, nSigned);
   const yV = c.cover + hd + vd / 2, yH = c.cover + hd / 2;
   const asV = barArea(a.vertical.diameter) * 1e-4 / a.vertical.spacing, asH = barArea(a.horizontal.diameter) * 1e-4 / a.horizontal.spacing;
   const layersV: Layer[] = a.curtains === 2 ? [{ y: yV, area: asV }, { y: t - yV, area: asV }] : [{ y: t / 2, area: asV }];
@@ -41,7 +41,7 @@ function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: nu
     mEd = muV + n * (l0 / 400) + n * ((kphi * m.eyd) / (0.45 * dd)) * (l0 * l0) / 10;
   }
   mEd = Math.max(mEd, n * Math.max(t / 30, 0.02));
-  const capV = momentCapacity(n, { b: 1, h: t }, layersV, m);
+  const capV = momentCapacity(nSigned, { b: 1, h: t }, layersV, m);
   const v = { lambda, lambdaLim, slender, mEd, mrd: capV?.mrd ?? 0, u: !capV ? Number.POSITIVE_INFINITY : mEd > 1e-9 ? mEd / Math.max(capV.mrd, 1e-9) : 0 };
   let h = 0;
   if (muH > 1e-6) {
@@ -55,6 +55,8 @@ function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: nu
 interface Eval {
   pm: number[]; out: OutRead[]; outH: number[]; shear: number[];
   rhoV: number; rhoH: number; rhoVMin: number; rhoHMin: number; rhoHShear: number;
+  /** The vertical steel over the whole wall, the boundary bars with the mesh. */
+  rhoVTotal: number;
   sMaxV: number; sMaxH: number; vrdMin: number; vrdc: number; cot: number;
 }
 
@@ -74,6 +76,7 @@ function evaluate(set: Ec2Set, d: WallDemand, c: WallContext, a: WallAdopted, m:
     out: outs.map((o) => o.v), outH: outs.map((o) => o.h),
     shear: d.combos.map((k, i) => ratioOf(k.vu, shear[i]!.vrd)),
     rhoV, rhoH, rhoVMin: 0.002, rhoHMin: Math.max(0.25 * rhoV, 0.001), rhoHShear,
+    rhoVTotal: rhoV + (a.boundary ? (a.boundary.count * barArea(a.boundary.diameter) * 1e-4) / (L * t) : 0),
     sMaxV: Math.min(3 * t, 0.4), sMaxH: 0.4,
     vrdMin: Math.min(Infinity, ...shear.map((s) => s.vrd)), vrdc: s0.vrdc, cot: s0.cotTheta,
   };
@@ -119,7 +122,7 @@ export function makeWallRow(set: Ec2Set) {
       check('rcSheets.v.wallShear', ev.shear.every(ok1), { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(vuMax)} kN`, capacity: `${fmt(ev.vrdMin)} kN`, ratio: Math.max(0, ...ev.shear) }),
       check('rcSheets.v.wallOut', outU.every(ok1), { clause: '6.1, 5.8.8', demand: d.combos[iout]?.combo ?? '', ratio: Math.max(0, ...outU) }),
       check('rcSheets.v.wallRhoL', ev.rhoV >= ev.rhoVMin - 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoVMin * 100, 3)} %`, capacity: `${fmt(ev.rhoV * 100, 3)} %`, ratio: ratioOf(ev.rhoVMin, ev.rhoV) }),
-      check('rcSheets.ec2.v.wallRhoVMax', ev.rhoV <= 0.04 + 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoV * 100, 3)} %`, capacity: '≤ 4 %' }),
+      check('rcSheets.ec2.v.wallRhoVMax', ev.rhoVTotal <= 0.04 + 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoVTotal * 100, 3)} %`, capacity: '≤ 4 %' }),
       check('rcSheets.v.wallRhoT', ev.rhoH >= Math.max(ev.rhoHMin, ev.rhoHShear) - 1e-9, { clause: '9.6.3(1), 6.2.3(3)', demand: `${fmt(Math.max(ev.rhoHMin, ev.rhoHShear) * 100, 3)} %`, capacity: `${fmt(ev.rhoH * 100, 3)} %`, ratio: ratioOf(Math.max(ev.rhoHMin, ev.rhoHShear), ev.rhoH) }),
       check('rcSheets.v.wallSpacing', ad.vertical.spacing <= ev.sMaxV + 1e-6 && ad.horizontal.spacing <= ev.sMaxH + 1e-6, { clause: '9.6.2(3), 9.6.3(2)', capacity: `V ≤ ${fmt(ev.sMaxV * 100, 0)} · H ≤ ${fmt(ev.sMaxH * 100, 0)} cm` }),
       check('rcSheets.ec2.v.wallCurtains', ad.curtains === 2, { clause: '9.6.2(1)', capacity: String(ad.curtains) }),

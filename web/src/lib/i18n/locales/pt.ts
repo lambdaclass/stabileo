@@ -13500,6 +13500,8 @@ const pt: Translations = {
   "rcSheets.v.lineHooks": "Ancoragem com gancho nas extremidades",
   "rcSheets.v.forcesMissing": "Esforços de todas as combinações (faltam os destas: o elemento não foi verificado com elas)",
   "rcSheets.v.colLapFit": "Emenda das barras do andar de baixo dentro do espaço que a norma lhe dá",
+  "rcSheets.v.axialOnly": "Esforço normal onde não há momento",
+  "rcSheets.v.everyCombo": "Cada combinação com o adotado",
   "rcSheets.v.lineEndAnchor": "Gancho dentro do pilar de extremidade",
   "rcSheets.v.lineSplices": "Emendas das barras corridas (barras de 12 m)",
   "rcSheets.v.lineIntegrity": "Integridade de viga de borda: armadura corrida em cima e embaixo",

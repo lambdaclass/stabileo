@@ -15029,6 +15029,8 @@ const hu: Translations = {
   "rcSheets.v.lineHooks": "Kampós lehorgonyzás a végeken",
   "rcSheets.v.forcesMissing": "Minden kombináció igénybevételei (ezeknél hiányoznak: az elemet ezekre nem ellenőriztük)",
   "rcSheets.v.colLapFit": "Az alsó szintről érkező vasak toldása a szabvány által adott helyen belül",
+  "rcSheets.v.axialOnly": "Normálerő ott, ahol nincs nyomaték",
+  "rcSheets.v.everyCombo": "Minden kombináció a választott vasalással",
   "rcSheets.v.lineSplices": "A végigfutó vasak toldásai (12 m-es vasak)",
   "rcSheets.g.lineMethod": "A folytatólagos gerenda vasalása",
   "rcSheets.g.anchorage": "Lehorgonyzás és toldások",

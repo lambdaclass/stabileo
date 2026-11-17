@@ -52,9 +52,9 @@ export interface PunchingFigure {
 export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): PunchingRow {
   const position = slabJointPosition(d.joint.nodeId, d.adjoining);
   const r = checkSlabJointPunching({ panelId: d.key, joint: d.joint, position, thickness: d.thickness, cover: c.cover, topBarDiameterMm: c.topBarDia, fc: c.fc, fy: c.fy, qu: 0, staleAnalysis: false });
-  const unsupported = r.status === 'UNSUPPORTED';
+  const unsupported = r.status === 'UNSUPPORTED' || r.unsupported.length > 0;
   const verifications: CheckLine[] = [
-    check(unsupported ? 'rcSheets.v.punchingUnsupported' : 'rcSheets.v.punching', r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
+    check(unsupported ? 'rcSheets.v.punchingUnsupported' : 'rcSheets.v.punching', !unsupported && r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
     ...(c.integrity ? [check('rcSheets.v.punchingIntegrity', c.integrity.x >= c.integrity.required && c.integrity.y >= c.integrity.required, { clause: '§8.7.4.2.2', demand: `≥ ${c.integrity.required} (X) · ≥ ${c.integrity.required} (Y)`, capacity: `${c.integrity.x} (X) · ${c.integrity.y} (Y)` })] : []),
     ...(r.reinforcement ? [check('rcSheets.v.punchingStirrups', !r.reinforcement.overCeiling, { clause: '§22.6.7', demand: `${r.reinforcement.lines} × Ø${r.reinforcement.legDiameter} c/${fmt(r.reinforcement.spacing * 100, 1)} (${r.reinforcement.legs})`, capacity: r.reinforcement.overCeiling ? "> 0.5·√f'c" : `${fmt(r.reinforcement.extent * 100, 0)} cm` })] : []),
   ];

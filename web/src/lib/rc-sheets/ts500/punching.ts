@@ -25,7 +25,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
     return { k, vpd, gamma, ex, ey, vpr, u: ratioOf(vpd, vpr) };
   });
   const gov = per.reduce<(typeof per)[number] | undefined>((w, x) => (!w || x.u > w.u + 1e-12 || (Math.abs(x.u - w.u) <= 1e-12 && x.vpd > w.vpd) ? x : w), undefined);
-  const unsupported = !crit || !gov;
+  const unsupported = !crit || !gov || usable.length < r.contributions.length || r.unsupported.length > 0;
   const u = gov?.u ?? 0;
   const ok = !unsupported && u <= 1 + 1e-6;
   const verifications: CheckLine[] = [

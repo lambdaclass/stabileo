@@ -13698,6 +13698,8 @@ const de: Translations = {
   "rcSheets.v.lineHooks": "Hakenverankerung an den Enden",
   "rcSheets.v.forcesMissing": "Schnittgrößen aller Kombinationen (diesen fehlen sie: das Bauteil wurde dafür nicht nachgewiesen)",
   "rcSheets.v.colLapFit": "Übergreifung der Stäbe aus dem Geschoss darunter im Bereich, den die Norm dafür vorsieht",
+  "rcSheets.v.axialOnly": "Normalkraft, wo kein Moment wirkt",
+  "rcSheets.v.everyCombo": "Jede Kombination mit der gewählten Bewehrung",
   "rcSheets.v.lineEndAnchor": "Haken innerhalb der Endstütze",
   "rcSheets.v.lineSplices": "Stöße der durchlaufenden Stäbe (12-m-Stäbe)",
   "rcSheets.v.lineIntegrity": "Integrität des Randbalkens: durchlaufende Stäbe oben und unten",

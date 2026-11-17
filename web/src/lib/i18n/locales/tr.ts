@@ -13698,6 +13698,8 @@ const tr: Translations = {
   "rcSheets.v.lineHooks": "Uçlarda kancalı kenetlenme",
   "rcSheets.v.forcesMissing": "Tüm kombinasyonların iç kuvvetleri (bunlarınki eksik: eleman bunlar için doğrulanmadı)",
   "rcSheets.v.colLapFit": "Alt kattan gelen donatıların bindirmesi yönetmeliğin tanıdığı bölge içinde",
+  "rcSheets.v.axialOnly": "Momentin olmadığı yerde eksenel kuvvet",
+  "rcSheets.v.everyCombo": "Seçilen donatıyla her kombinasyon",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineSplices": "Sürekli çubuk bindirmeleri (12 m çubuk)",
   "rcSheets.v.lineIntegrity": "Kenar kirişi bütünlüğü: üstte ve altta sürekli çubuklar",

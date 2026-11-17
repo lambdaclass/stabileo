@@ -84,7 +84,13 @@ export interface BeamContext extends TransverseList {
   coverTable?: { control: boolean };
 }
 
-export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
+/** `nc`: the axial force with the moment, kN, + compression; a section with none of either asks nothing. */
+export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; nc?: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
+
+/** A section with axial force and no moment: its check, failing where the bars and concrete cannot take the force at all. */
+export const axialOnlyChecks = (flex: readonly FlexureCheck[], clause: string, fmt: Fmt): CheckLine[] =>
+  flex.filter((x) => !(x.mu > 1e-6) && Math.abs(x.nc ?? 0) > 1e-6).reduce<FlexureCheck[]>((w, x) => (w.some((y) => y.section === x.section) ? w : [...w, x]), [])
+    .map((x) => check('rcSheets.v.axialOnly', x.ok, { clause, demand: `N = ${fmt(x.nc ?? 0)} kN (${x.section})` }));
 
 export interface BeamRow {
   family: 'beam';
@@ -157,7 +163,8 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
     const epsT = r?.epsilonT ?? 0, epsTMin = r?.epsilonTMin ?? 0;
     const ductile = !(i.mu > 1e-6) || epsT >= epsTMin - 1e-9;
     const depth = d.h - faceLayout(i.sign === 'pos' ? barsAt(a, i.section).bottom : barsAt(a, i.section).top, d.b, c.cover, sd).centroidFromFace;
-    return { ...i, phiMn, epsT, epsTMin, d: depth, ductile, ok: !(i.mu > 1e-6) || (phiMn >= i.mu - 1e-6 && ductile) };
+    const active = i.mu > 1e-6 || Math.abs(i.nc) > 1e-6;
+    return { ...i, phiMn, epsT, epsTMin, d: depth, ductile, ok: !active || (!!r?.flexureValid && phiMn >= i.mu - 1e-6 && ductile) };
   });
 }
 
@@ -372,6 +379,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
       clause: '§22.2, §21.2', demand: `${f2(x.mu)} kN·m`, capacity: `${f2(x.phiMn)} kN·m`, ratio: ratioOf(x.mu, x.phiMn),
     })),
     ...e.flex.filter((x) => x.mu > 1e-6 && !x.ductile).map((x) => check('rcSheets.v.ductility', false, { clause: '§9.3.3.1', demand: `εt = ${fmt(x.epsT * 1000)} ‰`, capacity: `≥ ${fmt(x.epsTMin * 1000)} ‰` })),
+    ...axialOnlyChecks(e.flex, '§22.4, §22.2', fmt),
     ((g) => check('rcSheets.v.minBottom', e.areaBottom, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(g.req)} cm²`, capacity: `${f2(g.area)} cm²`, ratio: ratioOf(g.req, g.area) }))(areaAt(a, req, 'pos', bottomReq)),
     ...(topReq > 0 ? [((g) => check('rcSheets.v.minTop', e.areaTop, { clause: '§9.6.1.2, §9.6.1.3', demand: `${f2(g.req)} cm²`, capacity: `${f2(g.area)} cm²`, ratio: ratioOf(g.req, g.area) }))(areaAt(a, req, 'neg', topReq))] : []),
     check('rcSheets.v.fitBottom', e.fitBottom, { clause: '§25.2.1' }),

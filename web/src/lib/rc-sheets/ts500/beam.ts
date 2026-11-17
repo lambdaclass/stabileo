@@ -18,9 +18,13 @@ interface Evaluation {
   sh: ShearState; tor: TorsionState; vr: number; legs: number;
   perLegProvided: number; perLegRequired: number; sMax: number;
   alProvided: number;
-  ok: { shear: boolean; vmax: boolean; stirrups: boolean; spacing: boolean; al: boolean; torsionSection: boolean };
+  /** Each combination with the adopted bars, as the combinations' table reads it. */
+  combos: ComboRatio[];
+  ok: { shear: boolean; vmax: boolean; stirrups: boolean; spacing: boolean; al: boolean; torsionSection: boolean; combos: boolean };
   all: boolean;
 }
+
+interface ComboRatio { combo: string; pos: number; neg: number; stir: number; shear: number; ratio: number }
 
 const shearDepth = (d: BeamDemand, c: BeamContext, a: BeamAdopted) => d.h - faceLayout(a.bottom, d.b, c.cover, a.stirrups.dia).centroidFromFace;
 
@@ -36,15 +40,17 @@ function evaluate(d: BeamDemand, c: BeamContext, t: Ts500Mat, a: BeamAdopted, re
   const sMax = Math.min(sh.sMax, tor.sMax);
   const vr = vrOf(t, sh, a.stirrups);
   const alProvided = a.torsionLong ? a.torsionLong.count * barArea(a.torsionLong.dia) : 0;
+  const combos = comboRatios(d, c, t, a);
   const ok = {
     shear: sh.vd <= vr + 1e-6, vmax: sh.vd <= sh.vmax + 1e-6,
     stirrups: perLegProvided >= perLegRequired - 1e-6, spacing: a.stirrups.spacing <= sMax + 1e-6,
     al: !tor.design || alProvided >= tor.asl - 1e-6, torsionSection: tor.sectionOk,
+    combos: combos.every((k) => k.ratio <= 1 + 1e-6),
   };
   const areaOk = (sign: 'pos' | 'neg') => req.bySection.filter((x) => x.sign === sign).every((x) => groupsArea(barsAt(a, x.section)[sign === 'pos' ? 'bottom' : 'top']) >= x.req - 1e-6);
   const fitBottom = fits('bottom'), fitTop = fits('top'), areaBottom = areaOk('pos'), areaTop = areaOk('neg');
   const all = flex.every((f) => f.ok) && fitBottom && fitTop && areaBottom && areaTop && Object.values(ok).every(Boolean);
-  return { flex, fitBottom, fitTop, areaBottom, areaTop, sh, tor, vr, legs, perLegProvided, perLegRequired, sMax, alProvided, ok, all };
+  return { flex, fitBottom, fitTop, areaBottom, areaTop, sh, tor, vr, legs, perLegProvided, perLegRequired, sMax, alProvided, combos, ok, all };
 }
 
 const LONG = (c: BeamContext) => c.diameters.filter((x) => x >= 10 && x <= 25);
@@ -56,13 +62,14 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext): 
   const sd = a.stirrups.dia;
   const next: BeamAdopted = JSON.parse(JSON.stringify(a));
   const pos = e.flex.filter((f) => f.sign === 'pos' && !f.ok), neg = e.flex.filter((f) => f.sign === 'neg' && !f.ok);
+  const over = (k: 'pos' | 'neg' | 'stir' | 'shear') => e.combos.some((x) => x[k] > 1 + 1e-6);
   if (pos.some((f) => !f.ductile)) next.top = bumpFace(next.top, d, c, sd);
-  else if (pos.length || !e.areaBottom) next.bottom = bumpFace(next.bottom, d, c, sd);
+  else if (pos.length || !e.areaBottom || over('pos')) next.bottom = bumpFace(next.bottom, d, c, sd);
   if (neg.some((f) => !f.ductile)) next.bottom = bumpFace(next.bottom, d, c, sd);
-  else if (neg.length || !e.areaTop) next.top = bumpFace(next.top, d, c, sd);
+  else if (neg.length || !e.areaTop || over('neg')) next.top = bumpFace(next.top, d, c, sd);
   if (!e.fitBottom) next.bottom = proposeBeamFace(groupsArea(next.bottom), d.b, d.h, c.cover, sd, LONG(c));
   if (!e.fitTop) next.top = proposeBeamFace(groupsArea(next.top), d.b, d.h, c.cover, sd, LONG(c));
-  if (!e.ok.shear || !e.ok.stirrups || !e.ok.spacing) {
+  if (!e.ok.shear || !e.ok.stirrups || !e.ok.spacing || over('stir') || over('shear')) {
     if (!e.ok.spacing && next.stirrups.spacing > e.sMax + 1e-9) next.stirrups.spacing = roundDown(e.sMax);
     else {
       const more = moreStirrup(next.stirrups, c, Math.min(0.15, roundDown(e.sMax)));
@@ -80,13 +87,16 @@ function improve(a: BeamAdopted, e: Evaluation, d: BeamDemand, c: BeamContext): 
 }
 
 
-function proposeSkin(d: BeamDemand, c: BeamContext, dEff: number): MeshBars | null {
+/** Skin bars over a web deeper than 600 mm, both faces: 0.1 % of bw·d, at most 300 mm apart; more of them where Ø16 at that spacing is short of it. */
+export function proposeSkin(d: Pick<BeamDemand, 'b' | 'h'>, c: Pick<BeamContext, 'cover' | 'stirrupDia'>, dEff: number): { mesh: MeshBars; need: number; area: number } | null {
   if (d.h <= 0.6 + 1e-9) return null;
   const zone = d.h - 2 * (c.cover + c.stirrupDia / 1000 + 0.02);
-  const n = Math.max(1, Math.ceil(zone / 0.3) - 1);
   const need = 0.001 * d.b * dEff * 1e4;
-  const dia = [10, 12, 14, 16].find((x) => 2 * n * barArea(x) >= need - 1e-9) ?? 16;
-  return { dia, spacing: zone / (n + 1) };
+  for (let n = Math.max(1, Math.ceil(zone / 0.3) - 1); n <= 20; n++) {
+    const dia = [10, 12, 14, 16].find((x) => 2 * n * barArea(x) >= need - 1e-9);
+    if (dia) return { mesh: { dia, spacing: zone / (n + 1) }, need, area: 2 * n * barArea(dia) };
+  }
+  return { mesh: { dia: 16, spacing: zone / 21 }, need, area: 40 * barArea(16) };
 }
 
 export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | undefined, fmt: Fmt): BeamRow {
@@ -141,13 +151,13 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   ];
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin, bySection },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin: skin?.mesh ?? null, bySection },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, t, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
 }
 
-function checks(d: BeamDemand, e: Evaluation, a: BeamAdopted, bottomReq: number, topReq: number, skin: MeshBars | null, fmt: Fmt): CheckLine[] {
+function checks(d: BeamDemand, e: Evaluation, a: BeamAdopted, bottomReq: number, topReq: number, skin: ReturnType<typeof proposeSkin>, fmt: Fmt): CheckLine[] {
   const loaded = e.flex.filter((x) => x.mu > 1e-6);
   const worst = (f: (x: Ts500Flexure) => number) => loaded.reduce<Ts500Flexure | undefined>((w, x) => (!w || f(x) > f(w) ? x : w), undefined);
   const wRho = worst((x) => x.rho), wNet = worst((x) => x.rhoNet / Math.max(x.rhoLimit, 1e-12));
@@ -170,28 +180,37 @@ function checks(d: BeamDemand, e: Evaluation, a: BeamAdopted, bottomReq: number,
       check(U('rcSheets.v.al'), e.ok.al, { clause: '8.2', demand: `${fmt(tor.asl)} cm²`, capacity: `${fmt(e.alProvided)} cm²`, ratio: ratioOf(tor.asl, e.alProvided) }),
       check(U('rcSheets.v.torsionSection'), e.ok.torsionSection, { clause: '8.2', demand: `${fmt(tor.vt)} kN`, capacity: `${fmt(tor.vtMax)} kN`, ratio: ratioOf(tor.vt, tor.vtMax) }),
     ] : d.tu.value > 1e-6 ? [check('rcSheets.ts500.v.torsionMinOnly', true, { clause: '8.2', demand: `(Vd/Vcr)² + (Td/Tcr)² = ${fmt(tor.interaction, 3)}`, capacity: '≤ 1' })] : []),
-    ...(skin ? [check('rcSheets.ts500.v.skin', true, { clause: 'TS 500', capacity: `Ø${skin.dia} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
+    ...(skin ? [check('rcSheets.ts500.v.skin', skin.area >= skin.need - 1e-6, { clause: 'TS 500', demand: `${fmt(skin.need)} cm²`, capacity: `Ø${skin.mesh.dia} c/${fmt(skin.mesh.spacing * 100, 1)} cm = ${fmt(skin.area)} cm²`, ratio: ratioOf(skin.need, skin.area) })] : []),
+    ...((w) => (w ? [check('rcSheets.v.everyCombo', e.ok.combos, { clause: '7.1, 8.1', demand: w.combo, ratio: w.ratio })] : []))(e.combos.reduce<ComboRatio | undefined>((w, x) => (!w || x.ratio > w.ratio ? x : w), undefined)),
   ];
 }
 
 function comboTable(d: BeamDemand, c: BeamContext, t: Ts500Mat, a: BeamAdopted, fmt: Fmt): ComboTable {
+  const ratios = comboRatios(d, c, t, a);
+  return {
+    headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'],
+    rows: d.combos.map((k, i) => ({ combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio: ratios[i]!.ratio, ok: ratios[i]!.ratio <= 1 + 1e-6 })),
+  };
+}
+
+function comboRatios(d: BeamDemand, c: BeamContext, t: Ts500Mat, a: BeamAdopted): ComboRatio[] {
   const sd = a.stirrups.dia;
   const S = barsAt(a, 'start'), M = barsAt(a, 'span'), E = barsAt(a, 'end');
   const dS = shearDepth(d, c, a);
   const legs = Math.max(1, a.stirrups.legs);
   const perLegProvided = a.stirrups.spacing > 0 ? barArea(sd) / a.stirrups.spacing : 0;
-  const rows = d.combos.map((k) => {
+  return d.combos.map((k) => {
     const mr = (bars: { top: BarGroup[]; bottom: BarGroup[] }, sag: boolean, n: number) => (sag ? mrOf(d, c, t, bars.bottom, bars.top, sd, true, n) : mrOf(d, c, t, bars.top, bars.bottom, sd, false, n));
-    const at = (m: number, bars: { top: BarGroup[]; bottom: BarGroup[] }, n: number) => ratioOf(Math.abs(m), mr(bars, m >= 0, n));
-    const flex = Math.max(at(k.mStart, S, k.nStart), at(k.mSpan, M, k.nSpan), at(k.mEnd, E, k.nEnd), ratioOf(k.mPos, mr(M, true, k.nSpan)),
+    const at = (m: number, bars: { top: BarGroup[]; bottom: BarGroup[] }, n: number, sag: boolean) => (sag === m >= 0 ? ratioOf(Math.abs(m), mr(bars, m >= 0, n)) : 0);
+    const pos = Math.max(at(k.mStart, S, k.nStart, true), at(k.mSpan, M, k.nSpan, true), at(k.mEnd, E, k.nEnd, true), ratioOf(k.mPos, mr(M, true, k.nSpan)));
+    const neg = Math.max(at(k.mStart, S, k.nStart, false), at(k.mSpan, M, k.nSpan, false), at(k.mEnd, E, k.nEnd, false),
       ratioOf(k.mNeg, Math.min(mr(S, false, k.nStart), mr(E, false, k.nEnd), mr(M, false, k.nSpan))));
     const sh = shearState(t, d.b, d.h, dS, k.v, k.nV);
     const tor = torsionState(t, c, d.b, d.h, sh, k.t, c.torsion, sd);
     const stir = ratioOf(Math.max(sh.swReq, sh.swMin) / legs + tor.aoS, perLegProvided);
-    const ratio = Math.max(flex, stir, ratioOf(k.v, vrOf(t, sh, a.stirrups)), ratioOf(k.v, sh.vmax));
-    return { combo: k.combo, values: [fmt(k.mStart, 1), fmt(k.mSpan, 1), fmt(k.mEnd, 1), fmt(k.v, 1), fmt(k.t, 1), fmt(k.nSpan, 1)], ratio, ok: ratio <= 1 + 1e-6 };
+    const shear = Math.max(ratioOf(k.v, vrOf(t, sh, a.stirrups)), ratioOf(k.v, sh.vmax));
+    return { combo: k.combo, pos, neg, stir, shear, ratio: Math.max(pos, neg, stir, shear) };
   });
-  return { headers: ['M i', 'M x*', 'M j', 'V', 'T', 'N'], rows };
 }
 
 function dataSteps(d: BeamDemand, c: BeamContext, t: Ts500Mat, f: Fmt): StepGroup {
