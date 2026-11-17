@@ -341,6 +341,8 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
 }
 
 fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f64>) {
+    #[cfg(test)]
+    tests::EIGENVALUE_DECOMPOSITIONS.with(|count| count.set(count.get() + 1));
     let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let scale = if scale > 0.0 && scale.is_finite() { scale } else { 1.0 };
     let mut m: Vec<f64> = a.iter().map(|x| x / scale).collect();
@@ -1352,6 +1354,7 @@ mod tests {
         pub(super) static PROJECT_ROWS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static LANCZOS_RUNS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static IDENTITY_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+        pub(super) static EIGENVALUE_DECOMPOSITIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
         pub(super) static EIGENVECTOR_ROTATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     }
     use super::*;
@@ -1698,6 +1701,34 @@ mod tests {
                 assert!(basis.is_empty());
             }
             assert_eq!(IDENTITY_ROTATIONS.with(|count| count.get()), 0);
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2223"]
+    fn issue_2223_refused_spectrum_decomposes_stiffness_once() {
+        for n in [3, 16, FULL_SPECTRUM] {
+            for last in [-1.0, 0.0, 1.0 / (2.0 * RESOLVABLE), 2.0 / RESOLVABLE, 1.0] {
+                let mut dense = vec![0.0; n * n];
+                for i in 0..n { dense[i * n + i] = if i + 1 == n { last } else { 1.0 }; }
+                dense[1] = 0.25;
+                dense[n] = 0.25;
+                let (values, vectors) = sym_eigen_small(&dense, n);
+                let expected_kappa = if values[0] <= 0.0 { f64::INFINITY } else { values[n - 1] / values[0] };
+                let matrix = CscMatrix::from_dense_symmetric(&dense, n);
+                for (anisotropy, amplification) in [(1.0, 1.0), (RESOLVABLE, 1.0), (1.0, RESOLVABLE)] {
+                    EIGENVALUE_DECOMPOSITIONS.with(|count| count.set(0));
+                    let (kappa, mode, indefinite) = spectrum(&matrix, anisotropy, amplification, None);
+                    assert_eq!(kappa.to_bits(), expected_kappa.to_bits());
+                    let expected_indefinite = -values[0] > ROUNDING * n as f64 * f64::EPSILON * anisotropy * values[n - 1].abs();
+                    assert_eq!(indefinite, expected_indefinite);
+                    let accepted = !expected_indefinite && expected_kappa * amplification <= RESOLVABLE
+                        && (expected_kappa * anisotropy <= RESOLVABLE || (expected_kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY));
+                    if accepted { assert!(mode.is_none()); }
+                    else { assert_eq!(mode.unwrap(), (0..n).map(|r| vectors[r * n]).collect::<Vec<_>>()); }
+                    assert_eq!(EIGENVALUE_DECOMPOSITIONS.with(|count| count.get()), 1, "n={n}, last={last}, anisotropy={anisotropy}, amplification={amplification}");
+                }
+            }
         }
     }
 
