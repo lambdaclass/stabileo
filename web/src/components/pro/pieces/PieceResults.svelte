@@ -9,7 +9,7 @@
   import { selectedPiece } from '../../../lib/store/curved-members';
   import { pieceDiagram, pieceExtremes } from '../../../lib/model/curve-entity';
   import { PIECE_KINDS, PIECE_UNIT, pieceCsv } from '../../../lib/model/piece-csv';
-  import { downloadBlob } from '../../../lib/store/document-exports';
+  import { downloadText } from '../../../lib/store/file';
   import { currentResultProvenance } from '../../../lib/store/result-provenance';
   import type { Diagram3DKind } from '../../../lib/engine/diagrams-3d';
 
@@ -51,7 +51,7 @@
         `results ${prov.resultsHash ?? '-'} · model ${prov.modelHash}`,
       ],
     });
-    downloadBlob(`${name.replace(/\s+/g, '-')}.csv`, 'text/csv', csv);
+    downloadText(csv, `${name.replace(/\s+/g, '-')}.csv`, 'text/csv');
   }
 </script>
 

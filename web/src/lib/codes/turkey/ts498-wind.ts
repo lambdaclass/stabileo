@@ -29,10 +29,12 @@ export function storeyWind(
   levels: ReadonlyArray<{ elevation: number; nodeIds: number[] }>, base: number, c: number, across: number, exposedSlope = false,
 ): WindStorey[] {
   const elevated = levels.filter((l) => l.elevation > base + 1e-6);
-  return elevated.map((lv, i) => {
-    const below = i === 0 ? base : elevated[i - 1]!.elevation;
-    const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1]!.elevation;
-    const z0 = (below + lv.elevation) / 2 - base, z1 = (lv.elevation + above) / 2 - base;
+  const foot = levels.find((l) => Math.abs(l.elevation - base) <= 1e-6);
+  const loaded = foot && elevated.length ? [foot, ...elevated] : elevated;
+  return loaded.map((lv, i) => {
+    const below = i === 0 ? base : loaded[i - 1]!.elevation;
+    const above = i === loaded.length - 1 ? lv.elevation : loaded[i + 1]!.elevation;
+    const z0 = lv === foot ? 0 : (below + lv.elevation) / 2 - base, z1 = (lv.elevation + above) / 2 - base;
     const q = meanPressure(z0, z1, exposedSlope);
     return { elevation: lv.elevation, nodeIds: lv.nodeIds, z0, z1, q, force: c * q * across * (z1 - z0) };
   });

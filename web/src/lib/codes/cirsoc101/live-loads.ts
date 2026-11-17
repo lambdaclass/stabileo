@@ -7,10 +7,10 @@
  * §4.7.3–4.7.6 the limits on that reduction
  * §4.8        minimum roof imposed loads
  *
- * Every entry below is transcribed cell by cell from the normative column of the
- * official text (Edición Julio 2025, pp. 78–95) and carries the table it came from.
- * Where Table 4.1 refers the reader to an article instead of giving a number, the entry
- * records that rather than inventing a value.
+ * Table 4.1 lives in its code profile, `code-profiles/profiles/loads/cirsoc-101-2025.json`,
+ * transcribed cell by cell from the normative column of the official text (Edición Julio
+ * 2025, pp. 78–95). Where Table 4.1 refers the reader to an article instead of giving a
+ * number, the row records that rather than inventing a value.
  *
  * This replaces the single free-typed `occupancyQ` the app used to accept. Manual loads
  * remain fully supported — this is an additional, code-grounded path, not a replacement
@@ -21,6 +21,8 @@
 
 import { clause, type ClauseRef } from '../regulation';
 import { msg, round, type EngineMessage } from '../message';
+import { loadsProfile } from '../../code-profiles/registry';
+import { occupancyEntries } from '../../code-profiles/adapters/occupancies';
 
 const T41 = clause('cirsoc-101', '2025', 'Tabla 4.1',
   'sobrecargas mínimas uniformemente distribuidas y concentradas');
@@ -81,133 +83,7 @@ export interface OccupancyEntry {
   refs: ClauseRef[];
 }
 
-const e = (
-  key: string, category: OccupancyCategory,
-  uniformKNm2: number | null, concentratedKN: number | null = null,
-  extra: Partial<OccupancyEntry> = {},
-): OccupancyEntry => ({
-  key, labelKey: `loads.occupancy.${key}`, category, uniformKNm2, concentratedKN,
-  refs: [T41], ...extra,
-});
-
-/**
- * Table 4.1, in the order it is printed.
- *
- * This is a faithful subset, not the complete table: entries whose value exists only as
- * a cross-reference to another article, and highly specialised occupancies (hangars,
- * morgues, bowling alleys, crane runways), are either recorded with `seeArticle` or
- * omitted. Omission means the user types the value manually — it never means the app
- * substituted a number of its own.
- */
-export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
-  // Archivos
-  e('archivos', 'office', 7.0),
-
-  // Áreas de reunión — every one is a place of public assembly
-  e('reunion_asientos_fijos', 'assembly', 3.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_vestibulos', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_asientos_moviles', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_plataformas', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_escenarios', 'assembly', 7.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_proyeccion', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('reunion_otras', 'assembly', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-
-  // Azoteas y terrazas
-  e('azotea_publica', 'roof', 5.0, null, { garageOrPublicAssembly: true, assemblyKind: 'publicAssembly' }),
-  e('azotea_privada', 'roof', 3.0),
-  e('azotea_inaccesible', 'roof', 1.0),
-
-  // Balcones
-  e('balcon_vivienda', 'residential', 5.0),
-  e('balcon_casa_pequena', 'residential', 3.0),
-  e('balcon_otros', 'residential', null, null,
-    { seeArticle: '4.11' }),
-
-  // Baños
-  e('bano_vivienda', 'residential', 2.0),
-  e('bano_otros', 'other', 3.0),
-
-  // Bibliotecas
-  e('biblioteca_lectura', 'education', 3.0, 4.5),
-  e('biblioteca_deposito', 'education', 7.0, 4.5, { noReduction: true }),
-  e('biblioteca_pasillos_sup', 'circulation', 4.0, 4.5),
-  e('biblioteca_pasillos_pb', 'circulation', 5.0, 4.5),
-
-  // Cielorrasos con posibilidad de almacenamiento
-  e('cielorraso_liviano', 'storage', 1.0),
-  e('cielorraso_ocasional', 'storage', 0.5),
-  e('cielorraso_mantenimiento', 'other', null, 1.0),
-
-  // Cocinas
-  e('cocina_vivienda', 'residential', 2.0),
-  e('cocina_otros', 'other', 4.0),
-
-  // Comercios
-  e('comercio_minorista_pb', 'commercial', 5.0, 4.5),
-  e('comercio_minorista_sup', 'commercial', 4.0, 4.5),
-  e('comercio_mayorista', 'commercial', 6.0, 4.5, { noReduction: true }),
-
-  // Cuartos de máquinas
-  e('cuarto_maquinas', 'industrial', 7.5),
-
-  // Cubiertas de techo
-  e('cubierta_usual', 'roof', 1.0),
-  e('cubierta_jardin', 'roof', 5.0),
-  e('cubierta_toldos', 'roof', 0.25, null,
-    { seeArticle: 'no reducible', noReduction: true }),
-  e('cubierta_cerramiento', 'roof', 0.25, 1.0,
-    { seeArticle: 'no reducible', noReduction: true }),
-  e('cubierta_otras', 'roof', 1.0),
-
-  // Depósitos
-  e('deposito_liviano', 'storage', 6.0, null, { noReduction: true }),
-  e('deposito_pesado', 'storage', 12.0, null,
-    { seeArticle: '4.13', noReduction: true }),
-
-  // Escaleras
-  e('escalera_privada', 'circulation', 2.0),
-  e('escalera_otros', 'circulation', 5.0),
-
-  e('escotillas', 'other', null, 1.0),
-
-  // Escuelas
-  e('escuela_aulas', 'education', 3.0, 4.5),
-  e('escuela_pasillos_sup', 'circulation', 4.0, 4.5),
-  e('escuela_pasillos_pb', 'circulation', 5.0, 4.5),
-
-  // Entrepiso liviano
-  e('entrepiso_liviano', 'other', null, 1.0),
-
-  /*
-   * Garajes. Tabla 4.1 prints 2 kN/m² for passenger vehicles, and art. 4.10.1 says the
-   * same number a second time. This entry carried 2,5 — the CIRSOC 101-2005 figure,
-   * inherited from ASCE 7-05's 2,40 — inside a module whose header promises a cell-by-
-   * cell transcription of the 2025 edition. Conservative, and wrong: 25 % over a value
-   * the reader could look up, in the one place where looking it up is the point.
-   */
-  e('garaje_autos', 'parking', 2.0, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage' }),
-  e('garaje_camiones', 'parking', null, null,
-    { garageOrPublicAssembly: true, assemblyKind: 'truckGarage', seeArticle: '4.10.3' }),
-
-  // Hospitales
-  e('hospital_habitaciones', 'health', 2.0, 4.5),
-  e('hospital_quirofanos', 'health', 3.0, 4.5),
-  e('hospital_corredores', 'circulation', 4.0, 4.5),
-
-  // Oficinas
-  e('oficina', 'office', 2.5, 9.0),
-  e('oficina_corredores_sup', 'circulation', 4.0, 9.0),
-  e('oficina_corredores_pb', 'circulation', 5.0, 9.0),
-
-  // Viviendas
-  e('vivienda', 'residential', 2.0),
-  e('vivienda_dormitorio', 'residential', 2.0),
-
-  // Fábricas y talleres
-  // Tabla 4.1 prints concentrated loads of 9 and 14 kN for these rows; they were left out.
-  e('fabrica_liviana', 'industrial', 6.0, 9.0, { seeArticle: '4.12.1', noReduction: true }),
-  e('fabrica_pesada', 'industrial', 12.0, 14.0, { seeArticle: '4.12.1', noReduction: true }),
-]);
+export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze(occupancyEntries(loadsProfile('cirsoc-101-2025')));
 
 export function findOccupancy(key: string): OccupancyEntry | undefined {
   return OCCUPANCY_TABLE_2025.find((o) => o.key === key);

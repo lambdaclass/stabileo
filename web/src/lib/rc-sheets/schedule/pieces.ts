@@ -1,0 +1,292 @@
+/**
+ * Every bar the sheets place, element by element, as the piece a bender makes: its shape and how
+ * many an element takes. Beams give their line bars as laid out, the stirrups of each zone and the
+ * closed stirrups that hang an end bearing on another beam (placed in that beam);
+ * columns their bars per storey (lapped into the storey above, cranked where its faces step in by
+ * 75 mm at most, hooked into the slab at the top or where they step in more, and dowels then),
+ * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
+ * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
+ */
+import type { LineBar, LineLayout } from '../beam-line';
+import { columnBars, innerCrossties, type ColumnContext, type ColumnRow } from '../column-row';
+import { columnTieLayout, confinedTieCount } from '../column-ties';
+import { SLAB_FACES, type SlabRow } from '../slab-row';
+import type { LevelPlan } from '../slab-plan';
+import { wallDetail } from '../wall-detail';
+import type { WallRow } from '../wall-row';
+import type { FootingRow } from '../footing-types';
+import { footingDetail } from '../footing-detail';
+import { rulesFor } from '../codes';
+import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
+import type { SheetCode, SheetFamily, Stirrups } from '../types';
+
+export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY';
+
+export interface Piece {
+  kind: PieceKind;
+  count: number;
+  shape: BarShape;
+  /** The mark the bar carries on its line's elevation. */
+  elevation?: string;
+}
+
+export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
+
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; footing?: readonly FootingRow[] }
+
+export interface PieceOptions {
+  code: SheetCode;
+  /** Clear cover of the slabs' bars, m. */
+  slabCover: number;
+  /** The project's denser column ends, as the elevations draw them. */
+  endZones?: boolean;
+}
+
+/** The largest offset a column bar is cranked through (§10.7.4.1; the same practice elsewhere), m. */
+export const MAX_CRANK = 0.075;
+
+const STOCK = 12;
+
+/** Bars at a spacing over a length, both ends included, never farther apart than the spacing. */
+export const spread = (length: number, spacing: number): number => (spacing > 0 ? Math.max(2, Math.ceil(length / spacing - 1e-9) + 1) : 0);
+
+/** Stirrups over a zone as the elevation places them: the first at `first` (min(5 cm; s/2) when not given), then one each spacing. */
+export const stirrupsOver = (from: number, to: number, spacing: number, first = Math.min(0.05, spacing / 2)): number => {
+  if (spacing <= 0 || to - from < 1e-6) return 0;
+  return Math.max(1, Math.floor((to - from - first) / spacing + 1e-9) + 1);
+};
+
+/** A zone of stirrups: `first` from the end it is set out from, the start or, with `fromEnd`, the end. */
+export interface StirrupZone { from: number; to: number; stirrups: { spacing: number }; first?: number; fromEnd?: boolean }
+
+/** Where each stirrup of a zone stands, m, as the elevation, the schedule and the model all place them. */
+export function zoneStirrups(z: StirrupZone): number[] {
+  const s = z.stirrups.spacing, first = z.first ?? Math.min(0.05, s / 2), n = stirrupsOver(z.from, z.to, s, first);
+  return Array.from({ length: n }, (_, i) => (z.fromEnd ? z.to - first - i * s : z.from + first + i * s));
+}
+
+const hoop = (w: number, h: number, dia: number, R: BendRules): Piece['shape'] =>
+  closedHoop(w, h, dia, R.mandrel(dia, 'transverse'), R.extension(dia, 135, 'transverse'));
+
+const tieAcross = (len: number, dia: number, R: BendRules): BarShape =>
+  crossTie(len, dia, R.mandrel(dia, 'transverse'), R.crossTieHooks, [R.extension(dia, R.crossTieHooks[0], 'transverse'), R.extension(dia, R.crossTieHooks[1], 'transverse')]);
+
+const topHooked = (length: number, dia: number, R: BendRules): BarShape =>
+  hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, true], 1, R.extension(dia, 90, 'longitudinal'));
+
+const straight = (length: number, dia: number, R: BendRules): BarShape =>
+  hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, false], 1, 0);
+
+/**
+ * A vertical bar over `length`, hooked into the slab at its top when `hooked`, as the pieces a
+ * bender cuts: one when it fits a stock bar, else as few equal pieces as fit, each lapped `lap` onto
+ * the next.
+ */
+export function stockPieces(length: number, lap: number, dia: number, R: BendRules, hooked: boolean): Array<{ shape: BarShape; count: number }> {
+  const whole = hooked ? topHooked(length, dia, R) : straight(length, dia, R);
+  if (developedLength(whole) <= STOCK + 1e-9 || lap >= STOCK / 2) return [{ shape: whole, count: 1 }];
+  const hookExtra = developedLength(whole) - length;
+  let n = 2;
+  while ((length + (n - 1) * lap) / n + hookExtra > STOCK + 1e-9 && n < 20) n++;
+  const piece = (length + (n - 1) * lap) / n;
+  if (!hooked) return [{ shape: straight(piece, dia, R), count: n }];
+  return [{ shape: straight(piece, dia, R), count: n - 1 }, { shape: topHooked(piece, dia, R), count: 1 }];
+}
+
+/** A bar longer than a stock bar, lapped `lap` m where it is cut: into as few pieces as fit a stock bar, laps and all. */
+export function lapped(shape: BarShape, lap: number): BarShape {
+  const L = developedLength(shape);
+  if (L <= STOCK + 1e-9 || !(lap > 0) || lap >= STOCK / 2) return shape;
+  let n = 2;
+  while ((L + (n - 1) * lap) / n > STOCK + 1e-9 && n < 40) n++;
+  return { ...shape, laps: { count: n - 1, length: lap } };
+}
+
+function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
+  const out: Piece[] = [];
+  for (const z of line.zones) {
+    const sp = line.spans[z.span];
+    if (!sp) continue;
+    const n = zoneStirrups(z).length;
+    if (!n) continue;
+    const st: Stirrups = z.stirrups, d = st.dia / 1000;
+    const w = sp.b - 2 * line.cover - d, h = sp.h - 2 * line.cover - d;
+    out.push({ kind: 'stirrup', count: n, shape: hoop(w, h, st.dia, R) });
+    if (st.legs > 2) out.push({ kind: 'stirrupTie', count: n * (st.legs - 2), shape: tieAcross(h, st.dia, R) });
+  }
+  for (const hg of line.hangers ?? []) {
+    const sp = line.spans[hg.end === 'start' ? 0 : line.spans.length - 1];
+    if (!sp) continue;
+    const d = hg.stirrups.dia / 1000;
+    out.push({ kind: 'hanger', count: hg.count, shape: hoop(sp.b - 2 * line.cover - d, sp.h - 2 * line.cover - d, hg.stirrups.dia, R) });
+  }
+  return out;
+}
+
+function linePieces(line: LineLayout, R: BendRules): ScheduleElement {
+  const bars: Piece[] = line.bars.map((b) => ({ kind: b.kind, count: b.bars.count, shape: b.shape, elevation: b.mark }));
+  return { key: line.key, name: line.name, level: line.level, family: 'beam', pieces: [...bars, ...stirrupPieces(line, R)] };
+}
+
+const stackOf = (key: string) => {
+  const [, g, k] = key.split(':');
+  return { group: g ?? key, index: Number(k ?? 0) };
+};
+
+function above<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
+  const me = stackOf(row.key);
+  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index + 1; });
+}
+
+function below<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
+  const me = stackOf(row.key);
+  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index - 1; });
+}
+
+const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
+  const a = r.adopted, m = new Map<number, number>();
+  const add = (dia: number, n: number) => { if (n > 0 && dia > 0) m.set(dia, (m.get(dia) ?? 0) + n); };
+  add(a.corner, 4); add(a.dx, 2 * a.nx); add(a.dy, 2 * a.ny);
+  if (a.inner) add(a.inner.dia, 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny));
+  return [...m].map(([dia, count]) => ({ dia, count }));
+};
+
+const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, (r.h - up.h) / 2);
+
+/**
+ * How far each bar of a storey moves to reach the storey above, faces stepping in about its centre:
+ * a corner bar along both, a face bar across its face and along it in proportion. By diameter and
+ * distance, to the millimetre.
+ */
+export function crankOffsets(r: ColumnRow, up: ColumnRow): Array<{ dia: number; e: number; count: number }> {
+  const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
+  const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
+  const bars = columnBars(r, a, { cover: r.cover } as ColumnContext).map((p, i) => ({ ...p, dia: i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner!.dia }));
+  const out = new Map<string, { dia: number; e: number; count: number }>();
+  for (const p of bars) {
+    const e = Math.round(Math.hypot((p.x / Math.max(xc, 1e-9)) * ex, (p.y / Math.max(yc, 1e-9)) * ey) * 1000) / 1000;
+    const k = `${p.dia}|${e}`;
+    const g = out.get(k) ?? { dia: p.dia, e, count: 0 };
+    g.count++;
+    out.set(k, g);
+  }
+  return [...out.values()];
+}
+
+function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions, R: BendRules): ScheduleElement {
+  const pieces: Piece[] = [];
+  const up = above(rows, r), down = below(rows, r);
+  const H = r.length;
+  const e = up ? offsetTo(r, up) : 0;
+  const groups = up && e > 1e-3 && e <= MAX_CRANK ? crankOffsets(r, up) : columnDias(r).map((g) => ({ ...g, e: 0 }));
+  for (const { dia, count, e: eBar } of groups) {
+    const mandrel = R.mandrel(dia, 'longitudinal');
+    const own = r.lap?.length ?? up?.lap?.length ?? 0;
+    const column = (length: number, hooked: boolean) => { for (const pc of stockPieces(length, own, dia, R, hooked)) pieces.push({ kind: 'column', count: count * pc.count, shape: pc.shape }); };
+    if (!up) { column(H - r.cover, true); continue; }
+    const lap = up.lap?.length ?? 0;
+    if (e > MAX_CRANK) column(H - r.cover, true);
+    else if (eBar > 1e-3) pieces.push({ kind: 'cranked', count, shape: crankedBar(H, eBar, lap, dia, mandrel) });
+    else column(H + lap, false);
+  }
+  if (down && offsetTo(down, r) > MAX_CRANK) {
+    const lap = r.lap?.length ?? 0;
+    for (const { dia, count } of columnDias(r)) pieces.push({ kind: 'dowel', count, shape: straight(2 * lap, dia, R) });
+  }
+  const t = r.adopted.tieDia, d = t / 1000;
+  const layout = columnTieLayout(r, o.code, { endZones: o.endZones });
+  const n = layout.ties.length, nc = confinedTieCount(layout);
+  const w = r.b - 2 * r.cover - d, h = r.h - 2 * r.cover - d;
+  const ct = r.checks.crossties, more = { x: Math.max(0, (ct.confined?.x ?? 0) - ct.x), y: Math.max(0, (ct.confined?.y ?? 0) - ct.y) };
+  pieces.push({ kind: 'hoop', count: n, shape: hoop(w, h, t, R) });
+  if (ct.x + more.x) pieces.push({ kind: 'crossTie', count: n * ct.x + nc * more.x, shape: tieAcross(h, t, R) });
+  if (ct.y + more.y) pieces.push({ kind: 'crossTie', count: n * ct.y + nc * more.y, shape: tieAcross(w, t, R) });
+  for (const tie of innerCrossties(r, r.adopted, r).ties) pieces.push({ kind: 'crossTie', count: n, shape: tieAcross(tie.length, t, R) });
+  return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
+}
+
+function slabPieces(r: SlabRow, o: PieceOptions, R: BendRules): ScheduleElement {
+  const pieces: Piece[] = [];
+  const c = o.slabCover;
+  for (const f of SLAB_FACES) {
+    const m = r.adopted[f];
+    if (!m.dia || m.spacing <= 0) continue;
+    const alongX = f.endsWith('X');
+    const len = (alongX ? r.lx : r.ly) - 2 * c, across = (alongX ? r.ly : r.lx) - 2 * c;
+    if (len <= 0) continue;
+    const count = spread(across, m.spacing);
+    const legs = r.h - 2 * c;
+    const shape = f.startsWith('top') && legs > hookLeg(90, m.dia, R.mandrel(m.dia, 'longitudinal'), 0)
+      ? { pts: [[0, -legs], [0, 0], [len, 0], [len, -legs]] as Array<[number, number]>, mandrel: R.mandrel(m.dia, 'longitudinal'), dia: m.dia }
+      : straight(len, m.dia, R);
+    pieces.push({ kind: f.startsWith('top') ? 'slabTop' : 'slabBottom', count, shape });
+  }
+  return { key: r.key, name: r.name, level: r.level, family: 'slab', pieces };
+}
+
+function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: BendRules): ScheduleElement {
+  const pieces: Piece[] = [];
+  const det = wallDetail(r, o.code);
+  const up = above(rows, r);
+  const H = r.height, c = r.cover;
+  const groups = new Map<string, { dia: number; boundary: boolean; count: number }>();
+  for (const v of det.verticals) {
+    const k = `${v.dia}|${v.boundary}`;
+    const g = groups.get(k) ?? { dia: v.dia, boundary: v.boundary, count: 0 };
+    g.count++;
+    groups.set(k, g);
+  }
+  for (const g of groups.values()) {
+    const lap = r.vLaps?.find((x) => x.dia === g.dia)?.lap ?? r.hLap * g.dia / Math.max(1, det.horizontals.dia);
+    for (const pc of stockPieces(up ? H + lap : H - c, lap, g.dia, R, !up)) pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count * pc.count, shape: pc.shape });
+  }
+  const hd = det.horizontals.dia, levels = spread(H, det.horizontals.spacing);
+  const len = r.length - 2 * c;
+  if (det.ends.kind === 'ubar') {
+    pieces.push({ kind: 'horizontal', count: levels * det.horizontals.y.length, shape: lapped(straight(len, hd, R), r.hLap) });
+    pieces.push({ kind: 'ubar', count: 2 * levels, shape: uBar(r.thickness - 2 * c - hd / 1000, det.ends.lap, hd, R.mandrel(hd, 'longitudinal')) });
+  } else {
+    pieces.push({ kind: 'horizontal', count: levels, shape: lapped(hookedStraight(0, len, 0, hd, R.mandrel(hd, 'longitudinal'), [true, true], 1, R.extension(hd, 90, 'longitudinal')), r.hLap) });
+  }
+  const ties = det.boundary?.ties;
+  if (det.boundary && ties) {
+    const d = ties.dia / 1000;
+    pieces.push({ kind: 'hoop', count: 2 * spread(H, ties.spacing), shape: hoop(det.boundary.length - c - d, r.thickness - 2 * c - d, ties.dia, R) });
+  }
+  if (det.crossTies) {
+    const n = Math.max(1, Math.floor(r.length / det.crossTies.along)) * Math.max(1, Math.floor(H / det.crossTies.up));
+    pieces.push({ kind: 'wallTie', count: n, shape: tieAcross(r.thickness - 2 * c - hd / 1000, det.crossTies.dia, R) });
+  }
+  return { key: r.key, name: r.name, level: r.level, family: 'wall', pieces };
+}
+
+/** A level's slab bars as its plan lays them, packages crossing panels and lapped over supports. */
+function levelPieces(plan: LevelPlan): ScheduleElement {
+  const lapOf = (dia: number) => plan.anchorage?.find((x) => x.dia === dia)?.lap ?? 0;
+  const pieces = plan.packages.map((p) => ({ kind: p.layer === 'top' ? 'slabTop' as const : 'slabBottom' as const, count: p.count, shape: lapped(p.shape, lapOf(p.shape.dia)), elevation: p.mark }));
+  return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
+}
+
+/** A footing's two bottom layers, hooked up where they need it, and its dowels with their feet. */
+function footingPieces(r: FootingRow, R: BendRules): ScheduleElement {
+  const det = footingDetail(r, R);
+  const pieces: Piece[] = det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
+  if (det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count, shape: det.dowels.shape });
+  return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
+}
+
+/** Every element's pieces, beams, columns, slabs, walls and footings in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
+export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
+  const R = rulesFor(o.code).bends;
+  const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
+  const inPlan = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).flatMap((p) => p.panels.map((x) => x.key)));
+  return [
+    ...rows.line.map((l) => linePieces(l, R)),
+    ...rows.column.map((r) => columnPieces(rows.column, r, o, R)),
+    ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
+    ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
+    ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
+    ...(rows.footing ?? []).filter((r) => !r.uncovered && r.B > 0).map((r) => footingPieces(r, R)),
+  ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
+}

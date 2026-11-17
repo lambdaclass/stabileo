@@ -29,7 +29,6 @@ import { verificationStore } from '../../../store/verification.svelte';
 import { detailingStore } from '../../../store/detailing.svelte';
 import { renderReportHtml, renderDrawings, renderSchedule } from '../document-render';
 import { reportElementStatus, NOT_FOR_CONSTRUCTION_STATUSES, type DesignOutcomeSummary } from '../element-status';
-import { REBAR_COLORS } from '../../../three/rebar-scene';
 import type { SceneModel } from '../scene-model';
 import type { DocumentModel } from '../document-model';
 
@@ -77,14 +76,9 @@ describe('a provisional proposal, across every projection', { timeout: 30_000 },
     }
   });
 
-  it('carries the mark into the 3-D scene, with a colour of its own', () => {
+  it('carries the mark into the scene model', () => {
     const marked = scene.bars.filter((b) => b.provisional);
     expect(marked.length, 'provisional steel reaches the scene').toBeGreaterThan(0);
-    // Not a shade of a role colour: a proposal and a design must not be told apart by
-    // recognising two similar blues.
-    expect(REBAR_COLORS.provisional).not.toBe(REBAR_COLORS.longitudinal);
-    expect(REBAR_COLORS.provisional).not.toBe(REBAR_COLORS.transverse);
-    expect(REBAR_COLORS.provisional).not.toBe(REBAR_COLORS.conflicted);
     // The scene never hides them — that was the state being replaced, not the fix.
     for (const id of provisional) {
       expect(scene.bars.some((b) => b.elementIds.includes(id)),

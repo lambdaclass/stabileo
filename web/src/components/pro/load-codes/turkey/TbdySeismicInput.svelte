@@ -73,8 +73,8 @@
   </div>
   <Hint text={t('loads.tr.seismic.periodHint')} />
   <label class="pk-check"><input type="checkbox" checked={v.regular} onchange={(e) => set({ regular: e.currentTarget.checked })} data-testid="tr-regular" />{t('loads.tr.seismic.regular')}</label>
-  <label class="pk-check"><input type="checkbox" checked={v.eccentricity} onchange={(e) => set({ eccentricity: e.currentTarget.checked })} data-testid="tr-ecc" />{t('loads.tr.seismic.eccentricity')}</label>
-  <label class="pk-check"><input type="checkbox" checked={v.orthogonal} onchange={(e) => set({ orthogonal: e.currentTarget.checked })} data-testid="tr-ortho" />{t('loads.tr.seismic.orthogonal')}</label>
+  <p class="pk-hint" data-testid="tr-ecc">{t('loads.tr.seismic.eccentricity')}</p>
+  <p class="pk-hint" data-testid="tr-ortho">{t('loads.tr.seismic.orthogonal')}</p>
   <div class="pk-row">
     <span class="pk-label">{t('loads.tr.directions')}</span>
     <label class="pk-check"><input type="checkbox" checked={dirs.x} onchange={(e) => set({ directions: { ...dirs, x: e.currentTarget.checked } })} data-testid="tr-seismic-x" />X</label>

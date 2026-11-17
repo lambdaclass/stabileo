@@ -4,6 +4,7 @@ import { exportMessages, warningImage, warningCanvas } from '../export/containme
 import { noteDesignHeldIfOff } from './design-presence';
 import { adoptLoadCases } from './load-cases-mode';
 import { modelStore } from './model.svelte';
+import { markLoadedModel } from './loaded-model';
 import { resultsStore } from './results.svelte';
 import { historyStore } from './history.svelte';
 import { uiStore } from './ui.svelte';
@@ -358,6 +359,7 @@ export function adoptStoredProject(snapshot: ModelSnapshot, name: string): void 
   forgetSessionDemandRevisions(snapshot);
   historyStore.pushState();
   modelStore.restore(snapshot);
+  markLoadedModel();
   modelStore.announceNewProject();
   // Adopted separately from `restore()`, which is also the undo path — see project-provenance.ts.
   // A file written before these fields existed hydrates to "we do not know", not to "none".

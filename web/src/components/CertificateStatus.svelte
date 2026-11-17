@@ -70,7 +70,7 @@
 {/if}
 
 <style>
-  .cert { margin: 4px 0; padding: 3px 7px; border: 1px solid var(--st-hair); border-radius: 4px; font-size: 0.66rem; line-height: 1.35; color: var(--st-text-2); cursor: help; }
+  .cert { margin: 4px 0; padding: 3px 7px; border: 1px solid var(--st-hair); border-radius: 4px; font-size: 12px; line-height: 1.4; color: var(--st-text-2); cursor: help; }
   .cert.ok { border-color: var(--st-ok); }
   .cert.no { border-color: var(--st-warn); }
   .cert.pending { opacity: 0.7; cursor: default; }

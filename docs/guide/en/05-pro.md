@@ -836,22 +836,35 @@ dialog. The choices are remembered in this browser; figures added from the view 
 session. The same data as a spreadsheet is **Export › Excel**.
 
 The **quantities** (in Documents too) take the concrete and structural steel from the geometry and
-the reinforcement from the **detailing**, by diameter; the steel ratio is taken over the detailed
-members.
+the reinforcement from the bars adopted in the **reinforcement sheets**, by diameter, as their
+bending schedule weighs them.
 
 ## The Design tab
 
-The Design stage opens on steel design when most members are steel, and on the concrete workflow
-otherwise. Every design panel names the combinations that have no forces (no second-order
-equilibrium) and calls the design incomplete while there are any.
+The Design stage, turned on in PRO's settings, holds steel design, the other codes and the drawing
+set. Every design panel names the combinations that have no forces (no second-order equilibrium)
+and calls the design incomplete while there are any.
 
 ### Reinforced concrete
 
-Beam design also checks the **spacing of the bars next to the tension face** for crack control
-(CIRSOC 201-2025, 24.3.2), with fs = 2/3 fy as 24.3.2.1 permits; when it fails, the automatic design
-moves to an arrangement with more bars. The detailing's drawing set adds, to each assembly's
-elevations and sections, whole **frames** in their plane, **column stacks** over every storey and a
-**detail of each joint**, all from the detailing's own bars.
+Reinforced concrete is designed in the **reinforcement sheets** (Analyse › **Reinforcement
+sheets**), with the Design stage on or off. With the model solved under its combinations and its
+physical members recognised, **Design reinforcement** proposes bars for every beam line, column
+storey, slab, wall and punching joint, to the code chosen for the sheets (CIRSOC 201-2025, ACI
+318-19, EN 1992-1-1, BS EN 1992-1-1 with the UK annex, or TS 500). Each row lists its checks with
+the clause each comes from, the forces of every combination and the bars proposed. **Adopt**
+keeps a proposal; the row's editor sets bars by hand, and those stay when the code changes. A
+beam line opens in elevation with its moment and shear envelopes against the capacity of the bars
+along it, where its bars are cut and how they are anchored. The covers, the steel, the bar
+diameters and the stirrup are the project's design data, which fold open in the sheets' panel and
+in the building's general data; with the seismic option, so do the seismic data.
+
+The adopted bars are what the rest of the project reads: the cracked-section deflections of the
+deflection table, the concrete chapters of the calculation report (the bars, each check with its
+clause, and the state; a row not adopted is printed as held), the bars of beams and columns in the
+IFC, and the bending schedule. The sheets export to Excel, the bending schedule to CSV and BVBS,
+and **Export drawings** gives the reinforcement drawings of beams, columns, slabs and walls. The
+drawing set of the Design stage holds the other construction drawings and points to that export.
 
 ### Other codes
 

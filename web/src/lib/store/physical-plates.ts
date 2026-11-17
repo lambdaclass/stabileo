@@ -39,11 +39,11 @@ import { meshBeforeAnalysis } from './mesh-policy.svelte';
 import { endMeshProgress, meshProgress, nextFrame, setMeshProgress } from './mesh-progress.svelte';
 import { historyStore } from './history.svelte';
 export { meshBeforeAnalysis };
-import type { FloorLoadDef } from '../model/loads/floor-definitions';
+import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadDef } from '../model/loads/floor-definitions';
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
-import type { ModelGroup, SurfaceLoad3D } from './model.svelte';
+import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
 
@@ -215,34 +215,74 @@ export function adoptCurrentMesh(id: number, opts: { original?: boolean } = {}):
 /** The type of a node's support when it is a plain one (a type and nothing else). */
 function plainSupport(n: number) {
   const sp = [...modelStore.supports.values()].find((x) => x.nodeId === n);
-  return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
+  return sp && Object.entries(sp).every(([k, v]) => k === 'id' || k === 'nodeId' || k === 'type' || v === undefined) ? sp.type : undefined;
+}
+
+/** The outline sides whose two ends carry the same plain support: the sides a plate of a model built before `edgeSupports` held all along. */
+export function impliedEdgeSupports(outer: readonly number[]): NonNullable<PlateSurface['edgeSupports']> {
+  return outer.flatMap((a, i) => {
+    const b = outer[(i + 1) % outer.length]!, type = plainSupport(a);
+    return type && plainSupport(b) === type ? [{ from: a, to: b, type }] : [];
+  });
+}
+
+/** Every plate whose definition predates `edgeSupports` gets the sides that rule held, as data; how many. Part of no undo step. */
+export function declareLegacyEdgeSupports(): number {
+  const legacy = physicalPlates().filter((p) => p.surface.edgeSupports === undefined);
+  if (legacy.length) modelStore.withoutUndo(() => { for (const p of legacy) writeSurface(p.id, (s) => ({ ...s, edgeSupports: impliedEdgeSupports(plateLoops(p.group).outer) })); });
+  return legacy.length;
+}
+
+/** The nodes given that are on a held side of the plate and have no support get the side's; returns them. */
+function supportSides(edges: PlateSurface['edgeSupports'], nodes: readonly number[]): number[] {
+  const supportedNow = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
+  const added: number[] = [];
+  for (const side of edges ?? []) {
+    const A = v3(side.from), B = v3(side.to);
+    if (!A || !B) continue;
+    for (const n of nodes) {
+      const P = v3(n);
+      if (!P || supportedNow.has(n) || !strictlyOrAt(P, A, B, true)) continue;
+      modelStore.addSupport(n, side.type as SupportType);
+      added.push(n); supportedNow.add(n);
+    }
+  }
+  return added;
 }
 
 /**
- * A plain support at both ends of an outline side holds the whole side: every node of the mesh on
- * it that has no support of its own gets it too, the mesh's own and the user's alike.
+ * Hold sides of the plate all along, each from one outline node to another, with `type`: the nodes
+ * on them get it now (its mesh's nodes taken away with the mesh) and with every mesh. Returns how
+ * many supports it added.
  */
-function supportSides(outer: readonly number[], meshNodes: readonly number[]): number[] {
-  const supportedNow = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
-  const added: number[] = [];
-  outer.forEach((a, i) => {
-    const b = outer[(i + 1) % outer.length]!;
-    const type = plainSupport(a);
-    if (!type || plainSupport(b) !== type) return;
-    const A = modelStore.nodes.get(a), B = modelStore.nodes.get(b);
-    if (!A || !B) return;
-    const d = [B.x - A.x, B.y - A.y, (B.z ?? 0) - (A.z ?? 0)], L2 = d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2;
-    if (L2 < 1e-18) return;
-    for (const n of meshNodes) {
-      const P = modelStore.nodes.get(n);
-      if (!P || supportedNow.has(n)) continue;
-      const w = [P.x - A.x, P.y - A.y, (P.z ?? 0) - (A.z ?? 0)];
-      const t = (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / L2;
-      const off = Math.hypot(w[0]! - t * d[0]!, w[1]! - t * d[1]!, w[2]! - t * d[2]!);
-      if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6) { modelStore.addSupport(n, type); added.push(n); supportedNow.add(n); }
-    }
+export function holdPlateSides(id: number, sides: ReadonlyArray<readonly [number, number]>, type: SupportType): number {
+  const e = plateEntry(id);
+  if (!e) return 0;
+  const have = e.surface.edgeSupports ?? [];
+  const fresh = sides.map(([from, to]) => ({ from, to, type }))
+    .filter((x) => !have.some((h) => (h.from === x.from && h.to === x.to) || (h.from === x.to && h.to === x.from)));
+  if (!fresh.length) return 0;
+  const outer = plateLoops(e.group).outer;
+  let added = 0;
+  modelStore.batch(() => {
+    const ends = supportSides(fresh, outer);
+    const onMesh = supportSides(fresh, [...new Set(plateShellKeys(id).flatMap(shellNodes))]);
+    added = ends.length + onMesh.length;
+    writeSurface(id, (s) => ({
+      ...s, edgeSupports: [...have, ...fresh],
+      ...(s.meshed && onMesh.length ? { meshed: { ...s.meshed, supported: [...(s.meshed.supported ?? []), ...onMesh] } } : {}),
+    }));
   });
   return added;
+}
+
+/** `holdPlateSides` for the outline sides whose two ends are at elevation `z`. */
+export function holdPlateSidesAt(id: number, z: number, type: SupportType): number {
+  const e = plateEntry(id);
+  if (!e) return 0;
+  const outer = plateLoops(e.group).outer;
+  const at = (n: number) => { const p = modelStore.nodes.get(n); return !!p && Math.abs((p.z ?? 0) - z) < 1e-6; };
+  return holdPlateSides(id, outer.map((a, i) => [a, outer[(i + 1) % outer.length]!] as const).filter(([a, b]) => at(a) && at(b)), type);
 }
 
 let statusMemo: { version: number; groups: unknown; map: Map<number, PlateStatus> } | null = null;
@@ -357,7 +397,7 @@ export function createPlate(p: NewPlate): { id: number } | { problem: PlateProbl
   if (problem) return { problem };
   p = { ...p, outline: arcs.outline };
   const mids = [...arcs.arcMids, ...(p.holeArcMids ?? []).map((i) => p.outline.length + i)];
-  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, ...(mids.length ? { arcMids: mids } : {}) };
+  const surface: PlateSurface = { loops: [p.outline.length, ...holes.map((h) => h.length)], materialId: p.materialId, thickness: p.thickness, mesh: { ...(p.mesh ?? DEFAULT_PLATE_MESH) }, edgeSupports: [], ...(mids.length ? { arcMids: mids } : {}) };
   const temp = { id: 0, members: { nodes: [...p.outline, ...holes.flat()] }, data: { surface } };
   const geo = plateGeometry(plateModel(), temp)!;
   const kind = plateKindOf(geo);
@@ -511,6 +551,18 @@ export function plateLoadDef(id: number, caseId: number, q: number): FloorLoadDe
   return { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };
 }
 
+/** One definition per plate picked whole, as the floor-load panel adds them. */
+export function pickedPlateDefs(ids: readonly number[], caseId: number, q: number, perPlanArea: boolean): Array<{ id: number; def: FloorLoadDef }> {
+  return ids.map((id) => ({ id, def: { ...plateLoadDef(id, caseId, q), ...(perPlanArea ? { perPlanArea: true } : {}) } }));
+}
+
+/** What those definitions write together, previewed before they are added. */
+export function previewPlateDefs(defs: ReadonlyArray<{ def: FloorLoadDef }>, opts: { leftHand: boolean }): Expansion {
+  const each = defs.map(({ def }) => expandDefinition(modelStore.model as unknown as DefinitionModel, def, {}, -1, opts));
+  const loads = each.flatMap((e) => e.loads);
+  return { defId: -1, loads, result: null, totalKN: NaN, ...(loads.length ? {} : { problem: each[0]?.problem ?? 'nothingTargeted' }) };
+}
+
 export function addPlateLoad(id: number, caseId: number, q: number, name?: string): number | null {
   const e = plateEntry(id);
   if (!e || !Number.isFinite(q)) return null;
@@ -630,9 +682,10 @@ function keptMeshNodes(e: PlateEntry): number {
  */
 export async function planPlateMeshes(ids: readonly number[], spec?: Partial<PlateMeshSpec>, opts: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<PlateMeshPlan[] | null> {
   const out: PlateMeshPlan[] = [];
+  const meshedAgain = new Set(ids.flatMap(plateShellKeys));
   for (let i = 0; i < ids.length; i++) {
     if (opts.signal?.aborted) return null;
-    const plan = planPlateMesh(ids[i]!, spec);
+    const plan = planPlateMesh(ids[i]!, spec, { meshedAgain });
     if (plan) out.push(plan);
     opts.onProgress?.(i + 1, ids.length);
     if (ids.length > 1) await nextFrame();
@@ -641,7 +694,7 @@ export async function planPlateMeshes(ids: readonly number[], spec?: Partial<Pla
 }
 
 /** One plate's plan, synchronously. */
-export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>): PlateMeshPlan | null {
+export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>, opts: { meshedAgain?: ReadonlySet<string> } = {}): PlateMeshPlan | null {
   const e = plateEntry(id);
   if (!e) return null;
   const spec = specOf(e, specOverride);
@@ -653,7 +706,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   const fp = footprintsOf(e, f.geo);
   const grid = gridOfSpec(spec);
   const fpCells = fp ? footprintCells(spec, grid, f.geo.frame) : null;
-  const fpMesh = fp && fpCells ? footprintGrid(fp.corners, fpCells.cells, fp.columns) : null;
+  const fpMesh = fp && fpCells ? footprintMesh(f, fp, fpCells.cells, spec) : null;
   if (fp && fpCells && fpMesh) {
     if (fpMesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: fpMesh.cells.length, quality: null, signature, input, mixed: false };
     return {
@@ -668,7 +721,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     const frame = grid.orient === 'globalX' ? frameAlong(f.geo.frame, [1, 0, 0]) : f.geo.frame;
     // Lines through the whole plate meet a neighbour's nodes without a transition strip, which put
     // new points on the far side for the next plate to meet in turn (a stack of walls grew storey by storey).
-    const rect = rectGridOf(f.geo, spec, f.features, neighbourPoints(f), { frame, a: grid.a, b: grid.b });
+    const rect = rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain), { frame, a: grid.a, b: grid.b });
     if (rect) {
       if (rect.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: rect.cells.length, quality: null, signature, input, mixed: false };
       return { ...base, mesh: rect, cells: rect.cells.length, quality: meshQuality(rect), signature, input, mixed: false, grid: { gridCells: rect.cells.length, bandCells: 0, cellA: grid.a, cellB: grid.b }, aDir: frame.u, bDir: frame.v };
@@ -683,7 +736,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB }, aDir: frame.u, bDir: frame.v };
   }
   const general = generateMesh(input);
-  const mesh = general?.structured ? general : rectGridOf(f.geo, spec, f.features, neighbourPoints(f)) ?? general;
+  const mesh = general?.structured ? general : rectGridOf(f.geo, spec, f.features, neighbourEdges(e, f, opts.meshedAgain)) ?? general;
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
   return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: spec.element === 'quad' && !mesh.structured };
@@ -691,52 +744,95 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
 
 type PlateFrameLike = { o: Vec3; u: Vec3; v: Vec3; n: Vec3 };
 
-const neighbourPoints = (f: { neighbours: Set<number>; neighbourAt: (n: number) => Vec3 | null }): Vec3[] =>
-  [...f.neighbours].map(f.neighbourAt).filter((p): p is Vec3 => !!p);
+const v3 = (n: number): Vec3 | null => { const p = modelStore.nodes.get(n); return p ? [p.x, p.y, p.z ?? 0] : null; };
+
+function onLoops(loops: readonly (readonly Vec3[])[], p: Vec3): boolean {
+  return loops.some((l) => l.some((a, i) => strictlyOrAt(p, a, l[(i + 1) % l.length]!, true)));
+}
+
+function strictlyOrAt(p: Vec3, a: Vec3, b: Vec3, ends: boolean): boolean {
+  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+  if (L2 < 1e-18) return false;
+  const t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2;
+  const off = Math.hypot(p[0] - a[0] - ab[0] * t, p[1] - a[1] - ab[1] * t, p[2] - a[2] - ab[2] * t);
+  if (off > 1e-4) return false;
+  const tol = 1e-6 / Math.sqrt(L2);
+  return ends ? t >= -tol && t <= 1 + tol : t > tol && t < 1 - tol;
+}
+
+const hangsOn = (points: readonly Vec3[], edges: ReadonlyArray<readonly [Vec3, Vec3]>) =>
+  points.some((p) => edges.some(([a, b]) => strictlyOrAt(p, a, b, false)));
+
+/** The edges of other plates' shells that lie along this plate's outline or holes, but those of shells `skip` will mesh again. */
+function neighbourEdges(e: PlateEntry, f: { geo: { outer: Vec3[]; holes: Vec3[][] }; neighbours: Set<number> }, skip?: ReadonlySet<string>): Array<[Vec3, Vec3]> {
+  const loops = [f.geo.outer, ...f.geo.holes];
+  const near = new Map<number, Vec3>();
+  for (const n of f.neighbours) { const p = v3(n); if (p && onLoops(loops, p)) near.set(n, p); }
+  if (near.size < 2) return [];
+  const mine = new Set([...(e.group.members.quads ?? []).map((q) => `q${q}`), ...(e.group.members.plates ?? []).map((q) => `p${q}`)]);
+  const out: Array<[Vec3, Vec3]> = [];
+  const take = (key: string, ns: readonly number[]) => {
+    if (mine.has(key) || skip?.has(key)) return;
+    ns.forEach((a, i) => { const pa = near.get(a), pb = near.get(ns[(i + 1) % ns.length]!); if (pa && pb) out.push([pa, pb]); });
+  };
+  for (const q of modelStore.quads.values()) take(`q${q.id}`, q.nodes);
+  for (const q of modelStore.plates.values()) take(`p${q.id}`, q.nodes);
+  return out;
+}
+
+/** Whether another plate's shells have a node strictly inside one of this plate's shell edges. */
+function meshHangsNeighbours(e: PlateEntry): boolean {
+  const f = featuresOf(e);
+  if (!f) return false;
+  const loops = [f.geo.outer, ...f.geo.holes];
+  const points = [...f.neighbours].map(v3).filter((p): p is Vec3 => !!p && onLoops(loops, p));
+  if (!points.length) return false;
+  const edges: Array<[Vec3, Vec3]> = [];
+  const add = (ns: readonly number[] | undefined) => ns?.forEach((a, i) => { const pa = v3(a), pb = v3(ns[(i + 1) % ns.length]!); if (pa && pb) edges.push([pa, pb]); });
+  for (const q of e.group.members.quads ?? []) add(modelStore.quads.get(q)?.nodes);
+  for (const q of e.group.members.plates ?? []) add(modelStore.plates.get(q)?.nodes);
+  return hangsOn(points, edges);
+}
 
 /**
  * Rectangles for a plate whose sides run along its frame (an L, a notch, rectangular holes such as
  * a wall's openings), where the general mesher would give distorted quadrilaterals around them.
- * Null where a neighbour's mesh meets a side at points the grid does not have: its nodes would hang.
+ * Null where a neighbour's shell edge along a side would have a grid point strictly inside it: that
+ * node would hang. A neighbour's edge from corner to corner is one shell spanning the side, which no
+ * mesher meets better: the grid stands, and that neighbour waits for a mesh of its own.
  */
-function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: readonly Vec3[], along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
+function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: ReadonlyArray<readonly [Vec3, Vec3]>, along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
   const g = rectGrid({
     frame: along?.frame ?? geo.frame, outer: geo.outer, holes: geo.holes, a: along?.a ?? spec.size, b: along?.b ?? spec.size, element: spec.element, maxCells: MAX_MESH_CELLS,
     fixedPoints: features?.points ?? [], fixedSegments: spec.followMembers && features ? features.segments : [],
   });
   if (!g) return null;
-  const key = (p: readonly number[]) => `${Math.round(p[0]! * 1e4)},${Math.round(p[1]! * 1e4)},${Math.round(p[2]! * 1e4)}`;
-  const loops = [geo.outer, ...geo.holes];
-  const sideOf = (p: Vec3) => {
-    for (const l of loops) for (let i = 0; i < l.length; i++) {
-      const a = l[i]!, b = l[(i + 1) % l.length]!, ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-      const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-      const t = ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2;
-      if (t <= 1e-9 || t >= 1 - 1e-9) continue;
-      if (Math.hypot(p[0] - a[0] - ab[0] * t, p[1] - a[1] - ab[1] * t, p[2] - a[2] - ab[2] * t) < 1e-4) return `${loops.indexOf(l)}:${i}`;
-    }
-    return null;
-  };
-  const along3 = (side: string, p: Vec3) => {
-    const [li, si] = side.split(':').map(Number) as [number, number];
-    const l = loops[li]!, a = l[si]!, b = l[(si + 1) % l.length]!;
-    return (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]) + (p[2] - a[2]) * (b[2] - a[2]);
-  };
-  // A neighbour's shell nodes along a side: a grid point strictly between two of them, and not one of them, would hang.
-  const met = new Map<string, { keys: Set<string>; ts: number[] }>();
-  for (const p of shellNeighbours) {
-    const s = sideOf(p);
-    if (!s) continue;
-    const m = met.get(s) ?? met.set(s, { keys: new Set(), ts: [] }).get(s)!;
-    m.keys.add(key(p)); m.ts.push(along3(s, p));
-  }
-  for (const i of g.boundary) {
-    const p = g.points[i]!, s = sideOf(p), m = s ? met.get(s) : undefined;
-    if (!m || m.keys.has(key(p))) continue;
-    const t = along3(s!, p);
-    if (m.ts.some((x) => x < t - 1e-6) && m.ts.some((x) => x > t + 1e-6)) return null;
-  }
+  const corner = (p: Vec3) => [geo.outer, ...geo.holes].some((l) => l.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 1e-6));
+  const meshedAlong = shellNeighbours.filter(([a, b]) => !corner(a) || !corner(b));
+  if (meshedAlong.length && hangsOn([...g.boundary].map((i) => g.points[i]!), meshedAlong)) return null;
   return g;
+}
+
+/**
+ * The column-section grid of a slab panel through the members it follows and its neighbours' nodes
+ * on its sides; null when a member crosses it at a slant. A neighbour whose edge it then puts a
+ * node inside waits for its own mesh again (`meshHangsNeighbours`).
+ */
+function footprintMesh(f: NonNullable<ReturnType<typeof featuresOf>>, fp: NonNullable<ReturnType<typeof footprintsOf>>, cells: FootprintCells, spec: PlateMeshSpec): MeshOutput | null {
+  const loops = [f.geo.outer, ...f.geo.holes];
+  const follow = spec.followMembers && f.features ? f.features : null;
+  const segments = follow?.segments ?? [];
+  if (segments.some(([a, b]) => Math.abs(a[0] - b[0]) > 1e-6 && Math.abs(a[1] - b[1]) > 1e-6)) return null;
+  const points = follow ? follow.points : [...f.neighbours].map(v3).filter((p): p is Vec3 => !!p && onLoops(loops, p));
+  const ends = segments.flat();
+  const mesh = footprintGrid(fp.corners, cells, fp.columns, {
+    xs: [...points, ...ends].map((p) => p[0]),
+    ys: [...points, ...ends].map((p) => p[1]),
+  });
+  if (!mesh) return null;
+  const on = new Set(mesh.points.map((p) => `${Math.round(p[0] * 1e4)},${Math.round(p[1] * 1e4)}`));
+  if (points.some((p) => !on.has(`${Math.round(p[0] * 1e4)},${Math.round(p[1] * 1e4)}`))) return null;
+  return mesh;
 }
 
 /**
@@ -830,9 +926,11 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       report.keptNodes += clearPlateMesh(planned.id).keptNodes;
     }
   };
+  const cellsOf = new Map<number, number>();
+  const batch = new Set(ok.map((p) => p.id));
   const meshOne = (planned: PlateMeshPlan) => {
     // Planned again on the model as it now is, so it meets the meshes just put in beside it.
-    const p = planPlateMesh(planned.id, planned.spec) ?? planned;
+    const p = planPlateMesh(planned.id, planned.spec, { meshedAgain: new Set([...batch].flatMap(plateShellKeys)) }) ?? planned;
     if (!p.mesh || !p.input) { report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' }); return; }
     const e = plateEntry(p.id);
     if (!e) return;
@@ -844,32 +942,43 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const supported = supportSides(loops.outer, [...new Set(r.nodeIds)]);
+    const edges = e.surface.edgeSupports ?? impliedEdgeSupports(plateLoops(e.group).outer);
+    const supported = supportSides(edges, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }
-    writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
-    report.plates++;
-    report.cells += r.quads.length + r.plates.length;
-    meshed.push(p.id);
+    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
+    cellsOf.set(p.id, r.quads.length + r.plates.length);
+    report.plates = cellsOf.size;
+    report.cells = [...cellsOf.values()].reduce((a, b) => a + b, 0);
+    if (!meshed.includes(p.id)) meshed.push(p.id);
   };
   const finish = () => {
     // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone.
-    for (const id of new Set([...meshed, ...current])) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
+    for (const id of meshed) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
+    // A plate outside the run that a new node hangs on waits for a mesh, but shells as modelled, coarser than its size, which meshing before the analysis meshes anyway.
+    for (const id of current) {
+      if (meshed.includes(id) || plateStatus(id) !== 'stale') continue;
+      const x = plateEntry(id);
+      if (x && (coarseAsModelled(x) || !meshHangsNeighbours(x))) adoptCurrentMesh(id);
+    }
     if (lifted) syncDefinedLoads();
     const springy = meshed.filter((id) => plateEntry(id)?.surface.springs);
     if (springy.length) respring(springy);
   };
-  return { report, ok, begin, meshOne, finish };
+  const asPlanned = () => ok.every((p) => { const e = plateEntry(p.id); return !e || localLoadsOn(e) <= p.localLoads; });
+  const refuseAll = () => { for (const p of ok) report.refused.push({ id: p.id, reason: 'interrupted' }); return report; };
+  return { report, ok, begin, meshOne, finish, asPlanned, refuseAll };
 }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
   const run = meshingRun(plans);
   if (!run.ok.length) return run.report;
+  if (!run.asPlanned()) return run.refuseAll();
   modelStore.batch(() => { run.begin(); for (const p of run.ok) run.meshOne(p); run.finish(); });
   return run.report;
 }
@@ -883,8 +992,10 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
   if (!run.ok.length) return run.report;
   const total = run.ok.length;
   let done = 0;
+  const before = historyStore.lastStep;
   onProgress?.(0, total);
   await nextFrame();
+  if (historyStore.lastStep !== before || !run.asPlanned()) return run.refuseAll();
   modelStore.batch(() => run.begin());
   // An edit or an undo between frames puts another step on top: the slices left would land in
   // it and plan against a model they were not planned for, so the run stops there.
@@ -994,7 +1105,8 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   if (!need.length) return { ok: true, meshed: 0, cells: 0 };
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
-  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);
+  const meshedAgain = new Set(need.flatMap(plateShellKeys));
+  const plans = need.map((id) => planPlateMesh(id, undefined, { meshedAgain })).filter((p): p is PlateMeshPlan => !!p);
   // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed
   // from its panel, whose plan lists them, never here where they would vanish unseen.
   const loaded = plans.filter((p) => p.localLoads > 0);

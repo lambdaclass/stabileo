@@ -26,8 +26,6 @@
     validateFooting, FOOTING_LAYER_ORDER_PREFERENCES, SUPPORTED_MAT_DIAMETERS_MM,
   } from '../../../lib/model/footing';
   import { validateSoilProfile } from '../../../lib/model/geotechnical';
-  import FootingCadHandoffPanel from './FootingCadHandoffPanel.svelte';
-  import FootingMatPanel from './FootingMatPanel.svelte';
   import FootingGeometryFields from './FootingGeometryFields.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
@@ -131,26 +129,8 @@
       <div class="editor" data-testid="footing-editor">
         <FootingGeometryFields footing={f} />
 
-
-        <!--
-          The designed bottom mat, in its own component. See `FootingMatPanel.svelte`: the
-          footing editor owns geometry and the ground, that owns the design that follows from
-          them, and the split is what keeps both inside the design-tab size ceiling.
-        -->
-        <!--
-          The CAD handoff, in its own component.
-          `FootingCadHandoffPanel.svelte` owns the export attempt, the refusal that must not
-          outlive its cause, and the link to the RC CAD handoff tool. Split out when this file
-          crossed the 600-line component ceiling the suite enforces — the same reason
-          `FootingMatPanel` was split out before it, and the same boundary: this file owns footing
-          geometry and the ground, that one owns what follows from them.
-        -->
-        <!-- The footing's design (its mat and its drawing) with design on; its geometry and ground either way. -->
-        {#if uiStore.designInPro}
-          <FootingCadHandoffPanel footingId={f.id} />
-
-          <FootingMatPanel footingId={f.id} />
-        {/if}
+        <p class="note" data-testid="footing-to-sheets">{t('footing.ui.inSheets')}</p>
+        <button data-testid="footing-open-sheets" onclick={() => { uiStore.proActiveTab = 'rcSheets'; uiStore.proPanelVisible = true; }}>{t('footing.ui.openSheets')}</button>
 
         <button class="danger" data-testid="footing-delete"
                 onclick={() => { modelStore.removeFooting(f.id); selectedId = null; }}>

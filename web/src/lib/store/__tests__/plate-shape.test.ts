@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { historyStore, modelStore, uiStore } from '..';
 import { placeFrame, placeSlabs } from '../../model/building/build-on-grid';
-import { physicalPlates, plateEntry, plateStatus } from '../physical-plates';
+import { createPlate, physicalPlates, plateEntry, plateStatus } from '../physical-plates';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { closePlateHole, cutPlateCells, plateFigure, plateSideShapes, setPlateSideSagitta } from '../plate-shape';
 import { plateArea, plateGeometry, plateLoops } from '../../model/physical/plate';
@@ -88,6 +88,21 @@ describe('cells taken out of a plate on its drawing', () => {
     expect(plateLoops(plateEntry(id)!.group).holes).toHaveLength(0);
     expect(area(id)).toBeCloseTo(30, 6);
     expect(plateStatus(id)).toBe('current');
+  });
+});
+
+describe('closing one of two round holes', () => {
+  it('leaves the other one round', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const ring = (cx: number) => Array.from({ length: 8 }, (_, k) => modelStore.addNode(cx + Math.cos((k * Math.PI) / 4), 3 + Math.sin((k * Math.PI) / 4), 0));
+    const outline = [[0, 0], [12, 0], [12, 6], [0, 6]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const made = createPlate({ outline, holes: [ring(3), ring(9)], materialId: 1, thickness: 0.15, followArcs: false, holeArcMids: [1, 3, 5, 7, 9, 11, 13, 15] });
+    expect('id' in made).toBe(true);
+    const id = (made as { id: number }).id;
+    expect(area(id)).toBeCloseTo(72 - 2 * Math.PI, 1);
+    expect(closePlateHole(id, 0)).toBeNull();
+    expect(plateEntry(id)!.surface.arcMids).toEqual([5, 7, 9, 11]);
+    expect(area(id)).toBeCloseTo(72 - Math.PI, 1);
   });
 });
 

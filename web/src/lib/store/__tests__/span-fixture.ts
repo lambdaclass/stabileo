@@ -31,6 +31,7 @@ import type { StructuralGrid } from '../../model/grid';
 import type { LateralRole } from '../../model/lateral-system';
 import { setBeamsLateral } from '../lateral-system';
 import { stateSuiteLateral } from './suite-lateral';
+import { stateSuiteCovers } from './suite-covers';
 
 export const grid: StructuralGrid = {
   axes: [
@@ -57,6 +58,7 @@ export function building(mesh: number | null, o: {
   designRunStore.resetMarks();
   uiStore.analysisMode = 'pro';
   if (o.lateral === undefined) stateSuiteLateral(); else if (o.lateral) setBeamsLateral(o.lateral);
+  stateSuiteCovers();
   const mat = modelStore.addMaterial({ name: 'H-30', e: 27500, nu: 0.2, rho: 25, fy: 30, fc: 30 } as never);
   const cm = Math.round(side * 100);
   // Square: I = b⁴/12, Saint-Venant J ≈ 0,1406·b⁴ (the 30×30's J as it always was, to the digit).

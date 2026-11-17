@@ -3,7 +3,7 @@
  * how far they have got, and out of date (not designed again) when what they were designed from
  * changes. A bar layout adopted in them is their own edit and makes them no older.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -12,8 +12,10 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setAdopted, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
-import { clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { buildSheetRows, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
+import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { solveAndDesign } from '../rc-sheets-solve.svelte';
+import { setScheduleSettings } from '../rc-sheets-schedule';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -89,12 +91,79 @@ describe('designing the sheets on asking', () => {
     expect(sheetsRun.rows!.code).not.toBe(before!.code);
   });
 
+  it('no older when the schedule\'s waste or mark scope change, which only order the bars', async () => {
+    solvedFrame();
+    await designSheets();
+    setScheduleSettings({ waste: 0.2, scope: 'project' });
+    expect(sheetsStale()).toBe(false);
+  });
+
+  it('a change of code designs again at once, keeping the rows edited by hand; the code in force changes nothing', async () => {
+    solvedFrame();
+    await designSheets();
+    const before = sheetsRun.rows!;
+    await changeSheetCode('cirsoc201-2025');
+    expect(sheetsRun.rows).toBe(before);
+    setSheetCode('cirsoc201-2025');
+    expect(sheetsStale()).toBe(false);
+    const col = before.column[0]!;
+    setAdopted(col.key, { ...col.proposed, tieSpacing: 0.1 } as never);
+    await changeSheetCode('aci318-19');
+    expect(sheetsStale()).toBe(false);
+    expect(sheetsRun.rows!.code).not.toBe(before.code);
+    expect(sheetsRun.rows!.column.find((r) => r.key === col.key)!.adopted.tieSpacing).toBeCloseTo(0.1, 9);
+  });
+
   it('out of date when the results change', async () => {
     solvedFrame();
     await designSheets();
     const b = modelStore.solveCombinations3D(false, false, true);
     if (!b || typeof b === 'string') throw new Error(String(b));
     publishCombinations3D(b);
+    expect(sheetsStale()).toBe(true);
+  });
+});
+
+describe('solving from the sheets', () => {
+  it('designs the rows on the results the solve gives, with no step between', async () => {
+    let solved = 0;
+    const ok = await solveAndDesign(async () => { solved++; solvedFrame(); return { ok: true, combinationsLeftOut: null }; });
+    expect(ok).toBe(true);
+    expect(solved).toBe(1);
+    expect(sheetsRun.rows!.beam.length).toBeGreaterThan(0);
+    expect(sheetsStale()).toBe(false);
+  });
+});
+
+describe('a design run the inputs change under', () => {
+  it('designs again from what holds when it ends, instead of marking rows of the old inputs current', async () => {
+    solvedFrame();
+    let clock = 0;
+    const now = vi.spyOn(performance, 'now').mockImplementation(() => (clock += 100));
+    try {
+      const run = designSheets();
+      for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
+      expect(sheetsRun.progress).not.toBeNull();
+      setRcOption('faces', true);
+      await run;
+    } finally { now.mockRestore(); }
+    expect(sheetsStale()).toBe(false);
+    expect(sheetsRun.rows!.beam.every((r) => !!r.demand.faces)).toBe(true);
+  });
+});
+
+describe('a design option stated at its default', () => {
+  it('leaves the sheets current: torsion by equilibrium chosen, a flag turned off that was off, the end zones turned off', async () => {
+    solvedFrame();
+    await designSheets();
+    expect(sheetsStale()).toBe(false);
+    setTorsionMode('equilibrium');
+    expect(sheetsStale()).toBe(false);
+    setRcOption('faces', false);
+    expect(sheetsStale()).toBe(false);
+    setColumnEndZones(false);
+    expect(sheetsStale()).toBe(false);
+    setTorsionMode('compatibility');
     expect(sheetsStale()).toBe(true);
   });
 });

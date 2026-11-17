@@ -25,7 +25,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage, designPlace, openFloorPass } from './fixtures';
+import { test, expect, designAll, loadModel, PRO_URL, setAppLanguage, appLanguage, designPlace } from './fixtures';
 import en from '../src/lib/i18n/locales/en';
 import es from '../src/lib/i18n/locales/es';
 import pt from '../src/lib/i18n/locales/pt';
@@ -118,10 +118,10 @@ test.describe('@smoke the language a browser gets', () => {
         await bootDetecting(page);
         expect(await pickerValue(page), 'the picker agrees with what the app chose')
           .toBe(expected);
-        // And the screen is actually in that language: the steps of design are the first PRO
-        // surface the boot lands on (interface A).
-        await expect(page.getByTestId('desk-step-size'))
-          .toContainText(rendered(expected, 'desk.step.size'));
+        // And the screen is actually in that language: design's rail is the first PRO surface the
+        // boot lands on.
+        await expect(page.getByTestId('desk-rail-steel'))
+          .toContainText(rendered(expected, 'desk.rail.profiles'));
       });
     });
   }
@@ -166,8 +166,8 @@ test.describe('the rest of the detection sweep', () => {
       test(`opens PRO in ${expected}`, async ({ page }) => {
         await bootDetecting(page);
         expect(await pickerValue(page)).toBe(expected);
-        await expect(page.getByTestId('desk-step-size'))
-          .toContainText(rendered(expected, 'desk.step.size'));
+        await expect(page.getByTestId('desk-rail-steel'))
+          .toContainText(rendered(expected, 'desk.rail.profiles'));
       });
     });
   }
@@ -184,7 +184,7 @@ test.describe('changing language keeps the work', () => {
     }));
 
     await setAppLanguage(page, 'pt');
-    await expect(page.getByTestId('desk-design')).toHaveText(pt['desk.size']);
+    await expect(page.getByTestId('desk-rail-steel')).toHaveText(pt['desk.rail.profiles']);
 
     const after = await page.evaluate(() => ({
       elements: window.__stabileo.elementIds(),
@@ -221,56 +221,17 @@ test.describe('changing language keeps the work', () => {
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
 
     await setAppLanguage(page, 'pt');
-    await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);
+    await expect(page.getByTestId('desk-rail-steel')).toContainText(pt['desk.rail.profiles']);
 
     await page.reload();
     await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.openDesignTab());
     expect(await pickerValue(page)).toBe('pt');
-    await expect(page.getByTestId('desk-step-size')).toContainText(pt['desk.step.size']);
+    await expect(page.getByTestId('desk-rail-steel')).toContainText(pt['desk.rail.profiles']);
   });
 });
 
 // ─── The whole workflow, once per language ───────────────────────
-
-/**
- * Surfaces asserted per language, as `testid → key`.
- *
- * Chosen to cover the enumerated audit surfaces rather than to be exhaustive: the command row,
- * the empty states, the detailing panel, the floor families, the 3-D rail and its tally, the
- * conflict and provisional wording, and the document exports.
- */
-/**
- * The pipeline's commands, each with the key that LABELS it.
- *
- * `cmd-code-check` reads `design.cmd.requiredSteel`, not `design.cmd.codeCheck`. The command
- * computes what the code REQUIRES and never looks at a provided bar, so "Run code check" claimed a
- * verification of reinforcement that did not exist yet — the claim F1 took off the stage strip and
- * this label went on making. It was renamed with the move to the REGLAMENTOS strip.
- *
- * `design.cmd.codeCheck` still exists in all three dictionaries and still says "Run code check",
- * which is why this kept resolving to a string and failing on its VALUE in every language at once.
- * An obsolete expectation, not broken behaviour — same shape as D7.
- */
-const COMMAND_ROW: Array<[string, string]> = [
-  ['cmd-compute-demands', 'design.cmd.computeDemands'],
-  ['cmd-code-check', 'design.cmd.requiredSteel'],
-  // «Size…», the one design command (interface A), at the top of the Design stage.
-  ['desk-design', 'desk.size'],
-];
-
-/** Rail switches: a checkbox whose text sits on the surrounding <label>. */
-const VIEWER_SWITCHES: Array<[string, string]> = [
-  ['rebar-layer-bars', 'detailing.scene.showBars'],
-  ['rebar-layer-concrete', 'detailing.scene.showConcrete'],
-  ['rebar-layer-conflicts', 'detailing.scene.showConflicts'],
-];
-
-/** Header buttons: their own text. */
-const VIEWER_BUTTONS: Array<[string, string]> = [
-  ['rebar-fit-view', 'detailing.scene.reset'],
-  ['rebar-workspace-close', 'detailing.scene.workspace.close'],
-];
 
 for (const locale of OFFERED_LOCALES) {
   const D = DICTS[locale];
@@ -278,91 +239,11 @@ for (const locale of OFFERED_LOCALES) {
   test.describe(`@slow the PRO workflow in ${locale}`, () => {
     test.use({ appLocale: locale });
 
-    test('design, detail, view in 3-D, and export — all in one language', async (
+    test('the project, its design data and its file — all in one language', async (
       { pro: page }, testInfo,
     ) => {
       test.setTimeout(300_000);
-
-      // ── A. Shell and empty states ──────────────────────────────
-      // A frame loaded and not solved: the member list says what it waits on.
       await loadModel(page, 'rc-design-qa-8');
-      await designPlace(page, 'list');
-      await expect(page.getByTestId('design-placeholder-solve'))
-        .toHaveText(D['design.error.solveFirst']);
-      for (const [id, key] of COMMAND_ROW) {
-        await expect(page.getByTestId(id)).toHaveText(D[key]);
-      }
-      // A disabled command states its reason in the same language.
-      expect(await page.getByTestId('cmd-open-3d').getAttribute('title'))
-        .toBe(D['detailing.scene.openBlocked']);
-
-      // ── B. The design flow ─────────────────────────────────────
-      await designAll(page);
-      await designPlace(page, 'prepare');
-      await expect(page.getByTestId('summary-count-verified'))
-        .toContainText(D['design.counts.verified']);
-      await expect(page.getByTestId('summary-count-provisional'))
-        .toContainText(D['design.counts.provisional']);
-
-      await designPlace(page, 'detailing');
-      const generate = page.getByTestId('cmd-generate-detailing');
-      /**
-       * Generate OR Regenerate, in this language.
-       *
-       * The command renames itself once a document exists, and `designAll` produces one on its
-       * own — `detailingStore.autoGenerate` is on by default. Asserting only the first wording
-       * would be asserting that the auto-detailing did not run.
-       */
-      expect([D['detailing.cmd.generate'], D['detailing.cmd.regenerate']])
-        .toContain((await generate.innerText()).trim());
-      await generate.click();
-      await expect
-        .poll(() => page.evaluate(() => (window.__stabileo as unknown as
-          { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 120_000 })
-        .toBeGreaterThan(0);
-
-      // The floor-design command and its panel title, under the member list.
-      await designPlace(page, 'list');
-      await openFloorPass(page);
-      await expect(page.getByTestId('floor-design-run'))
-        .toHaveText(D['detailing.floorRun.designAndDetail']);
-
-      // ── D. The exports, named in this language ─────────────────
-      await openDocumentsStage(page);
-      await expect(page.getByTestId('doc-report')).toHaveText(D['detailing.doc.report']);
-      await expect(page.getByTestId('doc-dxf')).toHaveText(D['detailing.doc.dxf']);
-      await expect(page.getByTestId('doc-xlsx')).toHaveText(D['detailing.doc.xlsx']);
-
-      // ── C. The 3-D viewer ──────────────────────────────────────
-      const before = await page.evaluate(() => window.__stabileo.rebarSceneBuilds());
-      await designPlace(page, 'list');
-      await page.getByTestId('cmd-open-3d').click();
-      await expect(page.getByTestId('rebar-workspace')).toBeVisible({ timeout: 120_000 });
-      await expect
-        .poll(() => page.evaluate(() => window.__stabileo.rebarSceneBuilds()), { timeout: 180_000 })
-        .toBeGreaterThan(before);
-
-      for (const [id, key] of VIEWER_SWITCHES) {
-        // The switches are checkboxes; the text sits on the label around the input.
-        await expect(page.getByTestId(id).locator('xpath=ancestor::label[1]'))
-          .toContainText(D[key]);
-      }
-      for (const [id, key] of VIEWER_BUTTONS) {
-        await expect(page.getByTestId(id)).toContainText(D[key]);
-      }
-      await expect(page.getByTestId('rebar-tally'))
-        .toContainText(D['detailing.scene.tally.title']);
-      // Family names in the tally — the enumerated ones a template literal builds.
-      await expect(page.getByTestId('rebar-tally-column'))
-        .toContainText(D['detailing.scene.kind.column']);
-      await expect(page.getByTestId('rebar-tally-beam'))
-        .toContainText(D['detailing.scene.kind.beam']);
-      // And a STATE name, which is what used to read PROVISIONAL in English everywhere.
-      await expect(page.getByTestId('rebar-status-panel'))
-        .toContainText(D['detailing.scene.status.title']);
-
-      await page.getByTestId('rebar-workspace-close').click();
-      await expect(page.getByTestId('rebar-workspace')).toHaveCount(0);
 
       // ── A. Project, Settings and Diagnostics ───────────────────
       await page.getByTestId('pr-project').click();

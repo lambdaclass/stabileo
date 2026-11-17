@@ -100,6 +100,14 @@ export function catalogueProfileOf(sec: { name: string; profileFamily?: string; 
   return p && (!sec.profileFamily || sec.profileFamily === p.family) ? p : null;
 }
 
+/**
+ * Why there are no factored demands for `membersFor` to read while the model defines combinations:
+ * withheld (`designCombinationsWithheld`), or none of the active ones solved yet. Null when it can read them.
+ */
+export function steelDemandsWithheld(): ReturnType<typeof designCombinationsWithheld> {
+  return designCombinationsWithheld() ?? (activePerCombo3D().size === 0 && activeCombinations().length > 0 ? 'design.error.combinationsUnsolved' : null);
+}
+
 /** The demands, lengths and material of the steel members in `ids`, against the analysis on hand. */
 export function membersFor(ids: readonly number[]): { members: OptimiseMember[]; materialOf: Map<number, { fy?: number; e?: number; fu?: number }> } {
   const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };

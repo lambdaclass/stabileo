@@ -27,7 +27,7 @@
  * is delivered on a microtask, and the pool never comes up.)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { setWorkerFactoryForTests, destroyPool, solveParallel, type WorkerLike } from '../solver-pool';
+import { setWorkerFactoryForTests, destroyPool, solveParallel, onCaseSolved, type WorkerLike } from '../solver-pool';
 
 /** Records each hand-over and how many jobs were already outstanding at that moment. */
 class RecordingWorker implements WorkerLike {
@@ -129,5 +129,21 @@ describe('warm workers go back to being dispatched together', () => {
     await solveParallel(CASES);
 
     expect(peakOverlap()).toBeGreaterThan(0);
+  });
+});
+
+describe('progress of a parallel solve', () => {
+  it('tells after each case how many are done of how many, cold and warm alike, and stops when told to', async () => {
+    const seen: Array<[number, number]> = [];
+    onCaseSolved((done, total) => seen.push([done, total]));
+    try {
+      await solveParallel(CASES);
+      await solveParallel(CASES);
+    } finally {
+      onCaseSolved(null);
+    }
+    expect(seen).toEqual([[1, 3], [2, 3], [3, 3], [1, 3], [2, 3], [3, 3]]);
+    await solveParallel(CASES);
+    expect(seen).toHaveLength(6);
   });
 });

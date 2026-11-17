@@ -24,22 +24,16 @@ import { test, expect, setAppLanguage, designPlace, type DesignPlace } from './f
 import type { Page } from '@playwright/test';
 
 /*
- * Interface A: the classic column's five stages are places of the desk, shown one at a time in
- * the canvas under the viewer. The sweep walks each of them, on the same fresh project the column
- * was swept on, and reads the canvas (`.dd-canvas-body`) where it read the column (`.rc-workflow`).
+ * The design desk's places, shown one at a time in the canvas under the viewer: the sweep walks
+ * each of them on a fresh project and reads the canvas (`.dd-canvas-body`).
  */
-const PLACES: DesignPlace[] = ['prepare', 'designData', 'list', 'detailing', 'documents'];
-const ROOT = '.dd-canvas-body';
+const PLACES: DesignPlace[] = ['designData', 'steel', 'connections', 'otherCodes', 'sheets'];
 
-/** Open every place in turn and run `fn` on each; the floor pass is opened in the list. */
+/** Open every place in turn and run `fn` on each. */
 async function eachPlace<T>(page: Page, fn: () => Promise<T[]>): Promise<T[]> {
   const out: T[] = [];
   for (const p of PLACES) {
     await designPlace(page, p);
-    if (p === 'list') {
-      const d = page.getByTestId('floor-families-disclosure');
-      if (await d.getAttribute('open') === null) await d.locator('> summary').click();
-    }
     out.push(...await fn());
   }
   return out;
@@ -127,7 +121,6 @@ test.describe('@slow the PRO panel reads as one product', () => {
     let seen = 0;
     for (const p of PLACES) {
     await designPlace(page, p);
-    // Start each place's sweep from its rail entry: the next Tab stops go into the canvas.
     for (let i = 0; i < 40; i++) {
       await page.keyboard.press('Tab');
       const stop = await page.evaluate(() => {

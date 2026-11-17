@@ -2,7 +2,7 @@
  * A roof joint checked for shear from the model (§15.4). A 3 m column 40×40 carrying a 5 m beam
  * 25×50 from one side, H-25: the column does not continue and the beam frames in from one side,
  * unconfined, so φVn = 0,75·1,0·√25·Aj with Aj = 0,40·0,40, 600 kN. Vu = |M|/jd − |Vcol| with
- * jd = 0,875·d, d = 0,50 − 0,025 − 0,008 − 0,01 = 0,457 m, M and Vcol read from the solve.
+ * jd = 0,875·d, d = 0,50 − 0,030 − 0,008 − 0,01 = 0,452 m (the default 30 mm cover), M and Vcol read from the solve.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../../../store';
@@ -37,7 +37,7 @@ describe('beam-column joints checked for shear', () => {
     expect(j.check.status).not.toBe('UNSUPPORTED');
     expect(j.check.phiVn).toBeCloseTo(600, 6);
     // By hand from the solve's own end forces, at the combination the check names.
-    const jd = 0.875 * (0.5 - 0.025 - 0.008 - 0.01);
+    const jd = 0.875 * (0.5 - 0.03 - 0.008 - 0.01);
     const { activeCombinations, activePerCombo3D } = await import('../../../store/active-results');
     const cid = activeCombinations().find((x) => x.name === j.combo)!.id;
     const f = activePerCombo3D().get(cid)!.elementForces;

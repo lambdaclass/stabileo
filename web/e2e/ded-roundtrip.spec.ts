@@ -6,7 +6,7 @@
  * The autosave round trip is covered (`project-restore.spec.ts`) and so is the small project's
  * save/open (`pro-project-files.spec.ts` B and C). What nothing covered was the FILE carrying a
  * whole designed building: 203 members, a coordinated detailing of about 21 000 bars, the floor
- * design, and every state the viewer reads off them. That is the case where a format problem
+ * design. That is the case where a format problem
  * would actually show, and it is the case a user hits at the end of a real day's work.
  *
  * IndexedDB and `.ded` are not substitutes for each other and this file treats them as the two
@@ -16,13 +16,8 @@
  *
  * ── What "survives" means here ─────────────────────────────────────
  *
- * Not "a download started". Every assertion below is made on a page that opened the file:
- * the model's own counts, the reinforcement, and then the 3-D scene compared against the census
- * recorded while the LIVE designed page was on screen — read off `mesh.visible` and the drawn
- * ranges rather than off the panel that summarises them. `rebar-3d.spec.ts` ties that same census
- * to the live page, so the chain this file completes is:
- *
- *     live design  ≡  autosave restore  ≡  .ded saved and reopened elsewhere
+ * Not "a download started". Every assertion below is made on a page that opened the file: the
+ * model's own counts, the reinforcement and the detailing.
  *
  * ── Sizes, measured ────────────────────────────────────────────────
  *
@@ -35,9 +30,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { bootPro, rcFootingProject } from './fixtures';
-import {
-  test, expect, openPreparedWorkspace, openWorkspaceFromCommandRow, readTally, readPieces,
-} from './prepared-building';
+import { test, expect } from './prepared-building';
 import type { Page } from '@playwright/test';
 
 
@@ -147,7 +140,7 @@ test.describe('@slow the 7-storey project survives the file', () => {
   ) => {
     test.setTimeout(600_000);
 
-    // The prepared project, exactly as `rebar-3d.spec.ts` asserts the autosave hands it back.
+    // The prepared project, as the autosave hands it back.
     const before = await fingerprint(page);
     expect(before.elements).toBe(preparedProject.elements);
     expect(before.reinforced).toBe(preparedProject.reinforced);
@@ -239,44 +232,8 @@ test.describe('@slow the 7-storey project survives the file', () => {
     expect(after.solveCount, 'opening a project must not solve it').toBe(0);
     expect(after.runCounts, 'opening a project must not run a design').toBeNull();
 
-    // ── The scene the document draws, compared with the live one ───
-    await fresh.evaluate(() => window.__stabileoActions.openDesignTab());
-    await openWorkspaceFromCommandRow(fresh);
-    await expect(fresh.getByTestId('rebar-tally')).toBeVisible();
-
-    expect(await readTally(fresh), 'the family tally survives the file')
-      .toEqual(preparedProject.tally);
-    expect(await readPieces(fresh), 'the piece kinds survive the file')
-      .toEqual(preparedProject.pieces);
-    expect(await fresh.evaluate(() => window.__stabileo.rebarSceneCensus()),
-      'the meshes drawn — bars, solids, conflict markers and all — survive the file')
-      .toEqual(preparedProject.census);
-    /**
-     * A proposal is still declared a proposal.
-     *
-     * This is the assertion that found the defect the migration fix repairs. `provisionalMembers`
-     * is stamped on the assembly when the detailing is generated and written to the file — the
-     * check below proves the WRITE was never the problem — but `migrateDetailingStore` rebuilt
-     * each assembly from an allow-list that did not include it, so every restore dropped it. The
-     * bars kept their violet (`bars` is carried through whole) and the assembly stopped saying
-     * "NO APTO PARA EMISIÓN CONSTRUCTIVA" on the banner, the sheet note and the report.
-     *
-     * Both halves are asserted here so a regression says which half broke.
-     *
-     * Against what the prepared page showed rather than a fixed yes: this building has had no
-     * proposal since self-weight became a member load (its beams fell under the biaxial
-     * threshold), so today both halves read "none". The restore keeping a non-empty list is
-     * pinned in assembly.test.ts.
-     */
-    const inFile = JSON.parse(readFileSync(path, 'utf8'))
-      .snapshot.detailing.assemblies as Array<{ provisionalMembers?: number[] }>;
-    expect(inFile.some((a) => (a.provisionalMembers?.length ?? 0) > 0),
-      'the file records which members are proposals').toBe(preparedProject.provisionalBanner);
-    expect(await fresh.getByTestId('rebar-provisional-banner').count() > 0,
-      'and the project that opened it still says so').toBe(preparedProject.provisionalBanner);
-
     // Built by hand, so it is closed by hand. A browser drops the oldest context without warning
-    // past about sixteen of them, and this one holds a WASM solver and a WebGL scene.
+    // past about sixteen of them, and this one holds a WASM solver.
     await freshContext.close();
   });
 });

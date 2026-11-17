@@ -55,9 +55,10 @@ export interface FootprintCells { ax: number; ay: number; element?: 'quad' | 'tr
 
 /**
  * The grid of an axis-aligned rectangular panel at elevation `z`, with lines on the faces of the
- * columns given; null when the corners are not such a rectangle. Cells keep the panel's winding.
+ * columns given and at the `forced` coordinates; null when the corners are not such a rectangle.
+ * Cells keep the panel's winding.
  */
-export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, cell: number | FootprintCells, columns: readonly ColumnFootprint[]): MeshOutput | null {
+export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?: number }>, cell: number | FootprintCells, columns: readonly ColumnFootprint[], forced: { xs: readonly number[]; ys: readonly number[] } = { xs: [], ys: [] }): MeshOutput | null {
   const { ax, ay, element = 'quad' } = typeof cell === 'number' ? { ax: cell, ay: cell } : cell;
   if (corners.length !== 4) return null;
   const z = corners[0]!.z ?? 0;
@@ -68,8 +69,8 @@ export function footprintGrid(corners: ReadonlyArray<{ x: number; y: number; z?:
   const [x0, x1] = xs0 as [number, number], [y0, y1] = ys0 as [number, number];
   const inside = (c: ColumnFootprint) => c.x > x0 - c.hx - EPS && c.x < x1 + c.hx + EPS && c.y > y0 - c.hy - EPS && c.y < y1 + c.hy + EPS;
   const near = columns.filter(inside);
-  const xs = sideStations(x0, x1, ax, near.flatMap((c) => [c.x - c.hx, c.x + c.hx]));
-  const ys = sideStations(y0, y1, ay, near.flatMap((c) => [c.y - c.hy, c.y + c.hy]));
+  const xs = sideStations(x0, x1, ax, [...near.flatMap((c) => [c.x - c.hx, c.x + c.hx]), ...forced.xs]);
+  const ys = sideStations(y0, y1, ay, [...near.flatMap((c) => [c.y - c.hy, c.y + c.hy]), ...forced.ys]);
   // The panel's winding: positive signed area turns +X to +Y.
   let area = 0;
   for (let i = 0; i < 4; i++) { const p = corners[i]!, q = corners[(i + 1) % 4]!; area += p.x * q.y - q.x * p.y; }

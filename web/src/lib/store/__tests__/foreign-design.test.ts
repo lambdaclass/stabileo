@@ -10,13 +10,21 @@ import { verificationStore } from '../verification.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { FOREIGN_MATRIX, foreignRun, setForeignCodes } from '../foreign-design';
 import { concreteCheckRows } from '../../engine/design/check-rows';
-import { designEverything } from '../design-desk';
+import { designRunStore } from '../design-run.svelte';
+import { runSteelCheck } from '../steel-check';
+import { runMaterialChecks } from '../material-check.svelte';
 import { memoriaInput } from '../memoria-inputs';
 import { profileByName, profileToSectionFull } from '../../data/steel-profiles';
 import es from '../../i18n/locales/es';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
+
+function designEverything(): void {
+  designRunStore.designFamilies(designRunStore.familySelection, { edited: 'keep' });
+  runSteelCheck();
+  runMaterialChecks();
+}
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -63,7 +71,7 @@ describe('design to foreign codes', () => {
     expect(area(uk.members.find((m) => m.elementId === beams[0]!.elementId)!)).toBeGreaterThan(area(beams[0]!));
     expect(titled(rec.members.flatMap((m) => m.rows.map((r) => r.titleKey)))).toEqual([]);
 
-    designEverything({ edited: 'keep', steel: true });
+    designEverything();
     const aci = foreignRun('aci318');
     expect(aci.members.length).toBeGreaterThan(0);
     expect(aci.members.every((m) => m.rows.every((r) => !r.code.startsWith('cirsoc')))).toBe(true);
@@ -124,7 +132,7 @@ describe('design to foreign codes', () => {
     placeFrame(grid, { x: ['x0', 'x1'], y: ['y0', 'y1'], levels: ['N0', 'N1'], columns: { sectionId: sec('HEB 300'), materialId: steel }, beamsX: { sectionId: sec('IPE 600'), materialId: steel }, beamsY: { sectionId: sec('IPE 600'), materialId: steel } }, { fixBase: true });
     loadBeams(15);
     solve();
-    designEverything({ edited: 'keep', steel: true });
+    designEverything();
     const rows = foreignRun('aisc360').members.flatMap((m) => m.rows);
     // AISC 360-10 numbers weak-axis shear G7 (G6 is round HSS); strong-axis flexure of an I, compact or with
     // noncompact flanges as the CIRSOC checker classifies them, is F2 or F3.

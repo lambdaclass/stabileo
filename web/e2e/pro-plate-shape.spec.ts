@@ -25,7 +25,7 @@ test('@smoke the mesh dialog draws triangles when asked, and the directions of s
   await page.getByTestId('plate-mesh-tri').click();
   await expect(page.getByTestId('plate-mesh-plan')).toContainText('triangles');
   const drawing = page.getByTestId('plate-mesh-drawing');
-  await expect.poll(() => drawing.locator('polygon').evaluateAll((ps) => ps.every((p) => (p.getAttribute('points') ?? '').trim().split(' ').length === 3))).toBe(true);
+  await expect.poll(() => drawing.locator('polygon').evaluateAll((ps) => ps.length > 0 && ps.every((p) => (p.getAttribute('points') ?? '').trim().split(' ').length === 3))).toBe(true);
   await expect(page.getByTestId('plate-mesh-first-side')).toBeVisible();
 
   await page.getByTestId('plate-mesh-quad').click();
@@ -56,6 +56,14 @@ test('@smoke a hole is cut by marking cells on the plate\'s drawing, a side is c
   expect(cut.holes).toBe(1);
   expect(cut.status).toBe('current');
   expect(cut.minAngle).toBeCloseTo(90, 3);
+
+  await page.getByTestId('plate-shape-cell-0').click();
+  await expect(page.getByTestId('plate-shape-cut')).toHaveText(/\(1\)/);
+  await page.getByTestId('plate-shape-close-0').click();
+  await expect(page.getByTestId('plate-shape-message')).toHaveText('Hole closed.');
+  await expect(page.getByTestId('plate-shape-hole-row-0')).toHaveCount(0);
+  await expect(page.getByTestId('plate-shape-cut')).toHaveText(/\(0\)/);
+  await expect(page.getByTestId('plate-shape-cut')).toBeDisabled();
 
   await page.getByTestId('plate-shape-sides').click();
   await page.getByTestId('plate-shape-side-0').click({ force: true });

@@ -4,15 +4,17 @@
  * depth arithmetic assumes, the clear cover by kind of element, the bar diameters the design may
  * choose from, and the diameter of a wall's bars.
  *
- * The defaults are the values the code used, so a project that states nothing designs as it did.
- * The exposure of each kind of element is recorded with its cover, and the minimum cover of
+ * The default covers are CIRSOC 201-2025 Table 20.5.1.3.1's under execution control for the
+ * default bars, rounded up to 5 mm; a project that stored its own keeps them. The exposure of each kind of element is recorded with its cover, and the minimum cover of
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
-import { SHEET_CODE_LIST, type SheetCode } from '../rc-sheets/types';
+import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
+import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
+import { specifiedCoverMm } from '../codes/cirsoc201/cover';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -47,9 +49,15 @@ export interface ProjectDesignData {
   /** Clear cover to the outermost bar, m, by kind of element. */
   covers: Record<DesignKind, number>;
   exposure: Record<DesignKind, Exposure>;
+  /** `false` when the work is not under execution control: Table 20.5.1.3.1's second column, 5 mm more cover. Absent: under control. */
+  executionControl?: false;
   /** Diameters the design may choose from, mm. */
   longDiametersMm: number[];
   stirrupDiametersMm: number[];
+  /** The diameters a slab's meshes may choose from, mm, within `SLAB_BAR_RANGE`. */
+  slabDiametersMm: number[];
+  /** The closest spacing stirrups, hoops and ties are proposed at, mm: room for the concrete to pass between them. */
+  minTieSpacingMm: number;
   /** The diameter of a wall's vertical and horizontal bars, mm. */
   wallBarDiaMm: number;
   /**
@@ -118,11 +126,44 @@ export interface ProjectDesignData {
    * physical element, by member, and the default for the beams. Absent: nothing declared.
    */
   lateralSystem?: import('./lateral-system').LateralSystemData;
-  /** The bars adopted in the reinforcement sheets and how they treat torsion (`rc-sheets/`). */
-  rcSheets?: import('../rc-sheets/types').RcSheetsData;
+  /** The bars adopted in the reinforcement sheets, their code and schedule (`rc-sheets/`). */
+  rcSheets?: import('../rc-sheets/types').StoredRcSheets;
+  /** How the beams take torsion and the choices the design makes before it starts (`rc-sheets/design-options.ts`). Absent: none stated. */
+  designOptions?: import('../rc-sheets/design-options').DesignOptions;
   /** A predetermined slab base mat, deducted before bands are added (absent: the minimum). */
   slabBase?: Partial<Record<'topX' | 'topY' | 'bottomX' | 'bottomY', { diameter: number; spacing: number }>>;
 }
+
+/**
+ * The design data as the project stores it: only what someone stated. What it leaves out is read
+ * from the defaults in force (`migrateDesignData`), so a default that later changes is not frozen.
+ */
+export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
+  & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
+
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'wallBarDiaMm'] as const;
+
+/** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
+export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const e = raw as Record<string, unknown>;
+  const full = migrateDesignData(raw);
+  const out: Record<string, unknown> = { version: 1 };
+  for (const [k, v] of Object.entries(full)) {
+    if (k === 'version' || k === 'covers' || k === 'exposure') continue;
+    if ((STATED_BY_DEFAULT as readonly string[]).includes(k) && !(k in e)) continue;
+    out[k] = v;
+  }
+  for (const k of ['covers', 'exposure'] as const) {
+    const own = e[k] && typeof e[k] === 'object' ? e[k] as Record<string, unknown> : {};
+    const kinds = DESIGN_KINDS.filter((kind) => kind in own && full[k][kind] === own[kind]);
+    if (kinds.length) out[k] = Object.fromEntries(kinds.map((kind) => [kind, full[k][kind]]));
+  }
+  return out as StoredDesignData;
+}
+
+/** The floor of the stirrups' spacing the project may state, mm. */
+export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
 
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
@@ -132,44 +173,68 @@ export function defaultDesignData(): ProjectDesignData {
     version: 1,
     rebarGrade: 'ADN 420', rebarFy: 420,
     stirrupDiaMm: 8,
-    covers: { beam: 0.025, column: 0.025, slab: 0.025, wall: 0.025, footing: 0.025 },
+    covers: { beam: 0.03, column: 0.03, slab: 0.025, wall: 0.025, footing: 0.055 },
     exposure: { beam: 'interior', column: 'interior', slab: 'interior', wall: 'interior', footing: 'ground' },
     longDiametersMm: BAR_DIAMETERS_MM.filter((d) => d >= 10),
     stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
+    slabDiametersMm: [...SLAB_MESH_DIAMETERS],
+    minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
     wallBarDiaMm: 12,
   };
 }
 
 /**
- * The minimum clear cover, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for cast-in-place concrete
- * that is not prestressed, for a kind of element, its exposure and the largest bar it holds.
+ * The minimum clear cover to the outermost steel, m, of CIRSOC 201-2025 Table 20.5.1.3.1 for
+ * cast-in-place concrete that is not prestressed: by kind of element, exposure, the largest bar
+ * and, for beams and columns, the stirrup it is measured to; under execution control unless said.
  */
-export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number): number {
-  if (exposure === 'ground' || kind === 'footing') return 0.075;
-  if (exposure === 'exterior') return largestBarMm >= 19 ? 0.05 : 0.04;
-  // Not exposed: slabs and walls by bar size; beams and columns 40 mm to their stirrups and ties.
-  if (kind === 'slab' || kind === 'wall') return largestBarMm >= 43 ? 0.04 : 0.02;
-  return 0.04;
+export function minimumCover(kind: DesignKind, exposure: Exposure, largestBarMm: number, o: { stirrupMm?: number; control?: boolean } = {}): number {
+  return specifiedCoverMm({ element: kind, exposure, dbMm: largestBarMm, ...o }) / 1000;
 }
 
-/** The largest bar a kind of element may take under these data, mm. */
-export const largestBar = (d: ProjectDesignData, kind: DesignKind): number =>
-  kind === 'wall' ? d.wallBarDiaMm : Math.max(0, ...d.longDiametersMm);
+/** A kind's minimum cover under these data: their stirrup, largest bar and execution control. */
+export const minimumCoverFor = (d: ProjectDesignData, kind: DesignKind): number =>
+  minimumCover(kind, d.exposure[kind], largestBar(d, kind), { stirrupMm: d.stirrupDiaMm, control: d.executionControl !== false });
+
+/** The largest bar a kind of element takes under these data, mm: from the bars its rows choose among, not another family's. */
+export function largestBar(d: ProjectDesignData, kind: DesignKind): number {
+  if (kind === 'wall') return d.wallBarDiaMm;
+  if (kind === 'slab') return Math.max(...d.slabDiametersMm);
+  const range = kind === 'beam' ? BEAM_BAR_RANGE : kind === 'column' ? COLUMN_BAR_RANGE : null;
+  const own = range ? d.longDiametersMm.filter((x) => inRange(x, range)) : d.longDiametersMm;
+  return Math.max(0, ...(own.length ? own : d.longDiametersMm));
+}
 
 /** The kinds whose stated cover is under the table's minimum for their exposure. */
 export function coversUnderMinimum(d: ProjectDesignData): Array<{ kind: DesignKind; cover: number; minimum: number }> {
-  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCover(kind, d.exposure[kind], largestBar(d, kind)) }))
+  return DESIGN_KINDS.map((kind) => ({ kind, cover: d.covers[kind], minimum: minimumCoverFor(d, kind) }))
     .filter((x) => x.cover < x.minimum - 1e-9);
 }
 
-/** Every cover set to the table's minimum for its exposure: the CIRSOC preset. */
+/** Every cover set to the table's minimum for its exposure, rounded up to 5 mm: the CIRSOC preset. */
 export function withCirsocCovers(d: ProjectDesignData): ProjectDesignData {
   const covers = { ...d.covers };
-  for (const k of DESIGN_KINDS) covers[k] = minimumCover(k, d.exposure[k], largestBar(d, k));
+  for (const k of DESIGN_KINDS) covers[k] = Math.ceil(minimumCoverFor(d, k) * 200 - 1e-9) / 200;
   return { ...d, covers };
 }
 
 /** Read any stored shape, including none; what it does not state is the default. */
+const SCOPES = ['element', 'level', 'project'] as const;
+function scheduleOf(x: unknown): { schedule?: { waste?: number; scope?: (typeof SCOPES)[number] } } {
+  if (!x || typeof x !== 'object') return {};
+  const { waste, scope } = x as { waste?: unknown; scope?: unknown };
+  const out: { waste?: number; scope?: (typeof SCOPES)[number] } = {};
+  if (typeof waste === 'number' && Number.isFinite(waste) && waste >= 0 && waste <= 0.5) out.waste = waste;
+  if (SCOPES.includes(scope as never)) out.scope = scope as (typeof SCOPES)[number];
+  return Object.keys(out).length ? { schedule: out } : {};
+}
+
+const bentLinesOf = (v: unknown): { bentLines?: Record<string, boolean> } => {
+  if (!v || typeof v !== 'object') return {};
+  const kept = Object.entries(v as Record<string, unknown>).filter((x): x is [string, boolean] => typeof x[1] === 'boolean');
+  return kept.length ? { bentLines: Object.fromEntries(kept) } : {};
+};
+
 export function migrateDesignData(raw: unknown): ProjectDesignData {
   const def = defaultDesignData();
   if (!raw || typeof raw !== 'object') return def;
@@ -192,11 +257,15 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     exposure: byKind(e.exposure, def.exposure, (x): x is Exposure => x === 'interior' || x === 'exterior' || x === 'ground'),
     longDiametersMm: known(e.longDiametersMm, def.longDiametersMm),
     stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
+    slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
+    minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
+    ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
+    ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), torsion: (e.rcSheets as { torsion?: unknown }).torsion === 'compatibility' ? 'compatibility' as const : 'equilibrium' as const, ...((e.rcSheets as { faces?: unknown }).faces === true ? { faces: true } : {}), ...((e.rcSheets as { flange?: unknown }).flange === true ? { flange: true } : {}), ...((e.rcSheets as { seismic?: unknown }).seismic === true ? { seismic: true } : {}), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

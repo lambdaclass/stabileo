@@ -1,6 +1,6 @@
 /**
  * The containment notice on a desktop: folded to one line over the model like on a phone, the
- * full text one click on its button away, and closed for good until it says something else.
+ * plain line for each kind one click on its button away, and closed until it says something else.
  */
 import { test, expect } from './fixtures';
 
@@ -23,7 +23,7 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(notice).toHaveCSS('pointer-events', 'auto');
-  await expect(notice.locator('p').first()).toBeVisible();
+  await expect(notice.getByTestId('containment-row').first()).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('open.png') });
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -31,8 +31,19 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
 
   await page.getByTestId('containment-dismiss').click();
   await expect(notice).toHaveCount(0);
-  await expect(page.locator('.containment-banner').filter({ hasText: '#1551' })).toBeVisible();
+  const panel = page.locator('[data-testid="basic-panel"]');
+  await page.getByTestId('rb-cmd-deformed').first().click();
+  await panel.getByRole('button', { name: /^Diagnostics \(\d+\)$/ }).click();
+  const diagRow = panel.locator('.results-content table [data-testid="results-diag-message"]').filter({ hasText: /second-order/i }).first();
+  await expect(diagRow).toBeVisible();
+  await expect(diagRow).not.toContainText('#1551');
+  await expect(diagRow).toHaveAttribute('title', /#1551/);
+  const solveStamp = () => page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot.solvedWith?.id as string | undefined);
+  const firstSolve = await solveStamp();
+  expect(firstSolve).toBeTruthy();
   await page.getByTestId('rb-cmd-solve').click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false)).toBe(true);
+  await expect.poll(solveStamp, { timeout: 30_000 }).not.toBe(firstSolve);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await expect(diagRow).toBeVisible();
   await expect(notice).toHaveCount(0);
 });

@@ -1,6 +1,7 @@
 /**
  * Plates kept safe where the review found them unsafe:
  *  - an edit or an undo between the slices of a background mesh stops it, and the edit stays its own step;
+ *  - so does an edit, or a load on the old mesh, in the frame before the old mesh is taken out;
  *  - an analysis waits for a mesh the dialog started instead of running a second one beside it;
  *  - "Size" stops when the plates cannot be meshed, as Calculate does;
  *  - a slab the solve was to mesh keeps a load the plate cannot take over, and its conversion is no undo step;
@@ -8,19 +9,19 @@
  *  - taking a mesh out takes its foundation springs and nodes with it;
  *  - closing a hole leaves none of its corners behind;
  *  - remeshing gives back the support spread to a node the new mesh keeps;
- *  - a supported side spreads its support to the user's own nodes on it that have none, and only to those.
+ *  - a side held all along spreads its support to the user's own nodes on it that have none, and only to those;
+ *  - supports at a plate's corners hold those corners, not its sides.
  */
 import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
 import {
-  applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus,
+  applyPlateMeshes, applyPlateMeshesAsync, clearPlateMesh, createPlate, holdPlateSides, physicalPlates, planPlateMesh, plateEntry, plateStatus,
   preparePlatesForAnalysisAsync, setPlateShellSpec, shellAreaLoads,
 } from '../physical-plates';
 import { ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
-import { solveForDesign } from '../design-resize';
 import { closePlateHole } from '../plate-shape';
 import { plateLoops } from '../../model/physical/plate';
 
@@ -58,6 +59,24 @@ describe('a mesh run in slices', () => {
     expect(modelStore.quads.size).toBe(meshedQuads);
   });
 
+  it('stops before taking the old mesh out when a load is put on it during the first frame', async () => {
+    for (const record of [true, false]) {
+      const [id] = slabs(1);
+      applyPlateMeshes([planPlateMesh(id!, { size: 2, element: 'quad' })!]);
+      const plan = planPlateMesh(id!, { size: 0.5, element: 'quad' })!;
+      expect(plan.localLoads).toBe(0);
+      const q = plateEntry(id!)!.group.members.quads![0]!;
+      const run = applyPlateMeshesAsync([plan], undefined, 0);
+      const put = () => modelStore.addThermalLoadQuad3D(q, 10, 0, 1);
+      if (record) put(); else modelStore.withoutUndo(put);
+      const r = await run;
+      expect(r.refused.map((x) => x.reason)).toEqual(['interrupted']);
+      expect(r.plates).toBe(0);
+      expect(modelStore.quads.has(q)).toBe(true);
+      expect(modelStore.loads.filter((l) => l.type === 'thermalQuad3d')).toHaveLength(1);
+    }
+  });
+
   it('an analysis started while the dialog meshes waits for it, and the card is cleared once', async () => {
     const ids = slabs(3);
     meshBeforeAnalysis.value = true;
@@ -69,18 +88,6 @@ describe('a mesh run in slices', () => {
     expect(a).toEqual({ ok: true, meshed: 0, cells: 0 });
     expect(meshProgress.now).toBeNull();
     for (const id of ids) expect(plateStatus(id)).toBe('current');
-  });
-});
-
-describe('«Size»', () => {
-  it('stops before solving when a plate is left without a mesh', () => {
-    slabs(1);
-    meshBeforeAnalysis.value = false;
-    try {
-      expect(solveForDesign()).toBe(false);
-    } finally {
-      meshBeforeAnalysis.value = true;
-    }
   });
 });
 
@@ -147,8 +154,8 @@ describe('remeshing a supported plate', () => {
   it('gives the support spread along a side back to the nodes the new mesh keeps', () => {
     fresh();
     const c = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
-    modelStore.addSupport(c[0]!, 'pinned3d'); modelStore.addSupport(c[1]!, 'pinned3d');
     const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15 }) as { id: number };
+    holdPlateSides(id, [[c[0]!, c[1]!]], 'pinned3d');
     applyPlateMeshes([planPlateMesh(id, { size: 1 })!]);
     const first = plateEntry(id)!.surface.meshed!.supported ?? [];
     expect(first.length).toBeGreaterThan(0);
@@ -161,15 +168,29 @@ describe('remeshing a supported plate', () => {
   });
 });
 
+describe('a plate on supports at its corners only', () => {
+  it('stands on those four points: no node of its mesh along a side is given their support', () => {
+    fresh();
+    const c = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    for (const n of c) modelStore.addSupport(n, 'pinned3d');
+    const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15 }) as { id: number };
+    applyPlateMeshes([planPlateMesh(id, { size: 0.5 })!]);
+    expect(modelStore.quads.size).toBeGreaterThan(20);
+    expect(plateEntry(id)!.surface.meshed!.supported ?? []).toEqual([]);
+    expect([...modelStore.supports.values()].map((s) => s.nodeId).sort((a, b) => a - b)).toEqual([...c].sort((a, b) => a - b));
+  });
+});
+
 describe('a supported side and the user\'s nodes on it', () => {
   it('gives the side\'s support to a node of the user\'s on it that has none, leaves one that has its own, and takes back only what it gave', () => {
     fresh();
     const c = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
-    modelStore.addSupport(c[0]!, 'pinned3d'); modelStore.addSupport(c[1]!, 'pinned3d');
     const bare = modelStore.addNode(1, 0, 0), own = modelStore.addNode(3, 0, 0);
     modelStore.addSupport(own, 'rollerXY');
     const typeOf = (n: number) => [...modelStore.supports.values()].filter((s) => s.nodeId === n).map((s) => s.type);
     const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15 }) as { id: number };
+    holdPlateSides(id, [[c[0]!, c[1]!]], 'pinned3d');
+    expect(typeOf(c[0]!)).toEqual(['pinned3d']);
     applyPlateMeshes([planPlateMesh(id, { size: 0.5 })!]);
     const inMesh = (n: number) => [...modelStore.quads.values()].some((q) => q.nodes.includes(n));
     expect(inMesh(bare) && inMesh(own)).toBe(true);

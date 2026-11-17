@@ -8,6 +8,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { SLAB_FACES, type SlabRow } from '../../../lib/rc-sheets/slab-row';
   import { meshLabel } from '../../../lib/rc-sheets/bars';
+  import { layerPositions } from '../../../lib/rc-sheets/view-helpers';
 
   let { row, cover }: { row: SlabRow; cover: number } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -17,17 +18,11 @@
   const k = $derived(Math.min((PW - 2 * PAD) / Math.max(row.lx, 0.1), (PH - 2 * PAD) / Math.max(row.ly, 0.1)));
   const w = $derived(row.lx * k), h = $derived(row.ly * k);
   const present = (f: (typeof SLAB_FACES)[number]) => row.adopted[f].dia > 0 && row.adopted[f].spacing > 0;
-  /** Positions of a layer's bars across the span they are spaced over, every `every`-th drawn when they are too many to see. */
-  const positions = (span: number, s: number) => {
-    const n = Math.max(1, Math.floor((span - 2 * 0.05) / s) + 1);
-    const every = Math.ceil(n / MAXLINES);
-    const used = (n - 1) * s, start = (span - used) / 2;
-    return { at: Array.from({ length: Math.ceil(n / every) }, (_, i) => start + i * every * s), n, every };
-  };
+
   const layers = $derived(SLAB_FACES.filter(present).map((f) => {
     const m = row.adopted[f];
     const alongX = f.endsWith('X');
-    const p = positions(alongX ? row.ly : row.lx, m.spacing);
+    const p = layerPositions(alongX ? row.ly : row.lx, m.spacing, cover + m.dia / 2000, MAXLINES);
     return { f, alongX, top: f.startsWith('top'), ...p, label: meshLabel(m) };
   }));
 

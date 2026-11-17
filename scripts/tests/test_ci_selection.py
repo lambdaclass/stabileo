@@ -501,7 +501,7 @@ exit 0
                 result = selection.select('merge_group', [path], ROOT)
                 self.assertEqual(result['slow_e2e'], 'true')
                 specs = json.loads(result['slow_specs'])
-                self.assertIn('design-desk.spec.ts', specs)
+                self.assertIn('sheets.spec.ts', specs)
                 self.assertTrue(any(s.startswith('basic-advanced-sweep-') for s in specs))
                 self.assertIn('explained-steps.spec.ts', specs)
                 self.assertIn('basic-plastic-course.spec.ts', specs)
@@ -556,7 +556,7 @@ exit 0
 
     def test_slow_shard_filters_selected_specs_and_fails_closed(self):
         shard_script = ROOT / 'web/scripts/e2e-shard.mjs'
-        subset = ['design-desk.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
+        subset = ['sheets.spec.ts', 'basic-advanced-sweep-2d-a.spec.ts']
         assigned = []
         for idx in range(1, selection.E2E_SHARDS + 1):
             proc = subprocess.run(
@@ -569,9 +569,9 @@ exit 0
             )
             assigned.append(proc.stdout.split())
         flat = [f for shard in assigned for f in shard]
-        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/design-desk.spec.ts'])
+        self.assertEqual(sorted(flat), ['e2e/basic-advanced-sweep-2d-a.spec.ts', 'e2e/sheets.spec.ts'])
         self.assertEqual(sum(1 for shard in assigned if not shard), selection.E2E_SHARDS - 2)
-        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["design-desk.spec.ts", "missing.spec.ts"]', '["design-desk.spec.ts", 7]']:
+        for bad in ['not-json', '[]', '["nonexistent-spec.spec.ts"]', '["sheets.spec.ts", "missing.spec.ts"]', '["sheets.spec.ts", 7]']:
             with self.subTest(bad=bad):
                 proc = subprocess.run(
                     ['node', str(shard_script), '--suite', 'slow', '1', '1'],
@@ -596,8 +596,8 @@ exit 0
             (e2e / 'deep.ts').write_text("export const t = (n: string) => `${n} @slow`;\n")
             (e2e / 'mid.ts').write_text("export { t } from './deep';\n")
             (e2e / 'via-helper.spec.ts').write_text("import { t } from './mid.ts';\ntest(t('x'), async () => {});\n")
-            (e2e / 'rc-design-visual.spec.ts').write_text("test('visual @slow', async () => {});\n")
-            self.assertEqual(selection.discover_slow_specs(e2e), ('url-title.spec.ts', 'via-helper.spec.ts'))
+            (e2e / 'heavy.spec.ts').write_text("test('heavy @slow', async () => {});\n")
+            self.assertEqual(selection.discover_slow_specs(e2e), ('heavy.spec.ts', 'url-title.spec.ts', 'via-helper.spec.ts'))
 
     def test_a_smoke_only_spec_change_selects_no_slow_run(self):
         smoke_only = next(p.name for p in sorted((ROOT / 'web/e2e').glob('*.spec.ts')) if p.name not in selection.ALL_SLOW_SET)
@@ -633,6 +633,7 @@ exit 0
                                    env={**env, 'E2E_SPECS': specs}, check=True)
                     args = log.read_text().split()
                     self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
+                    self.assertEqual(args[args.index('--grep-invert') + 1], '@flaky')
 
 
 if __name__ == '__main__':

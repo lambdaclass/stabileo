@@ -9,6 +9,8 @@
   let { value, onchange }: CodeInputProps<Asce7SnowInput> = $props();
   const v = $derived(value ?? {});
   const set = (patch: Partial<Asce7SnowInput>) => onchange({ ...v, ...patch });
+  const slopeKnown = $derived(v.roofSlopeDeg !== undefined);
+  const csKnown = $derived(slopeKnown || v.cs !== undefined);
   const preview = $derived(v.pg !== undefined ? roofSnow7({
     pg: v.pg, ce: v.ce ?? SNOW_DEFAULTS.ce, ct: v.ct ?? SNOW_DEFAULTS.ct, riskCategory: v.riskCategory ?? SNOW_DEFAULTS.riskCategory,
     slopeDeg: v.roofSlopeDeg ?? 0, slippery: v.slippery ?? false, cs: v.cs,
@@ -32,7 +34,9 @@
   </div>
   <label class="pk-check"><input type="checkbox" checked={v.slippery ?? false} onchange={(e) => set({ slippery: e.currentTarget.checked })} />{t('loads.asce7.ui.slippery')}</label>
   {#if preview}
-    <p class="pk-hint">{tp('loads.asce7.ui.snowPreview', { pf: preview.pf.toFixed(3), cs: preview.cs.toFixed(3), ps: preview.ps.toFixed(3), pm: preview.pm === null ? '—' : preview.pm.toFixed(3) })}</p>
+    <p class="pk-hint" data-testid="asce7-snow-preview">{tp('loads.asce7.ui.snowPreview', {
+      pf: preview.pf.toFixed(3), cs: csKnown ? preview.cs.toFixed(3) : '—', ps: csKnown ? preview.ps.toFixed(3) : '—',
+      pm: !slopeKnown || preview.pm === null ? '—' : preview.pm.toFixed(3) })}</p>
   {:else}
     <p class="pk-warn">{t('loads.asce7.snow.blocked.noPg')}</p>
   {/if}

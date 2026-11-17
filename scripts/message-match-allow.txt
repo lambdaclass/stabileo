@@ -8,7 +8,6 @@ engine/src/certify/reassembly/mod.rs: if e.starts_with("out of scope") || e.star
 engine/src/certify/reassembly/mod.rs: } else if e.starts_with("a load acts on") {
 engine/src/certify/reassembly/mod.rs: Err(reason) if reason.starts_with("a load acts on") => return EndToEnd::Failed { reason },
 web/src/lib/engine/plastic-collapse.ts: if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
-web/src/lib/listings/listing.ts: if (c.failingOnly && r[statusKey] !== undefined && !/fail|no verifica|não verifica/i.test(String(r[statusKey]))) return false;
 
 ## Classifies nightly or metamorphic findings by message text: a wording change files a refusal under another kind. The classifier is to key on codes.
 engine/src/metamorphic/compare.rs: if d.labels[k].starts_with("refusal:") { rep.refusals += 1 } else { rep.values += 1 }
@@ -34,10 +33,6 @@ web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top Start')) want.add('start');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Top End')) want.add('end');
 web/src/lib/engine/design/candidate-enumerate-column.ts: || cat.startsWith('Longitudinal') || cat.includes('steel ratio')
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('min steel')) return kind === 'beam' ? '9.6.1' : '10.6.1';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('max steel')) return kind === 'beam' ? '9.3.3' : '10.6.1';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('tie spacing')) return '25.7.2';
-web/src/lib/engine/design/check-clauses.ts: if (cat.startsWith('steel ratio')) return '10.6.1';
 web/src/lib/engine/design/check-rows.ts: if (c.includes('tie spacing')) return '25.7.2.1';
 web/src/lib/engine/design/check-rows.ts: if (c.includes('min steel') || c.includes('max steel')) return '9.6.1';
 web/src/lib/engine/design/lateral-anchorage-row.ts: const rows = p.checks.filter((c) => BOTTOM_SUPPORT_ROW.test(c.category));
@@ -66,6 +61,7 @@ web/src/lib/engine/live-calc.ts: return lc.includes('mecanismo') || lc.includes(
 web/src/lib/engine/live-calc.ts: || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 web/src/lib/engine/verification-service.ts: if (steps[steps.length - 1]?.startsWith('=== Resultado global')) steps[steps.length - 1] = steelResultLine(overallStatus);
 web/src/lib/i18n/engine-text.ts: for (const [en, key] of ENGINE_SENTENCES) if (out.includes(en)) out = out.split(en).join(tAt(key, i18n.locale));
+web/src/lib/i18n/engine-text.ts: out = out.replace(CONFLICTING_CONSTRAINTS, (_whole, dof: string, node: string, n: string) => fill('svc.engine.conflictingConstraints', { dof, node, n }));
 web/src/lib/i18n/engine-text.ts: const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
 
 ## Matches an i18n key, a code prefix, an enum value or the JSON payload of a structured refusal carried in a message-named field, or a prefix shared through one constant with its producer: not prose.
@@ -127,6 +123,8 @@ web/scripts/legacy-projects/in-version.capture.ts: if (!(e instanceof ReferenceE
 .github/scripts/slow-e2e-alert.cjs: const slowPassed = (j) => (j.steps ?? []).some((step) => step.name.startsWith('E2E slow suite') && step.conclusion === 'success');
 
 ## Not a message: ids, input labels, field names, file, HTML or source text that the name heuristic took for one.
+web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
+web/src/lib/sheets/layers.ts: const arm = /^ST-ARM-(.+)-Ø(\d+)$/.exec(name);
 web/scripts/translation-gate.ts: return /<meta\s+name="robots"\s+content="noindex"/i.test(head) && /<meta\s+http-equiv="refresh"\s+content="0;/i.test(head);
 engine/src/certify/finite.rs: .filter(|(p, x)| !(*x == f64::INFINITY && DOCUMENTED_INFINITE.iter().any(|f| p.ends_with(&format!(".{f}")))))
 engine/src/postprocess/cirsoc301_check.rs: let long = cond.ends_with("Long");

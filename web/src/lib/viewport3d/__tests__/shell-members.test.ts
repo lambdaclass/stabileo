@@ -124,7 +124,10 @@ describe('a plate waiting for its mesh, with a curved side', () => {
     group.traverse((c) => { if (c instanceof THREE.Mesh && c.userData?.shellFace) face = c; });
     const geo = (face as unknown as THREE.Mesh).geometry;
     const count = geo.getAttribute('position').count;
-    const index = [...(geo.getIndex()?.array ?? [])];
+    expect(geo.getIndex()).not.toBeNull();
+    const index = [...geo.getIndex()!.array];
+    expect(index.length).toBeGreaterThan(0);
+    expect(index.length % 3).toBe(0);
     expect(count).toBeGreaterThan(5);
     expect(Math.max(...index)).toBeLessThan(count);
     geo.computeBoundingBox();

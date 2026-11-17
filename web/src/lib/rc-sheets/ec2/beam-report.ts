@@ -1,10 +1,10 @@
 import { barArea, groupsArea, groupsLabel, meshLabel, stirrupsLabel } from '../bars';
-import type { BeamContext, BeamDemand, SectionName } from '../beam-row';
+import { axialOnlyChecks, type BeamContext, type BeamDemand, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BeamAdopted, type CheckLine, type ComboTable, type Signed, type Step, type StepGroup } from '../types';
 import { shearCapacity, xuLimit, type Ec2Set, type Mat } from './basis';
 import { barsAt, beamCapacity, geomOf } from './beam-section';
-import type { BeamEval, BeamReq } from './beam-row';
+import { shearDepth, type BeamEval, type BeamReq } from './beam-row';
 
 const KPA = 1000;
 type ReqItem = BeamReq['items'][number];
@@ -32,6 +32,7 @@ export function beamVerifications(set: Ec2Set, d: BeamDemand, req: BeamReq, e: B
     check('rcSheets.ec2.v.linkMin', e.ok.linkMin, { clause: '9.2.2(5)', demand: `ρw,min = ${fmt(req.shear.rhoWMin * 1000, 3)} ‰`, capacity: `ρw = ${fmt(e.rhoW * 1000, 3)} ‰`, ratio: ratioOf(req.shear.rhoWMin, e.rhoW) }),
     check('rcSheets.v.stirrupSpacing', e.ok.spacing, { clause: req.neglect ? '9.2.2(6)' : '9.2.2(6), 9.2.3(3)', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(req.sMax * 100, 1)} cm` }),
     check('rcSheets.ec2.v.legs', e.ok.legs, { clause: '9.2.2(8)', demand: String(a.stirrups.legs), capacity: `≥ ${req.legs} (st ≤ ${fmt(req.stMax * 100, 1)} cm)` }),
+    ...axialOnlyChecks(e.flex, '6.1', fmt),
     ...torsionLines(d, req, e, fmt),
     ...(req.skin ? [check('rcSheets.ec2.v.skin', true, { clause: '7.3.3(3)', capacity: `${meshLabel(req.skin.mesh)} (${f2(req.skin.area)} cm²)` })] : []),
   ];
@@ -69,7 +70,7 @@ export function beamCombos(set: Ec2Set, d: BeamDemand, c: BeamContext, a: BeamAd
     const t = req.compat ? 0 : k.t;
     const torsion = !req.neglect && t > 1e-6;
     const tLeg = torsion ? (t / (2 * req.tg.ak * fywd * req.cot)) * 1e4 : 0;
-    const sCap = shearCapacity(d.b, req.dShear, asl, Math.max(0, legs * (perLegProvided - tLeg)) * 1e-4, m, p, k.nV / (d.b * d.h * KPA), torsion ? req.cot : p.cotThetaMax);
+    const sCap = shearCapacity(d.b, shearDepth(d, c, a, req.top > 0), asl, Math.max(0, legs * (perLegProvided - tLeg)) * 1e-4, m, p, k.nV / (d.b * d.h * KPA), torsion ? req.cot : p.cotThetaMax);
     const need = k.v > sCap.vrdc ? (k.v / (req.shear.z * fywd * (torsion ? req.cot : sCap.cot))) * 1e4 : 0;
     const stir = ratioOf(need / legs + tLeg, perLegProvided);
     const ratio = Math.max(flex, stir, ratioOf(k.v, sCap.vrd));

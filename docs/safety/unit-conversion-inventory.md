@@ -250,7 +250,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/engine/design/beam-flange.ts` | explicit scale | 123 |
 | `web/src/lib/engine/design/beam-hangers.ts` | explicit scale | 18 |
 | `web/src/lib/engine/design/beam-hangers.ts` | unit declaration/factor | 16 |
-| `web/src/lib/engine/design/beam-line-demand.ts` | explicit scale | 47 |
 | `web/src/lib/engine/design/beam-line.ts` | explicit scale | 449 |
 | `web/src/lib/engine/design/candidate-enumerate-beam.ts` | explicit scale | 52, 53, 129, 140, 153, 212, 216 |
 | `web/src/lib/engine/design/candidate-enumerate-column.ts` | explicit scale | 141 |
@@ -302,7 +301,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/engine/design/other-codes/steel-codes.ts` | explicit scale | 254 |
 | `web/src/lib/engine/design/other-codes/types.ts` | unit declaration/factor | 7, 21, 46, 157 |
 | `web/src/lib/engine/design/outcome.ts` | explicit scale | 56 |
-| `web/src/lib/engine/design/rebar-batch.ts` | explicit scale | 108, 240, 252, 284, 286, 310 |
 | `web/src/lib/engine/design/repeated-frames.ts` | explicit scale | 29 |
 | `web/src/lib/engine/design/section-advice.ts` | explicit scale | 41, 49, 54, 58, 59, 68, 121, 136, 147, 150, 152, 154, 163, 172 |
 | `web/src/lib/engine/design/section-advice.ts` | unit declaration/factor | 57 |
@@ -382,8 +380,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/engine/detailing/slab-design.ts` | explicit scale | 190, 248, 356, 373 |
 | `web/src/lib/engine/detailing/slab-design.ts` | unit declaration/factor | 25, 39, 337 |
 | `web/src/lib/engine/detailing/slab-panel.ts` | explicit scale | 68, 132, 274 |
-| `web/src/lib/engine/detailing/slab-punching.ts` | explicit scale | 142, 150, 263, 278, 478, 495, 677 |
-| `web/src/lib/engine/detailing/slab-punching.ts` | unit declaration/factor | 63, 379, 402 |
 | `web/src/lib/engine/detailing/slab-wall-drawings.ts` | explicit scale | 321, 330, 334, 341, 537, 539, 543, 545, 550, 551, 557, 561, 678, 682 |
 | `web/src/lib/engine/detailing/splice-checks.ts` | explicit scale | 87, 139, 253 |
 | `web/src/lib/engine/detailing/splice-checks.ts` | unit declaration/factor | 42, 271 |
@@ -393,7 +389,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/engine/detailing/support-anchorage.ts` | unit declaration/factor | 27 |
 | `web/src/lib/engine/detailing/wall-design.ts` | explicit scale | 83, 168, 169, 172, 240, 245, 345, 346, 349, 350, 374, 375, 376, 387, 388, 389, 411 |
 | `web/src/lib/engine/detailing/wall-design.ts` | unit declaration/factor | 30, 62, 63, 67, 99, 100, 387, 388 |
-| `web/src/lib/engine/detailing/wall-member.ts` | explicit scale | 16, 21, 29, 68 |
 | `web/src/lib/engine/direct-analysis.ts` | explicit scale | 276, 322 |
 | `web/src/lib/engine/direct-analysis.ts` | unit declaration/factor | 268 |
 | `web/src/lib/engine/dynamics/accelerogram.ts` | explicit scale | 176 |
@@ -582,7 +577,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/ifc/ifc-parser.ts` | explicit scale | 262, 332, 391, 407, 477, 510 |
 | `web/src/lib/ifc/ifc-physical.ts` | explicit scale | 51 |
 | `web/src/lib/ifc/ifc-writer.ts` | explicit scale | 55, 113, 242 |
-| `web/src/lib/listings/bvbs.ts` | explicit scale | 53, 61, 65, 67 |
 | `web/src/lib/material/data-sheet.ts` | unit declaration/factor | 194, 195, 196, 200 |
 | `web/src/lib/material/material-choice.ts` | unit declaration/factor | 61, 64, 66, 68 |
 | `web/src/lib/model/building/column-footprints.ts` | explicit scale | 61, 62 |
@@ -624,6 +618,7 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/profiles/csv-sections.ts` | explicit scale | 93 |
 | `web/src/lib/profiles/properties.ts` | explicit scale | 189, 190, 269 |
 | `web/src/lib/profiles/properties.ts` | unit declaration/factor | 268 |
+| `web/src/lib/rc-sheets/schedule/bvbs.ts` | explicit scale | 53, 61, 65, 67 |
 | `web/src/lib/report/memoria/render.ts` | explicit scale | 134, 153 |
 | `web/src/lib/section/canonical.ts` | explicit scale | 143, 181, 223, 403 |
 | `web/src/lib/section/drawn-design.ts` | explicit scale | 55, 59 |
@@ -679,15 +674,12 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/store/column-stack-store.ts` | explicit scale | 64, 74 |
 | `web/src/lib/store/cracked-deflection.ts` | explicit scale | 18, 39, 40 |
 | `web/src/lib/store/design-data.ts` | unit declaration/factor | 57 |
-| `web/src/lib/store/design-desk.ts` | explicit scale | 113 |
-| `web/src/lib/store/design-resize.ts` | explicit scale | 183, 185, 201 |
 | `web/src/lib/store/design-run.svelte.ts` | unit declaration/factor | 216, 218, 219 |
 | `web/src/lib/store/design-spans-store.ts` | explicit scale | 94 |
 | `web/src/lib/store/detail-catalog.ts` | explicit scale | 68, 70, 71, 72, 78, 89 |
 | `web/src/lib/store/detailing-project-inputs.ts` | explicit scale | 336 |
 | `web/src/lib/store/discretization.svelte.ts` | display boundary | 135, 142, 143 |
 | `web/src/lib/store/display-units.svelte.ts` | display boundary | 43, 46 |
-| `web/src/lib/store/drawn-bar-edit.ts` | explicit scale | 90 |
 | `web/src/lib/store/fire.ts` | explicit scale | 49, 113, 133 |
 | `web/src/lib/store/foreign-design.ts` | explicit scale | 124, 202 |
 | `web/src/lib/store/frame-equalize.ts` | explicit scale | 123, 140 |
@@ -695,9 +687,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/lib/store/ifc-export.ts` | explicit scale | 127, 239 |
 | `web/src/lib/store/joint-checks.ts` | explicit scale | 13 |
 | `web/src/lib/store/joint-typology.ts` | explicit scale | 24, 41 |
-| `web/src/lib/store/listing-export.ts` | explicit scale | 81, 82 |
-| `web/src/lib/store/listings.ts` | explicit scale | 71, 130, 136, 161, 172, 178, 202, 211 |
-| `web/src/lib/store/listings.ts` | unit declaration/factor | 66, 70 |
 | `web/src/lib/store/material-check.svelte.ts` | explicit scale | 106 |
 | `web/src/lib/store/memoria-inputs.ts` | explicit scale | 87, 90, 117, 278, 296, 314, 339, 464 |
 | `web/src/lib/store/model.svelte.ts` | explicit scale | 1375, 2793 |
@@ -834,7 +823,6 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/components/pro/ProMaterialsTab.svelte` | display boundary | 84, 88, 91, 92, 242, 244, 245 |
 | `web/src/components/pro/ProMaterialsTab.svelte` | explicit scale | 197, 268, 269 |
 | `web/src/components/pro/ProMemberStressTable.svelte` | unit declaration/factor | 51, 66 |
-| `web/src/components/pro/ProMesher.svelte` | display boundary | 36, 38 |
 | `web/src/components/pro/ProMovingLoadsPanel.svelte` | display boundary | 71, 212 |
 | `web/src/components/pro/ProNodesTab.svelte` | display boundary | 31, 33, 268, 269, 270 |
 | `web/src/components/pro/ProNonlinearReport.svelte` | explicit scale | 33 |
@@ -866,62 +854,27 @@ the semantic survey and migration checklist are in [units-in-types.md](units-in-
 | `web/src/components/pro/building/BuildingGeneral.svelte` | explicit scale | 82 |
 | `web/src/components/pro/building/UnderlayConvertDialog.svelte` | explicit scale | 31, 37 |
 | `web/src/components/pro/building/UnderlayRow.svelte` | explicit scale | 32 |
-| `web/src/components/pro/design/BatchEditDialog.svelte` | explicit scale | 73, 93 |
-| `web/src/components/pro/design/ConflictInspector.svelte` | explicit scale | 33 |
-| `web/src/components/pro/design/DesignTable.svelte` | explicit scale | 69 |
-| `web/src/components/pro/design/DesignToolbar.svelte` | explicit scale | 253 |
-| `web/src/components/pro/design/DetailingProblems.svelte` | explicit scale | 75 |
-| `web/src/components/pro/design/DetailingWorkflow.svelte` | display boundary | 349 |
-| `web/src/components/pro/design/FloorFamiliesPanel.svelte` | explicit scale | 341 |
 | `web/src/components/pro/design/FootingMatPanel.svelte` | explicit scale | 45 |
 | `web/src/components/pro/design/FootingMatPhysicalPanel.svelte` | explicit scale | 32, 33 |
 | `web/src/components/pro/design/FoundationsPanel.svelte` | display boundary | 116 |
 | `web/src/components/pro/design/FoundationsPanel.svelte` | unit declaration/factor | 314 |
-| `web/src/components/pro/design/ProQuantitiesCard.svelte` | explicit scale | 46 |
-| `web/src/components/pro/design/ProQuantitiesCard.svelte` | unit declaration/factor | 29, 54 |
-| `web/src/components/pro/design/RcBendingSchedule.svelte` | explicit scale | 68 |
-| `web/src/components/pro/design/RcExportLog.svelte` | unit declaration/factor | 116 |
-| `web/src/components/pro/design/RebarEditorColumn.svelte` | display boundary | 118 |
-| `web/src/components/pro/design/RebarEditorColumn.svelte` | explicit scale | 85 |
-| `web/src/components/pro/design/RebarEditorShapedColumn.svelte` | explicit scale | 48, 49 |
-| `web/src/components/pro/design/RebarSchematics.svelte` | explicit scale | 47, 80, 85, 100, 116, 120, 130 |
-| `web/src/components/pro/design/RebarStatusPanel.svelte` | explicit scale | 59 |
-| `web/src/components/pro/design/SectionAdviceDialog.svelte` | explicit scale | 64, 67 |
-| `web/src/components/pro/design/SheetPreview.svelte` | explicit scale | 147 |
-| `web/src/components/pro/design/VerificationDetail.svelte` | explicit scale | 72, 74, 75, 140, 142 |
-| `web/src/components/pro/desk/DeskReportView.svelte` | explicit scale | 54 |
 | `web/src/components/pro/desk/FamilyBatch.svelte` | explicit scale | 31 |
 | `web/src/components/pro/desk/arch/ArchEditor.svelte` | explicit scale | 74 |
 | `web/src/components/pro/desk/arch/ConstructionForm.svelte` | explicit scale | 16 |
 | `web/src/components/pro/desk/arch/ConstructionForm.svelte` | unit declaration/factor | 39 |
-| `web/src/components/pro/desk/budget/BudgetEditor.svelte` | explicit scale | 44, 77 |
-| `web/src/components/pro/desk/column/ColumnEditor.svelte` | explicit scale | 46, 47, 126 |
-| `web/src/components/pro/desk/elements/CorbelForm.svelte` | explicit scale | 13 |
 | `web/src/components/pro/desk/elements/ElementsEditor.svelte` | explicit scale | 90, 105, 118 |
 | `web/src/components/pro/desk/elements/InfillForm.svelte` | explicit scale | 17 |
 | `web/src/components/pro/desk/elements/InfillForm.svelte` | unit declaration/factor | 28 |
 | `web/src/components/pro/desk/elements/MasonryForm.svelte` | explicit scale | 9, 13, 18, 26 |
 | `web/src/components/pro/desk/elements/MasonryForm.svelte` | unit declaration/factor | 37, 38 |
-| `web/src/components/pro/desk/elements/OpeningForm.svelte` | explicit scale | 16 |
 | `web/src/components/pro/desk/fire/FireEditor.svelte` | explicit scale | 25, 29, 39, 64, 84 |
 | `web/src/components/pro/desk/fire/FireEditor.svelte` | unit declaration/factor | 24 |
-| `web/src/components/pro/desk/footing/FootingDrawing.svelte` | explicit scale | 43, 45 |
-| `web/src/components/pro/desk/footing/FootingEditor.svelte` | explicit scale | 92 |
-| `web/src/components/pro/desk/footing/FootingPressureMap.svelte` | explicit scale | 55 |
-| `web/src/components/pro/desk/frame/FrameEditor.svelte` | explicit scale | 136, 151 |
-| `web/src/components/pro/desk/frame/FrameElevation.svelte` | explicit scale | 154 |
-| `web/src/components/pro/desk/frame/FramePanel.svelte` | explicit scale | 87 |
-| `web/src/components/pro/desk/joist/JoistEditor.svelte` | explicit scale | 58, 80, 81, 91, 94, 96, 121, 123 |
 | `web/src/components/pro/desk/materials/MaterialsEditor.svelte` | explicit scale | 57, 65 |
 | `web/src/components/pro/desk/materials/MaterialsEditor.svelte` | unit declaration/factor | 91, 130, 133, 136 |
-| `web/src/components/pro/desk/pt/PostTensionEditor.svelte` | explicit scale | 43, 52, 79 |
-| `web/src/components/pro/desk/slab/SlabEditor.svelte` | explicit scale | 84, 113, 139, 150 |
-| `web/src/components/pro/desk/special/SpecialFloorsEditor.svelte` | explicit scale | 34, 38, 45, 47, 55, 62, 63, 73, 103, 159 |
 | `web/src/components/pro/desk/stairs/StairsEditor.svelte` | explicit scale | 44, 54, 90, 138 |
 | `web/src/components/pro/desk/steel/SteelMemberSheet.svelte` | explicit scale | 26 |
 | `web/src/components/pro/desk/steel/SteelMemberSheet.svelte` | unit declaration/factor | 25 |
 | `web/src/components/pro/desk/steel/SteelTakeoff.svelte` | explicit scale | 34 |
-| `web/src/components/pro/desk/wall/WallEditor.svelte` | explicit scale | 109, 115, 124, 126, 154 |
 | `web/src/components/pro/dynamics/TimeHistoryPanel.svelte` | explicit scale | 197 |
 | `web/src/components/pro/generators/GeneratorOutput.svelte` | display boundary | 257 |
 | `web/src/components/pro/generators/GeneratorOutput.svelte` | explicit scale | 178, 182, 220 |

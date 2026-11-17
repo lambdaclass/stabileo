@@ -331,6 +331,11 @@ export interface FlexureOptions {
   edition?: RegulationEdition;
   /** A compression flange (T or L section), m. Absent: a rectangle of width `b`. */
   flange?: { bf: number; hf: number };
+  /**
+   * §9.6.1.3: the minimum of §9.6.1.1–2 need not be met where the steel placed is at least a third
+   * more than required, so the requirement is max(As; min(As,min; 4/3·As)). Absent: the full minimum.
+   */
+  minimumExemption?: boolean;
 }
 
 interface EngineFlexureDesign {
@@ -411,13 +416,14 @@ export function checkFlexure(
   let check!: NonNullable<ReturnType<typeof evaluateBeamSection>>;
   let providedDepth = 0;
   let first: { d: number; design: EngineFlexureDesign } | undefined;
+  const minimumFor = (min: number, As: number) => (opts.minimumExemption ? Math.min(min, (4 / 3) * As) : min);
   for (let pass = 0; pass < 5; pass++) {
     d = effectiveDepth(h, cover, stirrupDia, barDia);
     design = engineFlexureDesign(edition, fc, fy, b, h, d, dPrimeAssumed, MuAbs, Nu, flange);
     AsMin = minFlexuralSteelCm2(fc, fy, b, d);
     // No steel within the engine's search (tension steel up to 10 % of Ag) works: report that
     // bound, which is above every feasible requirement, so the answer never falls as Mu rises.
-    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+    AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, minimumFor(AsMin, design.As));
     first ??= { d, design };
     rebar = selectRebar(AsDesign);
     rebarComp = design.kind === 'doubly' ? selectRebar(Math.max(design.AsComp, AsMin * 0.5)) : undefined;
@@ -460,7 +466,7 @@ export function checkFlexure(
         if (q) check = q;
       }
     }
-    const passes = rebar.area >= minFlexuralSteelCm2(fc, fy, b, dReal) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
+    const passes = rebar.area >= minimumFor(minFlexuralSteelCm2(fc, fy, b, dReal), design.As) && check.flexureValid && check.phiMn / 1e3 >= MuAbs && !(ductilityApplies && check.epsilonT < check.epsilonTMin);
     if (passes || design.kind === 'impossible' || rebar.dia === barDia) break;
     barDia = rebar.dia;
   }
@@ -472,7 +478,7 @@ export function checkFlexure(
   const barsDesign = design;
   ({ d, design } = first!);
   AsMin = minFlexuralSteelCm2(fc, fy, b, effectiveDepth(h, cover, stirrupDia, rebar.dia));
-  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, AsMin);
+  AsDesign = design.kind === 'impossible' ? 0.10 * Ag * 1e4 : Math.max(design.As, minimumFor(AsMin, design.As));
   // "Needs compression steel" also when no singly-reinforced steel works at all (a footing reports it).
   const isDoubly = barsDesign.kind !== 'singly' || rebarComp !== undefined;
   { emissions.push(() => steps.push(`d (dimensionamiento) = ${(d * 100).toFixed(1)} cm, d' = ${(dPrimeAssumed * 100).toFixed(1)} cm`)); }
@@ -507,7 +513,7 @@ export function checkFlexure(
     status = 'fail';
     { emissions.push(() => steps.push(`⚠ εt = ${(epsilonTProv * 1000).toFixed(2)} ‰ < εt,mín = ${(check.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`)); }
   }
-  if (rebar.area < AsMin || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
+  if (rebar.area < minimumFor(AsMin, design.As) || design.kind === 'impossible' || barsDesign.kind === 'impossible') status = 'fail';
 
   const etc = tensionControlledStrain(fy, edition);
   return enforcePracticalFlexureLimit(withDeferredVerificationSteps({

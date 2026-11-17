@@ -13,6 +13,7 @@ import { resultsStore } from '../../store/results.svelte';
 import '../../store';
 import { initSolver } from '../../engine/wasm-solver';
 import { rerunAnalysisAndDesign } from '../recheck';
+import { runLiveCalc } from '../../engine/live-calc';
 import { recheckStore } from '../../store/recheck.svelte';
 import { RESULTS_VERSION } from '../../provenance/registry';
 import { tp } from '../../i18n';
@@ -52,6 +53,22 @@ function portal() {
 }
 
 describe('rerunAnalysisAndDesign', () => {
+  it('a live calc fired while it runs (the edits its own meshing makes) waits for it instead of superseding it', async () => {
+    portal();
+    recheckStore.openProject(olderProject(), 'pro');
+    const solve = modelStore.solveCombinations3DParallel.bind(modelStore);
+    let fired = false;
+    vi.spyOn(modelStore, 'solveCombinations3DParallel').mockImplementation(async (...args: Parameters<typeof modelStore.solveCombinations3DParallel>) => {
+      if (!fired) { fired = true; void runLiveCalc('pro', uiStore.axisConvention3D); }
+      return solve(...args);
+    });
+    const r = await rerunAnalysisAndDesign();
+    expect(fired).toBe(true);
+    expect(r).toEqual({ ok: true });
+    expect(recheckStore.stale).toBe(false);
+    expect(resultsStore.perCombo3D.size).toBe(1);
+  });
+
   it('succeeds with the combinations solved, and ends the stale state', async () => {
     portal();
     recheckStore.openProject(olderProject(), 'pro');

@@ -70,9 +70,9 @@ class JobSelectionPerEvent(unittest.TestCase):
         e2e = job('e2e')
         slow = e2e.split('- name: E2E slow suite', 1)[1].split('- name:', 1)[0]
         self.assertIn("needs.changes.outputs.slow_e2e == 'true'", slow)
-        visual = e2e.split('- name: E2E visual baselines', 1)[1].split('- name:', 1)[0]
-        self.assertIn("needs.changes.outputs.slow_e2e == 'true'", visual)
-        self.assertNotIn('merge_group', slow + visual)
+        self.assertNotIn('merge_group', slow)
+        self.assertNotIn('visual baselines', e2e)
+        self.assertNotIn('__screenshots__', e2e)
         self.assertIn("route_only: ${{ needs.changes.outputs.research_route_only == 'true' }}", job('research'))
         for key in ['slow_e2e', 'research_route_only']:
             self.assertIn(f'{key}: ${{{{ steps.select.outputs.{key} }}}}', job('changes'))

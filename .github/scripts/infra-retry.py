@@ -33,7 +33,7 @@ ACQUIRE_LINE = re.compile(
     r'|if \[\[ "\$USE_NIX" == true \]\]; then helper=\(nix develop --command python3\); fi'
     r'|\.github/scripts/retry-infra\.sh "\$\{helper\[@\]\}" \.github/scripts/browser-deps\.py '
     r'--playwright-directory "\$PLAYWRIGHT_DIRECTORY" install \$BROWSERS')
-TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|visual|build)|typecheck|lint|check)'
+TEST_STEP = re.compile(r'\bmake (?:test|e2e\.web\.(?:smoke|slow|flaky|build)|typecheck|lint|check)'
                        r'|vitest|nextest|playwright test|cargo (?:test|clippy)|mix test|check\.mjs|run-area-e2e')
 BUILD_LINE = re.compile(r'nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/[\w/.-]+/wasm/build\.sh'
                         r'|(?:nix develop --command )?make wasm(?: NIX_RUN=)?')

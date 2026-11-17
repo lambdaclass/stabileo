@@ -76,8 +76,9 @@ import {
   buildProjectDocument, currentReadiness, designOutcomeMap, lockedMemberIds,
   maxPersistedRevision, presentFloorFamilies,
   regenerationImpact, resolveAggregate, type RcDocumentationScope,
-  resolveConcreteProperties, resolveSpacingMargin, resolveVerifierId, statedAggregate,
+  resolveSpacingMargin, resolveVerifierId, statedAggregate,
 } from './detailing-project-inputs';
+import { resolveConcreteProperties } from './concrete-properties';
 import {
   analysisStaleForFloor, collectShells, collectStresses, factoredAreaLoads, scopedShells,
 } from './detailing-floor-inputs';

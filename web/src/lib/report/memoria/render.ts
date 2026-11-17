@@ -19,7 +19,7 @@ export interface RenderContext {
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const CODE_NAME: Record<string, string> = { 'cirsoc-201': 'CIRSOC 201', 'cirsoc-301': 'CIRSOC 301', 'cirsoc-601': 'CIRSOC 601', 'cirsoc-303': 'CIRSOC 303', 'en-1999-1-1': 'EN 1999-1-1', 'aisc-360': 'AISC 360', 'cirsoc-101': 'CIRSOC 101', 'cirsoc-102': 'CIRSOC 102', 'cirsoc-103': 'INPRES-CIRSOC 103', 'inpres-cirsoc-103-ii': 'INPRES-CIRSOC 103 II', 'inpres-cirsoc-103-iii': 'INPRES-CIRSOC 103 III', 'nds': 'NDS', 'en-1993-1-2': 'EN 1993-1-2', 'fema-356': 'FEMA 356', 'aci-318': 'ACI 318', 'en-1992-1-1': 'EN 1992-1-1', 'bs-en-1992-1-1': 'BS EN 1992-1-1', 'en-1993-1-1': 'EN 1993-1-1', 'bs-en-1993-1-1': 'BS EN 1993-1-1' };
+const CODE_NAME: Record<string, string> = { 'cirsoc-201': 'CIRSOC 201', 'cirsoc-301': 'CIRSOC 301', 'cirsoc-601': 'CIRSOC 601', 'cirsoc-303': 'CIRSOC 303', 'en-1999-1-1': 'EN 1999-1-1', 'aisc-360': 'AISC 360', 'cirsoc-101': 'CIRSOC 101', 'cirsoc-102': 'CIRSOC 102', 'cirsoc-103': 'INPRES-CIRSOC 103', 'inpres-cirsoc-103-ii': 'INPRES-CIRSOC 103 II', 'inpres-cirsoc-103-iii': 'INPRES-CIRSOC 103 III', 'nds': 'NDS', 'en-1993-1-2': 'EN 1993-1-2', 'fema-356': 'FEMA 356', 'aci-318': 'ACI 318', 'en-1992-1-1': 'EN 1992-1-1', 'bs-en-1992-1-1': 'BS EN 1992-1-1', 'en-1993-1-1': 'EN 1993-1-1', 'bs-en-1993-1-1': 'BS EN 1993-1-1', 'ts-500': 'TS 500' };
 /** References of the project's own, named in the memoria's language. */
 const OWN_CODES = new Set(['timber-fire', 'project-fire-table', 'slab-column-joint']);
 const codeName = (c: string, tr?: RenderContext['tr']) => (tr && OWN_CODES.has(c) ? tr(`memo.code.${c}`) : CODE_NAME[c] ?? c.toUpperCase());

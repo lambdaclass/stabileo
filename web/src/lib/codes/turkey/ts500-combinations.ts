@@ -23,8 +23,8 @@ function build(ci: CombinationInputs, service: boolean): LoadCombinationSpec[] {
   const out: LoadCombinationSpec[] = [];
   const seen = new Set<string>();
   const k = (f: number) => (service ? 1 : f);
-  const push = (id: string, raw: Terms, refs: ClauseRef[], notes: EngineMessage[] = []) => {
-    const withF = p.F && raw.some(([s]) => s === 'L' || s === 'Lr' || s === 'S') ? [...raw, ['F', k(1.4)] as [LoadSymbol, number]] : raw;
+  const push = (id: string, raw: Terms, refs: ClauseRef[], notes: EngineMessage[] = [], namesQ = false) => {
+    const withF = p.F && namesQ ? [...raw, ['F', k(1.4)] as [LoadSymbol, number]] : raw;
     const terms: CombinationTerm[] = withF.filter(([, f]) => f !== 0).map(([symbol, factor]) => ({ symbol, factor: +factor.toFixed(4) }));
     const label = combinationLabel(terms);
     if (seen.has(label)) return;
@@ -47,27 +47,27 @@ function build(ci: CombinationInputs, service: boolean): LoadCombinationSpec[] {
   };
   const notActing = ci.notActing ?? true;
 
-  for (const q of roofQ(k(1.6))) push(`TS500-6.3${q.tag}`, [['D', k(1.4)], ...q.t], [REF['6.3'], ...q.refs]);
-  if (p.T) for (const q of roofQ(k(1.2))) push(`TS500-6.4${q.tag}`, [['D', 1], ...q.t, ['T', k(1.2)]], [REF['6.4'], ...q.refs]);
+  for (const q of roofQ(k(1.6))) push(`TS500-6.3${q.tag}`, [['D', k(1.4)], ...q.t], [REF['6.3'], ...q.refs], [], true);
+  if (p.T) for (const q of roofQ(k(1.2))) push(`TS500-6.4${q.tag}`, [['D', 1], ...q.t, ['T', k(1.2)]], [REF['6.4'], ...q.refs], [], true);
   if (p.W) {
     for (const q of roofQ(k(1.3))) {
       const hasS = q.t.some(([s]) => s === 'S');
-      if (!hasS) { push(`TS500-6.5${q.tag}`, [['D', 1], ...q.t, ['W', k(1.3)]], [REF['6.5'], ...q.refs]); continue; }
+      if (!hasS) { push(`TS500-6.5${q.tag}`, [['D', 1], ...q.t, ['W', k(1.3)]], [REF['6.5'], ...q.refs], [], true); continue; }
       const live = q.t.filter(([s]) => s !== 'S');
-      push(`TS500-6.5${q.tag}a`, [['D', 1], ...live, ['S', k(1.3)], ['W', k(1.3) / 2]], [REF['6.5'], REF.snowWind, ...q.refs]);
-      push(`TS500-6.5${q.tag}b`, [['D', 1], ...live, ['W', k(1.3)], ['S', k(1.3) / 2]], [REF['6.5'], REF.snowWind, ...q.refs]);
+      push(`TS500-6.5${q.tag}a`, [['D', 1], ...live, ['S', k(1.3)], ['W', k(1.3) / 2]], [REF['6.5'], REF.snowWind, ...q.refs], [], true);
+      push(`TS500-6.5${q.tag}b`, [['D', 1], ...live, ['W', k(1.3)], ['S', k(1.3) / 2]], [REF['6.5'], REF.snowWind, ...q.refs], [], true);
     }
     if (notActing && (p.L || p.Lr || p.S)) push('TS500-6.5-0', [['D', 1], ['W', k(1.3)]], [REF['6.5']], [msg('loads.tr.combo.notActing')]);
     push('TS500-6.6', [['D', k(0.9)], ['W', k(1.3)]], [REF['6.6']]);
   }
   if (p.E && !service) {
     const q: Terms = [...(p.L ? [['L', 1]] as Terms : []), ...(p.Lr ? [['Lr', 1]] as Terms : []), ...(p.S ? [['S', 0.2]] as Terms : [])];
-    push('TBDY-4.11', [['D', 1], ...q, ['E', 1]], [REF['4.11']]);
+    push('TBDY-4.11', [['D', 1], ...q, ['E', 1]], [REF['4.11']], [], true);
     if (notActing && q.length) push('TBDY-4.11-0', [['D', 1], ['E', 1]], [REF['4.11']], [msg('loads.tr.combo.notActing')]);
     push('TBDY-4.12', [['D', 0.9], ...(p.H ? [['H', 1]] as Terms : []), ['E', 1]], [REF['4.12']]);
   }
   if (p.H) {
-    for (const q of roofQ(k(1.6))) push(`TS500-6.9${q.tag}`, [['D', k(1.4)], ...q.t, ['H', k(1.6)]], [REF['6.9'], ...q.refs]);
+    for (const q of roofQ(k(1.6))) push(`TS500-6.9${q.tag}`, [['D', k(1.4)], ...q.t, ['H', k(1.6)]], [REF['6.9'], ...q.refs], [], true);
     push('TS500-6.10', [['D', k(0.9)], ['H', k(1.6)]], [REF['6.10']]);
   }
   return out;

@@ -11,11 +11,9 @@
  *
  * ── What it does not do ────────────────────────────────────────────
  *
- * It does not demand a sheet for everything. PRO's design results reach the
- * same workbook through `extraSheets`, injected by `DocumentsSection.svelte`
- * — that is a deliberate split, base export for the model and basic results,
- * PRO adding its own — and a guard that ignored it would be demanding
- * duplication.
+ * It does not demand a sheet for everything. PRO's reinforcement has exports
+ * of its own — a deliberate split, base export for the model and basic
+ * results — and a guard that ignored it would be demanding duplication.
  *
  * So each entry below is either COVERED, with the sheet that covers it, or
  * exempt WITH A REASON. The reason is the point. An exemption list is a
@@ -62,9 +60,8 @@ const COVERAGE: Record<(typeof CONTENT)[number], { sheet?: string; elsewhere?: s
   envelope: { sheet: 'createCombinationsSheet' },
   reinforcement: {
     elsewhere:
-      'PRO injects its detailing sheets through `extraSheets` from ' +
-      'components/pro/design/DocumentsSection.svelte. Duplicating them in the base ' +
-      'export would give one project two schedules that could disagree.',
+      'PRO exports the reinforcement from its reinforcement sheets (lib/rc-sheets). ' +
+      'Duplicating them in the base export would give one project two schedules that could disagree.',
   },
   footings: {
     elsewhere:

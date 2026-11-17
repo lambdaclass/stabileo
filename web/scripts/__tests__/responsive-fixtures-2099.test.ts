@@ -8,7 +8,6 @@ beforeAll(async () => { renderer = await createResponsiveFixtureRenderer(); }, 1
 afterAll(async () => { await renderer?.close(); });
 
 it.each([
-  ['nm-pairing-responsive', 1],
   ['containment-responsive', 2],
 ] as const)('%s finishes its browser probe before returning', async (fixture, count) => {
   const html = await renderer.render(fixture, 390);

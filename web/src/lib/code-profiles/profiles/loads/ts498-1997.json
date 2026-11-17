@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "schema": 1,
+    "id": "ts498-1997",
+    "role": "loads",
+    "title": "TS 498",
+    "edition": "1997",
+    "revision": 1,
+    "country": "TR",
+    "maturity": "provisional",
+    "maintainers": [],
+    "sources": [
+      {"id": "ts-498", "title": "TS 498, Yapı Elemanlarının Boyutlandırılmasında Alınacak Yüklerin Hesap Değerleri", "edition": "1997"}
+    ],
+    "notes": ["The \"use\" tag is the TBDY mass participation group of the occupancy. Rows without \"noReduction\" are the ones Madde 13 lets reduce."]
+  },
+  "imposed": {
+    "occupancies": {
+      "units": {"q": "kN/m2", "Q": "kN"},
+      "cite": [
+        {"clause": "Çizelge 7", "label": "düzgün yayılı düşey hareketli yük hesap değerleri"}
+      ],
+      "labelPrefix": "loads.tr.occ.",
+      "rows": [
+        {"key": "tr_attic_rooms", "kind": "residential", "q": 1.5, "tags": {"use": "residential"}},
+        {"key": "tr_roof_occasional", "kind": "roof", "q": 2, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_residential", "kind": "residential", "q": 2, "tags": {"use": "residential"}},
+        {"key": "tr_office", "kind": "office", "q": 2, "tags": {"use": "residential"}},
+        {"key": "tr_shop_small", "kind": "commercial", "q": 2, "tags": {"use": "residential"}},
+        {"key": "tr_hospital_rooms", "kind": "health", "q": 2, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_roof_terrace_garden", "kind": "roof", "q": 3.5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_hospital_kitchen_exam", "kind": "health", "q": 3.5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_classroom", "kind": "education", "q": 3.5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_dormitory", "kind": "residential", "q": 3.5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_amphitheatre", "kind": "education", "q": 3.5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_stairs_residential", "kind": "circulation", "q": 3.5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_mosque", "kind": "assembly", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_theatre_cinema", "kind": "assembly", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_sport_dance_exhibition", "kind": "assembly", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_stand_fixed", "kind": "assembly", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_meeting_waiting", "kind": "assembly", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_store", "kind": "commercial", "q": 5, "tags": {"use": "assembly"}},
+        {"key": "tr_restaurant", "kind": "commercial", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_library", "kind": "education", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_archive", "kind": "storage", "q": 5, "noReduction": true, "tags": {"use": "storage"}},
+        {"key": "tr_workshop_light", "kind": "industrial", "q": 5, "tags": {"use": "residential"}},
+        {"key": "tr_kitchen_canteen", "kind": "commercial", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_slaughterhouse", "kind": "industrial", "q": 5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_bakery", "kind": "industrial", "q": 5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_barn", "kind": "other", "q": 5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_balcony_10", "kind": "residential", "q": 5, "noReduction": true, "tags": {"use": "residential"}},
+        {"key": "tr_corridor_public", "kind": "circulation", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_stairs_public", "kind": "circulation", "q": 5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_stand_unfixed", "kind": "assembly", "q": 7.5, "noReduction": true, "tags": {"use": "assembly"}},
+        {"key": "tr_garage_2_5t", "kind": "parking", "q": 5, "noReduction": true, "tags": {"use": "residential"}}
+      ]
+    }
+  }
+}

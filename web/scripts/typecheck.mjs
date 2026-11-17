@@ -53,6 +53,10 @@ const signatureOf = (e) => `${e.file}\u0000${e.code}\u0000${e.message}`
 const TSC = process.env.STABILEO_TYPECHECK_TSC
 	?? join(webRoot, 'node_modules', 'typescript', 'bin', 'tsc')
 
+// The app, and the e2e specs that drive the design desk with its fixtures (`tsconfig.e2e.json`):
+// their place names are typed (`DesignPlace`), and a deleted place must fail here, not at run time.
+const PROJECTS = ['tsconfig.json', 'tsconfig.e2e.json']
+
 /** @returns {{ output: string, crashed: boolean }} */
 function runTsc() {
 	if (!existsSync(TSC)) {
@@ -61,18 +65,22 @@ function runTsc() {
 		console.error('typecheck: refusing to report 0 errors without having run tsc.')
 		process.exit(2)
 	}
-	try {
-		execFileSync(process.execPath, [TSC, '-p', 'tsconfig.json', '--noEmit'], {
-			cwd: webRoot,
-			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'pipe'],
-		})
-		return { output: '', crashed: false }
-	} catch (err) {
-		// tsc exits non-zero whenever it reports anything; that is the normal path.
-		if (err.stdout === undefined && err.stderr === undefined) throw err
-		return { output: `${err.stdout ?? ''}${err.stderr ?? ''}`, crashed: true }
+	let output = '', crashed = false
+	for (const project of PROJECTS) {
+		try {
+			execFileSync(process.execPath, [TSC, '-p', project, '--noEmit'], {
+				cwd: webRoot,
+				encoding: 'utf8',
+				stdio: ['ignore', 'pipe', 'pipe'],
+			})
+		} catch (err) {
+			// tsc exits non-zero whenever it reports anything; that is the normal path.
+			if (err.stdout === undefined && err.stderr === undefined) throw err
+			output += `${err.stdout ?? ''}${err.stderr ?? ''}`
+			crashed = true
+		}
 	}
+	return { output, crashed }
 }
 
 function parse(output) {

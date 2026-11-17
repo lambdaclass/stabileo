@@ -13,9 +13,8 @@
  * checks, the design outcomes and the seismic report. Then every surface that states a member or
  * the project is read as it prints, and a held member reading an approval anywhere is a violation:
  *
- *   desk rows · display status (table, overview chips, viewport) · the labels' three-way status ·
- *   the viewport's colour and label · the rebar workspace's state · the overview counts and the
- *   DISEÑAR stage · the desk's level report · memoria summary row (and another code's entry) ·
+ *   display status (viewport) · the labels' three-way status · the viewport's colour and label ·
+ *   the overview counts · memoria summary row (and another code's entry) ·
  *   workbook element state · IFC DesignState · document readiness, banner, report certificate
  *   table · the project's verdict in the memoria, the workbook and the IFC.
  *
@@ -32,27 +31,24 @@ import { historyStore, modelStore, resultsStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import { designRunStore } from '../design-run.svelte';
 import { detailingStore } from '../detailing.svelte';
-import { deskMembers, finalReport } from '../design-desk';
 import { memoriaInput } from '../memoria-inputs';
 import { designSheets } from '../design-exchange';
 import { projectIfcInput } from '../ifc-export';
 import { deflectionChecks } from '../serviceability';
 import { seismicState, runSeismicChecks } from '../seismic-design.svelte';
 import { setForeignCodes } from '../foreign-design';
-import { buildOutcomeSummaries } from '../element-status-join';
-import { statusOf } from '../../engine/detailing/element-status';
 import { readinessBanner, renderReportHtml } from '../../engine/detailing/document-render';
 import { familySummary } from '../../report/memoria/render';
 import { renderMemoriaHtml } from '../../report/memoria/render';
 import { ALL_CHAPTERS } from '../../report/memoria/types';
 import { seismicMemberCheckRows } from '../../engine/design/check-rows-families';
-import { rcStages, type RcFlowReadings } from '../../flow/rc-stages';
 import * as helpers from '../../three/selection-helpers';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import { solveCombinations3D, validateAndSolve3D } from '../../engine/solver-service';
 import * as wasmSolver from '../../engine/wasm-solver';
 import qa8 from '../../templates/fixtures/rc-design-qa-8.json';
 import { building, designAndDocument } from './span-fixture';
+import { stateSuiteCovers } from './suite-covers';
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -124,10 +120,7 @@ function readSurfaces(doc: DocumentModel): Reading {
   const bad = (surface: string, id: number | string, what: unknown) => v.push(`${surface} e${id} [${[...(held.get(Number(id)) ?? [])].join('+')}; ${verificationStore.getDisplayStatus(Number(id))}]: ${String(what)}`);
 
   // ── The UI's readers.
-  const desk = new Map(deskMembers().map((m) => [m.id, m.status]));
-  const summaries = buildOutcomeSummaries();
   for (const [id] of held) {
-    if (APPROVAL.has(String(desk.get(id)))) bad('desk', id, desk.get(id));
     const ds = verificationStore.getDisplayStatus(id);
     if (APPROVAL.has(ds)) bad('displayStatus', id, ds);
     const gs = verificationStore.getStatus(id);
@@ -135,21 +128,10 @@ function readSurfaces(doc: DocumentModel): Reading {
     const o = overlayOf(id);
     if (PASS_COLOURS.has(o.color)) bad('viewportColour', id, o.color.toString(16));
     if (o.label !== null && !/[✗⊘⌛]/.test(o.label)) bad('viewportLabel', id, o.label);
-    const rs = statusOf(true, summaries.get(id));
-    if (rs === 'MODELLED' || rs === 'DESIGNED_NOT_MODELLED') bad('rebarWorkspace', id, rs);
   }
   const counts = verificationStore.providedSummary;
   const free = [...verificationStore.contexts.keys()].filter((id) => !held.has(id)).length;
   if (counts.ok + counts.warn > free) v.push(`overviewCounts: ${counts.ok} ok + ${counts.warn} warn > ${free} members nothing holds`);
-  const levelOk = finalReport().reduce((n, l) => n + l.counts.ok + l.counts.warn, 0);
-  const steelOk = finalReport().reduce((n, l) => n + l.steelOk, 0);
-  if (levelOk - steelOk > free) v.push(`deskLevelReport: ${levelOk} ok/warn > ${free}`);
-  const readings: RcFlowReadings = {
-    hasModel: true, solved: true, analysisStale: false, codeChosen: true, hasDemands: true,
-    designApplicable: counts.total, designProposed: counts.withReinforcement, designVerified: counts.ok,
-    designUnresolved: counts.fail + counts.provisional + counts.unavailable + counts.stale, detailed: true, documented: true,
-  } as RcFlowReadings;
-  if (held.size > 0 && rcStages(readings).find((s) => s.id === 'design')?.complete) v.push('rcStage: DISEÑAR complete with held members');
 
   // ── The memoria, the workbook, the IFC.
   const memo = memoriaInput(tr, 'es');
@@ -240,6 +222,7 @@ function qa8Model(): void {
     supports: qa8.supports.map((s: any) => [s.id, s]) as never, loads: qa8.loads as never, loadCases: qa8.loadCases as never,
     combinations: qa8.combinations as never, nextId: { node: 100, material: 10, section: 10, element: 100, support: 10, load: 100 },
   } as never);
+  stateSuiteCovers();
   const combo = solveCombinations3D(modelStore.model as never, modelStore.model.loadCases, modelStore.model.combinations, true, false);
   if (typeof combo === 'string' || !combo) throw new Error(`solve: ${combo}`);
   resultsStore.setResults3D(validateAndSolve3D(modelStore.model as never, true, false) as never);

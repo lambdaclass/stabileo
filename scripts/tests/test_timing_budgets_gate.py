@@ -40,7 +40,7 @@ class TimingBudgetsGate(unittest.TestCase):
 
     def test_every_wall_clock_budget_goes_through_the_report_aware_helper(self):
         web = ROOT / 'web'
-        for path in ('src/lib/engine/__tests__/scale-budget.test.ts', 'e2e/model-fluidity.spec.ts', 'e2e/rebar-workspace-open.spec.ts'):
+        for path in ('src/lib/engine/__tests__/scale-budget.test.ts', 'e2e/model-fluidity.spec.ts'):
             text = (web / path).read_text()
             with self.subTest(path=path):
                 self.assertNotIn('NO_WALL_CLOCK', text)

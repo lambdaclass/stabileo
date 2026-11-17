@@ -3,7 +3,7 @@
  * and the title block template set, and the set kept as a template and applied to another
  * project. The builder's rules are pinned in `store/__tests__/sheet-set-template.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, openSheetsPlace } from './fixtures';
+import { test, expect, designAll, loadModel, openSheetsPlace } from './fixtures';
 
 test.use({ viewport: { width: 1400, height: 900 } });
 

@@ -21,3 +21,14 @@ describe('the value beside wind and seismic for a code with its own inputs', () 
     expect(codeInputStatus('seismic', { agR: Number.NaN })).toBeNull();
   });
 });
+
+describe('ASCE 7 by its spectrum mode', () => {
+  it('shows SDS = 2/3·SMS in MCE mode, not the design SDS left from before the switch', () => {
+    expect(codeInputStatus('seismic', { spectrum: 'mce', sds: 1.0, sd1: 0.6, sms: 1.8, sm1: 0.9 })).toEqual({ symbol: 'SDS', value: 1.2, kind: 'plain' });
+    expect(codeInputStatus('seismic', { spectrum: 'mce', sms: 1.5 })?.value).toBeCloseTo(1.0, 12);
+  });
+  it('shows nothing in MCE mode until SMS is typed, and the typed SDS back in design mode', () => {
+    expect(codeInputStatus('seismic', { spectrum: 'mce', sds: 1.0 })).toBeNull();
+    expect(codeInputStatus('seismic', { spectrum: 'design', sds: 0.8, sms: 1.8 })?.value).toBe(0.8);
+  });
+});

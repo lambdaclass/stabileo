@@ -1,7 +1,7 @@
 import { meshArea, meshLabel, proposeMesh } from '../bars';
 import type { Fmt } from '../format';
-import { SLAB_FACES, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup } from '../types';
+import { SLAB_FACES, slabSpan, withBase, type SlabContext, type SlabDemand, type SlabFace, type SlabFaceResult, type SlabRow } from '../slab-row';
+import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type SlabAdopted, type Step, type StepGroup, isGenerous } from '../types';
 import { flexuralSteel, matOf, maxBarSpacing, minSteel, modifiedMaxDia, momentCapacity, shearCapacity, xuLimit, GAMMA_G, type Ec2Set, type Mat } from './basis';
 
 const MAX_ITERATIONS = 10;
@@ -23,8 +23,8 @@ export function makeSlabRow(set: Ec2Set) {
   return function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefined, fmt: Fmt): SlabRow {
     const p = set.p, m = matOf(c.mat.fc, c.mat.fy, p);
     const short = Math.min(d.lx, d.ly), long = Math.max(d.lx, d.ly);
-    const oneWay = short > 0 && long / short > 2;
-    const mainIsX = d.lx <= d.ly;
+    const sp = slabSpan(d, c, fmt), oneWay = sp.oneWay;
+    const mainIsX = sp.mainIsX;
     const principalOf = (f: SlabFace) => !oneWay || f.endsWith('X') === mainIsX;
     const crackChecked = d.h > 0.2 + 1e-9;
     const xl = xuLimit(m.fck, p);
@@ -74,6 +74,7 @@ export function makeSlabRow(set: Ec2Set) {
       proposed = next;
       ev = evalAll(proposed);
     }
+    if (c.base) { proposed = withBase(proposed, c.base); ev = evalAll(proposed); }
     const a = adopted ?? proposed;
     const faces = adopted ? evalAll(a) : ev;
 
@@ -92,40 +93,40 @@ export function makeSlabRow(set: Ec2Set) {
       check('rcSheets.v.slabSpacing', SLAB_FACES.every((f) => a[f].dia === 0 || a[f].spacing <= faces[f].sMax + 1e-6), { clause: '9.3.1.1(3)', capacity: `≤ ${fmt(Math.min(...SLAB_FACES.map((f) => faces[f].sMax)) * 100, 0)} cm` }),
       ...(crackChecked ? [check('rcSheets.ec2.v.crack', SLAB_FACES.every((f) => !faces[f].crack || faces[f].crack!.ok), { clause: '7.3.3(2)' })] : []),
       ...(d.q ? [
-        check('rcSheets.v.slabShearX', shear.x.vu <= shear.x.phiVc + 1e-6, { clause: '6.2.2(1)', demand: `${fmt(shear.x.vu)} kN/m`, capacity: `${fmt(shear.x.phiVc)} kN/m`, ratio: ratioOf(shear.x.vu, shear.x.phiVc) }),
-        check('rcSheets.v.slabShearY', shear.y.vu <= shear.y.phiVc + 1e-6, { clause: '6.2.2(1)', demand: `${fmt(shear.y.vu)} kN/m`, capacity: `${fmt(shear.y.phiVc)} kN/m`, ratio: ratioOf(shear.y.vu, shear.y.phiVc) }),
+        ...(sp.shear.x ? [check('rcSheets.v.slabShearX', shear.x.vu <= shear.x.phiVc + 1e-6, { clause: '6.2.2(1)', demand: `${fmt(shear.x.vu)} kN/m`, capacity: `${fmt(shear.x.phiVc)} kN/m`, ratio: ratioOf(shear.x.vu, shear.x.phiVc) })] : []),
+        ...(sp.shear.y ? [check('rcSheets.v.slabShearY', shear.y.vu <= shear.y.phiVc + 1e-6, { clause: '6.2.2(1)', demand: `${fmt(shear.y.vu)} kN/m`, capacity: `${fmt(shear.y.phiVc)} kN/m`, ratio: ratioOf(shear.y.vu, shear.y.phiVc) })] : []),
       ] : []),
     ];
     const allOk = SLAB_FACES.every((f) => faces[f].ok) && verifications.every((v) => v.ok);
+    const generous = isGenerous(verifications);
     const cap = (f: SlabFace) => faces[f].phiMn;
     const combos: ComboTable = {
       headers: ['rcSheets.face.bottomX', 'rcSheets.face.bottomY', 'rcSheets.face.topX', 'rcSheets.face.topY', 'qx', 'qy'],
       rows: (d.combos ?? []).map((k) => {
         const ratio = Math.max(ratioOf(k.bottomX, cap('bottomX')), ratioOf(k.bottomY, cap('bottomY')), ratioOf(k.topX, cap('topX')), ratioOf(k.topY, cap('topY')),
-          d.q ? ratioOf(k.qx, shear.x.phiVc) : 0, d.q ? ratioOf(k.qy, shear.y.phiVc) : 0);
+          d.q && sp.shear.x ? ratioOf(k.qx, shear.x.phiVc) : 0, d.q && sp.shear.y ? ratioOf(k.qy, shear.y.phiVc) : 0);
         return { combo: k.combo, values: [fmt(k.bottomX, 1), fmt(k.bottomY, 1), fmt(k.topX, 1), fmt(k.topY, 1), fmt(k.qx, 1), fmt(k.qy, 1)], ratio, ok: ratio <= 1 + 1e-6 };
       }),
     };
-    const generous = SLAB_FACES.some((f) => faces[f].asReq > 0 && meshArea(a[f]) > 1.2 * faces[f].asReq + 1e-6 && faces[f].asReq > faces[f].asMin + 1e-6);
 
     const steps: StepGroup[] = [
       {
         title: 'rcSheets.g.data',
         steps: [
           { label: 'rcSheets.s.panel', formula: 'Lx × Ly · h', value: `${fmt(d.lx)} × ${fmt(d.ly)} m · ${fmt(d.h * 100, 0)} cm` },
-          { label: oneWay ? 'rcSheets.s.oneWay' : 'rcSheets.s.twoWay', formula: 'Lmax/Lmin > 2', value: fmt(short > 0 ? long / short : 0) },
+          sp.step ?? { label: oneWay ? 'rcSheets.s.oneWay' : 'rcSheets.s.twoWay', formula: 'Lmax/Lmin > 2', value: fmt(short > 0 ? long / short : 0) },
           { label: 'rcSheets.s.materials', formula: 'fck · fyk → fcd · fyd', value: `${fmt(m.fck, 0)} · ${fmt(m.fyk, 0)} → ${fmt(m.fcd)} · ${fmt(m.fyd)} MPa` },
-          { label: 'rcSheets.s.slabMin', formula: 'As,min = max(0.26·fctm/fyk; 0.0013)·b·d (9.3.1.1(1), 9.2.1.1(1)); secondary ≥ 0.2·As,principal (9.3.1.1(2))', value: '' },
-          { label: 'rcSheets.ec2.s.slabSpacing', formula: 'principal ≤ min(3h; 400) [min(2h; 250)], secondary ≤ min(3.5h; 450) [min(3h; 400)] mm (9.3.1.1(3)); [ ] where the face carries moment', value: '' },
-          crackChecked ? { label: 'rcSheets.ec2.s.crackSlab', formula: 'σs = fyd·(As,req/As,prov)/γG; Table 7.3N or 7.2N (7.3.3(2))', value: '' } : { label: 'rcSheets.ec2.s.crackThin', formula: 'h ≤ 200 mm (7.3.3(1))', value: '' },
+          { label: 'rcSheets.ec2.s.slabMin', formula: 'As,min = max(0.26·fctm/fyk; 0.0013)·b·d (9.3.1.1(1), 9.2.1.1(1)); As,2 ≥ 0.2·As,1 (9.3.1.1(2))', value: '' },
+          { label: 'rcSheets.ec2.s.slabSpacing', formula: 's1 ≤ min(3h; 400) [min(2h; 250)]; s2 ≤ min(3.5h; 450) [min(3h; 400)] mm (9.3.1.1(3))', value: '' },
+          crackChecked ? { label: 'rcSheets.ec2.s.crackSlab', formula: 'σs = fyd·(As,req/As,prov)/γG; Table 7.3N or 7.2N (7.3.3(2))', value: '' } : { label: 'rcSheets.ec2.s.crackThin', formula: 'h ≤ 200 mm; 9.3 (7.3.3(1))', value: '' },
         ],
       },
       ...SLAB_FACES.map((f) => faceSteps(f, d, faces[f], a[f], xl, fmt)),
       ...(d.q ? [{
         title: 'rcSheets.g.slabShear',
         steps: [
-          { label: 'rcSheets.s.slabShearX', formula: 'vEd ≤ VRd,c, bw = 1 m (6.2.2(1))', value: `${fmt(shear.x.vu)} ≤ ${fmt(shear.x.phiVc)} kN/m`, ok: shear.x.vu <= shear.x.phiVc + 1e-6 },
-          { label: 'rcSheets.s.slabShearY', formula: 'vEd ≤ VRd,c, bw = 1 m (6.2.2(1))', value: `${fmt(shear.y.vu)} ≤ ${fmt(shear.y.phiVc)} kN/m`, ok: shear.y.vu <= shear.y.phiVc + 1e-6 },
+          ...(sp.shear.x ? [{ label: 'rcSheets.s.slabShearX', formula: 'vEd ≤ VRd,c, bw = 1 m (6.2.2(1))', value: `${fmt(shear.x.vu)} ≤ ${fmt(shear.x.phiVc)} kN/m`, ok: shear.x.vu <= shear.x.phiVc + 1e-6 }] : []),
+          ...(sp.shear.y ? [{ label: 'rcSheets.s.slabShearY', formula: 'vEd ≤ VRd,c, bw = 1 m (6.2.2(1))', value: `${fmt(shear.y.vu)} ≤ ${fmt(shear.y.phiVc)} kN/m`, ok: shear.y.vu <= shear.y.phiVc + 1e-6 }] : []),
           { label: 'rcSheets.s.punchingOut', value: '' },
         ],
       }] : []),
@@ -146,7 +147,7 @@ function faceSteps(f: SlabFace, d: SlabDemand, r: FaceEval, mesh: MeshBars, xl: 
     { label: 'rcSheets.s.d', formula: 'd = h − c − Ø/2', value: `${fmt(r.d * 100, 1)} cm` },
     { label: 'rcSheets.s.asStrength', formula: 'η·fcd·λx·(d − λx/2) = MEd; As = η·fcd·λx/fyd', value: `${fmt(r.asStrength)} cm²/m` },
     { label: 'rcSheets.s.asReq', formula: r.principal ? 'max(As; As,min)' : 'max(As; As,min; 0.2·As,principal)', value: `${fmt(r.asReq)} cm²/m` },
-    { label: 'rcSheets.s.sMax', formula: r.principal ? 'principal (9.3.1.1(3))' : 'secondary (9.3.1.1(3))', value: `${fmt(r.sMax * 100, 0)} cm` },
+    { label: r.principal ? 'rcSheets.ec2.s.sMaxMain' : 'rcSheets.ec2.s.sMaxSecondary', formula: r.principal ? 's1 (9.3.1.1(3))' : 's2 (9.3.1.1(3))', value: `${fmt(r.sMax * 100, 0)} cm` },
     { label: 'rcSheets.s.adopted', formula: mesh.dia ? meshLabel(mesh) : '—', value: `${fmt(meshArea(mesh))} cm²/m`, ok: r.ok },
     ...(r.mu > 1e-6 ? [{ label: 'rcSheets.s.verifySlab', formula: `MRd ≥ MEd; x/d = ${fmt(r.xd, 3)} ≤ ${fmt(xl, 2)}`, value: `${fmt(r.phiMn)} ≥ ${fmt(r.mu)} kN·m/m`, ok: r.phiMn >= r.mu - 1e-6 && r.ductile }] : []),
     ...(r.crack ? [{ label: 'rcSheets.ec2.s.crackSpacing', formula: `σs = ${fmt(r.crack.sigma, 0)} MPa: s ≤ ${fmt(r.crack.sMax, 0)} mm | Ø ≤ ${fmt(r.crack.diaMax, 1)} mm`, value: mesh.dia ? meshLabel(mesh) : '—', ok: r.crack.ok }] : []),

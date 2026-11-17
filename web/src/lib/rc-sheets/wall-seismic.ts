@@ -12,7 +12,7 @@ import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea } from './bars';
 import { tieDiaFor } from './column-row';
 import type { Fmt } from './format';
-import { check, type CheckLine, type Step, type WallAdopted } from './types';
+import { allowedTie, check, tieDiametersOf, tieFloorOf, type CheckLine, type Step, type TransverseList, type WallAdopted } from './types';
 import type { WallComboForces } from './wall-row';
 
 export interface WallBoundaryHoops { dia: number; spacing: number; legsAcross: number; legsAlong: number; clause: string }
@@ -29,6 +29,8 @@ export interface WallSeismic {
   hoops: WallBoundaryHoops | null;
   /** The horizontals must hook round the edge bars or meet U-bars (§18.10.6.5(b)). */
   anchorEnds: boolean;
+  /** The hoops' or edge ties' spacing the code allows is under the project's closest: whether thicker bars (6·db or 8·db) would lift it. */
+  underFloor?: { byBars: boolean };
   checks: CheckLine[];
   steps: Step[];
 }
@@ -38,7 +40,7 @@ const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floo
 
 export function wallSeismic(
   d: { length: number; height: number; thickness: number; combos: readonly WallComboForces[] },
-  ctx: { mat: { fc: number; fy: number }; cover: number },
+  ctx: { mat: { fc: number; fy: number }; cover: number } & TransverseList,
   a: WallAdopted, cs: ReadonlyArray<number | undefined>, fmt: Fmt,
 ): WallSeismic {
   const L = d.length, t = d.thickness, fc = ctx.mat.fc, fy = ctx.mat.fy;
@@ -49,7 +51,7 @@ export function wallSeismic(
   const rhoOf = (m: { diameter: number; spacing: number }) => (m.spacing > 0 ? a.curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
   const rhoL = rhoOf(a.vertical), rhoT = rhoOf(a.horizontal);
   const ig = t * L ** 3 / 12;
-  const sigmas = d.combos.map((k) => (Math.max(0, k.pu) / acv + k.mu * (L / 2) / ig) / 1000);
+  const sigmas = d.combos.map((k) => (Math.max(0, k.pu) / acv + Math.abs(k.mu) * (L / 2) / ig) / 1000);
   const sigma = Math.max(0, ...sigmas);
   const special = sigma >= 0.2 * fc - 1e-9;
   const c = Math.max(0, ...cs.filter((x): x is number => x !== undefined && Number.isFinite(x)));
@@ -62,20 +64,31 @@ export function wallSeismic(
   let hoops: WallBoundaryHoops | null = null;
   const checks: CheckLine[] = [];
   const steps: Step[] = [];
+  const floor = tieFloorOf(ctx);
+  let underFloor: WallSeismic['underFloor'];
+  /** The spacing the code allows against the project's closest: it fails, naming the governing term and whether thicker bars lift it. */
+  const floorCheck = (terms: Array<[string, number]>, barTerm: string, clause: string) => {
+    const [name, s] = terms.reduce((w, x) => (x[1] < w[1] ? x : w));
+    if (s >= floor - 1e-9) return;
+    underFloor = { byBars: name === barTerm };
+    checks.push(check(underFloor.byBars ? 'rcSheets.v.wallTieFloorBars' : 'rcSheets.v.wallTieFloor', false, { clause, demand: `s ≤ ${name} = ${fmt(s * 100, 1)} cm`, capacity: `≥ ${fmt(floor * 100, 1)} cm` }));
+  };
 
   if (special) {
     boundaryLength = Math.min(L / 2, Math.max(c - 0.1 * L, c / 2, 0));
     const sMax = floorTo(Math.min(t / 3, (6 * dbMin) / 1000, so(hx)), 0.025);
+    floorCheck([['t/3', t / 3], ['6·db', (6 * dbMin) / 1000], ['so', so(hx)]], '6·db', '§18.10.6.4(e)');
     const core = Math.max(0.05, boundaryLength - ctx.cover);
     const legsAcross = Math.max(2, Math.ceil(core / hx) + 1), legsAlong = 2;
     const ag = Math.max(boundaryLength, 0.05) * t, ach = core * bc;
     const k = Math.max(0.3 * Math.max(0, ag / ach - 1) * fc / fy, 0.09 * fc / fy);
     const fits = (dia: number) => legsAcross * barArea(dia) * 1e-4 >= k * sMax * core - 1e-12 && legsAlong * barArea(dia) * 1e-4 >= k * sMax * bc - 1e-12;
-    const dia = [tieDiaFor(ends), 8, 10, 12].filter((x) => x >= tieDiaFor(ends)).find(fits);
-    hoops = { dia: dia ?? 12, spacing: sMax, legsAcross, legsAlong, clause: '§18.10.6.4' };
+    const pool = tieDiametersOf(ctx).filter((x) => x >= tieDiaFor(ends));
+    const dia = pool.find(fits);
+    hoops = { dia: dia ?? pool.at(-1) ?? tieDiametersOf(ctx).at(-1)!, spacing: sMax, legsAcross, legsAlong, clause: '§18.10.6.4' };
     checks.push(
       check('rcSheets.v.wallSpecialBoundary', true, { clause: '§18.10.6.3, §18.10.6.4(a)', demand: `σ = ${fmt(sigma)} MPa ≥ 0.2·f'c = ${fmt(0.2 * fc)} MPa`, capacity: `${fmt(boundaryLength * 100, 0)} cm (c = ${fmt(c * 100, 0)} cm)` }),
-      check('rcSheets.v.wallBoundaryAsh', dia !== undefined, { clause: '§18.10.6.4(f)', demand: `Ash/(s·bc) ≥ ${fmt(k * 100, 3)} %`, capacity: dia !== undefined ? `Ø${dia} c/${fmt(sMax * 100, 1)}` : '> Ø12' }),
+      check('rcSheets.v.wallBoundaryAsh', dia !== undefined, { clause: '§18.10.6.4(f)', demand: `Ash/(s·bc) ≥ ${fmt(k * 100, 3)} %`, capacity: dia !== undefined ? `Ø${dia} c/${fmt(sMax * 100, 1)}` : `> ${tieDiametersOf(ctx).map((x) => `Ø${x}`).join(' ')}` }),
     );
     steps.push(
       { label: 'rcSheets.s.wallSigma', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig ≥ 0.2·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` },
@@ -84,17 +97,17 @@ export function wallSeismic(
     );
   } else {
     const ext = a.boundary && a.boundary.count > 0 ? a.boundary : null;
-    if (ext) {
-      const pitch = Math.max(0.05, 2 * ext.diameter / 1000);
-      const per = Math.ceil(ext.count / a.curtains);
-      const zone = Math.min(L / 2, ctx.cover + per * pitch + pitch / 2);
-      const along = Math.max(1, Math.floor(zone / a.vertical.spacing) + 1);
-      const rho = (ext.count * barArea(ext.diameter) + a.curtains * along * barArea(a.vertical.diameter)) * 1e-4 / (zone * t);
-      if (rho > 2.8 / fy) {
-        boundaryLength = zone;
-        hoops = { dia: tieDiaFor(ext.diameter), spacing: floorTo(Math.min(0.2, (8 * dbMin) / 1000), 0.025), legsAcross: 2, legsAlong: 2, clause: '§18.10.6.5(a)' };
-        checks.push(check('rcSheets.v.wallEdgeTies', true, { clause: '§18.10.6.5(a)', demand: `ρ = ${fmt(rho * 100, 2)} % > 2.8/fy = ${fmt(280 / fy, 2)} %`, capacity: `Ø${hoops.dia} c/${fmt(hoops.spacing * 100, 1)}` }));
-      }
+    const pitch = Math.max(0.05, 2 * (ext?.diameter ?? a.vertical.diameter) / 1000);
+    const zone = ext
+      ? Math.min(L / 2, ctx.cover + Math.ceil(ext.count / a.curtains) * pitch + pitch / 2)
+      : Math.min(L / 2, Math.max(c - 0.1 * L, c / 2, ctx.cover + a.vertical.spacing));
+    const along = Math.max(1, Math.floor(zone / a.vertical.spacing) + 1);
+    const rho = ((ext ? ext.count * barArea(ext.diameter) : 0) + a.curtains * along * barArea(a.vertical.diameter)) * 1e-4 / (zone * t);
+    if (rho > 2.8 / fy) {
+      boundaryLength = zone;
+      hoops = { dia: allowedTie(ctx, tieDiaFor(ends)) ?? tieDiametersOf(ctx).at(-1)!, spacing: floorTo(Math.min(0.2, (8 * dbMin) / 1000), 0.025), legsAcross: 2, legsAlong: 2, clause: '§18.10.6.5(a)' };
+      floorCheck([['200 mm', 0.2], ['8·db', (8 * dbMin) / 1000]], '8·db', '§18.10.6.5(a)');
+      checks.push(check('rcSheets.v.wallEdgeTies', true, { clause: '§18.10.6.5(a)', demand: `ρ = ${fmt(rho * 100, 2)} % > 2.8/fy = ${fmt(280 / fy, 2)} %`, capacity: `Ø${hoops.dia} c/${fmt(hoops.spacing * 100, 1)}` }));
     }
     steps.push({ label: 'rcSheets.s.wallSigma', formula: 'σ = Pu/Ag + Mu·(lw/2)/Ig < 0.2·f\'c (§18.10.6.3)', value: `${fmt(sigma)} MPa` });
   }
@@ -103,5 +116,5 @@ export function wallSeismic(
     check('rcSheets.v.wallSeisCurtains', !twoCurtains || a.curtains === 2, { clause: '§18.10.2.2', demand: twoCurtains ? `Vu > 0.17·√f'c·Acv ∨ hw/lw ≥ 2` : '—', capacity: String(a.curtains) }),
     check('rcSheets.v.wallSeisRho', lowShear || (rhoL >= 0.0025 - 1e-9 && rhoT >= 0.0025 - 1e-9), { clause: '§18.10.2.1', demand: '≥ 0.25 %', capacity: `${fmt(rhoL * 100, 3)} · ${fmt(rhoT * 100, 3)} %` }),
   );
-  return { twoCurtains, sigma, special, c, boundaryLength, hoops, anchorEnds: !lowShear, checks, steps };
+  return { twoCurtains, sigma, special, c, boundaryLength, hoops, anchorEnds: !lowShear, checks, steps, ...(underFloor ? { underFloor } : {}) };
 }

@@ -17,8 +17,6 @@ const RULES = /from\s+'[^']*codes\/cirsoc201\//;
 
 /** Files outside the rules and the adapters that import them, relative to `src/`. */
 const COUPLED = [
-  'components/pro/design/RcBarList.svelte',
-  'components/pro/desk/column/ColumnLaps.svelte',
   'lib/engine/codes/argentina/cirsoc201.ts',
   'lib/engine/design/beam-flange.ts',
   'lib/engine/design/candidate-enumerate-beam.ts',
@@ -30,7 +28,6 @@ const COUPLED = [
   'lib/engine/design/slabs/stairs.ts',
   'lib/engine/design/special/coupling-beam.ts',
   'lib/engine/detailing/assembly.ts',
-  'lib/engine/detailing/bar-shape-diagram.ts',
   'lib/engine/detailing/beam-top-steel.ts',
   'lib/engine/detailing/candidates.ts',
   'lib/engine/detailing/classify.ts',
@@ -75,12 +72,16 @@ const COUPLED = [
   'lib/export/rc-cad-families.ts',
   'lib/export/rc-cad-handoff-v2.ts',
   'lib/export/rc-cad-handoff.ts',
-  'lib/listings/bvbs.ts',
+  'lib/model/design-data.ts',
   'lib/rc-sheets/bars.ts',
   'lib/rc-sheets/beam-line.ts',
   'lib/rc-sheets/beam-row.ts',
+  'lib/rc-sheets/codes/index.ts',
   'lib/rc-sheets/column-row.ts',
   'lib/rc-sheets/demands.ts',
+  'lib/rc-sheets/schedule/bar-shape-diagram.ts',
+  'lib/rc-sheets/slab-plan.ts',
+  'lib/rc-sheets/slab-row.ts',
   'lib/sheets/details/beams.ts',
   'lib/sheets/details/columns.ts',
   'lib/sheets/details/foundations.ts',
@@ -93,7 +94,6 @@ const COUPLED = [
   'lib/store/budget.ts',
   'lib/store/cracked-deflection.ts',
   'lib/store/ifc-export.ts',
-  'lib/store/work-drawings.ts',
 ];
 
 function coupled(): string[] {

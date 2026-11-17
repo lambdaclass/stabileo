@@ -74,7 +74,15 @@
     {
       "id": 2,
       "nodeId": 3,
-      "type": "rollerZ"
+      "type": "custom3d",
+      "dofRestraints": {
+        "tx": false,
+        "ty": true,
+        "tz": true,
+        "rx": true,
+        "ry": false,
+        "rz": false
+      }
     }
   ],
   "loads": [

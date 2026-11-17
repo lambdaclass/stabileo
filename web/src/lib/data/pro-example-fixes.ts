@@ -7,6 +7,8 @@
  */
 import { modelStore } from '../store/model.svelte';
 import { gradeById } from './structural-grades';
+import { holdPlateSidesAt, physicalPlates } from '../store/physical-plates';
+import { ensurePlates } from '../store/plates-from-shells';
 
 type Fix = () => void;
 
@@ -50,7 +52,35 @@ export function declareSteelGrades(): void {
   }
 }
 
+/** The walls on the foundation held all along their base, at their nodes there now and with every mesh. */
+export function holdWallBases(): number {
+  const zOf = (n: number) => modelStore.nodes.get(n)?.z ?? 0;
+  const supports = [...modelStore.supports.values()];
+  if (!supports.length) return 0;
+  const base = Math.min(...supports.map((s) => zOf(s.nodeId)));
+  const kinds = new Map<string, number>();
+  for (const s of supports) if (Math.abs(zOf(s.nodeId) - base) < 1e-6) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
+  const type = [...kinds.entries()].sort((p, q) => q[1] - p[1])[0]![0] as Parameters<typeof modelStore.addSupport>[1];
+  const held = new Set(supports.map((s) => s.nodeId));
+  let added = 0;
+  for (const shell of [...modelStore.quads.values(), ...modelStore.plates.values()]) {
+    const zs = shell.nodes.map(zOf);
+    if (Math.max(...zs) - Math.min(...zs) < 1e-6) continue;
+    for (const n of shell.nodes) {
+      if (held.has(n) || Math.abs(zOf(n) - base) > 1e-6) continue;
+      modelStore.addSupport(n, type);
+      held.add(n);
+      added++;
+    }
+  }
+  ensurePlates();
+  for (const p of physicalPlates()) if (p.physical.kind === 'wall') holdPlateSidesAt(p.id, base, type);
+  return added;
+}
+
 export const PRO_EXAMPLE_FIXES: Readonly<Record<string, Fix>> = {
+  'pro-edificio-7p': () => { holdWallBases(); },
+
   /*
    * The runway beam carried only its own dead load: there was no crane. One case now stands the
    * crane in the middle bay, two wheels a side 4 m apart, 60 kN a wheel on the loaded side with

@@ -13,6 +13,7 @@
  */
 import { plateLoops } from '../physical/plate';
 import { modelStore } from '../../store/model.svelte';
+import { holdPlateSidesAt } from '../../store/physical-plates';
 import type { Footing } from '../footing';
 import type { PhysicalData } from '../physical/types';
 import { levelAt } from '../physical/recognize';
@@ -106,7 +107,6 @@ export function wallBaseNodes(wallGroupId: number): number[] {
   const nodes = new Set<number>();
   for (const q of g.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
   for (const p of g.members.plates ?? []) for (const n of modelStore.plates.get(p)?.nodes ?? []) nodes.add(n);
-  // A wall waiting for its mesh stands on its outline's nodes; its mesh takes the base from them.
   if (!nodes.size) { const l = plateLoops(g); for (const n of [...l.outer, ...l.holes.flat()]) nodes.add(n); }
   const pts = [...nodes].map((id) => modelStore.nodes.get(id)!).filter(Boolean);
   if (pts.length === 0) return [];
@@ -114,11 +114,16 @@ export function wallBaseNodes(wallGroupId: number): number[] {
   return pts.filter((p) => Math.abs((p.z ?? 0) - zMin) < TOL).map((p) => p.id);
 }
 
-/** A wall stood on the ground: its base nodes fixed where they have no support. A model step. */
+/** A wall stood on the ground: its base nodes fixed where they have no support, and its base held all along with every mesh. A model step. */
 export function supportWallBase(wallGroupId: number): number {
   const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
-  const add = wallBaseNodes(wallGroupId).filter((n) => !held.has(n));
-  if (add.length) modelStore.batch(() => { for (const n of add) modelStore.addSupport(n, 'fixed3d'); });
+  const base = wallBaseNodes(wallGroupId);
+  const add = base.filter((n) => !held.has(n));
+  if (!base.length) return 0;
+  modelStore.batch(() => {
+    for (const n of add) modelStore.addSupport(n, 'fixed3d');
+    holdPlateSidesAt(wallGroupId, modelStore.nodes.get(base[0]!)?.z ?? 0, 'fixed3d');
+  });
   return add.length;
 }
 

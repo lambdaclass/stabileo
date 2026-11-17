@@ -2,7 +2,8 @@
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { knownIssueMessage } from '../../lib/engine/known-issue-message';
+  import { knownIssueMessage, withoutIssueRef } from '../../lib/engine/known-issue-message';
+  import NoticeRow from '../notices/NoticeRow.svelte';
   import { shellRef } from '../../lib/engine/model-findings';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import {
@@ -54,6 +55,10 @@
     for (const d of solverDiags) {
       items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
     }
+    const known = is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    for (const message of known.messages) {
+      if (!items.some((i) => i.message === message)) items.push({ source: 'engine', type: 'known_issue', message, severity: known.refused ? 'error' : 'warning' });
+    }
     return items;
   })());
 
@@ -63,9 +68,11 @@
   const caseKeys = $derived([...resultsStore.perCase.keys()]);
 </script>
 
-{#each containment.messages as message}
-  <div role="alert" class="containment-banner">{message}</div>
-{/each}
+{#if containment.refused}
+  <div role="alert" class="containment-banner" data-testid="results-withheld">
+    <NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={containment.messages} open />
+  </div>
+{/if}
 {#if !containment.refused}
 <!--
   Which load state the table describes.
@@ -269,7 +276,7 @@
           <tr>
             <td class="id-cell">{d.source}</td>
             <td>{d.type}</td>
-            <td>{d.message}</td>
+            <td title={withoutIssueRef(d.message) !== d.message ? d.message : undefined} data-testid="results-diag-message">{withoutIssueRef(d.message)}</td>
             <td class={d.severity === 'warning' ? 'severity-warn' : d.severity === 'error' ? 'severity-err' : ''}>{d.severity}</td>
           </tr>
         {/each}
@@ -281,7 +288,7 @@
 {/if}
 
 <style>
-  .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
+  .containment-banner { margin-bottom: 8px; }
   .results-case-bar {
     display: flex;
     align-items: center;

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { historyStore, modelStore } from '../../../store';
 import { placeFrame, placeWall } from '../../../model/building/build-on-grid';
-import { modelLevelCentres } from '../../../store/design-desk';
+import { modelLevelCentres } from '../../../store/level-centres';
 import type { StructuralGrid } from '../../../model/grid';
 
 const grid: StructuralGrid = {

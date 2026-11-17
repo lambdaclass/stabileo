@@ -870,22 +870,36 @@ navegador; las figuras agregadas desde la vista son de la sesión. Los mismos da
 **Exportar › Excel**.
 
 El **cómputo** (también en Documentos) toma el hormigón y el acero estructural de la geometría y
-la armadura del **despiece**, por diámetro; la cuantía se calcula sobre las barras despiezadas.
+la armadura de las barras adoptadas en el **armado por planillas**, por diámetro, como las pesa su
+planilla de doblado.
 
 ## La pestaña Diseño
 
-La etapa Diseño abre el diseño en acero cuando la mayoría de las barras son de acero, y el flujo de
-hormigón si no. Cada panel de diseño nombra las combinaciones que no tienen esfuerzos (sin
-equilibrio de segundo orden) y da el diseño por incompleto mientras haya alguna.
+La etapa Diseño, que se activa en la configuración de PRO, reúne el diseño en acero, las otras
+normas y el juego de planos. Cada panel de diseño nombra las combinaciones que no tienen esfuerzos
+(sin equilibrio de segundo orden) y da el diseño por incompleto mientras haya alguna.
 
 ### Hormigón armado
 
-El diseño de vigas verifica además la **separación de las barras junto a la cara traccionada**
-para el control de fisuración (CIRSOC 201-2025, 24.3.2), con fs = 2/3 fy según 24.3.2.1; si no
-cumple, el diseño automático sube a una armadura con más barras. El juego de planos del despiece
-suma, a las elevaciones y cortes de cada conjunto, los **pórticos** completos en su plano, las
-**columnas apiladas** en todos sus pisos y el **detalle de cada nudo**, todos con las barras del
-propio despiece.
+El hormigón armado se diseña en el **armado por planillas** (Analizar › **Armado por planillas**),
+con la etapa Diseño activa o no. Con el modelo resuelto en sus combinaciones y sus elementos
+físicos reconocidos, **Dimensionar armaduras** propone barras para cada línea de vigas, cada tramo de
+columna, cada losa, cada tabique y cada nudo de punzonado, según la norma elegida para las
+planillas (CIRSOC 201-2025, ACI 318-19, EN 1992-1-1, BS EN 1992-1-1 con el anexo británico o
+TS 500). Cada fila muestra sus verificaciones con el artículo de cada una, los esfuerzos de cada
+combinación y las barras propuestas. **Adoptar** se queda con una propuesta; el editor de la fila
+fija barras a mano, y esas se mantienen si cambiás la norma. Una línea de vigas se abre en
+elevación con las envolventes de momento y corte contra la capacidad de sus barras a lo largo de
+ella, dónde se cortan las barras y cómo se anclan. Los recubrimientos, el acero, los diámetros y el
+estribo son los datos de diseño del proyecto, que se despliegan en el panel de las planillas y en
+los datos generales del edificio; con la opción sísmica, también los datos sísmicos.
+
+Las barras adoptadas son las que lee el resto del proyecto: las flechas con sección fisurada de la
+tabla de flechas, los capítulos de hormigón de la memoria de cálculo (las barras, cada verificación
+con su artículo y el estado; una fila sin adoptar sale retenida), las barras de vigas y columnas en
+el IFC y la planilla de doblado. Las planillas se exportan a Excel, la planilla de doblado a CSV y
+BVBS, y **Exportar planos** da los planos de armadura de vigas, columnas, losas y tabiques. El juego
+de planos de la etapa Diseño tiene los demás planos de obra y remite a esa exportación.
 
 ### Otras normas
 

@@ -168,21 +168,21 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Lent a modell: egy 5 m-es kéttámaszú gerenda, 20×40, H-25, 12 kN/m állandó és 8 kN/m hasznos teherrel, valamint az önsúlyával. A PRO méretezési munkafolyamatában nyílik meg, a CIRSOC 201 a hatályos szabvány."
+      "t": "Lent a modell: egy 5 m-es kéttámaszú gerenda, 20×40, H-25, 12 kN/m állandó és 8 kN/m hasznos teherrel, valamint az önsúlyával. A PRO vasalási táblázataiban nyílik meg, a CIRSOC 201-2025 szabvánnyal."
     },
     {
       "k": "img",
-      "base": "blog/cirsoc-201-beam",
+      "base": "blog/cirsoc-201-sheets",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Méretezés munkaterület, Méretfelvétel lépés, a 20×40-es gerenda kijelölve a számítás és a méretezés után. A rúd paneljén „Ellenőrizve · helyi η 0,90” olvasható a CIRSOC 201 (2025) alatt, 13 ellenőrzéssel az My és Vz tengelyen, 0,900-as legrosszabb kihasználtsággal.",
-      "caption": "A lenti gerenda a „Méretfelvétel…” után: a CIRSOC 201 0,90-es kihasználtsággal ellenőrzi."
+      "alt": "Stabileo PRO, vasalási táblázatok a CIRSOC 201-2025 szerint, a gerendák táblázata a V1-en megnyitva a számítás és a méretezés után. A sor alul 2 végigfutó Ø25-öt, felül 2 végigfutó Ø16-ot és 18 cm-es osztású Ø8 kengyeleket javasol, 0,80-as kihasználtsággal és Megfelel állapottal. Alatta a nézet a vasak pozícióival, valamint a nyomatéki és nyíróerő-burkolók a teherbírással szemben.",
+      "caption": "A lenti gerenda a gerendák táblázatában, a „Vasalás méretezése” után: a Stabileo által javasolt 2 Ø25 0,80-as kihasználtsággal zárul."
     },
     {
       "k": "embed",
       "mode": "pro",
-      "query": "example=rc-beam-flexure&proTab=design",
-      "label": "A gerenda a Stabileóban, a PRO méretezési munkafolyamatában. Ha a méretezés ki van kapcsolva, nyomja meg az értesítésben a „Méretezés bekapcsolása erre a látogatásra” gombot. Három gomb, ebben a sorrendben: „Igénybevételek számítása”, „Szükséges acél számítása” és „Méretfelvétel…”. Csak a harmadik választja ki a vasakat, és amíg nincs vasalás, nincs mit ellenőrizni: a táblázat „nincs vasalás” értéket mutat. Az 5 m-es fesztáv két elemként van modellezve; mindkettő D/C = 0,90-nel zárul, a mezőbeli nyírás a mértékadó: a hajlítás és a vasak lehorgonyzása alatta marad. Változtassa meg a terhet, és futtassa újra. A szabvány szerinti méretezés a PRO-ban még fejlesztés alatt áll; a betonmodul az a rész, amely implementált és tesztelt."
+      "query": "example=rc-beam-flexure&proTab=rcSheets",
+      "label": "A gerenda a Stabileóban, a PRO vasalási táblázataiban. Négy gomb, ebben a sorrendben: „Számítás”, „Vasalási táblázatok” (a Kimenet csoportban), „Vasalás méretezése” és „Gerendák”. Az első kiszámítja a modellt és megmutatja az eredményeket, a második visszavisz a táblázatokhoz, a harmadik méretezi a vasalást, a negyedik megnyitja a gerendák táblázatát: a V1 sora alul 2 végigfutó Ø25-öt és felül 2 Ø16-ot javasol, 0,80-as kihasználtsággal zárul, és „Megfelel” állapotot mutat. Nyissa meg, hogy lássa a nyomatéki burkolót a teherbírással szemben és az egyes ellenőrzéseket; ezt a kihasználtságot „A burkoló a teljes gerendán lefedve, a vasak lehorgonyozva” ellenőrzés adja. Változtassa meg a terhet, és számítson újra. A vasalási táblázatok még fejlesztés alatt állnak: ellenőrizze az eredményeket."
     },
     {
       "k": "h",
@@ -196,6 +196,10 @@ const body: PostBody = {
         "φ az εt-től függ: mindig együtt olvassa a kettőt.",
         "Ha nyomott vasalás jelenik meg, az azért van, mert a keresztmetszet elvesztette a duktilitását, nem azért, mert hiányzik a teherbírása."
       ]
+    },
+    {
+      "k": "note",
+      "t": "Minden szám a Stabileo CIRSOC 201 moduljából származik, a megnevezett keresztmetszeteken futtatva, és nem táblázatból. Egy továbbadásra érdemes figyelmeztetés, mert ennek a bejegyzésnek az első változata itt tévedett: a kézi számítás D/C = 0,74-et adott, mert kihagyta az önsúlyt, azt a 2 kN/m-t, amelyet az alkalmazás az állandó teherhez ad. Vele együtt a kéttámaszú gerenda terhe 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m, és 2 Ø25-tel (φMn = 113,55 kN·m) D/C = 0,81. A fenti táblázat pontosan 2 Ø25-öt javasol alulra, és 0,80-nal zárul. 0,81 helyett azért 0,80, mert a 20.5.1.3.1. táblázat szerinti betonfedéssel számol (30 mm a kengyelig, d = 34,95 cm), és a felső 2 Ø16-ot nyomott vasként figyelembe veszi: φMn = 115,31 kN·m, és 92,5/115,31 = 0,80. Ha egy itteni szám valaha eltér attól, amit a szerkesztő mutat, a szerkesztőnek higgyen."
     },
     {
       "k": "note",

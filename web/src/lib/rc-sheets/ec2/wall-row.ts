@@ -1,17 +1,16 @@
 import { ec2Shear } from '../../engine/design/eurocode/ec2-beam';
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
-import { wallVerticalBars } from '../../engine/detailing/wall-member';
+import { wallVerticalBars } from '../wall-member';
 import { barArea, roundDown } from '../bars';
 import type { Fmt } from '../format';
-import { wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
-import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted } from '../types';
+import { boundaryBars, nextWallBar, wallLabel, type WallContext, type WallDemand, type WallRow } from '../wall-row';
+import { check, ratioOf, type CheckLine, type ComboTable, type StepGroup, type WallAdopted, isGenerous } from '../types';
 import { lapLength, matOf, momentCapacity, shearCapacity, type Ec2Set, type Layer, type Mat } from './basis';
 
 const KPA = 1000;
 const MAX_ITERATIONS = 12;
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? (curtains * barArea(m.diameter) * 1e-4) / (m.spacing * t) : 0);
-const nextDia = (d: number) => [8, 10, 12, 16, 20, 25].find((x) => x > d) ?? d;
 
 function inPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: number, M: number): number {
   const bars = wallVerticalBars(d.length, d.thickness, c.cover, a);
@@ -26,7 +25,7 @@ interface OutRead { u: number; lambda: number; lambdaLim: number; slender: boole
 
 function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: number, muV: number, muH: number): { v: OutRead; h: number } {
   const t = d.thickness, hd = a.horizontal.diameter / 1000, vd = a.vertical.diameter / 1000;
-  const n = Math.max(0, N / Math.max(d.length, 1e-6));
+  const nSigned = N / Math.max(d.length, 1e-6), n = Math.max(0, nSigned);
   const yV = c.cover + hd + vd / 2, yH = c.cover + hd / 2;
   const asV = barArea(a.vertical.diameter) * 1e-4 / a.vertical.spacing, asH = barArea(a.horizontal.diameter) * 1e-4 / a.horizontal.spacing;
   const layersV: Layer[] = a.curtains === 2 ? [{ y: yV, area: asV }, { y: t - yV, area: asV }] : [{ y: t / 2, area: asV }];
@@ -42,7 +41,7 @@ function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: nu
     mEd = muV + n * (l0 / 400) + n * ((kphi * m.eyd) / (0.45 * dd)) * (l0 * l0) / 10;
   }
   mEd = Math.max(mEd, n * Math.max(t / 30, 0.02));
-  const capV = momentCapacity(n, { b: 1, h: t }, layersV, m);
+  const capV = momentCapacity(nSigned, { b: 1, h: t }, layersV, m);
   const v = { lambda, lambdaLim, slender, mEd, mrd: capV?.mrd ?? 0, u: !capV ? Number.POSITIVE_INFINITY : mEd > 1e-9 ? mEd / Math.max(capV.mrd, 1e-9) : 0 };
   let h = 0;
   if (muH > 1e-6) {
@@ -56,6 +55,8 @@ function outOfPlane(d: WallDemand, c: WallContext, a: WallAdopted, m: Mat, N: nu
 interface Eval {
   pm: number[]; out: OutRead[]; outH: number[]; shear: number[];
   rhoV: number; rhoH: number; rhoVMin: number; rhoHMin: number; rhoHShear: number;
+  /** The vertical steel over the whole wall, the boundary bars with the mesh. */
+  rhoVTotal: number;
   sMaxV: number; sMaxH: number; vrdMin: number; vrdc: number; cot: number;
 }
 
@@ -75,6 +76,7 @@ function evaluate(set: Ec2Set, d: WallDemand, c: WallContext, a: WallAdopted, m:
     out: outs.map((o) => o.v), outH: outs.map((o) => o.h),
     shear: d.combos.map((k, i) => ratioOf(k.vu, shear[i]!.vrd)),
     rhoV, rhoH, rhoVMin: 0.002, rhoHMin: Math.max(0.25 * rhoV, 0.001), rhoHShear,
+    rhoVTotal: rhoV + (a.boundary ? (a.boundary.count * barArea(a.boundary.diameter) * 1e-4) / (L * t) : 0),
     sMaxV: Math.min(3 * t, 0.4), sMaxH: 0.4,
     vrdMin: Math.min(Infinity, ...shear.map((s) => s.vrd)), vrdc: s0.vrdc, cot: s0.cotTheta,
   };
@@ -90,7 +92,7 @@ export function makeWallRow(set: Ec2Set) {
     const first = evaluate(set, d, c, { vertical: { diameter: c.barDia, spacing: 0.2 }, horizontal: { diameter: c.barDia, spacing: 0.2 }, curtains }, m);
     let a: WallAdopted = { vertical: meshFor(c.barDia, first.rhoVMin, first.sMaxV), horizontal: meshFor(c.barDia, Math.max(first.rhoHMin, first.rhoHShear), first.sMaxH), curtains };
     let e = evaluate(set, d, c, a, m), iterations = 0;
-    const boundaries = [12, 16, 20, 25].flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
+    const boundaries = boundaryBars(c.diameters).flatMap((diameter) => [2, 4, 6, 8, 10, 12].map((count) => ({ count, diameter })))
       .sort((p, q) => p.count * barArea(p.diameter) - q.count * barArea(q.diameter));
     const holds = (x: Eval) => x.pm.every(ok1) && x.out.every((o) => ok1(o.u)) && x.outH.every(ok1) && x.shear.every(ok1) && x.rhoV >= x.rhoVMin - 1e-9 && x.rhoH >= x.rhoHMin - 1e-9;
     while (!holds(e) && iterations < MAX_ITERATIONS) {
@@ -100,8 +102,8 @@ export function makeWallRow(set: Ec2Set) {
         const next = boundaries.find((b) => b.count * barArea(b.diameter) > cur + 1e-9);
         a = next ? { ...a, boundary: next } : { ...a, vertical: { ...a.vertical, spacing: roundDown(Math.max(0.075, a.vertical.spacing - 0.025)) } };
       }
-      if (!e.out.every((o) => ok1(o.u)) || e.rhoV < e.rhoVMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextDia(a.vertical.diameter), spacing: a.vertical.spacing } };
-      if (!e.shear.every(ok1) || !e.outH.every(ok1) || e.rhoH < e.rhoHMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextDia(a.horizontal.diameter), spacing: a.horizontal.spacing } };
+      if (!e.out.every((o) => ok1(o.u)) || e.rhoV < e.rhoVMin - 1e-9) a = { ...a, vertical: a.vertical.spacing > 0.1 + 1e-9 ? { ...a.vertical, spacing: roundDown(a.vertical.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.vertical.diameter), spacing: a.vertical.spacing } };
+      if (!e.shear.every(ok1) || !e.outH.every(ok1) || e.rhoH < e.rhoHMin - 1e-9) a = { ...a, horizontal: a.horizontal.spacing > 0.1 + 1e-9 ? { ...a.horizontal, spacing: roundDown(a.horizontal.spacing - 0.025) } : { diameter: nextWallBar(c.diameters, a.horizontal.diameter), spacing: a.horizontal.spacing } };
       e = evaluate(set, d, c, a, m);
     }
     const proposed = a;
@@ -120,14 +122,14 @@ export function makeWallRow(set: Ec2Set) {
       check('rcSheets.v.wallShear', ev.shear.every(ok1), { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(vuMax)} kN`, capacity: `${fmt(ev.vrdMin)} kN`, ratio: Math.max(0, ...ev.shear) }),
       check('rcSheets.v.wallOut', outU.every(ok1), { clause: '6.1, 5.8.8', demand: d.combos[iout]?.combo ?? '', ratio: Math.max(0, ...outU) }),
       check('rcSheets.v.wallRhoL', ev.rhoV >= ev.rhoVMin - 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoVMin * 100, 3)} %`, capacity: `${fmt(ev.rhoV * 100, 3)} %`, ratio: ratioOf(ev.rhoVMin, ev.rhoV) }),
-      check('rcSheets.ec2.v.wallRhoVMax', ev.rhoV <= 0.04 + 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoV * 100, 3)} %`, capacity: '≤ 4 %' }),
+      check('rcSheets.ec2.v.wallRhoVMax', ev.rhoVTotal <= 0.04 + 1e-9, { clause: '9.6.2(1)', demand: `${fmt(ev.rhoVTotal * 100, 3)} %`, capacity: '≤ 4 %' }),
       check('rcSheets.v.wallRhoT', ev.rhoH >= Math.max(ev.rhoHMin, ev.rhoHShear) - 1e-9, { clause: '9.6.3(1), 6.2.3(3)', demand: `${fmt(Math.max(ev.rhoHMin, ev.rhoHShear) * 100, 3)} %`, capacity: `${fmt(ev.rhoH * 100, 3)} %`, ratio: ratioOf(Math.max(ev.rhoHMin, ev.rhoHShear), ev.rhoH) }),
       check('rcSheets.v.wallSpacing', ad.vertical.spacing <= ev.sMaxV + 1e-6 && ad.horizontal.spacing <= ev.sMaxH + 1e-6, { clause: '9.6.2(3), 9.6.3(2)', capacity: `V ≤ ${fmt(ev.sMaxV * 100, 0)} · H ≤ ${fmt(ev.sMaxH * 100, 0)} cm` }),
       check('rcSheets.ec2.v.wallCurtains', ad.curtains === 2, { clause: '9.6.2(1)', capacity: String(ad.curtains) }),
       check('rcSheets.ec2.v.wallLinks', ev.rhoV <= 0.02 + 1e-9, { clause: '9.6.4(1)', demand: `${fmt(ev.rhoV * 100, 3)} %`, capacity: '≤ 2 %' }),
     ];
     const allOk = verifications.every((v) => v.ok);
-    const generous = ev.rhoV > 1.2 * ev.rhoVMin + 1e-6 && ev.rhoH > 1.2 * ev.rhoHMin + 1e-6 && Math.max(0, ...ev.pm, ...ev.shear, ...outU) < 0.5;
+    const generous = isGenerous(verifications);
     const combos: ComboTable = {
       headers: ['Pu', 'Mu', 'Vu', 'Mv', 'Mh'],
       rows: d.combos.map((k, i) => {
@@ -149,9 +151,9 @@ export function makeWallRow(set: Ec2Set) {
       {
         title: 'rcSheets.g.wallShear',
         steps: [
-          { label: 'rcSheets.ec2.s.wallShearModel', formula: 'bw = t, d = 0.8·lw, z = 0.9·d, σcp = NEd/(lw·t); horizontal bars as links (6.2.2(1), 6.2.3(3))', value: '' },
+          { label: 'rcSheets.ec2.s.wallShearModel', formula: 'bw = t, d = 0.8·lw, z = 0.9·d, σcp = NEd/(lw·t) (6.2.2(1), 6.2.3(3))', value: '' },
           { label: 'rcSheets.ec2.s.vrdc', formula: 'VRd,c (6.2.2(1))', value: `${fmt(ev.vrdc)} kN` },
-          { label: 'rcSheets.s.wallRhoTReq', formula: 'ρh = VEd/(z·fywd·cotθ)/t where VEd > VRd,c', value: `${fmt(ev.rhoHShear * 100, 3)} % (cotθ = ${fmt(ev.cot, 2)})` },
+          { label: 'rcSheets.ec2.s.wallRhoTReq', formula: 'ρh = VEd/(z·fywd·cotθ)/t', value: `${fmt(ev.rhoHShear * 100, 3)} % (cotθ = ${fmt(ev.cot, 2)})` },
           { label: 'rcSheets.s.wallMin', formula: 'ρv ≥ 0.002 (9.6.2(1)); ρh ≥ max(0.25·ρv; 0.001) (9.6.3(1))', value: `${fmt(ev.rhoVMin * 100, 3)} · ${fmt(ev.rhoHMin * 100, 3)} %` },
           { label: 'rcSheets.s.wallVn', formula: 'VRd = max(VRd,c; min(VRd,s; VRd,max))', value: `${fmt(ev.vrdMin)} kN`, ok: ev.shear.every(ok1) },
         ],
@@ -159,7 +161,7 @@ export function makeWallRow(set: Ec2Set) {
       {
         title: 'rcSheets.g.wallFlexure',
         steps: [
-          { label: 'rcSheets.s.wallBoundary', formula: 'As at the ends (NEd, MEd)', value: boundaryLabel },
+          { label: 'rcSheets.ec2.s.wallBoundary', formula: 'As,ext', value: boundaryLabel },
           { label: 'rcSheets.s.wallPM', formula: 'MRd(NEd) ≥ max(MEd; NEd·e0), e0 = max(lw/30; 20 mm) (6.1(4))', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) },
           ...(gOut ? [{ label: 'rcSheets.s.slenderness', formula: 'λ = hw·√12/t; λlim = 20·0.7·1.1·0.7/√n (5.8.3.1(1)), l0 = hw', value: `${fmt(gOut.lambda, 1)} ≤ ${fmt(Number.isFinite(gOut.lambdaLim) ? gOut.lambdaLim : 0, 1)}?`, ok: !gOut.slender }] : []),
           { label: 'rcSheets.s.wallOut', formula: 'MEd,v (+ NEd·l0/400 + M2, 5.8.8) ≤ MRd(NEd/lw), b = 1 m; MEd,h ≤ MRd', value: `${fmt(Math.max(0, ...outU), 3)}`, ok: outU.every(ok1) },
@@ -169,7 +171,7 @@ export function makeWallRow(set: Ec2Set) {
         title: 'rcSheets.g.proposal',
         steps: [
           { label: 'rcSheets.s.adopted', formula: wallLabel(ad), value: '' },
-          adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ,min → As,ends → (NEd, MEd), VEd, (Mv, Mh)', value: String(iterations) },
+          adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ,min → As,ext → (NEd, MEd), VEd, (Mv, Mh)', value: String(iterations) },
           { label: 'rcSheets.ec2.s.wallScope', value: '' },
         ],
       },
@@ -181,6 +183,9 @@ export function makeWallRow(set: Ec2Set) {
       utilization: Math.max(0, ...ev.pm, ...ev.shear, ...outU),
       status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       cover: c.cover, hLap: lapLength(m, ad.horizontal.diameter, true),
+      vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: lapLength(m, dia, true) })),
+      ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
+    ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
     };
   };
 }

@@ -22,6 +22,7 @@ import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import type { ProvidedReinforcement, StirrupDef } from '../../store/model.svelte';
 import { computeColumnLayout } from '../station-design-forces';
 import type { MemberContext } from './member-context';
+import { columnEndZone } from '../../rc-sheets/column-ties';
 import { grossAreaOf, minClear, shapedBarPositions, type ColumnShape } from './shaped-column';
 import { DESIGN_TARGET_UTILIZATION } from './outcome';
 import { STANDARD_LONG_DIAS, STANDARD_STIRRUP_DIAS, SPACING_GRID, computeCandidateCost } from './objective';
@@ -115,13 +116,6 @@ type Knob = 'long' | 'tie';
 export function endZoneFor(ctx: MemberContext, spacing: number): ProvidedReinforcement['tieZones'] {
   if (!ctx.material.columnEndZones) return undefined;
   return columnEndZone(ctx.section.b, ctx.section.h, ctx.L, spacing);
-}
-
-/** The end zone of a b × h column of clear height `clear` tied at `spacing`, m: what `columnEndZones` asks, wherever it is drawn or designed. */
-export function columnEndZone(b: number, h: number, clear: number, spacing: number): { endLength: number; endSpacing: number } {
-  const endLength = +Math.max(Math.max(b, h), clear / 6, 0.45).toFixed(3);
-  const endSpacing = Math.max(COLUMN_LIMITS.minSpacing, Math.floor((spacing / 2) / SPACING_GRID + 1e-9) * SPACING_GRID);
-  return { endLength, endSpacing: +endSpacing.toFixed(4) };
 }
 
 /** The least dimension a tie spacing reads on a shaped column: D, or the thinnest web. */

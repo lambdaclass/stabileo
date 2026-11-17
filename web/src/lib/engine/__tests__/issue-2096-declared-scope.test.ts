@@ -1,7 +1,6 @@
 import { checkDeclaredSteelMember } from './helpers/declared-demands';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { expect, it, vi } from 'vitest';
-import { lineDemand, lineTransverseDemand } from '../design/beam-line-demand';
 import { resolveSectionState } from '../../section/state';
 import { isVariableMember } from '../../section/variable';
 import type { Section } from '../../store/model.svelte';
@@ -115,43 +114,12 @@ it('round4 common member-combination scope still answers and refuses omitted dec
   }
 });
 
-function beamMember(input: ElementStationResult) {
-  return { ctx: { stations: input, axes: { flexure: 'My', shear: 'Vz', bFlex: 0.3, hFlex: 0.6 },
-    material: { fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 } }, offset: 0, L: 4, forward: true } as never;
-}
-for (const entry of ['flexure', 'transverse'] as const) {
-  const run = (input: ElementStationResult, comboId?: number) => entry === 'flexure'
-    ? lineDemand([beamMember(input)], comboId) : lineTransverseDemand([beamMember(input)], comboId);
-  it(`known wrong result: #2096 round4 beam line ${entry} groups verified tuples by actual station`, () => {
-    const input = stations();
-    for (const c of input.comboResults) for (const s of c.stations) { s.n = 0; s.torsion = s.t === 0.5 ? 6 : 0; }
-    const actual = run(input);
-    expect(actual.map(p => p.x)).toEqual([0, 2, 4]);
-    const c1 = run({ ...input, stationTs: [0, 0.5, 1], comboResults: [input.comboResults[0]!] });
-    expect(actual).toEqual(c1);
-    expect(run(input, 2).map(p => p.x)).toEqual([0, 2, 4]);
-  });
-  for (const t of [0, 0.5, 1]) it(`known wrong result: #2096 round4 beam line ${entry} refuses missing declared station ${t} before filtering`, () => {
-    const input = stations();
-    input.stationTs = [0, 0.5, 1];
-    input.comboResults[1]!.stations = [0, 0.5, 1].filter(s => s !== t).map(force);
-    expect(() => run(input, 1)).toThrow(expect.objectContaining({ code: 'incomplete-concurrent-demand' }));
-  });
-  it(`round4 beam line ${entry} common-grid control answers unchanged`, () => {
-    const input = stations();
-    input.comboResults[1]!.stations = [0, 0.5, 1].map(force);
-    input.stationTs = [0, 0.5, 1];
-    expect(run(input)).toEqual(run({ ...input, comboResults: [input.comboResults[0]!] }));
-  });
-}
-
-for (const entry of ['variable', 'flexure', 'transverse'] as const) it(`known wrong result: #2096 round4 ${entry} validates declared scope once before station iteration`, () => {
+it('known wrong result: #2096 round4 variable validates declared scope once before station iteration', () => {
   const input = stations();
   input.comboResults[1]!.stations = [0, 0.5, 1].map(force);
   const gate = vi.spyOn(CompleteDemandSet, 'require');
   try {
-    const actual = entry === 'variable' ? variable(input) : entry === 'flexure'
-      ? lineDemand([beamMember(input)]) : lineTransverseDemand([beamMember(input)]);
+    const actual = variable(input);
     expect(actual).toBeTruthy();
     expect(gate).toHaveBeenCalledTimes(1);
   } finally { gate.mockRestore(); }

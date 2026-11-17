@@ -1,7 +1,6 @@
 /**
- * Stairs and post-tensioning in the design desk: on a concrete frame, a stair stated in the form
- * (its live load from Tabla 4.1 of CIRSOC 101), designed with its rows and its bars, its reactions
- * put on two beams; and the tendon system stated, which the post-tensioned tab then summarises.
+ * Stairs in the design desk: on a concrete frame, a stair stated in the form (its live load from
+ * Tabla 4.1 of CIRSOC 101), designed with its rows and its bars, its reactions put on two beams.
  * The arithmetic is pinned in `engine/design/slabs/__tests__/stairs-post-tensioned.test.ts` and
  * `store/__tests__/stairs-pt.test.ts`.
  */
@@ -9,8 +8,8 @@ import { test, expect, loadModel, solveModel, openDeskStage, deskTab } from './f
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-test.describe('@slow stairs and post-tensioning', () => {
-  test('a stair designed and its reactions applied; a tendon system stated', async ({ pro: page }) => {
+test.describe('@slow stairs', () => {
+  test('a stair designed and its reactions applied', async ({ pro: page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await loadModel(page, 'rc-design-qa-8');
@@ -38,12 +37,6 @@ test.describe('@slow stairs and post-tensioning', () => {
     await expect(ed.getByTestId('stair-note')).toContainText(/2 (loads applied|cargas aplicadas)/);
     expect(/\bsatisfies\b|\bcumple\b|verified|verificad/i.test(await ed.innerText())).toBe(false);
 
-    await deskTab(page, 'pt');
-    const pt = page.getByTestId('pt-editor');
-    const sys: Record<string, string> = { fpu: '1860', fpy: '1675', eps: '195000', aps: '98.7', jackRatio: '0.8', mu: '0.06', k: '0.0033', seating: '6', longTermLoss: '100', fci: '20' };
-    for (const [k, v] of Object.entries(sys)) await pt.getByTestId(`pt-sys-${k}`).fill(v);
-    await pt.getByTestId('pt-sys-save').click();
-    await expect(pt.getByTestId('pt-system').locator('summary')).toContainText('fpu 1860 MPa');
     expect(errors).toEqual([]);
   });
 });
