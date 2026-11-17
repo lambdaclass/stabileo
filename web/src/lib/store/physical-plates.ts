@@ -782,7 +782,9 @@ function meshHangsNeighbours(e: PlateEntry): boolean {
 /**
  * Rectangles for a plate whose sides run along its frame (an L, a notch, rectangular holes such as
  * a wall's openings), where the general mesher would give distorted quadrilaterals around them.
- * Null where a neighbour's shell edge along a side would have a grid point strictly inside it: that node would hang.
+ * Null where a neighbour's shell edge along a side would have a grid point strictly inside it: that
+ * node would hang. A neighbour's edge from corner to corner is one shell spanning the side, which no
+ * mesher meets better: the grid stands, and that neighbour waits for a mesh of its own.
  */
 function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null, shellNeighbours: ReadonlyArray<readonly [Vec3, Vec3]>, along?: { frame: PlateFrameLike; a: number; b: number }): MeshOutput | null {
   const g = rectGrid({
@@ -790,7 +792,9 @@ function rectGridOf(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: Pl
     fixedPoints: features?.points ?? [], fixedSegments: spec.followMembers && features ? features.segments : [],
   });
   if (!g) return null;
-  if (shellNeighbours.length && hangsOn([...g.boundary].map((i) => g.points[i]!), shellNeighbours)) return null;
+  const corner = (p: Vec3) => [geo.outer, ...geo.holes].some((l) => l.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < 1e-6));
+  const meshedAlong = shellNeighbours.filter(([a, b]) => !corner(a) || !corner(b));
+  if (meshedAlong.length && hangsOn([...g.boundary].map((i) => g.points[i]!), meshedAlong)) return null;
   return g;
 }
 
@@ -945,11 +949,11 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       if (!again.length) break;
       for (const p of again) { clearPlateMesh(p.id); meshOne(p); }
     }
-    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone; one a node still hangs on waits to be meshed again.
+    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone. One a node still hangs on waits to be meshed again, but shells as modelled, coarser than its size, which meshing before the analysis meshes anyway.
     for (const id of new Set([...meshed, ...current])) {
       if (plateStatus(id) !== 'stale') continue;
       const x = plateEntry(id);
-      if (x && !meshHangsNeighbours(x)) adoptCurrentMesh(id);
+      if (x && (coarseAsModelled(x) || !meshHangsNeighbours(x))) adoptCurrentMesh(id);
     }
     if (lifted) syncDefinedLoads();
     const springy = meshed.filter((id) => plateEntry(id)?.surface.springs);

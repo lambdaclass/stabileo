@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
-import { applyPlateMeshes, createPlate, physicalPlates, planPlateMesh, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
+import { adoptCurrentMesh, applyPlateMeshes, coarseAsModelled, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, setPlateMeshSpec } from '../physical-plates';
 import { platesFromShells } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 
@@ -47,6 +47,10 @@ describe('a plate meshed on a grid beside another plate\'s shells', () => {
 describe('a plate meshed beside one shell', () => {
   it('leaves that shell\'s plate waiting for a mesh, which the analysis gives it to meet the new nodes', () => {
     const { below, above } = besideShells([0, 4]);
+    setPlateMeshSpec([below], { size: 3 });
+    adoptCurrentMesh(below);
+    expect(plateStatus(below)).toBe('current');
+    expect(coarseAsModelled(plateEntry(below)!)).toBe(false);
     applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!]);
     expect(hanging(below)).toBe(true);
     expect(plateStatus(below)).toBe('stale');
@@ -55,5 +59,13 @@ describe('a plate meshed beside one shell', () => {
     expect(hanging(below)).toBe(false);
     expect(plateStatus(below)).toBe('current');
     expect(plateStatus(above)).toBe('current');
+  });
+
+  it('keeps calling current a plate still on the coarse shells it came with, which meshing before the analysis meshes anyway', () => {
+    const { below, above } = besideShells([0, 4]);
+    expect(coarseAsModelled(plateEntry(below)!)).toBe(true);
+    applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!]);
+    expect(plateStatus(below)).toBe('current');
+    expect(platesNeedingMesh()).toEqual([below]);
   });
 });
