@@ -56,11 +56,12 @@ it('known wrong result: #2259 forces report permutes SRSS and ABS blocks while s
   }
 });
 
-it('#2259 stored point axial force remains member-local even when the transverse component is global', () => {
+it('#2259 stored point axial force is described in global report axes or retained in local output', () => {
   for (const choice of allChoices()) {
     axesStore.choice = choice;
-    expect(pointOnElementText({ a: 1, p: 0, px: 7, isGlobal: true }, { global: 'global' })).toContain('Px=7');
-    expect(pointOnElementText({ a: 1, p: 0, px: 7 }, { global: 'global' })).toContain('Px=7');
+    const p = planeSigns(makeFrame(choice));
+    expect(pointOnElementText({ a: 1, p: 0, px: 7, isGlobal: true }, { global: 'global' }, 'SI', [1, 0])).toContain(`P${p.h.toLowerCase()}=${p.sx * 7}`);
+    expect(pointOnElementText({ a: 1, p: 0, px: 7 }, { global: 'global' }, 'SI', [1, 0])).toContain('Px=7');
   }
 });
 
@@ -84,13 +85,15 @@ it('known wrong result: #2259 generated combinations preserve constituent user c
   expect(combinationNameShown({ name, origin: {}, nameTyped: true })).toBe(name);
 });
 
-it('known wrong result: #2259 modal report participation is nonnegative and only permutes under reversed and left-handed axes', () => {
+it('known wrong result: #2259 modal report signed factors transform as vectors under reversed and left-handed axes', () => {
   for (const choice of allChoices()) {
     const f = makeFrame(choice);
     const html = generateReportHtml({ projectName: 'P', date: '', nodes: [], elements: [], supports: [], materials: [], sections: [], loadCount: 0, results: result, advancedResults: { modal: { modes: [{ frequency: 2, period: 0.5, participationX: -2, participationY: 3, participationZ: -5, massRatioX: 0.1, massRatioY: 0.2, massRatioZ: 0.3 }] } }, config: { axes: choice, companyName: '', companyLogo: null, sections: { modelData: false, results: false, advancedAnalysis: true, storyDrift: false, diagnostics: false, quantities: false, loads: false } } } as never);
     const table = html.slice(html.indexOf('Part. X'));
     const cells = [...table.matchAll(/<td class="num">([^<]*)<\/td>/g)].slice(3, 6).map(m => Number(m[1]!.replace(',', '.')));
-    expect(cells).toEqual(f.rows.map(row => [0.1, 0.2, 0.3][row.findIndex(x => x !== 0)]));
-    expect(cells.every(v => v >= 0)).toBe(true);
+    expect(cells).toEqual(f.rows.map(row => row.reduce((sum, sign, k) => sum + sign * [-2, 3, -5][k]!, 0) + 0));
+    const ratios = [...table.matchAll(/<td class="num">([^<]*)<\/td>/g)].slice(6, 9).map(m => Number(m[1]!.replace(' %', '')) / 100);
+    expect(ratios).toEqual(f.rows.map(row => [0.1, 0.2, 0.3][row.findIndex(x => x !== 0)]));
+    expect(ratios.every(v => v >= 0)).toBe(true);
   }
 });

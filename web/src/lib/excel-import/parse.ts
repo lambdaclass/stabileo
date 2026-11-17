@@ -1,3 +1,4 @@
+import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
 const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
 const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
 import { quantityTransform } from '../axes/quantity-transform';
@@ -916,14 +917,16 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   if (weightRows.length) {
     const selfWeight: NonNullable<JSONModel['analysis']>['selfWeight'] = [];
     const memberIds = new Set(model.elements.map(e => e.id));
+    let standaloneSelfWeight: 'gravity' | undefined;
     for (const row of readSheet(weightRows, 'SelfWeight', problems)) {
       const invalid = (field: string) => problems.push({ sheet: 'SelfWeight', row: row.n, column: field, message: tp('xls.err.selfWeightRule', { field }) });
       const source = str(row.cells.source), scope = str(row.cells.scope);
-      if (source !== 'case') { invalid('source'); continue; }
-      const caseId = reqNum(row, 'case', 'SelfWeight', problems);
+      if (source !== 'case' && source !== 'single') { invalid('source'); continue; }
+      if (source === 'single' && str(row.cells.case) !== '') { invalid('case'); continue; }
+      const caseId = source === 'single' ? 0 : reqNum(row, 'case', 'SelfWeight', problems);
       const factor = reqNum(row, 'factor', 'SelfWeight', problems);
       if (caseId === null || factor === null) continue;
-      if (!(caseIds.size ? caseIds : DEFAULT_CASE_IDS).has(caseId)) { invalid('case'); continue; }
+      if (source === 'case' && !(caseIds.size ? caseIds : DEFAULT_CASE_IDS).has(caseId)) { invalid('case'); continue; }
       const dir = str(row.cells.direction);
       if (!['X', 'Y', 'Z'].includes(dir)) { invalid('direction'); continue; }
       if (!['all', 'members'].includes(scope) || str(row.cells.group) !== '') { invalid('scope'); continue; }
@@ -932,10 +935,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       if (scope === 'members' ? !elements.length || elements.some(id => !memberIds.has(id)) : elements.length > 0) { invalid('members'); continue; }
       const userIndex = 'XYZ'.indexOf(dir);
       const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
+      if (source === 'single') {
+        if (scope !== 'all' || mapped.name !== GRAVITY_SELF_WEIGHT.direction || mapped.value !== GRAVITY_SELF_WEIGHT.factor || standaloneSelfWeight !== undefined) { invalid('source'); continue; }
+        standaloneSelfWeight = 'gravity';
+        continue;
+      }
       selfWeight.push({ caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) });
     }
-    model.analysis = { ...model.analysis, selfWeight };
-    counts.SelfWeight = selfWeight.length;
+    model.analysis = { ...model.analysis, selfWeight, ...(standaloneSelfWeight ? { standaloneSelfWeight } : {}) };
+    counts.SelfWeight = selfWeight.length + (standaloneSelfWeight ? 1 : 0);
   }
 
 

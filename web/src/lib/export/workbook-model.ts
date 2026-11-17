@@ -213,7 +213,7 @@ function selfWeightSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group']];
   const stated = m.analysis?.selfWeight;
   const entries = stated !== undefined
-    ? stated.map((s) => ({ source: 'case', load: s }))
+    ? [...stated.map((s) => ({ source: 'case', load: s })), ...(m.analysis?.standaloneSelfWeight ? selfWeightFor(m, null, false).map(s => ({ source: 'single', load: s })) : [])]
     : [
       ...m.loadCases.flatMap((c) => selfWeightFor(m, c, m.includeSelfWeight ?? false).map((s) => ({ source: 'case', load: s }))),
       ...selfWeightFor(m, null, m.includeSelfWeight ?? false).map((s) => ({ source: 'single', load: s })),

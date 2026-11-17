@@ -24,7 +24,7 @@ import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
+import { selfWeightFor, selfWeightSolverLoads, standaloneWeightEnabled, caseWeightModel } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -895,7 +895,7 @@ function prepareSolve2D(
   }
 
   // Build solver loads array (shared with the multi-case combo path)
-  const input: SolverInput = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
+  const input: SolverInput = { ...frame, loads: buildSolverLoads2D(model, model.loads, standaloneWeightEnabled(model, includeSelfWeight)) };
 
   // A moment on a node nothing there can turn against is a modeling error said by
   // name, not a vanishing-spring reaction that leaves the loads unbalanced.
@@ -1186,7 +1186,7 @@ export async function validateAndSolve2DAsync(
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
-  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
+  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, standaloneWeightEnabled(model, includeSelfWeight)) };
 }
 
 // ─── 2D: solveCombinations2D ─────────────────────────────────────
@@ -1250,7 +1250,7 @@ function solveCombinations2DCore(
   }
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput2D({ ...model, loads: [] }, false);
+  const baseInput = buildSolverInput2D(caseWeightModel({ ...model, loads: [] }), false);
   if (!baseInput) return t('svc.emptyModel');
 
   // Build per-case load arrays — reuse baseInput structure, only build loads per case
@@ -1345,7 +1345,7 @@ function solveCombinations2DFallback(
 
   for (const lc of loadCases) {
     // Filter loads for this case instead of mutating model.loads
-    const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
+    const caseModel: ModelData = caseWeightModel({ ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) });
     const result = validateAndSolve2D(caseModel, selfWeightFor(model, lc, includeSelfWeight).length > 0);
     if (typeof result === 'string') {
       return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
@@ -2658,7 +2658,7 @@ function solveCombinations3DFallback(
   const perCase = new Map<number, AnalysisResults3D>();
 
   for (const lc of loadCases) {
-    const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
+    const caseModel: ModelData = caseWeightModel({ ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) });
     const input = buildSolverInput3D(caseModel, selfWeightFor(model, lc, includeSelfWeight), leftHand);
     if (!input) continue;
     try {

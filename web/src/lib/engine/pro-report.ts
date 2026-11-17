@@ -1,3 +1,4 @@
+import { modalPresentation } from '../axes/modal-presentation';
 import { quantityTransform } from '../axes/quantity-transform';
 import { resultComponents } from '../axes/result-components';
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
@@ -727,16 +728,13 @@ export function generateReportHtml(data: ReportData): string {
       const finiteWarning = finiteSpectrumWarning(adv.modal, tr);
       if (finiteWarning) html.push(`<p role="status">${escHtml(finiteWarning)}</p>`);
       if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
-      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM ${alongName(0)}</th><th>ΣM ${alongName(1)}</th></tr></thead><tbody>`);
-      let cx = 0, cy = 0;
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>${escHtml(tr('adv.massRatio'))} X</th><th>${escHtml(tr('adv.massRatio'))} Y</th><th>${escHtml(tr('adv.massRatio'))} Z</th><th>ΣM X</th><th>ΣM Y</th><th>ΣM Z</th></tr></thead><tbody>`);
+      const rows = modalPresentation(frame, adv.modal.modes, adv.modal.ratiosWithheld);
       const pct = (v?: number) => (v != null ? `${(v * 100).toFixed(1)} %` : '—');
       for (let i = 0; i < adv.modal.modes.length; i++) {
         const m = adv.modal.modes[i];
-        cx += m.massRatioX ?? 0; cy += m.massRatioY ?? 0;
-        const has = m.massRatioX != null;
-        const model = [m.massRatioX, m.massRatioY, m.massRatioZ];
-        const part = quantityTransform(frame).permute(model as [number | undefined, number | undefined, number | undefined]);
-        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td>${part.map((v) => `<td class="num">${v != null ? fmtNum(v, 3) : '—'}</td>`).join('')}<td class="num">${has ? pct(cx) : '—'}</td><td class="num">${has ? pct(cy) : '—'}</td></tr>`);
+        const row = rows[i]!;
+        html.push(`<tr><td class="num">${i + 1}</td><td class="num">${fmtNum(m.frequency, 3)}</td><td class="num">${fmtNum(m.period, 3)}</td>${row.participation.map(v => `<td class="num">${v != null ? fmtNum(v, 3) : '—'}</td>`).join('')}${[...row.massRatios, ...row.cumulative].map(v => `<td class="num">${pct(v)}</td>`).join('')}</tr>`);
       }
       html.push(`</tbody></table>`);
     }

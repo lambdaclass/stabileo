@@ -124,3 +124,49 @@ canonical saved-model result changes. The existing registry entry still declares
 no numerical quantities. A direct legacy-judge regression verifies that even an
 axes-marked model cannot use this notice to explain changed solver values or a
 changed solve outcome.
+
+## Round 4: participation factors, global point-load reports and import semantics (#2259)
+
+This supersedes the round-3 modal-column description: modal participation factors
+and effective mass ratios are different quantities. Advanced and PRO reports now
+use one typed modal presentation function. Signed factors transform as vectors;
+mass ratios permute without signs and have their own labelled percentage columns.
+The cumulative columns sum those ratios in the displayed axes. Missing ratios do
+not remove valid factors or imply a known cumulative percentage. Withheld modal
+quantities remain withheld. The Advanced table is a separately rendered component
+so unequal factors and ratios, negative factors, missing ratios and withholding
+can be exercised directly.
+
+Stored plane point-load `px` remains member-local even when `isGlobal` specifies
+the transverse load's direction. The calculation report now requires the member
+direction and uses the existing solver plane-point conversion to obtain the total
+global force before applying the displayed plane axes. Consequently a horizontal
+member receives the requested horizontal sign and label conversion, while an
+inclined member's axial force is resolved into both displayed components. Local
+reports preserve the member components. An indeterminate direction for a nonzero
+global axial contribution is refused. No stored load or solver algorithm changes.
+This replaces the round-3 decision to leave the global report's raw `Px` alone.
+
+All browser AI prompt entry points now pass the workspace mode explicitly. Plane
+prompts describe coordinates and couples through the same plane convention as the
+UI, including the right-handed Y-up frame. Spatial prompts retain vector and
+pseudovector conventions. Support orientation normals transform independently of
+local restraint components, through the snapshot path shared by model-code input,
+model-code output and workbook output.
+
+Workbook import accepts the standalone gravity row the exporter writes for legacy
+self-weight. The typed `analysis.standaloneSelfWeight: 'gravity'` setting preserves
+that all-loads alternative independently of explicit case rules. The shared
+self-weight selector uses it for standalone solves; it never adds it to the case
+weights. Both plane input builders respect the standalone setting, while the
+plane case fallback removes that setting before solving an individual case.
+The importer still reports unsupported standalone directions, factors or scopes,
+invalid case references and duplicate standalone rows; it does not broaden them.
+A re-export retains one standalone row. Canonical models without this setting
+retain their previous solver inputs and design fingerprint.
+
+These corrections affect experimental framed inputs and imports of workbook
+sheets that origin/main reports as unsupported. The existing registry entry is
+updated without numerical-quantity claims or a results-version bump. Canonical
+saved models retain their solver answers. No solver tolerance, numerical baseline,
+assertion threshold, or safety advisory is changed.

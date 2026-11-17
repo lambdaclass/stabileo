@@ -32,7 +32,7 @@ describe('imports, exports and reports go through the user frame', () => {
     ['lib/engine/kinematic-report.ts', /TWO_D_DISPLACEMENT_LABELS/],
     ['lib/report/memoria/render.ts', /axes\/display'/],
     ['lib/model/edit/fragment-code.ts', /axes\/axes\.svelte'/],
-    ['lib/ai/browser-provider.ts', /userAxesSection\(axesStore\.frame, 'The result summary'\)/],
+    ['lib/ai/browser-provider.ts', /userAxesSection\(axesStore\.frame, uiStore\.analysisMode, 'The result summary'\)/],
     ['lib/export/excel.ts', /axesStatement\(/],
     ['lib/store/file.ts', /axesStatement\(/],
     ['App.svelte', /pastedPoint\(parts\[0\], parts\[1\]\)/],
@@ -63,8 +63,8 @@ describe('small display pieces', () => {
   });
 
   it('tells the assistant which data stays in model axes', () => {
-    expect(userAxesSection(makeFrame(DEFAULT_AXES), 'The result summary')).toBe('');
-    expect(userAxesSection(makeFrame({ up: '+Y', right: '+X', hand: 'right' }), 'The result summary')).toContain('- The result summary stay in MODEL axes');
+    expect(userAxesSection(makeFrame(DEFAULT_AXES), '3d', 'The result summary')).toBe('');
+    expect(userAxesSection(makeFrame({ up: '+Y', right: '+X', hand: 'right' }), '3d', 'The result summary')).toContain('- The result summary stay in MODEL axes');
   });
 
   it('copies a piece as code in the user axes, with its frame, and pastes it back unchanged under any frame', () => {

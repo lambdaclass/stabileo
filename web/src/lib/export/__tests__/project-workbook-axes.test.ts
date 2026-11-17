@@ -9,6 +9,8 @@ import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { axesStore } from '../../axes/axes.svelte';
 import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { applyWorkbook } from '../../excel-import/apply';
+import { buildSolverInput2D, buildSolverInput3D } from '../../engine/solver-service';
 import { selfWeightFor } from '../../engine/self-weight';
 import { tensorToUser } from '../workbook-frame';
 import type { WorkbookSheet } from '../workbook-cells';
@@ -137,7 +139,7 @@ it('self-weight import refuses invalid rules without broadening their scope', ()
   }
 });
 
-for (const deadCases of [0, 1, 2]) it.skip(`known wrong result: #2259 standalone gravity round trips independently of ${deadCases} dead cases`, () => {
+for (const deadCases of [0, 1, 2]) it(`known wrong result: #2259 standalone gravity round trips independently of ${deadCases} dead cases`, () => {
   portal();
   modelStore.setAnalysis({ selfWeight: undefined });
   modelStore.model.loadCases = Array.from({ length: deadCases }, (_, i) => ({ id: i + 1, name: `D${i}`, type: 'D' as const }));
@@ -153,5 +155,32 @@ for (const deadCases of [0, 1, 2]) it.skip(`known wrong result: #2259 standalone
     const weights = selfWeightFor(back.model, null, false);
     expect(weights).toHaveLength(1);
   }
+  uiStore.includeSelfWeight = false;
+});
+
+it('known wrong result: #2259 imported standalone gravity reaches both solver input builders and reexports once', () => {
+  modelStore.clear();
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 3, 0);
+  modelStore.addElement(a, b);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.setAnalysis({ selfWeight: undefined });
+  uiStore.includeSelfWeight = true;
+  const before2D = buildSolverInput2D(modelStore.model, true)!.loads;
+  const before3D = buildSolverInput3D(modelStore.model, true)!.loads;
+  const sheets = currentWorkbookSheets(2, { results: false });
+  uiStore.includeSelfWeight = false;
+  const imported = applyWorkbook(asImport(sheets));
+  expect(imported.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+  expect(uiStore.includeSelfWeight).toBe(true);
+  expect(buildSolverInput2D(modelStore.model, false)!.loads).toEqual(before2D);
+  expect(buildSolverInput3D(modelStore.model, false)!.loads).toEqual(before3D);
+  const again = currentWorkbookSheets(2, { results: false });
+  expect(sheet(again, 'SelfWeight').rows).toEqual(sheet(sheets, 'SelfWeight').rows);
+  const parsed = parseWorkbook(asImport(again));
+  expect(parsed.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+  expect(selfWeightFor(parsed.model, null, false)).toHaveLength(1);
+  const duplicate = parseWorkbook({ SelfWeight: [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'], ['single', '', 'Z', -1, 'all', '', ''], ['single', '', 'Z', -1, 'all', '', '']] });
+  expect(duplicate.problems.filter(p => p.sheet === 'SelfWeight')).toHaveLength(1);
+  expect(selfWeightFor(duplicate.model, null, false)).toHaveLength(1);
   uiStore.includeSelfWeight = false;
 });

@@ -59,6 +59,7 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
       loadFixture(parsed.model as never, api as never);
     });
   });
+  if (parsed.model.analysis?.standaloneSelfWeight === 'gravity') uiStore.includeSelfWeight = true;
   modelStore.refreshCanonicalSections();
   /*
    * A flat workbook (X and Z, Y blank) is a plane frame, stored the way the app stores one. In

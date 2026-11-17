@@ -174,6 +174,7 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
       for (const k of ['dry', 'drz']) if (sp[k] !== undefined) sp[k] = p.r * sp[k] + 0;
       continue;
     }
+    mapTriple(f, way, sp, ['normalX', 'normalY', 'normalZ']);
     if (sp.dofFrame === 'local') continue;
     if (sp.dofRestraints) {
       const r = sp.dofRestraints as Obj;
@@ -185,7 +186,6 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     if (sp.curves && typeof sp.curves === 'object') sp.curves = quantityTransform(f, way).springCurves(sp.curves);
     mapTriple(f, way, sp, ['dx', 'dy', 'dz']);
     mapTriple(f, way, sp, ['drx', 'dry', 'drz'], 'rot');
-    mapTriple(f, way, sp, ['normalX', 'normalY', 'normalZ']);
   }
   return s as T;
 }

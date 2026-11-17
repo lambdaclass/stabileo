@@ -17,10 +17,10 @@ const modes = [
 ];
 afterEach(() => axesStore.reset());
 
-it.skip('known wrong result: #2259 modal reports retain signed factors separately from optional effective mass ratios', () => {
+it('known wrong result: #2259 modal reports retain signed factors separately from optional effective mass ratios', () => {
   for (const axes of allChoices()) {
     const f = makeFrame(axes);
-    const html = generateReportHtml({ projectName: 'P', date: '', nodes: [], elements: [], supports: [], materials: [], sections: [], loadCount: 0, results: result, advancedResults: { modal: { modes } }, config: { axes, companyName: '', companyLogo: null, sections: { modelData: false, results: false, advancedAnalysis: true, storyDrift: false, diagnostics: false, quantities: false, loads: false } } } as never);
+    const html = generateReportHtml({ projectName: 'P', date: '', t: (key: string) => key === 'adv.massRatio' ? 'Mass ratio' : key, nodes: [], elements: [], supports: [], materials: [], sections: [], loadCount: 0, results: result, advancedResults: { modal: { modes } }, config: { axes, companyName: '', companyLogo: null, sections: { modelData: false, results: false, advancedAnalysis: true, storyDrift: false, diagnostics: false, quantities: false, loads: false } } } as never);
     const table = html.slice(html.indexOf('Part. X'));
     const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].filter(m => m[1]!.includes('<td'));
     for (const [i, mode] of modes.entries()) {
@@ -36,14 +36,16 @@ it.skip('known wrong result: #2259 modal reports retain signed factors separatel
   }
 });
 
-it.skip('known wrong result: #2259 the Advanced modal table shares the signed-factor and mass-ratio presentation path', () => {
+it('known wrong result: #2259 the Advanced modal table shares the signed-factor and mass-ratio presentation path', () => {
   const source = readFileSync(new URL('../../../components/pro/ProAdvancedTab.svelte', import.meta.url), 'utf8');
-  expect(source).toContain('modalPresentation(');
+  expect(source).toContain('<ModalResultsTable modes={modalResult.modes} withheld={modalConstrained}');
+  const table = readFileSync(new URL('../../../components/pro/dynamics/ModalResultsTable.svelte', import.meta.url), 'utf8');
+  expect(table).toContain('modalPresentation(axesStore.frame, modes, withheld)');
   expect(source).not.toMatch(/participation\s*=.*massRatio/);
-  for (const axis of ['X', 'Y', 'Z']) expect(source).toContain(`Mass ratio ${axis}`);
+  for (const axis of ['X', 'Y', 'Z']) expect(table).toContain(`{t('adv.massRatio')} ${axis}`);
 });
 
-it.skip('known wrong result: #2259 AI plane prompts describe coordinates and couples with the plane convention', () => {
+it('known wrong result: #2259 AI plane prompts describe coordinates and couples with the plane convention', () => {
   for (const axes of allChoices()) for (const mode of ['2d', 'edu']) {
     const f = makeFrame(axes);
     const p = planeSigns(f);
@@ -57,7 +59,7 @@ it.skip('known wrong result: #2259 AI plane prompts describe coordinates and cou
 });
 
 for (const entry of ['snapshot export', 'snapshot import', 'code export', 'code import', 'workbook'] as const) {
-  it.skip(`known wrong result: #2259 local restraint normals follow global axes through ${entry}`, () => {
+  it(`known wrong result: #2259 local restraint normals follow global axes through ${entry}`, () => {
     for (const axes of allChoices()) for (const analysisMode of ['3d', 'pro']) for (const dofFrame of ['local', 'global']) {
       const support = { id: 1, nodeId: 1, type: 'fixed3d', dofFrame, normalX: 2, normalY: -3, normalZ: 5, dofRestraints: { tx: true, ty: false, tz: true, rx: false, ry: true, rz: false }, kx: 7, ky: 11, kz: 13, curves: { x: [[0, 0], [1, 2]] } };
       const snap = { analysisMode, nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }]], supports: [[1, support]] };
@@ -76,17 +78,33 @@ for (const entry of ['snapshot export', 'snapshot import', 'code export', 'code 
   });
 }
 
-it.skip('known wrong result: #2259 global point-load axial components are transformed and named in the displayed horizontal axis', () => {
+it('known wrong result: #2259 global point-load axial components are transformed and named in the displayed horizontal axis', () => {
   for (const choice of allChoices()) {
     axesStore.choice = choice;
     const p = planeSigns(makeFrame(choice));
     for (const px of [-10, 0, 10]) {
-      const text = pointOnElementText({ a: 1, p: 0, px, isGlobal: true }, { global: 'global' });
+      const text = pointOnElementText({ a: 1, p: 0, px, isGlobal: true }, { global: 'global' }, 'SI', [1, 0]);
       if (px !== 0) expect(text).toContain(`P${p.h.toLowerCase()}=${p.sx * px}`);
       else expect(text).toBe('');
-      const local = pointOnElementText({ a: 1, p: 0, px }, { global: 'global' });
+      const local = pointOnElementText({ a: 1, p: 0, px }, { global: 'global' }, 'SI', [1, 0]);
       if (px !== 0) expect(local).toContain(`Px=${px}`);
       else expect(local).toBe('');
     }
+  }
+});
+
+it('known wrong result: #2259 global axial report components follow the member direction and refuse indeterminate directions', () => {
+  for (const choice of allChoices()) {
+    axesStore.choice = choice;
+    const p = planeSigns(makeFrame(choice));
+    for (const member of [[3, 4], [-3, 4], [3, -4], [-3, -4]] as const) {
+      const text = pointOnElementText({ a: 1, p: 0, px: 10, isGlobal: true }, { global: 'global' }, 'SI', member);
+      expect(text).toContain(`P${p.h.toLowerCase()}=${p.sx * member[0] * 2}`);
+      expect(text).toContain(`P${p.v.toLowerCase()}=${p.sz * member[1] * 2}`);
+    }
+  }
+  for (const member of [[0, 0], [Infinity, 0], [NaN, 1]] as const) {
+    expect(() => pointOnElementText({ a: 1, p: 0, px: 10, isGlobal: true }, { global: 'global' }, 'SI', member)).toThrow('member direction');
+    expect(pointOnElementText({ a: 1, p: 0, px: 10 }, { global: 'global' }, 'SI', member)).toContain('Px=10');
   }
 });

@@ -7,6 +7,7 @@
  * aliases reported a 10 kN load with a 5 kN·m moment as no load at all.
  */
 
+import { planePointLoad3D } from './member-point-loads';
 import { toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec } from '../axes/display';
 
@@ -84,10 +85,16 @@ export function pointOnElementText(
   d: { a: number; p: number; px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean },
   words: MemberLoadWords,
   us: UnitSystem = 'SI',
+  memberDirection: readonly [dx: number, dz: number],
 ): string {
   const couple = d.my ?? d.mz;
-  const comps = named([['P', shownGlobal(d.p, d.isGlobal), 'force'], ['Px', d.px, 'force'], [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
-  return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${direction(d, words)}` : '';
+  if (d.isGlobal && d.px && !(Math.hypot(...memberDirection) > 0 && memberDirection.every(Number.isFinite))) throw new Error('A global axial point-load report requires a finite nonzero member direction');
+  const force = d.isGlobal ? planePointLoad3D({ ...d, elementId: 0 }, memberDirection[0], memberDirection[1], true) : undefined;
+  const forces: Component[] = force
+    ? [[`P${twoD.horizontal.toLowerCase()}`, twoD.x(force.px ?? 0) + 0, 'force'], [`P${twoD.vertical.toLowerCase()}`, twoD.z(force.pz) + 0, 'force']]
+    : [['P', d.p, 'force'], ['Px', d.px, 'force']];
+  const comps = named([...forces, [`M${twoD.normal.toLowerCase()}`, couple === undefined ? undefined : twoD.rot(couple) + 0, 'moment']], us);
+  return comps.length ? `${comps.join(', ')}, a=${val(d.a, 'length', us)} ${unitLabel('length', us)}${d.isGlobal ? `, ${words.global}` : direction(d, words)}` : '';
 }
 
 /**

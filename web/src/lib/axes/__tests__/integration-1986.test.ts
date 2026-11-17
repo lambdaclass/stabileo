@@ -96,10 +96,10 @@ it('known wrong result: #1986 setout angle follows the orientation of reflected 
   expect(text).toContain('-30.0°');
 });
 
-it('reported #1986 global point px remains member-local in the actual load contract', () => {
+it('reported #1986 stored axial point load is projected along the member before global reporting', () => {
   axesStore.choice = { up: '+Z', right: '-X', hand: 'left' };
   const load = { elementId: 1, a: 1, p: 0, px: 5, isGlobal: true };
-  expect(pointOnElementText(load, { global: 'global' })).toContain('Px=5');
+  expect(pointOnElementText(load, { global: 'global' }, 'SI', [3, 4])).toBe('Px=-3 kN, Pz=4 kN, a=1 m, global');
   const F = planePointLoad3D(load, 3, 4, true);
   expect(F.px).toBeCloseTo(3, 12);
   expect(F.pz).toBeCloseTo(4, 12);

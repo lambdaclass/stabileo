@@ -193,10 +193,11 @@
   });
 </script>
 
-{#snippet frameToggle(id: number, global: boolean)}
+{#snippet frameToggle(id: number, frame: 'global' | 'local' | 'projected')}
   <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
-  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'global'} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'local'} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+  {#if frame === 'projected'}<button class="ft-opt-btn ft-coord-btn active" disabled>{t('loads.frame.projected')}</button>{/if}
 {/snippet}
 
 {#if selectedLoad}
@@ -327,7 +328,7 @@
           <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).value(v)))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
         {/each}
       {/if}
-      {@render frameToggle(dl3.id, dl3.frame === 'global')}
+      {@render frameToggle(dl3.id, dl3.frame ?? 'local')}
       {@const len3 = modelStore.getElementLength(dl3.elementId)}
       <label class="ft-input-group"><span>a:</span><UnitInput value={dl3.a ?? 0} qty="length" onchange={(v) => updateLoadField(dl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
       <label class="ft-input-group"><span>b:</span><UnitInput value={dl3.b ?? len3} qty="length" onchange={(v) => updateLoadField(dl3.id, 'b', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
@@ -354,7 +355,7 @@
           <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
         {/each}
       {/if}
-      {@render frameToggle(pl3.id, pl3.frame === 'global')}
+      {@render frameToggle(pl3.id, pl3.frame ?? 'local')}
     {/if}
     <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
     <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
