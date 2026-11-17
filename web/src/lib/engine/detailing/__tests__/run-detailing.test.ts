@@ -327,3 +327,19 @@ describe('call-graph: no advertised capability is unreachable', () => {
     expect(wf).toContain('detailingStore.generate');
   });
 });
+
+it.skip('known wrong result: #2198 generated rectangular column ties use the verified diameter and spacing', () => {
+  const s = scenario();
+  const outcome = verifiedColumn(10);
+  s.outcomes.set(10, {
+    ...outcome,
+    accepted: { ...outcome.accepted!, stirrups: { diameter: 10, spacing: 0.125, legs: 2 } },
+  });
+  const r = runDetailing(s);
+  const ties = r.assemblies.flatMap(a => a.bars).filter(bar => bar.zoneId === 'col-10:ties');
+  expect(ties.length).toBeGreaterThan(0);
+  expect(new Set(ties.map(bar => bar.diameterMm))).toEqual(new Set([10]));
+  const stations = [...new Set(ties.map(bar => bar.station!))].sort((a, b) => a - b);
+  expect(stations.length).toBeGreaterThan(1);
+  expect(Math.max(...stations.slice(1).map((z, i) => z - stations[i]!))).toBeLessThanOrEqual(0.125 + 1e-9);
+});
