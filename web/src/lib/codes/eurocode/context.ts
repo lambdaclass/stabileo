@@ -1,6 +1,6 @@
 import type { LoadPlanInput } from '../../engine/loads/load-plan';
 import type { EcFamily } from './refs';
-import { categoryOfOccupancy } from './imposed';
+import { categoryOfOccupancy, columnAlphaN, findEcOccupancy } from './imposed';
 import { SNOW_ADAPTER, type EcSnowInput } from './inputs';
 
 export type ImposedCategory = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
@@ -12,6 +12,7 @@ export interface EcPlanContext {
   floor?: ImposedCategory;
   roof?: ImposedCategory;
   snowAltitudeM?: number;
+  alphaN?: number;
 }
 
 /** The roof's imposed load is a part of its own (`load-plan.ts`, `imposedGroup`) when its category is not the floors'. */
@@ -25,5 +26,10 @@ export function planContextOf(family: EcFamily, input: LoadPlanInput): EcPlanCon
   const roof = input.roof?.use === 'occupancy' ? categoryOfOccupancy(input.roof.occupancyKey) : undefined;
   if (roof) categories.add(roof);
   const altitude = (input.codeInputs?.[SNOW_ADAPTER[family]] as EcSnowInput | undefined)?.altitude;
-  return { categories, ...(floor ? { floor } : {}), ...(roof ? { roof } : {}), ...(input.snow?.enabled && altitude !== undefined ? { snowAltitudeM: altitude } : {}) };
+  const occupancy = findEcOccupancy(family, input.occupancyKey);
+  const alphaN = input.applyLiveReduction && occupancy && !occupancy.noReduction ? columnAlphaN(family, input.reductionElementKind, input.floorsSupported) : 1;
+  return {
+    categories, ...(floor ? { floor } : {}), ...(roof ? { roof } : {}), ...(input.snow?.enabled && altitude !== undefined ? { snowAltitudeM: altitude } : {}),
+    ...(alphaN < 1 ? { alphaN } : {}),
+  };
 }

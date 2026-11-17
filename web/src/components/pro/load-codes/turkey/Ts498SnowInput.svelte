@@ -15,6 +15,7 @@
     return s === '' || !Number.isFinite(n) ? undefined : n;
   };
   const ZONES: SnowZone[] = ['I', 'II', 'III', 'IV'];
+  const m = $derived(v.roofSlopeDeg !== undefined || v.slidingPrevented ? slopeFactor(v.roofSlopeDeg ?? 0, v.slidingPrevented) : null);
   const pk0 = $derived(v.zone && v.altitudeM !== undefined && v.altitudeM >= 0 ? groundSnow(v.zone, v.altitudeM).pk0 : null);
 </script>
 
@@ -39,8 +40,7 @@
     {:else if v.altitudeM === undefined}<p class="pk-warn">{t('loads.tr.snow.blocked.altitude')}</p>{/if}
     {#if pk0 !== null}
       <p class="pk-hint" data-testid="tr-snow-preview">{tp('loads.tr.snow.preview', {
-        pk0: pk0.toFixed(2), m: slopeFactor(v.roofSlopeDeg ?? 0, v.slidingPrevented).toFixed(2),
-        pk: (pk0 * slopeFactor(v.roofSlopeDeg ?? 0, v.slidingPrevented)).toFixed(2) })}</p>
+        pk0: pk0.toFixed(2), m: m === null ? '—' : m.toFixed(2), pk: m === null ? '—' : (pk0 * m).toFixed(2) })}</p>
     {/if}
   {/if}
 </div>

@@ -7,6 +7,8 @@
  */
 import { modelStore } from '../store/model.svelte';
 import { gradeById } from './structural-grades';
+import { holdPlateSidesAt, physicalPlates } from '../store/physical-plates';
+import { ensurePlates } from '../store/plates-from-shells';
 
 type Fix = () => void;
 
@@ -50,6 +52,7 @@ export function declareSteelGrades(): void {
   }
 }
 
+/** The walls on the foundation held all along their base, at their nodes there now and with every mesh. */
 export function holdWallBases(): number {
   const zOf = (n: number) => modelStore.nodes.get(n)?.z ?? 0;
   const supports = [...modelStore.supports.values()];
@@ -70,6 +73,8 @@ export function holdWallBases(): number {
       added++;
     }
   }
+  ensurePlates();
+  for (const p of physicalPlates()) if (p.physical.kind === 'wall') holdPlateSidesAt(p.id, base, type);
   return added;
 }
 

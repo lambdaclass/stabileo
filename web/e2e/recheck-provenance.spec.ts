@@ -15,7 +15,7 @@ import { OFFERED_LOCALES } from '../src/lib/i18n/offered';
 // Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
 const NOTICE_CHUNK = '**/applicability-*.js';
 
-// This spec is about the notice: it must open untouched (fixtures.ts acknowledges it elsewhere).
+// This spec is about the notice: it must open untouched (fixtures.ts presses «Continue» elsewhere).
 test.use({ recheckNotice: 'assert' });
 
 const STEEL = { id: 1, name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 };
@@ -290,6 +290,12 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 820, height: 1180
       expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
       await expect(page.getByTestId('recheck-stale-banner')).toBeVisible();
       await expect(notice).toBeHidden();
+
+      // «Continue» covered that solve and its set of changes only: the same model solved by another older build asks again.
+      (f.snapshot as Record<string, unknown>).solvedWith = { ...fresh, id: `another-older-solve-${viewport.width}`, resultsVersion: 0, analyses: ['linear'] };
+      expect(await page.evaluate(x => window.__stabileoActions.loadProject(x), f)).toBe(true);
+      await expect(notice.locator(`[data-change-id="${STEEL_CHANGE}"]`)).toBeVisible();
+      expect((await recheck(page)).noticeOpen).toBe(true);
     });
 
     test('the change list fails to load: it says so at once, Retry keeps it open, and reloading brings the changes', async ({ page }) => {

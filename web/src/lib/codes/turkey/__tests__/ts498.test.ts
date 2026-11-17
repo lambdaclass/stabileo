@@ -19,14 +19,20 @@ describe('wind, Çizelge 5 and 6', () => {
   it('a band across 8 m averages the two pressures by height', () => {
     expect(meanPressure(7.5, 10.5)).toBeCloseTo((0.5 * 0.5 + 0.8 * 2.5) / 3, 12);
   });
-  it('W = C·q·A per storey: 4 storeys of 3 m, 10 m across, C = 1,2', () => {
+  it('W = C·q·A per storey: 4 storeys of 3 m, 10 m across, C = 1,2; the band under the first storey on the base', () => {
     const levels = [0, 3, 6, 9, 12].map((z) => ({ elevation: z, nodeIds: [] }));
     const s = storeyWind(levels, 0, C_GENERAL, 10);
-    expect(s.map((x) => [x.z0, x.z1])).toEqual([[1.5, 4.5], [4.5, 7.5], [7.5, 10.5], [10.5, 12]]);
-    expect(s[0]!.force).toBeCloseTo(1.2 * 0.5 * 10 * 3, 12);
-    expect(s[1]!.force).toBeCloseTo(18, 12);
-    expect(s[2]!.force).toBeCloseTo(1.2 * (0.5 * 0.5 + 0.8 * 2.5) * 10, 12);
-    expect(s[3]!.force).toBeCloseTo(1.2 * 0.8 * 10 * 1.5, 12);
+    expect(s.map((x) => [x.elevation, x.z0, x.z1])).toEqual([[0, 0, 1.5], [3, 1.5, 4.5], [6, 4.5, 7.5], [9, 7.5, 10.5], [12, 10.5, 12]]);
+    expect(s[0]!.force).toBeCloseTo(1.2 * 0.5 * 10 * 1.5, 12);
+    expect(s[1]!.force).toBeCloseTo(1.2 * 0.5 * 10 * 3, 12);
+    expect(s[2]!.force).toBeCloseTo(18, 12);
+    expect(s[3]!.force).toBeCloseTo(1.2 * (0.5 * 0.5 + 0.8 * 2.5) * 10, 12);
+    expect(s[4]!.force).toBeCloseTo(1.2 * 0.8 * 10 * 1.5, 12);
+  });
+  it('a single storey takes its whole facade: half on the roof, half on the base', () => {
+    const s = storeyWind([{ elevation: 0, nodeIds: [1] }, { elevation: 4, nodeIds: [2] }], 0, C_GENERAL, 10);
+    expect(s.reduce((a, x) => a + x.force, 0)).toBeCloseTo(1.2 * 0.5 * 10 * 4, 12);
+    expect(s.map((x) => x.nodeIds)).toEqual([[1], [2]]);
   });
 });
 

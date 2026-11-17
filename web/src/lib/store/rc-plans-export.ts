@@ -12,6 +12,7 @@ import { i18n } from '../i18n';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import type { Tr } from '../rc-sheets/plans/draw';
 import { structurePlansOf } from './rc-structure-plan';
+import { recordSheetsExport } from './rc-sheets-exports';
 import { planDownload, planDrawings, planFiles, planSheets, type PlanFormat, type PlanProject, type PlanScales, type PlanSelection } from '../rc-sheets/plans/sheets';
 
 export interface PlanExportRequest {
@@ -47,5 +48,7 @@ export function exportRcPlans(rows: SheetRows, req: PlanExportRequest, tr: Tr, d
   const r = buildPlanExport(rows, req, tr, project, baseName(tr));
   if (!r.file) return 0;
   downloadBlob(new Blob([r.file.data as BlobPart], { type: r.file.mime }), r.file.name);
+  const sel = req.selection;
+  recordSheetsExport('rcPlans', r.file.name, sel.element ?? [sel.families.map((f) => tr(`rcSheets.family.${f}`)).join(', '), ...(sel.levels ? [sel.levels.map((l) => l || '—').join(', ')] : [])].join(' · '));
   return r.sheets;
 }

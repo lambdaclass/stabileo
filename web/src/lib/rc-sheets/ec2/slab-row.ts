@@ -118,7 +118,7 @@ export function makeSlabRow(set: Ec2Set) {
           { label: 'rcSheets.s.materials', formula: 'fck · fyk → fcd · fyd', value: `${fmt(m.fck, 0)} · ${fmt(m.fyk, 0)} → ${fmt(m.fcd)} · ${fmt(m.fyd)} MPa` },
           { label: 'rcSheets.s.slabMin', formula: 'As,min = max(0.26·fctm/fyk; 0.0013)·b·d (9.3.1.1(1), 9.2.1.1(1)); secondary ≥ 0.2·As,principal (9.3.1.1(2))', value: '' },
           { label: 'rcSheets.ec2.s.slabSpacing', formula: 'principal ≤ min(3h; 400) [min(2h; 250)], secondary ≤ min(3.5h; 450) [min(3h; 400)] mm (9.3.1.1(3)); [ ] where the face carries moment', value: '' },
-          crackChecked ? { label: 'rcSheets.ec2.s.crackSlab', formula: 'σs = fyd·(As,req/As,prov)/γG; Table 7.3N or 7.2N (7.3.3(2))', value: '' } : { label: 'rcSheets.ec2.s.crackThin', formula: 'h ≤ 200 mm (7.3.3(1))', value: '' },
+          crackChecked ? { label: 'rcSheets.ec2.s.crackSlab', formula: 'σs = fyd·(As,req/As,prov)/γG; Table 7.3N or 7.2N (7.3.3(2))', value: '' } : { label: 'rcSheets.ec2.s.crackThin', formula: 'h ≤ 200 mm; 9.3 (7.3.3(1))', value: '' },
         ],
       },
       ...SLAB_FACES.map((f) => faceSteps(f, d, faces[f], a[f], xl, fmt)),

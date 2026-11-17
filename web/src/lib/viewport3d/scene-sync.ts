@@ -5,6 +5,7 @@
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
 import { meshHidden, meshOnlyNodes, plateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
+import { plateLoadLayers, type PieceLoad, type PlateLoadLayer } from './plate-load-layers';
 import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
@@ -875,7 +876,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // A plate drawn as its piece shows a plain area load once, over its outline, not once per mesh element.
   const pieceOf = new Map<string, number>();
   const shellsOf = new Map<number, number>();
-  const pieceLoads = new Map<string, { plate: number; q: number; color: number; ids: number[]; shells: Set<string> }>();
+  let pieceLayers: PlateLoadLayer[] = [];
+  const inLayer = new Set<number>();
   const pieceKey = (load: (typeof loads)[number]): { k: string; shell: string; plate: number } | null => {
     if (!pieceOf.size || load.type !== 'surface3d') return null;
     const d = load.data;
@@ -892,22 +894,20 @@ export function syncLoads(ctx: SceneSyncContext): void {
         shellsOf.set(p.id, keys.length);
       }
     }
+    const pieces: PieceLoad[] = [];
     for (const load of loads) {
       const at = pieceKey(load);
       if (!at || load.type !== 'surface3d') continue;
-      const e = pieceLoads.get(at.k) ?? pieceLoads.set(at.k, { plate: at.plate, q: load.data.q, color: getCaseColor(load.data.caseId), ids: [], shells: new Set() }).get(at.k)!;
-      e.ids.push(load.data.id);
-      e.shells.add(at.shell);
+      pieces.push({ id: load.data.id, key: at.k, shell: at.shell, plate: at.plate, q: load.data.q, caseId: load.data.caseId });
     }
-    // Only a load on every shell of the plate is the plate's load; one on part of it is drawn where it is.
-    for (const [k, e] of pieceLoads) if (e.shells.size < shellsOf.get(e.plate)!) pieceLoads.delete(k);
+    pieceLayers = plateLoadLayers(pieces, shellsOf);
+    for (const l of pieceLayers) for (const id of l.ids) inLayer.add(id);
   }
 
   for (let i = 0; i < loads.length; i++) {
     const load = loads[i];
     const caseId: number | undefined = load.data.caseId;
-    const at = pieceKey(load);
-    if (at && pieceLoads.has(at.k)) continue;
+    if (inLayer.has(load.data.id)) continue;
 
     // Not a load case left unticked, nor one on what the view hides.
     if (!isLoadDrawn(load as never, drawView)) continue;
@@ -1187,7 +1187,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // Build the merged renderables (shafts, envelopes, cones, fills, labels) and
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
-  for (const e of pieceLoads.values()) {
+  for (const e of pieceLayers) {
     const g = modelStore.model.groups.get(e.plate);
     const geo = g ? plateGeometry(modelStore, g) : null;
     if (!geo) continue;
@@ -1196,7 +1196,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
     const flat = Math.abs(geo.frame.n[2]) > 1 - 1e-6;
     const dir = flat ? GRAVITY_VECTOR_3D.clone() : new THREE.Vector3(-geo.frame.n[0], -geo.frame.n[1], -geo.frame.n[2]);
     batch.own(e.ids[0]!, selected.size === 0 ? null : e.ids.some((id) => selected.has(id)) ? COLORS.nodeSelected : LOAD_DIMMED);
-    batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, dir, e.color);
+    batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, dir, getCaseColor(e.caseId));
   }
   loadGrp.add(batch.build());
   ctx.loadFootprints = batch.footprints;

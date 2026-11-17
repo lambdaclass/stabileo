@@ -45,7 +45,7 @@
   <label class="pk-check"><input type="checkbox" checked={v.slidingPrevented} onchange={(e) => set('slidingPrevented', e.currentTarget.checked)} />{t('loads.ec.ui.slidingPrevented')}</label>
   {#if uk}
     {#if ukSk !== null}<p class="pk-hint">s<sub>k</sub> = {ukSk.toFixed(3)} kN/m²</p>{:else}<p class="pk-warn">{t('loads.ec.blocked.ukSnow')}</p>{/if}
-  {:else if !(v.sk! > 0)}
+  {:else if !(v.sk! >= 0)}
     <p class="pk-warn">{t('loads.ec.blocked.sk')}</p>
   {/if}
   <Hint text={t('loads.ec.ui.snowHint')} />

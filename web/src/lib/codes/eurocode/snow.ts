@@ -16,7 +16,7 @@ export function mu1(alphaDeg: number): number {
 }
 
 export function ukGroundSnow(zone: number, altitudeM: number): number {
-  return 0.15 + (0.1 * zone + 0.05) + (altitudeM - 100) / 525;
+  return 0.15 + (0.1 * zone + 0.05) + (Math.max(altitudeM, 100) - 100) / 525;
 }
 
 export function roofSnowLoad(mu: number, ce: number, ct: number, sk: number): number { return mu * ce * ct * sk; }
@@ -33,9 +33,10 @@ export function planEcSnow(family: EcFamily, input: LoadPlanInput, sink: PlanSin
     if (!(ci.zone! > 0) || ci.altitude === undefined) { blockedKeys.push(msg('loads.ec.blocked.ukSnow')); return false; }
     sk = ukGroundSnow(ci.zone!, ci.altitude);
     refs.push(UK_NA_1991_1_3('NA.2.8', 'sk from zone and altitude'));
-    derivation.push(msg('loads.ec.snow.ukSk', { z: ci.zone!, a: round(ci.altitude, 0), sk: round(sk, 3) }));
+    derivation.push(msg('loads.ec.snow.ukSk', { z: ci.zone!, a: round(Math.max(ci.altitude, 100), 0), sk: round(sk, 3) }));
   } else {
-    if (!(ci.sk! > 0)) { blockedKeys.push(msg('loads.ec.blocked.sk')); return false; }
+    if (!(ci.sk! >= 0)) { blockedKeys.push(msg('loads.ec.blocked.sk')); return false; }
+    if (ci.sk === 0) { derivation.push(msg('loads.ec.snow.skZero')); return false; }
     sk = ci.sk!;
   }
   const geometry = roofGeometry(input.model);

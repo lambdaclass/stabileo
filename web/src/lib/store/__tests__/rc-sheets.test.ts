@@ -7,11 +7,11 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements, physicalGroups } from '../physical';
-import { clearPlateMesh, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
-import { ensurePhysicalModel } from '../plates-from-shells';
+import { clearPlateMesh, holdPlateSidesAt, physicalPlates, plateStatus, preparePlatesForAnalysis } from '../physical-plates';
+import { ensurePhysicalModel, ensurePlates } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.members.quads?.length ?? 0;
-import { buildSheetRows, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
+import { buildSheetRows, sheetsHavePhysical, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
@@ -70,6 +70,24 @@ function slab() {
 }
 
 describe('reinforcement sheets from a solved model', () => {
+  it('open for a model whose only physical members are plates, with bars no physical member holds', () => {
+    slab();
+    const a = modelStore.addNode(2, 2, 0), b = [...modelStore.nodes.values()].find((n) => n.x === 2 && n.y === 2 && n.z === 3)!.id;
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    ensurePlates();
+    expect(physicalGroups().length).toBeGreaterThan(0);
+    expect(physicalGroups().every((g) => g.physical.kind === 'slab')).toBe(true);
+    expect(sheetsHavePhysical()).toBe(true);
+    const all = modelStore.solve3D(false, false, true);
+    if (!all || typeof all === 'string') throw new Error(String(all));
+    resultsStore.setResults3D(all);
+    const combos = modelStore.solveCombinations3D(false, false, true);
+    if (!combos || typeof combos === 'string') throw new Error(String(combos));
+    publishCombinations3D(combos);
+    expect(buildSheetRows().slab.length).toBeGreaterThan(0);
+  });
+
   it('reads a piece drawn against the line with the same sagging sign', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const bm = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.3 * 0.6 ** 3 / 12, iz: 0.6 * 0.3 ** 3 / 12, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
@@ -557,6 +575,7 @@ describe('reinforcement sheets from a solved model', () => {
     modelStore.addNodalLoad3D(c, 50, 0, -300, 0, 0, 0, D); modelStore.addNodalLoad3D(d, 50, 0, -300, 0, 0, 0, D);
     modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
     ensurePhysicalModel();
+    holdPlateSidesAt(physicalGroups().find((g) => g.physical.kind === 'wall')!.id, 0, 'fixed3d');
     expect(meshWallsForSheets()).toBe(1);
     const wall = physicalGroups().find((g) => g.physical.kind === 'wall')!;
     expect(plateStatus(wall.id)).toBe('current');

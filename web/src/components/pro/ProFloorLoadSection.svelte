@@ -19,7 +19,7 @@
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
   import { physicalGroups } from '../../lib/store/physical';
   import { floorLoadRequest } from '../../lib/store/floor-load-request.svelte';
-  import { plateLoadDef, plateEntry } from '../../lib/store/physical-plates';
+  import { pickedPlateDefs, plateEntry, previewPlateDefs } from '../../lib/store/physical-plates';
 
   const floorGroups = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'floor' && (g.members.elements?.length ?? 0) > 0));
   const zones = $derived([...modelStore.model.groups.values()].filter((g) => g.kind === 'loadZone'));
@@ -117,8 +117,11 @@
   const def = $derived<FloorLoadDef | null>(caseId === null || target === null ? null : {
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
+  const plateDefs = $derived(targetKey === 'plates' && def ? pickedPlateDefs(pickedPlates, def.caseId, def.q, !!def.perPlanArea) : []);
   const preview = $derived(def && q !== 0
-    ? expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+    ? targetKey === 'plates'
+      ? previewPlateDefs(plateDefs, { leftHand: uiStore.axisConvention3D === 'leftHand' })
+      : expandDefinition(modelStore.model as unknown as DefinitionModel, def, own, -1, { leftHand: uiStore.axisConvention3D === 'leftHand' })
     : null);
   const result = $derived(preview?.result ?? null);
   /** A slab plate waiting for its mesh takes its load now, which lands on its shells when it is meshed. */
@@ -129,8 +132,8 @@
     if (!def || !canAdd) return;
     if (targetKey === 'plates') {
       const label = name.trim() || t('floorLoad.plateDefault');
-      modelStore.batch(() => { for (const id of pickedPlates) addFloorLoadDef(`${label} · ${plateEntry(id)!.name}`, { ...plateLoadDef(id, def.caseId, def.q), ...(def.perPlanArea ? { perPlanArea: true } : {}) }); });
-      applied = tp('floorLoad.addedPlates', { n: pickedPlates.length });
+      modelStore.batch(() => { for (const p of plateDefs) addFloorLoadDef(`${label} · ${plateEntry(p.id)!.name}`, p.def); });
+      applied = tp('floorLoad.addedPlates', { n: plateDefs.length });
       name = '';
       return;
     }

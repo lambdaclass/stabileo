@@ -41,4 +41,12 @@ describe('TS 500 §6.2.6 and TBDY §4.4.4', () => {
     expect(s.every((c) => c.purpose === 'service')).toBe(true);
     expect(s.map((c) => c.label)).toEqual(['1.0 D + 1.0 L + 1.0 S', '1.0 D + 1.0 L + 1.0 S + 0.5 W', '1.0 D + 1.0 L + 1.0 W + 0.5 S', '1.0 D + 1.0 W']);
   });
+  it('fluid at 1,4 in every equation that names Q, also with no live load in the model (6.2.6 e)', () => {
+    const tank = labels(present({ L: false, F: true, W: true, E: true, H: true }));
+    expect(tank).toEqual([
+      '1.4 D + 1.4 F', '1.0 D + 1.3 W + 1.4 F', '0.9 D + 1.3 W', '1.0 D + 1.0 E + 1.4 F', '0.9 D + 1.0 H + 1.0 E',
+      '1.4 D + 1.6 H + 1.4 F', '0.9 D + 1.6 H',
+    ]);
+    expect(ts500Service(present({ L: false, F: true })).map((c) => c.label)).toEqual(['1.0 D + 1.0 F']);
+  });
 });

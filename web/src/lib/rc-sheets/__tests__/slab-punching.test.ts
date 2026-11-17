@@ -17,6 +17,7 @@ import {
   type AdjoiningShell, type SlabColumnJoint, type SlabJointForce, type SlabPunchingInput,
 } from '../slab-punching';
 import { criticalSection, punchingResistance, PHI_SHEAR } from '../../engine/detailing/punching-shear';
+import { unsupportedLabel } from '../punching-row';
 type FloorNode = { x: number; y: number; z?: number };
 
 // ─── Geometry helpers: a 6 × 6 mesh of 3 m panels around node 5 ──
@@ -418,6 +419,14 @@ describe('what it refuses, and why each refusal is not a pass', () => {
     expect(r.status).toBe('UNSUPPORTED');
     expect(r.unsupported.map((m) => m.key))
       .toContain('detailing.slabPunching.noColumnForces');
+  });
+
+  it('the sheet row names what was missing, not always the geometry', () => {
+    const label = (over: Partial<SlabPunchingInput>) => unsupportedLabel(checkSlabJointPunching(punchInput(over)).unsupported.map((m) => m.key));
+    expect(label({ joint: joint({ forces: [] }) })).toBe('rcSheets.v.punchingNoForces');
+    expect(label({ fc: 0 })).toBe('rcSheets.v.punchingNoDimensions');
+    expect(label({ joint: joint({ forces: [force({ axialBelow: -900, axialAbove: -600 })] }) })).toBe('rcSheets.v.punchingNotEstablished');
+    expect(label({ position: slabJointPosition(5, at5('sw', 'ne')) })).toBe('rcSheets.v.punchingUnsupported');
   });
 
   it('refuses the two-opposite-runs perimeter with its own reason', () => {

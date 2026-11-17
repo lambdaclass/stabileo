@@ -7,7 +7,7 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { plateOfShell } from './physical-plates';
+import { holdPlateSidesAt, plateOfShell } from './physical-plates';
 import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
@@ -168,7 +168,7 @@ export function wallsToHold(rows: readonly SheetRow[]): WallRow[] {
     && r.demand.base.unheld.every((n) => modelStore.nodes.has(n) && Math.abs(zOf(n) - ground) < 1e-3));
 }
 
-/** Each base node gets the support most common at the foundation's level, fixed where it has none, in one undo step. */
+/** Each base node gets the support most common at the foundation's level, fixed where it has none, and each wall's base is held all along with every mesh; one undo step. */
 export function supportWallBases(rows: readonly SheetRow[]): number {
   const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
   const nodes = [...new Set(wallsToHold(rows).flatMap((r) => r.demand.base!.unheld!))].filter((n) => !held.has(n));
@@ -180,7 +180,10 @@ export function supportWallBases(rows: readonly SheetRow[]): number {
     if (p && Math.abs((p.z ?? 0) - ground) < 1e-3) kinds.set(s.type, (kinds.get(s.type) ?? 0) + 1);
   }
   const type = ([...kinds.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? 'fixed3d') as Parameters<typeof modelStore.addSupport>[1];
-  modelStore.batch(() => { for (const n of nodes) modelStore.addSupport(n, type); });
+  modelStore.batch(() => {
+    for (const n of nodes) modelStore.addSupport(n, type);
+    for (const id of new Set(wallsToHold(rows).map((r) => groupOf(r.key)))) holdPlateSidesAt(id, ground, type);
+  });
   return nodes.length;
 }
 

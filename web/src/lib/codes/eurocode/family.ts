@@ -8,7 +8,6 @@ import { ecVertical, planEcSeismic, psiE } from './seismic';
 import type { EcFamily } from './refs';
 import { ecRoofLive } from './roof-live';
 import { EC_PARTITIONS, ecPartition } from '../families/partitions';
-import { msg } from '../message';
 
 const TITLES: Readonly<Record<EcFamily, Record<'basis' | 'loads' | 'wind' | 'snow', string>>> = {
   eurocode: { basis: 'EN 1990', loads: 'EN 1991-1-1', wind: 'EN 1991-1-4', snow: 'EN 1991-1-3' },
@@ -45,9 +44,6 @@ function modules(f: EcFamily): AnyLoadCode[] {
     reduce: (o) => reduceImposed(f, o),
     imposedGroup: (key) => categoryOfOccupancy(key),
     partition: ecPartition,
-    // §3.3.2(2)P: with L accompanying, ψ or αn, not both; the plan's case carries αn into every combination.
-    reductionNotes: (o) => (['interiorColumn', 'exteriorColumnNoCantilever', 'edgeColumnWithCantilever', 'cornerColumnWithCantilever'].includes(o.elementKind) && o.floorsSupported > 2
-      ? [msg('loads.ec.reduction.alphaNWithPsi')] : []),
     partitionInput: { kind: 'choices', ...EC_PARTITIONS },
     roofLive: ecRoofLive(f),
   };

@@ -73,8 +73,6 @@ export interface ImposedLoadCode extends CodeModule {
    * cases of its own (`load-plan.ts`). Absent: the imposed load is one action at one set of factors.
    */
   imposedGroup?(occupancyKey: string): string | undefined;
-  /** What the plan says beside the reduction it applied, where the code limits its use. */
-  reductionNotes?(o: { elementKind: ElementKind; floorsSupported: number }): EngineMessage[];
   /** The partition allowance, by the code's own rule (`partitions.ts`). Absent: CIRSOC 101 §4.3.2. */
   partition?(loKNm2: number, requestedKNm2: number): import('../cirsoc101/live-loads').PartitionLiveAllowance;
   /** What the dialog offers for the allowance. Absent: CIRSOC 101's minimum of 0,75 kN/m². */

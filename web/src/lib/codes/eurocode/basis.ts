@@ -82,6 +82,15 @@ const permanent = (ci: CombinationInputs, g: number): CombinationTerm[] => [
   ...(ci.present.F ? [{ symbol: 'F' as LoadSymbol, factor: g }] : []),
 ];
 
+function permanentSets(ci: CombinationInputs, sup: number, inf: number): Array<{ terms: CombinationTerm[]; tag: string }> {
+  const symbols = (['D', 'H', 'F'] as const).filter((s) => s === 'D' || ci.present[s]);
+  return Array.from({ length: 1 << symbols.length }, (_, m) => {
+    const low = symbols.filter((_, i) => m & (1 << i));
+    const tag = low.length === 0 ? '' : low.length === symbols.length ? '-inf' : `-inf${low.join('')}`;
+    return { terms: symbols.map((symbol) => ({ symbol: symbol as LoadSymbol, factor: low.includes(symbol) ? inf : sup })), tag };
+  });
+}
+
 function presentVariables(ci: CombinationInputs): Variable[] {
   return VARIABLES.filter((v) => (v === 'T' ? !!ci.present.T : ci.present[v]));
 }
@@ -94,17 +103,18 @@ function contextFor(family: EcFamily, ctx?: EcPlanContext) {
    * with a roof of another category is one action of two parts (EN 1991-1-1 §3.3.1(2)P), each at
    * its own ψ: they lead together and accompany together.
    */
+  const alphaN = ctx?.alphaN ?? 1;
   const terms = (v: Variable, k: 0 | 1 | 2 | 'lead', gamma = 1): CombinationTerm[] => [
-    { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k]) },
+    { symbol: v as LoadSymbol, factor: gamma * (k === 'lead' ? 1 : psi[v][k] / (v === 'L' ? alphaN : 1)) },
     ...(v === 'L' && roof ? [{ symbol: 'L' as LoadSymbol, group: roof, factor: gamma * (k === 'lead' ? 1 : PSI[family].imposed[roof][k]) }] : []),
   ];
   /** Whether the action enters at ψk at all: any of its parts. */
   const has = (v: Variable, k: 0 | 1 | 2) => terms(v, k).some((t) => t.factor > 0);
-  return { psi, known: !!ctx?.categories.size, terms, has, roof };
+  return { psi, known: !!ctx?.categories.size, terms, has, roof, alphaN };
 }
 
 export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ctx?: EcPlanContext): { combinations: LoadCombinationSpec[]; refs: ClauseRef[]; notes: EngineMessage[] } {
-  const { known, terms, has, roof } = contextFor(family, ctx);
+  const { known, terms, has, roof, alphaN } = contextFor(family, ctx);
   const xi = XI[family], gamma = GAMMA[family], compatible = compatibleIn(family);
   const tableRefs = [DATA[family].refs.factors, DATA[family].refs.psi];
   const notActing = ci.notActing ?? DATA[family].notActing;
@@ -112,15 +122,16 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
   const b: Builder = { out: [], seen: new Set(), refs: [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs] };
   const withPsi0 = (vs: readonly Variable[]) => vs.filter((v) => has(v, 0));
 
+  const permanentA = permanentSets(ci, gamma.gSup, gamma.gInf).filter((g) => g.tag !== '-inf');
+  const permanentB = permanentSets(ci, xi * gamma.gSup, gamma.gInf);
   companionSets(family, withPsi0(vars), notActing).forEach((set, k) => {
-    push(b, `6.10a-${k + 1}`, [...permanent(ci, gamma.gSup), ...set.flatMap((v) => terms(v, 0, gamma.q))], 'strength');
+    for (const g of permanentA) push(b, `6.10a-${k + 1}${g.tag}`, [...g.terms, ...set.flatMap((v) => terms(v, 0, gamma.q))], 'strength');
   });
   for (const lead of vars) {
     const others = withPsi0(vars.filter((v) => v !== lead && compatible([lead, v])));
     companionSets(family, others, notActing).forEach((set, k) => {
       const q: CombinationTerm[] = [...terms(lead, 'lead', gamma.q), ...set.flatMap((v) => terms(v, 0, gamma.q))];
-      push(b, `6.10b-${lead}-${k + 1}`, [...permanent(ci, xi * gamma.gSup), ...q], 'strength');
-      push(b, `6.10b-${lead}-${k + 1}-inf`, [...permanent(ci, gamma.gInf), ...q], 'strength');
+      for (const g of permanentB) push(b, `6.10b-${lead}-${k + 1}${g.tag}`, [...g.terms, ...q], 'strength');
     });
   }
   if (ci.present.E) {
@@ -134,6 +145,7 @@ export function strengthCombinations(family: EcFamily, ci: CombinationInputs, ct
   if (vars.includes('Lr')) notes.push(msg('loads.ec.combo.roofAlone'));
   if (ci.present.H || ci.present.F) notes.push(msg('loads.ec.combo.hfAsPermanent'));
   if (!known) notes.push(msg('loads.ec.combo.noContext'));
+  if (alphaN < 1 && vars.includes('L')) notes.push(msg('loads.ec.reduction.alphaNWithPsi', { alpha: Math.round(alphaN * 1000) / 1000 }));
   if (roof && vars.includes('L')) notes.push(msg('loads.ec.combo.roofPart', { floor: ctx?.floor ?? '—', roof }));
   const refs = [EN1990('6.4.3.2', 'eq. 6.10a and 6.10b'), ...tableRefs, ...(vars.includes('Lr') ? [EN1991_1_1('3.3.2(1)', 'roofs')] : [])];
   return { combinations: b.out, refs, notes };

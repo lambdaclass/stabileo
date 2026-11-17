@@ -3,7 +3,7 @@ import { bentBarMandrel, minMandrelDiameter } from '../codes/cirsoc201/bar-geome
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { evaluateCutoff, type CutoffLegality } from './cutoff';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
-import { minFlexuralSteelCm2 } from '../engine/codes/argentina/cirsoc201-basis';
+import { minFlexuralSteelCm2, shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
 import { beamSeismic, faceRule } from './seismic';
@@ -78,7 +78,7 @@ export const CIRSOC_LINE: LineCode = {
     const r = evaluateBeamSections([kernelQuery(c, q, st)])?.[0];
     return r && r.shearValid ? { design: r.phiVn / 1e3, nominal: r.phiVn / 0.75 / 1e3 } : { design: 0, nominal: 0 };
   },
-  cutoff: (input) => evaluateCutoff({ ...input, edition: EDITION }),
+  cutoff: (input) => evaluateCutoff({ ...input, fy: shearFy(input.fy), edition: EDITION }),
   mandrel: (dia) => minMandrelDiameter(dia, 'longitudinal').value,
   straightAtSupport: { factor: 1.3, into: 0.15 },
   hook180Extension: (dia) => Math.max(4 * dia / 1000, 0.065),

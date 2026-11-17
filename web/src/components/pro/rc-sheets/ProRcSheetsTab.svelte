@@ -2,10 +2,8 @@
   import { t, tp, tpn, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { downloadRcSheets, meshWallsForSheets, rcSheetsData, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
-  import { physicalGroups } from '../../../lib/store/physical';
+  import { downloadRcSheets, meshWallsForSheets, rcSheetsData, sheetsHavePhysical, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { uiStore } from '../../../lib/store/ui.svelte';
-  import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -13,6 +11,8 @@
   import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
   import { DESIGN_OPTION_FLAGS, optionRule } from '../../../lib/rc-sheets/design-options';
   import { tick } from 'svelte';
+  import RcLeftOut from './RcLeftOut.svelte';
+  import RcExportLog from './RcExportLog.svelte';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
   import { SHEET_CODES } from '../../../lib/rc-sheets/types';
@@ -26,7 +26,7 @@
   let family = $state<SheetFamily>('beam');
 
   const solved = $derived(!!resultsStore.results3D);
-  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return modelStore.elements.size === 0 ? physicalGroups().length > 0 : physicalGroups().some((g) => !plateSurfaceOf(g)); });
+  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return sheetsHavePhysical(); });
   followSheetEdits();
   const rows = $derived(solved && hasPhysical ? sheetsRun.rows : null);
   const stale = $derived(sheetsStale());
@@ -62,6 +62,7 @@
 <div class="rcp" data-testid="rc-sheets-panel">
   <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
   <RcCoversNotice />
+  <RcExportLog compact />
 
   {#if !solved}
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
@@ -93,6 +94,7 @@
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
       {rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`)}
     </p>
+    <RcLeftOut left={rows.left ?? []} />
     <ul class="rcp-fams">
       {#each SHEET_FAMILIES as f (f)}
         {@const s = stat(f === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : rows[f] as SheetRow[])}
@@ -106,9 +108,10 @@
     </ul>
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
-      <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
+      <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={stale} title={stale ? t('rcSheets.exportStale') : undefined} data-testid="rc-export-workbook">{t('rcSheets.export')}</button>
     </div>
     <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
+    <p class="rcp-note" data-testid="rc-limits-note">{t('rcSheets.limits')}</p>
     {#if seismicOn}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}
   {/if}
   <p class="rcp-dd" data-testid="rc-dd-summary"><span>{t('designData.title')}: {ddLine}</span> <button type="button" class="rcp-link" onclick={editDesignData} data-testid="rc-dd-edit">{t('rcSheets.ddEdit')}</button></p>

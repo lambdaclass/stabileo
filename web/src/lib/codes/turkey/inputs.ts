@@ -32,13 +32,11 @@ export interface TbdyInput {
   tp?: number;
   ct?: number;
   massUse?: MassUse;
-  eccentricity?: boolean;
-  orthogonal?: boolean;
   directions?: Axes;
 }
 
-export const DEFAULT_TBDY: Required<Pick<TbdyInput, 'soil' | 'bks' | 'system' | 'regular' | 'eccentricity' | 'orthogonal'>> = {
-  soil: 'ZC', bks: 3, system: 'A11', regular: true, eccentricity: true, orthogonal: true,
+export const DEFAULT_TBDY: Required<Pick<TbdyInput, 'soil' | 'bks' | 'system' | 'regular'>> = {
+  soil: 'ZC', bks: 3, system: 'A11', regular: true,
 };
 
 export function windInputOf(ci: Readonly<Record<string, unknown>> | undefined): Ts498WindInput {

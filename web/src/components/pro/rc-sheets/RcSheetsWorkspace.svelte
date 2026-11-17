@@ -6,6 +6,7 @@
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
+  import RcLeftOut from './RcLeftOut.svelte';
   import { uiStore } from '../../../lib/store';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { groupsArea, groupsLabel, meshArea, meshLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
@@ -168,7 +169,7 @@
       {/if}
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
-      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} disabled={!rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
@@ -178,6 +179,7 @@
   {/if}
   <div class="rcw-body">
     <RcCoversNotice />
+    {#if sheetsRun.rows && !schedule}<RcLeftOut left={rows.left ?? []} />{/if}
     {#if sheetsRun.progress}
       <div class="rcw-empty"><RcSheetsProgress progress={sheetsRun.progress} /></div>
     {:else if !sheetsRun.rows && !resultsStore.results3D}
@@ -270,7 +272,7 @@
                 <td data-testid="rc-col-crossties">{crosstiesText(r.checks.crossties)}</td>
                 <td class="n">{fmt(r.checks.ratio, 2)}</td>
               {:else if r.family === 'punching'}
-                <td>{r.position === 'interior' || r.position === 'edge' || r.position === 'corner' ? t(`rcSheets.punchPos.${r.position}`) : '—'}</td>
+                <td data-testid="rc-punch-position">{r.position === 'interior' || r.position === 'edge' || r.position === 'corner' ? t(`rcSheets.punchPos.${r.position}`) : '—'}</td>
                 <td class="n">{f1(r.vu)}</td>
                 <td class="n">{f1(r.phiVc)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>

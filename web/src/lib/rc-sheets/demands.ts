@@ -319,9 +319,9 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
         if (!b || !t || st.some(({ e }) => !by.has(e.id))) { missing.push(set.name); continue; }
-        let vx = 0, vy = 0;
+        let vx = 0, vy = 0, tu = 0;
         const stations = runStations(m, st, set);
-        for (const { s } of stations) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); }
+        for (const { s } of stations) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); tu = Math.max(tu, Math.abs(s.torsion)); }
         const ends = { mx: Math.max(Math.abs(t.my), Math.abs(b.my)), my: Math.max(Math.abs(t.mz), Math.abs(b.mz)) };
         const peak = (k: 'my' | 'mz') => stations.reduce<Station | undefined>((w, x) => (!w || Math.abs(x.s[k]) > Math.abs(w.s[k]) ? x : w), undefined);
         const inner = [peak('my'), peak('mz')].filter((x): x is Station => !!x && (Math.abs(x.s.my) > ends.mx + 1e-6 || Math.abs(x.s.mz) > ends.my + 1e-6))
@@ -329,7 +329,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
-          mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy,
+          mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
           ...(inner.length ? { inner } : {}),
         });
       }

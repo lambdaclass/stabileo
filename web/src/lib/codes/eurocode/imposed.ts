@@ -48,6 +48,11 @@ export function ukAlphaN(n: number): number {
   return n <= 10 ? 0.6 : 0.5;
 }
 
+export function columnAlphaN(family: EcFamily, elementKind: ElementKind, n: number): number {
+  if (!COLUMN.has(elementKind)) return 1;
+  return family === 'uk' ? ukAlphaN(n) : alphaN(n, PSI0_REDUCIBLE);
+}
+
 export function reduceImposed(family: EcFamily, o: ReductionAsk): { lKNm2: number; refs: ClauseRef[]; reason: EngineMessage } {
   const uk = family === 'uk';
   const refA = uk ? UK_NA_1991_1_1('NA.2.5', 'alpha_A') : EN1991_1_1('6.3.1.2(10)', 'alpha_A');
@@ -55,7 +60,7 @@ export function reduceImposed(family: EcFamily, o: ReductionAsk): { lKNm2: numbe
   if (o.noReduction) return { lKNm2: o.loKNm2, refs: [refA], reason: msg('loads.ec.reduction.notAllowed') };
   if (COLUMN.has(o.elementKind)) {
     const n = o.floorsSupported;
-    const a = uk ? ukAlphaN(n) : alphaN(n, PSI0_REDUCIBLE);
+    const a = columnAlphaN(family, o.elementKind, n);
     return { lKNm2: o.loKNm2 * a, refs: [refN], reason: msg(uk ? 'loads.ec.reduction.ukAlphaN' : 'loads.ec.reduction.alphaN', { n, alpha: round(a, 3), l: round(o.loKNm2 * a, 3) }) };
   }
   const area = o.tributaryAreaM2;
