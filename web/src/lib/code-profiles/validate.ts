@@ -76,14 +76,15 @@ class Checker {
   require(doc: unknown, path: string, kind: 'val' | 'formula' | 'table' | 'keyed', forms?: readonly string[]) {
     const x = at(doc, path);
     if (x === undefined || x === null) return this.fail(path, 'required');
-    const ok = isObj(x) && (kind === 'val' ? 'v' in x : kind === 'formula' ? typeof x.f === 'string' : kind === 'table' ? 'axes' in x : 'rows' in x);
-    if (!ok) return this.fail(path, `must be a ${kind}`);
+    const ok = isObj(x) && (kind === 'val' ? isNum(x.v) : kind === 'formula' ? typeof x.f === 'string' : kind === 'table' ? 'axes' in x : 'rows' in x);
+    if (!ok) return this.fail(path, kind === 'val' ? 'must be a finite number' : `must be a ${kind}`);
     if (forms && !forms.includes(x.f as string)) this.fail(join(path, 'f'), `must be one of ${forms.join(', ')}`);
   }
 
   range(doc: unknown, path: string, lo: number, hi: number) {
-    const v = (at(doc, path) as Obj | undefined)?.v;
-    if (isNum(v) && (v < lo || v > hi)) this.fail(path, `must lie in [${lo}, ${hi}]`);
+    const x = at(doc, path);
+    if (!isObj(x) || !('v' in x)) return;
+    if (!isNum(x.v) || x.v < lo || x.v > hi) this.fail(path, `must lie in [${lo}, ${hi}]`);
   }
 }
 
