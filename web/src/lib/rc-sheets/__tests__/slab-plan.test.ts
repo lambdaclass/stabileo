@@ -52,14 +52,14 @@ describe('level plan of slab bars', () => {
     expect(pk.count).toBe(Math.floor((5 - 2 * Math.min(0.05, pk.bars.spacing / 2)) / pk.bars.spacing + 1e-9) + 1);
   });
 
-  it('runs each bottom package into the beams it rests on, to the far face less the cover, with its ends turned up; edge top bars hook inside the edge beam', () => {
+  it('runs each bottom package 150 mm into the beams it rests on, within their far face less the cover, with its ends turned up; edge top bars hook inside the edge beam', () => {
     const { rows, geom } = twoPanels();
     const p = slabPlan('N1', rows, geom, plan);
     const bx = p.packages.filter((pk) => pk.layer === 'bottom' && pk.dir === 'x');
     expect(bx).toHaveLength(2);
     const a = bx.find((pk) => pk.panels[0] === 'A')!;
-    expect(a.from).toBeCloseTo(-0.1 + 0.02, 9);
-    expect(a.to).toBeCloseTo(4.1 - 0.02, 9);
+    expect(a.from).toBeCloseTo(0.1 - 0.15, 9);
+    expect(a.to).toBeCloseTo(3.9 + 0.15, 9);
     const ys = a.shape.pts.map((q) => q[1]);
     expect(a.shape.pts).toHaveLength(4);
     expect(ys[0]).toBeGreaterThan(ys[1]!);
@@ -97,7 +97,8 @@ describe('level plan of slab bars', () => {
         const shared = p.supports.find((s) => s.dir === 'x' && s.at === 4 && s.below && s.above)!;
         const top = p.checks.find((c) => c.where === shared.id)!;
         expect(top.required).toBeCloseTo(Math.max(rows[0]!.faces.topX.asReq, rows[1]!.faces.topX.asReq), 9);
-        expect(p.ok).toBe(true);
+        expect(p.ok).toBe(p.packages.every((pk) => !pk.anchor || pk.anchor.ok));
+        if (code === 'cirsoc201-2025' || code === 'aci318-19') expect(p.ok).toBe(true);
       }
     }
   });

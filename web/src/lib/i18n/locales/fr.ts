@@ -13700,6 +13700,7 @@ const fr: Translations = {
   "rcSheets.v.colLapFit": "Recouvrement des barres de l'étage inférieur dans la place que lui donne le règlement",
   "rcSheets.v.axialOnly": "Effort normal là où il n'y a pas de moment",
   "rcSheets.v.everyCombo": "Chaque combinaison avec les armatures adoptées",
+  "detailing.schedule.spliceNote": "La position {mark} ({length} m) dépasse la barre commerciale de {stock} m et demande un recouvrement.",
   "rcSheets.v.lineEndAnchor": "Crochet dans le poteau d'extrémité",
   "rcSheets.v.lineSplices": "Recouvrements des barres filantes (barres de 12 m)",
   "rcSheets.v.lineIntegrity": "Intégrité de la poutre de rive : barres filantes en haut et en bas",

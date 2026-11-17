@@ -136,10 +136,10 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
     }
   }
 
-  const stockMarks = new Map<string, { mark: string; diameterMm: number; cuttingLength: number; quantity: number; shape: string; massKg: number }>();
+  const stockMarks = new Map<string, { mark: string; diameterMm: number; cuttingLength: number; quantity: number; shape: string; massKg: number; pieces?: number }>();
   out.forEach((r, i) => {
     const k = scope === 'element' ? `${i}` : `${scope === 'level' ? r.level ?? '' : ''}|${r.mark}`;
-    const s = stockMarks.get(k) ?? { mark: r.mark, diameterMm: r.dia, cuttingLength: r.unitLength, quantity: 0, shape: shapeKey(r.shape), massKg: 0 };
+    const s = stockMarks.get(k) ?? { mark: r.mark, diameterMm: r.dia, cuttingLength: r.unitLength, quantity: 0, shape: shapeKey(r.shape), massKg: 0, ...(r.shape.laps ? { pieces: r.shape.laps.count + 1 } : {}) };
     s.quantity += r.total; s.massKg += r.kg;
     stockMarks.set(k, s);
   });

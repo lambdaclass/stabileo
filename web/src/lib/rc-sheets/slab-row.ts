@@ -21,6 +21,8 @@ export interface SlabDemand {
   /** Largest transverse shear per metre on faces normal to X and to Y, kN/m. */
   q?: { x: Signed; y: Signed };
   combos?: SlabComboForces[];
+  /** Each element's top moments over all combinations where it asks for top steel, kN·m/m, at its centre: where the top bars must reach. */
+  topField?: Array<{ x: number; y: number; topX: number; topY: number }>;
 }
 
 export interface SlabComboForces { combo: string; bottomX: number; bottomY: number; topX: number; topY: number; qx: number; qy: number }

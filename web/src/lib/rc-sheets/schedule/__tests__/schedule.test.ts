@@ -9,7 +9,7 @@ import { beamLine } from '../../beam-line';
 import { makeFmt } from '../../format';
 import { rulesFor } from '../../codes';
 import { assignMarks, scheduleOf, bendingSchedule, letterMark } from '../schedule';
-import { MAX_CRANK, scheduleElements, spread, stirrupsOver, type ScheduleElement } from '../pieces';
+import { MAX_CRANK, crankOffsets, scheduleElements, spread, stirrupsOver, type ScheduleElement } from '../pieces';
 import { scheduleCsv, scheduleSheet, shapeText } from '../exports';
 import { rcSheetsWorkbook } from '../../workbook';
 
@@ -138,11 +138,17 @@ describe('pieces of each family', () => {
     expect(ties).toBe(hoop.count * (low.checks.crossties.x + low.checks.crossties.y));
   });
 
-  it('bars crank in where the faces above step in by 75 mm at most; past that they hook and dowels are lapped in', () => {
+  it('bars crank in where the faces above step in by 75 mm at most, each by how far it moves; past that they hook and dowels are lapped in', () => {
     const cranked = stack(0.3);
-    const c = cranked.els[0]!.pieces.find((p) => p.kind === 'cranked')!;
-    const want = crankedBar(3, 0.05, cranked.high.lap!.length, c.shape.dia, c.shape.mandrel);
-    c.shape.pts.forEach((p, i) => { expect(p[0]).toBeCloseTo(want.pts[i]![0], 9); expect(p[1]).toBeCloseTo(want.pts[i]![1], 9); });
+    const pieces = cranked.els[0]!.pieces.filter((p) => p.kind === 'cranked');
+    const groups = crankOffsets(cranked.low, cranked.high);
+    expect(groups.find((g) => g.count === 4 && g.dia === cranked.low.adopted.corner)!.e).toBeCloseTo(Math.hypot(0.05, 0.05), 3);
+    expect(pieces.reduce((s, p) => s + p.count, 0)).toBe(groups.reduce((s, g) => s + g.count, 0));
+    for (const g of groups) {
+      const want = crankedBar(3, g.e, cranked.high.lap!.length, g.dia, pieces[0]!.shape.mandrel);
+      const c = pieces.find((p) => p.count === g.count && p.shape.dia === g.dia && Math.abs(developedLength(p.shape) - developedLength(want)) < 1e-9)!;
+      c.shape.pts.forEach((p, i) => { expect(p[0]).toBeCloseTo(want.pts[i]![0], 9); expect(p[1]).toBeCloseTo(want.pts[i]![1], 9); });
+    }
     expect(cranked.els[1]!.pieces.some((p) => p.kind === 'dowel')).toBe(false);
     const stepped = stack(0.2);
     expect((0.4 - 0.2) / 2).toBeGreaterThan(MAX_CRANK);
@@ -167,7 +173,7 @@ describe('pieces of each family', () => {
     const r = slabRow({ key: 'slab:1', name: 'L1', level: 'N1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
     const other = slabRow({ key: 'slab:2', name: 'L2', level: 'N2', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
     const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
-    const plan = { level: 'N1', packages: [{ mark: '7', layer: 'top', count: 23, shape: crossing }] } as never;
+    const plan = { level: 'N1', panels: [{ key: 'slab:1' }], packages: [{ mark: '7', layer: 'top', count: 23, shape: crossing }] } as never;
     const els = scheduleElements({ line: [], column: [], slab: [r, other], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
     expect(els.map((e) => e.key)).toEqual(['slabplan:N1', 'slab:2']);
     expect(els[0]!.pieces).toEqual([{ kind: 'slabTop', count: 23, shape: crossing, elevation: '7' }]);
@@ -177,7 +183,7 @@ describe('pieces of each family', () => {
     const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
     const r = slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
     const crossing = hookedStraight(0, 9.4, 0.12, 10, 0.06, [true, true], -1, 0.11);
-    const plan = { level: '', packages: [{ mark: '1', layer: 'top', count: 23, shape: crossing }] } as never;
+    const plan = { level: '', panels: [{ key: r.key }], packages: [{ mark: '1', layer: 'top', count: 23, shape: crossing }] } as never;
     const els = scheduleElements({ line: [], column: [], slab: [r], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
     expect(els.map((e) => e.key)).toEqual(['slabplan:']);
   });

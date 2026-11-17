@@ -204,11 +204,36 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     return !atEnd || !supportOn(other(d), s, at - TOL, at + TOL);
   });
 
-  const classify = (d: PlanDir, at: number, a0: number, a1: number, none: 'joint' | 'free' | 'columns'): { kind: SupportKind; half: number } => {
-    const on = supportOn(d, at, a0, a1);
-    if (on) return on;
-    const cols = columnsOn(d, at, a0, a1);
-    return cols.length ? { kind: 'columns', half: Math.max(...cols.map((k) => (d === 'x' ? k.b : k.h))) / 2 } : { kind: none, half: 0 };
+  /** A stretch cut where the beams and walls on it start and end: each piece they cover rests on them, the rest on columns or nothing. */
+  const classify = (d: PlanDir, at: number, a0: number, a1: number, none: 'joint' | 'free' | 'columns'): Array<{ from: number; to: number; kind: SupportKind; half: number }> => {
+    const covered: Array<{ from: number; to: number; kind: 'beam' | 'wall'; half: number }> = [];
+    for (const b of geom.beams) {
+      const [p, q, s0, s1] = d === 'x' ? [b.x1, b.x2, b.y1, b.y2] : [b.y1, b.y2, b.x1, b.x2];
+      if (Math.abs(p - q) > TOL || Math.abs((p + q) / 2 - at) > Math.max(TOL, b.b / 2)) continue;
+      const from = Math.max(a0, Math.min(s0, s1)), to = Math.min(a1, Math.max(s0, s1));
+      if (to - from > 1e-9) covered.push({ from, to, kind: b.kind, half: b.b / 2 });
+    }
+    covered.sort((p, q) => p.from - q.from);
+    const merged: typeof covered = [];
+    for (const c of covered) {
+      const last = merged[merged.length - 1];
+      if (last && c.from <= last.to + TOL) { last.to = Math.max(last.to, c.to); last.half = Math.max(last.half, c.half); if (c.kind === 'beam') last.kind = 'beam'; }
+      else merged.push({ ...c });
+    }
+    const gapOf = (g0: number, g1: number) => {
+      const cols = columnsOn(d, at, g0, g1);
+      return cols.length ? { kind: 'columns' as const, half: Math.max(...cols.map((k) => (d === 'x' ? k.b : k.h))) / 2 } : { kind: none, half: 0 };
+    };
+    const out: Array<{ from: number; to: number; kind: SupportKind; half: number }> = [];
+    let x = a0;
+    for (const c of merged) {
+      if (c.from - x > TOL) out.push({ from: x, to: c.from, ...gapOf(x, c.from) });
+      out.push({ from: out.length || c.from - x > TOL ? Math.max(x, c.from) : a0, to: c.to, kind: c.kind, half: c.half });
+      x = c.to;
+    }
+    if (a1 - x > TOL) out.push({ from: x, to: a1, ...gapOf(x, a1) });
+    else if (out.length) out[out.length - 1]!.to = a1;
+    return out.length ? out : [{ from: a0, to: a1, ...gapOf(a0, a1) }];
   };
   const supports: PlanSupport[] = [];
   for (const d of ['x', 'y'] as const) {
@@ -221,18 +246,18 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
         const s0 = Math.max(a0, lo(q.rect, a)), s1 = Math.min(a1, hi(q.rect, a));
         if (s1 - s0 <= TOL) continue;
         shared.push([s0, s1]);
-        supports.push({ id: '', dir: d, at: atHi, from: s0, to: s1, ...classify(d, atHi, s0, s1, 'joint'), below: p.key, above: q.key });
+        for (const pc of classify(d, atHi, s0, s1, 'joint')) supports.push({ id: '', dir: d, at: atHi, ...pc, below: p.key, above: q.key });
       }
       for (const [s0, s1] of subtract(a0, a1, shared)) {
-        supports.push({ id: '', dir: d, at: atHi, from: s0, to: s1, ...classify(d, atHi, s0, s1, 'free'), below: p.key });
+        for (const pc of classify(d, atHi, s0, s1, 'free')) supports.push({ id: '', dir: d, at: atHi, ...pc, below: p.key });
       }
       const fromBelow = panels.filter((q) => q !== p && Math.abs(hi(q.rect, d) - atLo) <= TOL).map((q) => [Math.max(a0, lo(q.rect, a)), Math.min(a1, hi(q.rect, a))] as [number, number]).filter(([s0, s1]) => s1 - s0 > TOL);
       for (const [s0, s1] of subtract(a0, a1, fromBelow)) {
-        supports.push({ id: '', dir: d, at: atLo, from: s0, to: s1, ...classify(d, atLo, s0, s1, 'free'), above: p.key });
+        for (const pc of classify(d, atLo, s0, s1, 'free')) supports.push({ id: '', dir: d, at: atLo, ...pc, above: p.key });
       }
       const inner = [...new Set(geom.columns.map((k) => (d === 'x' ? k.x : k.y)).filter((v) => v > atLo + TOL && v < atHi - TOL)
         .filter((v) => columnsOn(d, v, a0, a1).length).map((v) => Math.round(v / TOL) * TOL))].sort((u, v) => u - v);
-      for (const v of inner) supports.push({ id: '', dir: d, at: v, from: a0, to: a1, ...classify(d, v, a0, a1, 'columns'), below: p.key, above: p.key });
+      for (const v of inner) for (const pc of classify(d, v, a0, a1, 'columns')) supports.push({ id: '', dir: d, at: v, ...pc, below: p.key, above: p.key });
     }
   }
   supports.forEach((s, i) => { s.id = `${s.dir.toUpperCase()}${i + 1}`; });
@@ -302,32 +327,38 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     for (const p of panels) {
       const mesh = p.row.adopted[face(d, 'bottom')];
       if (!(mesh.dia > 0 && mesh.spacing > 0)) continue;
-      const endsHooked = (['lo', 'hi'] as const).map((end) => {
+      const endsOver = (u0: number, u1: number) => (['lo', 'hi'] as const).map((end) => {
         const at = end === 'lo' ? lo(p.rect, d) : hi(p.rect, d), sign = end === 'lo' ? -1 : 1;
-        const e = edgeSupports(p, d, end).filter((s) => s.kind !== 'free');
+        const e = edgeSupports(p, d, end).filter((s) => s.kind !== 'free' && overlap(s.from, s.to, u0, u1) > TOL / 2);
         if (!e.length) return { x: at - sign * c.cover, leg: true };
         const half = Math.max(...e.map((s) => s.half));
-        if (half > 0) return { x: at + sign * (-half + Math.max(Math.min(code.bottomEmbed(mesh.dia), 2 * half - c.cover), 2 * half - c.cover)), leg: true };
+        const held = e.some((s) => s.kind === 'beam' || s.kind === 'wall');
+        if (half > 0) return { x: at + sign * (-half + (held ? Math.min(code.bottomEmbed(mesh.dia), 2 * half - c.cover) : 2 * half - c.cover)), leg: true };
         if (e.some((s) => s.below && s.above)) return { x: at + sign * up(lap(mesh.dia, false, p.h, mesh.spacing) / 2), leg: false };
         return { x: at - sign * c.cover, leg: true };
       });
-      const ends = endsHooked.map((e) => e.x);
       const inner = linesOf(p, d).filter((s) => s.below === s.above).map((s) => s.at);
-      const band = { from: lo(p.rect, a), to: hi(p.rect, a) };
       const y = yBottom(p, d, mesh.dia);
       const upLeg = legDown(p.h, mesh.dia);
-      const straight = (bars: MeshBars, kind: PackageKind) => add({
-        layer: 'bottom', dir: d, kind, bars, from: ends[0]!, to: ends[1]!, band,
-        shape: { pts: [
-          ...(endsHooked[0]!.leg ? [[0, y + upLeg] as [number, number]] : []),
-          [0, y], [ends[1]! - ends[0]!, y],
-          ...(endsHooked[1]!.leg ? [[ends[1]! - ends[0]!, y + upLeg] as [number, number]] : []),
-        ], mandrel: mandrel(bars.dia), dia: bars.dia },
-        runs: [{ face: 'bottom', from: ends[0]!, to: ends[1]! }], panels: [p.key], reach: [],
-      });
-      if (!bendable(p, d) || inner.length) { straight(mesh, 'span'); continue; }
+      const cuts = [...new Set([lo(p.rect, a), hi(p.rect, a), ...(['lo', 'hi'] as const).flatMap((end) => edgeSupports(p, d, end).flatMap((s) => [s.from, s.to]))]
+        .filter((u) => u >= lo(p.rect, a) - 1e-9 && u <= hi(p.rect, a) + 1e-9).map((u) => Math.round(u * 1e6) / 1e6))].sort((u, v) => u - v);
+      const bands = cuts.slice(1).map((u, i) => ({ from: cuts[i]!, to: u })).filter((b) => b.to - b.from > TOL);
+      const straight = (bars: MeshBars, kind: PackageKind, band: { from: number; to: number }) => {
+        const endsHooked = endsOver(band.from, band.to), ends = endsHooked.map((e) => e.x);
+        add({
+          layer: 'bottom', dir: d, kind, bars, from: ends[0]!, to: ends[1]!, band,
+          shape: { pts: [
+            ...(endsHooked[0]!.leg ? [[0, y + upLeg] as [number, number]] : []),
+            [0, y], [ends[1]! - ends[0]!, y],
+            ...(endsHooked[1]!.leg ? [[ends[1]! - ends[0]!, y + upLeg] as [number, number]] : []),
+          ], mandrel: mandrel(bars.dia), dia: bars.dia },
+          runs: [{ face: 'bottom', from: ends[0]!, to: ends[1]! }], panels: [p.key], reach: [],
+        });
+      };
+      if (!bendable(p, d) || inner.length) { for (const b of bands) straight(mesh, 'span', b); continue; }
+      const band = { from: lo(p.rect, a), to: hi(p.rect, a) };
       const half2 = { dia: mesh.dia, spacing: mesh.spacing * 2 };
-      straight(half2, 'span');
+      straight(half2, 'span', band);
       bentIn.set(`${p.key}|${d}`, half2);
       const [sLo, sHi] = [edgeSupports(p, d, 'lo')[0]!, edgeSupports(p, d, 'hi')[0]!];
       const faceLo = sLo.at + sLo.half, faceHi = sHi.at - sHi.half, ln = faceHi - faceLo;
@@ -371,6 +402,11 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       const fit = sides.map((p) => p.row.adopted[face(s.dir, 'top')]).filter((m) => m.dia > 0 && meshArea(m) >= req - 1e-6 && m.spacing <= sMax + 1e-6)
         .sort((m, n) => meshArea(m) - meshArea(n))[0];
       bars = fit ?? proposeMesh(req, sMax, c.diameters);
+      const room = 2 * s.half - c.cover;
+      if ((!s.below || !s.above) && s.half > 0 && ldh(bars.dia) > room + 1e-9) {
+        const hooks = c.diameters.filter((x) => ldh(x) <= room + 1e-9);
+        if (hooks.length) bars = proposeMesh(Math.max(req, 1e-3), sMax, hooks);
+      }
     }
     const strips: Array<{ from: number; to: number; frac: number }> = [];
     if (s.kind === 'columns') {
@@ -403,6 +439,38 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
         runs: [{ face: 'top', from: x0, to: x1 }], panels: sides.map((p) => p.key),
         reach: [...(e0.edge ? [] : [{ at: s.at - s.half, length: e0.reach, needed: e0.needed }]), ...(e1.edge ? [] : [{ at: s.at + s.half, length: e1.reach, needed: e1.needed }])],
         ...(anchor ? { anchor } : {}),
+      });
+    }
+  }
+
+  /** Each panel's top moments away from its supports: the bars there must carry them, and a top mesh over the panel is laid where they do not. */
+  const fieldNeeds = (p: Panel, d: PlanDir) => {
+    const f = face(d, 'top'), mMax = p.row.demand.m[f].value, req = p.row.faces[f].asReq;
+    if (!(mMax > 1e-9) || !(req > 1e-9)) return [];
+    const r = p.rect;
+    return (p.row.demand.topField ?? []).filter((s) => s.x >= r.x0 - 1e-9 && s.x <= r.x1 + 1e-9 && s.y >= r.y0 - 1e-9 && s.y <= r.y1 + 1e-9 && (d === 'x' ? s.topX : s.topY) > 1e-6)
+      .map((s) => ({ along: d === 'x' ? s.x : s.y, across: d === 'x' ? s.y : s.x, required: (req * (d === 'x' ? s.topX : s.topY)) / mMax }));
+  };
+  const fieldChecks = (p: Panel, d: PlanDir) => fieldNeeds(p, d).map((n) => stripCheck(packages, 'top', d, n.along, n.across, p.name, n.required, p.row.faces[face(d, 'top')].sMax));
+  for (const d of ['x', 'y'] as const) {
+    const a = other(d);
+    for (const p of panels) {
+      const short = fieldChecks(p, d).filter((x) => !x.ok);
+      if (!short.length) continue;
+      const need = Math.max(...short.map((x) => x.required)), sMax = p.row.faces[face(d, 'top')].sMax;
+      const own = p.row.adopted[face(d, 'top')];
+      const bars = own.dia > 0 && own.spacing > 0 && meshArea(own) >= need - 1e-6 && own.spacing <= sMax + 1e-6 ? own : proposeMesh(need, sMax, c.diameters);
+      const endAt = (end: 'lo' | 'hi') => {
+        const at = end === 'lo' ? lo(p.rect, d) : hi(p.rect, d), sign = end === 'lo' ? -1 : 1;
+        const half = Math.max(0, ...edgeSupports(p, d, end).filter((s) => s.kind !== 'free').map((s) => s.half));
+        return half > 0 ? at + sign * (half - c.cover) : at - sign * c.cover;
+      };
+      const x0 = endAt('lo'), x1 = endAt('hi');
+      const yt = yTop(p.h, d, bars.dia, Math.max(p.row.adopted.topX.dia, bars.dia)), leg = legDown(p.h, bars.dia);
+      add({
+        layer: 'top', dir: d, kind: 'span', bars, from: x0, to: x1, band: { from: lo(p.rect, a), to: hi(p.rect, a) },
+        shape: { pts: [[0, yt - leg], [0, yt], [x1 - x0, yt], [x1 - x0, yt - leg]], mandrel: mandrel(bars.dia), dia: bars.dia },
+        runs: [{ face: 'top', from: x0, to: x1 }], panels: [p.key], reach: [],
       });
     }
   }
@@ -445,12 +513,16 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     const worst = samples.map((v) => stripCheck(packages, 'top', s.dir, along, v, s.id, req, sMax)).sort((p, q) => p.provided - q.provided)[0]!;
     checks.push(worst);
   }
+  for (const d of ['x', 'y'] as const) for (const p of panels) {
+    const worst = fieldChecks(p, d).sort((u, v) => u.provided / Math.max(u.required, 1e-9) - v.provided / Math.max(v.required, 1e-9))[0];
+    if (worst) checks.push(worst);
+  }
   for (const x of cornerSamples) checks.push({ ...stripCheck(packages, x.layer, x.dir, x.along, x.across, x.where, x.required, x.sMax), kind: 'corner' });
   for (const x of integrity) checks.push({ layer: 'bottom', dir: x.dir, where: `(${x.x.toFixed(2)}; ${x.y.toFixed(2)})`, required: x.required, provided: x.bars, spacing: 0, sMax: 0, ok: x.bars >= x.required, kind: 'integrity' });
   const usedDias = [...new Set(packages.map((pk) => pk.bars.dia))].sort((p, q) => p - q);
   const closest = (dia: number) => Math.min(...packages.filter((pk) => pk.bars.dia === dia).map((pk) => pk.bars.spacing));
   const anchorage = usedDias.map((dia) => ({ dia, ld: ld(dia, false, hMin, closest(dia)), ldTop: ld(dia, true, hMin, closest(dia)), ldh: ldh(dia), lap: lap(dia, true, hMin, closest(dia)) }));
-  const ok = checks.every((x) => x.ok) && packages.every((pk) => pk.reach.every((r) => r.length >= r.needed - 1e-6));
+  const ok = checks.every((x) => x.ok) && packages.every((pk) => pk.reach.every((r) => r.length >= r.needed - 1e-6) && (!pk.anchor || pk.anchor.ok));
   return {
     level, panels: panels.map((p) => ({ key: p.key, name: p.name, rect: p.rect, h: p.h, status: p.row.status })), beams: geom.beams, columns: geom.columns,
     supports, packages, ...(uniform ? { baseMesh: bottomMeshes[0] } : {}), checks, anchorage, cantilevers, integrity, bent: c.bent, rules: { reach: code.topReach, clause: code.clause, bendAt: code.bendAt, ...(code.corners ? { corners: code.corners } : {}), ...(code.integrity ? { integrity: code.integrity } : {}) }, ok,

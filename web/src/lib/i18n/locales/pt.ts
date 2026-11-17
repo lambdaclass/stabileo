@@ -13502,6 +13502,7 @@ const pt: Translations = {
   "rcSheets.v.colLapFit": "Emenda das barras do andar de baixo dentro do espaço que a norma lhe dá",
   "rcSheets.v.axialOnly": "Esforço normal onde não há momento",
   "rcSheets.v.everyCombo": "Cada combinação com o adotado",
+  "detailing.schedule.spliceNote": "A marca {mark} ({length} m) excede a barra comercial de {stock} m e requer emenda.",
   "rcSheets.v.lineEndAnchor": "Gancho dentro do pilar de extremidade",
   "rcSheets.v.lineSplices": "Emendas das barras corridas (barras de 12 m)",
   "rcSheets.v.lineIntegrity": "Integridade de viga de borda: armadura corrida em cima e embaixo",

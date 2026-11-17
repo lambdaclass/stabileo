@@ -946,10 +946,11 @@ export function scheduleToAoa(s: ScheduleTable, title: TitleBlock, locale = 'es'
   for (const d of s.byDiameter) {
     out.push([d.diameterMm, d.quantity, +d.massKg.toFixed(1), d.stockBars]);
   }
-  if (s.notes.length > 0) {
+  if (s.notes.length > 0 || s.spliced.length > 0) {
     out.push([]);
     out.push([h('notes')]);
     for (const n of s.notes) out.push([n]);
+    for (const x of s.spliced) out.push([tAt('detailing.schedule.spliceNote', locale).replace('{mark}', x.mark).replace('{length}', x.length.toFixed(2)).replace('{stock}', String(x.stock))]);
   }
   return out;
 }

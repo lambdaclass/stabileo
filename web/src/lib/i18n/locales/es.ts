@@ -13849,6 +13849,7 @@ const es: Record<string, string> = {
   "rcSheets.v.colLapFit": "Empalme de las barras del piso de abajo dentro del lugar que le da el reglamento",
   "rcSheets.v.axialOnly": "Esfuerzo axil donde no hay momento",
   "rcSheets.v.everyCombo": "Cada combinación con lo adoptado",
+  "detailing.schedule.spliceNote": "La marca {mark} ({length} m) excede la barra comercial de {stock} m y requiere empalme.",
   "rcSheets.v.lineEndAnchor": "Gancho dentro de la columna extrema",
   "rcSheets.v.lineSplices": "Empalmes de las barras corridas (barras de 12 m)",
   "rcSheets.v.lineIntegrity": "Integridad de viga perimetral: armadura corrida arriba y abajo",

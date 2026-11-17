@@ -17,6 +17,8 @@ export interface StockMark<R = string, P = string> {
   purpose?: P;
   ownerElementIds?: number[];
   zoneIds?: string[];
+  /** The pieces one bar of the mark is cut into where it is lapped by design; absent, as many stock bars as its length takes. */
+  pieces?: number;
 }
 
 export interface StockRow<R = string, P = string> {
@@ -55,6 +57,8 @@ export interface StockTable<R = string, P = string> {
   /** Per-diameter subtotals, for ordering. */
   byDiameter: Array<{ diameterMm: number; quantity: number; massKg: number; stockBars: number }>;
   notes: string[];
+  /** The marks longer than a stock bar, spliced: what a schedule says of each, translated where it is shown. */
+  spliced: Array<{ mark: string; length: number; stock: number }>;
 }
 
 /**
@@ -72,17 +76,15 @@ export function buildSchedule<R = string, P = string>(
 ): StockTable<R, P> {
   const rows: Array<StockRow<R, P>> = [];
   const notes = [...extraNotes];
+  const spliced: StockTable<R, P>['spliced'] = [];
 
   for (const m of marks) {
-    const perStock = m.cuttingLength > stockLength ? 0 : Math.max(1, Math.floor(stockLength / m.cuttingLength));
-    const perMark = Math.ceil(m.cuttingLength / stockLength - 1e-9);
-    const stockBars = perStock === 0 ? m.quantity * perMark : Math.ceil(m.quantity / perStock);
-    const offcut = perStock === 0 ? stockLength - m.cuttingLength / perMark : stockLength - perStock * m.cuttingLength;
-    if (perStock === 0) {
-      notes.push(
-        `La marca ${m.mark} (${m.cuttingLength.toFixed(2)} m) excede la barra comercial de ` +
-        `${stockLength} m y requiere empalme.`);
-    }
+    const long = m.cuttingLength > stockLength + 1e-9;
+    const perStock = long ? 0 : Math.max(1, Math.floor(stockLength / m.cuttingLength + 1e-9));
+    const perMark = Math.max(m.pieces ?? 1, Math.ceil(m.cuttingLength / stockLength - 1e-9));
+    const stockBars = long ? m.quantity * perMark : Math.ceil(m.quantity / perStock);
+    const offcut = Math.max(0, stockBars * stockLength - m.quantity * m.cuttingLength);
+    if (long) spliced.push({ mark: m.mark, length: m.cuttingLength, stock: stockLength });
     rows.push({
       mark: m.mark, diameterMm: m.diameterMm, shape: m.shape, quantity: m.quantity,
       role: m.role, purpose: m.purpose,
@@ -91,7 +93,7 @@ export function buildSchedule<R = string, P = string>(
       totalLengthM: m.cuttingLength * m.quantity,
       massKg: m.massKg,
       stockBars,
-      offcutM: offcut * stockBars,
+      offcutM: offcut,
     });
   }
 
@@ -115,5 +117,6 @@ export function buildSchedule<R = string, P = string>(
       .map(([diameterMm, g]) => ({ diameterMm, ...g }))
       .sort((a, b) => a.diameterMm - b.diameterMm),
     notes,
+    spliced,
   };
 }

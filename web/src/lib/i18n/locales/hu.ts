@@ -15031,6 +15031,7 @@ const hu: Translations = {
   "rcSheets.v.colLapFit": "Az alsó szintről érkező vasak toldása a szabvány által adott helyen belül",
   "rcSheets.v.axialOnly": "Normálerő ott, ahol nincs nyomaték",
   "rcSheets.v.everyCombo": "Minden kombináció a választott vasalással",
+  "detailing.schedule.spliceNote": "A(z) {mark} jelű vas ({length} m) hosszabb a {stock} m-es kereskedelmi szálnál, toldás kell.",
   "rcSheets.v.lineSplices": "A végigfutó vasak toldásai (12 m-es vasak)",
   "rcSheets.g.lineMethod": "A folytatólagos gerenda vasalása",
   "rcSheets.g.anchorage": "Lehorgonyzás és toldások",

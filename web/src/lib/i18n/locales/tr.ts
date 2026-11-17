@@ -13700,6 +13700,7 @@ const tr: Translations = {
   "rcSheets.v.colLapFit": "Alt kattan gelen donatıların bindirmesi yönetmeliğin tanıdığı bölge içinde",
   "rcSheets.v.axialOnly": "Momentin olmadığı yerde eksenel kuvvet",
   "rcSheets.v.everyCombo": "Seçilen donatıyla her kombinasyon",
+  "detailing.schedule.spliceNote": "{mark} işaretli donatı ({length} m) {stock} m'lik ticari boydan uzun ve bindirme gerektirir.",
   "rcSheets.v.lineEndAnchor": "Uç kolon içinde kanca",
   "rcSheets.v.lineSplices": "Sürekli çubuk bindirmeleri (12 m çubuk)",
   "rcSheets.v.lineIntegrity": "Kenar kirişi bütünlüğü: üstte ve altta sürekli çubuklar",

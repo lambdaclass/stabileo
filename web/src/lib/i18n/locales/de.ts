@@ -13700,6 +13700,7 @@ const de: Translations = {
   "rcSheets.v.colLapFit": "Übergreifung der Stäbe aus dem Geschoss darunter im Bereich, den die Norm dafür vorsieht",
   "rcSheets.v.axialOnly": "Normalkraft, wo kein Moment wirkt",
   "rcSheets.v.everyCombo": "Jede Kombination mit der gewählten Bewehrung",
+  "detailing.schedule.spliceNote": "Position {mark} ({length} m) ist länger als der Handelsstab von {stock} m und braucht einen Stoß.",
   "rcSheets.v.lineEndAnchor": "Haken innerhalb der Endstütze",
   "rcSheets.v.lineSplices": "Stöße der durchlaufenden Stäbe (12-m-Stäbe)",
   "rcSheets.v.lineIntegrity": "Integrität des Randbalkens: durchlaufende Stäbe oben und unten",

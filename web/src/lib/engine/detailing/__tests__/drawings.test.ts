@@ -360,14 +360,16 @@ describe('bar bending schedule', () => {
 
   it('computes offcut where the cut does not divide the stock', () => {
     const s = buildSchedule(assignMarks([straight('a', -0.25, 5, 20)]));
-    // One 5 m bar: 2 per stock, 2 m waste on the single stock bar used.
+    // One 5 m bar cut from one 12 m stock bar: 7 m of it left.
     expect(s.rows[0].stockBars).toBe(1);
-    expect(s.rows[0].offcutM).toBeCloseTo(2, 6);
+    expect(s.rows[0].offcutM).toBeCloseTo(7, 6);
   });
 
   it('flags a mark longer than the stock length as needing a splice', () => {
     const s = buildSchedule(assignMarks([straight('a', -0.25, 14, 20)]));
-    expect(s.notes.join(' ')).toMatch(/excede la barra comercial/);
+    expect(s.spliced).toHaveLength(1);
+    expect(s.spliced[0]!.stock).toBe(12);
+    expect(s.spliced[0]!.length).toBeGreaterThan(12);
   });
 
   it('totals across all marks', () => {
