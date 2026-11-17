@@ -524,3 +524,71 @@ fn combinations_3d_screen_repeated_case_once() {
         });
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_preserve_distorted_quad_under_repeated_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        assert_eq!(results.quad_stresses.len(), 1);
+        assert!(results.displacements.iter().any(|d| d.uz != 0.0));
+        assert!(results.reactions.iter().any(|r| r.fz != 0.0));
+        assert!(results.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")));
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let case_refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &case_refs),
+                combine_results_3d_refs_with_thickness(&factors, &case_refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        let big = 2.0_f64.powi(54);
+        let below = 1.0 - f64::EPSILON / 2.0;
+        let above = 1.0 + f64::EPSILON;
+        let cancellation: &[&[f64]] = &[&[big, 1.0, -big], &[f64::MAX, f64::MAX, 1.0, -f64::MAX, -f64::MAX]];
+        for weights in cancellation {
+            for (actual, control) in combine(weights).into_iter().zip(combine(&[1.0])) {
+                let actual = actual.unwrap().unwrap();
+                let control = control.unwrap().unwrap();
+                assert_eq!(serde_json::to_value(actual).unwrap(), serde_json::to_value(control).unwrap());
+            }
+        }
+        for (actual, control) in combine(&[big, below, -big]).into_iter().zip(combine(&[below])) {
+            assert_eq!(serde_json::to_value(actual.unwrap()).unwrap(), serde_json::to_value(control.unwrap()).unwrap());
+        }
+        for refused in combine(&[big, above, -big]) {
+            assert!(refused.unwrap_err().contains("SH-MITC4-DISTORTION"));
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_preserve_2d_response_under_repeated_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        assert!(results.displacements.iter().any(|d| d.ux != 0.0));
+        assert!(results.reactions.iter().any(|r| r.rz != 0.0));
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 1, results: results.clone() }] };
+            [
+                combine_results_checked(&input).unwrap().unwrap(),
+                combine_results(&input).unwrap(),
+                combine_results_refs(&input.factors, &[(1, &results)]).unwrap(),
+            ]
+        };
+        let big = 2.0_f64.powi(54);
+        for (actual, control) in combine(&[big, 1.0, -big]).into_iter().zip(combine(&[1.0])) {
+            assert_eq!(serde_json::to_value(actual).unwrap(), serde_json::to_value(control).unwrap());
+        }
+    }
+}

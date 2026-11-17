@@ -3,9 +3,10 @@ import * as native from '../../wasm/dedaliano_engine.js';
 import { initSolver } from '../wasm-solver';
 import { finishSolve3D } from '../solve-finish';
 import { nonlinearWorkerReply, nonlinearWorkerSession } from '../nonlinear-worker-session';
-import { destroyPool, initPool, setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
-import { solveCombinations3D, solveCombinations3DParallel, validateAndSolve3DAsync, type ModelData } from '../solver-service';
+import { destroyPool, initPool, nonlinearSessionInWorker, setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
+import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve3DAsync, type ModelData } from '../solver-service';
 import { modelStore, uiStore } from '../../store';
+import { solveNonlinear3DAsync, type NonlinearStep } from '../member-behaviour';
 
 let steps: string[], freed: number;
 class FakeWorker implements WorkerLike {
@@ -319,4 +320,51 @@ it('retires a worker after failed native cleanup and preserves its original refu
   expect(await modelStore.solveCombinations3DParallel(false, false, true)).toContain('primary refusal');
   expect(free).toHaveBeenCalledOnce();
   expect(output(await modelStore.solveCombinations3DParallel(false, false, true))).toBe(output(modelStore.solveCombinations3D(false, false, true)));
+});
+
+it.skip.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s worker payloads before JSON serialization (#2283)', async (fixture, kind) => {
+  beam(fixture);
+  const model = md();
+  const input = buildSolverInput3D(model)!;
+  input.loads = input.loads.filter(load => load.type === 'nodal' && load.data.fz < 0);
+  const session = await nonlinearSessionInWorker();
+  const steps: NonlinearStep[] = [];
+  try {
+    const valid = await solveNonlinear3DAsync(model, input, step => {
+      steps.push(step);
+      return session.solve(step);
+    });
+    expect(valid.results.displacements.some(row => row.uz !== 0)).toBe(true);
+    const step = steps.find(candidate => candidate.kind === kind);
+    if (!step || step.kind === 'linear') throw new Error(`Expected a ${kind} solve step`);
+    const [supportId, support] = [...step.input.supports].find(([, support]) => !support.rx)!;
+    const withStiffness = (kx: number) => ({
+      ...step,
+      input: { ...step.input, supports: new Map(step.input.supports).set(supportId, { ...support, kx }) },
+    } as typeof step);
+    const control = await session.solve(step);
+    expect(output(await session.solve(withStiffness(0)))).toBe(output(control));
+    const nativeSolve = vi.spyOn(native, kind === 'cable' ? 'solve_cable_3d' : 'solve_ssi_3d');
+    for (const invalid of [NaN, Infinity, -Infinity]) {
+      await expect(session.solve(withStiffness(invalid))).rejects.toThrow(
+        `Non-finite number (${invalid}) at input.solver.supports.${supportId}.kx`,
+      );
+    }
+    if (step.kind === 'cable') {
+      const elementId = Object.keys(step.pretension)[0]!;
+      const materialId = [...step.input.materials.keys()][0]!;
+      await expect(session.solve({ ...step, densities: { [materialId]: Infinity } }))
+        .rejects.toThrow(`Non-finite number (Infinity) at input.densities.${materialId}`);
+      await expect(session.solve({ ...step, pretension: { ...step.pretension, [elementId]: NaN } }))
+        .rejects.toThrow(`Non-finite number (NaN) at input.pretension.${elementId}`);
+    } else {
+      const soilSprings = [{ ...step.soilSprings[0] as object, tributaryLength: -Infinity }, ...step.soilSprings.slice(1)];
+      await expect(session.solve({ ...step, soilSprings }))
+        .rejects.toThrow('Non-finite number (-Infinity) at input.soilSprings[0].tributaryLength');
+    }
+    expect(nativeSolve).not.toHaveBeenCalled();
+    expect(output(await session.solve(step))).toBe(output(control));
+  } finally {
+    await session.free();
+  }
 });

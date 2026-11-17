@@ -372,3 +372,36 @@ it('preserves warning diagnostics in both combinations and envelope', () => {
   expect(combineResultsEnvelope3D(factors, perCase, new Map()))
     .toEqual({ combinations: batch, envelope: computeEnvelope3D(batch.filter(r => r !== null)) });
 });
+
+it.skip.each(Object.entries(combinationPaths3D))('preserves a distorted quad after repeated case cancellation via %s (#2283)', (path, combine) => {
+  const model = readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8');
+  const linear = solve_3d(JSON.parse(model));
+  const nonlinear = JSON.parse(solve_pdelta_3d(model, 20, 1e-9)).results;
+  const big = 2 ** 54;
+  const below = 1 - Number.EPSILON / 2;
+  const above = 1 + Number.EPSILON;
+  for (const result of [linear, nonlinear]) {
+    expect(result.quadStresses).toHaveLength(1);
+    expect(result.displacements.some((row: { uz: number }) => row.uz !== 0)).toBe(true);
+    expect(result.reactions.some((row: { fz: number }) => row.fz !== 0)).toBe(true);
+    expect(result.structuredDiagnostics).toContainEqual(expect.objectContaining({ phase: 'SH-MITC4-DISTORTION', severity: 'warning' }));
+    const perCase = new Map([[1, result]]);
+    const run = (weights: number[]) => combine(splitFactors(weights), perCase);
+    expect(run([big, 1, -big]), path).toStrictEqual(run([1]));
+    expect(run([big, below, -big]), path).toStrictEqual(run([below]));
+    expect(() => run([big, above, -big]), path).toThrow(/SH-MITC4-DISTORTION/);
+  }
+});
+
+it.skip('preserves 2D results after repeated case cancellation in the wrapper and export (#2283)', () => {
+  const model = portalInput('2d');
+  const big = 2 ** 54;
+  for (const result of [solve_2d(JSON.parse(model)), JSON.parse(solve_pdelta_2d(model, 20, 1e-9)).results]) {
+    expect(result.displacements.some((row: { ux: number }) => row.ux !== 0)).toBe(true);
+    expect(result.reactions.some((row: { rz: number }) => row.rz !== 0)).toBe(true);
+    const perCase = new Map([[1, result]]);
+    const raw = (weights: number[]) => combine_results_2d({ factors: splitFactors(weights), cases: [{ caseId: 1, results: result }] });
+    expect(raw([big, 1, -big])).toStrictEqual(raw([1]));
+    expect(combineResults(splitFactors([big, 1, -big]), perCase)).toStrictEqual(combineResults(splitFactors([1]), perCase));
+  }
+});

@@ -4,7 +4,8 @@ import * as solver from '../wasm-solver';
 import * as pool from '../solver-pool';
 import { solve_3d } from '../../wasm/dedaliano_engine.js';
 import { finishSolve3D } from '../solve-finish';
-import { solveCombinations3DParallel } from '../solver-service';
+import { certifiableMultiCaseOf, solveCombinations3D, solveCombinations3DParallel } from '../solver-service';
+import { readFileSync } from 'node:fs';
 import { compareSolveResults } from '../../../../scripts/solve-benchmark-comparison';
 
 beforeAll(solver.initSolver);
@@ -68,3 +69,40 @@ it('keeps shell recovery on the separate combination and envelope path', async (
   expect(parallel && typeof parallel === 'object').toBe(true);
   compareSolveResults(parallel, modelStore.solveCombinations3D(true, false, true));
 });
+
+it.skip.each([['sequential', solveCombinations3D], ['parallel', solveCombinations3DParallel]] as const)(
+  'preserves distorted-shell combination, envelope and certificate inputs after cancellation in the %s service (#2283)',
+  async (_name, solve) => {
+    const shell = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8'));
+    const nodes = new Map<number, number>();
+    for (const { id, x, y, z } of Object.values(shell.nodes) as Array<{ id: number; x: number; y: number; z: number }>) {
+      nodes.set(id, modelStore.addNode(x, y, z));
+    }
+    const { e, nu } = shell.materials[1];
+    const material = modelStore.addMaterial({ name: 'Single quad fixture', e, nu, rho: 0 });
+    const quad = shell.quads[1];
+    modelStore.addQuad(quad.nodes.map((id: number) => nodes.get(id)!), material, quad.thickness);
+    for (const { nodeId } of Object.values(shell.supports) as Array<{ nodeId: number }>) {
+      modelStore.addSupport(nodes.get(nodeId)!, 'fixed3d');
+    }
+    const cases = modelStore.model.loadCases.slice(0, 1);
+    const caseId = cases[0]!.id;
+    for (const { data: { nodeId, fx, fy, fz, mx, my, mz } } of shell.loads) {
+      modelStore.addNodalLoad3D(nodes.get(nodeId)!, fx, fy, fz, mx, my, mz, caseId);
+    }
+    const run = async (weights: number[]) => {
+      const solved = await solve(modelStore.model, cases, [{ id: 1, name: 'Identity', factors: weights.map(factor => ({ caseId, factor })) }]);
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      const combination = solved.perCombo.get(1)!;
+      expect(combination.structuredDiagnostics).toContainEqual(expect.objectContaining({ phase: 'SH-MITC4-DISTORTION' }));
+      const certificate = certifiableMultiCaseOf(solved.perCase, solved.perCombo);
+      expect(certificate?.input.wire().combinations[0].factors).toEqual({ [`case#${caseId}`]: 1 });
+      return { combination, envelope: solved.envelope };
+    };
+    const reference = await run([1]);
+    expect(reference.combination.displacements.some(row => row.uz !== 0)).toBe(true);
+    expect(reference.combination.quadStresses?.some(row => row.mx !== 0)).toBe(true);
+    const big = 2 ** 54;
+    expect(await run([big, 1, -big])).toStrictEqual(reference);
+  },
+);

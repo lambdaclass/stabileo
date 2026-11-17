@@ -205,3 +205,18 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
     expect(r).toBe('Cannot combine results: missing result for load case 99');
   });
 });
+
+it.skip.each([false, true])('preserves the planar combination after case cancellation (per-case fallback: %s) (#2283)', async fallback => {
+  await initSolver();
+  const model = beamModel();
+  const active = fallback ? [cases[0], { ...cases[1], name: cases[0].name }] : cases;
+  const run = (weights: number[]) => {
+    const bundle = solveCombinations2D(model, active, [{ ...combos[0], factors: weights.map(factor => ({ caseId: 1, factor })) }]);
+    if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+    return bundle.perCombo.get(combos[0].id)!;
+  };
+  const reference = run([1]);
+  expect(reference.displacements.some(row => row.uz !== 0)).toBe(true);
+  const big = 2 ** 54;
+  expect(run([big, 1, -big])).toStrictEqual(reference);
+});
