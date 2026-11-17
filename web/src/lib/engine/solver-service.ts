@@ -1,6 +1,7 @@
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
+import { plainDeepCopy } from '../utils/plain-deep-copy';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
@@ -15,12 +16,13 @@ import { localizeEngineText } from '../i18n/engine-text';
 import { errorText } from '../utils/error-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
-import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
+import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, solveNonlinear3DAsync, withZeroRows } from './member-behaviour';
 import { amplification } from './pdelta-amplification';
+import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -49,7 +51,7 @@ import { pointToSolver, pointToEnds, PointLoadNeedsCut, planePointLoad3D, pointW
 import { prestressToSolver } from './prestress';
 import { hasCaseDisplacements, imposedOf, imposedUnsupported, supportsWithImposed, casesWithDisplacements } from './case-displacements';
 import { constraintsTo2D } from './constraint-2d-remap';
-import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError } from './solver-pool';
+import { initPool, isPoolReady, solveParallel, solve2DInWorker, solve3DInWorker, PoolUnavailableError, nonlinearSessionInWorker, checkSolveCancelled, type NonlinearSolveOptions } from './solver-pool';
 import { i18n, t, tp } from '../i18n';
 // Counts app-side structural-solve dispatches so browser tests can assert that a
 // reinforcement-only edit triggers none. Not part of the solver.
@@ -118,6 +120,12 @@ export interface ModelData {
   analysis?: import('./analysis-settings').AnalysisSettings;
   /** Named groups, for a self-weight load that covers a group. */
   groups?: Map<number, { id: number; members: { elements?: number[]; plates?: number[]; quads?: number[] } }>;
+}
+
+function snapshotNonlinearModel(model: ModelData): ModelData {
+  return Object.fromEntries(Object.entries(model).map(([key, value]) => [key,
+    value instanceof Map ? new Map([...value].map(([id, row]) => [id, plainDeepCopy(row)])) : plainDeepCopy(value),
+  ])) as unknown as ModelData;
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -2296,7 +2304,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return nonlinear ? finalResults : certifiable(finalResults, '3d', () => input3DToWireObject(input));
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
   }
 }
 
@@ -2306,10 +2314,28 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
  * main-thread solver when Workers are unavailable. Same result shape and
  * string-error semantics as validateAndSolve3D.
  */
-export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeight = false, leftHand = false): Promise<AnalysisResults3D | string | null> {
-  if (hasNonlinearBehaviour(model)) return validateAndSolve3D(model, includeSelfWeight, leftHand);
+export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeight = false, leftHand = false, options: NonlinearSolveOptions = {}): Promise<AnalysisResults3D | string | null> {
+  checkSolveCancelled(options);
+  if (hasNonlinearBehaviour(model)) model = snapshotNonlinearModel(model);
   const input = prepareSolve3D(model, includeSelfWeight, leftHand);
   if (input === null || typeof input === 'string') return input;
+
+  if (hasNonlinearBehaviour(model)) {
+    let session;
+    try { session = await nonlinearSessionInWorker(options); }
+    catch (err) {
+      if (!(err instanceof PoolUnavailableError)) throw err;
+    }
+    try {
+      const active = solvableModel(model);
+      const r = session ? await solveNonlinear3DAsync(active, input, session.solve) : solveNonlinear3D(active, input);
+      const results = { ...r.results, nonlinear: r.report };
+      return excitedMechanism3D(results) ?? finalizeSolve3DResults(results, model);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw err;
+      return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
+    } finally { await session?.free(); }
+  }
 
   const wire = input3DToWireObject(input);
   const cacheKey = `3d:${JSON.stringify(wire)}`;
@@ -2338,7 +2364,7 @@ export async function validateAndSolve3DAsync(model: ModelData, includeSelfWeigh
     return finalResults;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
   }
 }
 
@@ -2712,13 +2738,49 @@ function solveCombinations3DFallback(
  * solved without it, and it goes into each combination once, solved with the combination under
  * `solveEach` and as its own case under `superpose`.
  */
-function solveCombinations3DNonlinear(
+function solveCombinations3DNonlinear(...args: Parameters<typeof nonlinearCombinationSteps>): Bundle3D | string | null {
+  const steps = nonlinearCombinationSteps(...args);
+  return finishNonlinearCombinations(steps, args[0], steps.next());
+}
+
+function finishNonlinearCombinations(steps: ReturnType<typeof nonlinearCombinationSteps>, model: ModelData, first: ReturnType<typeof steps.next>): Bundle3D | string | null {
+  const repeated = repeatedSolve3D();
+  try {
+    let next = first;
+    while (!next.done) next = steps.next(solveNonlinear3D(model, next.value, repeated.solve));
+    return next.value;
+  } catch (err: any) {
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
+  } finally { repeated.free(); }
+}
+
+async function solveCombinations3DNonlinearAsync(args: Parameters<typeof nonlinearCombinationSteps>, options: NonlinearSolveOptions): Promise<Bundle3D | string | null> {
+  // Validate and prepare before allocating a worker, just as the synchronous entry does.
+  const steps = nonlinearCombinationSteps(...args);
+  let next = steps.next();
+  if (next.done) return next.value;
+  let session;
+  try { session = await nonlinearSessionInWorker(options); }
+  catch (err) {
+    if (!(err instanceof PoolUnavailableError)) throw err;
+    return finishNonlinearCombinations(steps, args[0], next);
+  }
+  try {
+    while (!next.done) next = steps.next(await solveNonlinear3DAsync(args[0], next.value, session.solve));
+    return next.value;
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw err;
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
+  } finally { await session.free(); }
+}
+
+function* nonlinearCombinationSteps(
   model: ModelData,
   loadCases: LoadCase[],
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+): Generator<SolverInput3D, Bundle3D | string | null, Awaited<ReturnType<typeof solveNonlinear3DAsync>>> {
   noteStructuralSolve();
   if (combinations.length === 0) return t('svc.needCombination');
   const method = model.analysis?.combinationMethod ?? 'solveEach';
@@ -2741,8 +2803,8 @@ function solveCombinations3DNonlinear(
     const b = buildSolveInput3D({ ...from, loads: imposedOf(model.loads, factorOf) }, [], leftHand);
     return b ?? t('svc.emptyModel');
   };
-  const run = (on: SolverInput3D, loads: SolverLoad3D[]): AnalysisResults3D => {
-    const r = solveNonlinear3D(model, { ...on, loads });
+  const run = function* (on: SolverInput3D, loads: SolverLoad3D[]): Generator<SolverInput3D, AnalysisResults3D, Awaited<ReturnType<typeof solveNonlinear3DAsync>>> {
+    const r = yield { ...on, loads };
     const results: AnalysisResults3D = { ...r.results, nonlinear: r.report };
     if (hasShells) postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
     return results;
@@ -2753,9 +2815,9 @@ function solveCombinations3DNonlinear(
       if (loads.length === 0 && !imposedCases.has(id)) continue;
       const on = withImposed(base, free, (c) => (c === id ? 1 : 0));
       if (typeof on === 'string') return on;
-      perCase.set(id, run(on, loads));
+      perCase.set(id, yield* run(on, loads));
     }
-    if (settled) perCase.set(SETTLEMENT_CASE_ID, run(baseSettled, []));
+    if (settled) perCase.set(SETTLEMENT_CASE_ID, yield* run(baseSettled, []));
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
       if (method === 'solveEach') {
@@ -2764,7 +2826,7 @@ function solveCombinations3DNonlinear(
         const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
         const on = withImposed(baseSettled, model, factorOf);
         if (typeof on === 'string') return on;
-        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, run(on, loads));
+        if (loads.length > 0 || settled || imposedHere) perCombo.set(combo.id, yield* run(on, loads));
         continue;
       }
       const factors = settled ? [...combo.factors, { caseId: SETTLEMENT_CASE_ID, factor: 1 }] : combo.factors;
@@ -2779,7 +2841,7 @@ function solveCombinations3DNonlinear(
     if (hasShells && method === 'superpose') enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations as never, model.plates ?? new Map());
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
-    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+    return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err?.message ?? String(err));
   }
 }
 
@@ -2941,9 +3003,15 @@ export async function solveCombinations3DParallel(
   includeSelfWeight = false,
   leftHand = false,
   spectral?: Map<number, AnalysisResults3D>,
+  options: NonlinearSolveOptions = {},
 ): Promise<Bundle3D | string | null> {
-  // The sequential entry's refusals, case effects and plan (`combinationsPlan3D`); only the linear
-  // core runs on the workers.
+  // Share refusals and finishing with the synchronous entry; native solves yield to workers.
+  checkSolveCancelled(options);
+  if (hasNonlinearBehaviour(model)) {
+    model = snapshotNonlinearModel(model);
+    loadCases = plainDeepCopy(loadCases);
+    combinations = plainDeepCopy(combinations);
+  }
   const refused = orphanLoadRefusal(model) ?? imposedRefusal(model);
   if (refused) return refused;
   model = withCaseEffects(model, loadCases, { includeSelfWeight, leftHand });
@@ -2951,8 +3019,15 @@ export async function solveCombinations3DParallel(
   const magnitude = magnitudeRefusal3D(model, combinations, loadCases);
   if (magnitude) return magnitude;
   try {
-    const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
+    const active = solvableModel(model);
+    let solved;
+    if (hasNonlinearBehaviour(active)) {
+      solved = await solveCombinations3DNonlinearAsync([active, solving, combinations, includeSelfWeight, leftHand], options);
+    } else {
+      const plan = combinationsPlan3D(active, solving, combinations, includeSelfWeight, leftHand);
+      solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, combinations, includeSelfWeight, leftHand));
+    }
+    checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
     const said = loadRefusal(err);
@@ -3030,20 +3105,15 @@ async function solveCombinations3DParallelCore(
 
     if (perCase.size === 0) return t('svc.noLoadsApplied');
 
-    // Combine results for each combination (fast, on main thread)
-    // TODO(perf): batch the combine+envelope into one WASM call. Not possible
-    // today without an engine change: combine_results_3d is per-combo (each
-    // call re-serializes the referenced per-case results) and
-    // solve_multi_case_3d would re-solve the cases the workers just solved.
-    // Needs an engine-side batch export (e.g. combine_multi_3d) first.
     const t1 = performance.now();
     const perCombo = new Map<number, AnalysisResults3D>();
-    for (const combo of combinations) {
-      const factors = combo.factors.map(f => ({
-        caseId: f.caseId,
-        factor: f.factor,
-      }));
-      const combined = combineResults3D(factors, perCase, model.plates ?? new Map());
+    const factors = combinations.map(combo => combo.factors.map(f => ({ caseId: f.caseId, factor: f.factor })));
+    const fused = !hasShells && new Set(combinations.map(combo => combo.id)).size === combinations.length
+      ? combineResultsEnvelope3D(factors, perCase, model.plates ?? new Map())
+      : null;
+    const combinedResults = fused?.combinations ?? combineResultsBatch3D(factors, perCase, model.plates ?? new Map());
+    for (const [index, combo] of combinations.entries()) {
+      const combined = combinedResults[index];
       if (combined) {
         if (hasShells) {
           postProcessShellStresses(combined, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
@@ -3052,9 +3122,7 @@ async function solveCombinations3DParallelCore(
       }
     }
 
-    // Compute envelope from all combo results
-    const allComboResults = Array.from(perCombo.values());
-    const envelope = computeEnvelope3D(allComboResults);
+    const envelope = fused ? fused.envelope : computeEnvelope3D([...perCombo.values()]);
     if (!envelope) return t('svc.envelopeError3d');
     if (hasShells) enrichComboShellStresses(perCase, perCombo, envelope.maxAbsResults3D, combinations, model.plates ?? new Map());
     /*

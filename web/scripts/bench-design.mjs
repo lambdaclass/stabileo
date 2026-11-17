@@ -27,6 +27,7 @@ const compareRustColumn = process.argv.includes('--compare-rust-column');
 const columns = process.argv.includes('--columns');
 const compareColumn = process.argv.includes('--compare-column');
 const numerical = process.argv.includes('--numerical');
+const solves = process.argv.includes('--solve');
 const stations = process.argv.includes('--stations');
 const compareStation = process.argv.includes('--compare-station');
 const queryKernels = process.argv.includes('--query-kernels');
@@ -40,7 +41,7 @@ const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
 let server, browser, watchdog;
 try {
-  const module = queryKernels ? 'collision-query-benchmark' : stations ? 'station-transfer-benchmark' : columns ? 'column-capacity-benchmark' : numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
+  const module = solves ? 'solve-benchmark' : queryKernels ? 'collision-query-benchmark' : stations ? 'station-transfer-benchmark' : columns ? 'column-capacity-benchmark' : numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
   await writeFile(entry, `<!doctype html><title>Design benchmark</title><script type="module">import { benchmark } from "/scripts/${module}.ts"; window.runBenchmark = benchmark;</script>`);
   await build({
     configFile: false, root, plugins: benchmarkPlugins(),
@@ -57,23 +58,37 @@ try {
     if (!address || typeof address === 'string') throw new Error('No benchmark server address');
     browser = await chromium.launch({ headless: true });
     watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-    const examples = process.argv.slice(2).filter(arg => !['--columns', '--compare-column', '--compare-rust-column', '--compare-repair', '--numerical', '--kernels', '--compare', '--stations', '--compare-station', '--query-kernels', '--compare-fused', '--reverse'].includes(arg));
+    const examples = process.argv.slice(2).filter(arg => !['--solve', '--columns', '--compare-column', '--compare-rust-column', '--compare-repair', '--numerical', '--kernels', '--compare', '--stations', '--compare-station', '--query-kernels', '--compare-fused', '--reverse'].includes(arg));
+    let profileIndex = 0;
     const run = async (kernel, columnCapacity = true, incremental = true, compactStations = true, fused = true, rustColumns = true) => {
       // Fresh pages give both backends the same store revision counters and JIT warmup.
       const page = await browser.newPage();
       page.on('crash', () => { console.error('Benchmark page crashed'); void browser.close(); });
       page.on('pageerror', error => console.error(error));
+      let profiler;
       try {
         await page.goto(`http://127.0.0.1:${address.port}/${basename(entry)}`);
         await page.waitForFunction(() => typeof window.runBenchmark === 'function');
+        if (process.env.BENCH_PROFILE) {
+          profiler = await page.context().newCDPSession(page);
+          await profiler.send('Profiler.enable');
+          await profiler.send('Profiler.start');
+        }
         return await page.evaluate(({ examples, capture, kernel, columnCapacity, incremental, compactStations, fused, rustColumns }) => window.runBenchmark(examples, capture, kernel, columnCapacity, incremental, compactStations, fused, rustColumns), {
           examples: examples.length ? examples : ['pro-edificio-7p', 'rc-design-qa-8', 'rc-design-qa-row2'],
           capture: compare || !!process.env.BENCH_OUTPUT, kernel, columnCapacity, incremental, compactStations, fused, rustColumns,
         });
-      } finally { await page.close(); }
+      } finally {
+        try {
+          if (profiler) {
+            const { profile } = await profiler.send('Profiler.stop');
+            await writeFile(`${process.env.BENCH_PROFILE}-${profileIndex++}.cpuprofile`, JSON.stringify(profile));
+          }
+        } finally { await page.close(); }
+      }
     };
     let result;
-    if (compare && !kernels && !numerical && !columns && !stations) {
+    if (compare && !solves && !kernels && !numerical && !columns && !stations) {
       const reference = () => run(compareColumn || compareRepair || compareStation || compareFused || compareRustColumn, !compareColumn, !compareRepair, !compareStation, !compareFused, !compareRustColumn);
       const first = await (reverse ? run(true) : reference());
       const second = await (reverse ? reference() : run(true));
