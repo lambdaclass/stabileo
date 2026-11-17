@@ -443,12 +443,12 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     }
   }
 
-  /** Each panel's top moments away from its supports: the bars there must carry them, and a top mesh over the panel is laid where they do not. */
+  /** Each panel's top moments wherever they crack it (past 0.62·√f'c·h²/6), the strength steel scaled to each (an upper bound: As grows faster than M): the bars there must carry them, and a top mesh over the panel is laid where they do not. */
   const fieldNeeds = (p: Panel, d: PlanDir) => {
-    const f = face(d, 'top'), mMax = p.row.demand.m[f].value, req = p.row.faces[f].asReq;
+    const f = face(d, 'top'), mMax = p.row.demand.m[f].value, req = p.row.faces[f].asStrength;
     if (!(mMax > 1e-9) || !(req > 1e-9)) return [];
-    const r = p.rect;
-    return (p.row.demand.topField ?? []).filter((s) => s.x >= r.x0 - 1e-9 && s.x <= r.x1 + 1e-9 && s.y >= r.y0 - 1e-9 && s.y <= r.y1 + 1e-9 && (d === 'x' ? s.topX : s.topY) > 1e-6)
+    const r = p.rect, mcr = (0.62 * Math.sqrt(c.mat.fc) * 1000 * p.h * p.h) / 6;
+    return (p.row.demand.topField ?? []).filter((s) => s.x >= r.x0 - 1e-9 && s.x <= r.x1 + 1e-9 && s.y >= r.y0 - 1e-9 && s.y <= r.y1 + 1e-9 && (d === 'x' ? s.topX : s.topY) > mcr)
       .map((s) => ({ along: d === 'x' ? s.x : s.y, across: d === 'x' ? s.y : s.x, required: (req * (d === 'x' ? s.topX : s.topY)) / mMax }));
   };
   const fieldChecks = (p: Panel, d: PlanDir) => fieldNeeds(p, d).map((n) => stripCheck(packages, 'top', d, n.along, n.across, p.name, n.required, p.row.faces[face(d, 'top')].sMax));
@@ -488,7 +488,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
 
   const bottomMeshes = panels.flatMap((p) => [p.row.adopted.bottomX, p.row.adopted.bottomY]);
   const uniform = !c.bent && bottomMeshes.length > 0 && bottomMeshes.every((m) => m.dia > 0 && m.dia === bottomMeshes[0]!.dia && Math.abs(m.spacing - bottomMeshes[0]!.spacing) < 1e-9);
-  if (uniform) for (const pk of packages) if (pk.kind === 'span') pk.base = true;
+  if (uniform) for (const pk of packages) if (pk.kind === 'span' && pk.layer === 'bottom') pk.base = true;
   const order: PackageKind[] = ['span', 'bent', 'integrity', 'support', 'edge', 'cantilever', 'corner'];
   packages.sort((p, q) => (p.layer === q.layer ? 0 : p.layer === 'bottom' ? -1 : 1) || order.indexOf(p.kind) - order.indexOf(q.kind) || (p.dir < q.dir ? -1 : p.dir > q.dir ? 1 : 0) || p.band.from - q.band.from || p.from - q.from);
   packages.forEach((pk, i) => { pk.id = `${pk.layer[0]}${pk.dir}${i + 1}`; pk.mark = String(i + 1); });

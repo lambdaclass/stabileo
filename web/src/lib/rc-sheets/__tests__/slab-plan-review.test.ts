@@ -45,13 +45,14 @@ describe('a level\'s slab plan', () => {
   });
 
   it('carries top bars over a panel\'s middle where the moments ask for them there', () => {
-    const field = [{ x: 2, y: 2.5, topX: 9, topY: 0 }];
-    const rows = [demand('A', 0, 4, 0, 5, [8, 5, 12, 6], { topField: field })].map((d) => rules.slabRow(d, ctx, undefined, f));
+    const field = [{ x: 2, y: 2.5, topX: 18, topY: 0 }, { x: 1, y: 1, topX: 5, topY: 0 }];
+    const rows = [demand('A', 0, 4, 0, 5, [8, 5, 20, 6], { topField: field })].map((d) => rules.slabRow(d, ctx, undefined, f));
     const p = slabPlan('N1', rows, { level: 'N1', beams: box(0, 4, 0, 5), columns: [] }, plan);
     const over = p.packages.filter((pk) => pk.layer === 'top' && pk.dir === 'x' && pk.runs.some((r) => r.face === 'top' && r.from < 2 && r.to > 2) && pk.band.from < 2.5 && pk.band.to > 2.5);
     expect(over.length).toBeGreaterThan(0);
     const mid = p.checks.find((c) => c.layer === 'top' && c.dir === 'x' && c.where === 'A')!;
     expect(mid.ok).toBe(true);
-    expect(mid.required).toBeCloseTo((9 / 12) * rows[0]!.faces.topX.asReq, 6);
+    expect(mid.required).toBeCloseTo((18 / 20) * rows[0]!.faces.topX.asStrength, 6);
+    expect(over.every((pk) => !pk.base)).toBe(true);
   });
 });
