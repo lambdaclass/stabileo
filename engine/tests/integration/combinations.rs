@@ -231,3 +231,162 @@ fn combination_matches_reactions_by_node_id_not_position() {
     assert!((rz(1) - 5.5).abs() < 1e-12, "node 1 should be 5.0+0.5, got {}", rz(1));
     assert!((rz(2) - 7.7).abs() < 1e-12, "node 2 should be 7.0+0.7, got {}", rz(2));
 }
+
+fn envelope_rows_2d(ids: [usize; 2], values: [f64; 2]) -> AnalysisResults {
+    let mut result = results_with(ids.into_iter().zip(values).map(|(id, value)| ef(id, value)).collect());
+    for (node_id, value) in ids.into_iter().zip(values) {
+        result.displacements.push(Displacement { node_id, ux: value, uz: 0.0, ry: 0.0 });
+        result.reactions.push(Reaction { node_id, rx: value, rz: 0.0, my: 0.0 });
+    }
+    result
+}
+
+fn envelope_rows_3d(ids: [usize; 2], values: [f64; 2]) -> AnalysisResults3D {
+    let rows: Vec<_> = ids.into_iter().zip(values).collect();
+    serde_json::from_value(serde_json::json!({
+        "displacements": rows.iter().map(|&(id, value)| serde_json::json!({
+            "nodeId": id, "ux": value, "uy": 0, "uz": 0, "rx": 0, "ry": 0, "rz": 0,
+        })).collect::<Vec<_>>(),
+        "reactions": rows.iter().map(|&(id, value)| serde_json::json!({
+            "nodeId": id, "fx": value, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": 0,
+        })).collect::<Vec<_>>(),
+        "elementForces": rows.iter().map(|&(id, value)| serde_json::json!({
+            "elementId": id, "length": 1, "nStart": value, "nEnd": value,
+            "vyStart": 0, "vyEnd": 0, "vzStart": 0, "vzEnd": 0,
+            "mxStart": 0, "mxEnd": 0, "myStart": 0, "myEnd": 0, "mzStart": 0, "mzEnd": 0,
+            "qYI": 0, "qYJ": 0, "qZI": 0, "qZJ": 0,
+            "distributedLoadsY": [], "pointLoadsY": [], "distributedLoadsZ": [], "pointLoadsZ": [],
+        })).collect::<Vec<_>>(),
+    })).unwrap()
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_2d_matches_reordered_nodes_and_members() {
+    let first = envelope_rows_2d([1, 2], [1.0, 2.0]);
+    let ordered = envelope_rows_2d([1, 2], [-4.0, 3.0]);
+    let reordered = envelope_rows_2d([2, 1], [3.0, -4.0]);
+    let expected = compute_envelope(&[first.clone(), ordered]).unwrap();
+    let actual = compute_envelope(&[first, reordered]).unwrap();
+    assert_eq!(serde_json::to_value(actual).unwrap(), serde_json::to_value(&expected).unwrap());
+    assert_eq!(expected.max_abs_results.displacements[0].ux, -4.0);
+    assert_eq!(expected.max_abs_results.reactions[1].rx, 3.0);
+    assert_eq!(expected.max_abs_results.element_forces[0].m_start, -4.0);
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_3d_matches_reordered_nodes_and_members() {
+    let first = envelope_rows_3d([1, 2], [1.0, 2.0]);
+    let ordered = envelope_rows_3d([1, 2], [-4.0, 3.0]);
+    let reordered = envelope_rows_3d([2, 1], [3.0, -4.0]);
+    let expected = compute_envelope_3d(&[first.clone(), ordered]).unwrap();
+    let actual = compute_envelope_3d(&[first, reordered]).unwrap();
+    assert_eq!(serde_json::to_value(actual).unwrap(), serde_json::to_value(&expected).unwrap());
+    assert_eq!(expected.max_abs_results_3d.displacements[0].ux, -4.0);
+    assert_eq!(expected.max_abs_results_3d.reactions[1].fx, 3.0);
+    assert_eq!(expected.max_abs_results_3d.element_forces[0].n_start, -4.0);
+    assert_eq!(expected.axial.elements[0].element_id, 1);
+    assert_eq!(expected.axial.elements[0].neg_values[0], -4.0);
+}
+
+fn corrupt_rows<T: Clone>(rows: &mut Vec<T>, shape: &str, id: impl Fn(&mut T) -> &mut usize) {
+    match shape {
+        "replaced" => *id(&mut rows[1]) = 9,
+        "missing" => { rows.pop(); }
+        "extra" => {
+            let mut extra = rows[1].clone();
+            *id(&mut extra) = 9;
+            rows.push(extra);
+        }
+        "duplicate" => *id(&mut rows[1]) = 1,
+        _ => unreachable!(),
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_2d_refuses_unmatched_rows() {
+    for field in ["displacements", "reactions", "element forces"] {
+        for shape in ["replaced", "missing", "extra", "duplicate"] {
+            let first = envelope_rows_2d([1, 2], [1.0, 2.0]);
+            let mut second = envelope_rows_2d([1, 2], [3.0, 4.0]);
+            match field {
+                "displacements" => corrupt_rows(&mut second.displacements, shape, |r| &mut r.node_id),
+                "reactions" => corrupt_rows(&mut second.reactions, shape, |r| &mut r.node_id),
+                _ => corrupt_rows(&mut second.element_forces, shape, |r| &mut r.element_id),
+            }
+            let error = compute_envelope(&[first, second]).expect_err("expected mismatched rows to be refused");
+            assert!(error.contains(field) && error.contains("result 1"), "{shape}: {error}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_and_combinations_3d_refuse_unmatched_rows() {
+    for field in ["displacements", "reactions", "element forces"] {
+        for shape in ["replaced", "missing", "extra", "duplicate"] {
+            let first = envelope_rows_3d([1, 2], [1.0, 2.0]);
+            let mut second = envelope_rows_3d([1, 2], [3.0, 4.0]);
+            match field {
+                "displacements" => corrupt_rows(&mut second.displacements, shape, |r| &mut r.node_id),
+                "reactions" => corrupt_rows(&mut second.reactions, shape, |r| &mut r.node_id),
+                _ => corrupt_rows(&mut second.element_forces, shape, |r| &mut r.element_id),
+            }
+            let cases = vec![
+                CaseEntry3D { case_id: 1, results: first.clone() },
+                CaseEntry3D { case_id: 2, results: second.clone() },
+            ];
+            let factors = vec![
+                CombinationFactor { case_id: 1, factor: 1.0 },
+                CombinationFactor { case_id: 2, factor: 1.0 },
+            ];
+            let errors = [
+                compute_envelope_3d(&[first, second]).err(),
+                combine_results_3d(&CombinationInput3D {
+                    factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![],
+                }).err(),
+                combine_results_batch_3d(&BatchCombinationInput3D {
+                    combinations: vec![factors], cases, plate_thicknesses: vec![],
+                }).err(),
+            ];
+            for (entry, error) in ["result 1", "case 2", "case 2"].into_iter().zip(errors) {
+                let error = error.unwrap_or_else(|| panic!("{entry} accepted {shape} {field}"));
+                assert!(error.contains(field) && error.contains(entry), "{shape}: {error}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_3d_refuses_duplicate_ids_in_the_first_result() {
+    let duplicate = envelope_rows_3d([1, 1], [1.0, 2.0]);
+    let error = compute_envelope_3d(&[duplicate]).expect_err("expected duplicate IDs to be refused");
+    assert!(error.contains("result 0") && error.contains("duplicate node id 1"), "{error}");
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_2d_refuses_unmatched_pdelta_results() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let solved = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results;
+    let mut other = solved.clone();
+    other.displacements.pop().unwrap();
+    assert!(compute_envelope(&[solved.clone(), solved.clone()]).is_ok());
+    let error = compute_envelope(&[solved, other]).unwrap_err();
+    assert!(error.contains("result 1 displacements are missing node id"), "{error}");
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn envelope_3d_refuses_unmatched_pdelta_results() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let solved = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results;
+    let mut other = solved.clone();
+    other.displacements.pop().unwrap();
+    assert!(compute_envelope_3d(&[solved.clone(), solved.clone()]).is_ok());
+    let error = compute_envelope_3d(&[solved, other]).unwrap_err();
+    assert!(error.contains("result 1 displacements are missing node id"), "{error}");
+}

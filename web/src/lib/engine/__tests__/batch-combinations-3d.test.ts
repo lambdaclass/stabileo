@@ -2,7 +2,7 @@ import { beforeAll, expect, it } from 'vitest';
 import { initSolver, solve3D, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { readFileSync } from 'node:fs';
-import { solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
+import { compute_envelope_2d, solve_pdelta_2d, solve_pdelta_3d, solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -163,13 +163,75 @@ it('preserves combination overflow paths before envelope processing', () => {
   ]);
 });
 
-it('preserves the existing positional envelope calculation', () => {
+it.skip('known wrong result: #2283 — refuses node 2 and node 9 in the same slot', () => {
   const perCase = cases();
   perCase.get(2)!.displacements[1].nodeId = 9;
   const factors = [[{ caseId: 1, factor: 1 }], [{ caseId: 2, factor: 1 }]];
   const batch = combineResultsBatch3D(factors, perCase, new Map());
-  expect(combineResultsEnvelope3D(factors, perCase, new Map()))
-    .toEqual({ combinations: batch, envelope: computeEnvelope3D(batch.filter(r => r !== null)) });
+  const input = { combinations: factors, cases: [...perCase].map(([caseId, results]) => ({ caseId, results })) };
+  const expected = /Cannot compute the envelope: result 1.*displacements.*node id 9/;
+  expect(() => combineResultsEnvelope3D(factors, perCase, new Map())).toThrow(expected);
+  expect(() => combine_results_envelope_3d(input)).toThrow(expected);
+  expect(() => computeEnvelope3D(batch.filter(r => r !== null))).toThrow(expected);
+  expect(() => compute_envelope_3d([...perCase.values()])).toThrow(expected);
+});
+
+it.skip('known wrong result: #2283 — refuses mismatched IDs within one combination', () => {
+  const perCase = cases();
+  perCase.get(2)!.reactions[0].nodeId = 9;
+  const factors = [{ caseId: 1, factor: 1 }, { caseId: 2, factor: 1 }];
+  const expected = /Cannot combine results: case 2.*reactions.*node id 9/;
+  expect(() => combineResults3D(factors, perCase, new Map())).toThrow(expected);
+  expect(() => combineResultsBatch3D([factors], perCase, new Map())).toThrow(expected);
+  expect(() => combineResultsEnvelope3D([factors], perCase, new Map())).toThrow(expected);
+});
+
+it.skip('known wrong result: #2283 — matches permuted rows in the fused and standalone envelopes', () => {
+  const perCase = cases();
+  const second = perCase.get(2)!;
+  const reaction = second.reactions[0];
+  perCase.get(1)!.reactions.push({ ...reaction, nodeId: 2, fz: 1 });
+  second.reactions.push({ ...reaction, nodeId: 2, fz: -2 });
+  const factors = [[{ caseId: 1, factor: 1 }], [{ caseId: 2, factor: 1 }]];
+  const expected = combineResultsEnvelope3D(factors, perCase, new Map()).envelope!;
+  expect(expected.maxAbsResults3D.displacements[1].uz).toBe(second.displacements[1].uz);
+  expect(expected.maxAbsResults3D.reactions[1].fz).toBe(-2);
+
+  second.displacements.reverse();
+  second.reactions.reverse();
+  const batch = combineResultsBatch3D(factors, perCase, new Map());
+  expect(combineResultsEnvelope3D(factors, perCase, new Map())).toEqual({ combinations: batch, envelope: expected });
+  expect(computeEnvelope3D(batch.filter(r => r !== null))).toEqual(expected);
+  const together = factors.flat();
+  const sum = combineResults3D(together, perCase, new Map());
+  expect(sum?.reactions.map(r => r.nodeId)).toEqual([1, 2]);
+  expect(sum?.reactions[1].fz).toBe(-1);
+  expect(combineResultsBatch3D([together], perCase, new Map())).toEqual([sum]);
+});
+
+it.skip('known wrong result: #2283 — refuses different node sets in the 2D WASM envelope', () => {
+  const result = (id: number) => ({
+    displacements: [{ nodeId: id, ux: id, uz: 0, ry: 0 }],
+    reactions: [],
+    elementForces: [],
+  });
+  expect(() => compute_envelope_2d([result(2), result(9)]))
+    .toThrow(/Cannot compute the envelope: result 1.*displacements.*node id 9/);
+});
+
+it.skip('known wrong result: #2283 — refuses unmatched P-Delta results in both WASM envelopes', () => {
+  const input2D = readFileSync(new URL('../../../../../engine/tests/fixtures/ex-portal-frame-input.json', import.meta.url), 'utf8');
+  const input3D = readFileSync(new URL('../../../../../engine/tests/fixtures/ex-3d-portal-frame-input.json', import.meta.url), 'utf8');
+  const cases = [
+    [compute_envelope_2d, JSON.parse(solve_pdelta_2d(input2D, 20, 1e-9)).results],
+    [compute_envelope_3d, JSON.parse(solve_pdelta_3d(input3D, 20, 1e-9)).results],
+  ] as const;
+  for (const [envelope, result] of cases) {
+    const control = envelope([result, result]);
+    expect(control).toBeTruthy();
+    const incomplete = { ...result, displacements: result.displacements.slice(0, -1) };
+    expect(() => envelope([result, incomplete])).toThrow(/result 1 displacements are missing node id/);
+  }
 });
 
 it('preserves the envelope station overflow refusal', () => {
