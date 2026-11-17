@@ -10,7 +10,6 @@ import { verifyConcurrentElement } from '../concurrent-verification';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { grossAreaOf, type ColumnShape } from '../design/shaped-column';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const section = { b: 0.6, h: 0.6, cover: 0.025, stirrupDia: 6, fc: 25, fy: 420 };
 const longitudinal = { count: 8, diameter: 25 };
 const ties = { diameter: 6, legs: 3, secondaryLegs: 3, spacing: 0.15 };
@@ -20,7 +19,7 @@ function stations(vu: number, compression = 0) {
     stations: [0, 1].map(t => ({ t, x: t * 4, n: -compression, my: 0, mz: 0, vy: vu, vz: -vu, torsion: 0 })) }] };
 }
 
-regression('known wrong result: #2198 the recorded four-corner cages of columns 6 and 10 fail the crosstie check', () => {
+it('known wrong result: #2198 the recorded four-corner cages of columns 6 and 10 fail the crosstie check', () => {
   const { contexts } = solveFixture(frame);
   for (const id of [6, 10]) {
     const cage = record.changedMembers.find(m => m.id === id)!.after.accepted!;
@@ -36,7 +35,7 @@ regression('known wrong result: #2198 the recorded four-corner cages of columns 
   }
 });
 
-regression('known wrong result: #2198 only opposing aligned face bars anchor each directional crosstie', () => {
+it('known wrong result: #2198 only opposing aligned face bars anchor each directional crosstie', () => {
   for (const [bottom, top, left, right, primary, secondary] of [
     [0, 0, 0, 0, 2, 2], [1, 0, 1, 1, 2, 3], [2, 1, 1, 0, 2, 2],
     [3, 1, 2, 2, 3, 4], [2, 2, 0, 0, 4, 2],
@@ -56,7 +55,7 @@ regression('known wrong result: #2198 only opposing aligned face bars anchor eac
   }
 });
 
-regression('known wrong result: #2198 direct, prepared and concurrent checks use the fixed column bars to bound tie legs', () => {
+it('known wrong result: #2198 direct, prepared and concurrent checks use the fixed column bars to bound tie legs', () => {
   const input = { ...section, elementId: 1, elementType: 'column' as const,
     demand: declaredTestDemands([{ comboId: 1, comboName: 'both', forces: stations(1).comboResults[0]!.stations[0]! }])[0]!.section('My') };
   for (const count of [4, 8]) {
@@ -69,7 +68,7 @@ regression('known wrong result: #2198 direct, prepared and concurrent checks use
 
 for (const shape of [undefined, { kind: 'circle', D: 0.6 }, { kind: 'tee', bf: 0.8, bw: 0.6, hf: 0.6, h: 0.8 },
   { kind: 'L', b: 0.8, h: 0.8, tw: 0.6, tf: 0.6 }] as const satisfies readonly (ColumnShape | undefined)[]) {
-  regression(`known wrong result: #2198 ${shape?.kind ?? 'rectangular'} minimum tie area at the unrounded shear threshold`, () => {
+  it(`known wrong result: #2198 ${shape?.kind ?? 'rectangular'} minimum tie area at the unrounded shear threshold`, () => {
     const depth = shape ? 0.8 * (shape.kind === 'circle' ? shape.D : shape.h) : section.h - section.cover - ties.diameter / 1000 - 0.008;
     const area = computeColumnLayout(longitudinal.count, longitudinal.diameter, section.b, section.h, section.cover, ties.diameter).totalArea;
     const rhoW = shape ? 0 : area / 3 / (section.b * section.h * 1e4);
@@ -96,7 +95,7 @@ for (const shape of [undefined, { kind: 'circle', D: 0.6 }, { kind: 'tee', bf: 0
   });
 }
 
-regression('known wrong result: #2198 shallow column sections still require minimum shear reinforcement', () => {
+it('known wrong result: #2198 shallow column sections still require minimum shear reinforcement', () => {
   const input = { ...section, b: 0.24, h: 0.95, elementId: 1, elementType: 'column' as const,
     demand: declaredTestDemands([{ comboId: 1, comboName: 'minor axis', forces: stations(1).comboResults[0]!.stations[0]! }])[0]!.section('My') };
   const fixed = { column: { barCount: 8, barDia: 25 }, shear: { spacing: 0.1, legs: 2, secondaryLegs: 2 } };
@@ -107,7 +106,7 @@ regression('known wrong result: #2198 shallow column sections still require mini
 });
 
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
-  regression(`known wrong result: #2198 solved column crosstie and minimum steel checks spatial=${spatial} nonlinear=${nonlinear}`, () => {
+  it(`known wrong result: #2198 solved column crosstie and minimum steel checks spatial=${spatial} nonlinear=${nonlinear}`, () => {
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1,
@@ -142,7 +141,7 @@ for (const spatial of [false, true]) for (const nonlinear of [false, true]) {
   });
 }
 
-regression('known wrong result: #2198 a minimum-area deficit fails even when its displayed ratio rounds to one', () => {
+it('known wrong result: #2198 a minimum-area deficit fails even when its displayed ratio rounds to one', () => {
   const width = section.b;
   const area = 2 * REBAR_DB.find(bar => bar.diameter === ties.diameter)!.area * 1e-4;
   const spacingAtMinimum = area * section.fy / (width * Math.max(0.35, 0.062 * Math.sqrt(section.fc)));
@@ -152,5 +151,51 @@ regression('known wrong result: #2198 a minimum-area deficit fails even when its
     }, undefined, {}, section, stations(120));
     expect(r.checks.filter(c => c.category.startsWith('Ties (') && c.unit === 'kN').every(c => c.ratio < 1)).toBe(true);
     expect(r.overallStatus === 'fail').toBe(factor > 1);
+  }
+});
+
+it('holds a spiral column when the shear threshold requires a verified transverse area', () => {
+  const shape = { kind: 'circle', D: section.b } as const;
+  const compression = 100;
+  const cap = computeShearCapacity(0, 0, 1, shape.D, 0.8 * shape.D, section.fc, section.fy, compression,
+    { Ag: grossAreaOf(shape), rhoW: 0 });
+  expect(cap.phiVcUnrounded).toBeGreaterThan(0);
+  for (const factor of [0.5, 0.75]) {
+    const result = verifyProvidedReinforcement(1, 'column', {
+      shaped: { ...longitudinal, spiral: { diameter: 12, pitch: 0.06 } },
+    }, undefined, {}, section, stations(factor * cap.phiVcUnrounded, compression), undefined, { shape });
+    for (const axis of ['Vy', 'Vz']) {
+      expect(result.checks.find(c => c.category === `Ties (${axis})`)!.ratio).toBeLessThan(1);
+      expect(result.checks.some(c => c.category === `Ties (${axis}) Av,min` && c.status === 'fail')).toBe(factor > 0.5);
+    }
+  }
+});
+
+it('rejects a declared unanchored secondary leg even in a planar column', () => {
+  const forces = { ...stations(1).comboResults[0]!.stations[0]!, vy: 0 };
+  const input = { ...section, b: 0.4, h: 0.4, elementId: 1, elementType: 'column' as const,
+    demand: declaredTestDemands([{ comboId: 1, comboName: 'planar', forces }])[0]!.section('My') };
+  const fixed = { column: { barCount: 4, barDia: 25 }, shear: { legs: 2, secondaryLegs: 3, spacing: 0.15 } };
+  for (const result of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input], fixed)]) {
+    expect(result.shearSecondary?.stirrupLegs).toBe(2);
+    expect(result.shearSecondary?.status).toBe('fail');
+    expect(result.overallStatus).toBe('fail');
+  }
+});
+
+it('checks minimum reinforcement even for a small nonzero secondary shear above half of zero concrete strength', () => {
+  for (const vy of [0, 0.001]) {
+    const forces = { ...stations(0).comboResults[0]!.stations[0]!, vy };
+    const input = { ...section, elementId: 1, elementType: 'column' as const,
+      demand: declaredTestDemands([{ comboId: 1, comboName: 'secondary', forces }])[0]!.section('My') };
+    const fixed = { column: { barCount: 8, barDia: 25 }, shear: { legs: 2, secondaryLegs: 2, spacing: 0.15 } };
+    for (const result of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input], fixed)]) {
+      if (vy === 0) expect(result.shearSecondary).toBeUndefined();
+      else {
+        expect(result.shearSecondary?.ratio).toBeLessThan(1);
+        expect(result.shearSecondary?.status).toBe('fail');
+        expect(result.overallStatus).toBe('fail');
+      }
+    }
   }
 });

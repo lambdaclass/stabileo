@@ -18,10 +18,12 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   for (const direction of ['primary', 'secondary'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
     for (const entry of ['direct', 'prepared', 'concurrent'] as const) for (const count of [2, 4, 5, 6]) {
       it(`known wrong result: #2171 low-demand leg distribution ${edition} ${axis} ${direction} ${elementType} ${entry} ${count}`, () => {
-        const section = direction === 'primary' ? { ...p, b: p.h, h: p.b } : p;
+        const narrow = elementType === 'beam' ? p.b : 0.4;
+        const section = { ...p, b: direction === 'primary' ? p.h : narrow, h: direction === 'primary' ? narrow : p.h };
         const input = { ...section, edition, elementId: 1, elementType, demand: demand(axis) };
         const cage = { spacing: 0.05, legs: direction === 'primary' ? count : 2, secondaryLegs: direction === 'secondary' ? count : 2 };
-        const fixed = { shear: cage };
+        const column = elementType === 'beam' ? undefined : { barCount: 4 + 4 * (count - 2), barDia: 16 };
+        const fixed = { column, shear: cage };
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed) : verifyConcurrentElement([input], fixed);
         const s = direction === 'primary' ? v.shear : v.shearSecondary!;
         const other = direction === 'primary' ? v.shearSecondary! : v.shear;

@@ -167,7 +167,14 @@ export function autoVerifyFromResults(
 function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerifyModelData, options?: AutoVerifyOptions): AutoVerifyResult {
   const concrete: ElementVerification[] = [];
   const shared = new WeakMap<readonly ConcurrentDemand[], Array<{ base: VerificationBase; axis: 'My' | 'Mz'; tuples: readonly ConcurrentDemand[]; value: ElementVerification }>>();
-  for (const [member, verified] of complete.partition(r => r.member)) {
+  const members = complete.partition(r => r.member);
+  const seen = new WeakSet<readonly ConcurrentDemand[]>();
+  const repeated = new WeakSet<readonly ConcurrentDemand[]>();
+  for (const { tuples } of members.keys()) {
+    if (seen.has(tuples)) repeated.add(tuples);
+    seen.add(tuples);
+  }
+  for (const [member, verified] of members) {
     const { ef, demands, tuples } = member;
     const elem = model.elements.get(ef.elementId);
     if (!elem || rcCheckability(elem, model) !== 'checkable' || !isDesignedMember(elem as never, model.sections as never)) continue;
@@ -198,10 +205,14 @@ function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerif
       : verifyConcurrentElement(verified.forMembers([ef.elementId]).map(r => ({ input: { ...base, elementId: ef.elementId, demand: r.tuple.section(axis) } })));
     if (!previous && elementType === 'beam' && v.engineRecheck && canReuseCirsoc201Certificate(v.engineRecheck.certified)
       && !v.engineRecheck.unavailable && v.engineRecheck.disagreements.length === 0) {
-      const entries = shared.get(tuples) ?? [];
-      entries.push({ base, axis, tuples: [...tuples], value: v });
-      shared.set(tuples, entries);
-      v = verificationForElement(v, ef.elementId);
+      if (repeated.has(tuples)) {
+        const entries = shared.get(tuples) ?? [];
+        entries.push({ base, axis, tuples: [...tuples], value: v });
+        shared.set(tuples, entries);
+        v = verificationForElement(v, ef.elementId);
+      } else {
+        v = verificationForElement(v, ef.elementId, 'transfer');
+      }
     }
     v.flexureAxis = axis;
     if (demands) v.stationDemands = demands;

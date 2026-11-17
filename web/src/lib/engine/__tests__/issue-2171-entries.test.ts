@@ -31,7 +31,9 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(v.overallStatus).toBe('fail');
       expect(v.flexure.status).toBe('ok');
       expect(v.column!.status).toBe('ok');
-      expect(v.shear.status).toBe(edition === '2005' ? 'fail' : 'ok');
+      expect(v.shear.status).toBe('fail');
+      expect(v.shear.stirrupLegs).toBeLessThan(4);
+      expect(v.shear.steps.some(s => typeof s === 'string' && s.includes('25.3.5(d)'))).toBe(true);
       if (edition === '2005') expect(v.shear.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
       if (torque === 0) {
         expect(v.torsion).toBeUndefined();
@@ -46,7 +48,9 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const d = demand(shear * factor, 0, axis);
       const stations = { elementId: 1, length: 0.04, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'C1',
         stations: [0, 1].map(t => ({ ...d.source.forces, t, x: t * 0.04 })) }] };
-      const r = verifyProvidedReinforcement(1, 'column', { longitudinal: { count: 8, diameter: 16 },
+      const r = verifyProvidedReinforcement(1, 'column', { column: { cornerDia: 16, faceDia: 16,
+        nBottom: (axis === 'My' ? legs : secondaryLegs ?? 2) - 2, nTop: (axis === 'My' ? legs : secondaryLegs ?? 2) - 2,
+        nLeft: (axis === 'My' ? secondaryLegs ?? 2 : legs) - 2, nRight: (axis === 'My' ? secondaryLegs ?? 2 : legs) - 2 },
         stirrups: { diameter: 8, legs, secondaryLegs, spacing: 0.1 } }, undefined, {}, p, stations, undefined,
         { spacingRule: { edition, maxAggregateSizeMm: 0 }, axes: { flexure: axis, shear: axis === 'My' ? 'Vz' : 'Vy',
           secondaryFlexure: axis === 'My' ? 'Mz' : 'My', secondaryShear: axis === 'My' ? 'Vy' : 'Vz',

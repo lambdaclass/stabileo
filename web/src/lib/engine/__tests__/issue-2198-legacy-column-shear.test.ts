@@ -67,7 +67,8 @@ it('known wrong result: #2198 Russian batch label explicitly names secondary she
 
 for (const direction of ['primary', 'secondary'] as const) for (const row of [1, 2]) for (const factor of [0.999, 1, 1.001]) {
   it(`known wrong result: #2198 legacy required column spacing boundary ${direction} row${row} ${factor}`, () => {
-    const sec = { ...section, b: 0.3, h: 0.3 };
+    const side = row === 2 ? 0.4 : 0.3;
+    const sec = { ...section, b: side, h: side };
     const d = sec.h - sec.cover - sec.stirrupDia / 1000 - 16 / 2000;
     const limit = d / (row === 1 ? 2 : 4);
     const legs = row === 1 ? 2 : 6;
@@ -76,7 +77,7 @@ for (const direction of ['primary', 'secondary'] as const) for (const row of [1,
       t: 0, x: 0, n: 0, my: 0, mz: 0, vy: direction === 'secondary' ? load : 0, vz: direction === 'primary' ? load : 0, torsion: 0,
     } }])[0]!.section('My');
     const v = verifyElement({ ...sec, elementId: 1, elementType: 'column', demand },
-      { column, shear: { spacing: limit * factor, legs, secondaryLegs: legs } });
+      { column: { ...column, barCount: 4 + 4 * (legs - 2) }, shear: { spacing: limit * factor, legs, secondaryLegs: legs } });
     const s = direction === 'primary' ? v.shear : v.shearSecondary!;
     expect(s.ratio).toBeLessThan(1);
     expect(s.status).toBe(factor > 1 ? 'fail' : 'ok');
@@ -127,7 +128,7 @@ for (const edition of ['2025'] as const) for (const nonlinear of [false, true]) 
       expect(v.overallStatus).toBe('ok');
     }
   });
-  it(`known wrong result: #2198 2D low-demand column fixed primary legs pass after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
+  it(`known wrong result: #2198 2D low-demand column credits only its anchored primary legs after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
     const section = { ...p, b: p.h, h: p.b };
     const solver: SolverInput = {
       nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: 0.04 }]]),
@@ -146,10 +147,10 @@ for (const edition of ['2025'] as const) for (const nonlinear of [false, true]) 
       const fixed = { shear: { spacing: 0.05, legs: count } };
       for (const v of [verifyElement(inputs[0]!, fixed), prepareElementVerification(inputs[0]!)(fixed), verifyConcurrentElement(inputs, fixed)]) {
         expect(v.shearSecondary).toBeUndefined();
-        expect(v.shear.stirrupLegs).toBe(count);
+        expect(v.shear.stirrupLegs).toBe(2);
         expect(v.shear.ratio).toBeLessThan(1);
-        expect(v.shear.status).toBe('ok');
-        expect(v.overallStatus).toBe('ok');
+        expect(v.shear.status).toBe(count === 2 ? 'ok' : 'fail');
+        expect(v.overallStatus).toBe(count === 2 ? 'ok' : 'fail');
       }
     }
   });

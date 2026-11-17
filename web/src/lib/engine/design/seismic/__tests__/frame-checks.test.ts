@@ -8,7 +8,6 @@
  *   Joint (top of each column, one beam): T = 1,25·420·9,42/10 = 494,6 kN; Vcol = Mpr/3;
  *         confinement «other» (one face): φVn = 0,85·1,0·5·0,25 = 1062,5 kN.
  *   Column: lu = 3 − 0,6 = 2,4 m, lo = 0,50 m; hx = 0,42/2 = 0,21 m, so = min(0,125; 0,12; 0,147) = 0,12 m;
- *         Ash at 10 cm = 3,13 cm² against 4Ø10 = 3,14 cm².
  */
 import { describe, it, expect } from 'vitest';
 import { beamSteel, seismicFrameChecks, type FrameMember } from '../frame-checks';
@@ -64,7 +63,11 @@ describe('a seismic portal by hand', () => {
     expect(col.confinement!.lo).toBeCloseTo(0.5, 9);
     expect(col.confinement!.so).toBeCloseTo(0.12, 9);
     expect(col.confinement!.ashRequired.acrossB).toBeCloseTo(3.129, 2);
-    expect(col.confinement!.ashOk).toBe(true);
+    const legArea = Math.PI * (10 / 10) ** 2 / 4;
+    expect(col.confinement!.ashProvided.acrossB).toBeCloseTo(3 * legArea, 9);
+    expect(col.confinement!.ashProvided.acrossH).toBeCloseTo(2 * legArea, 9);
+    expect(col.confinement!.ashOk).toBe(false);
+    expect(col.issues).toContain('seisDes.issue.ash');
     expect(col.issues).not.toContain('seisDes.issue.confinedSpacing');
   });
 
@@ -75,8 +78,7 @@ describe('a seismic portal by hand', () => {
   });
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
-regression('known wrong result: #2198 seismic shear and confinement credit only anchored column ties', () => {
+it('known wrong result: #2198 seismic shear and confinement credit only anchored column ties', () => {
   const run = (legs: number) => {
     const m = column(1, 1, 2);
     m.r = { ...m.r, longitudinal: { count: 4, diameter: 20 }, column: undefined,
@@ -87,4 +89,13 @@ regression('known wrong result: #2198 seismic shear and confinement credit only 
   expect(run(2).confinement).toBeDefined();
   expect(run(3).confinement).toEqual(run(2).confinement);
   expect(run(3).shear).toEqual(run(2).shear);
+});
+
+it('credits no seismic shear steel or confinement when the column has no transverse cage', () => {
+  const m = column(1, 1, 2);
+  m.r = { ...m.r, stirrups: undefined };
+  const result = seismicFrameChecks({ nodes, members: [m], settings: defaultSeismicDesign() }).members[0]!;
+  expect(result.confinement!.ashProvided).toEqual({ acrossB: 0, acrossH: 0 });
+  expect(result.issues).toContain('seisDes.issue.ash');
+  expect(result.ok).toBe(false);
 });

@@ -133,11 +133,12 @@ for (const edition of ['2005', '2025'] as const) for (const shape of [
     const bw = shape.kind === 'circle' ? shape.D : shape.kind === 'tee' ? (alongDepth ? shape.bw : shape.hf) : (alongDepth ? shape.tw : shape.tf);
     const d = 0.8 * (shape.kind === 'circle' ? shape.D : alongDepth ? shape.h : shape.kind === 'tee' ? shape.bf : shape.b);
     const Ag = shape.kind === 'circle' ? Math.PI * shape.D ** 2 / 4 : shape.kind === 'tee' ? shape.bw * shape.h + (shape.bf - shape.bw) * shape.hf : shape.tw * shape.h + (shape.b - shape.tw) * shape.tf;
-    const cap = computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, bw, d, section.fc, section.fy, 0, { Ag, rhoW: 0, edition });
+    const cap = computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs({ legs: 2 }, 'secondary'), cage.spacing, bw, d, section.fc, section.fy, 0, { Ag, rhoW: 0, edition });
     const result = verify('column', cage, edition, axis, 'secondary', cap.phiVn * factor, section,
       { shaped: { count: 8, diameter: 16 }, stirrups: cage }, shape);
     const row = result.checks.find(c => c.category === `Ties (${axesFor(axis).secondaryShear})`)!;
     expect(row).toBeDefined();
+    expect(result.checks.some(c => c.clause === '25.3.5(d)' && c.shearDirection === 'secondary' && c.status === 'fail')).toBe(secondaryLegs > 2);
     expect(row.capacity).toBe(cap.phiVn);
     expect(row.ratio).toBe(factor);
     expect(row.status === 'fail').toBe(factor > 1);
@@ -166,7 +167,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       const rows = result.checks.filter(c => c.demandCategory === 'Vy' && c.limiting === 'shear');
       expect(rows.length).toBeGreaterThan(0);
       const depth = section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, diameter);
-      const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(cage, 'secondary'), cage.spacing, section.h, depth, section.fc, section.fy, 0,
+      const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(kind === 'column' ? { legs: 2 } : cage, 'secondary'), cage.spacing, section.h, depth, section.fc, section.fy, 0,
         { edition, Ag: section.b * section.h, h: kind === 'column' ? section.h : section.b, rhoW: kind === 'column' ? rebarGroupArea(bars) / 3 / (section.b * section.h * 1e4) : 0 });
       for (const row of rows) {
         expect(row.ratio).toBeLessThan(1);

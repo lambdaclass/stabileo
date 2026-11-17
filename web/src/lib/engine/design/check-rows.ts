@@ -83,7 +83,7 @@ export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRS
       title: c.category,
       ...(c.limiting ? { titleKey: `check.rc.${c.limiting}` } : {}),
       // The inequality; a provision this app does not evaluate states what it left out.
-      formula: spec?.formula ?? (c.description || undefined),
+      formula: c.formula ?? spec?.formula ?? (c.description || undefined),
       inputs,
       ...(c.demand !== undefined ? { demand: c.demand } : {}),
       ...(c.capacity !== undefined ? { capacity: c.capacity } : {}),

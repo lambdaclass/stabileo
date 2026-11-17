@@ -10,9 +10,9 @@ const demand = (secondary: number, torque = 30, axis: 'My' | 'Mz' = 'My', primar
   { comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 20 : 0,
     mz: axis === 'Mz' ? 20 : 0, vy: axis === 'My' ? secondary : primary, vz: axis === 'Mz' ? secondary : primary, torsion: torque } },
 ])[0]!.section(axis);
-const capacity = (edition: '2005' | '2025', legs: number) => evaluateBeamSection({ edition,
-  fc: p.fc * 1e6, fy: p.fy * 1e6, b: p.h, h: p.b, d: p.b - p.cover - p.stirrupDia / 1000 - 0.008,
-  As: 0, Av: legs * 0.503 * 1e-4, s: 0.1, fyt: p.fy * 1e6, Ag: p.b * p.h, NuCompression: 0,
+const capacity = (edition: '2005' | '2025', legs: number, section = p) => evaluateBeamSection({ edition,
+  fc: section.fc * 1e6, fy: section.fy * 1e6, b: section.h, h: section.b, d: section.b - section.cover - section.stirrupDia / 1000 - 0.008,
+  As: 0, Av: legs * 0.503 * 1e-4, s: 0.1, fyt: section.fy * 1e6, Ag: section.b * section.h, NuCompression: 0,
 })!.phiVn / 1000;
 
 for (const edition of ['2005', '2025'] as const) {
@@ -22,19 +22,22 @@ for (const edition of ['2005', '2025'] as const) {
         it(`known wrong result: #2171 directional shear ${edition} ${axis} ${elementType} ${entry} ${legs}/${secondaryLegs} ${direction}`, () => {
           const secondary = direction === 'primary' ? 0 : 220.235;
           const primary = direction === 'secondary' ? 0 : 100;
-          const input = { ...p, edition, elementId: 1, elementType, demand: demand(secondary, 30, axis, primary) };
-          const fixed = { shear: { spacing: 0.1, legs, secondaryLegs }, torsion: { AlProv: 100 } };
+          const pairs = Math.max(legs, secondaryLegs ?? 2) - 2;
+          const section = elementType !== 'beam' && pairs >= 3 ? { ...p, b: 0.4 } : p;
+          const input = { ...section, edition, elementId: 1, elementType, demand: demand(secondary, 30, axis, primary) };
+          const column = elementType === 'beam' ? undefined : { barCount: 4 + 4 * pairs, barDia: 16 };
+          const fixed = { column, shear: { spacing: 0.1, legs, secondaryLegs }, torsion: { AlProv: 100 } };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed) : verifyConcurrentElement([input], fixed);
           expect(v.shear.stirrupLegs).toBe(legs);
-          const primaryCapacity = evaluateBeamSection({ edition, fc: p.fc * 1e6, fy: p.fy * 1e6, b: p.b, h: p.h,
-            d: p.h - p.cover - p.stirrupDia / 1000 - 0.008, As: v.flexure.AsProv * 1e-4,
-            Av: legs * 0.503 * 1e-4, s: 0.1, fyt: p.fy * 1e6, Ag: p.b * p.h, NuCompression: 0 })!.phiVn / 1000;
+          const primaryCapacity = evaluateBeamSection({ edition, fc: section.fc * 1e6, fy: section.fy * 1e6, b: section.b, h: section.h,
+            d: section.h - section.cover - section.stirrupDia / 1000 - 0.008, As: v.flexure.AsProv * 1e-4,
+            Av: legs * 0.503 * 1e-4, s: 0.1, fyt: section.fy * 1e6, Ag: section.b * section.h, NuCompression: 0 })!.phiVn / 1000;
           expect(v.shear.phiVn).toBeCloseTo(primaryCapacity, 10);
           expect(v.shear.ratio).toBeCloseTo(primary / primaryCapacity, 12);
           expect(v.shearSecondary).toBeDefined();
           expect(v.shearSecondary!.stirrupLegs).toBe(secondaryLegs ?? 2);
-          expect(v.shearSecondary!.phiVn).toBeCloseTo(capacity(edition, secondaryLegs ?? 2), 10);
-          expect(v.shearSecondary!.ratio).toBeCloseTo(secondary / capacity(edition, secondaryLegs ?? 2), 12);
+          expect(v.shearSecondary!.phiVn).toBeCloseTo(capacity(edition, secondaryLegs ?? 2, section), 10);
+          expect(v.shearSecondary!.ratio).toBeCloseTo(secondary / capacity(edition, secondaryLegs ?? 2, section), 12);
         });
       }
     }

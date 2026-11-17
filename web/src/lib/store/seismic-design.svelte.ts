@@ -214,7 +214,7 @@ function frameInput(): FrameMember[] {
         for (const s of c.stations) { ps.push(-s.n); vs.push(Math.hypot(s.vy, s.vz)); }
       }
       const sec = columnSectionOf(ctx, r);
-      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, ...(sec ? { section: sec } : {}), axial: { min: ps.length ? Math.min(...ps) : 0, max: ps.length ? Math.max(...ps) : 0 }, vu: vs.length ? Math.max(...vs) : 0 });
+      out.push({ ...base, b: ctx.section.b, h: ctx.section.h, primaryOverWidth: ctx.axes.flexure === 'Mz', ...(sec ? { section: sec } : {}), axial: { min: ps.length ? Math.min(...ps) : 0, max: ps.length ? Math.max(...ps) : 0 }, vu: vs.length ? Math.max(...vs) : 0 });
     }
   }
   return out;

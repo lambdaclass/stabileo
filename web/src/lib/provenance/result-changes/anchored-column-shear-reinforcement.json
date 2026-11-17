@@ -1,0 +1,39 @@
+{
+  "id": "anchored-column-shear-reinforcement",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Column shear uses anchored tie legs and enforces the minimum area",
+    "es": "El corte en columnas considera las ramas ancladas y exige el área mínima",
+    "pt": "O cisalhamento em pilares considera os ramos ancorados e exige a área mínima",
+    "de": "Stützenquerkraft mit verankerten Bügelschenkeln und Mindestbewehrung",
+    "fr": "Vérification des poteaux avec brins ancrés et section minimale d’armatures transversales",
+    "hu": "Az oszlopok nyírásvizsgálata a lehorgonyzott kengyelszárakat és a minimális keresztmetszetet veszi figyelembe",
+    "tr": "Kolon kesme denetiminde ankrajlı etriye kolları ve asgari donatı alanı kullanılır"
+  },
+  "explanation": {
+    "en": "Recheck concrete columns with provided ties. A crosstie needs a longitudinal bar at both ends. Excess declared legs can reduce reported capacity and invalidate a cage. Where Vu exceeds half the design concrete shear capacity, insufficient tie area fails even when strength and spacing pass. Review both shear directions and seismic confinement.",
+    "es": "Vuelva a verificar las columnas de hormigón con estribos provistos. Cada gancho suplementario necesita una barra longitudinal en ambos extremos. Las ramas declaradas sin anclaje pueden reducir la resistencia informada e invalidar el armado. Si Vu supera la mitad de la resistencia de diseño del hormigón al corte, un área de estribos insuficiente falla aun cuando cumpla la resistencia y la separación. Revise ambas direcciones y el confinamiento sísmico.",
+    "pt": "Reverifique os pilares de concreto com estribos fornecidos. Cada grampo precisa de uma barra longitudinal nas duas extremidades. Ramos declarados sem ancoragem podem reduzir a resistência indicada e invalidar a armadura. Quando Vu supera metade da resistência de cálculo do concreto ao cisalhamento, uma área de estribos insuficiente reprova mesmo com resistência e espaçamento adequados. Revise ambas as direções e o confinamento sísmico.",
+    "de": "Betonstützen mit vorgegebenen Bügeln erneut prüfen. Jeder Querhaken muss an beiden Enden einen Längsstab umfassen. Unverankerte Schenkel können die ausgewiesene Tragfähigkeit verringern und zur Ablehnung führen. Übersteigt Vu die Hälfte des Bemessungswerts des Betonquerkraftwiderstands, führt eine zu geringe Bügelfläche auch bei ausreichender Tragfähigkeit und zulässigem Abstand zum Versagen des Nachweises. Beide Richtungen und die seismische Umschnürung prüfen.",
+    "fr": "Revérifier les poteaux en béton avec armatures transversales fournies. Chaque épingle doit saisir une barre longitudinale à chaque extrémité. Des brins déclarés sans ancrage peuvent réduire la résistance annoncée et invalider le ferraillage. Si Vu dépasse la moitié de la résistance de calcul du béton au cisaillement, une section insuffisante échoue même si la résistance et l’espacement conviennent. Vérifier les deux directions et le confinement sismique.",
+    "hu": "Ellenőrizze újra a megadott kengyelezésű vasbeton oszlopokat. A keresztkengyel mindkét végén hosszvasat kell körülfogni. A le nem horgonyzott szárak miatt csökkenhet a kimutatott teherbírás és a vasalás elégtelennek bizonyulhat. Ha Vu meghaladja a beton tervezési nyírási ellenállásának felét, az elégtelen kengyelkeresztmetszet megfelelő teherbírás és kiosztás esetén is hibát eredményez. Ellenőrizze mindkét irányt és a szeizmikus körülzárást.",
+    "tr": "Etriyeleri tanımlanmış betonarme kolonları yeniden denetleyin. Her çirozun iki ucu da bir boyuna donatıyı kavramalıdır. Ankrajlanmamış kollar hesaplanan dayanımı düşürebilir ve donatı düzenini geçersiz kılabilir. Vu betonun tasarım kesme dayanımının yarısını aştığında, dayanım ve aralık yeterli olsa bile yetersiz etriye alanı denetimden geçmez. İki kesme yönünü ve sismik sargıyı gözden geçirin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round27-column-ties.md",
+    "heading": "Anchored column ties and minimum shear reinforcement (2026-11-17)"
+  }
+}

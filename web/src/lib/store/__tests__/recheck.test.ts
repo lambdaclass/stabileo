@@ -433,7 +433,7 @@ describe('edited projects with older provenance', () => {
       ...withoutBeamSpacing.changes.map(c => c.id), 'fixed-beam-directional-spacing',
     ].sort());
     expect(store.assessment?.changes.map(c => c.id).sort()).toEqual([
-      'active-combination-completeness', 'column-tie-shear-spacing', 'compensated-applied-force-totals', 'complete-concurrent-demands',
+      'active-combination-completeness', 'anchored-column-shear-reinforcement', 'column-tie-shear-spacing', 'compensated-applied-force-totals', 'complete-concurrent-demands',
       'concurrent-check-demands', 'concurrent-depth-and-load-context', 'concurrent-design-demands',
       'concurrent-secondary-slenderness', 'concurrent-torsion-reinforcement', 'directional-stirrup-legs',
       'fail-closed-ratios', 'fixed-beam-directional-spacing', 'fixed-reinforcement-practical-maximum',

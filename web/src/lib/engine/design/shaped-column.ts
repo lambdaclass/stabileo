@@ -132,7 +132,7 @@ export function checkShapedColumn(input: {
   /** δns·δs on both moment axes. */
   magnifier: number;
   maxTieSpacing: number;
-  shearCapacity: (bw: number, d: number, Nu: number, axis: 'Vy' | 'Vz', Vu: number) => number;
+  shearCapacity: (bw: number, d: number, axis: 'Vy' | 'Vz', Vu: number, station: ShapedTuple) => number;
 }): ShapedCheck[] {
   const { shape, bars } = input;
   const out: ShapedCheck[] = [];
@@ -191,8 +191,8 @@ export function checkShapedColumn(input: {
     let wv: { u: number; Vu: number; cap: number; t: ShapedTuple } | null = null;
     for (const t of input.tuples) {
       const Vu = Math.abs(w.read(t));
-      if (Vu < 1e-3) continue;
-      const cap = input.shearCapacity(w.bw, w.d, -t.n, w.axis, Vu);
+      if (Vu === 0) continue;
+      const cap = input.shearCapacity(w.bw, w.d, w.axis, Vu, t);
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
       if (!wv || u > wv.u) wv = { u, Vu, cap, t };
     }

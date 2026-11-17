@@ -15,7 +15,7 @@
  */
 import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
-import { layersTotalArea, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
+import { layersTotalArea, resolveLayers, resolveColumnReinf, supportedColumnTies } from '../../station-design-forces';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
 import {
   beamCapacityShear, columnCapacityShear, columnConfinement, nominalMomentAt, probableMoment,
@@ -31,6 +31,7 @@ export interface FrameMember {
   nodeI: number; nodeJ: number; L: number;
   b: number; h: number; cover: number; fc: number; fy: number; stirrupDia: number;
   r: ProvidedReinforcement | undefined;
+  primaryOverWidth?: boolean;
   /** Columns: outline and bars about the centroid. */
   section?: { outline: Outline; bars: Bar[] };
   /** Beams: half the column depth at each end, m; gravity shear at each end, kN; slab bars in the flange, cm². */
@@ -170,19 +171,21 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     const [lo, hi] = z(m.nodeI) <= z(m.nodeJ) ? [m.nodeI, m.nodeJ] : [m.nodeJ, m.nodeI];
     const beamH = Math.max(0, ...(beamsAt.get(hi) ?? []).map((b) => byId.get(b)!.h));
     const lu = Math.max(0.3, m.L - beamH);
-    const ties = m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
+    const col = resolveColumnReinf(m.r.column, m.r.longitudinal);
+    const ties = m.r.stirrups
+      ? supportedColumnTies(m.r.stirrups, m.section.outline.kind === 'rect' ? col : null, m.primaryOverWidth)
+      : { diameter: m.stirrupDia, legs: 0, secondaryLegs: 0, spacing: 0.2 };
     const zones = m.r.tieZones ?? { endLength: 0, endSpacing: ties.spacing };
     const mpr = colMn.get(m.id)?.most ?? 0;
     const fb: [number, number] | undefined = fromBeamsAt.has(`${m.id}:${hi}`) || fromBeamsAt.has(`${m.id}:${lo}`)
       ? [fromBeamsAt.get(`${m.id}:${hi}`) ?? mpr, fromBeamsAt.get(`${m.id}:${lo}`) ?? mpr] : undefined;
     const d = Math.max(m.b, m.h) - m.cover - (ties.diameter + 16) / 1000;
-    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu: m.vu ?? 0, pu: m.axial?.min ?? 0, ties: { diameter: ties.diameter, legs: ties.legs, spacing: Math.min(ties.spacing, zones.endSpacing) } });
-    const col = resolveColumnReinf(m.r.column, m.r.longitudinal);
+    const sh = columnCapacityShear({ b: Math.min(m.b, m.h), h: Math.max(m.b, m.h), d, fc: m.fc, fyt: m.fy, mpr: [mpr, mpr], ...(fb ? { fromBeams: fb } : {}), lu, vu: m.vu ?? 0, pu: m.axial?.min ?? 0, ties: { diameter: ties.diameter, legs: Math.min(ties.legs, ties.secondaryLegs), spacing: Math.min(ties.spacing, zones.endSpacing) } });
     const perFace = m.r.column ? Math.max(m.r.column.nBottom, m.r.column.nTop, m.r.column.nLeft, m.r.column.nRight) : 1;
     const hx = (Math.max(m.b, m.h) - 2 * m.cover) / (perFace + 1);
     const conf = columnConfinement({
       b: m.b, h: m.h, cover: m.cover, lu, fc: m.fc, fyt: m.fy, longMinDiaMm: Math.min(col?.cornerDia ?? 16, m.r.column?.faceDia ?? 99),
-      tieDiaMm: ties.diameter, legsB: ties.legs, legsH: ties.legs, hx,
+      tieDiaMm: ties.diameter, legsB: m.primaryOverWidth ? ties.secondaryLegs : ties.legs, legsH: m.primaryOverWidth ? ties.legs : ties.secondaryLegs, hx,
       provided: m.r.tieZones ? { length: zones.endLength, spacing: zones.endSpacing } : { length: lu / 2, spacing: ties.spacing },
     });
     const issues = [

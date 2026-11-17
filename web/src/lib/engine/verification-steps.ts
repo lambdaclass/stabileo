@@ -2,25 +2,21 @@ import type { EngineMessage } from '../codes/message';
 
 export type VerificationStep = string | EngineMessage;
 
-type StepSource = () => readonly VerificationStep[];
-const stepSources = new WeakMap<() => unknown, StepSource>();
-
-function withStepSource<T extends object, S extends VerificationStep>(value: T, source: () => readonly S[]): T & { steps: S[] } {
-  const get = () => {
-    const steps = [...source()];
-    Object.defineProperty(value, 'steps', { value: steps, enumerable: true, configurable: true, writable: true });
-    return steps;
-  };
-  stepSources.set(get, source);
-  Object.defineProperty(value, 'steps', { enumerable: true, configurable: true, get,
-    set(steps) { Object.defineProperty(value, 'steps', { value: steps, enumerable: true, configurable: true, writable: true }); },
-  });
-  return value as T & { steps: S[] };
-}
+const deferredSteps = new WeakSet<() => unknown>();
 
 export function withDeferredVerificationSteps<T extends object, S extends VerificationStep>(value: T, render: () => S[]): T & { steps: S[] } {
   let snapshot: readonly S[] | undefined;
-  return withStepSource(value, () => snapshot ??= Object.freeze([...render()]));
+  function get(this: T) {
+    snapshot ??= Object.freeze([...render()]);
+    const steps = [...snapshot];
+    Object.defineProperty(this, 'steps', { value: steps, enumerable: true, configurable: true, writable: true });
+    return steps;
+  }
+  deferredSteps.add(get);
+  Object.defineProperty(value, 'steps', { enumerable: true, configurable: true, get,
+    set(steps) { Object.defineProperty(this, 'steps', { value: steps, enumerable: true, configurable: true, writable: true }); },
+  });
+  return value as T & { steps: S[] };
 }
 
 export function verificationCheckFields<T extends object>(value: T): Omit<T, 'steps'> {
@@ -30,8 +26,8 @@ export function verificationCheckFields<T extends object>(value: T): Omit<T, 'st
 }
 
 export function copyVerificationCheck<T extends { steps: VerificationStep[] }>(value: T): T {
-  const getter = Object.getOwnPropertyDescriptor(value, 'steps')?.get;
-  const source = getter && stepSources.get(getter);
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'steps');
   const fields = verificationCheckFields(value);
-  return (source ? withStepSource(fields, source) : { ...fields, steps: [...value.steps] }) as unknown as T;
+  if (descriptor?.get && deferredSteps.has(descriptor.get)) return Object.defineProperty(fields, 'steps', descriptor) as T;
+  return { ...fields, steps: [...value.steps] } as T;
 }

@@ -8,7 +8,7 @@ export function hasConcurrentChecks(value: ElementVerification): boolean {
   return getter !== undefined && concurrentGetters.has(getter) || Boolean(value.concurrentChecks);
 }
 
-export function verificationForElement(value: ElementVerification, elementId: number): ElementVerification {
+export function verificationForElement(value: ElementVerification, elementId: number, concurrent: 'copy' | 'transfer' = 'copy'): ElementVerification {
   const { concurrentChecks, ...plain } = value;
   const check = copyVerificationCheck;
   const detailing = value.detailing && { ...value.detailing };
@@ -30,7 +30,8 @@ export function verificationForElement(value: ElementVerification, elementId: nu
       ...(d.details ? { details: Object.fromEntries(Object.entries(d.details).map(([key, detail]) => [key, detail !== null && typeof detail === 'object' ? structuredClone(detail) : detail])) } : {}),
       ...(d.elementIds ? { elementIds: d.elementIds.map(id => id === value.elementId ? elementId : id) } : {}) })) } : {}),
   };
-  if (concurrentChecks) {
+  if (concurrentChecks && concurrent === 'transfer' && elementId === value.elementId) out.concurrentChecks = concurrentChecks;
+  else if (concurrentChecks) {
     const get = () => {
       const own = concurrentChecks.map(c => ({ demand: c.demand, verification: verificationForElement(c.verification, elementId) }));
       Object.defineProperty(out, 'concurrentChecks', { value: own, enumerable: true, configurable: true, writable: true });
