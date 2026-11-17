@@ -206,7 +206,7 @@ describe('solveCombinations2D — preflight parity with the per-case path', () =
   });
 });
 
-it.skip.each([false, true])('preserves the planar combination after case cancellation (per-case fallback: %s) (#2283)', async fallback => {
+it.each([false, true])('preserves the planar combination after case cancellation (per-case fallback: %s) (#2283)', async fallback => {
   await initSolver();
   const model = beamModel();
   const active = fallback ? [cases[0], { ...cases[1], name: cases[0].name }] : cases;

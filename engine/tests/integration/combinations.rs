@@ -526,7 +526,6 @@ fn combinations_3d_screen_repeated_case_once() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_preserve_distorted_quad_under_repeated_case_cancellation() {
     let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
     let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
@@ -569,7 +568,6 @@ fn combinations_preserve_distorted_quad_under_repeated_case_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_preserve_2d_response_under_repeated_case_cancellation() {
     let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&model).unwrap();

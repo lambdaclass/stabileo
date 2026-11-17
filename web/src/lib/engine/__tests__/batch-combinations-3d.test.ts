@@ -373,7 +373,7 @@ it('preserves warning diagnostics in both combinations and envelope', () => {
     .toEqual({ combinations: batch, envelope: computeEnvelope3D(batch.filter(r => r !== null)) });
 });
 
-it.skip.each(Object.entries(combinationPaths3D))('preserves a distorted quad after repeated case cancellation via %s (#2283)', (path, combine) => {
+it.each(Object.entries(combinationPaths3D))('preserves a distorted quad after repeated case cancellation via %s (#2283)', (path, combine) => {
   const model = readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8');
   const linear = solve_3d(JSON.parse(model));
   const nonlinear = JSON.parse(solve_pdelta_3d(model, 20, 1e-9)).results;
@@ -393,7 +393,7 @@ it.skip.each(Object.entries(combinationPaths3D))('preserves a distorted quad aft
   }
 });
 
-it.skip('preserves 2D results after repeated case cancellation in the wrapper and export (#2283)', () => {
+it('preserves 2D results after repeated case cancellation in the wrapper and export (#2283)', () => {
   const model = portalInput('2d');
   const big = 2 ** 54;
   for (const result of [solve_2d(JSON.parse(model)), JSON.parse(solve_pdelta_2d(model, 20, 1e-9)).results]) {

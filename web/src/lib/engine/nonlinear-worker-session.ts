@@ -1,6 +1,11 @@
 import { assertFiniteWire } from './wasm-solver';
 import { finishSolve3D } from './solve-finish';
 
+function finiteWireJson(payload: unknown): string {
+  assertFiniteWire(payload);
+  return JSON.stringify(payload);
+}
+
 /** Native operations only. Active-set decisions stay in the shared generator. */
 export function nonlinearWorkerSession(wasm: Record<string, any>) {
   let initial: string | undefined;
@@ -8,8 +13,8 @@ export function nonlinearWorkerSession(wasm: Record<string, any>) {
   return {
     solve(step: { kind: string; input: any; reuse?: boolean; soilSprings?: unknown[]; densities?: unknown; pretension?: unknown }) {
       const { input } = step;
-      if (step.kind === 'ssi') return JSON.parse(wasm.solve_ssi_3d(JSON.stringify({ solver: input, soilSprings: step.soilSprings })));
-      if (step.kind === 'cable') return JSON.parse(wasm.solve_cable_3d(JSON.stringify({ solver: input, densities: step.densities, pretension: step.pretension }), 50, 1e-8));
+      if (step.kind === 'ssi') return JSON.parse(wasm.solve_ssi_3d(finiteWireJson({ solver: input, soilSprings: step.soilSprings })));
+      if (step.kind === 'cable') return JSON.parse(wasm.solve_cable_3d(finiteWireJson({ solver: input, densities: step.densities, pretension: step.pretension }), 50, 1e-8));
       assertFiniteWire(input);
       if (step.reuse && !input.constraints?.length && wasm.LoadSession3D) {
         const structure = { ...input, loads: [] };

@@ -322,7 +322,7 @@ it('retires a worker after failed native cleanup and preserves its original refu
   expect(output(await modelStore.solveCombinations3DParallel(false, false, true))).toBe(output(modelStore.solveCombinations3D(false, false, true)));
 });
 
-it.skip.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s worker payloads before JSON serialization (#2283)', async (fixture, kind) => {
+it.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s worker payloads before JSON serialization (#2283)', async (fixture, kind) => {
   beam(fixture);
   const model = md();
   const input = buildSolverInput3D(model)!;

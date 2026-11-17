@@ -72,6 +72,7 @@ let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
 let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
+let wasmNetCombinationFactors: ((input: unknown) => unknown) | null = null;
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
 let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
@@ -277,6 +278,7 @@ export async function initSolver(): Promise<void> {
     wasmAnalyzeKinematics3d = wasm.analyze_kinematics_3d;
 
     // Combinations & Envelope
+    wasmNetCombinationFactors = wasm.net_combination_factors;
     wasmCombineResults2d = wasm.combine_results_2d;
     wasmCombineResults3d = wasm.combine_results_3d;
     wasmCombineResultsBatch3d = wasm.combine_results_batch_3d;
@@ -1482,6 +1484,13 @@ function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<nu
   return [...new Set(factors.map(f => f.caseId))]
     .filter(caseId => perCase.has(caseId))
     .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
+}
+
+export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+  if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
+  if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
+  assertFiniteWire(factors);
+  return wasmNetCombinationFactors(factors) as typeof factors;
 }
 
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */

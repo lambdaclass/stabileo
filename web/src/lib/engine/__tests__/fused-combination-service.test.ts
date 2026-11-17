@@ -70,7 +70,7 @@ it('keeps shell recovery on the separate combination and envelope path', async (
   compareSolveResults(parallel, modelStore.solveCombinations3D(true, false, true));
 });
 
-it.skip.each([['sequential', solveCombinations3D], ['parallel', solveCombinations3DParallel]] as const)(
+it.each([['sequential', solveCombinations3D], ['parallel', solveCombinations3DParallel]] as const)(
   'preserves distorted-shell combination, envelope and certificate inputs after cancellation in the %s service (#2283)',
   async (_name, solve) => {
     const shell = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8'));

@@ -4,7 +4,7 @@
   "prs": [2283],
   "area": "analysis",
   "when": { "all": ["repeatedCombinationCases"] },
-  "quantities": ["resultSummary", "structuredDiagnostics", "solve.ok"],
+  "quantities": ["displacements", "reactions", "elementForces", "plateStresses", "quadStresses", "quadNodalStresses", "resultSummary", "structuredDiagnostics", "solve.ok"],
   "title": {
     "en": "Combination screening counts each load case once",
     "es": "La verificación de combinaciones cuenta cada caso de carga una vez",
@@ -15,7 +15,7 @@
     "tr": "Birleşim kontrolü her yük durumunu bir kez hesaba katıyor"
   },
   "explanation": {
-    "en": "When a load case appears more than once in a combination, screening now uses the sum of its factors. Re-run affected combinations and review the second-order and shell diagnostics.",
+    "en": "When a load case appears more than once in a combination, screening and superposition use the sum of its factors. Re-run affected combinations and review their responses, second-order and shell diagnostics.",
     "es": "Cuando un caso de carga aparece más de una vez en una combinación, la verificación usa la suma de sus factores. Volvé a calcular las combinaciones afectadas y revisá los avisos de segundo orden y de cáscaras.",
     "pt": "Quando um caso de carga aparece mais de uma vez numa combinação, a verificação usa a soma dos seus fatores. Recalcule as combinações afetadas e revise os diagnósticos de segunda ordem e de cascas.",
     "de": "Kommt ein Lastfall mehrfach in einer Kombination vor, verwendet die Prüfung die Summe seiner Faktoren. Berechnen Sie die betroffenen Kombinationen erneut und prüfen Sie die Meldungen zur Theorie zweiter Ordnung und zu Schalen.",
