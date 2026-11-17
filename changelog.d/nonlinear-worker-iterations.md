@@ -6,4 +6,6 @@ with the synchronous path. Retain the initial factorization across cases,
 snapshot inputs, and stop superseded solves between native calls. Expose progress
 and cancellation to callers; release sessions on completion or failure. Compute
 the displacement scale once per iteration instead of once per inactive member.
-Preserve native refusal messages, including errors returned as strings.
+Preserve native refusal messages, including errors returned as strings. Cleanup
+failures retain the original outcome and retire the affected worker; cancellation
+also takes precedence when pool initialization fails.

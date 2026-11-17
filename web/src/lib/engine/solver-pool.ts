@@ -117,6 +117,17 @@ const MAX_WORKERS = Math.min(
   8,
 );
 
+/** Discard a failed worker without clearing an initialization attempt still in flight. */
+function retireWorker(pw: PoolWorker, failure: Error): void {
+  pw.ready = false;
+  pw.worker.terminate();
+  for (const p of pw.pending.values()) p.reject(failure);
+  pw.pending.clear();
+  const installed = pool.includes(pw);
+  pool = pool.filter(candidate => candidate !== pw);
+  if (installed && pool.length === 0) initPromise = null;
+}
+
 /** Create a single worker and wait for it to become ready. */
 function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker> {
   return new Promise((resolve, reject) => {
@@ -137,7 +148,9 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
         return;
       }
       if (msg.type === 'error') {
-        reject(new Error(msg.message));
+        const failure = new Error(msg.message);
+        retireWorker(pw, failure);
+        reject(failure);
         return;
       }
       if (msg.type === 'result') {
@@ -146,6 +159,7 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
           pw.pending.delete(msg.id);
           // It has now executed, not merely been instantiated. See COLD_START_STAGGER_MS.
           pw.warmed = true;
+          if (msg.fatal) retireWorker(pw, new Error(msg.error));
           if (msg.error) p.reject(new Error(msg.error));
           else p.resolve(msg.result);
         }
@@ -154,11 +168,7 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
 
     worker.onerror = (err) => {
       const failure = new Error(`Worker error: ${err.message}`);
-      for (const p of pw.pending.values()) p.reject(failure);
-      pw.pending.clear();
-      pw.worker.terminate();
-      pool = pool.filter(candidate => candidate !== pw);
-      if (pool.length === 0) initPromise = null;
+      retireWorker(pw, failure);
       reject(failure);
     };
 
@@ -185,13 +195,14 @@ export async function initPool(numWorkers?: number): Promise<void> {
         Array.from({ length: count }, () => createWorker(wasmModule)),
       );
       const failed = settled.find((s): s is PromiseRejectedResult => s.status === 'rejected');
-      if (failed) {
+      const stopped = settled.some(s => s.status === 'fulfilled' && !s.value.ready);
+      if (failed || stopped) {
         // Terminate the workers that DID start (Promise.all would leak them),
         // then rethrow into the reset path below.
         for (const s of settled) {
           if (s.status === 'fulfilled') s.value.worker.terminate();
         }
-        throw failed.reason;
+        throw failed?.reason ?? new Error('Worker failed during initialization');
       }
       pool = settled.map(s => (s as PromiseFulfilledResult<PoolWorker>).value);
     } catch (err) {
@@ -376,8 +387,8 @@ export function checkSolveCancelled(options: NonlinearSolveOptions): void {
 /** Keep the first factorization on one worker across all cases and combinations. */
 export async function nonlinearSessionInWorker(options: NonlinearSolveOptions = {}) {
   checkSolveCancelled(options);
-  await ensurePool();
-  checkSolveCancelled(options);
+  try { await ensurePool(); }
+  finally { checkSolveCancelled(options); }
   // Reuse a warm worker; cold sessions share worker 0 rather than start WASM concurrently.
   const target = pool.find(pw => pw.warmed && pw.pending.size === 0) ?? pool[0];
   const sessionId = nextId++;
@@ -396,7 +407,13 @@ export async function nonlinearSessionInWorker(options: NonlinearSolveOptions = 
     async free() {
       if (closed) return;
       closed = true;
-      if (pool.includes(target)) await runJob('nonlinear-free', null, target, { sessionId });
+      if (!pool.includes(target)) return;
+      try { await runJob('nonlinear-free', null, target, { sessionId }); }
+      catch (error) {
+        // Cleanup must not replace a result, refusal or cancellation. Termination also
+        // reclaims the WASM instance if native cleanup failed before releasing it.
+        retireWorker(target, error instanceof Error ? error : new Error(String(error)));
+      }
     },
   };
 }

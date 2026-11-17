@@ -22,6 +22,34 @@ export function nonlinearWorkerSession(wasm: Record<string, any>) {
       }
       return finishSolve3D(wasm.solve_3d(input), input);
     },
-    free() { session?.free(); session = undefined; initial = undefined; },
+    free() {
+      const owned = session;
+      session = undefined; initial = undefined;
+      owned?.free();
+    },
   };
+}
+
+/** Always answer the job, even when releasing its native session also fails. */
+export function nonlinearWorkerReply(
+  sessions: Map<number, ReturnType<typeof nonlinearWorkerSession>>,
+  wasm: Record<string, any>,
+  msg: { type: string; sessionId: number; input?: any },
+): { result?: any; error?: string; fatal?: boolean } {
+  const release = () => {
+    const session = sessions.get(msg.sessionId);
+    sessions.delete(msg.sessionId);
+    session?.free();
+  };
+  try {
+    if (msg.type === 'nonlinear-free') { release(); return { result: null }; }
+    let session = sessions.get(msg.sessionId);
+    if (!session) { session = nonlinearWorkerSession(wasm); sessions.set(msg.sessionId, session); }
+    return { result: session.solve(msg.input) };
+  } catch (error: any) {
+    let fatal = msg.type === 'nonlinear-free';
+    try { release(); } catch { fatal = true; }
+    // A failed native release leaves allocation ownership uncertain: retire this worker.
+    return { error: error?.message ?? String(error), fatal };
+  }
 }

@@ -16,7 +16,7 @@
  */
 
 import { assertFiniteWire, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
-import { nonlinearWorkerSession } from './nonlinear-worker-session';
+import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
@@ -75,22 +75,10 @@ self.onmessage = async (e: MessageEvent) => {
   if (msg.type === 'nonlinear-step' || msg.type === 'nonlinear-free') {
     try {
       if (!ready) throw new Error('Worker not initialized');
-      if (msg.type === 'nonlinear-free') {
-        nonlinearSessions.get(msg.sessionId)?.free();
-        nonlinearSessions.delete(msg.sessionId);
-        self.postMessage({ type: 'result', id: msg.id, result: null });
-      } else {
-        let session = nonlinearSessions.get(msg.sessionId);
-        if (!session) {
-          session = nonlinearWorkerSession(wasmExports);
-          nonlinearSessions.set(msg.sessionId, session);
-        }
-        self.postMessage({ type: 'result', id: msg.id, result: session.solve(msg.input) });
-      }
+      self.postMessage({ type: 'result', id: msg.id, ...nonlinearWorkerReply(nonlinearSessions, wasmExports, msg) });
     } catch (err: any) {
-      nonlinearSessions.get(msg.sessionId)?.free();
-      nonlinearSessions.delete(msg.sessionId);
-      self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err) });
+      const cleanup = nonlinearWorkerReply(nonlinearSessions, wasmExports, { type: 'nonlinear-free', sessionId: msg.sessionId });
+      self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err), fatal: cleanup.fatal });
     }
     return;
   }
