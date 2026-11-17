@@ -533,6 +533,20 @@ function noteKeys(doc: StepDoc): string[] {
   return out;
 }
 
+function intervalSweepBeam(seed: number) {
+  continuousBeam(seed);
+}
+
+it.skip('known wrong result: #2219 interval sweep contains an explicit empty load and a supported beam', () => {
+  intervalSweepBeam(0);
+  expect(modelStore.model.loads.some(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b)).toBe(true);
+  expect(() => modelStore.buildSolverInput(false)).toThrow(/interval.*geometry limit/);
+  intervalSweepBeam(1);
+  const input = modelStore.buildSolverInput(false)!;
+  expect(input).toBeDefined();
+  expect(solveReference(input)).toBeDefined();
+});
+
 describe('axial term off, where bending alone says too little', () => {
   it('beams with a horizontal redundant: it keeps its axial term, the rest match the matrix solve', async () => {
     const cases: Array<[string, () => Promise<void> | void]> = [
