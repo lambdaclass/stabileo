@@ -18,11 +18,14 @@ else
 fi
 cp "$tmp/pkg/masonry_arches_heyman_1966.js" "$out/arch.js"
 python3 - "$out" <<'PY'
-import hashlib, json, pathlib, sys
+import hashlib, json, pathlib, re, shutil, sys
 out = pathlib.Path(sys.argv[1])
 names = ['arch.js', 'arch_bg.wasm']
 build_id = hashlib.sha256(b''.join((out / name).read_bytes() for name in names)).hexdigest()
 destination = out / build_id
+for stale in out.iterdir():
+    if stale.is_dir() and stale.name != build_id and re.fullmatch(r'[0-9a-f]{64}', stale.name):
+        shutil.rmtree(stale)
 destination.mkdir(exist_ok=True)
 for name in names:
     (destination / name).write_bytes((out / name).read_bytes())

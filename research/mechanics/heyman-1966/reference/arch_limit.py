@@ -198,7 +198,7 @@ def kinematic_multiplier(arch: Arch, live):
             I = P1 + u * d1
             wA = 1.0
             a = P2 - P1; b = P2 - I
-            if abs(b @ b) < 1e-14:
+            if abs(b @ d1) < 1e-14:
                 continue
             wB = wA * (a @ d1) / (b @ d1)
             a3 = P3 - I; b3 = P3 - P4
@@ -229,7 +229,7 @@ def kinematic_multiplier(arch: Arch, live):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default='.')
-    ap.add_argument('--kinematic-max-n', type=int, default=31)
+    ap.add_argument('--kinematic-max-n', type=int, default=40)
     a = ap.parse_args()
     out = {}
 
@@ -279,7 +279,7 @@ def main():
         case2.append(row)
     out['case2'] = dict(geometry=dict(ri=ri, t=t, d=1.0, gamma=20.0, x_load=xq), results=case2)
 
-    json.dump(out, open(f'{a.out}/results.json', 'w'), indent=1, default=float)
+    json.dump(out, open(f'{a.out}/python_highs.json', 'w'), indent=1, default=float)
 
     print('\nCASE 1  least thickness of a semicircular arch (r = centreline radius)')
     for weights in ('true', 'centreline'):

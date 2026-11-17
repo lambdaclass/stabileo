@@ -440,7 +440,6 @@ jobs:
       - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml
       - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/heyman-1966/Cargo.toml -- -D warnings
       - run: nix develop -c cargo run --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml --bin validate
-      - run: python3 -I -c "import json, sys; c = json.load(open('research/mechanics/heyman-1966/VALIDATION.json'))['checks']; sys.exit(not c or not all(x['passed'] for x in c))"
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation

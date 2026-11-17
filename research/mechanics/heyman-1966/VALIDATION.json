@@ -321,7 +321,7 @@
     },
     {
       "id": "ring-hinges",
-      "metric": "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints differ from the Python/HiGHS implementation",
+      "metric": "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints or faces differ from the Python/HiGHS implementation",
       "observed": 0.0,
       "passed": true,
       "tolerance": 0.0

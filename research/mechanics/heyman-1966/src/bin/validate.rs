@@ -1,4 +1,4 @@
-use masonry_arches_heyman_1966::{collapse, hinges, kinematic, least_thickness, run, PointLoad, Weights};
+use masonry_arches_heyman_1966::{Side, collapse, hinges, kinematic, least_thickness, run, PointLoad, Weights};
 use serde_json::{json, Value};
 
 const HERE: &str = env!("CARGO_MANIFEST_DIR");
@@ -28,6 +28,26 @@ fn largest_difference(a: &Value, b: &Value) -> f64 {
     }
 }
 
+/// Like `largest_difference`, relative to each number with an absolute floor of 10⁻¹², so the
+/// last-digit differences between platforms pass and any real change to a value does not.
+fn drift(a: &Value, b: &Value) -> f64 {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            let d = (x - y).abs();
+            if d <= 1e-12 { 0.0 } else { d / y.abs() }
+        }
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).map(|(p, q)| drift(p, q)).fold(0.0, f64::max),
+        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().map(|(k, p)| y.get(k).map_or(f64::INFINITY, |q| drift(p, q))).fold(0.0, f64::max),
+        _ if a == b => 0.0,
+        _ => f64::INFINITY,
+    }
+}
+
+fn read_root(name: &str) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(format!("{HERE}/{name}")).unwrap()).unwrap()
+}
+
 fn read(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(format!("{HERE}/reference-results/{name}")).unwrap()).unwrap()
 }
@@ -49,7 +69,13 @@ fn main() {
             checks.push(compared(&format!("{key}-{a}-beta"), &format!("α = {a}°, {label}: haunch hinge angle from the crown, degrees"), r.beta, p["beta"].as_f64().unwrap(), false, 0.01, RIZZI));
             checks.push(compared(&format!("{key}-{a}-h"), &format!("α = {a}°, {label}: H/(w r), relative difference"), r.h, p["h"].as_f64().unwrap(), true, 1e-4, RIZZI));
             ours[key] = json!({"eta": r.eta, "beta": r.beta, "h": r.h, "hinges": r.hinges.len()});
-            let symmetric = r.hinges.len() == 5 && r.hinges[0].joint == 0 && r.hinges[4].joint == n && r.hinges[1].joint + r.hinges[3].joint == n && 2 * r.hinges[2].joint == n;
+            let sides = [Side::Extrados, Side::Intrados, Side::Extrados, Side::Intrados, Side::Extrados];
+            let symmetric = r.hinges.len() == 5
+                && r.hinges.iter().zip(sides).all(|(h, side)| h.side == side)
+                && r.hinges[0].joint == 0
+                && r.hinges[4].joint == n
+                && r.hinges[1].joint + r.hinges[3].joint == n
+                && 2 * r.hinges[2].joint == n;
             checks.push(check(&format!("{key}-{a}-hinges"), &format!("α = {a}°, {label}: five hinges, symmetric, extrados at the crown and springings (0 = yes)"), if symmetric { 0.0 } else { 1.0 }, 0.0));
         }
         table.push(ours);
@@ -76,8 +102,8 @@ fn main() {
         let (block, _) = arch.extrados_point(x);
         let load = PointLoad { block, x, p: 1.0 };
         let s = collapse(&arch, &load).unwrap();
-        let found: Vec<usize> = hinges(&arch, &s.e, 1e-6).iter().map(|h| h.joint).collect();
-        let theirs: Vec<usize> = c["hinges"].as_array().unwrap().iter().map(|h| h[0].as_u64().unwrap() as usize).collect();
+        let found: Vec<(usize, &str)> = hinges(&arch, &s.e, 1e-6).iter().map(|h| (h.joint, if h.side == Side::Extrados { "extrados" } else { "intrados" })).collect();
+        let theirs: Vec<(usize, &str)> = c["hinges"].as_array().unwrap().iter().map(|h| (h[0].as_u64().unwrap() as usize, h[2].as_str().unwrap())).collect();
         if found != theirs {
             hinge_mismatch += 1.0;
         }
@@ -86,13 +112,13 @@ fn main() {
         if let Some(k) = kin {
             worst_bounds = worst_bounds.max(((k - s.lambda) / s.lambda).abs());
         }
-        ring_rows.push(json!({"n": n, "static": s.lambda, "kinematic": kin, "hinges": found.iter().map(|&j| (arch.phi(j) - arch.phi(0)).to_degrees()).collect::<Vec<_>>()}));
+        ring_rows.push(json!({"n": n, "static": s.lambda, "kinematic": kin, "hinges": found.iter().map(|&(j, _)| (arch.phi(j) - arch.phi(0)).to_degrees()).collect::<Vec<_>>()}));
     }
     checks.push(check("ring-bounds", "ring under a quarter-span point load, N = 10 to 40: relative gap between the static multiplier and the smallest over every four-hinge mechanism", worst_bounds, 1e-9));
     let mut c = check("ring-python", "ring under a quarter-span point load, N = 10 to 160: largest relative difference in the collapse load from the Python/HiGHS implementation", worst_python, 1e-6);
     c["source"] = json!(PYTHON);
     checks.push(c);
-    checks.push(check("ring-hinges", "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints differ from the Python/HiGHS implementation", hinge_mismatch, 0.0));
+    checks.push(check("ring-hinges", "ring under a quarter-span point load, N = 10 to 160: cases whose hinge joints or faces differ from the Python/HiGHS implementation", hinge_mismatch, 0.0));
 
     let fresh = run::replay().unwrap();
     let stored = read("replay.json");
@@ -120,6 +146,12 @@ fn main() {
     }
     if write {
         std::fs::write(format!("{HERE}/VALIDATION.json"), serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();
+    } else {
+        let drift = drift(&out, &read_root("VALIDATION.json"));
+        println!("{} VALIDATION.json against this run: largest relative difference {drift:.3e} (≤ 1e-9)", if drift <= 1e-9 { "ok  " } else { "FAIL" });
+        if drift > 1e-9 {
+            std::process::exit(1);
+        }
     }
     std::process::exit(if failed == 0 { 0 } else { 1 });
 }
