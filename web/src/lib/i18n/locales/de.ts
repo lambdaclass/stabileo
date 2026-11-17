@@ -14810,7 +14810,7 @@ const de: Translations = {
   "loads.asce7.live.partitionExempt": "§4.3.2 verlangt keine Trennwandlast: die Nutzlast beträgt {lo} kN/m², mindestens {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Kein Zuschlag für leichte Trennwände. TS 498 zählt sie zur Nutzlast (§0.2.1) und nennt keinen Wert: ihr Gewicht wird an ihrer Stelle oder als Zuschlag des Projekts angesetzt.",
   "loads.tr.live.partitionApplied": "Leichte Trennwände: {q} kN/m², Wert des Projekts (TS 498 §0.2.1 zählt sie zur Nutzlast und nennt keinen), unabgemindert zur Nutzlast der Geschosse addiert.",
-  "loads.ec.reduction.alphaNWithPsi": "αn steckt im Nutzlastfall und geht daher auch in die Kombinationen ein, in denen L mit ψ0, ψ1 oder ψ2 begleitet; EN 1991-1-1 §3.3.2(2)P lässt dort nur ψ oder αn zu. Stützen für diese Kombinationen ohne Abminderung nachweisen.",
+  "loads.ec.reduction.alphaNWithPsi": "Der Nutzlastfall enthält αn = {alpha}; wo L mit ψ0, ψ1 oder ψ2 begleitet, geht er mit ψ/αn ein, sodass die Kombination nur ψ und nicht beide Faktoren ansetzt (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Trennwände ({ref})",
   "autoLoad.live.partitionOnCode": "Trennwandzuschlag zu den Geschossen addieren",
   "autoLoad.live.partitionValueCode": "Trennwandzuschlag",

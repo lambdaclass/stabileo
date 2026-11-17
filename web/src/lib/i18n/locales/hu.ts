@@ -15902,7 +15902,7 @@ const hu: Translations = {
   "loads.asce7.live.partitionExempt": "A §4.3.2 nem ír elő válaszfalterhet: a hasznos teher {lo} kN/m², legalább {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Nincs pótlék könnyű válaszfalakra. A TS 498 hasznos teherként veszi őket figyelembe (§0.2.1), és nem ad értéket: súlyukat a helyükön kell felvenni, vagy a projekt saját pótlékaként.",
   "loads.tr.live.partitionApplied": "Könnyű válaszfalak: {q} kN/m², a projekt értéke (a TS 498 §0.2.1 hasznos teherként veszi figyelembe őket, és nem ad értéket), csökkentés nélkül hozzáadva a födém hasznos terhéhez.",
-  "loads.ec.reduction.alphaNWithPsi": "Az αn a hasznos teher esetében szerepel, így azokba a kombinációkba is belép, ahol az L ψ0, ψ1 vagy ψ2 tényezővel kísérő hatás; az EN 1991-1-1 §3.3.2(2)P ott a ψ és az αn közül csak az egyiket engedi meg. Ezekre a kombinációkra ellenőrizze az oszlopokat kikapcsolt csökkentéssel.",
+  "loads.ec.reduction.alphaNWithPsi": "A hasznos teher esete αn = {alpha} tényezőt tartalmaz; ahol L ψ0, ψ1 vagy ψ2 tényezővel kísér, ψ/αn tényezővel lép be, így a kombináció csak ψ-t alkalmazza, nem mindkét tényezőt (EN 1991-1-1 §3.3.2(2)P).",
   "containment.dismiss": "Figyelmeztetés bezárása",
   "containment.dismissHintPro": "Továbbra is megtalálható az Analízis › Diagnosztika alatt",
   "containment.dismissHintBasic": "Továbbra is megtalálható az eredménypanelen",

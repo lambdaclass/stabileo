@@ -14959,7 +14959,7 @@ const es: Record<string, string> = {
   "loads.asce7.live.partitionExempt": "La §4.3.2 no exige carga de tabiques: la sobrecarga es {lo} kN/m², de al menos {limit} kN/m² (80 psf).",
   "loads.tr.live.partitionOff": "Sin sobrecarga por tabiques livianos. La TS 498 los cuenta como carga viva (§0.2.1) y no da un valor: su peso se carga donde están, o como una sobrecarga del proyecto.",
   "loads.tr.live.partitionApplied": "Tabiques livianos: {q} kN/m², valor del proyecto (la TS 498 §0.2.1 los cuenta como carga viva y no da uno), sumada sin reducir a la sobrecarga de los pisos.",
-  "loads.ec.reduction.alphaNWithPsi": "αn está en el estado de sobrecarga, así que también entra en las combinaciones donde L acompaña con ψ0, ψ1 o ψ2; la EN 1991-1-1 §3.3.2(2)P admite allí sólo uno de ψ y αn. Verificá las columnas con la reducción apagada para esas combinaciones.",
+  "loads.ec.reduction.alphaNWithPsi": "El caso de sobrecarga lleva αn = {alpha}; donde L acompaña con ψ0, ψ1 o ψ2 entra con ψ/αn, así la combinación aplica sólo ψ y no ambos factores (EN 1991-1-1 §3.3.2(2)P).",
   "autoLoad.live.partitionTitleCode": "Tabiques ({ref})",
   "autoLoad.live.partitionOnCode": "Sumar una sobrecarga por tabiques a los pisos",
   "autoLoad.live.partitionValueCode": "Sobrecarga por tabiques",
