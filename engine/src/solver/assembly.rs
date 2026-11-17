@@ -921,6 +921,9 @@ pub(crate) fn assemble_load_vector_2d_with_rounding(
     inclined_transforms_2d: &[InclinedTransformData2D],
     track_rounding: bool,
 ) -> (Vec<f64>, Vec<f64>) {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let n = dof_num.n_total;
     let mut f_global = vec![0.0; n];
     let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));
@@ -1734,6 +1737,9 @@ pub(crate) fn assemble_load_vector_3d_with_rounding(
     inclined_transforms: &[InclinedTransformData],
     track_rounding: bool,
 ) -> (Vec<f64>, Vec<f64>) {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let n = dof_num.n_total;
     let mut f_global = vec![0.0; n];
     let mut rounding = track_rounding.then(|| super::load_work::AssemblyRoundoff::new(n));

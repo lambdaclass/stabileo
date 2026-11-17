@@ -555,9 +555,16 @@ describe('axial term off, where bending alone says too little', () => {
     expect(kept).toBeGreaterThan(0);
   });
 
-  it('never throws and never gives garbage on the sweep\'s generated beams', () => {
+  it('refuses zero-width loads and gives finite answers on the sweep\'s supported beams', () => {
+    let refused = 0, answered = 0;
     for (let seed = 1; seed <= 120; seed++) {
       continuousBeam(seed);
+      if (modelStore.model.loads.some(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b)) {
+        expect(() => modelStore.buildSolverInput(false)).toThrow(/interval.*geometry limit/);
+        refused++;
+        continue;
+      }
+      answered++;
       const input = modelStore.buildSolverInput(false)!;
       for (const id of ['castigliano', 'virtualWork']) {
         const ctx = ctxFor(input, { axial: false });
@@ -567,6 +574,8 @@ describe('axial term off, where bending alone says too little', () => {
         expect(worstDiff(doc), `beam#${seed} ${id}`).toBeLessThan(1e-6);
       }
     }
+    expect(refused).toBeGreaterThan(0);
+    expect(answered).toBeGreaterThan(0);
   });
 
   it('warns where the axial term is most of the displacement: an arch, a braced frame, a column top', async () => {

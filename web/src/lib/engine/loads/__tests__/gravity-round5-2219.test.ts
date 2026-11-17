@@ -53,7 +53,7 @@ for (const kind of ['components', 'opposite', 'forceAndMoment'] as const) regres
   if (kind === 'opposite') { d.a = 2 - h; d.b = 2; d.qYJ = -1; }
   if (kind === 'forceAndMoment') d.moments = { x: [1, 1, 1], y: [0, 0, 0], z: [0, 0, 0] };
   let id = 10;
-  const result = splitElementLoads([{ type: 'distributed3d', data: d }], 1, [0, 2, 6], [2, 3], () => id++);
+  const result = splitElementLoads([{ type: 'distributed3d', data: d }], 1, [0, 2, 6], [2, 3], () => id++, [2, 4]);
   const points = result.added.filter(l => l.type === 'pointOnElement3d');
   expect(points).toEqual([]);
   expect(result.added.every(l => l.type === 'distributed3d')).toBe(true);
@@ -137,13 +137,13 @@ it('short-span torque stays a density and never reaches endpoint snapping', asyn
 
 it('projected subdivision refuses missing source geometry before emitting any loads', () => {
   let id = 10;
-  expect(() => splitElementLoads([{ type: 'distributed3d', data: { id: 1, elementId: 1, frame: 'projected', qYI: 1, qYJ: 1, qZI: 0, qZJ: 0 } }], 1, [0, 2, 6], [2, 3], () => id++)).toThrow('Projected member loading requires source member geometry');
+  expect(() => splitElementLoads([{ type: 'distributed3d', data: { id: 1, elementId: 1, frame: 'projected', qYI: 1, qYJ: 1, qZI: 0, qZJ: 0 } }], 1, [0, 2, 6], [2, 3], () => id++, [2, 4])).toThrow('Projected member loading requires source member geometry');
   expect(id).toBe(10);
 });
 
 it('plane distributed subdivision retains distinct IDs for every segment', () => {
   let id = 10;
-  const result = splitElementLoads([{ type: 'distributed', data: { id: 1, elementId: 1, qI: 1, qJ: 1 } }], 1, [0, 2, 6], [2, 3], () => id++);
+  const result = splitElementLoads([{ type: 'distributed', data: { id: 1, elementId: 1, qI: 1, qJ: 1 } }], 1, [0, 2, 6], [2, 3], () => id++, [2, 4]);
   expect(result.added.map(l => l.data.id)).toEqual([10, 11]);
   expect(result.added.map(l => 'elementId' in l.data && l.data.elementId)).toEqual([2, 3]);
 });

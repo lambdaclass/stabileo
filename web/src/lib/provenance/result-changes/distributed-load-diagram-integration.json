@@ -1,0 +1,44 @@
+{
+  "id": "distributed-load-diagram-integration",
+  "date": "2026-11-17",
+  "prs": [
+    2223
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "members"
+    ],
+    "any": [
+      "distributedMemberLoads",
+      "selfWeight"
+    ]
+  },
+  "quantities": [
+    "diagrams",
+    "envelope",
+    "beamStations",
+    "sectionStress",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Distributed-load diagrams avoid overflowing intensity slopes",
+    "es": "Los diagramas evitan pendientes de intensidad que desbordan",
+    "pt": "Diagramas evitam inclinações de intensidade que transbordam",
+    "de": "Stablastverläufe vermeiden überlaufende Intensitätsgradienten",
+    "fr": "Les diagrammes évitent les pentes de charge qui débordent",
+    "tr": "Yayılı yük diyagramları şiddet eğimindeki taşmayı önler"
+  },
+  "explanation": {
+    "en": "Rerun member diagrams and their dependent envelopes, station forces and section stresses for distributed transverse loads. Shared 2D and 3D recovery now integrates endpoint intensities without dividing their difference by the loaded width. A narrow supported interval with a huge finite intensity could create NaN and withhold a finite diagram, even before the load started. Downstream moments also retain the loaded interval’s moment when its resultant cancels. Geometry and acceptance limits are unchanged; non-finite outputs are still refused. Dependent plastic-collapse and moving-load results can also change. Uniform loads preserve their prior arithmetic when its geometric products are normal and outputs are finite.",
+    "es": "Repita los diagramas y sus envolventes, fuerzas en estaciones y tensiones de sección para cargas transversales distribuidas. La recuperación 2D y 3D integra las intensidades extremas sin dividir su diferencia por el ancho cargado. Un intervalo estrecho admitido con intensidad finita muy grande podía generar NaN y rechazar un diagrama finito incluso antes del inicio de la carga. Los momentos posteriores conservan también el momento del intervalo cuando su resultante se anula. Los límites no cambian; los resultados no finitos siguen rechazándose. También pueden cambiar los resultados dependientes de colapso plástico y cargas móviles. Las cargas uniformes conservan la aritmética previa cuando sus productos geométricos son normales y los resultados son finitos.",
+    "pt": "Refaça os diagramas e suas envoltórias, forças nas estações e tensões de seção para cargas transversais distribuídas. A recuperação 2D e 3D integra as intensidades das extremidades sem dividir sua diferença pela largura carregada. Um intervalo estreito admitido com intensidade finita muito grande podia gerar NaN e recusar um diagrama finito até antes da carga. Os momentos posteriores também preservam o momento do intervalo quando sua resultante se anula. Os limites permanecem iguais; saídas não finitas continuam recusadas. Resultados dependentes de colapso plástico e cargas móveis também podem mudar. Cargas uniformes preservam a aritmética anterior quando os produtos geométricos são normais e os resultados são finitos.",
+    "de": "Stablastverläufe und abhängige Umhüllende, Stationskräfte und Querschnittsspannungen für verteilte Querlasten erneut berechnen. Die gemeinsame 2D- und 3D-Auswertung integriert Endintensitäten ohne Division ihrer Differenz durch die Lastbreite. Ein zulässiges schmales Intervall mit sehr großer endlicher Intensität konnte NaN erzeugen und einen endlichen Verlauf sogar vor Lastbeginn ablehnen. Nachfolgende Momente erhalten auch das Intervallmoment bei verschwindender Resultierender. Geometrie- und Akzeptanzgrenzen bleiben unverändert; nicht endliche Ausgaben werden weiterhin abgelehnt. Abhängige Ergebnisse zu plastischem Kollaps und bewegten Lasten können sich ebenfalls ändern. Gleichlasten behalten die bisherige Arithmetik bei normalen geometrischen Produkten und endlichen Ergebnissen.",
+    "fr": "Relancer les diagrammes et leurs enveloppes, efforts aux stations et contraintes de section pour les charges transversales réparties. La récupération commune 2D et 3D intègre les intensités aux extrémités sans diviser leur différence par la largeur chargée. Un intervalle étroit admis avec une très grande intensité finie pouvait produire NaN et refuser un diagramme fini, même avant la charge. Les moments en aval conservent aussi le moment de l’intervalle lorsque sa résultante s’annule. Les limites restent inchangées ; les sorties non finies sont toujours refusées. Les résultats associés de ruine plastique et de charges mobiles peuvent aussi changer. Les charges uniformes conservent leur arithmétique antérieure lorsque les produits géométriques sont normaux et les résultats finis.",
+    "tr": "Yayılı enine yükler için çubuk diyagramlarını ve bunlara bağlı zarfları, istasyon kuvvetlerini ve kesit gerilmelerini yeniden hesaplayın. Ortak 2B ve 3B geri kazanım, uç şiddetlerini farklarını yük genişliğine bölmeden entegre eder. Çok büyük sonlu şiddetli dar ve geçerli bir aralık, yük başlamadan önce bile NaN üretip sonlu diyagramı reddedebiliyordu. Sonraki momentler, bileşke sıfırlandığında da yük aralığının momentini korur. Geometri ve kabul sınırları değişmedi; sonlu olmayan çıktılar reddedilmeye devam eder. Bağlı plastik göçme ve hareketli yük sonuçları da değişebilir. Düzgün yayılı yükler, geometrik çarpımlar normal ve sonuçlar sonlu olduğunda önceki aritmetiği korur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-distributed-load-diagrams.md",
+    "heading": "Distributed-load diagrams without intensity slopes (#2223)"
+  }
+}

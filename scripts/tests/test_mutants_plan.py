@@ -2,6 +2,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import subprocess
 import tempfile
 import unittest
@@ -14,6 +15,29 @@ spec.loader.exec_module(plan)
 
 
 class MutantsPlan(unittest.TestCase):
+    def test_issue_2270_smaller_shards_preserve_the_16_night_rotation(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        total = int(re.search(r'^          MUTANTS_TOTAL: (\d+)$', workflow, re.M).group(1))
+        slots = int(re.search(r'^          MUTANTS_SLOTS: (\d+)$', workflow, re.M).group(1))
+        self.assertEqual((total, slots), (2560, 160))
+        self.assertEqual(total, 16 * slots)
+        for first_day in (0, 1, 20397):
+            covered = []
+            for day in range(first_day, first_day + 16):
+                tonight = plan.rotation(total, slots, day)
+                self.assertEqual(len(set(tonight)), slots)
+                covered.extend(tonight)
+            self.assertEqual(sorted(covered), list(range(total)))
+        last = {}
+        for night in range(3 * 16):
+            tonight = plan.pick(total, slots, last)
+            self.assertEqual(len(set(tonight)), slots)
+            for shard in tonight:
+                last[shard] = f'night-{night:04d}'
+            if (night + 1) % 16 == 0:
+                self.assertEqual(set(last), set(range(total)))
+                self.assertTrue(all(stamp >= f'night-{night - 15:04d}' for stamp in last.values()))
+
     def test_with_no_markers_it_starts_at_shard_zero(self):
         self.assertEqual(plan.pick(512, 32, {}), list(range(32)))
 

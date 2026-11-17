@@ -386,6 +386,7 @@ pub(crate) fn balance_2d(
     let mut summary = b.summary;
     summary.applied_force_sum = vec![b.applied[0], b.applied[2], -b.applied[4]];
     summary.reaction_force_sum = vec![b.reactions[0], b.reactions[2], -b.reactions[4]];
+    super::applied_loads::replace(&mut summary, super::applied_loads::plane(input, &input.loads));
     summary
 }
 
@@ -433,6 +434,7 @@ pub(crate) fn balance_3d(
     let mut summary = b.summary;
     summary.applied_force_sum = b.applied.to_vec();
     summary.reaction_force_sum = b.reactions.to_vec();
+    super::applied_loads::replace(&mut summary, super::applied_loads::space(input, &input.loads));
     summary
 }
 

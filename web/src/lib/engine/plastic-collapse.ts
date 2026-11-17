@@ -44,6 +44,7 @@
  */
 import type { SolverInput, SolverLoad, SolverElement, AnalysisResults, ElementForces } from './types';
 import type { PlasticHinge, PlasticResult, PlasticStep } from './result-types';
+import { generatedMemberBounds, memberLength, splitSpanLoad } from './member-span-loads';
 import { solve } from './wasm-solver';
 // The normalized reading: the diagnosis in the active language and the app's axis names.
 import { analyzeKinematics } from './kinematic-2d';
@@ -122,10 +123,23 @@ function cloneInput(input: SolverInput): SolverInput {
   };
 }
 
-const len = (input: SolverInput, e: SolverElement) => {
-  const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
-  return Math.hypot(b.x - a.x, b.z - a.z);
-};
+const len = (input: SolverInput, e: SolverElement) => memberLength(input, e.id);
+
+function checkedKinematics(input: SolverInput, stage: 'initial' | 'released') {
+  const result = analyzeKinematics(input);
+  if (result.rankAnalysis === 'invalid' && stage === 'released' && result.invalidInputKind === 'unsupportedNodalMoment'
+    && input.loads.every(l => l.type !== 'nodal' || Number.isFinite(l.data.my))
+    && input.loads.some(l => l.type === 'nodal' && l.data.my !== 0)) {
+    const probe = analyzeKinematics({
+      ...input,
+      loads: input.loads.map((load): SolverLoad => load.type === 'nodal' ? { type: 'nodal', data: { ...load.data, my: 0 } } : load),
+    });
+    if (probe.rankAnalysis === 'available') return { ...probe, isSolvable: false };
+  }
+  if (result.rankAnalysis === 'invalid') throw new Error(result.invalidInput ?? result.diagnosis);
+  if (result.rankAnalysis !== 'available') throw new Error(result.diagnosis);
+  return result;
+}
 
 /**
  * Split element `id` at distance `s` from its start: a new node, the element
@@ -143,21 +157,14 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
   input.elements.set(rightId, { ...e, id: rightId, nodeI: nodeId, nodeJ: e.nodeJ, hingeStart: false, hingeEnd: e.hingeEnd });
   input.elements.set(id, { ...e, nodeJ: nodeId, hingeEnd: false });
 
+  const bounds = generatedMemberBounds(L, [memberLength(input, id), memberLength(input, rightId)], [a, input.nodes.get(nodeId)!, b].map(p => [p.x, p.z]));
   const out: SolverLoad[] = [];
   for (const l of input.loads) {
     if ((l.type === 'distributed' || l.type === 'axialDistributed') && l.data.elementId === id) {
-      // Across the member or along it, a span load is cut the same way.
-      const d = l.data, type = l.type;
-      const la = d.a ?? 0, lb = d.b ?? L;
-      const qAt = (x: number) => (lb - la < 1e-12 ? d.qI : d.qI + ((d.qJ - d.qI) * (x - la)) / (lb - la));
-      if (la < s - 1e-12) {
-        const e1 = Math.min(lb, s);
-        out.push({ type, data: { elementId: id, qI: d.qI, qJ: qAt(e1), a: la, b: e1 } });
-      }
-      if (lb > s + 1e-12) {
-        const s1 = Math.max(la, s);
-        out.push({ type, data: { elementId: rightId, qI: qAt(s1), qJ: d.qJ, a: s1 - s, b: lb - s } });
-      }
+      out.push(...splitSpanLoad(l, L, [
+        { id, start: 0, end: bounds[1], length: memberLength(input, id) },
+        { id: rightId, start: bounds[1], end: L, length: memberLength(input, rightId) },
+      ], [[a.x, a.z], [b.x, b.z]]));
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       out.push(l.data.a <= s + 1e-12
         ? { type: 'pointOnElement', data: { ...l.data, a: Math.min(l.data.a, s) } }
@@ -257,7 +264,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   const MAX_CLOSINGS = maxEvents;
   const work = cloneInput(original);
 
-  const kin0 = analyzeKinematics(original);
+  const kin0 = checkedKinematics(original, 'initial');
   if (!kin0.isSolvable) throw new Error(kin0.diagnosis || 'mechanism');
   const template = solve(original);
 
@@ -417,7 +424,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
      * the solve after it said "solvable" is an error, and it used to be recorded as collapse:
      * an engine failure came out as a collapse factor.
      */
-    const kin = analyzeKinematics(work);
+    const kin = checkedKinematics(work, 'released');
     if (!kin.isSolvable) { if (closeUnloading()) continue; isMechanism = true; break; }
     let r: AnalysisResults;
     try { r = solve(work); } catch (e) {
@@ -642,7 +649,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     if (crushed) { isMechanism = true; break; }
   }
 
-  if (!isMechanism && !analyzeKinematics(work).isSolvable) {
+  if (!isMechanism && !checkedKinematics(work, 'released').isSolvable) {
     if (closeUnloading()) unresolved = true;
     else isMechanism = true;
   }

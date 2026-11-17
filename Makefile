@@ -200,7 +200,7 @@ audit.810.run:
 	$(NIX_RUN) cargo run -p dedaliano-engine --example triage810 -- $(MODE)
 
 test.engine.targeted:
-	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture
+	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture $(if $(IGNORED),--ignored)
 
 NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
 research.newmark.replay:
@@ -1269,3 +1269,8 @@ test.design.completeness-2096:
 
 test.web.gravity-determinism:
 	nix develop .\#e2e --command bash -c 'cd web && npx playwright test -c determinism/playwright.config.ts gravity-density.spec.ts'
+
+.PHONY: test.engine.kinematics-2222
+
+test.engine.kinematics-2222:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)

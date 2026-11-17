@@ -39,6 +39,7 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
 }
 
 pub(crate) fn diagram_samples_3d(ef: &ElementForces3D, kind: &str) -> Vec<(f64, f64)> {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     let relevant_pl: Vec<f64> = match kind {
         "momentZ" | "shearY" => ef.point_loads_y.iter().map(|p| p.a).collect(),
         "momentY" | "shearZ" => ef.point_loads_z.iter().map(|p| p.a).collect(),
@@ -73,6 +74,7 @@ pub fn evaluate_diagram_3d_at(
     kind: &str,
     t: f64,
 ) -> f64 {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     evaluate_diagram_3d_local(ef, kind, 0.0, t * ef.length, t)
 }
 
@@ -87,16 +89,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
             for m in &ef.member_moments { value += moment_integral(m, m.moments.z); }
             for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.z.unwrap_or(0.0); } }
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let distance = (origin - a) + offset;
-                let s = distance.min(span);
-                if s <= 0.0 { continue; }
-                value -= dl.q_i * (s * distance - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * distance - s * s * s / 3.0);
+                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_y {
                 if super::load_station::load_precedes_station(pl.a, l, t) {
@@ -110,16 +103,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
             for m in &ef.member_moments { value += moment_integral(m, m.moments.y); }
             for p in &ef.point_torques { if super::load_station::load_precedes_station(p.a, l, t) { value += p.y.unwrap_or(0.0); } }
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let distance = (origin - a) + offset;
-                let s = distance.min(span);
-                if s <= 0.0 { continue; }
-                value += dl.q_i * (s * distance - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * distance - s * s * s / 3.0);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_z {
                 if super::load_station::load_precedes_station(pl.a, l, t) {
@@ -131,15 +115,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
         "shearY" => {
             let mut value = ef.vy_start;
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let distance = (origin - a) + offset;
-                let s = distance.min(span);
-                if s <= 0.0 { continue; }
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_y {
                 if super::load_station::load_precedes_station(pl.a, l, t) { value += pl.p; }
@@ -149,15 +125,7 @@ fn evaluate_diagram_3d_local(ef: &ElementForces3D, kind: &str, origin: f64, offs
         "shearZ" => {
             let mut value = ef.vz_start;
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let distance = (origin - a) + offset;
-                let s = distance.min(span);
-                if s <= 0.0 { continue; }
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_z {
                 if super::load_station::load_precedes_station(pl.a, l, t) { value += pl.p; }
@@ -239,4 +207,16 @@ pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
         axial: all.remove(0),
         torsion: all.remove(0),
     }
+}
+
+pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {
+    for d in ef.distributed_loads_x.iter().chain(&ef.distributed_loads_y).chain(&ef.distributed_loads_z) {
+        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+    }
+    Ok(())
+}
+
+pub fn validate_diagram_input_3d(ef: &ElementForces3D) -> Result<(), String> {
+    crate::boundary::require_finite(ef)?;
+    validate_diagram_loads_3d(ef)
 }

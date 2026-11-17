@@ -828,7 +828,7 @@ impl PreparedStatic2D<'_> {
         })?;
         r.structured_diagnostics.push(residual);
         super::conditioning_accuracy::member_balance_2d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
-        super::self_checks::static_2d(&mut r, &[])?;
+        super::self_checks::static_2d(&mut r, &[], &self.input, loads)?;
         Ok(r)
     }
 
@@ -1959,7 +1959,7 @@ impl PreparedStatic3D {
         })?;
         r.structured_diagnostics.push(residual);
         super::conditioning_accuracy::member_balance_3d(&self.input, loads, &self.dof_num, &self.stability, &r, None)?;
-        super::self_checks::static_3d(&mut r, &[])?;
+        super::self_checks::static_3d(&mut r, &[], &self.input, loads)?;
         Ok(r)
     }
 
@@ -3463,7 +3463,7 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
         let dx = nj.x - ni.x;
         let dz = nj.z - ni.z;
         let l = (dx * dx + dz * dz).sqrt();
-        if l < 1e-10 {
+        if l < crate::element::MEMBER_GEOMETRY_LIMIT {
             return Err(format!("Element {} has zero length", elem.id));
         }
     }
@@ -3498,10 +3498,32 @@ pub(crate) fn validate_input_2d_for_analysis(input: &SolverInput, analysis: crat
     Ok(())
 }
 
+fn validate_distributed_load(
+    id: usize,
+    length: f64,
+    a: Option<f64>,
+    b: Option<f64>,
+    components: impl IntoIterator<Item = (f64, f64)>,
+) -> Result<(), String> {
+    let (a, b) = (a.unwrap_or(0.0), b.unwrap_or(length));
+    crate::element::validate_member_load_interval(&format!("Element {id}"), length, a, b)?;
+    for (qi, qj) in components {
+        if !qi.is_finite() || !qj.is_finite()
+            || !crate::element::distributed_resultant(qi, qj, a, b).is_finite()
+        {
+            return Err(format!("Element {id}: non-finite distributed load resultant"));
+        }
+    }
+    Ok(())
+}
+
 /// Validate load references for 2D (load → node/element integrity and
 /// point-load positions). Split from `validate_input_2d` so multi-case solves
 /// can validate each case's loads independently of the structure.
 pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Result<(), String> {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     // A load set solved on a prepared model (load cases, WASM load sessions) skips the model
     // validation, so the thermal properties are checked here too (#407).
     for load in loads {
@@ -3509,6 +3531,7 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
             crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depth", l.depth)])?;
         }
     }
+    let element_map: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id,e)).collect();
     let node_ids: std::collections::HashSet<usize> =
         crate::ordered::values(&input.nodes).map(|n| n.id).collect();
     let elem_ids: std::collections::HashSet<usize> =
@@ -3564,6 +3587,18 @@ pub(crate) fn validate_loads_2d(input: &SolverInput, loads: &[SolverLoad]) -> Re
                 }
             }
         }
+    }
+
+    for load in loads {
+        let (id, components, a, b) = match load {
+            SolverLoad::Distributed(d) => (d.element_id, vec![(d.q_i,d.q_j)], d.a,d.b),
+            SolverLoad::AxialDistributed(d) => (d.element_id, vec![(d.q_i,d.q_j)], d.a,d.b),
+            _ => continue,
+        };
+        let e=element_map[&id];
+        let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
+        let l=((j.x-i.x).powi(2)+(j.z-i.z).powi(2)).sqrt();
+        validate_distributed_load(id, l, a, b, components)?;
     }
 
     refuse_moments_without_rotation_2d(input, loads)?;
@@ -3912,7 +3947,7 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
         let dy = nj.y - ni.y;
         let dz = nj.z - ni.z;
         let l = (dx * dx + dy * dy + dz * dz).sqrt();
-        if l < 1e-10 {
+        if l < crate::element::MEMBER_GEOMETRY_LIMIT {
             return Err(format!("Element {} has zero length", elem.id));
         }
     }
@@ -3984,12 +4019,16 @@ pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: cr
 /// point-load positions). Split from `validate_input_3d` so multi-case solves
 /// can validate each case's loads independently of the structure.
 pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -> Result<(), String> {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     // As `validate_loads_2d`: prepared solves check the thermal properties here (#407).
     for load in loads {
         if let SolverLoad3D::Thermal(l) = load {
             crate::types::check_frame_thermal_inputs(l.element_id, l.alpha, &[("depthY", l.depth_y), ("depthZ", l.depth_z)])?;
         }
     }
+    let element_map: std::collections::HashMap<_, _> = crate::ordered::values(&input.elements).map(|e| (e.id,e)).collect();
     let node_ids: std::collections::HashSet<usize> =
         crate::ordered::values(&input.nodes).map(|n| n.id).collect();
     let elem_ids: std::collections::HashSet<usize> =
@@ -4100,6 +4139,17 @@ pub(crate) fn validate_loads_3d(input: &SolverInput3D, loads: &[SolverLoad3D]) -
                 }
             }
         }
+    }
+
+    for load in loads {
+        let (id, components, a, b) = match load {
+            SolverLoad3D::Distributed(d) => (d.element_id, vec![(d.q_xi,d.q_xj),(d.q_yi,d.q_yj),(d.q_zi,d.q_zj)], d.a,d.b),
+            _ => continue,
+        };
+        let e=element_map[&id];
+        let i=node_map[&e.node_i]; let j=node_map[&e.node_j];
+        let l=((j.x-i.x).powi(2)+(j.y-i.y).powi(2)+(j.z-i.z).powi(2)).sqrt();
+        validate_distributed_load(id, l, a, b, components)?;
     }
 
     refuse_moments_without_rotation_3d(input, loads)?;
@@ -4286,6 +4336,9 @@ fn compute_internal_forces_2d_typed(
     input: &SolverInput, loads: &[SolverLoad], dof_num: &DofNumbering, u: &[f64],
     properties: &ElasticProperties2D,
 ) -> Vec<ElementForces> {
+    let canonical_loads = super::member_loads::plane(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let mut forces = Vec::new();
 
     let node_map: std::collections::HashMap<usize, &SolverNode> =
@@ -4524,6 +4577,9 @@ pub fn compute_internal_forces_3d_with_loads(
     dof_num: &DofNumbering,
     u: &[f64],
 ) -> Vec<ElementForces3D> {
+    let canonical_loads = super::member_loads::space(input, loads);
+    let loads = canonical_loads.as_ref();
+
     let mut forces = Vec::new();
     let left_hand = input.left_hand.unwrap_or(false);
 
@@ -5674,6 +5730,37 @@ mod released_orphan_2074_tests {
             let r = solve_3d(&s).unwrap();
             assert_eq!(r.element_forces.len(), 1);
             assert!(r.element_forces[0].my_start != 0.0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod distributed_interval_review_tests {
+    use super::*;
+    use crate::known_issues::Analysis;
+    use crate::metamorphic::planes::{embed_2d, Plane};
+
+    fn analyses() -> [Analysis; 13] {
+        [Analysis::Linear, Analysis::StaticReduction, Analysis::MaterialNonlinear, Analysis::Cable,
+         Analysis::Ssi, Analysis::Plastic, Analysis::Modal, Analysis::TimeHistory, Analysis::Contact,
+         Analysis::Fiber, Analysis::Corotational, Analysis::Buckling, Analysis::Harmonic]
+    }
+
+    #[test]
+    fn issue_2222_near_full_bounds_every_analysis() {
+        let original: SolverInput = serde_json::from_str(include_str!("../../tests/fixtures/narrow-span-2222.json")).unwrap();
+        for analysis in analyses() {
+            for (a,b,valid) in [(-5e-13,3.0,false),(0.0,3.0+5e-13,false),(0.0,3.0,true),(5e-13,3.0-5e-13,true)] {
+                let mut input = original.clone();
+                input.loads = vec![SolverLoad::Distributed(SolverDistributedLoad { element_id:1, q_i:-2.0, q_j:-2.0, a:Some(a), b:Some(b) })];
+                let planar = validate_input_2d_for_analysis(&input, analysis);
+                assert_eq!(planar.is_ok(), valid, "2D {analysis:?}: [{a}, {b}]: {planar:?}");
+                for plane in [Plane::XY,Plane::XZ] {
+                    let input = embed_2d(&input, plane).unwrap();
+                    let spatial = validate_input_3d_for_analysis(&input, analysis);
+                    assert_eq!(spatial.is_ok(), valid, "3D {analysis:?}: [{a}, {b}]: {spatial:?}");
+                }
+            }
         }
     }
 }

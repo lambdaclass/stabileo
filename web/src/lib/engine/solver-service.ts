@@ -1,5 +1,8 @@
 import { assertMemberLoadSpan, nonemptyMemberForceLoads, MemberLoadSpanRefusal } from './loads/member-load-spans';
 import { hasMemberMoments, mapMoments } from './member-moments';
+import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
+export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
+import { MemberLoadIntervalError, validateMemberLoadInterval } from './member-span-loads';
 import { knownIssueRefusal } from './known-issues';
 import { isContainmentRefusal } from './containment-error';
 // Solver service — pure functions extracted from model.svelte.ts
@@ -57,7 +60,6 @@ import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
   projectNodeToScene,
-  shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
 
 import { loadMemberId, loadNodeId } from '../store/model.svelte';
@@ -118,19 +120,6 @@ export interface ModelData {
   analysis?: import('./analysis-settings').AnalysisSettings;
   /** Named groups, for a self-weight load that covers a group. */
   groups?: Map<number, { id: number; members: { elements?: number[]; plates?: number[]; quads?: number[] } }>;
-}
-
-/** Exported so UI affordances (e.g. the member-offset editor) can tell when a
- *  flat 2D-typed model will solve through the embedding — where offsets are
- *  intentionally NOT expanded — instead of claiming an analysis effect. */
-export function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
-  return shouldProjectModelToXZ({
-    nodes: model.nodes.values(),
-    supports: model.supports.values(),
-    loads: model.loads,
-    plateCount: model.plates?.size ?? 0,
-    quadCount: model.quads?.size ?? 0,
-  });
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -357,6 +346,13 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       }
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
+      const member = model.elements.get(d.elementId);
+      const ni = member && model.nodes.get(member.nodeI), nj = member && model.nodes.get(member.nodeJ);
+      if (ni && nj) {
+        const dx = nj.x - ni.x, dy = nj.y - ni.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? length, length, [[ni.x, ni.y], [nj.x, nj.y]]);
+      }
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
@@ -920,9 +916,13 @@ function prepareSolve2D(
   }
 
   // Build solver loads array (shared with the multi-case combo path)
-  const loads = buildSolveLoads2D(model, model.loads, includeSelfWeight);
-  if (typeof loads === 'string') return loads;
-  const input: SolverInput = { ...frame, loads };
+  let input: SolverInput;
+  try { input = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) }; }
+  catch (error) {
+    const refusal = loadRefusal(error);
+    if (refusal) return refusal;
+    throw error;
+  }
 
   // A moment on a node nothing there can turn against is a modeling error said by
   // name, not a vanishing-spring reaction that leaves the loads unbalanced.
@@ -1434,7 +1434,7 @@ export function memberRef3D(model: ModelData, elementId: number, project2DToXZ =
     // The flexible segment the engine loads: offsets applied, local Y fixed as the input fixes it.
     const f = memberFrame3D(model, elem);
     return f && f.ax.L > 1e-10
-      ? { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L }, ...(f.armI ? { armI: f.armI, armJ: f.armJ } : {}) }
+      ? { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: f.ax.ex, ey: f.ax.ey, ez: f.ax.ez, L: f.ax.L }, points: [f.ni, f.nj], ...(f.armI ? { armI: f.armI, armJ: f.armJ } : {}) }
       : null;
   }
   // A flat 2D model embedded in XZ: node to node, offsets are not expanded there.
@@ -1444,7 +1444,7 @@ export function memberRef3D(model: ModelData, elementId: number, project2DToXZ =
   const rot = model.sections.get(elem.sectionId)?.rotation ?? 0;
   if (!(Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) > 1e-10)) return null;
   const axes = computeLocalAxes3D(a, b, undefined, (elem.rollAngle ?? 0) + rot, false);
-  return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L } };
+  return { elementId, nodeI: elem.nodeI, nodeJ: elem.nodeJ, axes: { ex: axes.ex, ey: axes.ey, ez: axes.ez, L: axes.L }, points: [[a.x, a.y, a.z], [b.x, b.y, b.z]] };
 }
 
 /**
@@ -1490,6 +1490,8 @@ export function buildSolverLoads3D(
       });
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
+      const member = refOf(d.elementId);
+      if (member) validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? member.axes.L, member.axes.L, member.points);
       const angle = d.angle ?? 0;
       const isGlobal = d.isGlobal ?? false;
 
@@ -1550,6 +1552,7 @@ export function buildSolverLoads3D(
       const d = l.data as DistributedLoad3D;
       const m = refOf(d.elementId);
       if (!m) continue;
+      validateMemberLoadInterval(d.elementId, d.a ?? 0, d.b ?? m.axes.L, m.axes.L, m.points);
       const g = distributedGlobalEnds(d, m.axes, userLeftHand);
       solverLoads.push(...globalDistributedToSolver(m, g.gI, g.gJ, g.a, g.b));
       if (d.moments) {
@@ -1999,6 +2002,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
 export function loadRefusal(err: unknown): string | null {
   if (err instanceof MemberMomentRefusal) return tp(err.reason === 'spatial' ? 'svc.memberMomentsSpatial' : 'svc.memberMomentsFrame', { n: err.elementId });
   if (err instanceof MemberLoadSpanRefusal) return tp('svc.memberLoadSpan', { n: err.elementId });
+  if (err instanceof MemberLoadIntervalError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 

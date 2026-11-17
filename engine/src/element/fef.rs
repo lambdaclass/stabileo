@@ -122,10 +122,7 @@ pub fn fef_distributed_2d(q_i: f64, q_j: f64, l: f64, phi: f64) -> [f64; 6] {
 /// degree 3 and left a ~1e-6 relative error, found by differential testing
 /// against OpenSees.)
 pub fn fef_partial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64, phi: f64) -> [f64; 6] {
-    if (b - a).abs() < 1e-12 {
-        return [0.0; 6];
-    }
-
+    require_member_load_interval(l, a, b);
     let half = 0.5 * (b - a);
     let mid = 0.5 * (a + b);
     let g = (0.6f64).sqrt();
@@ -806,12 +803,21 @@ mod tests {
 /// Consistent axial nodal forces of a trapezoid on [a,b], per unit member length.
 /// Integrates the linear axial shape functions, retaining couples of opposite-sign ends.
 pub fn axial_distributed_fef(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
+    require_member_load_interval(l, a, b);
+    axial_distributed_fef_integral(q_i, q_j, a, b, l)
+}
+
+fn axial_distributed_fef_integral(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
     let span = b - a;
-    if span <= 0.0 { return [0.0, 0.0]; }
     let f_i = q_i * span / 2.0;
     let f_j = q_j * span / 2.0;
     let at_j = (f_i * (a + span / 3.0) + f_j * (a + 2.0 * span / 3.0)) / l;
     [f_i + f_j - at_j, at_j]
+}
+
+#[cfg(kani)]
+pub(crate) fn axial_distributed_fef_integral_for_proof(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [f64; 2] {
+    axial_distributed_fef_integral(q_i, q_j, a, b, l)
 }
 
 /// A plane frame's fixed-end forces for an axial span load (`SolverAxialDistributedLoad`):
@@ -849,5 +855,146 @@ mod round22_tests {
         f[3] = 1.0; f[9] = -1.0;
         adjust_fef_for_hinges_3d(&mut f, 3.0, hinge, 0.0, 0.0);
         assert_eq!([f[3], f[9]], [0.0; 2]);
+    }
+}
+
+pub fn distributed_resultant(q_i: f64, q_j: f64, a: f64, b: f64) -> f64 {
+    let span = b - a;
+    let weight = |q: f64| if span.abs() < f64::MIN_POSITIVE { (q * span) * 0.5 } else { q * (span * 0.5) };
+    weight(q_i) + weight(q_j)
+}
+
+pub const MEMBER_GEOMETRY_LIMIT: f64 = 1e-10;
+
+pub fn member_load_interval_is_supported(length: f64, a: f64, b: f64) -> bool {
+    length.is_finite() && length > 0.0 && a.is_finite() && b.is_finite()
+        && a >= 0.0 && b >= a && b <= length
+        && (b - a) / length >= MEMBER_GEOMETRY_LIMIT
+}
+
+pub fn validate_member_load_interval(member: &str, length: f64, a: f64, b: f64) -> Result<(), String> {
+    if member_load_interval_is_supported(length, a, b) {
+        return Ok(());
+    }
+    if !length.is_finite() || length <= 0.0 || !a.is_finite() || !b.is_finite() || a < 0.0 || b < a || b > length {
+        return Err(format!("{member}: invalid distributed load interval [{a}, {b}] on length {length}"));
+    }
+    Err(format!("{member}: distributed load interval [{a}, {b}] on length {length} is below the relative geometry limit {MEMBER_GEOMETRY_LIMIT}"))
+}
+
+pub(crate) fn distributed_load_terms(q_i: f64, q_j: f64, a: f64, b: f64, x: f64) -> (f64, f64) {
+    if b <= a || x <= a { return (0.0, 0.0); }
+    let span = b - a;
+    let d = x - a;
+    let s = d.min(span);
+    if q_i == q_j {
+        let rectangle = d * s;
+        let square = s * s;
+        if rectangle.is_normal() && square.is_normal() {
+            let force = q_i * s;
+            let moment = q_i * (rectangle - square / 2.0);
+            if force.is_finite() && moment.is_finite() {
+                return (force + 0.0, moment + 0.0);
+            }
+        }
+    }
+    let u = s / span;
+    let left = q_i * s;
+    let right = q_j * s;
+    let force = left * (1.0 - u / 2.0) + right * (u / 2.0);
+    let moment = (left * (0.5 - u / 6.0) + right * (u / 6.0)) * s;
+    (force, moment + force * (d - s))
+}
+
+fn require_member_load_interval(length: f64, a: f64, b: f64) {
+    assert!(member_load_interval_is_supported(length, a, b), "unsupported distributed member load interval");
+}
+
+#[cfg(test)]
+mod distributed_terms_2223_tests {
+    use super::distributed_load_terms;
+
+    #[test]
+    fn issue_2223_uniform_diagrams_preserve_in_range_arithmetic() {
+        for q in [-15.0_f64, 0.0, 15.0] {
+            for (a, b) in [(0.0_f64, 6.0_f64), (0.2, 2.7)] {
+                for x in [a / 2.0, a, if a == 0.0 { f64::EPSILON } else { a.next_up() }, a + (b - a) * 0.13, b.next_down(), b, b.next_up(), b + 1.0] {
+                    let expected = if x <= a { (0.0_f64, 0.0_f64) } else {
+                        let s = (x - a).min(b - a);
+                        (q * s + 0.0, q * ((x - a) * s - s * s / 2.0) + 0.0)
+                    };
+                    let actual = distributed_load_terms(q, q, a, b, x);
+                    assert_eq!(actual.0.to_bits(), expected.0.to_bits(), "force {q}, {a}, {b}, {x}");
+                    assert_eq!(actual.1.to_bits(), expected.1.to_bits(), "moment {q}, {a}, {b}, {x}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2223_uniform_diagrams_keep_finite_integrals_outside_legacy_product_range() {
+        for (q_exp, span_exp) in [(1000, -539), (1000, -538), (1000, -512), (1000, -511), (-1000, 511), (-1000, 512), (-1000, 513)] {
+            let q = 2.0_f64.powi(q_exp);
+            let span = 2.0_f64.powi(span_exp);
+            for sign in [-1.0, 1.0] {
+                for (x, force_exp, moment_exp) in [
+                    (span / 2.0, q_exp + span_exp - 1, q_exp + 2 * span_exp - 3),
+                    (span, q_exp + span_exp, q_exp + 2 * span_exp - 1),
+                    (span * 2.0, q_exp + span_exp, q_exp + 2 * span_exp - 1),
+                ] {
+                    let (force, moment) = distributed_load_terms(q * sign, q * sign, 0.0, span, x);
+                    assert_eq!(force, sign * 2.0_f64.powi(force_exp));
+                    assert_eq!(moment, sign * 2.0_f64.powi(moment_exp) * if x > span { 3.0 } else { 1.0 });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2223_integrates_large_intensities_without_a_slope() {
+        let span = 2.0_f64.powi(-28);
+        let a = 2.0_f64.powi(-20);
+        let b = a + span;
+        for scale in [2.0_f64.powi(1000), 2.0_f64.powi(995), 2.0_f64.powi(996), 2.0_f64.powi(1023), 1.0] {
+            for (left, right) in [(0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (1.0, 1.0_f64.next_down()), (1.0, 1.0_f64.next_up()), (-1.0, 1.0)] {
+                for x in [
+                    a / 2.0,
+                    a,
+                    a.next_up(),
+                    a + span / 2.0,
+                    b.next_down(),
+                    b,
+                    b.next_up(),
+                    b + span,
+                    3.0,
+                ] {
+                    let (force, moment) = distributed_load_terms(left * scale, right * scale, a, b, x);
+                    if x <= a {
+                        assert_eq!((force, moment), (0.0, 0.0), "{left}, {right}, {scale}, {x}");
+                        continue;
+                    }
+                    let u = ((x - a) / span).min(1.0);
+                    let g = (3.0_f64 / 5.0).sqrt();
+                    let mut expected_moment = 0.0;
+                    for (t, weight) in [(-g, 5.0 / 9.0), (0.0, 8.0 / 9.0), (g, 5.0 / 9.0)] {
+                        let station = (t + 1.0) * u / 2.0;
+                        let force = (left * (1.0 - station) + right * station) * weight * u / 2.0;
+                        expected_moment += force * (u - station);
+                    }
+                    let expected_force = left * (u - u * u / 2.0) + right * u * u / 2.0;
+                    expected_moment += expected_force * (((x - a) / span) - u);
+                    let actual_force = force / (scale * span);
+                    let actual_moment = moment / (scale * span * span);
+                    assert!(
+                        (actual_force - expected_force).abs() <= 1e-13 * expected_force.abs().max(1.0),
+                        "force {actual_force} != {expected_force}"
+                    );
+                    assert!(
+                        (actual_moment - expected_moment).abs() <= 1e-13 * expected_moment.abs().max(1.0),
+                        "moment {actual_moment} != {expected_moment}"
+                    );
+                }
+            }
+        }
     }
 }

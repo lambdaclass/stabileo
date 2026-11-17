@@ -1,3 +1,4 @@
+import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
@@ -237,6 +238,7 @@ export async function initSolver(): Promise<void> {
       noteEngineBuild(bytes, engineInfoOf(wasm));
     }
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
+    registerMemberIntervalKernel(wasm.canonical_member_load_interval ?? null);
     registerCirsoc201Engine({
       Section: wasm.Cirsoc201SectionKernel, basis: wasm.cirsoc201_basis, phi: wasm.cirsoc201_phi,
       designBeam: wasm.cirsoc201_design_beam, slabProvisions: wasm.cirsoc201_slab_provisions,

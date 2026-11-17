@@ -90,6 +90,7 @@ pub(crate) fn build_sampling_points(
 }
 
 pub fn diagram_positions_2d(ef: &ElementForces, kind: &str) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     let sorted = sorted_point_loads(ef);
     build_sampling_positions(ef.length, sorted.iter().map(|p| p.a),
         ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b]),
@@ -140,6 +141,7 @@ pub fn cubic_stationary_points(g: &dyn Fn(f64) -> f64, lo: f64, hi: f64) -> Vec<
 /// Stations (t ∈ [0, 1]) where diagram `kind` of one member can peak off the regular grid: both
 /// sides of each point load, every load discontinuity, and every stationary point of each piece between them.
 pub fn diagram_peak_stations_2d(ef: &ElementForces, kind: &str, sorted_pl: &[PointLoadInfo]) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     build_sampling_positions(ef.length, sorted_pl.iter().map(|p| p.a),
         ef.distributed_loads.iter().chain(ef.distributed_loads_x.iter()).flat_map(|d| [d.a, d.b]),
         &|t| compute_diagram_value_at_sorted(kind, t, ef, sorted_pl))
@@ -188,6 +190,7 @@ pub fn compute_diagram_value_at_sorted(
     ef: &ElementForces,
     sorted_pl: &[PointLoadInfo],
 ) -> f64 {
+    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
     let xi = t * ef.length;
 
     let v_start = ef.v_start;
@@ -210,16 +213,7 @@ pub fn compute_diagram_value_at_sorted(
                 value -= ef.q_i * xi * xi / 2.0 + dq * xi * xi * xi / (6.0 * ef.length);
             }
             for dl in d_loads {
-                if xi > dl.a + 1e-10 {
-                    let x_end = xi.min(dl.b);
-                    let s = x_end - dl.a;
-                    let span = dl.b - dl.a;
-                    if span < 1e-12 || s < 1e-12 { continue; }
-                    let dq = (dl.q_j - dl.q_i) / span;
-                    let d = xi - dl.a;
-                    value -= dl.q_i * (d * s - s * s / 2.0)
-                           + dq * (d * s * s / 2.0 - s * s * s / 3.0);
-                }
+                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).1;
             }
 
             // Point loads
@@ -245,14 +239,7 @@ pub fn compute_diagram_value_at_sorted(
                 value += ef.q_i * xi + dq * xi * xi / (2.0 * ef.length);
             }
             for dl in d_loads {
-                if xi > dl.a + 1e-10 {
-                    let x_end = xi.min(dl.b);
-                    let s = x_end - dl.a;
-                    let span = dl.b - dl.a;
-                    if span < 1e-12 || s < 1e-12 { continue; }
-                    let dq = (dl.q_j - dl.q_i) / span;
-                    value += dl.q_i * s + dq * s * s / 2.0;
-                }
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, xi).0;
             }
 
             for pl in sorted_pl {
@@ -433,7 +420,7 @@ impl MemberDeflection {
                 }
                 MemberLoad::Distributed { qi, qj, a, b } => {
                     let hi = b.min(x);
-                    if hi <= a || b - a < 1e-12 {
+                    if hi <= a {
                         continue;
                     }
                     let g = (0.6f64).sqrt();
@@ -466,6 +453,9 @@ impl MemberDeflection {
         points: Vec<(f64, f64)>, dist: Vec<(f64, f64, f64, f64)>, couples: Vec<(f64, f64)>,
         kappa: f64,
     ) -> Self {
+        for &(_, _, a, b) in &dist {
+            if let Err(error) = crate::element::validate_member_load_interval("Member recovery", l, a, b) { panic!("{error}"); }
+        }
         let loads = points.into_iter().map(|(a, p)| MemberLoad::Force { a, p })
             .chain(dist.into_iter().map(|(qi, qj, a, b)| MemberLoad::Distributed { qi, qj, a, b }))
             .chain(couples.into_iter().map(|(a, c)| MemberLoad::Couple { a, c }))
@@ -648,6 +638,9 @@ pub struct MemberSample {
 }
 
 pub fn recover_member(input: &MemberRecoveryInput) -> Result<Vec<MemberSample>, String> {
+    for d in &input.dist {
+        crate::element::validate_member_load_interval("Member recovery", input.length, d.a, d.b)?;
+    }
     let minimum_ei = match input.space {
         RecoverySpace::Planar => 1e-6,
         RecoverySpace::Spatial => 0.0,
@@ -875,6 +868,16 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn issue_2222_member_deflection_refuses_start_overhang() {
+        assert!(std::panic::catch_unwind(|| MemberDeflection::new(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, -1.0, 1.0)], vec![])).is_err());
+    }
+
+    #[test]
+    fn issue_2222_member_deflection_refuses_end_overhang() {
+        assert!(std::panic::catch_unwind(|| MemberDeflection::curved(3.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, vec![], vec![(-2.0, -2.0, 2.0, 4.0)], vec![], 0.0)).is_err());
+    }
+
 }
 
 #[cfg(test)]
@@ -1137,4 +1140,17 @@ mod recovery_round4_2143 {
         }
     }
 
+}
+
+
+pub fn validate_diagram_loads_2d(ef: &ElementForces) -> Result<(), String> {
+    for d in ef.distributed_loads.iter().chain(&ef.distributed_loads_x) {
+        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+    }
+    Ok(())
+}
+
+pub fn validate_diagram_input_2d(ef: &ElementForces) -> Result<(), String> {
+    crate::boundary::require_finite(ef)?;
+    validate_diagram_loads_2d(ef)
 }

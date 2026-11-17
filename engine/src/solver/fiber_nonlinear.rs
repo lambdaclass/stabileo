@@ -337,8 +337,14 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                 }
             }
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_2d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, &art, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             // Solve
@@ -550,7 +556,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(), &metric,
     )?;
-    if !balance.summary.residual_ok || !balance.gate {
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -1200,8 +1206,14 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
 
             inc_residual = rel_error;
             if rel_error < input.tolerance {
-                nr_converged = true;
-                break;
+                let (_, balance) = fiber_reactions_and_equilibrium_3d(
+                    input, &dof_num, &u_full, &elem_states, n_ip, &f_total, load_factor,
+                    &its, cs.as_ref(), &metric,
+                )?;
+                if balance.accepts_increment() {
+                    nr_converged = true;
+                    break;
+                }
             }
 
             let r_s = if let Some(ref cs) = cs {
@@ -1368,7 +1380,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(), &metric,
     )?;
-    if !balance.summary.residual_ok || !balance.gate {
+    if !balance.accepts_increment() {
         return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
     let equilibrium = balance.summary;
@@ -1697,6 +1709,12 @@ pub(crate) struct WrenchBalance {
     pub gate: bool,
 }
 
+impl WrenchBalance {
+    fn accepts_increment(&self) -> bool {
+        self.summary.residual_ok && self.gate
+    }
+}
+
 /// Support reactions in global axes: on restrained DOFs the unbalanced force, on free DOFs only
 /// the support springs' force, so constraint forces on a free DOF are not taken as reactions.
 #[allow(clippy::too_many_arguments)]
@@ -1741,6 +1759,9 @@ fn fiber_reactions_and_equilibrium_2d(
     let (a, r) = (balance.applied, balance.reactions);
     balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
     balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
+    let forces=super::applied_loads::plane(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
     Ok((reactions, balance))
 }
 
@@ -1784,6 +1805,9 @@ fn fiber_reactions_and_equilibrium_3d(
     let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     balance.summary.applied_force_sum = balance.applied.to_vec();
     balance.summary.reaction_force_sum = balance.reactions.to_vec();
+    let forces=super::applied_loads::space(&input.solver,&input.solver.loads).into_iter().map(|f| f.into_iter().map(|v| v*load_factor).collect()).collect();
+    super::applied_loads::replace(&mut balance.summary,forces);
+    balance.gate &= balance.summary.equilibrium_ok;
     Ok((reactions, balance))
 }
 

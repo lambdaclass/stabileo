@@ -49,6 +49,7 @@ export interface KinematicResult {
    * must be in (-1, 0.5)"). Absent otherwise.
    */
   invalidInput?: string;
+  invalidInputKind?: 'unsupportedNodalMoment';
   /**
    * Raw DOF codes the engine reported that this boundary does not recognise.
    * Normally empty; non-empty means the engine's vocabulary drifted again and
@@ -306,6 +307,7 @@ export function normalizeKinematicResult(raw: {
   diagnosis: string;
   isSolvable: boolean;
   invalidInput?: string;
+  invalidInputKind?: 'unsupportedNodalMoment';
 }): KinematicResult {
   const unconstrainedDofs: Array<{ nodeId: number; dof: Dof2D }> = [];
   const unmappedDofs: string[] = [];
@@ -335,7 +337,7 @@ export function normalizeKinematicResult(raw: {
     // a finding. Reported as 'available', the kinematic report read it as
     // "no mechanisms — the structure is stable".
     rankAnalysis: raw.invalidInput ? 'invalid' : 'available',
-    ...(raw.invalidInput ? { invalidInput: raw.invalidInput } : {}),
+    ...(raw.invalidInput ? { invalidInput: raw.invalidInput, invalidInputKind: raw.invalidInputKind } : {}),
     unmappedDofs,
   };
 }

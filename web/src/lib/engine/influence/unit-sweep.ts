@@ -6,6 +6,7 @@
  * the section's right (the diagram's own reading at x) and on its left (read just past x). The
  * two are the ordinates either side of the jump a shear or a reaction line makes there.
  */
+import { memberLength } from '../member-span-loads';
 import { solve } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import { loadOnMember } from '../moving-loads';
@@ -34,7 +35,7 @@ export function unitSolver(input: SolverInput): SolverInput {
 export function memberGeom(solver: SolverInput, id: number) {
   const e = solver.elements.get(id)!;
   const ni = solver.nodes.get(e.nodeI)!, nj = solver.nodes.get(e.nodeJ)!;
-  const L = Math.hypot(nj.x - ni.x, nj.z - ni.z);
+  const L = memberLength(solver, id);
   return { e, ni, nj, L, c: (nj.x - ni.x) / L, s: (nj.z - ni.z) / L };
 }
 

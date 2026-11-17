@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import katex from 'katex';
+import { MemberLoadIntervalError } from '../../member-span-loads';
 import { narrowTex, NARROW_LEVELS } from '../narrow-tex';
 import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
@@ -345,7 +346,15 @@ function context(opts: Record<string, boolean> = {}, selection = { members: [] a
 
 /** Run every applicable method (and each switchable assumption both ways) on the model now loaded. */
 function runAll(label: string, tally: Map<string, number>, failures: string[]): void {
-  const base = context();
+  let base: MethodContext | null;
+  try { base = context(); } catch (error) {
+    expect(error).toBeInstanceOf(MemberLoadIntervalError);
+    const collapsed = modelStore.model.loads.filter(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b);
+    expect(collapsed.length, label).toBeGreaterThan(0);
+    expect(modelStore.solve(false), label).toBe((error as Error).message);
+    tally.set('refused:interval', (tally.get('refused:interval') ?? 0) + 1);
+    return;
+  }
   if (!base) return;
   for (const m of allMethods()) {
     if (m.wizard || !m.build) continue;
@@ -534,4 +543,17 @@ describe('every explained method, everywhere it applies', () => {
       expect(generated.get(id) ?? 0, id).toBeGreaterThan(10);
     }
   });
+});
+
+it('known wrong result: #2223 — beam 22 influence zones refuse visibly without a numerical document', () => {
+  continuousBeam(22);
+  const ctx = context()!;
+  const method = allMethods().find(m => m.id === 'influenceLine')!;
+  expect(method.applies(ctx).ok).toBe(true);
+  const doc = method.build!(ctx);
+  const contents = collect(doc);
+  expect(contents.txts.some(t => t.key === 'course.influence.doc.refused' && String(t.params?.why).includes('geometry limit'))).toBe(true);
+  expect(contents.compare).toEqual([]);
+  expect(contents.numbers).toEqual([]);
+  expect(problems(method, doc, {})).toEqual([]);
 });

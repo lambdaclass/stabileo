@@ -1151,3 +1151,31 @@ fn buckling_818_coupled_structures_use_compensated_modes() {
         assert_eq!(serde_json::from_str::<serde_json::Value>(&wire).unwrap(),certified);
     }}
 }
+
+#[test]
+fn issue_2222_overflow_cannot_omit_one_of_several_combinations_2d() {
+    use dedaliano_engine::solver::load_cases::{solve_multi_case_2d, MultiCaseInput};
+    for per_case in [false, true] {
+        let mut value = combination_only_overflow_input(per_case, 3.0);
+        for node in value["solver"]["nodes"].as_object_mut().unwrap().values_mut() {
+            node.as_object_mut().unwrap().remove("y");
+        }
+        for case in value["loadCases"].as_array_mut().unwrap() {
+            let data = case["loads"][0]["data"].as_object_mut().unwrap();
+            data.remove("fy");
+            data.remove("mz");
+        }
+        let mut safe = value["combinations"][0].clone();
+        safe["name"] = json!("safe");
+        safe["factors"] = json!({"A": 1.0, "B": 1.0});
+        value["combinations"].as_array_mut().unwrap().insert(0, safe.clone());
+        let input: MultiCaseInput = serde_json::from_value(value).unwrap();
+        let error = solve_multi_case_2d(&input).unwrap_err();
+        assert!(error.contains("non-finite number"), "{error}");
+        let mut control = input;
+        control.combinations[1].factors = control.combinations[0].factors.clone();
+        let answer = solve_multi_case_2d(&control).unwrap();
+        assert_eq!(answer.combination_results.len(), 2);
+        dedaliano_engine::boundary::require_finite(&answer).unwrap();
+    }
+}

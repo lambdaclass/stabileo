@@ -23,7 +23,7 @@ it('scaling and zero-load editing retain a pure member moment load',()=>{
 
 it('unequal member cuts keep the quadratic moment at its physical station',()=>{
   let id=10;
-  const result=splitElementLoads([load()],1,[0,2,4.5,6],[2,3,4],()=>id++);
+  const result=splitElementLoads([load()],1,[0,2,4.5,6],[2,3,4],()=>id++, [2,2.5,1.5]);
   expect(result.kept).toHaveLength(0);
   expect(result.added).toHaveLength(3);
   result.added.forEach((l,k)=>{
@@ -82,7 +82,7 @@ for(const h of [0.5e-12,1.5e-12,0.5e-9,1.5e-9]) it(`member subdivision retains s
   original.data.a=a;original.data.b=4;original.data.qZI=-1;original.data.qZJ=-1;
   original.data.moments={x:[-1,-1,-1],y:[0,0,0],z:[0,0,0]};
   let id=10;
-  const part=splitElementLoads([original],1,[0,b,6],[2,3],()=>id++).added.filter(l=>'elementId' in l.data && l.data.elementId===2);
+  const part=splitElementLoads([original],1,[0,b,6],[2,3],()=>id++, [b,6-b]).added.filter(l=>'elementId' in l.data && l.data.elementId===2);
   const force=part.reduce((s,l)=>s+(l.type==='pointOnElement3d'?l.data.pz:l.type==='distributed3d'?(l.data.qZI+l.data.qZJ)*((l.data.b??b)-(l.data.a??0))/2:0),0);
   const torque=part.reduce((s,l)=>s+(l.type==='pointOnElement3d'?(l.data.mx??0):l.type==='distributed3d'?((l.data.b??b)-(l.data.a??0))*l.data.moments!.x[0]:0),0);
   expect(force/(b-a)).toBeCloseTo(-1,12);

@@ -32,7 +32,7 @@ for (const operation of ['store', 'analysis', 'variable'] as const) for (const p
   const load: Load = plane ? { type: 'distributed', data: { id: 1, elementId, a: 3 - width, b: 6, qI: 1, qJ: -1 } } : { type: 'distributed3d', data: { id: 1, elementId, a: 3 - width, b: 6, qYI: 1, qYJ: -1, qZI: 0, qZJ: 0, moments } };
   modelStore.addLoadEntry(load);
   const run = () => {
-    if (operation === 'store') return splitElementLoads(modelStore.loads, elementId, [0, 3, 6], [2, 3], () => 10).added;
+    if (operation === 'store') return splitElementLoads(modelStore.loads, elementId, [0, 3, 6], [2, 3], () => 10, [3, 3]).added;
     if (operation === 'analysis') return subdivideForAnalysis(modelStore.model, 2).model.loads;
     const rect = (h: number) => modelStore.addSection(builtSectionFields(builtSpec('concrete-rect', { b: 0.2, h }))! as never);
     modelStore.updateElement(elementId, { sectionId: rect(0.2), variableSection: { sectionJ: rect(0.4), segments: 2 } });
