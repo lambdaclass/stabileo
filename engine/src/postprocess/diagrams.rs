@@ -588,6 +588,34 @@ impl SpanRotation {
         self.member.v(x)
     }
 
+    /// Bounds of |moment| and |shear| anywhere in `[0, l]`, each the sum of the magnitudes of
+    /// its terms. NaN when an input is not finite.
+    pub(crate) fn magnitude_bounds(&self, l: f64) -> (f64, f64) {
+        let m = &self.member;
+        let (mut moment, mut shear) = (m.m0.abs() + m.s0.abs() * l, m.s0.abs());
+        let mut finite = l.is_finite();
+        for load in &m.loads {
+            match *load {
+                MemberLoad::Force { a, p } => {
+                    finite &= a.is_finite() && p.is_finite();
+                    moment += p.abs() * (l - a).abs();
+                    shear += p.abs();
+                }
+                MemberLoad::Couple { a, c } => {
+                    finite &= a.is_finite() && c.is_finite();
+                    moment += c.abs();
+                }
+                MemberLoad::Distributed { qi, qj, a, b } => {
+                    finite &= qi.is_finite() && qj.is_finite() && a.is_finite() && b.is_finite();
+                    let total = qi.abs().max(qj.abs()) * (b.min(l) - a).abs();
+                    moment += total * (l - a).abs();
+                    shear += total;
+                }
+            }
+        }
+        if finite { (moment, shear) } else { (f64::NAN, f64::NAN) }
+    }
+
     pub(crate) fn ei(&self) -> f64 {
         self.member.ei
     }

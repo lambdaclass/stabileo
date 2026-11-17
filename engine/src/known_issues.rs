@@ -751,6 +751,39 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
     worst
 }
 
+const BOUND_PIECES: usize = 16;
+
+/// An upper bound of [`largest_span_rotation`], from far fewer evaluations; NaN or infinite
+/// where it cannot bound. Between two points a rotation changes by at most the largest moment
+/// over EI times the distance, and the shear's quadratic interpolant stays within 5/3 of the
+/// largest shear (the Lebesgue constant of its three nodes), taken as 2.
+fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> f64 {
+    if !(l > 0.0) {
+        return f64::NAN;
+    }
+    let mut sum = nan_max(twist.0.abs(), twist.1.abs()).powi(2);
+    for p in planes {
+        let (ei, f) = (p.ei(), p.shear_flexibility());
+        if !(ei > 0.0) {
+            return f64::NAN;
+        }
+        let (moment, shear) = p.magnitude_bounds(l);
+        let sampled = (0..=BOUND_PIECES).map(|k| p.at(l * k as f64 / BOUND_PIECES as f64).abs()).fold(0.0, nan_max);
+        let plane = sampled + 0.5 * (l / BOUND_PIECES as f64) * moment / ei + 2.0 * f.abs() * shear;
+        sum += plane * plane;
+    }
+    sum.sqrt()
+}
+
+/// Whether [`largest_span_rotation`] is beyond the limit, without computing it where its bound
+/// already is within the limit.
+fn span_beyond_small_displacement(l: f64, planes: &[crate::postprocess::diagrams::SpanRotation], twist: (f64, f64)) -> bool {
+    if span_rotation_bound(l, planes, twist) <= 0.99 * SMALL_DISPLACEMENT_LIMIT {
+        return false;
+    }
+    beyond_small_displacement(largest_span_rotation(l, planes, twist))
+}
+
 fn nan_max(x: f64, y: f64) -> f64 {
     if x.is_nan() || y.is_nan() { f64::NAN } else { x.max(y) }
 }
@@ -815,7 +848,7 @@ fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 /// Frame members whose section rotation inside the span exceeds [`SMALL_DISPLACEMENT_LIMIT`]:
 /// a member held at both ends can turn far between them under a span load.
 pub(crate) fn span_rotations_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<usize> {
-    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| beyond_small_displacement(largest_span_rotation(*length, std::slice::from_ref(plane), (0.0, 0.0)))).map(|(id, _, _)| id).collect()
+    span_planes_2d(spans, r).into_iter().filter(|(_, length, plane)| span_beyond_small_displacement(*length, std::slice::from_ref(plane), (0.0, 0.0))).map(|(id, _, _)| id).collect()
 }
 
 fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64, crate::postprocess::diagrams::SpanRotation)> {
@@ -841,7 +874,7 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
 /// [`span_rotations_2d`] in 3D: both bending planes, in the axes the app's 3D deformed shape uses, and the
 /// twist, judged together as the norm of the rotation vector.
 pub(crate) fn span_rotations_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<usize> {
-    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| beyond_small_displacement(largest_span_rotation(*length, planes, *twist))).map(|(id, ..)| id).collect()
+    span_planes_3d(spans, r).into_iter().filter(|(_, length, planes, twist)| span_beyond_small_displacement(*length, planes, *twist)).map(|(id, ..)| id).collect()
 }
 
 type SpanPlanes3D = (usize, f64, [crate::postprocess::diagrams::SpanRotation; 2], (f64, f64));

@@ -91,3 +91,76 @@ fn reference_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanR
     }
     worst
 }
+
+#[test]
+fn rotation_bound_is_never_below_the_scan_and_decides_as_it_does() {
+    let mut state = 0x2545F4914F6CDD1Du64;
+    let mut unit = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        (state >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let (mut within, mut beyond, mut scanned) = (0, 0, 0);
+    for case in 0..6000 {
+        let l = 0.3 + 11.0 * unit();
+        // Rotations from far inside the limit to several times it.
+        let size = 10f64.powf(-4.5 + 4.5 * unit());
+        let mut plane = |unit: &mut dyn FnMut() -> f64| {
+            let ei = 10f64.powf(2.0 + 5.0 * unit());
+            let force = size * ei / (l * l);
+            let signed = |unit: &mut dyn FnMut() -> f64| 2.0 * unit() - 1.0;
+            let points = (0..case % 3).map(|_| (l * unit(), force * signed(unit))).collect();
+            let dist = (0..case % 2 + case % 5 / 4).map(|_| {
+                let (a, b) = (l * unit(), l * unit());
+                (force / l * signed(unit), force / l * signed(unit), a.min(b), a.max(b))
+            }).collect();
+            let couples = (0..case % 4 / 3).map(|_| (l * unit(), force * l * signed(unit))).collect();
+            SpanRotation::new(
+                l, ei, if case % 3 == 0 { 0.0 } else { 10f64.powf(-3.0 * unit()) * l * l / ei },
+                size * l * signed(unit), size * signed(unit), size * l * signed(unit), size * signed(unit),
+                case % 7 == 0, case % 11 == 0, points, dist, couples, size / l * signed(unit),
+            )
+        };
+        let planes = [plane(&mut unit), plane(&mut unit)];
+        let twist = (size * (2.0 * unit() - 1.0), size * (2.0 * unit() - 1.0));
+        for count in [1, 2] {
+            let planes = &planes[..count];
+            let twist = if count == 2 { twist } else { (0.0, 0.0) };
+            let exact = largest_span_rotation(l, planes, twist);
+            let bound = super::span_rotation_bound(l, planes, twist);
+            assert!(bound >= exact * (1.0 - 1e-9), "case {case}, {count} planes: bound {bound} below {exact}");
+            let decided = super::span_beyond_small_displacement(l, planes, twist);
+            assert_eq!(decided, super::beyond_small_displacement(exact), "case {case}, {count} planes: {exact}");
+            if decided { beyond += 1 } else { within += 1 }
+            if !(bound <= 0.99 * super::SMALL_DISPLACEMENT_LIMIT) && !decided { scanned += 1 }
+        }
+    }
+    assert!(within > 3000 && beyond > 1000, "{within} within, {beyond} beyond");
+    assert!(scanned * 4 < within, "{scanned} of {within} within the limit still scanned");
+}
+
+#[test]
+fn rotation_bound_leaves_nonfinite_and_degenerate_members_to_the_scan() {
+    let plain = |r: f64, ei: f64, flex: f64, p: f64, q: f64, c: f64, kappa: f64| SpanRotation::new(
+        2.0, ei, flex, 0.0, r, 0.0, r, false, false, vec![(0.7, p)], vec![(q, q, 0.2, 1.6)], vec![(1.1, c)], kappa);
+    let odd = [f64::NAN, f64::INFINITY, f64::NEG_INFINITY];
+    let mut planes = vec![plain(1e-4, 3e4, 0.0, 1.0, 1.0, 1.0, 0.0), plain(1e-4, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0), plain(1e-4, -3e4, 0.0, 1.0, 1.0, 1.0, 0.0)];
+    for v in odd {
+        planes.extend([plain(v, 3e4, 0.0, 1.0, 1.0, 1.0, 0.0), plain(1e-4, v, 0.0, 1.0, 1.0, 1.0, 0.0), plain(1e-4, 3e4, v, 1.0, 1.0, 1.0, 0.0),
+            plain(1e-4, 3e4, 0.0, v, 1.0, 1.0, 0.0), plain(1e-4, 3e4, 0.0, 1.0, v, 1.0, 0.0), plain(1e-4, 3e4, 0.0, 1.0, 1.0, v, 0.0),
+            plain(1e-4, 3e4, 0.0, 1.0, 1.0, 1.0, v)]);
+    }
+    for (i, plane) in planes.iter().enumerate() {
+        let planes = std::slice::from_ref(plane);
+        for l in [2.0, 0.0, -2.0, f64::NAN, f64::INFINITY] {
+            for twist in [(0.0, 0.0), (f64::NAN, 0.0), (0.0, f64::INFINITY), (0.2, 0.0)] {
+                assert_eq!(
+                    super::span_beyond_small_displacement(l, planes, twist),
+                    super::beyond_small_displacement(largest_span_rotation(l, planes, twist)),
+                    "plane {i}, l {l}, twist {twist:?}",
+                );
+            }
+        }
+    }
+}
