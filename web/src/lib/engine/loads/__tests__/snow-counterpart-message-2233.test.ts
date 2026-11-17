@@ -3,8 +3,6 @@ import { expandCombinations } from '../combination-cases';
 import { completeSnowPair } from './snow-pair-coverage-2233-fixture';
 import { allDictFor } from '../../../i18n/locales/all';
 
-const regression = it.skipIf(process.env.SNOW_ROUND10_REPRO !== '1');
-
 for (const basis of [undefined, 'flatRoof'] as const) {
   const key = basis === 'flatRoof' ? 'snow.refused.flatRoofCase' : 'snow.refused.physicalCase';
   const spec = { id: 'S', label: 'S', refs: [], terms: [{ symbol: 'S' as const, factor: 1, snowBasis: basis }] };
@@ -17,7 +15,7 @@ for (const basis of [undefined, 'flatRoof'] as const) {
     ['ungrouped opposite only', onlyOpposite.slice(0, 1).map(({ alternatives, ...c }) => c)],
     ['mismatched groups', snow.map(c => c.snowBasis === basis ? { ...c, alternatives: `other-${c.alternatives}` } : c)],
   ] as const) {
-    regression(`known wrong result: #2233 ${key} identifies the requested counterpart for ${kind}`, () => {
+    it(`known wrong result: #2233 ${key} identifies the requested counterpart for ${kind}`, () => {
       let refusal: unknown;
       try { expandCombinations([spec], cases); } catch (error) { refusal = error; }
       expect(refusal).toMatchObject({ key, params: undefined, message: key });
@@ -46,7 +44,7 @@ const translations = {
 };
 
 for (const [locale, message] of Object.entries(translations)) {
-  regression(`known wrong result: #2233 ${locale} distinguishes physical from flat-roof snow refusals`, () => {
+  it(`known wrong result: #2233 ${locale} distinguishes physical from flat-roof snow refusals`, () => {
     const dict = allDictFor(locale);
     expect(dict['snow.refused.physicalCase']).toBe(message);
     expect(dict['snow.refused.flatRoofCase']).toBeTruthy();

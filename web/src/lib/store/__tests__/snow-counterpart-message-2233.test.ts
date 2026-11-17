@@ -9,12 +9,11 @@ import { regulations } from '../../engine/loads/__tests__/snow-roof-plane-fixtur
 import { engineGuarded, errorText, runEngineAction, runEngineActionAsync } from '../engine-action';
 import { setLocale, t } from '../../i18n';
 
-const regression = it.skipIf(process.env.SNOW_ROUND10_REPRO !== '1');
 const empty = { distributed: 0, nodal: 0, combinations: 0, caseTypes: [] };
 
 for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear', 'pdelta'] as const) {
   for (const entry of ['preview', 'apply'] as const) for (const basis of [undefined, 'flatRoof'] as const) {
-    regression(`known wrong result: #2233 ${entry} identifies missing ${basis ?? 'physical'} snow in ${mode} ${analysis}`, async () => {
+    it(`known wrong result: #2233 ${entry} identifies missing ${basis ?? 'physical'} snow in ${mode} ${analysis}`, async () => {
       modelStore.clear();
       uiStore.analysisMode = mode;
       modelStore.setAnalysis({ perCombination: analysis });

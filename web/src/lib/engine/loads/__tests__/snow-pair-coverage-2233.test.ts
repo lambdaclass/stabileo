@@ -9,14 +9,14 @@ for (const spec of physicalSpecs()) {
     for (const both of [false, true]) for (const patterns of [false, true]) {
       for (const cases of [partialSnowPair, partialSnowPair.filter(c => c.type !== 'D')]) {
         expect(() => expandCombinations([spec], cases, { bothSenses: { E: both }, patternsInCompanions: patterns }))
-          .toThrow('snow.refused.flatRoofCase');
+          .toThrow('snow.refused.physicalCase');
       }
     }
   });
 }
 
 it('known wrong result: #2233 mixed companion and physical specifications refuse partial snow pairing', () => {
-  expect(() => expandCombinations(pairedSpecs(), partialSnowPair)).toThrow('snow.refused.flatRoofCase');
+  expect(() => expandCombinations(pairedSpecs(), partialSnowPair)).toThrow('snow.refused.physicalCase');
 });
 
 it('known wrong result: #2233 physical selection refuses ambiguous ungrouped and mismatched flat-roof coverage', () => {
@@ -27,7 +27,7 @@ it('known wrong result: #2233 physical selection refuses ambiguous ungrouped and
     [...snowCases, { id: 6, type: 'S', name: 'extra pf', snowBasis: 'flatRoof' as const }, { id: 7, type: 'S', name: 'extra physical' }],
     snowCases.map(c => c.id === 5 ? { ...c, alternatives: 'other' } : c),
     partialSnowPair.filter(c => c.id !== 4),
-  ]) expect(() => expandCombinations([principal], cases)).toThrow('snow.refused.flatRoofCase');
+  ]) expect(() => expandCombinations([principal], cases)).toThrow('snow.refused.physicalCase');
 });
 
 it('#2233 complete grouped and single ungrouped pairs retain physical and flat-roof factors', () => {

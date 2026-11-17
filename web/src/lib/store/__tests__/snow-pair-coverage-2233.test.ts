@@ -29,7 +29,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
       const action = () => entry === 'preview'
         ? describePlanDelta(plan, empty, { replaceExisting: true, bothSenses: { E: both }, patternsInCompanions: patterns })
         : applyLoadPlan(plan, { clearExisting: true, bothSenses: both, patternsInCompanions: patterns, nameOf: key => key });
-      expect(action).toThrow('snow.refused.flatRoofCase');
+      expect(action).toThrow('snow.refused.physicalCase');
     }
   });
 

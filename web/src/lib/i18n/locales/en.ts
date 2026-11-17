@@ -11781,6 +11781,7 @@ const en: Record<string, string> = {
   "snow.case.flatRoof": "Flat-roof companion snow (pf)",
   "snow.refused.legacyCombination": "This saved seismic combination has an ambiguous snow basis. Regenerate combinations before using it; regenerating snow loads alone is insufficient.",
   "snow.refused.flatRoofCase": "This combination requires a separate flat-roof snow case. Regenerate snow loads before generating combinations.",
+  "snow.refused.physicalCase": "This combination requires a separate physical snow case. Regenerate snow loads before generating combinations.",
   'snow.case.balanced': 'Balanced snow (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "Unbalanced (§6.3, Figure 6): from 0.5 pf at the ridges to {valley} kN/m² in the valleys, the snow over a valley kept below the snow over the ridge.",
   'snow.derivation.multiple': "A roof of several ridges (§6.3): {ridges} ridges and {valleys} valleys, steepest slope {slope}°; Cs = 1 and the balanced snow is pf = {pf} kN/m².",

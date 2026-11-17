@@ -13,7 +13,7 @@ const inputs = [
   { rule: spec([{ symbol: 'E', factor: 1 }, { symbol: 'S', factor: 1 }], true), cases: [physical, flat], key: 'snow.refused.legacyCombination' },
   { rule: spec([{ symbol: 'S', factor: 1, snowBasis: 'flatRoof' }]), cases: [physical, { ...flat, alternatives: 'other' }], key: 'snow.refused.flatRoofCase' },
   { rule: spec([{ symbol: 'S', factor: 1, snowBasis: 'flatRoof' }]), cases: [], key: 'snow.refused.flatRoofCase' },
-  { rule: spec([{ symbol: 'S', factor: 1 }]), cases: [flat], key: 'snow.refused.flatRoofCase' },
+  { rule: spec([{ symbol: 'S', factor: 1 }]), cases: [flat], key: 'snow.refused.physicalCase' },
 ];
 
 it('known wrong result: #2233 every snow combination refusal carries a pure message', () => {

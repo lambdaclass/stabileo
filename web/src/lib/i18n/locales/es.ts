@@ -11770,6 +11770,7 @@ const es: Record<string, string> = {
   "snow.case.flatRoof": "Nieve complementaria de cubierta plana (pf)",
   "snow.refused.legacyCombination": "Esta combinación sísmica guardada tiene una base de nieve ambigua. Regenere las combinaciones antes de usarla; regenerar solo las cargas de nieve no es suficiente.",
   "snow.refused.flatRoofCase": "Esta combinación requiere un caso separado de nieve de cubierta plana. Regenere las cargas de nieve antes de generar combinaciones.",
+  "snow.refused.physicalCase": "Esta combinación requiere un caso separado de nieve física. Regenere las cargas de nieve antes de generar combinaciones.",
   'snow.case.balanced': 'Nieve balanceada (ps = {ps} kN/m²)',
   'snow.derivation.multipleUnbalanced': "No balanceada (§6.3, Figura 6): de 0,5 pf en las cumbreras a {valley} kN/m² en los valles, sin que la nieve del valle supere la de la cumbrera.",
   'snow.derivation.multiple': "Cubierta de varias cumbreras (§6.3): {ridges} cumbreras y {valleys} valles, pendiente máxima {slope}°; Cs = 1 y la nieve balanceada es pf = {pf} kN/m².",
