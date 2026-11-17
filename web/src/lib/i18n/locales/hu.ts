@@ -14565,10 +14565,12 @@ const hu: Translations = {
   "edu.game.open": "Válassza ki a helyes ábrát",
   "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
   "loads.ec.combo.hfAsPermanent": "A H földnyomást és az F folyadéknyomást saját forrásból származó állandó hatásként vesszük figyelembe: mindegyik a G-től függetlenül γG,sup vagy γG,inf tényezőt kap (EN 1990 A1.2(B) táblázat, 3. megjegyzés).",
+  "loads.ec.seismicCaseVertical": "Földrengés 0,3 X {sign} 0,3 Y, e {e} (vezető függőleges)",
   "loads.ec.snow.ukSk": "sk = 0,15 + (0,1·Z + 0,05) + (A − 100)/525, ahol Z = {z} és A = {a} m (A legalább 100 m): sk = {sk} kN/m² (az EN 1991-1-3 brit nemzeti melléklete).",
   "loads.ec.snow.skZero": "sk = 0 kN/m²: a helyszínen nincs karakterisztikus talajszinti hóteher, ezért hóhatás nem keletkezik (EN 1991-1-3 §4.1).",
   "loads.asce7.reduction.assembly": "§4.7.5: gyülekezési célú használatban a hasznos terhek nem csökkenthetők.",
   "loads.asce7.seismic.blocked.noS1": "Hiányzik az S1: adja meg az 1 másodperces térképi spektrális gyorsulást a USGS Seismic Design Geodatabase-ből (§11.4.2). Ez határozza meg az E és F kategóriát (§11.6) és a 12.8-6. egyenlet szerinti legkisebb Cs értéket.",
+  "loads.ec.seismic.verticalCombos": "Minden földrengési kombináció négyszer (4.18–4.20. egyenlet): vezető vízszintes esettel G ± {kv3}·G; vezető függőleges összetevővel minden vízszintes összetevő {share} részével és G ± {kv}·G.",
   "loads.asce7.live.partitionBelowMinimum": "A megadott {q} kN/m² válaszfalteher kisebb a §4.3.2 által előírt {min} kN/m²-nél (15 psf): {min} kN/m² kerül alkalmazásra, csökkentés nélkül hozzáadva a födém hasznos terhéhez.",
   "loads.ec.reduction.alphaNWithPsi": "A hasznos teher esete αn = {alpha} tényezőt tartalmaz; ahol L ψ0, ψ1 vagy ψ2 tényezővel kísér, ψ/αn tényezővel lép be, így a kombináció csak ψ-t alkalmazza, nem mindkét tényezőt (EN 1991-1-1 §3.3.2(2)P)."
 };

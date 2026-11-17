@@ -1,6 +1,6 @@
 import { fromProject, type ProvenancedValue } from '../regulation';
 import { msg, round } from '../message';
-import { combinationLabel, type LoadCombinationSpec } from '../cirsoc101/combinations';
+import { combinationLabel, type CombinationTerm, type LoadCombinationSpec } from '../cirsoc101/combinations';
 import { levelLoads } from '../../engine/loads/wind-cases';
 import { snowWeightByLevel, type LevelMass, type LoadPlanInput, type PlanSink, type SeismicPlanDetail } from '../../engine/loads/load-plan';
 import { EN1990, EN1998_1 } from './refs';
@@ -32,6 +32,8 @@ export const AVG_THRESHOLD = 0.25;
 export const Q_VERTICAL = 1.5;
 /** §4.3.3.5.2(4) with eq. 4.18–4.20: the other components at 0,30. */
 export const COMPONENT_SHARE = 0.3;
+const HORIZONTAL_LEADS = 'EH';
+const VERTICAL_LEADS = '0.3EH';
 
 /** avg in g (Table 3.4: avg/ag), and whether the vertical component is on, as typed or by the threshold. */
 export function verticalOf(ci: EcSeismicInput): { avg: number; on: boolean; byDefault: boolean } | null {
@@ -43,7 +45,7 @@ export function verticalOf(ci: EcSeismicInput): { avg: number; on: boolean; byDe
 }
 
 export interface EcSeismicDetail extends SeismicPlanDetail {
-  ec?: { avg: number; kv: number };
+  ec?: { avg: number; kv: number; grouped?: boolean };
 }
 
 export function designSpectrum(T: number, ag: number, p: SpectrumParams, q: number): number {
@@ -162,15 +164,17 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
   };
   const both = dirs.x && dirs.y && ci.combine30;
   if (both) refs.push(EN1998_1('4.3.3.5.1(3)', 'combination of components, 0.30'));
+  const grouped = both && verticalOn;
   for (const main of ['X', 'Y'] as const) {
     if (!(main === 'X' ? dirs.x : dirs.y)) continue;
     for (const s of [1, -1] as const) {
       for (const t of both ? ([1, -1] as const) : ([0] as const)) {
         const index = cases.length;
         const e = s > 0 ? '+' : '−';
+        const group = grouped ? { group: HORIZONTAL_LEADS } : {};
         cases.push(t === 0
-          ? { existingId: null, type: 'E', nameKey: 'loads.ec.seismicCase', nameParams: { dir: main, e } }
-          : { existingId: null, type: 'E', nameKey: 'loads.ec.seismicCase30', nameParams: { dir: main, e, other: main === 'X' ? 'Y' : 'X', sign: t > 0 ? '+' : '−' } });
+          ? { existingId: null, type: 'E', nameKey: 'loads.ec.seismicCase', nameParams: { dir: main, e }, ...group }
+          : { existingId: null, type: 'E', nameKey: 'loads.ec.seismicCase30', nameParams: { dir: main, e, other: main === 'X' ? 'Y' : 'X', sign: t > 0 ? '+' : '−' }, ...group });
         elevated.forEach((lv, k) => {
           const F = forces[k] ?? 0, Fo = 0.3 * Math.abs(t) * F;
           const Fx = main === 'X' ? F : t * Fo, Fy = main === 'Y' ? F : t * Fo;
@@ -180,8 +184,21 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
       }
     }
   }
+  if (grouped) {
+    for (const t of [1, -1] as const) {
+      for (const s of [1, -1] as const) {
+        const index = cases.length;
+        cases.push({ existingId: null, type: 'E', nameKey: 'loads.ec.seismicCaseVertical', nameParams: { sign: t > 0 ? '+' : '−', e: s > 0 ? '+' : '−' }, group: VERTICAL_LEADS });
+        elevated.forEach((lv, k) => {
+          const Fx = COMPONENT_SHARE * (forces[k] ?? 0), Fy = t * Fx;
+          const mt = s * ACCIDENTAL_E * Fx * (extent(lv.nodeIds, 'y') + extent(lv.nodeIds, 'x'));
+          for (const n of levelLoads(input.model.nodes, lv.nodeIds, Fx, Fy, mt)) nodal.push({ nodeId: n.nodeId, caseType: 'E', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, ...(n.mz ? { mz: n.mz } : {}) });
+        });
+      }
+    }
+  }
   derivation.push(msg(both ? 'loads.ec.seismic.cases30' : 'loads.ec.seismic.cases', { e: ACCIDENTAL_E * 100 }));
-  const detail: EcSeismicDetail = { source: 'manual', c: Fb / W, t: T1, ...(verticalOn ? { ec: { avg, kv } } : {}) };
+  const detail: EcSeismicDetail = { source: 'manual', c: Fb / W, t: T1, ...(verticalOn ? { ec: { avg, kv, ...(grouped ? { grouped } : {}) } } : {}) };
   return { seismicWeight: fromProject(W, 'kN'), baseShear: fromProject(Fb, 'kN'), seismicDetail: detail };
 }
 
@@ -201,7 +218,11 @@ export function ecVertical(combinations: LoadCombinationSpec[], detail: SeismicP
       { tag: '+Ez', eShare: COMPONENT_SHARE, dv: ec.kv }, { tag: '-Ez', eShare: COMPONENT_SHARE, dv: -ec.kv },
     ];
     return variants.map((v) => {
-      const terms = c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + v.dv).toFixed(4) } : t.symbol === 'E' ? { ...t, factor: +(t.factor * v.eShare).toFixed(4) } : t));
+      const vertical = v.eShare < 1;
+      const eTerm = (t: CombinationTerm): CombinationTerm => (ec.grouped
+        ? { ...t, group: vertical ? VERTICAL_LEADS : HORIZONTAL_LEADS }
+        : { ...t, factor: +(t.factor * v.eShare).toFixed(4) });
+      const terms = c.terms.map((t) => (t.symbol === 'D' ? { ...t, factor: +(t.factor + v.dv).toFixed(4) } : t.symbol === 'E' ? eTerm(t) : t));
       return { ...c, id: `${c.id}${v.tag}`, terms, label: combinationLabel(terms) };
     });
   });
