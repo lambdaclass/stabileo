@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -31,7 +32,7 @@ function generate(model: Model, mode: 'projected' | 'width' | 'panels', config: 
   expect(out.result.refused).toBeUndefined();
   const sink: PlanSink = { cases: [], distributed: [], nodal: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
   expect(planSnow({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, tributaryWidth: 1, snow: { ...config, enabled: true, source: 'site' } }, sink, layout)).toBe(true);
-  expect(sink.cases).toHaveLength(out.cases.length);
+  expect(physicalSnowCases(sink)).toHaveLength(out.cases.length);
   for (const [k, c] of out.cases.entries()) {
     expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
     expect(sink.nodal.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.nodal);
@@ -107,7 +108,7 @@ for (const mode of ['width', 'panels'] as const) for (const kind of ['flat', 'se
     const out = generate(model, mode === 'width' ? 'projected' : mode, config);
     const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 1, snow: { ...config, enabled: true, source: 'site' } });
     expect(plan.outcome).toBe('READY');
-    const cases = plan.cases.filter(c => c.type === 'S');
+    const cases = physicalSnowCases(plan);
     expect(cases).toHaveLength(out.cases.length);
     for (const [k, c] of cases.entries()) {
       expect(plan.distributed.filter(d => d.caseIndex === plan.cases.indexOf(c)).map(({ caseIndex, caseType, ...d }) => d)).toEqual(out.cases[k]!.distributed);
