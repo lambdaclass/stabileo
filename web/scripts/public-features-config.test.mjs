@@ -53,6 +53,32 @@ for (const [command, mode, expected] of [
   });
 }
 
+test.skip('known wrong result: #2286 — the copied route checker gets the committed production switches', async t => {
+  const key = 'STABILEO_ROUTE_BUDGET_LEGACY';
+  const previous = process.env[key];
+  t.after(() => {
+    if (previous === undefined) delete process.env[key];
+    else process.env[key] = previous;
+  });
+
+  delete process.env[key];
+  const standard = await resolveConfig({ root, logLevel: 'silent' }, 'build', 'production');
+  assert.equal(standard.define['import.meta.env.VITE_RESEARCH'], undefined);
+  assert.equal(standard.define['import.meta.env.VITE_TOOLS'], undefined);
+
+  process.env[key] = '1';
+  for (const [research, tools] of [[true, true], [true, false], [false, true], [false, false]]) {
+    const config = { ...committedConfig, production: { ...committedConfig.production, research, tools } };
+    const resolved = await withFeatureConfig(config, configFile =>
+      resolveConfig({ root, configFile, logLevel: 'silent' }, 'build', 'production'),
+    );
+    assert.deepEqual(
+      [JSON.parse(resolved.define['import.meta.env.VITE_RESEARCH']), JSON.parse(resolved.define['import.meta.env.VITE_TOOLS'])],
+      [String(Number(research)), String(Number(tools))],
+    );
+  }
+});
+
 test('build config rejects a missing or non-boolean feature in any environment', async () => {
   for (const [environment, row] of Object.entries(committedConfig)) {
     for (const key of Object.keys(row)) {
