@@ -1,4 +1,5 @@
 import { test, expect, loadModel, solveModel } from './fixtures';
+import { setDesignOption } from './design-options';
 
 /**
  * Reinforcement by sheets on the seven-storey concrete example: solved, its physical members
@@ -197,7 +198,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(page.getByTestId('rc-panel-code').getByTestId('rc-code-select')).toHaveValue('aci318-19');
 
   // Exact reinforcement: every line either bends bars up or says why it cannot, span by span.
-  await page.getByTestId('rc-opt-bent-bars').check();
+  await setDesignOption(page, 'bentBars');
   await page.getByTestId('rc-redesign').click();
   await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
   await page.getByTestId('rc-open-beam').click();
@@ -211,7 +212,7 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await page.keyboard.press('Escape');
 
   // The project's denser column ends, the design's own setting, drawn in the elevation.
-  await page.getByTestId('rc-opt-end-zones').check();
+  await setDesignOption(page, 'endZones');
   await page.getByTestId('rc-redesign').click();
   await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
   await page.getByTestId('rc-open-column').click();

@@ -10,6 +10,7 @@ import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateS
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
+import { DESIGN_OPTION_FLAGS, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
 import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
@@ -28,7 +29,7 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_BAR_RANGE, listIn, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
+import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_BAR_RANGE, listIn, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
@@ -53,11 +54,17 @@ export interface SheetRows {
 
 const DEFAULT_FC = 25;
 
-/** The sheets' data; adopted bars saved before adoptions were stamped count as set by hand, stamped with the code and seismic option in force. */
+/** The options the design data state for the sheets, as `RcSheetsData` carries them. */
+function optionsView(o: DesignOptions = {}): Pick<RcSheetsData, 'torsion' | DesignOptionFlag> {
+  return { torsion: o.torsion ?? 'equilibrium', ...Object.fromEntries(DESIGN_OPTION_FLAGS.filter((k) => o[k]).map((k) => [k, true])) };
+}
+
+/** The sheets' data with the design options read in; adopted bars saved before adoptions were stamped count as set by hand, stamped with the code and seismic option in force. */
 export function rcSheetsData(): RcSheetsData {
-  const d = designData().rcSheets;
-  if (!d) return defaultRcSheetsData();
-  const full = { ...defaultRcSheetsData(), ...d };
+  const dd = designData(), d = dd.rcSheets;
+  const options = optionsView(dd.designOptions);
+  if (!d) return { ...defaultRcSheetsData(), ...options };
+  const full = { ...defaultRcSheetsData(), ...d, ...options };
   const keys = Object.keys(full.adopted);
   if (full.adoptedCode || !keys.length) return full;
   const code = codeOf(full);
@@ -71,6 +78,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true,
   });
 }
 
@@ -78,8 +86,14 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
 const adoptionStamp = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): Pick<RcSheetsData, 'adoptedCode' | 'adoptedSeismic' | 'adoptedLogic' | 'adoptedBasis'> =>
   ({ adoptedCode: code, adoptedSeismic: seismicIn(d, code) ? true : undefined, adoptedLogic: RC_SHEETS_LOGIC, adoptedBasis: proposalBasis() });
 
+/** The sheets' own data, without the options the design data hold (an older project kept them here). */
+function ownSheets(d: Partial<RcSheetsData>): StoredRcSheets {
+  const { torsion: _t, faces: _f, flange: _l, seismic: _s, bentBars: _b, slabBentBars: _sb, ...own } = d;
+  return own as StoredRcSheets;
+}
+
 function save(next: RcSheetsData): void {
-  patchOwnDesignData({ rcSheets: next });
+  patchOwnDesignData({ rcSheets: ownSheets(next) });
 }
 
 export const saveRcSheetsData = save;
@@ -130,8 +144,14 @@ export function setSheetCode(code: SheetCode): void {
   save({ ...rcSheetsData(), code });
 }
 
+/** One of the design options in the design data: the design it fed is retired and the sheets are out of date. */
+function setDesignOptions(next: DesignOptions): void {
+  const { designOptions: _, rcSheets, ...rest } = storedDesignData();
+  setDesignData({ ...rest, ...(rcSheets ? { rcSheets: ownSheets(rcSheets) } : {}), designOptions: next });
+}
+
 export function setTorsionMode(torsion: TorsionMode): void {
-  save({ ...rcSheetsData(), torsion });
+  setDesignOptions({ ...designData().designOptions, torsion });
 }
 
 /** The project's denser column ends (`columnEndZones`), the same setting the design reads. */
@@ -141,14 +161,10 @@ export function setColumnEndZones(on: boolean): void {
   setDesignData(d);
 }
 
-export function setRcOption(option: 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars', on: boolean): void {
-  const d = { ...rcSheetsData() };
-  if (on) d[option] = true; else delete d[option];
-  if (option === 'bentBars') {
-    const edited = new Set(d.edited ?? []);
-    d.adopted = Object.fromEntries(Object.entries(d.adopted).filter(([k]) => !k.startsWith('line:') || edited.has(k) || d.bentLines?.[k] !== undefined));
-  }
-  save(d);
+export function setRcOption(option: DesignOptionFlag, on: boolean): void {
+  const next: DesignOptions = { ...designData().designOptions };
+  if (on) next[option] = true; else delete next[option];
+  setDesignOptions(next);
 }
 
 /** Never from mesh nodes: a mesh's rows of nodes are not storeys. */

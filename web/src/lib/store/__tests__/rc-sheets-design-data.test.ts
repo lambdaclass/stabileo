@@ -16,10 +16,12 @@ import { recognizePhysicalElements } from '../physical';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { deserializeProject } from '../file';
-import { adoptAll, buildSheetRows, setAdopted, setRcOption, setSheetCode, type SheetRows } from '../rc-sheets.svelte';
+import { adoptAll, buildSheetRows, rcSheetsData, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, type SheetRows } from '../rc-sheets.svelte';
 import { designSheets, sheetsStale } from '../rc-sheets-view.svelte';
 import { sheetCoverShortfalls } from '../rc-sheets-covers';
-import { patchDesignData, setDesignData, setMemberCovers } from '../design-data';
+import { designData, patchDesignData, setDesignData, setMemberCovers, storedDesignData } from '../design-data';
+import { migrateDesignData, migrateStoredDesignData } from '../../model/design-data';
+import { optionRule } from '../../rc-sheets/design-options';
 import { tieDiaFor } from '../../rc-sheets/column-row';
 import { columnTieLayout } from '../../rc-sheets/column-ties';
 
@@ -247,5 +249,65 @@ describe('the project\'s design data in the sheets', () => {
     const again = buildSheetRows();
     expect(again.column.filter((r) => r.key !== byHand.key).every((r) => !r.isAdopted && r.adopted.tieDia >= 8)).toBe(true);
     expect(again.column.find((r) => r.key === byHand.key)!.adopted.tieDia).toBe(6);
+  });
+});
+
+describe('the options the design takes before it starts, in the design data', () => {
+  const legacy = { version: 1, rcSheets: { version: 1, torsion: 'compatibility', faces: true, flange: true, seismic: true, bentBars: true, slabBentBars: true, code: 'aci318-19', adopted: { 'column:1:0': { corner: 16, nx: 1, dx: 16, ny: 1, dy: 16, tieDia: 8, tieSpacing: 0.15 } } } };
+
+  it('moves an older project\'s options from the sheets\' data to the design data on load, losing none', () => {
+    const stored = migrateStoredDesignData(legacy)!;
+    expect(stored.designOptions).toEqual({ torsion: 'compatibility', faces: true, flange: true, seismic: true, bentBars: true, slabBentBars: true });
+    for (const k of ['torsion', 'faces', 'flange', 'seismic', 'bentBars', 'slabBentBars']) expect(stored.rcSheets as Record<string, unknown>).not.toHaveProperty(k);
+    expect(stored.rcSheets?.code).toBe('aci318-19');
+    expect(Object.keys(stored.rcSheets!.adopted)).toEqual(['column:1:0']);
+    expect(migrateStoredDesignData({ version: 1, rcSheets: { version: 1, torsion: 'equilibrium', adopted: {} } })!.designOptions).toBeUndefined();
+    expect(migrateDesignData({ ...legacy, designOptions: { faces: true } }).designOptions).toEqual({ faces: true });
+  });
+
+  it('reads them from the old place until they are stated anew, and turning one off keeps the others', () => {
+    modelStore.setDesignData(legacy as never);
+    const d = rcSheetsData();
+    expect([d.torsion, d.faces, d.flange, d.seismic, d.bentBars, d.slabBentBars]).toEqual(['compatibility', true, true, true, true, true]);
+    setRcOption('faces', false);
+    const after = rcSheetsData();
+    expect(after.faces).toBeUndefined();
+    expect([after.torsion, after.flange, after.seismic, after.bentBars, after.slabBentBars]).toEqual(['compatibility', true, true, true, true]);
+    expect(storedDesignData().rcSheets as Record<string, unknown>).not.toHaveProperty('faces');
+    expect(storedDesignData().designOptions).toEqual({ torsion: 'compatibility', flange: true, seismic: true, bentBars: true, slabBentBars: true });
+  });
+
+  it('each changes the sheets, leaves them out of date and proposes again what was adopted from a proposal', async () => {
+    frame();
+    const conc = [...modelStore.materials.values()][0]!.id;
+    const [a, b] = [...modelStore.nodes.values()].filter((n) => (n.z ?? 0) > 2.9 && n.x < 5.1).sort((p, q) => p.x - q.x);
+    const c = modelStore.addNode(5, 4, 3), dd = modelStore.addNode(0, 4, 3);
+    modelStore.addQuad([a!.id, b!.id, c, dd], conc, 0.15);
+    modelStore.addSupport(c, 'pinned3d'); modelStore.addSupport(dd, 'pinned3d');
+    solve();
+    await designSheets();
+    const base = buildSheetRows();
+    adoptAll([...base.column, ...base.line]);
+    const changed = (k: string, f: () => void, differs: (r: SheetRows) => boolean) => {
+      f();
+      expect(sheetsStale(), k).toBe(true);
+      const r = buildSheetRows();
+      expect(differs(r), k).toBe(true);
+      expect(r.column.every((x) => !x.isAdopted), k).toBe(true);
+    };
+    changed('faces', () => setRcOption('faces', true), (r) => r.beam[0]!.demand.start.x > 0);
+    changed('flange', () => setRcOption('flange', true), (r) => r.beam.some((x) => !!x.demand.flange));
+    changed('torsion', () => setTorsionMode('compatibility'), () => storedDesignData().designOptions?.torsion === 'compatibility' && rcSheetsData().torsion === 'compatibility');
+    changed('bentBars', () => setRcOption('bentBars', true), (r) => r.line.some((l) => l.bars.some((x) => x.kind === 'bent') || l.bentNotes.length > 0));
+    changed('endZones', () => setColumnEndZones(true), (r) => columnTieLayout(r.column[0]!, 'cirsoc201-2025', { endZones: designData().columnEndZones === true }).zones.some((z) => z.kind === 'end'));
+    changed('seismic', () => setRcOption('seismic', true), (r) => r.column.every((x) => !!x.confinement));
+  });
+
+  it('says the clause each applies under the code in force, and why chapter 18 and the project\'s column ends do not apply where they do not', () => {
+    expect(optionRule('faces', 'cirsoc201-2025')).toEqual({ clause: 'CIRSOC 201-2025 §9.4.3.2' });
+    expect(optionRule('torsion', 'en1992-1-1').clause).toBe('EN 1992-1-1 6.3.1(2)');
+    expect(optionRule('seismic', 'ts500-2000').off).toBe('designData.opt.off.seismic');
+    expect(optionRule('seismic', 'aci318-19').off).toBeUndefined();
+    expect(optionRule('endZones', 'bs-en1992-1-1').off).toBe('designData.opt.off.endZonesEc2');
   });
 });

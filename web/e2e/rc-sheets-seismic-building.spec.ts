@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, loadModel, solveModel } from './fixtures';
+import { setDesignOption } from './design-options';
 
 /**
  * The seven-storey concrete building solved as the app solves it and designed by the sheets with
@@ -22,7 +23,7 @@ async function designSeismic(page: Page): Promise<void> {
   await expect(page.getByTestId('rc-design')).toBeEnabled({ timeout: 120_000 });
   await page.getByTestId('rc-design').click();
   await expect(page.getByTestId('rc-open-column')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
-  await page.getByTestId('rc-opt-seismic').check();
+  await setDesignOption(page, 'seismic');
   const redesign = page.getByTestId('rc-redesign');
   if (await redesign.count()) await redesign.click();
   await expect(page.getByTestId('rc-redesign')).toHaveCount(0, { timeout: 30_000 });

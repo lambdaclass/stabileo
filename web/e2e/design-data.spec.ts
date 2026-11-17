@@ -6,6 +6,7 @@
  * and so are the seismic data of the sheets' chapter 18 rows.
  */
 import { test, expect, designPlace, loadModel, solveModel, ribbonCmd } from './fixtures';
+import { setDesignOption } from './design-options';
 
 test.describe('@smoke design data', () => {
   test('the default covers meet the table, a cover under it is flagged, the CIRSOC preset sets them, it undoes', async ({ pro: page }) => {
@@ -48,10 +49,21 @@ test.describe('@smoke design data with design off', () => {
     await cover.fill('30');
     await cover.dispatchEvent('change');
     await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"beam":0\.03\b/);
-    await expect(data.locator('> summary')).toContainText('30 mm');
+    await expect(page.getByTestId('rc-dd-summary')).toContainText('30 mm');
 
     await page.getByTestId('rc-design').click();
-    await page.getByTestId('rc-opt-seismic').check();
+    await expect(page.getByTestId('rc-open-column')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
+    const before = await page.getByTestId('rc-dd-summary').textContent();
+    await setDesignOption(page, 'seismic');
+    await expect(page.getByTestId('rc-dd-summary')).not.toHaveText(before ?? '');
+    await expect(page.getByTestId('rc-stale')).toBeVisible();
+    await page.getByTestId('rc-redesign').click();
+    await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 120_000 }); // slow-ok: chapter 18 designs every column against the joints' beams again
+    await page.getByTestId('rc-open-column').click();
+    const ws = page.getByTestId('rc-sheets-workspace');
+    await ws.getByTestId('rc-row').first().click();
+    await expect(ws.getByTestId('rc-checks').first()).toContainText('§18.7.5');
+    await page.keyboard.press('Escape');
     const seismic = page.getByTestId('rc-seismic-data');
     await seismic.locator('> summary').click();
     const overstrength = seismic.getByTestId('seismic-overstrength');

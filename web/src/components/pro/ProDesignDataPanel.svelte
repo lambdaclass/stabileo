@@ -13,12 +13,13 @@
   import { modelStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import {
-    BAR_DIAMETERS_MM, DESIGN_KINDS, MIN_TIE_SPACING_RANGE, REBAR_GRADES, coversUnderMinimum, minimumCoverFor, withCirsocCovers,
+    BAR_DIAMETERS_MM, DESIGN_KINDS, REBAR_GRADES, coversUnderMinimum, minimumCoverFor, withCirsocCovers,
     type DesignKind, type Exposure, type ProjectDesignData,
   } from '../../lib/model/design-data';
   import { designData, patchDesignData, setDesignData, storedDesignData } from '../../lib/store/design-data';
   import ProDeflectionLimits from './ProDeflectionLimits.svelte';
   import ProConcreteByLevel from './ProConcreteByLevel.svelte';
+  import DesignOptionsSections from './design/DesignOptionsSections.svelte';
   import { setBeamsLateral } from '../../lib/store/lateral-system';
   import { SLAB_BAR_RANGE, inRange } from '../../lib/rc-sheets/types';
 
@@ -110,24 +111,20 @@
         <button class="dd-chip" class:on={d.stirrupDiametersMm.includes(dia)} aria-pressed={d.stirrupDiametersMm.includes(dia)} onclick={() => toggle('stirrupDiametersMm', dia)} data-testid="design-data-ties-{dia}">Ø{dia}</button>
       {/each}
     </div>
-    <label class="dd-inline">{t('designData.minTieSpacing')}
-      <input type="number" min={MIN_TIE_SPACING_RANGE.min} max={MIN_TIE_SPACING_RANGE.max} step="5" value={d.minTieSpacingMm} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= MIN_TIE_SPACING_RANGE.min && v <= MIN_TIE_SPACING_RANGE.max) patchDesignData({ minTieSpacingMm: v }); else e.currentTarget.value = String(d.minTieSpacingMm); }} data-testid="design-data-min-tie-spacing" /> mm
-    </label>
-    <Hint text={t('designData.minTieSpacingHint')} />
     <div class="dd-sub">{t('designData.slabBars')}</div>
     <div class="dd-chips">
       {#each BAR_DIAMETERS_MM.filter((x) => inRange(x, SLAB_BAR_RANGE)) as dia}
         <button class="dd-chip" class:on={d.slabDiametersMm.includes(dia)} aria-pressed={d.slabDiametersMm.includes(dia)} onclick={() => toggle('slabDiametersMm', dia)} data-testid="design-data-slab-{dia}">Ø{dia}</button>
       {/each}
     </div>
-    <label class="dd-inline dd-check"><input type="checkbox" checked={d.columnEndZones === true} onchange={(e) => patchDesignData({ columnEndZones: e.currentTarget.checked })} data-testid="design-data-end-zones" /> {t('designData.columnEndZones')}</label>
-    <Hint text={t('designData.columnEndZonesHint')} />
     <label class="dd-inline">{t('designData.wallBar')}
       <select value={d.wallBarDiaMm} onchange={(e) => patchDesignData({ wallBarDiaMm: Number(e.currentTarget.value) })} data-testid="design-data-wall">
         {#each BAR_DIAMETERS_MM.filter((x) => x >= 8 && x <= 20) as dia}<option value={dia}>Ø{dia}</option>{/each}
       </select>
     </label>
   </section>
+
+  <DesignOptionsSections />
 
   <section class="pk-card" data-testid="design-data-lateral">
     <h5 class="dd-h">{t('lateral.title')}</h5>

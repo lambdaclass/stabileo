@@ -123,7 +123,7 @@ describe('what the project stores of it', () => {
     expect(stored.covers).toBeUndefined();
     expect(stored.exposure).toBeUndefined();
     expect(stored.longDiametersMm).toBeUndefined();
-    expect(stored).toMatchObject({ rebarFy: 500, columnEndZones: true, frameToleranceMm: 10, rcSheets: { seismic: true, torsion: 'compatibility' } });
+    expect(stored).toMatchObject({ rebarFy: 500, columnEndZones: true, frameToleranceMm: 10, designOptions: { seismic: true, torsion: 'compatibility' } });
     expect(designData().covers).toEqual(defaultDesignData().covers);
   });
 
@@ -136,7 +136,7 @@ describe('what the project stores of it', () => {
   });
 
   it('reading a stored shape keeps only what it states', () => {
-    expect(migrateStoredDesignData({ rcSheets: { adopted: {} }, covers: { column: 0.035, slab: 'x' } })).toEqual({ version: 1, rcSheets: { version: 1, torsion: 'equilibrium', adopted: {} }, covers: { column: 0.035 } });
+    expect(migrateStoredDesignData({ rcSheets: { adopted: {} }, covers: { column: 0.035, slab: 'x' } })).toEqual({ version: 1, rcSheets: { version: 1, adopted: {} }, covers: { column: 0.035 } });
     expect(migrateStoredDesignData(null)).toBeUndefined();
   });
 });

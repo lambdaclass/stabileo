@@ -1,4 +1,5 @@
 import { test, expect, loadModel, solveModel } from './fixtures';
+import { setDesignOption } from './design-options';
 
 /**
  * The slabs of a level of the seven-storey example in one plan: one bar per package with its legs
@@ -75,7 +76,7 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
   await page.keyboard.press('Escape');
 
-  await page.getByTestId('rc-opt-slab-bent-bars').check();
+  await setDesignOption(page, 'slabBentBars');
   await page.getByTestId('rc-redesign').click();
   await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 60_000 });
   await page.getByTestId('rc-open-slab').click();

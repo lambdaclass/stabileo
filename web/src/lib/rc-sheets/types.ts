@@ -125,6 +125,9 @@ export interface RcSheetsData {
   adoptedBasis?: string;
 }
 
+/** The sheets' data as the project stores it: the options the design takes before it starts live in the design data (`design-options.ts`). */
+export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
+
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
 export const RC_SHEETS_LOGIC = 6;
 

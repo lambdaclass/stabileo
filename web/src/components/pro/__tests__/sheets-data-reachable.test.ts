@@ -18,10 +18,21 @@ describe('the data the sheets read is editable whenever the sheets are reachable
     expect(s).not.toMatch(/designInPro/);
   });
 
-  it('the sheets\' panel opens the design data, and the seismic data when its rows follow chapter 18', () => {
+  it('the sheets\' panel says the design data in one line with a link that opens them, and keeps no option of its own', () => {
     const s = src('rc-sheets/ProRcSheetsTab.svelte');
     expect(s).toContain('<ProDesignDataPanel />');
-    expect(s).toContain('<SeismicEditor />');
+    expect(s).toContain('data-testid="rc-dd-summary"');
+    expect(s).toContain('data-testid="rc-dd-edit"');
+    expect(s).not.toMatch(/rc-opt-|setRcOption|setTorsionMode|setColumnEndZones/);
     expect(s).not.toMatch(/designInPro/);
+  });
+
+  it('the design data hold the options the design takes before it starts, and the seismic data beside chapter 18', () => {
+    expect(src('ProDesignDataPanel.svelte')).toContain('<DesignOptionsSections />');
+    const o = src('design/DesignOptionsSections.svelte');
+    for (const k of ['faces', 'flange', 'bentBars', 'slabBentBars', 'endZones', 'seismic']) expect(o).toContain(`option('${k}')`);
+    expect(o).toContain('data-testid="dd-opt-torsion"');
+    expect(o).toContain('<SeismicEditor />');
+    expect(o).toMatch(/<details class="pk-card do"/);
   });
 });
