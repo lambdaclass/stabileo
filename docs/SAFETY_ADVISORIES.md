@@ -138,3 +138,5 @@ Draft 2026-11-15; fixed in PR #2173, pending merge and release:
 Draft 2026-11-15; fixed in PR #2175, pending merge and release:
 [SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
 (unequal roof subdivision moved the snow ridge and changed generated loads, #2144).
+
+[SA-2026-082](advisories/SA-2026-082-snow-companion-basis.md) records companion combinations selecting the wrong snow member loading (#2211). Regenerate snow loads and combinations, then rerun analyses and design checks. Draft 2026-11-16; pending merge and release (#2233).

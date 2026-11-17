@@ -128,6 +128,9 @@ fn add_connector_triplets_2d(
 /// This allows downstream code to add more triplets (e.g., from constraints)
 /// before the final CSC conversion.
 pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> TripletAssemblyResult {
+    let canonical_input = super::member_loads::plane_input(input);
+    let input = canonical_input.as_ref();
+
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let mut f_global = vec![0.0; n];
@@ -563,6 +566,9 @@ struct ElementContribution {
 /// artificial stiffness are added sequentially.
 #[cfg(feature = "parallel")]
 pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering) -> TripletAssemblyResult {
+    let canonical_input = super::member_loads::plane_input(input);
+    let input = canonical_input.as_ref();
+
     use rayon::prelude::*;
 
     let n = dof_num.n_total;

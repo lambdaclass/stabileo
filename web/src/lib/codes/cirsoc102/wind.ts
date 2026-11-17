@@ -150,34 +150,30 @@ export function internalPressureCoefficient(enclosure: Enclosure): number {
   }
 }
 
-export interface EnclosureInputs {
-  /** Total area of openings in a wall receiving positive external pressure, m². */
-  a0: number;
-  /** Gross area of that wall, m². */
-  ag: number;
-  /** Sum of openings in the building envelope not including a0, m². */
-  a0i: number;
-  /** Sum of gross surface areas of the envelope not including that wall, m². */
-  agi: number;
+export interface WallOpenings {
+  openings: number;
+  gross: number;
 }
 
-/**
- * §1.10 / Table 1.11-1 — classify enclosure from opening areas.
- *
- * The order below is the order the table's criteria are printed, and it matters: a
- * building satisfying the "partially enclosed" criteria is classified as such even
- * though it may also read as "enclosed" on the A0 test alone.
- */
+export interface EnclosureInputs {
+  walls: readonly WallOpenings[];
+  roof: WallOpenings;
+}
+
+export const MIN_ENCLOSURE_WALLS = 2;
+
 export function classifyEnclosure(i: EnclosureInputs): Enclosure {
-  const { a0, ag, a0i, agi } = i;
-  if (a0 >= 0.8 * ag) return 'open';
-  const enclosedLimit = Math.min(0.01 * ag, 0.4);
-  const partiallyEnclosed =
-    a0 > 1.10 * a0i &&
-    a0 > enclosedLimit &&
-    (agi > 0 ? a0i / agi <= 0.20 : true);
-  if (partiallyEnclosed) return 'partiallyEnclosed';
-  if (a0 <= enclosedLimit) return 'enclosed';
+  if (!i.walls || i.walls.length < MIN_ENCLOSURE_WALLS || !i.roof) throw new Error('wind.enclosure.incompleteEnvelope');
+  const envelope = [...i.walls, i.roof];
+  if (envelope.some(w => !Number.isFinite(w.gross) || !Number.isFinite(w.openings) || w.gross <= 0 || w.openings < 0 || w.openings > w.gross)) throw new Error('wind.enclosure.invalidAreas');
+  if (i.walls.every(w => w.openings >= 0.8 * w.gross)) return 'open';
+  if (i.walls.some((w, index) => {
+    const rest = envelope.filter((_, k) => k !== index);
+    const openings = rest.reduce((sum, r) => sum + r.openings, 0);
+    const gross = rest.reduce((sum, r) => sum + r.gross, 0);
+    return w.openings > 1.10 * openings && w.openings > Math.min(0.01 * w.gross, 0.4) && openings <= 0.20 * gross;
+  })) return 'partiallyEnclosed';
+  if (i.walls.every(w => w.openings <= Math.min(0.01 * w.gross, 0.4))) return 'enclosed';
   return 'partiallyOpen';
 }
 
@@ -427,6 +423,7 @@ export function velocityPressure(z: number, p: WindProject): number {
 export function computeWindPressures(p: WindProject): WindResult {
   const unsupported: EngineMessage[] = [];
   const assumptions: EngineMessage[] = [];
+  if (p.enclosure === 'open') unsupported.push(msg('loads.cirsoc102.unsupported.openBuildingProcedure'));
 
   // The gust effect factor: computed from the frequency when it is given (`gust.ts`); without it, a
   // building declared rigid takes 0,85 and one declared flexible has no G_f to compute.

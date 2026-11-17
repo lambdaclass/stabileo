@@ -133,7 +133,7 @@ harnesses that bear on the trusted base:
   - `frame_transform_*`, `truss_transform_2d_structure`: block structure;
   - `compute_local_axes_3d_default_finite`;
   - `fef_*`, `adjust_fef_for_hinges*`, `expand_fef_12_to_14_ok`,
-    `axial_distributed_fef_ok`: finite fixed-end forces with released moments zero.
+    `axial_distributed_fef_ok`: finite fixed-end forces with released moments zero where applicable. The axial harness proves the private shared integration formula over its original endpoint ranges, including reversed endpoints. Production callers must first pass the shared interval predicate; only Kani builds expose the formula through a proof shim.
   - Findings: `truss_global_stiffness_3d_symmetry_counterexample` and
     `transform_stiffness_truss_2d_symmetry_counterexample` show that `K` is not bitwise
     symmetric. This is why the certificates never assume a symmetric `K`.

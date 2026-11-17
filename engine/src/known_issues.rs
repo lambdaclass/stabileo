@@ -76,7 +76,7 @@ pub fn diagnostic(id: &str) -> StructuredDiagnostic {
 }
 
 pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
-    match diagnostics.iter().find(|d| d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error) {
+    match diagnostics.iter().find(|d| matches!(d.code, DiagnosticCode::KnownIssue | DiagnosticCode::NonFiniteResult) && d.severity == Severity::Error) {
         Some(d) => Err(serde_json::json!({"message": d.message, "structuredDiagnostics": diagnostics}).to_string()),
         None => Ok(()),
     }
@@ -829,11 +829,11 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
         let ((v_i, r_i), (v_j, r_j)) = (end(span.nodes[0]), end(span.nodes[1]));
         let mut dist: Vec<(f64, f64, f64, f64)> = ef.distributed_loads.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
         if dist.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) {
-            dist.push((ef.q_i, ef.q_j, 0.0, span.length));
+            dist.push((ef.q_i, ef.q_j, 0.0, ef.length));
         }
         let points = ef.point_loads.iter().map(|p| (p.a, p.p)).collect();
         let couples = ef.point_loads.iter().filter_map(|p| p.my.map(|m| (p.a, m))).collect();
-        out.push((span.element_id, span.length, SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
+        out.push((span.element_id, ef.length, SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
     }
     out
 }
@@ -862,15 +862,15 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
         let loads = |dist: &[DistributedLoadInfo], q: (f64, f64), points: &[PointLoadInfo3D]| {
             let mut d: Vec<(f64, f64, f64, f64)> = dist.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
             if d.is_empty() && (q.0 != 0.0 || q.1 != 0.0) {
-                d.push((q.0, q.1, 0.0, span.length));
+                d.push((q.0, q.1, 0.0, ef.length));
             }
             (points.iter().map(|p| (p.a, p.p)).collect(), d)
         };
         let (py, dy) = loads(&ef.distributed_loads_y, (ef.q_yi, ef.q_yj), &ef.point_loads_y);
         let (pz, dz) = loads(&ef.distributed_loads_z, (ef.q_zi, ef.q_zj), &ef.point_loads_z);
         let planes = [
-            SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
-            SpanRotation::new(span.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
+            SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
+            SpanRotation::new(ef.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
         ];
         let twist = match (ef.release_t_start, ef.release_t_end) {
             (false, false) => (ri[0], rj[0]),
@@ -878,7 +878,7 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
             (false, true) => (ri[0], ri[0]),
             (true, true) => (0.0, 0.0),
         };
-        out.push((span.element_id, span.length, planes, twist));
+        out.push((span.element_id, ef.length, planes, twist));
     }
     out
 }

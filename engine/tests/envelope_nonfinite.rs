@@ -5,7 +5,7 @@
 use ciborium::value::Value;
 use dedaliano_engine::certify::finite::non_finite_paths;
 use dedaliano_engine::postprocess::combinations::{
-    combine_results, combine_results_3d, compute_envelope, compute_envelope_3d, CaseEntry, CaseEntry3D,
+    combine_results, combine_results_checked, combine_results_refs, combine_results_3d, compute_envelope, compute_envelope_3d, CaseEntry, CaseEntry3D,
     CombinationFactor, CombinationInput, CombinationInput3D,
 };
 use dedaliano_engine::solver::linear;
@@ -169,6 +169,168 @@ proptest! {
         }
         if let Some(msg) = violation(three_d, &v) {
             prop_assert!(false, "3d={three_d}: {msg}");
+        }
+    }
+}
+
+#[test]
+fn issue_2222_saved_planar_intervals_return_errors_before_sampling() {
+    for axis in 0..2 {
+        for (a, b) in [(-1.0, 1.0), (2.0, 4.0), (0.0, 0.0), (0.0, 1e-11), (f64::NAN, 1.0), (0.0, f64::INFINITY)] {
+            let mut results = results_2d();
+            let ef = &mut results[0].element_forces[0];
+            ef.length = 3.0;
+            ef.distributed_loads.clear();
+            ef.distributed_loads_x.clear();
+            let loads = if axis == 0 { &mut ef.distributed_loads } else { &mut ef.distributed_loads_x };
+            loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b });
+            assert!(compute_envelope(&results).is_err());
+            let combination = CombinationInput { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry { case_id: 1, results: results[0].clone() }] };
+            assert!(combine_results_checked(&combination).is_err());
+            assert!(combine_results_refs(&combination.factors, &[(1, &results[0])]).is_none());
+        }
+    }
+    assert!(compute_envelope(&results_2d()).unwrap().moment.global_max > 0.0);
+}
+
+#[test]
+fn issue_2222_saved_spatial_intervals_return_errors_before_sampling() {
+    for axis in 0..3 {
+        for (a, b) in [(-1.0, 1.0), (2.0, 4.0), (0.0, 0.0), (0.0, 1e-11), (f64::NAN, 1.0), (0.0, f64::INFINITY)] {
+            let mut results = results_3d();
+            let ef = &mut results[0].element_forces[0];
+            ef.length = 3.0;
+            ef.distributed_loads_x.clear();
+            ef.distributed_loads_y.clear();
+            ef.distributed_loads_z.clear();
+            let loads = match axis { 0 => &mut ef.distributed_loads_x, 1 => &mut ef.distributed_loads_y, _ => &mut ef.distributed_loads_z };
+            loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b });
+            assert!(compute_envelope_3d(&results).is_err());
+            let combination = CombinationInput3D { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry3D { case_id: 1, results: results[0].clone() }], plate_thicknesses: vec![] };
+            assert!(combine_results_3d(&combination).is_err());
+        }
+    }
+    assert!(compute_envelope_3d(&results_3d()).unwrap().moment_z.global_max > 0.0);
+}
+
+#[test]
+fn issue_2222_saved_2d_certified_demands_refuse_mutated_intervals() {
+    use dedaliano_engine::certify::combinations::*;
+    use dedaliano_engine::certify::design::steel_demands_from_combinations_2d;
+    use dedaliano_engine::solver::load_cases::MultiCaseInput;
+    let solver = fixture::<SolverInput>("ex-portal-frame-input.json");
+    let input: MultiCaseInput = serde_json::from_value(serde_json::json!({
+        "loadCases": [{"name": "load", "loads": solver.loads}],
+        "combinations": [{"name": "combination", "factors": {"load": 1.0}}], "solver": solver
+    })).unwrap();
+    let original = certify_multi_case_2d(&input).unwrap();
+    assert!(!steel_demands_from_combinations_2d(&original, 3).unwrap().is_empty());
+    for (a, b) in [(-1.0, 1.0), (0.0, 0.0), (0.0, 1e-11)] {
+        let mut changed = original.clone();
+        let ef = &mut changed.results.combination_results[0].results.element_forces[0];
+        ef.distributed_loads = vec![DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b }];
+        assert!(steel_demands_from_combinations_2d(&changed, 3).is_err());
+        let checked = certify_multi_case_results_2d(&input, changed.results);
+        assert!(!checked.combinations[0].certified);
+    }
+}
+
+#[test]
+fn issue_2222_saved_3d_certified_demands_refuse_mutated_intervals() {
+    use dedaliano_engine::certify::combinations::*;
+    use dedaliano_engine::certify::design::steel_demands_from_combinations_3d;
+    use dedaliano_engine::solver::load_cases::MultiCaseInput3D;
+    let solver = fixture::<SolverInput3D>("ex-3d-portal-frame-input.json");
+    let input: MultiCaseInput3D = serde_json::from_value(serde_json::json!({
+        "loadCases": [{"name": "load", "loads": solver.loads}],
+        "combinations": [{"name": "combination", "factors": {"load": 1.0}}], "solver": solver
+    })).unwrap();
+    let original = certify_multi_case_3d(&input).unwrap();
+    assert!(!steel_demands_from_combinations_3d(&original, 3).unwrap().is_empty());
+    for (a, b) in [(-1.0, 1.0), (0.0, 0.0), (0.0, 1e-11)] {
+        let mut changed = original.clone();
+        let ef = &mut changed.results.combination_results[0].results.element_forces[0];
+        ef.distributed_loads_x = vec![DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b }];
+        assert!(steel_demands_from_combinations_3d(&changed, 3).is_err());
+        let checked = certify_multi_case_results_3d(&input, changed.results);
+        assert!(!checked.combinations[0].certified);
+    }
+}
+
+#[test]
+fn issue_2222_checked_combinations_report_overflow_before_recovery() {
+    use dedaliano_engine::postprocess::combinations::{combine_results_3d_refs};
+    let planar = results_2d().remove(0);
+    let spatial = results_3d().remove(0);
+    for factor in [1.0, f64::MAX] {
+        let factors = vec![CombinationFactor { case_id: 1, factor }, CombinationFactor { case_id: 1, factor }];
+        let input = CombinationInput { factors: factors.clone(), cases: vec![CaseEntry { case_id: 1, results: planar.clone() }] };
+        let input3 = CombinationInput3D { factors: factors.clone(), cases: vec![CaseEntry3D { case_id: 1, results: spatial.clone() }], plate_thicknesses: vec![] };
+        let planar_checked = combine_results_checked(&input);
+        let spatial_checked = combine_results_3d(&input3);
+        let spatial_refs = combine_results_3d_refs(&factors, &[(1, &spatial)]);
+        if factor == 1.0 {
+            dedaliano_engine::boundary::require_finite(&planar_checked.unwrap().unwrap()).unwrap();
+            for out in [spatial_checked, spatial_refs] { dedaliano_engine::boundary::require_finite(&out.unwrap().unwrap()).unwrap(); }
+        } else {
+            for error in [planar_checked.unwrap_err(), spatial_checked.unwrap_err(), spatial_refs.unwrap_err()] {
+                assert!(error.contains("non-finite number"), "{error}");
+            }
+            assert!(combine_results(&input).is_none());
+        }
+    }
+}
+
+#[test]
+fn issue_2223_invalid_saved_intervals_never_become_diagnostic_results() {
+    for axis in 0..2 {
+        for (a, b) in [(f64::NAN, 1.0), (0.0, f64::INFINITY), (-1.0, 1.0), (0.0, 0.0)] {
+            for force in [0.0, f64::NAN] {
+                let mut case = results_2d().remove(0);
+                let ef = &mut case.element_forces[0];
+                ef.length = 3.0;
+                ef.n_start = force;
+                ef.distributed_loads.clear();
+                ef.distributed_loads_x.clear();
+                let loads = if axis == 0 { &mut ef.distributed_loads } else { &mut ef.distributed_loads_x };
+                loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a, b });
+                let input = CombinationInput { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+                assert!(combine_results(&input).is_none(), "axis={axis} interval=[{a},{b}] force={force}");
+                assert!(combine_results_refs(&input.factors, &[(1, &case)]).is_none());
+                assert!(combine_results_checked(&input).is_err());
+                assert!(compute_envelope(&[case]).is_err());
+            }
+        }
+    }
+}
+
+#[test]
+fn issue_2223_valid_saved_interval_boundaries_keep_combination_answers() {
+    for axis in 0..2 {
+        let width = 2.0 * dedaliano_engine::element::MEMBER_GEOMETRY_LIMIT;
+        for b in [width.next_down(), width, width.next_up(), 2.0, 2.0_f64.next_up()] {
+            let mut case = results_2d().remove(0);
+            let ef = &mut case.element_forces[0];
+            ef.length = 2.0;
+            ef.distributed_loads.clear(); ef.distributed_loads_x.clear();
+            let loads = if axis == 0 { &mut ef.distributed_loads } else { &mut ef.distributed_loads_x };
+            loads.push(DistributedLoadInfo { q_i: -2.0, q_j: -2.0, a: 0.0, b });
+            let input = CombinationInput { factors: vec![CombinationFactor { case_id: 1, factor: 1.0 }], cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+            if b < width || b > 2.0 {
+                assert!(combine_results(&input).is_none());
+                assert!(combine_results_refs(&input.factors, &[(1, &case)]).is_none());
+                assert!(combine_results_checked(&input).is_err());
+                assert!(compute_envelope(&[case]).is_err());
+            } else {
+                for combined in [combine_results(&input).unwrap(), combine_results_refs(&input.factors, &[(1, &case)]).unwrap(), combine_results_checked(&input).unwrap().unwrap()] {
+                    assert_eq!(combined.element_forces.len(), case.element_forces.len());
+                    let ef = &combined.element_forces[0];
+                    let loads = if axis == 0 { &ef.distributed_loads } else { &ef.distributed_loads_x };
+                    assert_eq!(loads[0].b, b);
+                    dedaliano_engine::boundary::require_finite(&combined).unwrap();
+                }
+                dedaliano_engine::boundary::require_finite(&compute_envelope(&[case]).unwrap()).unwrap();
+            }
         }
     }
 }

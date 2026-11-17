@@ -1,5 +1,17 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'engine.memberLoad.geometryOrdering': "उत्पन्न सदस्य की ज्यामिति का क्रम अमान्य है",
+  'engine.memberLoad.geometryLine': "उत्पन्न सदस्य की ज्यामिति मूल रेखा से बाहर जाती है",
+  'engine.memberLoad.invalidGeometry': "उत्पन्न सदस्य की ज्यामिति अमान्य है",
+  'engine.memberLoad.geometryPartition': "उत्पन्न ज्यामिति मूल सदस्य को विभाजित नहीं करती",
+  'engine.memberLoad.invalidPiece': "उत्पन्न सदस्य भार का खंड अमान्य है",
+  'engine.memberLoad.geometrySpan': "तत्व {id}: उत्पन्न ज्यामिति मूल खंड {span} को लंबाई {length} में बदलती है; वितरित भारों का पुनर्मापन नहीं किया जा सकता",
+  "engine.memberLoad.invalidInterval": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] अमान्य है",
+  "engine.memberLoad.geometryLimit": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] सापेक्ष ज्यामितीय सीमा {limit} से कम है",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy} के लिए CIRSOC 101 {article} के अनुसार केंद्रित भार की जाँच आवश्यक है। सबसे प्रतिकूल स्थितियों का मूल्यांकन नहीं किया जाता। स्वचालित निर्माण अवरुद्ध है; इन क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
+  "loadPlan.blocked.concentratedLive": "{occupancy} के लिए CIRSOC 101 §4.4 के अनुसार {force} kN केंद्रित उपयोगी भार की जाँच आवश्यक है। सबसे प्रतिकूल स्थितियों और समान रूप से वितरित/केंद्रित भार के विकल्प का मूल्यांकन नहीं किया जाता। स्वचालित निर्माण अवरुद्ध है; इन क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 के अनुसार §4.8 के छत उपयोगी भार से अलग, सबसे प्रतिकूल स्थितियों में केंद्रित छत क्रियाएँ आवश्यक हैं। इनकी जाँच नहीं की जाती। स्वचालित निर्माण अवरुद्ध है; छत की क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
   "account.err.invalid_credentials": "ईमेल या पासवर्ड गलत है।",
   // ─── Auth / Login ───
 

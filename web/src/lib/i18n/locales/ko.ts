@@ -1,6 +1,18 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'engine.memberLoad.geometryOrdering': "생성된 부재 형상의 순서가 올바르지 않습니다",
+  'engine.memberLoad.geometryLine': "생성된 부재 형상이 원래 선에서 벗어납니다",
+  'engine.memberLoad.invalidGeometry': "생성된 부재 형상이 올바르지 않습니다",
+  'engine.memberLoad.geometryPartition': "생성된 형상이 원래 부재를 분할하지 않습니다",
+  'engine.memberLoad.invalidPiece': "생성된 부재 하중 구간이 올바르지 않습니다",
+  'engine.memberLoad.geometrySpan': "요소 {id}: 생성된 형상이 원래 구간 {span}을 길이 {length}로 변경합니다. 분포 하중의 크기를 재조정할 수 없습니다",
+  "engine.memberLoad.invalidInterval": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 유효하지 않습니다",
+  "engine.memberLoad.geometryLimit": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 상대 기하 한계 {limit}보다 작습니다",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy}에는 CIRSOC 101 {article}에 따라 집중 하중 검토가 필요합니다. 가장 불리한 위치는 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
+  "loadPlan.blocked.concentratedLive": "{occupancy}에는 CIRSOC 101 §4.4에 따라 {force} kN 집중 활하중 검토가 필요합니다. 가장 불리한 위치와 등분포/집중 하중 대안은 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4는 §4.8 지붕 활하중과 별도로 가장 불리한 위치에서의 집중 지붕 작용을 요구합니다. 이러한 검토는 수행되지 않습니다. 자동 생성이 차단되었습니다. 지붕 작용을 수동으로 모델링하고 검토하세요.",
   "account.err.invalid_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   // ─── Auth / Login ───
 

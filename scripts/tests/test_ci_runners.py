@@ -267,7 +267,7 @@ class CiRunners(unittest.TestCase):
             fake.chmod(0o755)
             output = pathlib.Path(directory) / 'output'
             env = {**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GITHUB_OUTPUT': str(output), 'EVENT': event,
-                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '512', 'MUTANTS_SLOTS': '32',
+                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '2560', 'MUTANTS_SLOTS': '160',
                    'FORCE_FAILURE': 'false'}
             result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)

@@ -53,10 +53,10 @@ export function planSnow(input: LoadPlanInput, sink: PlanSink, layout?: GravityL
       // Drifts and sliding snow are read off the panels; by width there are none to read.
       unsupportedKeys.push(msg(layout ? 'snow.note.notCoveredPanels' : 'snow.note.notCovered'));
       // Balanced and unbalanced are the same snow on the same roof, three ways: alternatives.
-      const alternatives = out.cases.length > 1 ? SNOW_PATTERNS : undefined;
-      for (const c of out.cases) {
+      const alternatives = SNOW_PATTERNS;
+      for (const c of [...out.cases, ...(out.flatRoof ? [{ ...out.flatRoof, snowBasis: 'flatRoof' as const }] : [])]) {
         const index = cases.length;
-        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...(alternatives ? { alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) });
+        cases.push({ existingId: null, type: 'S', nameKey: c.nameKey, nameParams: c.nameParams, ...('snowBasis' in c ? { snowBasis: c.snowBasis } : {}), ...(alternatives ? { alternatives } : {}), ...(c.pattern ? { pattern: true } : {}) });
         for (const d of c.distributed) distributed.push({ ...d, caseType: 'S', caseIndex: index });
         for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'S', caseIndex: index, fx: n.fx, fy: n.fy, fz: n.fz, ...(n.carrier !== undefined ? { carrier: n.carrier } : {}) });
         snowPlanned = true;
