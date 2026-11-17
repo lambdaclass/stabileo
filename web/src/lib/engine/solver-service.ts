@@ -1,4 +1,4 @@
-import { assertMemberLoadSpan, nonemptyMemberForceLoads, MemberLoadSpanRefusal } from './loads/member-load-spans';
+import { assertMemberLoadSpan, MemberLoadSpanRefusal } from './loads/member-load-spans';
 import { hasMemberMoments, mapMoments } from './member-moments';
 import { shouldEmbedFlat2DModelIn3D } from './model-embedding';
 export { shouldEmbedFlat2DModelIn3D } from './model-embedding';
@@ -250,7 +250,6 @@ class MemberMomentRefusal extends Error {
 function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
   const unsupported = loads.find(l=>l.type==='distributed3d' && hasMemberMoments(l.data.moments));
   if (unsupported && 'elementId' in unsupported.data) throw new MemberMomentRefusal(unsupported.data.elementId, 'spatial');
-  loads = nonemptyMemberForceLoads(loads, model);
   /*
    * One builder for every 2D path. The linear solve and the combinations had
    * their own, which passed a distributed or point load's value straight to
@@ -1467,7 +1466,6 @@ export function buildSolverLoads3D(
   // A concentrated load and a tendon go by the solve's cuts' own predicate, one-way members
   // included: the cuts skip those, so their loads must not need one (`member-loads.ts`).
   const axialMember = (id: number) => memberTakesNoBending(model.elements.get(id));
-  loads = nonemptyMemberForceLoads(loads, model);
 
   for (const l of loads) {
     if (l.type === 'nodal') {
