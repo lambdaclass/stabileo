@@ -231,3 +231,44 @@ fn combination_matches_reactions_by_node_id_not_position() {
     assert!((rz(1) - 5.5).abs() < 1e-12, "node 1 should be 5.0+0.5, got {}", rz(1));
     assert!((rz(2) - 7.7).abs() < 1e-12, "node 2 should be 7.0+0.7, got {}", rz(2));
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn combinations_envelope_preserves_locally_evaluated_extrema() {
+    use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
+    use serde_json::json;
+    for axis in ["x", "y", "z"] {
+        for sign in [1.0, -1.0] {
+            for width in [1.0, 2.0_f64.powi(-32)] {
+                let a = 0.5;
+                let mut moments = json!({"x":[0,0,0],"y":[0,0,0],"z":[0,0,0]});
+                moments[axis] = json!([sign / width, -0.5 * sign / width, sign / width]);
+                let ef: ElementForces3D = serde_json::from_value(json!({
+                    "elementId":1,"length":2,"nStart":0,"nEnd":0,
+                    "vyStart":0,"vyEnd":0,"vzStart":0,"vzEnd":0,
+                    "mxStart":0,"mxEnd":0,"myStart":0,"myEnd":0,"mzStart":0,"mzEnd":0,
+                    "qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"distributedLoadsY":[],"distributedLoadsZ":[],"pointLoadsY":[],"pointLoadsZ":[],
+                    "memberMoments":[{"a":a,"b":a+width,"moments":moments}]
+                })).unwrap();
+                let r: AnalysisResults3D = serde_json::from_value(json!({
+                    "displacements":[],"reactions":[],"elementForces":[ef],
+                    "plateStresses":[],"quadStresses":[]
+                })).unwrap();
+                let diagrams = compute_diagrams_3d(&r);
+                let envelope = compute_envelope_3d(&[r.clone(), r]).unwrap();
+                let (diagram, envelope) = match axis {
+                    "x" => (&diagrams.torsion[0], &envelope.torsion),
+                    "y" => (&diagrams.moment_y[0], &envelope.moment_y),
+                    _ => (&diagrams.moment_z[0], &envelope.moment_z),
+                };
+                let peak = 3.0_f64.sqrt() / 18.0;
+                assert!((diagram.max_abs_value.abs() - peak).abs() < 1e-14);
+                assert!((envelope.global_max - peak).abs() < 1e-14,
+                    "axis={axis} sign={sign} width={width} peak={} expected={peak}", envelope.global_max);
+                let e = &envelope.elements[0];
+                let sampled = if sign > 0.0 { &e.pos_values } else { &e.neg_values };
+                assert!((sampled.iter().map(|v| v.abs()).fold(0.0, f64::max) - peak).abs() < 1e-14);
+            }
+        }
+    }
+}

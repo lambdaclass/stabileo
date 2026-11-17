@@ -211,7 +211,7 @@ test.engine.benchmark-protocol:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2
 
 test.engine:
-	$(NIX_RUN) cargo test -p dedaliano-engine
+	$(NIX_RUN) cargo test -p dedaliano-engine $(FILTER)
 
 test.backend: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=test mix ecto.create --quiet && MIX_ENV=test mix ecto.migrate --quiet && mix test"
