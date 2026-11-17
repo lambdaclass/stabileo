@@ -43,7 +43,7 @@ import { expandDefinition, type DefinitionModel, type Expansion, type FloorLoadD
 import { columnFootprintsAt, footprintGrid, outsideFootprints, tieFootprints, untieNodes, type ColumnFootprint, type FootprintCells } from '../model/building/column-footprints';
 import { designData } from './design-data';
 import { tributaryAreas } from '../engine/foundation-springs';
-import type { ModelGroup, SurfaceLoad3D } from './model.svelte';
+import type { ModelGroup, SupportType, SurfaceLoad3D } from './model.svelte';
 
 export type PlateStatus = 'unmeshed' | 'current' | 'stale' | 'invalid';
 
@@ -218,31 +218,56 @@ function plainSupport(n: number) {
   return sp && Object.keys(sp).every((k) => k === 'id' || k === 'nodeId' || k === 'type') ? sp.type : undefined;
 }
 
-/**
- * A plain support at both ends of an outline side holds the whole side: every node of the mesh on
- * it that has no support of its own gets it too, the mesh's own and the user's alike.
- */
-function supportSides(outer: readonly number[], meshNodes: readonly number[]): number[] {
+/** The nodes given that are on a held side of the plate and have no support get the side's; returns them. */
+function supportSides(edges: PlateSurface['edgeSupports'], nodes: readonly number[]): number[] {
   const supportedNow = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
   const added: number[] = [];
-  outer.forEach((a, i) => {
-    const b = outer[(i + 1) % outer.length]!;
-    const type = plainSupport(a);
-    if (!type || plainSupport(b) !== type) return;
-    const A = modelStore.nodes.get(a), B = modelStore.nodes.get(b);
-    if (!A || !B) return;
-    const d = [B.x - A.x, B.y - A.y, (B.z ?? 0) - (A.z ?? 0)], L2 = d[0]! ** 2 + d[1]! ** 2 + d[2]! ** 2;
-    if (L2 < 1e-18) return;
-    for (const n of meshNodes) {
-      const P = modelStore.nodes.get(n);
-      if (!P || supportedNow.has(n)) continue;
-      const w = [P.x - A.x, P.y - A.y, (P.z ?? 0) - (A.z ?? 0)];
-      const t = (w[0]! * d[0]! + w[1]! * d[1]! + w[2]! * d[2]!) / L2;
-      const off = Math.hypot(w[0]! - t * d[0]!, w[1]! - t * d[1]!, w[2]! - t * d[2]!);
-      if (t > 1e-6 && t < 1 - 1e-6 && off < 1e-6) { modelStore.addSupport(n, type); added.push(n); supportedNow.add(n); }
+  for (const side of edges ?? []) {
+    const A = v3(side.from), B = v3(side.to);
+    if (!A || !B) continue;
+    for (const n of nodes) {
+      const P = v3(n);
+      if (!P || supportedNow.has(n) || !strictlyOrAt(P, A, B, true)) continue;
+      modelStore.addSupport(n, side.type as SupportType);
+      added.push(n); supportedNow.add(n);
     }
+  }
+  return added;
+}
+
+/**
+ * Hold sides of the plate all along, each from one outline node to another, with `type`: the nodes
+ * on them get it now (its mesh's nodes taken away with the mesh) and with every mesh. Returns how
+ * many supports it added.
+ */
+export function holdPlateSides(id: number, sides: ReadonlyArray<readonly [number, number]>, type: SupportType): number {
+  const e = plateEntry(id);
+  if (!e) return 0;
+  const have = e.surface.edgeSupports ?? [];
+  const fresh = sides.map(([from, to]) => ({ from, to, type }))
+    .filter((x) => !have.some((h) => (h.from === x.from && h.to === x.to) || (h.from === x.to && h.to === x.from)));
+  if (!fresh.length) return 0;
+  const outer = plateLoops(e.group).outer;
+  let added = 0;
+  modelStore.batch(() => {
+    const ends = supportSides(fresh, outer);
+    const onMesh = supportSides(fresh, [...new Set(plateShellKeys(id).flatMap(shellNodes))]);
+    added = ends.length + onMesh.length;
+    writeSurface(id, (s) => ({
+      ...s, edgeSupports: [...have, ...fresh],
+      ...(s.meshed && onMesh.length ? { meshed: { ...s.meshed, supported: [...(s.meshed.supported ?? []), ...onMesh] } } : {}),
+    }));
   });
   return added;
+}
+
+/** `holdPlateSides` for the outline sides whose two ends are at elevation `z`. */
+export function holdPlateSidesAt(id: number, z: number, type: SupportType): number {
+  const e = plateEntry(id);
+  if (!e) return 0;
+  const outer = plateLoops(e.group).outer;
+  const at = (n: number) => { const p = modelStore.nodes.get(n); return !!p && Math.abs((p.z ?? 0) - z) < 1e-6; };
+  return holdPlateSides(id, outer.map((a, i) => [a, outer[(i + 1) % outer.length]!] as const).filter(([a, b]) => at(a) && at(b)), type);
 }
 
 let statusMemo: { version: number; groups: unknown; map: Map<number, PlateStatus> } | null = null;
@@ -900,7 +925,7 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const supported = supportSides(loops.outer, [...new Set(r.nodeIds)]);
+    const supported = supportSides(e.surface.edgeSupports, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {

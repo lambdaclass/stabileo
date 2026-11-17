@@ -189,6 +189,8 @@ describe('walls placed by the building tool', () => {
     expect(modelStore.quads.size).toBeGreaterThan(20);
     const base = [...modelStore.nodes.values()].filter((n) => Math.abs(n.z ?? 0) < 1e-6 && Math.abs(n.y) < 1e-6);
     expect(base.length).toBeGreaterThan(10);
+    const held = new Set([...modelStore.supports.values()].map((s) => s.nodeId));
+    expect(base.every((n) => held.has(n.id))).toBe(true);
     expect(plateEntry(wall!.id)!.surface.meshed!.quality.minAngle).toBeCloseTo(90, 6);
     const r3 = solve();
     expect(r3.reactions.length).toBeGreaterThan(2);
