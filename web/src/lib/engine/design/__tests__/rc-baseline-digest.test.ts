@@ -33,6 +33,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import { runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
@@ -111,6 +114,10 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     expect(summary.demandUnavailable).toBe(0);
     expect(summary.unsupported).toBe(0);
     expect(summary.aborted).toBe(false);
+  });
+
+  knownWrong('known wrong result: #2198 — matches every declared-gravity member in the shared accepted baseline', () => {
+    expect(lines).toEqual(evidence.declaredGravity.members);
   });
 
   it('produces one digest line per member, and no member without an id', () => {
