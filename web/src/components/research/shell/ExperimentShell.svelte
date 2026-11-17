@@ -69,7 +69,7 @@
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
-  <div class="wrap rs-shell-wrap">
+  <div class="wrap rs-shell-wrap" class:rs-split={!wide}>
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
       <h1 lang={locale ?? paperTextLocale(paperId)}>{name}</h1>
@@ -149,12 +149,17 @@
     min-width: 0;
   }
   @media (min-width: 70rem) {
-    .rs-shell-grid {
+    .rs-split {
       display: grid;
       grid-template-columns: minmax(30rem, 38rem) minmax(28rem, 1fr);
+      grid-template-rows: auto 1fr;
       column-gap: 3rem;
       align-items: start;
     }
+    .rs-split .rs-shell-grid { display: contents; }
+    .rs-split .rs-shell-head { grid-column: 1; grid-row: 1; }
+    .rs-split .rs-shell-article { grid-column: 1; grid-row: 2; }
+    .rs-split .rs-shell-app { grid-column: 2; grid-row: 1 / span 2; }
     /* One scroll for the page: the pane is sticky, exactly a viewport tall, and never scrolls on
        its own; tabs organise content, with panel overflow scrolling as a short-window fallback. */
     .rs-shell-app {

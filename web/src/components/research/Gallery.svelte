@@ -1,38 +1,20 @@
 <script lang="ts">
   import { citation } from './catalogue';
-  import { shellCardTitle } from './shell1985/card';
-  import { archStrings } from './biggins2026/strings';
   /**
    * /research: the experiments that run here first, then what is being built, then the
    * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
    */
-  import { topoptStrings } from './andreassen2011/i18n';
-  import { fs } from './fairclough2026/i18n';
-  import { strings as newmarkStrings } from './newmark1959/i18n';
-  import { cqcStrings } from './cqc1981/strings';
-  import { ps } from './plastic-collapse/i18n';
-  import { navierStrings } from './navier1823/strings';
-  import { researchLocale } from './i18n';
-  const navier = $derived(navierStrings(researchLocale()));
-  import { strings as leeStrings } from './lee1968/i18n';
-  import { archStrings as archStringsFor } from './dadeppo1975/i18n';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
   import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
-  import { shapeCard } from './feher2026/card';
-  import { archCard } from './heyman1966/card';
-  import { englishOnlyCard } from './english-only-cards';
-  import { articleStrings as riksStrings } from './riksCrisfield/article';
+  import { cardHook } from './card-hook';
   import { summaryIn } from './catalogue-summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
-  import { strings as mattiassonStrings } from './mattiasson1981/i18n';
-  import { card as macnealCard } from './macneal1985/card';
   import { publicI18n, tPublic } from '../../lib/i18n/store.svelte';
-  import type { Experiment } from './experiments';
 
   type Paper = (typeof catalog.papers)[number];
   const ORDER = ['interactive', 'published-figures-compared', 'numerically-validated', 'implementation-in-progress', 'reference-reproduced', 'proposed'];
@@ -50,31 +32,6 @@
 
   const base = import.meta.env.BASE_URL;
   const s = $derived(rs());
-  const topopt = $derived(topoptStrings(publicI18n.locale));
-  const arches = $derived(archStrings());
-  const f = $derived(fs());
-  function experimentText(e: Experiment) {
-    const translated = englishOnlyCard(e.paperId, publicI18n.locale);
-    if (translated) return translated;
-    if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
-      const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealCard;
-      return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
-    }
-    if (e.paperId === 'heyman-1966') return archCard[publicI18n.locale as keyof typeof archCard] ?? archCard.en;
-    if (e.paperId === 'feher-sipos-varkonyi-2026') return shapeCard[publicI18n.locale as keyof typeof shapeCard] ?? shapeCard.en;
-    if (e.paperId === 'shell-obstacle-course') return { title: shellCardTitle, hook: e.hook };
-    if (e.paperId === 'riks-1979') {
-      const riks = riksStrings(publicI18n.locale);
-      return { title: riks.arcLengthSnapThroughRiksAndCrisfield, hook: publicI18n.locale === 'en' ? e.hook : riks.lead };
-    }
-    if (e.paperId === 'ferrari-2025') return { title: s.ferrariTitle, hook: s.ferrariLead };
-    return e.paperId === 'grossman-2026' ? { title: s.springsTitle, hook: s.springsHook } : { title: s.shauerTitle, hook: s.shauerHook };
-  }
-  const nm = $derived(newmarkStrings());
-  const cqc = $derived(cqcStrings());
-  const plastic = $derived(ps());
-  const lee = $derived(leeStrings[publicI18n.locale as keyof typeof leeStrings] ?? leeStrings.en);
-  const arch = $derived(archStringsFor(publicI18n.locale));
 </script>
 
 <section class="sec sec--ink rs-g">
@@ -102,7 +59,7 @@
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
             <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
-            <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
+            <p class="rs-g-hook">{cardHook(e)}</p>
             <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
               <ResearchLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</ResearchLink>

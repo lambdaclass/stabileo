@@ -113,6 +113,26 @@ describe('the camera fit', () => {
     }
   });
 
+  it.each([{ bounds: ARCH }, { bounds: [0, 0, 0.5, 10] }, { bounds: [0, 0, 10, 0.5] }, { bounds: [-30, -330, 1300, 220] }] as { bounds: readonly [number, number, number, number] }[])('centres an elevation $bounds and fills the frame in 3D as in 2D', ({ bounds }) => {
+    const box = (projection: ScalarFieldProjection) => {
+      const camera = fitted('elevation', projection, bounds);
+      const ps = [[bounds[0], bounds[1]], [bounds[2], bounds[1]], [bounds[0], bounds[3]], [bounds[2], bounds[3]]].map(([x, y]) => planeToWorld('elevation', x, y).project(camera));
+      const xs = ps.map((p) => p.x);
+      const ys = ps.map((p) => p.y);
+      return { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2, fill: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2, inside: ps.every((p) => Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1 && p.z < 1) };
+    };
+    const flat = box('plan');
+    const oblique = box('orbit');
+    for (const b of [flat, oblique]) {
+      expect(Math.abs(b.cx)).toBeLessThan(1e-3);
+      expect(Math.abs(b.cy)).toBeLessThan(1e-3);
+      expect(b.inside).toBe(true);
+    }
+    expect(oblique.fill).toBeCloseTo(flat.fill, 3);
+    expect(flat.fill).toBeCloseTo(1 / 1.08, 3);
+    expect(fitScalarFieldCamera('elevation', 'orbit', bounds, WIDTH / HEIGHT, 50).target.y).toBeCloseTo(0, 9);
+  });
+
   it('keeps the plan default exactly where the viewer always put it', () => {
     const fit = fitScalarFieldCamera('plan', 'orbit', [0, 0, 2, 2], 1, 50);
     const dist = (1.08 * 2) / 2 / Math.tan(THREE.MathUtils.degToRad(25));

@@ -84,3 +84,16 @@ test('@smoke research viewer: the Navier plate lies in plan and the gridshell sw
   await page.getByRole('button', { name: 'Plan', exact: true }).click();
   await expect(canvas).toHaveAttribute('data-plane', 'plan');
 });
+
+test('@smoke research viewer: the status bar shows a position only once the pointer has one', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/en/research/mechanics/heyman-1966/');
+  const { canvas } = await firstViewer(page);
+  const wrap = page.locator('.sfv-wrap', { has: canvas });
+  await expect(wrap.locator('.sfv-status')).toBeVisible();
+  await expect(wrap.locator('[data-testid="sfv-position"]')).toHaveCount(0);
+  await expect(wrap.locator('.sfv-status')).not.toContainText('—');
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(wrap.locator('[data-testid="sfv-position"]')).toHaveText(/pos:\s*\(-?\d+\.\d{4}; -?\d+\.\d{4}\)/);
+});

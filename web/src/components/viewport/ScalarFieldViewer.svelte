@@ -83,7 +83,7 @@
     openEditorNote?: string;
     /** Show the status bar's "Open in the editor" button (false when the page offers its own editor). */
     editorButton?: boolean;
-    /** Geometry overlays use colour categories, not a physical scalar field. */
+    /** Geometry overlays use colour categories, not a physical scalar field: no legend, and surfaces are unlit so the categories keep their exact colours. */
     geometryOnly?: boolean;
     /** Length unit of the coordinates, for the zoom readout. */
     lengthUnit?: string;
@@ -146,7 +146,7 @@
   let pendingFit = true;
   let projection = $state<'plan' | 'orbit'>('plan');
   let menuOpen = $state(false);
-  let pointer = $state<string>('—');
+  let pointer = $state<string | null>(null);
   let zoomText = $state<string>('—');
   const frame = createFrameCoalescer<void>(() => render());
 
@@ -312,6 +312,11 @@
   });
   $effect(() => {
     if (!field) return;
+    field.setLit(!geometryOnly);
+    invalidate();
+  });
+  $effect(() => {
+    if (!field) return;
     field.setDisplacement(displacement, deformScale);
     invalidate();
   });
@@ -381,7 +386,7 @@
   </div>
   {#if chrome}
   <div class="status-bar sfv-status">
-    <div class="status-item"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>
+    {#if pointer}<div class="status-item" data-testid="sfv-position"><span class="status-label">{t('scalarViewer.position')}</span><span class="status-value">{pointer}</span></div>{/if}
     <div class="status-item"><span class="status-label">{t('scalarViewer.zoom')}</span><span class="status-value">{zoomText}</span></div>
     {#if !geometryOnly}<div class="status-item"><span class="status-label">{t('scalarViewer.model')}</span><span class="status-value">{tp(cellSize === 2 ? 'scalarViewer.bars' : 'scalarViewer.elements', { nodes: nodeCount, cells: cellCount })}</span></div>{/if}
     {#each status as s (s.label)}

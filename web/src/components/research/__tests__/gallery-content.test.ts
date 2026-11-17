@@ -116,3 +116,20 @@ it('the bent-strip card shows its own localized lead', async () => {
     expect(lead).toBe(translations[locale].lead);
   }
 });
+
+it('gives every card its own paper’s lead in every language, never another paper’s', async () => {
+  const { cardHook } = await import('../card-hook');
+  const { riserHook } = await import('../gayNeto2014/card');
+  for (const locale of PUBLIC_LOCALES) {
+    setLocale(locale);
+    const hooks = EXPERIMENTS.map((e) => [e.paperId, cardHook(e)] as const);
+    for (const [paperId, hook] of hooks) {
+      const sharing = hooks.filter(([, other]) => other === hook).map(([id]) => id);
+      expect(sharing, `${locale}: ${paperId}`).toEqual([paperId]);
+    }
+    const riser = EXPERIMENTS.find((e) => e.paperId === 'gay-neto-2014')!;
+    expect(cardHook(riser)).toBe(riserHook[locale as keyof typeof riserHook]);
+    const { body } = render(Gallery);
+    for (const [, hook] of hooks) expect(body).toContain(hook.replace(/&/g, '&amp;').replace(/</g, '&lt;'));
+  }
+});

@@ -55,31 +55,58 @@ export function fitScalarFieldCamera(
   aspect: number,
   fovDegrees: number,
 ): CameraFit {
+  const tan = Math.tan(THREE.MathUtils.degToRad(fovDegrees) / 2);
+  if (plane === 'elevation') return fitElevation(projection, [x0, y0, x1, y1], aspect, tan);
   const w = Math.max(1e-9, x1 - x0);
   const h = Math.max(1e-9, y1 - y0);
-  const fov = THREE.MathUtils.degToRad(fovDegrees);
-  const tan = Math.tan(fov / 2);
   const target = planeToWorld(plane, (x0 + x1) / 2, (y0 + y1) / 2);
   const direction = cameraDirection(plane, projection);
-  let dist = (1.08 * Math.max(h, w / aspect)) / 2 / tan;
-  if (plane === 'elevation') {
-    const u = direction;
-    const right = new THREE.Vector3(0, 0, 1).cross(u).normalize();
-    const up = u.clone().cross(right);
-    dist = 0;
-    for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) {
-      const r = planeToWorld(plane, x, y).sub(target);
-      const across = Math.max(Math.abs(r.dot(right)) / aspect, Math.abs(r.dot(up)));
-      dist = Math.max(dist, r.dot(u) + (1.08 * across) / tan);
-    }
-    dist = Math.max(dist, 1e-9);
-  }
+  const dist = (1.08 * Math.max(h, w / aspect)) / 2 / tan;
   return {
     position: target.clone().addScaledVector(direction, dist),
     target,
     near: dist / 1000,
     far: dist * 100,
   };
+}
+
+const FILL = 1 / 1.08;
+
+/** Moves and scales the view until the region's projected box is centred and fills the frame as the 2D view does. */
+function fitElevation(projection: ScalarFieldProjection, [x0, y0, x1, y1]: readonly [number, number, number, number], aspect: number, tan: number): CameraFit {
+  const u = cameraDirection('elevation', projection);
+  const right = new THREE.Vector3(0, 0, 1).cross(u).normalize();
+  const up = u.clone().cross(right);
+  const corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([x, y]) => planeToWorld('elevation', x, y));
+  const target = planeToWorld('elevation', (x0 + x1) / 2, (y0 + y1) / 2);
+  let dist = 1e-9;
+  for (const c of corners) {
+    const r = c.clone().sub(target);
+    dist = Math.max(dist, r.dot(u) + Math.max(Math.abs(r.dot(right)) / aspect, Math.abs(r.dot(up))) / FILL / tan);
+  }
+  const rel = new THREE.Vector3();
+  for (let i = 0; i < 40; i++) {
+    const eye = target.clone().addScaledVector(u, dist);
+    let [xmin, xmax, ymin, ymax] = [Infinity, -Infinity, Infinity, -Infinity];
+    for (const c of corners) {
+      rel.subVectors(c, eye);
+      const depth = -rel.dot(u);
+      const nx = rel.dot(right) / (depth * tan * aspect);
+      const ny = rel.dot(up) / (depth * tan);
+      xmin = Math.min(xmin, nx); xmax = Math.max(xmax, nx);
+      ymin = Math.min(ymin, ny); ymax = Math.max(ymax, ny);
+    }
+    const cx = (xmin + xmax) / 2;
+    const cy = (ymin + ymax) / 2;
+    const scale = Math.max(xmax - xmin, ymax - ymin, 1e-12) / 2 / FILL;
+    if (Math.abs(cx) < 1e-6 && Math.abs(cy) < 1e-6 && Math.abs(scale - 1) < 1e-6) break;
+    target.addScaledVector(right, cx * dist * tan * aspect).addScaledVector(up, cy * dist * tan);
+    dist *= scale;
+  }
+  const slide = -target.y / u.y;
+  target.addScaledVector(u, slide);
+  dist -= slide;
+  return { position: target.clone().addScaledVector(u, dist), target, near: dist / 1000, far: dist * 100 };
 }
 
 export type ProjectedAxes = { x: [number, number]; y: [number, number] };
