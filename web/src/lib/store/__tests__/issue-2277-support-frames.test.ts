@@ -213,3 +213,64 @@ for (const inPlace of [false, true]) {
     expect(supportAt(target)).toBeUndefined();
   });
 }
+
+const testMemberlessTurn = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
+
+for (const operation of ['copy', 'detached copy', 'in place'] as const) {
+  testMemberlessTurn(`known wrong result: #2277 a memberless local plane roller turns with its node (${operation})`, async () => {
+    const node = modelStore.addNode(2, 1);
+    modelStore.addSupportEntry({ nodeId: node, type: 'rollerZ', isGlobal: false });
+    const set = { nodes: [node], elements: [] };
+    const turn = rotation([0, 0, 0], [0, 0, 1], 90);
+    const report = operation === 'in place' ? transformInPlace(set, turn)
+      : operation === 'copy' ? copyTransformed(set, [turn], { withSupports: true })
+      : insertFragment(detach(fragmentOf(set, { withSupports: true })), [turn], { withSupports: true });
+    expect(report.warnings.supportDropped).toBeUndefined();
+    const bearing = 'maps' in report ? report.maps[0]!.nodes.get(node)! : node;
+    if (bearing !== node) modelStore.removeNode(node);
+    const tip = modelStore.nodes.get(bearing)!;
+    const root = modelStore.addNode(tip.x - 2, tip.y);
+    modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+    modelStore.addElement(root, bearing);
+    modelStore.addNodalLoad(bearing, 1, -1);
+    const m = modelStore.model;
+
+    const direct = validateAndSolve2D(m);
+    const asyncDirect = await validateAndSolve2DAsync(m);
+    const cases = solveCombinations2D(m, [loadCase], [combination]);
+    if (!cases || typeof cases === 'string') throw new Error(String(cases));
+    expect(cases.perCase.size).toBe(1);
+    expect(cases.perCombo.size).toBe(1);
+    const input = buildSolverInput2D(m);
+    if (!input) throw new Error('Expected a plane solver input');
+    const secondOrder: PDeltaResult = solvePDelta(input);
+    expect(secondOrder.isStable).toBe(true);
+    expect(secondOrder.iterations).toBeGreaterThan(0);
+    for (const result of [direct, asyncDirect, ...cases.perCase.values(), ...cases.perCombo.values(), secondOrder.results]) {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      const reaction = result.reactions.find(r => r.nodeId === bearing)!;
+      expect.soft(reaction.rx).toBeCloseTo(0, 9);
+      expect.soft(reaction.rz).toBeCloseTo(1, 9);
+    }
+    const embedded = validateAndSolve3D(m);
+    if (!embedded || typeof embedded === 'string') throw new Error(String(embedded));
+    const reaction = embedded.reactions.find(r => r.nodeId === bearing)!;
+    expect.soft(reaction.fx).toBeCloseTo(0, 9);
+    expect.soft(reaction.fz).toBeCloseTo(1, 9);
+  });
+}
+
+it('#2277 a rigidly carried member still defines its local plane roller axis', () => {
+  const root = modelStore.addNode(0, 0);
+  const bearing = modelStore.addNode(2, 0);
+  const member = modelStore.addElement(root, bearing);
+  modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+  modelStore.addSupportEntry({ nodeId: bearing, type: 'rollerZ', isGlobal: false });
+  const report = transformInPlace({ nodes: [], elements: [member] }, rotation([0, 0, 0], [0, 0, 1], 90));
+  expect(report.warnings.supportDropped).toBeUndefined();
+  modelStore.addNodalLoad(bearing, 1, 1);
+  const result = validateAndSolve2D(modelStore.model);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.find(r => r.nodeId === bearing)!.rx).toBeCloseTo(0, 9);
+  expect(result.reactions.find(r => r.nodeId === bearing)!.rz).toBeCloseTo(-1, 9);
+});

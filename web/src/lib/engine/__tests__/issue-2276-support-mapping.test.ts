@@ -3,7 +3,7 @@ import { modelStore, uiStore } from '../../store';
 import type { Support, SupportType } from '../../store/model.svelte';
 import { supportDofs3D } from '../support-dofs-3d';
 import { imposedUnsupported } from '../case-displacements';
-import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve2D, validateAndSolve3D, validateAndSolve3DAsync } from '../solver-service';
+import { buildSolverInput3D, imposedRefusal, linearSolveInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve2D, validateAndSolve3D, validateAndSolve3DAsync } from '../solver-service';
 import { hasNonlinearBehaviour } from '../member-behaviour';
 import { addSupportFromTool3D } from '../../store/support-tool-3d';
 
@@ -23,15 +23,15 @@ const masks = {
   rollerXY: [false, false, true, false, false, false],
   rollerYZ: [true, false, false, false, false, false],
   spring3d: [false, false, false, false, false, false],
-  custom3d: [true, true, true, true, true, true],
-} satisfies Record<SupportType, readonly boolean[] | 'ambiguous'>;
+  custom3d: 'explicit-only',
+} satisfies Record<SupportType, readonly boolean[] | 'ambiguous' | 'explicit-only'>;
 const bearing = { tx: true, ty: false, tz: true, rx: true, ry: false, rz: false };
 
 beforeEach(() => { uiStore.analysisMode = 'pro'; uiStore.includeSelfWeight = true; modelStore.clear(); });
 
 it('#2276 every unambiguous inventoried name retains its defined mask', () => {
   for (const [type, mask] of Object.entries(masks)) {
-    if (mask === 'ambiguous') continue;
+    if (typeof mask === 'string') continue;
     expect(bits(supportDofs3D(support(type as SupportType))), type).toEqual(mask);
   }
 });
@@ -39,7 +39,7 @@ it('#2276 every unambiguous inventoried name retains its defined mask', () => {
 it('known wrong result: #2276 every inventoried name has explicit 3D semantics or a refusal', () => {
   for (const type of Object.keys(masks) as SupportType[]) {
     if (type === 'rollerZ') expect(() => supportDofs3D(support(type))).toThrow(/rollerZ.*ambiguous.*explicit/i);
-    else expect(bits(supportDofs3D(support(type)))).toEqual(masks[type]);
+    else if (type !== 'custom3d') expect(bits(supportDofs3D(support(type)))).toEqual(masks[type]);
   }
 });
 
@@ -161,4 +161,84 @@ it('#2276 a 2D vertical slider still solves its plane and embedded models', asyn
     expect(r2.reactions.find(r => r.nodeId === nodeId)!.rx).toBeCloseTo(-P / 2, 9);
     expect(r3.reactions.find(r => r.nodeId === nodeId)!.fx).toBeCloseTo(-P / 2, 9);
   }
+});
+
+const testCustomRefusal = process.env.RUN_KNOWN_WRONG === '2276' ? it : it.skip;
+const missingCustomMask = /custom support without restraints; set them explicitly/i;
+
+testCustomRefusal('known wrong result: #2276 custom3d has no implicit restraints in either projection', () => {
+  for (const projection of [false, true]) {
+    expect(() => supportDofs3D(support('custom3d'), projection)).toThrow(missingCustomMask);
+  }
+});
+
+it('#2276 explicit custom restraints are authoritative in either projection', () => {
+  const free = { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false };
+  for (const projection of [false, true]) {
+    for (const mask of [bearing, free]) {
+      expect(bits(supportDofs3D({ ...support('custom3d'), dofRestraints: mask }, projection)))
+        .toEqual([mask.tx, mask.ty, mask.tz, mask.rx, mask.ry, mask.rz]);
+    }
+  }
+});
+
+for (const nonlinear of [false, true]) {
+  for (const entry of ['input', 'linear input', 'imposed displacement', 'sync', 'async', 'combinations', 'parallel'] as const) {
+    if (nonlinear && entry === 'linear input') continue;
+    testCustomRefusal(`known wrong result: #2276 unmasked custom3d refuses at ${entry} nonlinear=${nonlinear}`, async () => {
+      await modelStore.loadExample('rc-beam-flexure');
+      const m = modelStore.model;
+      const s = [...m.supports.values()].find(s => s.nodeId === 3)!;
+      m.supports.set(s.id, { ...s, type: 'custom3d', dofRestraints: undefined });
+      if (nonlinear) {
+        const first = [...m.supports.values()].find(s => s.nodeId === 1)!;
+        m.supports.set(first.id, { ...first, uplift: true });
+      }
+      expect(hasNonlinearBehaviour(m)).toBe(nonlinear);
+      if (entry === 'input') {
+        expect(() => buildSolverInput3D(m)).toThrow(missingCustomMask);
+        return;
+      }
+      if (entry === 'linear input') {
+        expect(linearSolveInput3D(m)).toBeNull();
+        return;
+      }
+      const result = entry === 'imposed displacement'
+        ? imposedRefusal({ ...m, loads: [{ type: 'displacement3d', data: { id: 1, nodeId: s.nodeId, dz: 1 } }] })
+        : entry === 'sync' ? validateAndSolve3D(m, true)
+        : entry === 'async' ? await validateAndSolve3DAsync(m, true)
+        : entry === 'combinations' ? solveCombinations3D(m, m.loadCases!, m.combinations!)
+        : await solveCombinations3DParallel(m, m.loadCases!, m.combinations!);
+      expect(typeof result).toBe('string');
+      expect(result).toMatch(missingCustomMask);
+    });
+  }
+
+  it(`#2276 masked custom3d keeps the beam's explicit bearing result nonlinear=${nonlinear}`, async () => {
+    await modelStore.loadExample('rc-beam-flexure');
+    const m = modelStore.model;
+    if (nonlinear) {
+      const first = [...m.supports.values()].find(s => s.nodeId === 1)!;
+      m.supports.set(first.id, { ...first, uplift: true });
+    }
+    const r0 = validateAndSolve3D(m, true);
+    if (!r0 || typeof r0 === 'string') throw new Error(String(r0));
+    const s = [...m.supports.values()].find(s => s.nodeId === 3)!;
+    expect(s.dofRestraints).toBeDefined();
+    m.supports.set(s.id, { ...s, type: 'custom3d' });
+    const r1 = validateAndSolve3D(m, true);
+    if (!r1 || typeof r1 === 'string') throw new Error(String(r1));
+    expect(r1.reactions).toEqual(r0.reactions);
+    expect(r1.elementForces).toEqual(r0.elementForces);
+  });
+}
+
+it('#2276 a genuine 2D solve refuses a spatial custom support name', () => {
+  const a = modelStore.addNode(0, 0);
+  const b = modelStore.addNode(2, 0);
+  modelStore.addElement(a, b);
+  modelStore.addSupportEntry({ nodeId: a, type: 'fixed' });
+  modelStore.addSupportEntry({ nodeId: b, type: 'custom3d' });
+  modelStore.addNodalLoad(b, 1, 0);
+  expect(validateAndSolve2D(modelStore.model)).toMatch(/unknown type 'custom3d'/i);
 });
