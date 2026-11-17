@@ -41,22 +41,15 @@ function inside(q: P2, l: P2[]): boolean {
   return c;
 }
 
-/**
- * The lines along one direction: the forced ones, and the multiples of `size` from the first, but
- * one closer than a third of `size` to a forced line where leaving it out keeps the gap within
- * `size`. Two regions side by side with the same forced lines get the same lines.
- */
+/** The lines along one direction: the forced ones, and as many evenly between each pair as keep the gap at or under `size`. */
 function stations(forced: number[], size: number): number[] {
   const s = [...forced].sort((x, y) => x - y).filter((x, i, all) => i === 0 || x - all[i - 1]! > MERGE);
-  if (s.length < 2) return s;
-  const first = s[0]!, last = s[s.length - 1]!;
-  const uniform: number[] = [];
-  for (let k = 1; first + k * size < last - MERGE; k++) uniform.push(first + k * size);
-  let out = [...s, ...uniform.filter((u) => !s.some((x) => Math.abs(x - u) <= MERGE))].sort((x, y) => x - y);
-  for (const u of uniform) {
-    const i = out.indexOf(u);
-    if (i <= 0 || i >= out.length - 1 || !s.some((x) => Math.abs(x - u) < size / 3)) continue;
-    if (out[i + 1]! - out[i - 1]! <= size + 1e-9) out = [...out.slice(0, i), ...out.slice(i + 1)];
+  const out: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    out.push(s[i]!);
+    if (i + 1 === s.length) break;
+    const gap = s[i + 1]! - s[i]!, n = Math.max(1, Math.ceil(gap / size - 1e-9));
+    for (let k = 1; k < n; k++) out.push(s[i]! + (gap * k) / n);
   }
   return out;
 }
