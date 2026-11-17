@@ -8,6 +8,8 @@ import type { AnalysisResults } from '../../engine/types';
 import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import { floorLoad } from '../../engine/loads/floor-loads';
+import { buildLoadPlan } from '../../engine/loads/load-plan';
+import { input as planInput } from '../../engine/loads/__tests__/gravity-width-mass-fixture';
 import { areaLoads, bay } from '../../engine/loads/__tests__/gravity-regions-fixture';
 
 const template = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
@@ -95,6 +97,31 @@ it('#2199 each uncovered strip gives the hand-solved carrier response', () => {
   for (const [angle, mirror, mesh] of [[0, 1, 1], [0.37, 1, 3], [1.16, -1, 2]] as const) {
     const fixture = bay(4.76, angle, mirror, mesh, mesh > 1);
     checkResponse(fixture, areaLoads(fixture.model).distributed, 4.76, 10, 3);
+  }
+});
+
+it('#2200 aligned one-way strips give the hand-solved carrier response', () => {
+  for (const [angle, mirror, mesh, spanAxis] of [[0, 1, 1, 'y'], [Math.PI / 2, -1, 2, 'x'], [Math.PI, 1, 3, 'y']] as const) {
+    const fixture = bay(4, angle, mirror, mesh, mesh > 1);
+    const plan = buildLoadPlan(planInput(fixture.model, { gravity: { mode: 'panels', slab: 'oneWay', spanAxis } }));
+    expect(plan.outcome).toBe('READY');
+    const loads = plan.distributed.filter(load => load.caseType === 'D');
+    for (const [id, { nodeI, nodeJ }] of fixture.model.elements) {
+      const [xi, yi] = fixture.physical.get(nodeI)!;
+      const [xj, yj] = fixture.physical.get(nodeJ)!;
+      const carrierLoads = loads.filter(load => load.elementId === id);
+      if (yi !== yj || xj <= 4) {
+        expect(carrierLoads).toEqual([]);
+        continue;
+      }
+      expect(carrierLoads).toHaveLength(1);
+      const [load] = carrierLoads;
+      expect(load!.a ?? 0).toBeCloseTo(Math.max(0, 4 - xi), 10);
+      expect(load!.b ?? xj - xi).toBeCloseTo(xj - xi, 10);
+      expect(load!.q).toBeCloseTo(-3, 10);
+      expect(load!.qJ ?? load!.q).toBeCloseTo(-3, 10);
+    }
+    checkResponse(fixture, loads, 4, 10, 3);
   }
 });
 
