@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { expect, it } from 'vitest';
 import { concave, mesh, transform } from './snow-surface-round2-fixture';
 import { stepRoof } from './snow-step-fixture';
@@ -19,7 +20,8 @@ function publicSnow(model: Model, layout?: GravityLayout, config: SnowCasesInput
   const sink: PlanSink = { cases: [], distributed: [], nodal: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
   const ready = planSnow({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, tributaryWidth: 0.1, snow: { ...config, enabled: true, source: 'site' } }, sink, layout);
   expect(ready).toBe(!out.result.refused);
-  expect(sink.cases).toHaveLength(out.cases.length);
+  if (out.result.refused) expect(sink.cases).toEqual([]);
+  else expect(physicalSnowCases(sink)).toHaveLength(out.cases.length);
   for (const [k, c] of out.cases.entries()) {
     expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
     expect(sink.nodal.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.nodal);

@@ -10,7 +10,7 @@
  */
 import { knownIssueRefusal } from '../engine/known-issues';
 import { uiStore } from './ui.svelte';
-import { tp } from '../i18n';
+import { te } from '../i18n/engine-text';
 import { engineFailureMessage } from '../engine/engine-unavailable';
 
 export function runEngineAction<T>(action: () => T): T | undefined {
@@ -19,7 +19,7 @@ export function runEngineAction<T>(action: () => T): T | undefined {
   } catch (err) {
     const m = engineFailureMessage(err);
     if (!m) throw err;
-    uiStore.toast(tp(m.key, m.params ?? {}), 'error');
+    uiStore.toast(te(m), 'error');
     return undefined;
   }
 }
@@ -31,7 +31,7 @@ export async function runEngineActionAsync<T>(action: () => Promise<T>): Promise
   } catch (err) {
     const m = engineFailureMessage(err);
     if (!m) throw err;
-    uiStore.toast(tp(m.key, m.params ?? {}), 'error');
+    uiStore.toast(te(m), 'error');
     return undefined;
   }
 }
@@ -46,7 +46,7 @@ export function engineGuarded<T>(compute: () => T): { value: T; error: null } | 
   } catch (err) {
     const m = engineFailureMessage(err);
     if (!m) throw err;
-    return { value: null, error: tp(m.key, m.params ?? {}) };
+    return { value: null, error: te(m) };
   }
 }
 
@@ -55,5 +55,5 @@ export function errorText(e: unknown): string {
   const refusal = knownIssueRefusal(e);
   if (refusal) return refusal;
   const m = engineFailureMessage(e);
-  return m ? tp(m.key, m.params ?? {}) : String(e instanceof Error ? e.message : e);
+  return m ? te(m) : String(e instanceof Error ? e.message : e);
 }

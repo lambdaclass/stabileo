@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -64,7 +65,8 @@ function publicSnow(model: Model, layout: GravityLayout | undefined, config: Sno
   const out = snowLoadCases({ model, layout, snow: config, tributaryWidth: 0.1 })!;
   const sink: PlanSink = { cases: [], distributed: [], nodal: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
   expect(planSnow({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, tributaryWidth: 0.1, snow: { ...config, enabled: true, source: 'site' } }, sink, layout)).toBe(!out.result.refused);
-  expect(sink.cases).toHaveLength(out.cases.length);
+  if (out.result.refused) expect(sink.cases).toEqual([]);
+  else expect(physicalSnowCases(sink)).toHaveLength(out.cases.length);
   for (const [k, c] of out.cases.entries()) {
     expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
     expect(sink.nodal.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.nodal);
@@ -141,7 +143,7 @@ for (const mode of ['width', 'panels'] as const) for (const withOther of [false,
     const out = publicSnow(model, mode === 'width' ? undefined : gravityLayout(model, { mode, tributaryWidth: 0.1 }), config);
     const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 0.1, snow: { ...config, enabled: true, source: 'site' } });
     expect(plan.outcome).toBe('READY');
-    const cases = plan.cases.filter(c => c.type === 'S');
+    const cases = physicalSnowCases(plan);
     expect(cases).toHaveLength(3);
     for (const [k, c] of cases.entries()) {
       expect(plan.distributed.filter(d => d.caseIndex === plan.cases.indexOf(c)).map(({ caseIndex, caseType, ...d }) => d)).toEqual(out.cases[k]!.distributed);
