@@ -340,7 +340,55 @@ fn sym_eigen_small(a: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
     sym_eigen_small_impl(a, n, true)
 }
 
+enum EigenbasisMode { Omitted, Eager, Deferred }
+
+struct JacobiRotation { p: usize, q: usize, c: f64, s: f64 }
+
+impl JacobiRotation {
+    fn apply(&self, v: &mut [f64], n: usize) {
+        let Self { p, q, c, s } = *self;
+        for row in v.chunks_exact_mut(n) {
+            let (vkp, vkq) = (row[p], row[q]);
+            row[p] = c * vkp - s * vkq;
+            row[q] = s * vkp + c * vkq;
+        }
+    }
+
+    fn apply_rows(&self, m: &mut [f64], n: usize) {
+        let Self { p, q, c, s } = *self;
+        let (before, after) = m.split_at_mut(q * n);
+        let left = &mut before[p * n..(p + 1) * n];
+        let right = &mut after[..n];
+        for (mpk, mqk) in left.iter_mut().zip(right) {
+            let (a, b) = (*mpk, *mqk);
+            *mpk = c * a - s * b;
+            *mqk = s * a + c * b;
+        }
+    }
+}
+
+struct DeferredEigenbasis { n: usize, column: usize, rotations: Vec<JacobiRotation> }
+
+impl DeferredEigenbasis {
+    fn first_mode(self) -> Vec<f64> {
+        let mut v = vec![0.0; self.n * self.n];
+        for i in 0..self.n { v[i * self.n + i] = 1.0; }
+        for rotation in self.rotations { rotation.apply(&mut v, self.n); }
+        (0..self.n).map(|r| v[r * self.n + self.column]).collect()
+    }
+}
+
+struct JacobiSpectrum { values: Vec<f64>, vectors: Vec<f64>, deferred: Option<DeferredEigenbasis> }
+
 fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f64>) {
+    let result = jacobi_spectrum(a, n, if vectors { EigenbasisMode::Eager } else { EigenbasisMode::Omitted });
+    (result.values, result.vectors)
+}
+
+fn jacobi_spectrum(a: &[f64], n: usize, mode: EigenbasisMode) -> JacobiSpectrum {
+    let vectors = matches!(mode, EigenbasisMode::Eager);
+    let record = matches!(mode, EigenbasisMode::Deferred);
+    let mut rotations = Vec::new();
     #[cfg(test)]
     tests::EIGENVALUE_DECOMPOSITIONS.with(|count| count.set(count.get() + 1));
     let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
@@ -349,8 +397,13 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
     let mut v = if vectors { vec![0.0; n * n] } else { Vec::new() };
     if vectors { for i in 0..n { v[i * n + i] = 1.0; } }
     for _ in 0..64 {
-        let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| m[i * n + j] * m[i * n + j]).sum();
-        let diag: f64 = (0..n).map(|i| m[i * n + i] * m[i * n + i]).sum();
+        let mut off = 0.0;
+        for (i, row) in m.chunks_exact(n.max(1)).enumerate() {
+            for (j, &x) in row.iter().enumerate() {
+                if i != j { off += x * x; }
+            }
+        }
+        let diag: f64 = m.iter().step_by(n + 1).map(|x| x * x).sum();
         if off <= (f64::EPSILON * f64::EPSILON) * diag * 1e-4 || off == 0.0 { break; }
         for p in 0..n {
             for q in (p + 1)..n {
@@ -364,25 +417,15 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
                 if t == 0.0 { tests::IDENTITY_ROTATIONS.with(|count| count.set(count.get() + 1)); }
                 let c = 1.0 / (t * t + 1.0).sqrt();
                 let s = t * c;
-                for k in 0..n {
-                    let (mkp, mkq) = (m[k * n + p], m[k * n + q]);
-                    m[k * n + p] = c * mkp - s * mkq;
-                    m[k * n + q] = s * mkp + c * mkq;
-                }
-                for k in 0..n {
-                    let (mpk, mqk) = (m[p * n + k], m[q * n + k]);
-                    m[p * n + k] = c * mpk - s * mqk;
-                    m[q * n + k] = s * mpk + c * mqk;
-                }
+                let rotation = JacobiRotation { p, q, c, s };
+                rotation.apply(&mut m, n);
+                rotation.apply_rows(&mut m, n);
                 if vectors {
                     #[cfg(test)]
                     tests::EIGENVECTOR_ROTATIONS.with(|count| count.set(count.get() + 1));
-                    for k in 0..n {
-                        let (vkp, vkq) = (v[k * n + p], v[k * n + q]);
-                        v[k * n + p] = c * vkp - s * vkq;
-                        v[k * n + q] = s * vkp + c * vkq;
-                    }
+                    JacobiRotation { p, q, c, s }.apply(&mut v, n);
                 }
+                if record { rotations.push(JacobiRotation { p, q, c, s }); }
             }
         }
     }
@@ -396,7 +439,11 @@ fn sym_eigen_small_impl(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f6
             for r in 0..n { eigenvectors[r * n + c] = v[r * n + i]; }
         }
     }
-    (values, eigenvectors)
+    JacobiSpectrum {
+        values,
+        vectors: eigenvectors,
+        deferred: record.then(|| DeferredEigenbasis { n, column: order.first().copied().unwrap_or(0), rotations }),
+    }
 }
 
 #[derive(Default)]
@@ -1166,15 +1213,15 @@ fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64, symbolic: Option
     let m = s.n;
     if m <= FULL_SPECTRUM {
         let dense = s.to_dense_symmetric();
-        let (mu, _) = sym_eigen_small_impl(&dense, m, false);
+        let decomposition = jacobi_spectrum(&dense, m, EigenbasisMode::Deferred);
+        let mu = &decomposition.values;
         let indefinite = -mu[0] > ROUNDING * m as f64 * f64::EPSILON * anisotropy * mu[m - 1].abs();
         let kappa = if mu[0].is_nan() || mu[0] <= 0.0 { f64::INFINITY } else { mu[m - 1] / mu[0] };
         if !indefinite && kappa * amplification <= RESOLVABLE
             && (kappa * anisotropy <= RESOLVABLE || (kappa <= RESOLVABLE && anisotropy <= MAX_ANISOTROPY)) {
             return (kappa, None, false);
         }
-        let (_, vecs) = sym_eigen_small(&dense, m);
-        let x: Vec<f64> = (0..m).map(|r| vecs[r * m]).collect();
+        let x = decomposition.deferred.unwrap().first_mode();
         return (kappa, Some(x), indefinite);
     }
     let sym = symbolic.cloned().unwrap_or_else(|| Rc::new(symbolic_cholesky(s)));
@@ -1705,7 +1752,90 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2223"]
+    fn issue_2223_jacobi_preserves_parent_bits_for_dense_spectra() {
+        fn parent(a: &[f64], n: usize, vectors: bool) -> (Vec<f64>, Vec<f64>) {
+            let scale = a.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+            let scale = if scale > 0.0 && scale.is_finite() { scale } else { 1.0 };
+            let mut m: Vec<f64> = a.iter().map(|x| x / scale).collect();
+            let mut v = if vectors { vec![0.0; n * n] } else { Vec::new() };
+            if vectors { for i in 0..n { v[i * n + i] = 1.0; } }
+            for _ in 0..64 {
+                let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| m[i * n + j] * m[i * n + j]).sum();
+                let diag: f64 = (0..n).map(|i| m[i * n + i] * m[i * n + i]).sum();
+                if off <= (f64::EPSILON * f64::EPSILON) * diag * 1e-4 || off == 0.0 { break; }
+                for p in 0..n {
+                    for q in (p + 1)..n {
+                        let apq = m[p * n + q];
+                        if apq == 0.0 { continue; }
+                        let theta = (m[q * n + q] - m[p * n + p]) / (2.0 * apq);
+                        let t = theta.signum() / (theta.abs() + theta.hypot(1.0));
+                        let t = if theta == 0.0 { 1.0 } else { t };
+                        if t == 0.0 { continue; }
+                        let c = 1.0 / (t * t + 1.0).sqrt();
+                        let s = t * c;
+                        for k in 0..n {
+                            let (mkp, mkq) = (m[k * n + p], m[k * n + q]);
+                            m[k * n + p] = c * mkp - s * mkq;
+                            m[k * n + q] = s * mkp + c * mkq;
+                        }
+                        for k in 0..n {
+                            let (mpk, mqk) = (m[p * n + k], m[q * n + k]);
+                            m[p * n + k] = c * mpk - s * mqk;
+                            m[q * n + k] = s * mpk + c * mqk;
+                        }
+                        if vectors {
+                            for k in 0..n {
+                                let (vkp, vkq) = (v[k * n + p], v[k * n + q]);
+                                v[k * n + p] = c * vkp - s * vkq;
+                                v[k * n + q] = s * vkp + c * vkq;
+                            }
+                        }
+                    }
+                }
+            }
+            let mut order: Vec<usize> = (0..n).collect();
+            order.sort_by(|&a, &b| m[a * n + a].total_cmp(&m[b * n + b]));
+            let values = order.iter().map(|&i| m[i * n + i] * scale).collect();
+            let mut eigenvectors = Vec::new();
+            if vectors {
+                eigenvectors.resize(n * n, 0.0);
+                for (c, &i) in order.iter().enumerate() {
+                    for r in 0..n { eigenvectors[r * n + c] = v[r * n + i]; }
+                }
+            }
+            (values, eigenvectors)
+        }
+        for n in [1, 2, 3, 16, FULL_SPECTRUM] {
+            for seed in [1u64, 31, 2223] {
+                let mut state = seed;
+                let mut dense = vec![0.0; n * n];
+                for i in 0..n {
+                    for j in 0..=i {
+                        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                        let value = ((state >> 32) as i32) as f64 / i32::MAX as f64;
+                        dense[i * n + j] = value;
+                        dense[j * n + i] = value;
+                    }
+                }
+                for scale in [1e-200, 1.0, 1e200] {
+                    let a: Vec<_> = dense.iter().map(|x| x * scale).collect();
+                    let (expected_values, expected_vectors) = parent(&a, n, true);
+                    for vectors in [false, true] {
+                        let (values, basis) = sym_eigen_small_impl(&a, n, vectors);
+                        assert_eq!(values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected_values.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+                        if vectors {
+                            assert_eq!(basis.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected_vectors.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+                        } else { assert!(basis.is_empty()); }
+                    }
+                    let result = jacobi_spectrum(&a, n, EigenbasisMode::Deferred);
+                    assert_eq!(result.values.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected_values.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
+                    assert_eq!(result.deferred.unwrap().first_mode().iter().map(|v| v.to_bits()).collect::<Vec<_>>(), (0..n).map(|r| expected_vectors[r * n].to_bits()).collect::<Vec<_>>());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn issue_2223_refused_spectrum_decomposes_stiffness_once() {
         for n in [3, 16, FULL_SPECTRUM] {
             for last in [-1.0, 0.0, 1.0 / (2.0 * RESOLVABLE), 2.0 / RESOLVABLE, 1.0] {
