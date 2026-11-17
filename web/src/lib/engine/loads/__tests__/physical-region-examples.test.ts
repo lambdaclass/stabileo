@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { codeToModel } from '../../../model/code/format';
+import { buildLoadPlan } from '../load-plan';
+import { defaultRegulations } from '../../../codes/roles';
 import { floorLoad } from '../floor-loads';
 import { beamLike, gravityLayout } from '../plan-gravity';
 import { planAreaLoads } from '../plan-area-loads';
@@ -12,6 +14,21 @@ const examples = [
   ...readdirSync(fixtureDir).filter(f => f.endsWith('.json')).map(file => ({ id: file.slice(0, -5), file: new URL(file, fixtureDir), code: false })),
   ...readdirSync(codeDir).filter(f => f.endsWith('.stabileo.txt')).map(file => ({ id: file.slice(0, -13), file: new URL(file, codeDir), code: true })),
 ];
+const refusalReasons: Record<string, string> = {
+  'cad-arch-structure-dxf': 'partial member shell coverage',
+  'full-stadium': 'nonplanar shell',
+  'geodesic-dome': 'area-load slope boundary',
+  'la-bombonera': 'nonplanar shell',
+  'suspension-bridge': 'first-moment precision',
+};
+
+function plan(model: RegionModel) {
+  const regulations = defaultRegulations();
+  for (const binding of Object.values(regulations)) if (binding.adapterId) Object.assign(binding, { configComplete: true, state: 'applied' });
+  return buildLoadPlan({ model, regulations, dead: [{ labelKey: 'test', q: 1 }], occupancyKey: 'vivienda', tributaryWidth: 1,
+    reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: false, gravity: { mode: 'panels', loadEveryPanel: true } });
+}
+
 const captured: Record<string, Resultant> = {};
 const capture = process.env.REGION_CAPTURE;
 const controlFile = new URL('./physical-region-example-controls.json', import.meta.url);
@@ -26,7 +43,7 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true });
     return loadResultant(model, planAreaLoads({ layout, tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 } }));
   };
-  if (capture || controls[example.id]) {
+  if ((capture || controls[example.id]) && !refusalReasons[example.id]) {
     const base = generate(m);
     expect(base.every(Number.isFinite)).toBe(true);
     if (capture) { captured[example.id] = base; writeFileSync(capture, JSON.stringify(captured, null, 2) + '\n'); return; }
@@ -61,8 +78,7 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
   for (const region of regions) assertRegionInvariant(regionModel([region]), generate, undefined, [variant]);
 });
 
-const forceInvariant = it.skip;
-const firstMomentInvariant = it.skip;
+const refusalRegression = it.skip;
 const knownWrongForceVariants = new Set([
   'cad-arch-structure-dxf, remesh',
   'full-stadium, remesh',
@@ -80,14 +96,26 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
     const model = { nodes: new Map(entries(data.nodes)), elements: new Map(entries(data.elements)), quads: new Map(entries(data.quads)),
       sections: new Map(entries(data.sections)), materials: new Map(entries(data.materials)), loadCases: data.loadCases ?? [] } as unknown as RegionModel;
     const generate = (m: RegionModel) => loadResultant(m, planAreaLoads({ layout: gravityLayout(m, { mode: 'panels', tributaryWidth: 1, loadEveryPanel: true }), tributaryWidth: 1, floor: { dead: 1, lo: 0, liveOf: () => 0 } }));
-    const expected = generate(model), changed = regionVariant(model, variant);
+    const changed = regionVariant(model, variant);
+    if (refusalReasons[example.id]) {
+      for (const m of [model, changed.model]) {
+        const result = plan(m);
+        expect(result.outcome).toBe('BLOCKED');
+        expect(result.blockedKeys).toContainEqual({ key: 'engine.failedWith', params: { message: expect.stringContaining(refusalReasons[example.id]!) } });
+        for (const loads of [result.distributed, result.nodal, result.surface]) expect(loads).toEqual([]);
+      }
+      return;
+    }
+    const expected = generate(model);
     expect(expected.every(Number.isFinite)).toBe(true);
     expectResultant(changed.back(generate(changed.model)), expected, `${example.id} ${variant}`);
   };
   if (knownWrongForceVariants.has(`${example.id}, ${variant}`)) {
-    forceInvariant(`known wrong result: #2254 complete physical gravity fixture: ${example.id}, ${variant}`, check);
+    refusalRegression(`known wrong result: #2254 complete physical gravity fixture: ${example.id}, ${variant}`, check);
   } else if (example.id === 'suspension-bridge' && variant === 'mirror') {
-    firstMomentInvariant(`known wrong result: #2255 complete physical gravity fixture: ${example.id}, ${variant}`, check);
+    refusalRegression(`known wrong result: #2255 complete physical gravity fixture: ${example.id}, ${variant}`, check);
+  } else if (refusalReasons[example.id]) {
+    refusalRegression(`known wrong result: #2219 unsupported physical gravity fixture: ${example.id}, ${variant}`, check);
   } else {
     it(`complete physical gravity fixture: ${example.id}, ${variant}`, check);
   }
