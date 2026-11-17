@@ -42,7 +42,15 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"][data-kind="support"]').first()).toBeVisible();
   await expect(fig.locator('[data-testid="rc-plan-bar"][data-layer="top"]').first()).toContainText(/Ø\d+ c\/\d+ L=\d+,\d\d/);
   expect(await fig.locator('[data-testid="rc-plan-bar"][data-layer="top"] [data-testid="rc-plan-leg"]').count()).toBeGreaterThan(0);
-  await expect(fig.getByTestId('rc-plan-checks')).toHaveText(/Franjas verificadas con el área que piden los paños: (\d+) de \1$/);
+  const stripCount = async () => {
+    const m = /Franjas verificadas con el área que piden los paños: (\d+) de (\d+)$/.exec((await fig.getByTestId('rc-plan-checks').textContent()) ?? '');
+    expect(m, 'the strip count is stated').not.toBeNull();
+    return { ok: Number(m![1]), of: Number(m![2]) };
+  };
+  const strips = await stripCount();
+  expect(strips.of).toBeGreaterThan(4);
+  expect(strips.ok).toBe(strips.of);
+  await expect(fig.getByTestId('rc-plan-checks')).not.toHaveClass(/\bbad\b/);
   await expect(fig.getByTestId('rc-plan-short')).toHaveCount(0);
   await expect(fig.getByTestId('rc-plan-cantilever')).toHaveCount(1);
   const svg = fig.getByTestId('rc-plan-svg');
@@ -73,6 +81,27 @@ test('@slow the reinforcement sheets draw the slabs of a level as one plan', asy
 
   await ws.getByTestId('rc-slab-view-panels').click();
   await expect(ws.getByTestId('rc-table-slab')).toBeVisible();
+
+  // A panel given too little bottom steel by hand: its strips stop verifying, the plan says which and how many.
+  const panel = ws.getByTestId('rc-row').filter({ has: page.locator('td:nth-child(2)', { hasText: new RegExp(`^${second}$`) }) }).first();
+  await panel.click();
+  const bottomX = ws.getByTestId('rc-editor').locator('fieldset').first();
+  await bottomX.locator('select').selectOption('6');
+  await bottomX.locator('input[type="number"]').fill('40');
+  await bottomX.locator('input[type="number"]').press('Tab');
+  await expect(panel.locator('td.stc')).toHaveText('No verifica');
+  await ws.getByTestId('rc-slab-view-plan').click();
+  await level.selectOption({ label: second });
+  await expect(fig.getByTestId('rc-plan-checks')).toHaveClass(/\bbad\b/);
+  const failing = await stripCount();
+  expect(failing.of).toBe(strips.of);
+  expect(failing.ok).toBeLessThan(failing.of);
+  await expect(fig.getByTestId('rc-plan-short')).not.toHaveCount(0);
+  await expect(fig.getByTestId('rc-plan-short').first()).toContainText('<');
+  await ws.getByTestId('rc-slab-view-panels').click();
+  if (!(await ws.getByTestId('rc-editor').isVisible())) await panel.click();
+  await ws.getByTestId('rc-editor').getByRole('button', { name: 'Volver a la propuesta' }).click();
+  await expect(panel.locator('td.stc')).not.toHaveText('No verifica');
   await page.keyboard.press('Escape');
 
   await page.getByTestId('rc-opt-slab-bent-bars').check();

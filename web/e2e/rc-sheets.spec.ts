@@ -107,17 +107,31 @@ test('@slow the reinforcement sheets design beams, columns, slabs and walls of a
   await expect(ws.getByTestId('rc-schedule')).toBeVisible();
   await expect(ws.getByTestId('rc-section').first()).toContainText('V1-1 · i');
   await expect(ws.getByTestId('rc-section').first().locator('circle').first()).toBeVisible();
+  const proposedStatus = (await first.locator('td.stc').textContent())!.trim();
+  expect(proposedStatus).toMatch(/^(Verifica|Holgada)$/);
   const editor = ws.getByTestId('rc-line-editor');
   await editor.getByRole('spinbutton', { name: 'Cantidad' }).first().fill('2');
   await editor.getByRole('combobox', { name: 'Diámetro' }).first().selectOption('10');
   await expect(ws.getByTestId('rc-row').first()).toContainText('No verifica');
   const short = ws.getByTestId('rc-span-toggle').filter({ hasText: 'No verifica' }).first();
+  const shortSpan = (await short.locator('strong').textContent())!;
   await short.click();
   await expect(ws.getByTestId('rc-checks').filter({ hasText: '✗' }).first()).toBeVisible();
   await short.click();
 
   await editor.getByRole('button', { name: 'Volver a la propuesta' }).click();
-  await expect(ws.getByTestId('rc-row').first()).not.toContainText('No verifica');
+  await expect(ws.getByTestId('rc-row').first().locator('td.stc')).toHaveText(proposedStatus);
+  const named = page.getByTestId('rc-span-toggle').filter({ has: page.locator('strong', { hasText: new RegExp(`^${shortSpan.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) });
+  const restored = ws.locator('.rcd-span').filter({ has: named }).first();
+  const restoredToggle = restored.getByTestId('rc-span-toggle');
+  await expect(restoredToggle).toContainText(/Verifica|Holgada/);
+  await expect(restoredToggle).not.toContainText('No verifica');
+  await restoredToggle.click();
+  const restoredChecks = restored.getByTestId('rc-checks');
+  await expect(restoredChecks.locator('td.st').first()).toHaveText('✓');
+  await expect(restoredChecks.locator('td.st', { hasText: '✗' })).toHaveCount(0);
+  await expect(ws.getByTestId('rc-checks').first().locator('td.st', { hasText: '✗' })).toHaveCount(0);
+  await restoredToggle.click();
 
   await ws.getByTestId('rc-span-toggle').first().click();
   await ws.locator('summary', { hasText: 'Por combinación' }).first().click();
