@@ -1,0 +1,2283 @@
+{
+  "issue": 2198,
+  "branchCommit": "08a259aed074bbe96bfbb4a50ab2852e4c66747c",
+  "parentVerifierCommit": "46a866f784d9e2a54ba130739f9bdecba404c5e6",
+  "method": "The exact parent cirsoc201.ts was replayed in this worktree against branch dependencies and WASM, then restored in finally. All five parent captures match the committed snapshots under the unchanged shared comparator. Changing that verifier alone to HEAD reproduces exactly the 112 registered movements, with no added or removed fields.",
+  "units": {
+    "capacity": "kN",
+    "Vu": "kN",
+    "phiVc": "kN",
+    "phiVn": "kN",
+    "spacing": "m",
+    "d": "m",
+    "stirrupDia": "mm",
+    "barDia": "mm",
+    "secondarySpacingTrials.Vc": "N",
+    "secondarySpacingTrials.Vs": "N",
+    "secondarySpacingTrials.AvMin": "m²"
+  },
+  "cases": [
+    {
+      "case": "design-rc-design-qa-8",
+      "reason": "ordinary-column-tie-spacing",
+      "changed": [
+        {
+          "path": "design.rc[e1].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e1].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e2].checks[1].capacity",
+          "before": 188.9440368,
+          "after": 169.4417208
+        },
+        {
+          "path": "design.rc[e2].checks[1].ratio",
+          "before": 0.2406835183,
+          "after": 0.2683855861
+        },
+        {
+          "path": "design.rc[e2].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e2].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e3].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e3].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e4].checks[1].capacity",
+          "before": 188.9440368,
+          "after": 169.4417208
+        },
+        {
+          "path": "design.rc[e4].checks[1].ratio",
+          "before": 0.2406835183,
+          "after": 0.2683855861
+        },
+        {
+          "path": "design.rc[e4].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e4].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "columns": [
+        {
+          "elementId": 1,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287252,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.23371767062518903,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 2,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.475715537732455,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.9440367895371,
+              "ratio": 0.24068351830752618,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.475715537732455,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.44172078953713,
+              "ratio": 0.2683855860636452,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 3,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287266,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.2337176706251892,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 4,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.4757155377326,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.9440367895371,
+              "ratio": 0.24068351830752693,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.4757155377326,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.44172078953713,
+              "ratio": 0.26838558606364604,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "design-rc-design-qa-row2",
+      "reason": "column-leg-count-and-secondary-verdict",
+      "changed": [
+        {
+          "path": "design.rc[e1].status",
+          "before": "fail",
+          "after": "warn"
+        },
+        {
+          "path": "design.rc[e1].checks[1].capacity",
+          "before": 362.2178444,
+          "after": 329.8950644
+        },
+        {
+          "path": "design.rc[e1].checks[1].ratio",
+          "before": 0.2058785737,
+          "after": 0.2260503452
+        },
+        {
+          "path": "design.rc[e1].checks[2].status",
+          "before": "fail",
+          "after": "ok"
+        },
+        {
+          "path": "design.rc[e2].status",
+          "before": "fail",
+          "after": "warn"
+        },
+        {
+          "path": "design.rc[e2].checks[1].capacity",
+          "before": 348.3519384,
+          "after": 316.0291584
+        },
+        {
+          "path": "design.rc[e2].checks[1].ratio",
+          "before": 0.2280397636,
+          "after": 0.2513631783
+        },
+        {
+          "path": "design.rc[e2].checks[2].status",
+          "before": "fail",
+          "after": "ok"
+        },
+        {
+          "path": "design.rc[e3].status",
+          "before": "fail",
+          "after": "warn"
+        },
+        {
+          "path": "design.rc[e3].checks[1].capacity",
+          "before": 362.2178444,
+          "after": 329.8950644
+        },
+        {
+          "path": "design.rc[e3].checks[1].ratio",
+          "before": 0.2058785737,
+          "after": 0.2260503452
+        },
+        {
+          "path": "design.rc[e3].checks[2].status",
+          "before": "fail",
+          "after": "ok"
+        },
+        {
+          "path": "design.rc[e4].status",
+          "before": "fail",
+          "after": "warn"
+        },
+        {
+          "path": "design.rc[e4].checks[1].capacity",
+          "before": 348.3519384,
+          "after": 316.0291584
+        },
+        {
+          "path": "design.rc[e4].checks[1].ratio",
+          "before": 0.2280397636,
+          "after": 0.2513631783
+        },
+        {
+          "path": "design.rc[e4].checks[2].status",
+          "before": "fail",
+          "after": "ok"
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "columns": [
+        {
+          "elementId": 1,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 20
+          },
+          "before": {
+            "status": "fail",
+            "shear": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 3,
+              "phiVn": 362.2178443579804,
+              "ratio": 0.2058785737316796,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "fail"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 2,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 20
+          },
+          "before": {
+            "status": "fail",
+            "shear": {
+              "Vu": 79.43809366674625,
+              "d": 0.45899999999999996,
+              "phiVc": 251.38359836389253,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 3,
+              "phiVn": 348.3519383638925,
+              "ratio": 0.22803976357887895,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "fail"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 79.43809366674625,
+              "d": 0.45899999999999996,
+              "phiVc": 251.38359836389253,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 316.0291583638925,
+              "ratio": 0.2513631782522962,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.2495043579804,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 3,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 20
+          },
+          "before": {
+            "status": "fail",
+            "shear": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 3,
+              "phiVn": 362.21784435798037,
+              "ratio": 0.20587857373167961,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.5728931765845,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601938,
+              "status": "fail"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 74.57289317658451,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601944,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.5728931765845,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.22605034519601938,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 4,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 20
+          },
+          "before": {
+            "status": "fail",
+            "shear": {
+              "Vu": 79.43809366674617,
+              "d": 0.45899999999999996,
+              "phiVc": 251.38359836389247,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 3,
+              "phiVn": 348.3519383638925,
+              "ratio": 0.2280397635788787,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658447,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.225,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.2260503451960193,
+              "status": "fail"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 79.43809366674617,
+              "d": 0.45899999999999996,
+              "phiVc": 251.38359836389247,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 316.02915836389246,
+              "ratio": 0.251363178252296,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 74.57289317658447,
+              "d": 0.45899999999999996,
+              "phiVc": 265.24950435798036,
+              "spacing": 0.22499999999999998,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 329.8950643579804,
+              "ratio": 0.2260503451960193,
+              "status": "ok"
+            }
+          }
+        }
+      ],
+      "secondarySpacingTrials": [
+        {
+          "spacing": 0.3,
+          "Nu": 675.325,
+          "Vu": 52.76591580645196,
+          "Vc": 103324.72499999998,
+          "Vs": 64645.56,
+          "AvMin": 0.000125,
+          "avBelowMin": true,
+          "limit": {
+            "kind": "required",
+            "row": "row1",
+            "alongMax": 0.22949999999999998
+          }
+        },
+        {
+          "spacing": 0.275,
+          "Nu": 675.325,
+          "Vu": 52.76591580645196,
+          "Vc": 103324.72499999998,
+          "Vs": 70522.42909090908,
+          "AvMin": 0.00011458333333333333,
+          "avBelowMin": true,
+          "limit": {
+            "kind": "required",
+            "row": "row1",
+            "alongMax": 0.22949999999999998
+          }
+        },
+        {
+          "spacing": 0.25,
+          "Nu": 675.325,
+          "Vu": 52.76591580645196,
+          "Vc": 103324.72499999998,
+          "Vs": 77574.67199999999,
+          "AvMin": 0.00010416666666666667,
+          "avBelowMin": true,
+          "limit": {
+            "kind": "required",
+            "row": "row1",
+            "alongMax": 0.22949999999999998
+          }
+        },
+        {
+          "spacing": 0.225,
+          "Nu": 675.325,
+          "Vu": 52.76591580645196,
+          "Vc": 317018.6808106405,
+          "Vs": 86194.07999999999,
+          "AvMin": 0.00009375,
+          "avBelowMin": false,
+          "limit": {
+            "kind": "not-required"
+          }
+        }
+      ]
+    },
+    {
+      "case": "design-footing-rc-footing-cad-poc",
+      "reason": "ordinary-column-tie-spacing",
+      "changed": [
+        {
+          "path": "design.rc[e1].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e1].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e2].checks[1].capacity",
+          "before": 188.9440368,
+          "after": 169.4417208
+        },
+        {
+          "path": "design.rc[e2].checks[1].ratio",
+          "before": 0.2406835183,
+          "after": 0.2683855861
+        },
+        {
+          "path": "design.rc[e2].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e2].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e3].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e3].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e4].checks[1].capacity",
+          "before": 188.9440368,
+          "after": 169.4417208
+        },
+        {
+          "path": "design.rc[e4].checks[1].ratio",
+          "before": 0.2406835183,
+          "after": 0.2683855861
+        },
+        {
+          "path": "design.rc[e4].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e4].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "columns": [
+        {
+          "elementId": 1,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287252,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.23371767062518903,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 2,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.475715537732455,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.9440367895371,
+              "ratio": 0.24068351830752618,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.475715537732455,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.44172078953713,
+              "ratio": 0.2683855860636452,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 3,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287266,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.2337176706251892,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 4,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.4757155377326,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.9440367895371,
+              "ratio": 0.24068351830752693,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 45.4757155377326,
+              "d": 0.359,
+              "phiVc": 123.93631678953713,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.44172078953713,
+              "ratio": 0.26838558606364604,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "design-rc-design-qa-seismic",
+      "reason": "ordinary-column-tie-spacing",
+      "changed": [
+        {
+          "path": "design.rc[e1].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e1].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e1].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e2].checks[1].capacity",
+          "before": 188.7277274,
+          "after": 169.2254114
+        },
+        {
+          "path": "design.rc[e2].checks[1].ratio",
+          "before": 0.2188640786,
+          "after": 0.2440869833
+        },
+        {
+          "path": "design.rc[e2].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e2].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e3].checks[1].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[1].ratio",
+          "before": 0.2100321327,
+          "after": 0.2337176706
+        },
+        {
+          "path": "design.rc[e3].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e3].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        },
+        {
+          "path": "design.rc[e4].checks[1].capacity",
+          "before": 188.7277274,
+          "after": 169.2254114
+        },
+        {
+          "path": "design.rc[e4].checks[1].ratio",
+          "before": 0.2188640786,
+          "after": 0.2440869833
+        },
+        {
+          "path": "design.rc[e4].checks[2].capacity",
+          "before": 192.4396181,
+          "after": 172.9373021
+        },
+        {
+          "path": "design.rc[e4].checks[2].ratio",
+          "before": 0.1366279435,
+          "after": 0.1520356161
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "columns": [
+        {
+          "elementId": 1,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287252,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.41850340017699,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.23371767062518903,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 2,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 41.3057201698892,
+              "d": 0.359,
+              "phiVc": 123.72000741981851,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.7277274198185,
+              "ratio": 0.21886407860995438,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 41.3057201698892,
+              "d": 0.359,
+              "phiVc": 123.72000741981851,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.22541141981853,
+              "ratio": 0.24408698329246167,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 3,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.21003213272287266,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761784,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 40.418503400177016,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.2337176706251892,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906456,
+              "d": 0.359,
+              "phiVc": 127.43189805362087,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031033,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 4,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 41.30572016988929,
+              "d": 0.359,
+              "phiVc": 123.72000741981851,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 188.7277274198185,
+              "ratio": 0.21886407860995485,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 192.43961805362085,
+              "ratio": 0.13662794352761787,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 41.30572016988929,
+              "d": 0.359,
+              "phiVc": 123.72000741981851,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.22541141981853,
+              "ratio": 0.24408698329246223,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 26.292629267906463,
+              "d": 0.359,
+              "phiVc": 127.43189805362086,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.93730205362087,
+              "ratio": 0.15203561612031036,
+              "status": "ok"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case": "design-rc-qa-diagnostic",
+      "reason": "ordinary-column-tie-spacing",
+      "changed": [
+        {
+          "path": "design.rc[e10].checks[1].capacity",
+          "before": 169.9674941,
+          "after": 150.4651781
+        },
+        {
+          "path": "design.rc[e10].checks[1].ratio",
+          "before": 0.2108717403,
+          "after": 0.2382035612
+        },
+        {
+          "path": "design.rc[e10].checks[2].capacity",
+          "before": 167.9518589,
+          "after": 148.4495429
+        },
+        {
+          "path": "design.rc[e10].checks[2].ratio",
+          "before": 0.009780483323,
+          "after": 0.01106537833
+        },
+        {
+          "path": "design.rc[e11].checks[1].capacity",
+          "before": 187.0430353,
+          "after": 167.5407193
+        },
+        {
+          "path": "design.rc[e11].checks[1].ratio",
+          "before": 0.09108731983,
+          "after": 0.1016901972
+        },
+        {
+          "path": "design.rc[e11].checks[2].capacity",
+          "before": 183.0939098,
+          "after": 163.5915938
+        },
+        {
+          "path": "design.rc[e11].checks[2].ratio",
+          "before": 0.04352717141,
+          "after": 0.04871619507
+        },
+        {
+          "path": "design.rc[e12].checks[1].capacity",
+          "before": 172.9339807,
+          "after": 153.4316647
+        },
+        {
+          "path": "design.rc[e12].checks[1].ratio",
+          "before": 0.258311558,
+          "after": 0.2911448955
+        },
+        {
+          "path": "design.rc[e12].checks[2].capacity",
+          "before": 170.399955,
+          "after": 150.897639
+        },
+        {
+          "path": "design.rc[e12].checks[2].ratio",
+          "before": 0.01022583779,
+          "after": 0.01154744575
+        },
+        {
+          "path": "design.rc[e1].checks[1].capacity",
+          "before": 189.9127192,
+          "after": 170.4104032
+        },
+        {
+          "path": "design.rc[e1].checks[1].ratio",
+          "before": 0.1180045378,
+          "after": 0.1315093576
+        },
+        {
+          "path": "design.rc[e1].checks[2].capacity",
+          "before": 186.4977372,
+          "after": 166.9954212
+        },
+        {
+          "path": "design.rc[e1].checks[2].ratio",
+          "before": 0.06463009828,
+          "after": 0.07217782978
+        },
+        {
+          "path": "design.rc[e2].checks[1].capacity",
+          "before": 217.8578224,
+          "after": 198.3555064
+        },
+        {
+          "path": "design.rc[e2].checks[1].ratio",
+          "before": 0.07870330344,
+          "after": 0.08644141327
+        },
+        {
+          "path": "design.rc[e2].checks[2].capacity",
+          "before": 224.5539292,
+          "after": 205.0516132
+        },
+        {
+          "path": "design.rc[e2].checks[2].ratio",
+          "before": 0.07409335108,
+          "after": 0.08114031806
+        },
+        {
+          "path": "design.rc[e3].checks[1].capacity",
+          "before": 196.2935441,
+          "after": 176.7912281
+        },
+        {
+          "path": "design.rc[e3].checks[1].ratio",
+          "before": 0.1378138294,
+          "after": 0.1530164437
+        },
+        {
+          "path": "design.rc[e3].checks[2].capacity",
+          "before": 191.64445,
+          "after": 172.142134
+        },
+        {
+          "path": "design.rc[e3].checks[2].ratio",
+          "before": 0.06380678203,
+          "after": 0.07103557604
+        },
+        {
+          "path": "design.rc[e4].checks[1].capacity",
+          "before": 171.6687782,
+          "after": 152.1664622
+        },
+        {
+          "path": "design.rc[e4].checks[1].ratio",
+          "before": 0.2091576966,
+          "after": 0.2359642572
+        },
+        {
+          "path": "design.rc[e4].checks[2].capacity",
+          "before": 173.3120647,
+          "after": 153.8097487
+        },
+        {
+          "path": "design.rc[e4].checks[2].ratio",
+          "before": 0.09926874243,
+          "after": 0.1118555284
+        },
+        {
+          "path": "design.rc[e5].checks[1].capacity",
+          "before": 186.1801997,
+          "after": 166.6778837
+        },
+        {
+          "path": "design.rc[e5].checks[1].ratio",
+          "before": 0.122152444,
+          "after": 0.1364450155
+        },
+        {
+          "path": "design.rc[e5].checks[2].capacity",
+          "before": 189.6884267,
+          "after": 170.1861107
+        },
+        {
+          "path": "design.rc[e5].checks[2].ratio",
+          "before": 0.08887172055,
+          "after": 0.0990558911
+        },
+        {
+          "path": "design.rc[e6].checks[1].capacity",
+          "before": 174.7192498,
+          "after": 155.2169338
+        },
+        {
+          "path": "design.rc[e6].checks[1].ratio",
+          "before": 0.2570966043,
+          "after": 0.2893996469
+        },
+        {
+          "path": "design.rc[e6].checks[2].capacity",
+          "before": 176.5559632,
+          "after": 157.0536472
+        },
+        {
+          "path": "design.rc[e6].checks[2].ratio",
+          "before": 0.09795956896,
+          "after": 0.1101238103
+        },
+        {
+          "path": "design.rc[e7].checks[1].capacity",
+          "before": 185.6063271,
+          "after": 166.1040111
+        },
+        {
+          "path": "design.rc[e7].checks[1].ratio",
+          "before": 0.1214654085,
+          "after": 0.1357266943
+        },
+        {
+          "path": "design.rc[e7].checks[2].capacity",
+          "before": 181.4736131,
+          "after": 161.9712971
+        },
+        {
+          "path": "design.rc[e7].checks[2].ratio",
+          "before": 0.03771945696,
+          "after": 0.0422611059
+        },
+        {
+          "path": "design.rc[e8].checks[1].capacity",
+          "before": 217.9182501,
+          "after": 198.4159341
+        },
+        {
+          "path": "design.rc[e8].checks[1].ratio",
+          "before": 0.07746681527,
+          "after": 0.08508103395
+        },
+        {
+          "path": "design.rc[e8].checks[2].capacity",
+          "before": 210.1161968,
+          "after": 190.6138808
+        },
+        {
+          "path": "design.rc[e8].checks[2].ratio",
+          "before": 0.05666959059,
+          "after": 0.06246763771
+        },
+        {
+          "path": "design.rc[e9].checks[1].capacity",
+          "before": 191.7793374,
+          "after": 172.2770214
+        },
+        {
+          "path": "design.rc[e9].checks[1].ratio",
+          "before": 0.1397523325,
+          "after": 0.1555727485
+        },
+        {
+          "path": "design.rc[e9].checks[2].capacity",
+          "before": 186.3778755,
+          "after": 166.8755595
+        },
+        {
+          "path": "design.rc[e9].checks[2].ratio",
+          "before": 0.03766542545,
+          "after": 0.04206728653
+        }
+      ],
+      "removed": [],
+      "added": [],
+      "columns": [
+        {
+          "elementId": 1,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.410562643634247,
+              "d": 0.359,
+              "phiVc": 124.90499915922621,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 189.91271915922619,
+              "ratio": 0.11800453778372176,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 12.053367087057111,
+              "d": 0.359,
+              "phiVc": 121.49001723310465,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 186.4977372331047,
+              "ratio": 0.06463009828366728,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.410562643634247,
+              "d": 0.359,
+              "phiVc": 124.90499915922621,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 170.4104031592262,
+              "ratio": 0.13150935757539703,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 12.053367087057111,
+              "d": 0.359,
+              "phiVc": 121.49001723310465,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 166.99542123310465,
+              "ratio": 0.07217782977553693,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 2,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 17.146130300948112,
+              "d": 0.359,
+              "phiVc": 152.85010238069148,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 217.8578223806915,
+              "ratio": 0.07870330343698394,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 16.637953110356168,
+              "d": 0.359,
+              "phiVc": 159.54620916366412,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 224.55392916366412,
+              "ratio": 0.07409335108195655,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 17.146130300948112,
+              "d": 0.359,
+              "phiVc": 152.85010238069148,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 198.35550638069148,
+              "ratio": 0.08644141326755307,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 16.637953110356168,
+              "d": 0.359,
+              "phiVc": 159.54620916366412,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 205.0516131636641,
+              "ratio": 0.08114031805775852,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 3,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 27.051964994917306,
+              "d": 0.359,
+              "phiVc": 131.28582406310065,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 196.29354406310065,
+              "ratio": 0.13781382940552117,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 12.22821564709399,
+              "d": 0.359,
+              "phiVc": 126.63672996733305,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 191.64444996733306,
+              "ratio": 0.06380678203401331,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 27.051964994917306,
+              "d": 0.359,
+              "phiVc": 131.28582406310065,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 176.79122806310065,
+              "ratio": 0.15301644369630074,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 12.22821564709399,
+              "d": 0.359,
+              "phiVc": 126.63672996733305,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.14213396733305,
+              "ratio": 0.0710355760398236,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 4,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "warn",
+            "shear": {
+              "Vu": 35.90584621773089,
+              "d": 0.359,
+              "phiVc": 106.66105815418115,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 171.66877815418115,
+              "ratio": 0.20915769660504435,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 17.20447070781155,
+              "d": 0.359,
+              "phiVc": 108.30434467146407,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 173.3120646714641,
+              "ratio": 0.09926874242958732,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 35.90584621773089,
+              "d": 0.359,
+              "phiVc": 106.66105815418115,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 152.16646215418115,
+              "ratio": 0.23596425723133163,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 17.20447070781155,
+              "d": 0.359,
+              "phiVc": 108.30434467146407,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 153.8097486714641,
+              "ratio": 0.11185552838110481,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 5,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.742366430020777,
+              "d": 0.359,
+              "phiVc": 121.17247972595004,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 186.18019972595005,
+              "ratio": 0.1221524440488121,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 16.857936845190984,
+              "d": 0.359,
+              "phiVc": 124.68070666078825,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 189.68842666078825,
+              "ratio": 0.08887172054696471,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.742366430020777,
+              "d": 0.359,
+              "phiVc": 121.17247972595004,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 166.67788372595004,
+              "ratio": 0.13644501550915733,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 16.857936845190984,
+              "d": 0.359,
+              "phiVc": 124.68070666078825,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 170.18611066078824,
+              "ratio": 0.09905589110495572,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 6,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 44.91972581845122,
+              "d": 0.359,
+              "phiVc": 109.7115297540732,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 174.71924975407322,
+              "ratio": 0.2570966043047813,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 17.295346050494956,
+              "d": 0.359,
+              "phiVc": 111.54824317970996,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 176.55596317970998,
+              "ratio": 0.09795956896052638,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 44.91972581845122,
+              "d": 0.359,
+              "phiVc": 109.7115297540732,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 155.21693375407318,
+              "ratio": 0.2893996468814566,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 17.295346050494956,
+              "d": 0.359,
+              "phiVc": 111.54824317970996,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 157.05364717970994,
+              "ratio": 0.1101238103098912,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 7,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.544748331236775,
+              "d": 0.359,
+              "phiVc": 120.59860705691449,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 185.6063270569145,
+              "ratio": 0.12146540847351413,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 6.8450861397847715,
+              "d": 0.359,
+              "phiVc": 116.46589311374098,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 181.47361311374098,
+              "ratio": 0.037719456963115204,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 22.544748331236775,
+              "d": 0.359,
+              "phiVc": 120.59860705691449,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 166.1040110569145,
+              "ratio": 0.13572669430307713,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 6.8450861397847715,
+              "d": 0.359,
+              "phiVc": 116.46589311374098,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 161.971297113741,
+              "ratio": 0.04226110589815152,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 8,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 16.881432825581086,
+              "d": 0.359,
+              "phiVc": 152.91053011369212,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 217.9182501136921,
+              "ratio": 0.07746681527028472,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 11.90719885028538,
+              "d": 0.359,
+              "phiVc": 145.10847682239083,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 210.11619682239083,
+              "ratio": 0.056669590590155305,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 16.881432825581086,
+              "d": 0.359,
+              "phiVc": 152.91053011369212,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 198.41593411369212,
+              "ratio": 0.08508103394512682,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 11.90719885028538,
+              "d": 0.359,
+              "phiVc": 145.10847682239083,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 190.61388082239083,
+              "ratio": 0.06246763771301737,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 9,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 26.801609723097837,
+              "d": 0.359,
+              "phiVc": 126.7716173620201,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 191.7793373620201,
+              "ratio": 0.13975233250756666,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 7.020001974829629,
+              "d": 0.359,
+              "phiVc": 121.37015548273905,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 186.37787548273906,
+              "ratio": 0.0376654254516372,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 26.801609723097837,
+              "d": 0.359,
+              "phiVc": 126.7716173620201,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.27702136202012,
+              "ratio": 0.15557274853723743,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 7.020001974829629,
+              "d": 0.359,
+              "phiVc": 121.37015548273905,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 166.87555948273905,
+              "ratio": 0.04206728652529702,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 10,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "warn",
+            "shear": {
+              "Vu": 35.84134127283003,
+              "d": 0.359,
+              "phiVc": 104.95977412835708,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 169.9674941283571,
+              "ratio": 0.21087174025030425,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 1.6426503549979385,
+              "d": 0.359,
+              "phiVc": 102.94413890219286,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 167.95185890219284,
+              "ratio": 0.009780483322631992,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "warn",
+            "shear": {
+              "Vu": 35.84134127283003,
+              "d": 0.359,
+              "phiVc": 104.95977412835708,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 150.4651781283571,
+              "ratio": 0.23820356124029513,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 1.6426503549979385,
+              "d": 0.359,
+              "phiVc": 102.94413890219286,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 148.44954290219286,
+              "ratio": 0.011065378329121644,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 11,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 17.03724877568351,
+              "d": 0.359,
+              "phiVc": 122.03531526669357,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 187.04303526669358,
+              "ratio": 0.09108731983199003,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 7.969559994449091,
+              "d": 0.359,
+              "phiVc": 118.08618976617282,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 183.09390976617283,
+              "ratio": 0.04352717140961666,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 17.03724877568351,
+              "d": 0.359,
+              "phiVc": 122.03531526669357,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 167.54071926669357,
+              "ratio": 0.10169019716671615,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 7.969559994449091,
+              "d": 0.359,
+              "phiVc": 118.08618976617282,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 163.59159376617282,
+              "ratio": 0.04871619507442578,
+              "status": "ok"
+            }
+          }
+        },
+        {
+          "elementId": 12,
+          "longitudinalBars": {
+            "barCount": 8,
+            "barDia": 16
+          },
+          "before": {
+            "status": "ok",
+            "shear": {
+              "Vu": 44.67084597925888,
+              "d": 0.359,
+              "phiVc": 107.92626070368749,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 172.9339807036875,
+              "ratio": 0.2583115579569051,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 1.7424822996060776,
+              "d": 0.359,
+              "phiVc": 105.3922349739567,
+              "spacing": 0.175,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 170.39995497395668,
+              "ratio": 0.010225837793633175,
+              "status": "ok"
+            }
+          },
+          "after": {
+            "status": "ok",
+            "shear": {
+              "Vu": 44.67084597925888,
+              "d": 0.359,
+              "phiVc": 107.92626070368749,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 153.43166470368752,
+              "ratio": 0.2911448954525048,
+              "status": "ok"
+            },
+            "shearSecondary": {
+              "Vu": 1.7424822996060776,
+              "d": 0.359,
+              "phiVc": 105.3922349739567,
+              "spacing": 0.25,
+              "stirrupDia": 8,
+              "stirrupLegs": 2,
+              "phiVn": 150.8976389739567,
+              "ratio": 0.011547445748351379,
+              "status": "ok"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
