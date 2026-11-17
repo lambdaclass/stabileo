@@ -200,3 +200,45 @@ browser snapshot shows a signed factor of `-1.05` alongside a mass ratio of
 `83.5%`; these are different columns and quantities. The two hydrostatic cases
 pass. The original browser assertions remain intact pending resolution of this
 contract conflict.
+
+## Round 6 draft and quick-info integration (#2259)
+
+Changing the displayed axes now rebases pending global nodal forces, couples,
+prescribed displacements, inclined-force origins, global point loads and global
+or projected member loads through the shared quantity transform. Blank component
+fields stay blank, including distributed-load end values that inherit their
+start value. Local member components stay local. Hydrostatic load endpoints
+exchange when their coordinate axis reverses; force components and self-weight
+factors retain their signed physical directions.
+
+The load and support target picker preserves its selected coordinate range.
+Its axis follows the same frame conversion, and a reversal exchanges and negates
+the bounds. A horizontal selection no longer becomes a vertical selection.
+Both translations and rotations on the plane support table use displayed axis
+names; the stored spring keys retain the plane solver's convention.
+
+Quick info now reads the active result's magnitude metadata through the same
+adapter as result tables and exports. SRSS and ABS components permute without
+acquiring signs; signed static and nonlinear result components retain vector
+semantics. Generated report combination names, their factors and their result-set
+names now all use the report's frame. Workbook template coordinate requirement
+markers share the importer's coordinate-column mapping.
+
+These changes correct input and presentation paths of the unmerged axes feature.
+They do not change the engine, canonical saved models, solver tolerances,
+assertion thresholds or the results version. The existing unmerged
+`global-axes-inputs` registry entry includes the draft correction; no new advisory
+is warranted by the evidence here.
+
+The modal browser test now checks the round-4 contract explicitly: signed
+participation factors transform as vectors, while directional mass percentages
+and cumulative percentages only permute. Its rotated fixture supplies unequal,
+nonzero directional quantities, and the assertions require negative signed
+factors. This resolves the round-5 test-contract conflict without making factors
+unsigned or requiring unrelated directional percentages to stay in place.
+
+The merge's snow-store replacements combine `axisNamed` with `snowBasis` in
+case creation and reuse. The snow case's `solve: false` update remains intact.
+The revert guard reports the combined lines as replacements of main's snow-only
+lines; no snow behavior is intentionally removed. The earlier Hungarian
+workbook-import explanation remains an intentional replacement as described above.

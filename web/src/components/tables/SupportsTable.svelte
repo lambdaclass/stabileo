@@ -103,9 +103,9 @@
           </td>
           <td class="load-values">
             {#if sup.type === 'spring'}
-              <span class="load-field">kx<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
-              <span class="load-field">ky<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
-              <span class="load-field">kz<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
+              <span class="load-field">k{twoD.horizontal.toLowerCase()}<UnitInput value={sup.kx ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'kx', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">k{twoD.vertical.toLowerCase()}<UnitInput value={sup.ky ?? 0} qty="springK" onchange={(v) => updateSupportSpring(sup.id, 'ky', String(v))} unit={false} /><span class="lf-unit">{unitQ('springK')}</span></span>
+              <span class="load-field">kr{twoD.normal.toLowerCase()}<UnitInput value={sup.kz ?? 0} qty="springKr" onchange={(v) => updateSupportSpring(sup.id, 'kz', String(v))} unit={false} /><span class="lf-unit">{unitQ('springKr')}</span></span>
             {:else}
               <span class="load-field">d{twoD.horizontal.toLowerCase()}<UnitInput value={twoD.x(sup.dx ?? 0)} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dx', String(twoD.fromX(v)))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>
               <span class="load-field">d{twoD.vertical.toLowerCase()}<UnitInput value={twoD.z(sup.dz ?? sup.dy ?? 0)} qty="displacement" onchange={(v) => updateSupportSpring(sup.id, 'dz', String(twoD.fromZ(v)))} unit={false} /><span class="lf-unit">{unitQ('displacement')}</span></span>

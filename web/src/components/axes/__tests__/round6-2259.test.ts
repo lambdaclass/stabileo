@@ -21,7 +21,7 @@ const result = {
 };
 afterEach(() => { axesStore.reset(); resultsStore.clear(); modelStore.clear(); uiStore.clearSelection(); viewState.quickInfo = false; });
 
-it.skip('known wrong result: #2259 quick info permutes SRSS and ABS magnitudes but signs linear and nonlinear vectors', () => {
+it('known wrong result: #2259 quick info permutes SRSS and ABS magnitudes but signs linear and nonlinear vectors', () => {
   i18n.locale = 'en';
   uiStore.unitSystem = 'SI';
   uiStore.analysisMode = 'pro';
@@ -46,7 +46,7 @@ it.skip('known wrong result: #2259 quick info permutes SRSS and ABS magnitudes b
   }
 });
 
-it.skip('known wrong result: #2259 plane spring labels name the displayed translation and rotation axes', () => {
+it('known wrong result: #2259 plane spring labels name the displayed translation and rotation axes', () => {
   uiStore.analysisMode = '2d';
   const id = modelStore.addNode(0, 0);
   modelStore.addSupport(id, 'spring');
@@ -59,7 +59,7 @@ it.skip('known wrong result: #2259 plane spring labels name the displayed transl
   }
 });
 
-it.skip('known wrong result: #2259 generated report combination names and result-set names use the same axes as their factors', () => {
+it('known wrong result: #2259 generated report combination names and result-set names use the same axes as their factors', () => {
   uiStore.analysisMode = 'pro';
   for (const c of [...modelStore.combinations]) modelStore.removeCombination(c.id);
   const a = modelStore.addLoadCase('Wind +X', 'W', { axisNamed: true });
@@ -70,7 +70,7 @@ it.skip('known wrong result: #2259 generated report combination names and result
   for (const choice of allChoices()) {
     const f = makeFrame(choice);
     const row = f.rows.findIndex(r => r[0] !== 0);
-    const axis = `${f.rows[row]![0]! > 0 ? '+' : '-'}${'XYZ'[row]}`;
+    const axis = `${f.rows[row]![0]! > 0 ? '+' : '−'}${'XYZ'[row]}`;
     const name = f.identity ? '1.0 W (Wind +X)' : `1.0 W (Wind ${axis})`;
     const data = buildProReportData({ config: { axes: choice } as never, t })!;
     expect(data.combinations).toHaveLength(1);
@@ -82,7 +82,7 @@ it.skip('known wrong result: #2259 generated report combination names and result
   expect(buildProReportData({ config: { axes: { up: '+X', right: '-Z', hand: 'left' } } as never, t })!.combinations![0]!.name).toBe('My X label');
 });
 
-it.skip('known wrong result: #2259 template coordinate requirements follow the importer across every axes choice', () => {
+it('known wrong result: #2259 template coordinate requirements follow the importer across every axes choice', () => {
   i18n.locale = 'en';
   const schema = SHEETS.find(s => s.name === 'Nodes')!;
   for (const choice of allChoices()) {

@@ -28,7 +28,7 @@ const drafts = [
 ];
 
 for (const hand of ['right', 'left'] as const) {
-  for (const [index, draft] of drafts.entries()) test.skip(`known wrong result: #2259 @smoke draft ${index} preserves physical loads through reversed ${hand} axes`, async ({ pro: page }) => {
+  for (const [index, draft] of drafts.entries()) test(`known wrong result: #2259 @smoke draft ${index} preserves physical loads through reversed ${hand} axes`, async ({ pro: page }) => {
     await open(page);
 
       await page.getByTestId('wl-kind').selectOption(draft.kind);
@@ -54,7 +54,7 @@ for (const hand of ['right', 'left'] as const) {
 
   });
 
-  test.skip(`known wrong result: #2259 @smoke range targets retain members and reorder bounds under reversed ${hand} axes`, async ({ pro: page }) => {
+  test(`known wrong result: #2259 @smoke range targets retain members and reorder bounds under reversed ${hand} axes`, async ({ pro: page }) => {
     await open(page);
     await page.getByTestId('wl-fx').fill('2');
     await page.getByTestId('load-target-by').selectOption('range');
@@ -73,5 +73,28 @@ for (const hand of ['right', 'left'] as const) {
     const m = await page.evaluate(() => window.__stabileo.allLoads().length);
     await page.getByTestId('wl-add').click();
     expect(await page.evaluate(m => window.__stabileo.allLoads().slice(m).map(l => l.data.nodeId), m)).toEqual(targets);
+  });
+}
+
+for (const hand of ['right', 'left'] as const) {
+  test(`known wrong result: #2259 @smoke support ranges retain their target nodes under reversed ${hand} axes`, async ({ pro: page }) => {
+    await loadModel(page, '3d-portal-frame');
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-supports').click();
+    await page.getByTestId('write-support').click();
+    await page.getByTestId('load-target-by').selectOption('range');
+    await page.getByTestId('load-target-axis').selectOption('X');
+    await page.getByTestId('load-target-min').fill('-1');
+    await page.getByTestId('load-target-max').fill('2');
+    const count = await page.getByTestId('load-target-count').textContent();
+    await reverse(page, hand);
+    await expect(page.getByTestId('load-target-axis')).toHaveValue('Z');
+    await expect(page.getByTestId('load-target-min')).toHaveValue('-2');
+    await expect(page.getByTestId('load-target-max')).toHaveValue('1');
+    await expect(page.getByTestId('load-target-count')).toHaveText(count!);
+    await page.getByTestId('sup-preset-pinned').click();
+    await page.getByTestId('write-support-card-submit').click();
+    const pinned = await page.evaluate(() => (window.__stabileo.entityData('setting', 'supports') as Array<[number, { nodeId: number; type: string }]>).map(([, s]) => s).filter(s => s.type === 'pinned3d').map(s => s.nodeId));
+    expect(pinned.sort()).toEqual([1, 3, 5, 7]);
   });
 }

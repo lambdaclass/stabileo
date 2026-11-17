@@ -1,3 +1,5 @@
+import { userAxisAlong, type AxesFrame } from '../axes/frame';
+
 /**
  * What a Stabileo workbook contains, declared once.
  *
@@ -457,4 +459,9 @@ export function keyFromHeader(header: unknown): string | null {
   if (typeof header !== 'string') return null;
   const base = header.split('[')[0].trim().toLowerCase();
   return base.length > 0 ? base : null;
+}
+
+export function coordinateColumns(frame: AxesFrame): { along: string; depth: string; height: string } {
+  const name = (index: number) => userAxisAlong(frame, index).name.toLowerCase();
+  return { along: name(0), depth: name(1), height: name(2) };
 }

@@ -1,14 +1,28 @@
 import { test, expect, loadModel } from './fixtures';
+import { readFileSync } from 'node:fs';
 
 for (const hand of ['right', 'left'] as const) {
-  test(`known wrong result: #2259 @smoke modal participation remains nonnegative under reversed ${hand}-handed axes`, async ({ pro: page }) => {
+  test(`known wrong result: #2259 @smoke modal factors transform with signs and mass percentages permute under reversed ${hand}-handed axes`, async ({ pro: page }) => {
     await loadModel(page, '3d-portal-frame');
+    const fixture = JSON.parse(readFileSync(new URL('../src/lib/templates/fixtures/3d-portal-frame.json', import.meta.url), 'utf8'));
+    fixture.nodes = fixture.nodes.map((node: { x: number; y: number; z: number }) => {
+      const x = Math.cos(0.37) * node.x - Math.sin(0.37) * node.y;
+      const y = Math.sin(0.37) * node.x + Math.cos(0.37) * node.y;
+      return { ...node, x, y: Math.cos(0.53) * y - Math.sin(0.53) * node.z, z: Math.sin(0.53) * y + Math.cos(0.53) * node.z };
+    });
+    await page.evaluate(model => window.__stabileoActions.loadModelData(model), fixture);
     await page.evaluate(() => window.__stabileoActions.openProTab('advanced'));
     await page.getByTestId('adv-run-modal').click();
-    const row = page.getByTestId('adv-modal-row-0');
+    const row = page.getByTestId('adv-modal-row-1');
     await expect(row).toBeVisible();
     const before = await row.locator('td').allTextContents();
-    expect(before.slice(3, 6).map(Number).every(v => v >= 0)).toBe(true);
+    expect(before).toHaveLength(12);
+    const factors = before.slice(3, 6).map(Number);
+    expect(factors.every(v => Number.isFinite(v) && v !== 0)).toBe(true);
+    expect(new Set(factors.map(Math.abs)).size).toBe(3);
+    const ratios = before.slice(6, 9);
+    expect(ratios.map(parseFloat).every(v => v > 0)).toBe(true);
+    expect(new Set(ratios).size).toBe(3);
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
     await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
     await page.getByTestId('axes-up--Y').click();
@@ -16,9 +30,13 @@ for (const hand of ['right', 'left'] as const) {
     await page.getByTestId(`axes-hand-${hand}`).click();
     await page.getByTestId('axes-done').click();
     const after = await row.locator('td').allTextContents();
-    expect(after.slice(3, 6).map(Number).every(v => v >= 0)).toBe(true);
-    expect(after.slice(3, 6).map(Number).sort()).toEqual(before.slice(3, 6).map(Number).sort());
-    expect(after.slice(6)).toEqual(before.slice(6));
+    expect(after).toHaveLength(12);
+    expect(after.slice(0, 3)).toEqual(before.slice(0, 3));
+    expect(after.slice(3, 6).map(Number)).toEqual([hand === 'right' ? factors[1] : -factors[1]!, -factors[2]!, -factors[0]!]);
+    expect([...factors, ...after.slice(3, 6).map(Number)].some(v => v < 0)).toBe(true);
+    expect(after.slice(6, 9)).toEqual([ratios[1], ratios[2], ratios[0]]);
+    expect(after.slice(9, 12)).toEqual([before[10], before[11], before[9]]);
+    expect(after.slice(6, 12).map(parseFloat).every(v => v >= 0)).toBe(true);
   });
 
   test(`@smoke #2259 shell card converts reversed ${hand}-handed elevation and retains the hydrostatic pressure`, async ({ pro: page }) => {

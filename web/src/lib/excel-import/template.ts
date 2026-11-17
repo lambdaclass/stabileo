@@ -29,7 +29,7 @@ const toUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/fr
 import { loadXlsxModule, saveWorkbook } from '../export/excel';
 import { t } from '../i18n';
 import { uiStore } from '../store';
-import { SHEETS, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
+import { SHEETS, coordinateColumns, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
 import { axesStore } from '../axes/axes.svelte';
 import { makeFrame, relabelAxesWith, userAxisAlong, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
 import type { SheetSpec } from './schema';
@@ -67,7 +67,8 @@ function instructionRows(frame: AxesFrame | null = null): Array<Array<string | n
       rows.push([
         '',
         headerFor(col),
-        col.required ? t('xls.tpl.required') : t('xls.tpl.optionalMark'),
+        (frame && sheet.name === 'Nodes' && ['x', 'y', 'z'].includes(col.key)
+          ? col.key === coordinateColumns(frame).along : col.required) ? t('xls.tpl.required') : t('xls.tpl.optionalMark'),
         frame ? columnHelpIn(frame, col.helpKey) : t(col.helpKey),
       ]);
     }

@@ -192,7 +192,7 @@ function serializeCombinations(frame: AxesFrame): ReportData['combinations'] {
   if (modelStore.model.combinations.length === 0) return undefined;
   return modelStore.model.combinations.map((c) => ({
     id: c.id,
-    name: combinationNameIn(frame, c),
+    name: combinationNameIn(frame, c, modelStore.model.loadCases),
     factors: c.factors
       .map((f) => {
         const lc = modelStore.model.loadCases.find((lc2) => lc2.id === f.caseId);
@@ -297,7 +297,7 @@ export function buildProReportData(opts: {
   data.projectInfo = modelStore.projectInfo;
   data.resultSetName = chosen?.results ? chosen.name : resultSetName(reportFrame);
   const combos = activePerCombo3D();
-  const cname = new Map(modelStore.combinations.map((c) => [c.id, combinationNameIn(reportFrame, c)]));
+  const cname = new Map(modelStore.combinations.map((c) => [c.id, combinationNameIn(reportFrame, c, modelStore.model.loadCases)]));
   const kname = new Map(modelStore.loadCases.map((c) => [c.id, caseNameIn(reportFrame, c)]));
   data.resultSets = combos.size > 0
     ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))

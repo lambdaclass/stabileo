@@ -36,7 +36,7 @@ import type { JSONModel } from '../templates/load-fixture';
 import { defaultLoadCases } from '../model/default-loads';
 import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
-import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
+import { SHEETS, coordinateColumns, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
@@ -468,8 +468,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
   const frame = readAxes(grab(AXES_SHEET), problems);
-  const col = (modelAxis: number): string => userAxisAlong(frame, modelAxis).name.toLowerCase();
-  const along = col(0), depth = col(1), height = col(2);
+  const { along, depth, height } = coordinateColumns(frame);
   const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
   const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
   const firstNode = idGuard('Nodes', problems);

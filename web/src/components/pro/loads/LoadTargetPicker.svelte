@@ -6,6 +6,8 @@
 </script>
 
 <script lang="ts">
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../../lib/axes/reframe-draft';
   import { axesKey, axisName, modelAxisOf } from '../../../lib/axes/display';
   /**
    * What a load or a support goes on, the same choice everywhere (`model/loads/load-targets.ts`):
@@ -50,11 +52,19 @@
   let axis = $state<'X' | 'Y' | 'Z'>(axisName(2));
 
   let shownAxes = axesKey();
-  $effect(() => {
+  let shownFrame = axesStore.frame;
+  $effect.pre(() => {
     const k = axesKey();
+    const next = axesStore.frame;
     if (k === shownAxes) return;
-    shownAxes = k;
-    untrack(() => { axis = axisName(2); });
+    untrack(() => {
+      const moved = reframeDraft(shownFrame, next).range(axis, min, max);
+      axis = moved.axis;
+      min = moved.min;
+      max = moved.max;
+      shownAxes = k;
+      shownFrame = next;
+    });
   });
   let min = $state(0);
   let max = $state(0);
