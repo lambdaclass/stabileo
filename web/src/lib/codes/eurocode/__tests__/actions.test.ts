@@ -60,6 +60,12 @@ describe('EN 1991-1-3 snow on a duopitch roof', () => {
   it('UK NA: sk = 0,15 + (0,1 Z + 0,05) + (A − 100)/525', () => {
     expect(ukGroundSnow(3, 205)).toBeCloseTo(0.15 + 0.35 + 0.2, 12);
   });
+
+  it('UK NA: below 100 m the map value at 100 m, not less', () => {
+    expect(ukGroundSnow(1, 0)).toBeCloseTo(0.3, 12);
+    expect(ukGroundSnow(1, 50)).toBeCloseTo(0.3, 12);
+    expect(ukGroundSnow(2, 100)).toBeCloseTo(0.4, 12);
+  });
 });
 
 describe('EN 1991-1-1 reduction', () => {

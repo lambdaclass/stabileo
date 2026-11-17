@@ -142,3 +142,18 @@ describe('UK stack end to end', () => {
     expect(p.cases.filter((c) => c.type === 'W')).toHaveLength(4);
   });
 });
+
+describe('EN 1991-1-3 sk', () => {
+  const snow = { enabled: true, pg: 0, source: '', terrain: 'B', exposure: 'partial', thermal: 'normal', category: 'II', roofKind: 'gable', slippery: false } as LoadPlanInput['snow'];
+  it('sk = 0 is a site without snow: no snow action, and the plan is not blocked', () => {
+    const p = buildLoadPlan(input('eurocode', { codeInputs: { 'en1991-1-3': { sk: 0 } }, snow }));
+    expect(p.blockedKeys).toEqual([]);
+    expect(p.outcome).toBe('READY');
+    expect(p.cases.some((c) => c.type === 'S')).toBe(false);
+    expect(p.derivation.map((m) => m.key)).toContain('loads.ec.snow.skZero');
+  });
+  it('sk left empty still blocks', () => {
+    const p = buildLoadPlan(input('eurocode', { codeInputs: { 'en1991-1-3': {} }, snow }));
+    expect(p.blockedKeys.map((m) => m.key)).toEqual(['loads.ec.blocked.sk']);
+  });
+});
