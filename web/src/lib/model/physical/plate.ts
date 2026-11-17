@@ -68,12 +68,17 @@ export interface PlateSurface {
   curved?: boolean;
   /** The mid-surface offset every element of its mesh is given, whatever the mesh. */
   offset?: import('../element-3d-metadata').ShellOffset;
+  /**
+   * Sides held all along, each from one outline node to another: every node of its mesh on the
+   * segment between them gets the support type given, made again with every mesh.
+   */
+  edgeSupports?: Array<{ from: number; to: number; type: string }>;
   /** Foundation springs k = ks · A at the nodes of its mesh, made again with every mesh. */
   springs?: { ks: number; uplift: boolean; holdHorizontal: boolean };
   /** Set when the current mesh was made: what it was made from, and what it is. */
   meshed?: {
     signature: string; cells: number; quality: MeshQuality;
-    /** Mesh nodes given the plain support both ends of their outline side carry, taken away with the mesh. */
+    /** Mesh nodes given an edge support's type (`edgeSupports`), taken away with the mesh. */
     supported?: number[];
     /** The shells the plate came with, as the model had them: no mesher made them. */
     original?: boolean;
