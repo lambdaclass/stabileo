@@ -46,7 +46,7 @@ import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
   DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D,
 } from '../../store/model.svelte';
-import { generatedMemberBounds, remapSpanInterval, validateMemberLoadInterval } from '../../engine/member-span-loads';
+import { canonicalSpanLoad, generatedMemberBounds, remapSpanInterval, type MemberEndpoints } from '../../engine/member-span-loads';
 import { tendonStretch } from '../../engine/prestress';
 
 const EPS = 1e-9;
@@ -99,6 +99,7 @@ export function splitElementLoads(
   segmentIds: readonly number[],
   newId: () => number,
   segmentLengths: readonly number[],
+  points?: MemberEndpoints,
 ): { kept: Load[]; added: Load[] } {
   const kept: Load[] = [];
   const added: Load[] = [];
@@ -115,9 +116,9 @@ export function splitElementLoads(
     switch (l.type) {
       case 'distributed': {
         const d = l.data as DistributedLoad;
-        validateMemberLoadInterval(elementId, d.a ?? 0, d.b ?? L, L);
+        const source = canonicalSpanLoad(elementId, d.a ?? 0, d.b ?? L, L, [[d.qI, d.qJ]], points);
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qI, d.qJ]], bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!);
+          const c = clipTrapezoid(source.a, source.b, source.values, bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!);
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qI: _qi, qJ: _qj, ...meta } = d;
           const data: DistributedLoad = { ...meta, id: newId(), elementId: segmentIds[k]!, qI: c.values[0]![0], qJ: c.values[0]![1] };
@@ -129,9 +130,9 @@ export function splitElementLoads(
       }
       case 'distributed3d': {
         const d = l.data as DistributedLoad3D;
-        validateMemberLoadInterval(elementId, d.a ?? 0, d.b ?? L, L);
+        const source = canonicalSpanLoad(elementId, d.a ?? 0, d.b ?? L, L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], points);
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!);
+          const c = clipTrapezoid(source.a, source.b, source.values, bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!);
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qXI: _xi, qXJ: _xj, ...meta } = d;
           const data: DistributedLoad3D = {
@@ -267,10 +268,11 @@ export function memberLoadGeometry(model: ModelData) {
     partition: (elem: Element, nodes: ModelData['nodes'], elements: ReadonlyMap<number, Element>, ids: readonly number[]) => {
       const children = ids.map(id => ends(elements.get(id)!, nodes));
       const lengths = children.map(measuredLength);
+      const source = ends(elem, nodes);
       return {
         lengths,
+        points: [[source[0].x, source[0].y, source[0].z], [source[1].x, source[1].y, source[1].z]] as MemberEndpoints,
         bounds: () => {
-          const source = ends(elem, nodes);
           return generatedMemberBounds(measuredLength(source), lengths,
             [source[0], ...children.flat(), source[1]].map(p => [p.x, p.y, p.z]));
         },

@@ -126,7 +126,7 @@ export function targetDisplacement(solver: SolverInput, quantity: InfluenceQuant
     return splitSpanLoad(l, L, [
       { id: pc.first, start: 0, end: bounds[1], length: memberLength(split.solver, pc.first) },
       { id: pc.second, start: bounds[1], end: L, length: memberLength(split.solver, pc.second) },
-    ]);
+    ], [solver.nodes.get(solver.elements.get(pc.original)!.nodeI)!, solver.nodes.get(solver.elements.get(pc.original)!.nodeJ)!].map(p => [p.x, p.z]) as [number[], number[]]);
   });
   const res = solve({ ...split.solver, loads: moved });
   const d = res.displacements.find((x) => x.nodeId === split.node);

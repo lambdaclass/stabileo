@@ -164,7 +164,7 @@ function splitAt(input: SolverInput, id: number, s: number, ids: { node: number;
       out.push(...splitSpanLoad(l, L, [
         { id, start: 0, end: bounds[1], length: memberLength(input, id) },
         { id: rightId, start: bounds[1], end: L, length: memberLength(input, rightId) },
-      ]));
+      ], [[a.x, a.z], [b.x, b.z]]));
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       out.push(l.data.a <= s + 1e-12
         ? { type: 'pointOnElement', data: { ...l.data, a: Math.min(l.data.a, s) } }

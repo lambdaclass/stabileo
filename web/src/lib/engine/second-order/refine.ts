@@ -86,7 +86,7 @@ export function refineInput(input: SolverInput, n: number): Refined {
     });
     const actualBounds = generatedMemberBounds(L, lengths, chain.map(id => { const p = nodes.get(id)!; return [p.x, p.z]; }));
     list.forEach((piece, k) => { piece.x0 = actualBounds[k]; piece.x1 = actualBounds[k + 1]; });
-    const split = splitElementLoads(loads, id, actualBounds, ids, () => nextLoad++, lengths);
+    const split = splitElementLoads(loads, id, actualBounds, ids, () => nextLoad++, lengths, [[ni.x, ni.z], [nj.x, nj.z]]);
     loads = [...split.kept, ...split.added];
   }
 

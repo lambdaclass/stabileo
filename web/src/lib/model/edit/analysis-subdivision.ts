@@ -49,8 +49,8 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
     const ends = [e.nodeI, ...added, e.nodeJ];
     const ids = ends.slice(1).map((_, k) => (k === 0 ? id : nextElem++));
     ids.forEach((sid, k) => elements.set(sid, { ...segmentFields(e, k, n), id: sid, nodeI: ends[k], nodeJ: ends[k + 1] } as Element));
-    const { bounds, lengths } = geometry.partition(e, nodes, elements, ids);
-    const split = splitElementLoads(loads, id, bounds(), ids, () => nextLoad++, lengths);
+    const { bounds, lengths, points } = geometry.partition(e, nodes, elements, ids);
+    const split = splitElementLoads(loads, id, bounds(), ids, () => nextLoad++, lengths, points);
     loads = [...split.kept, ...split.added];
     segments.set(id, ids);
     inner.set(id, added);

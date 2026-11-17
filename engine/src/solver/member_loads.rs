@@ -37,6 +37,24 @@ pub fn canonical_interval(i: &[f64], j: &[f64], a: f64, b: f64) -> Result<[f64; 
     })
 }
 
+pub fn canonical_interval_values(i: &[f64], j: &[f64], a: f64, b: f64, values: &[f64]) -> Result<Vec<f64>, String> {
+    let interval = canonical_interval(i, j, a, b)?;
+    let scale = (b > interval[2] && interval[1] == interval[2]).then_some(b / interval[2]);
+    if !values.len().is_multiple_of(2) {
+        return Err("Member load intensities must be endpoint pairs".into());
+    }
+    let mut result = interval.to_vec();
+    for pair in values.chunks_exact(2) {
+        let mapped = match scale {
+            Some(scale) => scaled_pair(pair[0], pair[1], scale)
+                .ok_or("Member load endpoint mapping cannot preserve force and moment")?,
+            None => [pair[0], pair[1]],
+        };
+        result.extend(mapped);
+    }
+    Ok(result)
+}
+
 fn scaled_pair(q_i: f64, q_j: f64, scale: f64) -> Option<[f64; 2]> {
     let pair = [q_i * scale, q_j * scale];
     for weights in [[0.5, 0.5], [1.0 / 6.0, 1.0 / 3.0]] {

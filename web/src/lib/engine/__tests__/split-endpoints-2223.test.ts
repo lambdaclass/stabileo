@@ -56,7 +56,7 @@ function cut(entry: string, id: number): ModelData {
 describe('known wrong result: #2223 — split paths accept certified wind endpoints', () => {
   for (const dim of [2, 3]) for (const kind of dim === 2 ? ['distributed'] : ['distributed', 'distributed3d']) {
     for (const a of [0, 1]) for (const entry of ['direct', 'point', 'subdivide', 'nodes', 'allNodes', 'intersection', 'analysis', 'variable']) {
-      it.skip(`known wrong result: #2223 — ${dim}D ${kind} ${entry} a=${a} preserves the answer through every solve mode`, () => {
+      it(`known wrong result: #2223 — ${dim}D ${kind} ${entry} a=${a} preserves the answer through every solve mode`, () => {
         const b = 4.000000000000001, id = fixture(dim, kind, b, a);
         const model = cut(entry, id);
         expect(model.elements.size).toBe(2);
@@ -77,7 +77,7 @@ describe('known wrong result: #2223 — split paths accept certified wind endpoi
       });
     }
   }
-  for (const type of ['distributed', 'axialDistributed'] as const) it.skip(`known wrong result: #2223 — ${type} canonicalizes before clipping and retains force and moment`, () => {
+  for (const type of ['distributed', 'axialDistributed'] as const) it(`known wrong result: #2223 — ${type} canonicalizes before clipping and retains force and moment`, () => {
     for (const [a, b] of [[0, 4.000000000000001], [1, 4.000000000000001], [0, 4 + 2 ** -48], [0, 4], [0, 4 - 2 ** -51]]) {
       const pieces = [{ id: 1, start: 0, end: 2, length: 2 }, { id: 2, start: 2, end: 4, length: 2 }];
       const out = splitSpanLoad({ type, data: { elementId: 1, qI: -2, qJ: -4, a, b } }, 4, pieces, [[1000.1, 0], [1004.1, 0]]);
@@ -94,12 +94,12 @@ describe('known wrong result: #2223 — split paths accept certified wind endpoi
       expect(moment).toBeCloseTo((-3 * width * a + (-2 - 8) * width * width / 6) / scale, 12);
     }
   });
-  it.skip('known wrong result: #2223 — nonlinear refinement retains the certified endpoint', () => {
-    const id = fixture(2, 'distributed', 4.000000000000001);
+  it('known wrong result: #2223 — nonlinear refinement retains the certified endpoint', () => {
+    fixture(2, 'distributed', 4.000000000000001);
     const input = buildSolverInput2D(modelStore.model, false)!;
     expect(refineInput(input, 2).input.loads).toHaveLength(2);
   });
-  it.skip('known wrong result: #2223 — Maxwell section splitting retains the certified endpoint', () => {
+  it('known wrong result: #2223 — Maxwell section splitting retains the certified endpoint', () => {
     const id = fixture(2, 'distributed', 4.000000000000001);
     const input = buildSolverInput2D(modelStore.model, false)!;
     const loads = input.loads;
@@ -109,7 +109,7 @@ describe('known wrong result: #2223 — split paths accept certified wind endpoi
     expect(Math.abs(section)).toBeGreaterThan(0);
     expect(Math.abs(section)).toBeLessThan(Math.abs(direct));
   });
-  it.skip('known wrong result: #2223 — plastic hinge insertion splits the certified endpoint load', () => {
+  it('known wrong result: #2223 — plastic hinge insertion splits the certified endpoint load', () => {
     fixture(2, 'distributed', 4.000000000000001);
     const input = buildSolverInput2D(modelStore.model, false)!;
     input.supports = new Map([[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]]);

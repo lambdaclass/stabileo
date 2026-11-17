@@ -14,13 +14,14 @@ export function memberLength(input: Pick<SolverInput, 'nodes' | 'elements'>, id:
 
 export const MEMBER_GEOMETRY_LIMIT = 1e-10;
 
-type MemberIntervalKernel = (i: Float64Array, j: Float64Array, a: number, b: number) => Float64Array;
+export type MemberEndpoints = readonly [readonly number[], readonly number[]];
+type MemberIntervalKernel = (i: Float64Array, j: Float64Array, a: number, b: number, values?: Float64Array) => Float64Array;
 let intervalKernel: MemberIntervalKernel | null = null;
 export function registerMemberIntervalKernel(kernel: MemberIntervalKernel | null): void { intervalKernel = kernel; }
 
 export class MemberLoadIntervalError extends Error {}
 
-export function validateMemberLoadInterval(id: number, a: number, b: number, length: number, points?: readonly [readonly number[], readonly number[]]): void {
+export function validateMemberLoadInterval(id: number, a: number, b: number, length: number, points?: MemberEndpoints): void {
   if (b > length && points) {
     requireEngine(intervalKernel !== null, 'member load interval');
     [a, b, length] = intervalKernel!(Float64Array.from(points[0]), Float64Array.from(points[1]), a, b);
@@ -31,6 +32,18 @@ export function validateMemberLoadInterval(id: number, a: number, b: number, len
   if ((b - a) / length < MEMBER_GEOMETRY_LIMIT) {
     throw new MemberLoadIntervalError(tp('engine.memberLoad.geometryLimit', { id, a, b, length, limit: MEMBER_GEOMETRY_LIMIT }));
   }
+}
+
+export function canonicalSpanLoad(id: number, a: number, b: number, length: number, values: ReadonlyArray<readonly [number, number]>, points?: MemberEndpoints): { a: number; b: number; values: Array<[number, number]> } {
+  let mapped = values.map(([i, j]): [number, number] => [i, j]);
+  if (b > length && points) {
+    requireEngine(intervalKernel !== null, 'member load interval');
+    const result = intervalKernel!(Float64Array.from(points[0]), Float64Array.from(points[1]), a, b, Float64Array.from(values.flat()));
+    [a, b, length] = result;
+    mapped = values.map((_, k) => [result[3 + 2 * k], result[4 + 2 * k]]);
+  }
+  validateMemberLoadInterval(id, a, b, length);
+  return { a, b, values: mapped };
 }
 
 export function spanEndpoints(a: number, b: number, length: number, id: number): { a?: number; b?: number } {
@@ -86,10 +99,9 @@ export function remapSpanInterval(id: number, a: number, b: number, start: numbe
   return { lo, hi, scale, ...endpoints };
 }
 
-export function splitSpanLoad(load: SpanLoad, length: number, pieces: Piece[]): SolverLoad[] {
-  const { qI, qJ } = load.data;
-  const a = load.data.a ?? 0, b = load.data.b ?? length;
-  spanEndpoints(a, b, length, load.data.elementId);
+export function splitSpanLoad(load: SpanLoad, length: number, pieces: Piece[], points?: MemberEndpoints): SolverLoad[] {
+  const { a, b, values } = canonicalSpanLoad(load.data.elementId, load.data.a ?? 0, load.data.b ?? length, length, [[load.data.qI, load.data.qJ]], points);
+  const [[qI, qJ]] = values;
   const at = (x: number) => x === a ? qI : x === b ? qJ : qI + (qJ - qI) * ((x - a) / (b - a));
   return pieces.flatMap((p): SolverLoad[] => {
     const interval = remapSpanInterval(p.id, a, b, p.start, p.end, p.length);

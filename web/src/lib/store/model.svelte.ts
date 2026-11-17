@@ -1532,8 +1532,8 @@ function createModelStore() {
         ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
       });
     }
-    const { bounds, lengths } = memberLoadGeometry({ ...model, sections }).partition(original, nodes, elements, segmentIds);
-    const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths);
+    const { bounds, lengths, points } = memberLoadGeometry({ ...model, sections }).partition(original, nodes, elements, segmentIds);
+    const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths, points);
 
     if (!_undoBatching) _pushUndo?.();
     const outerBatching = _undoBatching;

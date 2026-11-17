@@ -355,7 +355,7 @@ export function expandVariableMembers<M extends ModelData>(model: M, base: Model
     const partition = geometry.partition(model.elements.get(m.parentId)!, nodes, elements, ids);
     const bounds = partition.bounds(), lengths = partition.lengths;
     m.pieces.forEach((p, k) => { p.x0 = bounds[k]; p.x1 = bounds[k + 1]; });
-    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths);
+    const split = splitElementLoads(loads, m.parentId, bounds, ids, () => nextLoad++, lengths, partition.points);
     loads = [...split.kept, ...split.added];
     renamed.set(m.parentId, ids);
   }
