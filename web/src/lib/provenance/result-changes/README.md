@@ -98,6 +98,14 @@ specified above. Retrospective entries identify the original PR in `prs`; their
 new results version is the registration merge's version, not a rewritten
 historical stamp.
 
+An entry whose saved loading or combinations must be regenerated can declare
+`requiresLoadRegeneration: true` independently of its `when` condition. Both
+assessment persistence and the notice action use `concernsLoadBasis`. A solve
+stamp does not clear such an entry; the load-basis stamp must reach its version.
+The existing `generatedLoads` conditions retain this behavior for older entries.
+Snow without a load-basis stamp is unknown regardless of load origin, since
+hand-entered snow can also be selected incorrectly by generated combinations.
+
 ## Manual member load restoration
 
 A change that requires restoring stored manual member loads sets

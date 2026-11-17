@@ -146,7 +146,8 @@ export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && 
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
   if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
-  return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+  const snow = (Array.isArray(s.loadCases) ? s.loadCases : []).some(c => c.type === 'S');
+  return snow || (Array.isArray(s.loads) ? s.loads : []).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 export function memberLoadsRestoredWith(s: FeatureSnapshot): number {
