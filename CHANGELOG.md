@@ -102,6 +102,12 @@ Recognize moved Markdown and JSON documents in the results snapshot build classi
 
 ### Performance
 
+#### Reduce allocation and redundant bisection in span rotation checks (2026-11-17)
+
+Use bounded stack arrays for cubic roots and stop bisection when the midpoint
+cannot advance. Rotation checks retain bit-for-bit results against the original
+algorithm, including nonfinite inputs.
+
 #### Reuse the initial matrix across nonlinear load cases (2026-11-17)
 
 Nonlinear combination analysis retains one prepared linear solve while its full

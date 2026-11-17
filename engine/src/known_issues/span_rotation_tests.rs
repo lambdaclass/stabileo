@@ -1,5 +1,32 @@
-use super::{cubic_roots_in_unit, largest_span_rotation, nan_max, SPAN_STATIONS};
+use super::{largest_span_rotation, nan_max, SPAN_STATIONS};
 use crate::postprocess::diagrams::SpanRotation;
+
+#[test]
+fn bounded_roots_match_the_original_bisection_bits() {
+    let mut state = 123456789u64;
+    let mut cases = vec![[0.0; 4], [-0.18, 1.46, -3.2, 2.0], [0.24, -1.0, 1.0, 0.0], [0.0, -0.0, 1.0, -1.0]];
+    for _ in 0..2000 {
+        cases.push(std::array::from_fn(|_| {
+            state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+            (state >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+        }));
+    }
+    for c in cases {
+        for scale in [1e-200, 1.0, 1e200, -1.0] {
+            let c = c.map(|v| v * scale);
+            let expected: Vec<_> = cubic_roots_in_unit(c).into_iter().map(f64::to_bits).collect();
+            let actual: Vec<_> = super::cubic_roots_in_unit(c).into_iter().map(f64::to_bits).collect();
+            assert_eq!(actual, expected, "{c:?}");
+        }
+    }
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        for i in 0..4 {
+            let mut c = [0.1, -0.75, 0.0, 1.0];
+            c[i] = value;
+            assert_eq!(super::cubic_roots_in_unit(c).into_iter().map(f64::to_bits).collect::<Vec<_>>(), cubic_roots_in_unit(c).into_iter().map(f64::to_bits).collect::<Vec<_>>());
+        }
+    }
+}
 
 #[test]
 fn prepared_interpolation_matches_reference_bits_for_mixed_loads() {
@@ -90,4 +117,37 @@ fn reference_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanR
         worst = nan_max(worst, nan_max(sections.sqrt(), axes.sqrt()));
     }
     worst
+}
+
+fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
+    let size = c.iter().map(|v| v.abs()).filter(|v| v.is_finite() && *v > 0.0).fold(0.0, f64::max);
+    let c = if size > 0.0 { c.map(|v| v / size) } else { c };
+    let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
+    let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
+    let mut cuts = vec![0.0, 1.0];
+    let disc = qb * qb - 4.0 * qa * qc;
+    if disc >= 0.0 {
+        let q = -0.5 * (qb + qb.signum() * disc.sqrt());
+        if q != 0.0 {
+            cuts.extend([q / qa, qc / q]);
+        } else if qa != 0.0 {
+            cuts.push(0.0);
+        }
+    }
+    cuts.retain(|t| (0.0..=1.0).contains(t));
+    cuts.sort_by(f64::total_cmp);
+    let mut roots = Vec::new();
+    for w in cuts.windows(2) {
+        let (mut lo, mut hi) = (w[0], w[1]);
+        let (plo, phi) = (p(lo), p(hi));
+        if !(plo * phi <= 0.0) || plo == phi {
+            continue;
+        }
+        for _ in 0..80 {
+            let mid = 0.5 * (lo + hi);
+            if (p(mid) <= 0.0) == (plo <= 0.0) { lo = mid } else { hi = mid }
+        }
+        roots.push(0.5 * (lo + hi));
+    }
+    roots
 }
