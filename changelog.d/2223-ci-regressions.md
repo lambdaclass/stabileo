@@ -1,0 +1,4 @@
+### Fixed
+#### BREAKING (results): Preserve decimal endpoints and combination refusals (2026-11-17)
+
+Resolve decimal load endpoints from the rounding cells of both stored member nodes through the shared native mapper, retaining existing rounding caps and load-preservation checks. Keep non-finite planar compatibility combinations as empty diagnostic results with their conservative second-order screen; checked APIs still refuse and refusal records cannot become valid combinations or envelopes. Scope the compensated-force notice to models with applied actions or force-producing analysis histories, localize interval refusals in every dictionary, and check signed support moments in member-cut regressions. See [endpoint arithmetic](../docs/results-changes/2026-11-wind-endpoint-arithmetic.md) and [combination diagnoses](../docs/results-changes/2026-11-atomic-load-splits.md) (#2223, #2222).

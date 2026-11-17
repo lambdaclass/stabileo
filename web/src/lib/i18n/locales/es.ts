@@ -1,4 +1,7 @@
 const es: Record<string, string> = {
+  "engine.memberLoad.invalidInterval": "Elemento {id}: intervalo de carga distribuida [{a}, {b}] no válido para la longitud {length}",
+  "engine.memberLoad.geometryLimit": "Elemento {id}: el intervalo de carga distribuida [{a}, {b}] para la longitud {length} está por debajo del límite geométrico relativo {limit}",
+
   "loadPlan.blocked.concentratedRule": "{occupancy} requiere verificar cargas concentradas según CIRSOC 101 {article}. No se evalúan las posiciones más desfavorables. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
   "loadPlan.blocked.concentratedLive": "{occupancy} requiere verificar una sobrecarga concentrada de {force} kN según CIRSOC 101 §4.4. No se evalúan las posiciones más desfavorables ni la alternativa entre carga uniforme y concentrada. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige acciones concentradas de cubierta en las posiciones más desfavorables, separadas de la sobrecarga de cubierta de §4.8. Estas verificaciones no se evalúan. La generación automática está bloqueada; modelá y verificá las acciones de cubierta manualmente.",

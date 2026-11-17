@@ -14,7 +14,11 @@ fn endpoint_scale<const D: usize>(i: [f64; D], j: [f64; D], b: Option<f64>) -> O
     }
     let alternate = delta.iter().fold(0.0_f64, |s, d| s.hypot(*d));
     let coincides = (0..D).all(|k| i[k] + (delta[k] / length) * b == j[k]);
-    (b == alternate || coincides).then_some(b / length)
+    let coordinate_rounding: f64 = (0..D).map(|k| {
+        let cell = |x: f64| ((x.next_up() - x).min(x - x.next_down())) * 0.5;
+        (delta[k] / length).abs() * (cell(i[k]) + cell(j[k]))
+    }).sum();
+    (b == alternate || coincides || b - length < coordinate_rounding).then_some(b / length)
 }
 
 fn scaled_pair(q_i: f64, q_j: f64, scale: f64) -> Option<[f64; 2]> {

@@ -437,15 +437,17 @@ fn issue_2222_wind_endpoint_arithmetic_across_solvers() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2223"]
 fn issue_2223_translated_decimal_endpoint_across_solvers() {
     use dedaliano_engine::{load_session::*, solver::fiber_nonlinear::*};
+    for angle in [0.0_f64, 0.37, -0.37] {
     for axial in [false, true] {
         for b in [0.2_f64.next_down(), 0.2, 0.2_f64.next_up()] {
             let mut input = witness();
             input.materials.values_mut().next().unwrap().e = 200_000.0;
-            for node in input.nodes.values_mut() { node.x = 0.4 + (node.id - 1) as f64 * (0.6 - 0.4); node.z = 0.0; }
-            input.nodes.get_mut("2").unwrap().x = 0.6;
+            for node in input.nodes.values_mut() {
+                let station = if node.id == 2 { 0.6 } else { 0.4 + (node.id - 1) as f64 * (0.6 - 0.4) };
+                node.x = station * angle.cos(); node.z = station * angle.sin();
+            }
             input.loads = vec![if axial {
                 SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: -2.0, q_j: -4.0, a: Some(0.0), b: Some(b) })
             } else {
@@ -464,7 +466,7 @@ fn issue_2223_translated_decimal_endpoint_across_solvers() {
                 ("fiber", solve_fiber_nonlinear_2d(&fiber).map(|r| r.results)),
             ] {
                 if b > 0.2 { assert!(result.expect_err(entry).contains("invalid distributed load interval")); }
-                else { let r = result.unwrap_or_else(|e| panic!("{entry}: {e}")); near(r.reactions.iter().map(|r| if axial { r.rx } else { r.rz }).sum(), 3.0 * b); }
+                else { let r = result.unwrap_or_else(|e| panic!("{entry}: {e}")); near(r.reactions.iter().map(|r| r.rx).sum::<f64>().hypot(r.reactions.iter().map(|r| r.rz).sum()), 3.0 * b); }
             }
             for plane in [Plane::XY, Plane::XZ] {
                 let spatial = embed_2d(&input, plane).unwrap();
@@ -479,9 +481,10 @@ fn issue_2223_translated_decimal_endpoint_across_solvers() {
                     ("fiber", solve_fiber_nonlinear_3d(&fiber).map(|r| r.results)),
                 ] {
                     if b > 0.2 { assert!(result.expect_err(entry).contains("invalid distributed load interval")); }
-                    else { let r = result.unwrap_or_else(|e| panic!("{entry}: {e}")); near(r.reactions.iter().map(|r| if axial { r.fx } else if matches!(plane, Plane::XY) { r.fy } else { r.fz }).sum(), 3.0 * b); }
+                    else { let r = result.unwrap_or_else(|e| panic!("{entry}: {e}")); let sums = r.reactions.iter().fold([0.0; 3], |s, r| [s[0] + r.fx, s[1] + r.fy, s[2] + r.fz]); near(sums[0].hypot(sums[1]).hypot(sums[2]), 3.0 * b); }
                 }
             }
         }
     }
+}
 }

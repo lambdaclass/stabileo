@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "engine.memberLoad.invalidInterval": "Élément {id} : intervalle de charge répartie [{a}, {b}] invalide pour la longueur {length}",
+  "engine.memberLoad.geometryLimit": "Élément {id} : l’intervalle de charge répartie [{a}, {b}] pour la longueur {length} est inférieur à la limite géométrique relative {limit}",
+
   "loadPlan.blocked.concentratedRule": "{occupancy} exige une vérification des charges concentrées selon CIRSOC 101 {article}. Les positions les plus défavorables ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loadPlan.blocked.concentratedLive": "{occupancy} exige la vérification d’une surcharge concentrée de {force} kN selon CIRSOC 101 §4.4. Les positions les plus défavorables et l’alternative entre charge uniforme et concentrée ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige des actions concentrées de toiture aux positions les plus défavorables, séparément de la surcharge de toiture de §4.8. Ces vérifications ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez les actions de toiture manuellement.",

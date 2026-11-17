@@ -1,3 +1,4 @@
+import { tp } from '../i18n';
 import type { SolverInput, SolverLoad } from './types';
 
 type SpanLoad = Extract<SolverLoad, { type: 'distributed' | 'axialDistributed' }>;
@@ -14,10 +15,10 @@ export const MEMBER_GEOMETRY_LIMIT = 1e-10;
 
 export function validateMemberLoadInterval(id: number, a: number, b: number, length: number): void {
   if (!Number.isFinite(length) || length <= 0 || !Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < a || b > length) {
-    throw new Error(`Element ${id}: invalid distributed load interval [${a}, ${b}] on length ${length}`);
+    throw new Error(tp('engine.memberLoad.invalidInterval', { id, a, b, length }));
   }
   if ((b - a) / length < MEMBER_GEOMETRY_LIMIT) {
-    throw new Error(`Element ${id}: distributed load interval [${a}, ${b}] on length ${length} is below the relative geometry limit ${MEMBER_GEOMETRY_LIMIT}`);
+    throw new Error(tp('engine.memberLoad.geometryLimit', { id, a, b, length, limit: MEMBER_GEOMETRY_LIMIT }));
   }
 }
 

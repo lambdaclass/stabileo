@@ -1,7 +1,7 @@
-import { beforeAll, afterEach, expect, it } from 'vitest';
+import { beforeAll, afterEach, expect, it, vi } from 'vitest';
 import { initSolver } from '../wasm-solver';
 import { ALL_DICTS } from '../../i18n/locales/all';
-import { ensureLocale, setLocale, tp } from '../../i18n';
+import { ensureLocale, setLocale, tp, t, OFFERED_LOCALES } from '../../i18n';
 import { validateMemberLoadInterval, MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
 import { modelFeatures, ANALYSIS_KINDS } from '../../provenance/model-features';
 import { conditionHolds } from '../../provenance/applicability';
@@ -9,15 +9,17 @@ import totals from '../../provenance/result-changes/compensated-applied-force-to
 import model from '../../../../../engine/tests/fixtures/narrow-span-2222.json';
 
 let wasm: any;
-const wrong = process.env.RUN_KNOWN_WRONG === '2223' ? it : it.skip;
 beforeAll(async () => { await initSolver(); wasm = await import('../../wasm/dedaliano_engine.js'); });
 afterEach(() => setLocale('en'));
 
-for (const dim of [2, 3]) wrong(`known wrong result: #2223 — ${dim}D decimal endpoints keep force through every solver`, () => {
-  for (const b of [0.2 - 2 ** -55, 0.2, 0.2 + 2 ** -55]) for (const axial of [false, true]) {
+for (const dim of [2, 3]) it(`known wrong result: #2223 — ${dim}D decimal endpoints keep force through every solver`, () => {
+  for (const angle of [0, 0.37, -0.37]) for (const b of [0.2 - 2 ** -55, 0.2, 0.2 + 2 ** -55]) for (const axial of [false, true]) {
     const input: any = structuredClone(model);
-    for (const node of Object.values(input.nodes) as any[]) { node.x = 0.4 + (node.id - 1) * (0.6 - 0.4); node.z = 0; if (dim === 3) node.y = 0; }
-    input.nodes['2'].x = 0.6;
+    for (const node of Object.values(input.nodes) as any[]) {
+      const station = node.id === 2 ? 0.6 : 0.4 + (node.id - 1) * (0.6 - 0.4);
+      node.x = station * Math.cos(angle); node.z = station * Math.sin(angle);
+      if (dim === 3) { node.y = node.z; node.z = 0; }
+    }
     for (const section of Object.values(input.sections) as any[]) Object.assign(section, { iy: 1, j: 1 });
     if (dim === 3) for (const support of Object.values(input.supports) as any[]) Object.assign(support, { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true });
     const base = structuredClone(input); base.loads = [];
@@ -35,15 +37,16 @@ for (const dim of [2, 3]) wrong(`known wrong result: #2223 — ${dim}D decimal e
         if (b > 0.2) expect(run, mode).toThrow(/invalid distributed load interval/);
         else {
           const result = run();
-          const key = axial ? dim === 2 ? 'rx' : 'fx' : dim === 2 ? 'rz' : 'fz';
-          expect(result.reactions.reduce((s: number, r: any) => s + r[key], 0), mode).toBeCloseTo(3 * b, 10);
+          const axes = dim === 2 ? ['rx', 'rz'] : ['fx', 'fy', 'fz'];
+          const sums = axes.map(key => result.reactions.reduce((s: number, r: any) => s + r[key], 0));
+          expect(Math.hypot(...sums), mode).toBeCloseTo(3 * b, 10);
         }
       }
     } finally { session.free(); }
   }
 });
 
-wrong('known wrong result: #2223 — force summaries require applied actions in a saved model', () => {
+it('known wrong result: #2223 — unloaded modal-only models omit the force-summary notice', () => {
   const empty = { elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]] } as const;
   const features = (loads: any[]) => modelFeatures({ ...empty, elements: [...empty.elements] as any, loads }, { analysesRun: ['modal'], analysesRecorded: ANALYSIS_KINDS });
   expect(conditionHolds(totals.when, features([]))).toBe(false);
@@ -54,17 +57,64 @@ wrong('known wrong result: #2223 — force summaries require applied actions in 
   ]) expect(conditionHolds(totals.when, features(loads))).toBe(true);
 });
 
-for (const [locale, dict] of Object.entries(ALL_DICTS)) wrong(`known wrong result: #2223 — ${locale} retains interval details in localized refusals`, async () => {
+for (const [locale, dict] of Object.entries(ALL_DICTS)) it(`known wrong result: #2223 — ${locale} retains interval details in localized refusals`, async () => {
   for (const key of ['engine.memberLoad.invalidInterval', 'engine.memberLoad.geometryLimit']) {
     expect(dict[key], key).toBeTypeOf('string');
     for (const parameter of ['id', 'a', 'b', 'length']) expect(dict[key], key).toContain(`{${parameter}}`);
   }
   expect(dict['engine.memberLoad.geometryLimit']).toContain('{limit}');
-  if (!['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'].includes(locale)) return;
+  if (!(OFFERED_LOCALES as readonly string[]).includes(locale)) return;
   await ensureLocale(locale);
   setLocale(locale);
+  expect(t('engine.memberLoad.invalidInterval')).toBe(dict['engine.memberLoad.invalidInterval']);
+  expect(t('engine.memberLoad.geometryLimit')).toBe(dict['engine.memberLoad.geometryLimit']);
   for (const [a, b, key] of [[-1, 3, 'invalidInterval'], [1, 1, 'geometryLimit']] as const) {
     expect(() => validateMemberLoadInterval(17, a, b, 3)).toThrow(tp(`engine.memberLoad.${key}`, { id: 17, a, b, length: 3, limit: MEMBER_GEOMETRY_LIMIT }));
   }
   expect(() => validateMemberLoadInterval(17, 0, 3, 3)).not.toThrow();
+});
+
+for (const dim of [2, 3]) it(`${dim}D WASM preserves non-finite refusal records through combinations`, () => {
+  const result: any = { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [
+    { code: 'non_finite_result', severity: 'error', message: 'The result was withheld: non-finite force' },
+  ] };
+  if (dim === 3) Object.assign(result, { plateStresses: [], quadStresses: [], quadNodalStresses: [] });
+  expect(() => wasm[`combine_results_${dim}d`]({ factors: [{ caseId: 1, factor: 1 }], cases: [{ caseId: 1, results: result }] })).toThrow(/non_finite_result/);
+  expect(() => wasm[`compute_envelope_${dim}d`]([result])).toThrow(/non_finite_result/);
+});
+
+it('self-weight summaries remain applicable with an explicit gravity rule', () => {
+  const snapshot: any = { elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]], loads: [] };
+  for (const gravity of [{ analysis: { selfWeight: [{ caseId: 1, gz: -1 }] } }, { includeSelfWeight: true }]) {
+    expect(conditionHolds(totals.when, modelFeatures({ ...snapshot, ...gravity }))).toBe(true);
+  }
+});
+
+it('opening a self-weight-only frame retains its force-summary notice', async () => {
+  const { modelStore, uiStore } = await import('../../store');
+  const { recheckStore } = await import('../../store/recheck.svelte');
+  const { onProjectOpened } = await import('../../store/file');
+  const wasSelfWeight = uiStore.includeSelfWeight;
+  modelStore.clear();
+  modelStore.addElement(modelStore.addNode(0, 0), modelStore.addNode(1, 0), 'frame');
+  const snapshot = { ...modelStore.snapshot(), solvedWith: { ...recheckStore.capture()!, resultsVersion: 4, analyses: ['modal'], recorded: [...ANALYSIS_KINDS] } } as any;
+  try {
+    for (const mode of ['2d', '3d', 'pro']) for (const enabled of [false, true]) {
+      uiStore.includeSelfWeight = enabled;
+      onProjectOpened(snapshot, mode);
+      await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+      expect(recheckStore.assessment!.changes.some(c => c.id === totals.id)).toBe(enabled && mode !== 'pro');
+    }
+  } finally {
+    uiStore.includeSelfWeight = wasSelfWeight;
+    modelStore.clear();
+    recheckStore.reset();
+  }
+});
+
+it('force-producing and unknown histories retain notices after loads are edited away', () => {
+  const snapshot: any = { elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]], loads: [] };
+  for (const analysesRun of [null, ['linear'], ['pdelta'], ['nonlinear'], ['timeHistory']]) {
+    expect(conditionHolds(totals.when, modelFeatures(snapshot, { analysesRun, analysesRecorded: ANALYSIS_KINDS }))).toBe(true);
+  }
 });

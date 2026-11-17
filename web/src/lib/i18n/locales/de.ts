@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "engine.memberLoad.invalidInterval": "Stab {id}: ungültiges Streckenlastintervall [{a}, {b}] bei Länge {length}",
+  "engine.memberLoad.geometryLimit": "Stab {id}: Streckenlastintervall [{a}, {b}] bei Länge {length} liegt unter der relativen Geometriegrenze {limit}",
+
   "loadPlan.blocked.concentratedRule": "{occupancy} erfordert einen Nachweis konzentrierter Lasten nach CIRSOC 101 {article}. Maßgebende Laststellungen werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loadPlan.blocked.concentratedLive": "{occupancy} erfordert nach CIRSOC 101 §4.4 den Nachweis einer konzentrierten Nutzlast von {force} kN. Maßgebende Laststellungen und die Alternative zwischen Flächenlast und Einzellast werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie diese Einwirkungen manuell.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 verlangt konzentrierte Dacheinwirkungen in den ungünstigsten Laststellungen, getrennt von der Dachnutzlast nach §4.8. Diese Nachweise werden nicht ausgewertet. Die automatische Erzeugung ist gesperrt; modellieren und prüfen Sie die Dacheinwirkungen manuell.",

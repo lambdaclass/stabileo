@@ -38,12 +38,12 @@ describe('known wrong result: #2223 — unloaded member cuts', () => {
           const input = buildSolverInput2D(modelStore.model, false)!;
           const result: AnalysisResults = nonlinear ? solvePDelta(input).linearResults : solve(input);
           expect(result.reactions.find(r => r.nodeId === a)!.rz).toBeCloseTo(2, 10);
-          expect(Math.abs(result.reactions.find(r => r.nodeId === a)!.my)).toBeCloseTo(2 * 6, 10);
+          expect(result.reactions.find(r => r.nodeId === a)!.my).toBeCloseTo(2 * 6, 10);
         } else {
           const input = buildSolverInput3D(modelStore.model, false)!;
           const result: AnalysisResults3D = nonlinear ? solvePDelta3D(input).linearResults : solve3D(input);
           expect(result.reactions.find(r => r.nodeId === a)!.fz).toBeCloseTo(2, 10);
-          expect(Math.abs(result.reactions.find(r => r.nodeId === a)!.my)).toBeCloseTo(2 * 6, 10);
+          expect(result.reactions.find(r => r.nodeId === a)!.my).toBeCloseTo(-2 * 6, 10);
         }
       }
       if (dimension === 2) {

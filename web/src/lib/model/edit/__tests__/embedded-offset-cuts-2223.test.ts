@@ -55,7 +55,7 @@ describe('known wrong result: #2223 — embedded offset member cuts', () => {
               : mode === 'linear' ? solve3D(input3D) : solvePDelta3D(input3D).linearResults);
             const reaction = result.reactions.find((r: { nodeId: number }) => r.nodeId === i)!;
             expect('rz' in reaction ? reaction.rz : reaction.fz).toBeCloseTo(-force, 10);
-            if (mode !== 'corotational') expect(Math.abs(reaction.my)).toBeCloseTo(-moment, 10);
+            if (mode !== 'corotational') expect(reaction.my).toBeCloseTo(dimension === 2 ? -moment : moment, 10);
           }
         }
       });

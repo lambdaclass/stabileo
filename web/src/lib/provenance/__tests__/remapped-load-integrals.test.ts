@@ -33,9 +33,15 @@ it('#2223 compensated nodal force provenance covers summaries without numerical 
 
 it('#2223 compensated force summaries require a model with structural stiffness', () => {
   for (const structure of ['members', 'shells', 'curvedShells', 'connectors', 'springs']) {
-    for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([structure, `analysis:${analysis}`]))).toBe(true);
+    for (const action of totals.when.allOf[0]) for (const analysis of ANALYSIS_KINDS) {
+      expect(conditionHolds(totals.when, new Set([structure, action, `analysis:${analysis}`]))).toBe(true);
+      expect(conditionHolds(totals.when, new Set([action, `analysis:${analysis}`]))).toBe(false);
+    }
   }
-  for (const analysis of ANALYSIS_KINDS) expect(conditionHolds(totals.when, new Set([`analysis:${analysis}`]))).toBe(false);
+  for (const analysis of ANALYSIS_KINDS) {
+    expect(conditionHolds(totals.when, new Set([`analysis:${analysis}`]))).toBe(false);
+    expect(conditionHolds(totals.when, new Set(['members', `analysis:${analysis}`]))).toBe(false);
+  }
 });
 
 it('#2223 generated cuts cover loaded members and nodal moments without explaining empty models', () => {

@@ -39,7 +39,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
-  'partialDistributedMemberLoads',
+  'partialDistributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -94,6 +94,8 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
+  analysis?: { selfWeight?: unknown[] };
+  includeSelfWeight?: boolean;
   designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
 }
 
@@ -153,6 +155,7 @@ export function loadsGeneratedWith(s: FeatureSnapshot): number {
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
   const mode = ctx.analysisMode ?? s.analysisMode ?? '2d';
+  if (ctx.analysesRun == null || ctx.analysesRun.some(k => k !== 'modal' && k !== 'buckling')) f.add('forceSummaryResults');
   f.add(is3DWorkspace(mode) ? 'space3D' : 'plane2D');
 
   const materials = new Map(values(s.materials).map((m) => [m.id, m]));
@@ -242,10 +245,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
+  if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
+    if (/^nodal/.test(t) && ['fx', 'fy', 'fz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalForces');
     if (/^nodal/.test(t) && ['mx', 'my', 'mz'].some((key) => typeof d[key] === 'number' && d[key] !== 0)) f.add('nodalMoments');
     if (/^(distributed|axialDistributed|pointOnElement|thermal)/.test(t)) {
       f.add('memberLoads');

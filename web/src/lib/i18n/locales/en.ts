@@ -1,4 +1,7 @@
 const en: Record<string, string> = {
+  "engine.memberLoad.invalidInterval": "Element {id}: invalid distributed load interval [{a}, {b}] on length {length}",
+  "engine.memberLoad.geometryLimit": "Element {id}: distributed load interval [{a}, {b}] on length {length} is below the relative geometry limit {limit}",
+
   "loadPlan.blocked.concentratedRule": "{occupancy} requires a concentrated load check under CIRSOC 101 {article}. Governing placements are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loadPlan.blocked.concentratedLive": "{occupancy} requires a {force} kN concentrated live load check under CIRSOC 101 §4.4. Governing placements and the uniform/concentrated alternative are not evaluated. Automatic generation is blocked; model and check these actions manually.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 requires concentrated roof actions at their most unfavourable positions, separately from §4.8 roof live loading. These checks are not evaluated. Automatic generation is blocked; model and check the roof actions manually.",

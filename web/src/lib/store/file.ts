@@ -386,6 +386,7 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     // the previous project's session state captured by modelStore.snapshot().
     recheckStore.openProject({
       ...modelStore.snapshot(),
+      includeSelfWeight: analysisMode !== 'pro' && uiStore.includeSelfWeight,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
     } as never, analysisMode);

@@ -76,7 +76,7 @@ pub fn diagnostic(id: &str) -> StructuredDiagnostic {
 }
 
 pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
-    match diagnostics.iter().find(|d| d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error) {
+    match diagnostics.iter().find(|d| matches!(d.code, DiagnosticCode::KnownIssue | DiagnosticCode::NonFiniteResult) && d.severity == Severity::Error) {
         Some(d) => Err(serde_json::json!({"message": d.message, "structuredDiagnostics": diagnostics}).to_string()),
         None => Ok(()),
     }
