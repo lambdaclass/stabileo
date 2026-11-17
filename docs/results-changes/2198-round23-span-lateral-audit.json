@@ -177,5 +177,1081 @@
         "torsion"
       ]
     }
+  ],
+  "lost": [
+    {
+      "id": 37,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 6,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          },
+          "stirrupsSpan": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          }
+        }
+      },
+      "place": "0,0,3>6,0,3",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 2,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 6,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Anchorage at support (start, bottom)",
+          "demandCategory": null,
+          "required": 29.4,
+          "provided": 25.4,
+          "ratio": 1.158,
+          "status": "fail",
+          "unit": "cm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "2\u00d816 unresolved: 25.4 cm available vs ldh 29.4 cm (designedCage, column face 20.0 cm, \u00d816 cage) \u00b7 \u00a79.7.3.8.2: role in the lateral-force-resisting system not declared, designed as part of it (fy developed at the face, which also meets the 150 mm)",
+          "limiting": "anchorage"
+        }
+      ],
+      "retainedAnchorage": [
+        {
+          "end": "start",
+          "position": "bottom",
+          "row": 0,
+          "diameterMm": 16,
+          "count": 2,
+          "continuousPair": false,
+          "solution": "unresolved",
+          "support": "end",
+          "available": 0.2542426406871193,
+          "required": 0.29445564691477727,
+          "rule": "ldh",
+          "cause": "noRoomStraightOrHooked"
+        }
+      ],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "anchorage"
+        ],
+        "tried": {
+          "candidates": 42,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": true
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained",
+          "headedBars",
+          "mechanicalAnchorage",
+          "columnCageChange",
+          "lateralRoleUndeclared"
+        ]
+      }
+    },
+    {
+      "id": 43,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 6,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          },
+          "stirrupsSpan": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          }
+        }
+      },
+      "place": "0,5,3>6,5,3",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 4,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 8,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Anchorage at support (start, bottom)",
+          "demandCategory": null,
+          "required": 29.4,
+          "provided": 25.4,
+          "ratio": 1.158,
+          "status": "fail",
+          "unit": "cm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "2\u00d816 unresolved: 25.4 cm available vs ldh 29.4 cm (designedCage, column face 20.0 cm, \u00d816 cage) \u00b7 \u00a79.7.3.8.2: role in the lateral-force-resisting system not declared, designed as part of it (fy developed at the face, which also meets the 150 mm)",
+          "limiting": "anchorage"
+        }
+      ],
+      "retainedAnchorage": [
+        {
+          "end": "start",
+          "position": "bottom",
+          "row": 0,
+          "diameterMm": 16,
+          "count": 2,
+          "continuousPair": false,
+          "solution": "unresolved",
+          "support": "end",
+          "available": 0.2542426406871193,
+          "required": 0.29445564691477727,
+          "rule": "ldh",
+          "cause": "noRoomStraightOrHooked"
+        }
+      ],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "anchorage"
+        ],
+        "tried": {
+          "candidates": 42,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": true
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained",
+          "headedBars",
+          "mechanicalAnchorage",
+          "columnCageChange",
+          "lateralRoleUndeclared"
+        ]
+      }
+    },
+    {
+      "id": 54,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 6,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          },
+          "stirrupsSpan": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          }
+        }
+      },
+      "place": "6,0,3>12,0,3",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 6,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 10,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Torsion Al Support (Vz)",
+          "demandCategory": null,
+          "required": 4.37,
+          "provided": 3.92,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 56,
+          "regionRange": [
+            0,
+            0.1098
+          ],
+          "description": "Al=3.27 cm\u00b2 (Al,min \u00a79.6.4.3, Tu=6.4 \u2265 \u03c6Tth=2.4 kN\u00b7m) sobre As de flexi\u00f3n \u2248 2.73 cm\u00b2; cara superior: 4.37 de 3.92 cm\u00b2 (Al/2 por cara)",
+          "comboName": "1.2D + 1.6L",
+          "stationX": 0,
+          "limiting": "torsion",
+          "ratio": 1.112,
+          "status": "fail"
+        }
+      ],
+      "retainedAnchorage": [],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "torsion"
+        ],
+        "tried": {
+          "candidates": 42,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": false
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained"
+        ]
+      }
+    },
+    {
+      "id": 60,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 6,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          },
+          "stirrupsSpan": {
+            "diameter": 8,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.075
+          }
+        }
+      },
+      "place": "6,5,3>12,5,3",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 8,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 12,
+          "ok": false,
+          "worstOverlap": -0.008592724864350702,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Torsion Al Support (Vz)",
+          "demandCategory": null,
+          "required": 4.37,
+          "provided": 3.92,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 56,
+          "regionRange": [
+            0,
+            0.1098
+          ],
+          "description": "Al=3.27 cm\u00b2 (Al,min \u00a79.6.4.3, Tu=6.4 \u2265 \u03c6Tth=2.4 kN\u00b7m) sobre As de flexi\u00f3n \u2248 2.73 cm\u00b2; cara superior: 4.37 de 3.92 cm\u00b2 (Al/2 por cara)",
+          "comboName": "1.2D + 1.6L",
+          "stationX": 0,
+          "limiting": "torsion",
+          "ratio": 1.112,
+          "status": "fail"
+        }
+      ],
+      "retainedAnchorage": [],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "torsion"
+        ],
+        "tried": {
+          "candidates": 42,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": false
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained"
+        ]
+      }
+    },
+    {
+      "id": 70,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 4,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 4,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 10,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.05
+          },
+          "stirrupsSpan": {
+            "diameter": 10,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.05
+          }
+        }
+      },
+      "place": "0,0,6>0,5,6",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 13,
+          "ok": false,
+          "worstOverlap": -0.007535533905932774,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 14,
+          "ok": false,
+          "worstOverlap": -0.007535533905932774,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Min steel (span)",
+          "demandCategory": null,
+          "required": 3.08,
+          "provided": 3.14,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "As,min = 3.08 cm\u00b2 (\u03c1min=0.333%), provided 3.14 cm\u00b2",
+          "limiting": "minSteel",
+          "ratio": 0.981,
+          "status": "warn"
+        },
+        {
+          "category": "Torsion Al Span (Vz)",
+          "demandCategory": null,
+          "required": 3.61,
+          "provided": 3.14,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 120,
+          "regionRange": [
+            0.1318,
+            0.8682
+          ],
+          "description": "Al=4.18 cm\u00b2 (Al,min \u00a79.6.4.3, Tu=3.8 \u2265 \u03c6Tth=2.4 kN\u00b7m) sobre As de flexi\u00f3n \u2248 1.52 cm\u00b2; cara inferior: 3.61 de 3.14 cm\u00b2 (Al/2 por cara)",
+          "comboName": "1.2D + 1.6L",
+          "stationX": 3,
+          "limiting": "torsion",
+          "ratio": 1.148,
+          "status": "fail"
+        }
+      ],
+      "retainedAnchorage": [],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "minSteel",
+          "torsion"
+        ],
+        "tried": {
+          "candidates": 43,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": false
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained"
+        ]
+      }
+    },
+    {
+      "id": 87,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 3,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 5,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 3,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 5,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 6,
+            "legs": 2,
+            "spacing": 0.1
+          },
+          "stirrupsSpan": {
+            "diameter": 6,
+            "legs": 2,
+            "spacing": 0.1
+          }
+        }
+      },
+      "place": "6,0,6>6,5,6",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 15,
+          "ok": false,
+          "worstOverlap": -0.008350084177231393,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 16,
+          "ok": false,
+          "worstOverlap": -0.008350084177231393,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Bottom Span (My+)",
+          "demandCategory": "My+",
+          "demand": 55.17,
+          "capacity": 55.08,
+          "unit": "kN\u00b7m",
+          "method": "capacity",
+          "tuplesChecked": 132,
+          "regionRange": [
+            0.1318,
+            0.8682
+          ],
+          "description": "4\u00d810 + 3.1cm\u00b2 comp. \u2192 \u03c6Mn=55.1 kN\u00b7m (doubly, fs'<fy), d=46.2cm, [0.13\u20130.87] (geom)",
+          "comboName": "1.2D + 1.6L",
+          "stationX": 2.5,
+          "limiting": "flexure",
+          "ratio": 1.002,
+          "status": "fail"
+        },
+        {
+          "category": "Min steel (span)",
+          "demandCategory": null,
+          "required": 3.08,
+          "provided": 3.14,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "As,min = 3.08 cm\u00b2 (\u03c1min=0.333%), provided 3.14 cm\u00b2",
+          "limiting": "minSteel",
+          "ratio": 0.981,
+          "status": "warn"
+        }
+      ],
+      "retainedAnchorage": [],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "flexure",
+          "minSteel"
+        ],
+        "tried": {
+          "candidates": 45,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": false
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained"
+        ]
+      }
+    },
+    {
+      "id": 104,
+      "previous": {
+        "regions": {
+          "bottomSpanLayers": [
+            {
+              "count": 4,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "bottomSpan": {
+            "count": 6,
+            "diameter": 10
+          },
+          "topStartLayers": [
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topStart": {
+            "count": 4,
+            "diameter": 10
+          },
+          "topEndLayers": [
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 0
+            },
+            {
+              "count": 2,
+              "diameter": 10,
+              "row": 1
+            }
+          ],
+          "topEnd": {
+            "count": 4,
+            "diameter": 10
+          },
+          "stirrupsSupport": {
+            "diameter": 10,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.05
+          },
+          "stirrupsSpan": {
+            "diameter": 10,
+            "legs": 2,
+            "secondaryLegs": 4,
+            "spacing": 0.05
+          }
+        }
+      },
+      "place": "12,0,6>12,5,6",
+      "previousThreading": [
+        {
+          "end": "start",
+          "nodeId": 17,
+          "ok": false,
+          "worstOverlap": -0.007535533905932774,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 18,
+          "ok": false,
+          "worstOverlap": -0.007535533905932774,
+          "slots": 6,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 8
+        }
+      ],
+      "retainedChecks": [
+        {
+          "category": "Min steel (span)",
+          "demandCategory": null,
+          "required": 3.08,
+          "provided": 3.14,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "As,min = 3.08 cm\u00b2 (\u03c1min=0.333%), provided 3.14 cm\u00b2",
+          "limiting": "minSteel",
+          "ratio": 0.981,
+          "status": "warn"
+        },
+        {
+          "category": "Torsion Al Span (Vz)",
+          "demandCategory": null,
+          "required": 3.61,
+          "provided": 3.14,
+          "unit": "cm\u00b2",
+          "method": "area",
+          "tuplesChecked": 120,
+          "regionRange": [
+            0.1318,
+            0.8682
+          ],
+          "description": "Al=4.18 cm\u00b2 (Al,min \u00a79.6.4.3, Tu=3.8 \u2265 \u03c6Tth=2.4 kN\u00b7m) sobre As de flexi\u00f3n \u2248 1.52 cm\u00b2; cara inferior: 3.61 de 3.14 cm\u00b2 (Al/2 por cara)",
+          "comboName": "1.2D + 1.6L",
+          "stationX": 3,
+          "limiting": "torsion",
+          "ratio": 1.148,
+          "status": "fail"
+        }
+      ],
+      "retainedAnchorage": [],
+      "exhaustion": {
+        "scope": "implementedAlternatives",
+        "limiting": [
+          "minSteel",
+          "torsion"
+        ],
+        "tried": {
+          "candidates": 43,
+          "longDiametersMm": [
+            10,
+            12,
+            16,
+            20,
+            25,
+            32
+          ],
+          "maxRows": 3,
+          "optionsRetained": 40,
+          "stirrupDiametersMm": [
+            6,
+            8,
+            10,
+            12
+          ],
+          "maxLegs": 4,
+          "crossingSeatsRetried": false
+        },
+        "notImplemented": [
+          "bundledBars",
+          "mixedDiametersInRow",
+          "optionsBeyondRetained"
+        ]
+      }
+    }
   ]
 }

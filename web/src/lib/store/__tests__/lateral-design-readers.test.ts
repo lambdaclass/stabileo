@@ -1,28 +1,15 @@
-/**
- * A beam whose role in the lateral-force-resisting system is not declared is designed as part of
- * the system (§9.7.3.8.2, `model/lateral-system.ts`): its positive steel develops fy at the face,
- * and every reader of the design says that assumption was made. The span fixture at 1 m on 40×40
- * columns (`span-fixture.ts`), designed and detailed through the production commands, read on
- * the desk, in the memoria, in the IFC and in the workbook; then the same building with its beams
- * declared outside the system, which reads the 150 mm.
- *
- *   Not declared: 10 of the 14 spans designed, every bottom bar end in a column hooked to ℓdh
- *   (never cut at 150 mm), the design and the detailing reading the same ends. Two spans refuse
- *   on their anchorage and two on torsion: the bars that develop fy at a 40 cm column's face are
- *   smaller than the torsion's longitudinal steel asks. No designed piece is held by the reading.
- *   Declared outside the system: the 14 designed, the bottom ends cut 150 mm past the face.
- */
 import { describe, it, expect, beforeAll } from 'vitest';
 import audit from '../../../../../docs/results-changes/2198-round23-span-lateral-audit.json';
+import { cirsoc201Adapter } from '../../engine/design/adapters/cirsoc201-adapter';
+import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { verificationStore } from '../verification.svelte';
-import { building, designAndDocument } from './span-fixture';
+import { building, designAndDocument, designPlace } from './span-fixture';
 import { anchorageCoherence } from './anchorage-coherence';
 import { memoriaInput } from '../memoria-inputs';
 import { projectIfcInput } from '../ifc-export';
 import { designSheets } from '../design-exchange';
 import { lateralReadingFor } from '../lateral-system';
 import * as wasmSolver from '../../engine/wasm-solver';
-import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 
@@ -31,9 +18,9 @@ beforeAll(async () => {
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const tr = (k: string) => k;
 const beamCtxs = () => [...verificationStore.contexts.values()].filter((c) => c.elementType === 'beam');
+const beamSpans = () => [...new Map(beamCtxs().map(c => [c.span?.key ?? `e${c.elementId}`, c])).values()];
 const spanOutcomes = () => {
   const by = new Map<string, string>();
   for (const c of beamCtxs()) {
@@ -44,11 +31,9 @@ const spanOutcomes = () => {
   for (const v of by.values()) counts[v] = (counts[v] ?? 0) + 1;
   return counts;
 };
-/** The rule every bottom bar end of the designed beams was held to, at a column the line ends at. */
 const bottomRules = () => new Set(beamCtxs().flatMap((c) => (verificationStore.providedFor(c.elementId)?.supportAnchorage ?? [])
   .filter((v) => v.position === 'bottom' && v.support === 'end').map((v) => v.rule)));
 
-/** Every reader's statement of a designed beam's role, by element: each document built once. */
 function readersOf() {
   const memo = memoriaInput(tr, 'es');
   const ifc = projectIfcInput(tr, 'es', 'lateral').members;
@@ -68,6 +53,60 @@ function readersOf() {
   };
 }
 
+function expectFyAtEveryBottomEnd() {
+  for (const c of beamSpans()) {
+    if (verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED') continue;
+    const ends = verificationStore.providedFor(c.elementId)!.supportAnchorage!
+      .filter(v => v.position === 'bottom' && v.support === 'end');
+    expect(ends.length, `e${c.elementId}`).toBeGreaterThan(0);
+    for (const v of ends) {
+      expect(v.rule, `e${c.elementId} ${v.end}`).toBe('ldh');
+      expect(v.solution, `e${c.elementId} ${v.end}`).toBe('hook');
+      expect(v.available, `e${c.elementId} ${v.end}`).toBeGreaterThanOrEqual(v.required);
+    }
+  }
+  expect([...bottomRules()].sort()).toEqual(['ldh']);
+}
+
+function expectUndeclaredReaders() {
+  const designed = beamCtxs().filter(c => verificationStore.outcomeFor(c.elementId)?.outcome === 'VERIFIED'
+    && verificationStore.providedFor(c.elementId)?.supportAnchorage?.some(v => v.position === 'bottom' && v.support === 'end'));
+  expect(designed.length).toBeGreaterThan(0);
+  const readers = readersOf();
+  for (const c of designed) {
+    const r = readers(c.elementId);
+    expect(r.desk[0], `e${c.elementId}`).toBe('undeclared');
+    expect(r.desk[1], `e${c.elementId}`).toBe(verificationStore.memberVerdict(c.elementId).status);
+    expect(r.memoria, `e${c.elementId}`).toEqual(['lateral.reading.undeclared', '9.7.3.8.2', 'ℓ ≥ ℓd, ℓdh (fy)', 'lateral.reading.undeclared', 'ok']);
+    expect(r.ifc[0]).toBe('not declared: designed as part of the lateral-force-resisting system, fy developed at the face (CIRSOC 201-2025 9.7.3.8.2)');
+    expect(r.workbook).toEqual(['9.7.3.8.2', 'ℓ ≥ ℓd, ℓdh (fy)', 'ok', 'lateral.reading.undeclared']);
+  }
+}
+
+function readingCensus() {
+  const memo = memoriaInput(tr, 'es');
+  const census: Record<string, number> = {};
+  for (const c of beamCtxs()) {
+    if (verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED') continue;
+    const open = memo.elements.find(e => e.id === `e${c.elementId}`)!.rows
+      .filter(r => r.status !== 'ok' && r.titleKey !== 'check.slabColumnJoint').map(r => r.titleKey);
+    const word = verificationStore.getDisplayStatus(c.elementId) === 'fail' ? 'fail' : verificationStore.localStatus(c.elementId);
+    const k = `${word}:${[...new Set(open)].join('+')}`;
+    census[k] = (census[k] ?? 0) + 1;
+  }
+  for (const k of Object.keys(census)) expect(k, k).not.toMatch(/check\.rc\.(lateralAnchorage|anchorage)/);
+  return census;
+}
+
+function expectedSpanOutcomes() {
+  const counts: Record<string, number> = {};
+  for (const o of audit.after) {
+    const key = `${o.outcome}${o.limiting.length ? ` ${o.limiting.join(',')}` : ''}`;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
 describe('the span fixture at 40×40, its beams\' role not declared', () => {
   let doc: DocumentModel;
   beforeAll(() => {
@@ -75,79 +114,103 @@ describe('the span fixture at 40×40, its beams\' role not declared', () => {
     doc = designAndDocument();
   }, 600_000);
 
-  knownWrong('known wrong result: #2198: every span matches the lateral acceptance inventory', () => {
-    const actual = [...new Map(beamCtxs().map(c => [c.span?.key ?? `e${c.elementId}`, c])).values()].map(c => {
+  it('every span matches the lateral acceptance inventory', () => {
+    const actual = beamSpans().map(c => {
       const o = verificationStore.outcomeFor(c.elementId)!;
       return { id: c.elementId, outcome: o.outcome, limiting: o.limiting };
     });
-    expect(actual).toEqual(audit.before);
+    expect(actual).toEqual(audit.after);
   });
 
-  knownWrong('known wrong result: #2198: designs them as part of the system: 10 spans of 14, every bottom end in a column developing fy', () => {
-    expect(beamCtxs().every((c) => c.lateral?.role === 'undeclared')).toBe(true);
-    expect(spanOutcomes()).toEqual({ VERIFIED: 10, 'SEARCH_EXHAUSTED anchorage': 2, 'SEARCH_EXHAUSTED torsion': 2 });
-    expect([...bottomRules()].sort()).toEqual(['ldh']);
+  it('designs them as part of the system: exact span statuses, every accepted bottom end in a column developing fy', () => {
+    expect(beamCtxs().every(c => c.lateral?.role === 'undeclared')).toBe(true);
+    expect(spanOutcomes()).toEqual(expectedSpanOutcomes());
+    expectFyAtEveryBottomEnd();
   });
 
-  knownWrong('known wrong result: #2198: the detailing builds every bar end the design verified', () => {
-    const c = anchorageCoherence(doc.assemblies.flatMap((a) => a.bars));
+  it('audits every former accepted span against closure and every retained proposal against its exact limits', () => {
+    expect(audit.lost.map(r => r.id)).toEqual([37, 43, 54, 60, 70, 87, 104]);
+    for (const r of audit.lost) {
+      const ctx = verificationStore.contextFor(r.id)!;
+      expect(designPlace(ctx)).toBe(r.place);
+      const old = cirsoc201Adapter.verify(ctx, r.previous as ProvidedReinforcement);
+      expect(old.overallStatus, `e${r.id}`).toBe('fail');
+      expect(old.jointThreading, `e${r.id}`).toEqual(r.previousThreading);
+      expect(old.checks.filter(c => c.status === 'fail').map(c => c.limiting)).toEqual(['congestion', 'congestion']);
+      const o = verificationStore.outcomeFor(r.id)!;
+      expect(o.outcome).toBe('SEARCH_EXHAUSTED');
+      expect(o.accepted).toBeUndefined();
+      expect(o.certificate).toBeUndefined();
+      expect(o.exhaustion).toEqual(r.exhaustion);
+      expect(o.provisional!.verdict.checks.filter(c => c.status !== 'ok')).toEqual(r.retainedChecks);
+      expect(o.provisional!.verdict.supportAnchorage!.filter(v => v.solution === 'unresolved')
+        .map(({ cage: _cage, ...v }) => v)).toEqual(r.retainedAnchorage);
+    }
+  });
+
+  it('the detailing builds every bar end the design verified', () => {
+    const c = anchorageCoherence(doc.assemblies.flatMap(a => a.bars));
     expect(c.mismatches).toEqual([]);
-    expect(c.compared).toBeGreaterThan(50);
+    expect(c.compared).toBe(32);
   });
 
-  it('every designed beam states the assumption: desk, memoria, IFC, workbook', () => {
-    const designed = beamCtxs().filter((c) => verificationStore.outcomeFor(c.elementId)?.outcome === 'VERIFIED' && verificationStore.providedFor(c.elementId)?.supportAnchorage?.some((v) => v.position === 'bottom' && v.support === 'end'));
-    expect(designed.length).toBeGreaterThan(0);
-    const readers = readersOf();
-    for (const c of designed) {
-      const r = readers(c.elementId);
-      expect(r.desk[0], `e${c.elementId}`).toBe('undeclared');
-      expect(r.memoria, `e${c.elementId}`).toEqual(['lateral.reading.undeclared', '9.7.3.8.2', 'ℓ ≥ ℓd, ℓdh (fy)', 'lateral.reading.undeclared', 'ok']);
-      expect(r.ifc[0]).toBe('not declared: designed as part of the lateral-force-resisting system, fy developed at the face (CIRSOC 201-2025 9.7.3.8.2)');
-      expect(r.workbook).toEqual(['9.7.3.8.2', 'ℓ ≥ ℓd, ℓdh (fy)', 'ok', 'lateral.reading.undeclared']);
-    }
-  });
+  it('every designed beam states the assumption: desk, memoria, IFC, workbook', expectUndeclaredReaders);
 
-  knownWrong('known wrong result: #2198: the conservative design conforms where nothing else holds it; where it does not, the detailing says why', () => {
-    // Pieces of the designed spans, by what the desk reads and the memoria rows that are not ok.
-    // Before (the beams read outside the system, silently): 73 ok and 5 near the limit, no clash.
-    const memo = memoriaInput(tr, 'es');
-    const census: Record<string, number> = {};
-    for (const c of beamCtxs()) {
-      if (verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED') continue;
-      const open = memo.elements.find((e) => e.id === `e${c.elementId}`)!.rows
-        // The slab-column joint indicator (`analysis-validity.ts`) is read by its own suite, not here.
-        .filter((r) => r.status !== 'ok' && r.titleKey !== 'check.slabColumnJoint').map((r) => r.titleKey);
-      // The section's LOCAL reading with the detailing's: the 1 m mesh's point joint holds every
-      // member's verdict (`member-verdict.ts`), which its own suite reads.
-      const word = verificationStore.getDisplayStatus(c.elementId) === 'fail' ? 'fail' : verificationStore.localStatus(c.elementId);
-      const k = `${word}:${[...new Set(open)].join('+')}`;
-      census[k] = (census[k] ?? 0) + 1;
-    }
-    // No designed piece is held by the reading itself: the bars it asked for anchor where they
-    // are laid. Measured 15 ok, 5 near the limit (minimum steel) and 34 failing on clashes the
-    // coordination left at the corner joints (`detailing.clash.unresolved`), then, once the
-    // detailing separated those hooks, 49 and 5 with no clash: those rows are the detailing's.
-    if (process.env.LATERAL_PRINT) console.log(census);
-    for (const k of Object.keys(census)) expect(k, k).not.toMatch(/check\.rc\.(lateralAnchorage|anchorage)/);
-    expect(census['ok:'] ?? 0).toBeGreaterThan(0);
-    const ok = beamCtxs().find((c) => verificationStore.localStatus(c.elementId) === 'ok' && verificationStore.providedFor(c.elementId)?.supportAnchorage?.some((v) => v.position === 'bottom' && v.support === 'end'))!;
-    // Its local checks pass; its verdict is held by the analysis, never read as approval.
-    expect(verificationStore.memberVerdict(ok.elementId).holds.map((h) => h.kind)).toContain('analysis');
-    expect(verificationStore.getDisplayStatus(ok.elementId)).toBe('unavailable');
-    const ifc = readersOf()(ok.elementId).ifc;
+  it('the conservative design retains its exact independent holds and no anchorage reading fails', () => {
+    expect(readingCensus()).toEqual({ 'fail:check.rc.torsion': 10, 'warn:check.rc.minSteel': 5 });
+    const c = verificationStore.contextFor(48)!;
+    expect(verificationStore.localStatus(c.elementId)).toBe('warn');
+    expect(verificationStore.memberVerdict(c.elementId).holds.map(h => h.kind)).toEqual(['analysis']);
+    expect(verificationStore.getDisplayStatus(c.elementId)).toBe('unavailable');
+    const ifc = readersOf()(c.elementId).ifc;
     expect(ifc[0]).toBe('not declared: designed as part of the lateral-force-resisting system, fy developed at the face (CIRSOC 201-2025 9.7.3.8.2)');
     expect(ifc[1]).not.toBe('fails');
   });
 
   it('a refused beam says it was refused under that assumption', () => {
-    const refused = beamCtxs().filter((c) => verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED');
+    const refused = beamCtxs().filter(c => verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED');
+    expect(beamSpans().filter(c => verificationStore.outcomeFor(c.elementId)?.outcome !== 'VERIFIED')).toHaveLength(11);
     expect(refused.length).toBeGreaterThan(0);
     const memo = memoriaInput(tr, 'es');
     for (const c of refused) {
-      const el = memo.elements.find((e) => e.id === `e${c.elementId}`)!;
+      const el = memo.elements.find(e => e.id === `e${c.elementId}`)!;
       expect(el.data.find(([k]) => k === 'lateral.symbol')?.[1]).toBe('lateral.reading.undeclared');
       expect(verificationStore.getDisplayStatus(c.elementId)).not.toMatch(/^(ok|warn)$/);
+    }
+  });
+});
+
+describe('the span fixture at 50×50, its beams\' role not declared', () => {
+  let doc: DocumentModel;
+  beforeAll(() => {
+    building(1, { columnSide: 0.5, lateral: null });
+    doc = designAndDocument();
+  }, 600_000);
+
+  it('keeps all 14 spans designed with every bottom end in a column developing fy', () => {
+    expect(beamCtxs().every(c => c.lateral?.role === 'undeclared')).toBe(true);
+    expect(spanOutcomes()).toEqual({ VERIFIED: 14 });
+    expectFyAtEveryBottomEnd();
+  });
+
+  it('the detailing builds more than 50 verified bar ends coherently', () => {
+    const c = anchorageCoherence(doc.assemblies.flatMap(a => a.bars));
+    expect(c.mismatches).toEqual([]);
+    expect(c.compared).toBeGreaterThan(50);
+  });
+
+  it('every designed beam states the assumption: desk, memoria, IFC, workbook', expectUndeclaredReaders);
+
+  it('keeps locally correct answers while the independent generation and analysis holds remain visible', () => {
+    readingCensus();
+    const correct = beamCtxs().filter(c => verificationStore.localStatus(c.elementId) === 'ok'
+      && verificationStore.providedFor(c.elementId)?.supportAnchorage?.some(v => v.position === 'bottom' && v.support === 'end'));
+    expect(correct.length).toBeGreaterThan(0);
+    const readers = readersOf();
+    for (const c of correct) {
+      expect(verificationStore.memberVerdict(c.elementId).holds.map(h => h.kind)).toEqual(['analysis', 'detailing']);
+      expect(verificationStore.getDisplayStatus(c.elementId)).toBe('fail');
+      expect(readers(c.elementId).ifc[1]).toBe('not fully verified');
     }
   });
 });
