@@ -10,8 +10,10 @@
  * the synchronous main-thread solver.
  */
 
-import { getWasmBytes } from './wasm-solver';
-import { findUncloneablePath } from '../utils/plain-deep-copy';
+import { getWasmBytes, input3DToWireObject } from './wasm-solver';
+import type { NonlinearStep } from './member-behaviour';
+import type { SolverInput3D } from './types-3d';
+import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 
 /** Thrown when the pool cannot be used (no Worker support, init failure). */
 export class PoolUnavailableError extends Error {
@@ -151,7 +153,13 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
     };
 
     worker.onerror = (err) => {
-      reject(new Error(`Worker error: ${err.message}`));
+      const failure = new Error(`Worker error: ${err.message}`);
+      for (const p of pw.pending.values()) p.reject(failure);
+      pw.pending.clear();
+      pw.worker.terminate();
+      pool = pool.filter(candidate => candidate !== pw);
+      if (pool.length === 0) initPromise = null;
+      reject(failure);
     };
 
     // Compiled module is structured-cloneable: no byte copy, no per-worker compile.
@@ -229,7 +237,7 @@ async function ensurePool(): Promise<void> {
  * because the caller's fallback swallows the throw, so this string may be the only trace
  * the failure ever leaves.
  */
-function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
+function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify' | 'nonlinear-step' | 'nonlinear-free', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
@@ -354,10 +362,51 @@ export async function solveParallel(
   return results;
 }
 
+export interface NonlinearSolveOptions {
+  signal?: AbortSignal;
+  isCancelled?: () => boolean;
+  /** Number of native solves completed in this session. */
+  onProgress?: (completed: number) => void;
+}
+
+export function checkSolveCancelled(options: NonlinearSolveOptions): void {
+  if (options.signal?.aborted || options.isCancelled?.()) throw new DOMException('Solve cancelled', 'AbortError');
+}
+
+/** Keep the first factorization on one worker across all cases and combinations. */
+export async function nonlinearSessionInWorker(options: NonlinearSolveOptions = {}) {
+  checkSolveCancelled(options);
+  await ensurePool();
+  checkSolveCancelled(options);
+  // Reuse a warm worker; cold sessions share worker 0 rather than start WASM concurrently.
+  const target = pool.find(pw => pw.warmed && pw.pending.size === 0) ?? pool[0];
+  const sessionId = nextId++;
+  let completed = 0, closed = false;
+  return {
+    async solve(step: NonlinearStep): Promise<any> {
+      checkSolveCancelled(options);
+      if (closed || !pool.includes(target)) throw new Error('Nonlinear worker session has been closed');
+      const input = { ...plainDeepCopy({ ...step, input: undefined }), input: input3DToWireObject(step.input as SolverInput3D) };
+      const result = await runJob('nonlinear-step', input, target, { sessionId });
+      checkSolveCancelled(options);
+      options.onProgress?.(++completed);
+      checkSolveCancelled(options);
+      return result;
+    },
+    async free() {
+      if (closed) return;
+      closed = true;
+      if (pool.includes(target)) await runJob('nonlinear-free', null, target, { sessionId });
+    },
+  };
+}
+
 /** Terminate all workers and clean up the pool. */
 export function destroyPool(): void {
   for (const pw of pool) {
     pw.worker.terminate();
+    for (const p of pw.pending.values()) p.reject(new Error('Worker pool destroyed'));
+    pw.pending.clear();
   }
   pool = [];
   initPromise = null;

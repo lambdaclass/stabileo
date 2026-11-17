@@ -169,7 +169,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
   }
-  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, { isCancelled: isStale });
   if (isStale()) return;
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
@@ -192,7 +192,10 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
    */
   const v = resultsStore.pendingView;
   if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
-    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    const combo = hasNonlinearBehaviour(modelStore.model)
+      ? await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, undefined, { isCancelled: isStale })
+      : modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (isStale()) return;
     if (typeof combo === 'string' || !combo) {
       uiStore.liveCalcError = errorText(combo, t('results.emptyModelError'));
       return;
@@ -374,7 +377,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
-    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof r === 'string') {
       uiStore.toast(knownIssueRefusal(r) ?? localizeEngineText(r), 'error', solveErrorAction(r));
@@ -410,7 +413,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
+    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
@@ -433,7 +436,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const factors = caseIds.map((caseId) => ({ caseId, factor: listedFactors?.get(caseId) ?? 1 })).filter((f) => f.factor !== 0);
     let firstCaseResult;
     if (listedFactors === null || factors.length === 0) {
-      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
       if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
       firstCaseResult = single;

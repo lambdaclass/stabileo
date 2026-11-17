@@ -1,3 +1,4 @@
+import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
@@ -4569,17 +4570,22 @@ function createModelStore() {
       );
     },
 
-    async solve3DAsync(includeSelfWeight = false, leftHand = false, isPro = false): Promise<AnalysisResults3D | string | null> {
+    async solve3DAsync(includeSelfWeight = false, leftHand = false, isPro = false, options: NonlinearSolveOptions = {}): Promise<AnalysisResults3D | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
-      return validateAndSolve3DAsync(
-        singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
-          plates: isPro ? model.plates : undefined,
-          quads: isPro ? model.quads : undefined,
-          constraints: isPro ? model.constraints : undefined,
-          connectors: isPro ? model.connectors : undefined }, model.loadCases),
-        includeSelfWeight, leftHand,
-      );
+      try {
+        return await validateAndSolve3DAsync(
+          singleSolveModel({ nodes: model.nodes, elements: model.elements, supports: model.supports,
+            loads: model.loads, materials: model.materials, sections: model.sections, analysis: analysisFor(isPro, includeSelfWeight), groups: model.groups,
+            plates: isPro ? model.plates : undefined,
+            quads: isPro ? model.quads : undefined,
+            constraints: isPro ? model.constraints : undefined,
+            connectors: isPro ? model.connectors : undefined }, model.loadCases),
+          includeSelfWeight, leftHand, options,
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return t('results.editedDuringSolve');
+        throw err;
+      }
     },
 
     /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
@@ -4609,7 +4615,7 @@ function createModelStore() {
     },
 
     /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
-    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false, spectral?: Map<number, AnalysisResults3D>, options: NonlinearSolveOptions = {}): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D; unstable?: number[] } | string | null> {
       if (this.hasSlidingJoints()) return t('advanced.sliding3dUnsupported');
       // Shell recombination is the engine's kernel: its absence or refusal is the solve's
       // error message, as every other solve failure is, never an exception past the button.
@@ -4622,9 +4628,10 @@ function createModelStore() {
             quads: isPro ? model.quads : undefined,
             constraints: isPro ? model.constraints : undefined,
             connectors: isPro ? model.connectors : undefined },
-          model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral,
+          model.loadCases, model.combinations, includeSelfWeight, leftHand, spectral, options,
         );
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return t('results.editedDuringSolve');
         const m = engineFailureMessage(err);
         if (!m) throw err;
         return tp(m.key, m.params ?? {});
