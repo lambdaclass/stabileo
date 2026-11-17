@@ -14,6 +14,7 @@ import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
 import { amplification } from './pdelta-amplification';
+import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
@@ -2735,8 +2736,9 @@ function solveCombinations3DNonlinear(
     const b = buildSolveInput3D({ ...from, loads: imposedOf(model.loads, factorOf) }, [], leftHand);
     return b ?? t('svc.emptyModel');
   };
+  const repeated = repeatedSolve3D();
   const run = (on: SolverInput3D, loads: SolverLoad3D[]): AnalysisResults3D => {
-    const r = solveNonlinear3D(model, { ...on, loads });
+    const r = solveNonlinear3D(model, { ...on, loads }, repeated.solve);
     const results: AnalysisResults3D = { ...r.results, nonlinear: r.report };
     if (hasShells) postProcessShellStresses(results, model.nodes, model.quads ?? new Map(), model.plates ?? new Map(), model.materials);
     return results;
@@ -2774,6 +2776,8 @@ function solveCombinations3DNonlinear(
     return pruneComboBundle3D({ perCase, perCombo, envelope }, model);
   } catch (err: any) {
     return knownIssueRefusal(err) ?? t('svc.solver3dError').replace('{n}', err.message);
+  } finally {
+    repeated.free();
   }
 }
 

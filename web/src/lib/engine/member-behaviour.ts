@@ -228,7 +228,7 @@ export function withZeroRows(results: AnalysisResults3D, members: Iterable<{ id:
  * or at 30 passes. Members that are out carry exact zeros, and the results keep their
  * reactions.
  */
-export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { results: AnalysisResults3D; report: NonlinearReport } {
+export function solveNonlinear3D(model: ModelData, input: SolverInput3D, solveLinear: (input: SolverInput3D) => AnalysisResults3D = solve3D): { results: AnalysisResults3D; report: NonlinearReport } {
   const oneWay = new Map<number, 'tension' | 'compression'>();
   for (const e of model.elements.values()) {
     if (!input.elements.has(e.id)) continue;
@@ -292,7 +292,7 @@ export function solveNonlinear3D(model: ModelData, input: SolverInput3D): { resu
   // the whole analysis.
   let cablesConverged = true;
   const linearSolve = (trial: SolverInput3D): AnalysisResults3D => {
-    if (cables.size === 0) return solve3D(trial);
+    if (cables.size === 0) return solveLinear(trial);
     const typed: SolverInputCable3D = { ...trial, elements: new Map([...trial.elements].map(([id, e]) => [id, cables.has(id) ? { ...e, type: 'cable' as const } : e])) };
     const r = solveCable3D(typed, 50, 1e-8, densities, pretension);
     cablesConverged = r.converged;
