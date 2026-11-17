@@ -38,12 +38,10 @@ function translated(code: string): string[] {
   return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || !SAME[code]));
 }
 
-const regression = process.env.RUN_KNOWN_WRONG === '2279' ? it : it.skip;
-
-regression('known wrong result: #2279 — covers reinforcement sheet labels in Hungarian', () => {
+it('covers reinforcement sheet labels in Hungarian (#2279)', () => {
   const done = new Set(translated('hu'));
-  const missing = enKeys.filter((key) => key.startsWith('rcSheets.') && !done.has(key));
-  expect(missing).toEqual([]);
+  const untranslated = enKeys.filter((key) => key.startsWith('rcSheets.') && !done.has(key));
+  expect(untranslated).toEqual([]);
 });
 
 describe('the languages offered', () => {

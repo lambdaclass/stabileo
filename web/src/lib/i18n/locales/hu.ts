@@ -10606,6 +10606,7 @@ const hu: Translations = {
   "otherCodes.check.cfsFlexuralTorsional": "nyomott rúd hajlító-csavaró kihajlása (E2)",
   "otherCodes.check.cfsWeakAxis": "hajlítás a gyenge tengely körül",
   "otherCodes.check.cfsWebShear": "gerinclemez nyírása a folyási tartományon kívül (G2.1)",
+  "otherCodes.skip.incompleteDemand": "hiányosak az aktív kombinációk szelvényenkénti igénybevételei",
   "otherCodes.skip.noDemand": "nincsenek erők az aktív kombinációk alatt",
   "otherCodes.skip.notSteel": "az anyag nem acél",
   "otherCodes.skip.noFy": "az anyagnak nincs fy értéke",
