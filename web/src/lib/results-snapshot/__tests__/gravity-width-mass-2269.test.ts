@@ -8,11 +8,10 @@ import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
-const regression = it;
 const fixture = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
 for (const separation of [3, 6]) for (const angle of [0, 37]) for (const pieces of [1, 3]) {
-  regression(`known wrong result: #2269 width carrier hand solution y=${separation} angle=${angle} pieces=${pieces}`, () => {
+  it(`known wrong result: #2269 width carrier hand solution y=${separation} angle=${angle} pieces=${pieces}`, () => {
     const model = witness(separation, angle, pieces, -1);
     const plan = buildLoadPlan(input(model));
     const s = structuredClone(fixture);

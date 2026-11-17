@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { witness, input } from './gravity-width-mass-fixture';
 
-const regression = it;
 
 function check(model: LoadModelData, overrides: Partial<LoadPlanInput> = {}, expectedArea = 60) {
   const plan = buildLoadPlan(input(model, overrides));
@@ -37,29 +36,29 @@ function check(model: LoadModelData, overrides: Partial<LoadPlanInput> = {}, exp
 }
 
 for (const separation of [3, 6]) {
-  regression(`known wrong result: #2269 width area follows carriers at y=${separation}`, () => {
+  it(`known wrong result: #2269 width area follows carriers at y=${separation}`, () => {
     check(witness(separation));
   });
-  regression(`known wrong result: #2269 every total survives 37 degree rotation at y=${separation}`, () => {
+  it(`known wrong result: #2269 every total survives 37 degree rotation at y=${separation}`, () => {
     check(witness(separation, 37));
   });
-  regression(`known wrong result: #2269 every total survives three-member subdivision at y=${separation}`, () => {
+  it(`known wrong result: #2269 every total survives three-member subdivision at y=${separation}`, () => {
     check(witness(separation, 0, 3));
     check(witness(separation, 37, 3, -1));
   });
 }
 
-regression('known wrong result: #2269 default width mode accounts for its loads', () => {
+it('known wrong result: #2269 default width mode accounts for its loads', () => {
   check(witness(), { gravity: undefined });
 });
 
-regression('known wrong result: #2269 only carriers receiving width loads contribute area', () => {
+it('known wrong result: #2269 only carriers receiving width loads contribute area', () => {
   const model = witness();
   model.elements.set(2, { ...model.elements.get(2)!, type: 'truss' });
   check(model, {}, 30);
 });
 
-regression('known wrong result: #2269 dead level weight equals generated D load integral plus self-weight', () => {
+it('known wrong result: #2269 dead level weight equals generated D load integral plus self-weight', () => {
   const model = witness(3, 37, 3);
   const plan = buildLoadPlan(input(model, {
     seismic: { enabled: false, coefficient: 0.1, liveParticipation: 0, directions: { x: true, y: false } },
@@ -90,7 +89,7 @@ it('panel-mode width fallback retains the correct carrier area', () => {
   check(witness(), { gravity: { mode: 'panels' } });
 });
 
-regression('known wrong result: #2269 positive width immediately above zero contributes its exact area', () => {
+it('known wrong result: #2269 positive width immediately above zero contributes its exact area', () => {
   const width = Number.EPSILON;
   const plan = buildLoadPlan(input(witness(), { tributaryWidth: width }));
   expect(plan.levels[0]!.planAreaM2).toBeGreaterThan(0);

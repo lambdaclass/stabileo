@@ -535,9 +535,13 @@ function noteKeys(doc: StepDoc): string[] {
 
 function intervalSweepBeam(seed: number) {
   continuousBeam(seed);
+  if (seed === 0) {
+    const element = modelStore.model.elements.values().next().value!;
+    modelStore.addDistributedLoad(element.id, -1, -1, undefined, undefined, undefined, 0.5, 0.5);
+  }
 }
 
-it.skip('known wrong result: #2219 interval sweep contains an explicit empty load and a supported beam', () => {
+it('known wrong result: #2219 interval sweep contains an explicit empty load and a supported beam', () => {
   intervalSweepBeam(0);
   expect(modelStore.model.loads.some(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b)).toBe(true);
   expect(() => modelStore.buildSolverInput(false)).toThrow(/interval.*geometry limit/);
@@ -571,8 +575,8 @@ describe('axial term off, where bending alone says too little', () => {
 
   it('refuses zero-width loads and gives finite answers on the sweep\'s supported beams', () => {
     let refused = 0, answered = 0;
-    for (let seed = 1; seed <= 120; seed++) {
-      continuousBeam(seed);
+    for (let seed = 0; seed <= 120; seed++) {
+      intervalSweepBeam(seed);
       if (modelStore.model.loads.some(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b)) {
         expect(() => modelStore.buildSolverInput(false)).toThrow(/interval.*geometry limit/);
         refused++;
