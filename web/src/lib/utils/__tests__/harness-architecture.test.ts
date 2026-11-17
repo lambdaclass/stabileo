@@ -163,6 +163,7 @@ describe('Vitest harness architecture', () => {
       'gallery-isolation-2099.test.ts',
       'gravity-envelope-2219.test.ts',
       'gravity-member-loading-2219.test.ts',
+      'gravity-round19-2219.test.ts',
       'gravity-round4-2219.test.ts',
       'gravity-round5-2219.test.ts',
       'gravity-round6-2219.test.ts',
@@ -170,6 +171,7 @@ describe('Vitest harness architecture', () => {
       'gravity-round8-2219.test.ts',
       'gravity-round8-plane-2219.test.ts',
       'gravity-slivers-2222.test.ts',
+      'gravity-width-mass-2269.test.ts',
       ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
   });
