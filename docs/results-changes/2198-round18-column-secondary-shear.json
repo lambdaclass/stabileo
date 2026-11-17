@@ -316,36 +316,36 @@
       },
       "primary": {
         "Vu": 1,
-        "phiVn": 347.97749999999996,
-        "ratio": 0.00287374902112924,
+        "phiVc": 71.07333261120687,
+        "phiVn": 347.0050945135393,
+        "ratio": 0.0028818020709519654,
         "spacing": 0.05,
         "legs": 2,
         "status": "ok",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 55.9 cm",
-          "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+          "d = 55.7 cm",
+          "φVc (motor, CIRSOC 201-2025) = 71.07 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 1.67 cm²/m",
           "Estribos: 2 ramas Ø8 c/5 cm",
-          "φVn = 347.98 kN"
+          "φVn = 347.01 kN"
         ]
       },
       "secondary": {
         "Vu": 1,
-        "phiVn": 161.58852,
-        "ratio": 0.0061885584446221805,
+        "phiVc": 60.21999783362056,
+        "phiVn": 160.0009918911161,
+        "ratio": 0.006249961254493473,
         "spacing": 0.05,
         "legs": 2,
         "status": "ok",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 15.9 cm",
-          "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+          "d = 15.7 cm",
+          "φVc (motor, CIRSOC 201-2025) = 60.22 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 5.00 cm²/m",
           "Estribos: 2 ramas Ø8 c/5 cm",
-          "φVn = 161.59 kN"
+          "φVn = 160.00 kN"
         ]
       },
       "columnStatus": "ok",
@@ -383,37 +383,37 @@
       },
       "primary": {
         "Vu": 1,
-        "phiVn": 81.56207714160837,
-        "ratio": 0.01226059996318873,
+        "phiVc": 49.23499891681028,
+        "phiVn": 81.07015478779388,
+        "ratio": 0.012334995567944351,
         "spacing": 0.256256,
         "legs": 2,
         "status": "fail",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 25.9 cm",
-          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "d = 25.7 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.23 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 2.50 cm²/m",
           "Estribos: 2 ramas Ø8 c/26 cm",
-          "φVn = 81.56 kN",
+          "φVn = 81.07 kN",
           "⚠ s = 25.63 cm > s,max = 25.60 cm (§25.7.2.1)"
         ]
       },
       "secondary": {
         "Vu": 1,
-        "phiVn": 81.56207714160837,
-        "ratio": 0.01226059996318873,
+        "phiVc": 49.23499891681028,
+        "phiVn": 81.07015478779388,
+        "ratio": 0.012334995567944351,
         "spacing": 0.256256,
         "legs": 2,
         "status": "fail",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 25.9 cm",
-          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "d = 25.7 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.23 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 2.50 cm²/m",
           "Estribos: 2 ramas Ø8 c/26 cm",
-          "φVn = 81.56 kN",
+          "φVn = 81.07 kN",
           "⚠ s = 25.63 cm > s,max = 25.60 cm (§25.7.2.1)"
         ]
       },
@@ -430,8 +430,8 @@
             1
           ],
           "details": {
-            "ratio": 0.01226059996318873,
-            "phiVn": 81.56207714160837,
+            "ratio": 0.012334995567944351,
+            "phiVn": 81.07015478779388,
             "Vu": 1
           }
         },
@@ -444,8 +444,8 @@
             1
           ],
           "details": {
-            "ratio": 0.01226059996318873,
-            "phiVn": 81.56207714160837,
+            "ratio": 0.012334995567944351,
+            "phiVn": 81.07015478779388,
             "Vu": 1
           }
         }
@@ -482,36 +482,36 @@
       },
       "primary": {
         "Vu": 1,
-        "phiVn": 158.23555803384627,
-        "ratio": 0.006319692061793734,
+        "phiVc": 112.98658346388302,
+        "phiVn": 149.20908894316221,
+        "ratio": 0.006702004596924569,
         "spacing": 0.275,
         "legs": 2,
         "status": "ok",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 56.1 cm",
-          "φVc (motor, CIRSOC 201-2025) = 121.86 kN",
+          "d = 55.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 112.99 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 5.00 cm²/m",
           "Estribos: 2 ramas Ø6 c/28 cm",
-          "φVn = 158.24 kN"
+          "φVn = 149.21 kN"
         ]
       },
       "secondary": {
         "Vu": 1,
-        "phiVn": 48.058659999999996,
-        "ratio": 0.020807904340237535,
+        "phiVc": 112.98658346388302,
+        "phiVn": 149.20908894316221,
+        "ratio": 0.006702004596924569,
         "spacing": 0.275,
         "legs": 2,
         "status": "ok",
         "steps": [
           "Vu = 1.00 kN",
-          "d = 56.1 cm",
-          "φVc (motor, CIRSOC 201-2025) = 11.69 kN",
+          "d = 55.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 112.99 kN",
           "Vs,req = 0.00 kN",
-          "Av/s,req = 5.00 cm²/m",
           "Estribos: 2 ramas Ø6 c/28 cm",
-          "φVn = 48.06 kN"
+          "φVn = 149.21 kN"
         ]
       },
       "columnStatus": "ok",

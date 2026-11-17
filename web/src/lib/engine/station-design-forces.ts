@@ -1201,6 +1201,25 @@ export function computeColumnLayout(
   };
 }
 
+export function columnShearSection(layout: ColumnLayout | undefined, direction: ShearDirection, width: number, height: number) {
+  const coordinate = direction === 'primary' ? 'y' : 'x';
+  const toward = (reverse: boolean) => {
+    let asCm2 = 0;
+    let weightedDepth = 0;
+    for (const bar of layout?.bars ?? []) {
+      const position = reverse ? height - bar[coordinate] : bar[coordinate];
+      if (position <= 2 * height / 3) continue;
+      const area = rebarGroupArea({ count: 1, diameter: bar.diameter });
+      asCm2 += area;
+      weightedDepth += area * position;
+    }
+    return { d: asCm2 > 0 ? weightedDepth / asCm2 : 0, asCm2 };
+  };
+  const positive = toward(false);
+  const negative = toward(true);
+  return { width, height, d: Math.min(positive.d, negative.d), asCm2: Math.min(positive.asCm2, negative.asCm2) };
+}
+
 // ─── Row Fit / Spacing Verification ──────────────────────
 
 /** Result of checking whether bars in one row fit the section width. */
@@ -1501,7 +1520,7 @@ export function computeShearCapacity(
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
   /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
   opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {},
-): { phiVn: number; phiVc: number; phiVcUnrounded: number; VsProvUnrounded: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; Av: number; AvMin: number } {
+): { phiVn: number; phiVnUnrounded: number; phiVc: number; phiVcUnrounded: number; VsProvUnrounded: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; Av: number; AvMin: number } {
   return computeDirectionalShearCapacity('primary', stirrupDia, stirrupLegs({ legs: legs === 0 ? 2 : legs }, 'primary'), spacing, b, d, fc, fy, Nu, opts, legs === 0);
 }
 
@@ -1523,10 +1542,10 @@ export function computeDirectionalShearCapacity<D extends ShearDirection>(direct
     NuCompression: Nu * 1e3,
   });
   if (!r || !r.shearValid || !Number.isFinite(r.phiVn)) {
-    return { phiVn: 0, phiVc: 0, phiVcUnrounded: 0, VsProvUnrounded: 0, VsProv: 0, phi, avBelowMin: true, capped: false, evaluated: false, Av, AvMin: 0 };
+    return { phiVn: 0, phiVnUnrounded: 0, phiVc: 0, phiVcUnrounded: 0, VsProvUnrounded: 0, VsProv: 0, phi, avBelowMin: true, capped: false, evaluated: false, Av, AvMin: 0 };
   }
   return {
-    phiVn: +(r.phiVn / 1e3).toFixed(2),
+    phiVn: +(r.phiVn / 1e3).toFixed(2), phiVnUnrounded: r.phiVn / 1e3,
     phiVc: +(phi * r.Vc / 1e3).toFixed(2),
     phiVcUnrounded: phi * r.Vc / 1e3, VsProvUnrounded: r.Vs / 1e3,
     VsProv: +(r.Vs / 1e3).toFixed(2),
@@ -2075,7 +2094,7 @@ export function verifyProvidedReinforcement(
     const limit = columnShearSpacing(spacingRule.edition, {
       Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: width, d: depth, fc: section!.fc,
     });
-    if (limit.kind === 'not-required') return cap.phiVn;
+    if (limit.kind === 'not-required') return cap.phiVnUnrounded;
     if (limit.kind === 'unsupported') {
       pushSpacingCheck({
         category: `${label} s,max`, demandCategory: null, shearDirection: direction,
@@ -2084,7 +2103,7 @@ export function verifyProvidedReinforcement(
         description: `Column shear spacing not evaluated for CIRSOC 201-${spacingRule.edition}`,
         limiting: 'unsupportedCheck',
       });
-      return cap.phiVn;
+      return cap.phiVnUnrounded;
     }
     if (!cage) {
       pushSpacingCheck({
@@ -2093,7 +2112,7 @@ export function verifyProvidedReinforcement(
         comboName: station.comboName, stationX: station.stationX, limiting: 'unsupportedCheck',
         description: 'Column shear reinforcement is required; no verified tie area at this station (§10.6.2.1)',
       });
-      return cap.phiVn;
+      return cap.phiVnUnrounded;
     }
     if (cap.evaluated && cap.avBelowMin) {
       const category = `${label} Av,min`;
@@ -2108,7 +2127,7 @@ export function verifyProvidedReinforcement(
       if (prior < 0) checks.push(check);
       else if (check.ratio > checks[prior]!.ratio) checks[prior] = check;
     }
-    if (cage.spacing <= limit.alongMax + LENGTH_EPS) return cap.phiVn;
+    if (cage.spacing <= limit.alongMax + LENGTH_EPS) return cap.phiVnUnrounded;
     pushSpacingCheck({
       category: `${label} s,max`, demandCategory: null, shearDirection: direction,
       required: +(limit.alongMax * 100).toFixed(1), provided: +(cage.spacing * 100).toFixed(1),
@@ -2117,7 +2136,7 @@ export function verifyProvidedReinforcement(
       description: `tie spacing ${(cage.spacing * 100).toFixed(1)} cm exceeds s,max = ${(limit.alongMax * 100).toFixed(1)} cm (Table 10.7.6.5.2 ${limit.row}; Vu > 0.5φVc, §10.6.2.1)`,
       limiting: 'tieSpacing',
     });
-    return cap.phiVn;
+    return cap.phiVnUnrounded;
   };
 
   /*
@@ -2249,6 +2268,14 @@ export function verifyProvidedReinforcement(
     }
 
     const reg = provided.regions;
+    if (reg?.stirrupCoverageIncomplete) {
+      pushStrength({
+        category: 'Beam line stirrup coverage', demandCategory: null, utilization: Infinity,
+        unit: '—', method: 'area', tuplesChecked: 0,
+        description: 'Beam line has a gap or a change of stirrup cage within a verification region.',
+        limiting: 'unsupportedCheck',
+      });
+    }
 
     // ── Resolve layers from explicit layers or grouped bars ──
     const bottomLayers = resolveLayers(reg?.bottomSpanLayers, reg?.bottomSpan ?? provided.bottom);
@@ -2706,23 +2733,21 @@ export function verifyProvidedReinforcement(
       }
     }
 
-    // ─── Shear: support and span regions, on the GOVERNING shear axis ───
-    // ρw of the tension steel in each region, for row (c): the top at the supports (the smaller
-    // end, conservatively), the bottom along the span.
-    const supportSteel = Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers));
+    const startShearSteel = layersTotalArea(topStartLayers);
+    const endShearSteel = layersTotalArea(topEndLayers);
     const spanSteel = layersTotalArea(bottomLayers);
-    const supportSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; steelArea: number }> = reg?.stirrupsStart || reg?.stirrupsEnd ? [
-      { label: 'Support Start', stir: reg.stirrupsStart ?? stirSupport, tuples: startTuples, range: [0, tStartEnd], steelArea: supportSteel },
-      { label: 'Support End', stir: reg.stirrupsEnd ?? stirSupport, tuples: endTuples, range: [tEndStart, 1], steelArea: supportSteel },
-    ] : [{ label: 'Support', stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], steelArea: supportSteel }];
-    const shearSpecs = [...supportSpecs, { label: 'Span', stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] as [number, number], steelArea: spanSteel }]
+    const supportSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number] }> = reg?.stirrupsStart || reg?.stirrupsEnd ? [
+      { label: 'Support Start', stir: reg.stirrupsStart ?? stirSupport, tuples: startTuples, range: [0, tStartEnd] },
+      { label: 'Support End', stir: reg.stirrupsEnd ?? stirSupport, tuples: endTuples, range: [tEndStart, 1] },
+    ] : [{ label: 'Support', stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd] }];
+    const shearSpecs = [...supportSpecs, { label: 'Span', stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart] as [number, number] }]
       .flatMap(ss => (['primary', 'secondary'] as const).map(direction => {
         const primary = direction === 'primary';
         const axis = primary ? axes.shear : axes.secondaryShear;
         const depths = shearDepthsFor(ss.stir);
         const depth = depths[direction];
         return { ...ss, label: `Shear ${ss.label} (${axis})`, direction, axis, read: primary ? V : V2,
-          width: primary ? section.b : section.h, depth, dSecondary: depths.secondary, height: primary ? section.h : section.b, rhoW: primary ? ss.steelArea / (section.b * depth * 1e4) : 0 };
+          width: primary ? section.b : section.h, depth, dSecondary: depths.secondary, height: primary ? section.h : section.b };
       }));
     /*
      * CIRSOC 201-2025 §9.6.3.1 and Tabla 9.6.3.1: a beam «de poca altura» (h ≤ 250 mm) is exempt
@@ -2738,36 +2763,63 @@ export function verifyProvidedReinforcement(
     const minShearThreshold = (phiVc: number, width: number, depth: number) => (spacingRule.edition === '2005'
       ? 0.5 * phiVc
       : 0.75 * 0.085 * shearSqrtFc(section.fc) * width * depth * 1000);
+    const startPair = topOuterPair(topStartLayers, topEndLayers);
+    const endPair = topOuterPair(topEndLayers, topStartLayers);
+    const hoggingGeometry = (tieDia: number) => {
+      const geom = (layers: RebarLayer[], asCm2: number, pair: ReturnType<typeof topOuterPair>) => ({
+        asCm2,
+        depth: section.h - topShift - layerCentroid(layers, section.cover, tieDia, pair),
+      });
+      return {
+        start: geom(topStartLayers, startShearSteel, startPair),
+        end: geom(topEndLayers, endShearSteel, endPair),
+        span: topIntoSpanResult.area >= topEndIntoSpanResult.area
+          ? geom(topIntoSpanResult.layers, topIntoSpanArea, startPair)
+          : geom(topEndIntoSpanResult.layers, topIntoSpanArea, endPair),
+      };
+    };
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
       let held: ShallowMinShearHold | null = null;
       let minShort: { Vu: number; threshold: number; AvMin: number; comboName: string; stationX: number } | null = null;
       let count = 0;
       let peakVu = 0; let peakCombo = ''; let peakX = 0;
+      let hogging: ReturnType<typeof hoggingGeometry> | undefined;
+      const spacingDemand = new Map<number, number>();
+      const legs = ss.stir && stirrupLegs(ss.stir, ss.direction);
       for (const t of ss.tuples) {
         const Vu = Math.abs(ss.read(t));
         if (Vu < 0.001) continue;
         count++;
         if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
-        if (!ss.stir) continue;
-        // Solver convention is + = tension; computeShearCapacity expects
-        // + = compression (CIRSOC enhancement) — pass -t.n. Previously
-        // compression took the tension branch (Vc reduced to 0 → gross false
-        // failures) and tension the enhancement branch (Vc inflated → unsafe).
-        const cap = computeDirectionalShearCapacity(ss.direction, ss.stir.diameter, stirrupLegs(ss.stir, ss.direction), ss.stir.spacing, ss.width, ss.depth, section.fc, section.fy, -t.n,
-          { Ag: section.b * section.h, rhoW: ss.rhoW, h: ss.height, edition: spacingRule.edition });
-        const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
-        if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
-        if (ss.height <= SHALLOW_BEAM_MAX_H + 1e-9 && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
-          && (!held || Vu / Math.max(cap.phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
+        if (!ss.stir || !legs) continue;
+        const hog = ss.direction === 'primary' && M(t) < 0;
+        if (hog) hogging ??= hoggingGeometry(ss.stir.diameter);
+        const face = hogging && hog
+          ? t.stationT <= tStartEnd ? hogging.start : t.stationT >= tEndStart ? hogging.end : hogging.span
+          : undefined;
+        const depth = face?.depth ?? ss.depth;
+        const bottomArea = t.stationT <= tStartEnd ? botIntoStartResult.area : t.stationT >= tEndStart ? botIntoEndResult.area : spanSteel;
+        const asCm2 = ss.direction === 'primary' ? face?.asCm2 ?? bottomArea : 0;
+        const rhoW = depth > 0 ? asCm2 / (ss.width * depth * 1e4) : 0;
+        const cap = computeDirectionalShearCapacity(ss.direction, ss.stir.diameter, legs, ss.stir.spacing, ss.width, depth, section.fc, section.fy, -t.n,
+          { Ag: section.b * section.h, rhoW, h: ss.height, edition: spacingRule.edition });
+        const useRaw = hog || ss.direction === 'secondary';
+        const phiVn = useRaw ? cap.phiVnUnrounded : cap.phiVn;
+        const phiVc = useRaw ? cap.phiVcUnrounded : cap.phiVc;
+        spacingDemand.set(depth, Math.max(spacingDemand.get(depth) ?? 0, Vu));
+        const u = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
+        if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn, comboName: t.comboName, stationX: t.stationX };
+        if (ss.height <= SHALLOW_BEAM_MAX_H + 1e-9 && cap.evaluated && cap.avBelowMin && Vu > phiVc + 1e-9
+          && (!held || Vu / Math.max(phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
           held = {
-            region: ss.label, Vu: +Vu.toFixed(2), phiVc: cap.phiVc,
+            region: ss.label, Vu: +Vu.toFixed(2), phiVc: +phiVc.toFixed(2),
             Av: +(stirrupLegs(ss.stir, ss.direction).count * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2)).toFixed(3),
             AvMin: +(cap.AvMin ?? 0).toFixed(3), spacing: ss.stir.spacing, h: ss.height, comboName: t.comboName,
           };
         }
         if (elementType === 'beam' && ss.height > SHALLOW_BEAM_MAX_H + 1e-9 && cap.evaluated && cap.avBelowMin) {
-          const threshold = minShearThreshold(cap.phiVc, ss.width, ss.depth);
+          const threshold = minShearThreshold(phiVc, ss.width, depth);
           if (Vu > threshold + 1e-9 && (!minShort || Vu - threshold > minShort.Vu - minShort.threshold)) {
             minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, comboName: t.comboName, stationX: t.stationX };
           }
@@ -2906,7 +2958,9 @@ export function verifyProvidedReinforcement(
       // that forces crossties into wide members and into any member in row 2 whose web is
       // wider than the row-2 limit — a 300 mm web has 242 mm between its two leg centres
       // against a 200 mm row-2 limit, so a third leg is required.
-      pushTransverseSpacing(ss.label, ss.stir, ss.direction, ss.width, ss.depth, peakVu, ss.range);
+      for (const [depth, Vu] of spacingDemand) {
+        pushTransverseSpacing(ss.label, ss.stir, ss.direction, ss.width, depth, Vu, ss.range);
+      }
     }
 
     // ─── Constructibility: row fit checks ───
@@ -3157,15 +3211,12 @@ export function verifyProvidedReinforcement(
       // Effective depth per shear axis: primary shear bends over h, secondary
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
-      const dTieFor = (depth: number) => depth - section.cover - (colTieDia / 1000) - 0.008;
-      // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
-      // the sides), over the gross section; used only where the ties are below Av,min.
-      const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
-      const colRhoW = colArea / 3 / (section.b * section.h * 1e4);
-      const tieSpecs: Array<{ direction: ShearDirection; axis: 'Vy' | 'Vz'; read: (t: Tuple) => number; width: number; dTie: number }> = [
-        { direction: 'primary', axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
-        { direction: 'secondary', axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
-      ];
+      const tieSpecs = [
+        { direction: 'primary', axis: axes.shear, read: V,
+          ...columnShearSection(colLayout, 'primary', section.b, section.h) },
+        { direction: 'secondary', axis: axes.secondaryShear, read: V2,
+          ...columnShearSection(colLayout, 'secondary', section.h, section.b) },
+      ] as const;
       for (const ts of tieSpecs) {
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
         let count = 0; let peakVu = 0; let peakCombo = ''; let peakX = 0;
@@ -3180,8 +3231,8 @@ export function verifyProvidedReinforcement(
           const Lc = stationResult?.length ?? 0;
           const atEnd = !!z && Lc > 0 && (t.stationX <= z.endLength + 1e-6 || t.stationX >= Lc - z.endLength - 1e-6);
           const sTie = atEnd ? Math.min(z!.endSpacing, columnTies.spacing) : columnTies.spacing;
-          const phiVn = columnShearAt(ts.axis, { ...columnTies, spacing: sTie }, ts.width, ts.dTie, Vu, t,
-            { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h) });
+          const phiVn = columnShearAt(ts.axis, { ...columnTies, spacing: sTie }, ts.width, ts.d, Vu, t,
+            { Ag: section.b * section.h, rhoW: ts.d > 0 ? ts.asCm2 * 1e-4 / (ts.width * ts.d) : 0, h: ts.height });
           const u = phiVn > 1e-6 ? Vu / phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn, comboName: t.comboName, stationX: t.stationX };
         }

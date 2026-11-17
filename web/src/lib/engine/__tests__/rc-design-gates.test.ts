@@ -107,8 +107,8 @@ describe('GATE: verification is axis-agnostic', () => {
 
   it('column ties check BOTH shear components', () => {
     expect(sdf).toContain('axes.secondaryShear');
-    expect(sdf).toContain(`{ direction: 'primary', axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) }`);
-    expect(sdf).toContain(`{ direction: 'secondary', axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) }`);
+    expect(sdf).toMatch(/direction: 'primary', axis: axes\.shear, read: V,\s*\.\.\.columnShearSection\(colLayout, 'primary', section\.b, section\.h\)/);
+    expect(sdf).toMatch(/direction: 'secondary', axis: axes\.secondaryShear, read: V2,\s*\.\.\.columnShearSection\(colLayout, 'secondary', section\.h, section\.b\)/);
   });
 
   it('slenderness magnification reaches the verifier', () => {

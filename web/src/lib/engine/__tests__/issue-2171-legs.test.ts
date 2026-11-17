@@ -4,16 +4,26 @@ import { checkShear, prepareElementVerification, verifyElement } from '../codes/
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
+import { columnShearSection, computeColumnLayout } from '../station-design-forces';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const demand = (secondary: number, torque = 30, axis: 'My' | 'Mz' = 'My', primary = 0) => declaredTestDemands([
   { comboId: 1, comboName: 'C1', forces: { t: 0, x: 0, n: 0, my: axis === 'My' ? 20 : 0,
     mz: axis === 'Mz' ? 20 : 0, vy: axis === 'My' ? secondary : primary, vz: axis === 'Mz' ? secondary : primary, torsion: torque } },
 ])[0]!.section(axis);
-const capacity = (edition: '2005' | '2025', legs: number, section = p) => evaluateBeamSection({ edition,
-  fc: section.fc * 1e6, fy: section.fy * 1e6, b: section.h, h: section.b, d: section.b - section.cover - section.stirrupDia / 1000 - 0.008,
-  As: 0, Av: legs * 0.503 * 1e-4, s: 0.1, fyt: section.fy * 1e6, Ag: section.b * section.h, NuCompression: 0,
-})!.phiVn / 1000;
+function capacity(edition: '2005' | '2025', legs: number, section: typeof p, direction: 'primary' | 'secondary',
+  column: { barCount: number; barDia: number } | undefined, flexureSteel = 0) {
+  const b = direction === 'primary' ? section.b : section.h;
+  const h = direction === 'primary' ? section.h : section.b;
+  const geometry = column
+    ? columnShearSection(computeColumnLayout(column.barCount, column.barDia,
+      section.b, section.h, section.cover, section.stirrupDia), direction, b, h)
+    : { d: h - section.cover - section.stirrupDia / 1000 - 0.008, asCm2: flexureSteel };
+  return evaluateBeamSection({ edition, fc: section.fc * 1e6, fy: section.fy * 1e6, b, h,
+    d: geometry.d, As: geometry.asCm2 * 1e-4, Av: legs * 0.503 * 1e-4,
+    s: 0.1, fyt: section.fy * 1e6, Ag: section.b * section.h, NuCompression: 0,
+  })!.phiVn / 1000;
+}
 
 for (const edition of ['2005', '2025'] as const) {
   for (const axis of ['My', 'Mz'] as const) for (const elementType of ['beam', 'column', 'wall'] as const) {
@@ -29,15 +39,14 @@ for (const edition of ['2005', '2025'] as const) {
           const fixed = { column, shear: { spacing: 0.1, legs, secondaryLegs }, torsion: { AlProv: 100 } };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed) : verifyConcurrentElement([input], fixed);
           expect(v.shear.stirrupLegs).toBe(legs);
-          const primaryCapacity = evaluateBeamSection({ edition, fc: section.fc * 1e6, fy: section.fy * 1e6, b: section.b, h: section.h,
-            d: section.h - section.cover - section.stirrupDia / 1000 - 0.008, As: v.flexure.AsProv * 1e-4,
-            Av: legs * 0.503 * 1e-4, s: 0.1, fyt: section.fy * 1e6, Ag: section.b * section.h, NuCompression: 0 })!.phiVn / 1000;
+          const primaryCapacity = capacity(edition, legs, section, 'primary', column, v.flexure.AsProv);
+          const secondaryCapacity = capacity(edition, secondaryLegs ?? 2, section, 'secondary', column);
           expect(v.shear.phiVn).toBeCloseTo(primaryCapacity, 10);
           expect(v.shear.ratio).toBeCloseTo(primary / primaryCapacity, 12);
           expect(v.shearSecondary).toBeDefined();
           expect(v.shearSecondary!.stirrupLegs).toBe(secondaryLegs ?? 2);
-          expect(v.shearSecondary!.phiVn).toBeCloseTo(capacity(edition, secondaryLegs ?? 2, section), 10);
-          expect(v.shearSecondary!.ratio).toBeCloseTo(secondary / capacity(edition, secondaryLegs ?? 2, section), 12);
+          expect(v.shearSecondary!.phiVn).toBeCloseTo(secondaryCapacity, 10);
+          expect(v.shearSecondary!.ratio).toBeCloseTo(secondary / secondaryCapacity, 12);
         });
       }
     }
@@ -45,7 +54,7 @@ for (const edition of ['2005', '2025'] as const) {
   it(`known wrong result: #2171 exact four-leg column witness ${edition}`, () => {
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'column', demand: demand(edition === '2005' ? 220.235 : 222.18) },
       { shear: { spacing: 0.1, legs: 4 }, torsion: { AlProv: 100 } });
-    expect(v.shearSecondary!.phiVn).toBeCloseTo(capacity(edition, 2), 10);
+    expect(v.shearSecondary!.phiVn).toBeCloseTo(capacity(edition, 2, p, 'secondary', v.column), 10);
     expect(v.shearSecondary!.status).toBe('fail');
   });
 }

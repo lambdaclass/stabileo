@@ -140,8 +140,8 @@ function loop(): DesignFeedbackLoopResult {
 const REPAIRED = [5, 6, 7, 8];
 /** The two pairs, and the geometry each actually lost. */
 const PAIRS = {
-  noLayerMovement: { ids: [5, 6], hash: 'b0.0/t0.0/d15.0', sMaxCm: 24.9, util: 1.023, raise: 0 },
-  layerMoved: { ids: [7, 8], hash: 'b10.0/t10.0/d15.0', sMaxCm: 24.3, util: 1.027, raise: 0.010 },
+  noLayerMovement: { ids: [5, 6], hash: 'b0.0/t0.0/d15.0', sMaxSpanCm: 24.9, sMaxSupportCm: 24.9, util: 1.023, raise: 0 },
+  layerMoved: { ids: [7, 8], hash: 'b10.0/t10.0/d15.0', sMaxSpanCm: 24.3, sMaxSupportCm: 24.4, util: 1.027, raise: 0.010 },
 } as const;
 const pairOf = (id: number) =>
   PAIRS.noLayerMovement.ids.includes(id as never) ? PAIRS.noLayerMovement : PAIRS.layerMoved;
@@ -165,7 +165,7 @@ describe('the four beams: the failure, the repair and the arithmetic behind both
       const spacing = fails.filter((c) => c.limiting === 'tieSpacing');
       expect(spacing.map((c) => c.category).sort()).toEqual(['Shear Span (Vz) s,max', 'Shear Support (Vz) s,max']);
       for (const c of spacing) {
-        expect(c.required).toBeCloseTo(pair.sMaxCm, 1);   // cm
+        expect(c.required).toBeCloseTo(c.category.includes('Support') ? pair.sMaxSupportCm : pair.sMaxSpanCm, 1);   // cm
         expect(c.provided).toBeCloseTo(25.0, 1);          // cm
       }
       const others = fails.filter((c) => c.limiting !== 'tieSpacing');
@@ -515,7 +515,7 @@ describe('locked reinforcement is a hard constraint', () => {
     // the rest of the floor from being corrected.
     expect(l.iterations[0].changed).toEqual([5, 6]);
     for (const a of l.result.assemblies) {
-      expect(a.constructibility?.verdict).toBe('NOT_ESTABLISHED');
+      expect(a.constructibility?.verdict).toBe('CONFLICTED');
     }
     // Two passes and two iterations: iteration 1 repairs 5 and 6 and refuses 7 and 8, which
     // means the assembly must be re-coordinated; iteration 2 re-verifies at that NEW geometry,

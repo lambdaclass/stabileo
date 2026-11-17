@@ -5,7 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { endZoneFor } from '../candidate-enumerate-column';
-import { computeShearCapacity, verifyProvidedReinforcement } from '../../station-design-forces';
+import { seatedLongitudinalHalfExtents } from '../../../codes/cirsoc201/transverse-cage';
+import { computeShearCapacity, rebarGroupArea, verifyProvidedReinforcement } from '../../station-design-forces';
 
 describe('column end zones', () => {
   it('are proposed only when the project asks', () => {
@@ -26,7 +27,11 @@ describe('column end zones', () => {
     const plain = ties(base), zoned = ties({ ...base, tieZones: { endLength: 0.5, endSpacing: 0.125 } });
     const vy = (cs: typeof plain) => cs.find((c) => c.demand !== undefined && Math.abs(c.demand - 200) < 1e-6)!;
     // The worst station moves to the middle, where the spacing is still 25 cm.
-    const mid = computeShearCapacity(8, 2, 0.25, 0.4, 0.4 - 0.025 - 0.008 - 0.008, 25, 420, 500, { Ag: 0.16, rhoW: 0 } as never).phiVn;
+    const seat = seatedLongitudinalHalfExtents(sec.b, sec.h, sec.cover, sec.stirrupDia, base.column.cornerDia);
+    const d = sec.h / 2 + (2 * seat.corner.halfUp + seat.face.halfUp) / 3;
+    const area = rebarGroupArea({ count: 3, diameter: base.column.cornerDia }) * 1e-4;
+    const mid = computeShearCapacity(8, 2, 0.25, sec.b, d, sec.fc, sec.fy, 500,
+      { Ag: sec.b * sec.h, h: sec.h, rhoW: area / (sec.b * d) }).phiVn;
     expect(vy(zoned).capacity).toBeCloseTo(mid, 1);
     expect(vy(plain).capacity).toBeCloseTo(mid, 1);
     expect(vy(zoned).stationX).toBeCloseTo(1.5, 9);

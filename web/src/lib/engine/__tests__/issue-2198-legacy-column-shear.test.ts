@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { checkShear, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
+import { REBAR_DB, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
@@ -8,16 +8,32 @@ import { computeStationDemands, runCirsocDesign, runUnifiedVerification, setComp
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
+import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
+import { columnShearSection, computeColumnLayout } from '../station-design-forces';
 
 const section = { b: 0.6, h: 0.2, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const column = { barCount: 8, barDia: 16 };
+
+function testedSection(sec: typeof section, count: number) {
+  const layout = computeColumnLayout(count, column.barDia, sec.b, sec.h, sec.cover, sec.stirrupDia);
+  return columnShearSection(layout, 'primary', sec.b, sec.h);
+}
+
+function concreteShear(sec: typeof section, count: number, spacing: number, legs: number) {
+  const { d, asCm2 } = testedSection(sec, count);
+  return 0.75 * evaluateBeamSection({
+    edition: '2025', b: sec.b, h: sec.h, d, fc: sec.fc * 1e6, fy: sec.fy * 1e6,
+    As: asCm2 * 1e-4, Av: legs * REBAR_DB.find(bar => bar.diameter === sec.stirrupDia)!.area * 1e-4,
+    Ag: sec.b * sec.h, s: spacing, NuCompression: 0,
+  })!.Vc / 1000;
+}
 
 for (const elementType of ['column', 'wall'] as const) for (const axis of ['My', 'Mz'] as const)
   for (const direction of ['primary', 'secondary'] as const) for (const entry of ['direct', 'prepared', 'concurrent'] as const)
     for (const factor of [0, 0.999, 1, 1.001]) {
       it(`known wrong result: #2198 column shear applicability ${elementType} ${axis} ${direction} ${entry} ${factor}`, () => {
         const sec = direction === 'primary' ? section : { ...section, b: section.h, h: section.b };
-        const threshold = 0.5 * checkShear(section, 0).phiVc;
+        const threshold = 0.5 * concreteShear(section, column.barCount, 0.1, 2);
         const load = threshold * factor;
         const primary = axis === 'My' ? 'vz' : 'vy';
         const secondary = axis === 'My' ? 'vy' : 'vz';
@@ -69,15 +85,15 @@ for (const direction of ['primary', 'secondary'] as const) for (const row of [1,
   it(`known wrong result: #2198 legacy required column spacing boundary ${direction} row${row} ${factor}`, () => {
     const side = row === 2 ? 0.4 : 0.3;
     const sec = { ...section, b: side, h: side };
-    const d = sec.h - sec.cover - sec.stirrupDia / 1000 - 16 / 2000;
-    const limit = d / (row === 1 ? 2 : 4);
     const legs = row === 1 ? 2 : 6;
-    const load = checkShear(sec, 0).phiVc * 0.6;
+    const count = 4 + 4 * (legs - 2);
+    const limit = testedSection(sec, count).d / (row === 1 ? 2 : 4);
+    const load = concreteShear(sec, count, limit, legs) * 0.6;
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'required ties', forces: {
       t: 0, x: 0, n: 0, my: 0, mz: 0, vy: direction === 'secondary' ? load : 0, vz: direction === 'primary' ? load : 0, torsion: 0,
     } }])[0]!.section('My');
     const v = verifyElement({ ...sec, elementId: 1, elementType: 'column', demand },
-      { column: { ...column, barCount: 4 + 4 * (legs - 2) }, shear: { spacing: limit * factor, legs, secondaryLegs: legs } });
+      { column: { ...column, barCount: count }, shear: { spacing: limit * factor, legs, secondaryLegs: legs } });
     const s = direction === 'primary' ? v.shear : v.shearSecondary!;
     expect(s.ratio).toBeLessThan(1);
     expect(s.status).toBe(factor > 1 ? 'fail' : 'ok');

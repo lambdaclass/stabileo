@@ -1,0 +1,15 @@
+# Directional shear geometry and verified column ties (2026-11-17)
+
+Rectangular column shear now takes the effective depth and longitudinal area from the resolved cage for each axis. The calculation uses the bars beyond two thirds of the section depth from each compression face, as described in the commentary to [CIRSOC 201-2025 Table 22.5.5.1](../codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.5.5.1). For a cage that may see either sign, the smaller of the two area and depth inputs bounds the resistance in that direction. The checks consume those inputs in the existing section kernel. Both the legacy element verifier and the provided-reinforcement station verifier use the same cage geometry procedure.
+
+The [round 18 replay](2198-round18-column-secondary-shear.json) records the recalculated geometry and resistance. The square ordinary-tie case has equal design concrete shear strength of 112.99 kN in both directions. At 1 kN of demand per direction it is exempt from the shear minimum under [§10.6.2.1](../codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-10-columnas.md#c10.6.2.1), so neither direction displays a required shear-reinforcement area. The separate requirement for ordinary restraint ties still applies. The case with ties above the ordinary spacing limit still fails.
+
+At a hogging station the beam shear check uses the top bar centroid and area for that end or the continuing top steel in the span. The beam cells checked with this geometry, the branch's secondary beam check and the column station checks use unrounded strength for their verdicts. A beam line must cover each verification region with an equivalent cage throughout. A gap or a change of cage within a region is held for review because the projected reinforcement stores one cage per region.
+
+Rectangular column detailing uses the accepted tie diameter for the lift and the associated geometry. The lift and joint respect the verified pitch along with their local spacing limits. A larger design tie is therefore carried into the drawing instead of being replaced by a project default.
+
+No analysis load, displacement or native section formula changes. The 50-member design timing gate retains its existing time and work bounds. Tie selection groups the peak force for each concurrent axial force and reuses secondary scores with identical cage inputs.
+
+## Design snapshots
+
+The five updated design snapshots change exactly 112 fields, all column shear capacities and their ratios. The four 4-column fixtures each change 16 fields. The 12-column diagnostic fixture changes 48. Shear demands, check names, verdicts, flexural and axial checks, and analysis results retain their existing values. The ordinary check in the 400 mm square QA fixture, for example, moves from 172.94 to 172.18 kN. The first column in the 500 mm square row-2 fixture moves from 329.90 to 235.88 kN in both directions at 74.57 kN demand. The snapshots use the existing comparator and tolerances.

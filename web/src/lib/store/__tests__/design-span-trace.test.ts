@@ -349,45 +349,39 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
 /**
  * The bars as traced on the span fixture, mesh 1 m (positions from column A's axis).
  *
- * The marks moved three on (B13–B19 → B16–B22): the schedule numbers the level's rows in order,
- * and three more rows come ahead of the beam's since the columns' lifts are laid about the nodes
- * as the beams are (`generate-column` `jointBand`) and their ties stop clear of the beams' mats.
  * The beam's longitudinal bars are the same bars, at the same lengths.
  */
 const EXPECTED_BARS: unknown[] = [
-  ["e32-bot-cut-0", "B17", "bottom", 12, 3.284, 1.238, 4.522, null, null],
-  ["e32-bot-cut-1", "B17", "bottom", 12, 3.284, 1.238, 4.522, null, null],
-  ["e32-topI-1", "B14", "top", 12, 1.84, -0.063, 1.567, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], null],
-  ["e32-topI-3", "B13", "top", 12, 1.783, -0.006, 1.567, ["end", "hook", 0.254, "ldh", 0.221, 0.146, [90, 0.072, 0.144, 0.248]], null],
-  ["e32-bot-cont-0+e49-bot-cont-0", "B21", "bottom", 12, 11.9, 0.05, 11.95, ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null], ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null]],
-  ["e32-bot-cont-1+e49-bot-cont-1", "B21", "bottom", 12, 11.9, 0.05, 11.95, ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null], ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null]],
-  ["e49-bot-cut-0", "B17", "bottom", 12, 3.284, 7.478, 10.762, null, null],
-  ["e49-bot-cut-1", "B17", "bottom", 12, 3.284, 7.478, 10.762, null, null],
-  ["e32-topRun-0+e49-topRun-0", "B22", "top", 12, 12.546, -0.063, 12.063, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
-  ["e32-topRun-1+e49-topRun-1", "B22", "top", 12, 12.546, -0.063, 12.063, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
-  ["e32-topJ-1+e49-topI-1", "B18", "top", 12, 3.734, 4.133, 7.867, null, null],
-  ["e32-topJ-3+e49-topI-3", "B18", "top", 12, 3.734, 4.133, 7.867, null, null],
-  ["e49-topJ-1", "B14", "top", 12, 1.84, 10.433, 12.063, null, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
-  ["e49-topJ-3", "B13", "top", 12, 1.783, 10.433, 12.006, null, ["end", "hook", 0.254, "ldh", 0.221, 0.146, [90, 0.072, 0.144, 0.248]]],
+  ["e32-bot-cut-0", "B15", "bottom", 12, 3.284, 1.238, 4.522, null, null],
+  ["e32-bot-cut-1", "B15", "bottom", 12, 3.284, 1.238, 4.522, null, null],
+  ["e32-topI-1", "B12", "top", 12, 1.84, -0.063, 1.567, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], null],
+  ["e32-topI-3", "B11", "top", 12, 1.783, -0.006, 1.567, ["end", "hook", 0.254, "ldh", 0.221, 0.146, [90, 0.072, 0.144, 0.248]], null],
+  ["e32-bot-cont-0+e49-bot-cont-0", "B19", "bottom", 12, 11.9, 0.05, 11.95, ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null], ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null]],
+  ["e32-bot-cont-1+e49-bot-cont-1", "B19", "bottom", 12, 11.9, 0.05, 11.95, ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null], ["end", "straight", 0.15, "9.7.3.8.2", 0.15, 0.25, null]],
+  ["e49-bot-cut-0", "B15", "bottom", 12, 3.284, 7.478, 10.762, null, null],
+  ["e49-bot-cut-1", "B15", "bottom", 12, 3.284, 7.478, 10.762, null, null],
+  ["e32-topRun-0+e49-topRun-0", "B20", "top", 12, 12.546, -0.063, 12.063, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ["e32-topRun-1+e49-topRun-1", "B20", "top", 12, 12.546, -0.063, 12.063, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ["e32-topJ-1+e49-topI-1", "B16", "top", 12, 3.734, 4.133, 7.867, null, null],
+  ["e32-topJ-3+e49-topI-3", "B16", "top", 12, 3.734, 4.133, 7.867, null, null],
+  ["e49-topJ-1", "B12", "top", 12, 1.84, 10.433, 12.063, null, ["end", "hook", 0.311, "ldh", 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ["e49-topJ-3", "B11", "top", 12, 1.783, 10.433, 12.006, null, ["end", "hook", 0.254, "ldh", 0.221, 0.146, [90, 0.072, 0.144, 0.248]]],
 ];
 // 133,609 kg before: the stirrups are now laid between the mats as the joint ranks lower and
 // raise them (1,347 → 1,290 m each), so their bends hold the bars they enclose.
 const EXPECTED_MASS = 111.971;
 /** Zone, Ø, stations, first and last station (m from A), widest spacing. */
-// The first stirrup at each support stands 13 mm inside the face (`stirrupInsetI`): its legs keep
-// the column's 40 mm from the 40×40 column's Ø16 face bars (§25.2.3); at the face they came 29,7
-// mm. Before: 0,2 / 5,8 / 6,2 / 11,8 and 0,092 between; after: 0,213 / 5,787 / 6,213 / 11,787, 0,09.
 const EXPECTED_STIRRUPS: unknown[] = [
-  ["e32:shear:0", 6, 6, 0.213, 0.585, 0.075],
+  ["e32:shear:0", 6, 6, 0.215, 0.585, 0.074],
   ["e32:minimum:1", 6, 63, 0.659, 5.267, 0.075],
-  ["e32:shear:2", 6, 7, 5.341, 5.787, 0.075],
-  ["e49:shear:0", 6, 6, 6.213, 6.585, 0.075],
+  ["e32:shear:2", 6, 7, 5.341, 5.785, 0.074],
+  ["e49:shear:0", 6, 6, 6.215, 6.585, 0.074],
   ["e49:minimum:1", 6, 63, 6.659, 11.267, 0.075],
-  ["e49:shear:2", 6, 7, 11.341, 11.787, 0.075],
+  ["e49:shear:2", 6, 7, 11.341, 11.785, 0.074],
 ];
 /** Half the 40×40 column's side: the face either side of each axis, m. */
 const FACE = 0.2;
-/** The first stirrup inside the face: Ø6 + 40 mm − 25 mm cover − the column's Ø8 tie, m. */
-const FIRST_STIRRUP_INSET = 0.013;
+/** The first stirrup inside the face: Ø6 + 40 mm − 25 mm cover − the column's Ø6 tie, m. */
+const FIRST_STIRRUP_INSET = 0.015;
 /** The design's stirrup spacing on V2, support and span alike, m. */
 const STIRRUP_SPACING = 0.075;

@@ -22,11 +22,10 @@ import { runDesign } from '../../design/candidate-search';
 import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import { runDetailing, type RunDetailingResult } from '../run-detailing';
 import type { BarPath } from '../../../codes/cirsoc201/bar-geometry';
-import { computeDirectionalShearCapacity } from '../../station-design-forces';
+import { computeColumnLayout, columnShearSection, computeDirectionalShearCapacity } from '../../station-design-forces';
 import { stirrupLegs } from '../../../design-contract/directional-stirrups';
 import { columnShearSpacing, columnTieSpacing } from '../../../codes/cirsoc201/transverse-spacing';
 import { generateColumnStack } from '../generate-column';
-import { REBAR_DB } from '../../codes/argentina/cirsoc201';
 import type { MemberContext } from '../../design/member-context';
 
 function designAndDetail(fixture: unknown) {
@@ -299,17 +298,17 @@ describe('§15.3.1.4 — joint tie spacing cap', () => {
 function expectOrdinaryColumnShear(ctx: MemberContext, cage: { diameter: number; legs: number; spacing: number }) {
   const { b, h } = ctx.section;
   const { fc, fy, cover } = ctx.material;
-  const longArea = 8 * REBAR_DB.find(r => r.diameter === 20)!.area * 1e-4;
+  const layout = computeColumnLayout(8, 20, b, h, cover, cage.diameter);
   const tuples = ctx.stations!.comboResults.flatMap(c => c.stations);
   expect(tuples).toHaveLength(44);
   for (const direction of ['primary', 'secondary'] as const) {
     const axis = direction === 'primary' ? ctx.axes.shear : ctx.axes.secondaryShear;
-    const d = h - cover - cage.diameter / 1000 - 0.008;
+    const { d, asCm2 } = columnShearSection(layout, direction, b, h);
     for (const station of tuples) {
       const Vu = Math.abs(axis === 'Vy' ? station.vy : station.vz);
       const cap = computeDirectionalShearCapacity(direction, cage.diameter,
         stirrupLegs({ legs: cage.legs, secondaryLegs: cage.legs }, direction), cage.spacing,
-        b, d, fc, fy, -station.n, { Ag: b * h, rhoW: longArea / 3 / (b * h), h, edition: '2025' });
+        b, d, fc, fy, -station.n, { Ag: b * h, rhoW: asCm2 * 1e-4 / (b * d), h, edition: '2025' });
       expect(cap.evaluated).toBe(true);
       expect(cap.avBelowMin).toBe(false);
       expect(Vu).toBeLessThanOrEqual(0.5 * cap.phiVcUnrounded);
@@ -347,12 +346,12 @@ describe('row-2 column generation follows its declared cage', () => {
       const stations = [...new Set(ties.map(b => b.station!))].sort((a, b) => a - b);
       expect(stations).toHaveLength(11);
       const spacing = Math.max(...stations.slice(1).map((s, i) => s - stations[i]));
-      expect(spacing).toBeLessThanOrEqual(columnTieSpacing('2025', 20, 8, 0.5).spacing);
-      expectOrdinaryColumnShear(ctx, { diameter: 8, legs: 3, spacing });
+      expect(spacing).toBeLessThanOrEqual(Math.min(outcome.accepted!.stirrups!.spacing, columnTieSpacing('2025', 20, 10, 0.5).spacing));
+      expectOrdinaryColumnShear(ctx, { diameter: 10, legs: 3, spacing });
       for (const station of stations) {
         const group = ties.filter(b => b.station === station);
         expect(group).toHaveLength(3);
-        expect(group.every(b => b.diameterMm === 8)).toBe(true);
+        expect(group.every(b => b.diameterMm === 10)).toBe(true);
         const outer = group.filter(b => !b.id.includes('crosstie'));
         const cross = group.filter(b => b.id.includes('crosstie'));
         expect(outer).toHaveLength(1);

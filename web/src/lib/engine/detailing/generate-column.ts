@@ -68,6 +68,7 @@ export interface ColumnLift {
   /** Tie diameter, mm. */
   tieDia: number;
   secondaryLegs?: number;
+  verifiedTieSpacing?: number;
   cover: number;
   /** Denser ties at both ends of the lift (the design's `tieZones`): length from each end and spacing, m. */
   endZone?: { length: number; spacing: number };
@@ -873,28 +874,29 @@ export function generateColumnStack(input: ColumnStackInput): GeneratedColumnSta
 
     const ts = tieSpacing(lift.bars.diameterMm, lift.tieDia, Math.min(lift.b, lift.h), input.edition);
     refs.push(...ts.refs);
+    const tiePitch = Math.min(ts.spacing, lift.verifiedTieSpacing ?? Infinity);
     const ez = lift.endZone;
     // The ties run the clear height, soffit of the joint above to the floor of the one below:
     // each joint has its own cage (`run-detailing`). The end zones run in from both.
     const clearBase = below.hi;
     const clearTop = above.lo;
     if (ez && ez.length > 0 && clearTop - clearBase > 2 * ez.length + 1e-6) {
-      const sp = Math.min(ez.spacing, ts.spacing);
+      const sp = Math.min(ez.spacing, tiePitch);
       ties.push(
         { liftIndex: i, from: clearBase, to: clearBase + ez.length, spacing: sp, diameterMm: lift.tieDia },
-        { liftIndex: i, from: clearBase + ez.length, to: clearTop - ez.length, spacing: ts.spacing, diameterMm: lift.tieDia },
+        { liftIndex: i, from: clearBase + ez.length, to: clearTop - ez.length, spacing: tiePitch, diameterMm: lift.tieDia },
         { liftIndex: i, from: clearTop - ez.length, to: clearTop, spacing: sp, diameterMm: lift.tieDia },
       );
       trace.push(`Tramo ${i}: estribos densificados cada ${(sp * 1000).toFixed(0)} mm en ${(ez.length * 1000).toFixed(0)} mm desde cada extremo (opción del proyecto).`);
     } else {
       ties.push({
         liftIndex: i, from: clearBase, to: clearTop,
-        spacing: ez ? Math.min(ez.spacing, ts.spacing) : ts.spacing, diameterMm: lift.tieDia,
+        spacing: ez ? Math.min(ez.spacing, tiePitch) : tiePitch, diameterMm: lift.tieDia,
       });
     }
     trace.push(
       `Tramo ${i}: ${lift.bars.count}Ø${lift.bars.diameterMm}, estribos Ø${lift.tieDia} cada ` +
-      `${(ts.spacing * 1000).toFixed(0)} mm (gobierna ${ts.governedBy}).`);
+      `${(tiePitch * 1000).toFixed(0)} mm (gobierna ${tiePitch < ts.spacing ? "diseño" : ts.governedBy}).`);
   }
 
   return {

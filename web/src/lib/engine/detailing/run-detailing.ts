@@ -576,9 +576,11 @@ export function runDetailing(input: RunDetailingInput): RunDetailingResult {
 function withDesignedStirrups(input: RunDetailingInput): RunDetailingInput {
   let contexts: Map<number, MemberContext> | null = null;
   for (const [id, ctx] of input.contexts) {
-    if (ctx.elementType !== 'beam') continue;
+    if (ctx.elementType !== 'beam' && (ctx.elementType !== 'column' || ctx.shape)) continue;
     const r = detailableReinforcement(input.outcomes.get(id))?.rebar;
-    const d = Math.max(r?.regions?.stirrupsSupport?.diameter ?? 0, r?.regions?.stirrupsSpan?.diameter ?? 0, r?.stirrups?.diameter ?? 0);
+    const d = ctx.elementType === 'beam'
+      ? Math.max(r?.regions?.stirrupsSupport?.diameter ?? 0, r?.regions?.stirrupsSpan?.diameter ?? 0, r?.stirrups?.diameter ?? 0)
+      : r?.stirrups?.diameter ?? ctx.material.stirrupDia;
     if (!(d > 0) || d === ctx.material.stirrupDia) continue;
     contexts ??= new Map(input.contexts);
     contexts.set(id, { ...ctx, material: { ...ctx.material, stirrupDia: d } });
@@ -693,11 +695,12 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       b: ctx.section.b, h: ctx.section.h,
       centre: { x: lo.x + off.x, y: lo.y + off.y },
       nodePlan: { x: lo.x, y: lo.y },
-      // A shaped column draws the ties its design chose; a rectangular one keeps the project's
-      // stirrup, which its joint cages and the threading search are coordinated against.
       ...(accepted?.tieZones ? { endZone: { length: accepted.tieZones.endLength, spacing: accepted.tieZones.endSpacing } } : {}),
       secondaryLegs: accepted?.stirrups?.secondaryLegs,
-      bars, tieDia: ctx.shape ? (accepted?.stirrups?.diameter ?? accepted?.shaped?.spiral?.diameter ?? ctx.material.stirrupDia) : ctx.material.stirrupDia, cover: ctx.material.cover,
+      verifiedTieSpacing: ctx.shape ? undefined : accepted?.stirrups?.spacing,
+      bars,
+      tieDia: ctx.shape ? (accepted?.stirrups?.diameter ?? accepted?.shaped?.spiral?.diameter ?? ctx.material.stirrupDia) : ctx.material.stirrupDia,
+      cover: ctx.material.cover,
     });
     stacks.set(key, list);
   }
@@ -2921,8 +2924,10 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     // transverse joint reinforcement spacing must not exceed 200 mm. The §10.7.6.2
     // column-tie value can exceed it (16·Ø20 = 320 mm), so the cap is applied here,
     // on the joint, not inside `tieSpacing` (which is correct for the column itself).
-    const jointSpacing = Math.min(ts.spacing, 0.2);
-    const jointSpacingBy = ts.spacing <= 0.2 ? ts.governedBy : '§15.3.1.4 (200 mm)';
+    const providedSpacing = cCtx.shape ? Infinity : Math.min(cAccepted?.stirrups?.spacing ?? Infinity, cAccepted?.tieZones?.endSpacing ?? Infinity);
+    const jointSpacing = Math.min(ts.spacing, 0.2, providedSpacing);
+    const jointSpacingBy = jointSpacing === providedSpacing ? 'design'
+      : ts.spacing <= 0.2 ? ts.governedBy : '§15.3.1.4 (200 mm)';
 
     // The column bars this cage has to enclose, in the TIE's section frame. The tie lies in
     // the horizontal plane, so `up` is taken as global x and `across` as global y — the same

@@ -1,0 +1,39 @@
+{
+  "id": "column-shear-cage-geometry",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Shear checks use the resolved longitudinal reinforcement",
+    "es": "La verificación a corte usa la armadura longitudinal resuelta",
+    "pt": "A verificação ao cisalhamento usa a armadura longitudinal definida",
+    "de": "Querkraftnachweise verwenden die ermittelte Längsbewehrung",
+    "fr": "La vérification au cisaillement utilise les armatures longitudinales établies",
+    "hu": "A nyírási ellenőrzés a feloldott hosszvasalást használja",
+    "tr": "Kesme denetimleri belirlenen boyuna donatıyı kullanır"
+  },
+  "explanation": {
+    "en": "Recheck rectangular concrete columns and beam supports. Bar centres and tension steel affect shear resistance and the minimum reinforcement requirement. Column drawings use the verified tie diameter and spacing. A beam line with a gap or a change of stirrups within a verification region is held for review.",
+    "es": "Vuelva a verificar las columnas rectangulares y los apoyos de vigas de hormigón. La posición y el área de la armadura traccionada afectan la resistencia y la armadura mínima a corte. Los planos de columnas usan el diámetro y la separación de estribos verificados. Revise las vigas continuas con huecos o cambios de estribos dentro de una región de verificación.",
+    "pt": "Verifique novamente os pilares retangulares e os apoios de vigas de concreto. A posição e a área da armadura tracionada afetam a resistência e a armadura mínima ao cisalhamento. Os desenhos dos pilares usam o diâmetro e o espaçamento verificados dos estribos. Revise as vigas contínuas com trechos sem estribos ou com mudanças de estribos dentro de uma região de verificação.",
+    "de": "Rechteckige Betonstützen und Balkenauflager erneut prüfen. Lage und Fläche der Zugbewehrung beeinflussen den Querkraftwiderstand und die Mindestbewehrung. Stützenpläne übernehmen den nachgewiesenen Bügeldurchmesser und Bügelabstand. Bei einer Lücke oder einem Bügelwechsel innerhalb eines Nachweisbereichs ist eine Prüfung erforderlich.",
+    "fr": "Revérifier les poteaux rectangulaires et les appuis de poutres en béton. La position et la section des armatures tendues influent sur la résistance et les armatures minimales au cisaillement. Les plans de poteaux utilisent le diamètre et le pas vérifiés des cadres. Une interruption ou un changement de cadres dans une zone vérifiée exige un contrôle.",
+    "hu": "Ellenőrizze újra a téglalap alakú betonoszlopokat és a gerendatámaszokat. A húzott vasalás helyzete és területe befolyásolja a nyírási ellenállást és a minimális vasalást. Az oszloprajzok az ellenőrzött kengyelátmérőt és kiosztást használják. Egy ellenőrzési tartományon belüli hiány vagy kengyelváltás felülvizsgálatot igényel.",
+    "tr": "Dikdörtgen beton kolonları ve kiriş mesnetlerini yeniden denetleyin. Çekme donatısının konumu ve alanı, kesme dayanımını ve asgari donatıyı etkiler. Kolon çizimleri doğrulanmış etriye çapını ve aralığını kullanır. Bir denetim bölgesinde etriye boşluğu veya değişimi varsa kiriş hattı incelenmelidir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round28-shear-geometry.md",
+    "heading": "Directional shear geometry and verified column ties (2026-11-17)"
+  }
+}

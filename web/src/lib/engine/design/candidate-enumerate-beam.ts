@@ -181,8 +181,8 @@ export function buildStirrupOptions(ctx: MemberContext, Vu: number, VuSecondary 
   }
   // Preference: fewer legs, smaller diameter, wider spacing (least steel).
   out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
-  return boundedDirectionalOptions(out, BEAM_LIMITS.maxStirrupOptions, cage => VuSecondary / computeDirectionalShearCapacity(
-    'secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, h, candidateShearDepth(b, cover, cage.diameter), ctx.material.fc, ctx.material.fy, 0,
+  return boundedDirectionalOptions(out, BEAM_LIMITS.maxStirrupOptions, cage => VuSecondary === 0 ? 0 : VuSecondary / computeDirectionalShearCapacity(
+    'secondary', cage.diameter, stirrupLegs({ legs: 2, secondaryLegs: cage.secondaryLegs }, 'secondary'), cage.spacing, h, candidateShearDepth(b, cover, cage.diameter), ctx.material.fc, ctx.material.fy, 0,
     { Ag: b * h, h: b, edition: ctx.codeEdition }).phiVn, minimumOptions);
 }
 

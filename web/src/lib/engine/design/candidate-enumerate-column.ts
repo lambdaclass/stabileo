@@ -92,21 +92,39 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
   const { b, h } = ctx.section;
   const out: StirrupDef[] = [];
   const minimumOptions: StirrupDef[] = [];
+  const axes = [ctx.axes.shear, ctx.axes.secondaryShear] as const;
+  const shearByAxial = new Map(axes.map(axis => [axis, new Map<number, number>()]));
+  for (const combo of ctx.stations?.comboResults ?? []) {
+    for (const station of combo.stations) {
+      for (const axis of axes) {
+        const Vu = Math.abs(tupleShear(station, axis));
+        const byAxial = shearByAxial.get(axis)!;
+        if (Vu > (byAxial.get(station.n) ?? 0)) byAxial.set(station.n, Vu);
+      }
+    }
+  }
+  let secondaryDemand = 0;
+  for (const Vu of shearByAxial.get(ctx.axes.secondaryShear)!.values()) secondaryDemand = Math.max(secondaryDemand, Vu);
+  const shapedWebs = ctx.shape ? shapedShearWebs(ctx.shape) : undefined;
+  const capacityOptions = { Ag: ctx.shape ? grossAreaOf(ctx.shape) : b * h, edition: ctx.codeEdition };
+  const perimeterLegs = stirrupLegs({ legs: 2 }, 'primary');
   for (const dia of ctx.material.stirrupDiametersMm ?? STANDARD_STIRRUP_DIAS) {
     const limits = (width: number, depth: number, axis: 'Vy' | 'Vz') => {
       if (ctx.codeEdition !== '2025') return undefined;
-      const required = (ctx.stations?.comboResults ?? []).flatMap(c => c.stations).filter(s => {
-        const Vu = Math.abs(tupleShear(s, axis));
-        const cap = computeDirectionalShearCapacity('primary', dia, stirrupLegs({ legs: 2 }, 'primary'), ordinaryTop,
-          width, depth, ctx.material.fc, ctx.material.fy, -s.n, { Ag: ctx.shape ? grossAreaOf(ctx.shape) : b * h, edition: ctx.codeEdition });
-        return columnShearSpacing(ctx.codeEdition, { Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: width, d: depth, fc: ctx.material.fc }).kind === 'required';
-      });
-      if (!required.length) return undefined;
-      const Vu = Math.max(...required.map(s => Math.abs(tupleShear(s, axis))));
-      return transverseSpacingForDemand(ctx.codeEdition, { Vu, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia });
+      let required = 0;
+      for (const [n, Vu] of shearByAxial.get(axis)!) {
+        const cap = computeDirectionalShearCapacity('primary', dia, perimeterLegs, ordinaryTop,
+          width, depth, ctx.material.fc, ctx.material.fy, -n, capacityOptions);
+        if (columnShearSpacing(ctx.codeEdition, {
+          Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: width, d: depth, fc: ctx.material.fc,
+        }).kind === 'required') required = Math.max(required, Vu);
+      }
+      return required > 0 ? transverseSpacingForDemand(ctx.codeEdition, {
+        Vu: required, bw: width, d: depth, fc: ctx.material.fc, cover: ctx.material.cover, stirrupDiaMm: dia,
+      }) : undefined;
     };
     const effectiveDepth = (depth: number) => candidateShearDepth(depth, ctx.material.cover, dia);
-    const webs = ctx.shape ? shapedShearWebs(ctx.shape) : [
+    const webs = shapedWebs ?? [
       { axis: ctx.axes.shear, bw: ctx.axes.bFlex, d: effectiveDepth(ctx.axes.hFlex) },
       { axis: ctx.axes.secondaryShear, bw: ctx.axes.hFlex, d: effectiveDepth(ctx.axes.bFlex) },
     ];
@@ -135,12 +153,15 @@ export function buildTieOptions(ctx: MemberContext, cornerDia: number): StirrupD
     }
   }
   out.sort((x, y) => x.legs - y.legs || (x.secondaryLegs ?? 2) - (y.secondaryLegs ?? 2) || x.diameter - y.diameter || y.spacing - x.spacing);
+  const secondaryWeb = shapedWebs?.find(w => w.axis === ctx.axes.secondaryShear);
+  const rankingOptions = { ...capacityOptions, h: Math.max(b, h) };
   return boundedDirectionalOptions(out, COLUMN_LIMITS.maxTieOptions, cage => {
-    const depth = candidateShearDepth(ctx.axes.bFlex, ctx.material.cover, cage.diameter);
-    const web = ctx.shape ? shapedShearWebs(ctx.shape).find(w => w.axis === ctx.axes.secondaryShear)! : { bw: ctx.axes.hFlex, d: depth };
-    return Math.max(0, ...(ctx.stations?.comboResults ?? []).flatMap(c => c.stations.map(s => Math.abs(tupleShear(s, ctx.axes.secondaryShear)))))
-      / computeDirectionalShearCapacity('secondary', cage.diameter, stirrupLegs(cage, 'secondary'), cage.spacing, web.bw, web.d, ctx.material.fc, ctx.material.fy, 0,
-        { Ag: ctx.shape ? grossAreaOf(ctx.shape) : b * h, h: Math.max(b, h), edition: ctx.codeEdition }).phiVn;
+    if (secondaryDemand === 0) return 0;
+    const bw = secondaryWeb?.bw ?? ctx.axes.hFlex;
+    const d = secondaryWeb?.d ?? candidateShearDepth(ctx.axes.bFlex, ctx.material.cover, cage.diameter);
+    return secondaryDemand / computeDirectionalShearCapacity('secondary', cage.diameter,
+      stirrupLegs({ legs: 2, secondaryLegs: cage.secondaryLegs }, 'secondary'), cage.spacing, bw, d, ctx.material.fc,
+      ctx.material.fy, 0, rankingOptions).phiVn;
   }, minimumOptions);
 }
 

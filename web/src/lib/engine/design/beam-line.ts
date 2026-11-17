@@ -265,14 +265,29 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
       else { regions.topEndLayers = layers; regions.topEnd = groupOfLayers(layers); if (!plain) regions.topEndGroups = groups; }
     };
     topSide('start'); topSide('end');
-    // ── Stirrups: the span zone, and the weaker of the two end zones ──
-    const zAt = (x: number) => line.stirrups.find((z) => z.from <= x + EPS && z.to >= x - EPS);
-    const zs = zAt((a + s) / 2), ze = zAt((e + b) / 2), zm = zAt(mid);
+    function cageCovering(from: number, to: number): BeamStirrupZone | undefined {
+      if (to <= from + EPS) return undefined;
+      const zones = line.stirrups.filter(z => z.from < to - EPS && z.to > from + EPS).sort((x, y) => x.from - y.from);
+      const first = zones[0];
+      let end = from;
+      for (const zone of zones) {
+        if (zone.from > end + EPS || !sameZone(first!, zone)) break;
+        end = Math.max(end, zone.to);
+      }
+      if (end >= to - EPS && zones.every(zone => sameZone(first!, zone))) return first;
+      regions.stirrupCoverageIncomplete = true;
+      return undefined;
+    }
+    const start = cageCovering(a, s);
+    const end = cageCovering(e, b);
+    const zm = cageCovering(s, e);
+    const zs = s <= a + EPS ? zm ?? end : start;
+    const ze = b <= e + EPS ? zm ?? start : end;
     const sup = zs && ze ? {
       ...(avs(zs) / zs.legs <= avs(ze) / ze.legs ? zs : ze),
       legs: Math.min(zs.legs, ze.legs), secondaryLegs: Math.min(zs.secondaryLegs ?? 2, ze.secondaryLegs ?? 2),
     } : (zs ?? ze);
-    if (sup) regions.stirrupsSupport = stirrupOf(sup);
+    if (sup && !regions.stirrupCoverageIncomplete) regions.stirrupsSupport = stirrupOf(sup);
     if (zs && ze && !sameZone(zs, ze)) {
       regions.stirrupsStart = stirrupOf(zs);
       regions.stirrupsEnd = stirrupOf(ze);

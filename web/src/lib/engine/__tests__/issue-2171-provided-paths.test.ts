@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { verifyProvidedReinforcement, computeDirectionalShearCapacity, layerCentroid, rebarGroupArea } from '../station-design-forces';
+import { verifyProvidedReinforcement, computeDirectionalShearCapacity, columnShearSection, computeColumnLayout, layerCentroid } from '../station-design-forces';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
 import { LENGTH_EPS, transverseSpacingForDemand } from '../../codes/cirsoc201/transverse-spacing';
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
@@ -166,9 +166,13 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
         { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
       const rows = result.checks.filter(c => c.demandCategory === 'Vy' && c.limiting === 'shear');
       expect(rows.length).toBeGreaterThan(0);
-      const depth = section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, diameter);
-      const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(kind === 'column' ? { legs: 2 } : cage, 'secondary'), cage.spacing, section.h, depth, section.fc, section.fy, 0,
-        { edition, Ag: section.b * section.h, h: kind === 'column' ? section.h : section.b, rhoW: kind === 'column' ? rebarGroupArea(bars) / 3 / (section.b * section.h * 1e4) : 0 });
+      const geometry = kind === 'column' ? columnShearSection(
+        computeColumnLayout(bars.count, bars.diameter, section.b, section.h, section.cover, diameter),
+        'secondary', section.h, section.b,
+      ) : { d: section.b - layerCentroid([{ ...bars, row: 0 }], section.cover, diameter), asCm2: 0 };
+      const expected = computeDirectionalShearCapacity('secondary', diameter, stirrupLegs(kind === 'column' ? { legs: 2 } : cage, 'secondary'),
+        cage.spacing, section.h, geometry.d, section.fc, section.fy, 0,
+        { edition, Ag: section.b * section.h, h: section.b, rhoW: geometry.asCm2 * 1e-4 / (section.h * geometry.d) });
       for (const row of rows) {
         expect(row.ratio).toBeLessThan(1);
         expect(row.capacity).toBe(expected.phiVn);
@@ -196,7 +200,15 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
       { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);
-    const expected = expectedPrimaryCapacity(cage, section, edition);
+    const expected = kind === 'column' ? (() => {
+      const geometry = columnShearSection(
+        computeColumnLayout(bars.count, bars.diameter, section.b, section.h, section.cover, diameter),
+        'primary', section.b, section.h,
+      );
+      return computeDirectionalShearCapacity('primary', diameter, stirrupLegs(cage, 'primary'), cage.spacing,
+        section.b, geometry.d, section.fc, section.fy, 0,
+        { h: section.h, Ag: section.b * section.h, rhoW: geometry.asCm2 * 1e-4 / (section.b * geometry.d), edition });
+    })() : expectedPrimaryCapacity(cage, section, edition);
     for (const row of rows) {
       expect(row.ratio).toBeLessThan(1);
       expect(row.capacity).toBe(expected.phiVn);

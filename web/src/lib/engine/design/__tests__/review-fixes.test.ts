@@ -22,7 +22,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   verifyProvidedReinforcement,
-  computeShearCapacity,
+  computeShearCapacity, columnShearSection, computeColumnLayout,
   type ElementStationResult,
   type StationForces,
 } from '../../station-design-forces';
@@ -254,15 +254,16 @@ describe('column tie checks use the per-axis effective depth', () => {
     const secondary = res.checks.find(c => c.category === 'Ties (Vy)');
     expect(primary).toBeDefined();
     expect(secondary).toBeDefined();
-    const dTieFor = (depth: number) => depth - 0.04 - 0.008 - 0.008;
-    // Primary (Vz): width b=0.6, depth from h=0.3. Secondary (Vy): width h=0.3,
-    // depth from b=0.6 — previously ALSO from h (understated).
-    expect(primary!.capacity).toBeCloseTo(
-      computeShearCapacity(8, 2, 0.15, 0.6, dTieFor(0.3), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
-    );
-    expect(secondary!.capacity).toBeCloseTo(
-      computeShearCapacity(8, 2, 0.15, 0.3, dTieFor(0.6), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
-    );
+    const { b, h, cover, stirrupDia, fc, fy } = section;
+    const layout = computeColumnLayout(4, reinf.column!.cornerDia, b, h, cover, stirrupDia, reinf.column);
+    for (const direction of ['primary', 'secondary'] as const) {
+      const isPrimary = direction === 'primary';
+      const g = columnShearSection(layout, direction, isPrimary ? b : h, isPrimary ? h : b);
+      const capacity = computeShearCapacity(8, 2, 0.15, g.width, g.d, fc, fy, 500, {
+        Ag: b * h, h: g.height, rhoW: g.asCm2 * 1e-4 / (g.width * g.d),
+      });
+      expect((isPrimary ? primary : secondary)!.capacity).toBeCloseTo(capacity.phiVn, 1);
+    }
   });
 });
 

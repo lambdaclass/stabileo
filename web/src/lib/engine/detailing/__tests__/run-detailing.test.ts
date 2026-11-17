@@ -11,6 +11,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { verifyProvidedReinforcement } from '../../station-design-forces';
+import { evaluateBeamSection } from '../../codes/argentina/cirsoc201-beam-kernel';
+import { REBAR_DB } from '../../codes/argentina/cirsoc201';
+import { seatedLongitudinalHalfExtents } from '../../../codes/cirsoc201/transverse-cage';
+import { DESIGN_TARGET_UTILIZATION } from '../../design/outcome';
 import { detailingReadiness, runDetailing } from '../run-detailing';
 import type { MemberContext } from '../../design/member-context';
 import type { MemberDesignOutcome } from '../../design/outcome';
@@ -328,13 +333,38 @@ describe('call-graph: no advertised capability is unreachable', () => {
   });
 });
 
-it.skip('known wrong result: #2198 generated rectangular column ties use the verified diameter and spacing', () => {
+it('known wrong result: #2198 generated rectangular column ties use the verified diameter and spacing', () => {
   const s = scenario();
   const outcome = verifiedColumn(10);
-  s.outcomes.set(10, {
-    ...outcome,
-    accepted: { ...outcome.accepted!, stirrups: { diameter: 10, spacing: 0.125, legs: 2 } },
+  const longitudinal = { count: 4, diameter: 25 };
+  const stirrups = { diameter: 10, spacing: 0.125, legs: 2 };
+  const { material, section: dimensions } = s.contexts.get(10)!;
+  const section = { ...material, b: dimensions.b, h: dimensions.h };
+  const capacity = (diameter: number) => {
+    const seat = seatedLongitudinalHalfExtents(section.b, section.h, section.cover, diameter, longitudinal.diameter);
+    const area = (dia: number) => REBAR_DB.find(bar => bar.diameter === dia)!.area * 1e-4;
+    return evaluateBeamSection({
+      edition: '2025', b: section.b, h: section.h, d: section.h / 2 + seat.corner.halfUp,
+      fc: section.fc * 1e6, fy: section.fy * 1e6, As: 2 * area(longitudinal.diameter), Av: 2 * area(diameter),
+      s: stirrups.spacing, Ag: section.b * section.h, NuCompression: 0,
+    })!;
+  };
+  const proposed = capacity(stirrups.diameter), project = capacity(material.stirrupDia);
+  const demand = (proposed.phiVn + Math.max(project.phiVn, DESIGN_TARGET_UTILIZATION * proposed.phiVn)) / 2000;
+  expect(demand).toBeGreaterThan(0.75 * proposed.Vc / 2000);
+  expect(demand).toBeGreaterThan(project.phiVn / 1000);
+  expect(demand).toBeLessThan(proposed.phiVn / 1000);
+  const rebar = { longitudinal, stirrups };
+  const result = verifyProvidedReinforcement(10, 'column', rebar, undefined, {}, section, {
+    elementId: 10, length: 3.2, stationTs: [0, 1], comboResults: [{
+      comboId: 1, comboName: 'drawing shear', stations: [0, 1].map(t => ({
+        t, x: 3.2 * t, n: 0, my: 0, mz: 0, vy: demand, vz: demand, torsion: 0,
+      })),
+    }],
   });
+  expect(result.checks.filter(check => /^Ties \(V[yz]\)$/.test(check.category)).map(check => check.status)).toEqual(['warn', 'warn']);
+  expect(result.overallStatus).toBe('warn');
+  s.outcomes.set(10, { ...outcome, accepted: rebar });
   const r = runDetailing(s);
   const ties = r.assemblies.flatMap(a => a.bars).filter(bar => bar.zoneId === 'col-10:ties');
   expect(ties.length).toBeGreaterThan(0);

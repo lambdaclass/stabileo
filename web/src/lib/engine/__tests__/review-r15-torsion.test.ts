@@ -56,7 +56,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   it('zero torque keeps its correct answer ' + [edition, axis, elementType].join(' '), () => {
-    const v = verifyElement(input(edition, axis, elementType, 0), { shear: { spacing: 0.275, legs: 2 } });
+    const v = verifyElement(input(edition, axis, elementType, 0), { shear: { spacing: 0.075, legs: 2 } });
     expect(v.torsion).toBeUndefined();
     expect(v.overallStatus).not.toBe('fail');
   });

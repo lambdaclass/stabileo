@@ -1,6 +1,6 @@
 import { solve, solvePDelta, solve3D, solvePDelta3D } from '../wasm-solver';
 import { expect, it } from 'vitest';
-import { computeShearCapacity, verifyProvidedReinforcement, computeColumnLayout } from '../station-design-forces';
+import { computeShearCapacity, verifyProvidedReinforcement, computeColumnLayout, columnShearSection } from '../station-design-forces';
 import { cirsoc201Adapter } from '../design/adapters/cirsoc201-adapter';
 import { solveFixture } from '../design/__tests__/helpers';
 import frame from '../../templates/fixtures/rc-design-frame.json';
@@ -69,9 +69,10 @@ it('known wrong result: #2198 direct, prepared and concurrent checks use the fix
 for (const shape of [undefined, { kind: 'circle', D: 0.6 }, { kind: 'tee', bf: 0.8, bw: 0.6, hf: 0.6, h: 0.8 },
   { kind: 'L', b: 0.8, h: 0.8, tw: 0.6, tf: 0.6 }] as const satisfies readonly (ColumnShape | undefined)[]) {
   it(`known wrong result: #2198 ${shape?.kind ?? 'rectangular'} minimum tie area at the unrounded shear threshold`, () => {
-    const depth = shape ? 0.8 * (shape.kind === 'circle' ? shape.D : shape.h) : section.h - section.cover - ties.diameter / 1000 - 0.008;
-    const area = computeColumnLayout(longitudinal.count, longitudinal.diameter, section.b, section.h, section.cover, ties.diameter).totalArea;
-    const rhoW = shape ? 0 : area / 3 / (section.b * section.h * 1e4);
+    const layout = computeColumnLayout(longitudinal.count, longitudinal.diameter, section.b, section.h, section.cover, ties.diameter);
+    const geometry = columnShearSection(layout, 'primary', section.b, section.h);
+    const depth = shape ? 0.8 * (shape.kind === 'circle' ? shape.D : shape.h) : geometry.d;
+    const rhoW = shape ? 0 : geometry.asCm2 * 1e-4 / (section.b * depth);
     for (const spacing of [ties.spacing, ties.spacing / 2]) {
       const cage = { ...ties, legs: 2, secondaryLegs: 2, spacing };
       const compression = shape ? 100 : 0;
@@ -96,9 +97,15 @@ for (const shape of [undefined, { kind: 'circle', D: 0.6 }, { kind: 'tee', bf: 0
 }
 
 it('known wrong result: #2198 shallow column sections still require minimum shear reinforcement', () => {
-  const input = { ...section, b: 0.24, h: 0.95, elementId: 1, elementType: 'column' as const,
-    demand: declaredTestDemands([{ comboId: 1, comboName: 'minor axis', forces: stations(1).comboResults[0]!.stations[0]! }])[0]!.section('My') };
+  const sec = { ...section, b: 0.24, h: 0.95 };
   const fixed = { column: { barCount: 8, barDia: 25 }, shear: { spacing: 0.1, legs: 2, secondaryLegs: 2 } };
+  const layout = computeColumnLayout(8, 25, sec.b, sec.h, sec.cover, sec.stirrupDia);
+  const g = columnShearSection(layout, 'secondary', sec.h, sec.b);
+  const cap = computeShearCapacity(sec.stirrupDia, 2, fixed.shear.spacing, g.width, g.d, sec.fc, sec.fy, 0,
+    { Ag: sec.b * sec.h, h: g.height, rhoW: g.asCm2 * 1e-4 / (g.width * g.d) });
+  expect(cap.avBelowMin).toBe(true);
+  const input = { ...sec, elementId: 1, elementType: 'column' as const,
+    demand: declaredTestDemands([{ comboId: 1, comboName: 'minor axis', forces: stations(cap.phiVcUnrounded * 0.6).comboResults[0]!.stations[0]! }])[0]!.section('My') };
   for (const r of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input], fixed)]) {
     expect(r.shearSecondary!.ratio).toBeLessThan(1);
     expect(r.shearSecondary!.status).toBe('fail');
@@ -185,13 +192,14 @@ it('rejects a declared unanchored secondary leg even in a planar column', () => 
 
 it('checks minimum reinforcement even for a small nonzero secondary shear above half of zero concrete strength', () => {
   for (const vy of [0, 0.001]) {
-    const forces = { ...stations(0).comboResults[0]!.stations[0]!, vy };
+    const forces = { ...stations(0, -1200).comboResults[0]!.stations[0]!, vy };
     const input = { ...section, elementId: 1, elementType: 'column' as const,
       demand: declaredTestDemands([{ comboId: 1, comboName: 'secondary', forces }])[0]!.section('My') };
     const fixed = { column: { barCount: 8, barDia: 25 }, shear: { legs: 2, secondaryLegs: 2, spacing: 0.15 } };
     for (const result of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement([input], fixed)]) {
       if (vy === 0) expect(result.shearSecondary).toBeUndefined();
       else {
+        expect(result.shearSecondary?.phiVc).toBe(0);
         expect(result.shearSecondary?.ratio).toBeLessThan(1);
         expect(result.shearSecondary?.status).toBe('fail');
         expect(result.overallStatus).toBe('fail');
