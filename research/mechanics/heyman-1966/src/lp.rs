@@ -7,6 +7,9 @@ pub enum LpError {
     Unbounded,
     Singular,
     IterationLimit,
+    /// Phase 1 met a ray. Its objective, the sum of the artificial variables, is bounded below
+    /// by zero, so this only happens through round-off.
+    Numerical,
 }
 
 fn dense_solve(b: &[f64], v: &[f64], n: usize) -> Option<Vec<f64>> {
@@ -134,6 +137,10 @@ fn simplex(d: &Dual, rhs: &[f64], cost: &dyn Fn(usize) -> f64, allowed: &dyn Fn(
     Err(LpError::IterationLimit)
 }
 
+fn phase(d: &Dual, rhs: &[f64], cost: &dyn Fn(usize) -> f64, allowed: &dyn Fn(usize) -> bool, basis: &mut [usize], on_ray: LpError) -> Result<(), LpError> {
+    if simplex(d, rhs, cost, allowed, basis)? { Ok(()) } else { Err(on_ray) }
+}
+
 pub fn minimise(c: &[f64], a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>, LpError> {
     let k = c.len();
     let m = a.len();
@@ -144,7 +151,7 @@ pub fn minimise(c: &[f64], a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>, LpErro
     let mut basis: Vec<usize> = (m..m + k).collect();
 
     let phase1 = |i: usize| if i >= m { 1.0 } else { 0.0 };
-    simplex(&d, &rhs, &phase1, &|_| true, &mut basis)?;
+    phase(&d, &rhs, &phase1, &|_| true, &mut basis, LpError::Numerical)?;
     let (bm, _) = d.basis(&basis);
     let xb = dense_solve(&bm, &rhs, k).ok_or(LpError::Singular)?;
     let scale = 1.0 + rhs.iter().fold(0.0f64, |s, v| s.max(v.abs()));
@@ -176,9 +183,7 @@ pub fn minimise(c: &[f64], a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>, LpErro
     }
 
     let phase2 = |i: usize| if i < m { b[i] } else { 0.0 };
-    if !simplex(&d, &rhs, &phase2, &|i| i < m, &mut basis)? {
-        return Err(LpError::Infeasible);
-    }
+    phase(&d, &rhs, &phase2, &|i| i < m, &mut basis, LpError::Infeasible)?;
     let (_, bt) = d.basis(&basis);
     let cb: Vec<f64> = basis.iter().map(|&i| b[i]).collect();
     dense_solve(&bt, &cb, k).ok_or(LpError::Singular)
@@ -201,6 +206,43 @@ mod tests {
         let a = vec![vec![1.0], vec![-1.0]];
         assert_eq!(minimise(&[1.0], &a, &[-1.0, -1.0]), Err(LpError::Infeasible));
         assert_eq!(minimise(&[-1.0], &[vec![-1.0]], &[0.0]), Err(LpError::Unbounded));
+    }
+
+    #[test]
+    fn a_ray_in_either_phase_is_reported_and_never_read_as_a_solution() {
+        // One equality row y₀ − y₁ = 1 in the dual: column 1 has a negative entry, so the cost
+        // −1 on it gives a ray once y₀ is basic.
+        let a = vec![vec![1.0], vec![-1.0]];
+        let d = Dual { k: 1, m: 2, a: &a, sign: vec![1.0] };
+        let rhs = [1.0];
+        let ray = |i: usize| if i == 1 { -1.0 } else { 0.0 };
+        let mut basis = [0usize];
+        assert_eq!(phase(&d, &rhs, &ray, &|i| i < 2, &mut basis, LpError::Numerical), Err(LpError::Numerical));
+        let mut basis = [0usize];
+        assert_eq!(phase(&d, &rhs, &ray, &|i| i < 2, &mut basis, LpError::Infeasible), Err(LpError::Infeasible));
+        let mut basis = [2usize];
+        let phase1 = |i: usize| if i >= 2 { 1.0 } else { 0.0 };
+        assert_eq!(phase(&d, &rhs, &phase1, &|_| true, &mut basis, LpError::Numerical), Ok(()));
+        assert_eq!(basis, [0]);
+    }
+
+    #[test]
+    fn phase_one_never_meets_a_ray_on_random_problems() {
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let mut next = || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+        };
+        for _ in 0..2000 {
+            let k = 1 + ((next() + 1.0) * 2.0) as usize;
+            let m = k + ((next() + 1.0) * 6.0) as usize;
+            let a: Vec<Vec<f64>> = (0..m).map(|_| (0..k).map(|_| next()).collect()).collect();
+            let b: Vec<f64> = (0..m).map(|_| next()).collect();
+            let c: Vec<f64> = (0..k).map(|_| next()).collect();
+            assert_ne!(minimise(&c, &a, &b), Err(LpError::Numerical));
+        }
     }
 
     #[test]

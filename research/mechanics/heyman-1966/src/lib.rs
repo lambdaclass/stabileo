@@ -5,6 +5,7 @@ pub mod run;
 mod wasm;
 
 pub use arch::{Arch, Weights};
+use arch::Block;
 use lp::LpError;
 use serde::Serialize;
 
@@ -151,17 +152,36 @@ pub struct Hinge {
     pub side: Side,
 }
 
-/// Joints where the resultant reaches a face, one per contact: the joint closest to the face.
+/// Joints where the resultant reaches a face: those within `tol`·t/2 of it that no neighbour on
+/// the same face exceeds. A flat contact, where neighbouring joints reach the face equally,
+/// keeps every joint of it, as `reference/arch_limit.py` does.
 pub fn hinges(arch: &Arch, e: &[f64], tol: f64) -> Vec<Hinge> {
     let half = arch.t / (2.0 * arch.r);
     let mut out = vec![];
     for (j, &ej) in e.iter().enumerate() {
         let near = [j.wrapping_sub(1), j + 1].into_iter().filter(|&i| i < e.len() && e[i].signum() == ej.signum());
-        if near.into_iter().any(|i| e[i].abs() > ej.abs() + 1e-9 * half || (i < j && (e[i].abs() - ej.abs()).abs() <= 1e-9 * half)) {
+        if near.into_iter().any(|i| e[i].abs() > ej.abs()) {
             continue;
         }
         if (ej.abs() - half).abs() <= tol * half {
             out.push(Hinge { joint: j, side: if ej > 0.0 { Side::Extrados } else { Side::Intrados } });
+        }
+    }
+    out
+}
+
+/// The hinges a mechanism can form: a flat contact (neighbouring joints on the same face)
+/// counts once, at the joint closest to the face, the first of an exact tie.
+pub fn mechanism_hinges(hinges: &[Hinge], e: &[f64]) -> Vec<Hinge> {
+    let mut out: Vec<Hinge> = vec![];
+    for h in hinges {
+        match out.last_mut() {
+            Some(last) if last.side == h.side && last.joint + 1 == h.joint => {
+                if e[h.joint].abs() > e[last.joint].abs() {
+                    *last = *h;
+                }
+            }
+            _ => out.push(*h),
         }
     }
     out
@@ -207,12 +227,18 @@ pub fn least_thickness(alpha: f64, n: usize, weights: Weights, tolerance: f64) -
             return Err(LpError::Infeasible);
         }
     }
+    let mut at_hi = steps.len() - 1;
     while hi - lo > tolerance * hi {
         let mid = (lo + hi) / 2.0;
-        if probe(mid, &mut steps)? { hi = mid } else { lo = mid }
+        if probe(mid, &mut steps)? {
+            hi = mid;
+            at_hi = steps.len() - 1;
+        } else {
+            lo = mid;
+        }
     }
     let a = arch(hi);
-    let state = least_violation(&a, None, 0.0)?;
+    let state = steps[at_hi].state.clone();
     let hinges = hinges(&a, &state.e, 1e-4);
     let jh = (1..=n).filter(|&j| a.phi(j) < std::f64::consts::FRAC_PI_2 - 1e-9)
         .min_by(|&i, &j| state.e[i].total_cmp(&state.e[j]));
@@ -238,8 +264,12 @@ pub struct Body {
 }
 
 fn face(arch: &Arch, h: &Hinge) -> [f64; 2] {
-    let j = arch.joint(h.joint);
-    let s = if h.side == Side::Extrados { 0.5 } else { -0.5 } * arch.t;
+    face_at(arch, h.joint, h.side)
+}
+
+fn face_at(arch: &Arch, joint: usize, side: Side) -> [f64; 2] {
+    let j = arch.joint(joint);
+    let s = if side == Side::Extrados { 0.5 } else { -0.5 } * arch.t;
     [j.mid[0] + s * j.outward[0], j.mid[1] + s * j.outward[1]]
 }
 
@@ -255,73 +285,103 @@ fn dot(a: [f64; 2], b: [f64; 2]) -> f64 {
     a[0] * b[0] + a[1] * b[1]
 }
 
+/// The blocks and the intrados and extrados points of every joint, computed once for an arch.
+struct Kinematics {
+    blocks: Vec<Block>,
+    faces: Vec<[[f64; 2]; 2]>,
+    r: f64,
+}
+
+impl Kinematics {
+    fn new(arch: &Arch) -> Self {
+        let faces = (0..=arch.n).map(|j| [face_at(arch, j, Side::Intrados), face_at(arch, j, Side::Extrados)]).collect();
+        Kinematics { blocks: arch.blocks(), faces, r: arch.r }
+    }
+
+    fn face(&self, h: &Hinge) -> [f64; 2] {
+        self.faces[h.joint][usize::from(h.side == Side::Extrados)]
+    }
+
+    fn four_hinge(&self, h: &[Hinge; 4]) -> Option<[Body; 3]> {
+        let p: [[f64; 2]; 4] = std::array::from_fn(|i| self.face(&h[i]));
+        let (d1, d2) = (sub(p[1], p[0]), sub(p[2], p[3]));
+        let den = cross(d1, d2);
+        if den.abs() < 1e-12 {
+            return None;
+        }
+        let u = cross(sub(p[3], p[0]), d2) / den;
+        let ic = [p[0][0] + u * d1[0], p[0][1] + u * d1[1]];
+        let wa = 1.0;
+        let bd = dot(sub(p[1], ic), d1);
+        let cd = dot(sub(p[2], p[3]), d2);
+        if bd.abs() < 1e-14 || cd.abs() < 1e-14 {
+            return None;
+        }
+        let wb = wa * dot(d1, d1) / bd;
+        let wc = wb * dot(sub(p[2], ic), d2) / cd;
+        Some([
+            Body { from: h[0].joint, to: h[1].joint, centre: p[0], omega: wa },
+            Body { from: h[1].joint, to: h[2].joint, centre: ic, omega: wb },
+            Body { from: h[2].joint, to: h[3].joint, centre: p[3], omega: wc },
+        ])
+    }
+
+    fn work(&self, bodies: &[Body], load: &PointLoad) -> (f64, f64) {
+        let mut dead = 0.0;
+        let mut live = 0.0;
+        for b in bodies {
+            for (k, blk) in self.blocks.iter().enumerate().take(b.to).skip(b.from) {
+                dead -= blk.weight * b.omega * (blk.xg - b.centre[0]);
+                if load.block == k {
+                    live -= load.p * b.omega * (load.x - b.centre[0]);
+                }
+            }
+        }
+        (dead, live)
+    }
+
+    fn multiplier(&self, h: &[Hinge; 4], load: &PointLoad) -> Option<(f64, [Body; 3])> {
+        if h.windows(2).any(|w| w[0].side == w[1].side || w[0].joint >= w[1].joint) {
+            return None;
+        }
+        let mut bodies = self.four_hinge(h)?;
+        let (dead, live) = self.work(&bodies, load);
+        if live.abs() <= 1e-12 * load.p * self.r {
+            return None;
+        }
+        let sgn = live.signum();
+        let w = [bodies[0].omega, bodies[1].omega, bodies[2].omega];
+        let rel = [w[0], w[1] - w[0], w[2] - w[1], -w[2]];
+        let opens = |side: Side| if side == Side::Extrados { 1.0 } else { -1.0 };
+        if rel.iter().zip(h).any(|(r, x)| sgn * r * opens(x.side) <= 1e-12) {
+            return None;
+        }
+        for b in bodies.iter_mut() {
+            b.omega *= sgn;
+        }
+        let lambda = -(sgn * dead) / (sgn * live);
+        (lambda >= 0.0).then_some((lambda, bodies))
+    }
+}
+
 /// Velocities of the three-body mechanism on four hinges (the body between the first two turns
 /// about the first, the last about the fourth, the middle about the intersection of the lines
 /// through its hinges), with ω = 1 on the first body; None when the lines are parallel.
 pub fn four_hinge(arch: &Arch, h: &[Hinge; 4]) -> Option<[Body; 3]> {
-    let p: Vec<[f64; 2]> = h.iter().map(|x| face(arch, x)).collect();
-    let (d1, d2) = (sub(p[1], p[0]), sub(p[2], p[3]));
-    let den = cross(d1, d2);
-    if den.abs() < 1e-12 {
-        return None;
-    }
-    let u = cross(sub(p[3], p[0]), d2) / den;
-    let ic = [p[0][0] + u * d1[0], p[0][1] + u * d1[1]];
-    let wa = 1.0;
-    let bd = dot(sub(p[1], ic), d1);
-    let cd = dot(sub(p[2], p[3]), d2);
-    if bd.abs() < 1e-14 || cd.abs() < 1e-14 {
-        return None;
-    }
-    let wb = wa * dot(d1, d1) / bd;
-    let wc = wb * dot(sub(p[2], ic), d2) / cd;
-    Some([
-        Body { from: h[0].joint, to: h[1].joint, centre: p[0], omega: wa },
-        Body { from: h[1].joint, to: h[2].joint, centre: ic, omega: wb },
-        Body { from: h[2].joint, to: h[3].joint, centre: p[3], omega: wc },
-    ])
+    Kinematics::new(arch).four_hinge(h)
 }
 
-fn work(arch: &Arch, bodies: &[Body], load: Option<&PointLoad>) -> (f64, f64) {
-    let blocks = arch.blocks();
-    let mut dead = 0.0;
-    let mut live = 0.0;
-    for b in bodies {
-        for (k, blk) in blocks.iter().enumerate().take(b.to).skip(b.from) {
-            dead -= blk.weight * b.omega * (blk.xg - b.centre[0]);
-            if let Some(l) = load.filter(|l| l.block == k) {
-                live -= l.p * b.omega * (l.x - b.centre[0]);
-            }
-        }
-    }
-    (dead, live)
-}
-
-/// The admissible load multiplier of one four-hinge mechanism with alternating faces, or None
-/// when the load does no work or a hinge would open on the wrong face.
+/// The admissible load multiplier of one four-hinge mechanism with alternating faces in joint
+/// order, or None when the faces do not alternate, the load does no work or a hinge would open
+/// on the wrong face.
 pub fn mechanism_multiplier(arch: &Arch, h: &[Hinge; 4], load: &PointLoad) -> Option<(f64, [Body; 3])> {
-    let mut bodies = four_hinge(arch, h)?;
-    let (dead, live) = work(arch, &bodies, Some(load));
-    if live.abs() <= 1e-12 * load.p * arch.r {
-        return None;
-    }
-    let sgn = live.signum();
-    let w = [bodies[0].omega, bodies[1].omega, bodies[2].omega];
-    let rel = [w[0], w[1] - w[0], w[2] - w[1], -w[2]];
-    let opens = |side: Side| if side == Side::Extrados { 1.0 } else { -1.0 };
-    if rel.iter().zip(h).any(|(r, x)| sgn * r * opens(x.side) <= 1e-12) {
-        return None;
-    }
-    for b in bodies.iter_mut() {
-        b.omega *= sgn;
-    }
-    let lambda = -(sgn * dead) / (sgn * live);
-    (lambda >= 0.0).then_some((lambda, bodies))
+    Kinematics::new(arch).multiplier(h, load)
 }
 
 /// The upper bound: the smallest multiplier over every admissible four-hinge mechanism.
 pub fn kinematic(arch: &Arch, load: &PointLoad) -> Option<(f64, [Hinge; 4])> {
     let n = arch.n;
+    let kin = Kinematics::new(arch);
     let mut best: Option<(f64, [Hinge; 4])> = None;
     for a in 0..=n {
         for b in a + 1..=n {
@@ -335,7 +395,7 @@ pub fn kinematic(arch: &Arch, load: &PointLoad) -> Option<(f64, [Hinge; 4])> {
                             Hinge { joint: c, side: first },
                             Hinge { joint: d, side: other },
                         ];
-                        if let Some((lambda, _)) = mechanism_multiplier(arch, &h, load) {
+                        if let Some((lambda, _)) = kin.multiplier(&h, load) {
                             if best.is_none_or(|(l, _)| lambda < l) {
                                 best = Some((lambda, h));
                             }

@@ -1,5 +1,5 @@
 use crate::lp::LpError;
-use crate::{collapse, five_hinge, four_hinge, hinges, kinematic, least_thickness, least_violation, mechanism_multiplier, Arch, Body, Hinge, PointLoad, Side, State, Weights};
+use crate::{collapse, five_hinge, hinges, kinematic, least_thickness, least_violation, mechanism_hinges, mechanism_multiplier, Arch, Body, Hinge, PointLoad, Side, State, Weights};
 use serde_json::{json, Value};
 
 pub const ALPHA_DEG: f64 = 90.0;
@@ -11,6 +11,19 @@ pub const RING_DEPTH: f64 = 1.0;
 pub const RING_GAMMA: f64 = 20.0;
 pub const RING_POSITION: f64 = 0.25;
 pub const KINEMATIC_MAX: usize = 40;
+pub const MAX_VOUSSOIRS: usize = 400;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunError {
+    Input(&'static str),
+    Lp(LpError),
+}
+
+impl From<LpError> for RunError {
+    fn from(e: LpError) -> Self {
+        RunError::Lp(e)
+    }
+}
 const MECHANISM_FRAMES: usize = 24;
 const RAMP_FRAMES: usize = 16;
 
@@ -47,7 +60,13 @@ fn mechanism_frames(frames: &mut Vec<Value>, t: f64, r: f64, s: &State, tau_max:
 }
 
 /// The least thickness of a circular arch under self-weight (r = 1, w per unit length = t).
-pub fn self_weight(alpha_deg: f64, n: usize, weights: Weights) -> Result<Value, LpError> {
+pub fn self_weight(alpha_deg: f64, n: usize, weights: Weights) -> Result<Value, RunError> {
+    if !(2..=MAX_VOUSSOIRS).contains(&n) {
+        return Err(RunError::Input("voussoirs"));
+    }
+    if !(alpha_deg.is_finite() && alpha_deg > 0.0 && alpha_deg < 180.0) {
+        return Err(RunError::Input("alpha"));
+    }
     let alpha = alpha_deg.to_radians();
     let lt = least_thickness(alpha, n, weights, 1e-10)?;
     let arch = Arch { r: 1.0, t: lt.eta, d: 1.0, gamma: 1.0, alpha, n, weights };
@@ -59,8 +78,9 @@ pub fn self_weight(alpha_deg: f64, n: usize, weights: Weights) -> Result<Value, 
     frames.push(frame("least", lt.eta, 1.0, &lt.state, true, 0.0));
     let pattern = [Side::Extrados, Side::Intrados, Side::Extrados, Side::Intrados, Side::Extrados];
     let mut bodies = json!([]);
-    if lt.hinges.len() == 5 && lt.hinges.iter().zip(pattern).all(|(h, s)| h.side == s) {
-        let h: [Hinge; 5] = std::array::from_fn(|i| lt.hinges[i]);
+    let formed = mechanism_hinges(&lt.hinges, &lt.state.e);
+    if formed.len() == 5 && formed.iter().zip(pattern).all(|(h, s)| h.side == s) {
+        let h: [Hinge; 5] = std::array::from_fn(|i| formed[i]);
         if let Some(b) = five_hinge(&arch, &h) {
             let (list, tau) = bodies_json(&b);
             bodies = list;
@@ -81,7 +101,16 @@ pub fn ring(n: usize, t: f64) -> Arch {
 
 /// The ring under a unit point load on the extrados at `position` (fraction of the clear span from
 /// the left springing): its collapse multiplier, the static and kinematic bounds, and the mechanism.
-pub fn point_load(n: usize, t: f64, position: f64) -> Result<Value, LpError> {
+pub fn point_load(n: usize, t: f64, position: f64) -> Result<Value, RunError> {
+    if !(3..=MAX_VOUSSOIRS).contains(&n) {
+        return Err(RunError::Input("voussoirs"));
+    }
+    if !(t.is_finite() && t > 0.0 && t <= 2.0 * RING_INNER_RADIUS) {
+        return Err(RunError::Input("thickness"));
+    }
+    if !(position.is_finite() && (0.0..=1.0).contains(&position)) {
+        return Err(RunError::Input("position"));
+    }
     let arch = ring(n, t);
     let x = -RING_INNER_RADIUS + 2.0 * RING_INNER_RADIUS * position;
     let (block, point) = arch.extrados_point(x);
@@ -89,7 +118,7 @@ pub fn point_load(n: usize, t: f64, position: f64) -> Result<Value, LpError> {
     let mut frames = vec![];
     let fail = least_violation(&arch, None, 0.0)?;
     if fail.s > 0.0 {
-        return Err(LpError::Infeasible);
+        return Err(LpError::Infeasible.into());
     }
     let top = collapse(&arch, &load)?;
     let lambda = top.lambda;
@@ -100,9 +129,10 @@ pub fn point_load(n: usize, t: f64, position: f64) -> Result<Value, LpError> {
     frames.push(frame("collapse", t, arch.r, &top, true, 0.0));
     let found = hinges(&arch, &top.e, 1e-6);
     let mut bodies = json!([]);
-    if found.len() == 4 {
-        let h: [Hinge; 4] = std::array::from_fn(|i| found[i]);
-        if let Some((_, b)) = mechanism_multiplier(&arch, &h, &load).or_else(|| four_hinge(&arch, &h).map(|b| (0.0, b))) {
+    let formed = mechanism_hinges(&found, &top.e);
+    if formed.len() == 4 {
+        let h: [Hinge; 4] = std::array::from_fn(|i| formed[i]);
+        if let Some((_, b)) = mechanism_multiplier(&arch, &h, &load) {
             let (list, tau) = bodies_json(&b);
             bodies = list;
             mechanism_frames(&mut frames, t, arch.r, &top, tau);
@@ -118,7 +148,7 @@ pub fn point_load(n: usize, t: f64, position: f64) -> Result<Value, LpError> {
 }
 
 /// Both runs of the page, at the settings it opens on.
-pub fn replay() -> Result<Value, LpError> {
+pub fn replay() -> Result<Value, RunError> {
     Ok(json!({
         "self_weight": self_weight(ALPHA_DEG, VOUSSOIRS, Weights::True)?,
         "point_load": point_load(RING_VOUSSOIRS, RING_THICKNESS, RING_POSITION)?,
