@@ -1,0 +1,39 @@
+{
+  "id": "beam-shear-torsion-and-end-cages",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembersWithSection"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Beam checks and detailing use consistent reinforcement geometry",
+    "es": "La verificación y el detallado de vigas usan una geometría de armadura coherente",
+    "pt": "A verificação e o detalhamento de vigas usam uma geometria de armadura coerente",
+    "de": "Balkennachweise und Bewehrungsdetails verwenden dieselbe Bewehrungsgeometrie",
+    "fr": "Les vérifications et le ferraillage des poutres utilisent une géométrie cohérente",
+    "hu": "A gerendák ellenőrzése és részletezése egységes vasalási geometriát használ",
+    "tr": "Kiriş kontrolleri ve detaylandırma tutarlı donatı geometrisi kullanır"
+  },
+  "explanation": {
+    "en": "Recheck beam secondary shear, combined shear and torsion at hogging sections, and detailing with end stirrup overrides. The checks use the selected cage and the tension steel present at each station. Seismic detailing preserves the existing end cages if the spacing limit is below the supported minimum.",
+    "es": "Vuelva a verificar el corte secundario, la combinación de corte y torsión en secciones con momento negativo y el detallado con estribos específicos en los extremos. Se usa el armado elegido y el acero traccionado presente en cada sección. Si la separación máxima es inferior al mínimo admitido, se conservan los estribos existentes.",
+    "pt": "Reverifique o cisalhamento secundário, a combinação de cisalhamento e torção nas seções com momento negativo e o detalhamento com estribos específicos nas extremidades. As verificações usam a armadura selecionada e o aço tracionado presente em cada seção. O detalhamento sísmico preserva os estribos existentes quando o espaçamento máximo é inferior ao mínimo admitido.",
+    "de": "Nebenquerkraft, Querkraft und Torsion bei negativen Biegemomenten sowie Details mit gesonderten Endbügeln erneut prüfen. Die Nachweise verwenden den gewählten Bügel und die vorhandene Zugbewehrung im jeweiligen Schnitt. Liegt der zulässige Bügelabstand unter dem unterstützten Mindestabstand, bleiben die vorhandenen Endbügel erhalten.",
+    "fr": "Revérifier l’effort tranchant secondaire, la combinaison du cisaillement et de la torsion sous moment négatif et les détails avec des cadres spécifiques aux extrémités. Les vérifications utilisent les cadres sélectionnés et l’acier tendu présent dans chaque section. Le ferraillage parasismique conserve les cadres existants si le pas maximal est inférieur au minimum admis.",
+    "hu": "Ellenőrizze újra a másodlagos nyírást, a nyírás és csavarás együttes hatását negatív nyomaték esetén, valamint az eltérő végkengyeleket. Az ellenőrzés a kiválasztott kengyeleket és az adott szelvényben lévő húzott vasalást használja. A földrengési részletezés megtartja a meglévő végkengyeleket, ha a megengedett osztásköz kisebb a támogatott minimumnál.",
+    "tr": "İkincil kesmeyi, negatif moment altında kesme ve burulmanın birleşik etkisini ve özel uç etriyelerinin detaylarını yeniden denetleyin. Kontroller seçilen etriyeleri ve her kesitte bulunan çekme donatısını kullanır. İzin verilen etriye aralığı desteklenen asgari değerin altındaysa deprem detaylandırması mevcut uç etriyelerini korur."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round29-beam-checks.md",
+    "heading": "Beam shear, torsion and end-cage consistency (2026-11-17)"
+  }
+}

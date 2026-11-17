@@ -36,3 +36,12 @@ export function patchSupportEnds(regions: NonNullable<ProvidedReinforcement['reg
     if (cage) regions[key] = { ...cage, ...patch };
   }
 }
+
+export function beamSeatingStirrupDiameter(rebar: ProvidedReinforcement | undefined, nominalDiameter: number): number {
+  const regions = rebar?.regions;
+  const maxDiameter = Math.max(
+    rebar?.stirrups?.diameter ?? 0, regions?.stirrupsSupport?.diameter ?? 0, regions?.stirrupsSpan?.diameter ?? 0,
+    regions?.stirrupsStart?.diameter ?? 0, regions?.stirrupsEnd?.diameter ?? 0,
+  );
+  return maxDiameter > 0 ? maxDiameter : nominalDiameter;
+}

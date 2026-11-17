@@ -1,3 +1,4 @@
+import { beamSeatingStirrupDiameter } from '../../design-contract/directional-stirrups';
 /**
  * The production path from verified design to coordinated detailing assemblies.
  *
@@ -579,7 +580,7 @@ function withDesignedStirrups(input: RunDetailingInput): RunDetailingInput {
     if (ctx.elementType !== 'beam' && (ctx.elementType !== 'column' || ctx.shape)) continue;
     const r = detailableReinforcement(input.outcomes.get(id))?.rebar;
     const d = ctx.elementType === 'beam'
-      ? Math.max(r?.regions?.stirrupsSupport?.diameter ?? 0, r?.regions?.stirrupsSpan?.diameter ?? 0, r?.stirrups?.diameter ?? 0)
+      ? beamSeatingStirrupDiameter(r, ctx.material.stirrupDia)
       : r?.stirrups?.diameter ?? ctx.material.stirrupDia;
     if (!(d > 0) || d === ctx.material.stirrupDia) continue;
     contexts ??= new Map(input.contexts);
@@ -2578,8 +2579,7 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
         layerRaiseOf.get(id) ?? 0),
       // The bars seat in the stirrups that are laid: the designed ones.
       cover: ctx.material.cover,
-      stirrupDia: designedStirrups
-        ? Math.max(designedStirrups.support.diameter, designedStirrups.span.diameter, designedStirrups.start?.diameter ?? 0, designedStirrups.end?.diameter ?? 0) : ctx.material.stirrupDia,
+      stirrupDia: ctx.material.stirrupDia,
       fc: ctx.material.fc, fy: ctx.material.fy,
       maxAggregateSizeMm: input.maxAggregateSizeMm,
       edition: input.edition,

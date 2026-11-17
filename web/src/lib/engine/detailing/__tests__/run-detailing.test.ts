@@ -375,7 +375,7 @@ it('known wrong result: #2198 generated rectangular column ties use the verified
 });
 
 for (const override of ['stirrupsStart', 'stirrupsEnd'] as const) {
-  it.skip(`known wrong result: #2198 ${override} sets the shared seating diameter`, () => {
+  it(`known wrong result: #2198 ${override} sets the shared seating diameter`, () => {
     const detail = (fallbackDia: number, overrideDia: number) => {
       const s = scenario();
       const beam = verifiedBeam(12);

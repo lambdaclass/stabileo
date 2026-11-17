@@ -1,4 +1,4 @@
-import { stirrupLegs, shearProvision, type DirectionalLegs, type ShearDirection } from '../design-contract/directional-stirrups';
+import { beamSeatingStirrupDiameter, stirrupLegs, shearProvision, type DirectionalLegs, type ShearDirection } from '../design-contract/directional-stirrups';
 import { CompleteDemandSet, requireDemandInventories, demandCoverage, memberDemandScope, type DemandInventory } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
@@ -2778,6 +2778,45 @@ export function verifyProvidedReinforcement(
           : geom(topEndIntoSpanResult.layers, topIntoSpanArea, endPair),
       };
     };
+    const regionAt = (t: Tuple) => t.stationT <= tStartEnd ? 'start' : t.stationT >= tEndStart ? 'end' : 'span';
+    const bottomArea = { start: botIntoStartResult.area, end: botIntoEndResult.area, span: spanSteel };
+    const topArea = { start: startShearSteel, end: endShearSteel, span: topIntoSpanArea };
+    const cornerDiameter = (all: RebarLayer[], available: RebarLayer[]) => {
+      const outer = all.filter(layer => layer.row === 0 && layer.count > 0);
+      const row = outer.length === 1 ? outer[0] : undefined;
+      const count = available.filter(layer => layer.row === 0 && layer.diameter === row?.diameter)
+        .reduce((total, layer) => total + layer.count, 0);
+      return row && row.count >= 2 && count === row.count ? row.diameter : 0;
+    };
+    const sideGeometry = (fallbackDepth: number) => {
+      const seatingDia = beamSeatingStirrupDiameter(provided, section.stirrupDia);
+      const corner = (diameter: number, seatDiameter = diameter) => {
+        if (!(diameter > 0)) return { depth: Infinity, asCm2: 0 };
+        const seat = seatedLongitudinalHalfExtents(section.b, section.h, section.cover, seatingDia, seatDiameter);
+        const depth = section.b / 2 + seat.corner.halfAcross - (adj?.depthTolerance ?? 0);
+        return depth > 2 * section.b / 3
+          ? { depth, asCm2: rebarGroupArea({ count: 1, diameter }) }
+          : { depth: Infinity, asCm2: 0 };
+      };
+      const bottomAt = (continuation: typeof botIntoStartResult) => continuation.anchorageIssues.some(issue => issue.needsHook)
+        ? 0 : cornerDiameter(bottomLayers, continuation.layers);
+      const geometry = (bottom: ReturnType<typeof corner>, top: ReturnType<typeof corner>) => ({
+        depth: Math.min(fallbackDepth, bottom.depth, top.depth),
+        asCm2: bottom.asCm2 + top.asCm2,
+      });
+      const spanBottom = corner(cornerDiameter(bottomLayers, bottomLayers));
+      return {
+        start: geometry(corner(bottomAt(botIntoStartResult)), corner(cornerDiameter(topStartLayers, topStartLayers), startPair?.diameterMm)),
+        end: geometry(corner(bottomAt(botIntoEndResult)), corner(cornerDiameter(topEndLayers, topEndLayers), endPair?.diameterMm)),
+        spanStart: geometry(spanBottom, corner(cornerDiameter(topStartLayers, topIntoSpanResult.layers), startPair?.diameterMm)),
+        spanEnd: geometry(spanBottom, corner(cornerDiameter(topEndLayers, topEndIntoSpanResult.layers), endPair?.diameterMm)),
+      };
+    };
+    const lateralRegionAt = (t: Tuple) => {
+      const region = regionAt(t);
+      if (region !== 'span') return region;
+      return t.stationT <= (tStartEnd + tEndStart) / 2 ? 'spanStart' : 'spanEnd';
+    };
     for (const ss of shearSpecs) {
       let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
       let held: ShallowMinShearHold | null = null;
@@ -2785,6 +2824,13 @@ export function verifyProvidedReinforcement(
       let count = 0;
       let peakVu = 0; let peakCombo = ''; let peakX = 0;
       let hogging: ReturnType<typeof hoggingGeometry> | undefined;
+      let lateral: ReturnType<typeof sideGeometry> | null | undefined;
+      const primaryFaceAt = (t: Tuple) => {
+        const region = regionAt(t);
+        if (M(t) >= 0) return { depth: ss.depth, asCm2: bottomArea[region] };
+        hogging ??= hoggingGeometry(ss.stir?.diameter ?? section.stirrupDia);
+        return hogging[region];
+      };
       const spacingDemand = new Map<number, number>();
       const legs = ss.stir && stirrupLegs(ss.stir, ss.direction);
       for (const t of ss.tuples) {
@@ -2794,16 +2840,19 @@ export function verifyProvidedReinforcement(
         if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
         if (!ss.stir || !legs) continue;
         const hog = ss.direction === 'primary' && M(t) < 0;
-        if (hog) hogging ??= hoggingGeometry(ss.stir.diameter);
-        const face = hogging && hog
-          ? t.stationT <= tStartEnd ? hogging.start : t.stationT >= tEndStart ? hogging.end : hogging.span
-          : undefined;
-        const depth = face?.depth ?? ss.depth;
-        const bottomArea = t.stationT <= tStartEnd ? botIntoStartResult.area : t.stationT >= tEndStart ? botIntoEndResult.area : spanSteel;
-        const asCm2 = ss.direction === 'primary' ? face?.asCm2 ?? bottomArea : 0;
-        const rhoW = depth > 0 ? asCm2 / (ss.width * depth * 1e4) : 0;
-        const cap = computeDirectionalShearCapacity(ss.direction, ss.stir.diameter, legs, ss.stir.spacing, ss.width, depth, section.fc, section.fy, -t.n,
-          { Ag: section.b * section.h, rhoW, h: ss.height, edition: spacingRule.edition });
+        const evaluate = ({ depth, asCm2 }: { depth: number; asCm2: number }) =>
+          computeDirectionalShearCapacity(ss.direction, ss.stir!.diameter, legs, ss.stir!.spacing, ss.width, depth, section.fc, section.fy, -t.n,
+            { Ag: section.b * section.h, rhoW: depth > 0 ? asCm2 / (ss.width * depth * 1e4) : 0, h: ss.height, edition: spacingRule.edition });
+        const ordinary = { depth: ss.depth, asCm2: 0 };
+        let cap: ReturnType<typeof evaluate> | undefined;
+        if (ss.direction === 'secondary' && elementType === 'beam' && spacingRule.edition === '2025' && lateral === undefined) {
+          const trial = evaluate(ordinary);
+          lateral = trial.avBelowMin ? sideGeometry(ss.depth) : null;
+          if (!lateral) cap = trial;
+        }
+        const face = ss.direction === 'primary' ? primaryFaceAt(t) : lateral?.[lateralRegionAt(t)] ?? ordinary;
+        const { depth } = face;
+        cap ??= evaluate(face);
         const useRaw = hog || ss.direction === 'secondary';
         const phiVn = useRaw ? cap.phiVnUnrounded : cap.phiVn;
         const phiVc = useRaw ? cap.phiVcUnrounded : cap.phiVc;
@@ -2868,16 +2917,12 @@ export function verifyProvidedReinforcement(
         // bars of that end and the bottom bars that reach it; along the span the bottom bars and the
         // top bars that continue into it. The worst of those tuples governs. (Reading only the tuples
         // that tie on the stirrup ratio left out a smaller Tu above φ·Tth, whose Al,min is larger.)
-        const facesAt = (t: Tuple) => (t.stationT <= tStartEnd
-          ? { top: layersTotalArea(topStartLayers), bottom: botIntoStartResult.area }
-          : t.stationT >= tEndStart
-            ? { top: layersTotalArea(topEndLayers), bottom: botIntoEndResult.area }
-            : { top: topIntoSpanArea, bottom: layersTotalArea(bottomLayers) });
-        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple) => {
+        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple, tensionFace: ReturnType<typeof primaryFaceAt>) => {
           const AlReq = Math.max(r.Al, r.AlMin);
-          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * ss.depth);
-          const f = facesAt(t), sag = M(t) >= 0;
-          const tension = (sag ? f.bottom : f.top) / 1e4, other = (sag ? f.top : f.bottom) / 1e4;
+          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * tensionFace.depth);
+          const sag = M(t) >= 0;
+          const tension = tensionFace.asCm2 / 1e4;
+          const other = (sag ? topArea : bottomArea)[regionAt(t)] / 1e4;
           const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
           const uC = other > 0 ? (AlReq / 2) / other : Number.POSITIVE_INFINITY;
           const onTension = uT >= uC;
@@ -2886,17 +2931,18 @@ export function verifyProvidedReinforcement(
             required: onTension ? AsFlex + AlReq / 2 : AlReq / 2, provided: onTension ? tension : other, u: Math.max(uT, uC),
           };
         };
-        const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
+        const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple; tensionFace: ReturnType<typeof primaryFaceAt> }> = [];
         for (const t of ss.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d: ss.depth, dSecondary: ss.dSecondary, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
-          if (!r.neglect) evaluated.push({ r, t });
+          const tensionFace = primaryFaceAt(t);
+          const r = checkTorsion2025({ b: section.b, h: section.h, d: tensionFace.depth, dSecondary: ss.dSecondary, cover: section.cover, stirrupDiaMm: ss.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: ss.stir });
+          if (!r.neglect) evaluated.push({ r, t, tensionFace });
         }
         let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
         for (const x of evaluated) if (!tw || x.r.ratio > tw.r.ratio) tw = x;
         let lw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple; need: ReturnType<typeof longitudinalNeed> } | null = null;
         for (const x of evaluated) {
-          const need = longitudinalNeed(x.r, x.t);
+          const need = longitudinalNeed(x.r, x.t, x.tensionFace);
           if (!lw || need.u > lw.need.u) lw = { ...x, need };
         }
         if (tw && lw) {

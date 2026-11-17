@@ -390,7 +390,7 @@ describe('edited projects with older provenance', () => {
     }
   });
 
-  it.skip('known wrong result: #2198 shear geometry notices require a concrete design section', async () => {
+  it('known wrong result: #2198 shear geometry notices require a concrete design section', async () => {
     const { assessProject } = await import('../../provenance/applicability');
     const notice = 'column-shear-cage-geometry';
     const stamp = { ...oldStamp(), resultsVersion: 30 };

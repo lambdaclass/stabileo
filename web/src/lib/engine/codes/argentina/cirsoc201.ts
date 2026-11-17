@@ -599,8 +599,8 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
     if (!limit.unsupported && s <= limit.alongMax + LENGTH_EPS && r.shearValid && (!r.avBelowMin || !limit.shearRequired) && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
   }
   const limit = spacingLimit(chosen);
-  const Vc = opts.member.kind === 'column' ? (chosen.shearValid ? chosen.Vc / 1e3 : 0) : trialVc;
-  const phiVc = opts.member.kind === 'column' ? designConcrete(chosen) : PHI_SHEAR * Vc;
+  const Vc = opts.member.kind === 'beam' && direction === 'primary' ? trialVc : chosen.shearValid ? chosen.Vc / 1e3 : 0;
+  const phiVc = PHI_SHEAR * Vc;
   const VsReq = Math.max(0, VuAbs / PHI_SHEAR - Vc);
   emissions.push(() => steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`));
   emissions.push(() => steps.push(`Vs,req = ${VsReq.toFixed(2)} kN`));

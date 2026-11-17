@@ -17,7 +17,6 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
   const r=rebar.regions!;
   const bottom=r.bottomSpanLayers!;
   expect(bottom.map(l=>[l.count,l.diameter,l.row])).toEqual([[4,20,0]]);
-  const primaryDepth=ctx.section.h-ctx.material.cover-0.008-0.020/2;
   expect(r.topStartLayers!.map(l=>[l.count,l.diameter,l.row])).toEqual([[6,16,0]]);
   expect(r.topEndLayers!.map(l=>[l.count,l.diameter,l.row])).toEqual([[6,16,0]]);
   const verdict=cirsoc201Adapter.verify(ctx,rebar);
@@ -29,7 +28,6 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
    const axis=primary?ctx.axes.shear:ctx.axes.secondaryShear;
    const check=verdict.checks.find(c=>c.category===`Shear ${region} (${axis})`)!;
    const width=primary?ctx.section.b:ctx.section.h;
-   const depth=primary?primaryDepth:secondaryDepth;
    const count=primary?cage.legs:cage.secondaryLegs!;
    expect(cage).toEqual({diameter:8,legs:2,secondaryLegs:3,spacing:0.15});
    const area=count*0.503e-4;
@@ -37,6 +35,13 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
    expect(area).toBeGreaterThanOrEqual(minArea);
    const combo=ctx.stations!.comboResults.find(c=>c.comboName===check.comboName)!;
    const station=combo.stations.find(s=>s.x===check.stationX)!;
+   const depthAt = (tuple: typeof station) => {
+    if (!primary) return secondaryDepth;
+    const moment = ctx.axes.flexure === 'My' ? tuple.my : tuple.mz;
+    const tensionBar = moment < 0 ? r.topStartLayers![0]! : bottom[0]!;
+    return ctx.section.h - ctx.material.cover - cage.diameter / 1000 - tensionBar.diameter / 2000;
+   };
+   const depth = depthAt(station);
    const axial=Math.min(-station.n/(ctx.section.b*ctx.section.h*1000*6),0.05*ctx.material.fc);
    const vc=Math.min(Math.max(0,0.17*Math.sqrt(ctx.material.fc)+axial),0.42*Math.sqrt(ctx.material.fc))*width*depth*1000;
    const vs=Math.min(area*Math.min(ctx.material.fy,420)*depth/cage.spacing*1000,0.66*Math.sqrt(ctx.material.fc)*width*depth*1000);
@@ -45,8 +50,9 @@ it('#2171 the four recovered flagship members pass independent shear and leg-dis
    expect(check.demand!).toBeLessThan(capacity);
    for (const combination of ctx.stations!.comboResults) for (const tuple of combination.stations) {
     const demand=Math.abs(axis==='Vz'?tuple.vz:tuple.vy);
-    const requiredVs=Math.max(0,demand/0.75-0.17*Math.sqrt(ctx.material.fc)*width*depth*1000);
-    expect(requiredVs).toBeLessThanOrEqual(0.33*Math.sqrt(ctx.material.fc)*width*depth*1000);
+    const tupleDepth = depthAt(tuple);
+    const requiredVs=Math.max(0,demand/0.75-0.17*Math.sqrt(ctx.material.fc)*width*tupleDepth*1000);
+    expect(requiredVs).toBeLessThanOrEqual(0.33*Math.sqrt(ctx.material.fc)*width*tupleDepth*1000);
    }
    const acrossSpan=width-2*ctx.material.cover-cage.diameter/1000;
    const alongMax=Math.min(depth/2,0.4),acrossMax=Math.min(depth,0.4);

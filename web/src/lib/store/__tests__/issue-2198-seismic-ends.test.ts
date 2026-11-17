@@ -96,7 +96,7 @@ for (const swap of [false, true]) for (const fallback of [
 }
 
 for (const override of ['stirrupsStart', 'stirrupsEnd'] as const) {
-  it.skip(`known wrong result: #2198 preserves an existing sub-floor ${override}`, () => {
+  it(`known wrong result: #2198 preserves an existing sub-floor ${override}`, () => {
     state.vcZero = true;
     state.ve = 100;
     const shared = { diameter: 8, legs: 2, spacing: 0.15 };
@@ -110,7 +110,7 @@ for (const override of ['stirrupsStart', 'stirrupsEnd'] as const) {
 }
 
 for (const limit of [0.049, 0.05, 0.074, 0.075]) {
-  it.skip(`known wrong result: #2198 rounds the seismic hoop limit ${limit} down`, () => {
+  it(`known wrong result: #2198 rounds the seismic hoop limit ${limit} down`, () => {
     state.vcZero = true;
     state.ve = 100;
     state.bound = limit;
@@ -125,3 +125,18 @@ for (const limit of [0.049, 0.05, 0.074, 0.075]) {
     }
   });
 }
+
+it('tries a larger hoop when one end cannot meet the strength limit at the minimum pitch', () => {
+  state.ve = 365;
+  state.vcZero = true;
+  const shared = { diameter: 8, legs: 4, spacing: 0.15 };
+  const weak = { ...shared, legs: 2 };
+  state.reinforcement = { bottom: { count: 4, diameter: 16 }, top: { count: 4, diameter: 16 },
+    regions: { stirrupsSupport: shared, stirrupsStart: weak, stirrupsEnd: shared } };
+  expect(hoopSpacingFor(state.ve, true, 0.3, 0.6 - 0.025 - 0.008 - 0.008, 25, 420, 8, 2)).toBeNull();
+  const allowed = hoopSpacingFor(state.ve, true, 0.3, 0.6 - 0.025 - 0.010 - 0.008, 25, 420, 10, 2);
+  expect(allowed).toBe(0.075);
+  expect(applySeismicDetailing().beams).toBe(1);
+  expect(state.reinforcement.regions!.stirrupsStart).toEqual({ ...weak, diameter: 10, spacing: allowed });
+  expect(state.reinforcement.regions!.stirrupsEnd).toEqual({ ...shared, diameter: 10, spacing: allowed });
+});

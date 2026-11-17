@@ -6,11 +6,11 @@ import { syntheticBeamContext } from '../design/__tests__/helpers';
 import { computeShearCapacity, verifyProvidedReinforcement } from '../station-design-forces';
 
 for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapter'] as const) {
-  it.skip(`known wrong result: #2198 developed lateral corner steel ${axis} ${entry}`, () => {
+  it(`known wrong result: #2198 developed lateral corner steel ${axis} ${entry}`, () => {
     const section = { b: 0.4, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 6 };
     const cage = { diameter: 6, legs: 4, secondaryLegs: 3, spacing: 0.175 };
     const bars = { count: 4, diameter: 16 };
-    const ctx = syntheticBeamContext();
+    const ctx = syntheticBeamContext({ codeEdition: '2025', modelData: undefined });
     ctx.section = { ...ctx.section, ...section };
     ctx.material = { ...ctx.material, ...section, maxAggregateSize: { value: 19, origin: 'project', refs: [] } };
     ctx.axes = { ...ctx.axes, bFlex: section.b, hFlex: section.h, ...(axis === 'Mz' ? {
@@ -37,5 +37,18 @@ for (const axis of ['My', 'Mz'] as const) for (const entry of ['direct', 'adapte
       const rows = result.checks.filter(c => c.demandCategory === ctx.axes.secondaryShear && c.limiting === 'shear');
       expect(rows.map(row => row.capacity)).toEqual([cap.phiVn, cap.phiVn]);
     }
+    const oneCorner = computeShearCapacity(cage.diameter, cage.secondaryLegs, cage.spacing, section.h, d, section.fc, section.fy, 0,
+      { h: section.b, Ag: section.b * section.h, rhoW: rhoW / 2 });
+    const rebar = { bottom: bars, top: bars, stirrups: cage, regions: { continuity: { topStartIntoSpan: false } } };
+    const referenceStation = ctx.stations!.comboResults[0]!.stations[1]!;
+    const spanStations = [{ ...referenceStation, t: 0.35, x: 2.1 }, { ...referenceStation, t: 0.65, x: 3.9 }];
+    ctx.stations = { ...ctx.stations!, stationTs: spanStations.map(s => s.t), comboResults: [{
+      ...ctx.stations!.comboResults[0]!, stations: spanStations,
+    }] };
+    const curtailed = entry === 'adapter' ? cirsoc201Adapter.verify(ctx, rebar)
+      : verifyProvidedReinforcement(1, 'beam', rebar, undefined, {}, section, ctx.stations, undefined, { axes: ctx.axes });
+    const span = curtailed.checks.find(c => c.category === `Shear Span (${ctx.axes.secondaryShear})`)!;
+    expect(span.stationX).toBe(2.1);
+    expect(span.capacity).toBe(oneCorner.phiVn);
   });
 }

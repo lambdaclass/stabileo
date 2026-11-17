@@ -253,9 +253,10 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
         const d = (ctx.axes.hFlex || ctx.section.h) - ctx.material.cover - (dia + st.minDia / 2) / 1000;
         const limits = endCages.map(cage => hoopSpacingFor(m.beam!.ve, m.beam!.vcZero, ctx.axes.bFlex || ctx.section.b, d, ctx.material.fc, ctx.material.fy, dia, cage.legs));
         if (limits.some(s => s === null)) continue;
-        const s = Math.min(...limits as number[]);
-        pick = { diameter: dia, spacing: Math.max(0.05, Math.min(m.beam.hoops.spacing, s, ...endCages.map(cage => cage.spacing))) };
-        pick.spacing = Math.floor(pick.spacing * 40 + 1e-9) / 40 || 0.05;
+        const limit = Math.min(m.beam.hoops.spacing, ...limits as number[], ...endCages.map(cage => cage.spacing));
+        const spacing = Math.floor(limit * 40) / 40;
+        if (!(spacing >= 0.05)) continue;
+        pick = { diameter: dia, spacing };
         break;
       }
       if (!pick) continue;

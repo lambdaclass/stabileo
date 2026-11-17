@@ -34,7 +34,7 @@ export const FEATURE_IDS = [
   'gallery:slab-on-columns:walls',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
-  'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
+  'concreteMembers', 'concreteMembersWithSection', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
@@ -169,7 +169,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const loadsCode = roles.loads?.adapterId ?? null;
 
   const released = new Set<number>();
-  const sheared = new Set(values(s.sections).filter((x) => x.shearAreas != null).map((x) => x.id));
+  const sections = values(s.sections);
+  const sectionIds = new Set((Array.isArray(s.sections) ? s.sections : []).filter(entry => entry?.[1]).map(([id]) => id));
+  const sheared = new Set(sections.filter((x) => x.shearAreas != null).map((x) => x.id));
   const fiberSections = new Set(Object.entries(s.fiberSections ?? {})
     .filter(([, section]) => (section.materials?.length ?? 0) > 0).map(([id]) => id));
   const hognestadSections = new Set(Object.entries(s.fiberSections ?? {})
@@ -198,6 +200,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       if ([e.tensionConnection?.i, e.tensionConnection?.j].some((c) => c?.kind === 'bolted' && (staggerGiven(c.stagger) || (c.connected === 'all' && c.webLines === 0)))) steelChainEnd++;
     } else if (fam === 'concrete' || e.reinforcement) {
       concrete++;
+      if (e.sectionId !== undefined && sectionIds.has(e.sectionId)) f.add('concreteMembersWithSection');
     }
   }
   if (steel) {
