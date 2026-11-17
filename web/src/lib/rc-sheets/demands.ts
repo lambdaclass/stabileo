@@ -309,12 +309,12 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
         if (!b || !t) continue;
-        let vx = 0, vy = 0;
-        for (const { s } of runStations(m, st, set)) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); }
+        let vx = 0, vy = 0, tu = 0;
+        for (const { s } of runStations(m, st, set)) { vx = Math.max(vx, Math.abs(s.vz)); vy = Math.max(vy, Math.abs(s.vy)); tu = Math.max(tu, Math.abs(s.torsion)); }
         cases.push({
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
-          mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy,
+          mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
         });
       }
       out.push({

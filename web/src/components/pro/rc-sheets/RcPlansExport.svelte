@@ -4,6 +4,8 @@
   import { uiStore } from '../../../lib/store';
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { defaultPlanAuthor, exportRcPlans } from '../../../lib/store/rc-plans-export';
+  import { sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
+  import RcExportLog from './RcExportLog.svelte';
   import { DEFAULT_PLAN_SCALES, PLAN_FAMILIES, PLAN_FORMATS, type PlanFamily, type PlanFormat } from '../../../lib/rc-sheets/plans/sheets';
 
   let { rows, current = null, onclose }: { rows: SheetRows; current?: { key: string; name: string } | null; onclose: () => void } = $props();
@@ -25,7 +27,8 @@
   let nothing = $state(false);
 
   const levelOn = (l: string) => levels[l] !== false;
-  const ready = $derived((dxf || pdf) && (scope === 'current' ? !!current : PLAN_FAMILIES.some((f) => families[f] && has(f)) && allLevels.some(levelOn)));
+  const stale = $derived(sheetsStale());
+  const ready = $derived(!stale && (dxf || pdf) && (scope === 'current' ? !!current : PLAN_FAMILIES.some((f) => families[f] && has(f)) && allLevels.some(levelOn)));
 
   function download() {
     const selection = scope === 'current' && current
@@ -78,6 +81,8 @@
       </div>
     </div>
     <p class="rcp-note">{t('rcSheets.plans.note')}</p>
+    {#if stale}<p class="rcp-note bad" role="alert" data-testid="rc-plans-stale">{t('rcSheets.plans.stale')}</p>{/if}
+    <RcExportLog />
     {#if nothing}<p class="rcp-note bad" data-testid="rc-plans-none">{t('rcSheets.plans.none')}</p>{/if}
     <div class="rcp-actions">
       <button type="button" class="rcs-btn" onclick={onclose}>{t('rcSheets.plans.cancel')}</button>

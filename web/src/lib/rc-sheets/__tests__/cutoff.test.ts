@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateCutoff } from '../cutoff';
+import { CIRSOC_LINE } from '../beam-line';
 
 function envelope(L = 6, mMid = 200, mEnd = 150, v = 180): Array<{ x: number; mPos: number; mNeg: number; v: number }> {
   const out: Array<{ x: number; mPos: number; mNeg: number; v: number }> = [];
@@ -93,5 +94,12 @@ describe('§9.7.3 where a bar may stop', () => {
       });
       expect(c.actual).toBeCloseTo(toward ? 1.5 + 0.55 : 1.5 - 0.55, 9);
     }
+  });
+
+  it('the sheets ask the extra stirrups for fyt capped at 420 MPa (§20.2.1.3), whatever the steel', () => {
+    const input = { theoretical: 0.2, d: 0.55, diameterMm: 20, stations: envelope(6, 200, 150, 390), vn: 400, b: 0.30, continuingDoubleArea: false, inTensionZone: true, towardEnd: false };
+    const at500 = CIRSOC_LINE.cutoff({ ...input, fy: 500 });
+    expect(at500.extraStirrups!.minAvOverS).toBeCloseTo(0.41 * 0.30 / 420, 12);
+    expect(at500).toEqual(CIRSOC_LINE.cutoff({ ...input, fy: 420 }));
   });
 });

@@ -14,8 +14,9 @@
  *
  *   - The notice is shown when the assessment lists changes and they have not been
  *     acknowledged, even when a solve (live calc) has already made the numbers current. It
- *     cannot be dismissed any other way: no close button, no Escape, no click outside. Acknowledging is a statement the engineer makes ("I have read what
- *     changed"), so it is a checkbox and a button, not a reflex.
+ *     cannot be dismissed any other way: no close button, no Escape, no click outside. The one
+ *     button that closes it says what it leaves behind ("Continue, results stay marked stale"),
+ *     and the results do stay stale, with their banner, until they are solved again.
  *   - Acknowledged is per stamp and the set of changes and advisories shown, remembered in this
  *     browser, so a reload or a restart does not ask again for what was already read. Another
  *     browser (a colleague) is asked, and a change or advisory registered later reopens it.

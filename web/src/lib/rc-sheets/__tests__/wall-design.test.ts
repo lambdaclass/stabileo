@@ -56,6 +56,14 @@ describe('wall in-plane shear', () => {
     expect(r.atLimit).toBe(true);
   });
 
+  it('takes fyt at 420 MPa at most in Vs (§20.2.1.3): a stronger steel buys no shear', () => {
+    const at420 = checkWallInPlaneShear({ ...base, vu: 600 });
+    const at500 = checkWallInPlaneShear({ ...base, fy: 500, vu: 600 });
+    expect(at420.atLimit).toBe(false);
+    expect(at500.phiVn).toBeCloseTo(at420.phiVn, 9);
+    expect(checkWallInPlaneShear({ ...base, fy: 300, vu: 600 }).phiVn).toBeLessThan(at420.phiVn);
+  });
+
   it('scales the shear area with length and thickness', () => {
     expect(checkWallInPlaneShear({ ...base, vu: 100 }).acv).toBeCloseTo(0.8, 9);
     expect(checkWallInPlaneShear({ ...base, length: 8, vu: 100 }).acv).toBeCloseTo(1.6, 9);

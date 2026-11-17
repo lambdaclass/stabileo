@@ -9,9 +9,12 @@
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { modelStore } from '../../../lib/store';
   import RcBarSketch from './RcBarSketch.svelte';
+  import RcExportLog from './RcExportLog.svelte';
+  import { sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
 
   let { rows, onopen = () => {} }: { rows: SheetRows; onopen?: (el: ElementRef, marks: string[]) => void } = $props();
   const COMPACT = 3;
+  const stale = $derived(sheetsStale());
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const settings = $derived.by(() => { void modelStore.designData; return scheduleSettings(); });
   const s = $derived.by(() => { void settings; return sheetsSchedule(rows); });
@@ -69,9 +72,10 @@
       <button type="button" class="rcs-btn" onclick={() => (folded = new Set())} data-testid="rc-bbs-unfold-all">{t('rcSheets.bbs.expandAll')}</button>
       <button type="button" class="rcs-btn" onclick={() => (folded = new Set(v.groups.map((g) => g.id)))} data-testid="rc-bbs-fold-all">{t('rcSheets.bbs.collapseAll')}</button>
     {/if}
-    <button type="button" class="rcs-btn" title={t('rcSheets.bbs.csvTitle')} onclick={() => downloadSchedule(rows, 'csv', t, view)} disabled={!s.rows.length} data-testid="rc-bbs-csv">{t('rcSheets.bbs.csv')}</button>
-    <button type="button" class="rcs-btn" title={t('rcSheets.bbs.bvbsTitle')} onclick={() => downloadSchedule(rows, 'bvbs', t, view)} disabled={!s.rows.length} data-testid="rc-bbs-bvbs">{t('rcSheets.bbs.bvbs')}</button>
+    <button type="button" class="rcs-btn" title={t('rcSheets.bbs.csvTitle')} onclick={() => downloadSchedule(rows, 'csv', t, view)} disabled={stale || !s.rows.length} data-testid="rc-bbs-csv">{t('rcSheets.bbs.csv')}</button>
+    <button type="button" class="rcs-btn" title={t('rcSheets.bbs.bvbsTitle')} onclick={() => downloadSchedule(rows, 'bvbs', t, view)} disabled={stale || !s.rows.length} data-testid="rc-bbs-bvbs">{t('rcSheets.bbs.bvbs')}</button>
   </div>
+  {#if stale}<p class="dim warn" role="status" data-testid="rc-bbs-stale">{t('rcSheets.exportStale')}</p>{/if}
   {#if !s.rows.length}
     <p class="dim" data-testid="rc-bbs-empty">{t('rcSheets.bbs.empty')}</p>
   {:else}
@@ -175,6 +179,7 @@
     </div>
     <p class="dim">{tp('rcSheets.bbs.legsNote', { clause: s.clause })}</p>
     {#if s.confirm}<p class="dim warn" data-testid="rc-bbs-confirm">{t(s.confirm)}</p>{/if}
+    <RcExportLog />
   {/if}
 </section>
 

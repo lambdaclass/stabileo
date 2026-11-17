@@ -29,6 +29,8 @@ export interface ColumnCase {
   mxTop: number; mxBot: number; myTop: number; myBot: number;
   /** Largest shear along the storey that pairs with Mx (acting along h) and with My (along b), kN. */
   vx?: number; vy?: number;
+  /** Largest torsion along the storey, kN·m: read, not designed for (`sheetsLeftOut`). */
+  tu?: number;
 }
 
 export interface ColumnDemand {

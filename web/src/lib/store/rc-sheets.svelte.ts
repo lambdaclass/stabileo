@@ -29,8 +29,9 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
-import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SLAB_BAR_RANGE, listIn, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
+import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SHEET_FAMILIES, SLAB_BAR_RANGE, listIn, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
+import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
 
@@ -50,6 +51,8 @@ export interface SheetRows {
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
   basis: 'combinations' | 'single' | 'none';
   combos: number;
+  /** The members in concrete the rows leave out, and why. */
+  left?: LeftOut[];
 }
 
 const DEFAULT_FC = 25;
@@ -528,7 +531,32 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
   if (seismic) for (const r of columnsFinal) jointAwareRedesign(r, columnsFinal, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length };
+  const left = leftOut([...beam, ...columnsFinal, ...slab, ...wall].map((r) => r.key), columnsFinal.map((r) => ({
+    name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
+  })));
+  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length, left };
+}
+
+function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {
+  const namer = storeyNamer();
+  const inGroups = { elements: new Set<number>(), quads: new Set<number>(), plates: new Set<number>() };
+  const groups = physicalGroups().map((g) => {
+    for (const id of g.members.elements ?? []) inGroups.elements.add(id);
+    for (const id of g.members.quads ?? []) inGroups.quads.add(id);
+    for (const id of g.members.plates ?? []) inGroups.plates.add(id);
+    return {
+      id: g.id, name: g.name, kind: g.physical.kind, level: levelName(g.physical.levelFrom, namer),
+      elements: (g.members.elements ?? []).filter((id) => inConcrete(modelStore.elements.get(id)?.materialId)).length,
+      shells: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)).length
+        + (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)).length,
+      noFc: [...(g.members.elements ?? []).map((id) => modelStore.elements.get(id)?.materialId), ...(g.members.quads ?? []).map((id) => modelStore.quads.get(id)?.materialId), ...(g.members.plates ?? []).map((id) => modelStore.plates.get(id)?.materialId)]
+        .some((m) => m !== undefined && inConcrete(m) && concreteFc(modelStore.materials.get(m) as never) === undefined),
+    };
+  });
+  const looseElements = [...modelStore.elements.values()].filter((e) => !inGroups.elements.has(e.id) && inConcrete(e.materialId)).length;
+  const looseShells = [...modelStore.quads.values()].filter((q) => !inGroups.quads.has(q.id) && inConcrete(q.materialId)).length
+    + [...modelStore.plates.values()].filter((p) => !inGroups.plates.has(p.id) && inConcrete(p.materialId)).length;
+  return sheetsLeftOut({ groups, looseElements, looseShells, rowKeys, columns, defaultFc: DEFAULT_FC });
 }
 
 
@@ -584,6 +612,9 @@ export async function downloadRcSheets(rows: SheetRows, tr: (k: string) => strin
   const { exportToExcel } = await import('../export/excel');
   const { rcSheetsWorkbook } = await import('../rc-sheets/workbook');
   const { sheetsSchedule } = await import('./rc-sheets-schedule');
+  const { recordSheetsExport } = await import('./rc-sheets-exports');
   const name = (modelStore.model.name || 'stabileo').replace(/[^\w.-]+/g, '-');
-  await exportToExcel({ filename: `${name}-${tr('rcSheets.fileName')}.xlsx`, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr, sheetsSchedule(rows)), provenance: false });
+  const filename = `${name}-${tr('rcSheets.fileName')}.xlsx`;
+  await exportToExcel({ filename, onlyExtras: true, extraSheets: rcSheetsWorkbook(rows, tr, sheetsSchedule(rows)), provenance: false });
+  recordSheetsExport('rcWorkbook', filename, SHEET_FAMILIES.filter((f) => rows[f].length).map((f) => tr(`rcSheets.family.${f}`)).join(', '));
 }

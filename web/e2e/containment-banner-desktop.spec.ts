@@ -38,7 +38,12 @@ test('@smoke on a desktop the second-order notice is one line and opens on a cli
   await expect(diagRow).toBeVisible();
   await expect(diagRow).not.toContainText('#1551');
   await expect(diagRow).toHaveAttribute('title', /#1551/);
+  const solveStamp = () => page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()).snapshot.solvedWith?.id as string | undefined);
+  const firstSolve = await solveStamp();
+  expect(firstSolve).toBeTruthy();
   await page.getByTestId('rb-cmd-solve').click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false)).toBe(true);
+  await expect.poll(solveStamp, { timeout: 30_000 }).not.toBe(firstSolve);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await expect(diagRow).toBeVisible();
   await expect(notice).toHaveCount(0);
 });

@@ -50,6 +50,7 @@ interface Marks {
   panelReady: number;
   firstClick: number;
   before: Counters;
+  resumed: Counters;
   after: Counters;
 }
 
@@ -126,6 +127,7 @@ async function cycle(page: Page): Promise<Marks> {
     for (let i = 0; i < 10; i++) await new Promise((r) => requestAnimationFrame(r));
     return Math.max(0, (w.__lat?.gap ?? 0) - held);
   }, 1500);
+  const resumed = await counters(page);
 
   // 2. The panel answers a real interaction: the design data and regulations, a place of design.
   const panelStart = Date.now();
@@ -141,7 +143,7 @@ async function cycle(page: Page): Promise<Marks> {
 
   const after = await counters(page);
   await client.detach();
-  return { firstFrame, panelReady, firstClick, before, after };
+  return { firstFrame, panelReady, firstClick, before, resumed, after };
 }
 
 /**
@@ -176,6 +178,15 @@ function report(name: string, runs: Marks[]) {
 
 const REPEATS = 5;
 
+/** Coming back from a tab is not a change of state: the viewport keeps its canvases and its WebGL context. */
+function expectNothingRebuilt(runs: Marks[]) {
+  for (const r of runs) {
+    expect(r.before.contexts, 'the 3-D viewport had a live WebGL context before leaving').toBeGreaterThanOrEqual(1);
+    expect(r.resumed.canvases, 'no canvas was added by the return').toBe(r.before.canvases);
+    expect(r.resumed.contexts, 'no WebGL context was lost or replaced by the return').toBe(r.before.contexts);
+  }
+}
+
 /**
  * The heavy scenarios, on the 7-storey building the rest of this suite prepares once.
  *
@@ -193,7 +204,7 @@ heavyTest.describe('@slow returning from another tab — the 7-storey building',
     const runs: Marks[] = [];
     for (let i = 0; i < REPEATS; i++) runs.push(await cycle(page));
     report('7-storey', runs);
-    for (const r of runs) expect(r.firstFrame).toBeGreaterThanOrEqual(0);
+    expectNothingRebuilt(runs);
   });
 });
 
@@ -205,15 +216,10 @@ test.describe('@slow returning from another tab', () => {
     report('small', runs);
 
     /**
-     * No budget is asserted here on purpose.
-     *
-     * A number invented in this file would answer the question this test exists to ask. The
-     * verdict comes from comparing these medians against the same file run on `main` and on PR19,
-     * which is why the numbers are printed rather than thresholded. What IS asserted is that the
-     * transition completed at all — a `-1` means the page never reported a frame.
+     * No time budget is asserted: the medians are compared against the same file run on `main`,
+     * which is why they are printed. What is asserted is the state change, which needs no number:
+     * coming back from a tab adds no canvas and loses no WebGL context.
      */
-    for (const r of runs) {
-      expect(r.firstFrame, 'the page painted after resuming').toBeGreaterThanOrEqual(0);
-    }
+    expectNothingRebuilt(runs);
   });
 });
