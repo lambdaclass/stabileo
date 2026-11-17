@@ -1687,8 +1687,16 @@ function solveColumnSections(data: ColumnSectionData, loads: readonly number[]):
   });
 }
 function solveColumnSection(data: ColumnSectionData, Nu: number): ColumnSectionSolution {
-  return solveColumnSections(data, [Nu])[0];
+  if (!columnScope) return solveColumnSections(data, [Nu])[0];
+  const values = [data.sectionDepth, data.sectionWidth, data.fc_kPa, data.fy_kPa, data.fy, data.b1, data.phiPn, Nu,
+    ...data.barData.flatMap(bar => [bar.d, bar.area_m2])];
+  if (!values.every(Number.isFinite)) return solveColumnSections(data, [Nu])[0];
+  const key = `${data.edition}:${values.map(exactNumberKey).join()}`;
+  let solution = columnScope.get(key);
+  if (!solution) { solution = Object.freeze(solveColumnSections(data, [Nu])[0]); columnScope.set(key, solution); }
+  return solution;
 }
+const exactNumberKey = (value: number): string => Object.is(value, -0) ? '-0' : String(value);
 
 /**
  * Biaxial column capacity — the CIRSOC 201 section engine's load contour.
@@ -1715,15 +1723,19 @@ export function computeBiaxialCapacity(
   return biaxialCapacity(AsProv_cm2, b, h, fc, fy, cover, stirrupDia, Nu, Muy, Muz, bars, edition);
 }
 
-type ScopedBiaxialSection = ReturnType<typeof prepareBiaxialSection>;
+type ScopedBiaxialSection = ReturnType<typeof prepareBiaxialSection> & { ratios: Map<string, number> };
 let biaxialScope: Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>> | undefined;
+let columnScope: Map<string, ColumnSectionSolution> | undefined;
 
 export function withBiaxialCapacityCache<T>(run: () => T): T {
   const previous = biaxialScope;
+  const previousColumns = columnScope;
   const scope = new Map<SectionKernelConstructor, Map<string, ScopedBiaxialSection>>();
   biaxialScope = scope;
+  columnScope = new Map();
   try { return run(); } finally {
     biaxialScope = previous;
+    columnScope = previousColumns;
     for (const sections of scope.values()) for (const prepared of sections.values()) prepared.section.free();
   }
 }
@@ -1737,7 +1749,7 @@ function sharedBiaxialSection(b: number, h: number, fc: number, fy: number, bars
   if (!sections) { sections = new Map(); biaxialScope.set(kernel, sections); }
   const key = JSON.stringify([edition, ...values], (_key, value) => Object.is(value, -0) ? { negativeZero: true } : value);
   let prepared = sections.get(key);
-  if (!prepared) { prepared = prepareBiaxialSection(b, h, fc, fy, bars, edition); sections.set(key, prepared); }
+  if (!prepared) { prepared = { ...prepareBiaxialSection(b, h, fc, fy, bars, edition), ratios: new Map() }; sections.set(key, prepared); }
   return prepared;
 }
 
@@ -1770,7 +1782,12 @@ function biaxialCapacity(
     // A layout symmetric about both axes has the same contour in every quadrant: one suffices.
     const quadrants = own.symmetric ? [[1, 1]] : [[1, 1], [1, -1], [-1, 1], [-1, -1]];
     for (const [sx, sy] of quadrants) {
-      const u = own.section.biaxialFast(Nu, sx * mz, sy * my).ratio;
+      const key = shared && `${exactNumberKey(Nu)},${exactNumberKey(sx * mz)},${exactNumberKey(sy * my)}`;
+      let u = key ? shared.ratios.get(key) : undefined;
+      if (u === undefined) {
+        u = own.section.biaxialFast(Nu, sx * mz, sy * my).ratio;
+        if (key) shared.ratios.set(key, u);
+      }
       worst = Math.max(worst, Number.isNaN(u) ? Number.POSITIVE_INFINITY : u);
     }
   } finally {
