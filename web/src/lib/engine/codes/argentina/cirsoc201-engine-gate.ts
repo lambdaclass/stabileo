@@ -21,6 +21,7 @@ import { copyVerificationCheck } from '../../verification-steps';
  * Torsion and the slenderness magnifier are not re-checked here: the engine has no checker for
  * them yet. `engineRecheck.notRechecked` names them on each result.
  */
+import { secondaryStirrupLegsUnavailableCode } from '../../../codes/cirsoc201/secondary-stirrup-legs';
 import type { RegulationEdition } from '../../../codes/regulation';
 import type { SolverDiagnostic } from '../../types';
 import { REBAR_DB, type ElementVerification, type VerifStatus } from './cirsoc201';
@@ -72,7 +73,9 @@ export function engineRecheckElement(
   const rc: EngineRecheck = { edition, disagreements: [], unavailable: false, notRechecked: [] };
   if (v.torsion && !v.torsion.neglect) rc.notRechecked.push('torsion');
   if (v.slender?.isSlender || v.slenderSecondary?.isSlender) rc.notRechecked.push('slenderness');
-  if (v.shearSecondary) rc.notRechecked.push('shear-secondary');
+  if (v.shearSecondary || v.diagnostics?.some(d => d.code === secondaryStirrupLegsUnavailableCode)) {
+    rc.notRechecked.push('shear-secondary');
+  }
   const out = { ...v, flexure: copyVerificationCheck(v.flexure), shear: copyVerificationCheck(v.shear), column: v.column && copyVerificationCheck(v.column),
     biaxial: v.biaxial && copyVerificationCheck(v.biaxial), engineRecheck: rc };
   const stirrupM = opts.stirrupDia / 1000;

@@ -29,6 +29,8 @@ export interface RebarLayer {
 
 /** Stirrup definition (diameter, legs, spacing). */
 export interface StirrupDef {
+  shape?: 'closedRectangular' | 'unknown';
+  secondaryCrossties?: number | null;
   diameter: number;   // mm
   legs: number;       // number of legs (2, 3, 4...)
   spacing: number;    // m (center-to-center)

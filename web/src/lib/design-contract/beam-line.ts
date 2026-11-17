@@ -6,6 +6,8 @@
  * is read from them (`engine/design/beam-line.ts`).
  */
 
+import type { StirrupDef } from './reinforcement';
+
 export const BEAM_LINE_VERSION = 1 as const;
 
 export type BeamBarFace = 'top' | 'bottom';
@@ -28,13 +30,10 @@ export interface BeamLineBar {
   role: BeamBarRole;
 }
 
-export interface BeamStirrupZone {
+export interface BeamStirrupZone extends StirrupDef {
   id: string;
   from: number;
   to: number;
-  diameter: number;
-  legs: number;
-  spacing: number;
 }
 
 export interface BeamLineReinforcement {

@@ -122,6 +122,7 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
   p.regions = p.regions ?? {};
   const cur = p.regions[field] ?? p.stirrups;
   p.regions[field] = {
+    ...cur, ...patch,
     diameter: patch.diameter ?? cur?.diameter ?? 8,
     // Clamp to the constructible range — Av = legs × legArea enters the shear
     // capacity unchecked, so a typed legs=20 would verify green on fantasy
@@ -198,6 +199,7 @@ export function setTies(elemId: number, patch: Partial<StirrupDef>): void {
   const p = draft(elemId);
   const cur = p.stirrups;
   p.stirrups = {
+    ...cur, ...patch,
     diameter: patch.diameter ?? cur?.diameter ?? 8,
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),

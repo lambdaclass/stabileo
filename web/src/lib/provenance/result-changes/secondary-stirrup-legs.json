@@ -1,0 +1,30 @@
+{
+  "id": "secondary-stirrup-legs",
+  "date": "2026-11-17",
+  "prs": [2171],
+  "area": "design",
+  "when": {
+    "all": ["space3D", "concreteMembers", "cirsoc201"]
+  },
+  "quantities": ["rc"],
+  "title": {
+    "en": "CIRSOC 201 credits the legs effective in secondary shear",
+    "es": "CIRSOC 201 cuenta las ramas efectivas para el corte secundario",
+    "pt": "O CIRSOC 201 conta os ramos efetivos no cisalhamento secundário",
+    "de": "CIRSOC 201 berücksichtigt die für die sekundäre Querkraft wirksamen Bügelschenkel",
+    "fr": "Le CIRSOC 201 compte les brins efficaces pour le cisaillement secondaire",
+    "tr": "CIRSOC 201 ikincil kesmede etkili etriye kollarını sayar"
+  },
+  "explanation": {
+    "en": "Recheck concrete members whose secondary shear or combined shear and torsion check credited more legs than their cage provides. A closed rectangular stirrup contributes two secondary legs plus any declared secondary crossties. Checks that require an undetermined secondary leg count are refused.",
+    "es": "Reverificá los miembros de hormigón cuya verificación de corte secundario o de corte y torsión combinados contó más ramas que las provistas. Un estribo rectangular cerrado aporta dos ramas secundarias más los ganchos suplementarios declarados en esa dirección. Se rechazan las verificaciones que requieren un número de ramas secundarias indeterminado.",
+    "pt": "Verifique novamente os elementos de concreto cuja verificação de cisalhamento secundário ou de cisalhamento combinado com torção contou mais ramos do que os fornecidos. Um estribo retangular fechado fornece dois ramos secundários, mais os grampos declarados nessa direção. As verificações que exigem um número indeterminado de ramos secundários são recusadas.",
+    "de": "Betonbauteile erneut prüfen, wenn der Nachweis der sekundären Querkraft oder der kombinierten Querkraft und Torsion mehr Bügelschenkel angesetzt hat als vorhanden. Ein geschlossener rechteckiger Bügel liefert zwei sekundäre Schenkel zuzüglich der in dieser Richtung angegebenen Querhaken. Nachweise mit unbestimmter Anzahl sekundärer Schenkel werden verweigert.",
+    "fr": "Revérifier les éléments en béton dont la vérification au cisaillement secondaire ou au cisaillement combiné à la torsion comptait plus de brins que ceux présents. Un étrier rectangulaire fermé fournit deux brins secondaires, auxquels s'ajoutent les épingles déclarées dans cette direction. Les vérifications qui exigent un nombre indéterminé de brins secondaires sont refusées.",
+    "tr": "İkincil kesme veya birleşik kesme ve burulma denetiminde mevcut olandan daha fazla kol sayılan betonarme elemanları yeniden denetleyin. Kapalı dikdörtgen etriye iki ikincil kol ve o yönde beyan edilen çirozları sağlar. İkincil kol sayısı belirlenemeyen denetimler reddedilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-secondary-stirrup-legs.md",
+    "heading": "CIRSOC 201 secondary stirrup legs (#2171)"
+  }
+}

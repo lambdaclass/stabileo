@@ -10,6 +10,8 @@
  * through 20.2.1.3). The section limit's 0,66·√f'c and the minimums of 9.6.4 read √f'c as is:
  * the text limits only Tth, Tcr and Vc.
  */
+import type { StirrupDef } from '../../design-contract/reinforcement';
+import { secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from './secondary-stirrup-legs';
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
@@ -20,7 +22,7 @@ export interface TorsionInput {
   fc: number; fy: number; fyt: number;
   demand: ConcurrentSectionDemand;
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
-  stirrup?: { diameter: number; legs: number; spacing: number };
+  stirrup?: StirrupDef;
 }
 
 export interface TorsionCheck {
@@ -42,6 +44,7 @@ export interface TorsionCheck {
   sMax: number;
   /** The worst of the cross-section, transverse, outer leg and spacing ratios. */
   ratio: number;
+  secondaryLegsRefusal?: string;
 }
 
 const PHI = 0.75;
@@ -69,20 +72,35 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
   const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
-  const AvOverS = Math.max(Vs / (i.fyt * 1000 * i.d), VsSecondary / (i.fyt * 1000 * i.dSecondary));
   const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
-  const transverseRequired = Math.max(AvOverS + 2 * AtOverS, min);
-  const { transverseProvided, outerLegProvided } = i.stirrup
-    ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
+  const primaryRequired = Math.max(Vs / (i.fyt * 1000 * i.d) + 2 * AtOverS, min);
+  const secondaryRequired = Math.max(VsSecondary / (i.fyt * 1000 * i.dSecondary) + 2 * AtOverS, min);
+  const neglect = Tu < phiTth;
+  const provision = i.stirrup ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
+  const { outerLegProvided } = provision;
+  let transverseRequired = Math.max(primaryRequired, secondaryRequired);
+  let transverseProvided = provision.transverseProvided;
+  let secondaryLegsRefusal: string | undefined;
+  if (!neglect && i.stirrup && VuSecondary > 0) {
+    const legs = secondaryStirrupLegs(i.stirrup);
+    const provided = legs === undefined ? 0 : providedTorsionStirrups({ ...i.stirrup, legs }).transverseProvided;
+    if (legs === undefined) secondaryLegsRefusal = secondaryStirrupLegsUnavailable;
+    const primaryRatio = transverseProvided > 0 ? primaryRequired / transverseProvided : Infinity;
+    const secondaryRatio = provided > 0 ? secondaryRequired / provided : Infinity;
+    const secondaryGoverns = secondaryRatio > primaryRatio
+      || (secondaryRatio === primaryRatio && secondaryRequired > primaryRequired);
+    transverseRequired = secondaryGoverns ? secondaryRequired : primaryRequired;
+    transverseProvided = secondaryGoverns ? provided : transverseProvided;
+  }
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
-  const neglect = Tu < phiTth;
   const ratios = neglect ? [0] : [
     sectionRatio,
     transverseProvided > 0 ? transverseRequired / transverseProvided : Number.POSITIVE_INFINITY,
     outerLegProvided > 0 ? AtOverS / outerLegProvided : Number.POSITIVE_INFINITY,
     i.stirrup ? i.stirrup.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
-  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
+  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: secondaryLegsRefusal ? Infinity : Math.max(...ratios),
+    ...(secondaryLegsRefusal ? { secondaryLegsRefusal } : {}) };
 }

@@ -15,7 +15,6 @@ import { computeShearCapacity, verifyProvidedReinforcement } from '../station-de
 import { declaredTestDemands } from './helpers/declared-demands';
 import { torsionDemand } from './helpers/manual-interactions';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const cage = { diameter: 8, spacing: 0.1, legs: 4 };
 const fixed = { shear: cage, torsion: { AlProv: 100 } };
@@ -31,7 +30,7 @@ for (const [edition, demand, capacity, ratio] of [
   ['2005', 220.235, 179.19950999999995, 1.229],
   ['2025', 222.18, 181.14201, 1.227],
 ] as const) {
-  knownWrong(`known wrong result: #2171 published column witness (${edition})`, () => {
+  it(`#2171 published column witness (${edition})`, () => {
     const v = input(demand, 30, edition);
     for (const out of [verifyElement(v, fixed), prepareElementVerification(v)(fixed)]) {
       const shear = out.shearSecondary!;
@@ -42,7 +41,7 @@ for (const [edition, demand, capacity, ratio] of [
 }
 
 for (const [edition, demand] of [['2005', 94.6422855], ['2025', 95.4770355]] as const) {
-  knownWrong(`known wrong result: #2171 zero-torque silent overall pass (${edition})`, () => {
+  it(`#2171 zero-torque silent overall pass (${edition})`, () => {
     const out = verifyElement(input(demand, 0, edition, { ...section, b: 0.2, h: 0.4 }), fixed);
     expect({ overall: out.overallStatus, secondary: out.shearSecondary?.ratio, primary: out.shear.status, flexure: out.flexure.status,
       column: out.column?.status, torsion: out.torsion }).toEqual({
@@ -51,7 +50,7 @@ for (const [edition, demand] of [['2005', 94.6422855], ['2025', 95.4770355]] as 
   });
 }
 
-knownWrong('known wrong result: #2171 concurrent verification keeps two physical secondary legs', () => {
+it('#2171 concurrent verification keeps two physical secondary legs', () => {
   const v = input(220.235, 0, '2005');
   const out = verifyConcurrentElement([v]);
   expect(out.shear.stirrupLegs).toBeGreaterThan(2);
@@ -67,7 +66,7 @@ it('#2171 four-leg primary answer stays identical with secondary demand', () => 
   expect(primary.shear.stirrupLegs).toBe(4);
 });
 
-knownWrong('known wrong result: #2171 a declared secondary crosstie gives three legs', () => {
+it('#2171 a declared secondary crosstie gives three legs', () => {
   const shear = { ...cage, secondaryCrossties: 1 };
   const out = verifyElement(input(220.235, 0, '2005'), { shear });
   const { b, h, cover, fc, fy, stirrupDia } = section;
@@ -93,7 +92,7 @@ function provided(vy: number, vz: number, stirrups: typeof cage | undefined, sha
 }
 
 for (const factor of [0.999, 1.001]) {
-  knownWrong(`known wrong result: #2171 provided column uses two legs across capacity boundary (${factor})`, () => {
+  it(`#2171 provided column uses two legs across capacity boundary (${factor})`, () => {
     const expected = computeShearCapacity(8, 2, 0.1, section.h, section.b - section.cover - 0.008 - 0.008,
       section.fc, section.fy, 0, { edition: '2005' }).phiVn;
     const row = provided(expected * factor, 0, cage).checks.find(c => c.category === 'Ties (Vy)');
@@ -106,7 +105,7 @@ const missing = { ...cage, secondaryCrossties: null };
 const invalid = { ...cage, secondaryCrossties: -1 };
 const malformed = { ...cage, spacing: 0 };
 for (const [reason, stirrups] of [['unknown shape', unknown], ['missing data', missing], ['invalid count', invalid], ['invalid spacing', malformed]] as const) {
-  knownWrong(`known wrong result: #2171 refuses unresolved secondary legs (${reason})`, () => {
+  it(`#2171 refuses unresolved secondary legs (${reason})`, () => {
     const direct = verifyElement(input(40, 0, '2005'), { shear: stirrups });
     const existing = provided(40, 0, stirrups);
     expect(direct.overallStatus).toBe('fail');
@@ -119,7 +118,7 @@ for (const [reason, stirrups] of [['unknown shape', unknown], ['missing data', m
   });
 }
 
-knownWrong('known wrong result: #2171 shaped column refuses secondary capacity and retains primary', () => {
+it('#2171 shaped column refuses secondary capacity and retains primary', () => {
   const shape = { kind: 'circle', D: 0.5 } as const;
   const control = provided(0, 20, cage, shape);
   const out = provided(20, 20, cage, shape);
@@ -140,7 +139,7 @@ it('#2171 inactive or absent secondary force retains the primary answer', () => 
   expect(provided(20, 0, undefined).checks.find(c => c.category === 'Ties (Vy)')).toMatchObject({ missingReinforcement: true, status: 'fail' });
 });
 
-knownWrong('known wrong result: #2171 unknown cage is refused at the provided shear threshold', () => {
+it('#2171 unknown cage is refused at the provided shear threshold', () => {
   expect(provided(0.001, 20, unknown).checks.find(c => c.category === 'Ties (Vy)')).toMatchObject({
     limiting: 'unsupportedCheck', status: 'fail',
   });
@@ -149,7 +148,7 @@ knownWrong('known wrong result: #2171 unknown cage is refused at the provided sh
 const torsionInput = { ...section, d: 0.559, dSecondary: 0.259, fyt: section.fy, stirrupDiaMm: cage.diameter };
 const twoLegTorsion = checkTorsion2025({ ...torsionInput, stirrup: { ...cage, legs: 2 }, demand: torsionDemand(30, 0, 220.235) });
 
-knownWrong('known wrong result: #2171 combined torsion checks the secondary face and one outer leg', () => {
+it('#2171 combined torsion checks the secondary face and one outer leg', () => {
   const out = checkTorsion2025({ ...torsionInput, stirrup: cage, demand: torsionDemand(30, 0, 220.235) });
   expect(out.ratio).toBe(twoLegTorsion.ratio);
   expect(out.outerLegProvided).toBe(twoLegTorsion.outerLegProvided);
@@ -157,21 +156,21 @@ knownWrong('known wrong result: #2171 combined torsion checks the secondary face
   expect(out.ratio).toBeGreaterThan(1);
 });
 
-knownWrong('known wrong result: #2171 provided beam torsion credits secondary legs', () => {
+it('#2171 provided beam torsion credits secondary legs', () => {
   const rows = (legs: number) => provided(220.235, 0, { ...cage, legs }, undefined, 'beam', 30).checks
     .filter(c => c.category.startsWith('Torsion ') && !c.category.startsWith('Torsion Al'));
   expect(rows(4).map(r => r.ratio)).toEqual(rows(2).map(r => r.ratio));
   expect(rows(4)).toHaveLength(2);
 });
 
-knownWrong('known wrong result: #2171 provided beam refuses torsion with an unknown secondary cage', () => {
+it('#2171 provided beam refuses torsion with an unknown secondary cage', () => {
   const out = provided(220.235, 0, unknown, undefined, 'beam', 30);
   expect(out.checks.find(c => c.category === 'Torsion Span (Vz)')).toMatchObject({
     status: 'fail', limiting: 'unsupportedCheck', description: expect.stringMatching(/secondary.*legs/i),
   });
 });
 
-knownWrong('known wrong result: #2171 combined torsion refuses unknown legs above its neglect threshold', () => {
+it('#2171 combined torsion refuses unknown legs above its neglect threshold', () => {
   const { phiTth } = twoLegTorsion;
   const check = (torque: number) => checkTorsion2025({
     ...torsionInput, stirrup: unknown, demand: torsionDemand(torque, 0, 220.235),
@@ -180,7 +179,7 @@ knownWrong('known wrong result: #2171 combined torsion refuses unknown legs abov
   expect(check(phiTth)).toMatchObject({ neglect: false, ratio: Infinity, secondaryLegsRefusal: expect.stringMatching(/secondary.*legs/i) });
 });
 
-knownWrong('known wrong result: #2171 wall member torsion uses its secondary shear provision', () => {
+it('#2171 wall member torsion uses its secondary shear provision', () => {
   const verify = (legs: number) => verifyElement({ ...input(220.235, 30, '2005'), elementType: 'wall' },
     { ...fixed, shear: { ...cage, legs } });
   const wall = verify(4);
@@ -199,7 +198,7 @@ const model = {
 };
 
 for (const nonlinear of [false, true]) {
-  knownWrong(`known wrong result: #2171 3D WASM result entry points (nonlinear=${nonlinear})`, () => {
+  it(`#2171 3D WASM result entry points (nonlinear=${nonlinear})`, () => {
     const solver: SolverInput3D = { ...model,
       elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
         releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
@@ -234,7 +233,7 @@ for (const nonlinear of [false, true]) {
   });
 }
 
-knownWrong('known wrong result: #2171 concurrent summaries hold when the cage shape is unknown', () => {
+it('#2171 concurrent summaries hold when the cage shape is unknown', () => {
   const v = input(40, 0, '2005');
   const out = verifyConcurrentElement([{ ...v, rectangularCage: false } as typeof v]);
   expect(out.overallStatus).toBe('fail');
@@ -245,7 +244,7 @@ knownWrong('known wrong result: #2171 concurrent summaries hold when the cage sh
   });
 });
 
-knownWrong('known wrong result: #2171 beam-line round trip preserves declared secondary crossties', () => {
+it('#2171 beam-line round trip preserves declared secondary crossties', () => {
   const stirrup = { ...cage, secondaryCrossties: 1 };
   const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: { stirrups: stirrup } }];
   const regions = membersFromLine(lineFromMembers(members), members).get(1)?.regions;
@@ -253,7 +252,7 @@ knownWrong('known wrong result: #2171 beam-line round trip preserves declared se
   expect(regions?.stirrupsSpan).toEqual(stirrup);
 });
 
-knownWrong('known wrong result: #2171 a shared support cage cannot credit incompatible end declarations', () => {
+it('#2171 a shared support cage cannot credit incompatible end declarations', () => {
   const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }];
   const line = lineFromMembers(members);
   const start = { ...cage, id: 'start', from: 0, to: 1, secondaryCrossties: 1 };

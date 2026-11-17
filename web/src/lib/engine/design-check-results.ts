@@ -72,6 +72,7 @@ function engineRefused(r: any): boolean {
 
 // ─── CIRSOC 201 (RC, JS) adapter ─────────────────────────────────
 
+import { secondaryStirrupLegsUnavailableCode } from '../codes/cirsoc201/secondary-stirrup-legs';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
 
 export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: Map<number, string>): MemberDesignResult[] {
@@ -156,6 +157,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
     }
 
     const governing = checks.reduce((max, c) => c.ratio > max.ratio ? c : max, checks[0]);
+    const refusal = v.diagnostics?.find(d => d.code === secondaryStirrupLegsUnavailableCode);
 
     return {
       elementId: v.elementId,
@@ -163,9 +165,9 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       sectionName: sectionNames.get(v.elementId) ?? `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`,
       codeId: 'cirsoc',
       codeName: 'CIRSOC 201',
-      governingCheck: governing.name,
+      governingCheck: refusal?.message ?? governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus !== 'fail' && v.torsion?.longitudinalProvision === 'not-checked' ? 'held' as const : v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
+      status: refusal || (v.overallStatus !== 'fail' && v.torsion?.longitudinalProvision === 'not-checked') ? 'held' as const : v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
       comboName: governing.comboName,
       checks,
     };

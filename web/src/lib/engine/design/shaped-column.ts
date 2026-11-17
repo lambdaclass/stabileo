@@ -17,6 +17,8 @@ import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
 import type { Bar, Outline } from '../codes/argentina/cirsoc201-section';
 import { teePolygon, isCounterClockwise, type Pt } from '../codes/argentina/section-polygon';
 import { isSolidCircle } from '../../section/solid-circle';
+import { secondaryStirrupLegsUnavailable } from '../../codes/cirsoc201/secondary-stirrup-legs';
+import type { ShearAxis } from './design-axes';
 
 export type ColumnShape =
   | { kind: 'circle'; D: number }
@@ -104,7 +106,7 @@ export function minClear(pts: readonly Pt[], diaMm: number): number {
 
 export interface ShapedCheck {
   category: string; utilization: number; unit: string; description: string;
-  limiting: 'axialFlexure' | 'biaxial' | 'shear' | 'tieSpacing' | 'minSteel' | 'maxSteel' | 'congestion';
+  limiting: 'axialFlexure' | 'biaxial' | 'shear' | 'tieSpacing' | 'minSteel' | 'maxSteel' | 'congestion' | 'unsupportedCheck';
   demand?: number; capacity?: number; required?: number; provided?: number;
   comboName?: string; stationX?: number; missingReinforcement?: boolean;
 }
@@ -124,6 +126,7 @@ export function checkShapedColumn(input: {
   /** δns·δs on both moment axes. */
   magnifier: number;
   maxTieSpacing: number;
+  secondaryShear?: ShearAxis;
   shearCapacity: (bw: number, d: number, Nu: number) => number;
 }): ShapedCheck[] {
   const { shape, bars } = input;
@@ -188,6 +191,12 @@ export function checkShapedColumn(input: {
     for (const t of input.tuples) {
       const Vu = Math.abs(w.read(t));
       if (Vu < 1e-3) continue;
+      if (w.axis === (input.secondaryShear ?? 'Vy')) {
+        out.push({ category: `Ties (${w.axis})`, utilization: Infinity, unit: 'kN',
+          demand: +Vu.toFixed(2), description: secondaryStirrupLegsUnavailable, limiting: 'unsupportedCheck',
+          comboName: t.comboName, stationX: t.stationX });
+        break;
+      }
       const cap = input.shearCapacity(w.bw, w.d, -t.n);
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
       if (!wv || u > wv.u) wv = { u, Vu, cap, t };

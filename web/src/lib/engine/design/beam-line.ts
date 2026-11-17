@@ -12,6 +12,7 @@
  * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
  * The round trip reproduces what the verifier reads.
  */
+import { secondaryStirrupLegs } from '../../codes/cirsoc201/secondary-stirrup-legs';
 import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
@@ -78,7 +79,7 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
   const skin: Record<string, { diameter: number; spacing: number }> = {};
   let n = 0;
   const bar = (b: Omit<BeamLineBar, 'id'>) => bars.push({ ...b, id: `b${++n}` });
-  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, diameter: s.diameter, legs: s.legs, spacing: s.spacing }); };
+  const zone = (from: number, to: number, s?: StirrupDef) => { if (s && to > from + EPS) stirrups.push({ id: `z${stirrups.length + 1}`, from, to, ...s }); };
 
   members.forEach((m, k) => {
     const r = m.reinforcement;
@@ -137,7 +138,9 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
   return out;
 }
 
-const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs && Math.abs(p.spacing - q.spacing) < EPS;
+const sameSecondaryCage = (p: StirrupDef, q: StirrupDef) => secondaryStirrupLegs(p) === secondaryStirrupLegs(q);
+const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs
+  && Math.abs(p.spacing - q.spacing) < EPS && sameSecondaryCage(p, q);
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];
@@ -212,7 +215,10 @@ function layersOf(bs: readonly BeamLineBar[]): RebarLayer[] {
 const groupOfLayers = (ls: RebarLayer[]) => ({ count: ls.reduce((s, l) => s + l.count, 0), diameter: Math.max(...ls.map((l) => l.diameter)) });
 
 const avs = (z: BeamStirrupZone) => (z.legs * Math.PI * z.diameter ** 2 / 4) / z.spacing;
-const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diameter: z.diameter, legs: z.legs, spacing: z.spacing } : undefined);
+function stirrupOf(z: BeamStirrupZone): StirrupDef {
+  const { id: _id, from: _from, to: _to, ...stirrup } = z;
+  return stirrup;
+}
 
 /** Project a line onto its members' regions. */
 export function membersFromLine(line: BeamLineReinforcement, members: readonly LineMember[]): Map<number, ProvidedReinforcement> {
@@ -269,7 +275,10 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     const zAt = (x: number) => line.stirrups.find((z) => z.from <= x + EPS && z.to >= x - EPS);
     const zs = zAt((a + s) / 2), ze = zAt((e + b) / 2), zm = zAt(mid);
     const sup = zs && ze ? (avs(zs) <= avs(ze) ? zs : ze) : (zs ?? ze);
-    if (sup) regions.stirrupsSupport = stirrupOf(sup);
+    if (sup) {
+      const stirrup = stirrupOf(sup);
+      regions.stirrupsSupport = zs && ze && !sameSecondaryCage(zs, ze) ? { ...stirrup, secondaryCrossties: null } : stirrup;
+    }
     if (zm) regions.stirrupsSpan = stirrupOf(zm);
     const skin = line.skin?.[String(m.id)];
     if (skin) regions.skin = { ...skin };

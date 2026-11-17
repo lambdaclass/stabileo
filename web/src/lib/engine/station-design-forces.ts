@@ -26,6 +26,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
 import { checkTorsion2025 } from '../codes/cirsoc201/torsion';
+import { secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from '../codes/cirsoc201/secondary-stirrup-legs';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -1916,7 +1917,7 @@ export function verifyProvidedReinforcement(
   modelData?: {
     nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
     elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>;
-    sections: Map<number, { id: number; b?: number; h?: number }>;
+    sections: Map<number, { id: number; b?: number; h?: number; shape?: string }>;
     supports: Map<number, { nodeId: number; type: string }>;
   },
   options?: {
@@ -2698,9 +2699,10 @@ export function verifyProvidedReinforcement(
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
             utilization: tr.ratio,
             unit: 'kN·m', method: 'capacity', tuplesChecked: ss.tuples.length, regionRange: ss.range,
-            description: `${ss.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+            description: tr.secondaryLegsRefusal ?? `${ss.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
-            limiting: 'torsion', ...(!ss.stir ? { missingReinforcement: true } : {}),
+            limiting: tr.secondaryLegsRefusal ? 'unsupportedCheck' : 'torsion',
+            ...(!ss.stir ? { missingReinforcement: true } : {}),
           });
           const { AlReq, AsFlex, required, provided, face, u } = lw.need;
           pushStrength({
@@ -2839,16 +2841,20 @@ export function verifyProvidedReinforcement(
       ? columnTieSpacing(spacingRule.edition, provided.shaped.diameter, ties.diameter, sh.kind === 'circle' ? sh.D : Math.min(sh.kind === 'tee' ? sh.bw : sh.tw, sh.kind === 'tee' ? sh.hf : sh.tf)).spacing
       : 0.3;
     const shaped = checkShapedColumn({
-      shape: sh, bars: provided.shaped, ties, fc: section.fc, fy: section.fy, cover: section.cover,
+      shape: sh, bars: provided.shaped, ties, secondaryShear: axes.secondaryShear, fc: section.fc, fy: section.fy, cover: section.cover,
       tuples: hasTuples ? allTuples : [], magnifier: deltaNs, maxTieSpacing: sMaxTie,
       shearCapacity: (bw, d, Nu) => ties ? computeShearCapacity(ties.diameter, ties.legs, ties.spacing, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn
         : computeShearCapacity(0, 0, 1, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn,
     });
     for (const c of shaped) {
-      pushStrength({ ...c, demandCategory: c.limiting === 'shear' ? (c.category.includes('Vy') ? 'Vy' : 'Vz') : c.limiting === 'biaxial' ? 'N_compression' : null, method: c.demand !== undefined ? 'capacity' : 'area', tuplesChecked: c.limiting === 'biaxial' ? allTuples.length : 0 } as never);
+      pushStrength({ ...c, demandCategory: (c.limiting === 'shear' || c.limiting === 'unsupportedCheck') ? (c.category.includes('Vy') ? 'Vy' : 'Vz') : c.limiting === 'biaxial' ? 'N_compression' : null, method: c.demand !== undefined ? 'capacity' : 'area', tuplesChecked: c.limiting === 'biaxial' ? allTuples.length : 0 } as never);
     }
     if (shaped.some((c) => c.limiting === 'biaxial')) { checkedAxes.add(axes.flexure); checkedAxes.add(axes.secondaryFlexure); checkedAxes.add('N'); }
-    if (shaped.some((c) => c.limiting === 'shear')) { checkedAxes.add(axes.shear); checkedAxes.add(axes.secondaryShear); }
+    for (const c of shaped) {
+      if (c.limiting === 'shear' && (c.category === 'Ties (Vy)' || c.category === 'Ties (Vz)')) {
+        checkedAxes.add(c.category === 'Ties (Vy)' ? 'Vy' : 'Vz');
+      }
+    }
   } else if (elementType === 'column' && section) {
     const colResolved = resolveColumnReinf(provided.column, provided.longitudinal);
     const colLayout = colResolved
@@ -3035,7 +3041,11 @@ export function verifyProvidedReinforcement(
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
         { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
       ];
+      const member = modelData?.elements.get(elementId);
+      const shape = member && modelData?.sections.get(member.sectionId)?.shape;
       for (const ts of tieSpecs) {
+        const legs = ts.axis === axes.secondaryShear
+          ? secondaryStirrupLegs(provided.stirrups, shape === undefined || shape === 'rect') : provided.stirrups?.legs;
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
         let count = 0; let peakVu = 0; let peakCombo = ''; let peakX = 0;
         for (const t of allTuples) {
@@ -3043,7 +3053,7 @@ export function verifyProvidedReinforcement(
           if (Vu < 0.001) continue;
           count++;
           if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
-          if (!provided.stirrups) continue;
+          if (!provided.stirrups || legs === undefined) continue;
           // Inside an end zone the denser ties carry the shear.
           const z = provided.tieZones;
           const Lc = stationResult?.length ?? 0;
@@ -3051,14 +3061,14 @@ export function verifyProvidedReinforcement(
           const sTie = atEnd ? Math.min(z!.endSpacing, provided.stirrups.spacing) : provided.stirrups.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          const cap = computeShearCapacity(provided.stirrups.diameter, provided.stirrups.legs, sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
+          const cap = computeShearCapacity(provided.stirrups.diameter, legs, sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }
         if (count === 0) continue;
-        checkedAxes.add(ts.axis);
         if (!provided.stirrups) {
+          checkedAxes.add(ts.axis);
           pushStrength({
             category: `Ties (${ts.axis})`, demandCategory: ts.axis === 'Vy' ? 'Vy' : 'Vz',
             demand: +peakVu.toFixed(2), capacity: 0, utilization: Number.POSITIVE_INFINITY,
@@ -3069,13 +3079,23 @@ export function verifyProvidedReinforcement(
           });
           continue;
         }
+        if (legs === undefined && ts.axis === axes.secondaryShear) {
+          pushStrength({
+            category: `Ties (${ts.axis})`, demandCategory: ts.axis === 'Vy' ? 'Vy' : 'Vz',
+            demand: +peakVu.toFixed(2), utilization: Infinity,
+            unit: 'kN', method: 'capacity', tuplesChecked: count, description: secondaryStirrupLegsUnavailable,
+            comboName: peakCombo, stationX: peakX, limiting: 'unsupportedCheck',
+          });
+          continue;
+        }
         if (!worst) continue;
+        checkedAxes.add(ts.axis);
         pushStrength({
           category: `Ties (${ts.axis})`, demandCategory: ts.axis === 'Vy' ? 'Vy' : 'Vz',
           demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
           utilization: worst.util,
           unit: 'kN', method: 'capacity', tuplesChecked: count,
-          description: `eØ${provided.stirrups.diameter} ${provided.stirrups.legs}L c/${(provided.stirrups.spacing * 100).toFixed(0)} → φVn varies with N, swept ${count} tuples`,
+          description: `eØ${provided.stirrups.diameter} ${legs}L c/${(provided.stirrups.spacing * 100).toFixed(0)} → φVn varies with N, swept ${count} tuples`,
           comboName: worst.comboName, stationX: worst.stationX,
           limiting: 'shear',
         });

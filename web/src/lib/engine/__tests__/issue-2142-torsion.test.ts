@@ -14,7 +14,7 @@ import type { SolverInput3D } from '../types-3d';
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
 const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
-const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
+const fixed = { shear: { spacing: 0.05, legs: 4, secondaryCrossties: 2 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
     my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
@@ -53,7 +53,8 @@ for (const edition of ['2005', '2025'] as const) {
           const secondary = shearAxis === 'primary' ? 0 : -100;
           const torque = reference(primary, secondary, 0).phiTn * factor;
           const expected = reference(primary, secondary, torque);
-          const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
+          const input = { ...p, edition, elementId: 1, elementType, secondaryCrossties: 2,
+            demand: demand(primary, secondary, torque, axis) };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
