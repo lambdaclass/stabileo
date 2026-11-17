@@ -60,6 +60,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-078 — PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-083 — PR #2236; birleştirme ve yayın bekleniyor."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Sonuçlar sürümlenmeden önce kaydedilmiş bir betonarme çerçeve ile Stabileo PRO. Alttaki bir şerit, projenin eski bir sürümle çözüldüğünü ve kayıtlı 19 değişikliğin onu ilgilendirdiğini, yani sonuçların eskidiğini söylüyor; yanında neyin değiştiğini görme ve yeniden çözme düğmeleri var.", "caption": "Bir düzeltme kayıtlı bir projeye böyle ulaşır: yeniden çözülene kadar sonuçları eskimiş olarak işaretli kalır ve onu ilgilendiren değişiklikler bir tık uzaktadır."},
     {
       "k": "h",
@@ -449,6 +451,7 @@ const body: PostBody = {
         ["SA-2026-078", "Çatı basınç bölgeleri ve bunların birinci momentleri bölünmeye bağlıydı (#2205). Her duvar ve çatının açıklıklarını inceleyin, yeniden sınıflandırın, W ve Wa yüklerini yeniden üretin ve analiz, birleşim ve kontrolleri tekrarlayın. Yalnızca kayıtlı yükleri yeniden çözmek bunları düzeltmez.", "Yüksek", "PR #2220 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-079", "Kısmi kabuk kaplaması üretilen yerçekimi yüklerini uyarı vermeden kaybedebiliyor veya kaydırabiliyordu (#2199). Etkilenen tüm üretilmiş alan yüklerini yeniden üretin; döşeme tanımlarını güncelleyin veya sahipsiz yükleri değiştirin, ardından analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek onları düzeltmez.", "Yüksek", "PR #2219 ile düzeltildi, birleştirme ve yayın bekleniyor"],
         ["SA-2026-080", "Döşeme bölgeleri çubuklardaki dışmerkez yüklemeyi uyarı vermeden kaybedebiliyordu (#2201). Etkilenen tüm üretilmiş alan yüklerini yeniden üretin; döşeme tanımlarını güncelleyin veya sahipsiz yükleri değiştirin, ardından analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek onları düzeltmez.", "Yüksek", "PR #2219 ile düzeltildi, birleştirme ve yayın bekleniyor"],
+        ["SA-2026-083", "SA-2026-083: CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin. (#2207).", "Yüksek", "PR #2236; birleştirme ve yayın bekleniyor"],
       ]
     },
     {

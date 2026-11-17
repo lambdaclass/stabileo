@@ -3,11 +3,15 @@ import { assessProject } from '../applicability';
 import { RESULT_CHANGES } from '../full-registry';
 import { stampSolve } from '../solve-stamp';
 import type { FeatureSnapshot } from '../model-features';
+const CURRENT_RESULT_CHANGES = RESULT_CHANGES;
 const snapshot = (type = 'W', generatedBy = 'load-plan'): FeatureSnapshot => ({ loadCases: [{ id: 1, type }], loads: [{ type: 'distributed', data: { caseId: 1, elementId: 1, q: -1, generatedBy } }] });
 for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelta', 'plastic'] as const) for (const type of ['W', 'Wa']) {
   it(`wind regeneration remains required after re-solving ${type} in ${mode} with ${analysis}`, () => {
+    const RESULT_CHANGES = { ...CURRENT_RESULT_CHANGES, changes: CURRENT_RESULT_CHANGES.changes.filter(c => c.id !== 'concentrated-live-actions') };
     const assessment = assessProject(snapshot(type), stampSolve(analysis, null), mode, RESULT_CHANGES, undefined, 0);
     expect(assessment.changes.map(c => c.id).sort()).toEqual(['generated-area-loads-headroom', 'gravity-density-extrema', 'gravity-member-loading', 'gravity-moment-support', 'gravity-physical-regions', 'gravity-stations-and-edits', 'gravity-torque-projection-and-carriers', 'snow-panel-geometry', 'wind-apex-torque', 'wind-band-width-and-shares', 'wind-carriers-and-continuous-width', 'wind-member-pressure-transfer', 'wind-physical-apex', 'wind-physical-pressure-field', 'wind-plan-couple-and-sign-face', 'wind-pressure-work-moments', 'wind-triangular-and-sign-minimum', 'wind-triangular-centroid']);
+    const combined = assessProject(snapshot(type), stampSolve(analysis, null), mode, CURRENT_RESULT_CHANGES, undefined, 0);
+    expect(combined.changes.map(c => c.id).sort()).toEqual(['concentrated-live-actions', ...assessment.changes.map(c => c.id)].sort());
   });
 }
 it('current generated loads clear wind notices; manual wind and generated gravity do not get this notice', () => {

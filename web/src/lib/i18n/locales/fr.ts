@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} exige une vérification des charges concentrées selon CIRSOC 101 {article}. Les positions les plus défavorables ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} exige la vérification d’une surcharge concentrée de {force} kN selon CIRSOC 101 §4.4. Les positions les plus défavorables et l’alternative entre charge uniforme et concentrée ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez ces actions manuellement.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige des actions concentrées de toiture aux positions les plus défavorables, séparément de la surcharge de toiture de §4.8. Ces vérifications ne sont pas évaluées. La génération automatique est bloquée ; modélisez et vérifiez les actions de toiture manuellement.",
   "underAudit.text": "En cours de vérification : un examen interne a révélé des erreurs dans la génération automatique des charges et le dimensionnement du béton armé. Les corrections sont en cours. Vérifiez ces résultats de manière indépendante avant de les utiliser pour un dimensionnement.",
   "underAudit.details": "Anomalies restant à corriger",
   "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",

@@ -254,7 +254,8 @@ const planIn = (over: Partial<LoadPlanInput> = {}): LoadPlanInput => ({
 describe('partial loading through the plan', () => {
   it('adjacent-span arrangements of L and Lr are pattern cases of their groups', () => {
     const p = buildLoadPlan(planIn({ patterns: 'all' }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const adjacent = p.cases.filter((c) => c.nameKey === 'autoLoad.liveCaseAdjacent');
     // Three spans along X give two interior lines. Two along Y give one, whose two spans are the
     // whole floor: the full load, not an arrangement.

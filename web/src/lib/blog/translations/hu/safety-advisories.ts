@@ -113,6 +113,16 @@ const body: PostBody = {
       "t": "Érintett modellek és szükséges teendők."
     },
     {
+      "k": "note",
+      "t": "SA-2026-083 — PR #2236; egyesítésre és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md",
+      "label": "SA-2026-083",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -561,7 +571,13 @@ const body: PostBody = {
           "Javítva a #2220 PR-ben, összevonásra és kiadásra vár"
         ],
         ["SA-2026-079", "A részleges héjlefedés figyelmeztetés nélkül elveszíthette vagy eltolhatta a generált gravitációs terheket (#2199). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
-        ["SA-2026-080", "A födémterhelési zónák figyelmeztetés nélkül elveszíthették a rudak külpontos terhelését (#2201). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"]
+        ["SA-2026-080", "A födémterhelési zónák figyelmeztetés nélkül elveszíthették a rudak külpontos terhelését (#2201). Generálja újra az összes érintett generált felületi terhet; frissítse a födémdefiníciókat vagy cserélje le az árva terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket.", "Magas", "Javítva a #2219 PR-ben, beolvasztásra és kiadásra vár"],
+        [
+          "SA-2026-083",
+          "SA-2026-083: A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt. (#2207).",
+          "Magas",
+          "PR #2236; egyesítésre és kiadásra vár"
+        ]
       ]
     },
     {

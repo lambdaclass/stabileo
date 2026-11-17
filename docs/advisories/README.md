@@ -111,6 +111,7 @@ snow loads before re-solving.
 | [SA-2026-078](SA-2026-078-wind-roof-pressure-zones.md) | Roof pressure zones depended on member subdivision | High | [#2205](https://github.com/lambdaclass/stabileo/issues/2205) | Fixed in PR #2220 | Pending merge and release | Draft 2026-11-16 |
 | [SA-2026-079](SA-2026-079-gravity-shell-coverage.md) | Gravity generation lost load under partial shell coverage | High | [#2199](https://github.com/lambdaclass/stabileo/issues/2199) | Fixed in PR #2219 | Pending merge and release | Draft 2026-11-16 |
 | [SA-2026-080](SA-2026-080-floor-zone-eccentricity.md) | Floor-zone transfer lost eccentric member loading | High | [#2201](https://github.com/lambdaclass/stabileo/issues/2201) | Fixed in PR #2219 | Pending merge and release | Draft 2026-11-16 |
+| [SA-2026-083](SA-2026-083-concentrated-live-actions.md) | Automatic live loads omitted required concentrated actions | High | [#2207](https://github.com/lambdaclass/stabileo/issues/2207) | [#2236](https://github.com/lambdaclass/stabileo/pull/2236) | Not released | Draft 2026-11-16; pending merge and release |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

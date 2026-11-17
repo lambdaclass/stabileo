@@ -246,7 +246,9 @@ describe('a roof that would take the dead load of floors there are not', () => {
     const blocked = buildLoadPlan(input(true));
     expect(blocked.outcome).toBe('BLOCKED');
     expect(blocked.blockedKeys.map((b) => b.key)).toContain('loadPlan.blocked.roofDeadWithoutFloors');
-    expect(buildLoadPlan(input(false)).outcome).not.toBe('BLOCKED');
+    const ownDead = buildLoadPlan(input(false));
+    expect(ownDead.outcome).toBe('BLOCKED');
+    expect(ownDead.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
   });
 
   it('lets a flat roof over no floors take the floors\' dead load, by panels and by width', async () => {
@@ -273,7 +275,8 @@ describe('a roof that would take the dead load of floors there are not', () => {
       gravity: { mode: 'panels' as const },
       roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 0, deadFromFloors: true },
     });
-    expect(plan.outcome).not.toBe('BLOCKED');
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const byWidth = buildLoadPlan({
       regulations: reg, model: m as never,
       dead: [{ labelKey: 'a', q: 1.8 }], occupancyKey: 'vivienda', tributaryWidth: 3,
