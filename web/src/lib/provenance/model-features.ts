@@ -39,7 +39,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities', 'coarseShellsPro',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
-  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
+  'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -174,7 +174,8 @@ export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && 
 export function loadsGeneratedWith(s: FeatureSnapshot): number {
   const basis = s.designData?.loadBasis;
   if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
-  return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
+  const snow = (Array.isArray(s.loadCases) ? s.loadCases : []).some(c => c.type === 'S');
+  return snow || (Array.isArray(s.loads) ? s.loads : []).some(l => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 /** The features of one saved model. */
@@ -236,6 +237,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (concreteCode === null || concreteCode.startsWith('cirsoc')) f.add('cirsoc201');
     if (concreteCode === 'aci-aisc') f.add('aci318');
   }
+      if (['W', 'Wa'].includes(caseType.get(d.caseId as number) ?? '')) f.add('generatedWindLoads');
   if (values(s.footings).length) f.add('footings');
   if ((concrete || values(s.footings).length) && !s.designData?.covers) f.add('defaultDesignCovers');
   const jd = s.jointDesigns;

@@ -20,7 +20,6 @@
    */
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import NoticeRow from '../notices/NoticeRow.svelte';
   import { activePerCombo3D, activeCombinations } from '../../lib/store/active-results';
     import { exportToExcel } from '../../lib/export/excel';
   import { computeStationDemands } from '../../lib/engine/verification-service';
@@ -90,8 +89,8 @@
     const md = { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports };
     let perCombo: Map<number, AnalysisResults3D> = activePerCombo3D();
     let combos = activeCombinations();
-    if (perCombo.size === 0 && resultsStore.results3D) {
-      // No combination solved: the result set on screen, named as what it is.
+    if (perCombo.size === 0 && combos.length === 0 && resultsStore.results3D) {
+      // Nothing combined: the result set on screen, named as what it is.
       perCombo = new Map([[0, resultsStore.results3D]]);
       combos = [{ id: 0, name: t('tables.shown'), factors: [] }] as never;
     }
@@ -152,7 +151,7 @@
   }
 </script>
 
-{#if resultsStore.knownIssues3D.refused}<div role="alert" data-testid="results-withheld"><NoticeRow kind="withheld" level="blocking" summary={t('notices.kind.withheld')} details={resultsStore.knownIssues3D.messages} open /></div>{/if}
+{#each resultsStore.knownIssues3D.messages as message}<p role="alert">{message}</p>{/each}
 <div class="tm-bar" role="tablist" data-testid="table-modes-{kind}"><div class="pk-tabs tm-tabs">
   {#each modes as m (m)}
     <button class:on={mode === m} role="tab" aria-selected={mode === m}

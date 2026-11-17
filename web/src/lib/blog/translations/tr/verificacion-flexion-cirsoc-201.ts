@@ -168,21 +168,21 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Aşağıda model yer alıyor: 5 m açıklıklı, basit mesnetli, 20×40, H-25 bir kiriş; 12 kN/m ölü yük ve 8 kN/m hareketli yükün yanında kendi öz ağırlığı da var. PRO'nun donatı tablolarında, yönetmelik olarak CIRSOC 201-2025 ile açılır."
+      "t": "Aşağıda model yer alıyor: 5 m açıklıklı, basit mesnetli, 20×40, H-25 bir kiriş; 12 kN/m ölü yük ve 8 kN/m hareketli yükün yanında kendi öz ağırlığı da var. PRO'nun tasarım akışında, geçerli tasarım yönetmeliği CIRSOC 201 olarak açılır."
     },
     {
       "k": "img",
-      "base": "blog/cirsoc-201-sheets",
+      "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, CIRSOC 201-2025 ile donatı tabloları; çözüm ve boyutlandırmadan sonra V1 üzerinde açık kiriş tablosu. Satır altta boydan boya 2 Ø25, üstte boydan boya 2 Ø16 ve 18 cm aralıklı Ø8 etriye öneriyor; oran 0,80, durum Sağlıyor. Altında çubuk işaretleriyle görünüş ve kapasiteye karşı moment ve kesme zarfları.",
-      "caption": "Aşağıdaki kiriş, “Donatıları boyutlandır” sonrasında kiriş tablosunda: Stabileo'nun önerdiği 2 Ø25 0,80 ile kapanıyor."
+      "alt": "Stabileo PRO, Tasarım alanı, Boyutlandırma adımı; çözüm ve tasarımdan sonra 20×40 kiriş seçili. Eleman paneli CIRSOC 201 (2025) ile “doğrulandı, yerel η 0,90” gösteriyor; My ve Vz eksenlerinde 13 kontrol ve en yüksek kullanım oranı 0,900.",
+      "caption": "Aşağıdaki kiriş “Boyutlandır…” sonrasında: CIRSOC 201 onu 0,90 kullanım oranıyla doğruluyor."
     },
     {
       "k": "embed",
       "mode": "pro",
-      "query": "example=rc-beam-flexure&proTab=rcSheets",
-      "label": "Stabileo'da kiriş, PRO'nun donatı tablolarında. Bu sırayla dört düğme: “Hesapla”, “Donatı tabloları” (Çıktı altında), “Donatıları boyutlandır” ve “Kirişler”. Birincisi modeli çözer ve sonuçları gösterir, ikincisi tablolara geri döner, üçüncüsü donatıyı boyutlandırır, dördüncüsü kiriş tablosunu açar: V1 satırı altta boydan boya 2 Ø25 ve üstte 2 Ø16 öneriyor, 0,80 oranıyla kapanıyor ve “Sağlıyor” yazıyor. Kapasiteye karşı moment zarfını ve her kontrolü görmek için satırı açın; bu oranı veren kontrol “Zarf tüm kiriş boyunca kenetlenmiş çubuklarla karşılanıyor”dur. Yükü değiştirip yeniden hesaplayın. Donatı tabloları hâlâ geliştirme aşamasında: sonuçları gözden geçirin."
+      "query": "example=rc-beam-flexure&proTab=design",
+      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de açıklıktaki kesme kuvvetinin belirleyici olduğu D/C = 0,90 ile kapanır: eğilme ve donatı ankrajı bunun altında kalır. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
     },
     {
       "k": "h",
@@ -196,10 +196,6 @@ const body: PostBody = {
         "φ, εt'ye bağlıdır: ikisini her zaman birlikte okuyun.",
         "Basınç donatısı ortaya çıkıyorsa bunun nedeni kesitin kapasitesinin yetmemesi değil, sünekliğini kaybetmesidir."
       ]
-    },
-    {
-      "k": "note",
-      "t": "Buradaki her sayı bir tablodan değil, adı geçen kesitler üzerinde çalıştırılan Stabileo CIRSOC 201 modülünden gelir. Aktarmaya değer bir uyarı var, çünkü bu yazının ilk taslağı bunu yanlış yapmıştı: elle yapılan hesap, uygulamanın ölü yük durumuna eklediği 2 kN/m'lik öz ağırlığı unuttuğu için D/C = 0,74 veriyordu. Öz ağırlıkla basit mesnetli kiriş 1,2·14 + 1,6·8 = 29,6 kN/m taşır, Mu = 29,6·5²/8 = 92,5 kN·m olur ve 2 Ø25 ile (φMn = 113,55 kN·m) D/C = 0,81 olur. Yukarıdaki tablo altta tam olarak 2 Ø25 öneriyor ve 0,80 ile kapanıyor. 0,81 yerine 0,80 çıkıyor, çünkü Tablo 20.5.1.3.1'deki beton örtüsünü (etriyeye kadar 30 mm, d = 34,95 cm) alıyor ve üstteki 2 Ø16'yı basınç donatısı olarak hesaba katıyor: φMn = 115,31 kN·m ve 92,5/115,31 = 0,80. Buradaki bir sayı bir gün düzenleyiciyle uyuşmazsa düzenleyiciye inanın."
     },
     {
       "k": "note",

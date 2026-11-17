@@ -1,0 +1,4 @@
+### BREAKING (results)
+#### Concentrated live actions must be checked before applying generated loads (2026-11-16)
+
+Automatic CIRSOC 101 load plans now block occupancies with concentrated live actions and roof plans requiring the separate concentrated checks of §4.4. The generator cannot yet establish the most unfavourable placements or compare all required alternatives. Uniform-load diagnostics remain available, but a blocked plan cannot be applied, including through the store API. Review previously generated office, library, school, hospital, commercial, industrial, stair, passenger-garage and roof loads; model and check the required concentrated actions manually before relying on their analyses or designs. See [the results-change record](../docs/results-changes/2026-11-concentrated-live-actions.md).

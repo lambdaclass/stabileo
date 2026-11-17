@@ -441,3 +441,5 @@ export function regenerationImpact(): RcRegenerationImpact {
     lockedMemberIds(),
   );
 }
+
+export { resolveConcreteProperties } from './concrete-properties';

@@ -105,3 +105,5 @@ export interface SeismicMethodConfig {
   diagonal: boolean;
 }
 export const defaultSeismicMethod = (): SeismicMethodConfig => ({ method: 'static', vertical: true, torsion: 'low', diagonal: false });
+
+export type AutoLoadFocus = 'dead' | 'live' | 'roof' | 'wind' | 'snow' | 'seismic' | 'special' | 'combos';

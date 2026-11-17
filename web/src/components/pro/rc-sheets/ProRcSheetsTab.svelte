@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
   import { t, tp, tpn, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore, resultsStore } from '../../../lib/store';
@@ -60,6 +61,7 @@
 </script>
 
 <div class="rcp" data-testid="rc-sheets-panel">
+  <OutdatedNotice audit={['rc-sheets']} />
   <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
   <RcCoversNotice />
   <RcExportLog compact />

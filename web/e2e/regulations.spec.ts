@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * PR16 — project regulations and regulation-backed loads, through VISIBLE CONTROLS ONLY.
  *
@@ -269,6 +270,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await page.getByRole('button', { name: /Auto-generate from code/i }).click();
     await alSection(page, 'regulations');
     await expect(page.getByTestId('al-regulations')).toBeVisible();
+    await dwellingFloorLoads(page);
   }
 
   test('R6 — the dialog states which regulations the loads come from', async ({ pro: page }) => {
@@ -327,6 +329,7 @@ test.describe('@smoke regulation-backed load generation', () => {
     await page.getByTestId('pending-review-in-loads').click();
 
     await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+    await dwellingFloorLoads(page);
     await alSection(page, 'seismic');
     await expect(page.getByTestId('al-enable-seismic')).toBeEnabled();
     await page.getByTestId('al-enable-seismic').check();

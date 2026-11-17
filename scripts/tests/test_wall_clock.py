@@ -17,13 +17,13 @@ def step(workflow, name):
 
 class WallClockOutsideTheQueue(unittest.TestCase):
     def test_the_slow_suite_runs_every_spec_and_passes_the_switch(self):
-        self.assertIn('NO_WALL_CLOCK=1 npx playwright test --grep "@slow" --grep-invert "@flaky" ',
+        self.assertIn('NO_WALL_CLOCK=1 npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
                       dry_run('e2e.web.slow', 'NO_WALL_CLOCK=1'))
-        self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "@flaky" ',
+        self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
                       dry_run('e2e.web.slow'))
 
     def test_only_the_wall_clock_asserts_of_the_e2e_specs_are_gated(self):
-        gated = {'model-fluidity.spec.ts': 1}
+        gated = {'rebar-workspace-open.spec.ts': 3, 'model-fluidity.spec.ts': 1}
         for name, count in gated.items():
             spec = (ROOT / 'web/e2e' / name).read_text()
             self.assertIn("import { assertBudget } from '../src/lib/engine/__tests__/wall-clock-budget';", spec)
@@ -75,7 +75,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         vitest = dry_run('test.web.timing')
         self.assertIn('npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts', vitest)
         playwright = dry_run('e2e.web.timing')
-        for spec in ('model-fluidity.spec.ts',):
+        for spec in ('rebar-workspace-open.spec.ts', 'model-fluidity.spec.ts'):
             self.assertIn(f'e2e/{spec}', playwright)
         for command in (vitest, playwright):
             self.assertNotIn('NO_WALL_CLOCK', command)

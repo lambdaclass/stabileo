@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
@@ -139,6 +140,8 @@
     return () => { ro.disconnect(); mo.disconnect(); };
   });
 </script>
+
+<OutdatedNotice audit={['rc-sheets']} />
 
 <svelte:window onkeydown={onkey} />
 

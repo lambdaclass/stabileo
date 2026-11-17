@@ -34,7 +34,7 @@
    * `autoBuild`: the drawings place of the design desk. The set is laid out on arrival, the sheets
    * come first and the set's configuration folds below them.
    */
-  let { resolve, projectName, autoBuild = false }: { resolve: () => DocumentModel | null; projectName: string; autoBuild?: boolean } = $props();
+  let { resolve, projectName, autoBuild = false, auditNotice = true }: { resolve: () => DocumentModel | null; projectName: string; autoBuild?: boolean; auditNotice?: boolean } = $props();
   /** Whether the set's configuration is open, kept while the panel comes and goes (`setupOpenKept`). */
   let setupOpen = $state(setupOpenKept ?? !autoBuild);
   $effect(() => { setupOpenKept = setupOpen; });
@@ -131,6 +131,7 @@
 </script>
 
 <section class="sheets" data-testid="sheets-panel" aria-labelledby="sheets-title">
+  <OutdatedNotice audit={auditNotice ? ['rc-sheets'] : []} />
   <h4 id="sheets-title">{t('sheet.ui.title')}</h4>
   <p class="lead">{t('sheet.ui.lead')}</p>
   <p class="lead rc" data-testid="sheets-rc-note">{t('sheet.ui.rcFromSheets')}

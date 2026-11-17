@@ -80,7 +80,7 @@ export function replaceScope(
   const targets = new Set<number>();
   for (const pc of p.cases) {
     const found = nameOf
-      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own, reduced: pc.reduced })
+      ? findPlannedCase(cases, nameOf(pc.nameKey, pc.nameParams), pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis })
       : cases.find((c) => c.id === pc.existingId);
     if (found) targets.add(found.id);
   }
@@ -157,6 +157,7 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
+  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return;
   modelStore.batch(() => {
     const before = loadsGeneratedWith({ designData: designData(), loads: modelStore.loads as never });
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
@@ -193,7 +194,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis });
+      if (pc.snowBasis === 'flatRoof') modelStore.updateLoadCaseFields(id, { solve: false });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];
       list.push(id);
@@ -206,8 +208,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       if (id === undefined) continue;
       const qJ = d.qJ ?? d.q;
       if (d.frame === 'global' || d.frame === 'projected') {
-        modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qY ?? 0, d.q, qJ, d.a, d.b, id,
-          { frame: d.frame, ...(d.qX ? { qXI: d.qX, qXJ: d.qX } : {}) });
+        modelStore.addDistributedLoad3D(d.elementId, d.qY ?? 0, d.qYJ ?? d.qY ?? 0, d.q, qJ, d.a, d.b, id,
+          { frame: d.frame, ...(d.qX || d.qXJ ? { qXI: d.qX ?? 0, qXJ: d.qXJ ?? d.qX ?? 0 } : {}) });
       } else {
         modelStore.addDistributedLoad3D(d.elementId, 0, 0, d.q, qJ, d.a, d.b, id);
       }
@@ -252,7 +254,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     const groupOf = new Map(p.cases.flatMap((pc, i) => (pc.group ? [[caseIds[i]!, pc.group] as const] : [])));
     const planned = [...caseIdByType].flatMap(([type, ids]) => ids.map((id) => {
       const lc = modelStore.model.loadCases.find((c) => c.id === id);
-      return { id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}), ...(groupOf.has(id) ? { group: groupOf.get(id) } : {}) };
+      return { ...(lc?.snowBasis ? { snowBasis: lc.snowBasis } : {}), id, type, name: lc?.name ?? type, ...(lc?.alternatives ? { alternatives: lc.alternatives } : {}), ...(lc?.pattern ? { pattern: true } : {}), ...(groupOf.has(id) ? { group: groupOf.get(id) } : {}) };
     }));
     addGeneratedCombinations(expandCombinations(p.combinations, planned, { bothSenses: { E: opts.bothSenses }, patternsInCompanions: opts.patternsInCompanions }));
 

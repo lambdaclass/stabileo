@@ -1,5 +1,6 @@
 <script lang="ts">
   import { plateSurfaceOf } from '../../lib/model/physical/plate';
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
   import Hint from './Hint.svelte';
   import PickKind from './PickKind.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -171,6 +172,7 @@
 </script>
 
 <div class="fl" data-testid="floor-load">
+  <OutdatedNotice audit={['floor-regions']} />
   <Hint text={t('floorLoad.hint')} />
   <div class="fl-grid">
     <label for="fl-target">{t('floorLoad.target')}</label>

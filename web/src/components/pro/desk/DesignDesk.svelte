@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
+  import { DESIGN_AUDIT_FEATURES } from '../../../lib/provenance/under-audit';
   import { editorActivity } from '../../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -109,6 +111,7 @@
     </aside>
 
     <main class="dd-canvas" data-testid="desk-canvas" data-place={deskUi.tab}>
+      {#if deskUi.tab !== 'sheets' && deskUi.tab !== 'list'}<OutdatedNotice audit={[DESIGN_AUDIT_FEATURES[deskUi.tab]]} />{/if}
       {#if docked}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="dd-split" role="separator" aria-orientation="horizontal" aria-label={t('desk.split')} onpointerdown={startSplit} data-testid="desk-split"></div>

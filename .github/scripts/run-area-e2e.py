@@ -20,5 +20,6 @@ if slow and (not files or any(not found for found in matches)):
 if not files:
     raise SystemExit('Selected E2E area has no specs; refusing a green empty run')
 grep = '@slow' if slow else (r'(?=.*@smoke)(?=.*@engine)' if os.environ.get('CI_SCOPE') == 'engine' else '@smoke')
+invert = 'visual baselines|@flaky' if slow else '@flaky'
 subprocess.run(['npx', 'playwright', 'test', *files, '--grep', grep,
-                '--grep-invert', '@flaky'], check=True)
+                '--grep-invert', invert], check=True)

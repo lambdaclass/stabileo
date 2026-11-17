@@ -35,7 +35,7 @@ The merge queue (`merge_group`) runs what combining PRs can break, regardless of
 paths: Web Build with the TypeScript/Svelte checks, engine lint/gates/metamorphic/suites,
 web unit tests, results snapshots, Research WASM and route budgets, backend and
 CI-script checks, all ten E2E smoke shards and the Supply chain audits. It skips the
-heavy jobs that combining PRs rarely breaks: slow E2E, Docker build
+heavy jobs that combining PRs rarely breaks: slow E2E, visual baselines, Docker build
 smoke, Determinism, quarantined E2E and research validation. Every push to `main` and
 the nightly CI run (03:30 UTC) run everything. When a push to `main` fails twice (its
 failed jobs are rerun once), `post-merge.yml` opens a signed revert PR of every merge

@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy}需要按CIRSOC 101 {article}验算集中荷载。目前不评估最不利位置。自动生成已被阻止；请手动建模并验算这些作用。",
+  "loadPlan.blocked.concentratedLive": "{occupancy}需要按CIRSOC 101 §4.4验算{force} kN集中活荷载。目前不评估最不利位置以及均布荷载与集中荷载的替代工况。自动生成已被阻止；请手动建模并验算这些作用。",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4要求在最不利位置考虑集中屋面作用，并与§4.8的屋面活荷载分别验算。目前不执行这些验算。自动生成已被阻止；请手动建模并验算屋面作用。",
   "account.err.invalid_credentials": "电子邮箱或密码不正确。",
   // ─── Auth / Login ───
 

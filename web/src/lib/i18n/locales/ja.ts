@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy}にはCIRSOC 101 {article}に基づく集中荷重の検討が必要です。最も不利な位置は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
+  "loadPlan.blocked.concentratedLive": "{occupancy}には、CIRSOC 101 §4.4に基づく{force} kNの集中積載荷重の検討が必要です。最も不利な位置と等分布荷重・集中荷重の代替条件は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4では、§4.8の屋根積載荷重とは別に、最も不利な位置での集中屋根荷重の検討が必要です。これらは評価されません。自動生成は停止されています。屋根への作用を手動でモデル化して検討してください。",
   "account.err.invalid_credentials": "メールアドレスまたはパスワードが正しくありません。",
   // ─── Auth / Login ───
 

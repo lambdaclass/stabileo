@@ -1,7 +1,7 @@
 """Conservative PR and merge-group path -> jobs/spec globs. No paths or unknown/mixed areas mean full.
 
 A merge group narrows only to docs, to the Elixir backend, or to site (no engine path); the merge queue otherwise runs the full set minus the heavy jobs that combining PRs rarely breaks
-(slow E2E, Docker smoke, Determinism, quarantined E2E, research validation
+(slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
 beyond route budgets); pushes to main and the scheduled run add them back. A pull request builds
 the Docker image from source only when the Dockerfile's recipe or a toolchain or dependency pin it
 reads changes; otherwise it builds the image around the tested site, and main builds both.
@@ -60,7 +60,8 @@ def _reaches_slow(path, seen):
 
 
 def discover_slow_specs(e2e_dir):
-    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts')) if _reaches_slow(p.resolve(), set()))
+    return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
+                 if p.name != 'rc-design-visual.spec.ts' and _reaches_slow(p.resolve(), set()))
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')

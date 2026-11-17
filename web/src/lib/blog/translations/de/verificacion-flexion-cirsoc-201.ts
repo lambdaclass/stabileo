@@ -168,21 +168,21 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Unten finden Sie das Modell: einen Einfeldträger mit 5 m Spannweite, 20×40, H-25, mit 12 kN/m ständiger Last und 8 kN/m Nutzlast zuzüglich Eigengewicht. Es öffnet sich in den Bewehrungstabellen von PRO, mit CIRSOC 201-2025 als Norm."
+      "t": "Unten finden Sie das Modell: einen Einfeldträger mit 5 m Spannweite, 20×40, H-25, mit 12 kN/m ständiger Last und 8 kN/m Nutzlast zuzüglich Eigengewicht. Es öffnet sich im Bemessungsablauf von PRO, mit CIRSOC 201 als geltender Bemessungsnorm."
     },
     {
       "k": "img",
-      "base": "blog/cirsoc-201-sheets",
+      "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Bewehrungstabellen nach CIRSOC 201-2025, die Balkentabelle auf V1 geöffnet nach Berechnung und Bemessung. Die Zeile schlägt unten 2 durchlaufende Ø25, oben 2 durchlaufende Ø16 und Bügel Ø8 im Abstand von 18 cm vor, mit einer Ausnutzung von 0,80 und dem Status Erfüllt. Darunter die Ansicht mit den Positionen der Stäbe und den Momenten- und Querkraftlinien gegenüber der Tragfähigkeit.",
-      "caption": "Der Balken unten in der Balkentabelle nach „Bewehrung bemessen“: Die 2 Ø25, die Stabileo vorschlägt, schließen mit 0,80 ab."
+      "alt": "Stabileo PRO, Bemessungsbereich, Schritt Dimensionieren, mit dem ausgewählten 20×40-Balken nach Berechnung und Bemessung. Das Stabpanel zeigt „nachgewiesen, lokales η 0,90“ nach CIRSOC 201 (2025), mit 13 Nachweisen für die Achsen My und Vz und einer höchsten Ausnutzung von 0,900.",
+      "caption": "Der Balken unten nach „Dimensionieren…“: CIRSOC 201 weist ihn mit einer Ausnutzung von 0,90 nach."
     },
     {
       "k": "embed",
       "mode": "pro",
-      "query": "example=rc-beam-flexure&proTab=rcSheets",
-      "label": "Der Balken in Stabileo, in den Bewehrungstabellen von PRO. Vier Schaltflächen, in dieser Reihenfolge: „Berechnen“, „Bewehrungstabellen“ (unter Ausgabe), „Bewehrung bemessen“ und „Balken“. Die erste berechnet das Modell und zeigt die Ergebnisse, die zweite führt zurück zu den Tabellen, die dritte bemisst die Bewehrung und die vierte öffnet die Balkentabelle: Die Zeile von V1 schlägt unten 2 durchlaufende Ø25 und oben 2 Ø16 vor, schließt mit einer Ausnutzung von 0,80 ab und zeigt „Erfüllt“. Öffnen Sie sie, um die Momentenlinie gegenüber der Tragfähigkeit und jeden Nachweis zu sehen; diese Ausnutzung liefert „Momentenlinie über den ganzen Balken gedeckt, Stäbe verankert“. Ändern Sie die Last und berechnen Sie erneut. Die Bewehrungstabellen befinden sich noch in Entwicklung: Prüfen Sie die Ergebnisse."
+      "query": "example=rc-beam-flexure&proTab=design",
+      "label": "Der Balken in Stabileo, im Bemessungsablauf von PRO. Ist die Bemessung ausgeschaltet, klicken Sie im Hinweis auf „Bemessung für diesen Besuch einschalten“. Drei Schaltflächen, in dieser Reihenfolge: „Schnittgrößen ermitteln“, „Erforderliche Bewehrung berechnen“ und „Bemessen…“. Erst die dritte wählt die Stäbe, und solange es keine Stäbe gibt, gibt es nichts nachzuweisen: Die Tabelle zeigt „keine Bewehrung“. Das Feld von 5 m ist mit zwei Elementen modelliert; beide schließen mit einer Ausnutzung D/C = 0,90 ab, maßgebend ist die Querkraft im Feld: Biegung und Verankerung der Stäbe bleiben darunter. Ändern Sie die Last und berechnen Sie erneut. Die normgemäße Bemessung in PRO befindet sich noch in Entwicklung; das Betonmodul ist der Teil, der implementiert und getestet ist."
     },
     {
       "k": "h",
@@ -196,10 +196,6 @@ const body: PostBody = {
         "φ hängt von εt ab: Lesen Sie beide immer zusammen.",
         "Wenn Druckbewehrung auftaucht, dann weil der Querschnitt Duktilität verloren hat, nicht weil ihm Tragfähigkeit fehlt."
       ]
-    },
-    {
-      "k": "note",
-      "t": "Jede Zahl hier stammt aus dem CIRSOC-201-Modul von Stabileo, angewendet auf die genannten Querschnitte, und nicht aus einer Tabelle. Ein Hinweis, der sich weiterzugeben lohnt, weil der erste Entwurf dieses Beitrags hier falsch lag: Die Handrechnung ergab D/C = 0,74, weil sie das Eigengewicht vergaß, 2 kN/m, die die Anwendung dem Lastfall der ständigen Lasten hinzufügt. Mit ihm trägt der Einfeldträger 1,2·14 + 1,6·8 = 29,6 kN/m, Mu = 29,6·5²/8 = 92,5 kN·m, und mit 2 Ø25 (φMn = 113,55 kN·m) D/C = 0,81. Die Tabelle oben schlägt genau 2 Ø25 unten vor und schließt mit 0,80 ab. Sie ergibt 0,80 statt 0,81, weil sie die Betondeckung nach Tabelle 20.5.1.3.1 ansetzt (30 mm bis zum Bügel, d = 34,95 cm) und die 2 Ø16 oben als Druckbewehrung mitrechnet: φMn = 115,31 kN·m und 92,5/115,31 = 0,80. Sollte eine Zahl hier einmal nicht mehr mit dem Editor übereinstimmen, glauben Sie dem Editor."
     },
     {
       "k": "note",

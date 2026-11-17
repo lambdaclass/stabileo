@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from '../design/OutdatedNotice.svelte';
   /** The member open on the desk: what it is and how it stands, and its checks. */
   import { materialCheckState } from '../../../lib/store/material-check.svelte';
   import SteelMemberSheet from './steel/SteelMemberSheet.svelte';
@@ -61,6 +62,7 @@
 </script>
 
 <aside class="di" data-testid="desk-inspector">
+  <OutdatedNotice audit={[]} />
   {#if element && unreadable}
     <h4 data-member-id={element.id}>{name}</h4>
     <ul class="di-notices"><li><b>{STEEL_INPUTS_MISSING.code}</b> {t(`notice.${STEEL_INPUTS_MISSING.code}.cause`)} <span class="di-fix">{t(`notice.${STEEL_INPUTS_MISSING.code}.fix`)}</span></li></ul>
