@@ -220,7 +220,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "list.col.vz",
   "loadPlan.unsupported.verbatim",
   "loads.asce7.ui.snowPreview",
-  "loads.cirsoc101.reduction.applied",
   "loads.cirsoc101.reductionApplied",
   "loads.ec.ui.t1",
   "loads.frame.global",

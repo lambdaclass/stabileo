@@ -86,3 +86,15 @@ describe('chapter 18 confinement of a column', () => {
     expect(above.ashRequired.acrossB).toBeCloseTo(c, 6);
   });
 });
+
+describe('§10.7.4.1: a column face offset 75 mm or more takes separate dowels', () => {
+  const offset = (o: number) => columnRow(upper, ctx, undefined, f, { pattern: { nx: 3, ny: 4, maxDia: 12 }, fromBelow: true, offset: o })
+    .verifications.find((v) => v.label === 'rcSheets.v.colOffset');
+  it('at exactly 7.5 cm, and above it', () => {
+    expect(offset(0.075)?.capacity).toBe('≥ 7.5 cm');
+    expect(offset(0.1)).toBeDefined();
+  });
+  it('not below it', () => {
+    expect(offset(0.07)).toBeUndefined();
+  });
+});
