@@ -783,9 +783,6 @@ export function oneSidedSomewhere(list: SideStretch[]): boolean {
   return uncovered(left, right) || uncovered(right, left);
 }
 
-/** A region cut on a grid of `cells` × `cells` over its bounding box: each piece's area (holes taken away) and centroid. */
-
-
 function narrowestWidth(poly: Array<[number, number]>): number {
   const pts = [...poly].sort((p, q) => p[0] - q[0] || p[1] - q[1]);
   const cross = (o: [number, number], p: [number, number], q: [number, number]) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);

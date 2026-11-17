@@ -3,7 +3,7 @@ import { coalesceQuadraticProfile, quadraticAt, type Quadratic, type QuadraticPr
 
 const reverse = (pieces: QuadraticProfilePiece[]) => [...pieces].reverse().map(p => ({ a: 2 - p.b, b: 2 - p.a, values: p.values.map(v => [...v].reverse() as Quadratic) }));
 
-it.skip('known wrong result: #2219 independent components retain a small real quadratic', () => {
+it('known wrong result: #2219 independent components retain a small real quadratic', () => {
   for (const count of [2, 3]) for (let small = 0; small < count; small++) for (let large = 0; large < count; large++) {
     if (small === large) continue;
     for (const sign of [-1, 1]) for (const magnitude of [1e-30, 1, 1e14]) {
@@ -32,7 +32,7 @@ it('coalesces the same quadratic in every independent component and preserves ga
   expect(coalesceQuadraticProfile(gap)).toEqual(gap);
 });
 
-it.skip('known wrong result: #2219 coalescing roundoff uses each component scale on both sides of its threshold', () => {
+it('known wrong result: #2219 coalescing roundoff uses each component scale on both sides of its threshold', () => {
   for (const multiplier of [128, 256]) {
     const pieces: QuadraticProfilePiece[] = [
       { a: 0, b: 1, values: [[1e14, 1e14, 1e14], [1, 1 + multiplier * Number.EPSILON, 1]] },

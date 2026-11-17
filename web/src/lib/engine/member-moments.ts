@@ -28,8 +28,8 @@ export function coalesceQuadraticProfile(pieces: QuadraticProfilePiece[]): Quadr
       if (last && last.b === p.a) {
         const middle = (last.a + p.b) / 2, mid = at(middle <= last.b ? last : p, middle);
         const merged = { a: last.a, b: p.b, values: last.values.map((v, k) => [v[0], mid[k]!, p.values[k]![2]] as Quadratic) };
-        const scale = last.values.flat().concat(p.values.flat()).reduce((sum, v) => sum + Math.abs(v), 0);
-        if ([last, p].every(part => [part.a, (part.a + part.b) / 2, part.b].every(x => at(part, x).every((v, k) => Math.abs(v - at(merged, x)[k]!) <= 32 * Number.EPSILON * scale)))) {
+        const scales = last.values.map((v, k) => v.concat(p.values[k]!).reduce((sum, value) => sum + Math.abs(value), 0));
+        if ([last, p].every(part => [part.a, (part.a + part.b) / 2, part.b].every(x => at(part, x).every((v, k) => Math.abs(v - at(merged, x)[k]!) <= 32 * Number.EPSILON * scales[k]!)))) {
           out[out.length - 1] = merged;
           continue;
         }

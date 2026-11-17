@@ -31,13 +31,11 @@ fn check_component(transverse: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn transverse_y_point_couples_scale_with_moment_units() {
     check_component(0);
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn transverse_z_point_couples_scale_with_moment_units() {
     check_component(1);
 }
