@@ -97,7 +97,7 @@ export function reduceAsce7(i: Asce7ReductionInputs): { lKNm2: number; refs: Cla
   const lo = i.loKNm2, multi = i.floorsSupported >= 2;
   const none = (key: string, refs: ClauseRef[], params?: Record<string, number>) => ({ lKNm2: lo, refs, reason: msg(key, params) });
   if (i.noReduction) return none('loads.asce7.reduction.notPermitted', [T43]);
-  if (i.publicAssembly && lo <= HEAVY_LIMIT_KNM2 + 1e-9) return none('loads.asce7.reduction.assembly', [A7('4.7.5', 'assembly uses')]);
+  if (i.publicAssembly) return none('loads.asce7.reduction.assembly', [A7('4.7.5', 'assembly uses')]);
   if (i.passengerGarage) {
     const ref = A7('4.7.4', 'passenger vehicle garages');
     return multi ? { lKNm2: 0.8 * lo, refs: [ref], reason: msg('loads.asce7.reduction.garageMulti') } : none('loads.asce7.reduction.garage', [ref]);

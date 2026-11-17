@@ -14563,7 +14563,10 @@ const hu: Translations = {
   "advHelp.mohr.text": "Mohr-kör síkbeli feszültségállapotra, illetve a három Mohr-kör térbeli állapotra. Adja meg a feszültségkomponenseket, vagy vegye át őket a keresztmetszet-vizsgálat valamely szálából: megkapja a főfeszültségeket és főirányokat, a legnagyobb nyírófeszültséget, a feszültséget bármely elforgatott síkon és a von Mises-féle egyenértékű feszültséget. Nem szükséges hozzá kiszámított modell. Ugyanez az eszköz a Stabileo nyilvános eszközei között is elérhető, és mindkettő azonos értékekkel nyitja meg a másikat.",
   "stress.openMohr": "Megnyitás a Mohr-körben",
   "edu.game.open": "Válassza ki a helyes ábrát",
-  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes."
+  "edu.game.hint": "Játék: egy szerkezet, három ábra, és csak az egyik helyes.",
+  "loads.asce7.reduction.assembly": "§4.7.5: gyülekezési célú használatban a hasznos terhek nem csökkenthetők.",
+  "loads.asce7.seismic.blocked.noS1": "Hiányzik az S1: adja meg az 1 másodperces térképi spektrális gyorsulást a USGS Seismic Design Geodatabase-ből (§11.4.2). Ez határozza meg az E és F kategóriát (§11.6) és a 12.8-6. egyenlet szerinti legkisebb Cs értéket.",
+  "loads.asce7.live.partitionBelowMinimum": "A megadott {q} kN/m² válaszfalteher kisebb a §4.3.2 által előírt {min} kN/m²-nél (15 psf): {min} kN/m² kerül alkalmazásra, csökkentés nélkül hozzáadva a födém hasznos terhéhez."
 };
 
 export default hu;

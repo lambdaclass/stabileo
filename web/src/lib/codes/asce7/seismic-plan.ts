@@ -32,6 +32,7 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   const sds = mce ? (ci.sms !== undefined ? (2 / 3) * ci.sms : undefined) : ci.sds;
   const sd1 = mce ? (ci.sm1 !== undefined ? (2 / 3) * ci.sm1 : undefined) : ci.sd1;
   if (sds === undefined || sd1 === undefined || !(sds >= 0) || !(sd1 >= 0)) { blockedKeys.push(msg('loads.asce7.seismic.blocked.noSpectrum')); return none; }
+  if (!(ci.s1 !== undefined && ci.s1 >= 0)) { blockedKeys.push(msg('loads.asce7.seismic.blocked.noS1')); return none; }
   if ((ci.siteClass ?? SEISMIC_DEFAULTS.siteClass) === 'F') { blockedKeys.push(msg('loads.asce7.seismic.blocked.siteF')); return none; }
   if (!(ci.tl !== undefined && ci.tl > 0)) { blockedKeys.push(msg('loads.asce7.seismic.blocked.noTl')); return none; }
   const key = ci.systemKey ?? SEISMIC_DEFAULTS.systemKey;
@@ -124,7 +125,7 @@ function orthogonalCases(input: LoadPlanInput, levels: LevelMass[], forces: numb
       for (const o of [1, -1]) {
         const nodal = levels.flatMap((lv, k) => {
           const F = forces[k] ?? 0;
-          const mt = s * F * ACCIDENTAL * extent(lv.nodeIds, axis === 'X' ? 'y' : 'x');
+          const mt = s * F * ACCIDENTAL * (extent(lv.nodeIds, axis === 'X' ? 'y' : 'x') + 0.3 * extent(lv.nodeIds, axis === 'X' ? 'x' : 'y'));
           const main = levelLoads(nodes, lv.nodeIds, axis === 'X' ? F : 0, axis === 'Y' ? F : 0, mt);
           const other = levelLoads(nodes, lv.nodeIds, axis === 'Y' ? 0.3 * o * F : 0, axis === 'X' ? 0.3 * o * F : 0, 0);
           return main.map((n, i) => ({ nodeId: n.nodeId, fx: n.fx + other[i]!.fx, fy: n.fy + other[i]!.fy, mz: n.mz }));

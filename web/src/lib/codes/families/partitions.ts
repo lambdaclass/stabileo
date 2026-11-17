@@ -42,13 +42,14 @@ export function asce7Partition(lo: number, requested: number): PartitionLiveAllo
   if (lo >= ASCE7_PARTITION_EXEMPT - 1e-9) {
     return { qKNm2: 0, exempt: true, refs, message: msg('loads.asce7.live.partitionExempt', { lo: round(lo, 2), limit: round(ASCE7_PARTITION_EXEMPT, 2) }) };
   }
-  const q = requested > 0 ? requested : 0;
+  const asked = requested > 0 ? requested : 0;
+  const q = asked > 0 ? Math.max(asked, ASCE7_PARTITION_MIN) : 0;
   return {
     qKNm2: q, exempt: false, refs,
     message: q === 0
       ? msg('loads.asce7.live.partitionOff', { min: round(ASCE7_PARTITION_MIN, 2) })
-      : q < ASCE7_PARTITION_MIN - 1e-9
-        ? msg('loads.asce7.live.partitionBelowMinimum', { q: round(q, 3), min: round(ASCE7_PARTITION_MIN, 2) })
+      : asked < ASCE7_PARTITION_MIN - 1e-9
+        ? msg('loads.asce7.live.partitionBelowMinimum', { q: round(asked, 3), min: round(ASCE7_PARTITION_MIN, 2) })
         : msg('loads.asce7.live.partitionApplied', { q: round(q, 3) }),
   };
 }
