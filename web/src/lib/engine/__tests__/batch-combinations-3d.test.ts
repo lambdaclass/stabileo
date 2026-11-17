@@ -147,8 +147,9 @@ it('preserves combination overflow paths before envelope processing', () => {
   const perCase = cases();
   perCase.get(1)!.reactions[0].fz = Number.MAX_VALUE;
   const factors = [[{ caseId: 1, factor: 2 }]];
-  const reference = failure(() => combineResultsBatch3D(factors, perCase, new Map()));
-  expect(reference).toContain('non_finite_result');
+  const reference = failure(() => combineResults3D(factors[0]!, perCase, new Map()));
+  expect(reference).toContain('Cannot combine results: result 0 has a non-finite number at reactions[0].fz');
+  expect(failure(() => combineResultsBatch3D(factors, perCase, new Map()))).toBe(reference);
   expect(failure(() => combineResultsEnvelope3D(factors, perCase, new Map()))).toBe(reference);
 });
 
