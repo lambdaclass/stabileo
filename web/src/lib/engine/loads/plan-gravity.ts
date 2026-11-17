@@ -42,10 +42,10 @@
  *
  * Pure: no store.
  */
-import { assertPlanarShell, refuseGravityGeometry, ringArea } from './gravity-shell-partition';
+import { assertPlanarShell, refuseGravityGeometry, ringArea, type UncoveredStrips } from './gravity-shell-partition';
 import { physicalRoofRuns } from './physical-roof-geometry';
 import polygonClipping from 'polygon-clipping';
-import { physicalFloorLoad as floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
+import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
@@ -279,8 +279,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     (panelSides.get(id) ?? panelSides.set(id, []).get(id)!).push(...sides);
   }
   if (opts.mode === 'width') levels.clear();
-  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
+  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, panelsAt, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
+  const deckReasons = new Map<FloorPanel, ReturnType<typeof deckless>>();
+  if (deck) for (const [z, { res }] of levels) for (const panel of res.panels) {
+    if (!panel.loaded) continue;
+    if (panel.shellCoverage?.kind === 'strips') deck.checkStrips(panel.shellCoverage, z);
+    else deckReasons.set(panel, deck.why(panel.polygon, z));
+  }
   const fringeRoof = new Map<number, WidthSpan[]>();
   const fringeSides = new Map<number, SideStretch[]>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
@@ -298,7 +304,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const [z, { beams, res }] of levels) {
     const loaded = new Set<number>();
     for (const panel of res.panels) {
-      if (!panel.loaded && panel.shellCoverage !== 'shell') continue;
+      if (!panel.loaded && panel.shellCoverage?.kind !== 'shell') continue;
       // Its members are every one along its sides, a second member between two nodes or a stub
       // along a side included: by the graph's one member per pair of nodes, those went by width
       // as well, the panel's area loaded twice.
@@ -310,12 +316,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
     for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {
       if (!panel.loaded || !panel.own) continue;
-      const why = panel.shellCoverage === 'strips' ? null : deckless(panel.polygon, z);
+      const why = deckReasons.get(panel);
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
         const all = levels.get(z)?.res.panels ?? [];
-        const loading = all.filter((o) => o.loaded && o.own && within(o, panel) && deckless(o.polygon, z) !== 'wide');
+        const loading = all.filter((o) => o.loaded && o.own && within(o, panel) && deckReasons.get(o) !== 'wide');
         const nested = loading.filter((o) => !loading.some((m) => within(o, m)));
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
@@ -323,7 +329,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         held.kept.push({ region: kept, z });
         continue;
       }
-      held.panels.push({ poly: panel.polygon, z });
+      const footprints = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage.polygons : [panel.polygon];
+      for (const poly of footprints) held.panels.push({ poly, z });
     }
     const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(b)));
     for (const e of flat) {
@@ -385,12 +392,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const loaded = panelLoadedAt.get(z)!;
     for (const panel of res.panels) {
       if (!panel.loaded || !panel.own) continue;
-      const why = panel.shellCoverage === 'strips' ? null : deckless(panel.polygon, z);
+      const why = deckReasons.get(panel);
       if (dropped.has(panel)) { lowPanels++; continue; }
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      if (panel.shellCoverage === 'strips') partly++;
+      if (panel.shellCoverage?.kind === 'strips') partly++;
       const one = panel.own;
       const c = centroid(panel.polygon);
       const roof = why === 'lowHeadroom' || !covered(c, z);
@@ -495,11 +502,13 @@ export const MAX_DECK_SPAN = 12;
 function notADeck(
   model: GravityModel,
   carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
+  panelsAt: Map<number, Array<Array<[number, number]>>>,
   coverAbove: (pt: [number, number], zTop: number) => number,
   tributaryWidth: number,
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
+  checkStrips: (strips: UncoveredStrips, z: number) => void;
   uncarried: (area: Array<[number, number]>, z: number, held: Held, holes?: Array<Array<[number, number]>>) => { share: number; kept: Region };
 } {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
@@ -586,7 +595,7 @@ function notADeck(
     }
     return { share: 1, kept: whole };
   };
-  const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
+  const headroom = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length]!;
@@ -600,10 +609,39 @@ function notADeck(
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
     if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM
       && coverAbove(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
-    if (narrowestWidth(poly) > MAX_DECK_SPAN) return 'wide';
     return low ? 'headroomUnclear' : null;
   };
-  return { why, uncarried };
+  const why = (poly: Array<[number, number]>, z: number) => {
+    const clearance = headroom(poly, z);
+    if (clearance === 'lowHeadroom') return clearance;
+    return narrowestWidth(poly) > MAX_DECK_SPAN ? 'wide' : clearance;
+  };
+  const checkStrips = ({ span, polygons }: UncoveredStrips, z: number) => {
+    if (span > MAX_DECK_SPAN) refuseGravityGeometry('The uncovered shell strip exceeds the maximum deck span.');
+    const lowPanels = [...panelsAt].filter(([elevation]) => elevation - z > TOL && elevation - z < MIN_STOREY_HEADROOM)
+      .flatMap(([, polys]) => polys);
+    const lowShells = carriers.filter(({ pts }) => {
+      const heights = pts.map(p => p[2] - z);
+      return Math.max(...heights) > TOL && Math.min(...heights) < MIN_STOREY_HEADROOM;
+    });
+    for (const poly of polygons) {
+      const overlap = (above: Array<[number, number]>) => {
+        try {
+          return polygonClipping.intersection([poly], [above]).map(([outer]) => outer!).filter(ring => ringArea(ring) > 0);
+        } catch (err) {
+          return refuseGravityGeometry(`Uncovered shell strip headroom check failed: ${String(err)}`);
+        }
+      };
+      const shellBelowHeadroom = ({ poly: above, pts }: (typeof lowShells)[number]) => overlap(above).some(ring => {
+        const heights = ring.map(p => heightIn(pts, [p[0], p[1], z]) - z);
+        return !heights.every(Number.isFinite) || (Math.max(...heights) > TOL && Math.min(...heights) < MIN_STOREY_HEADROOM);
+      });
+      if (headroom(poly, z) || lowPanels.some(above => overlap(above).length) || lowShells.some(shellBelowHeadroom)) {
+        refuseGravityGeometry('The uncovered shell strip has insufficient or unresolved storey headroom.');
+      }
+    }
+  };
+  return { why, checkStrips, uncarried };
 }
 
 /** A quad's surface area, m²: its two triangles, as `quadCornerShares` integrates a flat one. */

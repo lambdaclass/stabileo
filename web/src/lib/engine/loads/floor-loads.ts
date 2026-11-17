@@ -44,7 +44,7 @@
  */
 import { computeLocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, quadraticAt, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
-import { partitionShellCoverage, refuseGravityGeometry } from './gravity-shell-partition';
+import { partitionShellCoverage, refuseGravityGeometry, type ShellCoverage } from './gravity-shell-partition';
 import { MEMBER_GEOMETRY_LIMIT } from '../member-span-loads';
 import type { Polygon } from 'polygon-clipping';
 import type { P2 } from './floor-skeleton';
@@ -112,7 +112,7 @@ export interface FloorPanel {
    * ring's area is in its own part, never in the part of the panel around it.
    */
   own?: { loads: FloorMemberLoad[]; nodal: FloorLoadResult['nodal']; perBeam: Map<number, number>; area: number; sides: Map<number, SideStretch[]> };
-  shellCoverage?: 'shell' | 'strips';
+  shellCoverage?: ShellCoverage;
   reason?: 'crossing' | 'zoneAcrossSpan' | 'unresolved';
 }
 
@@ -351,7 +351,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const along = beamsXY.filter((b) => onSides(b.p) && onSides(b.q) && onSides([(b.p[0] + b.q[0]) / 2, (b.p[1] + b.q[1]) / 2])).map((b) => b.id);
     panel.members = [...new Set([...all.flatMap((sd) => sd.segments.map((g) => g.elementId)), ...along, ...ties])];
     const partition = partitionShellCoverage(sides, holes, input.shellFootprints ?? [], input.distribution === 'oneWay' ? spanDir : undefined);
-    if (partition.kind !== 'uncovered') panel.shellCoverage = partition.kind;
+    if (partition.kind !== 'uncovered') panel.shellCoverage = partition;
     if (partition.kind === 'shell') return;
     const shares: SideShare[] | null = partition.kind === 'strips' ? partition.shares : input.distribution === 'oneWay'
       ? oneWayShares(sides, holes, spanDir, 1, zone)
@@ -437,7 +437,7 @@ function calculateFloorLoad(input: FloorLoadInput, round: (value: number) => num
     const fx = -axes.ex[2], fy = -axes.ey[2] * ySign, fz = -axes.ez[2];
     const loads: FloorMemberLoad[] = [];
     let total = 0;
-    const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage === 'strips');
+    const exact = !!zone || list.some(p => res.panels[p.panel]?.shellCoverage?.kind === 'strips');
     for (const p of exact ? list : mergePieces(list)) {
       const error = 32 * Number.EPSILON * (Math.abs(ni.x) + Math.abs(ni.y) + Math.abs(ni.z ?? 0) + Math.abs(nj.x) + Math.abs(nj.y) + Math.abs(nj.z ?? 0) + p.len);
       const station = (x: number) => Math.abs(x) <= error ? 0 : Math.abs(x - p.len) <= error ? p.len : x;

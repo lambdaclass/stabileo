@@ -92,12 +92,12 @@ export interface FeatureSnapshot {
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
   groups?: Entries<{ kind?: string; data?: unknown }>;
-  regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
+  regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   analysis?: { selfWeight?: unknown[] };
   includeSelfWeight?: boolean;
-  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }> }; site?: { phases?: unknown[] } };
+  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] } };
 }
 
 export interface FeatureContext {
@@ -249,10 +249,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
-  const loadNotes = s.designData?.loadBasis?.derivation;
-  const gravityNotes = Array.isArray(loadNotes) ? loadNotes.filter(n => typeof n?.key === 'string' && n.key.startsWith('loadPlan.gravity.')) : [];
+  const loadBasis = s.designData?.loadBasis;
+  const loadNotes = Array.isArray(loadBasis?.derivation) ? loadBasis.derivation : [];
+  const gravityNotes = loadNotes.filter(n => typeof n?.key === 'string' && n.key.startsWith('loadPlan.gravity.'));
+  const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
   let memberGravity = false;
   let shellGravity = false;
+  let generatedSeismic = !!loadBasis?.seismic || loadNotes.some(n => n?.key === 'loadPlan.derivation.seismic');
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -276,6 +279,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       f.add('generatedLoads');
       const type = caseType.get(d.caseId as number) ?? '';
       if (['W', 'Wa'].includes(type)) f.add('generatedWindLoads');
+      if (type === 'E') generatedSeismic = true;
       if (['D', 'L', 'Lr'].includes(type)) {
         if (t === 'surface3d') shellGravity = true;
         if (t === 'distributed3d' || t === 'distributed') memberGravity = true;
@@ -286,13 +290,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('stagedConstruction');
     f.add('pathAnalysis');
   }
-  if (s.designData?.loadBasis) f.add('generatedLoads');
+  if (loadBasis) f.add('generatedLoads');
   if (shellGravity || gravityNotes.some(n => n.key === 'loadPlan.gravity.shellLevel' || n.key === 'loadPlan.gravity.slopedShells')) {
     f.add('generatedPanelGravityShells');
   }
-  if (memberGravity && !shellGravity && !gravityNotes.some(n => /^loadPlan\.gravity\.(panels|width|shellLevel|slopedShells|partlyUnderShells)$/.test(n.key ?? ''))) {
-    f.add('generatedWidthGravity');
-  }
+  const inferredPanelMode = shellGravity || gravityNotes.some(n => /^loadPlan\.gravity\.(panels|width|shellLevel|slopedShells|partlyUnderShells)$/.test(n.key ?? ''));
+  const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
+  if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
   const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
   if (floorDefs.length) f.add('areaDeadLoads');
   if (floorDefs.some(g => {

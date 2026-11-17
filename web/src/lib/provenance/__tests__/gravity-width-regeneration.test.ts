@@ -4,7 +4,6 @@ import { RESULT_CHANGES } from '../full-registry';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { stampSolve } from '../solve-stamp';
 
-const knownWrong2269 = process.env.RUN_KNOWN_WRONG === '2269' ? it : it.skip;
 const change = RESULT_CHANGES.changes.find(c => c.id === 'gravity-width-mass')!;
 const seismicBasis = { derivation: [{ key: 'loadPlan.derivation.seismic' }] };
 const legacy = {
@@ -20,7 +19,7 @@ function savedMode(gravityMode: 'panels' | 'width') {
   return { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode } } } } };
 }
 
-knownWrong2269('known wrong result: #2269 requires regeneration for legacy zero-width seismic loads without member gravity', () => {
+it('#2269 requires regeneration for legacy zero-width seismic loads without member gravity', () => {
   const unmarked = legacy.loads.map(l => ({ ...l, data: { caseId: l.data.caseId, fx: l.data.fx } }));
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const snapshot of [
@@ -33,7 +32,7 @@ knownWrong2269('known wrong result: #2269 requires regeneration for legacy zero-
   }
 });
 
-knownWrong2269('known wrong result: #2269 trusts the saved plan mode before inferring it from loads', () => {
+it('#2269 trusts the saved plan mode before inferring it from loads', () => {
   const generatedMember = {
     loadCases: [{ id: 1, type: 'D' }],
     loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }],

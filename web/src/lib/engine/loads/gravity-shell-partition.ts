@@ -18,7 +18,14 @@ function area(region: MultiPolygon): number {
   return region.reduce((total, [outer, ...holes]) => total + ringArea(outer!) - holes.reduce((sum, hole) => sum + ringArea(hole), 0), 0);
 }
 
-type Partition = { kind: 'uncovered' | 'shell' } | { kind: 'strips'; shares: SideShare[] };
+export interface UncoveredStrips {
+  kind: 'strips';
+  span: number;
+  polygons: Point[][];
+}
+
+export type ShellCoverage = { kind: 'shell' } | UncoveredStrips;
+type Partition = { kind: 'uncovered' } | { kind: 'shell' } | (UncoveredStrips & { shares: SideShare[] });
 
 export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: Polygon[], span?: Point): Partition {
   if (!shells.length) return { kind: 'uncovered' };
@@ -76,15 +83,20 @@ export function partitionShellCoverage(sides: Side[], holes: Side[][], shells: P
   if (candidates.length !== 1) return fail();
   const stationAxis = candidates[0]!;
   if (span) {
-    const overall = stationAxis === 0 ? basis.n : basis.u;
-    const transverse = stationAxis === 0 ? basis.u : basis.n;
-    const alignment = (axis: Point) => Math.abs(axis[0] * span[0] + axis[1] * span[1]);
-    if (alignment(overall) - alignment(transverse) <= 64 * Number.EPSILON) return fail();
+    const direction = stationAxis === 0 ? basis.n : basis.u;
+    if (!(Math.abs(direction[0] * span[1] - direction[1] * span[0]) <= 64 * Number.EPSILON)) {
+      refuseGravityGeometry('The requested one-way span must align with the span of the uncovered shell strips.');
+    }
   }
 
   const depth = panelBounds[1 - stationAxis]![1] - panelBounds[1 - stationAxis]![0];
   return {
     kind: 'strips',
+    span: depth,
+    polygons: remaining.map(([outer]) => outer!.slice(0, -1).map(([x, y]) => [
+      basis.a[0] + x * basis.u[0] + y * basis.n[0],
+      basis.a[1] + x * basis.u[1] + y * basis.n[1],
+    ])),
     shares: sides.map(side => {
       const start = local(side.a)[stationAxis]!, end = local(side.b)[stationAxis]!;
       const pieces = Math.abs(end - start) <= error ? [] : remaining.map(([outer]) => {

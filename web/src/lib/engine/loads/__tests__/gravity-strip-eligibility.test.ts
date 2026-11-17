@@ -5,7 +5,6 @@ import { gravityLayout, MAX_DECK_SPAN, MIN_STOREY_HEADROOM, type GravityOptions 
 import { bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
 
-const knownWrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
 type Model = ReturnType<typeof bay>['model'];
 const panels = { mode: 'panels', tributaryWidth: 1 } as const;
 
@@ -45,7 +44,7 @@ function expectBlocked(model: Model, gravity: GravityOptions, reason: RegExp) {
   expect(() => roofWeightFor(model, gravity, 1, 1)).toThrow(reason);
 }
 
-knownWrong2200('known wrong result: #2200 refuses partial strips oblique to the requested one-way span', () => {
+it('#2200 refuses partial strips oblique to the requested one-way span', () => {
   for (const angle of [Math.PI / 6, 1e-6, -Math.PI / 6, Math.PI / 2]) {
     const { model } = bay(4, angle);
     const gravity = { ...panels, slab: 'oneWay', spanAxis: 'y', loadEveryPanel: true } as const;
@@ -65,12 +64,12 @@ knownWrong2200('known wrong result: #2200 refuses partial strips oblique to the 
   }
 });
 
-knownWrong2200('known wrong result: #2200 refuses uncovered strips whose carrier span exceeds the deck limit', () => {
+it('#2200 refuses uncovered strips whose carrier span exceeds the deck limit', () => {
   expectBlocked(wideBay(100, 100, 1), panels, /deck span/i);
   expectBlocked(wideBay(10, MAX_DECK_SPAN + 0.125, 9), panels, /deck span/i);
 });
 
-knownWrong2200('known wrong result: #2200 refuses uncovered strips without storey headroom', () => {
+it('#2200 refuses uncovered strips without storey headroom', () => {
   expectBlocked(overheadBay(MIN_STOREY_HEADROOM - 0.125), panels, /headroom/i);
 });
 
