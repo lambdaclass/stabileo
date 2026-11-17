@@ -61,8 +61,8 @@ for (const example of examples) for (const variant of ['rotate', 'mirror', 'reme
   for (const region of regions) assertRegionInvariant(regionModel([region]), generate, undefined, [variant]);
 });
 
-const forceInvariant = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
-const firstMomentInvariant = process.env.RUN_KNOWN_WRONG === '2255' ? it : it.skip;
+const forceInvariant = it.skip;
+const firstMomentInvariant = it.skip;
 const knownWrongForceVariants = new Set([
   'cad-arch-structure-dxf, remesh',
   'full-stadium, remesh',

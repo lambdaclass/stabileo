@@ -43,15 +43,21 @@ it('known wrong result: #2219 SRSS cubic components retain the quintic stationar
   expect(d.points.some(p => Math.abs(p.t - t) < 1e-10)).toBe(true);
 });
 
-it('known wrong result: #2219 compensated profile residuals survive cancellation', () => {
-  for (const sign of [-1, 1]) {
-    for (const residual of [0.5, 1, 2]) {
-      const pieces = [{ a: 0, b: 1, qa: sign * 2 ** 50, qb: sign * 2 ** 50 }, { a: 0, b: 1, qa: sign * (-(2 ** 50) + residual), qb: sign * (-(2 ** 50) + residual) }];
-      for (const list of [pieces, [...pieces].reverse()]) expect(linearProfile(list)).toEqual([{ a: 0, b: 1, qa: sign * residual, qb: sign * residual }]);
+it('known wrong result: #2219 retains supported profile residuals and refuses unsafe magnitudes', () => {
+  for (const magnitude of [2 ** 20, 2 ** 50]) {
+    for (const sign of [-1, 1]) {
+      for (const residual of [0.5, 1, 2]) {
+        const pieces = [{ a: 0, b: 1, qa: sign * magnitude, qb: sign * magnitude }, { a: 0, b: 1, qa: sign * (-magnitude + residual), qb: sign * (-magnitude + residual) }];
+        for (const list of [pieces, [...pieces].reverse()]) {
+          if (magnitude > 2 ** 20) expect(() => linearProfile(list)).toThrow(/profile intensity/);
+          else expect(linearProfile(list)).toEqual([{ a: 0, b: 1, qa: sign * residual, qb: sign * residual }]);
+        }
+      }
     }
+    const stepped = [{ a: 0, b: 1, qa: magnitude, qb: magnitude }, { a: 0, b: 0.5, qa: -magnitude + 1, qb: -magnitude + 1 }, { a: 0.5, b: 1, qa: -magnitude + 2, qb: -magnitude + 2 }];
+    if (magnitude > 2 ** 20) expect(() => linearProfile(stepped)).toThrow(/profile intensity/);
+    else expect(linearProfile(stepped)).toEqual([{ a: 0, b: 0.5, qa: 1, qb: 1 }, { a: 0.5, b: 1, qa: 2, qb: 2 }]);
   }
-  const magnitude = 2 ** 50;
-  expect(linearProfile([{ a: 0, b: 1, qa: magnitude, qb: magnitude }, { a: 0, b: 0.5, qa: -magnitude + 1, qb: -magnitude + 1 }, { a: 0.5, b: 1, qa: -magnitude + 2, qb: -magnitude + 2 }])).toEqual([{ a: 0, b: 0.5, qa: 1, qb: 1 }, { a: 0.5, b: 1, qa: 2, qb: 2 }]);
 });
 
 it('known wrong result: #2219 component sign changes and combination boundaries', () => {

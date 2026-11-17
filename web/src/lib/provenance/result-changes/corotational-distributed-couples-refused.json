@@ -1,0 +1,40 @@
+{
+  "id": "corotational-distributed-couples-refused",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "memberCouples",
+      "analysis:nonlinear"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Large-displacement member couple refusal",
+    "es": "Rechazo de momentos de barra en grandes desplazamientos",
+    "pt": "Recusa de momentos em grandes deslocamentos",
+    "de": "Verteilte Stabmomente bei großen Verschiebungen abgewiesen",
+    "fr": "Refus des couples de barre en grands déplacements",
+    "tr": "Büyük yer değiştirmede yayılı moment reddi",
+    "hu": "Megoszló nyomatékok elutasítása nagy elmozdulásnál"
+  },
+  "explanation": {
+    "en": "Large-displacement analysis now refuses distributed member couples and torque densities. Use linear or P-Delta analysis, then rerun dependent diagrams and checks (#2219).",
+    "es": "El análisis de grandes desplazamientos ahora rechaza momentos distribuidos de barra. Use análisis lineal o P-Delta y repita diagramas y verificaciones (#2219).",
+    "pt": "A análise de grandes deslocamentos agora recusa momentos distribuídos em barras. Use análise linear ou P-Delta e refaça diagramas e verificações (#2219).",
+    "de": "Die Berechnung großer Verschiebungen weist verteilte Stabmomente nun zurück. Lineare oder P-Delta-Analyse verwenden und Diagramme und Nachweise wiederholen (#2219).",
+    "fr": "L’analyse en grands déplacements refuse désormais les couples répartis sur les barres. Utilisez une analyse linéaire ou P-Delta et relancez les diagrammes et vérifications (#2219).",
+    "tr": "Büyük yer değiştirme analizi artık yayılı eleman momentlerini reddeder. Doğrusal veya P-Delta analizi kullanıp diyagramları ve kontrolleri yineleyin (#2219).",
+    "hu": "A nagy elmozdulású elemzés most elutasítja a megoszló rúdnyomatékokat. Használjon lineáris vagy P-Delta-elemzést, majd ismételje meg a diagramokat és ellenőrzéseket (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round24.md",
+    "heading": "Distributed couple and profile limits"
+  }
+}

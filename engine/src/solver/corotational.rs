@@ -887,25 +887,6 @@ fn spatial_end_actions(f: &ElementForces3D) -> [f64; 12] {
     ]
 }
 
-fn diagram_couples_in_final_frame(
-    fe: &ElementForces3D,
-    reference: Axes3,
-    final_axes: Axes3,
-) -> (Vec<MemberMomentInfo>, Vec<PointTorqueInfo>) {
-    let member_moments = fe.member_moments.iter().map(|m| {
-        let values: [[f64; 3]; 3] = std::array::from_fn(|sample| fixed_end_actions_in_final_frame(
-            [m.moments.x[sample], m.moments.y[sample], m.moments.z[sample]], reference, final_axes));
-        MemberMomentInfo { a: m.a, b: m.b, moments: MemberMoments {
-            x: values.map(|v|v[0]), y: values.map(|v|v[1]), z: values.map(|v|v[2]),
-        } }
-    }).collect();
-    let point_torques = fe.point_torques.iter().map(|p| {
-        let rotated = fixed_end_actions_in_final_frame([p.p, p.y.unwrap_or(0.0), p.z.unwrap_or(0.0)], reference, final_axes);
-        PointTorqueInfo { a: p.a, p: rotated[0], y: Some(rotated[1]), z: Some(rotated[2]) }
-    }).collect();
-    (member_moments, point_torques)
-}
-
 fn fixed_end_actions_in_final_frame<const N: usize>(
     actions: [f64; N],
     reference: Axes3,
@@ -1392,6 +1373,9 @@ pub fn solve_corotational_3d(
         return Err("Convergence tolerance must be finite and positive".into());
     }
 
+    if input.loads.iter().any(|load| matches!(load, SolverLoad3D::Distributed(d) if d.moments().is_some())) {
+        return Err("distributed member couples are not supported in large-displacement analysis; use linear or P-Delta".into());
+    }
     // Input validation and pre-solve gates
     super::linear::validate_input_3d(input)?;
     super::linear::refuse_initial_free_rotation_loads_3d(input)?;
@@ -2447,10 +2431,7 @@ fn compute_corotational_forces_3d(
                 dead_reference: spatial_end_actions(fe),
                 eigenstrain_current: eigenstrain.get(&el.element_id).copied().unwrap_or([0.0; 12]),
             }.in_final_frame(reference, final_axes);
-            let (member_moments, point_torques) = diagram_couples_in_final_frame(fe, reference, final_axes);
             ElementForces3D {
-                member_moments,
-                point_torques,
                 n_start: -el.actions[0] - actions[0],
                 n_end: el.actions[6] + actions[6],
                 vy_start: el.actions[1] + actions[1],
@@ -3522,109 +3503,9 @@ mod infinitesimal_rotation_regressions {
 }
 
 #[cfg(test)]
-mod round22_tests {
-    use super::*;
-    use serde_json::json;
-    use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
-
-    #[test]
-    fn corotational_point_couples_keep_all_rotated_components() {
-        let input: SolverInput3D = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
-        let dofs = DofNumbering::build_3d(&input);
-        let zero = vec![0.0; dofs.n_total];
-        let mut fe = super::super::linear::compute_internal_forces_3d_with_loads(&input, &[], &dofs, &zero).remove(0);
-        let reference = ([1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]);
-        for angle in [-1.0_f64, 0.0, 1.0] {
-            let final_axes = ([angle.cos(),angle.sin(),0.0],[-angle.sin(),angle.cos(),0.0],[0.0,0.0,1.0]);
-            fe.point_torques = vec![PointTorqueInfo { a: 1.5, p: 2.0, y: None, z: None }];
-            let (_, points) = diagram_couples_in_final_frame(&fe, reference, final_axes);
-            assert!((points[0].p-2.0*angle.cos()).abs()<1e-12);
-            assert!((points[0].y.unwrap()+2.0*angle.sin()).abs()<1e-12);
-            let ef = ElementForces3D { point_torques: points, ..fe.clone() };
-            for (kind,want) in [("torsion",2.0*angle.cos()),("momentY",-2.0*angle.sin()),("momentZ",0.0)] {
-                assert_eq!(evaluate_diagram_3d_at(&ef,kind,0.25),0.0);
-                assert!((evaluate_diagram_3d_at(&ef,kind,0.75)-want).abs()<1e-12);
-            }
-            let typed = crate::types::units::TypedElementForces3D::from(&ef);
-            let serialized = serde_json::to_value(typed).unwrap();
-            assert!((serialized["pointTorques"][0]["y"].as_f64().unwrap()+2.0*angle.sin()).abs()<1e-12);
-        }
-    }
-
-    #[test]
-    fn corotational_couple_diagrams_follow_large_rigid_rotations() {
-        for angle in [-1.0_f64, 0.0, 1.0] {
-            for axis in [0, 1, 2] {
-                for component in [0, 1, 2] {
-                    let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
-                    v["elements"]["1"]["localYx"] = json!(0.0);
-                    v["elements"]["1"]["localYy"] = json!(1.0);
-                    v["elements"]["1"]["localYz"] = json!(0.0);
-                    let mut moments = [[0.0; 3]; 3];
-                    moments[component] = if axis == 0 { [1.0, 2.0, 3.0] } else { [1.0, 0.0, -1.0] };
-                    v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":moments[0],"y":moments[1],"z":moments[2]}}}]);
-                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
-                    let dofs = DofNumbering::build_3d(&input);
-                    let mut u = vec![0.0; dofs.n_total];
-                    if axis != 0 {
-                        u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (angle.cos() - 1.0);
-                        u[dofs.global_dof(1, if axis == 1 { 2 } else { 1 }).unwrap()] = 3.0 * angle.sin() * if axis == 1 { -1.0 } else { 1.0 };
-                    }
-                    for node in [0, 1] { u[dofs.global_dof(node, 3 + axis).unwrap()] = angle; }
-                    let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
-                    let ef = &result[0];
-                    let expected = if axis == 0 {
-                        [moments[0][0], angle.cos()*moments[1][0]+angle.sin()*moments[2][0], -angle.sin()*moments[1][0]+angle.cos()*moments[2][0]]
-                    } else if axis == 1 {
-                        [angle.cos()*moments[0][0]-angle.sin()*moments[2][0], moments[1][0], angle.sin()*moments[0][0]+angle.cos()*moments[2][0]]
-                    } else {
-                        [angle.cos()*moments[0][0]+angle.sin()*moments[1][0], -angle.sin()*moments[0][0]+angle.cos()*moments[1][0], moments[2][0]]
-                    };
-                    let actual = &ef.member_moments[0].moments;
-                    for (value, want) in [actual.x[0],actual.y[0],actual.z[0]].into_iter().zip(expected) { assert!((value-want).abs()<1e-12); }
-                    for (kind, end) in [("torsion", ef.mx_end), ("momentY", ef.my_end), ("momentZ", ef.mz_end)] {
-                        let actual = evaluate_diagram_3d_at(ef, kind, 1.0);
-                        assert!((actual-end).abs() < 1e-8, "axis={axis} component={component} angle={angle} {kind}: {actual} != {end}");
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
 mod round23_tests {
     use super::*;
     use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
-    use serde_json::json;
-
-    #[test]
-    fn shortening_and_extension_keep_couple_diagrams_in_reference_coordinates() {
-        for strain in [-0.1, 0.0, 0.1] {
-            for (a, b) in [(0.0, 3.0), (0.3, 2.4)] {
-                for (axis, kind) in [(0, "torsion"), (1, "momentY"), (2, "momentZ")] {
-                    for values in [[2.0; 3], [1.0, 2.0, 3.0]] {
-                        let mut moments = [[0.0; 3]; 3];
-                        moments[axis] = values;
-                        let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
-                        v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"a":a,"b":b,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":moments[0],"y":moments[1],"z":moments[2]}}}]);
-                        let input: SolverInput3D = serde_json::from_value(v).unwrap();
-                        let dofs = DofNumbering::build_3d(&input);
-                        let mut u = vec![0.0; dofs.n_total];
-                        u[dofs.global_dof(1, 0).unwrap()] = strain * 3.0;
-                        let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
-                        let ef = &result[0];
-                        let (start, end, slope) = match axis { 0 => (ef.mx_start, ef.mx_end, 0.0), 1 => (ef.my_start, ef.my_end, ef.vz_start), _ => (ef.mz_start, ef.mz_end, -ef.vy_start) };
-                        assert!((evaluate_diagram_3d_at(ef, kind, 1.0) - end).abs() < 1e-10, "strain={strain} span=({a},{b}) {ef:?}");
-                        for t in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
-                            let integral = MemberMoments::integral_local(values, b - a, (3.0 * t - a) / (b - a));
-                            assert!((evaluate_diagram_3d_at(ef, kind, t) - start - slope * 3.0 * t - integral).abs() < 1e-10);
-                        }
-                }
-                }
-            }
-        }
-    }
 
     #[test]
     fn absent_transverse_point_torque_components_are_exactly_zero() {

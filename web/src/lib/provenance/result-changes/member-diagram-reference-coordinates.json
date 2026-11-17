@@ -26,13 +26,13 @@
     "hu": "Korotációs diagramok referenciakoordinátái"
   },
   "explanation": {
-    "en": "Corotational member diagrams retain the reference length together with load supports and densities. Shortening no longer truncates the integrated couple. Rerun nonlinear analyses and dependent diagrams and checks (#2219).",
-    "es": "Los diagramas corrotacionales conservan la longitud de referencia junto con los tramos e intensidades de carga. El acortamiento ya no trunca el momento integrado. Repita análisis no lineales, diagramas y verificaciones (#2219).",
-    "pt": "Os diagramas corrotacionais conservam o comprimento de referência com os trechos e intensidades de carga. O encurtamento não trunca mais o momento integrado. Refaça análises não lineares, diagramas e verificações (#2219).",
-    "de": "Korotierende Stabdiagramme behalten die Referenzlänge mit Lastbereichen und Lastdichten. Verkürzung schneidet das integrierte Moment nicht mehr ab. Nichtlineare Analysen, Diagramme und Nachweise erneut ausführen (#2219).",
-    "fr": "Les diagrammes corotationnels conservent la longueur de référence avec les portées et densités de charge. Le raccourcissement ne tronque plus le couple intégré. Relancez analyses non linéaires, diagrammes et vérifications (#2219).",
-    "tr": "Eşdönen eleman diyagramları yük aralıkları ve yoğunluklarıyla birlikte referans uzunluğunu korur. Kısalma artık tümleşik momenti kesmez. Doğrusal olmayan analizleri, diyagramları ve kontrolleri yineleyin (#2219).",
-    "hu": "A korotációs rúddiagramok a terhelési szakaszokkal és sűrűségekkel együtt megőrzik a referenciahosszt. A rövidülés nem csonkítja az integrált nyomatékot. Ismételje meg a nemlineáris elemzéseket, diagramokat és ellenőrzéseket (#2219)."
+    "en": "Corotational diagrams retain reference coordinates for supported loads. Distributed member couples are refused; use linear or P-Delta and rerun analyses and dependent checks (#2219).",
+    "es": "Los diagramas corrotacionales conservan la longitud de referencia junto con los tramos e intensidades de carga. El análisis de grandes desplazamientos ahora rechaza momentos distribuidos de barra. Use análisis lineal o P-Delta y repita diagramas y verificaciones (#2219).",
+    "pt": "Os diagramas corrotacionais conservam o comprimento de referência com os trechos e intensidades de carga. A análise de grandes deslocamentos agora recusa momentos distribuídos em barras. Use análise linear ou P-Delta e refaça diagramas e verificações (#2219).",
+    "de": "Korotierende Stabdiagramme behalten die Referenzlänge mit Lastbereichen und Lastdichten. Die Berechnung großer Verschiebungen weist verteilte Stabmomente nun zurück. Lineare oder P-Delta-Analyse verwenden und Diagramme und Nachweise wiederholen (#2219).",
+    "fr": "Les diagrammes corotationnels conservent la longueur de référence avec les portées et densités de charge. L’analyse en grands déplacements refuse désormais les couples répartis sur les barres. Utilisez une analyse linéaire ou P-Delta et relancez les diagrammes et vérifications (#2219).",
+    "tr": "Eşdönen eleman diyagramları yük aralıkları ve yoğunluklarıyla birlikte referans uzunluğunu korur. Büyük yer değiştirme analizi artık yayılı eleman momentlerini reddeder. Doğrusal veya P-Delta analizi kullanıp diyagramları ve kontrolleri yineleyin (#2219).",
+    "hu": "A korotációs rúddiagramok a terhelési szakaszokkal és sűrűségekkel együtt megőrzik a referenciahosszt. A nagy elmozdulású elemzés most elutasítja a megoszló rúdnyomatékokat. Használjon lineáris vagy P-Delta-elemzést, majd ismételje meg a diagramokat és ellenőrzéseket (#2219)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-round23.md",

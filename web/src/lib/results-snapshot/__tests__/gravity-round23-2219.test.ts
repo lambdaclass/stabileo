@@ -14,7 +14,8 @@ it('known wrong result: #2219 WASM shortening member torque diagrams match recov
     s.supports['1'] = { nodeId: 1, rx: false, ry: true, rz: true, rrx: false, rry: true, rrz: true };
     const axial = s.materials['1'].e * 1000 * s.sections['1'].a * strain;
     s.loads = [{ type: 'nodal', data: { nodeId: 1, fx: axial, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }, { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, moments: { x: [2, 2, 2], y: [0, 0, 0], z: [0, 0, 0] } } }];
-    for (const result of [solve_3d(s), JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results, JSON.parse(solve_corotational_3d(JSON.stringify(s), 100, 1e-10, 4)).results] as AnalysisResults3D[]) {
+    expect(() => solve_corotational_3d(JSON.stringify(s), 100, 1e-10, 4)).toThrow('distributed member couples are not supported in large-displacement analysis; use linear or P-Delta');
+    for (const result of [solve_3d(s), JSON.parse(solve_pdelta_3d(JSON.stringify(s), 100, 1e-10)).results] as AnalysisResults3D[]) {
       const ef = result.elementForces[0]!;
       expect(Math.abs(evaluateDiagramAt(ef, 'torsion', 1) - ef.mxEnd)).toBeLessThan(1e-10);
       expect(Math.abs(ef.mxEnd - ef.mxStart - 6)).toBeLessThan(1e-10);

@@ -26,16 +26,16 @@
     "hu": "Korotációs rúdnyomatékok tengelyei"
   },
   "explanation": {
-    "en": "Corotational recovery rotates distributed and concentrated member couples into the same final frame as the end actions. Rerun nonlinear analyses and dependent diagrams and checks (#2219).",
-    "es": "La recuperación corrotacional gira los momentos distribuidos y concentrados al mismo sistema final que las acciones de extremo. Repita los análisis no lineales, diagramas y verificaciones dependientes (#2219).",
-    "pt": "A recuperação corrotacional gira momentos distribuídos e concentrados para os mesmos eixos finais das ações de extremidade. Refaça análises não lineares, diagramas e verificações dependentes (#2219).",
-    "de": "Verteilte und konzentrierte Stabmomente werden wie die Endkräfte in das endgültige Stabsystem gedreht. Nichtlineare Analysen, Diagramme und abhängige Nachweise erneut ausführen (#2219).",
-    "fr": "La récupération corotationnelle transforme les couples répartis et concentrés dans le même repère final que les efforts aux extrémités. Relancez les analyses non linéaires, diagrammes et vérifications associées (#2219).",
-    "tr": "Eşdönen kuvvet hesabı yayılı ve tekil eleman momentlerini uç kuvvetlerle aynı son eksen takımına dönüştürür. Doğrusal olmayan analizleri, diyagramları ve bağlı kontrolleri yineleyin (#2219).",
-    "hu": "A korotációs kiértékelés a megoszló és koncentrált nyomatékokat a végerőkkel azonos végső tengelyrendszerbe forgatja. Ismételje meg a nemlineáris elemzéseket, diagramokat és kapcsolódó ellenőrzéseket (#2219)."
+    "en": "Large-displacement analysis now refuses distributed member couples and torque densities. Use linear or P-Delta analysis, then rerun dependent diagrams and checks (#2219).",
+    "es": "El análisis de grandes desplazamientos ahora rechaza momentos distribuidos de barra. Use análisis lineal o P-Delta y repita diagramas y verificaciones (#2219).",
+    "pt": "A análise de grandes deslocamentos agora recusa momentos distribuídos em barras. Use análise linear ou P-Delta e refaça diagramas e verificações (#2219).",
+    "de": "Die Berechnung großer Verschiebungen weist verteilte Stabmomente nun zurück. Lineare oder P-Delta-Analyse verwenden und Diagramme und Nachweise wiederholen (#2219).",
+    "fr": "L’analyse en grands déplacements refuse désormais les couples répartis sur les barres. Utilisez une analyse linéaire ou P-Delta et relancez les diagrammes et vérifications (#2219).",
+    "tr": "Büyük yer değiştirme analizi artık yayılı eleman momentlerini reddeder. Doğrusal veya P-Delta analizi kullanıp diyagramları ve kontrolleri yineleyin (#2219).",
+    "hu": "A nagy elmozdulású elemzés most elutasítja a megoszló rúdnyomatékokat. Használjon lineáris vagy P-Delta-elemzést, majd ismételje meg a diagramokat és ellenőrzéseket (#2219)."
   },
   "changelog": {
-    "file": "docs/results-changes/2026-11-gravity-round22.md",
-    "heading": "Released torsion and rotated member couples"
+    "file": "docs/results-changes/2026-11-gravity-round24.md",
+    "heading": "Distributed couple and profile limits"
   }
 }

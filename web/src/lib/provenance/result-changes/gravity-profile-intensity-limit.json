@@ -1,0 +1,41 @@
+{
+  "id": "gravity-profile-intensity-limit",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "loads",
+  "when": {
+    "any": [
+      "floorLoads",
+      "generatedLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity profile intensity limit",
+    "es": "Límite de intensidad de perfiles de gravedad",
+    "pt": "Limite de intensidade dos perfis de gravidade",
+    "de": "Intensitätsgrenze für Lastprofile",
+    "fr": "Limite d’intensité des profils de gravité",
+    "tr": "Yerçekimi yük profili şiddet sınırı",
+    "hu": "Gravitációs teherprofil intenzitáskorlátja"
+  },
+  "explanation": {
+    "en": "Gravity profile generation now refuses piece endpoint intensities above 1048576 in absolute value or nonfinite intensities before interpolation. Regenerate floor and area loads and rerun analyses and checks; arbitrary-magnitude cancellation is tracked in #2262 (#2219).",
+    "es": "La generación de perfiles rechaza intensidades no finitas o mayores que 1048576 en valor absoluto antes de interpolar. Regenere cargas y repita análisis y verificaciones; magnitudes arbitrarias se tratan en #2262 (#2219).",
+    "pt": "A geração de perfis recusa intensidades não finitas ou superiores a 1048576 em valor absoluto antes da interpolação. Gere novamente as cargas e refaça análises e verificações; magnitudes arbitrárias estão em #2262 (#2219).",
+    "de": "Die Profilerzeugung weist nichtendliche Intensitäten und Absolutwerte über 1048576 vor der Interpolation zurück. Lasten neu erzeugen und Analysen und Nachweise wiederholen; beliebige Größenordnungen behandelt #2262 (#2219).",
+    "fr": "La génération de profils refuse avant interpolation les intensités non finies ou supérieures à 1048576 en valeur absolue. Régénérez les charges et relancez analyses et vérifications ; les grandeurs arbitraires relèvent de #2262 (#2219).",
+    "tr": "Profil üretimi, enterpolasyondan önce sonlu olmayan veya mutlak değeri 1048576 üzerinde olan şiddetleri reddeder. Yükleri yeniden üretip analizleri ve kontrolleri yineleyin; keyfi büyüklükler #2262 kapsamında (#2219).",
+    "hu": "A profilgenerálás az interpoláció előtt elutasítja a nem véges vagy 1048576 feletti abszolút intenzitásokat. Generálja újra a terheket és ismételje meg az elemzéseket és ellenőrzéseket; tetszőleges nagyságrendek: #2262 (#2219)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round24.md",
+    "heading": "Distributed couple and profile limits"
+  },
+  "requiresFloorLoadRegeneration": true,
+  "requiresLoadRegeneration": true
+}

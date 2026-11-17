@@ -51,7 +51,7 @@ fn centered_member_load_keeps_its_bending_answer() {
 }
 
 #[test]
-fn quadratic_moments_reach_linear_pdelta_and_corotational_recovery() {
+fn quadratic_moments_reach_linear_and_pdelta_recovery() {
     let mut input = model(0.0);
     for (k,load) in input.loads.iter_mut().enumerate() {
         if let SolverLoad3D::Distributed(d) = load {
@@ -60,7 +60,7 @@ fn quadratic_moments_reach_linear_pdelta_and_corotational_recovery() {
             d.moments = Some(serde_json::from_value(json!({"x":[a*a*0.001,(a+1.5).powi(2)*0.001,(a+3.0).powi(2)*0.001],"y":[0,0,0],"z":[0,0,0]})).unwrap());
         }
     }
-    let results = [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results,corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results];
+    let results = [linear::solve_3d(&input).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results];
     for result in &results {
         for ef in &result.element_forces {
             for t in [0.0,0.25,0.5,0.75,1.0] {
@@ -177,7 +177,7 @@ fn round4_check_torque(density: Option<f64>) {
                     input.loads.push(serde_json::from_value(json!({"type":"distributed","data":{"elementId":id,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":[q,q,q],"y":[0.01,0.01,0.01],"z":[0,0,0]}}})).unwrap());
                 }
             }
-            for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results, corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+            for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
                 let first = result.element_forces.iter().find(|f| f.element_id == 1).unwrap();
                 let last = result.element_forces.iter().find(|f| f.element_id == 2).unwrap();
                 let q = density.unwrap_or(0.0);
@@ -375,7 +375,6 @@ fn round8_endpoint_straddling_moment_densities_refuse_in_every_spatial_solve() {
                 ("linear", linear::solve_3d(&input)),
                 ("prepared", prepared.solve_loads(&input.loads)),
                 ("pdelta", pdelta::solve_pdelta_3d(&input, 100, 1e-10).map(|r| r.results)),
-                ("corotational", corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).map(|r| r.results)),
             ] {
                 assert!(result.is_err(), "{entry} accepted axis={axis} [{a},{b}]: {result:?}");
                 assert!(result.unwrap_err().contains("distributed moment span"));
@@ -391,7 +390,7 @@ fn round8_representable_moment_support_has_identical_assembly_and_recovery_endpo
         let input = round8_endpoint_model(a, b, "x");
         let mut unloaded = input.clone(); unloaded.loads.clear();
         let prepared = linear::prepare_static_3d(&unloaded).unwrap();
-        for result in [linear::solve_3d(&input).unwrap(), prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
+        for result in [linear::solve_3d(&input).unwrap(), prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results] {
             let ef = &result.element_forces[0];
             let ca = a.max(0.0); let cb = b.min(1.0);
             let density = 1.0 / (b - a);
@@ -426,7 +425,7 @@ fn round10_subgeometry_quadratic_moment_support_refuses_every_spatial_entry() {
             }
             let mut unloaded=input.clone(); unloaded.loads.clear();
             let prepared=linear::prepare_static_3d(&unloaded).unwrap();
-            for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
+            for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results)] {
                 assert!(result.is_err(), "accepted {axis} [{a},{b}]");
                 assert!(result.unwrap_err().contains("1e-10"));
             }
@@ -448,7 +447,7 @@ fn round10_supported_quadratic_extrema_keep_local_parameter_values() {
             }
             let mut unloaded=input.clone(); unloaded.loads.clear();
             let prepared=linear::prepare_static_3d(&unloaded).unwrap();
-            for r in [linear::solve_3d(&input).unwrap(),prepared.solve_loads(&input.loads).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results,corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+            for r in [linear::solve_3d(&input).unwrap(),prepared.solve_loads(&input.loads).unwrap(),pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
                 let ds=compute_diagrams_3d(&r);
                 let d=match axis {"x"=>&ds.torsion[0],"y"=>&ds.moment_y[0],_=>&ds.moment_z[0]};
                 let ef=&r.element_forces[0];
@@ -637,7 +636,6 @@ fn round16_zero_resultant_quadratic_torque_keeps_its_interior_profile() {
         ("linear", linear::solve_3d(&input).unwrap()),
         ("prepared", prepared.solve_loads(&input.loads).unwrap()),
         ("pdelta", pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results),
-        ("corotational", corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results),
     ] {
         let ef = &result.element_forces[0];
         assert!(ef.mx_start.abs() < 1e-10, "{entry}: {ef:?}");
@@ -669,22 +667,10 @@ fn round16_small_displacement_moment_profiles_match_linear_recovery() {
         }
         input.loads.push(serde_json::from_value(json!({"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":0,"mx":1e-6,"my":0,"mz":0}})).unwrap());
         let expected = linear::solve_3d(&input).unwrap();
-        for (entry,result) in [pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results].into_iter().enumerate() {
+        for result in [pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results] {
             for ef in &result.element_forces {
                 let reference = expected.element_forces.iter().find(|f| f.element_id == ef.element_id).unwrap();
-                if entry == 0 {
-                    assert_eq!(serde_json::to_value(&ef.member_moments).unwrap(), serde_json::to_value(&reference.member_moments).unwrap());
-                } else {
-                    assert_eq!(ef.member_moments.len(), reference.member_moments.len());
-                    for (current, original) in ef.member_moments.iter().zip(&reference.member_moments) {
-                        assert_eq!((current.a,current.b),(original.a,original.b));
-                        for values in [current.moments.x,current.moments.y,current.moments.z] {
-                            assert_eq!(values,[values[0],-0.5*values[0],values[0]]);
-                        }
-                        if axis == "y" { assert_ne!(current.moments.z[0],0.0); }
-                        if axis == "z" { assert_ne!(current.moments.y[0],0.0); }
-                    }
-                }
+                assert_eq!(serde_json::to_value(&ef.member_moments).unwrap(), serde_json::to_value(&reference.member_moments).unwrap());
                 for kind in ["axial", "torsion", "shearY", "shearZ", "momentY", "momentZ"] {
                     for t in [0.0, 0.2, 0.5, 0.8, 1.0] {
                         assert!((evaluate_diagram_3d_at(ef, kind, t) - evaluate_diagram_3d_at(reference, kind, t)).abs() < 1e-10, "{axis}: {kind}, t={t}");
@@ -747,7 +733,7 @@ fn round17_density_certificates_refuse_all_axes_and_nonzero_boundaries() {
             support.normal_x = Some(0.0); support.normal_y = Some(0.0); support.normal_z = Some(1.0);
             round17_refused(&certify_results_3d(&inclined, &full.results));
             let prepared = linear::prepare_static_3d(&input).unwrap();
-            for result in [prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results, corotational::solve_corotational_3d(&input, 100, 1e-10, 4, false).unwrap().results] {
+            for result in [prepared.solve_loads(&input.loads).unwrap(), pdelta::solve_pdelta_3d(&input, 100, 1e-10).unwrap().results] {
                 round17_refused(&certify_results_3d(&input, &result));
                 let mut structure = input.clone(); structure.loads.clear();
                 round17_refused(&certify_load_cases_3d(&structure, &[(&input.loads, &result)])[0]);
@@ -822,7 +808,7 @@ fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
         let mut unloaded = input.clone();
         unloaded.loads.clear();
         let prepared = linear::prepare_static_3d(&unloaded).unwrap();
-        for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
+        for result in [linear::solve_3d(&input), prepared.solve_loads(&input.loads), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results)] {
             if balanced {
                 let r = result.expect("zero resultant torque must remain admissible");
                 let ef = r.element_forces.iter().find(|ef|ef.element_id==1).unwrap();
@@ -845,7 +831,8 @@ fn round23_shortening_member_torque_diagram_matches_recovered_end_actions() {
         v["supports"]["1"] = json!({"nodeId":1,"rx":false,"ry":true,"rz":true,"rrx":false,"rry":true,"rrz":true});
         v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":axial,"fy":0,"fz":0,"mx":0,"my":0,"mz":0}},{"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":[2,2,2],"y":[0,0,0],"z":[0,0,0]}}}]);
         let input: SolverInput3D = serde_json::from_value(v).unwrap();
-        for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results, corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+        assert_eq!(corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap_err(), "distributed member couples are not supported in large-displacement analysis; use linear or P-Delta");
+        for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results] {
             let ef = &result.element_forces[0];
             assert!((evaluate_diagram_3d_at(ef,"torsion",1.0)-ef.mx_end).abs()<1e-10,"strain={strain} {ef:?}");
             assert!((ef.mx_end-ef.mx_start-6.0).abs()<1e-10);
@@ -855,7 +842,6 @@ fn round23_shortening_member_torque_diagram_matches_recovered_end_actions() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round24_corotational_refuses_distributed_couples_before_recovery() {
     let reason = "distributed member couples are not supported in large-displacement analysis; use linear or P-Delta";
     for axis in ["x", "y", "z"] {
