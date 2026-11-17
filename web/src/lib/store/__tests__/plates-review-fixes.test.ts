@@ -1,6 +1,7 @@
 /**
  * Plates kept safe where the review found them unsafe:
  *  - an edit or an undo between the slices of a background mesh stops it, and the edit stays its own step;
+ *  - so does an edit, or a load on the old mesh, in the frame before the old mesh is taken out;
  *  - an analysis waits for a mesh the dialog started instead of running a second one beside it;
  *  - "Size" stops when the plates cannot be meshed, as Calculate does;
  *  - a slab the solve was to mesh keeps a load the plate cannot take over, and its conversion is no undo step;
@@ -56,6 +57,24 @@ describe('a mesh run in slices', () => {
     historyStore.undo();
     expect(modelStore.nodes.has(added)).toBe(false);
     expect(modelStore.quads.size).toBe(meshedQuads);
+  });
+
+  it('stops before taking the old mesh out when a load is put on it during the first frame', async () => {
+    for (const record of [true, false]) {
+      const [id] = slabs(1);
+      applyPlateMeshes([planPlateMesh(id!, { size: 2, element: 'quad' })!]);
+      const plan = planPlateMesh(id!, { size: 0.5, element: 'quad' })!;
+      expect(plan.localLoads).toBe(0);
+      const q = plateEntry(id!)!.group.members.quads![0]!;
+      const run = applyPlateMeshesAsync([plan], undefined, 0);
+      const put = () => modelStore.addThermalLoadQuad3D(q, 10, 0, 1);
+      if (record) put(); else modelStore.withoutUndo(put);
+      const r = await run;
+      expect(r.refused.map((x) => x.reason)).toEqual(['interrupted']);
+      expect(r.plates).toBe(0);
+      expect(modelStore.quads.has(q)).toBe(true);
+      expect(modelStore.loads.filter((l) => l.type === 'thermalQuad3d')).toHaveLength(1);
+    }
   });
 
   it('an analysis started while the dialog meshes waits for it, and the card is cleared once', async () => {

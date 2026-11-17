@@ -875,13 +875,16 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     const springy = meshed.filter((id) => plateEntry(id)?.surface.springs);
     if (springy.length) respring(springy);
   };
-  return { report, ok, begin, meshOne, finish };
+  const asPlanned = () => ok.every((p) => { const e = plateEntry(p.id); return !e || localLoadsOn(e) <= p.localLoads; });
+  const refuseAll = () => { for (const p of ok) report.refused.push({ id: p.id, reason: 'interrupted' }); return report; };
+  return { report, ok, begin, meshOne, finish, asPlanned, refuseAll };
 }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
   const run = meshingRun(plans);
   if (!run.ok.length) return run.report;
+  if (!run.asPlanned()) return run.refuseAll();
   modelStore.batch(() => { run.begin(); for (const p of run.ok) run.meshOne(p); run.finish(); });
   return run.report;
 }
@@ -895,8 +898,10 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
   if (!run.ok.length) return run.report;
   const total = run.ok.length;
   let done = 0;
+  const before = historyStore.lastStep;
   onProgress?.(0, total);
   await nextFrame();
+  if (historyStore.lastStep !== before || !run.asPlanned()) return run.refuseAll();
   modelStore.batch(() => run.begin());
   // An edit or an undo between frames puts another step on top: the slices left would land in
   // it and plan against a model they were not planned for, so the run stops there.
