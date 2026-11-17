@@ -53,6 +53,10 @@ for (const shape of [
     expect(cage.secondaryLegs).toBeDefined();
     const checked = verifyProvidedReinforcement(1, 'column', { shaped: { count: 8, diameter: 16 }, stirrups: cage }, undefined, {},
       { ...ctx.section, ...ctx.material }, ctx.stations, undefined, { shape, axes: ctx.axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 0 } });
-    expect(checked.checks.filter(c => c.limiting === 'tieSpacing' || c.limiting === 'shear').every(c => c.status !== 'fail')).toBe(true);
+    for (const limiting of ['tieSpacing', 'shear']) {
+      const checks = checked.checks.filter(c => c.limiting === limiting);
+      expect(checks.length, limiting).toBeGreaterThan(0);
+      expect(checks.every(c => c.status !== 'fail'), limiting).toBe(true);
+    }
   }
 });
