@@ -6,7 +6,7 @@ import { combine_results_2d, compute_envelope_2d, solve_pdelta_2d, solve_pdelta_
 
 beforeAll(async () => { await initSolver(); });
 
-function cases(): Map<number, AnalysisResults3D> {
+function cases(axial = 3): Map<number, AnalysisResults3D> {
   const model: SolverInput3D = {
     nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 5, y: 0, z: 0 }]]),
     elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1,
@@ -18,7 +18,7 @@ function cases(): Map<number, AnalysisResults3D> {
     loads: [],
   };
   return new Map([1, 2].map(id => [id, solve3D({ ...model, loads: [
-    { type: 'nodal', data: { nodeId: 2, fx: id * 3, fy: 0, fz: -10 * id, mx: 0, my: 0, mz: 0 } },
+    { type: 'nodal', data: { nodeId: 2, fx: id * axial, fy: 0, fz: -10 * id, mx: 0, my: 0, mz: 0 } },
   ] })]));
 }
 
@@ -87,6 +87,60 @@ const portalInput = (dimension: '2d' | '3d') => readFileSync(new URL(
 const missingCase = { caseId: 99, factor: 2 };
 const presentCase = { caseId: 2, factor: 1 };
 const missingCaseReason = 'Cannot combine results: missing result for load case 99';
+
+const splitFactors = (weights: number[]) => weights.map(factor => ({ caseId: 1, factor }));
+const screenedRatio = (result: AnalysisResults3D & { resultSummary?: { secondOrderRatio?: number } }) =>
+  result.resultSummary?.secondOrderRatio;
+
+it.skip('screens repeated factors once through all 3D combination routes (#2283)', () => {
+  const linear = cases(-3).get(1)!;
+  const ratio = screenedRatio(linear)!;
+  expect(ratio).toBeGreaterThan(0);
+  const nonlinear = JSON.parse(solve_pdelta_3d(portalInput('3d'), 20, 1e-9)).results;
+  nonlinear.resultSummary = { ...nonlinear.resultSummary, secondOrderRatio: ratio };
+  for (const result of [linear, nonlinear]) {
+    const perCase = new Map([[1, result]]);
+    const expected = combinationPaths3D['single export'](splitFactors([1]), perCase);
+    expect(screenedRatio(expected)).toBe(ratio);
+    for (const [path, combine] of Object.entries(combinationPaths3D)) {
+      const split = combine(splitFactors([0.5, 0.5]), perCase);
+      expect(screenedRatio(split), path).toBe(ratio);
+      expect(split.displacements, path).toEqual(expected.displacements);
+      expect(split.reactions, path).toEqual(expected.reactions);
+      const net = combine(splitFactors([1.5, -0.5]), perCase);
+      expect(screenedRatio(net), path).toBe(ratio);
+      expect(net.structuredDiagnostics, path).toStrictEqual(expected.structuredDiagnostics);
+    }
+    const split = splitFactors([0.5, 0.5]);
+    const entry = { caseId: 1, results: result };
+    const single = combine_results_3d({ factors: split, cases: [entry] });
+    expect(combine_results_batch_3d({ combinations: [split], cases: [entry] })).toStrictEqual([single]);
+    expect(combine_results_envelope_3d({ combinations: [split], cases: [entry] }))
+      .toStrictEqual([[single], compute_envelope_3d([single])]);
+  }
+});
+
+it.skip('screens repeated factors once through both 2D combination routes (#2283)', () => {
+  const ratio = screenedRatio(cases(-3).get(1)!)!;
+  expect(ratio).toBeGreaterThan(0);
+  const input = portalInput('2d');
+  for (const result of [solve_2d(JSON.parse(input)), JSON.parse(solve_pdelta_2d(input, 20, 1e-9)).results]) {
+    result.resultSummary = { ...result.resultSummary, secondOrderRatio: ratio };
+    const perCase = new Map([[1, result]]);
+    const combine = (weights: number[]) => combine_results_2d({
+      factors: splitFactors(weights), cases: [{ caseId: 1, results: result }],
+    });
+    const expected = combine([1]);
+    expect(screenedRatio(expected)).toBe(ratio);
+    for (const weights of [[0.5, 0.5], [1.5, -0.5]]) {
+      const raw = combine(weights);
+      const admitted = combineResults(splitFactors(weights), perCase);
+      expect(screenedRatio(raw)).toBe(ratio);
+      expect(raw.structuredDiagnostics).toStrictEqual(expected.structuredDiagnostics);
+      expect(JSON.stringify(admitted)).toBe(JSON.stringify(raw));
+    }
+  }
+});
 
 it.each(Object.entries(combinationPaths3D))('refuses a missing factored 3D case in the %s (#2283)', (_path, combine) => {
   const linear = cases().get(2)!;

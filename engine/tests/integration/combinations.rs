@@ -461,3 +461,68 @@ fn combinations_3d_batch_refuses_missing_factored_cases() {
         Ok(combine_results_batch_3d(&batch)?.pop().unwrap())
     });
 }
+
+fn assert_repeated_case_screen(
+    combine: impl Fn(Vec<CombinationFactor>, f64) -> (Option<f64>, Vec<StructuredDiagnostic>),
+) {
+    let limit = dedaliano_engine::known_issues::SECOND_ORDER_RATIO;
+    let factors = |weights: &[f64]| weights.iter().map(|&factor| CombinationFactor { case_id: 2, factor }).collect();
+    for (ratio, warns) in [(limit.next_down(), false), (limit, false), (limit.next_up(), true)] {
+        let (screened, diagnostics) = combine(factors(&[1.0]), ratio);
+        assert_eq!(screened, Some(ratio));
+        assert_eq!(diagnostics.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER")), warns);
+        assert_eq!(combine(factors(&[0.5, 0.5]), ratio), (screened, diagnostics.clone()));
+        assert_eq!(combine(factors(&[1.5, -0.5]), ratio), (screened, diagnostics));
+    }
+    let (screened, diagnostics) = combine(factors(&[0.5, -1.5]), limit);
+    assert_eq!(screened, Some(limit));
+    assert!(diagnostics.iter().any(|d| d.phase.as_deref() == Some("LIN-SECOND-ORDER-UNBOUNDED")));
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_2d_screen_repeated_case_once() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results;
+    for result in [linear, nonlinear] {
+        assert_repeated_case_screen(|factors, ratio| {
+            let mut results = result.clone();
+            results.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+            results.structured_diagnostics.retain(|d| !d.phase.as_deref().is_some_and(|p| p.starts_with("LIN-SECOND-ORDER")));
+            let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 2, results }] };
+            let checked = combine_results_checked(&input).unwrap().unwrap();
+            let optional = combine_results(&input).unwrap();
+            let borrowed = combine_results_refs(&input.factors, &[(2, &input.cases[0].results)]).unwrap();
+            assert_eq!(serde_json::to_value(&optional).unwrap(), serde_json::to_value(&checked).unwrap());
+            assert_eq!(serde_json::to_value(&borrowed).unwrap(), serde_json::to_value(&checked).unwrap());
+            (checked.result_summary.unwrap().second_order_ratio, checked.structured_diagnostics)
+        });
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2283"]
+fn combinations_3d_screen_repeated_case_once() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results;
+    for result in [linear, nonlinear] {
+        assert_repeated_case_screen(|factors, ratio| {
+            let mut results = result.clone();
+            results.result_summary.get_or_insert_with(Default::default).second_order_ratio = Some(ratio);
+            results.structured_diagnostics.retain(|d| !d.phase.as_deref().is_some_and(|p| p.starts_with("LIN-SECOND-ORDER")));
+            let input = CombinationInput3D { factors, cases: vec![CaseEntry3D { case_id: 2, results }], plate_thicknesses: vec![] };
+            let single = combine_results_3d(&input).unwrap().unwrap();
+            let borrowed = combine_results_3d_refs(&input.factors, &[(2, &input.cases[0].results)]).unwrap().unwrap();
+            let batch = BatchCombinationInput3D {
+                combinations: vec![input.factors], cases: input.cases, plate_thicknesses: input.plate_thicknesses,
+            };
+            let batched = combine_results_batch_3d(&batch).unwrap().pop().unwrap().unwrap();
+            assert_eq!(batched.result_summary.as_ref().unwrap().second_order_ratio, single.result_summary.as_ref().unwrap().second_order_ratio);
+            assert_eq!(serde_json::to_value(&batched).unwrap(), serde_json::to_value(&single).unwrap());
+            assert_eq!(serde_json::to_value(&borrowed).unwrap(), serde_json::to_value(&single).unwrap());
+            (single.result_summary.unwrap().second_order_ratio, single.structured_diagnostics)
+        });
+    }
+}
