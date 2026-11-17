@@ -60,7 +60,7 @@ export interface SheetRows {
 const DEFAULT_FC = 25;
 
 /** The options the design data state for the sheets, as `RcSheetsData` carries them. */
-function optionsView(o: DesignOptions = {}): Pick<RcSheetsData, 'torsion' | DesignOptionFlag> {
+export function optionsView(o: DesignOptions = {}): Pick<RcSheetsData, 'torsion' | DesignOptionFlag> {
   return { torsion: o.torsion ?? 'equilibrium', ...Object.fromEntries(DESIGN_OPTION_FLAGS.filter((k) => o[k]).map((k) => [k, true])) };
 }
 

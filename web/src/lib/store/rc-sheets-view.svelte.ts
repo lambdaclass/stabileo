@@ -11,7 +11,7 @@ import { i18n } from '../i18n';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { nextFrame } from './mesh-progress.svelte';
-import { buildSheetRows, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
+import { buildSheetRows, optionsView, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
 import type { SheetCode } from '../rc-sheets/types';
 import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
@@ -37,7 +37,9 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 function stampNow(): Stamp {
   void modelStore.designData;
   const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
-  const { rcSheets: _, ...rest } = designData() as { rcSheets?: unknown };
+  // The options as the design reads them: an option stated at its default is no change.
+  const { rcSheets: _, designOptions, ...own } = designData();
+  const rest = { ...own, designOptions: optionsView(designOptions) };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,

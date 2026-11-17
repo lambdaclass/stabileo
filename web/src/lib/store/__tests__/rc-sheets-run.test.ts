@@ -12,7 +12,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setAdopted, setRcOption, setSheetCode, sheetRowsSteps } from '../rc-sheets.svelte';
+import { buildSheetRows, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
@@ -149,5 +149,21 @@ describe('a design run the inputs change under', () => {
     } finally { now.mockRestore(); }
     expect(sheetsStale()).toBe(false);
     expect(sheetsRun.rows!.beam.every((r) => !!r.demand.faces)).toBe(true);
+  });
+});
+
+describe('a design option stated at its default', () => {
+  it('leaves the sheets current: torsion by equilibrium chosen, a flag turned off that was off, the end zones turned off', async () => {
+    solvedFrame();
+    await designSheets();
+    expect(sheetsStale()).toBe(false);
+    setTorsionMode('equilibrium');
+    expect(sheetsStale()).toBe(false);
+    setRcOption('faces', false);
+    expect(sheetsStale()).toBe(false);
+    setColumnEndZones(false);
+    expect(sheetsStale()).toBe(false);
+    setTorsionMode('compatibility');
+    expect(sheetsStale()).toBe(true);
   });
 });
