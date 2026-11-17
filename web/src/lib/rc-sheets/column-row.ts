@@ -155,7 +155,7 @@ export const columnLabel = (a: ColumnAdopted): string => {
   return parts.join(' + ');
 };
 
-export const tieLabel = (a: ColumnAdopted): string => { const cm = Math.round(a.tieSpacing * 1000) / 10; return `Ø${a.tieDia} c/${Number.isInteger(cm) ? cm : cm.toFixed(1)}`; };
+export const tieLabel = (a: ColumnAdopted, fmt?: Fmt): string => { const cm = Math.round(a.tieSpacing * 1000) / 10, d = Number.isInteger(cm) ? 0 : 1; return `Ø${a.tieDia} c/${fmt ? fmt(cm, d) : cm.toFixed(d)}`; };
 
 /** The crossties along b · along h, the inner rows' added, and lo's where chapter 18 asks more there: what the table, the drawing and the workbook say alike. */
 export const crosstiesText = (ct: ColumnRow['checks']['crossties']): string =>

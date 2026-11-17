@@ -12,7 +12,7 @@
   const drawing = $derived(columnSectionOf(row, all, { code, endZones }));
   const notes = $derived([
     columnLabel(row.adopted),
-    `${tieLabel(row.adopted)} · ${t('rcSheets.col.crossties')} ${crosstiesText(row.checks.crossties)}`,
+    `${tieLabel(row.adopted, fmt)} · ${t('rcSheets.col.crossties')} ${crosstiesText(row.checks.crossties)}`,
     ...(drawing.zone === 'lo' ? [t('rcSheets.sec.loTies')] : []),
     ...(drawing.crossties?.length ? [t('rcSheets.sec.alternate')] : []),
   ]);

@@ -7,7 +7,8 @@
    * where it does not.
    */
   import Hint from '../Hint.svelte';
-  import { t } from '../../../lib/i18n';
+  import { t, i18n } from '../../../lib/i18n';
+  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { rcSheetsData, setColumnEndZones, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
@@ -19,6 +20,7 @@
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const o = $derived.by(() => { void modelStore.designData; return rcSheetsData(); });
+  const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const rule = (k: DesignOptionKey) => optionRule(k, code);
   const on = (k: DesignOptionFlag | 'endZones') => (k === 'endZones' ? d.columnEndZones === true : o[k] === true);
   const set = (k: DesignOptionFlag | 'endZones', v: boolean) => (k === 'endZones' ? setColumnEndZones(v) : setRcOption(k, v));
@@ -56,7 +58,7 @@
 </details>
 
 <details class="pk-card do" data-testid="design-options-detailing">
-  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${d.minTieSpacingMm / 10} cm`])}</span></summary>
+  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`])}</span></summary>
   {@render option('bentBars')}
   {@render option('slabBentBars')}
   {@render option('endZones')}

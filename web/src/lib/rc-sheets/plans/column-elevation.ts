@@ -77,7 +77,7 @@ export const columnSectionOf = (row: ColumnRow, all: readonly ColumnRow[], o: Pi
 
 export function columnPlans(row: ColumnRow, all: readonly ColumnRow[], o: ColumnPlanOptions): DrawingInput[] {
   const drawing = columnSectionOf(row, all, o);
-  const notes = [columnLabel(row.adopted), `${tieLabel(row.adopted)} · ${o.tr('rcSheets.col.crossties')} ${crosstiesText(row.checks.crossties)}`, ...(drawing.zone === 'lo' ? [o.tr('rcSheets.sec.loTies')] : [])];
+  const notes = [columnLabel(row.adopted), `${tieLabel(row.adopted, o.fmt)} · ${o.tr('rcSheets.col.crossties')} ${crosstiesText(row.checks.crossties)}`, ...(drawing.zone === 'lo' ? [o.tr('rcSheets.sec.loTies')] : [])];
   const sec = sectionPrimitives(drawing, o, undefined, notes, () => 'LONG');
   return [
     framed(`${row.key}:elev`, o.tr('rcSheets.elev.title', { name: row.name }), columnElevationPrimitives(row, o), o.scale, o.group),

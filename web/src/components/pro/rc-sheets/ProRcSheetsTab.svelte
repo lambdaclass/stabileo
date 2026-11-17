@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t, tp, tpn } from '../../../lib/i18n';
+  import { t, tp, tpn, i18n } from '../../../lib/i18n';
+  import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { downloadRcSheets, meshWallsForSheets, rcSheetsData, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { physicalGroups } from '../../../lib/store/physical';
@@ -38,7 +39,7 @@
     const on = [...DESIGN_OPTION_FLAGS.filter((k) => o[k] && !optionRule(k, code).off), ...(dd.columnEndZones && !optionRule('endZones', code).off ? ['endZones'] : [])];
     return [
       tp('building.general.moreSummary', { c: Math.round(dd.covers.beam * 1000), e: t(`designData.exp.${dd.exposure.beam}`) }),
-      `s ≥ ${dd.minTieSpacingMm / 10} cm`, t(`designData.opt.short.torsion.${o.torsion}`), ...on.map((k) => t(`designData.opt.short.${k}`)),
+      `s ≥ ${makeFmt(decimalFor(i18n.locale))(dd.minTieSpacingMm / 10, Number.isInteger(dd.minTieSpacingMm / 10) ? 0 : 1)} cm`, t(`designData.opt.short.torsion.${o.torsion}`), ...on.map((k) => t(`designData.opt.short.${k}`)),
     ].join(' · ');
   });
   let ddOpen = $state(false);
