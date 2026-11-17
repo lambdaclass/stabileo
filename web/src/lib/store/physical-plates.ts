@@ -873,8 +873,6 @@ export interface PlateMeshReport { plates: number; cells: number; refused: Array
  * the meshes put in before it, and the neighbours and loads brought up to date. `applyPlateMeshes`
  * runs them as one step; `applyPlateMeshesAsync` gives the page a frame between plates.
  */
-const MAX_CONFORMING_PASSES = 12;
-
 function meshingRun(plans: readonly PlateMeshPlan[]) {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
   const ok = plans.filter((p) => p.mesh && p.input);
@@ -931,15 +929,11 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (!meshed.includes(p.id)) meshed.push(p.id);
   };
   const finish = () => {
-    // A plate meshed before a neighbour's nodes on its sides were put in meets them once more.
-    for (let pass = 0; pass < MAX_CONFORMING_PASSES; pass++) {
-      const again = ok.filter((p) => meshed.includes(p.id) && meshHangsNeighbours(plateEntry(p.id)!));
-      if (!again.length) break;
-      for (const p of again) { clearPlateMesh(p.id); meshOne(p); }
-    }
-    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone. One a node still hangs on waits to be meshed again, but shells as modelled, coarser than its size, which meshing before the analysis meshes anyway.
-    for (const id of new Set([...meshed, ...current])) {
-      if (plateStatus(id) !== 'stale') continue;
+    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone.
+    for (const id of meshed) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
+    // A plate outside the run that a new node hangs on waits for a mesh, but shells as modelled, coarser than its size, which meshing before the analysis meshes anyway.
+    for (const id of current) {
+      if (meshed.includes(id) || plateStatus(id) !== 'stale') continue;
       const x = plateEntry(id);
       if (x && (coarseAsModelled(x) || !meshHangsNeighbours(x))) adoptCurrentMesh(id);
     }
