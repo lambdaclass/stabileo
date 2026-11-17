@@ -377,6 +377,31 @@ test.describe('@landing landing page', () => {
 
 
 
+  for (const [width, height] of [[390, 844], [820, 1180]] as const) {
+    test.skip(`known wrong result: #2090 the hero is above the fold and tappable at ${width}×${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await bootLanding(page);
+      const figure = page.locator('.landing .hero-figure');
+      await expect(figure.locator('svg')).toBeVisible();
+      const box = (await figure.boundingBox())!;
+      const sticky = page.locator('.landing .mobile-sticky');
+      const bottom = await sticky.isVisible() ? (await sticky.boundingBox())!.y : height;
+      expect.soft(box.y).toBeGreaterThanOrEqual(0);
+      expect.soft(box.y + box.height).toBeLessThanOrEqual(bottom);
+      const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect.soft(pageWidth).toBeLessThanOrEqual(width);
+      const controls = figure.locator('.hero-fig-switch button');
+      await expect(controls).toHaveCount(7);
+      for (const target of await controls.all()) {
+        const hitArea = (await target.boundingBox())!;
+        const name = (await target.textContent())!.trim();
+        expect.soft(hitArea.width, name).toBeGreaterThanOrEqual(44);
+        expect.soft(hitArea.height, name).toBeGreaterThanOrEqual(44);
+      }
+    });
+  }
+
   test('the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
     await bootLanding(page);
     const chips = page.locator('.landing .hero-fig-switch button');
