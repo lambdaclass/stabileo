@@ -6,12 +6,13 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const lint = fileURLToPath(new URL('../check-agent-mistakes.mjs', import.meta.url));
+const tempParent = fileURLToPath(new URL('../../web/node_modules/', import.meta.url));
 const engine = 'web/src/lib/engine/support.ts';
 const webTest = 'web/src/lib/model/support.test.ts';
 const rust = 'engine/tests/support.rs';
 
 function run(t, sources, allow = '') {
-  const root = mkdtempSync(join(dirname(lint), '.agent-lint-test-'));
+  const root = mkdtempSync(join(tempParent, '.agent-lint-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const [path, source] of Object.entries({ ...sources, 'scripts/agent-mistakes-allow.txt': allow })) {
     const file = join(root, path);
@@ -33,7 +34,7 @@ function rejects(result, pattern, count) {
   assert.equal(hits.length, count, result.stderr);
 }
 
-test.skip('known wrong result: #2276 — rejects a fixed-restraint default for an unknown support', t => {
+test('#2276 — rejects a fixed-restraint default for an unknown support', t => {
   rejects(run(t, { [engine]: `
     function supportDofs(type: string) {
       switch (type) {
@@ -49,7 +50,11 @@ test('rejects assignments and fall-through defaults across all three directories
     [engine]: `switch (x) { default: case 'fixed': mask = fixed; break; }`,
     'web/src/lib/model/mask.ts': `switch (x) { default: { if (p) mask.rotation ||= true; break; } }`,
     'web/src/lib/store/mask.svelte.ts': `switch (x) { default: count++; }`,
-  }), '[switch-default]', 3);
+    'web/src/lib/store/Result.svelte': `<script lang="ts">
+      function result(k: string) { switch (k) { default: return { ok: false, ...answer }; } }
+    </script>
+    <p>default: return 42;</p>`,
+  }), '[switch-default]', 4);
 });
 
 test('accepts refusal, never checks and normal cases without inspecting nested functions as returns', t => {
@@ -62,6 +67,9 @@ test('accepts refusal, never checks and normal cases without inspecting nested f
     }
     function refuse(kind: string) {
       switch (kind) { case 'pinned': doWork(); break; default: return; }
+    }
+    function read(kind: string) {
+      switch (kind) { default: return { ok: false, reason: 'unsupported' }; }
     }
     function checked(kind: 'fixed' | 'pinned') {
       switch (kind) {
@@ -85,7 +93,9 @@ test('rejects silent skips, including alias, parameterized and conditional forms
     skipped('alias', () => {});
     test.skip('known wrong result: #', () => {});
     test.skip('known wrong result: #2276x', () => {});
-  ` }), '[test-skip]', 7);
+    const extended = test.extend({});
+    extended.describe.skip('Playwright suite', () => {});
+  ` }), '[test-skip]', 8);
 });
 
 test('accepts issue-tagged names and ignores comments, strings and other objects', t => {
