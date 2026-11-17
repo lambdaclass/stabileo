@@ -133,6 +133,21 @@ describe('a slab panel meshed with its columns\' sections', () => {
     expect(square.cells).toBeGreaterThan(alongX.cells);
   });
 
+  it('meets an interior beam across it, cut at the mesh nodes on it, still with the columns\' sections', () => {
+    const id = build(true);
+    const a = modelStore.addNode(2.3, 0, 3), b = modelStore.addNode(2.3, 5, 3);
+    const rib = modelStore.addElement(a, b, 'frame');
+    const plan = planPlateMesh(id, { element: 'quad', size: 1, pattern: 'free', followMembers: true })!;
+    expect(plan.footprints).toBeDefined();
+    const onRib = (plan.mesh!.points as number[][]).filter((q) => Math.abs(q[0]! - 2.3) < 1e-9);
+    expect(onRib.length).toBeGreaterThan(5);
+    applyPlateMeshes([plan]);
+    expect(modelStore.elements.has(rib)).toBe(false);
+    const pieces = [...modelStore.elements.values()].filter((e) => [e.nodeI, e.nodeJ].every((n) => Math.abs(modelStore.nodes.get(n)!.x - 2.3) < 1e-9));
+    expect(pieces.length).toBeGreaterThan(4);
+    expect((modelStore.model.constraints ?? []).length).toBe(12);
+  });
+
   it('solves in equilibrium with a triangular mesh', () => {
     const id = build(true);
     const plan = planPlateMesh(id, { element: 'tri', size: 0.5, pattern: 'free' })!;

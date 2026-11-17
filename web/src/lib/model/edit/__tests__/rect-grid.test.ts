@@ -42,6 +42,15 @@ describe('a grid of rectangles', () => {
     }
   });
 
+  it('keeps the lines at multiples of the size from the edge beside a forced one, so neighbours with the same forced lines get the same lines', () => {
+    const lines = (y0: number) => {
+      const g = rectGrid({ frame, outer: rect(0, y0, 2.5, y0 + 3), holes: [], a: 0.5, b: 0.5, element: 'quad', fixedPoints: [[0.2, y0, 0]], maxCells: 20000 })!;
+      return [...new Set(g.points.map((p) => Math.round(p[0] * 1e6) / 1e6))].sort((x, y) => x - y);
+    };
+    expect(lines(0)).toEqual([0, 0.2, 0.5, 1, 1.5, 2, 2.5]);
+    expect(lines(3)).toEqual(lines(0));
+  });
+
   it('puts lines through the fixed points and along the members on the plate, and splits each cell in two for triangles', () => {
     const q = rectGrid({ frame, outer: rect(0, 0, 4, 4), holes: [], a: 1, b: 1, element: 'quad', fixedPoints: [[1.3, 2.7, 0]], fixedSegments: [[[0, 3.4, 0], [4, 3.4, 0]]], maxCells: 20000 })!;
     expect(q.points.some((p) => Math.abs(p[0] - 1.3) < 1e-9 && Math.abs(p[1] - 2.7) < 1e-9)).toBe(true);
