@@ -13,9 +13,10 @@ import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { DEFAULT_PLATE_MESH, frameOfLoop, plateGeometry, plateKindOf, type PlateSurface } from '../model/physical/plate';
 import type { Vec3 } from '../model/edit/affine';
-import { adoptCurrentMesh, physicalPlates, plateLevels, plateLoadDef, plateNamer, plateOfShell, plateStatus, shellAreaLoads, uniformLoads } from './physical-plates';
+import { adoptCurrentMesh, declareLegacyEdgeSupports, impliedEdgeSupports, physicalPlates, plateLevels, plateLoadDef, plateNamer, plateOfShell, plateStatus, shellAreaLoads, uniformLoads } from './physical-plates';
 import { syncDefinedLoads } from './defined-loads';
 import { whatIf } from './whatif.svelte';
+import { takeLoadedModel } from './loaded-model';
 import { applyRecognition, planRecognition } from './physical-recognition';
 
 const TOL = 1e-6;
@@ -173,7 +174,7 @@ export function panelLoops(panel: readonly Shell[]): number[][] | null {
  * A panel whose shells are one physical member's (a slab or wall recognised or placed) becomes that
  * member's plate, with its kind, levels and typology; others become new plates. One undo step.
  */
-export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boolean; size?: number; inferred?: boolean } = {}): number[] {
+export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boolean; size?: number; inferred?: boolean; impliedSides?: boolean } = {}): number[] {
   const out: number[] = [];
   const current = physicalPlates().filter((p) => plateStatus(p.id) === 'current').map((p) => p.id);
   modelStore.batch(() => {
@@ -204,7 +205,9 @@ export function platesFromShells(keys: readonly string[], opts: { keepMesh?: boo
       const shells = panel.map((x) => (x.kind === 'quad' ? modelStore.quads.get(x.id) : modelStore.plates.get(x.id)) as { curved?: boolean; offset?: PlateSurface['offset'] } | undefined);
       const curved = panel.every((x, k) => x.kind === 'quad' && !!shells[k]?.curved);
       const offset = shells[0]?.offset && shells.every((x) => JSON.stringify(x?.offset) === JSON.stringify(shells[0]!.offset)) ? shells[0]!.offset : undefined;
-      const surface: PlateSurface = { loops: loops.map((l) => l.length), materialId: panel[0]!.materialId, thickness: panel[0]!.thickness, mesh: { ...DEFAULT_PLATE_MESH, size }, ...(curved ? { curved } : {}), ...(offset ? { offset } : {}) };
+      const hostSides = (() => { const h = hostOf.get(panel[0]!.key); const g = h !== undefined ? modelStore.model.groups.get(h) : undefined; return g ? (physicalDataOf(g) as { surface?: PlateSurface } | null)?.surface?.edgeSupports : undefined; })();
+      const edgeSupports = hostSides ?? (opts.impliedSides ? impliedEdgeSupports(outer) : []);
+      const surface: PlateSurface = { loops: loops.map((l) => l.length), materialId: panel[0]!.materialId, thickness: panel[0]!.thickness, mesh: { ...DEFAULT_PLATE_MESH, size }, edgeSupports, ...(curved ? { curved } : {}), ...(offset ? { offset } : {}) };
       const members = { nodes: [...outer, ...holes.flat(), ...owned], quads: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'quad').map((s) => s.id), plates: opts.keepMesh === false ? [] : panel.filter((s) => s.kind === 'plate').map((s) => s.id) };
       const geo = plateGeometry({ nodes: modelStore.nodes, elements: modelStore.elements }, { id: 0, members, data: { surface } });
       if (!geo) continue;
@@ -282,7 +285,7 @@ export function platesFromMeshAtSolve(): number {
       const keys = [...(g.members.quads ?? []).map((q) => `q${q}`), ...(g.members.plates ?? []).map((p) => `p${p}`)];
       // A load the plate cannot take over (varying, partial, thermal) keeps the slab's own shells, so it is not lost.
       const keepMesh = d.meshAtSolve.meshed || shellLoadCount(keys) > uniformLoads(keys, shellAreaLoads()).gone.length;
-      if (platesFromShells(keys, { keepMesh, size: d.meshAtSolve.size }).length) n++;
+      if (platesFromShells(keys, { keepMesh, size: d.meshAtSolve.size, impliedSides: true }).length) n++;
       else { const { meshAtSolve: _m, ...rest } = d; modelStore.setGroupData(g.id, rest as unknown as Record<string, unknown>); }
     }
   });
@@ -292,16 +295,20 @@ export function platesFromMeshAtSolve(): number {
 /**
  * In PRO every shell is in a plate, however it came in (drawn, placed, loaded, imported): those no
  * plate holds are made plates with their shells as their mesh, so nothing in the analysis moves.
- * Projects that kept slabs waiting for the solve are brought in too. Part of no undo step.
+ * Projects that kept slabs waiting for the solve are brought in too. Shells of a model just loaded,
+ * and plates saved before `edgeSupports`, hold the sides a plain support at both ends held then.
+ * Part of no undo step.
  */
 export function ensurePlates(): number {
   // Explore restores the model exactly as it was when it closes: nothing is read into it meanwhile.
   // Basic 3D has no plates: there a slab waiting for its mesh stays one, and the solve meshes it (`deferred-slabs.ts`).
   if (whatIf.active || uiStore.analysisMode !== 'pro') return 0;
   let n = 0;
+  const loaded = takeLoadedModel();
   modelStore.withoutUndo(() => { n = platesFromMeshAtSolve(); });
   const loose = looseShells();
-  if (loose.length) modelStore.withoutUndo(() => { n += platesFromShells(loose, { inferred: true }).length; });
+  if (loose.length) modelStore.withoutUndo(() => { n += platesFromShells(loose, { inferred: true, impliedSides: loaded }).length; });
+  declareLegacyEdgeSupports();
   return n;
 }
 
