@@ -8,6 +8,7 @@
  * of its end displacements, exact. A section on a truss bar is read between its end nodes, along
  * which the bar stays straight.
  */
+import { generatedMemberBounds, memberLength, splitSpanLoad } from '../member-span-loads';
 import { solve } from '../wasm-solver';
 import { computeDisplacementAt } from '../diagrams';
 import type { AnalysisResults, SolverInput, SolverLoad } from '../types';
@@ -114,6 +115,7 @@ export function targetDisplacement(solver: SolverInput, quantity: InfluenceQuant
   const pc = split.pieces;
   const cutAt = pc ? pc.t * memberGeom(solver, pc.original).L : 0;
   const L = pc ? memberGeom(solver, pc.original).L : 0;
+  const bounds = pc ? generatedMemberBounds(L, [memberLength(split.solver, pc.first), memberLength(split.solver, pc.second)], [solver.nodes.get(solver.elements.get(pc.original)!.nodeI)!, split.solver.nodes.get(split.node)!, solver.nodes.get(solver.elements.get(pc.original)!.nodeJ)!].map(p => [p.x, p.z])) : [];
   const moved = loads.flatMap((l): SolverLoad[] => {
     if (!pc || (l.type !== 'pointOnElement' && l.type !== 'distributed' && l.type !== 'axialDistributed') || l.data.elementId !== pc.original) return [l];
     if (l.type === 'pointOnElement') {
@@ -121,18 +123,10 @@ export function targetDisplacement(solver: SolverInput, quantity: InfluenceQuant
         ? { type: 'pointOnElement', data: { ...l.data, elementId: pc.first } }
         : { type: 'pointOnElement', data: { ...l.data, elementId: pc.second, a: l.data.a - cutAt } }];
     }
-    const a = l.data.a ?? 0, b = l.data.b ?? L;
-    const qAt = (x: number) => l.data.qI + ((l.data.qJ - l.data.qI) * (x - a)) / Math.max(b - a, 1e-12);
-    const out: SolverLoad[] = [];
-    if (a < cutAt) {
-      const e = Math.min(b, cutAt);
-      out.push({ type: l.type, data: { elementId: pc.first, qI: l.data.qI, qJ: qAt(e), a, b: e } } as SolverLoad);
-    }
-    if (b > cutAt) {
-      const s = Math.max(a, cutAt);
-      out.push({ type: l.type, data: { elementId: pc.second, qI: qAt(s), qJ: l.data.qJ, a: s - cutAt, b: b - cutAt } } as SolverLoad);
-    }
-    return out;
+    return splitSpanLoad(l, L, [
+      { id: pc.first, start: 0, end: bounds[1], length: memberLength(split.solver, pc.first) },
+      { id: pc.second, start: bounds[1], end: L, length: memberLength(split.solver, pc.second) },
+    ], [solver.nodes.get(solver.elements.get(pc.original)!.nodeI)!, solver.nodes.get(solver.elements.get(pc.original)!.nodeJ)!].map(p => [p.x, p.z]) as [number[], number[]]);
   });
   const res = solve({ ...split.solver, loads: moved });
   const d = res.displacements.find((x) => x.nodeId === split.node);

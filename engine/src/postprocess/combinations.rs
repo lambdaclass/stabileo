@@ -108,14 +108,15 @@ struct EnvelopedFields<'a, D, R, E> {
     element_forces: &'a [E],
 }
 
-fn check_enveloped_inputs<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+fn check_result_fields<'a, D: Serialize + 'a, R: Serialize + 'a, E: Serialize + 'a>(
+    operation: &str,
     cases: impl Iterator<Item = (usize, EnvelopedFields<'a, D, R, E>)>,
 ) -> Result<(), String> {
     for (i, fields) in cases {
         let bad = crate::certify::finite::non_finite_paths(&fields);
         if let Some(first) = bad.first() {
             return Err(format!(
-                "Cannot compute the envelope: result {i} has a non-finite number at {}",
+                "{operation}: result {i} has a non-finite number at {}",
                 first.strip_prefix("$.").unwrap_or(first)
             ));
         }
@@ -162,10 +163,46 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 /// avoiding per-combination clones of every case.
 /// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
-    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
-        return None;
+    match combine_results_refs_checked(factors, cases) {
+        Ok(result) => result,
+        Err(_) => {
+            for (_, result) in cases {
+                for ef in &result.element_forces {
+                    super::diagrams::validate_diagram_loads_2d(ef).ok()?;
+                }
+            }
+            let non_finite = cases.iter()
+                .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
+                .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;
+            let mut structured_diagnostics = vec![non_finite.diagnostic()];
+            let (_, screen) = combined_screen_2d(factors, cases, &[]);
+            crate::known_issues::attach(&mut structured_diagnostics, screen);
+            Some(AnalysisResults {
+                displacements: vec![], reactions: vec![], element_forces: vec![], constraint_forces: vec![],
+                diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None,
+                result_summary: None, solver_run_meta: None,
+            })
+        }
     }
-    let template = cases.first()?;
+}
+
+fn combined_screen_2d(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)], carried: &[StructuredDiagnostic]) -> (Option<f64>, Vec<StructuredDiagnostic>) {
+    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
+    let diagnostics = crate::known_issues::combined_second_order(carried.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio);
+    (ratio, diagnostics)
+}
+
+pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Result<Option<AnalysisResults>, String> {
+    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
+        return Ok(None);
+    }
+    for (_, result) in cases {
+        crate::boundary::require_finite(*result)?;
+        for ef in &result.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
+    let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
 
     let mut displacements: Vec<Displacement> = tr.displacements.iter()
@@ -257,16 +294,22 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
         second_order.extend(second);
         crate::known_issues::attach(&mut structured_diagnostics, others);
     }
-    let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_2d))));
-    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
+    let (ratio, screen) = combined_screen_2d(factors, cases, &second_order);
+    crate::known_issues::attach(&mut structured_diagnostics, screen);
     let mut combined = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
+    check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {
+        displacements: &combined.displacements, reactions: &combined.reactions, element_forces: &combined.element_forces,
+    })))?;
+    for ef in &combined.element_forces {
+        super::diagrams::validate_diagram_input_2d(ef)?;
+    }
     let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_2d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_2d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     let summary = combined.result_summary.get_or_insert_with(Default::default);
     summary.member_chords = chords;
     summary.member_spans = spans;
-    Some(combined)
+    Ok(Some(combined))
 }
 
 /// `combine_results` for results received from outside the engine: a contributing case that
@@ -275,7 +318,14 @@ pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<Analys
     for case in input.cases.iter().filter(|c| input.factors.iter().any(|f| f.case_id == c.case_id && f.factor != 0.0)) {
         crate::known_issues::refuse_contained(&case.results.structured_diagnostics, &case.results)?;
     }
-    Ok(combine_results(input))
+    for case in &input.cases {
+        crate::boundary::require_finite(&case.results)?;
+        for ef in &case.results.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
+    let cases: Vec<_> = input.cases.iter().map(|c| (c.case_id, &c.results)).collect();
+    combine_results_refs_checked(&input.factors, &cases)
 }
 
 // ==================== 2D Envelope ====================
@@ -286,9 +336,14 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
         crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
     }
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
-    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+    check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
     }))?;
+    for result in results {
+        for ef in &result.element_forces {
+            super::diagrams::validate_diagram_input_2d(ef)?;
+        }
+    }
 
     // maxAbsResults
     let mut displacements = first.displacements.clone();
@@ -542,6 +597,12 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
 }
 
 pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
+    for (_, result) in cases {
+        crate::boundary::require_finite(*result)?;
+        for ef in &result.element_forces {
+            super::diagrams_3d::validate_diagram_input_3d(ef)?;
+        }
+    }
     let Some(template) = cases.first() else { return Ok(None) };
     let tr = template.1;
 
@@ -651,6 +712,12 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
     let terms: Vec<(f64, usize, &AnalysisResults3D)> = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].0, cases[i].1))).collect();
     let shells = combine_shells(&terms, terms.first().map_or((template.0, tr), |&(_, id, r)| (id, r)), plate_thickness)?;
     let mut combined = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: shells.plates, quad_stresses: shells.quads, quad_nodal_stresses: shells.nodal, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, timings: None, result_summary: Some(ResultSummary { second_order_ratio: ratio, ..Default::default() }), solver_run_meta: None };
+    check_result_fields("Cannot combine results", std::iter::once((0, EnvelopedFields {
+        displacements: &combined.displacements, reactions: &combined.reactions, element_forces: &combined.element_forces,
+    })))?;
+    for ef in &combined.element_forces {
+        super::diagrams_3d::validate_diagram_input_3d(ef)?;
+    }
     let factored = factors.iter().filter(|f| f.factor != 0.0).filter_map(|f| case_slot.get(&f.case_id).map(|&i| (f.factor, cases[i].1))).map(|(f, r)| (f, r.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_3d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
@@ -676,9 +743,14 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<FullEnvelope
 
 pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Result<FullEnvelope3D, String> {
     let first = results.first().ok_or_else(|| "Cannot compute the envelope of no results".to_string())?;
-    check_enveloped_inputs(results.iter().enumerate().map(|(i, r)| {
+    check_result_fields("Cannot compute the envelope", results.iter().enumerate().map(|(i, r)| {
         (i, EnvelopedFields { displacements: &r.displacements, reactions: &r.reactions, element_forces: &r.element_forces })
     }))?;
+    for result in results {
+        for ef in &result.element_forces {
+            super::diagrams_3d::validate_diagram_input_3d(ef)?;
+        }
+    }
 
     // maxAbsResults3D
     let mut displacements = first.displacements.clone();

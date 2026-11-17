@@ -558,7 +558,7 @@ fn axial_distributed_fef_ok() {
     let a = any_in(0.0, l);
     let b = any_in(0.0, l);
     let (qi, qj) = (any_q(), any_q());
-    let f = axial_distributed_fef(qi, qj, a, b, l);
+    let f = axial_distributed_fef_integral_for_proof(qi, qj, a, b, l);
     assert!(all_finite(&f));
 }
 

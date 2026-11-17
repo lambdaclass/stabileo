@@ -384,8 +384,11 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     // Otherwise reloading that save adds applicability to the unread notice and
     // changes the snapshot. Provenance still belongs to the opened project, not
     // the previous project's session state captured by modelStore.snapshot().
+    const current = modelStore.snapshot();
+    const usesLegacySelfWeight = analysisMode !== 'pro' || current.analysis?.selfWeight === undefined;
     recheckStore.openProject({
-      ...modelStore.snapshot(),
+      ...current,
+      includeSelfWeight: usesLegacySelfWeight && uiStore.includeSelfWeight,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
     } as never, analysisMode);

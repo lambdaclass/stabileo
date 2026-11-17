@@ -193,11 +193,9 @@ fn expand_fef_12_to_14_exact_mapping() {
 fn fef_partial_distributed_2d_zero_and_subthreshold_span() {
     use dedaliano_engine::element::fef_partial_distributed_2d;
 
-    let sub = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0 + 5e-13, 6.0, 0.0);
-    assert_eq!(sub, [0.0; 6]);
-
-    let zero = fef_partial_distributed_2d(100.0, 200.0, 2.0, 2.0, 6.0, 0.0);
-    assert_eq!(zero, [0.0; 6]);
+    for b in [2.0, 2.0 + 5e-13] {
+        assert!(std::panic::catch_unwind(|| fef_partial_distributed_2d(100.0, 200.0, 2.0, b, 6.0, 0.0)).is_err());
+    }
 
     let q = -12.0;
     let l = 4.0;
