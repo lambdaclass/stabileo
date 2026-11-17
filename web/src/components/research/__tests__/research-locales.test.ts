@@ -1,4 +1,3 @@
-import '../../../__tests__/enable-public-features';
 import { expect, it } from 'vitest';
 import { EXPERIMENTS } from '../experiments';
 import { RESEARCH_GALLERY, researchLocales, supportsResearchRoute } from '../locales';

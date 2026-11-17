@@ -48,7 +48,7 @@ export function isDemoPath(pathname: string): boolean {
 
 export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = location): { kind: RouteKind; path: string } {
   const parsed = parsePublicPath(loc.pathname).path;
-  const path = PUBLIC_POLICY_AVAILABLE ? (import.meta.env.VITE_TOOLS !== '0' ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
+  const path = PUBLIC_POLICY_AVAILABLE ? (__PUBLIC_FEATURES__.tools ? movedRoute(parsed) : null) ?? (parsed.replace(/\/+$/, '') || '/') : parsed;
   const params = new URLSearchParams(loc.search);
   const p = loc.pathname;
   if (params.has('embed') || isAppPath(p) || isDemoPath(p) || SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
@@ -58,10 +58,10 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (path === '/blog' || path.startsWith('/blog/') || isStandingPagePath(path)) return { kind: 'blog', path };
   const top = path.split('/')[1];
   if (top === 'tools' || top === 'examples') return { kind: top === 'tools' && !PUBLIC_POLICY_AVAILABLE && !/^\/tools\/?$/.test(path) && !isMainToolPath(path) ? 'landing' : top, path };
-  if (import.meta.env.VITE_DIAGRAM_GAME !== '0' && isGamePath(path)) return { kind: 'game', path };
+  if (__PUBLIC_FEATURES__.diagramGame && isGamePath(path)) return { kind: 'game', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
-  if (import.meta.env.VITE_ACCOUNTS !== '0' && isRegisterPath(path)) return { kind: 'register', path };
+  if (__PUBLIC_FEATURES__.accounts && isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 

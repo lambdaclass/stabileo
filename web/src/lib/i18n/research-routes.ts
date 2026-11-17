@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../config/public-features.mjs';
 import { publicLocaleEnabled, publicFeatures, type PublicFeatures } from '../features';
 
 export const RESEARCH_GALLERY = '/research';
@@ -37,7 +38,7 @@ export function isResearchRoute(path: string): boolean {
 export function researchLocales(path: string, flags?: PublicFeatures): readonly string[] {
   const route = path.replace(/\/+$/, '') || '/';
   const locales = PUBLISHED[route] ?? ['en'];
-  return import.meta.env?.VITE_RESEARCH === '0'
+  return !buildFeatures().research
     ? locales.filter(locale => locale !== 'hu')
     : locales.filter(locale => publicLocaleEnabled(route, locale, flags ?? publicFeatures()));
 }

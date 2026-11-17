@@ -86,7 +86,6 @@ jobs:
       - name: Build the app
         env:
           BASE_PATH: /
-          VITE_ACCOUNTS: ${{ vars.VITE_ACCOUNTS }}
         run: make web.build
 
       - name: Build the admin site

@@ -1,9 +1,7 @@
 import { PUBLIC_LOCALES } from '../../i18n/offered';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { findPost, type Block } from '..';
 
-vi.hoisted(() => { vi.resetModules(); vi.stubEnv('VITE_RESEARCH', '1'); });
-afterAll(() => vi.unstubAllEnvs());
 
 function safetyTokens(text: string, locale: string): string[] {
   const grouping = new Intl.NumberFormat(locale).format(10000).charAt(2);
@@ -139,13 +137,13 @@ describe('0.5.0 release-note review regressions', () => {
 });
 
 it.each(['', '0'])('keeps main release-note languages public with research=%j', async (research) => {
-  vi.stubEnv('VITE_RESEARCH', research);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: research === '1' });
   vi.resetModules();
   try {
     const { PUBLIC_LOCALES: defaults } = await import('../../i18n/offered');
     for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) expect(defaults).toContain(locale);
   } finally {
-    vi.stubEnv('VITE_RESEARCH', '1');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
     vi.resetModules();
   }
 });
@@ -159,7 +157,7 @@ it('hu preserves every 0.6.1 block and its safety data', () => {
   body!.blocks.forEach((block, index) => {
     const source = post.i18n.en.blocks[index];
     expect(safetyData(block, 'hu'), `hu: block ${index}`).toEqual(safetyData(source));
-    if (block.k === 'ext' && source.k === 'ext') expect(block.href).toBe(source.href);
+    if (block.k === 'ext' && source.k === 'ext') expect(block.href).toBe(source.href.replace(/\/docs\/releases\/v0\.6\.1\.md$/, '/docs/releases/v0.6.1.hu.md'));
     if (block.k === 'link' && source.k === 'link') expect(block.slug).toBe(source.slug);
   });
 });

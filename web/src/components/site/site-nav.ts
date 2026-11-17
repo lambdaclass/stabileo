@@ -3,6 +3,7 @@
  * `section` items are parts of the landing (scrolled to there, linked to from elsewhere); `page`
  * items are pages of their own.
  */
+import { buildFeatures } from '../../../config/public-features.mjs';
 import { tools, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from '../../lib/features';
 
 export type NavPage = 'examples' | 'tools' | 'game' | 'research' | 'blog';
@@ -21,8 +22,8 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export const SITE_NAV = PUBLIC_POLICY_AVAILABLE ? NAV_ITEMS.flatMap(item => {
-  if (item.id === 'examples' && import.meta.env?.VITE_TOOLS !== '0' && tools()) return [];
-  return item.id === 'tools' && import.meta.env?.VITE_DIAGRAM_GAME !== '0' ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
+  if (item.id === 'examples' && buildFeatures().tools && tools()) return [];
+  return item.id === 'tools' && (typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().diagramGame : __PUBLIC_FEATURES__.diagramGame) ? [item, { kind: 'page', id: 'game', to: '/diagram-game', key: 'landing.navGame' } as const] : [item];
 }).filter(item => item.kind !== 'page' || publicFeatureEnabled(item.to)) : NAV_ITEMS;
 
 export type NavCurrent = NavPage | null;

@@ -1,3 +1,4 @@
+import { featureDefines, featuresForMode } from './config/public-features.mjs';
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
@@ -9,7 +10,8 @@ import { readFileSync } from 'fs';
  * pages. Building it apart keeps the application's own chunk graph exactly as it is.
  *   npx vite build -c vite.research-viewer.config.ts --outDir <dir>
  */
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  define: featureDefines(featuresForMode(mode)),
   plugins: [
     svelte(),
     {
@@ -53,4 +55,4 @@ export default defineConfig({
       cssFileName: 'viewer',
     },
   },
-});
+}));

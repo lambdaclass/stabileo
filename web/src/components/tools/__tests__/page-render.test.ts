@@ -1,4 +1,3 @@
-import '../../../__tests__/enable-public-features';
 import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { loadToolsPage } from '../load-page';

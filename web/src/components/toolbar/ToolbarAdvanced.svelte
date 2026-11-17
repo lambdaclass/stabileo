@@ -172,7 +172,7 @@
       labelKey: 'advHelp.stress.label',
       textKey: 'advHelp.stress.text',
     },
-    ...(import.meta.env.VITE_TOOLS !== '0' ? { mohr: {
+    ...(__PUBLIC_FEATURES__.tools ? { mohr: {
       labelKey: 'advHelp.mohr.label',
       textKey: 'advHelp.mohr.text',
     } } : {}),
@@ -258,7 +258,7 @@
     { key: 'stress', labelKey: 'advanced.sectionAnalysis',
       isActive: () => uiStore.currentTool === 'select' && uiStore.selectMode === 'stress',
       close: () => { uiStore.selectMode = 'elements'; resultsStore.stressQuery = null; } },
-    ...(import.meta.env.VITE_TOOLS !== '0' ? [{ key: 'mohr', labelKey: 'advanced.mohr',
+    ...(__PUBLIC_FEATURES__.tools ? [{ key: 'mohr', labelKey: 'advanced.mohr',
       isActive: () => mohrPanel.open,
       close: () => closeMohr() }] : []),
     { key: 'pdelta', labelKey: 'advanced.pdelta',
@@ -754,7 +754,7 @@
     {@render helpPanel('stress')}
       {/if}
     {/if}
-    {#if import.meta.env.VITE_TOOLS !== '0' && shown('mohr')}
+    {#if __PUBLIC_FEATURES__.tools && shown('mohr')}
       {#if !flat || active?.key !== 'mohr'}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       {#if tools()}

@@ -56,7 +56,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { searchMetadataSuite } from './search-metadata';
@@ -68,7 +68,7 @@ import { PAPER_LOCALES } from '../../../components/paper/locales';
 import { PUBLIC_LOCALES } from '../offered';
 import { publishedLocales } from '../published';
 import { MOVED_PAGES, movedRoute } from '../../legacy-routes';
-import { buildPublicFeatures } from '../../../../scripts/public-paths';
+import { featuresForMode } from '../../../../config/public-features.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -160,6 +160,20 @@ describe('every published URL is served, not redirected', () => {
 
   searchMetadataSuite(DIST);
 
+  it('publishes expanded research and tools while omitting account and game UI', () => {
+    for (const path of ['/en/research/', '/hu/research/', '/en/tools/', '/en/tools/mohr-2d/']) {
+      expect(fileServedWithoutRedirect(path), path).not.toBeNull();
+    }
+    for (const path of ['/en/register/', '/en/terms/', '/en/privacy/', '/en/usage-data/', '/en/diagram-game/']) {
+      expect(fileServedWithoutRedirect(path), path).toBeNull();
+    }
+    const assets = join(DIST, 'assets');
+    for (const file of readdirSync(assets).filter(file => file.endsWith('.js'))) {
+      const code = readFileSync(join(assets, file), 'utf8');
+      expect(/account\.signInTitle|Sign in to Stabileo|landing\.footAdCookies|landing\.navGame/.test(code), file).toBe(false);
+    }
+  });
+
   it('the build produced a sitemap with URLs in it', () => {
     // Without this the three assertions below would pass vacuously on an empty
     // list — the way a gate of this shape usually rots.
@@ -229,7 +243,7 @@ describe('every published URL is served, not redirected', () => {
 
   it('keeps former examples canonical at their built addresses and redirects only when tools are enabled', () => {
     const urls = publishedUrls();
-    const flags = buildPublicFeatures();
+    const flags = featuresForMode('production');
     for (const locale of PUBLIC_LOCALES) {
       for (const from of MOVED_PAGES) {
         const file = fileServedWithoutRedirect(`/${locale}${from}/`);

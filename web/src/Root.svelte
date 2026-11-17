@@ -55,7 +55,7 @@
 
   async function sync() {
     const token = ++revision;
-    if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
+    if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
       if (token !== revision) return;
@@ -119,14 +119,14 @@
   });
 </script>
 
-{#if !app && current.kind !== 'app' && !(import.meta.env.VITE_ACCOUNTS !== '0' && current.kind === 'register')}
+{#if !app && current.kind !== 'app' && !(__PUBLIC_FEATURES__.accounts && current.kind === 'register')}
   <SiteHeader path={current.path} />
 {/if}
 
 {#if app}
   {@const App = app}
   <App />
-{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || (import.meta.env.VITE_DIAGRAM_GAME !== '0' && current.kind === 'game') || current.kind === 'paper' || current.kind === 'blog' || (import.meta.env.VITE_ACCOUNTS !== '0' && current.kind === 'register')}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples' || (__PUBLIC_FEATURES__.diagramGame && current.kind === 'game') || current.kind === 'paper' || current.kind === 'blog' || (__PUBLIC_FEATURES__.accounts && current.kind === 'register')}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}

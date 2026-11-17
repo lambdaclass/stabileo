@@ -7,14 +7,13 @@ import { publicPaths } from '../public-paths';
 import { publicFeatureEnabled } from '../../src/lib/features';
 import { routeKind } from '../../src/lib/public-route';
 
-afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+afterEach(() => { setPublicLocale('en'); vi.unstubAllGlobals(); });
 
 it.each([undefined, '0', '1'].flatMap(accounts => [undefined, '0', '1'].map(tools => ({ accounts, tools }))))('known wrong result: #2099 — main footer and account publication with %j', async ({ accounts, tools }) => {
-  vi.stubEnv('VITE_ACCOUNTS', accounts);
-  vi.stubEnv('VITE_TOOLS', tools);
-  vi.stubEnv('VITE_RESEARCH', '0');
-  vi.stubEnv('VITE_DIAGRAM_GAME', '0');
-  vi.stubEnv('DEV', false);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, accounts: accounts === '1' });
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: tools === '1' });
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: false });
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, diagramGame: false });
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   setPublicLocale('en');
   const body = render(Footer).body;

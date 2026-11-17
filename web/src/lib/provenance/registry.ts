@@ -12,6 +12,7 @@
  * change that makes the same saved model give different numbers gets an entry here. The versions
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
+import { buildFeatures } from '../../../config/public-features.mjs';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
@@ -22,7 +23,7 @@ export type Localised = Record<RegistryLocale, string> & { hu?: string };
 export function registryLocale(locale: string): RegistryLocale;
 export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
 export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
-  if (locale === 'hu' && import.meta.env.VITE_RESEARCH === '1' && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
+  if (locale === 'hu' && buildFeatures().research && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 

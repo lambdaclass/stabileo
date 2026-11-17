@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv, searchForWorkspaceRoot, type Plugin } from 'vite';
+import { featureDefines, featuresForMode, type BuildFeatures } from './config/public-features.mjs';
+import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
@@ -42,50 +43,45 @@ function wasmStubPlugin(): Plugin {
  * bundled. The entries are copied line by line, which `union-merge-safe.test.ts` keeps possible:
  * one entry per line.
  */
-const publicBuildEnvironment: { value: Record<string, string | undefined> } = { value: process.env };
-
-function publicBuildSwitchesPlugin(): Plugin {
-  let switches: Record<string, string> = {};
+function publicBuildSwitchesPlugin(featureConfig: unknown) {
+  let features: BuildFeatures;
   let e2e = false;
-  return {
+  let testing = false;
+  const plugin: Plugin = {
     name: 'public-build-switches',
-    config(config, { mode, command }) {
-      if (process.env.VITEST) return;
-      const environment = { ...loadEnv(mode, config.envDir ?? __dirname), ...process.env };
-      switches = Object.fromEntries(['ACCOUNTS', 'RESEARCH', 'TOOLS', 'DIAGRAM_GAME'].map(name => {
-        const key = `VITE_${name}`;
-        return [key, environment[key] ?? (name === 'ACCOUNTS' && command === 'serve' ? '1' : '0')];
-      }));
-      return { define: Object.fromEntries(Object.entries(switches).map(([key, value]) => [`import.meta.env.${key}`, JSON.stringify(value)])) };
+    config(_config, { mode, command }) {
+      testing = !!process.env.VITEST && command === 'serve';
+      features = featuresForMode(testing ? 'test' : mode, featureConfig);
+      if (testing) return;
+      return { define: featureDefines(features, command === 'build') };
     },
     configResolved(config) {
-      publicBuildEnvironment.value = { ...config.env, ...switches };
       e2e = config.env.VITE_E2E === '1';
     },
     generateBundle() {
-      if (e2e) this.emitFile({ type: 'asset', fileName: 'e2e-features.json', source: JSON.stringify(switches) });
+      if (e2e) this.emitFile({ type: 'asset', fileName: 'e2e-features.json', source: JSON.stringify(features) });
     },
   };
+  return { plugin, features: () => features, testing: () => testing };
 }
 
-function publicI18nPlugin(): Plugin {
+function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
-  const eager = !!process.env.VITEST;
-  const offered = (code: string) => buildPublicLocales(publicBuildEnvironment.value.VITE_RESEARCH === '1').some(locale => locale === code);
+  const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
   const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
     const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
       if (!m) return false;
-      if (!eager && !ADMIN && m[2].startsWith('admin.')) return false;
-      if (!eager && publicBuildEnvironment.value.VITE_TOOLS === '0' && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
-      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
-      if (!eager && !ADMIN && publicBuildEnvironment.value.VITE_ACCOUNTS === '0' && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
+      if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
+      if (!eager() && !features().tools && /^(?:advanced\.mohr$|advHelp\.mohr\.|stress\.openMohr$)/.test(m[2])) return false;
+      if (!eager() && !ADMIN && !features().accounts && m[2].startsWith('disclaimer.') && m[2] !== 'disclaimer.report') return false;
+      if (!eager() && !ADMIN && !features().accounts && /^(?:account\.|legal\.|cloud\.|feedbackForm\.|usage\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2])) return false;
+      if (!features().diagramGame && m[2] === 'landing.navGame') return false;
       const publicEntry = PUBLIC_KEY_PREFIXES.some(prefix => m[2].startsWith(prefix))
-        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || publicBuildEnvironment.value.VITE_ACCOUNTS !== '0')
-        && (m[2] !== 'landing.navGame' || publicBuildEnvironment.value.VITE_DIAGRAM_GAME !== '0');
+        && (!/^(?:legal\.|landing\.foot(?:Terms|Privacy|AdCookies)$)/.test(m[2]) || features().accounts);
       return publicEntry === publicOnly;
     });
     return `{\n${lines.join('\n')}\n}`;
@@ -107,7 +103,7 @@ function publicI18nPlugin(): Plugin {
       let out = '';
       const lazy: string[] = [];
       for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu']) {
-        if (!offered(loc) || (!eager && loc !== 'en')) {
+        if (!offered(loc) || (!eager() && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
           if (offered(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
@@ -266,8 +262,24 @@ if (researchBuildId !== 'unavailable') {
 
 const preloads = loadedPreloads();
 
-export default defineConfig({
-  plugins: [publicBuildSwitchesPlugin(), researchLocaleBuildPlugin(() => publicBuildEnvironment.value), preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte({ preprocess: { markup: ({ content }) => process.env.VITEST ? { code: content } : prunePublicBuildBranches(content, publicBuildEnvironment.value) } }), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+export function createWebConfig(featureConfig?: unknown): UserConfig {
+  const switches = publicBuildSwitchesPlugin(featureConfig);
+  return {
+    ...baseConfig,
+    plugins: [
+      switches.plugin,
+      researchLocaleBuildPlugin(switches.features),
+      preloads.plugin,
+      wasmStubPlugin(),
+      publicI18nPlugin(switches.features, switches.testing),
+      resultChangeMetadataPlugin(),
+      svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
+      ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
+    ],
+  };
+}
+
+const baseConfig = defineConfig({
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
@@ -383,3 +395,5 @@ export default defineConfig({
     ],
   },
 });
+
+export default createWebConfig();

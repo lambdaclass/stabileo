@@ -15,7 +15,7 @@ import { routeKind, restoreRedirectedRoute } from './lib/public-route';
 import { restoreMovedRoute } from './lib/legacy-routes';
 import { i18n, ensureLocale, ensurePublicLocale, warnLocaleLoadFailure } from './lib/i18n/store.svelte';
 import { parsePublicPath } from './lib/i18n/public-routes';
-import { accounts, ACCOUNT_ROUTES_AVAILABLE } from './lib/features';
+import { accounts } from './lib/features';
 
 // Browser-test hooks — BUILD-TIME GATED.
 //
@@ -45,8 +45,8 @@ function installTestHooks() {
 // this entry and make App import it; top-level await would then deadlock App.
 async function bootstrap() {
   restoreRedirectedRoute();
-  if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
-  if (ACCOUNT_ROUTES_AVAILABLE && accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
+  if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
+  if (__PUBLIC_FEATURES__.accounts && accounts()) void import('./lib/tracking/tracking').then(m => m.startTracking());
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     document.getElementById('prerender')?.remove();

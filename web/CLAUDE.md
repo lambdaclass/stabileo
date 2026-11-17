@@ -38,6 +38,8 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 ## Commands
 
+`web/config/features.json` controls which public features are compiled into the site. Vite uses the `production` entry for builds and `development` for the dev server. Vitest uses `test`. Each entry must give a boolean for `accounts`, `research`, `tools`, and `diagramGame`. Production enables research and tools. Accounts stay off until the backend is deployed and legal review is complete.
+
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
 - `npm run test` — The full Vitest gate. Runs **three passes** and fails if any fails:

@@ -4,13 +4,13 @@
   import { SOCIAL_ICONS as ICONS } from '../../lib/contact/channels';
   import PublicLink from './PublicLink.svelte';
   import BrandMark from './BrandMark.svelte';
-  import { accounts, ACCOUNT_ROUTES_AVAILABLE, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE, tools } from '../../lib/features';
+  import { accounts, publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE, tools } from '../../lib/features';
   import { onMount } from 'svelte';
 
   let adConsent = $state<typeof import('../../lib/tracking/ad-consent.svelte').adConsent | null>(null);
 
   onMount(() => {
-    if (ACCOUNT_ROUTES_AVAILABLE && accounts()) {
+    if (__PUBLIC_FEATURES__.accounts && accounts()) {
       void import('../../lib/tracking/ad-consent.svelte').then(
         module => { adConsent = module.adConsent; },
         error => console.warn('landing: advertising preferences did not load', error),
@@ -22,7 +22,7 @@
   const GROUPS: [string, string, [string, string][]][] = [
     ['product', 'landing.navProduct', [...(tools() ? [] : [['/examples', 'landing.navExamples'] as [string, string]]), ['/tools', 'landing.navTools'], ['/#pricing', 'landing.navPricing']]],
     ['verification', 'landing.footVerification', [['/reliability', 'landing.footReliability'], ['/research', 'landing.navResearch'], ['/paper', 'landing.navPaper'], ['/cirsoc', ''], ['/sap2000-alternative', 'landing.footSap2000'], ['/etabs-alternative', 'landing.footEtabs']]],
-    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ...(ACCOUNT_ROUTES_AVAILABLE && accounts() ? [['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']] as [string, string][] : [])]],
+    ['project', 'landing.footProject', [['/blog', 'landing.footBlog'], ['/changelog', 'landing.footChangelog'], ...(__PUBLIC_FEATURES__.accounts && accounts() ? [['/terms', 'landing.footTerms'], ['/privacy', 'landing.footPrivacy']] as [string, string][] : [])]],
   ];
 </script>
 
@@ -47,7 +47,7 @@
               {#if id === 'project'}
                 <li><a href={DOCS_HUB_URL} target="_blank" rel="noreferrer">{t('landing.footDocs')}</a></li>
                 <li><a href={REPO_URL} target="_blank" rel="noreferrer">{t('landing.footRepo')}</a></li>
-                {#if adConsent?.available}<li><button onclick={() => adConsent?.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button></li>{/if}
+                {#if __PUBLIC_FEATURES__.accounts && adConsent?.available}<li><button onclick={() => adConsent?.reopen()} data-testid="footer-ad-cookies">{t('landing.footAdCookies')}</button></li>{/if}
               {/if}
             </ul>
           </div>

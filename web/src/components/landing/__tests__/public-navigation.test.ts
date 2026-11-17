@@ -1,4 +1,3 @@
-import '../../../__tests__/enable-public-features';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 
@@ -139,7 +138,7 @@ it('owns native scroll restoration while the public router is mounted', async ()
 it('a link to a moved page points straight at its new address', async () => {
   const { movedRoute } = await import('../../../lib/legacy-routes');
   const source = readFileSync('src/components/landing/PublicLink.svelte', 'utf8');
-  expect(source).toContain("const target = $derived(import.meta.env.VITE_TOOLS !== '0' ? movedRoute(to) ?? to : to);");
+  expect(source).toContain("const target = $derived(__PUBLIC_FEATURES__.tools ? movedRoute(to) ?? to : to);");
   expect(movedRoute('/examples')).toBe('/tools');
   expect(movedRoute('/examples/beam-frame')).toBe('/tools/beam-frame');
   expect(movedRoute('/tools')).toBeNull();

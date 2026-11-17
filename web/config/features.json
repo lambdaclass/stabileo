@@ -1,0 +1,20 @@
+{
+  "production": {
+    "accounts": false,
+    "research": true,
+    "tools": true,
+    "diagramGame": false
+  },
+  "development": {
+    "accounts": true,
+    "research": true,
+    "tools": true,
+    "diagramGame": true
+  },
+  "test": {
+    "accounts": true,
+    "research": true,
+    "tools": true,
+    "diagramGame": true
+  }
+}

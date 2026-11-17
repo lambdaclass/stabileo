@@ -6,6 +6,7 @@
  * scope; one that is cheap can be read on every access.
  */
 
+import { buildFeatures } from '../../config/public-features.mjs';
 import { publicFeatureEnabledWithFlags, type PublicFeatures } from './public-feature-policy';
 export type { PublicFeatures } from './public-feature-policy';
 
@@ -38,24 +39,24 @@ export function canonicalSections(): boolean {
   return readFlag('canonical-sections', true);
 }
 
-export const PUBLIC_POLICY_AVAILABLE = import.meta.env?.VITE_RESEARCH === '1' || import.meta.env?.VITE_TOOLS !== '0' || import.meta.env?.VITE_DIAGRAM_GAME !== '0' || import.meta.env?.VITE_ACCOUNTS !== '0';
-
-export const ACCOUNT_ROUTES_AVAILABLE = import.meta.env?.VITE_ACCOUNTS !== '0';
+export const PUBLIC_POLICY_AVAILABLE = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined'
+  ? Object.values(buildFeatures()).some(Boolean)
+  : __PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts;
 
 export function accounts(): boolean {
-  return ACCOUNT_ROUTES_AVAILABLE && readFlag('accounts', import.meta.env?.DEV || import.meta.env?.VITE_ACCOUNTS === '1');
+  return buildFeatures().accounts && readFlag('accounts', true);
 }
 
 export function research(): boolean {
-  return import.meta.env?.VITE_RESEARCH !== '0' && readFlag('research', import.meta.env?.VITE_RESEARCH === '1');
+  return buildFeatures().research && readFlag('research', true);
 }
 
 export function tools(): boolean {
-  return import.meta.env?.VITE_TOOLS !== '0' && readFlag('tools', import.meta.env?.VITE_TOOLS === '1');
+  return buildFeatures().tools && readFlag('tools', true);
 }
 
 export function diagramGame(): boolean {
-  return import.meta.env?.VITE_DIAGRAM_GAME !== '0' && readFlag('diagram-game', import.meta.env?.VITE_DIAGRAM_GAME === '1');
+  return buildFeatures().diagramGame && readFlag('diagram-game', true);
 }
 
 export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });
