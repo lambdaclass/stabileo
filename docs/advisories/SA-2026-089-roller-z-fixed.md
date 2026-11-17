@@ -1,4 +1,4 @@
-# SA-2026-089: A 3D roller or unknown support name silently became fixed
+# SA-2026-089: Unresolved 3D supports silently became fixed
 
 | | |
 |---|---|
@@ -7,12 +7,12 @@
 | Issue | [#2276](https://github.com/lambdaclass/stabileo/issues/2276) |
 | Fix | Worktree fix for #2276; pending merge and release |
 | Fixed release | Not released |
-| Affected versions | Confirmed on origin/main `44d527d64933c07c8a812f04ad2373e4d83eb72c`; historical releases and introduction not assessed |
+| Affected versions | Confirmed on origin/main `44d527d64933c07c8a812f04ad2373e4d83eb72c`; unmasked custom3d also confirmed on origin/main `cf92724704aa0e4d15ac9563fb8e52f525909dae`. Historical releases and introduction not assessed |
 | Re-check registry | [`roller-z-fixed`](../../web/src/lib/provenance/result-changes/roller-z-fixed.json), [`roller-z-fixed-design`](../../web/src/lib/provenance/result-changes/roller-z-fixed-design.json) |
 
 ## Affected features
 
-A 3D model with a `rollerZ` or previously unknown support type, in Basic 3D or PRO.
+A 3D model with an unmasked `rollerZ`, an unmasked `custom3d` or an unknown support type, in Basic 3D or PRO.
 The web support-name conversion precedes linear/nonlinear and case/combination dispatch
 to WASM. The defined projection of a plane `rollerZ` is unaffected. The Rust 3D API
 already takes restraint booleans and has no corresponding support-name conversion.
@@ -20,8 +20,8 @@ already takes restraint booleans and has no corresponding support-name conversio
 ## What was wrong
 
 The 3D named-support switch had no `rollerZ` case. Its default restrained all six
-translations and rotations, also applying that condition to any unknown name. A
-successful solve therefore described a different support condition without a warning.
+translations and rotations for any unknown name. The explicit `custom3d` case
+also returned six fixed restraints when the support had no mask. A successful solve therefore described a different support condition without a warning.
 Member forces, reactions, displacements and downstream design could be wrong.
 
 The shipped `rc-beam-flexure` example is described as simply supported but used
@@ -32,15 +32,16 @@ left/right vertical reactions were 41.25/68.75 kN; equilibrium for the intended
 simply supported model gives 55/55 kN and midspan bending moment 68.75 kN·m.
 
 The [results-change record](../results-changes/2026-11-roller-z-fixed.md) derives
-these values from the fixture's geometry, explicit loads and self-weight. This
-witness proves a silent wrong result on main; it is not an error bound for other models.
+these values from the fixture's geometry, explicit loads and self-weight. Replacing
+the original right bearing label with `custom3d` and omitting its mask produced the
+same right reaction moment and vertical reaction without warnings on main.
 
 ## How to tell if your model is affected
 
-Inspect 3D support names and explicit restraint masks. An unmasked `rollerZ`, or an
-unknown support name, used the fixed fallback. A correct explicit mask on a recognized
-name already took precedence. The saved-project notice deliberately selects the
-requested stored-type scope, including `rollerZ` supports that already have masks.
+Inspect 3D support names and explicit restraint masks. An unmasked `rollerZ`, an
+unmasked `custom3d` or an unknown support name used the fixed fallback. A correct
+explicit mask on a recognized name already took precedence. The saved-project
+notice selects those three affected inputs.
 An equilibrium check of the substituted fixed model cannot verify that its supports
 match the intended structure.
 
@@ -49,7 +50,7 @@ match the intended structure.
 The #2276 worktree correction, pending merge and release. The named switch is exhaustive
 at compile time and refuses unknown runtime values, including values accompanied by a
 mask. The legacy `rollerZ` has contradictory 2D, gizmo and example meanings; genuine 3D
-solves now require explicit restraints instead of guessing. The 2D projection remains
+solves now require explicit restraints for that name and for `custom3d`. The 2D projection remains
 defined. Solver export and imposed-displacement validation share the same mapping.
 The bundled beam now carries an explicit simply supported bearing mask.
 

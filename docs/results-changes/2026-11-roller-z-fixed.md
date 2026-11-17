@@ -6,7 +6,8 @@ Issue [#2276](https://github.com/lambdaclass/stabileo/issues/2276).
 
 On origin/main `44d527d64933c07c8a812f04ad2373e4d83eb72c`, the named 3D support
 switch omitted `rollerZ`. The default returned six rigid restraints for that name and
-for every unknown name. Analysis completed without a warning about this substitution.
+for every unknown name. The explicit case for `custom3d` used the same clamp when
+its mask was missing. Analysis completed without a warning about this substitution.
 The web adapter sent the substituted booleans to WASM, so the engine could not identify
 that a named slider had become a clamp. The defect also affected imposed-displacement
 validation, which consulted the same named mapping.
@@ -30,6 +31,20 @@ type is refused even if it carries a mask. Renaming it to a supported type is re
 The current Viewport3D genuine-3D tool already creates explicit masks through
 `addSupportFromTool3D`; its `toSupportType` helper at line 2708 belongs to the
 2D-workspace branch, not the current 3D creation path.
+
+## Custom supports require an explicit mask
+
+The 3D adapter now refuses an unmasked `custom3d` and identifies the support and node
+so the author can set the intended restraints. A mask supplied with `custom3d`,
+including an explicitly all-free mask, defines the restraint flags. The shared
+resolver has no preset for a custom support, and each solve path validates before
+sending input to WASM.
+
+The same beam below, with the right support labeled `custom3d` and its mask omitted,
+reproduces the clamp on origin/main `cf92724704aa0e4d15ac9563fb8e52f525909dae`. The
+right vertical reaction and reaction moment are the same as the main values in the
+table. The solve reports no warnings. Supplying the intended bearing mask recovers
+the explicit simply supported result.
 
 ## Independent physical check
 
@@ -85,9 +100,9 @@ The existing snapshot independently records the wrong clamped-bearing result. On
 `design-rc-beam-flexure` is regenerated, with no tolerance or comparison-rule change.
 
 The analysis entry `roller-z-fixed` and design entry `roller-z-fixed-design` have the
-same applicability, exactly **3D model with a bare `rollerZ` or an unknown support
-type**. Both Basic 3D and PRO qualify. A `rollerZ` with an explicit mask has defined
-restraints. An unknown name remains unresolved with or without a mask. The design
+same applicability, exactly **3D model with an unmasked `rollerZ`, an unmasked
+`custom3d` or an unknown support type**. Both Basic 3D and PRO qualify. A `rollerZ` or `custom3d` with an explicit mask has
+defined restraints. An unknown name remains unresolved with or without a mask. The design
 entry covers outputs downstream of the changed force distribution.
 Re-establish the intended restraints, then rerun analyses, cases, combinations and
 design checks, and review prior deliverables. Historical released binaries were not

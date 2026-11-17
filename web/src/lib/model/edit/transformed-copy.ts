@@ -140,6 +140,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     const nodes0 = new Map(frag.nodes.map((n) => [n.id, n]));
     const elements0 = new Map(frag.elements.map((e) => [e.id, e]));
     const supports0 = opts.withSupports ? frag.supports : [];
+    const planeMemberNodes = uiStore.is3DWorkspace ? null
+      : new Set(frag.supportNodesWithMembers ?? frag.elements.flatMap(e => [e.nodeI, e.nodeJ]));
     // A definition copied with what it loads writes the copy's loads itself (`defined-loads.ts`):
     // its loads carried as well would load the copy twice. Others are carried as plain loads
     // (`carriedLoad`).
@@ -260,7 +262,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         const to = nodeMap.get(s.nodeId)!;
         // A welded node keeps whatever support it already has.
         if (!created.has(to)) { if (!frag.local || to !== s.nodeId) report.supportKept++; continue; }
-        const c = carriedSupport(T, s, to, elementMap, !uiStore.is3DWorkspace);
+        const c = carriedSupport(T, s, to, elementMap, planeMemberNodes);
         if (c) modelStore.addSupportEntry(c); else warn('supportDropped');
       }
 

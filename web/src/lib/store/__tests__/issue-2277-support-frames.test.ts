@@ -214,10 +214,8 @@ for (const inPlace of [false, true]) {
   });
 }
 
-const testMemberlessTurn = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
-
 for (const operation of ['copy', 'detached copy', 'in place'] as const) {
-  testMemberlessTurn(`known wrong result: #2277 a memberless local plane roller turns with its node (${operation})`, async () => {
+  it(`#2277 a memberless local plane roller turns with its node (${operation})`, async () => {
     const node = modelStore.addNode(2, 1);
     modelStore.addSupportEntry({ nodeId: node, type: 'rollerZ', isGlobal: false });
     const set = { nodes: [node], elements: [] };

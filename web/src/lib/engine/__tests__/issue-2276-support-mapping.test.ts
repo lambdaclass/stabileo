@@ -163,10 +163,9 @@ it('#2276 a 2D vertical slider still solves its plane and embedded models', asyn
   }
 });
 
-const testCustomRefusal = process.env.RUN_KNOWN_WRONG === '2276' ? it : it.skip;
 const missingCustomMask = /custom support without restraints; set them explicitly/i;
 
-testCustomRefusal('known wrong result: #2276 custom3d has no implicit restraints in either projection', () => {
+it('#2276 custom3d has no implicit restraints in either projection', () => {
   for (const projection of [false, true]) {
     expect(() => supportDofs3D(support('custom3d'), projection)).toThrow(missingCustomMask);
   }
@@ -185,7 +184,7 @@ it('#2276 explicit custom restraints are authoritative in either projection', ()
 for (const nonlinear of [false, true]) {
   for (const entry of ['input', 'linear input', 'imposed displacement', 'sync', 'async', 'combinations', 'parallel'] as const) {
     if (nonlinear && entry === 'linear input') continue;
-    testCustomRefusal(`known wrong result: #2276 unmasked custom3d refuses at ${entry} nonlinear=${nonlinear}`, async () => {
+    it(`#2276 unmasked custom3d refuses at ${entry} nonlinear=${nonlinear}`, async () => {
       await modelStore.loadExample('rc-beam-flexure');
       const m = modelStore.model;
       const s = [...m.supports.values()].find(s => s.nodeId === 3)!;

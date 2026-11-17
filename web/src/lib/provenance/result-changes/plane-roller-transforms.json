@@ -5,8 +5,11 @@
   "area": "analysis",
   "when": {
     "all": [
-      "plane2D",
-      "bareRollerZ"
+      "plane2D"
+    ],
+    "any": [
+      "bareRollerZ",
+      "localPlaneRoller"
     ]
   },
   "title": {

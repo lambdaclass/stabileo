@@ -32,9 +32,7 @@ it('#2276 explicit 3D rollerZ masks exclude the notice, unknown types still qual
   }
 });
 
-const testCustomApplicability = process.env.RUN_KNOWN_WRONG === '2276' ? it : it.skip;
-
-testCustomApplicability('known wrong result: #2276 only unmasked spatial custom supports need rechecking', () => {
+it('#2276 only unmasked spatial custom supports need rechecking', () => {
   for (const mode of ['2d', '3d', 'pro']) {
     for (const dofRestraints of [undefined, mask]) {
       const model: FeatureSnapshot = { analysisMode: mode, supports: [[1, { nodeId: 1, type: 'custom3d', dofRestraints }]] };

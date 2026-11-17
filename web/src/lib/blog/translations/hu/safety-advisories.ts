@@ -587,7 +587,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-089",
-          "Egy rollerZ típusú 3D görgős támaszt vagy egy ismeretlen támasztípust a program figyelmeztetés nélkül teljesen befogottként számított. Ellenőrizze a támaszok tervezett megfogásait, majd ismételje meg az analízist, a kombinációkat és a méretezést. (#2276).",
+          "A megadott megfogások nélküli rollerZ vagy custom3d típusú 3D támaszt, illetve az ismeretlen támasztípust a program figyelmeztetés nélkül teljesen befogottként számított. Ellenőrizze a támaszok tervezett megfogásait, majd ismételje meg az analízist, a kombinációkat és a méretezést. (#2276).",
           "Magas",
           "Tervezet 2026-11-17; koordinátori felülvizsgálatra, egyesítésre és kiadásra vár"
         ]

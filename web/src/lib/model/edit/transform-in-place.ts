@@ -105,9 +105,11 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     }
 
     const identity = new Map([...modelStore.elements.keys()].map((id) => [id, id]));
+    const planeMemberNodes = uiStore.is3DWorkspace ? null
+      : new Set([...modelStore.elements.values()].flatMap(e => [e.nodeI, e.nodeJ]));
     for (const s of [...modelStore.supports.values()]) {
       if (!src.nodes.has(s.nodeId)) continue;
-      const c = carriedSupport(T, s, s.nodeId, identity, !uiStore.is3DWorkspace);
+      const c = carriedSupport(T, s, s.nodeId, identity, planeMemberNodes);
       if (c) modelStore.addSupportEntry(c);
       else { modelStore.removeSupport(s.id); warn('supportDropped'); }
     }

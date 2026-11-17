@@ -69,8 +69,16 @@ A genuinely spatial bare `rollerZ` keeps its unresolved name and the solver's
 refusal still applies. An off-axis turn a named support cannot encode reports
 the dropped support.
 
-The results record flags plane projects with a bare `rollerZ` for review of
-previous edits. Saved records do not carry rotation history. The entry declares
+Round 9 covers a plane roller marked local at a node without an incident member.
+The plane solver uses the drawing axes as its fallback local basis at that node.
+The quarter-turn now permutes that basis and records the rotated bearing axis
+explicitly. The direct copy, detached copy and in-place edit use the same
+conversion. A local roller carried with its reference geometry keeps its local
+basis. The regression checks that the bearing takes the rotated load in direct,
+asynchronous, case, combination, second-order and embedded 3D solves.
+
+The results record flags plane projects with a bare `rollerZ` or an unmasked local
+plane roller for review of previous edits. Saved records do not carry rotation history. The entry declares
 no numerical differences for the same stored model, because the correction
 changes the edit that produces the model.
 

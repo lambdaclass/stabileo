@@ -26,7 +26,7 @@
  */
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
-import { isUnresolvedSpaceSupport, remapSupportElement } from '../support-types';
+import { isPlaneRoller, isUnresolvedSupport, remapSupportElement } from '../support-types';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
@@ -155,7 +155,8 @@ const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed']);
  * member that is not copied is dropped.
  */
 export function carriedSupport(
-  T: Affine, s: Support, nodeId: number, elementMap: ReadonlyMap<number, number>, plane: boolean,
+  T: Affine, s: Support, nodeId: number, elementMap: ReadonlyMap<number, number>,
+  planeMemberNodes: ReadonlySet<number> | null,
 ): Omit<Support, 'id'> | null {
   const { id: _id, ...rest } = s;
   const out: Omit<Support, 'id'> = JSON.parse(JSON.stringify(rest));
@@ -171,14 +172,18 @@ export function carriedSupport(
     out.normalX = n[0]; out.normalY = n[1]; out.normalZ = n[2];
   }
   const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
-  if (translationOnly || (!plane && isUnresolvedSpaceSupport(s))) return out;
-  if (plane && !s.dofRestraints && (s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ')) {
+  const plane = planeMemberNodes !== null;
+  if (translationOnly || isUnresolvedSupport(s, plane)) return out;
+  if (plane && !s.dofRestraints && isPlaneRoller(s.type)) {
     const axes = axisPermutation(T.A);
     if (!axes || axes.perm[2] !== 2) return null;
     const { perm, sign } = axes;
     const orientation = (isReflection(T) ? -1 : 1) * sign[2];
     if (s.angle !== undefined) out.angle = orientation * s.angle;
-    if (s.isGlobal === false) return out;
+    if (s.isGlobal === false) {
+      if (planeMemberNodes.has(s.nodeId)) return out;
+      out.isGlobal = true;
+    }
 
     const restrained = supportDofs3D(s, true).rx ? 0 : 1;
     out.type = perm[restrained] === 0 ? 'rollerZ' : 'rollerX';
