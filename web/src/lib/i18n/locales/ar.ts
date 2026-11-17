@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  "loadPlan.blocked.concentratedRule": "يتطلب {occupancy} فحص أحمال مركزة وفق CIRSOC 101 {article}. لا تُقيّم المواضع الأشد تأثيرًا. التوليد التلقائي محظور؛ نمذج هذه التأثيرات وافحصها يدويًا.",
+  "loadPlan.blocked.concentratedLive": "يتطلب {occupancy} فحص حمل حي مركز مقداره {force} kN وفق CIRSOC 101 §4.4. لا تُقيّم المواضع الأكثر تأثيرًا ولا البديل بين الحمل المنتظم والمركز. التوليد التلقائي محظور؛ نمذج هذه التأثيرات وافحصها يدويًا.",
+  "loadPlan.blocked.concentratedRoof": "يتطلب CIRSOC 101 §4.4 تأثيرات مركزة على السقف في المواضع الأشد تأثيرًا، بصورة منفصلة عن الحمل الحي للسقف وفق §4.8. لا تُجرى هذه الفحوص. التوليد التلقائي محظور؛ نمذج تأثيرات السقف وافحصها يدويًا.",
   "account.err.invalid_credentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
   // ─── Auth / Login ───
 

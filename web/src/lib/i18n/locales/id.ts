@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} memerlukan pemeriksaan beban terpusat menurut CIRSOC 101 {article}. Posisi paling merugikan tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} memerlukan pemeriksaan beban hidup terpusat {force} kN menurut CIRSOC 101 §4.4. Posisi paling merugikan dan alternatif beban merata/terpusat tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 mensyaratkan aksi atap terpusat pada posisi paling merugikan, terpisah dari beban hidup atap §4.8. Pemeriksaan ini tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi atap secara manual.",
   "account.err.invalid_credentials": "Email atau kata sandi salah.",
   // ─── Auth / Login ───
 

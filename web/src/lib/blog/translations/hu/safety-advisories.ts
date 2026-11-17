@@ -111,6 +111,16 @@ const body: PostBody = {
     { "k": "note", "t": "SA-2026-075 — Javítva a #2198 PR-ben, összevonásra és kiadásra vár." },
     { "k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-directional-stirrup-legs.md", "label": "SA-2026-075", "t": "Érintett eredmények és szükséges teendők." },
     {
+      "k": "note",
+      "t": "SA-2026-083 — PR #2236; egyesítésre és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md",
+      "label": "SA-2026-083",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
       "k": "img",
       "base": "blog/recheck-stale",
       "w": 1600,
@@ -558,6 +568,12 @@ const body: PostBody = {
           "A tető nyomászónái és első nyomatékai a felosztástól függtek (#2205). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
           "Magas",
           "Javítva a #2220 PR-ben, összevonásra és kiadásra vár"
+        ],
+        [
+          "SA-2026-083",
+          "SA-2026-083: A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt. (#2207).",
+          "Magas",
+          "PR #2236; egyesítésre és kiadásra vár"
         ]
       ]
     },
