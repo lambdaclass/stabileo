@@ -60,6 +60,7 @@ export interface OccupancyEntry {
   uniformKNm2: number | null;
   /** Concentrated imposed load, kN. Null when the table gives none. */
   concentratedKN: number | null;
+  concentratedRule?: string;
   /**
    * True for garages and places of public assembly. Blocks the §2.3.2 Exception 1
    * reduced L factor and, separately, blocks the §4.7.5 live-load reduction.
@@ -165,8 +166,8 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
     { seeArticle: '4.13', noReduction: true }),
 
   // Escaleras
-  e('escalera_privada', 'circulation', 2.0),
-  e('escalera_otros', 'circulation', 5.0),
+  e('escalera_privada', 'circulation', 2.0, null, { concentratedRule: 'Tabla 4.1 (j)' }),
+  e('escalera_otros', 'circulation', 5.0, null, { concentratedRule: 'Tabla 4.1 (j, r)' }),
 
   e('escotillas', 'other', null, 1.0),
 
@@ -185,7 +186,7 @@ export const OCCUPANCY_TABLE_2025: readonly OccupancyEntry[] = Object.freeze([
    * cell transcription of the 2025 edition. Conservative, and wrong: 25 % over a value
    * the reader could look up, in the one place where looking it up is the point.
    */
-  e('garaje_autos', 'parking', 2.0, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage' }),
+  e('garaje_autos', 'parking', 2.0, null, { garageOrPublicAssembly: true, assemblyKind: 'passengerGarage', concentratedRule: '4.10.1', refs: [T41, clause('cirsoc-101', '2025', '4.10.1', 'sobrecargas para cocheras de automóviles')] }),
   e('garaje_camiones', 'parking', null, null,
     { garageOrPublicAssembly: true, assemblyKind: 'truckGarage', seeArticle: '4.10.3' }),
 
