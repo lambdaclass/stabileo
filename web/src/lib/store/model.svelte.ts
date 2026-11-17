@@ -1096,6 +1096,18 @@ const isDefinedLoadData = (l: Load | undefined): boolean => (l?.data as { fromDe
  * detailing: `restore()` copies what it receives before adopting it.
  */
 let detailingCopies = new WeakMap<object, unknown>();
+/** The plain object behind a part's reactive proxy: read directly, it copies many times faster. */
+const detailingSources = new WeakMap<object, object>();
+const stateIsProxied = (() => { const plain = {}; const held = $state({ plain }); return held.plain !== plain; })();
+function adoptDetailing(model: StructureModel, next: DetailingStore): void {
+  model.detailing = next;
+  const stored = model.detailing as unknown as Record<string, unknown>;
+  for (const [key, source] of Object.entries(next)) {
+    const part = stored[key];
+    // Where state is proxied, a part equal to what was written is a proxy passed back in: no plain source.
+    if (source !== null && typeof source === 'object' && part !== null && typeof part === 'object' && (part !== source || !stateIsProxied)) detailingSources.set(part, source);
+  }
+}
 function deepFreeze<T>(v: T): T {
   if (v !== null && typeof v === 'object' && !Object.isFrozen(v)) {
     Object.freeze(v);
@@ -1109,7 +1121,7 @@ function copyDetailing(d: DetailingStore | undefined): DetailingStore {
   for (const [k, v] of Object.entries(d)) {
     if (v === null || typeof v !== 'object') { out[k] = v; continue; }
     let copy = detailingCopies.get(v);
-    if (copy === undefined) { copy = deepFreeze(JSON.parse(JSON.stringify($state.snapshot(v)))); detailingCopies.set(v, copy); }
+    if (copy === undefined) { copy = deepFreeze(JSON.parse(JSON.stringify(detailingSources.get(v) ?? $state.snapshot(v)))); detailingCopies.set(v, copy); }
     out[k] = copy;
   }
   return out as unknown as DetailingStore;
@@ -2155,6 +2167,8 @@ function createModelStore() {
     get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
+    replaceDetailing(next: DetailingStore): void { adoptDetailing(model, next); },
+
     snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
@@ -2512,7 +2526,7 @@ function createModelStore() {
       // Migration is deliberate, not a fallback: a project with no settings is stamped
       // CIRSOC 201-2005, the edition its stored results were actually checked against.
       model.codeSettings = migrateCodeSettings(s.codeSettings).settings;
-      model.detailing = migrateDetailingStore(s.detailing).store;
+      adoptDetailing(model, migrateDetailingStore(s.detailing).store);
       // `migrateRegulations` was written, unit-tested and never called from anywhere in
       // production. Calling it here is what makes a stored regulation stack survive a
       // save/open, an undo and a tab switch, and what upgrades a v1 (CIRSOC-specific)

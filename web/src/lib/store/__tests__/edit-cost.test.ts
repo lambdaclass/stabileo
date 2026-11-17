@@ -35,6 +35,10 @@ describe('editing a detailed building', () => {
     const p = { ...m.nodes.get(id)! };
 
     const s1 = modelStore.snapshot();
+    // The copy is taken from the plain objects the detailing was written with: the same content
+    // as the live model read through its reactive proxies.
+    expect(firstDifference(JSON.stringify(s1.detailing), JSON.stringify(m.detailing))).toBe('');
+    expect(Object.isFrozen(s1.detailing!.assemblies[0])).toBe(true);
     historyStore.pushState();
     modelStore.updateNode(id, p.x + 0.01, p.y, p.z);
     const s2 = modelStore.snapshot();
@@ -48,6 +52,15 @@ describe('editing a detailed building', () => {
     expect(m.detailing!.assemblies).not.toBe(s1.detailing!.assemblies);
     // Every field of every assembly comes back: the label key, the gate's verdict, the blockers.
     expect(firstDifference(canon(m.detailing!.assemblies), canon(s1.detailing!.assemblies))).toBe('');
+    // And the detailing undo restored is copied like one just written, into a copy of its own.
+    const s3 = modelStore.snapshot();
+    expect(s3.detailing!.assemblies).not.toBe(s1.detailing!.assemblies);
+    expect(firstDifference(JSON.stringify(s3.detailing), JSON.stringify(m.detailing))).toBe('');
+    // A part replaced without its plain source is still copied, through the proxies.
+    m.detailing = { ...m.detailing!, assemblies: JSON.parse(JSON.stringify(m.detailing!.assemblies)) };
+    const s4 = modelStore.snapshot();
+    expect(s4.detailing!.assemblies).not.toBe(s3.detailing!.assemblies);
+    expect(firstDifference(JSON.stringify(s4.detailing), JSON.stringify(s3.detailing))).toBe('');
 
     // The frame: kept while nothing changes and across an edit that moves no concrete.
     const f1 = projectPhysicalFrame();

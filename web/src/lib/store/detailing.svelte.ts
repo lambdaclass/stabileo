@@ -142,7 +142,7 @@ function createDetailingStore() {
 
   /** Replace the stored detailing, keeping its stamps (`detailing-stamps.ts`). */
   const write = (next: DetailingStore): void => {
-    modelStore.model.detailing = withStamps(next, persisted());
+    modelStore.replaceDetailing(withStamps(next, persisted()));
     noteDetailingWrite();
   };
 
