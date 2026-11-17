@@ -173,7 +173,10 @@ describe('the industrial hall and the stadium of the examples', () => {
   });
 
   it('the stadium: no area load on rings of a hundred metres', async () => {
-    const g = gravityLayout(await fixture('full-stadium'), { mode: 'panels', tributaryWidth: 3 });
+    const stadium = await fixture('full-stadium');
+    const options = { mode: 'panels', tributaryWidth: 3 } as const;
+    expect(() => gravityLayout(stadium, options)).toThrow(/quad 1 is nonplanar/i);
+    const g = gravityLayout({ ...stadium, quads: undefined }, options);
     expect(g.panels.every((p) => {
       const xs = p.polygon.map((q) => q[0]), ys = p.polygon.map((q) => q[1]);
       return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) <= MAX_DECK_SPAN;

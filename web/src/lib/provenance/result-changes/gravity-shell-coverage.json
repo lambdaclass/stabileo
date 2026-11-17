@@ -1,0 +1,43 @@
+{
+  "id": "gravity-shell-coverage",
+  "date": "2026-11-17",
+  "prs": [
+    2199,
+    2200
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Partial shell coverage on beam panels",
+    "es": "Cobertura parcial de placas sobre paños de vigas",
+    "pt": "Cobertura parcial de cascas sobre painéis de vigas",
+    "de": "Teilweise Schalenabdeckung von Trägerfeldern",
+    "fr": "Couverture partielle des panneaux par des coques",
+    "tr": "Kiriş panellerinde kısmi kabuk örtüsü",
+    "hu": "Gerendamezők részleges héjfedése"
+  },
+  "explanation": {
+    "en": "Regenerate gravity for panel-mode models with shells. Uncovered full-span strips apply their line reactions to the opposite beams. Unsupported partial coverage or nonplanar shells block the plan.",
+    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas de luz completa aplican sus reacciones lineales en las vigas opuestas. La cobertura parcial no admitida o las placas alabeadas bloquean el plan.",
+    "pt": "Gere novamente a gravidade no modo de painéis com cascas. As faixas descobertas descarregam reações lineares nas vigas opostas. Cobertura parcial sem suporte ou cascas não planas bloqueiam o plano.",
+    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Unbedeckte Streifen über die volle Spannweite tragen Linienreaktionen in die gegenüberliegenden Träger ein. Nicht unterstützte Geometrie blockiert den Plan.",
+    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes sur toute la portée appliquent leurs réactions linéaires aux poutres opposées. Une géométrie non prise en charge bloque le plan.",
+    "tr": "Kabuklu panel modelleri için yerçekimi yüklerini yeniden üretin. Açıkta kalan tam açıklıklı şeritlerin çizgisel tepkileri karşılıklı kirişlere uygulanır. Desteklenmeyen geometri planı durdurur.",
+    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A teljes fesztávú fedetlen sávok vonalreakcióit a szemközti gerendák viselik. A nem támogatott geometria leállítja a tervet."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-core.md",
+    "heading": "Partial shell coverage on beam panels"
+  },
+  "requiresLoadRegeneration": true
+}

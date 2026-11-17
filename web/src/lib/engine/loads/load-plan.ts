@@ -21,13 +21,6 @@
  * side-effect free; `describePlanDelta` diffs it against what the model already has; the
  * caller applies it only after the user confirms.
  *
- * ── Floor mass ─────────────────────────────────────────────────
- *
- * Seismic weight comes from real geometry: member self-weight from length × section area
- * × density, plus the applied area loads over each level's true tributary plan area
- * computed from the node extents at that level. There is no assumed floor area anywhere
- * in this file.
- *
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
@@ -372,7 +365,6 @@ export interface PlanSink {
 export interface LevelMass {
   elevation: number;
   nodeIds: number[];
-  /** Tributary plan area computed from the node extents at this level, m². */
   planAreaM2: number;
   selfWeightKN: number;
   superimposedKN: number;
@@ -918,50 +910,30 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     assumptions.push(participation.assumption!);
   }
 
-  /*
-   * What the area loads add to each level's mass. By area, each member and slab brings the area
-   * it carries, at the dead and live load of the floor or roof it belongs to, measured as its case
-   * applies it: the dead load of a member loaded by width per metre of its length (the D case is
-   * per metre of member, along global Z), the live loads per metre of plan. A level that carries
-   * no area (the nodes where a column is split, the supports) adds none: it used to fall back to
-   * the extent of its nodes, and a split column weighed a whole phantom floor.
-   *
-   * By width, the extent of the level's nodes, at the roof's loads when every member there is a
-   * roof member.
-   */
   const levelIndexOf = (z: number) => {
     let best = 0;
     levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
     return best;
   };
   const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0 }));
-  if (panelMode) {
-    // Sloped length over plan length of the members loaded by width; 1 for the rest.
-    const slopeOf = new Map(layout.widthMembers.map((m) => [m.elementId, m.horizontalLength > 0 ? m.length / m.horizontalLength : 1]));
-    for (const [areas, m] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
-      for (const [id, a] of areas) {
-        const k = levelIndexOf(layout.zOf.get(id) ?? 0);
-        byArea[k]!.area += a; byArea[k]!.dead += a * (slopeOf.get(id) ?? 1) * m.dead; byArea[k]!.live += a * m.live;
-      }
-    }
-    // A sloped shell's dead load is per m² of its surface, its live load per m² of plan.
-    for (const sq of layout.shellQuads) {
-      const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
-      byArea[k]!.area += sq.area; byArea[k]!.dead += (sq.area / sq.cos) * m.dead; byArea[k]!.live += sq.area * m.live;
+  const slopeOf = new Map(layout.widthMembers.map(m => [m.elementId, m.length / m.horizontalLength]));
+  for (const [areas, pressures] of [[layout.areaOf, area.floorMass], [layout.roofAreaOf, area.roofMass]] as const) {
+    for (const [id, carried] of areas) {
+      const level = byArea[levelIndexOf(layout.zOf.get(id) ?? 0)]!;
+      level.area += carried;
+      level.dead += carried * (slopeOf.get(id) ?? 1) * pressures.dead;
+      level.live += carried * pressures.live;
     }
   }
-  const roofLevel = (k: number) => {
-    if (!roofLoads) return false;
-    const ids = [...layout.zOf].filter(([, z]) => levelIndexOf(z) === k).map(([id]) => id);
-    return ids.length > 0 && ids.every((id) => layout.roof.has(id));
-  };
+  for (const shell of layout.shellQuads) {
+    const level = byArea[levelIndexOf(shell.z)]!;
+    const pressures = area.massOfQuad(shell.quadId);
+    level.area += shell.area;
+    level.dead += shell.area / shell.cos * pressures.dead;
+    level.live += shell.area * pressures.live;
+  }
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const ba = byArea[i]!;
-    const byExtent = !panelMode;
-    const atRoof = byExtent && roofLevel(i);
-    const area = byExtent ? lv.planAreaM2 : ba.area;
-    const superimposed = byExtent ? (atRoof ? roofLoads!.dead : deadTotal) * area : ba.dead;
-    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : floorLo) * area : ba.live;
+    const { area, dead: superimposed, live: liveTotal } = byArea[i]!;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,

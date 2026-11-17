@@ -37,4 +37,3 @@ export function input(model: LoadModelData, overrides: Partial<LoadPlanInput> = 
     applyLiveReduction: false, generateCombinations: false, ...overrides,
   };
 }
-

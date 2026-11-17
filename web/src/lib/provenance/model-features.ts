@@ -39,6 +39,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
+  'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
@@ -90,13 +91,13 @@ export interface FeatureSnapshot {
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{ kind?: string }>;
+  groups?: Entries<{ kind?: string; data?: unknown }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   analysis?: { selfWeight?: unknown[] };
   includeSelfWeight?: boolean;
-  designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
+  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }> }; site?: { phases?: unknown[] } };
 }
 
 export interface FeatureContext {
@@ -248,6 +249,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
+  const loadNotes = s.designData?.loadBasis?.derivation;
+  const gravityNotes = Array.isArray(loadNotes) ? loadNotes.filter(n => typeof n?.key === 'string' && n.key.startsWith('loadPlan.gravity.')) : [];
+  let memberGravity = false;
+  let shellGravity = false;
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -269,7 +274,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
-      if (['W', 'Wa'].includes(caseType.get(d.caseId as number) ?? '')) f.add('generatedWindLoads');
+      const type = caseType.get(d.caseId as number) ?? '';
+      if (['W', 'Wa'].includes(type)) f.add('generatedWindLoads');
+      if (['D', 'L', 'Lr'].includes(type)) {
+        if (t === 'surface3d') shellGravity = true;
+        if (t === 'distributed3d' || t === 'distributed') memberGravity = true;
+      }
     }
   }
   if (s.designData?.site?.phases?.length) {
@@ -277,7 +287,18 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('pathAnalysis');
   }
   if (s.designData?.loadBasis) f.add('generatedLoads');
-  if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
+  if (shellGravity || gravityNotes.some(n => n.key === 'loadPlan.gravity.shellLevel' || n.key === 'loadPlan.gravity.slopedShells')) {
+    f.add('generatedPanelGravityShells');
+  }
+  if (memberGravity && !shellGravity && !gravityNotes.some(n => /^loadPlan\.gravity\.(panels|width|shellLevel|slopedShells|partlyUnderShells)$/.test(n.key ?? ''))) {
+    f.add('generatedWidthGravity');
+  }
+  const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
+  if (floorDefs.length) f.add('areaDeadLoads');
+  if (floorDefs.some(g => {
+    const data = g.data as { target?: { by?: string }; distribution?: string } | undefined;
+    return data?.target?.by === 'zone' && data.distribution !== 'slab';
+  })) f.add('memberFloorZones');
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');
 
   const types = new Set(cases.map((c) => c.type));
@@ -287,6 +308,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (Array.isArray(s.combinations) && s.combinations.some(c => {
+      const method = (c as { method?: string } | null)?.method;
+      return method === 'abs' || method === 'srss';
+    })) f.add('magnitudeCombinations');
     if (loadsCode === null || loadsCode.startsWith('cirsoc')) f.add('cirsocCombinations');
   }
 

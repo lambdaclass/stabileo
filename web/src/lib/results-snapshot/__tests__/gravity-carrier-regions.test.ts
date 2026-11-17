@@ -1,17 +1,25 @@
 import { beforeAll, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { solve_3d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
+import { solve_2d, solve_3d, solve_pdelta_2d, solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 import { initSolver } from '../../engine/wasm-solver';
+import { computeDiagramValueAt } from '../../engine/diagrams';
+import type { AnalysisResults } from '../../engine/types';
 import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import { floorLoad } from '../../engine/loads/floor-loads';
 import { areaLoads, bay } from '../../engine/loads/__tests__/gravity-regions-fixture';
 
-const wrong2199 = process.env.RUN_KNOWN_WRONG === '2199' ? it : it.skip;
-const wrong2201 = process.env.RUN_KNOWN_WRONG === '2201' ? it : it.skip;
 const template = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
 beforeAll(async () => { await initSolver(); });
+
+function nativeResults<T>(model: unknown, dimension: '--2d' | '--3d'): T[] {
+  const program = process.env.GRAVITY_NATIVE_SOLVE;
+  if (!program) return [];
+  const solve = (input: unknown) => JSON.parse(execFileSync(program, [dimension], { input: JSON.stringify(input), encoding: 'utf8' }));
+  return [solve(model), solve({ analysis: 'pdelta', model, maxIter: 100, tolerance: 1e-10 }).results];
+}
 
 function checkResponse(fixture: ReturnType<typeof bay>, loads: Array<{ elementId: number; a?: number; b?: number; q: number; qJ?: number }>, a: number, b: number, q: number) {
   const { model, physical, root, ends } = fixture;
@@ -36,30 +44,61 @@ function checkResponse(fixture: ReturnType<typeof bay>, loads: Array<{ elementId
   const ei = 1000 * 1000 * 0.001;
   const primitive = (s: number) => length * s ** 3 - s ** 4 / 4;
   const tip = -q * (primitive(b) - primitive(a)) / (6 * ei);
-  for (const result of [solve_3d(input), JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10)).results] as AnalysisResults3D[]) {
-    for (const member of elements) {
-      const forces = result.elementForces.find(force => force.elementId === member.id)!;
-      const x0 = physical.get(member.nodeI)![0];
-      for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-        const x = x0 + t * forces.length;
-        const from = Math.max(0, a - x), to = Math.max(0, b - x);
-        expect(evaluateDiagramAt(forces, 'shearZ', t)).toBeCloseTo(q * (to - from), 8);
-        expect(evaluateDiagramAt(forces, 'momentY', t)).toBeCloseTo(-q * (to ** 2 - from ** 2) / 2, 8);
-        for (const kind of ['shearY', 'momentZ', 'torsion'] as const) expect(evaluateDiagramAt(forces, kind, t)).toBeCloseTo(0, 8);
+  const checkStations = (elementId: number, memberLength: number, shear: (t: number) => number, moment: (t: number) => number) => {
+    const member = model.elements.get(elementId)!;
+    const x0 = physical.get(member.nodeI)![0];
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      const x = x0 + t * memberLength;
+      const from = Math.max(0, a - x), to = Math.max(0, b - x);
+      expect(shear(t)).toBeCloseTo(q * (to - from), 8);
+      expect(moment(t)).toBeCloseTo(-q * (to ** 2 - from ** 2) / 2, 8);
+    }
+  };
+  const checkTip = (displacements: ReadonlyArray<{ nodeId: number; uz: number }>) => {
+    for (const id of ends) expect(displacements.find(d => d.nodeId === id)!.uz).toBeCloseTo(tip, 10);
+  };
+  const nonlinear = JSON.parse(solve_pdelta_3d(JSON.stringify(input), 100, 1e-10));
+  expect(nonlinear.converged).toBe(true);
+  const space = [solve_3d(input), nonlinear.results, ...nativeResults<AnalysisResults3D>(input, '--3d')] as AnalysisResults3D[];
+  for (const result of space) {
+    expect(result.elementForces).toHaveLength(elements.length);
+    for (const forces of result.elementForces) {
+      checkStations(forces.elementId, forces.length, t => evaluateDiagramAt(forces, 'shearZ', t), t => evaluateDiagramAt(forces, 'momentY', t));
+      for (const t of [0, 0.25, 0.5, 0.75, 1]) for (const kind of ['shearY', 'momentZ', 'torsion'] as const) {
+        expect(evaluateDiagramAt(forces, kind, t)).toBeCloseTo(0, 8);
       }
     }
-    for (const nodeId of ends) expect(result.displacements.find(displacement => displacement.nodeId === nodeId)!.uz).toBeCloseTo(tip, 10);
+    checkTip(result.displacements);
+  }
+
+  const plane = {
+    nodes: Object.fromEntries([...used].map(id => [id, { id, x: physical.get(id)![0], z: 3 }])),
+    elements: input.elements, materials: input.materials, sections: input.sections,
+    supports: Object.fromEntries(root.map(nodeId => [nodeId, { id: nodeId, nodeId, type: 'fixed' }])),
+    loads: loads.filter(load => ids.has(load.elementId)).map(load => ({
+      type: 'distributed', data: { elementId: load.elementId, a: load.a, b: load.b, qI: load.q, qJ: load.qJ ?? load.q },
+    })),
+  };
+  const advanced = JSON.parse(solve_pdelta_2d(JSON.stringify(plane), 100, 1e-10));
+  expect(advanced.converged).toBe(true);
+  const results = [solve_2d(plane), advanced.results, ...nativeResults<AnalysisResults>(plane, '--2d')] as AnalysisResults[];
+  for (const result of results) {
+    expect(result.elementForces).toHaveLength(elements.length);
+    for (const forces of result.elementForces) {
+      checkStations(forces.elementId, forces.length, t => computeDiagramValueAt('shear', t, forces), t => -computeDiagramValueAt('moment', t, forces));
+    }
+    checkTip(result.displacements);
   }
 }
 
-wrong2199('known wrong result: #2199 each uncovered strip gives the hand-solved carrier response', () => {
+it('#2199 each uncovered strip gives the hand-solved carrier response', () => {
   for (const [angle, mirror, mesh] of [[0, 1, 1], [0.37, 1, 3], [1.16, -1, 2]] as const) {
     const fixture = bay(4.76, angle, mirror, mesh, mesh > 1);
     checkResponse(fixture, areaLoads(fixture.model).distributed, 4.76, 10, 3);
   }
 });
 
-wrong2201('known wrong result: #2201 the concentric zone gives the hand-solved carrier response', () => {
+it('#2201 the concentric zone gives the hand-solved carrier response', () => {
   const fixture = bay(0, 0, 1, 1, true);
   const { model } = fixture;
   const result = floorLoad({

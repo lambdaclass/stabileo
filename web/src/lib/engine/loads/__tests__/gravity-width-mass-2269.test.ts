@@ -2,8 +2,6 @@ import { expect, it } from 'vitest';
 import { buildLoadPlan, type LoadModelData } from '../load-plan';
 import { input, witness } from './gravity-width-mass-fixture';
 
-const wrong2210 = process.env.RUN_KNOWN_WRONG === '2210' ? it : it.skip;
-const wrong2269 = process.env.RUN_KNOWN_WRONG === '2269' ? it : it.skip;
 
 function check(model: LoadModelData, width: number, length: number, defaultMode = false) {
   const plan = buildLoadPlan(input(model, { tributaryWidth: width, ...(defaultMode ? { gravity: undefined } : {}) }));
@@ -30,7 +28,7 @@ function check(model: LoadModelData, width: number, length: number, defaultMode 
   return level;
 }
 
-wrong2269('known wrong result: #2269 level mass agrees with the two loaded carriers', () => {
+it('#2269 level mass agrees with the two loaded carriers', () => {
   expect(check(witness(), 3, 20).weightKN).toBeCloseTo(140, 10);
   check(witness(6), 3, 20);
   check(witness(3, 37, 3, -1), 3, 20, true);
@@ -39,7 +37,7 @@ wrong2269('known wrong result: #2269 level mass agrees with the two loaded carri
   check(withTruss, 3, 10);
 });
 
-wrong2210('known wrong result: #2210 a rectangular frame rotated 45 degrees has the same width-mode mass', () => {
+it('#2210 a rectangular frame rotated 45 degrees has the same width-mode mass', () => {
   for (const angle of [45, 0]) {
     const model = witness(6, angle);
     model.elements.set(3, { ...model.elements.get(1)!, id: 3, nodeI: 1, nodeJ: 3 });
@@ -48,11 +46,11 @@ wrong2210('known wrong result: #2210 a rectangular frame rotated 45 degrees has 
   }
 });
 
-wrong2269('known wrong result: #2269 zero width generates no superimposed area or mass', () => {
+it('#2269 zero width generates no superimposed area or mass', () => {
   expect(check(witness(), 0, 20).weightKN).toBeCloseTo(50, 10);
 });
 
-wrong2269('known wrong result: #2269 positive widths below the former emission cutoff still generate loads', () => {
+it('#2269 positive widths below the former emission cutoff still generate loads', () => {
   check(witness(), 0.0005, 20);
 });
 

@@ -42,6 +42,7 @@
  *
  * Pure: no store.
  */
+import { assertPlanarShell, refuseGravityGeometry, ringArea } from './gravity-shell-partition';
 import { physicalRoofRuns } from './physical-roof-geometry';
 import polygonClipping from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type SideStretch } from './floor-loads';
@@ -133,15 +134,6 @@ export function beamLike(model: GravityModel, el: { nodeI: number; nodeJ: number
   return { ok: Math.abs(dz) / L <= 0.5, length: L, horizontalLength: Math.hypot(dx, dy) };
 }
 
-function planArea(pts: Array<{ x: number; y: number }>): number {
-  let s = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
-    s += a.x * b.y - b.x * a.y;
-  }
-  return Math.abs(s) / 2;
-}
-
 export function gravityLayout(model: GravityModel, opts: GravityOptions): GravityLayout {
   const out: GravityLayout = {
     pieces: [], points: [], areaOf: new Map(), roofAreaOf: new Map(), widthMembers: [], shellQuads: [], areaByLevel: new Map(),
@@ -174,8 +166,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (pts.some((p) => !p)) continue;
     const xyz = pts.map((p) => [p!.x, p!.y, p!.z ?? 0] as [number, number, number]);
     const zs = xyz.map((p) => p[2]);
-    const plan = planArea(pts as Array<{ x: number; y: number }>);
     const poly = xyz.map((p) => [p[0], p[1]] as [number, number]);
+    const plan = ringArea(poly);
+    if (opts.mode === 'panels' && plan > 0) assertPlanarShell(q.id, xyz);
     if (Math.max(...zs) - Math.min(...zs) <= TOL) {
       const key = levelKey(zs[0]!);
       const list = quadsAt.get(key) ?? [];
@@ -211,32 +204,44 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     sloped.forEach((c, i) => low.set(root(i), Math.min(low.get(root(i)) ?? Infinity, c.z0)));
     sloped.forEach((c, i) => { c.z0 = low.get(root(i))!; });
   }
-  /** A point lies in a carrying shell's surface: inside its plan and at its height there. */
-  const inShell = (p: [number, number, number]) => opts.mode === 'panels'
-    && carriers.some((c) => inside([p[0], p[1]], c.poly) && Math.abs(heightIn(c.pts, p) - p[2]) <= 0.05);
-  /**
-   * How much of a panel of level `z` the shells springing from that level cover, 0 to 1, by a
-   * 20 × 20 grid of points over it. It used to test the panel's centre alone, so a slab over half
-   * a bay unloaded the whole bay or none of it.
-   */
-  const shellCover = (poly: Array<[number, number]>, z: number): number => {
-    if (opts.mode !== 'panels') return 0;
-    const over = carriers.filter((c) => Math.abs(c.z0 - z) <= TOL);
-    if (over.length === 0) return 0;
-    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
-    const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    let n = 0, hit = 0;
-    for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-      const pt: [number, number] = [x0 + (i + 0.5) * dx, y0 + (j + 0.5) * dy];
-      if (!inside(pt, poly, 0)) continue;
-      n++;
-      if (over.some((c) => inside(pt, c.poly))) hit++;
-    }
-    return n > 0 ? hit / n : 0;
-  };
-  const midpoint = (e: { nodeI: number; nodeJ: number }): [number, number, number] => {
+  const shellMembership = new Map<number, boolean>();
+  const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
+    if (opts.mode !== 'panels' || !carriers.length) return false;
+    if (shellMembership.has(e.id)) return shellMembership.get(e.id)!;
+
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    return [(a.x + b.x) / 2, (a.y + b.y) / 2, ((a.z ?? 0) + (b.z ?? 0)) / 2];
+    const p: Segment[0] = [a.x, a.y, a.z ?? 0], q: Segment[1] = [b.x, b.y, b.z ?? 0];
+    const dx = q[0] - p[0], dy = q[1] - p[1];
+    const length = Math.hypot(dx, dy);
+    const error = 64 * Number.EPSILON * Math.max(length, ...p.map(Math.abs), ...q.map(Math.abs));
+    const onPlane = carriers.filter(c => [p, q].every(point => Math.abs(heightIn(c.pts, point) - point[2]) <= error));
+    const cuts = [0, 1];
+    const add = (t: number) => { if (t > error / length && t < 1 - error / length) cuts.push(t); };
+    for (const { poly } of onPlane) for (let i = 0; i < poly.length; i++) {
+      const [x, y] = poly[i]!, [xx, yy] = poly[(i + 1) % poly.length]!;
+      const ex = xx - x, ey = yy - y;
+      const det = dx * ey - dy * ex;
+      const px = x - p[0], py = y - p[1];
+      if (Math.abs(det) > error * Math.hypot(ex, ey)) {
+        const u = (px * dy - py * dx) / det;
+        if (u >= 0 && u <= 1) add((px * ey - py * ex) / det);
+      } else if (Math.abs(px * dy - py * dx) <= error * length) {
+        add((px * dx + py * dy) / length ** 2);
+        add(((xx - p[0]) * dx + (yy - p[1]) * dy) / length ** 2);
+      }
+    }
+    cuts.sort((x, y) => x - y);
+    const classes = new Set(cuts.slice(1).flatMap((end, i) => {
+      const start = cuts[i]!;
+      if (end - start <= error / length) return [];
+      const t = start + (end - start) / 2;
+      const center: [number, number] = [p[0] + t * dx, p[1] + t * dy];
+      return [onPlane.some(c => inside(center, c.poly, error))];
+    }));
+    if (classes.size > 1) refuseGravityGeometry(`Member ${e.id} is only partly covered by a shell and has no resolved panel transfer.`);
+    const covered = classes.has(true);
+    shellMembership.set(e.id, covered);
+    return covered;
   };
 
   // Horizontal members, by level; the rest that can carry a load go by width.
@@ -249,7 +254,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const horizontal = Math.abs((nI.z ?? 0) - (nJ.z ?? 0)) <= TOL;
     // By width every member takes the width; its floor's panels still say what it covers. A
     // sloped member in a shell's surface is a rafter under the roof the shell carries.
-    if (opts.mode === 'width' || (!horizontal && !inShell(midpoint(e)))) width(e.id, b.length, b.horizontalLength);
+    if (opts.mode === 'width' || (!horizontal && !inShell(e))) width(e.id, b.length, b.horizontalLength);
     if (!horizontal) continue;
     const key = levelKey(nI.z ?? 0);
     const list = beamsAt.get(key) ?? [];
@@ -262,7 +267,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
   for (const [z, beams] of beamsAt) {
-    const res = floorLoad({ nodes: model.nodes, beams, q: 1, ...slab });
+    const shellFootprints = opts.mode === 'panels' ? carriers.filter(c => Math.abs(c.z0 - z) <= TOL).map(c => [c.poly]) : [];
+    const res = floorLoad({ nodes: model.nodes, beams, q: 1, shellFootprints, ...slab });
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
   }
@@ -286,14 +292,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const isSloped = (m: { length: number; horizontalLength: number }) => Math.abs(m.length - m.horizontalLength) > TOL;
   const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), kept: [] };
   const dropped = new Set<object>();
-  const fringeShare = new Map<object, number>();
   const fringeKept = new Map<object, Region>();
   const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
     const loaded = new Set<number>();
     for (const panel of res.panels) {
-      if (!panel.loaded || !panel.own) continue;
+      if (!panel.loaded && panel.shellCoverage !== 'shell') continue;
       // Its members are every one along its sides, a second member between two nodes or a stub
       // along a side included: by the graph's one member per pair of nodes, those went by width
       // as well, the panel's area loaded twice.
@@ -305,9 +310,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
     for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {
       if (!panel.loaded || !panel.own) continue;
-      const cover = shellCover(panel.polygon, z);
-      if (cover >= 0.98) continue;
-      const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
+      const why = panel.shellCoverage === 'strips' ? null : deckless(panel.polygon, z);
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
@@ -316,14 +319,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const nested = loading.filter((o) => !loading.some((m) => within(o, m)));
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
-        fringeShare.set(panel, share);
         fringeKept.set(panel, kept);
         held.kept.push({ region: kept, z });
         continue;
       }
       held.panels.push({ poly: panel.polygon, z });
     }
-    const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(midpoint(b))));
+    const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(b)));
     for (const e of flat) {
       const [a, b] = segment(e.id);
       const why = deckless([[a[0], a[1]], [b[0], b[1]]], z);
@@ -383,19 +385,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const loaded = panelLoadedAt.get(z)!;
     for (const panel of res.panels) {
       if (!panel.loaded || !panel.own) continue;
-      // Under shells the panel's load is theirs; partly under, its beams take the rest, spread as
-      // the whole panel spreads it (the share is right, the shape over the beams approximate).
-      const cover = shellCover(panel.polygon, z);
-      if (cover >= 0.98) continue;
-      const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
+      const why = panel.shellCoverage === 'strips' ? null : deckless(panel.polygon, z);
       if (dropped.has(panel)) { lowPanels++; continue; }
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      const share = fringeShare.get(panel) ?? (cover > 0.02 ? 1 - cover : 1);
-      if (!fringeShare.has(panel) && share < 1) partly++;
-      // The panel's own part of the level's result. Loading its members again on their own found
-      // an opening's ring as a panel too, and the ring, loaded on its own as well, counted twice.
+      if (panel.shellCoverage === 'strips') partly++;
       const one = panel.own;
       const c = centroid(panel.polygon);
       const roof = why === 'lowHeadroom' || !covered(c, z);
@@ -425,18 +420,18 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         continue;
       }
       for (const l of one.loads) {
-        addSides(l.elementId, one.sides.get(l.elementId));
-        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
+        if (!panel.shellCoverage) addSides(l.elementId, one.sides.get(l.elementId));
+        out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI, wJ: l.qJ, roof, panel: index });
       }
       for (const n of one.nodal) {
-        out.points.push({ nodeId: n.nodeId, w: -n.fz * share, elementId: n.elementId, roof, panel: index });
-        addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz * share);
+        out.points.push({ nodeId: n.nodeId, w: -n.fz, elementId: n.elementId, roof, panel: index });
+                addArea(roof ? out.roofAreaOf : out.areaOf, n.elementId, -n.fz);
       }
-      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a * share); if (roof) out.roof.add(id); }
-      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area * share);
+      for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
+      out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);
     }
     for (const b of beams) {
-      if (loaded.has(b.id) || inShell(midpoint(b))) continue;
+      if (loaded.has(b.id) || inShell(b)) continue;
       const g = beamLike(model, b);
       width(b.id, g.length, g.horizontalLength);
       byWidth++;

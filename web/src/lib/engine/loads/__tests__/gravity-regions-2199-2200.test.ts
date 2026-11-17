@@ -3,8 +3,6 @@ import { buildLoadPlan } from '../load-plan';
 import { areaLoads, bay } from './gravity-regions-fixture';
 import { input } from './gravity-width-mass-fixture';
 
-const wrong2199 = process.env.RUN_KNOWN_WRONG === '2199' ? it : it.skip;
-const wrong2200 = process.env.RUN_KNOWN_WRONG === '2200' ? it : it.skip;
 
 function check(covered: number, fixture: ReturnType<typeof bay>, forceFirst: 'force' | 'moment') {
   const { model, physical } = fixture;
@@ -54,23 +52,25 @@ function check(covered: number, fixture: ReturnType<typeof bay>, forceFirst: 'fo
   }
 }
 
-wrong2199('known wrong result: #2199 partial coverage retains the shell and carrier load separately', () => {
+it('#2199 partial coverage retains the shell and carrier load separately', () => {
   check(4.76, bay(4.76), 'force');
   check(4.76, bay(4.76, 0.37, 1, 3, true), 'force');
   check(4.76, bay(4.76, 1.16, -1, 2, true), 'force');
 });
 
-wrong2200('known wrong result: #2200 the uncovered beam load begins at the shell boundary', () => {
+it('#2200 the uncovered beam load begins at the shell boundary', () => {
   check(5, bay(5), 'moment');
   check(5, bay(5, 0.37, -1, 3, true), 'moment');
 });
 
-wrong2199('known wrong result: #2199 a thin uncovered band is loaded and full coverage loads the shells alone', () => {
+it('#2199 a thin uncovered band is loaded and full coverage loads the shells alone', () => {
   check(9.99, bay(9.99, 0.37, -1, 3, true), 'force');
   expect(areaLoads(bay(10, 0.37, -1, 3, true).model).distributed).toEqual([]);
+  check(10 - 1e-8, bay(10 - 1e-8), 'force');
+  expect(() => areaLoads(bay(10 - 1e-11).model)).toThrow(/below the supported member-load span/);
 });
 
-wrong2200('known wrong result: #2200 unsupported partial shell geometry blocks the plan', () => {
+it('#2200 unsupported partial shell geometry blocks the plan', () => {
   const plan = buildLoadPlan(input(bay(4, 0.37, 1, 1, false, 1).model, { gravity: { mode: 'panels', loadEveryPanel: true } }));
   expect(plan.outcome).toBe('BLOCKED');
   expect(plan.blockedKeys[0]?.params?.message).toMatch(/partial shell coverage.*full-span/i);

@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
 
-const wrong2273 = process.env.RUN_KNOWN_WRONG === '2273' ? it : it.skip;
 
 function empty(): ElementForces3D {
   return {
@@ -28,7 +27,7 @@ function parabola(a: number, kind: Exclude<Diagram3DKind, 'torsion'>): ElementFo
   }
 }
 
-wrong2273('known wrong result: #2273 combined member extrema include the interior governing station', () => {
+it('#2273 combined member extrema include the interior governing station', () => {
   for (const kind of ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial'] as const) {
     for (const method of ['abs', 'srss'] as const) {
       const forces = { ...empty(), combined: { method, parts: [parabola(0.21, kind), parabola(0.66, kind)] } };
@@ -43,7 +42,7 @@ wrong2273('known wrong result: #2273 combined member extrema include the interio
   }
 });
 
-wrong2273('known wrong result: #2273 combination minima include sign changes and one-sided jump limits', () => {
+it('#2273 combination minima include sign changes and one-sided jump limits', () => {
   for (const method of ['abs', 'srss'] as const) {
     const torsion = { ...empty(), mxStart: -0.435, mxEnd: 1 - 0.435 };
     expect(computeDiagram3D({ ...empty(), combined: { method, parts: [torsion] } }, 'torsion').minValue).toBeCloseTo(0, 12);
@@ -52,6 +51,12 @@ wrong2273('known wrong result: #2273 combination minima include sign changes and
     const combined = { ...empty(), combined: { method, parts: [shear] } };
     expect(computeDiagram3D(combined, 'shearZ').points.filter(point => point.t === a).map(point => point.value)).toEqual([2 * a, Math.abs(2 * a - 1)]);
   }
+  const first = { ...empty(), distributedLoadsY: [{ a: 0, b: 1, qI: 0, qJ: -6 }] };
+  const second = { ...empty(), mzStart: 1, vyStart: 6, distributedLoadsY: [{ a: 0, b: 1, qI: -24, qJ: 24 }] };
+  const expected = 2 ** 0.2 / (1 + 2 * 2 ** 0.2);
+  const cubic = computeDiagram3D({ ...empty(), combined: { method: 'srss', parts: [first, second] } }, 'momentZ');
+  expect(cubic.minValue).toBeCloseTo(Math.hypot(expected ** 3, (1 - 2 * expected) ** 3), 12);
+  expect(cubic.points.some(p => Math.abs(p.t - expected) < 1e-10)).toBe(true);
 });
 
 it('a monotone combination peaks at its end', () => {
