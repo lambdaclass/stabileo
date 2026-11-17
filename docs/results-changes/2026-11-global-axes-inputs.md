@@ -170,3 +170,33 @@ sheets that origin/main reports as unsupported. The existing registry entry is
 updated without numerical-quantity claims or a results-version bump. Canonical
 saved models retain their solver answers. No solver tolerance, numerical baseline,
 assertion threshold, or safety advisory is changed.
+
+## Round 5 integration checks (#2259)
+
+The Hungarian `wb.conv.selfWeight` replacement is intentional. Main's
+`f8f364d2f` says the SelfWeight sheet is a record that the model importer does
+not read. Round 4's `b9adbb25b` adds standalone gravity import alongside explicit
+case rules and updates that sentence to describe the accepted forms and reported
+unsupported scopes. Restoring the old sentence would contradict the importer.
+The workbook axes regressions exercise standalone imports with zero, one and two
+dead cases and check both plane and spatial solver input builders. This is the
+single deletion reported by the revert check against `origin/main` at `d972912815`;
+it does not discard an unrelated main change.
+
+The browser modal table already calls `modalPresentation` through
+`ModalResultsTable`. Its three participation columns contain signed factors;
+its next three columns contain effective mass percentages, followed by three
+cumulative percentages. The round-3 browser spec's nonnegativity assertion still
+addresses the factor columns and its final assertion requires every mass column
+to stay in its original position. These expectations conflict with the round-4
+contract above: reversing axes changes factor signs, and permuting axes permutes
+both mass percentages and their cumulative columns. The signed factors must not
+be made unsigned to satisfy that older assertion. This clarification changes no
+engine result or results-change registry condition.
+
+Running the unchanged browser spec on `7ade909d8` reproduces both modal failures
+at the initial nonnegativity assertion, before the axes picker is opened. The
+browser snapshot shows a signed factor of `-1.05` alongside a mass ratio of
+`83.5%`; these are different columns and quantities. The two hydrostatic cases
+pass. The original browser assertions remain intact pending resolution of this
+contract conflict.
