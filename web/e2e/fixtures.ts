@@ -225,16 +225,18 @@ export async function bootPro(page: Page, appLocale = 'en'): Promise<void> {
  * needs Spanish sets `test.use({ appLocale: 'es' })` — which is how the bilingual journeys
  * prove that engine output is translated rather than pasted.
  */
-export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'acknowledge' | 'assert' }>({
+export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: 'continue' | 'assert' }>({
   appLocale: ['en', { option: true }],
   /**
    * The re-check notice (`RecheckNotice.svelte`) opens over a project solved with an earlier
    * results version, which every committed fixture becomes at the next results-version bump.
-   * By default it is acknowledged whenever it would block an action, so a bump does not fail
-   * specs that are about something else (eight of them did, the last time). A spec about the
-   * notice itself sets `test.use({ recheckNotice: 'assert' })` and sees it untouched.
+   * By default, whenever it would block an action, it is closed the way a person closes it:
+   * «Continue, results stay marked stale», which keeps the results stale and the banner up. A
+   * bump then does not fail specs that are about something else (eight of them did, the last
+   * time). A spec about the notice itself sets `test.use({ recheckNotice: 'assert' })` and sees
+   * it untouched.
    */
-  recheckNotice: ['acknowledge', { option: true }],
+  recheckNotice: ['continue', { option: true }],
   /**
    * `page.goto` to the application, with the test hooks asked for, returns once the hooks are
    * there. The application is loaded on demand (main.ts imports it for an app address), so it can
@@ -242,7 +244,7 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
    * `goto` used to find it already installed beside an application that mounted at once.
    */
   page: async ({ page, recheckNotice }, use) => {
-    if (recheckNotice === 'acknowledge') {
+    if (recheckNotice === 'continue') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
         await page.getByTestId('recheck-later').click();
       });
