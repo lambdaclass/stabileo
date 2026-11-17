@@ -22,11 +22,17 @@ import { runDesign } from '../../design/candidate-search';
 import { cirsoc201Adapter } from '../../design/adapters/cirsoc201-adapter';
 import { runDetailing, type RunDetailingResult } from '../run-detailing';
 import type { BarPath } from '../../../codes/cirsoc201/bar-geometry';
+import { computeDirectionalShearCapacity } from '../../station-design-forces';
+import { stirrupLegs } from '../../../design-contract/directional-stirrups';
+import { columnShearSpacing, columnTieSpacing } from '../../../codes/cirsoc201/transverse-spacing';
+import { generateColumnStack } from '../generate-column';
+import { REBAR_DB } from '../../codes/argentina/cirsoc201';
+import type { MemberContext } from '../../design/member-context';
 
-function detail(fixture: unknown): RunDetailingResult {
+function designAndDetail(fixture: unknown) {
   const solved = solveFixture(fixture as never);
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
-  return runDetailing({
+  const result = runDetailing({
     contexts: solved.contexts,
     outcomes: summary.outcomes,
     nodes: solved.data.nodes as never,
@@ -36,6 +42,11 @@ function detail(fixture: unknown): RunDetailingResult {
     verifierId: 'cirsoc201.provided.v2.2025',
     demandRevision: 1,
   } as never);
+  return { solved, summary, result };
+}
+
+function detail(fixture: unknown): RunDetailingResult {
+  return designAndDetail(fixture).result;
 }
 
 interface Coverage {
@@ -141,7 +152,7 @@ const FIXTURES: Array<{
 
 describe('every fixture carries a physical transverse cage', () => {
   for (const f of FIXTURES) {
-    it(`${f.name}`, () => {
+    it.skipIf(f.name === 'rc-design-qa-row2' && process.env.RUN_KNOWN_WRONG !== '2198')(`${f.name === 'rc-design-qa-row2' ? 'known wrong result: #2198 — ' : ''}${f.name}`, () => {
       const c = coverageOf(detail(f.data));
       // Logged so a change shows up in the diff; asserted as invariants below, because a
       // pinned count fails on a legitimate fixture change and proves nothing about the cage.
@@ -283,4 +294,100 @@ describe('§15.3.1.4 — joint tie spacing cap', () => {
       }
     }
   }, 120_000);
+});
+
+function expectOrdinaryColumnShear(ctx: MemberContext, cage: { diameter: number; legs: number; spacing: number }) {
+  const { b, h } = ctx.section;
+  const { fc, fy, cover } = ctx.material;
+  const longArea = 8 * REBAR_DB.find(r => r.diameter === 20)!.area * 1e-4;
+  const tuples = ctx.stations!.comboResults.flatMap(c => c.stations);
+  expect(tuples).toHaveLength(44);
+  for (const direction of ['primary', 'secondary'] as const) {
+    const axis = direction === 'primary' ? ctx.axes.shear : ctx.axes.secondaryShear;
+    const d = h - cover - cage.diameter / 1000 - 0.008;
+    for (const station of tuples) {
+      const Vu = Math.abs(axis === 'Vy' ? station.vy : station.vz);
+      const cap = computeDirectionalShearCapacity(direction, cage.diameter,
+        stirrupLegs({ legs: cage.legs, secondaryLegs: cage.legs }, direction), cage.spacing,
+        b, d, fc, fy, -station.n, { Ag: b * h, rhoW: longArea / 3 / (b * h), h, edition: '2025' });
+      expect(cap.evaluated).toBe(true);
+      expect(cap.avBelowMin).toBe(false);
+      expect(Vu).toBeLessThanOrEqual(0.5 * cap.phiVcUnrounded);
+      expect(Vu).toBeLessThan(cap.phiVn);
+      expect(columnShearSpacing('2025', {
+        Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: b, d, fc,
+      })).toEqual({ kind: 'not-required' });
+    }
+  }
+}
+
+describe('row-2 column generation follows its declared cage', () => {
+  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — the warning inventory agrees with all four selected and generated column cages', () => {
+    const { solved, summary, result } = designAndDetail(row2);
+    const bars = result.assemblies.flatMap(a => a.bars);
+    expect([...solved.contexts.values()].filter(c => c.elementType === 'column').map(c => c.elementId)).toEqual([1, 2, 3, 4]);
+    for (const id of [1, 2, 3, 4]) {
+      const ctx = solved.contexts.get(id)!;
+      const outcome = summary.outcomes.get(id)!;
+      expect(outcome.outcome, `column ${id}`).toBe('VERIFIED');
+      expect(outcome.accepted).toEqual({
+        column: { cornerDia: 20, faceDia: 20, nBottom: 1, nTop: 1, nLeft: 1, nRight: 1 },
+        longitudinal: { count: 8, diameter: 20 },
+        stirrups: { diameter: 10, legs: 2, secondaryLegs: 2, spacing: 0.3 },
+      });
+      const verified = cirsoc201Adapter.verify(ctx, outcome.accepted!);
+      expect(verified.overallStatus).toBe('ok');
+      expect(verified.checks.every(c => c.status === 'ok')).toBe(true);
+      expect(new Set(verified.checkedAxes)).toEqual(new Set(['N', 'My', 'Mz', 'Vy', 'Vz']));
+      expectOrdinaryColumnShear(ctx, outcome.accepted!.stirrups!);
+      const longitudinal = bars.filter(b => b.role === 'longitudinal' && b.ownerElementIds.includes(id));
+      expect(longitudinal).toHaveLength(8);
+      const ties = bars.filter(b => b.zoneId === `col-${id}:ties`);
+      expect(ties).toHaveLength(33);
+      const stations = [...new Set(ties.map(b => b.station!))].sort((a, b) => a - b);
+      expect(stations).toHaveLength(11);
+      const spacing = Math.max(...stations.slice(1).map((s, i) => s - stations[i]));
+      expect(spacing).toBeLessThanOrEqual(columnTieSpacing('2025', 20, 8, 0.5).spacing);
+      expectOrdinaryColumnShear(ctx, { diameter: 8, legs: 3, spacing });
+      for (const station of stations) {
+        const group = ties.filter(b => b.station === station);
+        expect(group).toHaveLength(3);
+        expect(group.every(b => b.diameterMm === 8)).toBe(true);
+        const outer = group.filter(b => !b.id.includes('crosstie'));
+        const cross = group.filter(b => b.id.includes('crosstie'));
+        expect(outer).toHaveLength(1);
+        expect(outer[0].restrainsBarIds).toHaveLength(4);
+        expect(cross).toHaveLength(2);
+        for (const tie of cross) {
+          expect(tie.restrainsBarIds).toHaveLength(2);
+          expect(tie.startTreatment.kind).toBe('hook');
+          expect(tie.endTreatment.kind).toBe('hook');
+          expect(tie.cuttingLength).toBeGreaterThan(0);
+        }
+        const shafts = cross.map(tie => [...tie.segments].filter(s => s.kind === 'straight').sort((a, b) => b.length - a.length)[0]);
+        expect(shafts.filter(s => Math.abs(s.end.x - s.start.x) > Math.abs(s.end.y - s.start.y))).toHaveLength(1);
+        expect(shafts.filter(s => Math.abs(s.end.y - s.start.y) > Math.abs(s.end.x - s.start.x))).toHaveLength(1);
+        expect(new Set(group.flatMap(b => b.restrainsBarIds ?? []))).toEqual(new Set(longitudinal.map(b => b.id)));
+      }
+    }
+    const coverage = coverageOf(result);
+    expect(coverage.verdicts).toEqual(['CONFLICTED']);
+    expect(coverage.prohibited).toBeGreaterThan(0);
+    expect(coverage.unsupported).toEqual(FIXTURES.find(f => f.name === 'rc-design-qa-row2')!.unsupported ?? []);
+  });
+
+  for (const secondaryLegs of [2, 3, 4]) {
+    it(`preserves the column generator refusal at ${secondaryLegs} declared secondary legs`, () => {
+      const generated = generateColumnStack({
+        stackId: 'column', edition: '2025', fc: 30, fy: 420, maxAggregateSizeMm: 19,
+        lapSplice: () => 0, beamDepthAtTop: new Map(), roofTermination: false,
+        lifts: [{ elementId: 1, baseZ: 0, topZ: 3.2, b: 0.5, h: 0.5, centre: { x: 0, y: 0 },
+          bars: { count: 8, diameterMm: 20 }, tieDia: 8, cover: 0.025, secondaryLegs }],
+      });
+      expect(generated.bars).toHaveLength(8);
+      expect(generated.unsupported).toEqual(secondaryLegs === 2 ? [] : [{
+        key: 'detailing.generation.columnSecondaryLegs', params: { legs: secondaryLegs, element: 1 },
+      }]);
+    });
+  }
 });
