@@ -15,7 +15,6 @@ spec.loader.exec_module(plan)
 
 
 class MutantsPlan(unittest.TestCase):
-    @unittest.skip('known wrong result: #2270')
     def test_issue_2270_smaller_shards_preserve_the_16_night_rotation(self):
         workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
         total = int(re.search(r'^          MUTANTS_TOTAL: (\d+)$', workflow, re.M).group(1))
