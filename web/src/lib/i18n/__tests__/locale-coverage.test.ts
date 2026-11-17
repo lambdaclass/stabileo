@@ -38,6 +38,14 @@ function translated(code: string): string[] {
   return enKeys.filter((k) => k in dict && (dict[k] !== en[k] || same.has(k) || !SAME[code]));
 }
 
+const regression = process.env.RUN_KNOWN_WRONG === '2279' ? it : it.skip;
+
+regression('known wrong result: #2279 — covers reinforcement sheet labels in Hungarian', () => {
+  const done = new Set(translated('hu'));
+  const missing = enKeys.filter((key) => key.startsWith('rcSheets.') && !done.has(key));
+  expect(missing).toEqual([]);
+});
+
 describe('the languages offered', () => {
   it('are each either complete or being translated, never neither', () => {
     const complete = completeLocales();
