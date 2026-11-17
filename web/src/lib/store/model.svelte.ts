@@ -1,4 +1,5 @@
 import { defaultDesignData, migrateStoredDesignData } from '../model/design-data';
+import { markLoadedModel, takeLoadedModel } from './loaded-model';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -3848,6 +3849,7 @@ function createModelStore() {
     },
 
     clear(): void {
+      takeLoadedModel();
       loadEpoch++;
       _onReplaced?.();
       _onNewProject?.();
@@ -4735,6 +4737,7 @@ function createModelStore() {
       this.bulkMutate(() => {
         loadFixture(json as any, api as any, opts);
       });
+      markLoadedModel();
 
       // Settle canonical state once the whole model is in place. Sections the
       // fixture added are already resolved (addSection resolves per add, and
