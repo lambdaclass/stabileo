@@ -102,6 +102,9 @@ pub fn solve_corotational_2d_from(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
+    let canonical_input = super::member_loads::plane_input(input);
+    let input = canonical_input.as_ref();
+
     // Degenerate parameters, rejected before any work. These arrive from the
     // public WASM entry point exactly as the caller sent them, and the UI's
     // `min` attribute constrains the spinner, not the value that is bound.
@@ -1110,6 +1113,9 @@ pub(super) fn build_final_results(
     cs: &Option<FreeConstraintSystem>,
     its: &[assembly::InclinedTransformData2D],
 ) -> Result<AnalysisResults, String> {
+    let canonical_input = super::member_loads::plane_input(input);
+    let input = canonical_input.as_ref();
+
     // Reactions: co-rotational internal forces at restrained DOFs minus external loads
     let f_applied = assembly::assemble_load_vector_2d(input, &input.loads, dof_num, its);
     // Reverse the inclined-support rotation to get TRUE global displacements
@@ -1359,6 +1365,9 @@ pub fn solve_corotational_3d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult3D, String> {
+    let canonical_input = super::member_loads::space_input(input);
+    let input = canonical_input.as_ref();
+
     // Same degenerate parameters as the 2D entry point, refused for the same
     // reason: an empty `1..=0` increment range reports the untouched zero
     // state as a converged answer.

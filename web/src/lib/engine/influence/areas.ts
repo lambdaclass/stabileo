@@ -7,6 +7,7 @@
  * The live load goes either on the stretches where the line has the sign sought ('zones'), or on
  * whole members whose net area has it ('spans'), which is the pattern loading of a code.
  */
+import { spanEndpoints } from '../member-span-loads';
 import type { SolverInput, SolverLoad } from '../types';
 import { memberGeom, type Dir, type IlPoint } from './unit-sweep';
 
@@ -152,6 +153,7 @@ export function ilExtremes(
 /** The loads of `w` per unit length along `dir` on [a, b] of a member, as the static solve takes them. */
 export function uniformAlong(solver: SolverInput, elementId: number, a: number, b: number, w: number, dir: Dir): SolverLoad[] {
   const { e, L, c, s } = memberGeom(solver, elementId);
+  const endpoints = spanEndpoints(a, b, L, elementId);
   const Fx = w * dir.x, Fz = w * dir.z;
   if (e.type === 'truss') {
     const W = (b - a);
@@ -165,8 +167,8 @@ export function uniformAlong(solver: SolverInput, elementId: number, a: number, 
   const out: SolverLoad[] = [];
   const perp = -s * Fx + c * Fz;
   const axial = c * Fx + s * Fz;
-  if (Math.abs(perp) > 1e-12) out.push({ type: 'distributed', data: { elementId, qI: perp, qJ: perp, a, b } });
-  if (Math.abs(axial) > 1e-12) out.push({ type: 'axialDistributed', data: { elementId, qI: axial, qJ: axial, a, b } });
+  if (Math.abs(perp) > 1e-12) out.push({ type: 'distributed', data: { elementId, qI: perp, qJ: perp, ...endpoints } });
+  if (Math.abs(axial) > 1e-12) out.push({ type: 'axialDistributed', data: { elementId, qI: axial, qJ: axial, ...endpoints } });
   return out;
 }
 

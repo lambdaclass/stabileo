@@ -776,9 +776,6 @@
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
       adoptStoredProject(autosaveData.snapshot, autosaveData.name);
-      // Same convention note as a .ded open — an autosave predating the metadata
-      // is restored under the corrected convention, so warn if it's a legacy 3D model.
-      onProjectOpened(autosaveData.snapshot, autosaveData.analysisMode);
       // Restore analysis mode and axis convention from autosave
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
@@ -788,6 +785,7 @@
       if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
       uiStore.selfWeightCaseId = autosaveData.selfWeightCaseId ?? null;
       noteBasicSelfWeightRuleIfNeeded(autosaveData.selfWeightCaseId !== undefined, uiStore.analysisMode);
+      onProjectOpened(autosaveData.snapshot, uiStore.analysisMode);
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;

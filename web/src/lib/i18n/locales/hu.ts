@@ -1,6 +1,15 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'engine.memberLoad.geometryOrdering': "A létrehozott rúd geometriájának sorrendje érvénytelen",
+  'engine.memberLoad.geometryLine': "A létrehozott rúd geometriája eltér a forrás vonalától",
+  'engine.memberLoad.invalidGeometry': "A létrehozott rúd geometriája érvénytelen",
+  'engine.memberLoad.geometryPartition': "A létrehozott geometria nem osztja fel a forrásrudat",
+  'engine.memberLoad.invalidPiece': "A létrehozott rúd teherszakasza érvénytelen",
+  'engine.memberLoad.geometrySpan': "{id}. elem: a létrehozott geometria a(z) {span} forrásszakaszt {length} hosszúságúra módosítja; a megoszló terhek nem skálázhatók át",
+  "engine.memberLoad.invalidInterval": "A(z) {id} rúd [{a}, {b}] megoszlóteher-intervalluma érvénytelen a(z) {length} hosszon",
+  "engine.memberLoad.geometryLimit": "A(z) {id} rúd [{a}, {b}] megoszlóteher-intervalluma a(z) {length} hosszon a(z) {limit} relatív geometriai korlát alatt van",
+
   "loadPlan.blocked.concentratedRule": "A(z) {occupancy} rendeltetéshez a CIRSOC 101 {article} szerint koncentrált terhek ellenőrzése szükséges. A legkedvezőtlenebb helyzeteket a program nem értékeli. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze ezeket a hatásokat kézzel.",
   "loadPlan.blocked.concentratedLive": "A(z) {occupancy} rendeltetéshez a CIRSOC 101 §4.4 szerint {force} kN koncentrált hasznos teher ellenőrzése szükséges. A legkedvezőtlenebb helyzeteket és az egyenletes, illetve koncentrált teher közötti alternatívát a program nem értékeli. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze ezeket a hatásokat kézzel.",
   "loadPlan.blocked.concentratedRoof": "A CIRSOC 101 §4.4 koncentrált tetőterheket ír elő a legkedvezőtlenebb helyzetekben, a §4.8 szerinti tető hasznos terhétől külön. A program ezeket nem ellenőrzi. Az automatikus tehergenerálás letiltva; modellezze és ellenőrizze a tetőterheket kézzel.",

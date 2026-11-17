@@ -146,7 +146,7 @@ in the `solver` and `element` scopes too: a mutant in an element kernel or in th
 assembly makes the engine's `K` or `f` disagree with the independent re-assembly. Results
 land in `mutants.out/`: `caught.txt`, `missed.txt`,
 `timeout.txt`, `unviable.txt`. CI (`.github/workflows/nightly.yml`, job `mutants`) splits
-the ~23,000 mutants into 512 shards and runs 32 of them each night, the ones that went longest
+the ~23,000 mutants into 2560 shards and runs 160 of them each night, the ones that went longest
 without finishing, so every mutant is tested every 16 nights when every shard finishes, and a
 shard that does not finish is retried once ahead of shards with a newer report (testing/docs/NIGHTLY.md). A shard fails on any
 missed mutant, and fails loudly if it does not finish within its time budget;

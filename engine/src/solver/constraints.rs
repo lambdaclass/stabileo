@@ -1771,7 +1771,7 @@ fn solve_constrained_2d_dense_validated(
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 2);
     super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_2d(&mut result, &resultant)?;
+    super::self_checks::static_2d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(result)
 }
 
@@ -1958,7 +1958,7 @@ pub(super) fn solve_constrained_2d_sparse(
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, dof_num, 2);
     super::conditioning_accuracy::member_balance_2d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_2d(&mut result, &resultant)?;
+    super::self_checks::static_2d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(Some(result))
 }
 
@@ -2220,7 +2220,7 @@ pub(crate) fn solve_constrained_3d_inner(input: &ConstrainedInput3D, analysis: c
     };
     let resultant = self_check_constraint_resultant(&raw_forces, &ct, &fcs, &dof_num, 3);
     super::conditioning_accuracy::member_balance_3d(&input.solver, &input.solver.loads, &dof_num, &stability, &result, Some(&fcs))?;
-    super::self_checks::static_3d(&mut result, &resultant)?;
+    super::self_checks::static_3d(&mut result, &resultant, &input.solver, &input.solver.loads)?;
     Ok(result)
 }
 
