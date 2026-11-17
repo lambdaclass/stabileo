@@ -199,17 +199,19 @@ export function supportPlanes(cage: SupportCage): { straight: number; hook: numb
   return { straight: ring, hook: Math.min(ring, core) };
 }
 
-const farthestFirst = new WeakMap<ReadonlyArray<CrossingSeat>, ReadonlyArray<CrossingSeat>>();
-const noCrossing: ReadonlyArray<CrossingSeat> = Object.freeze([]);
-function crossingFromFarthest(crossing: ReadonlyArray<CrossingSeat> | undefined): ReadonlyArray<CrossingSeat> {
-  if (!crossing?.length) return noCrossing;
-  let sorted = farthestFirst.get(crossing);
-  if (!sorted) { sorted = [...crossing].sort((p, q) => q.at - p.at); farthestFirst.set(crossing, sorted); }
-  return sorted;
+/**
+ * A support's crossing corner bars from the farthest past the node inward, the order a tail is
+ * cleared of them in: for a caller that plans several rows in one support in one pass.
+ */
+export function crossingFarthestFirst(cage: SupportCage): CrossingSeat[] {
+  return [...(cage.crossing ?? [])].sort((p, q) => q.at - p.at);
 }
 
-/** The end of a bar in a support, and what it develops there. Null with no column geometry. */
-export function planSupportEnd(cage: SupportCage, bar: SupportBar): SupportEndPlan | null {
+/**
+ * The end of a bar in a support, and what it develops there. Null with no column geometry.
+ * `crossing` is `crossingFarthestFirst(cage)` taken in the same pass, never one kept from before.
+ */
+export function planSupportEnd(cage: SupportCage, bar: SupportBar, crossing: readonly CrossingSeat[] = crossingFarthestFirst(cage)): SupportEndPlan | null {
   if (!(cage.face > 0)) return null;
   const face = cage.face;
   const far = cage.far ?? face;
@@ -218,7 +220,6 @@ export function planSupportEnd(cage: SupportCage, bar: SupportBar): SupportEndPl
   const straightLimit = planes.straight - bar.inboard;
   // The tail's centre, inboard past every crossing corner bar it would pass through; rows nest
   // `inboard` inside the outer row's tail, wherever that ended.
-  const crossing = crossingFromFarthest(cage.crossing);
   const clear = (x: number) => {
     for (const c of crossing) {
       if (c.face && bar.position && c.face !== bar.position) continue;

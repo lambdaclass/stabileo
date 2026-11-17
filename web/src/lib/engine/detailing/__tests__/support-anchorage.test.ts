@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  groupTopRow, inflectionAnchorage, planSupportEnd, supportPlanes, supportRows, topLayout, faceDevelopment,
+  crossingFarthestFirst, groupTopRow, inflectionAnchorage, planSupportEnd, supportPlanes, supportRows, topLayout, faceDevelopment,
   SUPPORT_EMBED_M, type SupportCage, type SupportBar,
 } from '../support-anchorage';
 import { endSupportPlan } from '../../design/end-support-anchorage';
@@ -64,6 +64,26 @@ describe('a bar end in an end support', () => {
     // Tail centre at 0,111 − 0,005 = 0,106, within 0,008 + 0,005 + 0,001 of the seat: to 0,100 − 0,014.
     const p = planSupportEnd(cage({ crossing: [{ at: 0.1, diameterMm: 16 }] }), bar())!;
     expect(r3(p.availableHooked)).toBe(0.291);
+  });
+
+  it('reads the crossing bars the support has now, not the ones it had when first planned', () => {
+    const crossing = [{ at: 0.02, diameterMm: 16 }];
+    const support = cage({ crossing });
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.311);
+    crossing.push({ at: 0.1, diameterMm: 16 });
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.291);
+    crossing[1] = { at: 0.06, diameterMm: 16 };
+    expect(r3(planSupportEnd(support, bar())!.availableHooked)).toBe(0.311);
+  });
+
+  it('a list of crossing bars ordered for the pass gives the plan the support\'s own list gives', () => {
+    const support = cage({ crossing: [{ at: 0.05, diameterMm: 12 }, { at: 0.1, diameterMm: 16 }, { at: 0.085, diameterMm: 10 }] });
+    const ordered = crossingFarthestFirst(support);
+    expect(ordered.map((c) => c.at)).toEqual([0.1, 0.085, 0.05]);
+    expect(support.crossing!.map((c) => c.at)).toEqual([0.05, 0.1, 0.085]);
+    for (const b of [bar(), bar({ inboard: 0.035, rowStep: 0.035, position: 'top' }), bar({ diameterMm: 20, ldh: 0.368 })]) {
+      expect(planSupportEnd(support, b, ordered)).toEqual(planSupportEnd(support, b));
+    }
   });
 
   it('positive steel owes the face §9.7.3.8\'s 150 mm and stops there, straight or hooked', () => {

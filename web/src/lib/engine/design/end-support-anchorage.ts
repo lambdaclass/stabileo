@@ -12,7 +12,7 @@
  */
 import { seatedLongitudinalHalfExtents } from '../../codes/cirsoc201/transverse-cage';
 import {
-  bottomHookInboard, faceDevelopment, inflectionAnchorage, planSupportEnd, supportRows, topLayout, topRowInboard, topRowsOf,
+  bottomHookInboard, crossingFarthestFirst, faceDevelopment, inflectionAnchorage, planSupportEnd, supportRows, topLayout, topRowInboard, topRowsOf,
   SUPPORT_EMBED_M, cornerDiasOf, crossingSeats, faceCornerDiasOf, type CrossingSeat, type SupportCage, type SupportEndPlan, yieldsTo,
   columnFacesAlong,
 } from '../detailing/support-anchorage';
@@ -266,6 +266,7 @@ function verdictsIn(input: EndSupportInput, slots: number, layers: number): Supp
     });
     const topRows = topRowsOf(rows);
     const topDia = Math.max(0, ...rows.filter((r) => r.position === 'top').map((r) => r.diameterMm));
+    const crossing = crossingFarthestFirst(cage);
     for (const r of rows) {
       const dev = faceDevelopment(rebar, section, r.position === 'bottom' ? 'bottom' : end === 'start' ? 'topStart' : 'topEnd', r.diameterMm, edition);
       const inboard = r.position === 'top' ? topRowInboard(r.row, r.diameterMm, nestClear(r.diameterMm))
@@ -275,7 +276,7 @@ function verdictsIn(input: EndSupportInput, slots: number, layers: number): Supp
         outerAcross: seatedLongitudinalHalfExtents(section.b, section.h, section.cover, input.seat.stirrupDiaMm, r.diameterMm).corner.halfAcross,
         ...(r.position === 'top' ? { rowStep: r.diameterMm / 1000 + nestClear(r.diameterMm) } : {}),
         ld: dev.ld, ldh: dev.ldh, ldc: dev.ldc, stress: 'tension',
-      });
+      }, crossing);
       if (!plan) continue;
       out.push({
         end, position: r.position, row: r.row, diameterMm: r.diameterMm, count: r.count, continuousPair: r.continuousPair === true,
