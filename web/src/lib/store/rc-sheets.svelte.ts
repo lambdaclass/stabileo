@@ -314,6 +314,11 @@ export const redesignerOf = (key: string): Redesign | undefined => redesigners.g
 import type { SheetProgress } from './rc-sheets-progress.svelte';
 export type { SheetProgress };
 
+/** Whether the model has a physical member the sheets design: a slab or wall plate counts, whatever bars are still unread. */
+export function sheetsHavePhysical(): boolean {
+  return physicalGroups().length > 0;
+}
+
 /** The sheets' rows at once (`sheetRowsSteps` run to its end). */
 export function buildSheetRows(fmt: Fmt = makeFmt(',')): SheetRows {
   const it = sheetRowsSteps(fmt);

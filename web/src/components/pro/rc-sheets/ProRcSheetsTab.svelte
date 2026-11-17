@@ -1,10 +1,8 @@
 <script lang="ts">
   import { t, tp, tpn } from '../../../lib/i18n';
   import { modelStore, resultsStore } from '../../../lib/store';
-  import { downloadRcSheets, meshWallsForSheets, setColumnEndZones, rcSheetsData, setRcOption, setTorsionMode, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
-  import { physicalGroups } from '../../../lib/store/physical';
+  import { downloadRcSheets, meshWallsForSheets, setColumnEndZones, rcSheetsData, setRcOption, setTorsionMode, sheetsHavePhysical, wallsToMeshForSheets, type SheetRow } from '../../../lib/store/rc-sheets.svelte';
   import { uiStore } from '../../../lib/store/ui.svelte';
-  import { plateSurfaceOf } from '../../../lib/model/physical/plate';
   import { runGlobalSolve } from '../../../lib/engine/live-calc';
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -24,7 +22,7 @@
   let family = $state<SheetFamily>('beam');
 
   const solved = $derived(!!resultsStore.results3D);
-  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return modelStore.elements.size === 0 ? physicalGroups().length > 0 : physicalGroups().some((g) => !plateSurfaceOf(g)); });
+  const hasPhysical = $derived.by(() => { void modelStore.model.groups; return sheetsHavePhysical(); });
   followSheetEdits();
   const rows = $derived(solved && hasPhysical ? sheetsRun.rows : null);
   const stale = $derived(sheetsStale());
