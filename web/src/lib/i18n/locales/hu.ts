@@ -7379,7 +7379,7 @@ const hu: Translations = {
   "loadPlan.derivation.reductionPerMember": "A hasznos teher rúdonként csökkentve a saját teherfelvevő területe szerint (4.7.2. pont): {min} és {max} kN/m² között {n} rúdon.",
   "loadPlan.derivation.reductionDisabled": "A hasznos teher csökkentése nincs alkalmazva, projektdöntés alapján.",
   "loadPlan.derivation.liveBesideHandReduced": "A csökkentett hasznos teher saját esetbe kerül, nem ide: {names} – a kézzel csökkentett eset újra csökkentené. Változatlanul marad, és mellette lép be a kombinációkba.",
-  "loadPlan.derivation.level": "+{elevation} m szint: alaprajzi terület {area} m² (a tényleges csomóponti kiterjedésből), önsúly {selfWeight} kN, ráterhelt állandó {superimposed} kN, Wi = {weight} kN.",
+  "loadPlan.derivation.level": "+{elevation} m szint: alaprajzi terület {area} m² (a terhelt hatásterületekből), önsúly {selfWeight} kN, ráterhelt állandó {superimposed} kN, Wi = {weight} kN.",
   "loadPlan.derivation.wind": "{dir} szél: qh = {qh} N/m², nettó nyomás {net} kPa {front} m homlokzati szélességen.",
   "loadPlan.derivation.windLevel": "{dir} szél, {level} m szint: sáv {z0}–{z1} m, átlagos nettó nyomás {net} kPa, erő {force} kN.",
   "loadPlan.derivation.windNodalShare": "{dir} szél, {node} csomópont {level} m magasságban: az integrált falnyomás csomóponti része, {force} kN.",

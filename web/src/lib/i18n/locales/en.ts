@@ -8097,7 +8097,7 @@ const en: Record<string, string> = {
   'loadPlan.derivation.reductionPerMember': "Live load reduced member by member by its own tributary area (§4.7.2): between {min} and {max} kN/m² over {n} members.",
   'loadPlan.derivation.reductionDisabled': 'Live-load reduction not applied, by project decision.',
   'loadPlan.derivation.liveBesideHandReduced': 'The reduced live load goes to a case of its own, not into {names}: a case reduced by hand would reduce it again. It stays as it is and enters the combinations beside it.',
-  'loadPlan.derivation.level': 'Level +{elevation} m: plan area {area} m² (from the actual node extents), self-weight {selfWeight} kN, superimposed dead {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': 'Level +{elevation} m: plan area {area} m² (from the loaded tributary areas), self-weight {selfWeight} kN, superimposed dead {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Wind {dir}: qh = {qh} N/m², net pressure {net} kPa over a {front} m frontage.',
   'loadPlan.derivation.windLevel': 'Wind {dir}, level {level} m: band {z0}–{z1} m, mean net pressure {net} kPa, force {force} kN.',
   "loadPlan.derivation.windNodalShare": "Wind {dir}, node {node} at {level} m: nodal share of the integrated wall pressure, {force} kN.",

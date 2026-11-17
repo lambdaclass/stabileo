@@ -93,13 +93,32 @@ for (const mode of ['width', 'panels'] as const) for (const [label, shells] of c
       reductionElementKind: 'interiorBeam', floorsSupported: 1, generateCombinations: false, gravity: { mode, loadEveryPanel: true } });
     const base = plan(m);
     expect(base.outcome).toBe('READY');
-    expect(base.levels[0]!.planAreaM2).toBeCloseTo(8, 8);
-    expect(base.levels[0]!.superimposedKN).toBeCloseTo(8, 8);
+    const area = mode === 'width' ? 1 * (4 + 2 + 4 + 2) : 4 * 2;
+    expect(base.levels[0]!.planAreaM2).toBeCloseTo(area, 8);
+    expect(base.levels[0]!.superimposedKN).toBeCloseTo(area, 8);
+    expect(base.levels[0]!.liveTotalKN).toBeCloseTo(2 * area, 8);
+    expect(base.levels[0]!.liveParticipatingKN).toBeCloseTo(0.5 * area, 8);
+    expect(base.levels[0]!.weightKN).toBeCloseTo(base.levels[0]!.selfWeightKN + 1.5 * area, 8);
     for (const variant of ['rotate', 'mirror', 'remesh', 'ids'] as const) {
       const changed = regionVariant(m, variant), p = plan(changed.model);
       expect(p.outcome).toBe('READY');
       for (const key of ['planAreaM2', 'superimposedKN', 'liveTotalKN', 'weightKN'] as const) expect(p.levels[0]![key]).toBeCloseTo(base.levels[0]![key], 8);
-      if (mode === 'panels') expectResultant(changed.back(loadResultant(changed.model, { distributed: p.distributed.filter(d => d.caseType === 'D'), nodal: p.nodal.filter(d => d.caseType === 'D'), surface: p.surface.filter(d => d.caseType === 'D') })), [8, 16, 8]);
+      expectResultant(changed.back(loadResultant(changed.model, { distributed: p.distributed.filter(d => d.caseType === 'D'), nodal: p.nodal.filter(d => d.caseType === 'D'), surface: p.surface.filter(d => d.caseType === 'D') })), [area, 2 * area, area]);
+      if (mode === 'width') {
+        expect(p.surface).toEqual([]);
+        expect(p.nodal).toEqual([]);
+        for (const id of changed.model.elements.keys()) {
+          const loads = p.distributed.filter(load => load.elementId === id);
+          expect(loads).toHaveLength(2);
+          for (const [caseType, q] of [['D', -1], ['L', -2]] as const) {
+            const load = loads.find(load => load.caseType === caseType)!;
+            expect(load.q).toBe(q);
+            expect(load.qJ ?? load.q).toBe(q);
+            expect(load.a).toBeUndefined();
+            expect(load.b).toBeUndefined();
+          }
+        }
+      }
     }
   });
 }

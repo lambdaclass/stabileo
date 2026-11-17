@@ -7648,7 +7648,7 @@ const tr: Translations = {
   'loadPlan.derivation.reductionPerMember': 'Hareketli yük her çubukta kendi yük alanına göre azaltıldı (§4.7.2): {n} çubukta {min} ile {max} kN/m² arasında.',
   'loadPlan.derivation.reductionDisabled': 'Proje kararıyla hareketli yük azaltması uygulanmadı.',
   'loadPlan.derivation.liveBesideHandReduced': 'Azaltılmış hareketli yük {names} içine değil, kendi durumuna gider: elle azaltılmış bir durum onu tekrar azaltırdı. O durum olduğu gibi kalır ve kombinasyonlara yanında girer.',
-  'loadPlan.derivation.level': '+{elevation} m kotu: plan alanı {area} m² (gerçek düğüm sınırlarından), öz ağırlık {selfWeight} kN, ilave ölü yük {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': '+{elevation} m kotu: plan alanı {area} m² (yüklenen elemanların yük alanlarından), öz ağırlık {selfWeight} kN, ilave ölü yük {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Rüzgar {dir}: qh = {qh} N/m², {front} m cephe boyunca net basınç {net} kPa.',
   'loadPlan.derivation.windLevel': 'Rüzgar {dir}, {level} m kotu: {z0}–{z1} m bandı, ortalama net basınç {net} kPa, kuvvet {force} kN.',
   "loadPlan.derivation.windNodalShare": "{dir} rüzgârı, {level} m kotunda {node} düğümü: duvar basıncı integralinin düğüm payı, {force} kN.",

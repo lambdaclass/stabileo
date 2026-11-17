@@ -7639,7 +7639,7 @@ const fr: Translations = {
   'loadPlan.derivation.reductionPerMember': 'Charge d\'exploitation réduite barre par barre selon sa propre aire d\'influence (§4.7.2) : entre {min} et {max} kN/m² sur {n} barres.',
   'loadPlan.derivation.reductionDisabled': 'Réduction des charges d\'exploitation non appliquée, par décision du projet.',
   'loadPlan.derivation.liveBesideHandReduced': 'La charge d\'exploitation réduite va dans un cas à part, pas dans {names} : un cas réduit à la main la réduirait une seconde fois. Celui-ci reste tel quel et entre dans les combinaisons à côté d\'elle.',
-  'loadPlan.derivation.level': 'Niveau +{elevation} m : surface en plan {area} m² (d\'après l\'emprise réelle des nœuds), poids propre {selfWeight} kN, charge permanente rapportée {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': 'Niveau +{elevation} m : surface en plan {area} m² (selon les surfaces tributaires chargées), poids propre {selfWeight} kN, charge permanente rapportée {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Vent {dir} : qh = {qh} N/m², pression nette {net} kPa sur une façade de {front} m.',
   'loadPlan.derivation.windLevel': 'Vent {dir}, niveau {level} m : bande {z0}–{z1} m, pression nette moyenne {net} kPa, force {force} kN.',
   "loadPlan.derivation.windNodalShare": "Vent {dir}, nœud {node} à {level} m : part nodale de la pression intégrée du mur, {force} kN.",

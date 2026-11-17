@@ -144,8 +144,9 @@ describe('level plan areas come from real geometry', () => {
     const lv = p.levels.find((l) => l.elevation === 3)!;
     // 6 m bay, 4 beams: 4 × 6 × 0.09 × 25 = 54 kN, plus half the columns each side.
     expect(lv.selfWeightKN).toBeGreaterThan(50);
-    expect(lv.superimposedKN).toBeCloseTo(1.8 * 36, 6);
-    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de la extensión real de los nodos/);
+    expect(lv.planAreaM2).toBeCloseTo(3 * 4 * 6, 6);
+    expect(lv.superimposedKN).toBeCloseTo(1.8 * 3 * 4 * 6, 6);
+    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de las áreas tributarias cargadas/);
   });
 
   it('weighs the slabs and walls drawn as shells, not only the members', () => {

@@ -8090,7 +8090,7 @@ const es: Record<string, string> = {
   'loadPlan.derivation.reductionPerMember': "Sobrecarga reducida barra por barra según su propia área tributaria (§4.7.2): entre {min} y {max} kN/m² en {n} barras.",
   'loadPlan.derivation.reductionDisabled': 'Reducción de sobrecarga no aplicada por decisión del proyecto.',
   'loadPlan.derivation.liveBesideHandReduced': 'La sobrecarga reducida va a un caso propio, no a {names}: un caso reducido a mano la reduciría otra vez. Ese caso queda como está y entra en las combinaciones junto a ella.',
-  'loadPlan.derivation.level': 'Nivel +{elevation} m: área en planta {area} m² (de la extensión real de los nodos), peso propio {selfWeight} kN, permanente {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': 'Nivel +{elevation} m: área en planta {area} m² (de las áreas tributarias cargadas), peso propio {selfWeight} kN, permanente {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Viento {dir}: qh = {qh} N/m², presión neta {net} kPa sobre un frente de {front} m.',
   'loadPlan.derivation.windLevel': 'Viento {dir}, nivel {level} m: franja {z0}–{z1} m, presión neta media {net} kPa, fuerza {force} kN.',
   "loadPlan.derivation.windNodalShare": "Viento {dir}, nodo {node} a {level} m: parte nodal de la presión integrada de pared, {force} kN.",

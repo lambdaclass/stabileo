@@ -7639,7 +7639,7 @@ const de: Translations = {
   'loadPlan.derivation.reductionPerMember': 'Nutzlast Stab für Stab nach der eigenen Einzugsfläche abgemindert (§4.7.2): zwischen {min} und {max} kN/m² auf {n} Stäben.',
   'loadPlan.derivation.reductionDisabled': 'Abminderung der Nutzlast nach Projektentscheidung nicht angewendet.',
   'loadPlan.derivation.liveBesideHandReduced': 'Die abgeminderte Nutzlast kommt in einen eigenen Lastfall, nicht in {names}: Ein von Hand abgeminderter Lastfall würde sie erneut abmindern. Er bleibt unverändert und geht daneben in die Kombinationen ein.',
-  'loadPlan.derivation.level': 'Geschoss +{elevation} m: Grundrissfläche {area} m² (aus der tatsächlichen Ausdehnung der Knoten), Eigengewicht {selfWeight} kN, zusätzliche ständige Last {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': 'Geschoss +{elevation} m: Grundrissfläche {area} m² (aus den belasteten Lasteinzugsflächen), Eigengewicht {selfWeight} kN, zusätzliche ständige Last {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.wind': 'Wind {dir}: qh = {qh} N/m², Nettodruck {net} kPa auf einer Front von {front} m.',
   'loadPlan.derivation.windLevel': 'Wind {dir}, Höhe {level} m: Band {z0}–{z1} m, mittlerer Nettodruck {net} kPa, Kraft {force} kN.',
   "loadPlan.derivation.windNodalShare": "Wind {dir}, Knoten {node} auf {level} m: Knotenanteil des integrierten Wanddrucks, {force} kN.",

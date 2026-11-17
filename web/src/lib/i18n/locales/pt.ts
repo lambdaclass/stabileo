@@ -4342,7 +4342,7 @@ const pt: Translations = {
   'loadPlan.gravity.roofFringe': "{n} painéis ou barras dentro da estrutura da cobertura mantêm, como carga de cobertura, a parte da sua área que nenhum painel, barra ou placa carregados acima leva: revise essas cargas.",
   'loadPlan.gravity.widePanels': "{n} painéis medem mais de {span} m nas duas direções, sem vigas intermediárias nem laje de placas: nenhuma laje os vence de uma vez (o anel de terças de um galpão, o perímetro de uma arquibancada), então não recebem carga de área. Se forem um piso, desenhe suas vigas ou sua laje.",
   'loadPlan.derivation.reductionPerMember': "Sobrecarga reduzida barra a barra pela sua própria área de influência (§4.7.2): entre {min} e {max} kN/m² em {n} barras.",
-  'loadPlan.derivation.level': 'Nível +{elevation} m: área em planta {area} m² (da extensão real dos nós), peso próprio {selfWeight} kN, permanente {superimposed} kN, Wi = {weight} kN.',
+  'loadPlan.derivation.level': 'Nível +{elevation} m: área em planta {area} m² (das áreas tributárias carregadas), peso próprio {selfWeight} kN, permanente {superimposed} kN, Wi = {weight} kN.',
   'loadPlan.derivation.occupancy': 'Uso: {occupancy}. Lo = {lo} kN/m² (Tabela 4.1).',
   'loadPlan.derivation.reductionDisabled': 'Redução de sobrecarga não aplicada por decisão do projeto.',
   'loadPlan.derivation.liveBesideHandReduced': 'A sobrecarga reduzida vai para um caso próprio, não para {names}: um caso reduzido à mão a reduziria outra vez. Esse caso fica como está e entra nas combinações junto a ela.',

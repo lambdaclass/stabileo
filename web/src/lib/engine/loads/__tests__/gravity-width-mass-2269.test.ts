@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { witness, input } from './gravity-width-mass-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2269' ? it : it.skip;
+const regression = it;
 
 function check(model: LoadModelData, overrides: Partial<LoadPlanInput> = {}, expectedArea = 60) {
   const plan = buildLoadPlan(input(model, overrides));
