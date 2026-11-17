@@ -3,11 +3,11 @@ import { render } from 'svelte/server';
 import ToolSupportOptions from '../ToolSupportOptions.svelte';
 import SelectedEntityPanel from '../SelectedEntityPanel.svelte';
 import { modelStore, uiStore } from '../../../lib/store';
+import type { SupportType } from '../../../lib/store/model.svelte';
 import { addSupportFromTool3D } from '../../../lib/store/support-tool-3d';
 import { drawState } from '../../../lib/store/draw-state.svelte';
 import { validateAndSolve3D } from '../../../lib/engine/solver-service';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
 const directions = {
   X: { tx: false, ty: true, tz: true, rx: true, ry: true, rz: false },
   Y: { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false },
@@ -49,12 +49,30 @@ for (const [direction, mask] of Object.entries(directions)) {
 }
 
 for (const type of ['rollerX', 'rollerY', 'rollerZ', 'rollerXY', 'rollerXZ', 'rollerYZ'] as const) {
-  regression(`known wrong result: #2277 selected 3D ${type} exposes its explicit DOFs without plane direction buttons`, () => {
+  it(`known wrong result: #2277 selected 3D ${type} exposes its explicit DOFs without plane direction buttons`, () => {
     const node = modelStore.addNode(0, 0, 0);
     const id = modelStore.addSupport(node, type, undefined, { dofRestraints: directions.XY });
     uiStore.selectSupport(id, false);
     const body = render(SelectedEntityPanel).body;
     expect(body).not.toContain('ft-dir-btn');
     expect(body).toContain('>Fz</span>');
+  });
+}
+
+for (const [type, mask] of Object.entries({
+  fixed3d: [true, true, true, true, true, true],
+  pinned3d: [true, true, true, false, false, false],
+  spring3d: [false, false, false, false, false, false],
+  rollerXY: [false, false, true, false, false, false],
+  rollerXZ: [false, true, false, false, false, false],
+  rollerYZ: [true, false, false, false, false, false],
+} as const)) {
+  it(`known wrong result: #2277 selected unmasked ${type} shows its effective restraints`, () => {
+    const nodeId = modelStore.addNode(0, 0, 0);
+    modelStore.model.supports.set(1, { id: 1, nodeId, type: type as SupportType });
+    uiStore.selectSupport(1, false);
+    const body = render(SelectedEntityPanel).body;
+    const labels = body.match(/<label[^>]*class="ft-chk[^\"]*"[^>]*>.*?<\/label>/g)!;
+    expect(labels.slice(0, 6).map(label => label.includes('checked'))).toEqual(mask);
   });
 }

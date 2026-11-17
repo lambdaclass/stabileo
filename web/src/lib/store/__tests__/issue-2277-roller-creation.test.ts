@@ -1,11 +1,10 @@
 import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
-import type { SupportType } from '../model.svelte';
+import type { Support, SupportType } from '../model.svelte';
 import { supportDofs3D } from '../../engine/support-dofs-3d';
-import { buildSolverInput3D, validateAndSolve3D, validateAndSolve3DAsync } from '../../engine/solver-service';
+import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve3D, validateAndSolve3DAsync } from '../../engine/solver-service';
 import { hasNonlinearBehaviour } from '../../engine/member-behaviour';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
 const masks = {
   rollerX: { tx: false, ty: true, tz: true, rx: true, ry: true, rz: false },
   rollerY: { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false },
@@ -13,7 +12,7 @@ const masks = {
   rollerXY: { tx: false, ty: false, tz: true, rx: false, ry: false, rz: false },
   rollerXZ: { tx: false, ty: true, tz: false, rx: false, ry: false, rz: false },
   rollerYZ: { tx: true, ty: false, tz: false, rx: false, ry: false, rz: false },
-} as const;
+} as const satisfies Record<Extract<SupportType, `roller${string}`>, NonNullable<Support['dofRestraints']>>;
 const paths = ['single', 'bulk', 'entry', 'edit'] as const;
 
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
@@ -21,7 +20,7 @@ beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); });
 for (const mode of ['3d', 'pro'] as const) {
   for (const path of paths) {
     for (const type of Object.keys(masks) as Array<keyof typeof masks>) {
-      regression(`known wrong result: #2277 ${mode} ${path} creates explicit ${type} restraints`, () => {
+      it(`known wrong result: #2277 ${mode} ${path} creates explicit ${type} restraints`, () => {
         uiStore.analysisMode = mode;
         const nodeId = modelStore.addNode(0, 0, 0);
         const id = path === 'single' ? modelStore.addSupport(nodeId, type)
@@ -38,7 +37,7 @@ for (const mode of ['3d', 'pro'] as const) {
   }
 }
 
-regression('known wrong result: #2277 changing a roller direction replaces the previous mask', () => {
+it('known wrong result: #2277 changing a roller direction replaces the previous mask', () => {
   const node = modelStore.addNode(0, 0, 0);
   const id = modelStore.addSupport(node, 'rollerX', undefined, { dofRestraints: masks.rollerX });
   modelStore.updateSupport(id, { type: 'rollerZ' });
@@ -73,8 +72,8 @@ it('#2277 plane creation retains its unmasked vertical roller', () => {
 });
 
 for (const nonlinear of [false, true]) {
-  for (const async of [false, true]) {
-    regression(`known wrong result: #2277 newly selected Y roller solves nonlinear=${nonlinear} async=${async}`, async () => {
+  for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
+    it(`known wrong result: #2277 newly selected Y roller solves nonlinear=${nonlinear} entry=${entry}`, async () => {
       await modelStore.loadExample('rc-beam-flexure');
       const left = modelStore.addSupport(1, 'fixed3d');
       modelStore.addSupport(3, 'rollerY');
@@ -82,10 +81,37 @@ for (const nonlinear of [false, true]) {
       const m = modelStore.model;
       expect(hasNonlinearBehaviour(m)).toBe(nonlinear);
       expect(buildSolverInput3D(m)!.supports.get(3)).toMatchObject({ rx: true, ry: false, rz: true, rrx: true, rry: true, rrz: false });
-      const result = async ? await validateAndSolve3DAsync(m) : validateAndSolve3D(m);
+      if (entry === 'input') return;
+      const result = entry === 'sync' ? validateAndSolve3D(m)
+        : entry === 'async' ? await validateAndSolve3DAsync(m)
+        : entry === 'combinations' ? solveCombinations3D(m, m.loadCases!, m.combinations!)
+        : await solveCombinations3DParallel(m, m.loadCases!, m.combinations!);
       if (!result || typeof result === 'string') throw new Error(String(result));
-      expect(result.displacements.length).toBe(m.nodes.size);
-      expect(result.reactions.every(r => Number.isFinite(r.fz))).toBe(true);
+      const solved = 'perCase' in result ? [...result.perCase.values(), ...result.perCombo.values()] : [result];
+      expect(solved.length).toBeGreaterThan(0);
+      for (const r of solved) {
+        expect(r.displacements.length).toBe(m.nodes.size);
+        expect(r.reactions.every(reaction => Number.isFinite(reaction.fz))).toBe(true);
+      }
     });
   }
+}
+
+for (const path of paths) {
+  it(`known wrong result: #2277 ${path} creates its global roller in the standing model's space coordinates`, async () => {
+    uiStore.analysisMode = '2d';
+    await modelStore.loadExample('portal-frame');
+    const before = [...modelStore.nodes.values()].map(n => ({ ...n }));
+    const nodeId = before[0]!.id;
+    const original = [...modelStore.supports.values()].find(s => s.nodeId === nodeId)!;
+    uiStore.analysisMode = '3d';
+    expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
+    const id = path === 'single' ? modelStore.addSupport(nodeId, 'rollerY')
+      : path === 'bulk' ? modelStore.addSupports([nodeId], 'rollerY')[0]!
+      : path === 'entry' ? modelStore.addSupportEntry({ nodeId, type: 'rollerY' }) : original.id;
+    if (path === 'edit') modelStore.updateSupport(id, { type: 'rollerY' });
+    expect(uiStore.viewportPresentation3D).toBe('native3d');
+    expect(modelStore.supports.get(id)!.dofRestraints).toEqual(masks.rollerY);
+    for (const n of before) expect(modelStore.nodes.get(n.id)).toMatchObject({ x: n.x, y: 0, z: n.y });
+  });
 }

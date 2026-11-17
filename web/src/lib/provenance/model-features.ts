@@ -37,7 +37,7 @@ export const FEATURE_IDS = [
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'rollerZOrUnknownSupport', 'settlements', 'caseDisplacements',
+  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'rollerZOrUnknownSupport', 'rollerSupports', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
@@ -219,6 +219,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
+  if (supports.some(sp => isSupportType(sp.type) && sp.type.startsWith('roller'))) f.add('rollerSupports');
   if (supports.some(sp => sp.type === 'rollerZ' || !isSupportType(sp.type))) f.add('rollerZOrUnknownSupport');
   if (supports.some((s) => s.uplift)) f.add('contactElements');
   const supportedNodes = new Map<number, number>();
