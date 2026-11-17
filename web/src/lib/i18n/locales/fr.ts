@@ -14111,7 +14111,7 @@ const fr: Translations = {
   "loads.ec.blocked.ukSnow": "La zone de neige (figure NA.1) ou l’altitude du site pour sk manque (Annexe nationale du Royaume-Uni).",
   "loads.ec.blocked.ukWindSpeed": "vb,map (figure NA.1) ou l’altitude du site pour calt manque (Annexe nationale du Royaume-Uni, NA.2.4).",
   "loads.ec.blocked.windSpeed": "La valeur de base de la vitesse de référence vb,0 manque (EN 1991-1-4 §4.2). Saisissez-la dans le panneau vent.",
-  "loads.ec.combo.hfAsPermanent": "La poussée des terres H et la pression des fluides F sont prises comme actions permanentes, avec le même γG que G.",
+  "loads.ec.combo.hfAsPermanent": "La poussée des terres H et la pression des fluides F sont prises comme actions permanentes d’origine propre : chacune reçoit γG,sup ou γG,inf indépendamment de G (EN 1990 tableau A1.2(B), note 3).",
   "loads.ec.combo.noContext": "La catégorie d’usage n’est pas connue : les ψ de la charge d’exploitation sont ceux de la catégorie A.",
   "loads.ec.combo.roofAlone": "La charge d’exploitation des toitures (catégorie H) n’est pas combinée avec la neige ni le vent (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Combinaisons de résistance selon les expressions 6.10a et 6.10b (EN 1990 §6.4.3.2), ensemble B, avec ξ = {xi} ; γG = 1,0 lorsque la charge permanente est favorable.",

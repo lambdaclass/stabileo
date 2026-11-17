@@ -14111,7 +14111,7 @@ const de: Translations = {
   "loads.ec.blocked.ukSnow": "Die Schneezone (Bild NA.1) oder die Geländehöhe für sk fehlt (britischer Nationaler Anhang).",
   "loads.ec.blocked.ukWindSpeed": "vb,map (Bild NA.1) oder die Geländehöhe für calt fehlt (britischer Nationaler Anhang, NA.2.4).",
   "loads.ec.blocked.windSpeed": "Der Grundwert der Basiswindgeschwindigkeit vb,0 fehlt (EN 1991-1-4 §4.2). Bitte im Windbereich eingeben.",
-  "loads.ec.combo.hfAsPermanent": "Erddruck H und Flüssigkeitsdruck F werden als ständige Einwirkungen mit demselben γG wie G angesetzt.",
+  "loads.ec.combo.hfAsPermanent": "Erddruck H und Flüssigkeitsdruck F werden als ständige Einwirkungen eigener Herkunft angesetzt: jede erhält γG,sup oder γG,inf unabhängig von G (EN 1990 Tabelle A1.2(B), Anmerkung 3).",
   "loads.ec.combo.noContext": "Die Nutzungskategorie ist nicht bekannt: die ψ-Beiwerte der Nutzlast wurden für Kategorie A angesetzt.",
   "loads.ec.combo.roofAlone": "Die Nutzlast auf Dächern (Kategorie H) wird nicht mit Schnee oder Wind kombiniert (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Tragfähigkeitskombinationen nach den Gleichungen 6.10a und 6.10b (EN 1990 §6.4.3.2), Satz B, mit ξ = {xi}; γG = 1,0 bei günstiger ständiger Last.",

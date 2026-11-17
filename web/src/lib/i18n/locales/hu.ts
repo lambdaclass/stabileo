@@ -15456,7 +15456,7 @@ const hu: Translations = {
   "loads.ec.blocked.ukSnow": "Hiányzik a hózóna (NA.1. ábra) vagy a helyszín magassága az sk-hoz (brit nemzeti melléklet).",
   "loads.ec.blocked.ukWindSpeed": "Hiányzik a vb,map (NA.1. ábra) vagy a helyszín magassága a calt-hoz (brit nemzeti melléklet, NA.2.4).",
   "loads.ec.blocked.windSpeed": "Hiányzik a szélsebesség alapértékének kiinduló értéke, vb,0 (EN 1991-1-4 §4.2). Adja meg a szél panelen.",
-  "loads.ec.combo.hfAsPermanent": "A H földnyomást és az F folyadéknyomást állandó hatásként vesszük figyelembe, a G-vel azonos γG-vel.",
+  "loads.ec.combo.hfAsPermanent": "A H földnyomást és az F folyadéknyomást saját forrásból származó állandó hatásként vesszük figyelembe: mindegyik a G-től függetlenül γG,sup vagy γG,inf tényezőt kap (EN 1990 A1.2(B) táblázat, 3. megjegyzés).",
   "loads.ec.combo.noContext": "A használati kategória nem ismert: a hasznos teher ψ tényezőit az A kategória szerint vettük fel.",
   "loads.ec.combo.roofAlone": "A tető hasznos terhét (H kategória) nem kombináljuk a hóval vagy a széllel (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Teherbírási kombinációk a 6.10a és 6.10b kifejezés szerint (EN 1990 §6.4.3.2), B csoport, ξ = {xi}; γG = 1,0, ahol az állandó teher kedvező.",

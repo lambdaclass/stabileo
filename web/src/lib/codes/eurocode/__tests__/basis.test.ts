@@ -75,3 +75,18 @@ describe('UK National Annex', () => {
     expect(r.notes.some((n) => n.key === 'loads.ec.combo.noContext')).toBe(true);
   });
 });
+
+describe('EN 1990 Table A1.2(B) note 3: permanent actions from independent sources', () => {
+  it('stabilising self-weight with destabilising earth pressure: 1,0 G + 1,35 H, and the other way round', () => {
+    const { combinations } = strengthCombinations('eurocode', ci({ H: true, S: false, W: true }), { categories: new Set(['A']) });
+    expect(find(combinations, { D: 1.0, H: 1.35, L: 1.05, W: 0.9 })).toBeDefined();
+    expect(find(combinations, { D: 1.35, H: 1.0, L: 1.05, W: 0.9 })).toBeDefined();
+    expect(find(combinations, { D: 1.0, H: 1.1475, W: 1.5, L: 1.05 })).toBeDefined();
+    expect(find(combinations, { D: 1.1475, H: 1.0, W: 1.5, L: 1.05 })).toBeDefined();
+    expect(find(combinations, { D: 1.0, H: 1.0, W: 1.5, L: 1.05 })).toBeDefined();
+  });
+  it('with G alone nothing changes: 6.10a at γG,sup, 6.10b at ξ·γG,sup and γG,inf', () => {
+    const { combinations } = strengthCombinations('eurocode', ci({ S: false, W: false }), { categories: new Set(['A']) });
+    expect(combinations.map((c) => c.label)).toEqual(['1.35 D', '1.35 D + 1.05 L', '1.147 D + 1.5 L', '1.0 D + 1.5 L']);
+  });
+});

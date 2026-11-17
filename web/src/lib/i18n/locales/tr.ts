@@ -14111,7 +14111,7 @@ const tr: Translations = {
   "loads.ec.blocked.ukSnow": "Kar bölgesi (Şekil NA.1) veya sk için saha rakımı eksik (Birleşik Krallık Ulusal Eki).",
   "loads.ec.blocked.ukWindSpeed": "vb,map (Şekil NA.1) veya calt için saha rakımı eksik (Birleşik Krallık Ulusal Eki, NA.2.4).",
   "loads.ec.blocked.windSpeed": "Temel rüzgâr hızı vb,0 eksik (EN 1991-1-4 §4.2). Rüzgâr panelinde girin.",
-  "loads.ec.combo.hfAsPermanent": "Zemin itkisi H ve sıvı basıncı F, G ile aynı γG ile kalıcı etki olarak alınır.",
+  "loads.ec.combo.hfAsPermanent": "Zemin itkisi H ve sıvı basıncı F, kendi kaynaklarından gelen kalıcı etkiler olarak alınır: her biri G’den bağımsız olarak γG,sup veya γG,inf alır (EN 1990 Tablo A1.2(B), not 3).",
   "loads.ec.combo.noContext": "Kullanım kategorisi bilinmiyor: hareketli yük ψ katsayıları A kategorisinden alındı.",
   "loads.ec.combo.roofAlone": "Çatı hareketli yükü (H kategorisi) kar veya rüzgârla birleştirilmez (EN 1991-1-1 §3.3.2(1)).",
   "loads.ec.combo.set610ab": "Dayanım kombinasyonları 6.10a ve 6.10b ifadeleriyle (EN 1990 §6.4.3.2), B takımı, ξ = {xi}; kalıcı yük olumlu olduğunda γG = 1,0.",
