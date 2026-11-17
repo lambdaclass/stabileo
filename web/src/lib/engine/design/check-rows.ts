@@ -69,7 +69,7 @@ export function concreteCheckRows(p: ProvidedRebarResult, edition: string = CIRS
     const spec = c.limiting && c.limiting !== 'unsupportedCheck' ? CONCRETE[c.limiting] : undefined;
     // A wall's own minimum (`wall-minimum-steel.ts`) names Tabla 11.6.1 or §11.6.2 in its category.
     const wallMin = c.limiting === 'minSteel' ? /\((11\.6\.[12])\)$/.exec(c.category)?.[1] : undefined;
-    const clause = wallMin ?? (spec ? (typeof spec.clause === 'function' ? spec.clause(p.elementType) : spec.clause)
+    const clause = c.clause ?? wallMin ?? (spec ? (typeof spec.clause === 'function' ? spec.clause(p.elementType) : spec.clause)
       : c.limiting === 'unsupportedCheck' ? namedClause(c.description) ?? concreteClause(c.category) : concreteClause(c.category));
     const inputs: CheckInput[] = [
       ...(spec && c.demand !== undefined ? [{ symbol: spec.demand, value: c.demand, unit: c.unit }] : []),

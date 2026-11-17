@@ -14884,6 +14884,9 @@ const fr: Translations = {
   "wind.pressure.triangularCentroidUnsupported": "Les porteurs de vent triangulaires doivent être symétriques par rapport à la direction du vent ; les autres plans triangulaires ne sont pas pris en charge car cette partition ne préserve pas le centre de pression projeté.",
   "wind.pressure.carrierPartitionUnresolved": "La partition physique des zones tributaires du vent ne peut pas être déterminée pour ces barres.",
   "wind.other.minimumSignCase": "Vent {dir}, minimum du panneau plein {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Armature de cisaillement dans la direction principale",
+  "codes.cirsoc201.shear.secondary": "Armature de cisaillement dans la direction secondaire",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction} : {legs} brins fournis, {requiredLegs} requis (§9.7.6.2.2, espacement transversal)",
 };
 
 export default fr;

@@ -33,7 +33,7 @@ import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { memberOffsetAt, type OffsetCarrier } from './member-offsets';
 import { checkShapedColumn, grossAreaOf, shapedShearWebs, type ColumnShape } from './design/shaped-column';
-import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
+import { columnTieSpacing, columnShearSpacing, LENGTH_EPS } from '../codes/cirsoc201/transverse-spacing';
 import { seatedLongitudinalHalfExtents } from '../codes/cirsoc201/transverse-cage';
 import type { ProvidedReinforcement, RebarGroup, RebarLayer, StirrupDef, BeamContinuity, LongBarGroup, ColumnReinforcement } from '../store/model.svelte';
 import {
@@ -1275,6 +1275,7 @@ export function formatLayers(layers: RebarLayer[]): string {
  *  capacity/demand here and demand/capacity in the code-check baseline, and the
  *  two were reconciled by an ad-hoc `1/ratio` inversion in the UI. */
 export interface ProvidedRebarCheck {
+  clause?: string;
   shearDirection?: ShearDirection;
   category: string;           // e.g., "Bottom Span (My+)", "Shear Support (Vz)"
   demandCategory: GoverningDemand['category'] | null;  // linked governing demand
@@ -1483,7 +1484,7 @@ export function computeShearCapacity(
   b: number, d: number, fc: number, fy: number, Nu: number = 0,
   /** Gross area (m², b·h) and the tension steel ratio As/(bw·d), when the caller has them. */
   opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition } = {},
-): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; AvMin?: number } {
+): { phiVn: number; phiVc: number; phiVcUnrounded: number; VsProvUnrounded: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; AvMin?: number } {
   return computeDirectionalShearCapacity('primary', stirrupDia, stirrupLegs({ legs: legs === 0 ? 2 : legs }, 'primary'), spacing, b, d, fc, fy, Nu, opts, legs === 0);
 }
 
@@ -1505,11 +1506,12 @@ export function computeDirectionalShearCapacity<D extends ShearDirection>(direct
     NuCompression: Nu * 1e3,
   });
   if (!r || !r.shearValid || !Number.isFinite(r.phiVn)) {
-    return { phiVn: 0, phiVc: 0, VsProv: 0, phi, avBelowMin: true, capped: false, evaluated: false };
+    return { phiVn: 0, phiVc: 0, phiVcUnrounded: 0, VsProvUnrounded: 0, VsProv: 0, phi, avBelowMin: true, capped: false, evaluated: false };
   }
   return {
     phiVn: +(r.phiVn / 1e3).toFixed(2),
     phiVc: +(phi * r.Vc / 1e3).toFixed(2),
+    phiVcUnrounded: phi * r.Vc / 1e3, VsProvUnrounded: r.Vs / 1e3,
     VsProv: +(r.Vs / 1e3).toFixed(2),
     phi, avBelowMin: r.avBelowMin, capped: r.vsCapped, evaluated: true,
     // cm² at the spacing given, Av,min of §9.6.3.4 as the engine reads it (edition, fyt).
@@ -2040,6 +2042,32 @@ export function verifyProvidedReinforcement(
         });
       }
     }
+  };
+
+  const pushColumnShearSpacing = (label: string, cage: StirrupDef, direction: ShearDirection, width: number, depth: number, Vu: number, cap: ReturnType<typeof computeShearCapacity>) => {
+    const limit = columnShearSpacing(spacingRule.edition, {
+      Vu, phiVc: cap.phiVcUnrounded, Vs: cap.VsProvUnrounded, bw: width, d: depth, fc: section!.fc,
+    });
+    if (limit.kind === 'not-required') return;
+    if (limit.kind === 'unsupported') {
+      pushSpacingCheck({
+        category: `${label} s,max`, demandCategory: null, shearDirection: direction,
+        required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
+        unit: 'cm', method: 'area', tuplesChecked: 0,
+        description: `Column shear spacing not evaluated for CIRSOC 201-${spacingRule.edition}`,
+        limiting: 'unsupportedCheck',
+      });
+      return;
+    }
+    if (cage.spacing <= limit.alongMax + LENGTH_EPS) return;
+    pushSpacingCheck({
+      category: `${label} s,max`, demandCategory: null, shearDirection: direction,
+      required: +(limit.alongMax * 100).toFixed(1), provided: +(cage.spacing * 100).toFixed(1),
+      utilization: cage.spacing / limit.alongMax, unit: 'cm', method: 'area', tuplesChecked: 0,
+      clause: '10.7.6.5.2',
+      description: `tie spacing ${(cage.spacing * 100).toFixed(1)} cm exceeds s,max = ${(limit.alongMax * 100).toFixed(1)} cm (Table 10.7.6.5.2 ${limit.row}; Vu > 0.5φVc, §10.6.2.1)`,
+      limiting: 'tieSpacing',
+    });
   };
 
   /*
@@ -2881,9 +2909,10 @@ export function verifyProvidedReinforcement(
       shearCapacity: (bw, d, Nu, axis, Vu) => {
         const direction = axis === axes.shear ? 'primary' : 'secondary';
         if (!ties) return computeShearCapacity(0, 0, 1, bw, d, section.fc, section.fy, Nu, { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn;
-        pushTransverseSpacing(`Ties (${axis})`, ties, direction, bw, d, Vu);
-        return computeDirectionalShearCapacity(direction, ties.diameter, stirrupLegs(ties, direction), ties.spacing, bw, d, section.fc, section.fy, Nu,
-          { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition }).phiVn;
+        const cap = computeDirectionalShearCapacity(direction, ties.diameter, stirrupLegs(ties, direction), ties.spacing, bw, d, section.fc, section.fy, Nu,
+          { Ag: grossAreaOf(sh), rhoW: 0, edition: spacingRule.edition });
+        pushColumnShearSpacing(`Ties (${axis})`, ties, direction, bw, d, Vu, cap);
+        return cap.phiVn;
       },
     });
     for (const c of shaped) {
@@ -2893,8 +2922,9 @@ export function verifyProvidedReinforcement(
     if (shaped.some((c) => c.limiting === 'shear')) { checkedAxes.add(axes.shear); checkedAxes.add(axes.secondaryShear); }
   } else if (elementType === 'column' && section) {
     const colResolved = resolveColumnReinf(provided.column, provided.longitudinal);
+    const colTieDia = provided.stirrups?.diameter ?? section.stirrupDia;
     const colLayout = colResolved
-      ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, section.stirrupDia, provided.column, spacingRule)
+      ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, colTieDia, provided.column, spacingRule)
       : undefined;
     const colBars = colLayout?.bars;
 
@@ -3068,7 +3098,7 @@ export function verifyProvidedReinforcement(
       // Effective depth per shear axis: primary shear bends over h, secondary
       // over b — using one d for both overstated φVn on the secondary axis
       // whenever h > b.
-      const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
+      const dTieFor = (depth: number) => depth - section.cover - (colTieDia / 1000) - 0.008;
       // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
       // the sides), over the gross section; used only where the ties are below Av,min.
       const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
@@ -3093,9 +3123,9 @@ export function verifyProvidedReinforcement(
           const sTie = atEnd ? Math.min(z!.endSpacing, provided.stirrups.spacing) : provided.stirrups.spacing;
           // Solver convention is + = tension; computeShearCapacity expects
           // + = compression — pass -t.n (see the beam shear path above).
-          pushTransverseSpacing(`Ties (${ts.axis})`, { ...provided.stirrups, spacing: sTie }, ts.direction, ts.width, ts.dTie, Vu);
           const cap = computeDirectionalShearCapacity(ts.direction, provided.stirrups.diameter, stirrupLegs(provided.stirrups, ts.direction), sTie, ts.width, ts.dTie, section.fc, section.fy, -t.n,
             { Ag: section.b * section.h, rhoW: colRhoW, h: Math.max(ts.dTie, section.h), edition: spacingRule.edition });
+          pushColumnShearSpacing(`Ties (${ts.axis})`, { ...provided.stirrups, spacing: sTie }, ts.direction, ts.width, ts.dTie, Vu, cap);
           const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
           if (!worst || u > worst.util) worst = { util: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
         }

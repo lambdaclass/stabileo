@@ -1,0 +1,39 @@
+{
+  "id": "column-tie-shear-spacing",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Column ties use column shear spacing rules",
+    "es": "Los estribos de columnas usan las reglas de separación para columnas",
+    "pt": "Os estribos de pilares usam as regras de espaçamento de pilares",
+    "de": "Stützenbügel verwenden die Abstandsregeln für Stützen",
+    "fr": "Les cadres de poteaux utilisent les règles d’espacement des poteaux",
+    "tr": "Kolon etriyeleri kolon aralık kurallarını kullanır",
+    "hu": "Az oszlopkengyelek az oszlopokra vonatkozó távolsági szabályokat követik"
+  },
+  "explanation": {
+    "en": "Recompute concrete column designs. Under CIRSOC 201-2025, the column shear-spacing table applies only where shear reinforcement is required (10.6.2.1 and 10.7.6.5.2); ordinary ties retain 25.7.2.1. The beam across-width requirement no longer refuses column ties. Rectangular column bar geometry and shear depth now use the provided tie diameter. A larger actual tie can reduce capacity and reverse a previous pass. Review both shear directions and axial-flexural capacity.",
+    "es": "Recalcule las columnas de hormigón. En CIRSOC 201-2025, la tabla de separación para corte de columnas se aplica solo donde se requiere armadura de corte (10.6.2.1 y 10.7.6.5.2); los estribos ordinarios conservan 25.7.2.1. El requisito transversal de vigas ya no rechaza estribos de columnas. La geometría de barras y la altura útil para corte de columnas rectangulares usan el diámetro provisto del estribo. Un estribo real mayor puede reducir la resistencia e invertir una aprobación anterior. Revise ambas direcciones de corte y la flexocompresión.",
+    "pt": "Recalcule os pilares de concreto. No CIRSOC 201-2025, a tabela de espaçamento para cisalhamento de pilares aplica-se somente onde a armadura de cisalhamento é necessária (10.6.2.1 e 10.7.6.5.2); os estribos comuns mantêm 25.7.2.1. A exigência transversal de vigas deixa de recusar estribos de pilares. A geometria das barras e a altura útil ao cisalhamento de pilares retangulares usam o diâmetro fornecido do estribo. Um estribo real maior pode reduzir a resistência e inverter uma aprovação anterior. Revise ambas as direções de cisalhamento e a flexocompressão.",
+    "de": "Betonstützen neu berechnen. Nach CIRSOC 201-2025 gilt die Tabelle für Querkraftbügelabstände von Stützen nur bei erforderlicher Querkraftbewehrung (10.6.2.1 und 10.7.6.5.2); für gewöhnliche Bügel bleibt 25.7.2.1 maßgebend. Die Querabstandsanforderung für Balken weist Stützenbügel nicht mehr zurück. Stabgeometrie und Querkraftnutzhöhe rechteckiger Stützen verwenden nun den vorhandenen Bügeldurchmesser. Ein größerer tatsächlicher Bügel kann die Tragfähigkeit verringern und eine frühere Freigabe umkehren. Beide Querkraftrichtungen und die Druck-Biege-Tragfähigkeit prüfen.",
+    "fr": "Recalculez les poteaux en béton. Selon le CIRSOC 201-2025, le tableau d’espacement au cisaillement des poteaux s’applique uniquement lorsque des armatures de cisaillement sont requises (10.6.2.1 et 10.7.6.5.2) ; les cadres ordinaires conservent 25.7.2.1. L’exigence transversale des poutres ne refuse plus les cadres de poteaux. La géométrie des barres et la hauteur utile au cisaillement des poteaux rectangulaires utilisent le diamètre fourni du cadre. Un cadre réel plus grand peut réduire la résistance et inverser une validation antérieure. Vérifiez les deux directions de cisaillement et la flexocompression.",
+    "tr": "Beton kolon tasarımlarını yeniden hesaplayın. CIRSOC 201-2025 kapsamında kolon kesme aralığı tablosu yalnızca kesme donatısının gerekli olduğu yerlerde uygulanır (10.6.2.1 ve 10.7.6.5.2); sıradan etriyelerde 25.7.2.1 geçerlidir. Kirişlerin enine aralık koşulu artık kolon etriyelerini reddetmez. Dikdörtgen kolon çubuk geometrisi ve kesme faydalı yüksekliği sağlanan etriye çapını kullanır. Daha büyük gerçek etriye kapasiteyi azaltıp önceki kabulü tersine çevirebilir. Her iki kesme yönünü ve eksenel eğilme kapasitesini inceleyin.",
+    "hu": "Számítsa újra a vasbeton oszlopokat. A CIRSOC 201-2025 oszlopnyírási kengyeltávolság-táblázata csak szükséges nyírási vasalás esetén érvényes (10.6.2.1 és 10.7.6.5.2); a közönséges kengyelekre továbbra is a 25.7.2.1 vonatkozik. A gerendák keresztirányú távolsági követelménye már nem utasítja el az oszlopkengyeleket. A téglalap alakú oszlopok rúdgeometriája és nyírási hasznos magassága a megadott kengyelátmérőt használja. A nagyobb tényleges kengyel csökkentheti a teherbírást, és megfordíthat egy korábbi megfelelést. Ellenőrizze mindkét nyírási irányt és a nyomás-hajlítás teherbírását."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round16-column-ties.md",
+    "heading": "Column ties use column shear spacing and actual cage geometry (2026-11-17)"
+  }
+}

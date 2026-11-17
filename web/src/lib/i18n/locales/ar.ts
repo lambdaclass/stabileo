@@ -3698,6 +3698,10 @@ const ar: Translations = {
   "autoLoad.work.draw": "رسم الأحمال",
   "autoLoad.work.step": "الخطوة {step} من {total}",
   "autoLoad.work.cancel": "إيقاف",
+  "codes.cirsoc201.shear.primary": "تسليح القص في الاتجاه الرئيسي",
+  "codes.cirsoc201.shear.secondary": "تسليح القص في الاتجاه الثانوي",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: عدد الأفرع المتوفرة {legs}، والمطلوبة {requiredLegs} (§9.7.6.2.2، التباعد عبر العرض)",
+
 } as const satisfies Record<string, string>;
 
 export default ar;

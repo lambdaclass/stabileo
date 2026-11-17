@@ -3690,6 +3690,10 @@ const ja: Translations = {
   "autoLoad.work.draw": "荷重を描画中",
   "autoLoad.work.step": "ステップ {step} / {total}",
   "autoLoad.work.cancel": "停止",
+  "codes.cirsoc201.shear.primary": "主方向のせん断補強筋",
+  "codes.cirsoc201.shear.secondary": "副方向のせん断補強筋",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}：配置脚数 {legs}、必要脚数 {requiredLegs}（§9.7.6.2.2、幅方向の間隔）",
+
 } as const satisfies Record<string, string>;
 
 export default ja;

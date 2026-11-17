@@ -11,6 +11,7 @@
  * engine knowing either convention exists.
  */
 import { isMessage, type EngineMessage } from '../codes/message';
+import type { VerificationStep } from '../engine/verification-steps';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
 
@@ -57,6 +58,10 @@ export function teAt(m: EngineMessage, locale: string): string {
     if (isMessage(v)) return teAt(v, locale);
     return typeof v === 'number' ? formatNumber(v, locale) : String(v);
   });
+}
+
+export function verificationStepText(step: VerificationStep, locale: string): string {
+  return isMessage(step) ? teAt(step, locale) : step;
 }
 
 /** Translate a list at an explicit locale. */

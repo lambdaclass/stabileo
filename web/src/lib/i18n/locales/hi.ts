@@ -3710,5 +3710,9 @@ const hi: Translations = {
   "autoLoad.work.draw": "भार बनाए जा रहे हैं",
   "autoLoad.work.step": "चरण {step} / {total}",
   "autoLoad.work.cancel": "रोकें",
+  "codes.cirsoc201.shear.primary": "मुख्य दिशा में अपरूपण प्रबलन",
+  "codes.cirsoc201.shear.secondary": "द्वितीयक दिशा में अपरूपण प्रबलन",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} शाखाएँ दी गई हैं, {requiredLegs} आवश्यक हैं (§9.7.6.2.2, चौड़ाई में अंतराल)",
+
 };
 export default hi;

@@ -2,9 +2,11 @@ import { expect, it } from 'vitest';
 import { checkShear } from '../../engine/codes/argentina/cirsoc201';
 import { verifyElement } from '../../engine/__tests__/helpers/verify-element';
 import { isMessage } from '../../codes/message';
+import { verificationStepText } from '../engine-text';
+import { OFFERED_LOCALES } from '../offered';
 import { ALL_DICTS } from '../locales/all';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
+const regression = it;
 for (const direction of ['primary', 'secondary'] as const) {
   regression(`known wrong result: #2198 shear distribution failure is localized ${direction}`, () => {
     const params = { b: 0.8, h: 0.3, cover: 0.025, stirrupDia: 8, fc: 25, fy: 420 };
@@ -15,6 +17,13 @@ for (const direction of ['primary', 'secondary'] as const) {
       direction: { key: `codes.cirsoc201.shear.${direction}` }, legs: 2, requiredLegs: 4,
     } });
     if (!isMessage(message)) throw new Error('missing distribution explanation');
+    for (const locale of OFFERED_LOCALES) {
+      const text = verificationStepText(message, locale);
+      expect(text).toContain('2');
+      expect(text).toContain('4');
+      expect(text).not.toMatch(/codes\.cirsoc201|\{|\}/);
+      expect(text).not.toContain(`Ramas ${direction}`);
+    }
     for (const [locale, dict] of Object.entries(ALL_DICTS)) {
       const template = dict[message.key];
       const label = dict[`codes.cirsoc201.shear.${direction}`];

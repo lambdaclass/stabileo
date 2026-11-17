@@ -3702,6 +3702,10 @@ const ru: Translations = {
   "autoLoad.work.draw": "Отрисовка нагрузок",
   "autoLoad.work.step": "Шаг {step} из {total}",
   "autoLoad.work.cancel": "Остановить",
+  "codes.cirsoc201.shear.primary": "Поперечная арматура в основном направлении",
+  "codes.cirsoc201.shear.secondary": "Поперечная арматура во второстепенном направлении",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: предусмотрено ветвей {legs}, требуется {requiredLegs} (§9.7.6.2.2, расстояние по ширине)",
+
 } as const satisfies Record<string, string>;
 
 export default ru;

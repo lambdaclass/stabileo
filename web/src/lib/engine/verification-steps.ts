@@ -1,7 +1,11 @@
-type StepSource = () => readonly string[];
+import type { EngineMessage } from '../codes/message';
+
+export type VerificationStep = string | EngineMessage;
+
+type StepSource = () => readonly VerificationStep[];
 const stepSources = new WeakMap<() => unknown, StepSource>();
 
-function withStepSource<T extends object>(value: T, source: StepSource): T & { steps: string[] } {
+function withStepSource<T extends object, S extends VerificationStep>(value: T, source: () => readonly S[]): T & { steps: S[] } {
   const get = () => {
     const steps = [...source()];
     Object.defineProperty(value, 'steps', { value: steps, enumerable: true, configurable: true, writable: true });
@@ -11,11 +15,11 @@ function withStepSource<T extends object>(value: T, source: StepSource): T & { s
   Object.defineProperty(value, 'steps', { enumerable: true, configurable: true, get,
     set(steps) { Object.defineProperty(value, 'steps', { value: steps, enumerable: true, configurable: true, writable: true }); },
   });
-  return value as T & { steps: string[] };
+  return value as T & { steps: S[] };
 }
 
-export function withDeferredVerificationSteps<T extends object>(value: T, render: () => string[]): T & { steps: string[] } {
-  let snapshot: readonly string[] | undefined;
+export function withDeferredVerificationSteps<T extends object, S extends VerificationStep>(value: T, render: () => S[]): T & { steps: S[] } {
+  let snapshot: readonly S[] | undefined;
   return withStepSource(value, () => snapshot ??= Object.freeze([...render()]));
 }
 
@@ -25,7 +29,7 @@ export function verificationCheckFields<T extends object>(value: T): Omit<T, 'st
   return fields as Omit<T, 'steps'>;
 }
 
-export function copyVerificationCheck<T extends { steps: string[] }>(value: T): T {
+export function copyVerificationCheck<T extends { steps: VerificationStep[] }>(value: T): T {
   const getter = Object.getOwnPropertyDescriptor(value, 'steps')?.get;
   const source = getter && stepSources.get(getter);
   const fields = verificationCheckFields(value);

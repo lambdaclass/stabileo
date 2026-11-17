@@ -531,3 +531,18 @@ export function columnTieSpacing(
     ref: clause('cirsoc-201', edition, edition === '2005' ? '7.10.5.2' : '25.7.2.1', 'separación de los estribos de columnas'),
   };
 }
+
+export type ColumnShearSpacing =
+  | { kind: 'not-required' }
+  | { kind: 'unsupported' }
+  | { kind: 'required'; alongMax: number; row: TransverseSpacingRow };
+
+export function columnShearSpacing(
+  edition: RegulationEdition,
+  inputs: { Vu: number; phiVc: number; Vs: number; bw: number; d: number; fc: number },
+): ColumnShearSpacing {
+  if (edition !== '2025') return { kind: 'unsupported' };
+  if (Math.abs(inputs.Vu) <= 0.5 * inputs.phiVc) return { kind: 'not-required' };
+  const row = inputs.Vs <= rowThreshold(inputs.fc, inputs.bw, inputs.d) + FORCE_EPS ? 'row1' : 'row2';
+  return { kind: 'required', row, alongMax: Math.min(inputs.d / ROW_DIVISOR[row].along, ROW_CAP[row]) };
+}

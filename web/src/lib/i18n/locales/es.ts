@@ -15033,5 +15033,8 @@ const es: Record<string, string> = {
   "wind.pressure.triangularCentroidUnsupported": "Los portadores de viento triangulares deben ser simétricos respecto de la dirección del viento; los demás planos triangulares no se admiten porque esta partición no conserva el centroide de la presión proyectada.",
   "wind.pressure.carrierPartitionUnresolved": "No se puede determinar la partición tributaria física del viento para estos miembros.",
   "wind.other.minimumSignCase": "Viento {dir}, mínimo de cartel macizo {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Armadura de corte en la dirección principal",
+  "codes.cirsoc201.shear.secondary": "Armadura de corte en la dirección secundaria",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} ramas provistas, {requiredLegs} requeridas (§9.7.6.2.2, separación transversal)",
 };
 export default es;

@@ -14686,5 +14686,8 @@ const pt: Translations = {
   "wind.pressure.triangularCentroidUnsupported": "Os portadores de vento triangulares devem ser simétricos em relação à direção do vento; outras plantas triangulares não são suportadas porque esta partição não preserva o centroide da pressão projetada.",
   "wind.pressure.carrierPartitionUnresolved": "Não é possível determinar a partição tributária física do vento para estes membros.",
   "wind.other.minimumSignCase": "Vento {dir}, mínimo de placa sólida {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Armadura de cisalhamento na direção principal",
+  "codes.cirsoc201.shear.secondary": "Armadura de cisalhamento na direção secundária",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} ramos fornecidos, {requiredLegs} necessários (§9.7.6.2.2, espaçamento transversal)",
 };
 export default pt;

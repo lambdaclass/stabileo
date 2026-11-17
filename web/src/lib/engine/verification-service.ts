@@ -1,3 +1,4 @@
+import type { VerificationStep } from './verification-steps';
 import { ConcurrentDemand } from './concurrent-demand';
 import { CompleteDemandSet, IncompleteConcurrentDemandError, requireDemandInventories, demandCoverage, memberDemandScope, type DemandCoverage } from './complete-demand-set';
 import { completeResultDemands } from './result-demand-gate';
@@ -1243,7 +1244,7 @@ export interface VerificationReport {
  */
 export interface CodeDetail {
   /** Calculation memo sections (each is { title: string, steps: string[] }) */
-  memos: Array<{ title: string; titleKey?: string; steps: string[] }>;
+  memos: Array<{ title: string; titleKey?: string; steps: VerificationStep[] }>;
   /** Interaction diagram data (columns only) */
   interactionParams?: {
     b: number; h: number; fc: number; fy: number; cover: number;

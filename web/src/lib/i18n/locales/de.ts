@@ -14884,6 +14884,9 @@ const de: Translations = {
   "wind.pressure.triangularCentroidUnsupported": "Dreieckige Windlastträger müssen zur Windrichtung symmetrisch sein; andere dreieckige Grundrisse werden nicht unterstützt, da diese Aufteilung den Schwerpunkt des projizierten Drucks nicht erhält.",
   "wind.pressure.carrierPartitionUnresolved": "Die physische Lasteinzugsaufteilung des Windes kann für diese Stäbe nicht bestimmt werden.",
   "wind.other.minimumSignCase": "Wind {dir}, Mindestlast für geschlossenes Schild {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Querkraftbewehrung in Hauptrichtung",
+  "codes.cirsoc201.shear.secondary": "Querkraftbewehrung in Nebenrichtung",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} Schenkel vorhanden, {requiredLegs} erforderlich (§9.7.6.2.2, Abstand über die Breite)",
 };
 
 export default de;

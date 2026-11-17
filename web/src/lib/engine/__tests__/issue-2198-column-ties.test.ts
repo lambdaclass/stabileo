@@ -1,3 +1,4 @@
+import { concreteCheckRows } from '../design/check-rows';
 import { expect, it } from 'vitest';
 import { computeDirectionalShearCapacity, verifyProvidedReinforcement } from '../station-design-forces';
 import { stirrupLegs } from '../../design-contract/directional-stirrups';
@@ -6,7 +7,7 @@ import { cirsoc201Adapter2005, cirsoc201Adapter2025 } from '../design/adapters/c
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
+const regression = it;
 const sec = { b: 0.3, h: 0.3, cover: 0.025, stirrupDia: 8, fc: 25, fy: 420 };
 const bars = { count: 8, diameter: 16 };
 
@@ -53,7 +54,10 @@ for (const direction of ['primary', 'secondary'] as const) for (const factor of 
     expect(failures.length > 0).toBe(factor > 1);
     expect(r.checks.some(c => c.category.endsWith('s,max across'))).toBe(false);
     if (factor <= 1) expect(r.overallStatus).not.toBe('fail');
-    else expect(failures.every(c => c.description.includes('10.7.6.5.2'))).toBe(true);
+    else {
+      expect(failures.every(c => c.description.includes('10.7.6.5.2'))).toBe(true);
+      expect(concreteCheckRows(r).filter(c => c.title.endsWith('s,max')).every(c => c.clause === '10.7.6.5.2')).toBe(true);
+    }
   });
 }
 
@@ -94,3 +98,14 @@ for (const shape of [{ kind: 'circle', D: 0.4 }, { kind: 'tee', bf: 0.4, bw: 0.3
       expect(r.checkedAxes).toContain(direction === 'primary' ? 'Vz' : 'Vy');
     });
   }
+
+for (const diameter of [6, 8, 12]) {
+  it(`provided column cage controls both bar geometry and shear depth ${diameter}`, () => {
+    const rebar = { longitudinal: bars, stirrups: { diameter, legs: 2, secondaryLegs: 2, spacing: 0.1 } };
+    const stations = { elementId: 1, length: 4, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'C1',
+      stations: [0, 1].map(t => ({ t, x: 4 * t, n: -100, my: 10, mz: 5, vy: 1, vz: 1, torsion: 0 })) }] };
+    const results = [6, 8, 12].map(stirrupDia => verifyProvidedReinforcement(1, 'column', rebar, undefined, {}, { ...sec, stirrupDia }, stations));
+    expect(results[0]).toEqual(results[1]);
+    expect(results[2]).toEqual(results[1]);
+  });
+}

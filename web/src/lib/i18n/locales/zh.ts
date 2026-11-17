@@ -3699,6 +3699,10 @@ const zh: Translations = {
   "autoLoad.work.draw": "正在绘制荷载",
   "autoLoad.work.step": "第 {step} 步，共 {total} 步",
   "autoLoad.work.cancel": "停止",
+  "codes.cirsoc201.shear.primary": "主方向抗剪钢筋",
+  "codes.cirsoc201.shear.secondary": "次方向抗剪钢筋",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}：已配置 {legs} 肢，需要 {requiredLegs} 肢（§9.7.6.2.2，横向间距）",
+
 } as const satisfies Record<string, string>;
 
 export default zh;

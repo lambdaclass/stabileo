@@ -15044,5 +15044,8 @@ const en: Record<string, string> = {
   "wind.pressure.triangularCentroidUnsupported": "Triangular wind carriers must be symmetric about the wind direction; other triangular plans are not supported because their projected pressure centroid cannot be preserved by this partition.",
   "wind.pressure.carrierPartitionUnresolved": "The physical wind tributary partition cannot be resolved for these carriers.",
   "wind.other.minimumSignCase": "Wind {dir}, solid-sign minimum {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Shear reinforcement in the primary direction",
+  "codes.cirsoc201.shear.secondary": "Shear reinforcement in the secondary direction",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} legs provided, {requiredLegs} required (§9.7.6.2.2, spacing across the width)",
 };
 export default en;

@@ -3711,5 +3711,8 @@ const it: Translations = {
   "autoLoad.work.draw": "Disegno dei carichi",
   "autoLoad.work.step": "Passo {step} di {total}",
   "autoLoad.work.cancel": "Ferma",
+  "codes.cirsoc201.shear.primary": "Armatura a taglio nella direzione principale",
+  "codes.cirsoc201.shear.secondary": "Armatura a taglio nella direzione secondaria",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} bracci presenti, {requiredLegs} richiesti (§9.7.6.2.2, spaziatura trasversale)",
 };
 export default it;

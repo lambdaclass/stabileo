@@ -3697,6 +3697,10 @@ const ko: Translations = {
   "autoLoad.work.draw": "하중 그리는 중",
   "autoLoad.work.step": "{total}단계 중 {step}단계",
   "autoLoad.work.cancel": "중지",
+  "codes.cirsoc201.shear.primary": "주방향 전단 보강근",
+  "codes.cirsoc201.shear.secondary": "부방향 전단 보강근",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: 배치된 다리 수 {legs}, 필요한 다리 수 {requiredLegs} (§9.7.6.2.2, 폭 방향 간격)",
+
 } as const satisfies Record<string, string>;
 
 export default ko;

@@ -3700,6 +3700,10 @@ const id: Translations = {
   "autoLoad.work.draw": "Menggambar beban",
   "autoLoad.work.step": "Langkah {step} dari {total}",
   "autoLoad.work.cancel": "Hentikan",
+  "codes.cirsoc201.shear.primary": "Tulangan geser pada arah utama",
+  "codes.cirsoc201.shear.secondary": "Tulangan geser pada arah sekunder",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} kaki tersedia, {requiredLegs} diperlukan (§9.7.6.2.2, jarak melintang)",
+
 } as const satisfies Record<string, string>;
 
 export default id;

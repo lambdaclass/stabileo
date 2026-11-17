@@ -81,7 +81,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(strength.length).toBeGreaterThan(0);
       for (const row of strength) expect(row.ratio).toBeLessThan(1);
       const distribution = result.checks.filter(c => c.category.includes(`(${shearAxis})`) && c.category.endsWith('s,max across'));
-      expect(distribution.length > 0).toBe(edition === '2025' && legs < 5);
+      expect(distribution.length > 0).toBe(kind !== 'column' && edition === '2025' && legs < 5);
       if (edition === '2005') expect(result.checks.some(c => c.limiting === 'unsupportedCheck')).toBe(true);
       for (const row of distribution) expect(row.status).toBe('fail');
     });
@@ -93,7 +93,7 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const sec = direction === 'primary' ? { ...section, b: width, h: section.b } : { ...section, h: width };
       const result = verify('column', { diameter: 8, legs: 2, secondaryLegs: 2, spacing: 0.05 }, edition, axis, direction, 1, sec);
       const shearAxis = direction === 'primary' ? axesFor(axis).shear : axesFor(axis).secondaryShear;
-      expect(result.checks.some(c => c.category === `Ties (${shearAxis}) s,max across`)).toBe(edition === '2025' && offset > 0);
+      expect(result.checks.some(c => c.category === `Ties (${shearAxis}) s,max across`)).toBe(false);
       if (edition === '2005') expect(result.checks.some(c => c.limiting === 'unsupportedCheck')).toBe(true);
     });
   }
@@ -146,7 +146,7 @@ for (const edition of ['2005', '2025'] as const) for (const shape of [
 
 afterEach(() => setCompactStationTransfer(true));
 for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  (process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip)(`known wrong result: #2171 spatial solved provided cages ${edition} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2171 spatial solved provided cages ${edition} ${nonlinear} ${compact}`, () => {
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -172,7 +172,7 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
         expect(row.ratio).toBeLessThan(1);
         expect(row.capacity).toBe(expected.phiVn);
       }
-      expect(result.checks.some(c => c.category.includes('(Vy)') && c.category.endsWith('s,max across'))).toBe(edition === '2025' && secondaryLegs < 5);
+      expect(result.checks.some(c => c.category.includes('(Vy)') && c.category.endsWith('s,max across'))).toBe(kind !== 'column' && edition === '2025' && secondaryLegs < 5);
     }
   });
   it(`planar solved provided primary cage retains its answer ${edition} ${nonlinear} ${compact}`, () => {
@@ -189,9 +189,9 @@ for (const edition of ['2005', '2025'] as const) for (const nonlinear of [false,
     const stations = { elementId: 1, length: f.length, stationTs: [0, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 1].map(t => ({
       t, x: t * f.length, n: t ? f.nEnd : f.nStart, my: t ? f.mEnd : f.mStart, mz: 0, vy: 0, vz: t ? f.vEnd : f.vStart, torsion: 0,
     })) }] };
-    for (const diameter of [6, 8, 12]) {
+    for (const kind of ['beam', 'column'] as const) for (const diameter of [6, 8, 12]) {
     const cage = { diameter, legs: 2, spacing: 0.05 };
-    const result = verifyProvidedReinforcement(1, 'beam', provided('beam', cage), undefined, {}, section, stations, undefined,
+    const result = verifyProvidedReinforcement(1, kind, provided(kind, cage), undefined, {}, section, stations, undefined,
       { axes: axesFor('My'), spacingRule: { edition, maxAggregateSizeMm: 0 } });
     const rows = result.checks.filter(c => c.demandCategory === 'Vz' && c.limiting === 'shear');
     expect(rows.length).toBeGreaterThan(0);

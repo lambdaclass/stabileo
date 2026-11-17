@@ -1,0 +1,3392 @@
+{
+  "parent": "67a9381a6",
+  "fixture": "web/src/lib/templates/fixtures/rc-design-frame.json",
+  "lateral": {
+    "beams": "gravity"
+  },
+  "isolations": {
+    "parent": {
+      "counts": {
+        "total": 408,
+        "verified": 368,
+        "searchExhausted": 27,
+        "provisionalBiaxial": 13,
+        "provisionalRetained": 40,
+        "sectionInadequate": 0,
+        "demandUnavailable": 0,
+        "unsupported": 0,
+        "notReached": 0,
+        "aborted": false
+      },
+      "fingerprint": "b51c20fa1890613c"
+    },
+    "current": {
+      "counts": {
+        "total": 408,
+        "verified": 369,
+        "searchExhausted": 26,
+        "provisionalBiaxial": 13,
+        "provisionalRetained": 39,
+        "sectionInadequate": 0,
+        "demandUnavailable": 0,
+        "unsupported": 0,
+        "notReached": 0,
+        "aborted": false
+      },
+      "fingerprint": "77af3bd3c8abb955"
+    },
+    "spacing-only": {
+      "counts": {
+        "total": 408,
+        "verified": 368,
+        "searchExhausted": 27,
+        "provisionalBiaxial": 13,
+        "provisionalRetained": 40,
+        "sectionInadequate": 0,
+        "demandUnavailable": 0,
+        "unsupported": 0,
+        "notReached": 0,
+        "aborted": false
+      },
+      "fingerprint": "b51c20fa1890613c"
+    },
+    "geometry-only": {
+      "counts": {
+        "total": 408,
+        "verified": 369,
+        "searchExhausted": 26,
+        "provisionalBiaxial": 13,
+        "provisionalRetained": 39,
+        "sectionInadequate": 0,
+        "demandUnavailable": 0,
+        "unsupported": 0,
+        "notReached": 0,
+        "aborted": false
+      },
+      "fingerprint": "77af3bd3c8abb955"
+    }
+  },
+  "changedMembers": [
+    {
+      "id": 1,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.993,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 2,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.957,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.951,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 3,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.991,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 3,
+            "nTop": 3,
+            "nLeft": 3,
+            "nRight": 3
+          },
+          "longitudinal": {
+            "count": 16,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 1,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization. The bounded search selects a different accepted cage.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 4,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.957,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.951,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 5,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.993,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 6,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.932,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 32,
+            "faceDia": 32,
+            "nBottom": 0,
+            "nTop": 0,
+            "nLeft": 0,
+            "nRight": 0
+          },
+          "longitudinal": {
+            "count": 4,
+            "diameter": 32
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization. The bounded search selects a different accepted cage.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 7,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.992,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 8,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.982,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.977,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 9,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.992,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 4,
+            "nTop": 4,
+            "nLeft": 4,
+            "nRight": 4
+          },
+          "longitudinal": {
+            "count": 20,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 10,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.932,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 32,
+            "faceDia": 32,
+            "nBottom": 0,
+            "nTop": 0,
+            "nLeft": 0,
+            "nRight": 0
+          },
+          "longitudinal": {
+            "count": 4,
+            "diameter": 32
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization. The bounded search selects a different accepted cage.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 11,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.977,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.973,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 12,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.952,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.948,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 13,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.998,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 3,
+            "nTop": 3,
+            "nLeft": 3,
+            "nRight": 3
+          },
+          "longitudinal": {
+            "count": 16,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.993,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 3,
+            "nTop": 3,
+            "nLeft": 3,
+            "nRight": 3
+          },
+          "longitudinal": {
+            "count": 16,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 14,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.952,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.948,
+        "accepted": {
+          "column": {
+            "cornerDia": 16,
+            "faceDia": 16,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 16
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 15,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.977,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.973,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 16,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.883,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.878,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 17,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.995,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.991,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 18,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.988,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.997,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization. The bounded search selects a different accepted cage.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 19,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.995,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.991,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 5,
+            "nTop": 5,
+            "nLeft": 5,
+            "nRight": 5
+          },
+          "longitudinal": {
+            "count": 24,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 20,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.883,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.878,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 21,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.725,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.722,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 22,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.966,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.962,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 23,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.921,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.917,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 24,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.966,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.962,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 25,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.725,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.722,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 26,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.724,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.72,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 27,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.956,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.952,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 28,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.976,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.972,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 29,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.956,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.952,
+        "accepted": {
+          "column": {
+            "cornerDia": 12,
+            "faceDia": 12,
+            "nBottom": 6,
+            "nTop": 6,
+            "nLeft": 6,
+            "nRight": 6
+          },
+          "longitudinal": {
+            "count": 28,
+            "diameter": 12
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.175
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 30,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.724,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.72,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 32,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.934,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.93,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 33,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.89,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.887,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 34,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.934,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.93,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 37,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.791,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.787,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 38,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.761,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.758,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 39,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.791,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.787,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 42,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.817,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.812,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 43,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.797,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.794,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 44,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.817,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.812,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 47,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.794,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.791,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 48,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.774,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.77,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 49,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.794,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.791,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 52,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.734,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.731,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 53,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.711,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.708,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 54,
+      "elementType": "column",
+      "before": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.734,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.731,
+        "accepted": {
+          "column": {
+            "cornerDia": 20,
+            "faceDia": 20,
+            "nBottom": 1,
+            "nTop": 1,
+            "nLeft": 1,
+            "nRight": 1
+          },
+          "longitudinal": {
+            "count": 8,
+            "diameter": 20
+          },
+          "stirrups": {
+            "diameter": 6,
+            "legs": 3,
+            "secondaryLegs": 3,
+            "spacing": 0.2
+          }
+        }
+      },
+      "reason": "The rectangular column layout and directional shear depths use the provided tie diameter instead of the nominal section diameter. The resulting capacity changes utilization.",
+      "beforeFailedChecks": [],
+      "afterFailedChecks": []
+    },
+    {
+      "id": 185,
+      "elementType": "beam",
+      "before": {
+        "outcome": "SEARCH_EXHAUSTED",
+        "limiting": [
+          "anchorage",
+          "congestion"
+        ],
+        "utilization": null,
+        "accepted": null
+      },
+      "after": {
+        "outcome": "VERIFIED",
+        "limiting": [],
+        "utilization": 0.9,
+        "accepted": {
+          "regions": {
+            "bottomSpanLayers": [
+              {
+                "count": 7,
+                "diameter": 12,
+                "row": 0
+              }
+            ],
+            "bottomSpan": {
+              "count": 7,
+              "diameter": 12
+            },
+            "topStartLayers": [
+              {
+                "count": 8,
+                "diameter": 10,
+                "row": 0
+              }
+            ],
+            "topStart": {
+              "count": 8,
+              "diameter": 10
+            },
+            "topEndLayers": [
+              {
+                "count": 8,
+                "diameter": 10,
+                "row": 0
+              }
+            ],
+            "topEnd": {
+              "count": 8,
+              "diameter": 10
+            },
+            "stirrupsSupport": {
+              "diameter": 6,
+              "legs": 2,
+              "secondaryLegs": 3,
+              "spacing": 0.15
+            },
+            "stirrupsSpan": {
+              "diameter": 6,
+              "legs": 2,
+              "secondaryLegs": 3,
+              "spacing": 0.15
+            }
+          }
+        }
+      },
+      "reason": "Column 18 at the end joint (node 38) changes from 24 Ø12 bars to 8 Ø20 bars when its actual Ø6 tie controls bar geometry. The new beam cage passes anchorage, closure and joint threading, at certified utilization 0.9000. No check or search limit is removed.",
+      "beforeFailedChecks": [
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 7 slots Ø16 (largest bar Ø25) passes the 24 column bars: the best one overlaps them by 8.6 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "afterFailedChecks": []
+    }
+  ],
+  "eightPreviouslyRefusedMembers": [
+    {
+      "id": 180,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage",
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 28 column bars: the best one overlaps them by 8.4 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 20 column bars: the best one overlaps them by 11.8 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 22,
+          "ok": false,
+          "worstOverlap": -0.00838525732360106,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 28
+        },
+        {
+          "end": "end",
+          "nodeId": 27,
+          "ok": false,
+          "worstOverlap": -0.011764971157455603,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 20
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø12 (largest bar Ø20) passes the 28 column bars: the best one overlaps them by 8.5 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø12 (largest bar Ø20) passes the 20 column bars: the best one overlaps them by 8.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 181,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 20 column bars: the best one overlaps them by 11.8 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 28 column bars: the best one overlaps them by 8.4 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 27,
+          "ok": false,
+          "worstOverlap": -0.011764971157455603,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 20
+        },
+        {
+          "end": "end",
+          "nodeId": 32,
+          "ok": false,
+          "worstOverlap": -0.00838525732360106,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 28
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø10 (largest bar Ø12) passes the 20 column bars: the best one overlaps them by 9.6 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 186,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage",
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 28 column bars: the best one overlaps them by 8.4 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 20 column bars: the best one overlaps them by 11.8 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 24,
+          "ok": false,
+          "worstOverlap": -0.00838525732360106,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 28
+        },
+        {
+          "end": "end",
+          "nodeId": 29,
+          "ok": false,
+          "worstOverlap": -0.011764971157455603,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 20
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø12 (largest bar Ø20) passes the 28 column bars: the best one overlaps them by 8.5 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø12 (largest bar Ø20) passes the 20 column bars: the best one overlaps them by 8.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 187,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 20 column bars: the best one overlaps them by 11.8 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø10 (largest bar Ø10) passes the 28 column bars: the best one overlaps them by 8.4 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 29,
+          "ok": false,
+          "worstOverlap": -0.011764971157455603,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 20
+        },
+        {
+          "end": "end",
+          "nodeId": 34,
+          "ok": false,
+          "worstOverlap": -0.00838525732360106,
+          "slots": 14,
+          "rowDia": 10,
+          "dia": 10,
+          "columnBars": 28
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 13 slots Ø10 (largest bar Ø12) passes the 20 column bars: the best one overlaps them by 9.6 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 192,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 41,
+          "ok": false,
+          "worstOverlap": -0.018000000000000002,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 42,
+          "ok": false,
+          "worstOverlap": -0.018000000000000002,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 8
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 23 slots Ø12 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 23 slots Ø12 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 195,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 22 slots Ø12 (largest bar Ø20) passes the 8 column bars: the best one overlaps them by 20.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 22 slots Ø12 (largest bar Ø20) passes the 8 column bars: the best one overlaps them by 20.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 44,
+          "ok": false,
+          "worstOverlap": -0.02,
+          "slots": 22,
+          "rowDia": 12,
+          "dia": 20,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 45,
+          "ok": false,
+          "worstOverlap": -0.02,
+          "slots": 22,
+          "rowDia": 12,
+          "dia": 20,
+          "columnBars": 8
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 23 slots Ø12 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 23 slots Ø12 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 18.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    },
+    {
+      "id": 197,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 28 column bars: the best one overlaps them by 0.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 0.0 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 47,
+          "ok": false,
+          "worstOverlap": 0,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 28
+        },
+        {
+          "end": "end",
+          "nodeId": 48,
+          "ok": false,
+          "worstOverlap": 0,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 8
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 21 slots Ø12 (largest bar Ø12) passes the 28 column bars: the best one overlaps them by 6.1 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "An empty admissible layout domain reports zero as a sentinel, not a passing clearance."
+    },
+    {
+      "id": 198,
+      "restored": false,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage",
+        "congestion"
+      ],
+      "clauses": [
+        "25.7.1.2",
+        "25.2.1",
+        "25.2.3"
+      ],
+      "previousCandidateFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 8 column bars: the best one overlaps them by 6.9 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 12 slots Ø16 (largest bar Ø16) passes the 28 column bars: the best one overlaps them by 6.6 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "previousCandidateThreading": [
+        {
+          "end": "start",
+          "nodeId": 48,
+          "ok": false,
+          "worstOverlap": -0.006937258300203045,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 8
+        },
+        {
+          "end": "end",
+          "nodeId": 49,
+          "ok": false,
+          "worstOverlap": -0.006599422784699067,
+          "slots": 12,
+          "rowDia": 16,
+          "dia": 16,
+          "columnBars": 28
+        }
+      ],
+      "retainedProposalFailedChecks": [
+        {
+          "category": "Bars through the joint (start)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø16 (largest bar Ø25) passes the 8 column bars: the best one overlaps them by 5.0 mm",
+          "limiting": "congestion"
+        },
+        {
+          "category": "Bars through the joint (end)",
+          "demandCategory": null,
+          "status": "fail",
+          "ratio": null,
+          "unit": "mm",
+          "method": "area",
+          "tuplesChecked": 0,
+          "description": "no layout of 14 slots Ø16 (largest bar Ø25) passes the 28 column bars: the best one overlaps them by 15.3 mm",
+          "limiting": "congestion"
+        }
+      ],
+      "note": "The former accepted cage still fails at both ends after the spacing correction."
+    }
+  ],
+  "mainReplay": {
+    "revision": "d972912815c7ccae3d41af9a242e54c5911eb575",
+    "scope": "origin/main station-design-forces.ts, current dependencies and WASM; not a complete origin/main checkout",
+    "model": {
+      "section": {
+        "b": 0.3,
+        "h": 0.3,
+        "cover": 0.025,
+        "stirrupDia": 8,
+        "fc": 25,
+        "fy": 420
+      },
+      "longitudinal": {
+        "count": 8,
+        "diameter": 16
+      },
+      "stirrups": {
+        "diameter": 12,
+        "legs": 2,
+        "spacing": 0.1
+      },
+      "Vu": 230.69045999999997
+    },
+    "expectedPhiVn": 230.46,
+    "reportedPhiVn": 234.08,
+    "ratio": 0.986,
+    "status": "warn",
+    "overallStatus": "warn",
+    "failedChecks": []
+  }
+}

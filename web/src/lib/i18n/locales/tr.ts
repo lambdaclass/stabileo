@@ -14884,6 +14884,10 @@ const tr: Translations = {
   "wind.pressure.triangularCentroidUnsupported": "Üçgen rüzgâr taşıyıcıları rüzgâr yönüne göre simetrik olmalıdır; bu paylaşım izdüşüm basıncının ağırlık merkezini koruyamadığı için diğer üçgen planlar desteklenmez.",
   "wind.pressure.carrierPartitionUnresolved": "Bu çubuklar için fiziksel rüzgâr yük alanı paylaşımı belirlenemiyor.",
   "wind.other.minimumSignCase": "Rüzgâr {dir}, dolu levha asgari yükü {c} (§4.8)",
+  "codes.cirsoc201.shear.primary": "Birincil yönde kesme donatısı",
+  "codes.cirsoc201.shear.secondary": "İkincil yönde kesme donatısı",
+  "codes.cirsoc201.shear.legsInsufficient": "⚠ {direction}: {legs} kol sağlanmış, {requiredLegs} kol gerekli (§9.7.6.2.2, enine aralık)",
+
 };
 
 export default tr;

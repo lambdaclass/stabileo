@@ -1,3 +1,5 @@
+import type { VerificationStep } from '../../verification-steps';
+import { msg } from '../../../codes/message';
 import { copyVerificationCheck, verificationCheckFields, withDeferredVerificationSteps } from '../../verification-steps';
 import type { ConcurrentSectionDemand, ConcurrentDemand } from '../../concurrent-demand';
 // CIRSOC 201 — Reinforced Concrete Verification Engine
@@ -119,7 +121,7 @@ export interface ShearResult<D extends ShearDirection = ShearDirection> {
   phiVn: number;       // total design capacity (kN)
   ratio: number;       // Vu / phiVn
   status: VerifStatus;
-  steps: string[];
+  steps: VerificationStep[];
 }
 
 export interface ColumnResult {
@@ -552,7 +554,7 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; effectiveLegs?: DirectionalLegs<NoInfer<D>> }): ShearResult<D> {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
-  const steps: string[] = [];
+  const steps: VerificationStep[] = [];
   const emissions: Array<() => unknown> = [];
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
@@ -627,7 +629,7 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   }
   if ((direction === 'primary' || VuAbs > 0) && legs < table.requiredLegs) {
     status = 'fail';
-    { emissions.push(() => steps.push(`⚠ Ramas ${direction}: ${legs} < ${table.requiredLegs} (§9.7.6.2.2, separación transversal)`)); }
+    { emissions.push(() => steps.push(msg('codes.cirsoc201.shear.legsInsufficient', { direction: msg(`codes.cirsoc201.shear.${direction}`), legs, requiredLegs: table.requiredLegs }))); }
   }
   if (chosen.avBelowMin && h > 0.25) {
     status = 'fail';
