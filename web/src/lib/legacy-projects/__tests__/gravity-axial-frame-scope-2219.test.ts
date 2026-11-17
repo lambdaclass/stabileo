@@ -7,14 +7,13 @@ import { freshStamp } from '../../provenance/solve-stamp';
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { judge } from '../legacy';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
 const id = 'gravity-axial-density-frames';
 const source = RESULT_CHANGES.changes.find(c => c.id === id)!;
-const entry = { ...source, quantities: declaredQuantities[id]! };
+const entry = { ...source, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
 const fields = ['displacements[n10].rz', 'displacements[n10].uz', 'elementForces[e100].nStart'];
 
 for (const mode of ['2d', '3d', 'pro']) {
-  regression(`known wrong result: #2219 axial density notice cannot explain ordinary ${mode} results`, () => {
+  it(`known wrong result: #2219 axial density notice cannot explain ordinary ${mode} results`, () => {
     for (const frame of [undefined, 'local', 'global', 'projected']) {
       for (const moments of [undefined, { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] }]) {
         const snapshot: FeatureSnapshot = {
@@ -36,7 +35,7 @@ for (const mode of ['2d', '3d', 'pro']) {
       }
     }
   });
-  regression(`known wrong result: #2219 axial density scope follows the same load and non-default frame in ${mode}`, () => {
+  it(`known wrong result: #2219 axial density scope follows the same load and non-default frame in ${mode}`, () => {
     for (const frame of [undefined, 'local', 'global', 'projected']) for (const axis of ['x', 'y', 'z']) for (const sample of [0, 1, 2]) for (const value of [-Number.MIN_VALUE, Number.MIN_VALUE, -1, 1]) {
       const moments = { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] };
       moments[axis as keyof typeof moments][sample] = value;

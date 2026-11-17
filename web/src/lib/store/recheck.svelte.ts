@@ -28,7 +28,7 @@ import type { RecheckAssessment } from '../provenance/applicability';
 import type { Advisory } from '../provenance/advisories';
 import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../provenance/registry';
-import { loadsGeneratedWith, memberLoadsRestoredWith, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
+import { loadProvenanceVersions, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
 /**
  * Independent of the latest solve: retained until the original notice is read, and saved after
@@ -95,9 +95,9 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       const original = readStamp(savedNotice?.stamp) ?? stored;
       assessedStampId = original.id;
       currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
-      const loadsVersion = loadsGeneratedWith(snapshot);
+      const versions = loadProvenanceVersions(snapshot);
       const loadSnapshot = { loads: snapshot.loads?.map(l => ({ ...l, data: { ...l.data } })), groups: snapshot.groups };
-      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION || loadsVersion < RESULTS_VERSION || memberLoadsRestoredWith(loadSnapshot) < RESULTS_VERSION;
+      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION || Object.values(versions).some(version => version < RESULTS_VERSION);
       const currentFeatures = modelFeatures(snapshot, { analysisMode, ...analysesContext(stored) });
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
@@ -124,8 +124,8 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
         try {
           const { assessProject } = await load();
           if (request !== generation) return;
-          const preserved = assessProject(loadSnapshot, original, analysisMode, undefined, features, loadsVersion);
-          const current = assessProject(loadSnapshot, stored, analysisMode, undefined, currentFeatures, loadsVersion);
+          const preserved = assessProject(loadSnapshot, original, analysisMode, undefined, features, versions.generated);
+          const current = assessProject(loadSnapshot, stored, analysisMode, undefined, currentFeatures, versions.generated);
           currentAssessmentStampId = current.changes.length ? stored.id : null;
           assessment = {
             ...preserved,

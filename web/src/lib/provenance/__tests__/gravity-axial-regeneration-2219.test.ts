@@ -6,7 +6,6 @@ import { concernsLoadBasis } from '../registry';
 import { stampSolve } from '../solve-stamp';
 import { createRecheckStore } from '../../store/recheck.svelte';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
 const change = RESULT_CHANGES.changes.find(c => c.id === 'gravity-axial-density-frames')!;
 const current = RESULT_CHANGES.currentResultsVersion;
 const model = (origin: string, version?: number): FeatureSnapshot => ({
@@ -21,7 +20,7 @@ const model = (origin: string, version?: number): FeatureSnapshot => ({
 });
 
 for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelta', 'nonlinear'] as const) for (const origin of ['generated', 'linked-floor', 'unlinked-floor', 'manual']) {
-  regression(`known wrong result: #2219 axial density notice survives ${mode}/${analysis}/${origin} until regeneration`, async () => {
+  it(`known wrong result: #2219 axial density notice survives ${mode}/${analysis}/${origin} until regeneration`, async () => {
     const affected = mode !== '2d';
     const stamp = stampSolve(analysis, null);
     for (const version of [undefined, 0, change.resultsVersion - 1, change.resultsVersion, change.resultsVersion + 1]) {
@@ -48,7 +47,7 @@ for (const mode of ['2d', '3d', 'pro']) for (const analysis of ['linear', 'pdelt
   });
 }
 
-regression('known wrong result: #2219 axial density regeneration checks every load origin independently', () => {
+it('known wrong result: #2219 axial density regeneration checks every load origin independently', () => {
   expect(concernsLoadBasis(change)).toBe(true);
   const ids = (s: FeatureSnapshot) => assessProject(s, stampSolve('linear', null), 'pro').changes.map(c => c.id);
   for (const stale of ['generated', 'linked-floor', 'unlinked-floor', 'manual']) {

@@ -39,7 +39,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
-  'floorLoads',
+  'floorLoads', 'nonDefaultFrameMomentDensities',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -162,6 +162,14 @@ export function floorLoadsCorrectedWith(s: FeatureSnapshot): number {
   return Math.min(...loads.map(l => Number.isInteger(l.data?.floorLoadsVersion) ? l.data!.floorLoadsVersion as number : 0));
 }
 
+export function loadProvenanceVersions(s: FeatureSnapshot) {
+  return {
+    generated: loadsGeneratedWith(s),
+    floor: floorLoadsCorrectedWith(s),
+    manual: memberLoadsRestoredWith(s),
+  };
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -260,6 +268,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/^(distributed|axialDistributed|pointOnElement|thermal)/.test(t)) {
       f.add('memberLoads');
       if (axialMembers.has(d.elementId as number)) f.add('trussMemberLoads');
+    }
+    if (t === 'distributed3d' && (d.frame === 'global' || d.frame === 'projected')) {
+      const moments = d.moments as Record<string, unknown> | undefined;
+      if (moments && ['x', 'y', 'z'].some(axis => Array.isArray(moments[axis]) && (moments[axis] as unknown[]).some(nonZero))) f.add('nonDefaultFrameMomentDensities');
     }
     if (t.startsWith('pointOnElement') || (t.startsWith('distributed') && (positive(d.a) || d.b !== undefined))) f.add('pointOrPartialMemberLoads');
     if (t === 'thermal') f.add('memberThermalLoads');

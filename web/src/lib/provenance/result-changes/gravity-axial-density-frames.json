@@ -9,7 +9,7 @@
     "all": [
       "space3D",
       "frameMembers",
-      "memberLoads"
+      "nonDefaultFrameMomentDensities"
     ]
   },
   "quantities": [
@@ -39,5 +39,7 @@
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-round14.md",
     "heading": "Axial moment density frames"
-  }
+  },
+  "requiresLoadRegeneration": true,
+  "requiresFloorLoadRegeneration": true
 }

@@ -41,3 +41,15 @@ explicit magnitude-field allowlist. This audit correction changes no result.
 These density fields and their edit omission were introduced on the unmerged
 #2219 branch. This record assigns no advisory. The SRSS/ABS combined-peak work
 in #2252 and the existing fixture skips remain deferred.
+
+Round 15 narrows this entry to spatial frame projects with nonzero distributed
+moment densities in global or projected load frames. Force-only loads, zero
+moment densities and default local frames cannot explain unrelated legacy solve
+differences through this entry. The predicate is shared by the project assessment,
+legacy judge and results snapshot gate. This changes provenance, not engine results.
+
+The entry independently requires generated-load and floor-definition regeneration
+as well as manual-load restoration. A current solve cannot replace any of those
+stamps. The lazy notice loader and the assessment read the same three provenance
+versions, including floor loads detached from their definition. Missing or older
+stamps retain the notice; reaching the entry version clears that requirement only.
