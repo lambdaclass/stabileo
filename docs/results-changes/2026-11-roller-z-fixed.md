@@ -101,3 +101,10 @@ identifies positive span flexure (Bottom Span, My+) as the governing check for
 both members. This was read from both rows after computing demands, required steel
 and reinforcement in the blog embed. It is downstream of the registered bearing
 correction. The previous screenshot shows the design controls before that correction.
+
+The snapshot gate opens the corrected fixture, which already has its explicit
+mask. The `bundled-rc-beam-bearing-design` entry covers the changed design
+ratios, demand and governing check for that example's snapshot. The context
+comes from the example source in the corpus and applies only to that capture.
+Saved projects with unresolved bearings receive the #2276 design notice under
+the applicability above.
