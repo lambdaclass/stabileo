@@ -249,6 +249,7 @@ export async function openExample(
   reset(workspace);
   await modelStore.loadExample(id, opts.fixture, {
     keepCombinations: opts.keepCombinations,
+    supportSource: opts.release === undefined ? undefined : 'recorded',
     defaults: defaults ? { material: defaults.material, section: defaults.section as Section } : undefined,
   });
   const values = modelCounts();

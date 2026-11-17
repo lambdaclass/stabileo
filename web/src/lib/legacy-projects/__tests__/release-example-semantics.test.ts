@@ -55,9 +55,9 @@ describe('release example semantics #2091', () => {
               e: drift === 'name' ? material.e : material.e * 2,
             });
           });
-          const apiSpy = vi.spyOn(modelStore, 'fixtureApi').mockImplementation(() => {
+          const apiSpy = vi.spyOn(modelStore, 'fixtureApi').mockImplementation((supportSource) => {
             atResolution.push(structuredClone(modelStore.materials.get(1)!));
-            return fixtureApi();
+            return fixtureApi(supportSource);
           });
           try {
             const result = await againstExample('future material identity', version, entry, opened, false);
@@ -110,7 +110,7 @@ for (const [example, solvable] of [
   ['portal-frame-braced', true],
   ['3d-space-truss', true],
 ] as const) {
-  it.skip('known wrong result: #2277 compares the saved ' + example + ' with its release restraints', async () => {
+  it('#2277 compares the saved ' + example + ' with its release restraints', async () => {
     const version = 'v0.4.0';
     const entry = readManifest(version).examples.find((e) => e.example === example)!;
     const opened = await openAndSolve(readCorpusText(version + '/' + entry.file));

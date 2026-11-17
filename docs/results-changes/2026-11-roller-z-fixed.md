@@ -93,3 +93,12 @@ design outputs downstream of the changed force distribution; it uses the same sc
 Re-establish the intended restraints, then rerun analyses, cases, combinations and
 design checks, and review prior deliverables. Historical released binaries were not
 assessed. The requested advisory is a draft pending coordinator review and release.
+
+## Published flexure example
+
+With the explicit simply supported bearing, the live PRO design workflow verifies
+both members at a displayed D/C of 0.91. The design table records 0.908 and
+identifies positive span flexure (Bottom Span, My+) as the governing check for
+both members. This was read from both rows after computing demands, required steel
+and reinforcement in the blog embed. It is downstream of the registered bearing
+correction. The previous screenshot shows the design controls before that correction.

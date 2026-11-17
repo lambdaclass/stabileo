@@ -1611,11 +1611,15 @@ function createModelStore() {
     }
   }
 
+  type SupportSource = 'placement' | 'recorded';
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
 
   /** The support `addSupport` and `addSupports` write: only the fields given, and no zero offsets. */
-  function supportOf(id: number, nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts): Support {
+  function supportOf(
+    id: number, nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
+    source: SupportSource = 'placement',
+  ): Support {
     const sup: Support = { id, nodeId, type: uiStore.is3DWorkspace ? type : normalize2DSupportType(type) };
     if (springs) {
       if (springs.kx !== undefined) sup.kx = springs.kx;
@@ -1638,7 +1642,7 @@ function createModelStore() {
     if (opts?.dofRestraints) sup.dofRestraints = { ...opts.dofRestraints };
     if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
     if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
-    return uiStore.is3DWorkspace ? { ...sup, ...explicitRoller3D(sup) } : sup;
+    return source === 'placement' && uiStore.is3DWorkspace ? { ...sup, ...explicitRoller3D(sup) } : sup;
   }
 
   /**
@@ -2879,7 +2883,10 @@ function createModelStore() {
       return id;
     },
 
-    addSupport(nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts): number {
+    addSupport(
+      nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
+      source: SupportSource = 'placement',
+    ): number {
       if (!_undoBatching) _pushUndo?.();
       // A space support on a standing plane model makes it a space one.
       if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)
@@ -2892,7 +2899,7 @@ function createModelStore() {
         }
       }
       const id = nextId.support++;
-      model.supports.set(id, supportOf(id, nodeId, type, springs, opts));
+      model.supports.set(id, supportOf(id, nodeId, type, springs, opts, source));
       if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
@@ -4673,11 +4680,12 @@ function createModelStore() {
      * drift the first time a loader gained a method, and the generated model would silently
      * lose whatever the second copy forgot.
      */
-    fixtureApi() {
+    fixtureApi(supportSource?: SupportSource) {
       return {
         addNode: this.addNode.bind(this),
         addElement: this.addElement.bind(this),
-        addSupport: this.addSupport.bind(this),
+        addSupport: (nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts) =>
+          this.addSupport(nodeId, type, springs, opts, supportSource),
         updateSupport: this.updateSupport.bind(this),
         addMaterial: this.addMaterial.bind(this),
         addSection: this.addSection.bind(this),
@@ -4704,6 +4712,7 @@ function createModelStore() {
     async loadExample(name: string, fixture?: () => Promise<unknown>, opts: {
       keepCombinations?: boolean;
       defaults?: { material: Material; section: Section };
+      supportSource?: SupportSource;
     } = {}): Promise<void> {
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
@@ -4721,7 +4730,7 @@ function createModelStore() {
         model.materials.set(1, structuredClone(opts.defaults.material));
         model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
       }
-      const api = this.fixtureApi();
+      const api = this.fixtureApi(opts.supportSource);
 
       this.bulkMutate(() => {
         loadFixture(json as any, api as any, opts);
