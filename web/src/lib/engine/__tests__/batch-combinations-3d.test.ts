@@ -146,10 +146,21 @@ const failure = (run: () => unknown): string => {
 it('preserves combination overflow paths before envelope processing', () => {
   const perCase = cases();
   perCase.get(1)!.reactions[0].fz = Number.MAX_VALUE;
-  const factors = [[{ caseId: 1, factor: 2 }]];
-  const reference = failure(() => combineResultsBatch3D(factors, perCase, new Map()));
-  expect(reference).toContain('non_finite_result');
-  expect(failure(() => combineResultsEnvelope3D(factors, perCase, new Map()))).toBe(reference);
+  const plates = new Map();
+  const combine = (factor: number) => {
+    const factors = [{ caseId: 1, factor }];
+    return [
+      () => combineResults3D(factors, perCase, plates),
+      () => combineResultsBatch3D([factors], perCase, plates)[0],
+      () => combineResultsEnvelope3D([factors], perCase, plates).combinations[0],
+    ];
+  };
+  const [single, ...batched] = combine(2).map(failure);
+  expect(single).toBe('Cannot combine results: result 0 has a non-finite number at reactions[0].fz=inf');
+  expect(batched).toEqual([single, single]);
+  expect(combine(1).map(run => run()?.reactions[0].fz)).toEqual([
+    Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE,
+  ]);
 });
 
 it('preserves the existing positional envelope calculation', () => {
