@@ -91,11 +91,12 @@ describe('recheckStore', () => {
       solvedWith: recheckStore.capture(),
     };
     const expected = [
+      'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
       'concentrated-live-actions', 'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
       'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity',
       'snow-ridge-mesh', 'snow-ridge-orientations', 'snow-roof-connectivity',
       'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets', 'snow-surface-regions', 'snow-surface-support',
-    ];
+    ].sort();
     recheckStore.openProject(snapshot, mode);
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
     expect(recheckStore.assessment?.changes.map(c => c.id).sort()).toEqual(expected);

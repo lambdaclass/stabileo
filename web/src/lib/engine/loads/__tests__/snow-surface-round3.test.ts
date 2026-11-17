@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { expect, it } from 'vitest';
 import { ridgeRoofs as roof } from './snow-surface-round3-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -98,7 +99,7 @@ for (const mode of ['width', 'panels'] as const) {
   knownWrong(`known wrong result: #2095 round3 load planner includes each ridge ${mode}`, () => {
     const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model: roof('perpendicular'), gravity: { mode }, tributaryWidth: 1, snow: { ...snow, enabled: true, source: 'site' } });
     expect(plan.outcome).toBe('READY');
-    expect(plan.cases.filter(c => c.type === 'S')).toHaveLength(5);
+    expect(physicalSnowCases(plan)).toHaveLength(5);
   });
 }
 

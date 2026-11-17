@@ -185,11 +185,12 @@ describe('results versions', () => {
 for (const mode of ['2d', '3d', 'pro']) it(`retains the exact generated snow notices after a current solve in ${mode}`, () => {
   const snapshot: FeatureSnapshot = { loadCases: [{ id: 1, type: 'S' }], loads: [{ type: 'distributed', data: { caseId: 1, generatedBy: 'load-plan' } }] };
   const expected = [
+    'snow-combination-provenance', 'snow-combination-validation', 'snow-companion-basis', 'snow-pair-coverage',
     'concentrated-live-actions', 'generated-area-loads-headroom', 'snow-crossing-profile', 'snow-drift-coverage', 'snow-fallback-runs',
     'snow-flat-frame', 'snow-local-boundaries', 'snow-member-loading', 'snow-orientation-factors', 'snow-panel-geometry', 'snow-quadratic-intensity', 'snow-ridge-mesh',
     'snow-ridge-orientations', 'snow-roof-connectivity', 'snow-roof-rotation', 'snow-roof-step', 'snow-selected-subsets',
     'snow-surface-regions', 'snow-surface-support',
-  ];
+  ].sort();
   for (const analysis of ['linear', 'pdelta', 'plastic']) {
     const stamp = { resultsVersion: RESULT_CHANGES.currentResultsVersion, recorded: [analysis] } as SolveStamp;
     expect(assessProject(snapshot, stamp, mode, RESULT_CHANGES, undefined, 0).changes.map(c => c.id).sort()).toEqual(expected);

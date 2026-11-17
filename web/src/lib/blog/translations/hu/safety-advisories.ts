@@ -108,6 +108,8 @@ const body: PostBody = {
       "label": "SA-2026-074",
       "t": "Érintett modellek és szükséges teendők."
     },
+    {"k": "note", "t": "SA-2026-082 — Tervezet 2026-11-16; beolvasztásra és kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Érintett bemenetek és szükséges teendők."},
     {
       "k": "note",
       "t": "SA-2026-083 — PR #2236; egyesítésre és kiadásra vár."
@@ -566,6 +568,7 @@ const body: PostBody = {
           "Magas",
           "Javítva a #2220 PR-ben, összevonásra és kiadásra vár"
         ],
+        ["SA-2026-082", "A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211).", "Magas", "Tervezet 2026-11-16; beolvasztásra és kiadásra vár"],
         [
           "SA-2026-083",
           "SA-2026-083: A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt. (#2207).",

@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -41,7 +42,7 @@ function generate(splits: number, mode: 'projected' | 'width' | 'panels', angle 
   expect(out.result.refused).toBeUndefined();
   const sink: PlanSink = { cases: [], distributed: [], nodal: [], derivation: [], refs: [], assumptions: [], unsupportedKeys: [], blockedKeys: [] };
   expect(planSnow({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, tributaryWidth: 1, snow: { ...config, enabled: true, source: 'site' } }, sink, layout)).toBe(true);
-  expect(sink.cases).toHaveLength(out.cases.length);
+  expect(physicalSnowCases(sink)).toHaveLength(out.cases.length);
   for (const [k, c] of out.cases.entries()) {
     expect(sink.distributed.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.distributed);
     expect(sink.nodal.filter(d => d.caseIndex === k).map(({ caseIndex, caseType, ...d }) => d)).toEqual(c.nodal);
@@ -152,7 +153,7 @@ for (const splits of [1, 2, 4, 8]) for (const angle of [0, 0.37, Math.PI / 2]) f
     expect(out.result.refused).toBeUndefined();
     const plan = buildLoadPlan({ regulations: regulations(), model, dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode }, tributaryWidth: 1, snow: { ...config, enabled: true, source: 'site' } });
     expect(plan.outcome).toBe('READY');
-    const cases = plan.cases.filter(c => c.type === 'S');
+    const cases = physicalSnowCases(plan);
     expect(cases).toHaveLength(out.cases.length);
     for (const [k, c] of cases.entries()) {
       expect(plan.distributed.filter(d => d.caseIndex === plan.cases.indexOf(c)).map(({ caseIndex, caseType, ...d }) => d)).toEqual(out.cases[k]!.distributed);

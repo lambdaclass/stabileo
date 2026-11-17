@@ -75,14 +75,18 @@ describe('INPRES-CIRSOC 103 [3.15]: the roof snow weighs in the seismic mass', (
 describe('INPRES-CIRSOC 103 [3.16]: the seismic combination takes f2 S, not 0,2 S', () => {
   it('combination 5 carries 0,7 S on a roof that keeps its snow', () => {
     const p = buildLoadPlan(input());
-    const five = p.combinations.filter((c) => c.basic === 5 && c.terms.some((t) => t.symbol === 'S'));
+    const five = p.combinations.filter((c) => c.basic === 5 && c.terms.some((t) => t.symbol === 'S' && !t.snowBasis));
     expect(five.length).toBeGreaterThan(0);
+    const flat = p.combinations.filter(c => c.basic === 5 && c.terms.some(t => t.snowBasis === 'flatRoof'));
+    expect(flat.length).toBeGreaterThan(0);
+    for (const c of flat) expect(c.terms.find(t => t.symbol === 'S')!.factor).toBe(0.2);
     for (const c of five) expect(c.terms.find((t) => t.symbol === 'S')!.factor).toBe(0.7);
   });
 
   it('and CIRSOC 101\'s 0,2 S where the roof sheds it', () => {
     const p = buildLoadPlan(input({}, { snowRetaining: false }));
-    const five = p.combinations.filter((c) => c.basic === 5 && c.terms.some((t) => t.symbol === 'S'));
+    const five = p.combinations.filter((c) => c.basic === 5 && c.terms.some((t) => t.symbol === 'S' && !t.snowBasis));
+    expect(five.length).toBeGreaterThan(0);
     for (const c of five) expect(c.terms.find((t) => t.symbol === 'S')!.factor).toBe(0.2);
   });
 });
