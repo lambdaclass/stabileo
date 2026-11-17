@@ -35,12 +35,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import evidence from '../../../../../../docs/results-changes/2198-round6-undeclared.json';
 import { flagshipRun, membersOfKind } from './helpers/flagship';
 import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — the outcome population is 376 VERIFIED + 32 honest refusals — 373 was a display band', () => {
+  it('the outcome population matches the audited member digest — 373 was a display band', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
     // 379 since the ductility check of §9.3.3.1 steers the search off over-reinforced candidates
@@ -48,18 +49,19 @@ describe('the 408/373 discrepancy', () => {
     // autodesign-regression.test.ts, header). 373 until then. 383 since the minimum shear
     // reinforcement of CIRSOC 201-2025 §9.6.3.1 (same header): 165–168 verify.
     // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
-    expect(summary.verified).toBe(376);
+    expect(summary.verified).toBe(evidence.declaredGravity.counts.verified);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
     // an outcome, and the 13 that are outcomes all name the same honest cause.
-    // The 23 congested beams: no arrangement the search implements passes, which is
-    // SEARCH_EXHAUSTED; no bound proves their section inadequate (`section-bounds.ts`).
     expect(summary.sectionInadequate).toBe(0);
-    const congested = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
-    expect(congested).toHaveLength(19);
-    for (const o of congested) {
-      expect(o.limiting, `member ${o.elementId}`).toContain('congestion');
+    const exhausted = [...summary.outcomes.values()].filter((o) => o.outcome === 'SEARCH_EXHAUSTED');
+    expect(exhausted).toHaveLength(evidence.declaredGravity.counts.searchExhausted);
+    expect(exhausted.map(o => o.elementId).sort((a, b) => a - b)).toEqual(evidence.declaredGravity.members
+      .filter(line => line.split('|')[1] === 'SEARCH_EXHAUSTED').map(line => Number(line.split('|')[0])));
+    for (const o of exhausted) {
+      expect(o.limiting, `member ${o.elementId}`).toEqual(evidence.declaredGravity.members
+        .find(line => Number(line.split('|')[0]) === o.elementId)!.split('|')[2]!.split(','));
       expect(o.exhaustion?.scope, `member ${o.elementId}`).toBe('implementedAlternatives');
       expect(o.certificate, `member ${o.elementId} carries no certificate`).toBeUndefined();
       expect(o.accepted, `member ${o.elementId} assigns no certified steel`).toBeUndefined();

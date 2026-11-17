@@ -5,7 +5,7 @@ import { solveFixture } from './helpers';
 import { runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — #2171 the four recovered flagship members pass independent shear and leg-distribution arithmetic in both directions', () => {
+it('#2171 the four recovered flagship members pass independent shear and leg-distribution arithmetic in both directions', () => {
  const solved=solveFixture(frame);
  const summary=runDesign(cirsoc201Adapter,solved.contexts.values(),{maxRunMs:180_000});
  const audit:unknown[]=[];
@@ -16,20 +16,23 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 —
   const rebar=outcome.accepted!;
   const r=rebar.regions!;
   const bottom=r.bottomSpanLayers!;
-  expect(bottom.map(l=>[l.count,l.diameter,l.row])).toEqual([[8,10,0],[6,10,1]]);
-  const primaryDepth=ctx.section.h-(8*(ctx.material.cover+ctx.material.stirrupDia/1000+0.005)+6*(ctx.material.cover+ctx.material.stirrupDia/1000+0.005+0.01+0.025))/14;
+  expect(bottom.map(l=>[l.count,l.diameter,l.row])).toEqual([[4,20,0]]);
+  const primaryDepth=ctx.section.h-ctx.material.cover-0.008-0.020/2;
+  expect(r.topStartLayers!.map(l=>[l.count,l.diameter,l.row])).toEqual([[6,16,0]]);
+  expect(r.topEndLayers!.map(l=>[l.count,l.diameter,l.row])).toEqual([[6,16,0]]);
   const verdict=cirsoc201Adapter.verify(ctx,rebar);
+  expect(verdict.checks.filter(c=>c.status==='fail')).toEqual([]);
   for(const region of ['Support','Span']) for(const direction of ['primary','secondary'] as const) {
    const cage=region==='Support'?r.stirrupsSupport!:r.stirrupsSpan!;
-   const secondaryDepth=ctx.section.b-ctx.material.cover-cage.diameter/1000-0.005;
+   const secondaryDepth=ctx.section.b-ctx.material.cover-cage.diameter/1000-0.020/2;
    const primary=direction==='primary';
    const axis=primary?ctx.axes.shear:ctx.axes.secondaryShear;
    const check=verdict.checks.find(c=>c.category===`Shear ${region} (${axis})`)!;
    const width=primary?ctx.section.b:ctx.section.h;
    const depth=primary?primaryDepth:secondaryDepth;
    const count=primary?cage.legs:cage.secondaryLegs!;
-   expect(cage.diameter).toBe(12);
-   const area=count*1.131e-4;
+   expect(cage).toEqual({diameter:8,legs:2,secondaryLegs:3,spacing:0.15});
+   const area=count*0.503e-4;
    const minArea=Math.max(0.062*Math.sqrt(ctx.material.fc),0.35)*width*cage.spacing/ctx.material.fy;
    expect(area).toBeGreaterThanOrEqual(minArea);
    const combo=ctx.stations!.comboResults.find(c=>c.comboName===check.comboName)!;

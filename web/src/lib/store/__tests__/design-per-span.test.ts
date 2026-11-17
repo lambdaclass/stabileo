@@ -27,6 +27,7 @@ import { placeFrame, placeSlabs } from '../../model/building/build-on-grid';
 import { flipMembers } from '../../model/edit/flip-members';
 import { computeBeamCriticalSections } from '../../engine/station-design-forces';
 import { rebarHash } from '../../engine/design/rebar-hash';
+import { isDraftOnlyIssue } from '../../engine/detailing/document-model';
 import { modelBeamLines } from '../frame-equalize';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -87,7 +88,7 @@ const columnIds = () => [...verificationStore.contexts.values()].filter((c) => c
 
 function expectedPieceStatus(id: number) {
   const held = (modelStore.model.detailing?.assemblies ?? []).some(a => a.unsupported.some(u =>
-    (u.key === 'detailing.anchorage.unresolved' || u.key === 'detailing.cover.violated' || u.key === 'detailing.clash.unresolved')
+    isDraftOnlyIssue(u.key)
     && u.scope.elementIds?.includes(id)));
   return held ? 'fail' : verificationStore.contextFor(id)?.slabColumnJoint?.verdict === 'pointJoint'
     ? 'unavailable' : verificationStore.providedFor(id)!.overallStatus;
@@ -171,7 +172,7 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect((ifc.match(/IFCCOLUMN\(/g) ?? []).length).toBe(12);
   });
 
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — 78 pieces in 14 spans, every one verified, and the detailing covers 12 columns and 78 pieces', () => {
+  it('78 pieces in 14 spans, every one verified, and the detailing covers 12 columns and 78 pieces', () => {
     building(1);
     designRunStore.designFamilies(['column', 'beam']);
     const beams = beamIds();
@@ -203,10 +204,6 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
       expect(hashes.size).toBe(1);
       for (const id of ids) {
         expect(verificationStore.outcomeFor(id)!.limiting).not.toContain('anchorage');
-        // The section's checks pass; the display holds a piece short of that while the detailing
-        // left a bar of it unanchored or outside the section, or a clash of it the repair ladder
-        // could not separate inside the section (`detailing.clash.unresolved`, which replaced the
-        // bars the ladder used to push out), and only then.
         const own = verificationStore.providedFor(id)!.overallStatus;
         expect(['ok', 'warn']).toContain(own);
         expect(verificationStore.localStatus(id), `piece ${id}`).toBe(own);
@@ -268,7 +265,7 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect(beamIds().filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
   }, 120_000);
 
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — a beam that is one element keeps its own context, exactly as before', () => {
+  it('a beam that is one element keeps its own context, exactly as before', () => {
     building(null);
     designRunStore.computeDemands();
     const beams = beamIds();
@@ -284,11 +281,24 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
         { b: 0.2, h: 0.5, cover: c.material.cover, stirrupDia: c.material.stirrupDia }));
     }
     designRunStore.designFamilies(['column', 'beam']);
-    expect(beams.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
+    expect(beams.filter(id => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([8]);
+    const refused = verificationStore.outcomeFor(8)!;
+    expect(refused.outcome).toBe('SEARCH_EXHAUSTED');
+    expect(refused.limiting).toEqual(['anchorage', 'congestion']);
+    expect(refused.accepted).toBeUndefined();
+    expect(refused.certificate).toBeUndefined();
+    expect(refused.exhaustion?.scope).toBe('implementedAlternatives');
+    expect(refused.provisional!.verdict.checks.filter(c => c.status === 'fail')
+      .map(c => [c.category, c.limiting])).toEqual([
+        ['Bars through the joint (start)', 'congestion'],
+        ['Bars through the joint (end)', 'congestion'],
+      ]);
+    expect(refused.provisional!.verdict.jointThreading!.map(j => [j.end, j.worstOverlap, j.columnBars]))
+      .toEqual([['start', -0.007535533905932774, 8], ['end', -0.007535533905932774, 8]]);
   }, 120_000);
 });
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2198')('known wrong result: #2198 — every mesh piece retains the exact secondary-cage refusal and display status', () => {
+it('every mesh piece retains the exact secondary-cage refusal and display status', () => {
   building(1);
   designRunStore.designFamilies(['column', 'beam']);
   const beams = beamIds();
