@@ -233,7 +233,6 @@ fn combination_matches_reactions_by_node_id_not_position() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn combinations_envelope_preserves_locally_evaluated_extrema() {
     use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
     use serde_json::json;

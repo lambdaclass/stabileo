@@ -182,8 +182,8 @@ export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number,
   };
   const rings = region.polygons.map(poly => poly.map(ring => ring.map(local)));
   const stations = [...new Set([0, e.len, ...rings.flat(2).map(p => p[0])])].sort((a, b) => a - b);
-  const chord = (s: number, lo: number, hi: number) => {
-    let total = 0, moment = 0;
+  const chord = (lo: number, hi: number) => {
+    const pairs: Array<{ lower: (x: number) => number; upper: (x: number) => number; sign: number }> = [];
     for (const poly of rings) for (const [k, ring] of poly.entries()) {
       const edges: Array<{ at: (x: number) => number }> = [];
       ring.forEach((a, i) => {
@@ -191,26 +191,31 @@ export function transferRegionToSide(e: Side, region: PhysicalRegion, q: number,
         if (Math.min(a[0],b[0]) <= lo && Math.max(a[0],b[0]) >= hi && a[0] !== b[0]) edges.push({ at: x => a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]) });
       });
       edges.sort((a, b) => (a.at(lo)+a.at(hi)) - (b.at(lo)+b.at(hi)));
-      for (let i = 0; i + 1 < edges.length; i += 2) {
-        const lo = edges[i]!.at(s), hi = edges[i + 1]!.at(s), sign = k === 0 ? 1 : -1;
+      for (let i = 0; i + 1 < edges.length; i += 2) pairs.push({ lower: edges[i]!.at, upper: edges[i + 1]!.at, sign: k === 0 ? 1 : -1 });
+    }
+    return (s: number) => {
+      let total = 0, moment = 0;
+      for (const { lower, upper, sign } of pairs) {
+        const lo = lower(s), hi = upper(s);
         total += sign * (hi - lo); moment += sign * (hi * hi - lo * lo) / 2;
       }
-    }
-    return { total, moment };
+      return { total, moment };
+    };
   };
   const out: SideShare = { moments: [], pieces: [] };
   for (let i = 0; i + 1 < stations.length; i++) {
     const s0 = stations[i]!, s1 = stations[i + 1]!, h = s1 - s0;
     if (!(h > 0)) continue;
-    const q0 = q * chord(s0, s0, s1).total, q1 = q * chord(s1, s0, s1).total;
+    const at = chord(s0, s1), start = at(s0), end = at(s1);
+    const q0 = q * start.total, q1 = q * end.total;
     if (q0 === 0 && q1 === 0) continue;
     {
       out.pieces.push({ s0, s1, q0, q1 });
-      const momentAt = (s: number): P2 => {
-        const v = q * chord(s, s0, s1).moment;
+      const momentAt = (moment: number): P2 => {
+        const v = q * moment;
         return [v * (e.n[0] + ratio * e.u[0]), v * (e.n[1] + ratio * e.u[1])];
       };
-      out.moments.push({ s0, s1, first: [momentAt(s0), momentAt((s0 + s1) / 2), momentAt(s1)] });
+      out.moments.push({ s0, s1, first: [momentAt(start.moment), momentAt(at((s0 + s1) / 2).moment), momentAt(end.moment)] });
     }
   }
   out.moments=coalesceMomentProfile(out.moments);

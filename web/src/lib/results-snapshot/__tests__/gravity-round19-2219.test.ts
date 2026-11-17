@@ -11,7 +11,7 @@ import { evaluateDiagramAt } from '../../engine/diagrams-3d';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
-const regression = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
+const regression = it;
 const fixture = JSON.parse(readFileSync(new URL('../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
 for (const axis of ['x', 'y', 'z'] as const) for (const sign of [1, -1]) {

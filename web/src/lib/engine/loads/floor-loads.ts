@@ -47,7 +47,7 @@ import { linearProfile } from '../linear-profile';
  * Pure: no store.
  */
 import { coalesceQuadraticProfile, sliceMoments, type MemberMoments } from '../member-moments';
-import { computeLocalAxes3D } from '../local-axes-3d';
+import { computeLocalAxes3D, type LocalAxes3D } from '../local-axes-3d';
 import { twoWayShares, oneWayShares, signedArea, type Piece, type Side, type SideShare, type Zone2D } from './floor-tributary';
 import type { P2 } from './floor-skeleton';
 
@@ -125,6 +125,7 @@ export interface FloorPanel {
 export interface SideStretch { t0: number; t1: number; side: 1 | -1 }
 
 export interface FloorLoadResult {
+  axes: ReadonlyMap<number, LocalAxes3D>;
   z: number | null;
   panels: FloorPanel[];
   loads: FloorMemberLoad[];
@@ -153,7 +154,8 @@ export function physicalFloorLoad(input: FloorLoadInput): FloorLoadResult {
 function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
   const tol = input.tol ?? 1e-3;
   const skipped = { trusses: 0, notHorizontal: 0, otherLevel: 0, open: 0, crossings: 0, zoneAcrossSpan: 0, unresolved: 0 };
-  const res: FloorLoadResult = { z: null, panels: [], loads: [], concentrated: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
+  const axes = new Map<number, LocalAxes3D>();
+  const res: FloorLoadResult = { axes, z: null, panels: [], loads: [], concentrated: [], nodal: [], normal: [0, 0, 1], perBeam: new Map(), loadedArea: 0, totalKN: 0, skipped };
   const pos = (id: number) => input.nodes.get(id);
   const P = (id: number): P3 => { const n = pos(id)!; return [n.x, n.y, n.z ?? 0]; };
 
@@ -210,6 +212,23 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
   const spanAxis: P3 = input.spanAxis === 'y' ? [0, 1, 0] : [1, 0, 0];
   const spanDir = ((): P2 => { const d = plane ? [dot3(spanAxis, plane.e1), dot3(spanAxis, plane.e2)] : [spanAxis[0], spanAxis[1]]; const l = Math.hypot(d[0]!, d[1]!); return [d[0]! / l, d[1]! / l]; })();
   const beamById = new Map(beams.map((b) => [b.id, b]));
+  const memberAxes = (beam: FloorBeam) => {
+    let frame = axes.get(beam.id);
+    if (!frame) {
+      const localY = [beam.localYx, beam.localYy, beam.localYz];
+      if (localY.some(v => v !== undefined) && !localY.every(v => v !== undefined && Number.isFinite(v))) {
+        throw new Error('Member local Y must provide three finite components');
+      }
+      const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
+      frame = computeLocalAxes3D(
+        { id: beam.nodeI, ...ni, z: ni.z ?? 0 }, { id: beam.nodeJ, ...nj, z: nj.z ?? 0 },
+        beam.localYx !== undefined && beam.localYy !== undefined && beam.localYz !== undefined ? { x: beam.localYx, y: beam.localYy, z: beam.localYz } : undefined,
+        (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,
+      );
+      axes.set(beam.id, frame);
+    }
+    return frame;
+  };
   /** Pieces of load per member, each with the panel it comes from. */
   const raw = new Map<number, Array<{ a: number; b: number; qa: number; qb: number; len: number; spanLength?: number; panel: number; side: 1 | -1 }>>();
   /** The panel each nodal load comes from. */
@@ -370,9 +389,7 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
         const s0 = Math.max(moment.s0, seg.s0), s1 = Math.min(moment.s1, seg.s1);
         if (!(s1 > s0)) continue;
         const beam = beamById.get(seg.elementId)!;
-        const axes = computeLocalAxes3D({ id: 0, ...pos(beam.nodeI)!, z: pos(beam.nodeI)!.z ?? 0 }, { id: 0, ...pos(beam.nodeJ)!, z: pos(beam.nodeJ)!.z ?? 0 },
-          beam.localYx !== undefined ? { x: beam.localYx, y: beam.localYy!, z: beam.localYz! } : undefined,
-          (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false);
+        const axes = memberAxes(beam);
         const values = moment.first.map(([dx, dy]) => {
           const mx = -qEff * ((plane?.e1[1] ?? 0) * dx + (plane?.e2[1] ?? 1) * dy);
           const my = qEff * ((plane?.e1[0] ?? 1) * dx + (plane?.e2[0] ?? 0) * dy);
@@ -422,11 +439,7 @@ function calculateFloorLoad(input: FloorLoadInput): FloorLoadResult {
   const asLoads = (elementId: number, list: Array<{ a: number; b: number; qa: number; qb: number; len: number; spanLength?: number }>): { loads: FloorMemberLoad[]; total: number } => {
     const beam = beamById.get(elementId)!;
     const ni = pos(beam.nodeI)!, nj = pos(beam.nodeJ)!;
-    const axes = computeLocalAxes3D(
-      { id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 },
-      beam.localYx !== undefined && beam.localYy !== undefined && beam.localYz !== undefined ? { x: beam.localYx, y: beam.localYy, z: beam.localYz } : undefined,
-      (beam.rollAngle ?? 0) + (input.sectionRotation?.(beam.sectionId) ?? 0), false,
-    );
+    const axes = memberAxes(beam);
     const ySign = input.leftHand ? -1 : 1;
     // Downward load q along −Z, in local components: on an inclined member the part along its axis
     // too, or the load the member receives would not be vertical, nor add up to q times the area.

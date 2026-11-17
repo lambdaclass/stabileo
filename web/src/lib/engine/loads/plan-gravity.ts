@@ -1,7 +1,6 @@
 import { memberMomentToGlobal } from '../member-loads';
 import { pointGlobal } from '../member-point-loads';
 import { mapMoments } from '../member-moments';
-import { computeLocalAxes3D } from '../local-axes-3d';
 /**
  * Where the load plan puts an area load (dead, live, roof live): which members or shells carry
  * it, and how much of each square metre each one takes.
@@ -54,8 +53,9 @@ import { msg, round, type EngineMessage } from '../../codes/message';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss' }>;
+  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss'; localYx?: number; localYy?: number; localYz?: number; rollAngle?: number }>;
   quads?: Map<number, { id: number; nodes: number[] }>;
+  sections?: ReadonlyMap<number, { id?: number; rotation?: number }>;
 }
 
 export interface GravityOptions {
@@ -247,12 +247,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (!horizontal) continue;
     const key = levelKey(nI.z ?? 0);
     const list = beamsAt.get(key) ?? [];
-    list.push({ id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: 'frame', sectionId: e.sectionId ?? 0 });
+    list.push({ ...e, type: 'frame', sectionId: e.sectionId ?? 0 });
     beamsAt.set(key, list);
   }
 
   // First pass: the panels of every level, which say what covers what.
-  const slab = { distribution: opts.slab ?? 'twoWay', spanAxis: opts.spanAxis } as const;
+  const slab = { distribution: opts.slab ?? 'twoWay', spanAxis: opts.spanAxis, sectionRotation: (id: number) => model.sections?.get(id)?.rotation ?? 0 } as const;
   const levels = new Map<number, { beams: FloorBeam[]; res: ReturnType<typeof floorLoad> }>();
   const panelsAt = new Map<number, Array<Array<[number, number]>>>();
   for (const [z, beams] of beamsAt) {
@@ -436,15 +436,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         continue;
       }
       for (const l of one.concentrated) {
-        const e = model.elements.get(l.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-        const axes = computeLocalAxes3D({ ...a, id: e.nodeI, z: a.z ?? 0 }, { ...b, id: e.nodeJ, z: b.z ?? 0 });
-        const { F, M } = pointGlobal(l, { ...axes, L: Math.hypot(b.x-a.x,b.y-a.y,(b.z??0)-(a.z??0)) });
+        const axes = filtered.axes.get(l.elementId)!;
+        const { F, M } = pointGlobal(l, axes);
         out.concentrated!.push({ elementId: l.elementId, a: l.a, px: F[0], py: F[1], pz: F[2], mx: M[0], my: M[1], mz: M[2], frame: 'global', roof, panel: index });
       }
       for (const l of one.loads) {
         if (l.moments) {
-          const e = model.elements.get(l.elementId)!, a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-          const axes = computeLocalAxes3D({ ...a, id: e.nodeI, z: a.z ?? 0 }, { ...b, id: e.nodeJ, z: b.z ?? 0 }, undefined, 0, false);
+          const axes = filtered.axes.get(l.elementId)!;
           out.moments.push({ elementId: l.elementId, a: l.a, b: l.b, moments: mapMoments(l.moments, v => memberMomentToGlobal(v, axes)), roof, panel: index });
         }
         if (l.qI === 0 && l.qJ === 0) continue;

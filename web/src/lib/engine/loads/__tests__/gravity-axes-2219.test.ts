@@ -5,15 +5,17 @@ import { regionModel } from './physical-region-invariance';
 import { quadraticAt as evaluateQuadratic } from '../../member-moments';
 import { skewCarriers } from './gravity-axes-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2219' ? it : it.skip;
+const regression = it;
 afterEach(() => vi.restoreAllMocks());
 
-for (const rollAngle of [0, 30, 90]) for (const custom of [false, true]) {
-  regression(`known wrong result: #2219 gravity converts the actual floor frame roll=${rollAngle} custom=${custom}`, () => {
+for (const rollAngle of [0, 30, 90]) for (const custom of [false, true]) for (const sectionRotation of [0, 17]) {
+  regression(`known wrong result: #2219 gravity converts the actual floor frame roll=${rollAngle} custom=${custom} section=${sectionRotation}`, () => {
     const m = regionModel([[[0, 0], [6, 2], [6, 6], [0, 4]]]);
     const orientation = { rollAngle, ...(custom ? { localYx: 0, localYy: 0, localYz: 1 } : {}) };
+    for (const e of m.elements.values()) Object.assign(e, orientation);
+    for (const section of m.sections.values()) Object.assign(section, { rotation: sectionRotation });
     const actual = floor.physicalFloorLoad;
-    vi.spyOn(floor, 'physicalFloorLoad').mockImplementation(input => actual({ ...input, beams: input.beams.map(e => ({ ...e, ...orientation })) }));
+    vi.spyOn(floor, 'physicalFloorLoad').mockImplementation(input => actual({ ...input, beams: input.beams.map(e => ({ ...e, ...orientation })), sectionRotation: () => sectionRotation }));
     const out = gravityLayout(m, { mode: 'panels', slab: 'oneWay', spanAxis: 'y', tributaryWidth: 1, loadEveryPanel: true });
     const L = Math.sqrt(40), x = L / 2;
     const loads = out.moments.filter(p => p.elementId === 1 && (p.a ?? 0) < x && (p.b ?? L) > x);
@@ -61,5 +63,43 @@ for (const roll of [0, 30, 90]) for (const custom of [false, true]) for (const a
     }
     expect(out.points).toHaveLength(0);
     expect(out.concentrated).toHaveLength(0);
+  });
+}
+
+for (const rollAngle of [0, 30, 90]) {
+  regression(`known wrong result: #2219 gravity point transfer uses its producer frame roll=${rollAngle}`, () => {
+    const { model, orientation } = skewCarriers(rollAngle, false);
+    const actual = floor.physicalFloorLoad;
+    const L = Math.sqrt(40), angle = rollAngle * Math.PI / 180;
+    vi.spyOn(floor, 'physicalFloorLoad').mockImplementation(input => {
+      const out = actual({ ...input, beams: input.beams.map(e => ({ ...e, ...orientation })) });
+      for (const panel of out.panels) if (panel.own) panel.own.concentrated.push({
+        elementId: 1, a: L / 4, px: 0, py: -Math.sin(angle), pz: -Math.cos(angle),
+        mx: 10 / L, my: 10 / L * Math.cos(angle), mz: -10 / L * Math.sin(angle), frame: 'local',
+      });
+      return out;
+    });
+    const out = gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'y', tributaryWidth: 1, loadEveryPanel: true });
+    expect(out.concentrated).toHaveLength(1);
+    const p = out.concentrated![0]!;
+    expect(p.a).toBeCloseTo(L / 4, 10);
+    expect(p.frame).toBe('global');
+    for (const [actual, expected] of [[p.px, 0], [p.py, 0], [p.pz, -1], [p.mx, 1], [p.my, 2], [p.mz, 0]]) expect(actual).toBeCloseTo(expected!, 10);
+  });
+}
+
+for (const [index, orientation] of [
+  { localYx: 1 }, { localYy: 1 }, { localYz: 1 },
+  { localYx: 1, localYy: 0 }, { localYx: 1, localYz: 0 }, { localYy: 1, localYz: 0 },
+  { localYx: 0, localYy: Infinity, localYz: 1 }, { localYx: 0, localYy: NaN, localYz: 1 },
+].entries()) {
+  regression(`known wrong result: #2219 invalid carrier orientation is refused at the shared frame boundary ${index}`, () => {
+    const { model } = skewCarriers(0, false);
+    for (const e of model.elements.values()) Object.assign(e, orientation);
+    const beams = [...model.elements.values()].map(e => ({ ...e, type: 'frame' as const }));
+    for (const generate of [floor.floorLoad, floor.physicalFloorLoad]) {
+      expect(() => generate({ nodes: model.nodes, beams, q: 1, distribution: 'oneWay', spanAxis: 'y' })).toThrow('three finite components');
+    }
+    expect(() => gravityLayout(model, { mode: 'panels', slab: 'oneWay', spanAxis: 'y', tributaryWidth: 1, loadEveryPanel: true })).toThrow('three finite components');
   });
 }

@@ -38,7 +38,7 @@ pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
     positions
 }
 
-fn diagram_samples_3d(ef: &ElementForces3D, kind: &str) -> Vec<(f64, f64)> {
+pub(crate) fn diagram_samples_3d(ef: &ElementForces3D, kind: &str) -> Vec<(f64, f64)> {
     let relevant_pl: Vec<f64> = match kind {
         "momentZ" | "shearY" => ef.point_loads_y.iter().map(|p| p.a).collect(),
         "momentY" | "shearZ" => ef.point_loads_z.iter().map(|p| p.a).collect(),

@@ -747,14 +747,14 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
             // Collect the force records for this element once instead of
             // re-indexing and bounds-checking every result at every station —
             // the 2D path already hoists its per-element work this way.
-            let element_cases: Vec<(usize, &ElementForces3D)> = results
+            let element_cases: Vec<_> = results
                 .iter()
                 .enumerate()
-                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef)))
+                .filter_map(|(r_idx, res)| res.element_forces.get(e_idx).map(|ef| (r_idx, ef,
+                    crate::postprocess::diagrams_3d::diagram_samples_3d(ef, kind))))
                 .collect();
 
-            let mut stations: Vec<_> = element_cases.iter().flat_map(|(_, ef)|
-                crate::postprocess::diagrams_3d::diagram_positions_3d(ef, kind)).collect();
+            let mut stations: Vec<_> = element_cases.iter().flat_map(|(_, _, samples)| samples.iter().map(|(t, _)| *t)).collect();
             stations.sort_by(f64::total_cmp);
             stations.dedup();
             for t in stations {
@@ -762,13 +762,18 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
 
-                for &(r_idx, ef) in &element_cases {
-                    let val = evaluate_diagram_3d_at(ef, kind, t);
-                    if !val.is_finite() {
-                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                for (r_idx, ef, samples) in &element_cases {
+                    let start = samples.partition_point(|(at, _)| *at < t);
+                    let sampled = samples[start..].iter().take_while(|(at, _)| *at == t).map(|(_, value)| *value);
+                    let fallback = samples.get(start).is_none_or(|(at, _)| *at != t)
+                        .then(|| evaluate_diagram_3d_at(ef, kind, t));
+                    for val in sampled.chain(fallback) {
+                        if !val.is_finite() {
+                            return Err(envelope_station_overflow(kind, elem_id, t, *r_idx, val));
+                        }
+                        if val > max_pos { max_pos = val; }
+                        if val < max_neg { max_neg = val; }
                     }
-                    if val > max_pos { max_pos = val; }
-                    if val < max_neg { max_neg = val; }
                 }
 
                 pos_values.push(max_pos);

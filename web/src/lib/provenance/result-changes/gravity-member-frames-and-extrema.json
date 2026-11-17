@@ -1,0 +1,40 @@
+{
+  "id": "gravity-member-frames-and-extrema",
+  "date": "2026-11-17",
+  "prs": [
+    2219
+  ],
+  "area": "analysis",
+  "when": {
+    "any": [
+      "memberLoads",
+      "generatedLoads",
+      "floorLoads"
+    ]
+  },
+  "quantities": [
+    "*"
+  ],
+  "title": {
+    "en": "Gravity member frames and envelope extrema",
+    "es": "Ejes de barras gravitatorias y extremos de envolventes",
+    "pt": "Eixos das barras de gravidade e extremos das envoltórias",
+    "de": "Stabachsen für Schwerkraftlasten und Hüllkurvenextrema",
+    "fr": "Axes des barres de gravité et extrema des enveloppes",
+    "tr": "Yerçekimi eleman eksenleri ve zarf uç değerleri",
+    "hu": "Gravitációs rúdkoordináták és burkológörbe-szélsőértékek"
+  },
+  "explanation": {
+    "en": "Gravity member couples use the same custom axes, roll and section rotation as their floor-load producer. Spatial envelopes retain locally evaluated interior extrema. Regenerate affected gravity plans and rerun analyses, envelopes and dependent checks (#2219). Incomplete or non-finite custom axes are refused.",
+    "es": "Los momentos de barra gravitatorios usan los mismos ejes personalizados, giro de barra y rotación de sección que el generador de cargas de piso. Las envolventes espaciales conservan los extremos interiores evaluados localmente. Regenerá los planes gravitatorios afectados y repetí los análisis, envolventes y verificaciones dependientes (#2219). Se rechazan los ejes personalizados incompletos o con componentes no finitas.",
+    "pt": "Os momentos de barra de gravidade usam os mesmos eixos personalizados, giro da barra e rotação da seção do gerador de cargas de piso. As envoltórias espaciais preservam os extremos interiores avaliados localmente. Gere novamente os planos de gravidade afetados e refaça análises, envoltórias e verificações dependentes (#2219). Eixos personalizados incompletos ou com componentes não finitos são recusados.",
+    "de": "Stabmomente aus Schwerkraftlasten verwenden dieselben benutzerdefinierten Achsen, Stabverdrehungen und Querschnittsdrehungen wie die Deckenlasterzeugung. Räumliche Hüllkurven erhalten lokal berechnete innere Extrema. Betroffene Lastpläne neu erzeugen und Berechnungen, Hüllkurven und abhängige Nachweise wiederholen (#2219). Unvollständige oder nicht endliche benutzerdefinierte Achsen werden abgelehnt.",
+    "fr": "Les couples de barre de gravité utilisent les mêmes axes personnalisés et rotations de barre et de section que le générateur de charges de plancher. Les enveloppes spatiales conservent les extrema intérieurs évalués localement. Régénérez les plans gravitaires concernés et relancez les analyses, enveloppes et vérifications associées (#2219). Les axes personnalisés incomplets ou non finis sont refusés.",
+    "tr": "Yerçekimi eleman momentleri, döşeme yükü üreticisiyle aynı özel eksenleri, eleman dönüşünü ve kesit dönüşünü kullanır. Uzaysal zarflar yerel olarak hesaplanan iç uç değerleri korur. Etkilenen yerçekimi planlarını yeniden üretin; analizleri, zarfları ve bağlı kontrolleri yineleyin (#2219). Eksik veya sonlu olmayan özel eksenler reddedilir.",
+    "hu": "A gravitációs rúdnyomatékok a födémteher-generátorral azonos egyedi tengelyeket, rúdelcsavarást és keresztmetszet-forgatást használnak. A térbeli burkológörbék megőrzik a helyileg számított belső szélsőértékeket. Generálja újra az érintett gravitációs terveket, majd ismételje meg az elemzéseket, burkológörbéket és kapcsolódó ellenőrzéseket (#2219). A hiányos vagy nem véges egyedi tengelyek elutasítást kapnak."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-round19.md",
+    "heading": "Gravity member frames and envelope extrema"
+  }
+}
