@@ -54,8 +54,8 @@ export interface BeamDemand {
   flange?: { bf: number; hf: number };
   /** The physical beam this span belongs to and its place in it. */
   line?: { group: number; index: number; spans: number; startNode: number; endNode: number; lineName: string };
-  /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN). */
-  env?: Array<{ x: number; pos: number; neg: number; v: number; vPos?: number; vNeg?: number; t?: number }>;
+  /** Envelope along the span over all combinations: largest sagging, hogging (kN·m) and shear (kN), each with its axial force (kN, + compression). */
+  env?: Array<{ x: number; pos: number; neg: number; v: number; vPos?: number; vNeg?: number; t?: number; nPos?: number; nNeg?: number; nV?: number }>;
   /** Half the support's extent along the beam at each end, m. */
   supportHalf?: { start: number; end: number };
   /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
@@ -161,7 +161,10 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
   });
 }
 
-interface Requirement { bottom: number; top: number; al: number; alMin: number; transverseMin: number; neglect: boolean; torSection: boolean; atOverS: number; bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }> }
+/** What torsion asks with a stirrup of `sd` mm: the hoop's size sets Aoh, ph and the depth. */
+interface TorsionReq { tor0: ReturnType<typeof checkTorsion>; tor: ReturnType<typeof checkTorsion>; tuDesign: number; atOverS: number; al: number; alMin: number; transverseMin: number; torSection: boolean; sMax: number }
+
+interface Requirement { bottom: number; top: number; neglect: boolean; torsion: (sd: number) => TorsionReq; bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }> }
 
 interface Evaluation {
   flex: FlexureCheck[];
@@ -190,8 +193,9 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   const ab = barArea(sd);
   const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
   const legs = Math.max(1, a.stirrups.legs);
-  const perLegRequired = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + (req.neglect ? 0 : req.atOverS);
-  const transverseMin = req.neglect ? 0 : req.transverseMin;
+  const t = req.torsion(sd);
+  const perLegRequired = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + (req.neglect ? 0 : t.atOverS);
+  const transverseMin = req.neglect ? 0 : t.transverseMin;
   const transverseProvided = a.stirrups.spacing > 0 ? legs * ab / a.stirrups.spacing : 0;
   const al = a.torsionLong;
   const alProvided = al ? al.count * barArea(al.dia) : 0;
@@ -201,10 +205,10 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
   const ok = {
     stirrups: perLegProvided >= perLegRequired - 1e-6,
     transverseMin: req.neglect || transverseProvided >= transverseMin - 1e-6,
-    al: req.neglect || alProvided >= Math.max(req.al, req.alMin) - 1e-6,
+    al: req.neglect || alProvided >= Math.max(t.al, t.alMin) - 1e-6,
     alSpacing: req.neglect || alSpacing <= 0.3 + 1e-6,
     alDia: req.neglect || (!!al && al.dia >= alDiaMin - 1e-6),
-    torsionSection: req.torSection,
+    torsionSection: req.neglect || t.torSection,
   };
   const worstCrack = (face: 'top' | 'bottom', used: boolean) => SECTION_NAMES.map((s) => crack(barsAt(a, s)[face], used)).reduce((w, x) => (x.s > w.s ? x : w));
   const crackBottom = worstCrack('bottom', true), crackTop = worstCrack('top', hogUsed);
@@ -306,26 +310,37 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const topReq = hogging.length ? gNeg.r.AsReq : 0;
 
   const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq });
-  const tor0 = checkTorsion(p, shearTorsion(d.vu.value, d.tu.value), EDITION);
-  const tuDesign = !tor0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * tor0.Tcr) : d.tu.value;
-  const tor = tuDesign === d.tu.value ? tor0 : checkTorsion(p, shearTorsion(d.vu.value, tuDesign), EDITION);
+  const torsionCache = new Map<number, TorsionReq>();
+  const torsionAt = (sd: number): TorsionReq => {
+    const hit = torsionCache.get(sd);
+    if (hit) return hit;
+    const pp = paramsOf(d, c, sd);
+    const t0 = checkTorsion(pp, shearTorsion(d.vu.value, d.tu.value), EDITION);
+    const tuD = !t0.neglect && c.torsion === 'compatibility' ? Math.min(d.tu.value, PHI_V * t0.Tcr) : d.tu.value;
+    const t = tuD === d.tu.value ? t0 : checkTorsion(pp, shearTorsion(d.vu.value, tuD), EDITION);
+    const dd = checkShear(pp, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq }).d;
+    const t25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: dd, dSecondary: d.b - c.cover - sd / 1000 - 0.008, cover: c.cover, stirrupDiaMm: sd, fc, fy, fyt: fy, demand: shearTorsion(0, Tu) });
+    const tt = t25(tuD);
+    const lim = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: dd, fc, cover: c.cover, stirrupDiaMm: sd });
+    const r: TorsionReq = {
+      tor0: t0, tor: t, tuDesign: tuD, atOverS: t.neglect ? 0 : t.AtOverS, al: t.neglect ? 0 : t.AlReq, alMin: t.neglect ? 0 : tt.AlMin * 1e4,
+      transverseMin: t25(0).transverseRequired * 1e4, torSection: t.status !== 'fail', sMax: Math.min(lim.alongMax, t.neglect ? Infinity : tt.sMax),
+    };
+    torsionCache.set(sd, r);
+    return r;
+  };
+  const { tor0, tor, tuDesign } = torsionAt(c.stirrupDia);
   const limits = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: shear.d, fc, cover: c.cover, stirrupDiaMm: c.stirrupDia });
   const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs);
   const ph = hoopPerimeter(d, c, c.stirrupDia);
-  const atS = tor.neglect ? 0 : tor.AtOverS;
-  const torsion25 = (Tu: number) => checkTorsion2025({ b: d.b, h: d.h, d: shear.d, dSecondary: d.b - c.cover - c.stirrupDia / 1000 - 0.008, cover: c.cover, stirrupDiaMm: c.stirrupDia, fc, fy, fyt: fy, demand: shearTorsion(0, Tu) });
-  const t25 = torsion25(tuDesign);
-  const alMin = tor.neglect ? 0 : t25.AlMin * 1e4;
-  const transverseMin = torsion25(0).transverseRequired * 1e4;
-  const alReq = tor.neglect ? 0 : tor.AlReq;
-  const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + atS;
-  const sMax = Math.min(limits.alongMax, tor.neglect ? Infinity : t25.sMax);
+  const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + torsionAt(c.stirrupDia).atOverS;
+  const sMax = torsionAt(c.stirrupDia).sMax;
   const skin = proposeSkin(EDITION, d.h, fy, c.cover, c.stirrupDia);
   const bySection = [
     ...posReq.filter((x) => x.env.value > 1e-6 || x.s === 'span').map((x) => ({ section: x.s, sign: 'pos' as const, req: x.r.AsReq })),
     ...negList.filter((x) => x.env.value > 1e-6).map((x) => ({ section: x.s, sign: 'neg' as const, req: x.r.AsReq })),
   ];
-  const req: Requirement = { bottom: bottomReq, top: topReq, al: alReq, alMin, transverseMin, neglect: tor.neglect, torSection: tor.status !== 'fail', atOverS: atS, bySection };
+  const req: Requirement = { bottom: bottomReq, top: topReq, neglect: tor.neglect, torsion: torsionAt, bySection };
 
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
@@ -348,6 +363,8 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, a, req) : ev;
   const seisA = adopted ? seisOf(a) : seis;
+  const ta = torsionAt(a.stirrups.dia);
+  const { al: alReq, alMin } = ta, sMaxA = ta.sMax;
 
   const f2 = (v: number) => fmt(v);
   const verifications: CheckLine[] = [
@@ -361,7 +378,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
     check('rcSheets.v.shear', e.shear.status !== 'fail', { clause: '§22.5', demand: `${f2(d.vu.value)} kN`, capacity: `${f2(e.shear.phiVn)} kN`, ratio: ratioOf(d.vu.value, e.shear.phiVn) }),
-    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMax + 1e-6, { clause: tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMax * 100, 1)} cm` }),
+    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
     ...(tor.neglect ? [check('rcSheets.v.torsionNeglect', true, { clause: '§22.7.1', demand: `${f2(d.tu.value)} kN·m`, capacity: `< ${f2(PHI_V * tor0.Tcr / 4)} kN·m` })] : [
       check('rcSheets.v.stirrupsVT', e.ok.stirrups, { clause: '§22.5.8, §22.7.6', demand: `${f2(e.perLegRequired)} cm²/m`, capacity: `${f2(e.perLegProvided)} cm²/m`, ratio: ratioOf(e.perLegRequired, e.perLegProvided) }),
       check('rcSheets.v.transverseMin', e.ok.transverseMin, { clause: '§9.6.4.2', demand: `${f2(e.transverseMin)} cm²/m`, capacity: `${f2(e.transverseProvided)} cm²/m`, ratio: ratioOf(e.transverseMin, e.transverseProvided) }),
@@ -381,8 +398,8 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     dataSteps(d, c, fmt),
     flexureSteps('rcSheets.g.flexBottom', d, c, gPos.r, gPos.env, gPos.n, `rcSheets.sec.${gPos.s}`, barsAt(a, gPos.s).bottom, e.flex.filter((x) => x.sign === 'pos'), fmt),
     ...(topReq > 0 ? [flexureSteps('rcSheets.g.flexTop', d, c, gNeg.r, gNeg.env, gNeg.n, `rcSheets.sec.${gNeg.s}`, barsAt(a, gNeg.s).top, e.flex.filter((x) => x.sign === 'neg'), fmt)] : []),
-    shearSteps(d, c, shear, e.shear, a.stirrups, sMax, fmt),
-    torsionSteps(d, tor0, tor, tuDesign, e, alReq, alMin, a, fmt),
+    shearSteps(d, c, shear, e.shear, a.stirrups, sMaxA, fmt),
+    torsionSteps(d, ta.tor0, ta.tor, ta.tuDesign, e, alReq, alMin, a, fmt),
     ...(seisA ? [{ title: 'rcSheets.g.seismic', steps: seisA.steps }] : []),
     {
       title: 'rcSheets.g.proposal',
@@ -463,7 +480,7 @@ function dataSteps(d: BeamDemand, c: BeamContext, f: Fmt): StepGroup {
       { label: 'rcSheets.s.materials', formula: "f'c · fy", value: `${f(c.mat.fc, 0)} · ${f(c.mat.fy, 0)} MPa` },
       { label: 'rcSheets.s.cover', formula: 'r', value: `${f(c.cover * 100, 1)} cm` },
       d.faces ? { label: 'rcSheets.s.atFaces', formula: 'Mu(x = c) · Vu, Tu(x = c + d)', value: `${f(d.faces.start * 100, 0)} · ${f(d.faces.end * 100, 0)} cm; d = ${f(d.faces.shearAt * 100, 0)} cm` } : { label: 'rcSheets.s.assumptionAxis', value: '' },
-      ...(d.flange ? [{ label: 'rcSheets.s.flange', formula: 'bf = bw + Σ min(8hf; sw/2; ln/8) (Tabla 6.3.2.1)', value: `bf = ${f(d.flange.bf * 100, 0)} cm; hf = ${f(d.flange.hf * 100, 0)} cm` }] : []),
+      ...(d.flange ? [{ label: 'rcSheets.s.flange', formula: 'bf = bw + Σ min(8hf; sw/2; ln/8) (6.3.2.1)', value: `bf = ${f(d.flange.bf * 100, 0)} cm; hf = ${f(d.flange.hf * 100, 0)} cm` }] : []),
       sec('start', d.start), sec('span', d.span), sec('end', d.end),
       ...(d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6
         ? [{ label: 'rcSheets.s.negAny', formula: `x = ${f(d.negAny.source?.x ?? 0)} m`, value: `M⁻ = ${f(d.negAny.value)} kN·m${src(d.negAny)}` }] : []),

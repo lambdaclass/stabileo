@@ -36,7 +36,7 @@ export const TS500_LINE: LineCode = {
   hooked: (c, dia) => lbOf(ts500Mat(c.mat), dia, false),
   lap: (c, dia, top, h) => lapOf(ts500Mat(c.mat), dia, topOf(c, dia, top, h), 1),
   minBottom: (c, b, d) => rhoMinBeam(ts500Mat(c.mat)) * b * d * 1e4,
-  moments: (c, qs) => { const t = ts500Mat(c.mat); return qs.map((q) => stripCapacity(beamStrip(q.demand, c, q.tension, q.compression, q.sd, q.sagging).strip, t, 0)); },
+  moments: (c, qs) => { const t = ts500Mat(c.mat); return qs.map((q) => stripCapacity(beamStrip(q.demand, c, q.tension, q.compression, q.sd, q.sagging).strip, t, q.nc ?? 0)); },
   shear: (c, q, st) => {
     const t = ts500Mat(c.mat);
     const d = q.demand.h - faceLayout(q.tension, q.demand.b, c.cover, q.sd).centroidFromFace;
@@ -55,7 +55,7 @@ export const TS500_LINE: LineCode = {
       extraStirrups: '—',
       illegal: '—',
     },
-    clause: { envelope: '7.1, 7.3', bottomRun: 'TS 500', fit: 'TS 500', hooks: 'TS 500', splices: '9.3' },
+    clause: { envelope: '7.1, 7.3', bottomRun: 'TS 500', fit: 'TS 500', hooks: 'TS 500', splices: '9.3', shear: '8.1' },
     formula: {
       capacity: 'Mr(x) ≥ Md(x) ∀x',
       cut: 'x(Mr,cont = Md) + max(d; 12·Ø) ≥ c + lb; lb = max(0.12·(fyd/fctd)·Ø; 20·Ø)',

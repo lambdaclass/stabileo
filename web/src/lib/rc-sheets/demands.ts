@@ -224,14 +224,20 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       let negAny: Signed = { value: 0 }, nNegAny = 0, vu: Signed = { value: 0 }, nV = 0, tu: Signed = { value: 0 };
       const combos: BeamComboForces[] = [];
       const xs = [...new Set([...Array.from({ length: 33 }, (_, i) => (i / 32) * L), x0, x1, xStar].map((x) => Math.round(x * 1e4) / 1e4))].sort((p, q) => p - q);
-      const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0, t: 0 }));
+      const env = xs.map((x) => ({ x, pos: 0, neg: 0, v: 0, vPos: 0, vNeg: 0, t: 0, nPos: 0, nNeg: 0, nV: 0 }));
       const missing: string[] = [];
       m.sets.forEach((set, i) => {
         const list = stations[i]!;
         const by = forcesOf(set);
         if (!list.length || span.some(({ e }) => !by.has(e.id))) { missing.push(set.name); return; }
         const at = (x: number) => forcesAt(m, span, set, x)!;
-        xs.forEach((x, k) => { const f = at(x); const e = env[k]!; e.pos = Math.max(e.pos, f[flex]); e.neg = Math.max(e.neg, -f[flex]); e.v = Math.max(e.v, Math.abs(f[shear])); e.vPos = Math.max(e.vPos, f[shear]); e.vNeg = Math.max(e.vNeg, -f[shear]); e.t = Math.max(e.t, Math.abs(f.torsion)); });
+        xs.forEach((x, k) => {
+          const f = at(x), e = env[k]!;
+          if (f[flex] > e.pos) { e.pos = f[flex]; e.nPos = -f.n; }
+          if (-f[flex] > e.neg) { e.neg = -f[flex]; e.nNeg = -f.n; }
+          if (Math.abs(f[shear]) > e.v) { e.v = Math.abs(f[shear]); e.nV = -f.n; }
+          e.vPos = Math.max(e.vPos, f[shear]); e.vNeg = Math.max(e.vNeg, -f[shear]); e.t = Math.max(e.t, Math.abs(f.torsion));
+        });
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);

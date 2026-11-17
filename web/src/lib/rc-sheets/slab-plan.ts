@@ -179,7 +179,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   const hMin = panels.length ? Math.min(...panels.map((p) => p.h)) : 0.15;
   const bctx: BeamContext = { mat: c.mat, cover: c.cover, stirrupDia: 0, diameters: c.diameters, torsion: 'equilibrium' };
   const ld = (dia: number, top: boolean, h: number, spacing: number) => (code.development ? code.development(c.mat, dia, top, h, { cover: c.cover, spacing }) : code.line.development(bctx, dia, top, h));
-  const ldh = (dia: number) => code.line.hooked(bctx, dia);
+  const ldh = (dia: number) => code.line.hooked(bctx, dia, true, hMin);
   const lap = (dia: number, top: boolean, h: number, spacing: number) => (code.lap ? code.lap(c.mat, dia, top, h, { cover: c.cover, spacing }) : code.line.lap(bctx, dia, top, h));
   const mandrel = (dia: number) => code.line.mandrel?.(dia) ?? 6 * dia / 1000;
   const bentMandrel = (dia: number) => code.bentMandrel?.(dia) ?? mandrel(dia);
