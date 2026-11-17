@@ -1,7 +1,9 @@
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
+import appliedForceEvidence from '../../../../../docs/results-changes/2223-independent-applied-force-corpus-evidence.json';
 import declaredQuantities from 'virtual:result-change-quantities';
 import frozenInputs from '../../results-snapshot/frozen-inputs.json';
 import { initSolver, solveSSI3D } from '../../engine/wasm-solver';
@@ -61,6 +63,53 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
+  it.each(['generated-member-cuts', 'wind-endpoint-arithmetic'])('known wrong result: #2223 — %s cannot explain unrelated full-length member responses', (id) => {
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const explicitEndpoints of [false, true]) {
+        const snapshot: FeatureSnapshot = {
+          analysisMode,
+          elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, type: 'frame' }]],
+          loads: [{ type: analysisMode === '2d' ? 'distributed' : 'distributed3d', data: { elementId: 1, ...(explicitEndpoints ? { a: 1, b: 2 } : {}) } }],
+        };
+        const features = modelFeatures(snapshot);
+        const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+        const entry = { ...registered, quantities: declaredQuantities[id]!.filter((q): q is string => typeof q === 'string') };
+        const applicable = applicability.conditionHolds(entry.when ?? {}, features) ? [entry] : [];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['displacements[n2].uz', 'reactions[n1].mz', 'elementForces[e1].nStart']) {
+          const path = `${prefix}.${field}`;
+          const covers = id === 'wind-endpoint-arithmetic' && explicitEndpoints;
+          expect(fieldCovered(entry, path, [...features]), `${id} ${analysisMode} ${analysis} ${explicitEndpoints} ${field}`).toBe(covers);
+          if (analysis === 'linear') for (const family of ['base', 'case[1]', 'combo[1]']) {
+            const linearPath = `${family}.${field}`;
+            expect(judge('unrelated response', { [linearPath]: 1 }, { [linearPath]: 2 }, applicable).kind).toBe(covers ? 'explained' : 'unexplained');
+            expect(judge('unchanged response', { [linearPath]: 1 }, { [linearPath]: 1 }, applicable).kind).toBe('same');
+          }
+        }
+        if (id === 'generated-member-cuts') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(true);
+        if (id === 'wind-endpoint-arithmetic') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(explicitEndpoints);
+      }
+    }
+  });
+
+  it('#2222 keeps point-load changes unexplained and covers partial-load subdivision corrections', () => {
+    const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
+    const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
+    const summary = RESULT_CHANGES.changes.find(c => c.id === 'independent-applied-force-checks')!;
+    const summaryEntry = { ...summary, quantities: declaredQuantities[summary.id]!.filter((q): q is string => typeof q === 'string') };
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const type of ['pointOnElement', 'pointOnElement3d', 'distributed', 'distributed3d', 'nodal']) {
+        const features = [...modelFeatures({ analysisMode, loads: [{ type, data: { a: 1.5, b: 1.5 + 5e-13 } }] }), `analysis:${analysis}`];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['elementForces[e1].nStart', 'displacements[n2].uz']) {
+          expect(fieldCovered(entry, `${prefix}.${field}`, features), `${type}: ${field}`).toBe(type.startsWith('distributed'));
+          expect(fieldCovered(summaryEntry, `${prefix}.${field}`, features)).toBe(false);
+        }
+        expect(fieldCovered(summaryEntry, `${prefix}.equilibrium.appliedForceSum`, features)).toBe(type !== 'nodal');
+      }
+    }
+  });
+
   it('nonlinear and SSI notices cannot explain linear results', () => {
     for (const id of ['arc-length-reference-norm', 'ssi-support-reactions']) {
       const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
@@ -284,13 +333,13 @@ describe('against real corpus files', () => {
           'shell-envelope-per-component', 'modal-mechanism-refused', 'shell-figures-paint-the-screen-field', 'safety-containment-diagnostics',
           'harmonic-modal-residual-checked', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness',
           'soft-rotation-not-orphan', 'linear-small-displacement-warning', 'harmonic-modal-or-direct-per-frequency', 'combined-shell-stresses', 'linear-stability-refusals', 'harmonic-omitted-modes', 'linear-pin-coupling',
-          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates',
+          'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'independent-applied-force-checks', 'compensated-applied-force-totals',
           ...(includeSSI ? ['ssi-support-reactions'] : []),
         ]));
         if (includeSSI) {
-        if (mainFirst) expect(opened.changes.slice(-11).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-13).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'ssi-support-reactions', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         } else {
-        if (mainFirst) expect(opened.changes.slice(-10).map(c => c.id)).toEqual(orderedIds(['time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
+        if (mainFirst) expect(opened.changes.slice(-12).map(c => c.id)).toEqual(orderedIds(['compensated-applied-force-totals', 'independent-applied-force-checks', 'time-history-reaction-availability', 'time-history-withheld-reaction-estimates', 'harmonic-omitted-modes', 'nonlinear-equilibrium-arithmetic', 'nonlinear-physical-convergence', 'nonlinear-supported-and-soil-equilibrium', 'nonlinear-continuation-and-curve-reactions', 'nonlinear-reference-and-initial-shaft-stiffness', 'linear-stability-refusals', 'linear-pin-coupling']));
         }
         const then = readResults(`v0.4.0/${entry.results}`);
         const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
@@ -319,9 +368,16 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.4.0/cable-stayed-bridge.ded'));
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'cable-stayed-bridge')!;
     const then = readResults(`v0.4.0/${entry.results}`);
+    expect(resultFingerprint(opened.values)).toBe(appliedForceEvidence.mainFingerprint);
+    const uncompensatedValues = { ...opened.values };
+    for (const delta of appliedForceEvidence.changes) {
+      expect(opened.values[delta.path]).toBe(delta.before);
+      uncompensatedValues[delta.path] = delta.after;
+    }
+    expect(resultFingerprint(uncompensatedValues)).toBe(appliedForceEvidence.afterFingerprint);
     const baseline = judge('recorded bridge', then, opened.values, opened.changes);
-    expect(baseline.kind).toBe('explained');
-    expect(baseline.explainedBy.some((id) => id.startsWith('linear-stability-refusals '))).toBe(true);
+    expect(baseline.kind, baseline.report).toBe('explained');
+    expect(baseline.explainedBy).toEqual([`linear-stability-refusals (results v${RESULT_CHANGES.changes.find(c => c.id === 'linear-stability-refusals')!.resultsVersion})`]);
     for (const field of ['displacements.rz', 'displacements.uz', 'reactions.mz', 'elementForces.nStart']) {
       const [collection, component] = field.split('.');
       const path = Object.keys(then).find((k) => k.startsWith(`base.${collection}[`) && k.endsWith(`.${component}`) && typeof then[k] === 'number' && then[k] !== 0 && typeof opened.values[k] === 'number' && opened.values[k] !== 0)!;

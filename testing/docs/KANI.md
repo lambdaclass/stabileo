@@ -251,7 +251,7 @@ These tests are not Kani harnesses, but they are the main evidence that K is rig
 | adjust_fef_for_hinges_ok | finite, released moments 0, unchanged without hinges, axial untouched | as above | fast | OK† | 19–25 | 1.7 |
 | adjust_fef_for_hinges_3d_ok | finite, released moments 0 | as above | nightly | OK† | 79–108 | 1.7 |
 | expand_fef_12_to_14_ok | exact copy plus zero warping entries | any f64 | fast | OK† | 9–12 | 1.8 |
-| axial_distributed_fef_ok | finite | physical ranges | fast | OK† | 13–17 | 1.8 |
+| axial_distributed_fef_ok | finite shared axial integral | original physical ranges, including reversed endpoints | fast | OK† | 13–17 | 1.8 |
 | **linalg/dense.rs** | | | | | | |
 | dense_mat_vec_bounds, dense_mat_vec_rect_bounds, dense_mat_mul_bounds, dense_transform_force_displacement_bounds, dense_transform_stiffness_bounds | indexing and lengths for every n ≤ 3 | concrete arrays | fast | OK† | 17–29 | 1.6 |
 | dense_transpose_involution | transpose moves (i,j) to (j,i) and is an involution, n ≤ 4 | tagged concrete data | fast | OK† | 17 | 1.5 |

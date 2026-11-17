@@ -36,6 +36,7 @@ pub struct DiagramResults3D {
 /// `kind` of one member: a regular grid of 21, plus the position and ±1e-6
 /// neighbours of each point load acting in that diagram's plane.
 pub fn diagram_positions_3d(ef: &ElementForces3D, kind: &str) -> Vec<f64> {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     let relevant_pl: &[PointLoadInfo3D] = match kind {
         "momentZ" | "shearY" => &ef.point_loads_y,
         "momentY" | "shearZ" => &ef.point_loads_z,
@@ -65,6 +66,7 @@ pub fn evaluate_diagram_3d_at(
     kind: &str,
     t: f64,
 ) -> f64 {
+    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
     let l = ef.length;
     let x = t * l;
 
@@ -72,16 +74,7 @@ pub fn evaluate_diagram_3d_at(
         "momentZ" => {
             let mut value = ef.mz_start - ef.vy_start * x;
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value -= dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                value -= crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_y {
                 if pl.a < x - 1e-10 {
@@ -93,16 +86,7 @@ pub fn evaluate_diagram_3d_at(
         "momentY" => {
             let mut value = ef.my_start + ef.vz_start * x;
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * (s * (x - a) - s * s / 2.0)
-                       + dq / span * (s * s / 2.0 * (x - a) - s * s * s / 3.0);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).1;
             }
             for pl in &ef.point_loads_z {
                 if pl.a < x - 1e-10 {
@@ -114,15 +98,7 @@ pub fn evaluate_diagram_3d_at(
         "shearY" => {
             let mut value = ef.vy_start;
             for dl in &ef.distributed_loads_y {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_y {
                 if pl.a < x - 1e-10 { value += pl.p; }
@@ -132,15 +108,7 @@ pub fn evaluate_diagram_3d_at(
         "shearZ" => {
             let mut value = ef.vz_start;
             for dl in &ef.distributed_loads_z {
-                let a = dl.a;
-                let b = dl.b;
-                let span = b - a;
-                if span < 1e-12 { continue; }
-                let dq = dl.q_j - dl.q_i;
-                let x_clamp = x.min(b);
-                if x_clamp <= a { continue; }
-                let s = x_clamp - a;
-                value += dl.q_i * s + dq * s * s / (2.0 * span);
+                value += crate::element::distributed_load_terms(dl.q_i, dl.q_j, dl.a, dl.b, x).0;
             }
             for pl in &ef.point_loads_z {
                 if pl.a < x - 1e-10 { value += pl.p; }
@@ -219,4 +187,16 @@ pub fn compute_diagrams_3d(results: &AnalysisResults3D) -> DiagramResults3D {
         axial: all.remove(0),
         torsion: all.remove(0),
     }
+}
+
+pub fn validate_diagram_loads_3d(ef: &ElementForces3D) -> Result<(), String> {
+    for d in ef.distributed_loads_x.iter().chain(&ef.distributed_loads_y).chain(&ef.distributed_loads_z) {
+        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+    }
+    Ok(())
+}
+
+pub fn validate_diagram_input_3d(ef: &ElementForces3D) -> Result<(), String> {
+    crate::boundary::require_finite(ef)?;
+    validate_diagram_loads_3d(ef)
 }
