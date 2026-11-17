@@ -1,5 +1,11 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'engine.memberLoad.geometryOrdering': "उत्पन्न सदस्य की ज्यामिति का क्रम अमान्य है",
+  'engine.memberLoad.geometryLine': "उत्पन्न सदस्य की ज्यामिति मूल रेखा से बाहर जाती है",
+  'engine.memberLoad.invalidGeometry': "उत्पन्न सदस्य की ज्यामिति अमान्य है",
+  'engine.memberLoad.geometryPartition': "उत्पन्न ज्यामिति मूल सदस्य को विभाजित नहीं करती",
+  'engine.memberLoad.invalidPiece': "उत्पन्न सदस्य भार का खंड अमान्य है",
+  'engine.memberLoad.geometrySpan': "तत्व {id}: उत्पन्न ज्यामिति मूल खंड {span} को लंबाई {length} में बदलती है; वितरित भारों का पुनर्मापन नहीं किया जा सकता",
   "engine.memberLoad.invalidInterval": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] अमान्य है",
   "engine.memberLoad.geometryLimit": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] सापेक्ष ज्यामितीय सीमा {limit} से कम है",
 

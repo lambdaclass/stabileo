@@ -1,5 +1,11 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'engine.memberLoad.geometryOrdering': "Ordenação geométrica inválida do membro gerado",
+  'engine.memberLoad.geometryLine': "A geometria do membro gerado sai da linha de origem",
+  'engine.memberLoad.invalidGeometry': "Geometria inválida do membro gerado",
+  'engine.memberLoad.geometryPartition': "A geometria gerada não divide o membro de origem",
+  'engine.memberLoad.invalidPiece': "Trecho inválido de carga do membro gerado",
+  'engine.memberLoad.geometrySpan': "Elemento {id}: a geometria gerada altera o trecho de origem {span} para o comprimento {length}; as cargas distribuídas não podem ser reescaladas",
   "engine.memberLoad.invalidInterval": "Elemento {id}: intervalo de carga distribuída [{a}, {b}] inválido para o comprimento {length}",
   "engine.memberLoad.geometryLimit": "Elemento {id}: o intervalo de carga distribuída [{a}, {b}] para o comprimento {length} está abaixo do limite geométrico relativo {limit}",
 

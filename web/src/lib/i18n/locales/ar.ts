@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const ar: Translations = {
+  'engine.memberLoad.geometryOrdering': "ترتيب هندسة العضو المُنشأ غير صالح",
+  'engine.memberLoad.geometryLine': "هندسة العضو المُنشأ تخرج عن الخط الأصلي",
+  'engine.memberLoad.invalidGeometry': "هندسة العضو المُنشأ غير صالحة",
+  'engine.memberLoad.geometryPartition': "الهندسة المُنشأة لا تقسّم العضو الأصلي بالكامل",
+  'engine.memberLoad.invalidPiece': "مقطع حمل العضو المُنشأ غير صالح",
+  'engine.memberLoad.geometrySpan': "العنصر {id}: تغيّر الهندسة المُنشأة المقطع الأصلي {span} إلى الطول {length}؛ لا يمكن إعادة تحجيم الأحمال الموزعة",
   "engine.memberLoad.invalidInterval": "العنصر {id}: مجال الحمل الموزع [{a}, {b}] غير صالح للطول {length}",
   "engine.memberLoad.geometryLimit": "العنصر {id}: مجال الحمل الموزع [{a}, {b}] للطول {length} أصغر من الحد الهندسي النسبي {limit}",
 

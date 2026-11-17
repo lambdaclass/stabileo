@@ -166,6 +166,11 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     match combine_results_refs_checked(factors, cases) {
         Ok(result) => result,
         Err(_) => {
+            for (_, result) in cases {
+                for ef in &result.element_forces {
+                    super::diagrams::validate_diagram_loads_2d(ef).ok()?;
+                }
+            }
             let non_finite = cases.iter()
                 .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
                 .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;

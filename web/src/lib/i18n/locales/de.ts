@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  'engine.memberLoad.geometryOrdering': "Ungültige geometrische Reihenfolge des erzeugten Stabs",
+  'engine.memberLoad.geometryLine': "Die erzeugte Stabgeometrie verlässt die Ursprungslinie",
+  'engine.memberLoad.invalidGeometry': "Ungültige Geometrie des erzeugten Stabs",
+  'engine.memberLoad.geometryPartition': "Die erzeugte Geometrie unterteilt den Ursprungsstab nicht vollständig",
+  'engine.memberLoad.invalidPiece': "Ungültiger Lastabschnitt des erzeugten Stabs",
+  'engine.memberLoad.geometrySpan': "Element {id}: die erzeugte Geometrie ändert den Ursprungsabschnitt {span} auf die Länge {length}; Streckenlasten können nicht neu skaliert werden",
   "engine.memberLoad.invalidInterval": "Stab {id}: ungültiges Streckenlastintervall [{a}, {b}] bei Länge {length}",
   "engine.memberLoad.geometryLimit": "Stab {id}: Streckenlastintervall [{a}, {b}] bei Länge {length} liegt unter der relativen Geometriegrenze {limit}",
 

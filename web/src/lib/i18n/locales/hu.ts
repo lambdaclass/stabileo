@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'engine.memberLoad.geometryOrdering': "A létrehozott rúd geometriájának sorrendje érvénytelen",
+  'engine.memberLoad.geometryLine': "A létrehozott rúd geometriája eltér a forrás vonalától",
+  'engine.memberLoad.invalidGeometry': "A létrehozott rúd geometriája érvénytelen",
+  'engine.memberLoad.geometryPartition': "A létrehozott geometria nem osztja fel a forrásrudat",
+  'engine.memberLoad.invalidPiece': "A létrehozott rúd teherszakasza érvénytelen",
+  'engine.memberLoad.geometrySpan': "{id}. elem: a létrehozott geometria a(z) {span} forrásszakaszt {length} hosszúságúra módosítja; a megoszló terhek nem skálázhatók át",
   "engine.memberLoad.invalidInterval": "A(z) {id} rúd [{a}, {b}] megoszlóteher-intervalluma érvénytelen a(z) {length} hosszon",
   "engine.memberLoad.geometryLimit": "A(z) {id} rúd [{a}, {b}] megoszlóteher-intervalluma a(z) {length} hosszon a(z) {limit} relatív geometriai korlát alatt van",
 

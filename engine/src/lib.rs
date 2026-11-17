@@ -103,6 +103,11 @@ pub fn engine_reproduce_hashes(json: &str, is_3d: bool) -> Result<String, JsValu
     to_json(&h)
 }
 
+#[wasm_bindgen]
+pub fn canonical_member_load_interval(i: &[f64], j: &[f64], a: f64, b: f64) -> Result<Vec<f64>, JsValue> {
+    solver::canonical_member_load_interval(i, j, a, b).map(|v| v.to_vec()).map_err(|e| JsValue::from_str(&e))
+}
+
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {

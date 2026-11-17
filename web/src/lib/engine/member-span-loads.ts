@@ -1,4 +1,5 @@
 import { tp } from '../i18n';
+import { requireEngine } from './engine-unavailable';
 import type { SolverInput, SolverLoad } from './types';
 
 type SpanLoad = Extract<SolverLoad, { type: 'distributed' | 'axialDistributed' }>;
@@ -13,12 +14,22 @@ export function memberLength(input: Pick<SolverInput, 'nodes' | 'elements'>, id:
 
 export const MEMBER_GEOMETRY_LIMIT = 1e-10;
 
-export function validateMemberLoadInterval(id: number, a: number, b: number, length: number): void {
+type MemberIntervalKernel = (i: Float64Array, j: Float64Array, a: number, b: number) => Float64Array;
+let intervalKernel: MemberIntervalKernel | null = null;
+export function registerMemberIntervalKernel(kernel: MemberIntervalKernel | null): void { intervalKernel = kernel; }
+
+export class MemberLoadIntervalError extends Error {}
+
+export function validateMemberLoadInterval(id: number, a: number, b: number, length: number, points?: readonly [readonly number[], readonly number[]]): void {
+  if (b > length && points) {
+    requireEngine(intervalKernel !== null, 'member load interval');
+    [a, b, length] = intervalKernel!(Float64Array.from(points[0]), Float64Array.from(points[1]), a, b);
+  }
   if (!Number.isFinite(length) || length <= 0 || !Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < a || b > length) {
-    throw new Error(tp('engine.memberLoad.invalidInterval', { id, a, b, length }));
+    throw new MemberLoadIntervalError(tp('engine.memberLoad.invalidInterval', { id, a, b, length }));
   }
   if ((b - a) / length < MEMBER_GEOMETRY_LIMIT) {
-    throw new Error(tp('engine.memberLoad.geometryLimit', { id, a, b, length, limit: MEMBER_GEOMETRY_LIMIT }));
+    throw new MemberLoadIntervalError(tp('engine.memberLoad.geometryLimit', { id, a, b, length, limit: MEMBER_GEOMETRY_LIMIT }));
   }
 }
 
@@ -35,25 +46,25 @@ export function generatedMemberBounds(length: number, lengths: readonly number[]
     let previous = 0;
     for (const point of points) {
       const t = (point[axis] - a[axis]) / delta[axis];
-      if (!Number.isFinite(t) || t < previous || t > 1) throw new Error('Invalid generated member geometry ordering');
+      if (!Number.isFinite(t) || t < previous || t > 1) throw new Error(tp('engine.memberLoad.geometryOrdering'));
       const parameterRounding = Number.EPSILON * 4 * (Math.abs(point[axis]) + Math.abs(a[axis]) + Math.abs(t * delta[axis])) / Math.abs(delta[axis]);
       for (let k = 0; k < a.length; k++) {
         const expected = a[k] + t * delta[k];
         const rounding = Number.EPSILON * 4 * (Math.abs(a[k]) + Math.abs(point[k]) + Math.abs(t * delta[k])) + Math.abs(delta[k]) * parameterRounding;
-        if (!Number.isFinite(point[k]) || Math.abs(point[k] - expected) > rounding) throw new Error('Generated member geometry leaves the source line');
+        if (!Number.isFinite(point[k]) || Math.abs(point[k] - expected) > rounding) throw new Error(tp('engine.memberLoad.geometryLine'));
       }
       previous = t;
     }
   }
   const bounds = [0];
   for (const child of lengths) {
-    if (!Number.isFinite(child) || child <= 0) throw new Error('Invalid generated member geometry');
+    if (!Number.isFinite(child) || child <= 0) throw new Error(tp('engine.memberLoad.invalidGeometry'));
     bounds.push(bounds[bounds.length - 1] + child);
   }
   const total = bounds[bounds.length - 1];
   const rounding = Number.EPSILON * (lengths.length + 2) * Math.max(length, total);
   if (!Number.isFinite(length) || length <= 0 || !Number.isFinite(total) || Math.abs(total - length) > rounding) {
-    throw new Error('Generated member geometry does not partition the source member');
+    throw new Error(tp('engine.memberLoad.geometryPartition'));
   }
   bounds[bounds.length - 1] = length;
   return bounds;
@@ -61,10 +72,10 @@ export function generatedMemberBounds(length: number, lengths: readonly number[]
 
 export function remapSpanInterval(id: number, a: number, b: number, start: number, end: number, length: number): { lo: number; hi: number; scale: number; a?: number; b?: number } | null {
   if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(length) || end <= start || length <= 0) {
-    throw new Error('Invalid generated member load piece');
+    throw new Error(tp('engine.memberLoad.invalidPiece'));
   }
   if (Math.abs(length - (end - start)) > Number.EPSILON * 4 * Math.max(Math.abs(start), Math.abs(end), length)) {
-    throw new Error(`Element ${id}: generated member geometry changes source span ${end - start} to length ${length}; distributed loads cannot be rescaled`);
+    throw new Error(tp('engine.memberLoad.geometrySpan', { id, span: end - start, length }));
   }
   const lo = Math.max(a, start), hi = Math.min(b, end);
   if (hi <= lo) return null;

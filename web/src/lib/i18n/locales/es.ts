@@ -1,4 +1,10 @@
 const es: Record<string, string> = {
+  'engine.memberLoad.geometryOrdering': "Orden geométrico no válido del miembro generado",
+  'engine.memberLoad.geometryLine': "La geometría del miembro generado se aparta de la línea de origen",
+  'engine.memberLoad.invalidGeometry': "Geometría no válida del miembro generado",
+  'engine.memberLoad.geometryPartition': "La geometría generada no divide el miembro de origen",
+  'engine.memberLoad.invalidPiece': "Tramo no válido de carga del miembro generado",
+  'engine.memberLoad.geometrySpan': "Elemento {id}: la geometría generada cambia el tramo de origen {span} a longitud {length}; no se pueden reescalar las cargas distribuidas",
   "engine.memberLoad.invalidInterval": "Elemento {id}: intervalo de carga distribuida [{a}, {b}] no válido para la longitud {length}",
   "engine.memberLoad.geometryLimit": "Elemento {id}: el intervalo de carga distribuida [{a}, {b}] para la longitud {length} está por debajo del límite geométrico relativo {limit}",
 

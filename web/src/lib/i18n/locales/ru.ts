@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  'engine.memberLoad.geometryOrdering': "Недопустимый порядок геометрии созданного стержня",
+  'engine.memberLoad.geometryLine': "Геометрия созданного стержня отклоняется от исходной линии",
+  'engine.memberLoad.invalidGeometry': "Недопустимая геометрия созданного стержня",
+  'engine.memberLoad.geometryPartition': "Созданная геометрия не разбивает исходный стержень",
+  'engine.memberLoad.invalidPiece': "Недопустимый участок нагрузки созданного стержня",
+  'engine.memberLoad.geometrySpan': "Элемент {id}: созданная геометрия изменяет исходный участок {span} на длину {length}; распределённые нагрузки нельзя масштабировать",
   "engine.memberLoad.invalidInterval": "Элемент {id}: недопустимый интервал распределённой нагрузки [{a}, {b}] при длине {length}",
   "engine.memberLoad.geometryLimit": "Элемент {id}: интервал распределённой нагрузки [{a}, {b}] при длине {length} меньше относительного геометрического предела {limit}",
 

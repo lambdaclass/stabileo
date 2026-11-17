@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'engine.memberLoad.geometryOrdering': "Oluşturulan çubuk geometrisinin sıralaması geçersiz",
+  'engine.memberLoad.geometryLine': "Oluşturulan çubuk geometrisi kaynak çizgiden ayrılıyor",
+  'engine.memberLoad.invalidGeometry': "Oluşturulan çubuk geometrisi geçersiz",
+  'engine.memberLoad.geometryPartition': "Oluşturulan geometri kaynak çubuğu bölümlere ayırmıyor",
+  'engine.memberLoad.invalidPiece': "Oluşturulan çubuk yük parçası geçersiz",
+  'engine.memberLoad.geometrySpan': "Eleman {id}: oluşturulan geometri {span} kaynak aralığını {length} uzunluğuna değiştiriyor; yayılı yükler yeniden ölçeklenemez",
   "engine.memberLoad.invalidInterval": "Eleman {id}: {length} uzunluğu için geçersiz yayılı yük aralığı [{a}, {b}]",
   "engine.memberLoad.geometryLimit": "Eleman {id}: {length} uzunluğundaki yayılı yük aralığı [{a}, {b}], {limit} bağıl geometri sınırının altında",
 

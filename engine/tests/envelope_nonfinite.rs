@@ -282,7 +282,6 @@ fn issue_2222_checked_combinations_report_overflow_before_recovery() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2223"]
 fn issue_2223_invalid_saved_intervals_never_become_diagnostic_results() {
     for axis in 0..2 {
         for (a, b) in [(f64::NAN, 1.0), (0.0, f64::INFINITY), (-1.0, 1.0), (0.0, 0.0)] {

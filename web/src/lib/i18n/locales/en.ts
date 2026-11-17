@@ -1,4 +1,10 @@
 const en: Record<string, string> = {
+  'engine.memberLoad.geometryOrdering': "Invalid generated member geometry ordering",
+  'engine.memberLoad.geometryLine': "Generated member geometry leaves the source line",
+  'engine.memberLoad.invalidGeometry': "Invalid generated member geometry",
+  'engine.memberLoad.geometryPartition': "Generated member geometry does not partition the source member",
+  'engine.memberLoad.invalidPiece': "Invalid generated member load piece",
+  'engine.memberLoad.geometrySpan': "Element {id}: generated member geometry changes source span {span} to length {length}; distributed loads cannot be rescaled",
   "engine.memberLoad.invalidInterval": "Element {id}: invalid distributed load interval [{a}, {b}] on length {length}",
   "engine.memberLoad.geometryLimit": "Element {id}: distributed load interval [{a}, {b}] on length {length} is below the relative geometry limit {limit}",
 

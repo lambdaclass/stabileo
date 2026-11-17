@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'engine.memberLoad.geometryOrdering': "生成杆件的几何顺序无效",
+  'engine.memberLoad.geometryLine': "生成杆件的几何形状偏离了原始直线",
+  'engine.memberLoad.invalidGeometry': "生成杆件的几何形状无效",
+  'engine.memberLoad.geometryPartition': "生成的几何形状未完整分割原始杆件",
+  'engine.memberLoad.invalidPiece': "生成杆件的荷载区段无效",
+  'engine.memberLoad.geometrySpan': "单元 {id}：生成的几何形状将原始区段 {span} 改为长度 {length}；无法重新缩放分布荷载",
   "engine.memberLoad.invalidInterval": "杆件 {id}：长度 {length} 上的分布荷载区间 [{a}, {b}] 无效",
   "engine.memberLoad.geometryLimit": "杆件 {id}：长度 {length} 上的分布荷载区间 [{a}, {b}] 小于相对几何限值 {limit}",
 

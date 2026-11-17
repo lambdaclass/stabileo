@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import katex from 'katex';
+import { MemberLoadIntervalError } from '../../member-span-loads';
 import { narrowTex, NARROW_LEVELS } from '../narrow-tex';
 import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
@@ -345,7 +346,15 @@ function context(opts: Record<string, boolean> = {}, selection = { members: [] a
 
 /** Run every applicable method (and each switchable assumption both ways) on the model now loaded. */
 function runAll(label: string, tally: Map<string, number>, failures: string[]): void {
-  const base = context();
+  let base: MethodContext | null;
+  try { base = context(); } catch (error) {
+    expect(error).toBeInstanceOf(MemberLoadIntervalError);
+    const collapsed = modelStore.model.loads.filter(l => l.type === 'distributed' && l.data.a !== undefined && l.data.a === l.data.b);
+    expect(collapsed.length, label).toBeGreaterThan(0);
+    expect(modelStore.solve(false), label).toBe((error as Error).message);
+    tally.set('refused:interval', (tally.get('refused:interval') ?? 0) + 1);
+    return;
+  }
   if (!base) return;
   for (const m of allMethods()) {
     if (m.wizard || !m.build) continue;
@@ -522,7 +531,7 @@ describe('every explained method, everywhere it applies', () => {
     ['continuous beams', 1, 120, continuousBeam], ['frames', 1, 40, frame], ['frames', 41, 80, frame], ['trusses', 1, 60, truss],
   ];
   for (const [family, first, last, build] of families) {
-    (family === 'continuous beams' && !import.meta.env.VITE_RUN_KNOWN_WRONG ? it.skip : it)(`on generated ${family} ${first} to ${last}`, () => {
+    it(`on generated ${family} ${first} to ${last}`, () => {
       const failures: string[] = [];
       for (let seed = first; seed <= last; seed++) { build(seed); runAll(`${family}#${seed}`, generated, failures); }
       expect(failures.slice(0, 40)).toEqual([]);
@@ -536,7 +545,7 @@ describe('every explained method, everywhere it applies', () => {
   });
 });
 
-(import.meta.env.VITE_RUN_KNOWN_WRONG ? it : it.skip)('known wrong result: #2223 — beam 22 influence zones refuse visibly without a numerical document', () => {
+it('known wrong result: #2223 — beam 22 influence zones refuse visibly without a numerical document', () => {
   continuousBeam(22);
   const ctx = context()!;
   const method = allMethods().find(m => m.id === 'influenceLine')!;

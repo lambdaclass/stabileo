@@ -1,5 +1,11 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  'engine.memberLoad.geometryOrdering': "Ordinamento geometrico non valido dell’asta generata",
+  'engine.memberLoad.geometryLine': "La geometria dell’asta generata si allontana dalla linea di origine",
+  'engine.memberLoad.invalidGeometry': "Geometria non valida dell’asta generata",
+  'engine.memberLoad.geometryPartition': "La geometria generata non suddivide l’asta di origine",
+  'engine.memberLoad.invalidPiece': "Tratto di carico non valido dell’asta generata",
+  'engine.memberLoad.geometrySpan': "Elemento {id}: la geometria generata modifica il tratto di origine {span} alla lunghezza {length}; i carichi distribuiti non possono essere riscalati",
   "engine.memberLoad.invalidInterval": "Elemento {id}: intervallo di carico distribuito [{a}, {b}] non valido per la lunghezza {length}",
   "engine.memberLoad.geometryLimit": "Elemento {id}: l’intervallo di carico distribuito [{a}, {b}] per la lunghezza {length} è inferiore al limite geometrico relativo {limit}",
 

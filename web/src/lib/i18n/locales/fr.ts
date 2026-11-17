@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  'engine.memberLoad.geometryOrdering': "Ordre géométrique du membre généré non valide",
+  'engine.memberLoad.geometryLine': "La géométrie du membre généré quitte la ligne d’origine",
+  'engine.memberLoad.invalidGeometry': "Géométrie du membre généré non valide",
+  'engine.memberLoad.geometryPartition': "La géométrie générée ne partitionne pas le membre d’origine",
+  'engine.memberLoad.invalidPiece': "Tronçon de charge du membre généré non valide",
+  'engine.memberLoad.geometrySpan': "Élément {id} : la géométrie générée change le tronçon d’origine {span} en longueur {length} ; les charges réparties ne peuvent pas être redimensionnées",
   "engine.memberLoad.invalidInterval": "Élément {id} : intervalle de charge répartie [{a}, {b}] invalide pour la longueur {length}",
   "engine.memberLoad.geometryLimit": "Élément {id} : l’intervalle de charge répartie [{a}, {b}] pour la longueur {length} est inférieur à la limite géométrique relative {limit}",
 

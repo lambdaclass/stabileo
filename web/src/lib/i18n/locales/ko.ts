@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'engine.memberLoad.geometryOrdering': "생성된 부재 형상의 순서가 올바르지 않습니다",
+  'engine.memberLoad.geometryLine': "생성된 부재 형상이 원래 선에서 벗어납니다",
+  'engine.memberLoad.invalidGeometry': "생성된 부재 형상이 올바르지 않습니다",
+  'engine.memberLoad.geometryPartition': "생성된 형상이 원래 부재를 분할하지 않습니다",
+  'engine.memberLoad.invalidPiece': "생성된 부재 하중 구간이 올바르지 않습니다",
+  'engine.memberLoad.geometrySpan': "요소 {id}: 생성된 형상이 원래 구간 {span}을 길이 {length}로 변경합니다. 분포 하중의 크기를 재조정할 수 없습니다",
   "engine.memberLoad.invalidInterval": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 유효하지 않습니다",
   "engine.memberLoad.geometryLimit": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 상대 기하 한계 {limit}보다 작습니다",
 

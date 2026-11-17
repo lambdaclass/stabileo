@@ -21,6 +21,22 @@ fn endpoint_scale<const D: usize>(i: [f64; D], j: [f64; D], b: Option<f64>) -> O
     (b == alternate || coincides || b - length < coordinate_rounding).then_some(b / length)
 }
 
+pub fn canonical_interval(i: &[f64], j: &[f64], a: f64, b: f64) -> Result<[f64; 3], String> {
+    if i.len() != j.len() || !matches!(i.len(), 2 | 3) {
+        return Err("Member endpoints must have matching two- or three-dimensional coordinates".into());
+    }
+    let length = i.iter().zip(j).map(|(i, j)| (j - i) * (j - i)).sum::<f64>().sqrt();
+    let scale = match i.len() {
+        2 => endpoint_scale([i[0], i[1]], [j[0], j[1]], Some(b)),
+        3 => endpoint_scale([i[0], i[1], i[2]], [j[0], j[1], j[2]], Some(b)),
+        _ => unreachable!(),
+    };
+    Ok(match scale {
+        Some(scale) => [a / scale, length, length],
+        None => [a, b, length],
+    })
+}
+
 fn scaled_pair(q_i: f64, q_j: f64, scale: f64) -> Option<[f64; 2]> {
     let pair = [q_i * scale, q_j * scale];
     for weights in [[0.5, 0.5], [1.0 / 6.0, 1.0 / 3.0]] {

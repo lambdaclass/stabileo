@@ -1,0 +1,4 @@
+### Fixed
+#### BREAKING (results): Share member endpoint decisions with the web adapter (2026-11-17)
+
+Validate coincident distributed-load endpoints in the web adapter using the solver's existing geometric canonicalization, retaining strict interval limits and native load-density preservation checks. Reject malformed saved intervals before the planar compatibility combiner can create a diagnostic record. Report interval refusals through synchronous and asynchronous solve APIs and show an explicit refusal when an influence document needs an unsupported narrow load zone. Translate all generated-member geometry refusals in every locale. See [endpoint arithmetic](../docs/results-changes/2026-11-wind-endpoint-arithmetic.md) and [saved combination refusals](../docs/results-changes/2026-11-atomic-load-splits.md) (#2223, #2222).

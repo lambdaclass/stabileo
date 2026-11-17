@@ -6,13 +6,12 @@ import { generatedMemberBounds, remapSpanInterval } from '../member-span-loads';
 import { ALL_DICTS } from '../../i18n/locales/all';
 import { ensureLocale, OFFERED_LOCALES, setLocale, tp } from '../../i18n';
 
-const knownWrong = import.meta.env.VITE_RUN_KNOWN_WRONG ? it : it.skip;
 let wasm: any;
 beforeAll(async () => { await initSolver(); wasm = await import('../../wasm/dedaliano_engine.js'); });
 afterEach(() => { modelStore.clear(); setLocale('en'); });
 
 for (const dim of [2, 3]) for (const loadKind of dim === 2 ? ['distributed'] : ['distributed', 'distributed3d']) {
-  knownWrong(`known wrong result: #2223 — ${dim}D ${loadKind} web adapter accepts coincident wind endpoints`, () => {
+  it(`known wrong result: #2223 — ${dim}D ${loadKind} web adapter accepts coincident wind endpoints`, () => {
     const i = modelStore.addNode(1000.1, 0, ...(dim === 3 ? [0] as const : []));
     const j = modelStore.addNode(1004.1, 0, ...(dim === 3 ? [0] as const : []));
     const id = modelStore.addElement(i, j, 'frame');
@@ -50,14 +49,18 @@ const geometryCases: Array<[string, () => unknown, Record<string, number>]> = [
   ['invalidPiece', () => remapSpanInterval(17, 0, 1, 1, 0, 1), {}],
   ['geometrySpan', () => remapSpanInterval(17, 0, 1, 0, 1, 2), { id: 17, span: 1, length: 2 }],
 ];
-for (const [locale, dict] of Object.entries(ALL_DICTS)) knownWrong(`known wrong result: #2223 — ${locale} localizes every generated member refusal`, async () => {
-  for (const [name] of geometryCases) expect(dict[`engine.memberLoad.${name}`]).toBeTypeOf('string');
+for (const [locale, dict] of Object.entries(ALL_DICTS)) it(`known wrong result: #2223 — ${locale} localizes every generated member refusal`, async () => {
+  for (const [name, , params] of geometryCases) {
+    const text = dict[`engine.memberLoad.${name}`];
+    expect(text).toBeTypeOf('string');
+    for (const parameter of Object.keys(params)) expect(text).toContain(`{${parameter}}`);
+  }
   if (!(OFFERED_LOCALES as readonly string[]).includes(locale)) return;
   await ensureLocale(locale); setLocale(locale);
   for (const [name, run, params] of geometryCases) expect(run).toThrow(tp(`engine.memberLoad.${name}`, params));
 });
 
-for (const dim of [2, 3]) knownWrong(`known wrong result: #2223 — ${dim}D synchronous and asynchronous solves report invalid intervals`, async () => {
+for (const dim of [2, 3]) it(`known wrong result: #2223 — ${dim}D synchronous and asynchronous solves report invalid intervals`, async () => {
   const svc = await import('../solver-service');
   const i = modelStore.addNode(0, 0, ...(dim === 3 ? [0] as const : []));
   const j = modelStore.addNode(3, 0, ...(dim === 3 ? [0] as const : []));

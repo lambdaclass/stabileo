@@ -1,6 +1,12 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'engine.memberLoad.geometryOrdering': "生成部材の形状の順序が無効です",
+  'engine.memberLoad.geometryLine': "生成部材の形状が元の直線から外れています",
+  'engine.memberLoad.invalidGeometry': "生成部材の形状が無効です",
+  'engine.memberLoad.geometryPartition': "生成形状が元の部材を分割していません",
+  'engine.memberLoad.invalidPiece': "生成部材の荷重区間が無効です",
+  'engine.memberLoad.geometrySpan': "要素 {id}: 生成形状が元の区間 {span} を長さ {length} に変更します。分布荷重は再スケーリングできません",
   "engine.memberLoad.invalidInterval": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] が無効です",
   "engine.memberLoad.geometryLimit": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] は相対幾何限界 {limit} 未満です",
 
