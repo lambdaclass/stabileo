@@ -145,8 +145,7 @@ export function reset(workspace: Workspace): void {
   uiStore.includeSelfWeight = workspace === 'pro';
 }
 
-/** Solve what is on screen through Calcular's entry point and record the results. */
-/** Solved as the file was built, as the results corpus is: coarse plates are not meshed first. */
+/** Solve what is on screen through Calcular's entry point and record the results, as the file was built (as the results corpus is): coarse plates are not meshed first. */
 export async function solveAndRecord(values: Values): Promise<void> {
   const meshing = meshBeforeAnalysis.value;
   meshBeforeAnalysis.value = false;
