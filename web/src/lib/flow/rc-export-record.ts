@@ -44,7 +44,7 @@ import type { RcRetouchProvenance } from './rc-selection';
  * someone passes in. `preview` is deliberately absent — a preview produces no file and leaves
  * no record; see `RcPreviewTarget`.
  */
-export type ExportKind = 'report' | 'dxf' | 'xlsx' | 'sheetsPdf' | 'sheetsDxf' | 'sheetsSvg' | 'bvbs';
+export type ExportKind = 'report' | 'dxf' | 'xlsx' | 'sheetsPdf' | 'sheetsDxf' | 'sheetsSvg' | 'bvbs' | 'rcPlans' | 'rcWorkbook' | 'rcScheduleCsv';
 
 /**
  * How far a generation got.
@@ -95,6 +95,12 @@ export interface ExportRecord {
   limitations: readonly string[];
   /** Where the generation ended. `ready` and a non-null `error` cannot both be true. */
   state: RcGenerationState;
+  /** The reinforcement sheets' exports: the model and design data they were drawn from (`sheetsStateFingerprint`). */
+  fingerprint?: string;
+  /** Drawn from sheets already out of date with the model. */
+  staleSheets?: boolean;
+  /** What it drew: the families and levels, or the one element, as the person chose them. */
+  scope?: string;
 }
 
 /** Everything except the series, which the store assigns. */

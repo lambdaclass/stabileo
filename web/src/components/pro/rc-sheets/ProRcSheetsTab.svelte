@@ -9,6 +9,8 @@
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
+  import RcLeftOut from './RcLeftOut.svelte';
+  import RcExportLog from './RcExportLog.svelte';
   import { SHEET_FAMILIES, type SheetFamily, type TorsionMode } from '../../../lib/rc-sheets/types';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
@@ -48,6 +50,7 @@
 <div class="rcp" data-testid="rc-sheets-panel">
   <p class="rcp-intro">{tp('rcSheets.desc', { code: SHEET_CODES[code].name })}</p>
   <RcCoversNotice />
+  <RcExportLog compact />
 
   {#if !solved}
     <p class="rcp-note">{t('rcSheets.solveFirst')}</p>
@@ -79,6 +82,7 @@
     <p class="rcp-basis" class:warn={rows.basis !== 'combinations'}>
       {rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`)}
     </p>
+    <RcLeftOut left={rows.left ?? []} />
     <ul class="rcp-fams">
       {#each SHEET_FAMILIES as f (f)}
         {@const s = stat(f === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : rows[f] as SheetRow[])}
@@ -105,9 +109,10 @@
     {#if rulesFor(code).seismic}<label class="rcp-chk"><input type="checkbox" checked={options.seismic} onchange={(e) => setRcOption('seismic', (e.currentTarget as HTMLInputElement).checked)} data-testid="rc-opt-seismic" /> <span>{t('rcSheets.opt.seismic')}</span></label>{/if}
     <div class="rcp-actions">
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
-      <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)}>{t('rcSheets.export')}</button>
+      <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={stale} title={stale ? t('rcSheets.exportStale') : undefined} data-testid="rc-export-workbook">{t('rcSheets.export')}</button>
     </div>
     <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
+    <p class="rcp-note" data-testid="rc-limits-note">{t('rcSheets.limits')}</p>
     {#if options.seismic && rulesFor(code).seismic}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}
   {/if}
   <details class="rcp-more" data-testid="rc-design-data">

@@ -47,12 +47,21 @@ export interface PunchingFigure {
   integrity?: { bars: number; dia: number };
 }
 
+/** What the check could not establish, said for what it is: the joint's geometry, the slab's or column's dimensions, the column's forces, or the shear itself. */
+export function unsupportedLabel(keys: readonly string[]): string {
+  const has = (k: string) => keys.includes(`detailing.slabPunching.${k}`);
+  if (has('missingGeometry')) return 'rcSheets.v.punchingNoDimensions';
+  if (has('noColumnForces')) return 'rcSheets.v.punchingNoForces';
+  if (has('upliftNotEstablished') || has('residualNotEstablished')) return 'rcSheets.v.punchingNotEstablished';
+  return 'rcSheets.v.punchingUnsupported';
+}
+
 export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): PunchingRow {
   const position = slabJointPosition(d.joint.nodeId, d.adjoining);
   const r = checkSlabJointPunching({ panelId: d.key, joint: d.joint, position, thickness: d.thickness, cover: c.cover, topBarDiameterMm: c.topBarDia, fc: c.fc, fy: c.fy, qu: 0, staleAnalysis: false });
   const unsupported = r.status === 'UNSUPPORTED';
   const verifications: CheckLine[] = [
-    check(unsupported ? 'rcSheets.v.punchingUnsupported' : 'rcSheets.v.punching', r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
+    check(unsupported ? unsupportedLabel(r.unsupported.map((m) => m.key)) : 'rcSheets.v.punching', r.status === 'OK', { clause: '§22.6', demand: `${fmt(r.Vu)} kN`, capacity: `${fmt(r.phiVc)} kN`, ratio: unsupported ? undefined : r.utilization }),
     ...(c.integrity ? [check('rcSheets.v.punchingIntegrity', c.integrity.x >= c.integrity.required && c.integrity.y >= c.integrity.required, { clause: '§8.7.4.2.2', demand: `≥ ${c.integrity.required} (X) · ≥ ${c.integrity.required} (Y)`, capacity: `${c.integrity.x} (X) · ${c.integrity.y} (Y)` })] : []),
     ...(r.reinforcement ? [check('rcSheets.v.punchingStirrups', !r.reinforcement.overCeiling, { clause: '§22.6.7', demand: `${r.reinforcement.lines} × Ø${r.reinforcement.legDiameter} c/${fmt(r.reinforcement.spacing * 100, 1)} (${r.reinforcement.legs})`, capacity: r.reinforcement.overCeiling ? "> 0.5·√f'c" : `${fmt(r.reinforcement.extent * 100, 0)} cm` })] : []),
   ];
@@ -65,7 +74,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
   const steps: StepGroup[] = [{
     title: 'rcSheets.g.punching',
     steps: [
-      { label: 'rcSheets.s.punchPosition', formula: '', value: position.position ? `${position.position} (${fmt(position.coverageDeg, 0)}°)` : '—' },
+      position.position ? { label: `rcSheets.punchPos.${position.position}`, formula: '', value: `${fmt(position.coverageDeg, 0)}°` } : { label: 'rcSheets.s.punchPosition', formula: '', value: '—' },
       { label: 'rcSheets.s.punchSection', formula: 'c1 × c2 · h', value: `${fmt(d.joint.b * 100, 0)} × ${fmt(d.joint.h * 100, 0)} cm · ${fmt(d.thickness * 100, 0)} cm` },
       ...(p ? [
         { label: 'rcSheets.s.punchPerimeter', formula: 'bo (d/2) · β · d', value: `${fmt(p.bo)} m · ${fmt(p.beta)} · ${fmt(p.d * 100, 1)} cm` },

@@ -68,7 +68,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     for (const b of l.bars) schedule.push([safeText(l.name), safeText(l.level ?? ''), b.mark, `${tr(`rcSheets.line.kind.${b.kind}`)} (${tr(b.face === 'top' ? 'rcSheets.col.top' : 'rcSheets.col.bottom')})`, `${b.bars.count} Ø${b.bars.dia}`, r2(b.from), r2(b.to), r2(b.length), Math.round(b.weight * 10) / 10]);
   }
   const punch: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.s.punchPosition'), 'Vu (kN)', 'φVc (kN)', ratio, status]];
-  for (const r of rows.punching ?? []) punch.push([safeText(r.name), safeText(r.level ?? ''), r.position, r2(r.vu), r2(r.phiVc), r3(r.utilization), state(r.status)]);
+  for (const r of rows.punching ?? []) punch.push([safeText(r.name), safeText(r.level ?? ''), r.position === '—' ? '—' : tr(`rcSheets.punchPos.${r.position}`), r2(r.vu), r2(r.phiVc), r3(r.utilization), state(r.status)]);
   const feet: WorkbookSheet['rows'] = [head, [name, level, 'B (cm)', 'L (cm)', 'h (cm)', 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.dowels'), ratio, status]];
   for (const r of rows.footing ?? []) {
     feet.push([safeText(r.name), safeText(r.level ?? ''), cm(r.B), cm(r.L), cm(r.h), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
