@@ -23,10 +23,10 @@ function resolveImport(from: string, spec: string): string | null {
   return null;
 }
 
-function walk(): { files: Set<string>; offenders: string[] } {
+function walk(root = entry): { files: Set<string>; offenders: string[] } {
   const files = new Set<string>();
   const offenders: string[] = [];
-  const stack = [entry];
+  const stack = [root];
   while (stack.length) {
     const f = stack.pop()!;
     if (files.has(f)) continue;
@@ -51,3 +51,12 @@ describe('the solver worker import graph', () => {
     expect(i18n.map((f) => f.slice(f.indexOf('src/')))).toEqual([]);
   });
 });
+
+for (const root of ['../solver-worker.ts', '../../../components/examples/run.worker.ts']) {
+  it.skip(`known wrong result: #2223 — ${root} keeps interval kernel registration outside the UI graph`, () => {
+    const { files, offenders } = walk(resolve(here, root));
+    expect(files.size).toBeGreaterThan(1);
+    expect(offenders).toEqual([]);
+    expect([...files].filter(file => /\/i18n\//.test(file))).toEqual([]);
+  });
+}
