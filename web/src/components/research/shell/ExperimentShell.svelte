@@ -156,7 +156,12 @@
       column-gap: 3rem;
       align-items: start;
     }
+    /* The grid box carries no role or ARIA; its children become the wrap's grid items. Anything
+       besides the head, article and app spans both columns below them instead of being auto-placed
+       into the app's column. */
     .rs-split .rs-shell-grid { display: contents; }
+    .rs-split > *,
+    .rs-split .rs-shell-grid > * { grid-column: 1 / -1; grid-row: auto; }
     .rs-split .rs-shell-head { grid-column: 1; grid-row: 1; }
     .rs-split .rs-shell-article { grid-column: 1; grid-row: 2; }
     .rs-split .rs-shell-app { grid-column: 2; grid-row: 1 / span 2; }

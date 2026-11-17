@@ -91,6 +91,8 @@ describe('the solver outcome', () => {
     expect(solverOutcome({ error: 'Infeasible' })).toEqual({ error: 'infeasible' });
     expect(solverOutcome({ error: 'Unbounded' })).toEqual({ error: 'unbounded' });
     expect(solverOutcome({ error: 'Singular' })).toEqual({ error: 'solver' });
+    expect(solverOutcome({ error: 'Numerical' })).toEqual({ error: 'solver' });
+    expect(solverOutcome({ error: 'Input', field: 'voussoirs' } as never)).toEqual({ error: 'solver' });
     expect(solverOutcome({ case: 'self-weight' } as never)).toEqual({ error: 'solver' });
     expect(solverOutcome(replay.point_load as { error?: unknown })).toEqual({ result: load });
   });
