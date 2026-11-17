@@ -281,7 +281,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
-    ...((stack.offset ?? 0) > 0.075 + 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '> 7.5 cm' })] : []),
+    ...((stack.offset ?? 0) >= 0.075 - 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '≥ 7.5 cm' })] : []),
     ...(seis?.checks ?? []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;

@@ -406,7 +406,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'loadZone.zone',
   'loads.asce7.ui.directions',
   'loads.asce7.ui.snowPreview',
-  'loads.cirsoc101.reduction.applied',
   'loads.cirsoc101.reductionApplied',
   'loads.ec.ui.directions',
   'loads.ec.ui.t1',

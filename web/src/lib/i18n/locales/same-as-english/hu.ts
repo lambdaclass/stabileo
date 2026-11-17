@@ -219,7 +219,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "list.col.vy",
   "list.col.vz",
   "loadPlan.unsupported.verbatim",
-  "loads.cirsoc101.reduction.applied",
   "loads.cirsoc101.reductionApplied",
   "loads.frame.global",
   "lore.aci-318.body",

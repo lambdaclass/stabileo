@@ -318,7 +318,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'loadZone.defaultName',
   'loadZone.zone',
   'loads.asce7.ui.snowPreview',
-  'loads.cirsoc101.reduction.applied',
   'loads.cirsoc101.reductionApplied',
   'loads.ec.exposure.normal',
   'loads.ec.ui.t1',
