@@ -28,9 +28,11 @@ run on independent supported physical profiles for each rotation, reflection and
 subdivision. No nonzero fringe is deleted, widened or replaced by nodal loads in
 production. The geometric fringe repair remains deferred.
 
-The legacy bridge negative test supplies only the recorded bridge correction to
-the judge. Its original negative assertions are unchanged; unrelated later
-results changes cannot excuse an injected value change in this historical test.
+The legacy bridge negative test supplies every applicable registry entry to the
+judge. Its original negative assertions are unchanged. The
+[registry scope audit](2026-11-gravity-registry-scope.md) narrows the later gravity
+entries so they cannot excuse an injected displacement, reaction or end-force
+change in this historical test.
 
 ## Audited governing moment changes
 

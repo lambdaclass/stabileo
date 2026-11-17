@@ -13,7 +13,8 @@
     ]
   },
   "quantities": [
-    "*"
+    "envelope",
+    "solve.ok"
   ],
   "title": {
     "en": "Gravity station jumps and member load edits",

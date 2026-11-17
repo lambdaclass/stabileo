@@ -13,7 +13,7 @@
     ]
   },
   "quantities": [
-    "*"
+    "envelope"
   ],
   "title": {
     "en": "Gravity torque recovery and carrier geometry",

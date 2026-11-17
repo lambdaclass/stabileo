@@ -13,8 +13,7 @@
     ]
   },
   "quantities": [
-    "solve.ok",
-    "elementForces"
+    "solve.ok"
   ],
   "title": {
     "en": "Zero member moments are absent",

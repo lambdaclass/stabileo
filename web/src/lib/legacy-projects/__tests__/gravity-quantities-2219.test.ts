@@ -16,7 +16,7 @@ const scopes = [
 const fields = ['displacements[n10].rz', 'displacements[n10].uz', 'reactions[n11].mz', 'elementForces[e100].nStart'];
 
 for (const [id, envelope] of scopes) {
-  it.skipIf(process.env.RUN_KNOWN_WRONG !== '2219')(`known wrong result: #2219 ${id} cannot excuse unrelated solved values`, () => {
+  it(`known wrong result: #2219 ${id} cannot excuse unrelated solved values`, () => {
     const source = RESULT_CHANGES.changes.find(c => c.id === id)!;
     const quantities = declaredQuantities[id]!;
     const entry = { ...source, quantities };

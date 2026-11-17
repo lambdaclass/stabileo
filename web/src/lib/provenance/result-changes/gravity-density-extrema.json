@@ -13,7 +13,8 @@
     ]
   },
   "quantities": [
-    "*"
+    "envelope",
+    "solve.ok"
   ],
   "title": {
     "en": "Gravity density extrema and carrier gaps",

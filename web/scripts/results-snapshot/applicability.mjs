@@ -18,6 +18,13 @@ export function conditionAllowsResult(w, path) {
   return conditionGroups(w).every(g => g.some(f => !f.startsWith('analysis:') || f === feature));
 }
 
+export function quantityCovered(quantities, rest) {
+  if (quantities.includes('*') || quantities.includes(rest)) return true;
+  const collection = /^[A-Za-z][A-Za-z0-9]*/.exec(rest)?.[0];
+  const field = /\]\.([A-Za-z][A-Za-z0-9]*)$/.exec(rest)?.[1];
+  return !!collection && (quantities.includes(collection) || (!!field && quantities.includes(`${collection}.${field}`)));
+}
+
 export function fieldCovered(entry, path, features) {
   if (!Array.isArray(features) || !entry.when || typeof entry.when !== 'object' || Array.isArray(entry.when) || !Array.isArray(entry.quantities)) return false;
   const family = resultFamily(path);
@@ -33,9 +40,6 @@ export function fieldCovered(entry, path, features) {
   if (family === 'design' ? entry.area !== 'design' : entry.area === 'design') return false;
   const quantities = entry.quantities;
   if (path === 'solve.ok' || path === 'solve.refusal') return quantities.includes('solve.ok');
-  if (quantities.includes('*')) return true;
   const rest = path.replace(/^(base|(?:case|combo)\[[^\]]+\]|envelope\.maxAbs|(?:pdelta|nonlinear|ssi)\.results|spectral\.[XYZ]|modal|buckling|pdelta|nonlinear|ssi|gallery|design)\./, '');
-  const collection = /^[A-Za-z][A-Za-z0-9]*/.exec(rest)?.[0];
-  const field = /\]\.([A-Za-z][A-Za-z0-9]*)$/.exec(rest)?.[1];
-  return quantities.includes(rest) || (!!collection && (quantities.includes(collection) || (!!field && quantities.includes(`${collection}.${field}`))));
+  return quantityCovered(quantities, rest);
 }

@@ -12,7 +12,8 @@
     ]
   },
   "quantities": [
-    "*"
+    "envelope",
+    "solve.ok"
   ],
   "title": {
     "en": "Gravity diagram coordinates",

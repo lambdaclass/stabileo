@@ -13,7 +13,7 @@
     ]
   },
   "quantities": [
-    "*"
+    "solve.ok"
   ],
   "title": {
     "en": "Representable member moment supports",
