@@ -480,7 +480,6 @@ fn assert_repeated_case_screen(
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_2d_screen_repeated_case_once() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&input).unwrap();
@@ -502,7 +501,6 @@ fn combinations_2d_screen_repeated_case_once() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn combinations_3d_screen_repeated_case_once() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
     let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();

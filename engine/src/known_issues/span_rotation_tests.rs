@@ -58,21 +58,25 @@ fn prepared_interpolation_matches_reference_bits_for_mixed_loads() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2283"]
 fn prepared_interpolation_preserves_limit_and_nonfinite_outcomes() {
     let limit = super::SMALL_DISPLACEMENT_LIMIT;
-    for (rotation, refused) in [
-        (0.0, false), (-0.0, false),
-        (limit.next_down(), false), (limit, false), (limit.next_up(), true),
-        (f64::NAN, true), (f64::INFINITY, true), (f64::NEG_INFINITY, true),
-    ] {
+    for rotation in [0.0, -0.0, limit - 1e-14, limit, limit + 1e-14, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         let plane = SpanRotation::new(2.0, 3e4, 0.0, 0.0, rotation, 2.0 * rotation, rotation,
             false, false, vec![], vec![], vec![], 0.0);
         let planes = std::slice::from_ref(&plane);
         let expected = reference_span_rotation(2.0, planes, (0.0, 0.0));
         let actual = largest_span_rotation(2.0, planes, (0.0, 0.0));
         if expected.is_nan() { assert!(actual.is_nan()); } else { assert_eq!(actual.to_bits(), expected.to_bits()); }
-        assert_eq!(super::beyond_small_displacement(actual), refused, "input={rotation}, measured={actual}");
+    }
+    for (rotation, refused) in [
+        (0.0, false), (-0.0, false),
+        (limit.next_down(), false), (limit, false), (limit.next_up(), true),
+        (-limit.next_down(), false), (-limit, false), (-limit.next_up(), true),
+        (f64::NAN, true), (f64::INFINITY, true), (f64::NEG_INFINITY, true),
+    ] {
+        assert_eq!(super::beyond_small_displacement(rotation), refused, "rotation={rotation}");
+        let measured = largest_span_rotation(2.0, &[], (rotation, rotation));
+        assert_eq!(super::beyond_small_displacement(measured), refused, "input={rotation}, measured={measured}");
     }
 }
 

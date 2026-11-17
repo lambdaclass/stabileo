@@ -44,16 +44,17 @@ it('preserves raw WASM payloads with repeated factors and reversed case-table or
   const combinations = [[{ caseId: 1, factor: 1 }, { caseId: 1, factor: 0.5 }, { caseId: 2, factor: -0.2 }]];
   const input = { combinations, cases: entries };
   const reference = combinations.map(factors => combine_results_3d({
-    factors, cases: factors.map(f => entries.find(c => c.caseId === f.caseId)!),
+    factors, cases: [...new Set(factors.map(f => f.caseId))].map(id => entries.find(c => c.caseId === id)!),
   }));
   expect(combine_results_batch_3d(input)).toEqual(reference);
   expect(combine_results_envelope_3d(input)).toEqual([reference, compute_envelope_3d(reference)]);
 });
 
-it('refuses duplicate case-table ids in both new WASM exports', () => {
+it('refuses duplicate case-table ids in all 3D WASM exports', () => {
   const entries = [...cases().values()].map(results => ({ caseId: 1, results }));
   entries[1].results.structuredDiagnostics = [{ code: 'known_issue', severity: 'warning', phase: 'NUM-INVARIANCE', message: 'second record' }];
   const input = { combinations: [[{ caseId: 1, factor: 1 }]], cases: entries };
+  expect(() => combine_results_3d({ factors: input.combinations[0], cases: entries })).toThrow('duplicate case id 1');
   expect(() => combine_results_batch_3d(input)).toThrow('duplicate case id 1');
   expect(() => combine_results_envelope_3d(input)).toThrow('duplicate case id 1');
 });
@@ -92,7 +93,7 @@ const splitFactors = (weights: number[]) => weights.map(factor => ({ caseId: 1, 
 const screenedRatio = (result: AnalysisResults3D & { resultSummary?: { secondOrderRatio?: number } }) =>
   result.resultSummary?.secondOrderRatio;
 
-it.skip('screens repeated factors once through all 3D combination routes (#2283)', () => {
+it('screens repeated factors once through all 3D combination routes (#2283)', () => {
   const linear = cases(-3).get(1)!;
   const ratio = screenedRatio(linear)!;
   expect(ratio).toBeGreaterThan(0);
@@ -107,6 +108,7 @@ it.skip('screens repeated factors once through all 3D combination routes (#2283)
       expect(screenedRatio(split), path).toBe(ratio);
       expect(split.displacements, path).toEqual(expected.displacements);
       expect(split.reactions, path).toEqual(expected.reactions);
+      if (result === linear) expect(split, path).toStrictEqual(expected);
       const net = combine(splitFactors([1.5, -0.5]), perCase);
       expect(screenedRatio(net), path).toBe(ratio);
       expect(net.structuredDiagnostics, path).toStrictEqual(expected.structuredDiagnostics);
@@ -120,7 +122,7 @@ it.skip('screens repeated factors once through all 3D combination routes (#2283)
   }
 });
 
-it.skip('screens repeated factors once through both 2D combination routes (#2283)', () => {
+it('screens repeated factors once through both 2D combination routes (#2283)', () => {
   const ratio = screenedRatio(cases(-3).get(1)!)!;
   expect(ratio).toBeGreaterThan(0);
   const input = portalInput('2d');
@@ -235,6 +237,16 @@ it('preserves the distorted-shell containment refusal', () => {
   const identity = [[{ caseId: 1, factor: 1 }]];
   expect(combineResultsBatch3D(identity, perCase, new Map())[0])
     .toEqual(combineResults3D(identity[0], perCase, new Map()));
+  const expected = combineResults3D(identity[0], perCase, new Map());
+  for (const [path, combine] of Object.entries(combinationPaths3D)) {
+    expect(combine(splitFactors([0.5, 0.5]), perCase), path).toStrictEqual(expected);
+    expect(combine(splitFactors([1.5, -0.5]), perCase).structuredDiagnostics, path)
+      .toStrictEqual(expected!.structuredDiagnostics);
+    const below = (1 - Number.EPSILON / 2) / 2;
+    expect(combine(splitFactors([below, below]), perCase), path).not.toBeNull();
+    const above = (1 + Number.EPSILON) / 2;
+    expect(() => combine(splitFactors([above, above]), perCase), path).toThrow(/SH-MITC4-DISTORTION/);
+  }
   expect(() => combineResultsBatch3D([[{ caseId: 1, factor: 1.5 }]], perCase, new Map()))
     .toThrow(/SH-MITC4-DISTORTION/);
   expect(() => combineResultsEnvelope3D([[{ caseId: 1, factor: 1.5 }]], perCase, new Map()))

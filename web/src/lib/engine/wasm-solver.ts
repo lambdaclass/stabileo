@@ -1478,15 +1478,19 @@ export function analyzeKinematics3D(input: SolverInput3D) {
 
 // ─── Combinations & Envelope ─────────────────────────────────────
 
+function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<number, T>) {
+  return [...new Set(factors.map(f => f.caseId))]
+    .filter(caseId => perCase.has(caseId))
+    .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
+}
+
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */
 export function combineResults(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults>,
 ): AnalysisResultsWire | null {
   if (!wasmReady || !wasmCombineResults2d) throw new Error('WASM solver not initialized.');
-  const cases = factors
-    .filter(f => perCase.has(f.caseId))
-    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
+  const cases = combinationCases(factors, perCase);
   // Guard the FACTORS only (user data, cheap). The per-case results are solver
   // output — produced after the input-side guard already rejected non-finite
   // model data — so re-walking multi-MB result trees per combo was pure cost.
@@ -1505,9 +1509,7 @@ export function combineResults3D(
   plates: PlateThickness,
 ): AnalysisResults3DWire | null {
   if (!wasmReady || !wasmCombineResults3d) throw new Error('WASM solver not initialized.');
-  const cases = factors
-    .filter(f => perCase.has(f.caseId))
-    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
+  const cases = combinationCases(factors, perCase);
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
   const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });

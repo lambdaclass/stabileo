@@ -40,7 +40,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
-  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'repeatedCombinationCases', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -287,6 +287,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (Array.isArray(s.combinations) && s.combinations.some(combination => {
+      const factors = (combination as { factors?: unknown } | null)?.factors;
+      if (!Array.isArray(factors)) return false;
+      const ids = factors.map(factor => factor?.caseId).filter(id => typeof id === 'number');
+      return new Set(ids).size < ids.length;
+    })) f.add('repeatedCombinationCases');
     if (loadsCode === null || loadsCode.startsWith('cirsoc')) f.add('cirsocCombinations');
   }
 

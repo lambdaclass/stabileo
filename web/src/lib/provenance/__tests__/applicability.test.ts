@@ -526,6 +526,17 @@ describe('which registered changes concern a model', () => {
     expect(assessProject(torsionBeam, null, '3d', everything).changes.map((c) => c.id)).toContain(change);
   });
 
+  it('limits the combination screening notice to repeated cases within a combination', () => {
+    const change = 'repeated-combination-case-screening';
+    const single = { caseId: 1, factor: 1 };
+    const half = { caseId: 1, factor: 0.5 };
+    for (const analysisMode of ['2d', '3d']) {
+      expect(ids(model({ analysisMode, combinations: [{ factors: [half, half] }] }))).toContain(change);
+      expect(ids(model({ analysisMode, combinations: [{ factors: [single] }, { factors: [single] }] }))).not.toContain(change);
+      expect(ids(model({ analysisMode, combinations: [{ factors: [half, { ...half, caseId: 2 }] }] }))).not.toContain(change);
+    }
+  });
+
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;

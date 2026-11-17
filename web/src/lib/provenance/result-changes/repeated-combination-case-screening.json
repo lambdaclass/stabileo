@@ -1,0 +1,30 @@
+{
+  "id": "repeated-combination-case-screening",
+  "date": "2026-11-17",
+  "prs": [2283],
+  "area": "analysis",
+  "when": { "all": ["repeatedCombinationCases"] },
+  "quantities": ["resultSummary", "structuredDiagnostics", "solve.ok"],
+  "title": {
+    "en": "Combination screening counts each load case once",
+    "es": "La verificación de combinaciones cuenta cada caso de carga una vez",
+    "pt": "A verificação de combinações conta cada caso de carga uma vez",
+    "de": "Die Kombinationsprüfung berücksichtigt jeden Lastfall einmal",
+    "fr": "Le contrôle des combinaisons compte chaque cas de charge une fois",
+    "hu": "A kombináció ellenőrzése minden teheresetet egyszer vesz figyelembe",
+    "tr": "Birleşim kontrolü her yük durumunu bir kez hesaba katıyor"
+  },
+  "explanation": {
+    "en": "When a load case appears more than once in a combination, screening now uses the sum of its factors. Re-run affected combinations and review the second-order and shell diagnostics.",
+    "es": "Cuando un caso de carga aparece más de una vez en una combinación, la verificación usa la suma de sus factores. Volvé a calcular las combinaciones afectadas y revisá los avisos de segundo orden y de cáscaras.",
+    "pt": "Quando um caso de carga aparece mais de uma vez numa combinação, a verificação usa a soma dos seus fatores. Recalcule as combinações afetadas e revise os diagnósticos de segunda ordem e de cascas.",
+    "de": "Kommt ein Lastfall mehrfach in einer Kombination vor, verwendet die Prüfung die Summe seiner Faktoren. Berechnen Sie die betroffenen Kombinationen erneut und prüfen Sie die Meldungen zur Theorie zweiter Ordnung und zu Schalen.",
+    "fr": "Lorsqu’un cas de charge apparaît plusieurs fois dans une combinaison, le contrôle utilise la somme de ses coefficients. Recalculez les combinaisons concernées et examinez les diagnostics du second ordre et des coques.",
+    "hu": "Ha egy tehereset többször szerepel egy kombinációban, az ellenőrzés a tényezőinek összegét használja. Számítsa újra az érintett kombinációkat, és tekintse át a másodrendű és héjszerkezeti diagnosztikát.",
+    "tr": "Bir yük durumu bir birleşimde birden çok kez yer aldığında kontrol, katsayılarının toplamını kullanır. Etkilenen birleşimleri yeniden hesaplayın ve ikinci mertebe ile kabuk tanılarını inceleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-repeated-combination-case-screening.md",
+    "heading": "Screen each load case once in a combination (2026-11-17)"
+  }
+}

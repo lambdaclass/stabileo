@@ -2,7 +2,7 @@ use crate::types::*;
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, diagram_peak_stations_2d, sorted_point_loads};
 use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::{HashMap, HashSet}};
 
 // ==================== Input Types ====================
 
@@ -54,8 +54,11 @@ pub fn combine_results_batch_3d(input: &BatchCombinationInput3D) -> Result<Vec<O
         }
     }
     input.combinations.iter().map(|factors| {
-        let cases: Vec<_> = resolve_factors(factors, |id| by_id.get(&id).map(|&result| (id, result)))?
-            .into_iter().map(|(_, case)| case).collect();
+        let mut seen = HashSet::with_capacity(factors.len());
+        let cases: Vec<_> = factors.iter().map(|f| f.case_id)
+            .filter(|&id| seen.insert(id))
+            .filter_map(|id| by_id.get(&id).map(|&result| (id, result)))
+            .collect();
         combine_results_3d_refs_with_thickness(factors, &cases, &thicknesses)
     }).collect()
 }
@@ -269,27 +272,59 @@ fn index_by_id(ids: impl Iterator<Item = usize>) -> std::collections::HashMap<us
 
 // ==================== 2D Combination ====================
 
-fn resolve_factors<T>(
-    factors: &[CombinationFactor],
-    mut lookup: impl FnMut(usize) -> Option<T>,
-) -> Result<Vec<(f64, T)>, String> {
-    let mut resolved = Vec::with_capacity(factors.len());
-    for CombinationFactor { case_id, factor } in factors {
-        match lookup(*case_id) {
-            Some(case) => resolved.push((*factor, case)),
-            None if *factor == 0.0 => {}
-            None => return Err(format!("Cannot combine results: missing result for load case {case_id}")),
-        }
-    }
-    Ok(resolved)
+struct ResolvedFactors {
+    terms: Vec<(f64, usize)>,
+    screening: Vec<CombinationFactor>,
+    screening_slots: Vec<usize>,
 }
 
-fn resolve_case_slots<T>(
-    factors: &[CombinationFactor],
-    cases: &[(usize, &T)],
-) -> Result<Vec<(f64, usize)>, String> {
-    let slots = index_by_id(cases.iter().map(|(id, _)| *id));
-    resolve_factors(factors, |id| slots.get(&id).copied())
+impl ResolvedFactors {
+    fn new<T>(factors: &[CombinationFactor], cases: &[(usize, &T)]) -> Result<Self, String> {
+        let mut slots = HashMap::with_capacity(cases.len());
+        for (slot, &(id, _)) in cases.iter().enumerate() {
+            if slots.insert(id, slot).is_some() {
+                return Err(format!("Cannot combine results: duplicate case id {id}"));
+            }
+        }
+
+        let mut terms = Vec::with_capacity(factors.len());
+        let mut screening_slots = Vec::with_capacity(cases.len());
+        let mut totals = vec![None; cases.len()];
+        for &CombinationFactor { case_id, factor } in factors {
+            let Some(&slot) = slots.get(&case_id) else {
+                if factor == 0.0 {
+                    continue;
+                }
+                return Err(format!("Cannot combine results: missing result for load case {case_id}"));
+            };
+            terms.push((factor, slot));
+            if factor == 0.0 {
+                continue;
+            }
+            let total = totals[slot].get_or_insert_with(|| {
+                screening_slots.push(slot);
+                [0.0; 2]
+            });
+            compensated_add(total, factor);
+        }
+
+        let screening = screening_slots.iter().map(|&slot| {
+            let [sum, correction] = totals[slot].unwrap();
+            let mut factor = sum + correction;
+            if !factor.is_finite() {
+                factor = rescaled_sum(terms.iter().filter(|&&(_, at)| at == slot).map(|&(f, _)| (f, 1.0)));
+            }
+            CombinationFactor { case_id: cases[slot].0, factor }
+        }).collect();
+
+        Ok(Self { terms, screening, screening_slots })
+    }
+
+    fn screened_cases<'a, T>(&'a self, cases: &'a [(usize, &'a T)]) -> impl Iterator<Item = (f64, &'a T)> + 'a {
+        self.screening.iter().zip(&self.screening_slots)
+            .filter(|(f, _)| f.factor != 0.0)
+            .map(|(f, &slot)| (f.factor, cases[slot].1))
+    }
 }
 
 /// Whether a case may compress a member, for a case without a screened ratio: compression from an
@@ -313,10 +348,10 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 /// avoiding per-combination clones of every case.
 /// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
-    let resolved = resolve_case_slots(factors, cases).ok()?;
-    match combine_resolved_results_2d(factors, cases, &resolved) {
+    match combine_results_refs_checked(factors, cases) {
         Ok(result) => result,
         Err(_) => {
+            let resolved = ResolvedFactors::new(factors, cases).ok()?;
             for (_, result) in cases {
                 for ef in &result.element_forces {
                     super::diagrams::validate_diagram_loads_2d(ef).ok()?;
@@ -326,6 +361,7 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
                 .filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0))
                 .find_map(|(_, r)| crate::boundary::find_non_finite(*r).ok().flatten())?;
             let mut structured_diagnostics = vec![non_finite.diagnostic()];
+            let factors = &resolved.screening;
             let (_, screen) = combined_screen_2d(factors, cases, &[]);
             crate::known_issues::attach(&mut structured_diagnostics, screen);
             Some(AnalysisResults {
@@ -344,14 +380,14 @@ fn combined_screen_2d(factors: &[CombinationFactor], cases: &[(usize, &AnalysisR
 }
 
 pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Result<Option<AnalysisResults>, String> {
-    let resolved = resolve_case_slots(factors, cases)?;
+    let resolved = ResolvedFactors::new(factors, cases)?;
     combine_resolved_results_2d(factors, cases, &resolved)
 }
 
 fn combine_resolved_results_2d(
     factors: &[CombinationFactor],
     cases: &[(usize, &AnalysisResults)],
-    resolved: &[(f64, usize)],
+    resolved: &ResolvedFactors,
 ) -> Result<Option<AnalysisResults>, String> {
     if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
         return Ok(None);
@@ -388,7 +424,7 @@ fn combine_resolved_results_2d(
     let disp_slot = index_by_id(displacements.iter().map(|d| d.node_id));
     let reaction_slot = index_by_id(reactions.iter().map(|r| r.node_id));
     let element_slot = index_by_id(element_forces.iter().map(|e| e.element_id));
-    for &(f, slot) in resolved {
+    for &(f, slot) in &resolved.terms {
         let r = cases[slot].1;
 
         for d in &r.displacements {
@@ -441,6 +477,7 @@ fn combine_resolved_results_2d(
     let mut structured_diagnostics = Vec::new();
     let mut carried = Vec::new();
     let mut second_order = Vec::new();
+    let factors = &resolved.screening;
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
         let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
         let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
@@ -457,7 +494,7 @@ fn combine_resolved_results_2d(
     for ef in &combined.element_forces {
         super::diagrams::validate_diagram_input_2d(ef)?;
     }
-    let factored = resolved.iter().filter(|(f, _)| *f != 0.0).map(|&(f, slot)| (f, cases[slot].1.result_summary.as_ref()));
+    let factored = resolved.screened_cases(cases).map(|(f, case)| (f, case.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_2d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_2d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     let summary = combined.result_summary.get_or_insert_with(Default::default);
@@ -615,16 +652,16 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
 /// Shell stresses are refused unless every contributing case lists the same shells in the same
 /// order, and plate stresses unless `plate_thickness` has each plate.
 pub fn combine_results_3d_refs_with_thickness(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
-    let resolved = resolve_case_slots(factors, cases)?;
+    let resolved = ResolvedFactors::new(factors, cases)?;
     let contributing = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0));
-    let weight: f64 = resolved.iter().map(|(f, _)| f.abs()).sum();
+    let weight: f64 = resolved.screening.iter().map(|f| f.factor.abs()).sum();
     for (_, result) in contributing {
         crate::known_issues::refuse_contained(&result.structured_diagnostics, result)?;
         if !(weight <= 1.0) && crate::result_sites::known_issues(result).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }
-    combine_resolved_results_3d(factors, cases, &resolved, plate_thickness)
+    combine_resolved_results_3d(cases, &resolved, plate_thickness)
 }
 
 struct CombinedShells {
@@ -743,14 +780,13 @@ fn combine_shells(terms: &[(f64, usize, &AnalysisResults3D)], template: (usize, 
 }
 
 pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)], plate_thickness: &PlateThicknesses) -> Result<Option<AnalysisResults3D>, String> {
-    let resolved = resolve_case_slots(factors, cases)?;
-    combine_resolved_results_3d(factors, cases, &resolved, plate_thickness)
+    let resolved = ResolvedFactors::new(factors, cases)?;
+    combine_resolved_results_3d(cases, &resolved, plate_thickness)
 }
 
 fn combine_resolved_results_3d(
-    factors: &[CombinationFactor],
     cases: &[(usize, &AnalysisResults3D)],
-    resolved: &[(f64, usize)],
+    resolved: &ResolvedFactors,
     plate_thickness: &PlateThicknesses,
 ) -> Result<Option<AnalysisResults3D>, String> {
     for (_, result) in cases {
@@ -791,7 +827,7 @@ fn combine_resolved_results_3d(
             distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(), bimoment_start: None, bimoment_end: None })
         .collect();
 
-    for &(f, slot) in resolved {
+    for &(f, slot) in &resolved.terms {
         let r = &aligned[slot];
 
         for (out, d) in displacements.iter_mut().zip(r.displacements.iter()) {
@@ -851,6 +887,7 @@ fn combine_resolved_results_3d(
     let mut structured_diagnostics = Vec::new();
     let mut carried = Vec::new();
     let mut second_order = Vec::new();
+    let factors = &resolved.screening;
     for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
         let (small, others): (Vec<_>, Vec<_>) = crate::result_sites::known_issues(result).into_iter().partition(|d| d.phase.as_deref() == Some("LIN-SMALL-DISPLACEMENT"));
         let (second, others): (Vec<_>, Vec<_>) = others.into_iter().partition(crate::known_issues::is_second_order);
@@ -860,7 +897,7 @@ fn combine_resolved_results_3d(
     }
     let ratio = crate::known_issues::combined_ratio(cases.iter().map(|(id, r)| (factors.iter().filter(|f| f.case_id == *id).map(|f| f.factor.abs()).sum(), r.result_summary.as_ref(), r.element_forces.iter().any(axial_3d))));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::combined_second_order(second_order.iter(), factors.iter().any(|f| f.factor < 0.0 && cases.iter().any(|(id, _)| *id == f.case_id)), ratio));
-    let terms: Vec<_> = resolved.iter().filter(|(f, _)| *f != 0.0)
+    let terms: Vec<_> = resolved.terms.iter().filter(|(f, _)| *f != 0.0)
         .map(|&(f, slot)| {
             let (id, result) = cases[slot];
             (f, id, result)
@@ -873,7 +910,7 @@ fn combine_resolved_results_3d(
     for ef in &combined.element_forces {
         super::diagrams_3d::validate_diagram_input_3d(ef)?;
     }
-    let factored = resolved.iter().filter(|(f, _)| *f != 0.0).map(|&(f, slot)| (f, cases[slot].1.result_summary.as_ref()));
+    let factored = resolved.screened_cases(cases).map(|(f, case)| (f, case.result_summary.as_ref()));
     let (beyond, chords, spans) = crate::known_issues::combined_small_displacement(crate::known_issues::rotated_nodes_3d(&combined), factored, &carried, |spans| crate::known_issues::span_rotations_3d(spans, &combined));
     crate::known_issues::attach(&mut combined.structured_diagnostics, beyond.into_iter().collect());
     let summary = combined.result_summary.get_or_insert_with(Default::default);
