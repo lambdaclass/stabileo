@@ -6,6 +6,9 @@
   ],
   "area": "analysis",
   "when": {
+    "all": [
+      "members"
+    ],
     "any": [
       "distributedMemberLoads",
       "selfWeight"

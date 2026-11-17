@@ -81,7 +81,7 @@ function open(entry: typeof entries[number], file: ReturnType<typeof buildProjec
 }
 
 for (const entry of entries) {
-  it.skip.each(['2d', '3d', 'pro'] as const)(`known wrong result: #2223 — ${entry} keeps an unrelated older %s project quiet through autosave recovery`, async mode => {
+  it.each(['2d', '3d', 'pro'] as const)(`known wrong result: #2223 — ${entry} keeps an unrelated older %s project quiet through autosave recovery`, async mode => {
     const file = project(mode);
     open(entry, file);
     await vi.waitFor(() => expect(recheckStore.pending).toBe(false));

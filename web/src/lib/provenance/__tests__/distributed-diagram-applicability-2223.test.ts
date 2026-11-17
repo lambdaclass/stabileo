@@ -8,7 +8,7 @@ import { fieldCovered } from '../../../../scripts/results-snapshot/applicability
 
 const entry = RESULT_CHANGES.changes.find(c => c.id === 'distributed-load-diagram-integration')!;
 
-it.skip('known wrong result: #2223 — distributed diagrams require members even with self-weight or orphan loads', () => {
+it('known wrong result: #2223 — distributed diagrams require members even with self-weight or orphan loads', () => {
   for (const action of ['selfWeight', 'distributedMemberLoads']) {
     for (const analysis of ANALYSIS_KINDS) {
       const features = [action, `analysis:${analysis}`];
@@ -21,7 +21,7 @@ it.skip('known wrong result: #2223 — distributed diagrams require members even
   }
 });
 
-it.skip('known wrong result: #2223 — unrelated older nodal projects have no diagram notice in either dimension', () => {
+it('known wrong result: #2223 — unrelated older nodal projects have no diagram notice in either dimension', () => {
   for (const analysisMode of ['2d', '3d', 'pro']) {
     for (const analysis of ['linear', 'nonlinear'] as const) {
       const stamp = { ...stampSolve(analysis, null), resultsVersion: RESULT_CHANGES.currentResultsVersion - 1 };
