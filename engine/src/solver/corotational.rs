@@ -3595,3 +3595,34 @@ mod round22_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod round23_tests {
+    use super::*;
+    use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+    use serde_json::json;
+
+    #[test]
+    #[ignore = "known wrong result: #2219"]
+    fn shortening_and_extension_keep_couple_diagrams_in_reference_coordinates() {
+        for strain in [-0.1, 0.0, 0.1] {
+            for (a, b) in [(0.0, 3.0), (0.3, 2.4)] {
+                for values in [[2.0; 3], [1.0, 2.0, 3.0]] {
+                    let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                    v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"a":a,"b":b,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":values,"y":[0,0,0],"z":[0,0,0]}}}]);
+                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                    let dofs = DofNumbering::build_3d(&input);
+                    let mut u = vec![0.0; dofs.n_total];
+                    u[dofs.global_dof(1, 0).unwrap()] = strain * 3.0;
+                    let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                    let ef = &result[0];
+                    assert!((evaluate_diagram_3d_at(ef, "torsion", 1.0) - ef.mx_end).abs() < 1e-10, "strain={strain} span=({a},{b}) {ef:?}");
+                    for t in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
+                        let integral = MemberMoments::integral_local(values, b - a, (3.0 * t - a) / (b - a));
+                        assert!((evaluate_diagram_3d_at(ef, "torsion", t) - ef.mx_start - integral).abs() < 1e-10);
+                    }
+                }
+            }
+        }
+    }
+}

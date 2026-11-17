@@ -836,3 +836,21 @@ fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn round23_shortening_member_torque_diagram_matches_recovered_end_actions() {
+    for strain in [-0.0001, 0.0, 0.0001] {
+        let mut v: Value = serde_json::from_str(include_str!("../fixtures/reaction-recovery-3d.json")).unwrap();
+        let axial = v["materials"]["1"]["e"].as_f64().unwrap() * 1000.0 * v["sections"]["1"]["a"].as_f64().unwrap() * strain;
+        v["supports"]["1"] = json!({"nodeId":1,"rx":false,"ry":true,"rz":true,"rrx":false,"rry":true,"rrz":true});
+        v["loads"] = json!([{"type":"nodal","data":{"nodeId":1,"fx":axial,"fy":0,"fz":0,"mx":0,"my":0,"mz":0}},{"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":[2,2,2],"y":[0,0,0],"z":[0,0,0]}}}]);
+        let input: SolverInput3D = serde_json::from_value(v).unwrap();
+        for result in [linear::solve_3d(&input).unwrap(), pdelta::solve_pdelta_3d(&input,100,1e-10).unwrap().results, corotational::solve_corotational_3d(&input,100,1e-10,4,false).unwrap().results] {
+            let ef = &result.element_forces[0];
+            assert!((evaluate_diagram_3d_at(ef,"torsion",1.0)-ef.mx_end).abs()<1e-10,"strain={strain} {ef:?}");
+            assert!((ef.mx_end-ef.mx_start-6.0).abs()<1e-10);
+            for t in [0.0,0.25,0.5,0.75,1.0] { assert!((evaluate_diagram_3d_at(ef,"torsion",t)-ef.mx_start-6.0*t).abs()<1e-10); }
+        }
+    }
+}
