@@ -65,7 +65,7 @@ describe('the Turkish stack, end to end', () => {
     const levels = [0, 3, 6, 9, 12].map((z) => ({ elevation: z, nodeIds: [] }));
     const fx = sum(storeyWind(levels, 0, C_GENERAL, 5).map((s) => s.force));
     const fy = sum(storeyWind(levels, 0, C_GENERAL, 6).map((s) => s.force));
-    expect(fx).toBeCloseTo(1.2 * (0.5 * (8 - 1.5) + 0.8 * (12 - 8)) * 5, 9);
+    expect(fx).toBeCloseTo(1.2 * (0.5 * 8 + 0.8 * (12 - 8)) * 5, 9);
     expect(sum(plan.nodal.filter((n) => n.caseIndex === w[0]!.i).map((n) => n.fx))).toBeCloseTo(fx, 9);
     expect(sum(plan.nodal.filter((n) => n.caseIndex === w[3]!.i).map((n) => n.fy))).toBeCloseTo(-fy, 9);
   });
