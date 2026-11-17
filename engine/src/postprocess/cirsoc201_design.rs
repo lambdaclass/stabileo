@@ -13,9 +13,43 @@
 //! limit allows is not enough, compression steel As' at d' is added: for each As' the tension
 //! steel is the most the limit allows, and As' is the least that reaches Mu.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use crate::postprocess::cirsoc201_check::{
     ductility_strain, gross_area, nominal_flexure_axial, phi_flexure, Cirsoc201MemberData,
 };
+
+const SCAN: usize = 256;
+const SINGLY_SCAN_LIMIT: usize = 64;
+
+/// Everything the singly reinforced scan reads except the moment.
+#[derive(PartialEq, Eq, Hash)]
+struct SinglyScanKey([u64; 14]);
+
+impl SinglyScanKey {
+    fn new(m: &Cirsoc201MemberData, ag: f64, nu: f64, eps_min: f64) -> Self {
+        let optional = [m.es, m.d_prime, m.bf, m.hf];
+        let present = optional.iter().enumerate().fold(0u64, |mask, (i, v)| mask | (u64::from(v.is_some()) << i));
+        let [es, d_prime, bf, hf] = optional.map(|v| v.map_or(0, f64::to_bits));
+        Self([
+            m.edition as u64, present, m.fc.to_bits(), m.fy.to_bits(), es, m.b.to_bits(), m.h.to_bits(),
+            m.d.to_bits(), d_prime, bf, hf, ag.to_bits(), nu.to_bits(), eps_min.to_bits(),
+        ])
+    }
+}
+
+/// The moment-independent part of the singly reinforced search: the ductile steel range and
+/// (φ·Mn, εt) at the scan points visited so far, `points[k]` at `lo + (top − lo)·k/SCAN`.
+struct SinglyScan {
+    top: Option<f64>,
+    lo: f64,
+    points: Vec<Option<(f64, f64)>>,
+}
+
+thread_local! {
+    static SINGLY_SCANS: RefCell<HashMap<SinglyScanKey, SinglyScan>> = RefCell::new(HashMap::new());
+}
 
 /// How the requirement was met.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,7 +145,9 @@ pub fn design_flexure(m: &Cirsoc201MemberData, mu: f64, nu: f64, allow_compressi
         Some((pm, ..)) => pm >= mu,
         None => false,
     };
-    let passes = |as_t: f64, as_c: f64| strong(as_t, as_c) && ductile(as_t, as_c);
+    let passes = |as_t: f64, as_c: f64| {
+        matches!(strength(m, as_t, as_c, nu), Some((pm, eps, ..)) if pm >= mu && eps >= eps_min)
+    };
 
     // The most tension steel the ductility limit allows with As'. A member in tension may not
     // reach equilibrium with little steel; the bracket starts at the least that does.
@@ -147,21 +183,36 @@ pub fn design_flexure(m: &Cirsoc201MemberData, mu: f64, nu: f64, allow_compressi
     // steel grows (with 2005's εt,min = 0,004 and fy = 500 MPa φ·Mn peaks near εt = 0,005 and
     // then drops). So the range is scanned for the first steel that passes, and the boundary
     // bisected inside that first passing interval.
-    if let Some(top) = ductile_max(0.0) {
-        let lo = equilibrium_from(0.0).unwrap_or(tiny);
-        if mu == 0.0 || passes(lo, 0.0) {
-            return finish(FlexureDesignKind::Singly, lo, 0.0);
+    let singly = SINGLY_SCANS.with(|scans| {
+        let mut scans = scans.borrow_mut();
+        let key = SinglyScanKey::new(m, ag, nu, eps_min);
+        if scans.len() >= SINGLY_SCAN_LIMIT && !scans.contains_key(&key) {
+            scans.clear();
         }
-        const SCAN: usize = 256;
+        let scan = scans.entry(key).or_insert_with(|| {
+            let top = ductile_max(0.0);
+            let lo = if top.is_some() { equilibrium_from(0.0).unwrap_or(tiny) } else { tiny };
+            SinglyScan { top, lo, points: Vec::new() }
+        });
+        let (top, lo) = (scan.top?, scan.lo);
+        if mu == 0.0 {
+            return Some(lo);
+        }
         let mut prev = lo;
-        for k in 1..=SCAN {
-            let x = lo + (top - lo) * k as f64 / SCAN as f64;
-            if passes(x, 0.0) {
-                let as_t = least(prev, x, |y| passes(y, 0.0));
-                return finish(FlexureDesignKind::Singly, as_t, 0.0);
+        for k in 0..=SCAN {
+            let x = if k == 0 { lo } else { lo + (top - lo) * k as f64 / SCAN as f64 };
+            if scan.points.len() == k {
+                scan.points.push(strength(m, x, 0.0, nu).map(|(pm, eps, ..)| (pm, eps)));
+            }
+            if matches!(scan.points[k], Some((pm, eps)) if pm >= mu && eps >= eps_min) {
+                return Some(if k == 0 { lo } else { least(prev, x, |y| passes(y, 0.0)) });
             }
             prev = x;
         }
+        None
+    });
+    if let Some(as_t) = singly {
+        return finish(FlexureDesignKind::Singly, as_t, 0.0);
     }
     if !allow_compression_steel || !(m.d_prime.unwrap_or(0.0) > 0.0 && m.d_prime.unwrap_or(0.0) < m.d) {
         return impossible;
@@ -273,6 +324,155 @@ mod tests {
             element_id: 1, fc: 25e6, fy: 420e6, es: None, b: 0.25, h: 0.50, d: 0.45, as_tension: 0.0,
             as_compression: None, d_prime: Some(0.05), av: None, s_stirrup: None, fyt: None, ag: None,
             lambda: None, bf: None, hf: None, edition,
+        }
+    }
+
+    fn uncached_design_flexure(m: &Cirsoc201MemberData, mu: f64, nu: f64, allow_compression_steel: bool) -> FlexureDesign {
+        let mu = mu.abs();
+        let es = m.es.unwrap_or(200e9);
+        let ag = m.ag.unwrap_or_else(|| gross_area(m));
+        let applies = mu > 0.0 && nu < 0.10 * m.fc * ag;
+        let eps_min = if applies { ductility_strain(m.edition, m.fy, es) } else { 0.0 };
+        let impossible = FlexureDesign {
+            kind: FlexureDesignKind::Impossible, as_t: f64::NAN, as_c: f64::NAN, phi_mn: f64::NAN, phi: f64::NAN,
+            c: f64::NAN, a: f64::NAN, epsilon_t: f64::NAN, epsilon_t_min: eps_min,
+        };
+        if !(mu.is_finite() && nu.is_finite() && ag > 0.0) {
+            return impossible;
+        }
+        let as_hi = 0.10 * ag;
+        let as_c_hi = 0.08 * ag;
+        let tiny = 1e-9 * ag;
+
+        let ductile = |as_t: f64, as_c: f64| match strength(m, as_t, as_c, nu) {
+            Some((_, eps, ..)) => eps >= eps_min,
+            None => false,
+        };
+        let strong = |as_t: f64, as_c: f64| match strength(m, as_t, as_c, nu) {
+            Some((pm, ..)) => pm >= mu,
+            None => false,
+        };
+        let passes = |as_t: f64, as_c: f64| strong(as_t, as_c) && ductile(as_t, as_c);
+
+        // The most tension steel the ductility limit allows with As'. A member in tension may not
+        // reach equilibrium with little steel; the bracket starts at the least that does.
+        let equilibrium_from = |as_c: f64| {
+            if strength(m, tiny, as_c, nu).is_some() {
+                Some(tiny)
+            } else if strength(m, as_hi, as_c, nu).is_some() {
+                Some(least(tiny, as_hi, |x| strength(m, x, as_c, nu).is_some()))
+            } else {
+                None
+            }
+        };
+        let ductile_max = |as_c: f64| -> Option<f64> {
+            let lo = equilibrium_from(as_c)?;
+            if !ductile(lo, as_c) {
+                return None;
+            }
+            Some(if ductile(as_hi, as_c) { as_hi } else { greatest(lo, as_hi, |x| ductile(x, as_c)) })
+        };
+
+        let finish = |kind: FlexureDesignKind, as_t: f64, as_c: f64| {
+            // Confirmed by the check itself; the bisection keeps the passing side, so this holds.
+            match strength(m, as_t, as_c, nu) {
+                Some((pm, eps, phi, c, a)) if pm >= mu && eps >= eps_min => FlexureDesign {
+                    kind, as_t, as_c, phi_mn: pm, phi, c, a, epsilon_t: eps, epsilon_t_min: eps_min,
+                },
+                _ => impossible,
+            }
+        };
+
+        // ── Singly reinforced ──
+        // φ·Mn is NOT monotone in As over the ductile range: in the transition zone φ falls as the
+        // steel grows (with 2005's εt,min = 0,004 and fy = 500 MPa φ·Mn peaks near εt = 0,005 and
+        // then drops). So the range is scanned for the first steel that passes, and the boundary
+        // bisected inside that first passing interval.
+        if let Some(top) = ductile_max(0.0) {
+            let lo = equilibrium_from(0.0).unwrap_or(tiny);
+            if mu == 0.0 || passes(lo, 0.0) {
+                return finish(FlexureDesignKind::Singly, lo, 0.0);
+            }
+            const SCAN: usize = 256;
+            let mut prev = lo;
+            for k in 1..=SCAN {
+                let x = lo + (top - lo) * k as f64 / SCAN as f64;
+                if passes(x, 0.0) {
+                    let as_t = least(prev, x, |y| passes(y, 0.0));
+                    return finish(FlexureDesignKind::Singly, as_t, 0.0);
+                }
+                prev = x;
+            }
+        }
+        if !allow_compression_steel || !(m.d_prime.unwrap_or(0.0) > 0.0 && m.d_prime.unwrap_or(0.0) < m.d) {
+            return impossible;
+        }
+
+        // ── Doubly reinforced ──
+        let reaches = |as_c: f64| ductile_max(as_c).is_some_and(|t| strong(t, as_c));
+        if !reaches(as_c_hi) {
+            return impossible;
+        }
+        // The textbook pair: the concrete held at the ductility limit (the tension steel the most
+        // the limit allows) and the least compression steel that reaches Mu. Not reducing the
+        // tension steel afterwards keeps the requirement continuous and rising across the switch
+        // from singly to doubly reinforced (a smaller As with more As' also passes, but then the
+        // tension steel would fall as the moment rises).
+        let as_c = least(tiny, as_c_hi, reaches);
+        let as_t = match ductile_max(as_c) {
+            Some(t) => t,
+            None => return impossible,
+        };
+        finish(FlexureDesignKind::Doubly, as_t, as_c)
+    }
+
+    fn bits(d: &FlexureDesign) -> [u64; 9] {
+        [d.kind as u64, d.as_t.to_bits(), d.as_c.to_bits(), d.phi_mn.to_bits(), d.phi.to_bits(), d.c.to_bits(),
+            d.a.to_bits(), d.epsilon_t.to_bits(), d.epsilon_t_min.to_bits()]
+    }
+
+    #[test]
+    fn shared_scan_gives_the_bits_of_the_search_run_alone() {
+        let mut sections = Vec::new();
+        for e in [Cirsoc201Edition::E2005, Cirsoc201Edition::E2025] {
+            let base = beam(e);
+            sections.push(base.clone());
+            sections.push(Cirsoc201MemberData { fc: 20e6, fy: 500e6, b: 0.5, h: 0.4966, d: 0.451, ..base.clone() });
+            sections.push(Cirsoc201MemberData { bf: Some(0.9), hf: Some(0.12), ..base.clone() });
+            sections.push(Cirsoc201MemberData { d_prime: None, ..base.clone() });
+            sections.push(Cirsoc201MemberData { es: Some(210e9), ag: Some(0.2), ..base.clone() });
+            // More sections than the scans kept, so some are dropped and built again.
+            for i in 0..40 {
+                sections.push(Cirsoc201MemberData { h: 0.40 + 0.01 * i as f64, d: 0.35 + 0.01 * i as f64, ..base.clone() });
+            }
+        }
+        let moments = [0.0, 1.0, 7.3e3, 20e3, 80e3, 150e3, 151e3, 260e3, 330e3, 413.85e3, 600e3, 1e8, f64::NAN];
+        let axials = [0.0, -0.0, -200e3, 150e3, 900e3, -5e6];
+        for round in 0..2 {
+            for (i, m) in sections.iter().enumerate() {
+                for (j, &nu) in axials.iter().enumerate() {
+                    for step in 0..moments.len() {
+                        // Not in rising order: a later question reads fewer scan points than an earlier one.
+                        let mu = moments[(step * 5 + i + j + round) % moments.len()];
+                        for allow in [true, false] {
+                            assert_eq!(
+                                bits(&design_flexure(m, mu, nu, allow)),
+                                bits(&uncached_design_flexure(m, mu, nu, allow)),
+                                "section {i}, Mu {mu}, Nu {nu}, As' {allow}, round {round}",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn scan_is_not_shared_between_an_absent_and_a_zero_input() {
+        let rect = beam(Cirsoc201Edition::E2025);
+        let zero_flange = Cirsoc201MemberData { hf: Some(0.0), bf: Some(0.6), ..rect.clone() };
+        for m in [&rect, &zero_flange, &rect] {
+            assert_eq!(bits(&design_flexure(m, 80e3, 0.0, true)), bits(&uncached_design_flexure(m, 80e3, 0.0, true)));
         }
     }
 
