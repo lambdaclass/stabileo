@@ -3502,3 +3502,42 @@ mod infinitesimal_rotation_regressions {
         }
     }
 }
+
+#[cfg(test)]
+mod round22_tests {
+    use super::*;
+    use serde_json::json;
+    use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+
+    #[test]
+    #[ignore = "known wrong result: #2219"]
+    fn corotational_couple_diagrams_follow_large_rigid_rotations() {
+        for angle in [-1.0_f64, 0.0, 1.0] {
+            for axis in [0, 1, 2] {
+                for component in [0, 1, 2] {
+                    let mut v: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/reaction-recovery-3d.json")).unwrap();
+                    v["elements"]["1"]["localYx"] = json!(0.0);
+                    v["elements"]["1"]["localYy"] = json!(1.0);
+                    v["elements"]["1"]["localYz"] = json!(0.0);
+                    let mut moments = [[0.0; 3]; 3];
+                    moments[component] = [1.0, 2.0, 3.0];
+                    v["loads"] = json!([{"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":0,"qZJ":0,"moments":{"x":moments[0],"y":moments[1],"z":moments[2]}}}]);
+                    let input: SolverInput3D = serde_json::from_value(v).unwrap();
+                    let dofs = DofNumbering::build_3d(&input);
+                    let mut u = vec![0.0; dofs.n_total];
+                    if axis != 0 {
+                        u[dofs.global_dof(1, 0).unwrap()] = 3.0 * (angle.cos() - 1.0);
+                        u[dofs.global_dof(1, if axis == 1 { 2 } else { 1 }).unwrap()] = 3.0 * angle.sin() * if axis == 1 { -1.0 } else { 1.0 };
+                    }
+                    for node in [0, 1] { u[dofs.global_dof(node, 3 + axis).unwrap()] = angle; }
+                    let result = compute_corotational_forces_3d(&input, &dofs, &u, false);
+                    let ef = &result[0];
+                    for (kind, end) in [("torsion", ef.mx_end), ("momentY", ef.my_end), ("momentZ", ef.mz_end)] {
+                        let actual = evaluate_diagram_3d_at(ef, kind, 1.0);
+                        assert!((actual-end).abs() < 1e-8, "axis={axis} component={component} angle={angle} {kind}: {actual} != {end}");
+                    }
+                }
+            }
+        }
+    }
+}

@@ -818,3 +818,26 @@ pub fn fef_axial_distributed_2d(q_i: f64, q_j: f64, a: f64, b: f64, l: f64) -> [
     let [f_i, f_j] = axial_distributed_fef(q_i, q_j, a, b, l);
     [f_i, 0.0, 0.0, f_j, 0.0, 0.0]
 }
+
+#[cfg(test)]
+mod round22_tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "known wrong result: #2219"]
+    fn fef_double_torsion_release_never_discards_a_resultant() {
+        let hinge = super::super::frame::Hinge3D { release_t_start: true, release_t_end: true, ..Default::default() };
+        for torque in [-1.0, 1e-30, 1.0] {
+            let result = std::panic::catch_unwind(|| {
+                let mut f = [0.0; 12];
+                f[3] = torque;
+                adjust_fef_for_hinges_3d(&mut f, 3.0, hinge, 0.0, 0.0);
+            });
+            assert!(result.is_err(), "released torque {torque} was silently discarded");
+        }
+        let mut f = [0.0; 12];
+        f[3] = 1.0; f[9] = -1.0;
+        adjust_fef_for_hinges_3d(&mut f, 3.0, hinge, 0.0, 0.0);
+        assert_eq!([f[3], f[9]], [0.0; 2]);
+    }
+}

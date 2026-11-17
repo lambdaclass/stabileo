@@ -794,3 +794,30 @@ fn round17_zero_and_absent_densities_keep_their_certificate_and_answer() {
         assert!(actual.shown.station_bounds.iter().all(|b| b.gaps.unwrap().torsion == 0.0));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn fef_double_torsion_release_accepts_balanced_and_refuses_net_couples() {
+    for values in [[1.0, 0.0, -1.0], [0.0; 3], [1.0; 3], [-1.0; 3], [1e-30; 3]] {
+        let balanced = values[0] + 4.0 * values[1] + values[2] == 0.0;
+        let mut input = model(0.0);
+        let e = input.elements.values_mut().find(|e|e.id==1).unwrap();
+        e.release_t_start = true;
+        e.release_t_end = true;
+        for load in &mut input.loads { if let SolverLoad3D::Distributed(d) = load { d.q_zi = 0.0; d.q_zj = 0.0; } }
+        if let SolverLoad3D::Distributed(d) = &mut input.loads[0] {
+            d.moments = Some(MemberMoments { x: values, y: [0.0;3], z: [0.0;3] });
+        }
+        for result in [linear::solve_3d(&input), pdelta::solve_pdelta_3d(&input,100,1e-10).map(|r|r.results), corotational::solve_corotational_3d(&input,100,1e-10,4,false).map(|r|r.results)] {
+            if balanced {
+                let r = result.expect("zero resultant torque must remain admissible");
+                let ef = r.element_forces.iter().find(|ef|ef.element_id==1).unwrap();
+                assert_eq!(ef.mx_start, 0.0);
+                assert_eq!(ef.mx_end, 0.0);
+                assert!((evaluate_diagram_3d_at(ef,"torsion",0.5) - 0.75 * values[0]).abs() < 1e-12);
+            } else {
+                assert!(result.unwrap_err().contains("both ends released"));
+            }
+        }
+    }
+}
