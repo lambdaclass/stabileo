@@ -151,9 +151,9 @@ export function makeWallRow(set: Ec2Set) {
       {
         title: 'rcSheets.g.wallShear',
         steps: [
-          { label: 'rcSheets.ec2.s.wallShearModel', formula: 'bw = t, d = 0.8·lw, z = 0.9·d, σcp = NEd/(lw·t); horizontal bars as links (6.2.2(1), 6.2.3(3))', value: '' },
+          { label: 'rcSheets.ec2.s.wallShearModel', formula: 'bw = t, d = 0.8·lw, z = 0.9·d, σcp = NEd/(lw·t) (6.2.2(1), 6.2.3(3))', value: '' },
           { label: 'rcSheets.ec2.s.vrdc', formula: 'VRd,c (6.2.2(1))', value: `${fmt(ev.vrdc)} kN` },
-          { label: 'rcSheets.s.wallRhoTReq', formula: 'ρh = VEd/(z·fywd·cotθ)/t where VEd > VRd,c', value: `${fmt(ev.rhoHShear * 100, 3)} % (cotθ = ${fmt(ev.cot, 2)})` },
+          { label: 'rcSheets.ec2.s.wallRhoTReq', formula: 'ρh = VEd/(z·fywd·cotθ)/t', value: `${fmt(ev.rhoHShear * 100, 3)} % (cotθ = ${fmt(ev.cot, 2)})` },
           { label: 'rcSheets.s.wallMin', formula: 'ρv ≥ 0.002 (9.6.2(1)); ρh ≥ max(0.25·ρv; 0.001) (9.6.3(1))', value: `${fmt(ev.rhoVMin * 100, 3)} · ${fmt(ev.rhoHMin * 100, 3)} %` },
           { label: 'rcSheets.s.wallVn', formula: 'VRd = max(VRd,c; min(VRd,s; VRd,max))', value: `${fmt(ev.vrdMin)} kN`, ok: ev.shear.every(ok1) },
         ],
@@ -161,7 +161,7 @@ export function makeWallRow(set: Ec2Set) {
       {
         title: 'rcSheets.g.wallFlexure',
         steps: [
-          { label: 'rcSheets.s.wallBoundary', formula: 'As at the ends (NEd, MEd)', value: boundaryLabel },
+          { label: 'rcSheets.ec2.s.wallBoundary', formula: 'As,ext', value: boundaryLabel },
           { label: 'rcSheets.s.wallPM', formula: 'MRd(NEd) ≥ max(MEd; NEd·e0), e0 = max(lw/30; 20 mm) (6.1(4))', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) },
           ...(gOut ? [{ label: 'rcSheets.s.slenderness', formula: 'λ = hw·√12/t; λlim = 20·0.7·1.1·0.7/√n (5.8.3.1(1)), l0 = hw', value: `${fmt(gOut.lambda, 1)} ≤ ${fmt(Number.isFinite(gOut.lambdaLim) ? gOut.lambdaLim : 0, 1)}?`, ok: !gOut.slender }] : []),
           { label: 'rcSheets.s.wallOut', formula: 'MEd,v (+ NEd·l0/400 + M2, 5.8.8) ≤ MRd(NEd/lw), b = 1 m; MEd,h ≤ MRd', value: `${fmt(Math.max(0, ...outU), 3)}`, ok: outU.every(ok1) },
@@ -171,7 +171,7 @@ export function makeWallRow(set: Ec2Set) {
         title: 'rcSheets.g.proposal',
         steps: [
           { label: 'rcSheets.s.adopted', formula: wallLabel(ad), value: '' },
-          adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ,min → As,ends → (NEd, MEd), VEd, (Mv, Mh)', value: String(iterations) },
+          adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ,min → As,ext → (NEd, MEd), VEd, (Mv, Mh)', value: String(iterations) },
           { label: 'rcSheets.ec2.s.wallScope', value: '' },
         ],
       },

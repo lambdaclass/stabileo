@@ -39,7 +39,7 @@ export function punchingRow(d: PunchingDemand, c: PunchingContext, fmt: Fmt): Pu
   const steps: StepGroup[] = [{
     title: 'rcSheets.g.punching',
     steps: [
-      { label: 'rcSheets.s.punchPosition', formula: '', value: position.position ? `${position.position} (${fmt(position.coverageDeg, 0)}°)` : '—' },
+      position.position ? { label: `rcSheets.punchPos.${position.position}`, formula: '', value: `${fmt(position.coverageDeg, 0)}°` } : { label: 'rcSheets.s.punchPosition', formula: '', value: '—' },
       { label: 'rcSheets.s.punchSection', formula: 'c1 × c2 · h', value: `${fmt(d.joint.b * 100, 0)} × ${fmt(d.joint.h * 100, 0)} cm · ${fmt(d.thickness * 100, 0)} cm` },
       { label: 'rcSheets.ts500.s.basis', formula: 'fctd = 0.35·√fck/1.5', value: `${fmt(t.fctd, 3)} MPa` },
       ...(crit ? [{ label: 'rcSheets.s.punchPerimeter', formula: 'up (d/2) · d', value: `${fmt(crit.bo)} m · ${fmt(dd * 100, 1)} cm` }] : []),

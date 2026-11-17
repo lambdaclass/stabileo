@@ -39,3 +39,21 @@ describe('punching', () => {
     expect(at(150)).toBeGreaterThan(at(0) * 1.2);
   });
 });
+
+describe('the steps the sheets write', () => {
+  const prose = /\b(the|of|where|at|as|bars|beam|shears|mean|links|principal|secondary|face|ends|carries)\b/;
+  it('name a punching joint\'s position through a translated label in every code, and EN 1992 keeps its prose in labels', async () => {
+    for (const code of ['cirsoc201-2025', 'en1992-1-1', 'ts500-2000'] as const) {
+      const r = rulesFor(code).punchingRow(demand([force()]), ctx, f);
+      const steps = r.steps.flatMap((g) => g.steps);
+      expect(steps.some((s) => s.label === 'rcSheets.punchPos.interior'), code).toBe(true);
+      expect(steps.some((s) => /interior|edge|corner/.test(s.value ?? '')), code).toBe(false);
+      if (code === 'en1992-1-1') for (const s of steps) expect(s.formula ?? '', s.label).not.toMatch(prose);
+    }
+    const ec2 = rulesFor('en1992-1-1');
+    const wall = ec2.wallRow({ key: 'wall:1:0', name: 'M1', length: 3, height: 3, thickness: 0.2, combos: [{ combo: 'U', pu: 500, mu: 200, vu: 300, muV: 0, muH: 0 }] }, { mat: { fc: 30, fy: 500 }, cover: 0.025, barDia: 10, diameters: [10, 12, 16] }, undefined, f);
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const slab = ec2.slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 500 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    for (const s of [...wall.steps, ...slab.steps].flatMap((g) => g.steps)) expect(s.formula ?? '', s.label).not.toMatch(prose);
+  });
+});

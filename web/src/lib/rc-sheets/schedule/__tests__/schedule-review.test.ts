@@ -48,3 +48,18 @@ describe('the stock a schedule orders', () => {
     expect(sched.byDiameter[0]!.stockBars).toBe(6);
   });
 });
+
+describe('bars longer than a stock bar with no lap of their own', () => {
+  it('are lapped into as few pieces as fit a 12 m bar: a wall\'s horizontals and a slab plan\'s packages', async () => {
+    const { lapped } = await import('../pieces');
+    const long = lapped(bar(20), 0.6);
+    expect(long.laps).toEqual({ count: 1, length: 0.6 });
+    expect(lapped(bar(23.6), 0.6).laps!.count).toBe(2);
+    expect(lapped(bar(9), 0.6).laps).toBeUndefined();
+    const plan = { level: 'N1', panels: [], anchorage: [{ dia: 10, ld: 0.4, ldTop: 0.5, ldh: 0.2, lap: 0.55 }], packages: [{ mark: '1', layer: 'bottom', count: 30, shape: bar(16, 10), bars: { dia: 10, spacing: 0.2 } }] } as never;
+    const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [], slabPlan: [plan] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(e!.pieces[0]!.shape.laps).toEqual({ count: 1, length: 0.55 });
+    const s = scheduleOf([e!], { code: 'cirsoc201-2025' });
+    expect(s.byDiameter[0]!.stockBars).toBe(60);
+  });
+});

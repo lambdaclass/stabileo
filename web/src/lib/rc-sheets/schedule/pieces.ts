@@ -94,6 +94,15 @@ export function stockPieces(length: number, lap: number, dia: number, R: BendRul
   return [{ shape: straight(piece, dia, R), count: n - 1 }, { shape: topHooked(piece, dia, R), count: 1 }];
 }
 
+/** A bar longer than a stock bar, lapped `lap` m where it is cut: into as few pieces as fit a stock bar, laps and all. */
+export function lapped(shape: BarShape, lap: number): BarShape {
+  const L = developedLength(shape);
+  if (L <= STOCK + 1e-9 || !(lap > 0) || lap >= STOCK / 2) return shape;
+  let n = 2;
+  while ((L + (n - 1) * lap) / n > STOCK + 1e-9 && n < 40) n++;
+  return { ...shape, laps: { count: n - 1, length: lap } };
+}
+
 function stirrupPieces(line: LineLayout, R: BendRules): Piece[] {
   const out: Piece[] = [];
   for (const z of line.zones) {
@@ -235,10 +244,10 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
   const hd = det.horizontals.dia, levels = spread(H, det.horizontals.spacing);
   const len = r.length - 2 * c;
   if (det.ends.kind === 'ubar') {
-    pieces.push({ kind: 'horizontal', count: levels * det.horizontals.y.length, shape: straight(len, hd, R) });
+    pieces.push({ kind: 'horizontal', count: levels * det.horizontals.y.length, shape: lapped(straight(len, hd, R), r.hLap) });
     pieces.push({ kind: 'ubar', count: 2 * levels, shape: uBar(r.thickness - 2 * c - hd / 1000, det.ends.lap, hd, R.mandrel(hd, 'longitudinal')) });
   } else {
-    pieces.push({ kind: 'horizontal', count: levels, shape: hookedStraight(0, len, 0, hd, R.mandrel(hd, 'longitudinal'), [true, true], 1, R.extension(hd, 90, 'longitudinal')) });
+    pieces.push({ kind: 'horizontal', count: levels, shape: lapped(hookedStraight(0, len, 0, hd, R.mandrel(hd, 'longitudinal'), [true, true], 1, R.extension(hd, 90, 'longitudinal')), r.hLap) });
   }
   const ties = det.boundary?.ties;
   if (det.boundary && ties) {
@@ -254,7 +263,8 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
 
 /** A level's slab bars as its plan lays them, packages crossing panels and lapped over supports. */
 function levelPieces(plan: LevelPlan): ScheduleElement {
-  const pieces = plan.packages.map((p) => ({ kind: p.layer === 'top' ? 'slabTop' as const : 'slabBottom' as const, count: p.count, shape: p.shape, elevation: p.mark }));
+  const lapOf = (dia: number) => plan.anchorage?.find((x) => x.dia === dia)?.lap ?? 0;
+  const pieces = plan.packages.map((p) => ({ kind: p.layer === 'top' ? 'slabTop' as const : 'slabBottom' as const, count: p.count, shape: lapped(p.shape, lapOf(p.shape.dia)), elevation: p.mark }));
   return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
 }
 

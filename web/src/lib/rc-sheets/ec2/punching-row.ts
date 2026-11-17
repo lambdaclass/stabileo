@@ -49,7 +49,7 @@ export function makePunchingRow(set: Ec2Set) {
       return {
         family: 'punching', key: d.key, name: d.name, level: d.level, demand: d, position: position.position ?? '—', vu: 0, phiVc: 0, utilization: 0,
         verifications: [check('rcSheets.v.punchingUnsupported', false, { clause: '6.4' })], combos: { headers: ['ΔN', 'MEd', 'VEd'], rows: [] },
-        status: 'none', steps: [{ title: 'rcSheets.g.punching', steps: [{ label: 'rcSheets.s.punchPosition', formula: '', value: position.position ?? '—' }] }], isAdopted: true,
+        status: 'none', steps: [{ title: 'rcSheets.g.punching', steps: [position.position ? { label: `rcSheets.punchPos.${position.position}`, formula: '', value: `${fmt(position.coverageDeg, 0)}°` } : { label: 'rcSheets.s.punchPosition', formula: '', value: '—' }] }], isAdopted: true,
       };
     }
     const pos = position.position!;
@@ -93,17 +93,17 @@ export function makePunchingRow(set: Ec2Set) {
     const steps: StepGroup[] = [{
       title: 'rcSheets.g.punching',
       steps: [
-        { label: 'rcSheets.s.punchPosition', formula: '', value: `${pos} (${fmt(position.coverageDeg, 0)}°)` },
+        { label: `rcSheets.punchPos.${pos}`, formula: '', value: `${fmt(position.coverageDeg, 0)}°` },
         { label: 'rcSheets.s.punchSection', formula: 'c1 × c2 · h', value: `${fmt(d.joint.b * 100, 0)} × ${fmt(d.joint.h * 100, 0)} cm · ${fmt(d.thickness * 100, 0)} cm` },
-        { label: 'rcSheets.ec2.s.punchDepth', formula: 'deff = h − c − Ø (mean of the two top layers, 6.4.2(1))', value: `${fmt(dd * 100, 1)} cm` },
+        { label: 'rcSheets.ec2.s.punchDepth', formula: 'deff = h − c − Ø (6.4.2(1))', value: `${fmt(dd * 100, 1)} cm` },
         { label: 'rcSheets.ec2.s.punchPerimeters', formula: pos === 'interior' ? 'u0 = 2(c1 + c2); u1 = 2(c1 + c2) + 4π·d' : pos === 'edge' ? 'u0 = min(c2 + 3d; c2 + 2c1); u1 = c2 + 2c1 + 2π·d' : 'u0 = min(3d; c1 + c2); u1 = c1 + c2 + π·d', value: `${fmt(g.u0, 3)} · ${fmt(g.u1, 3)} m` },
         { label: 'rcSheets.ec2.s.punchBeta', formula: pos === 'interior' ? 'β = max(1.15; 1 + 1.8·√((ey/bz)² + (ez/by)²)) (6.43, Fig. 6.21N)' : `β = max(${fmt(PUNCHING_BETA[pos], 2)}; 1 + k·(MEd/VEd)·u1/W1) (6.39, 6.41, Fig. 6.21N)`, value: fmt(beta, 2) },
-        { label: 'rcSheets.s.punchVu', formula: 'VEd = ΔN − beam shears at the joint; vEd = β·VEd/(u·d) (6.38)', value: `${fmt(gov.Vu)} kN (${gov.combinationName}) → ${fmt(vEd, 3)} MPa` },
+        { label: 'rcSheets.ec2.s.punchVu', formula: 'VEd = ΔN − ΣVb; vEd = β·VEd/(u·d) (6.38)', value: `${fmt(gov.Vu)} kN (${gov.combinationName}) → ${fmt(vEd, 3)} MPa` },
         { label: 'rcSheets.ec2.s.punchVrdc', formula: 'vRd,c = CRd,c·k·(100·ρl·fck)^⅓ ≥ vmin = 0.035·k^1.5·√fck; ρl = √(ρly·ρlz) ≤ 0.02 (6.47)', value: `k = ${fmt(k, 3)}; vmin = ${fmt(vmin, 3)} MPa; ρl,req = ${fmt(rhoReq * 100, 3)} %`, ok: concreteOk },
         { label: 'rcSheets.ec2.s.punchMax', formula: `vEd,0 = β·VEd/(u0·d) ≤ ${fmt(set.punchingMaxCoeff, 1)}·ν·fcd, ν = 0.6(1 − fck/250) (6.4.5(3))`, value: `${fmt(vEd0, 3)} ≤ ${fmt(vrdMax, 3)} MPa`, ok: maxOk },
         ...(!concreteOk ? [
           { label: 'rcSheets.ec2.s.punchLinks', formula: 'vRd,cs = 0.75·vRd,c + 1.5·(d/sr)·Asw·fywd,ef/(u1·d), fywd,ef = 250 + 0.25·d ≤ fywd (6.52)', value: `Asw = ${fmt(asw)} cm²` },
-          { label: 'rcSheets.ec2.s.punchOut', formula: 'uout,ef = β·VEd/(vRd,c·d) (6.54); the outer perimeter of links within 1.5·d of it (6.4.5(4))', value: `${fmt(uOut, 2)} m` },
+          { label: 'rcSheets.ec2.s.punchOut', formula: 'uout,ef = β·VEd/(vRd,c·d) (6.54, 6.4.5(4))', value: `${fmt(uOut, 2)} m` },
         ] : []),
         { label: 'rcSheets.ec2.s.punchScope', value: '' },
       ],
