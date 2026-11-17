@@ -430,3 +430,24 @@ fn a_case_without_a_screen_counts_as_compressed_when_a_span_load_compresses_a_me
         assert_eq!(combine(&spanned), unbounded(), "3D: ends at {n}, compressed inside by a span load");
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2223"]
+fn issue_2223_nonfinite_combination_keeps_a_refusal_and_the_unbounded_screen() {
+    use dedaliano_engine::postprocess::combinations::{combine_results, combine_results_checked, CaseEntry, CombinationInput};
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut case = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
+        case.result_summary = None;
+        case.structured_diagnostics.clear();
+        case.element_forces[0].n_start = value;
+        let factors = vec![CombinationFactor { case_id: 1, factor: 1.0 }];
+        let owned = CombinationInput { factors: factors.clone(), cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+        for result in [combine_results_refs(&factors, &[(1, &case)]), combine_results(&owned)] {
+            let r = result.expect("a refused result must retain its diagnosis");
+            assert_eq!(second_order(&r.structured_diagnostics), unbounded());
+            assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NonFiniteResult && d.severity == Severity::Error));
+            assert!(r.displacements.is_empty() && r.reactions.is_empty() && r.element_forces.is_empty());
+        }
+        assert!(combine_results_checked(&owned).unwrap_err().contains("non_finite_result"));
+    }
+}
