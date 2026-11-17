@@ -110,3 +110,26 @@ describe('the Turkish stack, end to end', () => {
     expect(p.blockedKeys.map((m) => m.key)).toEqual(['loads.tr.seismic.blocked.spectrum']);
   });
 });
+
+describe('TBDY 2018: what the code requires is always applied, and the summary is the main axis\'s', () => {
+  it('a project saved with the 100/30 combination or the ±5 % eccentricity turned off still gets both (4.4.2.1, 4.5.10.2)', () => {
+    const i = input();
+    const p = buildLoadPlan({ ...i, codeInputs: { ...i.codeInputs, tbdy2018: { ...i.codeInputs!.tbdy2018 as object, orthogonal: false, eccentricity: false } } });
+    expect(p.outcome).toBe('READY');
+    const e = p.cases.filter((c) => c.type === 'E');
+    expect(e).toHaveLength(8);
+    expect(e.every((c) => /0\.3/.test(String(c.nameParams!.ortho)) && /e\)/.test(String(c.nameParams!.ecc)))).toBe(true);
+  });
+  it('Y alone, with another system along Y: the period and base shear reported are Y\'s, not X\'s', () => {
+    const i = input();
+    const p = buildLoadPlan({ ...i, codeInputs: { ...i.codeInputs, tbdy2018: { ...i.codeInputs!.tbdy2018 as object, systemY: 'A14', directions: { x: false, y: true } } } });
+    expect(p.outcome).toBe('READY');
+    const d = p.seismic as unknown as { ta: number; t: number; tbdy: { tpa: number; byAxis: { x: { tpa: number }; y: { tpa: number; t: number; vt: number } } } };
+    expect(d.tbdy.byAxis.x.tpa).toBeCloseTo(0.1 * 12 ** 0.75, 9);
+    expect(d.tbdy.byAxis.y.tpa).toBeCloseTo(0.07 * 12 ** 0.75, 9);
+    expect(d.ta).toBeCloseTo(0.07 * 12 ** 0.75, 9);
+    expect(d.tbdy.tpa).toBeCloseTo(0.07 * 12 ** 0.75, 9);
+    expect(d.t).toBeCloseTo(d.tbdy.byAxis.y.t, 12);
+    expect(p.factors.baseShear!.value).toBeCloseTo(d.tbdy.byAxis.y.vt, 9);
+  });
+});
