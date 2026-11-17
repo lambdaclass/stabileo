@@ -94,6 +94,6 @@ test('@smoke research viewer: the status bar shows a position only once the poin
   await expect(wrap.locator('[data-testid="sfv-position"]')).toHaveCount(0);
   await expect(wrap.locator('.sfv-status')).not.toContainText('—');
   const box = (await canvas.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 });
   await expect(wrap.locator('[data-testid="sfv-position"]')).toHaveText(/pos:\s*\(-?\d+\.\d{4}; -?\d+\.\d{4}\)/);
 });

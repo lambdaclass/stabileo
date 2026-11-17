@@ -132,7 +132,7 @@ export function projectedDataAxes(
 /** Whether a 3D view keeps an elevation standing: its data y axis stays screen-vertical and keeps its proportion to the x axis seen in 2D. */
 export function standsUp(flat: ProjectedAxes, oblique: ProjectedAxes): boolean {
   const length = ([dx, dy]: [number, number]) => Math.hypot(dx, dy);
-  if (!(oblique.y[1] < 0) || Math.abs(oblique.y[0]) >= 0.1 * Math.abs(oblique.y[1])) return false;
+  if (!(oblique.y[1] < 0) || Math.abs(oblique.y[0]) >= 0.25 * Math.abs(oblique.y[1])) return false;
   if (length(flat.x) < 1 || length(oblique.x) < 1) return length(oblique.y) > 0.5 * length(flat.y);
   return length(oblique.y) / length(oblique.x) > 0.75 * (length(flat.y) / length(flat.x));
 }

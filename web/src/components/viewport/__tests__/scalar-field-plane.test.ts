@@ -133,6 +133,11 @@ describe('the camera fit', () => {
     expect(fitScalarFieldCamera('elevation', 'orbit', bounds, WIDTH / HEIGHT, 50).target.y).toBeCloseTo(0, 9);
   });
 
+  it('accepts the perspective lean of an off-centre vertical in a centred 3D view', () => {
+    expect(standsUp({ x: [1000, 0], y: [0, -333.3] }, { x: [548.0, 94.1], y: [-23.4, -211.6] })).toBe(true);
+    expect(standsUp({ x: [504.6, 0], y: [0, -6.06] }, { x: [502.5, 98.2], y: [-0.70, -6.69] })).toBe(true);
+  });
+
   it('keeps the plan default exactly where the viewer always put it', () => {
     const fit = fitScalarFieldCamera('plan', 'orbit', [0, 0, 2, 2], 1, 50);
     const dist = (1.08 * 2) / 2 / Math.tan(THREE.MathUtils.degToRad(25));
