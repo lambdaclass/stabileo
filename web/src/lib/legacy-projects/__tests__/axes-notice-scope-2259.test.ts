@@ -12,9 +12,11 @@ it('the axes notice cannot explain an unrelated solver change even on an axes-ma
   expect(metadata).toBeDefined();
   const entry = { ...metadata!, quantities: declaredQuantities[axesNotice.id] };
   expect(entry.quantities).toBeUndefined();
+  const when = entry.when;
+  if (!when) throw new Error('Axes notice must declare its applicability');
   for (const analysisMode of ['2d', '3d', 'pro']) {
     const features = [...modelFeatures({ analysisMode, loadCases: [{ id: 1, axisNamed: true }] })];
-    expect(conditionHolds(entry.when, new Set(features))).toBe(true);
+    expect(conditionHolds(when, new Set(features))).toBe(true);
     for (const family of ['base', 'case[1]', 'combo[1]', 'pdelta.results', 'nonlinear.results']) {
       for (const quantity of ['displacements[n1].ux', 'reactions[n1].rz', 'elementForces[e1].nStart']) {
         const path = `${family}.${quantity}`;

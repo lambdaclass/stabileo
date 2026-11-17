@@ -9,6 +9,7 @@ import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { axesStore } from '../../axes/axes.svelte';
 import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { selfWeightFor } from '../../engine/self-weight';
 import { tensorToUser } from '../workbook-frame';
 import type { WorkbookSheet } from '../workbook-cells';
 
@@ -116,7 +117,10 @@ it('self-weight import refuses invalid rules without broadening their scope', ()
     ['case', 1, 'Q', -1, 'all', '', ''],
     ['case', 1, 'Z', 'bad', 'all', '', ''],
     ['case', 9999, 'Z', -1, 'all', '', ''],
-    ['single', '', 'Z', -1, 'all', '', ''],
+    ['invalid', '', 'Z', -1, 'all', '', ''],
+    ['single', 1, 'Z', -1, 'all', '', ''],
+    ['single', '', 'Z', -1, 'members', 1, ''],
+    ['single', '', 'Z', 0, 'all', '', ''],
     ['case', 1, 'Z', -1, 'group', '', 1],
     ['case', 1, 'Z', -1, 'members', '', ''],
     ['case', 1, 'Z', -1, 'members', 9999, ''],
@@ -131,4 +135,23 @@ it('self-weight import refuses invalid rules without broadening their scope', ()
     expect(r.problems).toEqual([]);
     expect(r.model.analysis?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor }]);
   }
+});
+
+for (const deadCases of [0, 1, 2]) it.skip(`known wrong result: #2259 standalone gravity round trips independently of ${deadCases} dead cases`, () => {
+  portal();
+  modelStore.setAnalysis({ selfWeight: undefined });
+  modelStore.model.loadCases = Array.from({ length: deadCases }, (_, i) => ({ id: i + 1, name: `D${i}`, type: 'D' as const }));
+  modelStore.model.loadCases.push({ id: deadCases + 1, name: 'Live', type: 'L' });
+  uiStore.includeSelfWeight = true;
+  for (const choice of allChoices()) {
+    axesStore.choice = choice;
+    const back = parseWorkbook(asImport(currentWorkbookSheets(2, { results: false })));
+    expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+    for (const c of [null, ...modelStore.loadCases]) {
+      expect(selfWeightFor(back.model, c, false)).toEqual(selfWeightFor(modelStore.model, c, true));
+    }
+    const weights = selfWeightFor(back.model, null, false);
+    expect(weights).toHaveLength(1);
+  }
+  uiStore.includeSelfWeight = false;
 });
