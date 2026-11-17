@@ -9,7 +9,6 @@ import type { Support } from '../../store/model.svelte';
 import { supportDofs3D } from '../../engine/support-dofs-3d';
 import { buildSolverInput3D, validateAndSolve2D, validateAndSolve3D, validateAndSolve3DAsync, solveCombinations3D, solveCombinations3DParallel } from '../../engine/solver-service';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
 const directory = 'src/lib/templates/fixtures';
 const fixtures = readdirSync(directory).filter(f => f.endsWith('.json')).sort().map(file => ({
   name: file.slice(0, -5),
@@ -27,7 +26,7 @@ beforeEach(() => {
 
 function apiFor(adapter: typeof adapters[number]): FixtureLoader {
   const api = modelStore.fixtureApi();
-  if (adapter === 'store') return api as FixtureLoader;
+  if (adapter === 'store') return api as unknown as FixtureLoader;
   let nextSupport = 100;
   const add = (nodeId: number, type: string, springs?: Record<string, number>, opts?: Record<string, unknown>) => {
     const id = nextSupport++;
@@ -37,9 +36,9 @@ function apiFor(adapter: typeof adapters[number]): FixtureLoader {
   return {
     ...api,
     addSupport: adapter === 'three arguments'
-      ? (nodeId, type, springs) => add(nodeId, type, springs)
+      ? (nodeId: number, type: string, springs?: Record<string, number>) => add(nodeId, type, springs)
       : add,
-  } as FixtureLoader;
+  } as unknown as FixtureLoader;
 }
 
 function expectAdmitted() {
@@ -51,7 +50,7 @@ function expectAdmitted() {
 
 for (const { name, json } of fixtures) {
   for (const adapter of adapters) {
-    regression(`known wrong result: #2277 ${name} preserves support metadata through ${adapter}`, () => {
+    it(`known wrong result: #2277 ${name} preserves support metadata through ${adapter}`, () => {
       if (is2DFixture(name)) uiStore.useUpright2DIn3DPresentation();
       loadFixture(json, apiFor(adapter));
       const loaded = [...modelStore.supports.values()];
@@ -84,7 +83,7 @@ for (const id of Object.keys(VALIDATION_MODELS) as ValidationModelId[]) {
   });
 }
 
-regression('known wrong result: #2277 a loader cannot silently discard a support with metadata', () => {
+it('known wrong result: #2277 a loader cannot silently discard a support with metadata', () => {
   const json = fixtures.find(f => f.name === 'rc-beam-flexure')!.json;
   const api = apiFor('four arguments');
   api.addSupport = () => 999;
@@ -100,7 +99,7 @@ it('#2277 a raw ambiguous support is still refused and an explicit mask is admit
 for (const mode of modes) {
   for (const nonlinear of [false, true]) {
     for (const entry of ['input', 'sync', 'async', 'combinations', 'parallel'] as const) {
-      regression(`known wrong result: #2277 rc-beam-flexure three-argument loader ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
+      it(`known wrong result: #2277 rc-beam-flexure three-argument loader ${mode} ${entry} nonlinear=${nonlinear}`, async () => {
         uiStore.analysisMode = mode;
         const json = fixtures.find(f => f.name === 'rc-beam-flexure')!.json;
         loadFixture(json, apiFor('three arguments'));
@@ -126,6 +125,13 @@ for (const mode of modes) {
           expect(result.elementForces.find(f => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
           expect(result.elementForces.find(f => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
           for (const nodeId of [1, 3]) expect(result.reactions.find(r => r.nodeId === nodeId)!.fz).toBeCloseTo(w * length / 2, 9);
+        } else {
+          expect(result.perCase.size).toBe(m.loadCases.length);
+          expect(result.perCombo.size).toBe(m.combinations.length);
+          for (const answer of [...result.perCase.values(), ...result.perCombo.values()]) {
+            expect(answer.elementForces.find(f => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
+            expect(answer.elementForces.find(f => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
+          }
         }
       });
     }
@@ -152,7 +158,7 @@ it('#2277 the braced portal retains its plane answer through the fixture loader'
   }
 });
 
-regression('known wrong result: #2277 loaded masks are independent of fixture objects', () => {
+it('known wrong result: #2277 loaded masks are independent of fixture objects', () => {
   const json = structuredClone(fixtures.find(f => f.name === 'rc-beam-flexure')!.json);
   loadFixture(json, apiFor('four arguments'));
   const source = json.supports.find(s => s.type === 'rollerZ')!;

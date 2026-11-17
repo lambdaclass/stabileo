@@ -100,7 +100,7 @@ export interface FixtureLoader {
   // Constraints
   addConstraint?(c: Record<string, unknown>): void;
   // Model metadata
-  model: { name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<{ factors?: ReadonlyArray<{ caseId: number }>; [k: string]: unknown }> };
+  model: { supports: ReadonlyMap<number, object>; name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<{ factors?: ReadonlyArray<{ caseId: number }>; [k: string]: unknown }> };
   nextId: { loadCase: number; combination: number };
 }
 
@@ -218,7 +218,10 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
     }
     const hasSpring = Object.keys(springs).length > 0 ? springs : undefined;
     const hasOpts = Object.keys(opts).length > 0 ? opts : undefined;
-    api.addSupport(nodeId, type, hasSpring, hasOpts);
+    const supportId = api.addSupport(nodeId, type, hasSpring, hasOpts);
+    const created = api.model.supports.get(supportId);
+    if (!created) throw new Error(`Fixture support ${supportId} was not stored.`);
+    Object.assign(created, structuredClone(rest));
   }
 
   // Loads
