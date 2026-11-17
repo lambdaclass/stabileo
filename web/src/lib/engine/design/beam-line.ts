@@ -114,9 +114,11 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
     };
     topAt('start'); topAt('end');
     // ── Stirrups ──
-    zone(a, s, reg.stirrupsSupport ?? r.stirrups);
+    const support = reg.stirrupsSupport ?? r.stirrups;
+    const ends = reg.stirrupsBySupport;
+    zone(a, s, ends ? ends.atStart ?? undefined : support);
     zone(s, e, reg.stirrupsSpan ?? r.stirrups);
-    zone(e, b, reg.stirrupsSupport ?? r.stirrups);
+    zone(e, b, ends ? ends.atEnd ?? undefined : support);
     if (reg.skin) skin[String(m.id)] = { ...reg.skin };
   });
 
@@ -139,14 +141,14 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
 }
 
 const sameSecondaryCage = (p: StirrupDef, q: StirrupDef) => secondaryStirrupLegs(p) === secondaryStirrupLegs(q);
-const sameZone = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs
-  && Math.abs(p.spacing - q.spacing) < EPS && sameSecondaryCage(p, q);
+const sameCage = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs
+  && p.spacing === q.spacing && sameSecondaryCage(p, q);
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];
   for (const z of [...zs].sort((p, q) => p.from - q.from)) {
     const last = out[out.length - 1];
-    if (last && sameZone(last, z) && Math.abs(last.to - z.from) < EPS) out[out.length - 1] = { ...last, to: z.to };
+    if (last && sameCage(last, z) && Math.abs(last.to - z.from) < EPS) out[out.length - 1] = { ...last, to: z.to };
     else out.push({ ...z });
   }
   return out;
@@ -271,13 +273,15 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
       else { regions.topEndLayers = layers; regions.topEnd = groupOfLayers(layers); if (!plain) regions.topEndGroups = groups; }
     };
     topSide('start'); topSide('end');
-    // ── Stirrups: the span zone, and the weaker of the two end zones ──
     const zAt = (x: number) => line.stirrups.find((z) => z.from <= x + EPS && z.to >= x - EPS);
     const zs = zAt((a + s) / 2), ze = zAt((e + b) / 2), zm = zAt(mid);
     const sup = zs && ze ? (avs(zs) <= avs(ze) ? zs : ze) : (zs ?? ze);
     if (sup) {
       const stirrup = stirrupOf(sup);
       regions.stirrupsSupport = zs && ze && !sameSecondaryCage(zs, ze) ? { ...stirrup, secondaryCrossties: null } : stirrup;
+    }
+    if ((zs || ze) && (!zs || !ze || !sameCage(zs, ze))) {
+      regions.stirrupsBySupport = { atStart: zs ? stirrupOf(zs) : null, atEnd: ze ? stirrupOf(ze) : null };
     }
     if (zm) regions.stirrupsSpan = stirrupOf(zm);
     const skin = line.skin?.[String(m.id)];

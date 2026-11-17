@@ -166,7 +166,7 @@ describe('predefined spans', () => {
   });
 });
 
-it.skip('known wrong result: #2171 rechecks the two support cages of a previously saved line', () => {
+it('#2171 rechecks the two support cages of a previously saved line', () => {
   const line = designed();
   const members = lineMembers(line);
   const first = members[0]!;

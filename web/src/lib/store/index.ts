@@ -12,6 +12,7 @@ import { tabManager } from './tabs.svelte';
 import { cloudLink } from './cloud-link.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
+import { reinforcementForVerification } from './beam-line-store';
 import { storedRefusal } from './design-refusals';
 import { detailingStore } from './detailing.svelte';
 import { designRunStore } from './design-run.svelte';
@@ -211,9 +212,7 @@ resultsStore._setOnResultsPublish(() => {
 
 // Let verificationStore read the current provided reinforcement without importing
 // modelStore (which would create a circular dependency).
-verificationStore._setReinforcementProvider(
-  (elementId) => modelStore.elements.get(elementId)?.reinforcement,
-);
+verificationStore._setReinforcementProvider(reinforcementForVerification);
 
 // The refusals kept with the project, for a member that has no bars now (an edit after the
 // refusal is its own verdict, read from the bars).

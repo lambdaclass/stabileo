@@ -32,3 +32,23 @@ The saved-project registry selects spatial CIRSOC 201 concrete models. Whether
 a particular member is exposed depends on its concurrent secondary demand and
 the leg count credited in the prior verification. Re-run affected members and
 review the secondary shear and torsion reinforcement checks against the cage.
+
+## Beam torsion and beam-line supports
+
+The member verifier checks the available transverse steel on every active
+shear face under non-negligible torsion, including beams. A combined check
+that requires an unknown secondary provision is refused. Standalone
+secondary shear reporting retains its existing scope.
+
+For a beam line with unequal support cages, the torsion check reads each
+support's concurrent forces with the cage at that end. Reopening a saved
+line whose member geometry and reinforcement still match also recovers
+both cages from the line. With equal Ø8 diameters, the witness has two
+legs at 100 mm at one end and four legs at 150 mm at the other. Each end
+has two effective secondary legs. Their secondary transverse provisions are
+10.053 and 6.702 cm²/m, respectively. For the demand just above the looser
+end's capacity, its combined utilization is 1.002. Reusing the tighter
+cage gave 0.668 and an `ok` torsion check.
+
+The existing `secondary-stirrup-legs` notice covers these beam cases and
+the vertical-member cases above.

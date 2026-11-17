@@ -268,7 +268,7 @@ const secondaryDepth = 0.259;
 
 for (const [edition, vcStress] of [['2005', 5000 / 6], ['2025', 0.17 * 5000]] as const) {
   for (const factor of [0.999, 1.001]) {
-    it.skip(`known wrong result: #2171 beam member checks the secondary torsion face at capacity (${edition}, ${factor})`, () => {
+    it(`#2171 beam member checks the secondary torsion face at capacity (${edition}, ${factor})`, () => {
       const shear = { ...cage, spacing: edition === '2025' ? 0.075 : cage.spacing };
       const secondaryVc = vcStress * section.h * secondaryDepth;
       const capacity = 0.75 * (secondaryVc + (2 * outerLegArea / shear.spacing - 2 * atRequired) * 420 * 1000 * secondaryDepth);
@@ -285,7 +285,7 @@ for (const [edition, vcStress] of [['2005', 5000 / 6], ['2025', 0.17 * 5000]] as
     });
   }
 
-  it.skip(`known wrong result: #2171 beam refuses unknown secondary legs at active torsion (${edition})`, () => {
+  it(`#2171 beam refuses unknown secondary legs at active torsion (${edition})`, () => {
     const threshold = 0.75 * (0.33 * 5 * (section.b * section.h) ** 2 * 1000 / (2 * (section.b + section.h))) / 4;
     const check = (vy: number, tu: number, shear = { ...cage, secondaryCrossties: null as number | null }) =>
       verifyElement({ ...input(vy, tu, edition), elementType: 'beam' }, { ...fixed, shear });
@@ -296,7 +296,7 @@ for (const [edition, vcStress] of [['2005', 5000 / 6], ['2025', 0.17 * 5000]] as
   });
 }
 
-it.skip('known wrong result: #2171 concurrent member cases retain simultaneous secondary shear', () => {
+it('#2171 concurrent member cases retain simultaneous secondary shear', () => {
   const demands = declaredTestDemands([0, 150].map((vy, i) => ({ comboId: i + 1, comboName: `C${i + 1}`,
     forces: { t: 0, x: 0, n: 0, my: 20, mz: 0, vy, vz: 0, torsion: torque } })));
   const inputs = demands.map(demand => ({ ...section, elementId: 1, elementType: 'beam' as const,
@@ -308,7 +308,7 @@ it.skip('known wrong result: #2171 concurrent member cases retain simultaneous s
 
 for (const [startSpacing, endSpacing] of [[0.1, 0.15], [0.15, 0.1]] as const) {
   for (const factor of [0.999, 1.001]) {
-    it.skip(`known wrong result: #2171 projected support checks the actual secondary cage (${startSpacing}, ${factor})`, () => {
+    it(`#2171 projected support checks the actual secondary cage (${startSpacing}, ${factor})`, () => {
       const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: {
         top: { count: 3, diameter: 16 }, bottom: { count: 3, diameter: 16 },
       } }];
@@ -336,7 +336,7 @@ for (const [startSpacing, endSpacing] of [[0.1, 0.15], [0.15, 0.1]] as const) {
 }
 
 for (const nonlinear of [false, true]) {
-  it.skip(`known wrong result: #2171 spatial beam checks secondary torsion steel through result adapters (nonlinear=${nonlinear})`, () => {
+  it(`#2171 spatial beam checks secondary torsion steel through result adapters (nonlinear=${nonlinear})`, () => {
     const beam = { ...model, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]) };
     const solver: SolverInput3D = { ...beam,
       elements: new Map([[1, { ...beam.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,

@@ -13,6 +13,7 @@
  */
 
 import { regroupBars } from './rebar-groups';
+import { replaceBeamRegionStirrups } from '../../design-contract/reinforcement';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
 import { resolveLayers, resolveColumnReinf } from '../station-design-forces';
 import type { DesignCodeAdapter } from './code-adapter';
@@ -217,6 +218,7 @@ export function applyPatch(
       if (!p) continue;
       const before = reg[sk] ?? next.stirrups;
       const merged: StirrupDef = {
+        ...before,
         diameter: p.diameter ?? before?.diameter ?? 8,
         legs: p.legs ?? before?.legs ?? 2,
         spacing: p.spacing ?? before?.spacing ?? 0.15,
@@ -229,9 +231,12 @@ export function applyPatch(
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsTooFew', params: { field: sk, legs: merged.legs } });
         continue;
       }
-      reg[sk] = merged;
-      if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
-        changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
+      const ends = sk === 'stirrupsSupport' ? reg.stirrupsBySupport : undefined;
+      replaceBeamRegionStirrups(reg, sk, merged);
+      if (ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
+        changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span',
+          before: ends ? [ends.atStart, ends.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ') : fmtStir(before),
+          after: fmtStir(merged) });
       }
     }
 

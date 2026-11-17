@@ -185,7 +185,7 @@ function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerif
       model.sections as never, model.materials as never, model.supports as never) : undefined;
     const base: VerificationBase = {
       elementType,
-      ...(isVertical && section.shape !== undefined && section.shape !== 'rect' ? { rectangularCage: false } : {}),
+      ...(section.shape !== undefined && section.shape !== 'rect' ? { rectangularCage: false } : {}),
       b: axis === 'My' ? b : h, h: axis === 'My' ? h : b,
       fc: concreteFc(material)!, fy: options?.rebarFy ?? 420,
       cover: isVertical ? options?.columnCover ?? options?.cover ?? 0.025 : options?.cover ?? 0.025,

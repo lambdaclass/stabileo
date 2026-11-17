@@ -20,6 +20,7 @@ import { withSpanPieces } from './design-spans-store';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from './model.svelte';
 import { regroupBars } from '../engine/design/rebar-groups';
 import { resolveLayers } from '../engine/station-design-forces';
+import { replaceBeamRegionStirrups } from '../design-contract/reinforcement';
 
 export type LayerField = 'topStartLayers' | 'topEndLayers' | 'bottomSpanLayers';
 const GROUP_OF: Record<LayerField, 'topStart' | 'topEnd' | 'bottomSpan'> = {
@@ -121,7 +122,7 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
   const p = draft(elemId);
   p.regions = p.regions ?? {};
   const cur = p.regions[field] ?? p.stirrups;
-  p.regions[field] = {
+  replaceBeamRegionStirrups(p.regions, field, {
     ...cur, ...patch,
     diameter: patch.diameter ?? cur?.diameter ?? 8,
     // Clamp to the constructible range — Av = legs × legArea enters the shear
@@ -129,7 +130,7 @@ export function setStirrups(elemId: number, field: StirrupField, patch: Partial<
     // reinforcement. The editors advertise max=6; enforce it here too.
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
-  };
+  });
   commitManual(elemId, p);
 }
 

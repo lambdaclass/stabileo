@@ -1268,7 +1268,7 @@ export type ConcurrentVerificationInput = Omit<VerificationInput, 'Mu' | 'Vu' | 
   secondaryCrossties?: StirrupDef['secondaryCrossties'];
 };
 
-export function verificationCase(input: ConcurrentVerificationInput): VerificationInput {
+export function verificationCase(input: ConcurrentVerificationInput): VerificationInput & { VuSecondary: number } {
   const d = input.demand;
   const pair = (ends: readonly [number, number]) => {
     const [a, b] = ends;
@@ -1278,7 +1278,7 @@ export function verificationCase(input: ConcurrentVerificationInput): Verificati
   const primary = pair(d.axis === 'My' ? d.source.ends.my : d.source.ends.mz);
   const secondary = pair(d.axis === 'My' ? d.source.ends.mz : d.source.ends.my);
   return { ...input, Mu: d.Mu, Vu: d.Vu, Nu: d.Nu, NuShear: d.Nu,
-    Muy: input.elementType !== 'beam' ? d.Muy : undefined, VuSecondary: input.elementType !== 'beam' && !(d.VuSecondary <= 0.01) ? d.VuSecondary : undefined, Tu: d.Tu,
+    Muy: input.elementType !== 'beam' ? d.Muy : undefined, VuSecondary: d.VuSecondary, Tu: d.Tu,
     M1: d.source.transverseLoading[d.axis] === false ? input.M1 ?? primary.M1 : undefined,
     M2: d.source.transverseLoading[d.axis] === false ? input.M2 ?? primary.M2 : undefined,
     M1Secondary: d.source.transverseLoading[d.axis === 'My' ? 'Mz' : 'My'] === false ? input.M1Secondary ?? secondary.M1 : undefined,
@@ -1334,7 +1334,12 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   return { shear: { spacing, legs }, requirements };
 }
 
-function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined): TorsionResult {
+function checkProvidedTorsion(t: TorsionResult, primary: ShearResult, secondary: ShearResult | null | undefined, AlProv: number | undefined): TorsionResult {
+  if (secondary === null && !t.neglect) {
+    return { ...t, status: 'fail', reinforcementRatio: Infinity,
+      steps: [...t.steps, secondaryStirrupLegsUnavailable] };
+  }
+  const shears = secondary ? [primary, secondary] : [primary];
   const AtOverSProv = Math.min(...shears.map(s => {
     const provision = torsionStirrupProvision(s);
     return Math.max(0, Math.min(provision.outerLegProvided * 1e4,
@@ -1414,49 +1419,39 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     }
     const NuShear = input.NuShear ?? input.Nu;
     let shear = checkShear(params, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
-    let shearSecondary: ShearResult | undefined;
+    const torsion = input.Tu && Math.abs(input.Tu) > 0.001 ? checkTorsion(params, concurrent.demand, edition) : undefined;
+    const { VuSecondary } = input;
+    const checkSecondaryShear = isVertical && !(VuSecondary <= 0.01);
+    const checkSecondaryTorsion = torsion && !torsion.neglect && !(VuSecondary <= 0);
+    let secondaryProvision: ShearResult | null | undefined;
     let secondarySizing: ShearResult | undefined;
-    let secondaryRefused = false;
-    if (isVertical && input.VuSecondary !== undefined) {
+    if (checkSecondaryShear || checkSecondaryTorsion) {
       const cage = fixed?.shear ?? { legs: shear.stirrupLegs, spacing: shear.spacing };
       const secondaryCrossties = cage.secondaryCrossties === undefined ? concurrent.secondaryCrossties : cage.secondaryCrossties;
-      const legs = secondaryStirrupLegs({ diameter: params.stirrupDia, ...cage, secondaryCrossties }, concurrent.rectangularCage);
-      if (legs === undefined) {
-        secondaryRefused = true;
-      } else {
-        const rotated = { ...params, b: params.h, h: params.b };
-        const VuSecondary = input.VuSecondary;
+      const legs = secondaryStirrupLegs({ ...cage, diameter: params.stirrupDia, secondaryCrossties }, concurrent.rectangularCage);
+      const rotated = { ...params, b: params.h, h: params.b };
+      if (checkSecondaryShear && legs !== undefined) {
         secondarySizing = checkShear(rotated, VuSecondary, NuShear, { edition, ...fixed?.shear });
         if (secondarySizing.spacing !== shear.spacing || secondarySizing.stirrupLegs !== shear.stirrupLegs) {
-          const cage = { spacing: Math.min(shear.spacing, secondarySizing.spacing),
+          const shared = { spacing: Math.min(shear.spacing, secondarySizing.spacing),
             legs: Math.max(shear.stirrupLegs, secondarySizing.stirrupLegs) };
-          shear = checkShear(params, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...cage });
-          secondarySizing = checkShear(rotated, VuSecondary, NuShear, { edition, ...cage });
+          shear = checkShear(params, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...shared });
+          secondarySizing = checkShear(rotated, VuSecondary, NuShear, { edition, ...shared });
         }
-        shearSecondary = evaluateShear(rotated, VuSecondary, NuShear, { edition, spacing: shear.spacing }, legs);
       }
+      secondaryProvision = legs === undefined ? null : evaluateShear(rotated, VuSecondary, NuShear, { edition, spacing: shear.spacing }, legs);
     }
+    const shearSecondary = checkSecondaryShear ? secondaryProvision ?? undefined : undefined;
+    const secondaryRefused = secondaryProvision === null;
+    const torsionResult = torsion ? checkProvidedTorsion(torsion, shear, secondaryProvision, fixed?.torsion?.AlProv) : undefined;
     let column: ColumnResult | undefined;
     let biaxial: BiaxialResult | undefined;
-    let torsionResult: TorsionResult | undefined;
 
     if (isVertical) {
       const demand = concurrent.demand.amplified(designMu, designMuy ?? 0);
       column = checkColumn(params, [demand], { edition, fixed: fixed?.column });
       if (designMuy !== undefined && !(Math.abs(designMuy) <= 0.01)) {
         biaxial = checkBiaxial(params, demand, column.AsProv, { edition, barCount: column.barCount, barDia: column.barDia });
-      }
-    }
-
-    // Torsion check if Tu is provided
-    if (input.Tu && Math.abs(input.Tu) > 0.001) {
-      torsionResult = checkTorsion(params, concurrent.demand, edition);
-      if (secondaryRefused && !torsionResult.neglect) {
-        torsionResult = { ...torsionResult, status: 'fail', reinforcementRatio: Infinity,
-          steps: [...torsionResult.steps, secondaryStirrupLegsUnavailable] };
-      } else {
-        torsionResult = checkProvidedTorsion(torsionResult,
-          [shear, ...(shearSecondary ? [shearSecondary] : [])], fixed?.torsion?.AlProv);
       }
     }
 

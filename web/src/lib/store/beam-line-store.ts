@@ -66,6 +66,18 @@ export interface StaleLine {
   record: BeamLineReinforcement;
 }
 
+export function reinforcementForVerification(elementId: number): ProvidedReinforcement | undefined {
+  const rebar = modelStore.elements.get(elementId)?.reinforcement;
+  if (!rebar || rebar.regions?.stirrupsBySupport) return rebar;
+  const id = verificationStore.contextFor(elementId)?.span?.representative ?? elementId;
+  if (!Object.values(storedDecisions().lines ?? {}).some(record => record.members.includes(id))) return rebar;
+  const line = modelBeamLines().find(candidate => candidate.members.includes(id));
+  const record = line && storedLine(line);
+  if (!line || !record) return rebar;
+  const supportCages = projected(line, record).get(id)?.regions?.stirrupsBySupport;
+  return supportCages ? { ...rebar, regions: { ...rebar.regions, stirrupsBySupport: supportCages } } : rebar;
+}
+
 const LENGTH_TOL = 1e-3;
 
 /** Whether a saved line still stands for its members, and if not, why. */
