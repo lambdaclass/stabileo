@@ -580,3 +580,20 @@ fn round12_plane_envelope_retains_member_force_extrema() {
     }
 }
 
+
+#[test]
+#[ignore = "known wrong result: #2219"]
+fn plane_distributed_load_ids_reach_the_solver_and_preserve_strict_fields() {
+    for id in [None, Some(0), Some(17)] {
+        let mut load = json!({"type":"distributed","data":{"elementId":1,"qI":-1,"qJ":-2,"a":0.5,"b":1.5}});
+        if let Some(id) = id { load["data"]["id"] = json!(id); }
+        let raw: SolverLoad = serde_json::from_value(load.clone()).unwrap();
+        let typed: dedaliano_engine::types::units::TypedLoad = serde_json::from_value(load.clone()).unwrap();
+        assert_eq!(serde_json::to_value(raw).unwrap(), serde_json::to_value(typed).unwrap());
+        for (field, value) in [("moments", json!({"x":[1,1,1],"y":[0,0,0],"z":[0,0,0]})), ("moments", Value::Null), ("qTypo", json!(1))] {
+            let mut bad = load.clone(); bad["data"][field] = value;
+            assert!(serde_json::from_value::<SolverLoad>(bad.clone()).is_err());
+            assert!(serde_json::from_value::<dedaliano_engine::types::units::TypedLoad>(bad).is_err());
+        }
+    }
+}
