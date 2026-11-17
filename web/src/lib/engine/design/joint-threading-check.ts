@@ -28,6 +28,27 @@ interface ModelSlice {
   sections: ReadonlyMap<number, { b?: number; h?: number; shape?: string; rotation?: number }>;
 }
 
+const LAYOUT_DOMAIN_LIMIT = 512;
+const layoutDomains = new Map<string, ReturnType<typeof beamLayoutDomain>>();
+
+/** `beamLayoutDomain`, once per exact input: a member's candidates mostly share their top row and cages. */
+function layoutDomainOf(input: Parameters<typeof beamLayoutDomain>[0]): ReturnType<typeof beamLayoutDomain> {
+  let exact = true;
+  const key = JSON.stringify(input, (_key, value) => {
+    if (typeof value !== 'number') return value;
+    if (!Number.isFinite(value)) { exact = false; return null; }
+    return Object.is(value, -0) ? '-0' : value;
+  });
+  if (!exact) return beamLayoutDomain(input);
+  let domain = layoutDomains.get(key);
+  if (!domain) {
+    if (layoutDomains.size >= LAYOUT_DOMAIN_LIMIT) layoutDomains.clear();
+    domain = Object.freeze(beamLayoutDomain(input).map((candidate) => Object.freeze(candidate))) as ReturnType<typeof beamLayoutDomain>;
+    layoutDomains.set(key, domain);
+  }
+  return domain;
+}
+
 export interface JointThreadingVerdict {
   end: 'start' | 'end';
   nodeId: number;
@@ -109,8 +130,8 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
   };
   const ends = [{ end: 'start' as const, nodeId: el.nodeI }, { end: 'end' as const, nodeId: el.nodeJ }].map((x) => ({ ...x, ...keepAt(x.nodeId) }));
   if (ends.every((x) => x.bars === 0)) return [];
-  const domain = beamLayoutDomain({
-    row, section: ctx.section, cover: ctx.material.cover, stirrupDiaMm,
+  const domain = layoutDomainOf({
+    row, section: { b: ctx.section.b, h: ctx.section.h }, cover: ctx.material.cover, stirrupDiaMm,
     edition: ctx.codeEdition, maxAggregateSizeMm: ctx.material.maxAggregateSize.value, placement: 0,
     obstacles: ends.flatMap((x) => x.keep), maxTopLayers: (supportPlan ?? endSupportPlan(support)).maxTopLayers,
   });

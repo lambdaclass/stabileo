@@ -199,6 +199,15 @@ export function supportPlanes(cage: SupportCage): { straight: number; hook: numb
   return { straight: ring, hook: Math.min(ring, core) };
 }
 
+const farthestFirst = new WeakMap<ReadonlyArray<CrossingSeat>, ReadonlyArray<CrossingSeat>>();
+const noCrossing: ReadonlyArray<CrossingSeat> = Object.freeze([]);
+function crossingFromFarthest(crossing: ReadonlyArray<CrossingSeat> | undefined): ReadonlyArray<CrossingSeat> {
+  if (!crossing?.length) return noCrossing;
+  let sorted = farthestFirst.get(crossing);
+  if (!sorted) { sorted = [...crossing].sort((p, q) => q.at - p.at); farthestFirst.set(crossing, sorted); }
+  return sorted;
+}
+
 /** The end of a bar in a support, and what it develops there. Null with no column geometry. */
 export function planSupportEnd(cage: SupportCage, bar: SupportBar): SupportEndPlan | null {
   if (!(cage.face > 0)) return null;
@@ -209,7 +218,7 @@ export function planSupportEnd(cage: SupportCage, bar: SupportBar): SupportEndPl
   const straightLimit = planes.straight - bar.inboard;
   // The tail's centre, inboard past every crossing corner bar it would pass through; rows nest
   // `inboard` inside the outer row's tail, wherever that ended.
-  const crossing = [...(cage.crossing ?? [])].sort((p, q) => q.at - p.at);
+  const crossing = crossingFromFarthest(cage.crossing);
   const clear = (x: number) => {
     for (const c of crossing) {
       if (c.face && bar.position && c.face !== bar.position) continue;

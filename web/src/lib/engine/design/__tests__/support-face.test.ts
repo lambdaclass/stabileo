@@ -15,6 +15,7 @@ import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
 import * as anchorage from '../end-support-anchorage';
 import * as supportEnds from '../../detailing/support-anchorage';
+import * as candidates from '../../detailing/candidates';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 
 beforeAll(async () => {
@@ -78,6 +79,31 @@ describe('support moments at the column face', () => {
       expect(spy).toHaveBeenCalledTimes(2);
     } finally { spy.mockRestore(); ends.mockRestore(); }
   });
+  it('lays out a row of slots against the same cages once, whatever else the candidate changes', () => {
+    const b = cantilever(Math.PI / 2);
+    const column = [...modelStore.elements.keys()].find(id => id !== b)!;
+    const ctx = { ...verificationStore.contextFor(b)!, columnBars: new Map([[column, { count: 6, diameterMm: 20 }]]) };
+    const rebar = modelStore.elements.get(b)!.reinforcement!;
+    const layouts = vi.spyOn(candidates, 'generateLayoutCandidates');
+    try {
+      const first = cirsoc201Adapter.verify(ctx, rebar);
+      expect(first.jointThreading?.length).toBeGreaterThan(0);
+      expect(layouts).toHaveBeenCalledTimes(1);
+      const closerStirrups = structuredClone(rebar);
+      closerStirrups.regions!.stirrupsSpan = { diameter: 8, legs: 2, spacing: 0.12 };
+      expect(cirsoc201Adapter.verify(ctx, closerStirrups).jointThreading).toEqual(first.jointThreading);
+      expect(cirsoc201Adapter.verify(ctx, rebar).jointThreading).toEqual(first.jointThreading);
+      expect(layouts).toHaveBeenCalledTimes(1);
+      const moreSlots = structuredClone(rebar);
+      moreSlots.regions!.topStart = { count: 5, diameter: 16 };
+      moreSlots.regions!.topStartLayers = [{ count: 5, diameter: 16, row: 0 }];
+      cirsoc201Adapter.verify(ctx, moreSlots);
+      expect(layouts).toHaveBeenCalledTimes(2);
+      cirsoc201Adapter.verify({ ...ctx, columnBars: new Map([[column, { count: 8, diameterMm: 20 }]]) }, rebar);
+      expect(layouts).toHaveBeenCalledTimes(3);
+    } finally { layouts.mockRestore(); }
+  });
+
   it('the face follows the column extent along the beam, and the hogging is taken there', () => {
     const faces: number[] = [];
     for (const roll of [0, 90]) {
