@@ -1,4 +1,7 @@
 const es: Record<string, string> = {
+  "loadPlan.blocked.concentratedRule": "{occupancy} requiere verificar cargas concentradas según CIRSOC 101 {article}. No se evalúan las posiciones más desfavorables. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} requiere verificar una sobrecarga concentrada de {force} kN según CIRSOC 101 §4.4. No se evalúan las posiciones más desfavorables ni la alternativa entre carga uniforme y concentrada. La generación automática está bloqueada; modelá y verificá estas acciones manualmente.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 exige acciones concentradas de cubierta en las posiciones más desfavorables, separadas de la sobrecarga de cubierta de §4.8. Estas verificaciones no se evalúan. La generación automática está bloqueada; modelá y verificá las acciones de cubierta manualmente.",
   "underAudit.text": "En revisión: una revisión interna detectó errores en la generación automática de cargas y en el diseño de hormigón armado. Las correcciones siguen en curso. Verifique estos resultados de forma independiente antes de utilizarlos en un proyecto.",
   "underAudit.details": "Hallazgos pendientes de la revisión",
   'steps.catalog.button': 'Paso a paso explicado',

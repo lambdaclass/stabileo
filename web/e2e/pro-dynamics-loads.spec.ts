@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * PRO › dynamics and moving loads as load cases: a spectrum of the project's own, a spectral load
  * case solved into the results and the combinations, a vehicle from the catalog written as static
@@ -65,6 +66,7 @@ test.describe('@smoke PRO dynamics and moving loads as cases', () => {
     await page.getByTestId('al-wind-profile-on').check();
     await page.getByTestId('al-wind-profile-text').fill('0; 0,6\n10; 0,9');
     await expect(page.getByTestId('profile-chart')).toBeVisible();
+    await dwellingFloorLoads(page);
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-derivation')).toContainText(/pressure profile/);
   });

@@ -1114,10 +1114,14 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     derivation.push(msg('loadPlan.derivation.combinationCount', { count: combinations.length }));
   }
 
+  const limits = codes.loads.generationBlockers({ occupancies: [occ, ...(roofOccupancy ? [roofOccupancy] : [])], roof: input.roof !== undefined });
+  blockedKeys.push(...limits.messages);
+  refs.push(...limits.refs);
+
   // Each case with the action category of its type, as the basis code reads it.
   for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
   return {
-    outcome: 'READY',
+    outcome: blockedKeys.length ? 'BLOCKED' : 'READY',
     cases, distributed, nodal, surface, thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
@@ -1131,7 +1135,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     seismic: seismicDetail,
     generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
-    unsupportedKeys, refs, derivation, blockedKeys: [],
+    unsupportedKeys, refs, derivation, blockedKeys,
   };
 }
 

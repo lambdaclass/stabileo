@@ -157,6 +157,7 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
 }
 
 export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
+  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return;
   modelStore.batch(() => {
     const before = loadsGeneratedWith({ designData: designData(), loads: modelStore.loads as never });
     // The basis of what is about to be written, for the memoria (`LoadBasis`).

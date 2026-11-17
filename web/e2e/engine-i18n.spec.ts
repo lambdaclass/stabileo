@@ -1,3 +1,4 @@
+import { dwellingFloorLoads, expectLoadGenerationRefusal } from './load-generator-inputs';
 /**
  * PR16 — engine output reaches the user translated, and no load case disappears quietly.
  *
@@ -45,6 +46,7 @@ async function openDialog(page: Page) {
   await loadModel(page, 'rc-design-qa-8');
   await openLoadsTab(page);
   await page.getByTestId('pro-auto-loads-btn').click();
+  await dwellingFloorLoads(page);
   await alSection(page, 'regulations');
   await expect(page.getByTestId('al-regulations')).toBeVisible();
 }
@@ -110,6 +112,14 @@ for (const locale of ['en', 'es'] as const) {
           expect(all).toMatch(/\d+,\d/);
           expect(all).not.toMatch(/Basis of calculation|Occupancy:|plan area/);
         }
+      });
+
+    test(`I1 — a concentrated live action refuses in ${locale} without changing the model`,
+      async ({ pro: page }) => {
+        await openDialog(page);
+        await alSection(page, 'live');
+        await page.getByTestId('al-occupancy').selectOption('oficina');
+        await expectLoadGenerationRefusal(page, /§4\.4/);
       });
 
     test(`I1 — the regulation label always carries its edition (${locale})`,
