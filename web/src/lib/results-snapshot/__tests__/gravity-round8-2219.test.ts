@@ -103,7 +103,7 @@ for (const [entry, solve] of solves.entries()) it(`known wrong result: #2219 rou
   }
 });
 
-for (const [entry, solve] of solves.entries()) it.skip(`known wrong result: #2219 round16 zero-resultant quadratic torque entry=${entry}`, async () => {
+for (const [entry, solve] of solves.entries()) it(`known wrong result: #2219 round16 zero-resultant quadratic torque entry=${entry}`, async () => {
   const { compute_diagrams_3d } = await import('../../wasm/dedaliano_engine.js');
   const s = fixture(0, 1, 'x');
   s.supports[2] = { nodeId: 2, rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: true };
@@ -118,4 +118,20 @@ for (const [entry, solve] of solves.entries()) it.skip(`known wrong result: #221
   const d = JSON.parse(compute_diagrams_3d(JSON.stringify(result))).torsion[0];
   expect(Math.abs(d.maxValue - Math.sqrt(3)/18)).toBeLessThan(1e-10);
   expect(Math.abs(d.minValue + Math.sqrt(3)/18)).toBeLessThan(1e-10);
+});
+
+for (const axis of ['x', 'y', 'z'] as const) it(`known wrong result: #2219 round16 small-displacement ${axis} profiles match linear recovery`, () => {
+  const s = fixture(0, 1, axis);
+  s.loads[0].data.moments[axis] = [1e-6, -0.5e-6, 1e-6];
+  s.loads.push({ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 1e-6, my: 0, mz: 0 } });
+  const expected = solves[0]!(s);
+  expect(Math.abs(expected.displacements.find(d => d.nodeId === 2)!.rx)).toBeGreaterThan(0);
+  for (const solve of solves.slice(1)) {
+    const result = solve(s), ef = result.elementForces[0]!, reference = expected.elementForces[0]!;
+    expect(ef.memberMoments).toEqual(reference.memberMoments);
+    for (const kind of ['axial', 'torsion', 'shearY', 'shearZ', 'momentY', 'momentZ'] as const) {
+      for (const t of [0, 0.2, 0.5, 0.8, 1]) expect(Math.abs(evaluateDiagramAt(ef, kind, t) - evaluateDiagramAt(reference, kind, t))).toBeLessThan(1e-10);
+    }
+    expect(Math.abs(result.displacements.find(d => d.nodeId === 2)!.rx - expected.displacements.find(d => d.nodeId === 2)!.rx)).toBeLessThan(1e-10);
+  }
 });

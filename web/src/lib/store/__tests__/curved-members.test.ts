@@ -115,7 +115,7 @@ describe('a curved member as one piece', () => {
     expect(modelStore.nodes.size).toBe(nodes8);
   });
 
-  it.skip('known wrong result: #2219 piece stations retain element coordinates at rounded joints', () => {
+  it('known wrong result: #2219 piece stations retain element coordinates at rounded joints', () => {
     const { arcId, made } = arch(2);
     addCurveLoad({ arcId, caseId: 1, q: 2, dir: [0, 0, -1] });
     syncDefinedLoadsForAnalysis();
@@ -129,13 +129,13 @@ describe('a curved member as one piece', () => {
       const stations = pieceDiagram(single, forces, 'axial')!;
       const points = computeDiagram3D(forces.get(first.elementId)!, 'axial').points;
       const expected = reversed ? [...points].reverse() : points;
-      expect(stations.map(p => Reflect.get(p, 'elementT'))).toEqual(expected.map(p => p.t));
+      expect(stations.map(p => p.elementT)).toEqual(expected.map(p => p.t));
       expect(stations.map(p => p.value)).toEqual(expected.map(p => p.value));
       expect(stations.map(p => p.s)).toEqual(expected.map(p => (reversed ? 1 - p.t : p.t) * first.length));
     }
   });
 
-  it.skip('known wrong result: #2219 reads its forces along it, from start to end', () => {
+  it('known wrong result: #2219 reads its forces along it, from start to end', () => {
     const { arcId, made } = arch(12);
     addCurveLoad({ arcId, caseId: 1, q: 2, dir: [0, 0, -1] });
     syncDefinedLoadsForAnalysis();
@@ -156,8 +156,11 @@ describe('a curved member as one piece', () => {
     const n = pieceDiagram(p, forces, 'axial')!, vy = pieceDiagram(p, forces, 'shearY')!, vz = pieceDiagram(p, forces, 'shearZ')!;
     const turn = (Math.PI / 2) / 12;
     for (let k = 1; k < p.segments.length; k++) {
-      const s = p.segments[k]!.s0;
-      const at = (st: typeof n) => st.filter((x) => Math.abs(x.s - s) < 1e-9).map((x) => x.value);
+      const left = p.segments[k - 1]!, right = p.segments[k]!;
+      const at = (st: typeof n) => st.filter(x =>
+        (x.elementId === left.elementId && x.elementT === (left.reversed ? 0 : 1)) ||
+        (x.elementId === right.elementId && x.elementT === (right.reversed ? 1 : 0)),
+      ).map(x => x.value);
       const N = at(n), V = [...at(vy), ...at(vz)].map(Math.abs);
       expect(N.length).toBe(2);
       expect(Math.abs(N[0]! - N[1]!)).toBeLessThanOrEqual(1.2 * Math.max(...V) * Math.sin(turn) + 1e-6);

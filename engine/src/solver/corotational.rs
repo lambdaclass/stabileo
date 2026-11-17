@@ -2385,66 +2385,65 @@ fn compute_corotational_forces_3d(
         .collect();
     elastic_corotational_forces_3d(input, dof_num, u_full, left_hand)
         .into_iter()
-        .map(|el| match fixed_end.get(&el.element_id) {
-            Some(fe) => {
-                let elem = elements[&el.element_id];
-                let ni = nodes[&elem.node_i];
-                let nj = nodes[&elem.node_j];
-                let at = |node, k| dof_num.global_dof(node, k).map_or(0.0, |d| u_full[d]);
-                let chord = [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z];
-                let length = chord.iter().map(|v| v * v).sum::<f64>().sqrt();
-                let (yx, yy, yz) = corot_local_y_ref(
-                    ni.x,
-                    ni.y,
-                    ni.z,
-                    nj.x,
-                    nj.y,
-                    nj.z,
-                    elem.local_yx,
-                    elem.local_yy,
-                    elem.local_yz,
-                );
-                let reference = compute_local_axes_3d(
-                    ni.x,
-                    ni.y,
-                    ni.z,
-                    nj.x,
-                    nj.y,
-                    nj.z,
-                    yx,
-                    yy,
-                    yz,
-                    elem.roll_angle,
-                    left_hand,
-                );
-                let (final_axes, _, _, _) = natural_rotations_3d(
-                    (&reference.0, &reference.1, &reference.2),
-                    [3, 4, 5].map(|k| at(elem.node_i, k)),
-                    [3, 4, 5].map(|k| at(elem.node_j, k)),
-                    [0, 1, 2].map(|k| (at(elem.node_j, k) - at(elem.node_i, k)) / length),
-                );
-                let actions = MemberFixedEndActions {
-                    dead_reference: spatial_end_actions(fe),
-                    eigenstrain_current: eigenstrain.get(&el.element_id).copied().unwrap_or([0.0; 12]),
-                }.in_final_frame(reference, final_axes);
-                ElementForces3D {
-                    length: el.length,
-                    n_start: el.n_start - actions[0],
-                    n_end: el.n_end + actions[6],
-                    vy_start: el.vy_start + actions[1],
-                    vy_end: el.vy_end - actions[7],
-                    vz_start: el.vz_start + actions[2],
-                    vz_end: el.vz_end - actions[8],
-                    mx_start: el.mx_start + actions[3],
-                    mx_end: el.mx_end - actions[9],
-                    my_start: el.my_start + actions[4],
-                    my_end: el.my_end - actions[10],
-                    mz_start: el.mz_start + actions[5],
-                    mz_end: el.mz_end - actions[11],
-                    ..fe.clone()
-                }
+        .map(|el| {
+            let fe = fixed_end.get(&el.element_id)
+                .expect("elastic member actions require the linear recovery template");
+            let elem = elements[&el.element_id];
+            let ni = nodes[&elem.node_i];
+            let nj = nodes[&elem.node_j];
+            let at = |node, k| dof_num.global_dof(node, k).map_or(0.0, |d| u_full[d]);
+            let chord = [nj.x - ni.x, nj.y - ni.y, nj.z - ni.z];
+            let length = chord.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let (yx, yy, yz) = corot_local_y_ref(
+                ni.x,
+                ni.y,
+                ni.z,
+                nj.x,
+                nj.y,
+                nj.z,
+                elem.local_yx,
+                elem.local_yy,
+                elem.local_yz,
+            );
+            let reference = compute_local_axes_3d(
+                ni.x,
+                ni.y,
+                ni.z,
+                nj.x,
+                nj.y,
+                nj.z,
+                yx,
+                yy,
+                yz,
+                elem.roll_angle,
+                left_hand,
+            );
+            let (final_axes, _, _, _) = natural_rotations_3d(
+                (&reference.0, &reference.1, &reference.2),
+                [3, 4, 5].map(|k| at(elem.node_i, k)),
+                [3, 4, 5].map(|k| at(elem.node_j, k)),
+                [0, 1, 2].map(|k| (at(elem.node_j, k) - at(elem.node_i, k)) / length),
+            );
+            let actions = MemberFixedEndActions {
+                dead_reference: spatial_end_actions(fe),
+                eigenstrain_current: eigenstrain.get(&el.element_id).copied().unwrap_or([0.0; 12]),
+            }.in_final_frame(reference, final_axes);
+            ElementForces3D {
+                length: el.length,
+                n_start: -el.actions[0] - actions[0],
+                n_end: el.actions[6] + actions[6],
+                vy_start: el.actions[1] + actions[1],
+                vy_end: -el.actions[7] - actions[7],
+                vz_start: el.actions[2] + actions[2],
+                vz_end: -el.actions[8] - actions[8],
+                mx_start: el.actions[3] + actions[3],
+                mx_end: -el.actions[9] - actions[9],
+                my_start: el.actions[4] + actions[4],
+                my_end: -el.actions[10] - actions[10],
+                mz_start: el.actions[5] + actions[5],
+                mz_end: -el.actions[11] - actions[11],
+                ..fe.clone()
             }
-            None => el,
         })
         .collect()
 }
@@ -2477,13 +2476,19 @@ fn add_wagner_torque(
     f_local[9] += tw;
 }
 
+struct ElasticMemberActions3D {
+    element_id: usize,
+    length: f64,
+    actions: [f64; 12],
+}
+
 /// The co-rotational elastic part of the member end forces, K·d_nat (3D).
 fn elastic_corotational_forces_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u_full: &[f64],
     left_hand: bool,
-) -> Vec<ElementForces3D> {
+) -> Vec<ElasticMemberActions3D> {
     let mut forces = Vec::new();
 
     let node_by_id: std::collections::HashMap<usize, &SolverNode3D> =
@@ -2522,21 +2527,10 @@ fn elastic_corotational_forces_3d(
             let elong = elongation(&[dx0, dy0, dz0], &[uj[0] - ui[0], uj[1] - ui[1], uj[2] - ui[2]], l0, l_n);
             let n_axial = e * sec.a / l0 * elong;
 
-            forces.push(ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
-                element_id: elem.id, length: l_n,
-                n_start: n_axial, n_end: n_axial,
-                vy_start: 0.0, vy_end: 0.0,
-                vz_start: 0.0, vz_end: 0.0,
-                mx_start: 0.0, mx_end: 0.0,
-                my_start: 0.0, my_end: 0.0,
-                mz_start: 0.0, mz_end: 0.0,
-                release_my_start: false, release_my_end: false, release_mz_start: false, release_mz_end: false, release_t_start: false, release_t_end: false,
-                q_yi: 0.0, q_yj: 0.0,
-                distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
-                q_zi: 0.0, q_zj: 0.0,
-                distributed_loads_x: Vec::new(),
-                distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
-                bimoment_start: None, bimoment_end: None,
+            forces.push(ElasticMemberActions3D {
+                element_id: elem.id,
+                length: l_n,
+                actions: [-n_axial, 0.0, 0.0, 0.0, 0.0, 0.0, n_axial, 0.0, 0.0, 0.0, 0.0, 0.0],
             });
             continue;
         }
@@ -2624,34 +2618,10 @@ fn elastic_corotational_forces_3d(
         // torques balance the applied torques and the reactions.
         add_wagner_torque(&mut f_local, &d_nat, elem, &wagner_section(sec.a, sec.iy, sec.iz), l_n);
 
-        // Sign convention: match linear solver output
-        forces.push(ElementForces3D { point_torques: Vec::new(), member_moments: Vec::new(),
+        forces.push(ElasticMemberActions3D {
             element_id: elem.id,
             length: l_n,
-            n_start: -f_local[0],
-            n_end: f_local[6],
-            vy_start: f_local[1],
-            vy_end: -f_local[7],
-            vz_start: f_local[2],
-            vz_end: -f_local[8],
-            mx_start: f_local[3],
-            mx_end: -f_local[9],
-            my_start: f_local[4],
-            my_end: -f_local[10],
-            mz_start: f_local[5],
-            mz_end: -f_local[11],
-            release_my_start: elem.release_my_start,
-            release_my_end: elem.release_my_end,
-            release_mz_start: elem.release_mz_start,
-            release_mz_end: elem.release_mz_end,
-            release_t_start: elem.release_t_start,
-            release_t_end: elem.release_t_end,
-            q_yi: 0.0, q_yj: 0.0,
-            distributed_loads_y: Vec::new(), point_loads_y: Vec::new(),
-            q_zi: 0.0, q_zj: 0.0,
-            distributed_loads_x: Vec::new(),
-            distributed_loads_z: Vec::new(), point_loads_x: Vec::new(), point_loads_z: Vec::new(),
-            bimoment_start: None, bimoment_end: None,
+            actions: f_local,
         });
     }
 

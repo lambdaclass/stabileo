@@ -141,7 +141,7 @@ export function pieceOf(m: PieceModel, elementId: number, meshNodes: ReadonlySet
   return { kind, ...(kind === 'arc' ? { arcId: e.arc!.id } : {}), segments, length: s, start, end: last.reversed ? le.nodeI : le.nodeJ };
 }
 
-export interface PieceStation { s: number; value: number; elementId: number }
+export interface PieceStation { s: number; value: number; elementId: number; elementT: number }
 
 /**
  * One internal force along a piece, from its segments' own diagrams: each segment's samples at
@@ -154,8 +154,8 @@ export function pieceDiagram(piece: Piece, forces: ReadonlyMap<number, ElementFo
     const ef = forces.get(seg.elementId);
     if (!ef) return null;
     const d = computeDiagram3D(ef, kind);
-    const pts = seg.reversed ? [...d.points].reverse().map((p) => ({ t: 1 - p.t, value: p.value })) : d.points;
-    for (const p of pts) out.push({ s: seg.s0 + p.t * seg.length, value: p.value, elementId: seg.elementId });
+    const pts = seg.reversed ? [...d.points].reverse() : d.points;
+    for (const p of pts) out.push({ s: seg.s0 + (seg.reversed ? 1 - p.t : p.t) * seg.length, value: p.value, elementId: seg.elementId, elementT: p.t });
   }
   return out;
 }

@@ -620,7 +620,6 @@ fn plane_distributed_load_ids_reach_the_solver_and_preserve_strict_fields() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round16_zero_resultant_quadratic_torque_keeps_its_interior_profile() {
     use dedaliano_engine::postprocess::diagrams_3d::compute_diagrams_3d;
     let mut input = model(0.0);
@@ -656,7 +655,6 @@ fn round16_zero_resultant_quadratic_torque_keeps_its_interior_profile() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2219"]
 fn round16_small_displacement_moment_profiles_match_linear_recovery() {
     for axis in ["x", "y", "z"] {
         let mut input = model(0.0);
