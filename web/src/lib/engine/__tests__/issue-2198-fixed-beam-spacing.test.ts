@@ -12,7 +12,7 @@ const verify = (input: Parameters<typeof verifyElement>[0], spacing: number, ent
 };
 
 for (const entry of entries) for (const axis of ['My', 'Mz'] as const) {
-  it.skip(`known wrong result: #2198 fixed beam primary passes while secondary spacing fails ${entry} ${axis}`, () => {
+  it(`known wrong result: #2198 fixed beam primary passes while secondary spacing fails ${entry} ${axis}`, () => {
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'fixed cage', forces: {
       t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 1, vz: 1, torsion: 0,
     } }])[0]!.section(axis);
@@ -31,7 +31,7 @@ for (const entry of entries) for (const axis of ['My', 'Mz'] as const) {
 
 for (const entry of entries) for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const)
   for (const direction of ['primary', 'secondary'] as const) for (const row of [1, 2]) for (const factor of [0.999, 1, 1.001]) {
-    it.skip(`known wrong result: #2198 fixed beam spacing boundary ${entry} ${edition} ${axis} ${direction} row${row} ${factor}`, () => {
+    it(`known wrong result: #2198 fixed beam spacing boundary ${entry} ${edition} ${axis} ${direction} row${row} ${factor}`, () => {
       const sec = direction === 'secondary' ? section : { ...section, b: section.h, h: section.b };
       const target = { ...section, b: section.h, h: section.b };
       const d = target.h - target.cover - target.stirrupDia / 1000 - 16 / 2000;
@@ -51,7 +51,7 @@ for (const entry of entries) for (const edition of ['2005', '2025'] as const) fo
   }
 
 for (const factor of [0.999, 1, 1.001]) {
-  it.skip(`known wrong result: #2198 standalone beam shear fixed spacing ${factor}`, () => {
+  it(`known wrong result: #2198 standalone beam shear fixed spacing ${factor}`, () => {
     const d = section.h - section.cover - section.stirrupDia / 1000 - 16 / 2000;
     const s = checkShear(section, 1, 0, { spacing: d / 2 * factor, legs: 4 });
     expect(s.ratio).toBeLessThan(1);
@@ -60,7 +60,7 @@ for (const factor of [0.999, 1, 1.001]) {
 }
 
 for (const spatial of [false, true]) for (const nonlinear of [false, true]) for (const entry of entries) {
-  it.skip(`known wrong result: #2198 solved fixed beam spacing ${spatial ? '3D' : '2D'} ${nonlinear ? 'P-Delta' : 'linear'} ${entry}`, () => {
+  it(`known wrong result: #2198 solved fixed beam spacing ${spatial ? '3D' : '2D'} ${nonlinear ? 'P-Delta' : 'linear'} ${entry}`, () => {
     const p = spatial ? section : { ...section, b: section.h, h: section.b };
     const model = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0.04, y: 0, z: 0 }]]),

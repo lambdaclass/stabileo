@@ -43,14 +43,29 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     }
   }
   for (const factor of [0.999, 1, 1.001]) {
-    it(`known wrong result: #2198 pure torsion retains its own hoop spacing boundary ${edition} ${axis} ${factor}`, () => {
+    it(`known wrong result: #2198 pure torsion reports excessive secondary spacing independently of hoop spacing ${edition} ${axis} ${factor}`, () => {
       const spacing = Math.min(ph / 8, 0.3) * factor;
       const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'beam', demand: demand(0, 10, axis) },
         { shear: { spacing, legs: 2 }, torsion: { AlProv: 100 } });
       expect(v.shearSecondary!.stirrupLegs).toBe(2);
-      expect(v.shearSecondary!.status).toBe('ok');
+      expect(v.shearSecondary!.status).toBe('fail');
+      expect(v.shearSecondary!.steps.some(step => typeof step === 'string' && step.includes('9.7.6.2.2'))).toBe(true);
       expect(v.torsion!.spacingMax).toBe(Math.min(ph / 8, 0.3));
       expect(v.torsion!.reinforcementRatio).toBe(spacing / Math.min(ph / 8, 0.3));
+      expect(v.torsion!.status).toBe(factor > 1 ? 'fail' : 'ok');
+      expect(v.overallStatus).toBe('fail');
+    });
+    it(`pure torsion hoop boundary with compliant beam shear spacing ${edition} ${axis} ${factor}`, () => {
+      const square = { ...p, b: p.h };
+      const squarePh = 4 * (square.b - 2 * square.cover - square.stirrupDia / 1000);
+      const limit = Math.min(squarePh / 8, 0.3);
+      const spacing = limit * factor;
+      const v = verifyElement({ ...square, edition, elementId: 1, elementType: 'beam', demand: demand(0, 20, axis) },
+        { shear: { spacing, legs: 4, secondaryLegs: 4 }, torsion: { AlProv: 100 } });
+      expect(v.shear.status).toBe('ok');
+      expect(v.shearSecondary!.status).toBe('ok');
+      expect(v.torsion!.spacingMax).toBe(limit);
+      expect(v.torsion!.reinforcementRatio).toBe(spacing / limit);
       expect(v.torsion!.status).toBe(factor > 1 ? 'fail' : 'ok');
       expect(v.overallStatus).toBe(factor > 1 ? 'fail' : 'ok');
     });

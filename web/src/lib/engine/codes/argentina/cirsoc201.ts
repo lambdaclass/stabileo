@@ -636,7 +636,7 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
     { emissions.push(() => steps.push(msg('codes.cirsoc201.shear.legsInsufficient', { direction: msg(`codes.cirsoc201.shear.${direction}`), legs, requiredLegs: table.requiredLegs }))); }
   }
   const limit = spacingLimit(chosen);
-  if (ordinary && (limit.unsupported || spacing > limit.alongMax + LENGTH_EPS)) {
+  if (limit.unsupported || spacing > limit.alongMax + LENGTH_EPS) {
     status = 'fail';
     emissions.push(() => steps.push(limit.unsupported
       ? `Column shear spacing not evaluated for CIRSOC 201-${edition}`

@@ -255,9 +255,9 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v.slenderSecondary!.klu_r).toBeCloseTo(4 / (0.3 * 0.2), 9);
   });
 
-  it('a face that needs more legs cannot borrow them from the other axis', () => {
+  it('a beam face that needs more legs cannot borrow them from the other axis', () => {
     const input = {
-      elementId: 1, elementType: 'column' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
+      elementId: 1, elementType: 'beam' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
       b: 0.25, h: 0.9, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
     };
     const wide = verifyElement({ ...input, b: 0.9, h: 0.25, Vu: 700 }).shear;
@@ -268,6 +268,20 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v.shearSecondary!.stirrupLegs).toBe(2);
     expect(v.shearSecondary!.status).toBe('fail');
     expect(v.shear.spacing).toBe(v.shearSecondary!.spacing);
+  });
+
+  it('column faces retain two legs without the beam across-width restriction', () => {
+    const input = {
+      elementId: 1, elementType: 'column' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
+      b: 0.25, h: 0.9, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+    };
+    const wide = verifyElement({ ...input, b: 0.9, h: 0.25, Vu: 700 }).shear;
+    const v = verifyElement({ ...input, VuSecondary: 700 });
+    expect(wide.stirrupLegs).toBe(2);
+    expect(v.shear.stirrupLegs).toBe(2);
+    expect(v.shearSecondary!.stirrupLegs).toBe(2);
+    expect(v.shearSecondary!.status).toBe('fail');
+    expect(v.shearSecondary!.ratio).toBeGreaterThan(1);
   });
 
   it('a non-finite demand is checked, and fails, on whichever axis it is', () => {

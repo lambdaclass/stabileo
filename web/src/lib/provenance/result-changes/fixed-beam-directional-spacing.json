@@ -1,0 +1,39 @@
+{
+  "id": "fixed-beam-directional-spacing",
+  "date": "2026-11-17",
+  "prs": [
+    2198
+  ],
+  "area": "design",
+  "when": {
+    "any": [
+      "concreteMembers"
+    ]
+  },
+  "quantities": [
+    "member",
+    "rc"
+  ],
+  "title": {
+    "en": "Fixed beam cages enforce spacing in both shear directions",
+    "es": "Las armaduras de vigas provistas verifican la separación en ambas direcciones de corte",
+    "pt": "As armaduras fornecidas de vigas verificam o espaçamento nas duas direções de cisalhamento",
+    "de": "Vorgegebene Balkenbügel prüfen Abstände in beiden Querkraftrichtungen",
+    "fr": "Les cadres de poutres fournis vérifient l’espacement dans les deux directions de cisaillement",
+    "hu": "A megadott gerendakengyelek távolságát mindkét nyírási irányban ellenőrizzük",
+    "tr": "Verilen kiriş etriyeleri her iki kesme yönünde aralık denetiminden geçer"
+  },
+  "explanation": {
+    "en": "Recompute concrete beam checks with user-provided stirrup cages. The element verifier now enforces the along-member spacing limit in both shear directions, including a secondary direction evaluated for torsion. A previous strength pass can become a spacing failure even with enough legs. Column rules and section strength values are unchanged.",
+    "es": "Recalcule las verificaciones de vigas de hormigón con estribos provistos por el usuario. El verificador de elementos ahora aplica el límite de separación longitudinal en ambas direcciones de corte, incluida la dirección secundaria evaluada por torsión. Una aprobación por resistencia puede pasar a falla por separación aun con suficientes ramas. Las reglas de columnas y las resistencias de sección no cambian.",
+    "pt": "Recalcule as verificações de vigas de concreto com estribos fornecidos pelo usuário. O verificador de elementos agora aplica o limite de espaçamento longitudinal nas duas direções de cisalhamento, incluindo a direção secundária avaliada por torção. Uma aprovação por resistência pode se tornar falha de espaçamento mesmo com ramos suficientes. As regras de pilares e as resistências da seção não mudam.",
+    "de": "Betonbalken mit benutzerdefinierten Bügeln erneut prüfen. Die Elementprüfung wendet die Längsabstandsgrenze nun in beiden Querkraftrichtungen an, einschließlich einer für Torsion geprüften Sekundärrichtung. Trotz ausreichender Schenkelzahl und Tragfähigkeit kann der Abstand zur Ablehnung führen. Stützenregeln und Querschnittstragfähigkeiten bleiben unverändert.",
+    "fr": "Recalculez les poutres en béton avec des cadres fournis par l’utilisateur. La vérification des éléments applique désormais la limite d’espacement longitudinal dans les deux directions de cisaillement, y compris une direction secondaire évaluée pour la torsion. Une validation en résistance peut devenir un échec d’espacement malgré un nombre suffisant de branches. Les règles des poteaux et les résistances des sections restent inchangées.",
+    "hu": "Számítsa újra a felhasználó által megadott kengyelezésű vasbeton gerendákat. Az elemellenőrzés most mindkét nyírási irányban betartatja a hosszirányú távolságkorlátot, beleértve a csavarás miatt ellenőrzött másodlagos irányt. Elegendő kengyelszár és teherbírás mellett is hibát jelezhet a túl nagy távolság. Az oszlopszabályok és a keresztmetszeti teherbírások változatlanok.",
+    "tr": "Kullanıcının verdiği etriye düzenine sahip beton kirişleri yeniden denetleyin. Eleman doğrulayıcı artık burulma için değerlendirilen ikincil yön dahil her iki kesme yönünde boyuna aralık sınırını uygular. Yeterli etriye kolu olsa bile önceki dayanım onayı aralık nedeniyle başarısız olabilir. Kolon kuralları ve kesit dayanımları değişmez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2198-round19-fixed-beam-spacing.md",
+    "heading": "Fixed beam cages enforce along-member spacing in both directions (2026-11-17)"
+  }
+}

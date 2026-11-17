@@ -1,0 +1,375 @@
+{
+  "issue": 2198,
+  "parent": "03dd87f7472fd7a65f0bbb0b0b4038e3d597bcae",
+  "main": "44d527d64933c07c8a812f04ad2373e4d83eb72c",
+  "method": "Exact verifier source replay in this worktree against branch dependencies and existing WASM; not a full main checkout or release binary.",
+  "inputs": {
+    "section": {
+      "b": 0.3,
+      "h": 0.6,
+      "fc": 25,
+      "fy": 420,
+      "cover": 0.025,
+      "stirrupDia": 8
+    },
+    "fixed": {
+      "shear": {
+        "spacing": 0.2,
+        "legs": 4,
+        "secondaryLegs": 4
+      }
+    },
+    "forces": {
+      "t": 0,
+      "x": 0,
+      "n": 0,
+      "my": 0,
+      "mz": 0,
+      "vy": 1,
+      "vz": 1,
+      "torsion": 0
+    },
+    "axis": "My",
+    "elementType": "beam",
+    "rotatedBeam": {
+      "b": 0.6,
+      "h": 0.3
+    },
+    "standalone": {
+      "b": 0.6,
+      "h": 0.3,
+      "Vu": 1,
+      "Nu": 0
+    }
+  },
+  "beamLimitsM": {
+    "primary": 0.2795,
+    "secondary": 0.1295
+  },
+  "outputs": {
+    "parent": {
+      "beam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.5589999999999999,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 106.90875,
+          "phiVn": 284.0502599999999,
+          "ratio": 0.003520503730572189,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 2.50 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 284.05 kN"
+          ]
+        },
+        "secondary": {
+          "Vu": 1,
+          "d": 0.25899999999999995,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 99.0675,
+          "phiVn": 181.14201,
+          "ratio": 0.005520530549484352,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 25.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 181.14 kN"
+          ]
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      },
+      "rotatedBeam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.25899999999999995,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 99.0675,
+          "phiVn": 181.14201,
+          "ratio": 0.005520530549484352,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 25.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 181.14 kN"
+          ]
+        },
+        "secondary": {
+          "Vu": 1,
+          "d": 0.5589999999999999,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 106.90875,
+          "phiVn": 284.0502599999999,
+          "ratio": 0.003520503730572189,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 2.50 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 284.05 kN"
+          ]
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      },
+      "standalone": {
+        "Vu": 1,
+        "d": 0.25899999999999995,
+        "spacing": 0.2,
+        "stirrupDia": 8,
+        "stirrupLegs": 4,
+        "phiVc": 99.0675,
+        "phiVn": 181.14201,
+        "ratio": 0.005520530549484352,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 4 ramas Ø8 c/20 cm",
+          "φVn = 181.14 kN"
+        ]
+      }
+    },
+    "main": {
+      "beam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.5589999999999999,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 106.90875,
+          "phiVn": 284.0502599999999,
+          "ratio": 0.003520503730572189,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 2.50 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 284.05 kN"
+          ]
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      },
+      "rotatedBeam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.25899999999999995,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 99.0675,
+          "phiVn": 181.14201,
+          "ratio": 0.005520530549484352,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 25.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 181.14 kN"
+          ]
+        },
+        "overallStatus": "ok",
+        "diagnostics": []
+      },
+      "standalone": {
+        "Vu": 1,
+        "d": 0.25899999999999995,
+        "spacing": 0.2,
+        "stirrupDia": 8,
+        "stirrupLegs": 4,
+        "phiVc": 99.0675,
+        "phiVn": 181.14201,
+        "ratio": 0.005520530549484352,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 4 ramas Ø8 c/20 cm",
+          "φVn = 181.14 kN"
+        ]
+      }
+    },
+    "current": {
+      "beam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.5589999999999999,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 106.90875,
+          "phiVn": 284.0502599999999,
+          "ratio": 0.003520503730572189,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 2.50 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 284.05 kN"
+          ]
+        },
+        "secondary": {
+          "Vu": 1,
+          "d": 0.25899999999999995,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 99.0675,
+          "phiVn": 181.14201,
+          "ratio": 0.005520530549484352,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 25.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 181.14 kN",
+            "⚠ s = 20.00 cm > s,max = 12.95 cm (§9.7.6.2.2)"
+          ]
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 0.005520530549484352,
+              "phiVn": 181.14201,
+              "Vu": 1
+            }
+          }
+        ]
+      },
+      "rotatedBeam": {
+        "primary": {
+          "Vu": 1,
+          "d": 0.25899999999999995,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 99.0675,
+          "phiVn": 181.14201,
+          "ratio": 0.005520530549484352,
+          "status": "fail",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 25.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 5.00 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 181.14 kN",
+            "⚠ s = 20.00 cm > s,max = 12.95 cm (§9.7.6.2.2)"
+          ]
+        },
+        "secondary": {
+          "Vu": 1,
+          "d": 0.5589999999999999,
+          "spacing": 0.2,
+          "stirrupDia": 8,
+          "stirrupLegs": 4,
+          "phiVc": 106.90875,
+          "phiVn": 284.0502599999999,
+          "ratio": 0.003520503730572189,
+          "status": "ok",
+          "steps": [
+            "Vu = 1.00 kN",
+            "d = 55.9 cm",
+            "φVc (motor, CIRSOC 201-2025) = 106.91 kN",
+            "Vs,req = 0.00 kN",
+            "Av/s,req = 2.50 cm²/m",
+            "Estribos: 4 ramas Ø8 c/20 cm",
+            "φVn = 284.05 kN"
+          ]
+        },
+        "overallStatus": "fail",
+        "diagnostics": [
+          {
+            "severity": "error",
+            "code": "VERIF_FAIL_SHEAR",
+            "message": "diag.verifFailShear",
+            "source": "verification",
+            "elementIds": [
+              1
+            ],
+            "details": {
+              "ratio": 0.005520530549484352,
+              "phiVn": 181.14201,
+              "Vu": 1
+            }
+          }
+        ]
+      },
+      "standalone": {
+        "Vu": 1,
+        "d": 0.25899999999999995,
+        "spacing": 0.2,
+        "stirrupDia": 8,
+        "stirrupLegs": 4,
+        "phiVc": 99.0675,
+        "phiVn": 181.14201,
+        "ratio": 0.005520530549484352,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 99.07 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 4 ramas Ø8 c/20 cm",
+          "φVn = 181.14 kN",
+          "⚠ s = 20.00 cm > s,max = 12.95 cm (§9.7.6.2.2)"
+        ]
+      }
+    }
+  },
+  "mainExposure": "The rotated beam and standalone primary check return ok above the beam along-member limit without diagnostics. Main omits the secondary beam check. Coordinator owns advisory handling."
+}
