@@ -110,3 +110,39 @@ Round 7 also corrects missing secondary counts without a spacing seed, candidate
 Round 9 limits secondary shear distribution checks to nonzero checked secondary shear while retaining the outer-leg torsion provision. It also strengthens fallback end-cage capacity assertions and restores safety warnings in five translations. See the [round-9 results record](2198-round9-pure-torsion.md).
 
 Round 10 also corrects primary shear depth when an actual cage differs from the nominal diameter, including an inherited main error. See [primary shear and actual cage geometry](2198-round10-primary-depth.md).
+
+## Stirrup closure is a beam-layout constraint (#2198)
+
+The directional checks exposed a coordination defect on the undeclared-role span
+fixture at a 1 m mesh. The shared beam layout domain offered both a four-plus-two
+row arrangement and a three-plus-three arrangement for six longitudinal bars.
+The latter had `closable: false`: its inner rows blocked both closing corners.
+Coordination treated that condition as a cost penalty, so its least-overlap
+fallback could select it to reduce overlap at an already infeasible joint. The
+finished cage then contained 76 prohibited bar-to-stirrup-hook overlaps. The
+physical check reported them; this was not a silent physical approval.
+
+`beamLayoutDomain` now returns only `ClosableBeamLayout` values, whose
+`closable` field is the literal `true`. Its mandatory filter applies before both
+the design threading check and the detailing coordination search, including the
+partial-result fallback. A geometric impossibility cannot be traded for a better
+objective score. Generic layout enumeration remains available for diagnostics;
+the final physical collision and cover checks remain authoritative.
+
+The existing exact store assertion now returns zero clashes, zero conflicts and
+zero crosstie intersections without changing its model or expected values. The
+2 m mesh still reports exactly four crosstie conflicts, a partial exhausted
+search, and no physical approval for the affected assemblies. Regressions cover
+both supported editions, two and three allowed layers, refusal below the layer
+bound, the retained four-plus-two arrangement at the bound, a correct single-row
+control, a blocked-joint partial search, and exhaustion on either side of the
+bar-count limit. Eight new tests fail against the parent domain; all pass after
+the filter. This TypeScript domain is shared by
+design and detailing regardless of the analysis that supplies demands; the native
+solver has no beam-layout enumeration counterpart.
+
+The existing pending `directional-stirrup-legs` registry entry covers the concrete
+member design changes. Its design quantities do not explain analysis forces,
+reactions or displacements. New checks exercise that restriction through both
+the snapshot gate and legacy judge, including unchanged-answer controls. No
+analysis result, tolerance, historical result or physical acceptance limit changes.

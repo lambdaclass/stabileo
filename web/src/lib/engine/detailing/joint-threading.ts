@@ -70,6 +70,8 @@ export function beamSeat(section: { b: number; h: number }, cover: number, stirr
   return { cornerSeatAcross: seat.corner.halfAcross, cornerSeatTolerance: cornerSeatHold(stirrupDiaMm, barDiaMm) };
 }
 
+export type ClosableBeamLayout = LayoutCandidate & { closable: true };
+
 /**
  * The layouts the coordination offers a beam: every legal row of its slots, against the cages of
  * both its joints (a straight bar holds one position along its whole length), with no more top
@@ -79,7 +81,7 @@ export function beamLayoutDomain(o: {
   row: BeamRow; section: { b: number; h: number }; cover: number; stirrupDiaMm: number;
   edition: RegulationEdition; maxAggregateSizeMm: number; placement: number;
   obstacles: readonly KeepOut[]; maxTopLayers?: number; lockedAcross?: number[];
-}): LayoutCandidate[] {
+}): ClosableBeamLayout[] {
   const clearWidth = Math.max(0.02, o.section.b - 2 * (o.cover + o.stirrupDiaMm / 1000));
   // The channel rows read only what bars every layer; a keep-out of one layer is threaded per layer.
   const every = o.obstacles.filter((k) => !k.layers);
@@ -90,7 +92,7 @@ export function beamLayoutDomain(o: {
     obstacles: o.obstacles.length > 0 ? [...o.obstacles] : undefined,
     channelObstacles: every, obstacleDiameterMm: o.row.dia,
     ...beamSeat(o.section, o.cover, o.stirrupDiaMm, o.row.rowDia),
-  }).filter((c) => c.layers <= (o.maxTopLayers ?? Number.POSITIVE_INFINITY));
+  }).filter((c): c is ClosableBeamLayout => c.closable === true && c.layers <= (o.maxTopLayers ?? Number.POSITIVE_INFINITY));
 }
 
 /** One row of a beam's hook tails at a joint: how far past the node, its bar and its layer. */
