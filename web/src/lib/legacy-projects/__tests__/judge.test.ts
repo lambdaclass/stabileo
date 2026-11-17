@@ -1,6 +1,6 @@
 /** The verdicts of the legacy-projects test (#718), and the negative tests that prove they fail. */
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { modelFeatures } from '../../provenance/model-features';
+import { modelFeatures, type FeatureSnapshot } from '../../provenance/model-features';
 import * as applicability from '../../provenance/applicability';
 import refinementEvidence from '../../../../../docs/results-changes/1753-refinement-corpus-evidence.json';
 import appliedForceEvidence from '../../../../../docs/results-changes/2223-independent-applied-force-corpus-evidence.json';
@@ -63,6 +63,32 @@ describe('which values a registered change declares it moves', () => {
 });
 
 describe('analysis-specific result changes', () => {
+  it.skip.each(['generated-member-cuts', 'wind-endpoint-arithmetic'])('known wrong result: #2223 — %s cannot explain unrelated full-length member responses', (id) => {
+    for (const analysisMode of ['2d', '3d']) for (const analysis of ['linear', 'pdelta', 'nonlinear']) {
+      for (const explicitEndpoints of [false, true]) {
+        const snapshot: FeatureSnapshot = {
+          analysisMode,
+          elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, type: 'frame' }]],
+          loads: [{ type: analysisMode === '2d' ? 'distributed' : 'distributed3d', data: { elementId: 1, ...(explicitEndpoints ? { a: 1, b: 2 } : {}) } }],
+        };
+        const features = modelFeatures(snapshot);
+        const registered = RESULT_CHANGES.changes.find(c => c.id === id)!;
+        const entry = { ...registered, quantities: declaredQuantities[id]! };
+        const applicable = applicability.conditionHolds(entry.when ?? {}, features) ? [entry] : [];
+        const prefix = analysis === 'linear' ? 'base' : `${analysis}.results`;
+        for (const field of ['displacements[n2].uz', 'reactions[n1].mz', 'elementForces[e1].nStart']) {
+          const path = `${prefix}.${field}`;
+          const covers = id === 'wind-endpoint-arithmetic' && explicitEndpoints;
+          expect(fieldCovered(entry, path, [...features]), `${id} ${analysisMode} ${analysis} ${explicitEndpoints} ${field}`).toBe(covers);
+          expect(judge('unrelated response', { [path]: 1 }, { [path]: 2 }, applicable).kind).toBe(covers ? 'explained' : 'unexplained');
+          expect(judge('unchanged response', { [path]: 1 }, { [path]: 1 }, applicable).kind).toBe('same');
+        }
+        if (id === 'generated-member-cuts') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(true);
+        if (id === 'wind-endpoint-arithmetic') expect(fieldCovered(entry, 'solve.ok', [...features])).toBe(explicitEndpoints);
+      }
+    }
+  });
+
   it('#2222 keeps point-load changes unexplained and covers partial-load subdivision corrections', () => {
     const registered = RESULT_CHANGES.changes.find(c => c.id === 'narrow-partial-loads')!;
     const entry = { ...registered, quantities: declaredQuantities[registered.id]!.filter((q): q is string => typeof q === 'string') };
