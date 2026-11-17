@@ -3383,7 +3383,7 @@ const ru: Translations = {
   'design.batch.count': 'количество',
   'design.batch.diameter': 'Ø',
   'design.batch.legsOutOfRange': '{field}: {legs} ветвей; введите целое число от 2 до 6.',
-  'design.batch.secondaryLegs': 'ветви для поперечного среза (связи включены)',
+  'design.batch.secondaryLegs': 'ветви для среза во вторичном направлении (связи включены)',
   'design.batch.legs': 'ветви',
   'design.batch.spacing': 's (м)',
   'design.batch.spacingShort': 's',

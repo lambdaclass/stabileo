@@ -5,7 +5,7 @@ import { CORPUS } from '../../results-snapshot/corpus';
 import { verificationStore } from '../../store/verification.svelte';
 import { REBAR_DB } from '../codes/argentina/cirsoc201';
 import { evaluateBeamSection } from '../codes/argentina/cirsoc201-beam-kernel';
-import { transverseSpacingLimits } from '../../codes/cirsoc201/transverse-spacing';
+import { columnShearSpacing, columnTieSpacing, LENGTH_EPS, transverseSpacingLimits } from '../../codes/cirsoc201/transverse-spacing';
 
 const fixtures = [
   { name: 'design-rc-design-qa-row2', secondaryIds: [1, 2, 3, 4] },
@@ -38,9 +38,17 @@ for (const { name, secondaryIds } of fixtures) {
         expect(sh.effectiveLegs.count).toBe(sh.stirrupLegs);
         if (direction === 'secondary') expect(sh.stirrupLegs).toBe(2);
         const table = transverseSpacingLimits('2025', { VsRequired: sh.Vs, bw: b, d: sh.d, fc: local.fc, cover: local.cover, stirrupDiaMm: sh.stirrupDia });
-        if (sh.stirrupLegs < table.requiredLegs) expect(sh.status).toBe('fail');
+        if (local.elementType === 'beam') {
+          if (sh.stirrupLegs < table.requiredLegs) expect(sh.status).toBe('fail');
+        } else {
+          const limit = columnShearSpacing('2025', { Vu: sh.Vu, phiVc: 0.75 * native.Vc / 1000, Vs: native.Vs / 1000, bw: b, d: sh.d, fc: local.fc });
+          const ordinary = columnTieSpacing('2025', local.column!.barDia, sh.stirrupDia, Math.min(b, h));
+          expect(limit.kind).not.toBe('unsupported');
+          if (sh.spacing > ordinary.spacing + LENGTH_EPS || limit.kind === 'required' && sh.spacing > limit.alongMax + LENGTH_EPS) expect(sh.status).toBe('fail');
+          expect(sh.steps.some(step => typeof step !== 'string' && step.key === 'codes.cirsoc201.shear.legsInsufficient')).toBe(false);
+        }
         rows.push({ elementId: v.elementId, direction, width: b, height: h, depth: sh.d, legs: sh.stirrupLegs,
-          requiredLegs: table.requiredLegs, spacing: sh.spacing, phiVn: sh.phiVn, nativePhiVn: native.phiVn / 1000, demand: sh.Vu, ratio: sh.ratio, status: sh.status });
+          requiredLegs: local.elementType === 'beam' ? table.requiredLegs : 2, spacing: sh.spacing, phiVn: sh.phiVn, nativePhiVn: native.phiVn / 1000, demand: sh.Vu, ratio: sh.ratio, status: sh.status });
       }
     }
     expect(rows.length).toBeGreaterThan(0);

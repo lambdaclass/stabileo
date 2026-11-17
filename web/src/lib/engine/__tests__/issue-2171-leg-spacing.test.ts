@@ -28,10 +28,15 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(s.Vs).toBe(0);
         expect(s.ratio).toBeLessThan(1);
         expect(s.stirrupLegs).toBe(count);
-        expect(s.status).toBe(count < 5 ? 'fail' : 'ok');
-        expect(other.status).toBe('ok');
-        if (count < 5) {
-          expect(s.steps).toContain(`⚠ Ramas ${direction}: ${count} < 5 (§9.7.6.2.2, separación transversal)`);
+        const insufficient = elementType === 'beam' && count < 5;
+        const unsupported = elementType !== 'beam' && edition === '2005';
+        expect(s.status).toBe(insufficient || unsupported ? 'fail' : 'ok');
+        expect(other.status).toBe(unsupported ? 'fail' : 'ok');
+        const message = { key: 'codes.cirsoc201.shear.legsInsufficient', params: { direction: { key: `codes.cirsoc201.shear.${direction}` }, legs: count, requiredLegs: 5 } };
+        if (insufficient) expect(s.steps).toContainEqual(message);
+        else expect(s.steps).not.toContainEqual(message);
+        if (unsupported) expect(s.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
+        if (insufficient || unsupported) {
           expect(v.overallStatus).toBe('fail');
           expect(v.diagnostics?.some(d => d.code === 'VERIF_FAIL_SHEAR')).toBe(true);
         }

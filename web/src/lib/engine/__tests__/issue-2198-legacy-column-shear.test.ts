@@ -9,14 +9,13 @@ import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { columnTieSpacing } from '../../codes/cirsoc201/transverse-spacing';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2198' ? it : it.skip;
 const section = { b: 0.6, h: 0.2, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const column = { barCount: 8, barDia: 16 };
 
 for (const elementType of ['column', 'wall'] as const) for (const axis of ['My', 'Mz'] as const)
   for (const direction of ['primary', 'secondary'] as const) for (const entry of ['direct', 'prepared', 'concurrent'] as const)
     for (const factor of [0, 0.999, 1, 1.001]) {
-      regression(`known wrong result: #2198 column shear applicability ${elementType} ${axis} ${direction} ${entry} ${factor}`, () => {
+      it(`known wrong result: #2198 column shear applicability ${elementType} ${axis} ${direction} ${entry} ${factor}`, () => {
         const sec = direction === 'primary' ? section : { ...section, b: section.h, h: section.b };
         const threshold = 0.5 * checkShear(section, 0).phiVc;
         const load = threshold * factor;
@@ -45,7 +44,7 @@ for (const elementType of ['column', 'wall'] as const) for (const axis of ['My',
     }
 
 for (const direction of ['primary', 'secondary'] as const) for (const factor of [0.999, 1, 1.001]) {
-  regression(`known wrong result: #2198 legacy ordinary column tie boundary ${direction} ${factor}`, () => {
+  it(`known wrong result: #2198 legacy ordinary column tie boundary ${direction} ${factor}`, () => {
     const sec = { ...section, b: 0.3, h: 0.3 };
     const limit = columnTieSpacing('2025', column.barDia, sec.stirrupDia, sec.b).spacing;
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'ordinary ties', forces: {
@@ -54,19 +53,20 @@ for (const direction of ['primary', 'secondary'] as const) for (const factor of 
     const v = verifyElement({ ...sec, elementId: 1, elementType: 'column', demand },
       { column, shear: { spacing: limit * factor, legs: 2, secondaryLegs: 2 } });
     const s = direction === 'primary' ? v.shear : v.shearSecondary!;
+    expect(v.column!.stirrupSpacing).toBe(Math.floor(limit * 40) / 40);
     expect(s.ratio).toBeLessThan(1);
     expect(s.status).toBe(factor > 1 ? 'fail' : 'ok');
     expect(v.overallStatus).toBe(factor > 1 ? 'fail' : 'ok');
   });
 }
 
-regression('known wrong result: #2198 Russian batch label explicitly names secondary shear', async () => {
+it('known wrong result: #2198 Russian batch label explicitly names secondary shear', async () => {
   const { default: ru } = await import('../../i18n/locales/ru');
   expect(ru['design.batch.secondaryLegs']).toBe('ветви для среза во вторичном направлении (связи включены)');
 });
 
 for (const direction of ['primary', 'secondary'] as const) for (const row of [1, 2]) for (const factor of [0.999, 1, 1.001]) {
-  regression(`known wrong result: #2198 legacy required column spacing boundary ${direction} row${row} ${factor}`, () => {
+  it(`known wrong result: #2198 legacy required column spacing boundary ${direction} row${row} ${factor}`, () => {
     const sec = { ...section, b: 0.3, h: 0.3 };
     const d = sec.h - sec.cover - sec.stirrupDia / 1000 - 16 / 2000;
     const limit = d / (row === 1 ? 2 : 4);
@@ -85,7 +85,7 @@ for (const direction of ['primary', 'secondary'] as const) for (const row of [1,
 }
 
 for (const direction of ['primary', 'secondary'] as const) {
-  regression(`known wrong result: #2198 legacy column spacing refuses an unavailable edition ${direction}`, () => {
+  it(`known wrong result: #2198 legacy column spacing refuses an unavailable edition ${direction}`, () => {
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'unavailable edition', forces: {
       t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 1, vz: 1, torsion: 0,
     } }])[0]!.section('My');
@@ -100,7 +100,7 @@ for (const direction of ['primary', 'secondary'] as const) {
 const p = { ...section, b: 0.2, h: 0.6 };
 afterEach(() => setCompactStationTransfer(true));
 for (const edition of ['2025'] as const) for (const nonlinear of [false, true]) for (const compact of [false, true]) {
-  regression(`known wrong result: #2198 3D low-demand column wrappers retain ordinary ties ${edition} ${nonlinear} ${compact}`, () => {
+  it(`known wrong result: #2198 3D low-demand column wrappers retain ordinary ties ${edition} ${nonlinear} ${compact}`, () => {
     const model = {
       elements: new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 0.04 }]]),
@@ -127,7 +127,7 @@ for (const edition of ['2025'] as const) for (const nonlinear of [false, true]) 
       expect(v.overallStatus).toBe('ok');
     }
   });
-  regression(`known wrong result: #2198 2D low-demand column fixed primary legs pass after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
+  it(`known wrong result: #2198 2D low-demand column fixed primary legs pass after ${nonlinear ? 'P-Delta' : 'linear'} solve ${edition} ${compact}`, () => {
     const section = { ...p, b: p.h, h: p.b };
     const solver: SolverInput = {
       nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: 0.04 }]]),
@@ -156,7 +156,7 @@ for (const edition of ['2025'] as const) for (const nonlinear of [false, true]) 
 }
 
 for (const direction of ['primary', 'secondary'] as const) for (const entry of ['direct', 'prepared', 'concurrent'] as const) {
-  regression(`known wrong result: #2198 ordinary ties do not require minimum shear steel ${direction} ${entry}`, () => {
+  it(`known wrong result: #2198 ordinary ties do not require minimum shear steel ${direction} ${entry}`, () => {
     const sec = { ...section, b: 0.6, h: 0.6, stirrupDia: 6 };
     const demand = declaredTestDemands([{ comboId: 1, comboName: 'ordinary minimum', forces: {
       t: 0, x: 0, n: -100, my: 0, mz: 0, vy: 1, vz: 1, torsion: 0,

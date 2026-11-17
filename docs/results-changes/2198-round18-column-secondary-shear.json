@@ -1,0 +1,768 @@
+{
+  "issue": 2198,
+  "parent": [
+    {
+      "model": {
+        "id": "wide-low-secondary",
+        "b": 0.2,
+        "h": 0.6,
+        "stirrupDia": 8,
+        "spacing": 0.05,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.05,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 347.97749999999996,
+        "ratio": 0.00287374902112924,
+        "spacing": 0.05,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 55.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 1.67 cm²/m",
+          "Estribos: 2 ramas Ø8 c/5 cm",
+          "φVn = 347.98 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 161.58852,
+        "ratio": 0.0061885584446221805,
+        "spacing": 0.05,
+        "legs": 2,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 15.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø8 c/5 cm",
+          "φVn = 161.59 kN",
+          {
+            "key": "codes.cirsoc201.shear.legsInsufficient",
+            "params": {
+              "direction": {
+                "key": "codes.cirsoc201.shear.secondary"
+              },
+              "legs": 2,
+              "requiredLegs": 5
+            }
+          }
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.175,
+      "overallStatus": "fail",
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.0061885584446221805,
+            "phiVn": 161.58852,
+            "Vu": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": {
+        "id": "ordinary-spacing-above-limit",
+        "b": 0.3,
+        "h": 0.3,
+        "stirrupDia": 8,
+        "spacing": 0.256256,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.256256,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.175,
+      "overallStatus": "ok"
+    },
+    {
+      "model": {
+        "id": "ordinary-below-shear-minimum",
+        "b": 0.6,
+        "h": 0.6,
+        "stirrupDia": 6,
+        "spacing": 0.275,
+        "n": -100,
+        "count": 12,
+        "diameter": 20,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 12,
+          "barDia": 20
+        },
+        "shear": {
+          "spacing": 0.275,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 158.23555803384627,
+        "ratio": 0.006319692061793734,
+        "spacing": 0.275,
+        "legs": 2,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 121.86 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø6 c/28 cm",
+          "φVn = 158.24 kN",
+          {
+            "key": "codes.cirsoc201.shear.legsInsufficient",
+            "params": {
+              "direction": {
+                "key": "codes.cirsoc201.shear.primary"
+              },
+              "legs": 2,
+              "requiredLegs": 3
+            }
+          },
+          "⚠ Av < Av,mín (§9.6.3.4)"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 48.058659999999996,
+        "ratio": 0.020807904340237535,
+        "spacing": 0.275,
+        "legs": 2,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 11.69 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø6 c/28 cm",
+          "φVn = 48.06 kN",
+          {
+            "key": "codes.cirsoc201.shear.legsInsufficient",
+            "params": {
+              "direction": {
+                "key": "codes.cirsoc201.shear.secondary"
+              },
+              "legs": 2,
+              "requiredLegs": 3
+            }
+          },
+          "⚠ Av < Av,mín (§9.6.3.4)"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.225,
+      "overallStatus": "fail",
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.006319692061793734,
+            "phiVn": 158.23555803384627,
+            "Vu": 1
+          }
+        },
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.020807904340237535,
+            "phiVn": 48.058659999999996,
+            "Vu": 1
+          }
+        }
+      ]
+    }
+  ],
+  "reproducerCommit": "46a866f784d9e2a54ba130739f9bdecba404c5e6",
+  "originMain": "44d527d64933c07c8a812f04ad2373e4d83eb72c",
+  "replayScope": "Exact source blobs replaced only in this worktree, with branch dependencies and existing WASM; not a full main checkout or release binary.",
+  "corrected": [
+    {
+      "model": {
+        "id": "wide-low-secondary",
+        "b": 0.2,
+        "h": 0.6,
+        "stirrupDia": 8,
+        "spacing": 0.05,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.05,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 347.97749999999996,
+        "ratio": 0.00287374902112924,
+        "spacing": 0.05,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 55.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 1.67 cm²/m",
+          "Estribos: 2 ramas Ø8 c/5 cm",
+          "φVn = 347.98 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 161.58852,
+        "ratio": 0.0061885584446221805,
+        "spacing": 0.05,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 15.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø8 c/5 cm",
+          "φVn = 161.59 kN"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.2,
+      "overallStatus": "ok"
+    },
+    {
+      "model": {
+        "id": "ordinary-spacing-above-limit",
+        "b": 0.3,
+        "h": 0.3,
+        "stirrupDia": 8,
+        "spacing": 0.256256,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.256256,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN",
+          "⚠ s = 25.63 cm > s,max = 25.60 cm (§25.7.2.1)"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN",
+          "⚠ s = 25.63 cm > s,max = 25.60 cm (§25.7.2.1)"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.25,
+      "overallStatus": "fail",
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.01226059996318873,
+            "phiVn": 81.56207714160837,
+            "Vu": 1
+          }
+        },
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.01226059996318873,
+            "phiVn": 81.56207714160837,
+            "Vu": 1
+          }
+        }
+      ]
+    },
+    {
+      "model": {
+        "id": "ordinary-below-shear-minimum",
+        "b": 0.6,
+        "h": 0.6,
+        "stirrupDia": 6,
+        "spacing": 0.275,
+        "n": -100,
+        "count": 12,
+        "diameter": 20,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 12,
+          "barDia": 20
+        },
+        "shear": {
+          "spacing": 0.275,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 158.23555803384627,
+        "ratio": 0.006319692061793734,
+        "spacing": 0.275,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 121.86 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø6 c/28 cm",
+          "φVn = 158.24 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 48.058659999999996,
+        "ratio": 0.020807904340237535,
+        "spacing": 0.275,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 11.69 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 2 ramas Ø6 c/28 cm",
+          "φVn = 48.06 kN"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.275,
+      "overallStatus": "ok"
+    }
+  ],
+  "originMainSource": [
+    {
+      "model": {
+        "id": "wide-low-secondary",
+        "b": 0.2,
+        "h": 0.6,
+        "stirrupDia": 8,
+        "spacing": 0.05,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.05,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 347.97749999999996,
+        "ratio": 0.00287374902112924,
+        "spacing": 0.05,
+        "legs": 5,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 55.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 71.27 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 1.67 cm²/m",
+          "Estribos: 5 ramas Ø8 c/5 cm",
+          "φVn = 347.98 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 296.93250000000006,
+        "ratio": 0.00336776876899632,
+        "spacing": 0.05,
+        "legs": 5,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 15.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 60.82 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 5 ramas Ø8 c/5 cm",
+          "φVn = 296.93 kN"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.175,
+      "overallStatus": "ok"
+    },
+    {
+      "model": {
+        "id": "ordinary-spacing-above-limit",
+        "b": 0.3,
+        "h": 0.3,
+        "stirrupDia": 8,
+        "spacing": 0.256256,
+        "n": 0,
+        "count": 8,
+        "diameter": 16,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 8,
+          "barDia": 16
+        },
+        "shear": {
+          "spacing": 0.256256,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 81.56207714160837,
+        "ratio": 0.01226059996318873,
+        "spacing": 0.256256,
+        "legs": 2,
+        "status": "ok",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 25.9 cm",
+          "φVc (motor, CIRSOC 201-2025) = 49.53 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 2.50 cm²/m",
+          "Estribos: 2 ramas Ø8 c/26 cm",
+          "φVn = 81.56 kN"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.175,
+      "overallStatus": "ok"
+    },
+    {
+      "model": {
+        "id": "ordinary-below-shear-minimum",
+        "b": 0.6,
+        "h": 0.6,
+        "stirrupDia": 6,
+        "spacing": 0.275,
+        "n": -100,
+        "count": 12,
+        "diameter": 20,
+        "fc": 25,
+        "fy": 420,
+        "cover": 0.025,
+        "edition": "2025",
+        "primaryAxis": "My",
+        "vy": 1,
+        "vz": 1
+      },
+      "fixed": {
+        "column": {
+          "barCount": 12,
+          "barDia": 20
+        },
+        "shear": {
+          "spacing": 0.275,
+          "legs": 2,
+          "secondaryLegs": 2
+        }
+      },
+      "primary": {
+        "Vu": 1,
+        "phiVn": 176.4211380338463,
+        "ratio": 0.005668255012662659,
+        "spacing": 0.275,
+        "legs": 3,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 121.86 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 3 ramas Ø6 c/28 cm",
+          "φVn = 176.42 kN",
+          "⚠ Av < Av,mín (§9.6.3.4)"
+        ]
+      },
+      "secondary": {
+        "Vu": 1,
+        "phiVn": 66.24423999999999,
+        "ratio": 0.01509565208990246,
+        "spacing": 0.275,
+        "legs": 3,
+        "status": "fail",
+        "steps": [
+          "Vu = 1.00 kN",
+          "d = 56.1 cm",
+          "φVc (motor, CIRSOC 201-2025) = 11.69 kN",
+          "Vs,req = 0.00 kN",
+          "Av/s,req = 5.00 cm²/m",
+          "Estribos: 3 ramas Ø6 c/28 cm",
+          "φVn = 66.24 kN",
+          "⚠ Av < Av,mín (§9.6.3.4)"
+        ]
+      },
+      "columnStatus": "ok",
+      "reportedColumnTieSpacing": 0.225,
+      "overallStatus": "fail",
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.005668255012662659,
+            "phiVn": 176.4211380338463,
+            "Vu": 1
+          }
+        },
+        {
+          "severity": "error",
+          "code": "VERIF_FAIL_SHEAR",
+          "message": "diag.verifFailShear",
+          "source": "verification",
+          "elementIds": [
+            1
+          ],
+          "details": {
+            "ratio": 0.01509565208990246,
+            "phiVn": 66.24423999999999,
+            "Vu": 1
+          }
+        }
+      ]
+    }
+  ],
+  "flagship": {
+    "baselineChanged": false,
+    "memberCount": 408,
+    "verified": 372,
+    "searchExhausted": 23,
+    "provisionalBiaxial": 13,
+    "fingerprint": "e61212184720b0b6",
+    "test": "web/src/lib/engine/design/__tests__/rc-baseline-digest.test.ts",
+    "log": ".round18-targeted.log"
+  },
+  "mainExposure": "origin/main direct element verification silently accepts the ordinary-spacing-above-limit model in both shear directions and overall, with no diagnostic. The applicable 2025 ordinary tie limit is 0.256 m; the provided cage is 0.256256 m. Coordinator assesses existing SA-075 coverage or any further advisory; none is added here."
+}

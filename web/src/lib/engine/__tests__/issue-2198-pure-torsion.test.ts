@@ -32,7 +32,10 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(v.shearSecondary!.stirrupLegs).toBe(secondaryLegs);
         expect(v.shearSecondary!.Vu).toBe(Math.abs(secondary));
         expect(v.shearSecondary!.ratio).toBeLessThan(1);
-        const refuses = secondary !== 0 && secondaryLegs < 4;
+        const unsupported = elementType !== 'beam' && edition === '2005';
+        const refuses = unsupported || elementType === 'beam' && secondary !== 0 && secondaryLegs < 4;
+        if (unsupported) expect(v.shearSecondary!.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
+        if (elementType !== 'beam') expect(v.shearSecondary!.steps.some(step => typeof step !== 'string' && step.key === 'codes.cirsoc201.shear.legsInsufficient')).toBe(false);
         expect(v.shearSecondary!.status).toBe(refuses ? 'fail' : 'ok');
         expect(v.overallStatus).toBe(refuses ? 'fail' : 'ok');
         expect(v.diagnostics?.some(d => d.code === 'VERIF_FAIL_SHEAR') ?? false).toBe(refuses);

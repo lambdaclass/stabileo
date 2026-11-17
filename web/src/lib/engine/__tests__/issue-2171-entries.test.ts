@@ -31,7 +31,8 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       expect(v.overallStatus).toBe('fail');
       expect(v.flexure.status).toBe('ok');
       expect(v.column!.status).toBe('ok');
-      expect(v.shear.status).toBe('ok');
+      expect(v.shear.status).toBe(edition === '2005' ? 'fail' : 'ok');
+      if (edition === '2005') expect(v.shear.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
       if (torque === 0) {
         expect(v.torsion).toBeUndefined();
         expect(v.shearSecondary!.ratio).toBeGreaterThan(v.flexure.ratio);
@@ -150,13 +151,15 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
 }
 
 
-for (const edition of ['2005', '2025'] as const) it(`two-legged square cage preserves main exactly ${edition}`, () => {
+for (const edition of ['2005', '2025'] as const) it(`two-legged square cage retains exact main strength with an explicit edition verdict ${edition}`, () => {
   const v = verifyElement({ ...p, b: 0.3, h: 0.3, edition, elementId: 1, elementType: 'column', demand: demand(40, 0, 'My') },
     { shear: { legs: 2, spacing: 0.1 } });
   const expected = main.twoLegControls[edition].main;
-  expect(v.overallStatus).toBe(expected.overallStatus);
-  expect(v.shear).toMatchObject(expected.shear);
-  expect(v.shearSecondary).toMatchObject(expected.shearSecondary);
+  const status = edition === '2005' ? 'fail' : expected.overallStatus;
+  expect(v.overallStatus).toBe(status);
+  expect(v.shear).toMatchObject({ ...expected.shear, status });
+  expect(v.shearSecondary).toMatchObject({ ...expected.shearSecondary, status });
+  if (edition === '2005') expect(v.shearSecondary!.steps).toContain('Column shear spacing not evaluated for CIRSOC 201-2005');
   expect(v.flexure.status).toBe(expected.flexureStatus);
   expect(v.column!.status).toBe(expected.columnStatus);
   expect(v.torsion).toBeUndefined();

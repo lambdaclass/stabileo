@@ -14,7 +14,7 @@ import type { ConcurrentSectionDemand, ConcurrentDemand } from '../../concurrent
 
 import { deriveDevelopment, deriveHookedDevelopment, topBarFactor, concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { SolverDiagnostic } from '../../types';
-import { transverseSpacingLimits } from '../../../codes/cirsoc201/transverse-spacing';
+import { transverseSpacingLimits, columnShearSpacing, columnTieSpacing, LENGTH_EPS } from '../../../codes/cirsoc201/transverse-spacing';
 import { minFlexuralSteelCm2, tensionControlledStrain, COLUMN_STEEL_RATIO, editionCode, shearFy, shearSqrtFc, type Cirsoc201EditionLike } from './cirsoc201-basis';
 import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
@@ -211,7 +211,6 @@ export interface ElementVerification {
    *  `b`/`h` here are the section's turned. Set by auto-verify. */
   flexureAxis?: 'My' | 'Mz';
   shear: ShearResult<'primary'>;
-  /** A column's secondary-axis shear, over the turned section (`VerificationInput.VuSecondary`). */
   shearSecondary?: ShearResult<'secondary'>;
   column?: ColumnResult;
   torsion?: TorsionResult;
@@ -547,11 +546,11 @@ export function checkShear(
   params: ConcreteDesignParams, Vu: number, Nu: number = 0,
   opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; legs?: number } = {},
 ): ShearResult<'primary'> {
-  return checkDirectionalShear('primary', params, Vu, Nu, { ...opts, effectiveLegs: opts.legs === undefined ? undefined : stirrupLegs({ legs: opts.legs }, 'primary') });
+  return checkDirectionalShear('primary', params, Vu, Nu, { ...opts, member: { kind: 'beam' }, effectiveLegs: opts.legs === undefined ? undefined : stirrupLegs({ legs: opts.legs }, 'primary') });
 }
 
 function checkDirectionalShear<D extends ShearDirection>(direction: D, params: ConcreteDesignParams, Vu: number, Nu: number,
-  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; effectiveLegs?: DirectionalLegs<NoInfer<D>> }): ShearResult<D> {
+  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; effectiveLegs?: DirectionalLegs<NoInfer<D>>; member: { kind: 'beam' } | { kind: 'column'; barDia: number } }): ShearResult<D> {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
   const steps: VerificationStep[] = [];
@@ -582,19 +581,24 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   { emissions.push(() => steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`)); }
   { emissions.push(() => steps.push(`Vs,req = ${VsReq.toFixed(2)} kN`)); }
 
-  // Table 9.7.6.2.2, through THE one evaluator: the spacing along the member and the legs.
-  const table = transverseSpacingLimits('2025', {
+  const table = opts.member.kind === 'column' ? undefined : transverseSpacingLimits('2025', {
     VsRequired: VsReq, bw: b, d, fc, cover, stirrupDiaMm: stirrupBar.diameter,
   });
-  const effectiveLegs = opts.effectiveLegs ?? makeLegs(direction === 'secondary' ? 2 : table.requiredLegs);
+  const ordinary = opts.member.kind === 'column' ? columnTieSpacing(edition, opts.member.barDia, stirrupBar.diameter, Math.min(b, h)) : undefined;
+  const spacingLimit = (r: ReturnType<typeof ask>) => {
+    if (!ordinary) return { alongMax: table!.alongMax, unsupported: false, shearRequired: true, clause: '9.7.6.2.2' };
+    const limit = columnShearSpacing(edition, { Vu: VuAbs, phiVc: PHI_SHEAR * r.Vc / 1e3, Vs: r.Vs / 1e3, bw: b, d, fc });
+    return { alongMax: limit.kind === 'required' ? Math.min(ordinary.spacing, limit.alongMax) : ordinary.spacing,
+      unsupported: limit.kind === 'unsupported', shearRequired: limit.kind === 'required', clause: limit.kind === 'required' ? '10.7.6.5.2' : ordinary.ref.clause };
+  };
+  const effectiveLegs = opts.effectiveLegs ?? makeLegs(direction === 'secondary' ? 2 : table?.requiredLegs ?? 2);
   const legs = effectiveLegs.count;
-
-  // The widest spacing (multiples of 2,5 cm, 5 cm at least) the engine passes.
   let spacing = opts.spacing ?? 0.05;
   let chosen = ask(effectiveLegs, spacing);
-  for (let s = Math.floor(table.alongMax * 40) / 40; opts.spacing === undefined && s >= 0.05 - 1e-9; s -= 0.025) {
+  for (let s = Math.floor((ordinary?.spacing ?? table!.alongMax) * 40) / 40; opts.spacing === undefined && s >= 0.05 - 1e-9; s -= 0.025) {
     const r = ask(effectiveLegs, s);
-    if (r.shearValid && !r.avBelowMin && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
+    const limit = spacingLimit(r);
+    if (!limit.unsupported && s <= limit.alongMax + LENGTH_EPS && r.shearValid && (!r.avBelowMin || !limit.shearRequired) && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
   }
   const phiVn = chosen.shearValid ? chosen.phiVn / 1e3 : 0;
   const AvProv = legs * stirrupBar.area; // cm² per set
@@ -627,11 +631,18 @@ function checkDirectionalShear<D extends ShearDirection>(direction: D, params: C
   } else if (ratio > 0.9) {
     status = 'warn';
   }
-  if ((direction === 'primary' || VuAbs > 0) && legs < table.requiredLegs) {
+  if (table && (direction === 'primary' || VuAbs > 0) && legs < table.requiredLegs) {
     status = 'fail';
     { emissions.push(() => steps.push(msg('codes.cirsoc201.shear.legsInsufficient', { direction: msg(`codes.cirsoc201.shear.${direction}`), legs, requiredLegs: table.requiredLegs }))); }
   }
-  if (chosen.avBelowMin && h > 0.25) {
+  const limit = spacingLimit(chosen);
+  if (ordinary && (limit.unsupported || spacing > limit.alongMax + LENGTH_EPS)) {
+    status = 'fail';
+    emissions.push(() => steps.push(limit.unsupported
+      ? `Column shear spacing not evaluated for CIRSOC 201-${edition}`
+      : `⚠ s = ${(spacing * 100).toFixed(2)} cm > s,max = ${(limit.alongMax * 100).toFixed(2)} cm (§${limit.clause})`));
+  }
+  if (limit.shearRequired && chosen.avBelowMin && h > 0.25) {
     status = 'fail';
     { emissions.push(() => steps.push(`⚠ Av < Av,mín (§9.6.3.4)`)); }
   }
@@ -720,8 +731,7 @@ export function checkColumn(
   steps.push(`Relación demanda/capacidad = ${pick.worst.toFixed(3)}`);
   if (impossible) steps.push('⚠ Ninguna disposición hasta 8 % de Ag resiste la demanda — sección insuficiente');
 
-  // Stirrups for columns: s ≤ min(12·db, 48·dst, least dimension), as before (detailing).
-  const sMax = Math.min(12 * pick.dia / 1000, 48 * stirrupDia / 1000, Math.min(b, h));
+  const sMax = columnTieSpacing(edition, pick.dia, stirrupDia, Math.min(b, h)).spacing;
   const roundedSpacing = Math.floor(sMax * 40) / 40;
   steps.push(`Estribos: Ø${stirrupDia} c/${(roundedSpacing * 100).toFixed(0)} cm`);
 
@@ -1413,21 +1423,6 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
           ...(!ductile && r ? [`⚠ εt = ${(r.epsilonT * 1000).toFixed(2)} ‰ < εt,mín = ${(r.epsilonTMin * 1000).toFixed(2)} ‰ (${edition === '2005' ? '§10.3.5' : '§9.3.3.1'})`] : []),
         ]));
     }
-    let torsionResult = input.Tu && Math.abs(input.Tu) > 0.001 ? checkTorsion(params, concurrent.demand, edition) : undefined;
-    const cage = fixed?.shear;
-    const primaryLegs = cage ? stirrupLegs(cage, 'primary') : undefined;
-    const secondaryLegs = stirrupLegs(cage ?? { legs: 2 }, 'secondary');
-    const primary = (spacing?: number) => checkDirectionalShear('primary', params, input.Vu, input.NuShear ?? input.Nu,
-      { edition, AsTensionCm2: flexure.AsProv, spacing, effectiveLegs: primaryLegs });
-    const secondary = (spacing?: number) => checkDirectionalShear('secondary', { ...params, b: params.h, h: params.b }, concurrent.demand.VuSecondary, input.NuShear ?? input.Nu,
-      { edition, spacing, effectiveLegs: secondaryLegs });
-    let shear = primary(cage?.spacing);
-    let shearSecondary = input.VuSecondary !== undefined || torsionResult && !torsionResult.neglect ? secondary(cage?.spacing) : undefined;
-    if (shearSecondary && shearSecondary.spacing !== shear.spacing) {
-      const spacing = Math.min(shear.spacing, shearSecondary.spacing);
-      shear = primary(spacing);
-      shearSecondary = secondary(spacing);
-    }
     let column: ColumnResult | undefined;
     let biaxial: BiaxialResult | undefined;
 
@@ -1439,6 +1434,22 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       }
     }
 
+    let torsionResult = input.Tu && Math.abs(input.Tu) > 0.001 ? checkTorsion(params, concurrent.demand, edition) : undefined;
+    const member = column ? { kind: 'column' as const, barDia: column.barDia } : { kind: 'beam' as const };
+    const cage = fixed?.shear;
+    const primaryLegs = cage ? stirrupLegs(cage, 'primary') : undefined;
+    const secondaryLegs = stirrupLegs(cage ?? { legs: 2 }, 'secondary');
+    const primary = (spacing?: number) => checkDirectionalShear('primary', params, input.Vu, input.NuShear ?? input.Nu,
+      { edition, AsTensionCm2: flexure.AsProv, spacing, effectiveLegs: primaryLegs, member });
+    const secondary = (spacing?: number) => checkDirectionalShear('secondary', { ...params, b: params.h, h: params.b }, concurrent.demand.VuSecondary, input.NuShear ?? input.Nu,
+      { edition, spacing, effectiveLegs: secondaryLegs, member });
+    let shear = primary(cage?.spacing);
+    let shearSecondary = input.VuSecondary !== undefined || torsionResult && !torsionResult.neglect ? secondary(cage?.spacing) : undefined;
+    if (shearSecondary && shearSecondary.spacing !== shear.spacing) {
+      const spacing = Math.min(shear.spacing, shearSecondary.spacing);
+      shear = primary(spacing);
+      shearSecondary = secondary(spacing);
+    }
     // Torsion check if Tu is provided
     if (torsionResult) {
       torsionResult = checkProvidedTorsion(torsionResult,
