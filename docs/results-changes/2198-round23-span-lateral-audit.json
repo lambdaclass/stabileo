@@ -1,0 +1,181 @@
+{
+  "parent": "f83e4f963",
+  "preClosureDomain": "40dc804e0^:web/src/lib/engine/detailing/joint-threading.ts",
+  "before": [
+    {
+      "id": 31,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 37,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 43,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 48,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 54,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 60,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 65,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 70,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 76,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 82,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 87,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 93,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 99,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 104,
+      "outcome": "VERIFIED",
+      "limiting": []
+    }
+  ],
+  "after": [
+    {
+      "id": 31,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 37,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 43,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 48,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 54,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 60,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 65,
+      "outcome": "VERIFIED",
+      "limiting": []
+    },
+    {
+      "id": 70,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "minSteel",
+        "torsion"
+      ]
+    },
+    {
+      "id": 76,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 82,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "anchorage"
+      ]
+    },
+    {
+      "id": 87,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "flexure",
+        "minSteel"
+      ]
+    },
+    {
+      "id": 93,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 99,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "torsion"
+      ]
+    },
+    {
+      "id": 104,
+      "outcome": "SEARCH_EXHAUSTED",
+      "limiting": [
+        "minSteel",
+        "torsion"
+      ]
+    }
+  ]
+}
