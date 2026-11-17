@@ -68,3 +68,20 @@ it('a span edit leaves the support and end cages unchanged', () => {
   expect(result.candidate!.regions!.stirrupsEnd).toEqual(provided.regions!.stirrupsEnd);
   expect(result.changes.map(c => c.field)).toEqual(['stirrups span']);
 });
+
+it.skip('known wrong result: #2198 batch spacing edits preserve distinct end cages when leg fields are undefined', () => {
+  const start = { diameter: 6, legs: 2, secondaryLegs: 2, spacing: 0.1 };
+  const end = { diameter: 10, legs: 6, secondaryLegs: 4, spacing: 0.075 };
+  const provided = current({ stirrupsStart: start, stirrupsEnd: end, stirrupsSupport: { ...base, secondaryLegs: 6 } });
+  const patch = { stirrupsSupport: { spacing: 0.125, diameter: undefined, legs: undefined, secondaryLegs: undefined } };
+  const direct = applyPatch(ctx, provided, patch);
+  const plan = planBatchEdit(cirsoc201Adapter, [ctx.elementId], solved.contexts, () => provided, patch);
+  expect(direct.blocks).toEqual([]);
+  for (const rebar of [direct.candidate, plan.rows[0].candidate]) {
+    expect(rebar!.regions).toMatchObject({
+      stirrupsStart: { ...start, spacing: 0.125 },
+      stirrupsEnd: { ...end, spacing: 0.125 },
+      stirrupsSupport: { ...base, secondaryLegs: 6, spacing: 0.125 },
+    });
+  }
+});

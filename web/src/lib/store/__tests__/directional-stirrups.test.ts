@@ -75,3 +75,23 @@ it('known wrong result: #2171 manual support edits preserve both actual cages an
   expect(getReinforcement(1)!.regions!.stirrupsStart).toEqual({ ...start, spacing: 0.075, secondaryLegs: 6 });
   expect(getReinforcement(1)!.regions!.stirrupsEnd).toEqual({ ...end, spacing: 0.075, secondaryLegs: 6 });
 });
+
+it.skip('known wrong result: #2198 manual spacing edits preserve distinct end cages when leg fields are undefined', () => {
+  restore(6);
+  const r = getReinforcement(1)!;
+  const start = { diameter: 6, legs: 2, secondaryLegs: 2, spacing: 0.1 };
+  const end = { diameter: 10, legs: 6, secondaryLegs: 4, spacing: 0.15 };
+  r.regions = { ...r.regions, stirrupsStart: start, stirrupsEnd: end };
+  modelStore.reinforcementTransaction(api => api.setReinforcement(1, r));
+  setStirrups(1, 'stirrupsSupport', { spacing: 0.075, diameter: undefined, legs: undefined, secondaryLegs: undefined });
+  expect(getReinforcement(1)!.regions).toMatchObject({
+    stirrupsStart: { ...start, spacing: 0.075 },
+    stirrupsEnd: { ...end, spacing: 0.075 },
+    stirrupsSupport: { diameter: 8, legs: 4, secondaryLegs: 6, spacing: 0.075 },
+  });
+  setStirrups(1, 'stirrupsSupport', { secondaryLegs: 7, spacing: undefined });
+  expect(getReinforcement(1)!.regions).toMatchObject({
+    stirrupsStart: { ...start, spacing: 0.075, secondaryLegs: 6 },
+    stirrupsEnd: { ...end, spacing: 0.075, secondaryLegs: 6 },
+  });
+});
