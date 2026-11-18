@@ -6,6 +6,7 @@ import { nonlinearWorkerReply, nonlinearWorkerSession } from '../nonlinear-worke
 import { destroyPool, initPool, nonlinearSessionInWorker, setWorkerFactoryForTests, type WorkerLike } from '../solver-pool';
 import { buildSolverInput3D, solveCombinations3D, solveCombinations3DParallel, validateAndSolve3DAsync, type ModelData } from '../solver-service';
 import { modelStore, uiStore } from '../../store';
+import { t } from '../../i18n';
 import { solveNonlinear3DAsync, type NonlinearStep } from '../member-behaviour';
 
 let steps: string[], freed: number;
@@ -90,6 +91,63 @@ it('preserves explicitly superposed nonlinear combinations', async () => {
   const expected = modelStore.solveCombinations3D(false, false, true);
   expect(expected && typeof expected === 'object').toBe(true);
   expect(output(await modelStore.solveCombinations3DParallel(false, false, true))).toBe(output(expected));
+});
+
+it.skip.each(['sequential', 'worker', 'fallback'] as const)('ignores factored empty cases in the %s pretensioned cable solve (known wrong result: #2283)', async entry => {
+  beam('cable');
+  const model = md();
+  model.analysis = { ...model.analysis, combinationMethod: 'superpose' };
+  const cases = modelStore.model.loadCases;
+  const [combo] = modelStore.model.combinations;
+  const empty = modelStore.addLoadCase('Empty', 'L');
+  if (entry === 'fallback') setWorkerFactoryForTests(null);
+  const solve = entry === 'sequential' ? solveCombinations3D : solveCombinations3DParallel;
+  const baseline = await solve(model, cases, [combo!]);
+  if (!baseline || typeof baseline === 'string') throw new Error(String(baseline));
+  const cable = [...model.elements.values()].find(element => element.behaviour === 'cable')!;
+  const force = baseline.perCombo.get(combo!.id)?.elementForces.find(row => row.elementId === cable.id);
+  expect(force).toBeDefined();
+  expect(force!.nStart).not.toBe(0);
+  const baselineSteps = [...steps];
+  if (entry === 'worker') expect(baselineSteps).toContain('cable');
+
+  const withEmpty = (factor: number) => ({ ...combo!, factors: [...combo!.factors, { caseId: empty, factor }] });
+  for (const factor of [0, 1, -1]) {
+    steps.length = 0;
+    const result = await solve(model, cases, [withEmpty(factor)]);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.perCombo.get(combo!.id)?.elementForces.find(row => row.elementId === cable.id)).toEqual(force);
+    expect(output(result)).toBe(output(baseline));
+    expect(steps).toEqual(baselineSteps);
+  }
+  steps.length = 0;
+  const emptyOnly = await solve({ ...model, loads: [] }, cases, [{ ...combo!, factors: [{ caseId: empty, factor: 1 }] }]);
+  expect(emptyOnly).toBe(t('svc.noLoadsApplied'));
+  expect(steps).toEqual([]);
+
+  for (const factor of [NaN, Infinity, -Infinity]) {
+    const rejected = await solve(model, cases, [withEmpty(factor)]);
+    expect(rejected).toContain(`Non-finite number (${factor}) at input[1].factor`);
+  }
+});
+
+it.skip('keeps the support settlement in a superposition of only empty load cases (known wrong result: #2283)', async () => {
+  const { a } = beam();
+  const original = md();
+  const model = { ...original, loads: [], analysis: { ...original.analysis, combinationMethod: 'superpose' as const } };
+  const dz = [...model.supports.values()].find(s => s.nodeId === a)?.dz;
+  expect(dz).toBeDefined();
+  expect(dz).not.toBe(0);
+  const empty = modelStore.addLoadCase('Empty', 'L');
+  const cases = modelStore.model.loadCases;
+  const combo = { id: 1, name: 'Settlement only', factors: [{ caseId: empty, factor: 2 }] };
+  for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+    const baseline = await solve(model, cases, [{ ...combo, factors: [] }]);
+    const result = await solve(model, cases, [combo]);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.perCombo.get(1)?.displacements.find(row => row.nodeId === a)?.uz).toBe(dz);
+    expect(output(result)).toBe(output(baseline));
+  }
 });
 
 it('cancels between native solves, releases the matrix and permits a subsequent solve', async () => {
