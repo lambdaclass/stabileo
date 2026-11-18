@@ -40,7 +40,7 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
-  'ssiHistory', 'movingLoads', 'combinations', 'repeatedCombinationCases', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'superposedCombinations', 'repeatedCombinationCases', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -94,7 +94,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
-  analysis?: { selfWeight?: unknown[] };
+  analysis?: { selfWeight?: unknown[]; combinationMethod?: string };
   includeSelfWeight?: boolean;
   designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
 }
@@ -287,6 +287,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (s.analysis?.combinationMethod === 'superpose') f.add('superposedCombinations');
     if (Array.isArray(s.combinations) && s.combinations.some(combination => {
       const factors = (combination as { factors?: unknown } | null)?.factors;
       if (!Array.isArray(factors)) return false;

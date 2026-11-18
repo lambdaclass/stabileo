@@ -93,7 +93,7 @@ it('preserves explicitly superposed nonlinear combinations', async () => {
   expect(output(await modelStore.solveCombinations3DParallel(false, false, true))).toBe(output(expected));
 });
 
-it.skip.each(['sequential', 'worker', 'fallback'] as const)('ignores factored empty cases in the %s pretensioned cable solve (known wrong result: #2283)', async entry => {
+it.each(['sequential', 'worker', 'fallback'] as const)('ignores factored empty cases in the %s pretensioned cable solve (#2283)', async entry => {
   beam('cable');
   const model = md();
   model.analysis = { ...model.analysis, combinationMethod: 'superpose' };
@@ -131,7 +131,27 @@ it.skip.each(['sequential', 'worker', 'fallback'] as const)('ignores factored em
   }
 });
 
-it.skip('keeps the support settlement in a superposition of only empty load cases (known wrong result: #2283)', async () => {
+it.each(['solveEach', 'superpose'] as const)('keeps imposed displacement cases without force loads under %s', async method => {
+  const { a } = beam();
+  const support = [...modelStore.supports.values()].find(s => s.nodeId === a)!;
+  modelStore.updateSupport(support.id, { dz: 0 });
+  const empty = modelStore.addLoadCase('Empty', 'L');
+  const displacement = modelStore.addLoadCase('Imposed displacement', 'L');
+  const dz = -0.001;
+  modelStore.addLoadEntry({ type: 'displacement3d', data: { id: 0, nodeId: a, dz, caseId: displacement } });
+  const model = md();
+  model.analysis = { ...model.analysis, combinationMethod: method };
+  const cases = modelStore.model.loadCases;
+  const combos = [{ id: 1, name: 'Imposed only', factors: [{ caseId: displacement, factor: 1 }, { caseId: empty, factor: 1 }] }];
+  for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+    const result = await solve(model, cases, combos);
+    if (!result || typeof result === 'string') throw new Error(String(result));
+    expect(result.perCase.get(displacement)?.displacements.find(row => row.nodeId === a)?.uz).toBe(dz);
+    expect(result.perCombo.get(1)?.displacements.find(row => row.nodeId === a)?.uz).toBe(dz);
+  }
+});
+
+it('keeps the support settlement in a superposition of only empty load cases', async () => {
   const { a } = beam();
   const original = md();
   const model = { ...original, loads: [], analysis: { ...original.analysis, combinationMethod: 'superpose' as const } };

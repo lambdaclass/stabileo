@@ -537,6 +537,15 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it('scopes the empty nonlinear case notice to models with superposition combinations', () => {
+    const change = 'empty-nonlinear-combination-cases';
+    const combinations = [{ factors: [{ caseId: 1, factor: 1 }] }];
+    expect(ids(model({ combinations, analysis: { combinationMethod: 'superpose' } }))).toContain(change);
+    expect(ids(model({ combinations, analysis: { combinationMethod: 'solveEach' } }))).not.toContain(change);
+    expect(ids(model({ combinations }))).not.toContain(change);
+    expect(ids(model({ analysis: { combinationMethod: 'superpose' } }))).not.toContain(change);
+  });
+
   it('tells plane frames with combinations and member loads about the true-peak governing value and envelope', () => {
     const change = 'governing-envelope-true-peak';
     const combos = { combinations: [{ id: 1, name: '1.2D', factors: [{ caseId: 1, factor: 1.2 }] }] } as Partial<FeatureSnapshot>;

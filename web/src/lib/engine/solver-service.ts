@@ -22,7 +22,7 @@ import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { supportDofs3D } from './support-dofs-3d';
-import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
+import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
 import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D } from './orphan-rotations-3d';
@@ -2843,17 +2843,26 @@ function* nonlinearCombinationSteps(
   };
   try {
     const perCase = new Map<number, AnalysisResults3D>();
-    const required = new Set(method === 'superpose'
-      ? combinations.flatMap(({ factors }) => factors.filter(({ factor }) => factor !== 0).map(({ caseId }) => caseId))
-      : []);
+    const emptyCases = new Set<number>();
     for (const [id, loads] of caseLoads) {
-      if (loads.length === 0 && !imposedCases.has(id) && !required.has(id)) continue;
+      if (loads.length === 0 && !imposedCases.has(id)) {
+        emptyCases.add(id);
+        continue;
+      }
       const on = withImposed(base, free, (c) => (c === id ? 1 : 0));
       if (typeof on === 'string') return on;
       perCase.set(id, yield* run(on, loads));
     }
     if (settled) perCase.set(SETTLEMENT_CASE_ID, yield* run(baseSettled, []));
-    if (method === 'superpose') combinations = netSuperpositionCombinations(combinations);
+    if (method === 'superpose') {
+      combinations = netSuperpositionCombinations(combinations);
+      if (emptyCases.size > 0) {
+        combinations = combinations.map(combo => {
+          assertFiniteWire(combo.factors);
+          return { ...combo, factors: combo.factors.filter(({ caseId }) => !emptyCases.has(caseId)) };
+        });
+      }
+    }
     const perCombo = new Map<number, AnalysisResults3D>();
     for (const combo of combinations) {
       if (method === 'solveEach') {
