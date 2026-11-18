@@ -1,8 +1,8 @@
+import { BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 import replay from '../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json' with { type: 'json' };
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
-const LOCALES = PUBLIC_LOCALES;
+const LOCALES = BUILD_PUBLIC_LOCALES;
 const SIZES = [[360, 800], [390, 844], [844, 390], [810, 1080]] as const;
 const fmt = (locale: string, n: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 5 }).format(n);
 

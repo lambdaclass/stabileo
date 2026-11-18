@@ -1,7 +1,7 @@
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect } from '@playwright/test';
 
-for (const locale of PUBLIC_LOCALES) for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
+for (const locale of BUILD_PUBLIC_LOCALES) for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
   test(`@smoke four-cable form at ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -1,11 +1,11 @@
-import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { BUILD_FEATURES, TOOLS_SKIP_REASON, BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 import { TOOLS } from '../src/components/tools/registry';
 
 test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
 
 const MODEL_IDS = TOOLS.filter(tool => tool.kind === 'model').map(tool => tool.id);
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+
 
 const value = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-value'));
 const slide = (page: Page, key: string, to: number) => page.getByTestId(`param-${key}`).evaluate((el: HTMLInputElement, v) => { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); }, to);
@@ -229,7 +229,7 @@ for (const [width, height] of [[360, 640], [390, 844], [844, 390], [820, 1180], 
   });
 }
 
-for (const locale of PUBLIC_LOCALES) test(`@smoke the old examples index in ${locale} lands on the tools index, which lists every model`, async ({ page }) => {
+for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke the old examples index in ${locale} lands on the tools index, which lists every model`, async ({ page }) => {
   await page.goto(`/${locale}/examples/`);
   await expect(page).toHaveURL(new RegExp(`/${locale}/tools/$`));
   await expect(page.locator('h1')).toBeVisible();

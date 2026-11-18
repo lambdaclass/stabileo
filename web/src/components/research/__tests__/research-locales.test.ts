@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../../config/public-features.mjs';
 import { expect, it } from 'vitest';
 import { EXPERIMENTS } from '../experiments';
 import { RESEARCH_GALLERY, researchLocales, supportsResearchRoute } from '../locales';
@@ -24,7 +25,10 @@ import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
 const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'];
-const defined = (...dictionaries: object[]) => ALL.filter((l) => dictionaries.every((d) => l in d));
+const defined = (...dictionaries: object[]) => {
+  const { research } = buildFeatures();
+  return ALL.filter(locale => (locale !== 'hu' || research) && dictionaries.every(dict => locale in dict));
+};
 const either = (base: object, extra: object) => {
   if (ALL.some((l) => l in base && l in extra)) throw new Error('a page dictionary and its extra languages overlap');
   return { ...base, ...extra };

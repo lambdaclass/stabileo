@@ -8,9 +8,9 @@
  *  - The same model solved twice, and on the worker vs the main thread, gives bit-identical
  *    results; the reproduce dialog confirms a report's provenance.
  */
+import { BUILD_OFFERED_LOCALES } from './build-features';
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
-import { OFFERED_LOCALES } from '../src/lib/i18n/offered';
 
 // Vite names the lazy chunk after applicability.ts; full-registry.ts is its static dependency.
 const NOTICE_CHUNK = '**/applicability-*.js';
@@ -435,7 +435,7 @@ for (const width of [390, 810]) {
 
 
 for (const viewport of [{ width: 390, height: 667 }, { width: 844, height: 390 }, { width: 568, height: 320 }]) {
-  for (const locale of OFFERED_LOCALES) {
+  for (const locale of BUILD_OFFERED_LOCALES) {
     test.describe(`@smoke re-check notice on a short screen ${viewport.width}x${viewport.height} ${locale}`, () => {
       test.use({ viewport, appLocale: locale });
 
@@ -474,7 +474,7 @@ for (const viewport of [{ width: 390, height: 667 }, { width: 844, height: 390 }
 }
 
 for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }]) {
-  for (const locale of OFFERED_LOCALES) {
+  for (const locale of BUILD_OFFERED_LOCALES) {
     test(`@smoke scrolls recovery after download and storage failure at ${viewport.width}x${viewport.height} ${locale}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await bootPro(page, locale);

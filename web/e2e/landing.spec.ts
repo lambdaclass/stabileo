@@ -1,8 +1,8 @@
-import { BUILD_FEATURES } from './build-features';
+import { BUILD_FEATURES, BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect, type Page } from '@playwright/test';
 import { bootLanding } from './landing-helpers';
 import { pickLanguage } from './fixtures';
-import { PUBLIC_LOCALES, isComplete, type Locale } from '../src/lib/i18n/offered';
+import { isComplete, type Locale } from '../src/lib/i18n/offered';
 import fullDe from '../src/lib/i18n/locales/full/de';
 import fullFr from '../src/lib/i18n/locales/full/fr';
 import fullTr from '../src/lib/i18n/locales/full/tr';
@@ -11,7 +11,7 @@ import fullHu from '../src/lib/i18n/locales/full/hu';
 const NAME: Record<Locale, string> = { en: 'English', es: 'Español', pt: 'Português', de: 'Deutsch', fr: 'Français', tr: 'Türkçe', hu: 'Magyar' };
 const OG: Record<Locale, string> = { en: 'en_US', es: 'es_AR', pt: 'pt_BR', de: 'de_DE', fr: 'fr_FR', tr: 'tr_TR', hu: 'hu_HU' };
 /** The Open Graph alternates a public page in `locale` declares: every other public language. */
-const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
+const ogAlternates = (locale: Locale) => BUILD_PUBLIC_LOCALES.filter((l) => l !== locale).map((l) => OG[l]);
 
 /**
  * Landing-page coverage.
@@ -309,7 +309,7 @@ test.describe('@landing landing page', () => {
       .getByTestId('nav-lang-list')
       .getByRole('option')
       .allInnerTexts();
-    expect(names.map((n) => n.trim())).toEqual(PUBLIC_LOCALES.map((l) => NAME[l]));
+    expect(names.map((n) => n.trim())).toEqual(BUILD_PUBLIC_LOCALES.map((l) => NAME[l]));
   });
 
   test('a Brazilian browser gets the Portuguese landing', async ({ browser }) => {
@@ -946,7 +946,7 @@ test.describe('@landing every language gets the whole deck', () => {
     de: fullDe['landing.priceFree'], fr: fullFr['landing.priceFree'], tr: fullTr['landing.priceFree'], hu: fullHu['landing.priceFree'],
   };
 
-  for (const locale of PUBLIC_LOCALES) {
+  for (const locale of BUILD_PUBLIC_LOCALES) {
     test(`${locale}: ten sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 

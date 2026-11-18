@@ -9,8 +9,11 @@ const root = resolve(import.meta.dirname, '..');
 
 test('conflicting legacy environment variables do not change production features', async t => {
   const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME'];
+  const { accounts, diagramGame, research, tools } = committedConfig.production;
   const previous = keys.map(key => process.env[key]);
-  for (const key of keys) process.env[key] = key === 'VITE_ACCOUNTS' || key === 'VITE_DIAGRAM_GAME' ? '1' : '0';
+  for (const [index, enabled] of [accounts, research, tools, diagramGame].entries()) {
+    process.env[keys[index]] = enabled ? '0' : '1';
+  }
   t.after(() => {
     for (const [index, key] of keys.entries()) {
       if (previous[index] === undefined) delete process.env[key];
@@ -31,17 +34,18 @@ test('conflicting legacy environment variables do not change production features
   });
   const code = result.output.filter(output => output.type === 'chunk').map(output => output.code).join('\n');
   assert.ok(code.includes('disclaimer.report'));
-  assert.equal(code.includes('account.name'), false, 'production must strip the account UI dictionary');
-  assert.equal(code.includes('landing.navGame'), false, 'production must strip the game navigation label');
-  assert.ok(code.includes('advanced.mohr'));
-  assert.ok(result.output.some(output => output.type === 'chunk' && Object.hasOwn(output.modules, '\0virtual:public-i18n/hu')));
+  assert.equal(code.includes('account.name'), accounts, 'account UI dictionary');
+  assert.equal(code.includes('landing.navGame'), diagramGame, 'game navigation label');
+  assert.equal(code.includes('advanced.mohr'), tools, 'Mohr tool dictionary');
+  assert.equal(result.output.some(output => output.type === 'chunk' && Object.hasOwn(output.modules, '\0virtual:public-i18n/hu')), research);
 });
 
-for (const [command, mode, expected] of [
-  ['build', 'production', { accounts: false, research: true, tools: true, diagramGame: false }],
-  ['serve', 'development', { accounts: true, research: true, tools: true, diagramGame: true }],
-  ['serve', 'test', { accounts: true, research: true, tools: true, diagramGame: true }],
+for (const [command, mode] of [
+  ['build', 'production'],
+  ['serve', 'development'],
+  ['serve', 'test'],
 ]) {
+  const expected = committedConfig[mode];
   test(`${mode} resolves the committed feature booleans`, async () => {
     const config = await resolveConfig({ root, mode, logLevel: 'silent' }, command, mode);
     assert.deepEqual(JSON.parse(config.define.__PUBLIC_FEATURES__), expected);

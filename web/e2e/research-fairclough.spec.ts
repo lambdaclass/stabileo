@@ -1,13 +1,12 @@
+import { BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect } from '@playwright/test';
-
 import { translations } from '../src/components/research/fairclough2026/translations';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 import result from '../../research/optimisation/fairclough-2026/results/stabileo_results.json' with { type: 'json' };
 import reference from '../../research/optimisation/fairclough-2026/reference-results/five-node.json' with { type: 'json' };
 import published from '../../research/optimisation/fairclough-2026/reference-results/published_comparison.json' with { type: 'json' };
 import validation from '../../research/optimisation/fairclough-2026/VALIDATION.json' with { type: 'json' };
 
-for (const locale of PUBLIC_LOCALES) {
+for (const locale of BUILD_PUBLIC_LOCALES) {
   const text = translations[locale];
   const format = (v: number, digits = 10) => new Intl.NumberFormat(locale,{maximumSignificantDigits:digits}).format(v);
   for (const [width,height] of [[360,800],[390,844],[844,390],[810,1080]]) {

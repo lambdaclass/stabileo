@@ -1,3 +1,5 @@
+import { buildFeatures } from '../../../../config/public-features.mjs';
+import { MAIN_TOOL_IDS } from '../../../lib/main-tool-routes';
 import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { loadToolsPage } from '../load-page';
@@ -9,6 +11,9 @@ import { TOOLS, TOPICS } from '../registry';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/offered';
 
+const { tools } = buildFeatures();
+const indexTools = tools ? TOOLS.map(tool => tool.id) : MAIN_TOOL_IDS;
+
 afterEach(() => setPublicLocale('en'));
 
 for (const locale of PUBLIC_LOCALES) {
@@ -19,7 +24,7 @@ for (const locale of PUBLIC_LOCALES) {
       const { body } = render(ToolsPage, { props: { path: `/tools/${id}` } });
       expect(body).toContain(batchTranslations[locale][`tools.${id}`]);
       expect(body).toContain('class="tool-layout');
-      expect(body).toContain('class="tool-main');
+      expect(body).toContain(tools ? 'class="tool-main' : 'class="tool-inputs');
       expect(body).toContain('<form');
       expect(body).toContain(`href="/${locale}/tools/"`);
       expect(body).not.toMatch(/>tools\.[\w.-]+</);
@@ -34,14 +39,14 @@ for (const locale of PUBLIC_LOCALES) {
       const ToolsPage = await loadToolsPage(`/tools/${id}`);
       const { body } = render(ToolsPage, { props: { path: `/tools/${id}` } });
       expect(body).toContain('class="tool-layout');
-      expect(body).toContain('class="tool-main');
+      expect(body).toContain(tools ? 'class="tool-main' : 'class="tool-inputs');
       expect(body).not.toMatch(/>tools\.[\w.-]+</);
     });
   }
 }
 
 for (const locale of PUBLIC_LOCALES) {
-  for (const tool of TOOLS.filter(entry => entry.kind === 'model')) {
+  for (const tool of TOOLS.filter(entry => tools && entry.kind === 'model')) {
     it(`renders the ${tool.id} model as a tool in ${locale}`, async () => {
       setPublicLocale(locale);
       const ToolsPage = await loadToolsPage(`/tools/${tool.id}`);
@@ -54,20 +59,24 @@ for (const locale of PUBLIC_LOCALES) {
       expect(body).not.toMatch(/>tools\.[\w.-]+</);
     });
   }
-  it(`groups the tools index by topic and links every tool in ${locale}`, async () => {
+  it(`links exactly the configured tools in ${locale}`, async () => {
     setPublicLocale(locale);
     const ToolsPage = await loadToolsPage('/tools');
     const { body } = render(ToolsPage, { props: { path: '/tools' } });
-    for (const topic of TOPICS) expect(body).toContain(hubTranslations[locale][`tools.topic.${topic}`]);
-    for (const tool of TOOLS) expect(body).toContain(`href="/${locale}/tools/${tool.id}/"`);
-    expect(body.match(/<li class="tool-card[ "]/g)).toHaveLength(TOOLS.length);
+    for (const topic of TOPICS) {
+      expect(body.includes(hubTranslations[locale][`tools.topic.${topic}`])).toBe(tools);
+    }
+    for (const tool of TOOLS) {
+      expect(body.includes(`href="/${locale}/tools/${tool.id}/"`)).toBe(indexTools.some(id => id === tool.id));
+    }
+    expect(body.match(/<li class="tool-card[ "]/g)).toHaveLength(indexTools.length);
     expect(body).not.toMatch(/>tools\.[\w.-]+</);
   });
 }
 
 for (const locale of PUBLIC_LOCALES) it(`shows no first-version or review-round note in ${locale}`, async () => {
   setPublicLocale(locale);
-  for (const path of ['/tools', ...TOOLS.map(tool => `/tools/${tool.id}`)]) {
+  for (const path of ['/tools', ...indexTools.map(id => `/tools/${id}`)]) {
     const ToolsPage = await loadToolsPage(path);
     const { body } = render(ToolsPage, { props: { path } });
     expect(body).not.toMatch(/First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|Első verzió|első változat|ellenőrzési kör|felülvizsgálati kör|review round|ronda de revisión|rodada de revisão|Prüfrunde|cycle de revue|inceleme turu/);

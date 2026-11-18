@@ -1,8 +1,8 @@
-import { BUILD_FEATURES } from './build-features';
+import { BUILD_FEATURES, BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
-import { PUBLIC_LOCALES, isComplete } from '../src/lib/i18n/offered';
+import { isComplete } from '../src/lib/i18n/offered';
 
 test.skip(BUILD_FEATURES.tools, 'The enabled Tools build has new figures and layout; covered by tools.spec.ts');
 
@@ -79,7 +79,7 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]])
     }
   });
 }
-for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
+for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/tools/`);
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.locator('.tool-card h2 a')).toHaveCount(8);
@@ -92,7 +92,7 @@ for (const locale of PUBLIC_LOCALES) test(`@smoke tools localized index ${locale
   }
   await expect(page.locator('nav [data-nav="tools"]')).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
-  for (const lang of PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
+  for (const lang of BUILD_PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
   for (const lang of ['de', 'fr', 'tr'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
 });
 
@@ -180,7 +180,7 @@ test('@smoke tools refuse a decimal comma in span lists', async ({ page }) => {
 for (const id of ['simply-supported-beam', 'beam-natural-frequency']) test(`@smoke tools ${id} localized at 390x844 and 844x390`, async ({ page }) => {
   for (const [width, height] of [[390, 844], [844, 390]]) {
     await page.setViewportSize({ width, height });
-    await page.goto(`/${PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
+    await page.goto(`/${BUILD_PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
     await expect(page.getByTestId('agreement')).toBeVisible();
     expect(await pageOverflow(page)).toEqual([]);
     expect((await page.locator('.tool-viewer').boundingBox())!.y).toBeLessThan(height <= 400 ? height - 120 : 450);

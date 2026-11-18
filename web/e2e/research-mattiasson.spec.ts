@@ -1,7 +1,7 @@
+import { BUILD_PUBLIC_LOCALES } from './build-features';
 import { test, expect } from '@playwright/test';
 import LZString from 'lz-string';
 import { strings } from '../src/components/research/mattiasson1981/i18n';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
 const anyLocale = (key: keyof typeof strings.en) => new RegExp(Object.values(strings).map(s => s[key].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'));
 
@@ -88,7 +88,7 @@ test('Mattiasson Stop keeps computed steps seekable and playable', async ({ page
 });
 
 for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]]) {
-  for (const locale of PUBLIC_LOCALES) {
+  for (const locale of BUILD_PUBLIC_LOCALES) {
     test(`Mattiasson direct visit ${locale} ${width}x${height}`, async ({ page }) => {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: 'reduce' });

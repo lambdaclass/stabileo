@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../../config/public-features.mjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 
@@ -139,7 +140,8 @@ it('a link to a moved page points straight at its new address', async () => {
   const { movedRoute } = await import('../../../lib/legacy-routes');
   const source = readFileSync('src/components/landing/PublicLink.svelte', 'utf8');
   expect(source).toContain("const target = $derived(__PUBLIC_FEATURES__.tools ? movedRoute(to) ?? to : to);");
-  expect(movedRoute('/examples')).toBe('/tools');
-  expect(movedRoute('/examples/beam-frame')).toBe('/tools/beam-frame');
+  const { tools } = buildFeatures();
+  expect(movedRoute('/examples')).toBe(tools ? '/tools' : null);
+  expect(movedRoute('/examples/beam-frame')).toBe(tools ? '/tools/beam-frame' : null);
   expect(movedRoute('/tools')).toBeNull();
 });

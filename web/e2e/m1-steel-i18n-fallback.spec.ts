@@ -21,10 +21,10 @@
  * inside the joints panel. See `docs/handoffs/m1-steel-i18n-audit.md` §1.3.
  */
 
+import { BUILD_OFFERED_LOCALES } from './build-features';
 import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';
-import { OFFERED_LOCALES } from '../src/lib/i18n/offered';
 
 const STAGE_OF = { generators: 'model', steel: 'design', connections: 'design' } as const;
 
@@ -61,7 +61,7 @@ test.describe('a stored locale the app no longer offers', () => {
     // One representative: the barrier is `isOfferedLocale`, which does not know which code it is refusing.
     await bootWithStoredLocale(page, 'it');
     const settled = await activeLocale(page);
-    expect(OFFERED_LOCALES, `settled on ${settled}`).toContain(settled);
+    expect(BUILD_OFFERED_LOCALES, `settled on ${settled}`).toContain(settled);
   });
 
   test('leaves the metallic panel reading as ONE language, not a mixture', async ({ page }) => {
@@ -112,7 +112,7 @@ test.describe('a stored locale the app no longer offers', () => {
 });
 
 test.describe('the offered locales each hold the namespace on their own', () => {
-  for (const locale of OFFERED_LOCALES) {
+  for (const locale of BUILD_OFFERED_LOCALES) {
     test(`${locale} renders the metallic props card without falling through to English`, async ({ page }) => {
       await bootWithStoredLocale(page, locale);
       expect(await activeLocale(page)).toBe(locale);
