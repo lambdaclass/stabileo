@@ -237,7 +237,8 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
     torsionSection: req.neglect || t.torSection,
   };
   const worstCrack = (face: 'top' | 'bottom', used: boolean) => SECTION_NAMES.map((s) => crack(barsAt(a, s)[face], used)).reduce((w, x) => (x.s > w.s ? x : w));
-  const crackBottom = worstCrack('bottom', true), crackTop = worstCrack('top', hogUsed);
+  const sagUsed = Math.max(d.start.pos.value, d.span.pos.value, d.end.pos.value, ...(d.env ?? []).map((e) => e.pos)) > 1e-6;
+  const crackBottom = worstCrack('bottom', sagUsed), crackTop = worstCrack('top', hogUsed);
   const areaOk = (sign: 'pos' | 'neg') => req.bySection.filter((x) => x.sign === sign).every((x) => groupsArea(barsAt(a, x.section)[sign === 'pos' ? 'bottom' : 'top']) >= x.req - 1e-6);
   const areaBottom = areaOk('pos'), areaTop = areaOk('neg');
   const all = flex.every((f) => f.ok) && fb.fits && ft.fits && areaBottom && areaTop && crackBottom.ok && crackTop.ok
