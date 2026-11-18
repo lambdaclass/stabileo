@@ -8,7 +8,7 @@
    * where it does not.
    */
   import Hint from '../Hint.svelte';
-  import { t, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
@@ -138,7 +138,7 @@
 </details>
 
 <details class="pk-card do" data-testid="design-options-foundations">
-  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{t('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{tp('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
   <div class="do-opt">
     <label class="do-inline">{t('designData.presumedBearing')}
       <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}

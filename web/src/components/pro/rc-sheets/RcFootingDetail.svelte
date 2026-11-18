@@ -1,16 +1,13 @@
 <script lang="ts">
   import { t, tp } from '../../../lib/i18n';
-  import { uiStore } from '../../../lib/store';
-  import { setAdopted } from '../../../lib/store/rc-sheets.svelte';
+  import { modelStore, uiStore } from '../../../lib/store';
+  import { rcSheetsData, setAdopted } from '../../../lib/store/rc-sheets.svelte';
   import { FOOTING_DIAMETERS, setFootingSetup, writeFootingToModel } from '../../../lib/store/rc-sheets-footings';
-  import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
-  import { modelStore } from '../../../lib/store';
-  import { FOOTING_BALANCES, FOOTING_POSITIONS, type FootingBalance, type FootingPosition } from '../../../lib/rc-sheets/footing-types';
   import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import { lineRowStatus } from '../../../lib/rc-sheets/beam-line';
   import RcLineSvg from './RcLineSvg.svelte';
   import { isBanded } from '../../../lib/rc-sheets/footing-mesh';
-  import type { FootingAdopted, FootingMesh, FootingRow } from '../../../lib/rc-sheets/footing-types';
+  import { FOOTING_BALANCES, FOOTING_POSITIONS, type FootingAdopted, type FootingBalance, type FootingMesh, type FootingPosition, type FootingRow } from '../../../lib/rc-sheets/footing-types';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
   import RcFootingSvg from './RcFootingSvg.svelte';
 
