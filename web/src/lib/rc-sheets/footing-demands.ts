@@ -25,6 +25,20 @@ export interface FootingDemandInput {
   /** The load cases solved apart, by type ('D', 'L', 'W', …). */
   cases: ReadonlyArray<{ type: string; result: Reactions }>;
   levelAt?(z: number): string;
+  /** The walls that meet at the foundation, columns inside them or not: each stands on one footing (`FootingPier`). */
+  piers?: readonly FootingPier[];
+}
+
+/** A group of walls at the foundation and the columns inside them: the supported nodes along their base, the plan box their footprint fills, m, and its area, m². */
+export interface FootingPier {
+  key: string; name: string;
+  nodes: number[];
+  box: { x0: number; y0: number; x1: number; y1: number };
+  area: number;
+  /** Up to the first floor, m. */
+  storey?: number;
+  /** The bottom storey's walls, by row key. */
+  walls: string[];
 }
 
 const reactionAt = (r: Reactions, node: number) => r.reactions?.find((x) => x.nodeId === node);
@@ -65,15 +79,60 @@ function modelled(f: FootingRecord, all: readonly FootingRecord[]): ModelledFoot
   };
 }
 
+/** The reactions at several nodes as one action about `c`, m: their forces summed and their moments carried there. */
+export function summedAction(combo: string, rs: ReadonlyArray<Reaction3D & { x: number; y: number }>, c: { x: number; y: number }): FootingAction {
+  const t = { fx: 0, fy: 0, fz: 0, mx: 0, my: 0 };
+  for (const r of rs) {
+    t.fx += r.fx; t.fy += r.fy; t.fz += r.fz;
+    t.mx += r.mx + (r.y - c.y) * r.fz;
+    t.my += r.my - (r.x - c.x) * r.fz;
+  }
+  return actionOf(combo, t);
+}
+
+/** A footing the model holds under every node of a pier, read about the pier's box centre. */
+function modelledPier(p: FootingPier, all: readonly FootingRecord[], nodes: FootingDemandInput['nodes']): ModelledFooting | undefined {
+  const f = all.find((g) => p.nodes.every((n) => g.nodeId === n || g.supportedNodeIds?.includes(n)));
+  const at = f ? nodes.get(f.nodeId) : undefined;
+  if (!f || !at) return undefined;
+  const c = { x: (p.box.x0 + p.box.x1) / 2, y: (p.box.y0 + p.box.y1) / 2 };
+  const m = modelled({ ...f, kind: 'isolated', supportedNodeIds: [] }, all);
+  return { ...m, ex: m.ex + at.x - c.x, ey: m.ey + at.y - c.y, ...(Math.abs(((f.rotationDeg % 90) + 90) % 90) > 1e-6 ? { outOfScope: 'rotated' as const } : {}) };
+}
+
+/** A pier's footing: the reactions of every node along its base summed about the centre of its box, which stands for its column. */
+function pierDemand(p: FootingPier, m: FootingDemandInput): FootingDemand | null {
+  const pts = p.nodes.map((n) => ({ n, p: m.nodes.get(n) })).filter((x): x is { n: number; p: { x: number; y: number; z?: number } } => !!x.p);
+  if (!pts.length) return null;
+  const c = { x: (p.box.x0 + p.box.x1) / 2, y: (p.box.y0 + p.box.y1) / 2 }, z = Math.min(...pts.map((x) => x.p.z ?? 0));
+  const at = (r: Reactions) => pts.flatMap(({ n, p: q }) => { const x = reactionAt(r, n); return x ? [{ ...x, x: q.x, y: q.y }] : []; });
+  const combos = m.sets.flatMap((s) => { const rs = at(s.result); return rs.length ? [summedAction(s.name, rs, c)] : []; });
+  const gravity = m.cases.filter((k) => GRAVITY_CASES.has(k.type)).flatMap((k) => at(k.result));
+  const lateral = m.cases.filter((k) => LATERAL_CASES.has(k.type) && at(k.result).some((r) => Math.abs(r.fz) + Math.abs(r.mx) + Math.abs(r.my) + Math.abs(r.fx) + Math.abs(r.fy) > 1e-9)).length;
+  const own = modelledPier(p, m.footings, m.nodes);
+  const rep = pts.reduce((b, x) => (Math.hypot(x.p.x - c.x, x.p.y - c.y) < Math.hypot(b.p.x - c.x, b.p.y - c.y) ? x : b), pts[0]!);
+  return {
+    key: `footing:${p.key}`, name: p.name, level: m.levelAt?.(z), nodeId: rep.n, at: { x: c.x, y: c.y, z },
+    column: { b: p.box.x1 - p.box.x0, h: p.box.y1 - p.box.y0, area: p.area, ...(p.storey ? { storey: p.storey } : {}) },
+    service: gravity.length ? summedAction('D + L', gravity, c) : null, lateralLeftOut: lateral, combos,
+    soil: m.soilOf(own ? m.footings.find((f) => f.id === own.id)?.soilProfileId ?? null : null),
+    ...(own ? { footing: own } : {}), pier: { key: p.key, nodes: p.nodes, walls: p.walls },
+  };
+}
+
 /**
  * One footing per supported column base and per modelled footing: the footing the model holds
  * there if any, the column's reactions in every combination and its service gravity load. Nodes
- * another footing carries as well (a combined footing's second column) are that footing's.
+ * another footing carries as well (a combined footing's second column) are that footing's, and
+ * the nodes of a pier's base its own footing's, which the model's footing under all of them is.
  */
 export function footingDemands(m: FootingDemandInput): FootingDemand[] {
   const byNode = new Map<number, FootingRecord>();
   for (const f of [...m.footings].sort((a, b) => a.id - b.id)) if (!byNode.has(f.nodeId)) byNode.set(f.nodeId, f);
-  const carried = new Set(m.footings.flatMap((f) => f.supportedNodeIds ?? []));
+  const onPiers = new Set((m.piers ?? []).flatMap((p) => p.nodes));
+  const pierFootings = new Set(m.footings.filter((f) => onPiers.has(f.nodeId)).map((f) => f.id));
+  for (const id of pierFootings) for (const [n, f] of byNode) if (f.id === id) byNode.delete(n);
+  const carried = new Set([...m.footings.filter((f) => !pierFootings.has(f.id)).flatMap((f) => f.supportedNodeIds ?? []), ...onPiers]);
   const own = (n: number): FootingDemand | null => {
     const p = m.nodes.get(n), col = m.columnAt(n);
     if (!p) return null;
@@ -97,5 +156,6 @@ export function footingDemands(m: FootingDemandInput): FootingDemand[] {
       ...(second ? { carried: second } : {}),
     });
   }
+  for (const p of m.piers ?? []) { const d = pierDemand(p, m); if (d) out.push(d); }
   return out;
 }

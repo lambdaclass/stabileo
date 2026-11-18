@@ -41,6 +41,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     tr('rcSheets.col.bars'), 'As (cm²)', tr('rcSheets.col.ties'), tr('rcSheets.col.crossties'), ratio, status,
   ]];
   for (const r of rows.column) {
+    if (r.pier) { columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), '—', '—', '—', `→ ${safeText(r.pier.name)}`, '—', '—', '—', r3(worst(r.verifications)), state(r.status)]); continue; }
     columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), r2(Math.max(0, ...r.demand.cases.map((c) => c.pu))), r2(r.req.rho * 100), r2(r.req.ast),
       columnLabel(r.adopted), r2(r.checks.area), tieLabel(r.adopted), crosstiesText(r.checks.crossties), r3(worst(r.verifications)), state(r.status)]);
   }
@@ -61,7 +62,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     const k = r.demand.combos;
     walls.push([safeText(r.name), safeText(r.level ?? ''), r2(r.length), r2(r.height), cm(r.thickness),
       r2(Math.max(0, ...k.map((x) => x.pu))), r2(Math.max(0, ...k.map((x) => x.mu))), r2(Math.max(0, ...k.map((x) => x.vu))),
-      r3(r.req.rhoL * 100), r3(r.req.rhoT * 100), wallLabel(r.adopted), r3(worst(r.verifications)), state(r.status)]);
+      r3(r.req.rhoL * 100), r3(r.req.rhoT * 100), [wallLabel(r.adopted), ...(r.pier?.columns.filter((c) => c.host).map((c) => `${safeText(c.name)}: ${c.label} · ${tieLabel({ tieDia: c.tieDia, tieSpacing: c.tieSpacing })}`) ?? [])].join(' · '), r3(worst(r.verifications)), state(r.status)]);
   }
   const schedule: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.line.mark'), tr('rcSheets.line.kind'), tr('rcSheets.col.bars'), tr('rcSheets.line.from'), tr('rcSheets.line.to'), tr('rcSheets.line.length'), 'kg']];
   for (const l of rows.line ?? []) {

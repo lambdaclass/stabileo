@@ -9,7 +9,7 @@ export const ASSUMED_FILL_WEIGHT = 18;
 export const MIN_CONTACT = 0.5;
 
 /** A footing's plan and where its column stands, m: the column centre at (xc, yc) from the centroid, b along X, h along Y. */
-export interface FootingPlan { B: number; L: number; xc: number; yc: number; b: number; h: number }
+export interface FootingPlan { B: number; L: number; xc: number; yc: number; b: number; h: number; /** What bears on the footing where it is less than b × h (a pier's section), m². */ area?: number }
 
 /**
  * The resultant on the base of an action given at the support node, `lever` above the base, as
@@ -102,7 +102,7 @@ export function footingPunching(f: PressureField, p: FootingPlan, d: number, a: 
 
 /** §22.8.3: φ·0,85·f'c·A1, times √(A2/A1) ≤ 2 on the footing, A2 the largest area like the column's and concentric with it that the top holds. */
 export function bearingStrength(p: FootingPlan, fcColumn: number, fcFooting: number): { column: number; footing: number; root: number } {
-  const A1 = p.b * p.h;
+  const A1 = p.area ?? p.b * p.h;
   const k = Math.max(1, Math.min((p.B / 2 - Math.abs(p.xc)) / (p.b / 2), (p.L / 2 - Math.abs(p.yc)) / (p.h / 2)));
   const root = Math.min(2, k);
   return { column: 0.65 * 0.85 * fcColumn * A1 * 1000, footing: 0.65 * 0.85 * fcFooting * A1 * root * 1000, root };

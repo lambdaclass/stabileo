@@ -41,6 +41,14 @@ export interface FootingColumn {
   rowKey?: string;
   /** From the node to the next floor the column reaches, m: where a tie balancing an eccentric footing runs. */
   storey?: number;
+  /** A pier's section area, m², where `b` × `h` is only its box: what bears on the footing and what its dowels are read against. */
+  area?: number;
+  /** A pier's vertical bars as the dowels repeat them: how many, the thickest, and whether any takes tension at the base. */
+  bars?: { count: number; dia: number; tension: boolean };
+  /** A pier's concrete, MPa. */
+  fc?: number;
+  /** The least steel across the joint where it is not 0,005·Ag (§16.3.4.1): a pier's, 0,005 of its columns' area and the walls' least vertical ratio over theirs (§16.3.4.2), cm². */
+  dowelMin?: number;
 }
 
 /** Where a footing stands in plan: under its column, at a property line, or at a corner of two. */
@@ -111,6 +119,8 @@ export interface FootingDemand {
   carried?: FootingDemand;
   /** Ties from footings at a line that end at this one (FIUBA Cim. §6.5). */
   pulls?: TiePull[];
+  /** The footing of a pier or a wall: every supported node along its base (`nodeId` the one nearest its centre) and its walls by row key. */
+  pier?: { key: string; nodes: number[]; walls: string[] };
 }
 
 export type FootingSizing = 'full' | 'minimum' | 'reinforce';

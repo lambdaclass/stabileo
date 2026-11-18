@@ -8,7 +8,7 @@ import { findProfile } from '../model/geotechnical';
 import { columnOn } from '../model/foundation/generate';
 import { planHalf } from '../model/building/build-on-grid';
 import { SETTLEMENT_CASE_ID } from '../engine/settlement-case';
-import { footingDemands } from '../rc-sheets/footing-demands';
+import { footingDemands, type FootingPier } from '../rc-sheets/footing-demands';
 import { withEdges } from '../rc-sheets/footing-edges';
 import { leverOf } from '../rc-sheets/footing-design';
 import { designStrap, strapDemand, type StrapLoad } from '../rc-sheets/footing-strap';
@@ -86,14 +86,14 @@ function strapMembers(): Array<{ group: number; key: string; a: number; b: numbe
 }
 
 /** The footings the sheets design, read from the model's supports and footings and the results the other families read. */
-export function currentFootingDemands(sets: readonly DemandSet[], levelAt?: (z: number) => string): FootingDemand[] {
+export function currentFootingDemands(sets: readonly DemandSet[], levelAt?: (z: number) => string, piers?: readonly FootingPier[]): FootingDemand[] {
   const types = new Map(modelStore.model.loadCases.map((c) => [c.id, c.type ?? 'D']));
   const cases = [...resultsStore.perCase3D].filter(([id]) => id !== SETTLEMENT_CASE_ID).map(([id, result]) => ({ type: types.get(id) ?? 'D', result }));
   const demands = footingDemands({
     supportNodes: [...modelStore.supports.values()].map((s) => s.nodeId),
     nodes: modelStore.nodes as never,
     footings: [...modelStore.model.footings.values()],
-    columnAt, soilOf, sets, cases, ...(levelAt ? { levelAt } : {}),
+    columnAt, soilOf, sets, cases, ...(levelAt ? { levelAt } : {}), ...(piers?.length ? { piers } : {}),
   });
   return withEdges(demands, { lines: designData().propertyLines ?? {}, setup: rcSheetsData().footingSetup ?? {}, straps: strapMembers() });
 }
@@ -119,6 +119,7 @@ export function setFootingSetup(key: string, setup: FootingSetup | null): void {
 }
 
 const columnBarsOf = (d: FootingDemand, columns: readonly ColumnRow[]): FootingContext['columnBars'] => {
+  if (d.column?.bars) return d.column.bars;
   const col = d.column?.rowKey ? columns.find((r) => r.key === d.column!.rowKey) : undefined;
   const a = col?.adopted;
   return a && col ? {
@@ -128,6 +129,7 @@ const columnBarsOf = (d: FootingDemand, columns: readonly ColumnRow[]): FootingC
 };
 
 const columnFcOf = (d: FootingDemand): number => {
+  if (d.column?.fc) return d.column.fc;
   const colId = columnOn(d.nodeId);
   return fcOfMaterial(colId !== undefined ? modelStore.elements.get(colId)?.materialId : undefined) ?? DEFAULT_FC;
 };
@@ -167,8 +169,31 @@ export function footingRowOf(d: FootingDemand, rules: SheetRules, adopted: Recor
 
 export { withOverlaps };
 
-/** The row's footing written to the model, made where there is none, its top at the column's foot; a combined footing as one carrying both columns, in place of theirs. One undo step. */
+/** A pier's footing written to the model: one footing at its representative node carrying every other node of its base, a strip under a single wall, in place of any footing those nodes had. */
+function writePierFooting(row: FootingRow, pier: NonNullable<FootingDemand['pier']>): number {
+  const a = row.adopted, d = row.demand;
+  const at = modelStore.nodes.get(d.nodeId);
+  const dx = at ? d.at.x - at.x : 0, dy = at ? d.at.y - at.y : 0;
+  const wallGroupId = pier.walls.length === 1 ? Number(pier.walls[0]!.split(':')[1]) : undefined;
+  let id = d.footing?.id;
+  modelStore.batchFoundation(() => {
+    for (const f of [...modelStore.model.footings.values()]) if (f.id !== id && (pier.nodes.includes(f.nodeId) || f.supportedNodeIds?.some((n) => pier.nodes.includes(n)))) modelStore.removeFooting(f.id);
+    if (id === undefined) id = modelStore.addFooting(d.nodeId, d.name);
+    const col = columnOn(d.nodeId);
+    modelStore.updateFooting(id, {
+      B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex + dx, eccentricityL: a.ey + dy, cover: row.cover, rotationDeg: 0,
+      ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }),
+      kind: wallGroupId !== undefined && Number.isFinite(wallGroupId) ? 'strip' as const : 'combined' as const, supportedNodeIds: pier.nodes.filter((n) => n !== d.nodeId),
+      ...(wallGroupId !== undefined && Number.isFinite(wallGroupId) ? { wallGroupId } : {}),
+      ...(col !== undefined ? { columnElementId: col } : {}),
+    });
+  });
+  return id!;
+}
+
+/** The row's footing written to the model, made where there is none, its top at the column's foot; a combined footing as one carrying both columns, in place of theirs; a pier's as one under its whole base. One undo step. */
 export function writeFootingToModel(row: FootingRow): number {
+  if (row.demand.pier) return writePierFooting(row, row.demand.pier);
   const a = row.adopted, d = row.demand, o = d.carried;
   const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }) };
   let id = d.footing?.id;

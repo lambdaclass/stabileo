@@ -13,6 +13,8 @@ import type { PunchingDemand } from './punching-row';
 import type { SlabJointForce } from './slab-punching';
 import type { Signed } from './types';
 import type { LevelGeometry, PlanBeam, PlanColumn } from './slab-plan';
+import type { CutForces } from './piers';
+import { computeLocalAxes3D } from '../engine/local-axes-3d';
 
 type Pt = { id: number; x: number; y: number; z?: number };
 type El = { id: number; nodeI: number; nodeJ: number; sectionId: number; type?: string; rollAngle?: number };
@@ -61,6 +63,8 @@ export interface DemandInput {
   flangeSides?: (elementId: number) => readonly FlangeSide[] | undefined;
   /** On how many sides a beam element has slab. */
   slabSides?: (elementId: number) => number;
+  /** A member's local axes as the solve builds them; absent, they are built from its nodes and roll. */
+  axesOf?: (elementId: number) => { ex: V3; ey: V3; ez: V3 } | null;
 }
 
 const zOf = (p: Pt | undefined) => p?.z ?? 0;
@@ -323,6 +327,25 @@ function slabNodes(m: DemandInput): Set<number> {
   return out;
 }
 
+function axesOf(m: DemandInput, e: El): { ex: V3; ey: V3; ez: V3 } | null {
+  const own = m.axesOf?.(e.id);
+  if (own) return own;
+  const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
+  if (!a || !b) return null;
+  try { return computeLocalAxes3D({ id: a.id, x: a.x, y: a.y, z: zOf(a) }, { id: b.id, x: b.x, y: b.y, z: zOf(b) }, undefined, e.rollAngle); } catch { return null; }
+}
+
+/**
+ * What the storey below puts on a member at a cut, global axes: the force on the part above (N up
+ * is compression) and its moment about the member's axis there. A station's forces act on the
+ * part beyond it along the member's axis, so a member read downward gives them turned round.
+ */
+function cutOf(f: StationForces, ax: { ex: V3; ey: V3; ez: V3 }, s: 1 | -1): CutForces {
+  const F = [0, 1, 2].map((k) => s * (-f.n * ax.ex[k]! + f.vy * ax.ey[k]! + f.vz * ax.ez[k]!));
+  const H = [0, 1].map((k) => s * (f.torsion * ax.ex[k]! + f.my * ax.ey[k]! + f.mz * ax.ez[k]!));
+  return { n: F[2]!, mx: H[0]!, my: H[1]!, vx: F[0]!, vy: F[1]! };
+}
+
 export function columnDemands(m: DemandInput): ColumnDemand[] {
   const inc = incidence(m);
   const out: ColumnDemand[] = [];
@@ -360,6 +383,8 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
         const lb = at(by.get(bottom.e.id), bottom.forward, 'bottom'), lt = at(by.get(top.e.id), top.forward, 'top');
         return lb && lt ? { mxTop: lt.my, mxBot: lb.my, myTop: lt.mz, myBot: lb.mz } : undefined;
       };
+      const axes = axesOf(m, bottom.e);
+      const pBot = m.nodes.get(nBot);
       for (const set of m.sets) {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
@@ -376,6 +401,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           combo: set.name, pu: Math.max(-b.n, -t.n), puMin: Math.min(-b.n, -t.n),
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
+          ...(axes ? { base: cutOf(b, axes, bottom.forward ? 1 : -1) } : {}),
           ...(inner.length ? { inner } : {}),
           ...(lateral ? { sway: lateral } : {}), ...(first ? { first } : {}),
         });
@@ -388,6 +414,7 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
         b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        ...(axes && pBot ? { plan: { x: pBot.x, y: pBot.y, z: zOf(pBot), ey: [axes.ey[0], axes.ey[1]] as [number, number], ez: [axes.ez[0], axes.ez[1]] as [number, number] } } : {}),
         ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
       });
@@ -684,6 +711,7 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       const combos: WallComboForces[] = [];
       for (const set of m.sets) {
         let muV = 0, muH = 0;
+        const g: CutForces = { n: 0, mx: 0, my: 0, vx: 0, vy: 0 };
         const strips: Parameters<typeof wallBaseResultants>[0][number][] = [];
         for (const row of shellRowsIn(set, m.shells, keys)) {
           const key = `${row.kind === 'quad' ? 'q' : 'p'}${row.id}`;
@@ -693,14 +721,19 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           const b = baseBy.get(key);
           if (!b) continue;
           const bu = b.pts.map(uOf);
-          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width: Math.max(...bu) - Math.min(...bu), thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v) });
+          const width = Math.max(...bu) - Math.min(...bu);
+          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width, thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v) });
+          const A = row.thickness * width, x = b.pts.reduce((s, p) => s + p.x, 0) / b.pts.length, y = b.pts.reduce((s, p) => s + p.y, 0) / b.pts.length;
+          const f = -tensorAlong(row.global.stress, v, v) * A;
+          g.n += f; g.mx += f * y; g.my -= f * x;
+          g.vx -= tensorAlong(row.global.stress, [1, 0, 0], v) * A; g.vy -= tensorAlong(row.global.stress, [0, 1, 0], v) * A;
         }
         const { pu, mu, vu } = wallBaseResultants(strips, centre);
-        combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH });
+        combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH, global: g });
       }
       out.push({
         key: `wall:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(lo) : g.level,
-        length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), z: lo, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, combos,
+        length, height: hi - lo, thickness, baseElements: base.length, plan: basePlan(base.flatMap((x) => x.pts), uOf), z: lo, base: { nodes: baseNodes.length, held: held.length, unheld: baseNodes.filter((nd) => !held.includes(nd)) }, baseNodes, combos,
       });
     }
   }

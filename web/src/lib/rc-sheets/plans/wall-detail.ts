@@ -43,6 +43,12 @@ export function wallElevationPrimitives(row: WallRow, o: WallPlanOptions): Primi
   if (d.crossTies) for (const y of wallLevels(row.height, d.crossTies.up)) for (const x of wallLevels(d.length, d.crossTies.along)) {
     ps.push({ kind: 'circle', layer: arm('EST', d.crossTies.dia), c: pt(x * K, y * K), r: 0.8 * s, dia: d.crossTies.dia });
   }
+  for (const c of d.columns) {
+    const xs = c.outline.map((q) => Math.min(d.length, Math.max(0, q.x)) * K);
+    ps.push(rect(HORM, Math.min(...xs), 0, Math.max(...xs), H));
+    const near = Math.min(...c.bars.map((b) => b.y));
+    for (const b of c.bars.filter((q) => Math.abs(q.y - near) < 1e-6)) ps.push(seg(arm('BORDE', b.dia), pt(b.x * K, 0), pt(b.x * K, H), b.dia));
+  }
   ps.push(dim(pt(0, 0), pt(L, 0), -6, o.fmt(d.length, 2)), dim(pt(0, 0), pt(0, H), 6, o.fmt(row.height, 2)));
   return ps;
 }
@@ -73,6 +79,10 @@ export function wallSectionPrimitives(row: WallRow, o: WallPlanOptions): Primiti
     ps.push(seg(arm('EST', d.crossTies.dia), pt(x * K, d.horizontals.y[0]! * K), pt(x * K, d.horizontals.y[1]! * K), d.crossTies.dia));
   }
   for (const v of d.verticals) ps.push({ kind: 'circle', layer: arm(v.boundary ? 'BORDE' : 'VERT', v.dia), c: pt(v.x * K, v.y * K), r: v.dia / 2, fill: true, dia: v.dia });
+  for (const c of d.columns) {
+    ps.push({ kind: 'polyline', layer: HORM, points: [...c.outline, c.outline[0]!].map((q) => pt(q.x * K, q.y * K)) });
+    for (const b of c.bars) ps.push({ kind: 'circle', layer: arm('BORDE', b.dia), c: pt(b.x * K, b.y * K), r: b.dia / 2, fill: true, dia: b.dia });
+  }
   ps.push(dim(pt(0, 0), pt(L, 0), -6, o.fmt(d.length, 2)), dim(pt(L, 0), pt(L, T), -6, cm(o.fmt, d.thickness)));
   const local = (p: Record<string, string | number>) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' && !Number.isInteger(v) ? o.fmt(v, 1) : typeof v === 'string' && /^\d+\.\d+$/.test(v) ? o.fmt(Number(v), v.split('.')[1]!.length) : v]));
   const notes = [wallLabel(row.adopted), ...d.notes.map((n) => `${n.params ? o.tr(n.key, local(n.params)) : o.tr(n.key)}${n.clause ? ` — ${n.clause}` : ''}`)];

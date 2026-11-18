@@ -55,7 +55,7 @@ const r3 = (v: number) => Math.round(v * 1000) / 1000;
 export const leverOf = (d: FootingDemand, h: number): number => (d.footing ? Math.max(h, d.at.z - d.footing.founding) : h);
 
 export const planOf = (d: FootingDemand, a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey'>): FootingPlan =>
-  ({ B: a.B, L: a.L, xc: -a.ex, yc: -a.ey, b: d.column?.b ?? 0, h: d.column?.h ?? 0 });
+  ({ B: a.B, L: a.L, xc: -a.ex, yc: -a.ey, b: d.column?.b ?? 0, h: d.column?.h ?? 0, ...(d.column?.area ? { area: d.column.area } : {}) });
 
 export function layersOf(a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'x' | 'y'>, cover: number): FootingLayers {
   const lower = a.B >= a.L ? 'x' : 'y';
@@ -151,7 +151,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
   const an = code.anchorage;
   if (d.column && an && dw && dw.count > 0 && dw.dia > 0) {
     const excess = Math.max(0, pu - Math.min(bs.column, bs.footing));
-    const required = Math.max(0.005 * plan.b * plan.h * 1e4, (10 * excess) / (0.65 * c.fy));
+    const required = Math.max(d.column.dowelMin ?? 0.005 * (plan.area ?? plan.b * plan.h) * 1e4, (10 * excess) / (0.65 * c.fy));
     const tension = c.columnBars?.tension ?? false;
     const mat = { fc: c.fc, fy: c.fy };
     const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
@@ -171,7 +171,7 @@ export const thicknessHolds = (r: FootingAnalysis): boolean =>
 export function proposeDowels(d: FootingDemand, c: FootingContext): FootingAdopted['dowels'] {
   if (!d.column) return undefined;
   if (c.columnBars && c.columnBars.count > 0) return { count: c.columnBars.count, dia: c.columnBars.dia };
-  const need = 0.005 * d.column.b * d.column.h * 1e4, dia = 12;
+  const need = d.column.dowelMin ?? 0.005 * (d.column.area ?? d.column.b * d.column.h) * 1e4, dia = 12;
   return { count: Math.max(4, 2 * Math.ceil(need / barArea(dia) / 2)), dia };
 }
 

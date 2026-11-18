@@ -16,6 +16,7 @@ import { barArea } from './bars';
 import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';
 import { allowedTie, tieDiametersOf, type SheetCode } from './types';
+import { inPierColumn, type WallPier } from './pier-row';
 
 export interface WallDetailNote { key: string; clause: string; params?: Record<string, string | number> }
 
@@ -28,6 +29,8 @@ export interface WallDetail {
   /** The zone from each end to past its last boundary bar, its ratio, and its ties when it needs them. */
   boundary: { length: number; rho: number; ties: { dia: number; spacing: number; clause: string; legs?: number } | null; special?: boolean } | null;
   crossTies: { along: number; up: number; dia: number; clause: string } | null;
+  /** The columns of its pier inside it, in the same axes: their bars stand for the wall's there. */
+  columns: WallPier['columns'];
   notes: WallDetailNote[];
 }
 
@@ -43,7 +46,8 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const bars = wallVerticalBars(L, t, cover, a);
   const curtains = a.curtains === 2 ? 2 : 1;
   const nDistributed = curtains * Math.max(2, Math.floor(L / a.vertical.spacing) + 1);
-  const verticals = bars.map((b, i) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: i < nDistributed ? a.vertical.diameter : a.boundary!.diameter, boundary: i >= nDistributed }));
+  const verticals = bars.map((b, i) => ({ x: b.x + L / 2, y: b.y + t / 2, dia: i < nDistributed ? a.vertical.diameter : a.boundary!.diameter, boundary: i >= nDistributed }))
+    .filter((v) => !inPierColumn(row.pier, v.x, v.y));
   const hy = curtains === 2 ? [cover + hd / 2, t - cover - hd / 2] : [t / 2];
   const notes: WallDetailNote[] = [];
 
@@ -102,7 +106,10 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   } else if (fam === 'aci' && curtains === 2) {
     notes.push({ key: 'rcSheets.wallFig.n.noTies', clause: '§11.7.4.1', params: { rho: (rhoV * 100).toFixed(2) } });
   }
-  return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, notes };
+  const columns = row.pier?.columns ?? [];
+  if (row.pier) notes.push({ key: 'rcSheets.wallFig.n.pier', clause: '§22.4', params: { name: row.pier.name, ratio: row.pier.ratio.toFixed(2) } });
+  for (const c of columns) notes.push({ key: 'rcSheets.wallFig.n.pierColumn', clause: '', params: { name: c.name, bars: c.label, tdia: c.tieDia, ts: Math.round(c.tieSpacing * 1000) / 10 } });
+  return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, columns, notes };
 }
 
 /** Bars at a spacing up a height (or along a length), from half a spacing in; one kept in so many past `maxLines`. */

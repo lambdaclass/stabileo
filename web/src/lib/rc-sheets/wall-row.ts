@@ -9,8 +9,12 @@ import { check, ratioOf, type TransverseList, type CheckLine, type ComboTable, t
 
 const EDITION = '2025' as const;
 
-/** At the base of a storey: in-plane axial force (+ compression), moment and shear; out-of-plane moments per metre on the vertical and the horizontal bars. */
-export interface WallComboForces { combo: string; pu: number; mu: number; vu: number; muV: number; muH: number }
+/**
+ * At the base of a storey: in-plane axial force (+ compression), moment and shear; out-of-plane
+ * moments per metre on the vertical and the horizontal bars; and the base's signed resultant in
+ * global axes about the plan origin (`CutForces`), which a pier sums.
+ */
+export interface WallComboForces { combo: string; pu: number; mu: number; vu: number; muV: number; muH: number; global?: import('./piers').CutForces }
 
 export interface WallDemand {
   key: string; name: string; level?: string;
@@ -24,10 +28,18 @@ export interface WallDemand {
   plan?: { x1: number; y1: number; x2: number; y2: number };
   /** Its base's elevation, m. */
   z?: number;
+  /** The nodes along its base cut. */
+  baseNodes?: number[];
   combos: WallComboForces[];
 }
 
-export interface WallContext extends TransverseList { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic; /** The storey below has special boundary elements (chapter 18). */ belowSpecial?: boolean }
+export interface WallContext extends TransverseList {
+  mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic;
+  /** The storey below has special boundary elements (chapter 18). */
+  belowSpecial?: boolean;
+  /** A wall of a pier: its in-plane axial force and bending are the pier's, and `boundary` the least end bars the pier asks of it. */
+  pier?: { boundary?: { count: number; diameter: number } };
+}
 
 export interface WallRow {
   family: 'wall';
@@ -59,6 +71,8 @@ export interface WallRow {
   tieDiameters?: readonly number[];
   /** The closest spacing they are placed at, m. */
   minTieSpacing?: number;
+  /** A wall of a pier: the section's check and the columns inside it (`pier-row.ts`). */
+  pier?: import('./pier-row').WallPier;
 }
 
 const rhoOf = (m: { diameter: number; spacing: number }, curtains: number, t: number) => (m.spacing > 0 ? curtains * barArea(m.diameter) * 1e-4 / (m.spacing * t) : 0);
@@ -84,7 +98,7 @@ function evaluate(d: WallDemand, c: WallContext, a: WallAdopted): Eval {
   const sMaxV = shearSteel ? Math.min(s0, d.length / 3) : s0, sMaxH = shearSteel ? Math.min(s0, d.length / 5) : s0;
   const r = { vertical: a.vertical, horizontal: a.horizontal, curtains: a.curtains, ...(a.boundary && a.boundary.count > 0 ? { boundary: a.boundary } : {}) };
   const base = { length: d.length, thickness: d.thickness, cover: c.cover, fc: c.mat.fc, fy: c.mat.fy };
-  const pm = d.combos.map((k) => wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization);
+  const pm = d.combos.map((k) => (c.pier ? 0 : wallInPlane({ ...base, pu: k.pu, mu: k.mu, r }).utilization));
   const out = d.combos.map((k) => Math.max(0, ...wallOutOfPlane({ ...base, pu: k.pu, muV: k.muV, muH: k.muH, r }).map((x) => x.utilization)));
   const sh = d.combos.map((k) => checkWallInPlaneShear({ length: d.length, thickness: d.thickness, fc: c.mat.fc, vu: k.vu, rhoT, fy: c.mat.fy, edition: EDITION }));
   return {
@@ -109,6 +123,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     vertical: meshFor(c.barDia, first.rhoLMin, first.sMaxV),
     horizontal: meshFor(c.barDia, Math.max(first.rhoTMin, rhoTShear), first.sMaxH),
     curtains,
+    ...(c.pier?.boundary ? { boundary: c.pier.boundary } : {}),
   };
   let iterations = 0;
   let e = evaluate(d, c, a);
@@ -152,7 +167,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
   const verifications: CheckLine[] = [
     ...((d.baseElements ?? 2) < 2 ? [check('rcSheets.v.wallMesh', false, { clause: '', demand: String(d.baseElements ?? 0), capacity: '≥ 2' })] : []),
     ...(d.base && d.base.held < d.base.nodes ? [check('rcSheets.v.wallBase', false, { clause: '', demand: `${d.base.held} / ${d.base.nodes}`, capacity: `${d.base.nodes} / ${d.base.nodes}` })] : []),
-    check('rcSheets.v.wallPM', ev.pm.every(ok1), { clause: '§11.5.2, §22.4', demand: d.combos[ipm]?.combo ?? '', ratio: Math.max(0, ...ev.pm) }),
+    ...(c.pier ? [] : [check('rcSheets.v.wallPM', ev.pm.every(ok1), { clause: '§11.5.2, §22.4', demand: d.combos[ipm]?.combo ?? '', ratio: Math.max(0, ...ev.pm) })]),
     check('rcSheets.v.wallShear', ev.shear.every(ok1), { clause: '§11.5.4', demand: `${fmt(vuMax)} kN`, capacity: `${fmt(ev.phiVnMin)} kN`, ratio: Math.max(0, ...ev.shear) }),
     check('rcSheets.v.wallOut', ev.out.every(ok1), { clause: '§11.5.1, §22.2', demand: d.combos[iout]?.combo ?? '', ratio: Math.max(0, ...ev.out) }),
     check('rcSheets.v.wallRhoL', ev.rhoL >= ev.rhoLMin - 1e-9, { clause: '§11.6', demand: `${fmt(ev.rhoLMin * 100, 3)} %`, capacity: `${fmt(ev.rhoL * 100, 3)} %`, ratio: ratioOf(ev.rhoLMin, ev.rhoL) }),
@@ -196,7 +211,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
       title: 'rcSheets.g.wallFlexure',
       steps: [
         { label: 'rcSheets.s.wallBoundary', formula: 'As extremos (Pu, Mu)', value: boundaryLabel },
-        { label: 'rcSheets.s.wallPM', formula: 'φMn(Pu) ≥ Mu', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) },
+        ...(c.pier ? [] : [{ label: 'rcSheets.s.wallPM', formula: 'φMn(Pu) ≥ Mu', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) }]),
         { label: 'rcSheets.s.wallOut', formula: 'Mv, Mh ≤ φMn (b = 1 m)', value: `${fmt(Math.max(0, ...ev.out), 3)}`, ok: ev.out.every(ok1) },
       ],
     },

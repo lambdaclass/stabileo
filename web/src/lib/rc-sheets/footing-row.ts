@@ -103,6 +103,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
   const b = r.bearing;
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
+  if (d.pier) out.push(check('rcSheets.v.footPier', true, { clause: CRITERION, demand: `${d.pier.nodes.length} · ${d.column ? `${fmt(d.column.b, 2)} × ${fmt(d.column.h, 2)} m` : ''}` }));
   for (const p of d.pulls ?? []) {
     const T = Math.max(0, ...Object.values(p.byCombo).map(Math.abs));
     out.push(check('rcSheets.v.footTiePull', true, { clause: CRITERION, demand: `${p.name} → ${p.axis.toUpperCase()}: Tu = ${kn(T)} · Tu·${fmt(p.height, 2)} m = ${knm(T * p.height)}` }));
@@ -134,7 +135,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   if (d.column) out.push(check('rcSheets.v.footBearingStrength', bs.pu <= phiBn + 1e-6 || (!!r.dowels && r.dowels.area >= r.dowels.required - 1e-6), { clause: '§22.8', demand: kn(bs.pu), capacity: kn(phiBn), ratio: ratioOf(bs.pu, phiBn) }));
   const dw = r.dowels;
   if (dw) {
-    out.push(check('rcSheets.v.footDowelArea', dw.area >= dw.required - 1e-6, { clause: '§16.3.4.1', demand: cm2(dw.required), capacity: `${dw.count} Ø${dw.dia} (${cm2(dw.area)})` }));
+    out.push(check('rcSheets.v.footDowelArea', dw.area >= dw.required - 1e-6, { clause: d.pier ? '§16.3.4.1, §16.3.4.2' : '§16.3.4.1', demand: cm2(dw.required), capacity: `${dw.count} Ø${dw.dia} (${cm2(dw.area)})` }));
     const need = Math.max(dw.ldc, dw.ldh);
     out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: dw.tension ? `${code.anchorage?.clause.compression}, ${code.anchorage?.clause.hooked}` : code.anchorage?.clause.compression, demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
   } else if (d.column) out.push(check('rcSheets.v.footDowelArea', false, { clause: '§16.3.4.1' }));

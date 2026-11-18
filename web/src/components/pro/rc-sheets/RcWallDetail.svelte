@@ -22,11 +22,15 @@
   const crossGrid = $derived(d.crossTies ? { xs: levels(d.length, d.crossTies.along), ys: levels(row.height, d.crossTies.up) } : null);
 
   const PW = 380, PAD2 = 18;
-  const kx = $derived((PW - 2 * PAD2) / Math.max(d.length, 0.1));
+  const ext = $derived(d.columns.flatMap((c) => c.outline));
+  const x0 = $derived(Math.min(0, ...ext.map((p) => p.x))), x1 = $derived(Math.max(d.length, ...ext.map((p) => p.x)));
+  const y0 = $derived(Math.min(0, ...ext.map((p) => p.y))), y1 = $derived(Math.max(d.thickness, ...ext.map((p) => p.y)));
+  const kx = $derived((PW - 2 * PAD2) / Math.max(x1 - x0, 0.1));
   // The thickness drawn at least 60 px, so both curtains and the U-bars stay apart.
   const ky = $derived(Math.max(kx, 60 / Math.max(d.thickness, 0.05)));
-  const PH = $derived(d.thickness * ky + 2 * PAD2 + 12);
-  const PX = (x: number) => PAD2 + x * kx, PY = (y: number) => PAD2 + y * ky;
+  const PH = $derived((y1 - y0) * ky + 2 * PAD2 + 12);
+  const PX = (x: number) => PAD2 + (x - x0) * kx, PY = (y: number) => PAD2 + (y - y0) * ky;
+  const zoneX = (c: (typeof d.columns)[number]) => { const xs = c.outline.map((p) => Math.min(d.length, Math.max(0, p.x))); return [Math.min(...xs), Math.max(...xs)] as const; };
   const uLeg = $derived(Math.min(d.ends.lap, d.length / 2));
   const ubar = (end: 0 | 1) => {
     if (d.horizontals.y.length < 2) return '';
@@ -58,6 +62,10 @@
       <rect x={EX(0)} y={PAD} width={d.boundary.length * ke} height={eh} class="zone" />
       <rect x={EX(d.length - d.boundary.length)} y={PAD} width={d.boundary.length * ke} height={eh} class="zone" />
     {/if}
+    {#each d.columns as c (c.key)}
+      {@const [a, b] = zoneX(c)}
+      <rect x={EX(a)} y={PAD} width={(b - a) * ke} height={eh} class="col" data-testid="rc-wall-elev-column" />
+    {/each}
     {#if on.vertical}
       <g class="v" data-testid="rc-wall-elev-vertical">
         {#each face as v, i (i)}<line x1={EX(v.x)} y1={EY(0)} x2={EX(v.x)} y2={EY(row.height)} class:bnd={v.boundary} />{/each}
@@ -129,6 +137,10 @@
     {#if on.ties && crossGrid && d.horizontals.y.length === 2}
       <g class="x">{#each crossGrid.xs as x, j (j)}<line x1={PX(x)} y1={PY(d.horizontals.y[0]!)} x2={PX(x)} y2={PY(d.horizontals.y[1]!)} />{/each}</g>
     {/if}
+    {#each d.columns as c (c.key)}
+      <polygon points={c.outline.map((p) => `${PX(p.x)},${PY(p.y)}`).join(' ')} class="col" data-testid="rc-wall-plan-column" />
+      {#if on.vertical}<g class="v">{#each c.bars as b, i (i)}<circle cx={PX(b.x)} cy={PY(b.y)} r={Math.max(1.8, (b.dia / 2000) * ky)} class="bnd" />{/each}</g>{/if}
+    {/each}
     {#if on.vertical}
       <g class="v" data-testid="rc-wall-plan-vertical">{#each d.verticals as v, i (i)}<circle cx={PX(v.x)} cy={PY(v.y)} r={Math.max(1.8, (v.dia / 2000) * ky)} class:bnd={v.boundary} />{/each}</g>
     {/if}
@@ -154,6 +166,7 @@
   .tg-t, .t, .x { --c: #d9607a; }
   .conc { fill: var(--st-surface-3, rgba(128, 128, 128, 0.12)); stroke: var(--st-text-3); stroke-width: 1; }
   .zone { fill: rgba(217, 96, 122, 0.08); stroke: none; }
+  .col { fill: rgba(91, 141, 239, 0.1); stroke: var(--st-text-2); stroke-width: 1; stroke-dasharray: 3 2; }
   .v line { stroke: var(--c); stroke-width: 1; opacity: 0.8; }
   .v line.bnd { stroke-width: 2.2; opacity: 1; }
   .v circle { fill: var(--c); }

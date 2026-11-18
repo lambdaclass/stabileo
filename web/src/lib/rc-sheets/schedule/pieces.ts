@@ -215,7 +215,7 @@ function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions,
   if (ct.x + more.x) pieces.push({ kind: 'crossTie', count: n * ct.x + nc * more.x, shape: tieAcross(h, t, R) });
   if (ct.y + more.y) pieces.push({ kind: 'crossTie', count: n * ct.y + nc * more.y, shape: tieAcross(w, t, R) });
   for (const tie of innerCrossties(r, r.adopted, r).ties) pieces.push({ kind: 'crossTie', count: n, shape: tieAcross(tie.length, t, R) });
-  return { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
+  return r.pier ? { key: r.key, name: `${r.pier.name} (${r.name})`, level: r.level, family: 'wall', pieces } : { key: r.key, name: r.name, level: r.level, family: 'column', pieces };
 }
 
 export function slabLayer(r: SlabRow, f: SlabFace, cover: number, R: BendRules): { across: number[]; shape: BarShape } | null {

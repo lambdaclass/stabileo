@@ -110,7 +110,11 @@ describe('the seven-storey example', () => {
     const all = buildSheetRows(), rows = all.footing;
     console.log(rows.map(summary).join('\n'));
     expect(rows.length).toBeGreaterThan(0);
-    expect(dowelsFollow(all)).toBeGreaterThan(0);
+    dowelsFollow(all);
+    const core = rows.find((r) => r.demand.pier)!;
+    expect(core.name).toBe('M1 + M2 + M3 + C1');
+    expect(core.dowels!.count).toBeGreaterThan(8);
+    expect(rows.some((r) => r.name === 'C1')).toBe(false);
     for (const r of rows) {
       expect(r.demand.column, r.name).not.toBeNull();
       expect(r.bearing!.qMax, r.name).toBeLessThanOrEqual(200 + 1e-6);

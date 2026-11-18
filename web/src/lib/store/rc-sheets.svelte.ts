@@ -45,6 +45,8 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SHEET_FAMILIES, SLAB_BAR_RANGE, listIn, withMissingForces, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
+import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, type PierHooks } from './rc-sheets-piers';
+import { legOfPier, type PierDesign } from '../rc-sheets/pier-row';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
 
@@ -311,6 +313,7 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     },
     levelZs: storeyElevations(),
     levelAt: namer,
+    axesOf: memberAxes,
     psi: (id) => computeJointPsiFromModel(id, modelStore.nodes as never, modelStore.elements as never, modelStore.sections as never, modelStore.materials as never, supportsByNode as never),
   };
 }
@@ -477,7 +480,10 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     demandCache.set(key, dem);
   }
   const D = dem;
-  const feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer()), adoptedNow);
+  const allPiers = storeyPiers(D.walls, D.columns);
+  const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
+  const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
+  let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
   const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + feet.length;
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
@@ -546,8 +552,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
+  const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit };
+    const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -602,11 +609,43 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const wall: WallRow[] = [];
   const wallStack = wallStacks(D.walls);
   const wallDone = new Map<string, WallRow>();
-  for (const d of [...D.walls].sort((p, q) => (p.z ?? 0) - (q.z ?? 0))) {
+  const wallCtxOf = (d: (typeof D.walls)[number]) => {
     const g = groupOf(d.key);
     const stack = wallStack.get(d.key);
     const belowSpecial = !!stack?.below && wallDone.get(stack.below)?.seismic?.special === true;
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
+    return { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
+  };
+  const pierHooks: PierHooks = {
+    fmt, fy, diameters: dd.longDiametersMm,
+    wallCtx: wallCtxOf, wallAdopted: (k) => adoptedNow[k] as WallAdopted | undefined,
+    wallRow: (d, c, a) => cached(d, [code, c, a, dec], () => rules.wallRow(d, c, a, fmt)),
+    columnCtx: (d) => columnCtxOf(d), columnAdopted: (k) => adoptedNow[k] as ColumnAdopted | undefined,
+    columnRow: (d, c, a, st) => withLapFit(rules.columnRow(d, c, a, fmt, st), code, fmt),
+    below: (d) => { const i = D.columns.indexOf(d), prev = D.columns[i - 1]; return prev && prev.key.split(':')[1] === d.key.split(':')[1] ? column.find((r) => r.key === prev.key) : undefined; },
+  };
+  const pierOf = new Map(piers.flatMap((p) => p.walls.map((w) => [w.key, p] as const)));
+  const pierDone = new Map<string, PierDesign>();
+  for (const d of [...D.walls].sort((p, q) => (p.z ?? 0) - (q.z ?? 0))) {
+    const pier = pierOf.get(d.key);
+    if (pier) {
+      if (!pierDone.has(pier.key)) {
+        const design = designPierAt(pier, D.walls, D.columns, pierHooks);
+        pierDone.set(pier.key, design);
+        for (const leg of design.legs) {
+          const stack = wallStack.get(leg.key);
+          const placed = legOfPier(stack ? { ...leg, stack } : leg, design, fmt);
+          const legCtx = { ...wallCtxOf(leg.demand), pier: {} };
+          redesigners.set(leg.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withFc(legCtx, o), undefined, fmt)) as Redesign);
+          rowFc.set(leg.key, legCtx.mat.fc);
+          wallDone.set(leg.key, placed);
+          wall.push(placed);
+        }
+      }
+      yield step();
+      continue;
+    }
+    const ctx = wallCtxOf(d);
+    const stack = wallStack.get(d.key);
     const a = adoptedNow[d.key] as WallAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
@@ -615,6 +654,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     wallDone.set(d.key, placed);
     wall.push(placed);
     yield step();
+  }
+  if (pierDone.size) {
+    column = withPierColumns(D.columns, column, pierDone, pierHooks, (d, before) => { below.set(Number(d.key.split(':')[1]), before); return columnAt(d, new Map()); });
+    for (const r of column) if (r.pier) redesigners.delete(r.key);
+    feet = withPierFeet(feet, pierDone, (d) => wallCtxOf(d).mat.fc, dd.covers.wall);
   }
   const punching: PunchingRow[] = [];
   for (const d of D.punching) {
@@ -665,13 +709,16 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
     lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
   }
-  const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
-  if (seismic) for (const r of columnsFinal) jointAwareRedesign(r, columnsFinal, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
+  const framed = column.filter((r) => !r.pier);
+  const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
+  const columnsFinal = column.map((r) => (r.pier ? r : checked.find((x) => x.key === r.key) ?? r));
+  if (seismic) for (const r of checked) jointAwareRedesign(r, checked, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   const left = leftOut([...beam, ...columnsFinal, ...slab, ...wall].map((r) => r.key), columnsFinal.map((r) => ({
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
-  return { beam: sort(beam), line: sort(line), column: sort(columnsFinal), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(wall), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length, left };
+  const apart = rules.piers ? [] : allPiers;
+  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

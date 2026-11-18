@@ -41,6 +41,8 @@ export interface ColumnCase {
   tu?: number;
   /** The end moments the combination's wind and earthquake cases give, first order: the part that sways the storey (Ms). */
   sway?: EndMoments;
+  /** What the storey below puts on it at its foot, global axes, moments about its axis (`CutForces`): what a pier it stands in sums. */
+  base?: import('./piers').CutForces;
   /** Where the combination was solved with P-Delta, its end moments first order. */
   first?: EndMoments;
 }
@@ -69,6 +71,8 @@ export interface ColumnDemand {
   missing?: string[];
   /** Absent where no combination was read for it: the storey is then taken as braced. */
   sway?: ColumnSway;
+  /** Its foot in plan and elevation, m, and the plan directions of its section's b (local y) and h (local z). */
+  plan?: { x: number; y: number; z: number; ey: [number, number]; ez: [number, number] };
 }
 
 export interface ColumnContext extends TransverseList {
@@ -119,7 +123,8 @@ export interface ColumnRow {
   /** The closest spacing its ties were proposed at, m (`TransverseList`). */
   tieFloor?: number;
   /** The largest aggregate its bars were laid for, mm (`ColumnContext`): the drawing and the schedule lay them alike. */
-  aggregate?: number;
+  aggregate?: number;  /** A storey inside a pier (`pier-row.ts`): its bars are the pier's zone at it, drawn and scheduled with the wall `host`. */
+  pier?: { key: string; name: string; walls: string[]; host: string };
 }
 
 const coverToBar = (c: Pick<ColumnContext, 'cover'>, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
@@ -150,7 +155,7 @@ export const columnLabel = (a: ColumnAdopted): string => {
   return parts.join(' + ');
 };
 
-export const tieLabel = (a: ColumnAdopted, fmt?: Fmt): string => { const cm = Math.round(a.tieSpacing * 1000) / 10, d = Number.isInteger(cm) ? 0 : 1; return `Ø${a.tieDia} c/${fmt ? fmt(cm, d) : cm.toFixed(d)}`; };
+export const tieLabel = (a: Pick<ColumnAdopted, 'tieDia' | 'tieSpacing'>, fmt?: Fmt): string => { const cm = Math.round(a.tieSpacing * 1000) / 10, d = Number.isInteger(cm) ? 0 : 1; return `Ø${a.tieDia} c/${fmt ? fmt(cm, d) : cm.toFixed(d)}`; };
 
 /** The crossties along b · along h, the inner rows' added, and lo's where chapter 18 asks more there: what the table, the drawing and the workbook say alike. */
 export const crosstiesText = (ct: ColumnRow['checks']['crossties']): string =>
