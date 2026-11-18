@@ -388,6 +388,10 @@ jobs:
         run: nix develop --command make check.test-targets NIX_RUN=
       - name: Testing map paths and runners exist
         run: nix develop --command make check.testing-map check.docs-links NIX_RUN=
+      - name: Install web lint dependencies
+        run: nix develop --command .github/scripts/retry-infra.sh make web.deps NIX_RUN=
+      - name: Check switch defaults and test skips
+        run: nix develop --command make lint.repo NIX_RUN=
       - name: Stop the rest of this run
         if: failure() && github.event_name == 'pull_request'
         continue-on-error: true
@@ -423,6 +427,8 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
+      - name: Install web lint test dependencies
+        run: nix develop --command .github/scripts/retry-infra.sh make web.deps NIX_RUN=
       - name: Shellcheck
         run: make test.ci-scripts
       - name: Prepare the browser shell (infrastructure retries)
