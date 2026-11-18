@@ -178,6 +178,45 @@ fn rotation_bound_is_never_below_the_scan_and_decides_as_it_does() {
 }
 
 #[test]
+fn rotation_bound_decides_as_the_scan_where_the_scan_overflows() {
+    // Shears of 4e307 that sum within f64 and overflow in the scan's interpolation: with no shear
+    // flexibility the scan reads 0·∞ and refuses, although every rotation is tiny.
+    let stiff = SpanRotation::new(1e-3, 1e308, 0.0, 0.0, 0.0, 0.0, 0.0, false, false,
+        vec![(2e-4, 4e307), (6e-4, 4e307)], vec![], vec![], 0.0);
+    let scan = largest_span_rotation(1e-3, std::slice::from_ref(&stiff), (0.0, 0.0));
+    assert!(super::beyond_small_displacement(scan), "{scan}");
+    assert!(super::span_beyond_small_displacement(1e-3, std::slice::from_ref(&stiff), (0.0, 0.0)));
+
+    let mut state = 0x9E3779B97F4A7C15u64;
+    let mut unit = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        (state >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let mut refused_small = 0;
+    for case in 0..80_000 {
+        let mut wide = |lo: f64, hi: f64| 10f64.powf(lo + (hi - lo) * unit());
+        let l = wide(-12.0, 12.0);
+        let ei = wide(-300.0, 308.0);
+        let flex = if case % 3 == 0 { 0.0 } else { wide(-300.0, 300.0) };
+        let load = if case % 2 == 0 { wide(250.0, 308.0) } else { wide(-300.0, 250.0) };
+        let rotation = wide(-12.0, -3.0);
+        let sign = if case % 2 == 0 { 1.0 } else { -1.0 };
+        let points = if case % 5 == 0 { vec![] } else { vec![(0.2 * l, load), (0.6 * l, sign * load)] };
+        let dist = if case % 4 == 0 { vec![(load, sign * load, 0.1 * l, 0.9 * l)] } else { vec![] };
+        let couples = if case % 7 == 0 { vec![(0.5 * l, load)] } else { vec![] };
+        let plane = SpanRotation::new(l, ei, flex, 0.0, rotation, rotation * l, rotation, case % 11 == 0, case % 13 == 0, points, dist, couples, 0.0);
+        let planes = std::slice::from_ref(&plane);
+        let scan = largest_span_rotation(l, planes, (0.0, 0.0));
+        let beyond = super::beyond_small_displacement(scan);
+        assert_eq!(super::span_beyond_small_displacement(l, planes, (0.0, 0.0)), beyond, "case {case}: l {l}, EI {ei}, flexibility {flex}, load {load}: scan {scan}");
+        refused_small += usize::from(beyond && !scan.is_finite());
+    }
+    assert!(refused_small > 100, "{refused_small} non-finite scans");
+}
+
+#[test]
 fn rotation_bound_leaves_nonfinite_and_degenerate_members_to_the_scan() {
     let plain = |r: f64, ei: f64, flex: f64, p: f64, q: f64, c: f64, kappa: f64| SpanRotation::new(
         2.0, ei, flex, 0.0, r, 0.0, r, false, false, vec![(0.7, p)], vec![(q, q, 0.2, 1.6)], vec![(1.1, c)], kappa);

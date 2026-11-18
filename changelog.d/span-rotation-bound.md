@@ -6,4 +6,6 @@ finding where each plane's rotation turns, for every case and combination. An
 upper bound of that scan is now computed first from 17 rotations per plane and
 the largest moment and shear the member's loads allow. Where the bound is
 within the limit the member is within it and the scan is not run; otherwise
-the scan decides as before. Diagnostics are unchanged.
+the scan decides as before, as it does for any member whose forces, lengths
+or stiffness are beyond 1e100, where the scan itself can overflow.
+Diagnostics are unchanged.

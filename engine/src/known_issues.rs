@@ -771,6 +771,7 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
 }
 
 const BOUND_PIECES: usize = 16;
+const SCAN_RANGE: f64 = 1e100;
 
 /// An upper bound of [`largest_span_rotation`], from far fewer evaluations; NaN or infinite
 /// where it cannot bound. Between two points a rotation changes by at most the largest moment
@@ -786,7 +787,12 @@ fn span_rotation_bound(l: f64, planes: &[crate::postprocess::diagrams::SpanRotat
         if !(ei > 0.0) {
             return f64::NAN;
         }
-        let (moment, shear) = p.magnitude_bounds(l);
+        let (moment, shear, reach) = p.magnitude_bounds(l);
+        // The scan divides the shears by its nodes' spacings and multiplies them by 1/(G·As)
+        // before it adds them: outside this range it can overflow where the true values do not.
+        if !(moment < SCAN_RANGE && shear < SCAN_RANGE && reach < SCAN_RANGE && f.abs() < SCAN_RANGE && ei * SCAN_RANGE > 1.0) {
+            return f64::NAN;
+        }
         let sampled = (0..=BOUND_PIECES).map(|k| p.at(l * k as f64 / BOUND_PIECES as f64).abs()).fold(0.0, nan_max);
         let plane = sampled + 0.5 * (l / BOUND_PIECES as f64) * moment / ei + 2.0 * f.abs() * shear;
         sum += plane * plane;
