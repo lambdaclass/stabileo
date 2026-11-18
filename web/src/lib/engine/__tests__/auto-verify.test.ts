@@ -203,11 +203,22 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v!.slender?.steps.some((x) => x.startsWith('M1/M2 = 0.500'))).toBe(true);
   });
 
+  const rotatedShearRatio = (vu: number, compression: number, spacing: number) => {
+    const bw = 0.6;
+    const d = 0.3 - 0.025 - 0.008 - 0.016 / 2;
+    const axialStress = compression / (1000 * 0.3 * 0.6);
+    const vc = (0.17 * Math.sqrt(25) + axialStress / 6) * 1000 * bw * d;
+    const twoLegArea = 2 * 0.503 * 1e-4;
+    const vs = twoLegArea * 420_000 * d / spacing;
+    return vu / (0.75 * (vc + vs));
+  };
+
   it('the secondary shear is checked over the rotated section', () => {
     const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
     expect(v!.shearSecondary?.Vu).toBe(150);
-    expect(v!.shearSecondary?.spacing).toBe(reference(0.6, 0.3, 120, 150).shear.spacing);
-    expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
+    expect(v!.shearSecondary?.spacing).toBe(0.125);
+    expect(v!.shearSecondary?.stirrupLegs).toBe(2);
+    expect(v!.shearSecondary?.ratio).toBeCloseTo(rotatedShearRatio(150, 800, 0.125), 9);
   });
 
   it('both shear axes are checked with the one stirrup spacing the tighter axis needs', () => {
@@ -222,8 +233,8 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v.shear.spacing).toBe(secondaryAlone.spacing);
     expect(v.shearSecondary!.spacing).toBe(secondaryAlone.spacing);
     const legs = Math.max(alone.shear.stirrupLegs, secondaryAlone.stirrupLegs);
-    expect([v.shear.stirrupLegs, v.shearSecondary!.stirrupLegs]).toEqual([legs, legs]);
-    expect(v.shearSecondary!.ratio).toBeLessThanOrEqual(secondaryAlone.ratio + 1e-12);
+    expect([v.shear.stirrupLegs, v.shearSecondary!.stirrupLegs]).toEqual([legs, 2]);
+    expect(v.shearSecondary!.ratio).toBeCloseTo(rotatedShearRatio(150, 800, secondaryAlone.spacing), 9);
     expect(v.shear.phiVn).toBeGreaterThan(alone.shear.phiVn);
     expect(v.shear.steps).toContain(`Estribos: ${v.shear.stirrupLegs} ramas Ø8 c/${(secondaryAlone.spacing * 100).toFixed(0)} cm`);
   });
@@ -253,7 +264,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v.slenderSecondary!.klu_r).toBeCloseTo(4 / (0.3 * 0.2), 9);
   });
 
-  it('a face that needs more legs gives them to the other axis too', () => {
+  it('a wide secondary face does not acquire undeclared legs', () => {
     const input = {
       elementId: 1, elementType: 'column' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
       b: 0.25, h: 0.9, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
@@ -263,7 +274,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(wide.stirrupLegs).toBeGreaterThan(alone.stirrupLegs);
     const v = verifyElement({ ...input, VuSecondary: 700 });
     expect(v.shear.stirrupLegs).toBe(wide.stirrupLegs);
-    expect(v.shearSecondary!.stirrupLegs).toBe(wide.stirrupLegs);
+    expect(v.shearSecondary).toMatchObject({ stirrupLegs: 2, status: 'fail' });
     expect(v.shear.spacing).toBe(v.shearSecondary!.spacing);
   });
 

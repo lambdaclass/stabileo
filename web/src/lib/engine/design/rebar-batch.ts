@@ -233,7 +233,7 @@ export function applyPatch(
       }
       const ends = sk === 'stirrupsSupport' ? reg.stirrupsBySupport : undefined;
       replaceBeamRegionStirrups(reg, sk, merged);
-      if (ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
+      if (reg.stirrupZones || ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
         changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span',
           before: ends ? [ends.atStart, ends.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ') : fmtStir(before),
           after: fmtStir(merged) });

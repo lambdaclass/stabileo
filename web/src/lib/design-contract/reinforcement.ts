@@ -103,6 +103,12 @@ export interface BeamContinuity {
   ldEnd?: number;
 }
 
+interface MemberStirrupZone {
+  from: number;
+  to: number;
+  stirrup: StirrupDef;
+}
+
 export interface BeamRegions {
   // ── Grouped bar fields (backward compatible, single-row assumption) ──
   topStart?: RebarGroup;        // top bars at start support (hogging)
@@ -125,6 +131,12 @@ export interface BeamRegions {
   stirrupsSupport?: StirrupDef; // tighter stirrups near supports
   stirrupsSpan?: StirrupDef;    // wider stirrups at midspan
   stirrupsBySupport?: { atStart: StirrupDef | null; atEnd: StirrupDef | null };
+  stirrupZones?: {
+    length: number;
+    startSupportEnd: number;
+    endSupportStart: number;
+    zones: MemberStirrupZone[];
+  };
   /** Region boundary (t-value, default 0.25). Start region: [0, t1], span: [t1, 1-t1], end: [1-t1, 1] */
   regionT?: number;
   /**
@@ -137,6 +149,19 @@ export interface BeamRegions {
 export function replaceBeamRegionStirrups(regions: BeamRegions, field: 'stirrupsSupport' | 'stirrupsSpan', stirrups: StirrupDef): void {
   regions[field] = stirrups;
   if (field === 'stirrupsSupport') delete regions.stirrupsBySupport;
+  const layout = regions.stirrupZones;
+  if (!layout) return;
+  const { length, startSupportEnd, endSupportStart } = layout;
+  const span = [startSupportEnd, endSupportStart] as const;
+  const supports = [[0, startSupportEnd], [endSupportStart, length]] as const;
+  const [kept, replaced] = field === 'stirrupsSupport' ? [[span], supports] : [supports, [span]];
+  const zones = [
+    ...layout.zones.flatMap(z => kept.map(([from, to]) => ({
+      ...z, from: Math.max(z.from, from), to: Math.min(z.to, to),
+    }))),
+    ...replaced.map(([from, to]) => ({ from, to, stirrup: stirrups })),
+  ].filter(z => z.to > z.from).sort((a, b) => a.from - b.from);
+  regions.stirrupZones = { ...layout, zones };
 }
 
 /**

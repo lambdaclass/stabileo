@@ -21,7 +21,10 @@ export function inventoryAnalysis(model: AutoVerifyModelData, spatial: boolean, 
     supports: new Map([1].map(nodeId => [nodeId, { id: nodeId, nodeId, type: 'fixed' }])),
     loads: loaded.map(nodeId => ({ type: 'nodal', data: { nodeId, fx: 0, fz: -10 * factor, my: 0 } })),
   } as unknown as SolverInput;
-  const raw: AnalysisResults = nonlinear ? solvePDelta(input).results : solve(input);
+  return planarResultForDesign(nonlinear ? solvePDelta(input).results : solve(input));
+}
+
+export function planarResultForDesign(raw: AnalysisResults): AnalysisResults3D {
   return { displacements: raw.displacements.map(d => ({ ...d, uy: 0, rx: 0, rz: 0 })),
     reactions: raw.reactions.map(r => ({ nodeId: r.nodeId, fx: r.rx, fz: r.rz, my: r.my, fy: 0, mx: 0, mz: 0 })),
     elementForces: raw.elementForces.map(e => ({ elementId: e.elementId, length: e.length, nStart: e.nStart, nEnd: e.nEnd,

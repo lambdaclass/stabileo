@@ -68,14 +68,16 @@ export interface StaleLine {
 
 export function reinforcementForVerification(elementId: number): ProvidedReinforcement | undefined {
   const rebar = modelStore.elements.get(elementId)?.reinforcement;
-  if (!rebar || rebar.regions?.stirrupsBySupport) return rebar;
+  if (!rebar || rebar.regions?.stirrupZones) return rebar;
   const id = verificationStore.contextFor(elementId)?.span?.representative ?? elementId;
   if (!Object.values(storedDecisions().lines ?? {}).some(record => record.members.includes(id))) return rebar;
   const line = modelBeamLines().find(candidate => candidate.members.includes(id));
   const record = line && storedLine(line);
   if (!line || !record) return rebar;
-  const supportCages = projected(line, record).get(id)?.regions?.stirrupsBySupport;
-  return supportCages ? { ...rebar, regions: { ...rebar.regions, stirrupsBySupport: supportCages } } : rebar;
+  const regions = projected(line, record).get(id)?.regions;
+  if (!regions) return rebar;
+  const { stirrupsBySupport, stirrupZones } = regions;
+  return { ...rebar, regions: { ...rebar.regions, stirrupsBySupport, stirrupZones } };
 }
 
 const LENGTH_TOL = 1e-3;

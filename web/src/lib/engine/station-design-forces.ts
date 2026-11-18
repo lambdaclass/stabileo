@@ -1912,7 +1912,7 @@ export function verifyProvidedReinforcement(
     shear?: { AvOverS: number; AvOverSMin: number; d?: number; phiVc?: number };
     column?: { AsTotal: number };
   },
-  section?: { b: number; h: number; fc: number; fy: number; cover: number; stirrupDia: number; flange?: { bf: number; hf: number } },
+  section?: { b: number; h: number; fc: number; fy: number; cover: number; stirrupDia: number; shape?: string; flange?: { bf: number; hf: number } },
   stationResult?: ElementStationResult,
   modelData?: {
     nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -1972,6 +1972,10 @@ export function verifyProvidedReinforcement(
   const axes: DesignAxes = options?.axes
     ?? resolveDesignAxes(elementType, { b: section?.b ?? 0.3, h: section?.h ?? 0.6 }, demands);
   const deltaNs = Math.max(1, options?.slenderDeltaNs ?? 1);
+  const member = modelData?.elements.get(elementId);
+  const memberShape = member && modelData?.sections.get(member.sectionId)?.shape;
+  const rectangularCage = !options?.shape
+    && [section?.shape, memberShape].every(shape => shape === undefined || shape === 'rect');
 
   /** Push a strength check using the demand/capacity convention. */
   const pushStrength = (c: Omit<ProvidedRebarCheck, 'status' | 'ratio'> & { utilization: number }) => {
@@ -2670,16 +2674,19 @@ export function verifyProvidedReinforcement(
         // bars of that end and the bottom bars that reach it; along the span the bottom bars and the
         // top bars that continue into it. The worst of those tuples governs. (Reading only the tuples
         // that tie on the stirrup ratio left out a smaller Tu above φ·Tth, whose Al,min is larger.)
+        const spanTopLayers = topIntoSpanResult.area >= topEndIntoSpanResult.area
+          ? topIntoSpanResult.layers : topEndIntoSpanResult.layers;
         const facesAt = (t: Tuple) => (t.stationT <= tStartEnd
-          ? { top: layersTotalArea(topStartLayers), bottom: botIntoStartResult.area }
+          ? { top: topStartLayers, bottom: botIntoStartResult.layers }
           : t.stationT >= tEndStart
-            ? { top: layersTotalArea(topEndLayers), bottom: botIntoEndResult.area }
-            : { top: topIntoSpanArea, bottom: layersTotalArea(bottomLayers) });
-        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple) => {
+            ? { top: topEndLayers, bottom: botIntoEndResult.layers }
+            : { top: spanTopLayers, bottom: bottomLayers });
+        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple, d: number) => {
           const AlReq = Math.max(r.Al, r.AlMin);
           const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * d);
-          const f = facesAt(t), sag = M(t) >= 0;
-          const tension = (sag ? f.bottom : f.top) / 1e4, other = (sag ? f.top : f.bottom) / 1e4;
+          const faces = facesAt(t), sag = M(t) >= 0;
+          const tension = layersTotalArea(sag ? faces.bottom : faces.top) / 1e4;
+          const other = layersTotalArea(sag ? faces.top : faces.bottom) / 1e4;
           const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
           const uC = other > 0 ? (AlReq / 2) / other : Number.POSITIVE_INFINITY;
           const onTension = uT >= uC;
@@ -2688,17 +2695,42 @@ export function verifyProvidedReinforcement(
             required: onTension ? AsFlex + AlReq / 2 : AlReq / 2, provided: onTension ? tension : other, u: Math.max(uT, uC),
           };
         };
-        const evaluated: Array<{ r: ReturnType<typeof checkTorsion2025>; t: Tuple }> = [];
+        type TorsionAtStation = { r: ReturnType<typeof checkTorsion2025>; t: Tuple; stir?: StirrupDef; d: number };
+        const evaluated: TorsionAtStation[] = [];
         for (const t of region.tuples) {
           if (Math.abs(t.tq) < 0.01) continue;
-          const r = checkTorsion2025({ b: section.b, h: section.h, d, dSecondary: section.b - section.cover - (region.stir?.diameter ?? section.stirrupDia) / 1000 - 0.008, cover: section.cover, stirrupDiaMm: region.stir?.diameter ?? section.stirrupDia, fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure), stirrup: region.stir });
-          if (!r.neglect) evaluated.push({ r, t });
+          const layout = reg?.stirrupZones;
+          const cages = layout?.zones.filter(z => z.from <= t.stationX && t.stationX <= z.to).map(z => z.stirrup);
+          const candidates = cages ? (cages.length > 0 ? cages : [undefined]) : [region.stir];
+          const faces = facesAt(t);
+          const topPair = topOuterPair(faces.top, [...topStartLayers, ...topEndLayers]);
+          const cornerDiameter = Math.max(topPair?.diameterMm ?? 0,
+            ...[...faces.top, ...faces.bottom].filter(l => l.row === 0).map(l => l.diameter));
+          const secondaryBarDiameter = Math.max(cornerDiameter || 16, reg?.skin?.diameter ?? 0);
+          for (const stir of candidates) {
+            const stirrupDiaMm = stir?.diameter ?? section.stirrupDia;
+            const faceDepth = (layers: RebarLayer[], shift: number, pair?: OuterPair) => {
+              const depth = section.h - layerCentroid(layers, section.cover, stirrupDiaMm, pair) - shift;
+              return layers.length ? depth : Math.min(depth, 0.9 * section.h);
+            };
+            const moment = M(t);
+            const bottomDepth = faceDepth(faces.bottom, bottomShift);
+            const topDepth = faceDepth(faces.top, topShift, topPair);
+            const d = moment > 0 ? bottomDepth : moment < 0 ? topDepth : Math.min(bottomDepth, topDepth);
+            const dSecondary = section.b - section.cover - (stirrupDiaMm + secondaryBarDiameter / 2) / 1000;
+            const r = checkTorsion2025({
+              b: section.b, h: section.h, d, dSecondary, cover: section.cover, stirrupDiaMm,
+              fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure),
+              ...(stir ? { stirrup: stir, rectangularCage } : { stirrup: undefined }),
+            });
+            if (!r.neglect) evaluated.push({ r, t, stir, d });
+          }
         }
-        let tw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple } | null = null;
+        let tw: TorsionAtStation | null = null;
         for (const x of evaluated) if (!tw || x.r.ratio > tw.r.ratio) tw = x;
-        let lw: { r: ReturnType<typeof checkTorsion2025>; t: Tuple; need: ReturnType<typeof longitudinalNeed> } | null = null;
+        let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | null = null;
         for (const x of evaluated) {
-          const need = longitudinalNeed(x.r, x.t);
+          const need = longitudinalNeed(x.r, x.t, x.d);
           if (!lw || need.u > lw.need.u) lw = { ...x, need };
         }
         if (tw && lw) {
@@ -2708,10 +2740,10 @@ export function verifyProvidedReinforcement(
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
             utilization: tr.ratio,
             unit: 'kN·m', method: 'capacity', tuplesChecked: region.tuples.length, regionRange: region.range,
-            description: tr.secondaryLegsRefusal ?? `${region.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+            description: tr.secondaryLegsRefusal ?? `${tw.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
             limiting: tr.secondaryLegsRefusal ? 'unsupportedCheck' : 'torsion',
-            ...(!region.stir ? { missingReinforcement: true } : {}),
+            ...(!tw.stir ? { missingReinforcement: true } : {}),
           });
           const { AlReq, AsFlex, required, provided, face, u } = lw.need;
           pushStrength({
@@ -3050,11 +3082,9 @@ export function verifyProvidedReinforcement(
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
         { axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) },
       ];
-      const member = modelData?.elements.get(elementId);
-      const shape = member && modelData?.sections.get(member.sectionId)?.shape;
       for (const ts of tieSpecs) {
         const legs = ts.axis === axes.secondaryShear
-          ? secondaryStirrupLegs(provided.stirrups, shape === undefined || shape === 'rect') : provided.stirrups?.legs;
+          ? secondaryStirrupLegs(provided.stirrups, rectangularCage) : provided.stirrups?.legs;
         let worst: { util: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
         let count = 0; let peakVu = 0; let peakCombo = ''; let peakX = 0;
         for (const t of allTuples) {

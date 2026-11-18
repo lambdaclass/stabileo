@@ -14,6 +14,7 @@ import { addBar, areaAt, cutBar, deleteZone, equalizeZones, joinBars, lapBars, l
 import { lineKey } from '../../design-contract/beam-line';
 import { mirrorReinforcement } from '../../engine/design/repeated-frames';
 import { rebarHash } from '../../engine/design/rebar-hash';
+import { replaceBeamRegionStirrups } from '../../design-contract/reinforcement';
 import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -195,7 +196,7 @@ it('#2171 rechecks the two support cages of a previously saved line', () => {
   expect(at(first.L * (1 - first.tEnd / 2))).toMatchObject(end);
 });
 
-it.skip('known wrong result: #2171 reopens subregions of a previously saved stirrup line', () => {
+it('#2171 reopens subregions of a previously saved stirrup line', () => {
   const line = designed();
   const members = lineMembers(line);
   const first = members[0]!;
@@ -220,4 +221,16 @@ it.skip('known wrong result: #2171 reopens subregions of a previously saved stir
     { id: expect.any(String), from: 0, to: boundary, ...nearEnd },
     { id: expect.any(String), from: boundary, to: first.L, ...rest },
   ]);
+  const mirrored = lineFromMembers([{ ...first, reinforcement: mirrorReinforcement(reinforcement!) }]);
+  expect(mirrored.stirrups).toEqual([
+    { id: expect.any(String), from: 0, to: first.L - boundary, ...rest },
+    { id: expect.any(String), from: first.L - boundary, to: first.L, ...nearEnd },
+  ]);
+  const edited = { ...reinforcement!, regions: { ...reinforcement!.regions } };
+  const span = { ...rest, diameter: 10 };
+  replaceBeamRegionStirrups(edited.regions, 'stirrupsSpan', span);
+  const withSpanEdit = lineFromMembers([{ ...first, reinforcement: edited }]);
+  expect(withSpanEdit.stirrups[0]).toMatchObject({ from: 0, to: boundary, ...nearEnd });
+  expect(withSpanEdit.stirrups.some(z => z.from === first.L * first.tStart && z.diameter === span.diameter)).toBe(true);
+  expect(lineFromMembers([{ ...first, reinforcement }]).stirrups).toEqual(rebuilt.stirrups);
 });

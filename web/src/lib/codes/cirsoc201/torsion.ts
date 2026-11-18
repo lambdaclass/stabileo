@@ -15,15 +15,13 @@ import { secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from './seconda
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
-export interface TorsionInput {
+export type TorsionInput = {
   b: number; h: number; d: number; dSecondary: number;
   /** Clear cover to the stirrup, m, and the stirrup's diameter, mm. */
   cover: number; stirrupDiaMm: number;
   fc: number; fy: number; fyt: number;
   demand: ConcurrentSectionDemand;
-  /** The stirrups there are: diameter, mm; legs; spacing, m. */
-  stirrup?: StirrupDef;
-}
+} & ({ stirrup?: undefined } | { stirrup: StirrupDef; rectangularCage: boolean });
 
 export interface TorsionCheck {
   /** φ·Tth, kN·m: below it torsion may be neglected. */
@@ -70,27 +68,29 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
-  const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
-  const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
-  const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
-  const primaryRequired = Math.max(Vs / (i.fyt * 1000 * i.d) + 2 * AtOverS, min);
-  const secondaryRequired = Math.max(VsSecondary / (i.fyt * 1000 * i.dSecondary) + 2 * AtOverS, min);
+  const required = (width: number, depth: number, shear: number) => {
+    const Vs = Math.max(0, shear / PHI - vc * width * depth);
+    const minimum = Math.max(0.062 * sq, 0.35) * width / i.fyt;
+    return Math.max(Vs / (i.fyt * 1000 * depth) + 2 * AtOverS, minimum);
+  };
   const neglect = Tu < phiTth;
   const provision = i.stirrup ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
   const { outerLegProvided } = provision;
-  let transverseRequired = Math.max(primaryRequired, secondaryRequired);
+  let transverseRequired = required(i.b, i.d, Vu);
   let transverseProvided = provision.transverseProvided;
   let secondaryLegsRefusal: string | undefined;
-  if (!neglect && i.stirrup && VuSecondary > 0) {
-    const legs = secondaryStirrupLegs(i.stirrup);
-    const provided = legs === undefined ? 0 : providedTorsionStirrups({ ...i.stirrup, legs }).transverseProvided;
-    if (legs === undefined) secondaryLegsRefusal = secondaryStirrupLegsUnavailable;
-    const primaryRatio = transverseProvided > 0 ? primaryRequired / transverseProvided : Infinity;
+  if (!neglect && !(VuSecondary <= 0)) {
+    const secondaryRequired = required(i.h, i.dSecondary, VuSecondary);
+    const legs = i.stirrup ? secondaryStirrupLegs(i.stirrup, i.rectangularCage) : undefined;
+    const provided = i.stirrup && legs !== undefined
+      ? providedTorsionStirrups({ ...i.stirrup, legs }).transverseProvided : 0;
+    if (i.stirrup && legs === undefined) secondaryLegsRefusal = secondaryStirrupLegsUnavailable;
+    const primaryRatio = transverseProvided > 0 ? transverseRequired / transverseProvided : Infinity;
     const secondaryRatio = provided > 0 ? secondaryRequired / provided : Infinity;
-    const secondaryGoverns = secondaryRatio > primaryRatio
-      || (secondaryRatio === primaryRatio && secondaryRequired > primaryRequired);
-    transverseRequired = secondaryGoverns ? secondaryRequired : primaryRequired;
-    transverseProvided = secondaryGoverns ? provided : transverseProvided;
+    if (secondaryRatio > primaryRatio || (secondaryRatio === primaryRatio && secondaryRequired > transverseRequired)) {
+      transverseRequired = secondaryRequired;
+      transverseProvided = provided;
+    }
   }
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));

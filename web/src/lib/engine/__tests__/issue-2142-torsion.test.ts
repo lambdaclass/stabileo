@@ -89,14 +89,14 @@ for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e
   it(`provided steel module ${axis} ${factor}: ${clause}`, () => {
     const torque = reference(0, 100, 0).phiTn * factor;
     const r = checkTorsion2025({ ...p, d: depth(p.h), dSecondary: depth(p.b), stirrupDiaMm: p.stirrupDia,
-      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
+      fyt: p.fy, demand: demand(0, 100, torque, axis), rectangularCage: true, stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
     expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque).sectionRatio, 12);
     const vc = 0.17 * Math.sqrt(p.fc) * 1000;
     const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * depth(p.b));
     const requiredShear = vsSecondary / (p.fy * 1000 * depth(p.b));
     const Aoh = (p.b - 2 * p.cover - p.stirrupDia / 1000) * (p.h - 2 * p.cover - p.stirrupDia / 1000);
     const requiredTorsion = torque / (0.75 * 2 * 0.85 * Aoh * p.fy * 1000);
-    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.b / p.fy), 15);
+    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.h / p.fy), 15);
     expect(r.ratio > 1).toBe(factor > 1);
   });
 }

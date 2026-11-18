@@ -3,4 +3,4 @@
 #### Verify secondary shear with the secondary stirrup legs
 
 - CIRSOC 201 uses the two horizontal legs of a closed rectangular stirrup plus any declared secondary crossties for secondary shear and combined shear and torsion. Recheck spatial concrete members whose previous secondary check credited more legs than their cage provides. Checks that require an undetermined secondary leg count are refused (#2171).
-- Beam torsion verification checks the secondary reinforcement provided at the loaded section. For a beam line with different support cages, the combined shear and torsion check uses the actual cage at each end.
+- Beam torsion verification checks the secondary reinforcement provided at the loaded section. For a beam line, the combined check uses the cage at each force station, computes the effective depths from the local reinforcement, and applies the transverse minimum for each active face. It refuses active secondary torsion checks when the section cannot establish a rectangular cage.

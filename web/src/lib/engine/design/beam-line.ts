@@ -8,9 +8,7 @@
  *
  * Projecting (`membersFromLine`): a member's bottom steel is the bars over the middle of its span
  * region, its top steel at each end the bars over that support's face; how far each reaches into
- * the next region is its extension, and a hook at an end inside the member is its anchorage. Its
- * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
- * The round trip reproduces what the verifier reads.
+ * the next region is its extension, and a hook at an end inside the member is its anchorage.
  */
 import { secondaryStirrupLegs } from '../../codes/cirsoc201/secondary-stirrup-legs';
 import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
@@ -114,11 +112,15 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
     };
     topAt('start'); topAt('end');
     // ── Stirrups ──
-    const support = reg.stirrupsSupport ?? r.stirrups;
-    const ends = reg.stirrupsBySupport;
-    zone(a, s, ends ? ends.atStart ?? undefined : support);
-    zone(s, e, reg.stirrupsSpan ?? r.stirrups);
-    zone(e, b, ends ? ends.atEnd ?? undefined : support);
+    if (reg.stirrupZones) {
+      for (const z of reg.stirrupZones.zones) zone(a + z.from, Math.min(a + z.to, b), z.stirrup);
+    } else {
+      const support = reg.stirrupsSupport ?? r.stirrups;
+      const ends = reg.stirrupsBySupport;
+      zone(a, s, ends ? ends.atStart ?? undefined : support);
+      zone(s, e, reg.stirrupsSpan ?? r.stirrups);
+      zone(e, b, ends ? ends.atEnd ?? undefined : support);
+    }
     if (reg.skin) skin[String(m.id)] = { ...reg.skin };
   });
 
@@ -284,6 +286,16 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
       regions.stirrupsBySupport = { atStart: zs ? stirrupOf(zs) : null, atEnd: ze ? stirrupOf(ze) : null };
     }
     if (zm) regions.stirrupsSpan = stirrupOf(zm);
+    regions.stirrupZones = {
+      length: m.L,
+      startSupportEnd: m.tStart * m.L,
+      endSupportStart: (1 - m.tEnd) * m.L,
+      zones: line.stirrups.flatMap(z => {
+        const from = z.from <= a ? 0 : z.from - a;
+        const to = z.to >= b ? m.L : z.to - a;
+        return to > from ? [{ from, to, stirrup: stirrupOf(z) }] : [];
+      }),
+    };
     const skin = line.skin?.[String(m.id)];
     if (skin) regions.skin = { ...skin };
     const prior = m.reinforcement?.regions?.regionT;

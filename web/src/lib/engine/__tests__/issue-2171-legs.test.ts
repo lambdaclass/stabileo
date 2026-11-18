@@ -14,6 +14,7 @@ import type { DesignAxes } from '../design/design-axes';
 import { computeShearCapacity, extractGoverningDemands, verifyProvidedReinforcement } from '../station-design-forces';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { torsionDemand } from './helpers/manual-interactions';
+import { planarResultForDesign } from './helpers/inventory-analysis';
 
 const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const cage = { diameter: 8, spacing: 0.1, legs: 4 };
@@ -145,7 +146,7 @@ it('#2171 unknown cage is refused at the provided shear threshold', () => {
   });
 });
 
-const torsionInput = { ...section, d: 0.559, dSecondary: 0.259, fyt: section.fy, stirrupDiaMm: cage.diameter };
+const torsionInput = { ...section, rectangularCage: true, d: 0.559, dSecondary: 0.259, fyt: section.fy, stirrupDiaMm: cage.diameter };
 const twoLegTorsion = checkTorsion2025({ ...torsionInput, stirrup: { ...cage, legs: 2 }, demand: torsionDemand(30, 0, 220.235) });
 
 it('#2171 combined torsion checks the secondary face and one outer leg', () => {
@@ -224,12 +225,25 @@ for (const nonlinear of [false, true]) {
     };
     const raw = nonlinear ? solvePDelta(solver).results : solve(solver);
     const ef = raw.elementForces[0]!;
+    expect(Math.abs(ef.vStart)).toBeCloseTo(10, 10);
     const v = verifyElement(input(0, 0, '2005', section, Math.abs(ef.vStart)), fixed);
     expect(v.shearSecondary).toBeUndefined();
     expect(v.torsion).toBeUndefined();
     expect(v.shear.phiVn).toBe(verifyElement(input(0, 0, '2005', section, 10), fixed).shear.phiVn);
     expect(v.shear.status).toBe('ok');
     expect(v.shear.stirrupLegs).toBe(4);
+    const spatial = planarResultForDesign(raw);
+    const planarModel = { ...model, nodes: new Map([...solver.nodes].map(([id, n]) => [id, { ...n, y: 0 }])) };
+    const { demands } = computeStationDemands(new Map([[1, spatial]]), [{ id: 1, name: 'C1', factors: [] }], planarModel);
+    const opts = { edition: '2005' as const };
+    for (const result of [autoVerifyFromResults(spatial, planarModel, null, opts, demands).concrete[0],
+      runUnifiedVerification(spatial, planarModel, null, demands, opts)[0],
+      runCirsocDesign(spatial, planarModel, demands, new Map(), null, opts).concrete[0]]) {
+      expect(result?.shear.Vu).toBeCloseTo(10, 10);
+      expect(result?.shearSecondary).toBeUndefined();
+      expect(result?.torsion).toBeUndefined();
+      expect(result?.shear.status).toBe('ok');
+    }
   });
 }
 
@@ -381,27 +395,29 @@ function providedBeamAt(
 
 const beamBars = { top: { count: 3, diameter: 16 }, bottom: { count: 3, diameter: 16 } };
 
-it.skip('known wrong result: #2171 projected beam torsion uses the zone at each station', () => {
+it('#2171 projected beam torsion uses the zone at each station', () => {
   const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: beamBars }];
   const strong = { ...cage, legs: 2, spacing: 0.075 };
   const weak = { ...strong, spacing: 0.15 };
   const base = lineFromMembers(members);
-  for (const [x, z, status] of [[0.39, weak, 'fail'], [0.4, weak, 'fail'], [0.41, strong, 'ok'], [0.2, undefined, 'fail']] as const) {
+  for (const [x, expectedCage, status] of [[0.39, 'weak', 'fail'], [0.4, 'weak', 'fail'], [0.41, 'strong', 'ok'], [0.2, 'gap', 'fail']] as const) {
     const line = { ...base, stirrups: [
-      ...(z ? [{ id: 'near-end', from: 0, to: 0.4, ...weak }] : []),
+      ...(expectedCage === 'gap' ? [] : [{ id: 'near-end', from: 0, to: 0.4, ...weak }]),
       { id: 'rest', from: 0.4, to: 4, ...strong },
     ] };
-    const rows = providedBeamAt(membersFromLine(line, members).get(1), { t: x / 4, x, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: torque });
+    const zoneTorque = 30;
+    const required = atRequired * zoneTorque / torque;
+    const rows = providedBeamAt(membersFromLine(line, members).get(1), { t: x / 4, x, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: zoneTorque });
     for (const row of rows) {
       expect(row).toMatchObject({ stationX: x, status });
-      if (z) expect(row.ratio).toBe(+(atRequired * z.spacing / outerLegArea).toFixed(3));
-      else expect(row).toMatchObject({ ratio: Infinity, missingReinforcement: true });
+      if (expectedCage === 'gap') expect(row).toMatchObject({ ratio: Infinity, missingReinforcement: true });
+      else expect(row.ratio).toBe(+(required * (expectedCage === 'weak' ? weak : strong).spacing / outerLegArea).toFixed(3));
     }
   }
 });
 
 for (const [atEnd, factor] of [[false, 1.01], [true, 0.99]] as const) {
-  it.skip(`known wrong result: #2171 provided beam torsion uses the tension steel and cage depth at the support (${atEnd})`, () => {
+  it(`#2171 provided beam torsion uses the tension steel and cage depth at the support (${atEnd})`, () => {
     const stir = { diameter: 12, legs: 2, spacing: 0.16 };
     const other = { ...stir, diameter: 8 };
     const top = { count: 3, diameter: 32 };
@@ -421,13 +437,30 @@ for (const [atEnd, factor] of [[false, 1.01], [true, 0.99]] as const) {
   });
 }
 
+for (const factor of [0.99, 1.01]) {
+  it(`#2171 the secondary torsion depth seats the actual corner steel (${factor})`, () => {
+    const stirrups = { diameter: 12, legs: 2, spacing: 0.16 };
+    const provided = { ...beamBars, top: { count: 3, diameter: 32 }, stirrups };
+    const tu = 10;
+    const d = section.b - section.cover - 0.012 - 0.032 / 2;
+    const at = tu / (0.75 * 2 * 0.85 * 0.238 * 0.538 * 420_000);
+    const transverse = 2 * Math.PI * (0.012 / 2) ** 2 / stirrups.spacing;
+    const vc = 0.17 * 5000 * section.h * d;
+    const vu = 0.75 * (vc + (transverse - 2 * at) * 420_000 * d) * factor;
+    const required = (vu / 0.75 - vc) / (420_000 * d) + 2 * at;
+    for (const row of providedBeamAt(provided, { t: 0, x: 0, n: 0, my: -20, mz: 0, vy: vu, vz: 0, torsion: tu })) {
+      expect(row).toMatchObject({ ratio: +(required / transverse).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+    }
+  });
+}
+
 for (const factor of [0.999, 1.001]) {
-  it.skip(`known wrong result: #2171 the active secondary torsion face uses its own minimum width (${factor})`, () => {
+  it(`#2171 the active secondary torsion face uses its own minimum width (${factor})`, () => {
     const s = { ...section, b: 0.2, h: 0.8 };
     const secondaryMinimum = Math.max(0.062 * Math.sqrt(s.fc), 0.35) * s.h / s.fy;
     const stirrup = { ...cage, legs: 2, spacing: 2 * outerLegArea / secondaryMinimum * factor };
-    const tu = 5;
-    const geometry = { ...s, d: s.h - 0.041, dSecondary: s.b - 0.041, stirrupDiaMm: 8, fyt: s.fy, stirrup };
+    const tu = 4.1;
+    const geometry = { ...s, d: s.h - 0.041, dSecondary: s.b - 0.041, stirrupDiaMm: 8, fyt: s.fy, stirrup, rectangularCage: true };
     const active = checkTorsion2025({ ...geometry, demand: torsionDemand(tu, 0, 1) });
     expect(active.transverseRequired).toBeCloseTo(secondaryMinimum, 12);
     expect(active.ratio).toBeCloseTo(factor, 12);
@@ -441,12 +474,14 @@ for (const factor of [0.999, 1.001]) {
 }
 
 for (const nonlinear of [false, true]) {
-  it.skip(`known wrong result: #2171 provided spatial beam torsion requires rectangular cage eligibility (nonlinear=${nonlinear})`, () => {
+  it(`#2171 provided spatial beam torsion requires rectangular cage eligibility (nonlinear=${nonlinear})`, () => {
     const beam = { ...model, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]]) };
     const threshold = 0.75 * 0.083 * Math.sqrt(section.fc) * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
     const provided = { ...beamBars, stirrups: { ...cage, legs: 2 } };
     for (const factor of [0.999, 1.001]) {
       const solver: SolverInput3D = { ...beam,
+        elements: new Map([[1, { ...beam.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
         supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
         loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 1, fz: 0, mx: threshold * factor, my: 0, mz: 0 } }],
       };
