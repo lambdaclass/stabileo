@@ -3,8 +3,8 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 here="$root/research/mechanics/vella-2024"
 out="$root/web/public/research-wasm/vella-2024"
-if ! command -v wasm-opt >/dev/null && command -v nix >/dev/null; then
-  exec nix shell --inputs-from "$root" nixpkgs#binaryen --command bash "$here/build.sh"
+if ! command -v wasm-opt >/dev/null && command -v nix >/dev/null && [[ -z ${VELLA_BINARYEN_SHELL:-} ]]; then
+  VELLA_BINARYEN_SHELL=1 exec nix shell --inputs-from "$root" nixpkgs#binaryen --command bash "$here/build.sh"
 fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
