@@ -13807,6 +13807,7 @@ const tr: Translations = {
   "rcSheets.v.rhoMin": "Gerekli donatı ve minimum oran",
   "rcSheets.v.rhoMax": "Maksimum oran",
   "rcSheets.v.colSpacing": "Çubuklar arası net aralık",
+  "rcSheets.v.colNoLayout": "İzin verilen çaplarla gereken donatıyı kesite sığdıran bir yerleşim yok",
   "rcSheets.v.slenderMax": "Yaklaşık yöntemin narinlik sınırı",
   "rcSheets.v.shearX": "h doğrultusunda kesme",
   "rcSheets.v.shearY": "b doğrultusunda kesme",

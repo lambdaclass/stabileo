@@ -36,19 +36,24 @@ type Mat = ReturnType<typeof ec2Material>;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 const inp = (symbol: string, value: number, unit?: string): CheckInput => ({ symbol, value: r3(value), ...(unit ? { unit } : {}) });
 
+/** A plane's section: half of `as` at d2 from either face, or, with `bars`, each bar's area at its offset from the centroid towards the compressed face, m and m². */
+export interface PlaneSection { b: number; h: number; d2: number; as: number; bars?: ReadonlyArray<{ at: number; as: number }> }
+
 /** Axial force and moment about the centroid the section resists with neutral axis x, kN and kN·m. */
-export function sectionResistance(x: number, s: { b: number; h: number; d2: number; as: number }, m: Mat, es: number): { n: number; m: number } {
+export function sectionResistance(x: number, s: PlaneSection, m: Mat, es: number): { n: number; m: number } {
   const { b, h, d2, as } = s;
   const strain = (y: number) => (x <= h ? (m.ecu3 * (x - y)) / x : (m.ec3 * (x - y)) / (x - (3 * h) / 7));
   const sig = (e: number) => Math.max(-m.fyd, Math.min(m.fyd, es * e)) * 1000; // kPa
   const depth = Math.min(m.lambda * x, h);
   const fc = m.eta * m.fcd * 1000 * b * depth;
-  const f1 = (as / 2) * sig(strain(d2)), f2 = (as / 2) * sig(strain(h - d2));
-  return { n: fc + f1 + f2, m: fc * (h / 2 - depth / 2) + f1 * (h / 2 - d2) - f2 * (h / 2 - d2) };
+  const steel = s.bars ?? [{ at: h / 2 - d2, as: as / 2 }, { at: -(h / 2 - d2), as: as / 2 }];
+  let n = fc, mm = fc * (h / 2 - depth / 2);
+  for (const bar of steel) { const f = bar.as * sig(strain(h / 2 - bar.at)); n += f; mm += f * bar.at; }
+  return { n, m: mm };
 }
 
 /** Moment the section resists at axial force N (compression positive), kN·m; null when N is beyond it. */
-export function momentAt(N: number, s: { b: number; h: number; d2: number; as: number }, m: Mat, es: number): number | null {
+export function momentAt(N: number, s: PlaneSection, m: Mat, es: number): number | null {
   let lo = 1e-6 * s.h, hi = 1e3 * s.h;
   if (sectionResistance(hi, s, m, es).n < N || sectionResistance(lo, s, m, es).n > N) return null;
   for (let k = 0; k < 64; k++) { const mid = (lo + hi) / 2; if (sectionResistance(mid, s, m, es).n < N) lo = mid; else hi = mid; }
@@ -65,6 +70,8 @@ export interface Ec2ColumnPlane {
   phiEf: number;
   /** Steel resisting this plane's moment, total with half on each face, m²; absent: the column's As. */
   as?: number;
+  /** The bars as placed, each at its offset from the centroid in this plane, m, and its area, m²: read instead of `as` for the resistance. */
+  bars?: ReadonlyArray<{ at: number; as: number }>;
 }
 
 /** One simultaneous force tuple: compression positive, kN; per plane the moment at the station and the end moments of the same combination (signs of the diagram), kN·m. */
@@ -162,7 +169,7 @@ function planeReading(
   const MEd = !slender ? Math.max(M02, floor)
     : !i.braced ? Math.max(M02 + M2, floor)
     : Math.max(M02, Math.max(0.6 * M02 + 0.4 * M01, 0.4 * M02) + M2, M01 + M2 / 2, floor);
-  const MRd = momentAt(N, { b: pl.b, h: pl.h, d2, as: asPlane }, m, p.es);
+  const MRd = momentAt(N, { b: pl.b, h: pl.h, d2, as: asPlane, ...(pl.bars ? { bars: pl.bars } : {}) }, m, p.es);
   return { M01, M02, rm, ei, e0, n, lambda, lambdaLim, slender, M2, MEd, MRd, imperfect };
 }
 

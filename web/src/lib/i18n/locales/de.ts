@@ -13807,6 +13807,7 @@ const de: Translations = {
   "rcSheets.v.rhoMin": "Erforderliche Bewehrung und Mindestgrad",
   "rcSheets.v.rhoMax": "Höchstbewehrungsgrad",
   "rcSheets.v.colSpacing": "Lichter Stababstand",
+  "rcSheets.v.colNoLayout": "Keine Anordnung der zulässigen Durchmesser bringt die erforderliche Bewehrung im Querschnitt unter",
   "rcSheets.v.slenderMax": "Schlankheitsgrenze des Näherungsverfahrens",
   "rcSheets.v.shearX": "Querkraft in Richtung h",
   "rcSheets.v.shearY": "Querkraft in Richtung b",

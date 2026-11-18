@@ -1,8 +1,8 @@
 import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2DemandReading } from '../../engine/design/eurocode/ec2-column';
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
-import { COLUMN_PRACTICAL_CLEAR, growSymmetric, heldBars as symmetricHeld, pickPractical } from '../column-layout';
-import { barCount, columnArea, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, heldBars as symmetricHeld, layoutDias, pickPractical } from '../column-layout';
+import { barCount, columnArea, columnBars, columnLabel, innerCrossties, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
@@ -30,10 +30,12 @@ export function heldBars(side: number, n: number, cornerDia: number, c: ColumnCo
 
 const crossties = (d: ColumnDemand, a: ColumnAdopted, c: ColumnContext) => ({ x: heldBars(d.b, a.nx, a.corner, c, a.tieDia).length, y: heldBars(d.h, a.ny, a.corner, c, a.tieDia).length });
 
+/** 8.2(2) between every pair of bars, the inner rows' included, and every bar inside the link. */
 function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
   const dx = Math.max(a.corner, a.dx), dy = Math.max(a.corner, a.dy);
-  return gap(d.b, a.nx, dx) >= minClear(dx) - 1e-4 && gap(d.h, a.ny, dy) >= minClear(dy) - 1e-4;
+  if (!(gap(d.b, a.nx, dx) >= minClear(dx) - 1e-4 && gap(d.h, a.ny, dy) >= minClear(dy) - 1e-4)) return false;
+  return !a.inner || !(a.inner.nx + a.inner.ny) || barClearance(d, columnLayout(d, a, c.cover).bars, c.cover, a.tieDia, minClear).ok;
 }
 
 function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number {
@@ -47,7 +49,7 @@ function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, pitch: numbe
   return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: Math.max(tieFloorOf(c), roundDown(TIE_REDUCTION * tieSpacingMax(dia, d.b, d.h))) };
 }
 
-export interface ColumnModel { input: Ec2ColumnInput; l0: ReturnType<typeof effectiveLength>; phiInf: number; ratio: number }
+export interface ColumnModel { input: Ec2ColumnInput; l0: ReturnType<typeof effectiveLength>; phiInf: number; ratio: number; section: { b: number; h: number } }
 
 export function columnModel(set: Ec2Set, d: ColumnDemand, c: ColumnContext): ColumnModel {
   const l0 = effectiveLength(d.lu, d.psiTop, d.psiBot);
@@ -66,14 +68,20 @@ export function columnModel(set: Ec2Set, d: ColumnDemand, c: ColumnContext): Col
     planes: [{ b: d.b, h: d.h, l0: l0.l0, phiEf: phiInf * ratio }, { b: d.h, h: d.b, l0: l0.l0, phiEf: phiInf * ratio }],
     cover: c.cover, linkDia: c.tieDia, barDia: 16, fck: c.mat.fc, fyk: c.mat.fy, params: set.p, braced: true, demands,
   };
-  return { input, l0, phiInf, ratio };
+  return { input, l0, phiInf, ratio, section: { b: d.b, h: d.h } };
 }
 
 const planeSteel = (a: ColumnAdopted) => [2 * (2 * barArea(a.corner) + a.nx * barArea(a.dx)) * 1e-4, 2 * (2 * barArea(a.corner) + a.ny * barArea(a.dy)) * 1e-4];
 
+/** Each plane reads every bar where it stands, the inner rows' included, by strain compatibility (6.1(2)). */
 function read(model: ColumnModel, a: ColumnAdopted, c: ColumnContext, demands = model.input.demands) {
   const [px, py] = planeSteel(a);
-  const input: Ec2ColumnInput = { ...model.input, demands, planes: [{ ...model.input.planes[0]!, as: px }, { ...model.input.planes[1]!, as: py }], provided: { asTotal: columnArea(a) * 1e-4, d2: coverToBar(c, a.tieDia, a.corner) } };
+  const bars = columnBars(model.section, a, c);
+  const input: Ec2ColumnInput = {
+    ...model.input, demands,
+    planes: [{ ...model.input.planes[0]!, as: px, bars: bars.map((p) => ({ at: p.y, as: p.area })) }, { ...model.input.planes[1]!, as: py, bars: bars.map((p) => ({ at: p.x, as: p.area })) }],
+    provided: { asTotal: columnArea(a) * 1e-4, d2: coverToBar(c, a.tieDia, a.corner) },
+  };
   return demands.length ? ec2ColumnSolve(input) : null;
 }
 
@@ -87,7 +95,7 @@ function shearOf(set: Ec2Set, d: ColumnDemand, c: ColumnContext, a: ColumnAdopte
   });
 }
 
-function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnModel, ast: number, m: Mat, pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number } {
+function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnModel, ast: number, asMax: number, m: Mat, pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
   const dias = c.diameters.filter((x) => x >= set.colBarMin && x <= 32);
   const fine = (a: ColumnAdopted) => clearOk(d, c, a) && columnArea(a) >= ast - 1e-6 && (read(model, a, c)?.governing.u ?? 0) <= 1 + 1e-6;
   const shearFix = (a0: ColumnAdopted) => {
@@ -105,23 +113,28 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
       if (fine(a)) { const s = shearFix(a); return { layout: s.a, iterations: s.it }; }
     }
   }
-  const ok: Array<{ a: ColumnAdopted; it: number }> = [];
-  for (const dia of dias.length ? dias : [16]) {
-    let a = evenLayout(d, c, dia, 0.3), it = 0;
-    const grow = (x: ColumnAdopted) => growSymmetric(d, x, (side) => side - 2 * coverToBar(c, x.tieDia, x.corner));
-    while (!fine(a) && it < 20) {
-      const g = grow(a);
-      if (!clearOk(d, c, g)) break;
-      a = g; it++;
+  let densest: ColumnAdopted | null = null;
+  for (const inside of [false, true]) {
+    const ok: Array<{ a: ColumnAdopted; it: number }> = [];
+    for (const dia of dias.length ? dias : [16]) {
+      let a = evenLayout(d, c, dia, 0.3), it = 0;
+      if (!clearOk(d, c, a)) continue;
+      while (!fine(a) && it < 40) {
+        const g = growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x) && columnArea(x) <= asMax + 1e-6, inside);
+        if (!g) break;
+        a = g; it++;
+      }
+      if (!densest || columnArea(a) > columnArea(densest)) densest = a;
+      if (!fine(a)) continue;
+      const s = shearFix(a);
+      ok.push({ a: s.a, it: it + s.it });
     }
-    if (!fine(a)) continue;
-    const s = shearFix(a);
-    ok.push({ a: s.a, it: it + s.it });
+    const roomy = ok.filter((x) => outerClear(d, c, x.a) >= COLUMN_PRACTICAL_CLEAR - 1e-4);
+    const pick = pickPractical(roomy.length ? roomy : ok, (x) => columnArea(x.a), (x) => barCount(x.a), (x) => x.a.corner);
+    if (pick) return { layout: pick.a, iterations: pick.it };
   }
-  const roomy = ok.filter((x) => outerClear(d, c, x.a) >= COLUMN_PRACTICAL_CLEAR - 1e-4);
-  const pick = pickPractical(roomy.length ? roomy : ok, (x) => columnArea(x.a), (x) => barCount(x.a), (x) => x.a.corner);
-  if (pick) return { layout: pick.a, iterations: pick.it };
-  return { layout: evenLayout(d, c, dias[dias.length - 1] ?? 25, 0.15), iterations: 0 };
+  if (densest) return { layout: shearFix(densest).a, iterations: 0, exhausted: true };
+  return { layout: evenLayout(d, c, dias[dias.length - 1] ?? 25, 0.15), iterations: 0, exhausted: true };
 }
 
 export function makeColumnRow(set: Ec2Set) {
@@ -133,7 +146,7 @@ export function makeColumnRow(set: Ec2Set) {
     const asMin = (design?.asMin ?? set.p.colMinAbs * Ac) * 1e4, asMax = (design?.asMax ?? set.p.colMaxRatio * Ac) * 1e4;
     const impossible = !!design && design.as === null;
     const ast = design ? (design.as ?? design.asMax) * 1e4 : asMin;
-    const first = propose(set, d, c, model, Math.max(ast, asMin), m, stack.pattern);
+    const first = propose(set, d, c, model, Math.max(ast, asMin), asMax, m, stack.pattern);
     const proposed = first.layout;
     const a = adopted ?? proposed;
     const area = columnArea(a);
@@ -142,8 +155,9 @@ export function makeColumnRow(set: Ec2Set) {
     const perCase = d.cases.map((k) => read(model, a, c, model.input.demands.filter((x) => x.combination === k.combo))?.governing ?? null);
     const sh = shearOf(set, d, c, a, m);
     const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
-    const ct = crossties(d, a, c);
-    const longest = Math.max(a.corner, a.dx, a.dy), thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+    const ct = crossties(d, a, c), ict = innerCrossties(d, a, c);
+    const ctText = `${ct.x} (b) · ${ct.y} (h)${ict.x + ict.y ? ` · ${ict.x} (b, 2) · ${ict.y} (h, 2)` : ''}`;
+    const longest = Math.max(...layoutDias(a)), thinnest = Math.min(...layoutDias(a));
     const sclMax = tieSpacingMax(thinnest, d.b, d.h), tieMax = TIE_REDUCTION * sclMax;
     const tieDiaOk = a.tieDia >= tieDiaMin(longest) - 1e-9;
     const tieOk = tieDiaOk && a.tieSpacing <= tieMax + 1e-6;
@@ -161,12 +175,13 @@ export function makeColumnRow(set: Ec2Set) {
       check('rcSheets.v.rhoMax', area <= asMax + 1e-6, { clause: '9.5.2(3)', demand: `${fmt((area / (Ac * 1e4)) * 100)} %`, capacity: `≤ ${fmt(set.p.colMaxRatio * 100, 0)} %` }),
       check('rcSheets.ec2.v.colBarMin', barMinOk, { clause: '9.5.2(1)', demand: `Ø${thinnest}`, capacity: `≥ Ø${set.colBarMin}` }),
       check('rcSheets.v.colSpacing', spacingOk, { clause: '8.2(2)' }),
+      ...(!adopted && first.exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '8.2(2), 9.5.2(3)', demand: `${fmt(Math.max(ast, asMin))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
       check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(Math.max(0, ...d.cases.map((k) => k.vx ?? 0)))} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
       check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '6.2.2(1), 6.2.3(3)', demand: `${fmt(Math.max(0, ...d.cases.map((k) => k.vy ?? 0)))} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
       check('rcSheets.v.tieDia', tieDiaOk, { clause: '9.5.3(1)', demand: `Ø${a.tieDia}`, capacity: `≥ ${fmt(tieDiaMin(longest), 1)} mm` }),
       ...(!tieDiaOk && allowedTie(c, tieDiaMin(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: '9.5.3(1)', demand: `≥ ${fmt(tieDiaMin(longest), 1)} mm`, capacity: tieDiametersOf(c).map((x) => `Ø${x}`).join(' ') })] : []),
       check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '9.5.3(3), 9.5.3(4)', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ 0.6 × ${fmt(sclMax * 100, 1)} = ${fmt(tieMax * 100, 1)} cm` }),
-      check('rcSheets.v.crossties', true, { clause: '9.5.3(6)', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
+      check('rcSheets.v.crossties', true, { clause: '9.5.3(6)', capacity: ctText }),
       ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${longest})` })] : []),
     ];
     const ok = verifications.every((v) => v.ok) && !impossible;
@@ -210,7 +225,7 @@ export function makeColumnRow(set: Ec2Set) {
         steps: [
           { label: 'rcSheets.s.tieDia', formula: 'Øt ≥ max(6 mm; Ømax/4) (9.5.3(1))', value: `Ø${a.tieDia}`, ok: tieDiaOk },
           { label: 'rcSheets.ec2.s.tieSpacing', formula: 's ≤ 0.6·min(20·Ømin; min(b, h); 400 mm) (9.5.3(3), (4))', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 1)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
-          { label: 'rcSheets.ec2.s.crossties', formula: '≤ 150 mm (9.5.3(6))', value: `${ct.x} (b) · ${ct.y} (h)` },
+          { label: 'rcSheets.ec2.s.crossties', formula: '≤ 150 mm (9.5.3(6))', value: ctText },
           { label: 'rcSheets.s.colShear', formula: 'VRd = max(VRd,c(σcp); min(VRd,s; VRd,max)) (6.2.2, 6.2.3)', value: fmt(Math.max(shearX, shearY), 3), ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
           ...(stack.fromBelow ? [{ label: 'rcSheets.ec2.s.colLap', formula: 'l0 = α6·lb,rqd ≥ max(0.3·α6·lb,rqd; 15·Ø; 200 mm), α6 = 1.5 (8.7.3)', value: `${fmt(lap * 100, 0)} cm` }] : []),
         ],
@@ -225,7 +240,7 @@ export function makeColumnRow(set: Ec2Set) {
       family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
       req: { rho: ast / (Ac * 1e4), ast, impossible, governing: gov?.demand.combination ?? '', compressionDominated },
       proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : first.iterations,
-      checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
+      checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       ...(stack.fromBelow ? { lap: { length: lap } } : {}),
       tieFloor: tieFloorOf(c),

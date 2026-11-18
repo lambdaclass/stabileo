@@ -3,7 +3,7 @@ import { COLUMN_STEEL_RATIO, shearFy } from '../engine/codes/argentina/cirsoc201
 import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-section';
 import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
-import { layerClearBetween, minClearSpacingColumn } from '../codes/cirsoc201/spacing';
+import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
 import { compressionLapMm, confinementOf, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
@@ -12,7 +12,7 @@ import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } f
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { highAxialColumn } from '../engine/design/seismic/capacity';
 import type { Fmt } from './format';
-import { COLUMN_PITCH, COLUMN_PRACTICAL_CLEAR, growSymmetric, heldBars, heldOptions, isSquare, pickPractical, startCounts, tiedRule } from './column-layout';
+import { COLUMN_PITCH, COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, growSymmetric, heldBars, heldOptions, innerTies, layoutDias, pickPractical, startCounts, tiedRule, type InnerRow } from './column-layout';
 import { COLUMN_BAR_RANGE, allowedTie, check, listIn, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type TransverseList, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
 const EDITION = '2025' as const;
@@ -96,56 +96,15 @@ const coverToBar = (c: Pick<ColumnContext, 'cover'>, tie: number, dia: number) =
 
 const innerRowsOf = (a: ColumnAdopted) => (a.inner && (a.inner.nx > 0 || a.inner.ny > 0) ? Math.max(1, a.inner.rows ?? 1) : 0);
 
-/** The rows inside the faces, outermost first, from the section's centre, m: each with its bars along b at `xs` and ±`yIn`, along h at ±`xIn` and `ys`. */
-export function innerRows(d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): Array<{ xIn: number; yIn: number; xs: number[]; ys: number[] }> {
-  const inn = a.inner, rows = innerRowsOf(a);
-  if (!inn || !rows) return [];
-  const xc = d.b / 2 - coverToBar(c, a.tieDia, a.corner), yc = d.h / 2 - coverToBar(c, a.tieDia, a.corner);
-  const step = (outer: number) => outer / 2000 + layerClearBetween('2025', outer, inn.dia) + inn.dia / 2000;
-  const pitch = step(inn.dia);
-  const xs = Array.from({ length: Math.max(0, inn.nx) }, (_, i) => -xc + (2 * xc * (i + 1)) / (inn.nx + 1));
-  const ys = Array.from({ length: Math.max(0, inn.ny) }, (_, i) => -yc + (2 * yc * (i + 1)) / (inn.ny + 1));
-  return Array.from({ length: rows }, (_, k) => ({
-    yIn: d.h / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dx)) - step(Math.max(a.corner, a.dx)) - k * pitch,
-    xIn: d.b / 2 - coverToBar(c, a.tieDia, Math.max(a.corner, a.dy)) - step(Math.max(a.corner, a.dy)) - k * pitch,
-    xs, ys,
-  }));
-}
+/** The rows inside the faces, outermost first, from the section's centre, m (`columnLayout`). */
+export const innerRows = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): InnerRow[] => columnLayout(d, a, c.cover).rows;
 
-/**
- * The crossties that hold the inner rows (§25.7.2.3: no tie runs along them, so every bar of them
- * needs one), one through each pair of facing bars of each row: `x` of them across h for the bars
- * along b, `y` across b for those along h, and each one with the length between the corners of its
- * hooks, m.
- */
-export function innerCrossties(d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): { x: number; y: number; ties: Array<{ across: 'h' | 'b'; at: number; length: number }> } {
-  const wrap = ((a.inner?.dia ?? 0) + a.tieDia) / 1000;
-  const ties = innerRows(d, a, c).flatMap((r) => [
-    ...r.xs.map((at) => ({ across: 'h' as const, at, length: 2 * r.yIn + wrap })),
-    ...r.ys.map((at) => ({ across: 'b' as const, at, length: 2 * r.xIn + wrap })),
-  ]);
-  return { x: ties.filter((t) => t.across === 'h').length, y: ties.filter((t) => t.across === 'b').length, ties };
-}
+/** The crossties that hold the inner rows (`innerTies`). */
+export const innerCrossties = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>) => innerTies(d, a, c.cover);
 
-export function columnBars(d: { b: number; h: number }, a: ColumnAdopted, c: ColumnContext): Bar[] {
-  const out: Bar[] = [];
-  const xc = d.b / 2 - coverToBar(c, a.tieDia, a.corner), yc = d.h / 2 - coverToBar(c, a.tieDia, a.corner);
-  for (const sx of [-1, 1]) for (const sy of [-1, 1]) out.push({ x: sx * xc, y: sy * yc, area: barArea(a.corner) * 1e-4 });
-  const xf = d.b / 2 - coverToBar(c, a.tieDia, a.dy);
-  for (let i = 1; i <= a.nx; i++) {
-    const x = -xc + (2 * xc * i) / (a.nx + 1);
-    for (const sy of [-1, 1]) out.push({ x, y: sy * (d.h / 2 - coverToBar(c, a.tieDia, a.dx)), area: barArea(a.dx) * 1e-4 });
-  }
-  for (let i = 1; i <= a.ny; i++) {
-    const y = -yc + (2 * yc * i) / (a.ny + 1);
-    for (const sx of [-1, 1]) out.push({ x: sx * xf, y, area: barArea(a.dy) * 1e-4 });
-  }
-  for (const inn of innerRows(d, a, c)) {
-    const area = barArea(a.inner!.dia) * 1e-4;
-    for (const x of inn.xs) for (const sy of [-1, 1]) out.push({ x, y: sy * inn.yIn, area });
-    for (const y of inn.ys) for (const sx of [-1, 1]) out.push({ x: sx * inn.xIn, y, area });
-  }
-  return out;
+/** The bars of a column's section with their areas, m and m², in `columnLayout`'s order: corners, b faces, h faces, inner rows. */
+export function columnBars<C extends { cover: number }>(d: { b: number; h: number }, a: ColumnAdopted, c: C): Bar[] {
+  return columnLayout(d, a, c.cover).bars.map((p) => ({ x: p.x, y: p.y, area: barArea(p.dia) * 1e-4 }));
 }
 
 export const columnArea = (a: ColumnAdopted): number => 4 * barArea(a.corner) + 2 * a.nx * barArea(a.dx) + 2 * a.ny * barArea(a.dy)
@@ -194,16 +153,14 @@ function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, tie: number,
   return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: 0 };
 }
 
+const columnMinClear = (dia: number) => minClearSpacingColumn(EDITION, { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
+
+/** The clear spacing of §25.2.3 between every pair of bars, the inner rows' included, and every bar inside the tie. */
 function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
-  const minX = minClearSpacingColumn(EDITION, { barDiameterMm: Math.max(a.corner, a.dx), maxAggregateSizeMm: 0 }).minClear;
-  const minY = minClearSpacingColumn(EDITION, { barDiameterMm: Math.max(a.corner, a.dy), maxAggregateSizeMm: 0 }).minClear;
-  const inn = a.inner;
-  const innerOk = !inn || ((inn.nx <= 0 || gap(d.b, inn.nx, inn.dia) >= minClearSpacingColumn(EDITION, { barDiameterMm: inn.dia, maxAggregateSizeMm: 0 }).minClear - 1e-4)
-    && (inn.ny <= 0 || gap(d.h, inn.ny, inn.dia) >= minClearSpacingColumn(EDITION, { barDiameterMm: inn.dia, maxAggregateSizeMm: 0 }).minClear - 1e-4));
-  const last = innerRows(d, a, c).at(-1), minIn = inn ? minClearSpacingColumn(EDITION, { barDiameterMm: inn.dia, maxAggregateSizeMm: 0 }).minClear : 0;
-  const depthOk = !last || !inn || ((inn.nx <= 0 || 2 * last.yIn - inn.dia / 1000 >= minIn - 1e-4) && (inn.ny <= 0 || 2 * last.xIn - inn.dia / 1000 >= minIn - 1e-4));
-  return gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4 && innerOk && depthOk;
+  const minX = columnMinClear(Math.max(a.corner, a.dx)), minY = columnMinClear(Math.max(a.corner, a.dy));
+  if (!(gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4)) return false;
+  return !innerRowsOf(a) || barClearance(d, columnLayout(d, a, c.cover).bars, c.cover, a.tieDia, columnMinClear).ok;
 }
 
 const facePitch = (side: number, n: number, cornerDia: number, c: { cover: number }, tie: number) => (side - 2 * (c.cover + tie / 1000 + cornerDia / 2000)) / (n + 1);
@@ -411,11 +368,11 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     }
     return { layout, iterations, exhausted: first.exhausted };
   };
-  let { layout: proposed, iterations } = proposeFor(minMn);
+  let { layout: proposed, iterations, exhausted } = proposeFor(minMn);
   for (const margin of [1.02, 1.05, 1.1]) {
     if (!shortOf(minMn)(proposed)) break;
     const next = proposeFor(minMn * margin);
-    if (!next.exhausted && mnOf(next.layout) > mnOf(proposed)) ({ layout: proposed, iterations } = next);
+    if (!next.exhausted && mnOf(next.layout) > mnOf(proposed)) ({ layout: proposed, iterations, exhausted } = next);
   }
   const a = adopted ?? proposed;
   const perTuple = withSection({ kind: 'rect', b: d.b, h: d.h }, columnBars(d, a, c), { fc: c.mat.fc, fy: c.mat.fy, edition: EDITION }, (s) =>
@@ -426,9 +383,9 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const area = columnArea(a);
   const rhoOk = area >= lo0 - 1e-6 && area <= hi0 + 1e-6;
   const spacingOk = clearOk(d, c, a);
-  const longest = Math.max(a.corner, a.dx, a.dy), thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+  const longest = Math.max(...layoutDias(a)), thinnest = Math.min(...layoutDias(a));
   const tieMax = columnTieSpacing(EDITION, thinnest, a.tieDia, Math.min(d.b, d.h)).spacing;
-  const smallest = Math.min(thinnest, a.inner && a.inner.nx + a.inner.ny > 0 ? a.inner.dia : 99);
+  const smallest = thinnest;
   const tieDiaOk = a.tieDia >= tieDiaFor(longest);
   const floor = tieFloorOf(c);
   const listOf = (l: readonly number[]) => l.map((x) => `Ø${x}`).join(' ');
@@ -448,13 +405,14 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     check('rcSheets.v.rhoMin', area >= Math.max(ast, lo0) - 1e-6, { clause: '§10.6.1.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `${fmt(area)} cm²`, ratio: ratioOf(Math.max(ast, lo0), area) }),
     check('rcSheets.v.rhoMax', area <= hi0 + 1e-6, { clause: '§10.6.1.1', demand: `${fmt(area / (Ag * 1e4) * 100)} %`, capacity: '≤ 8 %' }),
     check('rcSheets.v.colSpacing', spacingOk, { clause: '§25.2.3' }),
+    ...(!adopted && exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '§25.2.3, §10.6.1.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
     check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
     check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
     check('rcSheets.v.tieDia', tieDiaOk, { clause: code.tie.clause, demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
     ...(!tieDiaOk && allowedTie(c, tieDiaFor(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: code.tie.clause, demand: `≥ Ø${tieDiaFor(longest)}`, capacity: listOf(tieDiametersOf(c)) })] : []),
     ...(!adopted && !ownDias.length ? [check('rcSheets.v.longList', false, { clause: code.minimum?.clause ?? code.tie.clause, demand: `Ø${COLUMN_BAR_RANGE.min} … Ø${COLUMN_BAR_RANGE.max}`, capacity: listOf(c.diameters) })] : []),
-    ...(c.coverTable ? [mainCoverCheck(c.cover, a.tieDia, Math.max(longest, a.inner?.dia ?? 0), c.coverTable.control, fmt)] : []),
+    ...(c.coverTable ? [mainCoverCheck(c.cover, a.tieDia, longest, c.coverTable.control, fmt)] : []),
     ...(code.minimum ? [
       check('rcSheets.v.colMinSide', Math.min(d.b, d.h) >= code.minimum.side - 1e-9, { clause: code.minimum.clause, demand: `${fmt(Math.min(d.b, d.h) * 100, 0)} cm`, capacity: `≥ ${fmt(code.minimum.side * 100, 0)} cm` }),
       check('rcSheets.v.colMinBar', smallest >= code.minimum.bar, { clause: code.minimum.clause, demand: `Ø${smallest}`, capacity: `≥ Ø${code.minimum.bar}` }),
@@ -544,7 +502,7 @@ function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, 
   const high = highAxialColumn({ b: d.b, h: d.h, fc: c.mat.fc, pu: Math.max(0, ...d.cases.map((k) => k.pu)) });
   const floor = tieFloorOf(c);
   const ties = tieDiametersOf(c).filter((t) => t >= start.tieDia);
-  const longMin = (a: ColumnAdopted) => Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+  const longMin = (a: ColumnAdopted) => Math.min(...layoutDias(a));
   let iterations = 0, last = start;
   let bars = start;
   for (let more = 0; more <= 2; more++) {
@@ -601,7 +559,8 @@ function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number
  * those that do with the practical clear spacing between them when any does, the lightest or one
  * with fewer bars and nearly as light (`pickPractical`). Rows inside the faces only when no outer
  * row alone does it. The ties of the smallest allowed diameter the code takes, as wide as §25.7.2.1
- * and the shear let them and never closer than the project's floor.
+ * and the shear let them and never closer than the project's floor. Where no layout carries the
+ * demand, the one with the most steel that fits (`exhausted`): the row fails and says so.
  */
 function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: readonly number[], tuples: Tuple[], pattern: StackPlace['pattern'], tieOf: (longDia: number) => number, joint: { short: (a: ColumnAdopted) => boolean; rhoMax: number }): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
   const demands = governing(tuples);
@@ -611,6 +570,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
   const floor = tieFloorOf(c);
   const spacingFor = (dia: number, tie: number) => Math.max(floor, roundDown(columnTieSpacing(EDITION, dia, tie, Math.min(d.b, d.h)).spacing));
   let strongest: { a: ColumnAdopted; dia: number; it: number } | null = null;
+  let densest: { a: ColumnAdopted; dia: number; it: number } | null = null;
   const shearTies = (start: ColumnAdopted, dia: number, it: number): { layout: ColumnAdopted; iterations: number } => {
     let a = start;
     for (let guard = 0; guard < 40; guard++) {
@@ -636,19 +596,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
     }
   }
   const span = (a: ColumnAdopted) => (side: number) => side - 2 * coverToBar(c, a.tieDia, a.corner);
-  const innerGrow = (inn: NonNullable<ColumnAdopted['inner']>): NonNullable<ColumnAdopted['inner']> =>
-    isSquare(d) ? { ...inn, nx: inn.nx + 1, ny: inn.ny + 1 } : d.h >= d.b ? (inn.ny <= inn.nx ? { ...inn, ny: inn.ny + 1 } : { ...inn, nx: inn.nx + 1 }) : (inn.nx <= inn.ny ? { ...inn, nx: inn.nx + 1 } : { ...inn, ny: inn.ny + 1 });
-  /** One more bar on each face of a pair, in the outer row while it fits, then (when `inside`) in the rows inside it, a third row when the second is full; null when none has room. */
-  const grow = (a: ColumnAdopted, dia: number, inside: boolean): ColumnAdopted | null => {
-    const outer = growSymmetric(d, a, span(a));
-    if (clearOk(d, c, outer)) return outer;
-    if (!inside) return null;
-    const inn = a.inner ?? { nx: 0, ny: 0, dia };
-    const deeper: ColumnAdopted = { ...a, inner: innerGrow(inn) };
-    if (clearOk(d, c, deeper)) return deeper;
-    const third: ColumnAdopted = { ...a, inner: { ...inn, rows: 2 } };
-    return (inn.rows ?? 1) < 2 && (inn.nx > 0 || inn.ny > 0) && clearOk(d, c, third) ? third : null;
-  };
+  const grow = (a: ColumnAdopted, dia: number, inside: boolean): ColumnAdopted | null => growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x), inside);
   const maxPitch = c.seismic ? COLUMN_PITCH.seismic : COLUMN_PITCH.plain;
   for (const inside of [false, true]) {
     const found: Array<{ a: ColumnAdopted; dia: number; it: number }> = [];
@@ -663,6 +611,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
         if (!next) break;
         a = next;
       }
+      if (clearOk(d, c, a) && !tooMuch(a) && (!densest || columnArea(a) > columnArea(densest.a))) densest = { a: { ...a, tieSpacing: spacingFor(dia, tie) }, dia, it: 0 };
       if (!clearOk(d, c, a) || columnArea(a) < ast - 1e-6 || tooMuch(a)) continue;
       a = { ...a, tieSpacing: spacingFor(dia, tie) };
       while (over(a) && it < 24) {
@@ -683,6 +632,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
     if (pick) return shearTies(pick.a, pick.dia, pick.it);
   }
   if (strongest) return shearTies(strongest.a, strongest.dia, strongest.it);
+  if (densest) return { ...shearTies(densest.a, densest.dia, densest.it), exhausted: true };
   const dia = dias[dias.length - 1] ?? 25;
   const tie = tieOf(dia);
   return { layout: { ...evenLayout(d, c, dia, tie, 0.15), tieSpacing: spacingFor(dia, tie) }, iterations: 0, exhausted: true };

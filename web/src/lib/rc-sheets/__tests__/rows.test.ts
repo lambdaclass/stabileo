@@ -162,19 +162,30 @@ describe('seismic provisions', () => {
     const col: ColumnDemand = { key: 'column:9:0', name: 'C9', b: 0.3, h: 0.3, length: 3, lu: 2.7, psiTop: 1, psiBot: 1, cases: [{ combo: 'U', pu: 1100, mxTop: 80, mxBot: -64, myTop: 30, myBot: -18, vx: 30, vy: 30 }] };
     const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [16] };
     const one = { corner: 16, nx: 2, dx: 16, ny: 2, dy: 16, tieDia: 8, tieSpacing: 0.15 };
-    const two = { ...one, inner: { nx: 2, ny: 2, dia: 16 } };
-    expect(columnBars(col, two, ctx as never)).toHaveLength(columnBars(col, one, ctx as never).length + 8);
-    expect(columnArea(two) - columnArea(one)).toBeCloseTo(8 * columnArea({ ...one, nx: 0, ny: 0 }) / 4, 6);
+    const two = { ...one, inner: { nx: 2, ny: 0, dia: 16 } };
+    expect(columnBars(col, two, ctx as never)).toHaveLength(columnBars(col, one, ctx as never).length + 4);
+    expect(columnArea(two) - columnArea(one)).toBeCloseTo(4 * columnArea({ ...one, nx: 0, ny: 0 }) / 4, 6);
     expect(columnLabel(two)).toContain('(b, 2)');
-    expect(columnSection(col.b, col.h, 0.03, two).bars).toHaveLength(20);
+    expect(columnSection(col.b, col.h, 0.03, two).bars).toHaveLength(16);
     const inner = columnBars(col, two, ctx as never).slice(12);
     const outerY = Math.max(...columnBars(col, one, ctx as never).map((b) => b.y));
-    expect(Math.max(...inner.map((b) => b.y))).toBeLessThan(outerY - 0.016 - 0.025 + 1e-9);
+    expect(Math.max(...inner.map((b) => b.y))).toBeCloseTo(outerY - 0.016 - 0.04, 9);
     const r1 = columnRow(col, ctx, one, f), r2 = columnRow(col, ctx, two, f);
     expect(r2.checks.ratio).toBeLessThan(r1.checks.ratio);
-    const p = columnRow(col, ctx, undefined, f);
+    expect(ok(r2, 'rcSheets.v.colSpacing')).toBe(true);
+    // Rows inside both pairs of faces of a 30 × 30 meet at the inner corners: 40 mm clear is not there.
+    expect(ok(columnRow(col, ctx, { ...one, inner: { nx: 2, ny: 2, dia: 16 } }, f), 'rcSheets.v.colSpacing')).toBe(false);
+    const p = columnRow(col, { ...ctx, diameters: [16, 20, 25] }, undefined, f);
     expect(p.status).not.toBe('fail');
-    expect((p.adopted.inner?.nx ?? 0) + (p.adopted.inner?.ny ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('a column whose steel fits no layout of the allowed bars says so, with the most that fits, rather than a layout that does not fit', () => {
+    const col: ColumnDemand = { key: 'column:9:0', name: 'C9', b: 0.3, h: 0.3, length: 3, lu: 2.7, psiTop: 1, psiBot: 1, cases: [{ combo: 'U', pu: 1100, mxTop: 80, mxBot: -64, myTop: 30, myBot: -18, vx: 30, vy: 30 }] };
+    const p = columnRow(col, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [16] }, undefined, f);
+    expect(p.status).toBe('fail');
+    expect(ok(p, 'rcSheets.v.colNoLayout')).toBe(false);
+    expect(ok(p, 'rcSheets.v.colSpacing')).toBe(true);
+    expect(p.checks.area).toBeGreaterThan(30);
   });
 
   it('a column proposal takes the smallest diameter with bars on every face before a larger one, and rows inside only after', () => {
@@ -187,7 +198,7 @@ describe('seismic provisions', () => {
     expect(r.proposed.inner).toBeUndefined();
   });
 
-  it('a column takes a third row when the second is full, held off it by the clear spacing between layers, and fails the spacing check when the rows meet', async () => {
+  it('a column takes a third row when the second is full, held off it by the clear spacing of §25.2.3, and fails the spacing check when the rows meet', async () => {
     const { columnBars, columnArea, columnLabel, innerCrossties } = await import('../column-row');
     const col: ColumnDemand = { key: 'column:9:0', name: 'C9', b: 0.6, h: 0.6, length: 3, lu: 2.7, psiTop: 1, psiBot: 1, cases: [{ combo: 'U', pu: 1100, mxTop: 80, mxBot: -64, myTop: 30, myBot: -18, vx: 30, vy: 30 }] };
     const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [16] };
@@ -198,7 +209,7 @@ describe('seismic provisions', () => {
     expect(columnLabel(three)).toContain('4×2 Ø16 (b, 2–3)');
     expect(innerCrossties(col, three, ctx).x).toBe(4);
     const ys = [...new Set(columnBars(col, three, ctx as never).slice(12).map((b) => +b.y.toFixed(6)))].filter((y) => y > 0).sort((p, q) => q - p);
-    expect(ys[0]! - ys[1]!).toBeCloseTo(0.016 + 0.025, 3);
+    expect(ys[0]! - ys[1]!).toBeCloseTo(0.016 + 0.04, 3);
     expect(ok(columnRow(col, ctx, three, f), 'rcSheets.v.colSpacing')).toBe(true);
     const small = { ...col, b: 0.25, h: 0.25 };
     expect(ok(columnRow(small, ctx, three, f), 'rcSheets.v.colSpacing')).toBe(false);

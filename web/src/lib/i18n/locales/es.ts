@@ -13956,6 +13956,7 @@ const es: Record<string, string> = {
   "rcSheets.v.rhoMin": "Armadura necesaria y cuantía mínima",
   "rcSheets.v.rhoMax": "Cuantía máxima",
   "rcSheets.v.colSpacing": "Separación libre entre barras",
+  "rcSheets.v.colNoLayout": "Ninguna disposición de barras de los diámetros permitidos entra en la sección con el área necesaria",
   "rcSheets.v.slenderMax": "Esbeltez máxima para el método aproximado",
   "rcSheets.v.shearX": "Corte en dirección h",
   "rcSheets.v.shearY": "Corte en dirección b",

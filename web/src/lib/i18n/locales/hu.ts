@@ -15127,6 +15127,7 @@ const hu: Translations = {
   "rcSheets.v.rhoMin": "Szükséges vasalás és minimális vasalási arány",
   "rcSheets.v.rhoMax": "Maximális vasalási arány",
   "rcSheets.v.colSpacing": "Vasak közötti szabad távolság",
+  "rcSheets.v.colNoLayout": "A megengedett átmérőkből egyik elrendezés sem fér el a keresztmetszetben a szükséges acélmennyiséggel",
   "rcSheets.v.slenderMax": "A közelítő módszer karcsúsági határa",
   "rcSheets.v.shearX": "Nyírás h irányban",
   "rcSheets.v.shearY": "Nyírás b irányban",

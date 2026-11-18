@@ -14,6 +14,7 @@
  * beyond what the row's shear check leaves room for.
  */
 import { roundDown } from './bars';
+import { layoutDias } from './column-layout';
 import type { ColumnRow } from './column-row';
 import type { Fmt } from './format';
 import { check, type CheckLine, type SheetCode } from './types';
@@ -59,8 +60,7 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
   const clear = Math.max(0.1, row.demand.lu);
   const jointBottom = row.demand.joints?.bottom ?? 0, jointTop = row.demand.joints?.top ?? 0;
   const s = Math.max(0.025, a.tieSpacing);
-  const thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
-  const longest = Math.max(a.corner, a.nx > 0 ? a.dx : 0, a.ny > 0 ? a.dy : 0);
+  const thinnest = Math.min(...layoutDias(a)), longest = Math.max(...layoutDias(a));
   const fam = family(code);
   const zones: TieZone[] = [];
   const notes: TieNote[] = [];

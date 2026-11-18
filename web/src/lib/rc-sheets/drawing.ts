@@ -1,5 +1,6 @@
 import { ACI_BENDS, faceBars } from './bars';
-import { columnBars, confinedTies, innerCrossties } from './column-row';
+import { confinedTies, innerCrossties } from './column-row';
+import { columnLayout } from './column-layout';
 import type { BendRules, HookAngle } from './shape';
 import type { BarGroup, ColumnAdopted, Stirrups } from './types';
 
@@ -53,9 +54,7 @@ export interface ColumnSectionOptions {
  * other, alternating from one crosstie to the next (§18.7.5.2(c)).
  */
 export function columnSection(b: number, h: number, cover: number, a: ColumnAdopted, o: ColumnSectionOptions = {}): SectionDrawing {
-  const ctx = { mat: { fc: 0, fy: 0 }, cover, tieDia: a.tieDia, diameters: [] };
-  const diaAt = (i: number) => (i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner?.dia ?? a.dy);
-  const bars = columnBars({ b, h }, a, ctx).map((x, i) => ({ x: x.x + b / 2, y: x.y + h / 2, dia: diaAt(i) }));
+  const bars = columnLayout({ b, h }, a, cover).bars.map((x) => ({ x: x.x + b / 2, y: x.y + h / 2, dia: x.dia }));
   const R = o.bends ?? ACI_BENDS;
   const td = a.tieDia / 1000, ext = (angle: HookAngle) => R.extension(a.tieDia, angle, 'transverse') + td;
   const x0 = cover + td / 2, x1 = b - x0, y0 = cover + td / 2, y1 = h - y0;

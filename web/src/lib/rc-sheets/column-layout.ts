@@ -95,3 +95,128 @@ export function heldOptions(n: number, pitch: number, dia: number, rule: HeldRul
   }
   return out.sort((p, q) => p.length - q.length);
 }
+
+/** The clear spacing between a column's rows of bars, m: §25.2.3's max(1.5·db; 40 mm), which the FIUBA course keeps for any code (§15.8). */
+export const rowClear = (dia: number): number => Math.max((1.5 * dia) / 1000, 0.04);
+
+/** A bar of a column's section, from its centre, m; `dia` in mm. */
+export interface PlacedBar { x: number; y: number; dia: number; row: 'corner' | 'b' | 'h' | 'inner' }
+
+/** A row inside the faces, from the section's centre, m: bars along b at `xs` and ±`yIn`, along h at ±`xIn` and `ys`; `aligned` when each stands behind a bar of the face. */
+export interface InnerRow { xIn: number; yIn: number; xs: number[]; ys: number[]; aligned: boolean }
+
+const innerRowCount = (a: ColumnAdopted) => (a.inner && (a.inner.nx > 0 || a.inner.ny > 0) ? Math.max(1, a.inner.rows ?? 1) : 0);
+
+/** The positions of `n` bars between a face's corners, m from its middle: `span` between the corners' centres. */
+const facePositions = (span: number, n: number) => Array.from({ length: Math.max(0, n) }, (_, i) => -span / 2 + (span * (i + 1)) / (n + 1));
+
+/** `k` of the face positions within ±`limit`, symmetric about the middle and as evenly spread as they go from the outermost in; null where no such choice exists. */
+function behindFace(face: readonly number[], k: number, limit: number): number[] | null {
+  const pool = face.filter((x) => Math.abs(x) <= limit + 1e-9);
+  const m = pool.length;
+  if (k > m || (m - k) % 2) return null;
+  const pick = new Set<number>();
+  for (let i = 0; i < Math.floor(k / 2); i++) { const j = Math.round((i * (m - 1)) / Math.max(1, k - 1)); pick.add(j); pick.add(m - 1 - j); }
+  if (k % 2) pick.add((m - 1) / 2);
+  return pick.size === k ? [...pick].sort((p, q) => p - q).map((j) => pool[j]!) : null;
+}
+
+const spread = (k: number, limit: number) => (k === 1 ? [0] : Array.from({ length: k }, (_, i) => -limit + (2 * limit * i) / (k - 1)));
+
+/**
+ * The bars of a column's section as practice lays them: the four corners, `nx` between them on each
+ * b face and `ny` on each h face, evenly; and the rows inside the faces, each one held off the row
+ * outside it by `rowClear`. A bar of an inner row stands right behind a bar of the face, so the gaps
+ * line up through the rows for the concrete and the vibrator to pass, as layers do in a beam
+ * (§25.2.2). With rows inside both pairs of faces, those along b keep clear of those along h at the
+ * inner corners: only the face positions at least a bar and its clear spacing inside the h rows take
+ * one. Where no such choice of positions exists, the row's bars spread evenly within that reach.
+ */
+export function columnLayout(d: { b: number; h: number }, a: ColumnAdopted, cover: number): { bars: PlacedBar[]; rows: InnerRow[] } {
+  const toBar = (dia: number) => cover + a.tieDia / 1000 + dia / 2000;
+  const xc = d.b / 2 - toBar(a.corner), yc = d.h / 2 - toBar(a.corner);
+  const faceX = facePositions(2 * xc, a.nx), faceY = facePositions(2 * yc, a.ny);
+  const bars: PlacedBar[] = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) bars.push({ x: sx * xc, y: sy * yc, dia: a.corner, row: 'corner' });
+  for (const x of faceX) for (const sy of [-1, 1]) bars.push({ x, y: sy * (d.h / 2 - toBar(a.dx)), dia: a.dx, row: 'b' });
+  for (const y of faceY) for (const sx of [-1, 1]) bars.push({ x: sx * (d.b / 2 - toBar(a.dy)), y, dia: a.dy, row: 'h' });
+  const inn = a.inner, count = innerRowCount(a);
+  if (!inn || !count) return { bars, rows: [] };
+  const step = (outer: number, inner: number) => outer / 2000 + rowClear(Math.max(outer, inner)) + inner / 2000;
+  const pitch = step(inn.dia, inn.dia), cc = inn.dia / 1000 + rowClear(inn.dia);
+  const outerB = Math.max(a.corner, a.dx), outerH = Math.max(a.corner, a.dy);
+  const yIn = (k: number) => d.h / 2 - toBar(outerB) - step(outerB, inn.dia) - k * pitch;
+  const xIn = (k: number) => d.b / 2 - toBar(outerH) - step(outerH, inn.dia) - k * pitch;
+  const reachX = xIn(count - 1) - cc, reachY = yIn(count - 1) - cc;
+  const pickX = inn.nx > 0 ? behindFace(faceX, inn.nx, inn.ny > 0 ? reachX : Infinity) : [];
+  const pickY = inn.ny > 0 ? behindFace(faceY, inn.ny, inn.nx > 0 ? reachY : Infinity) : [];
+  const xs = pickX ?? spread(inn.nx, reachX), ys = pickY ?? spread(inn.ny, reachY);
+  const rows = Array.from({ length: count }, (_, k): InnerRow => ({ xIn: xIn(k), yIn: yIn(k), xs, ys, aligned: !!pickX && !!pickY }));
+  for (const r of rows) {
+    for (const x of r.xs) for (const sy of [-1, 1]) bars.push({ x, y: sy * r.yIn, dia: inn.dia, row: 'inner' });
+    for (const y of r.ys) for (const sx of [-1, 1]) bars.push({ x: sx * r.xIn, y, dia: inn.dia, row: 'inner' });
+  }
+  return { bars, rows };
+}
+
+/**
+ * The tightest pair of bars against the clear spacing the code asks between them (`minClear` of the
+ * larger, m), and whether every bar sits inside the tie: `slack` is the smallest clear spacing less
+ * what it asks, m, negative where two bars come too close.
+ */
+export function barClearance(d: { b: number; h: number }, bars: readonly PlacedBar[], cover: number, tieDia: number, minClear: (dia: number) => number): { ok: boolean; slack: number; inside: boolean } {
+  let slack = Infinity;
+  for (let i = 0; i < bars.length; i++) for (let j = i + 1; j < bars.length; j++) {
+    const p = bars[i]!, q = bars[j]!;
+    slack = Math.min(slack, Math.hypot(p.x - q.x, p.y - q.y) - (p.dia + q.dia) / 2000 - minClear(Math.max(p.dia, q.dia)));
+  }
+  const inX = d.b / 2 - cover - tieDia / 1000, inY = d.h / 2 - cover - tieDia / 1000;
+  const inside = bars.every((p) => Math.abs(p.x) + p.dia / 2000 <= inX + 1e-6 && Math.abs(p.y) + p.dia / 2000 <= inY + 1e-6);
+  return { ok: slack >= -1e-4 && inside, slack, inside };
+}
+
+/** The diameters a column's layout holds, the inner rows' included. */
+export function layoutDias(a: ColumnAdopted): number[] {
+  return [a.corner, ...(a.nx > 0 ? [a.dx] : []), ...(a.ny > 0 ? [a.dy] : []), ...(innerRowCount(a) ? [a.inner!.dia] : [])];
+}
+
+/**
+ * The crossties that hold the inner rows: no hoop runs along them, so each pair of facing bars of a
+ * row takes one, its hooks round both. `x` of them across h for the bars along b, `y` across b for
+ * those along h, each with the length between the corners of its hooks, m. Inner bars are not
+ * perimeter bars: chapter 18's hx (§18.7.5.2) is read on the perimeter alone.
+ */
+export function innerTies(d: { b: number; h: number }, a: ColumnAdopted, cover: number): { x: number; y: number; ties: Array<{ across: 'h' | 'b'; at: number; length: number }> } {
+  const wrap = ((a.inner?.dia ?? 0) + a.tieDia) / 1000;
+  const ties = columnLayout(d, a, cover).rows.flatMap((r) => [
+    ...r.xs.map((at) => ({ across: 'h' as const, at, length: 2 * r.yIn + wrap })),
+    ...r.ys.map((at) => ({ across: 'b' as const, at, length: 2 * r.xIn + wrap })),
+  ]);
+  return { x: ties.filter((t) => t.across === 'h').length, y: ties.filter((t) => t.across === 'b').length, ties };
+}
+
+/** The bars of a layout's inner rows. */
+const innerBars = (a: ColumnAdopted) => 2 * innerRowCount(a) * ((a.inner?.nx ?? 0) + (a.inner?.ny ?? 0));
+
+/**
+ * One step of a proposal: a bar more on each face of a pair in the outer row while it `fits`; then,
+ * when `inside`, the inner rows with the fewest bars more than the layout has that fit: rows behind
+ * the face bars first, then the most even between the two pairs of faces, a second row inside the
+ * first only where one row does not take them. Null when nothing fits.
+ */
+export function growColumn(d: { b: number; h: number }, a: ColumnAdopted, cover: number, innerDia: number, fits: (a: ColumnAdopted) => boolean, inside: boolean): ColumnAdopted | null {
+  const outer = growSymmetric(d, a, (side) => side - 2 * (cover + a.tieDia / 1000 + a.corner / 2000));
+  if (fits(outer)) return outer;
+  if (!inside) return null;
+  const dia = a.inner?.dia ?? innerDia, have = innerBars(a), top = Math.max(a.nx, a.ny) + 2;
+  const options: Array<{ x: ColumnAdopted; n: number; aligned: boolean; skew: number; rows: number }> = [];
+  for (let rows = 1; rows <= 2; rows++) for (let nx = 0; nx <= top; nx++) for (let ny = 0; ny <= top; ny++) {
+    if (!nx && !ny) continue;
+    const x: ColumnAdopted = { ...a, inner: rows > 1 ? { nx, ny, dia, rows } : { nx, ny, dia } };
+    const n = innerBars(x);
+    if (n <= have) continue;
+    options.push({ x, n, aligned: columnLayout(d, x, cover).rows.every((r) => r.aligned), skew: Math.abs(nx - ny), rows });
+  }
+  options.sort((p, q) => p.n - q.n || Number(q.aligned) - Number(p.aligned) || p.rows - q.rows || p.skew - q.skew);
+  return options.find((o) => fits(o.x))?.x ?? null;
+}

@@ -2,6 +2,7 @@ import { beamCapacityShear, columnCapacityShear, columnConfinement, hoopSpacingF
 import { faceLayout, groupsArea } from './bars';
 import { shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
 import type { Fmt } from './format';
+import { layoutDias } from './column-layout';
 import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ColumnAdopted, type Step } from './types';
 
 /** Chapter 18 as the project sets it: λo, the probable over nominal strength of the bars. */
@@ -89,7 +90,7 @@ export function columnConfinementOf(
   d: { b: number; h: number; lu: number; cases: Array<{ pu: number }> }, c: { mat: { fc: number; fy: number }; cover: number },
   a: ColumnAdopted, ct: ConfinedTies,
 ) {
-  const longMin = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+  const longMin = Math.min(...layoutDias(a));
   const pu = Math.max(0, ...d.cases.map((k) => k.pu));
   return columnConfinement({ b: d.b, h: d.h, cover: c.cover, lu: d.lu, fc: c.mat.fc, fyt: c.mat.fy, longMinDiaMm: longMin, tieDiaMm: a.tieDia, legsB: 2 + ct.x, legsH: 2 + ct.y, hx: ct.hx, provided: { length: Math.max(d.b, d.h, d.lu / 6, 0.45), spacing: a.tieSpacing }, pu, nl: ct.held });
 }

@@ -13967,6 +13967,7 @@ const en: Record<string, string> = {
   "rcSheets.v.rhoMin": "Required steel and minimum ratio",
   "rcSheets.v.rhoMax": "Maximum ratio",
   "rcSheets.v.colSpacing": "Clear spacing between bars",
+  "rcSheets.v.colNoLayout": "No layout of the allowed diameters fits the section with the steel it needs",
   "rcSheets.v.slenderMax": "Slenderness limit of the approximate method",
   "rcSheets.v.shearX": "Shear along h",
   "rcSheets.v.shearY": "Shear along b",

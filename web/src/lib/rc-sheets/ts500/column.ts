@@ -1,18 +1,17 @@
 import { roundDown } from '../bars';
-import { growSymmetric, pickPractical } from '../column-layout';
-import { barCount, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { growColumn, layoutDias, pickPractical } from '../column-layout';
+import { barCount, columnLabel, innerCrossties, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapOf, lbOf, toConfirm as U, ts500Mat, type Ts500Mat } from './basis';
 import {
-  anyTension, areaOf, axis, clearOk, coverToBar, crosstiesOf, evenLayout, governing, sectionOf, shearRatios, tieDiaFor, tieMaxOf, tuplesOf, utilOf,
+  anyTension, areaOf, axis, clearOk, crosstiesOf, evenLayout, governing, sectionOf, shearRatios, tieDiaFor, tieMaxOf, tuplesOf, utilOf,
   type AxisResult, type CaseResult, type Tuple,
 } from './column-design';
 import { materialSteps } from './steps';
 
 const RHO_MIN = 0.01, RHO_MAX = 0.04, MIN_DIA = 14;
 
-const grow = (d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): ColumnAdopted => growSymmetric(d, a, (side) => side - 2 * coverToBar(c, a.tieDia, a.corner));
 
 /** The smallest allowed tie of at least Ø/3 (7.4.1), or the thickest allowed. */
 const tieOf = (c: ColumnContext, dia: number): number => allowedTie(c, tieDiaFor(dia)) ?? tieDiametersOf(c).at(-1)!;
@@ -35,7 +34,7 @@ function shearFix(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, a0: ColumnAdop
   return { a, it };
 }
 
-function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, dias: readonly number[], demands: Tuple[], pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number } {
+function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, rhoMax: number, dias: readonly number[], demands: Tuple[], pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
   const fits = (a: ColumnAdopted) => areaOf(a) >= ast - 1e-6 && clearOk(d, c, a) && crosstiesOf(d, a, c).ok && (!demands.length || utilOf(sectionOf(d, a, c), t, demands) <= 1 + 1e-6);
   if (pattern) {
     for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
@@ -45,25 +44,31 @@ function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, di
       if (shearRatios(d, c, t, s.a, crosstiesOf(d, s.a, c)).every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) return { layout: s.a, iterations: s.it };
     }
   }
-  const ok: Array<{ a: ColumnAdopted; it: number }> = [];
-  for (const dia of dias) {
-    let a = withTies(c, evenLayout(d, c, dia, tieOf(c, dia), 0.3), dia);
-    let it = 0;
-    for (let guard = 0; guard < 20 && areaOf(a) < ast - 1e-6; guard++) a = grow(d, c, a);
-    if (!clearOk(d, c, a)) continue;
-    while (demands.length && utilOf(sectionOf(d, a, c), t, demands) > 1 + 1e-6 && it < 8) {
-      const g = grow(d, c, a);
-      if (!clearOk(d, c, g)) break;
-      a = g; it++;
+  let densest: ColumnAdopted | null = null;
+  for (const inside of [false, true]) {
+    const ok: Array<{ a: ColumnAdopted; it: number }> = [];
+    for (const dia of dias) {
+      let a = withTies(c, evenLayout(d, c, dia, tieOf(c, dia), 0.3), dia);
+      if (!clearOk(d, c, a)) continue;
+      const grow = (x: ColumnAdopted) => growColumn(d, x, c.cover, dia, (y) => clearOk(d, c, y) && areaOf(y) <= rhoMax + 1e-6, inside);
+      let it = 0;
+      for (let guard = 0; guard < 40 && areaOf(a) < ast - 1e-6; guard++) { const g = grow(a); if (!g) break; a = g; }
+      while (demands.length && utilOf(sectionOf(d, a, c), t, demands) > 1 + 1e-6 && it < 24) {
+        const g = grow(a);
+        if (!g) break;
+        a = g; it++;
+      }
+      if (!densest || areaOf(a) > areaOf(densest)) densest = a;
+      if (!fits(a)) continue;
+      const s = shearFix(d, c, t, a);
+      ok.push({ a: s.a, it: it + s.it });
     }
-    if (!fits(a)) continue;
-    const s = shearFix(d, c, t, a);
-    ok.push({ a: s.a, it: it + s.it });
+    const pick = pickPractical(ok, (x) => areaOf(x.a), (x) => barCount(x.a), (x) => x.a.corner);
+    if (pick) return { layout: pick.a, iterations: pick.it };
   }
-  const pick = pickPractical(ok, (x) => areaOf(x.a), (x) => barCount(x.a), (x) => x.a.corner);
-  if (pick) return { layout: pick.a, iterations: pick.it };
+  if (densest) return { layout: shearFix(d, c, t, densest).a, iterations: 0, exhausted: true };
   const dia = dias[dias.length - 1] ?? 25;
-  return { layout: withTies(c, evenLayout(d, c, dia, tieOf(c, dia), 0.15), dia), iterations: 0 };
+  return { layout: withTies(c, evenLayout(d, c, dia, tieOf(c, dia), 0.15), dia), iterations: 0, exhausted: true };
 }
 
 export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow {
@@ -99,7 +104,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
       ast = hi;
     }
   }
-  const first = propose(d, c, t, ast, dias, demands, stack.pattern);
+  const first = propose(d, c, t, ast, hi0, dias, demands, stack.pattern);
   const proposed = first.layout;
   const a = adopted ?? proposed;
   const sec = sectionOf(d, a, c);
@@ -109,11 +114,12 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const area = areaOf(a);
   const rhoOk = area >= lo0 - 1e-6 && area <= hi0 + 1e-6;
   const spacingOk = clearOk(d, c, a);
-  const longest = Math.max(a.corner, a.dx, a.dy), thinnest = Math.min(a.corner, a.nx > 0 ? a.dx : 99, a.ny > 0 ? a.dy : 99);
+  const longest = Math.max(...layoutDias(a)), thinnest = Math.min(...layoutDias(a));
   const tieMax = tieMaxOf(thinnest);
   const tieDiaOk = a.tieDia >= tieDiaFor(longest);
   const tieOk = a.tieSpacing <= tieMax + 1e-6 && tieDiaOk;
-  const ct = crosstiesOf(d, a, c);
+  const ct = crosstiesOf(d, a, c), ict = innerCrossties(d, a, c);
+  const ctText = `${ct.x} (b) · ${ct.y} (h)${ict.x + ict.y ? ` · ${ict.x} (b, 2) · ${ict.y} (h, 2)` : ''}`;
   const sh = shearRatios(d, c, t, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
@@ -128,13 +134,14 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.rhoMax', area <= hi0 + 1e-6, { clause: '7.4.1', demand: `${fmt(area / (Ag * 1e4) * 100)} %`, capacity: '≤ 4 %' }),
     check(U('rcSheets.v.barDia'), thinnest >= MIN_DIA, { clause: '7.4', demand: `Ø${thinnest}`, capacity: `≥ Ø${MIN_DIA}` }),
     check(U('rcSheets.v.colSpacing'), spacingOk, { clause: '7.4', capacity: '≥ max(1.5·Ø; 40 mm)' }),
+    ...(!adopted && first.exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '7.4, 7.4.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
     check('rcSheets.v.slenderMax', lambdaMax <= 100 + 1e-9, { clause: '7.6', demand: `ℓk/i = ${fmt(lambdaMax, 1)}`, capacity: '≤ 100' }),
     check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '8.1', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '8.1', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
     check('rcSheets.v.tieDia', tieDiaOk, { clause: '7.4.1', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${longest}/3 → Ø${tieDiaFor(longest)}` }),
     ...(!tieDiaOk && allowedTie(c, tieDiaFor(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: '7.4.1', demand: `≥ Ø${tieDiaFor(longest)}`, capacity: tieDiametersOf(c).map((x) => `Ø${x}`).join(' ') })] : []),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '7.4.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
-    check('rcSheets.v.crossties', ct.ok, { clause: '7.4.1', demand: '≤ 30 cm', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
+    check('rcSheets.v.crossties', ct.ok, { clause: '7.4.1', demand: '≤ 30 cm', capacity: ctText }),
     ...(stack.fromBelow ? [check(U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), true, { clause: '9.3', capacity: `${fmt(splice * 100, 0)} cm (Ø${longest})` })] : []),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
@@ -180,7 +187,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
       steps: [
         { label: 'rcSheets.s.tieDia', formula: 'Øt ≥ Øl,max/3 (7.4.1)', value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(12·Øl,min; 200 mm) (7.4.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
-        { label: 'rcSheets.s.crossties', formula: 's(held bars) ≤ 300 mm (7.4.1)', value: `${ct.x} (b) · ${ct.y} (h)`, ok: ct.ok },
+        { label: 'rcSheets.s.crossties', formula: 's(held bars) ≤ 300 mm (7.4.1)', value: ctText, ok: ct.ok },
         { label: 'rcSheets.s.colShear', formula: 'Vr = 0.8·Vcr(Nd) + Asw·fywd·d/s ≤ 0.22·fcd·bw·d', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
         { label: U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), formula: tension ? 'ℓo = 1.8·lb' : 'ℓo = lb', value: `${fmt(splice * 100, 0)} cm` },
       ],
@@ -195,7 +202,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
     req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated: !tension },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : first.iterations,
-    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { x: ct.x, y: ct.y }, rhoOk, shearX, shearY },
+    checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { x: ct.x, y: ct.y, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: { length: splice, tension } } : {}),

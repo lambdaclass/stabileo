@@ -13609,6 +13609,7 @@ const pt: Translations = {
   "rcSheets.v.rhoMin": "Armadura necessária e taxa mínima",
   "rcSheets.v.rhoMax": "Taxa máxima",
   "rcSheets.v.colSpacing": "Espaçamento livre entre barras",
+  "rcSheets.v.colNoLayout": "Nenhuma disposição dos diâmetros permitidos cabe na seção com o aço necessário",
   "rcSheets.v.slenderMax": "Esbeltez máxima para o método aproximado",
   "rcSheets.v.shearX": "Cisalhamento na direção h",
   "rcSheets.v.shearY": "Cisalhamento na direção b",

@@ -8,7 +8,8 @@
  * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
  */
 import type { LineBar, LineLayout } from '../beam-line';
-import { columnBars, innerCrossties, type ColumnContext, type ColumnRow } from '../column-row';
+import { innerCrossties, type ColumnRow } from '../column-row';
+import { columnLayout } from '../column-layout';
 import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { SLAB_FACES, type SlabRow } from '../slab-row';
 import type { LevelPlan } from '../slab-plan';
@@ -162,7 +163,7 @@ const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, 
 export function crankOffsets(r: ColumnRow, up: ColumnRow): Array<{ dia: number; e: number; count: number }> {
   const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
   const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
-  const bars = columnBars(r, a, { cover: r.cover } as ColumnContext).map((p, i) => ({ ...p, dia: i < 4 ? a.corner : i < 4 + 2 * a.nx ? a.dx : i < 4 + 2 * a.nx + 2 * a.ny ? a.dy : a.inner!.dia }));
+  const bars = columnLayout(r, a, r.cover).bars;
   const out = new Map<string, { dia: number; e: number; count: number }>();
   for (const p of bars) {
     const e = Math.round(Math.hypot((p.x / Math.max(xc, 1e-9)) * ex, (p.y / Math.max(yc, 1e-9)) * ey) * 1000) / 1000;

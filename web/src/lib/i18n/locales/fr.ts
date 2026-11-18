@@ -13807,6 +13807,7 @@ const fr: Translations = {
   "rcSheets.v.rhoMin": "Armature nécessaire et pourcentage minimal",
   "rcSheets.v.rhoMax": "Pourcentage maximal",
   "rcSheets.v.colSpacing": "Espacement libre entre barres",
+  "rcSheets.v.colNoLayout": "Aucune disposition des diamètres admis ne loge dans la section l'acier nécessaire",
   "rcSheets.v.slenderMax": "Élancement limite de la méthode approchée",
   "rcSheets.v.shearX": "Effort tranchant selon h",
   "rcSheets.v.shearY": "Effort tranchant selon b",
