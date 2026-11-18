@@ -26,7 +26,8 @@ import { rebarHash } from '../../design/rebar-hash';
 import { createBeamCandidateGenerator } from '../../design/candidate-enumerate-beam';
 import type { CandidateFeedback } from '../../design/candidate-generator';
 import { DESIGN_TARGET_UTILIZATION, type MemberDesignOutcome } from '../../design/outcome';
-import type { MemberContext } from '../../design/member-context';
+import { buildMemberContext, type MemberContext } from '../../design/member-context';
+import { extractGoverningDemands, type ElementStationResult, type ProvidedRebarResult } from '../../station-design-forces';
 
 interface Harness {
   contexts: Map<number, MemberContext>;
@@ -715,4 +716,48 @@ describe('the record is pure data', () => {
     expect(atFinal.failedChecks.some((c) => c.status === 'fail')).toBe(true);
     expect(atNominal.failedChecks.some((c) => c.status === 'fail')).toBe(false);
   });
+});
+
+const issue2248 = process.env.RUN_KNOWN_WRONG === '2248' ? it : it.skip;
+issue2248('known wrong result: #2248 a shared repair memo cannot certify a different member in axial tension', () => {
+  const L = 6;
+  const model = {
+    nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: L, y: 0 }], [3, { id: 3, x: 0, y: 2 }], [4, { id: 4, x: L, y: 2 }]]),
+    elements: new Map([1, 2].map(id => [id, { id, nodeI: 2 * id - 1, nodeJ: 2 * id, sectionId: 1, materialId: 1, type: 'frame' }])),
+    sections: new Map([[1, { id: 1, name: '30x50', b: 0.3, h: 0.5 }]]),
+    materials: new Map([[1, { id: 1, name: 'H-30', fy: 30 }]]),
+    supports: new Map(),
+  };
+  const geometry = { bottomRaise: 0.01, topLower: 0, depthTolerance: 0, layerCentroids: [] };
+  const context = (elementId: number, n: number) => {
+    const stationTs = [0, 0.5, 1];
+    const stations: ElementStationResult = { elementId, length: L, stationTs,
+      comboResults: [{ comboId: 1, comboName: 'C1', stations: stationTs.map(t =>
+        ({ t, x: t * L, n, my: 20, mz: 0, vy: 0, vz: 0, torsion: 0 })) }],
+    };
+    const ctx = buildMemberContext(elementId, model, {
+      stations: new Map([[elementId, stations]]), demands: new Map([[elementId, extractGoverningDemands(stations)]]),
+      concrete: { maxAggregateSizeMm: 20, shotcrete: false },
+    })!;
+    return { ...ctx, finalGeometry: geometry };
+  };
+  const previousCandidate = {
+    bottom: { count: 2, diameter: 10 }, top: { count: 2, diameter: 10 },
+    stirrups: { diameter: 8, legs: 2, spacing: 0.1 },
+  };
+  const feedback = (ctx: MemberContext) => buildFinalGeometryFeedback({
+    elementId: ctx.elementId, previousCandidate, finalGeometry: geometry,
+    verdict: cirsoc201Adapter.verify(ctx, previousCandidate),
+  });
+  const memo = new Map<string, ProvidedRebarResult>();
+  const unloaded = context(1, 0);
+  const tension = 400;
+  const loaded = context(2, tension);
+  const first = selectCandidateUnderFinalGeometry(cirsoc201Adapter, unloaded, feedback(unloaded), { memo });
+  expect(first.kind).toBe('FINAL_GEOMETRY_VERIFIED');
+  expect(cirsoc201Adapter.verify(loaded, first.accepted!).overallStatus).toBe('fail');
+  const second = selectCandidateUnderFinalGeometry(cirsoc201Adapter, loaded, feedback(loaded), { memo });
+  if (second.kind === 'FINAL_GEOMETRY_VERIFIED') {
+    expect(['ok', 'warn']).toContain(cirsoc201Adapter.verify(loaded, second.accepted!).overallStatus);
+  }
 });

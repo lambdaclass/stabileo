@@ -191,3 +191,30 @@ it('#2277 a recorded plane roller retains its plane and embedded answers', async
     expect(spatial.my).toBeCloseTo(-r.my, 9);
   }
 });
+
+const issue2304 = process.env.RUN_KNOWN_WRONG === '2304' ? it : it.skip;
+issue2304('known wrong result: #2304 a native Y roller survives a snapshot and can be edited to release global Z', () => {
+  const root = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(4, 0, 0);
+  modelStore.addElement(root, tip);
+  modelStore.addSupport(root, 'fixed3d');
+  const yRoller = { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false };
+  const id = modelStore.addSupportEntry({ nodeId: tip, type: 'rollerY', dofRestraints: yRoller });
+  const load = -1;
+  modelStore.addNodalLoad3D(tip, 0, 0, load, 0, 0, 0);
+  const tipReaction = () => {
+    const solved = validateAndSolve3D(modelStore.model);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    return solved.reactions.find(reaction => reaction.nodeId === tip)?.fz ?? 0;
+  };
+  expect(supportAt(tip).type).toBe('rollerY');
+  expect(tipReaction()).toBeCloseTo(-load, 12);
+  const snapshot = modelStore.snapshot();
+  expect.soft(new Map(snapshot.supports).get(id)?.type).toBe('rollerY');
+  modelStore.restore(snapshot);
+  expect.soft(supportAt(tip).type).toBe('rollerY');
+  modelStore.updateSupport(id, { type: 'rollerZ' });
+  expect.soft(tipReaction()).toBeCloseTo(0, 12);
+  modelStore.updateSupport(id, { type: 'rollerZ', dofRestraints: verticalSlider });
+  expect(tipReaction()).toBeCloseTo(0, 12);
+});
