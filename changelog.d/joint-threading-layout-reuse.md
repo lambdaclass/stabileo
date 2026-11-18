@@ -4,5 +4,4 @@
 The design's joint threading check generated every legal layout of a beam's
 row of slots for each candidate, though most candidates of a member share
 their top row and meet the same column cages. The layouts are now kept per
-exact row, section and keep-outs. A support's crossing corner bars are also
-ordered once per support, not once per row planned in it.
+exact row, section and keep-outs.
