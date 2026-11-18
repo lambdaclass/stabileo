@@ -342,6 +342,15 @@ fn structural_fingerprint(a: &CscMatrix) -> u64 {
     h
 }
 
+#[derive(Default)]
+pub(crate) struct NumericCholeskyWorkspace {
+    panel: Vec<f64>,
+    map_pos: Vec<usize>,
+    map_gen: Vec<usize>,
+    pair_k: Vec<usize>,
+    pair_j: Vec<usize>,
+}
+
 /// Compute numeric Cholesky factorization given symbolic structure.
 /// Returns None if matrix is not SPD (strict mode — no perturbation).
 ///
@@ -358,6 +367,10 @@ fn structural_fingerprint(a: &CscMatrix) -> u64 {
 /// supernodes run as dense loops over a cache-resident panel instead of
 /// per-column sparse axpys with indirect indexing.
 pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<NumericCholesky> {
+    numeric_cholesky_with_workspace(sym, a, &mut NumericCholeskyWorkspace::default())
+}
+
+pub(crate) fn numeric_cholesky_with_workspace(sym: &Rc<SymbolicCholesky>, a: &CscMatrix, workspace: &mut NumericCholeskyWorkspace) -> Option<NumericCholesky> {
     let n = sym.n;
 
     // Permuted values come from the map precomputed in the symbolic phase: an
@@ -421,17 +434,12 @@ pub fn numeric_cholesky(sym: &Rc<SymbolicCholesky>, a: &CscMatrix) -> Option<Num
         let rows = sym.l_col_ptr[s + 1] - sym.l_col_ptr[s];
         max_panel = max_panel.max(rows * snode_end(t).saturating_sub(s));
     }
-    // Dense supernode panel, column-major: panel[d * rows + p] holds the
-    // value for column s+d at the row l_row_idx[l_col_ptr[s]+p].
-    let mut panel = vec![0.0f64; max_panel.max(1)];
-    // Generation-stamped row -> panel position map (valid when gen matches).
-    let mut map_pos = vec![0usize; n.max(1)];
-    let mut map_gen = vec![0usize; n.max(1)];
+    workspace.panel.resize(max_panel.max(1), 0.0);
+    workspace.map_pos.resize(n.max(1), 0);
+    workspace.map_gen.resize(n.max(1), 0);
+    workspace.map_gen.fill(0);
+    let NumericCholeskyWorkspace { panel, map_pos, map_gen, pair_k, pair_j } = workspace;
     let mut gen = 0usize;
-    // Row correspondence for the current (K, J) update pair:
-    // positions in K's row list and matching positions in J's panel.
-    let mut pair_k: Vec<usize> = Vec::new();
-    let mut pair_j: Vec<usize> = Vec::new();
 
     for t in 0..ns {
         let s = sym.snode_start[t];

@@ -349,6 +349,13 @@ bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
 	cd engine && $(NIX_RUN) cargo bench --bench solver_bench --bench assembly_bench --bench workflow_bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
 
+.PHONY: build.engine.nonlinear-bench bench.engine.nonlinear
+build.engine.nonlinear-bench:
+	$(NIX_RUN) cargo build -p dedaliano-engine --release --example nonlinear_preparation_bench
+
+bench.engine.nonlinear: build.engine.nonlinear-bench
+	./target/release/examples/nonlinear_preparation_bench $(ARGS)
+
 web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 

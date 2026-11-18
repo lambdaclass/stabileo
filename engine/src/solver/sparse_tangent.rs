@@ -28,6 +28,7 @@ pub(crate) struct SparseSymbolicCache {
     col_ptr: Vec<usize>,
     row_idx: Vec<usize>,
     sym: std::rc::Rc<SymbolicCholesky>,
+    workspace: crate::linalg::sparse_chol::NumericCholeskyWorkspace,
 }
 
 /// Return the symbolic factorization for `k_s`, building (or rebuilding) it
@@ -45,9 +46,16 @@ pub(crate) fn cached_symbolic<'a>(
             col_ptr: k_s.col_ptr.clone(),
             row_idx: k_s.row_idx.clone(),
             sym: std::rc::Rc::new(symbolic_cholesky(k_s)),
+            workspace: Default::default(),
         });
     }
     &cache.as_ref().unwrap().sym
+}
+
+pub(crate) fn cached_numeric(cache: &mut Option<SparseSymbolicCache>, k: &CscMatrix) -> Option<NumericCholesky> {
+    cached_symbolic(cache, k);
+    let cached = cache.as_mut().unwrap();
+    crate::linalg::sparse_chol::numeric_cholesky_with_workspace(&cached.sym, k, &mut cached.workspace)
 }
 
 /// Convert the dense free block of the tangent to CSC and apply constraint
@@ -133,8 +141,7 @@ fn solve_tangent_sparse_impl(
     conditioning: Option<&mut Option<crate::types::StructuredDiagnostic>>,
     refine: bool,
 ) -> Result<Vec<f64>, String> {
-    let sym = cached_symbolic(cache, k_s);
-    let factor = numeric_cholesky(sym, k_s);
+    let factor = cached_numeric(cache, k_s);
     if let Some(conditioning) = conditioning {
         if let Some(found) = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref()) { *conditioning = Some(found); }
     }
@@ -164,6 +171,35 @@ fn solve_tangent_sparse_impl(
 #[cfg(test)]
 mod containment_tests {
     use super::*;
+
+    #[test]
+    fn cached_numeric_matches_fresh_after_failures_and_pattern_changes() {
+        let mut cache = None;
+        for n in [12, 64, 3, 0, 24] {
+            for shift in [1, 2, 1] {
+                for diagonal in [4.0, -1.0, 4.0, f64::NAN, 4.0, f64::MAX, 4.0, 1e-16, 4.0] {
+                    let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+                    for j in 0..n {
+                        rows.push(j); cols.push(j); vals.push(diagonal);
+                        if j + shift < n {
+                            rows.push(j + shift); cols.push(j); vals.push(-1.0);
+                        }
+                    }
+                    let k = CscMatrix::from_triplets(n, &rows, &cols, &vals);
+                    let sym = std::rc::Rc::new(symbolic_cholesky(&k));
+                    let expected = numeric_cholesky(&sym, &k);
+                    let actual = cached_numeric(&mut cache, &k);
+                    assert_eq!(actual.is_some(), expected.is_some(), "n={n}, diagonal={diagonal}");
+                    if let (Some(actual), Some(expected)) = (actual, expected) {
+                        let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+                        assert_eq!(bits(&actual.l_values), bits(&expected.l_values));
+                        let rhs: Vec<_> = (0..n).map(|i| i as f64 - 0.5).collect();
+                        assert_eq!(bits(&sparse_cholesky_solve(&actual, &rhs)), bits(&sparse_cholesky_solve(&expected, &rhs)));
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn diagnosed_solve_reuses_symbolic_and_preserves_bits() {
