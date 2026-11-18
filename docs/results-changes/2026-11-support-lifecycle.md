@@ -77,10 +77,25 @@ conversion. A local roller carried with its reference geometry keeps its local
 basis. The regression checks that the bearing takes the rotated load in direct,
 asynchronous, case, combination, second-order and embedded 3D solves.
 
-The results record flags plane projects with a bare `rollerZ` or an unmasked local
-plane roller for review of previous edits. Saved records do not carry rotation history. The entry declares
-no numerical differences for the same stored model, because the correction
-changes the edit that produces the model.
+Round 10 applies the same plane axis mapping to explicit support masks.
+Plane geometry is edited in XY and the explicit restraint fields are stored in
+XZ. The old edit permuted the mask in XY and kept the roller preset on its old
+axis. The edit now maps the preset, explicit restraints, springs and prescribed
+motions in the embedded basis. Copy, detached insertion and in-place rotation
+share the support transform.
+
+The bundled braced portal provides the witness. After a quarter-turn, a unit
+downward load at its roller returns a unit upward reaction and zero horizontal
+reaction. The previous edit returned zero vertical reaction in both the plane
+and embedded solves. The same failure is reproducible on main when a plane
+model has the explicit mask stored on its roller. The bundled fixture on main
+has an unmasked roller.
+
+The results record flags plane projects with a bare `rollerZ`, an unmasked local
+plane roller or a named support with a stored mask for review of previous edits.
+Saved records do not carry rotation history. The entry declares no numerical
+differences for the same stored model, because the correction changes the edit
+that produces the model.
 
 Fixture replay also remaps a local support's member reference before insertion
 and refuses a reference missing from the fixture. A preset change clears the

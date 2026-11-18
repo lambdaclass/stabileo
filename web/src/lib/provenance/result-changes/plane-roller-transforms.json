@@ -9,7 +9,8 @@
     ],
     "any": [
       "bareRollerZ",
-      "localPlaneRoller"
+      "localPlaneRoller",
+      "namedSupportRestraintMasks"
     ]
   },
   "title": {

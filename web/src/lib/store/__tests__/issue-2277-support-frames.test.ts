@@ -274,8 +274,6 @@ it('#2277 a rigidly carried member still defines its local plane roller axis', (
   expect(result.reactions.find(r => r.nodeId === bearing)!.rz).toBeCloseTo(-1, 9);
 });
 
-const maskedPlaneRegression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
-
 async function bracedPortal() {
   await modelStore.loadExample('portal-frame-braced');
   modelStore.replaceLoads([]);
@@ -285,7 +283,7 @@ async function bracedPortal() {
 }
 
 for (const operation of ['copy', 'detached copy', 'in place'] as const) {
-  maskedPlaneRegression(`known wrong result: #2277 the masked braced portal bearing turns in the plane (${operation})`, async () => {
+  it(`#2277 the masked braced portal bearing turns in the plane (${operation})`, async () => {
     const { bearing, set } = await bracedPortal();
     const turn = rotation([0, 0, 0], [0, 0, 1], 90);
     const report = operation === 'in place' ? transformInPlace(set, turn)
@@ -354,7 +352,7 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
   });
 }
 
-maskedPlaneRegression('known wrong result: #2277 plane mask, springs and settlements use the same embedded axes', async () => {
+it('#2277 plane mask, springs and settlements use the same embedded axes', async () => {
   const { bearing } = await bracedPortal();
   const source = { ...bearing, dx: 0.001, dry: 0.002, kz: 3, krx: 4 };
   const carry = (T: Parameters<typeof carriedSupport>[0]) => carriedSupport(T, source, source.nodeId, new Map(), new Set());

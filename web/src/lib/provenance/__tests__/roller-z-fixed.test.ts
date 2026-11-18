@@ -27,7 +27,7 @@ it('#2276 explicit 3D rollerZ masks exclude the notice, unknown types still qual
       expect(changes.includes('roller-z-fixed'), `analysis ${mode} ${type}`).toBe(expected);
       expect(changes.includes('roller-z-fixed-design'), `design ${mode} ${type}`).toBe(expected);
       expect(changes.includes('plane-roller-transforms'), `plane edit ${mode} ${type}`)
-        .toBe(mode === '2d' && type === 'rollerZ' && dofRestraints === undefined);
+        .toBe(mode === '2d' && type === 'rollerZ');
     }
   }
 });
