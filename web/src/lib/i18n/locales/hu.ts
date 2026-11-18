@@ -7264,6 +7264,7 @@ const hu: Translations = {
   "loadPlan.blocked.seismicMass.torsion": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. A véletlen csavaróhatás nem modellezhető a rudak megoszló terheivel.",
   "loadPlan.blocked.seismicMass.weight": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. Érvénytelen tömeg vagy szinterő.",
   "loadPlan.blocked.seismicMass.mode": "A modális megoldó nem tudja ábrázolni a szeizmikus rezgésalakot vagy a hozzá tartozó fizikai tömegeloszlást.",
+  "loadPlan.blocked.seismicMass.bendingRelease": "A modális szeizmikus terhek előállítása nem érhető el, mert ezeknek a tömeghordozó elemeknek hajlítási csuklójuk van: {members}.",
   "loadPlan.blocked.modalBaseShear": "A figyelembe vett rezgésalakok skálázásával nem érhető el az előírt legkisebb talpszinti nyíróerő {dir} irányban. Ellenőrizze a modell megtámasztását és a rezgésalakok tömegrészvételét.",
   "loadPlan.blocked.seismicNoR": "Az 5.1. táblázat nem ad R csökkentő tényezőt a(z) \"{system}\" rendszerhez. Az 1. sor értéke helyett a falelrendezésre vonatkozó kifejezést ír ki; bármely más hiányzó sor olyan rendszer, amelyet nem azonosítottak. Nincs mivel osztani a spektrumot.",
   "loadPlan.blocked.roleUnusable": "A(z) \"{role}\" szerep ({name}) nem használható: válasszon előírást, és fejezze be a beállításait.",

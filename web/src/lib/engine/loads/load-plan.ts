@@ -52,13 +52,19 @@ import { resolveLoadCodes, withOrigin } from '../../codes/families';
 
 import { createSectionWeight } from '../../section/weight';
 import type { DrawnSection } from '../../section/drawn';
+import type { Release } from '../../store/model.svelte';
 
 // ─── Model slice ─────────────────────────────────────────────────
 
 type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?: number; curved?: boolean; offset?: import('../../model/element-3d-metadata').ShellOffset };
 
 export interface LoadModelData extends GravityModel {
-  elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
+  elements: Map<number, {
+    id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss';
+    name?: string;
+    releaseI?: Partial<Release>;
+    releaseJ?: Partial<Release>;
+  }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**
    * Quads, for a floor or roof drawn with shells (`plan-gravity.ts`); their thickness and material

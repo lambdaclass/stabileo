@@ -26,6 +26,7 @@ const ko: Translations = {
   "engine.memberLoad.geometryLimit": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 상대 기하 한계 {limit}보다 작습니다",
 
   "loadPlan.blocked.seismicMass.mode": "모드 해석 솔버가 지진 응답의 진동 모드 또는 그에 해당하는 실제 질량 분포를 표현할 수 없습니다.",
+  "loadPlan.blocked.seismicMass.bendingRelease": "다음 질량 지지 부재에 휨 릴리스가 있어 모드 지진 하중을 생성할 수 없습니다: {members}.",
   "loadPlan.blocked.modalBaseShear": "채택한 진동 모드를 보정해도 {dir} 방향에서 요구되는 최소 밑면 전단력에 도달할 수 없습니다. 모델의 구속 조건과 모드 참여도를 확인하세요.",
   "loadPlan.blocked.concentratedRule": "{occupancy}에는 CIRSOC 101 {article}에 따라 집중 하중 검토가 필요합니다. 가장 불리한 위치는 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
   "loadPlan.blocked.concentratedLive": "{occupancy}에는 CIRSOC 101 §4.4에 따라 {force} kN 집중 활하중 검토가 필요합니다. 가장 불리한 위치와 등분포/집중 하중 대안은 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",

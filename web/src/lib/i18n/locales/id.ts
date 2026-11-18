@@ -26,6 +26,7 @@ const id: Translations = {
   "engine.memberLoad.geometryLimit": "Elemen {id}: interval beban terdistribusi [{a}, {b}] pada panjang {length} berada di bawah batas geometri relatif {limit}",
 
   "loadPlan.blocked.seismicMass.mode": "Pemecah modal tidak dapat merepresentasikan ragam getar seismik atau distribusi massa fisik yang terkait.",
+  "loadPlan.blocked.seismicMass.bendingRelease": "Beban seismik modal tidak dapat dibuat karena elemen pemikul massa berikut memiliki pelepasan momen lentur: {members}.",
   "loadPlan.blocked.modalBaseShear": "Ragam getar yang dipertahankan tidak dapat diskalakan untuk mencapai gaya geser dasar minimum yang disyaratkan pada arah {dir}. Periksa kondisi kekangan model dan partisipasi modal.",
   "loadPlan.blocked.concentratedRule": "{occupancy} memerlukan pemeriksaan beban terpusat menurut CIRSOC 101 {article}. Posisi paling merugikan tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
   "loadPlan.blocked.concentratedLive": "{occupancy} memerlukan pemeriksaan beban hidup terpusat {force} kN menurut CIRSOC 101 §4.4. Posisi paling merugikan dan alternatif beban merata/terpusat tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",

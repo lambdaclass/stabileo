@@ -7521,6 +7521,7 @@ const fr: Translations = {
   'loadPlan.blocked.seismicMass.snow': "Charge sismique refusée à {elevation} m. Les supports de la masse de neige participante n’ont pas pu être établis.",
   'loadPlan.blocked.seismicMass.torsion': "Charge sismique refusée à {elevation} m. Le champ de charges sur les barres ne représente pas la torsion accidentelle.",
   'loadPlan.blocked.seismicMass.mode': "Le solveur modal ne peut pas représenter le mode sismique ou sa distribution physique de masse.",
+  'loadPlan.blocked.seismicMass.bendingRelease': "La génération des charges sismiques modales est indisponible, car ces éléments porteurs de masse comportent des articulations en flexion : {members}.",
   'loadPlan.blocked.modalBaseShear': "Les modes retenus ne peuvent pas être mis à l’échelle pour atteindre l’effort tranchant minimal requis à la base dans la direction {dir}. Vérifiez les conditions d’appui du modèle et la participation modale.",
   'loadPlan.blocked.seismicMass.weight': "Charge sismique refusée à {elevation} m. Une masse physique ou une force d’étage est invalide.",
   'loadPlan.blocked.seismicNoR': 'Le tableau 5.1 ne donne pas de coefficient de comportement R pour « {system} ». La ligne 1 donne une expression fondée sur la disposition des voiles plutôt qu\'une valeur ; toute autre ligne manquante correspond à un système qui n\'a pas été identifié. Il n\'y a rien par quoi diviser le spectre.',

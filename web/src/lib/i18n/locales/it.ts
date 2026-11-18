@@ -25,6 +25,7 @@ const it: Translations = {
   "engine.memberLoad.geometryLimit": "Elemento {id}: l’intervallo di carico distribuito [{a}, {b}] per la lunghezza {length} è inferiore al limite geometrico relativo {limit}",
 
   "loadPlan.blocked.seismicMass.mode": "Il solutore modale non può rappresentare il modo di vibrare o la relativa distribuzione fisica delle masse.",
+  "loadPlan.blocked.seismicMass.bendingRelease": "La generazione dei carichi sismici modali non è disponibile perché gli elementi che portano la massa hanno svincoli flessionali: {members}.",
   "loadPlan.blocked.modalBaseShear": "I modi considerati non possono essere scalati per raggiungere il taglio minimo alla base richiesto in direzione {dir}. Verificare i vincoli del modello e la partecipazione modale.",
   "loadPlan.blocked.concentratedRule": "{occupancy} richiede la verifica di carichi concentrati secondo CIRSOC 101 {article}. Le posizioni più sfavorevoli non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
   "loadPlan.blocked.concentratedLive": "{occupancy} richiede la verifica di un sovraccarico concentrato di {force} kN secondo CIRSOC 101 §4.4. Le posizioni più sfavorevoli e l’alternativa tra carico uniforme e concentrato non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",

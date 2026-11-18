@@ -8,7 +8,7 @@ import { createSectionWeight } from '../../section/weight';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
 export type MassLine = {
-  kind: 'line'; elementId: number; nodeI: MassNode; nodeJ: MassNode;
+  kind: 'line'; elementId: number; memberName?: string; hasBendingRelease: boolean; nodeI: MassNode; nodeJ: MassNode;
   length: number; a: number; b: number; wi: number; wj: number; width?: number; added?: boolean;
 };
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number; added?: boolean };
@@ -99,7 +99,8 @@ export function buildSeismicLevels(
     if (!nodeI || !nodeJ) continue;
     const length = Math.hypot(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y, nodeJ.z - nodeI.z);
     if (!(Number.isFinite(length) && length > 0)) continue;
-    geometry.set(e.id, { kind: 'line', elementId: e.id, a: 0, b: length, length, nodeI, nodeJ });
+    const hasBendingRelease = [e.releaseI, e.releaseJ].some(end => end?.my === true || end?.mz === true);
+    geometry.set(e.id, { kind: 'line', elementId: e.id, memberName: e.name, hasBendingRelease, a: 0, b: length, length, nodeI, nodeJ });
     next(e.nodeI, nodeJ);
     next(e.nodeJ, nodeI);
   }

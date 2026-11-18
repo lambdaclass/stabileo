@@ -1,3 +1,4 @@
+import { EngineMessageError, msg } from '../../codes/message';
 import { massSamples, type MassNode, type SeismicLevel, type SeismicMass } from './seismic-mass';
 
 export interface ModalLevel { elevation: number; weightKN: number; mass: readonly SeismicMass[] }
@@ -8,7 +9,25 @@ export interface ModeShape {
   participation?: Record<'x' | 'y', { gamma: number; ratio: number }>;
 }
 
-export class SeismicModeRefusal extends Error {}
+export class SeismicModeRefusal extends EngineMessageError {
+  constructor(reason = msg('loadPlan.blocked.seismicMass.mode')) {
+    super(reason);
+  }
+}
+
+export function requireModalCarrierRotations(levels: readonly ModalLevel[]): void {
+  const released = new Map<number, string>();
+  for (const level of levels) for (const mass of level.mass) {
+    if (mass.kind === 'line' && mass.hasBendingRelease !== false) {
+      const id = `#${mass.elementId}`;
+      released.set(mass.elementId, mass.memberName ? `${id} (${mass.memberName})` : id);
+    }
+  }
+  if (released.size > 0) {
+    const members = [...released].sort(([a], [b]) => a - b).map(([, label]) => label).join(', ');
+    throw new SeismicModeRefusal(msg('loadPlan.blocked.seismicMass.bendingRelease', { members }));
+  }
+}
 
 function interpolatedMode(mass: SeismicMass, mode: ModeShape): (shape: number[]) => number[] {
   const at = (node: MassNode) => {
@@ -37,6 +56,7 @@ function interpolatedMode(mass: SeismicMass, mode: ModeShape): (shape: number[])
 }
 
 export function modalLoadingLevels(levels: readonly SeismicLevel[], modes: readonly ModeShape[]): SeismicLevel[] {
+  requireModalCarrierRotations(levels);
   return levels.filter(level => level.weightKN > 0).flatMap(level => {
     if (level.elevation > 0) return [level];
     const mass: SeismicMass[] = [];
@@ -86,6 +106,7 @@ export function modalStoryForces(
   cm: (t: number) => number,
   zeta = 0.05,
 ): ModalForces {
+  requireModalCarrierRotations(levels);
   const W = levels.reduce((s, l) => s + l.weightKN, 0);
   if (!(Number.isFinite(W) && W > 0) || levels.some(l => l.weightKN > 0 && !l.mass.length)) throw new SeismicModeRefusal();
   const n = levels.length;

@@ -142,7 +142,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             loading = { levels: modalLevels, forcesX: x, forcesY: y };
           } catch (error) {
             if (!(error instanceof SeismicModeRefusal)) throw error;
-            blockedKeys.push(msg('loadPlan.blocked.seismicMass.mode'));
+            blockedKeys.push(msg(error.key, error.params));
             return { seismicWeight, baseShear, seismicDetail };
           }
         }

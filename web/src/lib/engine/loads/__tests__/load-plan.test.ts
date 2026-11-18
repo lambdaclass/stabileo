@@ -1,4 +1,4 @@
-import { windEndResultants, windResultants } from './wind-integration-fixture';
+import { mesh, windEndResultants, windResultants } from './wind-integration-fixture';
 import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
@@ -11,7 +11,6 @@ import {
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
 import { modalStoryForces, cqcRho } from '../seismic-modal';
-import { seismicCases } from '../seismic-cases';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -778,7 +777,7 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
   const sample = (ux: number) => ({ ux, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
   const level = (elevation: number, id: number) => ({
     elevation, weightKN: 100, mass: [{
-      kind: 'line' as const, elementId: id,
+      kind: 'line' as const, hasBendingRelease: false, elementId: id,
       nodeI: { id, x: 0, y: 0, z: elevation }, nodeJ: { id: 100 + id, x: 1, y: 0, z: elevation },
       length: 1, a: 0, b: 1, wi: 100, wj: 100,
     }],
@@ -955,42 +954,62 @@ describe('live load reduction by width (CIRSOC 101-2025 §4.7.2)', () => {
   });
 });
 
-const issue2208 = process.env.RUN_KNOWN_WRONG === '2208' ? it : it.skip;
-issue2208('known wrong result: #2208 subdivision preserves the moment about the global origin', () => {
+function carrierPlan(model: LoadModelData, coefficient: number) {
+  return buildLoadPlan(input({
+    regulations: applied({ ...defaultRegulations(), seismic: bindRole('seismic', 'inpres103-2018') }),
+    model, dead: [], tributaryWidth: 0,
+    seismic: { enabled: true, coefficient, liveParticipation: 0, directions: { x: true, y: false } },
+  }));
+}
+
+it('#2208 subdivision preserves the moment about the global origin', () => {
   const width = 6;
   const force = 100;
-  const points = [[0, 0], [10, 0], [10, width], [0, width], [0, 1]] as const;
-  const nodes = new Map(points.map(([x, y], i) => [i + 1, { id: i + 1, x, y, z: 3 }]));
-  const loadsAt = (nodeIds: number[]) => seismicCases({
-    nodes,
-    levels: [{ elevation: 3, nodeIds }],
-    forcesX: [force],
-    forcesY: [0],
-    directions: { x: true, y: false },
-  })[0]!.nodal;
-  const moment = (loads: ReturnType<typeof loadsAt>) =>
-    loads.reduce((sum, { nodeId, fx, fy, mz }) => {
-      const { x, y } = nodes.get(nodeId)!;
-      return sum + x * fy - y * fx + mz;
-    }, 0);
-  const corners = loadsAt([1, 2, 3, 4]);
-  const subdivided = loadsAt([1, 2, 3, 4, 5]);
+  const points = [[0, 0, 3], [10, 0, 3], [10, width, 3], [0, width, 3], [0, 1, 3]];
+  const perimeter = 2 * (10 + width);
+  const resultants = (ring: number[][]) => {
+    const model = mesh([ring]);
+    model.sections.set(1, { id: 1, a: 1 });
+    model.materials.set(1, { id: 1, rho: 1 });
+    const plan = carrierPlan(model, force / perimeter);
+    expect(plan.outcome).toBe('READY');
+    const loads = plan.distributed.filter(d => d.caseType === 'E');
+    expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
+    expect(loads.map(d => d.elementId)).toEqual([...model.elements.keys()]);
+    const intensity = force / perimeter;
+    for (const load of loads) {
+      expect(load.frame).toBe('global');
+      expect(load.qX).toBe(intensity);
+      expect(load.qXJ ?? load.qX).toBe(intensity);
+    }
+    return windResultants(model, loads);
+  };
+  const corners = resultants(points.slice(0, 4));
+  const subdivided = resultants(points);
   const uniformRectangleMoment = -force * (width / 2);
-  expect(corners.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
-  expect(subdivided.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
-  expect(moment(corners)).toBeCloseTo(uniformRectangleMoment, 12);
-  expect(moment(subdivided)).toBeCloseTo(uniformRectangleMoment, 12);
+  expect(corners[0]).toBe(force);
+  expect(subdivided[0]).toBe(force);
+  expect(corners[5]).toBeCloseTo(uniformRectangleMoment, 12);
+  expect(subdivided[5]).toBeCloseTo(uniformRectangleMoment, 12);
 });
 
-const issue2209 = process.env.RUN_KNOWN_WRONG === '2209' ? it : it.skip;
-issue2209('known wrong result: #2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
-  const shape = new Map([1, 1, 3, 1.5].map((ux, i) => [i + 1, { ux, uy: 0 }]));
-  const calculate = (upperNodes: number[]) => modalStoryForces(
-    [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: upperNodes }],
-    [{ period: 1, shape }], 'x', () => 1,
-  );
-  const endpoints = calculate([2, 3]);
-  const subdivided = calculate([2, 4, 3]);
+it('#2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
+  const calculate = (subdivide: boolean) => {
+    const model = mesh([[[0, 0, 3], [1, 0, 3]], subdivide
+      ? [[0, 0, 6], [0.25, 0, 6], [1, 0, 6]]
+      : [[0, 0, 6], [1, 0, 6]]]);
+    if (subdivide) model.elements.delete(4);
+    model.sections.set(1, { id: 1, a: 1 });
+    model.materials.set(1, { id: 1, rho: 100 });
+    const plan = carrierPlan(model, 1);
+    expect(plan.outcome).toBe('READY');
+    const shape = new Map([...model.nodes.values()].map(n => [
+      n.id, { ux: n.z === 3 ? 1 : 1 + 2 * n.x, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 },
+    ]));
+    return modalStoryForces(plan.seismicLevels!, [{ period: 1, shape }], 'x', () => 1);
+  };
+  const endpoints = calculate(false);
+  const subdivided = calculate(true);
   expect.soft(subdivided.forces[0]).toBeCloseTo(endpoints.forces[0]!, 12);
   expect.soft(subdivided.forces[1]).toBeCloseTo(endpoints.forces[1]!, 12);
   expect(subdivided.massRatio).toBeCloseTo(endpoints.massRatio, 12);

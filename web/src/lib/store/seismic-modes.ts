@@ -14,13 +14,14 @@
  */
 import { modelStore, uiStore } from './index';
 import { t } from '../i18n';
+import { te } from '../i18n/engine-text';
 import { modelHasMemberOffsets } from '../engine/member-offsets';
 import { modelHasShellOffsets } from '../engine/shell-offsets';
 import { withMassSource, densitiesFor } from '../engine/dynamics/mass-source-model';
 import { modalUntilMass } from '../engine/dynamics/requests';
 import { solveModal3D } from '../engine/wasm-solver';
 import type { LoadPlan } from '../engine/loads/load-plan';
-import type { ModeShape, ModalPoint } from '../engine/loads/seismic-modal';
+import { requireModalCarrierRotations, SeismicModeRefusal, type ModeShape, type ModalPoint } from '../engine/loads/seismic-modal';
 import type { MassLine } from '../engine/loads/seismic-mass';
 import { fundamentalFrequencies } from '../engine/loads/wind-dynamics';
 
@@ -37,6 +38,12 @@ export function planModalResult(plan: LoadPlan, liveParticipation: number, seism
   let id = 1;
   if (seismic) {
     if (!plan.seismicLevels) return { error: t('loadPlan.blocked.seismicMass.mode') };
+    try {
+      requireModalCarrierRotations(plan.seismicLevels);
+    } catch (error) {
+      if (!(error instanceof SeismicModeRefusal)) throw error;
+      return { error: te(error) };
+    }
     const lines = new Map<number, MassLine[]>();
     for (const level of plan.seismicLevels) for (const mass of level.mass) {
       if (!mass.added) continue;

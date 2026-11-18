@@ -70,7 +70,7 @@ it('#2209 integrates the same physical mode across a nonuniform mesh', () => {
         const i = model.nodes.get(e.nodeI)!, j = model.nodes.get(e.nodeJ)!;
         const length = Math.abs(j.x - i.x);
         return i.z === elevation ? [{
-          kind: 'line' as const, elementId: e.id, nodeI: { ...i, id: i.id + idOffset, z: elevation },
+          kind: 'line' as const, hasBendingRelease: false, elementId: e.id, nodeI: { ...i, id: i.id + idOffset, z: elevation },
           nodeJ: { ...j, id: j.id + idOffset, z: elevation }, length, a: 0, b: length, wi: 100, wj: 100,
         }] : [];
       }),
@@ -294,7 +294,7 @@ it('#2208 flat shell self-weight and superimposed pressure stay on the physical 
 it('#2209 refuses incomplete mode samples before they change story shear', () => {
   const nodeI = { id: 1, x: 0, y: 0, z: 3 }, nodeJ = { id: 2, x: 1, y: 0, z: 3 };
   const levels = [{ elevation: 3, weightKN: 100, nodeIds: [1, 2],
-    mass: [{ kind: 'line' as const, elementId: 1, nodeI, nodeJ, length: 1, a: 0, b: 1, wi: 100, wj: 100 }] }];
+    mass: [{ kind: 'line' as const, hasBendingRelease: false, elementId: 1, nodeI, nodeJ, length: 1, a: 0, b: 1, wi: 100, wj: 100 }] }];
   const sample = { ux: 1, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };
   const complete = new Map([[1, sample], [2, sample]]);
   expect(modalStoryForces(levels, [{ period: 1, shape: complete }], 'x', () => 1).forces[0]).toBeCloseTo(100, 10);
@@ -406,9 +406,7 @@ function withPinnedCarriers(check: (model: LoadModelData, members: string) => vo
   }
 }
 
-const issue2316 = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
-issue2316('known wrong result: #2316 the modal solver adapter identifies all released carriers', () => {
+it('#2316 the modal solver adapter identifies all released carriers', () => {
   withPinnedCarriers((model, members) => {
     const plan = buildLoadPlan(request(model));
     expect(plan.outcome).toBe('READY');
@@ -417,7 +415,7 @@ issue2316('known wrong result: #2316 the modal solver adapter identifies all rel
   });
 });
 
-issue2316('known wrong result: #2316 both modal reducers refuse to interpolate released carrier ends', () => {
+it('#2316 both modal reducers refuse to interpolate released carrier ends', () => {
   withPinnedCarriers((model, members) => {
     const mode = prescribedMode(model, false, z => z / height, 1 / height);
     const { seismicLevels } = buildLoadPlan(request(model));
@@ -428,7 +426,7 @@ issue2316('known wrong result: #2316 both modal reducers refuse to interpolate r
   });
 });
 
-issue2316('known wrong result: #2316 supplied modes on released carriers block seismic cases and combinations', () => {
+it('#2316 supplied modes on released carriers block seismic cases and combinations', () => {
   withPinnedCarriers((model, members) => {
     const mode = prescribedMode(model, false, z => z / height, 1 / height);
     const plan = buildLoadPlan(request(model, modalRequest(mode, false), { generateCombinations: true }));

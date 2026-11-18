@@ -7980,6 +7980,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.seismicMass.snow': "Seismic loading refused at {elevation} m. The physical carriers of the participating snow mass could not be established.",
   'loadPlan.blocked.seismicMass.torsion': "Seismic loading refused at {elevation} m. Accidental torsion could not be represented by the member pressure field.",
   'loadPlan.blocked.seismicMass.mode': "The seismic mode or its physical mass distribution cannot be represented by the modal solver.",
+  'loadPlan.blocked.seismicMass.bendingRelease': "Modal seismic load generation is unavailable because these mass carriers have bending releases: {members}.",
   'loadPlan.blocked.modalBaseShear': "The retained modes cannot be scaled to the required minimum base shear in the {dir} direction. Check the model's restraints and modal participation.",
   'loadPlan.blocked.seismicMass.weight': "Seismic loading refused at {elevation} m. A physical mass or story force is invalid.",
   'loadPlan.blocked.seismicNoR': 'Table 5.1 gives no reduction factor R for "{system}". Row 1 prints an expression on the wall layout rather than a value; any other missing row is a system that was not identified. There is nothing to divide the spectrum by.',
