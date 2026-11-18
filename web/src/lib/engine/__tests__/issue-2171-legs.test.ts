@@ -11,7 +11,7 @@ import { verifyConcurrentElement } from '../concurrent-verification';
 import { normalizeCirsoc201 } from '../design-check-results';
 import { lineFromMembers, membersFromLine } from '../design/beam-line';
 import type { DesignAxes } from '../design/design-axes';
-import { computeShearCapacity, verifyProvidedReinforcement } from '../station-design-forces';
+import { computeShearCapacity, extractGoverningDemands, verifyProvidedReinforcement } from '../station-design-forces';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { torsionDemand } from './helpers/manual-interactions';
 
@@ -363,5 +363,111 @@ for (const nonlinear of [false, true]) {
     const held = autoVerifyFromResults(raw, unknownSection, null, opts, demands).concrete[0]!;
     expect(held.torsion).toMatchObject({ status: 'fail', reinforcementRatio: Infinity });
     expect(held.diagnostics?.map(d => d.code)).toContain('VERIF_SECONDARY_STIRRUP_LEGS_UNAVAILABLE');
+  });
+}
+
+function providedBeamAt(
+  provided: Parameters<typeof verifyProvidedReinforcement>[2],
+  forces: Parameters<typeof declaredTestDemands>[0][number]['forces'],
+  dimensions = section,
+) {
+  const stations = { elementId: 1, length: 4, stationTs: [forces.t], comboResults: [{ comboId: 1, comboName: 'C1', stations: [forces] }] };
+  const verified = [
+    verifyProvidedReinforcement(1, 'beam', provided, undefined, {}, dimensions, stations, undefined, { axes }),
+    verifyProvidedReinforcement(1, 'beam', provided, extractGoverningDemands(stations), {}, dimensions, undefined, undefined, { axes }),
+  ];
+  return verified.map(result => result.checks.find(c => c.limiting !== 'unsupportedCheck' && /^Torsion (Support|Span)/.test(c.category))!);
+}
+
+const beamBars = { top: { count: 3, diameter: 16 }, bottom: { count: 3, diameter: 16 } };
+
+it.skip('known wrong result: #2171 projected beam torsion uses the zone at each station', () => {
+  const members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: beamBars }];
+  const strong = { ...cage, legs: 2, spacing: 0.075 };
+  const weak = { ...strong, spacing: 0.15 };
+  const base = lineFromMembers(members);
+  for (const [x, z, status] of [[0.39, weak, 'fail'], [0.4, weak, 'fail'], [0.41, strong, 'ok'], [0.2, undefined, 'fail']] as const) {
+    const line = { ...base, stirrups: [
+      ...(z ? [{ id: 'near-end', from: 0, to: 0.4, ...weak }] : []),
+      { id: 'rest', from: 0.4, to: 4, ...strong },
+    ] };
+    const rows = providedBeamAt(membersFromLine(line, members).get(1), { t: x / 4, x, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: torque });
+    for (const row of rows) {
+      expect(row).toMatchObject({ stationX: x, status });
+      if (z) expect(row.ratio).toBe(+(atRequired * z.spacing / outerLegArea).toFixed(3));
+      else expect(row).toMatchObject({ ratio: Infinity, missingReinforcement: true });
+    }
+  }
+});
+
+for (const [atEnd, factor] of [[false, 1.01], [true, 0.99]] as const) {
+  it.skip(`known wrong result: #2171 provided beam torsion uses the tension steel and cage depth at the support (${atEnd})`, () => {
+    const stir = { diameter: 12, legs: 2, spacing: 0.16 };
+    const other = { ...stir, diameter: 8 };
+    const top = { count: 3, diameter: 32 };
+    const provided = { ...beamBars, regions: { topStart: top, topEnd: top, stirrupsSupport: stir,
+      stirrupsBySupport: { atStart: atEnd ? other : stir, atEnd: atEnd ? stir : other } } };
+    const tu = 10;
+    const d = section.h - section.cover - 0.012 - 0.032 / 2;
+    const at = tu / (0.75 * 2 * 0.85 * 0.238 * 0.538 * 420_000);
+    const transverse = 2 * Math.PI * (0.012 / 2) ** 2 / stir.spacing;
+    const vc = 0.17 * 5000 * section.b * d;
+    const vu = 0.75 * (vc + (transverse - 2 * at) * 420_000 * d) * factor;
+    const required = (vu / 0.75 - vc) / (420_000 * d) + 2 * at;
+    const t = atEnd ? 1 : 0;
+    for (const row of providedBeamAt(provided, { t, x: 4 * t, n: 0, my: -20, mz: 0, vy: 0, vz: vu, torsion: tu })) {
+      expect(row).toMatchObject({ ratio: +(required / transverse).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+    }
+  });
+}
+
+for (const factor of [0.999, 1.001]) {
+  it.skip(`known wrong result: #2171 the active secondary torsion face uses its own minimum width (${factor})`, () => {
+    const s = { ...section, b: 0.2, h: 0.8 };
+    const secondaryMinimum = Math.max(0.062 * Math.sqrt(s.fc), 0.35) * s.h / s.fy;
+    const stirrup = { ...cage, legs: 2, spacing: 2 * outerLegArea / secondaryMinimum * factor };
+    const tu = 5;
+    const geometry = { ...s, d: s.h - 0.041, dSecondary: s.b - 0.041, stirrupDiaMm: 8, fyt: s.fy, stirrup };
+    const active = checkTorsion2025({ ...geometry, demand: torsionDemand(tu, 0, 1) });
+    expect(active.transverseRequired).toBeCloseTo(secondaryMinimum, 12);
+    expect(active.ratio).toBeCloseTo(factor, 12);
+    const primaryOnly = checkTorsion2025({ ...geometry, demand: torsionDemand(tu, 0) });
+    expect(primaryOnly.transverseRequired).toBeCloseTo(secondaryMinimum * s.b / s.h, 12);
+    expect(primaryOnly.ratio).toBeLessThan(1);
+    for (const row of providedBeamAt({ ...beamBars, stirrups: stirrup }, { t: 0.5, x: 2, n: 0, my: 0, mz: 0, vy: 1, vz: 0, torsion: tu }, s)) {
+      expect(row).toMatchObject({ ratio: factor, status: factor > 1 ? 'fail' : 'warn' });
+    }
+  });
+}
+
+for (const nonlinear of [false, true]) {
+  it.skip(`known wrong result: #2171 provided spatial beam torsion requires rectangular cage eligibility (nonlinear=${nonlinear})`, () => {
+    const beam = { ...model, nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]]) };
+    const threshold = 0.75 * 0.083 * Math.sqrt(section.fc) * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
+    const provided = { ...beamBars, stirrups: { ...cage, legs: 2 } };
+    for (const factor of [0.999, 1.001]) {
+      const solver: SolverInput3D = { ...beam,
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 1, fz: 0, mx: threshold * factor, my: 0, mz: 0 } }],
+      };
+      const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+      const { demands, stations } = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], beam);
+      const demand = demands.get(1)!;
+      expect(demand.concurrent![0]!.section('My').VuSecondary).toBeCloseTo(1, 10);
+      expect(demand.concurrent![0]!.section('My').Tu).toBeCloseTo(threshold * factor, 10);
+      for (const shape of ['circle', 'rect']) {
+        const modelData = { ...beam, sections: new Map([[1, { ...beam.sections.get(1)!, shape }]]) };
+        const rows = verifyProvidedReinforcement(1, 'beam', provided, demand, {}, section, stations.get(1), modelData, { axes }).checks
+          .filter(c => /^Torsion (Support|Span)/.test(c.category));
+        if (factor < 1) expect(rows).toHaveLength(0);
+        else {
+          expect(rows.length).toBeGreaterThan(0);
+          for (const row of rows) {
+            if (shape === 'circle') expect(row).toMatchObject({ limiting: 'unsupportedCheck', status: 'fail', ratio: Infinity });
+            else expect(row).toMatchObject({ limiting: 'torsion', status: 'ok' });
+          }
+        }
+      }
+    }
   });
 }

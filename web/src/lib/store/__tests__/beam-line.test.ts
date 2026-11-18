@@ -194,3 +194,30 @@ it('#2171 rechecks the two support cages of a previously saved line', () => {
   expect(at(first.L * first.tStart / 2)).toMatchObject(start);
   expect(at(first.L * (1 - first.tEnd / 2))).toMatchObject(end);
 });
+
+it.skip('known wrong result: #2171 reopens subregions of a previously saved stirrup line', () => {
+  const line = designed();
+  const members = lineMembers(line);
+  const first = members[0]!;
+  const boundary = first.L * first.tStart / 4;
+  const nearEnd = { diameter: 8, legs: 2, spacing: 0.15 };
+  const rest = { ...nearEnd, spacing: 0.075 };
+  const saved = { ...lineFromMembers(members), stirrups: [
+    { id: 'near-end', from: 0, to: boundary, ...nearEnd },
+    { id: 'rest', from: boundary, to: first.L, ...rest },
+  ] };
+  const key = lineKey(line.members);
+  const memberHashes = Object.fromEntries(line.members.map(id => [String(id), rebarHash(modelStore.elements.get(id)?.reinforcement)]));
+  modelStore.reinforcementTransaction(api => {
+    const decisions = storedDecisions();
+    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: { ...saved, memberHashes } } });
+  });
+  expect(openLine(first.id)?.saved).toBe(true);
+  const rebar = verificationStore.reinforcementFor(first.id);
+  const reinforcement = rebar && line.forward[0] === false ? mirrorReinforcement(rebar) : rebar;
+  const rebuilt = lineFromMembers([{ ...first, reinforcement }]);
+  expect(rebuilt.stirrups).toEqual([
+    { id: expect.any(String), from: 0, to: boundary, ...nearEnd },
+    { id: expect.any(String), from: boundary, to: first.L, ...rest },
+  ]);
+});
