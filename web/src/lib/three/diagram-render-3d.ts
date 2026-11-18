@@ -228,13 +228,8 @@ export function createDiagramGroup3D(
       group.add(line);
 
       // Draw perpendicular lines at start and end connecting baseline to diagram
-      const startLine = new THREE.BufferGeometry().setFromPoints([baselinePoints[0], diagramPoints[0]]);
-      const endLine = new THREE.BufferGeometry().setFromPoints([
-        baselinePoints[baselinePoints.length - 1],
-        diagramPoints[diagramPoints.length - 1],
-      ]);
-      group.add(new THREE.Line(startLine, style.close));
-      group.add(new THREE.Line(endLine, style.close));
+      closeBetween(style, baselinePoints[0], diagramPoints[0]);
+      closeBetween(style, baselinePoints[baselinePoints.length - 1], diagramPoints[diagramPoints.length - 1]);
 
       // ── Max/min markers and labels ─────────────────────────────
       // Find indices of max and min values
@@ -260,10 +255,7 @@ export function createDiagramGroup3D(
         if (Math.abs(val) < globalMax * 0.05) return; // skip negligible
         const pos = diagramPoints[idx];
         // Sphere marker
-        const sphere = new THREE.Mesh(style.marker, style.markerMaterial);
-        sphere.position.copy(pos);
-        sphere.renderOrder = 1;
-        group.add(sphere);
+        style.markers.push(pos.x, pos.y, pos.z);
 
         if (showValues) {
           const labelText = formatDiagramValue3D(val, kind, unitSystem);
@@ -295,19 +287,51 @@ export function createDiagramGroup3D(
     }
   }
 
+  addShared(group, style);
   return group;
 }
 
-/** What every member's diagram of one colour draws with: one set of materials and one marker geometry for the group. */
+/**
+ * What every member's diagram of one colour draws with: one set of materials for the group, and
+ * the two things no pointer reads, gathered to be drawn once each (`addShared`): the closing
+ * lines at the members' ends and the markers at their extremes.
+ */
 function diagramStyle(colors: { fill: number; line: number }, fillOpacity: number, markerRadius: number) {
-  let marker: THREE.SphereGeometry | undefined;
   return {
     fill: new THREE.MeshBasicMaterial({ color: colors.fill, transparent: true, opacity: fillOpacity, side: THREE.DoubleSide, depthWrite: false }),
     line: new THREE.LineBasicMaterial({ color: colors.line, linewidth: 2 }),
     close: new THREE.LineBasicMaterial({ color: colors.line, linewidth: 1 }),
     markerMaterial: new THREE.MeshBasicMaterial({ color: colors.line, depthTest: false }),
-    get marker() { return marker ??= new THREE.SphereGeometry(markerRadius, 12, 8); },
+    markerRadius,
+    closing: [] as number[],
+    markers: [] as number[],
   };
+}
+
+function closeBetween(style: ReturnType<typeof diagramStyle>, a: THREE.Vector3, b: THREE.Vector3): void {
+  style.closing.push(a.x, a.y, a.z, b.x, b.y, b.z);
+}
+
+function addShared(group: THREE.Group, style: ReturnType<typeof diagramStyle>): void {
+  if (style.closing.length > 0) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(style.closing, 3));
+    const lines = new THREE.LineSegments(geometry, style.close);
+    lines.userData = { type: 'diagram3dClosing' };
+    group.add(lines);
+  }
+  const count = style.markers.length / 3;
+  if (count > 0) {
+    const markers = new THREE.InstancedMesh(new THREE.SphereGeometry(style.markerRadius, 12, 8), style.markerMaterial, count);
+    const at = new THREE.Matrix4();
+    for (let i = 0; i < count; i++) {
+      markers.setMatrixAt(i, at.makeTranslation(style.markers[3 * i]!, style.markers[3 * i + 1]!, style.markers[3 * i + 2]!));
+    }
+    markers.instanceMatrix.needsUpdate = true;
+    markers.renderOrder = 1;
+    markers.userData = { type: 'diagram3dMarkers' };
+    group.add(markers);
+  }
 }
 
 // ─── Envelope colors: positive (blue) and negative (red) ─────────
@@ -438,13 +462,8 @@ export function createEnvelopeDiagramGroup3D(
         group.add(line);
 
         // Start/end closing lines
-        const startLine = new THREE.BufferGeometry().setFromPoints([baselinePoints[0], diagramPoints[0]]);
-        const endLine = new THREE.BufferGeometry().setFromPoints([
-          baselinePoints[baselinePoints.length - 1],
-          diagramPoints[diagramPoints.length - 1],
-        ]);
-        group.add(new THREE.Line(startLine, style.close));
-        group.add(new THREE.Line(endLine, style.close));
+        closeBetween(style, baselinePoints[0], diagramPoints[0]);
+        closeBetween(style, baselinePoints[baselinePoints.length - 1], diagramPoints[diagramPoints.length - 1]);
 
         // Max value markers
         if (showValues) {
@@ -461,10 +480,7 @@ export function createEnvelopeDiagramGroup3D(
             const spriteScale = modelSize * 0.04;
             const pos = diagramPoints[extremeIdx];
 
-            const sphere = new THREE.Mesh(style.marker, style.markerMaterial);
-            sphere.position.copy(pos);
-            sphere.renderOrder = 1;
-            group.add(sphere);
+            style.markers.push(pos.x, pos.y, pos.z);
 
             const labelText = formatDiagramValue3D(extremeVal, kind, unitSystem);
             const sprite = createTextSprite(labelText, colors.text, 28);
@@ -481,5 +497,7 @@ export function createEnvelopeDiagramGroup3D(
     }
   }
 
+  addShared(group, styles.pos);
+  addShared(group, styles.neg);
   return group;
 }

@@ -414,6 +414,8 @@ function disposeIfPrivate(r: { userData?: Record<string, unknown>; dispose(): vo
 
 export function disposeObject(obj: THREE.Object3D): void {
   obj.traverse((child) => {
+    // An instanced mesh's own buffers are released by its `dispose`, not by its geometry's.
+    if (child instanceof THREE.InstancedMesh) child.dispose();
     if (child instanceof THREE.Mesh) {
       disposeIfPrivate(child.geometry);
       if (child.material instanceof THREE.Material) {

@@ -82,15 +82,35 @@ it('draws every member of a group with one set of materials and one marker geome
     const fill = fills[0]!.material as InstanceType<typeof THREE.MeshBasicMaterial>;
     expect([fill.opacity, fill.transparent, fill.depthWrite, fill.side]).toEqual([0.35, true, false, THREE.DoubleSide]);
     expect(new Set(fills.map((m) => m.geometry)).size).toBe(3);
-    const untyped = group.children.filter((c) => c.userData.type === undefined);
-    const closing = untyped.filter((c) => c instanceof THREE.Line) as unknown as Drawn[];
-    const markers = untyped.filter((c) => c instanceof THREE.Mesh) as Drawn[];
-    expect([closing.length, markers.length]).toEqual([6, 3]);
-    expect(new Set(closing.map((c) => c.material)).size).toBe(1);
-    expect(new Set(markers.map((m) => m.geometry)).size).toBe(1);
-    expect(new Set(markers.map((m) => m.material)).size).toBe(1);
+    // The closing lines of all the members are one object, two segments a member, and so are the markers.
+    const closing = of(group, 'diagram3dClosing') as unknown as InstanceType<typeof THREE.LineSegments>[];
+    expect(closing.length).toBe(1);
+    expect(closing[0]).toBeInstanceOf(THREE.LineSegments);
+    const ends = closing[0]!.geometry.getAttribute('position');
+    expect(ends.count).toBe(12);
+    for (let member = 0; member < 3; member++) {
+      const curve = fills[member]!.geometry.getAttribute('position');
+      const last = curve.count - 2;
+      // Baseline to curve at the member's first and last stations, as the member's own fill has them.
+      expect([0, 1, 2, 3].map((v) => [ends.getX(4 * member + v), ends.getY(4 * member + v), ends.getZ(4 * member + v)]))
+        .toEqual([0, 1, last, last + 1].map((v) => [curve.getX(v), curve.getY(v), curve.getZ(v)]));
+    }
+    const markers = of(group, 'diagram3dMarkers') as unknown as InstanceType<typeof THREE.InstancedMesh>[];
+    expect(markers.length).toBe(1);
+    expect([markers[0]!.count, markers[0]!.renderOrder]).toEqual([3, 1]);
     expect((markers[0]!.material as InstanceType<typeof THREE.MeshBasicMaterial>).depthTest).toBe(false);
-    expect(markers.every((m) => m.renderOrder === 1)).toBe(true);
+    const at = new THREE.Matrix4();
+    for (let member = 0; member < 3; member++) {
+      markers[0]!.getMatrixAt(member, at);
+      const curve = fills[member]!.geometry.getAttribute('position');
+      // Each member's largest moment is at its start: the marker stands on the curve there.
+      expect([at.elements[12], at.elements[13], at.elements[14]]).toEqual([curve.getX(1), curve.getY(1), curve.getZ(1)]);
+      expect([at.elements[0], at.elements[5], at.elements[10]]).toEqual([1, 1, 1]);
+    }
+    expect(group.children.length).toBe(3 + 3 + 1 + 1);
+    const disposed = vi.spyOn(markers[0]!, 'dispose');
+    disposeObject(group);
+    expect(disposed).toHaveBeenCalledTimes(1);
 
     // An envelope keeps its two colours apart: one set a curve.
     for (const curve of ['pos', 'neg']) {
@@ -115,7 +135,7 @@ it('marks only the members whose values are worth marking', async () => {
     [{ ...force(), elementId: big, myStart: 100, myEnd: 100 }, { ...force(), elementId: small, myStart: 1, myEnd: 1 }], 'momentY', 1, false);
   try {
     expect(group.children.filter((child) => child.userData.type === 'diagram3dMesh').length).toBe(2);
-    const markers = group.children.filter((child) => child.userData.type === undefined && child instanceof THREE.Mesh);
-    expect(markers.length).toBe(1);
+    const markers = group.children.filter((child) => child.userData.type === 'diagram3dMarkers') as unknown as InstanceType<typeof THREE.InstancedMesh>[];
+    expect(markers.map((m) => m.count)).toEqual([1]);
   } finally { disposeObject(group); modelStore.clear(); }
 });
