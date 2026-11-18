@@ -116,10 +116,11 @@ Replay (default): µ̇ = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ ra
 
 **Against Fig. 2c (simulations).** The largest A over phase falls below 2 at µ̇ ≈
 0.161, the one-clamp curve at 0.15; the paper's points first fall below 2 at
-µ̇ ≈ 0.185 (−13 % and −19 %). Between µ̇ = 0.04 and 0.1 the paper's
-points are 10–41 and ours 3–12 (largest over phase) or 2–7 (one clamp): the median relative difference
-over the paper's points up to µ̇ = 0.3 is 36 % (largest over
-phase) and 56 % (one clamp), all of the same sign. The paper's
+µ̇ ≈ 0.185 (−13 % and −19 %). Between µ̇ = 0.04 and 0.1 the paper's 11 points are 11.5–35.6 and
+ours 2.9–10.1 (largest over phase) or 2.2–7.1 (one clamp), lower at every one of them by a factor
+of 2.9–4.2 and 3.8–8.2. Over the paper's 49 points up to µ̇ = 0.3 the median relative difference
+is 36 % (largest over phase) and 55 % (one clamp); above µ̇ ≈ 0.2, where both are near 1, ours is
+sometimes the larger. The paper's
 seed (the acceleration of its one moving end) is not given; at one phase A swings by an order of
 magnitude between neighbouring rates (0.93 at µ̇ = 0.04, 6.1 at 0.05), as the paper's Fig. S7
 shows for the toy model, so only the envelope is a fair comparison. Row-by-row numbers are in
@@ -192,6 +193,11 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
 - Both clamps without a seed: largest |θ| below 10⁻⁶ rad (a thousandth of the default seed); the
   observed 2.4 × 10⁻¹⁰ is round-off amplified near the fold and differs between platforms.
 - Bifurcation order: µ*/µ_A ≤ 0.995 at α = π/12 (observed 0.9879).
+- **WASM parity** (`check-wasm.mjs`, run by `build.sh`): the WASM build gives the same bits on
+  every host, and differs from the native `replay.json` only through the last bits of libm,
+  measured at 8 × 10⁻¹² before the snap and 2 × 10⁻¹⁰ after it (the asymmetry has grown 34 times
+  by then). Before the snap: 10⁻⁹ on θ, h, t and µ, 1.5 × 10⁻⁷ on the node coordinates (stored
+  rounded to 10⁻⁷). After it: 10⁻⁶. Outcome: 10⁻⁸ absolute plus 10⁻⁶ relative; critical points 10⁻⁹.
 - Evidence files are compared with a fresh run to 10⁻⁸ absolute plus 10⁻⁶ relative (`validate`
   without `--write`).
 
