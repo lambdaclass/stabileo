@@ -2,17 +2,6 @@ import { featureDefines, featuresForMode } from './config/public-features.mjs';
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resolve } from 'path';
-import en from './src/lib/i18n/locales/en';
-import es from './src/lib/i18n/locales/es';
-import pt from './src/lib/i18n/locales/pt';
-import de from './src/lib/i18n/locales/de';
-import fr from './src/lib/i18n/locales/fr';
-import tr from './src/lib/i18n/locales/tr';
-import hu from './src/lib/i18n/locales/hu';
-import * as viewerDictionaries from './src/components/viewport/scalar-viewer-translations';
-
-const coreDictionaries = { en, es, pt, de, fr, tr, hu };
-const locales = Object.keys(coreDictionaries) as (keyof typeof coreDictionaries)[];
 
 /**
  * The research viewer as a separate bundle (three.js, the shared scene setup, the scalar-field
@@ -25,7 +14,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     svelte(),
     {
-      // This standalone viewer uses the main app's translator, with only its own keys.
       name: 'scalar-viewer-i18n',
       resolveId(id) {
         // The shared store also imports the lazy browser dictionaries. Their
@@ -36,13 +24,8 @@ export default defineConfig(({ mode }) => ({
       },
       load(id) {
         if (id !== '\0scalar-viewer-i18n') return null;
-        return locales.map(locale => {
-          const coreViewerStrings = Object.fromEntries(
-            Object.entries(coreDictionaries[locale]).filter(([key]) => key.startsWith('scalarViewer.')),
-          );
-          const dictionary = { ...viewerDictionaries[locale], ...coreViewerStrings };
-          return `export const ${locale} = ${JSON.stringify(dictionary)};`;
-        }).join('\n') + '\nexport const loaders = {};';
+        return ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'loaders']
+          .map(name => `export const ${name} = {};`).join('\n');
       },
     },
   ],
