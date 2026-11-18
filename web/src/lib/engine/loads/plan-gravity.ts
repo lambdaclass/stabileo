@@ -41,11 +41,13 @@ import { physicalRoofRuns, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
+import type { Constraint3D } from '../types-3d';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId?: number; type?: 'frame' | 'truss' }>;
   quads?: Map<number, { id: number; nodes: number[] }>;
+  constraints?: readonly Constraint3D[];
 }
 
 export interface GravityOptions {
@@ -156,6 +158,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const levelCarriers: ShellCarrier[] = [];
   const slopedCarriers: SlopedCarrier[] = [];
   const steep: number[] = [];
+  const shellNodes = new Set<number>();
   for (const q of model.quads?.values() ?? []) {
     const pts = q.nodes.map((id) => model.nodes.get(id));
     if (pts.some((p) => !p)) continue;
@@ -169,7 +172,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const list = quadsAt.get(key) ?? [];
       list.push({ quadId: q.id, area: plan });
       quadsAt.set(key, list);
-      if (plan > 0) levelCarriers.push({ z0: key, poly, pts: xyz });
+      if (plan > 0) {
+        levelCarriers.push({ z0: key, poly, pts: xyz });
+        for (const id of q.nodes) shellNodes.add(id);
+      }
       continue;
     }
     const surface = surfaceArea(xyz);
@@ -178,10 +184,14 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (cos >= Math.sqrt(0.75) - 1e-9) {
       slopedQuads.push({ quadId: q.id, area: plan, z: zs.reduce((s, z) => s + z, 0) / zs.length, cos });
       slopedCarriers.push({ z0: levelKey(Math.min(...zs)), poly, pts: xyz, nodes: q.nodes });
+      for (const id of q.nodes) shellNodes.add(id);
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
   const carriers = [...levelCarriers, ...slopedCarriers];
   const roofs = opts.mode === 'panels' ? connectedShellRoofs(slopedCarriers) : [];
+  const attachedCoverage = opts.mode === 'panels'
+    ? rigidShellCoverage(model, shellNodes, carriers, out.zOf.keys())
+    : new Map<number, ShellCoverage>();
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
     if (opts.mode !== 'panels' || !carriers.length) return false;
@@ -189,35 +199,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const p: Segment[0] = [a.x, a.y, a.z ?? 0], q: Segment[1] = [b.x, b.y, b.z ?? 0];
-    const dx = q[0] - p[0], dy = q[1] - p[1];
-    const length = Math.hypot(dx, dy);
-    const error = 64 * Number.EPSILON * Math.max(length, ...p.map(Math.abs), ...q.map(Math.abs));
-    const onPlane = carriers.filter(c => [p, q].every(point => Math.abs(heightIn(c.pts, point) - point[2]) <= error));
-    const cuts = [0, 1];
-    const add = (t: number) => { if (t > error / length && t < 1 - error / length) cuts.push(t); };
-    for (const { poly } of onPlane) for (let i = 0; i < poly.length; i++) {
-      const [x, y] = poly[i]!, [xx, yy] = poly[(i + 1) % poly.length]!;
-      const ex = xx - x, ey = yy - y;
-      const det = dx * ey - dy * ex;
-      const px = x - p[0], py = y - p[1];
-      if (Math.abs(det) > error * Math.hypot(ex, ey)) {
-        const u = (px * dy - py * dx) / det;
-        if (u >= 0 && u <= 1) add((px * ey - py * ex) / det);
-      } else if (Math.abs(px * dy - py * dx) <= error * length) {
-        add((px * dx + py * dy) / length ** 2);
-        add(((xx - p[0]) * dx + (yy - p[1]) * dy) / length ** 2);
-      }
+    const original = shellCoverage([p, q], carriers);
+    const attached = attachedCoverage.get(e.id);
+    if (original === 'partial' || (original !== 'full' && attached === 'partial')) {
+      refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
     }
-    cuts.sort((x, y) => x - y);
-    const classes = new Set(cuts.slice(1).flatMap((end, i) => {
-      const start = cuts[i]!;
-      if (end - start <= error / length) return [];
-      const t = start + (end - start) / 2;
-      const center: [number, number] = [p[0] + t * dx, p[1] + t * dy];
-      return [onPlane.some(c => inside(center, c.poly, error))];
-    }));
-    if (classes.size > 1) refuseGravityGeometry(msg('loadPlan.gravity.unresolvedMember', { id: e.id }));
-    const covered = classes.has(true);
+    const covered = original === 'full' || attached === 'full';
     shellMembership.set(e.id, covered);
     return covered;
   };
@@ -491,6 +478,104 @@ export const MIN_STOREY_HEADROOM = 2.2;
 const FRINGE_BINS = 200;
 /** A ring of beams wider than this both ways, with no beam or slab inside, is no deck: no slab spans it. */
 export const MAX_DECK_SPAN = 12;
+
+type ShellCoverage = 'none' | 'partial' | 'full';
+type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; error: number };
+
+function attachmentPoint(point: { x: number; y: number; z?: number }, [dx, dy, dz]: Segment[0]): Segment[0] {
+  return [point.x + dx, point.y + dy, (point.z ?? 0) + dz];
+}
+
+function rigidShellCoverage(
+  model: GravityModel, shellNodes: Set<number>, carriers: ShellCarrier[], members: Iterable<number>,
+): Map<number, ShellCoverage> {
+  const offsets = new Map<number, Array<{ offset: Segment[0]; error: number }>>();
+  for (const link of model.constraints ?? []) {
+    if (link.type !== 'rigidLink' || (link.dofs?.length && !link.dofs.includes(2))) continue;
+    const masterIsShell = shellNodes.has(link.masterNode), slaveIsShell = shellNodes.has(link.slaveNode);
+    if (masterIsShell === slaveIsShell) continue;
+    const frameNode = masterIsShell ? link.slaveNode : link.masterNode;
+    const shellNode = masterIsShell ? link.masterNode : link.slaveNode;
+    const member = model.nodes.get(frameNode), shell = model.nodes.get(shellNode);
+    if (!member || !shell) continue;
+    const mz = member.z ?? 0, sz = shell.z ?? 0;
+    const offset: Segment[0] = [shell.x - member.x, shell.y - member.y, sz - mz];
+    const error = 64 * Number.EPSILON * Math.max(Math.abs(member.x), Math.abs(member.y), Math.abs(mz), Math.abs(shell.x), Math.abs(shell.y), Math.abs(sz));
+    if (Math.hypot(...offset) <= error) continue;
+    const entries = offsets.get(frameNode) ?? [];
+    entries.push({ offset, error });
+    offsets.set(frameNode, entries);
+  }
+
+  const byMember = new Map<number, ShellCoverage>();
+  if (!offsets.size) return byMember;
+  const axes = memberGeometry(model, members);
+  const axesById = new Map(axes.map(axis => [axis.id, axis]));
+  const runs = physicalRoofRuns(axes, (a, b) => a === b);
+  for (const { members: ids } of runs) {
+    const nodes = new Set([...ids].flatMap(id => {
+      const { nodeI, nodeJ } = model.elements.get(id)!;
+      return [nodeI, nodeJ];
+    }));
+    const attachments: ShellAttachment[] = [];
+    for (const nodeId of nodes) for (const { offset, error } of offsets.get(nodeId) ?? []) {
+      const matching = attachments.find(a => Math.hypot(offset[0] - a.offset[0], offset[1] - a.offset[1], offset[2] - a.offset[2]) <= Math.max(error, a.error));
+      if (matching) matching.anchors.add(nodeId);
+      else attachments.push({ offset, error, anchors: new Set([nodeId]) });
+    }
+    let coverage: ShellCoverage = 'none';
+    for (const { offset, anchors } of attachments) {
+      const traces: Segment[] = [...ids].map(id => {
+        const { a, b } = axesById.get(id)!;
+        return [attachmentPoint(a, offset), attachmentPoint(b, offset)];
+      });
+      const covered = traces.map(trace => shellCoverage(trace, carriers));
+      if (anchors.size > 1 && covered.every(state => state === 'full')) {
+        coverage = 'full';
+      } else if (covered.some(state => state !== 'none') || traces.some(trace => shellCoverage(trace, carriers, false) !== 'none')) {
+        coverage = 'partial';
+        break;
+      }
+    }
+    if (coverage !== 'none') for (const id of ids) byMember.set(id, coverage);
+  }
+  return byMember;
+}
+
+function shellCoverage([p, q]: Segment, carriers: ShellCarrier[], requireCoplanar = true): ShellCoverage {
+  const dx = q[0] - p[0], dy = q[1] - p[1];
+  const length = Math.hypot(dx, dy);
+  const error = 64 * Number.EPSILON * Math.max(length, ...p.map(Math.abs), ...q.map(Math.abs));
+  const eligible = requireCoplanar
+    ? carriers.filter(c => [p, q].every(point => Math.abs(heightIn(c.pts, point) - point[2]) <= error))
+    : carriers;
+  if (!eligible.length) return 'none';
+  const cuts = [0, 1];
+  const add = (t: number) => { if (t > error / length && t < 1 - error / length) cuts.push(t); };
+  for (const { poly } of eligible) for (let i = 0; i < poly.length; i++) {
+    const [x, y] = poly[i]!, [xx, yy] = poly[(i + 1) % poly.length]!;
+    const ex = xx - x, ey = yy - y;
+    const det = dx * ey - dy * ex;
+    const px = x - p[0], py = y - p[1];
+    if (Math.abs(det) > error * Math.hypot(ex, ey)) {
+      const u = (px * dy - py * dx) / det;
+      if (u >= 0 && u <= 1) add((px * ey - py * ex) / det);
+    } else if (Math.abs(px * dy - py * dx) <= error * length) {
+      add((px * dx + py * dy) / length ** 2);
+      add(((xx - p[0]) * dx + (yy - p[1]) * dy) / length ** 2);
+    }
+  }
+  cuts.sort((x, y) => x - y);
+  const classes = new Set(cuts.slice(1).flatMap((end, i) => {
+    const start = cuts[i]!;
+    if (end - start <= error / length) return [];
+    const t = start + (end - start) / 2;
+    const center: [number, number] = [p[0] + t * dx, p[1] + t * dy];
+    return [eligible.some(c => inside(center, c.poly, error))];
+  }));
+  if (classes.size > 1) return 'partial';
+  return classes.has(true) ? 'full' : 'none';
+}
 
 function connectedShellRoofs(sloped: SlopedCarrier[]): SlopedCarrier[][] {
   const parent = sloped.map((_, i) => i);

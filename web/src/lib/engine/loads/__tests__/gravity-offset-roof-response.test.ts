@@ -3,14 +3,13 @@ import { readFileSync } from 'node:fs';
 import { solve_3d, solve_pdelta_3d } from '../../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../../diagrams-3d';
 import { buildSolverLoads3D } from '../../solver-service';
-import type { Load } from '../../types';
+import type { Load } from '../../../store/model.svelte';
 import type { AnalysisResults3D } from '../../types-3d';
 import { offsetRoof, roofPlan } from './gravity-offset-roof-fixture';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
 const template = JSON.parse(readFileSync(new URL('../../../../../../engine/tests/fixtures/nightly-2026-11-13.json', import.meta.url), 'utf8'))['2023'];
 
-regression('known wrong result: #2282 shell-borne gravity leaves the restrained offset rafters unloaded', () => {
+it('#2282 shell-borne gravity leaves the restrained offset rafters unloaded', () => {
   for (const [angle, mirror, subdivide] of [[0, 1, false], [0.53, 1, true], [1.21, -1, true]] as const) {
     const { model, rafter } = offsetRoof(0.02, angle, mirror, subdivide);
     const plan = roofPlan(model);

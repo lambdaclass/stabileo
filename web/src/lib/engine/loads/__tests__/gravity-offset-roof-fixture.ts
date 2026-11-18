@@ -29,7 +29,7 @@ export function offsetRoof(offset: number, angle = 0, mirror = 1, subdivide = fa
   } else {
     shell(first, last);
   }
-  const stations = subdivide ? [0, 2, 8, 10] : [0, 10];
+  const stations = subdivide ? [0, 2, gap ? 4 : 8, 10] : [0, 10];
   const rafter = stations.map(x => node(x, 0, elevation(x) - offset));
   rafter.slice(1).forEach((nodeJ, index) => {
     const id = index + 1;

@@ -30,7 +30,7 @@ import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../c
 import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { gravityLayout, widthSpans, type GravityLayout } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import type { ModeShape } from './seismic-modal';
@@ -54,8 +54,7 @@ import type { DrawnSection } from '../../section/drawn';
 
 // ─── Model slice ─────────────────────────────────────────────────
 
-export interface LoadModelData {
-  nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
+export interface LoadModelData extends GravityModel {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**

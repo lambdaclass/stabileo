@@ -291,7 +291,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   }
   if (loadBasis) f.add('generatedLoads');
   const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
-  if (hasShellGravity) f.add('generatedPanelGravityShells');
+  if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');
   const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
   const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
   if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');

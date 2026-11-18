@@ -34,14 +34,13 @@ it('limits the shell regeneration notice to older three-dimensional plans with s
   expect(changes({ ...plain, analysisMode: 'pro' })).not.toContain(change.id);
 });
 
-const regression = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
 const legacyPanel: FeatureSnapshot = {
   ...legacy,
   quads: [[1, { id: 1 }]],
   regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: 'panels' } } } } },
 };
 
-regression('known wrong result: #2282 saved panel-mode shell geometry and generated member loads require regeneration', () => {
+it('#2282 saved panel-mode shell geometry and generated member loads require regeneration', () => {
   for (const analysisMode of ['3d', 'pro']) {
     for (const analysis of ['linear', 'pdelta'] as const) {
       for (const designData of [undefined, { loadBasis: {} }]) {
