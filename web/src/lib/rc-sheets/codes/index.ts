@@ -6,7 +6,7 @@
 import { beamRow } from '../beam-row';
 import { beamLine, CIRSOC_2025_LINE } from '../beam-line';
 import { ACI_COLUMN, CIRSOC_COLUMN, columnRowFor, tensionLap } from '../column-row';
-import { CIRSOC_SLAB_ROW, cirsocSlabDevelopment, slabRow, slabRowFor } from '../slab-row';
+import { ACI_SLAB_ROW, CIRSOC_SLAB_ROW, cirsocSlabDevelopment, slabRow, slabRowFor } from '../slab-row';
 import { wallRow } from '../wall-row';
 import { punchingRow } from '../punching-row';
 import { footingRowFor, type FootingRowFn } from '../footing-row';
@@ -54,7 +54,7 @@ export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
   clause: { straight: '§25.4.2', hooked: '§25.4.3', compression: '§25.4.9' },
 };
 
-const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
+const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow: slabRowFor(ACI_SLAB_ROW), wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
 const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm } };
 
 /** The cracked section and Bischoff's effective inertia, which every code's deflection reads through here. */
