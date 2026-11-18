@@ -344,6 +344,9 @@ class CiRunners(unittest.TestCase):
                     self.assertNotIn('||', condition.group(1))
         self.assertGreater(found, 20)
 
+    def test_the_deploy_build_does_not_start_magic_nix_cache(self):
+        self.assertNotIn('magic-nix-cache-action', (WORKFLOWS / 'deploy.yml').read_text())
+
     def test_superseded_runs_cancel_but_the_merge_queue_never_does(self):
         for workflow in ['research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
