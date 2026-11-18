@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { build, resolveConfig } from 'vite';
 import committedConfig from '../config/features.json' with { type: 'json' };
-import { withFeatureConfig } from './public-features-test-fixture.mjs';
+import { disabledFeatures, withFeatureConfig, withProductionFeatures } from './public-features-test-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -82,6 +82,39 @@ test('known wrong result: #2286 — the copied route checker gets the committed 
     );
   }
 });
+
+for (const production of [
+  disabledFeatures,
+  committedConfig.production,
+  { accounts: true, research: true, tools: true, diagramGame: true },
+]) {
+  test(`production browser code only receives resolved switches with ${JSON.stringify(production)}`, { skip: 'known wrong result: #2286' }, () =>
+    withProductionFeatures(production, async configFile => {
+      const entry = 'public-feature-consumers';
+      const result = await build({
+        root,
+        configFile,
+        plugins: [{
+          name: entry,
+          resolveId: id => id === entry ? '\0' + entry : null,
+          load: id => id === '\0' + entry ? `
+            import { publicFeatures } from '/src/lib/features';
+            import { researchLocales } from '/src/lib/i18n/research-routes';
+            import { SITE_NAV } from '/src/components/site/site-nav';
+            import { registryLocale } from '/src/lib/provenance/registry';
+            console.log(publicFeatures(), researchLocales(location.pathname), SITE_NAV, registryLocale(...globalThis.localeArguments));
+          ` : null,
+        }],
+        build: { write: false, rollupOptions: { input: entry } },
+        logLevel: 'silent',
+      });
+      const bundledConfig = result.output
+        .filter(output => output.type === 'chunk')
+        .flatMap(output => Object.entries(output.modules))
+        .filter(([id, module]) => /\/config\/(?:public-features\.mjs|features\.json)$/.test(id) && module.renderedLength > 0);
+      assert.deepEqual(bundledConfig.map(([id]) => id.slice(root.length)), []);
+    }));
+}
 
 test('build config rejects a missing or non-boolean feature in any environment', async () => {
   for (const [environment, row] of Object.entries(committedConfig)) {

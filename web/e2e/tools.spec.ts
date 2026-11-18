@@ -143,6 +143,27 @@ for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke to
   }
 });
 
+for (const id of ['simply-supported-beam', 'cantilever-beam']) {
+  test(`@smoke tools ${id} keeps the SVG coordinate frame in sync with the diagram`, async ({ page }) => {
+    test.skip(true, 'known wrong result: #2286');
+    await page.goto(`/en/tools/${id}/?e2e=1`);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      for (const key of FIGURES[id]) {
+        const svg = page.getByTestId(`figure-${key}`).locator('svg');
+        await expect(svg).toBeVisible();
+        await expect.poll(() => svg.evaluate(el => {
+          const node = el as SVGSVGElement;
+          const { x, y, width, height } = node.viewBox.baseVal;
+          return x === 0 && y === 0 && width > 0 && height > 0
+            && width === node.width.baseVal.value && height === node.height.baseVal.value
+            && width === node.parentElement!.clientWidth;
+        }), { message: `${key} uses its rendered dimensions as the SVG coordinate frame` }).toBe(true);
+      }
+    }
+  });
+}
+
 test('@smoke tools a value typed past a slider\'s span stays, and the slider grows to hold it', async ({ page }) => {
   await page.goto('/en/tools/simply-supported-beam/?e2e=1');
   await expect(page.getByTestId('peak-moment')).toBeVisible();
