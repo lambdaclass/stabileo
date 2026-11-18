@@ -81,3 +81,17 @@ it('translates the experiment in every research locale with the same keys and pl
   } finally { setLocale('en'); }
   expect(titles.size).toBe(PUBLIC_LOCALES.length);
 });
+
+it('labels every source in every locale with the same pages, equations and figures as the evidence', () => {
+  const shown = [...validation.checks.filter(c => 'reference' in c || c.source.startsWith('arXiv')), ...validation.not_reproduced];
+  // The references are the numbers in a label: pages, equations (S17), figures 2(c), 0.096 → the same multiset in every language.
+  const references = (label: string) => (label.replace(/(\d),(\d)/g, '$1.$2').match(/S?\d+(?:\.\d+)?/g) ?? []).sort();
+  for (const [locale, strings] of Object.entries(translations)) {
+    for (const c of shown) {
+      const label = strings.sources[c.id];
+      expect(label, `${locale} ${c.id}`).toBeTruthy();
+      expect(references(label), `${locale} ${c.id}`).toEqual(references(c.source.replace(/^arXiv:2312\.13908v2 /, '').replace(/, read off the figure.*$/, '')));
+    }
+    expect(strings.citation.split('{title}'), locale).toHaveLength(2);
+  }
+});

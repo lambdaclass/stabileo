@@ -17,6 +17,7 @@
   import study from '../../../../../research/mechanics/vella-2024/reference-results/study.json';
   import published from '../../../../../research/mechanics/vella-2024/reference-results/published.json';
   import validation from '../../../../../research/mechanics/vella-2024/VALIDATION.json';
+  import catalog from '../../../../../research/papers.json';
   import figureCsv from '../../../../../research/mechanics/vella-2024/reference-results/fig2c_digitized.csv?raw';
 
   type Tab = 'snap' | 'stability' | 'rates';
@@ -25,6 +26,8 @@
   const fill = (template: string, values: Record<string, string>) => Object.entries(values).reduce((t, [k, v]) => t.replaceAll(`{${k}}`, v), template);
   const pct = (v: number) => `${num(100 * v, { sig: 2 })} %`;
   const DOI = '10.1103/PhysRevLett.132.267201';
+  const TITLE = catalog.papers.find(p => p.id === 'wang-2024')!.crossref.title;
+  const citation = $derived(s.citation.split('{title}'));
   const RATE_STEPS = 60;
   const SEED_STEPS = 40;
   const reference = decodeRun(replay);
@@ -219,7 +222,7 @@
     <ul class="not">{#each s.doesnt as item}<li>{item}</li>{/each}</ul>
     <p>{s.assumptionsText} <a href="https://github.com/lambdaclass/stabileo/blob/main/research/mechanics/vella-2024/reference/paper-extraction.md">{s.extraction}</a></p>
     <h2>{s.citeHeading}</h2>
-    <p>{s.citation} <a href={`https://doi.org/${DOI}`}>{`doi:${DOI}`}</a> · <a href="https://arxiv.org/abs/2312.13908v2">{s.arxiv}</a></p>
+    <p>{citation[0]}<span lang="en">{TITLE}</span>{citation[1]} <a href={`https://doi.org/${DOI}`}>{`doi:${DOI}`}</a> · <a href="https://arxiv.org/abs/2312.13908v2">{s.arxiv}</a></p>
   {/snippet}
   {#snippet app()}
     <div lang={publicI18n.locale} class="snap-app" bind:this={host} data-source={source} data-step={playback.shown} data-tab={tab}

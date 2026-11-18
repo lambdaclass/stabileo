@@ -20,7 +20,7 @@
       <thead><tr><th scope="col">{s.table.quantity}</th><th scope="col">{s.table.paper}</th><th scope="col">{s.table.ours}</th><th scope="col">{s.table.difference}</th><th scope="col">{s.table.source}</th></tr></thead>
       <tbody>
         {#each rows as r}
-          <tr class:failed={!r.passed}><th scope="row">{s.rows[r.id] ?? r.id}</th><td>{r.reference === undefined ? '—' : show(r.reference)}</td><td>{r.computed === undefined ? '—' : show(r.computed)}</td><td>{r.passed ? '✓' : '✗'} {difference(r)} {r.passed ? '' : `(${s.notReproduced} ${tolerance(r)})`}</td><td>{page(r.source)}</td></tr>
+          <tr class:failed={!r.passed}><th scope="row">{s.rows[r.id] ?? r.id}</th><td>{r.reference === undefined ? '—' : show(r.reference)}</td><td>{r.computed === undefined ? '—' : show(r.computed)}</td><td>{r.passed ? '✓' : '✗'} {difference(r)} {r.passed ? '' : `(${s.notReproduced} ${tolerance(r)})`}</td><td>{s.sources[r.id] ?? page(r.source)}</td></tr>
         {/each}
       </tbody>
     </table>
