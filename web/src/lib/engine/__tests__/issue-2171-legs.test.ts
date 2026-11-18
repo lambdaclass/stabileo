@@ -416,3 +416,144 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+const roundThree = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+roundThree('known wrong result: #2171 fixed and prepared secondary concrete strength and torsion reserve use column steel', () => {
+  const geometry = { ...section, b: 0.55, h: 0.6 };
+  const d = depth(geometry.b, 6);
+  const sizeFactor = Math.sqrt(2 / (1 + 0.004 * d * 1000));
+  const demand = 100;
+  const torque = 30;
+  for (const count of [4, 8]) for (const spacing of [0.25, 0.125]) {
+    const shear = { diameter: 6, spacing, legs: 4, secondaryLegs: 3 };
+    const as = +(count * 2.011).toFixed(2);
+    const rho = as * 1e-4 / (3 * geometry.b * geometry.h);
+    const vcStress = (spacing === 0.25 ? 0.66 * sizeFactor * Math.cbrt(rho) : 0.17) * Math.sqrt(geometry.fc) * 1000;
+    const vc = vcStress * geometry.h * d;
+    const av = 3 * 0.283e-4 / spacing;
+    const capacity = phi * (vc + av * steelStress * d);
+    const reserve = Math.max(0, demand / phi - vc) / (steelStress * d);
+    const available = Math.max(0, Math.min(av / 3, (av - reserve) / 2));
+    const v = input(demand, torque, '2025', geometry);
+    const reinforcement = { ...fixed, shear, column: { barCount: count, barDia: 16 } };
+    for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
+      expect(out.shearSecondary).toMatchObject({ phiVc: expect.closeTo(phi * vc, 10), phiVn: expect.closeTo(capacity, 10) });
+      expect(out.torsion?.AtOverSProv).toBeCloseTo(available * 1e4, 10);
+    }
+  }
+});
+
+roundThree('known wrong result: #2171 fixed and prepared secondary strength uses the provided Ø32 bars', () => {
+  const reinforcement = { ...fixed, column: { barCount: 4, barDia: 32 } };
+  const d = 0.251;
+  const expected = shearCapacity('2005', section.h, d, cage.diameter, 2, cage.spacing);
+  for (const factor of [0.999, 1.001]) {
+    const v = input(expected * factor, 0, '2005');
+    for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
+      expect(out.shearSecondary).toMatchObject({ d: expect.closeTo(d, 12), phiVn: expect.closeTo(expected, 10),
+        ratio: expect.closeTo(factor, 12), status: factor < 1 ? 'warn' : 'fail' });
+    }
+  }
+});
+
+roundThree('known wrong result: #2171 station secondary strength uses the provided Ø32 bars', () => {
+  const d = 0.251;
+  const expected = shearCapacity('2005', section.h, d, cage.diameter, 2, cage.spacing);
+  for (const extracted of [false, true]) for (const factor of [0.999, 1.001]) {
+    const reinforcement = { stirrups: cage, column: { cornerDia: 32, faceDia: 16, nBottom: 0, nTop: 0, nLeft: 0, nRight: 0 } };
+    const out = provided(reinforcement, 'column', expected * factor, 0, { extracted });
+    expect(out.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({ capacity: +expected.toFixed(2),
+      ratio: expect.closeTo(factor, 12), status: factor < 1 ? 'warn' : 'fail' });
+  }
+});
+
+roundThree('known wrong result: #2171 secondary shear stress under torque uses the provided Ø32 bars', () => {
+  const stirrups = { ...cage, spacing: 0.03, secondaryLegs: 6 };
+  const torque = 35;
+  const b0 = section.b - 2 * section.cover - cage.diameter / 1000;
+  const h0 = section.h - 2 * section.cover - cage.diameter / 1000;
+  const vt = torque * 2 * (b0 + h0) / (1.7 * (b0 * h0) ** 2);
+  const sectionLimit = phi * (0.17 + 0.66) * Math.sqrt(section.fc) * 1000;
+  const d = 0.251;
+  const shearLimit = section.h * d * Math.sqrt(sectionLimit ** 2 - vt ** 2);
+  for (const factor of [0.998, 1.002]) {
+    const vy = shearLimit * factor;
+    const vv = vy / (section.h * d);
+    const check = input(vy, torque, '2005');
+    const reinforcement = { ...fixed, shear: stirrups, column: { barCount: 4, barDia: 32 } };
+    const phiTn = torque * Math.sqrt(sectionLimit ** 2 - vv ** 2) / vt;
+    for (const out of [verifyElement(check, reinforcement), prepareElementVerification(check)(reinforcement)]) {
+      expect(out.torsion?.phiTn).toBeCloseTo(phiTn, 10);
+      expect(out.torsion?.status).toBe(factor < 1 ? 'ok' : 'fail');
+    }
+    for (const extracted of [false, true]) {
+      const out = provided({ stirrups, longitudinal: { count: 4, diameter: 32 } }, 'column', vy, torque, { extracted });
+      expect(out.checks.find(c => c.category === 'Torsion ties')).toMatchObject({
+        ratio: +(Math.hypot(vv, vt) / sectionLimit).toFixed(3), status: factor < 1 ? 'warn' : 'fail',
+      });
+    }
+  }
+});
+
+roundThree('known wrong result: #2171 active secondary shear and torsion refuse unknown longitudinal bars', () => {
+  for (const extracted of [false, true]) {
+    const noBars = provided({ stirrups: cage }, 'column', 20, 20, { extracted });
+    const inactive = provided({ stirrups: cage }, 'column', 0, 0, { extracted });
+    expect(noBars.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({ status: 'fail', limiting: 'unsupportedCheck',
+      description: expect.stringMatching(/longitudinal/i) });
+    expect(noBars.checks.find(c => c.category === 'Torsion ties')).toMatchObject({ status: 'fail', limiting: 'unsupportedCheck',
+      description: expect.stringMatching(/longitudinal/i) });
+    expect(inactive.checks.find(c => c.demandCategory === 'Vy')).toBeUndefined();
+    expect(inactive.checks.find(c => c.category === 'Torsion ties')).toBeUndefined();
+    const known = provided({ stirrups: cage, longitudinal }, 'column', 20, 0, { extracted });
+    const capacity = shearCapacity('2005', section.h, 0.259, cage.diameter, 2, cage.spacing);
+    expect(known.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({ status: 'ok', capacity: +capacity.toFixed(2) });
+  }
+});
+
+for (const demand of [0.000999, 0.001, 0.005]) {
+  roundThree(`known wrong result: #2171 fixed and prepared use the station secondary demand boundary at ${demand} kN`, () => {
+    const shear = { ...cage, secondaryLegs: null };
+    const v = input(demand, 0, '2005');
+    for (const out of [verifyElement(v, { shear }), prepareElementVerification(v)({ shear })]) {
+      if (demand < 0.001) expect(out.shearSecondary).toBeUndefined();
+      else expect(out.shearSecondary).toMatchObject({ Vu: demand, status: 'fail', ratio: Infinity, refusal: expect.stringMatching(/legs/i) });
+    }
+    for (const extracted of [false, true]) {
+      const out = provided({ stirrups: shear, longitudinal }, 'column', demand, 0, { extracted });
+      const secondary = out.checks.find(c => c.demandCategory === 'Vy');
+      if (demand < 0.001) expect(secondary).toBeUndefined();
+      else expect(secondary).toMatchObject({ status: 'fail', limiting: 'unsupportedCheck', description: expect.stringMatching(/legs/i) });
+    }
+  });
+}
+
+for (const nonlinear of [false, true]) {
+  roundThree(`known wrong result: #2171 automatic spatial verification retains 0.005 kN secondary shear (nonlinear=${nonlinear})`, () => {
+    const solver: SolverInput3D = { ...model,
+      elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0.005, fz: 0, mx: 0, my: 20, mz: 0 } }],
+    };
+    const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    const { demands } = computeStationDemands(new Map([[1, raw]]), combos, model);
+    const opts = { edition: '2005' as const };
+    for (const geometry of [model, { ...model, sections: new Map([[1, { ...model.sections.get(1)!, shape: 'circle' as const }]]) }]) {
+      for (const out of [autoVerifyFromResults(raw, geometry, null, opts, demands).concrete[0],
+        runUnifiedVerification(raw, geometry, null, demands, opts)[0],
+        runCirsocDesign(raw, geometry, demands, new Map(), null, opts).concrete[0]]) {
+        const shear = out?.shearSecondary;
+        expect(shear?.Vu).toBeCloseTo(0.005, 12);
+        if (geometry === model) {
+          const d = section.b - section.cover - (shear!.stirrupDia / 1000) - out!.column!.barDia / 2000;
+          expect(shear?.phiVn).toBeCloseTo(shearCapacity('2005', section.h, d, shear!.stirrupDia, 2, shear!.spacing), 10);
+          expect(Number.isFinite(shear?.ratio)).toBe(true);
+        } else {
+          expect(shear).toMatchObject({ status: 'fail', ratio: Infinity, refusal: expect.stringMatching(/rectangular/i) });
+        }
+      }
+    }
+  });
+}
