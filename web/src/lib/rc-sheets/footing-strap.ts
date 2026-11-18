@@ -26,6 +26,8 @@ const sectionAt = (x: number, neg: number, combo: string | null, pos = 0): Secti
  * The strap's demand: its statics from every footing it balances, each combination by name, over
  * what the analysis already puts on the member when the model has one (`base`), whose key, line
  * and ends it keeps. Over a member the envelopes add, the larger hogging with the larger hogging.
+ * Its deflection is not checked, as no member on the ground is (`rc-sheets-service.ts`): it
+ * follows the footings it ties, which the soil's pressure checks.
  */
 export function strapDemand(o: { key: string; name: string; level?: string; L: number; b: number; h: number; halves: [number, number]; base?: BeamDemand; loads: readonly StrapLoad[] }): BeamDemand {
   const { L, base } = o;
@@ -74,11 +76,15 @@ export function strapDemand(o: { key: string; name: string; level?: string; L: n
     vu: { value: vu.v }, nAtV: 0, tu: base?.tu ?? { value: 0 }, combos, env,
     supportHalf: { start: o.halves[0], end: o.halves[1] },
   };
-  if (base) return { ...base, ...shared, faces: undefined };
+  if (base) {
+    const { service: _s, ...rest } = base as BeamDemand & { service?: unknown };
+    return { ...rest, ...shared, faces: undefined, serviceOff: true } as BeamDemand;
+  }
   return {
     key: o.key, name: o.name, ...(o.level ? { level: o.level } : {}), ...shared,
     ends: { start: { kind: 'column', half: o.halves[0], corner: true }, end: { kind: 'column', half: o.halves[1] } },
-  };
+    serviceOff: true,
+  } as BeamDemand;
 }
 
 const up5 = (v: number) => Math.round(Math.ceil(v / 0.05 - 1e-9) * 0.05 * 1000) / 1000;

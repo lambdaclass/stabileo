@@ -20,6 +20,8 @@
   import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
+  import PropertyLinesPicker from './PropertyLinesPicker.svelte';
+  import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
@@ -136,12 +138,16 @@
 </details>
 
 <details class="pk-card do" data-testid="design-options-foundations">
-  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{t('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}</span></summary>
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{t('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}{#if d.propertyLines} · {t('fdn.propertyLines')} {PROPERTY_SIDES.filter((k) => d.propertyLines?.[k]).map((k) => ({ minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' })[k]).join(' ')}{/if}</span></summary>
   <div class="do-opt">
     <label class="do-inline">{t('designData.presumedBearing')}
       <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
     </label>
     <Hint text={t('designData.presumedBearingHint')} />
+  </div>
+  <div class="do-opt">
+    <span class="do-inline">{t('fdn.propertyLines')} <PropertyLinesPicker testid="design-data-property-line" /></span>
+    <Hint text={t('designData.propertyLinesHint')} />
   </div>
 </details>
 

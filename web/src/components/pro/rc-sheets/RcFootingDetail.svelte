@@ -2,7 +2,13 @@
   import { t, tp } from '../../../lib/i18n';
   import { uiStore } from '../../../lib/store';
   import { setAdopted } from '../../../lib/store/rc-sheets.svelte';
-  import { FOOTING_DIAMETERS, writeFootingToModel } from '../../../lib/store/rc-sheets-footings';
+  import { FOOTING_DIAMETERS, setFootingSetup, writeFootingToModel } from '../../../lib/store/rc-sheets-footings';
+  import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
+  import { modelStore } from '../../../lib/store';
+  import { FOOTING_BALANCES, FOOTING_POSITIONS, type FootingBalance, type FootingPosition } from '../../../lib/rc-sheets/footing-types';
+  import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
+  import { lineRowStatus } from '../../../lib/rc-sheets/beam-line';
+  import RcLineSvg from './RcLineSvg.svelte';
   import { isBanded } from '../../../lib/rc-sheets/footing-mesh';
   import type { FootingAdopted, FootingMesh, FootingRow } from '../../../lib/rc-sheets/footing-types';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
@@ -29,6 +35,15 @@
     patch({ [dir]: m });
   };
   const cmOf = (m: number) => Math.round(m * 1000) / 10;
+  const setup = $derived.by(() => { void modelStore.designData; return rcSheetsData().footingSetup?.[row.key] ?? {}; });
+  const position = $derived<FootingPosition>(row.edge?.position ?? 'centred');
+  const setPosition = (v: string) => setFootingSetup(row.key, { ...setup, position: v === 'auto' ? undefined : (v as FootingPosition) });
+  const setBalance = (v: string) => setFootingSetup(row.key, { ...setup, balance: v as FootingBalance });
+  const strapSize = (axis: 'x' | 'y', p: { b?: number; h?: number }) => {
+    const s = row.edge?.straps.find((x) => x.axis === axis);
+    if (!s) return;
+    patch({ straps: { ...(row.adopted.straps ?? {}), [axis]: { b: p.b ?? s.b, h: p.h ?? s.h } } });
+  };
   function toModel() {
     writeFootingToModel(row);
     uiStore.toast(tp('rcSheets.foot.written', { name: row.name }), 'success');
@@ -36,6 +51,43 @@
 </script>
 
 <div class="rfd">
+  {#if row.B > 0 && !row.combined}
+    <div class="rce" data-testid="rc-footing-setup">
+      <fieldset>
+        <legend>{t('rcSheets.foot.kind')}</legend>
+        <label><span>{t('rcSheets.foot.position')}</span>
+          <select value={setup.position ?? 'auto'} onchange={(e) => setPosition(e.currentTarget.value)} data-testid="rc-footing-position">
+            <option value="auto">{t('rcSheets.foot.auto')}</option>
+            {#each FOOTING_POSITIONS as p (p)}<option value={p}>{t(`rcSheets.footPos.${p}`)}</option>{/each}
+          </select>
+        </label>
+        {#if position !== 'centred'}
+          <label><span>{t('rcSheets.foot.balance')}</span>
+            <select value={row.edge?.balance ?? 'strap'} onchange={(e) => setBalance(e.currentTarget.value)} data-testid="rc-footing-balance">
+              {#each FOOTING_BALANCES as b (b)}<option value={b}>{t(`rcSheets.footBal.${b}`)}</option>{/each}
+            </select>
+          </label>
+        {/if}
+      </fieldset>
+      {#each row.edge?.straps ?? [] as st (st.axis)}
+        <fieldset data-testid="rc-footing-strap-editor">
+          <legend>{t('rcSheets.footFig.strap')} {st.axis.toUpperCase()} → {st.partner}</legend>
+          {#if st.group === undefined}
+            <label><span>b · h</span>
+              <input type="number" min="15" max="100" step="5" value={cmOf(st.b)} onchange={(e) => strapSize(st.axis, { b: num(e) / 100 })} />
+              <input type="number" min="25" max="250" step="5" value={cmOf(st.h)} onchange={(e) => strapSize(st.axis, { h: num(e) / 100 })} /><span>cm</span>
+            </label>
+          {:else}
+            <span class="hint">{tp('rcSheets.foot.strapInModel', { name: st.line?.name ?? '' })}</span>
+          {/if}
+          {#if st.line}
+            {@const sa = st.line.adopted}
+            <span class="hint" data-testid="rc-footing-strap-bars">{groupsLabel([sa.top])} · {groupsLabel([sa.bottom])} · {[...new Set((sa.stirrups ?? []).map((x) => stirrupsLabel(x)))].join(' · ')} · {t(`rcSheets.status.${lineRowStatus(st.line, st.beam ? [st.beam] : [])}`)}</span>
+          {/if}
+        </fieldset>
+      {/each}
+    </div>
+  {/if}
   {#if !row.uncovered && row.B > 0}
     <div class="rce" data-testid="rc-footing-editor">
       <fieldset>
@@ -67,6 +119,20 @@
           {/if}
         </fieldset>
       {/each}
+      {#if row.adopted.top && row.combined}
+        {@const tm = row.adopted.top}
+        <fieldset>
+          <legend>{t('rcSheets.foot.top')}</legend>
+          <label>
+            <select value={tm.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch({ top: { ...tm, dia: num(e) } })}>
+              {#each FOOTING_DIAMETERS as d (d)}<option value={d}>Ø{d}</option>{/each}
+            </select>
+            <span>c/</span>
+            <input type="number" min="5" max="40" step="2.5" value={cmOf(tm.spacing)} aria-label={t('rcSheets.ed.spacing')} onchange={(e) => patch({ top: { ...tm, spacing: num(e) / 100 } })} />
+            <span>cm</span>
+          </label>
+        </fieldset>
+      {/if}
       {#if row.adopted.dowels}
         {@const dw = row.adopted.dowels}
         <fieldset>
@@ -91,6 +157,9 @@
     </div>
   {/if}
   {#if row.B > 0}<div class="rcw-secs"><RcFootingSvg {row} {code} /></div>{/if}
+  {#each (row.edge?.straps ?? []).filter((st) => st.line) as st (st.axis)}
+    <div class="rcw-secs" data-testid="rc-footing-strap-line"><RcLineSvg line={st.line!} /></div>
+  {/each}
 </div>
 
 <style>

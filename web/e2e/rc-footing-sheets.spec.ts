@@ -77,3 +77,36 @@ test('@smoke the footing sheets size, check and draw a footing under every colum
   await openFoundations(page);
   await expect(page.getByTestId('footing-count')).toHaveText('2');
 });
+
+test('@smoke a property line declared in the design data makes an edge footing with its strap beam', async ({ pro: page }) => {
+  await loadModel(page, 'rc-design-qa-8');
+  await solveModel(page);
+  await page.getByTestId('pr-stage-analyse').click();
+  await page.getByTestId('pr-cmd-rcSheets').click();
+  const dd = page.getByTestId('rc-design-data');
+  if (!(await dd.evaluate((d) => (d as HTMLDetailsElement).open))) await page.getByTestId('rc-dd-edit').click();
+  const card = dd.getByTestId('design-options-foundations');
+  if (!(await card.evaluate((d) => (d as HTMLDetailsElement).open))) await card.locator('> summary').click();
+  await card.getByTestId('design-data-property-line-minX').check();
+  await expect(card.getByTestId('design-options-foundations-summary')).toContainText('Medianeras −X');
+
+  await page.getByTestId('rc-design').click();
+  await expect(page.getByTestId('rc-building')).toHaveCount(0, { timeout: 20_000 });
+  await page.getByTestId('rc-open-footing').click();
+  const ws = page.getByTestId('rc-sheets-workspace');
+  const edge = ws.getByTestId('rc-row').filter({ has: page.locator('[data-kind="edge"]') });
+  await expect(edge).toHaveCount(2);
+  await expect(edge.first()).toContainText('Medianera');
+  await expect(edge.first()).toContainText('centradora');
+  await expect(ws.getByTestId('rc-row').filter({ has: page.locator('[data-kind="centred"]') })).toHaveCount(2);
+  for (const r of await ws.getByTestId('rc-row').all()) await expect(r).not.toContainText('No verifica');
+
+  await edge.first().click();
+  await expect(ws.getByTestId('rc-footing-line')).toHaveCount(1);
+  await expect(ws.getByTestId('rc-footing-strap')).toHaveCount(1);
+  await expect(ws.getByTestId('rc-footing-strap-bars')).toContainText('Ø');
+  await expect(ws.getByTestId('rc-footing-strap-line')).toBeVisible();
+  await expect(ws.getByTestId('rc-footing-balance')).toHaveValue('strap');
+  const steps = ws.getByTestId('rc-steps');
+  for (const s of ['Medianera y equilibrio', 'Corte de la viga', 'Reacción bajo la base', 'Alivio de la base vecina']) await expect(steps).toContainText(s);
+});

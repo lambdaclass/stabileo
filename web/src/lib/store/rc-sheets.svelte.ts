@@ -24,8 +24,9 @@ import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/l
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
-import type { FootingRow } from '../rc-sheets/footing-types';
-import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, strapKeyOf, withOverlaps } from './rc-sheets-footings';
+import type { FootingDemand, FootingRow } from '../rc-sheets/footing-types';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
+import { layFootings } from '../rc-sheets/footing-layout';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
@@ -453,7 +454,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     demandCache.set(key, dem);
   }
   const D = dem;
-  const feet = currentFootingDemands(sets, storeyNamer());
+  const feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer()), adoptedNow);
   const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + feet.length;
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
@@ -609,6 +610,15 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     footing.push(f.row);
     yield step();
   }
+  const footCtx = (d: FootingDemand) => footingContext(d, footingSizing(data), column);
+  footing = layFootings(footing, {
+    capped: (d, cap) => rules.footingRow(d, footCtx(d), undefined, fmt, cap),
+    combine: (a, b) => {
+      const d = { ...a, carried: b };
+      redesigners.set(d.key, ((x: FootingDemand) => rules.footingRow(x, footCtx(x), undefined, fmt)) as Redesign);
+      return rules.footingRow(d, footCtx(d), undefined, fmt);
+    },
+  });
   const straps = designFootingStraps(footing, {
     rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
     ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl }),

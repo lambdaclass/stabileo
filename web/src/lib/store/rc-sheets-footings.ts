@@ -117,22 +117,45 @@ export function setFootingSetup(key: string, setup: FootingSetup | null): void {
   saveRcSheetsData({ ...d, adopted, footingSetup: Object.keys(all).length ? all : undefined });
 }
 
+const columnBarsOf = (d: FootingDemand, columns: readonly ColumnRow[]): FootingContext['columnBars'] => {
+  const col = d.column?.rowKey ? columns.find((r) => r.key === d.column!.rowKey) : undefined;
+  const a = col?.adopted;
+  return a && col ? {
+    count: 4 + 2 * a.nx + 2 * a.ny + (a.inner ? 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny) : 0),
+    dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: col.req.barsTension ?? !col.req.compressionDominated,
+  } : undefined;
+};
+
+const columnFcOf = (d: FootingDemand): number => {
+  const colId = columnOn(d.nodeId);
+  return fcOfMaterial(colId !== undefined ? modelStore.elements.get(colId)?.materialId : undefined) ?? DEFAULT_FC;
+};
+
 export function footingContext(d: FootingDemand, sizing: FootingSizing, columns: readonly ColumnRow[]): FootingContext {
   const dd = designData();
-  const col = d.column?.rowKey ? columns.find((r) => r.key === d.column!.rowKey) : undefined;
-  const colId = columnOn(d.nodeId);
-  const colFc = fcOfMaterial(colId !== undefined ? modelStore.elements.get(colId)?.materialId : undefined) ?? DEFAULT_FC;
+  const colFc = columnFcOf(d);
   const f = d.footing ? modelStore.model.footings.get(d.footing.id) : undefined;
   const prefs = modelStore.footingMatPreferences();
-  const a = col?.adopted;
+  const bars = columnBarsOf(d, columns);
+  const o = d.carried;
+  const second = o ? { ...((b) => (b ? { columnBars: b } : {}))(columnBarsOf(o, columns)), columnFc: columnFcOf(o) } : undefined;
   return {
     fc: fcOfMaterial(f?.concreteMaterialId) ?? colFc, fy: dd.rebarFy, cover: d.footing?.cover ?? dd.covers.footing, sizing,
     diameters: footingDiameters(dd.longDiametersMm), preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
-    ...(a && col ? { columnBars: {
-      count: 4 + 2 * a.nx + 2 * a.ny + (a.inner ? 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny) : 0),
-      dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: col.req.barsTension ?? !col.req.compressionDominated,
-    } } : {}),
+    ...(bars ? { columnBars: bars } : {}), ...(second ? { second } : {}),
   };
+}
+
+/** The demands with the combined footings adopted before: each carrying its second column, whose own footing is then gone. */
+export function withAdoptedCombined(demands: readonly FootingDemand[], adopted: Readonly<Record<string, Adopted>>): FootingDemand[] {
+  const carried = new Map<string, FootingDemand>();
+  for (const d of demands) {
+    const w = (adopted[d.key] as FootingAdopted | undefined)?.with;
+    const o = w ? demands.find((x) => x.key === w && x.key !== d.key) : undefined;
+    if (o && !d.carried && !carried.has(o.key) && !carried.has(d.key)) carried.set(d.key, o);
+  }
+  const gone = new Set([...carried.values()].map((x) => x.key));
+  return demands.filter((d) => !gone.has(d.key)).map((d) => (carried.has(d.key) ? { ...d, carried: carried.get(d.key)! } : d));
 }
 
 /** A footing's row from its adopted dimensions and bars when it has them, and how to design it again from another demand. */
@@ -143,15 +166,16 @@ export function footingRowOf(d: FootingDemand, rules: SheetRules, adopted: Recor
 
 export { withOverlaps };
 
-/** The row's footing written to the model, made where there is none, its top at the column's foot; one undo step. */
+/** The row's footing written to the model, made where there is none, its top at the column's foot; a combined footing as one carrying both columns, in place of theirs. One undo step. */
 export function writeFootingToModel(row: FootingRow): number {
-  const a = row.adopted, d = row.demand;
-  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }) };
+  const a = row.adopted, d = row.demand, o = d.carried;
+  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }) };
   let id = d.footing?.id;
   modelStore.batchFoundation(() => {
+    if (o) for (const f of [...modelStore.model.footings.values()]) if (f.id !== id && (f.nodeId === o.nodeId || f.supportedNodeIds?.includes(o.nodeId))) modelStore.removeFooting(f.id);
     if (id === undefined) id = modelStore.addFooting(d.nodeId, d.name);
     const col = columnOn(d.nodeId);
-    modelStore.updateFooting(id, { ...data, ...(col !== undefined ? { columnElementId: col } : {}) });
+    modelStore.updateFooting(id, { ...data, ...(o ? { kind: 'combined' as const, supportedNodeIds: [o.nodeId] } : {}), ...(col !== undefined ? { columnElementId: col } : {}) });
   });
   return id!;
 }

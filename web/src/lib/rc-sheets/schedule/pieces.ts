@@ -22,7 +22,7 @@ import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStrai
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop';
 
 export interface Piece {
   kind: PieceKind;
@@ -271,11 +271,18 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
   return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
 }
 
-/** A footing's two bottom layers, hooked up where they need it, and its dowels with their feet. */
-function footingPieces(r: FootingRow, R: BendRules): ScheduleElement {
+/** A strap beam the footing's row holds itself (the model has no member for it), once for the pair of footings it joins. */
+function ownStraps(r: FootingRow, all: readonly FootingRow[]): LineLayout[] {
+  return (r.edge?.straps ?? []).filter((s) => s.line && s.group === undefined && !(all.some((o) => o.key === s.partnerKey && o.edge?.straps.some((t) => t.partnerKey === r.key)) && s.partnerKey < r.key)).map((s) => s.line!);
+}
+
+/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels with their feet, and the strap beams it holds. */
+function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules): ScheduleElement {
   const det = footingDetail(r, R);
-  const pieces: Piece[] = det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
-  if (det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count, shape: det.dowels.shape });
+  const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
+  if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
+  if (!r.uncovered && det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count + (r.adopted.dowels2?.count ?? 0), shape: det.dowels.shape });
+  for (const l of ownStraps(r, all)) pieces.push(...linePieces(l, R).pieces);
   return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
 }
 
@@ -290,6 +297,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
-    ...(rows.footing ?? []).filter((r) => !r.uncovered && r.B > 0).map((r) => footingPieces(r, R)),
+    ...(rows.footing ?? []).filter((r) => r.B > 0 && (!r.uncovered || ownStraps(r, rows.footing ?? []).length)).map((r) => footingPieces(r, rows.footing ?? [], R)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

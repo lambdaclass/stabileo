@@ -125,8 +125,12 @@ export interface FootingAdopted {
   /** Bars along X and along Y. */
   x: FootingMesh; y: FootingMesh;
   dowels?: FootingDowels;
+  /** A combined footing's dowels into its second column. */
+  dowels2?: FootingDowels;
   /** A combined footing's top bars, along the line of its columns. */
   top?: FootingMesh;
+  /** A combined footing: the row key of the footing whose column it carries too. */
+  with?: string;
   /** The strap beams' sections, m, by axis, where the model has none. */
   straps?: Partial<Record<'x' | 'y', { b: number; h: number }>>;
 }
@@ -142,6 +146,8 @@ export interface FootingContext {
   /** The column's bars, as the dowels repeat them, and whether they take tension at the base. */
   columnBars?: { count: number; dia: number; tension: boolean };
   columnFc?: number;
+  /** A combined footing's second column: its bars and concrete. */
+  second?: { columnBars?: { count: number; dia: number; tension: boolean }; columnFc?: number };
 }
 
 /** Which mesh lies lowest, the d of each, and where the short direction's band is. */

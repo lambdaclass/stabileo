@@ -47,7 +47,7 @@ export function withEdges(demands: readonly FootingDemand[], o: EdgeInput): Foot
     if (!held(anchor)) return d;
     const balance: FootingBalance = s?.balance ?? 'strap';
     const partners: StrapPartner[] = [];
-    if (balance === 'strap') {
+    {
       const level = live.filter((q) => q.key !== d.key && Math.abs(q.at.z - d.at.z) < LEVEL_TOL);
       for (const axis of ['x', 'y'] as const) {
         const a = axis === 'x' ? anchor[0] : anchor[1];

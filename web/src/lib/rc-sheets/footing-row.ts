@@ -1,13 +1,14 @@
 import type { Fmt } from './format';
-import { analyseFooting, CIRSOC_ONE_WAY, MIN_D, proposeFooting, type FootingAnalysis, type FootingRowCode } from './footing-design';
+import { analyseFooting, CIRSOC_ONE_WAY, MIN_D, proposeFooting, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
 import { footingSteps } from './footing-steps';
 import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult, TieResult } from './footing-types';
 import { barArea } from './bars';
+import { combinedRow } from './footing-combined-row';
 
-export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt) => FootingRow;
+export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, cap?: PlanCap) => FootingRow;
 
 const sizeOf = (d: FootingDemand): FootingAdopted | null => {
   const f = d.footing;
@@ -113,10 +114,11 @@ const emptyRow = (d: FootingDemand, c: FootingContext, line: CheckLine, a?: Foot
 };
 
 export function footingRowFor(code: FootingRowCode): FootingRowFn {
-  return (d, c, adopted, fmt) => {
+  return (d, c, adopted, fmt, cap) => {
     if (d.footing?.outOfScope) return emptyRow(d, c, check(`rcSheets.v.footOut.${d.footing.outOfScope}`, false));
     if (!d.column) return emptyRow(d, c, check('rcSheets.v.footNoColumn', false));
-    const prop = proposeFooting(d, c, code);
+    if (d.carried) return combinedRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
+    const prop = proposeFooting(d, c, code, cap);
     const a = adopted ?? prop?.adopted ?? sizeOf(d);
     if (!a) return emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     const r = analyseFooting(d, c, a, code);
@@ -157,8 +159,8 @@ export function strapDefault(d: FootingDemand, a: Pick<FootingAdopted, 'h'>, axi
 const BEARING_ONLY: FootingRowCode = { ...CIRSOC_ONE_WAY, bearingOnly: true };
 
 /** A code the sheets design no footings to: the soil pressure under the modelled or presized base, and a line that says the rest is not covered. */
-export const uncoveredFootingRow: FootingRowFn = (d, c, adopted, fmt) => {
-  const base = footingRowFor(BEARING_ONLY)(d, c, adopted, fmt);
+export const uncoveredFootingRow: FootingRowFn = (d, c, adopted, fmt, cap) => {
+  const base = footingRowFor(BEARING_ONLY)(d, c, adopted, fmt, cap);
   const bearing = base.verifications.filter((l) => l.label === 'rcSheets.v.footBearing' || l.label === 'rcSheets.v.footContact' || l.label === 'rcSheets.v.footNoSoil' || l.label === 'rcSheets.v.footNoService');
   const none = { dia: 0, spacing: 0 };
   const strip = (a: FootingAdopted): FootingAdopted => ({ B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, x: none, y: none, ...(a.straps ? { straps: a.straps } : {}) });

@@ -769,4 +769,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.bvbs',
   'rcSheets.col.slabKind',
   'rcSheets.coversNotice.buttonItem',
+  'rcSheets.foot.kind',
+  'rcSheets.foot.position',
 ];
