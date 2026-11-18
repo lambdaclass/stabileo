@@ -37,6 +37,7 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   expect(unifiedRows).toBeGreaterThan(2);
   await expect(view.locator('[data-testid="rc-bbs-use"][data-family="beam"]').first()).toBeVisible();
   await expect(view.locator('[data-testid="rc-bbs-use"][data-family="column"]').first()).toBeVisible();
+  await expect(view.locator('[data-testid="rc-bbs-use"][data-family="footing"]').first()).toBeVisible();
   // Each row draws its piece, the legs dimensioned.
   const sketch = rows.first().getByTestId('rc-bbs-sketch');
   await expect(sketch.locator('path')).toHaveAttribute('d', /^M[\d.]+ [\d.]+ L/);
@@ -62,7 +63,7 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   await view.getByTestId('rc-bbs-view-family').click();
   await expect(view).toHaveAttribute('data-view', 'family');
   const heads = view.getByTestId('rc-bbs-group-head');
-  expect(await heads.count()).toBe(2);
+  expect(await heads.count()).toBe(3);
   expect(await grandKg()).toBeCloseTo(kg, 0);
   const familyRows = await rows.count();
   const firstGroupRows = await view.getByTestId('rc-bbs-group').first().getByTestId('rc-bbs-row').count();
