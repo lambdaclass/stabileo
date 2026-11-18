@@ -295,9 +295,9 @@ function verdictsIn(input: EndSupportInput, slots: number, layers: number): Supp
  * (`continuingGroupsInto`), so the region check and the bars built read one geometry. None at a
  * support the line continues past (the laps carry the bars on) or with no column.
  */
-export function bottomReach(input: EndSupportInput): { start?: { straight: number; hooked: number }; end?: { straight: number; hooked: number } } {
+export function bottomReach(input: EndSupportInput, plan = endSupportPlan(input)): { start?: { straight: number; hooked: number }; end?: { straight: number; hooked: number } } {
   const { rebar, section, edition } = input;
-  const { maxTopLayers } = endSupportPlan(input);
+  const { maxTopLayers } = plan;
   const { slots } = topLayout(rebar, { b: section.b, cover: section.cover, stirrupDiaMm: input.seat.stirrupDiaMm, edition, maxAggregateSizeMm: input.seat.maxAggregateSizeMm });
   const nestClear = (d: number) => minClearSpacingInLayer(edition, { barDiameterMm: d, maxAggregateSizeMm: input.seat.maxAggregateSizeMm }).minClear;
   const simple = isSimpleSupport(input.cages.start) || isSimpleSupport(input.cages.end);
