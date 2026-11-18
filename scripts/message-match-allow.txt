@@ -184,3 +184,6 @@ scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in war
 ## Translates an Ecto validation message the accounts backend returns for a form field: a wording change shows the server's English text instead of the translation; no result or decision depends on it.
 web/src/lib/api/error-text.ts: if (message === 'must be accepted') return t('account.field.mustAccept');
 web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account.field.tooLarge');
+
+## The issue tag is declared test metadata shared by web skips and Rust ignores.
+scripts/check-agent-mistakes.mjs: return annotation?.match(issueTag)?.[1];
