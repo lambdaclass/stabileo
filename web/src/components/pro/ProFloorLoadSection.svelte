@@ -199,6 +199,7 @@
       {tp('floorLoad.summary', { panels: result.panels.filter((p) => p.loaded).length, area: result.loadedArea.toFixed(2), total: result.totalKN.toFixed(1), beams: result.perBeam.size })}
     </p>
     {#if result.normal[2] < 0.999999}<p class="fl-hint" data-testid="fl-inclined">{tp('floorLoad.inclined', { deg: (Math.acos(result.normal[2]) * 180 / Math.PI).toFixed(1) })}</p>{/if}
+    {#if result.refusal}<p class="fl-warn">{t(`floorLoad.problem.${result.refusal}`)}</p>{/if}
     {#if result.skipped.zoneAcrossSpan}<p class="fl-warn">{tp('floorLoad.skip.zoneAcrossSpan', { n: result.skipped.zoneAcrossSpan })}</p>{/if}
     {#if result.skipped.unresolved}<p class="fl-warn">{tp('floorLoad.skip.unresolved', { n: result.skipped.unresolved })}</p>{/if}
     {#if result.skipped.crossings}<p class="fl-warn">{tp('floorLoad.skip.crossings', { n: result.skipped.crossings })}</p>{/if}

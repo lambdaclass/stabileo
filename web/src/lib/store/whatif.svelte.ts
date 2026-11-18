@@ -29,7 +29,6 @@ import { uiStore } from './ui.svelte';
 import type { ModelSnapshot } from './history.svelte';
 import type { Release, Section, SupportType } from './model.svelte';
 import { solverProperties } from '../section/state';
-import { defaultDofs } from './support-dofs';
 
 export interface MemberFactors { e: number; a: number; iy: number }
 
@@ -50,11 +49,11 @@ let ownVersion = -1;
 /** The project's solve stamp when Explore opened, put back when it closes. */
 let stampAtOpen: SolveStamp | undefined;
 
-const is3D = () => uiStore.is3DWorkspace;
+const snapshotOptions = { preserveSupportTypes: true };
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
 function restoreBaseline(snap: ModelSnapshot): void {
-  modelStore.restore(snap);
+  modelStore.restore(snap, snapshotOptions);
   if (snap.presentation3D) uiStore.viewportPresentation3D = snap.presentation3D;
 }
 
@@ -145,26 +144,20 @@ function apply(): void {
     m.elements.set(id, { ...el, ...patch });
   }
 
-  // A space support disables the standing-plane projection. Convert the
-  // geometry and its existing loads/supports before applying space overrides.
-  // Each slider starts from the original presentation as well as its model.
-  if (is3D() && Object.keys(supportTypes).length > 0) modelStore.ensureSpaceCoordinates();
+  modelStore.withoutUndo(() => {
+    for (const [key, type] of Object.entries(supportTypes)) {
+      modelStore.updateSupport(Number(key), { type });
+    }
+  });
 
   for (const [key, r] of Object.entries(releases)) {
     const el = m.elements.get(Number(key));
     if (el) m.elements.set(el.id, { ...el, ...(r.i ? { releaseI: r.i } : {}), ...(r.j ? { releaseJ: r.j } : {}) });
   }
 
-  for (const [key, type] of Object.entries(supportTypes)) {
-    const s = m.supports.get(Number(key));
-    if (!s) continue;
-    m.supports.set(s.id, is3D() ? { ...s, type, dofRestraints: defaultDofs(type) } : { ...s, type });
-  }
-
   m.materials = new Map(m.materials);
   m.sections = new Map(m.sections);
   m.elements = new Map(m.elements);
-  m.supports = new Map(m.supports);
   m.loads = [...m.loads];
   ownVersion = modelStore.modelVersion;
   // restore() moved the model version, so live calc re-solves what is now here.
@@ -191,7 +184,7 @@ export const whatIf = {
   /** Enter: remember the model and whether live calc was on, and turn it on. */
   open(): void {
     if (baseline) return;
-    baseline = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
+    baseline = { ...modelStore.snapshot(snapshotOptions), presentation3D: uiStore.viewportPresentation3D };
     stampAtOpen = recheckStore.capture();
     loadFactors = modelStore.model.loads.map(() => 1);
     all = { ...ONE };

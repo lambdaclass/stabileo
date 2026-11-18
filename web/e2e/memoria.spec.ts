@@ -5,7 +5,7 @@
  * limit and never as satisfying a code. The document itself is pinned in
  * `lib/report/memoria/__tests__/memoria.test.ts`.
  */
-import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, openDeskStage, designPlace, leaveDesign } from './fixtures';
+import { test, expect, designAll, loadModel, openDocumentsStage, solveModel, openDeskStage, designPlace, leaveDesign, withCrashGuard } from './fixtures';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 test.use({ viewport: { width: 1400, height: 900 } });
@@ -48,7 +48,10 @@ test.describe('@slow memoria', () => {
   });
 
   test('the steel shed: its members within the limit, never satisfying', async ({ pro: page }) => {
-    await loadModel(page, '3d-nave-industrial');
+    await page.getByTestId('pr-project').click();
+    await page.getByTestId('pp-examples').click();
+    await page.getByTestId('pp-gallery').locator('[data-example="pro-simple-shed"] .pp-ex').click();
+    await withCrashGuard(page, expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0));
     await solveModel(page);
     await openDeskStage(page);
     await page.getByTestId('desk-design').click();

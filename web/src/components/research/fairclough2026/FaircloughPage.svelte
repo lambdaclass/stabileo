@@ -80,7 +80,7 @@
         <p class="notice">{common.notDesign}.</p>
         <p aria-live="polite" data-testid="source">{author ? text.reference : text[source]}</p>
       </div>
-      <StabileoViewer {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
+      <StabileoViewer plane={plan ? 'plan' : 'elevation'} {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
         showMesh={false} oninteract={stop} editorButton={false} ariaLabel={`${author ? text.author : text.own} · ${text.alt}`}/>
       <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span></p>
       <div class="controls">

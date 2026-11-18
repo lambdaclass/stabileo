@@ -1,3 +1,4 @@
+import { teAt } from '../../../i18n/engine-text';
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
 import { floorLoad, type FloorBeam } from '../floor-loads';
@@ -5,8 +6,9 @@ import { expandDefinition } from '../../../model/loads/floor-definitions';
 import { buildSolverInput3D } from '../../solver-service';
 import { withMassSource } from '../../dynamics/mass-source-model';
 import { G } from '../../dynamics/requests';
-import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
+import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
+import { snowDriftRefusal } from '../snow-drift-loads';
 
 /** A level of `nx` × `ny` bays of `bx` × `by` m at height `z`, beams on every grid line. */
 function floor(nx: number, ny: number, bx: number, by: number, z = 3): GravityModel & LoadModelData {
@@ -252,7 +254,7 @@ function surfaceKN(list: Array<{ quadId: number; q: number }>, model: LoadModelD
  * A 10 × 10 m ring of beams at z = 4 under a gable of shells rising 2 m to a ridge along X at
  * y = 5, with `n` quads down each slope.
  */
-function gable(n: number): LoadModelData {
+function gable(n: number) {
   const m = floor(1, 1, 10, 10, 4);
   const quads = new Map<number, { id: number; nodes: number[] }>();
   let nid = 100, qid = 1;
@@ -276,11 +278,85 @@ function gable(n: number): LoadModelData {
   return { ...m, quads };
 }
 
+function gableWithLeanTo(mesh: number, y: number, drop: number, angle = 0) {
+  const model = gable(mesh);
+  model.nodes.set(200, { id: 200, x: 0, y, z: 4 - drop });
+  model.nodes.set(201, { id: 201, x: 10, y, z: 4 - drop });
+  const id = model.quads.size + 1;
+  model.quads.set(id, { id, nodes: [1, 2, 201, 200] });
+  for (const node of model.nodes.values()) {
+    const { x, y } = node;
+    node.x = x * Math.cos(angle) - y * Math.sin(angle);
+    node.y = x * Math.sin(angle) + y * Math.cos(angle);
+  }
+  return model;
+}
+
+it('#2282 a descending lean-to leaves the main bay loaded only by its roof shells', () => {
+  for (const [mesh, angle] of [[1, 0], [3, 0.37]] as const) {
+    const model = gableWithLeanTo(mesh, -4, 1, angle);
+    for (const loadEveryPanel of [false, true]) {
+      for (const slab of ['oneWay', 'twoWay'] as const) {
+        const gravity = { mode: 'panels', loadEveryPanel, slab } as const;
+        const layout = gravityLayout(model, { ...gravity, tributaryWidth: 3 });
+        const plan = buildLoadPlan(planInput(model, { gravity }));
+        const shellDead = 2 * 10 * (2 * Math.hypot(5, 2) + Math.hypot(4, 1));
+        expect(plan.outcome).toBe('READY');
+        expect(plan.blockedKeys).toEqual([]);
+        expect(totalKN(plan.distributed.filter(d => d.caseType === 'D'), model)).toBeCloseTo(0, 6);
+        expect(plan.nodal).toEqual([]);
+        expect(plan.distributed).toEqual([]);
+        expect(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(shellDead, 6);
+        expect(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(shellDead, 6);
+        expect(layout.panels).toEqual([]);
+        expect(layout.widthMembers).toEqual([]);
+        expect(layout.shellQuads.reduce((sum, q) => sum + q.area, 0)).toBeCloseTo(140, 6);
+      }
+    }
+  }
+});
+
+it('#2282 a descending shell projecting into the eave bay refuses at every layout consumer', () => {
+  const model = gableWithLeanTo(2, 0.01, 0.004);
+  const reason = { key: 'loadPlan.gravity.differentSlopedDeck' };
+  for (const loadEveryPanel of [false, true]) {
+    for (const slab of ['oneWay', 'twoWay'] as const) {
+      const gravity = { mode: 'panels', loadEveryPanel, slab } as const;
+      const plan = buildLoadPlan(planInput(model, { gravity }));
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual([reason]);
+      expect(plan.distributed).toEqual([]);
+      expect(plan.nodal).toEqual([]);
+      expect(plan.surface).toEqual([]);
+      expect(plan.levels).toEqual([]);
+      expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
+      expect(() => roofWeightFor(model, gravity, 3, 2)).toThrow(expect.objectContaining(reason));
+    }
+  }
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  expect(buildLoadPlan(planInput(model, { gravity: { mode: 'width' } })).outcome).toBe('READY');
+});
+
+it('an ascending extension of the eave ring keeps the roof on its shells', () => {
+  const model = gableWithLeanTo(1, -4, -1);
+  const plan = buildLoadPlan(planInput(model));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual([]);
+  expect(plan.nodal).toEqual([]);
+  expect(surfaceKN(plan.surface.filter(s => s.caseType === 'D'), model)).toBeCloseTo(2 * 10 * (2 * Math.hypot(5, 2) + Math.hypot(4, 1)), 6);
+});
+
 describe('a ring of beams under a roof of shells', () => {
   it('the eave ring takes no area load, however many quads make up each slope', () => {
-    for (const n of [1, 2, 3]) {
+    for (const n of [1, 2, 3]) for (const angle of [0, 0.37]) {
       const m = gable(n);
+      for (const node of m.nodes.values()) {
+        const { x, y } = node;
+        node.x = x * Math.cos(angle) - y * Math.sin(angle);
+        node.y = x * Math.sin(angle) + y * Math.cos(angle);
+      }
       const p = buildLoadPlan(planInput(m));
+      expect(p.outcome).toBe('READY');
       expect(totalKN(p.distributed.filter((d) => d.caseType === 'D'), m)).toBeCloseTo(0, 6);
       expect(totalKN(p.distributed.filter((d) => d.caseType === 'L'), m)).toBeCloseTo(0, 6);
       // The shells carry the roof: 2 kN/m² over their surface.
@@ -458,7 +534,11 @@ describe('an opening’s ring is loaded once, by its own panel', () => {
   it('the stadium: each level as the Floor tool loads it, once (18 674 m² were counted twice)', async () => {
     const f = (await import('../../../templates/fixtures/full-stadium.json')).default;
     const m = fixtureModel(f);
-    const g = gravityLayout(m, { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
+    const options = { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true } as const;
+    const refusal = { key: 'loadPlan.gravity.nonplanarShell', params: { id: 1 } };
+    expect(() => gravityLayout(m, options)).toThrow(expect.objectContaining(refusal));
+    expect(teAt(refusal, 'en')).toMatch(/quad 1 is nonplanar/i);
+    const g = gravityLayout({ ...m, quads: undefined }, options);
     const byLevel = new Map<number, FloorBeam[]>();
     for (const e of m.elements.values()) {
       const a = m.nodes.get(e.nodeI)!, b = m.nodes.get(e.nodeJ)!;

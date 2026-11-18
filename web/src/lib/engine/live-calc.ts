@@ -17,7 +17,7 @@ import { noteSolve } from '../telemetry/instrument.svelte';
 import { meshDeferredSlabs, representFootprints } from '../model/building/deferred-slabs';
 import { platesNeedingMesh, preparePlatesForAnalysis } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
-import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
+import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -116,7 +116,16 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
-  if (is3DWorkspace(analysisMode)) syncDefinedLoadsForAnalysis();
+  if (is3DWorkspace(analysisMode)) {
+    const blocked = floorLoadBlockMessage();
+    if (blocked) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.liveCalcError = blocked;
+      return;
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   const isStale = nextSolveGuard();
   try {
     if (is3DWorkspace(analysisMode)) {
@@ -287,7 +296,16 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
-  if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
+  if (uiStore.is3DWorkspace) {
+    const error = floorLoadBlockMessage();
+    if (error) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.toast(error, 'error');
+      return { ok: false, error };
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
   const input = solveInputKey();

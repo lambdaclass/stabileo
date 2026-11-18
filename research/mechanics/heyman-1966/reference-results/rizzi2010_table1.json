@@ -1,0 +1,20 @@
+{
+  "source": "E. Rizzi, G. Cocchetti, G. Colasante, F. Rusconi, Analytical and numerical analysis on the collapse mode of circular masonry arches, SAHC 2010, Advanced Materials Research 133-134 (2010) 467-472, doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1, p. 469",
+  "definitions": {
+    "alpha": "half-angle of embrace, degrees",
+    "eta": "t/r, thickness over centreline radius, at the least thickness",
+    "beta": "haunch hinge angle from the crown, degrees",
+    "h": "H/(w r), horizontal thrust over w r, with w = gamma t d the weight per unit length of the centreline"
+  },
+  "solutions": {
+    "heyman": "Heyman's closed form (resultant tangent to the intrados at the haunch)",
+    "ccr": "CCR solution, weight uniform along the centreline",
+    "milankovitch": "Milankovitch solution, true voussoir weights and centroids"
+  },
+  "rows": [
+    {"alpha": 60, "heyman": {"eta": 0.0227694, "beta": 40.7902, "h": 0.825056}, "ccr": {"eta": 0.0228482, "beta": 39.4608, "h": 0.825094}, "milankovitch": {"eta": 0.0228489, "beta": 39.4606, "h": 0.825052}},
+    {"alpha": 90, "heyman": {"eta": 0.105965, "beta": 58.8293, "h": 0.621113}, "ccr": {"eta": 0.107426, "beta": 54.4963, "h": 0.621772}, "milankovitch": {"eta": 0.107478, "beta": 54.4840, "h": 0.620881}},
+    {"alpha": 120, "heyman": {"eta": 0.314124, "beta": 75.2920, "h": 0.344942}, "ccr": {"eta": 0.326547, "beta": 64.0072, "h": 0.349556}, "milankovitch": {"eta": 0.327607, "beta": 63.7402, "h": 0.342263}},
+    {"alpha": 145, "heyman": {"eta": 0.661358, "beta": 88.2735, "h": 0.0464391}, "ccr": {"eta": 0.740638, "beta": 56.2271, "h": 0.0681781}, "milankovitch": {"eta": 0.763995, "beta": 49.6698, "h": 0.0391491}}
+  ]
+}

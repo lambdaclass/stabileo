@@ -30,7 +30,7 @@ import { uiStore } from './ui.svelte';
 import { verificationStore } from './verification.svelte';
 import { designEverything, type DeskReport, type DeskRunOptions } from './design-desk';
 import { publishCombinations3D } from './active-results';
-import { syncDefinedLoadsForAnalysis } from './defined-loads';
+import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from './defined-loads';
 import { spectralCaseResults } from './spectral-cases';
 import { physicalGroups } from './physical';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
@@ -71,6 +71,11 @@ const JOINT_LIMITS = new Set(['anchorage', 'congestion']);
 export function solveForDesign(): boolean {
   representFootprints();
   meshDeferredSlabs();
+  const error = floorLoadBlockMessage();
+  if (error) {
+    uiStore.toast(error, 'error');
+    return false;
+  }
   syncDefinedLoadsForAnalysis();
   const isPro = uiStore.analysisMode === 'pro';
   const left = uiStore.axisConvention3D === 'leftHand';

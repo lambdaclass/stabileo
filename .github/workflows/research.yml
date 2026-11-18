@@ -428,6 +428,23 @@ jobs:
       - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/gay-neto-2014/Cargo.toml
       - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/gay-neto-2014/Cargo.toml -- -D warnings
       - run: python3 -I -c "import json, sys; c = json.load(open('research/mechanics/gay-neto-2014/VALIDATION.json'))['checks']; sys.exit(not c or not all(x['passed'] for x in c))"
+  heyman:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
+    name: Masonry arches (Heyman 1966) validation
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' && fromJSON('["self-hosted","stabileo"]') || (github.ref == 'refs/heads/main' && github.event_name != 'schedule') && (vars.STABILEO_PR_POOL == 'true' && fromJSON('["self-hosted","stabileo-pr"]') || fromJSON('["self-hosted","stabileo"]'))) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - run: nix develop -c cargo test --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml
+      - run: nix develop -c cargo clippy --release --locked --all-targets --manifest-path research/mechanics/heyman-1966/Cargo.toml -- -D warnings
+      - run: nix develop -c cargo run --release --locked --manifest-path research/mechanics/heyman-1966/Cargo.toml --bin validate
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name == 'schedule') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation

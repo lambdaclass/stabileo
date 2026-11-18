@@ -1,6 +1,21 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'loadPlan.gravity.coveragePrecision': "壳单元覆盖坐标超出了杆件区间所支持的精度。",
+  'loadPlan.gravity.partitionFailed': "壳单元投影区域划分失败：{detail}",
+  'loadPlan.gravity.unsupportedStrips': "部分被壳单元覆盖时，条带必须跨越矩形梁格相对支承之间的全跨。",
+  'loadPlan.gravity.stripDirection': "指定的单向跨度方向必须与未覆盖条带的跨度方向一致。",
+  'loadPlan.gravity.nonplanarShell': "四边形单元 {id} 不共面。重力荷载的壳单元覆盖计算要求使用平面壳单元。",
+  'loadPlan.gravity.unresolvedMember': "杆件 {id} 仅被壳单元部分覆盖，且无法确定梁格的荷载传递。",
+  'loadPlan.gravity.differentDeck': "覆盖梁格的壳单元必须与梁格属于同一板面。",
+  'loadPlan.gravity.differentSlopedDeck': "覆盖梁格的倾斜壳单元必须与梁格属于同一板面。",
+  'loadPlan.gravity.deckCheckFailed': "板面壳单元覆盖检查失败：{detail}",
+  'loadPlan.gravity.exposureCheckFailed': "未覆盖条带的暴露情况检查失败：{detail}",
+  'loadPlan.gravity.mixedExposure': "未覆盖条带同时包含屋面区和楼面区。",
+  'loadPlan.gravity.stripSpan': "未覆盖条带超过板面允许的最大跨度。",
+  'loadPlan.gravity.headroomCheckFailed': "未覆盖条带的净空检查失败：{detail}",
+  'loadPlan.gravity.stripHeadroom': "未覆盖条带的楼层净高不足或无法确定。",
+  'loadPlan.gravity.stripInterval': "杆件 {id} 上的重力荷载条带短于所支持的荷载区间。",
   'engine.memberLoad.geometryOrdering': "生成杆件的几何顺序无效",
   'engine.memberLoad.geometryLine': "生成杆件的几何形状偏离了原始直线",
   'engine.memberLoad.invalidGeometry': "生成杆件的几何形状无效",

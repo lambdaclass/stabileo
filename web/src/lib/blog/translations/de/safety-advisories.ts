@@ -60,6 +60,8 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-083 — PR #2236; Zusammenführung und Veröffentlichung ausstehend."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-089 — Entwurf 2026-11-17; Prüfung durch den Koordinator, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -449,6 +451,7 @@ const body: PostBody = {
         ["SA-2026-078", "Dachdruckzonen und ihre ersten Momente hingen von der Unterteilung ab (#2205). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
         ["SA-2026-082", "Begleitkombinationen verwendeten ohne Warnung neigungsreduzierten Schnee statt Flachdach-Stablasten. Alte Erdbebenspezifikationen können zudem physischen Schnee und Flachdachschnee vermischen. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).", "Hoch", "Entwurf 2026-11-16; Zusammenführung und Veröffentlichung ausstehend"],
         ["SA-2026-083", "SA-2026-083: Die automatische Lasterzeugung nach CIRSOC 101 sperrt konzentrierte Nutzlasten und Dacheinwirkungen, deren maßgebende Laststellungen nicht ausgewertet werden (§4.4). Zuvor erzeugte Flächenlasten können maßgebende Einwirkungen auslassen. Betroffene Modelle prüfen und konzentrierte Einwirkungen vor erneuter Analyse und Bemessung manuell nachweisen. (#2207).", "Hoch", "PR #2236; Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-089", "Ein 3D-Lager vom Typ rollerZ oder custom3d ohne explizite Bindungen oder ein unbekannter Lagertyp wurde ohne Warnung als vollständig eingespannt berechnet. Prüfen Sie die vorgesehenen Lagerbedingungen und wiederholen Sie Analyse, Kombinationen und Bemessung. (#2276).", "Hoch", "Entwurf 2026-11-17; Prüfung durch den Koordinator, Zusammenführung und Veröffentlichung ausstehend"],
       ]
     },
     {

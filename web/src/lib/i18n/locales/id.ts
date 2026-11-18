@@ -1,6 +1,21 @@
 import type { Translations } from '../types';
 
 const id: Translations = {
+  'loadPlan.gravity.coveragePrecision': "Koordinat cakupan cangkang melampaui ketelitian interval batang yang didukung.",
+  'loadPlan.gravity.partitionFailed': "Pembagian proyeksi cangkang gagal: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "Cakupan sebagian oleh cangkang memerlukan jalur yang membentang penuh di antara penumpu yang berhadapan pada panel balok persegi panjang.",
+  'loadPlan.gravity.stripDirection': "Arah bentang satu arah yang diminta harus searah dengan bentang jalur yang tidak tertutup.",
+  'loadPlan.gravity.nonplanarShell': "Segi empat {id} tidak datar. Cakupan cangkang untuk beban gravitasi memerlukan cangkang datar.",
+  'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
+  'loadPlan.gravity.differentDeck': "Cangkang yang menutupi panel balok harus berada pada pelat yang sama.",
+  'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
+  'loadPlan.gravity.deckCheckFailed': "Pemeriksaan cakupan cangkang pada pelat gagal: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "Pemeriksaan keterbukaan jalur yang tidak tertutup gagal: {detail}",
+  'loadPlan.gravity.mixedExposure': "Jalur yang tidak tertutup mencakup area atap dan lantai.",
+  'loadPlan.gravity.stripSpan': "Jalur yang tidak tertutup melampaui bentang maksimum pelat.",
+  'loadPlan.gravity.headroomCheckFailed': "Pemeriksaan tinggi bebas jalur yang tidak tertutup gagal: {detail}",
+  'loadPlan.gravity.stripHeadroom': "Tinggi bebas lantai pada jalur yang tidak tertutup tidak mencukupi atau belum dapat ditentukan.",
+  'loadPlan.gravity.stripInterval': "Jalur beban gravitasi pada batang {id} lebih pendek dari interval beban yang didukung.",
   'engine.memberLoad.geometryOrdering': "Urutan geometri batang yang dihasilkan tidak valid",
   'engine.memberLoad.geometryLine': "Geometri batang yang dihasilkan menyimpang dari garis asal",
   'engine.memberLoad.invalidGeometry': "Geometri batang yang dihasilkan tidak valid",
