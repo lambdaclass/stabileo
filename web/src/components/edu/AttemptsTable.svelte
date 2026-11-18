@@ -69,7 +69,7 @@
       total: r.grade?.total ?? null,
     })));
     const slug = slugifyTabName(assignment.title);
-    saveFile(`${slug}-${assignment.code}.csv`, new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+    saveFile(`${slug}-${assignment.code}.csv`, () => new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
   }
 </script>
 
