@@ -130,7 +130,11 @@ fn arc_length(strip: &Strip, from: &Equilibrium, pattern: Clamps, stiffness: f64
             load: from.clamps.load + lambda * pattern.load,
         };
         let raw = Equilibrium { clamps, q: to_vector(strip.n, &step.displacements) };
-        let s = at_height(strip, &mut polisher, &raw, raw.height(strip), if pattern.load != 0.0 { Free::Load } else { Free::Shortening })?;
+        let free = if pattern.load != 0.0 { Free::Load } else { Free::Shortening };
+        let s = match at_height(strip, &mut polisher, &raw, raw.height(strip), free) {
+            Ok(s) => s,
+            Err(_) => at_height(strip, &mut polisher, states.last().unwrap(), raw.height(strip), free)?,
+        };
         let done = stop(&s);
         record(s, &mut points, &mut states);
         if done {
@@ -196,12 +200,12 @@ pub fn symmetrize(q: &mut [f64], n: usize) {
     }
 }
 
-/// Absolute residual (EI/L²) to which equilibria are converged: about ten times the round-off
-/// floor of the internal force, which grows with the axial stiffness. The production solvers'
+/// Absolute residual (EI/L²) to which equilibria are converged (or ten times it, once Newton
+/// stops reducing it): about ten times the round-off floor of the internal force on a deep arch, which grows with the axial stiffness. The production solvers'
 /// own tolerance is relative to a scale set by that stiffness (EA·L²/EI = 5·10⁷ here) and leaves
 /// residuals up to 10⁻² EI/L² near the fold, enough to move µ* in the fourth digit.
 pub fn residual_tolerance(strip: &Strip) -> f64 {
-    1e-10 + 2e-15 * strip.axial_stiffness()
+    1e-10 + 2e-14 * strip.axial_stiffness()
 }
 
 /// A symmetric equilibrium with the midpoint at `height`, from `state`, with the shortening or
@@ -242,13 +246,17 @@ fn converge(strip: &Strip, assembler: &mut Assembler, state: &Equilibrium, contr
     let c_mid = basis.iter().position(|b| b.len() == 1 && b[0].0 == mid).ok_or("no midpoint coordinate")?;
     let size = q.len();
     let tolerance = residual_tolerance(strip);
+    let mut previous = f64::INFINITY;
     for _ in 0..60 {
         let (mut force, k) = assembler.dense(&q);
         force[mid] += clamps.load;
         let norm = (DOFS..DOFS * n).map(|i| force[i].abs()).fold(0.0f64, f64::max);
-        if norm <= tolerance && control.is_none_or(|(h, _)| (q[mid] - h).abs() <= 1e-13) {
+        let on_height = control.is_none_or(|(h, _)| (q[mid] - h).abs() <= 1e-13);
+        let stalled = norm <= 10.0 * tolerance && norm > 0.5 * previous;
+        if on_height && (norm <= tolerance || stalled) {
             return Ok(Equilibrium { clamps, q });
         }
+        previous = norm;
         let ks = project(&k, size, &basis);
         let Some((height, free)) = control else {
             let mut a = ks;
@@ -313,6 +321,9 @@ pub struct Critical {
     pub mu_star: f64,
     pub height_a: f64,
     pub height_star: f64,
+    /// The symmetric equilibrium at µ_A, from its stable side.
+    #[serde(skip)]
+    pub state_a: Vec<f64>,
 }
 
 fn fold_index(path: &Path) -> Result<usize, String> {
@@ -386,6 +397,6 @@ pub fn critical(strip: &Strip, inverted: &Equilibrium) -> Result<(Critical, Path
     }
     let h_star = 0.5 * (a + b);
     let star = eval(h_star, &mut near)?;
-    let critical = Critical { mu_a, mu_star: star / a2, height_a, height_star: h_star };
+    let critical = Critical { mu_a, mu_star: star / a2, height_a, height_star: h_star, state_a: stable.q.clone() };
     Ok((critical, coarse))
 }

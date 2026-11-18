@@ -194,14 +194,14 @@ pub fn spectrum(strip: &Strip, assembler: &mut Assembler, q: &[f64]) -> Spectrum
 }
 
 /// The lowest antisymmetric vibration mode at q as a node-major vector, scaled so the midpoint
-/// rotation is one.
-pub fn antisymmetric_mode(strip: &Strip, assembler: &mut Assembler, q: &[f64]) -> Vec<f64> {
+/// rotation is one, and its ω².
+pub fn antisymmetric_mode(strip: &Strip, assembler: &mut Assembler, q: &[f64]) -> (Vec<f64>, f64) {
     let size = assembler.size();
     let (_, k) = assembler.dense(q);
     let mass = mass_dense(strip.n);
     let (basis, t) = mirror_basis(strip.n, -1.0);
     let m = basis.len();
-    let (_, coords) = frequency(&project(&k, size, &basis), &project(&mass, size, &basis), m, t);
+    let (w2, coords) = frequency(&project(&k, size, &basis), &project(&mass, size, &basis), m, t);
     let mut v = vec![0.0; size];
     for (c, b) in coords.iter().zip(&basis) {
         for &(i, w) in b {
@@ -209,5 +209,5 @@ pub fn antisymmetric_mode(strip: &Strip, assembler: &mut Assembler, q: &[f64]) -
         }
     }
     let scale = v[DOFS * strip.mid() + 2];
-    v.iter().map(|x| x / scale).collect()
+    (v.iter().map(|x| x / scale).collect(), w2)
 }

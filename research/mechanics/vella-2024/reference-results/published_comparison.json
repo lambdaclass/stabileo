@@ -1,0 +1,136 @@
+{
+  "checks": [
+    {
+      "computed": 8.986818915818127,
+      "id": "tau-asymmetric",
+      "metric": "shallow theory: tau* with tan(tau*/2) = tau*/2",
+      "observed": 0.00018108418187345876,
+      "passed": true,
+      "reference": 8.987,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 9.203183263885787,
+      "id": "tau-fold",
+      "metric": "shallow theory: tau at the fold of Eq. (S15)",
+      "observed": 0.00018326388578771002,
+      "passed": true,
+      "reference": 9.203,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 0.2470500401268646,
+      "id": "mu-star-analytic",
+      "metric": "shallow theory: mu* at the fold of Eq. (S15)",
+      "observed": 0.00005004012686460335,
+      "passed": true,
+      "reference": 0.247,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 2 after Eq. (1); p. 11",
+      "tolerance": 0.0005
+    },
+    {
+      "computed": 0.25000000000000006,
+      "id": "mu-a-analytic",
+      "metric": "shallow theory: mu(tau*) = mu_A",
+      "observed": 5.551115123125783e-17,
+      "passed": true,
+      "reference": 0.25,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 2; Eq. (S17), p. 11",
+      "tolerance": 1e-12
+    },
+    {
+      "computed": 0.2500392870323144,
+      "id": "mu-a-fe",
+      "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu_A",
+      "observed": 0.00015714812925748944,
+      "passed": true,
+      "reference": 0.25,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 2; Eq. (S17), p. 11",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 0.2470946996797411,
+      "id": "mu-star-fe",
+      "metric": "FE, alpha = 0.02, L/h = 2e4, Richardson over 24/48/96 elements: mu* against the exact fold of Eq. (S15)",
+      "observed": 0.0001807712836376929,
+      "passed": true,
+      "reference": 0.2470500401268646,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 2 after Eq. (1); p. 11",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 57.85681696144374,
+      "id": "omega-fe",
+      "metric": "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)",
+      "observed": 0.0000938998055944884,
+      "passed": true,
+      "reference": 57.862250215490235,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 12, SM II.D",
+      "tolerance": 0.0003
+    },
+    {
+      "computed": 0.24628000849880738,
+      "id": "toy-mu-star",
+      "metric": "toy model, beta = 0.110, L0C = 0.655: mu*vM (S65)",
+      "observed": 0.0029149453489579757,
+      "passed": true,
+      "reference": 0.247,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 20 (matched to the arch)",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 0.24935153897137197,
+      "id": "toy-mu-a",
+      "metric": "toy model: mu_A^vM",
+      "observed": 0.002593844114512134,
+      "passed": true,
+      "reference": 0.25,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 20 (matched to the arch)",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 0.6628509646686807,
+      "id": "toy-omega-lower",
+      "metric": "toy model at mu = 1/4: lower frequency / t_osc (symmetric by our linearisation)",
+      "observed": 0.0001490353313193804,
+      "passed": true,
+      "reference": 0.663,
+      "relative": false,
+      "source": "arXiv:2312.13908v2 p. 22, labelled omega_A in the text",
+      "tolerance": 0.001
+    },
+    {
+      "computed": 0.7319844044444277,
+      "id": "toy-omega-upper",
+      "metric": "toy model at mu = 1/4: upper frequency / t_osc (antisymmetric)",
+      "observed": 0.002746042991242925,
+      "passed": true,
+      "reference": 0.734,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 22, labelled omega_S in the text",
+      "tolerance": 0.005
+    },
+    {
+      "computed": 9.4790317010705,
+      "id": "toy-t-osc",
+      "metric": "toy model: t_osc = 2 pi / omega_lower (S80)",
+      "observed": 0.00021438230141401782,
+      "passed": true,
+      "reference": 9.477,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 Eq. (S80), p. 22",
+      "tolerance": 0.001
+    }
+  ]
+}

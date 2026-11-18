@@ -5,7 +5,7 @@ use std::f64::consts::PI;
 use std::sync::OnceLock;
 
 fn base() -> Settings {
-    Settings { alpha: PI / 12.0, n: 24, slenderness: 2126.0, rate: 0.05, start: 0.6, one_end: false, ramp: 0.58, imperfection: 1e-3, dt: 0.01, hht: -0.1, after: 0.5 }
+    Settings { alpha: PI / 12.0, n: 24, slenderness: 2126.0, rate: 0.05, start: 0.6, one_end: false, ramp: 0.58, imperfection: 1e-3, phase: 0.0, dt: 0.01, hht: -0.1, after: 0.5 }
 }
 
 fn prepared() -> &'static (Equilibrium, Critical) {

@@ -2,7 +2,11 @@
 pub mod band;
 pub mod dynamics;
 pub mod model;
+pub mod run;
 pub mod shallow;
 pub mod spectrum;
 pub mod statics;
+pub mod study;
 pub mod toy;
+pub mod units;
+pub mod wasm;

@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+const root = path.resolve(import.meta.dirname, '../../..');
+const bundle = path.join(root, 'web/public/research-wasm/vella-2024');
+const { default: init, simulation_run } = await import(pathToFileURL(path.join(bundle, 'snap.js')));
+await init({ module_or_path: fs.readFileSync(path.join(bundle, 'snap_bg.wasm')) });
+const replay = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'reference-results/replay.json')));
+const run = JSON.parse(simulation_run(JSON.stringify(replay.settings)));
+const close = (a, b, what) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b)), `${what}: ${a} vs ${b}`);
+for (const key of ['muA', 'muStar']) close(run.critical[key], replay.critical[key], key);
+for (const key of ['amplification', 'tSnap', 'thetaBefore', 'thetaDuring']) close(run.outcome[key], replay.outcome[key], key);
+assert.equal(run.frames.length, replay.frames.length);
+run.frames.forEach((f, i) => f.z.forEach((z, j) => close(z, replay.frames[i].z[j], `frame ${i} node ${j}`)));
+assert.throws(() => simulation_run(JSON.stringify({ ...replay.settings, rate: -1 })));
+assert.throws(() => simulation_run('{}'));
+console.log('production-mode WASM: replay agrees at every frame and node; bad settings are refused');

@@ -1,0 +1,33 @@
+id: vella-2024
+catalog_id: wang-2024
+doi: 10.1103/PhysRevLett.132.267201
+read_from: arXiv:2312.13908v2 (main text and Supplemental Material, 25 pages); see reference/paper-extraction.md
+scope: snap-through of a strip clamped at +/-alpha, released by moving the clamps apart; statics, linear stability, nonlinear dynamics; the paper's toy model's constants
+equations:
+  control: mu = DeltaL / (alpha^2 L), Eq. (1)
+  amplification: A = max_{t>0} |theta| / max_{t<0} |theta|, Eq. (2), t = 0 where mu = mu*
+  shallow_reference: Eqs. (S14)-(S17)
+  toy_model: Eqs. (S52)-(S57), (S73)-(S75)
+inputs:
+  length: {value: 1, unit: L}
+  bending_stiffness: {value: 1, unit: EI}
+  mass_per_length: {value: 1, unit: rho A}
+  slenderness: {value: 2126, unit: L/h, source: "h = 0.0508 mm, L = 108 mm, SM p. 12"}
+  clamp_angle: {default: 0.2617993877991494, min: 0.1, max: 0.4, unit: rad}
+  rate: {default: 0.03, min: 0.005, max: 0.7, unit: "dmu per T_osc"}
+  seed: {default: 0.001, min: 0.0001, max: 0.01, unit: rad}
+  start: {default: 0.6, unit: mu}
+  clamp_acceleration_time: {value: 0.01, unit: s, source: "SM p. 7"}
+mesh: {elements: 48, type: production 2D co-rotational Euler-Bernoulli frame; refinement 24/48/96}
+solver:
+  element: dedaliano_engine::solver::corotational::assemble_corotational_public
+  statics: dedaliano_engine::solver::corotational::solve_corotational_2d_from and solver::arc_length::solve_arc_length_from, re-converged on the symmetric subspace with height control
+  stability: tangent restricted to mirror-symmetric and antisymmetric subspaces; Sylvester inertia; Jacobi (engine linalg) for spectra
+  dynamics: research HHT-alpha (alpha = -0.1), Newton, banded LU, step halving, dt = 0.005 T_osc
+  mass: consistent mass of linearly interpolated centreline positions; no rotary inertia
+tolerances:
+  equilibrium_residual: "1e-10 + 2e-14 EA (EI/L^2)"
+  published_half_digit: "tau*, tau_fold, mu*: 5e-4 absolute"
+  fe_shallow_limit_relative: 3e-4
+  toy_model_relative: 5e-3
+excluded: [gravity, damping, rotary inertia, stopper impact, the paper's DER code, laboratory comparison]

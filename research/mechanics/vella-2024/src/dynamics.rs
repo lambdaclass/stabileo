@@ -27,9 +27,13 @@ pub struct Settings {
     pub one_end: bool,
     /// Time over which the clamp accelerates uniformly to its final speed, in T_osc.
     pub ramp: f64,
-    /// Midpoint tangent angle (rad) of the lowest antisymmetric vibration mode added to the
-    /// start state.
+    /// Amplitude, as a midpoint tangent angle (rad), of the lowest antisymmetric vibration mode
+    /// of the start state given to it at t = 0.
     pub imperfection: f64,
+    /// Phase of that vibration at t = 0: θ₀ cos φ in the displacement, −θ₀ ω sin φ in the
+    /// velocity.
+    #[serde(default)]
+    pub phase: f64,
     /// Time step in T_osc.
     pub dt: f64,
     /// HHT-α parameter, in [−1/3, 0]; 0 is the trapezoidal rule.
@@ -44,7 +48,7 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        let finite = [self.alpha, self.slenderness, self.rate, self.start, self.ramp, self.imperfection, self.dt, self.hht, self.after]
+        let finite = [self.alpha, self.slenderness, self.rate, self.start, self.ramp, self.imperfection, self.phase, self.dt, self.hht, self.after]
             .iter()
             .all(|v| v.is_finite());
         if !finite
@@ -103,6 +107,7 @@ pub struct Frame {
 /// One sample per bin of the whole run: its time, µ, and the extreme midpoint angles and the
 /// midpoint height reached within it.
 #[derive(Clone, Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Trace {
     pub t: Vec<f64>,
     pub mu: Vec<f64>,
@@ -129,6 +134,9 @@ pub struct Outcome {
     pub amplification_from_mu_a: f64,
     pub steps: usize,
     pub newton_iterations: usize,
+    /// The run stopped early, after the jump, where Newton failed even on 2⁸ substeps; what
+    /// Eq. (2) needs was already computed.
+    pub truncated: bool,
 }
 
 pub struct Simulation {
@@ -156,6 +164,20 @@ fn frame(strip: &Strip, q: &[f64], t: f64, mu: f64) -> Frame {
         x: (0..=n).map(|i| i as f64 / n as f64 + q[DOFS * i] - shift).collect(),
         z: (0..=n).map(|i| q[DOFS * i + 1]).collect(),
     }
+}
+
+/// Rejects a converged step that turned a node by more than 0.3 rad or left a node's tangent
+/// more than 1 rad from its element chords. Newton can otherwise settle on a root 2π away in a
+/// nodal rotation, or on a folded element, which the co-rotational element cannot tell apart.
+fn plausible(old: &[f64], new: &[f64], n: usize) -> bool {
+    let wrap = |a: f64| (a + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI;
+    let h = 1.0 / n as f64;
+    (0..=n).all(|i| (new[DOFS * i + 2] - old[DOFS * i + 2]).abs() < 0.3)
+        && (0..n).all(|e| {
+            let (a, b) = (DOFS * e, DOFS * (e + 1));
+            let chord = (new[b + 1] - new[a + 1]).atan2(h + new[b] - new[a]);
+            wrap(new[a + 2] - chord).abs() < 1.0 && wrap(new[b + 2] - chord).abs() < 1.0
+        })
 }
 
 struct Motion {
@@ -283,7 +305,7 @@ impl Integrator {
                 break;
             }
         }
-        if !converged {
+        if !converged || !plausible(&self.q, &q1, n) {
             return Ok(false);
         }
         self.assembler.assemble(&q1, &mut self.force, |_, _, _| {});
@@ -319,6 +341,10 @@ impl Integrator {
 /// moving apart at the rate of `settings`. Time is measured from the instant µ = `mu_star`.
 pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, cancel: &mut dyn FnMut(f64) -> bool) -> Result<Simulation, String> {
     settings.validate()?;
+    integrate(settings, start, mu_star, mu_a, cancel).map_err(|e| format!("{e} (µ̇ = {}, one end: {}, seed {}, phase {}, n {})", settings.rate, settings.one_end, settings.imperfection, settings.phase, settings.n))
+}
+
+fn integrate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f64, cancel: &mut dyn FnMut(f64) -> bool) -> Result<Simulation, String> {
     let strip = settings.strip();
     let n = strip.n;
     let size = DOFS * (n + 1);
@@ -350,11 +376,18 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
 
     let mut assembler = Assembler::new(&strip);
     let mut q = start.q.clone();
+    let mut v = vec![0.0; size];
     if settings.imperfection != 0.0 {
-        let mode = antisymmetric_mode(&strip, &mut assembler, &start.q);
-        for (a, b) in q.iter_mut().zip(&mode) {
-            *a += settings.imperfection * b;
+        let (mode, w2) = antisymmetric_mode(&strip, &mut assembler, &start.q);
+        let omega = w2.max(0.0).sqrt();
+        for i in 0..size {
+            q[i] += settings.imperfection * settings.phase.cos() * mode[i];
+            if i % DOFS != 2 {
+                v[i] = -settings.imperfection * omega * settings.phase.sin() * mode[i];
+            }
         }
+        v[0] = 0.0;
+        v[DOFS * n] = 0.0;
     }
     let mut acc = vec![0.0; size];
     let ends0 = motion.set(&mut q, n, 0.0);
@@ -398,7 +431,7 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
         mass,
         motion,
         q,
-        v: vec![0.0; size],
+        v,
         acc,
         f_old: force.clone(),
         force,
@@ -416,6 +449,7 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
     let keep = 48;
     let mut snapped = false;
     let mut end_time = f64::INFINITY;
+    let mut truncated = false;
     let mut t = 0.0;
     let mut step = 0usize;
     samples.push(Sample { t: clock(0.0), mu: mu_at(0.0, f64::INFINITY), theta: integrator.q[DOFS * mid + 2], height: integrator.q[DOFS * mid + 1] });
@@ -426,15 +460,14 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
         if cancel(mu_at(t, integrator.motion.stop)) {
             return Err("stopped".into());
         }
-        integrator
-            .advance(t, dt, 0)
-            .map_err(|e| {
-                let q = &integrator.q;
-                let th = (0..=n).map(|i| q[DOFS * i + 2].abs()).fold(0.0, f64::max);
-                let vm = integrator.v.iter().map(|x| x.abs()).fold(0.0, f64::max);
-                let ke: f64 = integrator.mass.iter().enumerate().map(|(i, row)| row.iter().map(|&(j, w)| 0.5 * integrator.v[i] * w * integrator.v[j]).sum::<f64>()).sum();
-                format!("{e} at t = {:.4} T_osc (mu {:.4}, max theta {th:.3}, max v {vm:.3e}, kinetic {ke:.3e}, h {:.4})", clock(t + dt), mu_at(t, integrator.motion.stop), q[DOFS * mid + 1])
-            })?;
+        if let Err(e) = integrator.advance(t, dt, 0) {
+            if integrator.motion.stop.is_finite() {
+                truncated = true;
+                break;
+            }
+            let q = &integrator.q;
+            return Err(format!("{e} at t = {:.4} T_osc (µ {:.4}, h {:.4})", clock(t + dt), mu_at(t, integrator.motion.stop), q[DOFS * mid + 1]));
+        }
         t += dt;
         step += 1;
         let q = &integrator.q;
@@ -459,13 +492,11 @@ pub fn simulate(settings: &Settings, start: &Equilibrium, mu_star: f64, mu_a: f6
             integrator.motion.stop = t;
             end_time = t + settings.after * T_OSC;
         }
-        if !snapped && mu < STOPPER && t > end_time {
-            break;
-        }
     }
     frames.extend(recent);
 
-    let outcome = outcome(&samples, clock(t_a), step, integrator.iterations);
+    let mut outcome = outcome(&samples, clock(t_a), step, integrator.iterations);
+    outcome.truncated = truncated;
     let trace = bin(&samples, 1500);
     Ok(Simulation { settings: *settings, frames, trace, outcome })
 }
@@ -513,6 +544,7 @@ fn outcome(samples: &[Sample], t_a: f64, steps: usize, newton_iterations: usize)
         amplification_from_mu_a: during_a / before_a,
         steps,
         newton_iterations,
+        truncated: false,
     }
 }
 
