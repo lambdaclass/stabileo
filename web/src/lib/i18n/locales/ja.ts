@@ -1,6 +1,21 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
+  'loadPlan.gravity.partitionFailed': "シェルの投影範囲を分割できませんでした：{detail}",
+  'loadPlan.gravity.unsupportedStrips': "シェルが一部を覆う場合、矩形の梁パネルの向かい合う支持材の間で、帯が全スパンにわたる必要があります。",
+  'loadPlan.gravity.stripDirection': "指定した一方向スパンの向きは、被覆されていない帯のスパン方向と一致する必要があります。",
+  'loadPlan.gravity.nonplanarShell': "四辺形 {id} は平面ではありません。重力荷重の被覆計算には平面シェルが必要です。",
+  'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
+  'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
+  'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",
+  'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",
+  'loadPlan.gravity.exposureCheckFailed': "被覆されていない帯の上部の覆いを確認できませんでした：{detail}",
+  'loadPlan.gravity.mixedExposure': "被覆されていない帯には屋根と床の両方の領域があります。",
+  'loadPlan.gravity.stripSpan': "被覆されていない帯がデッキの最大スパンを超えています。",
+  'loadPlan.gravity.headroomCheckFailed': "被覆されていない帯の有効高さを確認できませんでした：{detail}",
+  'loadPlan.gravity.stripHeadroom': "被覆されていない帯の階の有効高さが不足しているか、特定できません。",
+  'loadPlan.gravity.stripInterval': "部材 {id} の重力荷重の帯が対応可能な荷重区間より短くなっています。",
   'engine.memberLoad.geometryOrdering': "生成部材の形状の順序が無効です",
   'engine.memberLoad.geometryLine': "生成部材の形状が元の直線から外れています",
   'engine.memberLoad.invalidGeometry': "生成部材の形状が無効です",

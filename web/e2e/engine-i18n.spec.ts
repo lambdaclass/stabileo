@@ -100,14 +100,16 @@ for (const locale of ['en', 'es'] as const) {
         if (locale === 'en') {
           expect(all).toContain('Basis of calculation');
           expect(all).toMatch(/Occupancy:/);
-          expect(all).toMatch(/plan area .*from the actual node extents/);
+          expect(all).toMatch(/Level \+0 m: plan area 0 m² \(from the loaded tributary areas\), self-weight [\d.]+ kN, superimposed dead 0 kN/);
+          expect(all).toMatch(/Level \+3\.2 m: plan area 30 m² \(from the loaded tributary areas\)/);
           // English decimal point on a non-integer level elevation or load.
           expect(all).toMatch(/\d+\.\d/);
           expect(all).not.toMatch(/Base de cálculo|Destino:|Nivel \+/);
         } else {
           expect(all).toContain('Base de cálculo');
           expect(all).toMatch(/Destino:/);
-          expect(all).toMatch(/de la extensión real de los nodos/);
+          expect(all).toMatch(/Nivel \+0 m: área en planta 0 m² \(de las áreas tributarias cargadas\), peso propio [\d,]+ kN, permanente 0 kN/);
+          expect(all).toMatch(/Nivel \+3,2 m: área en planta 30 m² \(de las áreas tributarias cargadas\)/);
           // Spanish decimal comma — the whole reason numbers are formatted at the boundary.
           expect(all).toMatch(/\d+,\d/);
           expect(all).not.toMatch(/Basis of calculation|Occupancy:|plan area/);

@@ -1,6 +1,21 @@
 import type { Translations } from '../types';
 
 const ru: Translations = {
+  'loadPlan.gravity.coveragePrecision': "Координаты покрытия оболочками выходят за пределы поддерживаемой точности интервалов на стержнях.",
+  'loadPlan.gravity.partitionFailed': "Не удалось разбить проекцию оболочек: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "При частичном покрытии оболочками полосы должны занимать весь пролёт между противоположными балками прямоугольной ячейки.",
+  'loadPlan.gravity.stripDirection': "Заданное направление одностороннего пролёта должно совпадать с направлением пролёта открытых полос.",
+  'loadPlan.gravity.nonplanarShell': "Четырёхугольник {id} неплоский. Для распределения гравитационных нагрузок требуются плоские оболочки.",
+  'loadPlan.gravity.unresolvedMember': "Стержень {id} лишь частично перекрыт оболочкой, и передача нагрузки с ячейки не определена.",
+  'loadPlan.gravity.differentDeck': "Перекрывающая оболочка должна относиться к тому же перекрытию, что и ячейка из балок.",
+  'loadPlan.gravity.differentSlopedDeck': "Перекрывающая наклонная оболочка должна относиться к тому же перекрытию, что и ячейка из балок.",
+  'loadPlan.gravity.deckCheckFailed': "Не удалось проверить покрытие перекрытия оболочками: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "Не удалось проверить открытость полос: {detail}",
+  'loadPlan.gravity.mixedExposure': "Открытые полосы включают участки кровли и междуэтажного перекрытия.",
+  'loadPlan.gravity.stripSpan': "Открытая полоса превышает максимальный пролёт перекрытия.",
+  'loadPlan.gravity.headroomCheckFailed': "Не удалось проверить высоту в свету над открытой полосой: {detail}",
+  'loadPlan.gravity.stripHeadroom': "Высота этажа в свету над открытой полосой недостаточна или не определена.",
+  'loadPlan.gravity.stripInterval': "Полоса гравитационной нагрузки на стержне {id} короче поддерживаемого интервала нагрузки.",
   'engine.memberLoad.geometryOrdering': "Недопустимый порядок геометрии созданного стержня",
   'engine.memberLoad.geometryLine': "Геометрия созданного стержня отклоняется от исходной линии",
   'engine.memberLoad.invalidGeometry': "Недопустимая геометрия созданного стержня",
