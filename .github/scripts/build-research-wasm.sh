@@ -9,6 +9,7 @@ declare -A script=(
   [fairclough-2026]=research/optimisation/fairclough-2026/wasm/build.sh
   [gay-neto-2014]=research/mechanics/gay-neto-2014/build.sh
   [feher-sipos-varkonyi-2026]=research/stability/feher-sipos-varkonyi-2026/build.sh
+  [heyman-1966]=research/mechanics/heyman-1966/build.sh
 )
 declare -A manifests=(
   [shauer-2025]="research/fracture/shauer-2025/wasm/Cargo.toml research/fracture/shauer-2025/Cargo.toml"
@@ -19,6 +20,7 @@ declare -A manifests=(
   [fairclough-2026]=research/optimisation/fairclough-2026/Cargo.toml
   [gay-neto-2014]=research/mechanics/gay-neto-2014/Cargo.toml
   [feher-sipos-varkonyi-2026]=research/stability/feher-sipos-varkonyi-2026/Cargo.toml
+  [heyman-1966]=research/mechanics/heyman-1966/Cargo.toml
 )
 if [[ ${1:-} == --list ]]; then
   for name in "${!script[@]}"; do echo "$name ${script[$name]} ${manifests[$name]}"; done | sort

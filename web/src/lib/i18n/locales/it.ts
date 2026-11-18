@@ -1,5 +1,32 @@
 import type { Translations } from '../types';
 const it: Translations = {
+  'loadPlan.gravity.coveragePrecision': "Le coordinate di copertura dei gusci superano la precisione supportata per gli intervalli degli elementi.",
+  'loadPlan.gravity.partitionFailed': "Suddivisione della proiezione dei gusci non riuscita: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "La copertura parziale con gusci richiede strisce che coprano l’intera luce tra i sostegni opposti di un pannello rettangolare di travi.",
+  'loadPlan.gravity.stripDirection': "La direzione di campata unidirezionale richiesta deve coincidere con quella delle strisce scoperte.",
+  'loadPlan.gravity.nonplanarShell': "Il quadrilatero {id} non è piano. La copertura con gusci per i carichi gravitazionali richiede gusci piani.",
+  'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
+  'loadPlan.gravity.differentDeck': "Il guscio di copertura deve appartenere allo stesso impalcato del pannello di travi.",
+  'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",
+  'loadPlan.gravity.deckCheckFailed': "Verifica della copertura dell’impalcato con gusci non riuscita: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "Verifica dell’esposizione delle strisce scoperte non riuscita: {detail}",
+  'loadPlan.gravity.mixedExposure': "Le strisce scoperte comprendono zone di copertura e di solaio.",
+  'loadPlan.gravity.stripSpan': "La striscia scoperta supera la luce massima dell’impalcato.",
+  'loadPlan.gravity.headroomCheckFailed': "Verifica dell’altezza libera della striscia scoperta non riuscita: {detail}",
+  'loadPlan.gravity.stripHeadroom': "L’altezza libera di piano della striscia scoperta è insufficiente o indeterminata.",
+  'loadPlan.gravity.stripInterval': "La striscia di carico gravitazionale sull’elemento {id} è più corta dell’intervallo di carico supportato.",
+  'engine.memberLoad.geometryOrdering': "Ordinamento geometrico non valido dell’asta generata",
+  'engine.memberLoad.geometryLine': "La geometria dell’asta generata si allontana dalla linea di origine",
+  'engine.memberLoad.invalidGeometry': "Geometria non valida dell’asta generata",
+  'engine.memberLoad.geometryPartition': "La geometria generata non suddivide l’asta di origine",
+  'engine.memberLoad.invalidPiece': "Tratto di carico non valido dell’asta generata",
+  'engine.memberLoad.geometrySpan': "Elemento {id}: la geometria generata modifica il tratto di origine {span} alla lunghezza {length}; i carichi distribuiti non possono essere riscalati",
+  "engine.memberLoad.invalidInterval": "Elemento {id}: intervallo di carico distribuito [{a}, {b}] non valido per la lunghezza {length}",
+  "engine.memberLoad.geometryLimit": "Elemento {id}: l’intervallo di carico distribuito [{a}, {b}] per la lunghezza {length} è inferiore al limite geometrico relativo {limit}",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy} richiede la verifica di carichi concentrati secondo CIRSOC 101 {article}. Le posizioni più sfavorevoli non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
+  "loadPlan.blocked.concentratedLive": "{occupancy} richiede la verifica di un sovraccarico concentrato di {force} kN secondo CIRSOC 101 §4.4. Le posizioni più sfavorevoli e l’alternativa tra carico uniforme e concentrato non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 richiede azioni concentrate sulla copertura nelle posizioni più sfavorevoli, separatamente dal sovraccarico di copertura di §4.8. Queste verifiche non sono valutate. La generazione automatica è bloccata; modellare e verificare le azioni di copertura manualmente.",
   "account.err.invalid_credentials": "L'indirizzo e-mail o la password non sono corretti.",
   // ─── Auth / Login ───
 

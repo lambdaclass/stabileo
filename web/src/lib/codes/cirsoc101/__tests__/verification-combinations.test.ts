@@ -267,20 +267,19 @@ describe('INPRES-CIRSOC 103-2018 §3.7.1 [3.16]/[3.17] and Tabla 3.3', () => {
     expect(ch3).toMatch(/No se requiere considerar la simultaneidad de viento y sismo/);
   });
 
-  it('combination 5 takes the larger of 101\'s and 103\'s companion factors', () => {
+  it('combination 5 preserves the flat-roof and physical seismic snow requirements', () => {
     const p: Present = { L: true, Lr: false, S: true, R: false, W: false, E: true, F: false, H: false };
     const five = (sc?: { f1?: number; f2?: number }, lo = 2) =>
       generateCombinations({ present: p, maxLoKNm2: lo, ...(sc ? { seismicCompanions: sc } : {}) }).find((c) => c.id === '5')!;
     const f = (c: ReturnType<typeof five>, s: LoadSymbol) => c.terms.find((t) => t.symbol === s)!.factor;
     // A dwelling (f1 = 0,25) under a roof that sheds snow (f2 = 0,20): 101's 0,5 L and 0,2 S govern.
     expect([f(five({ f1: 0.25, f2: 0.2 }), 'L'), f(five({ f1: 0.25, f2: 0.2 }), 'S')]).toEqual([0.5, 0.2]);
-    // A flat roof keeps its snow: f2 = 0,70 > 0,2.
-    expect(f(five({ f1: 0.25, f2: 0.7 }), 'S')).toBe(0.7);
+    expect(f(five({ f1: 0.25, f2: 0.7 }), 'S')).toBe(0.2);
+    expect(five({ f2: 0.7 }).terms.find(t => t.symbol === 'S')!.snowBasis).toBe('flatRoof');
     // Tanks normally full (f1 = 1,0) with Lo ≤ 5: 103 asks for all of L where 101 allows half.
     expect(f(five({ f1: 1.0 }), 'L')).toBe(1.0);
-    // Its loads-not-acting variants keep the raised factors.
     const all = generateCombinations({ present: p, maxLoKNm2: 2, seismicCompanions: { f1: 0.25, f2: 0.7 } }).filter((c) => c.basic === 5);
-    for (const c of all) { const s = c.terms.find((t) => t.symbol === 'S'); if (s) expect(s.factor).toBe(0.7); }
+    for (const c of all) { const s = c.terms.find((t) => t.symbol === 'S'); if (s) expect(s.factor).toBe(s.snowBasis === 'flatRoof' ? 0.2 : 0.7); }
     // Without the seismic code's figures, combination 5 as CIRSOC 101 prints it.
     expect(f(five(), 'S')).toBe(0.2);
   });

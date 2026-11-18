@@ -1,0 +1,39 @@
+{
+  "id": "wind-pressure-work-moments",
+  "date": "2026-11-16",
+  "prs": [
+    2220
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Wind pressure work moments and sign forces",
+    "es": "Momentos de trabajo de presión de viento y fuerzas en carteles",
+    "pt": "Momentos de trabalho da pressão do vento e forças em placas",
+    "de": "Arbeitsmomente des Winddrucks und Kräfte auf Schilder",
+    "fr": "Moments de travail de la pression du vent et forces sur panneaux",
+    "tr": "Rüzgâr basıncının iş momentleri ve levha kuvvetleri",
+    "hu": "A szélnyomás munkamomentumai és a táblák erői"
+  },
+  "explanation": {
+    "en": "Unmerged PR #2220 builds could accept an incorrect affine replacement for cubic wind pressure, introduce pressure of the opposite sign and change member forces and deflection. The shared integrator now independently checks moments through degree three and preserves one-signed pressure. Solid-sign reported forces now integrate the applied physical width. Regenerate W and Wa, then rerun analyses, combinations and design checks. Re-solving stored loads alone does not repair them (#2220).",
+    "es": "Las versiones sin integrar de PR #2220 podían aceptar una aproximación lineal incorrecta de presión cúbica, invertir su signo y cambiar esfuerzos y deformaciones. El integrador verifica independientemente los momentos hasta grado tres y conserva el signo de presiones de un solo signo. Las fuerzas informadas para carteles sólidos integran el ancho físico aplicado. Regenerá W y Wa y repetí análisis, combinaciones y verificaciones. Recalcular cargas guardadas no las corrige (#2220).",
+    "pt": "Versões não integradas do PR #2220 podiam aceitar uma aproximação linear incorreta de pressão cúbica, inverter seu sinal e alterar esforços e deslocamentos. O integrador verifica independentemente os momentos até grau três e preserva pressões de um único sinal. As forças informadas para placas sólidas integram a largura física aplicada. Gere W e Wa novamente e refaça análises, combinações e verificações. Recalcular cargas salvas não as corrige (#2220).",
+    "de": "Nicht zusammengeführte Builds von PR #2220 konnten kubischen Winddruck falsch linear annähern, das Druckvorzeichen umkehren und Stabkräfte und Verformungen ändern. Der gemeinsame Integrator prüft nun unabhängig Momente bis Grad drei und erhält einheitliche Druckvorzeichen. Berichtete Kräfte auf geschlossene Schilder integrieren die tatsächlich belastete Breite. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert sie nicht (#2220).",
+    "fr": "Les versions non fusionnées de la PR #2220 pouvaient accepter une approximation affine incorrecte de pression cubique, inverser son signe et modifier efforts et déplacements. L’intégrateur commun vérifie indépendamment les moments jusqu’au degré trois et préserve les pressions de signe constant. Les forces annoncées pour les panneaux pleins intègrent la largeur physique appliquée. Régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas (#2220).",
+    "tr": "Birleştirilmemiş PR #2220 sürümleri kübik rüzgâr basıncının hatalı doğrusal yaklaşımını kabul edebiliyor, basıncın işaretini tersine çevirip çubuk kuvvetlerini ve yer değiştirmeleri değiştirebiliyordu. Ortak integratör üçüncü dereceye kadar momentleri bağımsız denetler ve tek işaretli basıncı korur. Dolu levhaların raporlanan kuvvetleri uygulanan fiziksel genişlik üzerinden hesaplanır. W ve Wa yüklerini yeniden üretin; analiz, birleşim ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2220).",
+    "hu": "A még nem egyesített #2220 PR a köbös szélnyomás hibás lineáris közelítését fogadhatta el, megfordíthatta a nyomás előjelét, és módosíthatta a rúderőket és elmozdulásokat. A közös integrátor a harmadfokig terjedő momentumokat függetlenül ellenőrzi, és megőrzi az állandó előjelű nyomást. A tömör táblák közölt erői a ténylegesen terhelt szélesség integráljából származnak. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket (#2220)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-pressure-work-moments.md",
+    "heading": "Wind pressure work moments and sign forces"
+  }
+}

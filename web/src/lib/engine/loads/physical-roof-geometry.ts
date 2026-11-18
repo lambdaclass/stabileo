@@ -20,22 +20,22 @@ export function collinearSnowMembers<M extends SnowMember>(members: M[], m: M, g
   }));
 }
 
-export function connectedSnowMembers<M extends { a: Point; b: Point }>(m: M, supported: M[]): M[] {
+export function connectedSnowMembers<M extends { a: Point; b: Point }>(m: M, supported: M[], samePoint = sameSnowPoint): M[] {
   const connected = new Set([m]);
   for (const r of connected) for (const q of supported) {
-    if ([r.a, r.b].some(a => [q.a, q.b].some(b => sameSnowPoint(a, b)))) connected.add(q);
+    if ([r.a, r.b].some(a => [q.a, q.b].some(b => samePoint(a, b)))) connected.add(q);
   }
   return [...connected];
 }
 
 
-export function physicalRoofRuns<M extends SnowMember & { id: number; dz: number }>(members: M[]) {
+export function physicalRoofRuns<M extends SnowMember & { id: number; dz: number }>(members: M[], samePoint = sameSnowPoint) {
   const remaining = new Set(members);
   const runs: Array<{ direction: P2; length: number; a: Point; b: Point; members: Set<number> }> = [];
   for (const m of members) {
     if (!remaining.has(m) || m.lh === 0) continue;
     const gradient: P2 = [m.dz * m.dx / m.lh ** 2, m.dz * m.dy / m.lh ** 2];
-    const group = connectedSnowMembers(m, collinearSnowMembers(members, m, gradient));
+    const group = connectedSnowMembers(m, collinearSnowMembers(members, m, gradient), samePoint);
     for (const member of group) remaining.delete(member);
     const direction: P2 = [m.dx / m.lh, m.dy / m.lh];
     const coordinate = (p: Point) => snowCoordinate([p.x, p.y], [m.a.x, m.a.y], direction);

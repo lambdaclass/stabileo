@@ -2,6 +2,9 @@
 //! `properties_3d`: result flattening, scale-aware comparison, and rotations.
 #![allow(dead_code)]
 
+mod equilibrium;
+pub use equilibrium::{equilibrium_tolerance, MemberResultant, NodalEquilibrium};
+
 use proptest::test_runner::{Config, FileFailurePersistence};
 
 /// Proptest config: `cases` random models per property, no regression files

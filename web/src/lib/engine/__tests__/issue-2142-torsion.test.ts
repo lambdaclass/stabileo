@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest';
 import main from './fixtures/issue-2142-main.json';
 import { checkTorsion, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
-import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
+import { checkTorsion2025, resolveCage, secondaryShearFace } from '../../codes/cirsoc201/torsion';
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import { autoVerifyFromResults } from '../auto-verify';
@@ -13,7 +13,10 @@ import type { SolverInput3D } from '../types-3d';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
-const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
+const depth = (h: number, diameter = p.stirrupDia, longitudinalDiameter = 16) => h - p.cover - diameter / 1000 - longitudinalDiameter / 2000;
+const selectedBarDiameter = (member: 'beam' | 'column' | 'wall') => member === 'beam' ? 20 : 12;
+const torsionFace = secondaryShearFace(p, resolveCage(p, { diameter: p.stirrupDia, legs: 4, spacing: 0.05 }),
+  { kind: 'beam-or-wall', diameters: [16] });
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
@@ -21,12 +24,13 @@ const demand = (primary: number, secondary: number, torque: number, axis: 'My' |
     vy: axis === 'My' ? secondary : primary, vz: axis === 'My' ? primary : secondary, torsion: torque } },
 ])[0]!.section(axis);
 
-function reference(primary: number, secondary: number, torque: number, b = p.b, h = p.h) {
-  const x = b - 2 * p.cover - p.stirrupDia / 1000;
-  const y = h - 2 * p.cover - p.stirrupDia / 1000;
+function reference(primary: number, secondary: number, torque: number, longitudinalDiameter = 16, diameter = p.stirrupDia) {
+  const { b, h } = p;
+  const x = b - 2 * p.cover - diameter / 1000;
+  const y = h - 2 * p.cover - diameter / 1000;
   const Aoh = x * y, ph = 2 * (x + y);
   const limit = 0.75 * (0.17 * Math.sqrt(p.fc) + 0.66 * Math.sqrt(p.fc)) * 1000;
-  const v = Math.max(Math.abs(primary) / (b * depth(h)), Math.abs(secondary) / (h * depth(b)));
+  const v = Math.max(Math.abs(primary) / (b * depth(h, diameter)), Math.abs(secondary) / (h * depth(b, diameter, longitudinalDiameter)));
   const torsionPerUnit = ph / (1.7 * Aoh ** 2);
   const capacity = v >= limit ? 0 : Math.sqrt(limit ** 2 - v ** 2) / torsionPerUnit;
   return { sectionRatio: Math.sqrt(v ** 2 + (torque * torsionPerUnit) ** 2) / limit,
@@ -35,10 +39,11 @@ function reference(primary: number, secondary: number, torque: number, b = p.b, 
 
 for (const edition of ['2005', '2025'] as const) {
   it(`exact column witness ${edition}: ${clause}`, () => {
-    const d = demand(0, 100, 57), expected = reference(0, 100, 57);
+    const d = demand(0, 100, 57), expected = reference(0, 100, 57, selectedBarDiameter('column'));
     expect(expected.sectionRatio).toBeGreaterThan(1);
     expect(expected.ratio).toBeGreaterThan(1);
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'column', demand: d }, fixed);
+    expect(v.column?.barDia).toBe(selectedBarDiameter('column'));
     expect(v.torsion!.phiTn).toBeCloseTo(expected.phiTn, 11);
     expect(v.torsion!.ratio).toBeCloseTo(expected.ratio, 12);
     expect(v.torsion!.status).toBe('fail');
@@ -51,13 +56,15 @@ for (const edition of ['2005', '2025'] as const) {
         it(`section boundary ${edition} ${axis} ${elementType} ${entry} ${shearAxis} ${factor}: ${clause}`, () => {
           const primary = shearAxis === 'secondary' ? 0 : 100;
           const secondary = shearAxis === 'primary' ? 0 : -100;
-          const torque = reference(primary, secondary, 0).phiTn * factor;
-          const expected = reference(primary, secondary, torque);
+          const diameter = entry === 'torsion' ? 16 : selectedBarDiameter(elementType);
+          const torque = reference(primary, secondary, 0, diameter).phiTn * factor;
+          const expected = reference(primary, secondary, torque, diameter);
           const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
+          if (v) expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
-          const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
+          const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
           expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
           expect(t.ratio).toBeCloseTo(expected.ratio, 12);
           if (factor > 1) {
@@ -73,7 +80,7 @@ for (const edition of ['2005', '2025'] as const) {
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
           : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
         if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
-        const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
+        const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
         const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
         expect(t).toMatchObject(baseline);
         expect(t.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
@@ -86,16 +93,18 @@ for (const edition of ['2005', '2025'] as const) {
 
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
   it(`provided steel module ${axis} ${factor}: ${clause}`, () => {
-    const torque = reference(0, 100, 0).phiTn * factor;
-    const r = checkTorsion2025({ ...p, d: depth(p.h), dSecondary: depth(p.b), stirrupDiaMm: p.stirrupDia,
-      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
-    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque).sectionRatio, 12);
+    const diameter = 16;
+    const dSecondary = depth(p.b, diameter);
+    const torque = reference(0, 100, 0, 16, diameter).phiTn * factor;
+    const r = checkTorsion2025({ ...p, d: depth(p.h, diameter), dSecondary, stirrupDiaMm: diameter,
+      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter, legs: 4, spacing: 0.05 } });
+    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque, 16, diameter).sectionRatio, 12);
     const vc = 0.17 * Math.sqrt(p.fc) * 1000;
-    const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * depth(p.b));
-    const requiredShear = vsSecondary / (p.fy * 1000 * depth(p.b));
-    const Aoh = (p.b - 2 * p.cover - p.stirrupDia / 1000) * (p.h - 2 * p.cover - p.stirrupDia / 1000);
+    const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * dSecondary);
+    const requiredShear = vsSecondary / (p.fy * 1000 * dSecondary);
+    const Aoh = (p.b - 2 * p.cover - diameter / 1000) * (p.h - 2 * p.cover - diameter / 1000);
     const requiredTorsion = torque / (0.75 * 2 * 0.85 * Aoh * p.fy * 1000);
-    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.b / p.fy), 15);
+    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.h / p.fy), 15);
     expect(r.ratio > 1).toBe(factor > 1);
   });
 }
@@ -103,7 +112,7 @@ for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
   it(`shear alone fills the section ${axis} ${factor}: ${clause}`, () => {
     const secondary = p.h * depth(p.b) * 0.75 * (0.17 + 0.66) * Math.sqrt(p.fc) * 1000 * factor;
-    const t = checkTorsion(p, demand(0, secondary, 6, axis), '2025');
+    const t = checkTorsion(p, demand(0, secondary, 6, axis), '2025', torsionFace);
     const expected = reference(0, secondary, 6);
     expect(t.phiTn).toBeCloseTo(expected.phiTn, 10);
     if (expected.ratio === Infinity) expect(t.ratio).toBe(Infinity);
@@ -165,7 +174,9 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
       for (const elementType of ['beam', 'column', 'wall'] as const) {
         const input = { ...p, elementId: 1, elementType, demand: d };
         for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement(ds.map(source => ({ ...p, elementId: 1, elementType, demand: source.section('My') })))]) {
-          expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu).ratio, 12);
+          const diameter = selectedBarDiameter(elementType);
+          expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
+          expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu, diameter).ratio, 12);
           expect(v.torsion!.status).toBe('fail');
           expect(v.overallStatus).toBe('fail');
         }
@@ -189,7 +200,8 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) for 
       unified: () => runUnifiedVerification(raw, m, null, complete.demands)[0]!,
       design: () => runCirsocDesign(raw, m, complete.demands, new Map(), null).concrete[0]! }[entry]();
     expect(v.flexureAxis).toBe('My');
-    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57).ratio, 12);
+    expect(v.flexure.barDia).toBe(selectedBarDiameter('beam'));
+    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57, selectedBarDiameter('beam')).ratio, 12);
     expect(v.torsion!.status).toBe('fail');
     expect(v.overallStatus).toBe('fail');
   });
@@ -213,7 +225,6 @@ for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control no
   }
 });
 
-const phiTth = 0.75 * 0.083 * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
 const cage = { diameter: p.stirrupDia, legs: 4, spacing: 0.05 };
 function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025', layout: 'none' | 'support' | 'span' | 'all' | 'legacy', stations?: Parameters<typeof verifyProvidedReinforcement>[6]) {
   const d = demand(0, 0, torque, axis);
@@ -233,6 +244,7 @@ function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025
   });
 }
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
+  const phiTth = 0.75 * (edition === '2005' ? 1 / 12 : 0.083) * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
   for (const layout of ['none', 'support', 'span'] as const) {
     for (const torque of [phiTth, phiTth * (1 + 1e-5), reference(0, 0, 0).phiTn * (1 - 1e-5), reference(0, 0, 0).phiTn * (1 + 1e-5)]) {
       it(`known wrong result: #2142 zero-shear beam reports missing torsion stirrups ${edition} ${axis} ${layout} ${torque}`, () => {
@@ -242,13 +254,10 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(r.checkedAxes).toContain('T');
         for (const c of rows) {
           expect(c.description).toContain(`sección ${reference(0, 0, torque).sectionRatio.toFixed(2)}`);
-          const missing = layout === 'none' || (layout === 'support' ? c.category.includes('Span') : c.category.includes('Support'));
-          expect(c.missingReinforcement === true).toBe(missing);
-          if (missing) {
-            expect(c.status).toBe('fail');
-            expect(c.ratio).toBe(Infinity);
-            expect(c.description).toContain('no stirrups provided');
-          }
+          expect(c.missingReinforcement).toBe(true);
+          expect(c.status).toBe('fail');
+          expect(c.ratio).toBe(Infinity);
+          expect(c.description).toContain('no stirrups provided');
         }
         expect(r.overallStatus).toBe('fail');
       });

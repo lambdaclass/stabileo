@@ -317,7 +317,7 @@
             <Segmented label={strings.view} bind:value={view} options={[{ id: 'plate', label: strings.plate }, { id: 'band', label: strings.crackBand }, { id: 'tip', label: strings.notchTip }]} />
           </div>
           <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onclickcapture={() => playback.interact()}>
-            <StabileoViewer
+            <StabileoViewer plane="elevation"
               editorButton={false}
               xy={nodes}
               cells={elements}

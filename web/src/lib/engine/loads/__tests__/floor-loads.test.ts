@@ -246,7 +246,8 @@ describe('zones, suction and inclined floors', () => {
   it('a zone: only its outline less its opening is loaded', () => {
     const m = panelModel([[0, 0], [8, 0], [8, 6], [0, 6]]);
     const zone = { outer: [[0, 0, 3], [4, 0, 3], [4, 6, 3], [0, 6, 3]] as Array<[number, number, number]>, holes: [[[1, 2, 3], [3, 2, 3], [3, 4, 3], [1, 4, 3]] as Array<[number, number, number]>] };
-    const r = floorLoad({ ...m, q: 3, distribution: 'twoWay', zone });
+    const r = floorLoad({ ...m, q: 3, distribution: 'oneWay', spanAxis: 'y', zone });
+    expect(floorLoad({ ...m, q: 3, distribution: 'twoWay', zone })).toMatchObject({ refusal: 'eccentricZone', loads: [] });
     expect(r.loadedArea).toBeCloseTo(24 - 4, 6);
     expect(r.totalKN).toBeCloseTo(3 * 20, 6);
     // The right side (x = 8) is outside the zone: nothing reaches it.

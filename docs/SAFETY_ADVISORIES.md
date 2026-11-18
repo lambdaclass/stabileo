@@ -139,3 +139,5 @@ Re-run affected concrete and steel checks and member-load analyses. Regenerate
 all affected generated area loads before re-solving. Review earlier calculations
 and sizing. See the [release notes](releases/v0.6.2.md) for all result changes
 and known open findings.
+
+[SA-2026-082](advisories/SA-2026-082-snow-companion-basis.md) records companion combinations selecting the wrong snow member loading (#2211). Regenerate snow loads and combinations, then rerun analyses and design checks. Draft 2026-11-16; pending merge and release (#2233).

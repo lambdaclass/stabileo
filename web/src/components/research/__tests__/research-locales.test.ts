@@ -8,6 +8,7 @@ import { text as andreassen } from '../andreassen2011/i18n';
 import { translations as biggins } from '../biggins2026/strings';
 import { translations as riser } from '../gayNeto2014/strings';
 import { translations as shape } from '../feher2026/strings';
+import { translations as heyman } from '../heyman1966/strings';
 import { translations as cqc } from '../cqc1981/strings';
 import { strings as dadeppo } from '../dadeppo1975/i18n';
 import { translations as fairclough } from '../fairclough2026/translations';
@@ -37,6 +38,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/mechanics/biggins-2026': [biggins],
   '/research/mechanics/gay-neto-2014': [riser],
   '/research/stability/feher-sipos-varkonyi-2026': [shape],
+  '/research/mechanics/heyman-1966': [heyman],
   '/research/benchmarks/cqc-1981': [cqc],
   '/research/benchmarks/dadeppo-arch-1975': [dadeppo],
   '/research/optimisation/fairclough-2026': [fairclough],

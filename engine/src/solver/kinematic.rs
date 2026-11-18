@@ -27,6 +27,28 @@ pub struct KinematicResult {
     /// channel the solve would have used (`Error al resolver: …`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invalid_input: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalid_input_kind: Option<KinematicInputError>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum KinematicInputError {
+    UnsupportedNodalMoment,
+}
+
+fn unsupported_nodal_moment(input: &SolverInput) -> bool {
+    if !input.loads.iter().all(|load| match load {
+        SolverLoad::Nodal(n) => n.my.is_finite(),
+        _ => true,
+    }) || super::linear::refuse_moments_without_rotation_2d(input, &input.loads).is_ok() {
+        return false;
+    }
+    let mut probe = input.clone();
+    for load in &mut probe.loads {
+        if let SolverLoad::Nodal(n) = load { n.my = 0.0; }
+    }
+    super::linear::validate_input_2d(&probe).is_ok()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -159,6 +181,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
             invalid_input: Some(reason),
+            invalid_input_kind: unsupported_nodal_moment(input).then_some(KinematicInputError::UnsupportedNodalMoment),
         };
     }
 
@@ -177,6 +200,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
             invalid_input: None,
+            invalid_input_kind: None,
         };
     }
 
@@ -212,6 +236,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
             invalid_input: Some(reason),
+            invalid_input_kind: None,
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -283,6 +308,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         diagnosis,
         is_solvable,
         invalid_input: None,
+        invalid_input_kind: None,
     }
 }
 
@@ -415,6 +441,7 @@ fn fast_solvable_2d(
             diagnosis: build_diagnosis_2d(degree, 0, &[], &[]),
             is_solvable: true,
             invalid_input: None,
+            invalid_input_kind: None,
         }
     })
 }
@@ -528,6 +555,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             diagnosis: "El modelo no puede analizarse porque tiene datos inválidos.".into(),
             is_solvable: false,
             invalid_input: Some(reason),
+            invalid_input_kind: None,
         };
     }
 
@@ -546,6 +574,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             diagnosis: "Todos los GDL están restringidos.".into(),
             is_solvable: true,
             invalid_input: None,
+            invalid_input_kind: None,
         };
     }
 
@@ -567,6 +596,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
             diagnosis: "El modelo no puede analizarse: una restricción no puede imponerse.".into(),
             is_solvable: false,
             invalid_input: Some(reason),
+            invalid_input_kind: None,
         },
     };
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
@@ -638,6 +668,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         diagnosis,
         is_solvable,
         invalid_input: None,
+        invalid_input_kind: None,
     }
 }
 

@@ -1,0 +1,55 @@
+{
+  "id": "planar-remapped-load-integrals",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ],
+      [
+        "partialDistributedMemberLoads"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "hinges",
+    "steps",
+    "isMechanism",
+    "unresolved",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Sub-limit member load intervals are refused",
+    "es": "Se rechazan intervalos de carga inferiores al límite geométrico",
+    "pt": "Intervalos de carga abaixo do limite geométrico são recusados",
+    "de": "Stablastintervalle unter der Geometriegrenze werden abgelehnt",
+    "fr": "Les intervalles de charge sous la limite géométrique sont refusés",
+    "hu": "A geometriai határ alatti teherintervallumok elutasítva",
+    "tr": "Geometri sınırının altındaki yük aralıkları reddedilir"
+  },
+  "explanation": {
+    "en": "Rerun analyses with partial member loads. Intervals narrower than 1e-10 of the member length are refused with the member and interval identified. Loads are never discarded or converted into forces or couples. Previously, very narrow loads could disappear while balance checks passed (#2222). Supported partial loads survive subdivision with interpolated intensities and exact partial endpoints; dependent results can change.",
+    "es": "Repita los análisis con cargas parciales. Los intervalos menores que 1e-10 de la longitud de la barra se rechazan indicando barra e intervalo. No se descartan ni convierten en fuerzas o pares. Antes podían desaparecer pese a superar el equilibrio (#2222). Las cargas parciales admitidas se conservan al subdividir con intensidades interpoladas y extremos parciales exactos; los resultados que dependen de ellas pueden cambiar.",
+    "pt": "Refaça análises com cargas parciais. Intervalos menores que 1e-10 do comprimento da barra são recusados com identificação da barra e do intervalo. Não são descartados nem convertidos em forças ou momentos. Antes podiam desaparecer com equilíbrio aprovado (#2222). As cargas parciais admitidas são preservadas na subdivisão com intensidades interpoladas e extremos parciais exatos; os resultados que dependem delas podem mudar.",
+    "de": "Analysen mit Teillasten erneut berechnen. Intervalle kleiner als 1e-10 der Stablänge werden mit Stab und Intervall abgelehnt, weder verworfen noch in Kräfte oder Momente umgewandelt. Zuvor konnten sie trotz bestandener Gleichgewichtsprüfung verschwinden (#2222). Zulässige Teillasten bleiben bei der Unterteilung mit interpolierten Lastintensitäten und exakten Teilintervallenden erhalten; davon abhängige Ergebnisse können sich ändern.",
+    "fr": "Relancer les analyses avec charges partielles. Les intervalles inférieurs à 1e-10 de la longueur de barre sont refusés en identifiant barre et intervalle. Ils ne sont ni supprimés ni convertis en forces ou couples. Ils pouvaient auparavant disparaître malgré un équilibre validé (#2222). Les charges partielles admises sont conservées lors de la subdivision avec des intensités interpolées et des extrémités partielles exactes ; les résultats qui en dépendent peuvent changer.",
+    "hu": "Futtassa újra a részleges rúdterhes elemzéseket. A rúdhossz 1e-10 részénél kisebb intervallumok elutasítást kapnak a rúd és intervallum megjelölésével. Nem törlődnek és nem alakulnak erővé vagy nyomatékká. Korábban sikeres egyensúlyellenőrzés mellett eltűnhettek (#2222). A megengedett részleges terhek interpolált intenzitással és pontos részintervallum-végpontokkal maradnak meg a felosztás során; a tőlük függő eredmények változhatnak.",
+    "tr": "Kısmi çubuk yükleri içeren analizleri yeniden çalıştırın. Çubuk uzunluğunun 1e-10 oranından dar aralıklar çubuk ve aralık belirtilerek reddedilir. Yükler atılmaz veya kuvvet ya da momente dönüştürülmez. Önceden denge kontrolü geçerken kaybolabiliyorlardı (#2222). Desteklenen kısmi yükler, alt bölümlere ayırma sırasında enterpole edilmiş şiddetler ve tam kısmi aralık uçlarıyla korunur; bunlara bağlı sonuçlar değişebilir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Compensated force totals and remapped load refusal (round 6–7, #2223)"
+  }
+}

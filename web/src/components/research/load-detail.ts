@@ -12,6 +12,7 @@ export const researchDetails: Record<string, () => Promise<{ default: Component 
   '/research/mechanics/biggins-2026': () => import('./biggins2026/BigginsPage.svelte'),
   '/research/mechanics/gay-neto-2014': () => import('./gayNeto2014/RiserPage.svelte'),
   '/research/stability/feher-sipos-varkonyi-2026': () => import('./feher2026/ShapePage.svelte'),
+  '/research/mechanics/heyman-1966': () => import('./heyman1966/ArchPage.svelte'),
   '/research/optimisation/fairclough-2026': () => import('./fairclough2026/FaircloughPage.svelte'),
   '/research/benchmarks/newmark-1959': () => import('./newmark1959/NewmarkPage.svelte'),
   '/research/benchmarks/cqc-1981': () => import('./cqc1981/CqcPage.svelte'),

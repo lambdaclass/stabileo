@@ -1,4 +1,6 @@
 <script lang="ts">
+  import OutdatedNotice from './design/OutdatedNotice.svelte';
+  import { AUTO_LOAD_AUDIT_FEATURES, LOAD_AUDIT_FEATURES } from '../../lib/provenance/under-audit';
   import Hint from './Hint.svelte';
   import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
@@ -8,6 +10,7 @@
   import { t, tp } from '../../lib/i18n';
   import { identifyMessages } from '../../lib/codes/message';
   import { te } from '../../lib/i18n/engine-text';
+  import { engineFailureMessage } from '../../lib/engine/engine-unavailable';
   // The ONE authoritative generator. The legacy auto-loads / wind-loads production path
   // is gone: it implemented the 2005 editions, had no wind pressure coefficients, and
   // built the seismic weight on a literal "* 50 // rough 50m2 per floor".
@@ -64,7 +67,8 @@
   import type { PeriodSystem, PlanRegularity } from '../../lib/codes/cirsoc103/static-method';
 
   /** Which load the reader came in to define. */
-  export type AutoLoadFocus = 'dead' | 'live' | 'roof' | 'wind' | 'snow' | 'seismic' | 'special' | 'combos';
+  import type { AutoLoadFocus } from './auto-loads-sections';
+  export type { AutoLoadFocus } from './auto-loads-sections';
 
   interface Props {
     open: boolean;
@@ -331,7 +335,15 @@
    * Only while the dialog is open: it lays out the whole model's gravity loads.
    */
   const autoRoofWeight = $derived(open && roofCfg.enabled && !roofCfg.weight
-    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead)
+    ? (() => {
+        try {
+          return roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead);
+        } catch (error) {
+          const message = engineFailureMessage(error);
+          if (!message) throw error;
+          return message;
+        }
+      })()
     : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
@@ -394,6 +406,7 @@
       materials: modelStore.model.materials as never,
       loadCases: modelStore.model.loadCases,
       quads: modelStore.model.quads as never,
+      constraints: modelStore.model.constraints,
     };
   }
 
@@ -661,7 +674,7 @@
 
   // ─── The navigation: each section, and what it comes to ─────────
   const snowNow = $derived(snowCfg.enabled ? snowPreview(snowCfg, snowRoof) : null);
-  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight) : null);
+  const lrNow = $derived(roofCfg.enabled && roofCfg.use === 'maintenance' && typeof autoRoofWeight !== 'object' ? roofLrRange(roofCfg, totalDead, snowRoof?.slopeDeg ?? windRoofSlope, autoRoofWeight) : null);
   const specialOn = $derived([special.thermal.on && 'T', special.soil.on && 'H', special.fluid.on && 'F'].filter(Boolean) as string[]);
   const f2 = (v: number) => v.toFixed(2);
   interface NavItem { id: Section; symbol?: string; labelKey: string; status: string | null; on: boolean }
@@ -674,7 +687,7 @@
       { id: 'dead', symbol: 'D', labelKey: 'autoLoad.nav.dead', on: true, status: aq(totalDead) },
       { id: 'live', symbol: 'L', labelKey: 'autoLoad.nav.live', on: true, status: aq(occupancyQ + partitionAllowance.qKNm2) },
       { id: 'roof', symbol: 'Lr', labelKey: 'autoLoad.roof.title', on: roofCfg.enabled,
-        status: !roofCfg.enabled ? null : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
+        status: !roofCfg.enabled ? null : typeof autoRoofWeight === 'object' ? t('autoLoad.blocked') : lrNow ? `${f2(toQ(lrNow.lo, "areaLoad"))}–${f2(toQ(lrNow.hi, "areaLoad"))}` : t('autoLoad.roof.occupancyShort') },
       { id: 'wind', symbol: 'W', labelKey: 'autoLoad.wind', on: enableWind, status: enableWind ? `V ${+toQ(windV, 'speed').toFixed(1)} ${unitQ('speed')}` : null },
       { id: 'snow', symbol: 'S', labelKey: 'autoLoad.snow', on: snowCfg.enabled,
         status: snowNow && !snowNow.refused ? aq(snowNow.ps) : null },
@@ -732,6 +745,7 @@
           <div class="al-pane-head"><h3>{t('autoLoad.previewTitle')}</h3></div>
           <div class="al-pane-scroll">
           <div class="al-preview" data-testid="al-preview">
+            <OutdatedNotice audit={plan.cases.map((c) => LOAD_AUDIT_FEATURES[c.type])} />
             {#if plan.outcome === 'BLOCKED'}
               <p class="al-error" data-testid="al-blocked">{t('autoLoad.blocked')}</p>
               <ul class="al-list">
@@ -842,6 +856,7 @@
           </div>
         {:else}
           <!-- The chosen section: its name, its regulation and what it comes to, then its fields. -->
+          <OutdatedNotice audit={[section in AUTO_LOAD_AUDIT_FEATURES ? AUTO_LOAD_AUDIT_FEATURES[section as AutoLoadFocus] : null]} />
           {#if section === 'regulations'}
             <div class="al-pane-head"><h3>{t('autoLoad.appliedRegulations')}</h3></div>
             <div class="al-pane-scroll">

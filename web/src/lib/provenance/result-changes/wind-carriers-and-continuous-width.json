@@ -1,0 +1,39 @@
+{
+  "id": "wind-carriers-and-continuous-width",
+  "date": "2026-11-16",
+  "prs": [
+    2220
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "generatedWindLoads"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Wind carriers and continuous tapered widths",
+    "es": "Soportes de viento y anchos variables continuos",
+    "pt": "Suportes de vento e larguras variáveis contínuas",
+    "de": "Windlastträger und stetige veränderliche Breiten",
+    "fr": "Supports de vent et largeurs variables continues",
+    "tr": "Rüzgâr taşıyıcıları ve sürekli değişen genişlikler",
+    "hu": "Szélteherhordók és folytonosan változó szélességek"
+  },
+  "explanation": {
+    "en": "Unmerged PR #2220 builds could refuse braced towers, change tapered member loads on subdivision, or fail large wind previews. Cross braces now stay outside the column tributary partition, and each height field chooses physical or declared width consistently. Regenerate W and Wa and rerun analyses, combinations and design checks. Re-solving stored loads alone does not repair them (#2220).",
+    "es": "Las versiones sin integrar de PR #2220 podían rechazar torres arriostradas, cambiar las cargas de miembros de ancho variable al subdividirlos o fallar en vistas previas grandes. Las diagonales quedan fuera del reparto tributario entre columnas y cada campo usa de forma coherente el ancho físico o declarado. Regenerá W y Wa y repetí análisis, combinaciones y verificaciones. Recalcular las cargas guardadas no las corrige (#2220).",
+    "pt": "Versões não integradas do PR #2220 podiam recusar torres contraventadas, alterar cargas em membros de largura variável após subdivisão ou falhar em prévias grandes. As diagonais ficam fora da divisão tributária entre pilares e cada campo usa consistentemente a largura física ou declarada. Gere W e Wa novamente e refaça análises, combinações e verificações. Recalcular cargas salvas não as corrige (#2220).",
+    "de": "Nicht zusammengeführte Builds von PR #2220 konnten ausgesteifte Türme ablehnen, Stablasten bei veränderlicher Breite durch Unterteilung ändern oder große Windlastvorschauen abbrechen. Kreuzstreben bleiben außerhalb der Stützenlastaufteilung; jedes Höhenfeld verwendet einheitlich die physische oder angegebene Breite. W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert sie nicht (#2220).",
+    "fr": "Les versions non fusionnées de la PR #2220 pouvaient refuser des tours contreventées, modifier les charges de barres de largeur variable après subdivision ou échouer sur de grandes prévisualisations. Les diagonales restent hors du partage tributaire entre poteaux et chaque champ utilise uniformément la largeur physique ou déclarée. Régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas (#2220).",
+    "tr": "Birleştirilmemiş PR #2220 sürümleri çaprazlı kuleleri reddedebiliyor, değişken genişlikli çubuk yüklerini alt bölümlere ayırınca değiştirebiliyor veya büyük rüzgâr önizlemelerinde hata verebiliyordu. Çaprazlar kolonların yük alanı paylaşımının dışında tutulur; her yükseklik alanı fiziksel ya da belirtilen genişliği tutarlı kullanır. W ve Wa yüklerini yeniden üretin; analiz, birleşim ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek bunları düzeltmez (#2220).",
+    "hu": "A még nem egyesített #2220 PR merevített tornyokat utasíthatott el, felosztáskor módosíthatta a változó szélességű rudak terheit, vagy nagy szélelőnézeteknél hibát okozhatott. Az átlók kimaradnak az oszlopok hatásterületi felosztásából, és minden magassági mező következetesen a fizikai vagy a megadott szélességet használja. Állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket (#2220)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-wind-carriers-and-continuous-width.md",
+    "heading": "Wind carriers and continuous tapered widths"
+  }
+}

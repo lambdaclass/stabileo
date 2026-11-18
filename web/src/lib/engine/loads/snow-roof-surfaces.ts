@@ -14,7 +14,7 @@ export function onSnowRoof(layout: GravityLayout, piece: { elementId: number; ro
   return only.has(piece.elementId) && (piece.roof || !layout.roof.has(piece.elementId));
 }
 
-class SnowRoofPlaneRefusal extends Error {
+export class SnowRoofPlaneRefusal extends Error {
   constructor() { super('snow.refused.roofPlane'); }
 }
 export function boundedSnowIntensity(qI: number, centre: number, qJ: number, referenceScale = 0) {

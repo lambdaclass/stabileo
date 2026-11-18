@@ -26,8 +26,6 @@ web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Bottom Start') || cat.startsWith('Bottom End')) want.add('span');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Support')) { want.add('span'); want.add('start'); want.add('end'); }
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Span')) want.add('span');
-web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Support')) want.add('stirSup');
-web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Span')) want.add('stirSpan');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Support')) want.add('stirSup');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Span')) want.add('stirSpan');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');
@@ -184,3 +182,6 @@ scripts/plastic-budget-corpus.py: assert any("PL-3D-CERTIFICATE-MISMATCH" in war
 ## Translates an Ecto validation message the accounts backend returns for a form field: a wording change shows the server's English text instead of the translation; no result or decision depends on it.
 web/src/lib/api/error-text.ts: if (message === 'must be accepted') return t('account.field.mustAccept');
 web/src/lib/api/error-text.ts: if (message === 'is too large') return t('account.field.tooLarge');
+
+## The issue tag is declared test metadata shared by web skips and Rust ignores.
+scripts/check-agent-mistakes.mjs: return annotation?.match(issueTag)?.[1];

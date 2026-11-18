@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 import { expect, it } from 'vitest';
 import { concave, mesh, transform } from './snow-surface-round2-fixture';
@@ -104,7 +105,7 @@ for (const location of [0, 3, 6]) for (const angle of [0, Math.PI / 2]) for (con
     if (mode !== 'projected') {
       const plan = buildLoadPlan({ regulations: regulations(), dead: [], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, model, gravity: { mode }, tributaryWidth: 1, snow: { ...snow, enabled: true, source: 'site' } });
       expect(plan.outcome).toBe('READY');
-      const cases = plan.cases.filter(c => c.type === 'S');
+      const cases = physicalSnowCases(plan);
       expect(cases).toHaveLength(out.cases.length);
       for (const [k, c] of cases.entries()) expect(pressure(plan.distributed.filter(d => d.caseType === 'S' && d.caseIndex === plan.cases.indexOf(c)), 3, 3)).toBeCloseTo(pressure(out.cases[k]!.distributed, 3, 3), 9);
     }

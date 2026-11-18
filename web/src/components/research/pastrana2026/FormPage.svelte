@@ -90,7 +90,7 @@
   {/snippet}
   {#snippet app()}
     <div class="form-app" bind:this={host}>
-      <StabileoViewer {xy} cells={shown.edges.flat()} cellSize={2} values={shown.forces} perCell={true}
+      <StabileoViewer plane="elevation" {xy} cells={shown.edges.flat()} cellSize={2} values={shown.forces} perCell={true}
         ariaLabel={s.formAlt} range={{ min: 0, max: Math.max(...frames.flatMap(f => f.forces), ...(live?.forces ?? [])) }} title={s.formForce} unit="kN"
         height="clamp(15rem, 36vh, 25rem)" showMesh={false} editorButton={false} oninteract={() => playback.interact()} />
       <p class="source" data-testid="form-source">{source === 'replay' ? s.formReplay : s.formLive}</p>

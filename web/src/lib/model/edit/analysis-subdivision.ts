@@ -8,7 +8,7 @@
  */
 import type { ModelData } from '../../engine/solver-service';
 import type { Element, Load, Node } from '../../store/model.svelte';
-import { segmentBounds, segmentFields, splitElementLoads } from './member-split';
+import { memberLoadGeometry, segmentFields, splitElementLoads } from './member-split';
 
 export interface Subdivision {
   model: ModelData;
@@ -32,6 +32,7 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
   let nextElem = Math.max(0, ...model.elements.keys()) + 1;
   let nextLoad = Math.max(0, ...model.loads.map((l) => (l.data as { id?: number }).id ?? 0)) + 1;
 
+  const geometry = memberLoadGeometry(model);
   for (const [id, e] of model.elements) {
     const ni = nodes.get(e.nodeI), nj = nodes.get(e.nodeJ);
     if (!ni || !nj || e.variableSection || (e as { arc?: unknown }).arc) {
@@ -48,8 +49,8 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
     const ends = [e.nodeI, ...added, e.nodeJ];
     const ids = ends.slice(1).map((_, k) => (k === 0 ? id : nextElem++));
     ids.forEach((sid, k) => elements.set(sid, { ...segmentFields(e, k, n), id: sid, nodeI: ends[k], nodeJ: ends[k + 1] } as Element));
-    const L = Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
-    const split = splitElementLoads(loads, id, segmentBounds(L, ts), ids, () => nextLoad++);
+    const { bounds, lengths, points } = geometry.partition(e, nodes, elements, ids);
+    const split = splitElementLoads(loads, id, bounds(), ids, () => nextLoad++, lengths, points);
     loads = [...split.kept, ...split.added];
     segments.set(id, ids);
     inner.set(id, added);
