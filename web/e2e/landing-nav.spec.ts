@@ -1,22 +1,13 @@
-import { BUILD_FEATURES } from './build-features';
+import { LANDING_NAV } from './public-navigation-contract';
 import { test, expect } from '@playwright/test';
 
-const MAIN_ITEMS = [['basic', 'Product', '/en/#basic'], ['examples', 'Examples', '/en/examples/'], ['tools', 'Tools', '/en/tools/'], ['research', 'Research', '/en/research/'], ['pricing', 'Pricing', '/en/#pricing'], ['blog', 'Blog', '/en/blog/']];
-
-const SWITCHED_ITEMS = MAIN_ITEMS.flatMap(item => {
-  if (item[0] === 'examples' && BUILD_FEATURES.tools) return [];
-  return item[0] === 'tools' && BUILD_FEATURES.diagramGame ? [item, ['game', 'Game', '/en/diagram-game/']] : [item];
-});
-
-for (const switched of [false, true]) test.describe(`@smoke landing nav ${switched ? 'with switched items' : 'from main'}`, () => {
-  test.skip(switched !== (BUILD_FEATURES.tools || BUILD_FEATURES.diagramGame), 'Navigation expectation for a different build switch configuration');
-  const ITEMS = switched ? SWITCHED_ITEMS : MAIN_ITEMS;
+test.describe('@smoke landing nav', () => {
   test('expected items and the editor button on a wide screen', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/en/');
     const header = page.locator('nav.site-header');
     const items = await header.locator('.nav-links [data-nav]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-nav'), e.textContent?.trim(), e.getAttribute('href')]));
-    expect(items).toEqual(ITEMS);
+    expect(items).toEqual(LANDING_NAV);
     for (const link of await header.locator('.nav-links [data-nav]').all()) {
       await expect(link).toBeVisible();
       const pad = await link.evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft));
@@ -48,7 +39,7 @@ for (const switched of [false, true]) test.describe(`@smoke landing nav ${switch
         return { nav: e.getAttribute('data-nav'), text: e.textContent?.trim(), top: b.top, bottom: b.bottom, left: b.left, right: b.right, height: b.height, font: parseFloat(getComputedStyle(e).fontSize) };
       }));
       const phone = viewport.width < 761;
-      expect(children.map((c) => c.nav)).toEqual([...ITEMS.map(([id]) => id), ...(phone ? [null] : [])]);
+      expect(children.map((c) => c.nav)).toEqual([...LANDING_NAV.map(([id]) => id), ...(phone ? [null] : [])]);
       if (phone) expect(children.at(-1)!.text).toBe('Open the editor');
       for (const c of children) {
         expect(c.height, `${c.text} tap target`).toBeGreaterThanOrEqual(44);

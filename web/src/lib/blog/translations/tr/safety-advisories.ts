@@ -58,10 +58,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-078 — 0.6.2 sürümünde düzeltildi."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Etkilenen girdiler ve yapılacak işlemler."},
-    {"k": "note", "t": "SA-2026-080 — 0.6.2 sürümünde düzeltildi."},
-    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-079 — 0.6.2 sürümünde düzeltildi."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Etkilenen girdiler ve yapılacak işlemler."},
+    {"k": "note", "t": "SA-2026-080 — 0.6.2 sürümünde düzeltildi."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-082 — 0.6.2 sürümünde düzeltildi."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Etkilenen girdiler ve yapılacak işlemler."},
     {"k": "note", "t": "SA-2026-083 — 0.6.2 sürümünde düzeltildi."},
@@ -239,139 +239,139 @@ const body: PostBody = {
           "SA-2026-025",
           "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
           "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
+          "0.5.0'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-026",
           "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
           "Orta",
-          "stabileo.com'da düzeltildi (#1234)"
+          "0.5.0'da düzeltildi (#1234)"
         ],
         [
           "SA-2026-027",
           "Kabuk zarfı: her bileşenin uç değeri yerine en büyük Von Mises gerilmesine sahip kombinasyonu alıyordu (bir örnekte mx %14 düşük)",
           "Yüksek",
-          "Düzeltme incelemede"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-028",
           "EN 1992-1-1 eğilme (PRO diğer yönetmelikler, sertifikalı): çekme donatısının aktığını varsayıyor ve üst donatıyı yinelemiyordu; MRd %22’ye kadar yüksek",
           "Yüksek",
-          "0.4.0 sonrasında düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-029",
           "3B: uygulamadaki CIRSOC 201 kolonları Mz kesit yüksekliği üzerinden tasarlanıyordu (bir örnekte %36 eksik donatı); motorun sertifikalı 3B kontrolleri yanal kesme Vy'yi gövde kesmesi olarak okuyordu",
           "Kritik",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-030",
           "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit negatif bir Qa ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-031",
           "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 farklı)",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-032",
           "Modal analiz: bir mekanizmanın sıfır frekanslı modu atılıyor ve diğer modlar eksiksizmiş gibi döndürülüyordu",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-033",
           "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-034",
           "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-035",
           "3D'den 2D'ye geçiş: kesit, elemanları yanlış kesit ekseni etrafında eğiyordu (Y–Z düzlemindeki bir çerçeve 13,5 kat fazla rijit)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-036",
           "Y–Z veya X–Y üzerinde 3D'den 2D'ye geçiş: kısıtlar çerçeve X–Z'deymiş gibi okunuyordu (yer değiştirme bağları kayboluyor ya da düzlem dışına uygulanıyordu)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-037",
           "3B eşdönel analiz: dönme vektörleri çıkarılıyordu (Bathe–Bolourchi eğrisi %1,3 sapmalı, ağ sıklaştırmayla düzelmiyordu)",
           "Orta",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-038",
           "3B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43) ve yalnızca uçları arasında basınç altındaki bir çubuk reddediliyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-039",
           "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-040",
           "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
           "Yüksek",
-          "Bir sonraki sürümde sınırlandırıldı"
+          "0.5.0 sürümünde sınırlandırıldı"
         ],
         [
           "SA-2026-041",
           "Betonarme kolonlar: en büyük moment yalnızca en büyük basınçla kontrol ediliyordu",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-042",
           "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-043",
           "Harmonik analiz: bir mod diğerlerinden çok daha yumuşak olduğunda atlanan modların düzeltmesi basamaklarını kaybediyordu (bir örnekte 2,3 Hz'de 79 kat)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-044",
           "2B plastik göçme: göçme katsayısı düğüm numaralandırması, çubuk yönü ve birimlerle değişiyordu (aynı yapıda 4,6 kata kadar)",
           "Yüksek",
-          "Limit analizi bir sonraki sürümde düzeltildi; 2B plastik göçme #758 kapanana kadar geri tutuluyor"
+          "0.5.0 sürümünde düzeltilmedi: 2B plastik göçme hesabı #758 kapanana kadar reddedilir. Limit analizi 0.5.0 sürümünde yer alır."
         ],
         [
           "SA-2026-045",
           "3B plastik göçme: kullanılabilir plastik momenti olmayan bir çubuk hiç akmayan bir çubuk gibi ele alınıyordu (bir örnekte 6 kat yüksek ve sertifikalı)",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-046",
           "Harmonik analiz: modal süperpozisyon ile doğrudan çözüm arasında yüke göre seçim yapıyordu; süperpozisyon ve karşılıklılık bozuluyordu (bir örnekte bir düğümde %107); 5 Kasım 2026'dan düzeltmeye kadar stabileo.com ve main dalının motor/WASM derlemeleri",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-047",
           "Kabuklar: mesnet yer değiştirmesi zorlayan bir yük durumu kabuk gerilmelerini kaybediyor, kombinasyonlar ve zarflar yalnızca diğer durumlarınkini topluyordu (güvensiz tarafta kalabiliyordu, uyarısız); 0.2.0 ile 0.4.0 arası",
           "Yüksek",
-          "Bir sonraki sürümde düzeltildi"
+          "0.5.0'da düzeltildi"
         ],
         [
           "SA-2026-048",
@@ -468,7 +468,11 @@ const body: PostBody = {
         ["SA-2026-080", "Eksantrik eleman yükü gerektiren bölgeler reddedilir. Çözümden önce döşeme yükü tanımını gözden geçirin. Bir paneli tamamen kaplayan bölge, panelin olağan mesnet tepkilerini uygular. (#2201)", "Yüksek", "0.6.2 sürümünde düzeltildi"],
         ["SA-2026-082", "Eşlikçi birleşimler düz çatı eleman yükü yerine eğimle azaltılmış karı uyarısız kullanıyordu. Eski deprem tanımları fiziksel karı düz çatı karıyla da karıştırabilir. Kar yüklerini ve birleşimleri yeniden üretip analizleri ve kontrolleri tekrarlayın. (#2211).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
         ["SA-2026-083", "SA-2026-083: CIRSOC 101 otomatik yük üretimi, en elverişsiz konumları değerlendirilmeyen tekil kullanım ve çatı etkilerini engeller (§4.4). Önceden üretilen düzgün yayılı yükler belirleyici etkileri atlamış olabilir. Analiz ve tasarımı yenilemeden önce etkilenen modelleri inceleyip tekil etkileri elle kontrol edin. (#2207).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-084", "Uçtan yüklenen bir köşe kaynağını bölmek, etkin uzunluk azaltmasını kaldırabiliyordu (#2243). Etkilenen kaynak grubu kontrollerini tekrarlayın.", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-085", "Kısa bir köşe kaynağına gereğinden büyük etkin kenar boyu verilebiliyordu (#2244). Etkilenen kaynak grubu kontrollerini tekrarlayın.", "—", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-088", "ABS ve SRSS eleman diyagramları yük sınırları arasındaki birleşik fonksiyonun uç değerlerini içerir. Birleşimleri, diyagramları ve bağlı kontrolleri yineleyin (#2273).", "—", "0.6.2 sürümünde düzeltildi"],
         ["SA-2026-089", "Açık kısıtları olmayan rollerZ veya custom3d türündeki bir 3B mesnet ya da bilinmeyen bir mesnet türü, uyarı verilmeden tam ankastre olarak analiz ediliyordu. Amaçlanan mesnet kısıtlarını gözden geçirip analizi, birleşimleri ve tasarımı yeniden çalıştırın. (#2276).", "Yüksek", "0.6.2 sürümünde düzeltildi"],
+        ["SA-2026-090", "Genişlik modunda kat alanı ve deprem ağırlığı, düğüm sınırlarını kullandığı veya kapalı bölge gerektirdiği için üretilen eleman yüklerinden farklı olabiliyordu. Artık yüklenen elemanların yük alanlarını kullanır. Yerçekimi planlarını, deprem ağırlıklarını ve deprem yüklerini yeniden üretin; bağlı analizleri, birleşimleri ve kontrolleri tekrarlayın. Kayıtlı yükleri yeniden çözmek deprem etkilerini düzeltmez (#2269). (#2210)", "—", "0.6.2 sürümünde düzeltildi"],
       ]
     },
     {

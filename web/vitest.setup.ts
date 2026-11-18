@@ -1,3 +1,4 @@
+import './src/__tests__/enable-public-features';
 // The store starts with the public pages' entries; tests read every key.
 import './src/lib/i18n/full-dictionaries';
 import './src/lib/course/course-dictionaries';

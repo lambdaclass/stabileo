@@ -89,7 +89,6 @@ database `stabileo` and `DEPLOY_ENV=prod`.
 | `ADMIN_FRONTEND_URL` | variable | `https://admin.staging.stabileo.com` |
 | `TRUSTED_PROXIES` | variable | `127.0.0.1` (Caddy's `X-Forwarded-For` is believed) |
 | `DEPLOY_ENV` | variable | `staging` or `prod` |
-| `VITE_ACCOUNTS` | variable | `1` compiles the account UI in; login itself is switched on from the admin site's Settings |
 | `GOOGLE_CLIENT_ID` | variable | The admin site's OAuth client (Web application), redirect URI `https://admin.staging.stabileo.com/api/v1/admin/auth/google/callback` |
 | `GOOGLE_CLIENT_SECRET` | secret | |
 | `GOOGLE_APP_CLIENT_ID` | variable | The product's OAuth client (Web application), its own, for users who sign in only with Google. Redirect URI `https://staging.stabileo.com/api/v1/auth/google/callback`; the consent screen open to any Google account (External, published). Unset, the product's sign-in with Google is unavailable |

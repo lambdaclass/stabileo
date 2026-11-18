@@ -3,7 +3,8 @@ import { expect, it } from 'vitest';
 import { findPost } from '..';
 import hu from '../translations/hu/safety-advisories';
 import notice from '../../provenance/result-changes/concentrated-live-actions.json';
-import { PUBLIC_LOCALES, type PublicLocale } from '../../i18n/store.svelte';
+import { buildPublicLocales } from '../../i18n/offered-research';
+import type { PublicLocale } from '../../i18n/store.svelte';
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const advisoryId = 'SA-2026-083';
@@ -19,7 +20,7 @@ const locales: [PublicLocale, string, string][] = [
 ];
 
 it('#2207 covers every public advisory locale', () => {
-  expect(locales.map(([locale]) => locale).sort()).toEqual([...PUBLIC_LOCALES, 'hu'].sort());
+  expect(locales.map(([locale]) => locale).sort()).toEqual([...buildPublicLocales(false), 'hu'].sort());
 });
 
 it.each(locales)('#2207 %s lists the assigned advisory and manual review action', (locale, severity, status) => {

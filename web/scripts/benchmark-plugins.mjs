@@ -1,3 +1,4 @@
+import { featureDefines, featuresForMode } from '../config/public-features.mjs';
 import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { resultChangeMetadataPlugin } from './result-change-metadata.mjs';
@@ -17,6 +18,7 @@ export function benchmarkPlugins() {
   const ids = [PUBLIC, APP, ...LAZY_LOCALES.map(locale => `${APP}/${locale}`)];
   return [resultChangeMetadataPlugin(), {
     name: 'benchmark-i18n',
+    config(_config, { mode }) { return { define: featureDefines(featuresForMode(mode)) }; },
     resolveId(source) { return ids.includes(source) ? '\0' + source : null; },
     load(resolved) {
       const id = resolved.slice(1);

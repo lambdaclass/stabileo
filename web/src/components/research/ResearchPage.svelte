@@ -16,7 +16,6 @@
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
   import RelatedLinks from './RelatedLinks.svelte';
-  import '../viewport/scalar-viewer-i18n';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import './research.css';
