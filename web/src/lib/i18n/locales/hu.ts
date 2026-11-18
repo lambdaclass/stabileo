@@ -15015,6 +15015,8 @@ const hu: Translations = {
   "rcSheets.footLines.side": "Telekhatár {side}: kattintson a megjelöléshez vagy törléshez",
   "rcSheets.footLines.hint": "Kattintson az épület telekhatáron álló oldalaira: az egy oldalon lévő alapok szélső, a két oldalon lévők sarokalapok lesznek.",
   "rcSheets.footLines.count": "{edge} szélső · {corner} sarok",
+  "rcSheets.footLines.all": "Mind a 4",
+  "rcSheets.footLines.none": "Egyik oldal sincs telekhatárként megjelölve: az alapok központosak maradnak, kivéve amelyeket a sorukban kézzel módosít.",
   "rcSheets.foot.strapInModel": "Ez a modell {name} gerendája: keresztmetszete és vasalása a Gerendák alatt",
   "rcSheets.foot.top": "Felső vasak",
   "rcSheets.footFig.line": "Telekhatár",

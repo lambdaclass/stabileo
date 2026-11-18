@@ -15195,6 +15195,8 @@ const es: Record<string, string> = {
   "rcSheets.footLines.side": "Medianera {side}: tocá para marcarla o sacarla",
   "rcSheets.footLines.hint": "Tocá los lados del edificio que son medianeras: las bases de ese lado quedan de medianera, y las de dos lados, de esquina.",
   "rcSheets.footLines.count": "{edge} de medianera · {corner} de esquina",
+  "rcSheets.footLines.all": "Los 4",
+  "rcSheets.footLines.none": "Ningún lado marcado como medianera: las bases quedan centradas, salvo las que cambies a mano en su fila.",
   "rcSheets.foot.strapInModel": "Es la viga {name} del modelo: su sección y sus barras están en Vigas",
   "rcSheets.foot.top": "Barras superiores",
   "rcSheets.footFig.line": "Medianera",

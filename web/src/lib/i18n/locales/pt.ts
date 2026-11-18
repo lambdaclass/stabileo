@@ -14848,6 +14848,8 @@ const pt: Translations = {
   "rcSheets.footLines.side": "Divisa {side}: toque para marcá-la ou desmarcá-la",
   "rcSheets.footLines.hint": "Toque os lados do edifício que são divisas: as sapatas desse lado ficam de divisa, e as de dois lados, de canto.",
   "rcSheets.footLines.count": "{edge} de divisa · {corner} de canto",
+  "rcSheets.footLines.all": "Os 4",
+  "rcSheets.footLines.none": "Nenhum lado marcado como divisa: as sapatas ficam centradas, exceto as que você mudar à mão na sua linha.",
   "rcSheets.foot.strapInModel": "É a viga {name} do modelo: sua seção e suas barras estão em Vigas",
   "rcSheets.foot.top": "Barras superiores",
   "rcSheets.footFig.line": "Divisa",

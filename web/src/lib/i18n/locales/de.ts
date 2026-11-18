@@ -15046,6 +15046,8 @@ const de: Translations = {
   "rcSheets.footLines.side": "Grundstücksgrenze {side}: zum Setzen oder Entfernen anklicken",
   "rcSheets.footLines.hint": "Klicken Sie die Gebäudeseiten an, die Grundstücksgrenzen sind: Fundamente an einer werden Randfundamente, an zweien Eckfundamente.",
   "rcSheets.footLines.count": "{edge} am Rand · {corner} in der Ecke",
+  "rcSheets.footLines.all": "Alle 4",
+  "rcSheets.footLines.none": "Keine Seite als Grundstücksgrenze markiert: die Fundamente bleiben zentrisch, außer denen, die Sie in ihrer Zeile von Hand ändern.",
   "rcSheets.foot.strapInModel": "Es ist der Balken {name} des Modells: Querschnitt und Stäbe stehen unter Balken",
   "rcSheets.foot.top": "Obere Stäbe",
   "rcSheets.footFig.line": "Grenze",

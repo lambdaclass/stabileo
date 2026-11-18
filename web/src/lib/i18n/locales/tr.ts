@@ -15046,6 +15046,8 @@ const tr: Translations = {
   "rcSheets.footLines.side": "Parsel sınırı {side}: işaretlemek ya da kaldırmak için tıklayın",
   "rcSheets.footLines.hint": "Binanın parsel sınırı olan kenarlarına tıklayın: bir kenardaki temeller kenar temeli, iki kenardakiler köşe temeli olur.",
   "rcSheets.footLines.count": "{edge} kenar · {corner} köşe",
+  "rcSheets.footLines.all": "4'ü de",
+  "rcSheets.footLines.none": "Hiçbir kenar parsel sınırı olarak işaretli değil: temeller ortalı kalır, satırında elle değiştirdikleriniz hariç.",
   "rcSheets.foot.strapInModel": "Modeldeki {name} kirişidir: kesiti ve donatısı Kirişler altında",
   "rcSheets.foot.top": "Üst çubuklar",
   "rcSheets.footFig.line": "Parsel sınırı",

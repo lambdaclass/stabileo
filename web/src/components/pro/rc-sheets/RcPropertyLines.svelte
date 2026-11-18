@@ -11,6 +11,9 @@
   const lines = $derived.by((): PropertyLines => { void modelStore.designData; return designData().propertyLines ?? {}; });
   const SIDE: Record<PropertySide, string> = { minX: '−X', maxX: '+X', minY: '−Y', maxY: '+Y' };
 
+  const none = $derived(!PROPERTY_SIDES.some((k) => lines[k]));
+  const all = $derived(PROPERTY_SIDES.every((k) => lines[k]));
+  const setAll = (on: boolean) => patchDesignData({ propertyLines: on ? Object.fromEntries(PROPERTY_SIDES.map((k) => [k, true])) : undefined });
   function toggle(k: PropertySide) {
     const on = PROPERTY_SIDES.filter((s) => (s === k ? !lines[s] : lines[s]));
     patchDesignData({ propertyLines: on.length ? Object.fromEntries(on.map((s) => [s, true])) : undefined });
@@ -62,7 +65,16 @@
         </g>
       {/each}
     </svg>
-    <span class="rpl-note">{t('rcSheets.footLines.hint')} · {tp('rcSheets.footLines.count', { edge: counts.edge, corner: counts.corner })}</span>
+    <div class="rpl-side">
+      <div class="rpl-chips" role="group" aria-label={t('fdn.propertyLines')}>
+        {#each PROPERTY_SIDES as k (k)}
+          <button type="button" class:on={!!lines[k]} aria-pressed={!!lines[k]} onclick={() => toggle(k)} data-testid="rc-property-chip-{k}">{SIDE[k]}</button>
+        {/each}
+        <button type="button" class:on={all} aria-pressed={all} onclick={() => setAll(!all)} data-testid="rc-property-chip-all">{t('rcSheets.footLines.all')}</button>
+      </div>
+      {#if none}<span class="rpl-none" data-testid="rc-property-lines-none">{t('rcSheets.footLines.none')}</span>{/if}
+      <span class="rpl-note">{t('rcSheets.footLines.hint')} · {tp('rcSheets.footLines.count', { edge: counts.edge, corner: counts.corner })}</span>
+    </div>
   </div>
 {/if}
 
@@ -77,5 +89,10 @@
   .dot.edge rect:first-child, .dot.corner rect:first-child { fill: color-mix(in srgb, var(--st-warn) 30%, transparent); stroke: var(--st-warn); }
   .dot.hand rect:first-child { stroke-dasharray: 2 1.5; }
   .dot rect.col { fill: var(--st-text-2); stroke: none; }
-  .rpl-note { font-size: 0.72rem; color: var(--st-text-3); max-width: 28ch; }
+  .rpl-side { display: flex; flex-direction: column; gap: 6px; max-width: 32ch; }
+  .rpl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .rpl-chips button { font-size: 0.72rem; padding: 2px 8px; border: 1px solid var(--st-hair); border-radius: 4px; background: var(--st-surface-2); color: var(--st-text-2); cursor: pointer; }
+  .rpl-chips button.on { border-color: var(--st-warn); color: var(--st-warn); font-weight: 600; }
+  .rpl-none { font-size: 0.72rem; color: var(--st-warn); }
+  .rpl-note { font-size: 0.72rem; color: var(--st-text-3); }
 </style>

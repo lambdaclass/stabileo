@@ -15046,6 +15046,8 @@ const fr: Translations = {
   "rcSheets.footLines.side": "Limite de propriété {side} : cliquez pour la poser ou la retirer",
   "rcSheets.footLines.hint": "Cliquez les côtés du bâtiment en limite de propriété : les semelles d'un côté deviennent excentrées, celles de deux côtés, d'angle.",
   "rcSheets.footLines.count": "{edge} en limite · {corner} d'angle",
+  "rcSheets.footLines.all": "Les 4",
+  "rcSheets.footLines.none": "Aucun côté marqué en limite de propriété : les semelles restent centrées, sauf celles que vous modifiez à la main dans leur ligne.",
   "rcSheets.foot.strapInModel": "C'est la poutre {name} du modèle : sa section et ses barres sont dans Poutres",
   "rcSheets.foot.top": "Barres supérieures",
   "rcSheets.footFig.line": "Limite",

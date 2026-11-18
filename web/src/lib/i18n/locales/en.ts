@@ -15206,6 +15206,8 @@ const en: Record<string, string> = {
   "rcSheets.footLines.side": "Property line {side}: click to set or clear it",
   "rcSheets.footLines.hint": "Click the building's sides that are property lines: footings on one become edge footings, on two, corner footings.",
   "rcSheets.footLines.count": "{edge} at a line · {corner} at a corner",
+  "rcSheets.footLines.all": "All 4",
+  "rcSheets.footLines.none": "No side marked as a property line: footings stay centred, except those you change by hand in their row.",
   "rcSheets.foot.strapInModel": "It is the model's beam {name}: its section and bars are under Beams",
   "rcSheets.foot.top": "Top bars",
   "rcSheets.footFig.line": "Property line",
