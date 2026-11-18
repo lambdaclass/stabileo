@@ -14714,6 +14714,7 @@ const tr: Translations = {
   "rcSheets.v.wallSeisCurtains": "İki donatı sırası (bölüm 18)",
   "rcSheets.v.wallSeisRho": "Bölüm 18 en az donatı oranları",
   "rcSheets.s.wallSigma": "Uçta basınç gerilmesi",
+  "rcSheets.s.wallSigmaCarried": "Uçtaki gerilme: alt katın uç bölgeleri σ ≥ 0,15·f'c olduğu sürece devam eder",
   "rcSheets.s.wallBoundaryLength": "Uç bölgesi uzunluğu",
   "rcSheets.s.wallBoundaryHoops": "Uç bölgesi etriyeleri",
   "rcSheets.elev.n.ruleHolds": "Uçlar arasında orta bölgenin kuralı uçlarla aynı aralığı veriyor; bu yüzden orta bölge açılmıyor.",

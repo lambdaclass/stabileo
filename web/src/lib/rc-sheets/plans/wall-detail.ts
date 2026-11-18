@@ -24,7 +24,11 @@ export function wallElevationPrimitives(row: WallRow, o: WallPlanOptions): Primi
   const d = wallDetail(row, o.code), s = o.scale, L = d.length * K, H = row.height * K, cov = d.cover * K;
   const ps: Primitive[] = [rect(HORM, 0, 0, L, H)];
   const y0 = Math.min(...d.verticals.map((v) => v.y));
-  for (const v of d.verticals.filter((q) => Math.abs(q.y - y0) < 1e-6)) ps.push(seg(arm(v.boundary ? 'BORDE' : 'VERT', v.dia), pt(v.x * K, 0), pt(v.x * K, H), v.dia));
+  const face = d.verticals.filter((q) => Math.abs(q.y - y0) < 1e-6);
+  const lapOf = (dia: number) => (row.stack?.above ? row.vLaps?.find((x) => x.dia === dia)?.lap ?? 0 : 0) * K;
+  for (const v of face) ps.push(seg(arm(v.boundary ? 'BORDE' : 'VERT', v.dia), pt(v.x * K, 0), pt(v.x * K, H + lapOf(v.dia)), v.dia));
+  const first = face.reduce<(typeof face)[number] | undefined>((w, v) => (!w || v.x < w.x ? v : w), undefined);
+  if (first && lapOf(first.dia) > 0) ps.push(dim(pt(first.x * K, H), pt(first.x * K, H + lapOf(first.dia)), -3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, lapOf(first.dia) / K) })));
   const hd = d.horizontals.dia, levels = wallLevels(row.height, d.horizontals.spacing);
   for (const y of levels) ps.push(seg(arm('HOR', hd), pt(cov, y * K), pt(L - cov, y * K), hd));
   if (d.ends.kind === 'ubar') {

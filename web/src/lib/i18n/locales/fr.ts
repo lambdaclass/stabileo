@@ -14714,6 +14714,7 @@ const fr: Translations = {
   "rcSheets.v.wallSeisCurtains": "Deux nappes (chapitre 18)",
   "rcSheets.v.wallSeisRho": "Taux minimaux du chapitre 18",
   "rcSheets.s.wallSigma": "Contrainte de compression à l'extrémité",
+  "rcSheets.s.wallSigmaCarried": "Contrainte à l'extrémité : les éléments de rive de l'étage inférieur se poursuivent tant que σ ≥ 0,15·f'c",
   "rcSheets.s.wallBoundaryLength": "Longueur de l'élément de rive",
   "rcSheets.s.wallBoundaryHoops": "Cadres de l'élément de rive",
   "rcSheets.elev.n.ruleHolds": "Entre les extrémités, la règle de la partie courante donne le même espacement qu'aux extrémités : elle ne s'ouvre pas.",

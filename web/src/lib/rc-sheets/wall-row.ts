@@ -22,10 +22,12 @@ export interface WallDemand {
   base?: { nodes: number; held: number; unheld?: number[] };
   /** Its base in plan, end to end along its length, m. */
   plan?: { x1: number; y1: number; x2: number; y2: number };
+  /** Its base's elevation, m. */
+  z?: number;
   combos: WallComboForces[];
 }
 
-export interface WallContext extends TransverseList { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic }
+export interface WallContext extends TransverseList { mat: Materials; cover: number; barDia: number; diameters: readonly number[]; seismic?: import('./seismic').Seismic; /** The storey below has special boundary elements (chapter 18). */ belowSpecial?: boolean }
 
 export interface WallRow {
   family: 'wall';
@@ -51,6 +53,8 @@ export interface WallRow {
   vLaps?: Array<{ dia: number; lap: number }>;
   /** Chapter 18, where the sheets apply it. */
   seismic?: WallSeismic;
+  /** The storeys of the same wall below and above it, by key (`wallStacks`): its verticals lap into the one above. */
+  stack?: { below?: string; above?: string };
   /** The stirrups and ties the project allows, mm, which its boundary and cross ties are drawn with. */
   tieDiameters?: readonly number[];
   /** The closest spacing they are placed at, m. */

@@ -14516,6 +14516,7 @@ const pt: Translations = {
   "rcSheets.v.wallSeisCurtains": "Duas malhas (capítulo 18)",
   "rcSheets.v.wallSeisRho": "Taxas mínimas do capítulo 18",
   "rcSheets.s.wallSigma": "Tensão de compressão na extremidade",
+  "rcSheets.s.wallSigmaCarried": "Tensão na extremidade: os elementos de borda do pavimento de baixo continuam enquanto σ ≥ 0,15·f'c",
   "rcSheets.s.wallBoundaryLength": "Comprimento do elemento de borda",
   "rcSheets.s.wallBoundaryHoops": "Estribos do elemento de borda",
   "rcSheets.elev.n.ruleHolds": "Entre as extremidades, a regra do centro dá o mesmo espaçamento das extremidades, por isso o centro não se abre.",

@@ -14714,6 +14714,7 @@ const de: Translations = {
   "rcSheets.v.wallSeisCurtains": "Zwei Bewehrungslagen (Kapitel 18)",
   "rcSheets.v.wallSeisRho": "Mindestbewehrungsgrade nach Kapitel 18",
   "rcSheets.s.wallSigma": "Druckspannung am Rand",
+  "rcSheets.s.wallSigmaCarried": "Spannung am Rand: die Randglieder des Geschosses darunter laufen weiter, solange σ ≥ 0,15·f'c",
   "rcSheets.s.wallBoundaryLength": "Länge des Randglieds",
   "rcSheets.s.wallBoundaryHoops": "Bügel des Randglieds",
   "rcSheets.elev.n.ruleHolds": "Zwischen den Enden ergibt die Regel der Mitte denselben Abstand wie an den Enden, daher öffnet sich die Mitte nicht.",

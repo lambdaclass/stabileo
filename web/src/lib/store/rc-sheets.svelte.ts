@@ -29,6 +29,7 @@ import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import { stackOver } from '../rc-sheets/column-stack';
+import { wallStacks } from '../rc-sheets/wall-stack';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
@@ -520,12 +521,19 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   });
   if (spanned.size) slabPlans = D.levels.map((g) => (spanned.has(g.level) ? planOf(g) : slabPlans.find((p) => p.level === g.level))).filter((p): p is LevelPlan => !!p && p.panels.length > 0);
   const wall: WallRow[] = [];
-  for (const d of D.walls) {
+  const wallStack = wallStacks(D.walls);
+  const wallDone = new Map<string, WallRow>();
+  for (const d of [...D.walls].sort((p, q) => (p.z ?? 0) - (q.z ?? 0))) {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}) };
+    const stack = wallStack.get(d.key);
+    const belowSpecial = !!stack?.below && wallDone.get(stack.below)?.seismic?.special === true;
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
     const a = adoptedNow[d.key] as WallAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.wallRow(x, ctx, undefined, fmt)) as Redesign);
-    wall.push(cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt)));
+    const row = cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
+    const placed = stack ? { ...row, stack } : row;
+    wallDone.set(d.key, placed);
+    wall.push(placed);
     yield step();
   }
   const punching: PunchingRow[] = [];

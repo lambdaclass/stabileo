@@ -14874,6 +14874,7 @@ const en: Record<string, string> = {
   "rcSheets.v.wallSeisCurtains": "Two curtains (chapter 18)",
   "rcSheets.v.wallSeisRho": "Chapter 18 minimum ratios",
   "rcSheets.s.wallSigma": "Compressive stress at the end",
+  "rcSheets.s.wallSigmaCarried": "Stress at the end: the storey below's boundary elements go on while σ ≥ 0.15·f'c",
   "rcSheets.s.wallBoundaryLength": "Boundary element length",
   "rcSheets.s.wallBoundaryHoops": "Boundary element hoops",
   "rcSheets.elev.n.ruleHolds": "Between the ends, the middle's own rule gives the same spacing as the ends, so the middle does not open.",

@@ -15450,6 +15450,7 @@ const hu: Translations = {
   "rcSheets.v.wallSeisCurtains": "Két vasalási háló (18. fejezet)",
   "rcSheets.v.wallSeisRho": "A 18. fejezet minimális vasalási arányai",
   "rcSheets.s.wallSigma": "Nyomófeszültség a végen",
+  "rcSheets.s.wallSigmaCarried": "Feszültség a végen: az alsó szint peremelemei folytatódnak, amíg σ ≥ 0,15·f'c",
   "rcSheets.s.wallBoundaryLength": "A szélső elem hossza",
   "rcSheets.s.wallBoundaryHoops": "A szélső elem kengyelei",
   "rcSheets.elev.n.ruleHolds": "A végek között a középső szakasz saját szabálya ugyanazt a kengyeltávolságot adja, mint a végeken, ezért a középső szakasz nem ritkul.",

@@ -14863,6 +14863,7 @@ const es: Record<string, string> = {
   "rcSheets.v.wallSeisCurtains": "Dos cortinas (capítulo 18)",
   "rcSheets.v.wallSeisRho": "Cuantías mínimas del capítulo 18",
   "rcSheets.s.wallSigma": "Tensión de compresión en el extremo",
+  "rcSheets.s.wallSigmaCarried": "Tensión en el extremo: los elementos de borde del piso de abajo siguen mientras σ ≥ 0,15·f'c",
   "rcSheets.s.wallBoundaryLength": "Longitud del elemento de borde",
   "rcSheets.s.wallBoundaryHoops": "Estribos del elemento de borde",
   "rcSheets.elev.n.ruleHolds": "Entre los extremos, la regla del centro da la misma separación que los extremos, así que el centro no se abre.",
