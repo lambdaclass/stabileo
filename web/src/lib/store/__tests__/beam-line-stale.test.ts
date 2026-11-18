@@ -13,12 +13,13 @@ import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { modelBeamLines } from '../frame-equalize';
-import { discardLine, openLine, saveLine, savedMemberCuts, staleLines } from '../beam-line-store';
+import { discardLine, openLine, reinforcementForVerification, saveLine, savedMemberCuts, staleLines } from '../beam-line-store';
 import { cutBar } from '../../engine/design/beam-line';
 import { lineKey } from '../../design-contract/beam-line';
 import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { applySeismicDetailing, runSeismicChecks, setSeismicRole } from '../seismic-design.svelte';
 import { stateSuiteLateral } from './suite-lateral';
 
 beforeAll(async () => {
@@ -113,4 +114,36 @@ describe('a saved line its members no longer match', () => {
     historyStore.undo();
     expect(storedDecisions().lines?.[lineKey(line.members)]).toBeDefined();
   });
+});
+
+const round4Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+round4Reproducer('known wrong result: #2171 round 4 resizes saved hoop zones during seismic detailing', () => {
+  const line = savedEditedLine();
+  const id = line.members[0]!;
+  const ctx = verificationStore.contextFor(id)!;
+  const rebar = reinforcementForVerification(id)!;
+  const regions = rebar.regions!;
+  const layout = regions.stirrupZones!;
+  const wide = { diameter: 8, legs: 2, spacing: 0.2 };
+  expect(layout.startSupportEnd).toBeLessThan(2 * ctx.section.h);
+  modelStore.reinforcementTransaction(api => api.setReinforcement(id, { ...rebar, regions: {
+    ...regions, regionT: 0.05, stirrupsSupport: wide, stirrupsSpan: wide,
+    stirrupZones: { ...layout, zones: [{ from: 0, to: ctx.L, stirrup: wide }] },
+  } }));
+  setSeismicRole([id], 'primary');
+  solveAndDesign();
+  const check = runSeismicChecks().members.find(m => m.id === id)!.beam!;
+  expect(check.hoops.lengthOk).toBe(false);
+  expect(applySeismicDetailing().beams).toBeGreaterThan(0);
+  const edited = reinforcementForVerification(id)!.regions!;
+  const zones = edited.stirrupZones!;
+  expect(zones.startSupportEnd).toBeCloseTo(check.hoops.length, 12);
+  expect(zones.endSupportStart).toBeCloseTo(ctx.L - check.hoops.length, 12);
+  expect(zones.zones).toEqual([
+    { from: 0, to: zones.startSupportEnd, stirrup: edited.stirrupsSupport },
+    { from: zones.startSupportEnd, to: zones.endSupportStart, stirrup: wide },
+    { from: zones.endSupportStart, to: ctx.L, stirrup: edited.stirrupsSupport },
+  ]);
+  expect(edited.stirrupsSupport!.spacing).toBeLessThan(wide.spacing);
 });

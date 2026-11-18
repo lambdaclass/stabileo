@@ -506,3 +506,77 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+const round4Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+const round4Members = [{ id: 1, L: 4, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0, reinforcement: beamBars }];
+const round4Cage = { ...cage, legs: 2, spacing: 0.075 };
+const round4Stations = (length: number, torsion: number) => ({
+  elementId: 1, length, stationTs: [0, 0.3, 0.7, 1], comboResults: [{ comboId: 1, comboName: 'C1', transverseLoading: { My: false, Mz: false },
+    stations: [0, 0.3, 0.7, 1].map(t => ({ t, x: t * length, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion })) }],
+});
+function round4Checks(rebar: Parameters<typeof verifyProvidedReinforcement>[2], length: number, torsion = 30) {
+  const stations = round4Stations(length, torsion);
+  return [
+    verifyProvidedReinforcement(1, 'beam', rebar, undefined, {}, section, stations, undefined, { axes }),
+    verifyProvidedReinforcement(1, 'beam', rebar, extractGoverningDemands(stations), {}, section, undefined, undefined, { axes }),
+  ];
+}
+
+for (const middle of ['weak', 'gap', 'strong'] as const) {
+  round4Reproducer(`known wrong result: #2171 round 4 checks a cage interval between force stations (${middle})`, () => {
+    const line = { ...lineFromMembers(round4Members), stirrups: [
+      { ...round4Cage, id: 'left', from: 0, to: 1.8 },
+      ...(middle === 'gap' ? [] : [{ ...round4Cage, spacing: middle === 'weak' ? 0.15 : round4Cage.spacing, id: 'middle', from: 1.8, to: 2.2 }]),
+      { ...round4Cage, id: 'right', from: 2.2, to: 4 },
+    ] };
+    for (const result of round4Checks(membersFromLine(line, round4Members).get(1), 4)) {
+      const rows = result.checks.filter(c => /^Torsion Span/.test(c.category));
+      expect(rows).toHaveLength(1);
+      if (middle === 'gap') expect(rows[0]).toMatchObject({ status: 'fail', ratio: Infinity, missingReinforcement: true });
+      else {
+        const required = atRequired * 30 / torque;
+        const ratio = +(required * (middle === 'weak' ? 0.15 : round4Cage.spacing) / outerLegArea).toFixed(3);
+        expect(rows[0]).toMatchObject({ status: middle === 'weak' ? 'fail' : 'ok', ratio });
+      }
+    }
+  });
+}
+
+for (const length of [3.6, 4, 4.4]) {
+  round4Reproducer(`known wrong result: #2171 round 4 refuses a zone layout measured on another length (${length})`, () => {
+    const line = { ...lineFromMembers(round4Members), stirrups: [{ ...round4Cage, id: 'full', from: 0, to: 4 }] };
+    const rebar = membersFromLine(line, round4Members).get(1);
+    for (const torsion of [0, 30]) for (const result of round4Checks(rebar, length, torsion)) {
+      const refused = result.checks.some(c => c.limiting === 'unsupportedCheck' && c.category.includes('Stirrup'));
+      expect(refused).toBe(length !== 4);
+      if (length !== 4) expect(result.overallStatus).toBe('fail');
+      else expect(result.checks.filter(c => c.limiting === 'torsion' && c.status === 'fail')).toEqual([]);
+    }
+  });
+}
+
+for (const factor of [0.999, 1.001]) {
+  round4Reproducer(`known wrong result: #2171 round 4 requires a known closed cage in pure torsion (${factor})`, () => {
+    const { b, h, fc, fy, cover } = section;
+    const tu = 0.75 * 0.083 * Math.sqrt(fc) * 1000 * (b * h) ** 2 / (2 * (b + h)) * factor;
+    const v = { ...input(0, tu, '2025'), elementType: 'beam' as const };
+    for (const shape of ['unknown', 'closedRectangular'] as const) {
+      const stirrup = { ...round4Cage, shape };
+      const activeRefusal = factor > 1 && shape === 'unknown';
+      const check = checkTorsion2025({ ...section, d: h - cover - 0.016, dSecondary: b - cover - 0.016,
+        stirrupDiaMm: 8, fyt: fy, demand: torsionDemand(tu, 0), stirrup, rectangularCage: true });
+      expect(check.neglect).toBe(factor < 1);
+      if (activeRefusal) expect(check).toMatchObject({ ratio: Infinity, outerLegProvided: 0 });
+      else expect(check.ratio).toBeLessThan(1);
+      const direct = verifyElement(v, { shear: stirrup, torsion: { AlProv: 100 } }).torsion!;
+      if (activeRefusal) expect(direct).toMatchObject({ status: 'fail', reinforcementRatio: Infinity });
+      else expect(direct.status).toBe('ok');
+      for (const result of round4Checks({ ...beamBars, stirrups: stirrup }, 4, tu)) {
+        const torsionRows = result.checks.filter(c => /^Torsion (Support|Span)/.test(c.category));
+        if (factor < 1) expect(torsionRows).toEqual([]);
+        else if (activeRefusal) expect(torsionRows[0]).toMatchObject({ status: 'fail', limiting: 'unsupportedCheck' });
+        else expect(torsionRows[0]).toMatchObject({ status: 'ok', limiting: 'torsion' });
+      }
+    }
+  });
+}
