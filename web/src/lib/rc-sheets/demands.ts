@@ -706,7 +706,7 @@ export function wallDemands(m: DemandInput): WallDemand[] {
       if (!(length > 0) || !(thickness > 0)) continue;
       const keys = new Set(inside.map((x) => x.key));
       const baseNodes = [...new Set(base.flatMap((x) => nodesOf(x.kind, x.id)))].filter((nd) => Math.abs(zOf(m.nodes.get(nd)) - lo) < 1e-3);
-      const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => !own.has(x.key) && (x.flat || x.minZ < lo - 1e-3)));
+      const held = baseNodes.filter((nd) => m.supportNodes.has(nd) || framed.has(nd) || (shellsAt.get(nd) ?? []).some((x) => x.minZ < lo - 1e-3 || (!own.has(x.key) && x.flat)));
       const baseBy = new Map(base.map((x) => [x.key, x]));
       const combos: WallComboForces[] = [];
       for (const set of m.sets) {

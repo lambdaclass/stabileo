@@ -626,6 +626,27 @@ describe('reinforcement sheets from a solved model', () => {
     expect(row.status).toBe('fail');
   });
 
+  it('holds a storey\'s wall on the same wall below: one plate through two storeys has its upper base nodes held by its own shells under the cut', () => {
+    const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'PB', z: 0 }, { id: 'L1', name: 'P1', z: 3 }, { id: 'L2', name: 'P2', z: 6 }] } as never);
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 6), d = modelStore.addNode(0, 0, 6);
+    modelStore.addQuad([a, b, c, d], conc, 0.2);
+    for (const n of [a, b]) modelStore.addSupport(n, 'fixed3d');
+    const D = modelStore.model.loadCases.find((x) => x.type === 'D')!.id;
+    modelStore.addNodalLoad3D(c, 0, 0, -100, 0, 0, 0, D);
+    modelStore.addCombination('1.4D', [{ caseId: D, factor: 1.4 }]);
+    ensurePhysicalModel();
+    expect(meshWallsForSheets()).toBe(1);
+    holdPlateSidesAt(physicalGroups().find((g) => g.physical.kind === 'wall')!.id, 0, 'fixed3d');
+    solve();
+    const walls = buildSheetRows().wall;
+    expect(walls.map((w) => w.demand.z).sort()).toEqual([0, 3]);
+    const upper = walls.find((w) => w.demand.z === 3)!;
+    expect(upper.demand.base!.nodes).toBeGreaterThan(2);
+    expect(upper.demand.base!.unheld).toEqual([]);
+    expect(upper.verifications.find((v) => v.label === 'rcSheets.v.wallBase')).toBeUndefined();
+  });
+
   it('keeps a loaded one-shell wall\'s shell and its load as the plate\'s mesh, and does not mesh it for the sheets', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0), c = modelStore.addNode(4, 0, 3), d = modelStore.addNode(0, 0, 3);
