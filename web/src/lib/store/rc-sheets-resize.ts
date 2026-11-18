@@ -3,7 +3,8 @@
  * or, for a column or a wall with room to spare, the smallest that still does; and the way to the
  * element in the model, where its dimensions are changed. Nothing is changed from here.
  *
- * Beams and slabs are never offered smaller: the sheets do not check deflections.
+ * Beams and slabs are offered smaller only where their row checks the deflection: the smaller
+ * section must meet it as well as everything else.
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
@@ -13,6 +14,7 @@ import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
+import type { CheckLine } from '../rc-sheets/types';
 
 export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
 /**
@@ -26,6 +28,11 @@ const passes = (r: SheetRow) => r.status !== 'fail';
 /** Below this strength ratio a column or a wall is worth trying smaller. */
 const ROOM = 0.6;
 const round = (x: number) => Math.round(x * 1000) / 1000;
+/** The least beam depth and slab thickness offered smaller, m: the FIUBA course's 12 cm and 8 cm (§3.1, §3.2); a beam is never offered shallower than it is wide. */
+const BEAM_FLOOR = 0.12, SLAB_FLOOR = 0.08;
+const DEFLECTION_CHECKS = new Set(['rcSheets.v.deflection', 'rcSheets.v.deflectionDepth', 'rcSheets.ts500.u.deflection', 'rcSheets.ts500.u.deflectionDepth']);
+/** Whether a beam or slab row checks its deflection: its proposal fits its steel to the forces, so whether a shallower one verifies is for the redesign to say, not for its ratios. */
+const checksDeflection = (r: { verifications: CheckLine[] }) => r.verifications.some((v) => DEFLECTION_CHECKS.has(v.label));
 
 /** The first size from `start`, stepped by `step` up to `limit`, whose row passes; null when none does. */
 function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown): number[] | null {
@@ -58,8 +65,12 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
   const fail = row.status === 'fail';
   switch (row.family) {
     case 'beam': {
-      if (!fail) return [];
       const d = row.demand;
+      if (!fail) {
+        if (!checksDeflection(row)) return [];
+        const to = shrink(row.key, [d.h], 0.05, Math.max(BEAM_FLOOR, d.b), ([h]) => ({ ...d, h }));
+        return to ? [{ what: 'beamH', direction: 'shrink', from: [d.h], to }] : [];
+      }
       const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
       return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], 0.05, [2 * d.b], ([b]) => ({ ...d, b })) }];
     }
@@ -72,8 +83,12 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
       return to ? [{ what: 'column', direction: 'shrink', from: [d.b, d.h], to }] : [];
     }
     case 'slab': {
-      if (!fail) return [];
       const d = row.demand;
+      if (!fail) {
+        if (!checksDeflection(row)) return [];
+        const to = shrink(row.key, [d.h], 0.01, SLAB_FLOOR, ([h]) => ({ ...d, h }));
+        return to ? [{ what: 'slabH', direction: 'shrink', from: [d.h], to }] : [];
+      }
       return [{ what: 'slabH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.01, [2 * d.h], ([h]) => ({ ...d, h })) }];
     }
     case 'wall': {
@@ -121,8 +136,19 @@ function dropPanel(key: string, d: import('../rc-sheets/punching-row').PunchingD
   return null;
 }
 
-/** A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice does, the widest width they need. */
+/**
+ * A continuous beam's depth: the deepest any of its failing spans needs; where no depth up to twice
+ * does, the widest width they need. With none failing, the shallowest depth every span verifies
+ * with, deflection included, when each of them has room to be shallower.
+ */
 export function lineResizeHint(spans: readonly BeamRow[]): ResizeHint | null {
+  if (spans.length && spans.every((s) => s.status !== 'fail')) {
+    const down = spans.map((s) => resizeHints(s).find((h) => h.what === 'beamH' && h.direction === 'shrink'));
+    if (down.some((h) => !h?.to)) return null;
+    const from = Math.max(...spans.map((s) => s.demand.h));
+    const to = Math.max(...down.map((h) => h!.to![0]!));
+    return to < from - 1e-9 ? { what: 'beamH', direction: 'shrink', from: [from], to: [to] } : null;
+  }
   const hints = spans.filter((s) => s.status === 'fail').flatMap((s) => resizeHints(s));
   if (!hints.length) return null;
   const of = (what: ResizeWhat, side: (s: BeamRow) => number): ResizeHint => {

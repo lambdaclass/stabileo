@@ -15,6 +15,8 @@ import { ACI_SLAB_PLAN, CIRSOC_SLAB_PLAN, type SlabPlanCode } from '../slab-plan
 import { bentBarMandrel } from '../../codes/cirsoc201/bar-geometry';
 import { compressionLapMm, deriveCompressionDevelopment, deriveHookedDevelopment } from '../../codes/cirsoc201/anchorage';
 import { mainBarCoverMm } from '../../codes/cirsoc201/cover';
+import { crackedInertia, effectiveInertia } from '../../codes/cirsoc201/effective-inertia';
+import { aciDeflection, ec2Deflection, ts500Deflection, withBeamDeflection, withSlabDeflection, type DeflectionCode, type DeflectionMechanics } from '../deflection';
 import { ec2Rules, ukRules } from '../ec2';
 import { ts500Rules } from '../ts500';
 import type { SheetCode } from '../types';
@@ -55,12 +57,19 @@ export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
 const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
 const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm } };
 
+/** The cracked section and Bischoff's effective inertia, which every code's deflection reads through here. */
+const MECHANICS: DeflectionMechanics = { crackedInertia, effectiveInertia };
+
+/** A code's beam and slab rows with their deflection checked (`deflection.ts`). */
+const withDeflection = (r: SheetRules, code: DeflectionCode): SheetRules =>
+  ({ ...r, beamRow: withBeamDeflection(r.beamRow as never, code) as typeof beamRow, slabRow: withSlabDeflection(r.slabRow as never, code) as typeof slabRow });
+
 const RULES: Record<SheetCode, SheetRules> = {
-  'cirsoc201-2025': cirsocRules,
-  'aci318-19': aciRules,
-  'en1992-1-1': ec2Rules,
-  'bs-en1992-1-1': ukRules,
-  'ts500-2000': ts500Rules,
+  'cirsoc201-2025': withDeflection(cirsocRules, aciDeflection(MECHANICS, 'cirsoc')),
+  'aci318-19': withDeflection(aciRules, aciDeflection(MECHANICS, 'aci')),
+  'en1992-1-1': withDeflection(ec2Rules, ec2Deflection(MECHANICS)),
+  'bs-en1992-1-1': withDeflection(ukRules, ec2Deflection(MECHANICS)),
+  'ts500-2000': withDeflection(ts500Rules, ts500Deflection(MECHANICS)),
 };
 
 export const rulesFor = (code: SheetCode): SheetRules => RULES[code];

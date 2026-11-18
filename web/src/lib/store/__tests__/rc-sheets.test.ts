@@ -751,12 +751,15 @@ describe('reinforcement sheets from a solved model', () => {
     expect(uiStore.proActiveTab).toBe('shells');
   });
 
-  it('gives a beam too shallow the depth it needs, never more than the one that holds, and a column with room the smaller section that still holds', () => {
+  it('gives a beam too shallow the depth it needs, never more than the one that holds, a beam that verifies the shallowest that still does with its deflection, and a column with room the smaller section that still holds', () => {
     frame();
     solve();
     const rows = buildSheetRows();
     const ok = rows.beam[0]!;
-    expect(resizeHints(ok)).toEqual([]);
+    const [down] = resizeHints(ok);
+    expect(down).toMatchObject({ what: 'beamH', direction: 'shrink', from: [ok.h] });
+    expect(redesignerOf(ok.key)!({ ...ok.demand, h: down!.to![0]! } as never).verifications.filter((v) => !v.ok)).toEqual([]);
+    if (down!.to![0]! - 0.05 >= Math.max(0.12, ok.b) - 1e-9) expect(redesignerOf(ok.key)!({ ...ok.demand, h: down!.to![0]! - 0.05 } as never).status).toBe('fail');
     const shallow = redesignerOf(ok.key)!({ ...ok.demand, h: 0.25 } as never) as typeof ok;
     expect(shallow.status).toBe('fail');
     const [hint] = resizeHints(shallow);
@@ -768,7 +771,7 @@ describe('reinforcement sheets from a solved model', () => {
     const [smaller] = resizeHints(col);
     expect(smaller).toMatchObject({ what: 'column', direction: 'shrink', from: [0.4, 0.4] });
     expect(smaller!.to![0]!).toBeLessThan(0.4);
-    expect(lineResizeHint(rows.beam)).toBeNull();
+    expect(lineResizeHint(rows.beam)).toMatchObject({ what: 'beamH', direction: 'shrink', to: down!.to });
   });
 
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {
