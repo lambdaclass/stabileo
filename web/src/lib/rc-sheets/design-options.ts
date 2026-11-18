@@ -29,7 +29,7 @@ export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flang
 /** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`). */
 export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings } & Partial<Record<DesignOptionFlag, true>>;
 
-export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months';
+export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate';
 
 /** The deflection settings a stored shape states, each kept only when valid; undefined when none is. */
 export function readDeflectionSettings(x: unknown): DeflectionSettings | undefined {
@@ -76,6 +76,7 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   deflection: { cirsoc: '§24.2, Tabla 24.2.2, Tabla 24.2.4.1.3', aci: '§24.2, Table 24.2.2, Table 24.2.4.1.3', ec2: '7.4.1, 7.4.3', ts500: '13.2' },
   months: { cirsoc: 'Tabla 24.2.4.1.3', aci: 'Table 24.2.4.1.3', off: { ec2: 'designData.opt.off.months', ts500: 'designData.opt.off.monthsTs500' } },
   creep: { ec2: '3.1.4, 7.4.3(5)', off: { cirsoc: 'designData.opt.off.creep', aci: 'designData.opt.off.creep', ts500: 'designData.opt.off.creep' } },
+  aggregate: { cirsoc: '§25.2.1, §25.2.3', aci: '§25.2.1, §25.2.3', ec2: '8.2(2)', off: { ts500: 'designData.opt.off.aggregateTs500' } },
 };
 
 const CODE_NAME: Record<SheetCode, string> = { 'cirsoc201-2025': 'CIRSOC 201-2025', 'aci318-19': 'ACI 318-19', 'en1992-1-1': 'EN 1992-1-1', 'bs-en1992-1-1': 'BS EN 1992-1-1', 'ts500-2000': 'TS 500' };

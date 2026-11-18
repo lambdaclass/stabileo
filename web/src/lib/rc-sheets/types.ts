@@ -28,6 +28,10 @@ export const inRange = (dia: number, r: { min: number; max: number }): boolean =
 export const DEFAULT_TIE_DIAMETERS: readonly number[] = [6, 8, 10, 12];
 /** The closest stirrups, hoops and ties are proposed, m, when the project states none: room for the concrete to pass. */
 export const DEFAULT_MIN_TIE_SPACING = 0.075;
+/** The nominal size of the largest aggregate, mm, when the project states none: the usual 19 mm (3/4"). */
+export const DEFAULT_AGGREGATE_MM = 19;
+/** The largest aggregate a project may state, mm. */
+export const AGGREGATE_RANGE = { min: 6, max: 50 } as const;
 
 export interface TransverseList {
   /** The diameters the project allows for stirrups, hoops and ties, mm. */
@@ -129,7 +133,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 11;
+export const RC_SHEETS_LOGIC = 12;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

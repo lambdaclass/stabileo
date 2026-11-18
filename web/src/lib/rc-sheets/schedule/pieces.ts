@@ -163,7 +163,7 @@ const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, 
 export function crankOffsets(r: ColumnRow, up: ColumnRow): Array<{ dia: number; e: number; count: number }> {
   const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
   const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
-  const bars = columnLayout(r, a, r.cover).bars;
+  const bars = columnLayout(r, a, r.cover, r.aggregate).bars;
   const out = new Map<string, { dia: number; e: number; count: number }>();
   for (const p of bars) {
     const e = Math.round(Math.hypot((p.x / Math.max(xc, 1e-9)) * ex, (p.y / Math.max(yc, 1e-9)) * ey) * 1000) / 1000;

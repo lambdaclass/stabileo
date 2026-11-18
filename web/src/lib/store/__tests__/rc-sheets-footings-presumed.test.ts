@@ -24,7 +24,7 @@ async function openSolved() {
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
 }
 
-const presumedLine = (r: { verifications: Array<{ label: string }> }) => r.verifications.find((v) => v.label === 'rcSheets.v.footPresumedSoil');
+const presumedLine = (r: { verifications: Array<{ label: string; demand?: string }> }) => r.verifications.find((v) => v.label === 'rcSheets.v.footPresumedSoil');
 
 describe('footings on a model with no soil', () => {
   it('are proposed on the presumed pressure, which every row names, and grow smaller on a stronger one', async () => {

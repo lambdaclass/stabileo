@@ -15,6 +15,7 @@
   import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
+  import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
 
@@ -66,7 +67,7 @@
 </details>
 
 <details class="pk-card do" data-testid="design-options-detailing">
-  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`])}</span></summary>
+  <summary><span class="do-h">{t('designData.detailing')}</span> <span class="do-sum" data-testid="design-options-detailing-summary">{summary(DETAILING, [`s ≥ ${fmt(d.minTieSpacingMm / 10, Number.isInteger(d.minTieSpacingMm / 10) ? 0 : 1)} cm`, `dagg ${fmt(d.maxAggregateMm, 0)} mm`])}</span></summary>
   {@render option('bentBars')}
   {@render option('slabBentBars')}
   {@render option('endZones')}
@@ -76,6 +77,14 @@
     </label>
     <span class="do-cl">{rule('minTieSpacing').clause}</span>
     <Hint text={t('designData.minTieSpacingHint')} />
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.maxAggregate')}
+      <input type="number" min={AGGREGATE_RANGE.min} max={AGGREGATE_RANGE.max} step="1" value={d.maxAggregateMm} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= AGGREGATE_RANGE.min && v <= AGGREGATE_RANGE.max) patchDesignData({ maxAggregateMm: v }); else e.currentTarget.value = String(d.maxAggregateMm); }} data-testid="design-data-max-aggregate" /> mm
+    </label>
+    <span class="do-cl">{rule('aggregate').clause}</span>
+    {#if rule('aggregate').off}<span class="do-off" data-testid="design-data-max-aggregate-off">{t(rule('aggregate').off!)}</span>{/if}
+    <Hint text={t('designData.maxAggregateHint')} />
   </div>
 </details>
 

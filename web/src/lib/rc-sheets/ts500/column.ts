@@ -55,7 +55,7 @@ function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, rh
     for (const dia of dias) {
       let a = withTies(c, evenLayout(d, c, dia, tieOf(c, dia), 0.3), dia);
       if (!clearOk(d, c, a)) continue;
-      const grow = (x: ColumnAdopted) => growColumn(d, x, c.cover, dia, (y) => clearOk(d, c, y) && areaOf(y) <= rhoMax + 1e-6, inside);
+      const grow = (x: ColumnAdopted) => growColumn(d, x, c.cover, dia, (y) => clearOk(d, c, y) && areaOf(y) <= rhoMax + 1e-6, inside, c.aggregate);
       let it = 0;
       for (let guard = 0; guard < 40 && areaOf(a) < ast - 1e-6; guard++) { const g = grow(a); if (!g) break; a = g; }
       while (demands.length && utilOf(sectionOf(d, a, c), t, demands) > 1 + 1e-6 && it < 24) {
@@ -233,6 +233,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     ...(stack.fromBelow ? { lap: { length: splice, tension } } : {}),
     ...(step ? { step } : {}),
     tieFloor: tieFloorOf(c),
+    ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),
   };
 }
 

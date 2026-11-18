@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { barClearance, columnLayout, growColumn, innerTies, rowClear } from '../column-layout';
-import { columnArea, columnBars, confinedTies, stackPattern, type ColumnDemand } from '../column-row';
+import { columnArea, columnBars, confinedTies, stackPattern, tiesClear, type ColumnDemand } from '../column-row';
 import { rulesFor } from '../codes';
 import { minClear as ec2MinClear } from '../ec2/basis';
 import { columnSection } from '../drawing';
+import { TIE_TOLERANCE } from '../column-tie-path';
 import { makeFmt } from '../format';
 import { SHEET_CODES, type ColumnAdopted, type SheetCode } from '../types';
 
@@ -57,7 +58,7 @@ describe('a column\'s rows inside its faces', () => {
           const row = rules.columnRow({ ...demand(b, h, 800, 60, 30), cases: [] }, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: a.tieDia, diameters: [dia] }, a, fmt);
           const g = geometry({ b, h }, a, 0.03, min);
           if (row.checks.spacingOk) { expect(g.slack, `${code} ${b}×${h} ${JSON.stringify(a)}`).toBeGreaterThanOrEqual(-1e-4); expect(g.inside).toBe(true); checked++; }
-          else { expect(g.slack < -1e-4 || !g.inside || outerTight({ b, h }, a, min)).toBe(true); refused++; }
+          else { expect(g.slack < -1e-4 || !g.inside || outerTight({ b, h }, a, min) || !tiesClear({ b, h }, a, 0.03, rules.bends)).toBe(true); refused++; }
         }
       }
     }
@@ -152,3 +153,49 @@ function outerTight(d: { b: number; h: number }, a: ColumnAdopted, min: (dia: nu
   const { inner: _x, ...outer } = a;
   return geometry(d, outer, 0.03, min).slack < -1e-4 || !geometry(d, outer, 0.03, min).inside;
 }
+
+describe('the ties drawn round a column\'s bars', () => {
+  /** The least distance of any drawn segment of hoop or crosstie from a bar's axis, less the bar's radius and the tie's, m. */
+  const worst = (d: ReturnType<typeof columnSection>) => {
+    let w = Infinity;
+    const segs = [d.hoop!.pts, ...d.crossties!.map((t) => t.pts)];
+    for (const pts of segs) for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i]!, [bx, by] = pts[i + 1]!, dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+      for (const p of d.bars) {
+        const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - ax) * dx + (p.y - ay) * dy) / l2)) : 0;
+        w = Math.min(w, Math.hypot(ax + t * dx - p.x, ay + t * dy - p.y) - p.dia / 2000 - d.tieDia / 2000);
+      }
+    }
+    return w;
+  };
+
+  it('never cross a bar, the inner rows\' crossties beside the rows behind them, across sections with one and two rows inside, in every code', { timeout: 60_000 }, () => {
+    let drawn = 0;
+    for (const code of CODES) {
+      const rules = rulesFor(code);
+      for (const [b, h] of [[0.3, 0.3], [0.4, 0.4], [0.4, 0.6], [0.5, 0.5], [0.6, 0.8], [0.8, 0.8]] as const) {
+        for (const dia of [16, 20, 25]) for (const n of [1, 2, 3, 4, 5]) for (const inn of [[1, 0], [2, 0], [3, 0], [0, 2], [1, 1], [2, 2], [3, 3]] as const) for (const rows of [1, 2]) {
+          const a: ColumnAdopted = { corner: dia, nx: n, dx: dia, ny: n, dy: dia, tieDia: dia > 16 ? 8 : 6, tieSpacing: 0.15, inner: { nx: inn[0], ny: inn[1], dia, rows } };
+          const row = rules.columnRow({ ...demand(b, h, 800, 60, 30), cases: [] }, { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: a.tieDia, diameters: [dia] }, a, fmt);
+          if (!row.checks.spacingOk) continue;
+          const d = columnSection(b, h, 0.03, a, { bends: rules.bends });
+          expect(worst(d), `${code} ${b}×${h} ${JSON.stringify(a)}`).toBeGreaterThanOrEqual(-TIE_TOLERANCE);
+          drawn++;
+        }
+      }
+    }
+    expect(drawn).toBeGreaterThan(400);
+  });
+
+  it('lay the crosstie of a second row inside on the other side of the line from the first row\'s, tangent to the bars behind it', () => {
+    const a: ColumnAdopted = { corner: 20, nx: 3, dx: 20, ny: 3, dy: 20, tieDia: 8, tieSpacing: 0.1, inner: { nx: 1, ny: 0, dia: 20, rows: 2 } };
+    const d = columnSection(0.6, 0.6, 0.03, a);
+    const middle = d.crossties!.filter((t) => t.across === 'h' && Math.abs(Math.abs(t.leg[0][0] - 0.3) - 0.014) < 1e-9);
+    expect(middle).toHaveLength(3);
+    const sides = middle.map((t) => Math.sign(t.leg[0][0] - 0.3));
+    expect(sides[1]).toBe(-sides[0]!);
+    expect(sides[2]).toBe(-sides[1]!);
+    expect(middle.map((t) => +(t.leg[1][1] - t.leg[0][1]).toFixed(6))).toEqual([...middle.map((t) => +(t.leg[1][1] - t.leg[0][1]).toFixed(6))].sort((p, q) => q - p));
+    expect(worst(d)).toBeGreaterThanOrEqual(-TIE_TOLERANCE);
+  });
+});

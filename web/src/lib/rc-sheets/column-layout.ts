@@ -96,8 +96,8 @@ export function heldOptions(n: number, pitch: number, dia: number, rule: HeldRul
   return out.sort((p, q) => p.length - q.length);
 }
 
-/** The clear spacing between a column's rows of bars, m: §25.2.3's max(1.5·db; 40 mm), which the FIUBA course keeps for any code (§15.8). */
-export const rowClear = (dia: number): number => Math.max((1.5 * dia) / 1000, 0.04);
+/** The clear spacing between a column's rows of bars, m: §25.2.3's max(1.5·db; 40 mm; 4/3·dagg), which the FIUBA course keeps for any code (§15.8); `aggregate` in mm. */
+export const rowClear = (dia: number, aggregate = 0): number => Math.max((1.5 * dia) / 1000, 0.04, (4 / 3) * aggregate / 1000);
 
 /** A bar of a column's section, from its centre, m; `dia` in mm. */
 export interface PlacedBar { x: number; y: number; dia: number; row: 'corner' | 'b' | 'h' | 'inner' }
@@ -132,7 +132,7 @@ const spread = (k: number, limit: number) => (k === 1 ? [0] : Array.from({ lengt
  * inner corners: only the face positions at least a bar and its clear spacing inside the h rows take
  * one. Where no such choice of positions exists, the row's bars spread evenly within that reach.
  */
-export function columnLayout(d: { b: number; h: number }, a: ColumnAdopted, cover: number): { bars: PlacedBar[]; rows: InnerRow[] } {
+export function columnLayout(d: { b: number; h: number }, a: ColumnAdopted, cover: number, aggregate = 0): { bars: PlacedBar[]; rows: InnerRow[] } {
   const toBar = (dia: number) => cover + a.tieDia / 1000 + dia / 2000;
   const xc = d.b / 2 - toBar(a.corner), yc = d.h / 2 - toBar(a.corner);
   const faceX = facePositions(2 * xc, a.nx), faceY = facePositions(2 * yc, a.ny);
@@ -142,8 +142,8 @@ export function columnLayout(d: { b: number; h: number }, a: ColumnAdopted, cove
   for (const y of faceY) for (const sx of [-1, 1]) bars.push({ x: sx * (d.b / 2 - toBar(a.dy)), y, dia: a.dy, row: 'h' });
   const inn = a.inner, count = innerRowCount(a);
   if (!inn || !count) return { bars, rows: [] };
-  const step = (outer: number, inner: number) => outer / 2000 + rowClear(Math.max(outer, inner)) + inner / 2000;
-  const pitch = step(inn.dia, inn.dia), cc = inn.dia / 1000 + rowClear(inn.dia);
+  const step = (outer: number, inner: number) => outer / 2000 + rowClear(Math.max(outer, inner), aggregate) + inner / 2000;
+  const pitch = step(inn.dia, inn.dia), cc = inn.dia / 1000 + rowClear(inn.dia, aggregate);
   const outerB = Math.max(a.corner, a.dx), outerH = Math.max(a.corner, a.dy);
   const yIn = (k: number) => d.h / 2 - toBar(outerB) - step(outerB, inn.dia) - k * pitch;
   const xIn = (k: number) => d.b / 2 - toBar(outerH) - step(outerH, inn.dia) - k * pitch;
@@ -186,9 +186,9 @@ export function layoutDias(a: ColumnAdopted): number[] {
  * those along h, each with the length between the corners of its hooks, m. Inner bars are not
  * perimeter bars: chapter 18's hx (§18.7.5.2) is read on the perimeter alone.
  */
-export function innerTies(d: { b: number; h: number }, a: ColumnAdopted, cover: number): { x: number; y: number; ties: Array<{ across: 'h' | 'b'; at: number; length: number }> } {
+export function innerTies(d: { b: number; h: number }, a: ColumnAdopted, cover: number, aggregate = 0): { x: number; y: number; ties: Array<{ across: 'h' | 'b'; at: number; length: number }> } {
   const wrap = ((a.inner?.dia ?? 0) + a.tieDia) / 1000;
-  const ties = columnLayout(d, a, cover).rows.flatMap((r) => [
+  const ties = columnLayout(d, a, cover, aggregate).rows.flatMap((r) => [
     ...r.xs.map((at) => ({ across: 'h' as const, at, length: 2 * r.yIn + wrap })),
     ...r.ys.map((at) => ({ across: 'b' as const, at, length: 2 * r.xIn + wrap })),
   ]);
@@ -204,7 +204,7 @@ const innerBars = (a: ColumnAdopted) => 2 * innerRowCount(a) * ((a.inner?.nx ?? 
  * the face bars first, then the most even between the two pairs of faces, a second row inside the
  * first only where one row does not take them. Null when nothing fits.
  */
-export function growColumn(d: { b: number; h: number }, a: ColumnAdopted, cover: number, innerDia: number, fits: (a: ColumnAdopted) => boolean, inside: boolean): ColumnAdopted | null {
+export function growColumn(d: { b: number; h: number }, a: ColumnAdopted, cover: number, innerDia: number, fits: (a: ColumnAdopted) => boolean, inside: boolean, aggregate = 0): ColumnAdopted | null {
   const outer = growSymmetric(d, a, (side) => side - 2 * (cover + a.tieDia / 1000 + a.corner / 2000));
   if (fits(outer)) return outer;
   if (!inside) return null;
@@ -215,7 +215,7 @@ export function growColumn(d: { b: number; h: number }, a: ColumnAdopted, cover:
     const x: ColumnAdopted = { ...a, inner: rows > 1 ? { nx, ny, dia, rows } : { nx, ny, dia } };
     const n = innerBars(x);
     if (n <= have) continue;
-    options.push({ x, n, aligned: columnLayout(d, x, cover).rows.every((r) => r.aligned), skew: Math.abs(nx - ny), rows });
+    options.push({ x, n, aligned: columnLayout(d, x, cover, aggregate).rows.every((r) => r.aligned), skew: Math.abs(nx - ny), rows });
   }
   options.sort((p, q) => p.n - q.n || Number(q.aligned) - Number(p.aligned) || p.rows - q.rows || p.skew - q.skew);
   return options.find((o) => fits(o.x))?.x ?? null;

@@ -4,7 +4,9 @@ import { withSection, type Bar } from '../engine/codes/argentina/cirsoc201-secti
 import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { minClearSpacingColumn } from '../codes/cirsoc201/spacing';
-import { barArea, roundDown } from './bars';
+import { ACI_BENDS, barArea, roundDown } from './bars';
+import { TIE_TOLERANCE, tiePaths } from './column-tie-path';
+import type { BendRules } from './shape';
 import { compressionLapMm, confinementOf, deriveCompressionDevelopment, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
 import { mixedLap, stackStep, stepCheck, type StackStep } from './column-stack';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
@@ -80,6 +82,8 @@ export interface ColumnContext extends TransverseList {
   coverTable?: { control: boolean };
   /** The least nominal moment its joints ask of it for the strong-column rule (§18.7.3.2), kN·m, as `columnLeastMn` reads it. */
   minMn?: number;
+  /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the bars' clear spacing (§25.2.3). Absent: not read. */
+  aggregate?: number;
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number; cm: number }
@@ -113,6 +117,8 @@ export interface ColumnRow {
   confinement?: { lo: number; so: number };
   /** The closest spacing its ties were proposed at, m (`TransverseList`). */
   tieFloor?: number;
+  /** The largest aggregate its bars were laid for, mm (`ColumnContext`): the drawing and the schedule lay them alike. */
+  aggregate?: number;
 }
 
 const coverToBar = (c: Pick<ColumnContext, 'cover'>, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
@@ -120,14 +126,14 @@ const coverToBar = (c: Pick<ColumnContext, 'cover'>, tie: number, dia: number) =
 const innerRowsOf = (a: ColumnAdopted) => (a.inner && (a.inner.nx > 0 || a.inner.ny > 0) ? Math.max(1, a.inner.rows ?? 1) : 0);
 
 /** The rows inside the faces, outermost first, from the section's centre, m (`columnLayout`). */
-export const innerRows = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>): InnerRow[] => columnLayout(d, a, c.cover).rows;
+export const innerRows = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover' | 'aggregate'>): InnerRow[] => columnLayout(d, a, c.cover, c.aggregate).rows;
 
 /** The crossties that hold the inner rows (`innerTies`). */
-export const innerCrossties = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover'>) => innerTies(d, a, c.cover);
+export const innerCrossties = (d: { b: number; h: number }, a: ColumnAdopted, c: Pick<ColumnContext, 'cover' | 'aggregate'>) => innerTies(d, a, c.cover, c.aggregate);
 
 /** The bars of a column's section with their areas, m and m², in `columnLayout`'s order: corners, b faces, h faces, inner rows. */
-export function columnBars<C extends { cover: number }>(d: { b: number; h: number }, a: ColumnAdopted, c: C): Bar[] {
-  return columnLayout(d, a, c.cover).bars.map((p) => ({ x: p.x, y: p.y, area: barArea(p.dia) * 1e-4 }));
+export function columnBars<C extends { cover: number; aggregate?: number }>(d: { b: number; h: number }, a: ColumnAdopted, c: C): Bar[] {
+  return columnLayout(d, a, c.cover, c.aggregate).bars.map((p) => ({ x: p.x, y: p.y, area: barArea(p.dia) * 1e-4 }));
 }
 
 export const columnArea = (a: ColumnAdopted): number => 4 * barArea(a.corner) + 2 * a.nx * barArea(a.dx) + 2 * a.ny * barArea(a.dy)
@@ -176,14 +182,21 @@ function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, tie: number,
   return { corner: dia, nx: n(d.b), dx: dia, ny: n(d.h), dy: dia, tieDia: tie, tieSpacing: 0 };
 }
 
-const columnMinClear = (dia: number) => minClearSpacingColumn(EDITION, { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
+const columnMinClear = (dia: number, aggregate = 0) => minClearSpacingColumn(EDITION, { barDiameterMm: dia, maxAggregateSizeMm: aggregate }).minClear;
 
-/** The clear spacing of §25.2.3 between every pair of bars, the inner rows' included, and every bar inside the tie. */
+/** The clear spacing of §25.2.3 between every pair of bars, the inner rows' included, every bar inside the tie, and the ties laid round them clear of every bar (`tiesClear`). */
 function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
-  const minX = columnMinClear(Math.max(a.corner, a.dx)), minY = columnMinClear(Math.max(a.corner, a.dy));
+  const minX = columnMinClear(Math.max(a.corner, a.dx), c.aggregate), minY = columnMinClear(Math.max(a.corner, a.dy), c.aggregate);
   if (!(gap(d.b, a.nx, Math.max(a.corner, a.dx)) >= minX - 1e-4 && gap(d.h, a.ny, Math.max(a.corner, a.dy)) >= minY - 1e-4)) return false;
-  return !innerRowsOf(a) || barClearance(d, columnLayout(d, a, c.cover).bars, c.cover, a.tieDia, columnMinClear).ok;
+  return (!innerRowsOf(a) || barClearance(d, columnLayout(d, a, c.cover, c.aggregate).bars, c.cover, a.tieDia, (dia) => columnMinClear(dia, c.aggregate)).ok) && tiesClear(d, a, c.cover, ACI_BENDS, c.aggregate);
+}
+
+/** The hoop and the crossties as the section draws them (`tiePaths`, the crossties of §25.7.2.3 and lo's) cross no bar, within `TIE_TOLERANCE`. */
+export function tiesClear(d: { b: number; h: number }, a: ColumnAdopted, cover: number, bends: BendRules = ACI_BENDS, aggregate = 0): boolean {
+  const plain = { ...a, confined: undefined };
+  const sets = [confinedTies(d, plain, { cover }).along, ...(a.confined ? [confinedTies(d, a, { cover }).along] : [])];
+  return sets.every((held) => tiePaths(d, a, cover, { held, extension: (angle) => bends.extension(a.tieDia, angle, 'transverse'), hooks: bends.crossTieHooks }, aggregate).slack >= -TIE_TOLERANCE);
 }
 
 const facePitch = (side: number, n: number, cornerDia: number, c: { cover: number }, tie: number) => (side - 2 * (c.cover + tie / 1000 + cornerDia / 2000)) / (n + 1);
@@ -511,7 +524,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
         { label: 'rcSheets.s.rhoReq', formula: 'ρ = Ast/Ag (Pu, Mcx, Mcy)', value: `${fmt(ast / (Ag * 1e4) * 100, 2)} % → ${fmt(ast)} cm²`, ok: !impossible },
         { label: 'rcSheets.s.rhoLimits', formula: '0.01 ≤ ρ ≤ 0.08', value: `${fmt(area / (Ag * 1e4) * 100, 2)} %`, ok: rhoOk },
         { label: 'rcSheets.s.adopted', formula: columnLabel(a), value: `${fmt(area)} cm²`, ok: area >= ast - 1e-6 },
-        { label: 'rcSheets.s.colSpacing', formula: 'max(1.5·db; 40 mm) (§25.2.3)', value: '', ok: spacingOk },
+        { label: 'rcSheets.s.colSpacing', formula: `max(1.5·db; 40 mm; 4/3·dagg), dagg = ${fmt(c.aggregate ?? 0, 0)} mm (§25.2.3)`, value: '', ok: spacingOk },
         { label: 'rcSheets.s.biaxial', formula: gov ? `${gov.c.combo}: Pu = ${fmt(gov.c.pu, 1)} kN` : '—', value: `${fmt(ratio, 3)}`, ok: ratio <= 1 + 1e-6 },
       ],
     },
@@ -543,6 +556,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     ...(step ? { step } : {}),
     ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
     tieFloor: floor,
+    ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),
   };
 }
 
@@ -699,7 +713,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
     }
   }
   const span = (a: ColumnAdopted) => (side: number) => side - 2 * coverToBar(c, a.tieDia, a.corner);
-  const grow = (a: ColumnAdopted, dia: number, inside: boolean): ColumnAdopted | null => growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x), inside);
+  const grow = (a: ColumnAdopted, dia: number, inside: boolean): ColumnAdopted | null => growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x), inside, c.aggregate);
   const maxPitch = c.seismic ? COLUMN_PITCH.seismic : COLUMN_PITCH.plain;
   for (const inside of [false, true]) {
     const found: Array<{ a: ColumnAdopted; dia: number; it: number }> = [];
