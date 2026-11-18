@@ -121,7 +121,12 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
           const byDir = (modalLevels: SeismicLevel[], dir: 'x' | 'y') => {
             const m = modalStoryForces(modalLevels, modes, dir, (t) => (spectralOrdinate(t, spectrum) * gr) / r);
             // §7.2.5: no less than 85 % of the static base shear.
-            const scale = m.baseShear > 0 && m.baseShear < 0.85 * V0 ? (0.85 * V0) / m.baseShear : 1;
+            const minimum = 0.85 * V0;
+            const scale = m.baseShear < minimum ? minimum / m.baseShear : 1;
+            if (!Number.isFinite(m.baseShear) || !Number.isFinite(scale)) {
+              blockedKeys.push(msg('loadPlan.blocked.modalBaseShear', { dir: dir.toUpperCase() }));
+              return undefined;
+            }
             derivation.push(msg('loadPlan.derivation.modal', {
               dir: dir.toUpperCase(), modes: m.perMode.length, ratio: round(m.massRatio * 100, 1),
               vod: round(m.baseShear, 1), voe: round(V0, 1), scale: round(scale, 3),
@@ -133,10 +138,12 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             const modalLevels = modalLoadingLevels(levels, modes);
             const x = input.seismic.directions.x || input.seismic.diagonal ? byDir(modalLevels, 'x') : [];
             const y = input.seismic.directions.y || input.seismic.diagonal ? byDir(modalLevels, 'y') : [];
+            if (!x || !y) return { seismicWeight, baseShear, seismicDetail };
             loading = { levels: modalLevels, forcesX: x, forcesY: y };
           } catch (error) {
             if (!(error instanceof SeismicModeRefusal)) throw error;
             blockedKeys.push(msg('loadPlan.blocked.seismicMass.mode'));
+            return { seismicWeight, baseShear, seismicDetail };
           }
         }
       }

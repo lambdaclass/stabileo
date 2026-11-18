@@ -516,12 +516,11 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
   }
 });
 
-const zeroShearRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
 const upperBandStart = height / 2;
 for (const rotated of [false, true]) {
   const missing = rotated ? 'x' : 'y';
   for (const selection of ['single-axis', 'two-axis', 'diagonal'] as const) {
-    zeroShearRegression(`known wrong result: #2316 zero modal base shear in ${missing} blocks a ${selection} request`, () => {
+    it(`#2316 zero modal base shear in ${missing} blocks a ${selection} request`, () => {
       const { model, byColumn } = round2Columns([0, upperBandStart, height], rotated, false);
       for (const members of byColumn) members[0]!.materialId = 2;
       const mode = prescribedMode(model, rotated, z => z >= upperBandStart ? 1 : 0, 0);

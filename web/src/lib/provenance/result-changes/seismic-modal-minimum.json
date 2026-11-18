@@ -1,0 +1,32 @@
+{
+  "id": "seismic-modal-minimum",
+  "date": "2026-11-18",
+  "prs": [2316],
+  "area": "loads",
+  "when": {
+    "all": ["generatedSeismicLoads"]
+  },
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Modal seismic load generation requires scalable base shear",
+    "es": "La generación de cargas sísmicas modales requiere un corte basal que se pueda escalar",
+    "pt": "A geração de cargas sísmicas modais requer força cortante basal que possa ser escalada",
+    "de": "Die Erzeugung modaler Erdbebenlasten setzt eine skalierbare Basisscherkraft voraus",
+    "fr": "La génération des charges sismiques modales exige un effort tranchant à la base qui puisse être mis à l’échelle",
+    "tr": "Modal deprem yükü üretimi ölçeklenebilir taban kesme kuvveti gerektirir",
+    "hu": "A modális szeizmikus tehergeneráláshoz skálázható talpszinti nyíróerő szükséges"
+  },
+  "explanation": {
+    "en": "Apply is blocked when the retained modes cannot meet the minimum base shear. If an affected direction was included, check the model restraints and modal participation before regenerating the E loads and repeating analyses and design checks (#2316).",
+    "es": "La aplicación se bloquea cuando los modos retenidos no alcanzan el corte basal mínimo mediante escalado. Si se incluyó una dirección afectada, revisá las restricciones y la participación modal antes de regenerar las cargas E y repetir los análisis y las verificaciones (#2316).",
+    "pt": "A aplicação é bloqueada quando não é possível escalar os modos retidos para atingir a força cortante basal mínima. Se uma direção afetada foi incluída, verifique as restrições e a participação modal antes de gerar novamente as cargas E e refazer as análises e verificações (#2316).",
+    "de": "Das Anwenden wird gesperrt, wenn die berücksichtigten Eigenformen nicht auf die Mindestbasisscherkraft skaliert werden können. Falls eine betroffene Richtung enthalten war, prüfen Sie die Lagerungsbedingungen und die modale Massenbeteiligung, bevor Sie E-Lasten neu erzeugen und Analysen und Nachweise wiederholen (#2316).",
+    "fr": "L’application des charges est bloquée si la mise à l’échelle des modes retenus ne permet pas d’atteindre l’effort tranchant minimal à la base. Si une direction concernée a été incluse, vérifiez les conditions d’appui et la participation modale avant de régénérer les charges E et de reprendre les analyses et les vérifications (#2316).",
+    "tr": "Hesaba katılan modlar asgari taban kesme kuvvetine ulaşacak şekilde ölçeklenemezse yüklerin uygulanması engellenir. Etkilenen bir doğrultu dahil edildiyse E yüklerini yeniden üretmeden, analizleri ve kontrolleri tekrarlamadan önce mesnet koşullarını ve modal katılımı kontrol edin (#2316).",
+    "hu": "A terhek alkalmazása le van tiltva, ha a figyelembe vett rezgésalakok skálázásával nem érhető el a legkisebb előírt talpszinti nyíróerő. Ha érintett irányt is figyelembe vett, ellenőrizze a megtámasztást és a rezgésalakok tömegrészvételét az E terhek újragenerálása, valamint az elemzések és ellenőrzések megismétlése előtt (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-modal-minimum.md",
+    "heading": "Modal seismic load generation requires scalable base shear"
+  }
+}

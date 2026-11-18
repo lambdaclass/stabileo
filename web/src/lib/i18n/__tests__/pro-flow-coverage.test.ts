@@ -189,9 +189,14 @@ describe('the PRO workflow speaks every language it is offered in', () => {
   });
 });
 
-const seismicLocaleRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-seismicLocaleRegression('known wrong result: #2316 every dictionary translates the modal representation refusal', () => {
+it('#2316 every dictionary translates the modal representation refusal', () => {
   const key = 'loadPlan.blocked.seismicMass.mode';
   const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]);
+  expect(missing).toEqual([]);
+});
+
+it('#2316 every dictionary names the direction in the modal base shear refusal', () => {
+  const key = 'loadPlan.blocked.modalBaseShear';
+  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]?.includes('{dir}'));
   expect(missing).toEqual([]);
 });

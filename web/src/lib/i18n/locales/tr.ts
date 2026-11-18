@@ -7530,6 +7530,7 @@ const tr: Translations = {
   'loadPlan.blocked.seismicMass.snow': "{elevation} m kotunda deprem yükü reddedildi. Katılan kar kütlesinin taşıyıcıları belirlenemedi.",
   'loadPlan.blocked.seismicMass.torsion': "{elevation} m kotunda deprem yükü reddedildi. Çubuk yükü alanı tesadüfi burulmayı temsil edemedi.",
   'loadPlan.blocked.seismicMass.mode': "Modal çözücü deprem modunu veya fiziksel kütle dağılımını temsil edemiyor.",
+  'loadPlan.blocked.modalBaseShear': "Hesaba katılan modlar {dir} doğrultusunda gerekli asgari taban kesme kuvvetine ulaşacak şekilde ölçeklenemiyor. Modelin mesnet koşullarını ve modal katılımı kontrol edin.",
   'loadPlan.blocked.seismicMass.weight': "{elevation} m kotunda deprem yükü reddedildi. Bir kütle veya kat kuvveti geçersiz.",
   'loadPlan.blocked.seismicNoR': 'Tablo 5.1, “{system}” için davranış katsayısı R vermiyor. Satır 1 bir değer yerine perde yerleşimine dayalı bir ifade verir; eksik olan diğer her satır tanımlanmamış bir sistemdir. Spektrumu bölecek bir değer yok.',
   'loadPlan.blocked.roleUnusable': '“{role}” rolü ({name}) kullanılamıyor: bir yönetmelik seçin ve ayarlarını tamamlayın.',

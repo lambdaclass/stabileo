@@ -25,6 +25,8 @@ const ja: Translations = {
   "engine.memberLoad.invalidInterval": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] が無効です",
   "engine.memberLoad.geometryLimit": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] は相対幾何限界 {limit} 未満です",
 
+  "loadPlan.blocked.seismicMass.mode": "モード解析ソルバーでは、地震応答の振動モードまたはそれに対応する実際の質量分布を表現できません。",
+  "loadPlan.blocked.modalBaseShear": "採用した振動モードをスケーリングしても、{dir} 方向のベースシアは規定の最小値に達しません。モデルの拘束条件とモードの質量寄与を確認してください。",
   "loadPlan.blocked.concentratedRule": "{occupancy}にはCIRSOC 101 {article}に基づく集中荷重の検討が必要です。最も不利な位置は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
   "loadPlan.blocked.concentratedLive": "{occupancy}には、CIRSOC 101 §4.4に基づく{force} kNの集中積載荷重の検討が必要です。最も不利な位置と等分布荷重・集中荷重の代替条件は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4では、§4.8の屋根積載荷重とは別に、最も不利な位置での集中屋根荷重の検討が必要です。これらは評価されません。自動生成は停止されています。屋根への作用を手動でモデル化して検討してください。",

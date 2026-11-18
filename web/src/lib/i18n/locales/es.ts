@@ -7973,6 +7973,7 @@ const es: Record<string, string> = {
   'loadPlan.blocked.seismicMass.snow': "Se rechazó la carga sísmica a {elevation} m. No se pudieron determinar los elementos portantes de la masa de nieve participante.",
   'loadPlan.blocked.seismicMass.torsion': "Se rechazó la carga sísmica a {elevation} m. El campo de presiones sobre las barras no pudo representar la torsión accidental.",
   'loadPlan.blocked.seismicMass.mode': "El solver modal no puede representar el modo sísmico o su distribución física de masa.",
+  'loadPlan.blocked.modalBaseShear': "Los modos retenidos no se pueden escalar para alcanzar el corte basal mínimo requerido en la dirección {dir}. Revisá las restricciones del modelo y la participación modal.",
   'loadPlan.blocked.seismicMass.weight': "Se rechazó la carga sísmica a {elevation} m. Una masa física o fuerza de piso es inválida.",
   'loadPlan.blocked.seismicNoR': 'La Tabla 5.1 no da factor de reducción R para «{system}». La fila 1 imprime una expresión sobre la disposición de tabiques en vez de un valor; cualquier otra fila faltante es un sistema que no se identificó. No hay por qué dividir el espectro.',
   'loadPlan.blocked.roleUnusable': 'El rol «{role}» ({name}) no es utilizable: seleccionar un reglamento y completar sus ajustes.',
