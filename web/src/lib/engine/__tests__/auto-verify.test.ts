@@ -177,7 +177,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
   });
 
   function secondaryCapacity(spacing: number) {
-    const b = 0.6, d = 0.3 - 0.025 - 0.008 - 0.008;
+    const b = 0.6, d = 0.3 - 0.025 - 0.008 - 12 / 2000;
     const concreteStress = 0.17 * Math.sqrt(25) + Math.min(800 / (1000 * 0.3 * 0.6 * 6), 0.05 * 25);
     return 0.75 * d * (concreteStress * 1000 * b + 2 * 0.503e-4 * 420_000 / spacing);
   }
@@ -211,6 +211,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
 
   it('the secondary shear is checked over the rotated section', () => {
     const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.column?.barDia).toBe(12);
     expect(v!.shearSecondary?.Vu).toBe(150);
     expect(v!.shearSecondary?.spacing).toBe(reference(0.6, 0.3, 120, 150).shear.spacing);
     expect(v!.shearSecondary?.stirrupLegs).toBe(2);
@@ -226,6 +227,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     const secondaryAlone = reference(0.6, 0.3, 120, 150).shear;
     expect(secondaryAlone.spacing).toBeLessThan(alone.shear.spacing);
     const v = verifyElement({ ...input, VuSecondary: 150 });
+    expect(v.column?.barDia).toBe(12);
     expect(v.shear.spacing).toBe(secondaryAlone.spacing);
     expect(v.shearSecondary!.spacing).toBe(secondaryAlone.spacing);
     expect([v.shear.stirrupLegs, v.shearSecondary!.stirrupLegs]).toEqual([alone.shear.stirrupLegs, 2]);

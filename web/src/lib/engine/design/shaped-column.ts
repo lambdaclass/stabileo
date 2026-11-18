@@ -11,6 +11,7 @@
  * 201-2025's (Tabla 21.2.2, Tabla 22.4.2.1): a spiral gives φ 0,75 and the 0,85 axial cap, and is checked for its clear pitch (25 to 75 mm, §25.7.3.1) and its volumetric
  * ratio ρs ≥ 0,45·(Ag/Ach − 1)·f'c/fyt (§25.7.3.3).
  */
+import { hasSecondaryShearDemand } from '../../codes/cirsoc201/torsion';
 import { momentCapacityAtAxial } from '../codes/argentina/cirsoc-flex-surface';
 import { axialRange } from '../codes/argentina/cirsoc-flex-surface';
 import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
@@ -184,7 +185,7 @@ export function checkShapedColumn(input: {
     let wv: { u: number; Vu: number; cap: number; t: ShapedTuple } | null = null;
     for (const t of input.tuples) {
       const Vu = Math.abs(w.read(t));
-      if (Vu < 1e-3) continue;
+      if (secondary ? !hasSecondaryShearDemand(Vu) : Vu < 1e-3) continue;
       const cap = secondary ? 0 : input.shearCapacity(w.bw, w.d, -t.n);
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
       if (!wv || u > wv.u || (u === wv.u && Vu > wv.Vu)) wv = { u, Vu, cap, t };

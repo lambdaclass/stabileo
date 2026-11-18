@@ -26,7 +26,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
 
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
-import { checkTorsion2025, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, weakestMemberCages } from '../codes/cirsoc201/torsion';
+import { checkTorsion2025, columnShearTensionRatio, hasSecondaryShearDemand, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -2090,13 +2090,29 @@ export function verifyProvidedReinforcement(
     ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, section.stirrupDia, provided.column, spacingRule)
     : undefined;
   const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
-  const colRhoW = elementType === 'column' && section ? colArea / 3 / (section.b * section.h * 1e4) : 0;
-  const atTorsion = (t: Tuple, d: number, primaryRhoW: number) => cages.flatMap(cage => {
+  const colRhoW = elementType === 'column' && section ? columnShearTensionRatio(section, colArea) : 0;
+  const bottomLayers = resolveLayers(regions?.bottomSpanLayers, regions?.bottomSpan ?? provided.bottom);
+  const topStartLayers = resolveLayers(regions?.topStartLayers, regions?.topStart ?? provided.top);
+  const topEndLayers = resolveLayers(regions?.topEndLayers, regions?.topEnd ?? provided.top);
+  const beamGroups = [
+    ...resolveBarGroups(regions?.bottomGroups, bottomLayers, true, true),
+    ...resolveBarGroups(regions?.topStartGroups, topStartLayers, true, true),
+    ...resolveBarGroups(regions?.topEndGroups, topEndLayers, true, true),
+  ];
+  const beamDiameters = beamGroups.flatMap(group => group.layers.filter(bar => bar.count !== 0)
+    .map(bar => Number.isSafeInteger(bar.count) && bar.count > 0 ? bar.diameter : NaN));
+  if (regions?.skin) beamDiameters.push(regions.skin.diameter);
+  let longitudinalLayout: SecondaryLongitudinalLayout | undefined;
+  if (elementType === 'column') {
+    if (colLayout) longitudinalLayout = { kind: 'column', diameters: colLayout.bars.map(bar => bar.diameter), totalAreaCm2: colLayout.totalArea };
+  } else {
+    longitudinalLayout = { kind: 'beam-or-wall', diameters: beamDiameters };
+  }
+  const secondaryCages = section ? cages.map(cage => ({ cage, face: secondaryShearFace(section, cage, longitudinalLayout) })) : [];
+  const atTorsion = (t: Tuple, d: number, primaryRhoW: number) => secondaryCages.flatMap(({ cage, face }) => {
     if (!section || Math.abs(t.tq) < 0.01) return [];
-    const dSecondary = section.b - section.cover - section.stirrupDia / 1000 - 0.008;
-    const r = checkTorsion2025({ ...section, d, dSecondary, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition,
-      rhoW: { primary: primaryRhoW, secondary: colRhoW } });
+    const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
+      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: primaryRhoW } });
     const missing = cage.kind === 'refusal' && cage.missing === true;
     if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing }];
     return r.neglect ? [] : [{ r, t, missing }];
@@ -2115,19 +2131,18 @@ export function verifyProvidedReinforcement(
     checkedAxes.add('T');
   };
   if (section && !(elementType === 'column' && options?.shape)) {
-    const cases = allTuples.filter(t => !(Math.abs(V2(t)) < 0.001));
+    const cases = allTuples.filter(t => hasSecondaryShearDemand(V2(t)));
     let worst: { t: Tuple; demand: number; capacity: number; ratio: number; reason: string; refused?: boolean; missing?: boolean } | undefined;
-    for (const cage of cages) for (const t of cases) {
+    for (const { face: f } of secondaryCages) for (const t of cases) {
       const demand = Math.abs(V2(t));
-      if (cage.kind === 'refusal') {
+      if (f.kind === 'refusal') {
         if (!worst || demand > worst.demand) {
-          worst = { t, demand, capacity: 0, ratio: Infinity, reason: cage.reason, refused: !cage.missing, missing: cage.missing };
+          worst = { t, demand, capacity: 0, ratio: Infinity, reason: f.reason, refused: !f.missing, missing: f.missing };
         }
         continue;
       }
-      const f = secondaryShearFace(section, cage);
       const cap = computeShearCapacity(f.stirrupDia, f.legs, f.spacing, f.b, f.d, section.fc, section.fy, -t.n,
-        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, rhoW: colRhoW, unrounded: true });
+        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, rhoW: f.rhoW, unrounded: true });
       const minimumThreshold = secondaryShearMinimumThreshold(spacingRule.edition, f, section.fc, cap.phiVc);
       const minShort = cap.avBelowMin && demand > minimumThreshold;
       const spacingShortfall = secondaryShearSpacingShortfall(spacingRule.edition, f, section.cover, section.fc, demand, cap.phiVc);
@@ -2165,11 +2180,6 @@ export function verifyProvidedReinforcement(
     }
 
     const reg = provided.regions;
-
-    // ── Resolve layers from explicit layers or grouped bars ──
-    const bottomLayers = resolveLayers(reg?.bottomSpanLayers, reg?.bottomSpan ?? provided.bottom);
-    const topStartLayers = resolveLayers(reg?.topStartLayers, reg?.topStart ?? provided.top);
-    const topEndLayers = resolveLayers(reg?.topEndLayers, reg?.topEnd ?? provided.top);
 
     // ── Compute d and d' from ACTUAL layer centroids (never an assumed Ø16) ──
     // ── Final physical geometry ──────────────────────────────────

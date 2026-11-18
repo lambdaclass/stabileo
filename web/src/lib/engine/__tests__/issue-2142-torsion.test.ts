@@ -13,7 +13,8 @@ import type { SolverInput3D } from '../types-3d';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
-const depth = (h: number, diameter = p.stirrupDia) => h - p.cover - diameter / 1000 - 16 / 2000;
+const depth = (h: number, diameter = p.stirrupDia, longitudinalDiameter = 16) => h - p.cover - diameter / 1000 - longitudinalDiameter / 2000;
+const selectedBarDiameter = (member: 'beam' | 'column' | 'wall') => member === 'beam' ? 20 : 12;
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
@@ -21,12 +22,13 @@ const demand = (primary: number, secondary: number, torque: number, axis: 'My' |
     vy: axis === 'My' ? secondary : primary, vz: axis === 'My' ? primary : secondary, torsion: torque } },
 ])[0]!.section(axis);
 
-function reference(primary: number, secondary: number, torque: number, b = p.b, h = p.h, diameter = p.stirrupDia) {
+function reference(primary: number, secondary: number, torque: number, longitudinalDiameter = 16, diameter = p.stirrupDia) {
+  const { b, h } = p;
   const x = b - 2 * p.cover - diameter / 1000;
   const y = h - 2 * p.cover - diameter / 1000;
   const Aoh = x * y, ph = 2 * (x + y);
   const limit = 0.75 * (0.17 * Math.sqrt(p.fc) + 0.66 * Math.sqrt(p.fc)) * 1000;
-  const v = Math.max(Math.abs(primary) / (b * depth(h, diameter)), Math.abs(secondary) / (h * depth(b, diameter)));
+  const v = Math.max(Math.abs(primary) / (b * depth(h, diameter)), Math.abs(secondary) / (h * depth(b, diameter, longitudinalDiameter)));
   const torsionPerUnit = ph / (1.7 * Aoh ** 2);
   const capacity = v >= limit ? 0 : Math.sqrt(limit ** 2 - v ** 2) / torsionPerUnit;
   return { sectionRatio: Math.sqrt(v ** 2 + (torque * torsionPerUnit) ** 2) / limit,
@@ -35,10 +37,11 @@ function reference(primary: number, secondary: number, torque: number, b = p.b, 
 
 for (const edition of ['2005', '2025'] as const) {
   it(`exact column witness ${edition}: ${clause}`, () => {
-    const d = demand(0, 100, 57), expected = reference(0, 100, 57);
+    const d = demand(0, 100, 57), expected = reference(0, 100, 57, selectedBarDiameter('column'));
     expect(expected.sectionRatio).toBeGreaterThan(1);
     expect(expected.ratio).toBeGreaterThan(1);
     const v = verifyElement({ ...p, edition, elementId: 1, elementType: 'column', demand: d }, fixed);
+    expect(v.column?.barDia).toBe(selectedBarDiameter('column'));
     expect(v.torsion!.phiTn).toBeCloseTo(expected.phiTn, 11);
     expect(v.torsion!.ratio).toBeCloseTo(expected.ratio, 12);
     expect(v.torsion!.status).toBe('fail');
@@ -51,11 +54,13 @@ for (const edition of ['2005', '2025'] as const) {
         it(`section boundary ${edition} ${axis} ${elementType} ${entry} ${shearAxis} ${factor}: ${clause}`, () => {
           const primary = shearAxis === 'secondary' ? 0 : 100;
           const secondary = shearAxis === 'primary' ? 0 : -100;
-          const torque = reference(primary, secondary, 0).phiTn * factor;
-          const expected = reference(primary, secondary, torque);
+          const diameter = entry === 'torsion' ? 16 : selectedBarDiameter(elementType);
+          const torque = reference(primary, secondary, 0, diameter).phiTn * factor;
+          const expected = reference(primary, secondary, torque, diameter);
           const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
           const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
+          if (v) expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
           const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
           expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
@@ -88,10 +93,10 @@ for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e
   it(`provided steel module ${axis} ${factor}: ${clause}`, () => {
     const diameter = 16;
     const dSecondary = depth(p.b, diameter);
-    const torque = reference(0, 100, 0, p.b, p.h, diameter).phiTn * factor;
+    const torque = reference(0, 100, 0, 16, diameter).phiTn * factor;
     const r = checkTorsion2025({ ...p, d: depth(p.h, diameter), dSecondary, stirrupDiaMm: diameter,
       fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter, legs: 4, spacing: 0.05 } });
-    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque, p.b, p.h, diameter).sectionRatio, 12);
+    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque, 16, diameter).sectionRatio, 12);
     const vc = 0.17 * Math.sqrt(p.fc) * 1000;
     const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * dSecondary);
     const requiredShear = vsSecondary / (p.fy * 1000 * dSecondary);
@@ -167,7 +172,9 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
       for (const elementType of ['beam', 'column', 'wall'] as const) {
         const input = { ...p, elementId: 1, elementType, demand: d };
         for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement(ds.map(source => ({ ...p, elementId: 1, elementType, demand: source.section('My') })))]) {
-          expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu).ratio, 12);
+          const diameter = selectedBarDiameter(elementType);
+          expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
+          expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu, diameter).ratio, 12);
           expect(v.torsion!.status).toBe('fail');
           expect(v.overallStatus).toBe('fail');
         }
@@ -191,7 +198,8 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) for 
       unified: () => runUnifiedVerification(raw, m, null, complete.demands)[0]!,
       design: () => runCirsocDesign(raw, m, complete.demands, new Map(), null).concrete[0]! }[entry]();
     expect(v.flexureAxis).toBe('My');
-    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57).ratio, 12);
+    expect(v.flexure.barDia).toBe(selectedBarDiameter('beam'));
+    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57, selectedBarDiameter('beam')).ratio, 12);
     expect(v.torsion!.status).toBe('fail');
     expect(v.overallStatus).toBe('fail');
   });
