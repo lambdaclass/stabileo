@@ -5,8 +5,8 @@ Usage: python3 -I digitize_fig2c.py <2312.13908v2.pdf> <out.csv>   (needs PyMuPD
 The panel is a raster (page 3, the image whose bounding box starts at x = 391 pt). Axes are
 calibrated on the frame's tick marks: bottom ticks at |mu_dot| = 0, 0.2, 0.4, 0.6 and left
 ticks at A = 20 and 40 (A = 0 is the bottom of the frame). Orange (simulation) markers are
-connected components; a component of n single-marker areas counts as n points at its
-centroid. Where the markers merge into a line along A ~ 1, the line is sampled every 5.17 px,
+connected components. A component of n marker areas is n overlapping markers, located by k-means on its
+pixels. Where the markers merge into a line along A ~ 1, the line is sampled every 5.17 px,
 the spacing of the isolated markers. Black crosses outside the legend are the experiments.
 Values are reported to the pixel; one pixel is 0.00105 in mu_dot and 0.102 in A.
 """
@@ -82,6 +82,20 @@ def components(test):
     return out
 
 
+def centres(pixels, count):
+    """Centres of `count` overlapping round markers: k-means on the pixels, seeded along x."""
+    ordered = sorted(pixels)
+    seeds = [ordered[int((k + 0.5) * len(ordered) / count)] for k in range(count)]
+    centre = [(float(x), float(y)) for x, y in seeds]
+    for _ in range(50):
+        groups = [[] for _ in centre]
+        for x, y in pixels:
+            k = min(range(count), key=lambda i: (x - centre[i][0]) ** 2 + (y - centre[i][1]) ** 2)
+            groups[k].append((x, y))
+        centre = [(sum(p[0] for p in g) / len(g), sum(p[1] for p in g) / len(g)) if g else centre[i] for i, g in enumerate(groups)]
+    return sorted(centre)
+
+
 legend = lambda c: min(p[0] for p in c) > 590 and max(p[1] for p in c) < 300
 orange = [c for c in components(lambda c: c[0] > 180 and 60 < c[1] < 150 and c[2] < 90) if len(c) >= 6 and not legend(c)]
 single = sorted(len(c) for c in orange if len(c) < 40)[len([c for c in orange if len(c) < 40]) // 2]
@@ -97,8 +111,8 @@ for c in orange:
             x += 5.17
         continue
     count = max(1, round(len(c) / single))
-    cx, cy = sum(xs) / len(c), sum(p[1] for p in c) / len(c)
-    points += [("simulation", mu(cx), amp(cy))] * count
+    for cx, cy in centres(c, count):
+        points.append(("simulation", mu(cx), amp(cy)))
 crosses = [c for c in components(lambda c: max(c) < 90) if 60 <= len(c) <= 130 and not legend(c)]
 for c in crosses:
     xs, ys = [p[0] for p in c], [p[1] for p in c]
