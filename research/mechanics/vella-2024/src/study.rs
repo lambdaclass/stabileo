@@ -5,7 +5,7 @@ use crate::dynamics::{simulate, Settings, Simulation, Trace};
 use crate::model::{Assembler, Strip};
 use crate::shallow;
 use crate::spectrum::{spectrum, Spectrum};
-use crate::statics::{critical, invert, natural, release, Critical, Equilibrium};
+use crate::statics::{at_height, critical, invert, natural, Critical, Equilibrium, Free};
 use crate::toy::Toy;
 use crate::units::{EXPERIMENTS, SIMULATIONS};
 use serde::Serialize;
@@ -121,8 +121,8 @@ pub struct Diagram {
     pub natural: Vec<BranchPoint>,
     /// From the start state through µ_A and the fold onto the unstable symmetric branch.
     pub inverted: Vec<BranchPoint>,
-    /// Midpoint load (EI/L²) and height (αL) along the production arc-length path from the
-    /// natural to the inverted state at µ₀.
+    /// Midpoint load (EI/L²) and height (αL) at µ₀, the midpoint pushed at fixed heights from
+    /// the natural to the inverted state.
     pub load_path: Vec<[f64; 2]>,
     pub critical: Critical,
     /// The shallow theory's branches, h/(αL) against µ (Eqs. S14–S15), and the height of its
@@ -132,33 +132,44 @@ pub struct Diagram {
     pub shallow_asymmetric_height: f64,
 }
 
-fn branch(strip: &Strip, path: &crate::statics::Path) -> Vec<BranchPoint> {
-    let a2 = strip.alpha * strip.alpha;
-    path.points.iter().map(|p| BranchPoint { mu: p.shortening / a2, height: p.height / strip.alpha, spectrum: p.spectrum.clone() }).collect()
+/// Heights are fixed in advance: an adaptive arc-length step sequence follows Newton iteration
+/// counts, which round-off changes between platforms.
+fn by_height(strip: &Strip, from: &Equilibrium, step: f64, free: Free, steps: usize, stop: &dyn Fn(&Equilibrium) -> bool) -> Result<Vec<Equilibrium>, String> {
+    let mut assembler = Assembler::new(strip);
+    let h0 = from.height(strip);
+    let mut states = vec![from.clone()];
+    for k in 1..=steps {
+        let next = at_height(strip, &mut assembler, states.last().unwrap(), h0 + k as f64 * step * strip.alpha, free)?;
+        let done = stop(&next);
+        states.push(next);
+        if done {
+            return Ok(states);
+        }
+    }
+    Err(format!("no stop after {steps} height steps"))
 }
 
-/// The path up to where, past its fold, µ starts to fall again: arc-length can turn back there and
-/// retrace the unstable branch.
-fn until_turn(points: Vec<BranchPoint>) -> Vec<BranchPoint> {
-    let fold = (1..points.len()).find(|&i| points[i].mu > points[i - 1].mu).unwrap_or(points.len());
-    let turn = (fold + 1..points.len()).find(|&i| points[i].mu < points[i - 1].mu).unwrap_or(points.len());
-    points.into_iter().take(turn).collect()
+fn branch(strip: &Strip, states: &[Equilibrium]) -> Vec<BranchPoint> {
+    let a2 = strip.alpha * strip.alpha;
+    let mut assembler = Assembler::new(strip);
+    states.iter().map(|s| BranchPoint { mu: s.clamps.shortening() / a2, height: s.height(strip) / strip.alpha, spectrum: spectrum(strip, &mut assembler, &s.q) }).collect()
 }
+
+pub const BRANCH_STEP: f64 = 0.002;
+pub const LOAD_STEP: f64 = 0.01;
 
 pub fn diagram(alpha: f64, n: usize) -> Result<Diagram, String> {
     let strip = Strip { n, alpha, slenderness: SIMULATIONS.slenderness() };
     let a2 = alpha * alpha;
     let up = natural(&strip, START * a2)?;
-    let (load, down) = invert(&strip, &up, false).map_err(|e| format!("load path: {e}"))?;
+    let (_, down) = invert(&strip, &up, false).map_err(|e| format!("inversion: {e}"))?;
     let (c, _) = critical(&strip, &down).map_err(|e| format!("critical: {e}"))?;
-    let mut stop_low = |s: &Equilibrium| s.clamps.shortening() < 0.18 * a2;
-    let natural_path = release(&strip, &up, 0.03 * alpha, 0.03 * alpha, 400, &mut stop_low, true).map_err(|e| format!("natural branch: {e}"))?;
-    let mut least = f64::MAX;
-    let mut stop_back = |s: &Equilibrium| {
-        least = least.min(s.clamps.shortening());
-        s.clamps.shortening() > START * a2
-    };
-    let inverted_path = release(&strip, &down, 0.03 * alpha, 0.03 * alpha, 600, &mut stop_back, true).map_err(|e| format!("inverted branch: {e}"))?;
+    let natural_path = by_height(&strip, &up, -BRANCH_STEP, Free::Shortening, 400, &|s| s.clamps.shortening() < 0.18 * a2).map_err(|e| format!("natural branch: {e}"))?;
+    let mut inverted_path = by_height(&strip, &down, BRANCH_STEP, Free::Shortening, 400, &|s| s.clamps.shortening() > START * a2).map_err(|e| format!("inverted branch: {e}"))?;
+    inverted_path.pop();
+    let target = down.height(&strip);
+    let mut load_path = by_height(&strip, &up, -LOAD_STEP, Free::Load, 400, &|s| s.height(&strip) - LOAD_STEP * alpha < target).map_err(|e| format!("load path: {e}"))?;
+    load_path.push(down.clone());
     let tau_star = shallow::tau_asymmetric();
     let curve = |from: f64, to: f64| -> Vec<[f64; 2]> {
         (0..=200)
@@ -171,8 +182,8 @@ pub fn diagram(alpha: f64, n: usize) -> Result<Diagram, String> {
         alpha,
         n,
         natural: branch(&strip, &natural_path),
-        inverted: until_turn(branch(&strip, &inverted_path)),
-        load_path: load.points.iter().map(|p| [p.load, p.height / alpha]).collect(),
+        inverted: branch(&strip, &inverted_path),
+        load_path: load_path.iter().map(|s| [s.clamps.load, s.height(&strip) / alpha]).collect(),
         critical: c,
         shallow_natural: curve(1e-3, 2.0 * PI - 0.35),
         shallow_inverted: curve(2.0 * PI + 0.25, 4.0 * PI - 0.6),

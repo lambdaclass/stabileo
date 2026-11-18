@@ -45,7 +45,13 @@ floor of the internal force).
   through its limit point, until the load returns to zero on the inverted side; the arc-length
   constraint mixes displacements with loads, so EI is scaled by 0.005 on that path (shapes do not
   depend on it).
-- Inverted branch: production arc-length on the end-shortening.
+- Inverted branch: production arc-length on the end-shortening brackets µ_A and the fold. The
+  curves drawn in the diagram (natural branch, inverted branch, load path) are equilibria at
+  midpoint heights fixed in advance (steps of 0.002α; 0.01α on the load path), each converged by
+  `statics::at_height` from the previous one. The arc-length's adaptive steps, and its direction
+  test past the fold, follow Newton iteration counts that round-off changes between platforms: on
+  Linux CI the inverted path ran on to µ = 0.6 where on macOS it turned back at µ ≈ 0.39. Points
+  at fixed heights differ between platforms by round-off only, so they can be stored as evidence.
 - µ_A: bisection on the midpoint height for the sign change of the antisymmetric tangent
   (Sylvester's inertia of an LDLᵀ); µ*: golden-section search for the least shortening along the
   branch parametrised by the midpoint height.
@@ -198,8 +204,16 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
   measured at 8 × 10⁻¹² before the snap and 2 × 10⁻¹⁰ after it (the asymmetry has grown 34 times
   by then). Before the snap: 10⁻⁹ on θ, h, t and µ, 1.5 × 10⁻⁷ on the node coordinates (stored
   rounded to 10⁻⁷). After it: 10⁻⁶. Outcome: 10⁻⁸ absolute plus 10⁻⁶ relative; critical points 10⁻⁹.
-- Evidence files are compared with a fresh run to 10⁻⁸ absolute plus 10⁻⁶ relative (`validate`
-  without `--write`).
+- Evidence files are compared with a fresh run (`validate` without `--write`), which lists every
+  number that moved. Numbers: 10⁻⁸ absolute plus 10⁻⁶ relative. They are converged equilibria,
+  their eigenvalues and integrations on a fixed schedule, so between platforms they differ by
+  round-off amplified through Newton and the integrator: raising the dynamics' Newton floor by 37 %
+  moved every dynamic number by at most 10⁻⁷ relative, and on Linux CI the Fig. 2c transition moved
+  by 7 × 10⁻⁹. The absolute floor covers numbers that are round-off themselves, such as the
+  10⁻¹¹ rad asymmetry of the unseeded runs. A check's `observed` is a difference of close numbers,
+  so it may move by 10⁻³ of that check's tolerance, which cannot turn a verdict unless it sits
+  within 0.1 % of the threshold; the verdicts themselves, the counts of points and every
+  non-number must match exactly.
 
 ## Reproduce
 

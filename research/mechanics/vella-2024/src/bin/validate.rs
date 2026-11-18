@@ -149,17 +149,39 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
     (validation, json!({"checks": published_checks}))
 }
 
-fn compare(a: &Value, b: &Value, path: &str) -> Result<(), String> {
+/// The bands are justified in the README (Evidence); `passed` and every non-number must match exactly.
+fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<String>) {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => {
             let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
-            if (x - y).abs() <= 1e-8 + 1e-6 * x.abs().max(y.abs()) { Ok(()) } else { Err(format!("{path}: {x} vs {y}")) }
+            let allowed = band.unwrap_or(1e-8 + 1e-6 * x.abs().max(y.abs()));
+            if (x - y).abs() > allowed {
+                out.push(format!("{path}: {x} vs {y} (allowed {allowed:e})"));
+            }
         }
-        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x.iter().zip(y).enumerate().try_for_each(|(i, (u, v))| compare(u, v, &format!("{path}[{i}]"))),
-        (Value::Object(x), Value::Object(y)) if x.len() == y.len() => x.iter().try_for_each(|(k, v)| compare(v, &y[k], &format!("{path}.{k}"))),
-        _ if a == b => Ok(()),
-        _ => Err(format!("{path}: {a} vs {b}")),
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => {
+            for (i, (u, v)) in x.iter().zip(y).enumerate() {
+                compare(u, v, &format!("{path}[{i}]"), None, out);
+            }
+        }
+        (Value::Array(x), Value::Array(y)) => out.push(format!("{path}: {} entries vs {}", x.len(), y.len())),
+        (Value::Object(x), Value::Object(y)) => {
+            for k in x.keys().filter(|k| !y.contains_key(*k)).chain(y.keys().filter(|k| !x.contains_key(*k))) {
+                out.push(format!("{path}.{k}: in one of the two only"));
+            }
+            let observed_band = x.get("tolerance").and_then(Value::as_f64).filter(|_| x.contains_key("observed")).map(|t| 1e-3 * t);
+            for (k, v) in x.iter().filter(|(k, _)| y.contains_key(*k)) {
+                compare(v, &y[k], &format!("{path}.{k}"), if k == "observed" { observed_band } else { None }, out);
+            }
+        }
+        _ if a == b => {}
+        _ => out.push(format!("{path}: {} vs {}", short(a), short(b))),
     }
+}
+
+fn short(v: &Value) -> String {
+    let s = v.to_string();
+    if s.len() > 120 { format!("{}…", &s[..s.char_indices().nth(120).map_or(s.len(), |(i, _)| i)]) } else { s }
 }
 
 fn main() {
@@ -176,14 +198,19 @@ fn main() {
         println!("{} {}: {} (tolerance {})", if c["passed"] == true { "ok  " } else { "FAIL" }, c["id"], c["observed"], c["tolerance"]);
     }
     assert!(files[1].1["checks"].as_array().unwrap().iter().all(|c| c["passed"] == true), "a check failed");
+    let mut stale = vec![];
     for (name, value) in &files {
         let target = root.join(name);
         if write {
             fs::write(&target, format!("{}\n", serde_json::to_string_pretty(value).unwrap())).unwrap();
         } else {
             let stored: Value = serde_json::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
-            compare(value, &stored, name).unwrap_or_else(|e| panic!("stale evidence: {e}"));
+            compare(value, &stored, name, None, &mut stale);
         }
     }
+    for e in stale.iter().take(40) {
+        eprintln!("stale evidence: {e}");
+    }
+    assert!(stale.is_empty(), "{} stored numbers differ from a fresh run (first ones above)", stale.len());
     println!("evidence {}", if write { "written" } else { "matches a fresh run" });
 }
