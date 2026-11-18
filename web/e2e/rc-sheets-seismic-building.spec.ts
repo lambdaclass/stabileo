@@ -4,12 +4,31 @@ import { setDesignOption } from './design-options';
 
 /**
  * The seven-storey concrete building solved as the app solves it and designed by the sheets with
- * chapter 18: opened from its gallery card no row of any family fails, the core's walls standing on
- * the base the card holds, and a column states its hoops against Ash and hx; loaded as tests load
- * it, without the card's correction, only the core's ground-floor walls fail, for resting on a node,
- * until one click holds their bases, and then nothing does.
+ * chapter 18: opened from its gallery card no row fails but its seven balconies, the core's walls
+ * standing on the base the card holds, and a column states its hoops against Ash and hx; loaded as
+ * tests load it, without the card's correction, the core's ground-floor walls fail too, for resting
+ * on a node, until one click holds their bases. The balconies are 15 cm thick for a 1.85 m
+ * projection: under Table 7.3.1.1's ℓ/10 they are calculated, and their long-term deflection, about
+ * 15 to 19 mm, exceeds ℓ/240; no steel within 2 % meets it, so they fail on the deflection alone and
+ * the sheets offer a thicker slab.
  */
 test.use({ appLocale: 'en' });
+
+/** The balconies fail on their deflection alone, and each offers a thicker slab. */
+async function balconiesFailOnDeflection(page: Page): Promise<void> {
+  await expect(page.getByTestId('rc-open-slab')).toContainText(/\b7 failing/);
+  await page.getByTestId('rc-open-slab').click();
+  const ws = page.getByTestId('rc-sheets-workspace');
+  await ws.getByTestId('rc-tab-slab').click();
+  const failing = ws.getByTestId('rc-row').filter({ hasText: 'Fails' });
+  await expect(failing).toHaveCount(7);
+  await failing.first().click();
+  const checks = ws.getByTestId('rc-checks').first();
+  await expect(checks.locator('tr.bad')).toHaveCount(1);
+  await expect(checks.locator('tr.bad')).toContainText('Deflection');
+  await expect(ws.locator('[data-testid="rc-resize-hint"][data-what="slabH"]')).toBeVisible({ timeout: 60_000 });
+  await page.keyboard.press('Escape');
+}
 
 async function designSeismic(page: Page): Promise<void> {
   await page.getByTestId('pr-stage-analyse').click();
@@ -31,7 +50,7 @@ async function designSeismic(page: Page): Promise<void> {
   await expect(page.getByTestId('rc-open-column')).toBeEnabled();
 }
 
-test('@slow the gallery\'s seven-storey building designs with the seismic provisions and no row fails', async ({ pro: page }) => {
+test('@slow the gallery\'s seven-storey building designs with the seismic provisions and no row fails but its balconies, on their deflection', async ({ pro: page }) => {
   test.setTimeout(300_000);
   await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
   await page.getByTestId('pr-project').click();
@@ -42,11 +61,12 @@ test('@slow the gallery\'s seven-storey building designs with the seismic provis
 
   await designSeismic(page);
 
-  for (const f of ['beam', 'column', 'slab', 'wall', 'footing']) {
+  for (const f of ['beam', 'column', 'wall', 'footing']) {
     const open = page.getByTestId(`rc-open-${f}`);
     if (!(await open.isEnabled())) continue;
     await expect(open, `${f} rows`).toContainText(/\b0 failing/);
   }
+  await balconiesFailOnDeflection(page);
 
   await page.getByTestId('rc-open-column').click();
   const ws = page.getByTestId('rc-sheets-workspace');
@@ -58,13 +78,14 @@ test('@slow the gallery\'s seven-storey building designs with the seismic provis
   await expect(checks).toContainText('§18.7.5.2');
 });
 
-test('@slow the seven-storey building as tests load it fails only at its unheld core walls, and not once they are held', async ({ pro: page }) => {
+test('@slow the seven-storey building as tests load it fails at its unheld core walls, and not once they are held, and at its balconies on their deflection', async ({ pro: page }) => {
   test.setTimeout(300_000);
   await loadModel(page, 'pro-edificio-7p');
   await solveModel(page);
   await designSeismic(page);
-  for (const f of ['beam', 'column', 'slab', 'footing']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);
+  for (const f of ['beam', 'column', 'footing']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);
   await expect(page.getByTestId('rc-open-wall')).toContainText(/\b3 failing/);
+  await balconiesFailOnDeflection(page);
 
   await page.getByTestId('rc-open-wall').click();
   const ws = page.getByTestId('rc-sheets-workspace');
@@ -74,10 +95,10 @@ test('@slow the seven-storey building as tests load it fails only at its unheld 
   await ground.first().click();
   await ws.getByTestId('rc-wall-hold-base').click();
   await expect(ws.getByTestId('rc-wall-hold-base')).toHaveCount(0, { timeout: 180_000 });
-  for (const f of ['beam', 'column', 'slab', 'wall']) {
+  for (const [f, n] of [['beam', 0], ['column', 0], ['slab', 7], ['wall', 0]] as const) {
     await ws.getByTestId(`rc-tab-${f}`).click();
     await expect(ws.getByTestId('rc-row').first()).toBeVisible({ timeout: 180_000 });
-    await expect(ws.getByTestId('rc-row').filter({ hasText: 'Fails' }), `${f} rows`).toHaveCount(0, { timeout: 60_000 });
+    await expect(ws.getByTestId('rc-row').filter({ hasText: 'Fails' }), `${f} rows`).toHaveCount(n, { timeout: 60_000 });
   }
 });
 
