@@ -32,13 +32,13 @@ function checkAdvisory(locale: PublicLocale, severity: string, status: string) {
   expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-072' && b.href.endsWith('/docs/advisories/SA-2026-072-snow-ridge-subdivision.md'))).toBe(true);
   expect(notice.title[locale].trim()).not.toBe('');
   expect(notice.explanation[locale]).toContain('SA-2026-072');
-  expect(post.updated).toBe('2026-11-16');
+  expect(post.updated).toBe('2026-11-18');
 }
 
 it('#2144 follows the assigned advisory structure and retains only the recorded main witness', () => {
   const structure = (text: string) => text.split('\n').filter(line => line.startsWith('## ') || /^\| [A-Z][^|]+ \|/.test(line)).map(line => line.startsWith('## ') ? line : line.split('|')[1]!.trim());
   expect(structure(advisory)).toEqual(structure(document('advisories/SA-2026-068-provided-torsion-stirrups.md')));
-  expect(advisory).toContain('Published 2026-11-16; drafted 2026-11-15');
+  expect(advisory).toContain('Published 2026-11-18; drafted 2026-11-15');
   expect(advisory).toContain('historical release binaries not assessed');
   expect(advisory).toContain('snow-ridge-mesh.json');
   for (const value of ['8e5c026b7', '16 by 4 m', '20 degrees', 'eight members', '0.8076923076923077', '0.40384615384615385']) {

@@ -34,12 +34,12 @@ it.each<[PublicLocale, string, string]>([
 it('#2096 retains the advisory structure, status, catalog and results registry', () => {
   const template = readFileSync(new URL('../../../../../docs/advisories/SA-2026-068-provided-torsion-stirrups.md', import.meta.url), 'utf8');
   expect(advisory.match(/^## .+$/gm)).toEqual(template.match(/^## .+$/gm));
-  expect(advisory).toContain(`| Status | Published 2026-11-16; drafted 2026-11-15 |`);
+  expect(advisory).toContain(`| Status | Published 2026-11-18; drafted 2026-11-15 |`);
   expect(advisory).toContain(`| Affected versions | Confirmed on main \`${witness.main}\``);
   expect(advisory).toContain('| Fixed release | 0.6.2 |');
   const catalog = readFileSync(new URL('../../../../../docs/advisories/README.md', import.meta.url), 'utf8');
   expect(catalog).toContain(`| [SA-2026-071](${filename}) |`);
-  expect(catalog).toContain(`| 0.6.2 | Published 2026-11-16; drafted 2026-11-15 |`);
+  expect(catalog).toContain(`| 0.6.2 | Published 2026-11-18; drafted 2026-11-15 |`);
   const index = readFileSync(new URL('../../../../../docs/SAFETY_ADVISORIES.md', import.meta.url), 'utf8');
   expect(index).toContain(`[SA-2026-071](advisories/${filename})`);
   expect(notice.prs).toEqual([2173]);

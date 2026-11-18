@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-16; fixed in PR #2220, pending merge and release |
+| Status | Published 2026-11-18; drafted 2026-11-16 |
 | Issue | [#2203](https://github.com/lambdaclass/stabileo/issues/2203) |
-| Fix | PR [#2220](https://github.com/lambdaclass/stabileo/pull/2220); pending merge and release |
-| Fixed release | Not released |
+| Fix | PR [#2220](https://github.com/lambdaclass/stabileo/pull/2220); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `9d925a780`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`wind-physical-pressure-field`](../../web/src/lib/provenance/result-changes/wind-physical-pressure-field.json) |
 
@@ -46,7 +46,7 @@ selected model had an incorrect classification.
 
 ## Fixed in
 
-Fixed in PR #2220, pending merge and release.
+0.6.2 (PR [#2220](https://github.com/lambdaclass/stabileo/pull/2220)).
 
 Every wall now has its own gross and opening areas, and the roof has a separate
 record. One classifier checks the complete envelope and all required
@@ -57,13 +57,12 @@ minimum, including triangular buildings.
 
 ## Workaround
 
-Until the correction is merged and released:
 Independently classify the complete envelope under Art. 1.2 and Table 1.11-1
 and verify internal pressure before using generated wind results.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction, review every wall and
+After upgrading to 0.6.2, review every wall and
 roof opening record, reclassify the enclosure, regenerate W and Wa loads, then
 rerun analyses, combinations and design checks. Re-solving stored generated
 loads alone does not correct them. Review load distributions, governing cases,
@@ -74,4 +73,4 @@ member sizing, calculations and deliverables based on the old loads.
 The exposure is tracked as #2203. The coordinator assigned SA-2026-076.
 The [results-change record](../results-changes/2026-11-wind-physical-pressure-field.md)
 retains main witnesses, shared-path coverage, boundary tests and correct
-controls. The fix is in PR #2220, pending merge and release.
+controls. The fix shipped in 0.6.2 (PR [#2220](https://github.com/lambdaclass/stabileo/pull/2220)).

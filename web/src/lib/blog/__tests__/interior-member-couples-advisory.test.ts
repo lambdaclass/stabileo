@@ -36,7 +36,7 @@ describe('SA-2026-070 interior member recovery', () => {
     expect(blocks.some(b => b.k === 'ext' && b.label === 'SA-2026-070' && b.href.endsWith(`/docs/advisories/${advisoryFile}`))).toBe(true);
     expect((notice.title as Record<string, string>)[locale]?.trim()).toBeTruthy();
     expect((notice.explanation as Record<string, string>)[locale]).toContain('SA-2026-070');
-    expect(post.updated).toBe('2026-11-16');
+    expect(post.updated).toBe('2026-11-18');
   }
 
   it('known wrong result: #2099 — Hungarian recovery wording preserves the engineering scope and actions', () => {
@@ -70,7 +70,7 @@ describe('SA-2026-070 interior member recovery', () => {
     const fields = (s: string) => [...s.matchAll(/^\| ([^|]+) \|/gm)].map(m => m[1]);
     expect(fields(text)).toEqual(fields(reference));
     expect(text).toContain('| Severity | High |');
-    expect(text).toContain('Published 2026-11-16; drafted 2026-11-15');
+    expect(text).toContain('Published 2026-11-18; drafted 2026-11-15');
     expect(text).toContain('| Fixed release | 0.6.2 |');
     expect(text).toContain('44966b6e75f72ce268ec87798d5cd880a6dba144');
     expect(readAdvisory('README.md')).toContain(`[SA-2026-070](${advisoryFile})`);

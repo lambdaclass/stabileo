@@ -1,4 +1,0 @@
-### BREAKING (results)
-#### Zero-size weld pieces supply no resistance or stress points (2026-11-16)
-
-Fix #2258: zero-size weld pieces no longer create ambiguous physical-run branches or supply stress-check endpoints in native and WASM weld-group checks. Their geometric lengths remain in the reported total, with non-finite totals explicitly unevaluated. Mixed groups can receive an answer where they were previously refused, and eccentric utilization can decrease. Re-run saved weld-group checks containing zero-size pieces. The shared fixture now contains 78 cases; the original 44-case matrix is identified as historical. See [the results-change record](../docs/results-changes/2026-11-fillet-weld-physical-runs.md#zero-size-pieces-do-not-resist-load-2258). Any advisory decision remains with the coordinator.

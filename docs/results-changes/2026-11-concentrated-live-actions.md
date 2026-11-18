@@ -2,7 +2,7 @@
 
 Issue #2207. The change affects automatic CIRSOC 101-2025 load-plan availability, not solver arithmetic. Plans for occupancies with positive Table 4.1 concentrated loads or concentrated-load cross-references, and plans with roof settings or a roof-category occupancy now return `BLOCKED`. Their uniform-load, combination and mass diagnostics remain inspectable; they are incomplete diagnostics, not a design answer. Both the dialog and direct store application refuse to apply them. Existing manually specified load cases remain supported. Existing saved models are not automatically corrected.
 
-Safety advisory [SA-2026-083](../advisories/SA-2026-083-concentrated-live-actions.md) records the silent main-source witness and required manual review. The correction is in PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236), pending merge and release.
+Safety advisory [SA-2026-083](../advisories/SA-2026-083-concentrated-live-actions.md) records the silent main-source witness and required manual review. The correction is in PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236), released in 0.6.2.
 
 ## Normative basis
 

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Published 2026-11-16; drafted 2026-11-15 |
+| Status | Published 2026-11-18; drafted 2026-11-15 |
 | Issue | [#2144](https://github.com/lambdaclass/stabileo/issues/2144) |
 | Fix | PR [#2175](https://github.com/lambdaclass/stabileo/pull/2175); released in 0.6.2 |
 | Fixed release | 0.6.2 |
