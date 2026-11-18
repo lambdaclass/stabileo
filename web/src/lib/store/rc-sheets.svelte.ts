@@ -10,7 +10,7 @@ import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateS
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
-import { DESIGN_OPTION_FLAGS, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
+import { DESIGN_OPTION_FLAGS, type AlternativeOptions, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
 import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
@@ -26,7 +26,7 @@ import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { FootingRow } from '../rc-sheets/footing-types';
 import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
 import type { BeamRow } from '../rc-sheets/beam-row';
-import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
+import { lineRowStatus, type LineAdopted, type LineLayout } from '../rc-sheets/beam-line';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
@@ -164,6 +164,15 @@ export function setColumnEndZones(on: boolean): void {
   const d = { ...storedDesignData() };
   if (on) d.columnEndZones = true; else delete d.columnEndZones;
   setDesignData(d);
+}
+
+/** The options for the alternatives offered where a row has no arrangement; `null` drops one. */
+export function setAlternativeOptions(patch: { [K in keyof AlternativeOptions]?: AlternativeOptions[K] | null }): void {
+  const cur = { ...designData().designOptions?.alternatives };
+  for (const [k, v] of Object.entries(patch)) { if (v === null || v === undefined) delete (cur as Record<string, unknown>)[k]; else (cur as Record<string, unknown>)[k] = v; }
+  const next: DesignOptions = { ...designData().designOptions };
+  if (Object.keys(cur).length) next.alternatives = cur; else delete next.alternatives;
+  setDesignOptions(next);
 }
 
 export function setRcOption(option: DesignOptionFlag, on: boolean): void {
@@ -354,10 +363,23 @@ export function meshWallsForSheets(): number {
   return meshed;
 }
 
-/** A row designed again from its demand with other dimensions, its context as the last build had it; by row key. */
-export type Redesign = (demand: never) => SheetRow;
+/** What a row is designed again with besides its demand: another concrete, MPa. */
+export interface RedesignWith { fc?: number }
+/** A row designed again from its demand with other dimensions or concrete, its context as the last build had it; by row key. */
+export type Redesign = (demand: never, o?: RedesignWith) => SheetRow;
 const redesigners = new Map<string, Redesign>();
 export const redesignerOf = (key: string): Redesign | undefined => redesigners.get(key);
+
+/** A physical beam designed again whole, every span with another width, depth or concrete: its line and the spans as the line lays them out; by line group. */
+export type LineRedesign = (o: RedesignWith & { b?: number; h?: number }) => { line: LineLayout; spans: BeamRow[]; status: 'ok' | 'warn' | 'fail' };
+const lineRedesigners = new Map<number, LineRedesign>();
+export const lineRedesignerOf = (group: number): LineRedesign | undefined => lineRedesigners.get(group);
+
+const rowFc = new Map<string, number>();
+/** The concrete a row was designed with, MPa, as the last build read it. */
+export const concreteOfRow = (key: string): number | undefined => rowFc.get(key);
+
+const withFc = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C => (o?.fc ? { ...ctx, mat: { ...ctx.mat, fc: o.fc } } : ctx);
 
 import type { SheetProgress } from './rc-sheets-progress.svelte';
 export type { SheetProgress };
@@ -444,6 +466,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const derived = new Map<string, BeamAdopted>();
   const edited = new Set(data.edited ?? []);
   const linesAdopted = new Set<number>();
+  redesigners.clear();
+  lineRedesigners.clear();
+  rowFc.clear();
   for (const [g, rows] of byLine) {
     const first = rows[0]!;
     const ctx = beamCtx(first.demand);
@@ -454,12 +479,20 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     line.push(withMissingForces(layout, rows.flatMap((r) => r.demand.missing ?? [])));
     const sortedRows = [...rows].sort((p, q) => (p.demand.line?.index ?? 0) - (q.demand.line?.index ?? 0));
     sortedRows.forEach((r, k) => { const sa = layout.spanAdopted[k]; if (sa) derived.set(r.key, sa); });
+    rowFc.set(`line:${g}`, ctx.mat.fc);
+    lineRedesigners.set(g, (o) => {
+      const ds = sortedRows.map((r) => ({ ...r.demand, ...(o.b ? { b: o.b } : {}), ...(o.h ? { h: o.h } : {}) }));
+      const props = ds.map((d) => rules.beamRow(d, withFc(beamCtx(d), o), undefined, fmt));
+      const lay = withMissingForces(rules.beamLine(props, withFc(ctx, o), undefined, fmt), ds.flatMap((d) => d.missing ?? []));
+      const spans = ds.map((d, k) => withMissingForces(rules.beamRow(d, withFc(beamCtx(d), o), lay.spanAdopted[k], fmt), d.missing));
+      return { line: lay, spans, status: lineRowStatus(lay, spans) };
+    });
   }
-  redesigners.clear();
   const beam: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
-    redesigners.set(d.key, ((x: typeof d) => withMissingForces(rules.beamRow(x, ctx, undefined, fmt), x.missing)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(rules.beamRow(x, withFc(ctx, o), undefined, fmt), x.missing)) as Redesign);
+    rowFc.set(d.key, ctx.mat.fc);
     const own = adoptedNow[d.key] as BeamAdopted | undefined;
     const a = own ?? derived.get(d.key);
     const row = withMissingForces(cached(d, [code, ctx, a, dec], () => rules.beamRow(d, ctx, a, fmt)), d.missing);
@@ -478,7 +511,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
     } : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
-    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), code, fmt), x.missing)) as Redesign);
+    rowFc.set(d.key, ctx.mat.fc);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withFc(ctx, o), undefined, fmt, prev ? { fromBelow: true } : {}), code, fmt), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };
@@ -497,7 +531,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    rowFc.set(d.key, ctx.mat.fc);
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
     yield step();
   }
@@ -516,7 +551,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    rowFc.set(d.key, ctx.mat.fc);
     slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
     spanned.add(r.level ?? '');
   });
@@ -526,7 +562,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(d.key);
     const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}) };
     const a = adoptedNow[d.key] as WallAdopted | undefined;
-    redesigners.set(d.key, ((x: typeof d) => rules.wallRow(x, ctx, undefined, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.wallRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
+    rowFc.set(d.key, ctx.mat.fc);
     wall.push(cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt)));
     yield step();
   }
@@ -536,7 +573,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const at = (dir: 'x' | 'y') => plan?.integrity.find((k) => k.dir === dir && Math.hypot(k.x - d.joint.at.x, k.y - d.joint.at.y) < 0.05);
     const ix = at('x'), iy = at('y');
     const ctx = { fc: slabFcAt(d), fy, cover: dd.covers.slab, topBarDia: topBarAt(slab, d.level, slabBars), ...(ix && iy ? { integrity: { x: ix.bars, y: iy.bars, required: ix.required, dia: Math.max(ix.dia, iy.dia) } } : {}) };
-    redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.punchingRow(x, o?.fc ? { ...ctx, fc: o.fc } : ctx, fmt)) as Redesign);
+    rowFc.set(d.key, ctx.fc);
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
@@ -589,8 +627,8 @@ function jointAwareRedesign(r: ColumnRow, columns: readonly ColumnRow[], beams: 
   if (!own || top === undefined) return;
   const near = columns.filter((x) => x.demand.nodes?.top === top || x.demand.nodes?.bottom === top);
   const framing = beams.filter((b) => b.demand.line?.startNode === top || b.demand.line?.endNode === top);
-  redesigners.set(r.key, ((x: never) => {
-    const row = own(x) as ColumnRow;
+  redesigners.set(r.key, ((x: never, o?: RedesignWith) => {
+    const row = own(x, o) as ColumnRow;
     const joint = check(near.map((c) => (c.key === r.key ? row : c)), framing).find((c) => c.key === r.key)?.verifications.find((v) => v.label === 'rcSheets.v.seisJoint');
     return joint ? { ...row, verifications: [...row.verifications, joint], ...(joint.ok ? {} : { status: 'fail' as const, checks: { ...row.checks, ok: false } }) } : row;
   }) as Redesign);
