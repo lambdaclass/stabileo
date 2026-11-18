@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
 import { checkTorsion, prepareElementVerification, verifyElement, REBAR_DB, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 import { autoVerifyFromResults } from '../auto-verify';
@@ -602,24 +603,29 @@ it('#2171 round 4 holds a zoned torsion check if the concurrent shear between st
   }
 });
 
+function zoneAnalysis(nonlinear: boolean, moment = 0) {
+  const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]]);
+  const beam = { ...model, nodes };
+  const solver3D: SolverInput3D = { ...beam,
+    elements: new Map([[1, { ...beam.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+      releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+    supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 30, my: moment, mz: 0 } }],
+  };
+  const solver2D: SolverInput = { ...beam,
+    nodes: new Map([...nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }])),
+    sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+    elements: new Map([[1, { ...beam.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 2, my: 0 } }],
+  };
+  const spatial = nonlinear ? solvePDelta3D(solver3D).results : solve3D(solver3D);
+  const planar = planarResultForDesign(nonlinear ? solvePDelta(solver2D).results : solve(solver2D));
+  return { beam, spatial, planar };
+}
+
 for (const nonlinear of [false, true]) {
   it(`#2171 round 4 verifies saved zones against spatial and planar WASM stations (nonlinear=${nonlinear})`, () => {
-    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 4, y: 0, z: 0 }]]);
-    const beam = { ...model, nodes };
-    const solver3D: SolverInput3D = { ...beam,
-      elements: new Map([[1, { ...beam.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
-        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
-      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 30, my: 0, mz: 0 } }],
-    };
-    const solver2D: SolverInput = { ...beam,
-      nodes: new Map([...nodes].map(([id, n]) => [id, { id, x: n.x, z: n.z }])),
-      sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
-      elements: new Map([[1, { ...beam.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 2, my: 0 } }],
-    };
-    const spatial = nonlinear ? solvePDelta3D(solver3D).results : solve3D(solver3D);
-    const planar = planarResultForDesign(nonlinear ? solvePDelta(solver2D).results : solve(solver2D));
+    const { beam, spatial, planar } = zoneAnalysis(nonlinear);
     for (const [raw, hasTorsion] of [[spatial, true], [planar, false]] as const) {
       const { demands, stations } = computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], beam);
       const line = { ...lineFromMembers(round4Members), stirrups: [
@@ -649,3 +655,77 @@ it('#2171 round 4 retains unknown closure through a beam line round trip', () =>
   const projected = lineFromMembers([{ ...round4Members[0]!, reinforcement }]);
   expect(projected.stirrups.map(zone => zone.shape)).toEqual(['closedRectangular', 'unknown']);
 });
+
+const round5Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+function longitudinalZoneFixture() {
+  const bars = { count: 2, diameter: 16 };
+  const area = bars.count * Math.PI * (bars.diameter / 2000) ** 2;
+  const { b, h, cover, fy } = section;
+  const at = (diameter: number) => {
+    const x = b - 2 * cover - diameter / 1000, y = h - 2 * cover - diameter / 1000;
+    const depth = h - cover - (diameter + bars.diameter / 2) / 1000;
+    const halfAl = 30 * (x + y) / (0.75 * 2 * 0.85 * x * y * fy * 1000);
+    const momentAtCapacity = (area - halfAl) * 0.9 * fy * 1000 * 0.9 * depth;
+    return { halfAl, depth, momentAtCapacity };
+  };
+  const regular = at(8), thick = at(16);
+  const moment = (regular.momentAtCapacity + thick.momentAtCapacity) / 2;
+  const ratio = (cage: typeof regular) => (cage.halfAl + moment / (0.9 * fy * 1000 * 0.9 * cage.depth)) / area;
+  const rebar = (thickHoops: boolean): ProvidedReinforcement => ({
+    top: bars, bottom: bars, stirrups: round4Cage,
+    regions: { stirrupZones: { length: 4, startSupportEnd: 1, endSupportStart: 3, zones: [
+      { from: 0, to: 1.65, stirrup: round4Cage },
+      { from: 1.65, to: 1.95, stirrup: { ...round4Cage, diameter: thickHoops ? 16 : 8 } },
+      { from: 1.95, to: 4, stirrup: round4Cage },
+    ] } },
+  });
+  return { moment, rebar, regularRatio: ratio(regular), thickRatio: ratio(thick) };
+}
+
+type ZoneTestMode = 'raw' | 'linear' | 'nonlinear';
+
+function expectLongitudinalZoneResult(mode: ZoneTestMode, thickHoops: boolean) {
+  const { moment, rebar, regularRatio, thickRatio } = longitudinalZoneFixture();
+  expect(regularRatio).toBeLessThan(1);
+  expect(thickRatio).toBeGreaterThan(1);
+  const analysis = mode === 'raw' ? undefined : zoneAnalysis(mode === 'nonlinear', moment);
+  const stationSets = analysis
+    ? [analysis.spatial, analysis.planar].map(raw =>
+        computeStationDemands(new Map([[1, raw]]), [{ id: 1, name: 'C1', factors: [] }], analysis.beam).stations.get(1)!)
+    : [round4Stations(4, 30)];
+  if (!analysis) for (const station of stationSets[0]!.comboResults[0]!.stations) station.my = moment;
+  for (const [index, stations] of stationSets.entries()) {
+    expect(stations.stationTs.every(t => t * 4 < 1.65 || t * 4 > 1.95)).toBe(true);
+    for (const useDemands of [false, true]) {
+      const { checks } = verifyProvidedReinforcement(1, 'beam', rebar(thickHoops),
+        useDemands ? extractGoverningDemands(stations) : undefined, {}, section,
+        useDemands ? undefined : stations, analysis?.beam, { axes });
+      const transverse = checks.filter(row => /^Torsion (Support|Span)/.test(row.category));
+      const longitudinal = checks.filter(row => row.category.startsWith('Torsion Al'));
+      if (index === 1) {
+        expect(transverse).toEqual([]);
+        expect(longitudinal).toEqual([]);
+        continue;
+      }
+      expect(transverse.length).toBeGreaterThan(0);
+      expect(transverse.every(row => row.status === 'ok')).toBe(true);
+      const span = longitudinal.find(row => row.category.startsWith('Torsion Al Span'));
+      expect(span).toMatchObject({
+        status: thickHoops ? 'fail' : 'warn',
+        ratio: +(thickHoops ? thickRatio : regularRatio).toFixed(3),
+        ...(thickHoops ? { stationX: 1.65 } : {}),
+      });
+      expect(longitudinal.filter(row => row.status === 'fail')).toEqual(thickHoops ? [span] : []);
+    }
+  }
+}
+
+for (const mode of ['raw', 'linear', 'nonlinear'] as const) {
+  round5Reproducer(`known wrong result: #2171 round 5 longitudinal torsion checks the interior cage (${mode})`, () => {
+    expectLongitudinalZoneResult(mode, true);
+  });
+  it(`#2171 round 5 longitudinal torsion passes with uniform hoops (${mode})`, () => {
+    expectLongitudinalZoneResult(mode, false);
+  });
+}

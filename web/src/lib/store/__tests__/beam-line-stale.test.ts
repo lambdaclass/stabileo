@@ -15,6 +15,10 @@ import { placeFrame } from '../../model/building/build-on-grid';
 import { modelBeamLines } from '../frame-equalize';
 import { discardLine, openLine, reinforcementForVerification, saveLine, savedMemberCuts, staleLines } from '../beam-line-store';
 import { cutBar } from '../../engine/design/beam-line';
+import { applyPatch } from '../../engine/design/rebar-batch';
+import { rebarHash } from '../../engine/design/rebar-hash';
+import { setStirrups } from '../rebar-edit';
+import type { ProvidedReinforcement, StirrupDef } from '../../design-contract/reinforcement';
 import { lineKey } from '../../design-contract/beam-line';
 import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
@@ -149,4 +153,80 @@ it('#2171 round 4 resizes saved hoop zones during seismic detailing', () => {
     { from: zones.endSupportStart, to: ctx.L, stirrup: edited.stirrupsSupport },
   ]);
   expect(edited.stirrupsSupport!.spacing).toBeLessThan(wide.spacing);
+});
+
+const round5Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+for (const entry of ['batch', 'member'] as const) {
+  round5Reproducer(`known wrong result: #2171 round 5 spacing edits preserve each local cage (${entry})`, () => {
+    const id = savedEditedLine().members[0]!;
+    const rebar = reinforcementForVerification(id)!;
+    const { length, startSupportEnd, endSupportStart } = rebar.regions!.stirrupZones!;
+    const start: StirrupDef = { diameter: 8, legs: 2, spacing: 0.1, shape: 'closedRectangular', secondaryCrossties: 1 };
+    const end: StirrupDef = { diameter: 10, legs: 4, spacing: 0.1, shape: 'unknown', secondaryCrossties: null };
+    const span: StirrupDef = { diameter: 8, legs: 2, spacing: 0.15 };
+    const zones = [
+      { from: 0, to: startSupportEnd / 2, stirrup: start },
+      { from: startSupportEnd, to: endSupportStart, stirrup: span },
+      { from: endSupportStart, to: length, stirrup: end },
+    ];
+    rebar.regions = {
+      ...rebar.regions, stirrupsSupport: start, stirrupsSpan: span,
+      stirrupsBySupport: { atStart: start, atEnd: end },
+      stirrupZones: { length, startSupportEnd, endSupportStart, zones },
+    };
+    const patch = { spacing: 0.075 };
+    const ctx = verificationStore.contextFor(id)!;
+    const updated = entry === 'batch'
+      ? applyPatch(ctx, rebar, { stirrupsSupport: patch }).candidate
+      : (() => {
+          modelStore.reinforcementTransaction(api => api.setReinforcement(id, rebar));
+          setStirrups(id, 'stirrupsSupport', patch);
+          return reinforcementForVerification(id);
+        })();
+    expect(updated?.regions?.stirrupZones?.zones).toEqual([
+      { ...zones[0], stirrup: { ...start, ...patch } },
+      zones[1],
+      { ...zones[2], stirrup: { ...end, ...patch } },
+    ]);
+    expect(updated?.regions?.stirrupsBySupport).toEqual({
+      atStart: { ...start, ...patch }, atEnd: { ...end, ...patch },
+    });
+    expect(rebar.regions.stirrupZones.zones).toEqual(zones);
+  });
+}
+
+round5Reproducer('known wrong result: #2171 round 5 refuses a legacy stirrup layout after regrouping', () => {
+  const line = savedEditedLine();
+  expect(line.members).toHaveLength(2);
+  const id = line.members[0]!, other = line.members[1]!;
+  const key = lineKey(line.members);
+  const decisions = storedDecisions();
+  const record = decisions.lines![key]!;
+  const rebar: ProvidedReinforcement = JSON.parse(JSON.stringify(reinforcementForVerification(id)!));
+  delete rebar.regions!.stirrupZones;
+  delete rebar.regions!.stirrupsBySupport;
+  modelStore.reinforcementTransaction(api => {
+    api.setReinforcement(id, rebar);
+    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: {
+      ...record, memberHashes: { ...record.memberHashes, [id]: rebarHash(rebar) },
+    } } });
+  });
+  const heldRow = expect.objectContaining({ category: 'Stirrup zone geometry', limiting: 'unsupportedCheck', status: 'fail' });
+  expect(reinforcementForVerification(id)?.regions?.stirrupZones?.length).toBe(record.lengths[0]);
+  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
+
+  modelStore.removeElement(other);
+  solveAndDesign();
+  expect(storedDecisions().lines?.[key]).toBeDefined();
+  expect(modelBeamLines().find(candidate => candidate.members.includes(id))?.members).toEqual([id]);
+  expect(verificationStore.providedFor(id)?.checks).toContainEqual(heldRow);
+  expect(verificationStore.reverifyAtFinalDepth(id, { bottomRaise: 0, topLower: 0, depthTolerance: 0 })).toBe('fail');
+
+  const redesigned = { ...rebar, regions: { ...rebar.regions, stirrupsSpan: { ...rebar.regions!.stirrupsSpan!, spacing: 0.075 } } };
+  modelStore.reinforcementTransaction(api => api.setReinforcement(id, redesigned));
+  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
+  modelStore.reinforcementTransaction(api => api.setReinforcement(id, rebar));
+  discardLine(key);
+  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
 });
