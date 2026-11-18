@@ -406,6 +406,8 @@
       materials: modelStore.model.materials as never,
       loadCases: modelStore.model.loadCases,
       quads: modelStore.model.quads as never,
+      plates: modelStore.model.plates as never,
+      supports: modelStore.supports,
       constraints: modelStore.model.constraints,
     };
   }

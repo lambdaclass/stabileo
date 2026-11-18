@@ -231,7 +231,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
     for (const s of p.surface) {
       const id = caseOf(s.caseType, s.caseIndex);
       if (id === undefined) continue;
-      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : undefined);
+      modelStore.addSurfaceLoad3D(s.quadId, s.q, id, { ...(s.frame ? { frame: s.frame, dir: s.dir, vary: s.vary } : {}), ...(s.on ? { on: s.on } : {}) });
     }
 
     // The user's own cases of a type the plan generates into a group of its own (the live load

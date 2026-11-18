@@ -25,7 +25,7 @@ function request(model: LoadModelData, seismic: Partial<NonNullable<LoadPlanInpu
   return result;
 }
 
-it.skip('known wrong result: #2208 an edge subdivision does not move the force away from the mass centroid', () => {
+it('#2208 an edge subdivision does not move the force away from the mass centroid', () => {
   for (const angle of [0, Math.PI / 4]) for (const mirror of [1, -1]) for (const subdivide of [true, false]) {
     const ring = [[0, 0, 3], [10, 0, 3], [10, 6, 3], [0, 6, 3]];
     if (subdivide) ring.push([0, 1, 3]);
@@ -54,7 +54,7 @@ it.skip('known wrong result: #2208 an edge subdivision does not move the force a
   }
 });
 
-it.skip('known wrong result: #2209 integrates the same physical mode across a nonuniform mesh', () => {
+it('#2209 integrates the same physical mode across a nonuniform mesh', () => {
   for (const subdivide of [false, true]) for (const idOffset of [0, 100]) {
     const model = mesh([[[0, 0, 3], [1, 0, 3]], subdivide
       ? [[0, 0, 6], [0.25, 0, 6], [1, 0, 6]]
@@ -205,15 +205,15 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
   }
 }
 
-it.skip('known wrong result: #2208 partial carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
+it('#2208 partial carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
   verifyCarrierMechanics('static');
 });
 
-it.skip('known wrong result: #2209 modal carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
+it('#2209 modal carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
   verifyCarrierMechanics('modal');
 });
 
-it.skip('known wrong result: #2208 keeps supported levels when an eccentric strip requires distributed couples', () => {
+it('#2208 keeps supported levels when an eccentric strip requires distributed couples', () => {
   const model = mesh([[ [0, -2, 0], [0, -2, 3] ], [ [0, 2, 0], [0, 2, 3] ], [ [0, 1, 6], [4, 1, 6] ]]);
   for (const width of [0, Number.EPSILON, 1]) {
     const base = buildLoadPlan(request(model, {}, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }] }));
@@ -233,7 +233,7 @@ it.skip('known wrong result: #2208 keeps supported levels when an eccentric stri
   }
 });
 
-it.skip('known wrong result: #2208 flat shell self-weight and superimposed pressure stay on the physical loaded surface', () => {
+it('#2208 flat shell self-weight and superimposed pressure stay on the physical loaded surface', () => {
   const model = mesh([]);
   for (const [id, y, thickness] of [[1, 0, 0.1], [2, 3, 0.3]]) {
     const points = [[0, y, 3], [1, y, 3], [1, y + 1, 3], [0, y + 1, 3]];
@@ -259,7 +259,7 @@ it.skip('known wrong result: #2208 flat shell self-weight and superimposed press
   }
 });
 
-it.skip('known wrong result: #2209 refuses incomplete mode samples before they change story shear', () => {
+it('#2209 refuses incomplete mode samples before they change story shear', () => {
   const nodeI = { id: 1, x: 0, y: 0, z: 3 }, nodeJ = { id: 2, x: 1, y: 0, z: 3 };
   const levels = [{ elevation: 3, weightKN: 100, nodeIds: [1, 2],
     mass: [{ kind: 'line' as const, elementId: 1, nodeI, nodeJ, length: 1, a: 0, b: 1, wi: 100, wj: 100 }] }];
@@ -273,7 +273,7 @@ it.skip('known wrong result: #2209 refuses incomplete mode samples before they c
   expect(() => modalStoryForces(levels, [{ period: 1, shape: new Map([[1, sample]]) }], 'x', () => 1)).toThrow();
 });
 
-it.skip('known wrong result: #2209 the production modal adapter retains the mass participation and complete frame shape', () => {
+it('#2209 the production modal adapter retains the mass participation and complete frame shape', () => {
   modelStore.clear();
   try {
     const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(0, 0, 4);
@@ -307,7 +307,7 @@ it.skip('known wrong result: #2209 the production modal adapter retains the mass
   }
 });
 
-it.skip('known wrong result: #2208 keeps the supported level’s exact force when an upper tributary panel cannot be transferred', () => {
+it('#2208 keeps the supported level’s exact force when an upper tributary panel cannot be transferred', () => {
   const model = mesh([
     [[0, -2, 0], [0, -2, 3]], [[0, 2, 0], [0, 2, 3]],
     [[0, 0, 6], [4, 0, 6], [4, 2, 6], [0, 2, 6]],

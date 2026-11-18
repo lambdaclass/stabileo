@@ -33,6 +33,7 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
+import { buildSeismicLevels, type SeismicLevel } from './seismic-mass';
 import type { ModeShape } from './seismic-modal';
 import type { TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
@@ -54,6 +55,8 @@ import type { DrawnSection } from '../../section/drawn';
 
 // ─── Model slice ─────────────────────────────────────────────────
 
+type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?: number; curved?: boolean; offset?: import('../../model/element-3d-metadata').ShellOffset };
+
 export interface LoadModelData extends GravityModel {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
@@ -61,7 +64,9 @@ export interface LoadModelData extends GravityModel {
    * Quads, for a floor or roof drawn with shells (`plan-gravity.ts`); their thickness and material
    * weigh a roof for §4.8.1.
    */
-  quads?: Map<number, { id: number; nodes: number[]; thickness?: number; materialId?: number }>;
+  quads?: Map<number, PlanShell>;
+  plates?: Map<number, PlanShell>;
+  supports?: ReadonlyMap<number, { nodeId: number }>;
   materials: Map<number, { id: number; rho: number }>;
   /**
    * `alternatives`: the group a case belongs to, a generated full load among its patterns.
@@ -321,6 +326,7 @@ export interface PlannedDistributed {
 /** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
 export interface PlannedSurface {
   quadId: number;
+  on?: 'plate';
   caseType: PlannedCase['type'];
   caseIndex?: number;
   q: number;
@@ -360,6 +366,8 @@ export interface PlanSink {
    */
   snowRetains?: boolean;
 }
+
+export type SeismicPlanSink = PlanSink & { surface: PlannedSurface[]; levelRefusals: EngineMessage[] };
 
 export interface LevelMass {
   elevation: number;
@@ -422,6 +430,7 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
+  seismicLevels?: SeismicLevel[];
   /** The weight class of the roof §4.8.1 used: the one given, or the one `roofWeightOf` found. */
   roofWeight?: RoofWeight;
   /** The 103 derivation, when the code path produced the coefficient. */
@@ -490,7 +499,9 @@ export function selfWeightByLevel(
     const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
     const ends = [el.nodeI, el.nodeJ].map((id) => levelOfNode.get(id)).filter((lv) => lv !== undefined);
     if (ends.length === 0) { skipped++; continue; }
-    const w = sectionWeight(sec, el.materialId) * L * meanRatio;
+    let w: number;
+    try { w = sectionWeight(sec, el.materialId) * L * meanRatio; }
+    catch { skipped++; continue; }
     for (const lv of ends) weights[lv] += w / ends.length;
   }
   let skippedShells = 0;
@@ -941,13 +952,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       weightKN: sw.weights[i] + superimposed + liveP,
     };
   });
-  for (const lv of levels) {
-    derivation.push(msg('loadPlan.derivation.level', {
-      elevation: round(lv.elevation, 2), area: round(lv.planAreaM2, 1),
-      selfWeight: round(lv.selfWeightKN, 1), superimposed: round(lv.superimposedKN, 1),
-      weight: round(lv.weightKN, 1),
-    }));
-  }
+
 
   // ── Wind (load-plan-wind.ts) ──
   const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
@@ -968,15 +973,13 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * otherwise (`seismic.snowRetaining`).
    */
   let seismicF2: number | undefined;
+  let snowMass: Parameters<typeof buildSeismicLevels>[5];
   if (snowPlanned && input.seismic?.enabled) {
     const retains = input.seismic.snowRetaining ?? sink.snowRetains ?? true;
     seismicF2 = retains ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;
     const balanced = cases.findIndex((c) => c.type === 'S' && (c.nameKey === 'snow.case.balanced' || c.nameKey === 'snow.case.balancedShaped'));
-    const byLevel = snowWeightByLevel(input.model, distributed, nodal, balanced, levels.map((l) => l.elevation));
-    let added = 0;
-    byLevel.forEach((w, k) => { if (w > 0) { levels[k]!.weightKN += seismicF2! * w; added += seismicF2! * w; } });
+    snowMass = { distributed, nodal, index: balanced, factor: seismicF2, panels: panelMode };
     refs.push(clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica [3.15]'), clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3', 'factor de simultaneidad f2'));
-    derivation.push(msg('loadPlan.derivation.seismicSnow', { f2: seismicF2, snow: round(byLevel.reduce((a, b) => a + b, 0), 1), added: round(added, 1) }));
   }
 
   /*
@@ -994,8 +997,16 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * shear onto the topmost mass. Nothing in a typed coefficient says what T is, so that
    * branch is unreachable without the spectrum.
    */
-  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && input.seismic?.enabled
-    ? codes.seismic.plan(input, levels, sink)
+  const seismicLevels = codes.seismic && input.seismic?.enabled
+    ? buildSeismicLevels(input.model, layout, area, input.tributaryWidth, participation.value, snowMass)
+    : undefined;
+  if (snowMass && seismicLevels) {
+    const snow = seismicLevels.reduce((s, l) => s + l.snowWeightKN, 0);
+    derivation.push(msg('loadPlan.derivation.seismicSnow', { f2: snowMass.factor, snow: round(snow, 1), added: round(snowMass.factor * snow, 1) }));
+  }
+  const levelRefusals: EngineMessage[] = [];
+  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && seismicLevels
+    ? codes.seismic.plan(input, seismicLevels, { ...sink, surface, levelRefusals })
     : { seismicWeight: undefined, baseShear: undefined, seismicDetail: undefined };
 
   /*
@@ -1008,6 +1019,14 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * caller applies it.
    */
   if (blockedKeys.length > 0) return empty;
+
+  for (const lv of seismicLevels ?? levels) {
+    derivation.push(msg('loadPlan.derivation.level', {
+      elevation: round(lv.elevation, 2), area: round(lv.planAreaM2, 1),
+      selfWeight: round(lv.selfWeightKN, 1), superimposed: round(lv.superimposedKN, 1),
+      weight: round(lv.weightKN, 1),
+    }));
+  }
 
   // ── T, H and F (`special-loads.ts`) ──
   const special = specialLoads(input.model, { thermal: input.thermal, soil: input.soil, fluid: input.fluid });
@@ -1050,12 +1069,12 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
 
   // ── Combinations from the basis role ──
   let combinations: LoadCombinationSpec[] = [];
-  if (input.generateCombinations) {
+  if (input.generateCombinations && levelRefusals.length === 0) {
     const present: CombinationInputs['present'] = {
       L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
       W: !!input.wind?.enabled && [...nodal, ...distributed].some((n) => n.caseType === 'W'),
       Wa: [...nodal, ...distributed].some((n) => n.caseType === 'Wa'),
-      E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
+      E: !!input.seismic?.enabled && [...distributed, ...surface].some((n) => n.caseType === 'E'),
       F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
       T: special.thermal.length > 0,
     };
@@ -1087,7 +1106,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   }
 
   const limits = codes.loads.generationBlockers({ occupancies: [occ, ...(roofOccupancy ? [roofOccupancy] : [])], roof: input.roof !== undefined });
-  blockedKeys.push(...limits.messages);
+  blockedKeys.push(...limits.messages, ...levelRefusals);
   refs.push(...limits.refs);
 
   // Each case with the action category of its type, as the basis code reads it.
@@ -1102,7 +1121,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       ...(partitionAsked > 0 ? { partitionLive: fromProject(partitionQ, 'kN/m²') } : {}),
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
-    levels,
+    levels: seismicLevels ?? levels,
+    ...(seismicLevels ? { seismicLevels } : {}),
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     generatedBy: codes.basis.adapterId,

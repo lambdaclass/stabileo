@@ -1,31 +1,40 @@
-/**
- * INPRES-CIRSOC 103-2018 Cap. 7, the modal response spectrum method, turned into seismic forces per
- * level (`docs/codes/CIRSOC/markdown/inpres-cirsoc-103-i`, capítulo 7).
- *
- *   §7.2.2  each mode's ordinate is Cm = Sam·γr/R, the elastic spectrum of §3.5.1 at its period;
- *   §7.2.3  enough modes for 90 % of the mass in each direction analysed;
- *   §7.2.4  the modal effects combined by complete quadratic combination (CQC);
- *   §7.2.5  when the modal base shear Vod is under 85 % of the static one Voe, every effect is
- *           multiplied by 0,85·Voe/Vod.
- *
- * ── Levels ────────────────────────────────────────────────────────
- *
- * The masses are the plan's levels, the same weights the static method distributes, and each
- * mode's shape at a level is the mean horizontal displacement of the level's nodes in the
- * direction analysed. From them, per mode m: Γm = Σ Wk φk / Σ Wk φk², the effective mass ratio
- * (Σ Wk φk)² / (Σ Wk φk² · Σ Wk), and the force at level k, Fkm = Γm φkm Wk Cm. The participation
- * is computed here from the same masses the forces use, so it does not depend on how a mode
- * shape was normalised.
- *
- * The shear in each storey is combined over the modes by CQC (ρ of Der Kiureghian, 5 %
- * damping, the spectrum's), and a level's force is the difference of the combined shears above
- * and below it: combined forces are not added, their shears are.
- *
- * Pure: no store.
- */
+import { massSamples, type MassNode, type SeismicMass } from './seismic-mass';
 
-export interface ModalLevel { elevation: number; weightKN: number; nodeIds: number[] }
-export interface ModeShape { period: number; shape: Map<number, { ux: number; uy: number }> }
+export interface ModalLevel { elevation: number; weightKN: number; mass: readonly SeismicMass[] }
+export interface ModalPoint { ux: number; uy: number; uz: number; rx: number; ry: number; rz: number }
+export interface ModeShape {
+  period: number;
+  shape: Map<number, ModalPoint>;
+  participation?: Record<'x' | 'y', { gamma: number; ratio: number }>;
+}
+
+export class SeismicModeRefusal extends Error {}
+
+function interpolatedMode(mass: SeismicMass, mode: ModeShape): (shape: number[]) => number[] {
+  const at = (node: MassNode) => {
+    const d = mode.shape.get(node.id);
+    if (!d || ![d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].every(Number.isFinite)) throw new SeismicModeRefusal();
+    return d;
+  };
+  if (mass.kind === 'shell') {
+    const corners = mass.nodes.map(at);
+    return shape => (['ux', 'uy', 'uz'] as const).map(key => corners.reduce((s, d, k) => s + shape[k]! * d[key], 0));
+  }
+  const i = at(mass.nodeI), j = at(mass.nodeJ);
+  const axis = [mass.nodeJ.x - mass.nodeI.x, mass.nodeJ.y - mass.nodeI.y, mass.nodeJ.z - mass.nodeI.z];
+  const ui = [i.ux, i.uy, i.uz], uj = [j.ux, j.uy, j.uz];
+  const parallel = (u: number[]) => axis.reduce((s, x, k) => s + x * u[k]!, 0) / mass.length ** 2;
+  const pi = parallel(ui), pj = parallel(uj);
+  const slope = ({ rx, ry, rz }: ModalPoint) => [ry * axis[2]! - rz * axis[1]!, rz * axis[0]! - rx * axis[2]!, rx * axis[1]! - ry * axis[0]!];
+  const si = slope(i), sj = slope(j);
+  return ([t]) => {
+    const q = 1 - t!;
+    const hi = q ** 2 * (1 + 2 * t!), hj = t! ** 2 * (3 - 2 * t!);
+    return ui.map((u, k) => hi * u + hj * uj[k]!
+      + (pi * (q - hi) + pj * (t! - hj)) * axis[k]!
+      + t! * q ** 2 * si[k]! - t! ** 2 * q * sj[k]!);
+  };
+}
 
 export interface ModalForces {
   /** Combined force per level, kN, in the order of `levels`. */
@@ -52,21 +61,34 @@ export function modalStoryForces(
   zeta = 0.05,
 ): ModalForces {
   const W = levels.reduce((s, l) => s + l.weightKN, 0);
+  if (!(Number.isFinite(W) && W > 0) || levels.some(l => l.weightKN > 0 && !l.mass.length)) throw new SeismicModeRefusal();
   const n = levels.length;
   const perMode: ModalForces['perMode'] = [];
   const shears: number[][] = [];
   for (const m of modes) {
-    const phi = levels.map((l) => {
-      const vs = l.nodeIds.map((id) => m.shape.get(id)).filter((v): v is { ux: number; uy: number } => !!v);
-      return vs.length ? vs.reduce((s, v) => s + (dir === 'x' ? v.ux : v.uy), 0) / vs.length : 0;
+    if (!Number.isFinite(m.period) || m.period <= 0) throw new SeismicModeRefusal();
+    const index = dir === 'x' ? 0 : 1;
+    let energy = 0;
+    const participation = m.participation?.[dir];
+    const momentum = levels.map(level => {
+      let sum = 0;
+      for (const mass of level.mass) {
+        const displacement = interpolatedMode(mass, m);
+        massSamples(mass, (w, _x, _y, shape) => {
+          const u = displacement(shape);
+          sum += w * u[index]!;
+          if (participation === undefined) energy += w * u.reduce((s, v) => s + v ** 2, 0);
+        });
+      }
+      return sum;
     });
-    const a = levels.reduce((s, l, k) => s + l.weightKN * phi[k]!, 0);
-    const b = levels.reduce((s, l, k) => s + l.weightKN * phi[k]! ** 2, 0);
-    if (!(b > 0) || !(m.period > 0)) continue;
-    const gamma = a / b;
-    const ratio = (a * a) / (b * W);
+    const a = momentum.reduce((s, v) => s + v, 0);
+    if (participation === undefined && energy === 0) continue;
+    const gamma = participation?.gamma ?? a / energy;
+    const ratio = participation?.ratio ?? a * gamma / W;
     const c = cm(m.period);
-    const f = levels.map((l, k) => gamma * phi[k]! * l.weightKN * c);
+    if (![a, gamma, ratio, c].every(Number.isFinite) || ratio < 0 || c < 0) throw new SeismicModeRefusal();
+    const f = momentum.map(p => gamma * p * c);
     // Storey shear: everything at or above the level.
     const v = new Array<number>(n).fill(0);
     for (let k = n - 1; k >= 0; k--) v[k] = f[k]! + (k + 1 < n ? v[k + 1]! : 0);

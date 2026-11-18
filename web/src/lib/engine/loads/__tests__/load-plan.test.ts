@@ -1,4 +1,4 @@
-import { windEndResultants } from './wind-integration-fixture';
+import { windEndResultants, windResultants } from './wind-integration-fixture';
 import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
@@ -422,7 +422,7 @@ describe('seismic uses the real level masses', () => {
 
   it('distributes by W·h and sums to V0', () => {
     const p = seismicPlan();
-    const total = p.nodal.filter((n) => n.caseType === 'E').reduce((s, n) => s + n.fx, 0);
+    const total = windResultants(frame(), p.distributed.filter(n => n.caseType === 'E'))[0];
     expect(total).toBeCloseTo(p.factors.baseShear!.value, 4);
   });
 
@@ -682,7 +682,7 @@ describe('seismic loads from INPRES-CIRSOC 103 rather than a typed coefficient',
 
   it('distributes the shear in height and sums back to it', () => {
     const p = buildLoadPlan(seismicInput());
-    const total = p.nodal.filter((n) => n.caseType === 'E').reduce((s, n) => s + n.fx, 0);
+    const total = windResultants(frame(4), p.distributed.filter(n => n.caseType === 'E'))[0];
     expect(total).toBeCloseTo(p.factors.baseShear!.value, 4);
     expect(total).toBeGreaterThan(0);
   });
@@ -768,21 +768,30 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
     periodSystem: 'concreteMomentFrame' as const, regularity: 'regular' as const, occupancy: 'reduced' as const,
   };
   const regs = () => applied({ ...applied(defaultRegulations()), seismic: bindRole('seismic', 'inpres103-2018') });
-  const seismic = (over: Record<string, unknown> = {}) => input({
+  const seismic = (over: Record<string, unknown> = {}, options: Partial<LoadPlanInput> = {}) => input({
     regulations: regs(), model: frame(4),
     seismic: { enabled: true, coefficient: 0.15, liveParticipation: null, directions: { x: true, y: false }, code: code103, ...over } as LoadPlanInput['seismic'],
+    ...options,
   });
-  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => p.nodal.filter((n) => n.caseIndex === i).reduce((s, n) => s + n.fx, 0);
+  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => windResultants(frame(4), p.distributed.filter(n => n.caseIndex === i))[0]!;
+  const sample = (ux: number) => ({ ux, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
+  const level = (elevation: number, id: number) => ({
+    elevation, weightKN: 100, mass: [{
+      kind: 'line' as const, elementId: id,
+      nodeI: { id, x: 0, y: 0, z: elevation }, nodeJ: { id: 100 + id, x: 1, y: 0, z: elevation },
+      length: 1, a: 0, b: 1, wi: 100, wj: 100,
+    }],
+  });
+  const phi = (a: number, b: number) => new Map([[1, sample(a)], [101, sample(a)], [2, sample(b)], [102, sample(b)]]);
 
   it('one mass, one mode: the whole weight times the ordinate, all of the mass', () => {
-    const m = modalStoryForces([{ elevation: 3, weightKN: 100, nodeIds: [1] }], [{ period: 0.5, shape: new Map([[1, { ux: 2, uy: 0 }]]) }], 'x', () => 0.3);
+    const m = modalStoryForces([level(3, 1)], [{ period: 0.5, shape: phi(2, 0) }], 'x', () => 0.3);
     expect(m.forces[0]).toBeCloseTo(30, 9);
     expect(m.massRatio).toBeCloseTo(1, 9);
   });
 
   it('two equal storeys: the two modes carry all the mass, and well apart CQC is SRSS', () => {
-    const lv = [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: [2] }];
-    const phi = (a: number, b: number) => new Map([[1, { ux: a, uy: 0 }], [2, { ux: b, uy: 0 }]]);
+    const lv = [level(3, 1), level(6, 2)];
     const golden = (1 + Math.sqrt(5)) / 2;
     const modes = [{ period: 1.0, shape: phi(1, golden) }, { period: 0.38, shape: phi(1, 1 - golden) }];
     const m = modalStoryForces(lv, modes, 'x', () => 0.2);
@@ -795,7 +804,7 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
   it('the modal forces replace the static ones, raised to 85 % of the static base shear', () => {
     const model = frame(4);
     // A first mode growing linearly with height, nothing else: a fraction of the mass.
-    const shape = new Map([...model.nodes.values()].map((n) => [n.id, { ux: (n.z ?? 0) / 12, uy: 0 }]));
+    const shape = new Map([...model.nodes.values()].map((n) => [n.id, sample((n.z ?? 0) / 12)]));
     const st = buildLoadPlan(seismic());
     const dy = buildLoadPlan(seismic({ modal: { modes: [{ period: 0.6, shape }] } }));
     expect(dy.outcome).toBe('READY');
@@ -806,15 +815,17 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
   });
 
   it('a medium torsional irregularity: ±5 % eccentricity, two cases per direction, no net force across', () => {
-    const p = buildLoadPlan(seismic({ torsion: 'medium' }));
+    const options = { tributaryWidth: 0, dead: [] };
+    const p = buildLoadPlan(seismic({ torsion: 'medium' }, options));
+    expect(p.outcome).toBe('READY');
     const e = p.cases.map((c, i) => ({ c, i })).filter(({ c }) => c.type === 'E');
     expect(e.map(({ c }) => c.nameKey)).toEqual(['autoLoad.seismicCaseEcc', 'autoLoad.seismicCaseEcc']);
-    const st = buildLoadPlan(seismic());
+    const st = buildLoadPlan(seismic({}, options));
     for (const { i } of e) {
       expect(sumFx(p, i)).toBeCloseTo(st.factors.baseShear!.value, 6);
-      const fy = p.nodal.filter((n) => n.caseIndex === i);
-      expect(fy.reduce((s, n) => s + n.fy, 0)).toBeCloseTo(0, 9);
-      expect(fy.some((n) => Math.abs(n.fy) > 1e-6)).toBe(true);
+      const lines = p.distributed.filter(n => n.caseIndex === i);
+      expect(windResultants(frame(4), lines)[1]).toBeCloseTo(0, 9);
+      expect(lines.some(n => Math.abs(n.qY ?? 0) > 1e-6)).toBe(true);
     }
   });
 
@@ -832,8 +843,12 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
     const p = buildLoadPlan(seismic({ diagonal: true }));
     const i = p.cases.findIndex((c) => c.nameParams?.dir === '45°');
     expect(i).toBeGreaterThan(-1);
-    const own = p.nodal.filter((n) => n.caseIndex === i);
-    for (const n of own) expect(n.fx).toBeCloseTo(n.fy, 9);
+    const own = p.distributed.filter(n => n.caseIndex === i);
+    expect(own.length).toBeGreaterThan(0);
+    for (const n of own) {
+      expect(n.qX).toBeCloseTo(n.qY!, 9);
+      expect(n.qXJ).toBeCloseTo(n.qYJ!, 9);
+    }
   });
 });
 
