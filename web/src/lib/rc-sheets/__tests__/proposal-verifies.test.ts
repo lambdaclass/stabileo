@@ -80,10 +80,10 @@ describe('a beam\'s bars anchored in an end column', () => {
       expect(anchor(l).ok, code).toBe(true);
       expect(parseFloat(anchor(l).demand!.split('=')[1]!), code).toBeGreaterThan((0.25 - 0.025 - 0.008 - 0.016) * 100);
       const top = l.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
-      expect(top.tails, code).toBeDefined();
-      expect(top.tails![0], code).toBeGreaterThan(5 * top.bars.dia / 1000);
+      const tail = top.anchor![0]!.tail;
+      expect(tail, code).toBeGreaterThan(5 * top.bars.dia / 1000);
       const leg = Math.abs(top.shape.pts[0]![1] - top.shape.pts[1]![1]);
-      expect(leg, code).toBeCloseTo(top.tails![0] + (code === 'ts500-2000' ? 6 : top.bars.dia <= 16 ? 4 : 7) * top.bars.dia / 2000 + top.bars.dia / 2000, 6);
+      expect(leg, code).toBeCloseTo(tail + (code === 'ts500-2000' ? 6 : top.bars.dia <= 16 ? 4 : 7) * top.bars.dia / 2000 + top.bars.dia / 2000, 6);
       expect(leg, code).toBeLessThanOrEqual(0.55 - 2 * (0.025 + 0.008) + 1e-9);
     }
   });
@@ -103,6 +103,19 @@ describe('a beam\'s bars anchored in an end column', () => {
     expect(v.ok).toBe(true);
     expect(v.clause).toBe('§18.8.5.1');
     expect(frameSpan('cirsoc201-2025').verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!.clause).toBe('§25.4.3');
+  });
+
+  it('under CIRSOC a 20 cm column too narrow for ldh takes the FIUBA course\'s ld along the bar with a longer leg; ACI 318 leaves it short', () => {
+    const narrow = { w: 25, half: 0.1, L: 4, h: 0.45 };
+    const ci = frameSpan('cirsoc201-2025', narrow), aci = frameSpan('aci318-19', narrow);
+    const v = anchor(ci);
+    expect(v.ok).toBe(true);
+    expect(v.clause).toBe('§25.4.2; FIUBA §12.2');
+    expect(v.demand).toMatch(/^ld Ø/);
+    const top = ci.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+    expect(top.anchor![0]!.need).toBeCloseTo(CIRSOC_LINE.development({ ...ctx }, top.bars.dia, true, 0.45, { count: top.bars.count, width: 0.25 }), 9);
+    expect(anchor(aci).ok).toBe(false);
+    expect(anchor(aci).demand).toMatch(/^ldh Ø/);
   });
 });
 
