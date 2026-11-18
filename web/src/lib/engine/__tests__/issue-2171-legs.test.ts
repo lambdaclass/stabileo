@@ -16,6 +16,7 @@ const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 }
 const cage = { diameter: 8, spacing: 0.1, legs: 4 };
 const fixed = { shear: cage, torsion: { AlProv: 100 } };
 const phi = 0.75;
+const roundTwo = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const legArea = (diameter: number) => Math.PI * (diameter / 2000) ** 2;
 const depth = (h: number, diameter: number) => h - section.cover - diameter / 1000 - 0.008;
 const steelStress = section.fy * 1000;
@@ -91,15 +92,15 @@ it('known wrong result: #2171 fixed cage uses the declared primary count', () =>
 const axes: DesignAxes = { flexure: 'My', shear: 'Vz', secondaryFlexure: 'Mz', secondaryShear: 'Vy', bFlex: section.b,
   hFlex: section.h, biaxial: false, sagCategory: 'My+', hogCategory: 'My-', basis: 'stress-proxy', secondaryRatio: 0 };
 const longitudinal = { count: 4, diameter: 16 };
-function provided(reinforcement: ProvidedReinforcement, member: 'column' | 'beam', vy: number, torque: number,
-  options: { circular?: boolean; extracted?: boolean; vz?: number } = {}) {
-  const stations = [0, 0.5, 1].map(t => ({ t, x: t * 4, n: 0, my: 0, mz: 0, vy: t === 0.5 ? vy : 0, vz: t === 0.5 ? options.vz ?? 0 : 0,
+function provided(reinforcement: ProvidedReinforcement, member: 'column' | 'beam' | 'wall', vy: number, torque: number,
+  options: { circular?: boolean; extracted?: boolean; vz?: number; edition?: Edition; geometry?: typeof section; compression?: number } = {}) {
+  const stations = [0, 0.5, 1].map(t => ({ t, x: t * 4, n: -(options.compression ?? 0), my: 0, mz: 0, vy: t === 0.5 ? vy : 0, vz: t === 0.5 ? options.vz ?? 0 : 0,
     torsion: t === 0.5 ? torque : 0 }));
   const layout = { elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations }] };
   return verifyProvidedReinforcement(1, member, reinforcement, options.extracted ? extractGoverningDemands(layout) : undefined,
-    {}, section, options.extracted ? undefined : layout,
+    {}, options.geometry ?? section, options.extracted ? undefined : layout,
     undefined, { axes, ...(options.circular ? { shape: { kind: 'circle', D: 0.5 } as const } : {}),
-      spacingRule: { edition: '2005', maxAggregateSizeMm: 0 } });
+      spacingRule: { edition: options.edition ?? '2005', maxAggregateSizeMm: 0 } });
 }
 
 it('known wrong result: #2171 every station uses the weakest member cage', () => {
@@ -266,6 +267,153 @@ for (const nonlinear of [false, true]) {
       expect(out?.shear.status).toBe('ok');
       expect(out?.shearSecondary).toBeUndefined();
       expect(out?.torsion).toBeUndefined();
+    }
+  });
+}
+
+for (const member of ['column', 'beam', 'wall'] as const) {
+  roundTwo(`known wrong result: #2171 ${member} secondary cage follows 2025 leg spacing`, () => {
+    const d = depth(section.b, cage.diameter);
+    const width = section.h;
+    const demand = 40;
+    const across = width - 2 * section.cover - cage.diameter / 1000;
+    const requiredLegs = 1 + Math.ceil(across / Math.min(d, 0.4));
+    for (const [secondaryLegs, spacing, status] of [
+      [requiredLegs, d / 2 * 0.999, 'ok'],
+      [requiredLegs - 1, d / 2 * 0.999, 'fail'],
+      [requiredLegs, d / 2 * 1.001, 'fail'],
+    ] as const) {
+      const stirrups = { ...cage, secondaryLegs, spacing };
+      const expected = shearCapacity('2025', width, d, cage.diameter, secondaryLegs, spacing);
+      for (const extracted of [false, true]) {
+        const out = provided({ stirrups, longitudinal }, member, demand, 0, { edition: '2025', extracted });
+        expect(out.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({ capacity: +expected.toFixed(2), status });
+      }
+      const v = { ...input(demand, 0, '2025'), elementType: member };
+      for (const out of [verifyElement(v, { shear: stirrups }), prepareElementVerification(v)({ shear: stirrups })]) {
+        expect(out.shearSecondary).toMatchObject({ phiVn: expect.closeTo(expected, 10), status });
+      }
+    }
+  });
+}
+
+for (const [edition, compression] of [['2005', 0], ['2005', -120], ['2025', -120]] as const) {
+  roundTwo(`known wrong result: #2171 provided torsion reserves ${edition} concurrent shear steel at N=${compression}`, () => {
+    const stirrups = { ...cage, diameter: 10, legs: 2 };
+    const torque = 20;
+    const d = depth(section.b, stirrups.diameter);
+    const gross = section.b * section.h;
+    const axialMPa = compression / (1000 * gross);
+    const root = Math.sqrt(section.fc);
+    const vc = edition === '2005'
+      ? root / 6 * (1 + 0.3 * axialMPa) : 0.17 * root + axialMPa / 6;
+    const inset = 2 * section.cover + stirrups.diameter / 1000;
+    const at = torque / (phi * 2 * 0.85 * (section.b - inset) * (section.h - inset) * steelStress);
+    const av = 2 * legArea(stirrups.diameter) / stirrups.spacing;
+    const limit = phi * d * (vc * 1000 * section.h + (av - 2 * at) * steelStress);
+    for (const member of ['beam', 'column', 'wall'] as const) for (const extracted of [false, true]) {
+      for (const factor of [1.002, 0.998]) {
+        const vu = factor * limit;
+        const reserve = Math.max(0, vu / phi - vc * 1000 * section.h * d) / (steelStress * d);
+        const out = provided({ stirrups, longitudinal }, member, vu, torque, { edition, compression, extracted });
+        const torsion = out.checks.find(c => c.category === (member === 'column' ? 'Torsion ties' : 'Torsion Span (Vz)'));
+        expect(torsion).toMatchObject({ ratio: +((reserve + 2 * at) / av).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+      }
+    }
+  });
+}
+
+for (const edition of ['2005', '2025'] as const) {
+  roundTwo(`known wrong result: #2171 ${edition} primary combined minimum at zero secondary shear`, () => {
+    const s = { ...section, b: 0.8, h: 0.25, fc: 40, fy: 350, stirrupDia: 6 };
+    const root = Math.sqrt(s.fc);
+    const tu = 1.01 * phi * 0.083 * root * 1000 * (s.b * s.h) ** 2 / (2 * (s.b + s.h));
+    const minimum = (edition === '2005' ? Math.max(root / 16, 0.33) : Math.max(0.062 * root, 0.35)) * s.b / s.fy;
+    const maxSpacing = 2 * legArea(s.stirrupDia) / minimum;
+    for (const factor of [1.001, 0.999]) {
+      const stirrups = { diameter: s.stirrupDia, legs: 2, spacing: maxSpacing * factor };
+      const v = input(0, tu, edition, s);
+      const reinforcement = { ...fixed, shear: stirrups };
+      for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
+        expect(out.torsion).toMatchObject({ AtOverSProv: expect.closeTo(legArea(s.stirrupDia) / stirrups.spacing * 1e4, 10),
+          reinforcementRatio: expect.closeTo(factor, 12), status: factor > 1 ? 'fail' : 'ok' });
+      }
+      const check = provided({ longitudinal, stirrups }, 'column', 0, tu, { edition, geometry: s }).checks.find(c => c.category === 'Torsion ties');
+      expect(check).toMatchObject({ ratio: +factor.toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+    }
+  });
+}
+
+roundTwo('known wrong result: #2171 primary torsion depth follows either change in cage diameter', () => {
+  const torque = 20;
+  const sectionLimit = phi * (0.17 + 0.66) * Math.sqrt(section.fc) * 1000;
+  for (const [nominal, actual] of [[16, 6], [6, 16]] as const) {
+    const geometry = { ...section, stirrupDia: nominal };
+    const stirrups = { diameter: actual, legs: 10, spacing: 0.03 };
+    const inset = 2 * section.cover + stirrups.diameter / 1000;
+    const b0 = section.b - inset, h0 = section.h - inset;
+    const vt = torque * 2 * (b0 + h0) / (1.7 * (b0 * h0) ** 2);
+    const d = depth(section.h, stirrups.diameter);
+    const limit = Math.sqrt(sectionLimit ** 2 - vt ** 2) * section.b * d;
+    for (const member of ['beam', 'column', 'wall'] as const) for (const extracted of [false, true]) {
+      for (const factor of [0.998, 1.002]) {
+        const vz = limit * factor;
+        const out = provided({ stirrups, longitudinal, bottom: longitudinal }, member, 0, torque, { vz, geometry, extracted });
+        expect(out.checks.find(c => c.category === (member === 'column' ? 'Torsion ties' : 'Torsion Span (Vz)')))
+          .toMatchObject({ ratio: +(Math.hypot(vz / (section.b * d), vt) / sectionLimit).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+      }
+    }
+  }
+});
+
+roundTwo('known wrong result: #2171 secondary column shear retains longitudinal steel below the transverse minimum', () => {
+  const geometry = { ...section, b: 0.55, h: 0.6 };
+  const d = depth(geometry.b, 6);
+  const width = geometry.h;
+  const root = Math.sqrt(section.fc);
+  const sizeFactor = Math.min(1, Math.sqrt(2 / (1 + 0.004 * d * 1000)));
+  for (const count of [4, 8]) for (const spacing of [0.25, 0.125]) {
+    const rho = +(count * 2.011).toFixed(2) * 1e-4 / (3 * geometry.b * geometry.h);
+    const vcMPa = spacing === 0.25 ? 0.66 * sizeFactor * Math.cbrt(rho) * root : 0.17 * root;
+    const stirrups = { diameter: 6, spacing, legs: 2, secondaryLegs: 3 };
+    const av = stirrups.secondaryLegs * 0.283 * 1e-4;
+    const expected = phi * d * (vcMPa * 1000 * width + av / spacing * steelStress);
+    const demand = 10;
+    for (const extracted of [false, true]) {
+      const out = provided({ stirrups, longitudinal: { ...longitudinal, count } }, 'column', demand, 0, { edition: '2025', extracted, geometry });
+      expect(out.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({
+        capacity: +expected.toFixed(2), ratio: +(demand / expected).toFixed(3), status: 'ok',
+      });
+    }
+  }
+});
+
+for (const nonlinear of [false, true]) {
+  roundTwo(`known wrong result: #2171 solved spatial torsion reserves secondary shear steel (nonlinear=${nonlinear})`, () => {
+    const stirrups = { ...cage, diameter: 10 };
+    const torque = 20;
+    const d = depth(section.b, stirrups.diameter);
+    const inset = 2 * section.cover + stirrups.diameter / 1000;
+    const at = torque / (phi * 2 * 0.85 * (section.b - inset) * (section.h - inset) * steelStress);
+    const av = 2 * legArea(stirrups.diameter) / stirrups.spacing;
+    const vc = Math.sqrt(section.fc) / 6 * 1000 * section.h * d;
+    const limit = phi * (vc + (av - 2 * at) * steelStress * d);
+    const vu = limit * 1.002;
+    const solver: SolverInput3D = { ...model,
+      elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+        releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+      supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: vu, fz: 0, mx: 0, my: 0, mz: torque } }],
+    };
+    const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, model);
+    for (const extracted of [false, true]) {
+      const out = verifyProvidedReinforcement(1, 'column', { stirrups, longitudinal },
+        extracted ? demands.get(1) : undefined, {}, section, extracted ? undefined : stations.get(1), undefined,
+        { axes, spacingRule: { edition: '2005', maxAggregateSizeMm: 0 } });
+      expect(out.checks.find(c => c.category === 'Torsion ties')).toMatchObject({
+        demand: torque, ratio: +((2 * at + (vu / phi - vc) / (steelStress * d)) / av).toFixed(3), status: 'fail',
+      });
     }
   });
 }
