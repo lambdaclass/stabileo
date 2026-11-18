@@ -164,6 +164,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'design.forcesReport.format',
   'design.memo.torsion',
   'designData.minimum',
+  'designData.presumedBearingSummary',
   'desk.tab.arch',
   'despiece.basisGlobal',
   'despiece.basisLocal',

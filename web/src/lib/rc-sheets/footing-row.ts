@@ -17,6 +17,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   const out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
   const b = r.bearing;
+  if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
   if (!d.soil) out.push(check('rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
   else if (!b) out.push(check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' }));
   else {

@@ -58,13 +58,13 @@ describe('the bending schedule of the sheets', () => {
     expect(migrateDesignData({ ...designData(), rcSheets: { version: 1, adopted: {}, schedule: { waste: -1, scope: 'nowhere' } } }).rcSheets?.schedule).toBeUndefined();
   });
 
-  it('schedules the beams\' and columns\' bars of a solved frame, with the waste set on the order', () => {
+  it('schedules the beams\', columns\' and footings\' bars of a solved frame, with the waste set on the order', () => {
     frame();
     const rows = buildSheetRows();
     expect(rowsCode(rows)).toBe('cirsoc201-2025');
     setScheduleSettings({ waste: 0.2 });
     const s = sheetsSchedule(rows);
-    expect(new Set(s.rows.map((r) => r.family))).toEqual(new Set(['beam', 'column']));
+    expect(new Set(s.rows.map((r) => r.family))).toEqual(new Set(['beam', 'column', 'footing']));
     expect(s.rows.some((r) => r.kind === 'stirrup')).toBe(true);
     expect(s.rows.some((r) => r.kind === 'hoop')).toBe(true);
     // The three columns hold the same bars: one row group of three.

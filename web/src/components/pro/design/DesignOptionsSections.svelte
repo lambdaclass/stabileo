@@ -14,7 +14,7 @@
   import { rcSheetsData, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
-  import { MIN_TIE_SPACING_RANGE } from '../../../lib/model/design-data';
+  import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
 
@@ -113,6 +113,16 @@
   </div>
   <div class="do-opt">
     <label class="do-chk"><input type="checkbox" checked={defl.always === true} onchange={(e) => setDeflectionSettings({ always: e.currentTarget.checked ? true : undefined })} data-testid="dd-defl-always" /> <span>{t('designData.deflectionAlways')}</span></label>
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-foundations">
+  <summary><span class="do-h">{t('designData.foundations')}</span> <span class="do-sum" data-testid="design-options-foundations-summary">{t('designData.presumedBearingSummary', { v: fmt(d.presumedBearingKPa, 0) })}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.presumedBearing')}
+      <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
+    </label>
+    <Hint text={t('designData.presumedBearingHint')} />
   </div>
 </details>
 

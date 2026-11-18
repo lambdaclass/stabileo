@@ -15,7 +15,7 @@ export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnal
       { label: 'rcSheets.s.footWeight', formula: `G = (${CONCRETE_WEIGHT}·h + γs·(z − h))·B·L`, value: `${fmt(b.weight, 1)} kN (γs = ${fmt(d.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT, 0)} kN/m³${d.soil?.unitWeight ? '' : ' *'})` },
       { label: 'rcSheets.s.footEcc', formula: 'e = M/(N + G)', value: `${fmt(b.ex * 100, 1)} · ${fmt(b.ey * 100, 1)} cm` },
       { label: 'rcSheets.s.footPressure', formula: 'qmáx · qmín · qmed', value: `${fmt(b.qMax, 0)} · ${fmt(b.qMin, 0)} · ${fmt(b.qMean, 0)} kPa`, ok: b.ok },
-      { label: 'rcSheets.s.footAllowable', formula: 'qadm · k·qadm', value: b.allowable ? `${fmt(b.allowable, 0)} · ${fmt(b.edgeFactor * b.allowable, 0)} kPa (${d.soil?.name ?? ''})` : '—' },
+      { label: 'rcSheets.s.footAllowable', formula: 'qadm · k·qadm', value: b.allowable ? `${fmt(b.allowable, 0)} · ${fmt(b.edgeFactor * b.allowable, 0)} kPa${d.soil?.presumed ? ' *' : ` (${d.soil?.name ?? ''})`}` : '—' },
       { label: 'rcSheets.s.footContactShare', formula: 'A contacto / A', value: `${fmt(b.contact * 100, 0)} %` },
     ] : []),
   ];

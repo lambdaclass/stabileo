@@ -14,6 +14,8 @@ export interface FootingSoil {
   edgeFactor?: number;
   /** kN/m³, when the soil states it. */
   unitWeight?: number;
+  /** Not the model's soil: the design data's presumed pressure, where the model states none. */
+  presumed?: true;
 }
 
 /** The footing the model holds at the node, m: plan B along X and L along Y, its thickness and its centroid's offset from the column axis. */

@@ -26,10 +26,11 @@ export const footingDiameters = (list: readonly number[]): number[] => { const o
 const fcOfMaterial = (id: number | null | undefined): number | undefined =>
   id === null || id === undefined ? undefined : concreteFc(modelStore.materials.get(id) as never);
 
-function soilOf(profileId: number | null): FootingSoil | null {
+/** The soil a footing stands on: its profile's allowable pressure, else the design data's presumed one. */
+export function soilOf(profileId: number | null): FootingSoil {
   const geo = modelStore.model.geotechnical;
   const p = findProfile(geo, profileId ?? geo?.defaultProfileId ?? null);
-  if (!p || p.bearing.kind !== 'allowablePressure' || !(p.bearing.allowableBearingKPa > 0)) return null;
+  if (!p || p.bearing.kind !== 'allowablePressure' || !(p.bearing.allowableBearingKPa > 0)) return { name: '', allowable: designData().presumedBearingKPa, presumed: true };
   return {
     name: p.name, allowable: p.bearing.allowableBearingKPa,
     ...(p.bearing.edgeFactor ? { edgeFactor: p.bearing.edgeFactor } : {}),

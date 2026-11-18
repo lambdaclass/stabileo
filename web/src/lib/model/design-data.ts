@@ -60,6 +60,8 @@ export interface ProjectDesignData {
   minTieSpacingMm: number;
   /** The diameter of a wall's vertical and horizontal bars, mm. */
   wallBarDiaMm: number;
+  /** The allowable bearing pressure footings are presized for where the model states no soil, kPa: a presumption to confirm with the soil study. */
+  presumedBearingKPa: number;
   /**
    * Denser ties at both ends of every column, also where no seismic rule asks for them: over
    * lo = max(largest side, clear height/6, 450 mm) at half the spacing. Absent: off.
@@ -141,7 +143,7 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'wallBarDiaMm'] as const;
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'wallBarDiaMm', 'presumedBearingKPa'] as const;
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -165,6 +167,9 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
 /** The floor of the stirrups' spacing the project may state, mm. */
 export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
 
+/** The presumed allowable bearing pressure the project may state, kPa, and its default (1,5 kg/cm²). */
+export const PRESUMED_BEARING_RANGE = { min: 50, max: 1000, default: 150 } as const;
+
 /** Every diameter the bar table knows, mm. */
 export const BAR_DIAMETERS_MM: readonly number[] = REBAR_DB.map((r) => r.diameter);
 
@@ -180,6 +185,7 @@ export function defaultDesignData(): ProjectDesignData {
     slabDiametersMm: [...SLAB_MESH_DIAMETERS],
     minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
     wallBarDiaMm: 12,
+    presumedBearingKPa: PRESUMED_BEARING_RANGE.default,
   };
 }
 
@@ -260,6 +266,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
     minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
+    presumedBearingKPa: typeof e.presumedBearingKPa === 'number' && Number.isFinite(e.presumedBearingKPa) && e.presumedBearingKPa >= PRESUMED_BEARING_RANGE.min && e.presumedBearingKPa <= PRESUMED_BEARING_RANGE.max ? e.presumedBearingKPa : def.presumedBearingKPa,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
