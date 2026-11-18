@@ -377,7 +377,7 @@ web.build.tested:
 	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx tsx scripts/translation-gate.ts dist && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && node scripts/build-stamp.mjs --seal dist "$$stamp" && node scripts/build-stamp.mjs --seal .dist-shared "$$stamp"'
 
 test.web.build.shared:
-	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build'
+	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build $(FILE)'
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
@@ -1258,7 +1258,7 @@ test.web.feher-result-state:
 
 .PHONY: test.web.public-policy-isolation
 test.web.public-policy-isolation:
-	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs scripts/prune-public-build-branches.test.mjs scripts/build-switches-2099.test.mjs'
+	nix develop .\#e2e --command bash -c 'cd web && node --test scripts/landing-isolation.test.mjs scripts/public-link-policy.test.mjs scripts/prune-public-build-branches.test.mjs scripts/build-switches-2099.test.mjs scripts/public-features-config.test.mjs'
 
 .PHONY: test.web.landing-footer-2099
 test.web.landing-footer-2099:
@@ -1270,7 +1270,7 @@ test.web.ci-runtime-2099:
 
 .PHONY: test.web.tool-current-result-2099
 test.web.tool-current-result-2099:
-	VITE_RESEARCH=1 VITE_TOOLS=1 nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
+	nix develop .\#e2e --command node --test web/scripts/tests/tool-current-result-2099.test.mjs
 
 .PHONY: test.web.e2e-features
 test.web.e2e-features:

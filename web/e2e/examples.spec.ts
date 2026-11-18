@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { EXAMPLE_IDS } from '../src/components/examples/ids';
 import { BUILD_FEATURES } from './build-features';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
+
 
 test.skip(BUILD_FEATURES.tools, 'The enabled Tools build moves examples to tools; covered by tools-models.spec.ts');
 
@@ -189,7 +190,7 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [820, 1180], 
   });
 }
 
-for (const locale of PUBLIC_LOCALES) test(`@smoke examples index in ${locale}`, async ({ page }) => {
+for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke examples index in ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/examples/`);
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.locator('.ex-card')).toHaveCount(EXAMPLE_IDS.length);

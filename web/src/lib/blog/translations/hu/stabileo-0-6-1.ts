@@ -174,7 +174,7 @@ const body: PostBody = {
     },
     {
       "k": "ext",
-      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.1.md",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v0.6.1.hu.md",
       "label": "A 0.6.1 teljes kiadási megjegyzései",
       "t": "Minden eredményváltozási értesítés a v0.6.0 óta:"
     },

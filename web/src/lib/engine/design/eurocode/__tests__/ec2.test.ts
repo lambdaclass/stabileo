@@ -233,3 +233,50 @@ describe('EC2: the bars a beam holds', () => {
 function pointMember(i: Parameters<typeof ec2MemberDesign>[0]) {
   return ec2MemberDesign({ ...i, expectedCombinationIds: [1], stationTs: [0.5], tuples: i.demands });
 }
+
+const issue2240 = process.env.RUN_KNOWN_WRONG === '2240' ? it : it.skip;
+issue2240('known wrong result: #2240 EC2 checks both one-sided force states of the same station', () => {
+  const stationT = 0.5;
+  const x = 3;
+  const demand = (my: number, vz: number, category: 'My+' | 'Vz') => ({
+    category, value: category === 'Vz' ? vz : my, absValue: category === 'Vz' ? vz : my,
+    comboId: 1, comboName: 'C1', stationT, stationX: x,
+    forces: { t: stationT, x, n: 0, vy: 0, vz, my, mz: 0, torsion: 0 },
+  });
+  const bottom = { count: 4, diameter: 16 };
+  const maxMoment = 250;
+  const nominalYieldMomentUpperBound = bottom.count * Math.PI * (bottom.diameter / 1000) ** 2 / 4 * beam.fyk * 1000 * beam.h;
+  expect(maxMoment).toBeGreaterThan(nominalYieldMomentUpperBound);
+  const shearSide = demand(10, 300, 'Vz');
+  const momentSide = demand(maxMoment, 10, 'My+');
+  for (const demands of [[shearSide, momentSide], [momentSide, shearSide]]) {
+    const result = pointMember({
+      ...beam, L: 6, kind: 'beam', demands, params: EC2_RECOMMENDED, barDia: bottom.diameter,
+      provided: { bottom, stirrups: { diameter: 8, legs: 2, spacing: 0.1 } },
+    });
+    if ('skip' in result) throw new Error(result.skip);
+    expect.soft(result.rows.find(row => row.titleKey === 'check.ec2.barsProvided')).toMatchObject({ status: 'fail' });
+  }
+});
+
+const issue2246 = process.env.RUN_KNOWN_WRONG === '2246' ? it : it.skip;
+issue2246('known wrong result: #2246 EC2 does not count span bars before their start', () => {
+  const L = 6;
+  const regionT = 0.25;
+  const bottomSpan = { count: 3, diameter: 16 };
+  const provided = { regions: { regionT, bottomSpan, bottomGroups: [{ layers: [{ ...bottomSpan, row: 0 }], label: 'main' as const, continueStart: false }] } };
+  const check = (stationT: number) => {
+    const x = stationT * L;
+    const demands = [{ category: 'My+' as const, value: 20, absValue: 20, comboId: 1, comboName: 'C1', stationT, stationX: x,
+      forces: { t: stationT, x, n: 0, vy: 0, vz: 0, my: 20, mz: 0, torsion: 0 } }];
+    const result = ec2MemberDesign({
+      ...beam, L, kind: 'beam', demands, params: EC2_RECOMMENDED, provided,
+      expectedCombinationIds: [1], stationTs: [stationT], tuples: demands,
+    });
+    if ('skip' in result) throw new Error(result.skip);
+    return result.rows.find(row => row.titleKey === 'check.ec2.barsProvided');
+  };
+  const insideAreaCm2 = bottomSpan.count * Math.PI * bottomSpan.diameter ** 2 / 400;
+  expect(check(0.5)?.capacity).toBeCloseTo(insideAreaCm2, 3);
+  expect(check(0.1)).toMatchObject({ capacity: 0, status: 'fail' });
+});

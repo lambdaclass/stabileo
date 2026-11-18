@@ -545,3 +545,23 @@ describe('a square roof-structure ring keeping four like corners', () => {
     for (const id of ids) expect(layout.roofAreaOf.get(id)).toBeCloseTo(4, 6);
   });
 });
+
+const issue2260 = process.env.RUN_KNOWN_WRONG === '2260' ? it : it.skip;
+issue2260('known wrong result: #2260 gravity transfer conserves the unsnapped roof fringe area', () => {
+  const b = builder();
+  const length = 6;
+  const width = 3;
+  const corners = [[0, 0], [length, 0], [length, length], [0, length]] as const;
+  const ring = corners.map(([x, y]) => b.node(x, y, 3));
+  corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+  ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+  const middle = 3;
+  const outer = 6.05 + 4e-10;
+  for (const y of [0, middle, outer]) b.bar(b.node(0, y, 4), b.node(length, y, 4));
+  const gapStart = middle + width / 2;
+  const gapEnd = outer - width / 2;
+  const areaFromUnroundedEdges = length * (gapEnd - gapStart);
+  const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: width });
+  expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+  expect(layout.areaByLevel.get(3)).toBeCloseTo(areaFromUnroundedEdges, 10);
+});

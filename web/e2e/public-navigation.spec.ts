@@ -1,4 +1,5 @@
 import { BUILD_FEATURES } from './build-features';
+import { LANDING_NAV } from './public-navigation-contract';
 import { test, expect } from '@playwright/test';
 
 for (const width of [390, 1440]) {
@@ -116,7 +117,11 @@ for (const width of [1440, 390]) {
     });
     expect(probe.baseline.present).toBe(true);
     expect(probe.baseline.height).toBe(58);
-    expect(probe.baseline.links).toHaveLength(8);
+    expect(probe.baseline.links.map(({ href }: { href: string | null }) => href)).toEqual([
+      '/en/',
+      ...LANDING_NAV.map(([, , href]) => href),
+      'https://github.com/lambdaclass/stabileo',
+    ]);
     expect(probe.samples.length).toBeGreaterThan(20);
     for (const sample of probe.samples) expect(sample).toEqual(probe.baseline);
   });

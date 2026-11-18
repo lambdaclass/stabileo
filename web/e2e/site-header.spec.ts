@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { LANDING_NAV } from './public-navigation-contract';
 import { EXPERIMENTS } from '../src/components/research/experiments';
 
 /**
@@ -8,7 +9,7 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
  *
  *   npx playwright test --grep "@smoke site header"
  */
-const ITEMS = ['basic', ...(BUILD_FEATURES.tools ? [] : ['examples']), 'tools', ...(BUILD_FEATURES.diagramGame ? ['game'] : []), 'research', 'pricing', 'blog'];
+const ITEMS = LANDING_NAV.map(([id]) => id);
 const PAGES: Array<[string, string | null]> = [
   ['/en/', null],
   ['/en/blog/', 'blog'],

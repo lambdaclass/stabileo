@@ -17,7 +17,7 @@ let signInUnavailable = false;
 const released = new WeakSet<Event>();
 
 function required(): boolean {
-  return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated && !signInUnavailable;
+  return __PUBLIC_FEATURES__.accounts && accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated && !signInUnavailable;
 }
 
 function signInRequired(): boolean {
@@ -35,6 +35,7 @@ function ask(action: GatedAction, run: () => unknown, cancel?: () => void, failO
 }
 
 function settle(): void {
+  if (!__PUBLIC_FEATURES__.accounts) return;
   const next = pending;
   pending = null;
   if (!next) return;
@@ -60,7 +61,7 @@ export const accountGate = {
   },
 
   guard(action: GatedAction, run: () => unknown, cancel?: () => void): void {
-    if (import.meta.env.VITE_ACCOUNTS !== '0' && required()) ask(action, run, cancel);
+    if (__PUBLIC_FEATURES__.accounts && required()) ask(action, run, cancel);
     else void run();
   },
 
@@ -78,13 +79,13 @@ export const accountGate = {
 
   /** For what opens its own window in the click: true when the account is missing, and `run` is then called again once the action may go on. */
   defer(action: GatedAction, run: () => unknown): boolean {
-    if (import.meta.env.VITE_ACCOUNTS === '0' || !required()) return false;
+    if (!__PUBLIC_FEATURES__.accounts || !required()) return false;
     ask(action, run);
     return true;
   },
 
   requireSignIn(action: GatedAction, run: () => unknown): void {
-    if (import.meta.env.VITE_ACCOUNTS !== '0' && signInRequired()) ask(action, run, undefined, false);
+    if (__PUBLIC_FEATURES__.accounts && signInRequired()) ask(action, run, undefined, false);
     else void run();
   },
 
@@ -110,7 +111,7 @@ export const accountGate = {
  * same change event on again. An input marked `data-account-free` is never held.
  */
 export function gateFileInputs(target: Window = window): () => void {
-  if (import.meta.env.VITE_ACCOUNTS === '0') return () => {};
+  if (!__PUBLIC_FEATURES__.accounts) return () => {};
   const onChange = (e: Event) => {
     const input = e.target as HTMLInputElement | null;
     if (released.has(e) || input?.tagName !== 'INPUT' || input.type !== 'file') return;
