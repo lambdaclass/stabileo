@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest';
-import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
+import { checkTorsion2025, resolveCage, secondaryShearFace } from '../../codes/cirsoc201/torsion';
 import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { autoVerifyFromResults } from '../auto-verify';
-import { prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
+import { checkTorsion, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
 import type { DesignAxes } from '../design/design-axes';
 import { extractGoverningDemands, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
@@ -558,3 +558,146 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+const roundFour = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+roundFour('known wrong result: #2171 primary torsion reserve switches concrete strength at the actual cage minimum', () => {
+  const geometry = { ...section, b: 0.45, h: 0.32, stirrupDia: 6 };
+  const d = depth(geometry.h, geometry.stirrupDia);
+  const rho = fixedLongitudinal.flexure.AsProv * 1e-4 / (geometry.b * d);
+  const minimumSpacing = 2 * 0.283e-4 * steelStress / (0.35 * 1000 * geometry.b);
+  const torque = 8;
+  const inset = 2 * geometry.cover + geometry.stirrupDia / 1000;
+  const ao = 0.85 * (geometry.b - inset) * (geometry.h - inset);
+  const at = torque / (2 * phi * ao * steelStress);
+  for (const belowMinimum of [true, false]) {
+    const shear = { diameter: geometry.stirrupDia, legs: 2, spacing: minimumSpacing * (belowMinimum ? 1.001 : 0.999) };
+    const vcCoefficient = belowMinimum ? 0.66 * Math.min(1, Math.sqrt(2 / (1 + 4 * d))) * Math.cbrt(rho) : 0.17;
+    const vc = vcCoefficient * Math.sqrt(geometry.fc) * 1000 * geometry.b * d;
+    const outer = legArea(shear.diameter) / shear.spacing;
+    const vuLimit = phi * (vc + 2 * (outer - at) * steelStress * d);
+    for (const factor of [1.001, 0.999]) {
+      const vu = factor * vuLimit;
+      const available = outer - Math.max(0, vu / phi - vc) / (2 * steelStress * d);
+      const v = { ...input(0, torque, '2025', geometry, vu), elementType: 'beam' as const };
+      const reinforcement = { ...fixed, ...fixedLongitudinal, shear };
+      for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
+        expect.soft(out.shear.phiVc).toBeCloseTo(phi * vc, 10);
+        expect.soft(out.torsion?.AtOverSProv).toBeCloseTo(available * 1e4, 10);
+        expect.soft(out.torsion?.status).toBe(belowMinimum || factor > 1 ? 'fail' : 'ok');
+      }
+      for (const extracted of [false, true]) {
+        const out = provided({ stirrups: shear, bottom: longitudinal }, 'beam', 0, torque, { edition: '2025', geometry, extracted, vz: vu });
+        expect.soft(out.checks.find(c => c.category === 'Torsion Span (Vz)')?.status).toBe(belowMinimum || factor > 1 ? 'fail' : 'warn');
+      }
+    }
+  }
+});
+
+roundFour('known wrong result: #2171 section torsion refuses secondary shear without resolved lateral depth', () => {
+  const declaration = { ...cage, spacing: 0.03, secondaryLegs: 6 };
+  const face = secondaryShearFace(section, resolveCage(section, declaration), { kind: 'beam-or-wall', diameters: [32] });
+  const d = depth(section.b, cage.diameter, 32);
+  const x = section.b - 2 * section.cover - cage.diameter / 1000;
+  const y = section.h - 2 * section.cover - cage.diameter / 1000;
+  const torsionStress = 2 * (x + y) / (1.7 * (x * y) ** 2);
+  const limit = phi * (0.17 + 0.66) * Math.sqrt(section.fc) * 1000;
+  const torque = 35;
+  const vLimit = section.h * d * Math.sqrt(limit ** 2 - (torsionStress * torque) ** 2);
+  const legacyThreshold = phi * (0.33 / 4) * Math.sqrt(section.fc) * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
+  for (const edition of ['2005', '2025'] as const) for (const factor of [0.999, 1.001]) {
+    const vy = factor * vLimit;
+    const { demand } = input(vy, torque, edition);
+    expect.soft(checkTorsion(section, demand, edition)).toMatchObject({ phiTn: 0, status: 'fail', ratio: Infinity,
+      refusal: expect.stringMatching(/secondary.*face/i) });
+    expect.soft(checkTorsion(section, input(vy, 0.99 * legacyThreshold, edition).demand, edition).neglect).toBe(true);
+    expect.soft(checkTorsion(section, demand, edition, face)).toMatchObject({
+      phiTn: expect.closeTo(Math.sqrt(limit ** 2 - (vy / (section.h * d)) ** 2) / torsionStress, 10),
+      status: factor > 1 ? 'fail' : 'ok',
+    });
+    expect.soft(checkTorsion(section, input(0, torque, edition).demand, edition)).toMatchObject({
+      status: 'ok', phiTn: expect.closeTo(limit / torsionStress, 10),
+    });
+  }
+});
+
+roundFour('known wrong result: #2171 a refused secondary face governs regardless of cage order', () => {
+  const geometry = { ...section, b: 0.033, h: 0.3, cover: 0.01 };
+  const bars = { count: 2, diameter: 32 };
+  const narrow = { ...cage, diameter: 6 };
+  const wide = { ...cage, diameter: 8 };
+  const demand = 0.005;
+  const d = geometry.b - geometry.cover - narrow.diameter / 1000 - bars.diameter / 2000;
+  const capacity = phi * d * (Math.sqrt(geometry.fc) / 6 * 1000 * geometry.h + 2 * 0.283e-4 * steelStress / narrow.spacing);
+  for (const extracted of [false, true]) {
+    const secondary = (stirrupsSupport: typeof cage, stirrupsSpan: typeof cage, vy: number) =>
+      provided({ regions: { bottomSpan: bars, stirrupsSupport, stirrupsSpan } }, 'beam', vy, 0, { geometry, extracted })
+        .checks.find(c => c.demandCategory === 'Vy');
+    expect.soft(secondary(narrow, wide, 0.000999)).toBeUndefined();
+    expect.soft(secondary(narrow, narrow, demand)).toMatchObject({ capacity: +capacity.toFixed(2), status: 'ok' });
+    for (const [first, second] of [[narrow, wide], [wide, narrow]] as const) {
+      expect.soft(secondary(first, second, demand)).toMatchObject({ ratio: Infinity, status: 'fail', capacity: 0,
+        limiting: 'unsupportedCheck', description: 'Invalid secondary effective depth' });
+    }
+  }
+});
+
+roundFour('known wrong result: #2171 nonzero torsion below 0.01 kN·m is checked at the code threshold', () => {
+  for (const side of [0.03, 0.06]) {
+    const geometry = { ...section, b: side, h: side, cover: 0.1 * side, stirrupDia: 6 };
+    const stirrups = { diameter: geometry.stirrupDia, legs: 2, spacing: side / 10 };
+    const threshold = phi * 0.083 * Math.sqrt(geometry.fc) * 1000 * side ** 4 / (4 * side);
+    const diameter = 10;
+    const bars = { count: 4, diameter };
+    const aohSide = side - 2 * geometry.cover - stirrups.diameter / 1000;
+    for (const factor of [0, 0.999, 1.001]) {
+      const torque = threshold * factor;
+      expect(torque).toBeLessThan(0.01);
+      for (const extracted of [false, true]) for (const member of ['beam', 'column'] as const) {
+        const out = provided({ stirrups, longitudinal: bars, bottom: bars, top: bars }, member, 0, torque, { geometry, extracted, edition: '2025' });
+        const row = out.checks.find(c => c.category === (member === 'column' ? 'Torsion ties' : 'Torsion Span (Vz)'));
+        if (factor < 1) expect.soft(row).toBeUndefined();
+        else {
+          const sectionRatio = torque * 4 * aohSide / (1.7 * aohSide ** 4 * phi * (0.17 + 0.66) * Math.sqrt(geometry.fc) * 1000);
+          const outerRatio = torque / (phi * 2 * 0.85 * aohSide ** 2 * steelStress) / (legArea(stirrups.diameter) / stirrups.spacing);
+          const sRatio = stirrups.spacing / (aohSide / 2);
+          expect.soft(row).toMatchObject({ demand: torque, status: 'ok', ratio: +Math.max(sectionRatio, outerRatio, sRatio).toFixed(3) });
+        }
+      }
+    }
+  }
+});
+
+roundFour('known wrong result: #2171 wall torsion requires evidence of longitudinal steel around its perimeter', () => {
+  const stirrups = { ...cage, spacing: 0.06 };
+  const threshold = torsionThreshold;
+  const clearDepthBetweenBars = section.h - 2 * (section.cover + stirrups.diameter / 1000 + longitudinal.diameter / 2000);
+  expect(clearDepthBetweenBars).toBeGreaterThan(0.3);
+  const steel = { stirrups, bottom: longitudinal, top: longitudinal };
+  for (const extracted of [false, true]) {
+    const get = (member: 'beam' | 'wall', torque: number) =>
+      provided(steel, member, 0, torque, { extracted, edition: '2025' }).checks.filter(c => c.limiting === 'torsion' || c.limiting === 'unsupportedCheck');
+    expect.soft(get('wall', threshold * 0.999)).toEqual([]);
+    expect.soft(get('wall', threshold * 1.001)).toContainEqual(expect.objectContaining({
+      ratio: Infinity, status: 'fail', limiting: 'unsupportedCheck', description: expect.stringMatching(/perimeter/i),
+    }));
+    expect.soft(get('beam', threshold * 1.001)).toContainEqual(expect.objectContaining({ status: 'ok', limiting: 'torsion' }));
+  }
+});
+
+roundFour('known wrong result: #2171 continuous corner bars can carry secondary beam shear without crediting the ties', () => {
+  const geometry = { ...section, b: 0.2, h: 0.5, fc: 30, stirrupDia: 6 };
+  const stirrups = { diameter: 6, legs: 2, spacing: 0.1 };
+  const bars = { diameter: 16, count: 3 };
+  const d = 2 * geometry.b / 3;
+  const rho = 2.011e-4 / (geometry.h * d);
+  const phiVc = phi * 0.66 * Math.cbrt(rho) * Math.sqrt(geometry.fc) * 1000 * geometry.h * d;
+  for (const extracted of [false, true]) {
+    const check = (vy: number, topEnd = bars) => provided(
+      { stirrups, regions: { topStart: bars, topEnd, bottomSpan: bars } }, 'beam', vy, 0, { geometry, extracted, edition: '2025' },
+    ).checks.find(c => c.demandCategory === 'Vy');
+    expect.soft(check(phiVc * 0.999)).toMatchObject({ status: 'warn', capacity: +phiVc.toFixed(2) });
+    expect.soft(check(phiVc * 1.001)).toMatchObject({ status: 'fail' });
+    expect.soft(check(0.38, { ...bars, count: 1 })).toMatchObject({ status: 'fail' });
+  }
+});
