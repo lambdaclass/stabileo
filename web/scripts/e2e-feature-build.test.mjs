@@ -88,8 +88,8 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
     function inspect(suite, title = '') {
       const fullTitle = `${title} ${suite.title}`;
       for (const spec of suite.specs ?? []) for (const entry of spec.tests) {
-        const alwaysRun = ['landing-nav.spec.ts', 'landing-footer.spec.ts', 'landing-pricing-hu.spec.ts'];
-        const available = alwaysRun.includes(spec.file)
+        const alwaysRun = ['landing-nav.spec.ts', 'landing-footer.spec.ts'].includes(spec.file) || spec.file.startsWith('landing-pricing-');
+        const available = alwaysRun
           || (['tools-main.spec.ts', 'examples.spec.ts'].includes(spec.file) ? !flags.tools
             : flags[spec.file === 'diagram-game.spec.ts' ? 'diagramGame' : ['accounts-legal-usage.spec.ts', 'ads-register.spec.ts'].includes(spec.file) ? 'accounts' : 'tools']);
         const titles = selected.get(spec.file) ?? [];
@@ -104,9 +104,9 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
     for (const suite of report.suites) inspect(suite);
     assert.ok(inspected > 0);
     assert.equal(selected.get('landing-nav.spec.ts')?.length, 5);
-    const pricing = selected.get('landing-pricing-hu.spec.ts');
+    const pricing = [...selected].flatMap(([file, titles]) => file.startsWith('landing-pricing-') ? titles : []);
     if (flags.research) {
-      assert.equal(pricing?.length, 9);
+      assert.equal(pricing.length, 9);
       assert.equal(pricing.filter(title => title.startsWith('pricing for both audiences in hu')).length, 3);
     } else {
       assert.deepEqual(pricing, ['pricing falls back to English when hu is not published']);
