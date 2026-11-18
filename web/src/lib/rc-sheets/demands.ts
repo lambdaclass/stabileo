@@ -5,7 +5,8 @@ import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-f
 import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
 import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv } from './beam-row';
-import type { ColumnCase, ColumnDemand } from './column-row';
+import type { ColumnCase, ColumnDemand, ColumnSway } from './column-row';
+import type { StoreyStability } from '../engine/design/sway';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
 import type { WallComboForces, WallDemand } from './wall-row';
 import type { PunchingDemand } from './punching-row';
@@ -29,6 +30,10 @@ export interface DemandSet {
   deadFactor?: number;
   /** The combination carries an earthquake case. */
   seismic?: boolean;
+  /** Its wind and earthquake cases at their factors, first order: what sways a storey. */
+  lateral?: AnalysisResults3D;
+  /** Where `result` was solved with P-Delta, the same combination first order. */
+  firstOrder?: AnalysisResults3D;
 }
 
 export interface DemandInput {
@@ -48,6 +53,8 @@ export interface DemandInput {
   levelZs?: readonly number[];
   /** Moments at the support faces and shear and torsion at d from them, instead of at the axes. */
   faces?: boolean;
+  /** A column element's storey as read for sway. */
+  storeyOf?: (elementId: number) => StoreyStability | undefined;
   /** Half the support's extent along the beam at an element's end, m. */
   faceOffset?: (elementId: number, end: 'i' | 'j') => number;
   /** The slab beside a beam element as flange sides; given only when beams are designed with the slab as a compression flange (Table 6.3.2.1). */
@@ -315,9 +322,16 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
       const deadPu = deadBy.reduce((s, by) => s - (at(by.get(bottom.e.id), bottom.forward, 'bottom')?.n ?? 0), 0);
       const cases: ColumnCase[] = [];
       const missing: string[] = [];
+      const endMoments = (r: AnalysisResults3D | undefined) => {
+        if (!r) return undefined;
+        const by = new Map(r.elementForces.map((f) => [f.elementId, f]));
+        const lb = at(by.get(bottom.e.id), bottom.forward, 'bottom'), lt = at(by.get(top.e.id), top.forward, 'top');
+        return lb && lt ? { mxTop: lt.my, mxBot: lb.my, myTop: lt.mz, myBot: lb.mz } : undefined;
+      };
       for (const set of m.sets) {
         const by = forcesOf(set);
         const b = at(by.get(bottom.e.id), bottom.forward, 'bottom'), t = at(by.get(top.e.id), top.forward, 'top');
+        const lateral = endMoments(set.lateral), first = set.result.secondOrder ? endMoments(set.firstOrder) : undefined;
         if (!b || !t || st.some(({ e }) => !by.has(e.id))) { missing.push(set.name); continue; }
         let vx = 0, vy = 0, tu = 0;
         const stations = runStations(m, st, set);
@@ -331,11 +345,18 @@ export function columnDemands(m: DemandInput): ColumnDemand[] {
           ...(m.dead?.length && set.deadFactor !== undefined ? { puD: Math.max(0, set.deadFactor * deadPu) } : {}),
           mxTop: t.my, mxBot: b.my, myTop: t.mz, myBot: b.mz, vx, vy, tu,
           ...(inner.length ? { inner } : {}),
+          ...(lateral ? { sway: lateral } : {}), ...(first ? { first } : {}),
         });
       }
+      const storey = m.storeyOf?.(bottom.e.id);
+      const sway: ColumnSway | undefined = storey ? {
+        Q: storey.Q, ...(storey.combo ? { combo: storey.combo } : {}), ...(m.sets.some((x) => x.result.secondOrder) ? { secondOrder: true } : {}),
+        byCombo: Object.fromEntries([...storey.byCombo].map(([name, r]) => [name, { Q: r.Q, sumPu: r.sumPu, sumPc: r.sumPc }])),
+      } : undefined;
       out.push({
         key: `column:${g.id}:${k}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(m.nodes.get(nBot))) : g.level,
         b: sec.b, h: sec.h, length: L, lu, psiTop, psiBot, cases, nodes: { bottom: nBot, top: nTop }, joints: { bottom: deepest(nBot), top: deepest(nTop) },
+        ...(sway ? { sway } : {}),
         ...(missing.length ? { missing } : {}),
       });
     });

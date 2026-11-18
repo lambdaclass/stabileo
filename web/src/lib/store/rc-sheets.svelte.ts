@@ -25,6 +25,7 @@ import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { FootingRow } from '../rc-sheets/footing-types';
 import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
+import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
 import { stackPattern, type ColumnRow } from '../rc-sheets/column-row';
@@ -230,7 +231,7 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
     const sets = [...solved].map(([id, result]) => {
       const c = combos.find((x) => x.id === id);
       const factors = c?.factors ?? [];
-      return { name: c?.name ?? `#${id}`, result, deadFactor: factors.filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0) };
+      return { name: c?.name ?? `#${id}`, result, deadFactor: factors.filter((f) => deadIds.has(f.caseId)).reduce((s, f) => s + f.factor, 0), seismic: factors.some((f) => quake.has(f.caseId) && f.factor !== 0), ...swayParts(factors, result) };
     });
     return { sets, basis: 'combinations', dead };
   }
@@ -238,7 +239,7 @@ export function designSets(): { sets: DemandSet[]; basis: SheetRows['basis']; de
   return r ? { sets: [{ name: '—', result: r }], basis: 'single', dead: [] } : { sets: [], basis: 'none', dead: [] };
 }
 
-function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean }): DemandInput {
+function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces: boolean; flange: boolean; swayKMin: number }): DemandInput {
   const supportsByNode = new Map([...modelStore.supports.values()].map((s) => [s.nodeId, s]));
   const namer = storeyNamer();
   const groups: DemandGroup[] = physicalGroups().map((g) => ({
@@ -247,9 +248,11 @@ function demandInput(sets: DemandSet[], dead: AnalysisResults3D[], opts: { faces
     quads: (g.members.quads ?? []).filter((id) => inConcrete(modelStore.quads.get(id)?.materialId)),
     plates: (g.members.plates ?? []).filter((id) => inConcrete(modelStore.plates.get(id)?.materialId)),
   }));
+  const storeys = sheetStoreys(groups.filter((g) => g.kind === 'column').flatMap((g) => g.elements), sets, opts.swayKMin);
   return {
     nodes: modelStore.nodes, elements: modelStore.elements as never, sections: modelStore.sections as never,
     supportNodes: new Set(supportsByNode.keys()),
+    storeyOf: (id) => storeys.get(id),
     shells: { nodes: modelStore.nodes, quads: modelStore.quads, plates: modelStore.plates },
     groups, sets, dead, faces: opts.faces,
     ...((f) => ({ slabSides: (id: number) => f.get(id)?.sides.length ?? 0, ...(opts.flange ? { flangeSides: (id: number) => f.get(id)?.sides } : {}) }))(beamFlangeSides({ nodes: modelStore.nodes, elements: modelStore.elements, sections: modelStore.sections, quads: modelStore.quads })),
@@ -389,7 +392,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
   const groupsRev = modelStore.model.groups;
-  const opts = { faces: data.faces === true, flange: data.flange === true };
+  const opts = { faces: data.faces === true, flange: data.flange === true, swayKMin: rules.swayKMin ?? 1 };
   const optsKey = JSON.stringify({ ...opts, sets: sets.map((x) => x.name) });
   let dem = demandCache.get(key);
   if (!dem || dem.groupsRev !== groupsRev || dem.opts !== optsKey) {

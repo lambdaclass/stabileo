@@ -9,6 +9,10 @@ import {
   type AxisResult, type CaseResult, type Tuple,
 } from './column-design';
 import { materialSteps } from './steps';
+import { storeySways, swayFactor, swayMagnified } from '../column-sway';
+
+/** The stability index past which a storey sways (TS 500 7.6, as ACI 318's 0.05). */
+const SWAY_INDEX = 0.05;
 
 const RHO_MIN = 0.01, RHO_MAX = 0.04, MIN_DIA = 14;
 
@@ -74,15 +78,27 @@ function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, rh
 export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow {
   const t = ts500Mat(c.mat);
   const Ag = d.b * d.h;
-  const results: CaseResult[] = d.cases.map((cs) => {
+  const sways = storeySways(d, SWAY_INDEX);
+  const kSway = swayFactor(d, 1);
+  const lambdaSway = { x: (kSway * d.lu) / (0.3 * d.h), y: (kSway * d.lu) / (0.3 * d.b) };
+  const swayAxes = { x: sways && lambdaSway.x > 22, y: sways && lambdaSway.y > 22 };
+  const betaS = (combo: string): number => {
+    const s = d.sway?.byCombo[combo];
+    if (!sways || !s || d.sway!.secondOrder) return 1;
+    const r = s.sumPc > 0 ? (1.3 * s.sumPu) / s.sumPc : Number.POSITIVE_INFINITY;
+    return r < 1 ? Math.max(1, 1 / (1 - r)) : Number.POSITIVE_INFINITY;
+  };
+  const results: CaseResult[] = d.cases.map((cs0) => {
+    const cs = swayMagnified(cs0, betaS(cs0.combo), swayAxes);
     const x = axis(d, t, cs, 'x'), y = axis(d, t, cs, 'y');
-    return { c: cs, x, y, tuples: tuplesOf(cs, x, y), ratio: 0 };
+    return { c: cs0, x, y, tuples: tuplesOf(cs, x, y), ratio: 0 };
   });
+  const betaMax = Math.max(1, ...d.cases.map((cs) => betaS(cs.combo)));
   const all = results.flatMap((r) => r.tuples);
   const demands = governing(all);
   const puMax = Math.max(0, ...d.cases.map((cs) => cs.pu));
   const nLimit = 0.9 * t.fcd * Ag * 1000;
-  const lambdaMax = Math.max(0, ...results.flatMap((r) => [r.x.lambda, r.y.lambda]));
+  const lambdaMax = Math.max(0, ...results.flatMap((r) => [r.x.lambda, r.y.lambda]), ...(sways ? [lambdaSway.x, lambdaSway.y] : []));
   const tension = anyTension(d, all);
 
   const pool = c.diameters.filter((x) => x >= MIN_DIA && x <= 32);
@@ -136,6 +152,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check(U('rcSheets.v.colSpacing'), spacingOk, { clause: '7.4', capacity: '≥ max(1.5·Ø; 40 mm)' }),
     ...(!adopted && first.exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '7.4, 7.4.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
     check('rcSheets.v.slenderMax', lambdaMax <= 100 + 1e-9, { clause: '7.6', demand: `ℓk/i = ${fmt(lambdaMax, 1)}`, capacity: '≤ 100' }),
+    ...(!Number.isFinite(betaMax) ? [check(U('rcSheets.v.swayStable'), false, { clause: '7.6', demand: '1.3·ΣNd', capacity: '< ΣNk' })] : []),
     check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '8.1', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '8.1', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
     check('rcSheets.v.tieDia', tieDiaOk, { clause: '7.4.1', demand: `Ø${a.tieDia}`, capacity: `≥ Ø${longest}/3 → Ø${tieDiaFor(longest)}` }),
@@ -165,7 +182,10 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
         { label: 'rcSheets.s.height', formula: 'L · ℓn', value: `${fmt(d.length)} · ${fmt(d.lu)} m` },
         { label: 'rcSheets.s.psi', formula: 'α1 · α2', value: `${fmt(d.psiTop)} · ${fmt(d.psiBot)}` },
         { label: 'rcSheets.ts500.v.axialLimit', formula: 'Nd ≤ 0.9·fcd·Ac (7.4.1)', value: `${fmt(puMax, 1)} ≤ ${fmt(nLimit, 1)} kN`, ok: puMax <= nLimit + 1e-6 },
-        { label: 'rcSheets.s.nonSway', value: '' },
+        !d.sway ? { label: 'rcSheets.s.nonSway', value: '' }
+          : !sways ? { label: U('rcSheets.s.storeyBraced'), formula: 'ψ = ΣNd·Δi/(Vfi·ℓi) ≤ 0.05 (7.6)', value: `ψ = ${fmt(d.sway.Q, 3)}`, ok: true }
+          : d.sway.secondOrder ? { label: U('rcSheets.s.storeySecondOrder'), formula: 'ψ > 0.05 (7.6); P-Delta', value: `ψ = ${fmt(d.sway.Q, 3)}` }
+          : { label: U('rcSheets.s.storeySway'), formula: `ψ = ${fmt(d.sway.Q, 3)} > 0.05; k = ${fmt(kSway, 2)}; ℓk/i = ${fmt(lambdaSway.x, 1)} · ${fmt(lambdaSway.y, 1)} > 22 → M = Mns + βs·Ms; βs = 1/(1 − 1.3·ΣNd/ΣNk) (7.6)`, value: Number.isFinite(betaMax) ? `βs = ${fmt(betaMax, 3)}` : 'βs = ∞', ok: Number.isFinite(betaMax) },
       ],
     },
     ...(gov ? [slenderSteps(gov, fmt)] : []),

@@ -12,10 +12,18 @@ const RESTRAINED = 0.15;
 
 const coverToBar = (c: ColumnContext, tie: number, dia: number) => c.cover + tie / 1000 + dia / 2000;
 
-export function effectiveLength(lu: number, psiTop: number, psiBot: number): { l0: number; k1: number; k2: number } {
+/** l0 of a braced member, Eq. 5.15, or of an unbraced one, Eq. 5.16 (5.8.3.2(3)). */
+export function effectiveLength(lu: number, psiTop: number, psiBot: number, braced = true): { l0: number; k1: number; k2: number } {
   const k1 = Math.max(0.1, psiTop / 2), k2 = Math.max(0.1, psiBot / 2);
+  if (!braced) return { l0: lu * Math.max(Math.sqrt(1 + (10 * k1 * k2) / (k1 + k2)), (1 + k1 / (1 + k1)) * (1 + k2 / (1 + k2))), k1, k2 };
   return { l0: 0.5 * lu * Math.sqrt((1 + k1 / (0.45 + k1)) * (1 + k2 / (0.45 + k2))), k1, k2 };
 }
+
+/** Second-order effects may be ignored where they are under 10 % of the first-order ones (5.8.2(6)): a storey whose Q = ΣN·Δ/(V·h) passes 1/11 is unbraced. */
+export const UNBRACED_Q = 1 / 11;
+
+/** The storey's columns are checked as unbraced members: it sways past `UNBRACED_Q` and its moments are first order. A P-Delta solve carries the sway, and the member is then read braced. */
+export const unbraced = (d: ColumnDemand): boolean => !!d.sway && !d.sway.secondOrder && d.sway.Q > UNBRACED_Q + 1e-12;
 
 export const tieDiaMin = (longDia: number) => Math.max(6, longDia / 4);
 const stockTie = (c: ColumnContext, dia: number) => allowedTie(c, tieDiaMin(dia)) ?? tieDiametersOf(c).at(-1)!;
@@ -52,7 +60,8 @@ function evenLayout(d: ColumnDemand, c: ColumnContext, dia: number, pitch: numbe
 export interface ColumnModel { input: Ec2ColumnInput; l0: ReturnType<typeof effectiveLength>; phiInf: number; ratio: number; section: { b: number; h: number } }
 
 export function columnModel(set: Ec2Set, d: ColumnDemand, c: ColumnContext): ColumnModel {
-  const l0 = effectiveLength(d.lu, d.psiTop, d.psiBot);
+  const braced = !unbraced(d);
+  const l0 = effectiveLength(d.lu, d.psiTop, d.psiBot, braced);
   const h0 = (2 * d.b * d.h) / (2 * (d.b + d.h)) * 1000;
   const phiInf = ec2CreepCoefficient(c.mat.fc, h0);
   const known = d.cases.length > 0 && d.cases.every((k) => k.puD !== undefined && k.pu > 1e-9);
@@ -66,7 +75,7 @@ export function columnModel(set: Ec2Set, d: ColumnDemand, c: ColumnContext): Col
   });
   const input: Ec2ColumnInput = {
     planes: [{ b: d.b, h: d.h, l0: l0.l0, phiEf: phiInf * ratio }, { b: d.h, h: d.b, l0: l0.l0, phiEf: phiInf * ratio }],
-    cover: c.cover, linkDia: c.tieDia, barDia: 16, fck: c.mat.fc, fyk: c.mat.fy, params: set.p, braced: true, demands,
+    cover: c.cover, linkDia: c.tieDia, barDia: 16, fck: c.mat.fc, fyk: c.mat.fy, params: set.p, braced, demands,
   };
   return { input, l0, phiInf, ratio, section: { b: d.b, h: d.h } };
 }
@@ -203,9 +212,9 @@ export function makeColumnRow(set: Ec2Set) {
           { label: 'rcSheets.s.section', formula: 'b × h', value: `${fmt(d.b * 100, 0)} × ${fmt(d.h * 100, 0)} cm` },
           { label: 'rcSheets.s.materials', formula: 'fck · fyk → fcd · fyd', value: `${fmt(m.fck, 0)} · ${fmt(m.fyk, 0)} → ${fmt(m.fcd)} · ${fmt(m.fyd)} MPa` },
           { label: 'rcSheets.s.height', formula: 'L · l', value: `${fmt(d.length)} · ${fmt(d.lu)} m` },
-          { label: 'rcSheets.ec2.s.l0', formula: `k = Ψ/2 ≥ 0.1: k1 = ${fmt(model.l0.k1, 2)}, k2 = ${fmt(model.l0.k2, 2)}; l0 = 0.5·l·√((1 + k1/(0.45 + k1))(1 + k2/(0.45 + k2))) (5.8.3.2(3))`, value: `${fmt(model.l0.l0)} m` },
+          { label: 'rcSheets.ec2.s.l0', formula: `k = Ψ/2 ≥ 0.1: k1 = ${fmt(model.l0.k1, 2)}, k2 = ${fmt(model.l0.k2, 2)}; ${model.input.braced ? 'l0 = 0.5·l·√((1 + k1/(0.45 + k1))(1 + k2/(0.45 + k2))) (5.15)' : 'l0 = l·max(√(1 + 10·k1·k2/(k1 + k2)); (1 + k1/(1 + k1))(1 + k2/(1 + k2))) (5.16)'}`, value: `${fmt(model.l0.l0)} m` },
           { label: 'rcSheets.ec2.s.creep', formula: `φ(∞,t0), RH 50 %, t0 = 28 d (Annex B); φef = φ(∞,t0)·M0Eqp/M0Ed, M0Eqp/M0Ed ≈ ${model.ratio < 1 ? 'NEd,G/NEd' : '1'} (5.8.4(2))`, value: `${fmt(model.phiInf, 2)} → ${fmt(model.phiInf * model.ratio, 2)}` },
-          { label: 'rcSheets.s.nonSway', value: '' },
+          ec2SwayStep(d, fmt),
         ],
       },
       ...(gov ? [slenderSteps(gov, fmt)] : []),
@@ -246,6 +255,16 @@ export function makeColumnRow(set: Ec2Set) {
       tieFloor: tieFloorOf(c),
     };
   };
+}
+
+/** How the storey reads for sway under 5.8.2(6): not read, braced, unbraced, or already second order. */
+function ec2SwayStep(d: ColumnDemand, f: Fmt): Step {
+  const s = d.sway;
+  if (!s) return { label: 'rcSheets.s.nonSway', value: '' };
+  const q = `Q = ${f(s.Q, 3)}${s.combo ? ` (${s.combo})` : ''}`;
+  if (s.Q <= UNBRACED_Q + 1e-12) return { label: 'rcSheets.s.storeyBraced', formula: 'Q = ΣNEd·Δ/(VEd·h) ≤ 1/11: second order under 10 % (5.8.2(6))', value: q, ok: true };
+  if (s.secondOrder) return { label: 'rcSheets.s.storeySecondOrder', formula: 'Q > 1/11 (5.8.2(6)); P-Delta (5.8.6)', value: q };
+  return { label: 'rcSheets.ec2.s.unbraced', formula: 'Q > 1/11 (5.8.2(6)): l0 by Eq. 5.16, C = 0.7, MEd = M02 + M2 (5.8.3.1, 5.8.8.2)', value: q };
 }
 
 function slenderSteps(g: Ec2DemandReading, f: Fmt): StepGroup {

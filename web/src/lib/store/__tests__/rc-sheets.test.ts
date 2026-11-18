@@ -788,6 +788,32 @@ describe('reinforcement sheets from a solved model', () => {
     expect(redesign({ ...heavy, b: b! - 0.05, h: h! - 0.05 } as never).status).toBe('fail');
   });
 
+  it('reads each storey for sway from the combinations: Q from the drift, the wind\'s share of the column moments, and a P-Delta solve\'s first-order moments', () => {
+    frame();
+    const W = modelStore.model.loadCases.find((c) => c.type === 'W')!.id;
+    const D = modelStore.model.loadCases.find((c) => c.type === 'D')!.id;
+    const topLeft = [...modelStore.nodes.values()].find((n) => n.x === 0 && (n.z ?? 0) === 3)!.id;
+    modelStore.addNodalLoad3D(topLeft, 60, 0, 0, 0, 0, 0, W);
+    modelStore.addCombination('1.2D + 1.0W', [{ caseId: D, factor: 1.2 }, { caseId: W, factor: 1 }]);
+    solve();
+    const col = buildSheetRows().column[0]!;
+    const windy = col.demand.cases.find((c) => c.combo === '1.2D + 1.0W')!;
+    const own = resultsStore.perCase3D.get(W)!.elementForces.find((f) => f.elementId === modelStore.model.groups.get(Number(col.key.split(':')[1]))!.members.elements![0])!;
+    expect(windy.sway!.mxBot).toBeCloseTo(own.myStart, 6);
+    expect(col.demand.cases.find((c) => c.combo === '1.4D')!.sway).toBeUndefined();
+    expect(col.demand.sway!.Q).toBeGreaterThan(0);
+    expect(col.demand.sway!.combo).toBe('1.2D + 1.0W');
+    expect(col.demand.sway!.secondOrder).toBeUndefined();
+    modelStore.setAnalysis({ perCombination: 'pdelta' });
+    solve();
+    const second = buildSheetRows().column[0]!;
+    const c2 = second.demand.cases.find((c) => c.combo === '1.2D + 1.0W')!;
+    expect(second.demand.sway!.secondOrder).toBe(true);
+    expect(c2.first!.mxBot).toBeCloseTo(windy.mxBot, 6);
+    expect(Math.abs(c2.mxBot)).toBeGreaterThan(Math.abs(windy.mxBot));
+    expect(second.demand.sway!.Q).toBeCloseTo(col.demand.sway!.Q, 9);
+  });
+
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);

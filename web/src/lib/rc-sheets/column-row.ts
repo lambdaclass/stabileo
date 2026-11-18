@@ -12,10 +12,14 @@ import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } f
 import { columnLeastMn } from '../engine/design/seismic/frame-checks';
 import { highAxialColumn } from '../engine/design/seismic/capacity';
 import type { Fmt } from './format';
+import { aciDeltaS, firstOrderM2, storeySways, swayFactor, swayMagnified, type CaseSway } from './column-sway';
+import { SWAY_Q_LIMIT } from '../engine/design/sway';
 import { COLUMN_PITCH, COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, growSymmetric, heldBars, heldOptions, innerTies, layoutDias, pickPractical, startCounts, tiedRule, type InnerRow } from './column-layout';
 import { COLUMN_BAR_RANGE, allowedTie, check, listIn, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type TransverseList, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
 const EDITION = '2025' as const;
+/** The FIUBA course's widest spacing of a column's bars along a face, m (§15.8). */
+const COURSE_PITCH = 0.3;
 /** §18.7.4.1: a special moment frame's column holds at most 6 % of steel. */
 const SEISMIC_RHO_MAX = 0.06;
 
@@ -33,7 +37,20 @@ export interface ColumnCase {
   inner?: Array<{ pu: number; mx: number; my: number }>;
   /** Largest torsion along the storey, kN·m: read, not designed for (`sheetsLeftOut`). */
   tu?: number;
+  /** The end moments the combination's wind and earthquake cases give, first order: the part that sways the storey (Ms). */
+  sway?: EndMoments;
+  /** Where the combination was solved with P-Delta, its end moments first order. */
+  first?: EndMoments;
 }
+
+export interface EndMoments { mxTop: number; mxBot: number; myTop: number; myBot: number }
+
+/**
+ * The storey's stability as the analysis reads it (§6.6.4.4.1): Q, the largest over its
+ * combinations; each combination's Q, ΣPu and ΣPc, kN; `secondOrder` where the moments come from a
+ * P-Delta solve and so carry the sway already.
+ */
+export interface ColumnSway { Q: number; combo?: string; secondOrder?: true; byCombo: Record<string, { Q: number; sumPu: number; sumPc: number }> }
 
 export interface ColumnDemand {
   key: string; name: string; level?: string;
@@ -48,6 +65,8 @@ export interface ColumnDemand {
   joints?: { bottom: number; top: number };
   /** The combinations whose results lack a force of this storey: its demand is incomplete. */
   missing?: string[];
+  /** Absent where no combination was read for it: the storey is then taken as braced. */
+  sway?: ColumnSway;
 }
 
 export interface ColumnContext extends TransverseList {
@@ -63,7 +82,7 @@ export interface ColumnContext extends TransverseList {
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number; cm: number }
-interface CaseResult { c: ColumnCase; x: AxisResult; y: AxisResult; tuples: Tuple[]; ratio: number }
+interface CaseResult { c: ColumnCase; x: AxisResult; y: AxisResult; tuples: Tuple[]; ratio: number; sway: CaseSway; magnified: ColumnCase }
 interface Tuple { pu: number; mx: number; my: number }
 
 export interface ColumnRow {
@@ -208,9 +227,15 @@ export interface ColumnCode {
   tieDia(longDia: number): number;
   tie: { clause: string; formula: string };
   minimum?: { side: number; bar: number; clause: string };
+  /** The least sway effective-length factor taken: the FIUBA course's 1.20 (§15.3); 1 by the chart when absent. */
+  swayKMin?: number;
+  /** The FIUBA course's layout rules the code is silent on (§15.8): the thickest bars at the corners, bars at most 30 cm apart. */
+  course?: true;
 }
 
 export const CIRSOC_COLUMN: ColumnCode = {
+  swayKMin: 1.2,
+  course: true,
   tieDia: tieDiaFor,
   tie: { clause: '§25.7.2.2', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; ≤ 32 → Ø10; > 32 → Ø12' },
   minimum: { side: 0.2, bar: 12, clause: '§10.3.1' },
@@ -325,15 +350,24 @@ export const columnRow = columnRowFor(CIRSOC_COLUMN);
 function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace, code: ColumnCode): ColumnRow {
   const tieDiaFor = code.tieDia;
   const Ag = d.b * d.h;
+  const sways = storeySways(d, SWAY_Q_LIMIT);
+  const kSway = swayFactor(d, code.swayKMin ?? 1);
+  const klrSway = { x: (kSway * d.lu) / (0.3 * d.h), y: (kSway * d.lu) / (0.3 * d.b) };
+  // §6.2.5.1(a): a column of a sway storey no more slender than 22 keeps its sway moments as they are.
+  const swayAxes = { x: sways && klrSway.x > 22, y: sways && klrSway.y > 22 };
   const results: CaseResult[] = d.cases.map((cs) => {
-    const x = axis(d, c, cs, 'x'), y = axis(d, c, cs, 'y');
-    return { c: cs, x, y, tuples: tuplesOf(cs, x, y), ratio: 0 };
+    const sw = sways ? aciDeltaS(d, cs.combo) : { deltaS: 1, method: 'none' as const, Q: 0 };
+    const magnified = swayMagnified(cs, sw.deltaS, swayAxes);
+    const x = axis(d, c, magnified, 'x'), y = axis(d, c, magnified, 'y');
+    return { c: cs, x, y, tuples: tuplesOf(magnified, x, y), ratio: 0, sway: sw, magnified };
   });
+  const amplification = Math.max(1, ...results.map((r) => secondOrderShare(d, r)));
+  const unstable = results.find((r) => r.sway.method === 'unstable');
   const all = results.flatMap((r) => r.tuples);
   const demands = governing(all);
   const puMax = Math.max(0, ...d.cases.map((cs) => cs.pu));
   const compressionDominated = puMax > 0.1 * c.mat.fc * 1000 * Ag;
-  const klrMax = Math.max(0, ...results.flatMap((r) => [r.x.klr, r.y.klr]));
+  const klrMax = Math.max(0, ...results.flatMap((r) => [r.x.klr, r.y.klr]), ...(sways ? [klrSway.x, klrSway.y] : []));
 
   const ownDias = listIn(c.diameters, COLUMN_BAR_RANGE);
   const dias = ownDias.length ? ownDias : [...c.diameters].sort((p, q) => p - q);
@@ -415,7 +449,10 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     check('rcSheets.v.rhoMax', area <= hi0 + 1e-6, { clause: '§10.6.1.1', demand: `${fmt(area / (Ag * 1e4) * 100)} %`, capacity: '≤ 8 %' }),
     check('rcSheets.v.colSpacing', spacingOk, { clause: '§25.2.3' }),
     ...(!adopted && exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '§25.2.3, §10.6.1.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
-    check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
+    check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: code.course ? 'FIUBA §15.2, §15.4' : '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
+    ...(amplification > 1 + 1e-6 ? [check('rcSheets.v.secondOrderLimit', amplification <= 1.4 + 1e-6, { clause: '§6.2.6', demand: `M₂/M₁ = ${fmt(amplification, 2)}`, capacity: '≤ 1.4', ratio: amplification / 1.4 })] : []),
+    ...(unstable ? [check('rcSheets.v.swayStable', false, { clause: '§6.6.4.6.2(b)', demand: `ΣPu = ${fmt(d.sway!.byCombo[unstable.c.combo]!.sumPu, 0)} kN`, capacity: `< 0.75·ΣPc = ${fmt(0.75 * d.sway!.byCombo[unstable.c.combo]!.sumPc, 0)} kN` })] : []),
+    ...(code.course ? courseChecks(d, c, a, fmt) : []),
     check('rcSheets.v.shearX', shearX <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vxMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.px)))} kN`, ratio: shearX }),
     check('rcSheets.v.shearY', shearY <= 1 + 1e-6, { clause: '§22.5', demand: `${fmt(vyMax)} kN`, capacity: `${fmt(Math.min(...sh.map((x) => x.py)))} kN`, ratio: shearY }),
     check('rcSheets.v.tieDia', tieDiaOk, { clause: code.tie.clause, demand: `Ø${a.tieDia}`, capacity: `≥ Ø${tieDiaFor(longest)}` }),
@@ -454,7 +491,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
         { label: 'rcSheets.s.height', formula: 'L · lu', value: `${fmt(d.length)} · ${fmt(d.lu)} m` },
         { label: 'rcSheets.s.psi', formula: 'ΨA · ΨB', value: `${fmt(d.psiTop)} · ${fmt(d.psiBot)}` },
         { label: 'rcSheets.s.compressionDominated', formula: "Pu > 0.10·f'c·Ag", value: `${fmt(puMax, 1)} kN`, ok: compressionDominated },
-        { label: 'rcSheets.s.nonSway', value: '' },
+        swayStep(d, results, sways, kSway, klrSway, code, fmt),
       ],
     },
     ...(gov ? [slenderSteps(gov, fmt)] : []),
@@ -545,6 +582,51 @@ function confineColumn(d: ColumnDemand, c: ColumnContext, start: ColumnAdopted, 
     bars = next;
   }
   return { layout: last, iterations, ok: false };
+}
+
+/**
+ * The moment with every second-order effect over the first-order moment, the larger axis (§6.2.6):
+ * the design moment against the larger first-order end moment, each never under Pu·(15 mm + 0.03·h).
+ */
+function secondOrderShare(d: ColumnDemand, r: CaseResult): number {
+  const pu = Math.max(0, r.c.pu);
+  if (pu <= 0) return 1;
+  const first = firstOrderM2(r.c);
+  const of = (a: AxisResult, m2: number, depth: number, top: number, bot: number) => {
+    const floor = pu * (0.015 + 0.03 * depth);
+    const final = a.slender ? a.mc : Math.max(Math.abs(top), Math.abs(bot));
+    return final / Math.max(m2, floor, 1e-9);
+  };
+  return Math.max(of(r.x, first.x, d.h, r.magnified.mxTop, r.magnified.mxBot), of(r.y, first.y, d.b, r.magnified.myTop, r.magnified.myBot));
+}
+
+/** How the storey reads for sway: not read, braced, swaying with its δs, or already second order. */
+function swayStep(d: ColumnDemand, results: readonly CaseResult[], sways: boolean, k: number, klr: { x: number; y: number }, code: ColumnCode, f: Fmt): Step {
+  const s = d.sway;
+  if (!s) return { label: 'rcSheets.s.nonSway', value: '' };
+  const q = `Q = ${f(s.Q, 3)}${s.combo ? ` (${s.combo})` : ''}`;
+  if (!sways) return { label: 'rcSheets.s.storeyBraced', formula: 'Q = ΣPu·Δo/(Vus·lc) ≤ 0.05 (§6.6.4.3(a))', value: q, ok: true };
+  if (s.secondOrder) return { label: 'rcSheets.s.storeySecondOrder', formula: 'Q > 0.05 (§6.6.4.3(a)); P-Delta (§6.6.4.6.2)', value: q };
+  const worst = results.reduce<CaseResult | undefined>((w, r) => (!w || r.sway.deltaS > w.sway.deltaS ? r : w), undefined);
+  const kText = `k = ${f(k, 2)}${code.swayKMin && code.swayKMin > 1 ? ` ≥ ${f(code.swayKMin, 2)} (FIUBA §15.3)` : ''}`;
+  const delta = worst && Number.isFinite(worst.sway.deltaS) ? `δs = ${f(worst.sway.deltaS, 3)} (${worst.c.combo})` : 'δs = ∞';
+  return {
+    label: 'rcSheets.s.storeySway',
+    formula: `${q} > 0.05; ${kText}; k·lu/r = ${f(klr.x, 1)} · ${f(klr.y, 1)} > 22 → M = Mns + δs·Ms; δs = 1/(1 − Q) ≤ 1.5, or 1/(1 − ΣPu/(0.75·ΣPc)) (§6.6.4.6)`,
+    value: delta, ok: !!worst && Number.isFinite(worst.sway.deltaS),
+  };
+}
+
+/** The FIUBA course's layout rules (§15.8): the thickest bars at the corners, and bars at most 30 cm apart along a face, but for a face of 40 cm at most with its two corner bars alone. */
+function courseChecks(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, f: Fmt): CheckLine[] {
+  const faceMax = Math.max(a.nx > 0 ? a.dx : 0, a.ny > 0 ? a.dy : 0);
+  const pitch = (side: number, n: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner)) / (n + 1);
+  const wide = (side: number, n: number) => pitch(side, n) > COURSE_PITCH + 1e-6 && !(n === 0 && side <= 0.4 + 1e-9);
+  const widest = Math.max(pitch(d.b, a.nx), pitch(d.h, a.ny));
+  return [
+    check('rcSheets.v.colCornerLargest', a.corner >= faceMax, { clause: 'FIUBA §15.8', demand: `Ø${a.corner}`, capacity: `≥ Ø${faceMax}` }),
+    check('rcSheets.v.colMaxPitch', !wide(d.b, a.nx) && !wide(d.h, a.ny), { clause: 'FIUBA §15.8', demand: `${f(widest * 100, 1)} cm`, capacity: `≤ ${f(COURSE_PITCH * 100, 0)} cm` }),
+  ];
 }
 
 function slenderSteps(g: CaseResult, f: Fmt): StepGroup {

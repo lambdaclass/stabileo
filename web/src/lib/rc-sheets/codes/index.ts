@@ -38,6 +38,8 @@ export interface SheetRules {
   /** Whether beam and column rows check their main bars' cover against CIRSOC 201 Table 20.5.1.3.1. */
   /** The code's cover table, by which the main bars' cover in mm is asked of a bar of `dbMm`. */
   coverTable?: { mainBarMm: (dbMm: number, control: boolean) => number };
+  /** The least sway effective-length factor the storeys' ΣPc takes (1 by the chart when absent). */
+  swayKMin?: number;
 }
 
 /** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the FIUBA course's 9·db, 12·db and 15·db (§11.4), which the code does not give. */
@@ -53,7 +55,7 @@ export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
 };
 
 const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
-const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm } };
+const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm }, swayKMin: CIRSOC_COLUMN.swayKMin };
 
 const RULES: Record<SheetCode, SheetRules> = {
   'cirsoc201-2025': cirsocRules,
