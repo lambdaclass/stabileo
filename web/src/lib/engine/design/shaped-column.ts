@@ -11,7 +11,7 @@
  * 201-2025's (Tabla 21.2.2, Tabla 22.4.2.1): a spiral gives φ 0,75 and the 0,85 axial cap, and is checked for its clear pitch (25 to 75 mm, §25.7.3.1) and its volumetric
  * ratio ρs ≥ 0,45·(Ag/Ach − 1)·f'c/fyt (§25.7.3.3).
  */
-import { hasSecondaryShearDemand } from '../../codes/cirsoc201/torsion';
+import { hasSecondaryShearDemand } from '../concurrent-demand';
 import { momentCapacityAtAxial } from '../codes/argentina/cirsoc-flex-surface';
 import { axialRange } from '../codes/argentina/cirsoc-flex-surface';
 import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';

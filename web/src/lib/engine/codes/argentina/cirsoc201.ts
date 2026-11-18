@@ -1,5 +1,5 @@
 import { copyVerificationCheck, verificationCheckFields, withDeferredVerificationSteps } from '../../verification-steps';
-import type { ConcurrentSectionDemand, ConcurrentDemand } from '../../concurrent-demand';
+import { hasSecondaryShearDemand, type ConcurrentSectionDemand, type ConcurrentDemand } from '../../concurrent-demand';
 // CIRSOC 201 — Reinforced Concrete Verification Engine
 // Implements design checks for flexure, shear, and flexo-compression per Argentine code CIRSOC
 // 201 (based on ACI 318). Flexure, shear, columns and biaxial bending are sized against the
@@ -18,7 +18,7 @@ import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
-import { checkTorsion2025, combinedTransverseMinimum, hasSecondaryShearDemand, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
+import { checkTorsion2025, combinedTransverseMinimum, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionShearReserve, torsionThreshold, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
 
 import { REBAR_DB, rebarSpec } from './cirsoc201-rebar';
 
@@ -579,7 +579,7 @@ function evaluateShear(
     const r = ask(legs, s);
     if (r.shearValid && !r.avBelowMin && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
   }
-  const concrete = secondary ? (chosen.shearValid ? chosen.Vc / 1000 : 0) : Vc;
+  const concrete = chosen.shearValid ? chosen.Vc / 1000 : 0;
   const phiVc = PHI_SHEAR * concrete;
   const Vs = Math.max(0, VuAbs / PHI_SHEAR - concrete);
   { emissions.push(() => steps.push(`φVc (motor, CIRSOC 201-${edition}) = ${phiVc.toFixed(2)} kN`)); }
@@ -743,100 +743,62 @@ export function checkColumn(
 
 // ─── Torsion Check (CIRSOC 201 §11.5) ────────────────────────────
 
-/**
- * `edition` '2025' applies §22.7.2: √f'c ≤ 8,3 MPa in Tcr (22.7.2.1) and in Vc (22.5.3.1), fy and
- * fyt ≤ 420 MPa in the torsion steel (22.7.2.2 → 20.2.1.3). The default '2005' is unchanged.
- */
+export function sizeTorsionReinforcement(
+  params: ConcreteDesignParams, Tu: number, edition: Cirsoc201EditionLike = '2005',
+) {
+  const { b, h, cover, stirrupDia, fc } = params;
+  const is2025 = editionCode(edition) === 2025;
+  const fy = is2025 ? shearFy(params.fy) : params.fy;
+  const root = is2025 ? shearSqrtFc(fc) : Math.sqrt(fc);
+  const torque = Math.abs(Tu);
+  const Tcr = 0.33 * root * ((b * h) ** 2 * 1e6) / (2 * (b + h)) / 1000;
+  const threshold = torsionThreshold(params, is2025 ? '2025' : '2005');
+  const x = b - 2 * cover - stirrupDia / 1000;
+  const y = h - 2 * cover - stirrupDia / 1000;
+  const Aoh = x * y;
+  const ph = 2 * (x + y);
+  const neglect = torque === 0 || torque < threshold;
+  const AtOverS = neglect ? 0 : x > 0 && y > 0 ? (torque / (PHI_SHEAR * 2 * (0.85 * Aoh) * fy * 1000)) * 1e4 : Infinity;
+  return { Tu: torque, Tcr, threshold, AtOverS, AlReq: neglect ? 0 : AtOverS * ph, neglect, Aoh, ph, fy, root };
+}
+
 export function checkTorsion(
   params: ConcreteDesignParams, demand: ConcurrentSectionDemand, edition: Cirsoc201EditionLike = '2005',
   secondary?: SecondaryShearResolution,
 ): TorsionResult {
-  const Tu = demand.Tu;
-  const { fc, b, h, cover, stirrupDia } = params;
-  const lim = editionCode(edition) === 2025;
-  const fy = lim ? shearFy(params.fy) : params.fy;
-  const sqT = lim ? shearSqrtFc(fc) : Math.sqrt(fc);
+  const { b, h, cover, stirrupDia, fc } = params;
+  const { Tu, Tcr, threshold, AtOverS, AlReq, neglect, Aoh, ph, fy, root } = sizeTorsionReinforcement(params, demand.Tu, edition);
+  const fields = { Tu, Tcr, AtOverS, AlReq, neglect };
   const steps: string[] = [];
-  if (lim && fy < params.fy) steps.push(`fy, fyt = ${fy} MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)`);
-  if (lim && sqT < Math.sqrt(fc)) steps.push(`√f'c = ${sqT} MPa en Tcr y Vc (§22.7.2.1, §22.5.3.1)`);
-  const TuAbs = Math.abs(Tu);
-  steps.push(`Tu = ${TuAbs.toFixed(3)} kN·m`);
-
-  // Section properties for torsion
-  const Acp = b * h; // m² — area enclosed by outer perimeter
-  const pcp = 2 * (b + h); // m — perimeter
-
-  // Cracking torsion: Tcr = 0.33·√f'c · Acp² / pcp (CIRSOC 201 §11.5.1)
-  const Tcr = 0.33 * sqT * (Acp * Acp * 1e6) / (pcp) / 1000; // kN·m
-  steps.push(`Tcr = 0.33·√f'c·Acp²/pcp = ${Tcr.toFixed(3)} kN·m`);
-
-  // Neglect torsion if Tu < φ·Tcr/4 (§11.5.1)
-  const threshold = PHI_SHEAR * Tcr / 4;
-  if (TuAbs < threshold) {
-    steps.push(`Tu < φ·Tcr/4 = ${threshold.toFixed(3)} kN·m → torsión despreciable`);
-    return {
-      Tu: TuAbs, Tcr, phiTn: threshold, AtOverS: 0, AlReq: 0,
-      neglect: true, ratio: TuAbs / threshold, status: 'ok', steps,
-    };
+  if (fy < params.fy) steps.push(`fy, fyt = ${fy} MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)`);
+  if (root < Math.sqrt(fc)) steps.push(`√f'c = ${root} MPa en Tcr y Vc (§22.7.2.1, §22.5.3.1)`);
+  steps.push(`Tu = ${Tu.toFixed(3)} kN·m`, `Tcr = 0.33·√f'c·Acp²/pcp = ${Tcr.toFixed(3)} kN·m`);
+  if (neglect) {
+    steps.push(`Tu < φTth = ${threshold.toFixed(3)} kN·m → torsión despreciable`);
+    return { ...fields, phiTn: threshold, ratio: Tu === 0 ? 0 : Tu / threshold, status: 'ok', steps };
   }
 
-  // Aoh = area enclosed by centerline of stirrups
-  const x0 = b - 2 * cover - stirrupDia / 1000;
-  const y0 = h - 2 * cover - stirrupDia / 1000;
-  const Aoh = x0 * y0; // m²
-  const ph = 2 * (x0 + y0); // m — perimeter of Aoh
-  const Ao = 0.85 * Aoh; // effective area
+  const refusal = !Number.isFinite(AtOverS) ? 'Invalid stirrup cage geometry'
+    : demand.VuSecondary === 0 ? undefined
+      : secondary?.kind !== 'secondary-face' ? secondary?.reason ?? 'Requires a resolved secondary shear face'
+        : secondary.b !== h || secondary.h !== b || secondary.stirrupDia !== stirrupDia
+          ? 'Secondary shear face does not match the section and cage' : undefined;
+  if (refusal) return { ...fields, phiTn: 0, ratio: Infinity, status: 'fail', refusal, steps: [...steps, refusal] };
 
-  steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`);
-
-  /*
-   * The cross-section limit is §22.7.7.1(a) for a solid section, evaluated below through the
-   * shared §22.7 module. The limit this function kept added the two stresses linearly, which is
-   * (b), the hollow-section form, and took the torsion stress in kN/m² divided by 1e6 instead of
-   * 1e3, a thousand times too small: it never bound (Tu = 120 kN·m on a 30×60 passed). It is
-   * removed, not repaired: one limit, one place.
-   */
+  steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`,
+    `At/s,req = ${AtOverS.toFixed(2)} cm²/m (una rama)`, `Al,req = ${AlReq.toFixed(2)} cm² (longitudinal por torsión)`);
   const d = effectiveDepth(h, cover, stirrupDia, 16);
-
-  // At/s required for torsion (one leg): At/s = Tu / (φ·2·Ao·fyt·cotθ), cotθ = 1 (θ = 45°).
-  // kN·m / (m²·kN/m²) = m²/m; ×1e4 is cm²/m. It was ×1e6, a hundred times too large.
-  const AtOverS = (TuAbs / (PHI_SHEAR * 2 * Ao * fy * 1000)) * 1e4; // cm²/m
-  steps.push(`At/s,req = ${AtOverS.toFixed(2)} cm²/m (una rama)`);
-
-  // Longitudinal steel for torsion: Al = (At/s)·ph·(fyt/fy)·cot²θ, the same fy for both.
-  // cm²/m × m = cm². It was ×100 on top of the ×1e6 above: ten thousand times too large.
-  const AlReq = AtOverS * ph; // cm²
-  steps.push(`Al,req = ${AlReq.toFixed(2)} cm² (longitudinal por torsión)`);
-
-  /*
-   * The capacity this row states. It was the demand itself (φTn = Tu, ratio 1,00 for any Tu): the
-   * stirrups are sized here for Tu, so φ·2·Ao·At·fyt/s equals Tu by construction and says nothing.
-   * What can bind at this stage is the cross-section (§22.7.7.1): the torque the section admits
-   * alongside its Vu, from the same §22.7 module the provided-steel verifier uses. With the
-   * section ratio r(T) = √(vV² + vT²)/φ(vc + 0,66√f'c), linear in T under the root, that torque is
-   * Tu·√(1 − r(0)²)/√(r(Tu)² − r(0)²), nil when the shear alone fills the section.
-   */
   const combined = checkTorsion2025({
-    b, h, d, dSecondary: secondary ?? effectiveDepth(b, cover, stirrupDia, 16), cover, stirrupDiaMm: stirrupDia,
+    b, h, d, dSecondary: secondary ?? 0, cover, stirrupDiaMm: stirrupDia,
     fc, fy: params.fy, fyt: params.fy, demand,
   });
   const r0 = combined.shearSectionRatio, r1 = combined.sectionRatio;
-  const phiTn = r0 >= 1 ? 0 : TuAbs * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
-  const ratio = phiTn > 0 ? TuAbs / phiTn : Number.POSITIVE_INFINITY;
+  const phiTn = r0 >= 1 ? 0 : Tu * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));
+  const ratio = phiTn > 0 ? Tu / phiTn : Number.POSITIVE_INFINITY;
   steps.push(`φTn,máx = ${phiTn.toFixed(3)} kN·m con Vu = ${demand.Vu.toFixed(2)} kN${demand.VuSecondary > 0 ? `, Vu,sec = ${demand.VuSecondary.toFixed(2)} kN` : ''} (§22.7.7.1) → Tu/φTn = ${Number.isFinite(ratio) ? ratio.toFixed(3) : '∞'}`);
-
-  // The status the ratio states: a section the torque overfills fails (§22.7.7.1(a)).
-  let status: VerifStatus = 'ok';
-  if (!(ratio <= 1 + 1e-6)) {
-    status = 'fail';
-    steps.push(`⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)`);
-  }
-
-  return {
-    Tu: TuAbs, Tcr, phiTn, AtOverS, AlReq,
-    neglect: false, ratio, status, steps,
-    spacingMax: combined.sMax,
-  };
+  const status: VerifStatus = ratio <= 1 + 1e-6 ? 'ok' : 'fail';
+  if (status === 'fail') steps.push(`⚠ Tensiones combinadas V+T exceden el límite de la sección (§22.7.7.1a)`);
+  return { ...fields, phiTn, ratio, status, steps, spacingMax: combined.sMax };
 }
 
 // ─── Biaxial bending with axial force (CIRSOC 201-2025 §22.2, 22.4) ─────
@@ -1321,10 +1283,11 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   let spacing = Math.min(...results.flatMap(v => [v.shear.spacing, (v.shearSecondary?.refusal ? Infinity : v.shearSecondary?.spacing ?? Infinity)]));
   for (const { v } of active) {
     const t = v.torsion!;
+    if (t.refusal) continue;
     for (const s of [v.shear, ...(v.shearSecondary && !v.shearSecondary.refusal ? [v.shearSecondary] : [])]) {
       const area = torsionStirrupProvision({ ...s, spacing: 1 }).outerLegProvided * 1e4;
       const minimum = combinedTransverseMinimum(edition, s === v.shear ? v.b : v.h, v.fc, v.fy) * 1e4;
-      const combined = Math.max(minimum, shearReservedForTorsion(s, s === v.shear ? undefined : v.fy) + 2 * t.AtOverS);
+      const combined = Math.max(minimum, torsionShearReserve(s.Vu, s.phiVc, s.d, v.fy) * 1e4 + 2 * t.AtOverS);
       const limit = Math.min(spacing, t.spacingMax!, area / t.AtOverS, (s === v.shear ? legs : s.stirrupLegs) * area / combined);
       spacing = Math.min(spacing, Math.max(0.05, Math.floor(limit * 40) / 40));
     }
@@ -1332,19 +1295,16 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   return { shear: { spacing, legs }, requirements };
 }
 
-function shearReservedForTorsion(s: ShearResult, secondaryFyt: number | undefined) {
-  return secondaryFyt === undefined ? s.AvOverSReq ?? s.AvOverS : s.Vs * 1e4 / (shearFy(secondaryFyt) * 1000 * s.d);
-}
-
 function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined, refusal: string | undefined, params: ConcreteDesignParams, edition: RegulationEdition): TorsionResult {
-  if (!t.neglect && refusal) {
-    return { ...t, refusal, phiTn: 0, ratio: Infinity, AtOverSProv: 0, reinforcementRatio: Infinity, status: 'fail',
-      steps: [...t.steps, refusal] };
+  const reason = t.refusal ?? refusal;
+  if (!t.neglect && reason) {
+    return { ...t, refusal: reason, phiTn: 0, ratio: Infinity, AtOverSProv: 0, reinforcementRatio: Infinity, status: 'fail',
+      steps: t.refusal ? t.steps : [...t.steps, reason] };
   }
-  const AtOverSProv = Math.min(...shears.map((s, index) => {
+  const AtOverSProv = Math.min(...shears.map(s => {
     const provision = torsionStirrupProvision(s);
     return Math.max(0, Math.min(provision.outerLegProvided * 1e4,
-      (provision.transverseProvided * 1e4 - shearReservedForTorsion(s, index === 0 ? undefined : params.fy)) / 2));
+      (provision.transverseProvided * 1e4 - torsionShearReserve(s.Vu, s.phiVc, s.d, params.fy) * 1e4) / 2));
   }));
   const ratio = (required: number, provided: number) => required === 0 ? 0 : provided > 0 ? required / provided : Infinity;
   const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), (AlProv === undefined ? 0 : ratio(t.AlReq, AlProv)),
@@ -1443,7 +1403,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       layout = { kind: 'beam-or-wall', diameters: column ? [column.barDia] : [flexure.barDia, ...compressionBars] };
     }
     const face = secondaryShearFace(transverse, cage, layout);
-    const torsion = Math.abs(input.Tu ?? 0) > 0.001 ? checkTorsion(transverse, concurrent.demand, edition, face) : undefined;
+    const torsion = (input.Tu ?? 0) !== 0 ? checkTorsion(transverse, concurrent.demand, edition, face) : undefined;
     let secondary: ShearResult | undefined;
     if (checkSecondary || (torsion && !torsion.neglect && VuSecondary > 0)) {
       if (face.kind === 'refusal') {

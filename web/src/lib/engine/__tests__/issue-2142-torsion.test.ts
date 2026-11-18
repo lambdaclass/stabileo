@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest';
 import main from './fixtures/issue-2142-main.json';
 import { checkTorsion, prepareElementVerification, verifyElement } from '../codes/argentina/cirsoc201';
 import { verifyConcurrentElement } from '../concurrent-verification';
-import { checkTorsion2025 } from '../../codes/cirsoc201/torsion';
+import { checkTorsion2025, resolveCage, secondaryShearFace } from '../../codes/cirsoc201/torsion';
 import { verifyProvidedReinforcement } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import { autoVerifyFromResults } from '../auto-verify';
@@ -15,6 +15,8 @@ const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
 const depth = (h: number, diameter = p.stirrupDia, longitudinalDiameter = 16) => h - p.cover - diameter / 1000 - longitudinalDiameter / 2000;
 const selectedBarDiameter = (member: 'beam' | 'column' | 'wall') => member === 'beam' ? 20 : 12;
+const torsionFace = secondaryShearFace(p, resolveCage(p, { diameter: p.stirrupDia, legs: 4, spacing: 0.05 }),
+  { kind: 'beam-or-wall', diameters: [16] });
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
@@ -62,7 +64,7 @@ for (const edition of ['2005', '2025'] as const) {
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
           if (v) expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
-          const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
+          const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
           expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
           expect(t.ratio).toBeCloseTo(expected.ratio, 12);
           if (factor > 1) {
@@ -78,7 +80,7 @@ for (const edition of ['2005', '2025'] as const) {
         const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
           : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
         if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
-        const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition) : v!.torsion!;
+        const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
         const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
         expect(t).toMatchObject(baseline);
         expect(t.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
@@ -110,7 +112,7 @@ for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
   it(`shear alone fills the section ${axis} ${factor}: ${clause}`, () => {
     const secondary = p.h * depth(p.b) * 0.75 * (0.17 + 0.66) * Math.sqrt(p.fc) * 1000 * factor;
-    const t = checkTorsion(p, demand(0, secondary, 6, axis), '2025');
+    const t = checkTorsion(p, demand(0, secondary, 6, axis), '2025', torsionFace);
     const expected = reference(0, secondary, 6);
     expect(t.phiTn).toBeCloseTo(expected.phiTn, 10);
     if (expected.ratio === Infinity) expect(t.ratio).toBe(Infinity);
@@ -223,7 +225,6 @@ for (const nonlinear of [false, true]) it(`2D WASM torsion-free valid control no
   }
 });
 
-const phiTth = 0.75 * 0.083 * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
 const cage = { diameter: p.stirrupDia, legs: 4, spacing: 0.05 };
 function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025', layout: 'none' | 'support' | 'span' | 'all' | 'legacy', stations?: Parameters<typeof verifyProvidedReinforcement>[6]) {
   const d = demand(0, 0, torque, axis);
@@ -243,6 +244,7 @@ function providedBeam(torque: number, axis: 'My' | 'Mz', edition: '2005' | '2025
   });
 }
 for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz'] as const) {
+  const phiTth = 0.75 * (edition === '2005' ? 1 / 12 : 0.083) * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
   for (const layout of ['none', 'support', 'span'] as const) {
     for (const torque of [phiTth, phiTth * (1 + 1e-5), reference(0, 0, 0).phiTn * (1 - 1e-5), reference(0, 0, 0).phiTn * (1 + 1e-5)]) {
       it(`known wrong result: #2142 zero-shear beam reports missing torsion stirrups ${edition} ${axis} ${layout} ${torque}`, () => {

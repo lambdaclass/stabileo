@@ -42,12 +42,6 @@ type CageRefusal = { kind: 'refusal'; reason: string; missing?: true };
 
 export type CageResolution = ClosedRectangularCage | CageRefusal;
 
-const SECONDARY_SHEAR_DEMAND_THRESHOLD_KN = 0.001;
-
-export function hasSecondaryShearDemand(demand: number): boolean {
-  return !(Math.abs(demand) < SECONDARY_SHEAR_DEMAND_THRESHOLD_KN);
-}
-
 export function resolveCage(section: SectionGeometry, stirrup: StirrupDeclaration | undefined, rectangular = true): CageResolution {
   if (!rectangular) return { kind: 'refusal', reason: 'Requires a rectangular section' };
   if (!stirrup) return { kind: 'refusal', reason: 'No complete member stirrup cage', missing: true };
@@ -90,6 +84,7 @@ const checkedSecondaryFace: unique symbol = Symbol();
 export interface SecondaryShearFace {
   [checkedSecondaryFace]: true;
   kind: 'secondary-face';
+  member: SecondaryLongitudinalLayout['kind'];
   b: number;
   h: number;
   d: number;
@@ -121,13 +116,13 @@ export function secondaryShearFace(
   }
   const d = section.b - section.cover - cage.diameter / 1000 - Math.max(...layout.diameters) / 2000;
   if (!(d > 0)) return { kind: 'refusal', reason: 'Invalid secondary effective depth' };
-  return { [checkedSecondaryFace]: true, kind: 'secondary-face', b: section.h, h: section.b, d,
+  return { [checkedSecondaryFace]: true, kind: 'secondary-face', member: layout.kind, b: section.h, h: section.b, d,
     stirrupDia: cage.diameter, legs: cage.secondaryLegs, spacing: cage.spacing,
     rhoW: layout.kind === 'column' ? columnShearTensionRatio(section, layout.totalAreaCm2) : 0 };
 }
 
-export function secondaryShearMinimumThreshold(edition: RegulationEdition, face: { b: number; d: number }, fc: number, phiVc: number) {
-  return edition === '2005' ? phiVc / 2 : PHI * 0.085 * shearSqrtFc(fc) * face.b * face.d * 1000;
+export function secondaryShearMinimumThreshold(edition: RegulationEdition, face: Pick<SecondaryShearFace, 'b' | 'd' | 'member'>, fc: number, phiVc: number) {
+  return edition === '2005' || face.member === 'column' ? phiVc / 2 : PHI * 0.085 * shearSqrtFc(fc) * face.b * face.d * 1000;
 }
 
 export function secondaryShearSpacingShortfall(
@@ -138,8 +133,9 @@ export function secondaryShearSpacingShortfall(
   const { requiredLegs, alongMax } = transverseSpacingLimits(edition, {
     VsRequired: Math.max(0, (Vu - phiVc) / PHI), bw: face.b, d: face.d, fc, cover, stirrupDiaMm: face.stirrupDia,
   });
-  if (face.legs < requiredLegs) return `${face.legs} stirrup legs provided, ${requiredLegs} required (Table 9.7.6.2.2)`;
-  return face.spacing > alongMax ? `Stirrup spacing exceeds ${(alongMax * 1000).toFixed(1)} mm (Table 9.7.6.2.2)` : undefined;
+  if (face.member !== 'column' && face.legs < requiredLegs) return `${face.legs} stirrup legs provided, ${requiredLegs} required (Table 9.7.6.2.2)`;
+  const table = face.member === 'column' ? '10.7.6.5.2' : '9.7.6.2.2';
+  return face.spacing > alongMax ? `Stirrup spacing exceeds ${(alongMax * 1000).toFixed(1)} mm (Table ${table})` : undefined;
 }
 
 export function combinedTransverseMinimum(edition: RegulationEdition, bw: number, fc: number, fyt: number): number {
@@ -185,6 +181,16 @@ export interface TorsionCheck {
 
 const PHI = 0.75;
 
+export function torsionShearReserve(Vu: number, phiVc: number, d: number, fyt: number): number {
+  return Math.max(0, (Vu - phiVc) / PHI) / (shearFy(fyt) * 1000 * d);
+}
+
+export function torsionThreshold(section: { b: number; h: number; fc: number }, edition: RegulationEdition): number {
+  const root = edition === '2005' ? Math.sqrt(section.fc) : shearSqrtFc(section.fc);
+  const coefficient = edition === '2005' ? 1 / 12 : 0.083;
+  return PHI * coefficient * root * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
+}
+
 export function providedTorsionStirrups(stirrup: StirrupDef) {
   const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
   return { transverseProvided: (stirrup.legs * Ab) / stirrup.spacing, outerLegProvided: Ab / stirrup.spacing };
@@ -193,7 +199,7 @@ export function providedTorsionStirrups(stirrup: StirrupDef) {
 export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const i = { ...input, fy: shearFy(input.fy), fyt: shearFy(input.fyt) };
   const sq = Math.sqrt(i.fc), sqLim = shearSqrtFc(i.fc);
-  const Acp = i.b * i.h, pcp = 2 * (i.b + i.h);
+  const Acp = i.b * i.h;
   const cage = i.stirrup && 'kind' in i.stirrup ? i.stirrup : resolveCage(i, i.stirrup);
   const diameter = cage.kind === 'closed-rectangle' ? cage.diameter : i.stirrupDiaMm;
   const depthCorrection = (i.stirrupDiaMm - diameter) / 1000;
@@ -204,8 +210,8 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const inset = 2 * i.cover + diameter / 1000;
   const x1 = i.b - inset, y1 = i.h - inset;
   const Aoh = x1 * y1, ph = 2 * (x1 + y1), Ao = 0.85 * Aoh;
-  const Tth = 0.083 * sqLim * 1000 * (Acp * Acp) / pcp;
-  const phiTth = PHI * Tth;
+  const edition = i.edition ?? '2025';
+  const phiTth = torsionThreshold(i, edition);
   const { Tu, Vu, VuSecondary } = i.demand;
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
   const shearStress = Math.max(Vu / (i.b * d), VuSecondary === 0 ? 0 : VuSecondary / (i.h * dSecondary));
@@ -214,7 +220,6 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const neglect = Tu < phiTth;
-  const edition = i.edition ?? '2025';
   const outerLegProvided = cage.kind === 'closed-rectangle'
     ? providedTorsionStirrups({ ...cage, legs: cage.primaryLegs }).outerLegProvided : 0;
   const face = (width: number, height: number, depth: number, shear: number, legs: number, rhoW = 0) => {
@@ -225,7 +230,7 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
         Av: legs * rebarSpec(diameter).area * 1e-4, s: cage.spacing, NuCompression: i.demand.Nu * 1000,
       }) : undefined;
     const reserve = shear === 0 || neglect ? 0 : concrete?.shearValid
-      ? Math.max(0, shear / PHI - concrete.Vc / 1000) / (i.fyt * 1000 * depth) : Infinity;
+      ? torsionShearReserve(shear, PHI * concrete.Vc / 1000, depth, i.fyt) : Infinity;
     const required = Math.max(reserve + 2 * AtOverS, combinedTransverseMinimum(edition, width, i.fc, input.fyt));
     const provided = legs * outerLegProvided;
     return { required, provided, ratio: provided > 0 ? required / provided : Infinity };
