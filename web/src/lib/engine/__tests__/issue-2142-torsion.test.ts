@@ -13,7 +13,7 @@ import type { SolverInput3D } from '../types-3d';
 
 const p = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const clause = 'CIRSOC 201-2025 §22.7.7.1(a), C22.7.7.1, docs/codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.7.7.1';
-const depth = (h: number) => h - p.cover - p.stirrupDia / 1000 - 16 / 2000;
+const depth = (h: number, diameter = p.stirrupDia) => h - p.cover - diameter / 1000 - 16 / 2000;
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
@@ -21,12 +21,12 @@ const demand = (primary: number, secondary: number, torque: number, axis: 'My' |
     vy: axis === 'My' ? secondary : primary, vz: axis === 'My' ? primary : secondary, torsion: torque } },
 ])[0]!.section(axis);
 
-function reference(primary: number, secondary: number, torque: number, b = p.b, h = p.h) {
-  const x = b - 2 * p.cover - p.stirrupDia / 1000;
-  const y = h - 2 * p.cover - p.stirrupDia / 1000;
+function reference(primary: number, secondary: number, torque: number, b = p.b, h = p.h, diameter = p.stirrupDia) {
+  const x = b - 2 * p.cover - diameter / 1000;
+  const y = h - 2 * p.cover - diameter / 1000;
   const Aoh = x * y, ph = 2 * (x + y);
   const limit = 0.75 * (0.17 * Math.sqrt(p.fc) + 0.66 * Math.sqrt(p.fc)) * 1000;
-  const v = Math.max(Math.abs(primary) / (b * depth(h)), Math.abs(secondary) / (h * depth(b)));
+  const v = Math.max(Math.abs(primary) / (b * depth(h, diameter)), Math.abs(secondary) / (h * depth(b, diameter)));
   const torsionPerUnit = ph / (1.7 * Aoh ** 2);
   const capacity = v >= limit ? 0 : Math.sqrt(limit ** 2 - v ** 2) / torsionPerUnit;
   return { sectionRatio: Math.sqrt(v ** 2 + (torque * torsionPerUnit) ** 2) / limit,
@@ -86,16 +86,18 @@ for (const edition of ['2005', '2025'] as const) {
 
 for (const axis of ['My', 'Mz'] as const) for (const factor of [1 - 1e-5, 1 + 1e-5]) {
   it(`provided steel module ${axis} ${factor}: ${clause}`, () => {
-    const torque = reference(0, 100, 0).phiTn * factor;
-    const r = checkTorsion2025({ ...p, d: depth(p.h), dSecondary: depth(p.b), stirrupDiaMm: p.stirrupDia,
-      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter: 16, legs: 4, spacing: 0.05 } });
-    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque).sectionRatio, 12);
+    const diameter = 16;
+    const dSecondary = depth(p.b, diameter);
+    const torque = reference(0, 100, 0, p.b, p.h, diameter).phiTn * factor;
+    const r = checkTorsion2025({ ...p, d: depth(p.h, diameter), dSecondary, stirrupDiaMm: diameter,
+      fyt: p.fy, demand: demand(0, 100, torque, axis), stirrup: { diameter, legs: 4, spacing: 0.05 } });
+    expect(r.sectionRatio).toBeCloseTo(reference(0, 100, torque, p.b, p.h, diameter).sectionRatio, 12);
     const vc = 0.17 * Math.sqrt(p.fc) * 1000;
-    const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * depth(p.b));
-    const requiredShear = vsSecondary / (p.fy * 1000 * depth(p.b));
-    const Aoh = (p.b - 2 * p.cover - p.stirrupDia / 1000) * (p.h - 2 * p.cover - p.stirrupDia / 1000);
+    const vsSecondary = Math.max(0, 100 / 0.75 - vc * p.h * dSecondary);
+    const requiredShear = vsSecondary / (p.fy * 1000 * dSecondary);
+    const Aoh = (p.b - 2 * p.cover - diameter / 1000) * (p.h - 2 * p.cover - diameter / 1000);
     const requiredTorsion = torque / (0.75 * 2 * 0.85 * Aoh * p.fy * 1000);
-    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.b / p.fy), 15);
+    expect(r.transverseRequired).toBeCloseTo(Math.max(requiredShear + 2 * requiredTorsion, Math.max(0.062 * Math.sqrt(p.fc), 0.35) * p.h / p.fy), 15);
     expect(r.ratio > 1).toBe(factor > 1);
   });
 }
@@ -242,13 +244,10 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(r.checkedAxes).toContain('T');
         for (const c of rows) {
           expect(c.description).toContain(`sección ${reference(0, 0, torque).sectionRatio.toFixed(2)}`);
-          const missing = layout === 'none' || (layout === 'support' ? c.category.includes('Span') : c.category.includes('Support'));
-          expect(c.missingReinforcement === true).toBe(missing);
-          if (missing) {
-            expect(c.status).toBe('fail');
-            expect(c.ratio).toBe(Infinity);
-            expect(c.description).toContain('no stirrups provided');
-          }
+          expect(c.missingReinforcement).toBe(true);
+          expect(c.status).toBe('fail');
+          expect(c.ratio).toBe(Infinity);
+          expect(c.description).toContain('no stirrups provided');
         }
         expect(r.overallStatus).toBe('fail');
       });

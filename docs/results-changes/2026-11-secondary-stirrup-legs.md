@@ -1,0 +1,13 @@
+# CIRSOC 201 secondary stirrup legs (#2171)
+
+CIRSOC 201-2005 and 2025 verification used a stirrup's primary-direction legs for secondary shear. A rectangular perimeter stirrup contributes two legs in the secondary direction. Additional primary crossties can increase primary capacity while leaving the secondary capacity unchanged. The fixed verifier previously could also increase the supplied leg count to a sizing rule's recommendation.
+
+Secondary shear now uses the rotated width, the effective depth with the actual stirrup diameter and the known secondary leg count. The combined torsion check reserves concurrent shear steel on its own face, checks each participating face's minimum and limits the single-leg torsion provision to one outer leg. Active torsion requires a closed rectangular cage even at zero secondary shear. The applicable 2025 provisions specify effective leg area and the minimum for combined transverse steel. [CIRSOC 201-2025 §§22.5.8.5.5 and 22.7.6.1](../codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-22-resistencia-de-las-secciones-de-los-elementos.md#c22.5.8.5.5), [§9.6.4.2](../codes/CIRSOC/markdown/cirsoc-201-2025/capitulo-9-vigas.md#c9.6.4.2).
+
+Provided reinforcement uses the largest spacing and fewest legs in each direction across the member for these checks. Each declared diameter is evaluated at that bound, since increased bar area and reduced effective depth act in opposite directions. Missing coverage is a missing cage at every station that needs the check. A section or cage with unresolved geometry cannot be verified.
+
+The published witness uses a 0.30 × 0.60 m column, four primary legs of Ø8 at 100 mm and a concurrent torque of 30 kN·m. Applying two secondary legs gives 179.19951 kN secondary capacity in the 2005 edition and 181.14201 kN in the 2025 edition. At the issue's respective secondary demands of 220.235 and 222.18 kN, the corrected utilizations are 1.229 and 1.227. Main reports the secondary check as `ok` in both editions. A 0.20 × 0.40 m zero-torque variant passes overall on main and fails with the corrected secondary utilization of 1.05. [Issue #2171](https://github.com/lambdaclass/stabileo/issues/2171).
+
+In the row-2 design snapshot, members 1 through 4 have secondary capacity of 329.8950644 kN where the old result credited 362.2178444 kN. The secondary leg count also falls below the spacing table's requirement. The RC QA diagnostic snapshot gains secondary shear checks on beam members 13 through 26, whose modeled legs fall short of that requirement.
+
+Re-run affected spatial concrete member designs and review the secondary shear and torsion checks against the provided cage.

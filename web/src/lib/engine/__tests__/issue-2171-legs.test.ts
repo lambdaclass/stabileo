@@ -12,7 +12,6 @@ import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import { declaredTestDemands } from './helpers/declared-demands';
 import { torsionDemand } from './helpers/manual-interactions';
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
 const cage = { diameter: 8, spacing: 0.1, legs: 4 };
 const fixed = { shear: cage, torsion: { AlProv: 100 } };
@@ -35,7 +34,7 @@ function shearCapacity(edition: Edition, width: number, d: number, diameter: num
 }
 
 for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) {
-  knownWrong(`known wrong result: #2171 published column witness (${edition})`, () => {
+  it(`known wrong result: #2171 published column witness (${edition})`, () => {
     const v = input(demand, 30, edition);
     const capacity = shearCapacity(edition, section.h, depth(section.b, cage.diameter), cage.diameter, 2, cage.spacing);
     for (const out of [verifyElement(v, fixed), prepareElementVerification(v)(fixed)]) {
@@ -45,7 +44,7 @@ for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) 
     }
   });
 
-  knownWrong(`known wrong result: #2171 silent overall column pass (${edition})`, () => {
+  it(`known wrong result: #2171 silent overall column pass (${edition})`, () => {
     const geometry = { ...section, b: 0.2, h: 0.4 };
     const capacity = shearCapacity(edition, geometry.h, depth(geometry.b, cage.diameter), cage.diameter, 2, cage.spacing);
     const out = verifyElement(input(capacity * 1.05, 0, edition, geometry), fixed);
@@ -58,7 +57,7 @@ for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) 
     });
   });
 
-  knownWrong(`known wrong result: #2171 fixed beam uses its actual secondary cage (${edition})`, () => {
+  it(`known wrong result: #2171 fixed beam uses its actual secondary cage (${edition})`, () => {
     const shear = { ...cage, diameter: 10, spacing: 0.1 };
     const d = depth(section.b, shear.diameter);
     const torque = 20;
@@ -80,7 +79,7 @@ for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) 
   });
 }
 
-knownWrong('known wrong result: #2171 fixed cage uses the declared primary count', () => {
+it('known wrong result: #2171 fixed cage uses the declared primary count', () => {
   const geometry = { ...section, b: 0.6, h: 0.3 };
   const shear = { ...cage, legs: 2, spacing: 0.075 };
   const out = verifyElement(input(0, 0, '2025', geometry, 40), { shear });
@@ -103,7 +102,7 @@ function provided(reinforcement: ProvidedReinforcement, member: 'column' | 'beam
       spacingRule: { edition: '2005', maxAggregateSizeMm: 0 } });
 }
 
-knownWrong('known wrong result: #2171 every station uses the weakest member cage', () => {
+it('known wrong result: #2171 every station uses the weakest member cage', () => {
   const regions = { bottomSpan: longitudinal, topStart: longitudinal, topEnd: longitudinal,
     stirrupsSpan: { ...cage, legs: 2, spacing: 0.075 }, stirrupsSupport: { ...cage, spacing: 0.15 } };
   const secondary = shearCapacity('2005', section.h, depth(section.b, cage.diameter), cage.diameter, 2, 0.15);
@@ -128,7 +127,7 @@ knownWrong('known wrong result: #2171 every station uses the weakest member cage
   expect(missing.checks.find(c => c.category === 'Torsion Span (Vz)')).toMatchObject({ status: 'fail', missingReinforcement: true });
 });
 
-knownWrong('known wrong result: #2171 provided column uses two legs and the actual diameter', () => {
+it('known wrong result: #2171 provided column uses two legs and the actual diameter', () => {
   const stirrups = { ...cage, diameter: 10 };
   const secondary = shearCapacity('2005', section.h, depth(section.b, stirrups.diameter), stirrups.diameter, 2, stirrups.spacing);
   for (const factor of [0.999, 1.001]) {
@@ -138,7 +137,7 @@ knownWrong('known wrong result: #2171 provided column uses two legs and the actu
   }
 });
 
-knownWrong('known wrong result: #2171 unresolved secondary legs refuse active shear', () => {
+it('known wrong result: #2171 unresolved secondary legs refuse active shear', () => {
   const stirrups = { ...cage, legs: 1 };
   const small = provided({ stirrups, longitudinal }, 'column', 0.000999, 0);
   expect(small.checks.find(c => c.demandCategory === 'Vy')).toBeUndefined();
@@ -147,7 +146,7 @@ knownWrong('known wrong result: #2171 unresolved secondary legs refuse active sh
     description: expect.stringMatching(/legs/i) });
 });
 
-knownWrong('known wrong result: #2171 nonrectangular sections refuse secondary shear', () => {
+it('known wrong result: #2171 nonrectangular sections refuse secondary shear', () => {
   const reinforcement = { longitudinal, shaped: longitudinal, stirrups: cage };
   expect(provided(reinforcement, 'column', 0, 0, { circular: true }).checks.find(c => c.demandCategory === 'Vy')).toBeUndefined();
   expect(provided(reinforcement, 'column', 20, 0, { circular: true }).checks.find(c => c.demandCategory === 'Vy')).toMatchObject({
@@ -160,7 +159,7 @@ for (const [name, declaration, reason] of [
   ['unknown shape', { shape: 'unknown' as const }, /closed rectangular/i],
   ['open cage', { closed: false }, /closed rectangular/i],
 ] as const) {
-  knownWrong(`known wrong result: #2171 fixed and prepared verifiers refuse ${name}`, () => {
+  it(`known wrong result: #2171 fixed and prepared verifiers refuse ${name}`, () => {
     const reinforcement = { ...fixed, shear: { ...cage, ...declaration } };
     const vu = input(0.010001, 0, '2005');
     const small = input(0.01, 0, '2005');
@@ -175,7 +174,7 @@ for (const [name, declaration, reason] of [
   });
 }
 
-knownWrong('known wrong result: #2171 a declared secondary crosstie supplies a third leg', () => {
+it('known wrong result: #2171 a declared secondary crosstie supplies a third leg', () => {
   const shear = { ...cage, secondaryLegs: 3 };
   const expected = shearCapacity('2005', section.h, depth(section.b, cage.diameter), cage.diameter, 3, cage.spacing);
   const result = verifyElement(input(expected * 0.8, 0, '2005'), { ...fixed, shear });
@@ -185,7 +184,7 @@ knownWrong('known wrong result: #2171 a declared secondary crosstie supplies a t
 const torsionInput = { ...section, d: depth(section.h, 8), dSecondary: depth(section.b, 8), fyt: section.fy, stirrupDiaMm: 8 };
 const torsionThreshold = phi * 0.083 * Math.sqrt(section.fc) * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
 
-knownWrong('known wrong result: #2171 torsion requires closure with zero secondary shear', () => {
+it('known wrong result: #2171 torsion requires closure with zero secondary shear', () => {
   const unresolved = { ...cage, closed: null };
   const check = (tu: number, stirrup = unresolved as typeof cage & { closed?: boolean | null }) =>
     checkTorsion2025({ ...torsionInput, stirrup, demand: torsionDemand(tu, 0, 0) });
@@ -194,7 +193,7 @@ knownWrong('known wrong result: #2171 torsion requires closure with zero seconda
   expect(check(torsionThreshold, { ...cage, closed: true }).ratio).toBeLessThan(1);
 });
 
-knownWrong('known wrong result: #2171 combined transverse steel uses the secondary minimum', () => {
+it('known wrong result: #2171 combined transverse steel uses the secondary minimum', () => {
   const s = { ...section, b: 0.35, h: 0.8, fc: 40, fy: 350, stirrupDia: 6 };
   const stirrup = { diameter: 6, spacing: 0.15, legs: 4 };
   const d = depth(s.b, stirrup.diameter);
@@ -231,7 +230,7 @@ function planarResultForDesign(raw: AnalysisResults): AnalysisResults3D {
 
 const combos = [{ id: 1, name: 'C1', factors: [] }];
 for (const nonlinear of [false, true]) {
-  knownWrong(`known wrong result: #2171 spatial WASM result adapters (nonlinear=${nonlinear})`, () => {
+  it(`known wrong result: #2171 spatial WASM result adapters (nonlinear=${nonlinear})`, () => {
     const solver: SolverInput3D = { ...model,
       elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
         releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),

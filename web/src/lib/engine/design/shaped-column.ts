@@ -104,17 +104,13 @@ export function minClear(pts: readonly Pt[], diaMm: number): number {
 
 export interface ShapedCheck {
   category: string; utilization: number; unit: string; description: string;
-  limiting: 'axialFlexure' | 'biaxial' | 'shear' | 'tieSpacing' | 'minSteel' | 'maxSteel' | 'congestion';
+  limiting: 'axialFlexure' | 'biaxial' | 'shear' | 'tieSpacing' | 'minSteel' | 'maxSteel' | 'congestion' | 'unsupportedCheck';
   demand?: number; capacity?: number; required?: number; provided?: number;
   comboName?: string; stationX?: number; missingReinforcement?: boolean;
 }
 
 export interface ShapedTuple { n: number; my: number; mz: number; vy: number; vz: number; comboName: string; stationX: number }
 
-/**
- * The checks of a shaped column: P–M at every tuple in the demand's own direction, the steel
- * ratio, the bars' clear spacing, shear along both directions and the ties or the spiral.
- */
 export function checkShapedColumn(input: {
   shape: ColumnShape;
   bars?: { count: number; diameter: number; spiral?: { diameter: number; pitch: number } };
@@ -124,6 +120,7 @@ export function checkShapedColumn(input: {
   /** δns·δs on both moment axes. */
   magnifier: number;
   maxTieSpacing: number;
+  secondaryShearAxis?: 'Vy' | 'Vz';
   shearCapacity: (bw: number, d: number, Nu: number) => number;
 }): ShapedCheck[] {
   const { shape, bars } = input;
@@ -177,22 +174,22 @@ export function checkShapedColumn(input: {
   const clear = minClear(pts, bars.diameter), need = Math.max(0.04, 1.5 * bars.diameter / 1000);
   out.push({ category: 'Bar spacing', utilization: need / Math.max(clear, 1e-9), unit: 'cm', required: +(need * 100).toFixed(1), provided: +(clear * 100).toFixed(1), description: `clear ${(clear * 100).toFixed(1)} cm ≥ max(40 mm, 1.5·db) (§25.2.3)`, limiting: 'congestion' });
 
-  // ── Shear along each direction, on the web that carries it ──
   const webs: Array<{ axis: 'Vy' | 'Vz'; bw: number; d: number; read: (t: ShapedTuple) => number }> = shape.kind === 'circle'
     ? [{ axis: 'Vz', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vz }, { axis: 'Vy', bw: shape.D, d: 0.8 * shape.D, read: (t) => t.vy }]
     : shape.kind === 'tee'
       ? [{ axis: 'Vz', bw: shape.bw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.hf, d: 0.8 * shape.bf, read: (t) => t.vy }]
       : [{ axis: 'Vz', bw: shape.tw, d: 0.8 * shape.h, read: (t) => t.vz }, { axis: 'Vy', bw: shape.tf, d: 0.8 * shape.b, read: (t) => t.vy }];
   for (const w of webs) {
+    const secondary = w.axis === (input.secondaryShearAxis ?? 'Vy');
     let wv: { u: number; Vu: number; cap: number; t: ShapedTuple } | null = null;
     for (const t of input.tuples) {
       const Vu = Math.abs(w.read(t));
       if (Vu < 1e-3) continue;
-      const cap = input.shearCapacity(w.bw, w.d, -t.n);
+      const cap = secondary ? 0 : input.shearCapacity(w.bw, w.d, -t.n);
       const u = cap > 1e-9 ? Vu / cap : Number.POSITIVE_INFINITY;
-      if (!wv || u > wv.u) wv = { u, Vu, cap, t };
+      if (!wv || u > wv.u || (u === wv.u && Vu > wv.Vu)) wv = { u, Vu, cap, t };
     }
-    if (wv) out.push({ category: `Ties (${w.axis})`, utilization: wv.u, unit: 'kN', demand: +wv.Vu.toFixed(2), capacity: +wv.cap.toFixed(2), description: `bw = ${(w.bw * 100).toFixed(0)} cm, d = ${(w.d * 100).toFixed(0)} cm`, limiting: 'shear', comboName: wv.t.comboName, stationX: wv.t.stationX });
+    if (wv) out.push({ category: `Ties (${w.axis})`, utilization: wv.u, unit: 'kN', demand: +wv.Vu.toFixed(2), capacity: +wv.cap.toFixed(2), description: secondary ? 'Requires a rectangular section' : `bw = ${(w.bw * 100).toFixed(0)} cm, d = ${(w.d * 100).toFixed(0)} cm`, limiting: secondary ? 'unsupportedCheck' : 'shear', comboName: wv.t.comboName, stationX: wv.t.stationX });
   }
 
   // ── Ties or spiral ──

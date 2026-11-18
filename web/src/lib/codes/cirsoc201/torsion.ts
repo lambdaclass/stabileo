@@ -11,7 +11,77 @@
  * the text limits only Tth, Tcr and Vc.
  */
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
+import type { RegulationEdition } from '../regulation';
+import type { StirrupDef } from '../../design-contract/reinforcement';
+import { hookAnchorageIsSupported } from './transverse-cage';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
+
+export type StirrupDeclaration = StirrupDef & {
+  shape?: 'rectangular' | 'unknown';
+  closed?: boolean | null;
+  secondaryLegs?: number | null;
+};
+
+type SectionGeometry = { b: number; h: number; cover: number };
+
+const checkedCage: unique symbol = Symbol();
+
+interface ClosedRectangularCage {
+  [checkedCage]: true;
+  kind: 'closed-rectangle';
+  diameter: number;
+  spacing: number;
+  primaryLegs: number;
+  secondaryLegs: number;
+}
+
+export type CageResolution = ClosedRectangularCage | { kind: 'refusal'; reason: string; missing?: true };
+
+export function resolveCage(section: SectionGeometry, stirrup: StirrupDeclaration | undefined, rectangular = true): CageResolution {
+  if (!rectangular) return { kind: 'refusal', reason: 'Requires a rectangular section' };
+  if (!stirrup) return { kind: 'refusal', reason: 'No complete member stirrup cage', missing: true };
+  const { diameter, spacing, legs } = stirrup;
+  if (!(Number.isFinite(diameter) && diameter > 0 && Number.isFinite(spacing) && spacing > 0)) {
+    return { kind: 'refusal', reason: 'Invalid stirrup diameter or spacing' };
+  }
+  if ((stirrup.shape !== undefined && stirrup.shape !== 'rectangular')
+      || (stirrup.closed !== undefined && stirrup.closed !== true) || !hookAnchorageIsSupported(diameter)
+      || !(Number.isFinite(section.b) && Number.isFinite(section.h) && section.cover >= 0
+        && Math.min(section.b, section.h) > Math.max(2 * section.cover, section.cover + 0.008) + diameter / 1000)) {
+    return { kind: 'refusal', reason: 'Requires a closed rectangular cage' };
+  }
+  const secondaryLegs = stirrup.secondaryLegs === undefined ? 2 : stirrup.secondaryLegs;
+  if (!Number.isSafeInteger(legs) || legs < 2 || secondaryLegs === null
+      || !Number.isSafeInteger(secondaryLegs) || secondaryLegs < 2) {
+    return { kind: 'refusal', reason: 'Unknown secondary stirrup legs' };
+  }
+  return { [checkedCage]: true, kind: 'closed-rectangle', diameter, spacing, primaryLegs: legs, secondaryLegs };
+}
+
+export function weakestMemberCages(section: SectionGeometry, stirrups: readonly (StirrupDeclaration | undefined)[], rectangular: boolean): CageResolution[] {
+  const cages: ClosedRectangularCage[] = [];
+  for (const stirrup of stirrups) {
+    const cage = resolveCage(section, stirrup, rectangular);
+    if (cage.kind === 'refusal') return [cage];
+    cages.push(cage);
+  }
+  if (cages.length === 0) return [resolveCage(section, undefined, rectangular)];
+  const spacing = Math.max(...cages.map(cage => cage.spacing));
+  const primaryLegs = Math.min(...cages.map(cage => cage.primaryLegs));
+  const secondaryLegs = Math.min(...cages.map(cage => cage.secondaryLegs));
+  return [...new Set(cages.map(cage => cage.diameter))].map(diameter => ({
+    [checkedCage]: true, kind: 'closed-rectangle', diameter, spacing, primaryLegs, secondaryLegs,
+  }));
+}
+
+export function secondaryShearFace(section: SectionGeometry, cage: ClosedRectangularCage) {
+  return { b: section.h, h: section.b, d: section.b - section.cover - cage.diameter / 1000 - 0.008,
+    stirrupDia: cage.diameter, legs: cage.secondaryLegs, spacing: cage.spacing };
+}
+
+export function secondaryShearMinimumThreshold(edition: RegulationEdition, face: { b: number; d: number }, fc: number, phiVc: number) {
+  return edition === '2005' ? phiVc / 2 : PHI * 0.085 * shearSqrtFc(fc) * face.b * face.d * 1000;
+}
 
 export interface TorsionInput {
   b: number; h: number; d: number; dSecondary: number;
@@ -20,7 +90,7 @@ export interface TorsionInput {
   fc: number; fy: number; fyt: number;
   demand: ConcurrentSectionDemand;
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
-  stirrup?: { diameter: number; legs: number; spacing: number };
+  stirrup?: StirrupDeclaration | CageResolution;
 }
 
 export interface TorsionCheck {
@@ -42,11 +112,12 @@ export interface TorsionCheck {
   sMax: number;
   /** The worst of the cross-section, transverse, outer leg and spacing ratios. */
   ratio: number;
+  refusal?: string;
 }
 
 const PHI = 0.75;
 
-export function providedTorsionStirrups(stirrup: NonNullable<TorsionInput['stirrup']>) {
+export function providedTorsionStirrups(stirrup: StirrupDef) {
   const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
   return { transverseProvided: (stirrup.legs * Ab) / stirrup.spacing, outerLegProvided: Ab / stirrup.spacing };
 }
@@ -55,34 +126,51 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const i = { ...input, fy: shearFy(input.fy), fyt: shearFy(input.fyt) };
   const sq = Math.sqrt(i.fc), sqLim = shearSqrtFc(i.fc);
   const Acp = i.b * i.h, pcp = 2 * (i.b + i.h);
-  const inset = 2 * (i.cover + i.stirrupDiaMm / 2000);
+  const cage = i.stirrup && 'kind' in i.stirrup ? i.stirrup : resolveCage(i, i.stirrup);
+  const diameter = cage.kind === 'closed-rectangle' ? cage.diameter : i.stirrupDiaMm;
+  const depthCorrection = (i.stirrupDiaMm - diameter) / 1000;
+  const d = i.d + depthCorrection, dSecondary = i.dSecondary + depthCorrection;
+  const inset = 2 * i.cover + diameter / 1000;
   const x1 = i.b - inset, y1 = i.h - inset;
   const Aoh = x1 * y1, ph = 2 * (x1 + y1), Ao = 0.85 * Aoh;
   const Tth = 0.083 * sqLim * 1000 * (Acp * Acp) / pcp;
   const phiTth = PHI * Tth;
   const { Tu, Vu, VuSecondary } = i.demand;
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
-  const shearStress = Math.max(Vu / (i.b * i.d), VuSecondary / (i.h * i.dSecondary));
+  const shearStress = Math.max(Vu / (i.b * d), VuSecondary / (i.h * dSecondary));
   const shearSectionRatio = Math.hypot(shearStress, 0) / (PHI * (vc + 0.66 * sq * 1000));
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
-  const Vs = Math.max(0, Vu / PHI - vc * i.b * i.d);
-  const VsSecondary = Math.max(0, VuSecondary / PHI - vc * i.h * i.dSecondary);
-  const AvOverS = Math.max(Vs / (i.fyt * 1000 * i.d), VsSecondary / (i.fyt * 1000 * i.dSecondary));
-  const min = Math.max(0.062 * sq, 0.35) * i.b / i.fyt;
-  const transverseRequired = Math.max(AvOverS + 2 * AtOverS, min);
-  const { transverseProvided, outerLegProvided } = i.stirrup
-    ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
+  const minimum = Math.max(0.062 * sq, 0.35) / i.fyt;
+  const outerLegProvided = cage.kind === 'closed-rectangle'
+    ? providedTorsionStirrups({ ...cage, legs: cage.primaryLegs }).outerLegProvided : 0;
+  const face = (width: number, d: number, shear: number, legs: number) => {
+    const vs = Math.max(0, shear / PHI - vc * width * d);
+    const required = Math.max(vs / (i.fyt * 1000 * d) + 2 * AtOverS, minimum * width);
+    const provided = legs * outerLegProvided;
+    return { required, provided, ratio: provided > 0 ? required / provided : Infinity };
+  };
+  const primary = face(i.b, d, Vu, cage.kind === 'closed-rectangle' ? cage.primaryLegs : 0);
+  const secondary = VuSecondary > 0
+    ? face(i.h, dSecondary, VuSecondary, cage.kind === 'closed-rectangle' ? cage.secondaryLegs : 0) : undefined;
+  const governing = secondary && (secondary.ratio > primary.ratio
+    || (secondary.ratio === primary.ratio && secondary.required > primary.required)) ? secondary : primary;
+  const { required: transverseRequired, provided: transverseProvided } = governing;
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
   const neglect = Tu < phiTth;
+  const refusal = cage.kind === 'refusal' ? cage.reason
+    : [d, dSecondary, x1, y1].every(v => Number.isFinite(v) && v > 0) ? undefined : 'Invalid stirrup cage geometry';
   const ratios = neglect ? [0] : [
     sectionRatio,
-    transverseProvided > 0 ? transverseRequired / transverseProvided : Number.POSITIVE_INFINITY,
+    governing.ratio,
     outerLegProvided > 0 ? AtOverS / outerLegProvided : Number.POSITIVE_INFINITY,
-    i.stirrup ? i.stirrup.spacing / sMax : Number.POSITIVE_INFINITY,
+    cage.kind === 'closed-rectangle' ? cage.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
-  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: Math.max(...ratios) };
+  const ratio = Math.max(...ratios);
+  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax,
+    ratio: (!neglect && refusal !== undefined) || Number.isNaN(ratio) ? Infinity : ratio,
+    ...(!neglect && refusal ? { refusal } : {}) };
 }
