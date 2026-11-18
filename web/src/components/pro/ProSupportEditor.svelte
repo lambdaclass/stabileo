@@ -15,6 +15,7 @@
   import { t } from '../../lib/i18n';
   import { placementStore } from '../../lib/store/placement.svelte';
   import type { Support } from '../../lib/store/model.svelte';
+  import { defaultDofs } from '../../lib/store/support-dofs';
   import { supportDofs3D } from '../../lib/engine/support-dofs-3d';
   import { inclinePatch } from '../../lib/model/edit/support-incline';
   import { unitQ } from '../../lib/store/display-units.svelte';
@@ -32,15 +33,15 @@
   ] as const;
 
   const isCustom = $derived(support.type === 'custom3d');
-  const restraints = $derived(support.dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false });
+  const restraints = $derived(support.dofRestraints ?? defaultDofs('custom3d'));
   /*
    * What the type restrains, read from the same mapping the solver uses. A standard type showed no
    * Fixed column and let a spring be typed on a degree it already restrains; now its restraints
    * are shown, read only, and those degrees take no spring.
    */
-  const typeDofs = $derived(supportDofs3D(support));
+  const typeDofs = $derived(isCustom ? undefined : supportDofs3D(support));
   const TYPE_KEY = { tx: 'rx', ty: 'ry', tz: 'rz', rx: 'rrx', ry: 'rry', rz: 'rrz' } as const;
-  const fixed = (key: (typeof DOF)[number]['key']) => (isCustom ? restraints[key] : typeDofs[TYPE_KEY[key]] && !/spring/.test(support.type));
+  const fixed = (key: (typeof DOF)[number]['key']) => (isCustom ? restraints[key] : !!typeDofs?.[TYPE_KEY[key]] && !/spring/.test(support.type));
 
   function setFixed(key: (typeof DOF)[number]['key'], v: boolean) {
     modelStore.updateSupport(support.id, { dofRestraints: { ...restraints, [key]: v } });

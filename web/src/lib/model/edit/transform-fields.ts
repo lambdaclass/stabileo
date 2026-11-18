@@ -26,11 +26,12 @@
  */
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
+import { isPlaneRoller, isUnresolvedSupport, remapSupportElement, resolvePlaneSupportSettlement } from '../support-types';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import type { MemberOffset } from '../element-3d-metadata';
-import { applyAxial, applyVector, axisPermutation, dot, isReflection, type Affine, type Vec3 } from './affine';
+import { applyAxial, applyVector, axisPermutation, compose, dot, IDENTITY, isReflection, type Affine, type Vec3 } from './affine';
 
 export type EditWarning =
   | 'asymmetricProfile'   // mirrored, but the profile cannot be its own mirror image
@@ -146,6 +147,7 @@ export function carriedJoint(T: Affine, j: Joint3D | undefined): Joint3D | null 
 }
 
 const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed']);
+const planeToXZ: Affine = { A: [1, 0, 0, 0, 0, 1, 0, 1, 0], t: [0, 0, 0] };
 
 /**
  * A support carried to the copy's node, or null when its restraints cannot be.
@@ -153,22 +155,59 @@ const SYMMETRIC_SUPPORTS = new Set(['fixed3d', 'pinned3d', 'fixed']);
  * `elementMap` renames the member a locally framed support refers to; a support framed by a
  * member that is not copied is dropped.
  */
-export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap: Map<number, number>): Omit<Support, 'id'> | null {
+export function carriedSupport(
+  T: Affine, s: Support, nodeId: number, elementMap: ReadonlyMap<number, number>,
+  planeMemberNodes: ReadonlySet<number> | null,
+): Omit<Support, 'id'> | null {
   const { id: _id, ...rest } = s;
   const out: Omit<Support, 'id'> = JSON.parse(JSON.stringify(rest));
   out.nodeId = nodeId;
-  if (s.dofFrame === 'local' || s.dofLocalElementId !== undefined) {
-    const m = s.dofLocalElementId !== undefined ? elementMap.get(s.dofLocalElementId) : undefined;
-    if (m === undefined) return null;
-    out.dofLocalElementId = m;
-    return out; // local restraints move with the member's frame
+  const reference = remapSupportElement(s, id => elementMap.get(id));
+  if (reference === null) return null;
+  if (reference !== undefined) {
+    out.dofLocalElementId = reference;
+    if (s.dofFrame !== 'global') return out;
   }
+  const plane = planeMemberNodes !== null;
+  const planeRoller = plane && isPlaneRoller(s.type);
+  const planeFields = plane && (planeRoller || s.dofRestraints !== undefined);
+  const fieldTransform = planeFields ? compose(planeToXZ, compose(T, planeToXZ)) : T;
   if (s.normalX !== undefined || s.normalY !== undefined || s.normalZ !== undefined) {
-    const n = applyVector(T, [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0]);
+    const n = applyVector(s.dofRestraints ? fieldTransform : T, [s.normalX ?? 0, s.normalY ?? 0, s.normalZ ?? 0]);
     out.normalX = n[0]; out.normalY = n[1]; out.normalZ = n[2];
   }
-  const translationOnly = T.A.every((v, i) => Math.abs(v - [1, 0, 0, 0, 1, 0, 0, 0, 1][i]!) < 1e-12);
-  if (translationOnly) return out;
+  const translationOnly = T.A.every((v, i) => Math.abs(v - IDENTITY[i]!) < 1e-12);
+  if (translationOnly || isUnresolvedSupport(s, plane)) return out;
+  const p = axisPermutation(fieldTransform.A);
+  if (planeFields && p && p.perm[1] !== 1) return null;
+  const axialSign = isReflection(T) ? -1 : 1;
+  const settlement = planeFields
+    ? { dx: s.dx, dy: undefined, drx: s.drx, drz: undefined, ...resolvePlaneSupportSettlement(s) }
+    : s;
+  if (planeRoller) {
+    if (!p) return null;
+    const { perm, sign } = p;
+    const orientation = axialSign * sign[1];
+    if (s.angle !== undefined) out.angle = orientation * s.angle;
+    const memberFramed = s.isGlobal === false && planeMemberNodes.has(s.nodeId);
+    if (!memberFramed) {
+      if (s.isGlobal === false) out.isGlobal = true;
+      const restrained = s.type === 'rollerX' ? 2 : 0;
+      out.type = perm[restrained] === 0 ? 'rollerZ' : 'rollerX';
+    }
+    if (!s.dofRestraints) {
+      if (memberFramed) return out;
+      const displacement = [settlement.dx, undefined, settlement.dz];
+      out.dx = displacement[perm[0]] === undefined ? undefined : sign[perm[0]]! * displacement[perm[0]]!;
+      out.dz = displacement[perm[2]] === undefined ? undefined : sign[perm[2]]! * displacement[perm[2]]!;
+      delete out.dy;
+      const rotation = settlement.dry;
+      out.dry = rotation === undefined ? undefined : orientation * rotation;
+      delete out.drz;
+      if (perm[0] === 2) { out.kx = s.ky; out.ky = s.kx; }
+      return out;
+    }
+  }
   // Named rollers encode their mask in `type`; carry that mask just as an explicit one.
   // Use the solver's mapping so a permutation cannot silently leave the old axis fixed.
   if (!s.dofRestraints && !SYMMETRIC_SUPPORTS.has(String(s.type))) {
@@ -180,7 +219,6 @@ export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap
   const hasPerDof = !!s.dofRestraints || [s.kx, s.ky, s.kz, s.krx, s.kry, s.krz, s.dx, s.dy, s.dz, s.drx, s.dry, s.drz]
     .some((v) => v !== undefined && v !== 0);
   if (!hasPerDof && SYMMETRIC_SUPPORTS.has(String(s.type))) return out;
-  const p = axisPermutation(T.A);
   if (!p) {
     const r = s.dofRestraints;
     const uniform = r && r.tx === r.ty && r.ty === r.tz && r.rx === r.ry && r.ry === r.rz;
@@ -194,12 +232,11 @@ export function carriedSupport(T: Affine, s: Support, nodeId: number, elementMap
   }
   const k = ['kx', 'ky', 'kz'] as const, kr = ['krx', 'kry', 'krz'] as const;
   const d = ['dx', 'dy', 'dz'] as const, dr = ['drx', 'dry', 'drz'] as const;
-  const axialSign = isReflection(T) ? -1 : 1;
   for (let i = 0; i < 3; i++) {
     const j = p.perm[i]!;
     out[k[j]] = s[k[i]]; out[kr[j]] = s[kr[i]];
-    out[d[j]] = s[d[i]] === undefined ? undefined : s[d[i]]! * p.sign[i]!;
-    out[dr[j]] = s[dr[i]] === undefined ? undefined : s[dr[i]]! * p.sign[i]! * axialSign;
+    out[d[j]] = settlement[d[i]] === undefined ? undefined : settlement[d[i]]! * p.sign[i]!;
+    out[dr[j]] = settlement[dr[i]] === undefined ? undefined : settlement[dr[i]]! * p.sign[i]! * axialSign;
   }
   for (const key of [...k, ...kr, ...d, ...dr]) if (out[key] === undefined) delete out[key];
   return out;

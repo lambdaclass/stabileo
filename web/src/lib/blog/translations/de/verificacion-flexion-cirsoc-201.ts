@@ -175,14 +175,14 @@ const body: PostBody = {
       "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Bemessungsbereich, Schritt Dimensionieren, mit dem ausgewählten 20×40-Balken nach Berechnung und Bemessung. Das Stabpanel zeigt „nachgewiesen, lokales η 0,90“ nach CIRSOC 201 (2025), mit 13 Nachweisen für die Achsen My und Vz und einer höchsten Ausnutzung von 0,900.",
-      "caption": "Der Balken unten nach „Dimensionieren…“: CIRSOC 201 weist ihn mit einer Ausnutzung von 0,90 nach."
+      "alt": "Bemessungsoberfläche von Stabileo PRO mit ausgewähltem 20×40-Balken.",
+      "caption": "Diese Aufnahme entstand vor der Korrektur der Auflager. Das interaktive Beispiel unten zeigt das aktuelle Ergebnis."
     },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "Der Balken in Stabileo, im Bemessungsablauf von PRO. Ist die Bemessung ausgeschaltet, klicken Sie im Hinweis auf „Bemessung für diesen Besuch einschalten“. Drei Schaltflächen, in dieser Reihenfolge: „Schnittgrößen ermitteln“, „Erforderliche Bewehrung berechnen“ und „Bemessen…“. Erst die dritte wählt die Stäbe, und solange es keine Stäbe gibt, gibt es nichts nachzuweisen: Die Tabelle zeigt „keine Bewehrung“. Das Feld von 5 m ist mit zwei Elementen modelliert; beide schließen mit einer Ausnutzung D/C = 0,90 ab, maßgebend ist die Querkraft im Feld: Biegung und Verankerung der Stäbe bleiben darunter. Ändern Sie die Last und berechnen Sie erneut. Die normgemäße Bemessung in PRO befindet sich noch in Entwicklung; das Betonmodul ist der Teil, der implementiert und getestet ist."
+      "label": "Der Balken in Stabileo, im Bemessungsablauf von PRO. Ist die Bemessung ausgeschaltet, klicken Sie im Hinweis auf „Bemessung für diesen Besuch einschalten“. Drei Schaltflächen, in dieser Reihenfolge: „Schnittgrößen ermitteln“, „Erforderliche Bewehrung berechnen“ und „Bemessen…“. Erst die dritte wählt die Stäbe, und solange es keine Stäbe gibt, gibt es nichts nachzuweisen: Die Tabelle zeigt „keine Bewehrung“. Das Feld von 5 m ist mit zwei Elementen modelliert; beide erfüllen den Nachweis bei einer Ausnutzung D/C = 0,91. Maßgebend ist die positive Biegung im Feld (My+). Ändern Sie die Last und berechnen Sie erneut. Die normgemäße Bemessung in PRO befindet sich noch in Entwicklung; das Betonmodul ist der Teil, der implementiert und getestet ist."
     },
     {
       "k": "h",
