@@ -304,8 +304,11 @@ export function createBeamCandidateGenerator(ctx: MemberContext): CandidateGener
       // Torsion: its longitudinal steel from the bars of the region, its transverse from the stirrups.
       else if (cat.startsWith('Torsion Al Support')) { want.add('span'); want.add('start'); want.add('end'); }
       else if (cat.startsWith('Torsion Al Span')) want.add('span');
-      else if (cat.startsWith('Torsion Support')) want.add('stirSup');
-      else if (cat.startsWith('Torsion Span')) want.add('stirSpan');
+      else if ((c.limiting === 'torsion' && c.method === 'capacity')
+        || (c.limiting === 'shear' && c.demandCategory === ctx.axes.secondaryShear)) {
+        want.add('stirSup');
+        want.add('stirSpan');
+      }
       else if (cat.startsWith('Shear Support')) want.add('stirSup');
       else if (cat.startsWith('Shear Span')) want.add('stirSpan');
       else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');

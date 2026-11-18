@@ -54,8 +54,8 @@ for (const entry of ['direct', 'prepared'] as const) for (const spacing of [0.05
 }
 for (const edition of ['2005', '2025'] as const) for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {
   it(`#2080 torsion neglect threshold still checks shared steel ${edition} ${factor}`, () => {
-    const base = inputs(edition, 'My', 'beam', [[0, 30]])[0]!;
-    const threshold = 0.75 * checkTorsion(params, base.demand, edition).Tcr / 4;
+    const coefficient = edition === '2005' ? 1 / 12 : 0.083;
+    const threshold = 0.75 * coefficient * Math.sqrt(params.fc) * 1000 * (params.b * params.h) ** 2 / (2 * (params.b + params.h));
     const i = inputs(edition, 'My', 'beam', [[0, threshold * factor]])[0]!;
     const out = verifyConcurrentElement([i]);
     expect(out.torsion!.neglect).toBe(factor < 1);

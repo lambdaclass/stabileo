@@ -100,7 +100,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.shearSecondary) {
       checks.push({
-        name: 'Shear, secondary axis',
+        name: v.shearSecondary.refusal ?? 'Shear, secondary axis',
         demand: Math.abs(v.shearSecondary.Vu),
         capacity: v.shearSecondary.phiVn,
         ratio: v.shearSecondary.ratio,
@@ -131,7 +131,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.torsion && !v.torsion.neglect) {
       checks.push({
-        name: 'Torsion',
+        name: v.torsion.refusal ?? 'Torsion',
         longitudinalProvision: v.torsion.longitudinalProvision,
         demand: Math.abs(v.torsion.Tu),
         capacity: v.torsion.phiTn,
