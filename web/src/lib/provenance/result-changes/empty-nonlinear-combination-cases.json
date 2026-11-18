@@ -1,0 +1,30 @@
+{
+  "id": "empty-nonlinear-combination-cases",
+  "date": "2026-11-18",
+  "prs": [2283],
+  "area": "analysis",
+  "when": { "all": ["combinations", "superposedCombinations"] },
+  "quantities": ["displacements", "reactions", "elementForces", "plateStresses", "quadStresses", "quadNodalStresses", "resultSummary", "structuredDiagnostics", "solve.ok"],
+  "title": {
+    "en": "Empty cases contribute zero to nonlinear superposition",
+    "es": "Los casos vacíos aportan cero a la superposición no lineal",
+    "pt": "Casos vazios têm contribuição nula na superposição não linear",
+    "de": "Leere Lastfälle tragen nichts zur nichtlinearen Überlagerung bei",
+    "fr": "Les cas vides ont une contribution nulle à la superposition non linéaire",
+    "hu": "Az üres teheresetek hozzájárulása nulla a nemlineáris szuperpozícióban",
+    "tr": "Boş yük durumlarının doğrusal olmayan süperpozisyona katkısı sıfırdır"
+  },
+  "explanation": {
+    "en": "An empty load case in a nonlinear superposition no longer adds the unloaded response of a pretensioned cable. Re-run affected combinations and review the responses and envelopes.",
+    "es": "Un caso de carga vacío en una superposición no lineal ya no agrega la respuesta sin carga de un cable pretensado. Volvé a calcular las combinaciones afectadas y revisá las respuestas y las envolventes.",
+    "pt": "Um caso de carga vazio numa superposição não linear deixou de adicionar a resposta sem carga de um cabo pré-tensionado. Recalcule as combinações afetadas e reveja as respostas e as envolventes.",
+    "de": "Ein leerer Lastfall addiert bei der nichtlinearen Überlagerung keine Reaktion eines vorgespannten Seils unter Nulllast mehr. Berechnen Sie die betroffenen Kombinationen erneut und prüfen Sie die Ergebnisse und Einhüllenden.",
+    "fr": "Dans une superposition non linéaire, un cas de charge vide n’ajoute plus la réponse à vide d’un câble prétendu. Recalculez les combinaisons concernées et examinez les réponses et les enveloppes.",
+    "hu": "Nemlineáris szuperpozícióban egy üres tehereset már nem adja hozzá az előfeszített kábel terheletlen állapotának válaszát. Számítsa újra az érintett kombinációkat, és ellenőrizze a válaszokat és a burkolókat.",
+    "tr": "Doğrusal olmayan süperpozisyonda boş bir yük durumu artık ön gerilmeli kablonun yüksüz tepkisini eklemez. Etkilenen birleşimleri yeniden hesaplayıp tepkileri ve zarfları inceleyin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-empty-nonlinear-combination-cases.md",
+    "heading": "Empty cases contribute zero to nonlinear superposition (2026-11-18)"
+  }
+}

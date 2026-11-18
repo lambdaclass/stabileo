@@ -3,7 +3,7 @@
  * to: a slack diagonal is the frame without it, a lifted support is the beam without it, an
  * inactive member is not there, and a modified stiffness scales the deflection it controls.
  */
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import '../../store';
@@ -491,4 +491,27 @@ it('a cable diagonal that a bar solve compresses goes slack and leaves the frame
   expect(cable.reactions.reduce((sum, r) => sum + r.fx, 0)).toBeCloseTo(50, 6);
   modelStore.removeElement(d5);
   expect(disp(cable, n3).ux).toBeCloseTo(disp(solve(), n3).ux, 9);
+});
+
+
+it('scans displacement magnitudes once when several inactive members are checked', () => {
+  const { d6 } = bracedBay('tensionOnly');
+  const model = md();
+  const compressed = model.elements.get(d6)!;
+  for (let id = 100; id < 104; id++) model.elements.set(id, { ...compressed, id });
+  const input = buildSolverInput3D(model)!;
+  const hypot = vi.spyOn(Math, 'hypot');
+  let lastDisplacements = 0;
+  try {
+    const answer = solveNonlinear3D(model, input, trial => {
+      const result = wasmSolver.solve3D(trial);
+      lastDisplacements = result.displacements.length;
+      // Count the active-set decision after the native solve, excluding preparation.
+      hypot.mockClear();
+      return result;
+    });
+    expect(answer.report.iterations).toBe(2);
+    expect(answer.report.slack).toHaveLength(5);
+    expect(hypot).toHaveBeenCalledTimes(lastDisplacements);
+  } finally { hypot.mockRestore(); }
 });
