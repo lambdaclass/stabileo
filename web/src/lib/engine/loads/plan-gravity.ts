@@ -254,8 +254,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (panel.shellCoverage?.kind === 'strips') deck.checkStrips(panel.shellCoverage, z);
     else deckReasons.set(panel, deck.why(panel.polygon, z));
   }
-  const fringeRoof = new Map<number, WidthSpan[]>();
-  const fringeSides = new Map<number, SideStretch[]>();
+  const fringeRoof = new Map<number, { spans: WidthSpan[]; sides: SideStretch[]; region: Region; z: number }>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
@@ -267,10 +266,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const dropped = new Set<FloorPanel>();
   const fringeKept = new Map<FloorPanel, Region>();
   const droppedMembers = new Set<number>();
-  const panelLoadedAt = new Map<number, Set<number>>();
-  for (const [z, { beams, res }] of levels) {
+  const flatAt = new Map<number, FloorBeam[]>();
+  for (const [z, beams] of beamsAt) {
     const loaded = new Set<number>();
-    for (const panel of res.panels) {
+    for (const panel of levels.get(z)?.res.panels ?? []) {
       if (!panel.loaded && panel.shellCoverage?.kind !== 'shell') continue;
       // Its members are every one along its sides, a second member between two nodes or a stub
       // along a side included: by the graph's one member per pair of nodes, those went by width
@@ -278,7 +277,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const members = panel.members ? new Set(panel.members) : null;
       for (const b of beams) if (members ? members.has(b.id) : onBoundary(model, b, panel.polygon)) loaded.add(b.id);
     }
-    panelLoadedAt.set(z, loaded);
+    flatAt.set(z, beams.filter(b => opts.mode === 'width' || (!loaded.has(b.id) && !inShell(b))));
   }
   for (const z of [...beamsAt.keys()].sort((a, b) => b - a)) {
     for (const panel of deck ? levels.get(z)?.res.panels ?? [] : []) {
@@ -299,8 +298,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const footprints = panel.shellCoverage?.kind === 'strips' ? panel.shellCoverage.polygons : [panel.polygon];
       for (const poly of footprints) held.panels.push({ poly, z });
     }
-    const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(b)));
-    for (const e of flat) {
+    for (const e of flatAt.get(z) ?? []) {
       const [a, b] = segment(e.id);
       const why = deckless([[a[0], a[1]], [b[0], b[1]]], z);
       const beside = (panelsAt.get(z) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));
@@ -326,8 +324,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
           else spans.push({ t0, t1, width });
         });
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
-        fringeRoof.set(e.id, spans);
-        fringeSides.set(e.id, loadedSides(kept, axis));
+        fringeRoof.set(e.id, { spans, sides: loadedSides(kept, axis), region: kept, z });
         held.kept.push({ region: kept, z });
         fringes++;
         continue;
@@ -361,27 +358,48 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [{ panel, own: panel.own, why, strips, region, footprint }];
   })]));
 
-  const slopedWidthRuns: Segment[] = opts.tributaryWidth > 0
-    && [...selectedPanels.values()].some(panels => panels.some(panel => panel.strips))
-    ? physicalRoofRuns(memberGeometry(model, out.widthMembers.map(m => m.elementId)),
-      (a, b) => a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0),
-    ).map(({ a, b }) => [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]])
-    : [];
+  const levelOrder = [...levels.keys()].sort((a, b) => a - b);
+  for (const z of levels.keys()) for (const b of flatAt.get(z) ?? []) {
+    const g = beamLike(model, b);
+    width(b.id, g.length, g.horizontalLength);
+    byWidth++;
+  }
+
+  const beforeDepth = out.widthMembers.length;
+  out.widthMembers = out.widthMembers.filter(m => !droppedMembers.has(m.elementId));
+  for (const m of out.widthMembers) {
+    const fringe = fringeRoof.get(m.elementId);
+    if (fringe) m.spans = fringe.spans;
+    addSides(m.elementId, fringe?.sides ?? (opts.mode === 'width' ? panelSides.get(m.elementId) : undefined));
+  }
+
+  const widthFootprints: WidthFootprint[] = [];
+  if (opts.tributaryWidth > 0 && [...selectedPanels.values()].some(panels => panels.some(panel => panel.strips))) {
+    const wholeMembers: number[] = [];
+    for (const m of out.widthMembers) {
+      const fringe = fringeRoof.get(m.elementId);
+      if (fringe) widthFootprints.push(fringe);
+      else wholeMembers.push(m.elementId);
+    }
+    const runs = physicalRoofRuns(memberGeometry(model, wholeMembers),
+      (a, b) => a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0));
+    for (const { a, b } of runs) {
+      widthFootprints.push({ segment: [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]], width: opts.tributaryWidth });
+    }
+  }
 
   // Second pass: each panel on its own, as a floor or as a roof.
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
-  const levelOrder = [...levels.keys()].sort((a, b) => a - b);
-  for (const [z, { beams, res }] of levels) {
+  for (const [z, { res }] of levels) {
     unresolved += res.skipped.unresolved;
-    const loaded = panelLoadedAt.get(z)!;
     let overhead: ReturnType<typeof higherFootprints> | undefined;
     for (const { panel, own: one, why, strips, region } of selectedPanels.get(z) ?? []) {
       if (why === 'lowHeadroom') fringes++;
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
       if (strips) partly++;
       const roof = strips
-        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers, slopedWidthRuns, opts.tributaryWidth))
+        ? uncoveredStripIsRoof(strips, overhead ??= higherFootprints(z, selectedPanels, carriers, widthFootprints))
         : why === 'lowHeadroom' || !covered(centroid(panel.polygon), z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
@@ -418,21 +436,6 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       for (const [id, a] of one.perBeam) { addArea(roof ? out.roofAreaOf : out.areaOf, id, a); if (roof) out.roof.add(id); }
       out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + one.area);
     }
-    for (const b of beams) {
-      if (loaded.has(b.id) || inShell(b)) continue;
-      const g = beamLike(model, b);
-      width(b.id, g.length, g.horizontalLength);
-      byWidth++;
-    }
-  }
-
-  // A horizontal member within the roof's structure is a chord or an eave beam: no floor loads it.
-  const beforeDepth = out.widthMembers.length;
-  out.widthMembers = out.widthMembers.filter((m) => !droppedMembers.has(m.elementId));
-  for (const m of out.widthMembers) {
-    const spans = fringeRoof.get(m.elementId);
-    if (spans) m.spans = spans;
-    addSides(m.elementId, spans ? fringeSides.get(m.elementId) : opts.mode === 'width' ? panelSides.get(m.elementId) : undefined);
   }
   out.oneSided = [...sidesOf].filter(([, s]) => oneSidedSomewhere(s)).map(([id]) => id).sort((a, b) => a - b);
   if (out.widthMembers.length < beforeDepth) {
@@ -652,12 +655,13 @@ function shellAbove(carrier: ShellCarrier, z: number): Polygon[number] {
   return above;
 }
 
+type WidthFootprint = { segment: Segment; width: number } | { region: Region; z: number };
+
 function higherFootprints(
   z: number,
   selectedPanels: ReadonlyMap<number, ReadonlyArray<{ footprint: Region }>>,
   carriers: ShellCarrier[],
-  widthRuns: Segment[],
-  tributaryWidth: number,
+  widthFootprints: WidthFootprint[],
 ) {
   const elevation = z + MIN_COVER_RISE;
   const covers = [...selectedPanels].filter(([above]) => above > elevation).flatMap(([, panels]) => panels.flatMap(panel => panel.footprint));
@@ -665,10 +669,16 @@ function higherFootprints(
     const above = shellAbove(carrier, elevation);
     if (ringArea(above) > 0) covers.push([above]);
   }
-  const widthCovers = widthRuns.flatMap(run => {
-    const range = lowRange(run[0][2], run[1][2], elevation, Infinity);
-    return range ? [widthCover(run, range, tributaryWidth)] : [];
-  });
+  const widthCovers: ReturnType<typeof widthCover>[] = [];
+  for (const footprint of widthFootprints) {
+    if ('region' in footprint) {
+      if (footprint.z > elevation) covers.push(...footprint.region);
+    } else {
+      const { segment, width } = footprint;
+      const range = lowRange(segment[0][2], segment[1][2], elevation, Infinity);
+      if (range) widthCovers.push(widthCover(segment, range, width));
+    }
+  }
   covers.push(...widthCovers.map(cover => cover.footprint));
   return { covers, widthCovers };
 }

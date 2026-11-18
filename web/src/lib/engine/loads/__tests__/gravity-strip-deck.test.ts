@@ -312,9 +312,8 @@ it('#2282 — partial width cover refuses mixed exposure', () => {
   expect(() => snowDriftRefusal(snowFallback)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
 });
 
-function expectBlockedWithWidth(model: Model, gravityOptions: GravityOptions) {
+function expectBlockedWithWidth(model: Model, gravityOptions: GravityOptions, key = 'loadPlan.gravity.mixedExposure') {
   const { tributaryWidth } = gravityOptions;
-  const key = 'loadPlan.gravity.mixedExposure';
   expect(buildLoadPlan(input(model, { gravity: gravityOptions, tributaryWidth }))).toMatchObject({
     outcome: 'BLOCKED', blockedKeys: [{ key }], distributed: [], nodal: [], surface: [], levels: [],
   });
@@ -331,9 +330,7 @@ it('leaves strips exposed without area from a width footprint above the cover ri
   }
 });
 
-const round8 = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
-
-round8('known wrong result: #2282 a horizontal width-loaded member covers the full strip', () => {
+it('#2282 a horizontal width-loaded member covers the full strip', () => {
   for (const [x, width, angle, mirror, mesh] of [[5, 10, 0, 1, 1], [7, 6, 0.37, 1, 3], [7, 6, 1.16, -1, 2]] as const) {
     const fixture = bay(4, 0, 1, mesh, mesh > 1);
     const { model, physical } = fixture;
@@ -387,14 +384,18 @@ round8('known wrong result: #2282 a horizontal width-loaded member covers the fu
   }
 });
 
-round8('known wrong result: #2282 a horizontal width footprint that partly covers a strip refuses', () => {
+it('#2282 a horizontal width footprint that partly covers a strip refuses', () => {
   for (const options of [automatic, gravity]) {
-    for (const [x, width, z] of [[7, 5.999, 6], [-0.999, 10, 6], [7, 5.999, 3.051]] as const) {
+    for (const [x, width] of [[7, 5.999], [-0.999, 10]] as const) {
       const { model } = bay(4);
-      widthRoof(model, x, z, z);
+      widthRoof(model, x, 6, 6);
       expectBlockedWithWidth(model, { ...options, tributaryWidth: width });
     }
   }
+  const low = bay(4).model;
+  widthRoof(low, 7, 3.051, 3.051);
+  expectBlockedWithWidth(low, { ...automatic, tributaryWidth: 5.999 }, 'loadPlan.gravity.stripHeadroom');
+  expectBlockedWithWidth(low, { ...gravity, tributaryWidth: 5.999 });
   const { model } = bay(4);
   widthRoof(model, 4, 6, 6);
   expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
