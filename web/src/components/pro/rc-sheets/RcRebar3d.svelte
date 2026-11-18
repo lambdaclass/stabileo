@@ -2,40 +2,38 @@
   import { onDestroy, untrack } from 'svelte';
   import { t, tp, tpn } from '../../../lib/i18n';
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
-  import { REBAR_FAMILIES, rebarView, sheetBars3d, shownBars } from '../../../lib/store/rc-rebar-3d.svelte';
-  import { viewCategories, type CategoryState } from '../../../lib/store/view-categories.svelte';
+  import { REBAR_FAMILIES, rebarView, saveGhostPreference, sheetBars3d, sheetGhosts3d, shownBars, shownGhosts } from '../../../lib/store/rc-rebar-3d.svelte';
   import { sceneHost } from '../../../lib/viewport3d/scene-host.svelte';
   import { createRebarLayer } from '../../../lib/three/rebar-3d-layer';
+  import { createGhostLayer } from '../../../lib/three/rebar-ghost-layer';
 
   let { rows }: { rows: SheetRows | null } = $props();
 
   const layer = createRebarLayer();
-  const CONCRETE = ['members', 'shells', 'loads'] as const;
-  let saved: Record<(typeof CONCRETE)[number], CategoryState> | null = null;
-
-  function concrete(halftone: boolean) {
-    if (halftone && !saved) {
-      saved = { members: viewCategories.state('members'), shells: viewCategories.state('shells'), loads: viewCategories.state('loads') };
-      for (const c of CONCRETE) if (saved[c] === 'visible') viewCategories.set(c, 'halftone');
-    } else if (!halftone && saved) {
-      for (const c of CONCRETE) viewCategories.set(c, saved[c]);
-      saved = null;
-    }
-  }
+  const ghostLayer = createGhostLayer();
 
   const all = $derived(rebarView.on && rows ? sheetBars3d(rows) : []);
   const levels = $derived([...new Set(all.map((b) => b.level ?? ''))].sort((p, q) => p.localeCompare(q, undefined, { numeric: true })));
   const shown = $derived(rebarView.on ? shownBars(all, rebarView) : []);
+  const ghosts = $derived(rebarView.on && rebarView.ghost && rows ? shownGhosts(sheetGhosts3d(rows), shown, rebarView) : []);
 
   $effect(() => {
     const host = sceneHost.current;
     const on = rebarView.on && !!rows;
-    untrack(() => concrete(on));
+    untrack(() => sceneHost.setSolo(on));
     if (on) layer.show(host, shown);
     else layer.clear(host);
   });
 
-  onDestroy(() => { layer.clear(sceneHost.current); concrete(false); });
+  $effect(() => {
+    const host = sceneHost.current;
+    if (ghosts.length) ghostLayer.show(host, ghosts);
+    else ghostLayer.clear(host);
+  });
+
+  $effect(() => saveGhostPreference(rebarView.ghost));
+
+  onDestroy(() => { layer.clear(sceneHost.current); ghostLayer.clear(sceneHost.current); sceneHost.setSolo(false); });
 </script>
 
 <div class="r3d" data-testid="rc-rebar-3d">
@@ -67,6 +65,10 @@
         </div>
       {/if}
     </fieldset>
+    <label class="r3d-ghost">
+      <input type="checkbox" bind:checked={rebarView.ghost} data-testid="rc-rebar-3d-ghost" />
+      <span>{t('rcSheets.r3d.ghost')}</span>
+    </label>
     <p class="r3d-hint">{t('rcSheets.r3d.hint')}</p>
   {/if}
 </div>
@@ -83,5 +85,6 @@
   .r3d-field select { font: inherit; padding: 2px 6px; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair-strong); border-radius: 4px; }
   .r3d-fams { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.72rem; color: var(--st-text-2); }
   .r3d-fams label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .r3d-ghost { display: flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--st-text-2); cursor: pointer; }
   .r3d-hint { margin: 0; font-size: 0.68rem; line-height: 1.45; color: var(--st-text-3); }
 </style>

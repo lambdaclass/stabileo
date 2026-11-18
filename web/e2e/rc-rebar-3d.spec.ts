@@ -12,11 +12,35 @@ test('@slow the sheets\' bars in 3D: every element, one row\'s from the workspac
   await page.getByTestId('rc-design').click();
   await expect(page.getByTestId('rc-open-beam')).toBeEnabled({ timeout: 60_000 });
 
+  const ids = await page.evaluate(() => window.__stabileo.elementIds().slice(0, 3));
+  await page.evaluate((x) => window.__stabileoActions.selectElements(x), ids);
+  const undos = await page.evaluate(() => window.__stabileo.undoCount());
+  const solo = page.locator('.viewport3d-wrapper[data-scene-solo]');
+  await expect(solo).toHaveCount(0);
+
   const panel = page.getByTestId('rc-rebar-3d');
   await panel.getByTestId('rc-rebar-3d-toggle').check();
   const count = async () => Number((await panel.getByTestId('rc-rebar-3d-count').textContent())!.replace(/\D/g, ''));
   await expect.poll(count).toBeGreaterThan(10_000);
   const everything = await count();
+  await expect(solo).toHaveCount(1);
+  const ghost = panel.getByTestId('rc-rebar-3d-ghost');
+  await expect(ghost).toBeChecked();
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-camera-view', { detail: 'iso' })));
+  await page.screenshot({ path: test.info().outputPath('rebar-3d-ghost-on.png') });
+  const box = (await page.locator('.viewport3d-wrapper').boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
+  await ghost.uncheck();
+  await page.screenshot({ path: test.info().outputPath('rebar-3d-ghost-off.png') });
+  await panel.getByTestId('rc-rebar-3d-toggle').uncheck();
+  await expect(solo).toHaveCount(0);
+  expect(await page.evaluate(() => window.__stabileo.selection())).toEqual([...ids].sort((a, b) => a - b));
+  expect(await page.evaluate(() => window.__stabileo.undoCount())).toBe(undos);
+  await panel.getByTestId('rc-rebar-3d-toggle').check();
+  await expect(ghost).not.toBeChecked();
+  expect(await page.evaluate(() => localStorage.getItem('stabileo-rc-rebar-3d-ghost'))).toBe('0');
+  await ghost.check();
   await panel.getByTestId('rc-rebar-3d-slab').uncheck();
   await expect.poll(count).toBeLessThan(everything);
   await panel.getByTestId('rc-rebar-3d-slab').check();
@@ -37,4 +61,5 @@ test('@slow the sheets\' bars in 3D: every element, one row\'s from the workspac
   await expect.poll(count).toBe(everything);
   await panel.getByTestId('rc-rebar-3d-toggle').uncheck();
   await expect(panel.getByTestId('rc-rebar-3d-count')).toHaveCount(0);
+  await expect(solo).toHaveCount(0);
 });

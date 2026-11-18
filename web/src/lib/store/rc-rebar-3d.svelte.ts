@@ -7,14 +7,25 @@ import type { SheetRows } from './rc-sheets.svelte';
 import { computeLocalAxes3D, memberRoll } from '../engine/local-axes-3d';
 import { memberOffsetAt } from '../engine/member-offsets';
 import { rebar3d, type Frame, type Rebar3d, type Rebar3dFrames, type V3 } from '../rc-sheets/rebar-3d';
+import { ghost3d, type Ghost3d } from '../rc-sheets/rebar-3d-ghost';
 import type { PieceOptions } from '../rc-sheets/schedule/pieces';
 import type { SheetFamily } from '../rc-sheets/types';
 
 export type Rebar3dFamily = Exclude<SheetFamily, 'punching'>;
 export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
 
-export const rebarView = $state<{ on: boolean; row: { key: string; name: string } | null; level: string; families: Record<Rebar3dFamily, boolean> }>({
-  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true },
+const GHOST_KEY = 'stabileo-rc-rebar-3d-ghost';
+
+export function readGhostPreference(): boolean {
+  try { return globalThis.localStorage?.getItem(GHOST_KEY) !== '0'; } catch { return true; }
+}
+
+export function saveGhostPreference(on: boolean): void {
+  try { globalThis.localStorage?.setItem(GHOST_KEY, on ? '1' : '0'); } catch { return; }
+}
+
+export const rebarView = $state<{ on: boolean; row: { key: string; name: string } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
+  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true }, ghost: readGhostPreference(),
 });
 
 export function showRebarOf(row: { key: string; name: string }): void {
@@ -114,9 +125,24 @@ export function sheetBars3d(rows: SheetRows): Rebar3d[] {
   return bars;
 }
 
-export function shownBars(bars: readonly Rebar3d[], v: Pick<typeof rebarView, 'row' | 'level' | 'families'>): Rebar3d[] {
+let ghostMemo: { rows: SheetRows; ghosts: Ghost3d[] } | null = null;
+
+export function sheetGhosts3d(rows: SheetRows): Ghost3d[] {
+  if (ghostMemo?.rows !== rows) ghostMemo = { rows, ghosts: ghost3d(rows, modelFrames(rows)) };
+  return ghostMemo.ghosts;
+}
+
+type Shown = Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level'>;
+type ViewFilter = Pick<typeof rebarView, 'row' | 'level' | 'families'>;
+
+export function shownBars<T extends Shown>(bars: readonly T[], v: ViewFilter): T[] {
   if (v.row) return bars.filter((b) => b.rows.includes(v.row!.key) || b.element === v.row!.key);
   return bars.filter((b) => b.family !== 'punching' && v.families[b.family] && (!v.level || (b.level ?? '') === v.level));
+}
+
+export function shownGhosts(ghosts: readonly Ghost3d[], bars: readonly Shown[], v: ViewFilter): Ghost3d[] {
+  const drawn = new Set(bars.flatMap((b) => [b.element, ...b.rows]));
+  return shownBars(ghosts, v).filter((g) => drawn.has(g.element));
 }
 
 export type { Frame };

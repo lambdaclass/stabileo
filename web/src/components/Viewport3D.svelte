@@ -25,6 +25,7 @@
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
   import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
+  import { hideAllBut, showAgain } from '../lib/viewport3d/scene-solo';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
@@ -980,11 +981,13 @@
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
+      const soloHidden = sceneHost.solo ? hideAllBut(scene) : null;
       renderer.render(scene, camera);
       splitView?.render();
       drawFreeBody3D();
       if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
       else renderInset();
+      if (soloHidden) showAgain(soloHidden);
       drawAxisGizmo();
       if (perfHud.on) {
         // GPU side: draw calls + triangles (renderer.info auto-resets per render,
@@ -1395,7 +1398,7 @@
     if (!fbCanvas || !container) return;
     const g = fbCanvas.getContext('2d');
     if (!g) return;
-    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active;
+    const on = resultsStore.diagramType === 'despiece' && !!resultsStore.results3D && !buildTimelapse.active && !sceneHost.solo;
     if (!on) {
       if (fbDrawn) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, fbCanvas.width, fbCanvas.height); fbDrawn = false; }
       return;
@@ -1496,6 +1499,8 @@
     toneDirty = true;
     invalidate();
   });
+
+  $effect(() => { if (sceneHost.solo) untrack(handleMouseLeave); });
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
@@ -4293,14 +4298,15 @@
   class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
-  onmousedown={handleMouseDown}
+  onmousedown={(e) => { if (!sceneHost.solo) handleMouseDown(e); }}
   onpointerdowncapture={onRightDown}
   onpointerupcapture={onRightUp}
-  onmouseup={handleMouseUp}
-  ondblclick={handleDoubleClick3D}
-  onmousemove={handleMouseMove}
+  onmouseup={(e) => { if (!sceneHost.solo) handleMouseUp(e); }}
+  ondblclick={(e) => { if (!sceneHost.solo) handleDoubleClick3D(e); }}
+  onmousemove={(e) => { if (!sceneHost.solo) handleMouseMove(e); }}
   onmouseleave={handleMouseLeave}
-  oncontextmenu={handleContextMenu3D}
+  oncontextmenu={(e) => { if (sceneHost.solo) e.preventDefault(); else handleContextMenu3D(e); }}
+  data-scene-solo={sceneHost.solo || undefined}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
 

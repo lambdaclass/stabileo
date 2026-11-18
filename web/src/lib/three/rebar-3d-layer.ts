@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Rebar3d, RebarTone } from '../rc-sheets/rebar-3d';
 
-type Host = { scene: THREE.Scene; redraw: () => void };
+export type Host = { scene: THREE.Scene; redraw: () => void };
 
 const FIXED: Partial<Record<RebarTone, string>> = {
   bent: '#b48cf2', bottomX: '#4ecdc4', bottomY: '#5b8def', topX: '#e0a03c', topY: '#d9607a',
@@ -19,6 +19,10 @@ export function toneColour(tone: RebarTone): THREE.Color {
   const fixed = FIXED[tone];
   if (fixed) return new THREE.Color(fixed);
   const [token, fallback] = TOKENS[tone] ?? ['', '#9a968e'];
+  return tokenColour(token, fallback);
+}
+
+export function tokenColour(token: string, fallback: string): THREE.Color {
   if (typeof document === 'undefined' || !token) return new THREE.Color(fallback);
   const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
   if (probe === undefined) probe = document.createElement('canvas').getContext('2d');
@@ -64,16 +68,17 @@ export function buildRebarGroup(bars: readonly Rebar3d[]): THREE.Group {
   return group;
 }
 
-function dispose(group: THREE.Group): void {
-  for (const c of group.children) {
-    const mesh = c as THREE.InstancedMesh;
-    (mesh.material as THREE.Material).dispose();
-    mesh.dispose();
-  }
-  (group.children[0] as THREE.InstancedMesh | undefined)?.geometry.dispose();
+function dispose(group: THREE.Object3D): void {
+  group.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.geometry) return;
+    m.geometry.dispose();
+    if ((m as THREE.InstancedMesh).isInstancedMesh) (m as THREE.InstancedMesh).dispose();
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mat.dispose();
+  });
 }
 
-export function createRebarLayer() {
+export function createSoloLayer<T>(build: (items: readonly T[], host: Host) => THREE.Group) {
   let group: THREE.Group | null = null;
   let shownOn: Host | null = null;
   const takeOut = (): Host | null => {
@@ -84,10 +89,12 @@ export function createRebarLayer() {
     return was;
   };
   return {
-    show(host: Host | null, bars: readonly Rebar3d[]): void {
+    show(host: Host | null, items: readonly T[]): void {
       const was = takeOut();
-      if (!host || !bars.length) { (host ?? was)?.redraw(); return; }
-      group = buildRebarGroup(bars);
+      if (!host || !items.length) { (host ?? was)?.redraw(); return; }
+      group = build(items, host);
+      group.userData.solo = true;
+      group.userData.noPick = true;
       host.scene.add(group);
       shownOn = host;
       host.redraw();
@@ -98,3 +105,5 @@ export function createRebarLayer() {
     },
   };
 }
+
+export const createRebarLayer = () => createSoloLayer<Rebar3d>((bars) => buildRebarGroup(bars));
