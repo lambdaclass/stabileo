@@ -33,3 +33,32 @@ it('limits the shell regeneration notice to older three-dimensional plans with s
   const plain = { ...legacy, designData: { loadBasis: { derivation: [{ key: 'loadPlan.gravity.panels' }] } } };
   expect(changes({ ...plain, analysisMode: 'pro' })).not.toContain(change.id);
 });
+
+const regression = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
+const legacyPanel: FeatureSnapshot = {
+  ...legacy,
+  quads: [[1, { id: 1 }]],
+  regulations: { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: 'panels' } } } } },
+};
+
+regression('known wrong result: #2282 saved panel-mode shell geometry and generated member loads require regeneration', () => {
+  for (const analysisMode of ['3d', 'pro']) {
+    for (const analysis of ['linear', 'pdelta'] as const) {
+      for (const designData of [undefined, { loadBasis: {} }]) {
+        const snapshot = { ...legacyPanel, analysisMode, designData };
+        expect(assessProject(snapshot, stampSolve(analysis, null)).changes.map(c => c.id)).toContain(change.id);
+      }
+    }
+  }
+});
+
+it('requires saved panel mode, shell geometry, generated member gravity and an older generation stamp for the fallback', () => {
+  const manual = [{ type: 'distributed3d', data: { elementId: 1, caseId: 1 } }];
+  const width = { roles: { loads: { adapterId: 'cirsoc-101', settings: { dialog: { gravityMode: 'width' } } } } };
+  for (const overrides of [
+    { analysisMode: '2d' }, { loads: manual }, { regulations: width }, { regulations: undefined }, { quads: [] },
+    { designData: { loadBasis: { resultsVersion: change.resultsVersion } } },
+  ]) {
+    expect(changes({ ...legacyPanel, analysisMode: 'pro', ...overrides })).not.toContain(change.id);
+  }
+});
