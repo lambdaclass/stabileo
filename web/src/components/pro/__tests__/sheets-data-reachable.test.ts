@@ -35,4 +35,10 @@ describe('the data the sheets read is editable whenever the sheets are reachable
     expect(o).toContain('<SeismicEditor />');
     expect(o).toMatch(/<details class="pk-card do"/);
   });
+
+  it('the design data say what beams and slabs carry for their deflection, how long the load lasts, its sustained share, the creep coefficient and whether to calculate always', () => {
+    const o = src('design/DesignOptionsSections.svelte');
+    for (const id of ['design-options-deflection', 'dd-defl-supports', 'dd-defl-months', 'dd-defl-sustained', 'dd-defl-creep', 'dd-defl-always']) expect(o).toContain(`data-testid="${id}"`);
+    expect(o).toContain('setDeflectionSettings');
+  });
 });

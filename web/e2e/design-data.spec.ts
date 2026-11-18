@@ -33,6 +33,24 @@ test.describe('@smoke design data', () => {
   });
 });
 
+test.describe('@smoke design data: deflections', () => {
+  test('say what beams and slabs carry, the load duration and the sustained share; the creep coefficient is EN 1992\'s only', async ({ pro: page }) => {
+    await designPlace(page, 'designData');
+    const card = page.getByTestId('design-options-deflection');
+    await card.locator('> summary').click();
+    await card.getByTestId('dd-defl-supports').selectOption('fragile');
+    await expect(page.getByTestId('design-options-deflection-summary')).toContainText('480');
+    await card.getByTestId('dd-defl-months').selectOption('12');
+    const share = card.getByTestId('dd-defl-sustained');
+    await share.fill('0.5');
+    await share.dispatchEvent('change');
+    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toMatch(/"deflection":\{"supports":"fragile","months":12,"sustained":0\.5\}/);
+    await expect(card.getByTestId('dd-defl-creep')).toBeDisabled();
+    await card.getByTestId('dd-defl-always').check();
+    await expect.poll(() => page.evaluate(() => window.__stabileo.serializeProject())).toContain('"always":true');
+  });
+});
+
 test.describe('@smoke design data with design off', () => {
   test('the sheets and the building edit the covers, the steel and the seismic data the sheets read', async ({ pro: page }) => {
     await page.getByTestId('pro-settings').click();
