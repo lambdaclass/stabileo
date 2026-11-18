@@ -765,3 +765,138 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+const issue2225 = process.env.RUN_KNOWN_WRONG === '2225' ? it : it.skip;
+issue2225('known wrong result: #2225 active torsion requires the transverse minimum on the wider face', () => {
+  const stirrup = { diameter: 6, legs: 2, spacing: 0.15 };
+  const minimum = Math.max(0.062 * Math.sqrt(section.fc), 0.35) * section.h / section.fy;
+  const supplied = stirrup.legs * legArea(stirrup.diameter) / stirrup.spacing;
+  const result = checkTorsion2025({
+    ...section, d: 0.561, dSecondary: 0.261, stirrupDiaMm: 6, fyt: section.fy,
+    stirrup, demand: torsionDemand(6, 0, 0),
+  });
+  expect(result.neglect).toBe(false);
+  expect(supplied).toBeLessThan(minimum);
+  expect(result.transverseRequired).toBeCloseTo(minimum, 12);
+});
+
+const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
+issue2310('known wrong result: #2310 fixed torsion limits combined stress using concurrent concrete shear resistance', () => {
+  const shear = { diameter: 12, legs: 4, spacing: 0.045 };
+  const geometry = { ...section, stirrupDia: shear.diameter };
+  const torsion = 47.5;
+  const vz = 250;
+  const tension = 180;
+  const [entry] = declaredTestDemands([{ comboId: 1, comboName: 'C1',
+    forces: { t: 0.5, x: 2, n: tension, my: 0, mz: 0, vy: 0, vz, torsion } }]);
+  const fixedBars = { AsProv: 8.044, barDia: 16, barCount: 4, bars: 'provided', isDoublyReinforced: false };
+  const result = verifyElement({
+    ...geometry, elementId: 1, elementType: 'beam', edition: '2025', demand: entry!.section('My'),
+  }, { shear, flexure: fixedBars, torsion: { AlProv: 100 } });
+  const d = depth(section.h, shear.diameter, fixedBars.barDia);
+  const inset = 2 * section.cover + shear.diameter / 1000;
+  const aoh = (section.b - inset) * (section.h - inset);
+  const perimeter = 2 * (section.b + section.h - 2 * inset);
+  const root = Math.sqrt(section.fc);
+  const table22551ConcreteStress = 0.17 * root * 1000 - tension / (6 * section.b * section.h);
+  const section22771StressLimit = phi * (table22551ConcreteStress + 0.66 * root * 1000);
+  const shearStress = vz / (section.b * d);
+  const torqueCapacity = Math.sqrt(section22771StressLimit ** 2 - shearStress ** 2) * 1.7 * aoh ** 2 / perimeter;
+  expect(torsion).toBeGreaterThan(torqueCapacity);
+  expect.soft(result.torsion?.phiTn).toBeCloseTo(torqueCapacity, 9);
+  expect.soft(result.torsion?.status).toBe('fail');
+});
+
+function verifyBeamStations(
+  geometry: typeof section, rebar: ProvidedReinforcement, L: number,
+  groups: Array<{ name: string; forces: { n: number; my: number; vz: number; torsion: number } }>,
+) {
+  const stationTs = [0, 0.5, 1];
+  const comboResults = groups.map(({ name, forces }, i) => ({
+    comboId: i + 1, comboName: name,
+    stations: stationTs.map(t => ({ t, x: t * L, ...forces, mz: 0, vy: 0 })),
+  }));
+  return verifyProvidedReinforcement(1, 'beam', rebar, undefined, {}, geometry,
+    { elementId: 1, length: L, stationTs, comboResults }, undefined,
+    { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
+}
+
+const issue2213 = process.env.RUN_KNOWN_WRONG === '2213' ? it : it.skip;
+issue2213('known wrong result: #2213 compression in another combination cannot waive the ductility check', () => {
+  const geometry = { ...section, h: 0.35, fy: 500 };
+  const steel = {
+    top: { count: 4, diameter: 25 }, bottom: { count: 2, diameter: 16 },
+    stirrups: { diameter: 8, legs: 2, spacing: 0.1 },
+  };
+  const bending = { name: 'Bending', forces: { n: 0, my: -50, vz: 0, torsion: 0 } };
+  const cirsoc201Section9331Threshold = 0.1 * geometry.fc * 1000 * geometry.b * geometry.h;
+  const compression = { name: 'Compression', forces: { n: -Math.ceil(cirsoc201Section9331Threshold), my: 0, vz: 0, torsion: 0 } };
+  const ductility = (groups: Parameters<typeof verifyBeamStations>[3]) =>
+    verifyBeamStations(geometry, steel, 12, groups).checks.filter(row => row.category.includes('ductility'));
+  expect(ductility([bending])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
+  expect(ductility([bending, compression])).toEqual(expect.arrayContaining([expect.objectContaining({ status: 'fail' })]));
+});
+
+function tensionSpacingWitness(axialTension: number, vu: number) {
+  const geometry = { ...section, h: 0.5, stirrupDia: 10 };
+  const bars = { count: 3, diameter: 20 };
+  const stirrups = { diameter: 10, legs: 4, spacing: 0.2 };
+  const d = depth(geometry.h, stirrups.diameter, bars.diameter);
+  const concreteStress = 0.17 * Math.sqrt(geometry.fc) * 1000 - axialTension / (6 * geometry.b * geometry.h);
+  const requiredVs = vu / phi - concreteStress * geometry.b * d;
+  const table97622Row2Threshold = 0.33 * Math.sqrt(geometry.fc) * 1000 * geometry.b * d;
+  expect(requiredVs).toBeGreaterThan(table97622Row2Threshold);
+  expect(stirrups.spacing).toBeGreaterThan(d / 4);
+  const result = verifyBeamStations(geometry, { top: bars, bottom: bars, stirrups }, 6,
+    [{ name: 'Axial tension with shear', forces: { n: axialTension, my: 0, vz: vu, torsion: 0 } }]);
+  expect(result.checks.find(row => row.category.endsWith('s,max'))).toMatchObject({ status: 'fail' });
+}
+
+const issue2214 = process.env.RUN_KNOWN_WRONG === '2214' ? it : it.skip;
+issue2214('known wrong result: #2214 concurrent tension requires row 2 stirrup spacing', () => {
+  tensionSpacingWitness(450, 210);
+});
+
+const issue2271 = process.env.RUN_KNOWN_WRONG === '2271' ? it : it.skip;
+issue2271('known wrong result: #2271 the spacing row changes before the uncoupled shear threshold', () => {
+  tensionSpacingWitness(450, 208);
+});
+
+const issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
+issue2296('known wrong result: #2296 primary shear uses the depth of the hogging tension bars', () => {
+  const geometry = { ...section, stirrupDia: 12 };
+  const bars = { top: { count: 3, diameter: 32 }, bottom: { count: 3, diameter: 16 } };
+  const stirrups = { diameter: 12, legs: 2, spacing: 0.16 };
+  const vu = 352;
+  const d = depth(geometry.h, stirrups.diameter, bars.top.diameter);
+  const capacity = phi * d * (0.17 * Math.sqrt(geometry.fc) * 1000 * geometry.b
+    + stirrups.legs * 1.131e-4 * geometry.fy * 1000 / stirrups.spacing);
+  expect(vu / capacity).toBeGreaterThan(1);
+  const result = verifyBeamStations(geometry, { ...bars, stirrups }, 4,
+    [{ name: 'Support hogging', forces: { n: 0, my: -20, vz: vu, torsion: 0 } }]);
+  const row = result.checks.find(check => check.demandCategory === 'Vz');
+  expect.soft(row?.capacity).toBeCloseTo(Number(capacity.toFixed(2)), 10);
+  expect.soft(row?.status).toBe('fail');
+});
+
+const issue2300 = process.env.RUN_KNOWN_WRONG === '2300' ? it : it.skip;
+issue2300('known wrong result: #2300 longitudinal torsion does not count bars beyond their cutoff', () => {
+  const L = 4;
+  const supportRegion = 0.25;
+  const extensionEnd = 0.4;
+  const stirrups = { diameter: 8, legs: 2, spacing: 0.075 };
+  const face = { count: 3, diameter: 16 };
+  const groups = {
+    topStartGroups: [{ layers: [{ ...face, row: 0 }], label: 'support' as const, extensionEnd, anchorageEnd: 'hook' as const }],
+    topEndGroups: [{ layers: [{ ...face, row: 0 }], label: 'support' as const, continueStart: false }],
+  };
+  const reinforcement = { stirrups, regions: { regionT: supportRegion, bottomSpan: face, topStart: face, topEnd: face, ...groups } };
+  const stationTs = [0, 0.4, 0.7, 1];
+  const stations = stationTs.map(t => ({ t, x: t * L, n: 0, my: -15, mz: 0, vy: 0, vz: 0, torsion: 20 }));
+  expect(stations[1]!.x).toBeGreaterThan(supportRegion * L + extensionEnd);
+  expect(stations[1]!.x).toBeLessThan((1 - supportRegion) * L);
+  const result = verifyProvidedReinforcement(1, 'beam', reinforcement, undefined, {}, section,
+    { elementId: 1, length: L, stationTs, comboResults: [{ comboId: 1, comboName: 'C1', stations }] }, undefined,
+    { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
+  expect(result.checks.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ provided: 0, status: 'fail' });
+});

@@ -21,7 +21,8 @@
 import { describe, it, expect } from 'vitest';
 import { computeShearCapacity } from '../../station-design-forces';
 import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
-import { checkShear } from '../../codes/argentina/cirsoc201';
+import { checkShear, verifyElement } from '../../codes/argentina/cirsoc201';
+import { declaredTestDemands } from '../../__tests__/helpers/declared-demands';
 import { checkTorsion, torsionDemand } from '../../__tests__/helpers/manual-interactions';
 
 describe('CIRSOC 201-2025 shear limits in the verifier', () => {
@@ -72,4 +73,22 @@ describe('CIRSOC 201-2025 limits in the required-steel sizing', () => {
     expect(t25.AtOverS / t05.AtOverS).toBeCloseTo(500 / 420, 9);
     expect(t25.steps[0]).toBe('fy, fyt = 420 MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)');
   });
+});
+
+const issue2309 = process.env.RUN_KNOWN_WRONG === '2309' ? it : it.skip;
+issue2309('known wrong result: #2309 CIRSOC 201-2005 caps the yield stress for fixed torsion steel', () => {
+  const beam = { b: 0.3, h: 0.6, fc: 25, fy: 500, cover: 0.025, stirrupDia: 10 };
+  const torque = 30;
+  const cage = { diameter: 10, legs: 2, spacing: 0.1 };
+  const centerlineInset = 2 * beam.cover + cage.diameter / 1000;
+  const ao = 0.85 * (beam.b - centerlineInset) * (beam.h - centerlineInset);
+  const cirsoc201Section11634YieldLimit = 420;
+  const requiredCm2PerM = 1e4 * torque / (0.75 * 2 * ao * cirsoc201Section11634YieldLimit * 1000);
+  const [loads] = declaredTestDemands([{ comboId: 1, comboName: 'C1',
+    forces: { t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: torque } }]);
+  const result = verifyElement({
+    ...beam, elementId: 1, elementType: 'beam', edition: '2005', demand: loads!.section('My'),
+  }, { shear: cage, torsion: { AlProv: 100 } });
+  expect.soft(result.torsion?.AtOverS).toBeCloseTo(requiredCm2PerM, 12);
+  expect.soft(result.torsion?.status).toBe('fail');
 });

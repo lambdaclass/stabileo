@@ -74,3 +74,34 @@ describe('a seismic portal by hand', () => {
     expect(r2.joints).toHaveLength(0);
   });
 });
+
+const issue2216 = process.env.RUN_KNOWN_WRONG === '2216' ? it : it.skip;
+issue2216('known wrong result: #2216 missing primary reinforcement cannot pass a seismic member check', () => {
+  const primaryColumn = column(1, 1, 2);
+  const missingReinforcement = [
+    { ...beam, r: undefined },
+    { ...primaryColumn, r: undefined, section: undefined },
+  ];
+  const report = seismicFrameChecks({ nodes, members: missingReinforcement, settings: defaultSeismicDesign() });
+  expect(report.members).toHaveLength(missingReinforcement.length);
+  for (const member of report.members) {
+    expect.soft(member).toMatchObject({ ok: false });
+  }
+});
+
+const issue2217 = process.env.RUN_KNOWN_WRONG === '2217' ? it : it.skip;
+issue2217('known wrong result: #2217 layered bars and grouped bars require the same hoop spacing', () => {
+  const largest = { count: 4, diameter: 25 };
+  const smallest = { count: 4, diameter: 10 };
+  const common = { stirrupsSupport: { diameter: 8, legs: 2, spacing: 0.1 }, regionT: 0.25 };
+  const grouped = { ...common, topStart: largest, topEnd: smallest, bottomSpan: largest };
+  const layered = { ...common, topStartLayers: [{ ...largest, row: 0 }], topEndLayers: [{ ...smallest, row: 0 }], bottomSpanLayers: [{ ...largest, row: 0 }] };
+  const assess = (regions: NonNullable<FrameMember['r']>['regions']) => seismicFrameChecks({
+    nodes: new Map([[2, { x: 0, y: 0, z: 3 }], [4, { x: 8, y: 0, z: 3 }]]),
+    members: [{ ...beam, L: 8, b: 0.4, h: 0.8, r: { regions }, faceHalf: [0, 0], vg: [0, 0] }],
+    settings: defaultSeismicDesign(),
+  }).members[0]?.beam?.hoops;
+  const sixSmallestRestrainedBarDiameters = 6 * smallest.diameter / 1000;
+  expect(assess(grouped)).toMatchObject({ spacing: sixSmallestRestrainedBarDiameters, spacingOk: false });
+  expect(assess(layered)).toMatchObject({ spacing: sixSmallestRestrainedBarDiameters, spacingOk: false });
+});
