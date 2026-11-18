@@ -32,6 +32,8 @@ export interface BeamComboForces {
   seismic?: boolean;
   mStart: number; mSpan: number; mEnd: number;
   mPos: number; mNeg: number;
+  /** Where along the span those peaks act, m. */
+  xPos?: number; xNeg?: number;
   nStart: number; nSpan: number; nEnd: number;
   v: number; nV: number; t: number;
 }
@@ -127,7 +129,7 @@ const paramsOf = (d: BeamDemand, c: BeamContext, stirrupDia = c.stirrupDia): Con
 
 const hoopPerimeter = (d: BeamDemand, c: BeamContext, sd: number) => 2 * ((d.b - 2 * c.cover - sd / 1000) + (d.h - 2 * c.cover - sd / 1000));
 
-const sectionOf = (d: BeamDemand, s: SectionName) => (s === 'start' ? d.start : s === 'span' ? d.span : d.end);
+const sectionOf = (d: Pick<BeamDemand, 'start' | 'span' | 'end'>, s: SectionName) => (s === 'start' ? d.start : s === 'span' ? d.span : d.end);
 
 /** The kernel query for one section: `tension` bars against the moment, `compression` on the other face; the flange counts only when sagging. */
 export function sectionQuery(c: BeamContext, d: { b: number; h: number; flange?: { bf: number; hf: number } }, tension: BarGroup[], compression: BarGroup[], stirrupDia: number, nc = 0, shear?: Stirrups, sagging = false): BeamSectionQuery {
@@ -147,6 +149,12 @@ export const phiMnOf = (r: BeamSectionAnswer | undefined): number =>
   (r && r.flexureValid && Number.isFinite(r.phiMn) ? r.phiMn / 1e3 : 0);
 
 const barsAt = (a: BeamAdopted, s: SectionName) => a.at?.[s] ?? { top: a.top, bottom: a.bottom };
+
+/** The section nearest to where a combination's peak moment acts, whose bars carry it; null where the demand does not say where. */
+export function peakSection(d: Pick<BeamDemand, 'start' | 'span' | 'end'>, x: number | undefined): SectionName | null {
+  if (x === undefined) return null;
+  return SECTION_NAMES.reduce((w, s) => (Math.abs(sectionOf(d, s).x - x) < Math.abs(sectionOf(d, w).x - x) ? s : w));
+}
 
 function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck[] {
   const sd = a.stirrups.dia;
@@ -451,8 +459,10 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
   const rows = d.combos.map((k, i) => {
     const o = i * 6;
     const mRatio = (m: number, iPos: number, iNeg: number) => (m >= 0 ? ratioOf(m, cap(iPos)) : ratioOf(-m, cap(iNeg)));
-    const flex = Math.max(mRatio(k.mStart, o + 3, o + 1), mRatio(k.mSpan, o, o + 5), mRatio(k.mEnd, o + 4, o + 2), ratioOf(k.mPos, cap(o)),
-      ratioOf(k.mNeg, Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
+    const posAt = { start: o + 3, span: o, end: o + 4 }, negAt = { start: o + 1, span: o + 5, end: o + 2 };
+    const sp = peakSection(d, k.xPos) ?? 'span', sn = peakSection(d, k.xNeg);
+    const flex = Math.max(mRatio(k.mStart, o + 3, o + 1), mRatio(k.mSpan, o, o + 5), mRatio(k.mEnd, o + 4, o + 2), ratioOf(k.mPos, cap(posAt[sp])),
+      ratioOf(k.mNeg, sn ? cap(negAt[sn]) : Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
     const sh = checkShear(p, k.v, k.nV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
     const t = c.torsion === 'compatibility' ? Math.min(k.t, PHI_V * tcr) : k.t;
     const tor = checkTorsion(p, shearTorsion(k.v, t), EDITION);

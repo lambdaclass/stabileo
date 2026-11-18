@@ -241,11 +241,12 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         const s0 = at(x0), sm = at(xStar), s1 = at(x1);
         const extra = m.faces ? [{ x: v0, s: at(v0) }, { x: v1, s: at(v1) }] : [];
         take(start, s0[flex], -s0.n, set.name); take(mid, sm[flex], -sm.n, set.name); take(end, s1[flex], -s1.n, set.name);
-        let mPos = 0, mNeg = 0, v = 0, nv = 0, t = 0;
+        let mPos = 0, mNeg = 0, xPos = xStar, xNeg = x0, v = 0, nv = 0, t = 0;
         for (const { x, s } of [...list, ...extra]) {
           const mm = s[flex];
           if (x >= x0 - 1e-9 && x <= x1 + 1e-9) {
-            mPos = Math.max(mPos, mm); mNeg = Math.max(mNeg, -mm);
+            if (mm > mPos) { mPos = mm; xPos = x; }
+            if (-mm > mNeg) { mNeg = -mm; xNeg = x; }
             if (-mm > negAny.value) { negAny = { value: -mm, source: { combo: set.name, x } }; nNegAny = -s.n; }
           }
           if (x < v0 - 1e-9 || x > v1 + 1e-9) continue;
@@ -254,7 +255,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
           t = Math.max(t, Math.abs(s.torsion));
           if (Math.abs(s.torsion) > tu.value) tu = { value: Math.abs(s.torsion), source: { combo: set.name, x } };
         }
-        combos.push({ combo: set.name, ...(set.seismic ? { seismic: true } : {}), mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
+        combos.push({ combo: set.name, ...(set.seismic ? { seismic: true } : {}), mStart: s0[flex], mSpan: sm[flex], mEnd: s1[flex], mPos, mNeg, xPos, xNeg, nStart: -s0.n, nSpan: -sm.n, nEnd: -s1.n, v, nV: nv, t });
       });
       out.push({
         key: `beam:${g.id}:${k}`, name: spans.length > 1 ? `${g.name}-${k + 1}` : g.name, level: g.level,
