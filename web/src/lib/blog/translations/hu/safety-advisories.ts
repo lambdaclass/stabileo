@@ -140,6 +140,16 @@ const body: PostBody = {
     },
     {
       "k": "note",
+      "t": "SA-2026-075 — Javítva a #2308 PR-ben, összevonásra és kiadásra vár."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md",
+      "label": "SA-2026-075",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
       "t": "SA-2026-076 — Javítva a #2220 PR-ben, összevonásra és kiadásra vár."
     },
     {
@@ -663,6 +673,12 @@ const body: PostBody = {
           "A ferde szarufa felosztása a megadott tetőpanelt födémmé minősíthette, és figyelmeztetés nélkül eltüntethette az eresz hóterhét. Az osztályozás most a panelek fizikai alaprajzát használja. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2172). Egy különálló alsó panel fölötti felosztatlan ferde szarufa is tetőnek minősíthette a panelt, megváltoztatva a tető és födém felületi terheit, és szélességalapú módban figyelmeztetés nélkül hóterhet adhatott hozzá.",
           "Magas",
           "PR #2197; egyesítésre és kiadásra vár"
+        ],
+        [
+          "SA-2026-075",
+          "A CIRSOC 201-2005 és 2025 szerinti másodlagos nyírási és csavarási ellenőrzések a főirány kengyelszárait és keresztmetszeti szélességét vehették figyelembe. Emiatt a gerendák és oszlopok elégtelen másodlagos irányú vasalással is figyelmeztetés nélkül megfelelhettek (#2171). Frissítés után futtassa újra a vasbeton méretezést, és tekintse át a mentett projekt újraszámítási értesítését.",
+          "Magas",
+          "Javítva a #2308 PR-ben, összevonásra és kiadásra vár"
         ],
         [
           "SA-2026-076",
