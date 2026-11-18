@@ -11,7 +11,7 @@
  * the text limits only Tth, Tcr and Vc.
  */
 import type { StirrupDef } from '../../design-contract/reinforcement';
-import { secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from './secondary-stirrup-legs';
+import { isClosedRectangularStirrup, secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from './secondary-stirrup-legs';
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
@@ -42,10 +42,12 @@ export interface TorsionCheck {
   sMax: number;
   /** The worst of the cross-section, transverse, outer leg and spacing ratios. */
   ratio: number;
+  cageRefusal?: string;
   secondaryLegsRefusal?: string;
 }
 
 const PHI = 0.75;
+export const torsionCageUnavailable = 'Torsion requires a closed rectangular stirrup cage.';
 
 export function providedTorsionStirrups(stirrup: NonNullable<TorsionInput['stirrup']>) {
   const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
@@ -74,7 +76,9 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
     return Math.max(Vs / (i.fyt * 1000 * depth) + 2 * AtOverS, minimum);
   };
   const neglect = Tu < phiTth;
-  const provision = i.stirrup ? providedTorsionStirrups(i.stirrup) : { transverseProvided: 0, outerLegProvided: 0 };
+  const closedCage = i.stirrup && isClosedRectangularStirrup(i.stirrup, i.rectangularCage) ? i.stirrup : undefined;
+  const cageRefusal = !neglect && i.stirrup && !closedCage ? torsionCageUnavailable : undefined;
+  const provision = closedCage ? providedTorsionStirrups(closedCage) : { transverseProvided: 0, outerLegProvided: 0 };
   const { outerLegProvided } = provision;
   let transverseRequired = required(i.b, i.d, Vu);
   let transverseProvided = provision.transverseProvided;
@@ -101,6 +105,7 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
     outerLegProvided > 0 ? AtOverS / outerLegProvided : Number.POSITIVE_INFINITY,
     i.stirrup ? i.stirrup.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
-  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: secondaryLegsRefusal ? Infinity : Math.max(...ratios),
+  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax, ratio: cageRefusal || secondaryLegsRefusal ? Infinity : Math.max(...ratios),
+    ...(cageRefusal ? { cageRefusal } : {}),
     ...(secondaryLegsRefusal ? { secondaryLegsRefusal } : {}) };
 }

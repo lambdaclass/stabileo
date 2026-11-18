@@ -10,8 +10,8 @@
  * region, its top steel at each end the bars over that support's face; how far each reaches into
  * the next region is its extension, and a hook at an end inside the member is its anchorage.
  */
-import { secondaryStirrupLegs } from '../../codes/cirsoc201/secondary-stirrup-legs';
-import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
+import { isClosedRectangularStirrup, secondaryStirrupLegs } from '../../codes/cirsoc201/secondary-stirrup-legs';
+import { stirrupLayoutFits, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -113,7 +113,9 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
     topAt('start'); topAt('end');
     // ── Stirrups ──
     if (reg.stirrupZones) {
-      for (const z of reg.stirrupZones.zones) zone(a + z.from, Math.min(a + z.to, b), z.stirrup);
+      if (stirrupLayoutFits(reg.stirrupZones, m.L)) {
+        for (const z of reg.stirrupZones.zones) zone(a + z.from, Math.min(a + z.to, b), z.stirrup);
+      }
     } else {
       const support = reg.stirrupsSupport ?? r.stirrups;
       const ends = reg.stirrupsBySupport;
@@ -144,7 +146,7 @@ function mergeOverSupports(bars: BeamLineBar[]): BeamLineBar[] {
 
 const sameSecondaryCage = (p: StirrupDef, q: StirrupDef) => secondaryStirrupLegs(p) === secondaryStirrupLegs(q);
 const sameCage = (p: BeamStirrupZone, q: BeamStirrupZone) => p.diameter === q.diameter && p.legs === q.legs
-  && p.spacing === q.spacing && sameSecondaryCage(p, q);
+  && p.spacing === q.spacing && isClosedRectangularStirrup(p) === isClosedRectangularStirrup(q) && sameSecondaryCage(p, q);
 
 function mergeZones(zs: BeamStirrupZone[]): BeamStirrupZone[] {
   const out: BeamStirrupZone[] = [];

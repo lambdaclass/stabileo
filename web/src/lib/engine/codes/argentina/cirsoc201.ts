@@ -18,8 +18,8 @@ import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
-import { checkTorsion2025, providedTorsionStirrups } from '../../../codes/cirsoc201/torsion';
-import { secondaryStirrupLegs, secondaryStirrupLegsUnavailable, secondaryStirrupLegsUnavailableCode, type SecondaryStirrupLegs } from '../../../codes/cirsoc201/secondary-stirrup-legs';
+import { checkTorsion2025, providedTorsionStirrups, torsionCageUnavailable } from '../../../codes/cirsoc201/torsion';
+import { isClosedRectangularStirrup, secondaryStirrupLegs, secondaryStirrupLegsUnavailable, secondaryStirrupLegsUnavailableCode, type SecondaryStirrupLegs } from '../../../codes/cirsoc201/secondary-stirrup-legs';
 import type { StirrupDef } from '../../../design-contract/reinforcement';
 
 // ─── Rebar Database ─────────────────────────────────────────────
@@ -1334,10 +1334,10 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   return { shear: { spacing, legs }, requirements };
 }
 
-function checkProvidedTorsion(t: TorsionResult, primary: ShearResult, secondary: ShearResult | null | undefined, AlProv: number | undefined): TorsionResult {
-  if (secondary === null && !t.neglect) {
-    return { ...t, status: 'fail', reinforcementRatio: Infinity,
-      steps: [...t.steps, secondaryStirrupLegsUnavailable] };
+function checkProvidedTorsion(t: TorsionResult, primary: ShearResult, secondary: ShearResult | null | undefined, AlProv: number | undefined, closedCage: boolean): TorsionResult {
+  if (!t.neglect && (!closedCage || secondary === null)) {
+    return { ...t, AtOverSProv: 0, status: 'fail', reinforcementRatio: Infinity,
+      steps: [...t.steps, closedCage ? secondaryStirrupLegsUnavailable : torsionCageUnavailable] };
   }
   const shears = secondary ? [primary, secondary] : [primary];
   const AtOverSProv = Math.min(...shears.map(s => {
@@ -1443,7 +1443,11 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     }
     const shearSecondary = checkSecondaryShear ? secondaryProvision ?? undefined : undefined;
     const secondaryRefused = secondaryProvision === null;
-    const torsionResult = torsion ? checkProvidedTorsion(torsion, shear, secondaryProvision, fixed?.torsion?.AlProv) : undefined;
+    const declaredCage = fixed?.shear && { ...fixed.shear, diameter: params.stirrupDia };
+    const closedCage = declaredCage
+      ? isClosedRectangularStirrup(declaredCage, concurrent.rectangularCage)
+      : concurrent.rectangularCage !== false;
+    const torsionResult = torsion ? checkProvidedTorsion(torsion, shear, secondaryProvision, fixed?.torsion?.AlProv, closedCage) : undefined;
     let column: ColumnResult | undefined;
     let biaxial: BiaxialResult | undefined;
 

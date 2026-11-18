@@ -102,7 +102,7 @@ import { buildRepairEnvelope, type EnvelopeMember } from './repair-envelope';
 import { evaluateState, reviewRank, type DetailingAssembly, type UnsupportedCondition } from './assembly';
 import { collapseSpans, expandSpans, spansIn } from './span-detailing';
 import { computeBeamCriticalSections } from '../station-design-forces';
-import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
+import { stirrupLayoutFits, type ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { deriveMaturity } from '../../codes/maturity';
 
 // ─── Inputs ──────────────────────────────────────────────────────
@@ -2561,6 +2561,11 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
     } as never);
 
     const designedStirrups = designedStirrupsOf(id, accepted);
+    const layout = accepted?.regions?.stirrupZones;
+    const linePieces = input.linePieces?.get(id);
+    const lineStirrups = layout && stirrupLayoutFits(layout, ctx.L)
+      ? layout.zones.map(({ from, to, stirrup }) => ({ from, to, ...stirrup }))
+      : linePieces?.stirrups.length ? linePieces.stirrups : undefined;
     const supportPlan = supportPlanOf(id);
     const gen = generateBeamBars({
       closureCache,
@@ -2611,9 +2616,8 @@ function detailMembers(raw: RunDetailingInput): RunDetailingResult {
       bentUp: input.bentUp ?? { seismicDesign: 'unstated', optOut: false },
       ...(accepted?.regions?.skin ? { skin: accepted.regions.skin } : {}),
       ...(input.webOpenings?.get(id)?.length ? { webOpenings: input.webOpenings.get(id)! } : {}),
-      ...(input.linePieces?.get(id)?.bars.length
-        ? { lineBars: input.linePieces.get(id)!.bars, lineStirrups: input.linePieces.get(id)!.stirrups }
-        : input.memberCuts?.get(id) ? { cuts: input.memberCuts.get(id) } : {}),
+      ...(linePieces?.bars.length ? { lineBars: linePieces.bars } : input.memberCuts?.get(id) ? { cuts: input.memberCuts.get(id) } : {}),
+      ...(lineStirrups ? { lineStirrups } : {}),
       ...(accepted?.regions?.bottomGroups?.some((g) => g.anchorageStart === 'hook' || g.anchorageEnd === 'hook') ? { bottomHooks: {
         start: accepted.regions.bottomGroups.some((g) => g.anchorageStart === 'hook'),
         end: accepted.regions.bottomGroups.some((g) => g.anchorageEnd === 'hook'),

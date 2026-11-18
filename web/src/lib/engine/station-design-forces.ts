@@ -1,3 +1,4 @@
+import { stirrupLayoutFits, type BeamStirrupLayout } from '../design-contract/reinforcement';
 import { CompleteDemandSet, requireDemandInventories, demandCoverage, memberDemandScope, type DemandInventory } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
@@ -1875,6 +1876,58 @@ export function prepareColumnCapacity(input: ColumnCapacitySection,
 
 
 
+function stirrupsAt(layout: BeamStirrupLayout, x: number): Array<StirrupDef | undefined> {
+  const cages = layout.zones.filter(zone => zone.from <= x && x <= zone.to).map(zone => zone.stirrup);
+  return cages.length ? cages : [undefined];
+}
+
+function stirrupBoundaryChecks(layout: BeamStirrupLayout, tuples: readonly ConcurrentDemand[]) {
+  const cuts = [...new Set([0, layout.length, ...layout.zones.flatMap(zone => [zone.from, zone.to])])].sort((a, b) => a - b);
+  const boundaries = cuts.slice(1, -1).flatMap((x, index) => {
+    const left = stirrupsAt(layout, (cuts[index]! + x) / 2);
+    const right = stirrupsAt(layout, (x + cuts[index + 2]!) / 2);
+    if (left.length === 1 && right.length === 1 && left[0] && right[0] && sameStirrup(left[0], right[0])) return [];
+    const cages = [...left.map(stir => ({ stir, side: -1 })), ...right.map(stir => ({ stir, side: 1 }))];
+    return [{ x, cages }];
+  });
+  if (!boundaries.length) return [];
+  const combos = new Map<number, ConcurrentDemand[]>();
+  for (const tuple of tuples) {
+    const existing = combos.get(tuple.comboId);
+    if (existing) existing.push(tuple);
+    else combos.set(tuple.comboId, [tuple]);
+  }
+  const checks: Array<{ tuple: ConcurrentDemand; stir?: StirrupDef; side: number; unboundedTorque?: number }> = [];
+  for (const combo of combos.values()) {
+    combo.sort((a, b) => a.stationX - b.stationX);
+    for (const { x, cages } of boundaries) {
+      const exact = combo.filter(tuple => Math.abs(tuple.stationX - x) <= 1e-9);
+      if (exact.length) {
+        for (const tuple of exact) for (const cage of cages) checks.push({ tuple, ...cage });
+        continue;
+      }
+      const upper = combo.findIndex(tuple => tuple.stationX > x);
+      if (upper <= 0) continue;
+      const a = combo[upper - 1]!, b = combo[upper]!;
+      const t = a.stationT + (b.stationT - a.stationT) * (x - a.stationX) / (b.stationX - a.stationX);
+      const tuple = a.interpolate(b, t);
+      const bounded = [a, b].every(force => force.transverseLoading.My === false && force.transverseLoading.Mz === false)
+        && a.vy === b.vy && a.vz === b.vz;
+      for (const cage of cages) {
+        const outer = cage.side < 0 ? a : b;
+        const unboundedTorque = bounded ? undefined : Math.max(Math.abs(tuple.tq), Math.abs(outer.tq));
+        checks.push({ tuple, ...cage, unboundedTorque });
+      }
+    }
+  }
+  return checks;
+}
+
+function sameStirrup(a: StirrupDef, b: StirrupDef): boolean {
+  return a.diameter === b.diameter && a.legs === b.legs && a.spacing === b.spacing
+    && a.shape === b.shape && a.secondaryCrossties === b.secondaryCrossties;
+}
+
 /**
  * THE AUTHORITATIVE provided-reinforcement verifier.
  *
@@ -2112,6 +2165,17 @@ export function verifyProvidedReinforcement(
     }
 
     const reg = provided.regions;
+    const layout = reg?.stirrupZones;
+    const lengths = [stationResult?.length, demands?.length, critSections?.L].filter(length => length !== undefined);
+    const staleLayout = layout && (!lengths.length || lengths.some(length => !stirrupLayoutFits(layout, length)));
+    if (staleLayout) {
+      pushStrength({
+        category: 'Stirrup zone geometry', demandCategory: null, unit: '—', method: 'capacity', tuplesChecked: 0,
+        description: 'Reproject the stirrup zones onto the current member geometry before verification.',
+        limiting: 'unsupportedCheck', utilization: Infinity,
+      });
+    }
+    const boundaryChecks = elementType === 'beam' && layout && !staleLayout ? stirrupBoundaryChecks(layout, allTuples) : [];
 
     // ── Resolve layers from explicit layers or grouped bars ──
     const bottomLayers = resolveLayers(reg?.bottomSpanLayers, reg?.bottomSpan ?? provided.bottom);
@@ -2652,7 +2716,7 @@ export function verifyProvidedReinforcement(
         { label: `Shear Support Start (${axes.shear})`, stir: supportCages.atStart ?? undefined, tuples: startTuples, range: [0, tStartEnd] },
         { label: `Shear Support End (${axes.shear})`, stir: supportCages.atEnd ?? undefined, tuples: endTuples, range: [tEndStart, 1] },
       ] : [ss];
-      for (const region of elementType === 'beam' ? torsionRegions : []) {
+      for (const region of elementType === 'beam' && !staleLayout ? torsionRegions : []) {
         // ── The longitudinal steel torsion adds (§22.7.6.1, §9.5.4.3, §9.6.4.3) ──
         //
         // CIRSOC 201-2025 asks it at every section where torsion is not negligible: §9.5.4.1 and
@@ -2695,13 +2759,10 @@ export function verifyProvidedReinforcement(
             required: onTension ? AsFlex + AlReq / 2 : AlReq / 2, provided: onTension ? tension : other, u: Math.max(uT, uC),
           };
         };
-        type TorsionAtStation = { r: ReturnType<typeof checkTorsion2025>; t: Tuple; stir?: StirrupDef; d: number };
+        type TorsionAtStation = { r: ReturnType<typeof checkTorsion2025>; t: Tuple; stir?: StirrupDef; d: number; refusal?: string };
         const evaluated: TorsionAtStation[] = [];
-        for (const t of region.tuples) {
-          if (Math.abs(t.tq) < 0.01) continue;
-          const layout = reg?.stirrupZones;
-          const cages = layout?.zones.filter(z => z.from <= t.stationX && t.stationX <= z.to).map(z => z.stirrup);
-          const candidates = cages ? (cages.length > 0 ? cages : [undefined]) : [region.stir];
+        const checkAt = (t: Tuple, candidates: readonly (StirrupDef | undefined)[], boundary = false, unboundedTorque?: number) => {
+          if (Math.max(Math.abs(t.tq), unboundedTorque ?? 0) < 0.01) return;
           const faces = facesAt(t);
           const topPair = topOuterPair(faces.top, [...topStartLayers, ...topEndLayers]);
           const cornerDiameter = Math.max(topPair?.diameterMm ?? 0,
@@ -2716,41 +2777,59 @@ export function verifyProvidedReinforcement(
             const moment = M(t);
             const bottomDepth = faceDepth(faces.bottom, bottomShift);
             const topDepth = faceDepth(faces.top, topShift, topPair);
-            const d = moment > 0 ? bottomDepth : moment < 0 ? topDepth : Math.min(bottomDepth, topDepth);
+            const d = boundary || moment === 0 ? Math.min(bottomDepth, topDepth) : moment > 0 ? bottomDepth : topDepth;
             const dSecondary = section.b - section.cover - (stirrupDiaMm + secondaryBarDiameter / 2) / 1000;
             const r = checkTorsion2025({
               b: section.b, h: section.h, d, dSecondary, cover: section.cover, stirrupDiaMm,
               fc: section.fc, fy: section.fy, fyt: section.fy, demand: t.section(axes.flexure),
               ...(stir ? { stirrup: stir, rectangularCage } : { stirrup: undefined }),
             });
-            if (!r.neglect) evaluated.push({ r, t, stir, d });
+            const refusal = r.secondaryLegsRefusal ?? r.cageRefusal
+              ?? (stir && unboundedTorque !== undefined && unboundedTorque >= r.phiTth
+                ? 'Cannot bound concurrent transverse demand at a stirrup zone boundary between force stations.' : undefined);
+            if (r.neglect && !refusal) continue;
+            evaluated.push({ r, t, stir, d, refusal });
           }
+        };
+        for (const t of region.tuples) {
+          checkAt(t, layout ? stirrupsAt(layout, t.stationX) : [region.stir]);
         }
-        let tw: TorsionAtStation | null = null;
-        for (const x of evaluated) if (!tw || x.r.ratio > tw.r.ratio) tw = x;
         let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | null = null;
         for (const x of evaluated) {
           const need = longitudinalNeed(x.r, x.t, x.d);
           if (!lw || need.u > lw.need.u) lw = { ...x, need };
         }
-        if (tw && lw) {
+        const stationCount = evaluated.length;
+        for (const { tuple, stir, side, unboundedTorque } of boundaryChecks) {
+          const t = tuple.stationT;
+          const inside = (from: number, to: number) => (t > from && t < to) || (t === from && side > 0) || (t === to && side < 0);
+          const inRegion = ss === support && !supportCages
+            ? inside(0, tStartEnd) || inside(tEndStart, 1) : inside(...region.range);
+          if (inRegion) checkAt(tuple, [stir], true, unboundedTorque);
+        }
+        const ratioOf = (check: TorsionAtStation) => check.refusal ? Infinity : check.r.ratio;
+        let tw: TorsionAtStation | null = null;
+        for (const x of evaluated) if (!tw || ratioOf(x) > ratioOf(tw)) tw = x;
+        if (tw) {
           const tr = tw.r;
           pushStrength({
             category: `${region.label.replace('Shear', 'Torsion')}`, demandCategory: null,
             demand: +Math.abs(tw.t.tq).toFixed(2), capacity: 0,
-            utilization: tr.ratio,
-            unit: 'kN·m', method: 'capacity', tuplesChecked: region.tuples.length, regionRange: region.range,
-            description: tr.secondaryLegsRefusal ?? `${tw.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+            utilization: ratioOf(tw),
+            unit: 'kN·m', method: 'capacity', tuplesChecked: region.tuples.length + evaluated.length - stationCount, regionRange: region.range,
+            description: tw.refusal ?? `${tw.stir ? '' : 'no stirrups provided in this region — '}§22.7: Tu=${Math.abs(tw.t.tq).toFixed(1)} > φTth=${tr.phiTth.toFixed(1)} kN·m; sección ${tr.sectionRatio.toFixed(2)}; (Av+2At)/s ${(tr.transverseRequired * 1e4).toFixed(2)} de ${(tr.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(tr.sMax * 100).toFixed(1)} cm; Al ${(Math.max(tr.Al, tr.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
             comboName: tw.t.comboName, stationX: tw.t.stationX,
-            limiting: tr.secondaryLegsRefusal ? 'unsupportedCheck' : 'torsion',
+            limiting: tw.refusal ? 'unsupportedCheck' : 'torsion',
             ...(!tw.stir ? { missingReinforcement: true } : {}),
           });
+        }
+        if (lw) {
           const { AlReq, AsFlex, required, provided, face, u } = lw.need;
           pushStrength({
             category: `${region.label.replace('Shear', 'Torsion Al')}`, demandCategory: null,
             required: +(required * 1e4).toFixed(2), provided: +(provided * 1e4).toFixed(2),
             utilization: u,
-            unit: 'cm²', method: 'area', tuplesChecked: evaluated.length, regionRange: region.range,
+            unit: 'cm²', method: 'area', tuplesChecked: stationCount, regionRange: region.range,
             description: `Al=${(AlReq * 1e4).toFixed(2)} cm² (${lw.r.AlMin >= lw.r.Al ? `Al,min §9.6.4.3` : '§22.7.6.1'}, Tu=${Math.abs(lw.t.tq).toFixed(1)} ≥ φTth=${lw.r.phiTth.toFixed(1)} kN·m) sobre As de flexión ≈ ${(AsFlex * 1e4).toFixed(2)} cm²; cara ${face === 'top' ? 'superior' : 'inferior'}: ${(required * 1e4).toFixed(2)} de ${(provided * 1e4).toFixed(2)} cm² (Al/2 por cara)`,
             comboName: lw.t.comboName, stationX: lw.t.stationX,
             limiting: 'torsion',

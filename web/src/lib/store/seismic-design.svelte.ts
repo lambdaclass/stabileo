@@ -22,7 +22,7 @@ import { beamSteel, seismicFrameChecks, type FrameMember, type SeismicReport } f
 import { hoopSpacingFor } from '../engine/design/seismic/capacity';
 import { defaultSeismicDesign, type SeismicCategory, type SeismicDesignSettings, type SeismicRole, type SoftKind } from '../model/seismic-design';
 import type { MemberContext } from '../engine/design/member-context';
-import { replaceBeamRegionStirrups, type ProvidedReinforcement } from '../design-contract/reinforcement';
+import { replaceBeamRegionStirrups, stirrupLayoutFits, type ProvidedReinforcement } from '../design-contract/reinforcement';
 
 let report = $state<SeismicReport | null>(null);
 /** The analysis and the demands the report was run on: a report of other forces is not this model's. */
@@ -255,8 +255,11 @@ export function applySeismicDetailing(): { beams: number; columns: number } {
         break;
       }
       if (!pick) continue;
-      r.regions = { ...r.regions, regionT: Math.max(r.regions?.regionT ?? 0.25, Math.min(0.5, m.beam.hoops.length / ctx.L)) };
-      replaceBeamRegionStirrups(r.regions, 'stirrupsSupport', { ...cur, ...pick });
+      const layout = r.regions?.stirrupZones;
+      if (layout && !stirrupLayoutFits(layout, ctx.L)) continue;
+      const regionT = Math.max(r.regions?.regionT ?? 0.25, Math.min(0.5, m.beam.hoops.length / ctx.L));
+      r.regions = { ...r.regions, regionT };
+      replaceBeamRegionStirrups(r.regions, 'stirrupsSupport', { ...cur, ...pick }, regionT * ctx.L);
       writes.set(m.id, r);
     }
     if (m.kind === 'column' && m.confinement) {

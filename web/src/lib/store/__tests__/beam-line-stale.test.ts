@@ -100,6 +100,11 @@ describe('a saved line its members no longer match', () => {
     expect(st.changed.map((c) => [+(c.was ?? 0).toFixed(3), +(c.now ?? 0).toFixed(3)])).toEqual([[5, 5.4], [4, 3.6]]);
     expect(savedMemberCuts().size).toBe(0);
     expect(openLine(line.members[0]!)!.stale?.reason).toBe('geometry');
+    for (const id of line.members) {
+      expect(verificationStore.providedFor(id)?.checks).toContainEqual(expect.objectContaining({
+        category: 'Stirrup zone geometry', limiting: 'unsupportedCheck', status: 'fail',
+      }));
+    }
   });
 
   it('is let go on request, as one undo step', () => {
@@ -116,9 +121,7 @@ describe('a saved line its members no longer match', () => {
   });
 });
 
-const round4Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
-
-round4Reproducer('known wrong result: #2171 round 4 resizes saved hoop zones during seismic detailing', () => {
+it('#2171 round 4 resizes saved hoop zones during seismic detailing', () => {
   const line = savedEditedLine();
   const id = line.members[0]!;
   const ctx = verificationStore.contextFor(id)!;

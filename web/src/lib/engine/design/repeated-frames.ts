@@ -109,7 +109,7 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
     return v;
   };
   const mirrored = walk(r) as ProvidedReinforcement;
-  const layout = mirrored.regions?.stirrupZones;
+  const layout = r.regions?.stirrupZones;
   if (layout) mirrored.regions!.stirrupZones = {
     length: layout.length,
     startSupportEnd: layout.length - layout.endSupportStart,
