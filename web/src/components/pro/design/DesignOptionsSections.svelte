@@ -2,7 +2,8 @@
   /**
    * The choices the design takes before it starts, in the design data: the analysis assumptions
    * (moments at the faces, the slab as a flange, torsion), the detailing (bent-up bars in beams and
-   * slabs, denser column ends, the closest stirrup spacing) and chapter 18 beside the seismic data.
+   * slabs, denser column ends, the closest stirrup spacing), chapter 18 beside the seismic data and
+   * what a member with no reinforcement for its section and concrete is offered instead.
    * Each says the clause it applies under the code the sheets design to, and why it does not apply
    * where it does not.
    */
@@ -11,11 +12,12 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
-  import { rcSheetsData, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { rcSheetsData, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
   import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
+  import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
 
@@ -40,6 +42,14 @@
   };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
+  const alt = $derived(d.designOptions?.alternatives ?? {});
+  const classes = $derived(concreteClasses(code));
+  const fcMax = $derived(alt.fcMax ?? DEFAULT_FC_MAX);
+  const accepted = (fc: number) => !alt.fcClasses?.length || alt.fcClasses.some((x) => Math.abs(x - fc) < 0.05);
+  function toggleClass(fc: number, on: boolean) {
+    const now = classes.filter((k) => (Math.abs(k.fc - fc) < 0.05 ? on : accepted(k.fc))).map((k) => k.fc);
+    setAlternativeOptions({ fcClasses: now.length === classes.length ? null : now });
+  }
 </script>
 
 {#snippet option(k: DesignOptionFlag | 'endZones')}
@@ -135,6 +145,32 @@
   </div>
 </details>
 
+<details class="pk-card do" data-testid="design-options-alternatives">
+  <summary><span class="do-h">{t('designData.alternatives')}</span> <span class="do-sum" data-testid="design-options-alternatives-summary">{alt.raiseFc === false ? t('designData.alt.sectionOnly') : `f'c ≤ ${fmt(fcMax, 0)} MPa`}</span></summary>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={alt.raiseFc !== false} onchange={(e) => setAlternativeOptions({ raiseFc: e.currentTarget.checked ? null : false })} data-testid="dd-alt-raise-fc" /> <span>{t('designData.alt.raiseFc')}</span></label>
+    <span class="do-cl">{rule('alternatives').clause}</span>
+  </div>
+  {#if alt.raiseFc !== false}
+    <div class="do-opt">
+      <label class="do-inline">{t('designData.alt.fcMax')}
+        <select value={String(fcMax)} onchange={(e) => setAlternativeOptions({ fcMax: Number(e.currentTarget.value) === DEFAULT_FC_MAX ? null : Number(e.currentTarget.value) })} data-testid="dd-alt-fc-max">
+          {#each [...new Set([...classes.map((k) => k.fc), fcMax])].sort((p, q) => p - q) as fc (fc)}<option value={String(fc)}>{fmt(fc, Number.isInteger(fc) ? 0 : 1)} MPa</option>{/each}
+        </select>
+      </label>
+    </div>
+    <div class="do-opt">
+      <span class="do-inline">{t('designData.alt.classes')}</span>
+      <div class="do-classes">
+        {#each classes as k (k.fc)}
+          <label class="do-cls"><input type="checkbox" checked={accepted(k.fc)} onchange={(e) => toggleClass(k.fc, e.currentTarget.checked)} data-testid="dd-alt-class" data-fc={k.fc} /> {k.name}</label>
+        {/each}
+      </div>
+    </div>
+  {/if}
+  <Hint text={t('designData.alt.hint')} />
+</details>
+
 <details class="pk-card do" data-testid="design-options-seismic">
   <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'])}</span></summary>
   {@render option('seismic')}
@@ -158,5 +194,7 @@
   .do-off { font-size: 0.66rem; color: var(--st-warn); padding-left: 20px; }
   .do-opt.off .do-chk { opacity: 0.6; }
   .do-sub { margin-top: 6px; }
+  .do-classes { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-left: 20px; }
+  .do-cls { display: inline-flex; align-items: center; gap: 3px; font-size: 0.68rem; color: var(--st-text-2); }
   .do-sub > summary { cursor: pointer; font-size: 0.72rem; }
 </style>

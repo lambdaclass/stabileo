@@ -1,4 +1,4 @@
-import { confinementOf, deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, topBarFactor } from '../codes/cirsoc201/anchorage';
+import { confinementOf, deriveDevelopment, deriveHookedDevelopment, deriveLap, concreteBelowTopBars, developmentSqrtFc, topBarFactor } from '../codes/cirsoc201/anchorage';
 import { bentBarMandrel, minMandrelDiameter } from '../codes/cirsoc201/bar-geometry';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { evaluateCutoff, type CutoffLegality } from './cutoff';
@@ -7,10 +7,10 @@ import { minFlexuralSteelCm2, shearFy } from '../engine/codes/argentina/cirsoc20
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
 import { beamSeismic, faceRule } from './seismic';
-import { beamContext, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
+import { beamContext, beamRow, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
-import { check, governingRatio, GENEROUS_BELOW, isGenerous, nextTie, ratioOf, tieFloorOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
+import { BEAM_BAR_RANGE, check, governingRatio, GENEROUS_BELOW, isGenerous, listIn, nextTie, ratioOf, tieFloorOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
 const EDITION = '2025' as const;
 const STOCK_LENGTH = 12;
@@ -49,9 +49,25 @@ export interface LineCode {
   straightAtSupport?: { factor: number; into: number };
   /** Straight leg past a 180° hook's bend, m, for an end whose 90° hook does not fit the depth. Absent: no 180° hooks. */
   hook180Extension?(dia: number): number;
+  /**
+   * A hooked end's anchorage is measured along the bar from the support face, bend and tail
+   * included, and at a column the tail may run down the joint as far as the depth allows. Absent:
+   * `hooked` is read horizontally from the face to the hook's outside, the tail its standard one.
+   */
+  alongBar?: boolean;
+  /**
+   * Where a standard hook's ldh does not fit an end column, the bar developed by its straight ld
+   * along the bar, bend and a longer tail included (the FIUBA course's criterion at end supports,
+   * §12.2); the clause it is cited by. Absent: the hook has to fit.
+   */
+  alongFallback?: { clause: string };
+  /** A span designed with the bars the line gives it, as the code's rows verify them. Absent: the spans are not read back. */
+  spanRow?(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): BeamRow;
+  /** ldh of a hooked bar ending in a column of a special moment frame, where the code gives one for its joints. */
+  jointHooked?(c: BeamContext, dia: number): number;
   text: {
     cutoff: Record<CutoffLegality, string>;
-    clause: { envelope: string; bottomRun: string; fit: string; hooks: string; splices: string; shear: string; seismicBent?: string; integrity?: string; inflection?: string; straightEnd?: string; hook180?: string };
+    clause: { envelope: string; bottomRun: string; fit: string; hooks: string; splices: string; shear: string; seismicBent?: string; integrity?: string; inflection?: string; straightEnd?: string; hook180?: string; jointHooks?: string };
     formula: { capacity: string; cut: string; third: string };
   };
 }
@@ -79,19 +95,25 @@ export const CIRSOC_LINE: LineCode = {
     return r && r.shearValid ? { design: r.phiVn / 1e3, nominal: r.phiVn / 0.75 / 1e3 } : { design: 0, nominal: 0 };
   },
   cutoff: (input) => evaluateCutoff({ ...input, fy: shearFy(input.fy), edition: EDITION }),
+  spanRow: beamRow,
   mandrel: (dia) => minMandrelDiameter(dia, 'longitudinal').value,
   straightAtSupport: { factor: 1.3, into: 0.15 },
   hook180Extension: (dia) => Math.max(4 * dia / 1000, 0.065),
+  jointHooked: (c, dia) => Math.max((c.mat.fy * dia) / (5.4 * developmentSqrtFc(c.mat.fc)), 8 * dia, 150) / 1000,
   stirrupMax: (c, b, d, sd) => transverseSpacingLimits(EDITION, { VsRequired: 0, bw: b, d, fc: c.mat.fc, cover: c.cover, stirrupDiaMm: sd }).alongMax,
   text: {
     cutoff: { notInTension: '§9.7.3.5: M = 0', lowShear: '§9.7.3.5(a): Vu ≤ ⅔·Vn', doubleArea: '§9.7.3.5(b): As,cont ≥ 2·As,req; Vu ≤ ¾·Vn', extraStirrups: '§9.7.3.5(c): s ≤ d/8; Av/s ≥ 0.41·bw/fyt', illegal: '—' },
-    clause: { envelope: '§9.7.3, §22.2', bottomRun: '§9.7.3.8.1, §9.7.3.8.2', fit: '§25.2.1', hooks: '§25.4.3', splices: '§25.5.2', shear: '§22.5, §9.7.6.2.2', seismicBent: '§18.6.3', integrity: '§9.7.7.1, §9.7.7.5', inflection: '§9.7.3.8.3', straightEnd: '§9.7.3.8.1, §9.7.3.8.3(a)', hook180: '§25.3.1' },
+    clause: { envelope: '§9.7.3, §22.2', bottomRun: '§9.7.3.8.1, §9.7.3.8.2', fit: '§25.2.1', hooks: '§25.4.3', splices: '§25.5.2', shear: '§22.5, §9.7.6.2.2', seismicBent: '§18.6.3', integrity: '§9.7.7.1, §9.7.7.5', inflection: '§9.7.3.8.3', straightEnd: '§9.7.3.8.1, §9.7.3.8.3(a)', hook180: '§25.3.1', jointHooks: '§18.8.5.1' },
     formula: { capacity: 'φMn(x) ≥ Mu(x) ∀x', cut: '§9.7.3.3, §9.7.3.2: x(φMn,cont = Mu) + max(d; 12·db) ≥ c + ld', third: '§9.7.3.8.4: As⁻/3 → x(M = 0) + max(d; 12·db; ln/16)' },
   },
 };
 
-/** CIRSOC 201-2025 with the FIUBA course's mandrels for bent-up bars (9·db, 12·db, 15·db, §11.4), which the code does not give. */
-export const CIRSOC_2025_LINE: LineCode = { ...CIRSOC_LINE, bentMandrel: bentBarMandrel };
+/**
+ * CIRSOC 201-2025 with the FIUBA course's mandrels for bent-up bars (9·db, 12·db, 15·db, §11.4),
+ * which the code does not give, and its end anchorage where ldh does not fit the support: ld along
+ * the bar, hook and a longer leg included (§12.2).
+ */
+export const CIRSOC_2025_LINE: LineCode = { ...CIRSOC_LINE, bentMandrel: bentBarMandrel, alongFallback: { clause: '§25.4.2; FIUBA §12.2' } };
 
 /** A continuous beam's bars: a run top and bottom over its whole length, extra top bars at each support and extra bottom bars in each span. */
 export interface LineAdopted {
@@ -114,6 +136,8 @@ export interface LineBar {
   hooks: [boolean, boolean];
   /** The hooks bent through 180°, back along the bar, where a 90° one does not fit the depth. */
   hook180?: [boolean, boolean];
+  /** Each hooked end anchored along the bar: its tail past the bend and the length it develops the bar over, m. */
+  anchor?: [EndAnchor | null, EndAnchor | null];
   /** One bar's cut length with its hooks, m, and the group's weight, kg. */
   length: number; weight: number;
   /** The bar as it is bent, in the elevation's plane: y up from the beam's soffit. */
@@ -125,6 +149,8 @@ export interface LineBar {
 /** The faces a bar works at x along the line: none on its inclined legs. */
 export const barActsAt = (b: Pick<LineBar, 'runs'>, face: 'top' | 'bottom', x: number, tol = 1e-9): boolean =>
   b.runs.some((r) => r.face === face && x >= r.from - tol && x <= r.to + tol);
+
+export interface EndAnchor { tail: number; need: number }
 
 /** Why a line laid out with bent bars has none in a span (or anywhere, with no span). */
 export type BentReason = 'seismic' | 'noSagging' | 'noHogging' | 'short' | 'adopted';
@@ -290,24 +316,33 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
 
   let bentNotes: LineLayout['bentNotes'] = [];
   const faceNeg = Math.max(0, ...sorted.flatMap((r) => [reqAt(r, 'neg', 'start'), reqAt(r, 'neg', 'end')]));
+  const longs = ((l) => (l.length ? l : [...c.diameters].sort((p, q) => p - q)))(listIn(c.diameters, BEAM_BAR_RANGE));
   const inTwo = (g: BarGroup[], width: number, sd = c.stirrupDia) => faceLayout(g, width, c.cover, sd).fits && new Set(faceBars(g, width, c.cover, sd).map((x) => x.row)).size <= 2;
-  /** The extra bars for an area beside a run, in the thinnest diameter from `least` that lays the face in two layers. */
+  /**
+   * The extra bars for an area beside a run, in the thinnest diameter from `least` that lays the
+   * face in two layers: the run's own or one next to it in the list first, so a face holds one
+   * diameter or two consecutive ones (FIUBA §8.1), any other only where none of those lays out.
+   */
   const extraBars = (area: number, least: number, run: BarGroup, width: number): BarGroup => {
     if (area <= 1e-6) return { dia: least, count: 0 };
-    const dias = [...c.diameters].filter((d) => d >= least).sort((p, q) => p - q);
+    const dias = longs.filter((d) => d >= least);
+    const at = longs.indexOf(run.dia);
+    const near = at < 0 ? [] : [longs[at - 1], longs[at], longs[at + 1]].filter((d): d is number => d !== undefined && d >= least);
     const of = (dia: number) => ({ dia, count: Math.ceil(area / barArea(dia) - 1e-9) });
-    return of(dias.find((dia) => inTwo(sectionGroups(run, [of(dia)], width, c, c.stirrupDia), width)) ?? dias[dias.length - 1] ?? least);
+    const lays = (dia: number) => inTwo(sectionGroups(run, [of(dia)], width, c, c.stirrupDia), width);
+    return of(near.find(lays) ?? dias.find(lays) ?? dias[dias.length - 1] ?? least);
   };
   const propose = (floor: { top: number; bottom: number }): LineAdopted => {
     const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
     const seis = c.seismic ? { top: 0.25 * faceNeg, bottom: 0.5 * faceNeg } : { top: 0, bottom: 0 };
-    const aCb = Math.max(minBottom, bottomRunNeed(), seis.bottom, floor.bottom);
+    const comp = sorted.reduce((m, r) => ({ top: Math.max(m.top, r.req.compression?.top ?? 0), bottom: Math.max(m.bottom, r.req.compression?.bottom ?? 0) }), { top: 0, bottom: 0 });
+    const aCb = Math.max(minBottom, bottomRunNeed(), seis.bottom, floor.bottom, comp.bottom);
     const narrowest = Math.min(...spans.map((s) => s.b));
-    const runDia = [...c.diameters].filter((d) => d >= botDia).sort((p, q) => p - q)
+    const runDia = longs.filter((d) => d >= botDia)
       .find((d) => Math.ceil(aCb / barArea(d) - 1e-9) <= RUN_BARS && inTwo([{ dia: d, count: Math.max(2, Math.ceil(aCb / barArea(d) - 1e-9)) }], narrowest)) ?? botDia;
     const bottom = { dia: runDia, count: Math.max(2, Math.ceil(aCb / barArea(runDia) - 1e-9)) };
     const spanHog = Math.max(0, ...sorted.map((r) => reqAt(r, 'neg', 'span')));
-    const topNeed = Math.max(spanHog, negMax / 6, seis.top, floor.top), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
+    const topNeed = Math.max(spanHog, negMax / 6, seis.top, floor.top, comp.top), hangers = Math.max(2, Math.ceil(topNeed / barArea(hanger) - 1e-9));
     const top = hangers <= 3 ? { dia: hanger, count: hangers } : { dia: topDia, count: Math.max(2, Math.ceil(topNeed / barArea(topDia) - 1e-9)) };
     const supportTop = supports.map((_, j) => {
       const left = j > 0 ? reqAt(sorted[j - 1]!, 'neg', 'end') : 0, right = j < sorted.length ? reqAt(sorted[j]!, 'neg', 'start') : 0;
@@ -353,12 +388,51 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   const capQueries = (qs: LineQuery[]) => code.moments(c, qs);
   const query = (s: Span, tension: BarGroup[], compression: BarGroup[], sd: number, sagging: boolean, nc = 0): LineQuery => ({ demand: s.row.demand, tension, compression, sd, sagging, nc });
   const faceS = line[0] ?? 0, faceE = total - (line[line.length - 1] ?? 0);
-  /** ldh of a bar's hook: a bent bar's ends are top bars. */
-  const ldhOf = (b: Pick<LineBar, 'bars' | 'face' | 'kind'>) => code.hooked(c, b.bars.dia, b.face === 'top' || b.kind === 'bent', hMax);
+  const endOfLine = (i: 0 | 1) => (i === 0 ? endStart : endEnd);
+  /** What a hooked bar ending at a support needs: ldh, or the joint's under chapter 18 at a column; a bent bar's ends are top bars. */
+  const anchorNeed = (dia: number, top: boolean, e: BeamEnd | undefined) =>
+    (c.seismic && code.jointHooked && e?.kind === 'column' ? code.jointHooked(c, dia) : code.hooked(c, dia, top, hMax));
+  const ldhOf = (b: Pick<LineBar, 'bars' | 'face' | 'kind'>, i: 0 | 1) => anchorNeed(b.bars.dia, b.face === 'top' || b.kind === 'bent', endOfLine(i));
 
-  const legOf = (dia: number) => (mandrelOf(dia) + dia / 1000) / 2 + extensionOf(dia);
+  const bendRadius = (dia: number) => (mandrelOf(dia) + dia / 1000) / 2;
+  const legOf = (dia: number) => bendRadius(dia) + extensionOf(dia);
   const rise180 = (dia: number) => mandrelOf(dia) + dia / 1000;
   const roomOf = (k: number, dia: number, sd: number) => spans[k]!.h - 2 * (c.cover + sd / 1000) - dia / 2000;
+  /** A column end's room from its face to the outside of a hook inside it, m. */
+  const columnRoom = (e: BeamEnd) => 2 * e.half - inset;
+  /** What a hook anchors along the bar from `horizontal` m before its outside: its straight part, the bend's quarter arc and `tail`. */
+  const alongReach = (dia: number, horizontal: number, tail: number) => {
+    const r = bendRadius(dia);
+    return Math.max(0, horizontal - dia / 2000 - r) + (Math.PI * r) / 2 + tail;
+  };
+  /** The length a hook anchored along the bar at `e` develops it over: the code's own, or the straight ld where it falls back to it; null where neither applies. */
+  const alongNeed = (dia: number, top: boolean, e: BeamEnd | undefined, layer: BarLayer): number | null =>
+    (code.alongBar ? anchorNeed(dia, top, e) : code.alongFallback && !(c.seismic && code.jointHooked) && e?.kind === 'column' ? dev(c, dia, top, hMax, layer) : null);
+  /** The tail a hook at a column needs past its bend to develop `need` along the bar, from the standard one up to the beam's depth, m; null when not even that does. */
+  const tailFor = (dia: number, need: number, e: BeamEnd, k: number, sd: number): number | null => {
+    const std = extensionOf(dia), base = alongReach(dia, columnRoom(e), 0);
+    const tail = Math.max(std, Math.ceil((need - base) / 0.01 - 1e-9) * 0.01);
+    return tail <= Math.max(std, roomOf(k, dia, sd) - bendRadius(dia)) + 1e-9 ? tail : null;
+  };
+  /** How a bar of `dia` hooked at a column end anchors there: null with a standard hook that fits, its along-the-bar anchorage, or `false` where neither does. */
+  const columnAnchor = (dia: number, top: boolean, e: BeamEnd, k: number, sd: number, count: number): EndAnchor | null | false => {
+    if (!code.alongBar && anchorNeed(dia, top, e) <= columnRoom(e) + 1e-6) return null;
+    const need = alongNeed(dia, top, e, { count, width: spans[k]!.b });
+    const tail = need === null ? null : tailFor(dia, need, e, k, sd);
+    return tail === null || need === null ? false : { tail, need };
+  };
+  /** Whether a bar of `dia` hooked at each column end of the line anchors there; with `standard`, by a standard hook of the code alone. */
+  const anchorsAtColumns = (dia: number, top: boolean, standard = false) => ([0, 1] as const).every((i) => {
+    const e = endOfLine(i), k = i === 0 ? 0 : spans.length - 1;
+    if (!e || e.kind !== 'column' || e.half <= 0 || !spans[k]) return true;
+    const a = columnAnchor(dia, top, e, k, c.stirrupDia, 2);
+    return standard && !code.alongBar ? a === null : a !== false;
+  });
+  const anchorNeedOf = (b: Pick<LineBar, 'anchor' | 'bars' | 'face' | 'kind'>, i: 0 | 1) => b.anchor?.[i]?.need ?? ldhOf(b, i);
+  const anchorReachOf = (b: Pick<LineBar, 'anchor' | 'bars'>, i: 0 | 1, horizontal: number) => {
+    const a = b.anchor?.[i];
+    return a ? alongReach(b.bars.dia, horizontal, a.tail) : horizontal;
+  };
   let allow180 = false;
   let joinTops = false;
   const layout = (a: LineAdopted) => {
@@ -412,8 +486,25 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         short.push({ face, kind, end: i, dia: g.dia, leg, room, depth: spans[k]!.h - room + leg });
       });
       for (const m of short) misfits.push({ mark: id, ...m });
+      const tail: [number, number] = [extensionOf(g.dia), extensionOf(g.dia)];
+      const anchor: [EndAnchor | null, EndAnchor | null] = [null, null];
+      if (!bent) ([0, 1] as const).forEach((i) => {
+        const e = endOfLine(i), k = i === 0 ? 0 : spans.length - 1;
+        if (!hooks[i] || !e || !spans[k] || hook180[i]) return;
+        const top = face === 'top' || kind === 'bent';
+        if (e.kind !== 'column' || e.half <= 0) {
+          if (code.alongBar) anchor[i] = { tail: tail[i], need: anchorNeed(g.dia, top, e) };
+          return;
+        }
+        const own = columnAnchor(g.dia, top, e, k, sdOf(k), g.count);
+        if (own) { anchor[i] = own; tail[i] = own.tail; return; }
+        if (own === false && code.alongBar) {
+          tail[i] = Math.max(tail[i], roomOf(k, g.dia, sdOf(k)) - bendRadius(g.dia));
+          anchor[i] = { tail: tail[i], need: anchorNeed(g.dia, top, e) };
+        }
+      });
       const y = face === 'top' ? hMax - inner : inner;
-      let shape = bent?.shape ?? hookedStraight(from, to, y, g.dia, mandrelOf(g.dia), hooks, ends, extensionOf(g.dia));
+      let shape = bent?.shape ?? hookedStraight(from, to, y, g.dia, mandrelOf(g.dia), hooks, ends, tail);
       if (!bent && (hook180[0] || hook180[1])) {
         const r = rise180(g.dia), back = r / 2 + code.hook180Extension!(g.dia), pts = shape.pts;
         if (hook180[0]) pts.splice(0, 1, [from + back, y + ends[0] * r], [from, y + ends[0] * r]);
@@ -435,7 +526,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
           laps.push({ mark: id, face: faceAt(x + off), x: x + off, length: lap, bars: Math.floor(g.count / 2), spliceClass: 'B' });
         }
       }
-      bars.push({ mark: id, face, kind, bars: g, from, to, hooks, ...(hook180[0] || hook180[1] ? { hook180 } : {}), length: developedLength(shape), weight: shapeWeight(shape, g.count), shape, runs });
+      bars.push({ mark: id, face, kind, bars: g, from, to, hooks, ...(hook180[0] || hook180[1] ? { hook180 } : {}), ...(anchor[0] || anchor[1] ? { anchor } : {}), length: developedLength(shape), weight: shapeWeight(shape, g.count), shape, runs });
     };
     add('bottom', 'continuous', a.bottom, xFrom, xTo, [true, true]);
     add('top', 'continuous', a.top, xFrom, xTo, [true, true]);
@@ -568,8 +659,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     const groups: BarGroup[] = [];
     for (const b of bars.filter((y) => barActsAt(y, face, xl))) {
       const ld = ldOf(b.bars);
-      const fromStart = b.hooks[0] ? (Math.max(xl, faceS) - b.from) / ldhOf(b) : (xl - b.from) / ld;
-      const fromEnd = b.hooks[1] ? (b.to - Math.min(xl, faceE)) / ldhOf(b) : (b.to - xl) / ld;
+      const fromStart = b.hooks[0] ? anchorReachOf(b, 0, Math.max(xl, faceS) - b.from) / anchorNeedOf(b, 0) : (xl - b.from) / ld;
+      const fromEnd = b.hooks[1] ? anchorReachOf(b, 1, b.to - Math.min(xl, faceE)) / anchorNeedOf(b, 1) : (b.to - xl) / ld;
       const f = Math.min(1, fromStart, fromEnd);
       if (f > 1e-3) groups.push({ count: b.bars.count * f, dia: b.bars.dia });
     }
@@ -622,12 +713,56 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       at: { start: at(s.x0 + (s.row.demand.start.x)), span: at(s.x0 + s.row.demand.span.x), end: at(s.x0 + s.row.demand.end.x) },
     };
   });
+  /**
+   * The runs a span short of ductility with the line's bars asks, cm²: a sagging section not
+   * ductile asks the top run its own proposal holds there in compression, a hogging one the bottom
+   * run; 0 where the line's runs already hold that much or the span is ductile.
+   */
+  const spanRows = new Map<string, BeamRow>();
+  const spanRowOf = (k: number, sa: BeamAdopted): BeamRow => {
+    const key = `${k}|${JSON.stringify(sa)}`;
+    let row = spanRows.get(key);
+    if (!row) { row = code.spanRow!(spans[k]!.row.demand, given, sa, fmt); spanRows.set(key, row); }
+    return row;
+  };
+  const compressionShort = (sa: BeamAdopted[]): { top: number; bottom: number } => spans.reduce((m, s, k) => {
+    const row = spanRowOf(k, sa[k]!);
+    const bad = row.flexure.filter((f) => f.mu > 1e-6 && !f.ductile);
+    const own = (sec: 'start' | 'span' | 'end') => s.row.proposed.at?.[sec] ?? s.row.proposed;
+    const top = Math.max(0, ...bad.filter((f) => f.sign === 'pos').map((f) => groupsArea(own(f.section).top)));
+    const bottom = Math.max(0, ...bad.filter((f) => f.sign === 'neg').map((f) => groupsArea(own(f.section).bottom)));
+    return {
+      top: top > groupsArea([proposed.top]) + 1e-6 ? Math.max(m.top, top) : m.top,
+      bottom: bottom > groupsArea([proposed.bottom]) + 1e-6 ? Math.max(m.bottom, bottom) : m.bottom,
+    };
+  }, { top: 0, bottom: 0 });
+  /**
+   * A line laid out from its spans' own proposals, for one that iterating its runs leaves short: the
+   * bottom run the spans' most common outer bars and each span's rest as its extras; a top run
+   * that holds the compression a doubly reinforced span's proposal keeps on top; the supports' and
+   * stirrups as they are.
+   */
+  const fromSpans = (p: LineAdopted): LineAdopted => {
+    const outer = sorted.map((r) => r.proposed.bottom.find((g) => g.count > 0) ?? p.bottom);
+    const common = [...outer].sort((x, y) => outer.filter((o) => o.dia === y.dia && o.count === y.count).length - outer.filter((o) => o.dia === x.dia && o.count === x.count).length || groupsArea([x]) - groupsArea([y]))[0] ?? p.bottom;
+    const run = { dia: common.dia, count: Math.max(common.count, Math.ceil(bottomRunNeed() / barArea(common.dia) - 1e-9)) };
+    const spanBottom = sorted.map((r) => {
+      const rest = groupsArea(r.proposed.bottom) - groupsArea([run]);
+      const dia = r.proposed.bottom[1]?.dia ?? run.dia;
+      return rest > 1e-6 ? { dia, count: Math.ceil(rest / barArea(dia) - 1e-9) } : { dia, count: 0 };
+    });
+    const compressed = sorted.filter((r) => (r.req.compression?.top ?? 0) > 0);
+    const need = Math.max(0, ...compressed.map((r) => groupsArea(r.proposed.at?.span?.top ?? r.proposed.top)));
+    const dia = Math.max(0, ...compressed.flatMap((r) => r.proposed.top.map((g) => g.dia)));
+    const top = compressed.length ? { dia, count: Math.max(2, Math.ceil(need / barArea(dia) - 1e-9)) } : p.top;
+    return { ...p, bottom: run, spanBottom, top, ...(p.bent ? { bent: p.bent.map((g) => ({ ...g, count: 0 })) } : {}) };
+  };
   let floor = { top: 0, bottom: 0 };
   let proposed = adopted ?? propose(floor), iterations = 0;
   let bars = layout(proposed), env = verify(proposed, bars);
   const worstOf = (e: typeof env) => e.reduce((w, x) => Math.max(w, ratioOf(x.pos, x.phiPos), ratioOf(x.neg, x.phiNeg)), 0);
   const thicker = (g: BarGroup): BarGroup => {
-    const dia = [...c.diameters].filter((d) => d > g.dia).sort((p, q) => p - q)[0];
+    const dia = longs.find((d) => d > g.dia);
     return dia && g.count > 0 ? { dia, count: Math.ceil((g.count * barArea(g.dia)) / barArea(dia) - 1e-9) } : { dia: g.dia, count: g.count + 1 };
   };
   const oneMore = (g: BarGroup): BarGroup => ({ dia: g.dia, count: g.count + 1 });
@@ -693,7 +828,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   const endsShort = (laid: LineBar[]) => ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).reduce((n, [e, xe, first]) => {
     if (!e || e.kind !== 'column' || e.half <= 0) return n;
     const room = 2 * e.half - inset;
-    return n + laid.filter((b) => (first ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6) && ldhOf(b) > room + 1e-6).length;
+    return n + laid.filter((b) => (first ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6) && ldhOf(b, first ? 0 : 1) > room + 1e-6).length;
   }, 0);
   /**
    * The supports' extra bars in one diameter along the line where that costs little: of the
@@ -739,10 +874,9 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   const designFrom = () => {
     allow180 = false;
     iterate();
-    const rooms = [endStart, endEnd].filter((e): e is BeamEnd => !!e && e.kind === 'column' && e.half > 0).map((e) => 2 * e.half - inset);
-    if (rooms.length) {
-      const room = Math.min(...rooms);
-      const fits = (dia: number) => code.hooked(c, dia, true, hMax) <= room + 1e-6;
+    if ([endStart, endEnd].some((e) => !!e && e.kind === 'column' && e.half > 0)) {
+      const standard = [...c.diameters].some((d) => d >= 10 && anchorsAtColumns(d, true, true));
+      const fits = (dia: number) => anchorsAtColumns(dia, true, standard);
       const best = [...c.diameters].filter((d) => d >= 10 && fits(d)).sort((p, q) => q - p)[0];
       const shrink = (g: BarGroup | undefined): BarGroup | undefined => {
         if (!g || !best || g.count <= 0 || fits(g.dia)) return g;
@@ -785,6 +919,55 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       iterations++;
       proposed = propose(floor); bars = layout(proposed); env = verify(proposed, bars);
       designFrom();
+    }
+    for (let guard = 0; code.spanRow && guard < 4; guard++) {
+      const more = compressionShort(spanAdoptedOf(proposed, bars));
+      if (more.top <= 1e-6 && more.bottom <= 1e-6) break;
+      floor = { top: Math.max(floor.top, more.top), bottom: Math.max(floor.bottom, more.bottom) };
+      iterations++;
+      proposed = propose(floor); bars = layout(proposed); env = verify(proposed, bars);
+      designFrom();
+    }
+    for (let guard = 0; code.spanRow && guard < 6; guard++) {
+      const sa = spanAdoptedOf(proposed, bars);
+      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+      const raised = new Set<string>();
+      spans.forEach((_, k) => {
+        for (const f of spanRowOf(k, sa[k]!).flexure) {
+          if (!(f.mu > 1e-6) || f.ok || !f.ductile) continue;
+          const at = f.sign === 'pos' ? `b${k}` : f.section === 'start' ? `t${k}` : f.section === 'end' ? `t${k + 1}` : 'run';
+          if (raised.has(at)) continue;
+          raised.add(at);
+          if (at === 'run') next.top = oneMore(next.top);
+          else if (f.sign === 'pos') next.spanBottom[k] = oneMore(next.spanBottom[k]!);
+          else { const j = Number(at.slice(1)); next.supportTop[j] = oneMore(next.supportTop[j]!); }
+        }
+      });
+      if (!raised.size) break;
+      proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterations++;
+    }
+    if (code.spanRow) {
+      const score = (p: LineAdopted) => {
+        const laid = layout(p), e = verify(p, laid), sa = spanAdoptedOf(p, laid);
+        return { laid, e, bad: spans.filter((_, k) => spanRowOf(k, sa[k]!).status === 'fail').length, worst: worstOf(e) };
+      };
+      const now = score(proposed);
+      if (now.bad > 0 || now.worst > 1 + 1e-6) {
+        const alt = fromSpans(proposed), then = score(alt);
+        const envelopeHeld = then.worst <= Math.max(1 + 1e-6, now.worst);
+        if (envelopeHeld && (then.bad < now.bad || (then.bad === now.bad && then.worst < now.worst - 1e-6))) { proposed = alt; bars = then.laid; env = then.e; iterations++; }
+        else { bars = layout(proposed); env = verify(proposed, bars); }
+      }
+    }
+    for (let guard = 0; c.seismic && guard < 8; guard++) {
+      const more = spanAdoptedOf(proposed, bars).reduce((m, sa) => {
+        const r = faceRule(sa.at!.start!, sa.at!.span!, sa.at!.end!).more;
+        return { top: Math.max(m.top, r.top), bottom: Math.max(m.bottom, r.bottom) };
+      }, { top: 0, bottom: 0 });
+      if (more.top <= 1e-6 && more.bottom <= 1e-6) break;
+      const runs = (g: BarGroup, area: number): BarGroup => (area > 1e-6 ? { ...g, count: g.count + Math.ceil(area / barArea(g.dia) - 1e-9) } : g);
+      proposed = { ...proposed, top: runs(proposed.top, more.top), bottom: runs(proposed.bottom, more.bottom) };
+      bars = layout(proposed); env = verify(proposed, bars); iterations++;
     }
   }
   joinTops = true;
@@ -913,23 +1096,48 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     if (!moved) break;
     zones = zonesOf(); along = shearAlong(zones);
   }
+  if (!adopted && code.spanRow && a.stirrups) {
+    const failing = (k: number, st: Stirrups) => spanRowOf(k, { ...spanAdopted[k]!, stirrups: st }).verifications.filter((v) => !v.ok).length;
+    let moved = false;
+    spans.forEach((_, k) => {
+      let best = a.stirrups![k]!, least = failing(k, best), st = best;
+      for (let guard = 0; least > 0 && guard < 12; guard++) {
+        const more = moreStirrup(st, c, 0.15);
+        if (!more) break;
+        st = more;
+        const n = failing(k, st);
+        if (n < least) { best = st; least = n; }
+      }
+      if (best !== a.stirrups![k]) { a.stirrups![k] = best; spanAdopted[k]!.stirrups = best; moved = true; }
+    });
+    if (moved) { zones = zonesOf(); along = shearAlong(zones); }
+  }
+  if (!adopted && c.course && a.stirrups) {
+    const used = [...new Set(a.stirrups.map((st) => st.dia))].sort((p, q) => p - q);
+    if (used.length > 2) {
+      const least = used[used.length - 2]!;
+      a.stirrups = a.stirrups.map((st) => (st.dia < least ? { ...st, dia: least } : st));
+      spanAdopted.forEach((sa, k) => { sa.stirrups = a.stirrups![k]!; });
+      zones = zonesOf(); along = shearAlong(zones);
+    }
+  }
   const shear = along.map(({ span: _span, ...x }) => x);
   const worstShear = shear.filter((x) => x.checked).reduce<(typeof shear)[number] | undefined>((w, x) => (!w || ratioOf(x.v, x.phiVn) > ratioOf(w.v, w.phiVn) ? x : w), undefined);
   const inflections = inflectionsOf(env, a.bottom);
-  const endAnchors = ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).flatMap(([e, xe, first]) => {
+  const endAnchors = ([[endStart, xFrom, 0], [endEnd, xTo, 1]] as const).flatMap(([e, xe, i]) => {
     if (!e || e.kind !== 'column' || e.half <= 0) return [];
-    const room = 2 * e.half - inset;
-    const reaching = bars.filter((b) => (first ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6));
-    return reaching.map((b) => ({ dia: b.bars.dia, ldh: ldhOf(b), room }));
+    const room = columnRoom(e);
+    const reaching = bars.filter((b) => (i === 0 ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6));
+    return reaching.map((b) => ({ dia: b.bars.dia, ldh: anchorNeedOf(b, i), room: anchorReachOf(b, i, room), along: b.anchor?.[i] ?? null }));
   });
   /** Each hook at an end the line rests on: the room from the support face to the hook against ldh, and whether the bars there carry the face's moment with what they develop in it. */
   const hookEnds = bars.flatMap((b) => ([0, 1] as const).filter((i) => b.hooks[i]).flatMap((i) => {
     const e = i === 0 ? endStart : endEnd;
     if (!e || e.kind === 'free') return [];
-    const room = i === 0 ? faceS - b.from : b.to - faceE;
+    const room = anchorReachOf(b, i, i === 0 ? faceS - b.from : b.to - faceE);
     const sign = b.face === 'top' || b.kind === 'bent' ? 'neg' : 'pos';
     const held = env.filter((p) => (i === 0 ? p.xl <= faceS + 1e-6 : p.xl >= faceE - 1e-6)).every((p) => (sign === 'pos' ? p.pos <= p.phiPos + 1e-6 : p.neg <= p.phiNeg + 1e-6));
-    return [{ mark: b.mark, end: i, dia: b.bars.dia, ldh: ldhOf(b), room, held }];
+    return [{ mark: b.mark, end: i, dia: b.bars.dia, ldh: anchorNeedOf(b, i), room, held }];
   }));
   const shortHook = hookEnds.filter((x) => x.ldh > x.room + 1e-6).reduce<(typeof hookEnds)[number] | undefined>((w, x) => (!w || x.ldh / Math.max(x.room, 1e-6) > w.ldh / Math.max(w.room, 1e-6) ? x : w), undefined);
   const dias = [...new Set(bars.map((b) => b.bars.dia))].sort((p, q) => p - q);
@@ -955,7 +1163,9 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     check('rcSheets.v.lineHooks', hookOk, { clause: code.text.clause.hooks, ...(shortHook ? { demand: `${shortHook.mark} ${shortHook.end === 0 ? '←' : '→'}: ldh Ø${shortHook.dia} = ${fmt(shortHook.ldh * 100, 0)} cm > ${fmt(Math.max(0, shortHook.room) * 100, 0)} cm` } : {}), capacity: anchorage.map((x) => `Ø${x.dia}: ldh ${fmt(x.ldh * 100, 0)} cm`).join(' · ') }),
     ...(worstShear ? [check('rcSheets.v.lineShear', ratioOf(worstShear.v, worstShear.phiVn) <= 1 + 1e-6, { clause: code.text.clause.shear, demand: `${fmt(worstShear.v)} kN (x = ${fmt(worstShear.x)} m)`, capacity: `${fmt(worstShear.phiVn)} kN`, ratio: ratioOf(worstShear.v, worstShear.phiVn) })] : []),
     ...(endAnchors.length ? [((worstEnd) => check('rcSheets.v.lineEndAnchor', endAnchors.every((x) => x.ldh <= x.room + 1e-6), {
-      clause: code.text.clause.hooks, demand: `ldh Ø${worstEnd.dia} = ${fmt(worstEnd.ldh * 100, 0)} cm`, capacity: `${fmt(worstEnd.room * 100, 0)} cm`, ratio: worstEnd.ldh / Math.max(1e-6, worstEnd.room),
+      clause: c.seismic && code.jointHooked ? code.text.clause.jointHooks ?? code.text.clause.hooks : !code.alongBar && endAnchors.some((x) => x.along) && code.alongFallback ? code.alongFallback.clause : code.text.clause.hooks,
+      demand: `${worstEnd.along && !code.alongBar ? 'ld' : 'ldh'} Ø${worstEnd.dia} = ${fmt(worstEnd.ldh * 100, 0)} cm`,
+      capacity: worstEnd.along ? `${fmt(worstEnd.room * 100, 0)} cm (↓ ${fmt(worstEnd.along.tail * 100, 0)} cm)` : `${fmt(worstEnd.room * 100, 0)} cm`, ratio: worstEnd.ldh / Math.max(1e-6, worstEnd.room),
     }))(endAnchors.reduce((w, x) => (x.ldh / x.room > w.ldh / w.room ? x : w)))] : []),
     ...(lastMisfits.length ? [((w) => check('rcSheets.v.lineHookFit', false, {
       clause: code.text.clause.hooks, demand: `${w.mark}: Ø${w.dia} ${fmt(w.leg * 100, 0)} cm`, capacity: `${fmt(w.room * 100, 0)} cm · h ≥ ${fmt(Math.ceil(w.depth * 100 - 1e-9), 0)} cm`, ratio: w.leg / Math.max(1e-6, w.room),

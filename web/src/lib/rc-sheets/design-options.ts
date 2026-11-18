@@ -26,10 +26,16 @@ export interface DeflectionSettings {
 export type DesignOptionFlag = 'faces' | 'flange' | 'bentBars' | 'slabBentBars' | 'seismic';
 export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flange', 'bentBars', 'slabBentBars', 'seismic'];
 
-/** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`). */
-export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings } & Partial<Record<DesignOptionFlag, true>>;
+/**
+ * What a row with no arrangement for its section and concrete may be offered: a stronger concrete
+ * (`raiseFc` false: never), up to `fcMax` MPa, among `fcClasses` (the code's classes when absent).
+ */
+export interface AlternativeOptions { raiseFc?: false; fcMax?: number; fcClasses?: number[] }
 
-export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate';
+/** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`). */
+export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions } & Partial<Record<DesignOptionFlag, true>>;
+
+export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate' | 'alternatives';
 
 /** The deflection settings a stored shape states, each kept only when valid; undefined when none is. */
 export function readDeflectionSettings(x: unknown): DeflectionSettings | undefined {
@@ -50,7 +56,22 @@ const flagsOf = (o: Record<string, unknown>, torsion: (x: unknown) => boolean): 
   ...(torsion(o.torsion) ? { torsion: o.torsion as TorsionMode } : {}),
   ...Object.fromEntries(DESIGN_OPTION_FLAGS.filter((k) => o[k] === true).map((k) => [k, true])),
   ...((d) => (d ? { deflection: d } : {}))(readDeflectionSettings(o.deflection)),
+  ...((a) => (a ? { alternatives: a } : {}))(alternativesOf(o.alternatives)),
 });
+
+const strength = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 10 && x <= 120;
+
+function alternativesOf(raw: unknown): AlternativeOptions | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const classes = Array.isArray(o.fcClasses) ? [...new Set(o.fcClasses.filter(strength))].sort((p, q) => p - q) : [];
+  const out: AlternativeOptions = {
+    ...(o.raiseFc === false ? { raiseFc: false as const } : {}),
+    ...(strength(o.fcMax) ? { fcMax: o.fcMax } : {}),
+    ...(classes.length ? { fcClasses: classes } : {}),
+  };
+  return Object.keys(out).length ? out : undefined;
+}
 
 /** The options a stored shape states: its own `designOptions`, else those an older project kept under `rcSheets`; undefined when none. */
 export function migrateDesignOptions(own: unknown, legacy: unknown): DesignOptions | undefined {
@@ -77,6 +98,7 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   months: { cirsoc: 'Tabla 24.2.4.1.3', aci: 'Table 24.2.4.1.3', off: { ec2: 'designData.opt.off.months', ts500: 'designData.opt.off.monthsTs500' } },
   creep: { ec2: '3.1.4, 7.4.3(5)', off: { cirsoc: 'designData.opt.off.creep', aci: 'designData.opt.off.creep', ts500: 'designData.opt.off.creep' } },
   aggregate: { cirsoc: '§25.2.1, §25.2.3', aci: '§25.2.1, §25.2.3', ec2: '8.2(2)', off: { ts500: 'designData.opt.off.aggregateTs500' } },
+  alternatives: { cirsoc: '§19.2; FIUBA §3.1', aci: '§19.2', ec2: 'Table 3.1', ts500: 'Table 3.1' },
 };
 
 const CODE_NAME: Record<SheetCode, string> = { 'cirsoc201-2025': 'CIRSOC 201-2025', 'aci318-19': 'ACI 318-19', 'en1992-1-1': 'EN 1992-1-1', 'bs-en1992-1-1': 'BS EN 1992-1-1', 'ts500-2000': 'TS 500' };

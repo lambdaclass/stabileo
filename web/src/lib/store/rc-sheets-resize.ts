@@ -1,7 +1,9 @@
 /**
  * Resizing from the sheets: the dimension a row would need to verify with the forces it has now,
- * or, for a column or a wall with room to spare, the smallest that still does; and the way to the
- * element in the model, where its dimensions are changed. Nothing is changed from here.
+ * or, for a column or a wall with room to spare, the smallest that still does; where the proposal
+ * finds no arrangement for a row's section and concrete, the alternatives it verifies with (a
+ * section, a stronger concrete), each computed by designing the row again with it; and the way to
+ * the element in the model. Applying an alternative is `rc-sheets-apply.ts`'s.
  *
  * Beams and slabs are offered smaller only where their row checks the deflection: the smaller
  * section must meet it as well as everything else.
@@ -9,7 +11,10 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { holdPlateSidesAt, plateOfShell } from './physical-plates';
-import { redesignerOf, type SheetRow } from './rc-sheets.svelte';
+import { designData } from './design-data';
+import { concreteOfRow, lineRedesignerOf, redesignerOf, sheetCode, type SheetRow } from './rc-sheets.svelte';
+import { concreteClasses, concreteClassOf, DEFAULT_FC_MAX } from '../rc-sheets/concrete-classes';
+import { lineRowStatus } from '../rc-sheets/beam-line';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
@@ -163,7 +168,7 @@ const groupOf = (key: string) => Number(key.split(':')[1]);
 const membersOf = (g: number) => [...(modelStore.model.groups.get(g)?.members.elements ?? [])];
 
 /** The storey's own members of a column stack: those between its bottom and top nodes. */
-function storeyMembers(row: ColumnRow): number[] {
+export function storeyMembers(row: ColumnRow): number[] {
   const n = row.demand.nodes;
   const all = membersOf(groupOf(row.key));
   if (!n) return all;
@@ -235,4 +240,85 @@ export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean
     return true;
   }
   return false;
+}
+
+/** A row whose own proposal does not verify: with its section and concrete the sheets find no arrangement. Bars set by hand are the engineer's, not a proposal. */
+export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRow[] = []): boolean {
+  if ('spanAdopted' in row) return !row.isAdopted && lineRowStatus(row, spans) === 'fail';
+  if (row.family === 'footing') return false;
+  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted);
+}
+
+/** An alternative a row verifies with: a section (`what` and its dimensions, m) or a stronger concrete (f'c, MPa, and its class's name). */
+export type Alternative =
+  | { kind: 'section'; what: ResizeWhat | 'beam'; from: number[]; to: number[] }
+  | { kind: 'concrete'; from: number; to: number; name: string };
+
+const up5 = (x: number) => Math.ceil(x / 0.05 - 1e-9) * 0.05;
+const down5 = (x: number) => Math.floor(x / 0.05 + 1e-9) * 0.05;
+
+/**
+ * The beam sections a row is tried at, smallest depth first: h in steps of 5 cm from the depth it
+ * has, b in steps of 5 cm between h/5 and h/3, never narrower than it is (FIUBA §3.1).
+ */
+export function beamSections(b0: number, h0: number, limit = Math.min(2 * h0, 2)): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let h = up5(h0 - 1e-6); h <= limit + 1e-9; h = round(h + 0.05)) {
+    const lo = Math.max(b0, up5(h / 5 - 1e-6)), hi = Math.max(b0, down5(h / 3));
+    for (let b = lo; b <= hi + 1e-9; b = round(b + 0.05)) {
+      if (Math.abs(b - b0) < 1e-6 && Math.abs(h - h0) < 1e-6) continue;
+      out.push([round(b), round(h)]);
+    }
+  }
+  return out;
+}
+
+/** The concrete strengths an alternative is chosen among, ascending: the project's list or the code's classes, above `from` and up to the largest it allows. */
+export function strongerConcretes(from: number): Array<{ fc: number; name: string }> {
+  const o = designData().designOptions?.alternatives;
+  if (o?.raiseFc === false) return [];
+  const code = sheetCode();
+  const max = o?.fcMax ?? DEFAULT_FC_MAX;
+  const pool = o?.fcClasses?.length ? o.fcClasses.map((fc) => concreteClassOf(code, fc)) : [...concreteClasses(code)];
+  return pool.filter((k) => k.fc > from + 1e-6 && k.fc <= max + 1e-6).sort((p, q) => p.fc - q.fc).map((k) => ({ fc: k.fc, name: k.name }));
+}
+
+
+/**
+ * The alternatives a row with no arrangement verifies with, each found by designing it again: the
+ * least section (a beam by `beamSections`, the rest as `resizeHints` grows them) and the weakest
+ * stronger concrete; `fc` is the concrete the row has, MPa.
+ */
+export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Alternative[] {
+  if (!noArrangement(row)) return [];
+  const redesign = redesignerOf(row.key);
+  if (!redesign) return [];
+  const out: Alternative[] = [];
+  if (row.family === 'beam') {
+    const d = row.demand;
+    const to = beamSections(d.b, d.h).find(([b, h]) => passes(redesign({ ...d, b, h } as never)));
+    if (to) out.push({ kind: 'section', what: 'beam', from: [d.b, d.h], to });
+  } else {
+    for (const h of resizeHints(row)) if (h.to && h.direction === 'grow' && h.what !== 'punchCapital' && h.what !== 'punchDrop') out.push({ kind: 'section', what: h.what, from: h.from, to: h.to });
+  }
+  const demand = row.family === 'footing' ? null : row.demand;
+  const stronger = demand && fc !== undefined ? strongerConcretes(fc).find((k) => passes(redesign(demand as never, { fc: k.fc }))) : undefined;
+  if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  return out;
+}
+
+/** The same for a physical beam laid out as one line: one section for all its spans, or a stronger concrete, the whole line designed again with it. */
+export function lineAlternatives(line: LineLayout, spans: readonly BeamRow[], fc = concreteOfRow(line.key)): Alternative[] {
+  if (!noArrangement(line, spans)) return [];
+  const redesign = lineRedesignerOf(line.group);
+  if (!redesign || !spans.length) return [];
+  const b0 = Math.max(...spans.map((s) => s.b)), h0 = Math.max(...spans.map((s) => s.h));
+  const out: Alternative[] = [];
+  const own = spans.map((s) => ({ s, redo: redesignerOf(s.key) })).filter((x) => x.redo && passes(x.redo(x.s.demand as never)) === false);
+  const alone = (o: { b?: number; h?: number; fc?: number }) => own.every(({ s, redo }) => passes(redo!({ ...s.demand, ...(o.b ? { b: o.b, h: o.h } : {}) } as never, o.fc ? { fc: o.fc } : undefined)));
+  const to = beamSections(b0, h0).find(([b, h]) => alone({ b, h }) && redesign({ b, h }).status !== 'fail');
+  if (to) out.push({ kind: 'section', what: 'beam', from: [b0, h0], to });
+  const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => alone({ fc: k.fc }) && redesign({ fc: k.fc }).status !== 'fail') : undefined;
+  if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  return out;
 }

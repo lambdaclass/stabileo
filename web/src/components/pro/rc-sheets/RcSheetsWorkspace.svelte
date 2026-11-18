@@ -36,6 +36,7 @@
   import { footingSizing, setFootingSizing } from '../../../lib/store/rc-sheets-footings';
   import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
   import RcResize from './RcResize.svelte';
+  import { noArrangement } from '../../../lib/store/rc-sheets-resize';
   import RcScheduleView from './RcScheduleView.svelte';
   import RcPlansExport from './RcPlansExport.svelte';
   import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
@@ -69,6 +70,7 @@
   const basisText = $derived(rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`));
   const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
   const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
+  const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
   const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : rows[family]) as ListRow[]);
   const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
@@ -240,8 +242,8 @@
         </thead>
         <tbody>
           {#each shown as r (r.key)}
-            <tr class="row st-{r.status}" class:open={openKey === r.key} onclick={() => { openKey = openKey === r.key ? null : r.key; highlight = []; }} data-testid="rc-row" data-key={r.key}>
-              <td class="nm">{r.name}{#if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
+            <tr class="row st-{r.status}" class:open={openKey === r.key} class:none={nothingFits(r)} onclick={() => { openKey = openKey === r.key ? null : r.key; highlight = []; }} data-testid="rc-row" data-key={r.key}>
+              <td class="nm">{r.name}{#if nothingFits(r)}<span class="tag none" title={t('rcSheets.alt.closest')} data-testid="rc-no-arrangement-tag">✕</span>{:else if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
               <td>{r.level ?? ''}</td>
               {#if r.family === 'line'}
                 {@const extra = extraBarsText(r, t('rcSheets.line.bentShort'))}
@@ -301,7 +303,7 @@
                   <td><span class="need">{f2(r.faces[f].asReq)}</span> {r.adopted[f].dia ? meshLabel(r.adopted[f]) : '—'} <span class="dim">({f2(meshArea(r.adopted[f]))})</span></td>
                 {/each}
               {/if}
-              <td class="stc">{t(`rcSheets.status.${r.status}`)}</td>
+              <td class="stc" data-testid="rc-row-status">{t(nothingFits(r) ? 'rcSheets.status.noArrangement' : `rcSheets.status.${r.status}`)}</td>
             </tr>
             {#if openKey === r.key}
               <tr class="detail">
@@ -396,6 +398,8 @@
   tr.st-ok .stc { color: var(--st-ok); }
   tr.st-warn .stc { color: var(--st-text-2); }
   tr.st-fail .stc { color: var(--st-danger); }
+  .tag.none { color: var(--st-danger); border-color: var(--st-danger); }
+  tr.none td:not(.nm):not(.stc) { color: var(--st-text-3); font-style: italic; }
   tr.detail td { white-space: normal; padding: 8px; background: var(--st-surface); }
   tr.detail :global(.rce) { margin-bottom: 8px; }
   .rcw-note { font-size: 0.7rem; color: var(--st-text-3); margin-top: 8px; max-width: 90ch; }
