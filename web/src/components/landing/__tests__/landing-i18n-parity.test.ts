@@ -28,6 +28,7 @@
 import { describe, it, expect } from 'vitest';
 import en from '../../../lib/i18n/locales/en';
 import { PUBLIC_LOCALES } from '../../../lib/i18n/store.svelte';
+import { buildPublicLocales } from '../../../lib/i18n/offered-research';
 import { allDictFor as dictFor, completeLocales } from '../../../lib/i18n/locales/all';
 
 const sources = import.meta.glob('../**/*.{svelte,ts}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -143,19 +144,11 @@ describe('public landing i18n', () => {
       expect(publicKeys.length).toBeGreaterThan(100);
     });
 
-    function expectSameFigures(locale: string) {
-      const d = dictFor(locale) as Record<string, string>;
-      const wrong = publicKeys.filter((k) => k in d && String(numbers(d[k])) !== String(numbers(enDict[k])));
-      expect(wrong.map((k) => `${k}: en ${numbers(enDict[k])} vs ${locale} ${numbers(d[k])}`)).toEqual([]);
-    }
-
-    it.skip('known wrong result: #2286 — Hungarian figure parity runs independently of the research switch', () => {
-      expectSameFigures('hu');
-    });
-
-    for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
+    for (const locale of buildPublicLocales(true).filter((locale) => locale !== 'en')) {
       it(`${locale} quotes the same figures as English`, () => {
-        expectSameFigures(locale);
+        const d = dictFor(locale) as Record<string, string>;
+        const wrong = publicKeys.filter((k) => k in d && String(numbers(d[k])) !== String(numbers(enDict[k])));
+        expect(wrong.map((k) => `${k}: en ${numbers(enDict[k])} vs ${locale} ${numbers(d[k])}`)).toEqual([]);
       });
 
       it(`${locale} names the same standards and formats as English`, () => {
