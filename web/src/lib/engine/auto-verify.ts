@@ -34,7 +34,7 @@ import type { RegulationEdition } from '../codes/regulation';
 export interface AutoVerifyModelData {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type: string }>;
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
-  sections: Map<number, { id: number; name: string; b?: number; h?: number }>;
+  sections: Map<number, { id: number; name: string; b?: number; h?: number; shape?: string }>;
   materials: Map<number, { id: number; name: string; fy?: number; fc?: number; e?: number }>;
   supports: Map<number, { id: number; nodeId: number; type: string }>;
 }
@@ -185,6 +185,7 @@ function verifyCompleteResults(complete: CompleteResultDemands, model: AutoVerif
       model.sections as never, model.materials as never, model.supports as never) : undefined;
     const base: VerificationBase = {
       elementType,
+      rectangularSection: section.shape === undefined || section.shape === 'rect',
       b: axis === 'My' ? b : h, h: axis === 'My' ? h : b,
       fc: concreteFc(material)!, fy: options?.rebarFy ?? 420,
       cover: isVertical ? options?.columnCover ?? options?.cover ?? 0.025 : options?.cover ?? 0.025,

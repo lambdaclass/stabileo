@@ -24,6 +24,8 @@
    * the slope; a roof used as a terrace or a garden takes that occupancy's live load (§4.8.2).
    */
   import { t, tp } from '../../lib/i18n';
+  import { te } from '../../lib/i18n/engine-text';
+  import type { EngineMessage } from '../../lib/codes/message';
   import { toQ, unitQ } from '../../lib/store/display-units.svelte';
   import { uiStore } from '../../lib/store/ui.svelte';
   import { fromDisplay } from '../../lib/utils/units';
@@ -37,12 +39,15 @@
     /** The model's roof slope, degrees, when it has one. */
     modelSlopeDeg: number;
     /** The weight class the plan finds for the roof (§4.8.1, structure and cladding, `roofWeightFor`). */
-    autoWeight?: 'heavy' | 'light';
+    autoWeight?: 'heavy' | 'light' | EngineMessage;
   }
   let { config = $bindable(), floorDead, modelSlopeDeg, autoWeight }: Props = $props();
 
   const roofRows = OCCUPANCY_TABLE_2025.filter((o) => o.category === 'roof' && o.uniformKNm2 !== null && !o.key.startsWith('cubierta_usual') && o.key !== 'azotea_inaccesible' && o.key !== 'cubierta_otras');
   const dead = $derived(config.dead ?? floorDead);
+  const autoWeightError = $derived(typeof autoWeight === 'object' ? autoWeight : undefined);
+  const weightLabel = $derived(typeof autoWeight === 'object' ? t('autoLoad.blocked')
+    : tp('autoLoad.roof.weightAuto', { w: t(`loads.cirsoc101.roofWeight.${autoWeight ?? roofWeightClass(dead)}`) }));
   const deadText = (d: number | null) => (d === null ? '' : String(+toQ(d, 'areaLoad').toPrecision(6)));
   /** A value that does not read keeps the one there was, and the field shows it again. */
   function setDead(el: HTMLInputElement) {
@@ -54,6 +59,7 @@
 
 <div class="al-pane-body" data-testid="al-roof-section">
       <Hint text={t('autoLoad.roof.hint')} />
+      {#if autoWeightError}<p class="al-error" role="alert">{te(autoWeightError)}</p>{/if}
       <div class="al-row">
         <label class="al-field"><span class="al-label">{t('autoLoad.roof.use')}</span>
           <select bind:value={config.use} data-testid="al-roof-use">
@@ -70,7 +76,7 @@
         <div class="al-row">
           <label class="al-field"><span class="al-label">{t('autoLoad.roof.weight')}</span>
             <select value={config.weight ?? 'auto'} onchange={(e) => { const v = e.currentTarget.value; config.weight = v === 'auto' ? null : (v as 'heavy' | 'light'); }} data-testid="al-roof-weight">
-              <option value="auto">{tp('autoLoad.roof.weightAuto', { w: t(`loads.cirsoc101.roofWeight.${autoWeight ?? roofWeightClass(dead)}`) })}</option>
+              <option value="auto">{weightLabel}</option>
               <option value="heavy">{t('autoLoad.roof.heavy')}</option>
               <option value="light">{t('autoLoad.roof.light')}</option>
             </select>

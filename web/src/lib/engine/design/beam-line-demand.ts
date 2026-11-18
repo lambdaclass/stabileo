@@ -9,7 +9,7 @@ import { IncompleteConcurrentDemandError } from '../complete-demand-set';
 import { computeFlexureCapacity } from '../station-design-forces';
 import type { MemberContext } from './member-context';
 import { tupleMoment, tupleShear } from './design-axes';
-import { checkShear, checkTorsion } from '../codes/argentina/cirsoc201';
+import { checkShear, sizeTorsionReinforcement } from '../codes/argentina/cirsoc201';
 import { CIRSOC201_DESIGN_EDITION } from '../codes/argentina/cirsoc201-basis';
 import type { BeamStirrupZone } from '../../design-contract/beam-line';
 
@@ -172,8 +172,8 @@ export function lineTransverseDemand(
         const v = checkShear(params, Vu, 0, { edition: CIRSOC201_DESIGN_EDITION });
         shear = Math.max(shear, v.AvOverSReq ?? v.AvOverS);
         min = Math.max(min, v.AvOverSMin);
-        if (Math.abs(s.torsion) > 1e-3) {
-          const tr = checkTorsion(params, demand.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
+        if (s.torsion !== 0) {
+          const tr = sizeTorsionReinforcement(params, demand.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
           if (!tr.neglect) torsion = Math.max(torsion, 2 * tr.AtOverS);
         }
       }

@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import './scalar-viewer-i18n';
   import { t as appT, i18n } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
   import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';

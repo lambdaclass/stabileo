@@ -48,8 +48,8 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
   }
   for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {
     it(`known wrong result: #2080 no longitudinal override at neglect boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
-      const base = input(edition, axis, elementType, 30);
-      const threshold = 0.75 * checkTorsion(p, base.demand, edition).Tcr / 4;
+      const coefficient = edition === '2005' ? 1 / 12 : 0.083;
+      const threshold = 0.75 * coefficient * Math.sqrt(p.fc) * 1000 * (p.b * p.h) ** 2 / (2 * (p.b + p.h));
       const v = verifyElement(input(edition, axis, elementType, threshold * factor), { shear: { spacing: 0.275, legs: 2 } });
       expect(v.torsion!.neglect).toBe(factor < 1);
       expect(v.torsion!.status === 'fail').toBe(factor >= 1);

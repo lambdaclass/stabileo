@@ -24,7 +24,7 @@ keeps a curated defect list. Ergodic Group backs and publishes Stabileo.
   history goes to `CHANGELOG.md` and the website changelog. Sections 2 to 4 are rewritten when an item lands; sections 5 to 7 change rarely. The
   in-flight table in section 2 is generated: run `make roadmap.inflight` and commit the result.
 
-## 2. Now: soundness first (updated 2026-11-16)
+## 2. Now: soundness first (updated 2026-11-18)
 
 ### Overall order
 
@@ -42,9 +42,9 @@ group work is ranked by impact on safe building design divided by effort:
 - (g) growth, SEO, education, examples, Tools, research, marketing and SaaS.
 
 Sections 3 to 6 follow this ranking. Finish and verify the soundness work below before expanding
-the design workflow; a conservative refusal is tracked separately from a wrong answer. Release
-0.6.1 is the release baseline; merged work below is on main and does not imply a
-new release or deployment.
+the design workflow; a conservative refusal is tracked separately from a wrong answer. The release
+baseline is 0.6.1. The November 17–18 fixes are on main and await release. Finish the
+uncontained work first, then revisit the reported models that main now refuses.
 
 ### Priority now
 
@@ -56,15 +56,11 @@ Most of the silent wrong results found since v0.6.0 came from the design and loa
 that turns analysis results into code checks and generated loads. The solver has nightly fuzzing,
 metamorphic and differential tests; this layer has had almost none. The order below follows that.
 
-1. **Contain and fix the remaining silent wrong results.** The November 16 design and load
-   audit has open findings in gravity, wind, live and seismic loads, snow transfer, concrete
-   verification and detailing. The active work and findings from both audit waves are listed below.
-   [#2171](https://github.com/lambdaclass/stabileo/issues/2171),
-   [#2222](https://github.com/lambdaclass/stabileo/issues/2222) and
-   [#2225](https://github.com/lambdaclass/stabileo/issues/2225) also take priority over feature work.
-   The visible **under audit** notice for generated loads and concrete design is in
-   [#2228](https://github.com/lambdaclass/stabileo/pull/2228); it has not merged and does not yet
-   contain these results on main. A notice does not establish a correct engineering answer.
+1. **Contain and fix the remaining silent wrong results.** Start with the open November 17–18
+   findings below and the unresolved findings from the design and load audit. [#2171](https://github.com/lambdaclass/stabileo/issues/2171) and
+   [#2225](https://github.com/lambdaclass/stabileo/issues/2225) also take priority over feature work. The **under audit** notice for generated
+   loads and concrete design is on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228). Each reported wrong result still needs
+   its own correction or refusal.
 2. **Release 0.6.2.** Release 0.6.1 is out with SA-2026-064 through SA-2026-068. The subsequent
    corrections for [#2142](https://github.com/lambdaclass/stabileo/issues/2142),
    [#2143](https://github.com/lambdaclass/stabileo/issues/2143),
@@ -73,10 +69,11 @@ metamorphic and differential tests; this layer has had almost none. The order be
    [#2176](https://github.com/lambdaclass/stabileo/issues/2176) and
    [#2172](https://github.com/lambdaclass/stabileo/issues/2172) are done on main, with
    SA-2026-069 through SA-2026-074, pending release. Prepare 0.6.2 with explicit recheck and load
-   regeneration guidance; do not describe fixes still in flight as released.
+   regeneration guidance. Include the November 17–18 fixes listed below, including the
+   3D support recheck for [SA-2026-089](../advisories/SA-2026-089-roller-z-fixed.md).
 3. **Audit the design and load layer.** Wave 1 has reported the load-generation and concrete
    findings below; keep each open until its correction or justified refusal is verified.
-   **Wave 2 has filed 12 findings: design dispatch, steel welds and Cb, detailing and EC2.**
+   Wave 2 covers design dispatch, steel welds and Cb, detailing and EC2.
    Cover CIRSOC 201, 301 and 104, EC3 and the other-code dispatcher, and every load generator. Each check gets an independent
    worked example from a published source, both sides of every limit, and a negative case.
 4. **Invariance tests for design and loads, run nightly.** Transforming a model into a physically
@@ -212,30 +209,55 @@ metamorphic and differential tests; this layer has had almost none. The order be
     [#1781](https://github.com/lambdaclass/stabileo/pull/1781). Don't merge a broad kernel change
     ahead of the bug fixes and their regression evidence.
 
-### Design and load audit: active work (2026-11-16)
+### November 17–18 soundness findings
 
-Findings from both audit waves remain open until their fix or justified refusal is verified.
-Wave 2 has filed 12 findings in design dispatch, steel welds and Cb, detailing and EC2.
-In-flight fixes are not yet corrections on main.
+- [#2269](https://github.com/lambdaclass/stabileo/issues/2269) Width-mode level area and seismic weight disagreed with the generated beam loads. Fixed in [#2282](https://github.com/lambdaclass/stabileo/pull/2282).
+- [#2271](https://github.com/lambdaclass/stabileo/issues/2271) The provided-beam stirrup spacing check can allow too much spacing when it leaves out axial tension.
+- [#2273](https://github.com/lambdaclass/stabileo/issues/2273) Combined 3D member diagrams missed peaks between plotted points. Fixed in [#2282](https://github.com/lambdaclass/stabileo/pull/2282).
+- [#2276](https://github.com/lambdaclass/stabileo/issues/2276) Ambiguous or unknown support types could act as fixed supports in 3D. Fixed in [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
+- [#2278](https://github.com/lambdaclass/stabileo/issues/2278) DXF import silently maps unknown support labels to pinned supports.
+- [#2284](https://github.com/lambdaclass/stabileo/issues/2284) Overlapping shells on the same plane can count floor load twice.
+- [#2289](https://github.com/lambdaclass/stabileo/issues/2289) A quarter-turn of a plane roller with no attached member can fix every movement in 3D. Recheck the 3D case after [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
+- [#2291](https://github.com/lambdaclass/stabileo/issues/2291) A detached sloping shell above a beam bay can hide the floor load below. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
+- [#2292](https://github.com/lambdaclass/stabileo/issues/2292) The synchronous cable and soil–structure solvers can treat non-finite spring stiffness as absent, and repeated case factors can cancel a nonzero response.
+- [#2294](https://github.com/lambdaclass/stabileo/issues/2294) Copying only a roller node can lose its member axes and restrain the wrong movement.
+- [#2295](https://github.com/lambdaclass/stabileo/issues/2295) An offset rafter and split roof shells can both receive load over the same area. [#2282](https://github.com/lambdaclass/stabileo/pull/2282) refuses the reported model.
+- [#2296](https://github.com/lambdaclass/stabileo/issues/2296) The provided-beam shear check can miss gaps in the stirrups or use the wrong effective depth at the checked section.
+- [#2299](https://github.com/lambdaclass/stabileo/issues/2299) A shell rigidly linked above a closed beam bay can receive the same gravity load as the beams below.
+- [#2300](https://github.com/lambdaclass/stabileo/issues/2300) The torsion check can count longitudinal bars beyond their ends.
+- [#2301](https://github.com/lambdaclass/stabileo/issues/2301) The verifier can count extra stirrup legs that are absent from a fixed cage.
+- [#2302](https://github.com/lambdaclass/stabileo/issues/2302) The seismic check can pass a dense stirrup zone that ends too early in the reopened beam line.
+- [#2304](https://github.com/lambdaclass/stabileo/issues/2304) Saving and reopening a 3D Y roller can change its label to Z while keeping the Y restraints, so a later edit can give a wrong reaction.
 
-| Work | Issues | In flight |
+#### Other follow-ups
+
+- [#2290](https://github.com/lambdaclass/stabileo/issues/2290) Speed up the generated-span plastic mechanism test within its existing time limit.
+- [#2293](https://github.com/lambdaclass/stabileo/issues/2293) Check very thin gravity strips before rounding can erase them.
+- [#2297](https://github.com/lambdaclass/stabileo/issues/2297) Keep the correct sum of repeated load-case factors at extreme magnitudes.
+- [#2303](https://github.com/lambdaclass/stabileo/issues/2303) The steel Memoria test uses a smaller shed and keeps the report checks. Done in [#2305](https://github.com/lambdaclass/stabileo/pull/2305).
+
+### Design and load audit: active work (2026-11-18)
+
+An audit finding stays open until its correction or refusal is verified.
+Wave 2 covers design dispatch, steel welds and Cb, detailing and EC2.
+
+| Work | Issues | Status |
 |---|---|---|
 | Directional stirrup legs for secondary shear and torsion | [#2171](https://github.com/lambdaclass/stabileo/issues/2171) | [#2198](https://github.com/lambdaclass/stabileo/pull/2198) |
-| Gravity and floor-region force and moment; width-mode seismic area | [#2199](https://github.com/lambdaclass/stabileo/issues/2199), [#2200](https://github.com/lambdaclass/stabileo/issues/2200), [#2201](https://github.com/lambdaclass/stabileo/issues/2201), [#2210](https://github.com/lambdaclass/stabileo/issues/2210) | [#2219](https://github.com/lambdaclass/stabileo/pull/2219) |
-| Wind enclosure classification and physical pressure integration | [#2203](https://github.com/lambdaclass/stabileo/issues/2203), [#2204](https://github.com/lambdaclass/stabileo/issues/2204), [#2205](https://github.com/lambdaclass/stabileo/issues/2205), [#2206](https://github.com/lambdaclass/stabileo/issues/2206) | [#2220](https://github.com/lambdaclass/stabileo/pull/2220) |
-| Narrow partial member loads and applied-load self-check | [#2222](https://github.com/lambdaclass/stabileo/issues/2222) | [#2223](https://github.com/lambdaclass/stabileo/pull/2223) |
-| Flat-roof snow in companion combinations | [#2211](https://github.com/lambdaclass/stabileo/issues/2211) | [#2233](https://github.com/lambdaclass/stabileo/pull/2233) |
-| Equilibrium property oracles; engine results unchanged | [#2108](https://github.com/lambdaclass/stabileo/issues/2108), [#2109](https://github.com/lambdaclass/stabileo/issues/2109) | [#2229](https://github.com/lambdaclass/stabileo/pull/2229) |
-| Office concentrated live load | [#2207](https://github.com/lambdaclass/stabileo/issues/2207) | in progress; no PR yet |
-| Visible under-audit notice for generated loads and concrete design | open audit findings below | [#2228](https://github.com/lambdaclass/stabileo/pull/2228) |
-| Release 0.6.2 | merged corrections SA-2026-069 through SA-2026-074 | in preparation |
+| Gravity and floor-region force and moment, width-mode seismic area and combined diagram peaks | [#2199](https://github.com/lambdaclass/stabileo/issues/2199), [#2200](https://github.com/lambdaclass/stabileo/issues/2200), [#2201](https://github.com/lambdaclass/stabileo/issues/2201), [#2210](https://github.com/lambdaclass/stabileo/issues/2210), [#2269](https://github.com/lambdaclass/stabileo/issues/2269), [#2273](https://github.com/lambdaclass/stabileo/issues/2273) | done in [#2282](https://github.com/lambdaclass/stabileo/pull/2282) |
+| Wind enclosure classification and physical pressure integration | [#2203](https://github.com/lambdaclass/stabileo/issues/2203), [#2204](https://github.com/lambdaclass/stabileo/issues/2204), [#2205](https://github.com/lambdaclass/stabileo/issues/2205), [#2206](https://github.com/lambdaclass/stabileo/issues/2206) | done in [#2220](https://github.com/lambdaclass/stabileo/pull/2220) |
+| Narrow partial member loads and applied-load self-check | [#2222](https://github.com/lambdaclass/stabileo/issues/2222) | done in [#2223](https://github.com/lambdaclass/stabileo/pull/2223) |
+| Ambiguous and unknown 3D supports | [#2276](https://github.com/lambdaclass/stabileo/issues/2276) | done in [#2277](https://github.com/lambdaclass/stabileo/pull/2277) |
+| Flat-roof snow in companion combinations | [#2211](https://github.com/lambdaclass/stabileo/issues/2211) | done in [#2233](https://github.com/lambdaclass/stabileo/pull/2233) |
+| Office concentrated live load | [#2207](https://github.com/lambdaclass/stabileo/issues/2207) | done in [#2236](https://github.com/lambdaclass/stabileo/pull/2236) |
+| Visible under-audit notice for generated loads and concrete design | open audit findings below | on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228) |
+| Release 0.6.2 | merged results changes | in preparation |
 
-Wave 1 open findings outside those fix groups, with #2206 also covered by the pending wind PR:
+Wave 1 open findings outside those fix groups:
 
 | Issue | Finding | Next |
 |---|---|---|
 | [#2202](https://github.com/lambdaclass/stabileo/issues/2202) | Flat-topped multiple ridges bypass the valley height cap | conservative; deferred behind unsafe results |
-| [#2206](https://github.com/lambdaclass/stabileo/issues/2206) | Other-structure wind applies a whole height band at one node and doubles the overturning moment | pending in [#2220](https://github.com/lambdaclass/stabileo/pull/2220) |
 | [#2208](https://github.com/lambdaclass/stabileo/issues/2208) | Seismic force location follows the node centroid, not physical mass | open; reproduce and fix or refuse |
 | [#2209](https://github.com/lambdaclass/stabileo/issues/2209) | Modal story forces depend on how the same mode is sampled by nodes | open; reproduce and fix or refuse |
 | [#2212](https://github.com/lambdaclass/stabileo/issues/2212) | Column fit checks array neighbours instead of physical neighbours | open; reproduce and fix or refuse |
@@ -244,10 +266,10 @@ Wave 1 open findings outside those fix groups, with #2206 also covered by the pe
 | [#2215](https://github.com/lambdaclass/stabileo/issues/2215) | Shaped columns use more steel than the user supplied | open; reproduce and fix or refuse |
 | [#2216](https://github.com/lambdaclass/stabileo/issues/2216) | Missing primary reinforcement is reported as a successful seismic member check | open; reproduce and fix or refuse |
 | [#2217](https://github.com/lambdaclass/stabileo/issues/2217) | A layered end-bar input is omitted from the seismic hoop limit | open; reproduce and fix or refuse |
-| [#2218](https://github.com/lambdaclass/stabileo/issues/2218) | Step-drift transfer loses force and moment and changes with subdivision | after the physical-region transfer in [#2219](https://github.com/lambdaclass/stabileo/pull/2219) |
+| [#2218](https://github.com/lambdaclass/stabileo/issues/2218) | Step-drift transfer loses force and moment and changes with subdivision | open; verify force and moment in step-drift transfer |
 | [#2225](https://github.com/lambdaclass/stabileo/issues/2225) | CIRSOC torsion can silently pass insufficient secondary minimum reinforcement in a rectangular beam | open; reproduce and fix or refuse |
 
-Wave 2 open findings, in the harm order of the audit issue map:
+Wave 2 findings, in the harm order of the audit issue map:
 
 | Issue | Audit ID | Finding | Next |
 |---|---|---|---|
@@ -256,8 +278,8 @@ Wave 2 open findings, in the harm order of the audit issue map:
 | [#2240](https://github.com/lambdaclass/stabileo/issues/2240) | O2 | EC2 drops distinct concurrent force states with the same combination/station | open; reproduce and fix or refuse |
 | [#2241](https://github.com/lambdaclass/stabileo/issues/2241) | D2 | A short extra bottom bar is credited outside its drawn extent | open; reproduce and fix or refuse |
 | [#2242](https://github.com/lambdaclass/stabileo/issues/2242) | T2 | Joint shear becomes OK or disappears when the frame is rotated | open; reproduce and fix or refuse |
-| [#2243](https://github.com/lambdaclass/stabileo/issues/2243) | S1 | Segmenting a continuous end-loaded weld removes its length reduction | open; reproduce and fix or refuse |
-| [#2244](https://github.com/lambdaclass/stabileo/issues/2244) | S2 | Short fillet welds retain an impermissibly large leg | open; reproduce and fix or refuse |
+| [#2243](https://github.com/lambdaclass/stabileo/issues/2243) | S1 | Segmenting a continuous end-loaded weld removes its length reduction | done in [#2258](https://github.com/lambdaclass/stabileo/pull/2258) |
+| [#2244](https://github.com/lambdaclass/stabileo/issues/2244) | S2 | Short fillet welds retain an impermissibly large leg | done in [#2258](https://github.com/lambdaclass/stabileo/pull/2258) |
 | [#2245](https://github.com/lambdaclass/stabileo/issues/2245) | D3 | Weak stirrup intervals disappear in midpoint projection | open; reproduce and fix or refuse |
 | [#2246](https://github.com/lambdaclass/stabileo/issues/2246) | O1 | EC2 credits positive steel that does not reach the checked support region | open; reproduce and fix or refuse |
 | [#2247](https://github.com/lambdaclass/stabileo/issues/2247) | S3 | Linear interpolation overstates Cb for an ordinary curved moment diagram | open; reproduce and fix or refuse |
@@ -271,6 +293,12 @@ Follow-ups, with soundness work ahead of feature expansion:
 - [#2227](https://github.com/lambdaclass/stabileo/issues/2227): 3D fully restrained model: prescribed movement below 1e-15 gives member forces with zero reactions.
 
 ### Done on main since November 7
+
+- [#2223](https://github.com/lambdaclass/stabileo/pull/2223) refuses unsupported short member-load intervals and checks the applied force independently.
+- [#2282](https://github.com/lambdaclass/stabileo/pull/2282) corrects gravity load transfer, width-mode seismic mass and combined 3D diagram peaks.
+- [#2277](https://github.com/lambdaclass/stabileo/pull/2277) requires explicit restraints for ambiguous 3D supports. Confirm the restraints and rerun affected analyses, combinations and design checks. [SA-2026-089](../advisories/SA-2026-089-roller-z-fixed.md)
+- [#2257](https://github.com/lambdaclass/stabileo/pull/2257) adds the Heyman Research experiment on masonry arch thickness and collapse.
+- [#2272](https://github.com/lambdaclass/stabileo/pull/2272), [#2288](https://github.com/lambdaclass/stabileo/pull/2288) and [#2305](https://github.com/lambdaclass/stabileo/pull/2305) are also done on main.
 
 - Concurrent concrete and steel demands, combination-specific steel moment gradients, concrete
   magnification and torsion reinforcement are corrected in
@@ -451,17 +479,20 @@ The open pull requests into main, apart from Dependabot updates, rewritten by `m
 <!-- inflight:start -->
 | PR | What | State |
 |---|---|---|
+| [#2286](https://github.com/lambdaclass/stabileo/pull/2286) | Feature switches in one committed config file; production turns on research and tools | ready |
+| [#2285](https://github.com/lambdaclass/stabileo/pull/2285) | Integrate \#2090: landing hero figures | ready |
+| [#2283](https://github.com/lambdaclass/stabileo/pull/2283) | Integrate \#2280: nonlinear solve responsiveness and span-check speed-ups | ready |
+| [#2275](https://github.com/lambdaclass/stabileo/pull/2275) | perf: reduce 3D solve and result-processing overhead | ready |
+| [#2256](https://github.com/lambdaclass/stabileo/pull/2256) | Simplified Chinese as the eighth language | ready |
+| [#2235](https://github.com/lambdaclass/stabileo/pull/2235) | Release 0.6.2 | ready |
+| [#2198](https://github.com/lambdaclass/stabileo/pull/2198) | CIRSOC 201 secondary shear and torsion use the legs effective in each direction (\#2171) | ready |
 | [#2090](https://github.com/lambdaclass/stabileo/pull/2090) | Landing hero: seven live figures in rotation | ready |
 | [#1986](https://github.com/lambdaclass/stabileo/pull/1986) | Global axes chosen by each user, in 2D, 3D and PRO | ready |
 | [#1928](https://github.com/lambdaclass/stabileo/pull/1928) | PRO: every shell a plate, and the physical model read by itself | ready |
 | [#1698](https://github.com/lambdaclass/stabileo/pull/1698) | Verification dashboard: regenerated metrics | ready |
-| [#2233](https://github.com/lambdaclass/stabileo/pull/2233) | Snow companion combinations use flat-roof snow as their own member loading (\#2211) | draft |
-| [#2229](https://github.com/lambdaclass/stabileo/pull/2229) | Equilibrium property checks scale their tolerance from the solved model's own forces (\#2108, \#2109) | draft |
-| [#2228](https://github.com/lambdaclass/stabileo/pull/2228) | Generated loads and concrete design results carry an "under audit" notice | draft |
-| [#2223](https://github.com/lambdaclass/stabileo/pull/2223) | Short partial member loads become point loads, and self-checks count the user's load (\#2222) | draft |
-| [#2220](https://github.com/lambdaclass/stabileo/pull/2220) | Wind follows CIRSOC 102 enclosure classes and conserves the physical pressure field (\#2203, \#2204, \#2205, \#2206) | draft |
+| [#2287](https://github.com/lambdaclass/stabileo/pull/2287) | CIRSOC 201 secondary shear and torsion use the secondary-direction legs (\#2171) | draft |
+| [#2259](https://github.com/lambdaclass/stabileo/pull/2259) | Integrate Bautista's landing hero (\#2090) and global axes (\#1986) onto main | draft |
 | [#2219](https://github.com/lambdaclass/stabileo/pull/2219) | Gravity and floor loads conserve force and moment of the physical loaded region (\#2199, \#2200, \#2201, \#2210) | draft |
-| [#2198](https://github.com/lambdaclass/stabileo/pull/2198) | CIRSOC 201 secondary shear and torsion use the legs effective in each direction (\#2171) | draft |
 | [#2084](https://github.com/lambdaclass/stabileo/pull/2084) | Require verified, invariant public 3D plastic collapse factors | draft |
 | [#2005](https://github.com/lambdaclass/stabileo/pull/2005) | Linear solves and the gravity load plan cost what they did in October again | draft |
 | [#1781](https://github.com/lambdaclass/stabileo/pull/1781) | Design: unifying the 2D and 3D solvers (inventory, cost of 2D as 3D, plan) | draft |
@@ -617,7 +648,7 @@ Rows are ordered uncontained first, then those whose containment is still to be 
 
 | Issue | Defect | On main today | Containment | Fix |
 |---|---|---|---|---|
-| design and load audit | open findings from both waves: generated loads, concrete checks, design dispatch, steel welds and Cb, detailing and EC2 | open; individual containment must be established | under-audit notice pending in [#2228](https://github.com/lambdaclass/stabileo/pull/2228) | active issue and PR map in section 2 |
+| design and load audit | open findings from both waves: generated loads, concrete checks, design dispatch, steel welds and Cb, detailing and EC2 | open; individual containment must be established | general under-audit notice on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228) | active issue and PR map in section 2 |
 | [#1510](https://github.com/lambdaclass/stabileo/issues/1510) | 3D thermal gradients use opposite sign conventions on y and z (direct API callers only; the app converts) | uncontained for API callers | [#1511](https://github.com/lambdaclass/stabileo/pull/1511) documents and tests each sign | one convention or a typed gradient |
 | [#426](https://github.com/lambdaclass/stabileo/issues/426) | 3D co-rotational analysis adds rotation vectors, which is wrong for large non-coaxial rotations | check needed | — | confirm whether the app warns or refuses (section 2 item 8) |
 | [#1503](https://github.com/lambdaclass/stabileo/issues/1503) | the La Bombonera showcase rotates six nodes 0.18 to 0.20 rad in linear analysis | — | — | decide whether the model or the analysis is wrong |

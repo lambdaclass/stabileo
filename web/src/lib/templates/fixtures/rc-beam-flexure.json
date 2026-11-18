@@ -74,7 +74,16 @@
     {
       "id": 2,
       "nodeId": 3,
-      "type": "rollerZ"
+      "type": "rollerZ",
+      "dofRestraints": {
+        "tx": false,
+        "ty": true,
+        "tz": true,
+        "rx": true,
+        "ry": false,
+        "rz": false
+      },
+      "dofFrame": "global"
     }
   ],
   "loads": [

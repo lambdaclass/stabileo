@@ -74,7 +74,7 @@ describe('the changelog', () => {
     const groups = itemsByArea(entry, locale);
     expect(groups.map((g) => g.area)).toEqual(['engine', 'pro', 'app', 'site']);
     expect(groups.flatMap((g) => g.items)).toEqual(entry.i18n[locale].items);
-    expect(groups[0].items).toEqual(entry.i18n[locale].items.slice(0, 2));
+    expect(groups[0].items).toEqual(entry.i18n[locale].items.slice(0, 4));
   });
 
   it('follows the editorial style: no dashes as asides and no angle quotes', () => {

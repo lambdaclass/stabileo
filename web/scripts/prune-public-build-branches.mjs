@@ -1,12 +1,12 @@
 import { parse } from 'svelte/compiler';
 
-export function prunePublicBuildBranches(content, environment) {
-  if (!content.includes('import.meta.env.VITE_')) return { code: content };
+export function prunePublicBuildBranches(content, features) {
+  if (!content.includes('__PUBLIC_FEATURES__.')) return { code: content };
   const unknown = Symbol();
   const changes = [];
   function value(node) {
-    const key = /^import\.meta\.env\.(VITE_(?:ACCOUNTS|RESEARCH|TOOLS|DIAGRAM_GAME))$/.exec(content.slice(node.start, node.end));
-    if (key) return environment[key[1]];
+    const key = /^__PUBLIC_FEATURES__\.(accounts|research|tools|diagramGame)$/.exec(content.slice(node.start, node.end));
+    if (key) return features[key[1]];
     if (node.type === 'Literal') return node.value;
     if (node.type === 'UnaryExpression' && node.operator === '!') {
       const operand = value(node.argument);

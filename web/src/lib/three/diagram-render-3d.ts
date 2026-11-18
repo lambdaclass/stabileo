@@ -8,7 +8,6 @@ import type { ElementForces3D, EnvelopeDiagramData3D } from '../engine/types-3d'
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import {
   computeDiagram3D,
-  computeGlobalMax3D,
   getDiagramLocalDirection,
   formatDiagramValue3D,
   type Diagram3DKind,
@@ -112,7 +111,13 @@ export function createDiagramGroup3D(
   const group = new THREE.Group();
   group.userData = { type: 'diagram3d', kind };
 
-  const globalMax = computeGlobalMax3D(elementForces, kind);
+  const diagrams = new Map<number, ReturnType<typeof computeDiagram3D>>();
+  let globalMax = 0;
+  for (const ef of elementForces) {
+    const diagram = computeDiagram3D(ef, kind);
+    diagrams.set(ef.elementId, diagram);
+    globalMax = Math.max(globalMax, Math.abs(diagram.maxValue), Math.abs(diagram.minValue));
+  }
   if (globalMax < 1e-10) return group;
 
   // Compute model bounding box for scale reference
@@ -162,8 +167,7 @@ export function createDiagramGroup3D(
       continue; // zero-length element
     }
 
-    // Compute diagram values
-    const diagram = computeDiagram3D(ef, kind);
+    const diagram = diagrams.get(elemId)!;
 
     const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir, towardLocalAxes);
 

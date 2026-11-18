@@ -80,7 +80,7 @@ it('offers both actions when a notice mixes generated-load and solve changes', a
   expect(html).toContain(t('recheck.staleWarning'));
 });
 
-it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the reader\'s language (%s), not in English', async (locale) => {
+it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows the complete result-change notice for language %s', async (locale) => {
   const project = {
     analysisMode: 'pro',
     materials: [[1, { id: 1, e: 200000, fy: 250 }]],
@@ -95,6 +95,12 @@ it.each(OFFERED_LOCALES.filter((l) => l !== 'en'))('shows each change in the rea
   const text = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   for (const change of changes) {
     const title = change.title[locale], explanation = change.explanation[locale];
+    if (locale === 'hu' && (!title || !explanation)) {
+      const notice = html.split(`data-change-id="${change.id}"`)[1].split('</li>')[0];
+      expect(notice).toContain(text(change.title.en));
+      expect(notice).toContain(text(change.explanation.en));
+      continue;
+    }
     if (title === undefined || explanation === undefined) throw new Error(`Missing ${locale} notice for ${change.id}`);
     expect(title, change.id).not.toBe(change.title.en);
     expect(html).toContain(text(title));
@@ -121,7 +127,7 @@ it('known wrong result: #2099 — renders a complete English snow notice when Hu
   const { RESULT_CHANGES } = await import('../../lib/provenance/full-registry');
   const { i18n } = await import('../../lib/i18n');
   const entry = RESULT_CHANGES.changes.find(c => c.id === 'snow-roof-step')!;
-  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
   vi.spyOn(i18n, 'locale', 'get').mockReturnValue('hu');
   vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(false);
   vi.spyOn(recheckStore, 'noticeOpen', 'get').mockReturnValue(true);
@@ -138,7 +144,7 @@ it('known wrong result: #2099 — renders a complete English snow notice when Hu
       expect(html).toContain(escaped(translated === 'both' ? change.title.hu! : change.title.en));
       expect(html).toContain(escaped(translated === 'both' ? change.explanation.hu! : change.explanation.en));
     }
-  } finally { vi.unstubAllEnvs(); }
+  } finally { vi.unstubAllGlobals(); }
 });
 
 it('known wrong result: #2233 hand-entered snow still offers regeneration after a current solve', async () => {

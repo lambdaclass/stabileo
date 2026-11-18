@@ -16,6 +16,7 @@
     uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
     return true;
   }
+  import { dofRestraintsOfType3D } from '../../lib/model/support-3d';
   import Icon from '../ribbon/Icon.svelte';
   // Values are typed in the unit system chosen under Settings and kept in SI.
   import UnitInput from '../UnitInput.svelte';
@@ -321,61 +322,79 @@
   <div class="ft-load-edit" class:in-bar={inBar}>
     <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
     <span class="ft-sep">|</span>
-    {#if is3DSupport(selectedSup.type)}
+    {#if is3DSupport(selectedSup.type) || (uiStore.is3DWorkspace && selectedSup.dofRestraints)}
       <!-- 3D per-DOF editing for selected support -->
-      {@const dofs = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
+      {@const dofs = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type)}
       <label class="ft-chk"><input type="checkbox" checked={dofs.tx} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, tx: !r.tx };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fx</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.ty} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, ty: !r.ty };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fy</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.tz} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, tz: !r.tz };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Fz</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.rx} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, rx: !r.rx };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Mx</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.ry} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, ry: !r.ry };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>My</span></label>
       <label class="ft-chk"><input type="checkbox" checked={dofs.rz} onchange={() => {
-        const r = selectedSup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
+        const r = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type);
         const u = { ...r, rz: !r.rz };
         const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
         const onlyT = u.tx && u.ty && u.tz && !u.rx && !u.ry && !u.rz;
         const noneF = !u.tx && !u.ty && !u.tz && !u.rx && !u.ry && !u.rz;
-        modelStore.updateSupport(selectedSup.id, { dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d' } as any);
+        modelStore.updateSupport(selectedSup.id, {
+          dofRestraints: u, type: allF ? 'fixed3d' : onlyT ? 'pinned3d' : noneF ? 'spring3d' : 'custom3d',
+          dofFrame: selectedSup.dofFrame, dofLocalElementId: selectedSup.dofLocalElementId,
+        });
         resultsStore.clear(); resultsStore.clear3D();
       }} /> <span>Mz</span></label>
       <!-- Spring stiffnesses for unchecked DOFs -->
@@ -418,7 +437,7 @@
       </button>
     {/each}
     {/if}
-    {#if isRollerType(selectedSup.type)}
+    {#if !uiStore.is3DWorkspace && isRollerType(selectedSup.type)}
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerX'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerX')}
