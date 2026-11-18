@@ -3,7 +3,6 @@ import { expect, test } from '@playwright/test';
 test.use({ isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
 
 test('@smoke shauer-2025 charts keep a stable SVG height when tabs open and the pane resizes', async ({ page }) => {
-  test.skip(true, 'known wrong result: #2286');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/en/research/fracture/shauer-2025/');
   await expect(page.locator('.rs-shell-app .sfv-canvas canvas')).toBeVisible({ timeout: 30_000 });
