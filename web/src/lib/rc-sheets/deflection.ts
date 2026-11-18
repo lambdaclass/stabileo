@@ -587,8 +587,9 @@ export function withSlabDeflection(base: SlabFn, code: DeflectionCode): SlabFn {
     const span = slabSpanInput(row, sv.edges, cant);
     const service = !!cant === (sv.service?.strip?.reference === 'root') ? sv.service : undefined;
     const L = slabLimitSpan(row, span, service?.strip?.reference);
+    // The top mesh of a span lies over its supports only; at a cantilever's root the bottom mesh runs through and counts as compression steel.
     const sectionOf = (r: SlabRow, a: SlabAdopted): DeflectionSection => ({
-      b: 1, h: d.h, d: r.faces[face].d, dPrime: d.h - r.faces[other(face)].d, As: meshArea(a[face]) * 1e-4, AsPrime: 0, AsReq: r.faces[face].asReq * 1e-4,
+      b: 1, h: d.h, d: r.faces[face].d, dPrime: d.h - r.faces[other(face)].d, As: meshArea(a[face]) * 1e-4, AsPrime: cant ? meshArea(a[other(face)]) * 1e-4 : 0, AsReq: r.faces[face].asReq * 1e-4,
     });
     const input = (sec: DeflectionSection): DeflectionInput => ({ member: 'slab', section: sec, L, ends: span.ends, ...(span.twoWay ? { twoWay: span.twoWay } : {}), fc: c.mat.fc, fy: c.mat.fy, service, settings: c.deflection ?? {} });
     let out = code.check(input(sectionOf(row, row.adopted)), fmt);
