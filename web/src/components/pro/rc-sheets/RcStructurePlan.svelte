@@ -66,6 +66,7 @@
               <line x1={sx(s.a[0])} y1={sy(s.a[1])} x2={sx(s.b[0])} y2={sy(s.b[1])} class="beam-axis" />
             {/each}
             {#each it.cuts as c, j (j)}<circle cx={sx(c[0])} cy={sy(c[1])} r="2.2" class="cut" data-testid="rc-struct-cut" />{/each}
+            {#each it.splices as [p, q], j (j)}<line x1={sx(p[0])} y1={sy(p[1])} x2={sx(q[0])} y2={sy(q[1])} class="splice" data-testid="rc-struct-splice" />{/each}
           {:else if it.kind === 'column'}
             <polygon points={pts(it.outline)} class="solid" />
             {#each it.rebars as r, j (j)}<circle cx={sx(r.at[0])} cy={sy(r.at[1])} r={Math.max(1, (r.dia / 2000) * k)} class="rebar" />{/each}
@@ -109,6 +110,7 @@
   .beam { stroke: var(--c); opacity: 0.35; stroke-linecap: butt; }
   .beam-axis { stroke: var(--c); stroke-width: 1.2; }
   .cut { fill: var(--st-surface); stroke: var(--c); stroke-width: 1; }
+  .splice { stroke: var(--c); stroke-width: 1.2; }
   .solid { fill: color-mix(in srgb, var(--c) 35%, transparent); stroke: var(--c); stroke-width: 1.2; }
   .rebar { fill: var(--c); }
   .lbl { font-size: 9px; fill: var(--c); text-anchor: middle; dominant-baseline: central; font-family: var(--st-mono); font-weight: 600; }
