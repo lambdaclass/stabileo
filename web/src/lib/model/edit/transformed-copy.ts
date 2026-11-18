@@ -38,12 +38,13 @@
 
 import { weldTolerance } from '../weld-tolerance';
 import { modelStore } from '../../store/model.svelte';
+import { uiStore } from '../../store/ui.svelte';
 import type { Element, Quad, Plate } from '../../store/model.svelte';
 import { applyPoint, applyVector, isReflection, type Affine, type Vec3 } from './affine';
 import {
   carriedJoint, carriedLoad, carriedOffset, carriedOrientation, carriedSupport, type EditWarning,
 } from './transform-fields';
-import { fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
+import { closure, fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
 import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
 import { NodeIndex } from './node-index';
 export { NodeIndex } from './node-index';
@@ -91,6 +92,18 @@ const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
  * With `link`, copy k's nodes are joined to copy k−1's (copy 0 to the originals).
  */
 export function copyTransformed(set: EntitySet, transforms: readonly Affine[], opts: CopyOptions = {}): EditReport {
+  if (uiStore.is3DWorkspace && uiStore.viewportPresentation3D === 'upright2dIn3d' && transforms.length > 0) {
+    const source = closure(set);
+    if (source.nodes.size > 0) {
+      let report!: EditReport;
+      modelStore.batch(() => {
+        modelStore.ensureSpaceCoordinates();
+        report = insertFragment(fragmentOf(source, opts), transforms, opts);
+      });
+      return report;
+    }
+    return insertFragment(fragmentOf(source, opts), transforms, opts);
+  }
   return insertFragment(fragmentOf(set, opts), transforms, opts);
 }
 
@@ -127,6 +140,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     const nodes0 = new Map(frag.nodes.map((n) => [n.id, n]));
     const elements0 = new Map(frag.elements.map((e) => [e.id, e]));
     const supports0 = opts.withSupports ? frag.supports : [];
+    const planeMemberNodes = uiStore.is3DWorkspace ? null
+      : new Set(frag.supportNodesWithMembers ?? frag.elements.flatMap(e => [e.nodeI, e.nodeJ]));
     // A definition copied with what it loads writes the copy's loads itself (`defined-loads.ts`):
     // its loads carried as well would load the copy twice. Others are carried as plain loads
     // (`carriedLoad`).
@@ -247,7 +262,7 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         const to = nodeMap.get(s.nodeId)!;
         // A welded node keeps whatever support it already has.
         if (!created.has(to)) { if (!frag.local || to !== s.nodeId) report.supportKept++; continue; }
-        const c = carriedSupport(T, s, to, elementMap);
+        const c = carriedSupport(T, s, to, elementMap, planeMemberNodes);
         if (c) modelStore.addSupportEntry(c); else warn('supportDropped');
       }
 

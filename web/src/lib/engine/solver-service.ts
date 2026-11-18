@@ -21,7 +21,8 @@ import { amplification } from './pdelta-amplification';
 import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
-import { supportDofs3D } from './support-dofs-3d';
+import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
+import { resolvePlaneSupportSettlement } from '../model/support-types';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -218,8 +219,7 @@ export function spaceBendingInertias(
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
     const isRoller = s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ';
-    const supportDz = s.dz ?? s.dy;
-    const supportDry = s.dry ?? s.drz;
+    const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
       let effectiveAngleDeg = baseAngleDeg;
@@ -1850,15 +1850,8 @@ export function buildSolverInput3D(
     })),
     supports: (() => {
       const supMap = new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
-        let dofs: { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
-        if (s.dofRestraints) {
-          const r = s.dofRestraints;
-          dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
-        } else {
-          dofs = supportDofs3D(s, project2DToXZ);
-        }
-        const supportDz = s.dz ?? s.dy;
-        const supportDry = s.dry ?? s.drz;
+        const dofs = supportDofs3D(s, project2DToXZ);
+        const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
         // A plane support's prescribed rotation is the plane's θ, counter-clockwise as drawn; standing
         // in X–Z that is a rotation about −Y (θy = −θ, docs/solver/assembly-constraints.md §2.3), as
@@ -1984,6 +1977,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
   try {
     return buildSolverInput3D(...args);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (!(err instanceof SemiRigidError)) throw err;
@@ -2012,9 +2006,14 @@ export function orphanLoadRefusal(model: Pick<ModelData, 'nodes' | 'elements' | 
 
 /** Displacements imposed where nothing restrains them, said by node and direction. */
 export function imposedRefusal(model: ModelData): string | null {
-  const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
-  if (bad.length === 0) return null;
-  return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
+  try {
+    const bad = imposedUnsupported(model.supports, model.loads, shouldEmbedFlat2DModelIn3D(model));
+    if (bad.length === 0) return null;
+    return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
+  } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
+    throw err;
+  }
 }
 
 // ─── 3D: validateAndSolve3D ──────────────────────────────────────
@@ -2504,6 +2503,7 @@ export function solveCombinations3D(
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, plan.combinations, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -3077,6 +3077,7 @@ export async function solveCombinations3DParallel(
     checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
+    if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);

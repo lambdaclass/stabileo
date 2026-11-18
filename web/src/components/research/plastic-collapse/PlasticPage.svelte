@@ -80,7 +80,7 @@
   {/snippet}
   {#snippet app()}
     <div id="portal" bind:this={host} class="portal">
-      <StabileoViewer {...data} cellSize={2} lineWidth={5} title={s.displacement} unit="m" lengthUnit="m" showAxes={false}
+      <StabileoViewer plane="elevation" {...data} cellSize={2} lineWidth={5} title={s.displacement} unit="m" lengthUnit="m" showAxes={false}
         deformScale={DEFORM_SCALE} showMesh={false} editorButton={false} height="clamp(15rem, 35dvh, 22rem)"
         oninteract={() => playback.interact()} />
       <p class="small">{fill(s.amplified, { scale: DEFORM_SCALE })} · {s.planeNote}</p>

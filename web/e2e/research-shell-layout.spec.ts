@@ -1,0 +1,83 @@
+import { expect, test } from '@playwright/test';
+import { EXPERIMENTS } from '../src/components/research/experiments';
+
+const layouts: Record<string, 'wide' | 'standalone' | undefined> = {
+  'andreassen-2011': 'wide',
+  'zmyslony-2026': 'wide',
+  'navier-plate': 'standalone',
+};
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
+  for (const e of EXPERIMENTS) {
+    const layout = layouts[e.paperId] ?? 'split';
+    test(`@smoke research shell: ${e.path} uses its ${layout} layout at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(`/en${e.path}/`);
+      await expect(page.locator('h1').first()).toBeVisible();
+      const app = page.locator('.rs-shell-app');
+      if (layout === 'standalone') {
+        await expect(app).toHaveCount(0);
+        await expect(page.getByTestId('navier-results')).toBeVisible();
+      } else {
+        const shell = page.locator(layout === 'wide' ? '.rs-shell-grid.rs-wide' : '.rs-shell-wrap.rs-split');
+        await expect(shell.locator('.rs-shell-app')).toBeVisible();
+        const head = (await page.locator('.rs-shell-head').boundingBox())!;
+        const pane = (await app.boundingBox())!;
+        const article = (await page.locator('.rs-shell-article').boundingBox())!;
+        if (layout === 'wide') {
+          expect(pane.y).toBeGreaterThanOrEqual(head.y + head.height);
+          expect(article.y).toBeGreaterThanOrEqual(pane.y + pane.height);
+          expect(pane.x).toBe(article.x);
+        } else {
+          expect(Math.abs(pane.y - head.y)).toBeLessThan(2);
+          expect(pane.x).toBeGreaterThan(head.x + head.width);
+          expect(pane.x).toBeGreaterThan(article.x + article.width);
+          expect(article.y).toBeGreaterThanOrEqual(head.y + head.height);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        }
+      }
+    });
+  }
+}
+
+test('@smoke research shell: the split grid holds only the head, article and app, and places anything else below them', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  let checked = 0;
+  for (const e of EXPERIMENTS) {
+    if (layouts[e.paperId]) continue;
+    await page.goto(`/en${e.path}/`);
+    await expect(page.locator('h1').first()).toBeVisible();
+    await expect(page.locator('.rs-shell-wrap.rs-split > .rs-shell-grid')).toHaveCount(1);
+    const shape = await page.evaluate(() => {
+      const wrap = document.querySelector('.rs-shell-wrap.rs-split')!;
+      const grid = wrap.querySelector(':scope > .rs-shell-grid')!;
+      const name = (el: Element) => `${el.tagName.toLowerCase()}.${[...el.classList].filter(c => c.startsWith('rs-shell')).join('.')}`;
+      return {
+        wrap: [...wrap.children].map(name),
+        grid: [...grid.children].map(name),
+        display: getComputedStyle(grid).display,
+        semantics: [...grid.attributes].map(a => a.name).filter(n => n === 'role' || n.startsWith('aria-')),
+      };
+    });
+    expect(shape, e.path).toEqual({ wrap: ['header.rs-shell-head', 'div.rs-shell-grid'], grid: ['article.rs-shell-article', 'aside.rs-shell-app'], display: 'contents', semantics: [] });
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(0);
+  await page.goto(`/en${EXPERIMENTS.find(e => e.paperId === 'heyman-1966')!.path}/`);
+  const placed = await page.evaluate(() => {
+    const grid = document.querySelector('.rs-shell-wrap.rs-split > .rs-shell-grid')!;
+    const stray = document.createElement('div');
+    stray.className = (grid.firstElementChild as HTMLElement).className.split(' ').filter(c => c.startsWith('svelte-')).join(' ');
+    stray.style.height = '40px';
+    grid.appendChild(stray);
+    const box = (el: Element) => el.getBoundingClientRect();
+    const [s, article, app, head] = [stray, grid.querySelector('.rs-shell-article')!, grid.querySelector('.rs-shell-app')!, document.querySelector('.rs-shell-head')!].map(box);
+    return { column: getComputedStyle(stray).gridColumnStart + '/' + getComputedStyle(stray).gridColumnEnd, left: s.left, width: s.width, top: s.top, below: Math.max(article.bottom, app.bottom), head: head.left, right: app.right };
+  });
+  expect(placed.column).toBe('1/-1');
+  expect(placed.top).toBeGreaterThanOrEqual(placed.below - 1);
+  expect(Math.abs(placed.left - placed.head)).toBeLessThan(2);
+  expect(Math.abs(placed.left + placed.width - placed.right)).toBeLessThan(2);
+});

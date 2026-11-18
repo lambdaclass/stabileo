@@ -100,7 +100,7 @@
     <div class="app" bind:this={host}>
       <p class="status" data-testid="navier-source" role="status" aria-live="polite">{status}</p>
       {#if selected}
-        <StabileoViewer {...geometry} values={selected.values} range={{ min: 0, max: Math.max(parameters.reference_mm, ...selected.values) }} title={s.field} ariaLabel={viewerLabel} unit="mm" {showMesh} {locale} height="var(--navier-viewer-h)" editorButton={false} oninteract={() => playback.interact()} />
+        <StabileoViewer plane="plan" {...geometry} values={selected.values} range={{ min: 0, max: Math.max(parameters.reference_mm, ...selected.values) }} title={s.field} ariaLabel={viewerLabel} unit="mm" {showMesh} {locale} height="var(--navier-viewer-h)" editorButton={false} oninteract={() => playback.interact()} />
         <label class="step">{s.step}: {selected.family} {selected.n} × {selected.n}
           <input type="range" min="0" max={rows.length - 1} value={index} oninput={e => playback.seek(Number(e.currentTarget.value))} />
         </label>

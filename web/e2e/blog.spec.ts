@@ -421,8 +421,8 @@ test.describe('blog', () => {
     await embed.scrollIntoViewIfNeeded();
     // The numbers read back below are the ones the caption quotes.
     const caption = await embed.locator('figcaption').innerText();
-    expect(caption).toContain('D/C = 0,90');
-    expect(caption).toContain('gobernados por el corte en el tramo');
+    expect(caption).toContain('D/C = 0,91');
+    expect(caption).toContain('Gobierna la flexión positiva en el tramo (My+).');
     await embed.locator('.post-embed-start').click();
 
     const app = page.frameLocator('.post-embed iframe');
@@ -441,16 +441,13 @@ test.describe('blog', () => {
     await app.getByTestId('cmd-autodesign').click();
     await app.getByTestId('desk-run').click();
 
-    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
-    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
-    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
-    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
-    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
     const table = app.locator('body');
     for (const id of [1, 2]) {
-      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
-      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
-      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+      const row = app.getByTestId('design-row-' + id);
+      await expect(app.getByTestId('row-util-' + id)).toHaveText('0.91', { timeout: 90_000 });
+      await expect(row).toHaveAttribute('data-util', '0.908');
+      await expect(app.getByTestId('row-status-' + id)).toContainText('Verificada');
+      await expect(row.getByText('Bottom Span (My+)', { exact: true })).toBeVisible();
     }
     await expect(table).not.toContainText('sin armadura');
   });

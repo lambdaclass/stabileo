@@ -243,7 +243,7 @@
       <p class="caption result-settings">q = {num(computed.q, { dp: 1 })}; {s.distribution}: {computed.half ? s.halfShort : s.uniformShort}; {s.members}: {computed.elements}; {s.computedCorner} Θ = {num(computed.theta, { dp: 2 })}, Δ = {num(computed.delta, { dp: 2 })}.</p>
       {#if stale}<p class="result-stale" role="status">{s.staleResult}</p>{/if}
       <div id="rs-panel-strip" role="tabpanel" aria-labelledby="rs-tab-strip" hidden={tab !== 'strip'} class:stale={stale}>
-        <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={frame.curvature} {displacement} deformScale={1}
+        <StabileoViewer plane="elevation" editorButton={false} {xy} {cells} cellSize={2} values={frame.curvature} {displacement} deformScale={1}
           range={{ min: -10, max: 10 }} colourMap="diverging" title={s.curvature} height="max(240px, min(20rem, 38svh))" view={[-0.12, -0.27, 1.08, 0.3]} lineWidth={5} showAxes={false} />
         <p class="caption">{s.coordinates}</p>
         <dl class="summary">

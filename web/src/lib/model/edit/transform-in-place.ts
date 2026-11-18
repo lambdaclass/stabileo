@@ -10,6 +10,7 @@
  */
 
 import { modelStore } from '../../store/model.svelte';
+import { uiStore } from '../../store/ui.svelte';
 import type { Element, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
@@ -104,9 +105,11 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     }
 
     const identity = new Map([...modelStore.elements.keys()].map((id) => [id, id]));
+    const planeMemberNodes = uiStore.is3DWorkspace ? null
+      : new Set([...modelStore.elements.values()].flatMap(e => [e.nodeI, e.nodeJ]));
     for (const s of [...modelStore.supports.values()]) {
       if (!src.nodes.has(s.nodeId)) continue;
-      const c = carriedSupport(T, s, s.nodeId, identity);
+      const c = carriedSupport(T, s, s.nodeId, identity, planeMemberNodes);
       if (c) modelStore.addSupportEntry(c);
       else { modelStore.removeSupport(s.id); warn('supportDropped'); }
     }

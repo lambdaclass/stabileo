@@ -1,3 +1,4 @@
+import type { SupportType } from '../model/support-types';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
@@ -23,7 +24,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
-import { DOF_SPRING, dofRestraintsOfType3D, is3DSupportType, type SpringKey } from '../model/support-3d';
+import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -53,7 +54,7 @@ import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
 import { weldTolerance } from '../model/weld-tolerance';
 import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
-import { loadFixture } from '../templates/load-fixture';
+import { loadFixture, validateFixtureSupportFrames, type JSONModel } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
@@ -500,9 +501,7 @@ export type ReleaseEnd = 'i' | 'j';
 /** Boolean rotational/torsional release axes (excludes the non-boolean slide fields). */
 export type ReleaseAxis = 'my' | 'mz' | 't';
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
-  | 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d'
-  | 'custom3d';
+export type { SupportType } from '../model/support-types';
 
 export interface Support {
   id: number;
@@ -1427,6 +1426,7 @@ function createModelStore() {
   // skip their per-call Map / array reassignment while this flag is true;
   // bulkMutate() reassigns everything once at the end.
   let _bulkMutating = false;
+  let _replayingFixture = false;
   let _bulkLoadBuffer: Load[] | null = null;
   let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
@@ -1613,12 +1613,21 @@ function createModelStore() {
     }
   }
 
+  type SupportSnapshotOptions = { preserveSupportTypes?: boolean };
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
 
+  function needsSpaceForSupport(type: SupportType | undefined, dofs?: Support['dofRestraints']): boolean {
+    return !!dofs || (type !== undefined && (
+      type.endsWith('3d') || is3DSupportType(type) || (uiStore.is3DWorkspace && type.startsWith('roller'))
+    ));
+  }
+
   /** The support `addSupport` and `addSupports` write: only the fields given, and no zero offsets. */
-  function supportOf(id: number, nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts): Support {
-    const sup: Support = { id, nodeId, type: normalize2DSupportType(type) };
+  function supportOf(
+    id: number, nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
+  ): Support {
+    const sup: Support = { id, nodeId, type: uiStore.is3DWorkspace ? type : normalize2DSupportType(type) };
     if (springs) {
       if (springs.kx !== undefined) sup.kx = springs.kx;
       if (springs.ky !== undefined) sup.ky = springs.ky;
@@ -1636,11 +1645,7 @@ function createModelStore() {
     if (opts?.drx !== undefined && opts.drx !== 0) sup.drx = opts.drx;
     const supportDry = opts?.dry ?? opts?.drz;
     if (supportDry !== undefined && supportDry !== 0) sup.dry = supportDry;
-    // Per-DOF 3D configuration; a copy, so supports added together do not share one.
-    if (opts?.dofRestraints) sup.dofRestraints = { ...opts.dofRestraints };
-    if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
-    if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
-    return sup;
+    return { ...sup, ...supportConfiguration(opts ?? {}, uiStore.is3DWorkspace ? sup.type : undefined) };
   }
 
   /**
@@ -2158,7 +2163,7 @@ function createModelStore() {
     get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
-    snapshot(): ModelSnapshot {
+    snapshot(options?: SupportSnapshotOptions): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
       // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
@@ -2187,7 +2192,7 @@ function createModelStore() {
         }]) as ModelSnapshot['elements'],
         supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
           ...v,
-          type: normalize2DSupportType(v.type),
+          type: options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type),
           dz: canonicalSupportDz(v),
           dry: canonicalSupportDry(v),
         }]) as ModelSnapshot['supports'],
@@ -2333,7 +2338,7 @@ function createModelStore() {
       _captureProvenance = fn;
     },
 
-    restore(rawSnapshot: ModelSnapshot): void {
+    restore(rawSnapshot: ModelSnapshot, options?: SupportSnapshotOptions): void {
       loadEpoch++;
       _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
@@ -2385,7 +2390,8 @@ function createModelStore() {
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
       const supEntries = s.supports.map(([k, v]) => {
-        const sup = { ...v, type: normalize2DSupportType(v.type as SupportType) } as Support;
+        const type = options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type as SupportType);
+        const sup = { ...v, type } as Support;
         return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
       });
       const seenNodes = new Set<number>();
@@ -2592,7 +2598,7 @@ function createModelStore() {
      * outside the space workspace, or when the model is not a standing plane one.
      */
     ensureSpaceCoordinates(): boolean {
-      if (!uiStore.is3DWorkspace) return false;
+      if (_replayingFixture || !uiStore.is3DWorkspace) return false;
       if (uiStore.viewportPresentation3D !== 'upright2dIn3d') return false;
       const changed = materializeStandingPlaneModel(model as unknown as ModelData, () => nextId.load++);
       if (changed) {
@@ -2758,7 +2764,8 @@ function createModelStore() {
         if (existingSup.nodeId === fields.nodeId) { model.supports.delete(existingId); break; }
       }
       const id = nextId.support++;
-      model.supports.set(id, { ...JSON.parse(JSON.stringify(fields)), id } as Support);
+      const support = { ...JSON.parse(JSON.stringify(fields)), id } as Support;
+      model.supports.set(id, support);
       if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
@@ -2879,10 +2886,12 @@ function createModelStore() {
       return id;
     },
 
-    addSupport(nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts): number {
+    addSupport(
+      nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts,
+    ): number {
       if (!_undoBatching) _pushUndo?.();
       // A space support on a standing plane model makes it a space one.
-      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)) this.ensureSpaceCoordinates();
+      if (needsSpaceForSupport(type, opts?.dofRestraints)) this.ensureSpaceCoordinates();
       // Remove existing support on this node (only one support per node allowed)
       for (const [existingId, existingSup] of model.supports) {
         if (existingSup.nodeId === nodeId) {
@@ -2904,7 +2913,7 @@ function createModelStore() {
     addSupports(nodeIds: readonly number[], type: SupportType, springs?: SupportSprings, opts?: SupportOpts): number[] {
       if (nodeIds.length === 0) return [];
       if (!_undoBatching) _pushUndo?.();
-      if (opts?.dofRestraints || /3d$|^roller(XY|XZ|YZ)$/.test(type)) this.ensureSpaceCoordinates();
+      if (needsSpaceForSupport(type, opts?.dofRestraints)) this.ensureSpaceCoordinates();
       const into = _bulkMutating ? model.supports : new Map(model.supports);
       const held = new Map<number, number>();
       for (const [id, s] of into) held.set(s.nodeId, id);
@@ -3659,6 +3668,12 @@ function createModelStore() {
 
     updateSupport(id: number, data: Partial<{ nodeId: number; type: SupportType; kx: number; ky: number; kz: number; dx: number; dy: number; drz: number; angle: number; isGlobal: boolean; dz: number; drx: number; dry: number; krx: number; kry: number; krz: number; dofRestraints: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame: 'global' | 'local'; dofLocalElementId: number; uplift: boolean; curves: Support['curves']; isInclined: boolean; normalX: number; normalY: number; normalZ: number }>): void {
       if (!_undoBatching) _pushUndo?.();
+      const current = model.supports.get(id);
+      if (!current) return;
+      const typeInWorkspace = uiStore.is3DWorkspace ? (type: SupportType) => type : normalize2DSupportType;
+      const requestedType = typeInWorkspace(data.type ?? current.type);
+      const changedType = requestedType !== typeInWorkspace(current.type) ? requestedType : undefined;
+      if (needsSpaceForSupport(changedType, data.dofRestraints)) this.ensureSpaceCoordinates();
       const sup = model.supports.get(id);
       if (!sup) return;
       // If changing nodeId, remove any existing support on the target node
@@ -3673,8 +3688,10 @@ function createModelStore() {
       // A 3D support keeps springs only on the DOFs it leaves free: switching
       // a spring support to fixed (or ticking a DOF) used to keep the spring,
       // and the engine then solved the "fixed" DOF as elastic (#488).
-      const nextType = data.type ? normalize2DSupportType(data.type) : sup.type;
-      const nextDofs = data.dofRestraints ?? sup.dofRestraints;
+      const nextType = changedType ?? sup.type;
+      const configuration = supportConfiguration(data, changedType === undefined ? sup
+        : uiStore.is3DWorkspace ? changedType : undefined);
+      const nextDofs = configuration.dofRestraints;
       const restrained = nextDofs ?? (is3DSupportType(nextType) ? dofRestraintsOfType3D(nextType) : undefined);
       const spring = (key: SpringKey, value: number | undefined) => {
         const dof = DOF_SPRING.find(([, k]) => k === key)![0];
@@ -3684,7 +3701,7 @@ function createModelStore() {
       model.supports.set(id, {
         id: sup.id,
         nodeId: data.nodeId ?? sup.nodeId,
-        type: data.type ? normalize2DSupportType(data.type) : sup.type,
+        type: nextType,
         kx: spring('kx', data.kx ?? sup.kx),
         ky: spring('ky', data.ky ?? sup.ky),
         kz: spring('kz', data.kz ?? sup.kz),
@@ -3699,9 +3716,7 @@ function createModelStore() {
         kry: spring('kry', data.kry ?? sup.kry),
         krz: spring('krz', data.krz ?? sup.krz),
         // Per-DOF 3D configuration
-        dofRestraints: data.dofRestraints ?? sup.dofRestraints,
-        dofFrame: data.dofFrame ?? sup.dofFrame,
-        dofLocalElementId: data.dofLocalElementId ?? sup.dofLocalElementId,
+        ...configuration,
         // Inclined support fields: kept unless stated
         normalX: 'normalX' in data ? data.normalX : sup.normalX,
         normalY: 'normalY' in data ? data.normalY : sup.normalY,
@@ -4675,9 +4690,19 @@ function createModelStore() {
      */
     fixtureApi() {
       return {
+        replay: (load: () => void) => {
+          const wasReplaying = _replayingFixture;
+          _replayingFixture = true;
+          try {
+            this.bulkMutate(load);
+          } finally {
+            _replayingFixture = wasReplaying;
+          }
+        },
         addNode: this.addNode.bind(this),
         addElement: this.addElement.bind(this),
-        addSupport: this.addSupport.bind(this),
+        addSupport: (nodeId: number, type: SupportType, springs?: SupportSprings, opts?: SupportOpts) =>
+          this.addSupportEntry({ nodeId, type, ...springs, ...opts }),
         updateSupport: this.updateSupport.bind(this),
         addMaterial: this.addMaterial.bind(this),
         addSection: this.addSection.bind(this),
@@ -4708,63 +4733,57 @@ function createModelStore() {
       const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
-      if (!_undoBatching) _pushUndo?.();
-      _undoBatching = true;
-
       // Fetched before the model is cleared, so no effect ever sees it empty mid-load. Cleared
       // first, the PRO panel's self-weight effect ran during this await, found an empty model
       // without a rule and stated `selfWeight: []` for it, and the check below then took that
       // [] for the example's own rule: the example solved without its self-weight.
-      const json = await loader();
-      this.clear();
-      if (opts.defaults) {
-        model.materials.set(1, structuredClone(opts.defaults.material));
-        model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
-      }
-      const api = this.fixtureApi();
+      const json = await loader() as JSONModel;
+      validateFixtureSupportFrames(json);
+      this.batch(() => {
+        this.clear();
+        if (opts.defaults) {
+          model.materials.set(1, structuredClone(opts.defaults.material));
+          model.sections.set(1, resolveDefaultSection(structuredClone(opts.defaults.section)));
+        }
+        loadFixture(json, this.fixtureApi() as any, opts);
 
-      this.bulkMutate(() => {
-        loadFixture(json as any, api as any, opts);
+        // Settle canonical state once the whole model is in place. Sections the
+        // fixture added are already resolved (addSection resolves per add, and
+        // the refresh skips those), so this repairs only sections that loaded
+        // before the engine was ready — without it those would keep reporting
+        // no known geometry for the rest of the session.
+        this.refreshCanonicalSections();
+
+        if (is2DFixture(name) && uiStore.is3DWorkspace) {
+          uiStore.useUpright2DIn3DPresentation();
+        } else {
+          uiStore.useNative3DPresentation();
+        }
+
+        // Switch to plain 3D mode only when the current app mode is the basic app.
+        // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
+        if (is3DFixture(name)) {
+          if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
+            uiStore.analysisMode = '3d';
+          }
+        }
+
+        // A shipped example that states no self-weight rule is given the one it was built for, and
+        // quietly: nothing of the user's changed. A project the user saved is migrated by the PRO
+        // panel instead, with a notice (`self-weight-migration.ts`). Shells are structure too.
+        if (uiStore.analysisMode === 'pro' && model.analysis?.selfWeight === undefined
+          && (model.elements.size > 0 || model.quads.size > 0 || model.plates.size > 0)) {
+          const plan = planSelfWeight(model.loadCases, uiStore.includeSelfWeight);
+          let selfWeight = plan.selfWeight;
+          if (uiStore.includeSelfWeight && plan.caseId === null) {
+            selfWeight = [{ caseId: this.addLoadCase(t('selfWeight.caseName'), 'D'), ...GRAVITY_SELF_WEIGHT }];
+          }
+          model.analysis = { ...(model.analysis ?? {}), selfWeight };
+        }
+
+        // Basic opens an example with load cases and combinations on when it uses more than one case.
+        uiStore.loadCasesEnabled = loadCasesInUse(model.loads);
       });
-
-      // Settle canonical state once the whole model is in place. Sections the
-      // fixture added are already resolved (addSection resolves per add, and
-      // the refresh skips those), so this repairs only sections that loaded
-      // before the engine was ready — without it those would keep reporting
-      // no known geometry for the rest of the session.
-      this.refreshCanonicalSections();
-
-      if (is2DFixture(name) && uiStore.is3DWorkspace) {
-        uiStore.useUpright2DIn3DPresentation();
-      } else {
-        uiStore.useNative3DPresentation();
-      }
-
-      // Switch to plain 3D mode only when the current app mode is the basic app.
-      // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
-      if (is3DFixture(name)) {
-        if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
-          uiStore.analysisMode = '3d';
-        }
-      }
-
-      // A shipped example that states no self-weight rule is given the one it was built for, and
-      // quietly: nothing of the user's changed. A project the user saved is migrated by the PRO
-      // panel instead, with a notice (`self-weight-migration.ts`). Shells are structure too.
-      if (uiStore.analysisMode === 'pro' && model.analysis?.selfWeight === undefined
-        && (model.elements.size > 0 || model.quads.size > 0 || model.plates.size > 0)) {
-        const plan = planSelfWeight(model.loadCases, uiStore.includeSelfWeight);
-        let selfWeight = plan.selfWeight;
-        if (uiStore.includeSelfWeight && plan.caseId === null) {
-          selfWeight = [{ caseId: this.addLoadCase(t('selfWeight.caseName'), 'D'), ...GRAVITY_SELF_WEIGHT }];
-        }
-        model.analysis = { ...(model.analysis ?? {}), selfWeight };
-      }
-
-      // Basic opens an example with load cases and combinations on when it uses more than one case.
-      uiStore.loadCasesEnabled = loadCasesInUse(model.loads);
-
-      _undoBatching = false;
     },
 
     // ─── Material CRUD ───

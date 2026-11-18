@@ -85,7 +85,7 @@ test('benchmark keyboard focus, camera menu and viewer navigation @smoke', async
   const viewer = page.getByRole('application', { name: /Translation magnitude/ });
   await expect(viewer).toHaveAttribute('title', /arrow keys pan/);
   await viewer.focus();
-  const zoom = page.locator('.sfv-status .status-value').nth(1);
+  const zoom = page.getByTestId('sfv-zoom').locator('.status-value');
   const before = await zoom.innerText();
   await page.keyboard.press('+');
   await expect(zoom).not.toHaveText(before);

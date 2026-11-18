@@ -17,6 +17,7 @@
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
+import { isBareCustom3D, isBareRollerZ, isPlaneRoller, isSupportType } from '../model/support-types';
 
 export const ANALYSIS_KINDS = [
   'linear', 'pdelta', 'modal', 'buckling', 'spectral', 'timeHistory', 'plastic', 'nonlinear', 'harmonic', 'ssi',
@@ -31,14 +32,15 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
-  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements', 'caseDisplacements',
+  'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
+  'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   'superposedCombinations', 'repeatedCombinationCases',
@@ -63,7 +65,7 @@ interface Elem {
   offset?: { i?: Offset3; j?: Offset3 };
 }
 interface Sup {
-  nodeId: number; type?: string; uplift?: boolean; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string;
+  nodeId: number; type?: string; uplift?: boolean; angle?: number; isGlobal?: boolean; isInclined?: boolean; dofFrame?: string; dofRestraints?: unknown;
   normalX?: number; normalY?: number; normalZ?: number; curves?: unknown;
   kx?: unknown; ky?: unknown; kz?: unknown; krx?: unknown; kry?: unknown; krz?: unknown;
   dx?: unknown; dy?: unknown; dz?: unknown; dry?: unknown; drz?: unknown; drx?: unknown;
@@ -91,13 +93,13 @@ interface FeatureSnapshotFields {
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{ kind?: string }>;
-  regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
+  groups?: Entries<{ kind?: string; data?: unknown }>;
+  regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
   analysis?: { selfWeight?: unknown[] };
   includeSelfWeight?: boolean;
-  designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
+  designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] } };
 }
 
 export interface FeatureSnapshot extends FeatureSnapshotFields {
@@ -230,13 +232,22 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 
   const supports = values(s.supports);
+  if (supports.some(sp => isSupportType(sp.type) && sp.type.startsWith('roller'))) f.add('rollerSupports');
+  if (supports.some(sp => sp.dofRestraints && isSupportType(sp.type) && sp.type !== 'custom3d')) f.add('namedSupportRestraintMasks');
+  if (supports.some(isBareCustom3D)) f.add('bareCustom3D');
+  if (supports.some(sp => sp.isGlobal === false && !sp.dofRestraints && isPlaneRoller(sp.type))) f.add('localPlaneRoller');
+  if (supports.some(isBareRollerZ)) f.add('bareRollerZ');
+  if (supports.some(sp => !isSupportType(sp.type))) f.add('unknownSupportType');
   if (supports.some((s) => s.uplift)) f.add('contactElements');
   const supportedNodes = new Map<number, number>();
   for (const sp of supports) {
     supportedNodes.set(sp.nodeId, (supportedNodes.get(sp.nodeId) ?? 0) + 1);
     if (isInclined(sp)) f.add('inclinedSupports');
     if (sp.type === 'spring' || sp.type === 'spring3d' || sp.curves || SPRING_KEYS.some((k) => positive(sp[k]))) f.add('springs');
-    if (SETTLEMENT_KEYS.some((k) => nonZero(sp[k]))) f.add('settlements');
+    if (SETTLEMENT_KEYS.some((k) => nonZero(sp[k]))) {
+      f.add('settlements');
+      if (sp.dofRestraints) f.add('settledMaskedSupports');
+    }
   }
   if ([...supportedNodes.values()].some((n) => n > 1)) f.add('multipleSupportsOnNode');
 
@@ -253,6 +264,12 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
+  const loadBasis = s.designData?.loadBasis;
+  const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);
+  const gravityMode = (roles.loads?.settings?.dialog as { gravityMode?: unknown } | undefined)?.gravityMode;
+  let memberGravity = false;
+  let shellGravity = false;
+  let generatedSeismic = !!loadBasis?.seismic || loadNoteKeys.has('loadPlan.derivation.seismic');
   for (const l of Array.isArray(s.loads) ? s.loads : []) {
     const t = l.type ?? '';
     const d = l.data ?? {};
@@ -274,15 +291,31 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (fromLoadPlan(d.generatedBy)) {
       f.add('generatedLoads');
-      if (['W', 'Wa'].includes(caseType.get(d.caseId as number) ?? '')) f.add('generatedWindLoads');
+      const type = caseType.get(d.caseId as number) ?? '';
+      if (['W', 'Wa'].includes(type)) f.add('generatedWindLoads');
+      if (type === 'E') generatedSeismic = true;
+      if (['D', 'L', 'Lr'].includes(type)) {
+        if (t === 'surface3d') shellGravity = true;
+        if (t === 'distributed3d' || t === 'distributed') memberGravity = true;
+      }
     }
   }
   if (s.designData?.site?.phases?.length) {
     f.add('stagedConstruction');
     f.add('pathAnalysis');
   }
-  if (s.designData?.loadBasis) f.add('generatedLoads');
-  if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
+  if (loadBasis) f.add('generatedLoads');
+  const hasShellGravity = shellGravity || ['shellLevel', 'slopedShells', 'partlyUnderShells'].some(kind => loadNoteKeys.has(`loadPlan.gravity.${kind}`));
+  if (hasShellGravity || (gravityMode === 'panels' && memberGravity && quads.length > 0)) f.add('generatedPanelGravityShells');
+  const inferredPanelMode = hasShellGravity || loadNoteKeys.has('loadPlan.gravity.panels') || loadNoteKeys.has('loadPlan.gravity.width');
+  const widthMode = gravityMode === 'width' || (gravityMode !== 'panels' && !inferredPanelMode);
+  if (widthMode && (memberGravity || generatedSeismic)) f.add('generatedWidthGravity');
+  const floorDefs = values(s.groups).filter(g => g?.kind === 'floorLoad');
+  if (floorDefs.length) f.add('areaDeadLoads');
+  if (floorDefs.some(g => {
+    const data = g.data as { target?: { by?: string }; distribution?: string } | undefined;
+    return data?.target?.by === 'zone' && data.distribution !== 'slab';
+  })) f.add('memberFloorZones');
   if (values(s.groups).some((g) => g?.kind === 'generated')) f.add('generatedStructures');
 
   const types = new Set(cases.map((c) => c.type));
@@ -292,6 +325,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   const combos = (Array.isArray(s.combinations) && s.combinations.length > 0) || (Array.isArray(s.combinationRules) && s.combinationRules.length > 0);
   if (combos) {
     f.add('combinations');
+    if (Array.isArray(s.combinations) && s.combinations.some(c => {
+      const method = (c as { method?: string } | null)?.method;
+      return method === 'abs' || method === 'srss';
+    })) f.add('magnitudeCombinations');
     if (s.analysis?.combinationMethod === 'superpose') f.add('superposedCombinations');
     if (Array.isArray(s.combinations) && s.combinations.some(combination => {
       const factors = (combination as { factors?: unknown } | null)?.factors;

@@ -100,7 +100,7 @@
   {/snippet}
   {#snippet app()}
     <div class="arch-app" bind:this={host} data-source={source} data-busy={busy}>
-      <StabileoViewer oninteract={() => playback.interact()} {...view} cellSize={2} deformScale={1} editorButton={false} title={s.displacement} unit="m" height="min(20rem, 42svh)" />
+      <StabileoViewer plane="elevation" oninteract={() => playback.interact()} {...view} cellSize={2} deformScale={1} editorButton={false} title={s.displacement} unit="m" height="min(20rem, 42svh)" />
       <label class="slider">{s.step} {current?.step ?? 0} / {benchmark.input.maxSteps}
         <input aria-label={s.step} aria-valuetext={current ? s.slider.replace('{step}', String(current.step)).replace('{load}', fmt(current.loadFactor)) : undefined} type="range" min="0" max={Math.max(0, frames.length - 1)} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
       </label>

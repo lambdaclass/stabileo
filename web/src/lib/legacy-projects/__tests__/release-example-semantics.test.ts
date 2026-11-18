@@ -104,3 +104,20 @@ describe('release example semantics #2091', () => {
     }
   });
 });
+
+for (const [example, solvable] of [
+  ['rc-beam-flexure', false],
+  ['portal-frame-braced', true],
+  ['3d-space-truss', true],
+] as const) {
+  it('#2277 compares the saved ' + example + ' with its release restraints', async () => {
+    const version = 'v0.4.0';
+    const entry = readManifest(version).examples.find((e) => e.example === example)!;
+    const opened = await openAndSolve(readCorpusText(version + '/' + entry.file));
+    expect(opened.values['solve.ok']).toBe(solvable);
+    if (!solvable) expect(opened.values['solve.refusal']).toMatch(/rollerZ.*ambiguous/i);
+    const result = await againstExample(example, version, entry, opened, true);
+    expect(result.failure).toBeNull();
+    expect(result.verdict?.kind).toBe('same');
+  });
+}

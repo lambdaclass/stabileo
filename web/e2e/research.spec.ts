@@ -5,7 +5,7 @@ import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 
-const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026']);
+const AWAITING_REVIEW = new Set(['gay-neto-2014', 'feher-sipos-varkonyi-2026', 'heyman-1966']);
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
 for (const locale of PUBLIC_LOCALES) {

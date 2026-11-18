@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { modelStore } from '../../../store/model.svelte';
 import { historyStore } from '../../../store/history.svelte';
-import { addFloorLoadDef, addLoadZone, syncDefinedLoads, removeFloorLoadDef, removeLoadZone } from '../../../store/defined-loads';
+import { addFloorLoadDef, addLoadZone, floorLoadBlockMessage, syncDefinedLoads, removeFloorLoadDef, removeLoadZone } from '../../../store/defined-loads';
 import { removeLoads, scaleLoads, moveLoadsToCase, duplicateCase } from '../../../store/load-ops';
 import { copyTransformed } from '../../edit/transformed-copy';
 import { transformInPlace } from '../../edit/transform-in-place';
@@ -49,8 +49,13 @@ describe('a floor-load definition', () => {
     const open = addLoadZone('hole', [modelStore.addNode(1, 2, 3), modelStore.addNode(3, 2, 3), modelStore.addNode(3, 4, 3), modelStore.addNode(1, 4, 3)]);
     modelStore.setGroupData(zone, { openings: [open] });
     const def: FloorLoadDef = { caseId, q: 1, target: { by: 'zone', zoneId: zone }, distribution: 'twoWay' };
-    const e = expandDefinition(m(), def, {}, 1, { leftHand: false });
+    expect(expandDefinition(m(), def, {}, 1, { leftHand: false })).toMatchObject({ problem: 'eccentricZone', loads: [] });
+    const e = expandDefinition(m(), { ...def, distribution: 'oneWay', spanAxis: 'y' }, {}, 1, { leftHand: false });
     expect(e.result?.loadedArea).toBeCloseTo(24 - 4, 6);
+    const saved = addFloorLoadDef('Eccentric floor zone', def);
+    expect(floorLoadBlockMessage()).toBeTruthy();
+    removeFloorLoadDef(saved);
+    expect(floorLoadBlockMessage()).toBeNull();
   });
 
   it('onto the slab: a surface load on each shell, limited to the zone', () => {
