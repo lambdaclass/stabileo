@@ -8,7 +8,7 @@
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { nextFrame } from '../../../lib/store/mesh-progress.svelte';
-  import { uiStore } from '../../../lib/store';
+  import { modelStore, uiStore } from '../../../lib/store';
   import { designData } from '../../../lib/store/design-data';
   import { DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import { alternatives, goToRow, lineAlternatives, lineResizeHint, noArrangement, resizeHints, rowTargets, wallsToHold, type Alternative, type GotoTarget, type ResizeHint } from '../../../lib/store/rc-sheets-resize';
@@ -56,6 +56,15 @@
   const baseUnheld = $derived(!('spanAdopted' in row) && row.family === 'wall' ? (row.demand.base?.unheld?.length ?? 0) : 0);
   const toHold = $derived(baseUnheld > 0 ? wallsToHold(walls.some((w) => w.key === row.key) ? walls : [row as SheetRow]) : []);
   const onFoundation = $derived(toHold.some((w) => w.key === row.key));
+  const unheldAt = $derived.by(() => {
+    if (!baseUnheld || 'spanAdopted' in row || row.family !== 'wall') return '';
+    const p = row.demand.plan;
+    return (row.demand.base?.unheld ?? []).map((id) => {
+      const n = modelStore.nodes.get(id);
+      const at = n && p ? Math.hypot(n.x - p.x1, n.y - p.y1) : NaN;
+      return tp('rcSheets.resize.baseUnheldNode', { id: `N${id}`, at: Number.isFinite(at) ? fmt(at, 2) : '?' });
+    }).join(', ');
+  });
 </script>
 
 <div class="rcz" data-testid="rc-resize">
@@ -82,7 +91,7 @@
         {#if h.to === null}
           {tp(`rcSheets.resize.none.${h.what}`, { from: cm(h.from) })}
         {:else}
-          {tp(`rcSheets.resize.${h.direction}.${h.what}`, { from: cm(h.from), to: cm(h.to), a: cm(h.to.slice(0, 1)), b: cm(h.to.slice(1, 2)) })}
+          {tp(h.apartFromBase ? `rcSheets.resize.growBase.${h.what}` : `rcSheets.resize.${h.direction}.${h.what}`, { from: cm(h.from), to: cm(h.to), a: cm(h.to.slice(0, 1)), b: cm(h.to.slice(1, 2)) })}
         {/if}
       </span>
     {/each}
@@ -96,6 +105,7 @@
   {:else if baseUnheld > 0}
     <span class="hint none" data-testid="rc-wall-base-unheld">{tpn('rcSheets.resize.baseUnheldAbove', baseUnheld)}</span>
   {/if}
+  {#if unheldAt}<span class="dim" data-testid="rc-wall-base-unheld-at">{tp('rcSheets.resize.baseUnheldAt', { list: unheldAt })}</span>{/if}
   <span class="sp"></span>
   {#each targets as g (g)}
     <button type="button" class="rcz-btn" onclick={() => go(g)} data-testid="rc-goto-{g}">{gotoLabel(g)} →</button>

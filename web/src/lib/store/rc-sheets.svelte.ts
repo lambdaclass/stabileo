@@ -28,6 +28,8 @@ import type { FootingDemand, FootingRow } from '../rc-sheets/footing-types';
 import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
 import { layFootings } from '../rc-sheets/footing-layout';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
+import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
+import { leverOf } from '../rc-sheets/footing-design';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
 import type { BeamRow } from '../rc-sheets/beam-row';
@@ -618,6 +620,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       redesigners.set(d.key, ((x: FootingDemand) => rules.footingRow(x, footCtx(x), undefined, fmt)) as Redesign);
       return rules.footingRow(d, footCtx(d), undefined, fmt);
     },
+  });
+  const pulls = tiePulls(footing, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
+  if (pulls.size) footing = footing.map((r) => {
+    const p = pulls.get(r.key);
+    if (!p) return r;
+    const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt);
+    redesigners.set(r.key, f.redo as Redesign);
+    return f.row;
   });
   const straps = designFootingStraps(footing, {
     rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],

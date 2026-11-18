@@ -73,7 +73,7 @@ export function wallSeismic(
     const [name, s] = terms.reduce((w, x) => (x[1] < w[1] ? x : w));
     if (s >= floor - 1e-9) return;
     underFloor = { byBars: name === barTerm };
-    checks.push(check(underFloor.byBars ? 'rcSheets.v.wallTieFloorBars' : 'rcSheets.v.wallTieFloor', false, { clause, demand: `s ≤ ${name} = ${fmt(s * 100, 1)} cm`, capacity: `≥ ${fmt(floor * 100, 1)} cm` }));
+    checks.push(check(underFloor.byBars ? 'rcSheets.v.wallTieFloorBars' : 'rcSheets.v.wallTieFloor', false, { clause, demand: `s ≤ ${name} = ${fmt(s * 100, 1)} cm${name === 't/3' ? ` → t ≥ 3·${fmt(floor * 100, 1)} = ${fmt(3 * floor * 100, 1)} cm` : ''}`, capacity: `≥ ${fmt(floor * 100, 1)} cm` }));
   };
 
   if (special) {

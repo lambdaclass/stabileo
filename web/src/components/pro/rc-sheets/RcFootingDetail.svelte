@@ -66,6 +66,12 @@
           </label>
         {/if}
       </fieldset>
+      {#each row.edge?.ties ?? [] as ti (ti.axis)}
+        <fieldset data-testid="rc-footing-tie">
+          <legend>{t('rcSheets.footFig.tie')} {ti.axis.toUpperCase()}{ti.partner ? ` → ${ti.partner.name}` : ''}</legend>
+          <span class="hint">{tp('rcSheets.foot.tieSummary', { b: cmOf(ti.b), h: cmOf(ti.h), n: ti.count, dia: ti.dia, tu: Math.round(ti.Tu), H: (Math.round(ti.H * 100) / 100).toString() })}</span>
+        </fieldset>
+      {/each}
       {#each row.edge?.straps ?? [] as st (st.axis)}
         <fieldset data-testid="rc-footing-strap-editor">
           <legend>{t('rcSheets.footFig.strap')} {st.axis.toUpperCase()} → {st.partner}</legend>

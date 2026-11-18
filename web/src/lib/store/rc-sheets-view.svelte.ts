@@ -24,6 +24,7 @@ interface Stamp {
   results: unknown; perCombo: unknown; groups: unknown;
   /** The design data but the bars adopted in the sheets and how their schedule is ordered. */
   design: string;
+  /** What the sheets set row by row (bars, bent lines, the footings' position, sizing and property lines): the rows follow it at once. */
   adopted: string;
   locale: string;
   foundation: string;
@@ -36,14 +37,14 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, footingSetup, footingSizing, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
-  const { rcSheets: _, designOptions, ...own } = designData();
+  const { rcSheets: _, designOptions, propertyLines, ...own } = designData();
   const rest = { ...own, designOptions: optionsView(designOptions) };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale, foundation: foundationStamp(),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }
 
@@ -114,16 +115,19 @@ export function clearSheets(): void {
  * component that shows rows is created.
  */
 export function followSheetEdits(): void {
-  $effect(() => {
-    // No results (a project opened, a model cleared): the rows were another model's.
-    if (!resultsStore.results3D) { if (sheetsRun.rows && !sheetsRun.progress) clearSheets(); return; }
-    const s = stampNow();
-    const was = sheetsRun.stamp;
-    if (!was || !sheetsRun.rows || sheetsRun.progress || !sameInputs(was, s)) return;
-    if (was.adopted === s.adopted && was.locale === s.locale) return;
-    sheetsRun.rows = buildSheetRows(makeFmt(decimalFor(s.locale)));
-    sheetsRun.stamp = s;
-  });
+  $effect(refreshSheetEdits);
+}
+
+/** The step `followSheetEdits` takes on every change it reads. */
+export function refreshSheetEdits(): void {
+  // No results (a project opened, a model cleared): the rows were another model's.
+  if (!resultsStore.results3D) { if (sheetsRun.rows && !sheetsRun.progress) clearSheets(); return; }
+  const s = stampNow();
+  const was = sheetsRun.stamp;
+  if (!was || !sheetsRun.rows || sheetsRun.progress || !sameInputs(was, s)) return;
+  if (was.adopted === s.adopted && was.locale === s.locale) return;
+  sheetsRun.rows = buildSheetRows(makeFmt(decimalFor(s.locale)));
+  sheetsRun.stamp = s;
 }
 
 /** What the sheets read, for the note while they are built: combinations, members and shell elements. */

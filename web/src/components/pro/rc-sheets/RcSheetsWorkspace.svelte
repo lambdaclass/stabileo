@@ -41,6 +41,7 @@
   import RcPlansExport from './RcPlansExport.svelte';
   import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
   import { tick } from 'svelte';
+  import RcPropertyLines from './RcPropertyLines.svelte';
   import { editedKeys, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore, resultsStore } from '../../../lib/store';
@@ -213,6 +214,7 @@
             {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
           </select>
         </label>
+        <RcPropertyLines rows={rows.footing} />
       {/if}
       {#if family === 'slab' && slabView === 'plan'}
         {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} {highlight} />{/key}{/if}

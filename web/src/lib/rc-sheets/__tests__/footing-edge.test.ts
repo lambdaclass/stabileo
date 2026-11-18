@@ -10,6 +10,8 @@ import { strapAt } from '../footing-strap';
 import { strapForces } from '../../engine/foundation/strap-footing';
 import { makeFmt } from '../format';
 import type { FootingContext, FootingDemand, FootingEdge } from '../footing-types';
+import { TIE } from '../footing-row';
+import { tiePulls, withPulls } from '../footing-ties';
 
 const fmt = makeFmt('.');
 const footingRow = rulesFor('cirsoc201-2025').footingRow;
@@ -127,5 +129,52 @@ describe('a footing balanced by a tie at the first floor', () => {
     expect(r.bearing!.qMean).toBeCloseTo((600 + 25 * r.h * r.B * r.L) / (r.B * r.L), 6);
     expect(r.edge!.columnMoment).toBeCloseTo(840 * r.ex, 6);
     expect(r.x!.mu).toBeGreaterThan(0);
+  });
+});
+
+describe('a footing with a tie, by the FIUBA foundations course (§6)', () => {
+  const tied = (over: Partial<FootingDemand> = {}) => footingRow(demand({ anchor: [-1, 0], source: 'row', balance: 'tie', partners: [partner('x', 5)] }, over), ctx, undefined, fmt);
+  const ok = (r: ReturnType<typeof tied>, label: string) => r.verifications.find((v) => v.label === label)!.ok;
+
+  it('checks the load, the arm, the offset, the sliding and the stretch, with bars enough for H/1000', () => {
+    const r = tied();
+    const t = r.edge!.ties[0]!;
+    expect(t.partner).toEqual({ key: 'footing:n2', name: 'C2', L: 5 });
+    expect(t.e).toBeCloseTo(r.ex, 9);
+    expect(t.Ts).toBeCloseTo(600 * r.ex / t.H, 6);
+    expect(t.stretch!).toBeCloseTo(t.Ts * 5 / (2e8 * t.asProvided * 1e-4), 12);
+    expect(t.stretch!).toBeLessThanOrEqual(t.H / 1000 + 1e-12);
+    expect(t.asReq).toBeGreaterThanOrEqual(t.Ts * 5 / (2e8 * t.H / 1000) * 1e4 - 1e-9);
+    expect(t.mu).toBeCloseTo(Math.tan(20 * Math.PI / 180), 12);
+    expect(t.h).toBeCloseTo(0.5, 9);
+    for (const k of ['rcSheets.v.footTieLoad', 'rcSheets.v.footTieArm', 'rcSheets.v.footTieOffset', 'rcSheets.v.footTieSlide', 'rcSheets.v.footTieStretch']) expect(ok(r, k), k).toBe(true);
+  });
+
+  it('fails past 120 t, under a 1,5 m arm or where friction cannot hold 1,5 times the pull', () => {
+    const heavy = tied({ service: { combo: 'D + L', N: 1300, Mx: 0, My: 0, Vx: 0, Vy: 0 }, combos: [{ combo: 'U', N: 1800, Mx: 0, My: 0, Vx: 0, Vy: 0 }] });
+    expect(ok(heavy, 'rcSheets.v.footTieLoad')).toBe(false);
+    const low = tied({ column: { b: 0.3, h: 0.3, storey: 0.8 } });
+    expect(low.edge!.ties[0]!.H).toBeLessThan(TIE.minH);
+    expect(ok(low, 'rcSheets.v.footTieArm')).toBe(false);
+    expect(ok(low, 'rcSheets.v.footTieOffset')).toBe(false);
+    const t = low.edge!.ties[0]!;
+    expect(ok(low, 'rcSheets.v.footTieSlide')).toBe(t.mu * t.Ns >= 1.5 * t.Ts);
+  });
+
+  it('pulls the footing it runs to toward the line, at the first floor, in every combination', () => {
+    const r = tied();
+    const inner: FootingDemand = { ...demand({ anchor: [0, 0], source: 'lines', balance: 'strap', partners: [] }), key: 'footing:n2', name: 'C2', nodeId: 2, at: { x: 5, y: 0, z: 0 }, edge: undefined };
+    const pulls = tiePulls([r], (q) => q.column!.storey!, [inner]).get('footing:n2')!;
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]!.toward).toBe(-1);
+    const t = r.edge!.ties[0]!;
+    const d = withPulls(inner, pulls);
+    expect(d.combos[0]!.Vx).toBeCloseTo(-t.byCombo.U!, 9);
+    expect(d.combos[0]!.My).toBeCloseTo(-t.byCombo.U! * 3, 9);
+    expect(d.service!.Vx).toBeCloseTo(-t.Ts, 9);
+    const row = footingRow(d, ctx, undefined, fmt);
+    expect(row.verifications.some((v) => v.label === 'rcSheets.v.footTiePull')).toBe(true);
+    const plain = footingRow(inner, ctx, undefined, fmt);
+    expect(row.B * row.L).toBeGreaterThan(plain.B * plain.L);
   });
 });

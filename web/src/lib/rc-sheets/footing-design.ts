@@ -71,7 +71,7 @@ export interface FootingAnalysis {
   plan: FootingPlan; lever: number; layers: FootingLayers;
   balance: Balance;
   /** Per balanced axis, as `balance.axes`: the largest force and moment over the combinations and the one they come from, the service force, and the partner's relief there. */
-  balanced: Array<{ force: number; moment: number; relief: number; combo: string | null; service: number }>;
+  balanced: Array<{ force: number; moment: number; relief: number; combo: string | null; service: number; byCombo: Record<string, number> }>;
   bearing: (ServiceBearing & { allowable: number | null; edgeFactor: number; use: number; ok: boolean }) | null;
   x: FootingDirection; y: FootingDirection;
   punching: (FootingPunching & { combo: string }) | null;
@@ -119,7 +119,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
   let mx = 0, vx = 0, my = 0, vy = 0, pu = 0;
   let cx: number[] = [0, 0], cy: number[] = [0, 0];
   let punching: FootingAnalysis['punching'] = null;
-  const balanced = bal.axes.map(() => ({ force: 0, moment: 0, relief: Infinity, combo: null as string | null, service: 0 }));
+  const balanced = bal.axes.map(() => ({ force: 0, moment: 0, relief: Infinity, combo: null as string | null, service: 0, byCombo: {} as Record<string, number> }));
   if (d.service) bal.forces(d.service, lever).force.forEach((f, i) => { balanced[i]!.service = f; });
   const carriedX = bal.carried.includes('x'), carriedY = bal.carried.includes('y');
   const perCombo: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; fx: { mu: number; vu: number }; fy: { mu: number; vu: number }; pu: number }> = [];
@@ -127,7 +127,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
     if (!(k.N > 0)) continue;
     const f = fieldOf(bal.soilPlan, bal.soil(k, lever), lever);
     const t = bal.forces(k, lever);
-    t.moment.forEach((m, i) => { const b = balanced[i]!; if (m > b.moment) { b.moment = m; b.force = t.force[i]!; b.combo = k.combo; } b.relief = Math.min(b.relief, t.relief[i]!); });
+    t.moment.forEach((m, i) => { const b = balanced[i]!; b.byCombo[k.combo] = t.force[i]!; if (m > b.moment) { b.moment = m; b.force = t.force[i]!; b.combo = k.combo; } b.relief = Math.min(b.relief, t.relief[i]!); });
     const rx = faceReading(f, bal.facePlan, 'x', layers.dx), ry = faceReading(f, bal.facePlan, 'y', layers.dy);
     const fx = carriedX ? { mu: 0, vu: 0 } : rx, fy = carriedY ? { mu: 0, vu: 0 } : ry;
     cx = rx.cantilevers; cy = ry.cantilevers;

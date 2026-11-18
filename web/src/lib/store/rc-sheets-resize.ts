@@ -29,9 +29,16 @@ export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'pun
  * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
  * the column face.
  */
-export interface ResizeHint { what: ResizeWhat; direction: 'grow' | 'shrink' | 'stiffen'; from: number[]; to: number[] | null }
+export interface ResizeHint {
+  what: ResizeWhat; direction: 'grow' | 'shrink' | 'stiffen'; from: number[]; to: number[] | null;
+  /** A wall's thickness that verifies everything but its base, which the model has to hold. */
+  apartFromBase?: true;
+}
 
 const passes = (r: SheetRow) => r.status !== 'fail';
+const WALL_BASE = 'rcSheets.v.wallBase';
+/** A wall whose base is not held all along fails for the model, not its thickness: the other checks say what thickness verifies. */
+const apartFromBase = (r: SheetRow) => r.verifications.every((v) => v.ok || v.label === WALL_BASE);
 /** Below this strength ratio a column or a wall is worth trying smaller. */
 const ROOM = 0.6;
 const round = (x: number) => Math.round(x * 1000) / 1000;
@@ -42,14 +49,14 @@ const DEFLECTION_CHECKS = new Set(['rcSheets.v.deflection', 'rcSheets.v.deflecti
 const checksDeflection = (r: { verifications: CheckLine[] }) => r.verifications.some((v) => DEFLECTION_CHECKS.has(v.label));
 
 /** The first size from `start`, stepped by `step` up to `limit`, whose row passes (and meets `also`); null when none does. */
-function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown, also: (r: SheetRow) => boolean = () => true): number[] | null {
+function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown, also: (r: SheetRow) => boolean = () => true, ok: (r: SheetRow) => boolean = passes): number[] | null {
   const redesign = redesignerOf(key);
   if (!redesign) return null;
   for (let k = 1; k <= 60; k++) {
     const v = start.map((x) => round(x + k * step));
     if (v.some((x, i) => x > limit[i]! + 1e-9)) return null;
     const r = redesign(make(v) as never);
-    if (passes(r) && also(r)) return v;
+    if (ok(r) && also(r)) return v;
   }
   return null;
 }
@@ -109,7 +116,10 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
     }
     case 'wall': {
       const d = row.demand;
-      if (d.base?.unheld?.length) return [];
+      if (d.base?.unheld?.length) {
+        if (!row.verifications.some((v) => !v.ok && v.label !== WALL_BASE)) return [];
+        return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t }), undefined, apartFromBase), apartFromBase: true }];
+      }
       if (fail) return [{ what: 'wallT', direction: 'grow', from: [d.thickness], to: grow(row.key, [d.thickness], 0.05, [2 * d.thickness], ([t]) => ({ ...d, thickness: t })) }];
       if (!row.generous && row.utilization >= ROOM) return [];
       const to = shrink(row.key, [d.thickness], 0.05, 0.1, ([t]) => ({ ...d, thickness: t }));

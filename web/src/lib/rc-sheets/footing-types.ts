@@ -109,6 +109,8 @@ export interface FootingDemand {
   edge?: FootingEdge;
   /** The other column of a combined footing, as its own demand; its node is this footing's too. */
   carried?: FootingDemand;
+  /** Ties from footings at a line that end at this one (FIUBA Cim. §6.5). */
+  pulls?: TiePull[];
 }
 
 export type FootingSizing = 'full' | 'minimum' | 'reinforce';
@@ -226,7 +228,20 @@ export interface TieResult {
   axis: 'x' | 'y';
   /** From the underside to the tie, m; Tu, kN; steel needed and given, cm². */
   H: number; Tu: number; asReq: number; count: number; dia: number; asProvided: number;
+  /** The footing's offset along the tie, m; the service load and the tie's service pull, kN. */
+  e: number; Ns: number; Ts: number;
+  /** The footing the tie runs to and its length, m; none found inward when absent. */
+  partner?: { key: string; name: string; L: number };
+  /** The tie's pull in each combination, kN, as the footing it runs to takes it. */
+  byCombo: Record<string, number>;
+  /** Its section, m, and its stretch under Ts against H/1000, m (FIUBA Cim. §6.5). */
+  b: number; h: number; stretch: number | null;
+  /** Friction under the footing against the pull: μ and whether μ·Ns ≥ 1,5·Ts (FIUBA Cim. §6.2). */
+  mu: number;
 }
+
+/** A tie from a footing at a line that ends at this one: its pull, kN by combination, and where it acts, m above the column's foot. */
+export interface TiePull { from: string; name: string; axis: 'x' | 'y'; toward: 1 | -1; height: number; byCombo: Record<string, number>; service: number }
 
 export interface FootingEdgeResult {
   position: FootingPosition; balance: FootingBalance; anchor: [number, number]; source: FootingEdge['source'];

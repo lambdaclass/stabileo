@@ -13,7 +13,8 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
-import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { changeSheetCode, clearSheets, designSheets, refreshSheetEdits, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { setFootingSetup, setFootingSizing } from '../rc-sheets-footings';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
 
@@ -89,6 +90,21 @@ describe('designing the sheets on asking', () => {
     await designSheets();
     expect(sheetsStale()).toBe(false);
     expect(sheetsRun.rows!.code).not.toBe(before!.code);
+  });
+
+  it('a footing set at a corner or sized otherwise is the sheets\' own edit: the rows follow it at once', async () => {
+    solvedFrame();
+    await designSheets();
+    const key = sheetsRun.rows!.footing![0]!.key;
+    expect(sheetsRun.rows!.footing![0]!.edge).toBeUndefined();
+    setFootingSetup(key, { position: 'corner' });
+    expect(sheetsStale()).toBe(false);
+    refreshSheetEdits();
+    const corner = sheetsRun.rows!.footing!.find((r) => r.key === key)!;
+    expect(corner.edge!.position).toBe('corner');
+    expect(Math.abs(corner.ex) + Math.abs(corner.ey)).toBeGreaterThan(0);
+    setFootingSizing('full');
+    expect(sheetsStale()).toBe(false);
   });
 
   it('no older when the schedule\'s waste or mark scope change, which only order the bars', async () => {
