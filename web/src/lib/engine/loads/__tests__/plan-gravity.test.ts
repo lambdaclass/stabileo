@@ -596,3 +596,50 @@ describe('a share at a re-entrant corner weighs the same in the plan and in the 
     expect(ms.report.addedT.get(1)! * G).toBeCloseTo(q * area, 6);
   });
 });
+
+function rectangularShell(model: LoadModelData, id: number, x0: number, x1: number, z0: number, z1 = z0) {
+  const start = 100 + id * 4;
+  const corners = [[x0, 0, z0], [x1, 0, z0], [x1, 6, z1], [x0, 6, z1]] as const;
+  const nodes = corners.map(([x, y, z], i) => {
+    const nodeId = start + i;
+    model.nodes.set(nodeId, { id: nodeId, x, y, z });
+    return nodeId;
+  });
+  model.quads ??= new Map();
+  model.quads.set(id, { id, nodes });
+  return nodes;
+}
+
+function checkSingleDeadLoad(model: LoadModelData, expected: number) {
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  if (plan.outcome === 'BLOCKED') {
+    expect(plan.blockedKeys.length).toBeGreaterThan(0);
+    expect(plan.distributed).toEqual([]);
+    expect(plan.surface).toEqual([]);
+    return;
+  }
+  expect(plan.outcome).toBe('READY');
+  const distributed = totalKN(plan.distributed.filter(load => load.caseType === 'D'), model);
+  const surface = surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model);
+  const nodal = plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + (load.fz ?? 0), 0);
+  expect.soft(surface - distributed - nodal).toBeCloseTo(expected, 10);
+  expect.soft(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(expected, 10);
+}
+
+const issue2284 = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
+issue2284('known wrong result: #2284 overlapping coplanar shells load the bay only once', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 0, 4, 3);
+  rectangularShell(model, 2, 2, 6, 3);
+  checkSingleDeadLoad(model, 1 * 10 * 6);
+});
+
+const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
+issue2299('known wrong result: #2299 a rigidly linked shell and beam bay receive one dead load', () => {
+  const model = floor(1, 1, 10, 6);
+  const shell = rectangularShell(model, 1, 0, 10, 3.02);
+  model.constraints = [1, 2, 4, 3].map((masterNode, i) => ({
+    type: 'rigidLink', masterNode, slaveNode: shell[i]!, dofs: [0, 1, 2, 3, 4, 5],
+  }));
+  checkSingleDeadLoad(model, 1 * 10 * 6);
+});
