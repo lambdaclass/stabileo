@@ -788,6 +788,18 @@ describe('reinforcement sheets from a solved model', () => {
     expect(redesign({ ...heavy, b: b! - 0.05, h: h! - 0.05 } as never).status).toBe('fail');
   });
 
+  it('offers a TS 500 column under its least size (7.4.1) the section that meets it', () => {
+    frame();
+    solve();
+    setSheetCode('ts500-2000');
+    const col = buildSheetRows().column[1]!;
+    const thin = redesignerOf(col.key)!({ ...col.demand, b: 0.2, h: 0.45 } as never) as typeof col;
+    expect(thin.verifications.find((v) => v.label === 'rcSheets.ts500.v.colSize')!.ok).toBe(false);
+    const [hint] = resizeHints(thin);
+    expect(hint).toMatchObject({ what: 'column', direction: 'grow', to: [0.25, 0.5] });
+    expect(redesignerOf(col.key)!({ ...col.demand, b: 0.25, h: 0.5 } as never).status).not.toBe('fail');
+  });
+
   it('reads each storey for sway from the combinations: Q from the drift, the wind\'s share of the column moments, and a P-Delta solve\'s first-order moments', () => {
     frame();
     const W = modelStore.model.loadCases.find((c) => c.type === 'W')!.id;

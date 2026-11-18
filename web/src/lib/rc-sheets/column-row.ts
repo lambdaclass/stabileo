@@ -353,7 +353,6 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const sways = storeySways(d, SWAY_Q_LIMIT);
   const kSway = swayFactor(d, code.swayKMin ?? 1);
   const klrSway = { x: (kSway * d.lu) / (0.3 * d.h), y: (kSway * d.lu) / (0.3 * d.b) };
-  // §6.2.5.1(a): a column of a sway storey no more slender than 22 keeps its sway moments as they are.
   const swayAxes = { x: sways && klrSway.x > 22, y: sways && klrSway.y > 22 };
   const results: CaseResult[] = d.cases.map((cs) => {
     const sw = sways ? aciDeltaS(d, cs.combo) : { deltaS: 1, method: 'none' as const, Q: 0 };
