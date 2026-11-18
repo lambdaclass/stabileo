@@ -851,6 +851,24 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       proposed = propose(floor); bars = layout(proposed); env = verify(proposed, bars);
       designFrom();
     }
+    for (let guard = 0; code.spanRow && guard < 6; guard++) {
+      const sa = spanAdoptedOf(proposed, bars);
+      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+      const raised = new Set<string>();
+      spans.forEach((_, k) => {
+        for (const f of spanRowOf(k, sa[k]!).flexure) {
+          if (!(f.mu > 1e-6) || f.ok || !f.ductile) continue;
+          const at = f.sign === 'pos' ? `b${k}` : f.section === 'start' ? `t${k}` : f.section === 'end' ? `t${k + 1}` : 'run';
+          if (raised.has(at)) continue;
+          raised.add(at);
+          if (at === 'run') next.top = oneMore(next.top);
+          else if (f.sign === 'pos') next.spanBottom[k] = oneMore(next.spanBottom[k]!);
+          else { const j = Number(at.slice(1)); next.supportTop[j] = oneMore(next.supportTop[j]!); }
+        }
+      });
+      if (!raised.size) break;
+      proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterations++;
+    }
     if (code.spanRow) {
       const score = (p: LineAdopted) => {
         const laid = layout(p), e = verify(p, laid), sa = spanAdoptedOf(p, laid);
