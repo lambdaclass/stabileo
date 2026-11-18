@@ -14,6 +14,7 @@ export function ec2LineCode(set: Ec2Set): LineCode {
   return {
     development: (c, dia, top, h) => designAnchorage(mat(c), dia, goodBond(top, h)),
     hooked: (c, dia, top = false, h = 0) => designAnchorage(mat(c), dia, goodBond(top, h), hookAlpha(c.cover + c.stirrupDia / 1000, dia)),
+    alongBar: true,
     mandrel: (dia) => mandrel(dia) / 1000,
     hookExtension: (dia) => EC2_BENDS.extension(dia, 90, 'longitudinal'),
     lap: (c, dia, top, h) => lapLength(mat(c), dia, goodBond(top, h)),

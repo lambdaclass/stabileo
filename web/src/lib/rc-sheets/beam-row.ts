@@ -68,7 +68,7 @@ export interface BeamDemand {
   missing?: string[];
 }
 
-export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m. */ half: number }
+export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number }
 
 export interface BeamContext extends TransverseList {
   mat: Materials;

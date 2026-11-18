@@ -179,9 +179,10 @@ function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: 
 function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number): BeamEnd {
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
   if (others.some((o) => isVertical(m, o))) return { kind: 'column', half };
-  if (m.supportNodes.has(node)) return { kind: 'support', half };
   const beam = others.find((o) => o.type !== 'truss');
-  if (beam) return { kind: 'beam', half: (m.sections.get(beam.sectionId)?.b ?? 0) / 2 };
+  const crossing = beam ? (m.sections.get(beam.sectionId)?.b ?? 0) / 2 : 0;
+  if (m.supportNodes.has(node)) return { kind: 'support', half: Math.max(half, crossing) };
+  if (beam) return { kind: 'beam', half: crossing };
   return { kind: 'free', half: 0 };
 }
 

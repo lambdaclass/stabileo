@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { peakSection, type BeamComboForces, type BeamDemand, type SectionEnv } from '../beam-row';
+import { peakSection, type BeamComboForces, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
+import { ec2LineCode } from '../ec2/beam-line';
+import { EC2_SET } from '../ec2/basis';
+import { TS500_LINE } from '../ts500/line';
+import { CIRSOC_LINE } from '../beam-line';
 import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
 import type { BeamAdopted, SheetCode } from '../types';
@@ -44,5 +48,59 @@ describe('a combination\'s peak moment is carried by the bars where it acts', ()
       const old = rulesFor(code).beamRow(demand({ combos: [{ ...k, xNeg: undefined }] }), ctx, cut, fmt);
       expect(old.combos.rows[0]!.ratio, code).toBeGreaterThan(1);
     }
+  });
+});
+
+/** One span fixed into two columns under w kN/m, laid out by `code`'s rules. */
+function frameSpan(code: SheetCode, o: { w?: number; half?: number; L?: number; h?: number; end?: BeamEnd; seismic?: boolean } = {}) {
+  const { w = 60, half = 0.175, L = 5.5, h = 0.55, end = { kind: 'column', half } } = o;
+  const env = Array.from({ length: 23 }, (_, i) => {
+    const x = (i * L) / 22, m = (w * x * (L - x)) / 2 - (w * L * L) / 12;
+    return { x, pos: Math.max(0, m), neg: Math.max(0, -m), v: Math.abs(w * (L / 2 - x)), nPos: 0, nNeg: 0, nV: 0 };
+  });
+  const d: BeamDemand = {
+    key: 'beam:1:0', name: 'V1', length: L, b: 0.25, h,
+    start: sec(0, 0, (w * L * L) / 12), span: sec(L / 2, (w * L * L) / 24, 0), end: sec(L, 0, (w * L * L) / 12),
+    negAny: { value: (w * L * L) / 12 }, nNegAny: 0, vu: { value: (w * L) / 2 }, nAtV: 0, tu: { value: 0 }, combos: [], env,
+    supportHalf: { start: end.half, end: end.half }, ends: { start: end, end },
+    line: { group: 1, index: 0, spans: 1, startNode: 1, endNode: 2, lineName: 'V1' },
+  };
+  const c = { ...ctx, ...(o.seismic ? { seismic: { overstrength: 1.25 } } : {}) };
+  const rules = rulesFor(code);
+  return rules.beamLine([rules.beamRow(d, c, undefined, fmt)], c, undefined, fmt);
+}
+
+describe('a beam\'s bars anchored in an end column', () => {
+  const anchor = (l: ReturnType<typeof frameSpan>) => l.verifications.find((v) => v.label === 'rcSheets.v.lineEndAnchor')!;
+
+  it('EN 1992 and TS 500 count the anchorage along the bar, bend and tail, and lengthen the tail down the joint', () => {
+    for (const code of ['en1992-1-1', 'bs-en1992-1-1', 'ts500-2000'] as const) {
+      const l = frameSpan(code, { half: 0.125 });
+      expect(anchor(l).ok, code).toBe(true);
+      expect(parseFloat(anchor(l).demand!.split('=')[1]!), code).toBeGreaterThan((0.25 - 0.025 - 0.008 - 0.016) * 100);
+      const top = l.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+      expect(top.tails, code).toBeDefined();
+      expect(top.tails![0], code).toBeGreaterThan(5 * top.bars.dia / 1000);
+      const leg = Math.abs(top.shape.pts[0]![1] - top.shape.pts[1]![1]);
+      expect(leg, code).toBeCloseTo(top.tails![0] + (code === 'ts500-2000' ? 6 : top.bars.dia <= 16 ? 4 : 7) * top.bars.dia / 2000 + top.bars.dia / 2000, 6);
+      expect(leg, code).toBeLessThanOrEqual(0.55 - 2 * (0.025 + 0.008) + 1e-9);
+    }
+  });
+
+  it('reads the along-the-bar reach from the room, the bend\'s quarter arc and the tail', () => {
+    const code = ec2LineCode(EC2_SET);
+    expect(code.alongBar).toBe(true);
+    expect(TS500_LINE.alongBar).toBe(true);
+    expect(CIRSOC_LINE.alongBar).toBeUndefined();
+  });
+
+  it('under chapter 18 a hook in the joint takes ldh = fy·db/(5.4·√f\'c) (§18.8.5.1), not §25.4.3\'s', () => {
+    expect(CIRSOC_LINE.jointHooked!(ctx, 16)).toBeCloseTo((420 * 16) / (5.4 * 5) / 1000, 9);
+    expect(CIRSOC_LINE.jointHooked!({ ...ctx, mat: { fc: 64, fy: 420 } }, 10)).toBeCloseTo(0.15, 9);
+    const l = frameSpan('cirsoc201-2025', { seismic: true });
+    const v = anchor(l);
+    expect(v.ok).toBe(true);
+    expect(v.clause).toBe('§18.8.5.1');
+    expect(frameSpan('cirsoc201-2025').verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!.clause).toBe('§25.4.3');
   });
 });
