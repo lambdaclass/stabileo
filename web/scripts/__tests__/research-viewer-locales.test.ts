@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 import { toolTranslations } from '../../src/components/tools/translations';
 import { segments } from '../translation-gate';
 
-it.skip('known wrong result: #2286 — the standalone viewer ships keyboard help for every offered locale', async () => {
+it('the standalone viewer ships keyboard help for every offered locale', async () => {
   const result = await build({
     configFile: 'vite.research-viewer.config.ts',
     build: { write: false },
@@ -22,7 +22,7 @@ it.skip('known wrong result: #2286 — the standalone viewer ships keyboard help
   expect(code.includes('tools.simply-supported-beam.subtitle')).toBe(false);
 }, 30_000);
 
-it.skip('known wrong result: #2286 — the translation gate skips Navier’s equations', () => {
+it('the translation gate skips Navier’s equations', () => {
   const source = readFileSync(new URL('../../src/components/research/navier1823/NavierPage.svelte', import.meta.url), 'utf8');
   const equations = source.match(/<p class="equation"[^>]*>[^\n]+<\/p>/g) ?? [];
   expect(equations).toHaveLength(2);

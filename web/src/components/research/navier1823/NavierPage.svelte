@@ -137,7 +137,7 @@
       <p>{s.difference}: 100 × (w / w<sub>0</sub> − 1)</p>
       <h2>{s.hardHeading}</h2>
       <p>{s.hardText}</p>
-      <p class="equation">w<sub>RM</sub> = w<sub>0</sub> + 16q/(π⁴κGt) Σ sin(mπ/2) sin(nπ/2) / [mn(m²/a² + n²/b²)]</p>
+      <p class="equation" translate="no">w<sub>RM</sub> = w<sub>0</sub> + 16q/(π⁴κGt) Σ sin(mπ/2) sin(nπ/2) / [mn(m²/a² + n²/b²)]</p>
       <p>{s.mindlinReference}: <strong data-testid="navier-mindlin">{nf(mindlin)}</strong></p>
       <div class="table-scroll">
         <table data-testid="navier-hard">
