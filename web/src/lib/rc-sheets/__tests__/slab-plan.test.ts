@@ -54,12 +54,15 @@ describe('level plan of slab bars', () => {
 
   it('runs each bottom package 150 mm into the beams it rests on, within their far face less the cover, with its ends turned up; edge top bars hook inside the edge beam', () => {
     const { rows, geom } = twoPanels();
+    expect(rows[0]!.adopted.bottomX).toEqual(rows[1]!.adopted.bottomX);
     const p = slabPlan('N1', rows, geom, plan);
     const bx = p.packages.filter((pk) => pk.layer === 'bottom' && pk.dir === 'x');
-    expect(bx).toHaveLength(2);
-    const a = bx.find((pk) => pk.panels[0] === 'A')!;
+    expect(bx).toHaveLength(1);
+    const a = bx[0]!;
+    expect(a.panels).toEqual(['A', 'B']);
     expect(a.from).toBeCloseTo(0.1 - 0.15, 9);
-    expect(a.to).toBeCloseTo(3.9 + 0.15, 9);
+    expect(a.to).toBeCloseTo(8.9 + 0.15, 9);
+    expect(a.runs).toEqual([{ face: 'bottom', from: a.from, to: a.to }]);
     const ys = a.shape.pts.map((q) => q[1]);
     expect(a.shape.pts).toHaveLength(4);
     expect(ys[0]).toBeGreaterThan(ys[1]!);
@@ -167,7 +170,7 @@ describe('level plan of slab bars', () => {
     expect(p.baseMesh).toEqual(rows[0]!.adopted.bottomX);
     expect(p.packages.filter((pk) => pk.kind === 'span').every((pk) => pk.base)).toBe(true);
     expect(planDrawing(p, { bottom: true, top: true }, f).some((b) => b.kind === 'span')).toBe(false);
-    expect(planDrawing(p, { bottom: true, top: true, base: true }, f).filter((b) => b.kind === 'span')).toHaveLength(4);
+    expect(planDrawing(p, { bottom: true, top: true, base: true }, f).filter((b) => b.kind === 'span')).toHaveLength(3);
   });
 
   it('on a flat slab, a column line inside a panel gets column-strip and middle-strip top bars', () => {
@@ -224,3 +227,34 @@ describe('slab one-way shear near the columns', () => {
     expect([...near].sort()).toEqual(['q1', 'q2']);
   });
 });
+
+describe('bottom bars run on through the support two panels share', () => {
+  const rules = rulesFor('cirsoc201-2025');
+  const geom = (xs: number[]): LevelGeometry => ({ level: 'N1', beams: frame(xs, [0, 4]), columns: [] });
+  const row = (d: SlabDemand) => rules.slabRow(d, ctx, undefined, f);
+  const bottomX = (p: ReturnType<typeof slabPlan>) => p.packages.filter((pk) => pk.layer === 'bottom' && pk.dir === 'x');
+
+  it('keeps each panel its own bars where their meshes differ', () => {
+    const rows = [demand('A', 0, 4, 0, 4, [3, 3, 6, 6]), demand('B', 4, 9, 0, 4, [30, 6, 14, 7])].map(row);
+    expect(rows[0]!.adopted.bottomX).not.toEqual(rows[1]!.adopted.bottomX);
+    const p = slabPlan('N1', rows, geom([0, 4, 9]), plan);
+    expect(bottomX(p).map((pk) => pk.panels)).toEqual([['A'], ['B']]);
+  });
+
+  it('keeps each panel its own bars where their thicknesses differ by more than 2 cm (FIUBA §5.1)', () => {
+    const m = { dia: 8, spacing: 0.125 }, same = { bottomX: m, bottomY: m, topX: m, topY: m };
+    const thick = { ...demand('B', 4, 8, 0, 4, [3, 3, 6, 6]), h: 0.2 };
+    const a = rules.slabRow(demand('A', 0, 4, 0, 4, [3, 3, 6, 6]), ctx, same, f);
+    expect(bottomX(slabPlan('N1', [a, rules.slabRow(thick, ctx, same, f)], geom([0, 4, 8]), plan))).toHaveLength(2);
+    expect(bottomX(slabPlan('N1', [a, rules.slabRow({ ...thick, h: 0.17 }, ctx, same, f)], geom([0, 4, 8]), plan))).toHaveLength(1);
+  });
+
+  it('stops at a stock bar: three panels whose run would outgrow 12 m join only as far as one bar holds them', () => {
+    const rows = [demand('A', 0, 5, 0, 4, [3, 3, 6, 6]), demand('B', 5, 10, 0, 4, [3, 3, 6, 6]), demand('C', 10, 15, 0, 4, [3, 3, 6, 6])].map(row);
+    const bx = bottomX(slabPlan('N1', rows, geom([0, 5, 10, 15]), plan));
+    expect(bx).toHaveLength(2);
+    for (const pk of bx) expect(pk.length).toBeLessThanOrEqual(12 + 1e-9);
+    expect(bx.flatMap((pk) => pk.panels).sort()).toEqual(['A', 'B', 'C']);
+  });
+});
+
