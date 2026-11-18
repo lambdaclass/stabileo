@@ -51,7 +51,8 @@ test('allowances need bytes, a reason and an existing module', () => {
 });
 test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, and #1916 Hungarian on every route', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
-  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 400, reason: 'LineChart draws series marked as points (snap-through page)', modules: ['src/components/research/shauer2025/LineChart.svelte'] });
   for (const route of ['/en/', '/es/', '/pt/']) {
     assert.deepEqual(routes[route], { bytes: 400, reason: '#1916 Hungarian, the seventh offered language: its name and lazy loader', modules: ['src/lib/i18n/offered.ts'] });
   }
