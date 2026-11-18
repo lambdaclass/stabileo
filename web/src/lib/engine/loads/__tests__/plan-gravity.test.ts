@@ -643,3 +643,33 @@ issue2299('known wrong result: #2299 a rigidly linked shell and beam bay receive
   }));
   checkSingleDeadLoad(model, 1 * 10 * 6);
 });
+
+const issue2254 = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
+issue2254('known wrong result: #2254 plan rotation preserves the geodesic dome dead-load resultant', async () => {
+  const fixture = (await import('../../../templates/fixtures/geodesic-dome.json')).default;
+  const model: LoadModelData = {
+    ...fixtureModel(fixture),
+    elements: new Map(fixture.elements.map(e => [e.id, {
+      ...e, type: e.type === 'truss' ? 'truss' as const : 'frame' as const,
+    }])),
+    sections: new Map(fixture.sections.map(s => [s.id, s])),
+    materials: new Map(fixture.materials.map(m => [m.id, m])),
+    loadCases: [{ id: 1, type: 'D', name: 'D' }],
+  };
+  const angle = 0.37;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const rotated = { ...model, nodes: new Map([...model.nodes].map(([id, node]) => [id, {
+    ...node, x: cos * node.x - sin * node.y, y: sin * node.x + cos * node.y,
+  }])) };
+  const applied = (physicalModel: LoadModelData) => {
+    const plan = buildLoadPlan(planInput(physicalModel, { dead: [{ labelKey: 'a', q: 1 }], tributaryWidth: 1,
+      gravity: { mode: 'panels', loadEveryPanel: true } }));
+    expect(plan.outcome).toBe('READY');
+    const line = totalKN(plan.distributed.filter(load => load.caseType === 'D'), physicalModel);
+    const surface = surfaceKN(plan.surface.filter(load => load.caseType === 'D'), physicalModel);
+    const nodal = plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + load.fz, 0);
+    return surface - line - nodal;
+  };
+  expect(applied(rotated)).toBeCloseTo(applied(model), 8);
+});
