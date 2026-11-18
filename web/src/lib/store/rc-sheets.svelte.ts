@@ -25,7 +25,8 @@ import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { FootingRow } from '../rc-sheets/footing-types';
-import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, strapKeyOf, withOverlaps } from './rc-sheets-footings';
+import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
 import type { BeamRow } from '../rc-sheets/beam-row';
@@ -88,7 +89,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, lines: dd.propertyLines ?? null,
   });
 }
 
@@ -601,12 +602,26 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
-  const footing: FootingRow[] = [];
+  let footing: FootingRow[] = [];
   for (const d of feet) {
     const f = footingRowOf(d, rules, adoptedNow, footingSizing(data), column, fmt);
     redesigners.set(d.key, f.redo as Redesign);
     footing.push(f.row);
     yield step();
+  }
+  const straps = designFootingStraps(footing, {
+    rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
+    ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl }),
+  });
+  footing = footing.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
+  for (const sd of straps.values()) {
+    if (sd.group === undefined) continue;
+    const g = sd.group;
+    const li = line.findIndex((l) => l.key === `line:${g}`);
+    if (li >= 0) line[li] = sd.line;
+    const bi = beam.findIndex((b) => b.key === sd.beam.key);
+    if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
+    lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
   }
   const columnsFinal = seismic ? jointChecks(column, beam, modelStore.nodes, fmt, joint) : column;
   if (seismic) for (const r of columnsFinal) jointAwareRedesign(r, columnsFinal, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));

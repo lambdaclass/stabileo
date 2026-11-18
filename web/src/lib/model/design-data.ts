@@ -15,6 +15,8 @@ import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
 import { REBAR_DB } from '../engine/codes/argentina/cirsoc201';
 import { specifiedCoverMm } from '../codes/cirsoc201/cover';
+import { PROPERTY_SIDES, type PropertyLines } from './foundation/edges';
+import { footingSetupOf } from '../rc-sheets/footing-types';
 
 export type DesignKind = 'beam' | 'column' | 'slab' | 'wall' | 'footing';
 export const DESIGN_KINDS: readonly DesignKind[] = ['beam', 'column', 'slab', 'wall', 'footing'];
@@ -64,6 +66,8 @@ export interface ProjectDesignData {
   wallBarDiaMm: number;
   /** The allowable bearing pressure footings are presized for where the model states no soil, kPa: a presumption to confirm with the soil study. */
   presumedBearingKPa: number;
+  /** The sides of the building that are property lines: the footings there are held at the line, and the foundation tools read the same. Absent: none. */
+  propertyLines?: PropertyLines;
   /**
    * Denser ties at both ends of every column, also where no seismic rule asks for them: over
    * lo = max(largest side, clear height/6, 450 mm) at half the spacing. Absent: off.
@@ -165,6 +169,12 @@ export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefi
   }
   return out as StoredDesignData;
 }
+
+const propertyLinesOf = (v: unknown): PropertyLines | undefined => {
+  if (!v || typeof v !== 'object') return undefined;
+  const on = PROPERTY_SIDES.filter((k) => (v as Record<string, unknown>)[k] === true);
+  return on.length ? Object.fromEntries(on.map((k) => [k, true])) : undefined;
+};
 
 /** The floor of the stirrups' spacing the project may state, mm. */
 export const MIN_TIE_SPACING_RANGE = { min: 25, max: 150 } as const;
@@ -271,12 +281,13 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     presumedBearingKPa: typeof e.presumedBearingKPa === 'number' && Number.isFinite(e.presumedBearingKPa) && e.presumedBearingKPa >= PRESUMED_BEARING_RANGE.min && e.presumedBearingKPa <= PRESUMED_BEARING_RANGE.max ? e.presumedBearingKPa : def.presumedBearingKPa,
+    ...((l) => (l ? { propertyLines: l } : {}))(propertyLinesOf(e.propertyLines)),
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
     ...(e.executionControl === false ? { executionControl: false as const } : {}),
     ...(Array.isArray(e.joistTypes) ? { joistTypes: (e.joistTypes as Array<{ id?: unknown; name?: unknown }>).filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string') as never } : {}),
     ...(e.slabBase && typeof e.slabBase === 'object' ? { slabBase: e.slabBase as ProjectDesignData['slabBase'] } : {}),
-    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
+    ...(e.rcSheets && typeof e.rcSheets === 'object' && typeof (e.rcSheets as { adopted?: unknown }).adopted === 'object' ? { rcSheets: { version: 1 as const, ...(SHEET_CODE_LIST.includes((e.rcSheets as { code?: unknown }).code as never) ? { code: (e.rcSheets as { code: SheetCode }).code } : {}), ...bentLinesOf((e.rcSheets as { bentLines?: unknown }).bentLines), ...(['full', 'minimum', 'reinforce'].includes((e.rcSheets as { footingSizing?: unknown }).footingSizing as string) ? { footingSizing: (e.rcSheets as { footingSizing: 'full' | 'minimum' | 'reinforce' }).footingSizing } : {}), ...scheduleOf((e.rcSheets as { schedule?: unknown }).schedule), ...footingSetupOf((e.rcSheets as { footingSetup?: unknown }).footingSetup), ...(Array.isArray((e.rcSheets as { edited?: unknown }).edited) ? { edited: ((e.rcSheets as { edited: unknown[] }).edited).filter((k): k is string => typeof k === 'string') } : {}), ...(SHEET_CODE_LIST.includes((e.rcSheets as { adoptedCode?: unknown }).adoptedCode as never) ? { adoptedCode: (e.rcSheets as { adoptedCode: SheetCode }).adoptedCode } : {}), ...((e.rcSheets as { adoptedSeismic?: unknown }).adoptedSeismic === true ? { adoptedSeismic: true as const } : {}), ...((x) => (typeof x === 'number' && Number.isInteger(x) && x > 0 ? { adoptedLogic: x } : {}))((e.rcSheets as { adoptedLogic?: unknown }).adoptedLogic), ...((x) => (typeof x === 'string' && x ? { adoptedBasis: x } : {}))((e.rcSheets as { adoptedBasis?: unknown }).adoptedBasis), adopted: { ...((e.rcSheets as { adopted: Record<string, never> }).adopted) } } } : {}),
     // The seismic roles fixed by hand are the lateral-system declaration under its older name:
     // they move there (`migrateLateralSystem`), and the seismic settings keep none of their own.
     ...(e.seismic && typeof e.seismic === 'object' ? { seismic: { ...migrateSeismicDesign(e.seismic), roles: {} } } : {}),

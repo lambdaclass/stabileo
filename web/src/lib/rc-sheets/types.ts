@@ -113,6 +113,8 @@ export interface RcSheetsData {
   slabBentBars?: boolean;
   /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
   footingSizing?: import('./footing-types').FootingSizing;
+  /** Footings set at a line, a corner or centred, and balanced, by row key, over what the property lines say. */
+  footingSetup?: Record<string, import('./footing-types').FootingSetup>;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
   schedule?: { waste?: number; scope?: MarkScope };
   /** Adopted bars by row key. */

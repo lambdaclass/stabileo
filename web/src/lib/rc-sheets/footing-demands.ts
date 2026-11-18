@@ -8,6 +8,7 @@ export interface FootingRecord {
   eccentricityB: number; eccentricityL: number;
   cover: number; foundingElevation: number; soilProfileId: number | null;
   anchor?: [number, number]; supportedNodeIds?: number[];
+  straps?: Array<{ toFootingId: number; nodeId?: number }>;
 }
 
 type Reactions = { reactions?: readonly Reaction3D[] };
@@ -46,12 +47,13 @@ function serviceOf(m: FootingDemandInput, node: number): { service: FootingActio
   return { service: gravity ? actionOf('D + L', sum) : null, lateralLeftOut: lateral };
 }
 
-function modelled(f: FootingRecord): ModelledFooting {
+function modelled(f: FootingRecord, all: readonly FootingRecord[]): ModelledFooting {
   const turned = Math.abs(((f.rotationDeg % 180) + 180) % 180) > 1e-6;
   const outOfScope = f.kind !== 'isolated' || (f.supportedNodeIds?.length ?? 0) > 0 ? 'kind' as const : turned ? 'rotated' as const : undefined;
+  const straps = (f.straps ?? []).map((s) => s.nodeId ?? all.find((g) => g.id === s.toFootingId)?.nodeId).filter((n): n is number => n !== undefined);
   return {
     id: f.id, name: f.name, B: f.B, L: f.L, h: f.thickness, ex: f.eccentricityB, ey: f.eccentricityL,
-    cover: f.cover, founding: f.foundingElevation, ...(f.anchor ? { anchor: f.anchor } : {}), ...(outOfScope ? { outOfScope } : {}),
+    cover: f.cover, founding: f.foundingElevation, ...(f.anchor ? { anchor: f.anchor } : {}), ...(straps.length ? { straps } : {}), ...(outOfScope ? { outOfScope } : {}),
   };
 }
 
@@ -74,7 +76,7 @@ export function footingDemands(m: FootingDemandInput): FootingDemand[] {
     out.push({
       key: `footing:n${n}`, name: f?.name || col?.name || `N${n}`, level: m.levelAt?.(z), nodeId: n, at: { x: p.x, y: p.y, z },
       column: col ? { b: col.b, h: col.h, ...(col.rowKey ? { rowKey: col.rowKey } : {}) } : null,
-      ...(f ? { footing: modelled(f) } : {}), service, lateralLeftOut, combos, soil: m.soilOf(f ? f.soilProfileId : null),
+      ...(f ? { footing: modelled(f, m.footings) } : {}), service, lateralLeftOut, combos, soil: m.soilOf(f ? f.soilProfileId : null),
     });
   }
   return out;
