@@ -20,7 +20,7 @@ export const OLD_EC2_RECOMMENDED: Ec2Params = {
   crdc: 0.18 / 1.5, k1: 0.15, vminCoeff: 0.035,
   cotThetaMin: 1, cotThetaMax: 2.5,
   nu1Factor: 1,
-  xuLimitLow: 0.45, xuLimitHigh: 0.35,
+  xuLimitLow: 0.45, xuLimitHigh: 0.32,
   beamMinFctm: 0.26, beamMinAbs: 0.0013, beamMaxRatio: 0.04,
   linkMinCoeff: 0.08, linkMaxSpacing: 0.75,
   colMinN: 0.1, colMinAbs: 0.002, colMaxRatio: 0.04,
@@ -28,7 +28,7 @@ export const OLD_EC2_RECOMMENDED: Ec2Params = {
   es: 200000,
 };
 
-export const OLD_EC2_UK: Ec2Params = { ...OLD_EC2_RECOMMENDED, code: 'bs-en-1992-1-1', alphaCC: 0.85, alphaCCShear: 1.0 };
+export const OLD_EC2_UK: Ec2Params = { ...OLD_EC2_RECOMMENDED, code: 'bs-en-1992-1-1', alphaCC: 0.85, alphaCCShear: 1.0, xuLimitLow: 0.6, xuLimitHigh: 0.52 };
 
 export const EC2_SET_EXTRAS = { punchingMaxCoeff: 0.4, colBarMin: 8 };
 export const UK_SET_EXTRAS = { punchingMaxCoeff: 0.5, colBarMin: 12 };

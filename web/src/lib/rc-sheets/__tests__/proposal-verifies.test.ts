@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { peakSection, type BeamComboForces, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
 import { ec2LineCode } from '../ec2/beam-line';
-import { EC2_SET } from '../ec2/basis';
+import { EC2_SET, UK_SET, matOf } from '../ec2/basis';
+import { beamCapacity } from '../ec2/beam-section';
 import { TS500_LINE } from '../ts500/line';
 import { CIRSOC_LINE } from '../beam-line';
 import { rulesFor } from '../codes';
@@ -102,5 +103,26 @@ describe('a beam\'s bars anchored in an end column', () => {
     expect(v.ok).toBe(true);
     expect(v.clause).toBe('§18.8.5.1');
     expect(frameSpan('cirsoc201-2025').verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!.clause).toBe('§25.4.3');
+  });
+});
+
+describe('the neutral axis limit without redistribution (5.5(4), δ = 1)', () => {
+  it('is (1 − k1)/k2 = 0.45 by the recommended values and 0.6 by the UK annex\'s k1 = 0.4, k2 = 0.6 + 0.0014/εcu2', () => {
+    expect(EC2_SET.p.xuLimitLow).toBe(0.45);
+    expect(UK_SET.p.xuLimitLow).toBe(0.6);
+    expect((1 - 0.4) / (0.6 + 0.0014 / 0.0035)).toBeCloseTo(0.6, 9);
+    expect(UK_SET.p.xuLimitHigh).toBeLessThanOrEqual((1 - 0.4) / (0.6 + 0.0014 / 0.0026) + 1e-9);
+    expect(EC2_SET.p.xuLimitHigh).toBeLessThanOrEqual((1 - 0.54) / (1.25 * (0.6 + 0.0014 / 0.0026)) + 1e-9);
+  });
+
+  it('a section at x/d ≈ 0.5 is ductile under the UK annex and not under the recommended values', () => {
+    const tension = [{ count: 4, dia: 25 }], compression = [{ count: 2, dia: 12 }];
+    const g = { b: 0.25, h: 0.5 };
+    const en = beamCapacity(g, 0.025, 8, tension, compression, false, 0, matOf(25, 500, EC2_SET.p), EC2_SET.p);
+    const uk = beamCapacity(g, 0.025, 8, tension, compression, false, 0, matOf(25, 500, UK_SET.p), UK_SET.p);
+    expect(en.xd).toBeGreaterThan(0.45);
+    expect(uk.xd).toBeLessThan(0.6);
+    expect(en.ductile).toBe(false);
+    expect(uk.ductile).toBe(true);
   });
 });
