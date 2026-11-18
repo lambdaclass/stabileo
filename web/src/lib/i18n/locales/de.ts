@@ -14919,6 +14919,8 @@ const de: Translations = {
   "rcSheets.resize.none.punchColumn": "auch nicht mit doppelt so großer Stütze ({from} cm jetzt),",
   "rcSheets.resize.shrink.column": "Mit Reserve: erfüllt auch mit {to} cm (jetzt {from} cm).",
   "rcSheets.resize.shrink.wallT": "Mit Reserve: erfüllt auch mit {to} cm Dicke (jetzt {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "Die Durchbiegung verlangt mehr Bewehrung als die Tragfähigkeit: mit h = {to} cm (jetzt {from} cm) genügt die Bewehrung aus der Tragfähigkeit.",
+  "rcSheets.resize.stiffen.slabH": "Die Durchbiegung verlangt mehr Bewehrung als die Tragfähigkeit: mit {to} cm Dicke (jetzt {from} cm) genügt die Bewehrung aus der Tragfähigkeit.",
   "rcSheets.resize.shrink.beamH": "Mit Reserve: erfüllt auch mit h = {to} cm (jetzt {from} cm), Durchbiegung eingeschlossen.",
   "rcSheets.resize.shrink.slabH": "Mit Reserve: erfüllt auch mit {to} cm Dicke (jetzt {from} cm), Durchbiegung eingeschlossen.",
   "rcSheets.resize.grow.punchCapital": "oder mit einem Stützenkopf von {to} cm Auskragung je Seite und mindestens dieser Höhe,",

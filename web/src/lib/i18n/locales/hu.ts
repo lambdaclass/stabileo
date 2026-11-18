@@ -15635,6 +15635,8 @@ const hu: Translations = {
   "rcSheets.resize.none.punchColumn": "sem kétszer nagyobb oszloppal (jelenleg {from} cm),",
   "rcSheets.resize.shrink.column": "Van tartalék: {to} cm-rel is megfelelne (jelenleg {from} cm).",
   "rcSheets.resize.shrink.wallT": "Van tartalék: {to} cm vastagsággal is megfelelne (jelenleg {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "A lehajlás több vasalást kíván, mint a teherbírás: h = {to} cm-rel (most {from} cm) elég a teherbírási vasalás.",
+  "rcSheets.resize.stiffen.slabH": "A lehajlás több vasalást kíván, mint a teherbírás: {to} cm vastagsággal (most {from} cm) elég a teherbírási vasalás.",
   "rcSheets.resize.shrink.beamH": "Van tartalék: h = {to} cm-rel is megfelelne (jelenleg {from} cm), a lehajlással együtt.",
   "rcSheets.resize.shrink.slabH": "Van tartalék: {to} cm vastagsággal is megfelelne (jelenleg {from} cm), a lehajlással együtt.",
   "rcSheets.resize.grow.punchCapital": "vagy oldalanként {to} cm kinyúlású, legalább ugyanilyen magas oszlopfővel,",

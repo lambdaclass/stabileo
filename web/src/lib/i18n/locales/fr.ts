@@ -14919,6 +14919,8 @@ const fr: Translations = {
   "rcSheets.resize.none.punchColumn": "ni avec un poteau deux fois plus grand ({from} cm actuellement),",
   "rcSheets.resize.shrink.column": "Avec de la marge : vérifierait avec {to} cm (actuellement {from} cm).",
   "rcSheets.resize.shrink.wallT": "Avec de la marge : vérifierait avec {to} cm d'épaisseur (actuellement {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "La flèche demande plus d'armatures que la résistance : avec h = {to} cm (actuellement {from} cm), celles de la résistance suffisent.",
+  "rcSheets.resize.stiffen.slabH": "La flèche demande plus d'armatures que la résistance : avec une épaisseur de {to} cm (actuellement {from} cm), celles de la résistance suffisent.",
   "rcSheets.resize.shrink.beamH": "Avec de la marge : vérifierait avec h = {to} cm (actuellement {from} cm), flèche comprise.",
   "rcSheets.resize.shrink.slabH": "Avec de la marge : vérifierait avec {to} cm d'épaisseur (actuellement {from} cm), flèche comprise.",
   "rcSheets.resize.grow.punchCapital": "ou avec un chapiteau de {to} cm de débord par côté, et au moins aussi haut,",

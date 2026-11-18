@@ -14919,6 +14919,8 @@ const tr: Translations = {
   "rcSheets.resize.none.punchColumn": "iki kat büyük kolonla da (şu an {from} cm),",
   "rcSheets.resize.shrink.column": "Payı var: {to} cm ile de sağlardı (şu an {from} cm).",
   "rcSheets.resize.shrink.wallT": "Payı var: {to} cm kalınlıkla da sağlardı (şu an {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "Sehim, dayanımdan fazla donatı istiyor: h = {to} cm ile (şu an {from} cm) dayanım donatısı yeterli.",
+  "rcSheets.resize.stiffen.slabH": "Sehim, dayanımdan fazla donatı istiyor: {to} cm kalınlıkla (şu an {from} cm) dayanım donatısı yeterli.",
   "rcSheets.resize.shrink.beamH": "Payı var: h = {to} cm ile de sağlardı (şu an {from} cm), sehim dahil.",
   "rcSheets.resize.shrink.slabH": "Payı var: {to} cm kalınlıkla da sağlardı (şu an {from} cm), sehim dahil.",
   "rcSheets.resize.grow.punchCapital": "ya da her yanda {to} cm çıkıntılı ve en az o kadar yüksek bir başlıkla,",

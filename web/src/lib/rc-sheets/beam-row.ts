@@ -133,6 +133,8 @@ export interface BeamRow {
   /** Adopted steel more than 1,2 times what is needed somewhere: the sheets' «VER». */
   generous: boolean;
   steps: StepGroup[];
+  /** The proposal took more steel than its strength asks, for its deflection. */
+  byDeflection?: true;
 }
 
 const paramsOf = (d: BeamDemand, c: BeamContext, stirrupDia = c.stirrupDia): ConcreteDesignParams =>

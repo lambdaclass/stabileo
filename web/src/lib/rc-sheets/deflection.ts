@@ -512,7 +512,7 @@ export function withBeamDeflection(base: BeamFn, code: DeflectionCode): BeamFn {
         if (!o2.ok) continue;
         need = t;
         out = o2;
-        chosen = { ...r2, isAdopted: false, proposed: cand, iterations: row.iterations + 1, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula: `As = ${fmt(t.tension * 1e4)} cm²; A's = ${fmt(t.compression * 1e4)} cm²`, value: '', ok: true }) };
+        chosen = { ...r2, isAdopted: false, proposed: cand, iterations: row.iterations + 1, byDeflection: true, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula: `As = ${fmt(t.tension * 1e4)} cm²; A's = ${fmt(t.compression * 1e4)} cm²`, value: '', ok: true }) };
         break;
       }
     }
@@ -623,7 +623,7 @@ export function withSlabDeflection(base: SlabFn, code: DeflectionCode): SlabFn {
           if (r2.status === 'fail' || !o2.ok) continue;
           out = o2;
           const formula = `${face}: As = ${fmt(t.tension * 1e4)} cm²/m${t.compression > sec0.AsPrime + 1e-9 ? `; ${back}: A's = ${fmt(t.compression * 1e4)} cm²/m` : ''}`;
-          chosen = { ...r2, isAdopted: false, proposed: cand, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula, value: '', ok: true }) };
+          chosen = { ...r2, isAdopted: false, proposed: cand, byDeflection: true, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula, value: '', ok: true }) };
           break search;
         }
       }

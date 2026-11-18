@@ -29,7 +29,7 @@ export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'pun
  * projection beyond the column face; a drop panel's, its depth under the slab and its extent from
  * the column face.
  */
-export interface ResizeHint { what: ResizeWhat; direction: 'grow' | 'shrink'; from: number[]; to: number[] | null }
+export interface ResizeHint { what: ResizeWhat; direction: 'grow' | 'shrink' | 'stiffen'; from: number[]; to: number[] | null }
 
 const passes = (r: SheetRow) => r.status !== 'fail';
 /** Below this strength ratio a column or a wall is worth trying smaller. */
@@ -41,14 +41,15 @@ const DEFLECTION_CHECKS = new Set(['rcSheets.v.deflection', 'rcSheets.v.deflecti
 /** Whether a beam or slab row checks its deflection: its proposal fits its steel to the forces, so whether a shallower one verifies is for the redesign to say, not for its ratios. */
 const checksDeflection = (r: { verifications: CheckLine[] }) => r.verifications.some((v) => DEFLECTION_CHECKS.has(v.label));
 
-/** The first size from `start`, stepped by `step` up to `limit`, whose row passes; null when none does. */
-function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown): number[] | null {
+/** The first size from `start`, stepped by `step` up to `limit`, whose row passes (and meets `also`); null when none does. */
+function grow(key: string, start: number[], step: number, limit: number[], make: (v: number[]) => unknown, also: (r: SheetRow) => boolean = () => true): number[] | null {
   const redesign = redesignerOf(key);
   if (!redesign) return null;
   for (let k = 1; k <= 60; k++) {
     const v = start.map((x) => round(x + k * step));
     if (v.some((x, i) => x > limit[i]! + 1e-9)) return null;
-    if (passes(redesign(make(v) as never))) return v;
+    const r = redesign(make(v) as never);
+    if (passes(r) && also(r)) return v;
   }
   return null;
 }
@@ -67,6 +68,12 @@ function shrink(key: string, start: number[], step: number, floor: number, make:
   return best;
 }
 
+/** A member whose proposal took steel for its deflection: the least depth at which its strength steel already meets it. */
+function stiffer(key: string, what: 'beamH' | 'slabH', h0: number, step: number, limit: number, make: (h: number) => unknown): ResizeHint[] {
+  const to = grow(key, [h0], step, [limit], ([h]) => make(h!), (r) => !(r as { byDeflection?: true }).byDeflection);
+  return to ? [{ what, direction: 'stiffen', from: [h0], to }] : [];
+}
+
 export function resizeHints(row: SheetRow): ResizeHint[] {
   if (row.status === 'none') return [];
   const fail = row.status === 'fail';
@@ -75,6 +82,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
       const d = row.demand;
       if (!fail) {
         if (!checksDeflection(row)) return [];
+        if (row.byDeflection) return stiffer(row.key, 'beamH', d.h, 0.05, Math.min(2 * d.h, 2), (h) => ({ ...d, h }));
         const to = shrink(row.key, [d.h], 0.05, Math.max(BEAM_FLOOR, d.b), ([h]) => ({ ...d, h }));
         return to ? [{ what: 'beamH', direction: 'shrink', from: [d.h], to }] : [];
       }
@@ -93,6 +101,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
       const d = row.demand;
       if (!fail) {
         if (!checksDeflection(row)) return [];
+        if (row.byDeflection) return stiffer(row.key, 'slabH', d.h, 0.01, 2 * d.h, (h) => ({ ...d, h }));
         const to = shrink(row.key, [d.h], 0.01, SLAB_FLOOR, ([h]) => ({ ...d, h }));
         return to ? [{ what: 'slabH', direction: 'shrink', from: [d.h], to }] : [];
       }

@@ -15079,6 +15079,8 @@ const en: Record<string, string> = {
   "rcSheets.resize.none.punchColumn": "nor with a column twice as large ({from} cm now),",
   "rcSheets.resize.shrink.column": "Room to spare: it would verify at {to} cm (now {from} cm).",
   "rcSheets.resize.shrink.wallT": "Room to spare: it would verify {to} cm thick (now {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "The deflection asks for more steel than the strength: at h = {to} cm (now {from} cm) the strength steel meets it.",
+  "rcSheets.resize.stiffen.slabH": "The deflection asks for more steel than the strength: {to} cm thick (now {from} cm) the strength steel meets it.",
   "rcSheets.resize.shrink.beamH": "Room to spare: it would verify with h = {to} cm (now {from} cm), deflection included.",
   "rcSheets.resize.shrink.slabH": "Room to spare: it would verify {to} cm thick (now {from} cm), deflection included.",
   "rcSheets.resize.grow.punchCapital": "or with a capital projecting {to} cm each side and at least as deep,",

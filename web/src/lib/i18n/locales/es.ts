@@ -15068,6 +15068,8 @@ const es: Record<string, string> = {
   "rcSheets.resize.none.punchColumn": "ni con el doble de columna ({from} cm hoy),",
   "rcSheets.resize.shrink.column": "Con margen: verificaría con {to} cm (hoy {from} cm).",
   "rcSheets.resize.shrink.wallT": "Con margen: verificaría con un espesor de {to} cm (hoy {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "La flecha pide más armadura que la resistencia: con h = {to} cm (hoy {from} cm) alcanza la de resistencia.",
+  "rcSheets.resize.stiffen.slabH": "La flecha pide más armadura que la resistencia: con un espesor de {to} cm (hoy {from} cm) alcanza la de resistencia.",
   "rcSheets.resize.shrink.beamH": "Con margen: verificaría con h = {to} cm (hoy {from} cm), flecha incluida.",
   "rcSheets.resize.shrink.slabH": "Con margen: verificaría con un espesor de {to} cm (hoy {from} cm), flecha incluida.",
   "rcSheets.resize.grow.punchCapital": "o con un capitel de {to} cm de vuelo por lado, y al menos ese alto,",

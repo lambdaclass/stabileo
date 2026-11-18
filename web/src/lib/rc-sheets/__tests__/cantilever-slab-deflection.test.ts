@@ -2,7 +2,9 @@
  * A slab cantilever's deflection: Ie read with the moment of its unit-width strip at the root
  * (FIUBA §5.1, §24.2.3.7), not the largest element moment by a column; a proposal short of the
  * limit adding compression steel, which lowers λΔ (FIUBA §18.3), where tension steel alone would
- * leave the section no longer tension-controlled (§7.3.3.1).
+ * leave the section no longer tension-controlled (§7.3.3.1); and a cantilever reinforced as the
+ * one-way slab it is: its distribution steel beside the main bars at the top, its bottom bars the
+ * span's carried in (FIUBA §13.1–13.2), its shear read with the top steel in tension.
  */
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
@@ -72,5 +74,32 @@ describe('a 15 cm balcony of 1.85 m short of ℓ/240', () => {
     expect(icr.formula).toContain(`A's = ${f(meshArea(row.proposed.bottomX), 2)} cm²`);
     const tensionOnly = rules.slabRow(d, ctx, { ...row.proposed, bottomX: bare.proposed.bottomX }, f);
     expect(tensionOnly.verifications.find((v) => v.label === 'rcSheets.v.deflection')!.ok).toBe(false);
+  });
+});
+
+describe('a cantilever is reinforced as a one-way slab with its main bars at the top', () => {
+  const quiet = (): SlabDemand => ({ ...balcony(20), m: { bottomX: { value: 0 }, bottomY: { value: 0 }, topX: { value: 20 }, topY: { value: 0 } }, q: { x: { value: 30 }, y: { value: 0 } } }) as SlabDemand;
+  it('under CIRSOC: distribution at the top, a fifth of the main bars and no less than shrinkage; bottom bars from the span; bars within 25 cm', () => {
+    const r = slabRowFor(CIRSOC_SLAB_ROW)(quiet(), ctx, undefined, f);
+    expect(r.oneWay).toBe(true);
+    expect(r.faces.topY.asDistribution).toBeCloseTo(0.2 * meshArea(r.adopted.topX), 9);
+    expect(r.faces.topY.asReq).toBeGreaterThanOrEqual(r.faces.topY.asMin);
+    expect(r.faces.topY.asMin).toBeGreaterThan(0);
+    expect(r.faces.bottomY.asDistribution ?? 0).toBe(0);
+    for (const face of ['bottomX', 'bottomY', 'topX', 'topY'] as const) expect(r.faces[face].sMax, face).toBeLessThanOrEqual(0.25 + 1e-9);
+    const clause = (face: string) => r.verifications.find((v) => v.label === `rcSheets.v.slabMin.${face}`)?.clause;
+    expect(clause('bottomX')).toBe('FIUBA §13.2');
+    expect(clause('topX')).toBe('§7.6.1');
+    expect(clause('topY')).toBe('§24.4.3.2');
+    expect(meshArea(r.adopted.topY)).toBeLessThan(meshArea(r.adopted.topX));
+  });
+
+  it('under ACI: no bottom bars where none is in tension, and its shear read with the top bars that are', () => {
+    const r = slabRowFor(ACI_SLAB_ROW)(quiet(), ctx, undefined, f);
+    expect(r.faces.bottomX.asReq).toBe(0);
+    expect(r.faces.bottomY.asReq).toBe(0);
+    expect(r.adopted.bottomX.dia).toBe(0);
+    expect(r.shear.x.phiVc).toBeGreaterThan(30);
+    expect(r.status).not.toBe('fail');
   });
 });

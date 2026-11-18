@@ -14721,6 +14721,8 @@ const pt: Translations = {
   "rcSheets.resize.none.punchColumn": "nem com um pilar com o dobro do tamanho ({from} cm hoje),",
   "rcSheets.resize.shrink.column": "Com folga: verificaria com {to} cm (hoje {from} cm).",
   "rcSheets.resize.shrink.wallT": "Com folga: verificaria com espessura de {to} cm (hoje {from} cm).",
+  "rcSheets.resize.stiffen.beamH": "A flecha pede mais armadura que a resistência: com h = {to} cm (hoje {from} cm) basta a de resistência.",
+  "rcSheets.resize.stiffen.slabH": "A flecha pede mais armadura que a resistência: com espessura de {to} cm (hoje {from} cm) basta a de resistência.",
   "rcSheets.resize.shrink.beamH": "Com folga: verificaria com h = {to} cm (hoje {from} cm), flecha incluída.",
   "rcSheets.resize.shrink.slabH": "Com folga: verificaria com espessura de {to} cm (hoje {from} cm), flecha incluída.",
   "rcSheets.resize.grow.punchCapital": "ou com um capitel de {to} cm de balanço por lado, e pelo menos essa altura,",

@@ -1,7 +1,8 @@
 /**
  * The seven-storey example's balconies, 15 cm over 1.85 m and meshed as the app meshes them: their
  * deflection reads Ie with the strip's moment at the root, not an element's peak by a column, and
- * every one is proposed with steel that verifies ℓ/240 and stays tension-controlled.
+ * every one is proposed with steel that verifies ℓ/240 and stays tension-controlled; and, the
+ * deflection having asked for that steel, it is told the thickness its strength steel meets it at.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -12,7 +13,8 @@ import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
+import { buildSheetRows, redesignerOf, setSheetCode } from '../rc-sheets.svelte';
+import { resizeHints } from '../rc-sheets-resize';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { Serviceable } from '../../rc-sheets/deflection';
 
@@ -40,6 +42,14 @@ describe('the seven-storey balconies', () => {
         expect(sv.dead.m, at).toBeLessThan(0.6 * r.demand.m.topX.value);
         const defl = r.verifications.find((v) => v.label.endsWith('.deflection'))!;
         expect(defl.ratio!, at).toBeLessThanOrEqual(1 + 1e-9);
+        expect(r.byDeflection, at).toBe(true);
+        const [hint] = resizeHints(r);
+        expect(hint, at).toMatchObject({ what: 'slabH', direction: 'stiffen', from: [0.15] });
+        const thicker = redesignerOf(r.key)!({ ...r.demand, h: hint!.to![0]! } as never) as typeof r;
+        expect(thicker.status, at).not.toBe('fail');
+        expect(thicker.byDeflection, at).toBeUndefined();
+        const thinner = redesignerOf(r.key)!({ ...r.demand, h: hint!.to![0]! - 0.01 } as never) as typeof r;
+        expect(thinner.status === 'fail' || thinner.byDeflection === true, at).toBe(true);
       }
     }
   }, 600_000);
