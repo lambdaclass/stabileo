@@ -95,7 +95,7 @@
 
   {#if open}
     <div class="contact-menu" id="contact-menu" role="group" aria-label={t('contact.linksLabel')} data-testid="contact-menu">
-      {#if import.meta.env.VITE_ACCOUNTS !== '0' && canSendFeedback}
+      {#if __PUBLIC_FEATURES__.accounts && canSendFeedback}
         <button type="button" class="contact-feedback" onclick={openFeedback} data-testid="contact-feedback">
           {t('feedbackForm.open')}
         </button>

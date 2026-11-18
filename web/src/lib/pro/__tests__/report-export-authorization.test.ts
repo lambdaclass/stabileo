@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 import { exportReportAs } from '../report-export';
 
 beforeEach(() => {
-  vi.stubEnv('VITE_ACCOUNTS', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, accounts: true });
   auth.isAuthenticated = false;
   modelStore.clear(); resultsStore.clear();
   vi.spyOn(inputs, 'buildProReportData').mockReturnValue({
@@ -26,7 +26,7 @@ beforeEach(() => {
 
 afterEach(() => {
   auth.isAuthenticated = false; accountGate.open = false;
-  vi.restoreAllMocks(); vi.unstubAllEnvs();
+  vi.restoreAllMocks(); vi.unstubAllGlobals();
   modelStore.clear(); resultsStore.clear();
 });
 

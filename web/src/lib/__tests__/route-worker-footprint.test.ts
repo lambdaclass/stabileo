@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 const budget = await import(new URL('../../../scripts/research-route-budget.mjs', import.meta.url).href);
 
 async function measure(worker: boolean, options: {
-  switches?: { VITE_RESEARCH: string; VITE_TOOLS: string };
+  switches?: { research: boolean; tools: boolean };
   missing?: string[];
   env?: Record<string, string>;
   ceilings?: Record<string, number>;
 } = {}) {
-  const switches = options.switches ?? { VITE_RESEARCH: '1', VITE_TOOLS: '1' };
+  const switches = options.switches ?? { research: true, tools: true };
   const manifest: Record<string, { file: string; name?: string }> = {
     'index.html': { file: 'index.html' },
     App: { name: 'App', file: 'app.js' },
@@ -45,7 +45,7 @@ async function measure(worker: boolean, options: {
     async (config: { plugins: { configResolved?: (resolved: unknown) => void }[] }) => {
       for (const plugin of config.plugins) plugin.configResolved?.({
         env: options.env ?? {},
-        define: Object.fromEntries(Object.entries(switches).map(([key, value]) => [`import.meta.env.${key}`, JSON.stringify(value)])),
+        define: Object.fromEntries(Object.entries(switches).map(([key, value]) => [`__PUBLIC_FEATURES__.${key}`, JSON.stringify(value)])),
       });
     },
     (path: string) => path.endsWith('manifest.json') ? JSON.stringify(manifest) : path === 'ceiling.json' ? JSON.stringify({ routes: Object.fromEntries([
@@ -92,8 +92,8 @@ describe('route size build switches', () => {
       ...(tools === '0' ? ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) : []),
     ];
     const { logs, files } = await measure(false, {
-      switches: { VITE_RESEARCH: research, VITE_TOOLS: tools }, missing,
-      env: { VITE_RESEARCH: tools, VITE_TOOLS: research },
+      switches: { research: research === '1', tools: tools === '1' }, missing,
+      env: { VITE_RESEARCH: research === '1' ? '0' : '1', VITE_TOOLS: tools === '1' ? '0' : '1' },
     });
     const bytes = Buffer.byteLength(files['index.html']);
     for (const route of ['/en/', '/es/', '/pt/', '/app/basic', '/app/education', '/app/pro']) {
@@ -107,14 +107,14 @@ describe('route size build switches', () => {
       ...['beam-frame/', 'mohr-2d/'].map(path => [`/en/tools/${path}`, '', tools]),
     ]) {
       const detailBytes = tools === '0' && key ? Buffer.byteLength(files[`${key}.js`]) : 0;
-      expect(logs).toContain(value === '0' ? `${route}: skipped (VITE_TOOLS=0)` : `${route}: ${bytes + detailBytes} bytes`);
+      expect(logs).toContain(value === '0' ? `${route}: skipped (tools=false)` : `${route}: ${bytes + detailBytes} bytes`);
       expect(logs.filter(line => line.startsWith(`${route}:`))).toHaveLength(1);
     }
   });
 
   it.each(['/en/research/', '/en/tools/', '/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/'])(
     'known wrong result: #2099 — default published %s enforces its ceiling on both sides of the boundary', async route => {
-      const options = { switches: { VITE_RESEARCH: '0', VITE_TOOLS: '0' }, missing: ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) };
+      const options = { switches: { research: false, tools: false }, missing: ['CalculatorTool', 'BatchTool', 'ModelTool', 'MohrTool'].map(name => `src/components/tools/${name}.svelte`) };
       const { files } = await measure(false, options);
       const detail = route.includes('simply-supported-beam') ? 'ToolViewer.js' : route.includes('continuous-beam') ? 'MainBatchTool.js' : null;
       const bytes = Buffer.byteLength(files['index.html']) + (detail ? Buffer.byteLength(files[detail]) : 0);
@@ -133,7 +133,7 @@ describe('route size build switches', () => {
     ['src/components/tools/ToolViewer.svelte', 'for ToolViewer.svelte'],
     ['src/components/tools/MainBatchTool.svelte', 'for MainBatchTool.svelte'],
   ])('known wrong result: #2099 — a default published feature with missing %s fails', async (missing, entry) => {
-    await expect(measure(false, { switches: { VITE_RESEARCH: '0', VITE_TOOLS: '0' }, missing: [missing] })).rejects.toThrow(`missing manifest entry ${entry}`);
+    await expect(measure(false, { switches: { research: false, tools: false }, missing: [missing] })).rejects.toThrow(`missing manifest entry ${entry}`);
   });
 
   it.each([

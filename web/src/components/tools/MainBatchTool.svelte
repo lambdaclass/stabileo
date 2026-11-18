@@ -1,5 +1,6 @@
 <script lang="ts">
  import PublicLink from '../landing/PublicLink.svelte';
+ import ToolEditorLink from './ToolEditorLink.svelte';
  import ParamRow from '../research/shell/ParamRow.svelte';
  import Sci from '../research/shell/Sci.svelte';
  import BatchViewer from './MainBatchViewer.svelte';
@@ -12,7 +13,8 @@
  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
  let {id}:{id:BatchId}=$props();
  let p=$state<BatchParameters>({...DEFAULT_BATCH});
- let result=$state<BatchResult|null>(null), error=$state(''),busy=$state(false),href=$state('');
+ let settled=$state<{result:BatchResult;mass:number}|null>(null), error=$state(''),busy=$state(false);
+ const result=$derived(settled?.result??null);
  let revision=0;
  const warmSolver=()=>{void import('../../lib/engine/wasm-solver').then(m=>m.initSolver()).catch(()=>{});};
  const number=(n:number,digits=6)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:digits}).format(n);
@@ -30,17 +32,23 @@
   const tool=id,values={...p}; revision++;
   const ready=prerenderedResult<BatchResult>(tool,values);
   if(ready) {
-   const token=revision; result=ready;href='';error='';busy=false;
-   void import('./share').then(({editorUrl})=>{if(token===revision)href=editorUrl(ready.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);});
+   settled={result:ready,mass:values.mass};error='';busy=false;
    return ()=>{revision++;};
   }
-  result=null;href='';error='';busy=true;
+  settled=null;error='';busy=true;
   const timer=setTimeout(()=>void run(tool,values),250);
   return ()=>{clearTimeout(timer);revision++;};
  });
  async function run(tool:BatchId,values:BatchParameters) {
   const token=++revision;
-  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; recordPrerenderedResult(tool,values,answer); result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
+  try {
+   validateBatch(tool,values);
+   const {calculateBatch}=await import('./batch-solve');
+   const answer=await calculateBatch(tool,values);
+   if(token!==revision)return;
+   recordPrerenderedResult(tool,values,answer);
+   settled={result:answer,mass:values.mass};
+  }
   catch(e) {if(token===revision)error=t(e instanceof BatchToolError?e.key:'tools.failed');}
   finally {if(token===revision)busy=false;}
  }
@@ -83,7 +91,7 @@
    {#if id==='truss-2d'}<h2>{t('tools.batch.axial')}</h2><p><span class="tension">{t('tools.batch.tension')}</span> · <span class="compression">{t('tools.batch.compression')}</span></p><div class="force-grid">{#each result.linear.elementForces as ef}<span data-testid="axial-force" class:tension={ef.nStart>=0} class:compression={ef.nStart<0}>N{ef.elementId}: {number(ef.nStart)} kN</span>{/each}</div>{/if}
    <p class="verification" data-testid="agreement" data-difference={result.difference??undefined} data-absolute={result.difference===null&&result.comparisons.length?largest(result):undefined}>{t('tools.comparison')}: {#if result.difference!==null}{t('tools.difference')} <Sci value={result.difference*100} unit="%"/>{:else if result.comparisons.length}{t('tools.batch.zeroReference')} <Sci value={largest(result)} unit={result.comparisons[0].unit}/>{:else}{t('tools.batch.noReference')}{/if}</p>
    {#each result.comparisons as c}<p class="verification">{t(c.label)}: {t('tools.engine')} {number(c.engine)} / {t('tools.batch.method')} {number(c.reference)} {c.unit} · {#if c.absolute}{t('tools.absoluteDifference')} <Sci value={Math.abs(c.engine-c.reference)} unit={c.unit}/>{:else}<Sci value={(c.difference??0)*100} unit="%"/>{/if}</p>{/each}
-   <a class="btn btn-primary open-editor" href={href}>{t('tools.open')} ↗</a>
+   <ToolEditorLink model={result.model} name={t(`tools.${id}`)} massPerLength={id==='beam-natural-frequency'?settled?.mass:undefined} />
    {#each solverMessages(result.linear.structuredDiagnostics??[],t) as message}<p class="warning" role="alert">{message}</p>{/each}
   {/if}
   </div>
@@ -100,7 +108,7 @@
 <style>
  .crumb :global(a) {display:inline-flex;align-items:center;min-height:44px;min-width:44px;} .warning {border-left:3px solid var(--st-warn,#e5482a);padding-left:.75rem;color:var(--fg);} .tool-layout {display:grid;gap:1.5rem;} .tool-layout>* {min-width:0;} h1 {font:600 clamp(2rem,4.5vw,3rem)/1.1 var(--lp-display);margin:.75rem 0;overflow-wrap:anywhere;hyphens:auto;} .lead {font-size:1.05rem;color:var(--fg);margin-bottom:0;} .crumb {font-size:.95rem;color:var(--fg-2);margin-bottom:1rem;}
  form {border-top:1px solid var(--hair);padding-top:1rem;} input,select,textarea {min-height:44px;min-width:0;max-width:100%;background:var(--card);color:var(--fg);border:1px solid var(--hair);border-radius:3px;padding:.4rem;font:.875rem var(--lp-mono);} textarea,form>input {width:100%;box-sizing:border-box;} textarea {resize:vertical;} form>label {display:block;margin-top:1rem;margin-bottom:.5rem;} .tool-inputs :global(.rs-param) {grid-template-columns:minmax(0,1fr) minmax(6rem,10rem) 3.5rem;} .tool-viewer {border:1px solid var(--card-hair);border-radius:6px;background:var(--card);overflow:hidden;}
- .results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;padding:1.25rem 0;border-block:1px solid var(--hair);} .result {display:grid;gap:.25rem;font-size:.875rem;color:var(--fg-2);} .result:first-child {grid-column:1/-1;} .result strong {font:500 clamp(1.75rem,3vw,2.5rem) var(--lp-display);color:var(--fg);overflow-wrap:anywhere;} .result small {font:.875rem var(--lp-mono);} .verification {font-size:.875rem;color:var(--fg-2);overflow-wrap:anywhere;} .formula {font:.875rem/1.8 var(--lp-mono);overflow-wrap:anywhere;} details {border-top:1px solid var(--hair);margin-top:2rem;padding-top:1rem;font-size:.875rem;} summary {min-height:44px;cursor:pointer;display:flex;align-items:center;} .table-scroll {overflow-x:auto;} table {width:100%;font:.8125rem var(--lp-mono);} th,td {padding:.5rem;text-align:left;} .force-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;font:.875rem var(--lp-mono);} .tension {color:#f4a582;} .compression {color:#92c5de;} .open-editor {min-height:44px;}
+ .results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem;padding:1.25rem 0;border-block:1px solid var(--hair);} .result {display:grid;gap:.25rem;font-size:.875rem;color:var(--fg-2);} .result:first-child {grid-column:1/-1;} .result strong {font:500 clamp(1.75rem,3vw,2.5rem) var(--lp-display);color:var(--fg);overflow-wrap:anywhere;} .result small {font:.875rem var(--lp-mono);} .verification {font-size:.875rem;color:var(--fg-2);overflow-wrap:anywhere;} .formula {font:.875rem/1.8 var(--lp-mono);overflow-wrap:anywhere;} details {border-top:1px solid var(--hair);margin-top:2rem;padding-top:1rem;font-size:.875rem;} summary {min-height:44px;cursor:pointer;display:flex;align-items:center;} .table-scroll {overflow-x:auto;} table {width:100%;font:.8125rem var(--lp-mono);} th,td {padding:.5rem;text-align:left;} .force-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;font:.875rem var(--lp-mono);} .tension {color:#f4a582;} .compression {color:#92c5de;}
  @media(max-height: 450px) and (max-width: 69.99rem) { .crumb {margin:0 0 .25rem;} h1 {margin:.5rem 0;font-size:1.75rem;} .lead {font-size:.95rem;} .lead {margin-top:.5rem;} .tool-layout {gap:1rem;} }
  @media(min-width:70rem) {.tool-layout {grid-template-columns:minmax(25rem,38rem) minmax(0,1fr);column-gap:3rem;align-items:start;} .tool-intro {grid-column:1;grid-row:1;} .tool-inputs {grid-column:1;grid-row:2;} .tool-results {grid-column:1;grid-row:3;} .tool-viewer {grid-column:2;grid-row:1/4;position:sticky;top:calc(var(--lp-nav-h,3.6rem) + .75rem);}}
 </style>

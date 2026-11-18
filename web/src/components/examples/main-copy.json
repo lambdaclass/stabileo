@@ -157,7 +157,7 @@
     "beam-frame.title": "Gerenda- és keretkísérletek",
     "beam-frame.subtitle": "Acélgerenda vagy kapukeret támaszai, támaszköze és terhei, élő hajlítónyomaték-, nyíróerő- és lehajlásábrával.",
     "slab-on-columns.title": "Oszlopokra támaszkodó lemez",
-    "slab-on-columns.subtitle": "Oszlopraszterre támaszkodó sík betonlemez MITC4 héjhálóval és élő lehajlásmezővel.",
+    "slab-on-columns.subtitle": "Oszlopraszterre támaszkodó sík betonlemez interaktív modellje MITC4 héjhálóval és élő lehajlásmezővel.",
     "earthquake-frame.title": "Keret földrengési időtörténete",
     "earthquake-frame.subtitle": "Alapmozgással gerjesztett vasbeton keret, lépésenként integrálva a Newmark-féle átlagos gyorsulási módszerrel.",
     "rc-column.title": "Vasbeton oszlop",

@@ -1,9 +1,7 @@
 import { PUBLIC_LOCALES, type Locale } from '../../i18n/offered';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { POSTS } from '..';
 
-vi.hoisted(() => { vi.resetModules(); vi.stubEnv('VITE_RESEARCH', '1'); });
-afterAll(() => vi.unstubAllEnvs());
 
 function checkMetadata(locale: Locale) {
   expect(PUBLIC_LOCALES).toContain(locale);

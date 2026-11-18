@@ -50,7 +50,7 @@
 
 <div class="sketch" bind:clientWidth={width} style:height={`${tall}px`}>
   {#if width > 0}
-    <svg {width} height={tall} role="img" aria-label={label}>
+    <svg {width} height={tall} viewBox="0 0 {width} {tall}" role="img" aria-label={label}>
       {#each shapes as shape, k (k)}
         {#if view.cellSize === 2}
           <polyline points={shape.points} style:stroke={shape.colour} class="field-line" />

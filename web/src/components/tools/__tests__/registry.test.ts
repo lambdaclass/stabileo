@@ -12,7 +12,7 @@ import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
 
 const text = (locale: string, key: string) => batchTranslations[locale]?.[key] ?? hubTranslations[locale]?.[key] ?? toolTranslations[locale]?.[key];
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => vi.unstubAllGlobals());
 
 describe('tool registry', () => {
   it('holds every calculator, batch tool and model once, each under a unique id', () => {
@@ -24,7 +24,7 @@ describe('tool registry', () => {
   });
 
   it('files every tool under a topic and keeps a slot for stresses', () => {
-    vi.stubEnv('VITE_TOOLS', '1');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: true });
     for (const tool of TOOLS) expect(TOPICS).toContain(tool.topic);
     expect(TOPICS).toEqual(['beams', 'stability', 'stresses', 'models']);
     expect(TOPICS.flatMap(toolsIn)).toHaveLength(TOOLS.length);

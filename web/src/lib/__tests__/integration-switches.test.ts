@@ -6,15 +6,15 @@ import { PUBLIC_LOCALES } from '../i18n/offered';
 import { publicPaths } from '../../../scripts/public-paths';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS } from '../../components/research/locales';
 import { MAIN_TOOL_IDS, EXAMPLE_PATHS } from '../public-surface';
-import { SITE_NAV } from '../../components/site/site-nav';
 import { mohrPanel, openMohr, openMohrFromFibre } from '../mohr/panel.svelte';
 
 const mainPaths = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, '/paper', '/tools', ...MAIN_TOOL_IDS.map(id => `/tools/${id}`), ...EXAMPLE_PATHS];
 const newPaths = ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/tools/slab-on-columns', '/tools/earthquake-frame', '/tools/rc-column', '/tools/outrigger', '/tools/tower', '/diagram-game'];
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
-it('all three integration switches default off without withdrawing anything main publishes', async () => {
-  for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
+afterEach(() => { vi.unstubAllGlobals(); });
+it('disabled integration features stay off without withdrawing anything main publishes', async () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });
   expect([research(), tools(), diagramGame()]).toEqual([false, false, false]);
+  const { SITE_NAV } = await import('../../components/site/site-nav');
   expect(SITE_NAV.filter(item => item.kind === 'page').map(item => item.id)).toEqual(['examples', 'tools', 'research', 'blog']);
   for (const path of mainPaths) {
     expect(publicFeatureEnabled(path), path).toBe(true);
@@ -30,12 +30,15 @@ it('all three integration switches default off without withdrawing anything main
   expect(routeKind(new URL('https://stabileo.test/en/blog/')).kind).toBe('blog');
   expect(routeKind(new URL('https://stabileo.test/app/basic')).kind).toBe('app');
 });
-it('each switch enables only its additions and leaves main routes available', () => {
-  for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
-  for (const name of ['research', 'tools', 'diagram-game']) {
+it('browser overrides can only enable features included in the build', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });
+  for (const [key, name] of [['research', 'research'], ['tools', 'tools'], ['diagramGame', 'diagram-game']] as const) {
+    vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });
     const flags = new Map<string, string>();
     vi.stubGlobal('localStorage', { getItem: (key: string) => flags.get(key) ?? null, setItem: (key: string, value: string) => flags.set(key, value) });
     setFeatureFlag(name, true);
+    expect([publicLocaleEnabled('/research', 'hu'), publicFeatureEnabled('/tools/mohr-2d'), publicFeatureEnabled('/diagram-game')]).toEqual([false, false, false]);
+    vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false, ...{ [key]: true } });
     expect(publicLocaleEnabled('/research', 'hu')).toBe(name === 'research');
     expect(publicFeatureEnabled('/tools/mohr-2d')).toBe(name === 'tools');
     expect(publicFeatureEnabled('/diagram-game')).toBe(name === 'diagram-game');
@@ -45,7 +48,7 @@ it('each switch enables only its additions and leaves main routes available', ()
   }
 });
 it('the new embedded Mohr entry points also refuse while Tools is off', () => {
-  vi.stubEnv('VITE_TOOLS', '');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: false });
   mohrPanel.open = false;
   openMohr({ kind: 'plane' });
   expect(mohrPanel.open).toBe(false);

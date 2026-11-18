@@ -6,12 +6,12 @@ import columns from '../../../../results-frozen/gallery-slab-columns.json';
 import walls from '../../../../results-frozen/gallery-slab-walls.json';
 import { compareFrozen, freezeValues } from '../../../../scripts/results-snapshot/frozen.mjs';
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => vi.unstubAllGlobals());
 
 for (const tools of ['0', '1', undefined]) {
   for (const supports of [0, 1]) {
     it(`slab supports=${supports} retains main's analysis with tools=${tools}`, () => {
-      for (const key of ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, tools);
+      vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: tools === '1', research: tools === '1', tools: tools === '1', diagramGame: tools === '1' });
       const values = { ...defaults(slab.params), supports };
       const result = slab.analyses(slab.build(values), values, engine);
       expect(result.status).toBe('ok');
@@ -23,7 +23,7 @@ for (const tools of ['0', '1', undefined]) {
 
 for (const supports of [0, 1]) {
   it(`the gallery worker preserves main's slab output with supports=${supports}`, async () => {
-    for (const key of ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '0');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });
     const worker = { onmessage: null as null | ((event: { data: unknown }) => Promise<void>), postMessage: vi.fn() };
     vi.stubGlobal('self', worker);
     try {
