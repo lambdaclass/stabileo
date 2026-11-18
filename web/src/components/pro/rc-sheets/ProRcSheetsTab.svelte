@@ -14,6 +14,7 @@
   import RcLeftOut from './RcLeftOut.svelte';
   import RcExportLog from './RcExportLog.svelte';
   import RcSheetsWorkspace from './RcSheetsWorkspace.svelte';
+  import RcRebar3d from './RcRebar3d.svelte';
   import RcCodePicker from './RcCodePicker.svelte';
   import { SHEET_CODES } from '../../../lib/rc-sheets/types';
   import { sheetCode } from '../../../lib/store/rc-sheets.svelte';
@@ -110,6 +111,7 @@
       <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={stale} title={stale ? t('rcSheets.exportStale') : undefined} data-testid="rc-export-workbook">{t('rcSheets.export')}</button>
     </div>
+    <RcRebar3d {rows} />
     <p class="rcp-note" data-testid="rc-scope-note">{t('rcSheets.scopeNote')}</p>
     <p class="rcp-note" data-testid="rc-limits-note">{t('rcSheets.limits')}</p>
     {#if seismicOn}<p class="rcp-note">{t('rcSheets.scopeNoteSeismic')}</p>{/if}

@@ -39,6 +39,7 @@
   import { noArrangement } from '../../../lib/store/rc-sheets-resize';
   import RcScheduleView from './RcScheduleView.svelte';
   import RcPlansExport from './RcPlansExport.svelte';
+  import { showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
   import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
   import { tick } from 'svelte';
   import RcPropertyLines from './RcPropertyLines.svelte';
@@ -311,6 +312,7 @@
             {#if openKey === r.key}
               <tr class="detail">
                 <td colspan="13">
+                  {#if r.family !== 'punching'}<button type="button" class="rcs-btn rcw-3d" onclick={() => { showRebarOf(r); onclose(); }} data-testid="rc-view-3d">{t('rcSheets.r3d.show')}</button>{/if}
                   {#if r.family === 'line'}
                     <RcLineDetail line={r} spans={spansOf(r)} onleave={onclose} {highlight} />
                   {:else}
@@ -383,6 +385,7 @@
   .rcw-ctl select { font-size: 0.72rem; background: var(--st-surface); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 4px; }
   .rcs-btn { font-size: 0.72rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 3px 8px; cursor: pointer; }
   .rcs-btn:disabled { opacity: 0.5; cursor: default; }
+  .rcw-3d { float: right; margin: 2px 0 4px 8px; }
   .rcw-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; }
   .rcw-empty { color: var(--st-text-2); font-size: 0.8rem; max-width: 60ch; }
   .rcw-table { width: 100%; border-collapse: collapse; font-size: 0.74rem; }

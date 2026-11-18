@@ -9,7 +9,9 @@ import { beamLine } from '../../beam-line';
 import { makeFmt } from '../../format';
 import { rulesFor } from '../../codes';
 import { assignMarks, scheduleOf, bendingSchedule, letterMark } from '../schedule';
-import { MAX_CRANK, crankOffsets, scheduleElements, spread, stirrupsOver, type ScheduleElement } from '../pieces';
+import { MAX_CRANK, crankOffsets, scheduleElements, stirrupsOver, wallGrid, type ScheduleElement } from '../pieces';
+import { layerPositions } from '../../view-helpers';
+import { wallDetail, wallLevels } from '../../wall-detail';
 import { scheduleCsv, scheduleSheet, shapeText } from '../exports';
 import { rcSheetsWorkbook } from '../../workbook';
 
@@ -174,7 +176,7 @@ describe('pieces of each family', () => {
     const r = slabRow({ key: 'slab:1', name: 'L1', lx: 5, ly: 4, h: 0.15, m: m(8, 8, 10, 10) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
     const [e] = scheduleElements({ line: [], column: [], slab: [r], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
     const bx = e!.pieces.find((p) => p.kind === 'slabBottom')!;
-    expect(bx.count).toBe(spread(4 - 0.04, r.adopted.bottomX.spacing));
+    expect(bx.count).toBe(layerPositions(4, r.adopted.bottomX.spacing, 0.02 + r.adopted.bottomX.dia / 2000).n);
     expect(developedLength(bx.shape)).toBeCloseTo(5 - 0.04, 9);
     const tx = e!.pieces.find((p) => p.kind === 'slabTop')!;
     expect(tx.shape.pts[0]).toEqual([0, expect.closeTo(-(0.15 - 0.04), 9)]);
@@ -221,10 +223,30 @@ describe('pieces of each family', () => {
     expect(kinds.has('vertical')).toBe(true);
     if (r.adopted.curtains === 2) {
       const u = e!.pieces.find((p) => p.kind === 'ubar')!;
-      expect(u.count).toBe(2 * spread(3, r.adopted.horizontal.spacing));
+      expect(u.count).toBe(2 * wallLevels(3, r.adopted.horizontal.spacing).length);
       expect(u.shape.pts[0]![0]).toBeCloseTo(r.hLap, 9);
     }
     expect(r.vLaps!.map((x) => x.dia)).toContain(r.adopted.vertical.diameter);
+  });
+
+  it('counts the bars its drawings draw: a panel layer as its layers drawing spaces it, a wall\'s horizontals, U-bars, hoops and cross ties from half a spacing up the storey', () => {
+    const m = (v: number) => ({ bottomX: { value: v }, bottomY: { value: v }, topX: { value: v }, topY: { value: v } });
+    const slab = slabRow({ key: 'slab:1', name: 'L1', lx: 4, ly: 4, h: 0.15, m: m(8) }, { mat: { fc: 30, fy: 420 }, cover: 0.02, diameters: [8, 10, 12] }, undefined, f);
+    const a = { ...slab, adopted: { ...slab.adopted, bottomX: { dia: 10, spacing: 0.2 } } };
+    const [s] = scheduleElements({ line: [], column: [], slab: [a], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    expect(s!.pieces.find((p) => p.kind === 'slabBottom' && p.shape.dia === 10)!.count).toBe(20);
+    const wall: WallDemand = { key: 'wall:1:0', name: 'M1', length: 3, height: 3, thickness: 0.25, combos: [{ combo: 'U', pu: 1200, mu: 5000, vu: 450, muV: 4, muH: 2 }] };
+    const r = wallRow(wall, { mat: { fc: 30, fy: 420 }, cover: 0.025, barDia: 12, diameters: [10, 12, 16, 20, 25] }, undefined, f);
+    const two = { ...r, adopted: { ...r.adopted, curtains: 2 as const, vertical: { diameter: 12, spacing: 0.15 }, horizontal: { diameter: 10, spacing: 0.2 } } };
+    for (const code of ['cirsoc201-2025', 'en1992-1-1'] as const) {
+      const det = wallDetail(two, code), grid = wallGrid(two, det);
+      const [e] = scheduleElements({ line: [], column: [], slab: [], wall: [two] }, { code, slabCover: 0.02 });
+      expect(grid.horizontals).toHaveLength(15);
+      expect(e!.pieces.find((p) => p.kind === 'horizontal')!.count, code).toBe(2 * 15);
+      expect(e!.pieces.find((p) => p.kind === 'ubar')!.count, code).toBe(2 * 15);
+      const ties = e!.pieces.find((p) => p.kind === 'wallTie');
+      expect(ties?.count ?? 0, code).toBe(det.crossTies ? wallLevels(3, det.crossTies.along).length * wallLevels(3, det.crossTies.up).length : 0);
+    }
   });
 
   it('a vertical longer than a stock bar is cut into equal lapped pieces, the top one hooked into the slab', async () => {
