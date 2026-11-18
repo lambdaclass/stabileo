@@ -394,3 +394,135 @@ it('#2277 a translated masked braced portal bearing keeps its answer in both sol
   expect(plane.reactions.find(r => r.nodeId === node)!.rx).toBeCloseTo(1, 9);
   expect(embedded.reactions.find(r => r.nodeId === node)!.fx).toBeCloseTo(1, 9);
 });
+
+const legacySettlement = 0.001;
+const legacyRotation = 0.002;
+const maskedVerticalBearing = { ...noRestraints, ty: true, tz: true, rx: true, rz: true };
+
+function settledMaskedBearing(fields: { dy?: number; dz?: number }) {
+  const root = modelStore.addNode(0, 0);
+  const bearing = modelStore.addNode(2, 0);
+  const member = modelStore.addElement(root, bearing);
+  modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+  modelStore.addSupportEntry({
+    nodeId: bearing, type: 'rollerX', dofFrame: 'global', dofRestraints: maskedVerticalBearing, ...fields,
+  });
+  return { root, bearing, set: { nodes: [], elements: [member] } };
+}
+
+const settlementRegression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
+
+for (const operation of ['copy', 'detached copy', 'in place'] as const) {
+  settlementRegression(`known wrong result: #2277 a quarter-turn carries the legacy settlement reaction (${operation})`, async () => {
+    const { root, bearing, set } = settledMaskedBearing({ dy: legacySettlement });
+    const source = validateAndSolve2D(modelStore.model);
+    if (!source || typeof source === 'string') throw new Error(String(source));
+    expect(source.displacements.find(d => d.nodeId === bearing)!.uz).toBeCloseTo(legacySettlement, 9);
+    const originalReaction = source.reactions.find(r => r.nodeId === bearing)!.rz;
+    expect(originalReaction).toBeGreaterThan(0);
+
+    const turn = rotation([0, 0, 0], [0, 0, 1], 90);
+    const report = operation === 'in place' ? transformInPlace(set, turn)
+      : operation === 'copy' ? copyTransformed(set, [turn], { withSupports: true })
+      : insertFragment(detach(fragmentOf(set, { withSupports: true })), [turn], { withSupports: true });
+    expect(report.warnings.supportDropped).toBeUndefined();
+    const node = 'maps' in report ? report.maps[0]!.nodes.get(bearing)! : bearing;
+    if (node !== bearing) modelStore.removeNode(bearing);
+
+    const compressionTip = modelStore.addNode(-2, 0);
+    modelStore.addElement(root, compressionTip);
+    modelStore.addNodalLoad(compressionTip, 1, 0, 0, loadCase.id);
+    const model = modelStore.model;
+    const planeInput = buildSolverInput2D(model);
+    const embeddedInput = buildSolverInput3D(model);
+    if (!planeInput || !embeddedInput) throw new Error('Expected both solver inputs');
+    const planeSecondOrder: PDeltaResult = solvePDelta(planeInput);
+    const embeddedSecondOrder: PDeltaResult3D = solvePDelta3D(embeddedInput);
+    for (const answer of [planeSecondOrder, embeddedSecondOrder]) {
+      expect.soft(answer.isStable).toBe(true);
+      expect.soft(answer.converged).toBe(true);
+      expect.soft(answer.iterations).toBeGreaterThan(0);
+    }
+
+    const planeCases = solveCombinations2D(model, [loadCase], [combination]);
+    const embeddedCases = solveCombinations3D(model, [loadCase], [combination]);
+    const parallel = await solveCombinations3DParallel(model, [loadCase], [combination]);
+    if (!planeCases || typeof planeCases === 'string') throw new Error(String(planeCases));
+    if (!embeddedCases || typeof embeddedCases === 'string') throw new Error(String(embeddedCases));
+    if (!parallel || typeof parallel === 'string') throw new Error(String(parallel));
+    for (const answer of [
+      validateAndSolve2D(model), await validateAndSolve2DAsync(model),
+      planeCases.perCase.get(loadCase.id), planeCases.perCombo.get(combination.id), planeSecondOrder.results,
+    ]) {
+      if (!answer || typeof answer === 'string') throw new Error(String(answer));
+      const reaction = answer.reactions.find(r => r.nodeId === node)!;
+      expect.soft(reaction.rx).toBeCloseTo(-originalReaction, 9);
+      expect.soft(reaction.rz).toBeCloseTo(0, 9);
+      expect.soft(answer.displacements.find(d => d.nodeId === node)!.ux).toBeCloseTo(-legacySettlement, 9);
+    }
+    for (const answer of [
+      validateAndSolve3D(model), await validateAndSolve3DAsync(model),
+      embeddedCases.perCase.get(loadCase.id), embeddedCases.perCombo.get(combination.id),
+      parallel.perCase.get(loadCase.id), parallel.perCombo.get(combination.id), embeddedSecondOrder.results,
+    ]) {
+      if (!answer || typeof answer === 'string') throw new Error(String(answer));
+      const reaction = answer.reactions.find(r => r.nodeId === node)!;
+      expect.soft(reaction.fx).toBeCloseTo(-originalReaction, 9);
+      expect.soft(reaction.fy).toBeCloseTo(0, 9);
+      expect.soft(reaction.fz).toBeCloseTo(0, 9);
+      const displacement = answer.displacements.find(d => d.nodeId === node)!;
+      expect.soft(displacement.ux).toBeCloseTo(-legacySettlement, 9);
+      expect.soft(displacement.uy).toBeCloseTo(0, 9);
+    }
+  });
+}
+
+settlementRegression('known wrong result: #2277 signed plane transforms resolve both settlement aliases and prefer canonical zeroes', () => {
+  const { bearing } = settledMaskedBearing({ dy: legacySettlement });
+  const source = { ...supportAt(bearing), drz: legacyRotation };
+  const carry = (T: Parameters<typeof carriedSupport>[0], support = source) =>
+    carriedSupport(T, support, bearing, new Map(), new Set());
+
+  for (const degrees of [90, -90]) {
+    const turn = rotation([0, 0, 0], [0, 0, 1], degrees);
+    const turned = carry(turn);
+    expect.soft(turned).toMatchObject({ dx: -Math.sign(degrees) * legacySettlement, dry: legacyRotation });
+    expect.soft(turned?.dy).toBeUndefined();
+    expect.soft(turned?.drz).toBeUndefined();
+    const zero = carry(turn, { ...source, dz: 0, dry: 0 });
+    expect.soft(zero).toMatchObject({ dx: 0, dry: 0 });
+    expect.soft(zero?.dy).toBeUndefined();
+    expect.soft(zero?.drz).toBeUndefined();
+  }
+  const mirrored = carry(reflection([0, 0, 0], [1, -1, 0]));
+  expect.soft(mirrored).toMatchObject({ dx: legacySettlement, dry: -legacyRotation });
+  expect.soft(mirrored?.dy).toBeUndefined();
+  expect.soft(mirrored?.drz).toBeUndefined();
+  expect(carry(rotation([0, 0, 0], [0, 0, 1], 45))).toBeNull();
+  expect(carry(rotation([0, 0, 0], [0, 1, 0], 90))).toBeNull();
+});
+
+it('#2277 a canonical masked settlement keeps its reaction through a quarter-turn', () => {
+  const { bearing, set } = settledMaskedBearing({ dz: legacySettlement });
+  const before = validateAndSolve2D(modelStore.model);
+  if (!before || typeof before === 'string') throw new Error(String(before));
+  const expected = before.reactions.find(r => r.nodeId === bearing)!.rz;
+  expect(expected).toBeGreaterThan(0);
+
+  const report = transformInPlace(set, rotation([0, 0, 0], [0, 0, 1], 90));
+  expect(report.warnings.supportDropped).toBeUndefined();
+  const plane = validateAndSolve2D(modelStore.model);
+  const embedded = validateAndSolve3D(modelStore.model);
+  if (!plane || typeof plane === 'string') throw new Error(String(plane));
+  if (!embedded || typeof embedded === 'string') throw new Error(String(embedded));
+  expect(plane.reactions.find(r => r.nodeId === bearing)!.rx).toBeCloseTo(-expected, 9);
+  expect(embedded.reactions.find(r => r.nodeId === bearing)!.fx).toBeCloseTo(-expected, 9);
+});
+
+it('#2277 a space transform carries physical Y settlement and rotation about Z', () => {
+  const { bearing } = settledMaskedBearing({ dy: legacySettlement, dz: 0 });
+  const source = { ...supportAt(bearing), type: 'custom3d' as const, dry: 0, drz: legacyRotation };
+  const turned = carriedSupport(rotation([0, 0, 0], [0, 0, 1], 90), source, bearing, new Map(), null);
+  expect(turned).toMatchObject({ dx: -legacySettlement, dz: 0, drz: legacyRotation });
+  expect(turned?.dy).toBeUndefined();
+});
