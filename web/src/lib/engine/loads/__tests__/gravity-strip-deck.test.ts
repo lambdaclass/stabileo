@@ -330,3 +330,91 @@ it('leaves strips exposed without area from a width footprint above the cover ri
     expect(layout.pieces.map(piece => [piece.elementId, piece.a, piece.roof])).toEqual([[1, 4, true], [2, 4, true]]);
   }
 });
+
+const round8 = process.env.RUN_KNOWN_WRONG === '2282' ? it : it.skip;
+
+round8('known wrong result: #2282 a horizontal width-loaded member covers the full strip', () => {
+  for (const [x, width, angle, mirror, mesh] of [[5, 10, 0, 1, 1], [7, 6, 0.37, 1, 3], [7, 6, 1.16, -1, 2]] as const) {
+    const fixture = bay(4, 0, 1, mesh, mesh > 1);
+    const { model, physical } = fixture;
+    const first = widthRoof(model, x, 6, 6, mesh > 1);
+    const upper = new Map([...model.elements].filter(([id]) => id >= first));
+    const upperNodes = [...upper.values()].flatMap(({ nodeI, nodeJ }) => [nodeI, nodeJ]);
+    const upperPhysical = new Map(upperNodes.map(id => [id, [model.nodes.get(id)!.y, 0] as [number, number]]));
+    rotated(model, angle, mirror);
+    for (const options of [automatic, gravity]) {
+      const settings = { ...options, tributaryWidth: width };
+      const result = buildLoadPlan(input(model, { gravity: settings, roof, tributaryWidth: width }));
+      const lower = result.distributed.filter(load => load.elementId < first);
+      const elements = new Map([...model.elements].filter(([id]) => id < first));
+      const dead = lower.filter(load => load.caseType === 'D');
+      checkResponse({ ...fixture, model: { ...model, elements } }, dead, 4, 10, 3);
+      expect(result.blockedKeys.map(({ key }) => key)).toEqual(['loadPlan.blocked.concentratedRoof']);
+      expect(result.nodal).toEqual([]);
+      expect([...new Set(lower.map(load => load.caseType))].sort()).toEqual(['D', 'L']);
+      for (const [id, { nodeI, nodeJ }] of elements) {
+        const [xi, yi] = physical.get(nodeI)!;
+        const [xj, yj] = physical.get(nodeJ)!;
+        for (const [kind, pressure] of [['D', 1], ['L', result.factors.occupancy.value]] as const) {
+          const loads = lower.filter(load => load.elementId === id && load.caseType === kind);
+          if (yi !== yj || xj <= 4) {
+            expect(loads).toEqual([]);
+            continue;
+          }
+          expect(loads).toHaveLength(1);
+          expect(loads[0]!.a ?? 0).toBeCloseTo(Math.max(0, 4 - xi), 10);
+          expect(loads[0]!.b ?? xj - xi).toBeCloseTo(xj - xi, 10);
+          expect(loads[0]!.q).toBeCloseTo(-3 * pressure, 10);
+          expect(loads[0]!.qJ ?? loads[0]!.q).toBeCloseTo(-3 * pressure, 10);
+        }
+      }
+      const upperDead = result.distributed.filter(load => load.elementId >= first && load.caseType === 'D');
+      expect(upperDead).toHaveLength(upper.size);
+      for (const load of upperDead) {
+        expect(load.a).toBeUndefined();
+        expect(load.b).toBeUndefined();
+        expect(load.q).toBe(-roof.dead * width);
+      }
+      checkResponse({
+        model: { ...model, elements: upper }, physical: upperPhysical,
+        root: [upperNodes[0]!], ends: [upperNodes.at(-1)!],
+      }, upperDead, 0, 6, roof.dead * width);
+      const layout = gravityLayout(model, settings);
+      expect(layout.pieces.every(piece => !piece.roof)).toBe(true);
+      expect(layout.widthMembers.map(member => member.elementId)).toEqual([...upper.keys()]);
+      expect(result.levels.find(level => level.elevation === 3)!.superimposedKN).toBeCloseTo(36 + 24 * roof.dead, 10);
+    }
+  }
+});
+
+round8('known wrong result: #2282 a horizontal width footprint that partly covers a strip refuses', () => {
+  for (const options of [automatic, gravity]) {
+    for (const [x, width, z] of [[7, 5.999, 6], [-0.999, 10, 6], [7, 5.999, 3.051]] as const) {
+      const { model } = bay(4);
+      widthRoof(model, x, z, z);
+      expectBlockedWithWidth(model, { ...options, tributaryWidth: width });
+    }
+  }
+  const { model } = bay(4);
+  widthRoof(model, 4, 6, 6);
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining({ key: 'loadPlan.gravity.mixedExposure' }));
+});
+
+it('leaves a strip exposed when a horizontal width footprint has no overhead area', () => {
+  for (const [x, width, z] of [[-1, 10, 6], [7, 0, 6], [7, 6, 3.049], [7, 6, 3.05]] as const) {
+    const fixture = bay(4);
+    const { model } = fixture;
+    const first = widthRoof(model, x, z, z);
+    const settings = { ...gravity, tributaryWidth: width };
+    const result = buildLoadPlan(input(model, { gravity: settings, roof, tributaryWidth: width }));
+    const lower = result.distributed.filter(load => load.elementId < first);
+    expect([...new Set(lower.map(load => load.caseType))].sort()).toEqual(['D', 'Lr']);
+    const dead = lower.filter(load => load.caseType === 'D');
+    expect(dead.map(load => [load.elementId, load.a, load.b, load.q, load.qJ])).toEqual([
+      [1, 4, undefined, -6, -6], [2, 4, undefined, -6, -6],
+    ]);
+    const elements = new Map([...model.elements].filter(([id]) => id < first));
+    checkResponse({ ...fixture, model: { ...model, elements } }, dead, 4, 10, 6);
+    expect(gravityLayout(model, settings).pieces.every(piece => piece.roof)).toBe(true);
+  }
+});
