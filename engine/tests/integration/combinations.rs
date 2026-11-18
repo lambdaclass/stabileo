@@ -590,3 +590,66 @@ fn combinations_preserve_2d_response_under_repeated_case_cancellation() {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn combinations_report_planar_net_factor_overflow_before_recovery() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&input, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 1, results: results.clone() }] };
+            let checked = combine_results_checked(&input);
+            let owned = combine_results(&input);
+            let borrowed = combine_results_refs(&input.factors, &[(1, &results)]);
+            (checked, owned, borrowed)
+        };
+        let control = serde_json::to_value(combine(&[1.0]).0.unwrap().unwrap()).unwrap();
+        let (checked, owned, borrowed) = combine(&[0.5, 0.5]);
+        for result in [checked.unwrap(), owned, borrowed] {
+            assert_eq!(serde_json::to_value(result.unwrap()).unwrap(), control);
+        }
+
+        let (checked, owned, borrowed) = combine(&[f64::MAX, f64::MAX]);
+        assert!(owned.is_none());
+        assert!(borrowed.is_none());
+        assert_eq!(
+            checked.unwrap_err(),
+            "Cannot combine results: load case 1 has a non-finite number at net factor=inf",
+        );
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2222"]
+fn combinations_report_spatial_net_factor_overflow_before_recovery() {
+    let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let case_refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &case_refs),
+                combine_results_3d_refs_with_thickness(&factors, &case_refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        let [control, ..] = combine(&[1.0]);
+        let control = serde_json::to_value(control.unwrap().unwrap()).unwrap();
+        for result in combine(&[0.5, 0.5]) {
+            assert_eq!(serde_json::to_value(result.unwrap().unwrap()).unwrap(), control);
+        }
+        let errors = combine(&[f64::MAX, f64::MAX]).map(|result| result.unwrap_err());
+        assert_eq!(
+            errors,
+            ["Cannot combine results: load case 1 has a non-finite number at net factor=inf"; 4],
+        );
+    }
+}

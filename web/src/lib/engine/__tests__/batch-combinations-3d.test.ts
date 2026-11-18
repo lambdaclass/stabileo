@@ -1,8 +1,8 @@
 import { beforeAll, expect, it } from 'vitest';
-import { initSolver, solve3D, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
+import { initSolver, solve3D, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { readFileSync } from 'node:fs';
-import { combine_results_2d, compute_envelope_2d, solve_pdelta_2d, solve_pdelta_3d, solve_2d, solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
+import { net_combination_factors, combine_results_2d, compute_envelope_2d, solve_pdelta_2d, solve_pdelta_3d, solve_2d, solve_3d, combine_results_3d, combine_results_batch_3d, combine_results_envelope_3d, compute_envelope_3d } from '../../wasm/dedaliano_engine.js';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -261,6 +261,39 @@ const failure = (run: () => unknown): string => {
   try { run(); } catch (error) { return error instanceof Error ? error.message : String(error); }
   throw new Error('Expected a refusal');
 };
+
+const netFactorOverflow = 'Cannot combine results: load case 1 has a non-finite number at net factor=inf';
+
+it.skip.each(['2d export', '2d wrapper', ...Object.keys(combinationPaths3D)])(
+  'reports overflow before recovery in %s (known wrong result: #2222)', path => {
+    const planar = path.startsWith('2d');
+    const input = portalInput(planar ? '2d' : '3d');
+    const linear = planar ? solve_2d(JSON.parse(input)) : solve_3d(JSON.parse(input));
+    const solveNonlinear = planar ? solve_pdelta_2d : solve_pdelta_3d;
+    const nonlinear = JSON.parse(solveNonlinear(input, 20, 1e-9)).results;
+    for (const result of [linear, nonlinear]) {
+      const perCase = new Map([[1, result]]);
+      const combine = (factors: ReturnType<typeof splitFactors>) => {
+        if (path === '2d export') return combine_results_2d({ factors, cases: [{ caseId: 1, results: result }] });
+        if (path === '2d wrapper') return combineResults(factors, perCase);
+        return combinationPaths3D[path as keyof typeof combinationPaths3D](factors, perCase);
+      };
+      const control = combine(splitFactors([1]));
+      expect(control.displacements.some((row: { ux: number }) => row.ux !== 0)).toBe(true);
+      expect(combine(splitFactors([0.5, 0.5]))).toStrictEqual(control);
+      expect(failure(() => combine(splitFactors([Number.MAX_VALUE, Number.MAX_VALUE])))).toBe(netFactorOverflow);
+    }
+  },
+);
+
+it.skip.each([
+  ['export', net_combination_factors],
+  ['wrapper', netCombinationFactors],
+])('reports net factor overflow at the representable boundary in the %s (known wrong result: #2222)', (_path, resolve) => {
+  const halfMax = Number.MAX_VALUE / 2;
+  expect(resolve(splitFactors([halfMax, halfMax]))).toStrictEqual(splitFactors([Number.MAX_VALUE]));
+  expect(failure(() => resolve(splitFactors([halfMax, 2 ** 1023])))).toBe(netFactorOverflow);
+});
 
 it('preserves combination overflow paths before envelope processing', () => {
   const perCase = cases();
