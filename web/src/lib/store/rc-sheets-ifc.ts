@@ -77,7 +77,7 @@ function columnBarsIfc(rows: SheetRows): Bar[] {
     const ax = computeLocalAxes3D({ ...nI, z: nI.z ?? 0 } as never, { ...nJ, z: nJ.z ?? 0 } as never, undefined, (e as { rollAngle?: number }).rollAngle);
     const H = P1[2] - P0[2];
     const a = r.adopted;
-    for (const [i, bar] of columnBars(r, a, { cover: r.cover, tieDia: a.tieDia } as ColumnContext).entries()) {
+    for (const [i, bar] of columnBars(r, a, { cover: r.cover, tieDia: a.tieDia, aggregate: r.aggregate } as ColumnContext).entries()) {
       const dia = Math.round(Math.sqrt((4 * bar.area) / Math.PI) * 1000);
       const at = add(P0, [ax.ey, bar.x], [ax.ez, bar.y]);
       out.push({ id: `${r.key}:${i}`, mark: `Ø${dia}`, diameter: dia / 1000, role: 'main', assembly: r.name, length: H, points: [at, add(at, [UP, H])] });

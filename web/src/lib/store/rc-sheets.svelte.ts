@@ -26,6 +26,7 @@ import type { PunchingRow } from '../rc-sheets/punching-row';
 import type { FootingRow } from '../rc-sheets/footing-types';
 import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
+import { setBeamAggregate } from '../rc-sheets/bars';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
 import { stackPattern, type ColumnRow } from '../rc-sheets/column-row';
@@ -83,7 +84,7 @@ const seismicIn = (d: Pick<RcSheetsData, 'seismic'>, code: SheetCode): boolean =
 export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
-    slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
+    slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
     options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null,
   });
 }
@@ -427,7 +428,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const seismic = data.seismic && rules.seismic ? { overstrength: seismicSettings().overstrength } : undefined;
   const bentIn = (d: (typeof D.beams)[number]) => data.bentLines?.[`line:${d.line?.group ?? -1}`] ?? data.bentBars === true;
   const coverTable = rules.coverTable ? { coverTable: { control: dd.executionControl !== false } } : {};
-  const ties = { tieDiameters: dd.stirrupDiametersMm, minTieSpacing: dd.minTieSpacingMm / 1000 };
+  const ties = { tieDiameters: dd.stirrupDiametersMm, minTieSpacing: dd.minTieSpacingMm / 1000, aggregate: dd.maxAggregateMm };
+  setBeamAggregate(dd.maxAggregateMm);
   const coverOf = (kind: DesignKind, key: string) => memberCover(dd, kind, groupOf(key)?.members.elements ?? []);
   /** Chapter 18 for the beams of the lateral system only: a beam declared outside it takes the ordinary rules; one not declared is read as part of it. */
   const lateralBeam = (key: string) => {

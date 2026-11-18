@@ -2,10 +2,10 @@ import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2Dema
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
 import { COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, heldBars as symmetricHeld, layoutDias, pickPractical } from '../column-layout';
-import { barCount, columnArea, columnBars, columnLabel, innerCrossties, patternInner, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { barCount, columnArea, columnBars, columnLabel, innerCrossties, patternInner, tieLabel, tiesClear, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
-import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
+import { EC2_BENDS, lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
 
 const KPA = 1000;
 const RESTRAINED = 0.15;
@@ -38,12 +38,13 @@ export function heldBars(side: number, n: number, cornerDia: number, c: ColumnCo
 
 const crossties = (d: ColumnDemand, a: ColumnAdopted, c: ColumnContext) => ({ x: heldBars(d.b, a.nx, a.corner, c, a.tieDia).length, y: heldBars(d.h, a.ny, a.corner, c, a.tieDia).length });
 
-/** 8.2(2) between every pair of bars, the inner rows' included, and every bar inside the link. */
+/** 8.2(2) between every pair of bars, the inner rows' included, every bar inside the link, and the links laid round them clear of every bar. */
 function clearOk(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): boolean {
   const gap = (side: number, n: number, dia: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner) - (n + 1) * dia / 1000) / (n + 1);
   const dx = Math.max(a.corner, a.dx), dy = Math.max(a.corner, a.dy);
-  if (!(gap(d.b, a.nx, dx) >= minClear(dx) - 1e-4 && gap(d.h, a.ny, dy) >= minClear(dy) - 1e-4)) return false;
-  return !a.inner || !(a.inner.nx + a.inner.ny) || barClearance(d, columnLayout(d, a, c.cover).bars, c.cover, a.tieDia, minClear).ok;
+  const min = (dia: number) => minClear(dia, c.aggregate);
+  if (!(gap(d.b, a.nx, dx) >= min(dx) - 1e-4 && gap(d.h, a.ny, dy) >= min(dy) - 1e-4)) return false;
+  return (!a.inner || !(a.inner.nx + a.inner.ny) || barClearance(d, columnLayout(d, a, c.cover, c.aggregate).bars, c.cover, a.tieDia, min).ok) && tiesClear(d, a, c.cover, EC2_BENDS, c.aggregate);
 }
 
 function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number {
@@ -129,7 +130,7 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
       let a = evenLayout(d, c, dia, 0.3), it = 0;
       if (!clearOk(d, c, a)) continue;
       while (!fine(a) && it < 40) {
-        const g = growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x) && columnArea(x) <= asMax + 1e-6, inside);
+        const g = growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x) && columnArea(x) <= asMax + 1e-6, inside, c.aggregate);
         if (!g) break;
         a = g; it++;
       }
@@ -225,7 +226,7 @@ export function makeColumnRow(set: Ec2Set) {
           { label: 'rcSheets.ec2.s.asColumn', formula: 'As,min = max(0.10·NEd/fyd; 0.002·Ac) (9.5.2(2)) ≤ As ≤ 0.04·Ac (9.5.2(3))', value: `${fmt(asMin)} ≤ ${fmt(ast)} ≤ ${fmt(asMax)} cm²`, ok: !impossible },
           { label: 'rcSheets.s.adopted', formula: columnLabel(a), value: `${fmt(area)} cm²`, ok: area >= Math.max(ast, asMin) - 1e-6 },
           { label: 'rcSheets.ec2.s.planeSteel', formula: 'As,x · As,y', value: planeSteel(a).map((x) => fmt(x * 1e4)).join(' · ') + ' cm²' },
-          { label: 'rcSheets.s.colSpacing', formula: 'max(Ø; dg + 5 mm; 20 mm), dg = 20 mm (8.2(2))', value: '', ok: spacingOk },
+          { label: 'rcSheets.s.colSpacing', formula: `max(Ø; dg + 5 mm; 20 mm), dg = ${fmt(c.aggregate ?? 20, 0)} mm (8.2(2))`, value: '', ok: spacingOk },
           { label: 'rcSheets.s.biaxial', formula: gov ? (gov.biaxial ? `(MEd,x/MRd,x)^a + (MEd,y/MRd,y)^a, a = ${fmt(gov.a ?? 1, 2)} (5.39)` : 'MEd,x ≤ MRd,x; MEd,y ≤ MRd,y (5.8.9(3))') : '—', value: fmt(ratio, 3), ok: ratio <= 1 + 1e-6 },
         ],
       },
@@ -253,6 +254,7 @@ export function makeColumnRow(set: Ec2Set) {
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       ...(stack.fromBelow ? { lap: { length: lap } } : {}),
       tieFloor: tieFloorOf(c),
+      ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),
     };
   };
 }

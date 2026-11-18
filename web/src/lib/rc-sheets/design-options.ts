@@ -13,7 +13,7 @@ export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flang
 /** Each flag on when true; torsion by equilibrium when absent. */
 export type DesignOptions = { torsion?: TorsionMode } & Partial<Record<DesignOptionFlag, true>>;
 
-export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing';
+export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'aggregate';
 
 const flagsOf = (o: Record<string, unknown>, torsion: (x: unknown) => boolean): DesignOptions => ({
   ...(torsion(o.torsion) ? { torsion: o.torsion as TorsionMode } : {}),
@@ -41,6 +41,7 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   endZones: { cirsoc: '§25.7.2.1', aci: '§25.7.2.1', ts500: '7.4.1', off: { ec2: 'designData.opt.off.endZonesEc2' } },
   seismic: { cirsoc: 'Cap. 18', aci: 'Chapter 18', off: { ec2: 'designData.opt.off.seismic', ts500: 'designData.opt.off.seismic' } },
   minTieSpacing: { cirsoc: '§25.7.2.1(a)', aci: '§25.7.2.1(a)', ec2: '8.2(2)', ts500: '7.4.1' },
+  aggregate: { cirsoc: '§25.2.1, §25.2.3', aci: '§25.2.1, §25.2.3', ec2: '8.2(2)', off: { ts500: 'designData.opt.off.aggregateTs500' } },
 };
 
 const CODE_NAME: Record<SheetCode, string> = { 'cirsoc201-2025': 'CIRSOC 201-2025', 'aci318-19': 'ACI 318-19', 'en1992-1-1': 'EN 1992-1-1', 'bs-en1992-1-1': 'BS EN 1992-1-1', 'ts500-2000': 'TS 500' };

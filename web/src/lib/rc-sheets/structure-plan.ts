@@ -148,7 +148,7 @@ function columnItems(rows: StructureRows, level: string, m: StructureModel, unpl
     const node = r.demand.nodes?.bottom, p = node !== undefined ? m.nodes.get(node) : undefined;
     if (!p || node === undefined) { unplaced.push(r.key); continue; }
     const at: Pt = [p.x, p.y], rotDeg = columnRoll(m, node);
-    const rebars = columnSection(r.b, r.h, r.cover, r.adopted).bars.map((x) => ({ at: add(at, rotate([x.x - r.b / 2, x.y - r.h / 2], rotDeg)), dia: x.dia }));
+    const rebars = columnSection(r.b, r.h, r.cover, r.adopted, { aggregate: r.aggregate }).bars.map((x) => ({ at: add(at, rotate([x.x - r.b / 2, x.y - r.h / 2], rotDeg)), dia: x.dia }));
     out.push({ kind: 'column', key: r.key, name: r.name, status: statusOf(r.status), bars: columnBarsShort(r), check: governingCheck(r.verifications), at, rotDeg, b: r.b, h: r.h, outline: sectionOutline(at, r.b, r.h, rotDeg), rebars });
   }
   return out;

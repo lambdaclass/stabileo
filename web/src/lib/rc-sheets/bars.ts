@@ -3,7 +3,7 @@ import { chooseBars } from '../engine/codes/argentina/cirsoc201-bars';
 import { barsPerRow, layerClearBetween, minClearSpacingInLayer } from '../codes/cirsoc201/spacing';
 import { minMandrelDiameter, standardHook } from '../codes/cirsoc201/bar-geometry';
 import type { BendRules } from './shape';
-import { SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
+import { DEFAULT_AGGREGATE_MM, SLAB_BAR_RANGE, allowedTie, inRange, nextTie, tieDiametersOf, tieFloorOf, type BarGroup, type MeshBars, type Stirrups, type TransverseList } from './types';
 
 export const barArea = (dia: number): number => rebarGroupArea({ count: 1, diameter: dia });
 
@@ -18,7 +18,13 @@ export const meshLabel = (m: MeshBars): string => `Ø${m.dia} c/${Math.round(m.s
 
 export const meshArea = (m: MeshBars): number => (m.spacing > 0 ? barArea(m.dia) / m.spacing : 0);
 
-export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }).minClear;
+let beamAggregate = DEFAULT_AGGREGATE_MM;
+
+/** The project's largest aggregate the beams' clear spacing reads, mm (`maxAggregateMm`): set by the sheets as they read the design data, the default until then. */
+export const setBeamAggregate = (mm: number): void => { beamAggregate = mm; };
+
+/** The least clear spacing between a beam's bars in a row, m: max(25 mm; db; 4/3·dagg), §25.2.1. */
+export const minClearSpacing = (dia: number): number => minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }).minClear;
 
 /** How many bars of `dia` (mm) fit in one row across `inner` (m) at the code's least clear spacing. */
 const rowCapacity = (inner: number, dia: number) => {
@@ -102,7 +108,7 @@ export function proposeBeamFace(AsCm2: number, b: number, h: number, cover: numb
   const pick = chooseBars(Math.max(AsCm2, 0), { widthM: b, coverM: cover + stirrupDia / 1000 + 0.008, minCount: 2, maxLayers: 2, heightM: h });
   const dia = allowed.includes(pick.diameter) ? pick.diameter : nearest(allowed, pick.diameter);
   const n = Math.max(2, Math.ceil(AsCm2 / barArea(dia)));
-  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: 0 }), Infinity));
+  const perLayer = Math.max(2, barsPerRow(b - 2 * cover - 2 * stirrupDia / 1000, dia, minClearSpacingInLayer('2025', { barDiameterMm: dia, maxAggregateSizeMm: beamAggregate }), Infinity));
   if (n <= perLayer) return [{ count: n, dia }];
   return [{ count: perLayer, dia }, { count: Math.max(2, n - perLayer), dia }];
 }

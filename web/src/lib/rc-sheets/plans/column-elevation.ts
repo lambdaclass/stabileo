@@ -73,7 +73,7 @@ export function columnSectionMarks(row: ColumnRow, all: readonly ColumnRow[], o:
 
 /** The section a storey's sheets and workspace draw: lo's crossties under chapter 18, the schedule's marks, the code's hooks. */
 export const columnSectionOf = (row: ColumnRow, all: readonly ColumnRow[], o: Pick<ColumnPlanOptions, 'code' | 'endZones'>) =>
-  columnSection(row.b, row.h, row.cover, row.adopted, { confined: !!row.confinement, bends: rulesFor(o.code).bends, marks: columnSectionMarks(row, all, o) });
+  columnSection(row.b, row.h, row.cover, row.adopted, { confined: !!row.confinement, bends: rulesFor(o.code).bends, marks: columnSectionMarks(row, all, o), aggregate: row.aggregate });
 
 export function columnPlans(row: ColumnRow, all: readonly ColumnRow[], o: ColumnPlanOptions): DrawingInput[] {
   const drawing = columnSectionOf(row, all, o);

@@ -27,9 +27,9 @@
       {@const hp = drawing.hoop}
       <polyline points={P(hp.pts)} class="hoop" style="stroke-width: {sw}px" data-testid="rc-section-hoop" />
       <g class="hdim" data-testid="rc-section-hoop-dims">
-        <line x1={X(hp.pts[4]![0])} y1={PAD - 9} x2={X(hp.pts[3]![0])} y2={PAD - 9} class="lead" />
+        <line x1={X(hp.box.x0)} y1={PAD - 9} x2={X(hp.box.x1)} y2={PAD - 9} class="lead" />
         <text x={PAD + w / 2} y={PAD - 12} class="dim">{len(hp.w)}</text>
-        <line x1={PAD + w + 9} y1={Y(hp.pts[3]![1])} x2={PAD + w + 9} y2={Y(hp.pts[2]![1])} class="lead" />
+        <line x1={PAD + w + 9} y1={Y(hp.box.y0)} x2={PAD + w + 9} y2={Y(hp.box.y1)} class="lead" />
         <text x={PAD + w + 12} y={PAD + hh / 2} class="dim" transform="rotate(90 {PAD + w + 12} {PAD + hh / 2})">{len(hp.h)}</text>
         {#if hp.mark}<text x={PAD - 2} y={PAD - 12} class="mk" text-anchor="end">{hp.mark}</text>{/if}
       </g>
@@ -47,7 +47,7 @@
     {/each}
     {#each drawing.crossties ?? [] as c, i (i)}
       {#if c.mark && (i === 0 || drawing.crossties?.[i - 1]?.mark !== c.mark)}
-        <text x={c.across === 'h' ? X(c.pts[1]![0]) + 3 : PAD + w / 2} y={c.across === 'h' ? PAD + hh / 2 : Y(c.pts[1]![1]) - 3} class="mk-s">{c.mark}</text>
+        <text x={c.across === 'h' ? X(c.leg[0][0]) + 3 : PAD + w / 2} y={c.across === 'h' ? PAD + hh / 2 : Y(c.leg[0][1]) - 3} class="mk-s">{c.mark}</text>
       {/if}
     {/each}
     {#if marks}

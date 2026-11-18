@@ -159,4 +159,5 @@ export const modifiedMaxDia = (sigma: number, m: Mat, h: number, d: number) => m
 
 export const GAMMA_G = 1.35;
 
-export const minClear = (dia: number) => Math.max(dia, 25, 20) / 1000;
+/** 8.2(2): max(k1·Ø; dg + k2; 20 mm), k1 = 1, k2 = 5 mm, dg the largest aggregate (20 mm unless stated). */
+export const minClear = (dia: number, dg = 20) => Math.max(dia, dg + 5, 20) / 1000;

@@ -788,6 +788,20 @@ describe('reinforcement sheets from a solved model', () => {
     expect(redesign({ ...heavy, b: b! - 0.05, h: h! - 0.05 } as never).status).toBe('fail');
   });
 
+  it('lays the columns\' bars for the largest aggregate the design data states, and proposes again when it changes', async () => {
+    const { patchDesignData } = await import('../design-data');
+    const { proposalBasis } = await import('../rc-sheets.svelte');
+    frame();
+    solve();
+    const before = proposalBasis();
+    expect(buildSheetRows().column[0]!.aggregate).toBe(19);
+    patchDesignData({ maxAggregateMm: 38 });
+    const col = buildSheetRows().column[0]!;
+    expect(col.aggregate).toBe(38);
+    expect(col.steps.flatMap((g) => g.steps).find((s) => s.label === 'rcSheets.s.colSpacing')!.formula).toContain('dagg = 38 mm');
+    expect(proposalBasis()).not.toBe(before);
+  });
+
   it('offers a TS 500 column under its least size (7.4.1) the section that meets it', () => {
     frame();
     solve();

@@ -9,7 +9,7 @@
  * CIRSOC 201-2025 Table 20.5.1.3.1 is known for it: a cover under it is said, and a click sets
  * every cover to it.
  */
-import { BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
+import { AGGREGATE_RANGE, BEAM_BAR_RANGE, COLUMN_BAR_RANGE, DEFAULT_AGGREGATE_MM, DEFAULT_MIN_TIE_SPACING, SHEET_CODE_LIST, SLAB_BAR_RANGE, SLAB_MESH_DIAMETERS, inRange, type SheetCode } from '../rc-sheets/types';
 import { migrateSeismicDesign } from './seismic-design';
 import { migrateDesignOptions } from '../rc-sheets/design-options';
 import { migrateLateralSystem } from './lateral-system';
@@ -58,6 +58,8 @@ export interface ProjectDesignData {
   slabDiametersMm: number[];
   /** The closest spacing stirrups, hoops and ties are proposed at, mm: room for the concrete to pass between them. */
   minTieSpacingMm: number;
+  /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the clear spacing between bars (§25.2.1, §25.2.3; dg in EN 1992 8.2(2)). */
+  maxAggregateMm: number;
   /** The diameter of a wall's vertical and horizontal bars, mm. */
   wallBarDiaMm: number;
   /**
@@ -141,7 +143,7 @@ export interface ProjectDesignData {
 export type StoredDesignData = { version: 1 } & Partial<Omit<ProjectDesignData, 'version' | 'covers' | 'exposure'>>
   & { covers?: Partial<Record<DesignKind, number>>; exposure?: Partial<Record<DesignKind, Exposure>> };
 
-const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'wallBarDiaMm'] as const;
+const STATED_BY_DEFAULT = ['rebarGrade', 'rebarFy', 'stirrupDiaMm', 'longDiametersMm', 'stirrupDiametersMm', 'slabDiametersMm', 'minTieSpacingMm', 'maxAggregateMm', 'wallBarDiaMm'] as const;
 
 /** Read any stored shape keeping only what it states: the defaults stay out, to be read when the data is. */
 export function migrateStoredDesignData(raw: unknown): StoredDesignData | undefined {
@@ -179,6 +181,7 @@ export function defaultDesignData(): ProjectDesignData {
     stirrupDiametersMm: BAR_DIAMETERS_MM.filter((d) => d <= 12),
     slabDiametersMm: [...SLAB_MESH_DIAMETERS],
     minTieSpacingMm: DEFAULT_MIN_TIE_SPACING * 1000,
+    maxAggregateMm: DEFAULT_AGGREGATE_MM,
     wallBarDiaMm: 12,
   };
 }
@@ -259,6 +262,7 @@ export function migrateDesignData(raw: unknown): ProjectDesignData {
     stirrupDiametersMm: known(e.stirrupDiametersMm, def.stirrupDiametersMm),
     slabDiametersMm: known(Array.isArray(e.slabDiametersMm) ? e.slabDiametersMm.filter((x) => inRange(x as number, SLAB_BAR_RANGE)) : undefined, def.slabDiametersMm),
     minTieSpacingMm: typeof e.minTieSpacingMm === 'number' && Number.isFinite(e.minTieSpacingMm) && e.minTieSpacingMm >= MIN_TIE_SPACING_RANGE.min && e.minTieSpacingMm <= MIN_TIE_SPACING_RANGE.max ? e.minTieSpacingMm : def.minTieSpacingMm,
+    maxAggregateMm: typeof e.maxAggregateMm === 'number' && Number.isFinite(e.maxAggregateMm) && e.maxAggregateMm >= AGGREGATE_RANGE.min && e.maxAggregateMm <= AGGREGATE_RANGE.max ? e.maxAggregateMm : def.maxAggregateMm,
     wallBarDiaMm: BAR_DIAMETERS_MM.includes(e.wallBarDiaMm as number) ? (e.wallBarDiaMm as number) : def.wallBarDiaMm,
     ...(e.columnEndZones === true ? { columnEndZones: true } : {}),
     ...((o) => (o ? { designOptions: o } : {}))(migrateDesignOptions(e.designOptions, e.rcSheets)),
