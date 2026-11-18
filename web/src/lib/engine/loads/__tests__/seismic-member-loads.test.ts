@@ -9,8 +9,8 @@ import { designSpectrum, isBlocked, spectralOrdinate } from '../../../codes/cirs
 import { modelStore } from '../../../store';
 import { modesForPlan } from '../../../store/seismic-modes';
 import { bindRole } from '../../../codes/roles';
-import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
-import { modalStoryForces } from '../seismic-modal';
+import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed } from '../load-plan';
+import { modalStoryForces, type ModeShape } from '../seismic-modal';
 import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { windResultants, remeshWind } from './wind-integration-fixture';
@@ -95,6 +95,74 @@ afterAll(() => {
   if (nativeResults) expect(nativeCount).toBe(nativeResults.length);
 });
 
+function forceComponent(part: PlannedDistributed, rotated: boolean, end = false) {
+  return rotated
+    ? end ? part.qYJ! : part.qY!
+    : end ? part.qXJ! : part.qX!;
+}
+
+function verifyCantilever(
+  model: LoadModelData, members: Array<{ id: number; nodeI: number; nodeJ: number; sectionId: number }>,
+  rotated: boolean, length: number, parts: PlannedDistributed[], momentOfLoad: (station: number, power: number) => number,
+) {
+  const ids = new Set(members.flatMap(e => [e.nodeI, e.nodeJ]));
+  const nodes = new Map([...ids].map(id => [id, { id, x: 0, z: model.nodes.get(id)!.z! }]));
+  const base = [...nodes.values()].find(n => n.z === 0)!.id, tip = [...nodes.values()].find(n => n.z === length)!.id;
+  const component = (part: PlannedDistributed, end = false) => forceComponent(part, rotated, end);
+  const common = {
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]),
+  };
+  const plane: SolverInput = {
+    ...common, nodes, elements: new Map(members.map(e => [e.id, { ...e, materialId: 1, type: 'frame', hingeStart: false, hingeEnd: false }])),
+    supports: new Map([[base, { id: base, nodeId: base, type: 'fixed' }]]),
+    loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qI: -component(p), qJ: -component(p, true) } })),
+  };
+  const spatial: SolverInput3D = {
+    ...common, nodes: new Map([...ids].map(id => [id, { ...model.nodes.get(id)!, z: nodes.get(id)!.z }])),
+    elements: new Map(members.map(e => [e.id, { ...e, materialId: 1, type: 'frame', localYx: rotated ? 0 : 1, localYy: rotated ? 1 : 0, localYz: 0,
+      releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
+    supports: new Map([[base, { nodeId: base, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+    loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })),
+  };
+  for (const is3d of [false, true]) for (const nonlinear of [false, true]) {
+    const verify = (result: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
+      expect(result.elementForces.map(f => f.elementId).sort()).toEqual(members.map(m => m.id).sort());
+      for (const f of result.elementForces) for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+        const s = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z + t * f.length;
+        const v = momentOfLoad(s, 0), m = momentOfLoad(s, 1) - s * v;
+        if ('vyStart' in f) {
+          expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-v, 10);
+          expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-m, 10);
+          expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
+        } else {
+          expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(v, 10);
+          expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(m, 10);
+        }
+      }
+      const d = result.displacements.find(d => d.nodeId === tip)!;
+      const displacement = rotated && 'uy' in d ? d.uy : d.ux;
+      expect(displacement).toBeCloseTo((3 * length * momentOfLoad(0, 2) - momentOfLoad(0, 3)) / (6 * 200000 * 1000 * 1e-4), 10);
+    };
+    if (nonlinear) {
+      const solution = is3d ? solvePDelta3D(spatial) : solvePDelta(plane);
+      expect(solution.converged).toBe(true);
+      verify(solution.results);
+    } else {
+      verify(is3d ? solve3D(spatial) : solve(plane));
+    }
+    if (nativeInputPath) {
+      const model = is3d ? input3DToWireObject(spatial) : input2DToWireObject(plane);
+      nativeInputs.push({ dimension: is3d ? 3 : 2, input: nonlinear ? { analysis: 'pdelta', model } : model });
+    }
+    if (nativeResults) {
+      const solution = nativeResults[nativeCount++]!;
+      if (nonlinear) expect(solution.converged).toBe(true);
+      verify(nonlinear ? solution.results! : solution as ReturnType<typeof solve> | ReturnType<typeof solve3D>);
+    }
+  }
+}
+
 function verifyCarrierMechanics(method: 'static' | 'modal') {
   const length = 4, half = length / 2;
   for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
@@ -134,71 +202,21 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
         for (const carrier of [1, 2]) {
           const members = [...model.elements.values()].filter(e => sources.get(e.id) === carrier);
           const ids = new Set(members.flatMap(e => [e.nodeI, e.nodeJ]));
-          const nodes = new Map([...ids].map(id => [id, { id, x: 0, z: model.nodes.get(id)!.z! }]));
-          const base = [...nodes.values()].find(n => n.z === 0)!.id, tip = [...nodes.values()].find(n => n.z === length)!.id;
-          const root = model.nodes.get(base)!;
+          const root = [...ids].map(id => model.nodes.get(id)!).find(n => n.z === 0)!;
           const radius = rotated ? root.x : -root.y;
           const q = intensity * (1 + eccentricity * radius);
           const parts = plan.distributed.filter(d => d.caseIndex === caseIndex && sources.get(d.elementId) === carrier);
           expect(parts.length).toBeGreaterThan(0);
           const momentOfLoad = (station: number, power: number) => q * (length ** (power + 1) - Math.max(half, station) ** (power + 1)) / (power + 1);
-          const component = (part: typeof parts[number], end = false) => rotated
-            ? end ? part.qYJ! : part.qY!
-            : end ? part.qXJ! : part.qX!;
           for (const part of parts) {
             const member = model.elements.get(part.elementId)!;
-            const start = nodes.get(member.nodeI)!.z + part.a!, end = nodes.get(member.nodeI)!.z + part.b!;
+            const start = model.nodes.get(member.nodeI)!.z! + part.a!, end = model.nodes.get(member.nodeI)!.z! + part.b!;
             expect(start).toBeGreaterThanOrEqual(half);
             expect(end).toBeLessThanOrEqual(length);
-            expect(component(part)).toBeCloseTo(q, 10);
-            expect(component(part, true)).toBeCloseTo(q, 10);
+            expect(forceComponent(part, rotated)).toBeCloseTo(q, 10);
+            expect(forceComponent(part, rotated, true)).toBeCloseTo(q, 10);
           }
-          const common = {
-            materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
-            sections: new Map([[1, { id: 1, a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]]),
-          };
-          const plane: SolverInput = {
-            ...common, nodes, elements: new Map(members.map(e => [e.id, { ...e, type: 'frame', hingeStart: false, hingeEnd: false }])),
-            supports: new Map([[base, { id: base, nodeId: base, type: 'fixed' }]]),
-            loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qI: -component(p), qJ: -component(p, true) } })),
-          };
-          const spatial: SolverInput3D = {
-            ...common, nodes: new Map([...ids].map(id => [id, { ...model.nodes.get(id)!, z: nodes.get(id)!.z }])),
-            elements: new Map(members.map(e => [e.id, { ...e, type: 'frame', localYx: rotated ? 0 : 1, localYy: rotated ? 1 : 0, localYz: 0,
-              releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }])),
-            supports: new Map([[base, { nodeId: base, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-            loads: parts.map(p => ({ type: 'distributed', data: { elementId: p.elementId, a: p.a, b: p.b, qYI: component(p), qYJ: component(p, true), qZI: 0, qZJ: 0 } })),
-          };
-          for (const is3d of [false, true]) for (const nonlinear of [false, true]) {
-            const verify = (result: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
-              const d = result.displacements.find(d => d.nodeId === tip)!;
-              const displacement = rotated && 'uy' in d ? d.uy : d.ux;
-              expect(displacement).toBeCloseTo((3 * length * momentOfLoad(0, 2) - momentOfLoad(0, 3)) / (6 * 200000 * 1000 * 1e-4), 10);
-              expect(result.elementForces.map(f => f.elementId).sort()).toEqual(members.map(m => m.id).sort());
-              for (const f of result.elementForces) for (const t of [0, 0.2, 0.5, 0.8, 1]) {
-                const s = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z + t * f.length;
-                const v = momentOfLoad(s, 0), m = momentOfLoad(s, 1) - s * v;
-                if ('vyStart' in f) {
-                  expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-v, 10);
-                  expect(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(-m, 10);
-                  expect(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
-                } else {
-                  expect(computeDiagramValueAt('shear', t, f)).toBeCloseTo(v, 10);
-                  expect(computeDiagramValueAt('moment', t, f)).toBeCloseTo(m, 10);
-                }
-              }
-            };
-            verify(is3d ? nonlinear ? solvePDelta3D(spatial).results : solve3D(spatial) : nonlinear ? solvePDelta(plane).results : solve(plane));
-            if (nativeInputPath) {
-              const model = is3d ? input3DToWireObject(spatial) : input2DToWireObject(plane);
-              nativeInputs.push({ dimension: is3d ? 3 : 2, input: nonlinear ? { analysis: 'pdelta', model } : model });
-            }
-            if (nativeResults) {
-              const solution = nativeResults[nativeCount++]!;
-              if (nonlinear) expect(solution.converged).toBe(true);
-              verify(nonlinear ? solution.results! : solution as ReturnType<typeof solve> | ReturnType<typeof solve3D>);
-            }
-          }
+          verifyCantilever(model, members, rotated, length, parts, momentOfLoad);
         }
       }
     }
@@ -324,4 +342,162 @@ it('#2208 keeps the supported level’s exact force when an upper tributary pane
   const lines = plan.distributed.filter(d => d.caseType === 'E');
   expect(new Set(lines.map(d => d.elementId))).toEqual(new Set([1, 2]));
   expect(windResultants(model, lines)[0]).toBeCloseTo((lower + upper) * lower * 3 / (lower * 3 + upper * 6), 10);
+});
+
+const knownWrong = process.env.SEISMIC_RUN_KNOWN_WRONG === '1' ? it : it.skip;
+const round2Code = {
+  zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame',
+  regularity: 'regular', occupancy: 'reduced',
+} as const;
+const height = 4;
+const round2Spectrum = designSpectrum(round2Code);
+if (isBlocked(round2Spectrum)) throw new Error('Test spectrum was refused');
+const round2Period = (round2Spectrum.t1 + round2Spectrum.t2) / 2;
+
+function prescribedMode(model: LoadModelData, rotated: boolean, displacement: (z: number) => number, slope: number): ModeShape {
+  return {
+    period: round2Period,
+    shape: new Map([...model.nodes.values()].map(n => [n.id, {
+      ux: rotated ? 0 : displacement(n.z!), uy: rotated ? displacement(n.z!) : 0,
+      uz: 0, rx: rotated ? -slope : 0, ry: rotated ? 0 : slope, rz: 0,
+    }])),
+  };
+}
+
+function modalRequest(mode: ModeShape, rotated: boolean) {
+  return {
+    code: { ...round2Code, computedT: round2Period },
+    modal: { modes: [mode] },
+    directions: { x: !rotated, y: rotated },
+  };
+}
+
+function round2Columns(cuts: number[], rotate: boolean, mirror: boolean, perimeter?: number, foundation = false) {
+  const at = (r: number, z: number) => rotate ? [-r, 0, z] : [0, r, z];
+  const columns = [-2, 2].map(r => cuts.slice(1).map((z, k) => [at(mirror ? -r : r, cuts[k]!), at(mirror ? -r : r, z)]));
+  const edges = perimeter === undefined ? [] : [-1, 1].map(s => [at(s * 2, height), at(s * perimeter, height)]);
+  const model = mesh([...columns.flat(), ...edges, ...(foundation ? [[at(-2, 0), at(2, 0)]] : [])]);
+  const members = [...model.elements.values()];
+  const byColumn = [members.slice(0, cuts.length - 1), members.slice(cuts.length - 1, 2 * (cuts.length - 1))];
+  model.materials.set(2, { id: 2, rho: 0 });
+  for (const e of members.slice(2 * (cuts.length - 1), 2 * (cuts.length - 1) + edges.length)) e.materialId = 2;
+  return { model, byColumn };
+}
+
+function verifyRound2Columns(
+  model: LoadModelData, byColumn: ReturnType<typeof round2Columns>['byColumn'], plan: ReturnType<typeof buildLoadPlan>,
+  rotated: boolean, loadedFrom: number, intensity: number, power: number, planWidth = 0,
+) {
+  expect(plan.outcome).toBe('READY');
+  expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
+  const carrierIds = new Set(byColumn.flat().map(e => e.id));
+  const cases = plan.cases.flatMap((c, index) => c.type === 'E' ? [{ c, index }] : []);
+  expect(cases).toHaveLength(planWidth === 0 ? 1 : 2);
+  for (const { c, index } of cases) {
+    const loads = plan.distributed.filter(d => d.caseIndex === index);
+    expect(loads.every(d => carrierIds.has(d.elementId))).toBe(true);
+    const sign = c.nameParams?.sign === '−' ? -1 : 1;
+    const torque = 2 * intensity * (height ** (power + 1) - loadedFrom ** (power + 1)) / (power + 1) * sign * 0.05 * planWidth;
+    for (const members of byColumn) {
+      const parts = loads.filter(d => members.some(e => e.id === d.elementId));
+      const root = model.nodes.get(members[0]!.nodeI)!;
+      const arm = rotated ? root.x : -root.y;
+      const q = intensity * (1 + sign * 0.05 * planWidth * arm / 4);
+      const momentOfLoad = (station: number, k: number) =>
+        q * (height ** (k + power + 1) - Math.max(loadedFrom, station) ** (k + power + 1)) / (k + power + 1);
+      verifyCantilever(model, members, rotated, height, parts, momentOfLoad);
+      for (const part of parts) {
+        const member = model.elements.get(part.elementId)!;
+        const z = model.nodes.get(member.nodeI)!.z!;
+        expect(part.frame).toBe('global');
+        expect(z + part.a!).toBeGreaterThanOrEqual(loadedFrom);
+        expect(z + part.b!).toBeLessThanOrEqual(height);
+        expect(forceComponent(part, rotated)).toBeCloseTo(q * (z + part.a!) ** power, 10);
+        expect(forceComponent(part, rotated, true)).toBeCloseTo(q * (z + part.b!) ** power, 10);
+        expect(forceComponent(part, !rotated)).toBeCloseTo(0, 10);
+        expect(forceComponent(part, !rotated, true)).toBeCloseTo(0, 10);
+      }
+    }
+    expect(windResultants(model, loads)[5]).toBeCloseTo(torque, 10);
+  }
+}
+
+for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 1, 4], [0, 1, 2, 3, 4]]) {
+  for (const floor of [false, true]) {
+    knownWrong(`known wrong result: #2316 moving base-band mass loads its carrier (${rotated}, ${mirror}, ${cuts.length - 1} elements, floor ${floor})`, () => {
+      const { model, byColumn } = round2Columns(cuts, rotated, mirror, undefined, true);
+      for (const members of byColumn) members[0]!.materialId = 2;
+      const mode = prescribedMode(model, rotated, z => z === 0 ? 0 : 1, 0);
+      if (floor) mode.period = 10 * round2Period;
+      const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
+      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      const cm = spectralOrdinate(mode.period, round2Spectrum) * plan.seismic!.gammaR! / plan.seismic!.r!;
+      const qFloor = 0.85 * plan.factors.baseShear!.value / (2 * (height - 1));
+      expect(w * cm < qFloor).toBe(floor);
+      verifyRound2Columns(model, byColumn, plan, rotated, 1, Math.max(w * cm, qFloor), 0);
+    });
+  }
+}
+
+for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 2, 4], [0, 1, 2, 3, 4]]) {
+  knownWrong(`known wrong result: #2316 the modal base shear includes the moving lower half (${rotated}, ${cuts.length - 1} elements)`, () => {
+    const { model } = round2Columns(cuts, rotated, false);
+    const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
+    mode.participation = { x: { gamma: 0, ratio: 0 }, y: { gamma: 0, ratio: 0 } };
+    mode.participation[rotated ? 'y' : 'x'] = { gamma: 3 / 2, ratio: 3 / 4 };
+    const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
+    expect(plan.outcome).toBe('READY');
+    const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+    const shear = windResultants(model, plan.distributed.filter(d => d.caseType === 'E'))[rotated ? 1 : 0];
+    expect(shear).toBeCloseTo(2 * w * height * (3 / 4) * plan.seismic!.c, 10);
+  });
+}
+
+for (const rotated of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
+  knownWrong(`known wrong result: #2316 a linear mode retains the upper-half inertia field (${rotated}, ${cuts.length - 1} elements)`, () => {
+    const { model, byColumn } = round2Columns(cuts, rotated, false);
+    for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
+    const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
+    const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
+    const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+    verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w * plan.seismic!.c * (9 / 7) / height, 1);
+  });
+}
+
+for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
+  for (const method of ['static', 'modal'] as const) {
+    knownWrong(`known wrong result: #2316 ${method} eccentricity uses the massless structural perimeter (${rotated}, ${mirror}, ${cuts.length - 1} elements)`, () => {
+      const { model, byColumn } = round2Columns(cuts, rotated, mirror, 5);
+      for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
+      const mode = prescribedMode(model, rotated, z => z >= height / 2 ? 1 : 0, 0);
+      const plan = buildLoadPlan(request(model, {
+        ...(method === 'modal' ? modalRequest(mode, rotated) : { directions: { x: !rotated, y: rotated } }),
+        torsion: 'medium',
+      }));
+      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w * (method === 'modal' ? plan.seismic!.c : 1), 0, 10);
+    });
+  }
+}
+
+knownWrong('known wrong result: #2316 a nonzero structural width with no polar mass refuses accidental torsion', () => {
+  for (const width of [0, 5]) {
+    const model = mesh([[[0, 0, 0], [0, 0, height]], ...(width > 0 ? [[[0, 0, height], [0, width, height]]] : [])]);
+    model.materials.set(2, { id: 2, rho: 0 });
+    const edge = model.elements.get(2);
+    if (edge) edge.materialId = 2;
+    const plan = buildLoadPlan(request(model, { torsion: 'medium' }, { generateCombinations: true }));
+    expect(plan.outcome).toBe(width === 0 ? 'READY' : 'BLOCKED');
+    if (width === 0) {
+      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      const momentOfLoad = (s: number, k: number) => w * (height ** (k + 1) - Math.max(height / 2, s) ** (k + 1)) / (k + 1);
+      for (const [index, c] of plan.cases.entries()) if (c.type === 'E') {
+        verifyCantilever(model, [model.elements.get(1)!], false, height, plan.distributed.filter(d => d.caseIndex === index), momentOfLoad);
+      }
+    } else {
+      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.seismicMass.torsion', params: { elevation: height } }]);
+      expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+      expect(plan.combinations).toEqual([]);
+    }
+  }
 });
