@@ -126,3 +126,21 @@ describe('the neutral axis limit without redistribution (5.5(4), δ = 1)', () =>
     expect(uk.ductile).toBe(true);
   });
 });
+
+describe('a TS 500 slab proposal', () => {
+  const slab = (m: number, h = 0.15) => ({
+    key: 'slab:1', name: 'L1', level: 'N1', lx: 4, ly: 5, h,
+    m: { bottomX: { value: 8 }, bottomY: { value: 6 }, topX: { value: m * 0.8 }, topY: { value: m } },
+  });
+
+  it('reads each face\'s depth with the bars it proposes, so a thick inner layer still carries its moment', () => {
+    const rules = rulesFor('ts500-2000');
+    const sctx = { mat: { fc: 25, fy: 420 }, cover: 0.025, diameters: [8, 10, 12, 16] };
+    const failing = [];
+    for (let m = 4; m <= 58; m += 0.5) {
+      const r = rules.slabRow(slab(m) as never, sctx, undefined, fmt);
+      if (r.status === 'fail') failing.push(m);
+    }
+    expect(failing).toEqual([]);
+  });
+});
