@@ -2,14 +2,15 @@ import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
 import { hasNonlinearBehaviour } from '../../engine/member-behaviour';
 import {
-  buildSolverInput2D, solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
+  buildSolverInput2D, buildSolverInput3D, solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../../engine/solver-service';
-import { solvePDelta } from '../../engine/wasm-solver';
-import type { PDeltaResult } from '../../engine/result-types';
-import { rotation, translation } from '../../model/edit/affine';
+import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
+import type { PDeltaResult, PDeltaResult3D } from '../../engine/result-types';
+import { reflection, rotation, translation } from '../../model/edit/affine';
 import { detach, fragmentOf } from '../../model/edit/fragment';
 import { copyTransformed, insertFragment } from '../../model/edit/transformed-copy';
+import { carriedSupport } from '../../model/edit/transform-fields';
 import { transformInPlace } from '../../model/edit/transform-in-place';
 import { loadFixture, type FixtureLoader, type JSONModel } from '../../templates/load-fixture';
 
@@ -271,4 +272,127 @@ it('#2277 a rigidly carried member still defines its local plane roller axis', (
   if (!result || typeof result === 'string') throw new Error(String(result));
   expect(result.reactions.find(r => r.nodeId === bearing)!.rx).toBeCloseTo(0, 9);
   expect(result.reactions.find(r => r.nodeId === bearing)!.rz).toBeCloseTo(-1, 9);
+});
+
+const maskedPlaneRegression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
+
+async function bracedPortal() {
+  await modelStore.loadExample('portal-frame-braced');
+  modelStore.replaceLoads([]);
+  const bearing = [...modelStore.supports.values()].find(s => s.type === 'rollerZ')!;
+  expect(bearing.dofRestraints).toEqual({ tx: true, ty: true, tz: false, rx: true, ry: false, rz: true });
+  return { bearing, set: { nodes: [], elements: [...modelStore.elements.keys()] } };
+}
+
+for (const operation of ['copy', 'detached copy', 'in place'] as const) {
+  maskedPlaneRegression(`known wrong result: #2277 the masked braced portal bearing turns in the plane (${operation})`, async () => {
+    const { bearing, set } = await bracedPortal();
+    const turn = rotation([0, 0, 0], [0, 0, 1], 90);
+    const report = operation === 'in place' ? transformInPlace(set, turn)
+      : operation === 'copy' ? copyTransformed(set, [turn], { withSupports: true })
+      : insertFragment(detach(fragmentOf(set, { withSupports: true })), [turn], { withSupports: true });
+    expect(report.warnings.supportDropped).toBeUndefined();
+    const node = 'maps' in report ? report.maps[0]!.nodes.get(bearing.nodeId)! : bearing.nodeId;
+    expect.soft(supportAt(node)).toMatchObject({
+      type: 'rollerX', dofRestraints: { tx: false, ty: true, tz: true, rx: true, ry: false, rz: true },
+    });
+    modelStore.addNodalLoad(node, 0, -1, 0, loadCase.id);
+    const m = modelStore.model;
+    const cases = solveCombinations2D(m, [loadCase], [combination]);
+    if (!cases || typeof cases === 'string') throw new Error(String(cases));
+    expect(cases.perCase.size).toBe(1);
+    expect(cases.perCombo.size).toBe(1);
+    for (const result of [
+      validateAndSolve2D(m), await validateAndSolve2DAsync(m),
+      ...cases.perCase.values(), ...cases.perCombo.values(),
+    ]) {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      const reaction = result.reactions.find(r => r.nodeId === node)!;
+      expect.soft(reaction.rx).toBeCloseTo(0, 9);
+      expect.soft(reaction.rz).toBeCloseTo(1, 9);
+    }
+
+    const embeddedCases = solveCombinations3D(m, [loadCase], [combination]);
+    const parallel = await solveCombinations3DParallel(m, [loadCase], [combination]);
+    if (!embeddedCases || typeof embeddedCases === 'string') throw new Error(String(embeddedCases));
+    if (!parallel || typeof parallel === 'string') throw new Error(String(parallel));
+    expect(embeddedCases.perCase.size).toBe(1);
+    expect(embeddedCases.perCombo.size).toBe(1);
+    expect(parallel.perCase.size).toBe(1);
+    expect(parallel.perCombo.size).toBe(1);
+    for (const result of [
+      validateAndSolve3D(m), await validateAndSolve3DAsync(m),
+      ...embeddedCases.perCase.values(), ...embeddedCases.perCombo.values(),
+      ...parallel.perCase.values(), ...parallel.perCombo.values(),
+    ]) {
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      const reaction = result.reactions.find(r => r.nodeId === node)!;
+      expect.soft(reaction.fx).toBeCloseTo(0, 9);
+      expect.soft(reaction.fz).toBeCloseTo(1, 9);
+    }
+
+    const fixedRoot = [...m.nodes.values()].find(n => n.x === 0 && n.y === 0)!;
+    const compressionTip = modelStore.addNode(0, -2);
+    modelStore.addElement(fixedRoot.id, compressionTip);
+    modelStore.addNodalLoad(compressionTip, 0, 1, 0, loadCase.id);
+    const planeInput = buildSolverInput2D(m);
+    const embeddedInput = buildSolverInput3D(m);
+    if (!planeInput || !embeddedInput) throw new Error('Expected both solver inputs');
+    const secondOrder: PDeltaResult = solvePDelta(planeInput);
+    const embeddedSecondOrder: PDeltaResult3D = solvePDelta3D(embeddedInput);
+    for (const result of [secondOrder, embeddedSecondOrder]) {
+      expect(result.isStable).toBe(true);
+      expect(result.converged).toBe(true);
+      expect(result.iterations).toBeGreaterThan(0);
+    }
+    const planeReaction = secondOrder.results.reactions.find(r => r.nodeId === node)!;
+    expect.soft(planeReaction.rx).toBeCloseTo(0, 9);
+    expect.soft(planeReaction.rz).toBeCloseTo(1, 9);
+    const embeddedReaction = embeddedSecondOrder.results.reactions.find(r => r.nodeId === node)!;
+    expect.soft(embeddedReaction.fx).toBeCloseTo(0, 9);
+    expect.soft(embeddedReaction.fz).toBeCloseTo(1, 9);
+  });
+}
+
+maskedPlaneRegression('known wrong result: #2277 plane mask, springs and settlements use the same embedded axes', async () => {
+  const { bearing } = await bracedPortal();
+  const source = { ...bearing, dx: 0.001, dry: 0.002, kz: 3, krx: 4 };
+  const carry = (T: Parameters<typeof carriedSupport>[0]) => carriedSupport(T, source, source.nodeId, new Map(), new Set());
+
+  for (const degrees of [90, -90]) {
+    const turned = carry(rotation([0, 0, 0], [0, 0, 1], degrees));
+    expect.soft(turned).toMatchObject({
+      type: 'rollerX', dz: Math.sign(degrees) * source.dx, dry: source.dry, kx: source.kz, krz: source.krx,
+    });
+    expect.soft(turned?.dx).toBeUndefined();
+    expect.soft(turned?.dy).toBeUndefined();
+  }
+
+  const mirrored = carry(reflection([0, 0, 0], [1, -1, 0]));
+  expect.soft(mirrored).toMatchObject({
+    type: 'rollerX', dz: source.dx, dry: -source.dry, kx: source.kz, krz: source.krx,
+  });
+  expect.soft(carry(rotation([0, 0, 0], [0, 1, 0], 90))).toBeNull();
+});
+
+it('#2277 a plane mask outside the axis-permutation limit reports a dropped support', async () => {
+  const { bearing, set } = await bracedPortal();
+  const report = copyTransformed(set, [rotation([0, 0, 0], [0, 0, 1], 45)], { withSupports: true });
+  expect(report.warnings.supportDropped).toBe(1);
+  expect(supportAt(report.maps[0]!.nodes.get(bearing.nodeId)!)).toBeUndefined();
+});
+
+it('#2277 a translated masked braced portal bearing keeps its answer in both solver dimensions', async () => {
+  const { bearing, set } = await bracedPortal();
+  const report = copyTransformed(set, [translation([6, 0, 0])], { withSupports: true });
+  expect(report.warnings.supportDropped).toBeUndefined();
+  const node = report.maps[0]!.nodes.get(bearing.nodeId)!;
+  expect(supportAt(node).dofRestraints).toEqual(bearing.dofRestraints);
+  modelStore.addNodalLoad(node, -1, 0, 0, loadCase.id);
+  const plane = validateAndSolve2D(modelStore.model);
+  const embedded = validateAndSolve3D(modelStore.model);
+  if (!plane || typeof plane === 'string') throw new Error(String(plane));
+  if (!embedded || typeof embedded === 'string') throw new Error(String(embedded));
+  expect(plane.reactions.find(r => r.nodeId === node)!.rx).toBeCloseTo(1, 9);
+  expect(embedded.reactions.find(r => r.nodeId === node)!.fx).toBeCloseTo(1, 9);
 });
