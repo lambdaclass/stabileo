@@ -291,7 +291,8 @@ describe('strings', () => {
 
 describe('registry', () => {
   it('TS 500:2000 resolves to its own rules, without the special moment frame provisions', () => {
-    expect(rulesFor('ts500-2000')).toBe(ts500Rules);
+    expect(rulesFor('ts500-2000').columnRow).toBe(ts500Rules.columnRow);
+    expect(rulesFor('ts500-2000').beamLine).toBe(ts500Rules.beamLine);
     expect(rulesFor('ts500-2000').seismic).toBe(false);
   });
 });

@@ -568,7 +568,7 @@ export function levelGeometry(m: DemandInput, level: string, z: number): LevelGe
     if (isVertical(m, e)) {
       const top = at(a) ? a : at(b) ? b : undefined;
       if (top && !columns.some((k) => Math.hypot(k.x - top.x, k.y - top.y) < 0.05)) columns.push({ x: top.x, y: top.y, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3 });
-    } else if (at(a) && at(b)) beams.push({ x1: a!.x, y1: a!.y, x2: b!.x, y2: b!.y, b: sec?.b ?? 0.2, kind: 'beam' });
+    } else if (at(a) && at(b)) beams.push({ x1: a!.x, y1: a!.y, x2: b!.x, y2: b!.y, b: sec?.b ?? 0.2, ...(sec?.h ? { h: sec.h } : {}), kind: 'beam' });
   }
   const held = [...m.supportNodes].map((n) => m.nodes.get(n)).filter((p): p is Pt => at(p));
   const inLine = new Set<Pt>();

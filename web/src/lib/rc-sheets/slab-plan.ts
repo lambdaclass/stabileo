@@ -14,7 +14,7 @@ export type PlanLayer = 'bottom' | 'top';
 export interface PlanRect { x0: number; x1: number; y0: number; y1: number }
 
 /** A beam or a wall in plan, along its axis; `b` is its width, m. */
-export interface PlanBeam { x1: number; y1: number; x2: number; y2: number; b: number; kind: 'beam' | 'wall' }
+export interface PlanBeam { x1: number; y1: number; x2: number; y2: number; b: number; /** A beam's depth, m. */ h?: number; kind: 'beam' | 'wall' }
 
 export interface PlanColumn { x: number; y: number; b: number; h: number }
 

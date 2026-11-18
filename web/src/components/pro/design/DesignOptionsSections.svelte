@@ -11,8 +11,9 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
-  import { rcSheetsData, setColumnEndZones, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
-  import { optionRule, type DesignOptionFlag, type DesignOptionKey } from '../../../lib/rc-sheets/design-options';
+  import { rcSheetsData, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
+  import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE } from '../../../lib/model/design-data';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
@@ -28,6 +29,13 @@
   const summary = (keys: Array<DesignOptionFlag | 'endZones'>, extra: string[] = []) => {
     const named = [...extra, ...keys.filter(live).map((k) => t(`designData.opt.short.${k}`))];
     return named.length ? named.join(' · ') : t('designData.opt.none');
+  };
+  const defl = $derived(d.designOptions?.deflection ?? {});
+  const deflSummary = $derived([t(`designData.deflectionSupports.${defl.supports ?? DEFAULT_SUPPORTS}`), ...(defl.always ? [t('designData.deflectionAlways')] : [])].join(' · '));
+  const setFraction = (raw: string, key: 'sustained' | 'creep', max: number, input: HTMLInputElement) => {
+    if (raw.trim() === '') { setDeflectionSettings({ [key]: undefined }); return; }
+    const v = Number(raw.replace(',', '.'));
+    if (Number.isFinite(v) && v >= 0 && v <= max) setDeflectionSettings({ [key]: v }); else input.value = defl[key] !== undefined ? String(defl[key]) : '';
   };
   const ANALYSIS: DesignOptionFlag[] = ['faces', 'flange'];
   const DETAILING: Array<DesignOptionFlag | 'endZones'> = ['bentBars', 'slabBentBars', 'endZones'];
@@ -68,6 +76,43 @@
     </label>
     <span class="do-cl">{rule('minTieSpacing').clause}</span>
     <Hint text={t('designData.minTieSpacingHint')} />
+  </div>
+</details>
+
+<details class="pk-card do" data-testid="design-options-deflection">
+  <summary><span class="do-h">{t('designData.deflection')}</span> <span class="do-sum" data-testid="design-options-deflection-summary">{deflSummary}</span></summary>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSupports')}
+      <select value={defl.supports ?? DEFAULT_SUPPORTS} onchange={(e) => setDeflectionSettings({ supports: e.currentTarget.value as DeflectionSupport })} data-testid="dd-defl-supports">
+        {#each DEFLECTION_SUPPORTS as s (s)}<option value={s}>{t(`designData.deflectionSupports.${s}`)}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('deflection').clause}</span>
+  </div>
+  <div class="do-opt" class:off={!!rule('months').off}>
+    <label class="do-inline">{t('designData.deflectionMonths')}
+      <select value={String(defl.months ?? DEFAULT_MONTHS)} disabled={!!rule('months').off} onchange={(e) => setDeflectionSettings({ months: Number(e.currentTarget.value) as LoadMonths })} data-testid="dd-defl-months">
+        {#each LOAD_MONTHS as m (m)}<option value={String(m)}>{m} {t('designData.deflectionMonthsUnit')}</option>{/each}
+      </select>
+    </label>
+    <span class="do-cl">{rule('months').clause}</span>
+    {#if rule('months').off}<span class="do-off">{t(rule('months').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.deflectionSustained')}
+      <input type="text" inputmode="decimal" placeholder="—" value={defl.sustained !== undefined ? fmt(defl.sustained, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'sustained', 1, e.currentTarget)} data-testid="dd-defl-sustained" />
+    </label>
+    <Hint text={t('designData.deflectionSustainedHint')} />
+  </div>
+  <div class="do-opt" class:off={!!rule('creep').off}>
+    <label class="do-inline">{t('designData.deflectionCreep')}
+      <input type="text" inputmode="decimal" placeholder={fmt(DEFAULT_CREEP, 1)} disabled={!!rule('creep').off} value={defl.creep !== undefined ? fmt(defl.creep, 2) : ''} onchange={(e) => setFraction(e.currentTarget.value, 'creep', 6, e.currentTarget)} data-testid="dd-defl-creep" />
+    </label>
+    <span class="do-cl">{rule('creep').clause}</span>
+    {#if rule('creep').off}<span class="do-off">{t(rule('creep').off!)}</span>{/if}
+  </div>
+  <div class="do-opt">
+    <label class="do-chk"><input type="checkbox" checked={defl.always === true} onchange={(e) => setDeflectionSettings({ always: e.currentTarget.checked ? true : undefined })} data-testid="dd-defl-always" /> <span>{t('designData.deflectionAlways')}</span></label>
   </div>
 </details>
 

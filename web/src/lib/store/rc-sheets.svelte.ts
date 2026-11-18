@@ -4,13 +4,14 @@ import { regulationsStore } from './regulations.svelte';
 import { rulesFor } from '../rc-sheets/codes';
 import { resultsStore } from './results.svelte';
 import { physicalGroups, physicalThickness } from './physical';
+import { attachService } from './rc-sheets-service';
 import { materialFamilyOf } from '../model/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { applyPlateMeshes, clearPlateMesh, physicalPlates, planPlateMesh, plateShellKeys, plateStatus, setPlateMeshSpec, type PlateMeshPlan } from './physical-plates';
 import { designData, patchOwnDesignData, setDesignData, storedDesignData } from './design-data';
 import { activePerCombo3D, activeResultSet3D } from './active-results';
 import { seismicCaseIds, seismicSettings } from './seismic-design.svelte';
-import { DESIGN_OPTION_FLAGS, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
+import { DESIGN_OPTION_FLAGS, readDeflectionSettings, type DeflectionSettings, type DesignOptionFlag, type DesignOptions } from '../rc-sheets/design-options';
 import { defaultLevelName } from '../model/grid';
 import { computeJointPsiFromModel } from '../engine/codes/argentina/cirsoc201';
 import { computeBeamCriticalSections } from '../engine/station-design-forces';
@@ -84,7 +85,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null,
   });
 }
 
@@ -165,6 +166,15 @@ export function setColumnEndZones(on: boolean): void {
   const d = { ...storedDesignData() };
   if (on) d.columnEndZones = true; else delete d.columnEndZones;
   setDesignData(d);
+}
+
+/** The deflection settings with `patch` merged in; a field set to undefined goes back to its default. */
+export function setDeflectionSettings(patch: Partial<DeflectionSettings>): void {
+  const merged: Record<string, unknown> = { ...designData().designOptions?.deflection, ...patch };
+  for (const k of Object.keys(merged)) if (merged[k] === undefined) delete merged[k];
+  const deflection = readDeflectionSettings(merged);
+  const { deflection: _, ...rest } = designData().designOptions ?? {};
+  setDesignOptions({ ...rest, ...(deflection ? { deflection } : {}) });
 }
 
 export function setRcOption(option: DesignOptionFlag, on: boolean): void {
@@ -412,6 +422,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       const zs = slabs.filter((d) => (d.level ?? '') === name && d.bounds).map((d) => d.bounds!.z);
       return levelGeometry(input, name, zs.length ? zs.reduce((a, z) => a + z, 0) / zs.length : 0);
     });
+    attachService(input, beams, slabs, levels, (g) => { const pg = byGroup.get(g.id); return pg ? physicalThickness(pg) : null; });
     dem = { beams, columns, slabs, levels, walls, punching, groupsRev, opts: optsKey };
     demandCache.set(key, dem);
   }
@@ -434,7 +445,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(key);
     return developsAtFace(spanLateralReading((g?.members.elements ?? []).map((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'beam' }))));
   };
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable });
+  const defl = dd.designOptions?.deflection ? { deflection: dd.designOptions.deflection } : {};
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -498,7 +510,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const slab: SlabRow[] = [];
   for (const d of D.slabs) {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
     slab.push(cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt)));
@@ -517,7 +529,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     if (!k) return;
     const d = D.slabs.find((x) => x.key === r.key)!;
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.slabRow(x, ctx, undefined, fmt)) as Redesign);
     slab[i] = cached(d, [code, ctx, a, dec], () => rules.slabRow(d, ctx, a, fmt));
