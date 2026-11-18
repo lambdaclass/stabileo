@@ -3,9 +3,12 @@ import { render } from 'svelte/server';
 import { ensurePublicLocale, i18n, PUBLIC_LOCALES } from '../../../lib/i18n/store.svelte';
 import Building from '../hero/BuildingFigure.svelte';
 import Section from '../hero/SectionFigure.svelte';
+import Shed from '../hero/ShedFigure.svelte';
 import { AXIAL, COMBINATION } from '../hero/building-data';
+import { MEMBERS } from '../hero/shed-data';
 
-const frame = vi.hoisted(() => ({ progress: 0 }));
+const frame = vi.hoisted(() => ({ progress: undefined as number | undefined }));
+const shedRegression = process.env.RUN_KNOWN_WRONG === '2285' ? it : it.skip;
 
 vi.mock('../hero/loop.svelte', async (importOriginal) => {
   const loop = await importOriginal<typeof import('../hero/loop.svelte')>();
@@ -14,7 +17,7 @@ vi.mock('../hero/loop.svelte', async (importOriginal) => {
     HeroLoop: class extends loop.HeroLoop {
       constructor(...args: ConstructorParameters<typeof loop.HeroLoop>) {
         super(...args);
-        this.u = frame.progress;
+        if (frame.progress !== undefined) this.u = frame.progress;
       }
     },
   };
@@ -40,6 +43,7 @@ function stressesInCaption(html: string) {
 }
 
 afterEach(() => {
+  frame.progress = undefined;
   i18n.locale = 'en';
 });
 
@@ -97,4 +101,54 @@ it('#2285 section stress extrema use the colour and wording of the displayed sig
       { color: compression, value: min },
     ]));
   }
+});
+
+function shedLines(prefersReducedMotion = false) {
+  const { body } = render(Shed, { props: { prefersReducedMotion } });
+  return [...body.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)" stroke="([^"]+)" stroke-width="([^"]+)" stroke-opacity="([^"]+)"/g)]
+    .map(([, x1, y1, x2, y2, colour, width, opacity]) => ({
+      start: [Number(x1), Number(y1)],
+      end: [Number(x2), Number(y2)],
+      colour,
+      width: Number(width),
+      opacity: Number(opacity),
+    }));
+}
+
+shedRegression('known wrong result: #2285 coincident shed members show distinct stress levels on separate strokes', () => {
+  const distinctLevels = new Set(MEMBERS.map(([a, b, level]) => `${Math.min(a, b)},${Math.max(a, b)},${level}`));
+
+  for (const progress of [0, 0.2, 0.4, 0.5, 0.7, undefined]) {
+    frame.progress = progress;
+    const lines = shedLines(progress === undefined);
+    const seen = new Map<string, string>();
+    const conflicts = new Set<string>();
+    for (const { start, end, colour, width } of lines) {
+      const segment = [start.join(','), end.join(',')].sort().join(' → ');
+      const style = `${colour}/${width}`;
+      const previous = seen.get(segment);
+      if (previous && previous !== style) conflicts.add(`${segment}: ${previous} and ${style}`);
+      seen.set(segment, style);
+    }
+    expect.soft([...conflicts], `shed progress ${progress ?? 'reduced motion'}`).toEqual([]);
+    expect.soft(lines).toHaveLength(distinctLevels.size);
+  }
+
+  const lines = shedLines(true);
+  const coincident = lines.filter(({ start, end }) =>
+    Math.hypot((start[0] + end[0]) / 2 - 168.1, (start[1] + end[1]) / 2 - 132.4) < 2.5);
+  expect(coincident.map(({ colour, opacity }) => ({ colour, opacity }))).toEqual([
+    { colour: '#3f8fa6', opacity: 1 },
+    { colour: '#e5482a', opacity: 1 },
+  ]);
+  const [low, high] = coincident;
+  const dx = low.end[0] - low.start[0];
+  const dy = low.end[1] - low.start[1];
+  const clearance = Math.abs(dx * (high.start[1] - low.start[1]) - dy * (high.start[0] - low.start[0]))
+    / Math.hypot(dx, dy);
+  expect(clearance).toBeGreaterThan((low.width + high.width) / 2);
+
+  expect(lines).toContainEqual({
+    start: [69, 216.5], end: [72.2, 214.2], colour: '#3b5368', width: 0.7, opacity: 1,
+  });
 });
