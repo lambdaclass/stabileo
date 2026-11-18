@@ -386,6 +386,94 @@ function modalRequest(mode: ModeShape, rotated: boolean) {
   };
 }
 
+function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole: 'master' | 'slave' | 'none', method: 'static' | 'modal') {
+  const column = mesh(cuts.slice(1).map((z, i) => [[0, 0, cuts[i]!], [0, 0, z]]));
+  const base = [...column.nodes.values()].find(n => n.z === 0)!;
+  const floor = [...column.nodes.values()].find(n => n.z === 2)!;
+  const reference = column.nodes.size + 1;
+  const model: LoadModelData = {
+    ...column,
+    supports: new Map([[base.id, { nodeId: base.id }]]),
+    constraints: [],
+  };
+  model.nodes.set(reference, { id: reference, x: rotated ? -1 : 0, y: rotated ? 0 : 1, z: floor.z });
+  if (floorRole !== 'none') {
+    const [masterNode, slaveNode] = floorRole === 'master' ? [floor.id, reference] : [reference, floor.id];
+    model.constraints = [{ type: 'diaphragm', masterNode, slaveNodes: [slaveNode], plane: 'XY' }];
+  }
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+
+  const mode = prescribedMode(model, rotated, () => 1, 0);
+  const directions = { x: !rotated, y: rotated };
+  const plan = buildLoadPlan(request(model, method === 'modal' ? modalRequest(mode, rotated) : { directions }));
+  const hasFloor = floorRole !== 'none';
+  expect(plan.outcome).toBe('READY');
+  expect.soft(plan.levels.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
+  expect.soft(plan.factors.seismicWeight!.value).toBe(hasFloor ? 6 : 4);
+  expect(plan.cases.filter(c => c.type === 'E')).toHaveLength(1);
+  expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
+  expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
+
+  const bands: Array<[number, number]> = hasFloor ? [[0, 1], [1, 3], [3, 4]] : [[0, 2], [2, 4]];
+  const ordinate = spectralOrdinate(mode.period, round2Spectrum);
+  const modalIntensity = method === 'modal'
+    ? Math.max(2 * ordinate * plan.seismic!.gammaR! / plan.seismic!.r!, 0.85 * plan.seismic!.c * (hasFloor ? 6 : 4) / 4)
+    : 0;
+  const intensities = method === 'modal' ? bands.map(() => modalIntensity) : hasFloor ? [0, 1.5, 3] : [0, 2];
+  const forces = method === 'modal'
+    ? bands.map(([a, b]) => modalIntensity * (b - a))
+    : hasFloor ? [0, 3, 3] : [0, 4];
+  const parts = plan.distributed.filter(d => d.caseType === 'E');
+  const members = [...model.elements.values()];
+  for (const [k, [a, b]] of bands.entries()) {
+    const force = parts.reduce((sum, part) => {
+      const z = model.nodes.get(model.elements.get(part.elementId)!.nodeI)!.z!;
+      const overlap = Math.max(0, Math.min(b, z + part.b!) - Math.max(a, z + part.a!));
+      return sum + overlap * (forceComponent(part, rotated) + forceComponent(part, rotated, true)) / 2;
+    }, 0);
+    expect.soft(force).toBeCloseTo(forces[k]!, 10);
+  }
+  for (const member of members) {
+    const start = model.nodes.get(member.nodeI)!.z!, end = model.nodes.get(member.nodeJ)!.z!;
+    const expected = bands.flatMap(([a, b], k) => {
+      const lo = Math.max(a!, start), hi = Math.min(b, end);
+      return lo < hi && intensities[k]! > 0 ? [{ a: lo - start, b: hi - start, q: intensities[k]! }] : [];
+    });
+    const loads = parts.filter(p => p.elementId === member.id).sort((a, b) => a.a! - b.a!);
+    expect.soft(loads.map(p => [p.a, p.b])).toEqual(expected.map(p => [p.a, p.b]));
+    for (const [k, load] of loads.entries()) {
+      expect(load.frame).toBe('global');
+      expect(forceComponent(load, !rotated)).toBe(0);
+      expect(forceComponent(load, !rotated, true)).toBe(0);
+      const piece = expected[k];
+      if (!piece) continue;
+      expect.soft(forceComponent(load, rotated)).toBeCloseTo(piece.q, 10);
+      expect.soft(forceComponent(load, rotated, true)).toBeCloseTo(piece.q, 10);
+    }
+  }
+  const momentOfLoad = (s: number, k: number) => bands.reduce((sum, [a, b], i) =>
+    sum + intensities[i]! * (b ** (k + 1) - Math.min(b, Math.max(s, a)) ** (k + 1)) / (k + 1), 0);
+  verifyCantilever(model, members, rotated, 4, parts, momentOfLoad);
+}
+
+const diaphragmStoryReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+for (const cuts of [[0, 2, 4], [0, 0.5, 1.5, 2, 2.5, 3.5, 4]]) {
+  for (const rotated of [false, true]) {
+    for (const method of ['static', 'modal'] as const) {
+      const variant = `${method}, ${rotated ? 'Y' : 'X'}, ${cuts.length - 1} elements`;
+      for (const role of ['master', 'slave'] as const) {
+        diaphragmStoryReproducer(`known wrong result: #2316 column story partition keeps a diaphragm ${role} (${variant})`, () => {
+          verifyColumnStoryPartition(cuts, rotated, role, method);
+        });
+      }
+      it(`#2316 column story partition skips unmarked subdivisions (${variant})`, () => {
+        verifyColumnStoryPartition(cuts, rotated, 'none', method);
+      });
+    }
+  }
+}
+
 function withPinnedCarriers(check: (model: LoadModelData, members: string) => void) {
   modelStore.clear();
   try {
