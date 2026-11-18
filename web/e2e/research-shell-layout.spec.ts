@@ -1,24 +1,42 @@
 import { expect, test } from '@playwright/test';
 import { EXPERIMENTS } from '../src/components/research/experiments';
 
+const layouts: Record<string, 'wide' | 'standalone' | undefined> = {
+  'andreassen-2011': 'wide',
+  'zmyslony-2026': 'wide',
+  'navier-plate': 'standalone',
+};
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
   for (const e of EXPERIMENTS) {
-    test(`@smoke research shell: ${e.path} starts its experiment pane level with the title at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    const layout = layouts[e.paperId] ?? 'split';
+    test(`@smoke research shell: ${e.path} uses its ${layout} layout at ${viewport.width}×${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(`/en${e.path}/`);
       await expect(page.locator('h1').first()).toBeVisible();
       const app = page.locator('.rs-shell-app');
-      test.skip(await app.count() === 0, 'this page lays out its own panes');
-      test.skip(await page.locator('.rs-shell-grid.rs-wide').count() > 0, 'a wide shell puts the app first, in one column');
-      const head = (await page.locator('.rs-shell-head').boundingBox())!;
-      const pane = (await app.boundingBox())!;
-      const article = (await page.locator('.rs-shell-article').boundingBox())!;
-      expect(Math.abs(pane.y - head.y)).toBeLessThan(2);
-      expect(pane.x).toBeGreaterThan(head.x + head.width);
-      expect(pane.x).toBeGreaterThan(article.x + article.width);
-      expect(article.y).toBeGreaterThanOrEqual(head.y + head.height);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (layout === 'standalone') {
+        await expect(app).toHaveCount(0);
+        await expect(page.getByTestId('navier-results')).toBeVisible();
+      } else {
+        const shell = page.locator(layout === 'wide' ? '.rs-shell-grid.rs-wide' : '.rs-shell-wrap.rs-split');
+        await expect(shell.locator('.rs-shell-app')).toBeVisible();
+        const head = (await page.locator('.rs-shell-head').boundingBox())!;
+        const pane = (await app.boundingBox())!;
+        const article = (await page.locator('.rs-shell-article').boundingBox())!;
+        if (layout === 'wide') {
+          expect(pane.y).toBeGreaterThanOrEqual(head.y + head.height);
+          expect(article.y).toBeGreaterThanOrEqual(pane.y + pane.height);
+          expect(pane.x).toBe(article.x);
+        } else {
+          expect(Math.abs(pane.y - head.y)).toBeLessThan(2);
+          expect(pane.x).toBeGreaterThan(head.x + head.width);
+          expect(pane.x).toBeGreaterThan(article.x + article.width);
+          expect(article.y).toBeGreaterThanOrEqual(head.y + head.height);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        }
+      }
     });
   }
 }
@@ -28,9 +46,10 @@ test('@smoke research shell: the split grid holds only the head, article and app
   await page.emulateMedia({ reducedMotion: 'reduce' });
   let checked = 0;
   for (const e of EXPERIMENTS) {
+    if (layouts[e.paperId]) continue;
     await page.goto(`/en${e.path}/`);
     await expect(page.locator('h1').first()).toBeVisible();
-    if (await page.locator('.rs-shell-wrap.rs-split').count() === 0) continue;
+    await expect(page.locator('.rs-shell-wrap.rs-split > .rs-shell-grid')).toHaveCount(1);
     const shape = await page.evaluate(() => {
       const wrap = document.querySelector('.rs-shell-wrap.rs-split')!;
       const grid = wrap.querySelector(':scope > .rs-shell-grid')!;
