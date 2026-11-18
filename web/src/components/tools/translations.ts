@@ -1,6 +1,3 @@
-import * as viewerDictionaries from '../viewport/scalar-viewer-translations';
-
-// Calculator and viewer strings are loaded only by the Tools route.
 export const toolTranslations: Record<string, Record<string, string>> = {
   en: {
   "tools.simply-supported-beam.subtitle": "Deflection, shear and bending moment of a beam on two supports.",
@@ -63,7 +60,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "at",
   "tools.bucklingNote": "Buckling uses 32 frame elements. For fixed–pinned ends, K = 0.7 is the conventional rounded value; the exact value is about 0.6992. The engine resolves the end conditions directly, so the roughly 0.24% difference is mainly due to this rounding, not the finite-element discretization.",
   "tools.columnNote": "Column reactions and diagrams describe the 1 kN reference compression, not a post-buckling state. The member axis is horizontal in the exported model.",
-  ...viewerDictionaries.en,
   },
   es: {
   "tools.simply-supported-beam.subtitle": "Flecha, cortante y momento flector de una viga sobre dos apoyos.",
@@ -126,7 +122,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "en",
   "tools.bucklingNote": "El pandeo usa 32 elementos de pórtico. Para empotrado–articulado, K = 0.7 es el valor redondeado convencional; el valor exacto es aproximadamente 0.6992. El motor resuelve directamente las condiciones de extremo, por lo que la diferencia de aproximadamente 0.24% se debe principalmente al redondeo, no a la discretización.",
   "tools.columnNote": "Las reacciones y diagramas de columna corresponden a la compresión de referencia de 1 kN, no al estado poscrítico. El eje del miembro es horizontal en el modelo exportado.",
-  ...viewerDictionaries.es,
   },
   pt: {
   "tools.simply-supported-beam.subtitle": "Flecha, esforço cortante e momento fletor de uma viga sobre dois apoios.",
@@ -189,7 +184,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "em",
   "tools.bucklingNote": "A flambagem usa 32 elementos de pórtico. Para engastado–articulado, K = 0.7 é o valor arredondado convencional; o valor exato é aproximadamente 0.6992. O solver resolve diretamente as condições de extremidade, portanto a diferença de aproximadamente 0.24% deve-se principalmente ao arredondamento, não à discretização.",
   "tools.columnNote": "Reações e diagramas da coluna descrevem a compressão de referência de 1 kN, não um estado pós-flambagem. O eixo do membro é horizontal no modelo exportado.",
-  ...viewerDictionaries.pt,
   },
   de: {
   "tools.simply-supported-beam.subtitle": "Durchbiegung, Querkraft und Biegemoment eines Balkens auf zwei Lagern.",
@@ -252,7 +246,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "bei",
   "tools.bucklingNote": "Die Knickberechnung verwendet 32 Rahmenelemente. Für eingespannt–gelenkig ist K = 0.7 der übliche gerundete Wert; der exakte Wert beträgt etwa 0.6992. Der Solver berücksichtigt die Randbedingungen direkt. Die Abweichung von etwa 0.24% entsteht daher hauptsächlich durch die Rundung und nicht durch die Diskretisierung.",
   "tools.columnNote": "Stützenreaktionen und Diagramme gelten für die Referenzdrucklast von 1 kN, nicht für den Nachknickzustand. Die Stabachse liegt im exportierten Modell horizontal.",
-  ...viewerDictionaries.de,
   },
   fr: {
   "tools.simply-supported-beam.subtitle": "Flèche, effort tranchant et moment fléchissant d’une poutre sur deux appuis.",
@@ -315,7 +308,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "à",
   "tools.bucklingNote": "Le flambement utilise 32 éléments de portique. Pour un poteau encastré–articulé, K = 0.7 est la valeur arrondie usuelle ; la valeur exacte est environ 0.6992. Le solveur traite directement les conditions aux limites : l’écart d’environ 0.24% provient surtout de cet arrondi, et non de la discrétisation.",
   "tools.columnNote": "Les réactions et diagrammes du poteau décrivent la compression de référence de 1 kN, pas un état postcritique. L’axe de l’élément est horizontal dans le modèle exporté.",
-  ...viewerDictionaries.fr,
   },
   tr: {
   "tools.simply-supported-beam.subtitle": "İki mesnetli kirişin sehimi, kesme kuvveti ve eğilme momenti.",
@@ -378,7 +370,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "konum",
   "tools.bucklingNote": "Burkulma hesabında 32 çerçeve elemanı kullanılır. Ankastre–mafsallı uçlar için K = 0.7 yaygın yuvarlatılmış değerdir; tam değer yaklaşık 0.6992’dir. Çözücü uç koşullarını doğrudan çözer; bu nedenle yaklaşık %0.24 farkın temel nedeni sonlu eleman ayrıklaştırması değil, yuvarlamadır.",
   "tools.columnNote": "Kolon tepkileri ve diyagramları, burkulma sonrası durumu değil, 1 kN referans basınç yükünü gösterir. Dışa aktarılan modelde eleman ekseni yataydır.",
-  ...viewerDictionaries.tr,
   },
   ...(__PUBLIC_FEATURES__.research ? { hu: {
   "tools.simply-supported-beam.subtitle": "Két támaszon fekvő gerenda lehajlása, nyíróereje és hajlítónyomatéka.",
@@ -441,6 +432,5 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "tools.at": "helye:",
   "tools.bucklingNote": "A kihajlásszámítás 32 keretelemet használ. Befogott–csuklós végek esetén K = 0.7 a szokásos kerekített érték; a pontos érték körülbelül 0.6992. A számítómag közvetlenül kezeli a peremfeltételeket, így a körülbelül 0.24%-os eltérés főként ebből a kerekítésből adódik, nem a végeselemes diszkretizációból.",
   "tools.columnNote": "Az oszlop támaszerői és ábrái az 1 kN-os referencia-nyomóerőre vonatkoznak, nem kihajlás utáni állapotra. A rúd tengelye az exportált modellben vízszintes.",
-  ...viewerDictionaries.hu,
   } } : {}),
 };

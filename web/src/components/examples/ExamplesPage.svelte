@@ -3,6 +3,7 @@
   import { onDestroy, untrack } from 'svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
+  import '../viewport/scalar-viewer-i18n';
   import ScalarFieldViewer from '../viewport/ScalarFieldViewer.svelte';
   import ParamRow from '../research/shell/ParamRow.svelte';
   import PaneTabs from '../research/shell/PaneTabs.svelte';

@@ -9,8 +9,8 @@
 
   let adConsent = $state<typeof import('../../lib/tracking/ad-consent.svelte').adConsent | null>(null);
 
-  onMount(() => {
-    if (__PUBLIC_FEATURES__.accounts && accounts()) {
+  if (__PUBLIC_FEATURES__.accounts) onMount(() => {
+    if (accounts()) {
       void import('../../lib/tracking/ad-consent.svelte').then(
         module => { adConsent = module.adConsent; },
         error => console.warn('landing: advertising preferences did not load', error),

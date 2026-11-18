@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../viewport/scalar-viewer-i18n';
   import ScalarFieldViewer from '../viewport/ScalarFieldViewer.svelte';
   import PaneTabs from '../research/shell/PaneTabs.svelte';
   import LineChart from '../research/shauer2025/LineChart.svelte';

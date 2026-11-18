@@ -44,19 +44,26 @@ export const PUBLIC_POLICY_AVAILABLE = typeof __PUBLIC_FEATURES_COMPILED__ === '
   : __PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts;
 
 export function accounts(): boolean {
-  return buildFeatures().accounts && readFlag('accounts', true);
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().accounts : __PUBLIC_FEATURES__.accounts;
+  return built && readFlag('accounts', true);
+}
+
+export function researchBuilt(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().research : __PUBLIC_FEATURES__.research;
 }
 
 export function research(): boolean {
-  return buildFeatures().research && readFlag('research', true);
+  return researchBuilt() && readFlag('research', true);
 }
 
 export function tools(): boolean {
-  return buildFeatures().tools && readFlag('tools', true);
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().tools : __PUBLIC_FEATURES__.tools;
+  return built && readFlag('tools', true);
 }
 
 export function diagramGame(): boolean {
-  return buildFeatures().diagramGame && readFlag('diagram-game', true);
+  const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().diagramGame : __PUBLIC_FEATURES__.diagramGame;
+  return built && readFlag('diagram-game', true);
 }
 
 export const publicFeatures = (): PublicFeatures => ({ research: research(), tools: tools(), diagramGame: diagramGame(), accounts: accounts() });

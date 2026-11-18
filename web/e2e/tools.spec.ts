@@ -145,7 +145,6 @@ for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke to
 
 for (const id of ['simply-supported-beam', 'cantilever-beam']) {
   test(`@smoke tools ${id} keeps the SVG coordinate frame in sync with the diagram`, async ({ page }) => {
-    test.skip(true, 'known wrong result: #2286');
     await page.goto(`/en/tools/${id}/?e2e=1`);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 720 });

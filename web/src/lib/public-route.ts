@@ -4,6 +4,7 @@
  * render the public pages without it, so both decide the same way.
  */
 import { parsePublicPath, publicHref } from './i18n/public-routes';
+import { isResearchRoute } from './i18n/research-path';
 import { isStandingPagePath } from './blog/pages/paths';
 import { publicFeatureEnabled, PUBLIC_POLICY_AVAILABLE } from './features';
 import { isMainToolPath } from './main-tool-routes';
@@ -23,9 +24,7 @@ export function isAppPath(pathname: string): boolean {
 }
 
 /** `/research` and its papers: Stabileo Research, rendered without the application. */
-export function isResearchPath(path: string): boolean {
-  return path === '/research' || path.startsWith('/research/');
-}
+export { isResearchRoute as isResearchPath };
 
 /** `/paper`: the JAIE 2026 paper in full. */
 export function isPaperPath(path: string): boolean {
@@ -59,7 +58,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   const top = path.split('/')[1];
   if (top === 'tools' || top === 'examples') return { kind: top === 'tools' && !PUBLIC_POLICY_AVAILABLE && !/^\/tools\/?$/.test(path) && !isMainToolPath(path) ? 'landing' : top, path };
   if (__PUBLIC_FEATURES__.diagramGame && isGamePath(path)) return { kind: 'game', path };
-  if (isResearchPath(path)) return { kind: 'research', path };
+  if (isResearchRoute(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
   if (__PUBLIC_FEATURES__.accounts && isRegisterPath(path)) return { kind: 'register', path };
   return { kind: 'landing', path };

@@ -747,7 +747,7 @@
   let dxfFileInput: HTMLInputElement;
 
   let showImportDialog = $state(false);
-  const accountsEnabled = accounts();
+  const accountsEnabled = __PUBLIC_FEATURES__.accounts && accounts();
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
   /** When the offered save was written, and whether it is the newest one that exists. */

@@ -88,7 +88,7 @@ for (const production of [
   committedConfig.production,
   { accounts: true, research: true, tools: true, diagramGame: true },
 ]) {
-  test(`production browser code only receives resolved switches with ${JSON.stringify(production)}`, { skip: 'known wrong result: #2286' }, () =>
+  test(`production browser code only receives resolved switches with ${JSON.stringify(production)}`, () =>
     withProductionFeatures(production, async configFile => {
       const entry = 'public-feature-consumers';
       const result = await build({
@@ -102,17 +102,21 @@ for (const production of [
             import { researchLocales } from '/src/lib/i18n/research-routes';
             import { SITE_NAV } from '/src/components/site/site-nav';
             import { registryLocale } from '/src/lib/provenance/registry';
-            console.log(publicFeatures(), researchLocales(location.pathname), SITE_NAV, registryLocale(...globalThis.localeArguments));
+            import { accountGate } from '/src/lib/store/account-gate.svelte';
+            import { milestone } from '/src/lib/tracking/activity.svelte';
+            console.log(publicFeatures(), researchLocales(location.pathname), SITE_NAV, registryLocale(...globalThis.localeArguments), accountGate, milestone);
           ` : null,
         }],
         build: { write: false, rollupOptions: { input: entry } },
         logLevel: 'silent',
       });
-      const bundledConfig = result.output
+      const modules = result.output
         .filter(output => output.type === 'chunk')
         .flatMap(output => Object.entries(output.modules))
-        .filter(([id, module]) => /\/config\/(?:public-features\.mjs|features\.json)$/.test(id) && module.renderedLength > 0);
-      assert.deepEqual(bundledConfig.map(([id]) => id.slice(root.length)), []);
+        .filter(([, module]) => module.renderedLength > 0)
+        .map(([id]) => id.slice(root.length));
+      assert.deepEqual(modules.filter(id => /^\/config\/(?:public-features\.mjs|features\.json)$/.test(id)), []);
+      assert.equal(modules.includes('/src/lib/store/auth.svelte.ts'), production.accounts);
     }));
 }
 

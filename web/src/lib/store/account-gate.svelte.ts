@@ -17,7 +17,7 @@ let signInUnavailable = false;
 const released = new WeakSet<Event>();
 
 function required(): boolean {
-  return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated && !signInUnavailable;
+  return __PUBLIC_FEATURES__.accounts && accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated && !signInUnavailable;
 }
 
 function signInRequired(): boolean {
@@ -35,6 +35,7 @@ function ask(action: GatedAction, run: () => unknown, cancel?: () => void, failO
 }
 
 function settle(): void {
+  if (!__PUBLIC_FEATURES__.accounts) return;
   const next = pending;
   pending = null;
   if (!next) return;
