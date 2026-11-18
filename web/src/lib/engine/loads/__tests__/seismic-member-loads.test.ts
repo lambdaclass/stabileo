@@ -515,3 +515,60 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
     }
   }
 });
+
+const zeroShearRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+const upperBandStart = height / 2;
+for (const rotated of [false, true]) {
+  const missing = rotated ? 'x' : 'y';
+  for (const selection of ['single-axis', 'two-axis', 'diagonal'] as const) {
+    zeroShearRegression(`known wrong result: #2316 zero modal base shear in ${missing} blocks a ${selection} request`, () => {
+      const { model, byColumn } = round2Columns([0, upperBandStart, height], rotated, false);
+      for (const members of byColumn) members[0]!.materialId = 2;
+      const mode = prescribedMode(model, rotated, z => z >= upperBandStart ? 1 : 0, 0);
+      if (selection === 'two-axis') {
+        mode.participation = {
+          x: { gamma: rotated ? 0 : 1, ratio: rotated ? 0 : 1 },
+          y: { gamma: rotated ? 1 : 0, ratio: rotated ? 1 : 0 },
+        };
+      }
+      const plan = buildLoadPlan(request(model, {
+        ...modalRequest(mode, rotated),
+        directions: {
+          x: selection === 'two-axis' || (selection === 'single-axis' && missing === 'x'),
+          y: selection === 'two-axis' || (selection === 'single-axis' && missing === 'y'),
+        },
+        diagonal: selection === 'diagonal',
+        torsion: selection === 'two-axis' ? 'medium' : 'low',
+      }, { generateCombinations: true }));
+      expect(plan.outcome).toBe('BLOCKED');
+      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalBaseShear', params: { dir: missing.toUpperCase() } }]);
+      expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+      expect([...plan.distributed, ...plan.nodal, ...plan.surface].filter(p => p.caseType === 'E')).toEqual([]);
+      expect(plan.combinations).toEqual([]);
+    });
+  }
+
+  for (const cuts of [[0, upperBandStart, height], [0, 1, upperBandStart, 3, height]]) {
+    it(`#2316 the modal shear floor accepts small positive ${missing} participation (${cuts.length - 1} elements)`, () => {
+      const { model, byColumn } = round2Columns(cuts, rotated, cuts.length > 3);
+      for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= upperBandStart) e.materialId = 2;
+      const mode = prescribedMode(model, rotated, z => z >= upperBandStart ? 1 : 0, 0);
+      const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      const unscaled = buildLoadPlan(request(model, modalRequest(mode, rotated)));
+      expect(unscaled.outcome).toBe('READY');
+      const ordinate = spectralOrdinate(round2Period, round2Spectrum) * unscaled.seismic!.gammaR! / unscaled.seismic!.r!;
+      verifyRound2Columns(model, byColumn, unscaled, rotated, upperBandStart, weightPerLength * ordinate, 0);
+
+      const smallComponent = 1 / 16;
+      for (const [id, sample] of mode.shape) {
+        mode.shape.set(id, { ...sample, [rotated ? 'ux' : 'uy']: smallComponent * (rotated ? sample.uy : sample.ux) });
+      }
+      const scaled = buildLoadPlan(request(model, modalRequest(mode, !rotated)));
+      const minIntensity = 0.85 * weightPerLength * unscaled.seismic!.c;
+      const unscaledIntensity = weightPerLength * ordinate * smallComponent ** 2 / (1 + smallComponent ** 2);
+      expect(unscaledIntensity).toBeGreaterThan(0);
+      expect(unscaledIntensity).toBeLessThan(minIntensity);
+      verifyRound2Columns(model, byColumn, scaled, !rotated, upperBandStart, minIntensity, 0);
+    });
+  }
+}

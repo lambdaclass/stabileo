@@ -34,7 +34,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { allDictFor as dictFor, completeLocales } from '../locales/all';
+import { allDictFor as dictFor, allShippedLocales, completeLocales } from '../locales/all';
 const OFFERED_LOCALES = completeLocales();
 
 const SRC = new URL('../../..', import.meta.url).pathname;
@@ -187,4 +187,11 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     }
     expect(wrong).toEqual([]);
   });
+});
+
+const seismicLocaleRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+seismicLocaleRegression('known wrong result: #2316 every dictionary translates the modal representation refusal', () => {
+  const key = 'loadPlan.blocked.seismicMass.mode';
+  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]);
+  expect(missing).toEqual([]);
 });
