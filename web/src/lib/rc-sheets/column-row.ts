@@ -114,8 +114,10 @@ export interface ColumnRow {
   status: RowStatus;
   generous: boolean;
   steps: StepGroup[];
-  /** The splice of the bars from the storey below, just above its floor. */
-  lap?: { length: number; tension?: boolean };
+  /** The splice of the bars from the storey below (or the footing's dowels), just above its floor; `from`: where it starts over the face of the joint below, m, as the elevation draws it. */
+  lap?: { length: number; tension?: boolean; from?: number };
+  /** The bottom storey, whose bars lap with its footing's dowels. */
+  onFooting?: true;
   /** Where its faces step in over the storey below: the bars from below cranked into it, or separate dowels. */
   step?: StackStep;
   /** Chapter 18: the length lo from each joint face and the hoop spacing so in it. */
@@ -315,7 +317,13 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
 }
 
 /** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
-export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number; inner?: { nx: number; ny: number; rows?: number } }; fromBelow?: boolean; offset?: number; /** The largest bar of the storey below, mm, which the lap with this storey's reads. */ belowDia?: number }
+export interface StackPlace {
+  pattern?: { nx: number; ny: number; maxDia: number; inner?: { nx: number; ny: number; rows?: number } }; fromBelow?: boolean; offset?: number;
+  /** The largest bar of the storey below, mm, which the lap with this storey's reads. */
+  belowDia?: number;
+  /** The bottom storey, on a footing whose dowels its bars lap with. */
+  onFooting?: true;
+}
 
 /** The pattern a storey's bars set for the storey above: its counts on each face and inside, and its thickest bar. */
 export const stackPattern = (a: ColumnAdopted): NonNullable<StackPlace['pattern']> => ({
@@ -356,10 +364,10 @@ export function barsInTension(d: { b: number; h: number }, bars: ReadonlyArray<{
   return demands.some((q) => bars.some((p) => q.pu / ag - (Math.abs(q.mx) * Math.abs(p.y)) / ix - (Math.abs(q.my) * Math.abs(p.x)) / iy < -1e-9));
 }
 
-/** §25.5.5.1 in compression, or a class B tension splice (§25.5.2) where a bar is in tension. */
+/** §25.5.5.1 in compression, or where a bar is in tension a class B tension splice (§25.5.2) no shorter than the compression one, the bars compressed under the other combinations. */
 export function columnSplice(c: ColumnContext, dia: number, tension: boolean, layout?: LapLayout): { length: number; tension: boolean } {
-  if (tension) return { length: tensionLap(c.mat, dia, layout), tension };
-  return { length: compressionLapMm(c.mat.fy, dia) / 1000, tension };
+  const compression = compressionLapMm(c.mat.fy, dia, c.mat.fc) / 1000;
+  return { length: tension ? Math.max(tensionLap(c.mat, dia, layout), compression) : compression, tension };
 }
 
 export const columnRowFor = (code: ColumnCode) => (d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted | undefined, fmt: Fmt, stack: StackPlace = {}): ColumnRow =>
@@ -557,6 +565,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: splice } : {}),
+    ...(stack.onFooting ? { onFooting: true as const } : {}),
     ...(step ? { step } : {}),
     ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
     tieFloor: floor,

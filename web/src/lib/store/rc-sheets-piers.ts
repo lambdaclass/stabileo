@@ -4,7 +4,7 @@
  * of walls each footing stands under.
  */
 import { outlineInertia, recognizePiers, type Pier, type PierColumn, type PierWall } from '../rc-sheets/piers';
-import { legBarsInPlan, legDemand, pierCombos, zoneBarsInPlan, zoneCandidates, zoneHosts } from '../rc-sheets/pier-design';
+import { legBarsInPlan, legDemand, pierCombos, pierDowelPlaces, zoneBarsInPlan, zoneCandidates, zoneHosts } from '../rc-sheets/pier-design';
 import { columnOfPier, designPier, unloaded, type PierDesign } from '../rc-sheets/pier-row';
 import { stackOver } from '../rc-sheets/column-stack';
 import { boundaryBars, type WallContext, type WallDemand, type WallRow } from '../rc-sheets/wall-row';
@@ -96,11 +96,12 @@ export function pierColumnRow(p: PierDesign, d: ColumnDemand, prev: ColumnRow | 
 }
 
 /**
- * A pier's bottom bars as its footing's dowels: as many of its thickest bar as give its steel,
+ * A pier's bottom bars as its footing's dowels: as many of its thickest bar as give its steel, set
+ * under its thickest bars (`pierDowelPlaces`),
  * whether any combination puts its section's edge in tension, and the least steel across the
  * joint, 0,005 of its columns' area (§16.3.4.1) and each wall's least vertical ratio over its own (§16.3.4.2), cm².
  */
-export function pierDowels(p: PierDesign, cover: (key: string) => number): { count: number; dia: number; tension: boolean; dowelMin: number } {
+export function pierDowels(p: PierDesign, cover: (key: string) => number): { count: number; dia: number; tension: boolean; dowelMin: number; at: NonNullable<NonNullable<FootingDemand['column']>['bars']>['at'] } {
   const legs = p.legs.filter((r) => !!r.demand.plan).map((r) => ({ wall: { plan: r.demand.plan!, thickness: r.thickness }, cover: cover(r.key), adopted: r.adopted }));
   const dia = Math.max(0, ...[...legs.flatMap(legBarsInPlan), ...p.zones.flatMap(zoneBarsInPlan)].map((b) => b.dia));
   const c = p.pier.centroid, { ix, iy } = outlineInertia(p.pier.outline, c);
@@ -108,7 +109,9 @@ export function pierDowels(p: PierDesign, cover: (key: string) => number): { cou
   const tension = p.combos.some((k) => k.n / p.pier.area - (Math.abs(k.mx) * far.y) / Math.max(ix, 1e-9) - (Math.abs(k.my) * far.x) / Math.max(iy, 1e-9) < 0);
   const cols = p.zones.reduce((s, z) => s + z.column.b * z.column.h, 0);
   const walls = p.legs.reduce((s, r) => s + r.req.rhoL * r.length * r.thickness, 0);
-  return { count: dia > 0 ? Math.ceil(p.check.ast / barArea(dia) - 1e-9) : 0, dia, tension, dowelMin: (0.005 * cols + walls) * 1e4 };
+  const count = dia > 0 ? Math.ceil(p.check.ast / barArea(dia) - 1e-9) : 0;
+  const at = pierDowelPlaces(legs, p.zones).slice(0, count).map((b) => ({ x: b.x, y: b.y, n: b.n }));
+  return { count, dia, tension, dowelMin: (0.005 * cols + walls) * 1e4, at };
 }
 
 /** Under a code whose sections the piers are not checked with, the walls and columns that overlap say they were designed apart. */

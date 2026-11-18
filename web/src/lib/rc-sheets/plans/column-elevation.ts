@@ -1,6 +1,7 @@
 /**
- * A column storey's drawings to scale: the elevation with the joints below and above, the bars
- * (and those lapped from below), every tie where `columnTieLayout` places it, the clear height,
+ * A column storey's drawings to scale: the elevation with the joints below and above (the
+ * footing below the bottom storey), the bars standing at the faces and those from below (or the
+ * footing's dowels) cranked in beside them over the lap, every tie where `columnTieLayout` places it, the clear height,
  * the lap and each tie zone dimensioned; the section; and the storey's bar schedule. The same
  * layout the workspace's elevation draws, at true width.
  *
@@ -10,7 +11,7 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { columnLabel, crosstiesText, tieLabel, type ColumnRow } from '../column-row';
 import { columnTieLayout, tieSegments, tiesIn } from '../column-ties';
-import { CRANK_SLOPE } from '../column-stack';
+import { CRANK_SLOPE, lapOffset } from '../column-stack';
 import { columnSection, type ColumnSectionOptions } from '../drawing';
 import { legLengths } from '../shape';
 import { rulesFor } from '../codes';
@@ -22,7 +23,7 @@ import { sectionPrimitives } from './section';
 import { scheduleTables } from './schedule-table';
 
 const K = 1000;
-const STUB = 300;
+const STUB = 300, FOOT = 300;
 
 export interface ColumnPlanOptions extends PlanCtx { code: SheetCode; endZones: boolean; group: string }
 
@@ -30,25 +31,26 @@ export function columnElevationPrimitives(row: ColumnRow, o: ColumnPlanOptions):
   const s = o.scale, a = row.adopted, layout = columnTieLayout(row, o.code, { endZones: o.endZones });
   const b = row.b * K, clear = layout.clear * K, jb = layout.jointBottom * K, jt = layout.jointTop * K, top = clear + jt;
   const ps: Primitive[] = [rect(HORM, 0, 0, b, clear)];
-  if (jt > 0) ps.push(rect(HORM, -STUB, clear, b + STUB, top));
-  if (jb > 0) ps.push(rect(HORM, -STUB, -jb, b + STUB, 0));
   const inset = row.cover * K + a.tieDia + a.corner / 2, long = arm('LONG', a.corner);
   const bars = [inset, b - inset];
+  const step = row.step && !row.step.dowels ? row.step.offset * K : 0, lapIn = (lapOffset(a.corner, a.corner) * K) / Math.SQRT2;
+  const by = row.step?.dowels ? 0 : step + lapIn, crank = by / CRANK_SLOPE, foot = row.onFooting ? Math.max(FOOT, crank + 100) : 0;
+  if (jt > 0) ps.push(rect(HORM, -STUB, clear, b + STUB, top));
+  if (jb > 0) ps.push(rect(HORM, -STUB, -jb, b + STUB, 0));
+  if (foot > 0) ps.push(rect(HORM, -STUB, -foot, b + STUB, 0));
   if (layout.lap) {
-    const lf = layout.lap.from * K, lt = layout.lap.to * K;
-    const crank = row.step && !row.step.dowels ? row.step.offset * K : 0;
+    const lf = layout.lap.from * K, lt = layout.lap.to * K, end = step > 0 ? 0 : lf, bottom = -Math.max(jb, foot);
     bars.forEach((x, i) => {
-      const inward = (i ? -1 : 1) * a.corner;
-      if (crank > 0) {
-        const below = x - (i ? -1 : 1) * crank, rise = crank / CRANK_SLOPE;
-        if (rise < jb) ps.push(seg(long, pt(below, -jb), pt(below, -rise), a.corner));
-        ps.push(seg(long, pt(below, -rise), pt(x, 0), a.corner), seg(long, pt(x, 0), pt(x, lt), a.corner));
-      } else ps.push(seg(long, pt(x, -jb), pt(x, lt), a.corner));
-      ps.push(seg(long, pt(x + inward, lf), pt(x + inward, top), a.corner));
+      const inward = i ? -1 : 1, lapped = x + inward * lapIn, low = lapped - inward * by;
+      ps.push(seg(long, pt(low, bottom), pt(low, end - crank), a.corner), ...(by > 0 ? [seg(long, pt(low, end - crank), pt(lapped, end), a.corner)] : []), seg(long, pt(lapped, end), pt(lapped, lt), a.corner));
+      ps.push(seg(long, pt(x, lf), pt(x, top), a.corner));
     });
     ps.push(dim(pt(inset, lf), pt(inset, lt), 3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, layout.lap.to - layout.lap.from) })));
-    if (row.step) ps.push(label(pt(b / 2, -jb / 2), o.tr(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: o.fmt(row.step.offset * 100, 1) }), 2.2));
-  } else for (const x of bars) ps.push(seg(long, pt(x, -jb), pt(x, top), a.corner));
+    const note = row.onFooting ? o.tr('rcSheets.elev.footDowels', { off: o.fmt(lapIn * Math.SQRT2 / 10, 1) })
+      : row.step ? o.tr(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: o.fmt(row.step.offset * 100, 1) })
+        : o.tr('rcSheets.elev.lapCrank', { off: o.fmt(lapIn * Math.SQRT2 / 10, 1) });
+    ps.push(label(pt(b / 2, bottom / 2), note, 2.2));
+  } else for (const x of bars) ps.push(seg(long, pt(x, -Math.max(jb, foot)), pt(x, top), a.corner));
   for (let i = 0; i < a.nx; i++) {
     const x = inset + ((i + 1) * (b - 2 * inset)) / (a.nx + 1);
     ps.push(seg(arm('LONG', a.dx), pt(x, -jb), pt(x, top), a.dx));

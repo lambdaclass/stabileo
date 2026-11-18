@@ -1,8 +1,8 @@
 /**
  * A footing's drawings to scale from its detail (`footingDetail`, as the workspace draws it): the
  * plan with every bar of both bottom layers, the central band and the column; the section along X
- * with the lower layer and its hooks, the other layer's bars cut, and the dowels with their feet
- * and laps; the dimensions; and the footing's bar schedule.
+ * with the lower layer and its hooks, the other layer's bars cut, and the dowels with their feet,
+ * cranked in at 1:6 and lapped with the column's bars; the dimensions; and the footing's bar schedule.
  *
  * Model millimetres, origin at the footing's centroid: x along B, y along L (plan) or up (section).
  */
@@ -54,7 +54,8 @@ export function footingPlanPrimitives(det: FootingDetail, o: FootingPlanOptions)
 export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o: FootingPlanOptions): Primitive[] {
   const s = o.scale, B = det.B * K, H = det.h * K, lap = (row.dowels?.lap ?? 0) * K;
   const ps: Primitive[] = [rect(HORM, -B / 2, 0, B / 2, H)];
-  for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, H, c.x1 * K, H + lap + 100));
+  const over = det.dowels ? (det.dowels.z + det.dowels.rise) * K - H : lap;
+  for (const c of [det.column, det.second]) if (c) ps.push(rect(HORM, c.x0 * K, H, c.x1 * K, H + over + 100));
   const leg = (l: FootingLayerBars) => Math.abs(l.shape.pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0) * K * (l === det.top ? -1 : 1);
   for (const l of [...det.layers, ...(det.top ? [det.top] : [])]) {
     const a = arm(l === det.top ? 'SUPX' : layerOf(l.dir), l.dia), z = l.z * K, up = leg(l);
@@ -62,14 +63,18 @@ export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o:
       ps.push({ kind: 'polyline', layer: a, points: [...(l.ends[0] ? [pt(l.from * K, z + up)] : []), pt(l.from * K, z), pt(l.to * K, z), ...(l.ends[1] ? [pt(l.to * K, z + up)] : [])], dia: l.dia });
     } else for (const p of l.positions) ps.push({ kind: 'circle', layer: a, c: pt(p * K, z), r: l.dia / 2, fill: true, dia: l.dia });
   }
-  for (const ln of det.lines.filter((x) => x.axis === 'x')) ps.push(seg(HORM, pt(ln.at * K, -200), pt(ln.at * K, H + lap + 300)));
+  for (const ln of det.lines.filter((x) => x.axis === 'x')) ps.push(seg(HORM, pt(ln.at * K, -200), pt(ln.at * K, H + over + 300)));
   const dw = det.dowels;
   if (dw) dw.xs.forEach((x, i) => {
     const side = i === 0 ? -1 : 1;
-    ps.push({ kind: 'polyline', layer: arm('LONG', dw.dia), points: [pt((x + side * dw.foot) * K, dw.z * K), pt(x * K, dw.z * K), pt(x * K, (dw.z + dw.rise) * K)], dia: dw.dia });
+    ps.push({ kind: 'polyline', layer: arm('LONG', dw.dia), points: dw.shape.pts.map(([u, v]) => pt((x + side * u) * K, (dw.z + v) * K)), dia: dw.dia });
   });
   ps.push(dim(pt(-B / 2, 0), pt(B / 2, 0), -6, cm(o.fmt, det.B)), dim(pt(B / 2, 0), pt(B / 2, H), -6, cm(o.fmt, det.h)));
-  if (dw && lap > 0) ps.push(dim(pt(dw.xs[1]! * K, H), pt(dw.xs[1]! * K, H + lap), -4, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, row.dowels!.lap) })));
+  if (dw && lap > 0) {
+    const x = (dw.xs[1]! - dw.offset) * K, from = (dw.z + dw.crankAt) * K;
+    ps.push(dim(pt(x, from), pt(x, from + lap), -4, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, row.dowels!.lap) })));
+    if (dw.offset > 0) ps.push(label(pt(x, from - 40), o.tr('rcSheets.footFig.crank', { off: o.fmt(dw.offset * 100, 1) }), 2));
+  }
   const notes = [
     footingLabel(row.adopted),
     ...(row.adopted.dowels ? [`${o.tr('rcSheets.foot.dowels')}: ${row.adopted.dowels.count} Ø${row.adopted.dowels.dia}`] : []),

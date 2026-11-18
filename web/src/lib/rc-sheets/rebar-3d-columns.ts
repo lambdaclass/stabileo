@@ -2,7 +2,9 @@ import { confinedTies, type ColumnRow } from './column-row';
 import { columnLayout } from './column-layout';
 import { columnTieLayout, type ColumnTieLayout } from './column-ties';
 import { tiePaths, type TiePath } from './column-tie-path';
-import { columnBarPieces, columnDowel, columnStorey, crankedBars, hoop, tieAcross, type PieceOptions } from './schedule/pieces';
+import { hoop, tieAcross, type PieceOptions } from './schedule/pieces';
+import { columnBarPieces, columnDowel, columnStorey, storeyBars, storeyRun } from './column-run';
+import { inwardOf, lapOffset } from './column-stack';
 import { barOf, laid, type Frame, type Rebar3d } from './rebar-3d-geometry';
 import type { BendRules } from './shape';
 
@@ -16,31 +18,24 @@ const lapFrom = (l: ColumnTieLayout) => l.lap?.from ?? 0;
 export function columnBars3d(rows: readonly ColumnRow[], r: ColumnRow, f: Frame, o: PieceOptions, R: BendRules): Rebar3d[] {
   const out: Rebar3d[] = [];
   const base = { element: r.key, rows: [r.key], family: 'column' as const, ...(r.level !== undefined ? { level: r.level } : {}) };
-  const a = r.adopted, s = columnStorey(rows, r);
+  const a = r.adopted, s = columnStorey(rows, r), run = storeyRun(r, s, o.code);
   const layout = columnTieLayout(r, o.code, { endZones: o.endZones });
   const floor = (r.demand.joints?.bottom ?? 0) / 2;
-  const top = s.hooked
-    ? r.length + (r.demand.joints?.top ?? 0) / 2 - r.cover
-    : r.length + (s.up!.demand.joints?.bottom ?? 0) / 2 + lapFrom(columnTieLayout(s.up!, o.code, { endZones: o.endZones })) + (s.up!.lap?.length ?? 0);
-  const own = r.lap?.length ?? s.up?.lap?.length ?? 0;
-  const bars = s.cranked ? crankedBars(r, s.up!) : columnLayout(r, a, r.cover, r.aggregate).bars.map((bar) => ({ bar, e: 0, toward: inward(bar.x, bar.y) }));
-  for (const { bar, e, toward } of bars) {
-    const pieces = columnBarPieces(r, s, bar.dia, e, R).flatMap((pc) => Array.from({ length: pc.count }, () => pc));
-    const lengths = pieces.map((pc) => pc.shape.pts.reduce((m, p) => Math.max(m, p[0]), 0));
-    const run = lengths.reduce((t, l) => t + l, 0) - own * (pieces.length - 1);
-    let z = top - run;
-    pieces.forEach((pc, k) => {
-      const [dx, dy] = e > 1e-3 ? toward : inward(bar.x, bar.y);
+  for (const { bar, e, toward } of storeyBars(r, s)) {
+    const pieces = columnBarPieces(run, bar.dia, e, R).flatMap((pc) => Array.from({ length: pc.count }, () => pc));
+    let z = run.from;
+    for (const pc of pieces) {
+      const [dx, dy] = pc.kind === 'cranked' ? toward : inward(bar.x, bar.y);
       const z0 = z;
       out.push(barOf(pc.shape, laid(pc.shape, f, (u, v) => [bar.x + v * dx, bar.y + v * dy, z0 + u]), { ...base, kind: pc.kind, tone: 'column' }));
-      z += lengths[k]! - own;
-    });
+      z += pc.shape.pts.reduce((m, p) => Math.max(m, p[0]), 0) - run.own;
+    }
   }
   if (s.dowels) {
     const lap = r.lap?.length ?? 0, mid = floor + lapFrom(layout);
     for (const bar of columnLayout(r, a, r.cover, r.aggregate).bars) {
-      const shape = columnDowel(r, bar.dia, R);
-      out.push(barOf(shape, laid(shape, f, (u) => [bar.x, bar.y, mid - lap + u]), { ...base, kind: 'dowel', tone: 'dowel' }));
+      const shape = columnDowel(r, bar.dia, R), n = inwardOf(bar, r), c = lapOffset(bar.dia, bar.dia);
+      out.push(barOf(shape, laid(shape, f, (u) => [bar.x + c * n[0], bar.y + c * n[1], mid - lap + u]), { ...base, kind: 'dowel', tone: 'dowel' }));
     }
   }
   const t = a.tieDia, d = t / 1000;

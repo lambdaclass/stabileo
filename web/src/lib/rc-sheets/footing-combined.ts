@@ -3,7 +3,7 @@ import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
 import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, beyond, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
-import { MIN_D, leverOf, layersOf, type FootingRowCode } from './footing-design';
+import { MIN_D, dowelLap, dowelReach, leverOf, layersOf, type FootingDowelReading, type FootingRowCode } from './footing-design';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingDowels, FootingLayers, FootingMesh } from './footing-types';
 
 const EDITION = '2025' as const;
@@ -110,7 +110,7 @@ export interface CombinedAnalysis {
   bands: Array<{ width: number; mu: number; vu: number; asReq: number; asProvided: number; phiMn: number; phiVc: number }>;
   punching: Array<{ vu: number; phiVc: number; utilization: number; bo: number; position: string; combo: string }>;
   bearingStrength: Array<{ column: number; footing: number; root: number; pu: number }>;
-  dowels: Array<{ count: number; dia: number; area: number; required: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean } | null>;
+  dowels: Array<(FootingDowelReading & { area: number; required: number }) | null>;
   sMax: number;
   combos: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; ratio: number }>;
   closure: number;
@@ -209,7 +209,8 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
     const bars = i === 0 ? c.columnBars : c.second?.columnBars;
     const tension = bars?.tension ?? false, mat = { fc: c.fc, fy: c.fy };
     const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
-    return { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap: an.lap({ fc: (i === 0 ? c.columnFc : c.second?.columnFc) ?? c.fc, fy: c.fy }, dw.dia, tension), tension };
+    const lap = dowelLap(an, bars, { fc: (i === 0 ? c.columnFc : c.second?.columnFc) ?? c.fc, fy: c.fy }, dw.dia, tension);
+    return { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(bars, dw.dia, lever - a.h) };
   });
   const ratio = (u: number, cap: number) => (cap > 1e-9 ? u / cap : u > 1e-9 ? Infinity : 0);
   const combos = perCombo.map((k) => ({

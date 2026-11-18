@@ -43,8 +43,8 @@ export interface FootingColumn {
   storey?: number;
   /** A pier's section area, m², where `b` × `h` is only its box: what bears on the footing and what its dowels are read against. */
   area?: number;
-  /** A pier's vertical bars as the dowels repeat them: how many, the thickest, and whether any takes tension at the base. */
-  bars?: { count: number; dia: number; tension: boolean };
+  /** A pier's vertical bars as the dowels repeat them: how many, the thickest, whether any takes tension at the base, and where each dowel stands in plan with the way in it is cranked to lap beside its bar. */
+  bars?: { count: number; dia: number; tension: boolean; at?: Array<{ x: number; y: number; n: [number, number] }> };
   /** A pier's concrete, MPa. */
   fc?: number;
   /** The least steel across the joint where it is not 0,005·Ag (§16.3.4.1): a pier's, 0,005 of its columns' area and the walls' least vertical ratio over theirs (§16.3.4.2), cm². */
@@ -147,6 +147,9 @@ export interface FootingAdopted {
   straps?: Partial<Record<'x' | 'y', { b: number; h: number }>>;
 }
 
+/** The bars a footing's dowels repeat: how many, the thickest, whether any takes tension at the base, and the column's own lap with them, m, starting `lapFrom` over its foot. */
+export interface ColumnBarsAtBase { count: number; dia: number; tension: boolean; lap?: number; lapFrom?: number }
+
 export interface FootingContext {
   fc: number; fy: number;
   /** The Stabileo criteria in force; absent, their defaults. */
@@ -158,11 +161,18 @@ export interface FootingContext {
   diameters: readonly number[];
   preferred?: { x: number; y: number };
   /** The column's bars, as the dowels repeat them, and whether they take tension at the base. */
-  columnBars?: { count: number; dia: number; tension: boolean };
+  columnBars?: ColumnBarsAtBase;
   columnFc?: number;
   /** A combined footing's second column: its bars and concrete. */
-  second?: { columnBars?: { count: number; dia: number; tension: boolean }; columnFc?: number };
+  second?: { columnBars?: ColumnBarsAtBase; columnFc?: number };
 }
+
+/**
+ * A footing's dowels as its row reads them: how many and how thick, ldc against the room in the
+ * footing, and their lap with the column's bars, m, which starts `above` the footing's top (its
+ * pedestal and where the column's lap starts) and is reached by a crank in of `offset`, m.
+ */
+export interface FootingRowDowels { count: number; dia: number; ldc: number; available: number; lap: number; tension: boolean; above?: number; offset?: number }
 
 /** Which mesh lies lowest, the d of each, and where the short direction's band is. */
 export interface FootingLayers { lower: 'x' | 'y'; dx: number; dy: number; d: number }
@@ -206,7 +216,7 @@ export interface FootingRow {
   layers: FootingLayers;
   x: FootingDirection | null; y: FootingDirection | null;
   punching: { vu: number; phiVc: number; utilization: number; bo: number; position: 'interior' | 'edge' | 'corner' } | null;
-  dowels: { count: number; dia: number; ldc: number; available: number; lap: number; tension: boolean } | null;
+  dowels: FootingRowDowels | null;
   utilization: number;
   verifications: CheckLine[];
   combos: ComboTable;

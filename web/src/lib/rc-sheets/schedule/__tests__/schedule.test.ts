@@ -9,7 +9,7 @@ import { beamLine } from '../../beam-line';
 import { makeFmt } from '../../format';
 import { rulesFor } from '../../codes';
 import { assignMarks, scheduleOf, bendingSchedule, letterMark } from '../schedule';
-import { MAX_CRANK, crankOffsets, scheduleElements, stirrupsOver, wallGrid, type ScheduleElement } from '../pieces';
+import { MAX_CRANK, columnStorey, crankOffsets, scheduleElements, stirrupsOver, wallGrid, type ScheduleElement } from '../pieces';
 import { layerPositions } from '../../view-helpers';
 import { wallDetail, wallLevels } from '../../wall-detail';
 import { scheduleCsv, scheduleSheet, shapeText } from '../exports';
@@ -120,11 +120,15 @@ describe('pieces of each family', () => {
   };
   const R = rulesFor('cirsoc201-2025').bends;
 
-  it('a column storey laps its bars into the storey above, and the top storey hooks them into the slab', () => {
+  it('a column storey laps its bars into the storey above, cranked in one bar\'s diameter at 1:6 to stand beside its bars, and the top storey hooks them into the slab', () => {
     const { low, high, els } = stack(0.4);
-    const longLow = els[0]!.pieces.filter((p) => p.kind === 'column');
+    const longLow = els[0]!.pieces.filter((p) => p.kind === 'cranked');
+    expect(els[0]!.pieces.some((p) => p.kind === 'column')).toBe(false);
     expect(longLow.reduce((s, p) => s + p.count, 0)).toBe(4 + 2 * low.adopted.nx + 2 * low.adopted.ny);
-    expect(developedLength(longLow[0]!.shape)).toBeCloseTo(3 + high.lap!.length, 9);
+    for (const p of longLow) {
+      const e = p.shape.dia / 1000;
+      expect(p.shape.pts).toEqual([[0, 0], [expect.closeTo(3 - 6 * e, 9), 0], [3, expect.closeTo(e, 9)], [expect.closeTo(3 + high.lap!.length, 9), expect.closeTo(e, 9)]]);
+    }
     const top = els[1]!.pieces.find((p) => p.kind === 'column')!;
     expect(top.shape.pts).toHaveLength(3);
     expect(top.shape.pts[2]![1] - top.shape.pts[1]![1]).toBeCloseTo((top.shape.mandrel + top.shape.dia / 1000) / 2 + R.extension(top.shape.dia, 90, 'longitudinal'), 9);
@@ -152,11 +156,12 @@ describe('pieces of each family', () => {
     expect(ties).toBe(hoops * (row.checks.crossties.x + row.checks.crossties.y + 4));
   });
 
-  it('bars crank in where the faces above step in by 75 mm at most, each by how far it moves; past that they hook and dowels are lapped in', () => {
+  it('bars crank in where the faces above step in by less than 75 mm, each by how far it moves and one bar\'s diameter more; from there they hook and dowels are lapped in', () => {
     const cranked = stack(0.3);
     const pieces = cranked.els[0]!.pieces.filter((p) => p.kind === 'cranked');
-    const groups = crankOffsets(cranked.low, cranked.high);
-    expect(groups.find((g) => g.count === 4 && g.dia === cranked.low.adopted.corner)!.e).toBeCloseTo(Math.hypot(0.05, 0.05), 3);
+    const groups = crankOffsets(cranked.low, columnStorey([cranked.low, cranked.high], cranked.low));
+    const corner = cranked.low.adopted.corner;
+    expect(groups.find((g) => g.count === 4 && g.dia === corner)!.e).toBeCloseTo(Math.hypot(0.05, 0.05) + corner / 1000, 3);
     expect(pieces.reduce((s, p) => s + p.count, 0)).toBe(groups.reduce((s, g) => s + g.count, 0));
     for (const g of groups) {
       const want = crankedBar(3, g.e, cranked.high.lap!.length, g.dia, pieces[0]!.shape.mandrel);

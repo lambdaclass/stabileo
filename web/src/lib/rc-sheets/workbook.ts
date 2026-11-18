@@ -38,12 +38,12 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   }
   const columns: WorkbookSheet['rows'] = [head, [
     name, level, 'b (cm)', 'h (cm)', 'Pu (kN)', `ρ ${req} (%)`, `As ${req} (cm²)`,
-    tr('rcSheets.col.bars'), 'As (cm²)', tr('rcSheets.col.ties'), tr('rcSheets.col.crossties'), ratio, status,
+    tr('rcSheets.col.bars'), 'As (cm²)', tr('rcSheets.col.ties'), tr('rcSheets.col.crossties'), `${tr('rcSheets.elev.lap')} (cm)`, ratio, status,
   ]];
   for (const r of rows.column) {
-    if (r.pier) { columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), '—', '—', '—', `→ ${safeText(r.pier.name)}`, '—', '—', '—', r3(worst(r.verifications)), state(r.status)]); continue; }
+    if (r.pier) { columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), '—', '—', '—', `→ ${safeText(r.pier.name)}`, '—', '—', '—', '—', r3(worst(r.verifications)), state(r.status)]); continue; }
     columns.push([safeText(r.name), safeText(r.level ?? ''), cm(r.b), cm(r.h), r2(Math.max(0, ...r.demand.cases.map((c) => c.pu))), r2(r.req.rho * 100), r2(r.req.ast),
-      columnLabel(r.adopted), r2(r.checks.area), tieLabel(r.adopted), crosstiesText(r.checks.crossties), r3(worst(r.verifications)), state(r.status)]);
+      columnLabel(r.adopted), r2(r.checks.area), tieLabel(r.adopted), crosstiesText(r.checks.crossties), r.lap ? cm(r.lap.length) : '—', r3(worst(r.verifications)), state(r.status)]);
   }
   const slabs: WorkbookSheet['rows'] = [head, [
     name, level, 'h (cm)', 'Lx (m)', 'Ly (m)',
@@ -73,7 +73,7 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   const feet: WorkbookSheet['rows'] = [head, [name, level, 'B (cm)', 'L (cm)', 'h (cm)', 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.dowels'), ratio, status]];
   for (const r of rows.footing ?? []) {
     feet.push([safeText(r.name), safeText(r.level ?? ''), cm(r.B), cm(r.L), cm(r.h), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
-      meshText(r.adopted.x), meshText(r.adopted.y), r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}` : '—', r3(r.utilization), state(r.status)]);
+      meshText(r.adopted.x), meshText(r.adopted.y), r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—', r3(r.utilization), state(r.status)]);
   }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },

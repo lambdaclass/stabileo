@@ -179,7 +179,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
       bearing: r.bearing ? { qMax: r.bearing.qMax, qMin: r.bearing.qMin, qMean: r.bearing.qMean, contact: r.bearing.contact, allowable: r.bearing.allowable, edgeFactor: r.bearing.edgeFactor, weight: r.bearing.weight, ex: r.bearing.ex, ey: r.bearing.ey, overturns: r.bearing.overturns, ok: r.bearing.ok, utilization: r.bearing.use } : null,
       layers: r.layers, x: r.x, y: r.y,
       punching: r.punching ? { vu: r.punching.vu, phiVc: r.punching.phiVc, utilization: r.punching.utilization, bo: r.punching.bo, position: r.punching.position } : null,
-      dowels: r.dowels ? { count: r.dowels.count, dia: r.dowels.dia, ldc: Math.max(r.dowels.ldc, r.dowels.ldh), available: r.dowels.available, lap: r.dowels.lap, tension: r.dowels.tension } : null,
+      dowels: r.dowels ? { count: r.dowels.count, dia: r.dowels.dia, ldc: Math.max(r.dowels.ldc, r.dowels.ldh), available: r.dowels.available, lap: r.dowels.lap, tension: r.dowels.tension, above: r.dowels.above, offset: r.dowels.offset } : null,
       utilization: Math.max(0, ...ratios.filter(Number.isFinite)), verifications: v, combos: combosOf(r, fmt), status, generous: false,
       steps: footingSteps(d, c, r, a, code, fmt, prop, edge),
       ...(edge ? { edge } : {}),

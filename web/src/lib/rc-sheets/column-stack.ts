@@ -1,11 +1,14 @@
 /**
- * How a column storey's bars go on from the storey below: where its faces step in, the bars from
- * below are cranked into it at 1:6 or, past the offset the code allows a crank, stop and leave the
- * lap to separate dowels (ACI 318-19 and CIRSOC 201-2025 §10.7.4.1–10.7.4.2: 75 mm; the FIUBA notes
- * round it to 80 mm, §15.7, and the code in force prevails); and how long a lap between bars of two
- * sizes is.
+ * How a column storey's bars go on from the storey below: the bars from below (or a footing's
+ * dowels) are cranked in at 1:6 by one bar's diameter, so they lap in contact beside this storey's
+ * bars, which stand straight at the faces (§10.7.4.1, §25.5.1.3; FIUBA §11.5, §15.7, Fig. 7.8.1);
+ * where its faces step in, the crank takes the step as well or, past the offset the code allows a
+ * crank, the bars stop and leave the lap to separate dowels (ACI 318-19 and CIRSOC 201-2025
+ * §10.7.4.1–10.7.4.2: 75 mm; the FIUBA notes round it to 80 mm, §15.7, and the code in force
+ * prevails); and how long a lap between bars of two sizes is.
  */
 import { stackPattern, type ColumnRow, type StackPlace } from './column-row';
+import type { PlacedBar } from './column-layout';
 import type { Fmt } from './format';
 import { check, type CheckLine } from './types';
 
@@ -19,6 +22,18 @@ export interface StackStep {
   offset: number;
   /** Separate dowels instead of the bars from below cranked. */
   dowels: boolean;
+}
+
+/** How far a bar from below is cranked in to lap in contact beside the bar it meets, m: the larger bar's diameter, centre to centre. */
+export const lapOffset = (below: number, own: number): number => Math.max(below, own) / 1000;
+
+/** Which way a bar is cranked in to lap beside the one above, in the section's axes: a corner along its diagonal, a face bar square to its face, an inner bar square to the nearer face. */
+export function inwardOf(bar: Pick<PlacedBar, 'x' | 'y' | 'row'>, d: { b: number; h: number }): [number, number] {
+  const sx = bar.x < 0 ? 1 : -1, sy = bar.y < 0 ? 1 : -1;
+  if (bar.row === 'corner') return [sx / Math.SQRT2, sy / Math.SQRT2];
+  if (bar.row === 'b') return [0, sy];
+  if (bar.row === 'h') return [sx, 0];
+  return d.b / 2 - Math.abs(bar.x) <= d.h / 2 - Math.abs(bar.y) ? [sx, 0] : [0, sy];
 }
 
 /** The step the storey's faces make over the one below, none where they do not step in. */

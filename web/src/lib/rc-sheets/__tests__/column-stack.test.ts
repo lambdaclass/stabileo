@@ -75,16 +75,23 @@ describe('a storey whose faces step in', () => {
     }
   });
 
-  it('draws the bars from below cranked into the storey, the slope 1:6', () => {
+  it('draws the bars from below cranked into the storey, the slope 1:6, by the step and one bar\'s diameter in, and the footing\'s dowels under the bottom storey', () => {
     const below = columnRow(storey(0.4, 900, 20), ctx, undefined, f);
     const row = columnRow(storey(0.35, 700, 15), ctx, undefined, f, stackOver(below, { b: 0.35, h: 0.35 }));
-    const ps = columnElevationPrimitives(row, { scale: 25, fmt: f, tr: (k: string) => k, code: 'cirsoc201-2025', endZones: false, group: 'g' } as never);
-    const inclined = ps.filter((p) => p.kind === 'line' && p.layer.startsWith('ST-ARM-LONG') && Math.abs((p as { a: { x: number } }).a.x - (p as { b: { x: number } }).b.x) > 1);
-    expect(inclined.length).toBe(2);
-    for (const p of inclined as Array<{ a: { x: number; y: number }; b: { x: number; y: number } }>) {
-      expect(Math.abs(p.b.x - p.a.x)).toBeCloseTo(25, 6);
-      expect(Math.abs(p.b.y - p.a.y)).toBeCloseTo(150, 6);
+    const opts = { scale: 25, fmt: f, tr: (k: string) => k, code: 'cirsoc201-2025', endZones: false, group: 'g' } as never;
+    const inclinedOf = (r: typeof row) => columnElevationPrimitives(r, opts).filter((p) => p.kind === 'line' && p.layer.startsWith('ST-ARM-LONG') && Math.abs((p as { a: { x: number } }).a.x - (p as { b: { x: number } }).b.x) > 1) as Array<{ a: { x: number; y: number }; b: { x: number; y: number } }>;
+    const by = 25 + row.adopted.corner / Math.SQRT2;
+    expect(inclinedOf(row).length).toBe(2);
+    for (const p of inclinedOf(row)) {
+      expect(Math.abs(p.b.x - p.a.x)).toBeCloseTo(by, 6);
+      expect(Math.abs(p.b.y - p.a.y)).toBeCloseTo(6 * by, 6);
     }
+    const bottom = columnRow({ ...storey(0.4, 900, 20), joints: { bottom: 0, top: 0.5 } }, ctx, undefined, f, { fromBelow: true, onFooting: true });
+    expect(bottom.onFooting).toBe(true);
+    const labels = columnElevationPrimitives(bottom, opts).filter((p) => p.kind === 'text').map((p) => (p as { text: string }).text);
+    expect(labels).toContain('rcSheets.elev.footDowels');
+    for (const p of inclinedOf(bottom)) expect(Math.abs(p.b.y - p.a.y)).toBeCloseTo(6 * Math.abs(p.b.x - p.a.x), 6);
+    expect(inclinedOf(bottom).length).toBe(2);
   });
 });
 

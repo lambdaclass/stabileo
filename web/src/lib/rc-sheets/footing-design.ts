@@ -7,9 +7,10 @@ import {
   type FootingPlan, type FootingPunching, type ServiceBearing,
 } from './footing-mechanics';
 import { bandShare, isBanded, layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
-import type { FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh } from './footing-types';
+import type { ColumnBarsAtBase, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh } from './footing-types';
 import type { Materials } from './types';
 import { balanceOf, type Balance } from './footing-balance';
+import { lapOffset } from './column-stack';
 
 const EDITION = '2025' as const;
 
@@ -65,6 +66,17 @@ export function layersOf(a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'x' | 'y'>, c
   return { lower, dx, dy, d: (dx + dy) / 2 };
 }
 
+/** A column's dowels as read: ldc and ldh against the room in the footing, their lap with the column's bars and how they reach it (`FootingRowDowels`). */
+export interface FootingDowelReading { count: number; dia: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number }
+
+/** The dowels' lap with the column's bars, m: the column's own where its row gives it and the dowels are no thicker than its bars, else the code's for the dowel. */
+export const dowelLap = (an: FootingAnchorage, bars: ColumnBarsAtBase | undefined, mat: Materials, dia: number, tension: boolean): number =>
+  (bars?.lap !== undefined && dia <= bars.dia ? bars.lap : an.lap(mat, dia, tension));
+
+/** Where the dowels' lap starts over the footing's top (its pedestal `stub`, m, and where the column's lap starts), and how far they are cranked in to lap beside its bars: one bar's diameter. */
+export const dowelReach = (bars: ColumnBarsAtBase | undefined, dia: number, stub: number): { above: number; offset: number } =>
+  ({ above: Math.max(0, stub) + (bars?.lapFrom ?? 0), offset: lapOffset(dia, bars?.dia ?? dia) });
+
 export interface ComboReading { combo: string; N: number; mx: number; my: number; qMax: number; ratio: number }
 
 export interface FootingAnalysis {
@@ -76,7 +88,7 @@ export interface FootingAnalysis {
   x: FootingDirection; y: FootingDirection;
   punching: (FootingPunching & { combo: string }) | null;
   bearingStrength: { column: number; footing: number; root: number; pu: number };
-  dowels: { count: number; dia: number; area: number; required: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean } | null;
+  dowels: (FootingDowelReading & { area: number; required: number }) | null;
   sMax: number;
   combos: ComboReading[];
 }
@@ -155,8 +167,8 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
     const tension = c.columnBars?.tension ?? false;
     const mat = { fc: c.fc, fy: c.fy };
     const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
-    const lap = an.lap({ fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
-    dowels = { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension };
+    const lap = dowelLap(an, c.columnBars, { fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
+    dowels = { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(c.columnBars, dw.dia, lever - a.h) };
   }
   return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: slabProvisions(EDITION, c.fy, a.h).sTwoWay, combos };
 }

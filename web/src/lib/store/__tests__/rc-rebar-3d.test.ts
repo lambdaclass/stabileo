@@ -101,6 +101,58 @@ function footingsInside(rows: SheetRows, bars: readonly Rebar3d[]): number {
   return checked;
 }
 
+const topLeg = (b: Rebar3d): [V3, V3] => { const l = b.segments.at(-1)!; return [l.at(-2)!, l.at(-1)!]; };
+const bottomOf = (b: Rebar3d): V3 => b.segments[0]![0]!;
+
+/**
+ * Every storey lapped from below (the footing's dowels at the bottom one) gets, beside each of its
+ * bars, a bar from below whose last leg stands straight beside it, in contact a bar's diameter in,
+ * over the storey's whole lap: no gap between them, and no two bars in one place.
+ */
+function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): { storeys: number; footings: number } {
+  const frames = modelFrames(rows);
+  let storeys = 0, footings = 0;
+  for (const r of rows.column.filter((c) => c.lap && !c.pier && !c.step?.dowels)) {
+    const f = frames.column(r)!, [, g, k] = r.key.split(':');
+    const footing = rows.footing.find((x) => x.demand.column?.rowKey === r.key);
+    const from = r.onFooting ? (footing ? of(bars, footing.key).filter((b) => b.kind === 'dowel') : []) : of(bars, `column:${g}:${Number(k) - 1}`).filter((b) => b.kind === 'cranked');
+    if (r.onFooting && !footing) continue;
+    const giving = from.map((b) => { const [p, q] = topLeg(b).map((x) => local(f, x)); return { p: p!, q: q!, dia: b.dia }; });
+    const own = of(bars, r.key).filter((b) => b.tone === 'column');
+    const firsts = new Map<string, V3>();
+    for (const b of own) { const p = local(f, bottomOf(b)), key = `${p[0].toFixed(3)}|${p[1].toFixed(3)}`; if (!firsts.has(key) || firsts.get(key)![2] > p[2]) firsts.set(key, p); }
+    expect(giving.length, r.name).toBe(firsts.size);
+    for (const p of firsts.values()) {
+      const near = giving.map((x) => ({ ...x, d: Math.hypot(x.q[0] - p[0], x.q[1] - p[1]) })).sort((a, b) => a.d - b.d)[0]!;
+      expect(Math.abs(near.p[0] - near.q[0]) + Math.abs(near.p[1] - near.q[1]), `${r.name} upright`).toBeLessThan(1e-6);
+      expect(near.d, `${r.name} beside`).toBeGreaterThan(0.008);
+      expect(near.d, `${r.name} beside`).toBeLessThan(0.033);
+      expect(Math.min(near.q[2], near.p[2] + 1e9) - Math.max(near.p[2], p[2]), `${r.name} ${r.level} lap`).toBeGreaterThanOrEqual(r.lap!.length - 1e-3);
+    }
+    if (r.onFooting) footings++; else storeys++;
+  }
+  return { storeys, footings };
+}
+
+/** Each dowel of a pier's footing stands, over its lap, beside a bar of the pier's bottom storey, a wall's or a column zone's. */
+function pierDowelsBeside(rows: SheetRows, bars: readonly Rebar3d[]): number {
+  let checked = 0;
+  for (const r of rows.footing.filter((x) => x.demand.pier && x.dowels)) {
+    const pier = r.demand.pier!, lap = r.dowels!.lap;
+    const keys = new Set([...pier.walls, ...rows.column.filter((c) => c.pier && pier.nodes.includes(c.demand.nodes?.bottom ?? -1)).map((c) => c.key)]);
+    const standing = bars.filter((b) => keys.has(b.element) && (b.tone === 'column' || b.kind === 'vertical' || b.kind === 'boundary')).map((b) => bottomOf(b));
+    for (const d of of(bars, r.key).filter((b) => b.kind === 'dowel')) {
+      const [p, q] = topLeg(d);
+      const near = standing.map((x) => ({ x, d: Math.hypot(x[0] - q[0], x[1] - q[1]) })).sort((a, b) => a.d - b.d)[0]!;
+      expect(near.d, `${r.name} beside`).toBeGreaterThan(0.008);
+      expect(near.d, `${r.name} beside`).toBeLessThan(0.033);
+      expect(q[2] - Math.max(p[2], near.x[2]), `${r.name} lap`).toBeGreaterThanOrEqual(lap - 1e-3);
+      checked++;
+    }
+  }
+  return checked;
+}
+
 const across = (b: Rebar3d, i: 0 | 1 | 2) => b.segments[0]![0]![i];
 
 function spacingsHold(rows: SheetRows, bars: readonly Rebar3d[]): number {
@@ -144,6 +196,10 @@ describe('the sheets\' bars in 3D', () => {
     expect(wallsInside(rows, bars)).toBeGreaterThan(100);
     expect(footingsInside(rows, bars)).toBeGreaterThan(100);
     expect(spacingsHold(rows, bars)).toBeGreaterThan(1000);
+    const laps = lapsBeside(rows, bars);
+    expect(laps.footings).toBeGreaterThanOrEqual(11);
+    expect(laps.storeys).toBeGreaterThanOrEqual(60);
+    expect(pierDowelsBeside(rows, bars)).toBeGreaterThan(10);
 
     const panel = rows.slab.find((r) => r.name === 'L1') ?? rows.slab[0]!;
     const col = rows.column[0]!;
@@ -176,6 +232,7 @@ describe('the sheets\' bars in 3D', () => {
     expect(columnsInside(rows, bars)).toBeGreaterThan(100);
     expect(footingsInside(rows, bars)).toBeGreaterThan(10);
     expect(spacingsHold(rows, bars)).toBeGreaterThan(100);
+    expect(lapsBeside(rows, bars).footings).toBeGreaterThan(0);
     const line = rows.line[0]!;
     const la: LineAdopted = { ...line.adopted, bottom: { dia: 20, count: 3 } };
     setAdopted(line.key, la);

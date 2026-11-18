@@ -2,14 +2,16 @@
  * Every bar the sheets place, element by element, as the piece a bender makes: its shape and how
  * many an element takes. Beams give their line bars as laid out, the stirrups of each zone and the
  * closed stirrups that hang an end bearing on another beam (placed in that beam);
- * columns their bars per storey (lapped into the storey above, cranked where its faces step in by
- * 75 mm at most, hooked into the slab at the top or where they step in more, and dowels then),
+ * columns their bars per storey as `column-run.ts` runs them (cranked into the storey above to lap
+ * beside its bars, hooked into the slab at the top or where the faces step in 75 mm or more, and
+ * dowels then),
  * their hoops and cross ties (the inner row's too); slabs each layer's bars; walls their verticals, horizontals, edge
  * U-bars, boundary hoops and cross ties. Mandrels and hooks are the code's (`BendRules`).
  */
 import type { LineBar, LineLayout } from '../beam-line';
 import { innerCrossties, type ColumnRow } from '../column-row';
-import { columnLayout, type PlacedBar } from '../column-layout';
+import { CRANK_LIMIT } from '../column-stack';
+import { STOCK, above, columnBarPieces, columnDowel, columnStorey, stockPieces, storeyBars, storeyRun, straightBar, type ColumnStorey } from '../column-run';
 import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { SLAB_FACES, type SlabFace, type SlabRow } from '../slab-row';
 import { layerPositions } from '../view-helpers';
@@ -19,7 +21,7 @@ import type { WallRow } from '../wall-row';
 import type { FootingRow, StrapResult } from '../footing-types';
 import { footingDetail } from '../footing-detail';
 import { rulesFor } from '../codes';
-import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
+import { closedHoop, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
@@ -45,10 +47,8 @@ export interface PieceOptions {
   endZones?: boolean;
 }
 
-/** The largest offset a column bar is cranked through (§10.7.4.1; the same practice elsewhere), m. */
-export const MAX_CRANK = 0.075;
-
-const STOCK = 12;
+/** The largest offset of a column's faces its bars are cranked through (§10.7.4.1; the same practice elsewhere), m. */
+export const MAX_CRANK = CRANK_LIMIT;
 
 /** Bars at a spacing over a length, both ends included, never farther apart than the spacing. */
 export const spread = (length: number, spacing: number): number => (spacing > 0 ? Math.max(2, Math.ceil(length / spacing - 1e-9) + 1) : 0);
@@ -74,27 +74,9 @@ export const hoop = (w: number, h: number, dia: number, R: BendRules): Piece['sh
 export const tieAcross = (len: number, dia: number, R: BendRules): BarShape =>
   crossTie(len, dia, R.mandrel(dia, 'transverse'), R.crossTieHooks, [R.extension(dia, R.crossTieHooks[0], 'transverse'), R.extension(dia, R.crossTieHooks[1], 'transverse')]);
 
-const topHooked = (length: number, dia: number, R: BendRules): BarShape =>
-  hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, true], 1, R.extension(dia, 90, 'longitudinal'));
+const straight = straightBar;
 
-const straight = (length: number, dia: number, R: BendRules): BarShape =>
-  hookedStraight(0, length, 0, dia, R.mandrel(dia, 'longitudinal'), [false, false], 1, 0);
-
-/**
- * A vertical bar over `length`, hooked into the slab at its top when `hooked`, as the pieces a
- * bender cuts: one when it fits a stock bar, else as few equal pieces as fit, each lapped `lap` onto
- * the next.
- */
-export function stockPieces(length: number, lap: number, dia: number, R: BendRules, hooked: boolean): Array<{ shape: BarShape; count: number }> {
-  const whole = hooked ? topHooked(length, dia, R) : straight(length, dia, R);
-  if (developedLength(whole) <= STOCK + 1e-9 || lap >= STOCK / 2) return [{ shape: whole, count: 1 }];
-  const hookExtra = developedLength(whole) - length;
-  let n = 2;
-  while ((length + (n - 1) * lap) / n + hookExtra > STOCK + 1e-9 && n < 20) n++;
-  const piece = (length + (n - 1) * lap) / n;
-  if (!hooked) return [{ shape: straight(piece, dia, R), count: n }];
-  return [{ shape: straight(piece, dia, R), count: n - 1 }, { shape: topHooked(piece, dia, R), count: 1 }];
-}
+export { stockPieces, columnStorey, columnDowel };
 
 /** A bar longer than a stock bar, lapped `lap` m where it is cut: into as few pieces as fit a stock bar, laps and all. */
 export function lapped(shape: BarShape, lap: number): BarShape {
@@ -131,21 +113,6 @@ function linePieces(line: LineLayout, R: BendRules): ScheduleElement {
   return { key: line.key, name: line.name, level: line.level, family: 'beam', pieces: [...bars, ...stirrupPieces(line, R)] };
 }
 
-const stackOf = (key: string) => {
-  const [, g, k] = key.split(':');
-  return { group: g ?? key, index: Number(k ?? 0) };
-};
-
-function above<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
-  const me = stackOf(row.key);
-  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index + 1; });
-}
-
-function below<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
-  const me = stackOf(row.key);
-  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index - 1; });
-}
-
 const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
   const a = r.adopted, m = new Map<number, number>();
   const add = (dia: number, n: number) => { if (n > 0 && dia > 0) m.set(dia, (m.get(dia) ?? 0) + n); };
@@ -154,25 +121,13 @@ const columnDias = (r: ColumnRow): Array<{ dia: number; count: number }> => {
   return [...m].map(([dia, count]) => ({ dia, count }));
 };
 
-const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, (r.h - up.h) / 2);
-
-export function crankedBars(r: ColumnRow, up: ColumnRow): Array<{ bar: PlacedBar; e: number; toward: [number, number] }> {
-  const ex = Math.max(0, (r.b - up.b) / 2), ey = Math.max(0, (r.h - up.h) / 2), a = r.adopted;
-  const xc = r.b / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000, yc = r.h / 2 - r.cover - a.tieDia / 1000 - a.corner / 2000;
-  return columnLayout(r, a, r.cover, r.aggregate).bars.map((bar) => {
-    const dx = -(bar.x / Math.max(xc, 1e-9)) * ex, dy = -(bar.y / Math.max(yc, 1e-9)) * ey, l = Math.hypot(dx, dy);
-    return { bar, e: Math.round(l * 1000) / 1000, toward: l > 1e-12 ? [dx / l, dy / l] : [0, 0] };
-  });
-}
-
 /**
- * How far each bar of a storey moves to reach the storey above, faces stepping in about its centre:
- * a corner bar along both, a face bar across its face and along it in proportion. By diameter and
- * distance, to the millimetre.
+ * How far each bar of a storey is cranked into the storey above (the step of the faces and one
+ * bar's diameter in, `storeyBars`), by diameter and distance to the millimetre.
  */
-export function crankOffsets(r: ColumnRow, up: ColumnRow): Array<{ dia: number; e: number; count: number }> {
+export function crankOffsets(r: ColumnRow, s: ColumnStorey): Array<{ dia: number; e: number; count: number }> {
   const out = new Map<string, { dia: number; e: number; count: number }>();
-  for (const { bar: p, e } of crankedBars(r, up)) {
+  for (const { bar: p, e } of storeyBars(r, s)) {
     const k = `${p.dia}|${e}`;
     const g = out.get(k) ?? { dia: p.dia, e, count: 0 };
     g.count++;
@@ -181,29 +136,12 @@ export function crankOffsets(r: ColumnRow, up: ColumnRow): Array<{ dia: number; 
   return [...out.values()];
 }
 
-export function columnStorey(rows: readonly ColumnRow[], r: ColumnRow): { up?: ColumnRow; e: number; cranked: boolean; hooked: boolean; dowels: boolean } {
-  const up = above(rows, r), down = below(rows, r);
-  const e = up ? offsetTo(r, up) : 0;
-  return { up, e, cranked: !!up && e > 1e-3 && e <= MAX_CRANK, hooked: !up || e > MAX_CRANK, dowels: !!down && offsetTo(down, r) > MAX_CRANK };
-}
-
-export function columnBarPieces(r: ColumnRow, s: ReturnType<typeof columnStorey>, dia: number, eBar: number, R: BendRules): Array<{ kind: 'column' | 'cranked'; shape: BarShape; count: number }> {
-  const H = r.length, own = r.lap?.length ?? s.up?.lap?.length ?? 0;
-  const column = (length: number, hooked: boolean) => stockPieces(length, own, dia, R, hooked).map((pc) => ({ kind: 'column' as const, ...pc }));
-  if (s.hooked) return column(H - r.cover, true);
-  const lap = s.up!.lap?.length ?? 0;
-  if (eBar > 1e-3) return [{ kind: 'cranked', count: 1, shape: crankedBar(H, eBar, lap, dia, R.mandrel(dia, 'longitudinal')) }];
-  return column(H + lap, false);
-}
-
-export const columnDowel = (r: ColumnRow, dia: number, R: BendRules): BarShape => straight(2 * (r.lap?.length ?? 0), dia, R);
-
 function columnPieces(rows: readonly ColumnRow[], r: ColumnRow, o: PieceOptions, R: BendRules): ScheduleElement {
   const pieces: Piece[] = [];
-  const s = columnStorey(rows, r);
-  const groups = s.cranked ? crankOffsets(r, s.up!) : columnDias(r).map((g) => ({ ...g, e: 0 }));
+  const s = columnStorey(rows, r), run = storeyRun(r, s, o.code);
+  const groups = s.cranked ? crankOffsets(r, s) : columnDias(r).map((g) => ({ ...g, e: 0 }));
   for (const { dia, count, e: eBar } of groups) {
-    for (const pc of columnBarPieces(r, s, dia, eBar, R)) pieces.push({ kind: pc.kind, count: count * pc.count, shape: pc.shape });
+    for (const pc of columnBarPieces(run, dia, eBar, R)) pieces.push({ kind: pc.kind, count: count * pc.count, shape: pc.shape });
   }
   if (s.dowels) for (const { dia, count } of columnDias(r)) pieces.push({ kind: 'dowel', count, shape: columnDowel(r, dia, R) });
   const t = r.adopted.tieDia, d = t / 1000;

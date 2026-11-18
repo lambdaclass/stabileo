@@ -125,6 +125,7 @@ const columnBarsOf = (d: FootingDemand, columns: readonly ColumnRow[]): FootingC
   return a && col ? {
     count: 4 + 2 * a.nx + 2 * a.ny + (a.inner ? 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny) : 0),
     dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: col.req.barsTension ?? !col.req.compressionDominated,
+    ...(col.lap ? { lap: col.lap.length, lapFrom: (col.demand.joints?.bottom ?? 0) / 2 + (col.lap.from ?? 0) } : {}),
   } : undefined;
 };
 

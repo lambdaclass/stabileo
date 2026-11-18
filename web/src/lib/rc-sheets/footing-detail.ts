@@ -1,4 +1,5 @@
 import { hookedStraight, type BarShape, type BendRules } from './shape';
+import { CRANK_SLOPE } from './column-stack';
 import { meshSpan, type MeshSpan } from './footing-mesh';
 import type { FootingRow } from './footing-types';
 
@@ -28,14 +29,18 @@ export interface FootingDetail {
   lines: Array<{ axis: 'x' | 'y'; at: number }>;
   /** Each strap beam over the footing: its plan from the column to past the footing's edge toward its partner, m, and the partner's name. */
   straps: Array<{ axis: 'x' | 'y'; rect: Rect; b: number; h: number; toward: 1 | -1; partner: string; name: string }>;
-  /** One dowel as bent, how many, and where the section along X cuts them, m from the centroid. */
-  dowels: { count: number; dia: number; shape: BarShape; foot: number; rise: number; z: number; xs: number[] } | null;
+  /**
+   * One dowel as bent, how many, and where the section along X cuts them, m from the centroid: its
+   * foot out along the mesh at `z`, up `rise`, cranked in `offset` at 1:6 to end at `crankAt` over
+   * `z`, where the lap with the column's bars starts. Its shape's first axis points out of the column.
+   */
+  dowels: { count: number; dia: number; shape: BarShape; foot: number; rise: number; z: number; offset: number; crankAt: number; xs: number[] } | null;
 }
 
 /** A column's longitudinal bars sit about this far inside its faces, m: where the section draws the dowels. */
 const DOWEL_INSET = 0.05;
 
-/** The footing's bars as they are placed: the lower layer on the cover, the other on it; the dowels standing on both with a foot along X. */
+/** The footing's bars as they are placed: the lower layer on the cover, the other on it; the dowels standing on both with a foot out of the column, cranked in to lap beside its bars. */
 export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers' | 'x' | 'y' | 'demand' | 'dowels' | 'edge' | 'combined'>, R: BendRules): FootingDetail {
   const a = r.adopted, c = r.cover;
   const lowerDia = (r.layers.lower === 'x' ? a.x.dia : a.y.dia) / 1000;
@@ -60,9 +65,10 @@ export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers'
   if (column && dw && dw.count > 0 && dw.dia > 0) {
     const db = dw.dia / 1000, z = c + (a.x.dia + a.y.dia) / 1000 + db / 2;
     const foot = Math.max(0.15, R.extension(dw.dia, 90, 'longitudinal') + R.mandrel(dw.dia, 'longitudinal') / 2 + db);
-    const rise = a.h - z + (r.dowels?.lap ?? 0);
-    const shape: BarShape = { pts: [[foot, 0], [0, 0], [0, rise]], mandrel: R.mandrel(dw.dia, 'longitudinal'), dia: dw.dia };
-    dowels = { count: dw.count, dia: dw.dia, shape, foot, rise, z, xs: [column.x0 + DOWEL_INSET, column.x1 - DOWEL_INSET] };
+    const offset = r.dowels?.offset ?? 0, crankAt = a.h - z + (r.dowels?.above ?? 0), rise = crankAt + (r.dowels?.lap ?? 0);
+    const bend = Math.max(db, crankAt - offset / CRANK_SLOPE);
+    const pts: Array<[number, number]> = offset > 1e-6 ? [[foot, 0], [0, 0], [0, bend], [-offset, crankAt], [-offset, rise]] : [[foot, 0], [0, 0], [0, rise]];
+    dowels = { count: dw.count, dia: dw.dia, shape: { pts, mandrel: R.mandrel(dw.dia, 'longitudinal'), dia: dw.dia }, foot, rise, z, offset, crankAt, xs: [column.x0 + DOWEL_INSET, column.x1 - DOWEL_INSET] };
   }
   const o = r.demand.carried;
   const second = o?.column ? { x0: o.at.x - r.demand.at.x - a.ex - o.column.b / 2, x1: o.at.x - r.demand.at.x - a.ex + o.column.b / 2, y0: o.at.y - r.demand.at.y - a.ey - o.column.h / 2, y1: o.at.y - r.demand.at.y - a.ey + o.column.h / 2 } : null;

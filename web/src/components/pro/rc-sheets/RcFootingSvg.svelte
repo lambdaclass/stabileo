@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, i18n } from '../../../lib/i18n';
+  import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { footingDetail } from '../../../lib/rc-sheets/footing-detail';
   import { meshText } from '../../../lib/rc-sheets/footing-mesh';
@@ -24,7 +24,7 @@
   const planW = $derived(2 * PAD + (box.x1 - box.x0) * k), planH = $derived(2 * PAD + (box.y1 - box.y0) * k);
 
   const lap = $derived(row.dowels?.lap ?? 0);
-  const above = $derived(Math.max(0.3, lap + 0.1));
+  const above = $derived(Math.max(0.3, (det.dowels ? det.dowels.z + det.dowels.rise - det.h : lap) + 0.1));
   const ks = $derived(Math.min(k, (SIZE - 2 * PAD) / (det.h + above)));
   const SX = (x: number) => PAD + (x + det.B / 2) * ks;
   const SZ = (z: number) => PAD + (det.h + above - z) * ks;
@@ -108,9 +108,9 @@
         {@const dw = det.dowels}
         {#each dw.xs as x, i (i)}
           {@const s = i === 0 ? -1 : 1}
-          <polyline points="{SX(x + s * dw.foot)},{SZ(dw.z)} {SX(x)},{SZ(dw.z)} {SX(x)},{SZ(dw.z + dw.rise)}" class="bar dowel" data-testid="rc-footing-dowel" />
+          <polyline points={dw.shape.pts.map(([u, v]) => `${SX(x + s * u)},${SZ(dw.z + v)}`).join(' ')} class="bar dowel" data-testid="rc-footing-dowel" />
         {/each}
-        <text x={SX(dw.xs[1]!) + 4} y={SZ(det.h + lap / 2)} class="lbl small left">{dw.count} Ø{dw.dia} · {cm(lap)}</text>
+        <text x={SX(dw.xs[1]!) + 4} y={SZ(dw.z + dw.crankAt + lap / 2)} class="lbl small left">{dw.count} Ø{dw.dia} · {cm(lap)}{dw.offset > 0 ? ` · ${tp('rcSheets.footFig.crank', { off: fmt(dw.offset * 100, 1) })}` : ''}</text>
       {/if}
       <text x={SX(-det.B / 2) - 4} y={SZ(det.h / 2)} class="lbl small right">h {cm(det.h)}</text>
       <text x={SX(det.B / 2) + 2} y={SZ(0) - 2} class="lbl small left">c {fmt(det.cover * 100, 1)}</text>

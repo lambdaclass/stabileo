@@ -36,7 +36,7 @@ import { setRowClearFactor } from '../rc-sheets/column-layout';
 import { CRITERIA, criteriaKey, criteriaOf, readCriteria, type CriterionId } from '../rc-sheets/criteria';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import { lineRowStatus, type LineAdopted, type LineLayout } from '../rc-sheets/beam-line';
-import type { ColumnRow } from '../rc-sheets/column-row';
+import type { ColumnRow, StackPlace } from '../rc-sheets/column-row';
 import { stackOver } from '../rc-sheets/column-stack';
 import { wallStacks } from '../rc-sheets/wall-stack';
 import type { SlabRow } from '../rc-sheets/slab-row';
@@ -552,13 +552,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
+  const onFooting = new Set(feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k));
   const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
-    const stack = prev ? stackOver(prev, d) : {};
+    const stack: StackPlace = prev ? stackOver(prev, d) : onFooting.has(d.key) ? { fromBelow: true, onFooting: true } : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
     rowFc.set(d.key, ctx.mat.fc);
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withFc(ctx, o), undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
