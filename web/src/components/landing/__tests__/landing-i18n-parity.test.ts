@@ -143,11 +143,19 @@ describe('public landing i18n', () => {
       expect(publicKeys.length).toBeGreaterThan(100);
     });
 
+    function expectSameFigures(locale: string) {
+      const d = dictFor(locale) as Record<string, string>;
+      const wrong = publicKeys.filter((k) => k in d && String(numbers(d[k])) !== String(numbers(enDict[k])));
+      expect(wrong.map((k) => `${k}: en ${numbers(enDict[k])} vs ${locale} ${numbers(d[k])}`)).toEqual([]);
+    }
+
+    it.skip('known wrong result: #2286 — Hungarian figure parity runs independently of the research switch', () => {
+      expectSameFigures('hu');
+    });
+
     for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'en')) {
       it(`${locale} quotes the same figures as English`, () => {
-        const d = dictFor(locale) as Record<string, string>;
-        const wrong = publicKeys.filter((k) => k in d && String(numbers(d[k])) !== String(numbers(enDict[k])));
-        expect(wrong.map((k) => `${k}: en ${numbers(enDict[k])} vs ${locale} ${numbers(d[k])}`)).toEqual([]);
+        expectSameFigures(locale);
       });
 
       it(`${locale} names the same standards and formats as English`, () => {
