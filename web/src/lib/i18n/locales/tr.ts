@@ -7532,6 +7532,7 @@ const tr: Translations = {
   'loadPlan.blocked.seismicMass.mode': "Modal çözücü deprem modunu veya fiziksel kütle dağılımını temsil edemiyor.",
   'loadPlan.blocked.seismicMass.bendingRelease': "Şu kütle taşıyan elemanlarda eğilme mafsalı bulunduğu için modal deprem yükleri oluşturulamıyor: {members}.",
   'loadPlan.blocked.modalBaseShear': "Hesaba katılan modlar {dir} doğrultusunda gerekli asgari taban kesme kuvvetine ulaşacak şekilde ölçeklenemiyor. Modelin mesnet koşullarını ve modal katılımı kontrol edin.",
+  'loadPlan.blocked.modalDiagonal': "Modal deprem yükü üretimi 45° doğrultusunu desteklemez. Modal yöntemi kullanmak için bu doğrultunun seçimini kaldırın.",
   'loadPlan.blocked.seismicMass.weight': "{elevation} m kotunda deprem yükü reddedildi. Bir kütle veya kat kuvveti geçersiz.",
   'loadPlan.blocked.seismicNoR': 'Tablo 5.1, “{system}” için davranış katsayısı R vermiyor. Satır 1 bir değer yerine perde yerleşimine dayalı bir ifade verir; eksik olan diğer her satır tanımlanmamış bir sistemdir. Spektrumu bölecek bir değer yok.',
   'loadPlan.blocked.roleUnusable': '“{role}” rolü ({name}) kullanılamıyor: bir yönetmelik seçin ve ayarlarını tamamlayın.',

@@ -13,14 +13,15 @@ type Case = {
   eccentricity: number;
 };
 
-interface SeismicCasesInput {
-  levels: readonly SeismicLevel[];
-  forcesX: readonly number[];
-  forcesY: readonly number[];
+export type SeismicCaseLoading = { levels: readonly SeismicLevel[] } & (
+  | { method: 'static'; forces: readonly number[]; diagonal?: boolean }
+  | { method: 'modal'; forcesX: readonly number[]; forcesY: readonly number[] }
+);
+
+type SeismicCasesInput = SeismicCaseLoading & {
   directions: { x: boolean; y: boolean };
   torsion?: TorsionalIrregularity;
-  diagonal?: boolean;
-}
+};
 
 type MemberLoad = Omit<PlannedDistributed, 'caseType' | 'caseIndex'>;
 type ShellLoad = Omit<PlannedSurface, 'caseType' | 'caseIndex'>;
@@ -93,17 +94,18 @@ export function seismicCases(i: SeismicCasesInput, refuse: (level: SeismicLevel,
   const cases: Case[] = [];
   for (const axis of ['X', 'Y'] as const) {
     if (!(axis === 'X' ? i.directions.x : i.directions.y)) continue;
-    const force: Case['force'] = k => axis === 'X' ? [i.forcesX[k]!, 0] : [0, i.forcesY[k]!];
+    const forces = i.method === 'static' ? i.forces : axis === 'X' ? i.forcesX : i.forcesY;
+    const force: Case['force'] = k => axis === 'X' ? [forces[k]!, 0] : [0, forces[k]!];
     for (const sign of e > 0 ? [1, -1] : [0]) {
       cases.push(sign === 0
         ? { nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: axis }, axis, force, eccentricity: 0 }
         : { nameKey: 'autoLoad.seismicCaseEcc', nameParams: { dir: axis, sign: sign > 0 ? '+' : '−', e: Math.round(e * 100) }, axis, force, eccentricity: sign * e });
     }
   }
-  if (i.diagonal) cases.push({
+  if (i.method === 'static' && i.diagonal) cases.push({
     nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: '45°' }, axis: 'diagonal', eccentricity: 0,
     force: k => {
-      const f = Math.max(Math.abs(i.forcesX[k]!), Math.abs(i.forcesY[k]!)) / Math.SQRT2;
+      const f = Math.abs(i.forces[k]!) / Math.SQRT2;
       return [f, f];
     },
   });

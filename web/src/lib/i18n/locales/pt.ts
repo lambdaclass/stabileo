@@ -4342,6 +4342,7 @@ const pt: Translations = {
   'loadPlan.blocked.seismicMass.mode': "O solver modal não consegue representar o modo sísmico ou sua distribuição física de massa.",
   'loadPlan.blocked.seismicMass.bendingRelease': "A geração de cargas sísmicas modais está indisponível porque estes elementos portadores de massa têm liberações à flexão: {members}.",
   'loadPlan.blocked.modalBaseShear': "Os modos retidos não podem ser escalados para atingir a força cortante basal mínima exigida na direção {dir}. Verifique as restrições do modelo e a participação modal.",
+  'loadPlan.blocked.modalDiagonal': "A geração de cargas sísmicas modais não é compatível com a direção de 45°. Desmarque essa direção para usar o método modal.",
   'loadPlan.blocked.seismicMass.weight': "A carga sísmica a {elevation} m foi recusada. Uma massa física ou força de pavimento é inválida.",
   'loadPlan.blocked.seismicNoR': 'A Tabela 5.1 não dá fator de redução R para "{system}". A linha 1 imprime uma expressão sobre a disposição das paredes em vez de um valor; qualquer outra linha ausente é um sistema não identificado. Não há por que dividir o espectro.',
   'loadPlan.assumption.liveParticipation': 'A fração de sobrecarga incluída no peso sísmico foi adotada como {fraction}. Depende do uso da construção e o projeto não a indica.',

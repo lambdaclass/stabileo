@@ -733,9 +733,8 @@ function diagonalModalFixture() {
   return { model, code, modal: { modes: [mode] } };
 }
 
-const diagonalRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
 for (const withAxes of [false, true]) {
-  diagonalRegression(`known wrong result: #2316 a sign-changing modal mode refuses the 45° case (axes selected: ${withAxes})`, () => {
+  it(`#2316 a sign-changing modal mode refuses the 45° case (axes selected: ${withAxes})`, () => {
     const { model, ...seismic } = diagonalModalFixture();
     const plan = buildLoadPlan(request(model, {
       ...seismic, directions: { x: withAxes, y: withAxes }, diagonal: true,
@@ -747,3 +746,31 @@ for (const withAxes of [false, true]) {
     expect(plan.combinations).toEqual([]);
   });
 }
+
+it('#2316 the X and Y modal cases keep the signed story forces', () => {
+  const { model, ...seismic } = diagonalModalFixture();
+  const plan = buildLoadPlan(request(model, { ...seismic, directions: { x: true, y: true } }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.cases.filter(c => c.type === 'E').map(c => c.nameParams?.dir)).toEqual(['X', 'Y']);
+  for (const [dir, component] of [['X', 0], ['Y', 1]] as const) {
+    const caseIndex = plan.cases.findIndex(c => c.nameParams?.dir === dir);
+    for (const [elevation, force] of [[3, -20], [6, 100]] as const) {
+      const lines = plan.distributed.filter(d => d.caseIndex === caseIndex &&
+        model.nodes.get(model.elements.get(d.elementId)!.nodeI)!.z === elevation);
+      const resultant = windResultants(model, lines);
+      expect(resultant[component]).toBeCloseTo(force, 10);
+      expect(resultant[1 - component]).toBeCloseTo(0, 10);
+    }
+  }
+});
+
+it('#2316 a static diagonal-only case still applies the static base shear at 45°', () => {
+  const { model, code } = diagonalModalFixture();
+  const plan = buildLoadPlan(request(model, { code, directions: { x: false, y: false }, diagonal: true }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.cases.filter(c => c.type === 'E').map(c => c.nameParams?.dir)).toEqual(['45°']);
+  const caseIndex = plan.cases.findIndex(c => c.nameParams?.dir === '45°');
+  const [fx, fy] = windResultants(model, plan.distributed.filter(d => d.caseIndex === caseIndex));
+  expect(fx).toBeCloseTo(80 / (0.85 * Math.SQRT2), 10);
+  expect(fy).toBeCloseTo(80 / (0.85 * Math.SQRT2), 10);
+});

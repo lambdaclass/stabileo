@@ -4,7 +4,7 @@
  * `load-plan.ts` as it was, behind the seismic module (`codes/families/cirsoc.ts`).
  */
 import { modalLoadingLevels, modalStoryForces, SeismicModeRefusal } from './seismic-modal';
-import { seismicCases, ACCIDENTAL_ECCENTRICITY } from './seismic-cases';
+import { seismicCases, ACCIDENTAL_ECCENTRICITY, type SeismicCaseLoading } from './seismic-cases';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
 import { designSpectrum, isBlocked, spectralOrdinate, SIMULTANEITY_F1 } from '../../codes/cirsoc103/spectrum';
 import { designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable } from '../../codes/cirsoc103/static-method';
@@ -109,7 +109,9 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
       const staticForces = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
-      let loading = { levels: elevated, forcesX: staticForces, forcesY: staticForces };
+      let loading: SeismicCaseLoading = {
+        method: 'static', levels: elevated, forces: staticForces, diagonal: input.seismic.diagonal,
+      };
 
       // ── The modal response spectrum method, Cap. 7 ──
       const modes = input.seismic.modal?.modes ?? [];
@@ -139,13 +141,18 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             const x = input.seismic.directions.x || input.seismic.diagonal ? byDir(modalLevels, 'x') : [];
             const y = input.seismic.directions.y || input.seismic.diagonal ? byDir(modalLevels, 'y') : [];
             if (!x || !y) return { seismicWeight, baseShear, seismicDetail };
-            loading = { levels: modalLevels, forcesX: x, forcesY: y };
+            loading = { method: 'modal', levels: modalLevels, forcesX: x, forcesY: y };
           } catch (error) {
             if (!(error instanceof SeismicModeRefusal)) throw error;
             blockedKeys.push(msg(error.key, error.params));
             return { seismicWeight, baseShear, seismicDetail };
           }
         }
+      }
+
+      if (input.seismic.modal && input.seismic.diagonal) {
+        blockedKeys.push(msg('loadPlan.blocked.modalDiagonal'));
+        return { seismicWeight, baseShear, seismicDetail };
       }
 
       const torsion = input.seismic.torsion ?? 'low';
@@ -156,7 +163,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
       for (const c of seismicCases({
         ...loading,
-        directions: input.seismic.directions, torsion, diagonal: input.seismic.diagonal,
+        directions: input.seismic.directions, torsion,
       }, refuse)) {
         const index = cases.length;
         const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';

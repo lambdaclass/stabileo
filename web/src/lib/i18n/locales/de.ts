@@ -7523,6 +7523,7 @@ const de: Translations = {
   'loadPlan.blocked.seismicMass.mode': "Der Modallöser kann die Erdbebenschwingungsform oder ihre physische Massenverteilung nicht abbilden.",
   'loadPlan.blocked.seismicMass.bendingRelease': "Die modale Erdbebenlasterzeugung ist gesperrt, da diese massetragenden Stäbe Biegegelenke haben: {members}.",
   'loadPlan.blocked.modalBaseShear': "Die berücksichtigten Eigenformen lassen sich nicht auf die erforderliche Mindestbasisscherkraft in Richtung {dir} skalieren. Prüfen Sie die Lagerungsbedingungen des Modells und die modale Massenbeteiligung.",
+  'loadPlan.blocked.modalDiagonal': "Die Erzeugung modaler Erdbebenlasten unterstützt die 45°-Richtung nicht. Deaktivieren Sie diese Richtung, um das modale Verfahren zu verwenden.",
   'loadPlan.blocked.seismicMass.weight': "Erdbebenlast auf {elevation} m abgelehnt. Eine Masse oder Geschosskraft ist ungültig.",
   'loadPlan.blocked.seismicNoR': 'Tabelle 5.1 gibt keinen Verhaltensbeiwert R für „{system}“ an. Zeile 1 enthält statt eines Werts einen Ausdruck zur Wandanordnung; jede andere fehlende Zeile ist ein nicht identifiziertes System. Es gibt nichts, durch das das Spektrum geteilt werden kann.',
   'loadPlan.blocked.roleUnusable': 'Die Rolle „{role}“ ({name}) ist nicht verwendbar: Wählen Sie eine Norm und vervollständigen Sie ihre Einstellungen.',

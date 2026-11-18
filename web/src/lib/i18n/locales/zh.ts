@@ -28,6 +28,7 @@ const zh: Translations = {
   "loadPlan.blocked.seismicMass.mode": "模态求解器无法表示地震振型或其对应的实际质量分布。",
   "loadPlan.blocked.seismicMass.bendingRelease": "以下承载质量的构件设有弯矩释放，因此无法生成模态地震荷载：{members}。",
   "loadPlan.blocked.modalBaseShear": "所保留的振型无法通过缩放达到 {dir} 方向要求的最小基底剪力。请检查模型的约束条件和振型参与情况。",
+  "loadPlan.blocked.modalDiagonal": "模态地震荷载生成不支持 45° 方向。若要使用模态法，请取消选择此方向。",
   "loadPlan.blocked.concentratedRule": "{occupancy}需要按CIRSOC 101 {article}验算集中荷载。目前不评估最不利位置。自动生成已被阻止；请手动建模并验算这些作用。",
   "loadPlan.blocked.concentratedLive": "{occupancy}需要按CIRSOC 101 §4.4验算{force} kN集中活荷载。目前不评估最不利位置以及均布荷载与集中荷载的替代工况。自动生成已被阻止；请手动建模并验算这些作用。",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4要求在最不利位置考虑集中屋面作用，并与§4.8的屋面活荷载分别验算。目前不执行这些验算。自动生成已被阻止；请手动建模并验算屋面作用。",
