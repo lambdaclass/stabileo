@@ -65,6 +65,8 @@ export function setOut(line: Spans, bar: Pick<LineBar, 'kind' | 'from' | 'to'>):
   if (bar.kind === 'continuous' || bar.kind === 'bent') return null;
   const mid = (bar.from + bar.to) / 2;
   if (bar.kind === 'support') {
+    const over = lineSupports(line).filter((x) => x > bar.from + 1e-6 && x < bar.to - 1e-6);
+    if (over.length > 1) return { axes: [over[0]!, over[over.length - 1]!], d: [over[0]! - bar.from, bar.to - over[over.length - 1]!] };
     const xs = lineSupports(line).reduce((p, q) => (Math.abs(q - mid) < Math.abs(p - mid) ? q : p));
     return { axes: [xs, xs], d: [xs - bar.from, bar.to - xs] };
   }

@@ -13873,6 +13873,7 @@ const es: Record<string, string> = {
   "rcSheets.s.lineBent": "Levantada: baja y sube",
   "rcSheets.s.lineStraightEnd": "Anclaje recto en un apoyo simple: ld desde el punto de momento nulo",
   "rcSheets.s.lineHook180": "Gancho a 180°: la pata del gancho a 90° no entra en la altura",
+  "rcSheets.s.lineJoined": "Barras superiores de apoyos vecinos corridas: entre sus cortes quedaría menos que max(d; 12·db) (criterio de cátedra)",
   "rcSheets.s.lineThird": "Un tercio del negativo más allá del punto de inflexión",
   "rcSheets.s.lineDev": "Barras no ancladas: se cuentan en proporción a su anclaje",
   "rcSheets.s.ldRow": "Longitudes",

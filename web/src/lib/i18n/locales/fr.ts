@@ -13724,6 +13724,7 @@ const fr: Translations = {
   "rcSheets.s.lineBent": "Barre relevée : descend et remonte",
   "rcSheets.s.lineStraightEnd": "Ancrage droit sur appui simple : ld depuis le point de moment nul",
   "rcSheets.s.lineHook180": "Crochet à 180° : la branche du crochet à 90° n'entre pas dans la hauteur",
+  "rcSheets.s.lineJoined": "Barres supérieures d'appuis voisins filantes : entre leurs arrêts il resterait moins que max(d ; 12·db) (critère du cours)",
   "rcSheets.s.lineThird": "Un tiers des aciers négatifs au-delà du point d'inflexion",
   "rcSheets.s.lineDev": "Barres non ancrées comptées au prorata de leur ancrage",
   "rcSheets.s.ldRow": "Longueurs",
