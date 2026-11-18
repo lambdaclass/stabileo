@@ -43,6 +43,7 @@ export const FEATURE_IDS = [
   'generatedWidthGravity', 'generatedPanelGravityShells', 'memberFloorZones', 'magnitudeCombinations',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
   'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -71,7 +72,7 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
-export interface FeatureSnapshot {
+interface FeatureSnapshotFields {
   analysisMode?: string;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
@@ -99,6 +100,10 @@ export interface FeatureSnapshot {
   analysis?: { selfWeight?: unknown[] };
   includeSelfWeight?: boolean;
   designData?: { loadBasis?: { resultsVersion?: unknown; derivation?: Array<{ key?: string }>; seismic?: unknown }; site?: { phases?: unknown[] } };
+}
+
+export interface FeatureSnapshot extends FeatureSnapshotFields {
+  analysis?: FeatureSnapshotFields['analysis'] & { combinationMethod?: string };
 }
 
 export interface FeatureContext {
@@ -324,6 +329,13 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
       const method = (c as { method?: string } | null)?.method;
       return method === 'abs' || method === 'srss';
     })) f.add('magnitudeCombinations');
+    if (s.analysis?.combinationMethod === 'superpose') f.add('superposedCombinations');
+    if (Array.isArray(s.combinations) && s.combinations.some(combination => {
+      const factors = (combination as { factors?: unknown } | null)?.factors;
+      if (!Array.isArray(factors)) return false;
+      const ids = factors.map(factor => factor?.caseId).filter(id => typeof id === 'number');
+      return new Set(ids).size < ids.length;
+    })) f.add('repeatedCombinationCases');
     if (loadsCode === null || loadsCode.startsWith('cirsoc')) f.add('cirsocCombinations');
   }
 

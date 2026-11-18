@@ -102,6 +102,72 @@ Recognize moved Markdown and JSON documents in the results snapshot build classi
 
 ### Performance
 
+#### Keep nonlinear solves responsive and reuse displacement scales (2026-11-17)
+
+Run nonlinear native solves in a worker while sharing the active-set algorithm
+with the synchronous path. Retain the initial factorization across cases,
+snapshot inputs, and stop superseded solves between native calls. Expose progress
+and cancellation to callers; release sessions on completion or failure. Compute
+the displacement scale once per iteration instead of once per inactive member.
+Preserve native refusal messages, including errors returned as strings. Cleanup
+failures retain the original outcome and retire the affected worker; cancellation
+also takes precedence when pool initialization fails.
+
+#### Reduce allocation and redundant bisection in span rotation checks (2026-11-17)
+
+Use bounded stack arrays for cubic roots and stop bisection when the midpoint
+cannot advance. Rotation checks retain bit-for-bit results against the original
+algorithm, including nonfinite inputs.
+
+#### Reuse the initial matrix across nonlinear load cases (2026-11-17)
+
+Nonlinear combination analysis retains one prepared linear solve while its full
+structural input matches. Changed members, supports, or prescribed displacements
+use an independent solve. The preparation is released on completion or failure;
+active-set iterations and per-load checks remain unchanged.
+
+#### Avoid unused load integrals in span checks (2026-11-17)
+
+Inline member-load evaluation so moment, shear, and rotation queries can omit
+unused integrals. Load formulas, arithmetic order, and refusal checks are unchanged.
+
+#### Keep combined results in WASM for their envelope (2026-11-17)
+
+Parallel linear solves without shells and with unique combination IDs compute
+combinations and their envelope in one call, avoiding a second transfer of the
+combined results into WASM. Existing numerical checks and refusal ordering are
+preserved. Shell models and repeated combination IDs retain their existing path.
+
+#### Reduce allocation and repeated interpolation work in solver checks (2026-11-17)
+
+Result validation retains typed diagnostic-path segments and renders them only
+when reporting a non-finite value. Span-rotation checks reuse interpolation
+nodes and denominators across station intervals. All values, station intervals,
+root searches, and refusal thresholds remain checked. The standalone solve
+benchmark now detects and avoids a bundling-induced repeated load scan.
+
+#### Reuse diagram sampling work during results display (2026-11-16)
+
+3D diagrams reuse the regular sampling grid while retaining point-load jumps and
+variable-section boundaries. Mesh construction reuses the sampled diagrams it
+already computed for scaling. Sample counts, force values, and diagram geometry
+are unchanged.
+
+#### Reuse support anchorage plans within candidate verification (2026-11-16)
+
+Concrete candidate verification computes its support plan once and shares it
+with bottom-bar reach, anchorage checks, and joint-threading checks. Each new
+candidate still gets a fresh plan; verification rules and verdicts are unchanged.
+
+#### Transfer 3D case results to WASM once for all combinations (2026-11-16)
+
+The parallel 3D solve now combines load cases in one WASM call, avoiding repeated
+conversion of the same case results for each combination. Worker solving, shell
+stress recovery, and envelope calculation retain their existing paths. Regression
+checks compare batched and individual combination results, including shell stresses
+and containment refusals. The batch and fused exports refuse duplicate case-table
+IDs instead of silently discarding a record; repeated factors remain supported.
+
 #### Sample reinforcement coordinates once before projecting the workspace (2026-11-15)
 
 Bar-path sampling now copies source coordinates into plain points before bounds and mesh construction. Opening and reopening the reinforcement workspace no longer carry reactive endpoint objects through those passes, and arc sampling reads each source coordinate once. Sampling tolerance, subdivision counts, geometry and analysis results are unchanged. Regression checks count source reads instead of depending on runner speed; the existing workspace timing budgets are unchanged.

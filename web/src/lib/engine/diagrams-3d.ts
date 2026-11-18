@@ -23,6 +23,7 @@ export interface ElementDiagram3D {
 }
 
 const NUM_POINTS = 21;
+const REGULAR_POSITIONS = Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1));
 
 /**
  * Build sorted, unique sampling positions (as t ∈ [0,1]) including
@@ -34,11 +35,8 @@ function buildSamplingPositions(
   pointLoads: Array<{ a: number; p: number }>,
   pieces?: ElementForces3D['pieces'],
 ): number[] {
-  const tSet = new Set<number>();
-
-  for (let i = 0; i < NUM_POINTS; i++) {
-    tSet.add(i / (NUM_POINTS - 1));
-  }
+  if (pointLoads.length === 0 && !pieces?.length) return REGULAR_POSITIONS;
+  const tSet = new Set(REGULAR_POSITIONS);
   // A member of variable section: each piece's ends too, where the diagram may kink.
   for (const p of pieces ?? []) tSet.add(Math.min(1, p.x1 / length));
 
