@@ -109,7 +109,7 @@ The analytic shallow values computed here: τ* = 8.98682 (paper 8.987), τ_fold 
 | 0.5 | 0.536 | 1.19 | 0.928 | 0.0930 |
 | 0.7 | 0.792 | 0.922 | 0.945 | 0.0547 |
 
-Replay (default): µ̇ = 0.01 (12.9 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
+Replay (default): µ̇ = 0.01 (4.31 mm/s for the paper's strip), seed 10⁻³ rad, A = 34.4, snap at
 µ = 0.2273, 1.82 T_osc after µ*. Both clamps without a seed: largest |θ| ≤ 2.4 × 10⁻¹⁰ rad at
 µ̇ = 0.01–0.3 (round-off, amplified at slow rates). Fig. 2a's rates on the one-clamp protocol:
 1.8 mm/s (µ̇ = 0.0042) gives A = 175, 246.6 mm/s (µ̇ = 0.572) gives A = 1.07.
@@ -172,7 +172,11 @@ damping, rotary inertia and the stopper's impact are not modelled.
   µ*vM moves by 0.3 % across that rounding), 10⁻³ absolute on the lower frequency.
 - Mesh: observed order within 0.2 of 2. Time step: amplification changes by less than 2 % from
   Δt = 0.005 to 0.0025 T_osc.
-- Evidence files are compared with a fresh run to 10⁻⁶ relative (`validate` without `--write`).
+- Both clamps without a seed: largest |θ| below 10⁻⁶ rad (a thousandth of the default seed); the
+  observed 2.4 × 10⁻¹⁰ is round-off amplified near the fold and differs between platforms.
+- Bifurcation order: µ*/µ_A ≤ 0.995 at α = π/12 (observed 0.9879).
+- Evidence files are compared with a fresh run to 10⁻⁸ absolute plus 10⁻⁶ relative (`validate`
+  without `--write`).
 
 ## Reproduce
 

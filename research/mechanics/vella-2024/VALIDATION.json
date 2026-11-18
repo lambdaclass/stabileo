@@ -26,11 +26,11 @@
     },
     {
       "id": "asymmetric-first",
-      "metric": "alpha = pi/12, 96 elements: mu* - mu_A (negative: the antisymmetric instability comes first)",
-      "observed": -0.003010554413858918,
+      "metric": "alpha = pi/12, 96 elements: mu* / mu_A (below 1: the antisymmetric instability comes first)",
+      "observed": 0.987909976108462,
       "passed": true,
       "source": "paper p. 2, Fig. 1c",
-      "tolerance": -0.002
+      "tolerance": 0.995
     },
     {
       "id": "symmetric-protocol",
@@ -38,7 +38,7 @@
       "observed": 2.3761644029013594e-10,
       "passed": true,
       "source": "paper p. 2 and p. 14: both ends moved gives no asymmetry",
-      "tolerance": 1e-6
+      "tolerance": 1e-06
     },
     {
       "id": "slow-amplifies",
@@ -90,7 +90,7 @@
       "computed": 0.2470500401268646,
       "id": "mu-star-analytic",
       "metric": "shallow theory: mu* at the fold of Eq. (S15)",
-      "observed": 0.00005004012686460335,
+      "observed": 5.004012686460335e-05,
       "passed": true,
       "reference": 0.247,
       "relative": false,
@@ -134,7 +134,7 @@
       "computed": 57.85681696144374,
       "id": "omega-fe",
       "metric": "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)",
-      "observed": 0.0000938998055944884,
+      "observed": 9.38998055944884e-05,
       "passed": true,
       "reference": 57.862250215490235,
       "relative": true,

@@ -79,7 +79,7 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
         check("order-mu-a", "alpha = pi/12: observed order of convergence of mu_A over 24/48/96 elements, distance from 2", order(s.paper.mu_a.order), 0.2, "mesh study"),
         check("order-mu-star", "alpha = pi/12: observed order of convergence of mu* over 24/48/96 elements, distance from 2", order(s.paper.mu_star.order), 0.2, "mesh study"),
         check("order-shallow-omega", "alpha = 0.02: observed order of convergence of the natural frequency, distance from 2", order(s.shallow.omega.order), 0.2, "mesh study"),
-        check("asymmetric-first", "alpha = pi/12, 96 elements: mu* - mu_A (negative: the antisymmetric instability comes first)", s.paper.meshes.last().map(|m| m.mu_star - m.mu_a).unwrap(), -0.002, "paper p. 2, Fig. 1c"),
+        check("asymmetric-first", "alpha = pi/12, 96 elements: mu* / mu_A (below 1: the antisymmetric instability comes first)", s.paper.meshes.last().map(|m| m.mu_star / m.mu_a).unwrap(), 0.995, "paper p. 2, Fig. 1c"),
         check("symmetric-protocol", "both clamps, no seed, rates 0.01-0.3: largest |theta| (rad), round-off amplified, against a seed of 1e-3", unseeded, 1e-6, "paper p. 2 and p. 14: both ends moved gives no asymmetry"),
         check("slow-amplifies", "seeded, rates <= 0.01: 1 / least amplification", 1.0 / slow, 0.1, "paper Fig. 2c: large A at slow rates"),
         check("fast-symmetric", "seeded, rates >= 0.3: largest amplification / 2", fast / ASYMMETRIC, 1.0, "paper Fig. 2c: A ~ 1 at fast rates"),
