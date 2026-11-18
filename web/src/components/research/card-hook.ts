@@ -3,6 +3,7 @@ import { archStrings } from './biggins2026/strings';
 import { riserHook } from './gayNeto2014/card';
 import { shapeCard } from './feher2026/card';
 import { archCard } from './heyman1966/card';
+import { snapCard } from './vella2024/card';
 import { topoptStrings } from './andreassen2011/i18n';
 import { fs } from './fairclough2026/i18n';
 import { strings as newmarkStrings } from './newmark1959/i18n';
@@ -43,6 +44,7 @@ export function cardHook(e: Experiment): string {
     case 'mattiasson-elastica': return pick(mattiassonStrings, locale).hook;
     case 'macneal-harder-1985': return pick(macnealCard, locale).hook;
     case 'heyman-1966': return pick(archCard, locale).hook;
+    case 'wang-2024': return pick(snapCard, locale).hook;
     case 'feher-sipos-varkonyi-2026': return pick(shapeCard, locale).hook;
     case 'gay-neto-2014': return pick(riserHook, locale);
     case 'riks-1979': return locale === 'en' ? e.hook : riksStrings(locale).lead;
