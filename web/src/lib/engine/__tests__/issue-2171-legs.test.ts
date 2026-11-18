@@ -734,3 +734,35 @@ for (const nonlinear of [false, true]) {
     }
   });
 }
+
+const axialTorsionRegression = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+for (const nonlinear of [false, true]) {
+  axialTorsionRegression(`known wrong result: #2171 solved spatial torsion uses the concurrent axial force (nonlinear=${nonlinear})`, () => {
+    for (const compression of [-90, 90]) for (const factor of [0.999, 1.001]) {
+      const torque = torsionThreshold * Math.sqrt(1 + compression / (0.33 * section.b * section.h * Math.sqrt(section.fc) * 1000)) * factor;
+      const solver: SolverInput3D = { ...model,
+        elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -compression, mx: 0, my: 0, mz: torque } }],
+      };
+      const raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+      const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, model);
+      const opts = { edition: '2025' as const };
+      for (const out of [autoVerifyFromResults(raw, model, null, opts, demands).concrete[0],
+        runUnifiedVerification(raw, model, null, demands, opts)[0],
+        runCirsocDesign(raw, model, demands, new Map(), null, opts).concrete[0]]) {
+        expect.soft(out?.torsion?.Tu).toBeCloseTo(torque, 10);
+        expect.soft(out?.torsion?.neglect).toBe(factor < 1);
+      }
+      for (const extracted of [false, true]) {
+        const out = verifyProvidedReinforcement(1, 'column', { stirrups: cage, longitudinal },
+          extracted ? demands.get(1) : undefined, {}, section, extracted ? undefined : stations.get(1), undefined,
+          { axes, spacingRule: { edition: opts.edition, maxAggregateSizeMm: 0 } });
+        const row = out.checks.find(check => check.category === 'Torsion ties');
+        if (factor < 1) expect.soft(row).toBeUndefined();
+        else expect.soft(row?.demand).toBe(+torque.toPrecision(12));
+      }
+    }
+  });
+}
