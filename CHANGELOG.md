@@ -143,7 +143,7 @@ Automatically generated loads and reinforced-concrete design and detailing resul
 
 #### Animated structural figures on the landing page (2026-11-18)
 
-The landing page rotates through structural examples. Building and section figures identify the correct force and stress signs, and the displayed mode shapes play at relative speeds consistent with their frequency ratios (#2285).
+The landing page rotates through structural examples. Building and section figures identify the correct force and stress signs, and the displayed mode shapes play at relative speeds consistent with their frequency ratios (#2285). After the first figure, the others load on demand and preload during idle time when data saving is off (#2090).
 
 #### Interactive masonry-arch research (2026-11-16)
 
