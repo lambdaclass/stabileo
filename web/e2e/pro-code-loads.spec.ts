@@ -213,7 +213,6 @@ test.describe('@smoke wind builds the load cases of CIRSOC 102 Fig. 2.4-8', () =
 
 test.describe('@smoke story drift is checked on the seismic cases', () => {
   test('the generated seismic cases reach the drift table, against Tabla 6.4', async ({ pro: page }) => {
-    test.skip(process.env.RUN_KNOWN_WRONG !== '2316', 'known wrong result: #2316');
     await loadSeismicFloor(page);
     await openSeismicLoadGenerator(page);
     await dwellingFloorLoads(page);
