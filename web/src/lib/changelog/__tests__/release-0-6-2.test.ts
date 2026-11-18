@@ -32,6 +32,8 @@ const advisoryFiles = [
   'SA-2026-089-roller-z-fixed.md',
 ];
 const linkedEvidence = {
+  'SA-2026-084': '2026-11-fillet-weld-physical-runs.md',
+  'SA-2026-085': '2026-11-fillet-weld-physical-runs.md',
   'SA-2026-088': '2026-11-gravity-core.md#combined-member-diagram-extrema',
   'SA-2026-090': '2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers',
 };

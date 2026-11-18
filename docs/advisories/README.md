@@ -116,6 +116,8 @@ snow loads before re-solving.
 | [SA-2026-083](SA-2026-083-concentrated-live-actions.md) | Automatic live loads omitted required concentrated actions | High | [#2207](https://github.com/lambdaclass/stabileo/issues/2207) | [#2236](https://github.com/lambdaclass/stabileo/pull/2236) | 0.6.2 | Published 2026-11-18; drafted 2026-11-16 |
 | [SA-2026-089](SA-2026-089-roller-z-fixed.md) | Unresolved 3D supports silently became fixed | High | [#2276](https://github.com/lambdaclass/stabileo/issues/2276) | [#2277](https://github.com/lambdaclass/stabileo/pull/2277) | 0.6.2 | Published 2026-11-18; drafted 2026-11-17 |
 
+Fixed in 0.6.2 by [#2258](https://github.com/lambdaclass/stabileo/pull/2258): [SA-2026-084](../results-changes/2026-11-fillet-weld-physical-runs.md) (#2243, effective length of a subdivided end-loaded weld) and [SA-2026-085](../results-changes/2026-11-fillet-weld-physical-runs.md) (#2244, effective leg of a short weld).
+
 Also fixed in 0.6.2 by [#2282](https://github.com/lambdaclass/stabileo/pull/2282): [SA-2026-088](../results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema) (#2273, combined diagram peaks) and [SA-2026-090](../results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers) (#2210, #2269, width-mode mass).
 
 Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory

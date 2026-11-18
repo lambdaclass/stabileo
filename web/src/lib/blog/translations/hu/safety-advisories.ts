@@ -136,6 +136,10 @@ const body: PostBody = {
       "label": "SA-2026-083",
       "t": "Érintett modellek és szükséges teendők."
     },
+    {"k": "note", "t": "SA-2026-084 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-085 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-088 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Érintett modellek és szükséges teendők."},
     {

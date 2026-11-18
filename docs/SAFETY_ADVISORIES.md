@@ -144,6 +144,9 @@ Published with 0.6.2 (2026-11-18):
 - [SA-2026-083](advisories/SA-2026-083-concentrated-live-actions.md)
 - [SA-2026-089](advisories/SA-2026-089-roller-z-fixed.md)
 
+0.6.2 fixes [SA-2026-084](results-changes/2026-11-fillet-weld-physical-runs.md) for end-loaded fillet welds
+and [SA-2026-085](results-changes/2026-11-fillet-weld-physical-runs.md) for short fillet welds. [PR #2258](https://github.com/lambdaclass/stabileo/pull/2258) records both assignments.
+
 0.6.2 also fixes [SA-2026-088](results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema)
 for combined diagram peaks and [SA-2026-090](results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers)
 for width-mode mass. See [PR #2282](https://github.com/lambdaclass/stabileo/pull/2282) for both assignments.

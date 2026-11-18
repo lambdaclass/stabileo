@@ -35,7 +35,7 @@ seismic specification carrying the flat-roof note and raised f2=0.7 was
 reinterpreted as 0.7*pf, losing the physical 0.7*S requirement. A specification
 requesting pf with no S cases could also be silently omitted before validation.
 Those review defects are reproduced in the
-[round-2 tests](../../web/src/lib/engine/loads/__tests__/snow-legacy-2233.test.ts);
+[legacy seismic specification tests](../../web/src/lib/engine/loads/__tests__/snow-legacy-2233.test.ts);
 the unmerged-branch reinterpretation is not claimed as a released defect.
 
 ## How to tell if your model is affected

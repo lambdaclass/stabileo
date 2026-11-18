@@ -104,7 +104,7 @@ Distributed member loads with unsupported intervals now refuse explicitly, inclu
 
 #### Fillet weld checks use the physical run (2026-11-16)
 
-Continuous fillets retain their effective-length reduction across drawn segments. Short runs enforce the leg limit, zero-size pieces contribute no resistance or stress points, and ambiguous branches refuse evaluation. Re-run affected weld-group checks. [Results-change record](docs/results-changes/2026-11-fillet-weld-physical-runs.md), #2243 and #2244.
+Continuous fillets retain their effective-length reduction across drawn segments. Short runs enforce the leg limit, zero-size pieces contribute no resistance or stress points, and ambiguous branches refuse evaluation. Re-run affected weld-group checks. [SA-2026-084](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2243) and [SA-2026-085](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2244), fixed in 0.6.2 by [#2258](https://github.com/lambdaclass/stabileo/pull/2258).
 
 #### Ambiguous 3D supports require explicit restraints (2026-11-17)
 
