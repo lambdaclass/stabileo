@@ -80,7 +80,7 @@ export function footingContext(d: FootingDemand, sizing: FootingSizing, columns:
     diameters: footingDiameters(dd.longDiametersMm), preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
     ...(a && col ? { columnBars: {
       count: 4 + 2 * a.nx + 2 * a.ny + (a.inner ? 2 * Math.max(1, a.inner.rows ?? 1) * (a.inner.nx + a.inner.ny) : 0),
-      dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: !col.req.compressionDominated,
+      dia: Math.max(a.corner, a.dx, a.dy, a.inner?.dia ?? 0), tension: col.req.barsTension ?? !col.req.compressionDominated,
     } } : {}),
   };
 }

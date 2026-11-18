@@ -16,6 +16,7 @@ import { buildSheetRows, rcSheetsData, setSheetCode } from '../rc-sheets.svelte'
 import { foundationStamp, setFootingSizing, writeFootingToModel } from '../rc-sheets-footings';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { FootingRow } from '../../rc-sheets/footing-types';
+import { barsInTension, columnBars } from '../../rc-sheets/column-row';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
@@ -31,6 +32,21 @@ function openPoc() {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
   expect(deserializeProject(readFileSync(new URL('../../export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url), 'utf8'))).toBe(true);
   solve();
+}
+
+/** Each footing's dowels lap in tension where its column's bars do, as the column's own splice reads them, and only there; how many columns the axial force alone (0.1·f'c·Ag) would have read the other way. */
+function dowelsFollow(rows: ReturnType<typeof buildSheetRows>): number {
+  let misread = 0;
+  for (const f of rows.footing) {
+    const col = rows.column.find((c) => c.key === f.demand.column?.rowKey);
+    if (!col || !f.dowels) continue;
+    const ctx = { mat: { fc: 25, fy: 420 }, cover: col.cover, tieDia: col.adopted.tieDia, diameters: [] };
+    const tension = barsInTension(col.demand, columnBars(col.demand, col.adopted, ctx), col.demand.cases.flatMap((k) => [{ pu: k.puMin ?? k.pu, mx: k.mxTop, my: k.myTop }, { pu: k.pu, mx: k.mxBot, my: k.myBot }]));
+    if (tension === col.req.compressionDominated) misread++;
+    expect(col.req.barsTension, col.name).toBe(tension);
+    expect(f.dowels.tension, f.name).toBe(tension);
+  }
+  return misread;
 }
 
 describe('the committed footing project', () => {
@@ -84,16 +100,17 @@ describe('the committed footing project', () => {
 });
 
 describe('the seven-storey example', () => {
-  it('designs a footing under each column base on a 200 kPa soil', async () => {
+  it('designs a footing under each column base on a 200 kPa soil, its dowels lapped in tension under the columns some combination pulls and only those', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
     ensurePhysicalModel();
     const soil = modelStore.addSoilProfile('Suelo');
     modelStore.updateSoilProfile(soil, { bearing: { kind: 'allowablePressure', allowableBearingKPa: 200 } });
     solve();
-    const rows = buildSheetRows().footing;
+    const all = buildSheetRows(), rows = all.footing;
     console.log(rows.map(summary).join('\n'));
     expect(rows.length).toBeGreaterThan(0);
+    expect(dowelsFollow(all)).toBeGreaterThan(0);
     for (const r of rows) {
       expect(r.demand.column, r.name).not.toBeNull();
       expect(r.bearing!.qMax, r.name).toBeLessThanOrEqual(200 + 1e-6);

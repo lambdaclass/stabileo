@@ -5,7 +5,8 @@ import { evaluateBeamSections, type BeamSectionQuery } from '../engine/codes/arg
 import { columnTieSpacing } from '../codes/cirsoc201/transverse-spacing';
 import { layerClearBetween, minClearSpacingColumn } from '../codes/cirsoc201/spacing';
 import { barArea, roundDown } from './bars';
-import { compressionLapMm, confinementOf, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { compressionLapMm, confinementOf, deriveCompressionDevelopment, deriveDevelopment, deriveLap } from '../codes/cirsoc201/anchorage';
+import { mixedLap, stackStep, stepCheck, type StackStep } from './column-stack';
 import { unbracedClearLimit } from '../codes/cirsoc201/transverse-cage';
 import { mainCoverCheck } from './beam-row';
 import { columnConfinementOf, columnSeismic, type ConfinedTies, type Seismic } from './seismic';
@@ -73,7 +74,8 @@ export interface ColumnRow {
   /** Clear cover to the ties, m. */
   cover: number;
   demand: ColumnDemand;
-  req: { rho: number; ast: number; impossible: boolean; governing: string; compressionDominated: boolean };
+  /** `barsTension`: some demand puts a bar in tension (or chapter 18 applies), so its laps and dowels are tension ones. */
+  req: { rho: number; ast: number; impossible: boolean; governing: string; compressionDominated: boolean; barsTension?: boolean };
   proposed: ColumnAdopted;
   adopted: ColumnAdopted;
   isAdopted: boolean;
@@ -86,6 +88,8 @@ export interface ColumnRow {
   steps: StepGroup[];
   /** The splice of the bars from the storey below, just above its floor. */
   lap?: { length: number; tension?: boolean };
+  /** Where its faces step in over the storey below: the bars from below cranked into it, or separate dowels. */
+  step?: StackStep;
   /** Chapter 18: the length lo from each joint face and the hoop spacing so in it. */
   confinement?: { lo: number; so: number };
   /** The closest spacing its ties were proposed at, m (`TransverseList`). */
@@ -313,7 +317,7 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
 }
 
 /** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
-export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number }; fromBelow?: boolean; offset?: number }
+export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number; inner?: ColumnAdopted['inner'] }; fromBelow?: boolean; offset?: number; /** The largest bar of the storey below, mm, which the lap with this storey's reads. */ belowDia?: number }
 
 /** Where a column's bars are lapped: clear cover to them and the least centre spacing along a face, mm, and Ktr of the ties over the lap (§25.4.2.4). */
 export interface LapLayout { clearCoverMm: number; spacingMm: number; ktrMm: number }
@@ -440,7 +444,13 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const sh = shearRatios(d, c, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
-  const splice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all), columnLapLayout(d, c, a));
+  const lapLayout = columnLapLayout(d, c, a);
+  const ownSplice = columnSplice(c, longest, !!c.seismic || barsInTension(d, columnBars(d, a, c), all), lapLayout);
+  const mixed = stack.belowDia !== undefined && stack.belowDia > longest;
+  const splice = { ...ownSplice, length: mixedLap(ownSplice.length, longest, stack.belowDia, (dia) => (ownSplice.tension
+    ? deriveDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, favourableSpacing: false, edition: EDITION, confinement: { ...confinementOf(dia, lapLayout.clearCoverMm, lapLayout.spacingMm), ktrMm: lapLayout.ktrMm } }).ldM
+    : deriveCompressionDevelopment({ diameterMm: dia, fy: c.mat.fy, fc: c.mat.fc, edition: EDITION }).ldcM)) };
+  const step = stackStep(stack.offset);
   const seis = c.seismic && cct ? columnSeismic(d, { ...c, overstrength: c.seismic.overstrength }, a, columnBars(d, a, c), cct, fmt) : null;
 
   const verifications: CheckLine[] = [
@@ -461,8 +471,8 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     ] : []),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: ctText }),
-    ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: splice.tension ? '§25.5.2' : '§25.5.5.1', capacity: `${fmt(splice.length * 100, 0)} cm (Ø${longest})` })] : []),
-    ...((stack.offset ?? 0) >= 0.075 - 1e-6 ? [check('rcSheets.v.colOffset', true, { clause: '§10.7.4.1', demand: `${fmt((stack.offset ?? 0) * 100, 1)} cm`, capacity: '≥ 7.5 cm' })] : []),
+    ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: `${splice.tension ? '§25.5.2' : '§25.5.5.1'}${mixed ? (splice.tension ? ', §25.5.2.2' : ', §25.5.5.4') : ''}`, capacity: `${fmt(splice.length * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
+    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, '§10.7.4.1, §10.7.4.2; FIUBA §15.7')),
     ...(seis?.checks ?? []),
     ...(minMn > 0 ? [((mn) => check('rcSheets.v.seisColMn', mn >= minMn - 1e-6, { clause: '§18.7.3.2', demand: `Mn ≥ ${fmt(minMn)} kN·m`, capacity: `Mn = ${fmt(mn)} kN·m`, ratio: ratioOf(minMn, mn) }))(mnOf(a))] : []),
   ];
@@ -521,12 +531,13 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
 
   return {
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
-    req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated },
+    req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated, barsTension: ownSplice.tension },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations,
     checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}), ...(cct && (cct.x > ct.x || cct.y > ct.y) ? { confined: { x: cct.x, y: cct.y } } : {}) }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: splice } : {}),
+    ...(step ? { step } : {}),
     ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
     tieFloor: floor,
   };
@@ -596,7 +607,9 @@ function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number
 }
 
 /**
- * The bars a column is proposed: for each allowed diameter, the fewest bars that keep them
+ * The bars a column is proposed. A storey over another first keeps the pattern of the one below,
+ * so every bar goes on up: the same bars on each face, of one diameter no larger than the largest
+ * below, the rows inside the faces left out before they are kept. Otherwise, for each allowed diameter, the fewest bars that keep them
  * `COLUMN_PITCH` apart at most, grown symmetrically (`growSymmetric`) until they carry the demand; of
  * those that do with the practical clear spacing between them when any does, the lightest or one
  * with fewer bars and nearly as light (`pickPractical`). Rows inside the faces only when no outer
@@ -625,9 +638,11 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
     return { layout: a, iterations: it };
   };
   if (pattern) {
-    for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
+    const inner = pattern.inner && pattern.inner.nx + pattern.inner.ny > 0 ? pattern.inner : undefined;
+    const keep = [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q);
+    for (const [dia, rows] of [...keep.map((x) => [x, false] as const), ...(inner ? keep.map((x) => [x, true] as const) : [])]) {
       const tie = tieOf(dia);
-      const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: spacingFor(dia, tie) };
+      const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: spacingFor(dia, tie), ...(rows && inner ? { inner: { ...inner, dia: Math.min(inner.dia, dia) } } : {}) };
       if (columnArea(a) < ast - 1e-6 || !clearOk(d, c, a)) continue;
       if (over(a)) continue;
       const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };

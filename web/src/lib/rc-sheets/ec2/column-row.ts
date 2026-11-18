@@ -2,10 +2,11 @@ import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2Dema
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
 import { COLUMN_PRACTICAL_CLEAR, growSymmetric, heldBars as symmetricHeld, pickPractical } from '../column-layout';
-import { barCount, columnArea, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { barCount, barsInTension, columnArea, columnBars, columnLabel, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
+import { mixedLap, stackStep, stepCheck } from '../column-stack';
 
 const KPA = 1000;
 const RESTRAINED = 0.15;
@@ -152,7 +153,9 @@ export function makeColumnRow(set: Ec2Set) {
     const barMinOk = thinnest >= set.colBarMin;
     const puMax = Math.max(0, ...d.cases.map((k) => k.pu));
     const compressionDominated = puMax > 0.1 * c.mat.fc * KPA * Ac;
-    const lap = lapLength(m, longest, true);
+    const mixed = stack.belowDia !== undefined && stack.belowDia > longest;
+    const lap = mixedLap(lapLength(m, longest, true), longest, stack.belowDia, (dia) => lapLength(m, dia, true));
+    const step = stackStep(stack.offset);
     const gov = res?.governing;
 
     const verifications: CheckLine[] = [
@@ -167,7 +170,8 @@ export function makeColumnRow(set: Ec2Set) {
       ...(!tieDiaOk && allowedTie(c, tieDiaMin(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: '9.5.3(1)', demand: `≥ ${fmt(tieDiaMin(longest), 1)} mm`, capacity: tieDiametersOf(c).map((x) => `Ø${x}`).join(' ') })] : []),
       check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '9.5.3(3), 9.5.3(4)', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ 0.6 × ${fmt(sclMax * 100, 1)} = ${fmt(tieMax * 100, 1)} cm` }),
       check('rcSheets.v.crossties', true, { clause: '9.5.3(6)', capacity: `${ct.x} (b) · ${ct.y} (h)` }),
-      ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${longest})` })] : []),
+      ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
+      ...((x) => (x ? [x] : []))(stepCheck(step, fmt, 'FIUBA §15.7')),
     ];
     const ok = verifications.every((v) => v.ok) && !impossible;
     const generous = isGenerous(verifications);
@@ -223,11 +227,12 @@ export function makeColumnRow(set: Ec2Set) {
 
     return {
       family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
-      req: { rho: ast / (Ac * 1e4), ast, impossible, governing: gov?.demand.combination ?? '', compressionDominated },
+      req: { rho: ast / (Ac * 1e4), ast, impossible, governing: gov?.demand.combination ?? '', compressionDominated, barsTension: barsInTension(d, columnBars(d, a, c), d.cases.flatMap((k) => [{ pu: k.puMin ?? k.pu, mx: k.mxTop, my: k.myTop }, { pu: k.pu, mx: k.mxBot, my: k.myBot }])) },
       proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : first.iterations,
       checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: ct, rhoOk, shearX, shearY },
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       ...(stack.fromBelow ? { lap: { length: lap } } : {}),
+      ...(step ? { step } : {}),
       tieFloor: tieFloorOf(c),
     };
   };

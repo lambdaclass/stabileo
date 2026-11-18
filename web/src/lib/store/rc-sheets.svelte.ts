@@ -28,6 +28,7 @@ import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
 import type { ColumnRow } from '../rc-sheets/column-row';
+import { stackOver } from '../rc-sheets/column-stack';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
@@ -473,12 +474,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
-    const stack = prev ? {
-      pattern: { nx: prev.adopted.nx, ny: prev.adopted.ny, maxDia: Math.max(prev.adopted.corner, prev.adopted.dx, prev.adopted.dy) },
-      fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
-    } : {};
+    const stack = prev ? stackOver(prev, d) : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
-    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), code, fmt), x.missing)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };
