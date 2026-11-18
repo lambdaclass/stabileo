@@ -727,3 +727,40 @@ for (const mode of ['raw', 'linear', 'nonlinear'] as const) {
     expectLongitudinalZoneResult(mode, false);
   });
 }
+
+const knownWrong2171 = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
+
+knownWrong2171('#2171 provided torsion checks the weakest spacing and leg count together at every station', () => {
+  const strong = { ...cage, legs: 4, spacing: 0.075 };
+  const sparse = { ...cage, legs: 4, spacing: 0.15 };
+  const fewLegs = { ...strong, legs: 2 };
+  const weak = { ...sparse, legs: 2 };
+  const forces = { t: 0.1, x: 0.4, n: 0, my: 0, mz: 0, vy: 0, vz: 150, torsion: torque };
+  const uniform = (stirrups: typeof cage) => providedBeamAt({ ...beamBars, stirrups }, forces);
+  const expected = uniform(weak);
+  for (const row of [...uniform(strong), ...uniform(fewLegs), ...uniform(sparse)]) expect(row.ratio).toBeLessThan(1);
+  for (const row of expected) expect(row.status).toBe('fail');
+  for (const [stirrupsSupport, stirrupsSpan] of [[fewLegs, sparse], [sparse, fewLegs]]) {
+    const actual = providedBeamAt({ ...beamBars, regions: { stirrupsSupport, stirrupsSpan } }, forces);
+    expect(actual.map(row => row.ratio)).toEqual(expected.map(row => row.ratio));
+  }
+});
+
+knownWrong2171('#2171 secondary shear fails at the transverse leg boundary even with adequate strength', () => {
+  const v = input(20, 0, '2025', { ...section, b: 0.4, h: 0.8 });
+  for (const [secondaryCrossties, status] of [[0, 'fail'], [1, 'ok']] as const) {
+    const reinforcement = { shear: { ...cage, secondaryCrossties } };
+    for (const result of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
+      expect(result.shearSecondary?.ratio).toBeLessThan(0.9);
+      expect(result.shearSecondary?.status).toBe(status);
+    }
+  }
+});
+
+knownWrong2171('#2171 beam member checks secondary shear with no torsion', () => {
+  const v = { ...input(220, 0, '2025'), elementType: 'beam' as const };
+  for (const result of [verifyElement(v, fixed), prepareElementVerification(v)(fixed), verifyConcurrentElement([v])]) {
+    expect(result.shearSecondary?.stirrupLegs).toBe(2);
+    expect(result.shearSecondary?.status).toBe('fail');
+  }
+});
