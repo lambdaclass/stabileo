@@ -2,7 +2,7 @@ import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2Dema
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
 import { COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, heldBars as symmetricHeld, layoutDias, pickPractical } from '../column-layout';
-import { barCount, columnArea, columnBars, columnLabel, innerCrossties, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { barCount, columnArea, columnBars, columnLabel, innerCrossties, patternInner, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapLength, matOf, minClear, shearCapacity, type Ec2Set, type Mat } from './basis';
@@ -97,7 +97,7 @@ function shearOf(set: Ec2Set, d: ColumnDemand, c: ColumnContext, a: ColumnAdopte
 
 function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnModel, ast: number, asMax: number, m: Mat, pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
   const dias = c.diameters.filter((x) => x >= set.colBarMin && x <= 32);
-  const fine = (a: ColumnAdopted) => clearOk(d, c, a) && columnArea(a) >= ast - 1e-6 && (read(model, a, c)?.governing.u ?? 0) <= 1 + 1e-6;
+  const fine = (a: ColumnAdopted) => clearOk(d, c, a) && columnArea(a) >= ast - 1e-6 && columnArea(a) <= asMax + 1e-6 && (read(model, a, c)?.governing.u ?? 0) <= 1 + 1e-6;
   const shearFix = (a0: ColumnAdopted) => {
     let a = a0, it = 0;
     for (let guard = 0; guard < 30 && !shearOf(set, d, c, a, m).every((s) => s.x <= 1 + 1e-6 && s.y <= 1 + 1e-6); guard++) {
@@ -107,9 +107,9 @@ function propose(set: Ec2Set, d: ColumnDemand, c: ColumnContext, model: ColumnMo
     }
     return { a, it };
   };
-  if (pattern) {
+  if (pattern) for (const inner of patternInner(pattern)) {
     for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
-      const a = { ...evenLayout(d, c, dia, 0.3), nx: pattern.nx, ny: pattern.ny };
+      const a = { ...evenLayout(d, c, dia, 0.3), nx: pattern.nx, ny: pattern.ny, ...(inner ? { inner: { ...inner, dia } } : {}) };
       if (fine(a)) { const s = shearFix(a); return { layout: s.a, iterations: s.it }; }
     }
   }

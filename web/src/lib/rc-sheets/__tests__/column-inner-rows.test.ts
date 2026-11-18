@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { barClearance, columnLayout, growColumn, innerTies, rowClear } from '../column-layout';
-import { columnArea, columnBars, confinedTies, type ColumnDemand } from '../column-row';
+import { columnArea, columnBars, confinedTies, stackPattern, type ColumnDemand } from '../column-row';
 import { rulesFor } from '../codes';
 import { minClear as ec2MinClear } from '../ec2/basis';
 import { columnSection } from '../drawing';
@@ -129,6 +129,21 @@ describe('a column\'s rows inside its faces', () => {
       if (x?.inner) expect(columnLayout(d, x, 0.03).rows.every((r) => r.aligned)).toBe(true);
     }
     expect(x?.inner).toBeDefined();
+  });
+
+  it('follow the stack: the storey above keeps the pattern below, with its rows inside where it needs them and without them where it does not', () => {
+    const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [16] };
+    const rules = rulesFor('cirsoc201-2025');
+    const low = rules.columnRow(demand(0.5, 0.5, 4800, 192, 96), ctx, undefined, fmt);
+    expect(low.proposed.inner).toBeDefined();
+    const pattern = stackPattern(low.proposed);
+    expect(pattern.inner).toEqual({ nx: low.proposed.inner!.nx, ny: low.proposed.inner!.ny, ...(low.proposed.inner!.rows ? { rows: low.proposed.inner!.rows } : {}) });
+    const same = rules.columnRow(demand(0.5, 0.5, 4600, 184, 92), ctx, undefined, fmt, { pattern, fromBelow: true });
+    expect(same.proposed.inner).toEqual(low.proposed.inner);
+    expect([same.proposed.nx, same.proposed.ny]).toEqual([low.proposed.nx, low.proposed.ny]);
+    const light = rules.columnRow(demand(0.5, 0.5, 2000, 80, 40), ctx, undefined, fmt, { pattern, fromBelow: true });
+    expect(light.proposed.inner).toBeUndefined();
+    expect([light.proposed.nx, light.proposed.ny]).toEqual([low.proposed.nx, low.proposed.ny]);
   });
 });
 

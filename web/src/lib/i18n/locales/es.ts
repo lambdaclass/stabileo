@@ -14087,6 +14087,7 @@ const es: Record<string, string> = {
   "rcSheets.ed.faceH": "Por cara h",
   "rcSheets.ed.innerRow": "2ª fila (b · h)",
   "rcSheets.ed.innerRows": "Filas interiores",
+  "rcSheets.ed.colSpacingShort": "Las barras no entran con la separación libre mínima: hay barras superpuestas o demasiado cerca. Probá menos barras o un diámetro menor.",
   "rcSheets.ed.confinedTies": "Trabas en lo",
   "rcSheets.g.data": "Datos",
   "rcSheets.g.shear": "Corte",

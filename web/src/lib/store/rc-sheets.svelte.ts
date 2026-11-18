@@ -27,7 +27,7 @@ import type { FootingRow } from '../rc-sheets/footing-types';
 import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from './rc-sheets-footings';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
-import type { ColumnRow } from '../rc-sheets/column-row';
+import { stackPattern, type ColumnRow } from '../rc-sheets/column-row';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
@@ -474,7 +474,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
     const stack = prev ? {
-      pattern: { nx: prev.adopted.nx, ny: prev.adopted.ny, maxDia: Math.max(prev.adopted.corner, prev.adopted.dx, prev.adopted.dy) },
+      pattern: stackPattern(prev.adopted),
       fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
     } : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);

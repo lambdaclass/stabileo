@@ -270,7 +270,16 @@ function shearRatios(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, ct: { 
 }
 
 /** Where the storey sits in its stack: the pattern the bars below keep, whether bars come up from below, and how far its faces step in, m. */
-export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number }; fromBelow?: boolean; offset?: number }
+export interface StackPlace { pattern?: { nx: number; ny: number; maxDia: number; inner?: { nx: number; ny: number; rows?: number } }; fromBelow?: boolean; offset?: number }
+
+/** The pattern a storey's bars set for the storey above: its counts on each face and inside, and its thickest bar. */
+export const stackPattern = (a: ColumnAdopted): NonNullable<StackPlace['pattern']> => ({
+  nx: a.nx, ny: a.ny, maxDia: Math.max(...layoutDias(a)),
+  ...(a.inner && a.inner.nx + a.inner.ny > 0 ? { inner: { nx: a.inner.nx, ny: a.inner.ny, ...(a.inner.rows && a.inner.rows > 1 ? { rows: a.inner.rows } : {}) } } : {}),
+});
+
+/** The inner rows a storey tries on the pattern from below: none first, so the rows inside stop where the storey no longer needs them; then those below. */
+export const patternInner = (p: NonNullable<StackPlace['pattern']>): Array<NonNullable<StackPlace['pattern']>['inner'] | undefined> => (p.inner ? [undefined, p.inner] : [undefined]);
 
 /** Where a column's bars are lapped: clear cover to them and the least centre spacing along a face, mm, and Ktr of the ties over the lap (§25.4.2.4). */
 export interface LapLayout { clearCoverMm: number; spacingMm: number; ktrMm: number }
@@ -584,11 +593,11 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
     }
     return { layout: a, iterations: it };
   };
-  if (pattern) {
+  if (pattern) for (const inner of patternInner(pattern)) {
     for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
       const tie = tieOf(dia);
-      const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: spacingFor(dia, tie) };
-      if (columnArea(a) < ast - 1e-6 || !clearOk(d, c, a)) continue;
+      const a: ColumnAdopted = { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: tie, tieSpacing: spacingFor(dia, tie), ...(inner ? { inner: { ...inner, dia } } : {}) };
+      if (columnArea(a) < ast - 1e-6 || !clearOk(d, c, a) || tooMuch(a)) continue;
       if (over(a)) continue;
       const ct = { x: crossties(d.b, a.nx, a.dx, a.corner, c, a.tieDia), y: crossties(d.h, a.ny, a.dy, a.corner, c, a.tieDia) };
       if (!shearRatios(d, c, a, ct).every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) continue;

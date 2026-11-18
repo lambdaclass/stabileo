@@ -14098,6 +14098,7 @@ const en: Record<string, string> = {
   "rcSheets.ed.faceH": "Per face h",
   "rcSheets.ed.innerRow": "2nd row (b · h)",
   "rcSheets.ed.innerRows": "Inner rows",
+  "rcSheets.ed.colSpacingShort": "The bars do not fit with the least clear spacing: some overlap or stand too close. Try fewer bars or a smaller diameter.",
   "rcSheets.ed.confinedTies": "Crossties in lo",
   "rcSheets.g.data": "Data",
   "rcSheets.g.shear": "Shear",

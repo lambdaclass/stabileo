@@ -1,6 +1,6 @@
 import { roundDown } from '../bars';
 import { growColumn, layoutDias, pickPractical } from '../column-layout';
-import { barCount, columnLabel, innerCrossties, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
+import { barCount, columnLabel, innerCrossties, patternInner, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapOf, lbOf, toConfirm as U, ts500Mat, type Ts500Mat } from './basis';
@@ -35,10 +35,10 @@ function shearFix(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, a0: ColumnAdop
 }
 
 function propose(d: ColumnDemand, c: ColumnContext, t: Ts500Mat, ast: number, rhoMax: number, dias: readonly number[], demands: Tuple[], pattern?: StackPlace['pattern']): { layout: ColumnAdopted; iterations: number; exhausted?: true } {
-  const fits = (a: ColumnAdopted) => areaOf(a) >= ast - 1e-6 && clearOk(d, c, a) && crosstiesOf(d, a, c).ok && (!demands.length || utilOf(sectionOf(d, a, c), t, demands) <= 1 + 1e-6);
-  if (pattern) {
+  const fits = (a: ColumnAdopted) => areaOf(a) >= ast - 1e-6 && areaOf(a) <= rhoMax + 1e-6 && clearOk(d, c, a) && crosstiesOf(d, a, c).ok && (!demands.length || utilOf(sectionOf(d, a, c), t, demands) <= 1 + 1e-6);
+  if (pattern) for (const inner of patternInner(pattern)) {
     for (const dia of [...dias].filter((x) => x <= pattern.maxDia).sort((p, q) => p - q)) {
-      const a = withTies(c, { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: 0, tieSpacing: 0 }, dia);
+      const a = withTies(c, { corner: dia, nx: pattern.nx, dx: dia, ny: pattern.ny, dy: dia, tieDia: 0, tieSpacing: 0, ...(inner ? { inner: { ...inner, dia } } : {}) }, dia);
       if (!fits(a)) continue;
       const s = shearFix(d, c, t, a);
       if (shearRatios(d, c, t, s.a, crosstiesOf(d, s.a, c)).every((x) => x.x <= 1 + 1e-6 && x.y <= 1 + 1e-6)) return { layout: s.a, iterations: s.it };

@@ -138,6 +138,18 @@ describe('pieces of each family', () => {
     expect(ties).toBe(hoop.count * (low.checks.crossties.x + low.checks.crossties.y));
   });
 
+  it('a column with rows inside its faces counts those bars among its longitudinal pieces and their crossties beside the hoops', () => {
+    const inner = { corner: 20, nx: 3, dx: 20, ny: 3, dy: 20, tieDia: 8, tieSpacing: 0.15, inner: { nx: 1, ny: 1, dia: 20, rows: 2 } };
+    const row = columnRow(demand(0, 0.6), ctx, inner, f);
+    const [e] = scheduleElements({ line: [], column: [row], slab: [], wall: [] }, { code: 'cirsoc201-2025', slabCover: 0.02 });
+    const long = e!.pieces.filter((p) => p.kind === 'column').reduce((s, p) => s + p.count, 0);
+    expect(long).toBe(4 + 2 * 3 + 2 * 3 + 2 * 2 * (1 + 1));
+    const hoops = e!.pieces.find((p) => p.kind === 'hoop')!.count;
+    const ties = e!.pieces.filter((p) => p.kind === 'crossTie').reduce((s, p) => s + p.count, 0);
+    expect(row.checks.crossties.inner).toEqual({ x: 2, y: 2 });
+    expect(ties).toBe(hoops * (row.checks.crossties.x + row.checks.crossties.y + 4));
+  });
+
   it('bars crank in where the faces above step in by 75 mm at most, each by how far it moves; past that they hook and dowels are lapped in', () => {
     const cranked = stack(0.3);
     const pieces = cranked.els[0]!.pieces.filter((p) => p.kind === 'cranked');

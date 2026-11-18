@@ -13740,6 +13740,7 @@ const pt: Translations = {
   "rcSheets.ed.faceH": "Por face h",
   "rcSheets.ed.innerRow": "2ª camada (b · h)",
   "rcSheets.ed.innerRows": "Camadas internas",
+  "rcSheets.ed.colSpacingShort": "As barras não cabem com o espaçamento livre mínimo: algumas se sobrepõem ou ficam perto demais. Tente menos barras ou um diâmetro menor.",
   "rcSheets.ed.confinedTies": "Grampos em lo",
   "rcSheets.g.data": "Dados",
   "rcSheets.g.shear": "Cisalhamento",

@@ -14727,6 +14727,7 @@ const hu: Translations = {
   "rcSheets.slabKind.cantilever.long": "Konzol: csak egy élén támaszkodik, a mögötte lévő mezőbe van lehorgonyozva",
   "rcSheets.ed.innerRow": "2. sor (b · h)",
   "rcSheets.ed.innerRows": "Belső sorok",
+  "rcSheets.ed.colSpacingShort": "A vasak nem férnek el a legkisebb szabad távolsággal: egyesek átfedik egymást vagy túl közel vannak. Próbáljon kevesebb vasat vagy kisebb átmérőt.",
   "rcSheets.ed.confinedTies": "Kapcsolókengyelek lo-ban",
   "rcSheets.s.cantilever": "Konzol: egy élén támaszkodik, egy irányban teherhordó",
   "rcSheets.s.slabDistribution": "Elosztóvasalás",

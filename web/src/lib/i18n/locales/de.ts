@@ -13938,6 +13938,7 @@ const de: Translations = {
   "rcSheets.ed.faceH": "Je Seite h",
   "rcSheets.ed.innerRow": "2. Lage (b · h)",
   "rcSheets.ed.innerRows": "Innere Lagen",
+  "rcSheets.ed.colSpacingShort": "Die Stäbe passen nicht mit dem kleinsten lichten Abstand: Einige überlappen oder liegen zu nah. Versuchen Sie weniger Stäbe oder einen kleineren Durchmesser.",
   "rcSheets.ed.confinedTies": "Querhaken in lo",
   "rcSheets.g.data": "Daten",
   "rcSheets.g.shear": "Querkraft",

@@ -771,6 +771,23 @@ describe('reinforcement sheets from a solved model', () => {
     expect(lineResizeHint(rows.beam)).toBeNull();
   });
 
+  it('gives a heavily loaded column the least section it verifies with, and the next smaller one fails', () => {
+    frame();
+    solve();
+    const col = buildSheetRows().column[1]!;
+    const redesign = redesignerOf(col.key)!;
+    const heavy = { ...col.demand, cases: col.demand.cases.map((c) => ({ ...c, pu: c.pu * 9, puMin: (c.puMin ?? c.pu) * 9, puD: (c.puD ?? 0) * 9, mxTop: c.mxTop * 9, mxBot: c.mxBot * 9, myTop: c.myTop * 9, myBot: c.myBot * 9 })) };
+    const short = redesign({ ...heavy, b: 0.3, h: 0.3 } as never) as typeof col;
+    expect(short.status).toBe('fail');
+    const [hint] = resizeHints(short);
+    expect(hint).toMatchObject({ what: 'column', direction: 'grow', from: [0.3, 0.3] });
+    const [b, h] = hint!.to!;
+    const fits = redesign({ ...heavy, b, h } as never) as typeof col;
+    expect(fits.status).not.toBe('fail');
+    expect(fits.checks.spacingOk).toBe(true);
+    expect(redesign({ ...heavy, b: b! - 0.05, h: h! - 0.05 } as never).status).toBe('fail');
+  });
+
   it('cuts a column into storeys at the flat slabs it carries, as at beams, and checks punching at each', () => {
     const conc = modelStore.addMaterial({ name: 'H-30', e: 27000, nu: 0.2, rho: 25, fy: 30, fc: 30 });
     const col = modelStore.addSection({ name: '40×40', a: 0.16, iy: 0.4 ** 4 / 12, iz: 0.4 ** 4 / 12, j: 0.1406 * 0.4 ** 4, b: 0.4, h: 0.4, shape: 'rect' } as never);

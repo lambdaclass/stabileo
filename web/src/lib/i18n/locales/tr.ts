@@ -13938,6 +13938,7 @@ const tr: Translations = {
   "rcSheets.ed.faceH": "h yüzü başına",
   "rcSheets.ed.innerRow": "2. sıra (b · h)",
   "rcSheets.ed.innerRows": "İç sıralar",
+  "rcSheets.ed.colSpacingShort": "Çubuklar en küçük net aralıkla sığmıyor: bazıları üst üste biniyor ya da çok yakın. Daha az çubuk ya da daha küçük bir çap deneyin.",
   "rcSheets.ed.confinedTies": "lo içinde çiroz",
   "rcSheets.g.data": "Veriler",
   "rcSheets.g.shear": "Kesme",

@@ -13938,6 +13938,7 @@ const fr: Translations = {
   "rcSheets.ed.faceH": "Par face h",
   "rcSheets.ed.innerRow": "2e lit (b · h)",
   "rcSheets.ed.innerRows": "Lits intérieurs",
+  "rcSheets.ed.colSpacingShort": "Les barres n'entrent pas avec l'espacement libre minimal : certaines se chevauchent ou sont trop proches. Essayez moins de barres ou un diamètre plus petit.",
   "rcSheets.ed.confinedTies": "Épingles dans lo",
   "rcSheets.g.data": "Données",
   "rcSheets.g.shear": "Effort tranchant",
