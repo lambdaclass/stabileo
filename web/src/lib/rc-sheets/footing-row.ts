@@ -125,7 +125,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
     const edge = edgeResult(d, r, a, c, (axis) => strapDefault(d, a, axis));
     const v = [...verifications(d, r, a, code, fmt), ...(edge ? edgeChecks(edge, fmt) : [])];
     const ratios = [r.x.mu / Math.max(r.x.phiMn, 1e-9), r.y.mu / Math.max(r.y.phiMn, 1e-9), ratioOf(r.x.vu, r.x.phiVc), ratioOf(r.y.vu, r.y.phiVc), r.punching?.utilization ?? 0, r.bearing?.use ?? 0];
-    const status: RowStatus = !v.every((l) => l.ok) ? 'fail' : edge && edge.columnMoment > 1e-6 ? 'warn' : 'ok';
+    const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
     const proposed = prop?.adopted ?? a;
     return {
       family: 'footing', key: d.key, name: d.name, level: d.level, demand: d,

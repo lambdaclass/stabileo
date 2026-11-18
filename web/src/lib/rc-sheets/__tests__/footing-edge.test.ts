@@ -106,7 +106,7 @@ describe('an eccentric footing with no strap', () => {
     expect(r.bearing!.qMax).toBeLessThanOrEqual(150 + 1e-6);
     expect(r.edge!.columnMoment).toBeCloseTo(170 * r.ex, 6);
     expect(r.verifications.find((v) => v.label === 'rcSheets.v.footColumnMoment')?.ok).toBe(true);
-    expect(r.status).toBe('warn');
+    expect(r.status).toBe('ok');
   });
 
   it('cannot stay in contact under a large load, and fails rather than grow past reason', () => {

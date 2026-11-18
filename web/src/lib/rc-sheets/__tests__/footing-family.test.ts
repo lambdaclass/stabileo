@@ -60,11 +60,22 @@ describe('the footing demands', () => {
 
   it('read the modelled footing at its node, leave the nodes another footing carries to it, and mark what is out of scope', () => {
     const f = { id: 7, name: 'Z7', nodeId: 1, kind: 'isolated', B: 2, L: 2.4, thickness: 0.5, rotationDeg: 0, eccentricityB: 0.1, eccentricityL: 0, cover: 0.05, foundingElevation: -1.5, soilProfileId: 3 };
-    const comb = { ...f, id: 8, name: 'Z8', nodeId: 2, kind: 'combined', supportedNodeIds: [3] };
-    const D = footingDemands(input({ supportNodes: [1, 2, 3], columnAt: (n) => ({ b: 0.4, h: 0.4, name: `C${n}` }), footings: [f, comb] }));
+    const comb = { ...f, id: 8, name: 'Z8', nodeId: 2, kind: 'combined', supportedNodeIds: [3, 4] };
+    const D = footingDemands(input({ supportNodes: [1, 2, 3, 4], nodes: new Map([1, 2, 3, 4].map((n) => [n, { x: 3 * n, y: 0, z: 0 }])), columnAt: (n) => ({ b: 0.4, h: 0.4, name: `C${n}` }), footings: [f, comb] }));
     expect(D.map((d) => d.name)).toEqual(['Z7', 'Z8']);
     expect(D[0]!.footing).toMatchObject({ B: 2, L: 2.4, h: 0.5, ex: 0.1, founding: -1.5 });
     expect(D[1]!.footing!.outOfScope).toBe('kind');
+  });
+
+  it('read a combined footing of two columns as one carrying its second column, its plan in global axes even turned a quarter', () => {
+    const comb = { id: 8, name: 'Z8', nodeId: 2, kind: 'combined', B: 4, L: 1.5, thickness: 0.5, rotationDeg: 90, eccentricityB: 1.2, eccentricityL: 0.1, cover: 0.05, foundingElevation: -1.5, soilProfileId: 3, supportedNodeIds: [3] };
+    const D = footingDemands(input({ supportNodes: [2, 3], nodes: new Map([[2, { x: 0, y: 0, z: 0 }], [3, { x: 0, y: 2.4, z: 0 }]]), columnAt: (n) => ({ b: 0.4, h: 0.4, name: `C${n}` }), footings: [comb] }));
+    expect(D.map((d) => d.name)).toEqual(['Z8']);
+    expect(D[0]!.carried).toMatchObject({ key: 'footing:n3', nodeId: 3, name: 'C3' });
+    expect(D[0]!.footing).toMatchObject({ B: 1.5, L: 4 });
+    expect(D[0]!.footing!.ex).toBeCloseTo(-0.1, 9);
+    expect(D[0]!.footing!.ey).toBeCloseTo(1.2, 9);
+    expect(D[0]!.footing!.outOfScope).toBeUndefined();
   });
 });
 

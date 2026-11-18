@@ -86,7 +86,7 @@ describe('two property lines declared in the design data', () => {
     expect(tied.edge!.balance).toBe('tie');
     expect(tied.edge!.ties[0]!.Tu).toBeGreaterThan(0);
     expect(tied.edge!.straps).toEqual([]);
-    expect(tied.status).toBe('warn');
+    expect(tied.status).toBe('ok');
     setFootingSetup(key, { position: 'centred' });
     expect(buildSheetRows().footing.find((r) => r.key === key)!.edge).toBeUndefined();
     setFootingSetup(key, null);
