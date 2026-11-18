@@ -176,10 +176,35 @@ function flangeOf(m: DemandInput, span: Array<{ e: El; forward: boolean }>, bw: 
   return f && f.bf > bw + 1e-6 ? { bf: f.bf, hf: f.hf } : null;
 }
 
-function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number): BeamEnd {
+/** The nodes of vertical shells (walls), each with the walls through it: thickness, m, and horizontal direction in plan. */
+function wallNodes(m: DemandInput): Map<number, Array<{ t: number; u: [number, number] }>> {
+  const out = new Map<number, Array<{ t: number; u: [number, number] }>>();
+  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
+    const p = sh.nodes.map((n) => m.nodes.get(n)).filter((q): q is Pt => !!q);
+    if (p.length < 3) continue;
+    const a = [p[1]!.x - p[0]!.x, p[1]!.y - p[0]!.y, zOf(p[1]) - zOf(p[0])], b = [p[2]!.x - p[0]!.x, p[2]!.y - p[0]!.y, zOf(p[2]) - zOf(p[0])];
+    const n = [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!];
+    const ln = Math.hypot(n[0]!, n[1]!, n[2]!);
+    if (!(ln > 0) || Math.abs(n[2]!) / ln > 1 - VERTICAL) continue;
+    const lh = Math.hypot(n[0]!, n[1]!);
+    const wall = { t: sh.thickness, u: [-n[1]! / lh, n[0]! / lh] as [number, number] };
+    for (const nd of sh.nodes) out.set(nd, [...(out.get(nd) ?? []), wall]);
+  }
+  return out;
+}
+
+/** A wall the beam runs into across its plane (not along it) at the node: the beam rests on it as on a column. */
+function wallAcross(m: DemandInput, walls: ReadonlyMap<number, Array<{ t: number; u: [number, number] }>>, node: number, e: El): { t: number } | null {
+  const d = direction(m, e), lh = Math.hypot(d[0], d[1]) || 1;
+  const across = (walls.get(node) ?? []).filter((w) => Math.abs((d[0] * w.u[0] + d[1] * w.u[1]) / lh) < 0.5);
+  return across.length ? { t: Math.max(...across.map((w) => w.t)) } : null;
+}
+
+function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number, wall?: { t: number } | null): BeamEnd {
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
   if (others.some((o) => isVertical(m, o))) return { kind: 'column', half };
   if (m.supportNodes.has(node)) return { kind: 'support', half };
+  if (wall) return { kind: 'column', half: half > 0 ? half : wall.t / 2 };
   const beam = others.find((o) => o.type !== 'truss');
   if (beam) return { kind: 'beam', half: (m.sections.get(beam.sectionId)?.b ?? 0) / 2 };
   return { kind: 'free', half: 0 };
@@ -187,6 +212,7 @@ function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>
 
 export function beamDemands(m: DemandInput): BeamDemand[] {
   const inc = incidence(m);
+  const walls = wallNodes(m);
   const out: BeamDemand[] = [];
   for (const g of m.groups) {
     if (g.kind !== 'beam') continue;
@@ -197,7 +223,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
     run.forEach((r, i) => {
       spans[spans.length - 1]!.push(r);
       const end = r.forward ? r.e.nodeJ : r.e.nodeI;
-      const support = m.supportNodes.has(end) || (inc.get(end) ?? []).some((o) => !mine.has(o.id) && isVertical(m, o));
+      const support = m.supportNodes.has(end) || (inc.get(end) ?? []).some((o) => !mine.has(o.id) && isVertical(m, o)) || !!wallAcross(m, walls, end, r.e);
       if (support && i < run.length - 1) spans.push([]);
     });
     spans.forEach((span, k) => {
@@ -215,8 +241,8 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
       const x0 = faceI, x1 = L - faceJ;
       const dv = 0.9 * (turned ? sec.b : sec.h);
       const startNode = span[0]!.forward ? first.nodeI : first.nodeJ, endNode = lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI;
-      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0);
-      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0);
+      const endS = endOf(m, inc, mine, startNode, m.faceOffset?.(first.id, span[0]!.forward ? 'i' : 'j') ?? 0, wallAcross(m, walls, startNode, first));
+      const endE = endOf(m, inc, mine, endNode, m.faceOffset?.(lastEl.e.id, lastEl.forward ? 'j' : 'i') ?? 0, wallAcross(m, walls, endNode, lastEl.e));
       const v0 = !m.faces ? 0 : endS.kind === 'beam' ? x0 : Math.min(x0 + dv, L / 2), v1 = !m.faces ? L : endE.kind === 'beam' ? x1 : Math.max(x1 - dv, L / 2);
       let xStar = (x0 + x1) / 2, best = 0;
       stations.forEach((list) => { for (const { x, s } of list) if (x >= x0 - 1e-9 && x <= x1 + 1e-9 && s[flex] > best) { best = s[flex]; xStar = x; } });
