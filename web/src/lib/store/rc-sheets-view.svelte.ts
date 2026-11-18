@@ -41,7 +41,7 @@ function stampNow(): Stamp {
   const { adopted, bentLines, footingSetup, footingSizing, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
   const { rcSheets: _, designOptions, propertyLines, ...own } = designData();
-  const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria) } };
+  const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,

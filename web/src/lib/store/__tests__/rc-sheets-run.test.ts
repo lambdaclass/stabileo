@@ -12,7 +12,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
+import { buildSheetRows, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, refreshSheetEdits, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { setFootingSetup, setFootingSizing } from '../rc-sheets-footings';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
@@ -105,6 +105,17 @@ describe('designing the sheets on asking', () => {
     expect(Math.abs(corner.ex) + Math.abs(corner.ey)).toBeGreaterThan(0);
     setFootingSizing('full');
     expect(sheetsStale()).toBe(false);
+  });
+
+  it('out of date when the deflection settings or the alternatives options change', async () => {
+    solvedFrame();
+    await designSheets();
+    setAlternativeOptions({ fcMax: 40 });
+    expect(sheetsStale()).toBe(true);
+    await designSheets();
+    expect(sheetsStale()).toBe(false);
+    setDeflectionSettings({ sustained: 0.5 });
+    expect(sheetsStale()).toBe(true);
   });
 
   it('no older when the schedule\'s waste or mark scope change, which only order the bars', async () => {
