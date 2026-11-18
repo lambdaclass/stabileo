@@ -13827,6 +13827,8 @@ const fr: Translations = {
   "rcSheets.v.tieList": "Diamètres de cadres autorisés dans les Données de calcul",
   "rcSheets.v.longList": "Diamètres longitudinaux autorisés dans les Données de calcul",
   "rcSheets.v.mainCover": "Enrobage des armatures principales",
+  "rcSheets.s.defl.camber": "Contreflèche suggérée, égale et opposée à la flèche sous charge permanente (critère du cours FIUBA)",
+  "rcSheets.s.defl.frequency": "Fréquence propre approximative du plancher, à comparer à ce qui l'excite (critère du cours FIUBA)",
   "rcSheets.v.deflection": "Flèche",
   "rcSheets.v.deflectionDepth": "Flèche : hauteur minimale sans calcul",
   "rcSheets.v.deflectionNoService": "Flèche : incalculable sans les cas de charge résolus séparément",

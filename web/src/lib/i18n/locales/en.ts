@@ -13987,6 +13987,8 @@ const en: Record<string, string> = {
   "rcSheets.v.tieList": "Stirrup diameters allowed in Design data",
   "rcSheets.v.longList": "Longitudinal diameters allowed in Design data",
   "rcSheets.v.mainCover": "Cover to the main bars",
+  "rcSheets.s.defl.camber": "Suggested camber, equal and opposite to the dead-load deflection (FIUBA course criterion)",
+  "rcSheets.s.defl.frequency": "Approximate natural frequency of the floor, to compare with what excites it (FIUBA course criterion)",
   "rcSheets.v.deflection": "Deflection",
   "rcSheets.v.deflectionDepth": "Deflection: depth that needs no calculation",
   "rcSheets.v.deflectionNoService": "Deflection: cannot be calculated without the load cases solved apart",

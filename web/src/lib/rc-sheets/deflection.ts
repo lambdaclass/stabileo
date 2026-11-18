@@ -146,6 +146,19 @@ const cm = (f: Fmt, v: number) => `${f(v * 100, 1)} cm`;
 const mm = (f: Fmt, v: number) => `${f(v * 1000, 1)} mm`;
 const reading = (s: DeflectionSupport) => (s === 'none' ? 360 : s === 'nonFragile' ? 240 : 480);
 
+/**
+ * The FIUBA course's two readings of the immediate deflection (§18.3, §18.4): a camber equal and
+ * opposite to the dead load's, and the floor's natural frequency f ≈ 5.6/√δ, δ in cm, to compare
+ * with what excites it.
+ */
+function courseSteps(deadImmediate: number, sustainedImmediate: number, f: Fmt): Step[] {
+  const cmS = sustainedImmediate * 100;
+  return [
+    { label: 'rcSheets.s.defl.camber', formula: 'Δi(D) (FIUBA §18.3)', value: mm(f, deadImmediate) },
+    ...(cmS > 1e-6 ? [{ label: 'rcSheets.s.defl.frequency', formula: 'f ≈ 5.6/√δ(D + ψL), δ [cm] (FIUBA §18.4)', value: `${f(5.6 / Math.sqrt(cmS), 1)} Hz` }] : []),
+  ];
+}
+
 /** Why the deflection is calculated where the depth table would spare it. */
 function whyStep(tableOk: boolean, s: ReturnType<typeof resolved>): Step | null {
   if (!tableOk) return { label: 'rcSheets.s.defl.why.short', value: '' };
@@ -256,6 +269,7 @@ export function aciDeflection(mech: DeflectionMechanics, edition: 'aci' | 'cirso
           formula: s.supports === 'none' ? 'Δ(L) ≤ ℓ/360' : `λΔ·Δ(D + ψL) + [Δ(D + L) − Δ(D + ψL)] ≤ ℓ/${nLim}`,
           value: `${mm(f, delta)} ≤ ${mm(f, limit)}`, ok,
         },
+        ...courseSteps(dD, dS, f),
       ].filter((v): v is Step => !!v);
       return {
         line: check('rcSheets.v.deflection', ok, { clause, demand: `Δ = ${mm(f, delta)}`, capacity: `≤ ℓ/${nLim} = ${mm(f, limit)}`, ratio: delta / limit }),
@@ -392,6 +406,7 @@ export function ts500Deflection(mech: Pick<DeflectionMechanics, 'crackedInertia'
         { label: 'rcSheets.s.defl.immediate', formula: 'Δi = K/(Ec·Ie)', value: `Δ(D + L) = ${mm(f, dT)}; Δ(D) = ${mm(f, dD)}; Δ(D + ψL) = ${mm(f, dS)}; Δ(L) = ${mm(f, dL)}` },
         { label: 'rcSheets.s.defl.longTerm', formula: "λ = 2 − 1.2·A's/As ≥ 0.6", value: `λ = ${f(lambda, 2)}` },
         { label: `rcSheets.s.defl.reading.${s.supports}`, formula: s.supports === 'none' ? 'Δ(L) ≤ ℓ/360' : `λ·Δ(D + ψL) + [Δ(D + L) − Δ(D + ψL)] ≤ ℓ/${nLim}`, value: `${mm(f, delta)} ≤ ${mm(f, limit)}`, ok },
+        ...courseSteps(dD, dS, f),
       ].filter((v): v is Step => !!v);
       return {
         line: check('rcSheets.ts500.u.deflection', ok, { clause: '13.2', demand: `Δ = ${mm(f, delta)}`, capacity: `≤ ℓ/${nLim} = ${mm(f, limit)}`, ratio: delta / limit }),
@@ -629,15 +644,12 @@ export function slabEdges(
 ): SlabEdges {
   const TOL = 0.05;
   const overlap = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
-  const edge = (dir: 'x' | 'y', at: number, a0: number, a1: number, side: 'lo' | 'hi'): SlabEdge => {
-    const len = a1 - a0;
-    const perp = dir === 'x' ? rect.x1 - rect.x0 : rect.y1 - rect.y0;
-    const shared = others.reduce((s, q) => {
-      const [qlo, qhi, q0, q1] = dir === 'x' ? [q.x0, q.x1, q.y0, q.y1] : [q.y0, q.y1, q.x0, q.x1];
-      const touches = side === 'lo' ? Math.abs(qhi - at) <= TOL : Math.abs(qlo - at) <= TOL;
-      return touches ? s + overlap(a0, a1, q0, q1) : s;
-    }, 0);
-    const continuous = shared >= 0.5 * len - 1e-9;
+  /** Whether a beam or wall holds the panel's edge across `dir` at its `end`: a column there is that edge's support, not this one's. */
+  const heldAcross = (dir: 'x' | 'y', end: 'lo' | 'hi') => {
+    const [d2, at2, b0, b1] = dir === 'x' ? ['y' as const, end === 'lo' ? rect.y0 : rect.y1, rect.x0, rect.x1] : ['x' as const, end === 'lo' ? rect.x0 : rect.x1, rect.y0, rect.y1];
+    return beamOn(d2, at2, b0, b1).covered >= 0.5 * (b1 - b0) - 1e-9;
+  };
+  const beamOn = (dir: 'x' | 'y', at: number, a0: number, a1: number) => {
     let covered = 0, best: (typeof geom.beams)[number] | null = null;
     for (const b of geom.beams) {
       const [p, q, s0, s1] = dir === 'x' ? [b.x1, b.x2, b.y1, b.y2] : [b.y1, b.y2, b.x1, b.x2];
@@ -647,6 +659,18 @@ export function slabEdges(
       covered += cov;
       if (!best || (b.kind === 'wall' && best.kind !== 'wall') || b.b > best.b) best = b;
     }
+    return { covered, best };
+  };
+  const edge = (dir: 'x' | 'y', at: number, a0: number, a1: number, side: 'lo' | 'hi'): SlabEdge => {
+    const len = a1 - a0;
+    const perp = dir === 'x' ? rect.x1 - rect.x0 : rect.y1 - rect.y0;
+    const shared = others.reduce((s, q) => {
+      const [qlo, qhi, q0, q1] = dir === 'x' ? [q.x0, q.x1, q.y0, q.y1] : [q.y0, q.y1, q.x0, q.x1];
+      const touches = side === 'lo' ? Math.abs(qhi - at) <= TOL : Math.abs(qlo - at) <= TOL;
+      return touches ? s + overlap(a0, a1, q0, q1) : s;
+    }, 0);
+    const continuous = shared >= 0.5 * len - 1e-9;
+    const { covered, best } = beamOn(dir, at, a0, a1);
     if (best && covered >= 0.5 * len - 1e-9) {
       if (best.kind === 'wall') return { continuous, kind: 'wall', alpha: WALL_ALPHA, half: best.b / 2 };
       const hb = Math.max(best.h ?? h, h);
@@ -657,7 +681,9 @@ export function slabEdges(
     }
     const cols = geom.columns.filter((k) => {
       const [p, s, ext] = dir === 'x' ? [k.x, k.y, k.b] : [k.y, k.x, k.h];
-      return Math.abs(p - at) <= Math.max(TOL, ext / 2) && s >= a0 - TOL && s <= a1 + TOL;
+      if (Math.abs(p - at) > Math.max(TOL, ext / 2) || s < a0 - TOL || s > a1 + TOL) return false;
+      const end = Math.abs(s - a0) <= Math.max(TOL, ext / 2) ? 'lo' : Math.abs(s - a1) <= Math.max(TOL, ext / 2) ? 'hi' : null;
+      return !end || !heldAcross(dir, end);
     });
     if (cols.length) return { continuous, kind: 'columns', alpha: 0, half: Math.max(...cols.map((k) => (dir === 'x' ? k.b : k.h))) / 2 };
     return { continuous, kind: 'free', alpha: 0, half: 0 };

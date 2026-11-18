@@ -13827,6 +13827,8 @@ const de: Translations = {
   "rcSheets.v.tieList": "In den Bemessungsdaten zugelassene Bügeldurchmesser",
   "rcSheets.v.longList": "In den Bemessungsdaten zugelassene Längsstabdurchmesser",
   "rcSheets.v.mainCover": "Betondeckung der Längsbewehrung",
+  "rcSheets.s.defl.camber": "Empfohlene Überhöhung, gleich und entgegengesetzt der Durchbiegung aus ständiger Last (Kriterium des FIUBA-Kurses)",
+  "rcSheets.s.defl.frequency": "Ungefähre Eigenfrequenz der Decke, zum Vergleich mit ihrer Anregung (Kriterium des FIUBA-Kurses)",
   "rcSheets.v.deflection": "Durchbiegung",
   "rcSheets.v.deflectionDepth": "Durchbiegung: Mindesthöhe ohne Berechnung",
   "rcSheets.v.deflectionNoService": "Durchbiegung: ohne getrennt berechnete Lastfälle nicht berechenbar",

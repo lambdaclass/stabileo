@@ -13976,6 +13976,8 @@ const es: Record<string, string> = {
   "rcSheets.v.tieList": "Diámetros de estribo habilitados en Datos de diseño",
   "rcSheets.v.longList": "Diámetros longitudinales habilitados en Datos de diseño",
   "rcSheets.v.mainCover": "Recubrimiento de la armadura principal",
+  "rcSheets.s.defl.camber": "Contraflecha sugerida, igual y contraria a la flecha por carga permanente (criterio de cátedra)",
+  "rcSheets.s.defl.frequency": "Frecuencia natural aproximada del entrepiso, para comparar con lo que lo excita (criterio de cátedra)",
   "rcSheets.v.deflection": "Flecha",
   "rcSheets.v.deflectionDepth": "Flecha: altura mínima sin cálculo",
   "rcSheets.v.deflectionNoService": "Flecha: no se puede calcular sin los casos de carga resueltos por separado",

@@ -13827,6 +13827,8 @@ const tr: Translations = {
   "rcSheets.v.tieList": "Tasarım verilerinde izin verilen etriye çapları",
   "rcSheets.v.longList": "Tasarım verilerinde izin verilen boyuna donatı çapları",
   "rcSheets.v.mainCover": "Boyuna donatının paspayı",
+  "rcSheets.s.defl.camber": "Önerilen ters sehim, kalıcı yük sehimine eşit ve zıt (FIUBA ders ölçütü)",
+  "rcSheets.s.defl.frequency": "Döşemenin yaklaşık doğal frekansı, onu titreştiren etkiyle karşılaştırmak için (FIUBA ders ölçütü)",
   "rcSheets.v.deflection": "Sehim",
   "rcSheets.v.deflectionDepth": "Sehim: hesap gerektirmeyen en küçük yükseklik",
   "rcSheets.v.deflectionNoService": "Sehim: ayrı çözülmüş yükleme durumları olmadan hesaplanamaz",

@@ -58,6 +58,8 @@ describe('ACI 318-19 and CIRSOC 201-2025 §24.2', () => {
     expect(o.line.ratio).toBeCloseTo(after / (6 / 480), 4);
     expect(o.line.clause).toBe('§24.2, Tabla 24.2.2');
     expect(ACI.check(beamInput(), f).line.clause).toBe('§24.2, Table 24.2.2');
+    expect(o.group.steps.find((x) => x.label === 'rcSheets.s.defl.camber')!.value).toBe(`${f(dD * 1000, 1)} mm`);
+    expect(o.group.steps.find((x) => x.label === 'rcSheets.s.defl.frequency')!.value).toBe(`${f(5.6 / Math.sqrt(dS * 100), 1)} Hz`);
     const none = CIRSOC.check(beamInput({ settings: { supports: 'none', always: true } }), f);
     expect(none.line.ratio).toBeCloseTo((dT - dD) / (6 / 360), 4);
     expect(none.ok).toBe(true);
@@ -154,8 +156,7 @@ describe('slab edges and spans', () => {
     expect(e.y1.continuous).toBe(true);
     expect(e.y0.continuous).toBe(false);
     expect(e.x0.kind).toBe('wall');
-    expect(e.x1.kind).toBe('columns');
-    expect(e.x1.half).toBeCloseTo(0.15, 9);
+    expect(e.x1.kind).toBe('free');
     const T = (sides: number) => {
       const p = Math.min(0.38, 0.48) * sides, A = 0.2 * 0.5 + p * 0.12, yc = (0.2 * 0.5 * 0.25 + p * 0.12 * 0.44) / A;
       return (0.2 * 0.5 ** 3) / 12 + 0.2 * 0.5 * (0.25 - yc) ** 2 + (p * 0.12 ** 3) / 12 + p * 0.12 * (0.44 - yc) ** 2;
@@ -164,7 +165,18 @@ describe('slab edges and spans', () => {
     expect(e.y0.alpha).toBeCloseTo(T(1) / ((2 * 0.12 ** 3) / 12), 6);
     const span = slabSpanInput({ lx: 5, ly: 4, oneWay: false }, e);
     expect(span.twoWay!.alphaFm).toBeNull();
-    expect(span.twoWay!.lnLong).toBeCloseTo(5 - 0.1 - 0.15, 9);
+    expect(span.twoWay!.lnLong).toBeCloseTo(5 - 0.1, 9);
+  });
+  it('counts the columns at a flat panel\'s corners as its edges\' supports, and not where a beam at that corner already rests on them', () => {
+    const cols = [0, 5].flatMap((x) => [0, 4].map((y) => ({ x, y, b: 0.3, h: 0.4 })));
+    const flat = slabEdges({ x0: 0, x1: 5, y0: 0, y1: 4 }, 0.2, [], { beams: [], columns: cols });
+    expect(Object.values(flat).map((e) => e.kind)).toEqual(['columns', 'columns', 'columns', 'columns']);
+    expect(flat.x0.half).toBeCloseTo(0.15, 9);
+    expect(flat.y0.half).toBeCloseTo(0.2, 9);
+    expect(slabSpanInput({ lx: 5, ly: 4, oneWay: false }, flat).twoWay).toMatchObject({ flat: true, alphaFm: null, exterior: true, edgeBeams: false });
+    const balcony = slabEdges({ x0: 0, x1: 2, y0: 0, y1: 4 }, 0.15, [], { beams: [{ x1: 0, y1: 0, x2: 0, y2: 4, b: 0.3, h: 0.6, kind: 'beam' }], columns: [{ x: 0, y: 0, b: 0.3, h: 0.3 }, { x: 0, y: 4, b: 0.3, h: 0.3 }] });
+    expect(balcony.y0.kind).toBe('free');
+    expect(cantileverRoot(balcony)).toBe('x0');
   });
   it('finds a cantilever off its one held edge, with neighbouring panels allowed at its sides', () => {
     const free = { continuous: false, kind: 'free' as const, alpha: 0, half: 0 };

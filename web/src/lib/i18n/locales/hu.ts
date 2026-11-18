@@ -14697,6 +14697,8 @@ const hu: Translations = {
   "rcSheets.s.lineHook180": "180°-os kampó: a 90°-os kampó szára nem fér el a magasságban",
   "rcSheets.g.slabAnchorage": "A vasak lehorgonyzása",
   "rcSheets.v.mainCover": "A fővasak betonfedése",
+  "rcSheets.s.defl.camber": "Javasolt túlemelés, az állandó teherből származó lehajlással egyenlő és ellentétes (FIUBA-tantárgyi kritérium)",
+  "rcSheets.s.defl.frequency": "A födém közelítő sajátfrekvenciája, a gerjesztéssel való összevetéshez (FIUBA-tantárgyi kritérium)",
   "rcSheets.v.deflection": "Lehajlás",
   "rcSheets.v.deflectionDepth": "Lehajlás: számítás nélküli legkisebb magasság",
   "rcSheets.v.deflectionNoService": "Lehajlás: külön megoldott teheresetek nélkül nem számítható",

@@ -13629,6 +13629,8 @@ const pt: Translations = {
   "rcSheets.v.tieList": "Diâmetros de estribo permitidos em Dados de projeto",
   "rcSheets.v.longList": "Diâmetros longitudinais permitidos em Dados de projeto",
   "rcSheets.v.mainCover": "Cobrimento da armadura principal",
+  "rcSheets.s.defl.camber": "Contraflecha sugerida, igual e contrária à flecha por carga permanente (critério da cátedra FIUBA)",
+  "rcSheets.s.defl.frequency": "Frequência natural aproximada do piso, para comparar com o que o excita (critério da cátedra FIUBA)",
   "rcSheets.v.deflection": "Flecha",
   "rcSheets.v.deflectionDepth": "Flecha: altura mínima sem cálculo",
   "rcSheets.v.deflectionNoService": "Flecha: não pode ser calculada sem os casos de carga resolvidos separadamente",
