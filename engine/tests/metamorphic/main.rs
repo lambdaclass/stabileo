@@ -260,3 +260,16 @@ mod nightly_1113;
 
 mod released_load_work;
 mod ssi_elastic_2011;
+
+#[test]
+#[ignore = "known wrong result: #2125"]
+fn issue_2125_ground_motion_preserves_half_turn_symmetry() {
+    let model = serde_json::from_str(include_str!("../fixtures/time-history-symmetry-2125.json")).unwrap();
+    let symmetric = symmetry::symmetrize_3d("issue-2125", &model, false).unwrap();
+    let histories: Vec<_> = ana3::rows().into_iter().filter(|row| row.name == "time history (ground motion)").collect();
+    assert_eq!(histories.len(), 1);
+    let tally = Tally::default();
+    symmetry::check_3d(&tally, &symmetric, false, &histories);
+    let failures = tally.failures();
+    assert!(failures.is_empty(), "{failures:?}");
+}
