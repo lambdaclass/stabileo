@@ -1,6 +1,6 @@
 /**
  * The same for a larger frame and a ribbed mat on soil springs: the frame's proposals verify in
- * every code; under the pedestals two ribs of 20 × 60 carry more than any reinforcement of that
+ * every code, its beams under chapter 18 too (its columns there are another round's); under the pedestals two ribs of 20 × 60 carry more than any reinforcement of that
  * section and concrete can, and say so with the section or concrete that would. Under TS 500 two
  * more ribs, whose soil bends them the other way, are laid out by their line with more steel than
  * the code's 2 % allows: they too say so, and are what is left to the lines over interior supports.
@@ -15,6 +15,7 @@ describe('the proposals of a frame and a mat verify, or declare their alternativ
   it('rc-design-frame', async () => {
     await solveExample('rc-design-frame');
     for (const code of CODES) expect(failingUnder(code), code).toEqual([]);
+    for (const code of CODES) expect(failingUnder(code, true).filter((r) => !r.startsWith('column')), `${code} seismic`).toEqual([]);
   }, 300000);
 
   it('mat-foundation', async () => {

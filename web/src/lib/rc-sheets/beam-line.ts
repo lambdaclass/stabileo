@@ -882,6 +882,16 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         else { bars = layout(proposed); env = verify(proposed, bars); }
       }
     }
+    for (let guard = 0; c.seismic && guard < 8; guard++) {
+      const more = spanAdoptedOf(proposed, bars).reduce((m, sa) => {
+        const r = faceRule(sa.at!.start!, sa.at!.span!, sa.at!.end!).more;
+        return { top: Math.max(m.top, r.top), bottom: Math.max(m.bottom, r.bottom) };
+      }, { top: 0, bottom: 0 });
+      if (more.top <= 1e-6 && more.bottom <= 1e-6) break;
+      const runs = (g: BarGroup, area: number): BarGroup => (area > 1e-6 ? { ...g, count: g.count + Math.ceil(area / barArea(g.dia) - 1e-9) } : g);
+      proposed = { ...proposed, top: runs(proposed.top, more.top), bottom: runs(proposed.bottom, more.bottom) };
+      bars = layout(proposed); env = verify(proposed, bars); iterations++;
+    }
   }
   const a = adopted ?? proposed;
   const adoptedBentNotes = (): LineLayout['bentNotes'] => {
