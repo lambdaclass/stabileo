@@ -592,7 +592,6 @@ fn combinations_preserve_2d_response_under_repeated_case_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn combinations_report_planar_net_factor_overflow_before_recovery() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&input).unwrap();
@@ -623,7 +622,6 @@ fn combinations_report_planar_net_factor_overflow_before_recovery() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2222"]
 fn combinations_report_spatial_net_factor_overflow_before_recovery() {
     let input = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
     let linear = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();

@@ -264,8 +264,8 @@ const failure = (run: () => unknown): string => {
 
 const netFactorOverflow = 'Cannot combine results: load case 1 has a non-finite number at net factor=inf';
 
-it.skip.each(['2d export', '2d wrapper', ...Object.keys(combinationPaths3D)])(
-  'reports overflow before recovery in %s (known wrong result: #2222)', path => {
+it.each(['2d export', '2d wrapper', ...Object.keys(combinationPaths3D)])(
+  'reports overflow before recovery in %s (#2222)', path => {
     const planar = path.startsWith('2d');
     const input = portalInput(planar ? '2d' : '3d');
     const linear = planar ? solve_2d(JSON.parse(input)) : solve_3d(JSON.parse(input));
@@ -286,10 +286,10 @@ it.skip.each(['2d export', '2d wrapper', ...Object.keys(combinationPaths3D)])(
   },
 );
 
-it.skip.each([
+it.each([
   ['export', net_combination_factors],
   ['wrapper', netCombinationFactors],
-])('reports net factor overflow at the representable boundary in the %s (known wrong result: #2222)', (_path, resolve) => {
+])('reports net factor overflow at the representable boundary in the %s (#2222)', (_path, resolve) => {
   const halfMax = Number.MAX_VALUE / 2;
   expect(resolve(splitFactors([halfMax, halfMax]))).toStrictEqual(splitFactors([Number.MAX_VALUE]));
   expect(failure(() => resolve(splitFactors([halfMax, 2 ** 1023])))).toBe(netFactorOverflow);

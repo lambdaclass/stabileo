@@ -328,9 +328,12 @@ impl ResolvedFactors {
         self.contributions(cases).map(|(factor, case_id, _)| CombinationFactor { case_id, factor }).collect()
     }
 
-    fn require_finite(&self) -> Result<(), String> {
-        if self.terms.iter().any(|(factor, _)| !factor.is_finite()) {
-            return Err("Cannot combine results: non-finite net load case factor".into());
+    fn require_finite<T>(&self, cases: &[(usize, &T)]) -> Result<(), String> {
+        if let Some(&(factor, slot)) = self.terms.iter().find(|(factor, _)| !factor.is_finite()) {
+            let case_id = cases[slot].0;
+            return Err(format!(
+                "Cannot combine results: load case {case_id} has a non-finite number at net factor={factor}"
+            ));
         }
         Ok(())
     }
@@ -340,7 +343,7 @@ pub(crate) fn net_combination_factors(factors: &[CombinationFactor]) -> Result<V
     let mut seen = HashSet::with_capacity(factors.len());
     let cases: Vec<_> = factors.iter().map(|f| f.case_id).filter(|&id| seen.insert(id)).map(|id| (id, &())).collect();
     let resolved = ResolvedFactors::new(factors, &cases)?;
-    resolved.require_finite()?;
+    resolved.require_finite(&cases)?;
 
     seen.clear();
     let mut net = resolved.case_factors(&cases);
@@ -406,7 +409,7 @@ pub(crate) fn combine_results_refs_checked(factors: &[CombinationFactor], cases:
     if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse_contained(&r.structured_diagnostics, *r).is_err()) {
         return Ok(None);
     }
-    resolved.require_finite()?;
+    resolved.require_finite(cases)?;
     for (_, result) in cases {
         crate::boundary::require_finite(*result)?;
         for ef in &result.element_forces {
@@ -806,7 +809,7 @@ fn combine_resolved_results_3d(
     resolved: &ResolvedFactors,
     plate_thickness: &PlateThicknesses,
 ) -> Result<Option<AnalysisResults3D>, String> {
-    resolved.require_finite()?;
+    resolved.require_finite(cases)?;
     for (_, result) in cases {
         crate::boundary::require_finite(*result)?;
         for ef in &result.element_forces {

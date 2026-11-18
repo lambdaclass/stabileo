@@ -40,7 +40,8 @@ export const FEATURE_IDS = [
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads',
   'partialDistributedMemberLoads', 'distributedMemberLoads', 'selfWeight', 'nodalForces', 'forceSummaryResults',
-  'ssiHistory', 'movingLoads', 'combinations', 'superposedCombinations', 'repeatedCombinationCases', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'ssiHistory', 'movingLoads', 'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
+  'superposedCombinations', 'repeatedCombinationCases',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -69,7 +70,7 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
-export interface FeatureSnapshot {
+interface FeatureSnapshotFields {
   analysisMode?: string;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
@@ -94,9 +95,13 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
-  analysis?: { selfWeight?: unknown[]; combinationMethod?: string };
+  analysis?: { selfWeight?: unknown[] };
   includeSelfWeight?: boolean;
   designData?: { loadBasis?: { resultsVersion?: unknown }; site?: { phases?: unknown[] } };
+}
+
+export interface FeatureSnapshot extends FeatureSnapshotFields {
+  analysis?: FeatureSnapshotFields['analysis'] & { combinationMethod?: string };
 }
 
 export interface FeatureContext {
