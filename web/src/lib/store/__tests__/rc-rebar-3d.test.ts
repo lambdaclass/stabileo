@@ -59,7 +59,7 @@ function slabsInside(rows: SheetRows, bars: readonly Rebar3d[], cover: number): 
   let checked = 0;
   for (const b of bars.filter((x) => x.family === 'slab')) {
     const panel = byKey.get(b.rows[0]!)!, soffit = panel.demand.bounds!.z - panel.h / 2;
-    for (const p of bentPoints(b).filter((_, i, all) => i > 0 && i < all.length - 1)) {
+    for (const p of bentPoints(b)) {
       expect(p[2] - soffit, `${panel.name} ${b.tone}`).toBeGreaterThanOrEqual(cover + b.dia / 2000 - TOL);
       expect(p[2] - soffit, `${panel.name} ${b.tone}`).toBeLessThanOrEqual(panel.h - cover - b.dia / 2000 + TOL);
       checked++;

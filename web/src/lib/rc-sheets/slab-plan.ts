@@ -343,7 +343,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       });
       const inner = linesOf(p, d).filter((s) => s.below === s.above).map((s) => s.at);
       const y = yBottom(p, d, mesh.dia);
-      const upLeg = legDown(p.h, mesh.dia);
+      const upLeg = legDown(p.h, y, 'bottom', mesh.dia);
       const cuts = [...new Set([lo(p.rect, a), hi(p.rect, a), ...(['lo', 'hi'] as const).flatMap((end) => edgeSupports(p, d, end).flatMap((s) => [s.from, s.to]))]
         .filter((u) => u >= lo(p.rect, a) - 1e-9 && u <= hi(p.rect, a) + 1e-9).map((u) => Math.round(u * 1e6) / 1e6))].sort((u, v) => u - v);
       const bands = cuts.slice(1).map((u, i) => ({ from: cuts[i]!, to: u })).filter((b) => b.to - b.from > TOL);
@@ -373,7 +373,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       const x0 = e0.end, x1 = e1.end;
       const bendAt = p.row.oneWay ? code.bendAt.oneWay : code.bendAt.twoWay;
       const r0 = faceLo + bendAt * ln, r1 = faceHi - bendAt * ln;
-      const leg = legDown(p.h, mesh.dia);
+      const leg = legDown(p.h, yt, 'top', mesh.dia);
       const pts: Array<[number, number]> = [[0, yt - leg], [0, yt], [r0 - run - x0, yt], [r0 - x0, yb], [r1 - x0, yb], [r1 + run - x0, yt], [x1 - x0, yt], [x1 - x0, yt - leg]];
       add({
         layer: 'bottom', dir: d, kind: 'bent', bars: half2, from: x0, to: x1, band, shape: { pts, mandrel: bentMandrel(mesh.dia), dia: mesh.dia },
@@ -465,7 +465,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     const h = Math.min(...sides.map((p) => p.h));
     const outer = Math.max(...sides.map((p) => p.row.adopted.topX.dia), bars.dia);
     const yt = yTop(h, s.dir, bars.dia, outer);
-    const leg = legDown(h, bars.dia);
+    const leg = legDown(h, yt, 'top', bars.dia);
     const developedAt = 1 / (1 / bars.spacing + bentPerM);
     for (const st of strips) {
       const e0 = topEnd(s, 'below', bars.dia, st.frac, developedAt), e1 = topEnd(s, 'above', bars.dia, st.frac, developedAt);
@@ -505,7 +505,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
         return half > 0 ? at + sign * (half - c.cover) : at - sign * c.cover;
       };
       const x0 = endAt('lo'), x1 = endAt('hi');
-      const yt = yTop(p.h, d, bars.dia, Math.max(p.row.adopted.topX.dia, bars.dia)), leg = legDown(p.h, bars.dia);
+      const yt = yTop(p.h, d, bars.dia, Math.max(p.row.adopted.topX.dia, bars.dia)), leg = legDown(p.h, yt, 'top', bars.dia);
       add({
         layer: 'top', dir: d, kind: 'span', bars, from: x0, to: x1, band: { from: lo(p.rect, a), to: hi(p.rect, a) },
         shape: { pts: [[0, yt - leg], [0, yt], [x1 - x0, yt], [x1 - x0, yt - leg]], mandrel: mandrel(bars.dia), dia: bars.dia },

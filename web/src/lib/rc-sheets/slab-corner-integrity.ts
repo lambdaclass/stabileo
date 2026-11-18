@@ -9,12 +9,12 @@ const lo = (r: PlanRect, d: PlanDir) => (d === 'x' ? r.x0 : r.y0);
 const hi = (r: PlanRect, d: PlanDir) => (d === 'x' ? r.x1 : r.y1);
 const face = (d: PlanDir, layer: PlanLayer): SlabFace => `${layer}${d.toUpperCase()}` as SlabFace;
 
-/** Where a slab bar of each direction lies in the depth, m: X outermost, Y on it; and the leg a hooked end turns down or up. */
+/** Where a slab bar of each direction lies in the depth, m: X outermost, Y on it; and the leg a hooked end turns down or up from `y`, its tip at the opposite cover, so a Y bar's leg is shorter by the X bar it lies on. */
 export function barHeights(cover: number) {
   return {
     bottom: (row: Pick<SlabRow, 'adopted'>, d: PlanDir, dia: number) => cover + (d === 'x' ? dia / 2000 : row.adopted.bottomX.dia / 1000 + dia / 2000),
     top: (h: number, d: PlanDir, dia: number, outerDia: number) => h - cover - (d === 'x' ? dia / 2000 : outerDia / 1000 + dia / 2000),
-    leg: (h: number, dia: number) => Math.max(0.05, h - 2 * cover - dia / 1000),
+    leg: (h: number, y: number, layer: PlanLayer, dia: number) => Math.max(0.05, layer === 'top' ? y - cover - dia / 2000 : h - cover - dia / 2000 - y),
   };
 }
 
@@ -81,7 +81,7 @@ export function cornerBars(plan: ExtraBarsPlan, rule: NonNullable<SlabPlanCode['
         const start = corner[d] - sign * (e.half - plan.cover), end = faceAt[d] + sign * side;
         const x0 = Math.min(start, end), x1 = Math.max(start, end);
         const yv = layer === 'top' ? y.top(p.h, d, bars.dia, p.row.adopted.topX.dia || bars.dia) : y.bottom(p.row, d, bars.dia);
-        const legY = yv + (layer === 'top' ? -1 : 1) * y.leg(p.h, bars.dia);
+        const legY = yv + (layer === 'top' ? -1 : 1) * y.leg(p.h, yv, layer, bars.dia);
         const pts: Array<[number, number]> = sign > 0 ? [[0, legY], [0, yv], [x1 - x0, yv]] : [[0, yv], [x1 - x0, yv], [x1 - x0, legY]];
         const b0 = faceAt[a], b1 = faceAt[a] + inward[a] * side;
         const available = Math.max(0, 2 * e.half - plan.cover);
@@ -138,7 +138,7 @@ export function integrityBars(plan: ExtraBarsPlan, geom: Pick<LevelGeometry, 'be
         const width = across[1] - across[0];
         const l = plan.lap(dia, false, h, width);
         const x0 = Math.max(core[0] - l, slab[0]), x1 = Math.min(core[1] + l, slab[1]);
-        const yb = y.bottom(host[0]!.row, d, dia), leg = y.leg(h, dia);
+        const yb = y.bottom(host[0]!.row, d, dia), leg = y.leg(h, yb, 'bottom', dia);
         const pts: Array<[number, number]> = [
           ...(x0 <= slab[0] + 1e-9 ? [[0, yb + leg] as [number, number]] : []), [0, yb], [x1 - x0, yb],
           ...(x1 >= slab[1] - 1e-9 ? [[x1 - x0, yb + leg] as [number, number]] : []),
