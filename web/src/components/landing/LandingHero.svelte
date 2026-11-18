@@ -12,7 +12,7 @@
   type Props = { prefersReducedMotion?: boolean };
   let { prefersReducedMotion = false }: Props = $props();
 
-  type FigureProps = { prefersReducedMotion?: boolean; paused?: boolean };
+  type FigureProps = { prefersReducedMotion?: boolean };
   type FigureComponent = Component<FigureProps>;
   type Figure = { id: string; label: string; period: number; seconds: number; load: () => Promise<{ default: FigureComponent }> };
 
@@ -117,7 +117,7 @@
         {#key shown}
           {@const Shown = selection.component}
           <div class="hero-fig-slot" in:fade={{ duration: prefersReducedMotion ? 0 : 260 }} out:fade={{ duration: prefersReducedMotion ? 0 : 160 }}>
-            <Shown {prefersReducedMotion} paused={hovered} />
+            <Shown {prefersReducedMotion} />
           </div>
         {/key}
       </div>
