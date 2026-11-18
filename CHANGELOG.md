@@ -917,22 +917,16 @@ finding where each plane's rotation turns, for every case and combination. An
 upper bound of that scan is now computed first from 17 rotations per plane and
 the largest moment and shear the member's loads allow. Where the bound is
 within the limit the member is within it and the scan is not run; otherwise
-the scan decides as before. Diagnostics are unchanged.
+the scan decides as before, as it does for any member whose forces, lengths
+or stiffness are beyond 1e100, where the scan itself can overflow.
+Diagnostics are unchanged.
 
 #### Lay out a beam's slots against its joints once per row and cages (2026-11-17)
 
 The design's joint threading check generated every legal layout of a beam's
 row of slots for each candidate, though most candidates of a member share
 their top row and meet the same column cages. The layouts are now kept per
-exact row, section and keep-outs. A support's crossing corner bars are also
-ordered once per support, not once per row planned in it.
-
-#### Copy a new detailing for undo from the objects it was written with (2026-11-17)
-
-The first undo entry or autosave after a detailing run copied every bar
-through the model's reactive proxies before serialising it. The copy is now
-taken from the plain objects the detailing was written or restored with. A
-part that arrives another way is copied as before.
+exact row, section and keep-outs.
 
 #### Reuse section capacities across the passes of a code check (2026-11-17)
 
