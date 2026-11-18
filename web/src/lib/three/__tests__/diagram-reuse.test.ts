@@ -125,6 +125,45 @@ it('draws every member of a group with one set of materials and one marker geome
   } finally { disposeObject(group); disposeObject(envelope); modelStore.clear(); }
 });
 
+it('keeps markers far from the origin in view: the instanced mesh is culled by where its instances are', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  const a = modelStore.addNode(5000, 3000, 40), b = modelStore.addNode(5005, 3000, 40);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    const markers = group.children.find((child) => child.userData.type === 'diagram3dMarkers') as InstanceType<typeof THREE.InstancedMesh>;
+    const at = new THREE.Matrix4();
+    markers.getMatrixAt(0, at);
+    const marker = new THREE.Vector3().setFromMatrixPosition(at);
+    expect(marker.distanceTo(new THREE.Vector3(5000, 3000, 40))).toBeLessThan(10);
+    group.updateMatrixWorld(true);
+    // What the renderer asks before it draws: a camera looking at the member, the origin 5.8 km behind it.
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    camera.position.set(marker.x, marker.y - 20, marker.z);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(marker);
+    camera.updateMatrixWorld(true);
+    const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    expect(frustum.intersectsObject(markers)).toBe(true);
+    expect(frustum.containsPoint(new THREE.Vector3(0, 0, 0))).toBe(false);
+    expect(markers.boundingSphere!.containsPoint(marker)).toBe(true);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('leaves an instanced mesh marked as shared for its owner to dispose', async () => {
+  const THREE = await import('three');
+  const group = new THREE.Group();
+  const owned = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 4, 2), new THREE.MeshBasicMaterial(), 2);
+  const pooled = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 4, 2), new THREE.MeshBasicMaterial(), 2);
+  pooled.userData.shared = true;
+  group.add(owned, pooled);
+  const calls = [vi.spyOn(owned, 'dispose'), vi.spyOn(pooled, 'dispose')];
+  disposeObject(group);
+  expect(calls.map((spy) => spy.mock.calls.length)).toEqual([1, 0]);
+  pooled.geometry.dispose(); (pooled.material as InstanceType<typeof THREE.MeshBasicMaterial>).dispose(); pooled.dispose();
+});
+
 it('marks only the members whose values are worth marking', async () => {
   const THREE = await import('three');
   modelStore.clear();
