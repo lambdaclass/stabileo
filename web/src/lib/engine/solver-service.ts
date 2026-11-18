@@ -20,6 +20,7 @@ import { amplification } from './pdelta-amplification';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
+import { resolvePlaneSupportSettlement } from '../model/support-types';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -186,8 +187,7 @@ export function spaceBendingInertias(
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
     const isRoller = s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ';
-    const supportDz = s.dz ?? s.dy;
-    const supportDry = s.dry ?? s.drz;
+    const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
       let effectiveAngleDeg = baseAngleDeg;
@@ -1819,8 +1819,7 @@ export function buildSolverInput3D(
     supports: (() => {
       const supMap = new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
         const dofs = supportDofs3D(s, project2DToXZ);
-        const supportDz = s.dz ?? s.dy;
-        const supportDry = s.dry ?? s.drz;
+        const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
         const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
         // A plane support's prescribed rotation is the plane's θ, counter-clockwise as drawn; standing
         // in X–Z that is a rotation about −Y (θy = −θ, docs/solver/assembly-constraints.md §2.3), as

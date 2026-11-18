@@ -5,6 +5,7 @@ import {
   buildSolverInput2D, buildSolverInput3D, solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
   validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D, validateAndSolve3DAsync,
 } from '../../engine/solver-service';
+import { SETTLEMENT_CASE_ID } from '../../engine/settlement-case';
 import { solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import type { PDeltaResult, PDeltaResult3D } from '../../engine/result-types';
 import { reflection, rotation, translation } from '../../model/edit/affine';
@@ -410,10 +411,8 @@ function settledMaskedBearing(fields: { dy?: number; dz?: number }) {
   return { root, bearing, set: { nodes: [], elements: [member] } };
 }
 
-const settlementRegression = process.env.RUN_KNOWN_WRONG === '2277' ? it : it.skip;
-
 for (const operation of ['copy', 'detached copy', 'in place'] as const) {
-  settlementRegression(`known wrong result: #2277 a quarter-turn carries the legacy settlement reaction (${operation})`, async () => {
+  it(`#2277 a quarter-turn carries the legacy settlement reaction (${operation})`, async () => {
     const { root, bearing, set } = settledMaskedBearing({ dy: legacySettlement });
     const source = validateAndSolve2D(modelStore.model);
     if (!source || typeof source === 'string') throw new Error(String(source));
@@ -450,9 +449,13 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
     if (!planeCases || typeof planeCases === 'string') throw new Error(String(planeCases));
     if (!embeddedCases || typeof embeddedCases === 'string') throw new Error(String(embeddedCases));
     if (!parallel || typeof parallel === 'string') throw new Error(String(parallel));
+    expect(planeCases.perCase.get(loadCase.id)!.reactions.find(r => r.nodeId === node)!.rx).toBeCloseTo(0, 9);
+    for (const bundle of [embeddedCases, parallel]) {
+      expect(bundle.perCase.get(loadCase.id)!.reactions.find(r => r.nodeId === node)!.fx).toBeCloseTo(0, 9);
+    }
     for (const answer of [
       validateAndSolve2D(model), await validateAndSolve2DAsync(model),
-      planeCases.perCase.get(loadCase.id), planeCases.perCombo.get(combination.id), planeSecondOrder.results,
+      planeCases.perCase.get(SETTLEMENT_CASE_ID), planeCases.perCombo.get(combination.id), planeSecondOrder.results,
     ]) {
       if (!answer || typeof answer === 'string') throw new Error(String(answer));
       const reaction = answer.reactions.find(r => r.nodeId === node)!;
@@ -462,8 +465,8 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
     }
     for (const answer of [
       validateAndSolve3D(model), await validateAndSolve3DAsync(model),
-      embeddedCases.perCase.get(loadCase.id), embeddedCases.perCombo.get(combination.id),
-      parallel.perCase.get(loadCase.id), parallel.perCombo.get(combination.id), embeddedSecondOrder.results,
+      embeddedCases.perCase.get(SETTLEMENT_CASE_ID), embeddedCases.perCombo.get(combination.id),
+      parallel.perCase.get(SETTLEMENT_CASE_ID), parallel.perCombo.get(combination.id), embeddedSecondOrder.results,
     ]) {
       if (!answer || typeof answer === 'string') throw new Error(String(answer));
       const reaction = answer.reactions.find(r => r.nodeId === node)!;
@@ -477,7 +480,7 @@ for (const operation of ['copy', 'detached copy', 'in place'] as const) {
   });
 }
 
-settlementRegression('known wrong result: #2277 signed plane transforms resolve both settlement aliases and prefer canonical zeroes', () => {
+it('#2277 signed plane transforms resolve both settlement aliases and prefer canonical zeroes', () => {
   const { bearing } = settledMaskedBearing({ dy: legacySettlement });
   const source = { ...supportAt(bearing), drz: legacyRotation };
   const carry = (T: Parameters<typeof carriedSupport>[0], support = source) =>
@@ -490,7 +493,7 @@ settlementRegression('known wrong result: #2277 signed plane transforms resolve 
     expect.soft(turned?.dy).toBeUndefined();
     expect.soft(turned?.drz).toBeUndefined();
     const zero = carry(turn, { ...source, dz: 0, dry: 0 });
-    expect.soft(zero).toMatchObject({ dx: 0, dry: 0 });
+    expect.soft(zero).toMatchObject({ dx: -Math.sign(degrees) * 0, dry: 0 });
     expect.soft(zero?.dy).toBeUndefined();
     expect.soft(zero?.drz).toBeUndefined();
   }

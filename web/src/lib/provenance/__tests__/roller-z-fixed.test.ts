@@ -43,3 +43,24 @@ it('#2276 only unmasked spatial custom supports need rechecking', () => {
     }
   }
 });
+
+it('#2277 the settlement recheck selects plane models with settlement on the masked support', () => {
+  const notice = 'plane-masked-support-settlements';
+  for (const mode of ['2d', '3d', 'pro']) {
+    for (const fields of [{ dy: 0.001 }, { drz: 0.002 }, { dx: -0.001 }]) {
+      const model: FeatureSnapshot = {
+        analysisMode: mode,
+        supports: [[1, { nodeId: 1, type: 'rollerX', dofRestraints: mask, ...fields }]],
+      };
+      expect(assessProject(model, null, mode).changes.some(c => c.id === notice)).toBe(mode === '2d');
+    }
+  }
+  const separate: FeatureSnapshot = {
+    analysisMode: '2d',
+    supports: [
+      [1, { nodeId: 1, type: 'rollerX', dofRestraints: mask }],
+      [2, { nodeId: 2, type: 'fixed', dx: 0.001 }],
+    ],
+  };
+  expect(assessProject(separate, null, '2d').changes.some(c => c.id === notice)).toBe(false);
+});

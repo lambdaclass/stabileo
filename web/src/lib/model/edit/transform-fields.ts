@@ -26,7 +26,7 @@
  */
 
 import { supportDofs3D } from '../../engine/support-dofs-3d';
-import { isPlaneRoller, isUnresolvedSupport, remapSupportElement } from '../support-types';
+import { isPlaneRoller, isUnresolvedSupport, remapSupportElement, resolvePlaneSupportSettlement } from '../support-types';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import type { Element, Section, Support, Joint3D, Load, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, ThermalLoad, PrestressLoad3D, NodeDisplacement3D, SurfaceLoad3D } from '../../store/model.svelte';
 import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../loads/member-load-carry';
@@ -181,6 +181,9 @@ export function carriedSupport(
   const p = axisPermutation(fieldTransform.A);
   if (planeFields && p && p.perm[1] !== 1) return null;
   const axialSign = isReflection(T) ? -1 : 1;
+  const settlement = planeFields
+    ? { dx: s.dx, dy: undefined, drx: s.drx, drz: undefined, ...resolvePlaneSupportSettlement(s) }
+    : s;
   if (planeRoller) {
     if (!p) return null;
     const { perm, sign } = p;
@@ -194,11 +197,11 @@ export function carriedSupport(
     }
     if (!s.dofRestraints) {
       if (memberFramed) return out;
-      const settlement = [s.dx, undefined, s.dz ?? s.dy];
-      out.dx = settlement[perm[0]] === undefined ? undefined : sign[perm[0]]! * settlement[perm[0]]!;
-      out.dz = settlement[perm[2]] === undefined ? undefined : sign[perm[2]]! * settlement[perm[2]]!;
+      const displacement = [settlement.dx, undefined, settlement.dz];
+      out.dx = displacement[perm[0]] === undefined ? undefined : sign[perm[0]]! * displacement[perm[0]]!;
+      out.dz = displacement[perm[2]] === undefined ? undefined : sign[perm[2]]! * displacement[perm[2]]!;
       delete out.dy;
-      const rotation = s.dry ?? s.drz;
+      const rotation = settlement.dry;
       out.dry = rotation === undefined ? undefined : orientation * rotation;
       delete out.drz;
       if (perm[0] === 2) { out.kx = s.ky; out.ky = s.kx; }
@@ -232,8 +235,8 @@ export function carriedSupport(
   for (let i = 0; i < 3; i++) {
     const j = p.perm[i]!;
     out[k[j]] = s[k[i]]; out[kr[j]] = s[kr[i]];
-    out[d[j]] = s[d[i]] === undefined ? undefined : s[d[i]]! * p.sign[i]!;
-    out[dr[j]] = s[dr[i]] === undefined ? undefined : s[dr[i]]! * p.sign[i]! * axialSign;
+    out[d[j]] = settlement[d[i]] === undefined ? undefined : settlement[d[i]]! * p.sign[i]!;
+    out[dr[j]] = settlement[dr[i]] === undefined ? undefined : settlement[dr[i]]! * p.sign[i]! * axialSign;
   }
   for (const key of [...k, ...kr, ...d, ...dr]) if (out[key] === undefined) delete out[key];
   return out;

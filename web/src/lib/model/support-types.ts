@@ -13,6 +13,15 @@ export function isPlaneRoller(type: unknown): boolean {
   return type === 'rollerX' || type === 'rollerY' || type === 'rollerZ';
 }
 
+export function resolvePlaneSupportSettlement(support: {
+  dy?: number;
+  dz?: number;
+  dry?: number;
+  drz?: number;
+}): { dz: number | undefined; dry: number | undefined } {
+  return { dz: support.dz ?? support.dy, dry: support.dry ?? support.drz };
+}
+
 export function isBareRollerZ(support: { type?: string; dofRestraints?: unknown }): boolean {
   return support.type === 'rollerZ' && !support.dofRestraints;
 }
