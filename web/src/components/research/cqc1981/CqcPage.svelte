@@ -102,7 +102,7 @@
         <label>{s.rule}<select bind:value={rule} onchange={() => playback.interact()}><option value="SRSS">{s.srss}</option><option value="CQC">{s.cqc}</option></select></label>
       </div>
       {#if error}<p role="alert">{s.error}: {error}</p>{/if}
-      <StabileoViewer {...view} cellSize={2} range={{ min: 0, max: 12 }} title={s.viewer} unit="mm" deformScale={40} height="18rem" editorButton={false} showMesh={false} oninteract={() => playback.interact()} />
+      <StabileoViewer plane="elevation" {...view} cellSize={2} range={{ min: 0, max: 12 }} title={s.viewer} unit="mm" deformScale={40} height="18rem" editorButton={false} showMesh={false} oninteract={() => playback.interact()} />
       <label class="slider">{s.step}<input type="range" min="0" max="30" value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} /></label>
       <p class="note">{s.viewNote}</p>
       <h2>{s.comparison}</h2>

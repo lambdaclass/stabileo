@@ -1,3 +1,4 @@
+import { te } from '../i18n/engine-text';
 import { errorText } from '../utils/error-text';
 /**
  * The results of the model's spectral load cases (`engine/spectral-case.ts`): the modes under the
@@ -40,7 +41,7 @@ export function codeSa(): ((t: number) => number) | string {
     // The code spectrum is the engine's: without it, the reason, not a spectrum.
     const m = engineFailureMessage(err);
     if (!m) throw err;
-    return tp(m.key, m.params ?? {});
+    return te(m);
   }
   if (isBlocked(spec)) return t('spectralCase.noCodeSpectrum');
   return (period) => spectralOrdinate(period, spec) * G;

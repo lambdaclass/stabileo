@@ -83,7 +83,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await expect(menu).toBeFocused();
     await canvas.focus();
     await page.keyboard.press('ArrowRight');
-    const zoom = page.locator('.sfv-status .status-item').nth(1).locator('.status-value');
+    const zoom = page.getByTestId('sfv-zoom').locator('.status-value');
     const beforeZoom = await zoom.textContent();
     await page.keyboard.press('+');
     await expect(zoom).not.toHaveText(beforeZoom!);

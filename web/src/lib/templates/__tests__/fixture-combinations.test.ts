@@ -24,6 +24,11 @@ const emptyFixture = (over: Partial<JSONModel>): JSONModel => ({
   plates: [], quads: [], constraints: [], loadCases: [], combinations: [], ...over,
 });
 
+const snowCases = [
+  { id: 5, type: 'S', name: 'Snow', alternatives: 'fixture-roof' },
+  { id: 6, type: 'S', name: 'Flat-roof snow', alternatives: 'fixture-roof', snowBasis: 'flatRoof' as const },
+];
+
 const startMode = uiStore.analysisMode;
 
 beforeAll(async () => {
@@ -107,20 +112,20 @@ describe('a fixture that brings its own cases', () => {
   });
 
   it('gets them when it loads a case no default combines', () => {
-    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
-    const loads = [1, 5].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
+    const cases = [...defaultLoadCases(), ...snowCases];
+    const loads = [1, 5, 6].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
     const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(rebuilt).toBe(true);
-    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+    for (const { id } of snowCases) expect(combinations.some((c) => c.factors.some((f) => f.caseId === id && f.factor !== 0))).toBe(true);
     expect(missingCases(cases, combinations)).toEqual([]);
   });
 
-  it('gets them when the only case it loads is one no default combines', () => {
-    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
-    const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId: 5 } }];
+  it('gets them when it only loads cases no default combines', () => {
+    const cases = [...defaultLoadCases(), ...snowCases];
+    const loads = [5, 6].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
     const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(rebuilt).toBe(true);
-    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+    for (const { id } of snowCases) expect(combinations.some((c) => c.factors.some((f) => f.caseId === id && f.factor !== 0))).toBe(true);
   });
 
   it('is refused when its own combination has no factor list, a null factor or a factor that is not a number', () => {

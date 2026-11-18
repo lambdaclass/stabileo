@@ -11,6 +11,8 @@
  * message, so the reader sees why and not a blank.
  */
 
+import { EngineMessageError, type EngineMessage } from '../codes/message';
+
 export class EngineUnavailableError extends Error {
   readonly code = 'ENGINE_UNAVAILABLE' as const;
   /** What was asked for, in English, for the message. */
@@ -58,7 +60,8 @@ export function isEngineError(e: unknown): e is EngineUnavailableError | EngineC
  * The message a screen shows for an engine error (`{ key, params }`, rendered at the boundary),
  * or null when `e` is not one: "engine not available", or the engine's own words.
  */
-export function engineFailureMessage(e: unknown): { key: string; params?: Record<string, string> } | null {
+export function engineFailureMessage(e: unknown): EngineMessage | null {
+  if (e instanceof EngineMessageError) return { key: e.key, params: e.params };
   if (isEngineUnavailable(e)) return { key: 'engine.unavailable' };
   if (isEngineError(e)) return { key: 'engine.failedWith', params: { message: engineFailureText(e) } };
   return null;

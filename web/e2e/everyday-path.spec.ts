@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * The everyday path, end to end, as a first user takes it.
  *
@@ -25,14 +26,16 @@ test.describe('@slow the everyday path', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByRole('button', { name: /Auto-generate from code/i }).click();
+    await dwellingFloorLoads(page);
+    await alSection(page, 'snow');
+    await page.getByTestId('al-enable-snow').check();
+    await page.getByTestId('al-snow-province').selectOption({ label: 'Neuquén' });
     await alSection(page, 'regulations');
     await expect(page.getByTestId('al-regulations')).toBeVisible();
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-preview')).toBeHidden();
-    // The generator adds its own cases (the roof live load here) and takes away the example's empty,
-    // untouched ones (live load and earthquake); the dead load and wind cases keep their loads.
     const loaded = await page.evaluate(() => window.__stabileo.modelCensus());
     const afterIds = await caseIds();
     expect(afterIds.some((id) => !beforeIds.includes(id)), 'the generator added load cases').toBe(true);

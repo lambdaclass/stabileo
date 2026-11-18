@@ -10,8 +10,10 @@
  * the synchronous main-thread solver.
  */
 
-import { getWasmBytes } from './wasm-solver';
-import { findUncloneablePath } from '../utils/plain-deep-copy';
+import { getWasmBytes, input3DToWireObject } from './wasm-solver';
+import type { NonlinearStep } from './member-behaviour';
+import type { SolverInput3D } from './types-3d';
+import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 
 /** Thrown when the pool cannot be used (no Worker support, init failure). */
 export class PoolUnavailableError extends Error {
@@ -115,6 +117,17 @@ const MAX_WORKERS = Math.min(
   8,
 );
 
+/** Discard a failed worker without clearing an initialization attempt still in flight. */
+function retireWorker(pw: PoolWorker, failure: Error): void {
+  pw.ready = false;
+  pw.worker.terminate();
+  for (const p of pw.pending.values()) p.reject(failure);
+  pw.pending.clear();
+  const installed = pool.includes(pw);
+  pool = pool.filter(candidate => candidate !== pw);
+  if (installed && pool.length === 0) initPromise = null;
+}
+
 /** Create a single worker and wait for it to become ready. */
 function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker> {
   return new Promise((resolve, reject) => {
@@ -135,7 +148,9 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
         return;
       }
       if (msg.type === 'error') {
-        reject(new Error(msg.message));
+        const failure = new Error(msg.message);
+        retireWorker(pw, failure);
+        reject(failure);
         return;
       }
       if (msg.type === 'result') {
@@ -144,6 +159,7 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
           pw.pending.delete(msg.id);
           // It has now executed, not merely been instantiated. See COLD_START_STAGGER_MS.
           pw.warmed = true;
+          if (msg.fatal) retireWorker(pw, new Error(msg.error));
           if (msg.error) p.reject(new Error(msg.error));
           else p.resolve(msg.result);
         }
@@ -151,7 +167,9 @@ function createWorker(wasmModule: WebAssembly.Module | null): Promise<PoolWorker
     };
 
     worker.onerror = (err) => {
-      reject(new Error(`Worker error: ${err.message}`));
+      const failure = new Error(`Worker error: ${err.message}`);
+      retireWorker(pw, failure);
+      reject(failure);
     };
 
     // Compiled module is structured-cloneable: no byte copy, no per-worker compile.
@@ -177,13 +195,14 @@ export async function initPool(numWorkers?: number): Promise<void> {
         Array.from({ length: count }, () => createWorker(wasmModule)),
       );
       const failed = settled.find((s): s is PromiseRejectedResult => s.status === 'rejected');
-      if (failed) {
+      const stopped = settled.some(s => s.status === 'fulfilled' && !s.value.ready);
+      if (failed || stopped) {
         // Terminate the workers that DID start (Promise.all would leak them),
         // then rethrow into the reset path below.
         for (const s of settled) {
           if (s.status === 'fulfilled') s.value.worker.terminate();
         }
-        throw failed.reason;
+        throw failed?.reason ?? new Error('Worker failed during initialization');
       }
       pool = settled.map(s => (s as PromiseFulfilledResult<PoolWorker>).value);
     } catch (err) {
@@ -229,7 +248,7 @@ async function ensurePool(): Promise<void> {
  * because the caller's fallback swallows the throw, so this string may be the only trace
  * the failure ever leaves.
  */
-function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
+function runJob(type: 'solve' | 'solve3d' | 'pdelta3d' | 'certify2d' | 'certify3d' | 'certify' | 'nonlinear-step' | 'nonlinear-free', input: any, target?: PoolWorker, extra: Record<string, unknown> = {}): Promise<any> {
   const pw = target ?? pool.reduce((a, b) => (a.pending.size <= b.pending.size ? a : b));
   const msgId = nextId++;
   return new Promise((resolve, reject) => {
@@ -354,10 +373,57 @@ export async function solveParallel(
   return results;
 }
 
+export interface NonlinearSolveOptions {
+  signal?: AbortSignal;
+  isCancelled?: () => boolean;
+  /** Number of native solves completed in this session. */
+  onProgress?: (completed: number) => void;
+}
+
+export function checkSolveCancelled(options: NonlinearSolveOptions): void {
+  if (options.signal?.aborted || options.isCancelled?.()) throw new DOMException('Solve cancelled', 'AbortError');
+}
+
+/** Keep the first factorization on one worker across all cases and combinations. */
+export async function nonlinearSessionInWorker(options: NonlinearSolveOptions = {}) {
+  checkSolveCancelled(options);
+  try { await ensurePool(); }
+  finally { checkSolveCancelled(options); }
+  // Reuse a warm worker; cold sessions share worker 0 rather than start WASM concurrently.
+  const target = pool.find(pw => pw.warmed && pw.pending.size === 0) ?? pool[0];
+  const sessionId = nextId++;
+  let completed = 0, closed = false;
+  return {
+    async solve(step: NonlinearStep): Promise<any> {
+      checkSolveCancelled(options);
+      if (closed || !pool.includes(target)) throw new Error('Nonlinear worker session has been closed');
+      const input = { ...plainDeepCopy({ ...step, input: undefined }), input: input3DToWireObject(step.input as SolverInput3D) };
+      const result = await runJob('nonlinear-step', input, target, { sessionId });
+      checkSolveCancelled(options);
+      options.onProgress?.(++completed);
+      checkSolveCancelled(options);
+      return result;
+    },
+    async free() {
+      if (closed) return;
+      closed = true;
+      if (!pool.includes(target)) return;
+      try { await runJob('nonlinear-free', null, target, { sessionId }); }
+      catch (error) {
+        // Cleanup must not replace a result, refusal or cancellation. Termination also
+        // reclaims the WASM instance if native cleanup failed before releasing it.
+        retireWorker(target, error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  };
+}
+
 /** Terminate all workers and clean up the pool. */
 export function destroyPool(): void {
   for (const pw of pool) {
     pw.worker.terminate();
+    for (const p of pw.pending.values()) p.reject(new Error('Worker pool destroyed'));
+    pw.pending.clear();
   }
   pool = [];
   initPromise = null;

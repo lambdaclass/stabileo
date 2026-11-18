@@ -134,5 +134,32 @@ for (const cellSize of [2, 3, 4] as const) {
     expect(material.vertexColors).toBe(true);
     expect(material.color.getHex()).toBe(0xffffff);
     m.dispose();
-  });
+  
+});
 }
+
+describe('lighting', () => {
+  it('stays lit by default and switches to an unlit material for category colours, keeping the field and back', () => {
+    const m = createScalarFieldMesh(XY, QUADS, 4);
+    const mesh = m.group.children[0] as THREE.Mesh;
+    expect(mesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    m.setField([0, 0.5, 1, 0, 0.5, 1], { min: 0, max: 1 });
+    m.setLit(false);
+    expect(mesh.material).toBeInstanceOf(THREE.MeshBasicMaterial);
+    expect((mesh.material as THREE.MeshBasicMaterial).vertexColors).toBe(true);
+    expect(colourAt(m, 1)).toBe(shellContourColor(0.5, 0, 1));
+    m.setUncoloured();
+    expect((mesh.material as THREE.MeshBasicMaterial).color.getHex()).toBe(0x8fa3b3);
+    m.setLit(true);
+    expect(mesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    expect((mesh.material as THREE.MeshStandardMaterial).vertexColors).toBe(false);
+    expect((mesh.material as THREE.MeshStandardMaterial).color.getHex()).toBe(0x8fa3b3);
+  });
+
+  it('ignores lighting for line elements, whose screen-space lines are always unlit', () => {
+    const m = createScalarFieldMesh([0, 0, 1, 0], [0, 1], 2);
+    const before = (m.group.children[0] as THREE.Mesh).material;
+    m.setLit(false);
+    expect((m.group.children[0] as THREE.Mesh).material).toBe(before);
+  });
+});

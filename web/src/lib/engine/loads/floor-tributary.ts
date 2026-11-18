@@ -30,7 +30,11 @@ export interface Side {
   nodeA: number; nodeB: number;
 }
 
-export interface Piece { s0: number; s1: number; q0: number; q1: number }
+export interface Piece { s0: number; s1: number; q0: number; q1: number; offset?: [number, number, number] }
+
+export function quadraticAt([a, m, b]: [number, number, number], t: number): number {
+  return a + t * (4 * m - 3 * a - b + t * (2 * a + 2 * b - 4 * m));
+}
 
 /** A region the load acts in: an outline and its openings, in the panel's plane. */
 export interface Zone2D { outer: P2[]; holes: P2[][] }
@@ -99,16 +103,21 @@ function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {
   const local = (p: P2): P2 => [along(e, p), dist(e, p)];
   const cs = cells.map((c) => c.map(local));
   const zl = zone ? [zone.outer, ...zone.holes].map((l) => l.map(local)) : null;
-  const chord = (s: number): number => {
-    let total = 0;
+  const chord = (s: number) => {
+    let width = 0, first = 0;
     for (const c of cs) {
       const ys = crossings(c, s);
       if (ys.length < 2) continue;
       const lo = Math.min(...ys), hi = Math.max(...ys);
-      if (!zl) { total += hi - lo; continue; }
-      for (const [a, b] of zoneIntervals(zl, s)) total += Math.max(0, Math.min(hi, b) - Math.max(lo, a));
+      if (!zl) { width += hi - lo; continue; }
+      for (const [a, b] of zoneIntervals(zl, s)) {
+        const start = Math.max(lo, a), end = Math.min(hi, b);
+        if (start >= end) continue;
+        width += end - start;
+        first += (end - start) * (start + end) / 2;
+      }
     }
-    return total;
+    return { width, first };
   };
   const bp = new Set<number>([0, e.len]);
   for (const c of cs) for (const p of c) bp.add(p[0]);
@@ -124,12 +133,19 @@ function shareOf(e: Side, cells: P2[][], q: number, zone?: Zone2D): SideShare {
   for (let i = 0; i + 1 < ss.length; i++) {
     const s0 = ss[i]!, s1 = ss[i + 1]!;
     // Linear inside: read at two inner points, carried to the ends.
-    const h = s1 - s0, c1 = chord(s0 + h / 3), c2 = chord(s0 + 2 * h / 3);
+    const h = s1 - s0, c1 = chord(s0 + h / 3).width, c2 = chord(s0 + 2 * h / 3).width;
     const q0 = q * (2 * c1 - c2), q1 = q * (2 * c2 - c1);
     if (Math.abs(q0) < 1e-12 && Math.abs(q1) < 1e-12) continue;
     if (s1 <= 1e-9) out.atA += ((q0 + q1) / 2) * h;
     else if (s0 >= e.len - 1e-9) out.atB += ((q0 + q1) / 2) * h;
-    else out.pieces.push({ s0, s1, q0, q1 });
+    else {
+      const piece: Piece = { s0, s1, q0, q1 };
+      if (zone) {
+        const a = chord(s0 + h / 4).first, m = chord(s0 + h / 2).first, b = chord(s0 + 3 * h / 4).first;
+        piece.offset = [3 * a - 3 * m + b, m, a - 3 * m + 3 * b];
+      }
+      out.pieces.push(piece);
+    }
   }
   return out;
 }
@@ -161,22 +177,31 @@ export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, z
   const out: SideShare[] = all.map(() => ({ pieces: [], atA: 0, atB: 0 }));
   const n: P2 = [-d[1], d[0]];
   const ts0 = all.map((s) => dot(n, s.a));
-  if (zone) for (const l of [zone.outer, ...zone.holes]) for (const p of l) ts0.push(dot(n, p));
+  const loops = zone ? [zone.outer, ...zone.holes] : [];
+  for (const loop of loops) {
+    for (const p of loop) ts0.push(dot(n, p));
+    for (const side of all) for (let i = 0; i < loop.length; i++) {
+      const cross = segCross(side.a, side.b, loop[i]!, loop[(i + 1) % loop.length]!);
+      if (cross) ts0.push(dot(n, cross));
+    }
+  }
   const ts = [...new Set(ts0.map((t) => Math.round(t * 1e9) / 1e9))].sort((a, b) => a - b);
   const sAt = (s: Side, t: number) => (t - dot(n, s.a)) / dot(s.u, n);
   const point = (s: Side, t: number): P2 => { const sa = sAt(s, t); return [s.a[0] + s.u[0] * sa, s.a[1] + s.u[1] * sa]; };
-  const zl = zone ? [zone.outer, ...zone.holes] : null;
-  /** The share of the strip at t between two points inside the zone. */
-  const inside = (p: P2, r: P2): number => {
-    if (!zl) return 1;
-    // Along the strip in the zone's frame: rotate so the strip runs along x.
-    const rot = (x: P2): P2 => [dot(d, x), dot(n, x)];
-    const loops = zl.map((l) => l.map(rot).map(([a, b]): P2 => [b, a]));
-    const t = dot(n, p);
-    const lo = dot(d, p), hi = dot(d, r);
-    let len = 0;
-    for (const [a, b] of zoneIntervals(loops, t)) len += Math.max(0, Math.min(hi, b) - Math.max(lo, a));
-    return hi - lo > 0 ? len / (hi - lo) : 0;
+  const zoneLocal = loops.map(loop => loop.map((p): P2 => [dot(n, p), dot(d, p)]));
+  const chord = (near: Side, far: Side, t: number) => {
+    const start = dot(d, point(near, t)), end = dot(d, point(far, t));
+    if (!zone) return { length: end - start, centered: true };
+    const center = (start + end) / 2;
+    let length = 0, first = 0, scale = 0;
+    for (const [a, b] of zoneIntervals(zoneLocal, t)) {
+      const lo = Math.max(a, start), hi = Math.min(b, end);
+      if (hi <= lo) continue;
+      length += hi - lo;
+      first += (hi - lo) * ((lo + hi) / 2 - center);
+      scale += (hi - lo) * Math.max(Math.abs(lo), Math.abs(hi), Math.abs(center), end - start);
+    }
+    return { length, centered: Math.abs(first) <= 32 * Number.EPSILON * scale };
   };
   for (let i = 0; i + 1 < ts.length; i++) {
     const t0 = ts[i]!, t1 = ts[i + 1]!;
@@ -195,14 +220,16 @@ export function oneWayShares(sides: Side[], holes: Side[][], d: P2, q: number, z
     const hits = at(tm);
     for (let j = 0; j + 1 < hits.length; j += 2) {
       const near = all[hits[j]!.k]!, far = all[hits[j + 1]!.k]!;
-      const fr = [t0 + (t1 - t0) * 0.02, tm, t1 - (t1 - t0) * 0.02].map((t) => inside(point(near, t), point(far, t)));
-      if (fr.every((f) => f < 1e-9)) continue;
-      if (fr.some((f) => Math.abs(f - 1) > 1e-9)) return null;
-      const L = (t: number) => dot(d, point(far, t)) - dot(d, point(near, t));
+      const h = t1 - t0;
+      const c1 = chord(near, far, t0 + h / 4), c2 = chord(near, far, tm), c3 = chord(near, far, t1 - h / 4);
+      if (!c1.centered || !c2.centered || !c3.centered) return null;
+      if (c1.length === 0 && c2.length === 0 && c3.length === 0) continue;
+      const left = zone ? (3 * c1.length - c3.length) / 2 : chord(near, far, t0).length;
+      const right = zone ? (3 * c3.length - c1.length) / 2 : chord(near, far, t1).length;
       for (const [side, k] of [[near, hits[j]!.k], [far, hits[j + 1]!.k]] as const) {
         const f = Math.abs(dot(side.u, n));
         const sa = sAt(side, t0), sb = sAt(side, t1);
-        const [s0, s1, qa, qb] = sa <= sb ? [sa, sb, L(t0), L(t1)] : [sb, sa, L(t1), L(t0)];
+        const [s0, s1, qa, qb] = sa <= sb ? [sa, sb, left, right] : [sb, sa, right, left];
         out[k]!.pieces.push({ s0: Math.max(0, s0), s1: Math.min(side.len, s1), q0: (q * qa * f) / 2, q1: (q * qb * f) / 2 });
       }
     }

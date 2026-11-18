@@ -4,7 +4,7 @@
     "section": "Properties and stresses of one cross-section; no structural model is solved.",
     "postprocess": "Reads results a solve already produced (diagrams, stations, combinations, envelopes, section stresses); the envelope and combination type is roadmap section 3 item 10.",
     "session": "Builds a prepared session; its solve method carries the invariances.",
-    "utility": "Not an analysis: initialisation, build information, reproduction hashes, the model review and the editor collision geometry."
+    "utility": "Not an analysis: initialisation, build information, reproduction hashes, the model review, member load endpoint canonicalization and the editor collision geometry."
   },
   "entry_points": {
     "Cirsoc201SectionKernel::at_axial": {"scope": "design"},
@@ -73,6 +73,7 @@
     "analyze_section_torsion": {"scope": "section"},
     "analyze_section_torsion_field": {"scope": "section"},
     "build_section_geometry": {"scope": "section"},
+    "canonical_member_load_interval": {"scope": "utility"},
     "certify_buckling_2d": {"scope": "solve", "calls": "buckling::certify_buckling_2d", "invariances": {
       "units": {"tracked": 1497},
       "relabel": {"tracked": 1497},
@@ -433,6 +434,7 @@
     }},
     "init": {"scope": "utility"},
     "loads_request": {"scope": "design"},
+    "net_combination_factors": {"scope": "utility"},
     "recover_member": {"scope": "postprocess"},
     "review_model_sanity": {"scope": "utility"},
     "section_geometry_digest": {"scope": "section"},

@@ -34,7 +34,7 @@ UA = "stabileo-research-catalog (https://github.com/lambdaclass/stabileo)"
 
 AREAS = {
     "differentiable-fem", "fracture", "optimization", "metamaterials", "constitutive",
-    "seismic", "digital-twins", "numerical-methods", "shells",
+    "seismic", "digital-twins", "numerical-methods", "shells", "limit-analysis",
 }
 STATUSES = [
     "proposed", "reference-reproduced", "implementation-in-progress",

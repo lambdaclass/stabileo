@@ -1,3 +1,4 @@
+import { dwellingFloorLoads } from './load-generator-inputs';
 /**
  * The automatic loads say they are working (QA of 19-oct: «you can't tell whether it froze or is
  * applying»): the preview and the apply show their step, a stopped preview leaves nothing behind,
@@ -23,6 +24,7 @@ test.describe('@slow automatic loads, step by step', () => {
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-loads').click();
     await page.getByTestId('pro-auto-loads-btn').click();
+    await dwellingFloorLoads(page);
 
     // The preview starts, says its first step, and is stopped before the plan is built.
     const seen = await page.evaluate(async () => {

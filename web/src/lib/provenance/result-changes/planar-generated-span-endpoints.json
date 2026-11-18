@@ -1,0 +1,52 @@
+{
+  "id": "planar-generated-span-endpoints",
+  "date": "2026-11-16",
+  "prs": [
+    2222,
+    2223
+  ],
+  "area": "analysis",
+  "when": {
+    "allOf": [
+      [
+        "plane2D"
+      ],
+      [
+        "frameMembers"
+      ],
+      [
+        "analysis:plastic"
+      ]
+    ]
+  },
+  "quantities": [
+    "collapseFactor",
+    "hinges",
+    "steps",
+    "isMechanism",
+    "unresolved",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Planar plastic loads follow geometric member endpoints",
+    "es": "Las cargas plásticas planas siguen los extremos geométricos",
+    "pt": "Cargas plásticas planas seguem os extremos geométricos",
+    "de": "Ebene plastische Lasten folgen den geometrischen Stabenden",
+    "fr": "Les charges plastiques planes suivent les extrémités géométriques",
+    "hu": "A síkbeli képlékeny terhek a geometriai rúdvégeket követik",
+    "tr": "Düzlemsel plastik yükler geometrik çubuk uçlarını izler"
+  },
+  "explanation": {
+    "en": "Rerun planar plastic analyses. Distributed loads at hinge splits now use the actual child geometry. Invalid or unavailable kinematic checks raise errors instead of producing collapse candidates. Mechanisms, collapse factors and histories can change; no acceptance limit changed.",
+    "es": "Repita los análisis plásticos planos. Las cargas distribuidas divididas en rótulas usan la geometría real de cada tramo. Las comprobaciones cinemáticas inválidas o no disponibles producen errores. Pueden cambiar mecanismos, factores e historias; los límites no cambian.",
+    "pt": "Refaça as análises plásticas planas. As cargas distribuídas divididas nas rótulas usam a geometria real de cada trecho. Verificações cinemáticas inválidas ou indisponíveis geram erros. Mecanismos, fatores e históricos podem mudar; os limites permanecem iguais.",
+    "de": "Ebene plastische Analysen erneut rechnen. Verteilte Lasten an Gelenkschnitten verwenden die tatsächliche Teilstabgeometrie. Ungültige oder nicht verfügbare Kinematikprüfungen führen zu Fehlern. Mechanismen, Lastfaktoren und Verläufe können sich ändern; Grenzwerte bleiben unverändert.",
+    "fr": "Relancer les analyses plastiques planes. Les charges réparties divisées aux rotules utilisent la géométrie réelle des tronçons. Les contrôles cinématiques invalides ou indisponibles produisent des erreurs. Mécanismes, facteurs et historiques peuvent changer ; les limites restent identiques.",
+    "hu": "Futtassa újra a síkbeli képlékeny elemzéseket. A csuklóknál osztott megoszló terhek a tényleges részrúd-geometriát használják. Az érvénytelen vagy elérhetetlen kinematikai ellenőrzések hibát adnak. A mechanizmusok, tényezők és előzmények változhatnak; a határértékek változatlanok.",
+    "tr": "Düzlemsel plastik analizleri yeniden çalıştırın. Mafsallarda bölünen yayılı yükler gerçek parça geometrisini kullanır. Geçersiz veya kullanılamayan kinematik denetimleri hata üretir. Mekanizmalar, yük çarpanları ve geçmişler değişebilir; kabul sınırları değişmemiştir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-narrow-partial-loads.md",
+    "heading": "Generated member endpoints and plastic validation (round 5, #2223)"
+  }
+}

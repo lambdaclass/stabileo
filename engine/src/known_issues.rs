@@ -76,7 +76,7 @@ pub fn diagnostic(id: &str) -> StructuredDiagnostic {
 }
 
 pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
-    match diagnostics.iter().find(|d| d.code == DiagnosticCode::KnownIssue && d.severity == Severity::Error) {
+    match diagnostics.iter().find(|d| matches!(d.code, DiagnosticCode::KnownIssue | DiagnosticCode::NonFiniteResult) && d.severity == Severity::Error) {
         Some(d) => Err(serde_json::json!({"message": d.message, "structuredDiagnostics": diagnostics}).to_string()),
         None => Ok(()),
     }
@@ -656,26 +656,45 @@ pub fn small_displacement_3d(input: &SolverInput3D, loads: &[SolverLoad3D], r: &
 
 const SPAN_STATIONS: usize = 64;
 
+#[derive(Debug)]
+struct UnitRoots { values: [f64; 3], len: usize }
+
+impl std::ops::Deref for UnitRoots {
+    type Target = [f64];
+    fn deref(&self) -> &[f64] { &self.values[..self.len] }
+}
+
+impl IntoIterator for UnitRoots {
+    type Item = f64;
+    type IntoIter = std::iter::Take<std::array::IntoIter<f64, 3>>;
+    fn into_iter(self) -> Self::IntoIter { self.values.into_iter().take(self.len) }
+}
+
 /// The real roots in (0, 1) of the cubic `c[0] + c[1]·t + c[2]·t² + c[3]·t³`: the interval is
 /// split where the cubic turns, so each piece holds at most one root.
-fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
+fn cubic_roots_in_unit(c: [f64; 4]) -> UnitRoots {
     let size = c.iter().map(|v| v.abs()).filter(|v| v.is_finite() && *v > 0.0).fold(0.0, f64::max);
     let c = if size > 0.0 { c.map(|v| v / size) } else { c };
     let p = |t: f64| ((c[3] * t + c[2]) * t + c[1]) * t + c[0];
     let (qa, qb, qc) = (3.0 * c[3], 2.0 * c[2], c[1]);
-    let mut cuts = vec![0.0, 1.0];
+    let mut cuts = [0.0, 1.0, f64::NAN, f64::NAN];
     let disc = qb * qb - 4.0 * qa * qc;
     if disc >= 0.0 {
         let q = -0.5 * (qb + qb.signum() * disc.sqrt());
         if q != 0.0 {
-            cuts.extend([q / qa, qc / q]);
+            cuts[2] = q / qa;
+            cuts[3] = qc / q;
         } else if qa != 0.0 {
-            cuts.push(0.0);
+            cuts[2] = 0.0;
         }
     }
-    cuts.retain(|t| (0.0..=1.0).contains(t));
+    let mut n = 0;
+    for t in cuts {
+        if (0.0..=1.0).contains(&t) { cuts[n] = t; n += 1; }
+    }
+    let cuts = &mut cuts[..n];
     cuts.sort_by(f64::total_cmp);
-    let mut roots = Vec::new();
+    let mut roots = UnitRoots { values: [0.0; 3], len: 0 };
     for w in cuts.windows(2) {
         let (mut lo, mut hi) = (w[0], w[1]);
         let (plo, phi) = (p(lo), p(hi));
@@ -684,9 +703,11 @@ fn cubic_roots_in_unit(c: [f64; 4]) -> Vec<f64> {
         }
         for _ in 0..80 {
             let mid = 0.5 * (lo + hi);
+            if mid == lo || mid == hi { break; }
             if (p(mid) <= 0.0) == (plo <= 0.0) { lo = mid } else { hi = mid }
         }
-        roots.push(0.5 * (lo + hi));
+        roots.values[roots.len] = 0.5 * (lo + hi);
+        roots.len += 1;
     }
     roots
 }
@@ -737,12 +758,10 @@ fn largest_span_rotation(l: f64, planes: &[crate::postprocess::diagrams::SpanRot
                 let psi = p.at(a + h * t);
                 (psi.abs(), (psi - f * (s[0] + (s[1] + s[2] * t) * t)).abs())
             };
-            let mut at = vec![0.0, 1.0];
-            at.extend(cubic_roots_in_unit(c));
-            if f != 0.0 {
-                at.extend(cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]));
-            }
-            let (section, axis) = at.into_iter().map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
+            let section_roots = cubic_roots_in_unit(c);
+            let axis_roots = (f != 0.0).then(|| cubic_roots_in_unit([c[0] / ei - f * s[1] / h, c[1] / ei - 2.0 * f * s[2] / h, c[2] / ei, c[3] / ei]));
+            let at = [0.0, 1.0].into_iter().chain(section_roots).chain(axis_roots.into_iter().flatten());
+            let (section, axis) = at.map(turn).fold((0.0, 0.0), |(s, x), (ps, px)| (nan_max(s, ps), nan_max(x, px)));
             sections += section * section;
             axes += axis * axis;
         }
@@ -862,11 +881,11 @@ fn span_planes_2d(spans: &[MemberSpan], r: &AnalysisResults) -> Vec<(usize, f64,
         let ((v_i, r_i), (v_j, r_j)) = (end(span.nodes[0]), end(span.nodes[1]));
         let mut dist: Vec<(f64, f64, f64, f64)> = ef.distributed_loads.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
         if dist.is_empty() && (ef.q_i != 0.0 || ef.q_j != 0.0) {
-            dist.push((ef.q_i, ef.q_j, 0.0, span.length));
+            dist.push((ef.q_i, ef.q_j, 0.0, ef.length));
         }
         let points = ef.point_loads.iter().map(|p| (p.a, p.p)).collect();
         let couples = ef.point_loads.iter().filter_map(|p| p.my.map(|m| (p.a, m))).collect();
-        out.push((span.element_id, span.length, SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
+        out.push((span.element_id, ef.length, SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], v_i, r_i, v_j, r_j, ef.hinge_start, ef.hinge_end, points, dist, couples, span.curvature.unwrap_or_default()[0])));
     }
     out
 }
@@ -895,15 +914,15 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
         let loads = |dist: &[DistributedLoadInfo], q: (f64, f64), points: &[PointLoadInfo3D]| {
             let mut d: Vec<(f64, f64, f64, f64)> = dist.iter().map(|d| (d.q_i, d.q_j, d.a, d.b)).collect();
             if d.is_empty() && (q.0 != 0.0 || q.1 != 0.0) {
-                d.push((q.0, q.1, 0.0, span.length));
+                d.push((q.0, q.1, 0.0, ef.length));
             }
             (points.iter().map(|p| (p.a, p.p)).collect(), d)
         };
         let (py, dy) = loads(&ef.distributed_loads_y, (ef.q_yi, ef.q_yj), &ef.point_loads_y);
         let (pz, dz) = loads(&ef.distributed_loads_z, (ef.q_zi, ef.q_zj), &ef.point_loads_z);
         let planes = [
-            SpanRotation::new(span.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
-            SpanRotation::new(span.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
+            SpanRotation::new(ef.length, span.ei[0], span.shear_flexibility[0], ti[0], ri[2], tj[0], rj[2], ef.release_mz_start, ef.release_mz_end, py, dy, Vec::new(), span.curvature.unwrap_or_default()[0]),
+            SpanRotation::new(ef.length, span.ei[1], span.shear_flexibility[1], ti[1], -ri[1], tj[1], -rj[1], ef.release_my_start, ef.release_my_end, pz, dz, Vec::new(), span.curvature.unwrap_or_default()[1]),
         ];
         let twist = match (ef.release_t_start, ef.release_t_end) {
             (false, false) => (ri[0], rj[0]),
@@ -911,7 +930,7 @@ fn span_planes_3d(spans: &[MemberSpan], r: &AnalysisResults3D) -> Vec<SpanPlanes
             (false, true) => (ri[0], ri[0]),
             (true, true) => (0.0, 0.0),
         };
-        out.push((span.element_id, span.length, planes, twist));
+        out.push((span.element_id, ef.length, planes, twist));
     }
     out
 }

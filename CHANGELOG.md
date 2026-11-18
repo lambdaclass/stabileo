@@ -17,6 +17,10 @@ One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changel
 
 Member design and certification now require every active combination, every member in scope and every declared station, including both ends. Missing raw member records also refuse when station demands survive. EC2 peak design and foreign-code consumers preserve the requested active combination inventory. Previously a subset could return a verdict. Re-run saved concrete and steel designs and review refusals and certificates. Grouped beam spans retain each mesh piece’s identity and complete demands, avoiding false refusals. Complete-input numerical rules are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) and [SA-2026-071](docs/advisories/SA-2026-071-incomplete-concurrent-demands.md), draft pending merge and release in PR #2173 (#2096).
 
+#### Planar displacement recovery retains concentrated couples (2026-11-15)
+
+- Include concentrated member moments in reconstructed 2D displacement curves and diagram-game answers, including released ends and WASM-ready builds. Solver nodal results are unchanged. See `docs/results-changes/2026-11-planar-couple-displacement.md` (#2099).
+
 #### Snow ridges and slopes follow physical roof geometry (2026-11-15)
 
 Unequal subdivision of roof edges could move the inferred snow ridge and change
@@ -33,15 +37,283 @@ then rerun analyses, combinations and design checks; re-solving stored generated
 See [the results-change record](docs/results-changes/2026-11-snow-ridge-mesh.md).
 See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), pending merge and release.
 
+#### Snow panels follow physical roof geometry (2026-11-16)
+
+Subdividing sloped rafters no longer turns explicit roof panels into floors
+and silently removes eave snow (#2172). Panel classification uses the physical
+roof envelope. Generated widths retain full precision and snow tributary
+resultants follow complete physical strips. Regenerate saved snow loads, then rerun analyses,
+combinations and design checks; re-solving stored loads alone is insufficient.
+See the [results-change record](docs/results-changes/2026-11-snow-panel-geometry.md)
+and [SA-2026-074](docs/advisories/SA-2026-074-snow-panel-subdivision.md). PR #2197; pending merge and release.
+
+#### Snow loads retain their ridge-crossing moment (2026-11-16)
+
+Snow loads now split at the physical ridge, preserving force and moment on
+crossing members in projected, width and panel allocation (#2176). Regenerate
+saved snow loads, then rerun analyses, combinations and design checks; re-solving
+stored loads alone is insufficient. See the [results-change record](docs/results-changes/2026-11-snow-crossing-profile.md)
+and [SA-2026-073](docs/advisories/SA-2026-073-snow-crossing-moment.md). PR #2197; pending merge and release.
+
+#### Cover separate lower panels at the rafter's local height (2026-11-16)
+
+Correct an unmerged PR #2197 regression that discarded a whole covering rafter
+run at its minimum elevation. Identify a panel's own roof by its eave and full
+footprint containment; evaluate other runs at their local height. Covered panels
+retain floor area loads and receive no snow, independently of subdivision.
+Regenerate all affected generated area loads, then rerun analyses, combinations
+and design checks. The existing `snow-panel-geometry` registry entry includes
+this correction. See the [results-change record](docs/results-changes/2026-11-snow-panel-geometry.md#local-coverage-correction-in-pr-2197-round-4).
+Restore the SA-2026-070 catalog-date assertion from main and identify PR #2197
+as pending merge and release for SA-2026-073/074 in all locales.
+
+#### Bound snow tributary intensity error and refresh physical roof results (2026-11-16)
+
+Quadratic snow tributary loads now conserve force and both plan moments with
+an explicit pointwise intensity bound, instead of distorting the physical
+midpoint (#2172, #2176, PR #2197). Overlapping tributary sources are allocated once each. The derivation reports the bound. Refresh
+`snow-subdivided-override`, `snow-hip-facets` and `snow-roof-rotation` through
+the documented snapshot update procedure. The panel notice now consistently
+asks engineers in every locale to regenerate all affected generated area loads,
+then rerun analyses, combinations and design checks.
+See the [results-change record](docs/results-changes/2026-11-snow-quadratic-intensity.md).
+
+#### Preserve partial snow as member loading across connected roof panels (2026-11-16)
+
+- Keep inclined snow pressure as projected member loading over its actual interval, preserving axial force and displacement under partial loading. Associate complete roof runs with connected panel footprints across panel subdivision. Strengthen per-carrier member-response and hip-case oracles, preserve Hungarian snow notices, and extend SA-2026-074 to unsplit rafters above separate lower panels. Regenerate affected area loads and rerun analyses, combinations and checks. PR #2197; pending merge and release.
+
+#### Preserve snow force and moments on selected carrier subsets (2026-11-16)
+
+Split physical snow strips at active selection boundaries before fitting member
+loads. A selection within a subdivided run previously clipped a full-strip
+approximation, losing force and both plan moments (#2197). Fit only active
+intervals and share the selection predicate with load emission. Strengthen hole
+ownership coverage through roof classification and floor load generation.
+Regenerate affected generated snow loads, then rerun analyses, combinations and
+design checks. See the [results-change record](docs/results-changes/2026-11-snow-selected-subsets.md).
+
+#### Gravity carrier loads, seismic mass and combined diagram peaks (2026-11-17)
+
+- Panel-mode gravity subtracts shell footprints before assigning member loads. Supported uncovered strips apply line reactions at their physical stations. Incompatible one-way spans, uncovered strips that fail the automatic deck checks and nonplanar shell geometry block the plan. (#2199, #2200)
+- Width-mode level area and seismic mass use the tributary areas of loaded carriers. Regenerate width-based plans and seismic actions, including old seismic plans that generated no member gravity loads. (#2210, #2269)
+- Floor-load zones that require eccentric member loading are refused. Centred zones that admit an exact line load remain supported. (#2201)
+- ABS and SRSS 3D member diagrams include piecewise extrema and both sides of jumps. (#2273)
+
+#### Wind enclosure and pressure fields follow the physical structure (2026-11-16)
+
+Classify wind enclosure from every wall and the roof, refusing incomplete
+opening records. Integrate physical pressure zones and height bands for walls,
+roofs, free roofs, chimneys, signs and lattices; retain foundation forces and
+conserve force and first moments under member subdivision (#2203–#2206). Keep
+minimum horizontal loads in their own cases and derive gust applicability
+dimensions from physical carriers.
+
+Review enclosure classification, regenerate W and Wa, and rerun affected
+analyses, combinations and design checks. Saved projects retain a regeneration
+notice even after re-solving stored loads.
+See [the results-change record](docs/results-changes/2026-11-wind-physical-pressure-field.md).
+
+#### Apply flat-roof snow in companion combinations (2026-11-16)
+
+- Carry the required snow interpretation from native combination rules through planning and case expansion. CIRSOC 101 combinations 2, 4 and 5 now use pf member loading; physical snow remains available for principal and seismic combinations and mass. Missing flat-roof cases refuse explicitly. Regenerate snow loads and combinations and rerun analyses and checks. Fixes #2211.
+
+#### Finite eccentric wind loading at carrier apexes (2026-11-16)
+
+Eccentric wind pressure on carriers meeting at a physical endpoint now reaches
+members through its finite distributed-force limit. Building cases 2 and 4 no
+longer roll back representable apex fields. Member-force regressions require
+complete element IDs, and Hungarian users see that minimum horizontal cases
+remain separate. Regenerate W/Wa and rerun analyses, combinations and design
+checks. See the [results-change record](docs/results-changes/2026-11-wind-apex-torque.md).
+
+#### Wind width at tower-to-mast transitions (2026-11-16)
+
+Wind width mode follows continuous carrier bands, allowing a declared mast width
+above physical tower legs while retaining taper under member subdivision.
+Wall derivations identify equivalent nodal shares. Repeated pressure and geometry
+work is removed without changing moment checks or the timeout. Regenerate W/Wa
+and rerun analyses, combinations and design checks. See the
+[results-change record](docs/results-changes/2026-11-wind-band-width-and-shares.md).
+
+#### Wind carriers and continuous tapered widths (2026-11-16)
+
+Braced towers retain their column member loads. Tapered height fields choose
+physical or declared width once, so crossing the stick-width threshold no
+longer causes refusal or changes member loads on subdivision. Large wind
+previews append loads without exceeding the browser's argument limit. These
+correct regressions on unmerged PR #2220. Regenerate W/Wa, then rerun analyses,
+combinations and design checks. See the
+[results-change record](docs/results-changes/2026-11-wind-carriers-and-continuous-width.md).
+
+#### Wind pressure remains member loading (2026-11-16)
+
+Continuous generated wind remains partial trapezoidal member loading for
+walls, chimneys, signs and towers. Roof loads retain both endpoints of all
+global components. Member forces and deflection follow the physical loading
+through subdivision. Open buildings require an explicit free-roof type and
+blockage even with a pressure profile. Unresolved carrier partitions and
+distributed member torque refuse explicitly. Regenerate W/Wa and rerun
+analyses, combinations and design checks. Wind notices select generated W/Wa
+loads, excluding manual wind with generated gravity (#2220). See the
+[results-change record](docs/results-changes/2026-11-wind-member-pressure-transfer.md).
+
+#### Wind pressure at physical carrier apexes (2026-11-16)
+
+Valid splayed wind carriers can start at a shared apex under increasing pressure.
+Physical zero-width endpoints have zero density; declared widths still must be
+positive. Continuous carrier geometry certifies the existing eccentric-transfer
+limit even where quadrature would miss a narrow neck. Variant and collinearity regressions require complete numerical loads.
+Regenerate W/Wa and rerun analyses, combinations and design checks. See the
+[results-change record](docs/results-changes/2026-11-wind-physical-apex.md).
+
+#### Wind eccentricity acts across the physical plan and sign width excludes supports (2026-11-16)
+
+Generated building cases 2 and 4 now distribute eccentric torsion as a force
+couple on the active cross-section before transferring it to member endpoints.
+This corrects member forces and reactions in frames without a rigid diaphragm.
+Solid-sign coefficients and eccentricity use the face above its clearance,
+including carrier intersections at that height, instead of a wider support
+base. The enclosure editor can remove wall records for triangular buildings.
+Spanish instructions use voseo.
+
+The coordinator-assigned advisories SA-2026-076 (#2203), SA-2026-077 (#2204)
+and SA-2026-078 (#2205) are cataloged in all public locales. PR #2220 is pending
+merge and release. #2206 is conservative and has no advisory. Review enclosure
+records, regenerate W and Wa, then rerun analyses, combinations and design
+checks. Re-solving stored loads alone does not correct them. See the
+[results-change record](docs/results-changes/2026-11-wind-plan-couple-and-sign-face.md).
+
+#### Wind pressure work moments and sign forces (2026-11-16)
+
+Wind pressure integration independently checks moments through degree three and
+preserves one-signed member pressure, correcting cubic densities that could
+silently change member forces and deflections on unmerged PR #2220. Solid-sign
+force reports now integrate the applied physical width. Regenerate W/Wa and
+rerun analyses, combinations and design checks. See the
+[results-change record](docs/results-changes/2026-11-wind-pressure-work-moments.md).
+
+#### Triangular wind tributaries and eccentric sign minima (2026-11-16)
+
+Valid three-leg towers use triangular median tributaries. Solid signs retain
+A/B± cases for both calculated and minimum pressures as distributed member
+loads. This corrects regressions on unmerged PR #2220. Regenerate W/Wa and
+rerun analyses, combinations and design checks. Native and WASM checks now
+require complete element results and signed forces under both pressure senses.
+See the [results-change record](docs/results-changes/2026-11-wind-triangular-and-sign-minimum.md).
+
+#### Triangular wind symmetry and band torque support (2026-11-16)
+
+Wind generation now refuses triangular carrier plans without symmetry about
+the wind direction, preventing the branch's equal-thirds partition from
+silently shifting the projected pressure centroid. Unloaded unsupported bands
+no longer disable representable eccentric member loads on supported bands.
+Every sign and tower carrier tip is checked with its own load share.
+Regenerate W/Wa and rerun analyses, combinations and design checks. See the
+[results-change record](docs/results-changes/2026-11-wind-triangular-centroid.md).
+
+#### Sub-limit member load intervals are refused (2026-11-16)
+
+Member load intervals narrower than 1e-10 of the member length, including zero-width intervals, now return a localized refusal in planar and spatial native and WASM analyses and recovery. The error identifies the member and interval. Unsupported loads are never dropped, converted into forces or couples, or snapped to an end. Rerun affected analyses and explicitly revise unsupported load models. Static force-balance checks count the user's applied load independently of assembly. Missing pure couples still rely on the existing assembly-based moment check. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2222, #2223).
+
+#### Refuse ambiguous legacy seismic snow and missing companion loading (2026-11-16)
+
+- Refuse legacy seismic specifications whose flat-roof note cannot distinguish physical snow from pf until combinations are regenerated. Validate required flat-roof snow before omitting combinations with absent actions. Regenerate snow loads and combinations, then rerun analyses and design checks. Preserve snow basis when previewing a valid plan. Add SA-2026-082 and its localized catalogs. Fixes #2211; addresses #2233.
+
+#### Refuse flat-roof snow groups missing physical counterparts (2026-11-16)
+
+- Require a physical snow counterpart for every flat-roof group whenever physical S is requested. A complete pair on one roof no longer hides a missing physical case on another roof in principal or seismic combinations. Preview and apply share the same refusal.
+- Regenerate snow loads and combinations, then rerun analyses and design checks. Details: `docs/results-changes/2026-11-snow-pair-coverage.md` (#2211, #2233).
+
+#### Validate omitted-earthquake snow provenance and ungrouped pairs (2026-11-16)
+
+- Refuse ambiguous legacy seismic snow even when E is omitted or has zero factor. Regenerate saved snow combinations so physical snow and flat-roof companion snow retain distinct cases.
+- Accept a complete single ungrouped physical/flat-roof snow pair while continuing to refuse missing or ambiguous independent actions. Preview and apply use the same validation.
+- Details: `docs/results-changes/2026-11-snow-combination-provenance.md` (#2211, #2233).
+
+#### Require explicit custom 3D restraints and carry memberless plane rollers (#2276, #2277)
+
+A 3D solve refuses a custom support whose restraints were never set. A plane roller using local axes without a connected member now carries its fallback axis through a quarter-turn.
+
+#### Carry explicit plane support restraints through quarter-turns (#2277)
+
+Plane quarter-turns now rotate explicit restraints, springs, and prescribed motions in the embedded XZ basis. The Braced Portal Frame roller restrains the rotated axis in both plane and embedded analyses.
+
+#### Carry legacy settlements through masked plane support rotations (#2277)
+
+Plane turns now resolve legacy prescribed translation and rotation fields before moving the support to its new axes. A settled bearing produces the rotated reaction in plane and embedded analyses.
+
+#### Plane rollers follow quarter-turn edits (#2277)
+
+Rotating a plane bearing carries its restraint into the rotated axis. Fixture replay resolves local support references against the replayed members, and preset edits preserve axes explicitly supplied in the edit. The #2276 recheck applies to 3D projects with a bare rollerZ or an unknown support type.
+
+#### Unchanged support types preserve bearing directions (#2277)
+
+Editing a settlement or resubmitting the current support type in Explore preserves the recorded restraints and local axes. An explicit restraint edit takes precedence, and choosing a different type resets the previous defaults.
+
+#### Whole-bay floor zones and sloped roof cover (2026-11-17)
+
+- A floor-load zone covering an entire bay produces the panel's member loads. The zone eccentricity check still applies to partial panels. (#2282)
+- A roof carried by sloped members loaded by tributary width now contributes cover over its loaded footprint. Regenerate affected panel-mode gravity plans. Mixed strip exposure blocks generation. (#2282)
+
+#### Use accepted decks for gravity strip exposure (2026-11-17)
+
+- A bare ring rejected during deck selection leaves lower uncovered strips exposed to roof pressures. Legacy derivations that record partial shell coverage trigger a load regeneration notice even if only member loads were saved. (#2200, #2282)
+- Floor-load transfer refuses an input that specifies a zone together with shell footprints. (#2201, #2282)
+
+#### Gravity under horizontal width-loaded members (2026-11-18)
+
+- Panel-mode gravity applies floor pressures to a shell-uncovered strip fully covered by a higher tributary-width member. Partial cover blocks generation. Regenerate stored panel-mode gravity in models with shell-covered beam bays. (#2282)
+
+#### Count shell gravity once at a connected lean-to (2026-11-17)
+
+- An attached gable's beam ring receives no area load when the roof shells cover the full eave bay and a connected lean-to descends outside it. A lower shell with positive projected overlap into the bay blocks load generation. Regenerate affected panel-mode gravity plans. (#2282)
+- Use US English spelling in the uncovered strip headroom message. (#2282)
+
+#### Gravity on rafters with rigid shell offsets (2026-11-18)
+
+- Panel-mode gravity applies pressure once to the roof shell when rigid links establish full coverage of an offset rafter. Ambiguous coverage blocks the plan. Regenerate stored panel-mode beam gravity in models with roof shells. (#2282)
+
+#### Verify shell deck geometry and uncovered strip exposure (2026-11-17)
+
+- Panel-mode gravity verifies that a shell represents the beam panel's deck before subtracting its footprint. Uncovered strips take roof or floor pressures based on their own exposure. Ambiguous shell coverage or mixed exposure blocks the load plan. Regenerate affected gravity and seismic actions. (#2200, #2282)
+
+#### Bundled models retain their explicit support restraints (#2277)
+
+Every JSON fixture adapter now retains declared support metadata, including 3D masks, even when its creation method accepts only three arguments. Missing stored supports are refused. The braced portal states its embedded-plane roller restraints explicitly; the RC flexure beam keeps its existing bearing mask through every loader. Recompute results previously produced by adapters that dropped support metadata. See [the results-change record](docs/results-changes/2026-11-bundled-support-metadata.md).
+
+#### Concentrated live actions must be checked before applying generated loads (2026-11-16)
+
+Automatic CIRSOC 101 load plans now block occupancies with concentrated live actions and roof plans requiring the separate concentrated checks of §4.4. The generator cannot yet establish the most unfavourable placements or compare all required alternatives. Uniform-load diagnostics remain available, but a blocked plan cannot be applied, including through the store API. Review previously generated office, library, school, hospital, commercial, industrial, stair, passenger-garage and roof loads; model and check the required concentrated actions manually before relying on their analyses or designs. See [the results-change record](docs/results-changes/2026-11-concentrated-live-actions.md).
+
+#### Fillet weld effective length follows the physical run (2026-11-16)
+
+Fix #2243 and #2244: splitting a continuous end-loaded fillet no longer removes its effective-length reduction, and a short fillet uses a leg no larger than one quarter of its run length. Native and WASM weld-group checks normalize connected uniform fillets before calculating area, centroid, inertia and stress. Separate parallel or disconnected fillets remain separate; ambiguous branching runs are explicitly unevaluated. Previously passing weld groups can fail. Re-run saved weld-group checks. See [the results-change record](docs/results-changes/2026-11-fillet-weld-physical-runs.md). Advisory numbers remain for the coordinator to assign.
+
 #### Interior deflection and rotation retain concentrated member couples (2026-11-15)
 
 Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; PR #2170, pending merge and release).
+
+#### New 3D rollers keep their stated restraints (#2277)
+
+Creating or redirecting a roller with a defined direction in Basic 3D or PRO now stores explicit restraints. Y rollers keep their Y direction. Sliding-plane types keep their labelled planes, and changing a roller type replaces an old direction mask unless explicit restraints are supplied. The 3D editor no longer offers plane-only direction controls. A bare legacy `rollerZ` requires an explicit restraint choice. Review roller restraints and rerun analysis, combinations and design after edits. See [the results-change record](docs/results-changes/2026-11-roller-creation-3d.md).
+
+#### Ambiguous or unknown 3D support names no longer become fixed (#2276)
+
+3D solves now refuse an unknown support name instead of assigning six fixed restraints. Legacy `rollerZ` has conflicting 3D meanings and requires explicit restraints; its defined 2D projection is preserved. Saved 3D projects with `rollerZ` or a previously unknown support type receive a re-check notice. Review their intended restraints and rerun analysis, combinations and design. The bundled `rc-beam-flexure` bearing now has explicit restraints and recovers the simply supported reactions and moments. See [the results-change record](docs/results-changes/2026-11-roller-z-fixed.md) and the requested [SA-2026-089 draft](docs/advisories/SA-2026-089-roller-z-fixed.md).
 
 #### CIRSOC 201 torsion section limits include both concurrent shear axes (2026-11-15)
 
 The solid-section shear–torsion limit now checks both orientations from the complete concurrent demand, for beams, columns and walls in both supported editions. The provided-beam verifier also checks torsion when primary shear is zero or stirrups are absent; non-negligible torsion without stirrups explicitly fails. Previously accepted sections can fail; additional stirrups cannot repair an exceeded concrete-section limit. Re-run saved concrete member designs and review section failures. See the [results-change record](docs/results-changes/2026-11-torsion-secondary-shear.md) and [SA-2026-069](docs/advisories/SA-2026-069-torsion-secondary-shear.md) (#2142, PR #2169).
 
+#### Zero-size weld pieces supply no resistance or stress points (2026-11-16)
+
+Fix #2258: zero-size weld pieces no longer create ambiguous physical-run branches or supply stress-check endpoints in native and WASM weld-group checks. Their geometric lengths remain in the reported total, with non-finite totals explicitly unevaluated. Mixed groups can receive an answer where they were previously refused, and eccentric utilization can decrease. Re-run saved weld-group checks containing zero-size pieces. The shared fixture now contains 78 cases; the original 44-case matrix is identified as historical. See [the results-change record](docs/results-changes/2026-11-fillet-weld-physical-runs.md#zero-size-pieces-do-not-resist-load-2258). Any advisory decision remains with the coordinator.
+
 ### Added
+
+#### Fast local checks and lint for silent fallbacks and skips
+
+- Run the targeted web checks and CI script gates with `make check.fast`. Repository lint catches value-producing switch defaults in engine, model and store code, untracked test skips, and environment-gated tests.
 
 #### A blog post on Stabileo 0.6.1 (2026-11-15)
 
@@ -52,7 +324,102 @@ results-change notices, and preserves the known open wrong results and limitatio
 Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
 open in the reader's language.
 
+#### A game for reading diagrams: pick the right one, spot the odd one, find the structure (2026-11-10)
+
+`/<locale>/diagram-game/`, also linked from Educational mode and from the landing header between
+Tools and Research, shows a structure with its loads and three or four bending moment, shear,
+axial force or deflected-shape diagrams, one of them right. Other rounds ask for the diagram that
+does not match the rest, or show one diagram on the bare members and ask which of several
+structures it comes from. The wrong options come from solving a changed structure (a load moved,
+reversed or rescaled, a support or a hinge changed) or from a classic drawing mistake (the wrong
+degree, vertex or concavity, a missing jump, a shear that does not close, a moment that does not
+vanish at a hinge or does not appear at a fixed support, a deflection that does not vanish at a
+support or rotates at a fixed one), and the explanation after each answer says which. Wrong options include another diagram of the
+same structure drawn as the one asked for, and the right one mirrored end for end. No option is
+the right one drawn with its sign reversed, on the whole diagram or on one straight run of a
+frame, since textbooks disagree on that convention, and no two options are closer than a widest
+visible gap that shrinks with the level. In a truss, read bar by bar by its colour, two options must also
+turn at least one clearly loaded bar from tension to compression or to unloaded; a change of magnitude
+alone never makes them different. The question names the diagram in its own colour with its
+symbol (N, Vz, My, δ). The game fills one screen with no scroll on a desktop, a tablet and a phone
+held either way, always with the loaded structure, the question and every option in view and no
+text under 12 px; every figure of a round shares one frame fitted to what it draws. On a phone held
+upright the start screen suggests turning it, with a full screen option where the browser allows
+one. An auto-next box beside Next, off by default and remembered, moves on after each answer
+unless the player opens a card's explanation. Seven levels run from a simply supported beam
+to frames and trusses, and then everything mixed. Each round has a 20 s clock; when it runs out the round counts as a mistake and the right option is
+shown. Points come from the level, a streak multiplier
+and a time bonus, shown on each answer, with synthesised sound that can be turned off. The best
+score stays in the browser. The page loads the engine but not the application, so the app's own
+bundle does not grow.
+
+#### Research: least thickness and collapse of masonry arches after Heyman's "The stone skeleton" (2026-11-16)
+
+A new research page, `/research/mechanics/heyman-1966`, treats a circular arch of rigid voussoirs as a linear program on the static theorem, with a kinematic enumeration of every four-hinge mechanism. It reproduces the Milankovitch and CCR least-thickness solutions tabulated by Rizzi et al. (2010) for half-angles of 60° to 145°, and the collapse load of a ring under a quarter-span point load. Research, not a design tool. The engine's masonry reference test now attributes t/R ≈ 0.1075 to the Milankovitch solution instead of Heyman's closed form (0.106); its assertions are unchanged.
+
+#### Audit notice for generated loads and concrete design (2026-11-16)
+
+Show a permanent notice beside automatically generated loads and reinforced-concrete design and detailing results, including cages, seismic member checks and reinforcement sheets. The notice is translated into all seven app languages, including Hungarian, and links to the open audit findings. A shared registry records coverage decisions for every generator type and design view. Calculation results are unchanged.
+
 ### Changed
+
+#### Wind regression tests reject missing mechanics and exercise case refusal (2026-11-16)
+
+Wind mechanics comparisons now require every expected support reaction and node displacement, with finite components in both solver outputs. Negative controls cover missing, partial and malformed results in 2D and 3D. The case-generation refusal test now constructs its pressure field before invoking the entry point and rejects a generator that silently accepts unsupported member torque (#2220). Engine results are unchanged.
+
+#### Research, Tools and the diagram game are separate opt-in integrations (2026-11-14)
+
+The Research additions, consolidated Tools and new Mohr entry points, and diagram game each
+have a separate switch, disabled by default in development and production: `VITE_RESEARCH=1`,
+`VITE_TOOLS=1` and `VITE_DIAGRAM_GAME=1`. Browser overrides use the existing `stabileo-feature-`
+settings. Existing Research, paper, calculator and Examples pages remain public when these switches
+are off. The Research switch gates only new Fehér controls and explanations and Hungarian Research.
+Account and advertising rollout gates retain their production-off defaults. Hungarian dictionaries,
+public copy, release guidance and result-change notices follow the integrated routes without
+importing the held integrations. Account legal pages follow the existing accounts switch.
+
+Mohr plots select the shear point appropriate to the displayed convention and retain small
+nonzero shear in 3D. Tool force residuals count every supported force load, including point
+loads, axial loads and partial distributed loads. Exercise parameter ranges preserve authored
+decimals and bounds; unloaded truss bars remain unloaded. The flexure article checks the actual
+bar depths and rejects the nonductile example in every published translation. Numerical failure
+while loading the research strip reports an unsolved start rather than claiming a physical snap.
+
+Consent decisions use database revisions serialized per account. Explicit terms refusal is
+rejected, and project research requires an explicit opt-in. Shared sign-in channels require the
+matching attempt. Mixed account-gated actions cannot fail open. Gated save/copy operations share
+promise settlement; closing a worker answers its pending requests. Advertising hierarchy keys
+preserve their structure, and withdrawing advertising consent also removes `_gid` cookies.
+
+The public metadata reader parses the exported page object, preserving routes and dates when
+property names or values use different quote styles. No structural engine analysis or design
+kernel is changed by this integration.
+
+#### Audit wave 2 roadmap and blog index metadata (#2234)
+
+List all 12 findings filed as #2238–#2249 in audit harm order: design dispatch, steel welds and Cb,
+detailing and EC2. Keep these findings open until their corrections or justified refusals are
+verified.
+
+Calculate the blog index sitemap date from the current blog posts on every scan. Updating a
+standing page such as the changelog no longer changes the blog index date on repeated scans.
+The tools registry date checks retain their registry-derived expectations. No engineering
+results change.
+
+#### November 16 changelog and soundness roadmap (2026-11-16)
+
+Publish the merged design, snow-load and interior-deflection corrections in every website
+changelog locale, including Hungarian, with existing advisory links and recovery guidance.
+Distinguish optional integrations disabled by default from available features. Refresh the
+roadmap with the six corrections done on main, release 0.6.2 preparation, wave-1 open findings,
+active fixes and follow-ups, the pending under-audit notice and the start of audit wave 2.
+No engineering results change.
+
+#### November 17–18 changelog and soundness roadmap
+
+Update the website changelog in all seven languages with the member-load, gravity,
+diagram and support corrections and the new masonry arch experiment. Record which
+findings are fixed or refused on main, and link the remaining findings and follow-ups.
 
 #### Test systems gathered under testing/ (2026-11-15)
 
@@ -68,13 +435,422 @@ The section-boundary and zero-secondary-shear regressions now require torsion re
 
 ### Fixed
 
+#### Preserve complete combination-specific design station sets (2026-11-15)
+
+The pending demand-completeness gate in PR #2173 now keeps common requested stations separate from combination-specific stations. Complete sizing cases and EC2 checks with extra stations in only one combination retain their answers. Verified coverage survives tuple conversion, and undefined optional governing references produce complete checks or typed incomplete-demand refusals instead of a crash. Missing declared combinations, members and stations still refuse. Design result snapshots are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) (#2096).
+
+#### Validate each declared combination scope before member and station iteration (2026-11-15)
+
+The pending demand-completeness gate in PR #2173 now declares members and stations within each combination. Variable steel and beam-line checks validate the original request once, then consume verified station groups, including unequal combination grids. Foreign-code checking, certification, EC2 peak design and RC member iteration preserve that proof instead of rebuilding requests. Missing declared inputs still refuse. The held-span regression references now declare the members they actually check and retain every cache, certificate and numerical assertion. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) (#2096, #2080).
+
+#### Retain every observed station in demand coverage (2026-11-16)
+
+The pending completeness gate in PR #2173 now records observed stations within their combination even when a common grid is declared. Removing a combination-only station after conversion now refuses instead of checking the remaining demands. Common grids, per-combination declarations and cached coverage share the same monotone inventory builder. The legacy missing-Fu test supplies a complete concurrent scope and still asserts the material refusal. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) (#2096).
+
+#### Keep the complete coverage inventory with every demand (2026-11-16)
+
+Member demands now share a frozen inventory of members, combinations and their individual station grids. Removing tuples, stations, combinations or members cannot redefine completeness, including through cached verification. Raw tuple APIs require declared coverage. Explicit member views and validated beam-span coordinate transformations retain complete-input verdicts and shared demand reuse. No numerical rule or tolerance changes (PR #2173, #2096).
+
+#### Advisory locale table typecheck (2026-11-15)
+
+- Type the steel Cb advisory test locale table by the saved-project notice explanation keys so additional application locales do not break the web typecheck (#2099).
+
+#### Refuse stale authorized downloads and preserve small plane principal stresses (2026-11-14)
+
+- Refuse a pending results download if its model, result or provenance changes during sign-in. File builders run only after authorization; reports and workbooks recheck provenance and containment before release.
+- Preserve the sign and magnitude of a small plane principal stress when subtracting the Mohr radius from the center would erase it. Section stress and the plane Mohr tool share the corrected calculation (#2099).
+
+#### Default research prerender and CI navigation imports (2026-11-15)
+
+- Remove private locale initializers together with disabled Hungarian dictionary entries, so published research pages render with the default build switches (#2099).
+- Read navigation switches safely when Node collects the browser tests without a Vite environment.
+
+#### Default builds isolate optional product features (2026-11-15)
+
+- Resolve omitted production feature switches consistently before compiling templates and dictionaries; keep disabled account and Mohr interfaces out of application routes (#2099).
+- Register the slab gallery isolation test in the results snapshot harness.
+
+#### Preserve the default public footer and sitemap (2026-11-15)
+
+- Restore main's Examples footer and section links when Tools is off, and show Terms and Privacy only with accounts enabled (#2099).
+- Date the Tools index from its published offering, retaining main's sitemap metadata at default switches and the registry dates with Tools enabled.
+- Restore main's footer browser spec exactly and cover account legal links in a separate switch-gated spec.
+
+#### Default research and tools pages respect rollout switches (2026-11-15)
+
+- Compile out optional Hungarian dictionaries and select expanded tools text only when its switch is enabled, keeping live research and calculator pages within their existing route budgets (#2099).
+- Preserve the snapshot harness's existing expected files and run the Hungarian advisory-content case only in research-enabled builds.
+
+#### Match E2E smoke coverage to the built public features (2026-11-15)
+
+- Restore main's landing navigation expectations with switches off and test the switched navigation separately (#2099).
+- Detect enabled features from the prebuilt E2E artifact using the same flag resolver as publication tests; skip unavailable game, Mohr, model-tool, account, revised tool UI and Hungarian pricing coverage with explicit reasons.
+- Keep the default CI E2E build switches off and restore coverage of main's example pages and calculator UI alongside the enabled Tools redirects.
+
+#### E2E merge restoration (2026-11-15)
+
+- Restore main's individual editor wait annotations, shared example IDs and Examples navigation coverage with Tools disabled; retain the switched Tools experience (#2099).
+
+#### Retain locale and displacement regression coverage (2026-11-16)
+
+- Keep German, French, Turkish and Hungarian blog cases explicit and require their public availability; supply the missing Hungarian 0.6.1 translation exposed by the metadata check (#2099).
+- Require the complete displacement sample count before checking recovered coordinates and point displacements.
+- Restore unpublished Hungarian research addresses to English in both navigation shells even with research expansion disabled, retaining query strings and fragments.
+
+#### Label retained Fehér results and preserve resolved principal stresses (2026-11-14)
+
+The bent-strip research page names the computed load, distribution, mesh and far corner beside
+its results. A visible notice remains while the current controls differ, including after stopping
+a computation or receiving a solver error. Baseline Hungarian text now explains the open checks
+without referring to hidden extended content.
+
+The 3D Mohr tool preserves small computed principal stresses instead of replacing them with zero
+when another principal stress is much larger. This changes the frontend tensor calculation;
+the structural engine and research solver are unchanged.
+
+#### Preserve slab gallery results and restore footer test collection (2026-11-14)
+
+- Derive the slab peak marker in the tools figure renderer, preserving the public gallery analysis output with the integration switches off, on, or unspecified (#2099).
+- Restore the truncated landing footer viewport checks so Playwright can collect the footer navigation and accessibility tests.
+
+#### Hungarian interior deflection advisory and recovery notices (2026-11-16)
+
+- Add Hungarian SA-2026-070 guidance for interior member deflection, concentrated couples inside a member and deformed shapes, with the advisory row, note, link and both saved-project recovery notices from PR #2170 (#2099).
+- Preserve both advisory catalogs, result-change registries and exact notice assertions when merging main.
+- Mark SA-2026-070 as fixed in merged PR #2170 and pending release in every catalog locale and its existing advisory records.
+
+#### Hungarian snow ridge advisory and regeneration notice (2026-11-16)
+
+- Add the Hungarian SA-2026-072 summary, status, advisory link and snow ridge results-change title and explanation, including the need to regenerate snow loads and the remaining limitation for unsplit members crossing the ridge (#2099, #2175).
+- Mark SA-2026-072 as fixed in PR #2175 and pending release in every locale and the existing advisory records after its merge to main.
+
+#### Preserve main registry content and restore Hungarian advisory structure (2026-11-14)
+
+- Preserve every main result-change registry line while adding Hungarian translations, without changing the registry schema.
+- Restore two missing safety-advisory blocks and four missing summary rows in Hungarian.
+- Load account tracking only when the accounts switch is enabled (#2099).
+
+#### Isolate registration and advertising preferences from accounts-off landing builds (2026-11-14)
+
+- Omit the registration page import when `VITE_ACCOUNTS=0`, keeping the landing page in its shared chunk (#2099).
+- Treat an explicit accounts build switch of `0` as unavailable even when a saved browser override requests accounts; builds without that explicit restriction retain browser overrides.
+- Load footer advertising preferences only after mounting with accounts enabled, keeping consent and visit-cookie modules outside the static landing closure.
+
+#### Load Hungarian research fallback only on Hungarian paths (2026-11-16)
+
+- Keep the research fallback behind a shared lazy module in both navigation shells, restoring unpublished Hungarian research addresses with research expansion disabled without loading the helper on other landings (#2099).
+- Remove the redundant bootstrap fallback call, which only ran when Hungarian research was already published.
+- Discard stale navigation after loading the helper, preserving the active route.
+- Retain existing route allowances, tolerances and ceilings.
+
+#### Preserve Mohr stress states in shared links and test public build switches consistently (2026-11-15)
+
+- Serialize Mohr stresses and angles with round-trip numeric strings. Sharing and reopening a nearly hydrostatic state now preserves its nonzero von Mises stress and maximum shear in tool and application links, for every display unit.
+- Test Hungarian research, tool and blog copy only when the build offers Hungarian, retaining the complete translation and safety-data assertions when research is enabled.
+- Keep concurrent application locale requests on one promise across the lazy module import, and complete the startup test's locale-warning mock.
+
+#### Release 0.6.1 integration (2026-11-15)
+
+- Preserve the 0.6.1 release versions, notes, published advisories, catalog and tests alongside the optional public features; retain advisory locale typing and provide the Hungarian release notes linked by the update notice (#2099).
+
+#### Public footer and build metadata at default switches (2026-11-15)
+
+- Keep account Terms and Privacy links, labels and pages behind the accounts switch (#2099).
+- Date the Tools index by the latest registry review or stated change in the published offering, using the same metadata as tool pages.
+- Check retained Examples pages against their own canonicals at default switches and require redirects only when the build enables the Tools consolidation.
+
+#### Release 0.6.1 public-path expectations (2026-11-15)
+
+- Include the published 0.6.1 blog post in the shared expected public-path list for every integration switch configuration (#2099, #2164).
+
+#### Enforce published route budgets and restore endpoint signup coverage (2026-11-16)
+
+Route-size checks measure the research index, tools index and original calculators even when the expansion switches are off, selecting the components the build publishes. Only unbuilt expansion routes are reported as skipped. All ceilings and Hungarian allowances remain unchanged. Endpoint tests exercise Google signup with required terms and optional consent inputs, verify persisted consent and authenticate with the returned token; refresh coverage remains in place.
+
+#### Keep main registry languages and current tool answers valid (2026-11-15)
+
+- Preserve the six required result-change registry languages from main. Research-only Hungarian notices use English when either the title or explanation is unavailable; include Hungarian translations for the merged snow messages.
+- Keep calculator and batch tool results tied to the current tool and inputs. Cached answers invalidate queued and running work, and late successes or failures cannot replace the current answer or clear its pending state.
+
+#### Refuse reports changed during sign-in and correct support reaction explanations (2026-11-15)
+
+- Recheck the original export token immediately before opening a printable report after sign-in. Editing or switching the model refuses the old report with the existing project-changed message.
+- Correct the truss support reaction explanation in all seven step dictionaries: member-on-joint forces enter the reaction with the opposite sign, and the applied joint load is subtracted.
+- Load the Hungarian baseline-copy test with research enabled before locale selection, preserve its open-check assertions, and separately check the research-off English fallback.
+
+#### Default browser locale initialization (2026-11-15)
+
+- Initialize the offered locales without accessing Node globals in browsers when the research switch is unset. The RC-NM-PAIRING and containment responsive checks keep their original viewport, readability and overflow assertions at CI defaults (#2099).
+- Share the responsive fixture renderer and wait for its completed browser probe within the existing timeout, reporting browser script errors instead of returning an empty measurement.
+
+#### Restore feedback safety coverage, route worker accounting and translations (2026-11-16)
+
+Restore the feedback regression cases on the authenticated private inbox, including inert rendering, payload bounds and model-link restrictions. Model links and browser metadata retain their previous limits, and malformed feedback bodies are refused. Route footprints count referenced solver workers and their assets again, and eager imports of the examples page remain prohibited. Invalid credentials have their own translated message in every dictionary, including Hungarian. The Hungarian moving-load notice now describes the component along the member axis.
+
+#### Measure built routes and budget the beam-frame worker (2026-11-16)
+
+Route-size checks use the resolved build switches, report skipped Research and Tools routes when disabled, and still fail for missing enabled entries. The new beam-frame route has a 19,600,000-byte ceiling based on its 18,110,097-byte worker-inclusive measurement with about 8% headroom. Other ceilings and growth allowances are unchanged; the measurement note records all three solver tools including their workers.
+
+#### Research shape-control E2E switch coverage (2026-11-15)
+
+- Run the optional shape-control load, distribution and Hungarian checks only when the served build enables research. Keep the published replay and corner-control checks active with switches off, and verify test selection against both runner and prebuilt build switches (#2099).
+
+#### Keep research locale and publication policy out of switches-off landing builds (2026-11-14)
+
+- Offer Hungarian only in research builds, including public dictionaries, language selection, locale routes, and sitemap generation (#2099).
+- Keep main's public-link URLs and language fallback when the integration switches are off, retaining publication fallback and moved-page links when enabled.
+- Remove disabled account and game strings and markup before public bundles are compiled, and defer full application dictionary loading behind its own import boundary.
+- Keep branch-only tool routes refused while sharing their main-tool identity check with the enabled policy.
+
+#### Preserve small rotated plane stresses and consented conversion events (2026-11-15)
+
+- Compute plane stress rotation from squared sine and cosine products so a much larger normal stress does not erase a small transverse component, including rotation to the principal direction (#2099). The structural engine is unchanged.
+- Keep pending account conversions within the tracking session that started them. Registration and first-save events retain their names and hashed identifiers; resetting tracking cannot release an earlier conversion into a later session (#2099).
+
+#### Equilibrium property checks retain force scales through cancellation (2026-11-16)
+
+The 2D and 3D internal-force property checks now share an accumulator that retains member-end, reaction and applied-load magnitudes before cancellation, including moments. A roundoff bound follows `f64::EPSILON` and the number of accumulated terms, with no absolute seed. Existing force-relative allowances remain; 2D member moments are normalized by length without increasing their prior budget. Exact issue reproducers and force/moment imbalance controls cover support-only loads, nonzero member forces and zero applied loads. Production solver results are unchanged (#2108, #2109).
+
 #### Teaching shape tests require every recovered sample (2026-11-16)
 
 Require all 21 samples in both the loaded teaching displacement sketch and the load-free mode before comparing ordinates, so empty or truncated recovery cannot pass the fixed-fixed couple regression tests (PR #2170). Preserve the member-recovery and snow-ridge advisories and saved-project notices when merging main. Engine results are unchanged.
 
+#### Supply complete demand fixtures in web design regression tests (2026-11-16)
+
+The shared-span cache regression gives each member its own demand identity and compares complete shared and copied demand arrays through all three design entry points. Steel moment-gradient references retain their full station grids, empty steel input checks the typed completeness diagnostic, and final-geometry checks use complete concurrent forces. Missing members, identities, and stations remain refused. Production completeness checks and engine results are unchanged.
+
+#### Preserve member assignments during declared tuple conversion (2026-11-16)
+
+- Accept complete declared demand inventories whose combinations or stations belong to different members. Tuple conversion now builds coverage per member while retaining the shared inventory and all missing-demand refusals (#2096, PR #2173).
+
+#### Preserve both safety notices when integrating main into PR #2173 (2026-11-16)
+
+The advisory catalog and index retain SA-2026-069 and SA-2026-071 in all six web languages. Saved-project notice checks retain both results-change entries, and verification documentation links use `testing/docs`.
+
+#### Preserve demand notices when merging the Hungarian locale (2026-11-16)
+
+- Preserve the incomplete concurrent-demand advisory and saved-project notice alongside main’s advisory and result-change catalogs, with Hungarian text for SA-2026-071 and its notice.
+
+#### Preserve member recovery and complete-demand notices together (2026-11-16)
+
+Merge main after PR #2170 while retaining SA-2026-070 and SA-2026-071 in the advisory catalog and every localized safety post. Exact saved-project notice expectations include both member recovery and shared demand completeness. Round 8’s shared coverage inventory remains unchanged (PR #2173).
+
+#### Preserve both safety notices when integrating snow-load corrections (2026-11-16)
+
+The advisory catalog and every translated safety-advisories post retain both the incomplete concurrent-demand advisory and the snow ridge subdivision advisory. Saved-result notice registries and exact recheck expectations retain both branches’ entries. Complete demand regression fixtures and the shared completeness gate remain intact.
+
+#### Preserve every combination in beam-line demand envelopes (2026-11-16)
+
+- Evaluate each combination on the member's union station grid before taking flexure, shear and torsion maxima. Unequal station grids no longer drop a governing combination between its samples. Refuse stations without an unambiguous interpolation bracket; retain coverage validation before combination selection (#2096, PR #2173).
+
+#### Regenerate all affected generated area loads after the snow corrections (2026-11-16)
+
+Align SA-2026-073 and SA-2026-074, their advisory catalog rows in all six locales, and saved-project notices: regenerate all affected generated area loads, including affected roof and floor area loads, then rerun analyses, combinations and design checks (PR #2197). Remove a duplicated remeshing test loop. Engine results are unchanged by this recovery update.
+
+#### Wind regression checks retain complete member loading (2026-11-16)
+
+Wind regression tests now preserve both distributed-load endpoints, integrate
+trapezoidal carrier loading, and require every numeric force component in both
+solver outputs. The flexible-building torsion check expands only its selected
+load case, reducing temporary allocations without changing its assertions or
+timeout. Identical stationary pressure components share their integral, and
+quadrature reuses its constants. Native fixtures retain the generated end
+intensities.
+
+#### BREAKING (results): Share member endpoint decisions with the web adapter (2026-11-17)
+
+Validate coincident distributed-load endpoints in the web adapter using the solver's existing geometric canonicalization, retaining strict interval limits and native load-density preservation checks. Reject malformed saved intervals before the planar compatibility combiner can create a diagnostic record. Report interval refusals through synchronous and asynchronous solve APIs and show an explicit refusal when an influence document needs an unsupported narrow load zone. Translate all generated-member geometry refusals in every locale. See [endpoint arithmetic](docs/results-changes/2026-11-wind-endpoint-arithmetic.md) and [saved combination refusals](docs/results-changes/2026-11-atomic-load-splits.md) (#2223, #2222).
+
+#### BREAKING (results): Refuse load-changing rounded splits atomically (2026-11-16)
+
+Validate a complete member split before changing nodes, sections, members, loads, identifiers or undo history. Require a generated member chain to stay ordered on the source line and partition its length within floating-point rounding bounds. Check each child's length against its source span before remapping distributed loads, preserving the prescribed resultant and first moment; refuse geometry changes beyond those bounds. Preserve overflow errors through planar combination assembly so an invalid combination cannot disappear from an otherwise successful result. Scope the compensated-force notice to models with structural stiffness. See [the results-change record](docs/results-changes/2026-11-atomic-load-splits.md) (#2223, #2222).
+
+#### BREAKING (results): Share embedded load geometry across automatic member cuts (2026-11-17)
+
+Restore analysis subdivision and variable-member expansion of planar members with saved offsets. Manual cuts, automatic cuts and recovery now share the solver's offset-free load geometry; true 3D models retain flexible offsets. Correct partial-load resultants previously measured on the wrong length. Merge main's concentrated-live and weld fixes while retaining both integration test modules, resolving the trusted CI merge conflict. See [the results-change record](docs/results-changes/2026-11-generated-member-cuts.md) (#2223, #2222).
+
+#### Distributed-load bounds and fiber equilibrium (#2223)
+
+- Reject distributed loads extending beyond either member endpoint, including near-full intervals, through a shared 2D/3D validator (#2222, #2223).
+- Continue fiber Newton iteration until the existing final equilibrium checks pass, avoiding premature stops followed by an equilibrium refusal (#2223).
+
+Results change: [bounds validation and fiber equilibrium](docs/results-changes/2026-11-narrow-partial-loads.md).
+
+#### Scope result-change notices and preserve unloaded member cuts
+
+Keep unrelated legacy displacement, reaction and member-force changes unexplained by the generated-cut and wind-endpoint results notices. Restore mesh connections on unloaded members without requesting load-remapping geometry; loaded off-line cuts still refuse before committing. No solver tolerance or result baseline changes (#2223, #2222).
+
+#### BREAKING (results): Preserve decimal endpoints and combination refusals (2026-11-17)
+
+Resolve decimal load endpoints from the rounding cells of both stored member nodes through the shared native mapper, retaining existing rounding caps and load-preservation checks. Keep non-finite planar compatibility combinations as empty diagnostic results with their conservative second-order screen; checked APIs still refuse and refusal records cannot become valid combinations or envelopes. Scope the compensated-force notice to models with applied actions or force-producing analysis histories, localize interval refusals in every dictionary, and check signed support moments in member-cut regressions. See [endpoint arithmetic](docs/results-changes/2026-11-wind-endpoint-arithmetic.md) and [combination diagnoses](docs/results-changes/2026-11-atomic-load-splits.md) (#2223, #2222).
+
+#### BREAKING (results): Preserve member-defined load densities through dense cuts (2026-11-17)
+
+- Splitting a distributed load with no explicit interval endpoints preserves its density on each child's measured geometry. Dense diagonal cuts no longer multiply the load by a ratio obtained by subtracting rounded cumulative stations. Explicit numeric intervals retain their coordinate and density mapping; geometry and interval refusal limits are unchanged (#2223). See [generated member cuts](docs/results-changes/2026-11-generated-member-cuts.md#member-defined-load-densities-2026-11-17-2223).
+- WASM interval kernel registration now lives outside the UI translation dependency graph, restoring solver and example worker builds used by the E2E site and route byte checks. Route budgets are unchanged (#2223).
+
+#### Exercise diagram notices with member load fixtures
+
+- Correct the diagram applicability regression fixtures to include the members whose diagrams are being checked. Add coverage for planar and spatial load frames, both transverse components, partial intervals and both self-weight sources, while retaining memberless and unrelated-load negative controls (#2223).
+
+#### Limit diagram re-check notices to member projects
+
+- Require members alongside distributed loading or self-weight for the distributed-load diagram notice. Unrelated older projects containing only nodes and fixed supports, including restored autosaves, stay quiet; affected member projects still receive the notice (#2223).
+
+#### Distributed member diagrams retain finite load integrals
+
+- Integrate distributed member loads without overflowing their intensity slope in shared 2D and 3D force recovery, retaining zero contributions before the load and finite diagrams for supported intervals.
+- Correct the self-weight notice regression fixture to cover legacy PRO gravity and explicit rules with exact applicability checks.
+
+#### BREAKING (results): Preserve embedded member load geometry when splitting (2026-11-17)
+
+Restore splits of loaded flat-2D members with saved nonzero offsets by applying the embedding's node-to-node load geometry consistently to the parent and every child. Keep true 3D flexible geometry and strict loaded-cut validation. Preserve the localized plastic-collapse rank diagnosis in every locale, and assert WASM fiber force totals against the original fixture load. See [the results-change record](docs/results-changes/2026-11-generated-member-cuts.md) (#2223, #2222).
+
+#### BREAKING (results): Exact partial-load bounds and width validation (2026-11-16)
+
+Native and web adapters validate partial-load bounds and the relative geometry limit before using a load. Sub-limit intervals at either member endpoint are refused, including adjacent representable endpoints. Independent applied-force checks preserve the existing wrench-balance verdict. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2222, #2223).
+
+#### BREAKING (results): Solve rounded member partitions without changing load integrals (2026-11-16)
+
+Measure source cuts from generated geometry so ordinary translated and rotated member subdivisions remain available. Map load coordinates and densities together to conserve resultant and first moment, while refusing inconsistent geometry and retaining interval limits. Plastic collapse now propagates invalid released states unless the engine identified an orphan rotation and every nodal moment is finite. See [the results-change record](docs/results-changes/2026-11-generated-member-cuts.md) (#2223, #2222).
+
+#### Generated member loads use geometric endpoints (2026-11-16)
+
+Influence loading and planar plastic hinge splits now retain distributed member loads at the actual member endpoints without numerical overhangs. Plastic analysis propagates invalid or unavailable kinematic checks as errors. The buckling comparison fixture now partitions against its actual mesh nodes. Supported intervals retain their distributed representation; sub-limit intervals and positive child overlaps now refuse. Existing equilibrium acceptance limits are unchanged. The independent applied-load check detects missing net force; it does not independently detect a missing pure couple. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2223, #2222).
+
+#### Preserve legacy PRO self-weight notice features during recovery (2026-11-17)
+
+Opening a PRO project without a stated self-weight rule now records its legacy self-weight applicability before the rule is migrated. Saving and reloading after an unavailable notice chunk preserves the pending notice and workspace snapshot. Session and autosave restoration assess the notice after restoring the saved mode and toggle. Explicit empty and active PRO rules retain their existing applicability; engine results are unchanged (#2223).
+
+#### Reduce stability-analysis work during plastic collapse (2026-11-17)
+
+Small dense stability checks reuse the first Jacobi decomposition when a mechanism mode is needed. Matrix rotations traverse rows directly, retaining the parent arithmetic order and exact numerical results. This reduces work in the generated plastic-collapse CI regression without changing its timeout, sampling, conditioning limits, or assertions (#2223).
+
+#### BREAKING (results): Load subdivision refuses unsupported fragments (2026-11-16)
+
+Maxwell and plastic splits, the model splitter, analysis subdivision and variable-member expansion refuse unsupported source intervals and positive sub-limit overlaps. Concentrated corrections, axial force pairs and collapsed-interval conversion are removed. Independent applied-force totals retain compensated summation for cancelling nodal forces. Existing equilibrium acceptance limits are unchanged. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2222, #2223).
+
+#### BREAKING (results): Unsupported recovery intervals are refused (2026-11-16)
+
+Shared planar and spatial member recovery refuses reversed, zero-width and sub-limit distributed intervals. Saved force diagrams and deformed-shape exports apply the same interval rule. Standalone recovery errors identify the interval even when no member id is supplied. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2222, #2223).
+
+#### BREAKING (results): Validate saved intervals and rounded subdivision loads (2026-11-16)
+
+Refuse invalid saved member-load intervals before envelope, combination, station, section-stress and certified-demand evaluation. Enforce full bounds in member-deflection recovery and remap subdivided partial loads to each child's actual geometric length. Restore CI coverage of supported inputs and explicit refusals, and translate the supported-load rerun notice into all supported languages. See [the results-change record](docs/results-changes/2026-11-narrow-partial-loads.md) (#2223, #2222).
+
+#### BREAKING (results): Canonicalize coincident load endpoints before member splitting (2026-11-17)
+
+- Member splitting, analysis subdivision, variable-member expansion, nonlinear refinement, influence section cuts and plastic hinge insertion now accept the same geometrically coincident distributed-load endpoints as the web adapter. Coordinates and all endpoint intensity pairs pass through the existing native certificate and force/moment preservation check before clipping. Distinct overhangs and unsupported intervals still refuse (#2222, #2223). See [endpoint arithmetic](docs/results-changes/2026-11-wind-endpoint-arithmetic.md).
+- Registered the member-load endpoint utility in the WASM invariance inventory, fixing Lint Engine and the corresponding script test.
+
+#### Preserve ordinary uniform-load diagrams
+
+- Preserve the prior arithmetic for ordinary uniform distributed-load diagrams in the shared 2D/3D recovery helper, restoring the steel pipe-rack governing stations and the three-member memoria without changing snapshots or tolerances. Extreme geometric products still use the slope-free integration that avoids overflow and cancellation (#2223).
+
+#### BREAKING (results): Retain supported wind member intervals at rounded endpoints (2026-11-16)
+
+Restore native and WASM solves when a wind load endpoint matches the member endpoint through alternate length arithmetic or an exact coordinate round trip. Shared geometry mapping transforms load coordinates and densities together before strict interval validation, assembly and recovery. Distinct overhangs and sub-limit intervals still refuse. Strengthen fiber prescribed-force and distributed-couple regression assertions. See [the results-change record](docs/results-changes/2026-11-wind-endpoint-arithmetic.md) (#2223, #2222).
+
+#### Equilibrium property checks bound cancellation across member loads (2026-11-16)
+
+The native 2D and 3D internal-force property checks now accumulate each member-load resultant together with the absolute sum of its individual contributions. Their shared roundoff floor uses `γ_n · Σ|term|` instead of the largest individual member-load term, including length-normalized moments. Cancelling point and distributed member loads no longer reject an analytically correct zero result. Existing relative allowances and imbalance assertions are unchanged; production solver results are unchanged (#2229).
+
+#### Preserve snow, concentrated live-load, and weld fixes together
+
+- Merge the concentrated live-action refusal and physical weld-run fixes from main into #2233 while retaining snow companion validation.
+- Retain both snow and concentrated live-action advisory catalogs, translations, result-change records, and exact regeneration notice expectations.
+
+#### Guard snow advisory coverage for hand-entered loads (2026-11-16)
+
+- Align the snow advisory regression test with the snow-only applicability condition and require load regeneration, preserving coverage for hand-entered snow. No engine results change.
+
+#### Verify separate seismic and flat-roof snow companions (2026-11-16)
+
+- Replace the obsolete single-field seismic snow assertion with exact factors and snow bases for CIRSOC 101 combination 5 and INPRES-CIRSOC 103 physical snow. Document the hand derivation from the repository code texts in the registered results-change write-up. Preserve every existing snow regeneration notice and assert both #2233 notices by ID after re-solving in 2D, 3D and Pro. No engine results, tolerances or snapshot baselines change in this round.
+
+#### Snow counterpart test fixture typecheck (2026-11-17)
+
+- Complete the snow counterpart test fixtures with required combination notes and load-plan options so the web typecheck passes (#2233).
+
+#### Identify the missing snow counterpart in combination refusals (2026-11-17)
+
+- Missing physical snow cases now report that a physical case is required; missing flat-roof cases retain their distinct refusal. Both coverage checks share the requested-basis message, translated in English, Spanish, Portuguese, German, French, Turkish and Hungarian (#2233).
+
+#### Preserve wind registry integration and exact snow notices
+
+- Preserve the generated-load registry helper from main when integrating snow load-basis regeneration, so wind and snow notices share the same generated-load classification.
+- Require the round-8 snow provenance notice in the exact saved-project and results-version notice checks.
+
+#### Preserve snow regeneration notices for hand-entered loading (2026-11-16)
+
+- Show both snow combination corrections for every snow model, including hand-entered snow, and keep the regeneration notices after re-solving saved loads and combinations until their load basis is updated.
+- Carry snow combination refusals as message keys and parameters through the pure expander, and translate them at the UI action boundary. No numerical engine results change.
+
+#### Declare both snow bases in template combination test fixtures (2026-11-16)
+
+- Give the template fallback fixtures separate physical and flat-roof snow cases for the same roof, with loads and combination coverage for both. Keep the shared refusal of unavailable flat-roof loading unchanged. No engine results change.
+
+#### Use the intended beam bearings in the flexure example and its regressions (#2277)
+
+The flexure article now reports the live simply supported beam's governing check and utilization. The mixed-diameter layer-spacing regression uses an explicitly fixed end to reproduce the top reinforcement it checks. Legacy checks compare release projects with the exact historical fixture and restraint records.
+
+#### List the 3D roller support advisory in every blog locale (2026-11-17)
+
+The safety-advisories post now includes SA-2026-089 in English, Spanish, Portuguese, German, French, Turkish and Hungarian. Each summary explains that a 3D roller of type rollerZ, or an unknown support type, was analysed as fully fixed, links to the advisory and retains its pending draft status.
+
+#### Support mapping verification
+
+- Run result applicability checks with standard Vitest registration and remove outdated repository lint exemptions for support mapping.
+- Verify the bundled concrete beam reactions for each load case and factored combination.
+
+#### Preserve recorded support restraints and reset preset axes (#2277)
+
+Copying or loading a recorded support preserves its type and any stated restraints. A bare `rollerZ` in a space model requires an explicit restraint choice before solving. Selecting a different preset uses its own restraints and frame. JSON fixtures replay their geometry and loads in the recorded coordinates before the workspace selects a presentation.
+
+#### Integration switches preserve the existing public site (2026-11-14)
+
+With the Research, Tools and diagram-game switches off, the existing Research pages, `/paper`,
+eight calculators and six Examples remain available at their original addresses and in navigation.
+Research gates only the additional Fehér controls and explanations and Hungarian Research publication.
+Tools gates the consolidated gallery, relocated model pages, public Mohr tools and new editor Mohr
+entry points. The diagram game remains fully gated. Prerendering and moved-page redirects use the
+same explicit build policy as publication; disabled consolidation keeps the original Examples pages.
+The account registration and legal pages follow the existing accounts switch.
+
+The numerical, consent and request-settlement corrections from the first integration round remain
+in place. Existing and consolidated tool pages use the same corrected calculation helpers.
+
+#### Concentrated live-action advisory and saved-project notice coverage (2026-11-16)
+
+Record SA-2026-083 for incomplete automatic CIRSOC 101 live-load generation (#2207, PR #2236), with localized catalog entries including Hungarian and links from the recheck notice. Keep the existing generated-area and snow-panel notices alongside the concentrated-action notice after re-solving a saved project. See [the advisory](docs/advisories/SA-2026-083-concentrated-live-actions.md) for the manual load review required before repeating analysis and design.
+
+#### Load-generator fixtures respect concentrated-action refusals (2026-11-16)
+
+Declare supported dwelling floor loading explicitly in load-generator E2E scenarios. Roof and concentrated occupancy scenarios now require refusal and preserve the existing model. Strengthen the application regression to reject a blocked status even when its diagnostic list is empty.
+
+#### Combined wind member loading and concentrated-action refusals (2026-11-16)
+
+Retain the wind member-load fixes, regeneration notices and localized advisory catalogs from main alongside the concentrated live and roof action refusals. The free-roof browser check verifies both the concentrated-action refusal and distributed wind loading with supported inputs.
+
 #### Spatial unloaded-shape test uses the required force record (2026-11-15)
 
 The 3D deformed-shape test now supplies forces from the same model solved without loads to match the required API signature. The loaded recovery refusal and unloaded zero-displacement assertions are unchanged, restoring the web typecheck without changing engine results (#2143, PR #2170).
+
+#### Current changelog report area order (#2234)
+
+List the current report's engine changes first, followed by PRO, application and site
+changes. Keep each item paired with its original area in all seven languages. The
+changelog smoke checks retain their engine-first assertion and verify every month's
+entry dates, titles and grouped items in every offered language. No engineering
+results change.
+
+#### Automatic load progress and everyday report browser setup (2026-11-16)
+
+Set up supported dwelling floor loads without roof generation in the automatic load progress, everyday steel frame and acceptance journey browser tests. Enable code-backed snow in the everyday scenario to preserve its new load case check. Existing progress, solve, design, report and refusal assertions remain unchanged. Calculation results are unchanged.
+
+#### Fillet weld results-change attribution (2026-11-16)
+
+Link the physical-run fillet weld results-change entry to PR #2258 while retaining issues #2243 and #2244 in its explanation. Engine calculations and results are unchanged.
 
 #### Member recovery certificate checks build against the fallible shape API (2026-11-15)
 
@@ -92,6 +868,18 @@ Update every affected exact notice list in the results-version tests to include 
 
 Forward shear rigidity through the planar deflection and rotation adapters, and preserve small scalar span loads when sharing their request builder. Preserve spatial recovery for every finite positive bending stiffness while retaining planar stiffness refusals. Hover displacement now reads the drawing's shared Rust curve evaluation before world coordinates are added, so certificate comparisons avoid coordinate cancellation. These correct regressions on the unmerged #2143 branch (PR #2170); nodal solutions and certificate bounds are unchanged.
 
+#### Keep the steel Memoria browser test within its time budget
+
+- Exercise live design and document generation on the smaller steel shed while preserving the member wording and code-verification assertions (#2303).
+
+#### Finish nightly mutation shards within their existing time budget
+
+- Split the full mutation set into 2560 shards and run 160 per night, targeting about 60 minutes on slow runners while preserving the 16-night rotation and the existing 120-minute budget (#2270).
+
+#### Check each research experiment's desktop layout in browser tests
+
+- Assert the expected split, wide or standalone layout for every experiment, so a missing pane or an unintended layout change fails the test (#2257).
+
 #### Reject links satisfied only inside indented fences and retain historical provenance (2026-11-15)
 
 Follow CommonMark fence indentation, matching marker lengths, closing whitespace and end-of-file rules when checking documentation links and anchors. Restore the original read-only source archive paths in staged-rotation replay provenance, add a separate link to the current audit record, and align remaining verification link labels with their testing destinations. Pinned historical audit commands remain unchanged.
@@ -99,6 +887,26 @@ Follow CommonMark fence indentation, matching marker lengths, closing whitespace
 #### Preserve audit evidence and release snapshots after the testing documentation move (2026-11-15)
 
 Recognize moved Markdown and JSON documents in the results snapshot build classifier. Preserve release snapshots from pending dashboard branches that still use the old directory. Restore recorded audit bytes changed by the move, check their integrity, and reject documentation links whose anchors appear only in code blocks. Align documentation index labels with their new destinations.
+
+#### Audit notice layout and RC coverage (2026-11-16)
+
+Render the cage audit notice from its header so the workspace stays within the existing component size limit. Use the shared interactive text color for the audit details link. Add independent browser coverage for concrete results with only manual loads and no saved load-generation basis, at desktop, phone and tablet widths. Calculation results are unchanged.
+
+#### Weld reference tests reject missing and nonfinite results (2026-11-16)
+
+Require every evaluated WASM weld reference value to be a finite number before comparing its magnitude. Unloaded zero references now reject null, including a nonfinite unity ratio serialized as null, and other values that JavaScript arithmetic can coerce to zero. Add regression checks for invalid values, finite numeric boundaries and an incorrect finite result without changing the reference tolerance. Engine calculations and results are unchanged by this test-only follow-up to #2258.
+
+#### Weld regression checks compile and cover invalid geometry (2026-11-16)
+
+Fix the weld-run test diagnostic that failed Web Typecheck without changing its missing-reference guard or the typecheck baseline. Add native and WASM regressions for negative weld sizes and overflowing geometry, plus native nonfinite-coordinate and nonfinite-size cases. Every invalid case requires the explicit invalid-geometry unevaluated result. Engine calculations and results are unchanged by this follow-up to #2258.
+
+#### Wind audit notice browser setup (2026-11-16)
+
+Configure supported dwelling floor loads without roof generation before applying wind loads in the audit-notice browser scenario. Preserve the notice and layout checks at desktop, phone and tablet widths while respecting the concentrated-action refusal. Calculation results are unchanged.
+
+#### Wind roof refusal fixture enables roof loading (2026-11-16)
+
+Exercise the free-roof wind scenario after dwelling floor setup disables roof loading, then explicitly enable roof loading before editing its dead load and checking the concentrated-roof refusal.
 
 ### Performance
 
@@ -157,6 +965,23 @@ point depend on the section and the axial force, not on the moment, so they
 are kept per section and reused by every moment asked of it. The requirement,
 its bisection and the confirming check are unchanged, and results are
 bit-identical.
+
+#### Keep nonlinear solves responsive and reuse displacement scales (2026-11-17)
+
+Run nonlinear native solves in a worker while sharing the active-set algorithm
+with the synchronous path. Retain the initial factorization across cases,
+snapshot inputs, and stop superseded solves between native calls. Expose progress
+and cancellation to callers; release sessions on completion or failure. Compute
+the displacement scale once per iteration instead of once per inactive member.
+Preserve native refusal messages, including errors returned as strings. Cleanup
+failures retain the original outcome and retire the affected worker; cancellation
+also takes precedence when pool initialization fails.
+
+#### Reduce allocation and redundant bisection in span rotation checks (2026-11-17)
+
+Use bounded stack arrays for cubic roots and stop bisection when the midpoint
+cannot advance. Rotation checks retain bit-for-bit results against the original
+algorithm, including nonfinite inputs.
 
 #### Reuse the initial matrix across nonlinear load cases (2026-11-17)
 

@@ -137,7 +137,7 @@
       <p aria-live="polite">{s[source]}</p>
       <div class="buttons"><button aria-pressed={tab === 'density'} onclick={() => tab = 'density'}>{s.density}</button><button aria-pressed={tab === 'convergence'} onclick={() => tab = 'convergence'}>{s.convergence}</button></div>
       {#if tab === 'density'}
-        <StabileoViewer editorButton={false} ariaLabel={s.viewerDescription} {...geometry} values={frame?.density ?? null} perCell={true} range={{ min: 0, max: 1 }} title={s.density} colourMap="sequential-grey" legendFooter={s.material} {showMesh} height="360px" />
+        <StabileoViewer plane="elevation" editorButton={false} ariaLabel={s.viewerDescription} {...geometry} values={frame?.density ?? null} perCell={true} range={{ min: 0, max: 1 }} title={s.density} colourMap="sequential-grey" legendFooter={s.material} {showMesh} height="360px" />
       {:else}
         <ConvergenceLegend reference={s.reference} hasReference={overlay.length > 0} />
         <LineChart series={series('compliance')} xLabel={s.iteration} yLabel={s.compliance} marker={frame?.iteration} />

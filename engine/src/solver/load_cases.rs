@@ -201,7 +201,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_refs(&combo_factors, &case_refs) {
+        if let Some(combined) = combine_results_refs_checked(&combo_factors, &case_refs)? {
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }
@@ -500,7 +500,7 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
             combo_factors.push(CombinationFactor { case_id: settle_idx, factor: 1.0 - sum });
         }
 
-        if let Some(combined) = combine_results_refs(&combo_factors, &case_refs) {
+        if let Some(combined) = combine_results_refs_checked(&combo_factors, &case_refs)? {
             all_combined_results.push(combined);
             combo_names.push(combo.name.clone());
         }

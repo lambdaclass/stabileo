@@ -335,7 +335,8 @@ describe('result unit boundary', () => {
     expect(JSON.stringify(combined)).toBe(JSON.stringify(raw));
     expect(combined).toStrictEqual(raw);
     expect(combined!.reactions[0].rz).toBe(1.5 * results.reactions[0].rz + -0 * results.reactions[0].rz);
-    expect(combineResults([{ caseId: 9, factor: 1 }], new Map([[1, results]]))).toBeNull();
+    expect(() => combineResults([{ caseId: 9, factor: 1 }], new Map([[1, results]])))
+      .toThrow('Cannot combine results: missing result for load case 9');
   });
   it('solves through the typed admission with the full result unchanged', () => {
     const results = solve(input());

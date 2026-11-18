@@ -22,6 +22,9 @@
     <path d="M6 40l18-32 18 32zM15 24h18M24 40l-9-16M24 40l9-16" />
   {:else if field === 'seismic'}
     <path d="M4 28h6l3-10 4 18 4-24 4 30 4-20 3 10h12" class="hot" />
+  {:else if field === 'limit-analysis'}
+    <path d="M8 40V28a16 16 0 0 1 32 0v12M14 40V28a10 10 0 0 1 20 0v12M4 40h40" /><path d="M14 30l-6-1M20 21l-4-5M28 21l4-5M34 30l6-1" />
+    <path d="M10 26c4-10 24-10 28 0" class="hot" />
   {:else}
     <path d="M6 30c6-16 30-16 36 0M6 30h36" />
   {/if}

@@ -39,7 +39,7 @@ export async function benchmark(exampleIds: string[], capture = false) {
         });
       }
       const names = new Map(modelStore.model.combinations.map(c => [c.id, c.name]));
-      const rows: Array<{ round: number; strategy: Strategy; solveMs: number; governingMs: number; phases: string[] }> = [];
+      const rows: Array<{ round: number; strategy: Strategy; solveMs: number; governingMs: number; phases: string[]; mainThreadTicks: number; maxMainThreadGapMs: number }> = [];
       const postprocess: Array<{ round: number; individualMs: number; batchMs: number; diagramBuildMs: number; separateEnvelopeMs?: number; fusedEnvelopeMs?: number }> = [];
       let outputs: string | undefined;
       for (let round = 0; round < 7; round++) {
@@ -57,18 +57,25 @@ export async function benchmark(exampleIds: string[], capture = false) {
           console.warn = (...args) => { warnings.push(args); warn(...args); };
           let result: Bundle | string | null;
           const start = performance.now();
+          let mainThreadTicks = 0, lastTick = start, maxMainThreadGapMs = 0;
+          const heartbeat = setInterval(() => {
+            const now = performance.now();
+            maxMainThreadGapMs = Math.max(maxMainThreadGapMs, now - lastTick);
+            lastTick = now; mainThreadTicks++;
+          }, 16);
           try {
             result = strategy === 'parallel'
               ? await modelStore.solveCombinations3DParallel(true, false, true)
               : modelStore.solveCombinations3D(true, false, true);
-          } finally { console.warn = warn; console.log = log; }
+          } finally { clearInterval(heartbeat); console.warn = warn; console.log = log; }
+          maxMainThreadGapMs = Math.max(maxMainThreadGapMs, performance.now() - lastTick);
           const solveMs = performance.now() - start;
           if (!result || typeof result === 'string') throw new Error(`${example}/${strategy}: ${result}`);
           if (warnings.length) throw new Error(`${example}/${strategy}: solve emitted warnings; timings may include fallback: ${warnings.flat().join(' ')}`);
           bundles[strategy] = result;
           const governingStart = performance.now();
           computeGoverning3D(result.perCombo, names);
-          rows.push({ round, strategy, solveMs, governingMs: performance.now() - governingStart, phases });
+          rows.push({ round, strategy, solveMs, governingMs: performance.now() - governingStart, phases, mainThreadTicks, maxMainThreadGapMs });
           await new Promise(resolve => setTimeout(resolve, 0));
         }
         compareSolveResults(bundles.parallel, bundles.multiCase, example);

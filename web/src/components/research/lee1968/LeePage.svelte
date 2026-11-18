@@ -78,7 +78,7 @@
   {/snippet}
   {#snippet app()}
     <div class="lee-pane" bind:this={host}>
-      <div use:viewerInteraction={() => playback.interact()}><StabileoViewer {...view} cellSize={2} deformScale={1} showMesh={!narrow} title={s.magnitude} ariaLabel={s.alt} unit="m" height="min(21rem, 48svh)" editorButton={false} /></div>
+      <div use:viewerInteraction={() => playback.interact()}><StabileoViewer plane="elevation" {...view} cellSize={2} deformScale={1} showMesh={!narrow} title={s.magnitude} ariaLabel={s.alt} unit="m" height="min(21rem, 48svh)" editorButton={false} /></div>
       <label>{s.step} {current?.step ?? 0}<input aria-label={s.step} aria-valuetext={readout} type="range" min="1" max={Math.max(1, frames.length)} value={playback.shown + 1} disabled={frames.length === 0} oninput={e => playback.seek(Number(e.currentTarget.value) - 1)} /></label>
       <p data-testid="lee-readout">{readout}</p>
       <div class="controls"><button onclick={run} disabled={busy}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={restart}>{s.restart}</button></div>

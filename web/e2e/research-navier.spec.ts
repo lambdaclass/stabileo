@@ -140,7 +140,7 @@ test('@smoke Navier viewer pans and zooms from the keyboard', async ({ page }) =
   await expect(canvas).toHaveAttribute('aria-label', /^Downward displacement contour, (DKT|MITC4) \d+ × \d+ mesh: [\d.]+ to [\d.]+ mm$/);
   await expect(page.locator('.axis-gizmo')).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.shell-legend')).toHaveAttribute('aria-label', /^Downward displacement \[mm\]: .+ – .+$/);
-  const zoom = page.locator('.sfv-status .status-item').nth(1).locator('.status-value');
+  const zoom = page.getByTestId('sfv-zoom').locator('.status-value');
   const before = await zoom.textContent();
   await canvas.focus();
   await page.keyboard.press('+');

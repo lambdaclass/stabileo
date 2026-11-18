@@ -1,7 +1,24 @@
 import type { Support } from '../store/model.svelte';
 
-/** Restraints of a named support, in the same frame used by the 3D solver. */
-export function supportDofs3D(s: Support, project2DToXZ = false): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } {
+export class SupportMappingError extends Error {}
+
+type Restraints3D = { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
+
+function explicitDofs(r: NonNullable<Support['dofRestraints']>): Restraints3D {
+  return { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
+}
+
+export function supportDofs3D(s: Support, project2DToXZ = false): Restraints3D {
+  const named = namedDofs3D(s, project2DToXZ);
+  if (s.dofRestraints) return explicitDofs(s.dofRestraints);
+  if (named) return named;
+  const reason = s.type === 'custom3d'
+    ? 'custom support without restraints; set them explicitly.'
+    : 'rollerZ is ambiguous in 3D. Set explicit 3D restraints before solving.';
+  throw new SupportMappingError(`Support ${s.id} (node ${s.nodeId}): ${reason}`);
+}
+
+function namedDofs3D(s: Support, project2DToXZ: boolean): Restraints3D | undefined {
   if (project2DToXZ) {
     switch (s.type) {
       case 'fixed':
@@ -30,6 +47,9 @@ export function supportDofs3D(s: Support, project2DToXZ = false): { rx: boolean;
       return { rx: false, ry: true, rz: true, rrx: true, rry: true, rrz: false };
     case 'rollerY':
       return { rx: true, ry: false, rz: true, rrx: true, rry: true, rrz: false };
+    case 'rollerZ':
+    case 'custom3d':
+      return undefined;
     case 'rollerXZ':
       return { rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
     case 'rollerXY':
@@ -39,9 +59,9 @@ export function supportDofs3D(s: Support, project2DToXZ = false): { rx: boolean;
     case 'spring':
     case 'spring3d':
       return { rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
-    case 'custom3d':
-      return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
-    default:
-      return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+    default: {
+      const type: never = s.type;
+      throw new SupportMappingError(`Support ${s.id} (node ${s.nodeId}): unknown support type ${String(type)}. Select a supported type and explicit 3D restraints before solving.`);
+    }
   }
 }

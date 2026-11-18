@@ -19,6 +19,8 @@ export type ScalarFieldMesh = {
   setField(values: ArrayLike<number>, range: { min: number; max: number }, opts?: { perCell?: boolean; bands?: number; colourMap?: ColourMap }): void;
   /** Draw a neutral solid colour without a scalar field. */
   setUncoloured(): void;
+  /** Unlit surfaces show their colours exactly as given (category colours); lit ones are shaded like the app's contours. */
+  setLit(lit: boolean): void;
   /** Nodal displacements [ux0, uy0, ux1, ...] times `scale`, or null for the undeformed mesh. */
   setDisplacement(u: ArrayLike<number> | null, scale: number): void;
   /** Leave out the cells for which `hide(cell)` is true (for instance a fully broken element). */
@@ -52,8 +54,10 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
   geometry.setAttribute('position', new THREE.BufferAttribute(position, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(color, 3));
   geometry.setIndex(new THREE.BufferAttribute(index, 1));
-  const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0 });
-  const mesh = new THREE.Mesh(geometry, material);
+  const lit = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0 });
+  const unlit = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  let material: THREE.MeshStandardMaterial | THREE.MeshBasicMaterial = lit;
+  const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(geometry, material);
 
   const edgeIndex = new Uint32Array(nCells * cellSize * 2);
   const edgeGeometry = new THREE.BufferGeometry();
@@ -92,6 +96,15 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
       material.vertexColors = false;
       material.color.setHex(0x8fa3b3);
       material.needsUpdate = true;
+    },
+    setLit(on) {
+      const next = on ? lit : unlit;
+      if (next === material) return;
+      next.vertexColors = material.vertexColors;
+      next.color.copy(material.color);
+      next.needsUpdate = true;
+      material = next;
+      mesh.material = next;
     },
     setField(values, range, opts = {}) {
       if (!material.vertexColors) {
@@ -141,7 +154,8 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
     dispose() {
       geometry.dispose();
       edgeGeometry.dispose();
-      material.dispose();
+      lit.dispose();
+      unlit.dispose();
       (edges.material as THREE.Material).dispose();
     },
   };
@@ -188,6 +202,7 @@ function createLineField(xy: ArrayLike<number>, cells: ArrayLike<number>, lineWi
   const tmp = new THREE.Color();
   const api: ScalarFieldMesh = {
     group,
+    setLit() {},
     setUncoloured() {
       material.vertexColors = false;
       material.color.setHex(0x8fa3b3);

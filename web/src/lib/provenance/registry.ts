@@ -53,6 +53,7 @@ export interface ResultChange {
   date: string;
   prs: number[];
   area: 'analysis' | 'design' | 'loads';
+  requiresLoadRegeneration?: boolean;
   /**
    * Absent for an entry with `scope: 'examples'`, which concerns no saved model and is never
    * shown on opening one.
@@ -101,7 +102,11 @@ export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
 }
 
 export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
-  return conditionGroups(w).some((g) => g.includes('generatedLoads'));
+  return conditionGroups(w).some((g) => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
+}
+
+export function concernsLoadBasis(c: ResultChange): boolean {
+  return c.requiresLoadRegeneration === true || concernsGeneratedLoads(c.when ?? {});
 }
 
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
@@ -141,6 +146,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
           || !/^[a-f0-9]{64}$/.test(q.before) || !/^[a-f0-9]{64}$/.test(q.after)))) {
       problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
     }
+    if (c.requiresLoadRegeneration !== undefined && typeof c.requiresLoadRegeneration !== 'boolean') problems.push(`${where}: requiresLoadRegeneration must be a boolean`);
     if (c.scope !== undefined && c.scope !== 'examples') problems.push(`${where}: unknown scope "${c.scope}"`);
     if (c.scope === 'examples') {
       if (c.when !== undefined) problems.push(`${where}: an examples-scoped entry concerns no saved model and takes no when`);
