@@ -134,7 +134,6 @@ switch-default web/src/lib/engine/steel/torsional-buckling.ts: return 'unknown';
 switch-default web/src/lib/engine/steps/plane-model.ts: return { ux: false, uz: false, ry: false };
 
 ## Known wrong on origin/main under #2276; the separately tracked support-mapping fix owns the removal of this fallback.
-switch-default web/src/lib/engine/support-dofs-3d.ts: return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
 
 ## Existing torsion postprocessing uses its rectangular shape approximation for the remaining resolved sections.
 switch-default web/src/lib/engine/torsion-flow.ts: return [[rs.h, rs.tw || rs.t]];
@@ -173,7 +172,6 @@ switch-default web/src/lib/model/underlay-regions.ts: return null;
 switch-default web/src/lib/store/__tests__/model-3d.test.ts: return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
 
 ## A plane-support set guard currently limits callers to the cases above; #2276 consolidates this duplicate support table.
-switch-default web/src/lib/store/materialize-space.ts: return { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true };
 
 ## Null refuses an unsupported model record in this conversion.
 switch-default web/src/lib/store/model.svelte.ts: return null;
@@ -227,7 +225,6 @@ test-env web/src/lib/engine/__tests__/advanced-sweep-2d.test.ts: process.env.SWE
 test-env web/src/lib/engine/codes/argentina/__tests__/flex-robustness.test.ts: process.env.FLEX_SHOW_DEFECTS ? it : it.fails
 
 ## The snapshot gate invokes this existing fixture reader with a manifest; ordinary runs assert committed corpus cases.
-test-env web/src/lib/results-snapshot/__tests__/applicability-context.test.ts: if (request) { it('opens each requested corpus model in its workspace for the gate', async () => { const { cases, output } = JSON.parse(readFileSync(request, 'utf8')); const featur … [d683a7acd6e3a350]
 
 ## The snapshot gate invokes an existing corpus adapter with its explicit examples list.
 test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: for (const item of cases) { it(`${item.case}: the example as it was gives the numbers it gave`, async () => { const c = CORPUS.find((x) => x.name === item.case); expect(c, item.cas … [202b9f0c6b68e4b9]

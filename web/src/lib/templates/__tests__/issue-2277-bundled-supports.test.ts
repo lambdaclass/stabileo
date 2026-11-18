@@ -113,26 +113,36 @@ for (const mode of modes) {
           expect(buildSolverInput3D(m)!.supports.get(3)).toMatchObject({ rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: false });
           return;
         }
-        const result = entry === 'sync' ? validateAndSolve3D(m)
-          : entry === 'async' ? await validateAndSolve3DAsync(m)
-          : entry === 'combinations' ? solveCombinations3D(m, m.loadCases, m.combinations)
-          : await solveCombinations3DParallel(m, m.loadCases, m.combinations);
-        expect(result).toBeTruthy();
-        if (!result || typeof result === 'string') throw new Error(String(result));
-        if ('elementForces' in result) {
-          const length = m.nodes.get(3)!.x - m.nodes.get(1)!.x;
-          const w = -m.loads.filter(l => l.type === 'distributed3d' && l.data.elementId === 1)
-            .reduce((sum, l) => sum + (l.data as { qZI: number }).qZI, 0);
-          expect(result.elementForces.find(f => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
-          expect(result.elementForces.find(f => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
-          for (const nodeId of [1, 3]) expect(result.reactions.find(r => r.nodeId === nodeId)!.fz).toBeCloseTo(w * length / 2, 9);
-        } else {
-          expect(result.perCase.size).toBe(m.loadCases.length);
-          expect(result.perCombo.size).toBe(m.combinations.length);
-          for (const answer of [...result.perCase.values(), ...result.perCombo.values()]) {
-            expect(answer.elementForces.find(f => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
-            expect(answer.elementForces.find(f => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
+        const length = m.nodes.get(3)!.x - m.nodes.get(1)!.x;
+        const uniformLoads = m.loads.filter(l => l.type === 'distributed3d' && l.data.elementId === 1);
+        const endReaction = (caseId?: number) =>
+          -uniformLoads.filter(l => caseId === undefined || l.data.caseId === caseId)
+            .reduce((sum, l) => sum + (l.data as { qZI: number }).qZI, 0) * length / 2;
+        const expectAnswer = (answer: ReturnType<typeof validateAndSolve3D> | undefined, reaction: number) => {
+          if (!answer || typeof answer === 'string') throw new Error(String(answer));
+          expect(answer.elementForces.find(f => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
+          expect(answer.elementForces.find(f => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
+          for (const nodeId of [1, 3]) {
+            expect(answer.reactions.find(r => r.nodeId === nodeId)!.fz).toBeCloseTo(reaction, 9);
           }
+        };
+
+        if (entry === 'sync' || entry === 'async') {
+          const answer = entry === 'sync' ? validateAndSolve3D(m) : await validateAndSolve3DAsync(m);
+          expectAnswer(answer, endReaction());
+          return;
+        }
+        const bundle = entry === 'combinations' ? solveCombinations3D(m, m.loadCases, m.combinations)
+          : await solveCombinations3DParallel(m, m.loadCases, m.combinations);
+        if (!bundle || typeof bundle === 'string') throw new Error(String(bundle));
+        expect(bundle.perCase).toBeInstanceOf(Map);
+        expect(bundle.perCombo).toBeInstanceOf(Map);
+        expect(bundle.perCase.size).toBe(m.loadCases.length);
+        expect(bundle.perCombo.size).toBe(m.combinations.length);
+        for (const loadCase of m.loadCases) expectAnswer(bundle.perCase.get(loadCase.id), endReaction(loadCase.id));
+        for (const combination of m.combinations) {
+          const reaction = combination.factors.reduce((sum, { caseId, factor }) => sum + factor * endReaction(caseId), 0);
+          expectAnswer(bundle.perCombo.get(combination.id), reaction);
         }
       });
     }
