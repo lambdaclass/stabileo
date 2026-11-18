@@ -185,10 +185,21 @@ export function torsionShearReserve(Vu: number, phiVc: number, d: number, fyt: n
   return Math.max(0, (Vu - phiVc) / PHI) / (shearFy(fyt) * 1000 * d);
 }
 
-export function torsionThreshold(section: { b: number; h: number; fc: number }, edition: RegulationEdition): number {
+export function torsionActivation(section: { b: number; h: number; fc: number }, edition: RegulationEdition, demand: ConcurrentSectionDemand) {
+  const { Nu, Tu } = demand;
   const root = edition === '2005' ? Math.sqrt(section.fc) : shearSqrtFc(section.fc);
   const coefficient = edition === '2005' ? 1 / 12 : 0.083;
-  return PHI * coefficient * root * 1000 * (section.b * section.h) ** 2 / (2 * (section.b + section.h));
+  const axialCoefficient = edition === '2005' ? 1 / 3 : 0.33;
+  const area = section.b * section.h;
+  const axialScale = axialCoefficient * area * root * 1000;
+  const axialFactor = Math.sqrt(Math.max(0, 1 + Nu / axialScale));
+  const threshold = PHI * coefficient * root * 1000 * area ** 2 / (2 * (section.b + section.h)) * axialFactor;
+  const phiTth = Number.isFinite(threshold) ? threshold : 0;
+  if (Tu === 0) return { phiTth, neglect: true };
+  const refusal = !Number.isFinite(Nu) ? 'Invalid axial force for torsion'
+    : !Number.isFinite(Tu) ? 'Invalid torsion demand'
+      : !(axialScale > 0 && Number.isFinite(threshold)) ? 'Invalid torsion threshold' : undefined;
+  return { phiTth, neglect: !refusal && Tu < phiTth, refusal };
 }
 
 export function providedTorsionStirrups(stirrup: StirrupDef) {
@@ -211,7 +222,7 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const x1 = i.b - inset, y1 = i.h - inset;
   const Aoh = x1 * y1, ph = 2 * (x1 + y1), Ao = 0.85 * Aoh;
   const edition = i.edition ?? '2025';
-  const phiTth = torsionThreshold(i, edition);
+  const { phiTth, neglect, refusal: activationRefusal } = torsionActivation(i, edition, i.demand);
   const { Tu, Vu, VuSecondary } = i.demand;
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
   const shearStress = Math.max(Vu / (i.b * d), VuSecondary === 0 ? 0 : VuSecondary / (i.h * dSecondary));
@@ -219,11 +230,10 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
-  const neglect = Tu < phiTth;
   const outerLegProvided = cage.kind === 'closed-rectangle'
     ? providedTorsionStirrups({ ...cage, legs: cage.primaryLegs }).outerLegProvided : 0;
   const face = (width: number, height: number, depth: number, shear: number, legs: number, rhoW = 0) => {
-    const concrete = !neglect && cage.kind === 'closed-rectangle' && shear !== 0
+    const concrete = !neglect && !activationRefusal && cage.kind === 'closed-rectangle' && shear !== 0
       ? evaluateBeamSection({
         edition, fc: i.fc * 1e6, fy: input.fy * 1e6, fyt: input.fyt * 1e6,
         b: width, h: height, d: depth, Ag: Acp, As: rhoW * width * depth,
@@ -248,9 +258,9 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const sMax = Math.min(ph / 8, 0.3);
   const invalidGeometry = ![d, x1, y1].every(v => Number.isFinite(v) && v > 0)
     || (VuSecondary !== 0 && !(Number.isFinite(dSecondary) && dSecondary > 0));
-  const refusal = cage.kind === 'refusal' ? cage.reason
+  const refusal = activationRefusal ?? (cage.kind === 'refusal' ? cage.reason
     : VuSecondary > 0 && secondaryFace?.kind === 'refusal' ? secondaryFace.reason
-      : invalidGeometry ? 'Invalid stirrup cage geometry' : undefined;
+      : invalidGeometry ? 'Invalid stirrup cage geometry' : undefined);
   const ratios = neglect ? [0] : [
     sectionRatio,
     governing.ratio,

@@ -18,7 +18,7 @@ import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
-import { checkTorsion2025, combinedTransverseMinimum, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionShearReserve, torsionThreshold, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
+import { checkTorsion2025, combinedTransverseMinimum, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionShearReserve, torsionActivation, type SecondaryLongitudinalLayout, type SecondaryShearFace, type SecondaryShearResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
 
 import { REBAR_DB, rebarSpec } from './cirsoc201-rebar';
 
@@ -744,22 +744,21 @@ export function checkColumn(
 // ─── Torsion Check (CIRSOC 201 §11.5) ────────────────────────────
 
 export function sizeTorsionReinforcement(
-  params: ConcreteDesignParams, Tu: number, edition: Cirsoc201EditionLike = '2005',
+  params: ConcreteDesignParams, demand: ConcurrentSectionDemand, edition: Cirsoc201EditionLike = '2005',
 ) {
   const { b, h, cover, stirrupDia, fc } = params;
   const is2025 = editionCode(edition) === 2025;
   const fy = is2025 ? shearFy(params.fy) : params.fy;
   const root = is2025 ? shearSqrtFc(fc) : Math.sqrt(fc);
-  const torque = Math.abs(Tu);
+  const torque = demand.Tu;
   const Tcr = 0.33 * root * ((b * h) ** 2 * 1e6) / (2 * (b + h)) / 1000;
-  const threshold = torsionThreshold(params, is2025 ? '2025' : '2005');
+  const { phiTth: threshold, neglect, refusal } = torsionActivation(params, is2025 ? '2025' : '2005', demand);
   const x = b - 2 * cover - stirrupDia / 1000;
   const y = h - 2 * cover - stirrupDia / 1000;
   const Aoh = x * y;
   const ph = 2 * (x + y);
-  const neglect = torque === 0 || torque < threshold;
-  const AtOverS = neglect ? 0 : x > 0 && y > 0 ? (torque / (PHI_SHEAR * 2 * (0.85 * Aoh) * fy * 1000)) * 1e4 : Infinity;
-  return { Tu: torque, Tcr, threshold, AtOverS, AlReq: neglect ? 0 : AtOverS * ph, neglect, Aoh, ph, fy, root };
+  const AtOverS = neglect ? 0 : !refusal && x > 0 && y > 0 ? (torque / (PHI_SHEAR * 2 * (0.85 * Aoh) * fy * 1000)) * 1e4 : Infinity;
+  return { Tu: torque, Tcr, threshold, AtOverS, AlReq: neglect ? 0 : AtOverS * ph, neglect, refusal, Aoh, ph, fy, root };
 }
 
 export function checkTorsion(
@@ -767,22 +766,22 @@ export function checkTorsion(
   secondary?: SecondaryShearResolution,
 ): TorsionResult {
   const { b, h, cover, stirrupDia, fc } = params;
-  const { Tu, Tcr, threshold, AtOverS, AlReq, neglect, Aoh, ph, fy, root } = sizeTorsionReinforcement(params, demand.Tu, edition);
+  const { Tu, Tcr, threshold, AtOverS, AlReq, neglect, refusal: activationRefusal, Aoh, ph, fy, root } = sizeTorsionReinforcement(params, demand, edition);
   const fields = { Tu, Tcr, AtOverS, AlReq, neglect };
   const steps: string[] = [];
   if (fy < params.fy) steps.push(`fy, fyt = ${fy} MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)`);
   if (root < Math.sqrt(fc)) steps.push(`√f'c = ${root} MPa en Tcr y Vc (§22.7.2.1, §22.5.3.1)`);
   steps.push(`Tu = ${Tu.toFixed(3)} kN·m`, `Tcr = 0.33·√f'c·Acp²/pcp = ${Tcr.toFixed(3)} kN·m`);
   if (neglect) {
-    steps.push(`Tu < φTth = ${threshold.toFixed(3)} kN·m → torsión despreciable`);
+    steps.push(Tu === 0 ? 'Torsión nula' : `Tu < φTth = ${threshold.toFixed(3)} kN·m → torsión despreciable`);
     return { ...fields, phiTn: threshold, ratio: Tu === 0 ? 0 : Tu / threshold, status: 'ok', steps };
   }
 
-  const refusal = !Number.isFinite(AtOverS) ? 'Invalid stirrup cage geometry'
+  const refusal = activationRefusal ?? (!Number.isFinite(AtOverS) ? 'Invalid stirrup cage geometry'
     : demand.VuSecondary === 0 ? undefined
       : secondary?.kind !== 'secondary-face' ? secondary?.reason ?? 'Requires a resolved secondary shear face'
         : secondary.b !== h || secondary.h !== b || secondary.stirrupDia !== stirrupDia
-          ? 'Secondary shear face does not match the section and cage' : undefined;
+          ? 'Secondary shear face does not match the section and cage' : undefined);
   if (refusal) return { ...fields, phiTn: 0, ratio: Infinity, status: 'fail', refusal, steps: [...steps, refusal] };
 
   steps.push(`Aoh = ${(Aoh * 1e4).toFixed(1)} cm², ph = ${(ph * 100).toFixed(1)} cm`,
@@ -790,7 +789,7 @@ export function checkTorsion(
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const combined = checkTorsion2025({
     b, h, d, dSecondary: secondary ?? 0, cover, stirrupDiaMm: stirrupDia,
-    fc, fy: params.fy, fyt: params.fy, demand,
+    fc, fy: params.fy, fyt: params.fy, edition: editionCode(edition) === 2025 ? '2025' : '2005', demand,
   });
   const r0 = combined.shearSectionRatio, r1 = combined.sectionRatio;
   const phiTn = r0 >= 1 ? 0 : Tu * Math.sqrt(1 - r0 * r0) / Math.sqrt(Math.max(r1 * r1 - r0 * r0, 1e-30));

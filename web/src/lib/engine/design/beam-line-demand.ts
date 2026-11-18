@@ -173,7 +173,7 @@ export function lineTransverseDemand(
         shear = Math.max(shear, v.AvOverSReq ?? v.AvOverS);
         min = Math.max(min, v.AvOverSMin);
         if (s.torsion !== 0) {
-          const tr = sizeTorsionReinforcement(params, s.torsion, CIRSOC201_DESIGN_EDITION);
+          const tr = sizeTorsionReinforcement(params, demand.section(ctx.axes.flexure), CIRSOC201_DESIGN_EDITION);
           if (!tr.neglect) torsion = Math.max(torsion, 2 * tr.AtOverS);
         }
       }

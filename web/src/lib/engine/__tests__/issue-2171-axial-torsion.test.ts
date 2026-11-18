@@ -8,8 +8,6 @@ import { extractGoverningDemands, verifyProvidedReinforcement } from '../station
 import type { ElementStationResult } from '../station-design-forces';
 import { declaredTestDemands } from './helpers/declared-demands';
 
-const regression = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
-
 const section = { b: 0.3, h: 0.6, cover: 0.025, stirrupDia: 8, fc: 25, fy: 420 };
 const stirrups = { diameter: 8, legs: 4, spacing: 0.24 };
 const bars = { count: 4, diameter: 16 };
@@ -62,7 +60,7 @@ const directGeometry = { ...section, d: section.h - 0.041, dSecondary: section.b
   fyt: section.fy, stirrupDiaMm: stirrups.diameter, stirrup: stirrups };
 
 for (const edition of ['2005', '2025'] as const) {
-  regression(`known wrong result: #2171 checks torsion at the signed axial threshold (${edition})`, () => {
+  it(`#2171 checks torsion at the signed axial threshold (${edition})`, () => {
     for (const compression of [-90, 0, 90, -310]) {
       const threshold = handThreshold(edition, compression);
       for (const torque of threshold > 0 ? [threshold * 0.999, threshold * 1.001] : [0, 0.001]) {
@@ -95,7 +93,7 @@ for (const edition of ['2005', '2025'] as const) {
 }
 
 for (const edition of ['2005', '2025'] as const) {
-  regression(`known wrong result: #2171 retains a failing torsion check that main performs (${edition})`, () => {
+  it(`#2171 retains a failing torsion check that main performs (${edition})`, () => {
     const forces = station(-90, 5.58);
     const input = { ...section, elementType: 'beam' as const, elementId: 1, edition, demand: demandAt(forces) };
     for (const out of [verifyElement(input, fixed), prepareElementVerification(input)(fixed)]) {
@@ -110,11 +108,17 @@ for (const edition of ['2005', '2025'] as const) {
   });
 }
 
-regression('known wrong result: #2171 beam line sizes torsion with the axial force at each station', () => {
+it('#2171 beam line sizes torsion with the axial force at each station', () => {
   for (const compression of [-90, 90]) for (const factor of [0.999, 1.001]) {
     const torque = handThreshold('2025', compression) * factor;
     const stations = stationResult(station(compression, torque));
-    const ctx = { material: section, stations, axes } as MemberContext;
+    const ctx: MemberContext = {
+      elementId: stations.elementId, elementType: 'beam', materialFamily: 'concrete', L: stations.length,
+      section: { ...section, id: 1, name: 'H25' }, material: { ...section, maxAggregateSize: { value: 19, origin: 'project', refs: [] } },
+      stations, axes, demands: undefined, criticalSections: undefined, slenderDeltaNs: 1, slenderDeltaS: 1,
+      orientationSuspect: false, codeEdition: '2025', analysisRevision: 0, demandRevision: 0, solveGeneration: 0,
+      blocking: [], modelData: { elements: new Map(), nodes: new Map(), sections: new Map(), materials: new Map(), supports: new Map() },
+    };
     const curve = lineTransverseDemand([{ ctx, offset: 0, L: stations.length, forward: true }]);
     const expected = factor < 1 ? 0 : 2 * torque / (0.75 * 2 * 0.85 * Aoh * section.fy * 1000) * 1e4;
     expect.soft(curve.map(point => point.x)).toEqual([0, 2, 4]);
@@ -122,7 +126,7 @@ regression('known wrong result: #2171 beam line sizes torsion with the axial for
   }
 });
 
-regression('known wrong result: #2171 refuses active torsion when the axial force is nonfinite', () => {
+it('#2171 refuses active torsion when the axial force is nonfinite', () => {
   for (const compression of [NaN, Infinity]) {
     const demand = demandAt(station(compression, 5.58));
     expect.soft(checkTorsion2025({ ...directGeometry, demand })).toMatchObject({
