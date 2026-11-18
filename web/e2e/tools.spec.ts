@@ -276,7 +276,6 @@ for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handof
 for (const toolsEnabled of [true, false]) {
   for (const id of ['influence-line', 'simply-supported-beam']) {
     test(`@smoke tools ${id} only offers an editor handoff for the current model (Tools ${toolsEnabled ? 'on' : 'off'})`, async ({ page }) => {
-      test.skip(true, 'known wrong result: #2286');
       const encoderRequested = Promise.withResolvers<void>();
       const releaseEncoder = Promise.withResolvers<void>();
       await page.route('**/assets/share-*.js', async route => {
