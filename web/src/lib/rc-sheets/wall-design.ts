@@ -49,16 +49,16 @@ export interface WallReinforcementRatios {
   note: string;
 }
 
-/** P, M and V at a wall's base from its bottom strips; `sigma` is negative in compression and `pu` comes out positive. */
+/** P, M and V at a wall's base from its bottom strips; `sigma` is negative in compression and `pu` comes out positive. A strip read `dz` above the base carries its shear's moment down to it, M = Σ f·e + Σ V·dz. */
 export function wallBaseResultants(
-  strips: ReadonlyArray<{ u: number; width: number; thickness: number; sigma: number; tau: number }>, centre: number,
+  strips: ReadonlyArray<{ u: number; width: number; thickness: number; sigma: number; tau: number; dz?: number }>, centre: number,
 ): { pu: number; mu: number; vu: number } {
   let pu = 0, mu = 0, vu = 0;
   for (const s of strips) {
-    const f = -s.sigma * s.thickness * s.width;
+    const f = -s.sigma * s.thickness * s.width, v = s.tau * s.thickness * s.width;
     pu += f;
-    mu += f * (s.u - centre);
-    vu += s.tau * s.thickness * s.width;
+    mu += f * (s.u - centre) + v * (s.dz ?? 0);
+    vu += v;
   }
   return { pu, mu, vu };
 }

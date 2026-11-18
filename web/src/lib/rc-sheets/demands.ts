@@ -722,11 +722,13 @@ export function wallDemands(m: DemandInput): WallDemand[] {
           if (!b) continue;
           const bu = b.pts.map(uOf);
           const width = Math.max(...bu) - Math.min(...bu);
-          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width, thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v) });
+          const dz = b.pts.reduce((s, p) => s + zOf(p), 0) / b.pts.length - lo;
+          strips.push({ u: bu.reduce((s, x) => s + x, 0) / bu.length, width, thickness: row.thickness, sigma: tensorAlong(row.global.stress, v, v), tau: tensorAlong(row.global.stress, u, v), dz });
           const A = row.thickness * width, x = b.pts.reduce((s, p) => s + p.x, 0) / b.pts.length, y = b.pts.reduce((s, p) => s + p.y, 0) / b.pts.length;
           const f = -tensorAlong(row.global.stress, v, v) * A;
-          g.n += f; g.mx += f * y; g.my -= f * x;
-          g.vx -= tensorAlong(row.global.stress, [1, 0, 0], v) * A; g.vy -= tensorAlong(row.global.stress, [0, 1, 0], v) * A;
+          const vx = -tensorAlong(row.global.stress, [1, 0, 0], v) * A, vy = -tensorAlong(row.global.stress, [0, 1, 0], v) * A;
+          g.n += f; g.mx += f * y - vy * dz; g.my += -f * x + vx * dz;
+          g.vx += vx; g.vy += vy;
         }
         const { pu, mu, vu } = wallBaseResultants(strips, centre);
         combos.push({ combo: set.name, pu, mu: Math.abs(mu), vu: Math.abs(vu), muV, muH, global: g });

@@ -2,9 +2,9 @@
  * The seven-storey example's core: three walls in a U with column C1 modelled at the corner of two
  * of them, meshed and solved as the app does. C1 is part of the core at every storey, the core is
  * checked as one section with C1's bars as its boundary, and it stands on one footing whose
- * actions are its base's reactions summed. The core's forces are read, as the walls' are, at the
- * centre of the first row of elements: against the reactions they differ by the self-weight of
- * half that row and by its shear over half its height.
+ * actions are its base's reactions summed. The core's forces are read, as the walls' are, from
+ * the first row of elements with their shear's moment carried down to the base: against the
+ * reactions they differ by the self-weight of half that row and the stresses' recovery.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -86,7 +86,7 @@ describe('the seven-storey core as one element', () => {
       const near = (pier: number, reaction: number, slack: number) => expect(Math.abs(pier - reaction), a.combo).toBeLessThanOrEqual(slack);
       near(k.vx, -a.Vx, 0.1 * Math.abs(a.Vx) + 10);
       near(k.vy, -a.Vy, 0.1 * Math.abs(a.Vy) + 10);
-      const lever = 0.6 * Math.hypot(a.Vx, a.Vy) + 10;
+      const lever = 0.1 * Math.hypot(a.Vx, a.Vy) + 10 + Math.abs(k.n - a.N) * Math.hypot(c.x - atBase.centroid.x, c.y - atBase.centroid.y);
       near(k.mx, -a.Mx + (c.y - atBase.centroid.y) * a.N, lever + 0.02 * Math.abs(a.Mx));
       near(k.my, -a.My - (c.x - atBase.centroid.x) * a.N, lever + 0.02 * Math.abs(a.My));
     });
