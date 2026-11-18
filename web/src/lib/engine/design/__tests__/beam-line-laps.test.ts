@@ -77,9 +77,12 @@ issue2241('known wrong result: #2241 bars ending inside a span do not strengthen
   const flexuralCapacity = 0.9 * mainArea * beamConcrete.fy * 1000 * (d - block / 2);
   expect(areaAt(drawing, 'bottom', x)).toBeCloseTo(mainArea * 1e4, 12);
   expect(moment).toBeGreaterThan(flexuralCapacity);
-  const result = checkDrawnBeam(drawing, [{ x: 0, my: 0, vz: leftReaction }, { x, my: moment, vz: leftReaction },
-    { x, my: moment, vz: leftReaction - force }, { x: longSpan.L, my: 0, vz: leftReaction - force }]);
-  expect(result.checks.find(row => row.demandCategory === 'My+' && row.stationX === x)).toMatchObject({ status: 'fail' });
+  const stations = [{ x: 0, my: 0, vz: leftReaction }, { x, my: moment, vz: leftReaction },
+    { x, my: moment, vz: leftReaction - force }, { x: longSpan.L, my: 0, vz: leftReaction - force }];
+  const flexureAtCut = (model: BeamLineReinforcement) => checkDrawnBeam(model, stations).checks
+    .find(row => row.demandCategory === 'My+' && row.stationX === x);
+  expect(flexureAtCut({ ...drawing, bars: drawnMainBars })).toMatchObject({ status: 'fail' });
+  expect(flexureAtCut(drawing), 'Only 3Ø16 cross the 120 kN·m cut').toMatchObject({ status: 'fail' });
 });
 
 const issue2245 = process.env.RUN_KNOWN_WRONG === '2245' ? it : it.skip;

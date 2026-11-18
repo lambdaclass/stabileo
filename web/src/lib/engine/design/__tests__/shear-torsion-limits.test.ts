@@ -76,19 +76,30 @@ describe('CIRSOC 201-2025 limits in the required-steel sizing', () => {
 });
 
 const issue2309 = process.env.RUN_KNOWN_WRONG === '2309' ? it : it.skip;
-issue2309('known wrong result: #2309 CIRSOC 201-2005 caps the yield stress for fixed torsion steel', () => {
-  const beam = { b: 0.3, h: 0.6, fc: 25, fy: 500, cover: 0.025, stirrupDia: 10 };
+issue2309('known wrong result: #2309 Ø8 at 125 mm gives stirrup φTn = 28.24 < 30 < 33.62 kN·m at 420 and 500 MPa respectively', () => {
+  const beam = { b: 0.3, h: 0.6, fc: 25, fy: 500, cover: 0.025, stirrupDia: 8 };
   const torque = 30;
-  const cage = { diameter: 10, legs: 2, spacing: 0.1 };
+  const cage = { diameter: 8, legs: 2, spacing: 0.125 };
   const centerlineInset = 2 * beam.cover + cage.diameter / 1000;
   const ao = 0.85 * (beam.b - centerlineInset) * (beam.h - centerlineInset);
   const cirsoc201Section11634YieldLimit = 420;
-  const requiredCm2PerM = 1e4 * torque / (0.75 * 2 * ao * cirsoc201Section11634YieldLimit * 1000);
+  const provided = Math.PI * (cage.diameter / 1000) ** 2 / (4 * cage.spacing);
+  const strengthPerArea = (fy: number) => 0.75 * 2 * ao * fy * 1000;
+  const requiredCm2PerM = 1e4 * torque / strengthPerArea(cirsoc201Section11634YieldLimit);
+  expect(strengthPerArea(cirsoc201Section11634YieldLimit) * provided).toBeLessThan(torque);
+  expect(strengthPerArea(beam.fy) * provided).toBeGreaterThan(torque);
+
   const [loads] = declaredTestDemands([{ comboId: 1, comboName: 'C1',
     forces: { t: 0, x: 0, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: torque } }]);
-  const result = verifyElement({
-    ...beam, elementId: 1, elementType: 'beam', edition: '2005', demand: loads!.section('My'),
-  }, { shear: cage, torsion: { AlProv: 100 } });
-  expect.soft(result.torsion?.AtOverS).toBeCloseTo(requiredCm2PerM, 12);
-  expect.soft(result.torsion?.status).toBe('fail');
+  const verify = (fy: number, spacing: number) => verifyElement({
+    ...beam, fy, elementId: 1, elementType: 'beam', edition: '2005', demand: loads!.section('My'),
+  }, { shear: { ...cage, spacing }, torsion: { AlProv: 100 } }).torsion;
+  expect(verify(cirsoc201Section11634YieldLimit, cage.spacing)?.status).toBe('fail');
+  expect(verify(beam.fy, 0.1)?.status).toBe('ok');
+
+  const result = verify(beam.fy, cage.spacing);
+  expect(result?.refusal).toBeUndefined();
+  expect(result?.AtOverSProv).toBeCloseTo(provided * 1e4, 12);
+  expect.soft(result?.AtOverS).toBeCloseTo(requiredCm2PerM, 12);
+  expect.soft(result?.status).toBe('fail');
 });

@@ -769,15 +769,20 @@ for (const nonlinear of [false, true]) {
 const issue2225 = process.env.RUN_KNOWN_WRONG === '2225' ? it : it.skip;
 issue2225('known wrong result: #2225 active torsion requires the transverse minimum on the wider face', () => {
   const stirrup = { diameter: 6, legs: 2, spacing: 0.15 };
-  const minimum = Math.max(0.062 * Math.sqrt(section.fc), 0.35) * section.h / section.fy;
+  const minimum = (width: number) => Math.max(0.062 * Math.sqrt(section.fc), 0.35) * width / section.fy;
   const supplied = stirrup.legs * legArea(stirrup.diameter) / stirrup.spacing;
-  const result = checkTorsion2025({
+  const check = (spacing: number) => checkTorsion2025({
     ...section, d: 0.561, dSecondary: 0.261, stirrupDiaMm: 6, fyt: section.fy,
-    stirrup, demand: torsionDemand(6, 0, 0),
+    stirrup: { ...stirrup, spacing }, demand: torsionDemand(6, 0, 0),
   });
+  const result = check(stirrup.spacing);
   expect(result.neglect).toBe(false);
-  expect(supplied).toBeLessThan(minimum);
-  expect(result.transverseRequired).toBeCloseTo(minimum, 12);
+  expect(result.refusal).toBeUndefined();
+  expect(supplied).toBeGreaterThan(minimum(section.b));
+  expect(supplied).toBeLessThan(minimum(section.h));
+  expect(check(0.1).ratio).toBeLessThan(1);
+  expect.soft(result.transverseRequired, 'The 600 mm face requires 5.00 cm²/m').toBeCloseTo(minimum(section.h), 12);
+  expect.soft(result.ratio, 'The 150 mm cage supplies 3.77 cm²/m').toBeGreaterThan(1);
 });
 
 const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
@@ -847,9 +852,16 @@ function tensionSpacingWitness(axialTension: number, vu: number) {
   const table97622Row2Threshold = 0.33 * Math.sqrt(geometry.fc) * 1000 * geometry.b * d;
   expect(requiredVs).toBeGreaterThan(table97622Row2Threshold);
   expect(stirrups.spacing).toBeGreaterThan(d / 4);
-  const result = verifyBeamStations(geometry, { top: bars, bottom: bars, stirrups }, 6,
-    [{ name: 'Axial tension with shear', forces: { n: axialTension, my: 0, vz: vu, torsion: 0 } }]);
-  expect(result.checks.find(row => row.category.endsWith('s,max'))).toMatchObject({ status: 'fail' });
+  expect(stirrups.spacing).toBeLessThan(d / 2);
+  const check = (n: number) => verifyBeamStations(geometry, { top: bars, bottom: bars, stirrups }, 6,
+    [{ name: 'Shear with concurrent axial force', forces: { n, my: 0, vz: vu, torsion: 0 } }]).checks;
+  const alongSpacing = (row: ReturnType<typeof check>[number]) => row.category.endsWith('s,max');
+  expect(check(0).find(alongSpacing)?.status).not.toBe('fail');
+  const tension = check(axialTension);
+  expect(tension.find(row => row.demandCategory === 'Vz')?.capacity).toBeGreaterThan(vu);
+  expect(tension.find(alongSpacing),
+    `Required Vs ${requiredVs.toFixed(2)} kN exceeds ${table97622Row2Threshold.toFixed(2)} kN. Row 2 limits spacing to ${(d * 1000 / 4).toFixed(2)} mm.`,
+  ).toMatchObject({ status: 'fail' });
 }
 
 const issue2214 = process.env.RUN_KNOWN_WRONG === '2214' ? it : it.skip;
