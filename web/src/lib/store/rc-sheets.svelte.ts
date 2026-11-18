@@ -29,7 +29,9 @@ import { currentFootingDemands, footingRowOf, footingSizing, withOverlaps } from
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineAdopted, LineLayout } from '../rc-sheets/beam-line';
-import { stackPattern, type ColumnRow } from '../rc-sheets/column-row';
+import type { ColumnRow } from '../rc-sheets/column-row';
+import { stackOver } from '../rc-sheets/column-stack';
+import { wallStacks } from '../rc-sheets/wall-stack';
 import type { SlabRow } from '../rc-sheets/slab-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import { makeFmt, type Fmt } from '../rc-sheets/format';
@@ -488,12 +490,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
-    const stack = prev ? {
-      pattern: stackPattern(prev.adopted),
-      fromBelow: true, offset: Math.max(prev.b - d.b, prev.h - d.h) / 2,
-    } : {};
+    const stack = prev ? stackOver(prev, d) : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
-    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, prev ? { fromBelow: true } : {}), code, fmt), x.missing)) as Redesign);
+    redesigners.set(d.key, ((x: typeof d) => withMissingForces(withLapFit(rules.columnRow(x, ctx, undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
     below.set(g, row);
     return row;
   };
@@ -537,12 +536,19 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   });
   if (spanned.size) slabPlans = D.levels.map((g) => (spanned.has(g.level) ? planOf(g) : slabPlans.find((p) => p.level === g.level))).filter((p): p is LevelPlan => !!p && p.panels.length > 0);
   const wall: WallRow[] = [];
-  for (const d of D.walls) {
+  const wallStack = wallStacks(D.walls);
+  const wallDone = new Map<string, WallRow>();
+  for (const d of [...D.walls].sort((p, q) => (p.z ?? 0) - (q.z ?? 0))) {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}) };
+    const stack = wallStack.get(d.key);
+    const belowSpecial = !!stack?.below && wallDone.get(stack.below)?.seismic?.special === true;
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.wall, barDia: dd.wallBarDiaMm, diameters: dd.longDiametersMm, ...ties, ...(seismic ? { seismic } : {}), ...(belowSpecial ? { belowSpecial } : {}) };
     const a = adoptedNow[d.key] as WallAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d) => rules.wallRow(x, ctx, undefined, fmt)) as Redesign);
-    wall.push(cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt)));
+    const row = cached(d, [code, ctx, a, dec], () => rules.wallRow(d, ctx, a, fmt));
+    const placed = stack ? { ...row, stack } : row;
+    wallDone.set(d.key, placed);
+    wall.push(placed);
     yield step();
   }
   const punching: PunchingRow[] = [];

@@ -14,6 +14,7 @@ const modelEntryShells = (id: number) => modelStore.model.groups.get(id)!.member
 import { buildSheetRows, sheetsHavePhysical, redesignerOf, setSheetCode, rcSheetsData, saveRcSheetsData, setLineBentBars, setAdopted, setTorsionMode, adoptAll, setRcOption, meshWallsForSheets, wallsToMeshForSheets, WALL_MESH_SIZE } from '../rc-sheets.svelte';
 import { barActsAt } from '../../rc-sheets/beam-line';
 import { bendAngles } from '../../rc-sheets/shape';
+import { barArea } from '../../rc-sheets/bars';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
 
@@ -299,8 +300,8 @@ describe('reinforcement sheets from a solved model', () => {
       expect(bendAngles(b.shape).slice(-4, -2).every((t) => Math.abs(t - Math.PI / 4) < 1e-9 || Math.abs(t - Math.PI / 2) < 1e-9)).toBe(true);
       expect(b.length).toBeGreaterThan(b.to - b.from);
     }
-    const midTop = (l: typeof ln) => l.bars.filter((b) => b.kind === 'support' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count, 0);
-    expect(midTop(ln)).toBeLessThanOrEqual(midTop(straight));
+    const topAt = (l: typeof ln, kinds: readonly string[]) => l.bars.filter((b) => kinds.includes(b.kind) && b.face === 'top' && b.from < 5 && b.to > 5).reduce((n, b) => n + b.bars.count * barArea(b.bars.dia), 0);
+    expect(topAt(ln, ['support'])).toBeLessThanOrEqual(topAt(straight, ['support', 'continuous']) - barArea(ln.adopted.top.dia) * ln.adopted.top.count + 1e-9);
     expect(ln.adopted.bent?.some((g) => g.count > 0)).toBe(true);
     expect(ln.steps[0]!.steps.some((x) => x.label === 'rcSheets.s.lineBent')).toBe(true);
   });

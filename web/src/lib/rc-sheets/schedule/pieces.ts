@@ -229,7 +229,7 @@ function slabPieces(r: SlabRow, o: PieceOptions, R: BendRules): ScheduleElement 
 function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: BendRules): ScheduleElement {
   const pieces: Piece[] = [];
   const det = wallDetail(r, o.code);
-  const up = above(rows, r);
+  const up = (r.stack?.above ? rows.find((x) => x.key === r.stack!.above) : undefined) ?? above(rows, r);
   const H = r.height, c = r.cover;
   const groups = new Map<string, { dia: number; boundary: boolean; count: number }>();
   for (const v of det.verticals) {
@@ -239,7 +239,9 @@ function wallPieces(rows: readonly WallRow[], r: WallRow, o: PieceOptions, R: Be
     groups.set(k, g);
   }
   for (const g of groups.values()) {
-    const lap = r.vLaps?.find((x) => x.dia === g.dia)?.lap ?? r.hLap * g.dia / Math.max(1, det.horizontals.dia);
+    const own = r.vLaps?.find((x) => x.dia === g.dia)?.lap ?? r.hLap * g.dia / Math.max(1, det.horizontals.dia);
+    const upDia = up ? (g.boundary ? up.adopted.boundary?.diameter ?? up.adopted.vertical.diameter : up.adopted.vertical.diameter) : 0;
+    const lap = Math.max(own, upDia > g.dia ? up?.vLaps?.find((x) => x.dia === upDia)?.lap ?? 0 : 0);
     for (const pc of stockPieces(up ? H + lap : H - c, lap, g.dia, R, !up)) pieces.push({ kind: g.boundary ? 'boundary' : 'vertical', count: g.count * pc.count, shape: pc.shape });
   }
   const hd = det.horizontals.dia, levels = spread(H, det.horizontals.spacing);

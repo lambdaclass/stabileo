@@ -10,6 +10,7 @@ import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { columnLabel, crosstiesText, tieLabel, type ColumnRow } from '../column-row';
 import { columnTieLayout, tieSegments, tiesIn } from '../column-ties';
+import { CRANK_SLOPE } from '../column-stack';
 import { columnSection, type ColumnSectionOptions } from '../drawing';
 import { legLengths } from '../shape';
 import { rulesFor } from '../codes';
@@ -35,11 +36,18 @@ export function columnElevationPrimitives(row: ColumnRow, o: ColumnPlanOptions):
   const bars = [inset, b - inset];
   if (layout.lap) {
     const lf = layout.lap.from * K, lt = layout.lap.to * K;
+    const crank = row.step && !row.step.dowels ? row.step.offset * K : 0;
     bars.forEach((x, i) => {
       const inward = (i ? -1 : 1) * a.corner;
-      ps.push(seg(long, pt(x, -jb), pt(x, lt), a.corner), seg(long, pt(x + inward, lf), pt(x + inward, top), a.corner));
+      if (crank > 0) {
+        const below = x - (i ? -1 : 1) * crank, rise = crank / CRANK_SLOPE;
+        if (rise < jb) ps.push(seg(long, pt(below, -jb), pt(below, -rise), a.corner));
+        ps.push(seg(long, pt(below, -rise), pt(x, 0), a.corner), seg(long, pt(x, 0), pt(x, lt), a.corner));
+      } else ps.push(seg(long, pt(x, -jb), pt(x, lt), a.corner));
+      ps.push(seg(long, pt(x + inward, lf), pt(x + inward, top), a.corner));
     });
     ps.push(dim(pt(inset, lf), pt(inset, lt), 3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, layout.lap.to - layout.lap.from) })));
+    if (row.step) ps.push(label(pt(b / 2, -jb / 2), o.tr(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: o.fmt(row.step.offset * 100, 1) }), 2.2));
   } else for (const x of bars) ps.push(seg(long, pt(x, -jb), pt(x, top), a.corner));
   for (let i = 0; i < a.nx; i++) {
     const x = inset + ((i + 1) * (b - 2 * inset)) / (a.nx + 1);

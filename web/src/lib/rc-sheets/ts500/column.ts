@@ -4,6 +4,7 @@ import { barCount, columnLabel, innerCrossties, patternInner, tieLabel, type Col
 import type { Fmt } from '../format';
 import { allowedTie, check, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type CheckLine, type ColumnAdopted, type ComboTable, type Step, type StepGroup, isGenerous } from '../types';
 import { lapOf, lbOf, toConfirm as U, ts500Mat, type Ts500Mat } from './basis';
+import { mixedLap, stackStep, stepCheck } from '../column-stack';
 import {
   anyTension, areaOf, axis, clearOk, crosstiesOf, evenLayout, governing, sectionOf, shearRatios, tieDiaFor, tieMaxOf, tuplesOf, utilOf,
   type AxisResult, type CaseResult, type Tuple,
@@ -139,7 +140,10 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
   const sh = shearRatios(d, c, t, a, ct);
   const shearX = Math.max(0, ...sh.map((x) => x.x)), shearY = Math.max(0, ...sh.map((x) => x.y));
   const vxMax = Math.max(0, ...d.cases.map((cs) => cs.vx ?? 0)), vyMax = Math.max(0, ...d.cases.map((cs) => cs.vy ?? 0));
-  const splice = tension ? lapOf(t, longest, false, 1) : lbOf(t, longest, false);
+  const spliceOf = (dia: number) => (tension ? lapOf(t, dia, false, 1) : lbOf(t, dia, false));
+  const mixed = stack.belowDia !== undefined && stack.belowDia > longest;
+  const splice = mixedLap(spliceOf(longest), longest, stack.belowDia, spliceOf);
+  const step = stackStep(stack.offset);
   const minDim = Math.min(d.b, d.h);
 
   const verifications: CheckLine[] = [
@@ -159,7 +163,8 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     ...(!tieDiaOk && allowedTie(c, tieDiaFor(longest)) === null ? [check('rcSheets.v.tieList', false, { clause: '7.4.1', demand: `≥ Ø${tieDiaFor(longest)}`, capacity: tieDiametersOf(c).map((x) => `Ø${x}`).join(' ') })] : []),
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '7.4.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', ct.ok, { clause: '7.4.1', demand: '≤ 30 cm', capacity: ctText }),
-    ...(stack.fromBelow ? [check(U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), true, { clause: '9.3', capacity: `${fmt(splice * 100, 0)} cm (Ø${longest})` })] : []),
+    ...(stack.fromBelow ? [check(U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), true, { clause: '9.3', capacity: `${fmt(splice * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
+    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, 'FIUBA §15.7')),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
   const generous = isGenerous(verifications);
@@ -220,12 +225,13 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
 
   return {
     family: 'column', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, cover: c.cover, demand: d,
-    req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated: !tension },
+    req: { rho: ast / (Ag * 1e4), ast, impossible, governing: gov?.c.combo ?? '', compressionDominated: !tension, barsTension: tension },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : first.iterations,
     checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { x: ct.x, y: ct.y, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: { length: splice, tension } } : {}),
+    ...(step ? { step } : {}),
     tieFloor: tieFloorOf(c),
   };
 }

@@ -23,8 +23,8 @@ export type PlanStatus = 'ok' | 'warn' | 'fail';
 
 interface ItemBase { key: string; name: string; status: PlanStatus; bars: string; check?: CheckLine }
 
-/** A line of beams: each span from axis to axis with its width, and where a bar is cut, m in plan. */
-export interface PlanBeamItem extends ItemBase { kind: 'beam'; spans: Array<{ a: Pt; b: Pt; width: number }>; cuts: Pt[] }
+/** A line of beams: each span from axis to axis with its width, where a bar is cut, and a tick across the beam where bars are lapped, m in plan. */
+export interface PlanBeamItem extends ItemBase { kind: 'beam'; spans: Array<{ a: Pt; b: Pt; width: number }>; cuts: Pt[]; splices: Array<[Pt, Pt]> }
 /** A column cut at its base: its outline and bars turned as the model turns it. */
 export interface PlanColumnItem extends ItemBase { kind: 'column'; at: Pt; rotDeg: number; b: number; h: number; outline: Pt[]; rebars: Array<{ at: Pt; dia: number }> }
 export interface PlanWallItem extends ItemBase { kind: 'wall'; a: Pt; b: Pt; thickness: number; outline: Pt[] }
@@ -127,16 +127,22 @@ function beamItems(rows: StructureRows, level: string, m: StructureModel, unplac
     });
     if (!drawn.length || drawn.some((d) => !d)) { unplaced.push(line.key); continue; }
     const placed = drawn as Array<{ a: Pt; b: Pt; width: number }>;
+    const spanAt = (x: number) => { const i = axes.slice(1).findIndex((v) => x <= v + 1e-9); return Math.min(placed.length - 1, i < 0 ? placed.length - 1 : i); };
     const along = (x: number): Pt => {
-      const i = axes.slice(1).findIndex((v) => x <= v + 1e-9), k = Math.min(placed.length - 1, i < 0 ? placed.length - 1 : i);
+      const k = spanAt(x);
       const x0 = axes[k] ?? 0, x1 = axes[k + 1] ?? x0 + 1, t = x1 > x0 ? Math.max(0, Math.min(1, (x - x0) / (x1 - x0))) : 0;
       const s = placed[k]!;
       return [s.a[0] + (s.b[0] - s.a[0]) * t, s.a[1] + (s.b[1] - s.a[1]) * t];
     };
+    const across = (x: number): [Pt, Pt] => {
+      const s = placed[spanAt(x)]!, p = along(x), L = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) || 1, h = 0.6 * s.width;
+      const n: Pt = [(-(s.b[1] - s.a[1]) / L) * h, ((s.b[0] - s.a[0]) / L) * h];
+      return [[p[0] - n[0], p[1] - n[1]], [p[0] + n[0], p[1] + n[1]]];
+    };
     const checks = [...line.verifications, ...spans.flatMap((r) => r.verifications)];
     out.push({
       kind: 'beam', key: line.key, name: line.name, status: statusOf(lineRowStatus(line, spans)), bars: lineBarsShort(line),
-      check: governingCheck(checks), spans: placed, cuts: line.cutoffs.filter((c) => c.legality !== 'illegal').map((c) => along(c.x)),
+      check: governingCheck(checks), spans: placed, cuts: line.cutoffs.filter((c) => c.legality !== 'illegal').map((c) => along(c.x)), splices: line.splices.map((sp) => across(sp.x)),
     });
   }
   return out;

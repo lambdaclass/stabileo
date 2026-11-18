@@ -152,6 +152,10 @@ export interface SlabPlanContext {
 
 const TOL = 0.05;
 const STEP = 0.05;
+/** A stock bar, m. */
+const STOCK = 12;
+/** The most two panels' thicknesses may differ by for one to hold the other, m (FIUBA §5.1). */
+const JOIN_DH = 0.02;
 const up = (x: number) => Math.ceil(x / STEP - 1e-9) * STEP;
 const other = (d: PlanDir): PlanDir => (d === 'x' ? 'y' : 'x');
 const lo = (r: PlanRect, d: PlanDir) => (d === 'x' ? r.x0 : r.y0);
@@ -379,6 +383,41 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       });
     }
   }
+
+  /**
+   * The bottom bars of two panels side by side along their direction, the same mesh at the same
+   * height over the same strip, run on as one through the support between them where one stock bar
+   * holds them and the panels' thicknesses differ by `JOIN_DH` at most, as the FIUBA notes ask for one
+   * to hold the other (§5.1).
+   */
+  const joinBottoms = () => {
+    const legAt = (pk: SlabPackage, end: 0 | 1) => { const p = pk.shape.pts, n = p.length - 1; return end === 0 ? (p[0]![1] - p[1]![1]) : (p[n]![1] - p[n - 1]![1]); };
+    const yOf = (pk: SlabPackage) => Math.min(...pk.shape.pts.map((q) => q[1]));
+    for (let guard = 0; guard < 256; guard++) {
+      const list = packages.filter((pk) => pk.layer === 'bottom' && pk.kind === 'span' && pk.panels.length >= 1);
+      let pair: [SlabPackage, SlabPackage] | null = null;
+      for (const A of list) {
+        const pa = byKey.get(A.panels[A.panels.length - 1]!)!;
+        const B = list.find((q) => q !== A && q.dir === A.dir && q.bars.dia === A.bars.dia && Math.abs(q.bars.spacing - A.bars.spacing) < 1e-9
+          && Math.abs(q.band.from - A.band.from) < 1e-6 && Math.abs(q.band.to - A.band.to) < 1e-6 && Math.abs(yOf(q) - yOf(A)) < 1e-6
+          && q.from > A.from + TOL && (() => {
+            const pb = byKey.get(q.panels[0]!)!;
+            return Math.abs(pa.h - pb.h) <= JOIN_DH + 1e-9 && supports.some((s) => s.dir === A.dir && s.kind !== 'free' && s.below === pa.key && s.above === pb.key
+              && overlap(s.from, s.to, A.band.from, A.band.to) >= A.band.to - A.band.from - TOL && q.from - A.to <= 2 * s.half + 1e-6);
+          })());
+        if (!B) continue;
+        const l0 = legAt(A, 0), l1 = legAt(B, 1), len = B.to - A.from, y = yOf(A);
+        const shape: BarShape = { pts: [...(l0 > 1e-9 ? [[0, y + l0] as [number, number]] : []), [0, y], [len, y], ...(l1 > 1e-9 ? [[len, y + l1] as [number, number]] : [])], mandrel: A.shape.mandrel, dia: A.bars.dia };
+        if (developedLength(shape) > STOCK - 1e-9) continue;
+        pair = [A, B];
+        packages.splice(packages.indexOf(A), 1); packages.splice(packages.indexOf(B), 1);
+        add({ layer: 'bottom', dir: A.dir, kind: 'span', bars: A.bars, from: A.from, to: B.to, band: A.band, shape, runs: [{ face: 'bottom', from: A.from, to: B.to }], panels: [...A.panels, ...B.panels], reach: [] });
+        break;
+      }
+      if (!pair) break;
+    }
+  };
+  joinBottoms();
 
   const topReq = (s: PlanSupport) => {
     const sides = [s.below, s.above].filter((k): k is string => !!k).map((k) => byKey.get(k)!);

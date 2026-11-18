@@ -136,6 +136,12 @@ const SEISMIC_FIRST = 0.05;
 const RUN_BARS = 4;
 /** Clear distance between the two halves of a staggered lap, m. */
 const STAGGER_GAP = 0.1;
+/** How much heavier, as a share of the line's steel, one diameter for the extras of a kind may make the line. */
+const UNIFY_WEIGHT = 0.05;
+/** How much more area one diameter may give any group of extras than the diameter it replaces. */
+const UNIFY_AREA = 0.15;
+/** The ratio of the top bars at a frame corner past which the FIUBA notes ask for a haunch (§16.1). */
+const KNEE_HAUNCH = 0.007;
 
 export interface LineLayout {
   key: string; group: number; name: string; level?: string;
@@ -151,6 +157,8 @@ export interface LineLayout {
   zones: Array<{ span: number; from: number; to: number; stirrups: Stirrups; first?: number; fromEnd?: boolean }>;
   /** Where each bar longer than a stock bar is lapped, the mark it belongs to, how many of its bars, the lap's length, m, and its class: half the bars a lap and a little apart from the other half where there are two or more. */
   splices: Array<{ mark: string; face: 'top' | 'bottom'; x: number; length: number; bars: number; spliceClass: 'A' | 'B' }>;
+  /** Extra top bars of neighbouring supports run on as one where the gap between the points they would stop at is shorter than the extension max(d; 12·db) a cut bar runs on by (§9.7.3.3; FIUBA §12.2, condition 2): the bar's mark, its extent, m, and the supports it joins. */
+  joined: Array<{ mark: string; from: number; to: number; supports: [number, number] }>;
   /** Steel to hang an end that bears on another beam from it, in that beam: Vu there, cm² and closed stirrups of this line's. */
   hangers: Array<{ end: 'start' | 'end'; vu: number; area: number; count: number; stirrups: Stirrups }>;
   /** Where extra bars stop in a span, and which §9.7.3.5 provision allows it. A cut none allows is not made: the bar runs on to the support. */
@@ -352,6 +360,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   const rise180 = (dia: number) => mandrelOf(dia) + dia / 1000;
   const roomOf = (k: number, dia: number, sd: number) => spans[k]!.h - 2 * (c.cover + sd / 1000) - dia / 2000;
   let allow180 = false;
+  let joinTops = false;
   const layout = (a: LineAdopted) => {
     const sdOf = (k: number) => a.stirrups?.[k]?.dia ?? c.stirrupDia;
     const bars: LineBar[] = [];
@@ -412,7 +421,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       }
       const runs = bent?.runs ?? [{ face, from, to }];
       const lap = step(lapOf(c, g.dia, face === 'top' || kind === 'bent', hMax, undefined, { count: g.count, width: bMin }));
-      const cands = kind !== 'continuous' ? [] : face === 'bottom' && !c.seismic ? supports.slice(1, -1) : spans.map((s) => s.x0 + s.L / 2);
+      const cands = kind === 'support' ? spans.map((s) => s.x0 + s.L / 2) : kind !== 'continuous' ? [] : face === 'bottom' && !c.seismic ? supports.slice(1, -1) : spans.map((s) => s.x0 + s.L / 2);
       const off = g.count >= 2 ? lap / 2 + STAGGER_GAP / 2 : 0;
       const at = spliceAt(shape, lap, cands, STOCK_LENGTH, off);
       const pieces = at.length ? splicePieces(shape, lap, at, off) : [developedLength(shape)];
@@ -448,11 +457,13 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       return { legality: r.legality, ok: r.legality !== 'illegal' && (!x3 || (st.spacing <= x3.maxSpacing + 1e-9 && st.legs * barArea(st.dia) * 1e-4 / st.spacing >= x3.minAvOverS - 1e-12)) };
     };
     const cuts: Array<{ face: 'top' | 'bottom'; x: number; legality: CutoffLegality; bar: number }> = [];
-    supports.forEach((xs, j) => {
+    const joined: Array<{ bar: number; from: number; to: number; supports: [number, number] }> = [];
+    type Cut = { x: number; legality: CutoffLegality };
+    const tops = supports.map((xs, j) => {
       const g = a.supportTop[j];
-      if (!g || g.count <= 0) return;
+      if (!g || g.count <= 0) return null;
       const ld = dev(c, g.dia, true, hMax, { count: g.count + a.top.count, width: bMin });
-      const reach = (k: number, fromStart: boolean): number => {
+      const reach = (k: number, fromStart: boolean): { dist: number; cut?: Cut } => {
         const s = spans[k]!, env = s.row.demand.env ?? [];
         const ext = Math.max(s.d, 12 * g.dia / 1000);
         const ordered = env.map((e, i) => ({ ...e, i, dist: fromStart ? e.x : s.L - e.x })).sort((p, q) => p.dist - q.dist);
@@ -463,15 +474,32 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         const third = groupsArea([a.top]) < (groupsArea([a.top]) + groupsArea([g])) / 3 ? inflection + Math.max(ext, ln / 16) : 0;
         const face = (fromStart ? s.row.demand.faces?.start : s.row.demand.faces?.end) ?? 0;
         const dist = Math.min(s.L, step(Math.max(need + ext, face + ld, third)));
-        if (dist >= s.L - 1e-6) return dist;
+        if (dist >= s.L - 1e-6) return { dist };
         const x = fromStart ? dist : s.L - dist, l = legality(k, x, 'top', g.dia, fromStart);
-        if (!l.ok) return s.L;
-        cuts.push({ face: 'top', x: s.x0 + x, legality: l.legality, bar: bars.length });
-        return dist;
+        if (!l.ok) return { dist: s.L };
+        return { dist, cut: { x: s.x0 + x, legality: l.legality } };
       };
-      const left = j > 0 ? reach(j - 1, false) : -xFrom, right = j < spans.length ? reach(j, true) : xTo - total;
-      add('top', 'support', g, xs - left, xs + right, [j === 0, j === spans.length]);
+      const l = j > 0 ? reach(j - 1, false) : { dist: -xFrom }, r = j < spans.length ? reach(j, true) : { dist: xTo - total };
+      return { j, g, ld, from: xs - l.dist, to: xs + r.dist, cuts: [l.cut, r.cut] as [Cut | undefined, Cut | undefined] };
     });
+    const addTop = (g: BarGroup, from: number, to: number, hooks: [boolean, boolean], ends: Array<Cut | undefined>) => {
+      for (const x of ends) if (x) cuts.push({ face: 'top', x: x.x, legality: x.legality, bar: bars.length });
+      add('top', 'support', g, from, to, hooks);
+    };
+    const lastSupport = supports.length - 1;
+    for (let j = 0; j <= lastSupport; j++) {
+      const t = tops[j];
+      if (!t) continue;
+      let j1 = j;
+      for (let n = tops[j1 + 1]; joinTops && n && n.g.dia === t.g.dia && n.from - tops[j1]!.to < Math.max(spans[j1]!.d, 12 * t.g.dia / 1000) - 1e-6; n = tops[j1 + 1]) j1++;
+      if (j1 === j) { addTop(t.g, t.from, t.to, [j === 0, j === lastSupport], t.cuts); continue; }
+      const chain = tops.slice(j, j1 + 1) as Array<NonNullable<(typeof tops)[number]>>;
+      const n = Math.min(...chain.map((x) => x.g.count));
+      joined.push({ bar: bars.length, from: t.from, to: chain[chain.length - 1]!.to, supports: [j, j1] });
+      addTop({ count: n, dia: t.g.dia }, t.from, chain[chain.length - 1]!.to, [j === 0, j1 === lastSupport], [t.cuts[0], chain[chain.length - 1]!.cuts[1]]);
+      for (const x of chain) if (x.g.count > n) addTop({ count: x.g.count - n, dia: x.g.dia }, x.from, x.to, [x.j === 0, x.j === lastSupport], x.cuts);
+      j = j1;
+    }
     spans.forEach((s, k) => {
       const g = a.spanBottom[k];
       if (!g || g.count <= 0) return;
@@ -524,10 +552,12 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       });
     });
     lastCuts = cuts.map((x) => ({ mark: bars[x.bar]?.mark ?? '', face: x.face, x: x.x, legality: x.legality }));
+    lastJoined = joined.map((x) => ({ mark: bars[x.bar]?.mark ?? '', from: x.from, to: x.to, supports: x.supports }));
     lastSplices = laps; lastMisfits = misfits; lastStraight = straight; lastOverStock = overStock;
     return bars;
   };
   let lastCuts: LineLayout['cutoffs'] = [];
+  let lastJoined: LineLayout['joined'] = [];
   let lastSplices: LineLayout['splices'] = [];
   let lastMisfits: HookMisfit[] = [];
   let lastStraight: StraightEnd[] = [];
@@ -659,6 +689,53 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     proposed = next; bars = layout(proposed); env = verify(proposed, bars); iterate();
     if (lastMisfits.length >= kept.misfits || !fitsFaces(proposed, bars)) { ({ proposed, bars, env, iterations } = kept); layout(proposed); }
   };
+  const lineWeight = (laid: LineBar[]) => laid.reduce((t, b) => t + b.weight, 0);
+  const endsShort = (laid: LineBar[]) => ([[endStart, xFrom, true], [endEnd, xTo, false]] as const).reduce((n, [e, xe, first]) => {
+    if (!e || e.kind !== 'column' || e.half <= 0) return n;
+    const room = 2 * e.half - inset;
+    return n + laid.filter((b) => (first ? b.from <= xe + 1e-6 : b.to >= xe - 1e-6) && ldhOf(b) > room + 1e-6).length;
+  }, 0);
+  /**
+   * The supports' extra bars in one diameter along the line where that costs little: of the
+   * diameters from the thinnest they use to the thickest, the one that keeps the envelope, the faces in two layers and the hooks as
+   * they were for the least steel, no group more than `UNIFY_AREA` heavier and the line within
+   * `UNIFY_WEIGHT`. Then a joined bar that covers every support becomes the top run where every
+   * section keeps the area its span row asks.
+   */
+  /** Every section's area its span row asks still there wherever it was. */
+  const reqsHold = (was: BeamAdopted[], now: BeamAdopted[]) => spans.every((s, k) => s.row.req.bySection.every((x) => {
+    const f = x.sign === 'pos' ? 'bottom' : 'top', area = (a: BeamAdopted[]) => groupsArea(a[k]!.at![x.section]![f]);
+    return area(now) >= x.req - 1e-6 || area(was) < x.req - 1e-6;
+  }));
+  const unify = () => {
+    const w0 = lineWeight(bars), worst0 = Math.max(1, worstOf(env)), misfits0 = lastMisfits.length, short0 = endsShort(bars), fitted = inTwoLayers(proposed, bars);
+    const used = [...new Set(proposed.supportTop.filter((g) => g.count > 0).map((g) => g.dia))];
+    if (used.length >= 2) {
+      let best: { a: LineAdopted; laid: LineBar[]; e: typeof env; w: number } | null = null;
+      for (const dia of c.diameters.filter((x) => x >= Math.min(...used) && x <= Math.max(...used))) {
+        const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+        next.supportTop = next.supportTop.map((g) => (g.count > 0 && g.dia !== dia ? { dia, count: Math.ceil((g.count * barArea(g.dia)) / barArea(dia) - 1e-9) } : g));
+        if (next.supportTop.some((g, i) => groupsArea([g]) > (1 + UNIFY_AREA) * groupsArea([proposed.supportTop[i]!]) + 1e-9)) continue;
+        const laid = layout(next), e = verify(next, laid), w = lineWeight(laid);
+        if (worstOf(e) > worst0 + 1e-9 || !reqsHold(spanAdoptedOf(proposed, bars), spanAdoptedOf(next, laid)) || lastMisfits.length > misfits0 || endsShort(laid) > short0 || (fitted && !inTwoLayers(next, laid))) continue;
+        if (w > w0 * (1 + UNIFY_WEIGHT) + 1e-9 || (best && w >= best.w - 1e-9)) continue;
+        best = { a: next, laid, e, w };
+      }
+      if (best) { proposed = best.a; bars = best.laid; env = best.e; }
+    }
+    bars = layout(proposed);
+    const whole = lastJoined.find((x) => x.supports[0] === 0 && x.supports[1] === supports.length - 1);
+    const run = whole && bars.find((b) => b.mark === whole.mark)?.bars;
+    if (run && run.count >= 2) {
+      const next: LineAdopted = JSON.parse(JSON.stringify(proposed));
+      next.top = { ...run };
+      next.supportTop = next.supportTop.map((g) => ({ dia: g.dia, count: Math.max(0, g.count - run.count) }));
+      const laid = layout(next), e = verify(next, laid);
+      if (reqsHold(spanAdoptedOf(proposed, bars), spanAdoptedOf(next, laid)) && worstOf(e) <= Math.max(1, worstOf(env)) + 1e-9 && lastMisfits.length <= misfits0 && endsShort(laid) <= endsShort(bars) && lineWeight(laid) <= lineWeight(bars) + 1e-9 && (!fitted || inTwoLayers(next, laid))) { proposed = next; bars = laid; env = e; }
+      bars = layout(proposed);
+    }
+    env = verify(proposed, bars);
+  };
   const designFrom = () => {
     allow180 = false;
     iterate();
@@ -710,6 +787,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       designFrom();
     }
   }
+  joinTops = true;
+  if (!adopted) unify();
   const a = adopted ?? proposed;
   const adoptedBentNotes = (): LineLayout['bentNotes'] => {
     if (!c.bentBars) return [];
@@ -736,6 +815,13 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   });
 
   const spanAdopted: BeamAdopted[] = spanAdoptedOf(a, bars);
+  /** Where the line ends at a column that stops there, a frame corner (FIUBA §16.1): the top bars' bend against the lever arm, and their ratio. */
+  const knees = ([[endStart, 0, 'start'], [endEnd, spans.length - 1, 'end']] as const).flatMap(([e, k, sec]) => {
+    const s = spans[k], top = spanAdopted[k]?.at?.[sec]?.top.filter((g) => g.count > 0) ?? [];
+    if (e?.kind !== 'column' || !e.corner || !s || !top.length) return [];
+    const dia = Math.max(...top.map((g) => g.dia));
+    return [{ end: sec, dia, D: mandrelOf(dia), jd: 0.8 * s.d, rho: (groupsArea(top) * 1e-4) / (s.b * s.d) }];
+  });
 
   const seismicZones = (k: number): LineLayout['zones'] | null => {
     if (!c.seismic) return null;
@@ -886,6 +972,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         { label: 'rcSheets.s.lineCut', formula: code.text.formula.cut, value: '' },
         { label: 'rcSheets.s.lineThird', formula: code.text.formula.third, value: '' },
         { label: 'rcSheets.s.lineDev', formula: 'As,ef(x) = As·min(1; dist/ld)', value: '' },
+        ...lastJoined.map((x) => ({ label: 'rcSheets.s.lineJoined', formula: `${x.mark} ↑ x = ${fmt(x.from)} → ${fmt(x.to)} m (${x.supports[0] + 1}–${x.supports[1] + 1})`, value: 'FIUBA §12.2' })),
         ...lastCuts.map((x) => ({ label: 'rcSheets.s.lineCutoff', formula: `${x.mark} ${x.face === 'top' ? '↑' : '↓'} x = ${fmt(x.x)} m`, value: code.text.cutoff[x.legality] })),
         ...bars.filter((b) => b.kind === 'bent').map((b) => ({ label: 'rcSheets.s.lineBent', formula: `${b.mark}: ${b.bars.count} Ø${b.bars.dia} · ${BEND_ANGLE}° · x = ${fmt(b.runs[0]!.to)} → ${fmt(b.runs[2]!.from)} m`, value: '' })),
         { label: 'rcSheets.s.iterations', formula: code.text.formula.capacity, value: adopted ? '—' : String(iterations), ok: worst <= 1 + 1e-6 },
@@ -896,6 +983,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       steps: [
         ...anchorage.map((x) => ({ label: 'rcSheets.s.ldRow', formula: `Ø${x.dia}`, value: `ld = ${fmt(x.ld * 100, 0)} · ld,top = ${fmt(x.ldTop * 100, 0)} · ldh = ${fmt(x.ldh * 100, 0)} · ls,B = ${fmt(x.lap * 100, 0)} cm` })),
         ...lastStraight.map((x) => ({ label: 'rcSheets.s.lineStraightEnd', formula: `${x.mark} ${x.end === 0 ? '←' : '→'}: ld = ${fmt(x.ld * 100, 0)} cm ≤ ${fmt(code.straightAtSupport!.factor)}·Mn/Vu + ℓa = ${fmt(Math.min(x.reach, 99.99) * 100, 0)} cm; ℓa = ${fmt(x.la * 100, 0)} cm`, value: code.text.clause.straightEnd ?? '', ok: true })),
+        ...knees.map((x) => ({ label: 'rcSheets.s.lineKnee', formula: `${x.end === 'start' ? '←' : '→'} Ø${x.dia}: D/2 = ${fmt(x.D * 50, 1)} cm ≤ jd ≈ 0.8·d = ${fmt(x.jd * 100, 0)} cm · ρ = ${fmt(x.rho * 100, 2)} %`, value: 'FIUBA §16.1', ok: x.D / 2 <= x.jd + 1e-9 })),
+        ...knees.filter((x) => x.rho >= KNEE_HAUNCH - 1e-9).map((x) => ({ label: 'rcSheets.s.lineKneeHaunch', formula: `${x.end === 'start' ? '←' : '→'}: ρ = ${fmt(x.rho * 100, 2)} % ≥ ${fmt(KNEE_HAUNCH * 100, 2)} %`, value: 'FIUBA §16.1' })),
         ...bars.flatMap((b) => ([0, 1] as const).filter((i) => b.hook180?.[i]).map((i) => ({ label: 'rcSheets.s.lineHook180', formula: `${b.mark} ${i === 0 ? '←' : '→'}: ${b.bars.count} Ø${b.bars.dia} · 180° · ${fmt(code.hook180Extension!(b.bars.dia) * 100, 0)} cm`, value: code.text.clause.hook180 ?? '' }))),
       ],
     },
@@ -906,7 +995,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     spans: spans.map((s) => ({ name: s.row.name, x0: s.x0, x1: s.x0 + s.L, b: s.b, h: s.h })),
     cover: c.cover,
     supportWidths: supports.map((_, j) => 2 * Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0)),
-    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, hangers, cutoffs: lastCuts, anchorage,
+    proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, joined: lastJoined, hangers, cutoffs: lastCuts, anchorage,
     envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })), shear,
     ends: { from: Math.min(xFrom, ...bars.map((b) => b.from)), to: Math.max(xTo, ...bars.map((b) => b.to)), ...(endStart ? { start: endStart } : {}), ...(endEnd ? { end: endEnd } : {}) },
     spanAdopted, verifications, bentNotes: adopted ? adoptedBentNotes() : bentNotes, utilization: worst, status: ok ? (isGenerous(verifications) ? 'warn' : 'ok') : 'fail', steps,
