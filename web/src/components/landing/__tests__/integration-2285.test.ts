@@ -8,7 +8,6 @@ import { AXIAL, COMBINATION } from '../hero/building-data';
 import { MEMBERS } from '../hero/shed-data';
 
 const frame = vi.hoisted(() => ({ progress: undefined as number | undefined }));
-const shedRegression = process.env.RUN_KNOWN_WRONG === '2285' ? it : it.skip;
 
 vi.mock('../hero/loop.svelte', async (importOriginal) => {
   const loop = await importOriginal<typeof import('../hero/loop.svelte')>();
@@ -115,7 +114,7 @@ function shedLines(prefersReducedMotion = false) {
     }));
 }
 
-shedRegression('known wrong result: #2285 coincident shed members show distinct stress levels on separate strokes', () => {
+it('#2285 coincident shed members show distinct stress levels on separate strokes', () => {
   const distinctLevels = new Set(MEMBERS.map(([a, b, level]) => `${Math.min(a, b)},${Math.max(a, b)},${level}`));
 
   for (const progress of [0, 0.2, 0.4, 0.5, 0.7, undefined]) {
