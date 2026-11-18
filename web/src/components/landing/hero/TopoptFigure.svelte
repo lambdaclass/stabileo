@@ -2,17 +2,15 @@
   import { onMount } from 'svelte';
   import { tPublic as t, tpPublic as tp, i18n } from '../../../lib/i18n/store.svelte';
   import { NELX, NELY, ITERATIONS, FRAMES, FRAME_ITERATION, FRAME_COMPLIANCE } from './topopt-data';
-  import { mouseOnly, HeroLoop, clamp01, smooth } from './loop.svelte';
+  import { HeroLoop, clamp01, smooth } from './loop.svelte';
 
-  type Props = { prefersReducedMotion?: boolean; paused?: boolean };
-  let { prefersReducedMotion = false, paused = false }: Props = $props();
+  type Props = { prefersReducedMotion?: boolean };
+  let { prefersReducedMotion = false }: Props = $props();
 
   const PERIOD = 16, RUN = 10, FADE_AT = 14.4;
   const CITATION = 'Andreassen et al. (2011)';
   const loop = new HeroLoop(PERIOD, () => prefersReducedMotion, 12 / PERIOD);
   onMount(() => loop.start());
-  const hover = mouseOnly((on) => (loop.hovered = on));
-  $effect(() => { loop.paused = paused; });
 
   const SOLVED_FRAMES = FRAMES.map((b64, index) => {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -64,8 +62,6 @@
     viewBox="0 -45 560 270"
     role="img"
     aria-labelledby="to-title to-desc"
-    onpointerenter={hover.enter}
-    onpointerleave={hover.leave}
   >
     <title id="to-title">{t('landing.topTitle')}</title>
     <desc id="to-desc">{t('landing.topDesc')}</desc>
