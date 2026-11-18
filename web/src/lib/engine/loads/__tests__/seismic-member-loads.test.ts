@@ -714,3 +714,36 @@ for (const rotated of [false, true]) {
     });
   }
 }
+
+function diagonalModalFixture() {
+  const model = mesh([
+    [[0, 0, 0], [0, 0, 3]], [[0, 0, 3], [0, 0, 6]],
+    [[0, 0, 3], [1, 0, 3]], [[0, 0, 6], [1, 0, 6]],
+  ]);
+  model.supports = new Map([[1, { nodeId: 1 }]]);
+  model.materials.set(2, { id: 2, rho: 0 });
+  for (const member of model.elements.values()) {
+    if (model.nodes.get(member.nodeI)!.z !== model.nodes.get(member.nodeJ)!.z) member.materialId = 2;
+  }
+  const mode = prescribedMode(model, false, z => z === 0 ? 0 : z === 3 ? -0.2 : 1, 0);
+  for (const sample of mode.shape.values()) sample.uy = sample.ux;
+  const code = modalRequest(mode, false).code;
+  const reference = buildLoadPlan(request(model, { code }));
+  model.materials.get(1)!.rho *= 80 / (0.85 * reference.factors.baseShear!.value);
+  return { model, code, modal: { modes: [mode] } };
+}
+
+const diagonalRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+for (const withAxes of [false, true]) {
+  diagonalRegression(`known wrong result: #2316 a sign-changing modal mode refuses the 45° case (axes selected: ${withAxes})`, () => {
+    const { model, ...seismic } = diagonalModalFixture();
+    const plan = buildLoadPlan(request(model, {
+      ...seismic, directions: { x: withAxes, y: withAxes }, diagonal: true,
+    }, { generateCombinations: true }));
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalDiagonal' }]);
+    expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    expect([...plan.distributed, ...plan.nodal, ...plan.surface].filter(p => p.caseType === 'E')).toEqual([]);
+    expect(plan.combinations).toEqual([]);
+  });
+}
