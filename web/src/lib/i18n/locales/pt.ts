@@ -13795,6 +13795,7 @@ const pt: Translations = {
   "rcSheets.status.warn": "Folgada",
   "rcSheets.status.fail": "Não verifica",
   "rcSheets.status.noArrangement": "Sem armadura possível",
+  "rcSheets.status.overlap": "Sobrepõe-se a outra sapata",
   "rcSheets.status.none": "Sem dados",
   "rcSheets.col.name": "Elemento",
   "rcSheets.col.level": "Nível",
@@ -14870,6 +14871,7 @@ const pt: Translations = {
   "rcSheets.foot.position": "Posição",
   "rcSheets.foot.balance": "Excentricidade",
   "rcSheets.foot.auto": "Conforme as divisas",
+  "rcSheets.foot.matCover": "As sapatas ocupam {share} % da planta ({footings} de {plan} m²), mais de {limit} % (Critério Stabileo): não cabem como sapatas isoladas. Convém um radier, uma fundação profunda ou confirmar uma tensão admissível maior com a sondagem.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (metade em cima, metade embaixo) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Divisa {side}: toque para marcá-la ou desmarcá-la",
   "rcSheets.footLines.hint": "Toque os lados do edifício que são divisas: as sapatas desse lado ficam de divisa, e as de dois lados, de canto.",
@@ -15071,5 +15073,7 @@ const pt: Translations = {
   "designData.crit.footingTieMinDepth.hint": "Junto com a altura que seu comprimento pede.",
   "designData.crit.footingTieDepthRatio": "Altura do tirante segundo seu comprimento",
   "designData.crit.footingTieDepthRatio.hint": "h pelo menos o comprimento L dividido por isto.",
+  "designData.crit.footingMatShare": "Radier em vez de sapatas",
+  "designData.crit.footingMatShare.hint": "Acima desta fração da planta coberta por sapatas, a planilha avisa que convém um radier.",
 };
 export default pt;

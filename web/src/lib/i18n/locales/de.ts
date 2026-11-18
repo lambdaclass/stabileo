@@ -13993,6 +13993,7 @@ const de: Translations = {
   "rcSheets.status.warn": "Reichlich",
   "rcSheets.status.fail": "Nicht erfüllt",
   "rcSheets.status.noArrangement": "Keine Bewehrung möglich",
+  "rcSheets.status.overlap": "Überschneidet ein anderes Fundament",
   "rcSheets.status.none": "Keine Daten",
   "rcSheets.col.name": "Bauteil",
   "rcSheets.col.level": "Geschoss",
@@ -15068,6 +15069,7 @@ const de: Translations = {
   "rcSheets.foot.position": "Lage",
   "rcSheets.foot.balance": "Ausmitte",
   "rcSheets.foot.auto": "Nach den Grundstücksgrenzen",
+  "rcSheets.foot.matCover": "Die Fundamente bedecken {share} % des Grundrisses ({footings} von {plan} m²), mehr als {limit} % (Stabileo-Kriterium): als Einzelfundamente passen sie nicht. Besser eignen sich eine Bodenplatte, eine Tiefgründung oder eine höhere zulässige Bodenpressung, die das Baugrundgutachten bestätigt.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (je zur Hälfte oben und unten) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Grundstücksgrenze {side}: zum Setzen oder Entfernen anklicken",
   "rcSheets.footLines.hint": "Klicken Sie die Gebäudeseiten an, die Grundstücksgrenzen sind: Fundamente an einer werden Randfundamente, an zweien Eckfundamente.",
@@ -15269,6 +15271,8 @@ const de: Translations = {
   "designData.crit.footingTieMinDepth.hint": "Neben der Höhe, die seine Länge verlangt.",
   "designData.crit.footingTieDepthRatio": "Höhe des Zugbands aus seiner Länge",
   "designData.crit.footingTieDepthRatio.hint": "h mindestens die Länge L geteilt durch diesen Wert.",
+  "designData.crit.footingMatShare": "Bodenplatte statt Einzelfundamente",
+  "designData.crit.footingMatShare.hint": "Ab diesem Anteil des Grundrisses unter Fundamenten weist die Tabelle auf eine Bodenplatte hin.",
 };
 
 export default de;

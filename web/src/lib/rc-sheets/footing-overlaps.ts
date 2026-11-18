@@ -54,3 +54,20 @@ export function withOverlaps(rows: readonly FootingRow[]): FootingRow[] {
     return { ...r, status: 'fail', verifications: [...r.verifications, check('rcSheets.v.footOverlap', false, { demand: o.join(', ') })] };
   });
 }
+
+/** A footing whose only failing check is that it overlaps another: no reinforcement is missing, the plan is. */
+export const onlyOverlaps = (r: Pick<FootingRow, 'verifications'>): boolean => {
+  const bad = r.verifications.filter((v) => !v.ok);
+  return bad.length > 0 && bad.every((v) => v.label === 'rcSheets.v.footOverlap');
+};
+
+/** How much of the building's plan its footings cover: their areas summed over the rectangle their outer edges reach, m². */
+export function footingCover(rows: readonly FootingRow[]): { footings: number; plan: number; share: number } | null {
+  const live = rows.filter((r) => r.B > 0 && r.L > 0);
+  if (live.length < 2) return null;
+  const cs = live.flatMap((r) => footingCorners(r));
+  const xs = cs.map((p) => p.x), ys = cs.map((p) => p.y);
+  const plan = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+  const footings = live.reduce((t, r) => t + r.B * r.L, 0);
+  return plan > 1e-9 ? { footings, plan, share: footings / plan } : null;
+}

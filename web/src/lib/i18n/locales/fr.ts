@@ -13993,6 +13993,7 @@ const fr: Translations = {
   "rcSheets.status.warn": "Ample",
   "rcSheets.status.fail": "Non vérifié",
   "rcSheets.status.noArrangement": "Aucun ferraillage possible",
+  "rcSheets.status.overlap": "Chevauche une autre semelle",
   "rcSheets.status.none": "Sans données",
   "rcSheets.col.name": "Élément",
   "rcSheets.col.level": "Niveau",
@@ -15068,6 +15069,7 @@ const fr: Translations = {
   "rcSheets.foot.position": "Position",
   "rcSheets.foot.balance": "Excentricité",
   "rcSheets.foot.auto": "Selon les limites de propriété",
+  "rcSheets.foot.matCover": "Les semelles couvrent {share} % du plan ({footings} sur {plan} m²), plus de {limit} % (critère Stabileo) : elles ne tiennent pas en semelles isolées. Un radier, des fondations profondes ou une contrainte admissible plus élevée confirmée par l'étude de sol conviennent mieux.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (moitié en haut, moitié en bas) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Limite de propriété {side} : cliquez pour la poser ou la retirer",
   "rcSheets.footLines.hint": "Cliquez les côtés du bâtiment en limite de propriété : les semelles d'un côté deviennent excentrées, celles de deux côtés, d'angle.",
@@ -15269,6 +15271,8 @@ const fr: Translations = {
   "designData.crit.footingTieMinDepth.hint": "Avec la hauteur que demande sa longueur.",
   "designData.crit.footingTieDepthRatio": "Hauteur du tirant selon sa longueur",
   "designData.crit.footingTieDepthRatio.hint": "h au moins la longueur L divisée par cette valeur.",
+  "designData.crit.footingMatShare": "Radier au lieu de semelles",
+  "designData.crit.footingMatShare.hint": "Au-delà de cette part du plan couverte par des semelles, la feuille signale qu'un radier convient mieux.",
 };
 
 export default fr;

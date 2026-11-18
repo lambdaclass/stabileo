@@ -58,6 +58,7 @@ export const CRITERIA = {
   footingTieMinWidth: { ...cm(15, 10, 60), family: 'footing' },
   footingTieMinDepth: { ...cm(30, 15, 100), family: 'footing' },
   footingTieDepthRatio: { family: 'footing', value: 10, min: 4, max: 20, step: 1, unit: '', prefix: 'h ≥ L/' },
+  footingMatShare: { family: 'footing', value: 50, min: 20, max: 90, step: 5, unit: '%', scale: 100 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

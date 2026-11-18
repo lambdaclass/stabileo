@@ -14153,6 +14153,7 @@ const en: Record<string, string> = {
   "rcSheets.status.warn": "Generous",
   "rcSheets.status.fail": "Fails",
   "rcSheets.status.noArrangement": "No reinforcement possible",
+  "rcSheets.status.overlap": "Overlaps another footing",
   "rcSheets.status.none": "No data",
   "rcSheets.col.name": "Member",
   "rcSheets.col.level": "Level",
@@ -15228,6 +15229,7 @@ const en: Record<string, string> = {
   "rcSheets.foot.position": "Position",
   "rcSheets.foot.balance": "Offset",
   "rcSheets.foot.auto": "As the property lines say",
+  "rcSheets.foot.matCover": "The footings cover {share} % of the plan ({footings} of {plan} m²), over {limit} % (Stabileo criterion): they do not fit as isolated footings. A mat, a deep foundation, or a higher allowable pressure confirmed by the soil study suits better.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (half top, half bottom) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Property line {side}: click to set or clear it",
   "rcSheets.footLines.hint": "Click the building's sides that are property lines: footings on one become edge footings, on two, corner footings.",
@@ -15429,5 +15431,7 @@ const en: Record<string, string> = {
   "designData.crit.footingTieMinDepth.hint": "Beside the depth its length asks.",
   "designData.crit.footingTieDepthRatio": "Tie depth from its length",
   "designData.crit.footingTieDepthRatio.hint": "h at least the length L divided by this.",
+  "designData.crit.footingMatShare": "Mat instead of footings",
+  "designData.crit.footingMatShare.hint": "Above this share of the plan covered by footings, the sheet says a mat suits better.",
 };
 export default en;

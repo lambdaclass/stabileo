@@ -120,7 +120,7 @@ export interface FootingDemand {
   /** Ties from footings at a line that end at this one (FIUBA Cim. §6.5). */
   pulls?: TiePull[];
   /** The footing of a pier or a wall: every supported node along its base (`nodeId` the one nearest its centre) and its walls by row key. */
-  pier?: { key: string; nodes: number[]; walls: string[] };
+  pier?: { key: string; nodes: number[]; walls: string[]; /** Its section in plan, global X and Y, m. */ outline?: Array<{ x: number; y: number }>; /** Where its base nodes stand in plan, m: the axes it holds a property line by. */ points?: Array<{ x: number; y: number }> };
 }
 
 export type FootingSizing = 'full' | 'minimum' | 'reinforce';

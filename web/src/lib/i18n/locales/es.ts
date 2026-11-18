@@ -14142,6 +14142,7 @@ const es: Record<string, string> = {
   "rcSheets.status.warn": "Holgada",
   "rcSheets.status.fail": "No verifica",
   "rcSheets.status.noArrangement": "Sin armado posible",
+  "rcSheets.status.overlap": "Se pisa con otra base",
   "rcSheets.status.none": "Sin datos",
   "rcSheets.col.name": "Elemento",
   "rcSheets.col.level": "Nivel",
@@ -15217,6 +15218,7 @@ const es: Record<string, string> = {
   "rcSheets.foot.position": "Posición",
   "rcSheets.foot.balance": "Excentricidad",
   "rcSheets.foot.auto": "Según las medianeras",
+  "rcSheets.foot.matCover": "Las bases ocupan el {share} % de la planta ({footings} de {plan} m²), más del {limit} % (Criterio Stabileo): no entran como bases aisladas. Conviene una platea, una fundación profunda o confirmar una tensión admisible mayor con el estudio de suelos.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (mitad arriba, mitad abajo) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Medianera {side}: tocá para marcarla o sacarla",
   "rcSheets.footLines.hint": "Tocá los lados del edificio que son medianeras: las bases de ese lado quedan de medianera, y las de dos lados, de esquina.",
@@ -15418,5 +15420,7 @@ const es: Record<string, string> = {
   "designData.crit.footingTieMinDepth.hint": "Junto con la altura que pide su largo.",
   "designData.crit.footingTieDepthRatio": "Altura del tensor según su largo",
   "designData.crit.footingTieDepthRatio.hint": "h al menos el largo L dividido esto.",
+  "designData.crit.footingMatShare": "Platea en lugar de bases",
+  "designData.crit.footingMatShare.hint": "Por encima de esta fracción de la planta cubierta por bases, la planilla avisa que conviene una platea.",
 };
 export default es;

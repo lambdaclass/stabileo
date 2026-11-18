@@ -39,6 +39,8 @@ export interface FootingPier {
   storey?: number;
   /** The bottom storey's walls, by row key. */
   walls: string[];
+  /** Its section in plan, global X and Y, m. */
+  outline?: Array<{ x: number; y: number }>;
 }
 
 const reactionAt = (r: Reactions, node: number) => r.reactions?.find((x) => x.nodeId === node);
@@ -116,7 +118,7 @@ function pierDemand(p: FootingPier, m: FootingDemandInput): FootingDemand | null
     column: { b: p.box.x1 - p.box.x0, h: p.box.y1 - p.box.y0, area: p.area, ...(p.storey ? { storey: p.storey } : {}) },
     service: gravity.length ? summedAction('D + L', gravity, c) : null, lateralLeftOut: lateral, combos,
     soil: m.soilOf(own ? m.footings.find((f) => f.id === own.id)?.soilProfileId ?? null : null),
-    ...(own ? { footing: own } : {}), pier: { key: p.key, nodes: p.nodes, walls: p.walls },
+    ...(own ? { footing: own } : {}), pier: { key: p.key, nodes: p.nodes, walls: p.walls, ...(p.outline ? { outline: p.outline } : {}), points: pts.map(({ p: q }) => ({ x: q.x, y: q.y })) },
   };
 }
 

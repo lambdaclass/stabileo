@@ -39,10 +39,12 @@
   import { noArrangement } from '../../../lib/store/rc-sheets-resize';
   import RcScheduleView from './RcScheduleView.svelte';
   import RcPlansExport from './RcPlansExport.svelte';
-  import { showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
+  import { rebarView, showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
   import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
   import { tick } from 'svelte';
   import RcPropertyLines from './RcPropertyLines.svelte';
+  import { footingCover, onlyOverlaps } from '../../../lib/rc-sheets/footing-overlaps';
+  import { criteriaOf } from '../../../lib/rc-sheets/criteria';
   import { editedKeys, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore, resultsStore } from '../../../lib/store';
@@ -95,6 +97,8 @@
   }
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
+  const matShare = $derived(criteriaOf(designData().designOptions?.criteria).footingMatShare);
+  const matCover = $derived.by(() => { const c = footingCover(rows.footing); return c && c.share > matShare ? c : null; });
   const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
   async function openFromSchedule(el: ElementRef, marks: string[]) {
     const plan = el.key.startsWith('slabplan:');
@@ -173,6 +177,7 @@
       {/if}
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
+      <button type="button" class="rcs-btn" onclick={() => { rebarView.row = null; rebarView.level = ''; rebarView.on = true; onclose(); }} disabled={!drawable} data-testid="rc-view-3d-all">{t('rcSheets.r3d.title')}</button>
       <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
@@ -216,6 +221,7 @@
           </select>
         </label>
         <RcPropertyLines rows={rows.footing} />
+        {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
       {/if}
       {#if family === 'slab' && slabView === 'plan'}
         {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} {highlight} />{/key}{/if}
@@ -307,7 +313,7 @@
                   <td><span class="need">{f2(r.faces[f].asReq)}</span> {r.adopted[f].dia ? meshLabel(r.adopted[f]) : '—'} <span class="dim">({f2(meshArea(r.adopted[f]))})</span></td>
                 {/each}
               {/if}
-              <td class="stc" data-testid="rc-row-status">{t(nothingFits(r) ? 'rcSheets.status.noArrangement' : `rcSheets.status.${r.status}`)}</td>
+              <td class="stc" data-testid="rc-row-status">{t(nothingFits(r) ? 'rcSheets.status.noArrangement' : r.family === 'footing' && onlyOverlaps(r) ? 'rcSheets.status.overlap' : `rcSheets.status.${r.status}`)}</td>
             </tr>
             {#if openKey === r.key}
               <tr class="detail">
@@ -415,4 +421,5 @@
   .rcw-views button:disabled { opacity: 0.5; cursor: default; }
   .rcw-sizing { margin-bottom: 6px; }
   .rcw-secs { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 6px 0 8px; }
+  .rcw-mat { margin: 6px 0; font-size: 0.75rem; color: var(--st-warn); max-width: 90ch; }
 </style>

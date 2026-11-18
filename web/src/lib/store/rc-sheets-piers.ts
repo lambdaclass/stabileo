@@ -38,7 +38,7 @@ export function foundationPiers(piers: readonly Pier[], walls: readonly WallDema
     ])].filter((n) => supported.has(n)).sort((a, b) => a - b);
     if (nodes.length < 2) continue;
     const xs = p.outline.outer.map((q) => q.x), ys = p.outline.outer.map((q) => q.y);
-    out.push({ key: p.key, name: p.name, nodes, box: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, area: p.area, storey: p.height, walls: p.walls.map((w) => w.key) });
+    out.push({ key: p.key, name: p.name, nodes, box: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, area: p.area, storey: p.height, walls: p.walls.map((w) => w.key), outline: p.outline.outer.map((q) => ({ x: q.x, y: q.y })) });
   }
   return out;
 }

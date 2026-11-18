@@ -34,7 +34,8 @@
     };
     const dots = pts.map((p) => {
       const a = p.r.edge?.anchor ?? [0, 0];
-      return { key: p.r.key, name: p.r.name, x: sx(p.x), y: sy(p.y), ax: a[0], ay: -a[1], position: p.r.edge?.position ?? 'centred', byHand: p.r.edge?.source === 'row' };
+      const outline = p.r.demand.pier?.outline?.map((q) => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ');
+      return { key: p.r.key, name: p.r.name, x: sx(p.x), y: sy(p.y), ax: a[0], ay: -a[1], position: p.r.edge?.position ?? 'centred', byHand: p.r.edge?.source === 'row', ...(outline ? { outline } : {}) };
     });
     return { sides, dots };
   });
@@ -54,6 +55,9 @@
           onclick={() => toggle(k)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(k); } }} data-testid="rc-property-line-{k}"><title>{tp('rcSheets.footLines.side', { side: SIDE[k] })}</title></line>
       {/each}
       {#each plan.dots as d (d.key)}
+        {#if d.outline}
+          <polygon class="pier {d.position}" points={d.outline} data-testid="rc-property-pier"><title>{d.name} · {t(`rcSheets.footPos.${d.position}`)}</title></polygon>
+        {:else}
         <g class="dot {d.position}" class:hand={d.byHand} transform="translate({d.x} {d.y})">
           {#if d.position === 'centred'}
             <rect x="-3" y="-3" width="6" height="6" />
@@ -63,6 +67,7 @@
           {/if}
           <title>{d.name} · {t(`rcSheets.footPos.${d.position}`)}</title>
         </g>
+        {/if}
       {/each}
     </svg>
     <div class="rpl-side">
@@ -89,6 +94,8 @@
   .dot.edge rect:first-child, .dot.corner rect:first-child { fill: color-mix(in srgb, var(--st-warn) 30%, transparent); stroke: var(--st-warn); }
   .dot.hand rect:first-child { stroke-dasharray: 2 1.5; }
   .dot rect.col { fill: var(--st-text-2); stroke: none; }
+  .pier { fill: color-mix(in srgb, var(--st-text-2) 45%, transparent); stroke: var(--st-text-2); stroke-width: 1; }
+  .pier.edge, .pier.corner { stroke: var(--st-warn); }
   .rpl-side { display: flex; flex-direction: column; gap: 6px; max-width: 32ch; }
   .rpl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
   .rpl-chips button { font-size: 0.72rem; padding: 2px 8px; border: 1px solid var(--st-hair); border-radius: 4px; background: var(--st-surface-2); color: var(--st-text-2); cursor: pointer; }

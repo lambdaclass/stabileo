@@ -15011,6 +15011,7 @@ const hu: Translations = {
   "rcSheets.foot.position": "Helyzet",
   "rcSheets.foot.balance": "Külpontosság",
   "rcSheets.foot.auto": "A telekhatárok szerint",
+  "rcSheets.foot.matCover": "Az alapok a alaprajz {share} %-át fedik ({footings} / {plan} m²), több mint {limit} %-ot (Stabileo-kritérium): pontalapként nem férnek el. Lemezalap, mélyalapozás vagy a talajvizsgálattal igazolt nagyobb megengedett talajfeszültség a jobb megoldás.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (fele felül, fele alul) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Telekhatár {side}: kattintson a megjelöléshez vagy törléshez",
   "rcSheets.footLines.hint": "Kattintson az épület telekhatáron álló oldalaira: az egy oldalon lévő alapok szélső, a két oldalon lévők sarokalapok lesznek.",
@@ -15351,6 +15352,7 @@ const hu: Translations = {
   "rcSheets.status.warn": "Bőséges",
   "rcSheets.status.fail": "Nem felel meg",
   "rcSheets.status.noArrangement": "Nincs lehetséges vasalás",
+  "rcSheets.status.overlap": "Átfedi egy másik alap",
   "rcSheets.status.none": "Nincs adat",
   "rcSheets.col.name": "Elem",
   "rcSheets.col.level": "Szint",
@@ -16421,6 +16423,8 @@ const hu: Translations = {
   "designData.crit.footingTieMinDepth.hint": "A hossza által kívánt magasság mellett.",
   "designData.crit.footingTieDepthRatio": "Vonórúd magassága a hosszából",
   "designData.crit.footingTieDepthRatio.hint": "h legalább az L hossz osztva ezzel értékkel.",
+  "designData.crit.footingMatShare": "Lemezalap pontalapok helyett",
+  "designData.crit.footingMatShare.hint": "Az alaprajz alapokkal fedett részének e fölötti aránya esetén a táblázat lemezalapot javasol.",
 };
 
 export default hu;

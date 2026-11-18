@@ -13993,6 +13993,7 @@ const tr: Translations = {
   "rcSheets.status.warn": "Bol",
   "rcSheets.status.fail": "Sağlamıyor",
   "rcSheets.status.noArrangement": "Donatı mümkün değil",
+  "rcSheets.status.overlap": "Başka bir temelle çakışıyor",
   "rcSheets.status.none": "Veri yok",
   "rcSheets.col.name": "Eleman",
   "rcSheets.col.level": "Kat",
@@ -15068,6 +15069,7 @@ const tr: Translations = {
   "rcSheets.foot.position": "Konum",
   "rcSheets.foot.balance": "Dışmerkezlik",
   "rcSheets.foot.auto": "Parsel sınırlarına göre",
+  "rcSheets.foot.matCover": "Temeller planın % {share}'ini kaplıyor ({footings} / {plan} m²), % {limit}'den fazla (Stabileo ölçütü): tekil temel olarak sığmıyorlar. Radye, derin temel ya da zemin etüdüyle doğrulanmış daha yüksek bir emniyet gerilmesi daha uygundur.",
   "rcSheets.foot.tieSummary": "{b} × {h} cm · {n} Ø{dia} (yarısı üstte, yarısı altta) · Tu = {tu} kN · H = {H} m",
   "rcSheets.footLines.side": "Parsel sınırı {side}: işaretlemek ya da kaldırmak için tıklayın",
   "rcSheets.footLines.hint": "Binanın parsel sınırı olan kenarlarına tıklayın: bir kenardaki temeller kenar temeli, iki kenardakiler köşe temeli olur.",
@@ -15269,6 +15271,8 @@ const tr: Translations = {
   "designData.crit.footingTieMinDepth.hint": "Uzunluğunun istediği yükseklikle birlikte.",
   "designData.crit.footingTieDepthRatio": "Uzunluğuna göre gergi yüksekliği",
   "designData.crit.footingTieDepthRatio.hint": "h en az L uzunluğu bölü bu değer.",
+  "designData.crit.footingMatShare": "Tekil temel yerine radye",
+  "designData.crit.footingMatShare.hint": "Planın temellerle kaplı payı bunu aşınca tablo radyenin daha uygun olduğunu söyler.",
 };
 
 export default tr;

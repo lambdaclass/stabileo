@@ -10,6 +10,16 @@ export interface EdgeInput {
 
 const LEVEL_TOL = 0.05;
 
+/** Each footing's anchor from every axis point it stands on: a pier holds a line where any of its base nodes does. */
+function anchorsHeld(pts: ReadonlyArray<{ id: number; x: number; y: number }>, lines: PropertyLines): Map<number, [number, number]> {
+  const out = new Map<number, [number, number]>();
+  anchorsOf(pts.map((p, i) => ({ id: i, x: p.x, y: p.y })), lines).forEach((a, i) => {
+    const id = pts[i]!.id, was = out.get(id) ?? [0, 0];
+    out.set(id, [was[0] || a[0], was[1] || a[1]]);
+  });
+  return out;
+}
+
 /**
  * Each footing's position and balance: the row's own setup first, then the model's footing (its
  * anchor and straps), then the property lines. A footing set at a line or a corner by hand where
@@ -19,7 +29,8 @@ const LEVEL_TOL = 0.05;
 export function withEdges(demands: readonly FootingDemand[], o: EdgeInput): FootingDemand[] {
   const live = demands.filter((d) => d.column && !d.footing?.outOfScope);
   const pts = live.map((d) => ({ id: d.nodeId, x: d.at.x, y: d.at.y }));
-  const fromLines = anchorsOf(pts, o.lines);
+  const axes = live.flatMap((d) => (d.pier?.points?.length ? d.pier.points : [d.at]).map((q) => ({ id: d.nodeId, x: q.x, y: q.y })));
+  const fromLines = anchorsHeld(axes, o.lines);
   return demands.map((d) => {
     if (!d.column || d.footing?.outOfScope) return d;
     const s = o.setup[d.key];

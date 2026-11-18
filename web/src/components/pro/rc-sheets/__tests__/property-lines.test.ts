@@ -24,3 +24,10 @@ it('marks the declared sides and counts the footings at a line and at a corner',
   expect(html).toMatch(/aria-pressed="false"[^>]*data-testid="rc-property-chip-maxX"/);
   expect(html).toContain('1 at a line · 1 at a corner');
 });
+
+it('draws a core\'s outline where its footing stands, not a dot', () => {
+  const core = { key: 'footing:p1', name: 'M1 + C1', demand: { at: { x: 1.25, y: 1.25, z: 0 }, pier: { outline: [{ x: -0.1, y: -0.1 }, { x: 2.6, y: -0.1 }, { x: 2.6, y: 0.1 }, { x: 0.1, y: 0.1 }, { x: 0.1, y: 2.6 }, { x: -0.1, y: 2.6 }] } } } as never;
+  const html = render(RcPropertyLines, { props: { rows: [core, row('C6', 6, 5)] } }).body;
+  expect(html).toContain('data-testid="rc-property-pier"');
+  expect((html.match(/<polygon/g) ?? []).length).toBe(1);
+});

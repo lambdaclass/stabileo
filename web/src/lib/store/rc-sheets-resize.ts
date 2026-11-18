@@ -22,6 +22,7 @@ import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 import type { CheckLine } from '../rc-sheets/types';
 import type { FootingRow } from '../rc-sheets/footing-types';
+import { onlyOverlaps } from '../rc-sheets/footing-overlaps';
 import type { Redesign } from './rc-sheets.svelte';
 
 const sheetCriteria = (): Criteria => criteriaOf(designData().designOptions?.criteria);
@@ -267,7 +268,7 @@ export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean
 /** A row whose own proposal does not verify: with its section and concrete the sheets find no arrangement. Bars set by hand are the engineer's, not a proposal. */
 export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRow[] = []): boolean {
   if ('spanAdopted' in row) return !row.isAdopted && lineRowStatus(row, spans) === 'fail';
-  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted);
+  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted) && !(row.family === 'footing' && onlyOverlaps(row));
 }
 
 /** An alternative a row verifies with: a section (`what` and its dimensions, m) or a stronger concrete (f'c, MPa, and its class's name). */
