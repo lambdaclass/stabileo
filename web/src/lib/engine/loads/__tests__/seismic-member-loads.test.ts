@@ -10,7 +10,7 @@ import { modelStore } from '../../../store';
 import { modesForPlan } from '../../../store/seismic-modes';
 import { bindRole } from '../../../codes/roles';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed } from '../load-plan';
-import { modalStoryForces, type ModeShape } from '../seismic-modal';
+import { modalLoadingLevels, modalStoryForces, type ModeShape } from '../seismic-modal';
 import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { windResultants, remeshWind } from './wind-integration-fixture';
@@ -385,6 +385,64 @@ function modalRequest(mode: ModeShape, rotated: boolean) {
     directions: { x: !rotated, y: rotated },
   };
 }
+
+function withPinnedCarriers(check: (model: LoadModelData, members: string) => void) {
+  modelStore.clear();
+  try {
+    const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 4);
+    const far = modelStore.addNode(4, 0, 4);
+    const column = modelStore.addElement(base, top, 'frame')!;
+    const beam = modelStore.addElement(top, far, 'frame')!;
+    modelStore.addSupport(base, 'fixed3d');
+    modelStore.addSupport(far, 'fixed3d');
+    modelStore.updateElement(column, { name: 'C1' });
+    modelStore.toggleRelease(column, 'i', 'my');
+    modelStore.toggleHinge3D(beam, 'end');
+    const model = modelStore.model as unknown as LoadModelData;
+    const nodes = new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }]));
+    check({ ...model, nodes }, `#${column} (C1), #${beam}`);
+  } finally {
+    modelStore.clear();
+  }
+}
+
+const issue2316 = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+issue2316('known wrong result: #2316 the modal solver adapter identifies all released carriers', () => {
+  withPinnedCarriers((model, members) => {
+    const plan = buildLoadPlan(request(model));
+    expect(plan.outcome).toBe('READY');
+    expect(plan.distributed.filter(d => d.caseType === 'E').length).toBeGreaterThan(0);
+    expect(modesForPlan(plan, 0)).toEqual({ error: expect.stringContaining(members) });
+  });
+});
+
+issue2316('known wrong result: #2316 both modal reducers refuse to interpolate released carrier ends', () => {
+  withPinnedCarriers((model, members) => {
+    const mode = prescribedMode(model, false, z => z / height, 1 / height);
+    const { seismicLevels } = buildLoadPlan(request(model));
+    expect(seismicLevels).toBeDefined();
+    const refusal = expect.objectContaining({ params: { members } });
+    expect.soft(() => modalLoadingLevels(seismicLevels!, [mode])).toThrow(refusal);
+    expect(() => modalStoryForces(seismicLevels!, [mode], 'x', () => 1)).toThrow(refusal);
+  });
+});
+
+issue2316('known wrong result: #2316 supplied modes on released carriers block seismic cases and combinations', () => {
+  withPinnedCarriers((model, members) => {
+    const mode = prescribedMode(model, false, z => z / height, 1 / height);
+    const plan = buildLoadPlan(request(model, modalRequest(mode, false), { generateCombinations: true }));
+    expect.soft(plan.outcome).toBe('BLOCKED');
+    expect.soft(plan.blockedKeys).toContainEqual({
+      key: 'loadPlan.blocked.seismicMass.bendingRelease', params: { members },
+    });
+    expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    expect.soft(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+    expect.soft(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
+    expect.soft(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
+    expect(plan.combinations).toEqual([]);
+  });
+});
 
 function round2Columns(cuts: number[], rotate: boolean, mirror: boolean, perimeter?: number, foundation = false) {
   const at = (r: number, z: number) => rotate ? [-r, 0, z] : [0, r, z];
