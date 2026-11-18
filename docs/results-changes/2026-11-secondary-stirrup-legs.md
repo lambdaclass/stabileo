@@ -69,3 +69,6 @@ the vertical-member cases above.
 The span mesh guard checks the first mesh against exactly 70 hooked ends
 and 40 straight ends. It previously expected 66 hooked ends. All other
 mesh end counts and the anchorage, cover and per-span limits are unchanged.
+The companion trace checks the selected four Ø12 bars and the measured
+101.326 kg reinforcement schedule. The former design selected three Ø16
+bars and a 132.064 kg schedule.
