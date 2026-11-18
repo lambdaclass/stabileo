@@ -95,7 +95,7 @@ export function analysisFinished(ok: boolean, now = Date.now()): void {
 }
 
 export function milestone(kind: Milestone): void {
-  if (!accounts()) return;
+  if (!__PUBLIC_FEATURES__.accounts || !accounts()) return;
   pending.add(kind);
   void reportActivity();
 }

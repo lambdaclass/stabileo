@@ -5,7 +5,7 @@ const LAZY_LOCALES: Record<string, () => Promise<{ default: Translations }>> = {
   de: () => import('./locales/browser/de'),
   fr: () => import('./locales/browser/fr'),
   tr: () => import('./locales/browser/tr'),
-  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: () => import('./locales/browser/hu') } : {}),
+  ...(__PUBLIC_FEATURES__.research ? { hu: () => import('./locales/browser/hu') } : {}),
 };
 
 export function ensureBrowserLocale(loc: string, ensurePublicLocale: (loc: string) => Promise<void>, registerFeatureDictionaries: (feature: Record<string, Translations>) => void, pendingLoads: Map<string, Promise<void>>): Promise<void> {

@@ -349,7 +349,7 @@
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
-      {#if import.meta.env.VITE_ACCOUNTS !== '0' && authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+      {#if __PUBLIC_FEATURES__.accounts && authStore.isAuthenticated && authStore.cloudProjectsEnabled}
         <button class="pp-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
       {/if}
       <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
@@ -596,7 +596,7 @@
   onchange={handleLoad}
 />
 
-{#if import.meta.env.VITE_ACCOUNTS !== '0'}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
+{#if __PUBLIC_FEATURES__.accounts}<CloudProjectsDialog bind:open={cloudOpen} />{/if}
 
 <style>
   .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }
