@@ -23,7 +23,7 @@ the repository. Figures were read from the PDF only to transcribe numbers; none 
 |---|---|---|---|
 | Length L | 108 mm | p. 1 (main text); p. 7 [SM p. 1, §I.A]; p. 12 [SM p. 6, §III] | L = 1 (units of L) |
 | Thickness | 0.05 mm (experiments, called *b* in the main text) | p. 1; p. 7 | rate conversion (below) |
-| Thickness | 0.0508 mm (simulations, called *h*) | p. 12 [SM §III] | L/h = 108/0.0508 = 2126 |
+| Thickness | 0.0508 mm (simulations, called *h*) | p. 12 [SM §III] | L/h = 108/0.0508 = 2125.98 |
 | Width w | 25 mm (experiments); 25.0 mm (simulations) | p. 1; p. 7; p. 12 | drops out (I = wh³/12, ρA = ρwh) |
 | Young's modulus E | ≈ 200 GPa; 200 GPa in simulations | p. 1; p. 7; p. 12 | drops out of the dimensionless problem |
 | Density ρ | 8000 kg/m³ (simulations) | p. 12 | t* (below) |
@@ -121,7 +121,7 @@ factor is 2.321 s/m; the page reports both µ̇ and the corresponding \|ΔL̇\| 
 
 1. **ρ for the experiments**: 8000 kg/m³, the simulation value (p. 12). Only used to convert
    rates and times to SI for display.
-2. **Model thickness** L/h = 2126 (simulation thickness 0.0508 mm), since we compare with the
+2. **Model thickness** L/h = 108/0.0508 = 2125.98 (simulation thickness 0.0508 mm), since we compare with the
    simulations. It sets only the axial stiffness, EA·L²/EI = 12(L/h)² = 5.42 × 10⁷.
 3. **Rate definition** (above).
 4. **Origin of time.** t = 0 where µ equals *our* fold µ* for the same α and mesh, not 0.247:

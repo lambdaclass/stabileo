@@ -12,12 +12,12 @@ inputs:
   length: {value: 1, unit: L}
   bending_stiffness: {value: 1, unit: EI}
   mass_per_length: {value: 1, unit: rho A}
-  slenderness: {value: 2126, unit: L/h, source: "h = 0.0508 mm, L = 108 mm, SM p. 12"}
+  slenderness: {value: 2125.984, unit: L/h, source: "108/0.0508; h = 0.0508 mm, L = 108 mm, SM p. 12"}
   clamp_angle: {default: 0.2617993877991494, min: 0.1, max: 0.4, unit: rad}
-  rate: {default: 0.03, min: 0.005, max: 0.7, unit: "dmu per T_osc"}
+  rate: {default: 0.01, min: 0.005, max: 0.7, unit: "dmu per T_osc", replay: 0.01, sensitivity_rates: [0.03, 0.1]}
   seed: {default: 0.001, min: 0.0001, max: 0.01, unit: rad}
   start: {default: 0.6, unit: mu}
-  clamp_acceleration_time: {value: 0.01, unit: s, source: "SM p. 7"}
+  clamp_acceleration_time: {value: 0.01, unit: s, source: "SM p. 7", in_t_osc: 0.58207}
 mesh: {elements: 48, type: production 2D co-rotational Euler-Bernoulli frame; refinement 24/48/96}
 solver:
   element: dedaliano_engine::solver::corotational::assemble_corotational_public
