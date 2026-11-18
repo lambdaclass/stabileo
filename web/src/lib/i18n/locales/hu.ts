@@ -14734,7 +14734,7 @@ const hu: Translations = {
   "rcSheets.s.defl.method.cantilever": "Módszer: a csúcs lehajlása a befogási érintőhöz, a számítás ∫∫M-je, a támaszon vett Ie-vel",
   "rcSheets.s.defl.method.slab.edges": "Módszer: a számítás héjelmozdulásai, a mező lehajlása a gerendákon vagy falakon nyugvó széleihez képest, a sáv Ig/Ie arányával a repedt állapotra átszámítva",
   "rcSheets.s.defl.method.slab.corners": "Módszer: a számítás héjelmozdulásai, a mező lehajlása sarkainak síkjához képest (oszlopokon álló mező), a sáv Ig/Ie arányával átszámítva",
-  "rcSheets.s.defl.method.slab.root": "Módszer: a számítás héjelmozdulásai, a konzol lehajlása megtámasztott széléhez képest, a sáv Ig/Ie arányával átszámítva",
+  "rcSheets.s.defl.method.slab.root": "Módszer: a számítás héjelmozdulásai, a konzol lehajlása megtámasztott széléhez képest, a sáv Ig/Ie arányával átszámítva, Ma a perem menti átlagos nyomaték (egységnyi szélességű sáv)",
   "rcSheets.s.defl.ec": "A beton rugalmassági modulusa",
   "rcSheets.s.defl.ecm": "Modulus, húzószilárdság és kúszási hatékony modulus",
   "rcSheets.s.defl.mcr": "Repesztőnyomaték",

@@ -596,12 +596,22 @@ export function withSlabDeflection(base: SlabFn, code: DeflectionCode): SlabFn {
     let chosen = row;
     if (!adopted && !out.ok && out.computed) {
       const sec0 = sectionOf(row, row.proposed);
-      const passes = (As: number) => code.check(input({ ...sec0, As }), fmt).ok;
-      let lo = sec0.As, hi = 0.02 * sec0.d;
-      if (passes(hi)) {
-        for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (passes(mid)) hi = mid; else lo = mid; }
+      const passes = (As: number, AsPrime: number) => code.check(input({ ...sec0, As, AsPrime }), fmt).ok;
+      const cap = 0.02 * sec0.d;
+      const tries: Array<{ tension: number; compression: number }> = [];
+      for (const share of cant ? [0, 0.5, 1] : [0]) {
+        const AsP = (x: number) => Math.max(sec0.AsPrime, share * x);
+        let lo = sec0.As, hi = cap;
+        if (!passes(hi, AsP(hi))) continue;
+        for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (passes(mid, AsP(mid))) hi = mid; else lo = mid; }
+        tries.push({ tension: hi, compression: AsP(hi) });
+      }
+      tries.sort((p, q) => p.tension + p.compression - (q.tension + q.compression));
+      const back = other(face);
+      search: for (const t of tries) {
         for (const margin of MARGINS) {
-          let cand: SlabAdopted = { ...row.proposed, [face]: proposeMesh(hi * margin * 1e4, row.faces[face].sMax, c.diameters) };
+          let cand: SlabAdopted = { ...row.proposed, [face]: proposeMesh(t.tension * margin * 1e4, row.faces[face].sMax, c.diameters) };
+          if (meshArea(cand[back]) * 1e-4 < t.compression * margin - 1e-9) cand = { ...cand, [back]: proposeMesh(t.compression * margin * 1e4, row.faces[back].sMax, c.diameters) };
           let r2 = base(d, ctx, cand, fmt);
           for (let k = 0; k < 2 && r2.status === 'fail'; k++) {
             const short = SLAB_FACE_LIST.filter((g) => g !== face && meshArea(cand[g]) < r2.faces[g].asReq - 1e-6);
@@ -612,8 +622,9 @@ export function withSlabDeflection(base: SlabFn, code: DeflectionCode): SlabFn {
           const o2 = code.check(input(sectionOf(r2, cand)), fmt);
           if (r2.status === 'fail' || !o2.ok) continue;
           out = o2;
-          chosen = { ...r2, isAdopted: false, proposed: cand, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula: `${face}: As = ${fmt(hi * 1e4)} cm²/m`, value: '', ok: true }) };
-          break;
+          const formula = `${face}: As = ${fmt(t.tension * 1e4)} cm²/m${t.compression > sec0.AsPrime + 1e-9 ? `; ${back}: A's = ${fmt(t.compression * 1e4)} cm²/m` : ''}`;
+          chosen = { ...r2, isAdopted: false, proposed: cand, steps: proposalNote(r2, { label: 'rcSheets.s.defl.proposal', formula, value: '', ok: true }) };
+          break search;
         }
       }
     }

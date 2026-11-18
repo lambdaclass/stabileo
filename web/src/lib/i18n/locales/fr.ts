@@ -13874,7 +13874,7 @@ const fr: Translations = {
   "rcSheets.s.defl.method.cantilever": "Méthode : flèche de l'extrémité depuis la tangente à l'encastrement, ∫∫M de l'analyse, avec Ie à l'appui",
   "rcSheets.s.defl.method.slab.edges": "Méthode : déplacements des coques de l'analyse, flèche du panneau par rapport à ses bords appuyés sur poutres ou voiles, corrigée de la fissuration par Ig/Ie de la bande",
   "rcSheets.s.defl.method.slab.corners": "Méthode : déplacements des coques de l'analyse, flèche du panneau par rapport au plan de ses angles (panneau sur poteaux), corrigée de la fissuration par Ig/Ie de la bande",
-  "rcSheets.s.defl.method.slab.root": "Méthode : déplacements des coques de l'analyse, flèche du porte-à-faux par rapport à son bord appuyé, corrigée par Ig/Ie de la bande",
+  "rcSheets.s.defl.method.slab.root": "Méthode : déplacements des coques de l'analyse, flèche du porte-à-faux par rapport à son bord appuyé, corrigée par Ig/Ie de la bande, Ma étant le moment moyen le long de ce bord (bande de largeur unité)",
   "rcSheets.s.defl.ec": "Module du béton",
   "rcSheets.s.defl.ecm": "Module, résistance à la traction et module effectif pour le fluage",
   "rcSheets.s.defl.mcr": "Moment de fissuration",

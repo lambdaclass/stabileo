@@ -14023,7 +14023,7 @@ const es: Record<string, string> = {
   "rcSheets.s.defl.method.cantilever": "Método: flecha de la punta desde la tangente en el empotramiento, ∫∫M del análisis, con Ie en el apoyo",
   "rcSheets.s.defl.method.slab.edges": "Método: desplazamientos de las láminas del análisis, flecha del paño respecto de sus bordes apoyados en vigas o tabiques, corregida por fisuración con Ig/Ie de la faja",
   "rcSheets.s.defl.method.slab.corners": "Método: desplazamientos de las láminas del análisis, flecha del paño respecto del plano de sus esquinas (paño sobre columnas), corregida por fisuración con Ig/Ie de la faja",
-  "rcSheets.s.defl.method.slab.root": "Método: desplazamientos de las láminas del análisis, flecha del voladizo respecto de su borde apoyado, corregida por fisuración con Ig/Ie de la faja",
+  "rcSheets.s.defl.method.slab.root": "Método: desplazamientos de las láminas del análisis, flecha del voladizo respecto de su borde apoyado, corregida por fisuración con Ig/Ie de la faja, con Ma el momento medio a lo largo de ese borde (faja de ancho unitario)",
   "rcSheets.s.defl.ec": "Módulo del hormigón",
   "rcSheets.s.defl.ecm": "Módulo, resistencia a tracción y módulo efectivo por fluencia lenta",
   "rcSheets.s.defl.mcr": "Momento de fisuración",

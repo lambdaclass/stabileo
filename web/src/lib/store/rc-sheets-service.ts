@@ -148,6 +148,25 @@ function panelSag(m: DeflectionModel, nodes: readonly number[], box: { x0: numbe
   return out;
 }
 
+/**
+ * A cantilever's moment per metre at its root, kN·m/m: the elements along its held edge averaged
+ * over their width, the unit-width strip of FIUBA §5.1 that §24.2.3.7 reads Ie at. The panel's
+ * largest element moment sits by a column and is that spot's, not the strip's.
+ */
+export function rootMoment(d: Pick<SlabDemand, 'topField' | 'bounds'>, root: keyof SlabEdges): number | null {
+  if (!d.bounds || !d.topField) return null;
+  const across = root.startsWith('x');
+  const at = d.bounds[root];
+  let sum = 0, width = 0;
+  for (const e of d.topField) {
+    if (!e.box || Math.abs(e.box[root] - at) > 1e-3) continue;
+    const w = across ? e.box.y1 - e.box.y0 : e.box.x1 - e.box.x0;
+    sum += w * (across ? e.topX : e.topY);
+    width += w;
+  }
+  return width > 0 ? sum / width : null;
+}
+
 function slabService(
   d: SlabDemand, g: DemandGroup, input: DemandInput, edges: SlabEdges | undefined, sets: ServiceGroups, own: Partial<Record<Group, SlabDemand>>,
 ): ServiceSpan | null {
@@ -176,7 +195,8 @@ function slabService(
   const totalOf = (f: SlabFace) => GROUPS.reduce((s, k) => s + (own[k]?.m[f].value ?? 0), 0);
   const face: SlabFace = dir ? (`top${dir}` as SlabFace) : totalOf('bottomX') >= totalOf('bottomY') ? 'bottomX' : 'bottomY';
   const eiPerM = mat.e * 1000 * (d.h ** 3) / 12;
-  const state = (k: Group): LoadState => (sags[k] ? { k: (sags[k]!.get(at) ?? 0) * eiPerM, m: own[k]?.m[face].value ?? 0 } : ZERO);
+  const momentOf = (k: Group) => (root && own[k] ? rootMoment(own[k]!, root) : null) ?? own[k]?.m[face].value ?? 0;
+  const state = (k: Group): LoadState => (sags[k] ? { k: (sags[k]!.get(at) ?? 0) * eiPerM, m: momentOf(k) } : ZERO);
   return { dead: state('dead'), live: state('live'), roof: state('roof'), names: sets.names, ...(sets.psiCombo !== undefined ? { psiCombo: sets.psiCombo } : {}), strip: { face, reference } };
 }
 

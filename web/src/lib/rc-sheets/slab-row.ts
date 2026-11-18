@@ -1,4 +1,4 @@
-import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes/argentina/losas';
+import { computeAsFlexure, slabProvisions, stripCapacity, stripStrain } from '../engine/codes/argentina/losas';
 import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-kernel';
 import { concreteBelowTopBars, confinementOf, deriveDevelopment, deriveLap, topBarFactor, type DevelopmentResult } from '../codes/cirsoc201/anchorage';
 import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
@@ -22,8 +22,8 @@ export interface SlabDemand {
   /** Largest transverse shear per metre on faces normal to X and to Y, kN/m. */
   q?: { x: Signed; y: Signed };
   combos?: SlabComboForces[];
-  /** Each element's top moments over all combinations where it asks for top steel, kN·m/m, at its centre: where the top bars must reach. */
-  topField?: Array<{ x: number; y: number; topX: number; topY: number }>;
+  /** Each element's top moments over all combinations where it asks for top steel, kN·m/m, at its centre: where the top bars must reach; `box` its extent in plan. */
+  topField?: Array<{ x: number; y: number; topX: number; topY: number; box?: { x0: number; x1: number; y0: number; y1: number } }>;
 }
 
 export interface SlabComboForces { combo: string; bottomX: number; bottomY: number; topX: number; topY: number; qx: number; qy: number }
@@ -67,6 +67,8 @@ export interface SlabFaceResult {
   /** What the distribution face of a one-way panel carries for the main face's steel, cm²/m; 0 elsewhere. */
   asDistribution?: number;
   asReq: number; sMax: number; phiMn: number; ok: boolean;
+  /** The net tensile strain the face's steel reaches, and the least of a tension-controlled section; where the code's row reads it. */
+  strain?: { epsT: number; epsTMin: number };
 }
 
 /** A slab bar's layout as §25.4.2.4 reads it: clear cover and spacing between centres, m. */
@@ -192,7 +194,9 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
     const as = meshArea(mesh);
     const phiMn = as > 0 ? stripCapacity(as, d.h, r.d, c.mat.fc, c.mat.fy, EDITION) : 0;
     const spacingOk = mesh.dia === 0 || mesh.spacing <= r.sMax + 1e-6;
-    faces[f] = { ...r, phiMn, ok: as >= r.asReq - 1e-6 && phiMn >= r.mu - 1e-6 && spacingOk };
+    const strain = r.mu > 1e-6 && as > 0 ? stripStrain(as, d.h, r.d, c.mat.fc, c.mat.fy, EDITION) : undefined;
+    const ductile = !strain || strain.epsT >= strain.epsTMin - 1e-9;
+    faces[f] = { ...r, phiMn, ok: as >= r.asReq - 1e-6 && phiMn >= r.mu - 1e-6 && spacingOk && ductile, ...(strain ? { strain } : {}) };
   }
   const shearCap = (dir: 'X' | 'Y') => {
     const face: SlabFace = meshArea(a[`top${dir}`]) > 0 ? `top${dir}` : `bottom${dir}`;
@@ -202,6 +206,7 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
   const shear = { x: { vu: d.q?.x.value ?? 0, phiVc: shearCap('X') }, y: { vu: d.q?.y.value ?? 0, phiVc: shearCap('Y') } };
   const verifications: CheckLine[] = [
     ...SLAB_FACES.filter((f) => faces[f].mu > 1e-6).map((f) => check(`rcSheets.v.slab.${f}`, faces[f].phiMn >= faces[f].mu - 1e-6, { clause: '§22.2', demand: `${fmt(faces[f].mu)} kN·m/m`, capacity: `${fmt(faces[f].phiMn)} kN·m/m`, ratio: ratioOf(faces[f].mu, faces[f].phiMn) })),
+    ...SLAB_FACES.filter((f) => faces[f].strain && faces[f].strain!.epsT < faces[f].strain!.epsTMin - 1e-9).map((f) => check('rcSheets.v.ductility', false, { clause: oneWay ? '§7.3.3.1' : '§8.3.3.1', demand: `εt = ${fmt(faces[f].strain!.epsT * 1000)} ‰`, capacity: `≥ ${fmt(faces[f].strain!.epsTMin * 1000)} ‰` })),
     ...SLAB_FACES.filter((f) => faces[f].asReq > 0).map((f) => check(`rcSheets.v.slabMin.${f}`, meshArea(a[f]) >= faces[f].asReq - 1e-6, { clause: '§7.6.1, §8.6.1', demand: `${fmt(faces[f].asReq)} cm²/m`, capacity: `${fmt(meshArea(a[f]))} cm²/m`, ratio: ratioOf(faces[f].asReq, meshArea(a[f])) })),
     ...SLAB_FACES.filter((f) => (faces[f].asDistribution ?? 0) > 0).map((f) => check(`rcSheets.v.slabDistribution.${f}`, meshArea(a[f]) >= faces[f].asDistribution! - 1e-6, { clause: code.distribution!.clause, demand: `${fmt(faces[f].asDistribution!)} cm²/m`, capacity: `${fmt(meshArea(a[f]))} cm²/m`, ratio: ratioOf(faces[f].asDistribution!, meshArea(a[f])) })),
     check('rcSheets.v.slabSpacing', SLAB_FACES.every((f) => a[f].dia === 0 || a[f].spacing <= faces[f].sMax + 1e-6), { clause: oneWay ? (code.crackSpacing ? `§7.7.2.3, ${code.crackSpacing.clause}` : '§7.7.2.3') : '§8.7.2.2', capacity: `≤ ${fmt(Math.min(...SLAB_FACES.map((f) => faces[f].sMax)) * 100, 0)} cm` }),

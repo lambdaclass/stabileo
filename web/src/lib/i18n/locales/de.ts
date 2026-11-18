@@ -13874,7 +13874,7 @@ const de: Translations = {
   "rcSheets.s.defl.method.cantilever": "Verfahren: Durchbiegung der Spitze gegen die Tangente an der Einspannung, ∫∫M der Berechnung, mit Ie am Auflager",
   "rcSheets.s.defl.method.slab.edges": "Verfahren: Schalenverschiebungen der Berechnung, Durchbiegung des Feldes gegen seine auf Balken oder Wänden gelagerten Ränder, mit Ig/Ie des Streifens auf den gerissenen Zustand umgerechnet",
   "rcSheets.s.defl.method.slab.corners": "Verfahren: Schalenverschiebungen der Berechnung, Durchbiegung des Feldes gegen die Ebene seiner Ecken (Feld auf Stützen), mit Ig/Ie des Streifens auf den gerissenen Zustand umgerechnet",
-  "rcSheets.s.defl.method.slab.root": "Verfahren: Schalenverschiebungen der Berechnung, Durchbiegung des Kragarms gegen seinen gelagerten Rand, mit Ig/Ie des Streifens umgerechnet",
+  "rcSheets.s.defl.method.slab.root": "Verfahren: Schalenverschiebungen der Berechnung, Durchbiegung des Kragarms gegen seinen gelagerten Rand, mit Ig/Ie des Streifens umgerechnet, Ma als mittleres Moment entlang dieses Randes (Streifen der Breite 1)",
   "rcSheets.s.defl.ec": "Elastizitätsmodul des Betons",
   "rcSheets.s.defl.ecm": "Elastizitätsmodul, Zugfestigkeit und wirksamer Modul für Kriechen",
   "rcSheets.s.defl.mcr": "Rissmoment",

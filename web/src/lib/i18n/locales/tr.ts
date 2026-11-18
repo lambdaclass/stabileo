@@ -13874,7 +13874,7 @@ const tr: Translations = {
   "rcSheets.s.defl.method.cantilever": "Yöntem: ankastre uçtaki teğete göre uç sehimi, analizden ∫∫M, mesnetteki Ie ile",
   "rcSheets.s.defl.method.slab.edges": "Yöntem: analizin kabuk yer değiştirmeleri, kiriş veya perdelere oturan kenarlara göre panel sehimi, şeridin Ig/Ie oranıyla çatlamaya göre düzeltilmiş",
   "rcSheets.s.defl.method.slab.corners": "Yöntem: analizin kabuk yer değiştirmeleri, köşelerinin düzlemine göre panel sehimi (kolonlara oturan panel), şeridin Ig/Ie oranıyla düzeltilmiş",
-  "rcSheets.s.defl.method.slab.root": "Yöntem: analizin kabuk yer değiştirmeleri, konsolun mesnetli kenarına göre sehimi, şeridin Ig/Ie oranıyla düzeltilmiş",
+  "rcSheets.s.defl.method.slab.root": "Yöntem: analizin kabuk yer değiştirmeleri, konsolun mesnetli kenarına göre sehimi, şeridin Ig/Ie oranıyla düzeltilmiş, Ma bu kenar boyunca ortalama moment (birim genişlikli şerit)",
   "rcSheets.s.defl.ec": "Beton elastisite modülü",
   "rcSheets.s.defl.ecm": "Modül, çekme dayanımı ve sünme için etkin modül",
   "rcSheets.s.defl.mcr": "Çatlama momenti",

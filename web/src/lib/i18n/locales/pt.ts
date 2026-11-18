@@ -13676,7 +13676,7 @@ const pt: Translations = {
   "rcSheets.s.defl.method.cantilever": "Método: flecha da ponta desde a tangente no engaste, ∫∫M da análise, com Ie no apoio",
   "rcSheets.s.defl.method.slab.edges": "Método: deslocamentos das cascas da análise, flecha do painel em relação às bordas apoiadas em vigas ou paredes, corrigida pela fissuração com Ig/Ie da faixa",
   "rcSheets.s.defl.method.slab.corners": "Método: deslocamentos das cascas da análise, flecha do painel em relação ao plano dos cantos (painel sobre pilares), corrigida pela fissuração com Ig/Ie da faixa",
-  "rcSheets.s.defl.method.slab.root": "Método: deslocamentos das cascas da análise, flecha do balanço em relação à borda apoiada, corrigida pela fissuração com Ig/Ie da faixa",
+  "rcSheets.s.defl.method.slab.root": "Método: deslocamentos das cascas da análise, flecha do balanço em relação à borda apoiada, corrigida pela fissuração com Ig/Ie da faixa, com Ma o momento médio ao longo dessa borda (faixa de largura unitária)",
   "rcSheets.s.defl.ec": "Módulo do concreto",
   "rcSheets.s.defl.ecm": "Módulo, resistência à tração e módulo efetivo por fluência",
   "rcSheets.s.defl.mcr": "Momento de fissuração",

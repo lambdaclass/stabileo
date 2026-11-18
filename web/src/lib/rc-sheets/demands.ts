@@ -540,7 +540,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
     const fromFace = (c: { x: number; y: number }, axis: 'x' | 'y') =>
       axis === 'x' ? Math.min(c.x - ext.x0 - faces.x0, ext.x1 - faces.x1 - c.x) : Math.min(c.y - ext.y0 - faces.y0, ext.y1 - faces.y1 - c.y);
     const combos: SlabComboForces[] = [];
-    const field = new Map<string, { x: number; y: number; topX: number; topY: number }>();
+    const field = new Map<string, NonNullable<SlabDemand['topField']>[number]>();
     for (const set of m.sets) {
       const c: SlabComboForces = { combo: set.name, bottomX: 0, bottomY: 0, topX: 0, topY: 0, qx: 0, qy: 0 };
       const shears: Array<{ key: string; q: readonly number[] }> = [];
@@ -556,7 +556,7 @@ export function slabDemands(m: DemandInput, thickness: (g: DemandGroup) => numbe
         }
         if (wa.topX > 1e-6 || wa.topY > 1e-6) {
           const ct = centre.get(key);
-          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0 } : undefined);
+          const fe = field.get(key) ?? (ct ? { x: ct.x, y: ct.y, topX: 0, topY: 0, box: boxOf.get(key)! } : undefined);
           if (fe) { fe.topX = Math.max(fe.topX, wa.topX); fe.topY = Math.max(fe.topY, wa.topY); field.set(key, fe); }
         }
         const sh = row.global.shear;

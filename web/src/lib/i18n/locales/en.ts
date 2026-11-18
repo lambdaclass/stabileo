@@ -14034,7 +14034,7 @@ const en: Record<string, string> = {
   "rcSheets.s.defl.method.cantilever": "Method: tip deflection from the tangent at the root, ∫∫M of the analysis, with Ie at the support",
   "rcSheets.s.defl.method.slab.edges": "Method: the analysis's shell displacements, the panel's sag from its edges held by beams or walls, carried to the cracked section by the strip's Ig/Ie",
   "rcSheets.s.defl.method.slab.corners": "Method: the analysis's shell displacements, the panel's sag from the plane of its corners (a panel on columns), carried to the cracked section by the strip's Ig/Ie",
-  "rcSheets.s.defl.method.slab.root": "Method: the analysis's shell displacements, the cantilever's deflection from its held edge, carried to the cracked section by the strip's Ig/Ie",
+  "rcSheets.s.defl.method.slab.root": "Method: the analysis's shell displacements, the cantilever's deflection from its held edge, carried to the cracked section by the strip's Ig/Ie, Ma being the mean moment along that edge (the unit-width strip)",
   "rcSheets.s.defl.ec": "Concrete modulus",
   "rcSheets.s.defl.ecm": "Modulus, tensile strength and effective modulus for creep",
   "rcSheets.s.defl.mcr": "Cracking moment",
