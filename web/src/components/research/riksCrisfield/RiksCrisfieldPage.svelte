@@ -215,7 +215,7 @@
 
       <div class="rs-panel rs-viewer-panel" id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
         <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()}>
-          <StabileoViewer
+          <StabileoViewer plane="elevation"
             locale={publicI18n.locale}
             xy={model.xy}
             cells={model.cells}

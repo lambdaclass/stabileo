@@ -2,6 +2,7 @@ import { shellCardTitle } from './shell1985/card';
 import { archStrings } from './biggins2026/strings';
 import { riserTitle } from './gayNeto2014/card';
 import { shapeCard } from './feher2026/card';
+import { archCard } from './heyman1966/card';
 import { topoptStrings } from './andreassen2011/i18n';
 import { fs } from './fairclough2026/i18n';
 import { strings as newmarkStrings } from './newmark1959/i18n';
@@ -33,6 +34,7 @@ export function cardTitle(e: Experiment): string {
     case 'fairclough-2026': return fs().title;
     case 'zmyslony-2026': return archStrings().title;
     case 'gay-neto-2014': return riserTitle[locale as keyof typeof riserTitle] ?? riserTitle.en;
+    case 'heyman-1966': return (archCard[locale as keyof typeof archCard] ?? archCard.en).title;
     case 'feher-sipos-varkonyi-2026': return (shapeCard[locale as keyof typeof shapeCard] ?? shapeCard.en).title;
     case 'andreassen-2011': return topoptStrings(locale).title;
     case 'pastrana-2026': return s.formTitle;
