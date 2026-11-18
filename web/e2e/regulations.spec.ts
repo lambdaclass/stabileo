@@ -1,4 +1,4 @@
-import { dwellingFloorLoads } from './load-generator-inputs';
+import { dwellingFloorLoads, loadSeismicFloor } from './load-generator-inputs';
 /**
  * PR16 — project regulations and regulation-backed loads, through VISIBLE CONTROLS ONLY.
  *
@@ -328,7 +328,7 @@ test.describe('@smoke regulation-backed load generation', () => {
   });
 
   test('R11 — binding the seismic role enables seismic loads', async ({ pro: page }) => {
-    await loadModel(page, 'rc-design-qa-8');
+    await loadSeismicFloor(page);
     await openRegulations(page);
     await page.getByTestId('role-select-seismic').selectOption('inpres103-2018');
     await page.getByTestId('pending-review-in-loads').click();
