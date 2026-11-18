@@ -13726,6 +13726,8 @@ const tr: Translations = {
   "rcSheets.s.lineStraightEnd": "Basit mesnette düz kenetlenme: ld sıfır moment noktasından",
   "rcSheets.s.lineHook180": "180° kanca: 90° kancanın bacağı yüksekliğe sığmıyor",
   "rcSheets.s.lineJoined": "Komşu mesnetlerin üst ilave donatısı sürekli: kesim noktaları arasında max(d; 12·db)'den az kalırdı (ders ölçütü)",
+  "rcSheets.s.lineKnee": "Çerçeve köşesi: büküm yarıçapı iç kolu aşmaz (ders ölçütü)",
+  "rcSheets.s.lineKneeHaunch": "ρ ≥ %0,70 olan çerçeve köşesi: guse önerilir (ders ölçütü)",
   "rcSheets.s.lineThird": "Negatif donatının üçte biri dönüm noktasının ötesine",
   "rcSheets.s.lineDev": "Kenetlenmemiş çubuklar kenetlenme oranında sayılır",
   "rcSheets.s.ldRow": "Boylar",

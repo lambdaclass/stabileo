@@ -14683,6 +14683,8 @@ const hu: Translations = {
   "rcSheets.s.lineStraightEnd": "Egyenes lehorgonyzás egyszerű támasznál: ld a nulla nyomaték pontjától",
   "rcSheets.s.lineHook180": "180°-os kampó: a 90°-os kampó szára nem fér el a magasságban",
   "rcSheets.s.lineJoined": "Szomszédos támaszok felső pótvasai átvezetve: elvágási pontjaik között max(d; 12·db)-nél kevesebb maradna (tanszéki kritérium)",
+  "rcSheets.s.lineKnee": "Keretsarok: a hajlítási sugár nem haladja meg a belső erőkart (tanszéki kritérium)",
+  "rcSheets.s.lineKneeHaunch": "Keretsarok ρ ≥ 0,70 % mellett: kiékelés ajánlott (tanszéki kritérium)",
   "rcSheets.g.slabAnchorage": "A vasak lehorgonyzása",
   "rcSheets.v.mainCover": "A fővasak betonfedése",
   "rcSheets.v.seisColMn": "Az erős oszlop szabálya által megkövetelt névleges nyomaték",

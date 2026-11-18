@@ -13528,6 +13528,8 @@ const pt: Translations = {
   "rcSheets.s.lineStraightEnd": "Ancoragem reta em apoio simples: ld a partir do ponto de momento nulo",
   "rcSheets.s.lineHook180": "Gancho a 180°: a perna do gancho a 90° não cabe na altura",
   "rcSheets.s.lineJoined": "Barras superiores de apoios vizinhos corridas: entre seus cortes ficaria menos que max(d; 12·db) (critério da cátedra)",
+  "rcSheets.s.lineKnee": "Nó de canto: o raio de dobramento não supera o braço interno (critério da cátedra)",
+  "rcSheets.s.lineKneeHaunch": "Nó de canto com ρ ≥ 0,70 %: convém uma mísula (critério da cátedra)",
   "rcSheets.s.lineThird": "Um terço do negativo além do ponto de inflexão",
   "rcSheets.s.lineDev": "Barras não ancoradas contam na proporção da ancoragem",
   "rcSheets.s.ldRow": "Comprimentos",

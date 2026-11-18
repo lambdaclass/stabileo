@@ -15,7 +15,7 @@ const bctx = { mat: { fc: 30, fy: 420 }, cover: 0.025, stirrupDia: 8, diameters:
 const column: BeamEnd = { kind: 'column', half: 0.2 };
 
 /** A line on columns, each span hogging `hog` at its supports and sagging `sag` mid-span, kN·m. */
-function lineOf(spans: number[], hog: number, sag: number): LineLayout {
+function lineOf(spans: number[], hog: number, sag: number, ends: [BeamEnd, BeamEnd] = [column, column]): LineLayout {
   const n = spans.length;
   const rows = spans.map((L, k) => {
     const mAt = (t: number) => (sag + hog) * 4 * t * (1 - t) - hog;
@@ -24,7 +24,7 @@ function lineOf(spans: number[], hog: number, sag: number): LineLayout {
       key: `beam:1:${k}`, name: `V1-${k + 1}`, level: 'N1', length: L, b: 0.3, h: 0.5,
       start: env(0, 0, hog), span: env(L / 2, sag, 0), end: env(L, 0, hog),
       negAny: { value: hog }, nNegAny: 0, vu: { value: 190 }, nAtV: 0, tu: { value: 0 }, combos: [], env: stations,
-      supportHalf: { start: 0.2, end: 0.2 }, ends: { start: column, end: column },
+      supportHalf: { start: 0.2, end: 0.2 }, ends: { start: k === 0 ? ends[0] : column, end: k === n - 1 ? ends[1] : column },
       line: { group: 1, index: k, spans: n, startNode: k + 1, endNode: k + 2, lineName: 'V1' },
     };
     return beamRow(d, bctx as never, undefined, fmt);
@@ -107,6 +107,28 @@ describe('one diameter for the supports\' extra bars', () => {
     expect(new Set(used.map((g) => g.dia))).toEqual(new Set([20]));
     expect(l.adopted.supportTop.map((g) => g.count)).toEqual([2, 5, 2]);
     expect(l.status).not.toBe('fail');
+  });
+});
+
+describe('a line ending at a frame corner (FIUBA §16.1)', () => {
+  const corner: BeamEnd = { kind: 'column', half: 0.2, corner: true };
+  const knee = (l: LineLayout) => l.steps.flatMap((g) => g.steps).filter((s) => s.label === 'rcSheets.s.lineKnee');
+
+  it('checks the top bars\' bend against the lever arm where the column stops, and only there', () => {
+    const l = lineOf([5, 5], 120, 90, [corner, column]);
+    const k = knee(l);
+    expect(k).toHaveLength(1);
+    expect(k[0]!.formula!.startsWith('← ')).toBe(true);
+    expect(k[0]!.ok).toBe(true);
+    expect(k[0]!.value).toBe('FIUBA §16.1');
+    expect(knee(lineOf([5, 5], 120, 90))).toHaveLength(0);
+  });
+
+  it('advises a haunch where the top bars there pass 0.70 %', () => {
+    const haunch = (l: LineLayout) => l.steps.flatMap((g) => g.steps).filter((s) => s.label === 'rcSheets.s.lineKneeHaunch');
+    expect(haunch(lineOf([5, 5], 60, 90, [corner, corner]))).toHaveLength(0);
+    const heavy = lineOf([5, 5], 260, 90, [corner, corner]);
+    expect(haunch(heavy).length).toBeGreaterThan(0);
   });
 });
 

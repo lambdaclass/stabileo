@@ -202,7 +202,11 @@ function wallAcross(m: DemandInput, walls: ReadonlyMap<number, Array<{ t: number
 
 function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, half: number, wall?: { t: number } | null): BeamEnd {
   const others = (inc.get(node) ?? []).filter((o) => !mine.has(o.id));
-  if (others.some((o) => isVertical(m, o))) return { kind: 'column', half };
+  const posts = others.filter((o) => isVertical(m, o));
+  if (posts.length) {
+    const up = posts.some((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) > zOf(m.nodes.get(node)) + 1e-6);
+    return { kind: 'column', half, ...(up ? {} : { corner: true }) };
+  }
   if (m.supportNodes.has(node)) return { kind: 'support', half };
   if (wall) return { kind: 'column', half: half > 0 ? half : wall.t / 2 };
   const beam = others.find((o) => o.type !== 'truss');

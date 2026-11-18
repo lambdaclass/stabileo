@@ -13886,6 +13886,8 @@ const en: Record<string, string> = {
   "rcSheets.s.lineStraightEnd": "Straight anchorage at a simple support: ld from the point of zero moment",
   "rcSheets.s.lineHook180": "180° hook: the 90° hook's leg does not fit the depth",
   "rcSheets.s.lineJoined": "Top bars of neighbouring supports run on: less than max(d; 12·db) would be left between their cut points (course criterion)",
+  "rcSheets.s.lineKnee": "Frame corner: the bend's radius within the lever arm (course criterion)",
+  "rcSheets.s.lineKneeHaunch": "Frame corner with ρ ≥ 0.70 %: a haunch is advisable (course criterion)",
   "rcSheets.s.lineThird": "A third of the hogging steel past the inflection point",
   "rcSheets.s.lineDev": "Undeveloped bars count in proportion to their development",
   "rcSheets.s.ldRow": "Lengths",

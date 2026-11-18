@@ -36,7 +36,8 @@ describe('a beam over a wall', () => {
     const into = beamDemands(input([5, 6]) as never);
     expect(into).toHaveLength(1);
     expect(into[0]!.ends!.end).toEqual({ kind: 'column', half: 0.1 });
-    expect(into[0]!.ends!.start.kind).toBe('column');
+    expect(into[0]!.ends!.start).toMatchObject({ kind: 'column', corner: true });
+    expect(across[0]!.ends!.start).toMatchObject({ kind: 'column', corner: true });
   });
 
   it('runs on along a wall it lies on, as on nothing', async () => {

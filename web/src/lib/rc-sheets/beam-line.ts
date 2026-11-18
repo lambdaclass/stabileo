@@ -140,6 +140,8 @@ const STAGGER_GAP = 0.1;
 const UNIFY_WEIGHT = 0.05;
 /** How much more area one diameter may give any group of extras than the diameter it replaces. */
 const UNIFY_AREA = 0.15;
+/** The ratio of the top bars at a frame corner past which the FIUBA notes ask for a haunch (§16.1). */
+const KNEE_HAUNCH = 0.007;
 
 export interface LineLayout {
   key: string; group: number; name: string; level?: string;
@@ -813,6 +815,13 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   });
 
   const spanAdopted: BeamAdopted[] = spanAdoptedOf(a, bars);
+  /** Where the line ends at a column that stops there, a frame corner (FIUBA §16.1): the top bars' bend against the lever arm, and their ratio. */
+  const knees = ([[endStart, 0, 'start'], [endEnd, spans.length - 1, 'end']] as const).flatMap(([e, k, sec]) => {
+    const s = spans[k], top = spanAdopted[k]?.at?.[sec]?.top.filter((g) => g.count > 0) ?? [];
+    if (e?.kind !== 'column' || !e.corner || !s || !top.length) return [];
+    const dia = Math.max(...top.map((g) => g.dia));
+    return [{ end: sec, dia, D: mandrelOf(dia), jd: 0.8 * s.d, rho: (groupsArea(top) * 1e-4) / (s.b * s.d) }];
+  });
 
   const seismicZones = (k: number): LineLayout['zones'] | null => {
     if (!c.seismic) return null;
@@ -974,6 +983,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       steps: [
         ...anchorage.map((x) => ({ label: 'rcSheets.s.ldRow', formula: `Ø${x.dia}`, value: `ld = ${fmt(x.ld * 100, 0)} · ld,top = ${fmt(x.ldTop * 100, 0)} · ldh = ${fmt(x.ldh * 100, 0)} · ls,B = ${fmt(x.lap * 100, 0)} cm` })),
         ...lastStraight.map((x) => ({ label: 'rcSheets.s.lineStraightEnd', formula: `${x.mark} ${x.end === 0 ? '←' : '→'}: ld = ${fmt(x.ld * 100, 0)} cm ≤ ${fmt(code.straightAtSupport!.factor)}·Mn/Vu + ℓa = ${fmt(Math.min(x.reach, 99.99) * 100, 0)} cm; ℓa = ${fmt(x.la * 100, 0)} cm`, value: code.text.clause.straightEnd ?? '', ok: true })),
+        ...knees.map((x) => ({ label: 'rcSheets.s.lineKnee', formula: `${x.end === 'start' ? '←' : '→'} Ø${x.dia}: D/2 = ${fmt(x.D * 50, 1)} cm ≤ jd ≈ 0.8·d = ${fmt(x.jd * 100, 0)} cm · ρ = ${fmt(x.rho * 100, 2)} %`, value: 'FIUBA §16.1', ok: x.D / 2 <= x.jd + 1e-9 })),
+        ...knees.filter((x) => x.rho >= KNEE_HAUNCH - 1e-9).map((x) => ({ label: 'rcSheets.s.lineKneeHaunch', formula: `${x.end === 'start' ? '←' : '→'}: ρ = ${fmt(x.rho * 100, 2)} % ≥ ${fmt(KNEE_HAUNCH * 100, 2)} %`, value: 'FIUBA §16.1' })),
         ...bars.flatMap((b) => ([0, 1] as const).filter((i) => b.hook180?.[i]).map((i) => ({ label: 'rcSheets.s.lineHook180', formula: `${b.mark} ${i === 0 ? '←' : '→'}: ${b.bars.count} Ø${b.bars.dia} · 180° · ${fmt(code.hook180Extension!(b.bars.dia) * 100, 0)} cm`, value: code.text.clause.hook180 ?? '' }))),
       ],
     },

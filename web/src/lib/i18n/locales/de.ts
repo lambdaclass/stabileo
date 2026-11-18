@@ -13726,6 +13726,8 @@ const de: Translations = {
   "rcSheets.s.lineStraightEnd": "Gerade Verankerung am einfachen Auflager: ld ab dem Momentennullpunkt",
   "rcSheets.s.lineHook180": "180°-Haken: Der Schenkel des 90°-Hakens passt nicht in die Höhe",
   "rcSheets.s.lineJoined": "Obere Zulagen benachbarter Auflager durchlaufend: zwischen ihren Abbruchstellen bliebe weniger als max(d; 12·db) (Kriterium des Lehrstuhls)",
+  "rcSheets.s.lineKnee": "Rahmenecke: der Biegeradius bleibt innerhalb des inneren Hebelarms (Kriterium des Lehrstuhls)",
+  "rcSheets.s.lineKneeHaunch": "Rahmenecke mit ρ ≥ 0,70 %: eine Voute ist ratsam (Kriterium des Lehrstuhls)",
   "rcSheets.s.lineThird": "Ein Drittel der Stützbewehrung über den Wendepunkt",
   "rcSheets.s.lineDev": "Nicht verankerte Stäbe zählen anteilig",
   "rcSheets.s.ldRow": "Längen",
