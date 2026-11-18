@@ -1,0 +1,40 @@
+{
+  "mainCommit": "d0f23b375e82242f302fff7a9b66af96358bf818",
+  "mainFingerprint": "b7fc7d47d27488b7d8542b48d105bf5ebc14ed2cc7ae19c54e0ffc1f24e70b84",
+  "afterFingerprint": "9e8ca34acf8fac86dc0f1ee456e66ae095b80412e4e96dccadd865f31ef01e3e",
+  "changes": [
+    {
+      "path": "base.equilibrium.appliedForceSum[0]",
+      "before": 0,
+      "after": 8.881784197e-16
+    },
+    {
+      "path": "case[1].equilibrium.appliedForceSum[0]",
+      "before": 0,
+      "after": 8.881784197e-16
+    }
+  ],
+  "historicalResponses": [
+    {
+      "sources": [
+        "v0.2.0/cable-stayed-bridge.results.json.gz"
+      ],
+      "before": "24e63275a3345aeddfc2ad71b82681632ba27dbff47949a92a7535c82791a772",
+      "quantities": [
+        "displacements.rz",
+        "reactions.mz"
+      ]
+    },
+    {
+      "sources": [
+        "v0.3.0/cable-stayed-bridge.results.json.gz",
+        "v0.4.0/cable-stayed-bridge.results.json.gz"
+      ],
+      "before": "625f64fe96b0fa8aeeea95de8d5fa15c3973e8e41c5ce98c3583c406c52031a8",
+      "quantities": [
+        "displacements.rz",
+        "reactions.mz"
+      ]
+    }
+  ]
+}

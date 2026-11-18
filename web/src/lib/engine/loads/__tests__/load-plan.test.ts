@@ -1,3 +1,4 @@
+import { windEndResultants } from './wind-integration-fixture';
 import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
@@ -312,9 +313,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     },
   }));
 
-  it('produces nodal wind forces and a q_h factor', () => {
+  it('produces member wind forces and a q_h factor', () => {
     const p = windOn();
-    expect(p.nodal.some((n) => n.caseType === 'W')).toBe(true);
+    expect(p.distributed.some((n) => n.caseType === 'W')).toBe(true);
     expect(p.factors.windQh?.value).toBeGreaterThan(0);
   });
 
@@ -345,11 +346,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
   });
 
   it('loads each level with the velocity pressure at its own height', () => {
-    // A 10-storey, 30 m frame in exposure B, where K_z grows from 0.57 at 5 m to ~1.0 at
-    // 30 m. The generator used to apply the windward pressure at z = 5 m to every level.
     const bay = 6;
     const p = buildLoadPlan(input({
-      model: frame(10, bay, 3),
+      model: frame(11, bay, 3),
       wind: {
         enabled: true, basicSpeed: 45, exposure: 'B', enclosure: 'enclosed',
         siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true,
@@ -357,10 +356,10 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
       },
     }));
     const byLevel = new Map<number, number>();
-    const zOf = new Map([...frame(10, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
+    const zOf = new Map([...frame(11, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
     // Case 1 from +X only: the plan now also carries −X and cases 2 to 4.
     const first = p.cases.findIndex((c) => c.nameKey.startsWith('autoLoad.windCase1') && c.nameParams?.dir === '+X');
-    for (const n of p.nodal.filter((x) => x.caseType === 'W' && x.caseIndex === first)) {
+    for (const n of windEndResultants(frame(11, bay, 3), p.distributed.filter(x => x.caseType === 'W' && x.caseIndex === first), p.nodal.filter(x => x.caseType === 'W' && x.caseIndex === first))) {
       const z = zOf.get(n.nodeId)!;
       byLevel.set(z, (byLevel.get(z) ?? 0) + n.fx);
     }
@@ -368,23 +367,24 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     const perM = (z: number) => byLevel.get(z)! / 3 / bay;   // kPa
     const project = {
       basicSpeed: 45, exposure: 'B' as const, siteAltitudeM: 0, kzt: 1, kztSurveyed: true,
-      structureKind: 'building' as const, enclosure: 'enclosed' as const, meanRoofHeight: 30,
+      structureKind: 'building' as const, enclosure: 'enclosed' as const, meanRoofHeight: 33,
       L: bay, B: bay, roofSlopeDeg: 0, rigid: true,
     };
     const res = computeWindPressures(project);
     const cpW = res.pressures.find((x) => x.surface === 'windwardWall')!.cp;
     const cpL = res.pressures.find((x) => x.surface === 'leewardWall')!.cp;
-    const expected = (z0: number, z1: number) => {
-      // The band's mean q_z, by a fine rectangle rule: independent of the generator's Simpson.
+    const expected = (z: number) => {
       let sum = 0; const n = 600;
-      for (let k = 0; k < n; k++) sum += velocityPressure(z0 + (k + 0.5) * (z1 - z0) / n, project);
-      return (sum / n * G_RIGID * cpW - res.qhNm2 * G_RIGID * cpL) / 1000;
+      for (let k = 0; k < n; k++) {
+        const at = z - 3 + (k + 0.5) * 6 / n;
+        const pressure = (velocityPressure(at, project) * G_RIGID * cpW - res.qhNm2 * G_RIGID * cpL) / 1000;
+        sum += Math.max(pressure, 0.75) * (1 - Math.abs(at - z) / 3);
+      }
+      return sum / n * 2;
     };
-    for (const z of [6, 15, 27]) {
-      expect(perM(z) / expected(z - 1.5, z + 1.5)).toBeCloseTo(1, 4);
-    }
+    for (const z of [6, 15, 30]) expect(perM(z) / expected(z)).toBeCloseTo(1, 4);
     // And the top storeys carry clearly more than the lower ones.
-    expect(perM(27) / perM(6)).toBeGreaterThan(1.25);
+    expect(perM(30) / perM(6)).toBeGreaterThan(1.25);
   });
 
   it('adds a wind case per requested direction, and the cases of Fig. 2.4-8 on request', () => {
@@ -901,7 +901,8 @@ describe('the companion live load factor reads the roof occupancy too', () => {
   it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
     const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
     const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
     expect(companions.length).toBeGreaterThan(0);
     for (const t of companions) expect(t.factor).toBe(1);

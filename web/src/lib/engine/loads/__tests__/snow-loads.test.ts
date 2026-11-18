@@ -1,3 +1,4 @@
+import { physicalSnowCases } from './snow-physical-cases';
 import { transverseSnowLoads } from './snow-roof-plane-fixture';
 /**
  * Snow on the model's roof: a single-bay gable shed, where the balanced case must put exactly
@@ -162,7 +163,7 @@ describe('snow in the load plan', () => {
   it('adds the snow cases and puts S in the combinations', () => {
     const p = buildLoadPlan(input());
     expect(p.outcome).toBe('READY');
-    expect(p.cases.filter((c) => c.type === 'S')).toHaveLength(3);
+    expect(physicalSnowCases(p)).toHaveLength(3);
     expect(p.combinations.some((c) => c.terms.some((t) => t.symbol === 'S' && t.factor === 1.6))).toBe(true);
     expect(p.derivation.some((m) => m.key === 'snow.derivation.pf')).toBe(true);
     expect(p.unsupportedKeys.some((m) => m.key === 'snow.note.notCovered')).toBe(true);

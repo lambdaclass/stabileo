@@ -3,6 +3,7 @@
  * reciprocity, for a displacement) gives its shape, its ordinates and areas, and how it is
  * loaded for the largest and smallest values, each number checked against a direct solve.
  */
+import { MemberLoadIntervalError } from '../member-span-loads';
 import type { Block, CompareRow, Step, StepDoc } from './doc';
 import { tx, compareNoteFor } from './doc';
 import type { PlaneModel } from './plane-model';
@@ -214,6 +215,18 @@ function usingStep(d: InfluenceDocData, r: LineReading): Step {
 }
 
 export function buildInfluenceDoc(d: InfluenceDocData): StepDoc {
+  try { return computedInfluenceDoc(d); }
+  catch (error) {
+    if (!(error instanceof MemberLoadIntervalError)) throw error;
+    const refused = tx(`${K}refused`, { why: error.message });
+    return {
+      method: 'influenceLine', title: tx('steps.m.influenceLine.title'), subtitle: subtitleOf(d),
+      intro: [], steps: [{ title: tx('steps.m.influenceLine.title'), blocks: [{ kind: 'note', tone: 'warn', text: refused }] }],
+    };
+  }
+}
+
+function computedInfluenceDoc(d: InfluenceDocData): StepDoc {
   const r = readLine(d.unit, { quantity: d.quantity, points: d.points, ...(d.target.kind === 'node' ? { targetNodeId: d.target.nodeId } : { targetElementId: d.target.elementId, targetPosition: d.target.t }) }, d.loads, d.placement, d.loadedIds, d.dir);
   return {
     method: 'influenceLine',

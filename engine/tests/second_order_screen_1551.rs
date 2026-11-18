@@ -430,3 +430,38 @@ fn a_case_without_a_screen_counts_as_compressed_when_a_span_load_compresses_a_me
         assert_eq!(combine(&spanned), unbounded(), "3D: ends at {n}, compressed inside by a span load");
     }
 }
+
+#[test]
+fn issue_2223_nonfinite_combination_keeps_a_refusal_and_the_unbounded_screen() {
+    use dedaliano_engine::postprocess::combinations::{combine_results, combine_results_checked, CaseEntry, CombinationInput};
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut case = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
+        case.result_summary = None;
+        case.structured_diagnostics.clear();
+        case.element_forces[0].n_start = value;
+        let factors = vec![CombinationFactor { case_id: 1, factor: 1.0 }];
+        let owned = CombinationInput { factors: factors.clone(), cases: vec![CaseEntry { case_id: 1, results: case.clone() }] };
+        for result in [combine_results_refs(&factors, &[(1, &case)]), combine_results(&owned)] {
+            let r = result.expect("a refused result must retain its diagnosis");
+            assert_eq!(second_order(&r.structured_diagnostics), unbounded());
+            assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NonFiniteResult && d.severity == Severity::Error));
+            assert!(r.displacements.is_empty() && r.reactions.is_empty() && r.element_forces.is_empty());
+            assert!(r.result_summary.is_none() && r.equilibrium.is_none());
+            let refused = CombinationInput { factors: factors.clone(), cases: vec![CaseEntry { case_id: 1, results: r.clone() }] };
+            assert!(combine_results_checked(&refused).unwrap_err().contains("non_finite_result"));
+            assert!(combine_results_refs(&factors, &[(1, &r)]).is_none());
+            assert!(dedaliano_engine::postprocess::combinations::compute_envelope(&[r]).unwrap_err().contains("non_finite_result"));
+        }
+        assert!(combine_results_checked(&owned).unwrap_err().contains("non_finite_result"));
+        let mut spatial = solve_3d(&cantilever_3d(2, -10.0, E, 1.0, IDENTITY, [0.0; 3])).unwrap();
+        spatial.element_forces[0].n_start = value;
+        assert!(combine_results_3d_refs(&factors, &[(1, &spatial)]).unwrap_err().contains("non_finite_result"));
+    }
+    let finite = solve_2d(&cantilever_2d(2, -10.0, E, 1.0)).unwrap();
+    for value in [-1.0, 0.0, 1.0] {
+        let factors = vec![CombinationFactor { case_id: 1, factor: value }];
+        let combined = combine_results_refs(&factors, &[(1, &finite)]).unwrap();
+        assert_eq!(combined.reactions[0].rz, value * finite.reactions[0].rz);
+        assert!(!combined.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::NonFiniteResult));
+    }
+}

@@ -1,3 +1,4 @@
+import { te } from '../i18n/engine-text';
 import { migrateDesignData } from '../model/design-data';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
@@ -45,7 +46,7 @@ import type { ModelSnapshot, SnapshotKind } from './history.svelte';
 import { normalizeMassSource, type MassSource } from '../engine/dynamics/mass-source';
 import { pruneScopes, scopeBundle3D, type ResultScopes } from '../engine/result-scopes';
 import type { CombinationRule } from '../engine/loads/combination-rules';
-import { segmentBounds, splitElementLoads, segmentFields, flexibleMemberLength } from '../model/edit/member-split';
+import { splitElementLoads, segmentFields, memberLoadGeometry } from '../model/edit/member-split';
 import { variableCutSection, variableRefusal } from '../section/variable';
 import { findCoincidentNode } from '../engine/mesh-weld';
 import { NodeIndex } from '../model/edit/node-index';
@@ -55,9 +56,9 @@ import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { constraintsAcrossDepth, constraintsCoupledAcrossPlane, constraintsInXZ } from '../engine/constraint-2d-remap';
 import { addsLoop, singleSolveModel } from '../engine/case-effects';
-import { t, tp } from '../i18n';
+import { t } from '../i18n';
 import { GRAVITY_SELF_WEIGHT, planSelfWeight, type SelfWeightLoad } from '../engine/analysis-settings';
-import { type ModelData, shouldEmbedFlat2DModelIn3D, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
+import { type ModelData, validateAndSolve2D, validateAndSolve2DAsync, buildSolverInput2D, validateAndSolve3D, validateAndSolve3DAsync, linearSolveInput3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { checkStretch, checkPosition, editKeepsPlace, loadedLength } from '../model/loads/load-stretch';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
@@ -750,6 +751,7 @@ export const loadMemberId = (l: Load): number | undefined =>
 export type LoadCaseType = string;
 
 export interface LoadCase {
+  snowBasis?: 'flatRoof';
   id: number;
   type: LoadCaseType;
   name: string;
@@ -1444,12 +1446,12 @@ function createModelStore() {
    * whose cuts no section can name is not cut (null), and `variableCutRefused` says why.
    */
   /** A section of the model equal to `data` in what it is (geometry, rotation, shear areas), or a new one. */
-  function sectionLike(data: Omit<Section, 'id'>): number {
+  function sectionLike(data: Omit<Section, 'id'>, sections: Map<number, Section>, ids: typeof nextId): number {
     const what = (s: Omit<Section, 'id'>) => JSON.stringify([s.built ?? null, s.drawn ?? null, s.rotation ?? 0, s.shearAreas ?? null]);
     const key = what(data);
-    for (const s of model.sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
-    const id = nextId.section++;
-    model.sections = new Map(model.sections).set(id, resolveOnCreate({ id, ...data }));
+    for (const s of sections.values()) if ((s.built || s.drawn) && what(s) === key) return s.id;
+    const id = ids.section++;
+    sections.set(id, resolveOnCreate({ id, ...data }));
     return id;
   }
 
@@ -1505,42 +1507,42 @@ function createModelStore() {
       : [];
     if (cutSections.some((c) => c === null)) return null;
 
+    const nodes = new Map(model.nodes);
+    const elements = new Map(model.elements);
+    const sections = new Map(model.sections);
+    const ids = { ...nextId };
+    const hasZ = ni.z !== undefined || nj.z !== undefined;
+    const fractions = [0, ...cuts, 1];
+    const nodeIds = cutAt.map((k) => {
+      if (k.id !== null) return k.id;
+      const id = ids.node++, p = pointAt(k.t);
+      nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
+      return id;
+    });
+    const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
+    const count = chain.length - 1;
+    const segmentIds = Array.from({ length: count }, (_, k) =>
+      k === 0 && opts.keepOriginalId ? elementId : ids.element++);
+    const original = JSON.parse(JSON.stringify(elem)) as Element;
+    if (!opts.keepOriginalId) elements.delete(elementId);
+    const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!, sections, ids)), variable.sectionJ] : [];
+    for (let k = 0; k < count; k++) {
+      elements.set(segmentIds[k]!, {
+        id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
+        ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
+      });
+    }
+    const { bounds, lengths, points } = memberLoadGeometry({ ...model, sections }).partition(original, nodes, elements, segmentIds);
+    const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => ids.load++, lengths, points);
+
     if (!_undoBatching) _pushUndo?.();
     const outerBatching = _undoBatching;
     _undoBatching = true;
     try {
-      const hasZ = ni.z !== undefined || nj.z !== undefined;
-      const L = elem.offset && !shouldEmbedFlat2DModelIn3D(model)
-        ? flexibleMemberLength(elem, ni, nj, model.sections.get(elem.sectionId)?.rotation)
-        : Math.hypot(nj.x - ni.x, nj.y - ni.y, (nj.z ?? 0) - (ni.z ?? 0));
-      const fractions = [0, ...cuts, 1];
-      const nodeIds: number[] = [];
-      for (const k of cutAt) {
-        const p = pointAt(k.t);
-        let id = k.id;
-        if (id === null) {
-          id = nextId.node++;
-          model.nodes.set(id, { id, x: p.x, y: p.y, ...(hasZ ? { z: p.z } : {}) });
-        }
-        nodeIds.push(id);
-      }
-      const chain = [elem.nodeI, ...nodeIds, elem.nodeJ];
-      const count = chain.length - 1;
-      const segmentIds = Array.from({ length: count }, (_, k) =>
-        k === 0 && opts.keepOriginalId ? elementId : nextId.element++);
-      const original = JSON.parse(JSON.stringify(elem)) as Element;
-      if (!opts.keepOriginalId) model.elements.delete(elementId);
-      // A member of variable section: end I's section, each cut's (an equal one the model has, or a new one), end J's.
-      const ends = variable ? [elem.sectionId, ...cutSections.map((c) => sectionLike(c!)), variable.sectionJ] : [];
-      for (let k = 0; k < count; k++) {
-        model.elements.set(segmentIds[k]!, {
-          id: segmentIds[k]!, nodeI: chain[k]!, nodeJ: chain[k + 1]!, ...segmentFields(original, k, count, fractions[k], fractions[k + 1]),
-          ...(variable ? { sectionId: ends[k]!, variableSection: { ...variable, sectionJ: ends[k + 1]! } } : {}),
-        });
-      }
-
-      const bounds = segmentBounds(L, cuts);
-      const { kept, added } = splitElementLoads(model.loads, elementId, bounds, segmentIds, () => nextId.load++);
+      Object.assign(nextId, ids);
+      model.nodes = nodes;
+      model.elements = elements;
+      model.sections = sections;
       model.loads = [...kept, ...added];
 
       // A group that held the member now holds every segment of it.
@@ -4179,10 +4181,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof' } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
       return id;
     },
 
@@ -4370,16 +4372,21 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category'] } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof' } = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis });
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
         found.category = opts.category;
+        model.loadCases = [...model.loadCases];
+      }
+      if (found.snowBasis !== opts.snowBasis) {
+        if (!_undoBatching) _pushUndo?.();
+        if (opts.snowBasis) found.snowBasis = opts.snowBasis; else delete found.snowBasis;
         model.loadCases = [...model.loadCases];
       }
       const pattern = opts.pattern ? true : undefined;
@@ -4602,7 +4609,7 @@ function createModelStore() {
       } catch (err) {
         const m = engineFailureMessage(err);
         if (!m) throw err;
-        return tp(m.key, m.params ?? {});
+        return te(m);
       }
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
@@ -4627,7 +4634,7 @@ function createModelStore() {
       } catch (err) {
         const m = engineFailureMessage(err);
         if (!m) throw err;
-        return tp(m.key, m.params ?? {});
+        return te(m);
       }
       // The active list is a PRO definition; Basic keeps enveloping every combination.
       return isPro ? scopeBundle3D(r, model.resultScopes, model.combinations) : r;
@@ -5060,12 +5067,12 @@ function createModelStore() {
  * finds the same cases apply will write into (`apply-load-plan.ts`). Loads reduced already
  * (`reduced`) are never found a case reduced by hand, by name: they would be reduced twice.
  */
-export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives'> & { reduction?: unknown }>(
-  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean; reduced?: boolean } = {},
+export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' | 'alternatives' | 'snowBasis'> & { reduction?: unknown }>(
+  cases: readonly C[], name: string, type: string, opts: { existingId?: number | null; alternatives?: string; own?: boolean; reduced?: boolean; snowBasis?: 'flatRoof' } = {},
 ): C | undefined {
   const numbered = (n: string) => n === name || (n.startsWith(`${name} (`) && /^\(\d+\)$/.test(n.slice(name.length + 1)));
-  const open = (c: C) => !(opts.reduced && c.reduction !== undefined);
-  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId) : undefined)
+  const open = (c: C) => c.snowBasis === opts.snowBasis && !(opts.reduced && c.reduction !== undefined);
+  return (opts.existingId != null ? cases.find((c) => c.id === opts.existingId && open(c)) : undefined)
     ?? (opts.own
       ? cases.find((c) => c.type === type && c.alternatives === opts.alternatives && numbered(c.name) && open(c))
       : cases.find((c) => c.type === type && c.name === name && open(c)));
