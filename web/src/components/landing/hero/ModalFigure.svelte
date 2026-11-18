@@ -15,6 +15,7 @@
   const omega = (j: number) => Math.sin(((2 * j - 1) * Math.PI) / (2 * (2 * STORIES + 1)));
   const shape = (j: number, i: number) => Math.sin(((2 * j - 1) * Math.PI * i) / (2 * STORIES + 1));
   const RATIO = [1, 2, 3].map((j) => omega(j) / omega(1));
+  const FUNDAMENTAL_PLAYBACK_HZ = 2.4 / RATIO[SHOWN - 1];
   const PEAK = [1, 2, 3].map((j) => Math.max(...Array.from({ length: STORIES }, (_, i) => Math.abs(shape(j, i + 1)))));
 
   const BAY = 74, STORY = 38, X0 = 52, Y0 = 254, AMP = 33;
@@ -24,7 +25,7 @@
   const mode = $derived(Math.min(SHOWN, Math.floor(time / SEGMENT) + 1));
   const local = $derived(time - (mode - 1) * SEGMENT);
   const envelope = $derived(Math.sin((Math.PI * local) / SEGMENT) ** 2);
-  const freq = $derived(0.75 * Math.min(RATIO[mode - 1], 3.2));
+  const freq = $derived(FUNDAMENTAL_PLAYBACK_HZ * RATIO[mode - 1]);
   const swing = $derived(envelope * Math.sin(2 * Math.PI * freq * local));
   const drift = $derived(Array.from({ length: STORIES + 1 }, (_, i) => (i === 0 ? 0 : (AMP * swing * shape(mode, i)) / PEAK[mode - 1])));
 

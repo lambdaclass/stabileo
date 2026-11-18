@@ -153,7 +153,7 @@ it('#2285 coincident shed members show distinct stress levels on separate stroke
   });
 });
 
-it.skip('known wrong result: #2285 the modal drawing oscillates at the frequency ratios in its caption', () => {
+it('#2285 the modal drawing oscillates at the frequency ratios in its caption', () => {
   const duration = 18;
   const segment = duration / 3;
   const format = new Intl.NumberFormat('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -169,10 +169,10 @@ it.skip('known wrong result: #2285 the modal drawing oscillates at the frequency
   const baseline = sample(1, 0).x;
   const halfCycles: number[] = [];
   for (const mode of [1, 2, 3]) {
-    const rest = sample(mode, 0.04);
     let before = 0.04;
+    const first = sample(mode, before);
     let after = 0.08;
-    expect(rest.x).toBeGreaterThan(baseline);
+    expect(first.x).toBeGreaterThan(baseline);
     while (after < 2 && sample(mode, after).x > baseline) {
       before = after;
       after += 0.04;
@@ -184,6 +184,6 @@ it.skip('known wrong result: #2285 the modal drawing oscillates at the frequency
       else after = mid;
     }
     halfCycles.push((before + after) / 2);
-    expect.soft(format.format(halfCycles[0] / halfCycles[mode - 1]), `mode ${mode}`).toBe(rest.ratio);
+    expect.soft(format.format(halfCycles[0] / halfCycles[mode - 1]), `mode ${mode}`).toBe(first.ratio);
   }
 });

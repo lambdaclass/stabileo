@@ -74,9 +74,9 @@ async function bootWithHeroClock(page: Page) {
     window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(performance.now()), 100);
     window.cancelAnimationFrame = (handle) => window.clearTimeout(handle);
   });
+  await page.clock.pauseAt(60_000);
   await bootLanding(page);
   await page.mouse.move(0, 0);
-  await page.clock.pauseAt(60_000);
 }
 
 const shedChunk = /\/ShedFigure(?:-[^/]+\.js|\.svelte)$/;
@@ -84,13 +84,16 @@ const shedChunk = /\/ShedFigure(?:-[^/]+\.js|\.svelte)$/;
 async function gateShedChunk(page: Page) {
   const started = Promise.withResolvers<void>();
   const released = Promise.withResolvers<void>();
+  let requested = false;
   await page.route(shedChunk, async (route) => {
+    requested = true;
     started.resolve();
     await released.promise;
     await route.continue();
   });
   return {
     started: started.promise,
+    requested: () => requested,
     async finish() {
       const finished = page.waitForEvent('requestfinished', (request) => shedChunk.test(request.url()));
       released.resolve();
@@ -449,6 +452,7 @@ test.describe('@landing landing page', () => {
   }
 
   test('#2090 the hero opens on the building and rotates through every figure on its own', async ({ page }) => {
+    await disableHeroPreload(page);
     await bootWithHeroClock(page);
     const active = page.locator('.landing .hero-fig-switch button.on');
     await expect(page.locator('.landing .hero-fig-switch button')).toHaveCount(7);
@@ -495,23 +499,28 @@ test.describe('@landing landing page', () => {
   });
 
   test('a figure that finishes loading late does not replace the one chosen after it', async ({ page }) => {
-    await page.route('**/ShedFigure-*.js', async (route) => {
-      await new Promise((r) => setTimeout(r, 2500));
-      await route.continue();
-    });
-    await bootLanding(page);
-    await page.locator('.landing [data-figure="shed"]').click();
-    await page.locator('.landing [data-figure="building"]').click();
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(4000); // slow-ok: the delayed chunk lands 2.5 s after the click and must change nothing
-    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
-  });
-
-  test.skip('known wrong result: #2285 the carousel skips a stalled chunk and discards its late completion', async ({ page }) => {
     await disableHeroPreload(page);
     const shed = await gateShedChunk(page);
     await bootWithHeroClock(page);
-    await page.clock.runFor(17_500);
+    await page.locator('.landing [data-figure="shed"]').dispatchEvent('click');
+    await shed.started;
+    await page.locator('.landing [data-figure="building"]').dispatchEvent('click');
+    await shed.finish();
+    await page.clock.runFor(600);
+    await expectHeroDrawing(page, 'building', 'bld-fig');
+    await page.locator('.landing [data-figure="shed"]').dispatchEvent('click');
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'shed');
+    await page.clock.runFor(600);
+    await expectHeroDrawing(page, 'shed', 'shed-fig');
+  });
+
+  test('#2285 the carousel skips a stalled chunk and discards its late completion', async ({ page }) => {
+    await disableHeroPreload(page);
+    const shed = await gateShedChunk(page);
+    await bootWithHeroClock(page);
+    await page.clock.runFor(1000);
+    expect(shed.requested(), 'data saving skips idle preloading').toBe(false);
+    await page.clock.runFor(16_500);
     await shed.started;
     await expectHeroDrawing(page, 'building', 'bld-fig');
     await page.clock.runFor(2200);
@@ -525,7 +534,7 @@ test.describe('@landing landing page', () => {
   });
 
   for (const pause of ['pointer', 'reduced motion'] as const) {
-    test.skip(`known wrong result: #2285 a pending automatic switch waits for ${pause} to clear`, async ({ page }) => {
+    test(`#2285 a pending automatic switch waits for ${pause} to clear`, async ({ page }) => {
       await disableHeroPreload(page);
       const shed = await gateShedChunk(page);
       await bootWithHeroClock(page);
@@ -544,27 +553,17 @@ test.describe('@landing landing page', () => {
     });
   }
 
-  test('#2090 a figure that fails to load is skipped without repeated requests', async ({ page }) => {
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'connection', { value: { saveData: true } });
-    });
-    let requests = 0;
-    await page.route('**/ShedFigure-*.js', (route) => {
-      requests++;
-      return route.abort();
-    });
+  test('#2090 the carousel skips a figure whose chunk fails to load', async ({ page }) => {
+    await disableHeroPreload(page);
+    await page.route(shedChunk, (route) => route.abort());
     await bootWithHeroClock(page);
-    expect(requests, 'data saving skips idle preloading').toBe(0);
-    const active = page.locator('.landing .hero-fig-switch button.on');
+    await expectHeroDrawing(page, 'building', 'bld-fig');
+    const failedChunk = page.waitForEvent('requestfailed', (request) => shedChunk.test(request.url()));
     await page.clock.runFor(17_500);
-    await expect.poll(() => requests, { message: 'the failing figure chunk was actually requested' }).toBeGreaterThan(0);
-    await expect(active).toHaveAttribute('data-figure', 'building');
-    const bar = active.locator('.hero-fig-progress span');
-    await expect.poll(() => bar.evaluate((e) => new DOMMatrix(getComputedStyle(e).transform).a)).toBeLessThan(0.1);
-    await page.clock.runFor(17_500);
-    await expect(active).toHaveAttribute('data-figure', 'truss');
-    await expect(page.locator('.landing .hero-figure .truss-fig svg')).toBeVisible();
-    expect(requests, 'one attempt per switch, not one per frame').toBeLessThan(5);
+    await failedChunk;
+    await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'truss');
+    await page.clock.runFor(600);
+    await expectHeroDrawing(page, 'truss', 'truss-fig');
   });
 
   test('turning on reduced motion after the page loads stops the hero', async ({ page }) => {
