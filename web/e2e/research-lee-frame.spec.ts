@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { expect, test, type Page } from '@playwright/test';
 
 const URL = (locale: string) => `/${locale}/research/benchmarks/lee-frame-1968/`;

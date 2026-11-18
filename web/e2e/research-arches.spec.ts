@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect } from '@playwright/test';
 
 test('@smoke research arches replay, mode and production WASM recomputation', async ({ page }) => {

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { EXAMPLE_IDS } from '../src/components/examples/ids';
-import { BUILD_FEATURES, BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_FEATURES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 
 
 test.skip(BUILD_FEATURES.tools, 'The enabled Tools build moves examples to tools; covered by tools-models.spec.ts');

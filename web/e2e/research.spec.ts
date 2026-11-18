@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect } from '@playwright/test';
 import { pickLanguage } from './fixtures';
 import { EXPERIMENTS } from '../src/components/research/experiments';

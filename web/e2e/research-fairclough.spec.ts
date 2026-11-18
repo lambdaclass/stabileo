@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect } from '@playwright/test';
 import { translations } from '../src/components/research/fairclough2026/translations';
 import result from '../../research/optimisation/fairclough-2026/results/stabileo_results.json' with { type: 'json' };

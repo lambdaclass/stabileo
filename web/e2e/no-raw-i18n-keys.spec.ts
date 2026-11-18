@@ -19,7 +19,7 @@
  * shell around the same bundle) and text drawn on the canvas (node and member labels, diagram
  * values), which is not in the DOM.
  */
-import { BUILD_PUBLIC_LOCALES, BUILD_OFFERED_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES, BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, bootPro, loadModel, alSection, PRO_URL } from './fixtures';
 import type { Page } from '@playwright/test';
 import es from '../src/lib/i18n/locales/es';

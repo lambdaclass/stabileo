@@ -8,7 +8,7 @@
  *  - The same model solved twice, and on the worker vs the main thread, gives bit-identical
  *    results; the reproduce dialog confirms a report's provenance.
  */
-import { BUILD_OFFERED_LOCALES } from './build-features';
+import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, loadModel, solveModel, bootPro } from './fixtures';
 import type { Locator, Page } from '@playwright/test';
 

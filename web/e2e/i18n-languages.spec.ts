@@ -24,7 +24,7 @@
  * process nothing.
  */
 
-import { BUILD_OFFERED_LOCALES } from './build-features';
+import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { readFileSync } from 'node:fs';
 import { test, expect, designAll, loadModel, PRO_URL, openDocumentsStage, setAppLanguage, appLanguage, designPlace, openFloorPass } from './fixtures';
 import en from '../src/lib/i18n/locales/en';

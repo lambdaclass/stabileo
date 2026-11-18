@@ -21,7 +21,7 @@
  * inside the joints panel. See `docs/handoffs/m1-steel-i18n-audit.md` §1.3.
  */
 
-import { BUILD_OFFERED_LOCALES } from './build-features';
+import { BUILD_OFFERED_LOCALES } from './build-locales';
 import { test, expect, PRO_URL, clickStage, ribbonCmd } from './fixtures';
 import { insertGenerated, pickGenerator, placeButton } from './generator-helpers';
 import type { Page } from '@playwright/test';

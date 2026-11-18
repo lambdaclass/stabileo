@@ -1,4 +1,5 @@
-import { BUILD_FEATURES, BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_FEATURES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import { bootLanding } from './landing-helpers';
 import { pickLanguage } from './fixtures';

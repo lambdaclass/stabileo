@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import replay from '../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json' with { type: 'json' };
 

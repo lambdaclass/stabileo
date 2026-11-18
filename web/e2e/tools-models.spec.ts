@@ -1,4 +1,5 @@
-import { BUILD_FEATURES, TOOLS_SKIP_REASON, BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import { TOOLS } from '../src/components/tools/registry';
 

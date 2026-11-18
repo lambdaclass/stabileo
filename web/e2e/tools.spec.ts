@@ -1,4 +1,5 @@
-import { BUILD_FEATURES, TOOLS_SKIP_REASON, BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';

@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect } from '@playwright/test';
 import LZString from 'lz-string';
 import { strings } from '../src/components/research/mattiasson1981/i18n';

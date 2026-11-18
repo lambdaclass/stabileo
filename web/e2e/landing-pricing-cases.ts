@@ -1,7 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import type { Locale } from '../src/lib/i18n/offered';
 import { bootLanding } from './landing-helpers';
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { PRICING, OBSOLETE_PRICING } from './pricing-contract';
 
 // Landing animations have wedged the shared CI browser on subsequent contexts.

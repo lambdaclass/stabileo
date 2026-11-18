@@ -1,4 +1,4 @@
-import { BUILD_PUBLIC_LOCALES } from './build-features';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import validation from '../../research/numerical-methods/riks-crisfield/reference-results/VALIDATION.json' with { type: 'json' };
 import native from '../../research/numerical-methods/riks-crisfield/reference-results/native-results.json' with { type: 'json' };

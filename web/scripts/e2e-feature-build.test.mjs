@@ -69,7 +69,7 @@ test('missing or invalid artifact switches fail instead of silently skipping cov
 for (const mask of [0, 1, 2, 4, 8, 15]) {
   test(`optional specs and main navigation select switch mask=${mask} coverage`, () => {
     const flags = Object.fromEntries(keys.map((key, index) => [key, Boolean(mask & (1 << index))]));
-    const files = ['diagram-game', 'mohr-tools', 'tools-models', 'accounts-legal-usage', 'ads-register', 'landing-nav', 'landing-pricing-hu', 'tools', 'tools-main', 'examples'];
+    const files = ['diagram-game', 'mohr-tools', 'tools-models', 'accounts-legal-usage', 'ads-register', 'landing-nav', 'landing-footer', 'landing-pricing-hu', 'tools', 'tools-main', 'examples'];
     const directory = mkdtempSync(resolve(root, '.e2e-feature-test-'));
     let report;
     try {
@@ -84,13 +84,17 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
       rmSync(directory, { recursive: true, force: true });
     }
     let inspected = 0;
+    const selected = new Map();
     function inspect(suite, title = '') {
       const fullTitle = `${title} ${suite.title}`;
       for (const spec of suite.specs ?? []) for (const entry of spec.tests) {
-        const available = spec.file === 'landing-nav.spec.ts'
-          ? fullTitle.includes('with switched items') === (flags.tools || flags.diagramGame)
-          : ['tools-main.spec.ts', 'examples.spec.ts'].includes(spec.file) ? !flags.tools
-          : flags[spec.file === 'diagram-game.spec.ts' ? 'diagramGame' : spec.file.startsWith('landing-pricing-') ? 'research' : ['accounts-legal-usage.spec.ts', 'ads-register.spec.ts'].includes(spec.file) ? 'accounts' : 'tools'];
+        const alwaysRun = ['landing-nav.spec.ts', 'landing-footer.spec.ts', 'landing-pricing-hu.spec.ts'];
+        const available = alwaysRun.includes(spec.file)
+          || (['tools-main.spec.ts', 'examples.spec.ts'].includes(spec.file) ? !flags.tools
+            : flags[spec.file === 'diagram-game.spec.ts' ? 'diagramGame' : ['accounts-legal-usage.spec.ts', 'ads-register.spec.ts'].includes(spec.file) ? 'accounts' : 'tools']);
+        const titles = selected.get(spec.file) ?? [];
+        titles.push(spec.title);
+        selected.set(spec.file, titles);
         assert.equal(entry.expectedStatus, available ? 'passed' : 'skipped', `${fullTitle} ${spec.title}`);
         if (!available) assert.ok(entry.annotations.some(annotation => annotation.type === 'skip' && annotation.description.includes('build')));
         inspected++;
@@ -99,6 +103,24 @@ for (const mask of [0, 1, 2, 4, 8, 15]) {
     }
     for (const suite of report.suites) inspect(suite);
     assert.ok(inspected > 0);
+    assert.equal(selected.get('landing-nav.spec.ts')?.length, 5);
+    const pricing = selected.get('landing-pricing-hu.spec.ts');
+    if (flags.research) {
+      assert.equal(pricing?.length, 9);
+      assert.equal(pricing.filter(title => title.startsWith('pricing for both audiences in hu')).length, 3);
+    } else {
+      assert.deepEqual(pricing, ['pricing falls back to English when hu is not published']);
+    }
+    const footer = selected.get('landing-footer.spec.ts');
+    for (const [path, published] of [
+      ['/en/examples/', !flags.tools],
+      ['/en/tools/', true],
+      ['/en/research/', true],
+      ['/en/terms/', flags.accounts],
+      ['/en/privacy/', flags.accounts],
+    ]) {
+      assert.equal(footer.includes(`the footer link ${path} opens a real page`), published, path);
+    }
   });
 }
 
