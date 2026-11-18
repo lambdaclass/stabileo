@@ -29,7 +29,7 @@ export const tr: Strings = {
   watchSnap: 'Sıçramayı izle',
 
   checksHeading: 'Makale ve Stabileo karşılaştırması',
-  checksIntro: 'Hesaplayabildiğimiz her yayımlanmış sayı, arXiv:2312.13908v2’deki sayfasıyla. Aksi belirtilmedikçe farklar görelidir; tolerans basılı son basamağın yarısı veya belirtilen modelleme sapmasıdır.',
+  checksIntro: 'Hesaplayabildiğimiz her yayımlanmış sayı, arXiv:2312.13908v2’deki sayfasıyla. Aksi belirtilmedikçe farklar görelidir; tolerans basılı son basamağın yarısı veya belirtilen modelleme sapmasıdır. ✗ işaretli satırlar yeniden üretemediğimiz karşılaştırmalardır; sayfanın üstündeki göstergede başarısız sayılır.',
   table: { quantity: 'Büyüklük', paper: 'Makale', ours: 'Stabileo', difference: 'Fark', source: 'Kaynak' },
   rows: {
     'tau-asymmetric': 'Asimetrik çözümün τ* değeri',
@@ -43,8 +43,13 @@ export const tr: Strings = {
     'toy-mu-a': 'Oyuncak modelin µ_A değeri',
     'toy-omega-lower': 'Oyuncak model, küçük ω / t_osc',
     'toy-omega-upper': 'Oyuncak model, büyük ω / t_osc',
+    'fig2c-transition': 'Şek. 2c, A’nın 2’nin altına indiği hız',
+    'fig2c-amplitude': 'Şek. 2c genlikleri, 0,04 ≤ µ̇ ≤ 0,1 (faz üzerinden en büyük)',
+    'fig2c-amplitude-one-end': 'Şek. 2c genlikleri, 0,04 ≤ µ̇ ≤ 0,1 (tek uç)',
+    'toy-critical-rate': 'Oyuncak modelin kritik hızı µ̇_c',
     'toy-t-osc': 'Oyuncak modelin t_osc değeri',
   },
+  notReproduced: 'yeniden üretilmedi, tolerans',
   absolute: 'mutlak',
   differencesHeading: 'Nerede ayrılıyoruz',
   toyRate: 'Oyuncak modelin kritik hızı: makale, eyer-düğüm yakınında asimptotik bir indirgemeyle µ̇_c ≈ {paper} verir; modelin (S84)–(S85) denklemlerini integre edip yörüngenin f < 0 bölgesine girip girmediğine göre ikiye bölmeyle {ours} buluyoruz ({diff}).',

@@ -29,7 +29,7 @@ export const hu: Strings = {
   watchSnap: 'Az ugrás megtekintése',
 
   checksHeading: 'A cikk és a Stabileo összevetése',
-  checksIntro: 'Minden közölt szám, amelyet ki tudunk számolni, az arXiv:2312.13908v2-beli oldalszámával. Az eltérések relatívak, ha nincs más jelölve; a tűrés az utolsó közölt jegy fele, vagy a megadott modellezési torzítás.',
+  checksIntro: 'Minden közölt szám, amelyet ki tudunk számolni, az arXiv:2312.13908v2-beli oldalszámával. Az eltérések relatívak, ha nincs más jelölve; a tűrés az utolsó közölt jegy fele, vagy a megadott modellezési torzítás. A ✗-gel jelölt sorok olyan összevetések, amelyeket nem reprodukálunk; az oldal tetején lévő jelzésben sikertelenként számítanak.',
   table: { quantity: 'Mennyiség', paper: 'Cikk', ours: 'Stabileo', difference: 'Eltérés', source: 'Forrás' },
   rows: {
     'tau-asymmetric': 'Az aszimmetrikus megoldás τ*-a',
@@ -43,8 +43,13 @@ export const hu: Strings = {
     'toy-mu-a': 'A játékmodell µ_A-ja',
     'toy-omega-lower': 'Játékmodell, kisebb ω / t_osc',
     'toy-omega-upper': 'Játékmodell, nagyobb ω / t_osc',
+    'fig2c-transition': '2c ábra, sebesség, ahol A 2 alá esik',
+    'fig2c-amplitude': 'A 2c ábra amplitúdói, 0,04 ≤ µ̇ ≤ 0,1 (fázisra vett maximum)',
+    'fig2c-amplitude-one-end': 'A 2c ábra amplitúdói, 0,04 ≤ µ̇ ≤ 0,1 (egy befogás)',
+    'toy-critical-rate': 'A játékmodell kritikus sebessége, µ̇_c',
     'toy-t-osc': 'A játékmodell t_osc-a',
   },
+  notReproduced: 'nem reprodukált, tűrés',
   absolute: 'abszolút',
   differencesHeading: 'Ahol eltérünk',
   toyRate: 'A játékmodell kritikus sebessége: a cikk a nyereg-csomó közeli aszimptotikus redukcióból µ̇_c ≈ {paper} értéket ad; a modell (S84)–(S85) egyenleteit integrálva és felezéssel keresve, hogy a pálya belép-e az f < 0 tartományba, {ours} adódik ({diff}).',

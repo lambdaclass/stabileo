@@ -29,7 +29,7 @@ export const de: Strings = {
   watchSnap: 'Den Sprung ansehen',
 
   checksHeading: 'Arbeit gegen Stabileo',
-  checksIntro: 'Jede veröffentlichte Zahl, die wir berechnen können, mit ihrer Seite in arXiv:2312.13908v2. Unterschiede sind relativ, sofern nicht anders angegeben; die Toleranz ist die halbe letzte gedruckte Stelle oder die angegebene Modellabweichung.',
+  checksIntro: 'Jede veröffentlichte Zahl, die wir berechnen können, mit ihrer Seite in arXiv:2312.13908v2. Unterschiede sind relativ, sofern nicht anders angegeben; die Toleranz ist die halbe letzte gedruckte Stelle oder die angegebene Modellabweichung. Mit ✗ markierte Zeilen sind Vergleiche, die wir nicht reproduzieren; sie zählen in der Übersicht oben auf der Seite als nicht bestanden.',
   table: { quantity: 'Größe', paper: 'Arbeit', ours: 'Stabileo', difference: 'Unterschied', source: 'Quelle' },
   rows: {
     'tau-asymmetric': 'τ* der asymmetrischen Lösung',
@@ -43,8 +43,13 @@ export const de: Strings = {
     'toy-mu-a': 'µ_A des Spielzeugmodells',
     'toy-omega-lower': 'Spielzeugmodell, kleineres ω / t_osc',
     'toy-omega-upper': 'Spielzeugmodell, größeres ω / t_osc',
+    'fig2c-transition': 'Abb. 2c, Rate, bei der A unter 2 fällt',
+    'fig2c-amplitude': 'Amplituden in Abb. 2c, 0,04 ≤ µ̇ ≤ 0,1 (Größtwert über die Phase)',
+    'fig2c-amplitude-one-end': 'Amplituden in Abb. 2c, 0,04 ≤ µ̇ ≤ 0,1 (eine Einspannung)',
+    'toy-critical-rate': 'Kritische Rate µ̇_c des Spielzeugmodells',
     'toy-t-osc': 't_osc des Spielzeugmodells',
   },
+  notReproduced: 'nicht reproduziert, Toleranz',
   absolute: 'abs.',
   differencesHeading: 'Wo wir abweichen',
   toyRate: 'Kritische Rate des Spielzeugmodells: Die Arbeit gibt µ̇_c ≈ {paper} aus einer asymptotischen Reduktion nahe dem Sattel-Knoten an; Integration seiner Gleichungen (S84)–(S85) und Bisektion danach, ob die Trajektorie f < 0 erreicht, ergibt {ours} ({diff}).',

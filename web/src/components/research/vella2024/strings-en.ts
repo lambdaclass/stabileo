@@ -28,7 +28,7 @@ export const en = {
   watchSnap: 'Watch the jump',
 
   checksHeading: 'Paper against Stabileo',
-  checksIntro: 'Every published number we can compute, with its page in arXiv:2312.13908v2. Differences are relative unless marked; the tolerance is half the last printed digit, or the stated modelling bias.',
+  checksIntro: 'Every published number we can compute, with its page in arXiv:2312.13908v2. Differences are relative unless marked; the tolerance is half the last printed digit, or the stated modelling bias. Rows marked ✗ are comparisons we do not reproduce; they count against the badge at the top of the page.',
   table: { quantity: 'Quantity', paper: 'Paper', ours: 'Stabileo', difference: 'Difference', source: 'Source' },
   rows: {
     'tau-asymmetric': 'τ* of the asymmetric solution',
@@ -42,8 +42,13 @@ export const en = {
     'toy-mu-a': 'Toy model µ_A',
     'toy-omega-lower': 'Toy model, lower ω / t_osc',
     'toy-omega-upper': 'Toy model, upper ω / t_osc',
+    'fig2c-transition': 'Fig. 2c, rate where A falls below 2',
+    'fig2c-amplitude': 'Fig. 2c amplitudes, 0.04 ≤ µ̇ ≤ 0.1 (largest over phase)',
+    'fig2c-amplitude-one-end': 'Fig. 2c amplitudes, 0.04 ≤ µ̇ ≤ 0.1 (one clamp)',
+    'toy-critical-rate': 'Toy model critical rate µ̇_c',
     'toy-t-osc': 'Toy model t_osc',
   } as Record<string, string>,
+  notReproduced: 'not reproduced, tolerance',
   absolute: 'abs.',
   differencesHeading: 'Where we differ',
   toyRate: 'Toy model critical rate: the paper gives µ̇_c ≈ {paper} from an asymptotic reduction near the saddle-node; integrating the toy model’s equations (S84)–(S85) and bisecting on whether the trajectory enters f < 0 gives {ours} ({diff}).',

@@ -38,7 +38,7 @@
       "observed": 2.3761644029013594e-10,
       "passed": true,
       "source": "paper p. 2 and p. 14: both ends moved gives no asymmetry",
-      "tolerance": 1e-06
+      "tolerance": 1e-6
     },
     {
       "id": "slow-amplifies",
@@ -90,7 +90,7 @@
       "computed": 0.2470500401268646,
       "id": "mu-star-analytic",
       "metric": "shallow theory: mu* at the fold of Eq. (S15)",
-      "observed": 5.004012686460335e-05,
+      "observed": 0.00005004012686460335,
       "passed": true,
       "reference": 0.247,
       "relative": false,
@@ -134,7 +134,7 @@
       "computed": 57.85681696144374,
       "id": "omega-fe",
       "metric": "FE, alpha = 0.02, natural state at mu = 1/4: lowest (antisymmetric) frequency against sqrt(3348.04)",
-      "observed": 9.38998055944884e-05,
+      "observed": 0.0000938998055944884,
       "passed": true,
       "reference": 57.862250215490235,
       "relative": true,
@@ -195,6 +195,17 @@
       "relative": true,
       "source": "arXiv:2312.13908v2 Eq. (S80), p. 22",
       "tolerance": 0.001
+    },
+    {
+      "computed": 0.16084751836809025,
+      "id": "fig2c-transition",
+      "metric": "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
+      "observed": 0.1328974751046348,
+      "passed": true,
+      "reference": 0.1855,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.2
     }
   ],
   "differences": {
@@ -607,5 +618,34 @@
       "relative": 0.09418129358411753
     }
   },
+  "not_reproduced": [
+    {
+      "id": "fig2c-amplitude",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our largest A over twelve seed phases (ours lower at every point)",
+      "observed": 0.730859085775549,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "id": "fig2c-amplitude-one-end",
+      "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
+      "observed": 0.842221697747277,
+      "passed": false,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.25
+    },
+    {
+      "computed": 0.1051508223134337,
+      "id": "toy-critical-rate",
+      "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+      "observed": 0.09418129358411753,
+      "passed": false,
+      "reference": 0.0961,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 4, Fig. 4 caption; 0.096 on p. 25",
+      "tolerance": 0.01
+    }
+  ],
   "scope": "Production co-rotational statics and research HHT-alpha dynamics of an elastica strip clamped at +/-alpha; the paper's shallow theory, its toy model and its published numbers. No laboratory validation; the paper's DER code is not available and was not run."
 }

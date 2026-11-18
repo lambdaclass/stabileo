@@ -10,7 +10,8 @@
   const difference = (r: Row) => (r.observed < 1e-12 ? '0' : r.relative ? `${num(100 * r.observed, { sig: 2 })} %` : `${num(r.observed, { sig: 2 })} ${s.absolute}`);
   const parameters = $derived([...new Set(sensitivity.map(x => x.parameter))]);
   const rates = $derived([...new Set(sensitivity.map(x => x.rate))]);
-  const page = (source: string) => source.replace(/^arXiv:2312\.13908v2 /, '');
+  const page = (source: string) => source.replace(/^arXiv:2312\.13908v2 /, '').replace(/, read off the figure.*$/, '');
+  const tolerance = (r: Row) => (r.relative === false ? `${num(r.tolerance, { sig: 2 })} ${s.absolute}` : `${num(100 * r.tolerance, { sig: 2 })} %`);
 </script>
 
 {#if rows.length}
@@ -19,7 +20,7 @@
       <thead><tr><th scope="col">{s.table.quantity}</th><th scope="col">{s.table.paper}</th><th scope="col">{s.table.ours}</th><th scope="col">{s.table.difference}</th><th scope="col">{s.table.source}</th></tr></thead>
       <tbody>
         {#each rows as r}
-          <tr><th scope="row">{s.rows[r.id] ?? r.id}</th><td>{show(r.reference!)}</td><td>{show(r.computed!)}</td><td>{r.passed ? '✓' : '✗'} {difference(r)}</td><td>{page(r.source)}</td></tr>
+          <tr class:failed={!r.passed}><th scope="row">{s.rows[r.id] ?? r.id}</th><td>{r.reference === undefined ? '—' : show(r.reference)}</td><td>{r.computed === undefined ? '—' : show(r.computed)}</td><td>{r.passed ? '✓' : '✗'} {difference(r)} {r.passed ? '' : `(${s.notReproduced} ${tolerance(r)})`}</td><td>{page(r.source)}</td></tr>
         {/each}
       </tbody>
     </table>
@@ -48,5 +49,6 @@
   .checks th[scope='row'] { text-align: left; font-weight: 500; }
   .checks td:not(:last-child) { white-space: nowrap; }
   .checks td:last-child { text-align: left; color: var(--fg-2); }
+  .checks tr.failed th, .checks tr.failed td:not(:last-child) { color: var(--st-amber); }
   .checks thead th { color: var(--fg-2); font-weight: 500; }
 </style>

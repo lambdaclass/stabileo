@@ -78,7 +78,8 @@
   ]);
 
   const check = (id: string) => validation.checks.find(c => c.id === id)!;
-  const published_ = validation.checks.filter(c => 'reference' in c);
+  const published_ = validation.checks.filter(c => 'reference' in c || c.source.startsWith('arXiv'));
+  const own = validation.checks.filter(c => !published_.includes(c));
   const paper = study.paper;
   const shallowRef = study.shallow_analytic.mu_star;
   const unseeded = Math.max(...d.unseeded.map(u => u[1]));
@@ -175,7 +176,7 @@
 <ExperimentShell paperId="wang-2024" name={s.title} lead={s.lead} introInArticle compactHeader locale={publicI18n.locale}
   sourcePath="research/mechanics/vella-2024"
   referenceLabel={s.referenceLabel}
-  verification={{ reference: { kind: 'checks', passed: validation.checks.filter(c => c.passed).length, total: validation.checks.length, href: '#checks' }, published: { kind: 'checks', passed: published_.filter(c => c.passed).length, total: published_.length, href: '#checks' } }}
+  verification={{ reference: { kind: 'checks', passed: own.filter(c => c.passed).length, total: own.length, href: '#checks' }, published: { kind: 'checks', passed: published_.filter(c => c.passed).length, total: published_.length + validation.not_reproduced.length, href: '#checks' } }}
   actions={{ goToStep, setParams, showTab: setTab }}>
   {#snippet article()}
     <h2>{s.showsHeading}</h2>
@@ -204,7 +205,7 @@
     <p><ExperimentLink step={-1}>{s.watchSnap}</ExperimentLink> · <ExperimentLink params={{ rate: 0.005 }}>{s.trySlow}</ExperimentLink> · <ExperimentLink params={{ rate: 0.3 }}>{s.tryFast}</ExperimentLink> · <ExperimentLink params={{ oneEnd: true }}>{s.tryOneEnd}</ExperimentLink></p>
     <h2 id="checks">{s.checksHeading}</h2>
     <p>{s.checksIntro}</p>
-    <SnapChecks {s} rows={published_} />
+    <SnapChecks {s} rows={[...published_, ...validation.not_reproduced]} />
     <h3>{s.differencesHeading}</h3>
     <p>{fill(s.toyRate, { paper: num(diff.toy_critical_rate.paper, { dp: 4 }), ours: num(diff.toy_critical_rate.ours, { dp: 4 }), diff: `+${pct(diff.toy_critical_rate.relative)}` })}</p>
     <p>{fill(s.figureCompare, { oneEnd: pct(diff.figure_2c.median_abs_error_one_end), envelope: pct(diff.figure_2c.median_abs_error_envelope), paperBelow: num(diff.figure_2c.paper_first_rate_below_2, { sig: 2 }), oursBelow: num(diff.figure_2c.ours_one_end_first_rate_below_2, { sig: 2 }) })}</p>

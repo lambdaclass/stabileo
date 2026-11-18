@@ -163,6 +163,23 @@ rate (about 10 % off); the experiments (no laboratory comparison is claimed); th
 which is not published, so its seed, time origin and snap window are our assumptions. Gravity,
 damping, rotary inertia and the stopper's impact are not modelled.
 
+## Evidence and what the badges count
+
+`VALIDATION.json` has three parts. `checks` (21, all passing) are 8 checks of our own (mesh
+orders, bifurcation order, symmetry without a seed, the rate effect, time step) and 13 against
+numbers printed in the paper (also in `reference-results/published_comparison.json`), including the
+rate at which Fig. 2c's amplification falls below 2 (0.161 against 0.186, within 20 %, the spread of
+the paper's own points around A = 2). `not_reproduced` lists the comparisons we fail, each with its
+number and the tolerance it would need: Fig. 2c's amplitudes between µ̇ = 0.04 and 0.1 (median
+|A_ours/A_paper − 1| = 0.73 for the largest A over phase, 0.84 for one clamp, against 0.25) and the
+toy model's critical rate (|0.1052/0.0961 − 1| = 0.094 against 0.01). `differences` keeps the
+row-by-row Fig. 2c numbers. The page's badge against the paper counts all of them: 13 of 16, marked
+as failing. The catalogue keeps `reproduced_published_results: true` because the printed numbers
+listed above are reproduced; its status is `interactive`, not `published-figures-compared`.
+
+The catalogue area is `metamaterials`, the area of the catalogue's two other snap-through papers
+(Zmyślony, Khan & Biggins 2026; Fehér 2026), so the gallery's area filter groups them.
+
 ## Tolerances
 
 - Published numbers printed to n digits: half the last digit (τ*, τ_fold, µ*: 5 × 10⁻⁴ absolute).

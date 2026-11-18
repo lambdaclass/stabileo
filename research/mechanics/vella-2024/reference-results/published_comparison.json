@@ -131,6 +131,17 @@
       "relative": true,
       "source": "arXiv:2312.13908v2 Eq. (S80), p. 22",
       "tolerance": 0.001
+    },
+    {
+      "computed": 0.16084751836809025,
+      "id": "fig2c-transition",
+      "metric": "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
+      "observed": 0.1328974751046348,
+      "passed": true,
+      "reference": 0.1855,
+      "relative": true,
+      "source": "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+      "tolerance": 0.2
     }
   ]
 }

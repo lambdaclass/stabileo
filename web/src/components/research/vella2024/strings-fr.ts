@@ -29,7 +29,7 @@ export const fr: Strings = {
   watchSnap: 'Voir le saut',
 
   checksHeading: 'L’article face à Stabileo',
-  checksIntro: 'Chaque nombre publié que nous pouvons calculer, avec sa page dans arXiv:2312.13908v2. Les écarts sont relatifs sauf mention ; la tolérance est la moitié du dernier chiffre imprimé, ou le biais de modélisation indiqué.',
+  checksIntro: 'Chaque nombre publié que nous pouvons calculer, avec sa page dans arXiv:2312.13908v2. Les écarts sont relatifs sauf mention ; la tolérance est la moitié du dernier chiffre imprimé, ou le biais de modélisation indiqué. Les lignes marquées ✗ sont des comparaisons que nous ne reproduisons pas ; elles comptent contre l’indicateur en haut de la page.',
   table: { quantity: 'Grandeur', paper: 'Article', ours: 'Stabileo', difference: 'Écart', source: 'Source' },
   rows: {
     'tau-asymmetric': 'τ* de la solution asymétrique',
@@ -43,8 +43,13 @@ export const fr: Strings = {
     'toy-mu-a': 'µ_A du modèle jouet',
     'toy-omega-lower': 'Modèle jouet, ω inférieure / t_osc',
     'toy-omega-upper': 'Modèle jouet, ω supérieure / t_osc',
+    'fig2c-transition': 'Fig. 2c, vitesse où A passe sous 2',
+    'fig2c-amplitude': 'Amplitudes de la fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (maximum sur la phase)',
+    'fig2c-amplitude-one-end': 'Amplitudes de la fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (un encastrement)',
+    'toy-critical-rate': 'Vitesse critique µ̇_c du modèle jouet',
     'toy-t-osc': 't_osc du modèle jouet',
   },
+  notReproduced: 'non reproduit, tolérance',
   absolute: 'abs.',
   differencesHeading: 'Là où nous divergeons',
   toyRate: 'Vitesse critique du modèle jouet : l’article donne µ̇_c ≈ {paper} par une réduction asymptotique près du nœud-col ; en intégrant ses équations (S84)–(S85) et en cherchant par dichotomie si la trajectoire entre dans f < 0, nous obtenons {ours} ({diff}).',

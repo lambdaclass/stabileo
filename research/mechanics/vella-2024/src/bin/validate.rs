@@ -85,10 +85,38 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
         check("fast-symmetric", "seeded, rates >= 0.3: largest amplification / 2", fast / ASYMMETRIC, 1.0, "paper Fig. 2c: A ~ 1 at fast rates"),
         check("dt", "amplification change from dt = 0.005 to 0.0025 T_osc, rates 0.03 and 0.1", dt_change, 0.02, "time-step study"),
     ];
-    checks.extend(published_checks.iter().cloned());
     let figure = figure_2c(root);
     let one_end: Vec<(f64, f64)> = d.one_end.iter().map(|x| (x.rate, x.amplification)).collect();
     let envelope: Vec<(f64, f64)> = d.seeded.iter().map(|x| (x.rate, x.envelope)).collect();
+    published_checks.push(published(
+        "fig2c-transition",
+        "Fig. 2c simulations: rate where A first falls below 2 (paper: first digitized point; ours: largest A over twelve seed phases); the paper's points cross A = 2 anywhere between 0.147 and 0.186",
+        first_below(&figure, ASYMMETRIC),
+        d.transition_envelope,
+        true,
+        0.2,
+        "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)",
+    ));
+    checks.extend(published_checks.iter().cloned());
+    let band: Vec<(f64, f64)> = figure.iter().copied().filter(|p| (0.04..=0.1).contains(&p.0)).collect();
+    let median_in_band = |ours: &[(f64, f64)]| {
+        let mut v: Vec<f64> = band.iter().filter_map(|&(r, a)| ours_at(ours, r).map(|o| (o / a - 1.0).abs())).collect();
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    let fig = "arXiv:2312.13908v2 p. 3, Fig. 2(c), read off the figure (reference/digitize_fig2c.py)";
+    let not_reproduced = vec![
+        json!({"id": "fig2c-amplitude", "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our largest A over twelve seed phases (ours lower at every point)",
+               "observed": median_in_band(&envelope), "tolerance": 0.25, "passed": median_in_band(&envelope) <= 0.25, "source": fig}),
+        json!({"id": "fig2c-amplitude-one-end", "metric": "Fig. 2c simulations, 0.04 <= mu_dot <= 0.1: median |A_ours / A_paper - 1|, our one-clamp protocol from DeltaL/L = 0.2 (ours lower at every point)",
+               "observed": median_in_band(&one_end), "tolerance": 0.25, "passed": median_in_band(&one_end) <= 0.25, "source": fig}),
+        {
+            let observed = (toy.critical_rate / pv("toy", "critical_rate") - 1.0).abs();
+            json!({"id": "toy-critical-rate", "metric": "toy model critical rate: |ours / paper - 1|; ours integrates (S84)-(S85) and bisects on whether the trajectory reaches f < 0, the paper's comes from the near-saddle-node reduction (S87)-(S92)",
+                   "reference": pv("toy", "critical_rate"), "computed": toy.critical_rate, "relative": true,
+                   "observed": observed, "tolerance": 0.01, "passed": observed <= 0.01, "source": src("toy", "critical_rate")})
+        },
+    ];
     let rows: Vec<Value> = figure
         .iter()
         .filter(|p| p.0 <= 0.3)
@@ -111,8 +139,10 @@ fn evidence(s: &Study, root: &Path) -> (Value, Value) {
             "ours_seeded_transition": d.transition, "ours_envelope_transition": d.transition_envelope},
     });
     published_checks.retain(|c| c["passed"] == true);
+    assert!(not_reproduced.iter().all(|c| c["passed"] == false), "a comparison listed as not reproduced now passes: move it to the checks");
     let validation = json!({
         "checks": checks,
+        "not_reproduced": not_reproduced,
         "differences": differences,
         "scope": "Production co-rotational statics and research HHT-alpha dynamics of an elastica strip clamped at +/-alpha; the paper's shallow theory, its toy model and its published numbers. No laboratory validation; the paper's DER code is not available and was not run.",
     });

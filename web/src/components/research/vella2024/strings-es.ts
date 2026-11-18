@@ -29,7 +29,7 @@ export const es: Strings = {
   watchSnap: 'Mirá el salto',
 
   checksHeading: 'Artículo contra Stabileo',
-  checksIntro: 'Cada número publicado que podemos calcular, con su página en arXiv:2312.13908v2. Las diferencias son relativas salvo indicación; la tolerancia es medio último dígito impreso, o el sesgo de modelado indicado.',
+  checksIntro: 'Cada número publicado que podemos calcular, con su página en arXiv:2312.13908v2. Las diferencias son relativas salvo indicación; la tolerancia es medio último dígito impreso, o el sesgo de modelado indicado. Las filas con ✗ son comparaciones que no reproducimos; cuentan en contra en el indicador del encabezado.',
   table: { quantity: 'Magnitud', paper: 'Artículo', ours: 'Stabileo', difference: 'Diferencia', source: 'Fuente' },
   rows: {
     'tau-asymmetric': 'τ* de la solución asimétrica',
@@ -43,8 +43,13 @@ export const es: Strings = {
     'toy-mu-a': 'µ_A del modelo de juguete',
     'toy-omega-lower': 'Modelo de juguete, ω menor / t_osc',
     'toy-omega-upper': 'Modelo de juguete, ω mayor / t_osc',
+    'fig2c-transition': 'Fig. 2c, velocidad en que A cae bajo 2',
+    'fig2c-amplitude': 'Amplitudes de la Fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (máximo sobre la fase)',
+    'fig2c-amplitude-one-end': 'Amplitudes de la Fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (un empotramiento)',
+    'toy-critical-rate': 'Velocidad crítica µ̇_c del modelo de juguete',
     'toy-t-osc': 't_osc del modelo de juguete',
   },
+  notReproduced: 'no reproducido, tolerancia',
   absolute: 'abs.',
   differencesHeading: 'Dónde diferimos',
   toyRate: 'Velocidad crítica del modelo de juguete: el artículo da µ̇_c ≈ {paper} con una reducción asintótica cerca del silla-nodo; integrando sus ecuaciones (S84)–(S85) y bisecando según si la trayectoria entra en f < 0 obtenemos {ours} ({diff}).',

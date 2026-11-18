@@ -29,7 +29,7 @@ export const pt: Strings = {
   watchSnap: 'Veja o salto',
 
   checksHeading: 'Artigo contra Stabileo',
-  checksIntro: 'Cada número publicado que conseguimos calcular, com sua página em arXiv:2312.13908v2. As diferenças são relativas salvo indicação; a tolerância é meio último dígito impresso, ou o viés de modelagem indicado.',
+  checksIntro: 'Cada número publicado que conseguimos calcular, com sua página em arXiv:2312.13908v2. As diferenças são relativas salvo indicação; a tolerância é meio último dígito impresso, ou o viés de modelagem indicado. As linhas com ✗ são comparações que não reproduzimos; elas contam contra o indicador no topo da página.',
   table: { quantity: 'Grandeza', paper: 'Artigo', ours: 'Stabileo', difference: 'Diferença', source: 'Fonte' },
   rows: {
     'tau-asymmetric': 'τ* da solução assimétrica',
@@ -43,8 +43,13 @@ export const pt: Strings = {
     'toy-mu-a': 'µ_A do modelo de brinquedo',
     'toy-omega-lower': 'Modelo de brinquedo, ω menor / t_osc',
     'toy-omega-upper': 'Modelo de brinquedo, ω maior / t_osc',
+    'fig2c-transition': 'Fig. 2c, taxa em que A cai abaixo de 2',
+    'fig2c-amplitude': 'Amplitudes da Fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (máximo sobre a fase)',
+    'fig2c-amplitude-one-end': 'Amplitudes da Fig. 2c, 0,04 ≤ µ̇ ≤ 0,1 (um engaste)',
+    'toy-critical-rate': 'Taxa crítica µ̇_c do modelo de brinquedo',
     'toy-t-osc': 't_osc do modelo de brinquedo',
   },
+  notReproduced: 'não reproduzido, tolerância',
   absolute: 'abs.',
   differencesHeading: 'Onde diferimos',
   toyRate: 'Taxa crítica do modelo de brinquedo: o artigo dá µ̇_c ≈ {paper} a partir de uma redução assintótica perto da sela-nó; integrando suas equações (S84)–(S85) e bissectando conforme a trajetória entra ou não em f < 0 obtemos {ours} ({diff}).',
