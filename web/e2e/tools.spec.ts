@@ -273,6 +273,61 @@ for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handof
   expect(materials[0][1].e).toBe(100000);
 });
 
+for (const toolsEnabled of [true, false]) {
+  for (const id of ['influence-line', 'simply-supported-beam']) {
+    test(`@smoke tools ${id} only offers an editor handoff for the current model (Tools ${toolsEnabled ? 'on' : 'off'})`, async ({ page }) => {
+      test.skip(true, 'known wrong result: #2286');
+      const encoderRequested = Promise.withResolvers<void>();
+      const releaseEncoder = Promise.withResolvers<void>();
+      await page.route('**/assets/share-*.js', async route => {
+        encoderRequested.resolve();
+        await releaseEncoder.promise;
+        await route.continue();
+      });
+      const wasmRequested = Promise.withResolvers<void>();
+      const releaseWasm = Promise.withResolvers<void>();
+      await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
+        wasmRequested.resolve();
+        await releaseWasm.promise;
+        await route.continue();
+      });
+      await page.addInitScript(enabled => {
+        localStorage.setItem('stabileo-feature-tools', enabled ? '1' : '0');
+      }, toolsEnabled);
+      const link = page.locator('#app').getByRole('link', { name: /^Open in Stabileo/ });
+      const editorUrl = /\/app\/basic\?e2e=1#data=2\./;
+      try {
+        await page.goto(`/en/tools/${id}/?e2e=1`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#app').getByTestId('agreement')).toBeVisible();
+        await encoderRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseEncoder.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        const initialHref = await link.getAttribute('href');
+
+        const modulus = page.getByTestId('e');
+        await modulus.fill('100000');
+        await wasmRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseWasm.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        await expect(link).not.toHaveAttribute('href', initialHref!);
+
+        await modulus.fill('0');
+        await expect(page.locator('#app').getByRole('alert')).toBeVisible();
+        await expect(link).toHaveCount(0);
+        await modulus.fill('100000');
+        await link.click();
+        await expect(page).toHaveURL(editorUrl);
+        await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.entityData('setting', 'materials')?.[0]?.[1]?.e)).toBe(100000);
+      } finally {
+        releaseEncoder.resolve();
+        releaseWasm.resolve();
+      }
+    });
+  }
+}
+
 // Exercise Root's in-place lazy mount separately from the ordinary full-document links.
 test('@smoke tools shared model survives a client-side editor transition', async ({ page }) => {
   await page.goto('/en/tools/continuous-beam/?e2e=1');
