@@ -38,6 +38,8 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 ## Commands
 
+`web/config/features.json` controls which public features are compiled into the site. Vite uses the `production` entry for builds and `development` for the dev server. Vitest uses `test`. Each entry must give a boolean for `accounts`, `research`, `tools`, and `diagramGame`. Production enables research and tools. Accounts stay off until the backend is deployed and legal review is complete.
+
 - `npm run dev` — Start dev server (port 4000)
 - `npm run build` — Production build to `dist/`
 - `npm run test` — The full Vitest gate. Runs **three passes** and fails if any fails:
@@ -72,6 +74,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 - `npm run wasm` — Build the Rust/WASM engine into `src/lib/wasm` (needs Rust and wasm-pack). Required
   to run the app or any test that solves: without it `vite.config.ts` substitutes a stub, so
   `npm run build` still succeeds in CI, but the stub's `solve_3d` returns `{}`.
+- `make check.fast` from the repo root runs targeted web tests, typecheck, and cheap CI gates after `make web.deps` and `make wasm`.
 - `npm run typecheck` — Explicit `tsc` gate. `npm run build` is `vite build` and does **not**
   typecheck, so a type defect can otherwise reach a commit unseen. The project carries a large
   set of pre-existing errors (mostly test fixtures building partial literals on purpose), so

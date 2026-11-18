@@ -187,14 +187,14 @@ export const cirsoc201Flexure: Post = {
           "base": "blog/cirsoc-201-beam",
           "w": 1600,
           "h": 1000,
-          "alt": "Stabileo PRO, espacio de Diseño, paso Dimensionar, con la viga de 20×40 seleccionada después de resolver y diseñar. El panel de la barra indica verificada con η local 0,90 según CIRSOC 201 (2025), con 13 verificaciones en los ejes My y Vz y una utilización máxima de 0,900.",
-          "caption": "La viga de abajo después de «Dimensionar…»: CIRSOC 201 la verifica con una utilización de 0,90."
+          "alt": "Controles de dimensionamiento de Stabileo PRO con la viga de 20×40 seleccionada.",
+          "caption": "Captura anterior a la corrección de los apoyos. El ejemplo interactivo de abajo muestra el resultado actual."
         },
         {
           "k": "embed",
           "mode": "pro",
           "query": "example=rc-beam-flexure&proTab=design",
-          "label": "La viga en Stabileo, en el flujo de diseño de PRO. Si el diseño está apagado, tocá \"Activar el diseño en esta visita\" en el aviso. Tres botones y en este orden: \"Calcular solicitaciones\", \"Calcular acero requerido\" y \"Dimensionar…\". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice \"sin armadura\". El tramo de 5 m está modelado con dos elementos; los dos cierran en D/C = 0,90, gobernados por el corte en el tramo: la flexión y el anclaje de las barras quedan por debajo. Cambiá la carga y volvé a correrlo. El diseño normativo del PRO sigue en desarrollo; el módulo de hormigón es la parte implementada y testeada."
+          "label": "La viga en Stabileo, en el flujo de diseño de PRO. Si el diseño está apagado, tocá \"Activar el diseño en esta visita\" en el aviso. Tres botones y en este orden: \"Calcular solicitaciones\", \"Calcular acero requerido\" y \"Dimensionar…\". El segundo publica lo que el reglamento exige, y recién el tercero elige las barras; hasta que no hay barras no hay nada que verificar, y la tabla dice \"sin armadura\". El tramo de 5 m está modelado con dos elementos; los dos verifican con D/C = 0,91. Gobierna la flexión positiva en el tramo (My+). Cambiá la carga y volvé a correrlo. El diseño normativo del PRO sigue en desarrollo; el módulo de hormigón es la parte implementada y testeada."
         },
         {
           "k": "h",
@@ -389,14 +389,14 @@ export const cirsoc201Flexure: Post = {
           "base": "blog/cirsoc-201-beam",
           "w": 1600,
           "h": 1000,
-          "alt": "Stabileo PRO, Design workspace, Size step, with the 20×40 beam selected after solving and designing. The member panel reads “Verified · local η 0.90” under CIRSOC 201 (2025), with 13 checks on the My and Vz axes and a worst utilization of 0.900.",
-          "caption": "The beam below after “Size…”: CIRSOC 201 checks it at a utilization of 0.90."
+          "alt": "Stabileo PRO design controls with the 20×40 beam selected.",
+          "caption": "This screenshot predates the bearing correction. The live example below shows the current result."
         },
         {
           "k": "embed",
           "mode": "pro",
           "query": "example=rc-beam-flexure&proTab=design",
-          "label": "The beam in Stabileo, in PRO's design workflow. If design is off, press \"Turn on design for this visit\" in the notice. Three buttons, in this order: \"Compute demands\", \"Compute required steel\" and \"Size…\". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says \"no reinforcement\". The 5 m span is modelled as two elements; both close at D/C = 0.90, governed by shear in the span: bending and the anchorage of the bars stay below. Change the load and run it again. Code design in PRO is still in development; the concrete module is the part that is implemented and tested."
+          "label": "The beam in Stabileo, in PRO's design workflow. If design is off, press \"Turn on design for this visit\" in the notice. Three buttons, in this order: \"Compute demands\", \"Compute required steel\" and \"Size…\". Only the third one picks the bars, and until there are bars there is nothing to verify: the table says \"no reinforcement\". The 5 m span is modelled as two elements; both verify at D/C = 0.91. Positive bending in the span (My+) governs. Change the load and run it again. Code design in PRO is still in development; the concrete module is the part that is implemented and tested."
         },
         {
           "k": "h",
@@ -591,14 +591,14 @@ export const cirsoc201Flexure: Post = {
           "base": "blog/cirsoc-201-beam",
           "w": 1600,
           "h": 1000,
-          "alt": "Stabileo PRO, espaço de Projeto, etapa Dimensionar, com a viga de 20×40 selecionada depois de resolver e dimensionar. O painel da barra indica verificada com η local 0,90 pela CIRSOC 201 (2025), com 13 verificações nos eixos My e Vz e utilização máxima de 0,900.",
-          "caption": "A viga abaixo depois de «Dimensionar…»: a CIRSOC 201 a verifica com utilização de 0,90."
+          "alt": "Controles de dimensionamento do Stabileo PRO com a viga de 20×40 selecionada.",
+          "caption": "Captura anterior à correção dos apoios. O exemplo interativo abaixo mostra o resultado atual."
         },
         {
           "k": "embed",
           "mode": "pro",
           "query": "example=rc-beam-flexure&proTab=design",
-          "label": "A viga no Stabileo, no fluxo de projeto do PRO. Se o dimensionamento estiver desativado, toque em \"Ativar o dimensionamento nesta visita\" no aviso. Três botões, nesta ordem: \"Calcular solicitações\", \"Calcular aço requerido\" e \"Dimensionar…\". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz \"sem armadura\". O vão de 5 m está modelado com dois elementos; os dois fecham em D/C = 0,90, governados pelo cortante no vão: a flexão e a ancoragem das barras ficam abaixo. Mude a carga e rode de novo. O dimensionamento normativo do PRO segue em desenvolvimento; o módulo de concreto é a parte implementada e testada."
+          "label": "A viga no Stabileo, no fluxo de projeto do PRO. Se o dimensionamento estiver desativado, toque em \"Ativar o dimensionamento nesta visita\" no aviso. Três botões, nesta ordem: \"Calcular solicitações\", \"Calcular aço requerido\" e \"Dimensionar…\". Só o terceiro escolhe as barras, e enquanto não houver barras não há o que verificar: a tabela diz \"sem armadura\". O vão de 5 m está modelado com dois elementos; os dois verificam com D/C = 0,91. A flexão positiva no vão (My+) governa. Mude a carga e rode de novo. O dimensionamento normativo do PRO segue em desenvolvimento; o módulo de concreto é a parte implementada e testada."
         },
         {
           "k": "h",

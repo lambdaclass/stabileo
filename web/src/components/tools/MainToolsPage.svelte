@@ -4,6 +4,7 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import RelatedLinks from '../research/RelatedLinks.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
+  import ToolEditorLink from './ToolEditorLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, stabileoSoftware, stabileoCalculator, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
@@ -29,7 +30,6 @@
   let result = $state<Awaited<ReturnType<typeof calculate>> | null>(null);
   let error = $state('');
   let busy = $state(false);
-  let href = $state('');
   let revision = 0;
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
   const fields = [ ['length', 'length', 'm', 0.1, 100], ['e', 'modulus', 'MPa', 1, 1000000], ['i', 'inertia', 'm⁴', 1e-10, 10] ] as const;
@@ -64,27 +64,24 @@
     revision++;
     const ready = current ? prerenderedResult<Awaited<ReturnType<typeof calculate>>>(current, values) : null;
     if (current && ready) {
-      const token = revision;
-      result = ready; href = ''; error = ''; busy = false;
-      void import('./share').then(({ editorUrl }) => { if (token === revision) href = editorUrl(ready.model, t(`tools.${current}`)); });
+      result = ready; error = ''; busy = false;
       return () => { revision++; };
     }
-    result = null; href = ''; error = ''; busy = !!current;
+    result = null; error = ''; busy = !!current;
     const timer = setTimeout(() => { if (current) void run(current, values); }, 250);
     return () => { clearTimeout(timer); revision++; };
   });
   async function run(tool: ToolId, values: Parameters) {
     const token = ++revision;
-    result = null; href = ''; error = '';
+    result = null; error = '';
     if (!valid(values)) { error = t('tools.invalid'); busy = false; return; }
     busy = true;
     try {
-      const [{ calculate }, { editorUrl }] = await Promise.all([import('./solve'), import('./share')]);
+      const { calculate } = await import('./solve');
       const answer = await calculate(tool, values);
       if (token !== revision) return;
       recordPrerenderedResult(tool, values, answer);
       result = answer;
-      href = editorUrl(answer.model, t(`tools.${tool}`));
     } catch (e) {
       if (token === revision) error = t('tools.failed');
     } finally { if (token === revision) busy = false; }
@@ -152,7 +149,7 @@
               {/if}
             </div>
             <p class="verification" data-testid="agreement" data-difference={result.difference} data-absolute={result.absolute}>{t('tools.comparison')}: {expression} · {#if result.absolute}{t('tools.absoluteDifference')} <Sci value={result.difference} unit="m" />{:else}{t('tools.difference')} <Sci value={result.difference * 100} unit="%" />{/if}</p>
-            <a class="btn btn-primary" href={href}>{t('tools.open')} ↗</a>
+            <ToolEditorLink model={result.model} name={title} />
             {#each solverMessages([...(result.linear.structuredDiagnostics ?? []), ...(result.buckling?.structuredDiagnostics ?? [])], t) as message}<p class="warning" role="alert">{message}</p>{/each}
           {/if}
           </div>

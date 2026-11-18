@@ -1,6 +1,21 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
+  'loadPlan.gravity.partitionFailed': "쉘 투영 영역을 분할하지 못했습니다: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",
+  'loadPlan.gravity.stripDirection': "요청한 일방향 경간은 피복되지 않은 띠의 경간 방향과 일치해야 합니다.",
+  'loadPlan.gravity.nonplanarShell': "사각형 {id}이 평면이 아닙니다. 중력 하중의 피복 계산에는 평면 쉘이 필요합니다.",
+  'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
+  'loadPlan.gravity.differentDeck': "보 패널을 덮는 쉘은 패널과 같은 데크에 속해야 합니다.",
+  'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",
+  'loadPlan.gravity.deckCheckFailed': "쉘의 데크 피복을 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "피복되지 않은 띠의 노출을 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.mixedExposure': "피복되지 않은 띠에 지붕과 바닥 영역이 모두 포함되어 있습니다.",
+  'loadPlan.gravity.stripSpan': "피복되지 않은 띠가 데크의 최대 경간을 초과합니다.",
+  'loadPlan.gravity.headroomCheckFailed': "피복되지 않은 띠의 유효 높이를 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.stripHeadroom': "피복되지 않은 띠의 층 유효 높이가 부족하거나 결정되지 않았습니다.",
+  'loadPlan.gravity.stripInterval': "부재 {id}의 중력 하중 띠가 지원되는 하중 구간보다 짧습니다.",
   'engine.memberLoad.geometryOrdering': "생성된 부재 형상의 순서가 올바르지 않습니다",
   'engine.memberLoad.geometryLine': "생성된 부재 형상이 원래 선에서 벗어납니다",
   'engine.memberLoad.invalidGeometry': "생성된 부재 형상이 올바르지 않습니다",

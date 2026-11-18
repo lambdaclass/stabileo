@@ -39,12 +39,12 @@ describe('product error text', () => {
 
 afterEach(() => {
   setLocale('en');
-  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.resetModules();
 });
 
 it('known wrong result: #2099 — invalid credentials keep their own translation in every dictionary and offered locale', async () => {
-  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
   vi.resetModules();
   const { ALL_DICTS } = await import('../../i18n/locales/all');
   const store = await import('../../i18n/store.svelte');

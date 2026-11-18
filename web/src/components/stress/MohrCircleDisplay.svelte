@@ -23,7 +23,7 @@
   <span class="ssp-help ssp-help-inline" title={t('stress.mohrCircleHelp')}>?</span>
 </button>
 {#if mohrData}
-  {#if import.meta.env.VITE_TOOLS !== '0' && tools()}<button class="ssp-open-mohr" data-testid="stress-open-mohr"
+  {#if __PUBLIC_FEATURES__.tools && tools()}<button class="ssp-open-mohr" data-testid="stress-open-mohr"
     onclick={() => openMohrFromFibre(mohrSigma, mohrTau, tauComponents, spaceMode ? 'space' : 'plane')}>{t('stress.openMohr')} ↗</button>{/if}
 {/if}
 {#if showMohr && mohrData}

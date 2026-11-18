@@ -81,13 +81,12 @@ describe('rc-design-qa-8', () => {
 describe('rc-design-frame, 408 members', () => {
   const gravity = run(frame, { beams: 'gravity' }), undeclared = run(frame, null);
 
-  // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages. Not declared: 359; of the 13 it loses, 6 refuse on their anchorage and 7 on congestion.
-  it('outside the system 372 designed; not declared 359, the 13 it loses refusing on their anchorage or congestion', () => {
-    expect(counts(gravity.s)).toEqual({ verified: 372, searchExhausted: 23, provisionalBiaxial: 13, sectionInadequate: 0 });
-    expect(counts(undeclared.s)).toEqual({ verified: 359, searchExhausted: 36, provisionalBiaxial: 13, sectionInadequate: 0 });
+  it('an undeclared lateral role changes which flagship beams verify', () => {
+    expect(counts(gravity.s)).toEqual({ verified: 368, searchExhausted: 27, provisionalBiaxial: 13, sectionInadequate: 0 });
+    expect(counts(undeclared.s)).toEqual({ verified: 353, searchExhausted: 42, provisionalBiaxial: 13, sectionInadequate: 0 });
     const l = lost(gravity.s, undeclared.s);
-    expect(l.ids).toHaveLength(13);
-    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 6, 'SEARCH_EXHAUSTED congestion': 7 });
+    expect(l.ids).toEqual([173, 174, 175, 176, 192, 193, 194, 195, 200, 203, 226, 258, 261, 324, 327]);
+    expect(l.by).toEqual({ 'SEARCH_EXHAUSTED anchorage': 6, 'SEARCH_EXHAUSTED congestion': 7, 'SEARCH_EXHAUSTED flexure': 2 });
     expect(lost(undeclared.s, gravity.s).ids).toEqual([]);
   });
 });

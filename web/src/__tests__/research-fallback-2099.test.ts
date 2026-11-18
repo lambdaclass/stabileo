@@ -21,7 +21,7 @@ function navigation(file: string, name: string): string {
   const ast = script(file);
   const declaration = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === name);
   if (!declaration) throw new Error(`Missing navigation function: ${file} ${name}`);
-  return ts.transpileModule(`${declaration.getText(ast)}; ${name}();`.replaceAll('import.meta.env', 'env').replaceAll("import('./lib/research-fallback')", 'loadResearchFallback()'), {
+  return ts.transpileModule(`${declaration.getText(ast)}; ${name}();`.replaceAll("import('./lib/research-fallback')", 'loadResearchFallback()'), {
     compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
   }).outputText;
 }
@@ -32,12 +32,12 @@ async function resolve(file: string, name: string, flag: string, path: string, e
   const replaceState = vi.fn((_: unknown, __: string, address: string) => { location.href = new URL(address, location).href; });
   vi.stubGlobal('location', location);
   vi.stubGlobal('history', { state, replaceState });
-  vi.stubEnv('VITE_RESEARCH', flag);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: flag === '1' });
   const loadResearchFallback = vi.fn(async () => ({ restoreUnpublishedResearchRoute }));
   const checkpoint = new Error('route resolution');
   const routeKind = vi.fn(() => { throw checkpoint; });
   await expect(runInNewContext(navigation(file, name), {
-    env: { VITE_RESEARCH: flag, VITE_TOOLS: '0' },
+    __PUBLIC_FEATURES__: { ...__PUBLIC_FEATURES__, research: flag === '1', tools: false },
     revision: 0,
     publicRevision: 0,
     location,
@@ -53,7 +53,7 @@ async function resolve(file: string, name: string, flag: string, path: string, e
   else expect(replaceState).toHaveBeenCalledExactlyOnceWith(state, '', `${expected}?round=2#checks`);
 }
 
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); });
 
 it.each(entries.flatMap(([file, name]) => ['', '0'].map(flag => [file, name, flag] as const)))('known wrong result: #2099 — %s %s restores unpublished Hungarian research with research=%j', async (file, name, flag) => {
   for (const path of main.research) {
@@ -96,7 +96,7 @@ it.each(entries)('%s discards Hungarian navigation superseded while the helper l
   const checkpoint = new Error('current route resolution');
   const routeKind = vi.fn(() => { throw checkpoint; });
   const context = {
-    env: { VITE_RESEARCH: '0', VITE_TOOLS: '0' },
+    __PUBLIC_FEATURES__: { ...__PUBLIC_FEATURES__, research: false, tools: false },
     revision: 0,
     publicRevision: 0,
     location,

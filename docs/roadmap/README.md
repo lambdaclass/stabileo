@@ -13,7 +13,7 @@ silent wrong results down to (g) growth and SaaS; sections 3 to 6 follow the sam
 measurable exit criteria, and the metrics behind them are regenerated on the
 [verification dashboard](../../testing/docs/DASHBOARD.md).
 
-As of **2026-11-16**, release **0.6.1** is out with SA-2026-064 through SA-2026-068.
+As of **2026-11-18**, release **0.6.1** is out with SA-2026-064 through SA-2026-068.
 The follow-on fixes are done on main and await **0.6.2**:
 [#2142](https://github.com/lambdaclass/stabileo/issues/2142) in
 [#2169](https://github.com/lambdaclass/stabileo/pull/2169),
@@ -29,55 +29,33 @@ The follow-on fixes are done on main and await **0.6.2**:
 SA-2026-074. Re-run affected member designs and analyses. Regenerate all affected generated
 area loads, including roof and floor loads, before recalculating; stored loads alone are insufficient.
 
-**Soundness remains first.** Wave 1 of the design and load audit has open findings; wave 2 has
-filed 12 findings in design dispatch, steel welds and Cb, detailing and EC2.
-The complete issue and PR map is in
-[PRODUCT_ROADMAP, Design and load audit](PRODUCT_ROADMAP.md#design-and-load-audit-active-work-2026-11-16):
+**Soundness remains first.** The [November 17–18 findings](PRODUCT_ROADMAP.md#november-1718-soundness-findings)
+cover support restraints, gravity loads, combinations and concrete detailing. The
+[design and load audit](PRODUCT_ROADMAP.md#design-and-load-audit-active-work-2026-11-18)
+has the issue and fix map. The general **under audit** notice is on main in [#2228](https://github.com/lambdaclass/stabileo/pull/2228).
 
-- In flight: secondary stirrup legs [#2171](https://github.com/lambdaclass/stabileo/issues/2171) in
-  [#2198](https://github.com/lambdaclass/stabileo/pull/2198); gravity and floor regions
-  [#2199](https://github.com/lambdaclass/stabileo/issues/2199)/[#2200](https://github.com/lambdaclass/stabileo/issues/2200)/[#2201](https://github.com/lambdaclass/stabileo/issues/2201)/[#2210](https://github.com/lambdaclass/stabileo/issues/2210)
-  in [#2219](https://github.com/lambdaclass/stabileo/pull/2219); wind
-  [#2203](https://github.com/lambdaclass/stabileo/issues/2203)/[#2204](https://github.com/lambdaclass/stabileo/issues/2204)/[#2205](https://github.com/lambdaclass/stabileo/issues/2205)
-  (also [#2206](https://github.com/lambdaclass/stabileo/issues/2206)) in
-  [#2220](https://github.com/lambdaclass/stabileo/pull/2220); narrow member loads
-  [#2222](https://github.com/lambdaclass/stabileo/issues/2222) in
-  [#2223](https://github.com/lambdaclass/stabileo/pull/2223); companion snow
-  [#2211](https://github.com/lambdaclass/stabileo/issues/2211) in
-  [#2233](https://github.com/lambdaclass/stabileo/pull/2233); concentrated live load
-  [#2207](https://github.com/lambdaclass/stabileo/issues/2207); equilibrium property oracles
-  [#2108](https://github.com/lambdaclass/stabileo/issues/2108)/[#2109](https://github.com/lambdaclass/stabileo/issues/2109)
-  in [#2229](https://github.com/lambdaclass/stabileo/pull/2229); the **under audit** notice in
-  [#2228](https://github.com/lambdaclass/stabileo/pull/2228); release 0.6.2.
-- Wave 1 open findings: [#2202](https://github.com/lambdaclass/stabileo/issues/2202),
-  [#2206](https://github.com/lambdaclass/stabileo/issues/2206),
-  [#2208](https://github.com/lambdaclass/stabileo/issues/2208),
-  [#2209](https://github.com/lambdaclass/stabileo/issues/2209),
-  [#2212](https://github.com/lambdaclass/stabileo/issues/2212),
-  [#2213](https://github.com/lambdaclass/stabileo/issues/2213),
-  [#2214](https://github.com/lambdaclass/stabileo/issues/2214),
-  [#2215](https://github.com/lambdaclass/stabileo/issues/2215),
-  [#2216](https://github.com/lambdaclass/stabileo/issues/2216),
-  [#2217](https://github.com/lambdaclass/stabileo/issues/2217),
-  [#2218](https://github.com/lambdaclass/stabileo/issues/2218) and
-  [#2225](https://github.com/lambdaclass/stabileo/issues/2225).
-  [#2202](https://github.com/lambdaclass/stabileo/issues/2202) is conservative;
-  [#2218](https://github.com/lambdaclass/stabileo/issues/2218) follows the physical-region transfer in
-  [#2219](https://github.com/lambdaclass/stabileo/pull/2219). In-flight corrections and the notice have
-  not yet landed on main.
+- Done on main: narrow member loads and force balance in [#2223](https://github.com/lambdaclass/stabileo/pull/2223), gravity transfer, seismic
+  mass and combined diagram peaks in [#2282](https://github.com/lambdaclass/stabileo/pull/2282), and ambiguous or unknown 3D supports in [#2277](https://github.com/lambdaclass/stabileo/pull/2277).
+  Regenerate affected gravity and seismic loads. Confirm the intended 3D support restraints
+  and rerun affected analyses, combinations and design checks.
+  [SA-2026-089](../advisories/SA-2026-089-roller-z-fixed.md)
+- Done on main: Heyman’s masonry arch experiment in [#2257](https://github.com/lambdaclass/stabileo/pull/2257), along with [#2272](https://github.com/lambdaclass/stabileo/pull/2272), [#2288](https://github.com/lambdaclass/stabileo/pull/2288)
+  and [#2305](https://github.com/lambdaclass/stabileo/pull/2305). The [other follow-ups](PRODUCT_ROADMAP.md#other-follow-ups) include the completed
+  steel Memoria item [#2303](https://github.com/lambdaclass/stabileo/issues/2303).
+- In flight: secondary stirrup legs [#2171](https://github.com/lambdaclass/stabileo/issues/2171) in [#2198](https://github.com/lambdaclass/stabileo/pull/2198). Release 0.6.2 is in preparation.
+- Wave 1 open findings: [#2202](https://github.com/lambdaclass/stabileo/issues/2202) (conservative), [#2208](https://github.com/lambdaclass/stabileo/issues/2208), [#2209](https://github.com/lambdaclass/stabileo/issues/2209), [#2212](https://github.com/lambdaclass/stabileo/issues/2212),
+  [#2213](https://github.com/lambdaclass/stabileo/issues/2213), [#2214](https://github.com/lambdaclass/stabileo/issues/2214), [#2215](https://github.com/lambdaclass/stabileo/issues/2215), [#2216](https://github.com/lambdaclass/stabileo/issues/2216), [#2217](https://github.com/lambdaclass/stabileo/issues/2217), [#2218](https://github.com/lambdaclass/stabileo/issues/2218) and [#2225](https://github.com/lambdaclass/stabileo/issues/2225).
 - Wave 2 open findings, in audit harm order:
   [#2238](https://github.com/lambdaclass/stabileo/issues/2238) (reversed span demands),
   [#2239](https://github.com/lambdaclass/stabileo/issues/2239) (mixed column bars),
   [#2240](https://github.com/lambdaclass/stabileo/issues/2240) (distinct concurrent EC2 states),
   [#2241](https://github.com/lambdaclass/stabileo/issues/2241) (short bottom-bar extent),
   [#2242](https://github.com/lambdaclass/stabileo/issues/2242) (rotated joint shear),
-  [#2243](https://github.com/lambdaclass/stabileo/issues/2243) (segmented weld length reduction),
-  [#2244](https://github.com/lambdaclass/stabileo/issues/2244) (short weld leg limit),
   [#2245](https://github.com/lambdaclass/stabileo/issues/2245) (weak stirrup intervals),
   [#2246](https://github.com/lambdaclass/stabileo/issues/2246) (EC2 support-region steel),
   [#2247](https://github.com/lambdaclass/stabileo/issues/2247) (curved-diagram Cb),
   [#2248](https://github.com/lambdaclass/stabileo/issues/2248) (another member's certificate) and
-  [#2249](https://github.com/lambdaclass/stabileo/issues/2249) (zero-moment anchorage check).
+  [#2249](https://github.com/lambdaclass/stabileo/issues/2249) (zero-moment anchorage check). The fillet weld findings [#2243](https://github.com/lambdaclass/stabileo/issues/2243) and [#2244](https://github.com/lambdaclass/stabileo/issues/2244) are done in [#2258](https://github.com/lambdaclass/stabileo/pull/2258).
 - Follow-ups: [#2224](https://github.com/lambdaclass/stabileo/issues/2224),
   [#2226](https://github.com/lambdaclass/stabileo/issues/2226) and
   [#2227](https://github.com/lambdaclass/stabileo/issues/2227).
@@ -158,7 +136,7 @@ order and dates its historical cause-count snapshot separately; the dashboard ha
 
 | Document | Answers | Status | Owner |
 |---|---|---|---|
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-16): 0.6.1 released; #2142/#2143/#2096/#2144/#2176/#2172 fixed on main for 0.6.2; wave-1 audit findings and their fixes take priority; 12 wave-2 findings filed (#2238–#2249): design dispatch, steel welds and Cb, detailing and EC2; under-audit notice pending; #1040 parked for a new approach | Federico Carrone |
+| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | What we build and in what order; **the backlog with issue links and exit criteria** | Current (2026-11-18): 0.6.1 released; 0.6.2 in preparation; recent load, diagram and support fixes on main; November 17–18 soundness findings tracked | Federico Carrone |
 | [testing/ROADMAP.md](../../testing/ROADMAP.md) | Testing and verification backlog, solver proofs, prevention and CI feedback; follows PRODUCT_ROADMAP “Priority now” item 6 | Current | Maintainers |
 | [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, numerical methods, long-term solver sequence (Steps 1–14+) | Long-term sequence current; its "Where we are" and "Wave 1" sections predate v0.2.0 (see the note at its top) | Diego K (last editor) |
 | [../../research/DESIGN.md](../../research/DESIGN.md) | Stabileo Research: what it is, its rules, the engine-benchmarks track and the ordered paper queue (summary in PRODUCT_ROADMAP "Stabileo Research") | Current (2026-10-29) | Federico Carrone |

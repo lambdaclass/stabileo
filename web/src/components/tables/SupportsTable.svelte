@@ -44,7 +44,9 @@
     const current = sup.dofRestraints ?? defaultDofs(sup.type);
     const updated = { ...current, [dof]: !current[dof] };
     const type = deriveType(updated);
-    modelStore.updateSupport(supId, { dofRestraints: updated, type } as any);
+    modelStore.updateSupport(supId, {
+      dofRestraints: updated, type, dofFrame: sup.dofFrame, dofLocalElementId: sup.dofLocalElementId,
+    });
     resultsStore.clear();
     resultsStore.clear3D();
   }

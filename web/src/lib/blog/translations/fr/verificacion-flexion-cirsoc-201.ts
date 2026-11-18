@@ -175,14 +175,14 @@ const body: PostBody = {
       "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, espace Dimensionnement, étape Dimensionner, avec la poutre 20×40 sélectionnée après calcul et dimensionnement. Le panneau de la barre indique « vérifiée, η local 0,90 » selon le CIRSOC 201 (2025), avec 13 vérifications sur les axes My et Vz et une utilisation maximale de 0,900.",
-      "caption": "La poutre ci-dessous après « Dimensionner… » : le CIRSOC 201 la vérifie avec une utilisation de 0,90."
+      "alt": "Commandes de dimensionnement de Stabileo PRO avec la poutre de 20×40 sélectionnée.",
+      "caption": "Cette capture est antérieure à la correction des appuis. L'exemple interactif ci-dessous montre le résultat actuel."
     },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "La poutre dans Stabileo, dans le flux de dimensionnement de PRO. Si le dimensionnement est désactivé, cliquez sur « Activer le dimensionnement pour cette visite » dans l'avis. Trois boutons, dans cet ordre : « Calculer les sollicitations », « Calculer l'acier requis » et « Dimensionner… ». Seul le troisième choisit les barres, et tant qu'il n'y a pas de barres, il n'y a rien à vérifier : le tableau indique « sans armatures ». La portée de 5 m est modélisée en deux éléments ; les deux aboutissent à S/R = 0,90, avec l'effort tranchant en travée comme critère déterminant : la flexion et l'ancrage des barres restent en dessous. Modifiez la charge et relancez le calcul. Le dimensionnement réglementaire dans PRO est encore en développement ; le module béton est la partie implémentée et testée."
+      "label": "La poutre dans Stabileo, dans le flux de dimensionnement de PRO. Si le dimensionnement est désactivé, cliquez sur « Activer le dimensionnement pour cette visite » dans l'avis. Trois boutons, dans cet ordre : « Calculer les sollicitations », « Calculer l'acier requis » et « Dimensionner… ». Seul le troisième choisit les barres, et tant qu'il n'y a pas de barres, il n'y a rien à vérifier : le tableau indique « sans armatures ». La portée de 5 m est modélisée en deux éléments ; les deux sont vérifiés à S/R = 0,91. La flexion positive en travée (My+) est déterminante. Modifiez la charge et relancez le calcul. Le dimensionnement réglementaire dans PRO est encore en développement ; le module béton est la partie implémentée et testée."
     },
     {
       "k": "h",
