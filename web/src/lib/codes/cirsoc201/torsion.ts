@@ -14,6 +14,9 @@ import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
 import type { RegulationEdition } from '../regulation';
 import type { StirrupDef } from '../../design-contract/reinforcement';
 import { hookAnchorageIsSupported } from './transverse-cage';
+import { transverseSpacingLimits } from './transverse-spacing';
+import { rebarSpec } from '../../engine/codes/argentina/cirsoc201-rebar';
+import { evaluateBeamSection } from '../../engine/codes/argentina/cirsoc201-beam-kernel';
 import { shearFy, shearSqrtFc } from '../../engine/codes/argentina/cirsoc201-basis';
 
 export type StirrupDeclaration = StirrupDef & {
@@ -83,12 +86,32 @@ export function secondaryShearMinimumThreshold(edition: RegulationEdition, face:
   return edition === '2005' ? phiVc / 2 : PHI * 0.085 * shearSqrtFc(fc) * face.b * face.d * 1000;
 }
 
+export function secondaryShearSpacingShortfall(
+  edition: RegulationEdition, face: ReturnType<typeof secondaryShearFace>, cover: number,
+  fc: number, Vu: number, phiVc: number,
+): string | undefined {
+  if (edition !== '2025') return undefined;
+  const { requiredLegs, alongMax } = transverseSpacingLimits(edition, {
+    VsRequired: Math.max(0, (Vu - phiVc) / PHI), bw: face.b, d: face.d, fc, cover, stirrupDiaMm: face.stirrupDia,
+  });
+  if (face.legs < requiredLegs) return `${face.legs} stirrup legs provided, ${requiredLegs} required (Table 9.7.6.2.2)`;
+  return face.spacing > alongMax ? `Stirrup spacing exceeds ${(alongMax * 1000).toFixed(1)} mm (Table 9.7.6.2.2)` : undefined;
+}
+
+export function combinedTransverseMinimum(edition: RegulationEdition, bw: number, fc: number, fyt: number): number {
+  const root = Math.sqrt(fc);
+  const coefficient = edition === '2005' ? Math.max(root / 16, 0.33) : Math.max(0.062 * root, 0.35);
+  return coefficient * bw / shearFy(fyt);
+}
+
 export interface TorsionInput {
   b: number; h: number; d: number; dSecondary: number;
   /** Clear cover to the stirrup, m, and the stirrup's diameter, mm. */
   cover: number; stirrupDiaMm: number;
   fc: number; fy: number; fyt: number;
   demand: ConcurrentSectionDemand;
+  edition?: RegulationEdition;
+  rhoW?: { primary?: number; secondary?: number };
   /** The stirrups there are: diameter, mm; legs; spacing, m. */
   stirrup?: StirrupDeclaration | CageResolution;
 }
@@ -97,6 +120,7 @@ export interface TorsionCheck {
   /** φ·Tth, kN·m: below it torsion may be neglected. */
   phiTth: number;
   neglect: boolean;
+  primaryDepth: number;
   /** Cross-section limit: demand / capacity under V and T together. */
   sectionRatio: number;
   shearSectionRatio: number;
@@ -142,25 +166,32 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
   const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
-  const minimum = Math.max(0.062 * sq, 0.35) / i.fyt;
+  const neglect = Tu < phiTth;
+  const edition = i.edition ?? '2025';
   const outerLegProvided = cage.kind === 'closed-rectangle'
     ? providedTorsionStirrups({ ...cage, legs: cage.primaryLegs }).outerLegProvided : 0;
-  const face = (width: number, d: number, shear: number, legs: number) => {
-    const vs = Math.max(0, shear / PHI - vc * width * d);
-    const required = Math.max(vs / (i.fyt * 1000 * d) + 2 * AtOverS, minimum * width);
+  const face = (width: number, height: number, depth: number, shear: number, legs: number, rhoW = 0) => {
+    const concrete = !neglect && cage.kind === 'closed-rectangle' && shear !== 0
+      ? evaluateBeamSection({
+        edition, fc: i.fc * 1e6, fy: input.fy * 1e6, fyt: input.fyt * 1e6,
+        b: width, h: height, d: depth, Ag: Acp, As: rhoW * width * depth,
+        Av: legs * rebarSpec(diameter).area * 1e-4, s: cage.spacing, NuCompression: i.demand.Nu * 1000,
+      }) : undefined;
+    const reserve = shear === 0 || neglect ? 0 : concrete?.shearValid
+      ? Math.max(0, shear / PHI - concrete.Vc / 1000) / (i.fyt * 1000 * depth) : Infinity;
+    const required = Math.max(reserve + 2 * AtOverS, combinedTransverseMinimum(edition, width, i.fc, input.fyt));
     const provided = legs * outerLegProvided;
     return { required, provided, ratio: provided > 0 ? required / provided : Infinity };
   };
-  const primary = face(i.b, d, Vu, cage.kind === 'closed-rectangle' ? cage.primaryLegs : 0);
+  const primary = face(i.b, i.h, d, Vu, cage.kind === 'closed-rectangle' ? cage.primaryLegs : 0, i.rhoW?.primary);
   const secondary = VuSecondary > 0
-    ? face(i.h, dSecondary, VuSecondary, cage.kind === 'closed-rectangle' ? cage.secondaryLegs : 0) : undefined;
+    ? face(i.h, i.b, dSecondary, VuSecondary, cage.kind === 'closed-rectangle' ? cage.secondaryLegs : 0, i.rhoW?.secondary) : undefined;
   const governing = secondary && (secondary.ratio > primary.ratio
     || (secondary.ratio === primary.ratio && secondary.required > primary.required)) ? secondary : primary;
   const { required: transverseRequired, provided: transverseProvided } = governing;
   const Al = AtOverS * ph * (i.fyt / i.fy);
   const AlMin = Math.max(0, (0.42 * sq * Acp) / i.fy - Math.max(AtOverS, (0.175 * i.b) / i.fyt) * ph * (i.fyt / i.fy));
   const sMax = Math.min(ph / 8, 0.3);
-  const neglect = Tu < phiTth;
   const refusal = cage.kind === 'refusal' ? cage.reason
     : [d, dSecondary, x1, y1].every(v => Number.isFinite(v) && v > 0) ? undefined : 'Invalid stirrup cage geometry';
   const ratios = neglect ? [0] : [
@@ -170,7 +201,7 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
     cage.kind === 'closed-rectangle' ? cage.spacing / sMax : Number.POSITIVE_INFINITY,
   ];
   const ratio = Math.max(...ratios);
-  return { phiTth, neglect, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax,
+  return { phiTth, neglect, primaryDepth: d, sectionRatio, shearSectionRatio, transverseRequired, AtOverS, transverseProvided, outerLegProvided, Al, AlMin, sMax,
     ratio: (!neglect && refusal !== undefined) || Number.isNaN(ratio) ? Infinity : ratio,
     ...(!neglect && refusal ? { refusal } : {}) };
 }

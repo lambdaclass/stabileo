@@ -18,26 +18,11 @@ import type { RegulationEdition } from '../../../codes/regulation';
 import { evaluateBeamSection } from './cirsoc201-beam-kernel';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable } from './cirsoc201-engine';
 import { computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity } from '../../station-design-forces';
-import { checkTorsion2025, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, type CageResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
+import { checkTorsion2025, combinedTransverseMinimum, providedTorsionStirrups, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, type CageResolution, type StirrupDeclaration } from '../../../codes/cirsoc201/torsion';
 
-// ─── Rebar Database ─────────────────────────────────────────────
+import { REBAR_DB, rebarSpec } from './cirsoc201-rebar';
 
-export interface RebarSpec {
-  diameter: number;  // mm
-  area: number;      // cm²
-  label: string;
-}
-
-export const REBAR_DB: RebarSpec[] = [
-  { diameter: 6,  area: 0.283, label: 'Ø6' },
-  { diameter: 8,  area: 0.503, label: 'Ø8' },
-  { diameter: 10, area: 0.785, label: 'Ø10' },
-  { diameter: 12, area: 1.131, label: 'Ø12' },
-  { diameter: 16, area: 2.011, label: 'Ø16' },
-  { diameter: 20, area: 3.142, label: 'Ø20' },
-  { diameter: 25, area: 4.909, label: 'Ø25' },
-  { diameter: 32, area: 8.042, label: 'Ø32' },
-];
+export { REBAR_DB, type RebarSpec } from './cirsoc201-rebar';
 
 // ─── Design Parameters ──────────────────────────────────────────
 
@@ -558,8 +543,7 @@ function evaluateShear(
   const emissions: Array<() => unknown> = [];
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
-  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia)
-    ?? { diameter: stirrupDia, area: Math.PI * (stirrupDia / 20) ** 2, label: `Ø${stirrupDia}` };
+  const stirrupBar = rebarSpec(stirrupDia);
   const stirrupLabel = stirrupBar.label;
   { emissions.push(() => steps.push(`Vu = ${VuAbs.toFixed(2)} kN`)); }
   { emissions.push(() => steps.push(`d = ${(d * 100).toFixed(1)} cm`)); }
@@ -627,9 +611,13 @@ function evaluateShear(
   } else if (ratio > 0.9) {
     status = 'warn';
   }
-  if (edition === '2025' && provision && legs < table.requiredLegs) {
+  const spacingShortfall = provision?.secondary
+    ? secondaryShearSpacingShortfall(edition, { b, h, d, stirrupDia, legs, spacing }, cover, fc, VuAbs, PHI_SHEAR * chosen.Vc / 1000)
+    : edition === '2025' && provision && legs < table.requiredLegs
+      ? `${legs} stirrup legs provided, ${table.requiredLegs} required (Table 9.7.6.2.2)` : undefined;
+  if (spacingShortfall) {
     status = 'fail';
-    emissions.push(() => steps.push(`${legs} stirrup legs provided, ${table.requiredLegs} required (Table 9.7.6.2.2)`));
+    emissions.push(() => steps.push(spacingShortfall));
   }
   const minimumRequired = provision?.secondary
     ? VuAbs > secondaryShearMinimumThreshold(edition, { b, d }, fc, PHI_SHEAR * chosen.Vc / 1000)
@@ -1316,7 +1304,7 @@ function torsionStirrupProvision(shear: ShearResult) {
   return providedTorsionStirrups({ diameter: shear.stirrupDia, legs: shear.stirrupLegs, spacing: shear.spacing });
 }
 
-export function sharedTorsionReinforcement(results: readonly ElementVerification[]) {
+export function sharedTorsionReinforcement(results: readonly ElementVerification[], edition: RegulationEdition) {
   const active = results.flatMap((v, index) => v.torsion && !v.torsion.neglect ? [{ v, index }] : []);
   const requirements = active.reduce<{ AtOverS: number; AlReq: number; index: number }>((a, { v, index }) => ({
     AtOverS: Math.max(a.AtOverS, v.torsion!.AtOverS), AlReq: Math.max(a.AlReq, v.torsion!.AlReq),
@@ -1328,7 +1316,8 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
     const t = v.torsion!;
     for (const s of [v.shear, ...(v.shearSecondary && !v.shearSecondary.refusal ? [v.shearSecondary] : [])]) {
       const area = torsionStirrupProvision({ ...s, spacing: 1 }).outerLegProvided * 1e4;
-      const combined = Math.max(s.AvOverSMin, shearReservedForTorsion(s, s === v.shear ? undefined : v.fy) + 2 * t.AtOverS);
+      const minimum = combinedTransverseMinimum(edition, s === v.shear ? v.b : v.h, v.fc, v.fy) * 1e4;
+      const combined = Math.max(minimum, shearReservedForTorsion(s, s === v.shear ? undefined : v.fy) + 2 * t.AtOverS);
       const limit = Math.min(spacing, t.spacingMax!, area / t.AtOverS, (s === v.shear ? legs : s.stirrupLegs) * area / combined);
       spacing = Math.min(spacing, Math.max(0.05, Math.floor(limit * 40) / 40));
     }
@@ -1340,7 +1329,7 @@ function shearReservedForTorsion(s: ShearResult, secondaryFyt: number | undefine
   return secondaryFyt === undefined ? s.AvOverSReq ?? s.AvOverS : s.Vs * 1e4 / (shearFy(secondaryFyt) * 1000 * s.d);
 }
 
-function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined, cage: CageResolution, fy: number): TorsionResult {
+function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined, cage: CageResolution, params: ConcreteDesignParams, edition: RegulationEdition): TorsionResult {
   if (!t.neglect && cage.kind === 'refusal') {
     return { ...t, refusal: cage.reason, phiTn: 0, ratio: Infinity, AtOverSProv: 0, reinforcementRatio: Infinity, status: 'fail',
       steps: [...t.steps, cage.reason] };
@@ -1348,12 +1337,13 @@ function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], 
   const AtOverSProv = Math.min(...shears.map((s, index) => {
     const provision = torsionStirrupProvision(s);
     return Math.max(0, Math.min(provision.outerLegProvided * 1e4,
-      (provision.transverseProvided * 1e4 - shearReservedForTorsion(s, index === 0 ? undefined : fy)) / 2));
+      (provision.transverseProvided * 1e4 - shearReservedForTorsion(s, index === 0 ? undefined : params.fy)) / 2));
   }));
   const ratio = (required: number, provided: number) => required === 0 ? 0 : provided > 0 ? required / provided : Infinity;
   const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), (AlProv === undefined ? 0 : ratio(t.AlReq, AlProv)),
     ...shears.map(s => s.spacing / t.spacingMax!),
-    ...shears.slice(1).map(s => ratio(s.AvOverSMin, torsionStirrupProvision(s).transverseProvided * 1e4)));
+    ...shears.map((s, index) => ratio(combinedTransverseMinimum(edition, index === 0 ? params.b : params.h, params.fc, params.fy),
+      torsionStirrupProvision(s).transverseProvided)));
   if (t.neglect && AlProv === undefined) AlProv = 0;
   const longitudinalProvision = t.neglect ? 'not-required' : AlProv === undefined ? 'not-checked' : 'checked';
   return { ...t, AtOverSProv, AlProv, longitudinalProvision, reinforcementRatio,
@@ -1453,7 +1443,7 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     const shearSecondary = checkSecondary ? secondary : undefined;
     const torsionResult = torsion
       ? checkProvidedTorsion(concurrent.rectangularSection === false ? { ...torsion, neglect: false } : torsion,
-        [shear, ...(secondary && !secondary.refusal ? [secondary] : [])], fixed?.torsion?.AlProv, cage, params.fy)
+        [shear, ...(secondary && !secondary.refusal ? [secondary] : [])], fixed?.torsion?.AlProv, cage, params, edition)
       : undefined;
     let column: ColumnResult | undefined;
     let biaxial: BiaxialResult | undefined;

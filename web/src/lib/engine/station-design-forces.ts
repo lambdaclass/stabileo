@@ -1,6 +1,7 @@
 import { CompleteDemandSet, requireDemandInventories, demandCoverage, memberDemandScope, type DemandInventory } from './complete-demand-set';
 import { ConcurrentDemand } from './concurrent-demand';
 import { getColumnCapacityKernel, columnCapacityKernelRegistered } from './column-capacity-kernel';
+import { rebarSpec } from './codes/argentina/cirsoc201-rebar';
 import { evaluateBeamSection, evaluateBeamSections } from './codes/argentina/cirsoc201-beam-kernel';
 import { beta1, axialCap } from './codes/argentina/cirsoc201-basis';
 import { cirsoc201Engine, Cirsoc201EngineUnavailable, type SectionKernelConstructor } from './codes/argentina/cirsoc201-engine';
@@ -25,7 +26,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
 
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
-import { checkTorsion2025, secondaryShearFace, secondaryShearMinimumThreshold, weakestMemberCages } from '../codes/cirsoc201/torsion';
+import { checkTorsion2025, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, weakestMemberCages } from '../codes/cirsoc201/torsion';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -1483,9 +1484,7 @@ export function computeShearCapacity(
   opts: { Ag?: number; rhoW?: number; h?: number; edition?: RegulationEdition; unrounded?: boolean } = {},
 ): { phiVn: number; phiVc: number; VsProv: number; phi: number; avBelowMin: boolean; capped: boolean; evaluated: boolean; AvMin?: number } {
   const phi = 0.75;
-  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia);
-  const legArea = stirrupBar ? stirrupBar.area : (Math.PI / 4) * (stirrupDia / 10) ** 2; // cm²
-  const Av = legs * legArea; // cm²
+  const Av = legs * rebarSpec(stirrupDia).area;
   const r = evaluateBeamSection({
     edition: opts.edition ?? '2025',
     fc: fc * 1e6, fy: fy * 1e6, b, h: Math.max(opts.h ?? d, d), d,
@@ -2085,17 +2084,22 @@ export function verifyProvidedReinforcement(
   const regionalStirrups = regions?.stirrupsSupport || regions?.stirrupsSpan
     ? [regions.stirrupsSupport, regions.stirrupsSpan] : [provided.stirrups];
   const cages = section ? weakestMemberCages(section, elementType === 'column' ? [provided.stirrups] : regionalStirrups, rectangular) : [];
-  const atTorsion = (t: Tuple, nominalDepth: number) => cages.flatMap(cage => {
+  const colResolved = elementType === 'column' && section && !options?.shape
+    ? resolveColumnReinf(provided.column, provided.longitudinal) : null;
+  const colLayout = colResolved && section
+    ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, section.stirrupDia, provided.column, spacingRule)
+    : undefined;
+  const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
+  const colRhoW = elementType === 'column' && section ? colArea / 3 / (section.b * section.h * 1e4) : 0;
+  const atTorsion = (t: Tuple, d: number, primaryRhoW: number) => cages.flatMap(cage => {
     if (!section || Math.abs(t.tq) < 0.01) return [];
-    const diameter = cage.kind === 'closed-rectangle' ? cage.diameter : section.stirrupDia;
-    const d = nominalDepth - Math.max(0, diameter - section.stirrupDia) / 1000;
-    const dSecondary = cage.kind === 'closed-rectangle'
-      ? secondaryShearFace(section, cage).d : section.b - section.cover - diameter / 1000 - 0.008;
-    const r = checkTorsion2025({ ...section, d, dSecondary, stirrupDiaMm: diameter, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage });
+    const dSecondary = section.b - section.cover - section.stirrupDia / 1000 - 0.008;
+    const r = checkTorsion2025({ ...section, d, dSecondary, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
+      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition,
+      rhoW: { primary: primaryRhoW, secondary: colRhoW } });
     const missing = cage.kind === 'refusal' && cage.missing === true;
-    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, d, missing }];
-    return r.neglect ? [] : [{ r, t, d, missing }];
+    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing }];
+    return r.neglect ? [] : [{ r, t, missing }];
   });
   type TorsionAtStation = ReturnType<typeof atTorsion>[number];
   const pushTorsion = (x: TorsionAtStation, category: string, tuplesChecked: number, regionRange?: [number, number]) => {
@@ -2123,12 +2127,13 @@ export function verifyProvidedReinforcement(
       }
       const f = secondaryShearFace(section, cage);
       const cap = computeShearCapacity(f.stirrupDia, f.legs, f.spacing, f.b, f.d, section.fc, section.fy, -t.n,
-        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, unrounded: true });
+        { Ag: section.b * section.h, h: f.h, edition: spacingRule.edition, rhoW: colRhoW, unrounded: true });
       const minimumThreshold = secondaryShearMinimumThreshold(spacingRule.edition, f, section.fc, cap.phiVc);
       const minShort = cap.avBelowMin && demand > minimumThreshold;
-      const ratio = minShort || !(cap.phiVn > 0) || !Number.isFinite(demand) ? Infinity : demand / cap.phiVn;
+      const spacingShortfall = secondaryShearSpacingShortfall(spacingRule.edition, f, section.cover, section.fc, demand, cap.phiVc);
+      const ratio = minShort || spacingShortfall || !(cap.phiVn > 0) || !Number.isFinite(demand) ? Infinity : demand / cap.phiVn;
       const reason = minShort ? 'Secondary face is below minimum transverse steel'
-        : `eØ${f.stirrupDia} ${f.legs}L c/${(f.spacing * 100).toFixed(1)} cm; bw = ${(f.b * 100).toFixed(1)} cm, d = ${(f.d * 100).toFixed(1)} cm`;
+        : spacingShortfall ?? `eØ${f.stirrupDia} ${f.legs}L c/${(f.spacing * 100).toFixed(1)} cm; bw = ${(f.b * 100).toFixed(1)} cm, d = ${(f.d * 100).toFixed(1)} cm`;
       if (!worst || ratio > worst.ratio || (ratio === worst.ratio && demand > worst.demand)) {
         worst = { t, demand, capacity: cap.phiVn, ratio, reason };
       }
@@ -2718,9 +2723,9 @@ export function verifyProvidedReinforcement(
           : t.stationT >= tEndStart
             ? { top: layersTotalArea(topEndLayers), bottom: botIntoEndResult.area }
             : { top: topIntoSpanArea, bottom: layersTotalArea(bottomLayers) });
-        const longitudinalNeed = ({ r, t, d }: TorsionAtStation) => {
+        const longitudinalNeed = ({ r, t }: TorsionAtStation) => {
           const AlReq = Math.max(r.Al, r.AlMin);
-          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * d);
+          const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * r.primaryDepth);
           const f = facesAt(t), sag = M(t) >= 0;
           const tension = (sag ? f.bottom : f.top) / 1e4, other = (sag ? f.top : f.bottom) / 1e4;
           const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
@@ -2734,7 +2739,7 @@ export function verifyProvidedReinforcement(
         let tw: TorsionAtStation | undefined;
         let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | undefined;
         let evaluated = 0;
-        for (const t of ss.tuples) for (const x of atTorsion(t, d)) {
+        for (const t of ss.tuples) for (const x of atTorsion(t, d, ss.rhoW)) {
           if (!tw || x.r.ratio > tw.r.ratio) tw = x;
           if (x.r.refusal) continue;
           evaluated++;
@@ -2893,10 +2898,6 @@ export function verifyProvidedReinforcement(
     }
     if (shaped.some((c) => c.limiting === 'biaxial')) { checkedAxes.add(axes.flexure); checkedAxes.add(axes.secondaryFlexure); checkedAxes.add('N'); }
   } else if (elementType === 'column' && section) {
-    const colResolved = resolveColumnReinf(provided.column, provided.longitudinal);
-    const colLayout = colResolved
-      ? computeColumnLayout(colResolved.totalCount, colResolved.cornerDia, section.b, section.h, section.cover, section.stirrupDia, provided.column, spacingRule)
-      : undefined;
     const colBars = colLayout?.bars;
 
     if (!colResolved) {
@@ -3068,8 +3069,6 @@ export function verifyProvidedReinforcement(
       const dTieFor = (depth: number) => depth - section.cover - (section.stirrupDia / 1000) - 0.008;
       // Row (c) needs ρw: a third of the column's bars as the tension side (a face and half of
       // the sides), over the gross section; used only where the ties are below Av,min.
-      const colArea = colLayout?.totalArea ?? (provided.longitudinal ? rebarGroupArea(provided.longitudinal) : 0);
-      const colRhoW = colArea / 3 / (section.b * section.h * 1e4);
       const tieSpecs: Array<{ axis: string; read: (t: Tuple) => number; width: number; dTie: number }> = [
         { axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) },
       ];
@@ -3138,7 +3137,7 @@ export function verifyProvidedReinforcement(
   if (elementType === 'column' && section) {
     const nominalDepth = section.h - section.cover - section.stirrupDia / 1000 - 0.008;
     let worst: TorsionAtStation | undefined;
-    for (const t of allTuples) for (const x of atTorsion(t, nominalDepth)) {
+    for (const t of allTuples) for (const x of atTorsion(t, nominalDepth, colRhoW)) {
       if (!worst || x.r.ratio > worst.r.ratio) worst = x;
     }
     if (worst) {

@@ -16,7 +16,6 @@ const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 }
 const cage = { diameter: 8, spacing: 0.1, legs: 4 };
 const fixed = { shear: cage, torsion: { AlProv: 100 } };
 const phi = 0.75;
-const roundTwo = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 const legArea = (diameter: number) => Math.PI * (diameter / 2000) ** 2;
 const depth = (h: number, diameter: number) => h - section.cover - diameter / 1000 - 0.008;
 const steelStress = section.fy * 1000;
@@ -118,7 +117,7 @@ it('known wrong result: #2171 every station uses the weakest member cage', () =>
   expect(torsion?.ratio).toBe(+(at / (legArea(cage.diameter) / 0.15)).toFixed(3));
   expect(torsion?.status).toBe('fail');
   const b = section.b, d = depth(section.h, cage.diameter), primary = 150;
-  const av = (primary / phi - 0.17 * Math.sqrt(section.fc) * 1000 * b * d) / (steelStress * d);
+  const av = (primary / phi - Math.sqrt(section.fc) / 6 * 1000 * b * d) / (steelStress * d);
   const combined = provided({ regions }, 'beam', 0, 20, { vz: primary }).checks.find(c => c.category === 'Torsion Span (Vz)');
   expect(combined?.ratio).toBe(+((av + at) / (2 * legArea(cage.diameter) / 0.15)).toFixed(3));
   const mixed = provided({ regions: { ...regions, stirrupsSupport: { ...regions.stirrupsSupport, diameter: 10 } } }, 'beam', secondary * 1.001, 0);
@@ -272,7 +271,7 @@ for (const nonlinear of [false, true]) {
 }
 
 for (const member of ['column', 'beam', 'wall'] as const) {
-  roundTwo(`known wrong result: #2171 ${member} secondary cage follows 2025 leg spacing`, () => {
+  it(`known wrong result: #2171 ${member} secondary cage follows 2025 leg spacing`, () => {
     const d = depth(section.b, cage.diameter);
     const width = section.h;
     const demand = 40;
@@ -298,7 +297,7 @@ for (const member of ['column', 'beam', 'wall'] as const) {
 }
 
 for (const [edition, compression] of [['2005', 0], ['2005', -120], ['2025', -120]] as const) {
-  roundTwo(`known wrong result: #2171 provided torsion reserves ${edition} concurrent shear steel at N=${compression}`, () => {
+  it(`known wrong result: #2171 provided torsion reserves ${edition} concurrent shear steel at N=${compression}`, () => {
     const stirrups = { ...cage, diameter: 10, legs: 2 };
     const torque = 20;
     const d = depth(section.b, stirrups.diameter);
@@ -324,7 +323,7 @@ for (const [edition, compression] of [['2005', 0], ['2005', -120], ['2025', -120
 }
 
 for (const edition of ['2005', '2025'] as const) {
-  roundTwo(`known wrong result: #2171 ${edition} primary combined minimum at zero secondary shear`, () => {
+  it(`known wrong result: #2171 ${edition} primary combined minimum at zero secondary shear`, () => {
     const s = { ...section, b: 0.8, h: 0.25, fc: 40, fy: 350, stirrupDia: 6 };
     const root = Math.sqrt(s.fc);
     const tu = 1.01 * phi * 0.083 * root * 1000 * (s.b * s.h) ** 2 / (2 * (s.b + s.h));
@@ -344,7 +343,7 @@ for (const edition of ['2005', '2025'] as const) {
   });
 }
 
-roundTwo('known wrong result: #2171 primary torsion depth follows either change in cage diameter', () => {
+it('known wrong result: #2171 primary torsion depth follows either change in cage diameter', () => {
   const torque = 20;
   const sectionLimit = phi * (0.17 + 0.66) * Math.sqrt(section.fc) * 1000;
   for (const [nominal, actual] of [[16, 6], [6, 16]] as const) {
@@ -366,7 +365,7 @@ roundTwo('known wrong result: #2171 primary torsion depth follows either change 
   }
 });
 
-roundTwo('known wrong result: #2171 secondary column shear retains longitudinal steel below the transverse minimum', () => {
+it('known wrong result: #2171 secondary column shear retains longitudinal steel below the transverse minimum', () => {
   const geometry = { ...section, b: 0.55, h: 0.6 };
   const d = depth(geometry.b, 6);
   const width = geometry.h;
@@ -389,7 +388,7 @@ roundTwo('known wrong result: #2171 secondary column shear retains longitudinal 
 });
 
 for (const nonlinear of [false, true]) {
-  roundTwo(`known wrong result: #2171 solved spatial torsion reserves secondary shear steel (nonlinear=${nonlinear})`, () => {
+  it(`known wrong result: #2171 solved spatial torsion reserves secondary shear steel (nonlinear=${nonlinear})`, () => {
     const stirrups = { ...cage, diameter: 10 };
     const torque = 20;
     const d = depth(section.b, stirrups.diameter);
