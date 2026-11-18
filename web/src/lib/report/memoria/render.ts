@@ -39,7 +39,7 @@ export function renderFicha(r: CheckRow, c: RenderContext): string {
   const eta = r.ratio === null ? '' : Number.isFinite(r.ratio) ? c.fmt(r.ratio, 3) : '∞';
   const head = `<h5>${esc(title)} <span class="clause">(${esc(ref(r, c.tr))})</span></h5>`;
   if (r.status === 'unsupported' || r.status === 'notVerified') {
-    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(r.formula)}` : ''}</p></section>`;
+    return `<section class="ficha ${r.status}">${head}<p>${esc(c.tr(`memo.ficha.${r.status}`))}${r.formula ? `: ${esc(c.tr(r.formula))}` : ''}</p></section>`;
   }
   const where = r.combination || r.location
     ? `<p class="where">${esc(c.tr('memo.ficha.governs', { location: r.location ?? '—', combination: r.combination ?? '—' }))}</p>` : '';
@@ -71,7 +71,7 @@ export function familySummary(els: readonly MemoriaElement[], c: RenderContext, 
       const rs = e.rows.filter((r) => (r.titleKey ? `${r.titleKey}|${r.clause ?? ''}` : r.title) === col.key);
       if (rs.length === 0) return `N.P.<sup>${note(c.tr('memo.np.absent', { check: col.title }))}</sup>`;
       const worst = rs.reduce((a, b) => ((b.ratio ?? -1) > (a.ratio ?? -1) ? b : a));
-      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${worst.formula ?? c.tr('memo.ficha.unsupported')}`)}</sup>`;
+      if (worst.status === 'unsupported' || worst.status === 'notVerified') return `N.E.<sup>${note(`${col.title}: ${c.tr(worst.formula ?? 'memo.ficha.unsupported')}`)}</sup>`;
       return worst.ratio === null ? MARK[worst.status] : `<span class="s-${worst.status}">η = ${Number.isFinite(worst.ratio) ? c.fmt(worst.ratio, 2) : '∞'}</span>`;
     });
     const ratios = e.rows.map((r) => r.ratio).filter((x): x is number => x !== null);

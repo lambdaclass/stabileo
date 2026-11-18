@@ -180,7 +180,7 @@
             <td class="mono small">{c.comboName ?? '—'}</td>
           </tr>
           {#if c.description}
-            <tr class="desc-row"><td colspan="7" class="desc">{c.description}</td></tr>
+            <tr class="desc-row"><td colspan="7" class="desc">{t(c.description)}</td></tr>
           {/if}
         {/each}
       </tbody>
