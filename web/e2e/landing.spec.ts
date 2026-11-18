@@ -516,7 +516,7 @@ test.describe('@landing landing page', () => {
     await expectHeroDrawing(page, 'shed', 'shed-fig');
   });
 
-  test.skip('known wrong result: #2285 the carousel skips a stalled chunk and lets visitors select it after it loads', async ({ page }) => {
+  test('#2285 the carousel skips a stalled chunk and lets visitors select it after it loads', async ({ page }) => {
     await disableHeroPreload(page);
     const shed = await gateShedChunk(page);
     await bootWithHeroClock(page);

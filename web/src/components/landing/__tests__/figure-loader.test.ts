@@ -4,7 +4,7 @@ import { createFigureLoader, FIGURE_LOAD_TIMEOUT_MS } from '../hero/figure-loade
 afterEach(() => vi.useRealTimers());
 
 for (const expired of [false, true]) {
-  it.skip(`known wrong result: #2285 retries a rejected import (expired: ${expired})`, async () => {
+  it(`#2285 retries a rejected import (expired: ${expired})`, async () => {
     vi.useFakeTimers();
     const module = {};
     const chunk = Promise.withResolvers<typeof module>();
@@ -48,7 +48,7 @@ it('accepts a module that resolves just before its deadline', async () => {
   expect(loader).toHaveBeenCalledTimes(1);
 });
 
-it.skip('known wrong result: #2285 caches a module that arrives after the deadline for later callers', async () => {
+it('#2285 caches a module that arrives after the deadline for later callers', async () => {
   vi.useFakeTimers();
   const module = {};
   const chunk = Promise.withResolvers<typeof module>();
