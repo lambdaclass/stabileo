@@ -28,6 +28,7 @@ const columns = process.argv.includes('--columns');
 const compareColumn = process.argv.includes('--compare-column');
 const numerical = process.argv.includes('--numerical');
 const solves = process.argv.includes('--solve');
+const render = process.argv.includes('--render');
 const stations = process.argv.includes('--stations');
 const compareStation = process.argv.includes('--compare-station');
 const queryKernels = process.argv.includes('--query-kernels');
@@ -41,7 +42,7 @@ const outDir = await mkdtemp(join(tmpdir(), 'stabileo-design-'));
 const entry = join(root, `.${basename(outDir)}.html`);
 let server, browser, watchdog;
 try {
-  const module = solves ? 'solve-benchmark' : queryKernels ? 'collision-query-benchmark' : stations ? 'station-transfer-benchmark' : columns ? 'column-capacity-benchmark' : numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
+  const module = render ? 'render-benchmark' : solves ? 'solve-benchmark' : queryKernels ? 'collision-query-benchmark' : stations ? 'station-transfer-benchmark' : columns ? 'column-capacity-benchmark' : numerical ? 'numerical-workflows-benchmark' : kernels ? 'numeric-kernel-benchmark' : 'design-benchmark';
   await writeFile(entry, `<!doctype html><title>Design benchmark</title><script type="module">import { benchmark } from "/scripts/${module}.ts"; window.runBenchmark = benchmark;</script>`);
   await build({
     configFile: false, root, plugins: benchmarkPlugins(),
@@ -58,7 +59,7 @@ try {
     if (!address || typeof address === 'string') throw new Error('No benchmark server address');
     browser = await chromium.launch({ headless: true });
     watchdog = setTimeout(() => { console.error('Benchmark timed out'); void browser.close(); }, 300_000);
-    const examples = process.argv.slice(2).filter(arg => !['--solve', '--columns', '--compare-column', '--compare-rust-column', '--compare-repair', '--numerical', '--kernels', '--compare', '--stations', '--compare-station', '--query-kernels', '--compare-fused', '--reverse'].includes(arg));
+    const examples = process.argv.slice(2).filter(arg => !['--render', '--solve', '--columns', '--compare-column', '--compare-rust-column', '--compare-repair', '--numerical', '--kernels', '--compare', '--stations', '--compare-station', '--query-kernels', '--compare-fused', '--reverse'].includes(arg));
     let profileIndex = 0;
     const run = async (kernel, columnCapacity = true, incremental = true, compactStations = true, fused = true, rustColumns = true) => {
       // Fresh pages give both backends the same store revision counters and JIT warmup.
