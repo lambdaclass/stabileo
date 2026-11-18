@@ -907,6 +907,52 @@
    "contacts": []
   },
   {
+   "id": "wang-2024",
+   "doi": "10.1103/PhysRevLett.132.267201",
+   "crossref": {
+    "title": "Transient Amplification of Broken Symmetry in Elastic Snap-Through",
+    "authors": [
+     "Qiong Wang",
+     "Andrea Giudici",
+     "Weicheng Huang",
+     "Yuzhe Wang",
+     "Mingchao Liu",
+     "Sameh Tawfick",
+     "Dominic Vella"
+    ],
+    "year": 2024,
+    "venue": "Physical Review Letters"
+   },
+   "area": "numerical-methods",
+   "keywords": [
+    "snap-through",
+    "elastica",
+    "symmetry breaking",
+    "nonlinear dynamics",
+    "saddle-node and pitchfork bifurcations"
+   ],
+   "summary": "A steel strip clamped at an angle at both ends has a natural and an inverted shape; when its ends are pulled apart the inverted shape disappears and the strip snaps. Linear stability predicts an asymmetric snap, but experiments and discrete-elastic-rod simulations show that only slow releases amplify a small asymmetry, while fast ones snap symmetrically. A two-mass von Mises truss explains this as a transient passage through a region of state space where the asymmetric stiffness is negative, which fast trajectories skip.",
+   "summary_source": "full-text",
+   "code": [],
+   "data": [],
+   "methods": [
+    "geometrically exact beam",
+    "arc-length continuation",
+    "linear stability",
+    "implicit nonlinear dynamics",
+    "reduced-order toy model"
+   ],
+   "dependencies": [],
+   "complexity": "medium",
+   "relevance": "Snap-through of a clamped strip on production co-rotational frame elements with production arc-length statics and a research HHT-alpha nonlinear time integration. Reproduces the shallow-theory bifurcation numbers (mu_A = 1/4, mu* = 0.247), the natural frequency 57.86 and the toy model's constants within stated tolerances; the rate dependence of the amplification (Fig. 2c) is reproduced in trend only, and the toy model's critical rate differs by about 10 %. See research/mechanics/vella-2024/README.md.",
+   "status": "interactive",
+   "reproduced_published_results": true,
+   "benchmarks": [],
+   "implementation": "mechanics/vella-2024",
+   "page": "web/src/components/research/vella2024/VellaPage.svelte",
+   "contacts": []
+  },
+  {
    "id": "michell-1904",
    "doi": "10.1080/14786440409463229",
    "crossref": {
