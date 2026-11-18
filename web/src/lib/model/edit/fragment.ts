@@ -44,6 +44,7 @@ export interface Fragment {
   quads: Quad[];
   plates: Plate[];
   supports: Support[];
+  supportNodesWithMembers?: number[];
   loads: Load[];
   groups: ModelGroup[];
   materials: Material[];
@@ -93,6 +94,15 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
     materials: [], sections: [], loadCases: [],
     local: true,
   };
+  const localSupportNodes = new Set(frag.supports.filter(s => s.isGlobal === false).map(s => s.nodeId));
+  if (localSupportNodes.size > 0) {
+    const withMembers = new Set<number>();
+    for (const member of modelStore.elements.values()) {
+      if (localSupportNodes.has(member.nodeI)) withMembers.add(member.nodeI);
+      if (localSupportNodes.has(member.nodeJ)) withMembers.add(member.nodeJ);
+    }
+    frag.supportNodesWithMembers = [...withMembers];
+  }
   // An area load defined on a group the fragment holds (a physical plate's) goes with it: copied
   // as loads only, the copy would hold plain loads that its next mesh cannot carry.
   if (opts.withGroups !== false) {

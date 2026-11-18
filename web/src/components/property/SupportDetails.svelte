@@ -31,7 +31,9 @@
     const onlyTrans = updated.tx && updated.ty && updated.tz && !updated.rx && !updated.ry && !updated.rz;
     const noneFixed = !updated.tx && !updated.ty && !updated.tz && !updated.rx && !updated.ry && !updated.rz;
     const type = allFixed ? 'fixed3d' : onlyTrans ? 'pinned3d' : noneFixed ? 'spring3d' : 'custom3d';
-    modelStore.updateSupport(id, { dofRestraints: updated, type } as any);
+    modelStore.updateSupport(id, {
+      dofRestraints: updated, type, dofFrame: s.dofFrame, dofLocalElementId: s.dofLocalElementId,
+    });
     resultsStore.clear();
     resultsStore.clear3D();
   }
