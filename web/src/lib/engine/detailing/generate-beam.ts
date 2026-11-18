@@ -1534,7 +1534,7 @@ export function generateBeamBars(input: BeamGenerationInput): GeneratedBeam {
   const clear = Math.max(0, faceJ - faceI);
 
   const raw: StirrupZone[] = [];
-  if (input.lineStirrups) {
+  if (input.lineStirrups?.length) {
     // ── The zones a saved line draws, each as drawn, clipped to the faces ──
     // The same table rules them (`zoneFor`): a drawn zone is laid at its spacing and legs, never
     // wider or with fewer legs than Table 9.7.6.2.2 allows there.

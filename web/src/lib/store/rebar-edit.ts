@@ -20,7 +20,6 @@ import { withSpanPieces } from './design-spans-store';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from './model.svelte';
 import { regroupBars } from '../engine/design/rebar-groups';
 import { resolveLayers } from '../engine/station-design-forces';
-import { patchBeamRegionStirrups } from '../engine/design/beam-line';
 
 export type LayerField = 'topStartLayers' | 'topEndLayers' | 'bottomSpanLayers';
 const GROUP_OF: Record<LayerField, 'topStart' | 'topEnd' | 'bottomSpan'> = {
@@ -119,22 +118,18 @@ export function getStirrups(elemId: number, field: StirrupField): StirrupDef | u
 }
 
 export function setStirrups(elemId: number, field: StirrupField, patch: Partial<StirrupDef>): void {
-  const current = verificationStore.reinforcementFor(elemId) ?? getReinforcement(elemId);
-  if (current?.regions?.stirrupZones === null) return;
-  const p: ProvidedReinforcement = current ? JSON.parse(JSON.stringify(current)) : {};
+  const p = draft(elemId);
   p.regions = p.regions ?? {};
   const cur = p.regions[field] ?? p.stirrups;
-  const summary = {
-    ...cur, ...patch,
+  p.regions[field] = {
+    ...cur,
     diameter: patch.diameter ?? cur?.diameter ?? 8,
+    // Clamp to the constructible range — Av = legs × legArea enters the shear
+    // capacity unchecked, so a typed legs=20 would verify green on fantasy
+    // reinforcement. The editors advertise max=6; enforce it here too.
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),
   };
-  patchBeamRegionStirrups(p.regions, field, {
-    ...patch,
-    ...(patch.legs !== undefined ? { legs: summary.legs } : {}),
-    ...(patch.spacing !== undefined ? { spacing: summary.spacing } : {}),
-  }, summary);
   commitManual(elemId, p);
 }
 
@@ -204,7 +199,7 @@ export function setTies(elemId: number, patch: Partial<StirrupDef>): void {
   const p = draft(elemId);
   const cur = p.stirrups;
   p.stirrups = {
-    ...cur, ...patch,
+    ...cur,
     diameter: patch.diameter ?? cur?.diameter ?? 8,
     legs: Math.max(2, Math.min(6, Math.round(patch.legs ?? cur?.legs ?? 2))),
     spacing: Math.max(0.05, patch.spacing ?? cur?.spacing ?? 0.15),

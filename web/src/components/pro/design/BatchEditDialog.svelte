@@ -8,6 +8,7 @@
    * listed with a reason and excluded from the Apply count — never silently skipped.
    * The whole apply is ONE undo step.
    */
+  import { savedBeamLineCages } from '$lib/store/beam-line-store';
   import { t, tp } from '../../../lib/i18n';
   import { REBAR_DB } from '../../../lib/engine/codes/argentina/cirsoc201';
   import {
@@ -18,7 +19,7 @@
   import { verificationStore } from '../../../lib/store';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { commitManualBatch } from '../../../lib/store/rebar-edit';
+  import { getReinforcement, commitManualBatch } from '../../../lib/store/rebar-edit';
   import { setMemberCovers } from '../../../lib/store/design-data';
   import { assignSection } from '../../../lib/store/section-batch';
   import { modelStore } from '../../../lib/store';
@@ -109,8 +110,8 @@
     const adapter = concreteAdapter();
     if (!adapter || !hasPatch) return null;
     return planBatchEdit(
-      adapter, selection, verificationStore.contexts, verificationStore.reinforcementFor, patch,
-      { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides },
+      adapter, selection, verificationStore.contexts, getReinforcement, patch,
+      { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides, lineCages: savedBeamLineCages },
     );
   });
 
@@ -138,11 +139,11 @@
     const adapter = concreteAdapter();
     if (!adapter) return;
     const full = planBatchEdit(
-      adapter, selection, verificationStore.contexts, verificationStore.reinforcementFor, patch,
-      { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides,
+      adapter, selection, verificationStore.contexts, getReinforcement, patch,
+      { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides, lineCages: savedBeamLineCages,
         previewCap: Number.MAX_SAFE_INTEGER },
     );
-    const entries: Array<[number, ReturnType<typeof verificationStore.reinforcementFor>]> = [];
+    const entries: Array<[number, ReturnType<typeof getReinforcement>]> = [];
     for (const row of full.rows) {
       if (row.willChange && row.candidate) entries.push([row.elementId, row.candidate]);
     }

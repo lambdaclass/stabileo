@@ -10,13 +10,13 @@ import { verificationStore } from './verification.svelte';
 import { storedDecisions } from './design-decisions';
 import { framesOf, modelBeamLines, copyFrame } from './frame-equalize';
 import { rebarHash } from '../engine/design/rebar-hash';
-import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, type LineMember, type MemberCuts } from '../engine/design/beam-line';
+import { beamLineCages, lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, type LineMember, type MemberCuts } from '../engine/design/beam-line';
 import { lineLaps, linePieces, type LineBarPiece, type LineLap, type LineStirrupPiece } from '../engine/detailing/line-bars';
 import { mirrorReinforcement, type BeamLine } from '../engine/design/repeated-frames';
 import { lineKey, type BeamLineReinforcement } from '../design-contract/beam-line';
 import { designLength, withSpanPieces } from './design-spans-store';
 import { lineAxis } from './line-axis';
-import type { ProvidedReinforcement } from '../design-contract/reinforcement';
+import type { ProvidedReinforcement, StirrupDef } from '../design-contract/reinforcement';
 import type { ProvidedRebarResult } from '../engine/station-design-forces';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -66,23 +66,18 @@ export interface StaleLine {
   record: BeamLineReinforcement;
 }
 
-export function reinforcementForVerification(elementId: number): ProvidedReinforcement | undefined {
-  const rebar = modelStore.elements.get(elementId)?.reinforcement;
-  if (!rebar || rebar.regions?.stirrupZones !== undefined) return rebar;
-  const span = verificationStore.contextFor(elementId)?.span;
-  const id = span?.representative ?? elementId;
-  const lines = storedDecisions().lines;
-  const hash = rebarHash(rebar);
-  const carriesLegacyLayout = Object.values(lines ?? {}).some(record => record.members.some(member =>
-    (span?.elements ?? [id]).includes(member)
-    && (record.memberHashes?.[String(member)] ?? hash) === hash));
-  if (!carriesLegacyLayout) return rebar;
-
-  const line = modelBeamLines().find(candidate => candidate.members.includes(id));
-  const record = line && storedLine(line);
-  const regions = line && record ? projected(line, record).get(id)?.regions : undefined;
-  const stirrupZones = regions?.stirrupZones ?? null;
-  return { ...rebar, regions: { ...rebar.regions, stirrupsBySupport: regions?.stirrupsBySupport, stirrupZones } };
+export function savedBeamLineCages(ctx: { elementId: number; span?: { elements: readonly number[] } }): StirrupDef[] | null | undefined {
+  const members = ctx.span?.elements ?? [ctx.elementId];
+  let cages: StirrupDef[] | undefined;
+  for (const line of Object.values(storedDecisions().lines ?? {})) {
+    for (const id of members) {
+      if (!line.members.includes(id)) continue;
+      const provided = beamLineCages(line, id);
+      if (!provided) return null;
+      (cages ??= []).push(...provided);
+    }
+  }
+  return cages;
 }
 
 const LENGTH_TOL = 1e-3;
@@ -158,7 +153,7 @@ export function checkDraft(line: BeamLine, model: BeamLineReinforcement): Map<nu
   if (!a) return out;
   for (const [id, r] of projected(line, model)) {
     const ctx = verificationStore.contextFor(id);
-    if (ctx) out.set(id, a.verify(ctx, r) as ProvidedRebarResult);
+    if (ctx) out.set(id, a.verify(ctx, r, beamLineCages(model, id)) as ProvidedRebarResult);
   }
   return out;
 }

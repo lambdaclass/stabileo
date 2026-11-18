@@ -1,3 +1,4 @@
+import type { StirrupDef } from '../design-contract/reinforcement';
 import { completeMemberDemands } from '../engine/member-demand-gate';
 import { ConcurrentDemand } from '../engine/concurrent-demand';
 // Verification store — the single source of truth for RC design state.
@@ -218,6 +219,7 @@ function createVerificationStore() {
   let providedRevision = $state(0);
   let cachedDemandSnapshot: { context: MemberContext; elementId: number; demands: MemberContext['demands']; stations: MemberContext['stations']; memberIds: MemberContext['demandMemberIds'] }[] | undefined;
 
+  let beamLineCages: ((ctx: MemberContext) => readonly StirrupDef[] | null | undefined) | undefined;
   let reinforcementProvider: ((elementId: number) => ProvidedReinforcement | undefined) | null = null;
   /** The conditions the detailing left open on the member, by key (wired in index.ts). */
   let detailingIssueProvider: ((elementId: number) => readonly string[]) | null = null;
@@ -316,13 +318,14 @@ function createVerificationStore() {
     // previous one.
     const codeId = regulationsStore.concreteDesignCode();
     if (!codeId) return null;
-    const key = `${rebarHash(reinf)}|${demandRevision}|${codeId}`;
+    const cages = ctx.elementType === 'beam' ? beamLineCages?.(ctx) : undefined;
+    const key = `${rebarHash(reinf)}|${demandRevision}|${codeId}|${JSON.stringify(cages)}`;
     validateCachedDemands();
     const hit = providedCache.get(elementId);
     if (hit && hit.key === key) return hit.result;
     const adapter = getDesignCode(codeId);
     if (!adapter) return null;
-    const result = adapter.verify(ctx, reinf);
+    const result = adapter.verify(ctx, reinf, cages);
     providedCache.set(elementId, { key, result });
     return result;
   }
@@ -373,7 +376,7 @@ function createVerificationStore() {
         depthTolerance: Math.max(0, loss.depthTolerance),
       },
     };
-    const result = adapter.verify(atFinal, reinf);
+    const result = adapter.verify(atFinal, reinf, ctx.elementType === 'beam' ? beamLineCages?.(ctx) : undefined);
     if (!result) return 'fail';
     return result.overallStatus === 'fail'
       ? 'fail'
@@ -447,8 +450,12 @@ function createVerificationStore() {
     get concreteCodeId() { return regulationsStore.concreteDesignCode(); },
 
     /** Wired in store/index.ts so this store never imports modelStore. */
-    _setReinforcementProvider(fn: (elementId: number) => ProvidedReinforcement | undefined) {
+    _setReinforcementProvider(
+      fn: (elementId: number) => ProvidedReinforcement | undefined,
+      cages?: (ctx: MemberContext) => readonly StirrupDef[] | null | undefined,
+    ) {
       reinforcementProvider = fn;
+      beamLineCages = cages;
     },
     /** Wired in store/index.ts, for the same reason: this store never imports the detailing. */
     _setDetailingIssueProvider(fn: (elementId: number) => readonly string[]) {

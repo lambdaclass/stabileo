@@ -558,7 +558,8 @@ function evaluateShear(
   const emissions: Array<() => unknown> = [];
   const d = effectiveDepth(h, cover, stirrupDia, 16);
   const VuAbs = Math.abs(Vu);
-  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia) ?? REBAR_DB[1]; // default Ø8
+  const stirrupBar = REBAR_DB.find(r => r.diameter === stirrupDia)
+    ?? { diameter: stirrupDia, area: Math.PI * (stirrupDia / 20) ** 2, label: `Ø${stirrupDia}` };
   const stirrupLabel = stirrupBar.label;
   { emissions.push(() => steps.push(`Vu = ${VuAbs.toFixed(2)} kN`)); }
   { emissions.push(() => steps.push(`d = ${(d * 100).toFixed(1)} cm`)); }
@@ -624,6 +625,10 @@ function evaluateShear(
     status = 'fail';
   } else if (ratio > 0.9) {
     status = 'warn';
+  }
+  if (edition === '2025' && secondaryLegs !== undefined && legs < table.requiredLegs) {
+    status = 'fail';
+    emissions.push(() => steps.push(`${legs} legs provided, ${table.requiredLegs} required (Table 9.7.6.2.2)`));
   }
   if (chosen.avBelowMin && h > 0.25) {
     status = 'fail';
@@ -1304,9 +1309,9 @@ function verifySlenderness(input: VerificationInput) {
     designMuy: slenderSecondary?.isSlender ? slenderSecondary.Mc : input.Muy };
 }
 
-type FixedVerificationReinforcement = { torsion?: { AlProv: number }; column?: { barCount: number; barDia: number }; flexure?: Pick<FlexureResult, 'AsProv' | 'barDia' | 'barCount' | 'bars' | 'AsComp' | 'barDiaComp' | 'barCountComp' | 'barsComp' | 'isDoublyReinforced'>; shear?: Omit<StirrupDef, 'diameter'> };
+type FixedVerificationReinforcement = { torsion?: { AlProv: number }; column?: { barCount: number; barDia: number }; flexure?: Pick<FlexureResult, 'AsProv' | 'barDia' | 'barCount' | 'bars' | 'AsComp' | 'barDiaComp' | 'barCountComp' | 'barsComp' | 'isDoublyReinforced'>; shear?: Omit<StirrupDef, 'diameter'> & Partial<Pick<StirrupDef, 'diameter'>> };
 
-type SecondaryShearSizing = Pick<ShearResult, 'spacing' | 'stirrupDia' | 'AvOverS' | 'AvOverSReq'>;
+type SecondaryShearSizing = Pick<ShearResult, 'spacing' | 'stirrupDia' | 'stirrupLegs' | 'AvOverS' | 'AvOverSReq'>;
 const secondaryShearSizing = new WeakMap<ElementVerification, SecondaryShearSizing>();
 
 function torsionStirrupProvision(shear: ShearResult) {
@@ -1324,10 +1329,11 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   for (const { v } of active) {
     const t = v.torsion!;
     const sizing = secondaryShearSizing.get(v);
-    for (const s of sizing ? [v.shear, sizing] : [v.shear]) {
-      const area = providedTorsionStirrups({ diameter: s.stirrupDia, legs, spacing: 1 }).outerLegProvided * 1e4;
+    const primary = { ...v.shear, stirrupLegs: legs };
+    for (const s of sizing ? [primary, sizing] : [primary]) {
+      const area = providedTorsionStirrups({ diameter: s.stirrupDia, legs: s.stirrupLegs, spacing: 1 }).outerLegProvided * 1e4;
       const combined = Math.max(s.AvOverS, (s.AvOverSReq ?? s.AvOverS) + 2 * t.AtOverS);
-      const limit = Math.min(spacing, t.spacingMax!, area / t.AtOverS, legs * area / combined);
+      const limit = Math.min(spacing, t.spacingMax!, area / t.AtOverS, s.stirrupLegs * area / combined);
       spacing = Math.min(spacing, Math.max(0.05, Math.floor(limit * 40) / 40));
     }
   }
@@ -1347,7 +1353,8 @@ function checkProvidedTorsion(t: TorsionResult, primary: ShearResult, secondary:
   }));
   const ratio = (required: number, provided: number) => required === 0 ? 0 : provided > 0 ? required / provided : Infinity;
   const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), (AlProv === undefined ? 0 : ratio(t.AlReq, AlProv)),
-    ...shears.map(s => s.spacing / t.spacingMax!));
+    ...shears.map(s => s.spacing / t.spacingMax!),
+    ...(secondary ? [ratio(secondary.AvOverSMin, torsionStirrupProvision(secondary).transverseProvided * 1e4)] : []));
   if (t.neglect && AlProv === undefined) AlProv = 0;
   const longitudinalProvision = t.neglect ? 'not-required' : AlProv === undefined ? 'not-checked' : 'checked';
   return { ...t, AtOverSProv, AlProv, longitudinalProvision, reinforcementRatio,
@@ -1418,36 +1425,39 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
         ]));
     }
     const NuShear = input.NuShear ?? input.Nu;
-    let shear = checkShear(params, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
-    const torsion = input.Tu && Math.abs(input.Tu) > 0.001 ? checkTorsion(params, concurrent.demand, edition) : undefined;
+    const transverse = { ...params, stirrupDia: fixed?.shear?.diameter ?? params.stirrupDia };
+    let shear = checkShear(transverse, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...fixed?.shear });
+    const torsion = input.Tu && Math.abs(input.Tu) > 0.001 ? checkTorsion(transverse, concurrent.demand, edition) : undefined;
     const { VuSecondary } = input;
-    const checkSecondaryShear = isVertical && !(VuSecondary <= 0.01);
+    const checkSecondaryShear = !(VuSecondary <= 0.01);
     const checkSecondaryTorsion = torsion && !torsion.neglect && !(VuSecondary <= 0);
     let secondaryProvision: ShearResult | null | undefined;
     let secondarySizing: ShearResult | undefined;
     if (checkSecondaryShear || checkSecondaryTorsion) {
       const cage = fixed?.shear ?? { legs: shear.stirrupLegs, spacing: shear.spacing };
       const secondaryCrossties = cage.secondaryCrossties === undefined ? concurrent.secondaryCrossties : cage.secondaryCrossties;
-      const legs = secondaryStirrupLegs({ ...cage, diameter: params.stirrupDia, secondaryCrossties }, concurrent.rectangularCage);
-      const rotated = { ...params, b: params.h, h: params.b };
-      if (checkSecondaryShear && legs !== undefined) {
+      const legs = secondaryStirrupLegs({ ...cage, diameter: transverse.stirrupDia, secondaryCrossties }, concurrent.rectangularCage);
+      const rotated = { ...transverse, b: params.h, h: params.b };
+      if (isVertical && checkSecondaryShear && legs !== undefined) {
         secondarySizing = checkShear(rotated, VuSecondary, NuShear, { edition, ...fixed?.shear });
         if (secondarySizing.spacing !== shear.spacing || secondarySizing.stirrupLegs !== shear.stirrupLegs) {
           const shared = { spacing: Math.min(shear.spacing, secondarySizing.spacing),
             legs: Math.max(shear.stirrupLegs, secondarySizing.stirrupLegs) };
-          shear = checkShear(params, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...shared });
+          shear = checkShear(transverse, input.Vu, NuShear, { edition, AsTensionCm2: flexure.AsProv, ...shared });
           secondarySizing = checkShear(rotated, VuSecondary, NuShear, { edition, ...shared });
         }
       }
       secondaryProvision = legs === undefined ? null : evaluateShear(rotated, VuSecondary, NuShear, { edition, spacing: shear.spacing }, legs);
+      if (checkSecondaryTorsion && secondaryProvision) secondarySizing = secondaryProvision;
     }
     const shearSecondary = checkSecondaryShear ? secondaryProvision ?? undefined : undefined;
     const secondaryRefused = secondaryProvision === null;
-    const declaredCage = fixed?.shear && { ...fixed.shear, diameter: params.stirrupDia };
+    const declaredCage = fixed?.shear && { ...fixed.shear, diameter: transverse.stirrupDia };
     const closedCage = declaredCage
       ? isClosedRectangularStirrup(declaredCage, concurrent.rectangularCage)
       : concurrent.rectangularCage !== false;
-    const torsionResult = torsion ? checkProvidedTorsion(torsion, shear, secondaryProvision, fixed?.torsion?.AlProv, closedCage) : undefined;
+    const torsionResult = torsion ? checkProvidedTorsion(torsion, { ...shear, stirrupLegs: fixed?.shear?.legs ?? shear.stirrupLegs },
+      secondaryProvision, fixed?.torsion?.AlProv, closedCage) : undefined;
     let column: ColumnResult | undefined;
     let biaxial: BiaxialResult | undefined;
 
@@ -1554,7 +1564,8 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
     };
     if (secondarySizing) {
       const { spacing, stirrupDia, AvOverS, AvOverSReq } = secondarySizing;
-      secondaryShearSizing.set(result, { spacing, stirrupDia, AvOverS, AvOverSReq });
+      secondaryShearSizing.set(result, { spacing, stirrupDia, AvOverS, AvOverSReq,
+        stirrupLegs: secondaryProvision?.stirrupLegs ?? secondarySizing.stirrupLegs });
     }
     return result;
   };

@@ -13,17 +13,12 @@ import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { modelBeamLines } from '../frame-equalize';
-import { discardLine, openLine, reinforcementForVerification, saveLine, savedMemberCuts, staleLines } from '../beam-line-store';
+import { discardLine, openLine, saveLine, savedMemberCuts, staleLines } from '../beam-line-store';
 import { cutBar } from '../../engine/design/beam-line';
-import { applyPatch } from '../../engine/design/rebar-batch';
-import { rebarHash } from '../../engine/design/rebar-hash';
-import { setStirrups } from '../rebar-edit';
-import type { ProvidedReinforcement, StirrupDef } from '../../design-contract/reinforcement';
 import { lineKey } from '../../design-contract/beam-line';
 import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
-import { applySeismicDetailing, runSeismicChecks, setSeismicRole } from '../seismic-design.svelte';
 import { stateSuiteLateral } from './suite-lateral';
 
 beforeAll(async () => {
@@ -104,11 +99,6 @@ describe('a saved line its members no longer match', () => {
     expect(st.changed.map((c) => [+(c.was ?? 0).toFixed(3), +(c.now ?? 0).toFixed(3)])).toEqual([[5, 5.4], [4, 3.6]]);
     expect(savedMemberCuts().size).toBe(0);
     expect(openLine(line.members[0]!)!.stale?.reason).toBe('geometry');
-    for (const id of line.members) {
-      expect(verificationStore.providedFor(id)?.checks).toContainEqual(expect.objectContaining({
-        category: 'check.rc.stirrupZoneGeometry', limiting: 'unsupportedCheck', status: 'fail',
-      }));
-    }
   });
 
   it('is let go on request, as one undo step', () => {
@@ -123,108 +113,4 @@ describe('a saved line its members no longer match', () => {
     historyStore.undo();
     expect(storedDecisions().lines?.[lineKey(line.members)]).toBeDefined();
   });
-});
-
-it('#2171 round 4 resizes saved hoop zones during seismic detailing', () => {
-  const line = savedEditedLine();
-  const id = line.members[0]!;
-  const ctx = verificationStore.contextFor(id)!;
-  const rebar = reinforcementForVerification(id)!;
-  const regions = rebar.regions!;
-  const layout = regions.stirrupZones!;
-  const wide = { diameter: 8, legs: 2, spacing: 0.2 };
-  expect(layout.startSupportEnd).toBeLessThan(2 * ctx.section.h);
-  modelStore.reinforcementTransaction(api => api.setReinforcement(id, { ...rebar, regions: {
-    ...regions, regionT: 0.05, stirrupsSupport: wide, stirrupsSpan: wide,
-    stirrupZones: { ...layout, zones: [{ from: 0, to: ctx.L, stirrup: wide }] },
-  } }));
-  setSeismicRole([id], 'primary');
-  solveAndDesign();
-  const check = runSeismicChecks().members.find(m => m.id === id)!.beam!;
-  expect(check.hoops.lengthOk).toBe(false);
-  expect(applySeismicDetailing().beams).toBeGreaterThan(0);
-  const edited = reinforcementForVerification(id)!.regions!;
-  const zones = edited.stirrupZones!;
-  expect(zones.startSupportEnd).toBeCloseTo(check.hoops.length, 12);
-  expect(zones.endSupportStart).toBeCloseTo(ctx.L - check.hoops.length, 12);
-  expect(zones.zones).toEqual([
-    { from: 0, to: zones.startSupportEnd, stirrup: edited.stirrupsSupport },
-    { from: zones.startSupportEnd, to: zones.endSupportStart, stirrup: wide },
-    { from: zones.endSupportStart, to: ctx.L, stirrup: edited.stirrupsSupport },
-  ]);
-  expect(edited.stirrupsSupport!.spacing).toBeLessThan(wide.spacing);
-});
-
-for (const entry of ['batch', 'member'] as const) {
-  it(`#2171 round 5 spacing edits preserve each local cage (${entry})`, () => {
-    const id = savedEditedLine().members[0]!;
-    const rebar = reinforcementForVerification(id)!;
-    const { length, startSupportEnd, endSupportStart } = rebar.regions!.stirrupZones!;
-    const start: StirrupDef = { diameter: 8, legs: 2, spacing: 0.1, shape: 'closedRectangular', secondaryCrossties: 1 };
-    const end: StirrupDef = { diameter: 10, legs: 4, spacing: 0.1, shape: 'unknown', secondaryCrossties: null };
-    const span: StirrupDef = { diameter: 8, legs: 2, spacing: 0.15 };
-    const zones = [
-      { from: 0, to: startSupportEnd / 2, stirrup: start },
-      { from: startSupportEnd, to: endSupportStart, stirrup: span },
-      { from: endSupportStart, to: length, stirrup: end },
-    ];
-    rebar.regions = {
-      ...rebar.regions, stirrupsSupport: start, stirrupsSpan: span,
-      stirrupsBySupport: { atStart: start, atEnd: end },
-      stirrupZones: { length, startSupportEnd, endSupportStart, zones },
-    };
-    const patch = { spacing: 0.075 };
-    const ctx = verificationStore.contextFor(id)!;
-    const updated = entry === 'batch'
-      ? applyPatch(ctx, rebar, { stirrupsSupport: patch }).candidate
-      : (() => {
-          modelStore.reinforcementTransaction(api => api.setReinforcement(id, rebar));
-          setStirrups(id, 'stirrupsSupport', patch);
-          return reinforcementForVerification(id);
-        })();
-    expect(updated?.regions?.stirrupZones?.zones).toEqual([
-      { ...zones[0], stirrup: { ...start, ...patch } },
-      zones[1],
-      { ...zones[2], stirrup: { ...end, ...patch } },
-    ]);
-    expect(updated?.regions?.stirrupsBySupport).toEqual({
-      atStart: { ...start, ...patch }, atEnd: { ...end, ...patch },
-    });
-    expect(rebar.regions.stirrupZones?.zones).toEqual(zones);
-  });
-}
-
-it('#2171 round 5 refuses a legacy stirrup layout after regrouping', () => {
-  const line = savedEditedLine();
-  expect(line.members).toHaveLength(2);
-  const id = line.members[0]!, other = line.members[1]!;
-  const key = lineKey(line.members);
-  const decisions = storedDecisions();
-  const record = decisions.lines![key]!;
-  const rebar: ProvidedReinforcement = JSON.parse(JSON.stringify(reinforcementForVerification(id)!));
-  delete rebar.regions!.stirrupZones;
-  delete rebar.regions!.stirrupsBySupport;
-  modelStore.reinforcementTransaction(api => {
-    api.setReinforcement(id, rebar);
-    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: {
-      ...record, memberHashes: { ...record.memberHashes, [id]: rebarHash(rebar) },
-    } } });
-  });
-  const heldRow = expect.objectContaining({ category: 'check.rc.stirrupZoneGeometry', limiting: 'unsupportedCheck', status: 'fail' });
-  expect(reinforcementForVerification(id)?.regions?.stirrupZones?.length).toBe(record.lengths[0]);
-  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
-
-  modelStore.removeElement(other);
-  solveAndDesign();
-  expect(storedDecisions().lines?.[key]).toBeDefined();
-  expect(modelBeamLines().find(candidate => candidate.members.includes(id))?.members).toEqual([id]);
-  expect(verificationStore.providedFor(id)?.checks).toContainEqual(heldRow);
-  expect(verificationStore.reverifyAtFinalDepth(id, { bottomRaise: 0, topLower: 0, depthTolerance: 0 })).toBe('fail');
-
-  const redesigned = { ...rebar, regions: { ...rebar.regions, stirrupsSpan: { ...rebar.regions!.stirrupsSpan!, spacing: 0.075 } } };
-  modelStore.reinforcementTransaction(api => api.setReinforcement(id, redesigned));
-  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
-  modelStore.reinforcementTransaction(api => api.setReinforcement(id, rebar));
-  discardLine(key);
-  expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
 });

@@ -13,7 +13,6 @@
  */
 
 import { regroupBars } from './rebar-groups';
-import { patchBeamRegionStirrups } from './beam-line';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
 import { resolveLayers, resolveColumnReinf } from '../station-design-forces';
 import type { DesignCodeAdapter } from './code-adapter';
@@ -167,10 +166,6 @@ export function applyPatch(
   if (isBeam) {
     next.regions = next.regions ?? {};
     const reg = next.regions;
-    if (reg.stirrupZones === null) {
-      blocks.push({ reason: 'unsupportedCheck', messageKey: 'check.rc.stirrupZoneReprojection', params: {} });
-      return { blocks, changes };
-    }
     const { cover, stirrupDia } = ctx.material;
     const bWidth = ctx.axes.bFlex;
 
@@ -222,7 +217,7 @@ export function applyPatch(
       if (!p) continue;
       const before = reg[sk] ?? next.stirrups;
       const merged: StirrupDef = {
-        ...before, ...p,
+        ...before,
         diameter: p.diameter ?? before?.diameter ?? 8,
         legs: p.legs ?? before?.legs ?? 2,
         spacing: p.spacing ?? before?.spacing ?? 0.15,
@@ -235,15 +230,9 @@ export function applyPatch(
         blocks.push({ reason: 'invalidValue', messageKey: 'design.batch.legsTooFew', params: { field: sk, legs: merged.legs } });
         continue;
       }
-      const ends = sk === 'stirrupsSupport' ? reg.stirrupsBySupport : undefined;
-      patchBeamRegionStirrups(reg, sk, p, merged);
-      if (reg.stirrupZones || ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9
-        || before.shape !== merged.shape || before.secondaryCrossties !== merged.secondaryCrossties) {
-        changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span',
-          before: ends ? [ends.atStart, ends.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ') : fmtStir(before),
-          after: reg.stirrupsBySupport && ends
-            ? [reg.stirrupsBySupport.atStart, reg.stirrupsBySupport.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ')
-            : fmtStir(reg[sk]) });
+      reg[sk] = merged;
+      if (!before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
+        changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span', before: fmtStir(before), after: fmtStir(merged) });
       }
     }
 
@@ -308,6 +297,7 @@ export function applyPatch(
     if (patch.ties) {
       const before = next.stirrups;
       const merged: StirrupDef = {
+        ...before,
         diameter: patch.ties.diameter ?? before?.diameter ?? 8,
         legs: patch.ties.legs ?? before?.legs ?? 2,
         spacing: patch.ties.spacing ?? before?.spacing ?? 0.15,
@@ -340,6 +330,7 @@ export interface PlanOptions {
   /** Element ids the user has manually edited. */
   manualOverrides?: ReadonlySet<number>;
   previewCap?: number;
+  lineCages?: (ctx: MemberContext) => readonly StirrupDef[] | null | undefined;
 }
 
 /**
@@ -392,7 +383,8 @@ export function planBatchEdit(
       continue;
     }
 
-    const before = current ? adapter.verify(ctx, current) : null;
+    const cages = ctx.elementType === 'beam' ? opts.lineCages?.(ctx) : undefined;
+    const before = current ? adapter.verify(ctx, current, cages) : null;
     const { candidate, blocks, changes } = applyPatch(ctx, current, patch);
 
     if (!candidate) {
@@ -409,7 +401,7 @@ export function planBatchEdit(
 
     const unchanged = changes.length === 0
       || (current !== undefined && rebarHash(candidate) === rebarHash(current));
-    const after = adapter.verify(ctx, candidate);
+    const after = adapter.verify(ctx, candidate, cages);
     if (unchanged) unchangedCount++; else changeCount++;
 
     if (rows.length < cap) rows.push({

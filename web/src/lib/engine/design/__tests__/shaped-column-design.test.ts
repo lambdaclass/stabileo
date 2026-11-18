@@ -37,6 +37,19 @@ function portal(colSec: Record<string, unknown>, load: [number, number, number] 
 }
 
 describe('shaped columns designed', () => {
+  it('#2171 holds a circular column with spatial shear demand', () => {
+    const D = 0.45, I = Math.PI * D ** 4 / 64;
+    for (const id of portal({ name: 'Ø45', a: Math.PI * D * D / 4, iy: I, iz: I, j: 2 * I, h: D, shape: 'CHS' }, [20, 15, -400])) {
+      const ctx = verificationStore.contextFor(id)!;
+      const design = verificationStore.outcomeFor(id);
+      expect(design?.outcome).not.toBe('VERIFIED');
+      const result = designRunStore.currentAdapter()!.verify(ctx, { shaped: { count: 8, diameter: 16 },
+        stirrups: { diameter: 8, spacing: 0.10, legs: 2 } });
+      expect(result.checks.find(c => c.category === `Ties (${ctx.axes.secondaryShear})`))
+        .toMatchObject({ limiting: 'unsupportedCheck', status: 'fail', ratio: Infinity });
+    }
+  });
+
   it('a circular column', () => {
     const D = 0.45, I = Math.PI * D ** 4 / 64;
     for (const id of portal({ name: 'Ø45', a: Math.PI * D * D / 4, iy: I, iz: I, j: 2 * I, h: D, shape: 'CHS' })) {

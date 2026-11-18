@@ -157,7 +157,9 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
     }
 
     const governing = checks.reduce((max, c) => c.ratio > max.ratio ? c : max, checks[0]);
-    const refusal = v.diagnostics?.find(d => d.code === secondaryStirrupLegsUnavailableCode);
+    const isRefusal = (d: { code: string }) => d.code === secondaryStirrupLegsUnavailableCode;
+    const refused = v.concurrentChecks?.find(c => c.verification.diagnostics?.some(isRefusal));
+    const refusal = v.diagnostics?.find(isRefusal);
 
     return {
       elementId: v.elementId,
@@ -166,9 +168,9 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       codeId: 'cirsoc',
       codeName: 'CIRSOC 201',
       governingCheck: refusal?.message ?? governing.name,
-      utilization: governing.ratio,
+      utilization: refusal ? NaN : governing.ratio,
       status: refusal || (v.overallStatus !== 'fail' && v.torsion?.longitudinalProvision === 'not-checked') ? 'held' as const : v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
-      comboName: governing.comboName,
+      comboName: refusal ? refused?.demand.comboName : governing.comboName,
       checks,
     };
   });

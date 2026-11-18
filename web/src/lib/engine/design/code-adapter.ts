@@ -14,6 +14,7 @@
  * `MemberContext`.
  */
 
+import type { StirrupDef } from '../../design-contract/reinforcement';
 import type { ProvidedReinforcement } from '../../store/model.svelte';
 import type { ProvidedRebarResult } from '../station-design-forces';
 import type { MemberContext } from './member-context';
@@ -105,7 +106,7 @@ export interface DesignCodeAdapter {
   createGenerator(ctx: MemberContext): CandidateGenerator | null;
 
   /** THE authority. The same function the UI renders. */
-  verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult;
+  verify(ctx: MemberContext, rebar: ProvidedReinforcement, lineCages?: readonly StirrupDef[] | null): ProvidedRebarResult;
 
   classifyFailure(v: ProvidedRebarResult, ctx: MemberContext): LimitingConstraint[];
   optimizationObjective(ctx: MemberContext): ObjectiveSpec;

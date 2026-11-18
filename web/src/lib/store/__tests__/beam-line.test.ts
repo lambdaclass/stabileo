@@ -9,13 +9,10 @@ import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
 import { placeFrame } from '../../model/building/build-on-grid';
 import { modelBeamLines } from '../frame-equalize';
-import { checkDraft, frameGroupOf, lineMembers, openLine, saveLine, savedMemberCuts, setFrameGroup } from '../beam-line-store';
+import { checkDraft, discardLine, frameGroupOf, lineMembers, openLine, saveLine, savedMemberCuts, setFrameGroup } from '../beam-line-store';
 import { addBar, areaAt, cutBar, deleteZone, equalizeZones, joinBars, lapBars, lineFromMembers, membersFromLine, removeBar, setHook, splitZone, stretchBar, updateZone } from '../../engine/design/beam-line';
+import { extractGoverningDemands } from '../../engine/station-design-forces';
 import { lineKey } from '../../design-contract/beam-line';
-import { mirrorReinforcement } from '../../engine/design/repeated-frames';
-import { rebarHash } from '../../engine/design/rebar-hash';
-import { replaceBeamRegionStirrups } from '../../design-contract/reinforcement';
-import { storedDecisions } from '../design-decisions';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
@@ -136,6 +133,37 @@ describe('a beam line as bars along it', () => {
     expect(openLine(line.members[0]!)!.saved).toBe(false);
   });
 
+  it('#2171 checks saved beam-line gaps on draft and recheck after a longitudinal edit', () => {
+    const line = designed();
+    const model = lineFromMembers(lineMembers(line));
+    const id = line.members[0]!;
+    const length = model.lengths[0]!;
+    const ctx = verificationStore.contextFor(id)!;
+    const stations = { elementId: id, length, stationTs: [0, 0.5, 1],
+      comboResults: [{ comboId: 1, comboName: 'C1', stations: [0, 0.5, 1].map(t => ({
+        t, x: length * t, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 5,
+      })) }] };
+    verificationStore.setDemandData(new Map([[id, { ...ctx, demandMemberIds: [id],
+      stations, demands: extractGoverningDemands(stations) }]]), []);
+    const modelWithGap = { ...model, stirrups: [{ id: 'first', from: 0.01, to: length, diameter: 8, legs: 2, spacing: 0.05 },
+      { id: 'rest', from: length, to: model.lengths.reduce((sum, memberLength) => sum + memberLength, 0),
+        diameter: 8, legs: 2, spacing: 0.05 }] };
+    const hasMissing = (result: ReturnType<typeof verificationStore.providedFor>) => result?.checks
+      .some(c => c.limiting === 'torsion' && c.missingReinforcement === true);
+    expect(hasMissing(checkDraft(line, modelWithGap).get(id) ?? null)).toBe(true);
+    saveLine(line, modelWithGap);
+    expect(hasMissing(verificationStore.providedFor(id))).toBe(true);
+    const { topStartLayers, topEndLayers, stirrupsSupport, stirrupsSpan } = modelStore.elements.get(id)!.reinforcement!.regions!;
+    modelStore.reinforcementTransaction(api => api.setReinforcement(id, { regions: {
+      topStartLayers, topEndLayers, stirrupsSupport, stirrupsSpan,
+      bottomSpanLayers: [{ count: 2, diameter: 12, row: 0 }],
+    } }));
+    expect(hasMissing(verificationStore.providedFor(id))).toBe(true);
+    expect(verificationStore.reverifyAtFinalDepth(id, { bottomRaise: 0, topLower: 0, depthTolerance: 0 })).toBe('fail');
+    discardLine(lineKey(line.members));
+    expect(hasMissing(verificationStore.providedFor(id))).toBe(false);
+  });
+
   it('a grouped line takes the bars of the one saved', () => {
     designed();
     const [l1, l2] = modelBeamLines();
@@ -165,72 +193,4 @@ describe('predefined spans', () => {
     expect(bottom[0]!.count * bottom[0]!.diameter ** 2).toBe(heaviest);
     expect(splitSpans(u, 1).spans).toEqual([]);
   });
-});
-
-it('#2171 rechecks the two support cages of a previously saved line', () => {
-  const line = designed();
-  const members = lineMembers(line);
-  const first = members[0]!;
-  const start = { diameter: 8, legs: 2, spacing: 0.1 };
-  const end = { diameter: 8, legs: 4, spacing: 0.15 };
-  const saved = { ...lineFromMembers(members), stirrups: [
-    { id: 'start', from: 0, to: first.L * first.tStart, ...start },
-    { id: 'end', from: first.L * (1 - first.tEnd), to: first.L, ...end },
-  ] };
-  const key = lineKey(line.members);
-  const before = modelStore.elements.get(first.id)!.reinforcement!;
-  const legacy = { ...before, regions: { ...before.regions, stirrupsSupport: start } };
-  const memberHashes = Object.fromEntries(line.members.map(id => [String(id),
-    rebarHash(id === first.id ? legacy : modelStore.elements.get(id)?.reinforcement)]));
-  modelStore.reinforcementTransaction(api => {
-    api.setReinforcement(first.id, legacy);
-    const decisions = storedDecisions();
-    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: { ...saved, memberHashes } } });
-  });
-  expect(openLine(first.id)?.saved).toBe(true);
-  const rebar = verificationStore.reinforcementFor(first.id);
-  const reinforcement = rebar && line.forward[0] === false ? mirrorReinforcement(rebar) : rebar;
-  const rebuilt = lineFromMembers([{ ...first, reinforcement }]);
-  const at = (x: number) => rebuilt.stirrups.find(z => z.from < x && z.to > x);
-  expect(at(first.L * first.tStart / 2)).toMatchObject(start);
-  expect(at(first.L * (1 - first.tEnd / 2))).toMatchObject(end);
-});
-
-it('#2171 reopens subregions of a previously saved stirrup line', () => {
-  const line = designed();
-  const members = lineMembers(line);
-  const first = members[0]!;
-  const boundary = first.L * first.tStart / 4;
-  const nearEnd = { diameter: 8, legs: 2, spacing: 0.15 };
-  const rest = { ...nearEnd, spacing: 0.075 };
-  const saved = { ...lineFromMembers(members), stirrups: [
-    { id: 'near-end', from: 0, to: boundary, ...nearEnd },
-    { id: 'rest', from: boundary, to: first.L, ...rest },
-  ] };
-  const key = lineKey(line.members);
-  const memberHashes = Object.fromEntries(line.members.map(id => [String(id), rebarHash(modelStore.elements.get(id)?.reinforcement)]));
-  modelStore.reinforcementTransaction(api => {
-    const decisions = storedDecisions();
-    api.setDecisions({ ...decisions, lines: { ...decisions.lines, [key]: { ...saved, memberHashes } } });
-  });
-  expect(openLine(first.id)?.saved).toBe(true);
-  const rebar = verificationStore.reinforcementFor(first.id);
-  const reinforcement = rebar && line.forward[0] === false ? mirrorReinforcement(rebar) : rebar;
-  const rebuilt = lineFromMembers([{ ...first, reinforcement }]);
-  expect(rebuilt.stirrups).toEqual([
-    { id: expect.any(String), from: 0, to: boundary, ...nearEnd },
-    { id: expect.any(String), from: boundary, to: first.L, ...rest },
-  ]);
-  const mirrored = lineFromMembers([{ ...first, reinforcement: mirrorReinforcement(reinforcement!) }]);
-  expect(mirrored.stirrups).toEqual([
-    { id: expect.any(String), from: 0, to: first.L - boundary, ...rest },
-    { id: expect.any(String), from: first.L - boundary, to: first.L, ...nearEnd },
-  ]);
-  const edited = { ...reinforcement!, regions: { ...reinforcement!.regions } };
-  const span = { ...rest, diameter: 10 };
-  replaceBeamRegionStirrups(edited.regions, 'stirrupsSpan', span);
-  const withSpanEdit = lineFromMembers([{ ...first, reinforcement: edited }]);
-  expect(withSpanEdit.stirrups[0]).toMatchObject({ from: 0, to: boundary, ...nearEnd });
-  expect(withSpanEdit.stirrups.some(z => z.from === first.L * first.tStart && z.diameter === span.diameter)).toBe(true);
-  expect(lineFromMembers([{ ...first, reinforcement }]).stirrups).toEqual(rebuilt.stirrups);
 });

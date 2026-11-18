@@ -22,10 +22,12 @@ zero-torque witness from PR #2198 also passes overall on this main revision
 in both editions and fails at secondary utilization 1.05 with the corrected
 cage. Both models run in the #2171 reproducer.
 
-The row-2 RC snapshot records the secondary shear capacity and ratio change
-on members 1 through 4. The capacity goes from 362.2178444 to 329.8950644 kN
-for the same demand of 74.57289318 kN. The stored snapshot changes only those
-eight secondary-shear values.
+The row-2 RC snapshot records changes on members 1 through 4. Secondary
+capacity goes from 362.2178444 to 329.8950644 kN at a demand of 74.57289318 kN.
+The legs fall short of Table 9.7.6.2.2, so the secondary check and member
+verdict both fail. The QA diagnostic snapshot also gains secondary shear rows
+for beam members 13 through 26. Their cages fail the transverse leg count
+check.
 
 The saved-project registry selects spatial CIRSOC 201 concrete models. Whether
 a particular member is exposed depends on its concurrent secondary demand and
@@ -34,30 +36,21 @@ review the secondary shear and torsion reinforcement checks against the cage.
 
 ## Beam torsion at force stations
 
-The member verifier checks the available transverse steel on every active
-shear face under non-negligible torsion, including beams. A combined check
-that requires an unknown secondary provision is refused. Standalone
-secondary shear reporting retains its existing scope.
+Both member verification and provided-reinforcement verification check secondary
+shear. Combined shear and torsion uses the largest spacing and the fewest
+primary and secondary legs on a beam or wall where the station cage cannot
+be established. Existing beam-line records supply the cages used to compute
+that bound. A member with complete ordinary support and span cages and known
+critical sections can use those cages directly. A gap fails wherever the member has active torsion or secondary
+shear. Each actual stirrup diameter is checked with that spacing and leg count.
 
-Beam-line projection retains the transverse zone boundaries in member coordinates.
-At each concurrent force station, torsion checks the local cage, including
-both cages at a shared boundary. A gap at a station with active torsion
-fails for missing reinforcement. Matching saved lines supply their original
-zone boundaries on recheck. With equal Ø8 diameters, one witness has two
-legs at 100 mm at one end and four legs at 150 mm at the other. Each end
-has two effective secondary legs. Their secondary transverse provisions are
-10.053 and 6.702 cm²/m, respectively. For the demand just above the looser
-end's capacity, its combined utilization is 1.002. Reusing the tighter
-cage gave 0.668 and an `ok` torsion check.
-
-On a 0.30 × 0.60 m beam with Ø8 stirrups, two legs spaced at 150 mm
-at the loaded station provide 3.351 cm²/m per outer leg. At 30 kN·m,
-the required 4.271 cm²/m gives utilization 1.275. The former midpoint
-selection gave the station the 75 mm cage and utilization 0.637.
-The same new check reports the uncovered variant as missing reinforcement.
+On a 0.30 × 0.60 m beam with Ø8 stirrups, a 150 mm spacing provides
+3.351 cm²/m per outer leg. At 30 kN·m the required 4.271 cm²/m gives
+utilization 1.275. The former midpoint selection gave the station the 75 mm
+cage and utilization 0.637.
 
 The primary effective depth uses the tension face selected by the station's
-moment, with the local stirrup diameter and longitudinal bar centroid.
+moment, with the stirrup diameter and longitudinal bar centroid.
 The secondary depth uses the outer longitudinal bars inside the same cage.
 For the hogging support witness with Ø12 stirrups, Ø32 bars and 25 mm cover,
 the primary depth is 0.547 m. The previous 0.559 m depth gave 0.986
@@ -67,10 +60,12 @@ utilization against the correctly calculated 1.012.
 sets the combined minimum in terms of the shear width. The active secondary
 face uses the rotated width. On the 0.20 × 0.80 m minimum-steel witness,
 that raises its minimum from 1.667 to 6.667 cm²/m. The just-insufficient
-cage changes from 0.683 to 1.001 utilization. A provided-beam check that
-requires secondary legs also reads the section's cage eligibility. The
-nonrectangular witness above the torsion neglect threshold now refuses
-secondary provision.
+cage changes from 0.683 to 1.001 utilization. Active torsion requires a known closed rectangular
+cage, including when secondary shear is zero.
 
 The existing `secondary-stirrup-legs` notice covers these beam cases and
 the vertical-member cases above.
+
+The span mesh guard checks the first mesh against exactly 70 hooked ends
+and 40 straight ends. It previously expected 66 hooked ends. All other
+mesh end counts and the anchorage, cover and per-span limits are unchanged.

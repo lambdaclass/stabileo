@@ -21,3 +21,18 @@ export function secondaryStirrupLegs(cage: StirrupDef | undefined, rectangular =
     || !Number.isSafeInteger(2 + crossties)) return undefined;
   return (2 + crossties) as SecondaryStirrupLegs;
 }
+
+export function weakestStirrups(
+  line: readonly StirrupDef[] | null | undefined, support?: StirrupDef, span?: StirrupDef,
+): readonly (StirrupDef | undefined)[] {
+  if (line === null || (line === undefined && (!support || !span))) return [undefined];
+  const cages = [...(line ?? []), ...(support ? [support] : []), ...(span ? [span] : [])];
+  if (!cages.length) return [undefined];
+  const invalid = cages.find(cage => !isClosedRectangularStirrup(cage));
+  if (invalid) return [invalid];
+  const legs = Math.min(...cages.map(cage => cage.legs));
+  const spacing = Math.max(...cages.map(cage => cage.spacing));
+  const secondary = cages.map(cage => secondaryStirrupLegs(cage));
+  const secondaryCrossties = secondary.some(legs => legs === undefined) ? null : Math.min(...secondary.map(legs => legs!)) - 2;
+  return [...new Set(cages.map(cage => cage.diameter))].map(diameter => ({ diameter, legs, spacing, secondaryCrossties }));
+}

@@ -143,7 +143,7 @@
           <td class="col-type">{row.elementType}</td>
           <td class="col-elev" data-testid={`row-elevation-${row.elementId}`}>{row.elevationLabel}</td>
           <td class="col-section">{row.sectionName}</td>
-          <td class="col-check">{t(row.governingCheck)}</td>
+          <td class="col-check">{row.governingCheck}</td>
           <td class="col-ratio" data-testid={`row-util-${row.elementId}`}>
             <div class="ratio-cell">
               <span class="ratio-value">{fmtUtil(row.utilization)}</span>

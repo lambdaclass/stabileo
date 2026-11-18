@@ -23,7 +23,6 @@ import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from
 import { verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
 import { concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedRebarResult } from '../../station-design-forces';
-import type { ProvidedReinforcement } from '../../../store/model.svelte';
 import { peakMy, peakMz, peakVy, peakVz, peakAxial } from '../design-axes';
 import type { MemberContext } from '../member-context';
 import type { CandidateGenerator } from '../candidate-generator';
@@ -185,7 +184,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
     return null; // walls are declared unsupported
   },
 
-  verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
+  verify(ctx, rebar, lineCages): ProvidedRebarResult {
     const support = supportInputOf(ctx, rebar);
     const res = verifyProvidedReinforcement(
       ctx.elementId,
@@ -206,7 +205,7 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
       ctx.stations,
       ctx.modelData as never,
       {
-        axes: ctx.axes,
+        axes: ctx.axes, lineCages,
         // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
         slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
         ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),

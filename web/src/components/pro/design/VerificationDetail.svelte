@@ -171,7 +171,7 @@
       <tbody>
         {#each provided.checks as c, ci (`${c.category}-${ci}`)}
           <tr class="chk chk-{c.status}" data-testid={`check-${c.category.replace(/\W+/g, '-')}`}>
-            <td>{t(c.category)}{c.missingReinforcement ? ' ⚠' : ''}</td>
+            <td>{c.category}{c.missingReinforcement ? ' ⚠' : ''}</td>
             <td class="num">{c.demand !== undefined ? `${fmt(c.demand)} ${c.unit}` : fmt(c.required)}</td>
             <td class="num">{c.capacity !== undefined ? `${fmt(c.capacity)} ${c.unit}` : fmt(c.provided)}</td>
             <td class="num strong">{fmtUtil(c.ratio)}</td>
@@ -180,7 +180,7 @@
             <td class="mono small">{c.comboName ?? '—'}</td>
           </tr>
           {#if c.description}
-            <tr class="desc-row"><td colspan="7" class="desc">{t(c.description)}</td></tr>
+            <tr class="desc-row"><td colspan="7" class="desc">{c.description}</td></tr>
           {/if}
         {/each}
       </tbody>

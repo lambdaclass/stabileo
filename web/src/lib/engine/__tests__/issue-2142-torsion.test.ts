@@ -243,13 +243,10 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
         expect(r.checkedAxes).toContain('T');
         for (const c of rows) {
           expect(c.description).toContain(`sección ${reference(0, 0, torque).sectionRatio.toFixed(2)}`);
-          const missing = layout === 'none' || (layout === 'support' ? c.category.includes('Span') : c.category.includes('Support'));
-          expect(c.missingReinforcement === true).toBe(missing);
-          if (missing) {
-            expect(c.status).toBe('fail');
-            expect(c.ratio).toBe(Infinity);
-            expect(c.description).toContain('no stirrups provided');
-          }
+          expect(c.missingReinforcement).toBe(true);
+          expect(c.status).toBe('fail');
+          expect(c.ratio).toBe(Infinity);
+          expect(c.description).toContain('no stirrups provided');
         }
         expect(r.overallStatus).toBe('fail');
       });

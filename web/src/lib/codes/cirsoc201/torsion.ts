@@ -66,15 +66,17 @@ export function checkTorsion2025(input: TorsionInput): TorsionCheck {
   const phiTth = PHI * Tth;
   const { Tu, Vu, VuSecondary } = i.demand;
   const vc = 0.17 * sqLim * 1000; // Vc / (bw·d), kN/m²
-  const shearStress = Math.max(Vu / (i.b * i.d), VuSecondary / (i.h * i.dSecondary));
+  const stress = (shear: number, width: number, depth: number) =>
+    shear === 0 ? 0 : depth > 0 ? shear / (width * depth) : Infinity;
+  const shearStress = Math.max(stress(Vu, i.b, i.d), stress(VuSecondary, i.h, i.dSecondary));
   const shearSectionRatio = Math.hypot(shearStress, 0) / (PHI * (vc + 0.66 * sq * 1000));
   const lhs = Math.hypot(shearStress, (Tu * ph) / (1.7 * Aoh * Aoh));
-  const sectionRatio = lhs / (PHI * (vc + 0.66 * sq * 1000));
+  const sectionRatio = x1 > 0 && y1 > 0 ? lhs / (PHI * (vc + 0.66 * sq * 1000)) : Infinity;
   const AtOverS = Tu / (PHI * 2 * Ao * i.fyt * 1000);
   const required = (width: number, depth: number, shear: number) => {
     const Vs = Math.max(0, shear / PHI - vc * width * depth);
     const minimum = Math.max(0.062 * sq, 0.35) * width / i.fyt;
-    return Math.max(Vs / (i.fyt * 1000 * depth) + 2 * AtOverS, minimum);
+    return Math.max((shear === 0 ? 0 : depth > 0 ? Vs / (i.fyt * 1000 * depth) : Infinity) + 2 * AtOverS, minimum);
   };
   const neglect = Tu < phiTth;
   const closedCage = i.stirrup && isClosedRectangularStirrup(i.stirrup, i.rectangularCage) ? i.stirrup : undefined;

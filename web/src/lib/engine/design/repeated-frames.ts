@@ -108,15 +108,7 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
     if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [swap(k), walk(x)]));
     return v;
   };
-  const mirrored = walk(r) as ProvidedReinforcement;
-  const layout = r.regions?.stirrupZones;
-  if (layout) mirrored.regions!.stirrupZones = {
-    length: layout.length,
-    startSupportEnd: layout.length - layout.endSupportStart,
-    endSupportStart: layout.length - layout.startSupportEnd,
-    zones: layout.zones.map(z => ({ ...z, from: layout.length - z.to, to: layout.length - z.from })).reverse(),
-  };
-  return mirrored;
+  return walk(r) as ProvidedReinforcement;
 }
 
 /** The longitudinal steel of a member's bars, cm²·m: what «the most reinforced» weighs. */
