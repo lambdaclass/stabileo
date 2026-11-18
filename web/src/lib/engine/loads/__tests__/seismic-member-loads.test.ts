@@ -358,7 +358,7 @@ it('#2208 keeps the supported level’s exact force when an upper tributary pane
   expect(windResultants(model, lines)[0]).toBeCloseTo((lower + upper) * lower * 3 / (lower * 3 + upper * 6), 10);
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
 const round2Code = {
   zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame',
   regularity: 'regular', occupancy: 'reduced',
@@ -468,7 +468,7 @@ for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 2, 4], [0, 
 }
 
 for (const rotated of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
-  knownWrong(`known wrong result: #2316 a linear mode retains the upper-half inertia field (${rotated}, ${cuts.length - 1} elements)`, () => {
+  knownWrong(`known wrong result: #2319 a linear mode retains the upper-half inertia field (${rotated}, ${cuts.length - 1} elements)`, () => {
     const { model, byColumn } = round2Columns(cuts, rotated, false);
     for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
     const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
