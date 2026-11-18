@@ -1,9 +1,9 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
-       web.deps typecheck.web test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web typecheck.web.baseline typecheck.web.units typecheck.web.svelte test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
-       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed check.quick \
+       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed check.quick check.fast check.fail-closed lint.repo test.agent-mistakes test.web.fast \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
        ai-backend.run ai-backend.build \
@@ -79,6 +79,7 @@ help:
 	@echo "CI-shaped targets (what each CI job runs):"
 	@echo "  make check-pins           - One version of each tool in rust-toolchain.toml, .nvmrc, flake.nix and CI"
 	@echo "  make check.changelog      - changelog.d/ fragments are well formed"
+	@echo "  make check.fast           - Targeted web tests, typecheck and cheap CI gates"
 	@echo "  make changelog.unreleased - Refresh CHANGELOG.md from fragments, keeping them"
 	@echo "  make check.reverts [BASE=origin/main] [HEAD=HEAD] - Merging HEAD into BASE deletes no recent lines HEAD's branch never had"
 	@echo "  make lint.engine          - Clippy over the engine"
@@ -183,6 +184,22 @@ test-changed:
 check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
+check.fast:
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts
+
+test.web.fast:
+	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
+	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILE=src/lib/blog/__tests__/blog-content.test.ts FILTER='lists every advisory'
+
+check.fail-closed:
+	python3 -B -I scripts/check-fail-closed.py
+
+lint.repo:
+	$(NIX_RUN) node scripts/check-agent-mistakes.mjs
+
+test.agent-mistakes:
+	$(NIX_RUN) node --test scripts/tests/check-agent-mistakes.test.mjs
+
 console: services
 	$(NIX_RUN) bash -c "cd backend && MIX_ENV=dev INST=$(INST) iex -S mix"
 
@@ -248,9 +265,8 @@ GATE_RELEASE_BINARIES = metamorphic
 SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing) - (binary(gates) & (test(/^perf_regression_advanced::/) + test(/^perf_regression_gates::/))) - ($(GATE_SHELL_BENCH)) - ($(GATE_SHELL_ACCEPTANCE)) - $(GATE_CONSTRAINT_BENCH) - (binary(gates) & (test(/^sparse_shell_gates::/) + test(/^solver_invariants::/) + test(/^solver_ci_coverage::/) + test(/^conditioning_adversarial::/) + test(/^kfull_overbuild_gates::/) + test(/^acceptance::/))) - (binary(certificates) & ($(GATE_CERTIFICATES))) - binary(differential) $(foreach b,$(GATE_RELEASE_BINARIES),- binary($(b)) )
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
-lint.engine:
+lint.engine: check.fail-closed
 	python3 -B -I .github/scripts/check-wall-clock-tests.py
-	python3 -B -I scripts/check-fail-closed.py
 	python3 -B -I scripts/check-message-matching.py
 	python3 -B -I scripts/benchmark-gate.py
 	python3 -B -I scripts/invariance-gate.py
@@ -336,9 +352,18 @@ bench.engine:
 web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
-typecheck.web:
+typecheck.web: typecheck.web.baseline typecheck.web.units typecheck.web.svelte
+	$(NIX_RUN) bash -c "cd web && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
+
+typecheck.web.baseline:
 	python3 -B -I scripts/check-message-matching.py
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs && node scripts/gen-result-sites.mjs"
+	$(NIX_RUN) bash -c "cd web && npm run typecheck"
+
+typecheck.web.units:
+	$(NIX_RUN) bash -c "cd web && npm run test:units:types"
+
+typecheck.web.svelte:
+	$(NIX_RUN) bash -c "cd web && npm run check:gate"
 
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA src/lib/$$UNIT_AREA} $(FILE) $(if $(FILTER),-t '$(FILTER)') $(if $(SHARD),--shard=$(SHARD)) $(if $(BAIL),--bail=$(BAIL)) $(if $(VITEST_WORKERS),--maxWorkers=$(VITEST_WORKERS))"
@@ -504,7 +529,7 @@ test.reproducers.published:
 	$(NIX_RUN) bash -c 'cd web && npx vitest run --project unit -t "#[0-9]+"'
 
 check.issue-reproducers:
-	python3 -I scripts/issue-reproducers.py flip-check --base $(BASE) --head $(HEAD) --body-file $(BODY) $(if $(LABELS),--labels-json $(LABELS))
+	$(if $(BODY),,body=$$(git log --format=%B "$(or $(BASE),origin/main)..$(or $(HEAD),HEAD)") && printf '%s\n' "$$body" | )python3 -I scripts/issue-reproducers.py flip-check --base "$(or $(BASE),origin/main)" --head "$(or $(HEAD),HEAD)" --body-file "$(or $(BODY),/dev/stdin)" $(if $(LABELS),--labels-json "$(LABELS)")
 
 test.nightly-scripts:
 	python3 -B -I testing/scripts/tests/test_nightly.py
@@ -520,7 +545,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 	$(NIX_RUN) node --test scripts/tests/cadence-reports.test.cjs
 
-test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions
+test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.released-load-work-physics test.released-load-work-outcomes test.nightly-scripts check.cadence test.engine.plastic-budget-watchdog test.staged-wasm-assertions test.staged-round7-assertions test.agent-mistakes
 	python3 -B -I scripts/tests/test_cadence.py
 	python3 -B -I scripts/tests/test_playwright_install.py
 	python3 -B -I scripts/tests/test_deps_audit.py
