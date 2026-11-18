@@ -49,7 +49,6 @@ for (const width of [390, 1440]) {
 
 for (const width of [1440, 390]) {
   test(`@smoke public header stays mounted and identical through the public circuit at ${width}px`, async ({ page }) => {
-    test.fixme(true, 'known wrong result: #2286');
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
@@ -120,8 +119,9 @@ for (const width of [1440, 390]) {
     expect(probe.baseline.links.map(({ href }: { href: string | null }) => href)).toEqual([
       '/en/',
       '/en/#basic',
-      '/en/examples/',
+      ...(BUILD_FEATURES.tools ? [] : ['/en/examples/']),
       '/en/tools/',
+      ...(BUILD_FEATURES.diagramGame ? ['/en/diagram-game/'] : []),
       '/en/research/',
       '/en/#pricing',
       '/en/blog/',
