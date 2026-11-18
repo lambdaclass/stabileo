@@ -308,6 +308,7 @@ defmodule StabileoAssignments.AssignmentsTest do
 
     test "runs with the flag off", %{owner: owner} do
       assignment = create!(owner)
+      Repo.update_all(from(a in Assignment, where: a.id == ^assignment.id), set: [inserted_at: @now])
       {:ok, _} = Features.set_assignments_enabled(false)
       assert Assignments.purge_expired(DateTime.add(@now, 366, :day)) == 1
       assert Repo.get(Assignment, assignment.id) == nil
