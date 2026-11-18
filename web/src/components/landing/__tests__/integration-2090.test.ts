@@ -92,6 +92,9 @@ it('#2090 Hungarian has its own translations for the hero labels', () => {
 });
 
 it('#2090 the changelog describes idle preloading and the data-saver exception', () => {
-  const fragment = readFileSync(new URL('../../../../../changelog.d/landing-hero-figures.md', import.meta.url), 'utf8');
-  expect(fragment).toMatch(/preload during idle time when data saving is off/);
+  const changelog = readFileSync(new URL('../../../../../CHANGELOG.md', import.meta.url), 'utf8');
+  const entry = changelog.split(/^#{1,4} /m).find((section) =>
+    section.startsWith('Animated structural figures on the landing page ('),
+  );
+  expect(entry).toMatch(/preload during idle time when data saving is off/);
 });

@@ -2,6 +2,9 @@
 
 ## Release notes · Notas de la versión
 
+**0.6.2 (2026-11-18): corrected member recovery, design checks and generated loads / recuperación de barras, verificaciones y cargas generadas corregidas.**
+[English](releases/v0.6.2.md) · [Español](releases/v0.6.2.es.md) · [Português](releases/v0.6.2.pt.md) · [Deutsch](releases/v0.6.2.de.md) · [Français](releases/v0.6.2.fr.md) · [Türkçe](releases/v0.6.2.tr.md) · [Magyar](releases/v0.6.2.hu.md)
+
 **0.6.1 (2026-11-15): corrected member checks and snow loads (SA-2026-064…068) / verificaciones de miembros y cargas de nieve corregidas.**
 [English](releases/v0.6.1.md) · [Español](releases/v0.6.1.es.md) · [Português](releases/v0.6.1.pt.md) · [Deutsch](releases/v0.6.1.de.md) · [Français](releases/v0.6.1.fr.md) · [Türkçe](releases/v0.6.1.tr.md)
 

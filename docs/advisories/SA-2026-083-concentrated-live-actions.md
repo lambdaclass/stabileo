@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-16; PR #2236; pending merge and release |
+| Status | Published 2026-11-18; drafted 2026-11-16 |
 | Issue | [#2207](https://github.com/lambdaclass/stabileo/issues/2207) |
-| Fix | PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236); pending merge and release |
-| Fixed release | Not released |
+| Fix | PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `0c375732c8d533b984e6d68f0cddc792f5a6a594`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`concentrated-live-actions`](../../web/src/lib/provenance/result-changes/concentrated-live-actions.json) |
 
@@ -52,7 +52,7 @@ saved provenance does not establish that the required checks were performed.
 
 ## Fixed in
 
-PR #2236; pending merge and release. A mandatory load-code admission operation
+0.6.2 (PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236)). A mandatory load-code admission operation
 checks floor and roof occupancies before the shared planner can return `READY`.
 It preserves concentrated-rule references and blocks plans requiring unevaluated
 concentrated actions. The application boundary checks status and blocking diagnostics
@@ -72,7 +72,7 @@ Do not treat the uniform-only diagnostics of a blocked plan as a complete answer
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction:
+After upgrading to 0.6.2:
 
 Review affected generated-load models and manually establish the required
 concentrated actions before rerunning analyses, combinations and design checks.
@@ -84,5 +84,4 @@ forces, deflections, sizing, calculations and deliverables based on the earlier 
 The coordinator assigned SA-2026-083 for #2207. The
 [results-change record](../results-changes/2026-11-concentrated-live-actions.md)
 contains the normative repository quotations, independent physical expectation,
-parent-failing regressions and supported uniform-load controls. PR #2236;
-pending merge and release.
+parent-failing regressions and supported uniform-load controls. The fix shipped in 0.6.2 (PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236)).

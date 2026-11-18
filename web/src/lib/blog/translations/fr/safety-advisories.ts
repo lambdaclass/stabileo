@@ -38,32 +38,44 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Données concernées et actions requises."},
     {"k": "note", "t": "SA-2026-068 — Corrigé dans 0.6.1."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-069 — Brouillon 2026-11-15 ; corrigé dans la PR #2169, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-069 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-070 — Corrigé dans PR #2170, publication en attente."},
+    {"k": "note", "t": "SA-2026-070 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-071 — Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-071 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-072 — Corrigé dans la PR #2175, publication en attente."},
+    {"k": "note", "t": "SA-2026-072 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-073 — PR #2197; fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-073 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-074 — PR #2197; fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-074 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-075 — Corrigé dans la PR #2308, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-075 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md", "label": "SA-2026-075", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-076 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-076 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-077 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-077 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-078 — Corrigé dans la PR #2220, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-078 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-082 — Brouillon 2026-11-16 ; fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-079 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-080 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-082 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-083 — PR #2236; fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-083 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Données concernées et actions requises."},
-    {"k": "note", "t": "SA-2026-089 — Brouillon 2026-11-17 ; revue du coordinateur, fusion et publication en attente."},
+    {"k": "note", "t": "SA-2026-084 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-085 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-088 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-089 — Corrigé dans 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Données concernées et actions requises."},
+    {"k": "note", "t": "SA-2026-090 — Corrigé dans 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Données concernées et actions requises."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
@@ -227,139 +239,139 @@ const body: PostBody = {
           "SA-2026-025",
           "Effort tranchant G2 de l'AISC 360 (moteur et WASM uniquement) : sans aire d'âme, vérifié avec un taux 0, et certifié",
           "Moyenne",
-          "Corrigé sur stabileo.com (#1234)"
+          "Corrigé dans la 0.5.0 (#1234)"
         ],
         [
           "SA-2026-026",
           "Effort tranchant 6.2.6 de l'EC3 (moteur et WASM uniquement) : sans aire de cisaillement, Av = 0,5·A, Vpl,Rd 57 % trop élevé pour un HEB 300, et certifié",
           "Moyenne",
-          "Corrigé sur stabileo.com (#1234)"
+          "Corrigé dans la 0.5.0 (#1234)"
         ],
         [
           "SA-2026-027",
           "Enveloppe des coques : retenait la combinaison de plus grande contrainte de Von Mises, et non l'extrême de chaque composante (mx inférieur de 14 % dans un exemple)",
           "Élevée",
-          "Correction en cours de revue"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-028",
           "Flexion EN 1992-1-1 (autres normes en PRO, certifiée) : supposait que l’acier tendu plastifie et n’itérait pas les armatures supérieures ; MRd jusqu’à 22 % trop élevé",
           "Élevée",
-          "Corrigé après 0.4.0"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-029",
           "3D : les poteaux CIRSOC 201 de l'application étaient dimensionnés avec Mz sur la hauteur de la section (36 % d'armatures en moins dans un exemple) ; les vérifications certifiées 3D du moteur lisaient l'effort tranchant latéral Vy comme celui de l'âme",
           "Critique",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-030",
           "CIRSOC 301 en compression : une section dont l'aire est inférieure à ses tôles donnait un Qa négatif et une résistance supérieure à l'effort normal plastique, et était vérifiée",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-031",
           "Analyse temporelle : une charge appliquée à t = 0 sur un degré de liberté sans masse était perdue au premier pas (réciprocité fausse jusqu'à 33 fois, une chaîne à deux degrés de liberté écartée de 24 % de sa solution exacte)",
           "Moyenne",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-032",
           "Analyse modale : le mode à fréquence nulle d'un mécanisme était écarté et les autres modes rendus comme complets",
           "Moyenne",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-033",
           "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-034",
           "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
           "Moyenne",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-035",
           "Passage de la 3D à la 2D : la coupe faisait fléchir des barres autour du mauvais axe de section (un portique dans le plan Y–Z 13,5 fois trop rigide)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-036",
           "Passage de la 3D à la 2D sur Y–Z ou X–Y : les liaisons étaient lues comme si le portique était dans X–Z (liaisons de déplacement perdues ou appliquées hors du plan)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-037",
           "Analyse corotationnelle 3D : les vecteurs de rotation étaient soustraits (le coude de Bathe–Bolourchi à 1,3 %, sans amélioration au raffinement)",
           "Moyenne",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-038",
           "Flambement 3D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % pour une barre), et une barre comprimée seulement entre ses extrémités était refusée",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-039",
           "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-040",
           "Vérifications ACI 318 et EN 1992 : barres en béton armé validées sans vérification de leur torsion",
           "Élevée",
-          "Confiné dans la prochaine version"
+          "Contenu dans la version 0.5.0"
         ],
         [
           "SA-2026-041",
           "Poteaux en béton armé : le moment maximal n'était vérifié qu'avec la compression maximale",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-042",
           "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-043",
           "Analyse harmonique : la correction des modes omis perdait ses chiffres lorsqu’un mode était beaucoup plus souple que les autres (79 fois à 2,3 Hz dans un exemple)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-044",
           "Effondrement plastique 2D : le facteur d'effondrement changeait avec la numérotation des nœuds, le sens des barres et les unités (jusqu'à 4,6 fois sur la même structure)",
           "Élevée",
-          "Analyse limite corrigée dans la prochaine version ; l'effondrement plastique 2D reste retenu jusqu'à la clôture de #758"
+          "Non corrigé dans la version 0.5.0 : le calcul d’effondrement plastique 2D reste bloqué jusqu’à la clôture de #758. L’analyse limite est disponible dans la version 0.5.0."
         ],
         [
           "SA-2026-045",
           "Effondrement plastique 3D : une barre sans moment plastique utilisable était traitée comme si elle ne plastifiait jamais (6 fois trop haut dans un exemple, et certifié)",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-046",
           "Analyse harmonique : choisissait entre la superposition modale et la résolution directe selon la charge, si bien que la superposition et la réciprocité échouaient (107 % en un nœud dans un exemple) ; stabileo.com et les builds moteur/WASM de main, du 5 novembre 2026 jusqu'à la correction",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-047",
           "Coques : un cas de charge imposant un déplacement d'appui perdait ses contraintes de coque, et les combinaisons et enveloppes ne sommaient que celles des autres cas (parfois du côté de l'insécurité, sans avertissement) ; 0.2.0 à 0.4.0",
           "Élevée",
-          "Corrigé dans la prochaine version"
+          "Corrigé dans la 0.5.0"
         ],
         [
           "SA-2026-048",
@@ -442,19 +454,25 @@ const body: PostBody = {
         ["SA-2026-066", "Le Cm du béton pouvait être réduit d’après les moments d’extrémité malgré une charge transversale entre appuis (#2089). Revérifiez poteaux et voiles élancés, moments amplifiés et armatures.", "Élevée", "Corrigé dans 0.6.1"],
         ["SA-2026-067", "Une rotation en plan pouvait modifier les charges de neige générées (#2093). Régénérez les charges avec la géométrie réelle puis relancez analyses et vérifications ; revenir à l’orientation initiale ne répare pas les résultats.", "Élevée", "Corrigé dans 0.6.1"],
         ["SA-2026-068", "La torsion pouvait être validée avec des étriers dimensionnés insuffisants (#2141). Relancez les vérifications béton et examinez résistance transversale réelle, espacement des étriers et échecs en torsion. Des armatures longitudinales non vérifiées ne constituent pas une cage validée.", "Élevée", "Corrigé dans 0.6.1"],
-        ["SA-2026-069", "La limite de section en torsion omettait le cisaillement secondaire concomitant (#2142). Relancez les calculs béton et examinez les échecs de section et les étriers absents ; ajouter des étriers ne corrige pas une section qui dépasse sa limite.", "Élevée", "Brouillon 2026-11-15 ; corrigé dans la PR #2169, fusion et publication en attente"],
-        ["SA-2026-070", "La flèche et la rotation intérieures omettaient des charges de barre (#2143). Vérifiez déformées, lectures pédagogiques et contrôles de service acier/béton, y compris les charges trapézoïdales complètes et partielles. La récupération sous charge sans EI suffisant est désormais explicitement refusée.", "Élevée", "Corrigé dans PR #2170, publication en attente"],
-        ["SA-2026-071", "La vérification pouvait réussir avec des sollicitations concomitantes incomplètes (#2096). Relancez les calculs béton et acier et examinez combinaisons, éléments, sections et certificats.", "Élevée", "Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente"],
-        ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2175, publication en attente"],
-        ["SA-2026-073", "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176).", "Élevée", "PR #2197; fusion et publication en attente"],
-        ["SA-2026-074", "Subdiviser un chevron incliné pouvait classer un panneau explicite du toit comme plancher et supprimer silencieusement sa neige en rive. Le classement utilise désormais les emprises physiques des panneaux. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2172). Un chevron incliné non subdivisé au-dessus d’un panneau inférieur distinct pouvait aussi le classer comme toit, modifier les charges surfaciques de toit et de plancher et ajouter silencieusement de la neige en mode par largeur.", "Élevée", "PR #2197; fusion et publication en attente"],
-        ["SA-2026-075", "Les vérifications du cisaillement secondaire et de la torsion selon le CIRSOC 201-2005 et 2025 pouvaient utiliser les brins d’étriers et la largeur de la direction principale. Des poutres et des poteaux pouvaient ainsi satisfaire les vérifications sans avertissement malgré des armatures secondaires insuffisantes (#2171). Après la mise à jour, relancez le dimensionnement en béton armé et consultez l’avis de revérification du projet enregistré.", "Élevée", "Corrigé dans la PR #2308, fusion et publication en attente"],
-        ["SA-2026-076", "Une paroi ouverte pouvait faire classer le bâtiment comme ouvert et supprimer la pression intérieure (#2203). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
-        ["SA-2026-077", "Le vent sur les parois omettait des forces aux fondations et variait avec la subdivision (#2204). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
-        ["SA-2026-078", "Les zones de pression du toit et leurs premiers moments dépendaient de la subdivision (#2205). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans la PR #2220, fusion et publication en attente"],
-        ["SA-2026-082", "Les combinaisons accompagnatrices utilisaient sans avertissement la neige réduite par la pente au lieu de la charge de barre de toiture plate. Les anciennes spécifications sismiques peuvent aussi confondre neige physique et neige de toiture plate. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).", "Élevée", "Brouillon 2026-11-16 ; fusion et publication en attente"],
-        ["SA-2026-083", "SA-2026-083: La génération automatique CIRSOC 101 bloque les actions concentrées d’usage et de toiture dont les positions défavorables ne sont pas évaluées (§4.4). Les charges uniformes générées auparavant peuvent omettre des actions déterminantes. Examiner les modèles concernés et vérifier les actions concentrées manuellement avant de relancer analyses et dimensionnement. (#2207).", "Élevée", "PR #2236; fusion et publication en attente"],
-        ["SA-2026-089", "Un appui 3D rollerZ ou custom3d sans blocages explicites, ou un type d’appui inconnu, était analysé comme entièrement encastré sans avertissement. Vérifiez les blocages prévus aux appuis, puis relancez l’analyse, les combinaisons et le dimensionnement. (#2276).", "Élevée", "Brouillon 2026-11-17 ; revue du coordinateur, fusion et publication en attente"],
+        ["SA-2026-069", "La limite de section en torsion omettait le cisaillement secondaire concomitant (#2142). Relancez les calculs béton et examinez les échecs de section et les étriers absents ; ajouter des étriers ne corrige pas une section qui dépasse sa limite.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-070", "La flèche et la rotation intérieures omettaient des charges de barre (#2143). Vérifiez déformées, lectures pédagogiques et contrôles de service acier/béton, y compris les charges trapézoïdales complètes et partielles. La récupération sous charge sans EI suffisant est désormais explicitement refusée.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-071", "La vérification pouvait réussir avec des sollicitations concomitantes incomplètes (#2096). Relancez les calculs béton et acier et examinez combinaisons, éléments, sections et certificats.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-072", "Une subdivision inégale des bords du toit pouvait déplacer le faîtage et modifier les charges de neige générées (#2144). Régénérez les charges puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-073", "Les barres traversant le faîtage recevaient une pression uniforme et perdaient le moment physique. Les charges sont désormais divisées au faîtage géométrique. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2176).", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-074", "Subdiviser un chevron incliné pouvait classer un panneau explicite du toit comme plancher et supprimer silencieusement sa neige en rive. Le classement utilise désormais les emprises physiques des panneaux. Régénérez toutes les charges surfaciques générées concernées puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas. (#2172). Un chevron incliné non subdivisé au-dessus d’un panneau inférieur distinct pouvait aussi le classer comme toit, modifier les charges surfaciques de toit et de plancher et ajouter silencieusement de la neige en mode par largeur.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-075", "Les vérifications du cisaillement secondaire et de la torsion selon le CIRSOC 201-2005 et 2025 pouvaient utiliser les brins d’étriers et la largeur de la direction principale. Des poutres et des poteaux pouvaient ainsi satisfaire les vérifications sans avertissement malgré des armatures secondaires insuffisantes (#2171). Après la mise à jour, relancez le dimensionnement en béton armé et consultez l’avis de revérification du projet enregistré.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-076", "Une paroi ouverte pouvait faire classer le bâtiment comme ouvert et supprimer la pression intérieure (#2203). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-077", "Le vent sur les parois omettait des forces aux fondations et variait avec la subdivision (#2204). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-078", "Les zones de pression du toit et leurs premiers moments dépendaient de la subdivision (#2205). Vérifiez les ouvertures de chaque paroi et du toit, reclassez le bâtiment, régénérez W et Wa puis relancez analyses, combinaisons et vérifications. Recalculer les charges enregistrées ne les corrige pas.", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-079", "Une couverture partielle par des coques pouvait perdre une partie des charges gravitaires ou les appliquer aux mauvaises positions. Régénérez les charges gravitaires par panneaux avec coques, puis relancez l’analyse et le dimensionnement. (#2199, #2200)", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-080", "Les zones nécessitant des charges excentrées sur les barres sont refusées. Vérifiez la définition de la charge de plancher avant de calculer. Une zone qui couvre un panneau entier applique les réactions habituelles du panneau. (#2201)", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-082", "Les combinaisons accompagnatrices utilisaient sans avertissement la neige réduite par la pente au lieu de la charge de barre de toiture plate. Les anciennes spécifications sismiques peuvent aussi confondre neige physique et neige de toiture plate. Régénérez les charges de neige et les combinaisons, puis relancez analyses et vérifications. (#2211).", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-083", "SA-2026-083: La génération automatique CIRSOC 101 bloque les actions concentrées d’usage et de toiture dont les positions défavorables ne sont pas évaluées (§4.4). Les charges uniformes générées auparavant peuvent omettre des actions déterminantes. Examiner les modèles concernés et vérifier les actions concentrées manuellement avant de relancer analyses et dimensionnement. (#2207).", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-084", "Diviser une soudure d’angle chargée en bout pouvait supprimer la réduction de sa longueur efficace (#2243). Revérifiez les groupes de soudures concernés.", "—", "Corrigé dans 0.6.2"],
+        ["SA-2026-085", "Une soudure d’angle courte pouvait être créditée d’une dimension efficace excessive (#2244). Revérifiez les groupes de soudures concernés.", "—", "Corrigé dans 0.6.2"],
+        ["SA-2026-088", "Les diagrammes ABS et SRSS incluent les extrema de la fonction combinée entre les limites de charge. Relancez combinaisons, diagrammes et vérifications associées (#2273).", "—", "Corrigé dans 0.6.2"],
+        ["SA-2026-089", "Un appui 3D rollerZ ou custom3d sans blocages explicites, ou un type d’appui inconnu, était analysé comme entièrement encastré sans avertissement. Vérifiez les blocages prévus aux appuis, puis relancez l’analyse, les combinaisons et le dimensionnement. (#2276).", "Élevée", "Corrigé dans 0.6.2"],
+        ["SA-2026-090", "La surface par niveau et le poids sismique en mode largeur pouvaient différer des charges de barre générées en utilisant l’emprise des nœuds ou en exigeant une région fermée. Ils utilisent désormais les surfaces tributaires des barres chargées. Régénérez les plans gravitaires, poids et charges sismiques, puis relancez analyses, combinaisons et vérifications dépendantes. Recalculer les charges enregistrées ne corrige pas les actions sismiques (#2269). (#2210)", "—", "Corrigé dans 0.6.2"],
       ]
     },
     {
