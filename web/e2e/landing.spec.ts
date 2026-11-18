@@ -79,6 +79,39 @@ async function bootWithHeroClock(page: Page) {
   await page.clock.pauseAt(60_000);
 }
 
+const shedChunk = /\/ShedFigure(?:-[^/]+\.js|\.svelte)$/;
+
+async function gateShedChunk(page: Page) {
+  const started = Promise.withResolvers<void>();
+  const released = Promise.withResolvers<void>();
+  await page.route(shedChunk, async (route) => {
+    started.resolve();
+    await released.promise;
+    await route.continue();
+  });
+  return {
+    started: started.promise,
+    async finish() {
+      const finished = page.waitForEvent('requestfinished', (request) => shedChunk.test(request.url()));
+      released.resolve();
+      expect((await (await finished).response())?.ok()).toBe(true);
+    },
+  };
+}
+
+async function disableHeroPreload(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'connection', { value: { saveData: true } });
+  });
+}
+
+async function expectHeroDrawing(page: Page, figure: string, figureClass: string) {
+  await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', figure);
+  const stack = page.locator('.landing .hero-fig-stack');
+  await expect(stack.locator('svg')).toHaveCount(1);
+  await expect(stack.locator(`.${figureClass} svg`)).toBeVisible();
+}
+
 async function showHeroTruss(page: Page) {
   await page.locator('.landing [data-figure="truss"]').click();
   await page.mouse.move(0, 0);
@@ -473,6 +506,43 @@ test.describe('@landing landing page', () => {
     await page.waitForTimeout(4000); // slow-ok: the delayed chunk lands 2.5 s after the click and must change nothing
     await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'building');
   });
+
+  test.skip('known wrong result: #2285 the carousel skips a stalled chunk and discards its late completion', async ({ page }) => {
+    await disableHeroPreload(page);
+    const shed = await gateShedChunk(page);
+    await bootWithHeroClock(page);
+    await page.clock.runFor(17_500);
+    await shed.started;
+    await expectHeroDrawing(page, 'building', 'bld-fig');
+    await page.clock.runFor(2200);
+    try {
+      await expect(page.locator('.landing .hero-fig-switch button.on')).toHaveAttribute('data-figure', 'truss');
+    } finally {
+      await shed.finish();
+    }
+    await page.clock.runFor(600);
+    await expectHeroDrawing(page, 'truss', 'truss-fig');
+  });
+
+  for (const pause of ['pointer', 'reduced motion'] as const) {
+    test.skip(`known wrong result: #2285 a pending automatic switch waits for ${pause} to clear`, async ({ page }) => {
+      await disableHeroPreload(page);
+      const shed = await gateShedChunk(page);
+      await bootWithHeroClock(page);
+      await page.clock.runFor(17_500);
+      await shed.started;
+      const stack = page.locator('.landing .hero-fig-stack');
+      if (pause === 'pointer') await stack.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+      else await page.emulateMedia({ reducedMotion: 'reduce' });
+      await shed.finish();
+      await page.clock.runFor(500);
+      await expectHeroDrawing(page, 'building', 'bld-fig');
+      if (pause === 'pointer') await stack.dispatchEvent('pointerleave', { pointerType: 'mouse' });
+      else await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.clock.runFor(600);
+      await expectHeroDrawing(page, 'shed', 'shed-fig');
+    });
+  }
 
   test('#2090 a figure that fails to load is skipped without repeated requests', async ({ page }) => {
     await page.addInitScript(() => {

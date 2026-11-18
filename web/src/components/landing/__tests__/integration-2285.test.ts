@@ -4,6 +4,7 @@ import { ensurePublicLocale, i18n, PUBLIC_LOCALES } from '../../../lib/i18n/stor
 import Building from '../hero/BuildingFigure.svelte';
 import Section from '../hero/SectionFigure.svelte';
 import Shed from '../hero/ShedFigure.svelte';
+import Modal from '../hero/ModalFigure.svelte';
 import { AXIAL, COMBINATION } from '../hero/building-data';
 import { MEMBERS } from '../hero/shed-data';
 
@@ -150,4 +151,39 @@ it('#2285 coincident shed members show distinct stress levels on separate stroke
   expect(lines).toContainEqual({
     start: [69, 216.5], end: [72.2, 214.2], colour: '#3b5368', width: 0.7, opacity: 1,
   });
+});
+
+it.skip('known wrong result: #2285 the modal drawing oscillates at the frequency ratios in its caption', () => {
+  const duration = 18;
+  const segment = duration / 3;
+  const format = new Intl.NumberFormat('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function sample(mode: number, offset: number) {
+    frame.progress = ((mode - 1) * segment + offset) / duration;
+    const html = render(Modal).body;
+    const x = Number(html.match(/<line(?=[^>]*class="md-beam\b)[^>]*x1="([^"]+)"/)![1]);
+    const label = caption(html).match(/ω([₁₂₃]) \/ ω₁ <b>([^<]+)<\/b>/)!;
+    expect(label[1]).toBe(['₁', '₂', '₃'][mode - 1]);
+    return { x, ratio: label[2] };
+  }
+
+  const baseline = sample(1, 0).x;
+  const halfCycles: number[] = [];
+  for (const mode of [1, 2, 3]) {
+    const rest = sample(mode, 0.04);
+    let before = 0.04;
+    let after = 0.08;
+    expect(rest.x).toBeGreaterThan(baseline);
+    while (after < 2 && sample(mode, after).x > baseline) {
+      before = after;
+      after += 0.04;
+    }
+    expect(sample(mode, after).x).toBeLessThan(baseline);
+    for (let i = 0; i < 20; i++) {
+      const mid = (before + after) / 2;
+      if (sample(mode, mid).x > baseline) before = mid;
+      else after = mid;
+    }
+    halfCycles.push((before + after) / 2);
+    expect.soft(format.format(halfCycles[0] / halfCycles[mode - 1]), `mode ${mode}`).toBe(rest.ratio);
+  }
 });
