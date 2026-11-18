@@ -548,7 +548,7 @@ for (const length of [3.6, 4, 4.4]) {
     const line = { ...lineFromMembers(round4Members), stirrups: [{ ...round4Cage, id: 'full', from: 0, to: 4 }] };
     const rebar = membersFromLine(line, round4Members).get(1);
     for (const torsion of [0, 30]) for (const result of round4Checks(rebar, length, torsion)) {
-      const refused = result.checks.some(c => c.limiting === 'unsupportedCheck' && c.category.includes('Stirrup'));
+      const refused = result.checks.some(c => c.limiting === 'unsupportedCheck' && c.category === 'check.rc.stirrupZoneGeometry');
       expect(refused).toBe(length !== 4);
       if (length !== 4) expect(result.overallStatus).toBe('fail');
       else expect(result.checks.filter(c => c.limiting === 'torsion' && c.status === 'fail')).toEqual([]);
@@ -639,7 +639,7 @@ for (const nonlinear of [false, true]) {
       if (hasTorsion) expect(torsionRows[0]).toMatchObject({ status: 'fail', ratio: 1.275, stationX: 1.65 });
       else expect(torsionRows).toEqual([]);
       const stale = { ...original, regions: { ...original.regions, stirrupZones: { ...original.regions!.stirrupZones!, length: 4.2 } } };
-      expect(zoneRows(stale)).toContainEqual(expect.objectContaining({ category: 'Stirrup zone geometry', limiting: 'unsupportedCheck', status: 'fail' }));
+      expect(zoneRows(stale)).toContainEqual(expect.objectContaining({ category: 'check.rc.stirrupZoneGeometry', limiting: 'unsupportedCheck', status: 'fail' }));
     }
   });
 }
@@ -655,8 +655,6 @@ it('#2171 round 4 retains unknown closure through a beam line round trip', () =>
   const projected = lineFromMembers([{ ...round4Members[0]!, reinforcement }]);
   expect(projected.stirrups.map(zone => zone.shape)).toEqual(['closedRectangular', 'unknown']);
 });
-
-const round5Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
 
 function longitudinalZoneFixture() {
   const bars = { count: 2, diameter: 16 };
@@ -700,7 +698,7 @@ function expectLongitudinalZoneResult(mode: ZoneTestMode, thickHoops: boolean) {
     for (const useDemands of [false, true]) {
       const { checks } = verifyProvidedReinforcement(1, 'beam', rebar(thickHoops),
         useDemands ? extractGoverningDemands(stations) : undefined, {}, section,
-        useDemands ? undefined : stations, analysis?.beam, { axes });
+        useDemands ? undefined : stations, analysis?.beam, { axes: { ...axes, biaxial: false } });
       const transverse = checks.filter(row => /^Torsion (Support|Span)/.test(row.category));
       const longitudinal = checks.filter(row => row.category.startsWith('Torsion Al'));
       if (index === 1) {
@@ -716,13 +714,13 @@ function expectLongitudinalZoneResult(mode: ZoneTestMode, thickHoops: boolean) {
         ratio: +(thickHoops ? thickRatio : regularRatio).toFixed(3),
         ...(thickHoops ? { stationX: 1.65 } : {}),
       });
-      expect(longitudinal.filter(row => row.status === 'fail')).toEqual(thickHoops ? [span] : []);
+      expect(checks.filter(row => row.status === 'fail')).toEqual(thickHoops ? [span] : []);
     }
   }
 }
 
 for (const mode of ['raw', 'linear', 'nonlinear'] as const) {
-  round5Reproducer(`known wrong result: #2171 round 5 longitudinal torsion checks the interior cage (${mode})`, () => {
+  it(`#2171 round 5 longitudinal torsion checks the interior cage (${mode})`, () => {
     expectLongitudinalZoneResult(mode, true);
   });
   it(`#2171 round 5 longitudinal torsion passes with uniform hoops (${mode})`, () => {

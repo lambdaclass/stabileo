@@ -68,16 +68,21 @@ export interface StaleLine {
 
 export function reinforcementForVerification(elementId: number): ProvidedReinforcement | undefined {
   const rebar = modelStore.elements.get(elementId)?.reinforcement;
-  if (!rebar || rebar.regions?.stirrupZones) return rebar;
-  const id = verificationStore.contextFor(elementId)?.span?.representative ?? elementId;
-  if (!Object.values(storedDecisions().lines ?? {}).some(record => record.members.includes(id))) return rebar;
+  if (!rebar || rebar.regions?.stirrupZones !== undefined) return rebar;
+  const span = verificationStore.contextFor(elementId)?.span;
+  const id = span?.representative ?? elementId;
+  const lines = storedDecisions().lines;
+  const hash = rebarHash(rebar);
+  const carriesLegacyLayout = Object.values(lines ?? {}).some(record => record.members.some(member =>
+    (span?.elements ?? [id]).includes(member)
+    && (record.memberHashes?.[String(member)] ?? hash) === hash));
+  if (!carriesLegacyLayout) return rebar;
+
   const line = modelBeamLines().find(candidate => candidate.members.includes(id));
   const record = line && storedLine(line);
-  if (!line || !record) return rebar;
-  const regions = projected(line, record).get(id)?.regions;
-  if (!regions) return rebar;
-  const { stirrupsBySupport, stirrupZones } = regions;
-  return { ...rebar, regions: { ...rebar.regions, stirrupsBySupport, stirrupZones } };
+  const regions = line && record ? projected(line, record).get(id)?.regions : undefined;
+  const stirrupZones = regions?.stirrupZones ?? null;
+  return { ...rebar, regions: { ...rebar.regions, stirrupsBySupport: regions?.stirrupsBySupport, stirrupZones } };
 }
 
 const LENGTH_TOL = 1e-3;

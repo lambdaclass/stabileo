@@ -2070,6 +2070,18 @@ export function verifyProvidedReinforcement(
     ) ?? undefined;
   }
 
+  const layout = provided.regions?.stirrupZones;
+  const lengths = [stationResult?.length, demands?.length, critSections?.L].filter(length => length !== undefined);
+  const staleLayout = layout === null || ((elementType === 'beam' || elementType === 'wall')
+    && layout !== undefined && (!lengths.length || lengths.some(length => !stirrupLayoutFits(layout, length))));
+  if (staleLayout) {
+    pushStrength({
+      category: 'check.rc.stirrupZoneGeometry', demandCategory: null, unit: '—', method: 'capacity', tuplesChecked: 0,
+      description: 'check.rc.stirrupZoneReprojection',
+      limiting: 'unsupportedCheck', utilization: Infinity,
+    });
+  }
+
   /*
    * A beam cast with its slab bends as a T or an L when its top is in compression: the block
    * sits in the flange while it fits (the rectangle of width bf, compression steel included),
@@ -2165,16 +2177,6 @@ export function verifyProvidedReinforcement(
     }
 
     const reg = provided.regions;
-    const layout = reg?.stirrupZones;
-    const lengths = [stationResult?.length, demands?.length, critSections?.L].filter(length => length !== undefined);
-    const staleLayout = layout && (!lengths.length || lengths.some(length => !stirrupLayoutFits(layout, length)));
-    if (staleLayout) {
-      pushStrength({
-        category: 'Stirrup zone geometry', demandCategory: null, unit: '—', method: 'capacity', tuplesChecked: 0,
-        description: 'Reproject the stirrup zones onto the current member geometry before verification.',
-        limiting: 'unsupportedCheck', utilization: Infinity,
-      });
-    }
     const boundaryChecks = elementType === 'beam' && layout && !staleLayout ? stirrupBoundaryChecks(layout, allTuples) : [];
 
     // ── Resolve layers from explicit layers or grouped bars ──
@@ -2740,15 +2742,15 @@ export function verifyProvidedReinforcement(
         // that tie on the stirrup ratio left out a smaller Tu above φ·Tth, whose Al,min is larger.)
         const spanTopLayers = topIntoSpanResult.area >= topEndIntoSpanResult.area
           ? topIntoSpanResult.layers : topEndIntoSpanResult.layers;
-        const facesAt = (t: Tuple) => (t.stationT <= tStartEnd
+        const facesAt = (t: Tuple, side: number) => (t.stationT < tStartEnd || (t.stationT === tStartEnd && side <= 0)
           ? { top: topStartLayers, bottom: botIntoStartResult.layers }
-          : t.stationT >= tEndStart
+          : t.stationT > tEndStart || (t.stationT === tEndStart && side >= 0)
             ? { top: topEndLayers, bottom: botIntoEndResult.layers }
             : { top: spanTopLayers, bottom: bottomLayers });
-        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple, d: number) => {
+        const longitudinalNeed = (r: ReturnType<typeof checkTorsion2025>, t: Tuple, d: number, faces: ReturnType<typeof facesAt>) => {
           const AlReq = Math.max(r.Al, r.AlMin);
           const AsFlex = Math.abs(M(t)) / (0.9 * section.fy * 1000 * 0.9 * d);
-          const faces = facesAt(t), sag = M(t) >= 0;
+          const sag = M(t) >= 0;
           const tension = layersTotalArea(sag ? faces.bottom : faces.top) / 1e4;
           const other = layersTotalArea(sag ? faces.top : faces.bottom) / 1e4;
           const uT = tension > 0 ? (AsFlex + AlReq / 2) / tension : Number.POSITIVE_INFINITY;
@@ -2759,11 +2761,11 @@ export function verifyProvidedReinforcement(
             required: onTension ? AsFlex + AlReq / 2 : AlReq / 2, provided: onTension ? tension : other, u: Math.max(uT, uC),
           };
         };
-        type TorsionAtStation = { r: ReturnType<typeof checkTorsion2025>; t: Tuple; stir?: StirrupDef; d: number; refusal?: string };
+        type TorsionAtStation = { r: ReturnType<typeof checkTorsion2025>; t: Tuple; stir?: StirrupDef; need?: ReturnType<typeof longitudinalNeed>; refusal?: string };
         const evaluated: TorsionAtStation[] = [];
-        const checkAt = (t: Tuple, candidates: readonly (StirrupDef | undefined)[], boundary = false, unboundedTorque?: number) => {
+        const checkAt = (t: Tuple, candidates: readonly (StirrupDef | undefined)[], side = 0, unboundedTorque?: number) => {
           if (Math.max(Math.abs(t.tq), unboundedTorque ?? 0) < 0.01) return;
-          const faces = facesAt(t);
+          const faces = facesAt(t, side);
           const topPair = topOuterPair(faces.top, [...topStartLayers, ...topEndLayers]);
           const cornerDiameter = Math.max(topPair?.diameterMm ?? 0,
             ...[...faces.top, ...faces.bottom].filter(l => l.row === 0).map(l => l.diameter));
@@ -2777,7 +2779,9 @@ export function verifyProvidedReinforcement(
             const moment = M(t);
             const bottomDepth = faceDepth(faces.bottom, bottomShift);
             const topDepth = faceDepth(faces.top, topShift, topPair);
-            const d = boundary || moment === 0 ? Math.min(bottomDepth, topDepth) : moment > 0 ? bottomDepth : topDepth;
+            const minDepth = Math.min(bottomDepth, topDepth);
+            const bendingDepth = moment === 0 ? minDepth : moment > 0 ? bottomDepth : topDepth;
+            const d = side === 0 ? bendingDepth : minDepth;
             const dSecondary = section.b - section.cover - (stirrupDiaMm + secondaryBarDiameter / 2) / 1000;
             const r = checkTorsion2025({
               b: section.b, h: section.h, d, dSecondary, cover: section.cover, stirrupDiaMm,
@@ -2786,18 +2790,14 @@ export function verifyProvidedReinforcement(
             });
             const refusal = r.secondaryLegsRefusal ?? r.cageRefusal
               ?? (stir && unboundedTorque !== undefined && unboundedTorque >= r.phiTth
-                ? 'Cannot bound concurrent transverse demand at a stirrup zone boundary between force stations.' : undefined);
+                ? 'check.rc.stirrupZoneDemandUnbounded' : undefined);
             if (r.neglect && !refusal) continue;
-            evaluated.push({ r, t, stir, d, refusal });
+            const need = r.neglect || unboundedTorque !== undefined ? undefined : longitudinalNeed(r, t, bendingDepth, faces);
+            evaluated.push({ r, t, stir, need, refusal });
           }
         };
         for (const t of region.tuples) {
           checkAt(t, layout ? stirrupsAt(layout, t.stationX) : [region.stir]);
-        }
-        let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | null = null;
-        for (const x of evaluated) {
-          const need = longitudinalNeed(x.r, x.t, x.d);
-          if (!lw || need.u > lw.need.u) lw = { ...x, need };
         }
         const stationCount = evaluated.length;
         for (const { tuple, stir, side, unboundedTorque } of boundaryChecks) {
@@ -2805,11 +2805,19 @@ export function verifyProvidedReinforcement(
           const inside = (from: number, to: number) => (t > from && t < to) || (t === from && side > 0) || (t === to && side < 0);
           const inRegion = ss === support && !supportCages
             ? inside(0, tStartEnd) || inside(tEndStart, 1) : inside(...region.range);
-          if (inRegion) checkAt(tuple, [stir], true, unboundedTorque);
+          if (inRegion) checkAt(tuple, [stir], side, unboundedTorque);
         }
         const ratioOf = (check: TorsionAtStation) => check.refusal ? Infinity : check.r.ratio;
         let tw: TorsionAtStation | null = null;
-        for (const x of evaluated) if (!tw || ratioOf(x) > ratioOf(tw)) tw = x;
+        let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | null = null;
+        let longitudinalCount = 0;
+        for (const x of evaluated) {
+          if (!tw || ratioOf(x) > ratioOf(tw)) tw = x;
+          if (x.need) {
+            longitudinalCount++;
+            if (!lw || x.need.u > lw.need.u) lw = { ...x, need: x.need };
+          }
+        }
         if (tw) {
           const tr = tw.r;
           pushStrength({
@@ -2829,7 +2837,7 @@ export function verifyProvidedReinforcement(
             category: `${region.label.replace('Shear', 'Torsion Al')}`, demandCategory: null,
             required: +(required * 1e4).toFixed(2), provided: +(provided * 1e4).toFixed(2),
             utilization: u,
-            unit: 'cm²', method: 'area', tuplesChecked: stationCount, regionRange: region.range,
+            unit: 'cm²', method: 'area', tuplesChecked: longitudinalCount, regionRange: region.range,
             description: `Al=${(AlReq * 1e4).toFixed(2)} cm² (${lw.r.AlMin >= lw.r.Al ? `Al,min §9.6.4.3` : '§22.7.6.1'}, Tu=${Math.abs(lw.t.tq).toFixed(1)} ≥ φTth=${lw.r.phiTth.toFixed(1)} kN·m) sobre As de flexión ≈ ${(AsFlex * 1e4).toFixed(2)} cm²; cara ${face === 'top' ? 'superior' : 'inferior'}: ${(required * 1e4).toFixed(2)} de ${(provided * 1e4).toFixed(2)} cm² (Al/2 por cara)`,
             comboName: lw.t.comboName, stationX: lw.t.stationX,
             limiting: 'torsion',

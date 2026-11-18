@@ -18,7 +18,7 @@
   import { verificationStore } from '../../../lib/store';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import { designRunStore } from '../../../lib/store/design-run.svelte';
-  import { getReinforcement, commitManualBatch } from '../../../lib/store/rebar-edit';
+  import { commitManualBatch } from '../../../lib/store/rebar-edit';
   import { setMemberCovers } from '../../../lib/store/design-data';
   import { assignSection } from '../../../lib/store/section-batch';
   import { modelStore } from '../../../lib/store';
@@ -109,7 +109,7 @@
     const adapter = concreteAdapter();
     if (!adapter || !hasPatch) return null;
     return planBatchEdit(
-      adapter, selection, verificationStore.contexts, getReinforcement, patch,
+      adapter, selection, verificationStore.contexts, verificationStore.reinforcementFor, patch,
       { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides },
     );
   });
@@ -138,11 +138,11 @@
     const adapter = concreteAdapter();
     if (!adapter) return;
     const full = planBatchEdit(
-      adapter, selection, verificationStore.contexts, getReinforcement, patch,
+      adapter, selection, verificationStore.contexts, verificationStore.reinforcementFor, patch,
       { protectManualOverrides: protectOverrides, manualOverrides: designRunStore.manualOverrides,
         previewCap: Number.MAX_SAFE_INTEGER },
     );
-    const entries: Array<[number, ReturnType<typeof getReinforcement>]> = [];
+    const entries: Array<[number, ReturnType<typeof verificationStore.reinforcementFor>]> = [];
     for (const row of full.rows) {
       if (row.willChange && row.candidate) entries.push([row.elementId, row.candidate]);
     }

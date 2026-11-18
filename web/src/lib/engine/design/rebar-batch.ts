@@ -13,7 +13,7 @@
  */
 
 import { regroupBars } from './rebar-groups';
-import { replaceBeamRegionStirrups } from '../../design-contract/reinforcement';
+import { patchBeamRegionStirrups } from './beam-line';
 import type { ProvidedReinforcement, RebarLayer, StirrupDef } from '../../store/model.svelte';
 import { resolveLayers, resolveColumnReinf } from '../station-design-forces';
 import type { DesignCodeAdapter } from './code-adapter';
@@ -167,6 +167,10 @@ export function applyPatch(
   if (isBeam) {
     next.regions = next.regions ?? {};
     const reg = next.regions;
+    if (reg.stirrupZones === null) {
+      blocks.push({ reason: 'unsupportedCheck', messageKey: 'check.rc.stirrupZoneReprojection', params: {} });
+      return { blocks, changes };
+    }
     const { cover, stirrupDia } = ctx.material;
     const bWidth = ctx.axes.bFlex;
 
@@ -218,7 +222,7 @@ export function applyPatch(
       if (!p) continue;
       const before = reg[sk] ?? next.stirrups;
       const merged: StirrupDef = {
-        ...before,
+        ...before, ...p,
         diameter: p.diameter ?? before?.diameter ?? 8,
         legs: p.legs ?? before?.legs ?? 2,
         spacing: p.spacing ?? before?.spacing ?? 0.15,
@@ -232,11 +236,14 @@ export function applyPatch(
         continue;
       }
       const ends = sk === 'stirrupsSupport' ? reg.stirrupsBySupport : undefined;
-      replaceBeamRegionStirrups(reg, sk, merged);
-      if (reg.stirrupZones || ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9) {
+      patchBeamRegionStirrups(reg, sk, p, merged);
+      if (reg.stirrupZones || ends || !before || before.diameter !== merged.diameter || before.legs !== merged.legs || Math.abs(before.spacing - merged.spacing) > 1e-9
+        || before.shape !== merged.shape || before.secondaryCrossties !== merged.secondaryCrossties) {
         changes.push({ field: sk === 'stirrupsSupport' ? 'stirrups support' : 'stirrups span',
           before: ends ? [ends.atStart, ends.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ') : fmtStir(before),
-          after: fmtStir(merged) });
+          after: reg.stirrupsBySupport && ends
+            ? [reg.stirrupsBySupport.atStart, reg.stirrupsBySupport.atEnd].map(stirrup => fmtStir(stirrup ?? undefined)).join(' / ')
+            : fmtStir(reg[sk]) });
       }
     }
 

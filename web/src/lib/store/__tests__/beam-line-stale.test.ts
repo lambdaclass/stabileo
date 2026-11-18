@@ -106,7 +106,7 @@ describe('a saved line its members no longer match', () => {
     expect(openLine(line.members[0]!)!.stale?.reason).toBe('geometry');
     for (const id of line.members) {
       expect(verificationStore.providedFor(id)?.checks).toContainEqual(expect.objectContaining({
-        category: 'Stirrup zone geometry', limiting: 'unsupportedCheck', status: 'fail',
+        category: 'check.rc.stirrupZoneGeometry', limiting: 'unsupportedCheck', status: 'fail',
       }));
     }
   });
@@ -155,10 +155,8 @@ it('#2171 round 4 resizes saved hoop zones during seismic detailing', () => {
   expect(edited.stirrupsSupport!.spacing).toBeLessThan(wide.spacing);
 });
 
-const round5Reproducer = process.env.RUN_KNOWN_WRONG === '2171' ? it : it.skip;
-
 for (const entry of ['batch', 'member'] as const) {
-  round5Reproducer(`known wrong result: #2171 round 5 spacing edits preserve each local cage (${entry})`, () => {
+  it(`#2171 round 5 spacing edits preserve each local cage (${entry})`, () => {
     const id = savedEditedLine().members[0]!;
     const rebar = reinforcementForVerification(id)!;
     const { length, startSupportEnd, endSupportStart } = rebar.regions!.stirrupZones!;
@@ -192,11 +190,11 @@ for (const entry of ['batch', 'member'] as const) {
     expect(updated?.regions?.stirrupsBySupport).toEqual({
       atStart: { ...start, ...patch }, atEnd: { ...end, ...patch },
     });
-    expect(rebar.regions.stirrupZones.zones).toEqual(zones);
+    expect(rebar.regions.stirrupZones?.zones).toEqual(zones);
   });
 }
 
-round5Reproducer('known wrong result: #2171 round 5 refuses a legacy stirrup layout after regrouping', () => {
+it('#2171 round 5 refuses a legacy stirrup layout after regrouping', () => {
   const line = savedEditedLine();
   expect(line.members).toHaveLength(2);
   const id = line.members[0]!, other = line.members[1]!;
@@ -212,7 +210,7 @@ round5Reproducer('known wrong result: #2171 round 5 refuses a legacy stirrup lay
       ...record, memberHashes: { ...record.memberHashes, [id]: rebarHash(rebar) },
     } } });
   });
-  const heldRow = expect.objectContaining({ category: 'Stirrup zone geometry', limiting: 'unsupportedCheck', status: 'fail' });
+  const heldRow = expect.objectContaining({ category: 'check.rc.stirrupZoneGeometry', limiting: 'unsupportedCheck', status: 'fail' });
   expect(reinforcementForVerification(id)?.regions?.stirrupZones?.length).toBe(record.lengths[0]);
   expect(verificationStore.providedFor(id)?.checks).not.toContainEqual(heldRow);
 

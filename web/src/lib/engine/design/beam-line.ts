@@ -11,7 +11,7 @@
  * the next region is its extension, and a hook at an end inside the member is its anchorage.
  */
 import { isClosedRectangularStirrup, secondaryStirrupLegs } from '../../codes/cirsoc201/secondary-stirrup-legs';
-import { stirrupLayoutFits, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
+import { stirrupLayoutFits, type BeamRegions, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -112,8 +112,8 @@ export function lineFromMembers(members: readonly LineMember[]): BeamLineReinfor
     };
     topAt('start'); topAt('end');
     // ── Stirrups ──
-    if (reg.stirrupZones) {
-      if (stirrupLayoutFits(reg.stirrupZones, m.L)) {
+    if (reg.stirrupZones !== undefined) {
+      if (reg.stirrupZones && stirrupLayoutFits(reg.stirrupZones, m.L)) {
         for (const z of reg.stirrupZones.zones) zone(a + z.from, Math.min(a + z.to, b), z.stirrup);
       }
     } else {
@@ -220,7 +220,50 @@ function layersOf(bs: readonly BeamLineBar[]): RebarLayer[] {
 
 const groupOfLayers = (ls: RebarLayer[]) => ({ count: ls.reduce((s, l) => s + l.count, 0), diameter: Math.max(...ls.map((l) => l.diameter)) });
 
-const avs = (z: BeamStirrupZone) => (z.legs * Math.PI * z.diameter ** 2 / 4) / z.spacing;
+const avs = (z: StirrupDef) => (z.legs * Math.PI * z.diameter ** 2 / 4) / z.spacing;
+function supportStirrupSummary(start?: StirrupDef, end?: StirrupDef): StirrupDef | undefined {
+  if (!start || !end) return start ?? end;
+  const weaker = avs(start) <= avs(end) ? start : end;
+  return sameSecondaryCage(start, end) ? weaker : { ...weaker, secondaryCrossties: null };
+}
+
+export function patchBeamRegionStirrups(
+  regions: BeamRegions, field: 'stirrupsSupport' | 'stirrupsSpan', patch: Partial<StirrupDef>, summary: StirrupDef,
+): void {
+  const layout = regions.stirrupZones;
+  if (layout === null || (layout && !stirrupLayoutFits(layout, layout.length))) return;
+  const update = (stirrup: StirrupDef): StirrupDef => ({
+    ...stirrup, ...patch,
+    diameter: patch.diameter ?? stirrup.diameter,
+    legs: patch.legs ?? stirrup.legs,
+    spacing: patch.spacing ?? stirrup.spacing,
+    shape: patch.shape ?? stirrup.shape,
+    secondaryCrossties: patch.secondaryCrossties === undefined ? stirrup.secondaryCrossties : patch.secondaryCrossties,
+  });
+  const ends = field === 'stirrupsSupport' ? regions.stirrupsBySupport : undefined;
+  if (ends) {
+    const atStart = ends.atStart && update(ends.atStart);
+    const atEnd = ends.atEnd && update(ends.atEnd);
+    regions.stirrupsBySupport = { atStart, atEnd };
+    regions[field] = supportStirrupSummary(atStart ?? undefined, atEnd ?? undefined);
+  } else if (!layout || regions[field]) {
+    regions[field] = summary;
+  }
+  if (!layout) return;
+  const { length, startSupportEnd, endSupportStart } = layout;
+  const support = field === 'stirrupsSupport';
+  const intervals = [
+    { start: 0, end: startSupportEnd, edited: support },
+    { start: startSupportEnd, end: endSupportStart, edited: !support },
+    { start: endSupportStart, end: length, edited: support },
+  ];
+  const zones = layout.zones.flatMap(zone => intervals.flatMap(({ start, end, edited }) => {
+    const from = Math.max(start, zone.from), to = Math.min(end, zone.to);
+    return to > from ? [{ from, to, stirrup: edited ? update(zone.stirrup) : zone.stirrup }] : [];
+  }));
+  regions.stirrupZones = { ...layout, zones };
+}
+
 function stirrupOf(z: BeamStirrupZone): StirrupDef {
   const { id: _id, from: _from, to: _to, ...stirrup } = z;
   return stirrup;
@@ -279,11 +322,8 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     topSide('start'); topSide('end');
     const zAt = (x: number) => line.stirrups.find((z) => z.from <= x + EPS && z.to >= x - EPS);
     const zs = zAt((a + s) / 2), ze = zAt((e + b) / 2), zm = zAt(mid);
-    const sup = zs && ze ? (avs(zs) <= avs(ze) ? zs : ze) : (zs ?? ze);
-    if (sup) {
-      const stirrup = stirrupOf(sup);
-      regions.stirrupsSupport = zs && ze && !sameSecondaryCage(zs, ze) ? { ...stirrup, secondaryCrossties: null } : stirrup;
-    }
+    const support = supportStirrupSummary(zs && stirrupOf(zs), ze && stirrupOf(ze));
+    if (support) regions.stirrupsSupport = support;
     if ((zs || ze) && (!zs || !ze || !sameCage(zs, ze))) {
       regions.stirrupsBySupport = { atStart: zs ? stirrupOf(zs) : null, atEnd: ze ? stirrupOf(ze) : null };
     }

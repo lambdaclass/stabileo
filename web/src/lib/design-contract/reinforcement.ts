@@ -138,7 +138,7 @@ export interface BeamRegions {
   stirrupsSupport?: StirrupDef; // tighter stirrups near supports
   stirrupsSpan?: StirrupDef;    // wider stirrups at midspan
   stirrupsBySupport?: { atStart: StirrupDef | null; atEnd: StirrupDef | null };
-  stirrupZones?: BeamStirrupLayout;
+  stirrupZones?: BeamStirrupLayout | null;
   /** Region boundary (t-value, default 0.25). Start region: [0, t1], span: [t1, 1-t1], end: [1-t1, 1] */
   regionT?: number;
   /**

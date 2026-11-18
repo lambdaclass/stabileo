@@ -10,6 +10,7 @@
  * through 20.2.1.3). The section limit's 0,66·√f'c and the minimums of 9.6.4 read √f'c as is:
  * the text limits only Tth, Tcr and Vc.
  */
+import { msg } from '../message';
 import type { StirrupDef } from '../../design-contract/reinforcement';
 import { isClosedRectangularStirrup, secondaryStirrupLegs, secondaryStirrupLegsUnavailable } from './secondary-stirrup-legs';
 import type { ConcurrentSectionDemand } from '../../engine/concurrent-demand';
@@ -47,7 +48,7 @@ export interface TorsionCheck {
 }
 
 const PHI = 0.75;
-export const torsionCageUnavailable = 'Torsion requires a closed rectangular stirrup cage.';
+export const torsionCageUnavailable = msg('check.rc.torsionCageUnavailable').key;
 
 export function providedTorsionStirrups(stirrup: NonNullable<TorsionInput['stirrup']>) {
   const Ab = (Math.PI * (stirrup.diameter / 1000) ** 2) / 4;
