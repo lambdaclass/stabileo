@@ -106,11 +106,16 @@ export function buildSeismicLevels(
   }
   const shells = [...model.quads?.values() ?? []].map(q => ({ ...q, on: undefined }));
   const plates = [...model.plates?.values() ?? []].map(q => ({ ...q, on: 'plate' as const }));
-  const shellNodes = new Set([...shells, ...plates].flatMap(q => q.nodes));
-  const supportedNodes = new Set([...model.supports?.values() ?? []].map(s => s.nodeId));
-  const subdivision = (p: MassNode) => {
+  const storyNodes = new Set([...shells, ...plates].flatMap(q => q.nodes));
+  for (const support of model.supports?.values() ?? []) storyNodes.add(support.nodeId);
+  for (const constraint of model.constraints ?? []) {
+    if (constraint.type !== 'diaphragm') continue;
+    storyNodes.add(constraint.masterNode);
+    for (const id of constraint.slaveNodes) storyNodes.add(id);
+  }
+  const isCollinearSubdivision = (p: MassNode) => {
     const adjacent = neighbours.get(p.id);
-    if (adjacent?.length !== 2 || shellNodes.has(p.id)) return false;
+    if (adjacent?.length !== 2) return false;
     const [a, b] = adjacent;
     const u = [a!.x - p.x, a!.y - p.y, a!.z - p.z], v = [b!.x - p.x, b!.y - p.y, b!.z - p.z];
     const scale = Math.hypot(...u) * Math.hypot(...v);
@@ -126,7 +131,7 @@ export function buildSeismicLevels(
     return byElevation.get(elevation)!;
   };
   for (const n of nodes.values()) {
-    if (Number.isFinite(n.z) && (shellNodes.has(n.id) || supportedNodes.has(n.id) || (neighbours.has(n.id) && !subdivision(n)))) level(n.z);
+    if (Number.isFinite(n.z) && (storyNodes.has(n.id) || (neighbours.has(n.id) && !isCollinearSubdivision(n)))) level(n.z);
   }
   for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
   const levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);

@@ -367,6 +367,7 @@ const height = 4;
 const round2Spectrum = designSpectrum(round2Code);
 if (isBlocked(round2Spectrum)) throw new Error('Test spectrum was refused');
 const round2Period = (round2Spectrum.t1 + round2Spectrum.t2) / 2;
+const round2Ordinate = spectralOrdinate(round2Period, round2Spectrum);
 
 function prescribedMode(model: LoadModelData, rotated: boolean, displacement: (z: number) => number, slope: number): ModeShape {
   return {
@@ -416,9 +417,8 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
 
   const bands: Array<[number, number]> = hasFloor ? [[0, 1], [1, 3], [3, 4]] : [[0, 2], [2, 4]];
-  const ordinate = spectralOrdinate(mode.period, round2Spectrum);
   const modalIntensity = method === 'modal'
-    ? Math.max(2 * ordinate * plan.seismic!.gammaR! / plan.seismic!.r!, 0.85 * plan.seismic!.c * (hasFloor ? 6 : 4) / 4)
+    ? Math.max(2 * round2Ordinate * plan.seismic!.gammaR! / plan.seismic!.r!, 0.85 * plan.seismic!.c * (hasFloor ? 6 : 4) / 4)
     : 0;
   const intensities = method === 'modal' ? bands.map(() => modalIntensity) : hasFloor ? [0, 1.5, 3] : [0, 2];
   const forces = method === 'modal'
@@ -457,13 +457,12 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   verifyCantilever(model, members, rotated, 4, parts, momentOfLoad);
 }
 
-const diaphragmStoryReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
 for (const cuts of [[0, 2, 4], [0, 0.5, 1.5, 2, 2.5, 3.5, 4]]) {
   for (const rotated of [false, true]) {
     for (const method of ['static', 'modal'] as const) {
       const variant = `${method}, ${rotated ? 'Y' : 'X'}, ${cuts.length - 1} elements`;
       for (const role of ['master', 'slave'] as const) {
-        diaphragmStoryReproducer(`known wrong result: #2316 column story partition keeps a diaphragm ${role} (${variant})`, () => {
+        it(`#2316 column story partition keeps a diaphragm ${role} (${variant})`, () => {
           verifyColumnStoryPartition(cuts, rotated, role, method);
         });
       }
