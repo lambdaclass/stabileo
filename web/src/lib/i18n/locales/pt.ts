@@ -13597,6 +13597,7 @@ const pt: Translations = {
   "rcSheets.v.crack": "Espaçamento para controle de fissuração",
   "rcSheets.v.shear": "Cisalhamento",
   "rcSheets.v.stirrupSpacing": "Espaçamento máximo dos estribos",
+  "rcSheets.v.wideLegs": "Estribos de 4 ramos numa viga larga (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "A torção pode ser desprezada",
   "rcSheets.v.stirrupsVT": "Estribos por cisalhamento e torção (por ramo)",
   "rcSheets.v.transverseMin": "Estribos mínimos com torção",

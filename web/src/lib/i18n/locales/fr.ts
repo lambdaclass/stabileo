@@ -13795,6 +13795,7 @@ const fr: Translations = {
   "rcSheets.v.crack": "Espacement pour la maîtrise de la fissuration",
   "rcSheets.v.shear": "Effort tranchant",
   "rcSheets.v.stirrupSpacing": "Espacement maximal des étriers",
+  "rcSheets.v.wideLegs": "Étriers à 4 brins dans une poutre large (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "La torsion peut être négligée",
   "rcSheets.v.stirrupsVT": "Étriers pour tranchant et torsion (par brin)",
   "rcSheets.v.transverseMin": "Étriers minimaux avec torsion",

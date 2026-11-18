@@ -53,7 +53,7 @@ export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
 };
 
 const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow, wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
-const cirsocRules: SheetRules = { ...aciRules, beamLine: (rows, c, a, fmt) => beamLine(rows, c, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm } };
+const cirsocRules: SheetRules = { ...aciRules, beamRow: (d, c, a, fmt) => beamRow(d, { ...c, course: true }, a, fmt), beamLine: (rows, c, a, fmt) => beamLine(rows, { ...c, course: true }, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm } };
 
 const RULES: Record<SheetCode, SheetRules> = {
   'cirsoc201-2025': cirsocRules,

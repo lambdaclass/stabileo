@@ -13795,6 +13795,7 @@ const de: Translations = {
   "rcSheets.v.crack": "Stababstand zur Rissbreitenbegrenzung",
   "rcSheets.v.shear": "Querkraft",
   "rcSheets.v.stirrupSpacing": "Größter Bügelabstand",
+  "rcSheets.v.wideLegs": "Vierschnittige Bügel in einem breiten Balken (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "Torsion darf vernachlässigt werden",
   "rcSheets.v.stirrupsVT": "Bügel für Querkraft und Torsion (je Schenkel)",
   "rcSheets.v.transverseMin": "Mindestbügel bei Torsion",

@@ -7,7 +7,7 @@ import { ConcurrentDemand } from '../engine/concurrent-demand';
 import { transverseSpacingLimits } from '../codes/cirsoc201/transverse-spacing';
 import { proposeSkin } from '../codes/cirsoc201/skin';
 import { mainBarCoverMm } from '../codes/cirsoc201/cover';
-import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from './bars';
+import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
 import { beamSeismic, faceRule, seismicBeamDiameters, type Seismic } from './seismic';
 import { BEAM_BAR_RANGE, check, inRange, listIn, nextTie, ratioOf, tieFloorOf, type TransverseList, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
@@ -15,6 +15,10 @@ import { BEAM_BAR_RANGE, check, inRange, listIn, nextTie, ratioOf, tieFloorOf, t
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
 const MAX_ITERATIONS = 12;
+/** The compression steel a doubly reinforced section asks, raised 30 % before bars are chosen (FIUBA §8.9). */
+export const COMPRESSION_MARGIN = 1.3;
+/** How many pairs of faces `searchFaces` tries, the lightest first. */
+const SEARCH_PAIRS = 600;
 
 const shearTorsion = (vu: number, tu: number) => ConcurrentDemand.fromStations({ elementId: 0, length: 1, stationTs: [0], comboResults: [{
   comboId: 0, comboName: '', stations: [{ t: 0, x: 0, n: 0, my: 0, mz: 0, vy: vu, vz: 0, torsion: tu }],
@@ -84,7 +88,12 @@ export interface BeamContext extends TransverseList {
   bentBars?: boolean;
   /** Check the main bars' cover of CIRSOC 201 Table 20.5.1.3.1, under execution control or not. */
   coverTable?: { control: boolean };
+  /** The FIUBA course's criteria where the code leaves room: stirrups at most 30 cm apart where shear needs them (§9.5), four legs in a web over 40 cm (§9.6), hangers of half the bottom bars' diameter (§8.1), at most two stirrup diameters along a beam (§9.6). */
+  course?: true;
 }
+
+/** The FIUBA course's largest stirrup spacing where shear reinforcement is needed, m (§9.5), and the web over which it asks four legs (§9.6). */
+const COURSE_S_MAX = 0.3, COURSE_WIDE = 0.4;
 
 /** `nc`: the axial force with the moment, kN, + compression; a section with none of either asks nothing. */
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; nc?: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
@@ -107,6 +116,8 @@ export interface BeamRow {
     /** The torsion below which it may be neglected, kN·m, where the code gives one to read station by station. */
     tuNeglect?: number;
     skin: MeshBars | null;
+    /** The compression steel the doubly reinforced sections ask of each face, cm², already raised by the margin bars are chosen with; absent where none is. */
+    compression?: { top: number; bottom: number };
     /** What each section asks of its tension face, cm². */
     bySection: Array<{ section: SectionName; sign: 'pos' | 'neg'; req: number }>;
   };
@@ -163,7 +174,7 @@ function flexChecks(c: BeamContext, d: BeamDemand, a: BeamAdopted): FlexureCheck
     const e = sectionOf(d, s);
     items.push({ section: s, sign: 'pos', mu: e.pos.value, nc: e.nPos }, { section: s, sign: 'neg', mu: e.neg.value, nc: e.nNeg });
   }
-  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
+  if (d.negAny.value > Math.max(d.start.neg.value, d.span.neg.value, d.end.neg.value) + 1e-6) items.push({ section: peakSection(d, d.negAny.source?.x) ?? 'span', sign: 'neg', mu: d.negAny.value, nc: d.nNegAny });
   const answers = evaluateBeamSections(items.map((i) => { const g = barsAt(a, i.section); return i.sign === 'pos' ? sectionQuery(c, d, g.bottom, g.top, sd, i.nc, undefined, true) : sectionQuery(c, d, g.top, g.bottom, sd, i.nc); })) ?? [];
   return items.map((i, k) => {
     const r = answers[k];
@@ -305,6 +316,43 @@ function improveSeismic(a: BeamAdopted, s: NonNullable<ReturnType<typeof beamSei
   return next;
 }
 
+/**
+ * Bottom and top bars that carry every section's moment ductile, where raising one face at a time
+ * does not get there (a doubly reinforced section whose bars took a second layer): each face one
+ * diameter or two consecutive ones (FIUBA §8.1), laid out in at most two layers, from what the
+ * sections ask up to three times as much; the lightest pairs first, up to `SEARCH_PAIRS` of them.
+ * Null when none does.
+ */
+export function searchFaces(a: BeamAdopted, bottom: number, top: number, d: Pick<BeamDemand, 'b' | 'h'>, c: BeamContext, ok: (x: BeamAdopted) => boolean): BeamAdopted | null {
+  const sd = a.stirrups.dia;
+  const dias = LONG(c).sort((p, q) => p - q);
+  const inTwo = (g: BarGroup[]) => faceLayout(g, d.b, c.cover, sd).fits && new Set(faceBars(g, d.b, c.cover, sd).map((x) => x.row)).size <= 2;
+  const hanger = groupsArea([{ count: 2, dia: hangerBar(c) }]);
+  const faces = (need: number): BarGroup[][] => {
+    const lo = Math.max(need, hanger), hi = 3 * lo;
+    const out: BarGroup[][] = [];
+    for (const [i, big] of dias.entries()) {
+      for (let n = 2; n <= 12; n++) {
+        const g = [{ count: n, dia: big }];
+        if (groupsArea(g) >= lo - 1e-9 && groupsArea(g) <= hi) out.push(g);
+        const small = dias[i - 1];
+        if (small !== undefined) for (let m = 1; m <= 6; m++) {
+          const mix = [{ count: n, dia: big }, { count: m, dia: small }];
+          if (groupsArea(mix) >= lo - 1e-9 && groupsArea(mix) <= hi) out.push(mix);
+        }
+      }
+    }
+    return out.filter(inTwo);
+  };
+  const bs = faces(bottom), ts = faces(top);
+  const pairs = bs.flatMap((b) => ts.map((t) => ({ b, t, area: groupsArea(b) + groupsArea(t) }))).sort((x, y) => x.area - y.area);
+  for (const x of pairs.slice(0, SEARCH_PAIRS)) {
+    const next: BeamAdopted = { ...a, bottom: x.b, top: x.t };
+    if (ok(next)) return next;
+  }
+  return null;
+}
+
 /** The context a beam is designed in: under chapter 18 only bars whose 6·db leaves room for hoops at the project's floor (`seismicBeamDiameters`). */
 export const beamContext = (c: BeamContext): BeamContext => (c.seismic ? { ...c, diameters: seismicBeamDiameters(c.diameters, tieFloorOf(c)) } : c);
 
@@ -316,7 +364,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const flexReq = (mu: number, nc: number, sagging = false) => checkFlexure(p, mu, nc, { edition: EDITION, minimumExemption: true, ...(sagging && d.flange ? { flange: d.flange } : {}) });
   const posReq = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).pos.value, sectionOf(d, s).nPos, true), env: sectionOf(d, s).pos, n: sectionOf(d, s).nPos }));
   const negList = SECTION_NAMES.map((s) => ({ s, r: flexReq(sectionOf(d, s).neg.value, sectionOf(d, s).nNeg), env: sectionOf(d, s).neg, n: sectionOf(d, s).nNeg }));
-  if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
+  if (d.negAny.value > Math.max(...negList.map((x) => x.env.value)) + 1e-6) negList.push({ s: peakSection(d, d.negAny.source?.x) ?? 'span', r: flexReq(d.negAny.value, d.nNegAny), env: d.negAny, n: d.nNegAny });
   const heavier = <T extends { r: { AsReq: number }; env: Signed }>(a: T, b: T) => (b.r.AsReq > a.r.AsReq + 1e-9 || (Math.abs(b.r.AsReq - a.r.AsReq) <= 1e-9 && b.env.value > a.env.value) ? b : a);
   const gPos = posReq.reduce(heavier);
   const hogging = negList.filter((x) => x.env.value > 1e-6);
@@ -325,6 +373,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const topReq = hogging.length ? gNeg.r.AsReq : 0;
 
   const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq });
+  const courseCap = c.course && shear.Vs > 1e-6 ? COURSE_S_MAX : Infinity;
   const torsionCache = new Map<number, TorsionReq>();
   const torsionAt = (sd: number): TorsionReq => {
     const hit = torsionCache.get(sd);
@@ -339,14 +388,14 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     const lim = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: dd, fc, cover: c.cover, stirrupDiaMm: sd });
     const r: TorsionReq = {
       tor0: t0, tor: t, tuDesign: tuD, atOverS: t.neglect ? 0 : t.AtOverS, al: t.neglect ? 0 : t.AlReq, alMin: t.neglect ? 0 : tt.AlMin * 1e4,
-      transverseMin: t25(0).transverseRequired * 1e4, torSection: t.status !== 'fail', sMax: Math.min(lim.alongMax, t.neglect ? Infinity : tt.sMax),
+      transverseMin: t25(0).transverseRequired * 1e4, torSection: t.status !== 'fail', sMax: Math.min(lim.alongMax, t.neglect ? Infinity : tt.sMax, courseCap),
     };
     torsionCache.set(sd, r);
     return r;
   };
   const { tor0, tor, tuDesign } = torsionAt(c.stirrupDia);
   const limits = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: shear.d, fc, cover: c.cover, stirrupDiaMm: c.stirrupDia });
-  const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs);
+  const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs, c.course && d.b > COURSE_WIDE + 1e-9 ? 4 : 2);
   const ph = hoopPerimeter(d, c, c.stirrupDia);
   const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + torsionAt(c.stirrupDia).atOverS;
   const sMax = torsionAt(c.stirrupDia).sMax;
@@ -357,9 +406,14 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   ];
   const req: Requirement = { bottom: bottomReq, top: topReq, neglect: tor.neglect, torsion: torsionAt, bySection };
 
+  const compression = (list: Array<{ r: { isDoublyReinforced: boolean; AsCompReq?: number }; env: Signed }>) =>
+    COMPRESSION_MARGIN * Math.max(0, ...list.filter((x) => x.env.value > 1e-6 && x.r.isDoublyReinforced).map((x) => x.r.AsCompReq ?? 0));
+  const compTop = compression(posReq), compBottom = compression(negList);
+  const bottom0 = proposeBeamFace(Math.max(bottomReq, compBottom), d.b, d.h, c.cover, c.stirrupDia, c.diameters);
+  const hanger = c.course ? torsionBar(c, Math.max(10, c.stirrupDia, Math.ceil(Math.max(...bottom0.map((g) => g.dia)) / 2))) : hangerBar(c);
   const initial: BeamAdopted = {
-    bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+    bottom: bottom0,
+    top: topReq > 0 || compTop > 0 ? proposeBeamFace(Math.max(topReq, compTop), d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hanger }],
     stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c),
     ...(tor.neglect ? {} : { torsionLong: { count: Math.max(4, 2 * Math.ceil(ph / 0.3 / 2)), dia: torsionBar(c, 10) } }),
   };
@@ -368,12 +422,21 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   let ev = evaluate(d, c, proposed, req);
   let seis = seisOf(proposed);
   const holds = () => ev.all && (!seis || seis.checks.every((k) => k.ok));
-  while (!holds() && iterations < MAX_ITERATIONS) {
-    iterations++;
-    proposed = improve(proposed, ev, d, c, ph);
-    if (seis) proposed = improveSeismic(proposed, seis, d, c);
-    ev = evaluate(d, c, proposed, req);
-    seis = seisOf(proposed);
+  const loop = () => {
+    for (let k = 0; !holds() && k < MAX_ITERATIONS; k++) {
+      iterations++;
+      proposed = improve(proposed, ev, d, c, ph);
+      if (seis) proposed = improveSeismic(proposed, seis, d, c);
+      ev = evaluate(d, c, proposed, req);
+      seis = seisOf(proposed);
+    }
+  };
+  loop();
+  if (!adopted && !ev.flex.every((f) => f.ok)) {
+    const faces = searchFaces(proposed, Math.max(bottomReq, compBottom), Math.max(topReq, compTop), d, c, (x) => flexChecks(c, d, x).every((f) => f.ok));
+    proposed = faces ?? { ...proposed, bottom: initial.bottom, top: initial.top };
+    ev = evaluate(d, c, proposed, req); seis = seisOf(proposed);
+    if (faces) loop();
   }
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, a, req) : ev;
@@ -394,7 +457,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
     check('rcSheets.v.shear', e.shear.status !== 'fail', { clause: '§22.5', demand: `${f2(d.vu.value)} kN`, capacity: `${f2(e.shear.phiVn)} kN`, ratio: ratioOf(d.vu.value, e.shear.phiVn) }),
-    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3', demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
+    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: `${tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3'}${sMaxA >= courseCap - 1e-9 ? '; FIUBA §9.5' : ''}`, demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
     ...(tor.neglect ? [check('rcSheets.v.torsionNeglect', true, { clause: '§22.7.1', demand: `${f2(d.tu.value)} kN·m`, capacity: `< ${f2(PHI_V * tor0.Tcr / 4)} kN·m` })] : [
       check('rcSheets.v.stirrupsVT', e.ok.stirrups, { clause: '§22.5.8, §22.7.6', demand: `${f2(e.perLegRequired)} cm²/m`, capacity: `${f2(e.perLegProvided)} cm²/m`, ratio: ratioOf(e.perLegRequired, e.perLegProvided) }),
       check('rcSheets.v.transverseMin', e.ok.transverseMin, { clause: '§9.6.4.2', demand: `${f2(e.transverseMin)} cm²/m`, capacity: `${f2(e.transverseProvided)} cm²/m`, ratio: ratioOf(e.transverseMin, e.transverseProvided) }),
@@ -403,6 +466,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
       check('rcSheets.v.alDia', e.ok.alDia, { clause: '§9.7.5.2', demand: a.torsionLong ? `Ø${a.torsionLong.dia}` : '—', capacity: `≥ Ø${fmt(e.alDiaMin, 1)}` }),
       check('rcSheets.v.torsionSection', e.ok.torsionSection, { clause: '§22.7.7.1' }),
     ]),
+    ...(c.course && d.b > COURSE_WIDE + 1e-9 ? [check('rcSheets.v.wideLegs', a.stirrups.legs >= 4, { clause: 'FIUBA §9.6', demand: `${a.stirrups.legs}`, capacity: '≥ 4' })] : []),
     ...(c.coverTable ? [mainCoverCheck(c.cover, a.stirrups.dia, largestBar(a), c.coverTable.control, fmt)] : []),
     ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
     ...(seisA?.checks ?? []),
@@ -427,7 +491,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
 
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, tuNeglect: PHI_V * tor0.Tcr / 4, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: Math.max(alReq, alMin), torsionNeglected: tor.neglect, tuDesign, tuNeglect: PHI_V * tor0.Tcr / 4, skin: skin ? { dia: skin.diameter, spacing: skin.spacing } : null, bySection, ...(compTop > 0 || compBottom > 0 ? { compression: { top: compTop, bottom: compBottom } } : {}) },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };

@@ -15115,6 +15115,7 @@ const hu: Translations = {
   "rcSheets.v.crack": "Vastávolság a repedéskorlátozáshoz",
   "rcSheets.v.shear": "Nyírás",
   "rcSheets.v.stirrupSpacing": "Maximális kengyeltávolság",
+  "rcSheets.v.wideLegs": "Négyszárú kengyelek széles gerendában (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "A csavarás elhanyagolható",
   "rcSheets.v.stirrupsVT": "Kengyelek nyírásra és csavarásra (száranként)",
   "rcSheets.v.transverseMin": "Minimális kengyelezés csavarással",

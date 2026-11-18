@@ -261,16 +261,24 @@ describe('reinforcement sheets from a solved model', () => {
     expect(topEnd.length).toBeGreaterThan(ln.ends.to - ln.ends.from);
   });
 
-  it('fails the end anchorage when the hook does not fit in a thin end column', () => {
+  it('in a thin end column no hook fits: ACI 318 fails the end anchorage, CIRSOC develops ld along the bar with a longer leg (FIUBA §12.2)', () => {
     frame();
     const thin = modelStore.addSection({ name: '15×40', a: 0.06, iy: 0.4 * 0.15 ** 3 / 12, iz: 0.15 * 0.4 ** 3 / 12, j: 0.0003, b: 0.4, h: 0.15, shape: 'rect' } as never);
     for (const e of modelStore.elements.values()) if (e.nodeI !== e.nodeJ && Math.abs((modelStore.nodes.get(e.nodeJ)!.z ?? 0) - (modelStore.nodes.get(e.nodeI)!.z ?? 0)) > 1) modelStore.updateElementSection(e.id, thin);
     solve();
-    const ln = buildSheetRows().line[0]!;
-    const v = ln.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
-    expect(ln.ends.start!.half).toBeLessThan(0.1);
+    setSheetCode('aci318-19');
+    const aci = buildSheetRows().line[0]!;
+    const v = aci.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(aci.ends.start!.half).toBeLessThan(0.1);
     expect(v.ok).toBe(false);
     expect(v.ratio!).toBeGreaterThan(1);
+    setSheetCode('cirsoc201-2025');
+    const ci = buildSheetRows().line[0]!;
+    const w = ci.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
+    expect(w.ok).toBe(true);
+    expect(w.clause).toBe('§25.4.2; FIUBA §12.2');
+    const top = ci.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
+    expect(top.anchor![0]!.tail).toBeGreaterThan(12 * top.bars.dia / 1000);
   });
 
   it('lays out the exact reinforcement: span bars bent up over the supports carry the hogging moment and the line still verifies everywhere', () => {

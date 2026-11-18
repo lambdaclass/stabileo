@@ -13944,6 +13944,7 @@ const es: Record<string, string> = {
   "rcSheets.v.crack": "Separación por control de fisuración",
   "rcSheets.v.shear": "Corte",
   "rcSheets.v.stirrupSpacing": "Separación máxima de estribos",
+  "rcSheets.v.wideLegs": "Estribos de 4 ramas en una viga ancha (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "La torsión se puede despreciar",
   "rcSheets.v.stirrupsVT": "Estribos por corte y torsión (por rama)",
   "rcSheets.v.transverseMin": "Estribos mínimos con torsión",

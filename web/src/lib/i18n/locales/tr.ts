@@ -13795,6 +13795,7 @@ const tr: Translations = {
   "rcSheets.v.crack": "Çatlak kontrolü için aralık",
   "rcSheets.v.shear": "Kesme",
   "rcSheets.v.stirrupSpacing": "Maksimum etriye aralığı",
+  "rcSheets.v.wideLegs": "Geniş kirişte 4 kollu etriye (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "Burulma ihmal edilebilir",
   "rcSheets.v.stirrupsVT": "Kesme ve burulma etriyesi (kol başına)",
   "rcSheets.v.transverseMin": "Burulmada minimum etriye",

@@ -13955,6 +13955,7 @@ const en: Record<string, string> = {
   "rcSheets.v.crack": "Spacing for crack control",
   "rcSheets.v.shear": "Shear",
   "rcSheets.v.stirrupSpacing": "Maximum stirrup spacing",
+  "rcSheets.v.wideLegs": "Four-legged stirrups in a wide beam (bw > 40 cm)",
   "rcSheets.v.torsionNeglect": "Torsion may be neglected",
   "rcSheets.v.stirrupsVT": "Stirrups for shear and torsion (per leg)",
   "rcSheets.v.transverseMin": "Minimum stirrups with torsion",

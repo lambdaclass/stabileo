@@ -7,6 +7,7 @@ import { TS500_LINE } from '../ts500/line';
 import { CIRSOC_LINE } from '../beam-line';
 import { rulesFor } from '../codes';
 import { makeFmt } from '../format';
+import { barArea, faceBars, faceLayout, groupsArea, proposeBeamFace } from '../bars';
 import type { BeamAdopted, SheetCode } from '../types';
 
 const fmt = makeFmt('.');
@@ -155,5 +156,73 @@ describe('a TS 500 slab proposal', () => {
       if (r.status === 'fail') failing.push(m);
     }
     expect(failing).toEqual([]);
+  });
+});
+
+const simple = (o: { b: number; h: number; mu: number; vu?: number; L?: number }): BeamDemand => ({
+  key: 'beam:9:0', name: 'V9', length: o.L ?? 5, b: o.b, h: o.h,
+  start: sec(0, 0, 0), span: sec((o.L ?? 5) / 2, o.mu, 0), end: sec(o.L ?? 5, 0, 0),
+  negAny: { value: 0 }, nNegAny: 0, vu: { value: o.vu ?? 60 }, nAtV: 0, tu: { value: 0 }, combos: [],
+});
+
+describe('a beam that needs compression steel', () => {
+  const c30 = { ...ctx, cover: 0.03 };
+  it('is proposed doubly reinforced and verifies in every code but TS 500, whose 2 % caps its tension steel: 20 × 30 under 90 kN·m', () => {
+    const ts = rulesFor('ts500-2000').beamRow(simple({ b: 0.2, h: 0.3, mu: 90 }), c30, undefined, fmt);
+    expect(ts.status).toBe('fail');
+    expect(ts.verifications.find((v) => v.label === 'rcSheets.ts500.v.rhoMax')!.ok).toBe(false);
+    for (const f of ['top', 'bottom'] as const) expect(new Set(faceBars(ts.proposed[f], 0.2, 0.03, ts.proposed.stirrups.dia).map((x) => x.row)).size).toBeLessThanOrEqual(2);
+    for (const code of CODES.filter((x) => x !== 'ts500-2000')) {
+      const r = rulesFor(code).beamRow(simple({ b: 0.2, h: 0.3, mu: 90 }), c30, undefined, fmt);
+      expect(r.verifications.filter((v) => !v.ok).map((v) => v.label), code).toEqual([]);
+      expect(r.flexure.every((f) => f.ductile), code).toBe(true);
+      expect(groupsArea(r.proposed.top), code).toBeGreaterThan(2 * barArea(10));
+      for (const f of ['top', 'bottom'] as const) expect(new Set(faceBars(r.proposed[f], 0.2, 0.03, r.proposed.stirrups.dia).map((x) => x.row)).size, `${code} ${f}`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('CIRSOC asks the compression steel the design needs, raised 30 % (FIUBA §8.9), not the bars a check would pick', () => {
+    const r = rulesFor('cirsoc201-2025').beamRow(simple({ b: 0.2, h: 0.3, mu: 90 }), c30, undefined, fmt);
+    expect(r.req.compression!.top).toBeGreaterThan(4);
+    expect(r.req.compression!.top).toBeLessThan(8);
+  });
+});
+
+describe('a face too narrow for the bars chosen', () => {
+  it('takes thinner bars, or two consecutive diameters, that lay out in at most two layers', () => {
+    const g = proposeBeamFace(8, 0.15, 0.4, 0.03, 8, [10, 12, 16, 20, 25]);
+    expect(groupsArea(g)).toBeGreaterThanOrEqual(8 - 1e-9);
+    expect(faceLayout(g, 0.15, 0.03, 8).fits).toBe(true);
+    expect(new Set(faceBars(g, 0.15, 0.03, 8).map((x) => x.row)).size).toBeLessThanOrEqual(2);
+    const dias = [...new Set(g.map((x) => x.dia))].sort((p, q) => p - q);
+    expect(dias.length).toBeLessThanOrEqual(2);
+    if (dias.length === 2) expect([10, 12, 16, 20, 25].indexOf(dias[1]!) - [10, 12, 16, 20, 25].indexOf(dias[0]!)).toBe(1);
+  });
+});
+
+describe('the FIUBA course\'s criteria in CIRSOC beams', () => {
+  const cirsoc = rulesFor('cirsoc201-2025'), aci = rulesFor('aci318-19');
+  it('stirrups at most 30 cm apart where shear needs them (§9.5), cited; ACI keeps d/2', () => {
+    const d = simple({ b: 0.3, h: 0.9, mu: 150, vu: 260, L: 7 });
+    const r = cirsoc.beamRow(d, ctx, undefined, fmt), a = aci.beamRow(d, ctx, undefined, fmt);
+    expect(r.adopted.stirrups.spacing).toBeLessThanOrEqual(0.3 + 1e-9);
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).toContain('FIUBA §9.5');
+    expect(a.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).not.toContain('FIUBA');
+  });
+
+  it('four legs in a web over 40 cm (§9.6)', () => {
+    const r = cirsoc.beamRow(simple({ b: 0.5, h: 0.5, mu: 120, vu: 150 }), ctx, undefined, fmt);
+    expect(r.adopted.stirrups.legs).toBeGreaterThanOrEqual(4);
+    const v = r.verifications.find((x) => x.label === 'rcSheets.v.wideLegs')!;
+    expect(v.ok).toBe(true);
+    expect(v.clause).toBe('FIUBA §9.6');
+    expect(aci.beamRow(simple({ b: 0.5, h: 0.5, mu: 120, vu: 150 }), ctx, undefined, fmt).verifications.some((x) => x.label === 'rcSheets.v.wideLegs')).toBe(false);
+  });
+
+  it('hangers of at least half the bottom bars\' diameter and the stirrup\'s (§8.1)', () => {
+    const r = cirsoc.beamRow(simple({ b: 0.25, h: 0.5, mu: 190 }), ctx, undefined, fmt);
+    const bottom = Math.max(...r.proposed.bottom.map((g) => g.dia));
+    expect(bottom).toBeGreaterThanOrEqual(20);
+    expect(Math.min(...r.proposed.top.map((g) => g.dia))).toBeGreaterThanOrEqual(Math.max(r.proposed.stirrups.dia, bottom / 2));
   });
 });

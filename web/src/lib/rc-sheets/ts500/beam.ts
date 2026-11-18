@@ -1,5 +1,5 @@
 import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from '../bars';
-import { beamBarWhere, hangerBar, peakSection } from '../beam-row';
+import { beamBarWhere, COMPRESSION_MARGIN, hangerBar, peakSection, searchFaces } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups, isGenerous } from '../types';
@@ -120,18 +120,29 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const sMax = Math.min(sh0.sMax, tor0.sMax);
   const skin = proposeSkin(d, c, d0);
 
+  const compression = (list: SectionNeed[]) => COMPRESSION_MARGIN * Math.max(0, ...list.filter((x) => x.env.value > 1e-6).map((x) => x.r.asComp));
+  const compTop = compression(needs.pos), compBottom = compression(hogging);
   const initial: BeamAdopted = {
-    bottom: proposeBeamFace(bottomReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters),
-    top: topReq > 0 ? proposeBeamFace(topReq, d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
+    bottom: proposeBeamFace(Math.max(bottomReq, compBottom), d.b, d.h, c.cover, c.stirrupDia, c.diameters),
+    top: topReq > 0 || compTop > 0 ? proposeBeamFace(Math.max(topReq, compTop), d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hangerBar(c) }],
     stirrups: proposeStirrups(perLeg, legs, roundDown(sMax), c),
     ...(tor0.design ? { torsionLong: { count: Math.max(4, 2 * Math.ceil(tor0.uk / 0.3 / 2)), dia: 10 } } : {}),
   };
   let proposed = initial, iterations = 0;
   let ev = evaluate(d, c, t, proposed, req);
-  while (!ev.all && iterations < MAX_ITERATIONS) {
-    iterations++;
-    proposed = improve(proposed, ev, d, c);
+  const loop = () => {
+    for (let k = 0; !ev.all && k < MAX_ITERATIONS; k++) {
+      iterations++;
+      proposed = improve(proposed, ev, d, c);
+      ev = evaluate(d, c, t, proposed, req);
+    }
+  };
+  loop();
+  if (!adopted && !ev.flex.every((f) => f.ok)) {
+    const faces = searchFaces(proposed, Math.max(bottomReq, compBottom), Math.max(topReq, compTop), d, c, (x) => flexChecks(c, t, d, x).every((f) => f.ok));
+    proposed = faces ?? { ...proposed, bottom: initial.bottom, top: initial.top };
     ev = evaluate(d, c, t, proposed, req);
+    if (faces) loop();
   }
   const a = adopted ?? proposed;
   const e = adopted ? evaluate(d, c, t, a, req) : ev;
@@ -151,7 +162,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   ];
   return {
     family: 'beam', key: d.key, name: d.name, level: d.level, b: d.b, h: d.h, length: d.length, demand: d,
-    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin: skin?.mesh ?? null, bySection },
+    req: { bottom: bottomReq, top: topReq, bottomAt: gPos.s, topAt: gNeg.s, stirrupPerLeg: perLeg, legs, sMax, al: tor0.asl, torsionNeglected: !tor0.design, tuDesign: tor0.tdDesign, skin: skin?.mesh ?? null, bySection, ...(compTop > 0 || compBottom > 0 ? { compression: { top: compTop, bottom: compBottom } } : {}) },
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, flexure: e.flex, verifications, combos: comboTable(d, c, t, a, fmt),
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
   };
