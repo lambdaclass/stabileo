@@ -1,0 +1,33 @@
+{
+  "id": "seismic-base-inertia-plan-width",
+  "date": "2026-11-18",
+  "prs": [2316],
+  "area": "loads",
+  "when": {
+    "all": ["generatedSeismicLoads"]
+  },
+  "quantities": ["*", "solve.ok"],
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Moving base-level mass and structural width in generated seismic loads",
+    "es": "Masa móvil en la base y ancho estructural en las cargas sísmicas generadas",
+    "pt": "Massa móvel na base e largura estrutural nas cargas sísmicas geradas",
+    "de": "Bewegte Masse an der Basis und Tragwerksbreite bei erzeugten Erdbebenlasten",
+    "fr": "Masse mobile à la base et largeur structurale dans les charges sismiques générées",
+    "tr": "Üretilen deprem yüklerinde tabandaki hareketli kütle ve yapısal genişlik",
+    "hu": "Mozgó alapszinti tömeg és szerkezeti szélesség a generált szeizmikus terhekben"
+  },
+  "explanation": {
+    "en": "Modal inertia includes moving member segments assigned to the base. Accidental eccentricity uses the structural width, including massless framing. Regenerate E loads and repeat analyses and design checks (#2316).",
+    "es": "La inercia modal incluye los tramos móviles asignados a la base. La excentricidad accidental usa el ancho estructural, incluso el de barras sin masa. Regenerá las cargas E y repetí los análisis y verificaciones (#2316).",
+    "pt": "A inércia modal inclui os trechos móveis atribuídos à base. A excentricidade acidental usa a largura estrutural, incluindo os elementos sem massa. Gere novamente as cargas E e refaça as análises e verificações (#2316).",
+    "de": "Die modale Trägheit umfasst bewegte Stababschnitte, die der Basis zugeordnet sind. Die zufällige Exzentrizität verwendet die Tragwerksbreite einschließlich masseloser Stäbe. Erzeugen Sie die E-Lasten neu und wiederholen Sie Analysen und Nachweise (#2316).",
+    "fr": "L'inertie modale inclut les tronçons mobiles affectés à la base. L'excentricité accidentelle utilise la largeur structurale, y compris les éléments sans masse. Régénérez les charges E, puis relancez les analyses et les vérifications (#2316).",
+    "tr": "Modal atalet, tabana atanan hareketli eleman parçalarını içerir. Tesadüfi dışmerkezlik, kütlesiz elemanlar da dahil olmak üzere yapısal genişliği kullanır. E yüklerini yeniden üretin, analizleri ve kontrolleri tekrarlayın (#2316).",
+    "hu": "A modális tehetetlenség az alaphoz rendelt mozgó rúdszakaszokat is tartalmazza. A véletlen külpontosság a szerkezeti szélességet használja, a tömeg nélküli elemekkel együtt. Generálja újra az E terheket, és ismételje meg az elemzéseket és ellenőrzéseket (#2316)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-base-inertia-plan-width.md",
+    "heading": "Moving base-level mass and structural width in generated seismic loads"
+  }
+}

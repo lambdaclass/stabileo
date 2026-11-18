@@ -168,6 +168,21 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
   for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
     const { model, sources } = remeshWind(mesh([-2, 2].map(y => [[0, y, 0], [0, y, length]])), variant);
     const rotated = variant === 'rotate';
+    if (method === 'modal') {
+      model.materials.set(2, { id: 2, rho: 0 });
+      for (const e of [...model.elements.values()]) {
+        const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+        if (a.z! < half && b.z! > half) {
+          const id = model.nodes.size + 1;
+          model.nodes.set(id, { ...a, id, z: half });
+          const upper = model.elements.size + 1;
+          model.elements.set(upper, { ...e, id: upper, nodeI: id });
+          sources.set(upper, sources.get(e.id)!);
+          e.nodeJ = id;
+        }
+        if (model.nodes.get(e.nodeJ)!.z! <= half) e.materialId = 2;
+      }
+    }
     for (const torsion of ['low', 'medium', 'extreme'] as const) {
       const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
       const code = {
@@ -176,8 +191,8 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
       } as const;
       const period = 1;
       const shape = new Map([...model.nodes.values()].map(n => [n.id, {
-        ux: rotated ? 0 : n.z! / length, uy: rotated ? n.z! / length : 0, uz: 0,
-        rx: rotated ? -1 / length : 0, ry: rotated ? 0 : 1 / length, rz: 0,
+        ux: !rotated && n.z! >= half ? 1 : 0, uy: rotated && n.z! >= half ? 1 : 0, uz: 0,
+        rx: 0, ry: 0, rz: 0,
       }]));
       const requestForMethod = request(model, {
         torsion, directions: { x: !rotated, y: rotated },
@@ -191,10 +206,9 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
         const spectrum = designSpectrum(code);
         if (isBlocked(spectrum)) throw new Error('Test spectrum was refused');
         const ordinate = spectralOrdinate(period, spectrum) * plan.seismic!.gammaR! / plan.seismic!.r!;
-        const participation = (3 / 4) ** 2 / (7 / 12);
         const modal = plan.derivation.find(d => d.key === 'loadPlan.derivation.modal');
-        expect(modal?.params?.ratio).toBe(96.4);
-        intensity *= Math.max(participation * ordinate, 0.85 * plan.seismic!.c);
+        expect(modal?.params?.ratio).toBe(100);
+        intensity *= Math.max(ordinate, 0.85 * plan.seismic!.c);
       }
       for (const [caseIndex, c] of plan.cases.entries()) {
         if (c.type !== 'E') continue;
@@ -315,10 +329,10 @@ it('#2209 the production modal adapter retains the mass participation and comple
     const length = 4, weightPerLength = model.sections.values().next().value!.a * model.materials.values().next().value!.rho;
     const h1J = (x: number) => x ** 3 - x ** 4 / 2;
     const h2J = (x: number) => x ** 4 / 4 - x ** 3 / 3;
-    const momentum = weightPerLength * length * (tip.ux * (h1J(1) - h1J(0.5)) + length * tip.ry * (h2J(1) - h2J(0.5)));
+    const momentum = weightPerLength * length * (tip.ux * (h1J(1) - h1J(0)) + length * tip.ry * (h2J(1) - h2J(0)));
     const { seismicLevels } = plan as typeof plan & { seismicLevels: Parameters<typeof modalStoryForces>[0] };
-    const forces = modalStoryForces(seismicLevels.filter(l => l.elevation > 0), [inX], 'x', () => 1);
-    expect(forces.forces[0]).toBeCloseTo(Math.abs(inX.participation!.x.gamma * momentum), 10);
+    const forces = modalStoryForces(seismicLevels, [inX], 'x', () => 1);
+    expect(forces.baseShear).toBeCloseTo(Math.abs(inX.participation!.x.gamma * momentum), 10);
     expect(forces.massRatio).toBe(inX.participation!.x.ratio);
   } finally {
     modelStore.clear();
@@ -344,7 +358,7 @@ it('#2208 keeps the supported level’s exact force when an upper tributary pane
   expect(windResultants(model, lines)[0]).toBeCloseTo((lower + upper) * lower * 3 / (lower * 3 + upper * 6), 10);
 });
 
-const knownWrong = process.env.SEISMIC_RUN_KNOWN_WRONG === '1' ? it : it.skip;
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
 const round2Code = {
   zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame',
   regularity: 'regular', occupancy: 'reduced',
@@ -424,7 +438,7 @@ function verifyRound2Columns(
 
 for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 1, 4], [0, 1, 2, 3, 4]]) {
   for (const floor of [false, true]) {
-    knownWrong(`known wrong result: #2316 moving base-band mass loads its carrier (${rotated}, ${mirror}, ${cuts.length - 1} elements, floor ${floor})`, () => {
+    it(`#2316 moving base-band mass loads its carrier (${rotated}, ${mirror}, ${cuts.length - 1} elements, floor ${floor})`, () => {
       const { model, byColumn } = round2Columns(cuts, rotated, mirror, undefined, true);
       for (const members of byColumn) members[0]!.materialId = 2;
       const mode = prescribedMode(model, rotated, z => z === 0 ? 0 : 1, 0);
@@ -440,7 +454,7 @@ for (const rotated of [false, true]) for (const mirror of [false, true]) for (co
 }
 
 for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 2, 4], [0, 1, 2, 3, 4]]) {
-  knownWrong(`known wrong result: #2316 the modal base shear includes the moving lower half (${rotated}, ${cuts.length - 1} elements)`, () => {
+  it(`#2316 the modal base shear includes the moving lower half (${rotated}, ${cuts.length - 1} elements)`, () => {
     const { model } = round2Columns(cuts, rotated, false);
     const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
     mode.participation = { x: { gamma: 0, ratio: 0 }, y: { gamma: 0, ratio: 0 } };
@@ -466,7 +480,7 @@ for (const rotated of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3,
 
 for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
   for (const method of ['static', 'modal'] as const) {
-    knownWrong(`known wrong result: #2316 ${method} eccentricity uses the massless structural perimeter (${rotated}, ${mirror}, ${cuts.length - 1} elements)`, () => {
+    it(`#2316 ${method} eccentricity uses the massless structural perimeter (${rotated}, ${mirror}, ${cuts.length - 1} elements)`, () => {
       const { model, byColumn } = round2Columns(cuts, rotated, mirror, 5);
       for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
       const mode = prescribedMode(model, rotated, z => z >= height / 2 ? 1 : 0, 0);
@@ -480,7 +494,7 @@ for (const rotated of [false, true]) for (const mirror of [false, true]) for (co
   }
 }
 
-knownWrong('known wrong result: #2316 a nonzero structural width with no polar mass refuses accidental torsion', () => {
+it('#2316 a nonzero structural width with no polar mass refuses accidental torsion', () => {
   for (const width of [0, 5]) {
     const model = mesh([[[0, 0, 0], [0, 0, height]], ...(width > 0 ? [[[0, 0, height], [0, width, height]]] : [])]);
     model.materials.set(2, { id: 2, rho: 0 });

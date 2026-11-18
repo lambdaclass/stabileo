@@ -26,22 +26,14 @@ type MemberLoad = Omit<PlannedDistributed, 'caseType' | 'caseIndex'>;
 type ShellLoad = Omit<PlannedSurface, 'caseType' | 'caseIndex'>;
 
 function geometryOf(level: SeismicLevel) {
-  const points = level.mass.flatMap<{ x: number; y: number }>(m => m.kind === 'line' ? [atLine(m, m.a), atLine(m, m.b)] : m.nodes);
-  const origin = points[0]!;
+  const first = level.mass[0]!;
+  const origin = first.kind === 'line' ? atLine(first, first.a) : first.nodes[0]!;
   let sx = 0, sy = 0;
   for (const m of level.mass) massSamples(m, (w, x, y) => { sx += w * (x - origin.x); sy += w * (y - origin.y); });
   const x = origin.x + sx / level.weightKN, y = origin.y + sy / level.weightKN;
   let polar = 0;
   for (const m of level.mass) massSamples(m, (w, px, py) => { polar += w * ((px - x) ** 2 + (py - y) ** 2); });
-  const extent = (axis: 'x' | 'y') => {
-    let lo = Infinity, hi = -Infinity;
-    for (const p of points) {
-      lo = Math.min(lo, p[axis]);
-      hi = Math.max(hi, p[axis]);
-    }
-    return hi - lo;
-  };
-  return { x, y, polar, extent };
+  return { x, y, polar };
 }
 
 function levelLoading(level: SeismicLevel, fx: number, fy: number, eccentricity: number, axis: Case['axis']):
@@ -51,7 +43,7 @@ function levelLoading(level: SeismicLevel, fx: number, fy: number, eccentricity:
   if (level.mass.length === 0 || ![fx, fy, level.weightKN].every(Number.isFinite) || level.weightKN <= 0) return { reason: 'weight' };
   if (eccentricity !== 0 && level.mass.some(m => m.kind === 'line' && !!m.width)) return { reason: 'eccentric' };
   const g = geometryOf(level);
-  const moment = eccentricity * (axis === 'X' ? fx * g.extent('y') : fy * g.extent('x'));
+  const moment = eccentricity * (axis === 'X' ? fx * level.planWidth.y : fy * level.planWidth.x);
   if (![g.x, g.y, g.polar, moment].every(Number.isFinite) || (moment !== 0 && !(g.polar > 0))) return { reason: 'torsion' };
   const spin = moment === 0 ? 0 : moment / g.polar;
   const ax = (y: number) => fx / level.weightKN - spin * (y - g.y);

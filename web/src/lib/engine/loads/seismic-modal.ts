@@ -1,4 +1,4 @@
-import { massSamples, type MassNode, type SeismicMass } from './seismic-mass';
+import { massSamples, type MassNode, type SeismicLevel, type SeismicMass } from './seismic-mass';
 
 export interface ModalLevel { elevation: number; weightKN: number; mass: readonly SeismicMass[] }
 export interface ModalPoint { ux: number; uy: number; uz: number; rx: number; ry: number; rz: number }
@@ -34,6 +34,32 @@ function interpolatedMode(mass: SeismicMass, mode: ModeShape): (shape: number[])
       + (pi * (q - hi) + pj * (t! - hj)) * axis[k]!
       + t! * q ** 2 * si[k]! - t! ** 2 * q * sj[k]!);
   };
+}
+
+export function modalLoadingLevels(levels: readonly SeismicLevel[], modes: readonly ModeShape[]): SeismicLevel[] {
+  return levels.filter(level => level.weightKN > 0).flatMap(level => {
+    if (level.elevation > 0) return [level];
+    const mass: SeismicMass[] = [];
+    let weightKN = 0;
+    for (const carrier of level.mass) {
+      const moves = modes.some(mode => {
+        const displacement = interpolatedMode(carrier, mode);
+        let moving = false;
+        massSamples(carrier, (_weight, _x, _y, shape) => {
+          const [ux, uy] = displacement(shape);
+          if (!Number.isFinite(ux) || !Number.isFinite(uy)) throw new SeismicModeRefusal();
+          moving ||= ux !== 0 || uy !== 0;
+        });
+        return moving;
+      });
+      if (moves) {
+        mass.push(carrier);
+        massSamples(carrier, weight => { weightKN += weight; });
+      }
+    }
+    if (!Number.isFinite(weightKN)) throw new SeismicModeRefusal();
+    return weightKN > 0 ? [{ ...level, mass, weightKN }] : [];
+  });
 }
 
 export interface ModalForces {

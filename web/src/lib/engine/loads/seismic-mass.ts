@@ -13,7 +13,7 @@ export type MassLine = {
 };
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number; added?: boolean };
 export type SeismicMass = MassLine | MassShell;
-export type SeismicLevel = LevelMass & { mass: SeismicMass[]; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
+export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
 export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'mode' | 'weight';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -58,6 +58,34 @@ export function massSamples(mass: SeismicMass, sample: (weight: number, x: numbe
   }
 }
 
+function setStructuralPlanWidths(levels: SeismicLevel[], segments: Array<[MassNode, MassNode]>) {
+  const bounds = new Map(levels.map(l => [l.elevation, { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }]));
+  const include = (z: number, x: number, y: number) => {
+    const b = bounds.get(z);
+    if (!b) return;
+    b.minX = Math.min(b.minX, x);
+    b.maxX = Math.max(b.maxX, x);
+    b.minY = Math.min(b.minY, y);
+    b.maxY = Math.max(b.maxY, y);
+  };
+  for (const [i, j] of segments) {
+    include(i.z, i.x, i.y);
+    include(j.z, j.x, j.y);
+    if (i.z === j.z) continue;
+    const low = Math.min(i.z, j.z), high = Math.max(i.z, j.z);
+    for (const { elevation } of levels) {
+      if (elevation <= low) continue;
+      if (elevation >= high) break;
+      const t = (elevation - i.z) / (j.z - i.z);
+      include(elevation, interpolate(i.x, j.x, t), interpolate(i.y, j.y, t));
+    }
+  }
+  for (const level of levels) {
+    const b = bounds.get(level.elevation)!;
+    level.planWidth = { x: Math.max(0, b.maxX - b.minX), y: Math.max(0, b.maxY - b.minY) };
+  }
+}
+
 export function buildSeismicLevels(
   model: LoadModelData, layout: GravityLayout, area: AreaLoadsResult, width: number, liveFactor: number,
   snow: { distributed: PlannedDistributed[]; nodal: PlannedNodal[]; index: number; factor: number; panels: boolean } | undefined,
@@ -91,7 +119,7 @@ export function buildSeismicLevels(
   const byElevation = new Map<number, SeismicLevel>();
   const level = (elevation: number) => {
     if (!byElevation.has(elevation)) byElevation.set(elevation, {
-      elevation, nodeIds: [], mass: [], snowWeightKN: 0, unresolvedWeight: false, refusals: new Set(), weightKN: 0,
+      elevation, nodeIds: [], mass: [], planWidth: { x: 0, y: 0 }, snowWeightKN: 0, unresolvedWeight: false, refusals: new Set(), weightKN: 0,
       planAreaM2: 0, selfWeightKN: 0, superimposedKN: 0, liveTotalKN: 0, liveParticipatingKN: 0,
     });
     return byElevation.get(elevation)!;
@@ -102,6 +130,12 @@ export function buildSeismicLevels(
   for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
   const levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);
   for (const n of nodes.values()) byElevation.get(n.z)?.nodeIds.push(n.id);
+  const segments: Array<[MassNode, MassNode]> = [...geometry.values()].map(g => [g.nodeI, g.nodeJ]);
+  for (const shell of [...shells, ...plates]) for (const [k, id] of shell.nodes.entries()) {
+    const i = nodes.get(id), j = nodes.get(shell.nodes[(k + 1) % shell.nodes.length]!);
+    if (i && j) segments.push([i, j]);
+  }
+  setStructuralPlanWidths(levels, segments);
   const nearest = (z: number) => levels.reduce<SeismicLevel | undefined>((best, l) =>
     !best || Math.abs(l.elevation - z) < Math.abs(best.elevation - z) ? l : best, undefined);
   const deny = (l: SeismicLevel, reason: MassRefusal, unresolvedWeight = true) => {
