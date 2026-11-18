@@ -10,7 +10,8 @@ import { strapAt } from '../footing-strap';
 import { strapForces } from '../../engine/foundation/strap-footing';
 import { makeFmt } from '../format';
 import type { FootingContext, FootingDemand, FootingEdge } from '../footing-types';
-import { TIE } from '../footing-row';
+import { tieLimits } from '../footing-row';
+import { DEFAULT_CRITERIA } from '../criteria';
 import { tiePulls, withPulls } from '../footing-ties';
 
 const fmt = makeFmt('.');
@@ -154,7 +155,7 @@ describe('a footing with a tie, by the FIUBA foundations course (§6)', () => {
     const heavy = tied({ service: { combo: 'D + L', N: 1300, Mx: 0, My: 0, Vx: 0, Vy: 0 }, combos: [{ combo: 'U', N: 1800, Mx: 0, My: 0, Vx: 0, Vy: 0 }] });
     expect(ok(heavy, 'rcSheets.v.footTieLoad')).toBe(false);
     const low = tied({ column: { b: 0.3, h: 0.3, storey: 0.8 } });
-    expect(low.edge!.ties[0]!.H).toBeLessThan(TIE.minH);
+    expect(low.edge!.ties[0]!.H).toBeLessThan(tieLimits(DEFAULT_CRITERIA).minH);
     expect(ok(low, 'rcSheets.v.footTieArm')).toBe(false);
     expect(ok(low, 'rcSheets.v.footTieOffset')).toBe(false);
     const t = low.edge!.ties[0]!;

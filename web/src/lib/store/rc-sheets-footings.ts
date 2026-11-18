@@ -1,4 +1,5 @@
 import { modelStore } from './model.svelte';
+import { criteriaOf } from '../rc-sheets/criteria';
 import { resultsStore } from './results.svelte';
 import { physicalGroups } from './physical';
 import { designData } from './design-data';
@@ -140,7 +141,7 @@ export function footingContext(d: FootingDemand, sizing: FootingSizing, columns:
   const o = d.carried;
   const second = o ? { ...((b) => (b ? { columnBars: b } : {}))(columnBarsOf(o, columns)), columnFc: columnFcOf(o) } : undefined;
   return {
-    fc: fcOfMaterial(f?.concreteMaterialId) ?? colFc, fy: dd.rebarFy, cover: d.footing?.cover ?? dd.covers.footing, sizing,
+    fc: fcOfMaterial(f?.concreteMaterialId) ?? colFc, fy: dd.rebarFy, cover: d.footing?.cover ?? dd.covers.footing, sizing, criteria: criteriaOf(dd.designOptions?.criteria),
     diameters: footingDiameters(dd.longDiametersMm), preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
     ...(bars ? { columnBars: bars } : {}), ...(second ? { second } : {}),
   };

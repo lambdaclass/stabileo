@@ -6,6 +6,7 @@
  * one-way slab it is: its distribution steel beside the main bars at the top, its bottom bars the
  * span's carried in (FIUBA §13.1–13.2), its shear read with the top steel in tension.
  */
+import { CRITERION } from '../criteria';
 import { describe, it, expect } from 'vitest';
 import { rulesFor } from '../codes';
 import { slabRowFor, CIRSOC_SLAB_ROW, ACI_SLAB_ROW, type SlabDemand } from '../slab-row';
@@ -88,7 +89,7 @@ describe('a cantilever is reinforced as a one-way slab with its main bars at the
     expect(r.faces.bottomY.asDistribution ?? 0).toBe(0);
     for (const face of ['bottomX', 'bottomY', 'topX', 'topY'] as const) expect(r.faces[face].sMax, face).toBeLessThanOrEqual(0.25 + 1e-9);
     const clause = (face: string) => r.verifications.find((v) => v.label === `rcSheets.v.slabMin.${face}`)?.clause;
-    expect(clause('bottomX')).toBe('FIUBA §13.2');
+    expect(clause('bottomX')).toBe(CRITERION);
     expect(clause('topX')).toBe('§7.6.1');
     expect(clause('topY')).toBe('§24.4.3.2');
     expect(meshArea(r.adopted.topY)).toBeLessThan(meshArea(r.adopted.topX));

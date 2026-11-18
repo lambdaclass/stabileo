@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { CRITERION } from '../../rc-sheets/criteria';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -277,7 +278,7 @@ describe('reinforcement sheets from a solved model', () => {
     const ci = buildSheetRows().line[0]!;
     const w = ci.verifications.find((x) => x.label === 'rcSheets.v.lineEndAnchor')!;
     expect(w.ok).toBe(true);
-    expect(w.clause).toBe('§25.4.2; FIUBA §12.2');
+    expect(w.clause).toBe(`§25.4.2; ${CRITERION}`);
     const top = ci.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
     expect(top.anchor![0]!.tail).toBeGreaterThan(12 * top.bars.dia / 1000);
   });

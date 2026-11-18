@@ -1,5 +1,5 @@
 import { barArea, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from '../bars';
-import { beamBarWhere, COMPRESSION_MARGIN, hangerBar, peakSection, searchFaces } from '../beam-row';
+import { beamBarWhere, compressionMargin, hangerBar, peakSection, searchFaces } from '../beam-row';
 import { SECTION_NAMES, type BeamContext, type BeamDemand, type BeamRow, type SectionName } from '../beam-row';
 import type { Fmt } from '../format';
 import { check, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type MeshBars, type Step, type StepGroup, type Stirrups, isGenerous } from '../types';
@@ -120,7 +120,7 @@ export function beamRow(d: BeamDemand, c: BeamContext, adopted: BeamAdopted | un
   const sMax = Math.min(sh0.sMax, tor0.sMax);
   const skin = proposeSkin(d, c, d0);
 
-  const compression = (list: SectionNeed[]) => COMPRESSION_MARGIN * Math.max(0, ...list.filter((x) => x.env.value > 1e-6).map((x) => x.r.asComp));
+  const compression = (list: SectionNeed[]) => compressionMargin(c) * Math.max(0, ...list.filter((x) => x.env.value > 1e-6).map((x) => x.r.asComp));
   const compTop = compression(needs.pos), compBottom = compression(hogging);
   const initial: BeamAdopted = {
     bottom: proposeBeamFace(Math.max(bottomReq, compBottom), d.b, d.h, c.cover, c.stirrupDia, c.diameters),

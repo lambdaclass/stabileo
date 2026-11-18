@@ -10,6 +10,7 @@ import { columnLabel, tieLabel, type ColumnRow } from '../rc-sheets/column-row';
 import { wallLabel, type WallRow } from '../rc-sheets/wall-row';
 import { SLAB_FACES, type SlabRow } from '../rc-sheets/slab-row';
 import { SHEET_CODES, type CheckLine, type SheetCode } from '../rc-sheets/types';
+import { localizeCriterion } from '../rc-sheets/criteria';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 import type { PunchingRow } from '../rc-sheets/punching-row';
@@ -41,7 +42,7 @@ function statusOf(l: CheckLine, ratio: number | null): DesignStatus {
 export function sheetCheckRow(l: CheckLine, code: SheetCode, tr: Tr): CheckRow {
   const ratio = l.ratio !== undefined && Number.isFinite(l.ratio) ? l.ratio : null;
   return {
-    ...SHEET_CODE_ROW[code], ...(l.clause ? { clause: l.clause } : {}), title: tr(l.label), titleKey: l.label,
+    ...SHEET_CODE_ROW[code], ...(l.clause ? { clause: localizeCriterion(l.clause, tr) } : {}), title: tr(l.label), titleKey: l.label,
     inputs: [
       ...(l.demand ? [{ symbol: tr('rcSheets.v.demand'), value: l.demand }] : []),
       ...(l.capacity ? [{ symbol: tr('rcSheets.v.capacity'), value: l.capacity }] : []),

@@ -17,12 +17,11 @@ import { highAxialColumn } from '../engine/design/seismic/capacity';
 import type { Fmt } from './format';
 import { aciDeltaS, firstOrderM2, storeySways, swayFactor, swayMagnified, type CaseSway } from './column-sway';
 import { SWAY_Q_LIMIT } from '../engine/design/sway';
+import { CRITERION, critOf, type Criteria } from './criteria';
 import { COLUMN_PITCH, COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, growSymmetric, heldBars, heldOptions, innerTies, layoutDias, pickPractical, startCounts, tiedRule, type InnerRow } from './column-layout';
 import { COLUMN_BAR_RANGE, allowedTie, check, listIn, nextTie, ratioOf, tieDiametersOf, tieFloorOf, type TransverseList, type CheckLine, type ColumnAdopted, type ComboTable, type Materials, type RowStatus, type Step, type StepGroup, isGenerous } from './types';
 
 const EDITION = '2025' as const;
-/** The FIUBA course's widest spacing of a column's bars along a face, m (§15.8). */
-const COURSE_PITCH = 0.3;
 /** §18.7.4.1: a special moment frame's column holds at most 6 % of steel. */
 const SEISMIC_RHO_MAX = 0.06;
 
@@ -84,6 +83,8 @@ export interface ColumnContext extends TransverseList {
   minMn?: number;
   /** The nominal size of the largest aggregate, mm: the 4/3·dagg of the bars' clear spacing (§25.2.3). Absent: not read. */
   aggregate?: number;
+  /** The Stabileo criteria in force; absent, their defaults. */
+  criteria?: Criteria;
 }
 
 interface AxisResult { klr: number; lim: number; slender: boolean; m1: number; m2: number; delta: number; mc: number; k: number; cm: number }
@@ -244,14 +245,11 @@ export interface ColumnCode {
   tieDia(longDia: number): number;
   tie: { clause: string; formula: string };
   minimum?: { side: number; bar: number; clause: string };
-  /** The least sway effective-length factor taken: the FIUBA course's 1.20 (§15.3); 1 by the chart when absent. */
-  swayKMin?: number;
-  /** The FIUBA course's layout rules the code is silent on (§15.8): the thickest bars at the corners, bars at most 30 cm apart. */
+  /** The Stabileo criteria the code is silent on (FIUBA §15.3, §15.8): the least sway effective-length factor (1 by the chart without them), the thickest bars at the corners, the widest spacing of the bars along a face. */
   course?: true;
 }
 
 export const CIRSOC_COLUMN: ColumnCode = {
-  swayKMin: 1.2,
   course: true,
   tieDia: tieDiaFor,
   tie: { clause: '§25.7.2.2', formula: 'db ≤ 16 → Ø6; ≤ 25 → Ø8; ≤ 32 → Ø10; > 32 → Ø12' },
@@ -368,7 +366,8 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
   const tieDiaFor = code.tieDia;
   const Ag = d.b * d.h;
   const sways = storeySways(d, SWAY_Q_LIMIT);
-  const kSway = swayFactor(d, code.swayKMin ?? 1);
+  const kMin = code.course ? critOf(c).columnSwayKMin : 1;
+  const kSway = swayFactor(d, kMin);
   const klrSway = { x: (kSway * d.lu) / (0.3 * d.h), y: (kSway * d.lu) / (0.3 * d.b) };
   const swayAxes = { x: sways && klrSway.x > 22, y: sways && klrSway.y > 22 };
   const results: CaseResult[] = d.cases.map((cs) => {
@@ -471,7 +470,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     check('rcSheets.v.rhoMax', area <= hi0 + 1e-6, { clause: '§10.6.1.1', demand: `${fmt(area / (Ag * 1e4) * 100)} %`, capacity: '≤ 8 %' }),
     check('rcSheets.v.colSpacing', spacingOk, { clause: '§25.2.3' }),
     ...(!adopted && exhausted ? [check('rcSheets.v.colNoLayout', false, { clause: '§25.2.3, §10.6.1.1', demand: `${fmt(Math.max(ast, lo0))} cm²`, capacity: `≤ ${fmt(area)} cm²` })] : []),
-    check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: code.course ? 'FIUBA §15.2, §15.4' : '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
+    check('rcSheets.v.slenderMax', klrMax <= 100 + 1e-9, { clause: '§6.2.6', demand: `k·lu/r = ${fmt(klrMax, 1)}`, capacity: '≤ 100' }),
     ...(amplification > 1 + 1e-6 ? [check('rcSheets.v.secondOrderLimit', amplification <= 1.4 + 1e-6, { clause: '§6.2.6', demand: `M₂/M₁ = ${fmt(amplification, 2)}`, capacity: '≤ 1.4', ratio: amplification / 1.4 })] : []),
     ...(unstable ? [check('rcSheets.v.swayStable', false, { clause: '§6.6.4.6.2(b)', demand: `ΣPu = ${fmt(d.sway!.byCombo[unstable.c.combo]!.sumPu, 0)} kN`, capacity: `< 0.75·ΣPc = ${fmt(0.75 * d.sway!.byCombo[unstable.c.combo]!.sumPc, 0)} kN` })] : []),
     ...(code.course ? courseChecks(d, c, a, fmt) : []),
@@ -488,7 +487,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '§25.7.2.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', true, { clause: '§25.7.2.3', capacity: ctText }),
     ...(stack.fromBelow ? [check(splice.tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC', true, { clause: `${splice.tension ? '§25.5.2' : '§25.5.5.1'}${mixed ? (splice.tension ? ', §25.5.2.2' : ', §25.5.5.4') : ''}`, capacity: `${fmt(splice.length * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
-    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, '§10.7.4.1, §10.7.4.2; FIUBA §15.7')),
+    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, '§10.7.4.1, §10.7.4.2')),
     ...(seis?.checks ?? []),
     ...(minMn > 0 ? [((mn) => check('rcSheets.v.seisColMn', mn >= minMn - 1e-6, { clause: '§18.7.3.2', demand: `Mn ≥ ${fmt(minMn)} kN·m`, capacity: `Mn = ${fmt(mn)} kN·m`, ratio: ratioOf(minMn, mn) }))(mnOf(a))] : []),
   ];
@@ -513,7 +512,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
         { label: 'rcSheets.s.height', formula: 'L · lu', value: `${fmt(d.length)} · ${fmt(d.lu)} m` },
         { label: 'rcSheets.s.psi', formula: 'ΨA · ΨB', value: `${fmt(d.psiTop)} · ${fmt(d.psiBot)}` },
         { label: 'rcSheets.s.compressionDominated', formula: "Pu > 0.10·f'c·Ag", value: `${fmt(puMax, 1)} kN`, ok: compressionDominated },
-        swayStep(d, results, sways, kSway, klrSway, code, fmt),
+        swayStep(d, results, sways, kSway, klrSway, kMin, fmt),
       ],
     },
     ...(gov ? [slenderSteps(gov, fmt)] : []),
@@ -625,14 +624,14 @@ function secondOrderShare(d: ColumnDemand, r: CaseResult): number {
 }
 
 /** How the storey reads for sway: not read, braced, swaying with its δs, or already second order. */
-function swayStep(d: ColumnDemand, results: readonly CaseResult[], sways: boolean, k: number, klr: { x: number; y: number }, code: ColumnCode, f: Fmt): Step {
+function swayStep(d: ColumnDemand, results: readonly CaseResult[], sways: boolean, k: number, klr: { x: number; y: number }, kMin: number, f: Fmt): Step {
   const s = d.sway;
   if (!s) return { label: 'rcSheets.s.nonSway', value: '' };
   const q = `Q = ${f(s.Q, 3)}${s.combo ? ` (${s.combo})` : ''}`;
   if (!sways) return { label: 'rcSheets.s.storeyBraced', formula: 'Q = ΣPu·Δo/(Vus·lc) ≤ 0.05 (§6.6.4.3(a))', value: q, ok: true };
   if (s.secondOrder) return { label: 'rcSheets.s.storeySecondOrder', formula: 'Q > 0.05 (§6.6.4.3(a)); P-Delta (§6.6.4.6.2)', value: q };
   const worst = results.reduce<CaseResult | undefined>((w, r) => (!w || r.sway.deltaS > w.sway.deltaS ? r : w), undefined);
-  const kText = `k = ${f(k, 2)}${code.swayKMin && code.swayKMin > 1 ? ` ≥ ${f(code.swayKMin, 2)} (FIUBA §15.3)` : ''}`;
+  const kText = `k = ${f(k, 2)}${kMin > 1 ? ` ≥ ${f(kMin, 2)} (${CRITERION})` : ''}`;
   const delta = worst && Number.isFinite(worst.sway.deltaS) ? `δs = ${f(worst.sway.deltaS, 3)} (${worst.c.combo})` : 'δs = ∞';
   return {
     label: 'rcSheets.s.storeySway',
@@ -641,15 +640,16 @@ function swayStep(d: ColumnDemand, results: readonly CaseResult[], sways: boolea
   };
 }
 
-/** The FIUBA course's layout rules (§15.8): the thickest bars at the corners, and bars at most 30 cm apart along a face, but for a face of 40 cm at most with its two corner bars alone. */
+/** The Stabileo layout criteria (FIUBA §15.8): the thickest bars at the corners, and bars no farther apart along a face than the criterion, but for a narrow face with its two corner bars alone. */
 function courseChecks(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted, f: Fmt): CheckLine[] {
+  const cr = critOf(c);
   const faceMax = Math.max(a.nx > 0 ? a.dx : 0, a.ny > 0 ? a.dy : 0);
   const pitch = (side: number, n: number) => (side - 2 * coverToBar(c, a.tieDia, a.corner)) / (n + 1);
-  const wide = (side: number, n: number) => pitch(side, n) > COURSE_PITCH + 1e-6 && !(n === 0 && side <= 0.4 + 1e-9);
+  const wide = (side: number, n: number) => pitch(side, n) > cr.columnBarPitch + 1e-6 && !(n === 0 && side <= cr.columnCornerOnlyFace + 1e-9);
   const widest = Math.max(pitch(d.b, a.nx), pitch(d.h, a.ny));
   return [
-    check('rcSheets.v.colCornerLargest', a.corner >= faceMax, { clause: 'FIUBA §15.8', demand: `Ø${a.corner}`, capacity: `≥ Ø${faceMax}` }),
-    check('rcSheets.v.colMaxPitch', !wide(d.b, a.nx) && !wide(d.h, a.ny), { clause: 'FIUBA §15.8', demand: `${f(widest * 100, 1)} cm`, capacity: `≤ ${f(COURSE_PITCH * 100, 0)} cm` }),
+    check('rcSheets.v.colCornerLargest', a.corner >= faceMax, { clause: CRITERION, demand: `Ø${a.corner}`, capacity: `≥ Ø${faceMax}` }),
+    check('rcSheets.v.colMaxPitch', !wide(d.b, a.nx) && !wide(d.h, a.ny), { clause: CRITERION, demand: `${f(widest * 100, 1)} cm`, capacity: `≤ ${f(cr.columnBarPitch * 100, 0)} cm` }),
   ];
 }
 
@@ -672,7 +672,7 @@ function outerClear(d: ColumnDemand, c: ColumnContext, a: ColumnAdopted): number
  * The bars a column is proposed. A storey over another first keeps the pattern of the one below,
  * so every bar goes on up: the same bars on each face, of one diameter no larger than the largest
  * below, the rows inside the faces left out before they are kept. Otherwise, for each allowed diameter, the fewest bars that keep them
- * `COLUMN_PITCH` apart at most, grown symmetrically (`growSymmetric`) until they carry the demand; of
+ * the Stabileo criterion's pitch apart at most (`COLUMN_PITCH` under chapter 18), grown symmetrically (`growSymmetric`) until they carry the demand; of
  * those that do with the practical clear spacing between them when any does, the lightest or one
  * with fewer bars and nearly as light (`pickPractical`). Rows inside the faces only when no outer
  * row alone does it. The ties of the smallest allowed diameter the code takes, as wide as §25.7.2.1
@@ -714,7 +714,7 @@ function proposeColumn(d: ColumnDemand, c: ColumnContext, ast: number, dias: rea
   }
   const span = (a: ColumnAdopted) => (side: number) => side - 2 * coverToBar(c, a.tieDia, a.corner);
   const grow = (a: ColumnAdopted, dia: number, inside: boolean): ColumnAdopted | null => growColumn(d, a, c.cover, dia, (x) => clearOk(d, c, x), inside, c.aggregate);
-  const maxPitch = c.seismic ? COLUMN_PITCH.seismic : COLUMN_PITCH.plain;
+  const maxPitch = c.seismic ? COLUMN_PITCH.seismic : critOf(c).columnBarPitch;
   for (const inside of [false, true]) {
     const found: Array<{ a: ColumnAdopted; dia: number; it: number }> = [];
     for (const dia of [...(dias.length ? dias : [16])].sort((p, q) => p - q)) {

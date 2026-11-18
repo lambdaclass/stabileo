@@ -3,10 +3,11 @@
   import { decimalFor } from '../../../lib/rc-sheets/format';
   import { localizeDecimals } from '../../../lib/rc-sheets/view-helpers';
   import type { StepGroup } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
 
   let { groups }: { groups: StepGroup[] } = $props();
   const comma = $derived(decimalFor(i18n.locale) === ',');
-  const num = (s: string | undefined) => localizeDecimals(s, comma);
+  const num = (s: string | undefined) => localizeDecimals(localizeCriterion(s, t), comma);
 </script>
 
 <div class="rcs-steps" data-testid="rc-steps">

@@ -2,6 +2,7 @@
   import { t, tp, tpn, i18n, inSentence } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import type { CheckLine } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
   import { applyTableCovers, sheetCoverShortfalls } from '../../../lib/store/rc-sheets-covers';
   import { coverCheckText, coversButton } from '../../../lib/rc-sheets/covers-notice';
   import type { DesignKind } from '../../../lib/model/design-data';
@@ -24,7 +25,7 @@
         <td>{t(l.label)}{#if !l.ok && l.label === 'rcSheets.v.mainCover' && own.length}
           {#each own as u (u.kind)}<span class="why" data-testid="rc-check-covers-why">{coverCheckText(u, words)}</span>{/each}
           <button type="button" class="fix" onclick={() => applyTableCovers()} data-testid="rc-check-covers-apply">{coversButton(under, words)}</button>{/if}</td>
-        <td class="cl">{l.clause ?? ''}</td>
+        <td class="cl">{localizeCriterion(l.clause, t)}</td>
         <td class="n">{l.demand ?? ''}</td>
         <td class="n">{l.capacity ?? ''}</td>
         <td class="n">{l.ratio !== undefined ? fmt(l.ratio, 2) : ''}</td>

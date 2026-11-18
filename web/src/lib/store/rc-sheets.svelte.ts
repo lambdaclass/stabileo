@@ -32,6 +32,8 @@ import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
 import { leverOf } from '../rc-sheets/footing-design';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
+import { setRowClearFactor } from '../rc-sheets/column-layout';
+import { CRITERIA, criteriaKey, criteriaOf, readCriteria, type CriterionId } from '../rc-sheets/criteria';
 import type { BeamRow } from '../rc-sheets/beam-row';
 import { lineRowStatus, type LineAdopted, type LineLayout } from '../rc-sheets/beam-line';
 import type { ColumnRow } from '../rc-sheets/column-row';
@@ -93,6 +95,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
     options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, lines: dd.propertyLines ?? null,
+    ...((k) => (k ? { criteria: k } : {}))(criteriaKey(dd.designOptions?.criteria)),
   });
 }
 
@@ -192,6 +195,23 @@ export function setAlternativeOptions(patch: { [K in keyof AlternativeOptions]?:
   if (Object.keys(cur).length) next.alternatives = cur; else delete next.alternatives;
   setDesignOptions(next);
 }
+
+/** One Stabileo criterion as stated, in the unit it is shown in; `null` or its default drops it. */
+export function setCriterion(id: CriterionId, value: number | null): void {
+  const next: DesignOptions = { ...designData().designOptions };
+  const merged = readCriteria({ ...next.criteria, [id]: value ?? CRITERIA[id].value });
+  if (merged) next.criteria = merged; else delete next.criteria;
+  setDesignOptions(next);
+}
+
+/** Every Stabileo criterion back to its default. */
+export function resetCriteria(): void {
+  const { criteria: _, ...rest } = designData().designOptions ?? {};
+  setDesignOptions(rest);
+}
+
+/** The Stabileo criteria the sheets design with. */
+export const sheetCriteria = () => criteriaOf(designData().designOptions?.criteria);
 
 export function setRcOption(option: DesignOptionFlag, on: boolean): void {
   const next: DesignOptions = { ...designData().designOptions };
@@ -431,7 +451,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const data = rcSheetsData();
   const key = basis === 'combinations' ? resultsStore.perCombo3D : sets[0]!.result;
   const groupsRev = modelStore.model.groups;
-  const opts = { faces: data.faces === true, flange: data.flange === true, swayKMin: rules.swayKMin ?? 1 };
+  const crit = criteriaOf(dd.designOptions?.criteria);
+  const opts = { faces: data.faces === true, flange: data.flange === true, swayKMin: rules.swayFloor ? crit.columnSwayKMin : 1 };
   const optsKey = JSON.stringify({ ...opts, sets: sets.map((x) => x.name) });
   let dem = demandCache.get(key);
   if (!dem || dem.groupsRev !== groupsRev || dem.opts !== optsKey) {
@@ -469,6 +490,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const coverTable = rules.coverTable ? { coverTable: { control: dd.executionControl !== false } } : {};
   const ties = { tieDiameters: dd.stirrupDiametersMm, minTieSpacing: dd.minTieSpacingMm / 1000, aggregate: dd.maxAggregateMm };
   setBeamAggregate(dd.maxAggregateMm);
+  setRowClearFactor(code === 'cirsoc201-2025' || code === 'aci318-19' ? Math.max(4 / 3, crit.columnRowClear) : crit.columnRowClear);
   const coverOf = (kind: DesignKind, key: string) => memberCover(dd, kind, groupOf(key)?.members.elements ?? []);
   /** Chapter 18 for the beams of the lateral system only: a beam declared outside it takes the ordinary rules; one not declared is read as part of it. */
   const lateralBeam = (key: string) => {
@@ -476,7 +498,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     return developsAtFace(spanLateralReading((g?.members.elements ?? []).map((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'beam' }))));
   };
   const defl = dd.designOptions?.deflection ? { deflection: dd.designOptions.deflection } : {};
-  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl });
+  const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl, criteria: crit });
   const proposals: BeamRow[] = [];
   for (const d of D.beams) {
     const ctx = beamCtx(d);
@@ -525,7 +547,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   }
   const below = new Map<number, ColumnRow>();
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
-    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}) };
+    const ctx = { mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit };
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
@@ -549,7 +571,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const slab: SlabRow[] = [];
   for (const d of D.slabs) {
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
@@ -559,7 +581,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const planOf = (g: LevelGeometry) => {
     const rows = slab.filter((r) => (r.level ?? '') === g.level);
     const first = groupOf(rows[0]?.key ?? '');
-    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000 };
+    const ctx = { mat: { fc: fcOfShells(first?.members.quads ?? [], first?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, bent: data.slabBentBars === true, columnInset: dd.covers.column + dd.stirrupDiaMm / 1000 + Math.max(0, ...dd.longDiametersMm.filter((x) => x <= 16)) / 2000, criteria: crit };
     return slabPlan(g.level, rows, g, ctx, rules.slabPlan);
   };
   let slabPlans = D.levels.map(planOf).filter((p) => p.panels.length);
@@ -569,7 +591,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     if (!k) return;
     const d = D.slabs.find((x) => x.key === r.key)!;
     const g = groupOf(d.key);
-    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length } };
+    const ctx = { mat: { fc: fcOfShells(g?.members.quads ?? [], g?.members.plates ?? []), fy }, cover: dd.covers.slab, diameters: slabBars, ...slabBase, ...defl, span: { kind: 'cantilever' as const, dir: k.dir, length: k.length }, criteria: crit };
     const a = adoptedNow[d.key] as SlabAdopted | undefined;
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => rules.slabRow(x, withFc(ctx, o), undefined, fmt)) as Redesign);
     rowFc.set(d.key, ctx.mat.fc);
@@ -631,7 +653,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   });
   const straps = designFootingStraps(footing, {
     rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
-    ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl }),
+    ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
   });
   footing = footing.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
   for (const sd of straps.values()) {

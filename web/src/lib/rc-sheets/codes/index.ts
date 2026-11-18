@@ -20,6 +20,7 @@ import { aciDeflection, ec2Deflection, ts500Deflection, withBeamDeflection, with
 import { ec2Rules, ukRules } from '../ec2';
 import { ts500Rules } from '../ts500';
 import type { SheetCode } from '../types';
+import { withCriterion } from '../criteria';
 import { ACI_BENDS } from '../bars';
 import type { BendRules } from '../shape';
 
@@ -40,12 +41,12 @@ export interface SheetRules {
   /** Whether beam and column rows check their main bars' cover against CIRSOC 201 Table 20.5.1.3.1. */
   /** The code's cover table, by which the main bars' cover in mm is asked of a bar of `dbMm`. */
   coverTable?: { mainBarMm: (dbMm: number, control: boolean) => number };
-  /** The least sway effective-length factor the storeys' ΣPc takes (1 by the chart when absent). */
-  swayKMin?: number;
+  /** The storeys' ΣPc takes the Stabileo criterion's least sway effective-length factor (1 by the chart when absent). */
+  swayFloor?: true;
 }
 
-/** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the FIUBA course's 9·db, 12·db and 15·db (§11.4), which the code does not give. */
-export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: '§25.3.1, §25.3.2; FIUBA §11.4' };
+/** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the Stabileo criterion's 9·db, 12·db and 15·db (FIUBA §11.4), which the code does not give. */
+export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: withCriterion('§25.3.1, §25.3.2') };
 
 /** CIRSOC 201-2025 chapter 25, which ACI 318-19 shares: ld by §25.4.2.4 (ψt = 1, bottom bars), ldh by §25.4.3, ldc by §25.4.9, a class B tension lap or §25.5.5.1 in compression. */
 export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
@@ -57,7 +58,7 @@ export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
 };
 
 const aciRules: SheetRules = { beamRow, beamLine, columnRow: columnRowFor(ACI_COLUMN), slabRow: slabRowFor(ACI_SLAB_ROW), wallRow, punchingRow, footingRow: footingRowFor({ ...ACI_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: ACI_SLAB_PLAN, seismic: true, bends: ACI_BENDS };
-const cirsocRules: SheetRules = { ...aciRules, beamRow: (d, c, a, fmt) => beamRow(d, { ...c, course: true }, a, fmt), beamLine: (rows, c, a, fmt) => beamLine(rows, { ...c, course: true }, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm }, swayKMin: CIRSOC_COLUMN.swayKMin };
+const cirsocRules: SheetRules = { ...aciRules, beamRow: (d, c, a, fmt) => beamRow(d, { ...c, course: true }, a, fmt), beamLine: (rows, c, a, fmt) => beamLine(rows, { ...c, course: true }, a, fmt, CIRSOC_2025_LINE), columnRow: columnRowFor(CIRSOC_COLUMN), slabRow: slabRowFor(CIRSOC_SLAB_ROW), footingRow: footingRowFor({ ...CIRSOC_ONE_WAY, anchorage: CIRSOC_FOOTING_ANCHORAGE }), slabPlan: CIRSOC_SLAB_PLAN, bends: CIRSOC_BENDS, coverTable: { mainBarMm: mainBarCoverMm }, swayFloor: true };
 
 /** The cracked section and Bischoff's effective inertia, which every code's deflection reads through here. */
 const MECHANICS: DeflectionMechanics = { crackedInertia, effectiveInertia };

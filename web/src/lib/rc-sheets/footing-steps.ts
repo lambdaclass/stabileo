@@ -21,7 +21,7 @@ export function edgeSteps(ed: FootingEdgeResult, fmt: Fmt): Step[] {
     ]),
     ...ed.ties.flatMap((t): Step[] => [
       { label: 'rcSheets.s.footTieT', formula: 'Tu = (Pu·e + |w|)/H', value: `${fmt(t.Tu, 1)} kN (H = ${fmt(t.H, 2)} m)` },
-      { label: 'rcSheets.s.footTieAs', formula: 'Ast = Tu/(0,90·fy) (FIUBA §14.1)', value: `${fmt(t.asReq, 2)} cm² → ${t.count} Ø${t.dia} (${fmt(t.asProvided, 2)} cm²)`, ok: t.asProvided >= t.asReq - 1e-6 },
+      { label: 'rcSheets.s.footTieAs', formula: 'Ast = Tu/(0,90·fy)', value: `${fmt(t.asReq, 2)} cm² → ${t.count} Ø${t.dia} (${fmt(t.asProvided, 2)} cm²)`, ok: t.asProvided >= t.asReq - 1e-6 },
     ]),
     ...(ed.columnMoment > 1e-6 ? [{ label: 'rcSheets.s.footColumnMoment', formula: 'Mu = Nu·e + |w|', value: `${fmt(ed.columnMoment, 1)} kN·m` }] : []),
   ];

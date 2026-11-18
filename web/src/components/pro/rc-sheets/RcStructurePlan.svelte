@@ -4,6 +4,7 @@
   import { scaleBarLength, type PlanItem, type Pt, type StructurePlan } from '../../../lib/rc-sheets/structure-plan';
   import { placeStructureLabels } from '../../../lib/rc-sheets/structure-plan-labels';
   import type { CheckLine } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
 
   let { plan, onopen }: { plan: StructurePlan; onopen: (key: string) => void } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -28,7 +29,7 @@
   }));
   const bar = $derived(scaleBarLength(k, 80));
   const checkText = (c: CheckLine | undefined) => (c
-    ? `${t(c.label)}${c.clause ? ` (${c.clause})` : ''}${c.demand ? `: ${c.demand}` : ''}${c.capacity ? ` / ${c.capacity}` : ''}${c.ratio !== undefined && Number.isFinite(c.ratio) ? ` · ${fmt(c.ratio, 2)}` : ''}`
+    ? `${t(c.label)}${c.clause ? ` (${localizeCriterion(c.clause, t)})` : ''}${c.demand ? `: ${c.demand}` : ''}${c.capacity ? ` / ${c.capacity}` : ''}${c.ratio !== undefined && Number.isFinite(c.ratio) ? ` · ${fmt(c.ratio, 2)}` : ''}`
     : t('rcSheets.structPlan.noCheck'));
   const tip = (it: PlanItem) => `${it.name} · ${t(`rcSheets.status.${it.status}`)} — ${checkText(it.check)}`;
   const shown = $derived(plan.items.find((it) => it.key === hovered));

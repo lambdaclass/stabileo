@@ -6,6 +6,7 @@
  * `rcSheets` read them from there until they are stated anew.
  */
 import type { SheetCode, TorsionMode } from './types';
+import { CRITERION, readCriteria, type CriteriaValues } from './criteria';
 
 export type DeflectionSupport = 'none' | 'nonFragile' | 'fragile';
 export const DEFLECTION_SUPPORTS: readonly DeflectionSupport[] = ['none', 'nonFragile', 'fragile'];
@@ -32,8 +33,8 @@ export const DESIGN_OPTION_FLAGS: readonly DesignOptionFlag[] = ['faces', 'flang
  */
 export interface AlternativeOptions { raiseFc?: false; fcMax?: number; fcClasses?: number[] }
 
-/** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`). */
-export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions } & Partial<Record<DesignOptionFlag, true>>;
+/** Each flag on when true; torsion by equilibrium when absent; the deflection settings at their defaults when absent (`deflection.ts`); the Stabileo criteria the project states (`criteria.ts`). */
+export type DesignOptions = { torsion?: TorsionMode; deflection?: DeflectionSettings; alternatives?: AlternativeOptions; criteria?: CriteriaValues } & Partial<Record<DesignOptionFlag, true>>;
 
 export type DesignOptionKey = DesignOptionFlag | 'torsion' | 'endZones' | 'minTieSpacing' | 'deflection' | 'creep' | 'months' | 'aggregate' | 'alternatives';
 
@@ -57,6 +58,7 @@ const flagsOf = (o: Record<string, unknown>, torsion: (x: unknown) => boolean): 
   ...Object.fromEntries(DESIGN_OPTION_FLAGS.filter((k) => o[k] === true).map((k) => [k, true])),
   ...((d) => (d ? { deflection: d } : {}))(readDeflectionSettings(o.deflection)),
   ...((a) => (a ? { alternatives: a } : {}))(alternativesOf(o.alternatives)),
+  ...((c) => (c ? { criteria: c } : {}))(readCriteria(o.criteria)),
 });
 
 const strength = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 10 && x <= 120;
@@ -89,8 +91,8 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   torsion: { cirsoc: '§22.7.3', aci: '§22.7.3', ec2: '6.3.1(2)', ts500: '8.2' },
   faces: { cirsoc: '§9.4.3.2', aci: '§9.4.3.2', ec2: '5.3.2.2(3), 6.2.1(8)' },
   flange: { cirsoc: 'Tabla 6.3.2.1', aci: 'Table 6.3.2.1', ec2: '5.3.2.1' },
-  bentBars: { cirsoc: '§9.7.3; FIUBA §11.4', aci: '§9.7.3', ec2: '9.2.1.3' },
-  slabBentBars: { cirsoc: '§8.7.4; FIUBA §13.1', aci: '§8.7.4', ec2: '9.3.1.2' },
+  bentBars: { cirsoc: `§9.7.3; ${CRITERION}`, aci: '§9.7.3', ec2: '9.2.1.3' },
+  slabBentBars: { cirsoc: `§8.7.4; ${CRITERION}`, aci: '§8.7.4', ec2: '9.3.1.2' },
   endZones: { cirsoc: '§25.7.2.1', aci: '§25.7.2.1', ts500: '7.4.1', off: { ec2: 'designData.opt.off.endZonesEc2' } },
   seismic: { cirsoc: 'Cap. 18', aci: 'Chapter 18', off: { ec2: 'designData.opt.off.seismic', ts500: 'designData.opt.off.seismic' } },
   minTieSpacing: { cirsoc: '§25.7.2.1(a)', aci: '§25.7.2.1(a)', ec2: '8.2(2)', ts500: '7.4.1' },
@@ -98,7 +100,7 @@ const RULES: Record<DesignOptionKey, Partial<Record<Family, string>> & { off?: P
   months: { cirsoc: 'Tabla 24.2.4.1.3', aci: 'Table 24.2.4.1.3', off: { ec2: 'designData.opt.off.months', ts500: 'designData.opt.off.monthsTs500' } },
   creep: { ec2: '3.1.4, 7.4.3(5)', off: { cirsoc: 'designData.opt.off.creep', aci: 'designData.opt.off.creep', ts500: 'designData.opt.off.creep' } },
   aggregate: { cirsoc: '§25.2.1, §25.2.3', aci: '§25.2.1, §25.2.3', ec2: '8.2(2)', off: { ts500: 'designData.opt.off.aggregateTs500' } },
-  alternatives: { cirsoc: '§19.2; FIUBA §3.1', aci: '§19.2', ec2: 'Table 3.1', ts500: 'Table 3.1' },
+  alternatives: { cirsoc: `§19.2; ${CRITERION}`, aci: '§19.2', ec2: 'Table 3.1', ts500: 'Table 3.1' },
 };
 
 const CODE_NAME: Record<SheetCode, string> = { 'cirsoc201-2025': 'CIRSOC 201-2025', 'aci318-19': 'ACI 318-19', 'en1992-1-1': 'EN 1992-1-1', 'bs-en1992-1-1': 'BS EN 1992-1-1', 'ts500-2000': 'TS 500' };

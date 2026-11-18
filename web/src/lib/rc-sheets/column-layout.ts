@@ -2,14 +2,14 @@
  * How a column's bars are laid out as practice lays them, whatever code designs them: the same bars
  * on every face of a square section and, in a rectangle, as many more on the longer faces as keep the
  * bars on both about equally far apart, so the layout is symmetric about both axes; no wider apart
- * than practice keeps them (FIUBA §15.8: under 30 cm; 15 cm under chapter 18, so crossties on every
- * other bar keep hx ≤ 350 mm, and on every bar ≤ 200 mm); and the crossties that hold them laid
- * symmetrically on each face.
+ * than practice keeps them (the Stabileo criterion of FIUBA §15.8, 30 cm by default; 15 cm under
+ * chapter 18, so crossties on every other bar keep hx ≤ 350 mm, and on every bar ≤ 200 mm); and the
+ * crossties that hold them laid symmetrically on each face.
  */
 import type { ColumnAdopted } from './types';
 
-/** The widest centre-to-centre spacing of a column's bars along a face, m: practice, not a clause. */
-export const COLUMN_PITCH = { plain: 0.3, seismic: 0.15 } as const;
+/** The widest centre-to-centre spacing of a column's bars along a face under chapter 18, m; otherwise the Stabileo criterion's. */
+export const COLUMN_PITCH = { seismic: 0.15 } as const;
 
 /** The clear spacing between a column's bars a proposal keeps when it can, m: room for the concrete and a vibrator. */
 export const COLUMN_PRACTICAL_CLEAR = 0.05;
@@ -96,8 +96,13 @@ export function heldOptions(n: number, pitch: number, dia: number, rule: HeldRul
   return out.sort((p, q) => p.length - q.length);
 }
 
-/** The clear spacing between a column's rows of bars, m: §25.2.3's max(1.5·db; 40 mm; 4/3·dagg), which the FIUBA course keeps for any code (§15.8); `aggregate` in mm. */
-export const rowClear = (dia: number, aggregate = 0): number => Math.max((1.5 * dia) / 1000, 0.04, (4 / 3) * aggregate / 1000);
+let rowFactor = 4 / 3;
+
+/** The factor of the largest aggregate in the clear spacing between rows, as the sheets' code and the Stabileo criterion set it; the drawings read the same. */
+export function setRowClearFactor(f: number): void { rowFactor = f; }
+
+/** The clear spacing between a column's rows of bars, m: §25.2.3's max(1.5·db; 40 mm; 4/3·dagg), which the Stabileo criterion keeps for any code (FIUBA §15.8); `aggregate` in mm. */
+export const rowClear = (dia: number, aggregate = 0): number => Math.max((1.5 * dia) / 1000, 0.04, rowFactor * aggregate / 1000);
 
 /** A bar of a column's section, from its centre, m; `dia` in mm. */
 export interface PlacedBar { x: number; y: number; dia: number; row: 'corner' | 'b' | 'h' | 'inner' }

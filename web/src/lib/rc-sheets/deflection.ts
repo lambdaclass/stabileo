@@ -154,8 +154,8 @@ const reading = (s: DeflectionSupport) => (s === 'none' ? 360 : s === 'nonFragil
 function courseSteps(deadImmediate: number, sustainedImmediate: number, f: Fmt): Step[] {
   const cmS = sustainedImmediate * 100;
   return [
-    { label: 'rcSheets.s.defl.camber', formula: 'Δi(D) (FIUBA §18.3)', value: mm(f, deadImmediate) },
-    ...(cmS > 1e-6 ? [{ label: 'rcSheets.s.defl.frequency', formula: 'f ≈ 5.6/√δ(D + ψL), δ [cm] (FIUBA §18.4)', value: `${f(5.6 / Math.sqrt(cmS), 1)} Hz` }] : []),
+    { label: 'rcSheets.s.defl.camber', formula: 'Δi(D)', value: mm(f, deadImmediate) },
+    ...(cmS > 1e-6 ? [{ label: 'rcSheets.s.defl.frequency', formula: 'f ≈ 5.6/√δ(D + ψL), δ [cm]', value: `${f(5.6 / Math.sqrt(cmS), 1)} Hz` }] : []),
   ];
 }
 

@@ -7,6 +7,7 @@ import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus } from 
 import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult, TieResult } from './footing-types';
 import { barArea } from './bars';
 import { combinedRow } from './footing-combined-row';
+import { CRITERION, critOf, type Criteria } from './criteria';
 
 export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, cap?: PlanCap) => FootingRow;
 
@@ -15,32 +16,34 @@ const sizeOf = (d: FootingDemand): FootingAdopted | null => {
   return f && f.B > 0 && f.L > 0 ? { B: f.B, L: f.L, h: f.h, ex: f.ex, ey: f.ey, x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : null;
 };
 
-/** The tie's bars: two or more of one diameter, Ast = Tu/(0,90·fy) (FIUBA §14.1) and never under `least`, cm², half above and half below. */
-export function tieBars(Tu: number, fy: number, diameters: readonly number[], least = 0): { asReq: number; count: number; dia: number; asProvided: number } {
+/** The tie's bars: `fewest` or more of one diameter, an even count, Ast = Tu/(0,90·fy) and never under `least`, cm², half above and half below. */
+export function tieBars(Tu: number, fy: number, diameters: readonly number[], least = 0, fewest = 2): { asReq: number; count: number; dia: number; asProvided: number } {
   const asReq = Math.max((10 * Tu) / (0.9 * fy), least);
-  const pick = diameters.map((dia) => ({ dia, count: Math.max(2, 2 * Math.ceil(asReq / barArea(dia) / 2)) })).find((x) => x.count <= 8) ?? { dia: diameters[diameters.length - 1] ?? 16, count: Math.max(2, 2 * Math.ceil(asReq / barArea(diameters[diameters.length - 1] ?? 16) / 2)) };
+  const floor = 2 * Math.ceil(fewest / 2);
+  const pick = diameters.map((dia) => ({ dia, count: Math.max(floor, 2 * Math.ceil(asReq / barArea(dia) / 2)) })).find((x) => x.count <= Math.max(8, floor)) ?? { dia: diameters[diameters.length - 1] ?? 16, count: Math.max(floor, 2 * Math.ceil(asReq / barArea(diameters[diameters.length - 1] ?? 16) / 2)) };
   return { asReq, ...pick, asProvided: pick.count * barArea(pick.dia) };
 }
 
-/** The tie of FIUBA Cim. §6: the pull's service and factored values, its bars (enough to stretch no more than H/1000 under Ts), its section and the friction that holds the footing against it. */
-export const TIE = {
-  /** The validity limits and safety factor of §6.2: Ns ≤ 120 t, H ≥ 1,5 m, e ≤ H/4, μ·Ns ≥ 1,5·Ts. */
-  maxNs: 1200, minH: 1.5, maxE: 0.25, slide: 1.5,
-  /** μ = tg(2φ/3) with φ = 30°, the course's value where the soil states none. */
-  mu: Math.tan((2 / 3) * (30 * Math.PI) / 180),
-  es: 2e8, stretch: 1 / 1000, gap: 0.025, stirrup: 0.008, minH0: 0.3, minB: 0.15,
-} as const;
+/** The tie's steel and detailing that no criterion sets: Es, kN/m², the clear gap between its bars and its stirrup, m. */
+export const TIE = { es: 2e8, gap: 0.025, stirrup: 0.008 } as const;
+
+/** The limits of a footing with a tie, by the Stabileo criteria (FIUBA Cim. §6.2, §6.5): Ns, H, e ≤ H/n, μ = tg(2φ/3), the sliding factor and the stretch, ΔL ≤ H/n. */
+export const tieLimits = (cr: Criteria) => ({
+  maxNs: cr.footingTieMaxLoad, minH: cr.footingTieMinArm, maxE: 1 / cr.footingTieOffset, slide: cr.footingTieSlide,
+  mu: Math.tan((2 / 3) * (cr.footingTieFriction * Math.PI) / 180), phi: cr.footingTieFriction, stretch: 1 / cr.footingTieStretch,
+});
 
 function tieOf(d: FootingDemand, axis: 'x' | 'y', H: number, e: number, t: FootingAnalysis['balanced'][number], c: FootingContext): TieResult {
+  const cr = critOf(c), lim = tieLimits(cr);
   const p = d.edge?.partners.find((q) => q.axis === axis);
   const Ns = d.service ? Math.abs(d.service.N) : 0, Ts = t.service;
-  const least = p ? (Ts * p.L) / (TIE.es * TIE.stretch * H) * 1e4 : 0;
-  const bars = tieBars(t.force, c.fy, c.diameters, least);
+  const least = p ? (Ts * p.L) / (TIE.es * lim.stretch * H) * 1e4 : 0;
+  const bars = tieBars(t.force, c.fy, c.diameters, least, cr.footingTieMinBars);
   const perLayer = Math.max(1, bars.count / 2);
-  const b = Math.max(TIE.minB, up5(2 * c.cover + 2 * TIE.stirrup + perLayer * bars.dia / 1000 + (perLayer - 1) * TIE.gap));
-  const h = Math.max(TIE.minH0, up5((p?.L ?? 0) / 10));
+  const b = Math.max(cr.footingTieMinWidth, up5(2 * c.cover + 2 * TIE.stirrup + perLayer * bars.dia / 1000 + (perLayer - 1) * TIE.gap));
+  const h = Math.max(cr.footingTieMinDepth, up5((p?.L ?? 0) / cr.footingTieDepthRatio));
   return {
-    axis, H, Tu: t.force, ...bars, e, Ns, Ts, b, h, mu: TIE.mu, byCombo: t.byCombo,
+    axis, H, Tu: t.force, ...bars, e, Ns, Ts, b, h, mu: lim.mu, byCombo: t.byCombo,
     stretch: p ? (Ts * p.L) / (TIE.es * bars.asProvided * 1e-4) : null,
     ...(p ? { partner: { key: p.key, name: p.name, L: p.L } } : {}),
   };
@@ -73,20 +76,21 @@ export function edgeResult(d: FootingDemand, r: FootingAnalysis, a: FootingAdopt
   };
 }
 
-function edgeChecks(ed: FootingEdgeResult, fmt: Fmt): CheckLine[] {
+function edgeChecks(ed: FootingEdgeResult, cr: Criteria, fmt: Fmt): CheckLine[] {
+  const lim = tieLimits(cr);
   const out: CheckLine[] = [];
   const knm = (v: number) => `${fmt(v, 1)} kN·m`;
   for (const k of ed.unpartnered) out.push(check('rcSheets.v.footStrapNoPartner', true, { demand: k.toUpperCase() }));
   for (const t of ed.ties) {
     const m = (v: number) => `${fmt(v, 2)} m`;
     out.push(
-      check('rcSheets.v.footTie', t.asProvided >= t.asReq - 1e-6, { clause: 'FIUBA §14.1, FIUBA Cim. §6.5', demand: `Tu = ${fmt(t.Tu, 1)} kN · ${fmt(t.asReq, 2)} cm²`, capacity: `${t.count} Ø${t.dia} (${fmt(t.asProvided, 2)} cm²)`, ratio: ratioOf(t.asReq, t.asProvided) }),
-      check('rcSheets.v.footTieLoad', t.Ns <= TIE.maxNs + 1e-6, { clause: 'FIUBA Cim. §6.2', demand: `Ns = ${fmt(t.Ns, 0)} kN`, capacity: `≤ ${fmt(TIE.maxNs, 0)} kN`, ratio: t.Ns / TIE.maxNs }),
-      check('rcSheets.v.footTieArm', t.H >= TIE.minH - 1e-9, { clause: 'FIUBA Cim. §6.2', demand: `H = ${m(t.H)}`, capacity: `≥ ${m(TIE.minH)}` }),
-      check('rcSheets.v.footTieOffset', t.e <= TIE.maxE * t.H + 1e-9, { clause: 'FIUBA Cim. §6.2', demand: `e = ${m(t.e)}`, capacity: `≤ H/4 = ${m(TIE.maxE * t.H)}`, ratio: t.e / (TIE.maxE * t.H) }),
-      check('rcSheets.v.footTieSlide', t.mu * t.Ns >= TIE.slide * t.Ts - 1e-6, { clause: 'FIUBA Cim. §6.2', demand: `${fmt(TIE.slide, 1)}·Ts = ${fmt(TIE.slide * t.Ts, 1)} kN`, capacity: `μ·Ns = ${fmt(t.mu, 2)}·${fmt(t.Ns, 0)} = ${fmt(t.mu * t.Ns, 1)} kN`, ratio: (TIE.slide * t.Ts) / Math.max(t.mu * t.Ns, 1e-9) }),
+      check('rcSheets.v.footTie', t.asProvided >= t.asReq - 1e-6, { clause: CRITERION, demand: `Tu = ${fmt(t.Tu, 1)} kN · ${fmt(t.asReq, 2)} cm²`, capacity: `${t.count} Ø${t.dia} (${fmt(t.asProvided, 2)} cm²)`, ratio: ratioOf(t.asReq, t.asProvided) }),
+      check('rcSheets.v.footTieLoad', t.Ns <= lim.maxNs + 1e-6, { clause: CRITERION, demand: `Ns = ${fmt(t.Ns, 0)} kN`, capacity: `≤ ${fmt(lim.maxNs, 0)} kN`, ratio: t.Ns / lim.maxNs }),
+      check('rcSheets.v.footTieArm', t.H >= lim.minH - 1e-9, { clause: CRITERION, demand: `H = ${m(t.H)}`, capacity: `≥ ${m(lim.minH)}` }),
+      check('rcSheets.v.footTieOffset', t.e <= lim.maxE * t.H + 1e-9, { clause: CRITERION, demand: `e = ${m(t.e)}`, capacity: `≤ H/${fmt(cr.footingTieOffset, Number.isInteger(cr.footingTieOffset) ? 0 : 1)} = ${m(lim.maxE * t.H)}`, ratio: t.e / (lim.maxE * t.H) }),
+      check('rcSheets.v.footTieSlide', t.mu * t.Ns >= lim.slide * t.Ts - 1e-6, { clause: CRITERION, demand: `${fmt(lim.slide, 1)}·Ts = ${fmt(lim.slide * t.Ts, 1)} kN`, capacity: `μ·Ns = ${fmt(t.mu, 2)}·${fmt(t.Ns, 0)} = ${fmt(t.mu * t.Ns, 1)} kN (φ = ${fmt(lim.phi, 0)}°)`, ratio: (lim.slide * t.Ts) / Math.max(t.mu * t.Ns, 1e-9) }),
       t.partner && t.stretch !== null
-        ? check('rcSheets.v.footTieStretch', t.stretch <= TIE.stretch * t.H + 1e-9, { clause: 'FIUBA Cim. §6.5', demand: `ΔL = Ts·L/(Es·As) = ${fmt(t.stretch * 1000, 2)} mm`, capacity: `≤ H/1000 = ${fmt(TIE.stretch * t.H * 1000, 2)} mm` })
+        ? check('rcSheets.v.footTieStretch', t.stretch <= lim.stretch * t.H + 1e-9, { clause: CRITERION, demand: `ΔL = Ts·L/(Es·As) = ${fmt(t.stretch * 1000, 2)} mm`, capacity: `≤ H/${fmt(cr.footingTieStretch, 0)} = ${fmt(lim.stretch * t.H * 1000, 2)} mm` })
         : check('rcSheets.v.footTieNoPartner', true, { demand: t.axis.toUpperCase() }),
     );
   }
@@ -101,7 +105,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
   for (const p of d.pulls ?? []) {
     const T = Math.max(0, ...Object.values(p.byCombo).map(Math.abs));
-    out.push(check('rcSheets.v.footTiePull', true, { clause: 'FIUBA Cim. §6.5', demand: `${p.name} → ${p.axis.toUpperCase()}: Tu = ${kn(T)} · Tu·${fmt(p.height, 2)} m = ${knm(T * p.height)}` }));
+    out.push(check('rcSheets.v.footTiePull', true, { clause: CRITERION, demand: `${p.name} → ${p.axis.toUpperCase()}: Tu = ${kn(T)} · Tu·${fmt(p.height, 2)} m = ${knm(T * p.height)}` }));
   }
   if (!d.soil) out.push(check('rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
   else if (!b) out.push(check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' }));
@@ -163,7 +167,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
     if (!a) return emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     const r = analyseFooting(d, c, a, code);
     const edge = edgeResult(d, r, a, c, (axis) => strapDefault(d, a, axis));
-    const v = [...verifications(d, r, a, code, fmt), ...(edge ? edgeChecks(edge, fmt) : [])];
+    const v = [...verifications(d, r, a, code, fmt), ...(edge ? edgeChecks(edge, critOf(c), fmt) : [])];
     const ratios = [r.x.mu / Math.max(r.x.phiMn, 1e-9), r.y.mu / Math.max(r.y.phiMn, 1e-9), ratioOf(r.x.vu, r.x.phiVc), ratioOf(r.y.vu, r.y.phiVc), r.punching?.utilization ?? 0, r.bearing?.use ?? 0];
     const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
     const proposed = prop?.adopted ?? a;

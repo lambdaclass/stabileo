@@ -3,6 +3,7 @@
  * supports run on as one where less than max(d; 12·db) would be left between their cut points, set out from the
  * supports they join and lapped mid-span where they outgrow a stock bar.
  */
+import { CRITERION } from '../criteria';
 import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
 import { beamLine, CIRSOC_LINE, type LineLayout } from '../beam-line';
@@ -42,7 +43,7 @@ describe('extra top bars over neighbouring supports', () => {
     const bar = over[0]!;
     expect(l.joined).toEqual([{ mark: bar.mark, from: bar.from, to: bar.to, supports: [1, 2] }]);
     expect(setOut(l, bar)).toEqual({ axes: [5, 7.6], d: [5 - bar.from, bar.to - 7.6] });
-    expect(l.steps.flatMap((g) => g.steps).some((s) => s.label === 'rcSheets.s.lineJoined' && s.value === 'FIUBA §12.2')).toBe(true);
+    expect(l.steps.flatMap((g) => g.steps).some((s) => s.label === 'rcSheets.s.lineJoined' && s.value === CRITERION)).toBe(true);
     expect(l.cutoffs.filter((x) => x.mark === bar.mark).every((x) => x.x < 5 || x.x > 7.6)).toBe(true);
     expect(l.verifications.find((v) => v.label === 'rcSheets.v.lineEnvelope')!.ok).toBe(true);
   });
@@ -120,7 +121,7 @@ describe('a line ending at a frame corner (FIUBA §16.1)', () => {
     expect(k).toHaveLength(1);
     expect(k[0]!.formula!.startsWith('← ')).toBe(true);
     expect(k[0]!.ok).toBe(true);
-    expect(k[0]!.value).toBe('FIUBA §16.1');
+    expect(k[0]!.value).toBe(CRITERION);
     expect(knee(lineOf([5, 5], 120, 90))).toHaveLength(0);
   });
 

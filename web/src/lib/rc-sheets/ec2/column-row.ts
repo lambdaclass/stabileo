@@ -1,4 +1,5 @@
 import { ec2ColumnSolve, type Ec2ColumnDemand, type Ec2ColumnInput, type Ec2DemandReading } from '../../engine/design/eurocode/ec2-column';
+import { CRITERION } from '../criteria';
 import { ec2CreepCoefficient } from '../../engine/design/eurocode/ec2-params';
 import { barArea, roundDown } from '../bars';
 import { COLUMN_PRACTICAL_CLEAR, barClearance, columnLayout, growColumn, heldBars as symmetricHeld, layoutDias, pickPractical } from '../column-layout';
@@ -196,7 +197,7 @@ export function makeColumnRow(set: Ec2Set) {
       check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '9.5.3(3), 9.5.3(4)', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ 0.6 × ${fmt(sclMax * 100, 1)} = ${fmt(tieMax * 100, 1)} cm` }),
       check('rcSheets.v.crossties', true, { clause: '9.5.3(6)', capacity: ctText }),
       ...(stack.fromBelow ? [check('rcSheets.ec2.v.colLap', true, { clause: '8.7.3, 9.5.3(4)', capacity: `${fmt(lap * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
-      ...((x) => (x ? [x] : []))(stepCheck(step, fmt, 'FIUBA §15.7')),
+      ...((x) => (x ? [x] : []))(stepCheck(step, fmt, CRITERION)),
     ];
     const ok = verifications.every((v) => v.ok) && !impossible;
     const generous = isGenerous(verifications);

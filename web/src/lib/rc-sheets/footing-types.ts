@@ -139,6 +139,8 @@ export interface FootingAdopted {
 
 export interface FootingContext {
   fc: number; fy: number;
+  /** The Stabileo criteria in force; absent, their defaults. */
+  criteria?: import('./criteria').Criteria;
   /** Clear cover to the bottom mesh, m. */
   cover: number;
   sizing: FootingSizing;

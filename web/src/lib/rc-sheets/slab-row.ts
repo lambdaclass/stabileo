@@ -4,6 +4,7 @@ import { concreteBelowTopBars, confinementOf, deriveDevelopment, deriveLap, topB
 import { crackControlMaxSpacing } from '../codes/cirsoc201/crack-control';
 import { meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
+import { CRITERION, critOf, withCriterion, type Criteria } from './criteria';
 import { check, ratioOf, type CheckLine, type ComboTable, type MeshBars, type Materials, type RowStatus, type Signed, type Step, type StepGroup, type SlabAdopted, isGenerous } from './types';
 
 const EDITION = '2025' as const;
@@ -35,6 +36,8 @@ export interface SlabContext {
   mat: Materials; cover: number; diameters: readonly number[]; span?: SlabSpan;
   /** The project's base mat by face (`slabBase`): no face is proposed lighter than it. */
   base?: Partial<Record<SlabFace, MeshBars>>;
+  /** The Stabileo criteria in force; absent, their defaults. */
+  criteria?: Criteria;
 }
 
 /**
@@ -83,14 +86,14 @@ export function cirsocSlabDevelopment(mat: Materials, dia: number, top: boolean,
 export const cirsocSlabLap = (mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): number =>
   deriveLap(cirsocSlabDevelopment(mat, dia, top, h, layout), { edition: EDITION }).lapM;
 
-/** What a code adds to the slab rows: the distribution steel of a one-way panel as a share of the main steel, and how a face's bars develop. */
+/** What a code adds to the slab rows: the distribution steel of a one-way panel as the Stabileo criterion's share of the main steel, and how a face's bars develop. */
 export interface SlabRowCode {
-  distribution?: { share: number; clause: string };
+  distribution?: { clause: string };
   development?: { of(mat: Materials, dia: number, top: boolean, h: number, layout: SlabBarLayout): DevelopmentResult; clause: string };
   /** The crack-control spacing of a one-way panel's main bars, m, from fy and their clear cover to the tension face. */
   crackSpacing?: { of(fy: number, clearCover: number): number; clause: string };
-  /** The largest spacing of a one-way panel's main and distribution bars where the code allows more, m. */
-  oneWaySpacing?: { max: number; clause: string };
+  /** The largest spacing of a one-way panel's main and distribution bars where the code allows more: the Stabileo criterion's. */
+  oneWaySpacing?: { clause: string };
   /** The bottom bars of a cantilever, which carries none in tension: the span's carried into it. */
   cantileverBottom?: { clause: string };
 }
@@ -104,14 +107,15 @@ const CRACK_SPACING: NonNullable<SlabRowCode['crackSpacing']> = {
 export const ACI_SLAB_ROW: SlabRowCode = { crackSpacing: CRACK_SPACING };
 
 /**
- * CIRSOC 201-2025 and the cátedra where it is silent or laxer (FIUBA notes §13.1–13.2): distribution
- * steel at least a fifth of the main steel, a one-way panel's bars at most 25 cm apart, and a
- * cantilever's bottom bars carried in from the span for the positive moments while it is built.
+ * CIRSOC 201-2025 and the Stabileo criteria where it is silent or laxer (FIUBA notes §13.1–13.2):
+ * distribution steel a share of the main steel, a one-way panel's bars no farther apart than the
+ * criterion, and a cantilever's bottom bars carried in from the span for the positive moments while
+ * it is built.
  */
 export const CIRSOC_SLAB_ROW: SlabRowCode = {
-  distribution: { share: 0.2, clause: '§24.4.3.2; FIUBA §13.1' },
-  oneWaySpacing: { max: 0.25, clause: 'FIUBA §13.1' },
-  cantileverBottom: { clause: 'FIUBA §13.2' },
+  distribution: { clause: withCriterion('§24.4.3.2') },
+  oneWaySpacing: { clause: CRITERION },
+  cantileverBottom: { clause: CRITERION },
   development: { of: cirsocSlabDevelopment, clause: '§25.4.2.4, Tabla 25.4.2.5' },
   crackSpacing: CRACK_SPACING,
 };
@@ -148,11 +152,11 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
     if (!oneWay) return prov.sTwoWay;
     const main = face.endsWith('X') === mainIsX;
     const own = main ? Math.min(prov.sOneWay, code.crackSpacing?.of(c.mat.fy, clearCover) ?? Infinity) : prov.sDistribution;
-    return Math.min(own, code.oneWaySpacing?.max ?? Infinity);
+    return Math.min(own, code.oneWaySpacing ? critOf(c).slabOneWaySpacing : Infinity);
   };
   const cantilever = c.span?.kind === 'cantilever';
   const tensionSide = cantilever ? 'top' : 'bottom';
-  const share = oneWay ? code.distribution?.share ?? 0 : 0;
+  const share = oneWay && code.distribution ? critOf(c).slabDistributionShare : 0;
   const isDistribution = (face: SlabFace) => share > 0 && face.startsWith(tensionSide) && face.endsWith('X') !== mainIsX;
   const mainOf = (face: SlabFace): SlabFace => `${face.startsWith('bottom') ? 'bottom' : 'top'}${mainIsX ? 'X' : 'Y'}` as SlabFace;
   const reqOf = (face: SlabFace, outerDia: number, innerDia: number, mainArea = 0): Omit<SlabFaceResult, 'phiMn' | 'ok'> => {
@@ -230,7 +234,7 @@ function designSlab(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | undefi
     ...SLAB_FACES.filter((f) => faces[f].strain && faces[f].strain!.epsT < faces[f].strain!.epsTMin - 1e-9).map((f) => check('rcSheets.v.ductility', false, { clause: oneWay ? '§7.3.3.1' : '§8.3.3.1', demand: `εt = ${fmt(faces[f].strain!.epsT * 1000)} ‰`, capacity: `≥ ${fmt(faces[f].strain!.epsTMin * 1000)} ‰` })),
     ...SLAB_FACES.filter((f) => faces[f].asReq > 0).map((f) => check(`rcSheets.v.slabMin.${f}`, meshArea(a[f]) >= faces[f].asReq - 1e-6, { clause: minClause(f), demand: `${fmt(faces[f].asReq)} cm²/m`, capacity: `${fmt(meshArea(a[f]))} cm²/m`, ratio: ratioOf(faces[f].asReq, meshArea(a[f])) })),
     ...SLAB_FACES.filter((f) => (faces[f].asDistribution ?? 0) > 0).map((f) => check(`rcSheets.v.slabDistribution.${f}`, meshArea(a[f]) >= faces[f].asDistribution! - 1e-6, { clause: code.distribution!.clause, demand: `${fmt(faces[f].asDistribution!)} cm²/m`, capacity: `${fmt(meshArea(a[f]))} cm²/m`, ratio: ratioOf(faces[f].asDistribution!, meshArea(a[f])) })),
-    check('rcSheets.v.slabSpacing', SLAB_FACES.every((f) => a[f].dia === 0 || a[f].spacing <= faces[f].sMax + 1e-6), { clause: oneWay ? ['§7.7.2.3', code.crackSpacing?.clause, code.oneWaySpacing?.clause].filter(Boolean).join(', ') : '§8.7.2.2', capacity: `≤ ${fmt(Math.min(...SLAB_FACES.map((f) => faces[f].sMax)) * 100, 0)} cm` }),
+    check('rcSheets.v.slabSpacing', SLAB_FACES.every((f) => a[f].dia === 0 || a[f].spacing <= faces[f].sMax + 1e-6), { clause: oneWay ? ((x) => (code.oneWaySpacing ? `${x}; ${code.oneWaySpacing.clause}` : x))(['§7.7.2.3', code.crackSpacing?.clause].filter(Boolean).join(', ')) : '§8.7.2.2', capacity: `≤ ${fmt(Math.min(...SLAB_FACES.map((f) => faces[f].sMax)) * 100, 0)} cm` }),
     ...(d.q ? [
       ...(sp.shear.x ? [check('rcSheets.v.slabShearX', shear.x.vu <= shear.x.phiVc + 1e-6, { clause: '§22.5, §7.5.3', demand: `${fmt(shear.x.vu)} kN/m`, capacity: `${fmt(shear.x.phiVc)} kN/m`, ratio: ratioOf(shear.x.vu, shear.x.phiVc) })] : []),
       ...(sp.shear.y ? [check('rcSheets.v.slabShearY', shear.y.vu <= shear.y.phiVc + 1e-6, { clause: '§22.5, §7.5.3', demand: `${fmt(shear.y.vu)} kN/m`, capacity: `${fmt(shear.y.phiVc)} kN/m`, ratio: ratioOf(shear.y.vu, shear.y.phiVc) })] : []),

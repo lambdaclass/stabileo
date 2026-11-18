@@ -13,6 +13,7 @@ import { uiStore } from './ui.svelte';
 import { holdPlateSidesAt, plateOfShell } from './physical-plates';
 import { designData } from './design-data';
 import { concreteOfRow, lineRedesignerOf, redesignerOf, sheetCode, type SheetRow } from './rc-sheets.svelte';
+import { criteriaOf, type Criteria } from '../rc-sheets/criteria';
 import { concreteClasses, concreteClassOf, DEFAULT_FC_MAX } from '../rc-sheets/concrete-classes';
 import { lineRowStatus } from '../rc-sheets/beam-line';
 import type { BeamRow } from '../rc-sheets/beam-row';
@@ -22,6 +23,8 @@ import type { LineLayout } from '../rc-sheets/beam-line';
 import type { CheckLine } from '../rc-sheets/types';
 import type { FootingRow } from '../rc-sheets/footing-types';
 import type { Redesign } from './rc-sheets.svelte';
+
+const sheetCriteria = (): Criteria => criteriaOf(designData().designOptions?.criteria);
 
 export type ResizeWhat = 'beamH' | 'beamB' | 'column' | 'slabH' | 'wallT' | 'punchSlab' | 'punchColumn' | 'punchCapital' | 'punchDrop';
 /**
@@ -42,8 +45,6 @@ const apartFromBase = (r: SheetRow) => r.verifications.every((v) => v.ok || v.la
 /** Below this strength ratio a column or a wall is worth trying smaller. */
 const ROOM = 0.6;
 const round = (x: number) => Math.round(x * 1000) / 1000;
-/** The least beam depth and slab thickness offered smaller, m: the FIUBA course's 12 cm and 8 cm (§3.1, §3.2); a beam is never offered shallower than it is wide. */
-const BEAM_FLOOR = 0.12, SLAB_FLOOR = 0.08;
 const DEFLECTION_CHECKS = new Set(['rcSheets.v.deflection', 'rcSheets.v.deflectionDepth', 'rcSheets.ts500.u.deflection', 'rcSheets.ts500.u.deflectionDepth']);
 /** Whether a beam or slab row checks its deflection: its proposal fits its steel to the forces, so whether a shallower one verifies is for the redesign to say, not for its ratios. */
 const checksDeflection = (r: { verifications: CheckLine[] }) => r.verifications.some((v) => DEFLECTION_CHECKS.has(v.label));
@@ -86,15 +87,15 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
   const fail = row.status === 'fail';
   switch (row.family) {
     case 'beam': {
-      const d = row.demand;
+      const d = row.demand, cr = sheetCriteria(), step = cr.beamSectionStep;
       if (!fail) {
         if (!checksDeflection(row)) return [];
-        if (row.byDeflection) return stiffer(row.key, 'beamH', d.h, 0.05, Math.min(2 * d.h, 2), (h) => ({ ...d, h }));
-        const to = shrink(row.key, [d.h], 0.05, Math.max(BEAM_FLOOR, d.b), ([h]) => ({ ...d, h }));
+        if (row.byDeflection) return stiffer(row.key, 'beamH', d.h, step, Math.min(2 * d.h, 2), (h) => ({ ...d, h }));
+        const to = shrink(row.key, [d.h], step, Math.max(cr.beamMinDepth, d.b), ([h]) => ({ ...d, h }));
         return to ? [{ what: 'beamH', direction: 'shrink', from: [d.h], to }] : [];
       }
-      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.05, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
-      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], 0.05, [2 * d.b], ([b]) => ({ ...d, b })) }];
+      const deeper: ResizeHint = { what: 'beamH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], step, [Math.min(2 * d.h, 2)], ([h]) => ({ ...d, h })) };
+      return deeper.to ? [deeper] : [deeper, { what: 'beamB', direction: 'grow', from: [d.b], to: grow(row.key, [d.b], step, [2 * d.b], ([b]) => ({ ...d, b })) }];
     }
     case 'column': {
       const d = row.demand;
@@ -109,7 +110,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
       if (!fail) {
         if (!checksDeflection(row)) return [];
         if (row.byDeflection) return stiffer(row.key, 'slabH', d.h, 0.01, 2 * d.h, (h) => ({ ...d, h }));
-        const to = shrink(row.key, [d.h], 0.01, SLAB_FLOOR, ([h]) => ({ ...d, h }));
+        const to = shrink(row.key, [d.h], 0.01, sheetCriteria().slabMinThickness, ([h]) => ({ ...d, h }));
         return to ? [{ what: 'slabH', direction: 'shrink', from: [d.h], to }] : [];
       }
       return [{ what: 'slabH', direction: 'grow', from: [d.h], to: grow(row.key, [d.h], 0.01, [2 * d.h], ([h]) => ({ ...d, h })) }];
@@ -283,18 +284,18 @@ export type Alternative =
  */
 export type FootingAlternative = 'strap' | 'tie' | 'eccentric' | 'mat' | 'soil';
 
-const up5 = (x: number) => Math.ceil(x / 0.05 - 1e-9) * 0.05;
-const down5 = (x: number) => Math.floor(x / 0.05 + 1e-9) * 0.05;
-
 /**
- * The beam sections a row is tried at, smallest depth first: h in steps of 5 cm from the depth it
- * has, b in steps of 5 cm between h/5 and h/3, never narrower than it is (FIUBA §3.1).
+ * The beam sections a row is tried at, smallest depth first, by the Stabileo criteria (FIUBA §3.1):
+ * h in their steps from the depth it has, b in their steps between h/n of the narrowest and of the
+ * widest, never narrower than it is.
  */
-export function beamSections(b0: number, h0: number, limit = Math.min(2 * h0, 2)): Array<[number, number]> {
+export function beamSections(b0: number, h0: number, limit = Math.min(2 * h0, 2), cr: Criteria = sheetCriteria()): Array<[number, number]> {
   const out: Array<[number, number]> = [];
-  for (let h = up5(h0 - 1e-6); h <= limit + 1e-9; h = round(h + 0.05)) {
-    const lo = Math.max(b0, up5(h / 5 - 1e-6)), hi = Math.max(b0, down5(h / 3));
-    for (let b = lo; b <= hi + 1e-9; b = round(b + 0.05)) {
+  const s = cr.beamSectionStep;
+  const up = (x: number) => Math.ceil(x / s - 1e-9) * s, down = (x: number) => Math.floor(x / s + 1e-9) * s;
+  for (let h = up(h0 - 1e-6); h <= limit + 1e-9; h = round(h + s)) {
+    const lo = Math.max(b0, up(h / cr.beamWidthFrom - 1e-6)), hi = Math.max(b0, down(h / cr.beamWidthTo));
+    for (let b = lo; b <= hi + 1e-9; b = round(b + s)) {
       if (Math.abs(b - b0) < 1e-6 && Math.abs(h - h0) < 1e-6) continue;
       out.push([round(b), round(h)]);
     }

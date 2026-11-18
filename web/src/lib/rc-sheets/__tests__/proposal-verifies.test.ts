@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { CRITERION } from '../criteria';
 import { peakSection, type BeamComboForces, type BeamDemand, type BeamEnd, type SectionEnv } from '../beam-row';
 import { ec2LineCode } from '../ec2/beam-line';
 import { EC2_SET, UK_SET, matOf } from '../ec2/basis';
@@ -111,7 +112,7 @@ describe('a beam\'s bars anchored in an end column', () => {
     const ci = frameSpan('cirsoc201-2025', narrow), aci = frameSpan('aci318-19', narrow);
     const v = anchor(ci);
     expect(v.ok).toBe(true);
-    expect(v.clause).toBe('§25.4.2; FIUBA §12.2');
+    expect(v.clause).toBe(`§25.4.2; ${CRITERION}`);
     expect(v.demand).toMatch(/^ld Ø/);
     const top = ci.bars.find((b) => b.face === 'top' && b.kind === 'continuous')!;
     expect(top.anchor![0]!.need).toBeCloseTo(CIRSOC_LINE.development({ ...ctx }, top.bars.dia, true, 0.45, { count: top.bars.count, width: 0.25 }), 9);
@@ -209,8 +210,8 @@ describe('the FIUBA course\'s criteria in CIRSOC beams', () => {
     const d = simple({ b: 0.3, h: 0.9, mu: 150, vu: 260, L: 7 });
     const r = cirsoc.beamRow(d, ctx, undefined, fmt), a = aci.beamRow(d, ctx, undefined, fmt);
     expect(r.adopted.stirrups.spacing).toBeLessThanOrEqual(0.3 + 1e-9);
-    expect(r.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).toContain('FIUBA §9.5');
-    expect(a.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).not.toContain('FIUBA');
+    expect(r.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).toContain(CRITERION);
+    expect(a.verifications.find((v) => v.label === 'rcSheets.v.stirrupSpacing')!.clause).not.toContain(CRITERION);
   });
 
   it('four legs in a web over 40 cm (§9.6)', () => {
@@ -218,7 +219,7 @@ describe('the FIUBA course\'s criteria in CIRSOC beams', () => {
     expect(r.adopted.stirrups.legs).toBeGreaterThanOrEqual(4);
     const v = r.verifications.find((x) => x.label === 'rcSheets.v.wideLegs')!;
     expect(v.ok).toBe(true);
-    expect(v.clause).toBe('FIUBA §9.6');
+    expect(v.clause).toBe(CRITERION);
     expect(aci.beamRow(simple({ b: 0.5, h: 0.5, mu: 120, vu: 150 }), ctx, undefined, fmt).verifications.some((x) => x.label === 'rcSheets.v.wideLegs')).toBe(false);
   });
 

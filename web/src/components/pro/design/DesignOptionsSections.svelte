@@ -17,17 +17,19 @@
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
   import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
   import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
   import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
   import type { TorsionMode } from '../../../lib/rc-sheets/types';
   import SeismicEditor from '../desk/seismic/SeismicEditor.svelte';
   import PropertyLinesPicker from './PropertyLinesPicker.svelte';
+  import StabileoCriteria from './StabileoCriteria.svelte';
   import { PROPERTY_SIDES } from '../../../lib/model/foundation/edges';
 
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
   const d = $derived.by(() => { void modelStore.designData; return designData(); });
   const o = $derived.by(() => { void modelStore.designData; return rcSheetsData(); });
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const rule = (k: DesignOptionKey) => optionRule(k, code);
+  const rule = (k: DesignOptionKey) => ((r) => ({ ...r, clause: localizeCriterion(r.clause, t) }))(optionRule(k, code));
   const on = (k: DesignOptionFlag | 'endZones') => (k === 'endZones' ? d.columnEndZones === true : o[k] === true);
   const set = (k: DesignOptionFlag | 'endZones', v: boolean) => (k === 'endZones' ? setColumnEndZones(v) : setRcOption(k, v));
   const live = (k: DesignOptionFlag | 'endZones') => on(k) && !rule(k).off;
@@ -176,6 +178,8 @@
   {/if}
   <Hint text={t('designData.alt.hint')} />
 </details>
+
+<StabileoCriteria />
 
 <details class="pk-card do" data-testid="design-options-seismic">
   <summary><span class="do-h">{t('designData.seismicSection')}</span> <span class="do-sum" data-testid="design-options-seismic-summary">{summary(['seismic'])}</span></summary>

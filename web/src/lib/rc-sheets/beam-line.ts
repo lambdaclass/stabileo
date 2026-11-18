@@ -9,6 +9,7 @@ import { hangerArea } from '../engine/design/beam-hangers';
 import { beamSeismic, faceRule } from './seismic';
 import { beamContext, beamRow, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
 import type { Fmt } from './format';
+import { CRITERION, critOf } from './criteria';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
 import { BEAM_BAR_RANGE, check, governingRatio, GENEROUS_BELOW, isGenerous, listIn, nextTie, ratioOf, tieFloorOf, type BarGroup, type BeamAdopted, type CheckLine, type RowStatus, type StepGroup, type Stirrups } from './types';
 
@@ -113,7 +114,7 @@ export const CIRSOC_LINE: LineCode = {
  * which the code does not give, and its end anchorage where ldh does not fit the support: ld along
  * the bar, hook and a longer leg included (§12.2).
  */
-export const CIRSOC_2025_LINE: LineCode = { ...CIRSOC_LINE, bentMandrel: bentBarMandrel, alongFallback: { clause: '§25.4.2; FIUBA §12.2' } };
+export const CIRSOC_2025_LINE: LineCode = { ...CIRSOC_LINE, bentMandrel: bentBarMandrel, alongFallback: { clause: `§25.4.2; ${CRITERION}` } };
 
 /** A continuous beam's bars: a run top and bottom over its whole length, extra top bars at each support and extra bottom bars in each span. */
 export interface LineAdopted {
@@ -166,8 +167,6 @@ const STAGGER_GAP = 0.1;
 const UNIFY_WEIGHT = 0.05;
 /** How much more area one diameter may give any group of extras than the diameter it replaces. */
 const UNIFY_AREA = 0.15;
-/** The ratio of the top bars at a frame corner past which the FIUBA notes ask for a haunch (§16.1). */
-const KNEE_HAUNCH = 0.007;
 
 export interface LineLayout {
   key: string; group: number; name: string; level?: string;
@@ -1114,8 +1113,9 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
   }
   if (!adopted && c.course && a.stirrups) {
     const used = [...new Set(a.stirrups.map((st) => st.dia))].sort((p, q) => p - q);
-    if (used.length > 2) {
-      const least = used[used.length - 2]!;
+    const most = critOf(c).beamStirrupDiameters;
+    if (used.length > most) {
+      const least = used[used.length - most]!;
       a.stirrups = a.stirrups.map((st) => (st.dia < least ? { ...st, dia: least } : st));
       spanAdopted.forEach((sa, k) => { sa.stirrups = a.stirrups![k]!; });
       zones = zonesOf(); along = shearAlong(zones);
@@ -1182,7 +1182,7 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
         { label: 'rcSheets.s.lineCut', formula: code.text.formula.cut, value: '' },
         { label: 'rcSheets.s.lineThird', formula: code.text.formula.third, value: '' },
         { label: 'rcSheets.s.lineDev', formula: 'As,ef(x) = As·min(1; dist/ld)', value: '' },
-        ...lastJoined.map((x) => ({ label: 'rcSheets.s.lineJoined', formula: `${x.mark} ↑ x = ${fmt(x.from)} → ${fmt(x.to)} m (${x.supports[0] + 1}–${x.supports[1] + 1})`, value: 'FIUBA §12.2' })),
+        ...lastJoined.map((x) => ({ label: 'rcSheets.s.lineJoined', formula: `${x.mark} ↑ x = ${fmt(x.from)} → ${fmt(x.to)} m (${x.supports[0] + 1}–${x.supports[1] + 1})`, value: CRITERION })),
         ...lastCuts.map((x) => ({ label: 'rcSheets.s.lineCutoff', formula: `${x.mark} ${x.face === 'top' ? '↑' : '↓'} x = ${fmt(x.x)} m`, value: code.text.cutoff[x.legality] })),
         ...bars.filter((b) => b.kind === 'bent').map((b) => ({ label: 'rcSheets.s.lineBent', formula: `${b.mark}: ${b.bars.count} Ø${b.bars.dia} · ${BEND_ANGLE}° · x = ${fmt(b.runs[0]!.to)} → ${fmt(b.runs[2]!.from)} m`, value: '' })),
         { label: 'rcSheets.s.iterations', formula: code.text.formula.capacity, value: adopted ? '—' : String(iterations), ok: worst <= 1 + 1e-6 },
@@ -1193,8 +1193,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
       steps: [
         ...anchorage.map((x) => ({ label: 'rcSheets.s.ldRow', formula: `Ø${x.dia}`, value: `ld = ${fmt(x.ld * 100, 0)} · ld,top = ${fmt(x.ldTop * 100, 0)} · ldh = ${fmt(x.ldh * 100, 0)} · ls,B = ${fmt(x.lap * 100, 0)} cm` })),
         ...lastStraight.map((x) => ({ label: 'rcSheets.s.lineStraightEnd', formula: `${x.mark} ${x.end === 0 ? '←' : '→'}: ld = ${fmt(x.ld * 100, 0)} cm ≤ ${fmt(code.straightAtSupport!.factor)}·Mn/Vu + ℓa = ${fmt(Math.min(x.reach, 99.99) * 100, 0)} cm; ℓa = ${fmt(x.la * 100, 0)} cm`, value: code.text.clause.straightEnd ?? '', ok: true })),
-        ...knees.map((x) => ({ label: 'rcSheets.s.lineKnee', formula: `${x.end === 'start' ? '←' : '→'} Ø${x.dia}: D/2 = ${fmt(x.D * 50, 1)} cm ≤ jd ≈ 0.8·d = ${fmt(x.jd * 100, 0)} cm · ρ = ${fmt(x.rho * 100, 2)} %`, value: 'FIUBA §16.1', ok: x.D / 2 <= x.jd + 1e-9 })),
-        ...knees.filter((x) => x.rho >= KNEE_HAUNCH - 1e-9).map((x) => ({ label: 'rcSheets.s.lineKneeHaunch', formula: `${x.end === 'start' ? '←' : '→'}: ρ = ${fmt(x.rho * 100, 2)} % ≥ ${fmt(KNEE_HAUNCH * 100, 2)} %`, value: 'FIUBA §16.1' })),
+        ...knees.map((x) => ({ label: 'rcSheets.s.lineKnee', formula: `${x.end === 'start' ? '←' : '→'} Ø${x.dia}: D/2 = ${fmt(x.D * 50, 1)} cm ≤ jd ≈ 0.8·d = ${fmt(x.jd * 100, 0)} cm · ρ = ${fmt(x.rho * 100, 2)} %`, value: CRITERION, ok: x.D / 2 <= x.jd + 1e-9 })),
+        ...knees.filter((x) => x.rho >= critOf(c).beamKneeHaunch - 1e-9).map((x) => ({ label: 'rcSheets.s.lineKneeHaunch', formula: `${x.end === 'start' ? '←' : '→'}: ρ = ${fmt(x.rho * 100, 2)} % ≥ ${fmt(critOf(c).beamKneeHaunch * 100, 2)} %`, value: CRITERION })),
         ...bars.flatMap((b) => ([0, 1] as const).filter((i) => b.hook180?.[i]).map((i) => ({ label: 'rcSheets.s.lineHook180', formula: `${b.mark} ${i === 0 ? '←' : '→'}: ${b.bars.count} Ø${b.bars.dia} · 180° · ${fmt(code.hook180Extension!(b.bars.dia) * 100, 0)} cm`, value: code.text.clause.hook180 ?? '' }))),
       ],
     },

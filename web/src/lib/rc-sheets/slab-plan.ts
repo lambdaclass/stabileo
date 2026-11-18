@@ -3,6 +3,7 @@ import { bentBarMandrel } from '../codes/cirsoc201/bar-geometry';
 import type { BeamContext } from './beam-row';
 import { barArea, meshArea, meshLabel, proposeMesh } from './bars';
 import type { Fmt } from './format';
+import { CRITERION, critOf, type Criteria } from './criteria';
 import { developedLength, legLengths, shapeWeight, type BarShape } from './shape';
 import { barHeights, cornerBars, integrityBars, stripCheck, type ExtraBarsPlan } from './slab-corner-integrity';
 import { cirsocSlabDevelopment, cirsocSlabLap, type SlabBarLayout, type SlabFace, type SlabRow } from './slab-row';
@@ -32,6 +33,8 @@ export interface SlabPlanCode {
   topReach: { interior: number; end: number; middle: number };
   /** Where a bent bar leaves the bottom, as a fraction of the clear span from the support face, in a one-way and a two-way panel. */
   bendAt: { oneWay: number; twoWay: number };
+  /** The bend points are the Stabileo criterion's, not `bendAt`. */
+  bendByCriterion?: true;
   /** Inside diameter a bent-up bar is bent on, m; absent, the line's mandrel. */
   bentMandrel?(dia: number): number;
   /** How far a bottom bar runs past the face of a beam or wall, before the support's far face stops it, m. */
@@ -56,14 +59,15 @@ export const ACI_SLAB_PLAN: SlabPlanCode = {
   clause: ACI_PLAN_CLAUSES,
 };
 
-/** CIRSOC 201-2025, with the FIUBA course's bend points and bent-bar mandrels where the code is silent. */
+/** CIRSOC 201-2025, with the Stabileo criterion's bend points and bent-bar mandrels where the code is silent (FIUBA §13.1–13.2, §11.4). */
 export const CIRSOC_SLAB_PLAN: SlabPlanCode = {
   ...ACI_SLAB_PLAN,
   development: (mat, dia, top, h, layout) => cirsocSlabDevelopment(mat, dia, top, h, layout).ldM,
   lap: cirsocSlabLap,
   bendAt: { oneWay: 1 / 7, twoWay: 1 / 8 },
+  bendByCriterion: true,
   bentMandrel: bentBarMandrel,
-  clause: { ...ACI_PLAN_CLAUSES, development: '§25.4.2.4, §25.4.3, §25.5.2', bendAt: 'FIUBA §13.1–13.2, §11.4' },
+  clause: { ...ACI_PLAN_CLAUSES, development: '§25.4.2.4, §25.4.3, §25.5.2', bendAt: CRITERION },
 };
 
 export type SupportKind = 'beam' | 'wall' | 'columns' | 'joint' | 'free';
@@ -148,14 +152,14 @@ export interface SlabPlanContext {
   mat: Materials; cover: number; diameters: readonly number[]; bent: boolean;
   /** From a column's face to the centres of its outer bars, m, which bound the core integrity bars pass through. */
   columnInset?: number;
+  /** The Stabileo criteria in force; absent, their defaults. */
+  criteria?: Criteria;
 }
 
 const TOL = 0.05;
 const STEP = 0.05;
 /** A stock bar, m. */
 const STOCK = 12;
-/** The most two panels' thicknesses may differ by for one to hold the other, m (FIUBA §5.1). */
-const JOIN_DH = 0.02;
 const up = (x: number) => Math.ceil(x / STEP - 1e-9) * STEP;
 const other = (d: PlanDir): PlanDir => (d === 'x' ? 'y' : 'x');
 const lo = (r: PlanRect, d: PlanDir) => (d === 'x' ? r.x0 : r.y0);
@@ -180,6 +184,8 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
     return { key: r.key, name: r.name, rect: { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1 }, h: r.h, row: r };
   });
   const byKey = new Map(panels.map((p) => [p.key, p]));
+  const crit = critOf(c);
+  const bends = code.bendByCriterion ? { oneWay: 1 / crit.slabBendOneWay, twoWay: 1 / crit.slabBendTwoWay } : code.bendAt;
   const hMin = panels.length ? Math.min(...panels.map((p) => p.h)) : 0.15;
   const bctx: BeamContext = { mat: c.mat, cover: c.cover, stirrupDia: 0, diameters: c.diameters, torsion: 'equilibrium' };
   const ld = (dia: number, top: boolean, h: number, spacing: number) => (code.development ? code.development(c.mat, dia, top, h, { cover: c.cover, spacing }) : code.line.development(bctx, dia, top, h));
@@ -371,7 +377,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
       const e0 = topEnd(sLo, 'below', mesh.dia, sLo.below ? code.topReach.interior : code.topReach.end, mesh.spacing);
       const e1 = topEnd(sHi, 'above', mesh.dia, sHi.above ? code.topReach.interior : code.topReach.end, mesh.spacing);
       const x0 = e0.end, x1 = e1.end;
-      const bendAt = p.row.oneWay ? code.bendAt.oneWay : code.bendAt.twoWay;
+      const bendAt = p.row.oneWay ? bends.oneWay : bends.twoWay;
       const r0 = faceLo + bendAt * ln, r1 = faceHi - bendAt * ln;
       const leg = legDown(p.h, yt, 'top', mesh.dia);
       const pts: Array<[number, number]> = [[0, yt - leg], [0, yt], [r0 - run - x0, yt], [r0 - x0, yb], [r1 - x0, yb], [r1 + run - x0, yt], [x1 - x0, yt], [x1 - x0, yt - leg]];
@@ -387,8 +393,8 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   /**
    * The bottom bars of two panels side by side along their direction, the same mesh at the same
    * height over the same strip, run on as one through the support between them where one stock bar
-   * holds them and the panels' thicknesses differ by `JOIN_DH` at most, as the FIUBA notes ask for one
-   * to hold the other (§5.1).
+   * holds them and the panels' thicknesses differ by the Stabileo criterion at most, for one to hold
+   * the other (FIUBA §5.1).
    */
   const joinBottoms = () => {
     const legAt = (pk: SlabPackage, end: 0 | 1) => { const p = pk.shape.pts, n = p.length - 1; return end === 0 ? (p[0]![1] - p[1]![1]) : (p[n]![1] - p[n - 1]![1]); };
@@ -402,7 +408,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
           && Math.abs(q.band.from - A.band.from) < 1e-6 && Math.abs(q.band.to - A.band.to) < 1e-6 && Math.abs(yOf(q) - yOf(A)) < 1e-6
           && q.from > A.from + TOL && (() => {
             const pb = byKey.get(q.panels[0]!)!;
-            return Math.abs(pa.h - pb.h) <= JOIN_DH + 1e-9 && supports.some((s) => s.dir === A.dir && s.kind !== 'free' && s.below === pa.key && s.above === pb.key
+            return Math.abs(pa.h - pb.h) <= crit.slabJoinThickness + 1e-9 && supports.some((s) => s.dir === A.dir && s.kind !== 'free' && s.below === pa.key && s.above === pb.key
               && overlap(s.from, s.to, A.band.from, A.band.to) >= A.band.to - A.band.from - TOL && q.from - A.to <= 2 * s.half + 1e-6);
           })());
         if (!B) continue;
@@ -564,7 +570,7 @@ export function slabPlan(level: string, rows: readonly SlabRow[], geom: LevelGeo
   const ok = checks.every((x) => x.ok) && packages.every((pk) => pk.reach.every((r) => r.length >= r.needed - 1e-6) && (!pk.anchor || pk.anchor.ok));
   return {
     level, panels: panels.map((p) => ({ key: p.key, name: p.name, rect: p.rect, h: p.h, status: p.row.status })), beams: geom.beams, columns: geom.columns,
-    supports, packages, ...(uniform ? { baseMesh: bottomMeshes[0] } : {}), checks, anchorage, cantilevers, integrity, bent: c.bent, rules: { reach: code.topReach, clause: code.clause, bendAt: code.bendAt, ...(code.corners ? { corners: code.corners } : {}), ...(code.integrity ? { integrity: code.integrity } : {}) }, ok,
+    supports, packages, ...(uniform ? { baseMesh: bottomMeshes[0] } : {}), checks, anchorage, cantilevers, integrity, bent: c.bent, rules: { reach: code.topReach, clause: code.clause, bendAt: bends, ...(code.corners ? { corners: code.corners } : {}), ...(code.integrity ? { integrity: code.integrity } : {}) }, ok,
   };
 }
 

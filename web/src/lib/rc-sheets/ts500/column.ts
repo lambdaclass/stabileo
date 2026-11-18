@@ -1,4 +1,5 @@
 import { roundDown } from '../bars';
+import { CRITERION } from '../criteria';
 import { growColumn, layoutDias, pickPractical } from '../column-layout';
 import { barCount, columnLabel, innerCrossties, patternInner, tieLabel, type ColumnContext, type ColumnDemand, type ColumnRow, type StackPlace } from '../column-row';
 import type { Fmt } from '../format';
@@ -164,7 +165,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     check('rcSheets.v.tieSpacing', a.tieSpacing <= tieMax + 1e-6, { clause: '7.4.1', demand: `${fmt(a.tieSpacing * 100, 1)} cm`, capacity: `≤ ${fmt(tieMax * 100, 1)} cm` }),
     check('rcSheets.v.crossties', ct.ok, { clause: '7.4.1', demand: '≤ 30 cm', capacity: ctText }),
     ...(stack.fromBelow ? [check(U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), true, { clause: '9.3', capacity: `${fmt(splice * 100, 0)} cm (Ø${mixed ? `${stack.belowDia}/` : ''}${longest})` })] : []),
-    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, 'FIUBA §15.7')),
+    ...((x) => (x ? [x] : []))(stepCheck(step, fmt, CRITERION)),
   ];
   const ok = verifications.every((v) => v.ok) && !impossible;
   const generous = isGenerous(verifications);

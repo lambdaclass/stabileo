@@ -4,6 +4,7 @@
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { MARK_SCOPES, type MarkScope } from '../../../lib/rc-sheets/types';
   import { kindKey } from '../../../lib/rc-sheets/schedule/exports';
+  import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
   import { SCHEDULE_VIEWS, scheduleView, type BarUse, type ElementRef, type ScheduleView, type ViewGroup, type ViewRow } from '../../../lib/rc-sheets/schedule/views';
   import { downloadSchedule, scheduleSettings, scheduleViewChoice, setScheduleSettings, setScheduleViewChoice, sheetsSchedule } from '../../../lib/store/rc-sheets-schedule';
   import type { SheetRows } from '../../../lib/store/rc-sheets.svelte';
@@ -177,7 +178,7 @@
         </tbody>
       </table>
     </div>
-    <p class="dim">{tp('rcSheets.bbs.legsNote', { clause: s.clause })}</p>
+    <p class="dim">{tp('rcSheets.bbs.legsNote', { clause: localizeCriterion(s.clause, t) })}</p>
     {#if s.confirm}<p class="dim warn" data-testid="rc-bbs-confirm">{t(s.confirm)}</p>{/if}
     <RcExportLog />
   {/if}

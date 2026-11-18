@@ -10,13 +10,14 @@ import { mainBarCoverMm } from '../codes/cirsoc201/cover';
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, proposeBeamFace, proposeStirrups, roundDown, stirrupsLabel } from './bars';
 import type { Fmt } from './format';
 import { beamSeismic, faceRule, seismicBeamDiameters, type Seismic } from './seismic';
+import { CRITERION, critOf, withCriterion, type Criteria } from './criteria';
 import { BEAM_BAR_RANGE, check, inRange, listIn, nextTie, ratioOf, tieFloorOf, type TransverseList, type BarGroup, type BeamAdopted, type CheckLine, type ComboTable, type Materials, type MeshBars, type RowStatus, type Signed, type Step, type StepGroup, type Stirrups, type TorsionMode, isGenerous } from './types';
 
 const EDITION = '2025' as const;
 const PHI_V = 0.75;
 const MAX_ITERATIONS = 12;
-/** The compression steel a doubly reinforced section asks, raised 30 % before bars are chosen (FIUBA §8.9). */
-export const COMPRESSION_MARGIN = 1.3;
+/** The factor the compression steel a doubly reinforced section asks is raised by before bars are chosen (FIUBA §8.9). */
+export const compressionMargin = (c: { criteria?: Criteria }): number => 1 + critOf(c).beamCompressionMargin;
 /** How many pairs of faces `searchFaces` tries, the lightest first. */
 const SEARCH_PAIRS = 600;
 
@@ -88,12 +89,11 @@ export interface BeamContext extends TransverseList {
   bentBars?: boolean;
   /** Check the main bars' cover of CIRSOC 201 Table 20.5.1.3.1, under execution control or not. */
   coverTable?: { control: boolean };
-  /** The FIUBA course's criteria where the code leaves room: stirrups at most 30 cm apart where shear needs them (§9.5), four legs in a web over 40 cm (§9.6), hangers of half the bottom bars' diameter (§8.1), at most two stirrup diameters along a beam (§9.6). */
+  /** The Stabileo criteria where the code leaves room (FIUBA §8.1, §9.5, §9.6): the largest stirrup spacing where shear needs them, four legs in a wide web, hangers a share of the bottom bars' diameter, the most stirrup diameters along a beam. */
   course?: true;
+  /** The Stabileo criteria in force; absent, their defaults. */
+  criteria?: Criteria;
 }
-
-/** The FIUBA course's largest stirrup spacing where shear reinforcement is needed, m (§9.5), and the web over which it asks four legs (§9.6). */
-const COURSE_S_MAX = 0.3, COURSE_WIDE = 0.4;
 
 /** `nc`: the axial force with the moment, kN, + compression; a section with none of either asks nothing. */
 export interface FlexureCheck { section: SectionName; sign: 'pos' | 'neg'; phiMn: number; mu: number; nc?: number; epsT: number; epsTMin: number; d: number; ok: boolean; ductile: boolean }
@@ -376,7 +376,8 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const topReq = hogging.length ? gNeg.r.AsReq : 0;
 
   const shear = checkShear(p, d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: bottomReq });
-  const courseCap = c.course && shear.Vs > 1e-6 ? COURSE_S_MAX : Infinity;
+  const cr = critOf(c);
+  const courseCap = c.course && shear.Vs > 1e-6 ? cr.beamStirrupSpacing : Infinity;
   const torsionCache = new Map<number, TorsionReq>();
   const torsionAt = (sd: number): TorsionReq => {
     const hit = torsionCache.get(sd);
@@ -398,7 +399,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   };
   const { tor0, tor, tuDesign } = torsionAt(c.stirrupDia);
   const limits = transverseSpacingLimits(EDITION, { VsRequired: shear.Vs, bw: d.b, d: shear.d, fc, cover: c.cover, stirrupDiaMm: c.stirrupDia });
-  const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs, c.course && d.b > COURSE_WIDE + 1e-9 ? 4 : 2);
+  const legs = Math.max(2, shear.stirrupLegs, limits.requiredLegs, c.course && d.b > cr.beamFourLegsWidth + 1e-9 ? 4 : 2);
   const ph = hoopPerimeter(d, c, c.stirrupDia);
   const perLeg = Math.max(shear.AvOverSReq ?? 0, shear.AvOverSMin) / legs + torsionAt(c.stirrupDia).atOverS;
   const sMax = torsionAt(c.stirrupDia).sMax;
@@ -410,10 +411,10 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
   const req: Requirement = { bottom: bottomReq, top: topReq, neglect: tor.neglect, torsion: torsionAt, bySection };
 
   const compression = (list: Array<{ r: { isDoublyReinforced: boolean; AsCompReq?: number }; env: Signed }>) =>
-    COMPRESSION_MARGIN * Math.max(0, ...list.filter((x) => x.env.value > 1e-6 && x.r.isDoublyReinforced).map((x) => x.r.AsCompReq ?? 0));
+    compressionMargin(c) * Math.max(0, ...list.filter((x) => x.env.value > 1e-6 && x.r.isDoublyReinforced).map((x) => x.r.AsCompReq ?? 0));
   const compTop = compression(posReq), compBottom = compression(negList);
   const bottom0 = proposeBeamFace(Math.max(bottomReq, compBottom), d.b, d.h, c.cover, c.stirrupDia, c.diameters);
-  const hanger = c.course ? torsionBar(c, Math.max(10, c.stirrupDia, Math.ceil(Math.max(...bottom0.map((g) => g.dia)) / 2))) : hangerBar(c);
+  const hanger = c.course ? torsionBar(c, Math.max(10, c.stirrupDia, Math.ceil(Math.max(...bottom0.map((g) => g.dia)) * cr.beamHangerShare))) : hangerBar(c);
   const initial: BeamAdopted = {
     bottom: bottom0,
     top: topReq > 0 || compTop > 0 ? proposeBeamFace(Math.max(topReq, compTop), d.b, d.h, c.cover, c.stirrupDia, c.diameters) : [{ count: 2, dia: hanger }],
@@ -460,7 +461,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
     check('rcSheets.v.fitTop', e.fitTop, { clause: '§25.2.1' }),
     check('rcSheets.v.crack', e.crackBottom.ok && e.crackTop.ok, { clause: '§24.3.2', demand: `s = ${fmt(Math.max(e.crackBottom.s, topReq > 0 ? e.crackTop.s : 0) * 100, 1)} cm`, capacity: `≤ ${fmt(e.crackBottom.max * 100, 1)} cm` }),
     check('rcSheets.v.shear', e.shear.status !== 'fail', { clause: '§22.5', demand: `${f2(d.vu.value)} kN`, capacity: `${f2(e.shear.phiVn)} kN`, ratio: ratioOf(d.vu.value, e.shear.phiVn) }),
-    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: `${tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3'}${sMaxA >= courseCap - 1e-9 ? '; FIUBA §9.5' : ''}`, demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
+    check('rcSheets.v.stirrupSpacing', a.stirrups.spacing <= sMaxA + 1e-6, { clause: `${tor.neglect ? '§9.7.6.2.2' : '§9.7.6.2.2, §9.7.6.3.3'}${sMaxA >= courseCap - 1e-9 ? `; ${CRITERION}` : ''}`, demand: `${fmt(a.stirrups.spacing * 100, 1)} cm`, capacity: `≤ ${fmt(sMaxA * 100, 1)} cm` }),
     ...(tor.neglect ? [check('rcSheets.v.torsionNeglect', true, { clause: '§22.7.1', demand: `${f2(d.tu.value)} kN·m`, capacity: `< ${f2(PHI_V * tor0.Tcr / 4)} kN·m` })] : [
       check('rcSheets.v.stirrupsVT', e.ok.stirrups, { clause: '§22.5.8, §22.7.6', demand: `${f2(e.perLegRequired)} cm²/m`, capacity: `${f2(e.perLegProvided)} cm²/m`, ratio: ratioOf(e.perLegRequired, e.perLegProvided) }),
       check('rcSheets.v.transverseMin', e.ok.transverseMin, { clause: '§9.6.4.2', demand: `${f2(e.transverseMin)} cm²/m`, capacity: `${f2(e.transverseProvided)} cm²/m`, ratio: ratioOf(e.transverseMin, e.transverseProvided) }),
@@ -469,7 +470,7 @@ export function beamRow(d: BeamDemand, given: BeamContext, adopted: BeamAdopted 
       check('rcSheets.v.alDia', e.ok.alDia, { clause: '§9.7.5.2', demand: a.torsionLong ? `Ø${a.torsionLong.dia}` : '—', capacity: `≥ Ø${fmt(e.alDiaMin, 1)}` }),
       check('rcSheets.v.torsionSection', e.ok.torsionSection, { clause: '§22.7.7.1' }),
     ]),
-    ...(c.course && d.b > COURSE_WIDE + 1e-9 ? [check('rcSheets.v.wideLegs', a.stirrups.legs >= 4, { clause: 'FIUBA §9.6', demand: `${a.stirrups.legs}`, capacity: '≥ 4' })] : []),
+    ...(c.course && d.b > cr.beamFourLegsWidth + 1e-9 ? [check('rcSheets.v.wideLegs', a.stirrups.legs >= 4, { clause: withCriterion(), demand: `bw = ${fmt(d.b * 100, 0)} cm > ${fmt(cr.beamFourLegsWidth * 100, 0)} cm: ${a.stirrups.legs}`, capacity: '≥ 4' })] : []),
     ...(c.coverTable ? [mainCoverCheck(c.cover, a.stirrups.dia, largestBar(a), c.coverTable.control, fmt)] : []),
     ...(skin ? [check('rcSheets.v.skin', true, { clause: '§9.7.2.3', capacity: `Ø${skin.diameter} c/${fmt(skin.spacing * 100, 1)} cm` })] : []),
     ...(seisA?.checks ?? []),
