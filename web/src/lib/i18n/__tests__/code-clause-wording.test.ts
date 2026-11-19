@@ -45,4 +45,23 @@ describe('code clauses as the code words them', () => {
     for (const l of ['de', 'fr', 'tr', 'hu']) expect(all[l]!['loads.cirsoc101.reduction.applied'], l).toContain('0,25 + 4,57');
     for (const list of [SAME_DE, SAME_FR, SAME_TR, SAME_HU]) expect(list).not.toContain('loads.cirsoc101.reduction.applied');
   });
+  it('EN 1998-1 §4.3.3.5.2: the vertical component on the whole structure is a modelling choice, not said to be on the safe side', () => {
+    for (const [l, s] of each('loads.ec.seismic.verticalWhole')) expect(s, l).not.toMatch(/safe side|lado de la seguridad|favor da segurança|sicheren Seite|sens de la sécurité|güvenli taraf|biztonság javára/);
+    expect(en['loads.ec.seismic.verticalWhole']).toContain('modelling choice');
+  });
+  it('the load patterns seek the unfavourable moments, with no claim of a complete envelope', () => {
+    for (const [l, s] of each('autoLoad.patternsHintCode')) expect(s, l).not.toMatch(/give the larger|dan los momentos|dão os maiores|ergeben die größeren|donnent les plus grands|momentleri verir|adják a nagyobb/);
+  });
+  it('mesh before analysis: a plate with a current mesh keeps it, and coarse means the discretisation', () => {
+    expect(en['plates.meshBeforeAnalysisHint']).toMatch(/^A plate with a current mesh keeps it\./);
+    expect(pt['plates.meshBeforeAnalysisHint']).not.toContain('cascas grossas');
+  });
+  it('German and French wording the review found', () => {
+    expect(de['physical.pending']).not.toContain('Lesungen');
+    expect(de['rcSheets.s.negAny']).toBe('Größtes negatives Moment im Feld');
+    expect(de['loads.tr.combo.snowAsLive']).not.toContain('kar yükü');
+    expect(de['loads.ec.wind.cpe']).toContain('Beiwert für fehlende Korrelation f = {f}');
+    expect(de['loadPlan.derivation.adjacentSpans']).toContain('die die beiden Felder');
+    expect(fr['autoLoad.roof.occupancy']).toBe('Avec occupation (terrasse, jardin)');
+  });
 });
