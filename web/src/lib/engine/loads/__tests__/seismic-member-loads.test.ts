@@ -691,3 +691,90 @@ for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
     expect(direct.baseShear).toBeUndefined();
   });
 }
+
+function mixedSeismicModel(surface: 'quads' | 'plates') {
+  const model: LoadModelData = supportAtZero(mesh([[[0, 0, 0], [0, 0, 4]]]));
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+  const points = [[2, 0], [4, 0], [4, 2], [2, 2]].slice(0, surface === 'quads' ? 4 : 3);
+  const nodes = points.map(([x, y], i) => {
+    const id = i + 3;
+    model.nodes.set(id, { id, x, y, z: 4 });
+    return id;
+  });
+  model[surface] = new Map([[1, { id: 1, nodes, thickness: 0.25, materialId: 1 }]]);
+  return model;
+}
+
+function verifyShellGeometryRefusal(model: LoadModelData, elevations: number[]) {
+  for (const data of [{ coefficient: 1 }, { code: round2Code }]) {
+    const options = request(model, data, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const diagnostics = elevations.map(elevation => ({ key: 'loadPlan.blocked.seismicMass.shell', params: { elevation } }));
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual(diagnostics);
+    expect(plan.factors.seismicWeight).toBeUndefined();
+    expect(plan.factors.baseShear).toBeUndefined();
+    expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    expect([...plan.nodal, ...plan.distributed, ...plan.surface].filter(load => load.caseType === 'E')).toEqual([]);
+    expect(plan.combinations).toEqual([]);
+
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(options, plan.levels as SeismicLevel[], sink);
+    expect(sink).toMatchObject({ levelRefusals: diagnostics, cases: [], nodal: [], distributed: [], surface: [] });
+    expect(direct.seismicWeight).toBeUndefined();
+    expect(direct.baseShear).toBeUndefined();
+  }
+}
+
+const knownWrongShellGeometry = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+for (const surface of ['quads', 'plates'] as const) {
+  const invalidCoordinates = [
+    ['z', NaN], ['z', Infinity],
+    ['x', NaN], ['x', Infinity], ['x', -Infinity],
+    ['y', NaN], ['y', Infinity], ['y', -Infinity],
+  ] as const;
+  for (const [coordinate, invalid] of invalidCoordinates) {
+    knownWrongShellGeometry(`known wrong result: #2316 a mixed model refuses ${surface} with ${coordinate} = ${invalid}`, () => {
+      const model = mixedSeismicModel(surface);
+      model.nodes.get(3)![coordinate] = invalid;
+      verifyShellGeometryRefusal(model, [0, 4]);
+    });
+  }
+
+  it(`#2316 a mixed model refuses ${surface} with a negative infinite elevation`, () => {
+    const model = mixedSeismicModel(surface);
+    model.nodes.get(3)!.z = -Infinity;
+    verifyShellGeometryRefusal(model, [0, 4]);
+  });
+
+  it(`#2316 a mixed model refuses a finite sloping ${surface} surface at its elevations`, () => {
+    const model = mixedSeismicModel(surface);
+    model.nodes.get(3)!.z = 5;
+    verifyShellGeometryRefusal(model, [4, 5]);
+  });
+
+  it(`#2316 a mixed model keeps the correct frame and flat ${surface} seismic actions`, () => {
+    const plan = buildLoadPlan(request(mixedSeismicModel(surface)));
+    const shellArea = surface === 'quads' ? 4 : 2;
+    expect(plan.outcome).toBe('READY');
+    expect(plan.blockedKeys).toEqual([]);
+    expect(plan.factors.seismicWeight?.value).toBeCloseTo(4 + shellArea, 10);
+    expect(plan.factors.baseShear?.value).toBeCloseTo(4 + shellArea, 10);
+    expect(plan.nodal.filter(load => load.caseType === 'E')).toEqual([]);
+    expect(plan.distributed.filter(load => load.caseType === 'E').map(load => [load.a, load.b, load.qX, load.qXJ])).toEqual([[2, 4, 2, 2]]);
+    const shell = plan.surface.filter(load => load.caseType === 'E');
+    expect(shell.length).toBeGreaterThan(0);
+    for (const load of shell) expect(load.dir).toEqual([1, 0, 0]);
+    expect(shell.reduce((sum, load) => sum + load.q, 0)).toBeCloseTo(1, 10);
+  });
+}
+
+knownWrongShellGeometry('known wrong result: #2316 a mixed model refuses a shell with an unlocatable corner', () => {
+  const model = mixedSeismicModel('quads');
+  model.nodes.get(3)!.z = NaN;
+  model.nodes.delete(4);
+  model.nodes.delete(6);
+  verifyShellGeometryRefusal(model, [0, 4]);
+});
