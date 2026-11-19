@@ -6357,7 +6357,7 @@ const en: Record<string, string> = {
   'edit.refused.variableCut': 'A member of variable section is not cut where the section there would be no section of its ends\' kind: between two catalog profiles, or two sections that do not blend. Give its ends two sections of one template, or two drawings of the same parts.',
   'edit.refused.ambiguousRoller': 'Set explicit 3D restraints on the memberless roller before transforming it.',
   'edit.refused.missingSupportMembers': 'Include every member that defines the roller frame, or copy without supports.',
-  'edit.refused.changedSupportFrame': 'This copy would change a local roller’s axes. Adjust the placement or use an explicitly global support.',
+  'edit.refused.changedSupportFrame': 'This transform would change a local roller’s axes. Adjust the placement or use an explicitly global support.',
   'svc.engine.ambiguousRollerZ': 'rollerZ is ambiguous in 3D. Set explicit 3D restraints before solving.',
   'edit.variableNotCut': '{n} members of variable section were left whole: the section at a cut would be no section of their ends\' kind (two catalog profiles, or two sections that do not blend).',
   'edit.cleanTitle': 'Clean up',

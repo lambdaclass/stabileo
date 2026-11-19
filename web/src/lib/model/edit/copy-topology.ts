@@ -1,10 +1,9 @@
 import type { Element, Node, Support } from '../../store/model.svelte';
-import { isLocalPlaneRoller, planeMemberAngle } from '../support-types';
+import { isLocalPlaneRoller } from '../support-types';
 import { applyPoint, type Affine, type Vec3 } from './affine';
 import type { Fragment } from './fragment';
 import { NodeIndex } from './node-index';
-
-type MemberEnds = Pick<Element, 'nodeI' | 'nodeJ'>;
+import { carriedPlaneRollerFrameChanged, planeRollerFrameChanged, planeRollerFrames, type MemberEnds } from './plane-roller-frames';
 type Point = { x: number; y: number; z: number };
 
 interface PlannedCopy {
@@ -98,50 +97,34 @@ export function planCopyTopology(
   return { copies, positions, addedMembers, welded, duplicates };
 }
 
-function incidentMembers(members: Iterable<MemberEnds>): Map<number, MemberEnds[]> {
-  const index = new Map<number, MemberEnds[]>();
-  const add = (id: number, member: MemberEnds) => {
-    const atNode = index.get(id);
-    if (atNode) atNode.push(member);
-    else index.set(id, [member]);
-  };
-  for (const member of members) {
-    add(member.nodeI, member);
-    if (member.nodeJ !== member.nodeI) add(member.nodeJ, member);
-  }
-  return index;
-}
-
 export function changesPlaneRollerFrame(
   topology: CopyTopology, frag: Fragment, transforms: readonly Affine[], elements: ReadonlyMap<number, Element>,
   existingSupports: Iterable<Support>, carriedSupports: readonly Support[],
 ): boolean {
-  const existingRollers = [...existingSupports].filter(isLocalPlaneRoller);
+  const addedNodes = new Set(topology.addedMembers.flatMap(member => [member.nodeI, member.nodeJ]));
+  const existingRollers = [...existingSupports].filter(s => addedNodes.has(s.nodeId) && isLocalPlaneRoller(s));
   const carriedRollers = carriedSupports.filter(isLocalPlaneRoller);
   if (existingRollers.length === 0 && carriedRollers.length === 0) return false;
 
-  const existing = incidentMembers(elements.values());
-  const added = incidentMembers(topology.addedMembers);
-  const finalMembers = (id: number) => [...(existing.get(id) ?? []), ...(added.get(id) ?? [])];
-  const finalAngle = (id: number) => planeMemberAngle(id, topology.positions, finalMembers(id));
-  for (const { nodeId } of existingRollers) {
-    if (!added.has(nodeId)) continue;
-    const before = planeMemberAngle(nodeId, topology.positions, existing.get(nodeId) ?? []);
-    if (before !== finalAngle(nodeId)) return true;
+  const finalFrame = planeRollerFrames(topology.positions, elements.values(), topology.addedMembers);
+  if (existingRollers.length > 0) {
+    const existingFrame = planeRollerFrames(topology.positions, elements.values());
+    if (existingRollers.some(({ nodeId }) => planeRollerFrameChanged(existingFrame(nodeId), finalFrame(nodeId)))) return true;
   }
 
   if (carriedRollers.length === 0) return false;
-  const source = incidentMembers(frag.elements);
+  const sourceFrame = planeRollerFrames(new Map(frag.nodes.map(n => [n.id, n])), frag.elements);
   return topology.copies.some((copy, index) => {
-    const positions = new Map(frag.nodes.map(n => {
-      const [x, y] = applyPoint(transforms[index]!, [n.x, n.y, n.z]);
+    const T = transforms[index]!;
+    const standalonePositions = new Map(frag.nodes.map(n => {
+      const [x, y] = applyPoint(T, [n.x, n.y, n.z]);
       return [n.id, { x, y }];
     }));
+    const standaloneFrame = planeRollerFrames(standalonePositions, frag.elements);
     return carriedRollers.some(({ nodeId }) => {
-      const target = copy.nodeMap.get(nodeId)!;
-      const members = source.get(nodeId) ?? [];
-      if (members.length > 0 && finalMembers(target).length === 0) return true;
-      return planeMemberAngle(nodeId, positions, members) !== finalAngle(target);
+      const final = finalFrame(copy.nodeMap.get(nodeId)!);
+      return planeRollerFrameChanged(standaloneFrame(nodeId), final)
+        || carriedPlaneRollerFrameChanged(sourceFrame(nodeId), final, T);
     });
   });
 }

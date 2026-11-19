@@ -20,6 +20,8 @@ import { ambiguousRollerTransform, refuseSupportTransform, type SupportTransform
 import { closure, type EntitySet } from './fragment';
 import { coincidentNodeGroups, mergeNodesInto } from './cleanup';
 import { weldTolerance } from '../weld-tolerance';
+import { isLocalPlaneRoller } from '../support-types';
+import { carriedPlaneRollerFrameChanged, planeRollerFrameChanged, planeRollerFrames } from './plane-roller-frames';
 import { carriedTarget, targetNodes, type DefinitionModel, type FloorLoadDef } from '../loads/floor-definitions';
 
 export interface InPlaceReport {
@@ -30,6 +32,43 @@ export interface InPlaceReport {
   rigidMembers: number;
   stretchedMembers: number;
   warnings: Partial<Record<EditWarning, number>>;
+}
+
+function planMove(moving: ReadonlySet<number>, T: Affine, tol: number) {
+  const positions = new Map(modelStore.nodes);
+  for (const id of moving) {
+    const n = positions.get(id)!;
+    const [x, y, z] = applyPoint(T, [n.x, n.y, n.z ?? 0]);
+    positions.set(id, { ...n, x, y, z });
+  }
+
+  const welds = new Map<number, number>();
+  for (const group of coincidentNodeGroups(tol, positions)) {
+    const stays = group.find(id => !moving.has(id));
+    if (stays === undefined) continue;
+    for (const id of group) if (moving.has(id)) welds.set(id, stays);
+  }
+  return { positions, welds };
+}
+
+function moveChangesPlaneRollerFrame(
+  moving: ReadonlySet<number>, T: Affine, { positions, welds }: ReturnType<typeof planMove>,
+): boolean {
+  const rollers = [...modelStore.supports.values()].filter(isLocalPlaneRoller);
+  if (rollers.length === 0) return false;
+
+  const before = planeRollerFrames(modelStore.nodes, modelStore.elements.values());
+  const projected = planeRollerFrames(positions, modelStore.elements.values());
+  const target = (id: number) => welds.get(id) ?? id;
+  const final = welds.size === 0 ? projected : planeRollerFrames(positions, [...modelStore.elements.values()].map(e => ({
+    nodeI: target(e.nodeI),
+    nodeJ: target(e.nodeJ),
+  })));
+  return rollers.some(({ nodeId }) => {
+    const after = final(target(nodeId));
+    if (!moving.has(nodeId)) return planeRollerFrameChanged(before(nodeId), after);
+    return planeRollerFrameChanged(projected(nodeId), after) || carriedPlaneRollerFrameChanged(before(nodeId), after, T);
+  });
 }
 
 export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: boolean; weldTol?: number } = {}): InPlaceReport {
@@ -43,11 +82,19 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     return report;
   }
 
+  const tol = opts.weldTol ?? weldTolerance();
+  const planePlan = uiStore.is3DWorkspace ? null : planMove(src.nodes, T, tol);
+  if (planePlan && moveChangesPlaneRollerFrame(src.nodes, T, planePlan)) {
+    report.refused = refuseSupportTransform('changedSupportFrame');
+    return report;
+  }
+
   modelStore.batch(() => {
     // Every node is read before any moves: a standing plane model is rewritten
     // in space coordinates first, or the first move would rewrite it under the
     // coordinates already read for the rest.
     modelStore.ensureSpaceCoordinates();
+    const { positions, welds } = planePlan ?? planMove(src.nodes, T, tol);
     const before = new Map([...src.nodes].map((id) => [id, { ...modelStore.nodes.get(id)! }]));
     // What each floor-load definition loads, read before anything moves (see below).
     const defined = [...modelStore.model.groups.values()].filter((g) => g.kind === 'floorLoad' && g.data)
@@ -56,9 +103,9 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     const rigid = [...modelStore.elements.values()].filter((e) => src.nodes.has(e.nodeI) && src.nodes.has(e.nodeJ));
     report.stretchedMembers = [...modelStore.elements.values()].filter((e) => src.nodes.has(e.nodeI) !== src.nodes.has(e.nodeJ)).length;
 
-    for (const [id, n] of before) {
-      const p = applyPoint(T, [n.x, n.y, n.z ?? 0]);
-      modelStore.updateNode(id, p[0], p[1], p[2]);
+    for (const id of src.nodes) {
+      const { x, y, z } = positions.get(id)!;
+      modelStore.updateNode(id, x, y, z);
       report.movedNodes++;
     }
 
@@ -170,20 +217,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
     const next = modelStore.loads.map((l) => moved(l) ?? l);
     modelStore.replaceLoads(next);
 
-    /*
-     * A moved node that lands on a node that stayed becomes it, as a copy's does: a set moved
-     * onto the structure it belongs to is connected to it, not stacked beside it. Only moved
-     * onto stationary — two moved nodes that coincide were coincident before, and that is the
-     * clean-up's to decide.
-     */
-    const tol = opts.weldTol ?? weldTolerance();
-    const to = new Map<number, number>();
-    for (const g of coincidentNodeGroups(tol)) {
-      const stays = g.find((id) => !src.nodes.has(id));
-      if (stays === undefined) continue;
-      for (const id of g) if (src.nodes.has(id)) to.set(id, stays);
-    }
-    report.welded = to.size;
+    report.welded = welds.size;
     // Compose before welding changes the recorded node IDs. Partial edits do not move the
     // generator's coordinate frame; only a rigid move of every generated node does.
     for (const g of modelStore.model.groups.values()) {
@@ -204,7 +238,7 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
       const target = carriedTarget(def.target, T);
       if (target) modelStore.setGroupData(g.id, { ...def, target } as unknown as Record<string, unknown>);
     }
-    mergeNodesInto(to);
+    mergeNodesInto(welds);
   });
   return report;
 }

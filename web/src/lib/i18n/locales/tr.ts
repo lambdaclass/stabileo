@@ -5918,7 +5918,7 @@ const tr: Translations = {
   'edit.refused.variableCut': 'Değişken kesitli bir çubuk, oradaki kesitin uçlarındaki türde bir kesit olmayacağı yerde kesilmez: iki katalog profili veya birbirine geçiş yapmayan iki kesit arasında. Uçlarına aynı şablondan iki kesit veya aynı parçaların iki çizimini verin.',
   'edit.refused.ambiguousRoller': 'Dönüşümden önce çubuğa bağlı olmayan kayıcı mesnedin 3B kısıtlarını açıkça tanımlayın.',
   'edit.refused.missingSupportMembers': 'Kayıcı mesnedin eksenlerini tanımlayan tüm çubukları dahil edin veya mesnetler olmadan kopyalayın.',
-  'edit.refused.changedSupportFrame': 'Bu kopya, yerel eksenli bir kayıcı mesnedin eksenlerini değiştirir. Yerleşimi ayarlayın veya global eksenlerde tanımlı bir mesnet kullanın.',
+  'edit.refused.changedSupportFrame': 'Bu dönüşüm, yerel eksenli bir kayıcı mesnedin eksenlerini değiştirir. Yerleşimi ayarlayın veya global eksenlerde tanımlı bir mesnet kullanın.',
   'svc.engine.ambiguousRollerZ': 'rollerZ türü 3B’de belirsizdir. Çözümden önce 3B kısıtları açıkça tanımlayın.',
   'edit.variableNotCut': 'Değişken kesitli {n} çubuk bütün bırakıldı: kesim yerindeki kesit, uçlarındaki türde bir kesit olmazdı (iki katalog profili veya birbirine geçiş yapmayan iki kesit).',
   'edit.cleanTitle': 'Temizle',

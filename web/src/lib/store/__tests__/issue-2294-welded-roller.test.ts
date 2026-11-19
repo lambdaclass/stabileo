@@ -226,8 +226,6 @@ it('plans spatial insertion in the displayed coordinates of an upright plane mod
   expect(modelStore.nodes.get(inserted)).toMatchObject({ x: 0, y: 2 });
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
-
 function moveOntoBearing(entry: 'rotate' | 'mirror' | 'move' | 'placement', gap = 0) {
   const mirror = entry === 'mirror';
   const movingRoot = modelStore.addNode(mirror ? 5 : 3, mirror ? 1 : 2);
@@ -245,7 +243,7 @@ function moveOntoBearing(entry: 'rotate' | 'mirror' | 'move' | 'placement', gap 
 }
 
 for (const entry of ['move', 'rotate', 'mirror', 'placement'] as const) {
-  knownWrong(`known wrong result: #2294 refuses a member moved onto a stationary local roller (${entry})`, async () => {
+  it(`#2294 refuses a member moved onto a stationary local roller (${entry})`, async () => {
     const { bearing, movingRoot, tip, set } = moveOntoBearing(entry);
     await expectPlaneReaction(bearing);
     historyStore.clear();
@@ -310,7 +308,7 @@ function loadAlongBearing(bearing: number, degrees: number) {
 }
 
 for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'in place'] as const) {
-  knownWrong(`known wrong result: #2294 refuses a rigid quarter-turn that redirects a local roller (${entry})`, async () => {
+  it(`#2294 refuses a rigid quarter-turn that redirects a local roller (${entry})`, async () => {
     const { bearing, root, set } = threeRays();
     const turn = compose(translation([8, 0, 0]), rotation([0, 0, 0], [0, 0, 1], 90));
     historyStore.clear();

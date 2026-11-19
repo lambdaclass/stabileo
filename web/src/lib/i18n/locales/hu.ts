@@ -5673,7 +5673,7 @@ const hu: Translations = {
   "edit.refused.variableCut": "A változó keresztmetszetű rudat nem vágjuk el ott, ahol az ottani keresztmetszet nem lenne a végeinek fajtájú keresztmetszet: két katalógusszelvény között, vagy két egymásba nem simuló keresztmetszet között. Adjon a végeinek két, egy sablonból való keresztmetszetet, vagy ugyanazon részekből két rajzot.",
   "edit.refused.ambiguousRoller": "Az átalakítás előtt adja meg egyértelműen a rúdhoz nem kapcsolódó görgős támasz 3D megkötéseit.",
   "edit.refused.missingSupportMembers": "Jelölje ki a görgős támasz tengelyeit meghatározó összes rudat, vagy másoljon támaszok nélkül.",
-  "edit.refused.changedSupportFrame": "A másolás megváltoztatná egy görgős támasz helyi tengelyeit. Módosítsa az elhelyezést, vagy használjon globális tengelyekkel megadott támaszt.",
+  "edit.refused.changedSupportFrame": "Az átalakítás megváltoztatná egy görgős támasz helyi tengelyeit. Módosítsa az elhelyezést, vagy használjon globális tengelyekkel megadott támaszt.",
   "svc.engine.ambiguousRollerZ": "A rollerZ típus 3D-ben kétértelmű. A számítás előtt adja meg egyértelműen a 3D megkötéseket.",
   "edit.variableNotCut": "{n} változó keresztmetszetű rúd egészben maradt: a vágásnál a keresztmetszet nem lenne a végeik fajtájú keresztmetszet (két katalógusszelvény, vagy két egymásba nem simuló keresztmetszet).",
   "edit.cleanTitle": "Takarítás",

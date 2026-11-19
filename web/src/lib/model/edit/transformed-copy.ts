@@ -151,7 +151,7 @@ function insertInModelCoordinates(
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   const topology = planCopyTopology(frag, transforms, modelStore.nodes.values(), modelStore.elements.values(), tol, !!opts.link);
   const supports0 = opts.withSupports ? frag.supports : [];
-  if (!uiStore.is3DWorkspace && (topology.welded > 0 || opts.link)
+  if (!uiStore.is3DWorkspace
     && changesPlaneRollerFrame(topology, frag, transforms, modelStore.elements, modelStore.supports.values(), supports0)) {
     report.refused = refuseSupportTransform('changedSupportFrame');
     return report;
