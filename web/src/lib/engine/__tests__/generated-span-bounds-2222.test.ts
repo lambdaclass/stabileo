@@ -1,5 +1,5 @@
 import { beforeAll, expect, it, vi } from 'vitest';
-import { uiStore } from '../../store';
+import { modelStore, uiStore } from '../../store';
 import { generate } from './helpers/random-models-2d';
 import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
 import { buildSolverInput2D } from '../solver-service';
@@ -42,14 +42,19 @@ it('keeps a complete inclined influence load on its member #2222', () => {
   }
 });
 
-it('preserves all CI plastic mechanisms #2222', () => {
-  const cases = [['beam', 11], ['beam', 17], ['beam', 22], ['beam', 30], ['beam', 42], ['beam', 45], ['frame', 7], ['frame', 16], ['frame', 27], ['frame', 39], ['gable', 1], ['gable', 8], ['gable', 14], ['gable', 37], ['gable', 48], ['arch', 22], ['arch', 46], ['mixed', 6], ['mixed', 13], ['mixed', 17], ['mixed', 23], ['mixed', 28], ['mixed', 29], ['beam', 4], ['cantilever', 13], ['cantilever', 20], ['cantilever', 22], ['cantilever', 23], ['cantilever', 26], ['cantilever', 42], ['cantilever', 46], ['cantilever', 47]] as const;
-  for (const [family, seed] of cases) {
-    generate(family, seed);
-    const run = runLegacyPlasticCollapse()!;
-    expect(run.result.unresolved).toBeUndefined();
-    expect(run.result.isMechanism).toBe(true);
-  }
+it.each([
+  ['beam', 11], ['beam', 17], ['beam', 22], ['beam', 30], ['beam', 42],
+  ['beam', 45], ['frame', 7], ['frame', 16], ['frame', 27], ['frame', 39],
+  ['gable', 1], ['gable', 8], ['gable', 14], ['gable', 37], ['gable', 48],
+  ['arch', 22], ['arch', 46], ['mixed', 6], ['mixed', 13], ['mixed', 17],
+  ['mixed', 23], ['mixed', 28], ['mixed', 29], ['beam', 4], ['cantilever', 13],
+  ['cantilever', 20], ['cantilever', 22], ['cantilever', 23], ['cantilever', 26], ['cantilever', 42],
+  ['cantilever', 46], ['cantilever', 47],
+] as const)('preserves the %s seed %i plastic mechanism #2222', (family, seed) => {
+  modelStore.withoutUndo(() => generate(family, seed));
+  const run = runLegacyPlasticCollapse()!;
+  expect(run.result.unresolved).toBeUndefined();
+  expect(run.result.isMechanism).toBe(true);
 });
 
 it('retains member shear, bending and deflection under rotations and mirrors #2222', () => {

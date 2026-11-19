@@ -430,13 +430,13 @@ e2e.web.build: test.web.e2e-features
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
 # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by e2e.web.flaky.
 e2e.web.smoke:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert "@flaky|@timing" $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files) $(FILE)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky|@timing" $(if $(SHARD),$$files) $(FILE)'
 
 e2e.web.timing:
-	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
+	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@timing" --grep-invert "@flaky" $(FILE)'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -577,6 +577,7 @@ test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.re
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_route_size_from_base.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
 	python3 -B -I scripts/tests/test_e2e_timings.py
