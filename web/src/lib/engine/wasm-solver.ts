@@ -467,7 +467,7 @@ function mapToPlainObj<T>(map: Map<number, T>): Record<string, T> {
 export function assertFiniteWire(value: any, path = 'input'): void {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new Error(`Non-finite number (${value}) at ${path}`);
+      throw new CodedRefusal(`Non-finite number (${value}) at ${path}`, 'non_finite_result');
     }
     return;
   }
@@ -478,6 +478,11 @@ export function assertFiniteWire(value: any, path = 'input'): void {
   if (value !== null && typeof value === 'object') {
     for (const k of Object.keys(value)) assertFiniteWire(value[k], `${path}.${k}`);
   }
+}
+
+export function finiteWireJson(payload: unknown): string {
+  assertFiniteWire(payload);
+  return JSON.stringify(payload);
 }
 
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
@@ -1939,19 +1944,19 @@ export function solveContact3D(config: any): any {
 export function solveSSI2D(config: any): any {
   if (!wasmReady || !wasmSolveSsi2d) throw new Error('WASM SSI 2D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
+    config = { ...config, solver: input2DToWireObject(config.solver) };
   }
-  return JSON.parse(wasmSolveSsi2d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveSsi2d(finiteWireJson(config)));
 }
 
 /** Solve 3D soil-structure interaction via WASM. */
 export function solveSSI3D(config: any): any {
   if (!wasmReady || !wasmSolveSsi3d) throw new Error('WASM SSI 3D solver not available.');
   if (config.solver && config.solver.nodes instanceof Map) {
-    config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
+    config = { ...config, solver: input3DToWireObject(config.solver) };
   }
   // As the engine answers: its caller finishes what it reads (`solve-finish.ts`).
-  return JSON.parse(wasmSolveSsi3d(JSON.stringify(config)));
+  return JSON.parse(wasmSolveSsi3d(finiteWireJson(config)));
 }
 
 /** Solve 2D Winkler foundation analysis via WASM. */
@@ -2034,8 +2039,8 @@ export function solveCable2D(
   densities: Record<string, number> = {},
 ): any {
   if (!wasmReady || !wasmSolveCable2d) throw new Error('WASM cable 2D solver not available.');
-  const payload = { solver: JSON.parse(serializeInput2D(input)), densities };
-  return JSON.parse(wasmSolveCable2d(JSON.stringify(payload), maxIter, tolerance));
+  const payload = { solver: input2DToWireObject(input), densities };
+  return JSON.parse(wasmSolveCable2d(finiteWireJson(payload), maxIter, tolerance));
 }
 
 /** One cable element of a 3D cable analysis, SI units (kN, m). */
@@ -2075,9 +2080,9 @@ export function solveCable3D(
 ): CableAnalysis3D {
   if (!wasmReady || !wasmSolveCable3d) throw new Error('WASM cable 3D solver not available.');
   // The wire form does not look at the member type; it passes `cable` through to the engine.
-  const payload = { solver: JSON.parse(serializeInput3D(input as unknown as SolverInput3D)), densities, pretension };
+  const payload = { solver: input3DToWireObject(input), densities, pretension };
   // As the engine answers: its caller finishes the results (`solve-finish.ts`, member-behaviour.ts).
-  return JSON.parse(wasmSolveCable3d(JSON.stringify(payload), maxIter, tolerance)) as CableAnalysis3D;
+  return JSON.parse(wasmSolveCable3d(finiteWireJson(payload), maxIter, tolerance)) as CableAnalysis3D;
 }
 
 // ─── Harmonic Solvers ─────────────────────────────────────────────

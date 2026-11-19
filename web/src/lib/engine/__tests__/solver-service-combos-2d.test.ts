@@ -8,6 +8,7 @@
  *  - error conditions still surfacing as string returns.
  */
 
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver } from '../wasm-solver';
 import { solveCombinations2D, validateAndSolve2D, type ModelData } from '../solver-service';
@@ -219,4 +220,32 @@ it.each([false, true])('preserves the planar combination after case cancellation
   expect(reference.displacements.some(row => row.uz !== 0)).toBe(true);
   const big = 2 ** 54;
   expect(run([big, 1, -big])).toStrictEqual(reference);
+});
+
+async function checkNamedPlanarCancellation(residual: number[], cancelledWeights: number[]) {
+  await initSolver();
+  const model = beamModel();
+  for (const active of [cases, [cases[0], { ...cases[1], name: cases[0].name }]]) {
+    const run = (weights: number[]) => solveCombinations2D(model, active, [
+      { ...combos[0], factors: weights.map(factor => ({ caseId: 1, factor })) },
+    ]);
+    const reference = run([1]);
+    if (!reference || typeof reference === 'string') throw new Error(String(reference));
+    const tip = reference.perCombo.get(combos[0].id)!.displacements.find(row => row.nodeId === 2)!;
+    expect(tip.uz).not.toBe(0);
+    const preserved = run(residual);
+    expect.soft(typeof preserved === 'string' ? preserved : preserved?.perCombo.get(combos[0].id))
+      .toStrictEqual(reference.perCombo.get(combos[0].id));
+    const refused = run(cancelledWeights);
+    expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combos[0].id)?.displacements)
+      .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+  }
+}
+
+it('#2292 the planar named cantilever combination refuses complete case cancellation', async () => {
+  await checkNamedPlanarCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
+});
+
+it('#2292 the planar named cantilever combination distinguishes exact cancellation from a unit residual', async () => {
+  await checkNamedPlanarCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
 });

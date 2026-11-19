@@ -1,0 +1,30 @@
+{
+  "id": "spring-and-combination-refusals",
+  "date": "2026-11-19",
+  "prs": [],
+  "area": "analysis",
+  "when": { "any": ["springs", "repeatedCombinationCases"] },
+  "quantities": ["solve.ok"],
+  "title": {
+    "en": "Non-finite springs and fully cancelled combinations are refused",
+    "es": "Se rechazan los resortes no finitos y las combinaciones que se cancelan por completo",
+    "pt": "Molas não finitas e combinações que se cancelam por completo são recusadas",
+    "de": "Nicht endliche Federn und vollständig aufgehobene Kombinationen werden abgelehnt",
+    "fr": "Les ressorts de raideur non finie et les combinaisons entièrement annulées sont refusés",
+    "hu": "A nem véges rugómerevség és a teljesen kioltott kombináció hibát eredményez",
+    "tr": "Sonlu olmayan yay rijitliği ve tamamen sıfırlanan birleşimler reddediliyor"
+  },
+  "explanation": {
+    "en": "Cable and soil–structure interaction analyses now refuse non-finite support stiffness. A combination is refused when its nonzero factors cancel to zero for every load case. Review the affected stiffness or factors before solving again.",
+    "es": "Los análisis de cables y de interacción suelo–estructura ahora rechazan las rigideces de apoyo no finitas. Se rechaza una combinación cuando sus factores no nulos se cancelan en todos los casos de carga. Revisá la rigidez o los factores afectados antes de volver a calcular.",
+    "pt": "As análises de cabos e de interação solo–estrutura agora recusam rigidezes de apoio não finitas. Uma combinação é recusada quando seus fatores não nulos se cancelam em todos os casos de carga. Revise a rigidez ou os fatores afetados antes de recalcular.",
+    "de": "Seilanalysen und Analysen der Boden-Bauwerk-Interaktion lehnen jetzt nicht endliche Lagersteifigkeiten ab. Eine Kombination wird abgelehnt, wenn sich ihre von null verschiedenen Faktoren für jeden Lastfall zu null aufheben. Prüfen Sie die betroffene Steifigkeit oder die Faktoren vor einer erneuten Berechnung.",
+    "fr": "Les analyses de câbles et d’interaction sol–structure refusent désormais les raideurs d’appui non finies. Une combinaison est refusée lorsque ses coefficients non nuls s’annulent pour tous les cas de charge. Vérifiez la raideur ou les coefficients concernés avant de relancer le calcul.",
+    "hu": "A kábel- és talaj–szerkezet-kölcsönhatási számítások elutasítják a nem véges támaszmerevséget. A kombináció számítása leáll, ha a nem nulla tényezők minden teheresetnél kioltják egymást. Újraszámítás előtt ellenőrizze az érintett merevséget vagy tényezőket.",
+    "tr": "Kablo ve zemin–yapı etkileşimi analizleri artık sonlu olmayan mesnet rijitliğini reddediyor. Sıfır olmayan katsayıları her yük durumu için birbirini götüren birleşimler reddediliyor. Yeniden çözmeden önce ilgili rijitliği veya katsayıları gözden geçirin."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-spring-and-combination-refusals.md",
+    "heading": "Refuse non-finite springs and fully cancelled combinations (2026-11-19)"
+  }
+}

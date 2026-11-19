@@ -3844,6 +3844,8 @@ const fr: Translations = {
   'svc.errorInCase': 'Erreur dans le cas « {n} » : {err}',
   'svc.errorInCase3d': 'Erreur dans le cas 3D « {n} » : {err}',
   'svc.engine.mechanism': 'Matrice de rigidité singulière : la structure est un mécanisme',
+  'svc.engine.cancelledCombination': "Les coefficients des cas de charge répétés s’annulent dans cette combinaison.",
+  'svc.engine.nonFiniteNumber': "Nombre non fini ({value}) dans {path}",
   'svc.engine.zeroDiagonal': 'Tous les termes diagonaux sont nuls : matrice singulière',
   'svc.engine.singular': 'Matrice de rigidité singulière',
   'svc.settlementCase': 'Tassements imposés',
