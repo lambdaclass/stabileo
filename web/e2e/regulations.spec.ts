@@ -344,7 +344,7 @@ test.describe('@smoke regulation-backed load generation', () => {
   });
 
   for (const base of [-5, 10, 0]) {
-    test.skip(`known wrong result: #2316 the seismic preview shows the roof above a ${base} m support datum`, async ({ pro: page }) => {
+    test(`#2316 the seismic preview shows the roof above a ${base} m support datum`, async ({ pro: page }) => {
       await loadSeismicFloor(page, base);
       await openSeismicLoadGenerator(page);
       await dwellingFloorLoads(page);

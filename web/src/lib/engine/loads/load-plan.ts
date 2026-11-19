@@ -44,7 +44,7 @@ import {
 } from '../../codes/regulation';
 import type { DestinationGroup, OccupancyProbability, SeismicZone, SiteClass } from '../../codes/cirsoc103/spectrum';
 import { SIMULTANEITY_F2 } from '../../codes/cirsoc103/spectrum';
-import type { PeriodSystem, PlanRegularity } from '../../codes/cirsoc103/static-method';
+import type { MassLevel, PeriodSystem, PlanRegularity } from '../../codes/cirsoc103/static-method';
 import { dedupeMessages, msg, round, type EngineMessage } from '../../codes/message';
 import type { ProjectRegulations } from '../../codes/roles';
 import { findOption, optionLabel, roleUsable } from '../../codes/roles';
@@ -384,6 +384,7 @@ export type PlanOutcome = 'READY' | 'BLOCKED';
 /** What the static method concluded, so the report can show the derivation. */
 export interface SeismicPlanDetail {
   source: 'cirsoc103' | 'manual';
+  stories: readonly MassLevel[];
   zone?: SeismicZone;
   spectralType?: 1 | 2 | 3;
   ca?: number;

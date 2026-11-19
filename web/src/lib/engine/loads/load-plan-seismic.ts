@@ -46,10 +46,8 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
-    const stories = levels.flatMap(level => {
-      const h = level.elevation - base;
-      return h > 0 && level.weightKN > 0 ? [{ level, h, w: level.weightKN }] : [];
-    });
+    const storyLevels = levels.filter(level => level.elevation > base && level.weightKN > 0);
+    const stories = storyLevels.map(level => ({ h: level.elevation - base, w: level.weightKN }));
     const W = stories.reduce((sum, story) => sum + story.w, 0);
     if (W <= 0) {
       unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
@@ -58,7 +56,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       let C = input.seismic.coefficient;
       let uncappedT = 0;
       let t2 = Infinity;
-      seismicDetail = { source: 'manual', c: C };
+      seismicDetail = { source: 'manual', c: C, stories };
 
       if (code) {
         const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
@@ -101,7 +99,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             derivation.push(period.derivation, ...coeff.derivation);
             assumptions.push(...spectrum.assumptions);
             seismicDetail = {
-              source: 'cirsoc103', zone: spectrum.zone, spectralType: spectrum.type,
+              source: 'cirsoc103', stories, zone: spectrum.zone, spectralType: spectrum.type,
               ca: spectrum.ca, cv: spectrum.cv, t1: spectrum.t1, t2: spectrum.t2,
               t3: spectrum.t3, t: period.t, ta: period.ta, periodCapped: period.capped,
               r: R, gammaR: coeff.gammaR, c: C, floorApplied: coeff.floorApplied,
@@ -115,7 +113,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       seismicWeight = fromProject(W, 'kN');
       baseShear = fromProject(V0, 'kN');
 
-      const dist = distributeInHeight(stories.map(({ h, w }) => ({ h, w })), V0, uncappedT, t2);
+      const dist = distributeInHeight(stories, V0, uncappedT, t2);
       refs.push(...dist.refs);
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
@@ -127,7 +125,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       }
       if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
       for (const c of staticSeismicCases({
-        levels: stories.map(story => story.level), forces: staticForces, diagonal: input.seismic.diagonal,
+        levels: storyLevels, forces: staticForces, diagonal: input.seismic.diagonal,
         directions: input.seismic.directions, torsion,
       }, refuse)) {
         const index = cases.length;

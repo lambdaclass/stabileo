@@ -370,18 +370,6 @@
     if (!open) untrack(() => { plan = null; delta = null; applyError = null; });
   });
 
-
-  // The old seismic preview computed floor weights as
-  //   (totalDead + 0.25 * occupancyQ) * 50   // "rough 50m2 per floor"
-  // with 50 m2 a literal, so every floor of every building weighed the same regardless of
-  // its plan. It is gone. The preview now comes from the plan, whose level masses are
-  // built from member self-weight plus applied loads over each level's TRUE plan extent.
-  const seismicPreview = $derived(plan?.factors.baseShear ? {
-    W: plan.factors.seismicWeight?.value ?? 0,
-    V0: plan.factors.baseShear.value,
-    levels: plan.seismicLevels?.filter(l => l.elevation > 0) ?? [],
-  } : null);
-
   function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
     const w = windStructure;
     switch (w.kind) {
@@ -819,10 +807,9 @@
                   w: (plan.factors.seismicWeight?.value ?? 0).toFixed(1),
                   v: plan.factors.baseShear.value.toFixed(1) })}</p>
               {/if}
-              <!-- The seismic figures come from the PLAN, whose level masses are real. -->
-              {#if seismicPreview}
+              {#if plan.seismic}
                 <div class="al-readout" data-testid="al-seismic-preview">
-                  {#if plan.seismic?.source === 'cirsoc103'}
+                  {#if plan.seismic.source === 'cirsoc103'}
                     <div data-testid="al-seismic-coefficient">
                       {tp('autoLoad.coefficientLine', {
                         c: plan.seismic.c.toFixed(4), t: (plan.seismic.t ?? 0).toFixed(3), ta: (plan.seismic.ta ?? 0).toFixed(3),
@@ -830,11 +817,11 @@
                       })}
                     </div>
                   {/if}
-                  {#each seismicPreview.levels as lv (lv.elevation)}
-                    <div>+{lv.elevation.toFixed(2)} m · Wi = {lv.weightKN.toFixed(1)} kN</div>
+                  {#each plan.seismic.stories as { h, w }}
+                    <div>+{h.toFixed(2)} m · Wi = {w.toFixed(1)} kN</div>
                   {/each}
                 </div>
-                {#if plan.seismic?.source === 'cirsoc103'}
+                {#if plan.seismic.source === 'cirsoc103'}
                   {#if plan.seismic.periodCapped}<p class="al-hint">{t('autoLoad.periodCapped')}</p>{/if}
                   {#if plan.seismic.floorApplied === 'nearFault'}<p class="al-hint">{t('autoLoad.floorNearFault')}</p>
                   {:else if plan.seismic.floorApplied === 'lowZone'}<p class="al-hint">{t('autoLoad.floorLowZone')}</p>{/if}
