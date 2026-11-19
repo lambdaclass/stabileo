@@ -3,8 +3,10 @@ import {
   buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, validateAndSolve3D,
 } from '../../engine/solver-service';
 import { solvePDelta } from '../../engine/wasm-solver';
+import type { Reaction } from '../../engine/types';
+import { t } from '../../i18n';
 import { translation } from '../../model/edit/affine';
-import { detach, fragmentOf } from '../../model/edit/fragment';
+import { detach, fragmentOf, fragmentFromMembers } from '../../model/edit/fragment';
 import { copyTransformed, insertFragment } from '../../model/edit/transformed-copy';
 import { historyStore } from '../history.svelte';
 import { copySelection, paste } from '../model-clipboard';
@@ -63,16 +65,14 @@ async function expectVerticalReaction(bearing: number) {
   ];
   for (const result of results) {
     if (!result || typeof result === 'string') throw new Error(String(result));
-    const reaction = result.reactions.find(r => r.nodeId === bearing);
+    const reaction = result.reactions.find((r: Reaction) => r.nodeId === bearing);
     expect.soft(reaction?.rx).toBeCloseTo(0, 12);
     expect.soft(reaction?.rz).toBeCloseTo(force, 12);
   }
 }
 
-const issue2294Weld = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
-
 for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'paste in place'] as const) {
-  issue2294Weld(`known wrong result: #2294 refuses a complete vertical roller copied onto a horizontal bearing (${entry})`, async () => {
+  it(`#2294 refuses a complete vertical roller copied onto a horizontal bearing (${entry})`, async () => {
     const { set, root } = source();
     const detached = detach(fragmentOf(set, withSupports));
     if (entry.startsWith('clipboard') || entry === 'paste in place') {
@@ -98,7 +98,7 @@ for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'paste
     } else {
       expect.soft(paste(true)).toBe(false);
     }
-    expect.soft(uiStore.toasts.at(-1)).toMatchObject({ type: 'error' });
+    expect.soft(uiStore.toasts.at(-1)).toMatchObject({ type: 'error', message: t('edit.refused.changedSupportFrame') });
     expect.soft(modelStore.snapshot()).toEqual(before);
     expect.soft(modelStore.modelVersion).toBe(version);
     expect.soft(historyStore.undoCount).toBe(0);
@@ -106,7 +106,7 @@ for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'paste
   });
 }
 
-issue2294Weld('known wrong result: #2294 refuses a change to a destination roller when copying geometry alone', () => {
+it('#2294 refuses a change to a destination roller when copying geometry alone', () => {
   const { set } = source();
   destination(4);
   const before = modelStore.snapshot();
@@ -114,7 +114,7 @@ issue2294Weld('known wrong result: #2294 refuses a change to a destination rolle
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-issue2294Weld('known wrong result: #2294 refuses welding a carried local roller onto an unsupported horizontal member', () => {
+it('#2294 refuses welding a carried local roller onto an unsupported horizontal member', () => {
   const { set } = source();
   const bearing = modelStore.addNode(4, 2);
   modelStore.addElement(bearing, modelStore.addNode(6, 2));
@@ -123,7 +123,7 @@ issue2294Weld('known wrong result: #2294 refuses welding a carried local roller 
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-issue2294Weld('known wrong result: #2294 refuses when the other end of a bearing member welds off its transformed axis', () => {
+it('#2294 refuses when the other end of a bearing member welds off its transformed axis', () => {
   const { set } = source();
   const weldTol = 0.01;
   modelStore.addNode(4 + weldTol / 2, 0);
@@ -132,7 +132,7 @@ issue2294Weld('known wrong result: #2294 refuses when the other end of a bearing
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-issue2294Weld('known wrong result: #2294 refuses a repeat when a later copy changes the frame of an earlier copy', () => {
+it('#2294 refuses a repeat when a later copy changes the frame of an earlier copy', () => {
   const { set } = source();
   const horizontal = { A: [0, 1, 0, -1, 0, 0, 0, 0, 1], t: [2, 2, 0] } as const;
   const before = modelStore.snapshot();
@@ -140,7 +140,7 @@ issue2294Weld('known wrong result: #2294 refuses a repeat when a later copy chan
   expect(modelStore.snapshot()).toEqual(before);
 });
 
-issue2294Weld('known wrong result: #2294 refuses links that change the roller frame', () => {
+it('#2294 refuses links that change the roller frame', () => {
   const { set } = source();
   const before = modelStore.snapshot();
   const link = { type: 'frame' as const, materialId: 1, sectionId: 1 };
@@ -206,4 +206,20 @@ it('#2294 permits a spatial weld at a roller with explicit global restraints', (
   const result = validateAndSolve3D(modelStore.model);
   if (!result || typeof result === 'string') throw new Error(String(result));
   expect(result.reactions.find(r => r.nodeId === bearing)?.fz).toBeCloseTo(force, 12);
+});
+
+it('plans spatial insertion in the displayed coordinates of an upright plane model', () => {
+  const { bearing } = source();
+  uiStore.analysisMode = 'pro';
+  uiStore.useUpright2DIn3DPresentation();
+  const frag = fragmentFromMembers(
+    [{ id: 1, x: 4, y: 0, z: 2 }, { id: 2, x: 0, y: 2, z: 0 }],
+    [{ nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }],
+  );
+  const report = insertFragment(frag, [translation([0, 0, 0])]);
+  expect(report.welded).toBe(0);
+  expect(report.nodes).toHaveLength(2);
+  expect(modelStore.nodes.get(bearing)).toMatchObject({ x: 0, y: 0, z: 2 });
+  const inserted = report.maps[0]!.nodes.get(2)!;
+  expect(modelStore.nodes.get(inserted)).toMatchObject({ x: 0, y: 2 });
 });

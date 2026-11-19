@@ -13,6 +13,30 @@ export function isPlaneRoller(type: unknown): boolean {
   return type === 'rollerX' || type === 'rollerY' || type === 'rollerZ';
 }
 
+export function isLocalPlaneRoller(support: { type: unknown; isGlobal?: boolean }): boolean {
+  return support.isGlobal === false && isPlaneRoller(support.type);
+}
+
+export function planeMemberAngle(
+  nodeId: number, nodes: ReadonlyMap<number, { x: number; y: number }>,
+  elements: Iterable<{ nodeI: number; nodeJ: number }>,
+): number {
+  let sumAngle = 0, count = 0;
+  for (const elem of elements) {
+    if (elem.nodeI === nodeId || elem.nodeJ === nodeId) {
+      const ni = nodes.get(elem.nodeI);
+      const nj = nodes.get(elem.nodeJ);
+      if (!ni || !nj) continue;
+      const angle = elem.nodeI === nodeId
+        ? Math.atan2(nj.y - ni.y, nj.x - ni.x)
+        : Math.atan2(ni.y - nj.y, ni.x - nj.x);
+      sumAngle += angle;
+      count++;
+    }
+  }
+  return count > 0 ? sumAngle / count : 0;
+}
+
 export function resolvePlaneSupportSettlement(support: {
   dy?: number;
   dz?: number;

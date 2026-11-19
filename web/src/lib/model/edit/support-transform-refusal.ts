@@ -4,7 +4,13 @@ import type { Element, Support } from '../../store/model.svelte';
 import { isBareRollerZ } from '../support-types';
 import { isTranslation, type Affine } from './affine';
 
-export type SupportTransformRefusal = 'ambiguousRoller' | 'missingSupportMembers';
+const refusalMessages = {
+  ambiguousRoller: 'edit.refused.ambiguousRoller',
+  missingSupportMembers: 'edit.refused.missingSupportMembers',
+  changedSupportFrame: 'edit.refused.changedSupportFrame',
+} as const;
+
+export type SupportTransformRefusal = keyof typeof refusalMessages;
 
 export function ambiguousRollerTransform(
   supports: Iterable<Support>,
@@ -23,6 +29,6 @@ export function ambiguousRollerTransform(
 }
 
 export function refuseSupportTransform(reason: SupportTransformRefusal): SupportTransformRefusal {
-  uiStore.toast(t(reason === 'ambiguousRoller' ? 'edit.refused.ambiguousRoller' : 'edit.refused.missingSupportMembers'), 'error');
+  uiStore.toast(t(refusalMessages[reason]), 'error');
   return reason;
 }

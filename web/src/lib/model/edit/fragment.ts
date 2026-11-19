@@ -14,7 +14,7 @@
  * into another project does not point a member at whatever section happens to carry its old id.
  */
 import { modelStore } from '../../store/model.svelte';
-import { isPlaneRoller } from '../support-types';
+import { isLocalPlaneRoller } from '../support-types';
 import { generatedMetadata } from './generated-metadata';
 import type {
   Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support,
@@ -99,7 +99,7 @@ export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment
   const localSupportNodes = new Set(frag.supports.filter(s => s.isGlobal === false).map(s => s.nodeId));
   if (localSupportNodes.size > 0) {
     const withMembers = new Set<number>();
-    const localRollerNodes = new Set(frag.supports.filter(s => s.isGlobal === false && isPlaneRoller(s.type)).map(s => s.nodeId));
+    const localRollerNodes = new Set(frag.supports.filter(isLocalPlaneRoller).map(s => s.nodeId));
     for (const member of modelStore.elements.values()) {
       if (localSupportNodes.has(member.nodeI)) withMembers.add(member.nodeI);
       if (localSupportNodes.has(member.nodeJ)) withMembers.add(member.nodeJ);

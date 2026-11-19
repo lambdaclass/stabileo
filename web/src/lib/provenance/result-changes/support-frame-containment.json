@@ -1,7 +1,7 @@
 {
   "id": "support-frame-containment",
   "date": "2026-11-19",
-  "prs": [],
+  "prs": [2340],
   "area": "analysis",
   "when": {
     "any": [
@@ -19,13 +19,13 @@
     "hu": "Egyértelmű támasztengelyeket igénylő görgőstámasz-módosítások"
   },
   "explanation": {
-    "en": "Copies with a local plane roller require its reference members. A memberless 3D roller may require explicit restraints before a transform. Snapshots preserve the recorded roller type. Review the axes of previously copied or edited rollers before rerunning analysis.",
-    "es": "Las copias con un rodillo local en el plano requieren sus barras de referencia. Un rodillo 3D sin barras puede requerir restricciones explícitas antes de una transformación. Las instantáneas conservan el tipo registrado. Revisá los ejes de los rodillos copiados o editados antes de repetir el análisis.",
-    "pt": "Cópias com um apoio móvel plano em eixos locais exigem suas barras de referência. Um apoio móvel 3D sem barras pode exigir restrições explícitas antes de uma transformação. Os instantâneos preservam o tipo registrado. Revise os eixos dos apoios copiados ou editados antes de repetir a análise.",
-    "de": "Beim Kopieren eines ebenen Rollenlagers im lokalen Bezugssystem müssen seine Bezugsstäbe einbezogen werden. Ein 3D-Rollenlager ohne angeschlossene Stäbe kann vor der Transformation ausdrückliche Bindungen erfordern. Gespeicherte Modellstände erhalten den Lagertyp. Prüfen Sie die Achsen zuvor kopierter oder bearbeiteter Lager vor einer erneuten Berechnung.",
-    "fr": "La copie d’un appui à rouleaux plan en axes locaux exige ses barres de référence. Un appui 3D sans barre peut exiger des blocages explicites avant une transformation. Les instantanés conservent le type enregistré. Vérifiez les axes des appuis précédemment copiés ou modifiés avant de relancer le calcul.",
-    "tr": "Yerel eksenli düzlem kayıcı mesnetlerin kopyalanması için referans çubukları gerekir. Çubuğa bağlı olmayan bir 3B kayıcı mesnet, dönüşümden önce açıkça tanımlanmış kısıtlar gerektirebilir. Kayıtlar mesnet tipini korur. Analizi yenilemeden önce daha önce kopyalanan veya düzenlenen mesnetlerin eksenlerini gözden geçirin.",
-    "hu": "A helyi tengelyű síkbeli görgős támasz másolásához a vonatkoztatási rudak is szükségesek. A rúdhoz nem kapcsolódó 3D görgős támasz megkötéseit az átalakítás előtt esetenként külön meg kell adni. A pillanatkép megőrzi a támasz típusát. Újraszámítás előtt ellenőrizze a korábban másolt vagy módosított támaszok tengelyeit."
+    "en": "Copies with a local plane roller require its reference members. A copy is refused if welding or linking would change a local plane roller’s axes. A memberless 3D roller may require explicit restraints before a transform. Snapshots preserve the recorded roller type. Review the axes of previously copied or edited rollers before rerunning analysis.",
+    "es": "Las copias con un rodillo local en el plano requieren sus barras de referencia. Se rechaza la copia si la unión de nodos o la adición de barras de enlace cambiaría los ejes de un rodillo local en el plano. Un rodillo 3D sin barras puede requerir restricciones explícitas antes de una transformación. Las instantáneas conservan el tipo registrado. Revisá los ejes de los rodillos copiados o editados antes de repetir el análisis.",
+    "pt": "Cópias com um apoio móvel plano em eixos locais exigem suas barras de referência. A cópia é recusada se a união de nós ou a adição de barras de ligação alterar os eixos de um apoio móvel plano em eixos locais. Um apoio móvel 3D sem barras pode exigir restrições explícitas antes de uma transformação. Os instantâneos preservam o tipo registrado. Revise os eixos dos apoios copiados ou editados antes de repetir a análise.",
+    "de": "Beim Kopieren eines ebenen Rollenlagers im lokalen Bezugssystem müssen seine Bezugsstäbe einbezogen werden. Die Kopie wird abgelehnt, wenn das Verbinden von Knoten oder das Hinzufügen von Verbindungsstäben die lokalen Achsen eines ebenen Rollenlagers ändern würde. Ein 3D-Rollenlager ohne angeschlossene Stäbe kann vor der Transformation ausdrückliche Bindungen erfordern. Gespeicherte Modellstände erhalten den Lagertyp. Prüfen Sie die Achsen zuvor kopierter oder bearbeiteter Lager vor einer erneuten Berechnung.",
+    "fr": "La copie d’un appui à rouleaux plan en axes locaux exige ses barres de référence. La copie est refusée si la fusion de nœuds ou l’ajout de barres de liaison modifie les axes locaux d’un appui à rouleaux plan. Un appui 3D sans barre peut exiger des blocages explicites avant une transformation. Les instantanés conservent le type enregistré. Vérifiez les axes des appuis précédemment copiés ou modifiés avant de relancer le calcul.",
+    "tr": "Yerel eksenli düzlem kayıcı mesnetlerin kopyalanması için referans çubukları gerekir. Düğümlerin birleştirilmesi veya bağlantı çubuklarının eklenmesi düzlemdeki bir kayıcı mesnedin yerel eksenlerini değiştirecekse kopyalama reddedilir. Çubuğa bağlı olmayan bir 3B kayıcı mesnet, dönüşümden önce açıkça tanımlanmış kısıtlar gerektirebilir. Kayıtlar mesnet tipini korur. Analizi yenilemeden önce daha önce kopyalanan veya düzenlenen mesnetlerin eksenlerini gözden geçirin.",
+    "hu": "A helyi tengelyű síkbeli görgős támasz másolásához a vonatkoztatási rudak is szükségesek. A másolás elutasításra kerül, ha a csomópontok egyesítése vagy összekötő rudak hozzáadása megváltoztatná a síkbeli görgős támasz helyi tengelyeit. A rúdhoz nem kapcsolódó 3D görgős támasz megkötéseit az átalakítás előtt esetenként külön meg kell adni. A pillanatkép megőrzi a támasz típusát. Újraszámítás előtt ellenőrizze a korábban másolt vagy módosított támaszok tengelyeit."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-support-frame-containment.md",
