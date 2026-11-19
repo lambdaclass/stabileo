@@ -1,7 +1,5 @@
 export class HeroLoop {
   u = $state(0);
-  hovered = $state(false);
-  paused = $state(false);
   laps = $state(0);
   readonly #period: number;
   readonly #reduced: () => boolean;
@@ -26,7 +24,7 @@ export class HeroLoop {
       last = now;
       if (this.#reduced()) {
         this.u = this.#still;
-      } else if (!this.hovered && !this.paused) {
+      } else {
         const next = this.u + dt / this.#period;
         if (next >= 1) this.laps += 1;
         this.u = next % 1;
@@ -40,10 +38,3 @@ export class HeroLoop {
 
 export const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 export const smooth = (x: number) => { const c = clamp01(x); return c * c * (3 - 2 * c); };
-
-export function mouseOnly(set: (on: boolean) => void) {
-  return {
-    enter: (e: PointerEvent) => { if (e.pointerType === 'mouse') set(true); },
-    leave: () => set(false),
-  };
-}

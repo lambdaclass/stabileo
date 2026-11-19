@@ -665,16 +665,13 @@ test.describe('@landing landing page', () => {
     }
   });
 
-  test('the hero animation pauses on hover', async ({ page }) => {
+  test('the hero animation keeps moving under the mouse', async ({ page }) => {
     await bootLanding(page);
     await showHeroTruss(page);
-    const svg = page.locator('.landing .hero-figure svg');
-    await svg.hover();
-    await page.waitForTimeout(400);
-    const a = await page.locator('.landing .hero-figure .tf-load').getAttribute('transform');
-    await page.waitForTimeout(1200);
-    const b = await page.locator('.landing .hero-figure .tf-load').getAttribute('transform');
-    expect(b, 'hovering must freeze the sweep').toBe(a);
+    await page.locator('.landing .hero-figure svg').hover();
+    const load = page.locator('.landing .hero-figure .tf-load');
+    const a = await load.getAttribute('transform');
+    await expect.poll(() => load.getAttribute('transform'), { message: 'hovering must not hold the sweep', timeout: 3000 }).not.toBe(a);
   });
 
   test('reduced motion gets a static, representative state', async ({ browser }) => {
