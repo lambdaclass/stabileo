@@ -15,7 +15,7 @@ export async function loadSeismicFloor(page: Page, baseElevation = 0): Promise<v
   }, baseElevation)).toBe(true);
 }
 
-export async function expectGeneratedSeismicCarriers(page: Page): Promise<void> {
+export async function expectGeneratedSeismicStoryLoads(page: Page): Promise<void> {
   const cases = await page.evaluate(() => {
     const { snapshot } = JSON.parse(window.__stabileo.serializeProject()) as DedalFile;
     return (snapshot.loadCases ?? []).filter(c => c.type === 'E').map(c => {
@@ -23,14 +23,15 @@ export async function expectGeneratedSeismicCarriers(page: Page): Promise<void> 
       return {
         name: c.name,
         types: [...new Set(loads.map(l => l.type))].sort(),
-        shells: [...new Set(loads.filter(l => l.type === 'surface3d').map(l => l.data.quadId))],
+        nodes: [...new Set(loads.flatMap(l => l.type === 'nodal3d' ? [l.data.nodeId] : []))].sort((a, b) => a - b),
+        shellCorners: snapshot.quads?.[0]?.[1].nodes,
       };
     });
   });
   expect(cases.length).toBeGreaterThan(0);
   for (const seismicCase of cases) {
-    expect(seismicCase.types, seismicCase.name).toEqual(['distributed3d', 'surface3d']);
-    expect(seismicCase.shells, seismicCase.name).toEqual([1]);
+    expect(seismicCase.types, seismicCase.name).toEqual(['nodal3d']);
+    expect(seismicCase.nodes, seismicCase.name).toEqual(expect.arrayContaining(seismicCase.shellCorners!));
   }
 }
 

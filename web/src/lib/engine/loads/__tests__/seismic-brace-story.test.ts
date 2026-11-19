@@ -40,40 +40,13 @@ regression('known wrong result: #2330 a connected X brace intersection is not a 
   expect.soft(plan.factors.baseShear?.value).toBeCloseTo(roofForce, 10);
 
   const nodal = plan.nodal.filter(load => load.caseType === 'E');
-  const loads = plan.distributed.filter(load => load.caseType === 'E');
-  expect.soft(nodal).toEqual([]);
-  const loadedSpans = new Map([[1, [2, 4]], [2, [2, 4]], [3, [0, 4]], [6, [0, 2 * Math.SQRT2]], [7, [0, 2 * Math.SQRT2]]]);
-  for (const id of model.elements.keys()) {
-    const expected = loadedSpans.get(id);
-    const pieces = loads.filter(load => load.elementId === id);
-    expect.soft(pieces, `member ${id}`).toHaveLength(expected ? 1 : 0);
-    if (!expected || !pieces[0]) continue;
-    const piece = pieces[0];
-    expect.soft(piece.frame).toBe('global');
-    expect.soft(piece.a).toBeCloseTo(expected[0]!, 10);
-    expect.soft(piece.b).toBeCloseTo(expected[1]!, 10);
-    expect.soft(piece.qX).toBeCloseTo(2, 10);
-    expect.soft(piece.qXJ).toBeCloseTo(2, 10);
-  }
+  expect.soft(plan.distributed.filter(load => load.caseType === 'E')).toEqual([]);
+  expect.soft(plan.surface.filter(load => load.caseType === 'E')).toEqual([]);
+  expect.soft(nodal.map(load => load.nodeId)).toEqual([3, 4]);
+  for (const load of nodal) expect.soft(load.fx).toBeCloseTo(roofForce / 2, 10);
 
-  function shearAbove(z: number) {
-    let shear = nodal.reduce((sum, load) => sum + (model.nodes.get(load.nodeId)!.z! > z ? load.fx : 0), 0);
-    for (const load of loads) {
-      const member = model.elements.get(load.elementId)!;
-      const i = model.nodes.get(member.nodeI)!, j = model.nodes.get(member.nodeJ)!;
-      const rise = j.z! - i.z!;
-      const length = Math.hypot(j.x - i.x, j.y - i.y, rise);
-      const a = load.a ?? 0, b = load.b ?? length;
-      const start = rise === 0 ? (i.z! > z ? a : b) : Math.max(a, (z - i.z!) * length / rise);
-      if (start >= b) continue;
-      const qI = load.qX ?? 0, qJ = load.qXJ ?? qI;
-      const qStart = qI + (qJ - qI) * (start - a) / (b - a);
-      shear += (b - start) * (qStart + qJ) / 2;
-    }
-    return shear;
+  for (const elevation of [0, 2, 3]) {
+    const shear = nodal.reduce((sum, load) => sum + (model.nodes.get(load.nodeId)!.z! > elevation ? load.fx : 0), 0);
+    expect.soft(shear).toBeCloseTo(roofForce, 10);
   }
-
-  expect.soft(shearAbove(0)).toBeCloseTo(roofForce, 10);
-  expect.soft(shearAbove(2)).toBeCloseTo(roofForce, 10);
-  expect.soft(shearAbove(3)).toBeCloseTo(12 + 4 * Math.SQRT2, 10);
 });

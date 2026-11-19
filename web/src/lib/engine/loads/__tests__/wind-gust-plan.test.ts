@@ -320,8 +320,9 @@ it('#2316 enabling seismic leaves wind levels, frequencies and member loads unch
   const windOnly = plan(approximate, model, off);
   const combined = plan(approximate, model, seismic);
   expect(windOnly.outcome, JSON.stringify(windOnly.blockedKeys)).toBe('READY');
-  expect(combined.outcome, JSON.stringify(combined.blockedKeys)).toBe('READY');
-  expect(combined.distributed.some(load => load.caseType === 'E')).toBe(true);
+  expect(combined.outcome).toBe('BLOCKED');
+  expect(combined.blockedKeys).toEqual([{ key: 'loadPlan.blocked.seismicMass.storyNode', params: { elevation: storyHeight } }]);
+  expect(combined.nodal.some(load => load.caseType === 'E')).toBe(true);
 
   const windActions = (p: ReturnType<typeof plan>) => ({
     cases: p.cases.filter(c => c.type === 'W' || c.type === 'Wa'),

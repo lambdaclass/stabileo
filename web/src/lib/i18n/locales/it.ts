@@ -27,6 +27,8 @@ const it: Translations = {
   "loadPlan.blocked.modalUnavailable": "La generazione dei carichi sismici modali è disabilitata finché non sarà corretta la distribuzione delle forze modali. Usa il metodo statico.",
   "loadPlan.blocked.seismicBase": "La generazione dei carichi sismici statici richiede un appoggio a quota valida collegato alla massa sismica.",
   "loadPlan.blocked.seismicSteppedBase": "Non è possibile generare carichi sismici statici per una base a gradoni. Gli appoggi collegati alla massa sismica devono trovarsi alla stessa quota.",
+  "loadPlan.blocked.seismicBelowDatum": "Non è possibile generare carichi sismici statici se vi è massa sismica partecipante sotto la quota degli appoggi.",
+  "loadPlan.blocked.seismicMass.storyNode": "Carico sismico rifiutato a quota {elevation} m. Un elemento dotato di massa non ha un nodo di collegamento alla quota di questo piano.",
   "loadPlan.blocked.seismicDisconnected": "Per generare carichi sismici statici, tutti gli elementi che contribuiscono alla massa sismica o alla larghezza in pianta devono appartenere a un’unica struttura connessa con almeno un appoggio.",
   "loadPlan.blocked.concentratedRule": "{occupancy} richiede la verifica di carichi concentrati secondo CIRSOC 101 {article}. Le posizioni più sfavorevoli non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
   "loadPlan.blocked.concentratedLive": "{occupancy} richiede la verifica di un sovraccarico concentrato di {force} kN secondo CIRSOC 101 §4.4. Le posizioni più sfavorevoli e l’alternativa tra carico uniforme e concentrato non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",

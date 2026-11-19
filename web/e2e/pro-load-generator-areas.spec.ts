@@ -1,4 +1,4 @@
-import { dwellingFloorLoads, expectGeneratedSeismicCarriers, expectLoadGenerationRefusal, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
+import { dwellingFloorLoads, expectGeneratedSeismicStoryLoads, expectLoadGenerationRefusal, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
 import { test, expect, loadModel, alSection } from './fixtures';
 
 async function openDialog(page: import('@playwright/test').Page) {
@@ -107,7 +107,7 @@ test.describe('@smoke seismic generation', () => {
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
     const names = await page.evaluate(() => window.__stabileo.loadCaseNames());
     expect(names.filter((n) => /^Seismic X \(\+5 % eccentricity\)|^Seismic X \(−5 % eccentricity\)/.test(n))).toHaveLength(2);
-    await expectGeneratedSeismicCarriers(page);
+    await expectGeneratedSeismicStoryLoads(page);
   });
 
   test('static generation refuses eccentric floor mass on frame members', async ({ pro: page }) => {

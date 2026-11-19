@@ -12,7 +12,7 @@ import type { MassRefusal, SeismicLevel, SeismicModel } from './seismic-mass';
 export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: SeismicPlanSink): {
   seismicWeight: ProvenancedValue<number> | undefined; baseShear: ProvenancedValue<number> | undefined; seismicDetail: SeismicPlanDetail | undefined;
 } {
-  const { cases, distributed, surface, derivation, refs, assumptions, unsupportedKeys, blockedKeys, levelRefusals } = sink;
+  const { cases, nodal, derivation, refs, assumptions, unsupportedKeys, blockedKeys, levelRefusals } = sink;
   let seismicWeight: ProvenancedValue<number> | undefined;
   let baseShear: ProvenancedValue<number> | undefined;
   let seismicDetail: SeismicPlanDetail | undefined;
@@ -121,8 +121,7 @@ export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: Sei
         const index = cases.length;
         const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';
         cases.push({ existingId: plain ? findCase(input.model, 'E', c.axis) : null, type: 'E', nameKey: c.nameKey, nameParams: c.nameParams });
-        for (const d of c.distributed) distributed.push({ ...d, caseType: 'E', caseIndex: index });
-        for (const s of c.surface) surface.push({ ...s, caseType: 'E', caseIndex: index });
+        for (const n of c.nodal) nodal.push({ ...n, caseType: 'E', caseIndex: index });
       }
 
       derivation.push(msg('loadPlan.derivation.seismic', {

@@ -421,7 +421,7 @@ describe('seismic uses the real level masses', () => {
 
   it('distributes by W·h and sums to V0', () => {
     const p = seismicPlan();
-    const total = windResultants(frame(), p.distributed.filter(n => n.caseType === 'E'))[0];
+    const total = windResultants(frame(), [], p.nodal.filter(n => n.caseType === 'E'))[0];
     expect(total).toBeCloseTo(p.factors.baseShear!.value, 4);
   });
 
@@ -683,7 +683,7 @@ describe('seismic loads from INPRES-CIRSOC 103 rather than a typed coefficient',
 
   it('distributes the shear in height and sums back to it', () => {
     const p = buildLoadPlan(seismicInput());
-    const total = windResultants(frame(4), p.distributed.filter(n => n.caseType === 'E'))[0];
+    const total = windResultants(frame(4), [], p.nodal.filter(n => n.caseType === 'E'))[0];
     expect(total).toBeCloseTo(p.factors.baseShear!.value, 4);
     expect(total).toBeGreaterThan(0);
   });
@@ -774,7 +774,7 @@ describe('INPRES-CIRSOC 103: static method, vertical component, accidental torsi
     seismic: { enabled: true, coefficient: 0.15, liveParticipation: null, directions: { x: true, y: false }, code: code103, ...over } as LoadPlanInput['seismic'],
     ...options,
   });
-  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => windResultants(frame(4), p.distributed.filter(n => n.caseIndex === i))[0]!;
+  const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => windResultants(frame(4), [], p.nodal.filter(n => n.caseIndex === i))[0]!;
 
   it('a medium torsional irregularity: ±5 % eccentricity, two cases per direction, no net force across', () => {
     const options = { tributaryWidth: 0, dead: [] };
@@ -785,9 +785,9 @@ describe('INPRES-CIRSOC 103: static method, vertical component, accidental torsi
     const st = buildLoadPlan(seismic({}, options));
     for (const { i } of e) {
       expect(sumFx(p, i)).toBeCloseTo(st.factors.baseShear!.value, 6);
-      const lines = p.distributed.filter(n => n.caseIndex === i);
-      expect(windResultants(frame(4), lines)[1]).toBeCloseTo(0, 9);
-      expect(lines.some(n => Math.abs(n.qY ?? 0) > 1e-6)).toBe(true);
+      const loads = p.nodal.filter(n => n.caseIndex === i);
+      expect(windResultants(frame(4), [], loads)[1]).toBeCloseTo(0, 9);
+      expect(loads.some(n => Math.abs(n.fy) > 1e-6)).toBe(true);
     }
   });
 
@@ -805,12 +805,10 @@ describe('INPRES-CIRSOC 103: static method, vertical component, accidental torsi
     const p = buildLoadPlan(seismic({ diagonal: true }));
     const i = p.cases.findIndex((c) => c.nameParams?.dir === '45°');
     expect(i).toBeGreaterThan(-1);
-    const own = p.distributed.filter(n => n.caseIndex === i);
+    const own = p.nodal.filter(n => n.caseIndex === i);
     expect(own.length).toBeGreaterThan(0);
-    for (const n of own) {
-      expect(n.qX).toBeCloseTo(n.qY!, 9);
-      expect(n.qXJ).toBeCloseTo(n.qYJ!, 9);
-    }
+    expect(p.distributed.filter(n => n.caseIndex === i)).toEqual([]);
+    for (const n of own) expect(n.fx).toBeCloseTo(n.fy, 9);
   });
 });
 
@@ -936,22 +934,20 @@ it('#2208 subdivision preserves the moment about the global origin', () => {
     model.supports = new Map([[base, { nodeId: base }]]);
     model.sections.set(1, { id: 1, a: 1 });
     model.materials.set(1, { id: 1, rho: 1 });
-    const carriers = [...model.elements.keys()];
     const post = model.elements.size + 1;
     model.materials.set(2, { id: 2, rho: 0 });
     model.elements.set(post, { id: post, nodeI: base, nodeJ: 1, sectionId: 1, materialId: 2 });
     const plan = carrierPlan(model, force / perimeter);
     expect(plan.outcome).toBe('READY');
-    const loads = plan.distributed.filter(d => d.caseType === 'E');
-    expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
-    expect(loads.map(d => d.elementId)).toEqual(carriers);
-    const intensity = force / perimeter;
+    expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+    const loads = plan.nodal.filter(d => d.caseType === 'E');
+    expect(loads.map(d => d.nodeId)).toEqual([1, 2, 3, 4]);
     for (const load of loads) {
-      expect(load.frame).toBe('global');
-      expect(load.qX).toBe(intensity);
-      expect(load.qXJ ?? load.qX).toBe(intensity);
+      expect(load.fx).toBe(force / 4);
+      expect(load.fy).toBe(0);
+      expect(load.fz).toBe(0);
     }
-    return windResultants(model, loads);
+    return windResultants(model, [], loads);
   };
   const corners = resultants(points.slice(0, 4));
   const subdivided = resultants(points);

@@ -1,4 +1,4 @@
-import { dwellingFloorLoads, expectGeneratedSeismicCarriers, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
+import { dwellingFloorLoads, expectGeneratedSeismicStoryLoads, loadSeismicFloor, openSeismicLoadGenerator } from './load-generator-inputs';
 import { test, expect, loadModel, alSection } from './fixtures';
 
 /**
@@ -219,7 +219,7 @@ test.describe('@smoke story drift is checked on the seismic cases', () => {
     await page.getByTestId('al-preview-btn').click();
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
-    await expectGeneratedSeismicCarriers(page);
+    await expectGeneratedSeismicStoryLoads(page);
     await page.evaluate(async () => { await window.__stabileoActions.solve(); });
     await page.getByTestId('pr-stage-analyse').click();
     const checks = page.getByTestId('pro-panel').getByTestId('result-checks');
