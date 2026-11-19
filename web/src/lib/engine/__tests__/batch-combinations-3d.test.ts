@@ -485,9 +485,7 @@ function resultOrRefusal<T>(run: () => T): T | string {
   try { return run(); } catch (error) { return String(error); }
 }
 
-const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-exactFactorTest('known wrong result: #2292 WASM combination routes distinguish exact cancellation from a unit residual', () => {
+it('#2292 WASM combination routes distinguish exact cancellation from a unit residual', () => {
   const models = [
     [portalInput('2d'), solve_2d, solve_pdelta_2d],
     [portalInput('3d'), solve_3d, solve_pdelta_3d],
@@ -511,7 +509,7 @@ exactFactorTest('known wrong result: #2292 WASM combination routes distinguish e
   }
 });
 
-exactFactorTest('known wrong result: #2292 case-factor resolution preserves exact signed residuals and rounds once', () => {
+it('#2292 case-factor resolution preserves exact signed residuals and rounds once', () => {
   const subnormal = Number.MIN_VALUE;
   const halfUlp = Number.EPSILON / 2;
   const halfMaxUlp = 2 ** 970;

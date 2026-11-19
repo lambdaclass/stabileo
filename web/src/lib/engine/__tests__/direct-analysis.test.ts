@@ -306,9 +306,7 @@ it('#2292 direct analysis refuses complete case cancellation', async () => {
   await checkDirectAnalysisCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
 });
 
-const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-exactFactorTest('known wrong result: #2292 direct analysis distinguishes exact cancellation from a unit residual', async () => {
+it('#2292 direct analysis distinguishes exact cancellation from a unit residual', async () => {
   await checkDirectAnalysisCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
 });
 

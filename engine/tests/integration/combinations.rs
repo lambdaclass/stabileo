@@ -710,7 +710,6 @@ fn factors_with_unit_residual() -> [f64; 5] {
 }
 
 #[test]
-#[ignore = "known wrong result: #2292"]
 fn issue_2292_planar_combination_sums_case_factors_exactly() {
     let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&model).unwrap();
@@ -738,7 +737,6 @@ fn issue_2292_planar_combination_sums_case_factors_exactly() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2292"]
 fn issue_2292_spatial_combination_sums_case_factors_exactly() {
     let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
     let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();

@@ -413,8 +413,6 @@ it('#2292 a named spectral contribution uses the net case factor', async () => {
   await checkSpectralResidual(-1.5, [big, -1.5, -big]);
 });
 
-const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-exactFactorTest('known wrong result: #2292 a named spectral contribution distinguishes exact cancellation from a unit residual', async () => {
+it('#2292 a named spectral contribution distinguishes exact cancellation from a unit residual', async () => {
   await checkSpectralResidual(1, factorsWithUnitResidual, factorsWithExactCancellation);
 });

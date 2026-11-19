@@ -137,8 +137,6 @@ it('#2292 the named single quad refuses complete case cancellation', async () =>
   await checkNamedQuadCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
 });
 
-const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-exactFactorTest('known wrong result: #2292 the named single quad distinguishes exact cancellation from a unit residual', async () => {
+it('#2292 the named single quad distinguishes exact cancellation from a unit residual', async () => {
   await checkNamedQuadCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
 });

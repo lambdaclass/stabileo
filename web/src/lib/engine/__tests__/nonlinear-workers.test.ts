@@ -517,8 +517,6 @@ it('#2292 named 3D solves scale a load once by its net case factor', async () =>
   await checkNamed3DResiduals([-1.5, 1.5, -1, 1].map(factor => [factor, [big, factor, -big]]));
 });
 
-const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-exactFactorTest('known wrong result: #2292 named 3D methods distinguish exact cancellation from a unit residual', async () => {
+it('#2292 named 3D methods distinguish exact cancellation from a unit residual', async () => {
   await checkNamed3DResiduals([[1, factorsWithUnitResidual]], factorsWithExactCancellation);
 });
