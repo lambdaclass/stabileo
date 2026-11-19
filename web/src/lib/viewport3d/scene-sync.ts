@@ -6,7 +6,7 @@
 
 import { meshHidden, meshOnlyNodes, plateMeshNodes, platesAsPieces, syncShellMembers } from './shell-members';
 import { plateLoadLayers, type PieceLoad, type PlateLoadLayer } from './plate-load-layers';
-import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
+import { shellLoadDirection, shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
 import { pointGlobal } from '../engine/member-point-loads';
 import { tendonEccentricity } from '../engine/prestress';
@@ -46,7 +46,6 @@ import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
   getCachedProjectModelToXZ,
-  GRAVITY_VECTOR_3D,
   projectNodeToScene,
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
@@ -877,28 +876,37 @@ export function syncLoads(ctx: SceneSyncContext): void {
   const pieceOf = new Map<string, number>();
   const shellsOf = new Map<number, number>();
   let pieceLayers: PlateLoadLayer[] = [];
+  const pieceGeometry = new Map<number, NonNullable<ReturnType<typeof plateGeometry>>>();
   const inLayer = new Set<number>();
-  const pieceKey = (load: (typeof loads)[number]): { k: string; shell: string; plate: number } | null => {
-    if (!pieceOf.size || load.type !== 'surface3d') return null;
+  const pieceLoad = (load: (typeof loads)[number]): PieceLoad | null => {
+    if (load.type !== 'surface3d') return null;
     const d = load.data;
-    const shell = `${d.on === 'plate' ? 'p' : 'q'}${d.quadId}`;
+    const kind = d.on === 'plate' ? 'plate' : 'quad';
+    const shell = `${kind === 'plate' ? 'p' : 'q'}${d.quadId}`;
     const plate = pieceOf.get(shell);
-    if (plate === undefined || d.frame || d.qNodes || d.vary || d.region || !isLoadDrawn(load as never, drawView)) return null;
-    return { k: `${plate}:${d.caseId ?? 0}:${d.q}`, shell, plate };
+    if (plate === undefined || (d.frame && d.frame !== 'local') || d.qNodes || d.vary || d.region || !isLoadDrawn(load as never, drawView)) return null;
+    const element = (kind === 'plate' ? modelStore.plates : modelStore.quads).get(d.quadId);
+    if (!element) return null;
+    const points = element.nodes.map(id => modelStore.nodes.get(id));
+    if (points.some(node => !node)) return null;
+    const dir = shellLoadDirection(kind, points.map(node => projectNodeToScene(node!, project2D)), d);
+    if (!dir) return null;
+    return { id: d.id, shell, plate, q: d.q, caseId: d.caseId, dir };
   };
   if (platesAsPieces()) {
     for (const p of physicalPlates()) {
       const keys = [...(p.group.members.quads ?? []).map((q) => `q${q}`), ...(p.group.members.plates ?? []).map((q) => `p${q}`)];
-      if (keys.length > 1) {
-        for (const k of keys) pieceOf.set(k, p.id);
-        shellsOf.set(p.id, keys.length);
-      }
+      if (keys.length < 2) continue;
+      const geo = plateGeometry(modelStore, p.group);
+      if (!geo) continue;
+      pieceGeometry.set(p.id, geo);
+      for (const k of keys) pieceOf.set(k, p.id);
+      shellsOf.set(p.id, keys.length);
     }
     const pieces: PieceLoad[] = [];
     for (const load of loads) {
-      const at = pieceKey(load);
-      if (!at || load.type !== 'surface3d') continue;
-      pieces.push({ id: load.data.id, key: at.k, shell: at.shell, plate: at.plate, q: load.data.q, caseId: load.data.caseId });
+      const candidate = pieceLoad(load);
+      if (candidate) pieces.push(candidate);
     }
     pieceLayers = plateLoadLayers(pieces, shellsOf);
     for (const l of pieceLayers) for (const id of l.ids) inLayer.add(id);
@@ -1188,15 +1196,10 @@ export function syncLoads(ctx: SceneSyncContext): void {
   // attach. Flags (renderOrder 3, depthTest/Write off, no frustum culling) are
   // stamped per object inside build() — no traverse needed.
   for (const e of pieceLayers) {
-    const g = modelStore.model.groups.get(e.plate);
-    const geo = g ? plateGeometry(modelStore, g) : null;
-    if (!geo) continue;
-    const scene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => projectNodeToScene({ id: 0, x, y, z } as never, project2D) as { x: number; y: number; z: number });
-    // A floor's load acts down; a wall's acts along the normal its shells are loaded on.
-    const flat = Math.abs(geo.frame.n[2]) > 1 - 1e-6;
-    const dir = flat ? GRAVITY_VECTOR_3D.clone() : new THREE.Vector3(-geo.frame.n[0], -geo.frame.n[1], -geo.frame.n[2]);
+    const geo = pieceGeometry.get(e.plate)!;
+    const scene = (l: Array<[number, number, number]>) => l.map(([x, y, z]) => projectNodeToScene({ x, y, z }, project2D));
     batch.own(e.ids[0]!, selected.size === 0 ? null : e.ids.some((id) => selected.has(id)) ? COLORS.nodeSelected : LOAD_DIMMED);
-    batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, dir, getCaseColor(e.caseId));
+    batch.addPlateLoad(scene(geo.outer), geo.holes.map(scene), e.q, maxQ, new THREE.Vector3(...e.dir), getCaseColor(e.caseId));
   }
   loadGrp.add(batch.build());
   ctx.loadFootprints = batch.footprints;
