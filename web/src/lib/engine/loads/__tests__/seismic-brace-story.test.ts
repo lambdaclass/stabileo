@@ -23,9 +23,9 @@ function bracedFrame(): LoadModelData {
   return model;
 }
 
-const regression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+const regression = process.env.RUN_KNOWN_WRONG === '2330' ? it : it.skip;
 
-regression('known wrong result: #2316 a connected X brace intersection is not a seismic story', () => {
+regression('known wrong result: #2330 a connected X brace intersection is not a seismic story', () => {
   const model = bracedFrame();
   const options = input(model, {
     dead: [], tributaryWidth: 0,
