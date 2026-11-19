@@ -62,6 +62,7 @@ const words: Translations = {
   'course.influence.load.pAt': 'P, {e} çubuğunda %{pct} konumunda',
   'course.influence.load.direct': 'Bu yüklerle doğrudan hesap: {v}',
   'course.influence.load.drawEnvelope': 'Zarfı çubuklar üzerinde çiz',
+  'course.influence.load.envelopeTitle': 'Etki çizgisi zarfı ({q})',
   'course.influence.load.hideEnvelope': 'Zarfı gizle',
   'course.influence.load.drawing': 'Hesaplanıyor…',
   'course.influence.load.envelopeNote': 'Her kesit kendi çizgisiyle yüklendi. Kırmızı eğri en büyük, mavi eğri en küçük değerdir; M çekme lifi tarafına çizilir.',

@@ -1492,7 +1492,6 @@ const es: Record<string, string> = {
   'xls.col.qxj': "Componente distribuida X al final de la barra.",
   'xls.col.supportRotation': "Giro prescrito alrededor de este eje.",
   'xls.err.axesDisabled': "Este libro declara un sistema de coordenadas global. Los ejes globales están desactivados en esta versión.",
-  'course.influence.load.envelopeTitle': 'Envolvente de influencia ({q})',
   'xls.err.oneAxesDeclaration': 'La hoja Axes debe contener exactamente una declaración de marco de coordenadas.',
   'xls.err.loadSheetDisabled': 'Esta versión no puede importar la hoja {sheet}. Importe este libro en una versión compatible con sus datos de carga.',
   'xls.err.nodalOutOfPlane': 'Esta componente está fuera del plano de la carga nodal. Use nodal3d para cargas espaciales.',
