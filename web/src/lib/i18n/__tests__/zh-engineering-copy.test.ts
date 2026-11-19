@@ -37,6 +37,17 @@ const copyCases: [string, string | undefined, RegExp][] = [
   ['global static force equilibrium', determinism.blocks.flatMap(b => b.k === 'ul' ? b.items : []).join('\n'), /∑𝐑 \+ ∑𝐏 = 𝟎/],
 ];
 
+const reviewCases: [string, string | undefined, RegExp][] = [
+  ['T-beam minimum reinforcement uses a width', zh['flex.step.teeHogging'], /计算 As,min（cm²）时.*宽度.*2·bw.*bf.*\{bmin\} cm/],
+  ['3D fiber sliders distinguish drawing and member axes', zh['stress.fiberYZ3dHelp'], /图中 y（高度）对应杆件局部 z，代入 My·z\/Iy 项。图中 z（宽度）对应杆件局部 y，代入 Mz·y\/Iz 项/],
+  ['fixed-end check uses the resultant of the applied loads along −y', steps['steps.fem.check'], /R 是沿局部 −y 取正的荷载合力.*R = Vᵢⱼ \+ Vⱼᵢ.*向下荷载.*向上反力/],
+  ['frame stiffness is expressed as a ratio to the shell', bars.blocks.map(b => b.k === 'p' ? b.t : '').join('\n'), /刚度约为壳模型的 2\.23 倍/],
+];
+
+it.skip.each(reviewCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
+  expect(copy).toMatch(expected);
+});
+
 it.each(copyCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
   expect(copy).toMatch(expected);
 });
