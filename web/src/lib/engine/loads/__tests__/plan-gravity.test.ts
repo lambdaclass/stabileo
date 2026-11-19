@@ -804,6 +804,66 @@ it('#2299 an independent shell over the bay stays separate from the attached str
   expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
 });
 
+function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[]) {
+  const model = exteriorStripShellBay([-2, 0, 10], true);
+  const strip = model.quads!.get(1)!.nodes;
+  const interior = model.quads!.get(2)!.nodes;
+  const ties = [[strip[1]!, interior[0]!], [strip[2]!, interior[3]!]] as const;
+  model.constraints = [...model.constraints!, ...ties.flatMap(([stripNode, interiorNode], i) => {
+    const masterNode = useCommonMaster ? 200 + i : stripNode;
+    if (useCommonMaster) model.nodes.set(masterNode, { ...model.nodes.get(stripNode)!, id: masterNode });
+    return (useCommonMaster ? [stripNode, interiorNode] : [interiorNode]).map(slaveNode => ({
+      type: 'rigidLink' as const, masterNode, slaveNode, dofs,
+    }));
+  })];
+  return model;
+}
+
+const allShellDofs = [0, 1, 2, 3, 4, 5];
+const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
+
+issue2299('known wrong result: #2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+issue2299('known wrong result: #2299 coincident common masters tie an offset shell seam', () => {
+  checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+function checkSeparateStripAndBayLoads(model: LoadModelData) {
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+  );
+  expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
+}
+
+it('#2299 ties with a free rotation preserve separate strip and bay loads', () => {
+  for (const dofs of [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4, 4], [], undefined]) {
+    checkSeparateStripAndBayLoads(tiedExteriorStripShellBay(false, dofs));
+  }
+});
+
+it('#2299 full ties between nodes at different heights preserve separate strip and bay loads', () => {
+  const model = tiedExteriorStripShellBay(false, allShellDofs);
+  for (const nodeId of model.quads!.get(2)!.nodes) model.nodes.get(nodeId)!.z! += 1 / 2048;
+  checkSeparateStripAndBayLoads(model);
+});
+
+it('#2299 a fully tied seam within the bay elevation band keeps the load on the shells', () => {
+  const model = tiedExteriorStripShellBay(false, allShellDofs);
+  for (const quad of model.quads!.values()) for (const id of quad.nodes) model.nodes.get(id)!.z = 3.001;
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual([]);
+  expect(plan.nodal).toEqual([]);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+  );
+  expect(deadLoadKN(plan, model)).toBeCloseTo((10 + 2) * 6, 10);
+});
+
 const issue2254 = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
 issue2254('known wrong result: #2254 plan rotation preserves the geodesic dome dead-load resultant', async () => {
   const fixture = (await import('../../../templates/fixtures/geodesic-dome.json')).default;
