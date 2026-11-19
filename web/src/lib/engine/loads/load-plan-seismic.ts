@@ -1,12 +1,7 @@
-/**
- * The seismic action of a load plan, INPRES-CIRSOC 103-2018: the static method of Cap. 6 or the
- * modal response spectrum of Cap. 7, accidental torsion and a 45° direction. Moved out of
- * `load-plan.ts` as it was, behind the seismic module (`codes/families/cirsoc.ts`).
- */
-import { modalLoadingLevels, modalStoryForces, SeismicModeRefusal } from './seismic-modal';
-import { seismicCases, ACCIDENTAL_ECCENTRICITY, type SeismicCaseLoading } from './seismic-cases';
+import { modalSeismicRefusal } from './seismic-generation';
+import { staticSeismicCases, ACCIDENTAL_ECCENTRICITY } from './seismic-cases';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
-import { designSpectrum, isBlocked, spectralOrdinate, SIMULTANEITY_F1 } from '../../codes/cirsoc103/spectrum';
+import { designSpectrum, isBlocked, SIMULTANEITY_F1 } from '../../codes/cirsoc103/spectrum';
 import { designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable } from '../../codes/cirsoc103/static-method';
 import { findBehaviour, R_ELASTIC } from '../../codes/cirsoc103/behaviour';
 import { msg, round } from '../../codes/message';
@@ -21,12 +16,17 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
   let seismicWeight: ProvenancedValue<number> | undefined;
   let baseShear: ProvenancedValue<number> | undefined;
   let seismicDetail: SeismicPlanDetail | undefined;
+  const modalRefusal = modalSeismicRefusal(input.seismic);
+  if (modalRefusal) {
+    blockedKeys.push(modalRefusal);
+    return { seismicWeight, baseShear, seismicDetail };
+  }
   if (input.seismic?.enabled) {
     const refuse = (level: SeismicLevel, reason: MassRefusal) => {
       levelRefusals.push(msg(`loadPlan.blocked.seismicMass.${reason}`, { elevation: round(level.elevation, 3) }));
     };
     for (const l of levels) for (const reason of l.refusals) refuse(l, reason);
-    if (levels.some(l => l.unresolvedWeight) || (levelRefusals.length > 0 && input.seismic.modal?.modes.length)) {
+    if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
     const elevated = levels.filter(l => l.elevation > 0 && l.weightKN > 0);
@@ -35,10 +35,6 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
     } else {
       const code = input.seismic.code;
-      if (input.seismic.modal && (!code || !input.seismic.modal.modes.length)) {
-        blockedKeys.push(msg('loadPlan.blocked.seismicMass.mode'));
-        return { seismicWeight, baseShear, seismicDetail };
-      }
       let C = input.seismic.coefficient;
       let uncappedT = 0;
       let t2 = Infinity;
@@ -65,11 +61,8 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             regularity: code.regularity, t: uncappedT, t2,
           });
           refs.push(...applicability.refs);
-          // With the modal method the static one need not apply (§2.7.3 asks for the modal one
-          // where it does not); it still gives Voe for §7.2.5.
-          const modal = input.seismic.modal && input.seismic.modal.modes.length > 0;
           for (const r of applicability.reasons) {
-            if (r.key.startsWith('seismic.blocked.')) (modal ? derivation : blockedKeys).push(r);
+            if (r.key.startsWith('seismic.blocked.')) blockedKeys.push(r);
             else assumptions.push(r);
           }
 
@@ -79,7 +72,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
             /* Tabla 5.1 row 1 prints a formula on the wall layout, not a value; an
                unknown key is the same hole. Either way there is no R to divide by. */
             blockedKeys.push(msg('loadPlan.blocked.seismicNoR', { system: code.systemKey }));
-          } else if (applicability.allowed || modal) {
+          } else if (applicability.allowed) {
             const coeff = designSeismicCoefficient({
               spectrum, group: code.group, r: R, t: period.t,
             });
@@ -109,60 +102,14 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
       const staticForces = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
-      let loading: SeismicCaseLoading = {
-        method: 'static', levels: elevated, forces: staticForces, diagonal: input.seismic.diagonal,
-      };
-
-      // ── The modal response spectrum method, Cap. 7 ──
-      const modes = input.seismic.modal?.modes ?? [];
-      if (modes.length > 0 && seismicDetail?.source === 'cirsoc103' && code && levelRefusals.length === 0) {
-        const spectrum = designSpectrum({ zone: code.zone, site: code.site, na: code.na, nv: code.nv });
-        if (!isBlocked(spectrum)) {
-          const r = seismicDetail.r!, gr = seismicDetail.gammaR!;
-          refs.push(clause('inpres-cirsoc-103-i', '2018', '7.2', 'método modal espectral'));
-          const byDir = (modalLevels: SeismicLevel[], dir: 'x' | 'y') => {
-            const m = modalStoryForces(modalLevels, modes, dir, (t) => (spectralOrdinate(t, spectrum) * gr) / r);
-            // §7.2.5: no less than 85 % of the static base shear.
-            const minimum = 0.85 * V0;
-            const scale = m.baseShear < minimum ? minimum / m.baseShear : 1;
-            if (!Number.isFinite(m.baseShear) || !Number.isFinite(scale)) {
-              blockedKeys.push(msg('loadPlan.blocked.modalBaseShear', { dir: dir.toUpperCase() }));
-              return undefined;
-            }
-            derivation.push(msg('loadPlan.derivation.modal', {
-              dir: dir.toUpperCase(), modes: m.perMode.length, ratio: round(m.massRatio * 100, 1),
-              vod: round(m.baseShear, 1), voe: round(V0, 1), scale: round(scale, 3),
-            }));
-            if (m.massRatio < 0.9) unsupportedKeys.push(msg('loadPlan.note.modalMassShort', { dir: dir.toUpperCase(), ratio: round(m.massRatio * 100, 1) }));
-            return m.forces.map((f) => f * scale);
-          };
-          try {
-            const modalLevels = modalLoadingLevels(levels, modes);
-            const x = input.seismic.directions.x || input.seismic.diagonal ? byDir(modalLevels, 'x') : [];
-            const y = input.seismic.directions.y || input.seismic.diagonal ? byDir(modalLevels, 'y') : [];
-            if (!x || !y) return { seismicWeight, baseShear, seismicDetail };
-            loading = { method: 'modal', levels: modalLevels, forcesX: x, forcesY: y };
-          } catch (error) {
-            if (!(error instanceof SeismicModeRefusal)) throw error;
-            blockedKeys.push(msg(error.key, error.params));
-            return { seismicWeight, baseShear, seismicDetail };
-          }
-        }
-      }
-
-      if (input.seismic.modal && input.seismic.diagonal) {
-        blockedKeys.push(msg('loadPlan.blocked.modalDiagonal'));
-        return { seismicWeight, baseShear, seismicDetail };
-      }
-
       const torsion = input.seismic.torsion ?? 'low';
       if (torsion !== 'low') {
         refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
         derivation.push(msg('loadPlan.derivation.accidentalTorsion', { e: ACCIDENTAL_ECCENTRICITY[torsion] * 100 }));
       }
       if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
-      for (const c of seismicCases({
-        ...loading,
+      for (const c of staticSeismicCases({
+        levels: elevated, forces: staticForces, diagonal: input.seismic.diagonal,
         directions: input.seismic.directions, torsion,
       }, refuse)) {
         const index = cases.length;

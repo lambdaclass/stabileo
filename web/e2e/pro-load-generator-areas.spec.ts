@@ -91,17 +91,17 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
   }
 });
 
-test.describe('@smoke the seismic action: modal method, vertical component, torsion', () => {
-  test('modal response spectrum from the dialog: modes, the derivation, the eccentric cases', async ({ pro: page }) => {
+test.describe('@smoke seismic generation', () => {
+  test('refuses modal response-spectrum load generation and links the issue', async ({ pro: page }) => {
     await loadSeismicFloor(page);
     await openSeismicLoadGenerator(page);
     await dwellingFloorLoads(page);
     await page.getByTestId('al-seismic-method-select').selectOption('modal');
     await page.getByTestId('al-seismic-torsion').selectOption('medium');
     await expect(page.getByTestId('al-seismic-vertical')).toBeChecked();
+    await expectLoadGenerationRefusal(page, /Modal seismic load generation is unavailable until the modal force distribution is corrected\. Use the static method\./, 2319);
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
     await page.getByTestId('al-preview-btn').click();
-    await expect(page.getByTestId('al-apply-error')).toHaveCount(0);
-    await expect(page.getByTestId('al-preview')).toContainText(/Modal response spectrum along X/);
     await expect(page.getByTestId('al-preview')).toContainText(/Vertical component/);
     await page.getByTestId('al-apply').click();
     await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
@@ -110,15 +110,12 @@ test.describe('@smoke the seismic action: modal method, vertical component, tors
     await expectGeneratedSeismicCarriers(page);
   });
 
-  test('static and modal generation refuse eccentric floor mass on frame members', async ({ pro: page }) => {
+  test('static generation refuses eccentric floor mass on frame members', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await openSeismicLoadGenerator(page);
     await dwellingFloorLoads(page);
-    for (const method of ['static', 'modal']) {
-      await page.getByTestId('al-seismic-method-select').selectOption(method);
-      if (method === 'modal') await page.getByTestId('al-seismic-torsion').selectOption('medium');
-      await expectLoadGenerationRefusal(page, /Seismic loading refused at 3[.]2 m[.] The floor tributary region requires eccentric member loads/);
-    }
+    await page.getByTestId('al-seismic-method-select').selectOption('static');
+    await expectLoadGenerationRefusal(page, /Seismic loading refused at 3[.]2 m[.] The floor tributary region requires eccentric member loads/);
   });
 });
 

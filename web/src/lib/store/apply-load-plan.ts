@@ -12,10 +12,12 @@ import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
 import { designData, patchDesignData } from './design-data';
-import { fromLoadPlan, loadsGeneratedWith } from '../provenance/model-features';
+import { fromLoadPlan, loadsGeneratedWith, unverifiedSeismicLoads } from '../provenance/model-features';
 import { RESULTS_VERSION } from '../provenance/registry';
 import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import { t } from '../i18n';
+import { msg } from '../codes/message';
+import { hasModalSeismicDerivation, MODAL_SEISMIC_UNAVAILABLE } from '../engine/loads/seismic-generation';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -156,10 +158,15 @@ export function loadStateForPlan(p: LoadPlan, nameOf?: ApplyLoadPlanOptions['nam
   };
 }
 
-export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
-  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return;
+export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
+  if (p.outcome !== 'READY' || p.blockedKeys.length > 0) return p.blockedKeys[0];
+  if (hasModalSeismicDerivation(p.derivation) || (p.cases.some(c => c.type === 'E') && p.seismicGeneration !== 'static')) {
+    return msg(MODAL_SEISMIC_UNAVAILABLE);
+  }
   modelStore.batch(() => {
-    const before = loadsGeneratedWith({ designData: designData(), loads: modelStore.loads as never });
+    const saved = { designData: designData(), loads: modelStore.loads as never, loadCases: modelStore.loadCases, regulations: modelStore.model.regulations };
+    const legacySeismic = new Set(unverifiedSeismicLoads(saved).map(l => l.data?.id));
+    const before = loadsGeneratedWith(saved);
     // The basis of what is about to be written, for the memoria (`LoadBasis`).
     const { windGust: _gust, ...scalars } = p.factors;
     const factors = Object.fromEntries(Object.entries(scalars).filter(([, v]) => v !== undefined)) as Record<string, NonNullable<(typeof scalars)[keyof typeof scalars]>>;
@@ -182,8 +189,9 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
       // stayed, solved and listed (`takeBackCompositeCases`).
       takeBackCompositeCases();
     }
-    if (modelStore.loads.some((l) => fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
-      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
+    const keepsLegacySeismic = modelStore.loads.some(l => legacySeismic.has(l.data.id));
+    if (keepsLegacySeismic || modelStore.loads.some(l => fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
+      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, keepsLegacySeismic ? RESULTS_VERSION - 1 : RESULTS_VERSION) } });
     }
     const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
 
@@ -258,8 +266,20 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions): void {
 
     // What the generator wrote says so, for the next "replace".
     const by = p.generatedBy ?? 'generator';
-    modelStore.replaceLoads(modelStore.loads.map((l) => (l.data.id >= firstNewLoad
-      ? ({ ...l, data: { ...l.data, generatedBy: by, ...(carrierOf.has(l.data.id) ? { carrier: carrierOf.get(l.data.id) } : {}) } } as Load)
-      : l)));
+    const seismicIds = new Set(caseIdByType.get('E'));
+    modelStore.replaceLoads(modelStore.loads.map(l => {
+      if (l.data.id < firstNewLoad) {
+        return legacySeismic.has(l.data.id) && l.data.seismicGeneration !== 'unverified'
+          ? { ...l, data: { ...l.data, seismicGeneration: 'unverified' } } as Load : l;
+      }
+      return {
+        ...l,
+        data: {
+          ...l.data, generatedBy: by, ...(carrierOf.has(l.data.id) ? { carrier: carrierOf.get(l.data.id) } : {}),
+          ...(l.data.caseId !== undefined && seismicIds.has(l.data.caseId) ? { seismicGeneration: 'static' } : {}),
+        },
+      } as Load;
+    }));
   });
+  return undefined;
 }

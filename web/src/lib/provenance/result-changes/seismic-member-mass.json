@@ -26,13 +26,13 @@
     "hu": "A generált szeizmikus hatások a fizikai tömeget követik"
   },
   "explanation": {
-    "en": "Node subdivision could shift generated seismic loads and change modal story forces. The planner uses physical mass and reports unsupported levels. Regenerate E loads and repeat analyses, combinations and design checks (#2208, #2209).",
-    "es": "Subdividir barras podía desplazar las cargas sísmicas generadas y cambiar las fuerzas modales de piso. El generador usa la masa física e identifica los niveles que no puede representar. Regenerá las cargas E y repetí los análisis, combinaciones y verificaciones (#2208, #2209).",
-    "pt": "Subdividir barras podia deslocar as cargas sísmicas geradas e alterar as forças modais de pavimento. O gerador usa a massa física e indica os níveis que não consegue representar. Gere novamente as cargas E e refaça as análises, combinações e verificações (#2208, #2209).",
-    "de": "Die Unterteilung von Stäben konnte erzeugte Erdbebenlasten verschieben und modale Geschosskräfte ändern. Die Planung verwendet die physische Masse und meldet nicht darstellbare Ebenen. E-Lasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2208, #2209).",
-    "fr": "La subdivision des barres pouvait déplacer les charges sismiques générées et changer les forces modales par étage. Le plan utilise la masse physique et signale les niveaux non pris en charge. Régénérez les charges E puis relancez les analyses, combinaisons et vérifications (#2208, #2209).",
-    "tr": "Elemanları bölmek, üretilen deprem yüklerini kaydırabiliyor ve modal kat kuvvetlerini değiştirebiliyordu. Plan fiziksel kütleyi kullanır ve desteklenmeyen seviyeleri bildirir. E yüklerini yeniden üretin, analizleri, birleşimleri ve kontrolleri tekrarlayın (#2208, #2209).",
-    "hu": "A rudak felosztása eltolhatta a generált szeizmikus terheket és megváltoztathatta a modális szinterőket. A terv a fizikai tömeget használja, és jelzi a nem ábrázolható szinteket. Generálja újra az E terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2208, #2209)."
+    "en": "Node subdivision could shift generated seismic loads. The static planner uses physical mass and reports unsupported levels. Regenerate E loads and repeat analyses, combinations and design checks (#2208, #2209).",
+    "es": "Subdividir barras podía desplazar las cargas sísmicas generadas. El generador estático usa la masa física e identifica los niveles que no puede representar. Regenerá las cargas E y repetí los análisis, combinaciones y verificaciones (#2208, #2209).",
+    "pt": "Subdividir barras podia deslocar as cargas sísmicas geradas. O gerador estático usa a massa física e indica os níveis que não consegue representar. Gere novamente as cargas E e refaça as análises, combinações e verificações (#2208, #2209).",
+    "de": "Die Unterteilung von Stäben konnte erzeugte Erdbebenlasten verschieben. Das statische Verfahren verwendet die physische Masse und meldet nicht darstellbare Ebenen. E-Lasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen (#2208, #2209).",
+    "fr": "La subdivision des barres pouvait déplacer les charges sismiques générées. La méthode statique utilise la masse physique et signale les niveaux non pris en charge. Régénérez les charges E puis relancez les analyses, combinaisons et vérifications (#2208, #2209).",
+    "tr": "Elemanları bölmek, üretilen deprem yüklerini kaydırabiliyordu. Statik yöntem fiziksel kütleyi kullanır ve desteklenmeyen seviyeleri bildirir. E yüklerini yeniden üretin, analizleri, birleşimleri ve kontrolleri tekrarlayın (#2208, #2209).",
+    "hu": "A rudak felosztása eltolhatta a generált szeizmikus terheket. A statikus módszer a fizikai tömeget használja, és jelzi a nem ábrázolható szinteket. Generálja újra az E terheket, majd ismételje meg az elemzéseket, kombinációkat és ellenőrzéseket (#2208, #2209)."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-seismic-member-mass.md",

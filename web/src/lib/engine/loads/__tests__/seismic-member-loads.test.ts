@@ -5,13 +5,13 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import { input2DToWireObject, input3DToWireObject, solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
-import { designSpectrum, isBlocked, spectralOrdinate } from '../../../codes/cirsoc103/spectrum';
+import { designSpectrum, isBlocked } from '../../../codes/cirsoc103/spectrum';
 import { modelStore } from '../../../store';
-import { modesForPlan } from '../../../store/seismic-modes';
 import { INPRES103_SEISMIC } from '../../../codes/families/cirsoc';
 import { bindRole } from '../../../codes/roles';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed, type SeismicPlanSink } from '../load-plan';
-import { modalLoadingLevels, modalStoryForces, type ModeShape } from '../seismic-modal';
+import type { SeismicLevel } from '../seismic-mass';
+import { MODAL_SEISMIC_UNAVAILABLE } from '../seismic-generation';
 import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { windResultants, remeshWind } from './wind-integration-fixture';
@@ -52,36 +52,6 @@ it('#2208 an edge subdivision does not move the force away from the mass centroi
         expect(piece.qY ?? 0).toBe(0);
       }
     }
-  }
-});
-
-it('#2209 integrates the same physical mode across a nonuniform mesh', () => {
-  for (const subdivide of [false, true]) for (const idOffset of [0, 100]) {
-    const model = mesh([[[0, 0, 3], [1, 0, 3]], subdivide
-      ? [[0, 0, 6], [0.25, 0, 6], [1, 0, 6]]
-      : [[0, 0, 6], [1, 0, 6]]]);
-    if (subdivide) model.elements.delete(4);
-    const shape = new Map([...model.nodes.values()].map(n => [
-      n.id + idOffset, { ux: n.z === 3 ? 1 : 1 + 2 * n.x, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 },
-    ]));
-    const levels = [3, 6].map(elevation => ({
-      elevation, weightKN: 100,
-      nodeIds: [...model.nodes.values()].filter(n => n.z === elevation).map(n => n.id + idOffset),
-      mass: [...model.elements.values()].flatMap(e => {
-        const i = model.nodes.get(e.nodeI)!, j = model.nodes.get(e.nodeJ)!;
-        const length = Math.abs(j.x - i.x);
-        return i.z === elevation ? [{
-          kind: 'line' as const, hasBendingRelease: false, elementId: e.id, nodeI: { ...i, id: i.id + idOffset, z: elevation },
-          nodeJ: { ...j, id: j.id + idOffset, z: elevation }, length, a: 0, b: length, wi: 100, wj: 100,
-        }] : [];
-      }),
-    }));
-    const m = modalStoryForces(levels, [{ period: 1, shape }], 'x', () => 1);
-    const gamma = 3 / (1 + 13 / 3);
-    expect(m.perMode[0]!.gamma).toBeCloseTo(gamma, 10);
-    expect(m.massRatio).toBeCloseTo(3 * gamma / 2, 10);
-    expect(m.forces[0]).toBeCloseTo(100 * gamma, 10);
-    expect(m.forces[1]).toBeCloseTo(200 * gamma, 10);
   }
 });
 
@@ -164,53 +134,19 @@ function verifyCantilever(
   }
 }
 
-function verifyCarrierMechanics(method: 'static' | 'modal') {
+function verifyCarrierMechanics() {
   const length = 4, half = length / 2;
   for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
     const { model, sources } = remeshWind(mesh([-2, 2].map(y => [[0, y, 0], [0, y, length]])), variant);
     const rotated = variant === 'rotate';
-    if (method === 'modal') {
-      model.materials.set(2, { id: 2, rho: 0 });
-      for (const e of [...model.elements.values()]) {
-        const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-        if (a.z! < half && b.z! > half) {
-          const id = model.nodes.size + 1;
-          model.nodes.set(id, { ...a, id, z: half });
-          const upper = model.elements.size + 1;
-          model.elements.set(upper, { ...e, id: upper, nodeI: id });
-          sources.set(upper, sources.get(e.id)!);
-          e.nodeJ = id;
-        }
-        if (model.nodes.get(e.nodeJ)!.z! <= half) e.materialId = 2;
-      }
-    }
     for (const torsion of ['low', 'medium', 'extreme'] as const) {
       const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      const code = {
-        zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame',
-        regularity: 'regular', occupancy: 'reduced',
-      } as const;
-      const period = 1;
-      const shape = new Map([...model.nodes.values()].map(n => [n.id, {
-        ux: !rotated && n.z! >= half ? 1 : 0, uy: rotated && n.z! >= half ? 1 : 0, uz: 0,
-        rx: 0, ry: 0, rz: 0,
-      }]));
-      const requestForMethod = request(model, {
+      const staticRequest = request(model, {
         torsion, directions: { x: !rotated, y: rotated },
-        ...(method === 'modal' ? { code, modal: { modes: [{ period, shape }] } } : {}),
       });
-      const plan = buildLoadPlan(requestForMethod);
+      const plan = buildLoadPlan(staticRequest);
       expect(plan.outcome).toBe('READY');
       expect(plan.nodal.filter(n => n.caseType === 'E')).toEqual([]);
-      let intensity = weightPerLength;
-      if (method === 'modal') {
-        const spectrum = designSpectrum(code);
-        if (isBlocked(spectrum)) throw new Error('Test spectrum was refused');
-        const ordinate = spectralOrdinate(period, spectrum) * plan.seismic!.gammaR! / plan.seismic!.r!;
-        const modal = plan.derivation.find(d => d.key === 'loadPlan.derivation.modal');
-        expect(modal?.params?.ratio).toBe(100);
-        intensity *= Math.max(ordinate, 0.85 * plan.seismic!.c);
-      }
       for (const [caseIndex, c] of plan.cases.entries()) {
         if (c.type !== 'E') continue;
         const eccentricity = { low: 0, medium: 0.05, extreme: 0.1 }[torsion] * (c.nameParams?.sign === '−' ? -1 : 1);
@@ -219,7 +155,7 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
           const ids = new Set(members.flatMap(e => [e.nodeI, e.nodeJ]));
           const root = [...ids].map(id => model.nodes.get(id)!).find(n => n.z === 0)!;
           const radius = rotated ? root.x : -root.y;
-          const q = intensity * (1 + eccentricity * radius);
+          const q = weightPerLength * (1 + eccentricity * radius);
           const parts = plan.distributed.filter(d => d.caseIndex === caseIndex && sources.get(d.elementId) === carrier);
           expect(parts.length).toBeGreaterThan(0);
           const momentOfLoad = (station: number, power: number) => q * (length ** (power + 1) - Math.max(half, station) ** (power + 1)) / (power + 1);
@@ -239,11 +175,7 @@ function verifyCarrierMechanics(method: 'static' | 'modal') {
 }
 
 it('#2208 partial carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
-  verifyCarrierMechanics('static');
-});
-
-it('#2209 modal carrier pressures reproduce cantilever shear, bending, torsion and deflection', () => {
-  verifyCarrierMechanics('modal');
+  verifyCarrierMechanics();
 });
 
 it('#2208 keeps supported levels when an eccentric strip requires distributed couples', () => {
@@ -292,54 +224,6 @@ it('#2208 flat shell self-weight and superimposed pressure stay on the physical 
   }
 });
 
-it('#2209 refuses incomplete mode samples before they change story shear', () => {
-  const nodeI = { id: 1, x: 0, y: 0, z: 3 }, nodeJ = { id: 2, x: 1, y: 0, z: 3 };
-  const levels = [{ elevation: 3, weightKN: 100, nodeIds: [1, 2],
-    mass: [{ kind: 'line' as const, hasBendingRelease: false, elementId: 1, nodeI, nodeJ, length: 1, a: 0, b: 1, wi: 100, wj: 100 }] }];
-  const sample = { ux: 1, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 };
-  const complete = new Map([[1, sample], [2, sample]]);
-  expect(modalStoryForces(levels, [{ period: 1, shape: complete }], 'x', () => 1).forces[0]).toBeCloseTo(100, 10);
-  for (const value of [NaN, Infinity, -Infinity]) {
-    const shape = new Map([[1, sample], [2, { ...sample, rz: value }]]);
-    expect(() => modalStoryForces(levels, [{ period: 1, shape }], 'x', () => 1)).toThrow();
-  }
-  expect(() => modalStoryForces(levels, [{ period: 1, shape: new Map([[1, sample]]) }], 'x', () => 1)).toThrow();
-});
-
-it('#2209 the production modal adapter retains the mass participation and complete frame shape', () => {
-  modelStore.clear();
-  try {
-    const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(0, 0, 4);
-    modelStore.addElement(i, j, 'frame');
-    modelStore.addSupport(i, 'fixed3d');
-    const model = modelStore.model as unknown as LoadModelData;
-    const plan = buildLoadPlan(request(model));
-    expect(plan.outcome).toBe('READY');
-    const result = modesForPlan(plan, 0);
-    expect(result).not.toHaveProperty('error');
-    if ('error' in result) throw new Error(result.error);
-    type ReportedMode = (typeof result.modes)[number] & {
-      shape: Map<number, { ux: number; uy: number; uz: number; rx: number; ry: number; rz: number }>;
-      participation?: { x: { gamma: number; ratio: number } };
-    };
-    const inX = (result.modes as ReportedMode[]).find(m => (m.participation?.x.ratio ?? 0) > 0.1)!;
-    expect(inX).toBeDefined();
-    const tip = inX.shape.get(j)!;
-    expect(Math.abs(tip.ry)).toBeGreaterThan(0);
-    expect(tip.uz).toBeCloseTo(0, 10);
-    const length = 4, weightPerLength = model.sections.values().next().value!.a * model.materials.values().next().value!.rho;
-    const h1J = (x: number) => x ** 3 - x ** 4 / 2;
-    const h2J = (x: number) => x ** 4 / 4 - x ** 3 / 3;
-    const momentum = weightPerLength * length * (tip.ux * (h1J(1) - h1J(0)) + length * tip.ry * (h2J(1) - h2J(0)));
-    const { seismicLevels } = plan as typeof plan & { seismicLevels: Parameters<typeof modalStoryForces>[0] };
-    const forces = modalStoryForces(seismicLevels, [inX], 'x', () => 1);
-    expect(forces.baseShear).toBeCloseTo(Math.abs(inX.participation!.x.gamma * momentum), 10);
-    expect(forces.massRatio).toBe(inX.participation!.x.ratio);
-  } finally {
-    modelStore.clear();
-  }
-});
-
 it('#2208 keeps the supported level’s exact force when an upper tributary panel cannot be transferred', () => {
   const model = mesh([
     [[0, -2, 0], [0, -2, 3]], [[0, 2, 0], [0, 2, 3]],
@@ -359,7 +243,6 @@ it('#2208 keeps the supported level’s exact force when an upper tributary pane
   expect(windResultants(model, lines)[0]).toBeCloseTo((lower + upper) * lower * 3 / (lower * 3 + upper * 6), 10);
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
 const round2Code = {
   zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame',
   regularity: 'regular', occupancy: 'reduced',
@@ -368,9 +251,8 @@ const height = 4;
 const round2Spectrum = designSpectrum(round2Code);
 if (isBlocked(round2Spectrum)) throw new Error('Test spectrum was refused');
 const round2Period = (round2Spectrum.t1 + round2Spectrum.t2) / 2;
-const round2Ordinate = spectralOrdinate(round2Period, round2Spectrum);
 
-function prescribedMode(model: LoadModelData, rotated: boolean, displacement: (z: number) => number, slope: number): ModeShape {
+function prescribedMode(model: LoadModelData, rotated: boolean, displacement: (z: number) => number, slope: number) {
   return {
     period: round2Period,
     shape: new Map([...model.nodes.values()].map(n => [n.id, {
@@ -380,7 +262,7 @@ function prescribedMode(model: LoadModelData, rotated: boolean, displacement: (z
   };
 }
 
-function modalRequest(mode: ModeShape, rotated: boolean) {
+function modalRequest(mode: ReturnType<typeof prescribedMode>, rotated: boolean) {
   return {
     code: { ...round2Code, computedT: round2Period },
     modal: { modes: [mode] },
@@ -388,7 +270,7 @@ function modalRequest(mode: ModeShape, rotated: boolean) {
   };
 }
 
-function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole: 'master' | 'slave' | 'none', method: 'static' | 'modal') {
+function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole: 'master' | 'slave' | 'none') {
   const column = mesh(cuts.slice(1).map((z, i) => [[0, 0, cuts[i]!], [0, 0, z]]));
   const base = [...column.nodes.values()].find(n => n.z === 0)!;
   const floor = [...column.nodes.values()].find(n => n.z === 2)!;
@@ -406,9 +288,8 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   model.sections.set(1, { id: 1, a: 0.5 });
   model.materials.set(1, { id: 1, rho: 4 });
 
-  const mode = prescribedMode(model, rotated, () => 1, 0);
   const directions = { x: !rotated, y: rotated };
-  const plan = buildLoadPlan(request(model, method === 'modal' ? modalRequest(mode, rotated) : { directions }));
+  const plan = buildLoadPlan(request(model, { directions }));
   const hasFloor = floorRole !== 'none';
   expect(plan.outcome).toBe('READY');
   expect.soft(plan.levels.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
@@ -418,13 +299,8 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
 
   const bands: Array<[number, number]> = hasFloor ? [[0, 1], [1, 3], [3, 4]] : [[0, 2], [2, 4]];
-  const modalIntensity = method === 'modal'
-    ? Math.max(2 * round2Ordinate * plan.seismic!.gammaR! / plan.seismic!.r!, 0.85 * plan.seismic!.c * (hasFloor ? 6 : 4) / 4)
-    : 0;
-  const intensities = method === 'modal' ? bands.map(() => modalIntensity) : hasFloor ? [0, 1.5, 3] : [0, 2];
-  const forces = method === 'modal'
-    ? bands.map(([a, b]) => modalIntensity * (b - a))
-    : hasFloor ? [0, 3, 3] : [0, 4];
+  const intensities = hasFloor ? [0, 1.5, 3] : [0, 2];
+  const forces = hasFloor ? [0, 3, 3] : [0, 4];
   const parts = plan.distributed.filter(d => d.caseType === 'E');
   const members = [...model.elements.values()];
   for (const [k, [a, b]] of bands.entries()) {
@@ -460,21 +336,20 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
 
 for (const cuts of [[0, 2, 4], [0, 0.5, 1.5, 2, 2.5, 3.5, 4]]) {
   for (const rotated of [false, true]) {
-    for (const method of ['static', 'modal'] as const) {
-      const variant = `${method}, ${rotated ? 'Y' : 'X'}, ${cuts.length - 1} elements`;
-      for (const role of ['master', 'slave'] as const) {
-        it(`#2316 column story partition keeps a diaphragm ${role} (${variant})`, () => {
-          verifyColumnStoryPartition(cuts, rotated, role, method);
-        });
-      }
-      it(`#2316 column story partition skips unmarked subdivisions (${variant})`, () => {
-        verifyColumnStoryPartition(cuts, rotated, 'none', method);
+    const variant = `static, ${rotated ? 'Y' : 'X'}, ${cuts.length - 1} elements`;
+    for (const role of ['master', 'slave'] as const) {
+      it(`#2316 column story partition keeps a diaphragm ${role} (${variant})`, () => {
+        verifyColumnStoryPartition(cuts, rotated, role);
       });
     }
+    it(`#2316 column story partition skips unmarked subdivisions (${variant})`, () => {
+      verifyColumnStoryPartition(cuts, rotated, 'none');
+    });
+
   }
 }
 
-function withPinnedCarriers(check: (model: LoadModelData, members: string) => void) {
+function withPinnedCarriers(check: (model: LoadModelData) => void) {
   modelStore.clear();
   try {
     const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 4);
@@ -483,50 +358,23 @@ function withPinnedCarriers(check: (model: LoadModelData, members: string) => vo
     const beam = modelStore.addElement(top, far, 'frame')!;
     modelStore.addSupport(base, 'fixed3d');
     modelStore.addSupport(far, 'fixed3d');
-    modelStore.updateElement(column, { name: 'C1' });
     modelStore.toggleRelease(column, 'i', 'my');
     modelStore.toggleHinge3D(beam, 'end');
     const model = modelStore.model as unknown as LoadModelData;
     const nodes = new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }]));
-    check({ ...model, nodes }, `#${column} (C1), #${beam}`);
+    check({ ...model, nodes });
   } finally {
     modelStore.clear();
   }
 }
 
-it('#2316 the modal solver adapter identifies all released carriers', () => {
-  withPinnedCarriers((model, members) => {
+it('#2316 static loads on released carriers stay available and modal generation refuses', () => {
+  withPinnedCarriers(model => {
     const plan = buildLoadPlan(request(model));
     expect(plan.outcome).toBe('READY');
     expect(plan.distributed.filter(d => d.caseType === 'E').length).toBeGreaterThan(0);
-    expect(modesForPlan(plan, 0)).toEqual({ error: expect.stringContaining(members) });
-  });
-});
-
-it('#2316 both modal reducers refuse to interpolate released carrier ends', () => {
-  withPinnedCarriers((model, members) => {
     const mode = prescribedMode(model, false, z => z / height, 1 / height);
-    const { seismicLevels } = buildLoadPlan(request(model));
-    expect(seismicLevels).toBeDefined();
-    const refusal = expect.objectContaining({ params: { members } });
-    expect.soft(() => modalLoadingLevels(seismicLevels!, [mode])).toThrow(refusal);
-    expect(() => modalStoryForces(seismicLevels!, [mode], 'x', () => 1)).toThrow(refusal);
-  });
-});
-
-it('#2316 supplied modes on released carriers block seismic cases and combinations', () => {
-  withPinnedCarriers((model, members) => {
-    const mode = prescribedMode(model, false, z => z / height, 1 / height);
-    const plan = buildLoadPlan(request(model, modalRequest(mode, false), { generateCombinations: true }));
-    expect.soft(plan.outcome).toBe('BLOCKED');
-    expect.soft(plan.blockedKeys).toContainEqual({
-      key: 'loadPlan.blocked.seismicMass.bendingRelease', params: { members },
-    });
-    expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
-    expect.soft(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
-    expect.soft(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
-    expect.soft(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
-    expect(plan.combinations).toEqual([]);
+    expectModalRefusal(buildLoadPlan(request(model, modalRequest(mode, false), { generateCombinations: true })));
   });
 });
 
@@ -580,62 +428,27 @@ function verifyRound2Columns(
   }
 }
 
-for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 1, 4], [0, 1, 2, 3, 4]]) {
-  for (const floor of [false, true]) {
-    it(`#2316 moving base-band mass loads its carrier (${rotated}, ${mirror}, ${cuts.length - 1} elements, floor ${floor})`, () => {
-      const { model, byColumn } = round2Columns(cuts, rotated, mirror, undefined, true);
-      for (const members of byColumn) members[0]!.materialId = 2;
-      const mode = prescribedMode(model, rotated, z => z === 0 ? 0 : 1, 0);
-      if (floor) mode.period = 10 * round2Period;
-      const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
-      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      const cm = spectralOrdinate(mode.period, round2Spectrum) * plan.seismic!.gammaR! / plan.seismic!.r!;
-      const qFloor = 0.85 * plan.factors.baseShear!.value / (2 * (height - 1));
-      expect(w * cm < qFloor).toBe(floor);
-      verifyRound2Columns(model, byColumn, plan, rotated, 1, Math.max(w * cm, qFloor), 0);
-    });
-  }
-}
-
-for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 2, 4], [0, 1, 2, 3, 4]]) {
-  it(`#2316 the modal base shear includes the moving lower half (${rotated}, ${cuts.length - 1} elements)`, () => {
-    const { model } = round2Columns(cuts, rotated, false);
-    const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
-    mode.participation = { x: { gamma: 0, ratio: 0 }, y: { gamma: 0, ratio: 0 } };
-    mode.participation[rotated ? 'y' : 'x'] = { gamma: 3 / 2, ratio: 3 / 4 };
-    const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
-    expect(plan.outcome).toBe('READY');
-    const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-    const shear = windResultants(model, plan.distributed.filter(d => d.caseType === 'E'))[rotated ? 1 : 0];
-    expect(shear).toBeCloseTo(2 * w * height * (3 / 4) * plan.seismic!.c, 10);
-  });
-}
-
 for (const rotated of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
-  knownWrong(`known wrong result: #2319 a linear mode retains the upper-half inertia field (${rotated}, ${cuts.length - 1} elements)`, () => {
-    const { model, byColumn } = round2Columns(cuts, rotated, false);
+  it(`#2319 refuses modal generation for a linear upper-half inertia field (${rotated}, ${cuts.length - 1} elements)`, () => {
+    const { model } = round2Columns(cuts, rotated, false);
     for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
     const mode = prescribedMode(model, rotated, z => z / height, 1 / height);
-    const plan = buildLoadPlan(request(model, modalRequest(mode, rotated)));
-    const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-    verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w * plan.seismic!.c * (9 / 7) / height, 1);
+    expectModalRefusal(buildLoadPlan(request(model, modalRequest(mode, rotated))));
   });
 }
 
 for (const rotated of [false, true]) for (const mirror of [false, true]) for (const cuts of [[0, 2, 4], [0, 1, 2, 3, 4]]) {
-  for (const method of ['static', 'modal'] as const) {
-    it(`#2316 ${method} eccentricity uses the massless structural perimeter (${rotated}, ${mirror}, ${cuts.length - 1} elements)`, () => {
-      const { model, byColumn } = round2Columns(cuts, rotated, mirror, 5);
-      for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
-      const mode = prescribedMode(model, rotated, z => z >= height / 2 ? 1 : 0, 0);
-      const plan = buildLoadPlan(request(model, {
-        ...(method === 'modal' ? modalRequest(mode, rotated) : { directions: { x: !rotated, y: rotated } }),
-        torsion: 'medium',
-      }));
-      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w * (method === 'modal' ? plan.seismic!.c : 1), 0, 10);
-    });
-  }
+  it(`#2316 static eccentricity uses the massless structural perimeter (${rotated}, ${mirror}, ${cuts.length - 1} elements)`, () => {
+    const { model, byColumn } = round2Columns(cuts, rotated, mirror, 5);
+    for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= height / 2) e.materialId = 2;
+    const plan = buildLoadPlan(request(model, {
+      directions: { x: !rotated, y: rotated },
+      torsion: 'medium',
+    }));
+    const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+    verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w, 0, 10);
+  });
+
 }
 
 it('#2316 a nonzero structural width with no polar mass refuses accidental torsion', () => {
@@ -659,62 +472,6 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
     }
   }
 });
-
-const upperBandStart = height / 2;
-for (const rotated of [false, true]) {
-  const missing = rotated ? 'x' : 'y';
-  for (const selection of ['single-axis', 'two-axis', 'diagonal'] as const) {
-    it(`#2316 zero modal base shear in ${missing} blocks a ${selection} request`, () => {
-      const { model, byColumn } = round2Columns([0, upperBandStart, height], rotated, false);
-      for (const members of byColumn) members[0]!.materialId = 2;
-      const mode = prescribedMode(model, rotated, z => z >= upperBandStart ? 1 : 0, 0);
-      if (selection === 'two-axis') {
-        mode.participation = {
-          x: { gamma: rotated ? 0 : 1, ratio: rotated ? 0 : 1 },
-          y: { gamma: rotated ? 1 : 0, ratio: rotated ? 1 : 0 },
-        };
-      }
-      const plan = buildLoadPlan(request(model, {
-        ...modalRequest(mode, rotated),
-        directions: {
-          x: selection === 'two-axis' || (selection === 'single-axis' && missing === 'x'),
-          y: selection === 'two-axis' || (selection === 'single-axis' && missing === 'y'),
-        },
-        diagonal: selection === 'diagonal',
-        torsion: selection === 'two-axis' ? 'medium' : 'low',
-      }, { generateCombinations: true }));
-      expect(plan.outcome).toBe('BLOCKED');
-      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalBaseShear', params: { dir: missing.toUpperCase() } }]);
-      expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
-      expect([...plan.distributed, ...plan.nodal, ...plan.surface].filter(p => p.caseType === 'E')).toEqual([]);
-      expect(plan.combinations).toEqual([]);
-    });
-  }
-
-  for (const cuts of [[0, upperBandStart, height], [0, 1, upperBandStart, 3, height]]) {
-    it(`#2316 the modal shear floor accepts small positive ${missing} participation (${cuts.length - 1} elements)`, () => {
-      const { model, byColumn } = round2Columns(cuts, rotated, cuts.length > 3);
-      for (const e of model.elements.values()) if (model.nodes.get(e.nodeJ)!.z! <= upperBandStart) e.materialId = 2;
-      const mode = prescribedMode(model, rotated, z => z >= upperBandStart ? 1 : 0, 0);
-      const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      const unscaled = buildLoadPlan(request(model, modalRequest(mode, rotated)));
-      expect(unscaled.outcome).toBe('READY');
-      const ordinate = spectralOrdinate(round2Period, round2Spectrum) * unscaled.seismic!.gammaR! / unscaled.seismic!.r!;
-      verifyRound2Columns(model, byColumn, unscaled, rotated, upperBandStart, weightPerLength * ordinate, 0);
-
-      const smallComponent = 1 / 16;
-      for (const [id, sample] of mode.shape) {
-        mode.shape.set(id, { ...sample, [rotated ? 'ux' : 'uy']: smallComponent * (rotated ? sample.uy : sample.ux) });
-      }
-      const scaled = buildLoadPlan(request(model, modalRequest(mode, !rotated)));
-      const minIntensity = 0.85 * weightPerLength * unscaled.seismic!.c;
-      const unscaledIntensity = weightPerLength * ordinate * smallComponent ** 2 / (1 + smallComponent ** 2);
-      expect(unscaledIntensity).toBeGreaterThan(0);
-      expect(unscaledIntensity).toBeLessThan(minIntensity);
-      verifyRound2Columns(model, byColumn, scaled, !rotated, upperBandStart, minIntensity, 0);
-    });
-  }
-}
 
 function diagonalModalFixture() {
   const model = mesh([
@@ -740,30 +497,9 @@ for (const withAxes of [false, true]) {
     const plan = buildLoadPlan(request(model, {
       ...seismic, directions: { x: withAxes, y: withAxes }, diagonal: true,
     }, { generateCombinations: true }));
-    expect(plan.outcome).toBe('BLOCKED');
-    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalDiagonal' }]);
-    expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
-    expect([...plan.distributed, ...plan.nodal, ...plan.surface].filter(p => p.caseType === 'E')).toEqual([]);
-    expect(plan.combinations).toEqual([]);
+    expectModalRefusal(plan);
   });
 }
-
-it('#2316 the X and Y modal cases keep the signed story forces', () => {
-  const { model, ...seismic } = diagonalModalFixture();
-  const plan = buildLoadPlan(request(model, { ...seismic, directions: { x: true, y: true } }));
-  expect(plan.outcome).toBe('READY');
-  expect(plan.cases.filter(c => c.type === 'E').map(c => c.nameParams?.dir)).toEqual(['X', 'Y']);
-  for (const [dir, component] of [['X', 0], ['Y', 1]] as const) {
-    const caseIndex = plan.cases.findIndex(c => c.nameParams?.dir === dir);
-    for (const [elevation, force] of [[3, -20], [6, 100]] as const) {
-      const lines = plan.distributed.filter(d => d.caseIndex === caseIndex &&
-        model.nodes.get(model.elements.get(d.elementId)!.nodeI)!.z === elevation);
-      const resultant = windResultants(model, lines);
-      expect(resultant[component]).toBeCloseTo(force, 10);
-      expect(resultant[1 - component]).toBeCloseTo(0, 10);
-    }
-  }
-});
 
 it('#2316 a static diagonal-only case still applies the static base shear at 45°', () => {
   const { model, code } = diagonalModalFixture();
@@ -776,10 +512,13 @@ it('#2316 a static diagonal-only case still applies the static base shear at 45�
   expect(fy).toBeCloseTo(80 / (0.85 * Math.SQRT2), 10);
 });
 
-const refusesModal = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
+function expectModalRefusal(plan: ReturnType<typeof buildLoadPlan>) {
+  expect(plan.blockedKeys).toEqual([{ key: MODAL_SEISMIC_UNAVAILABLE }]);
+  expect(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+}
 
 for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diagonal only'] as const) {
-  refusesModal(`known wrong result: #2319 refuses ${selection} before planning any load cases`, () => {
+  it(`#2319 refuses ${selection} before planning any load cases`, () => {
     const { model, ...seismic } = diagonalModalFixture();
     const proposed = selection === 'legacy modes' ? seismic
       : selection === 'empty modes' ? { ...seismic, modal: { modes: [] } }
@@ -789,19 +528,18 @@ for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diago
       directions: { x: selection !== 'diagonal only', y: false },
       diagonal: selection === 'diagonal only',
     }, { generateCombinations: true }));
-    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalUnavailable' }]);
-    expect(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+    expectModalRefusal(plan);
   });
 }
 
-refusesModal('known wrong result: #2319 the seismic code adapter refuses modal requests directly', () => {
+it('#2319 the seismic code adapter refuses modal requests directly', () => {
   const { model, ...seismic } = diagonalModalFixture();
-  const levels = buildLoadPlan(request(model)).seismicLevels!;
+  const levels = buildLoadPlan(request(model)).levels as SeismicLevel[];
   const sink: SeismicPlanSink = {
     cases: [], nodal: [], distributed: [], surface: [], derivation: [], refs: [],
     assumptions: [], unsupportedKeys: [], blockedKeys: [], levelRefusals: [],
   };
   INPRES103_SEISMIC.plan(request(model, seismic), levels, sink);
-  expect(sink.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalUnavailable' }]);
+  expect(sink.blockedKeys).toEqual([{ key: MODAL_SEISMIC_UNAVAILABLE }]);
   expect(sink).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [] });
 });

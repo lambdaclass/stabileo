@@ -8,13 +8,13 @@ import { createSectionWeight } from '../../section/weight';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
 export type MassLine = {
-  kind: 'line'; elementId: number; memberName?: string; hasBendingRelease: boolean; nodeI: MassNode; nodeJ: MassNode;
-  length: number; a: number; b: number; wi: number; wj: number; width?: number; added?: boolean;
+  kind: 'line'; elementId: number; nodeI: MassNode; nodeJ: MassNode;
+  length: number; a: number; b: number; wi: number; wj: number; width?: number;
 };
-export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number; added?: boolean };
+export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
 export type SeismicMass = MassLine | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
-export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'mode' | 'weight';
+export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
 export function atLine(line: MassLine, s: number) {
@@ -27,12 +27,12 @@ export function atLine(line: MassLine, s: number) {
   };
 }
 
-export function massSamples(mass: SeismicMass, sample: (weight: number, x: number, y: number, shape: number[]) => void) {
+export function massSamples(mass: SeismicMass, sample: (weight: number, x: number, y: number) => void) {
   if (mass.kind === 'line') {
     for (const [u, w] of pressureQuadrature) {
       const s = interpolate(mass.a, mass.b, (1 + u) / 2);
       const p = atLine(mass, s);
-      sample(w * (mass.b - mass.a) * p.weight / 2, p.x, p.y, [s / mass.length]);
+      sample(w * (mass.b - mass.a) * p.weight / 2, p.x, p.y);
     }
     return;
   }
@@ -42,7 +42,7 @@ export function massSamples(mass: SeismicMass, sample: (weight: number, x: numbe
     for (const i of [0, 1, 2]) {
       const shape = [0, 1, 2].map(j => i === j ? 2 / 3 : 1 / 6);
       const point = (key: 'x' | 'y') => a![key] + mass.nodes.reduce((v, n, j) => v + shape[j]! * (n[key] - a![key]), 0);
-      sample(size * mass.density / 3, point('x'), point('y'), shape);
+      sample(size * mass.density / 3, point('x'), point('y'));
     }
     return;
   }
@@ -54,7 +54,7 @@ export function massSamples(mass: SeismicMass, sample: (weight: number, x: numbe
     ];
     const [xr, xs] = derivatives('x'), [yr, ys] = derivatives('y');
     const point = (key: 'x' | 'y') => a![key] + mass.nodes.reduce((v, n, i) => v + shape[i]! * (n[key] - a![key]), 0);
-    sample(wr * ws * Math.abs(xr! * ys! - xs! * yr!) * mass.density, point('x'), point('y'), shape);
+    sample(wr * ws * Math.abs(xr! * ys! - xs! * yr!) * mass.density, point('x'), point('y'));
   }
 }
 
@@ -99,8 +99,7 @@ export function buildSeismicLevels(
     if (!nodeI || !nodeJ) continue;
     const length = Math.hypot(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y, nodeJ.z - nodeI.z);
     if (!(Number.isFinite(length) && length > 0)) continue;
-    const hasBendingRelease = [e.releaseI, e.releaseJ].some(end => end?.my === true || end?.mz === true);
-    geometry.set(e.id, { kind: 'line', elementId: e.id, memberName: e.name, hasBendingRelease, a: 0, b: length, length, nodeI, nodeJ });
+    geometry.set(e.id, { kind: 'line', elementId: e.id, a: 0, b: length, length, nodeI, nodeJ });
     next(e.nodeI, nodeJ);
     next(e.nodeJ, nodeI);
   }
@@ -176,8 +175,7 @@ export function buildSeismicLevels(
     l.weightKN += factor * weight;
     if (!Number.isFinite(l.weightKN)) { deny(l, 'weight'); return; }
     if (m === null) return;
-    const added = source !== 'selfWeightKN';
-    l.mass.push(m.kind === 'line' ? { ...m, added, wi: factor * m.wi, wj: factor * m.wj } : { ...m, added, density: factor * m.density });
+    l.mass.push(m.kind === 'line' ? { ...m, wi: factor * m.wi, wj: factor * m.wj } : { ...m, density: factor * m.density });
   };
   const line = (source: Source, g: Omit<MassLine, 'wi' | 'wj'>, wi: number, wj: number, strip?: number) => {
     if (!Number.isFinite(wi) || !Number.isFinite(wj) || wi < 0 || wj < 0) { markMember(g.elementId, 'weight'); return; }

@@ -7,12 +7,12 @@ a node could move the resultant and change the loading of the members. The modal
 planner also averaged the sampled displacement at those nodes, so the same
 displacement field could change its calculated participation on subdivision.
 
-The seismic planner now keeps the locations and weights of the physical mass
+The static seismic planner now keeps the locations and weights of the physical mass
 carriers. The shared wind member-load conversion emits global line loads over
 the loaded part of each member. Flat modeled shells carry surface loads.
 Accidental torsion on supported levels is distributed around the physical mass
-centroid. Frame and shell displacement fields enter the modal integration at the
-mass locations. Production modal participation factors come from the solver.
+centroid. Modal seismic load generation is unavailable pending the force
+distribution redesign. [Issue #2319](https://github.com/lambdaclass/stabileo/issues/2319)
 
 The preview identifies levels whose mass or load path it cannot establish. A
 plan with an incomplete seismic action cannot be applied. Eccentric

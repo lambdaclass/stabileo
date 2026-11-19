@@ -14,7 +14,8 @@ import { modelStore, type Load } from '../model.svelte';
 import '../index';
 import { applyLoadPlan, loadStateForPlan, replaceScope } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
-import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
+import { assessProject } from '../../provenance/applicability';
+import { bindRole, defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import es from '../../i18n/locales/es';
 
 const nameOf = (key: string, params?: Record<string, string | number>) =>
@@ -164,15 +165,36 @@ describe("an edit by hand makes it the user's", () => {
   });
 });
 
-const refusesModal = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
 
-refusesModal('known wrong result: #2319 Apply refuses a READY legacy modal plan', () => {
+it('#2319 Apply refuses a READY legacy modal plan', () => {
   frame();
   const before = counts();
   const plan = buildLoadPlan(planInput());
   plan.cases.push({ type: 'E', nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' }, existingId: null });
   plan.derivation.push({ key: 'loadPlan.derivation.modal' });
-  applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf });
+  expect(applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf })).toEqual({ key: 'loadPlan.blocked.modalUnavailable' });
   expect(counts()).toEqual(before);
   expect(modelStore.loadCases.some(c => c.type === 'E')).toBe(false);
+});
+
+it('#2319 appending static loads keeps the saved-load notice until earlier generated loads are replaced', () => {
+  frame();
+  const seismic = modelStore.addLoadCase('E X', 'E');
+  modelStore.addNodalLoad3D([...modelStore.nodes.keys()][0]!, 1, 0, 0, 0, 0, 0, seismic);
+  modelStore.replaceLoads(modelStore.loads.map(l => ({ ...l, data: { ...l.data, generatedBy: 'load-plan' } } as Load)));
+  const input = planInput();
+  input.regulations.seismic = { ...bindRole('seismic', 'inpres103-2018'), configComplete: true, state: 'applied' };
+  input.seismic = { enabled: true, method: 'static', coefficient: 1, liveParticipation: 0, directions: { x: true, y: false } };
+  const notice = () => assessProject(JSON.parse(JSON.stringify(modelStore.snapshot())), null).changes.some(c => c.id === 'seismic-modal-generation-unavailable');
+  expect(notice()).toBe(true);
+
+  const plan = buildLoadPlan(input);
+  expect(plan.outcome).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.loads.some(l => l.data.seismicGeneration === 'static')).toBe(true);
+  expect(notice()).toBe(true);
+
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.loads.some(l => l.data.seismicGeneration === 'static')).toBe(true);
+  expect(notice()).toBe(false);
 });

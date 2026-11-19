@@ -1,4 +1,4 @@
 ### Fixed
-#### Generated seismic actions follow physical mass (2026-11-18)
+#### Static seismic member loads and modal generation refusal (2026-11-19)
 
-Static and modal earthquake loads follow the mass on each carrier. Member subdivisions no longer move the force or change the participation of the same modal displacement field. The planner reports levels whose loading it cannot represent. Regenerate affected seismic loads before repeating analyses and checks. (#2208, #2209)
+Static equivalent seismic forces follow the mass on each carrier as member and shell loads. Modal seismic load generation is temporarily unavailable because its force distribution can give incorrect member forces and deflections. Use the static method where applicable. (#2208, #2209, #2316, #2319)

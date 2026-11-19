@@ -33,8 +33,8 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
-import { buildSeismicLevels, type SeismicLevel } from './seismic-mass';
-import type { ModeShape } from './seismic-modal';
+import { buildSeismicLevels } from './seismic-mass';
+import { modalSeismicRefusal } from './seismic-generation';
 import type { TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
 import { roofWeightClass, type RoofWeight } from '../../codes/cirsoc101/roof-live';
@@ -52,7 +52,6 @@ import { resolveLoadCodes, withOrigin } from '../../codes/families';
 
 import { createSectionWeight } from '../../section/weight';
 import type { DrawnSection } from '../../section/drawn';
-import type { Release } from '../../store/model.svelte';
 
 // ─── Model slice ─────────────────────────────────────────────────
 
@@ -61,9 +60,6 @@ type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?:
 export interface LoadModelData extends GravityModel {
   elements: Map<number, {
     id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss';
-    name?: string;
-    releaseI?: Partial<Release>;
-    releaseJ?: Partial<Release>;
   }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**
@@ -239,11 +235,8 @@ export interface LoadPlanInput {
     /** Fraction of the imposed load in the seismic weight; null → recorded assumption. */
     liveParticipation: number | null;
     directions: { x: boolean; y: boolean };
-    /**
-     * The modal response spectrum method (Cap. 7, `seismic-modal.ts`): the model's modes, for
-     * the forces per level in place of the static distribution. Needs the code path.
-     */
-    modal?: { modes: ModeShape[] };
+    method?: 'static' | 'modal';
+    modal?: unknown;
     /** E = EH ± EV with EV = (Ca/2)·γr·D (§3.5.2, [3.18]), as the D factor of each seismic combination. */
     vertical?: boolean;
     /** Tabla 6.3: the accidental eccentricity by torsional irregularity (§6.2.4.2). */
@@ -414,6 +407,7 @@ export interface SeismicPlanDetail {
 }
 
 export interface LoadPlan {
+  seismicGeneration?: 'static';
   outcome: PlanOutcome;
   cases: PlannedCase[];
   distributed: PlannedDistributed[];
@@ -436,7 +430,6 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
-  seismicLevels?: SeismicLevel[];
   /** The weight class of the roof §4.8.1 used: the one given, or the one `roofWeightOf` found. */
   roofWeight?: RoofWeight;
   /** The 103 derivation, when the code path produced the coefficient. */
@@ -659,6 +652,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     },
     levels: [], assumptions, unsupportedKeys, refs, derivation, blockedKeys,
   };
+  const modalRefusal = modalSeismicRefusal(input.seismic);
+  if (modalRefusal) blockedKeys.push(modalRefusal);
   if (blockedKeys.length > 0) return empty;
 
   // ── The code modules of the bound roles (`codes/families`): a role with none blocks by name ──
@@ -1128,9 +1123,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
     levels: seismicLevels ?? levels,
-    ...(seismicLevels ? { seismicLevels } : {}),
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
+    ...(cases.some(c => c.type === 'E') ? { seismicGeneration: 'static' as const } : {}),
     generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
     unsupportedKeys, refs, derivation, blockedKeys,

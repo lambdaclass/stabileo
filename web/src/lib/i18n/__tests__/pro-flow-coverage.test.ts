@@ -189,14 +189,9 @@ describe('the PRO workflow speaks every language it is offered in', () => {
   });
 });
 
-it('#2316 every dictionary translates the modal representation refusal', () => {
-  const key = 'loadPlan.blocked.seismicMass.mode';
-  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]);
-  expect(missing).toEqual([]);
-});
-
-it('#2316 every dictionary names the direction in the modal base shear refusal', () => {
-  const key = 'loadPlan.blocked.modalBaseShear';
-  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]?.includes('{dir}'));
+it('#2319 every shipped dictionary translates the modal generation refusal', () => {
+  const key = 'loadPlan.blocked.modalUnavailable';
+  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]?.trim() ||
+    (locale !== 'en' && dictFor(locale)[key] === dictFor('en')[key]));
   expect(missing).toEqual([]);
 });

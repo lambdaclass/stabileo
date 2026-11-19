@@ -54,7 +54,7 @@ export async function dwellingFloorLoads(page: Page): Promise<void> {
   await page.getByTestId(section).click();
 }
 
-export async function expectLoadGenerationRefusal(page: Page, reason: RegExp): Promise<void> {
+export async function expectLoadGenerationRefusal(page: Page, reason: RegExp, issue?: number): Promise<void> {
   const snapshot = () => page.evaluate(() => {
     const s = JSON.parse(window.__stabileo.serializeProject()).snapshot;
     return { loads: s.loads, cases: s.loadCases, combinations: s.combinations, loadBasis: s.designData?.loadBasis };
@@ -67,6 +67,10 @@ export async function expectLoadGenerationRefusal(page: Page, reason: RegExp): P
   await expect(page.getByTestId('al-blocked')).toBeVisible();
   await expect(page.getByTestId('al-preview')).toContainText(reason);
   await expect(page.getByTestId('al-preview')).not.toContainText(/loadPlan\.blocked\./);
+  if (issue !== undefined) {
+    await expect(page.getByTestId('al-preview').getByRole('link', { name: '#' + issue, exact: true }))
+      .toHaveAttribute('href', 'https://github.com/lambdaclass/stabileo/issues/' + issue);
+  }
   await expect(page.getByTestId('al-apply')).toBeDisabled();
   await expect(page.getByTestId('al-delta')).toHaveCount(0);
   expect(await snapshot()).toEqual(before);

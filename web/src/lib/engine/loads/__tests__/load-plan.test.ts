@@ -10,7 +10,6 @@ import {
   bindRole, defaultRegulations, unsetBinding, type ProjectRegulations,
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
-import { modalStoryForces, cqcRho } from '../seismic-modal';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -762,7 +761,7 @@ describe('the combinations the preview counts are the ones applying adds', () =>
   });
 });
 
-describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsion, 45°', () => {
+describe('INPRES-CIRSOC 103: static method, vertical component, accidental torsion, 45°', () => {
   const code103 = {
     zone: 4 as const, site: 'SB' as const, group: 'B' as const, systemKey: 'rc_frame_full_ductility',
     periodSystem: 'concreteMomentFrame' as const, regularity: 'regular' as const, occupancy: 'reduced' as const,
@@ -774,45 +773,6 @@ describe('INPRES-CIRSOC 103: modal method, vertical component, accidental torsio
     ...options,
   });
   const sumFx = (p: ReturnType<typeof buildLoadPlan>, i: number) => windResultants(frame(4), p.distributed.filter(n => n.caseIndex === i))[0]!;
-  const sample = (ux: number) => ({ ux, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
-  const level = (elevation: number, id: number) => ({
-    elevation, weightKN: 100, mass: [{
-      kind: 'line' as const, hasBendingRelease: false, elementId: id,
-      nodeI: { id, x: 0, y: 0, z: elevation }, nodeJ: { id: 100 + id, x: 1, y: 0, z: elevation },
-      length: 1, a: 0, b: 1, wi: 100, wj: 100,
-    }],
-  });
-  const phi = (a: number, b: number) => new Map([[1, sample(a)], [101, sample(a)], [2, sample(b)], [102, sample(b)]]);
-
-  it('one mass, one mode: the whole weight times the ordinate, all of the mass', () => {
-    const m = modalStoryForces([level(3, 1)], [{ period: 0.5, shape: phi(2, 0) }], 'x', () => 0.3);
-    expect(m.forces[0]).toBeCloseTo(30, 9);
-    expect(m.massRatio).toBeCloseTo(1, 9);
-  });
-
-  it('two equal storeys: the two modes carry all the mass, and well apart CQC is SRSS', () => {
-    const lv = [level(3, 1), level(6, 2)];
-    const golden = (1 + Math.sqrt(5)) / 2;
-    const modes = [{ period: 1.0, shape: phi(1, golden) }, { period: 0.38, shape: phi(1, 1 - golden) }];
-    const m = modalStoryForces(lv, modes, 'x', () => 0.2);
-    expect(m.massRatio).toBeCloseTo(1, 9);
-    const srss = Math.hypot(m.perMode[0]!.baseShear, m.perMode[1]!.baseShear);
-    expect(m.baseShear).toBeCloseTo(srss, 1);
-    expect(cqcRho(1, 1)).toBeCloseTo(1, 12);
-  });
-
-  it('the modal forces replace the static ones, raised to 85 % of the static base shear', () => {
-    const model = frame(4);
-    // A first mode growing linearly with height, nothing else: a fraction of the mass.
-    const shape = new Map([...model.nodes.values()].map((n) => [n.id, sample((n.z ?? 0) / 12)]));
-    const st = buildLoadPlan(seismic());
-    const dy = buildLoadPlan(seismic({ modal: { modes: [{ period: 0.6, shape }] } }));
-    expect(dy.outcome).toBe('READY');
-    expect(dy.derivation.some((d) => d.key === 'loadPlan.derivation.modal')).toBe(true);
-    const ex = dy.cases.findIndex((c) => c.type === 'E');
-    const V0 = st.factors.baseShear!.value;
-    expect(sumFx(dy, ex)).toBeGreaterThanOrEqual(0.85 * V0 - 1e-6);
-  });
 
   it('a medium torsional irregularity: ±5 % eccentricity, two cases per direction, no net force across', () => {
     const options = { tributaryWidth: 0, dead: [] };
@@ -993,24 +953,30 @@ it('#2208 subdivision preserves the moment about the global origin', () => {
   expect(subdivided[5]).toBeCloseTo(uniformRectangleMoment, 12);
 });
 
-it('#2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
-  const calculate = (subdivide: boolean) => {
-    const model = mesh([[[0, 0, 3], [1, 0, 3]], subdivide
-      ? [[0, 0, 6], [0.25, 0, 6], [1, 0, 6]]
-      : [[0, 0, 6], [1, 0, 6]]]);
-    if (subdivide) model.elements.delete(4);
-    model.sections.set(1, { id: 1, a: 1 });
-    model.materials.set(1, { id: 1, rho: 100 });
-    const plan = carrierPlan(model, 1);
-    expect(plan.outcome).toBe('READY');
-    const shape = new Map([...model.nodes.values()].map(n => [
-      n.id, { ux: n.z === 3 ? 1 : 1 + 2 * n.x, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 },
-    ]));
-    return modalStoryForces(plan.seismicLevels!, [{ period: 1, shape }], 'x', () => 1);
-  };
-  const endpoints = calculate(false);
-  const subdivided = calculate(true);
-  expect.soft(subdivided.forces[0]).toBeCloseTo(endpoints.forces[0]!, 12);
-  expect.soft(subdivided.forces[1]).toBeCloseTo(endpoints.forces[1]!, 12);
-  expect(subdivided.massRatio).toBeCloseTo(endpoints.massRatio, 12);
+describe('modal generation refuses the #2209 subdivision fixture', () => {
+  it('#2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
+    for (const subdivide of [false, true]) {
+      const model = mesh([[[0, 0, 3], [1, 0, 3]], subdivide
+        ? [[0, 0, 6], [0.25, 0, 6], [1, 0, 6]]
+        : [[0, 0, 6], [1, 0, 6]]]);
+      if (subdivide) model.elements.delete(4);
+      model.sections.set(1, { id: 1, a: 1 });
+      model.materials.set(1, { id: 1, rho: 100 });
+      const shape = new Map([...model.nodes.values()].map(n => [
+        n.id, { ux: n.z === 3 ? 1 : 1 + 2 * n.x, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 },
+      ]));
+      const requested = input({
+        regulations: applied({ ...defaultRegulations(), seismic: bindRole('seismic', 'inpres103-2018') }),
+        model, dead: [], tributaryWidth: 0,
+        seismic: {
+          enabled: true, coefficient: 1, liveParticipation: 0, directions: { x: true, y: false },
+          code: { zone: 4, site: 'SB', group: 'B', systemKey: 'rc_frame_full_ductility', periodSystem: 'concreteMomentFrame', regularity: 'regular', occupancy: 'reduced' },
+          modal: { modes: [{ period: 1, shape }] },
+        },
+      });
+      const plan = buildLoadPlan(requested);
+      expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalUnavailable' }]);
+      expect(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+    }
+  });
 });
