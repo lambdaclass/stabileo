@@ -18,6 +18,7 @@ import { bendAngles } from '../../rc-sheets/shape';
 import { barArea } from '../../rc-sheets/bars';
 import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 import { goToRow, resizeHints, lineResizeHint } from '../rc-sheets-resize';
+import { setFoundationSystem } from '../rc-sheets-footings';
 
 
 beforeAll(async () => { await initSolver(); });
@@ -544,10 +545,13 @@ describe('reinforcement sheets from a solved model', () => {
     expect(rcSheetsData().torsion).toBe('compatibility');
   });
 
-  it('exports a sheet per family with a row per element', () => {
+  it('exports a sheet per family with a row per element, the footings only once a foundation layout is adopted', () => {
     frame(); solve();
+    const families = ['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall'];
+    expect(rcSheetsWorkbook(buildSheetRows(), (k) => k).map((s) => s.name)).toEqual(families);
+    setFoundationSystem('footings');
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);
-    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall', 'rcSheets.family.footing']);
+    expect(sheets.map((s) => s.name)).toEqual([...families, 'rcSheets.family.footing']);
     expect(sheets[1]!.rows.length).toBeGreaterThan(3);
     expect(sheets[0]!.rows[0]![0]).toContain('CIRSOC 201-2025');
     expect(sheets[0]!.rows).toHaveLength(4);
