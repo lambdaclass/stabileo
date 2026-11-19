@@ -49,11 +49,11 @@ test('allowances need bytes, a reason and an existing module', () => {
   assert.throws(() => parse([]), /invalid route allowance/);
   assert.throws(() => parse([entry, { ...entry, reason: '' }]), /invalid route allowance/);
 });
-test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian and Simplified Chinese on every route, and the language picker on the landings', () => {
+test('the shipped allowances are the #1483 related links on research and tools, the #1619 riser card and #2257 masonry arch card on research, the #447 containment messages on tools, the viewer plane on the two calculators, #818 Rayleigh refinement on the app, #1916 Hungarian and Simplified Chinese on every route, Simplified Chinese on the beam-frame and Mohr tools, and the language picker on the landings', () => {
   const routes = routeAllowances(readFileSync(new URL('./research-route-allowances.json', import.meta.url), 'utf8'), () => true);
-  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/continuous-beam/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
+  assert.deepEqual(Object.keys(routes).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/en/research/', '/en/tools/', '/en/tools/beam-frame/', '/en/tools/continuous-beam/', '/en/tools/mohr-2d/', '/en/tools/simply-supported-beam/', '/es/', '/pt/']);
   for (const route of ['/en/', '/es/', '/pt/']) {
-    assert.deepEqual(routes[route], { bytes: 1100, reason: "#1916 Hungarian, the seventh offered language: its name and lazy loader + Simplified Chinese, the eighth offered language: its name and lazy loader + the language picker as wide as its longest name", modules: ['src/lib/i18n/offered.ts', 'src/lib/i18n/offered.ts', 'src/components/LocaleSelect.svelte'] });
+    assert.deepEqual(routes[route], { bytes: 1400, reason: "#1916 Hungarian, the seventh offered language: its name and lazy loader + Simplified Chinese, the eighth offered language: its name and lazy loader + the language picker as wide as its longest name", modules: ['src/lib/i18n/offered.ts', 'src/lib/i18n/offered.ts', 'src/components/LocaleSelect.svelte'] });
   }
   for (const route of ['/app/basic', '/app/education', '/app/pro']) {
     assert.deepEqual(routes[route], { bytes: 2409400, reason: "#818 original-pencil Rayleigh refinement + #1916 Hungarian, the seventh offered language: its lazily loaded app dictionary + Simplified Chinese, the eighth offered language: its lazily loaded app dictionary", modules: ['src/lib/engine/second-order/dense.ts', 'src/lib/i18n/locales/hu.ts', 'src/lib/i18n/locales/zh.ts'] });
@@ -63,6 +63,8 @@ test('the shipped allowances are the #1483 related links on research and tools, 
   for (const route of ['/en/tools/simply-supported-beam/', '/en/tools/continuous-beam/']) {
     assert.deepEqual(routes[route], { bytes: 111100, reason: "#1483 related links styled as theme chips + #447 containment messages + #1916 Hungarian copy of the free calculators + the shared scalar-field viewer's plan/elevation plane and unlit category colours (calculators keep plan) + Simplified Chinese copy of the free calculators", modules: ['src/components/research/RelatedLinks.svelte', 'src/lib/engine/known-issue-message.ts', 'src/components/tools/batch-i18n.ts', 'src/components/viewport/scalar-field-plane.ts', 'src/components/tools/batch-i18n.ts'] });
   }
+  assert.deepEqual(routes['/en/tools/beam-frame/'], { bytes: 70000, reason: 'Simplified Chinese copy of the free calculators', modules: ['src/components/tools/batch-i18n.ts'] });
+  assert.deepEqual(routes['/en/tools/mohr-2d/'], { bytes: 60000, reason: 'Simplified Chinese copy of the free calculators and the Mohr tools', modules: ['src/components/mohr/i18n.ts'] });
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);

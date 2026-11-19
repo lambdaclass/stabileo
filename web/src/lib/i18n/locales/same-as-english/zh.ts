@@ -114,6 +114,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "kin.plural_n",
   "landing.footRepo",
   "landing.modAi",
+  "landing.topTag",
   "lang.ar",
   "lang.de",
   "lang.en",
