@@ -1,3 +1,4 @@
+import { drawnStirrupCoverage } from '../../design-contract/reinforcement';
 /**
  * Repeated beam lines: the frames of a building that are the same frame again, on another level
  * or another axis. A beam line is a horizontal frame line (`groupByFrameLine`), its members
@@ -108,7 +109,10 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
     if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [swap(k), walk(x)]));
     return v;
   };
-  return walk(r) as ProvidedReinforcement;
+  const mirrored = walk(r) as ProvidedReinforcement;
+  const coverage = r[drawnStirrupCoverage];
+  if (coverage) mirrored[drawnStirrupCoverage] = coverage.map(({ from, to }) => ({ from: 1 - to, to: 1 - from }));
+  return mirrored;
 }
 
 /** The longitudinal steel of a member's bars, cm²·m: what «the most reinforced» weighs. */

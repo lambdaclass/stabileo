@@ -24,6 +24,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
  *   - Torsion diagram is linear interpolation (no interior load effects)
  */
 
+import { drawnStirrupCoverage } from '../design-contract/reinforcement';
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
 import { checkTorsion2025, columnShearTensionRatio, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
@@ -2081,6 +2082,9 @@ export function verifyProvidedReinforcement(
   const shape = section?.shape ?? (member && modelData?.sections.get(member.sectionId)?.shape);
   const rectangular = !options?.shape && !section?.flange && (shape === undefined || shape === 'rect');
   const regions = provided.regions;
+  const stirrupCoverage = provided[drawnStirrupCoverage];
+  const hasStirrupGap = (t: Tuple) => stirrupCoverage !== undefined
+    && !stirrupCoverage.some(({ from, to }) => from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9);
   const regionalStirrups = regions?.stirrupsSupport || regions?.stirrupsSpan
     ? [regions.stirrupsSupport, regions.stirrupsSpan] : [provided.stirrups];
   const cages = section ? weakestMemberCages(section, elementType === 'column' ? [provided.stirrups] : regionalStirrups, rectangular) : [];
@@ -2119,21 +2123,25 @@ export function verifyProvidedReinforcement(
   const endCages = section && provided.stirrups && endSpacing !== undefined
     ? resolveFaces(weakestMemberCages(section, [{ ...provided.stirrups, spacing: endSpacing }], rectangular)) : secondaryCages;
   const secondaryCagesAt = (t: Tuple) => atColumnEnd(t) ? endCages : secondaryCages;
-  const atTorsion = (t: Tuple, d: number, primaryRhoW: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
+  const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
     if (!section || t.tq === 0) return [];
     const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: primaryRhoW } });
-    const missing = cage.kind === 'refusal' && cage.missing === true;
-    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing }];
-    return r.neglect ? [] : [{ r, t, missing }];
+      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: primaryRhoW }, primaryDepthLimit });
+    const gap = hasStirrupGap(t);
+    const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
+    if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
+    if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
+    return r.neglect ? [] : [{ r, t, missing, cage }];
   });
   type TorsionAtStation = ReturnType<typeof atTorsion>[number];
+  const governsTorsion = (candidate: TorsionAtStation, incumbent?: TorsionAtStation) =>
+    !incumbent || (candidate.r.refusal && !incumbent.r.refusal) || candidate.r.ratio > incumbent.r.ratio;
   const pushTorsion = (x: TorsionAtStation, category: string, tuplesChecked: number, regionRange?: [number, number]) => {
     const { r, t, missing } = x;
     pushStrength({
       category, demandCategory: null, demand: +Math.abs(t.tq).toPrecision(12), capacity: 0,
       utilization: r.ratio, unit: 'kN·m', method: 'capacity', tuplesChecked, regionRange,
-      description: r.refusal && !missing ? r.refusal : `${missing ? 'no stirrups provided across the member — ' : ''}§22.7: Tu=${Math.abs(t.tq).toFixed(1)} ≥ φTth=${r.phiTth.toFixed(1)} kN·m; sección ${r.sectionRatio.toFixed(2)}; (Av+2At)/s ${(r.transverseRequired * 1e4).toFixed(2)} de ${(r.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(r.sMax * 100).toFixed(1)} cm; Al ${(Math.max(r.Al, r.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
+      description: r.refusal && (!missing || r.refusal === 'diag.rcShearGap') ? r.refusal : `${missing ? 'no stirrups provided across the member — ' : ''}§22.7: Tu=${Math.abs(t.tq).toFixed(1)} ≥ φTth=${r.phiTth.toFixed(1)} kN·m; sección ${r.sectionRatio.toFixed(2)}; (Av+2At)/s ${(r.transverseRequired * 1e4).toFixed(2)} de ${(r.transverseProvided * 1e4).toFixed(2)} cm²/m; s ≤ ${(r.sMax * 100).toFixed(1)} cm; Al ${(Math.max(r.Al, r.AlMin) * 1e4).toFixed(2)} cm²${options?.torsionStiffness !== undefined && options.torsionStiffness < 1 ? `; Tu de un análisis con J × ${options.torsionStiffness} (torsión de compatibilidad redistribuida, §22.7.3.2)` : ''}`,
       comboName: t.comboName, stationX: t.stationX,
       limiting: r.refusal && !missing ? 'unsupportedCheck' : 'torsion',
       ...(missing ? { missingReinforcement: true } : {}),
@@ -2667,6 +2675,12 @@ export function verifyProvidedReinforcement(
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
     const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
     const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
+    const topLayersAt = (t: Tuple) => t.stationT <= tStartEnd ? topStartLayers : t.stationT >= tEndStart ? topEndLayers : undefined;
+    const startDepth = topStartLayers.length ? dTopStart : Infinity;
+    const endDepth = topEndLayers.length ? dTopEnd : Infinity;
+    const tensionDepth = (t: Tuple) => elementType === 'beam' && M(t) < -0.001
+      ? (t.stationT <= tStartEnd ? startDepth : t.stationT >= tEndStart ? endDepth : Math.min(startDepth, endDepth))
+      : Infinity;
     const shearSpecs: Array<{ label: string; stir: StirrupDef | undefined; tuples: Tuple[]; range: [number, number]; rhoW: number }> = [
       { label: `Shear Support (${axes.shear})`, stir: stirSupport, tuples: [...startTuples, ...endTuples], range: [0, tStartEnd], rhoW: rhoSupport },
       { label: `Shear Span (${axes.shear})`, stir: stirSpan, tuples: spanTuples, range: [tStartEnd, tEndStart], rhoW: rhoSpan },
@@ -2691,13 +2705,19 @@ export function verifyProvidedReinforcement(
       let held: ShallowMinShearHold | null = null;
       let minShort: { Vu: number; threshold: number; AvMin: number; comboName: string; stationX: number } | null = null;
       let count = 0;
-      let peakVu = 0; let peakCombo = ''; let peakX = 0;
+      let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
       for (const t of ss.tuples) {
         const Vu = Math.abs(V(t));
         if (Vu < 0.001) continue;
         count++;
-        if (Vu > peakVu) { peakVu = Vu; peakCombo = t.comboName; peakX = t.stationX; }
-        if (!ss.stir) continue;
+        if (!ss.stir || hasStirrupGap(t)) {
+          if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
+          continue;
+        }
+        if (tensionDepth(t) < d) {
+          if (!refusal) refusal = { reason: 'diag.rcShearDepth', Vu, t };
+          continue;
+        }
         // Solver convention is + = tension; computeShearCapacity expects
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
@@ -2784,24 +2804,63 @@ export function verifyProvidedReinforcement(
         };
         let tw: TorsionAtStation | undefined;
         let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | undefined;
+        const length = stationResult?.length ?? demands?.length ?? critSections?.L;
+        const hasCutoff = (group: LongBarGroup, toward: 'Start' | 'End') =>
+          group[`continue${toward}`] === false || group[`extension${toward}`] !== undefined;
+        const reaches = (group: LongBarGroup, toward: 'Start' | 'End', distance: number) => {
+          if (distance <= 0) return true;
+          if (group[`continue${toward}`] === false) return false;
+          const extension = group[`extension${toward}`];
+          return extension === undefined || (length !== undefined && distance * length <= extension);
+        };
+        const curtailment = topStartGroups.some(g => hasCutoff(g, 'End'))
+          || topEndGroups.some(g => hasCutoff(g, 'Start'))
+          || bottomGroups.some(g => hasCutoff(g, 'Start') || hasCutoff(g, 'End'));
+        const cutoffAt = (t: Tuple) => {
+          if (!curtailment) return false;
+          const { top, bottom } = facesAt(t);
+          const fromStart = t.stationT - tStartEnd, fromEnd = tEndStart - t.stationT;
+          const area = (groups: LongBarGroup[]) => groups.reduce((sum, g) => sum + layersTotalArea(g.layers), 0);
+          return top > area(topStartGroups.filter(g => reaches(g, 'End', fromStart)))
+              + area(topEndGroups.filter(g => reaches(g, 'Start', fromEnd)))
+            || bottom > area(bottomGroups.filter(g => reaches(g, 'Start', -fromStart) && reaches(g, 'End', -fromEnd)));
+        };
+        const lacksPerimeter = ({ t, cage }: TorsionAtStation) => {
+          if (cage.kind !== 'closed-rectangle') return true;
+          const outer = (layers: RebarLayer[]) => layers.find(layer => layer.row === 0 && layer.count >= 2);
+          const topLayers = topLayersAt(t);
+          const start = outer(topStartLayers), end = outer(topEndLayers);
+          const top = topLayers ? outer(topLayers)
+            : start && end ? { count: 2, diameter: Math.min(start.diameter, end.diameter) } : undefined;
+          const bottom = outer(bottomLayers);
+          if (!top || !bottom) return true;
+          const inside = 2 * (section.cover + cage.diameter / 1000);
+          const side = section.h - inside - (top.diameter + bottom.diameter) / 2000;
+          return side > 0.3 || [top, bottom].some(bar => (section.b - inside - bar.diameter / 1000) / (bar.count - 1) > 0.3);
+        };
+        let longitudinalRefusal: { t: Tuple; reason: string } | undefined;
         let evaluated = 0;
         for (const t of ss.tuples) {
-          const active = atTorsion(t, d, ss.rhoW);
+          const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
           if (active.some(x => !x.r.refusal)) evaluated++;
           for (const x of active) {
-            if (!tw || x.r.ratio > tw.r.ratio) tw = x;
+            if (governsTorsion(x, tw)) tw = x;
             if (x.r.refusal || elementType === 'wall') continue;
+            if (cutoffAt(t)) longitudinalRefusal = { t, reason: 'diag.rcTorsionCutoff' };
+            else if (lacksPerimeter(x)) longitudinalRefusal ??= { t, reason: 'diag.rcTorsionPerimeter' };
+            if (longitudinalRefusal) continue;
             const need = longitudinalNeed(x);
             if (!lw || need.u > lw.need.u) lw = { ...x, need };
           }
         }
         if (tw) pushTorsion(tw, ss.label.replace('Shear', 'Torsion'), ss.tuples.length, ss.range);
-        if (tw && elementType === 'wall') {
+        if (tw && elementType === 'wall') longitudinalRefusal = { t: tw.t, reason: 'diag.rcTorsionPerimeter' };
+        if (longitudinalRefusal) {
           pushStrength({
             category: ss.label.replace('Shear', 'Torsion Al'), demandCategory: null,
-            utilization: Infinity, unit: 'cm²', method: 'area', tuplesChecked: evaluated, regionRange: ss.range,
-            description: 'Wall torsion requires verified longitudinal steel around the perimeter',
-            comboName: tw.t.comboName, stationX: tw.t.stationX, limiting: 'unsupportedCheck',
+            utilization: Infinity, provided: 0, unit: 'cm²', method: 'area', tuplesChecked: evaluated, regionRange: ss.range,
+            description: longitudinalRefusal.reason,
+            comboName: longitudinalRefusal.t.comboName, stationX: longitudinalRefusal.t.stationX, limiting: 'unsupportedCheck',
           });
         } else if (lw) {
           const { AlReq, AsFlex, required, provided, face, u } = lw.need;
@@ -2819,18 +2878,18 @@ export function verifyProvidedReinforcement(
 
       if (count === 0) continue;
       checkedAxes.add(axes.shear);
-      if (!ss.stir) {
+      if (refusal) {
         pushStrength({
           category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
-          demand: +peakVu.toFixed(2), capacity: 0,
-          utilization: Number.POSITIVE_INFINITY,
-          unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-          description: `no stirrups provided in this region — Vu=${peakVu.toFixed(1)} kN unresisted`,
-          comboName: peakCombo, stationX: peakX,
-          limiting: 'shear', missingReinforcement: true,
+          demand: +refusal.Vu.toFixed(2), capacity: 0,
+          utilization: Infinity, unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
+          description: refusal.reason, comboName: refusal.t.comboName, stationX: refusal.t.stationX,
+          limiting: refusal.missing ? 'shear' : 'unsupportedCheck',
+          ...(refusal.missing ? { missingReinforcement: true } : {}),
         });
         continue;
       }
+      if (!ss.stir) continue;
       if (!worst) continue;
       pushStrength({
         category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
@@ -3188,9 +3247,12 @@ export function verifyProvidedReinforcement(
 
   if (elementType === 'column' && section) {
     const nominalDepth = section.h - section.cover - section.stirrupDia / 1000 - 0.008;
+    const primaryDepthLimit = colLayout?.bars.length
+      ? section.h - section.cover - section.stirrupDia / 1000 - Math.max(...colLayout.bars.map(bar => bar.diameter)) / 2000
+      : undefined;
     let worst: TorsionAtStation | undefined;
-    for (const t of allTuples) for (const x of atTorsion(t, nominalDepth, colRhoW)) {
-      if (!worst || x.r.ratio > worst.r.ratio) worst = x;
+    for (const t of allTuples) for (const x of atTorsion(t, nominalDepth, colRhoW, primaryDepthLimit)) {
+      if (governsTorsion(x, worst)) worst = x;
     }
     if (worst) {
       pushTorsion(worst, 'Torsion ties', allTuples.length);

@@ -107,8 +107,7 @@ issue2245('known wrong result: #2245 shear verification retains the weak stirrup
   expect(result.checks.find(row => row.demandCategory === 'Vz' && row.stationX === x)).toMatchObject({ status: 'fail' });
 });
 
-const issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
-issue2296('known wrong result: #2296 provided shear refuses a cut in a drawn stirrup gap', () => {
+it('#2296 provided shear refuses a cut in a drawn stirrup gap', () => {
   const L = 4;
   const stirrups = { id: 'cage', from: 0.4, to: L, diameter: 8, legs: 2, spacing: 0.075 };
   const geometry = { ...beamConcrete, h: 0.6, fc: 25 };
@@ -129,8 +128,7 @@ issue2296('known wrong result: #2296 provided shear refuses a cut in a drawn sti
   }
 });
 
-const issue2302 = process.env.RUN_KNOWN_WRONG === '2302' ? it : it.skip;
-issue2302('known wrong result: #2302 seismic verification blocks a reopened beam line with a short dense cage', () => {
+it('#2302 seismic verification blocks a reopened beam line with a short dense cage', () => {
   const L = 5;
   const height = 0.5;
   const seismicLength = 2 * height;
@@ -158,4 +156,13 @@ issue2302('known wrong result: #2302 seismic verification blocks a reopened beam
     ok: false, issues: ['seisDes.issue.hoopZone'], beam: { hoops: { lengthOk: false, spacingOk: true } },
   });
   expect(check(seismicLength / L).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
+  const drawn = (endLength: number) => seismicFrameChecks({
+    nodes: new Map(), settings: defaultSeismicDesign(),
+    members: [{
+      ...frame,
+      drawnStirrups: [{ ...dense, from: 0, to: seismicLength }, { ...dense, from: L - endLength, to: L }],
+    }],
+  }).members[0]!;
+  expect(drawn(criticalDistance)).toMatchObject({ ok: false, issues: ['seisDes.issue.hoopZone'] });
+  expect(drawn(seismicLength)).toMatchObject({ ok: true, issues: [] });
 });

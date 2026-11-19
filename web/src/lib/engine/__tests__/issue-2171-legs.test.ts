@@ -3,6 +3,7 @@ import { checkTorsion2025, resolveCage, secondaryShearFace } from '../../codes/c
 import type { ProvidedReinforcement } from '../../design-contract/reinforcement';
 import { autoVerifyFromResults } from '../auto-verify';
 import { checkTorsion, prepareElementVerification, verifyElement, type ConcurrentVerificationInput } from '../codes/argentina/cirsoc201';
+import { membersFromLine } from '../design/beam-line';
 import type { DesignAxes } from '../design/design-axes';
 import { extractGoverningDemands, verifyProvidedReinforcement } from '../station-design-forces';
 import type { AnalysisResults, SolverInput } from '../types';
@@ -75,7 +76,9 @@ for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) 
       for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
         expect(out.shearSecondary?.d).toBeCloseTo(d, 12);
         expect(out.torsion?.AtOverSProv).toBeCloseTo(atProvided * 1e4, 10);
-        expect(out.torsion?.status).toBe(factor > 1 ? 'fail' : 'ok');
+        expect(out.torsion?.status).toBe(elementType === 'wall' || factor > 1 ? 'fail' : 'ok');
+        if (elementType === 'wall') expect(out.torsion?.refusal).toBe('diag.rcTorsionPerimeter');
+        if (factor > 1) expect(out.torsion?.reinforcementRatio).toBeGreaterThan(1);
       }
     }
   });
@@ -357,11 +360,15 @@ it('known wrong result: #2171 primary torsion depth follows either change in cag
     const d = depth(section.h, stirrups.diameter);
     const limit = Math.sqrt(sectionLimit ** 2 - vt ** 2) * section.b * d;
     for (const member of ['beam', 'column', 'wall'] as const) for (const extracted of [false, true]) {
-      for (const factor of [0.998, 1.002]) {
+      for (const edition of ['2005', '2025'] as const) for (const factor of [0.98, 0.998, 1.002]) {
         const vz = limit * factor;
-        const out = provided({ stirrups, longitudinal, bottom: longitudinal }, member, 0, torque, { vz, geometry, extracted });
-        expect(out.checks.find(c => c.category === (member === 'column' ? 'Torsion ties' : 'Torsion Span (Vz)')))
-          .toMatchObject({ ratio: +(Math.hypot(vz / (section.b * d), vt) / sectionLimit).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+        const out = provided({ stirrups, longitudinal, bottom: longitudinal }, member, 0, torque, { vz, geometry, extracted, edition });
+        const row = out.checks.find(c => c.category === (member === 'column' ? 'Torsion ties' : 'Torsion Span (Vz)'));
+        if (edition === '2005' && factor === 0.998) {
+          expect(row).toMatchObject({ ratio: Infinity, status: 'fail', description: 'diag.rcTorsionConcrete' });
+        } else {
+          expect(row).toMatchObject({ ratio: +(Math.hypot(vz / (section.b * d), vt) / sectionLimit).toFixed(3), status: factor > 1 ? 'fail' : 'warn' });
+        }
       }
     }
   }
@@ -478,21 +485,28 @@ it('known wrong result: #2171 secondary shear stress under torque uses the provi
   const sectionLimit = phi * (0.17 + 0.66) * Math.sqrt(section.fc) * 1000;
   const d = 0.251;
   const shearLimit = section.h * d * Math.sqrt(sectionLimit ** 2 - vt ** 2);
-  for (const factor of [0.998, 1.002]) {
+  for (const edition of ['2005', '2025'] as const) for (const factor of [0.98, 0.998, 1.002]) {
     const vy = shearLimit * factor;
     const vv = vy / (section.h * d);
-    const check = input(vy, torque, '2005');
+    const check = input(vy, torque, edition);
     const reinforcement = { ...fixed, shear: stirrups, column: { barCount: 4, barDia: 32 } };
     const phiTn = torque * Math.sqrt(sectionLimit ** 2 - vv ** 2) / vt;
     for (const out of [verifyElement(check, reinforcement), prepareElementVerification(check)(reinforcement)]) {
-      expect(out.torsion?.phiTn).toBeCloseTo(phiTn, 10);
-      expect(out.torsion?.status).toBe(factor < 1 ? 'ok' : 'fail');
+      if (edition === '2005' && factor === 0.998) {
+        expect(out.torsion).toMatchObject({ phiTn: 0, status: 'fail', refusal: 'diag.rcTorsionConcrete' });
+      } else {
+        expect(out.torsion?.phiTn).toBeCloseTo(phiTn, 10);
+        expect(out.torsion?.status).toBe(factor < 1 ? 'ok' : 'fail');
+      }
     }
     for (const extracted of [false, true]) {
-      const out = provided({ stirrups, longitudinal: { count: 4, diameter: 32 } }, 'column', vy, torque, { extracted });
-      expect(out.checks.find(c => c.category === 'Torsion ties')).toMatchObject({
-        ratio: +(Math.hypot(vv, vt) / sectionLimit).toFixed(3), status: factor < 1 ? 'warn' : 'fail',
-      });
+      const out = provided({ stirrups, longitudinal: { count: 4, diameter: 32 } }, 'column', vy, torque, { extracted, edition });
+      const row = out.checks.find(c => c.category === 'Torsion ties');
+      if (edition === '2005' && factor === 0.998) {
+        expect(row).toMatchObject({ ratio: Infinity, status: 'fail', description: 'diag.rcTorsionConcrete' });
+      } else {
+        expect(row).toMatchObject({ ratio: +(Math.hypot(vv, vt) / sectionLimit).toFixed(3), status: factor < 1 ? 'warn' : 'fail' });
+      }
     }
   }
 });
@@ -766,6 +780,57 @@ for (const nonlinear of [false, true]) {
   });
 }
 
+for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
+  it(`#2296 solved beam shear refuses a drawn gap (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
+    const L = 4;
+    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+    const solverModel = { ...model, nodes };
+    let raw: AnalysisResults3D;
+    if (spatial) {
+      const solver: SolverInput3D = { ...solverModel,
+        elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 10, mx: 20, my: 0, mz: 0 } }],
+      };
+      raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    } else {
+      const solver: SolverInput = { ...solverModel,
+        nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+        sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+        elements: new Map([[1, { ...model.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 10, my: 0 } }],
+      };
+      raw = planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+    }
+    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, solverModel);
+    const check = (from: number, extracted: boolean) => {
+      const reinforcement = membersFromLine({
+        version: 1, members: [1], lengths: [L],
+        bars: [{ ...longitudinal, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
+          { ...longitudinal, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
+        stirrups: [{ ...cage, id: 'cage', from, to: L }],
+      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+      return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? demands.get(1) : undefined,
+        {}, section, extracted ? undefined : stations.get(1), undefined, { axes }).checks;
+    };
+    for (const extracted of [false, true]) {
+      const gap = check(0.4, extracted);
+      const filled = check(0, extracted);
+      expect.soft(gap.find(row => row.category === 'Shear Support (Vz)')).toMatchObject({
+        status: 'fail', ratio: Infinity, missingReinforcement: true, stationX: 0,
+      });
+      expect(filled.find(row => row.category === 'Shear Support (Vz)')).toMatchObject({ status: 'ok' });
+      if (spatial) {
+        expect.soft(gap.find(row => row.category === 'Torsion Support (Vz)')).toMatchObject({
+          status: 'fail', ratio: Infinity, missingReinforcement: true,
+        });
+        expect(filled.find(row => row.category === 'Torsion Support (Vz)')?.ratio).toBeLessThan(1);
+      }
+    }
+  });
+}
+
 const issue2225 = process.env.RUN_KNOWN_WRONG === '2225' ? it : it.skip;
 issue2225('known wrong result: #2225 active torsion requires the transverse minimum on the wider face', () => {
   const stirrup = { diameter: 6, legs: 2, spacing: 0.15 };
@@ -785,8 +850,7 @@ issue2225('known wrong result: #2225 active torsion requires the transverse mini
   expect.soft(result.ratio, 'The 150 mm cage supplies 3.77 cm²/m').toBeGreaterThan(1);
 });
 
-const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
-issue2310('known wrong result: #2310 fixed torsion refuses a section limit that overcredits concrete', () => {
+it('#2310 fixed torsion refuses a section limit that overcredits concrete', () => {
   const shear = { diameter: 12, legs: 4, spacing: 0.045 };
   const geometry = { ...section, stirrupDia: shear.diameter };
   const torsion = 47.5;
@@ -819,7 +883,7 @@ issue2310('known wrong result: #2310 fixed torsion refuses a section limit that 
   }
 });
 
-issue2310('known wrong result: #2310 fixed torsion refuses unverified primary depth', () => {
+it('#2310 fixed torsion refuses unverified primary depth', () => {
   const shear = { diameter: 12, legs: 4, spacing: 0.045 };
   const fixedBars = { AsProv: 16.084, barDia: 32, barCount: 2, bars: 'provided', isDoublyReinforced: false };
   const witness = input(0, 41, '2025', { ...section, stirrupDia: 12 }, 350);
@@ -836,7 +900,7 @@ issue2310('known wrong result: #2310 fixed torsion refuses unverified primary de
   }
 });
 
-issue2310('known wrong result: #2310 beams without verified side bars and a fixed wall with scalar steel refuse longitudinal torsion', () => {
+it('#2310 beams without verified side bars and a fixed wall with scalar steel refuse longitudinal torsion', () => {
   const shear = { diameter: 8, legs: 4, spacing: 0.06 };
   for (const edition of ['2005', '2025'] as const) for (const extracted of [false, true]) {
     const station = provided({ stirrups: shear, top: longitudinal, bottom: longitudinal }, 'beam', 0, 6, { edition, extracted });
@@ -849,8 +913,18 @@ issue2310('known wrong result: #2310 beams without verified side bars and a fixe
   expect(fixedResult.torsion).toMatchObject({ status: 'fail', ratio: Infinity, refusal: 'diag.rcTorsionPerimeter' });
 });
 
-const issue2301 = process.env.RUN_KNOWN_WRONG === '2301' ? it : it.skip;
-issue2301('known wrong result: #2301 a fixed two-leg cage refuses shear when the detailing requires more legs', () => {
+it('#2310 longitudinal torsion accepts verified corner coverage on the short side of the perimeter limit', () => {
+  const shear = { diameter: 8, legs: 4, spacing: 0.06 };
+  const nominal = 0.3 + 2 * (section.cover + shear.diameter / 1000) + longitudinal.diameter / 1000;
+  for (const edition of ['2005', '2025'] as const) for (const extracted of [false, true]) {
+    const check = (h: number) => provided({ stirrups: shear, top: longitudinal, bottom: longitudinal }, 'beam', 0, 6,
+      { edition, extracted, geometry: { ...section, h } }).checks.find(row => row.category === 'Torsion Al Span (Vz)');
+    expect(check(nominal - 1e-6)).toMatchObject({ status: 'ok', limiting: 'torsion' });
+    expect(check(nominal + 1e-6)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter' });
+  }
+});
+
+it('#2301 a fixed two-leg cage refuses shear when the detailing requires more legs', () => {
   const witness = input(20, 0, '2025', section, 75);
   const rotated = input(0, 0, '2025', { ...section, b: section.h, h: section.b }, 40);
   const shear = { diameter: 8, legs: 2, spacing: 0.075 };
@@ -929,8 +1003,7 @@ issue2271('known wrong result: #2271 the spacing row changes before the uncouple
   tensionSpacingWitness(450, 208);
 });
 
-const issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
-issue2296('known wrong result: #2296 primary shear refuses when the selected depth overstates the hogging depth', () => {
+it('#2296 primary shear refuses when the selected depth overstates the hogging depth', () => {
   const geometry = { ...section, stirrupDia: 12 };
   const bars = { top: { count: 3, diameter: 32 }, bottom: { count: 3, diameter: 16 } };
   const stirrups = { diameter: 12, legs: 2, spacing: 0.16 };
@@ -948,8 +1021,7 @@ issue2296('known wrong result: #2296 primary shear refuses when the selected dep
   }
 });
 
-const issue2300 = process.env.RUN_KNOWN_WRONG === '2300' ? it : it.skip;
-issue2300('known wrong result: #2300 longitudinal torsion refuses a top layout that varies with a cutoff', () => {
+it('#2300 longitudinal torsion refuses a top layout that varies with a cutoff', () => {
   const L = 4;
   const supportRegion = 0.25;
   const extensionEnd = 0.4;
@@ -970,7 +1042,7 @@ issue2300('known wrong result: #2300 longitudinal torsion refuses a top layout t
       extracted ? extractGoverningDemands(layout) : undefined, {}, section, extracted ? undefined : layout, undefined,
       { axes, spacingRule: { edition: '2025', maxAggregateSizeMm: 20 } });
     expect(result.checks.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({
-      provided: 0, status: 'fail', limiting: 'unsupportedCheck', ratio: Infinity,
+      provided: 0, status: 'fail', limiting: 'unsupportedCheck', ratio: Infinity, description: 'diag.rcTorsionCutoff',
     });
   }
 });

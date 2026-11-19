@@ -12,7 +12,7 @@
  * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
  * The round trip reproduces what the verifier reads.
  */
-import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
+import { drawnStirrupCoverage, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -69,6 +69,14 @@ const offsets = (ms: readonly { L: number }[]): number[] => {
 
 let seq = 0;
 const nextId = (p: string) => `${p}${Date.now().toString(36)}${(++seq).toString(36)}`;
+
+export function memberStirrupZones(stirrups: readonly BeamStirrupZone[], offset: number, length: number, forward = true) {
+  return stirrups.flatMap(({ from, to, diameter, legs, spacing }) => {
+    const start = Math.max(0, from - offset), end = Math.min(length, to - offset);
+    if (end - start < EPS) return [];
+    return [{ from: forward ? start : length - end, to: forward ? end : length - start, diameter, legs, spacing }];
+  }).sort((a, b) => a.from - b.from);
+}
 
 /** Read a line from its members' regions. */
 export function lineFromMembers(members: readonly LineMember[]): BeamLineReinforcement {
@@ -275,7 +283,9 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     if (skin) regions.skin = { ...skin };
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
-    out.set(m.id, { regions });
+    const coverage = memberStirrupZones(line.stirrups, a, m.L)
+      .map(({ from, to }) => ({ from: from / m.L, to: to / m.L }));
+    out.set(m.id, { regions, [drawnStirrupCoverage]: coverage });
   });
   return out;
 }

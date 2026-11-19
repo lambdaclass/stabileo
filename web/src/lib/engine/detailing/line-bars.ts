@@ -22,7 +22,7 @@
  * Pure: no store, no runes.
  */
 import type { BeamLineBar, BeamLineReinforcement, BeamStirrupZone } from '../../design-contract/beam-line';
-import { lineLaps, type LineLap } from '../design/beam-line';
+import { lineLaps, memberStirrupZones, type LineLap } from '../design/beam-line';
 
 export { lineLaps };
 
@@ -90,14 +90,7 @@ export function linePieces(
       };
       bars.push(fwd ? piece : mirrorPiece(piece, L));
     }
-    const stirrups: LineStirrupPiece[] = [];
-    for (const z of line.stirrups) {
-      const s = Math.max(a, z.from), e = Math.min(b, z.to);
-      if (e - s < EPS) continue;
-      const p = { from: s - a, to: e - a, diameter: z.diameter, legs: z.legs, spacing: z.spacing };
-      stirrups.push(fwd ? p : { ...p, from: L - p.to, to: L - p.from });
-    }
-    out.set(id, { bars, stirrups: stirrups.sort((p, q) => p.from - q.from) });
+    out.set(id, { bars, stirrups: memberStirrupZones(line.stirrups, a, L, fwd) });
   });
   return out;
 }

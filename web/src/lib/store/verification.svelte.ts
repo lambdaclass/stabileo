@@ -1,3 +1,4 @@
+import { drawnStirrupCoverage } from '../design-contract/reinforcement';
 import { completeMemberDemands } from '../engine/member-demand-gate';
 import { ConcurrentDemand } from '../engine/concurrent-demand';
 // Verification store — the single source of truth for RC design state.
@@ -316,7 +317,7 @@ function createVerificationStore() {
     // previous one.
     const codeId = regulationsStore.concreteDesignCode();
     if (!codeId) return null;
-    const key = `${rebarHash(reinf)}|${demandRevision}|${codeId}`;
+    const key = `${rebarHash(reinf)}|${JSON.stringify(reinf[drawnStirrupCoverage])}|${demandRevision}|${codeId}`;
     validateCachedDemands();
     const hit = providedCache.get(elementId);
     if (hit && hit.key === key) return hit.result;

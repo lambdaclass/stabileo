@@ -58,8 +58,7 @@ describe('CIRSOC 201-2025 torsion limits in the verifier (22.7.2)', () => {
  * The design run's sizing (`verifyElement` → `checkShear`/`checkTorsion` with the 2025 edition),
  * 0,30 × 0,60, cover 0,025, Ø8 stirrups, H-25. Shear is sized against the engine, which reads
  * fyt ≤ 420 MPa in Vs (§22.5.3.3 → §20.2.1.3): where the demand governs, an ADN 500 stirrup
- * needs the Av/s an ADN 420 one does. Torsion is computed here: At/s scales with 1/fyt, so the
- * 2025 value is the 2005 one × 500/420.
+ * needs the Av/s an ADN 420 one does.
  */
 describe('CIRSOC 201-2025 limits in the required-steel sizing', () => {
   const p = { fc: 25, fy: 500, cover: 0.025, b: 0.3, h: 0.6, stirrupDia: 8 };
@@ -69,14 +68,13 @@ describe('CIRSOC 201-2025 limits in the required-steel sizing', () => {
     expect(a500.AvOverS).toBeCloseTo(a420.AvOverS, 2);
   });
   it('checkTorsion 2025: the torsion steel with fy = 420 MPa', () => {
-    const t25 = checkTorsion(p, 30, 0, '2025'), t05 = checkTorsion(p, 30, 0);
-    expect(t25.AtOverS / t05.AtOverS).toBeCloseTo(500 / 420, 9);
+    const t25 = checkTorsion(p, 30, 0, '2025'), t05 = checkTorsion({ ...p, fy: 420 }, 30, 0);
+    expect(t25.AtOverS / t05.AtOverS).toBeCloseTo(1, 9);
     expect(t25.steps[0]).toBe('fy, fyt = 420 MPa en la armadura de torsión (§22.7.2.2, §20.2.1.3)');
   });
 });
 
-const issue2309 = process.env.RUN_KNOWN_WRONG === '2309' ? it : it.skip;
-issue2309('known wrong result: #2309 2005 section torsion refuses active demand above the supported yield limit', () => {
+it('#2309 2005 section torsion refuses active demand above the supported yield limit', () => {
   const beam = { b: 0.3, h: 0.6, fc: 25, fy: 500, cover: 0.025, stirrupDia: 8 };
   const torque = 30;
   const cage = { diameter: 8, legs: 2, spacing: 0.125 };
@@ -99,6 +97,10 @@ issue2309('known wrong result: #2309 2005 section torsion refuses active demand 
     expect.soft(result).toMatchObject({ refusal: 'diag.rcTorsionYield', ratio: Infinity, status: 'fail' });
   }
   expect(sectionTorsion(beam, torsionDemand(0, 0))).toMatchObject({ neglect: true, status: 'ok' });
-  const atLimit = sectionTorsion({ ...beam, fy: cirsoc201Section11634YieldLimit }, loads!.section('My'));
+  const sectionAt = (fy: number, edition: '2005' | '2025') => sectionTorsion({ ...beam, fy }, loads!.section('My'), edition);
+  const atLimit = sectionAt(cirsoc201Section11634YieldLimit, '2005');
   expect(atLimit.AtOverS).toBeCloseTo(1e4 * torque / strengthPerArea(cirsoc201Section11634YieldLimit), 12);
+  expect(sectionAt(cirsoc201Section11634YieldLimit - 0.001, '2005').refusal).toBeUndefined();
+  expect(sectionAt(cirsoc201Section11634YieldLimit + 0.001, '2005').refusal).toBe('diag.rcTorsionYield');
+  expect(sectionAt(beam.fy, '2025').AtOverS).toBeCloseTo(atLimit.AtOverS, 12);
 });

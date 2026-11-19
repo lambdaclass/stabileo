@@ -209,7 +209,10 @@ export interface SlabPanelReinforcement {
   bands: SlabBand[];
 }
 
+export const drawnStirrupCoverage = Symbol('drawnStirrupCoverage');
+
 export interface ProvidedReinforcement {
+  [drawnStirrupCoverage]?: ReadonlyArray<{ from: number; to: number }>;
   // ─── Beam reinforcement (region-aware) ───
   regions?: BeamRegions;
   // ─── Beam reinforcement (legacy element-global, backward compatible) ───

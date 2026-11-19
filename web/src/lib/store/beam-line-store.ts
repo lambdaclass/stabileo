@@ -10,13 +10,13 @@ import { verificationStore } from './verification.svelte';
 import { storedDecisions } from './design-decisions';
 import { framesOf, modelBeamLines, copyFrame } from './frame-equalize';
 import { rebarHash } from '../engine/design/rebar-hash';
-import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, type LineMember, type MemberCuts } from '../engine/design/beam-line';
+import { lineFromMembers, lineMembersOf, memberCuts, membersFromLine, memberOffsets, memberStirrupZones, type LineMember, type MemberCuts } from '../engine/design/beam-line';
 import { lineLaps, linePieces, type LineBarPiece, type LineLap, type LineStirrupPiece } from '../engine/detailing/line-bars';
 import { mirrorReinforcement, type BeamLine } from '../engine/design/repeated-frames';
 import { lineKey, type BeamLineReinforcement } from '../design-contract/beam-line';
 import { designLength, withSpanPieces } from './design-spans-store';
 import { lineAxis } from './line-axis';
-import type { ProvidedReinforcement } from '../design-contract/reinforcement';
+import { drawnStirrupCoverage, type ProvidedReinforcement } from '../design-contract/reinforcement';
 import type { ProvidedRebarResult } from '../engine/station-design-forces';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -225,6 +225,16 @@ export function savedLinePieces(): {
     }
   }
   return { pieces, laps };
+}
+
+export function withSavedStirrupCoverage(id: number, reinforcement: ProvidedReinforcement | undefined): ProvidedReinforcement | undefined {
+  if (!reinforcement || !Object.values(storedDecisions().lines ?? {}).some(line => line.members.includes(id))) return reinforcement;
+  const frame = framesOf(id);
+  const saved = frame && storedLine(frame.line);
+  if (!saved) return reinforcement;
+  const k = saved.members.indexOf(id), length = saved.lengths[k]!;
+  const coverage = memberStirrupZones(saved.stirrups, memberOffsets(saved)[k]!, length, frame.line.forward[k] !== false);
+  return { ...reinforcement, [drawnStirrupCoverage]: coverage.map(({ from, to }) => ({ from: from / length, to: to / length })) };
 }
 
 /** The cross-sections placed on saved lines, each at its point in the model (`DocumentModel.sectionCuts`). */
