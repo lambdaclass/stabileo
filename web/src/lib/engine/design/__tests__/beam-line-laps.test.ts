@@ -8,7 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import { areaAt, barsCarrying, lineLaps, lineMembersOf, lineFromMembers, membersFromLine, type LineMember } from '../beam-line';
 import type { BeamLineReinforcement } from '../../../design-contract/beam-line';
-import { verifyProvidedReinforcement } from '../../station-design-forces';
+import { seismicFrameChecks } from '../seismic/frame-checks';
+import { defaultSeismicDesign } from '../../../model/seismic-design';
+import { extractGoverningDemands, verifyProvidedReinforcement } from '../../station-design-forces';
 
 const line: BeamLineReinforcement = {
   version: 1, members: [1], lengths: [5],
@@ -105,8 +107,30 @@ issue2245('known wrong result: #2245 shear verification retains the weak stirrup
   expect(result.checks.find(row => row.demandCategory === 'Vz' && row.stationX === x)).toMatchObject({ status: 'fail' });
 });
 
+const issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
+issue2296('known wrong result: #2296 provided shear refuses a cut in a drawn stirrup gap', () => {
+  const L = 4;
+  const stirrups = { id: 'cage', from: 0.4, to: L, diameter: 8, legs: 2, spacing: 0.075 };
+  const geometry = { ...beamConcrete, h: 0.6, fc: 25 };
+  const drawing: BeamLineReinforcement = {
+    version: 1, members: [1], lengths: [L], bars: drawnMainBars.map(bar => ({ ...bar, to: L })), stirrups: [stirrups],
+  };
+  const layout = membersFromLine(drawing, [{ ...longSpan, L }]).get(1)!;
+  for (const extracted of [false, true]) {
+    const check = (x: number) => {
+      const stations = [{ x, t: x / L, my: -20, vz: 40, n: 0, mz: 0, vy: 0, torsion: 0 }];
+      const result = { elementId: 1, length: L, stationTs: [x / L], comboResults: [{ comboId: 1, comboName: 'C1', stations }] };
+      return verifyProvidedReinforcement(1, 'beam', layout, extracted ? extractGoverningDemands(result) : undefined, {}, geometry,
+        extracted ? undefined : result, undefined, { axes: { ...beamAxes, hFlex: geometry.h } })
+        .checks.find(row => row.demandCategory === 'Vz');
+    };
+    expect(check(0.2)).toMatchObject({ capacity: 0, status: 'fail', missingReinforcement: true });
+    expect(check(stirrups.from)).toMatchObject({ status: 'ok' });
+  }
+});
+
 const issue2302 = process.env.RUN_KNOWN_WRONG === '2302' ? it : it.skip;
-issue2302('known wrong result: #2302 a reopened beam line preserves the seismic dense cage length', () => {
+issue2302('known wrong result: #2302 seismic verification blocks a reopened beam line with a short dense cage', () => {
   const L = 5;
   const height = 0.5;
   const seismicLength = 2 * height;
@@ -114,11 +138,24 @@ issue2302('known wrong result: #2302 a reopened beam line preserves the seismic 
   const span = { ...dense, spacing: 0.2 };
   const criticalDistance = 0.659;
   const critical = { tCritShear: criticalDistance / L, tFace: 0.2 / L, source: 'column' };
+  const bars = { count: 2, diameter: 16 };
   const source = {
     L, criticalSections: { start: critical, end: critical },
-    reinforcement: { regions: { regionT: seismicLength / L, stirrupsSupport: dense, stirrupsSpan: span } },
+    reinforcement: { regions: { regionT: seismicLength / L, stirrupsSupport: dense, stirrupsSpan: span, topStart: bars, topEnd: bars, bottomSpan: bars } },
   };
   const members = lineMembersOf({ members: [1], forward: [true] }, () => source, reinforcement => reinforcement);
   const drawing = lineFromMembers(members);
-  expect(drawing.stirrups.find(zone => zone.from === 0 && zone.spacing === dense.spacing)?.to).toBeCloseTo(seismicLength, 12);
+  expect(drawing.stirrups.find(zone => zone.from === 0 && zone.spacing === dense.spacing)?.to).toBeLessThan(seismicLength);
+  const frame = {
+    ...source, ...beamConcrete, b: 0.2, h: height, id: 1, kind: 'beam' as const, role: 'primary' as const,
+    nodeI: 1, nodeJ: 2, faceHalf: [0.2, 0.2] as [number, number], r: source.reinforcement,
+  };
+  const check = (tCritShear: number) => seismicFrameChecks({
+    nodes: new Map(), settings: defaultSeismicDesign(),
+    members: [{ ...frame, ...{ criticalSections: { start: { ...critical, tCritShear }, end: { ...critical, tCritShear } } } }],
+  }).members[0]!;
+  expect(check(critical.tCritShear)).toMatchObject({
+    ok: false, issues: ['seisDes.issue.hoopZone'], beam: { hoops: { lengthOk: false, spacingOk: true } },
+  });
+  expect(check(seismicLength / L).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
 });

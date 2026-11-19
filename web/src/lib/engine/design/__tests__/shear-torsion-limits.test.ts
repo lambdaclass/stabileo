@@ -21,7 +21,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeShearCapacity } from '../../station-design-forces';
 import { checkTorsion2025 } from '../../../codes/cirsoc201/torsion';
-import { checkShear, verifyElement } from '../../codes/argentina/cirsoc201';
+import { checkShear, checkTorsion as sectionTorsion, verifyElement } from '../../codes/argentina/cirsoc201';
 import { declaredTestDemands } from '../../__tests__/helpers/declared-demands';
 import { checkTorsion, torsionDemand } from '../../__tests__/helpers/manual-interactions';
 
@@ -76,7 +76,7 @@ describe('CIRSOC 201-2025 limits in the required-steel sizing', () => {
 });
 
 const issue2309 = process.env.RUN_KNOWN_WRONG === '2309' ? it : it.skip;
-issue2309('known wrong result: #2309 Ø8 at 125 mm gives stirrup φTn = 28.24 < 30 < 33.62 kN·m at 420 and 500 MPa respectively', () => {
+issue2309('known wrong result: #2309 2005 section torsion refuses active demand above the supported yield limit', () => {
   const beam = { b: 0.3, h: 0.6, fc: 25, fy: 500, cover: 0.025, stirrupDia: 8 };
   const torque = 30;
   const cage = { diameter: 8, legs: 2, spacing: 0.125 };
@@ -85,7 +85,6 @@ issue2309('known wrong result: #2309 Ø8 at 125 mm gives stirrup φTn = 28.24 < 
   const cirsoc201Section11634YieldLimit = 420;
   const provided = Math.PI * (cage.diameter / 1000) ** 2 / (4 * cage.spacing);
   const strengthPerArea = (fy: number) => 0.75 * 2 * ao * fy * 1000;
-  const requiredCm2PerM = 1e4 * torque / strengthPerArea(cirsoc201Section11634YieldLimit);
   expect(strengthPerArea(cirsoc201Section11634YieldLimit) * provided).toBeLessThan(torque);
   expect(strengthPerArea(beam.fy) * provided).toBeGreaterThan(torque);
 
@@ -95,11 +94,11 @@ issue2309('known wrong result: #2309 Ø8 at 125 mm gives stirrup φTn = 28.24 < 
     ...beam, fy, elementId: 1, elementType: 'beam', edition: '2005', demand: loads!.section('My'),
   }, { shear: { ...cage, spacing }, torsion: { AlProv: 100 } }).torsion;
   expect(verify(cirsoc201Section11634YieldLimit, cage.spacing)?.status).toBe('fail');
-  expect(verify(beam.fy, 0.1)?.status).toBe('ok');
-
-  const result = verify(beam.fy, cage.spacing);
-  expect(result?.refusal).toBeUndefined();
-  expect(result?.AtOverSProv).toBeCloseTo(provided * 1e4, 12);
-  expect.soft(result?.AtOverS).toBeCloseTo(requiredCm2PerM, 12);
-  expect.soft(result?.status).toBe('fail');
+  expect(verify(cirsoc201Section11634YieldLimit, 0.1)?.status).toBe('ok');
+  for (const result of [verify(beam.fy, cage.spacing), verify(beam.fy, 0.1), sectionTorsion(beam, loads!.section('My'))]) {
+    expect.soft(result).toMatchObject({ refusal: 'diag.rcTorsionYield', ratio: Infinity, status: 'fail' });
+  }
+  expect(sectionTorsion(beam, torsionDemand(0, 0))).toMatchObject({ neglect: true, status: 'ok' });
+  const atLimit = sectionTorsion({ ...beam, fy: cirsoc201Section11634YieldLimit }, loads!.section('My'));
+  expect(atLimit.AtOverS).toBeCloseTo(1e4 * torque / strengthPerArea(cirsoc201Section11634YieldLimit), 12);
 });
