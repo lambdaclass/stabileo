@@ -253,8 +253,8 @@ describe('runDesign — cancellation and partial honesty', () => {
 });
 
 describe('settled crossing seats', () => {
-  it.skip.each(['synchronous', 'resumable'] as const)(
-    'known wrong result: #2338 — %s run verifies the selected cage against the settled seats',
+  it.each(['synchronous', 'resumable'] as const)(
+    '%s run verifies the selected cage against the settled seats',
     (entry) => {
       const contexts = [1, 2, 3, 4].map((elementId) => syntheticBeamContext({ elementId }));
       const reinforcement = { regions: { bottomSpan: { count: 2, diameter: 12 } } };

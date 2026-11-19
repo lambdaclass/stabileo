@@ -80,7 +80,6 @@ type SelectedArrangement = Pick<MemberDesignOutcome, 'elementId' | 'elementType'
   outcome: 'SELECTED';
   candidate: ProvidedReinforcement;
   cost: DesignAttempt['cost'];
-  verification: ProvidedRebarResult;
 };
 
 type MemberSelection = MemberDesignOutcome | SelectedArrangement;
@@ -106,8 +105,11 @@ function designAttempt(adapter: DesignCodeAdapter, ctx: MemberContext, candidate
   };
 }
 
-function failureReason(elementId: number, attempt: DesignAttempt): DesignReason {
-  return {
+function failureReasons(elementId: number, attempt: DesignAttempt): DesignReason[] {
+  const diagnostics = new Set(attempt.verdict.checks
+    .filter((check) => check.status === 'fail' && check.description.startsWith('diag.'))
+    .map((check) => check.description));
+  return [{
     key: 'design.reason.bestCandidateFails',
     params: {
       elementId,
@@ -115,13 +117,12 @@ function failureReason(elementId: number, attempt: DesignAttempt): DesignReason 
       failing: attempt.failingCheckCount,
       governing: attempt.governing ?? '—',
     },
-  };
+  }, ...[...diagnostics].map((key) => ({ key }))];
 }
 
-function certifySelection(adapter: DesignCodeAdapter, selection: SelectedArrangement, ctx: MemberContext,
-  verification = selection.verification,
-): MemberDesignOutcome {
-  const { candidate, cost, verification: _verification, ...base } = selection;
+function certifySelection(adapter: DesignCodeAdapter, selection: SelectedArrangement, ctx: MemberContext): MemberDesignOutcome {
+  const { candidate, cost, ...base } = selection;
+  const verification = adapter.verify(ctx, candidate);
   const checked = designAttempt(adapter, ctx, candidate, cost, verification);
   if (isPassingVerdict(checked)) {
     const outcome: MemberDesignOutcome = {
@@ -133,12 +134,10 @@ function certifySelection(adapter: DesignCodeAdapter, selection: SelectedArrange
   }
 
   const limiting = adapter.classifyFailure(verification, ctx);
-  const diagnostics = new Set(verification.checks.filter((check) => check.status === 'fail' && check.description.startsWith('diag.'))
-    .map((check) => check.description));
   const outcome: MemberDesignOutcome = {
     ...base, outcome: 'UNSUPPORTED', provisional: checked,
     limiting: limiting.length ? limiting : ['unsupportedCheck'],
-    reasons: [failureReason(ctx.elementId, checked), ...[...diagnostics].map((key) => ({ key }))],
+    reasons: failureReasons(ctx.elementId, checked),
   };
   assertOutcomeInvariants(outcome);
   return outcome;
@@ -333,7 +332,6 @@ function selectMember(
     if (done.verified) verifierCalls++;
     return {
       ...base, outcome: 'SELECTED', candidate: done.reinf, cost: win.cost,
-      verification: adapter.rankCandidate ? adapter.verify(ctx, done.reinf) : done.verdict,
       searchStats: stats(tried, verifierCalls, truncated, envelopeExhausted),
     };
   }
@@ -350,7 +348,7 @@ function selectMember(
     const { candidate, cost } = provisional;
     provisional = designAttempt(adapter, ctx, candidate, cost, adapter.verify(ctx, candidate));
   }
-  const reasons = provisional ? [failureReason(ctx.elementId, provisional)] : [];
+  const reasons = provisional ? failureReasons(ctx.elementId, provisional) : [];
   if (truncated) reasons.push({ key: 'design.reason.searchTruncated', params: { tried, elementId: ctx.elementId } });
   if (reasons.length === 0) reasons.push({ key: 'design.reason.noCandidate', params: { elementId: ctx.elementId } });
 
@@ -624,9 +622,9 @@ export function* runDesignSteps(
       recordBeamSeats(ctx, rebar, corners, absent);
     }
     if (opts.onProgress) {
-      if (selection.outcome === 'SELECTED'
-        && isPassingVerdict(designAttempt(adapter, ctx, selection.candidate, selection.cost, selection.verification))) {
-        verifiedSoFar++;
+      if (selection.outcome === 'SELECTED') {
+        const verdict = adapter.verify(withCages, selection.candidate);
+        if (isPassingVerdict(designAttempt(adapter, withCages, selection.candidate, selection.cost, verdict))) verifiedSoFar++;
       }
       if ((i + 1) % every === 0 || i === list.length - 1) {
         opts.onProgress({ done: i + 1, total: list.length, verified: verifiedSoFar, elementId: ctx.elementId });
@@ -650,29 +648,28 @@ export function* runDesignSteps(
   }))) aborted = true;
 
   const outcomes: MemberDesignOutcome[] = [];
-  let refusedSelection = false;
-  for (const [i, selection] of selections.entries()) {
-    const outcome = selection.outcome === 'SELECTED' ? certifySelection(adapter, selection, list[i]!) : selection;
-    outcomes.push(outcome);
-    if (selection.outcome === 'SELECTED' && selection.elementType === 'beam' && outcome.outcome !== 'VERIFIED') {
-      recordBeamSeats(list[i]!, undefined, corners, absent);
-      refusedSelection = true;
-    }
-  }
-  while (refusedSelection) {
-    refusedSelection = false;
+  let refusedBeam: boolean;
+  do {
+    refusedBeam = false;
     for (const [i, selection] of selections.entries()) {
-      if (selection.outcome !== 'SELECTED' || selection.elementType !== 'beam' || outcomes[i]!.outcome !== 'VERIFIED') continue;
+      if (selection.outcome !== 'SELECTED') {
+        outcomes[i] = selection;
+        continue;
+      }
+      const isBeam = selection.elementType === 'beam';
+      const prior = outcomes[i];
+      if (prior && (!isBeam || prior.outcome !== 'VERIFIED')) continue;
       yield;
-      const context = withDesignSeats(list[i]!, cages, colBars, corners, absent);
-      const outcome = certifySelection(adapter, selection, context, adapter.verify(context, selection.candidate));
+      const context = isBeam ? withDesignSeats(list[i]!, cages, colBars, corners, absent) : list[i]!;
+      const outcome = certifySelection(adapter, selection, context);
       outcomes[i] = outcome;
-      if (outcome.outcome !== 'VERIFIED') {
-        recordBeamSeats(list[i]!, undefined, corners, absent);
-        refusedSelection = true;
+      if (isBeam && outcome.outcome !== 'VERIFIED') {
+        recordBeamSeats(context, undefined, corners, absent);
+        refusedBeam = true;
       }
     }
-  }
+  } while (refusedBeam);
+  if (opts.signal?.aborted) aborted = true;
 
   const prov = adapter.provenance();
   return tallyRunSummary(

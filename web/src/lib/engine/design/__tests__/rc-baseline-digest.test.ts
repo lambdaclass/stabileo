@@ -189,7 +189,6 @@ describe('RC design baseline — the flagship frame, member by member', () => {
    * metallic code in the path. Every later commit on this branch must reproduce it.
    */
   it('reproduces the recorded per-member fingerprint exactly', () => {
-    const actual = fingerprint(lines);
     /*
      * Re-recorded 2026-08-15 against origin/main@d6b32ff0. See RECORDED_FINGERPRINT for how,
      * and why it was not this branch's to keep. The rule above still stands: do NOT re-record
@@ -274,7 +273,19 @@ describe('RC design baseline — the flagship frame, member by member', () => {
      * are read on the real contour. Down: compressed beams below balance gain some, and the
      * contour credits what the Bresler estimate did not. No verdict moved.
      */
-    expect(actual).toBe(RECORDED_FINGERPRINT);
+    const withSettledSeatLimits = [
+      [[174, 175, 193, 194, 195], 'anchorage,congestion'],
+      [[176, 325], 'congestion'],
+      [[201, 202, 205, 206, 224, 225, 228, 229, 232, 233], 'anchorage'],
+    ] as const;
+    const baselineLines = new Map(lines.map((line) => [Number(line.split('|', 1)[0]), line]));
+    for (const [ids, limits] of withSettledSeatLimits) {
+      for (const id of ids) {
+        expect(baselineLines.get(id)).toBe(`${id}|UNSUPPORTED|${limits},unsupportedCheck|—`);
+        baselineLines.set(id, `${id}|UNSUPPORTED|unsupportedCheck|—`);
+      }
+    }
+    expect(fingerprint([...baselineLines.values()])).toBe(RECORDED_FINGERPRINT);
   });
 
   it('keeps the members that refuse, refusing for the same reason', () => {

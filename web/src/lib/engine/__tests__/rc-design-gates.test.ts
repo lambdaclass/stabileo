@@ -233,7 +233,9 @@ describe('GATE: outcome contract and verifier version', () => {
     expect(s).toContain('let provisional = bestFailure?.attempt');
     expect(s).toContain('provisional = designAttempt(adapter, ctx, candidate, cost, adapter.verify(ctx, candidate))');
     expect(s).toContain("outcome: 'SELECTED', candidate: done.reinf");
-    expect(s).toContain('verification: adapter.rankCandidate ? adapter.verify(ctx, done.reinf) : done.verdict');
+    expect(s).toContain('const verification = adapter.verify(ctx, candidate);');
+    expect(s).toContain('const outcome = certifySelection(adapter, selection, context);');
+    expect(s).not.toContain('selection.verification');
     expect(s).toContain('if (isPassingVerdict(checked))');
     expect(s).toContain('assertOutcomeInvariants(outcome)');
   });
