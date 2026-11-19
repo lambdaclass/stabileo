@@ -85,7 +85,7 @@ it.each([false, true])('#1928 blocks analysis of a hanging edge with automatic m
   }
 });
 
-it.skip.each([false, true])('known wrong result: #1928 — blocks hanging nodes even when the existing plate does not follow members (async=%s)', async (async) => {
+it.each([false, true])('#1928 blocks hanging nodes even when the existing plate does not follow members (async=%s)', async (async) => {
   const { below, above } = besideShells([0, 4]);
   setPlateMeshSpec([below], { followMembers: false });
   adoptCurrentMesh(below);

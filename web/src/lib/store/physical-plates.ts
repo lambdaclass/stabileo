@@ -23,7 +23,7 @@ import { uiStore } from './ui.svelte';
 import { physicalDataOf, type PhysicalData } from '../model/physical';
 import { levelAt } from '../model/physical/recognize';
 import {
-  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
+  arcInterior, circleThrough, DEFAULT_PLATE_MESH, externalFeatures, gridOfSpec, memberChains, meshQuality, onOutline, plateGeometry, plateKindOf, plateLoops, plateMeshInput, plateProblem,
   plateSignature, plateSurfaceOf, type ArcSampler, type MeshQuality, type PlateMeshSpec, type PlateProblem, type PlateSurface,
 } from '../model/physical/plate';
 import { pieceOf } from '../model/curve-entity';
@@ -189,7 +189,9 @@ const r6 = (v: number) => Math.round(v * 1e6) / 1e6;
 /** What a mesh is made from (`plateSignature`), with the column sections it represents. */
 function signatureOf(e: PlateEntry, f: NonNullable<ReturnType<typeof featuresOf>>, spec: PlateMeshSpec): string {
   const fp = footprintsOf(e, f.geo);
-  return plateSignature(f.geo, spec, f.features) + (fp ? `#fp:${fp.columns.map((c) => `${r6(c.x)},${r6(c.y)},${r6(c.hx)},${r6(c.hy)}`).sort().join(';')}` : '');
+  const shellNeighbours = spec.followMembers ? [] : [...f.neighbours].map(f.neighbourAt)
+    .filter((point): point is Vec3 => point !== null && onOutline(f.geo, point));
+  return plateSignature(f.geo, spec, f.features, shellNeighbours) + (fp ? `#fp:${fp.columns.map((c) => `${r6(c.x)},${r6(c.y)},${r6(c.hx)},${r6(c.hy)}`).sort().join(';')}` : '');
 }
 
 /**

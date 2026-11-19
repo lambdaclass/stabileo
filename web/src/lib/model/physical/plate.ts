@@ -414,13 +414,17 @@ const r6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
  * What a mesh is made from, as one string: equal strings, the same mesh. Written in the plate's own
  * axes, so a plate moved or turned whole with what it meets (a copy) keeps a current mesh.
  */
-export function plateSignature(geo: PlateGeometry, spec: PlateMeshSpec, features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null): string {
+export function plateSignature(
+  geo: PlateGeometry, spec: PlateMeshSpec,
+  features: { points: Vec3[]; segments: Array<[Vec3, Vec3]> } | null,
+  shellNeighbours: readonly Vec3[] = [],
+): string {
   const f = geo.frame;
   const key3 = (p: Vec3) => { const d = sub(p, f.o); return `${r6(dot(d, f.u))},${r6(dot(d, f.v))},${r6(dot(d, f.n))}`; };
   const loops = [geo.outer, ...geo.holes].map((l) => l.map(key3).join(';')).join('|');
   const ft = features && spec.followMembers
     ? `${features.points.map(key3).sort().join(';')}#${features.segments.map(([a, b]) => [key3(a), key3(b)].sort().join('>')).sort().join(';')}`
-    : '';
+    : shellNeighbours.map(key3).sort().join(';');
   // A grid adds its shape to the string; a free mesh's string is what it always was.
   const grid = gridOfSpec(spec);
   const g = grid ? `/grid:${r6(grid.a)}x${r6(grid.b)}:${grid.orient}` : '';
