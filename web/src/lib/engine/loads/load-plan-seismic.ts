@@ -5,23 +5,11 @@ import { designSpectrum, isBlocked, SIMULTANEITY_F1 } from '../../codes/cirsoc10
 import { designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable } from '../../codes/cirsoc103/static-method';
 import { findBehaviour, R_ELASTIC } from '../../codes/cirsoc103/behaviour';
 import { msg, round } from '../../codes/message';
-import { findCase, type LoadModelData, type LoadPlanInput, type SeismicPlanSink, type SeismicPlanDetail } from './load-plan';
+import { findCase, type LoadPlanInput, type SeismicPlanSink, type SeismicPlanDetail } from './load-plan';
 
-import type { MassRefusal, SeismicLevel } from './seismic-mass';
+import type { MassRefusal, SeismicLevel, SeismicModel } from './seismic-mass';
 
-function seismicBaseElevation(model: LoadModelData): number | undefined {
-  let base = Infinity;
-  for (const { nodeId } of model.supports?.values() ?? []) {
-    const node = model.nodes.get(nodeId);
-    if (!node) return undefined;
-    const z = node.z ?? 0;
-    if (!Number.isFinite(z)) return undefined;
-    base = Math.min(base, z);
-  }
-  return Number.isFinite(base) ? base : undefined;
-}
-
-export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: SeismicPlanSink): {
+export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: SeismicPlanSink): {
   seismicWeight: ProvenancedValue<number> | undefined; baseShear: ProvenancedValue<number> | undefined; seismicDetail: SeismicPlanDetail | undefined;
 } {
   const { cases, distributed, surface, derivation, refs, assumptions, unsupportedKeys, blockedKeys, levelRefusals } = sink;
@@ -34,9 +22,9 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     return { seismicWeight, baseShear, seismicDetail };
   }
   if (input.seismic?.enabled) {
-    const base = seismicBaseElevation(input.model);
-    if (base === undefined) {
-      blockedKeys.push(msg('loadPlan.blocked.seismicBase'));
+    const { datum, levels } = model;
+    if ('refusal' in datum) {
+      blockedKeys.push(msg(`loadPlan.blocked.${datum.refusal}`));
       return { seismicWeight, baseShear, seismicDetail };
     }
     const refuse = (level: SeismicLevel, reason: MassRefusal) => {
@@ -46,6 +34,11 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
+    if ('noMass' in datum) {
+      unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
+      return { seismicWeight, baseShear, seismicDetail };
+    }
+    const base = datum.elevation;
     const structuralStories = levels.filter(level => level.elevation > base);
     const massLevels = structuralStories.filter(level => level.weightKN > 0);
     const stories = massLevels.map(level => ({ h: level.elevation - base, w: level.weightKN }));

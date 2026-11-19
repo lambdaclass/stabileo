@@ -21,8 +21,12 @@ function supportAtZero(model: LoadModelData) {
   const baseNodes = [...model.nodes.values()].filter(n => n.z === 0);
   if (baseNodes.length === 0) {
     const id = Math.max(0, ...model.nodes.keys()) + 1;
-    const base = { id, x: 0, y: 0, z: 0 };
+    const top = model.nodes.values().next().value!;
+    const base = { id, x: top.x, y: top.y, z: 0 };
     model.nodes.set(id, base);
+    const elementId = Math.max(0, ...model.elements.keys()) + 1;
+    model.materials.set(2, { id: 2, rho: 0 });
+    model.elements.set(elementId, { id: elementId, nodeI: id, nodeJ: top.id, sectionId: 1, materialId: 2 });
     baseNodes.push(base);
   }
   model.supports = new Map(baseNodes.map(({ id }) => [id, { nodeId: id }]));
@@ -57,7 +61,8 @@ it('#2208 an edge subdivision does not move the force away from the mass centroi
     expect(points).toEqual([]);
     for (const e of model.elements.values()) {
       const pieces = lines.filter(p => p.elementId === e.id);
-      expect(pieces.length).toBeGreaterThan(0);
+      if (e.materialId === 2) expect(pieces).toEqual([]);
+      else expect(pieces.length).toBeGreaterThan(0);
       for (const piece of pieces) {
         expect(piece.frame).toBe('global');
         expect(piece.qX! / force).toBeCloseTo(1 / 32, 10);
@@ -306,7 +311,7 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   const plan = buildLoadPlan(request(model, { directions }));
   const hasFloor = floorRole !== 'none';
   expect(plan.outcome).toBe('READY');
-  expect.soft(plan.seismicLevels!.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
+  expect.soft(plan.seismicModel!.levels.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
   expect.soft(plan.factors.seismicWeight!.value).toBe(hasFloor ? 6 : 4);
   expect(plan.cases.filter(c => c.type === 'E')).toHaveLength(1);
   expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
@@ -367,7 +372,7 @@ function withPinnedCarriers(check: (model: LoadModelData) => void) {
   modelStore.clear();
   try {
     const base = modelStore.addNode(0, 0, 0), top = modelStore.addNode(0, 0, 4);
-    const far = modelStore.addNode(4, 0, 4);
+    const far = modelStore.addNode(4, 0, 0);
     const column = modelStore.addElement(base, top, 'frame')!;
     const beam = modelStore.addElement(top, far, 'frame')!;
     modelStore.addSupport(base, 'fixed3d');
@@ -512,7 +517,7 @@ it('#2316 a zero-weight roof sets the approximate period and member loads', () =
     const h = roof ?? 4, t = cr * h ** x;
     const c = (t <= t2 ? 2.5 * ca : cv / t) / R_ELASTIC;
     expect(plan.outcome).toBe('READY');
-    expect(plan.seismicLevels!.map(l => [l.elevation, l.weightKN])).toEqual(roof ? [[0, 4], [4, 4], [roof, 0]] : [[0, 4], [4, 4]]);
+    expect(plan.seismicModel!.levels.map(l => [l.elevation, l.weightKN])).toEqual(roof ? [[0, 4], [4, 4], [roof, 0]] : [[0, 4], [4, 4]]);
     expect.soft(plan.seismic?.ta).toBeCloseTo(t, 10);
     expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * c, 10);
     expect(plan.seismic?.stories).toEqual([{ h: 4, w: 4 }]);
@@ -532,7 +537,7 @@ it('#2316 a zero-weight roof sets the approximate period and member loads', () =
       }
     }
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(seismicInput, plan.seismicLevels!, sink);
+    const direct = INPRES103_SEISMIC.plan(seismicInput, plan.seismicModel!, sink);
     expect(sink.blockedKeys).toEqual([]);
     expect.soft(direct.seismicDetail?.ta).toBeCloseTo(t, 10);
     const momentOfLoad = (s: number, k: number) =>
@@ -556,7 +561,7 @@ it('#2316 a zero-weight roof counts toward the static height and story limits', 
       expect.soft(plan.blockedKeys.map(r => r.key)).toEqual(['seismic.blocked.heightOverTable25']);
       expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
     } else {
-      expect(plan.seismicLevels!.at(-1)).toMatchObject({ elevation: roof, weightKN: 0 });
+      expect(plan.seismicModel!.levels.at(-1)).toMatchObject({ elevation: roof, weightKN: 0 });
       expect(plan.seismic?.stories).toHaveLength(floors.length);
       expect(plan.distributed.some(p => p.caseType === 'E')).toBe(true);
     }
@@ -672,7 +677,7 @@ for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diago
 
 it('#2319 the seismic code adapter refuses modal requests directly', () => {
   const { model, ...seismic } = diagonalModalFixture();
-  const levels = buildLoadPlan(request(model)).seismicLevels!;
+  const levels = buildLoadPlan(request(model)).seismicModel!;
   const sink = seismicSink();
   INPRES103_SEISMIC.plan(request(model, seismic), levels, sink);
   expect(sink.blockedKeys).toEqual([{ key: MODAL_SEISMIC_UNAVAILABLE }]);
@@ -762,7 +767,7 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, 
   }
 
   const sink = seismicSink();
-  const direct = INPRES103_SEISMIC.plan(codeInput, codePlan.seismicLevels!, sink);
+  const direct = INPRES103_SEISMIC.plan(codeInput, codePlan.seismicModel!, sink);
   expect(sink.blockedKeys).toEqual([]);
   expect(direct.seismicWeight).toEqual(codePlan.factors.seismicWeight);
   expect(direct.baseShear).toEqual(codePlan.factors.baseShear);
@@ -808,7 +813,7 @@ for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
     expect(plan.combinations).toEqual([]);
 
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
     expect(sink).toMatchObject({ blockedKeys: [{ key: 'loadPlan.blocked.seismicBase' }], cases: [], nodal: [], distributed: [], surface: [] });
     expect(direct.seismicWeight).toBeUndefined();
     expect(direct.baseShear).toBeUndefined();
@@ -843,7 +848,7 @@ function verifyShellGeometryRefusal(model: LoadModelData, elevations: number[]) 
     expect(plan.combinations).toEqual([]);
 
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
     expect(sink).toMatchObject({ levelRefusals: diagnostics, cases: [], nodal: [], distributed: [], surface: [] });
     expect(direct.seismicWeight).toBeUndefined();
     expect(direct.baseShear).toBeUndefined();
@@ -900,8 +905,6 @@ it('#2316 a mixed model refuses a shell with an unlocatable corner', () => {
   verifyShellGeometryRefusal(model, [0, 4]);
 });
 
-const datumRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
 function datumCantilever() {
   const model = supportAtZero(mesh([[[0, 0, 0], [0, 0, 4]]]));
   model.sections.set(1, { id: 1, a: 0.5 });
@@ -922,18 +925,18 @@ function expectDatumRefusal(model: LoadModelData, key: string) {
   expect(plan.combinations).toEqual([]);
 
   const sink = seismicSink();
-  const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+  const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
   expect(sink).toMatchObject({ blockedKeys: [{ key }], cases: [], nodal: [], distributed: [], surface: [] });
   expect(direct.seismicWeight).toBeUndefined();
   expect(direct.baseShear).toBeUndefined();
 }
 
 for (const [label, elevation, detachedMember] of [
-  ['isolated lower support', -5, false],
-  ['isolated intermediate support', 3, false],
-  ['support on a disconnected massless member', -5, true],
+  ['an isolated lower support', -5, false],
+  ['an isolated intermediate support', 3, false],
+  ['a support on a disconnected massless member', -5, true],
 ] as const) {
-  datumRegression(`known wrong result: #2316 static seismic ignores an ${label}`, () => {
+  it(`#2316 static seismic ignores ${label}`, () => {
     const model = datumCantilever();
     model.nodes.set(3, { id: 3, x: 2, y: 0, z: elevation });
     model.supports = new Map([[3, { nodeId: 3 }], [1, { nodeId: 1 }]]);
@@ -954,7 +957,7 @@ for (const [label, elevation, detachedMember] of [
     expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: 2, qXJ: 2 }]);
 
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
     expect(sink.blockedKeys).toEqual([]);
     expect(direct.seismicWeight?.value).toBe(expected);
     expect(direct.baseShear?.value).toBe(expected);
@@ -966,7 +969,7 @@ for (const [label, elevation, detachedMember] of [
   });
 }
 
-datumRegression('known wrong result: #2316 a detached support cannot supply the seismic datum', () => {
+it('#2316 a detached support cannot supply the seismic datum', () => {
   const model = datumCantilever();
   model.nodes.set(3, { id: 3, x: 2, y: 0, z: -5 });
   model.supports = new Map([[3, { nodeId: 3 }]]);
@@ -974,7 +977,7 @@ datumRegression('known wrong result: #2316 a detached support cannot supply the 
 });
 
 for (const surface of ['quads', 'plates'] as const) {
-  datumRegression(`known wrong result: #2316 supports connected through ${surface} must share a seismic datum`, () => {
+  it(`#2316 supports connected through ${surface} must share a seismic datum`, () => {
     const model = datumCantilever();
     model.nodes.set(3, { id: 3, x: 2, y: 0, z: 4 });
     model.nodes.set(4, { id: 4, x: 2, y: 2, z: 4 });
@@ -994,7 +997,7 @@ for (const surface of ['quads', 'plates'] as const) {
   });
 }
 
-datumRegression('known wrong result: #2316 a stepped frame base refuses static seismic generation', () => {
+it('#2316 a stepped frame base refuses static seismic generation', () => {
   const model = datumCantilever();
   model.nodes.set(3, { id: 3, x: 2, y: 0, z: 1 });
   model.materials.set(2, { id: 2, rho: 0 });

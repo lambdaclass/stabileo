@@ -14,6 +14,10 @@ export type MassLine = {
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
 export type SeismicMass = MassLine | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
+export type SeismicModel = {
+  levels: SeismicLevel[];
+  datum: { elevation: number } | { noMass: true } | { refusal: 'seismicBase' | 'seismicSteppedBase' };
+};
 export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -86,10 +90,31 @@ function setStructuralPlanWidths(levels: SeismicLevel[], segments: Array<[MassNo
   }
 }
 
-export function buildSeismicLevels(
+function massConnectedNodes(segments: Array<[MassNode, MassNode]>, carriers: Set<number>): Set<number> {
+  const adjacent = new Map<number, number[]>();
+  for (const [i, j] of segments) {
+    if (!adjacent.has(i.id)) adjacent.set(i.id, []);
+    if (!adjacent.has(j.id)) adjacent.set(j.id, []);
+    adjacent.get(i.id)!.push(j.id);
+    adjacent.get(j.id)!.push(i.id);
+  }
+
+  const reached = new Set(carriers);
+  const pending = [...reached];
+  while (pending.length > 0) {
+    for (const id of adjacent.get(pending.pop()!) ?? []) {
+      if (reached.has(id)) continue;
+      reached.add(id);
+      pending.push(id);
+    }
+  }
+  return reached;
+}
+
+export function buildSeismicModel(
   model: LoadModelData, layout: GravityLayout, area: AreaLoadsResult, width: number, liveFactor: number,
   snow: { distributed: PlannedDistributed[]; nodal: PlannedNodal[]; index: number; factor: number; panels: boolean } | undefined,
-): SeismicLevel[] {
+): SeismicModel {
   const nodes = new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }]));
   const geometry = new Map<number, Omit<MassLine, 'wi' | 'wj'>>();
   const neighbours = new Map<number, MassNode[]>();
@@ -111,8 +136,8 @@ export function buildSeismicLevels(
       && corners.every(n => [n.x, n.y, n.z].every(Number.isFinite));
     return { q, corners: valid ? corners : undefined };
   });
-  const storyNodes = new Set(surfaces.flatMap(({ q }) => q.nodes));
-  for (const support of model.supports?.values() ?? []) storyNodes.add(support.nodeId);
+  const surfaceNodes = new Set(surfaces.flatMap(({ q }) => q.nodes));
+  const storyNodes = new Set(surfaceNodes);
   for (const constraint of model.constraints ?? []) {
     if (constraint.type !== 'diaphragm') continue;
     storyNodes.add(constraint.masterNode);
@@ -135,19 +160,15 @@ export function buildSeismicLevels(
     });
     return byElevation.get(elevation)!;
   };
-  for (const n of nodes.values()) {
-    if (Number.isFinite(n.z) && (storyNodes.has(n.id) || (neighbours.has(n.id) && !isCollinearSubdivision(n)))) level(n.z);
-  }
-  for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
-  const levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);
-  for (const n of nodes.values()) byElevation.get(n.z)?.nodeIds.push(n.id);
+  let levels: SeismicLevel[];
   const nearest = (z: number) => levels.reduce<SeismicLevel | undefined>((best, l) =>
     !best || Math.abs(l.elevation - z) < Math.abs(best.elevation - z) ? l : best, undefined);
   const deny = (l: SeismicLevel, reason: MassRefusal, unresolvedWeight = true) => {
     l.refusals.add(reason);
     if (unresolvedWeight) l.unresolvedWeight = true;
   };
-  const markMember = (id: number, reason: MassRefusal) => {
+  const distribute: Array<() => void> = [];
+  const markMember = (id: number, reason: MassRefusal) => distribute.push(() => {
     const g = geometry.get(id), e = model.elements.get(id);
     const ends = [e && nodes.get(e.nodeI), e && nodes.get(e.nodeJ)].filter((n): n is MassNode => !!n);
     if (g) {
@@ -163,7 +184,7 @@ export function buildSeismicLevels(
     } else {
       for (const l of levels) deny(l, reason);
     }
-  };
+  });
   const offsetMembers = new Set<number>();
   const segments: Array<[MassNode, MassNode]> = [];
   for (const g of geometry.values()) {
@@ -178,14 +199,19 @@ export function buildSeismicLevels(
     if (!corners) continue;
     for (const [k, corner] of corners.entries()) segments.push([corner, corners[(k + 1) % corners.length]!]);
   }
-  setStructuralPlanWidths(levels, segments);
   type Source = 'selfWeightKN' | 'superimposedKN' | 'liveTotalKN' | 'snow';
+  const factorOf = (source: Source) => source === 'liveTotalKN' ? liveFactor : source === 'snow' ? snow!.factor : 1;
+  const carriers = new Set<number>();
+  const addMass = (source: Source, carrier: MassNode, weight: number, allocate: () => void) => {
+    if (factorOf(source) > 0 && factorOf(source) * weight > 0) carriers.add(carrier.id);
+    distribute.push(allocate);
+  };
   const record = (l: SeismicLevel, source: Source, m: SeismicMass | null, weight: number) => {
     if (!Number.isFinite(weight) || weight < 0) { deny(l, 'weight'); return; }
     if (source === 'snow') l.snowWeightKN += weight;
     else l[source] += weight;
     if (source === 'liveTotalKN') l.liveParticipatingKN += liveFactor * weight;
-    const factor = source === 'liveTotalKN' ? liveFactor : source === 'snow' ? snow!.factor : 1;
+    const factor = factorOf(source);
     if (!(factor > 0) || weight === 0) return;
     l.weightKN += factor * weight;
     if (!Number.isFinite(l.weightKN)) { deny(l, 'weight'); return; }
@@ -200,21 +226,23 @@ export function buildSeismicLevels(
       return;
     }
     if (!(0 <= g.a && g.a < g.b && g.b <= g.length)) { markMember(g.elementId, 'member'); return; }
-    const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
-      record(level, source, { ...g, a, b, wi, wj, width: strip }, (b - a) * (wi + wj) / 2);
-    };
-    const { nodeI, nodeJ, length } = g;
-    if (nodeI.z === nodeJ.z) { add(level(nodeI.z), g.a, g.b, wi, wj); return; }
-    const dz = nodeJ.z - nodeI.z;
-    const cuts = [g.a, g.b, ...levels.slice(1).map((l, i) =>
-      ((l.elevation + levels[i]!.elevation) / 2 - nodeI.z) * length / dz,
-    ).filter(s => s > g.a && s < g.b)].sort((a, b) => a - b);
-    const w = (s: number) => interpolate(wi, wj, (s - g.a) / (g.b - g.a));
-    for (let k = 1; k < cuts.length; k++) {
-      const a = cuts[k - 1]!, b = cuts[k]!;
-      const l = nearest(nodeI.z + dz * (a + b) / (2 * length));
-      if (l) add(l, a, b, w(a), w(b));
-    }
+    addMass(source, g.nodeI, (g.b - g.a) * (wi + wj) / 2, () => {
+      const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
+        record(level, source, { ...g, a, b, wi, wj, width: strip }, (b - a) * (wi + wj) / 2);
+      };
+      const { nodeI, nodeJ, length } = g;
+      if (nodeI.z === nodeJ.z) { add(level(nodeI.z), g.a, g.b, wi, wj); return; }
+      const dz = nodeJ.z - nodeI.z;
+      const cuts = [g.a, g.b, ...levels.slice(1).map((l, i) =>
+        ((l.elevation + levels[i]!.elevation) / 2 - nodeI.z) * length / dz,
+      ).filter(s => s > g.a && s < g.b)].sort((a, b) => a - b);
+      const w = (s: number) => interpolate(wi, wj, (s - g.a) / (g.b - g.a));
+      for (let k = 1; k < cuts.length; k++) {
+        const a = cuts[k - 1]!, b = cuts[k]!;
+        const l = nearest(nodeI.z + dz * (a + b) / (2 * length));
+        if (l) add(l, a, b, w(a), w(b));
+      }
+    });
   };
 
   const selfWeight = createSectionWeight(model.materials);
@@ -234,10 +262,13 @@ export function buildSeismicLevels(
     if (section.drawn) { markMember(e.id, 'eccentric'); continue; }
     line('selfWeightKN', g, w, w);
   }
+  const deferWeight = (source: Source, carrier: MassNode, l: () => SeismicLevel, m: SeismicMass | null, weight: number) =>
+    addMass(source, carrier, weight, () => record(l(), source, m, weight));
+
   const shellPressures = new Map(layout.shellQuads.map(s => [s.quadId, s]));
   for (const { q, corners } of surfaces) {
     if (!corners) {
-      for (const l of levels) deny(l, 'shell');
+      distribute.push(() => { for (const l of levels) deny(l, 'shell'); });
       continue;
     }
     const density = q.thickness! * (model.materials.get(q.materialId!)?.rho ?? NaN);
@@ -245,7 +276,7 @@ export function buildSeismicLevels(
     if (q.curved || hasShellOffset(q) || !Number.isFinite(density) || density < 0 || !(q.thickness! > 0) ||
       !corners.every(n => n.z === corners[0]!.z)) {
       const lo = Math.min(...corners.map(n => n.z)), hi = Math.max(...corners.map(n => n.z));
-      for (const l of levels) if (l.elevation >= lo && l.elevation <= hi) deny(l, 'shell');
+      distribute.push(() => { for (const l of levels) if (l.elevation >= lo && l.elevation <= hi) deny(l, 'shell'); });
       continue;
     }
     const l = level(corners[0]!.z);
@@ -254,14 +285,17 @@ export function buildSeismicLevels(
       const a = corners[(i + 1) % corners.length]!, b = corners[(i + corners.length - 1) % corners.length]!;
       return Math.sign((a.x - n.x) * (b.y - n.y) - (a.y - n.y) * (b.x - n.x));
     });
-    if (!jacobianSigns[0] || jacobianSigns.some(s => s !== jacobianSigns[0])) { deny(l, 'shell'); continue; }
+    if (!jacobianSigns[0] || jacobianSigns.some(s => s !== jacobianSigns[0])) {
+      distribute.push(() => deny(l, 'shell'));
+      continue;
+    }
     let size = 0;
     massSamples(m, w => { size += w; });
-    record(l, 'selfWeightKN', { ...m, density }, size * density);
+    deferWeight('selfWeightKN', corners[0]!, () => l, { ...m, density }, size * density);
     if (shell) {
       l.planAreaM2 += size;
-      record(l, 'superimposedKN', { ...m, density: p.dead }, size * p.dead);
-      record(l, 'liveTotalKN', { ...m, density: p.live }, size * p.live);
+      deferWeight('superimposedKN', corners[0]!, () => l, { ...m, density: p.dead }, size * p.dead);
+      deferWeight('liveTotalKN', corners[0]!, () => l, { ...m, density: p.live }, size * p.live);
     }
   }
   for (const m of layout.widthMembers) {
@@ -272,13 +306,13 @@ export function buildSeismicLevels(
       if (span.width === 0) continue;
       const a = span.t0 * m.length, b = span.t1 * m.length;
       const dead = p.dead * span.width, live = p.live * span.width * m.horizontalLength / m.length;
-      const l = nearest((g.nodeI.z + g.nodeJ.z) / 2)!;
-      l.planAreaM2 += span.width * (b - a) * m.horizontalLength / m.length;
+      const l = () => nearest((g.nodeI.z + g.nodeJ.z) / 2)!;
+      distribute.push(() => { l().planAreaM2 += span.width * (b - a) * m.horizontalLength / m.length; });
       if (m.spans && (dead || live * liveFactor)) {
         if (g.nodeI.z !== g.nodeJ.z) { markMember(m.elementId, 'eccentric'); continue; }
-        record(l, 'superimposedKN', null, dead * (b - a));
-        record(l, 'liveTotalKN', null, live * (b - a));
-        deny(l, 'eccentric', false);
+        deferWeight('superimposedKN', g.nodeI, l, null, dead * (b - a));
+        deferWeight('liveTotalKN', g.nodeI, l, null, live * (b - a));
+        distribute.push(() => deny(l(), 'eccentric', false));
         continue;
       }
       line('superimposedKN', { ...g, a, b }, dead, dead, span.width);
@@ -293,9 +327,9 @@ export function buildSeismicLevels(
     const l = level(g.nodeI.z);
     const tributaryArea = 'w' in piece ? piece.w : ((piece.b ?? g.length) - (piece.a ?? 0)) * (piece.wI + piece.wJ) / 2;
     l.planAreaM2 += tributaryArea;
-    record(l, 'superimposedKN', null, p.dead * tributaryArea);
-    record(l, 'liveTotalKN', null, p.live * tributaryArea);
-    deny(l, 'panel', false);
+    deferWeight('superimposedKN', g.nodeI, () => l, null, p.dead * tributaryArea);
+    deferWeight('liveTotalKN', g.nodeI, () => l, null, p.live * tributaryArea);
+    distribute.push(() => deny(l, 'panel', false));
   }
   if (snow && snow.factor !== 0) {
     for (const d of snow.distributed) {
@@ -308,9 +342,37 @@ export function buildSeismicLevels(
     for (const n of snow.nodal) {
       if (n.caseType !== 'S' || n.caseIndex !== snow.index) continue;
       const node = nodes.get(n.nodeId);
-      const l = node && nearest(node.z);
-      if (l) deny(l, 'snow');
+      distribute.push(() => {
+        const l = node && nearest(node.z);
+        if (l) deny(l, 'snow');
+      });
     }
   }
-  return levels;
+  const connected = massConnectedNodes(segments, carriers);
+  const supportElevations = new Set<number>();
+  let hasStructuralSupport = false;
+  for (const { nodeId } of model.supports?.values() ?? []) {
+    const node = nodes.get(nodeId);
+    if (!node || !Number.isFinite(node.z)) continue;
+    hasStructuralSupport ||= neighbours.has(nodeId) || surfaceNodes.has(nodeId);
+    if (connected.has(nodeId)) {
+      storyNodes.add(nodeId);
+      supportElevations.add(node.z);
+    }
+  }
+  const [base] = supportElevations;
+  let datum: SeismicModel['datum'];
+  if (supportElevations.size > 1) datum = { refusal: 'seismicSteppedBase' };
+  else if (base !== undefined) datum = { elevation: base };
+  else if (carriers.size === 0 && hasStructuralSupport) datum = { noMass: true };
+  else datum = { refusal: 'seismicBase' };
+  for (const n of nodes.values()) {
+    if (Number.isFinite(n.z) && (storyNodes.has(n.id) || (neighbours.has(n.id) && !isCollinearSubdivision(n)))) level(n.z);
+  }
+  for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
+  levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);
+  for (const n of nodes.values()) byElevation.get(n.z)?.nodeIds.push(n.id);
+  setStructuralPlanWidths(levels, segments);
+  for (const allocate of distribute) allocate();
+  return { levels, datum };
 }

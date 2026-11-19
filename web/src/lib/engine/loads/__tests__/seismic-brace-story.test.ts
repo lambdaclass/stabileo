@@ -35,7 +35,7 @@ regression('known wrong result: #2330 a connected X brace intersection is not a 
   const plan = buildLoadPlan(options);
   const roofForce = 16 + 8 * Math.SQRT2;
   expect(plan.outcome).toBe('READY');
-  expect.soft((plan.seismicLevels ?? plan.levels).map(l => l.elevation)).toEqual([0, 4]);
+  expect.soft((plan.seismicModel?.levels ?? plan.levels).map(l => l.elevation)).toEqual([0, 4]);
   expect.soft(plan.factors.seismicWeight?.value).toBeCloseTo(roofForce, 10);
   expect.soft(plan.factors.baseShear?.value).toBeCloseTo(roofForce, 10);
 

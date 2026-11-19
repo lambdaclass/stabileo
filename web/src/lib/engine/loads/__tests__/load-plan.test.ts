@@ -934,11 +934,15 @@ it('#2208 subdivision preserves the moment about the global origin', () => {
     model.supports = new Map([[base, { nodeId: base }]]);
     model.sections.set(1, { id: 1, a: 1 });
     model.materials.set(1, { id: 1, rho: 1 });
+    const carriers = [...model.elements.keys()];
+    const post = model.elements.size + 1;
+    model.materials.set(2, { id: 2, rho: 0 });
+    model.elements.set(post, { id: post, nodeI: base, nodeJ: 1, sectionId: 1, materialId: 2 });
     const plan = carrierPlan(model, force / perimeter);
     expect(plan.outcome).toBe('READY');
     const loads = plan.distributed.filter(d => d.caseType === 'E');
     expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
-    expect(loads.map(d => d.elementId)).toEqual([...model.elements.keys()]);
+    expect(loads.map(d => d.elementId)).toEqual(carriers);
     const intensity = force / perimeter;
     for (const load of loads) {
       expect(load.frame).toBe('global');

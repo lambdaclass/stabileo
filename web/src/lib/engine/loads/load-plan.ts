@@ -33,7 +33,7 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
-import { buildSeismicLevels, type SeismicLevel } from './seismic-mass';
+import { buildSeismicModel, type SeismicModel } from './seismic-mass';
 import { modalSeismicRefusal } from './seismic-generation';
 import type { TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
@@ -432,7 +432,7 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
-  seismicLevels?: SeismicLevel[];
+  seismicModel?: SeismicModel;
   /** The weight class of the roof §4.8.1 used: the one given, or the one `roofWeightOf` found. */
   roofWeight?: RoofWeight;
   /** The 103 derivation, when the code path produced the coefficient. */
@@ -979,7 +979,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * otherwise (`seismic.snowRetaining`).
    */
   let seismicF2: number | undefined;
-  let snowMass: Parameters<typeof buildSeismicLevels>[5];
+  let snowMass: Parameters<typeof buildSeismicModel>[5];
   if (snowPlanned && input.seismic?.enabled) {
     const retains = input.seismic.snowRetaining ?? sink.snowRetains ?? true;
     seismicF2 = retains ? SIMULTANEITY_F2.retaining : SIMULTANEITY_F2.other;
@@ -1003,16 +1003,17 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * shear onto the topmost mass. Nothing in a typed coefficient says what T is, so that
    * branch is unreachable without the spectrum.
    */
-  const seismicLevels = codes.seismic && input.seismic?.enabled
-    ? buildSeismicLevels(input.model, layout, area, input.tributaryWidth, participation.value, snowMass)
+  const seismicModel = codes.seismic && input.seismic?.enabled
+    ? buildSeismicModel(input.model, layout, area, input.tributaryWidth, participation.value, snowMass)
     : undefined;
+  const seismicLevels = seismicModel?.levels;
   if (snowMass && seismicLevels) {
     const snow = seismicLevels.reduce((s, l) => s + l.snowWeightKN, 0);
     derivation.push(msg('loadPlan.derivation.seismicSnow', { f2: snowMass.factor, snow: round(snow, 1), added: round(snowMass.factor * snow, 1) }));
   }
   const levelRefusals: EngineMessage[] = [];
-  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && seismicLevels
-    ? codes.seismic.plan(input, seismicLevels, { ...sink, surface, levelRefusals })
+  const { seismicWeight, baseShear, seismicDetail } = codes.seismic && seismicModel
+    ? codes.seismic.plan(input, seismicModel, { ...sink, surface, levelRefusals })
     : { seismicWeight: undefined, baseShear: undefined, seismicDetail: undefined };
 
   /*
@@ -1024,7 +1025,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * carries its own refusal and calls itself ready is worse than one that fails: the
    * caller applies it.
    */
-  if (blockedKeys.length > 0) return empty;
+  if (blockedKeys.length > 0) return { ...empty, seismicModel };
 
   for (const lv of seismicLevels ?? windLevels) {
     derivation.push(msg('loadPlan.derivation.level', {
@@ -1128,7 +1129,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
     levels: windLevels,
-    ...(seismicLevels ? { seismicLevels } : {}),
+    ...(seismicModel ? { seismicModel } : {}),
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     ...(cases.some(c => c.type === 'E') ? { seismicGeneration: 'static' as const } : {}),

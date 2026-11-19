@@ -26,7 +26,8 @@ const zh: Translations = {
   "engine.memberLoad.geometryLimit": "杆件 {id}：长度 {length} 上的分布荷载区间 [{a}, {b}] 小于相对几何限值 {limit}",
 
   "loadPlan.blocked.modalUnavailable": "在修正振型力分布之前，无法生成振型反应谱地震荷载。请使用等效静力法。",
-  "loadPlan.blocked.seismicBase": "生成等效静力地震荷载需要在标高有效的节点上设置支座。",
+  "loadPlan.blocked.seismicBase": "生成等效静力地震荷载需要与地震质量相连且标高有效的支座。",
+  "loadPlan.blocked.seismicSteppedBase": "阶梯形基础无法生成等效静力地震荷载。与地震质量相连的支座必须具有相同的标高。",
   "loadPlan.blocked.concentratedRule": "{occupancy}需要按CIRSOC 101 {article}验算集中荷载。目前不评估最不利位置。自动生成已被阻止；请手动建模并验算这些作用。",
   "loadPlan.blocked.concentratedLive": "{occupancy}需要按CIRSOC 101 §4.4验算{force} kN集中活荷载。目前不评估最不利位置以及均布荷载与集中荷载的替代工况。自动生成已被阻止；请手动建模并验算这些作用。",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4要求在最不利位置考虑集中屋面作用，并与§4.8的屋面活荷载分别验算。目前不执行这些验算。自动生成已被阻止；请手动建模并验算屋面作用。",

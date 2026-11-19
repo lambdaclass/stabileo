@@ -25,7 +25,8 @@ const it: Translations = {
   "engine.memberLoad.geometryLimit": "Elemento {id}: l’intervallo di carico distribuito [{a}, {b}] per la lunghezza {length} è inferiore al limite geometrico relativo {limit}",
 
   "loadPlan.blocked.modalUnavailable": "La generazione dei carichi sismici modali è disabilitata finché non sarà corretta la distribuzione delle forze modali. Usa il metodo statico.",
-  "loadPlan.blocked.seismicBase": "La generazione dei carichi sismici statici richiede appoggi collegati a nodi con quote valide.",
+  "loadPlan.blocked.seismicBase": "La generazione dei carichi sismici statici richiede un appoggio a quota valida collegato alla massa sismica.",
+  "loadPlan.blocked.seismicSteppedBase": "Non è possibile generare carichi sismici statici per una base a gradoni. Gli appoggi collegati alla massa sismica devono trovarsi alla stessa quota.",
   "loadPlan.blocked.concentratedRule": "{occupancy} richiede la verifica di carichi concentrati secondo CIRSOC 101 {article}. Le posizioni più sfavorevoli non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
   "loadPlan.blocked.concentratedLive": "{occupancy} richiede la verifica di un sovraccarico concentrato di {force} kN secondo CIRSOC 101 §4.4. Le posizioni più sfavorevoli e l’alternativa tra carico uniforme e concentrato non sono valutate. La generazione automatica è bloccata; modellare e verificare queste azioni manualmente.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 richiede azioni concentrate sulla copertura nelle posizioni più sfavorevoli, separatamente dal sovraccarico di copertura di §4.8. Queste verifiche non sono valutate. La generazione automatica è bloccata; modellare e verificare le azioni di copertura manualmente.",

@@ -24,7 +24,7 @@ import type { EngineMessage } from '../message';
 import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../cirsoc101/combinations';
 import type { OccupancyEntry, ElementKind } from '../cirsoc101/live-loads';
 import type { RegulationRole } from '../roles';
-import type { SeismicLevel } from '../../engine/loads/seismic-mass';
+import type { SeismicModel } from '../../engine/loads/seismic-mass';
 import type { LevelMass, LoadPlanInput, PlanSink, SeismicPlanSink, SeismicPlanDetail } from '../../engine/loads/load-plan';
 import type { ProvenancedValue } from '../regulation';
 import type { GravityLayout } from '../../engine/loads/plan-gravity';
@@ -78,7 +78,7 @@ export interface SnowCode extends CodeModule {
 
 export interface SeismicCode extends CodeModule {
   role: 'seismic';
-  plan(input: LoadPlanInput, levels: SeismicLevel[], sink: SeismicPlanSink): {
+  plan(input: LoadPlanInput, model: SeismicModel, sink: SeismicPlanSink): {
     seismicWeight: ProvenancedValue<number> | undefined; baseShear: ProvenancedValue<number> | undefined; seismicDetail: SeismicPlanDetail | undefined;
   };
   /** The share of the live load in the seismic mass for an occupancy, when the code gives one. */

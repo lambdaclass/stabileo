@@ -356,6 +356,6 @@ it('#2316 enabling seismic leaves wind levels, frequencies and member loads unch
   expect(combined.levels).toStrictEqual(windOnly.levels);
   expect(combined.levels).toStrictEqual(plan(approximate, model).levels);
   const quarter = storyHeight / 2;
-  expect(combined.seismicLevels!.map(l => l.selfWeightKN)).toEqual(
+  expect(combined.seismicModel!.levels.map(l => l.selfWeightKN)).toEqual(
     [endShare - quarter, 4 * storyHeight + floorBeams, endShare - quarter + floorBeams].map(length => length * 0.25 * 25));
 });
