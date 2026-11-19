@@ -24,7 +24,7 @@ it('#2328 translating a supported cantilever preserves its static seismic action
     expect(plan.factors.baseShear?.value).toBe(expected);
     expect(plan.nodal.filter(load => load.caseType === 'E')).toEqual([]);
     expect(plan.distributed.filter(load => load.caseType === 'E')).toMatchObject([
-      { elementId: 1, frame: 'global', a: length / 2, b: length, qX: area * density, qXJ: area * density },
+      { elementId: 1, frame: 'global', a: length / 2, b: length, qX: -2 * area * density, qXJ: 4 * area * density },
     ]);
   }
 });

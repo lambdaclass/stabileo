@@ -207,9 +207,7 @@ it('#2319 appending static loads keeps the saved-load notice until earlier gener
   expect(notice()).toBe(false);
 });
 
-const windApplyReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
-windApplyReproducer('known wrong result: #2316 applying wind preserves the legacy E notice independently from the wind basis', () => {
+it('#2316 applying wind preserves the legacy E notice independently from the wind basis', () => {
   frame();
   patchDesignData({ loadBasis: {
     at: '2026-11-19T00:00:00Z', resultsVersion: 0, factors: {}, levels: [],

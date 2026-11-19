@@ -6,10 +6,8 @@ import { createRecheckStore } from '../recheck.svelte';
 import type { FeatureSnapshot } from '../../provenance/model-features';
 
 const id = 'seismic-modal-generation-unavailable';
-const staleSeismicReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
 for (const mode of ['2d', '3d', 'pro']) {
-  staleSeismicReproducer(`known wrong result: #2316 a current wind basis keeps the legacy E notice in ${mode}`, async () => {
+  it(`#2316 a current wind basis keeps the legacy E notice in ${mode}`, async () => {
     const type = mode === '2d' ? 'nodal' : 'nodal3d';
     const legacy = { type, data: { caseId: 1, generatedBy: 'load-plan' } };
     const wind = { type, data: { caseId: 2, generatedBy: 'load-plan' } };
@@ -39,6 +37,15 @@ for (const mode of ['2d', '3d', 'pro']) {
         expect.soft(store.noticeOpen).toBe(regenerate);
         expect.soft(store.assessment!.changes.filter(change => change.id !== id)).toEqual([]);
       }
+      const oldStamp = { ...solvedWith, resultsVersion: 0 };
+      store.openProject({
+        ...snapshot,
+        loads: [{ ...legacy, data: { ...legacy.data, seismicGeneration: 'static' } }, wind],
+        solvedWith,
+        pendingRecheckNotice: { stamp: oldStamp, features: ['unverifiedGeneratedSeismicLoads'] },
+      }, mode);
+      await store.retry();
+      expect.soft(store.assessment!.changes.some(change => change.id === id)).toBe(false);
     }
   });
 }

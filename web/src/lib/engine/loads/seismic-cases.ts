@@ -1,5 +1,6 @@
 import type { PlannedDistributed, PlannedSurface } from './load-plan';
 import { atLine, massSamples, type MassRefusal, type SeismicLevel } from './seismic-mass';
+import { fitStoryCarriers } from './seismic-story-carriers';
 import { globalMemberLine, integrateWindPressure, WindPressureRefusal } from './wind-pressure-field';
 
 export type TorsionalIrregularity = 'low' | 'medium' | 'extreme';
@@ -24,24 +25,31 @@ type SeismicCasesInput = {
 type MemberLoad = Omit<PlannedDistributed, 'caseType' | 'caseIndex'>;
 type ShellLoad = Omit<PlannedSurface, 'caseType' | 'caseIndex'>;
 
-function geometryOf(level: SeismicLevel) {
+function geometryOf(level: SeismicLevel, fitted: NonNullable<ReturnType<typeof fitStoryCarriers>>) {
   const first = level.mass[0]!;
-  const origin = first.kind === 'line' ? atLine(first, first.a) : first.nodes[0]!;
+  const origin = first.kind === 'line' ? fitted.get(first)?.atStory ?? atLine(first, first.a) : first.nodes[0]!;
+  const sampleLevel = (sample: Parameters<typeof massSamples>[1]) => {
+    for (const mass of level.mass) {
+      const story = mass.kind === 'line' ? fitted.get(mass) : undefined;
+      massSamples(mass, (w, x, y) => sample(w, story?.atStory.x ?? x, story?.atStory.y ?? y));
+    }
+  };
   let sx = 0, sy = 0;
-  for (const m of level.mass) massSamples(m, (w, x, y) => { sx += w * (x - origin.x); sy += w * (y - origin.y); });
+  sampleLevel((w, x, y) => { sx += w * (x - origin.x); sy += w * (y - origin.y); });
   const x = origin.x + sx / level.weightKN, y = origin.y + sy / level.weightKN;
   let polar = 0;
-  for (const m of level.mass) massSamples(m, (w, px, py) => { polar += w * ((px - x) ** 2 + (py - y) ** 2); });
+  sampleLevel((w, px, py) => { polar += w * ((px - x) ** 2 + (py - y) ** 2); });
   return { x, y, polar };
 }
 
-function levelLoading(level: SeismicLevel, fx: number, fy: number, eccentricity: number, axis: Case['axis']):
+function levelLoading(level: SeismicLevel, fitted: ReturnType<typeof fitStoryCarriers>, fx: number, fy: number, eccentricity: number, axis: Case['axis']):
   { distributed: MemberLoad[]; surface: ShellLoad[] } | { reason: MassRefusal } {
   const distributed: MemberLoad[] = [], surface: ShellLoad[] = [];
   if (fx === 0 && fy === 0) return { distributed, surface };
   if (level.mass.length === 0 || ![fx, fy, level.weightKN].every(Number.isFinite) || level.weightKN <= 0) return { reason: 'weight' };
   if (eccentricity !== 0 && level.mass.some(m => m.kind === 'line' && !!m.width)) return { reason: 'eccentric' };
-  const g = geometryOf(level);
+  if (!fitted) return { reason: 'overturning' };
+  const g = geometryOf(level, fitted);
   const moment = eccentricity * (axis === 'X' ? fx * level.planWidth.y : fy * level.planWidth.x);
   if (![g.x, g.y, g.polar, moment].every(Number.isFinite) || (moment !== 0 && !(g.polar > 0))) return { reason: 'torsion' };
   const spin = moment === 0 ? 0 : moment / g.polar;
@@ -62,6 +70,14 @@ function levelLoading(level: SeismicLevel, fx: number, fy: number, eccentricity:
       continue;
     }
     const { a, b } = m;
+    const story = fitted.get(m);
+    if (story) {
+      const x = ax(story.atStory.y), y = ay(story.atStory.x);
+      const ends = [story.wi * x + 0, story.wj * x + 0, story.wi * y + 0, story.wj * y + 0] as const;
+      if (!ends.every(Number.isFinite)) return { reason: 'overturning' };
+      distributed.push(globalMemberLine(m.elementId, a, b, ...ends));
+      continue;
+    }
     const i = atLine(m, a), j = atLine(m, b);
     if (spin === 0 || m.wi === m.wj || (i.x === j.x && i.y === j.y)) {
       distributed.push(globalMemberLine(m.elementId, a, b, i.weight * ax(i.y), j.weight * ax(j.y), i.weight * ay(i.x), j.weight * ay(j.x)));
@@ -109,7 +125,8 @@ export function staticSeismicCases(i: SeismicCasesInput, refuse: (level: Seismic
   const perCase = cases.map(c => ({ ...c, distributed: [] as MemberLoad[], surface: [] as ShellLoad[] }));
   i.levels.forEach((level, k) => {
     if (level.refusals.size > 0) return;
-    const loads = cases.map(c => levelLoading(level, ...c.force(k), c.eccentricity, c.axis));
+    const fitted = fitStoryCarriers(level);
+    const loads = cases.map(c => levelLoading(level, fitted, ...c.force(k), c.eccentricity, c.axis));
     for (const l of loads) if ('reason' in l) { refuse(level, l.reason); return; }
     loads.forEach((l, index) => {
       if ('reason' in l) return;

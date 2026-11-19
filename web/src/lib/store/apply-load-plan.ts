@@ -191,9 +191,8 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
       // stayed, solved and listed (`takeBackCompositeCases`).
       takeBackCompositeCases();
     }
-    const keepsLegacySeismic = modelStore.loads.some(l => legacySeismic.has(l.data.id));
-    if (keepsLegacySeismic || modelStore.loads.some(l => fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
-      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, keepsLegacySeismic ? RESULTS_VERSION - 1 : RESULTS_VERSION) } });
+    if (modelStore.loads.some(l => !legacySeismic.has(l.data.id) && fromLoadPlan((l.data as { generatedBy?: string }).generatedBy))) {
+      patchDesignData({ loadBasis: { ...designData().loadBasis!, resultsVersion: Math.min(before, RESULTS_VERSION) } });
     }
     const firstNewLoad = Math.max(0, ...modelStore.loads.map((l) => l.data.id)) + 1;
 

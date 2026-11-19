@@ -7977,6 +7977,7 @@ const es: Record<string, string> = {
   'loadPlan.blocked.seismicSteppedBase': "No se pueden generar cargas sísmicas estáticas para una base escalonada. Los apoyos conectados a la masa sísmica deben estar a la misma cota.",
   'loadPlan.blocked.seismicDisconnected': "Para generar cargas sísmicas estáticas, todos los elementos que aportan masa sísmica o ancho en planta deben pertenecer a una misma estructura conectada con al menos un apoyo.",
   'loadPlan.blocked.seismicMass.weight': "Se rechazó la carga sísmica a {elevation} m. Una masa física o fuerza de piso es inválida.",
+  'loadPlan.blocked.seismicMass.overturning': "Se rechazó la carga sísmica a {elevation} m. Los elementos portantes no pueden representar el momento de vuelco del piso.",
   'loadPlan.blocked.seismicNoR': 'La Tabla 5.1 no da factor de reducción R para «{system}». La fila 1 imprime una expresión sobre la disposición de tabiques en vez de un valor; cualquier otra fila faltante es un sistema que no se identificó. No hay por qué dividir el espectro.',
   'loadPlan.blocked.roleUnusable': 'El rol «{role}» ({name}) no es utilizable: seleccionar un reglamento y completar sus ajustes.',
   'loadPlan.blocked.windRoleUnusable': 'Se pidieron cargas de viento pero no hay un reglamento de viento utilizable.',

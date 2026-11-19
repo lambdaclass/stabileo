@@ -105,12 +105,10 @@ function affineBand(from: number, to: number, elevation: number, mean: number) {
   return { at, moment };
 }
 
-const overturningReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
 for (const stories of [[{ from: 2, to: 4, elevation: 4, force: 4 }], [
   { from: 1, to: 3, elevation: 2, force: 3 }, { from: 3, to: 4, elevation: 4, force: 3 },
 ]]) {
-  overturningReproducer(`known wrong result: #2316 ${stories.length}-story carrier preserves story overturning`, () => {
+  it(`#2316 ${stories.length}-story carrier preserves story overturning`, () => {
     for (const angle of [0, Math.PI / 2]) for (const mirror of [1, -1]) for (const subdivided of [false, true]) {
       const cuts = stories.length === 1 ? (subdivided ? [0, 2.5, 3.5, 4] : [0, 4])
         : (subdivided ? [0, 0.5, 2, 2.5, 3.5, 4] : [0, 2, 4]);
@@ -180,7 +178,7 @@ for (const stories of [[{ from: 2, to: 4, elevation: 4, force: 4 }], [
   });
 }
 
-overturningReproducer('known wrong result: #2316 a raked carrier acts through the story elevation after remeshing', () => {
+it('#2316 a raked carrier acts through the story elevation after remeshing', () => {
   for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
     const reflected = variant === 'mirror';
     const { model, back } = remeshWind(mesh([[[0, 0, 0], [0, reflected ? -3 : 3, 4]]]), reflected ? 'base' : variant);
@@ -206,7 +204,7 @@ overturningReproducer('known wrong result: #2316 a raked carrier acts through th
   }
 });
 
-overturningReproducer('known wrong result: #2316 refuses a story moment an arbitrarily thin carrier band cannot resolve', () => {
+it('#2316 refuses a story moment an arbitrarily thin carrier band cannot resolve', () => {
   for (const [width, ready] of [[2 ** -50, false], [0.5, true]] as const) {
     const model = mesh([[[0, 0, 0], [0, 0, 2], [0, 0, 2 + width], [0, 0, 4]]]);
     model.elements.delete(4);
@@ -327,16 +325,16 @@ function verifyCarrierMechanics() {
           const q = weightPerLength * (1 + eccentricity * radius);
           const parts = plan.distributed.filter(d => d.caseIndex === caseIndex && sources.get(d.elementId) === carrier);
           expect(parts.length).toBeGreaterThan(0);
-          const momentOfLoad = (station: number, power: number) => q * (length ** (power + 1) - Math.max(half, station) ** (power + 1)) / (power + 1);
+          const band = affineBand(half, length, length, q);
           for (const part of parts) {
             const member = model.elements.get(part.elementId)!;
             const start = model.nodes.get(member.nodeI)!.z! + part.a!, end = model.nodes.get(member.nodeI)!.z! + part.b!;
             expect(start).toBeGreaterThanOrEqual(half);
             expect(end).toBeLessThanOrEqual(length);
-            expect(forceComponent(part, rotated)).toBeCloseTo(q, 10);
-            expect(forceComponent(part, rotated, true)).toBeCloseTo(q, 10);
+            expect(forceComponent(part, rotated)).toBeCloseTo(band.at(start), 10);
+            expect(forceComponent(part, rotated, true)).toBeCloseTo(band.at(end), 10);
           }
-          verifyCantilever(model, members, rotated, length, parts, momentOfLoad);
+          verifyCantilever(model, members, rotated, length, parts, band.moment);
         }
       }
     }
@@ -479,6 +477,8 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
 
   const bands: Array<[number, number]> = hasFloor ? [[0, 1], [1, 3], [3, 4]] : [[0, 2], [2, 4]];
   const intensities = hasFloor ? [0, 1.5, 3] : [0, 2];
+  const elevations = hasFloor ? [0, 2, 4] : [0, 4];
+  const oracles = bands.map(([from, to], i) => affineBand(from, to, elevations[i]!, intensities[i]!));
   const forces = hasFloor ? [0, 3, 3] : [0, 4];
   const parts = plan.distributed.filter(d => d.caseType === 'E');
   const members = [...model.elements.values()];
@@ -494,7 +494,7 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
     const start = model.nodes.get(member.nodeI)!.z!, end = model.nodes.get(member.nodeJ)!.z!;
     const expected = bands.flatMap(([a, b], k) => {
       const lo = Math.max(a!, start), hi = Math.min(b, end);
-      return lo < hi && intensities[k]! > 0 ? [{ a: lo - start, b: hi - start, q: intensities[k]! }] : [];
+      return lo < hi && intensities[k]! > 0 ? [{ a: lo - start, b: hi - start, qi: oracles[k]!.at(lo), qj: oracles[k]!.at(hi) }] : [];
     });
     const loads = parts.filter(p => p.elementId === member.id).sort((a, b) => a.a! - b.a!);
     expect.soft(loads.map(p => [p.a, p.b])).toEqual(expected.map(p => [p.a, p.b]));
@@ -504,12 +504,11 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
       expect(forceComponent(load, !rotated, true)).toBe(0);
       const piece = expected[k];
       if (!piece) continue;
-      expect.soft(forceComponent(load, rotated)).toBeCloseTo(piece.q, 10);
-      expect.soft(forceComponent(load, rotated, true)).toBeCloseTo(piece.q, 10);
+      expect.soft(forceComponent(load, rotated)).toBeCloseTo(piece.qi, 10);
+      expect.soft(forceComponent(load, rotated, true)).toBeCloseTo(piece.qj, 10);
     }
   }
-  const momentOfLoad = (s: number, k: number) => bands.reduce((sum, [a, b], i) =>
-    sum + intensities[i]! * (b ** (k + 1) - Math.min(b, Math.max(s, a)) ** (k + 1)) / (k + 1), 0);
+  const momentOfLoad = (s: number, k: number) => oracles.reduce((sum, band) => sum + band.moment(s, k), 0);
   verifyCantilever(model, members, rotated, 4, parts, momentOfLoad);
 }
 
@@ -573,7 +572,7 @@ function round2Columns(cuts: number[], rotate: boolean, mirror: boolean, perimet
 
 function verifyRound2Columns(
   model: LoadModelData, byColumn: ReturnType<typeof round2Columns>['byColumn'], plan: ReturnType<typeof buildLoadPlan>,
-  rotated: boolean, loadedFrom: number, intensity: number, power: number, planWidth = 0,
+  rotated: boolean, loadedFrom: number, intensity: number, planWidth: number,
 ) {
   expect(plan.outcome).toBe('READY');
   expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
@@ -584,23 +583,22 @@ function verifyRound2Columns(
     const loads = plan.distributed.filter(d => d.caseIndex === index);
     expect(loads.every(d => carrierIds.has(d.elementId))).toBe(true);
     const sign = c.nameParams?.sign === '−' ? -1 : 1;
-    const torque = 2 * intensity * (height ** (power + 1) - loadedFrom ** (power + 1)) / (power + 1) * sign * 0.05 * planWidth;
+    const torque = 2 * intensity * (height - loadedFrom) * sign * 0.05 * planWidth;
     for (const members of byColumn) {
       const parts = loads.filter(d => members.some(e => e.id === d.elementId));
       const root = model.nodes.get(members[0]!.nodeI)!;
       const arm = rotated ? root.x : -root.y;
       const q = intensity * (1 + sign * 0.05 * planWidth * arm / 4);
-      const momentOfLoad = (station: number, k: number) =>
-        q * (height ** (k + power + 1) - Math.max(loadedFrom, station) ** (k + power + 1)) / (k + power + 1);
-      verifyCantilever(model, members, rotated, height, parts, momentOfLoad);
+      const band = affineBand(loadedFrom, height, height, q);
+      verifyCantilever(model, members, rotated, height, parts, band.moment);
       for (const part of parts) {
         const member = model.elements.get(part.elementId)!;
         const z = model.nodes.get(member.nodeI)!.z!;
         expect(part.frame).toBe('global');
         expect(z + part.a!).toBeGreaterThanOrEqual(loadedFrom);
         expect(z + part.b!).toBeLessThanOrEqual(height);
-        expect(forceComponent(part, rotated)).toBeCloseTo(q * (z + part.a!) ** power, 10);
-        expect(forceComponent(part, rotated, true)).toBeCloseTo(q * (z + part.b!) ** power, 10);
+        expect(forceComponent(part, rotated)).toBeCloseTo(band.at(z + part.a!), 10);
+        expect(forceComponent(part, rotated, true)).toBeCloseTo(band.at(z + part.b!), 10);
         expect(forceComponent(part, !rotated)).toBeCloseTo(0, 10);
         expect(forceComponent(part, !rotated, true)).toBeCloseTo(0, 10);
       }
@@ -627,7 +625,7 @@ for (const rotated of [false, true]) for (const mirror of [false, true]) for (co
       torsion: 'medium',
     }));
     const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-    verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w, 0, 10);
+    verifyRound2Columns(model, byColumn, plan, rotated, height / 2, w, 10);
   });
 
 }
@@ -642,9 +640,9 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
     expect(plan.outcome).toBe(width === 0 ? 'READY' : 'BLOCKED');
     if (width === 0) {
       const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      const momentOfLoad = (s: number, k: number) => w * (height ** (k + 1) - Math.max(height / 2, s) ** (k + 1)) / (k + 1);
+      const band = affineBand(height / 2, height, height, w);
       for (const [index, c] of plan.cases.entries()) if (c.type === 'E') {
-        verifyCantilever(model, [model.elements.get(1)!], false, height, plan.distributed.filter(d => d.caseIndex === index), momentOfLoad);
+        verifyCantilever(model, [model.elements.get(1)!], false, height, plan.distributed.filter(d => d.caseIndex === index), band.moment);
       }
     } else {
       expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.seismicMass.torsion', params: { elevation: height } }]);
@@ -684,6 +682,7 @@ it('#2316 a zero-weight roof sets the approximate period and member loads', () =
     expect(plan.seismic?.stories).toEqual([{ h: 4, w: 4 }]);
     expect(plan.nodal.filter(n => n.caseType === 'E')).toEqual([]);
     const loads = plan.distributed.filter(p => p.caseType === 'E');
+    const band = affineBand(2, 4, 4, 2 * c);
     for (const member of members) {
       const start = model.nodes.get(member.nodeI)!.z!, end = model.nodes.get(member.nodeJ)!.z!;
       const parts = loads.filter(p => p.elementId === member.id);
@@ -691,8 +690,8 @@ it('#2316 a zero-weight roof sets the approximate period and member loads', () =
       expect(parts.map(p => [p.a, p.b])).toEqual(a < b ? [[a - start, b - start]] : []);
       for (const p of parts) {
         expect(p.frame).toBe('global');
-        expect.soft(p.qX).toBeCloseTo(2 * c, 10);
-        expect.soft(p.qXJ).toBeCloseTo(2 * c, 10);
+        expect.soft(p.qX).toBeCloseTo(band.at(a), 10);
+        expect.soft(p.qXJ).toBeCloseTo(band.at(b), 10);
         expect(p.qY).toBe(0);
         expect(p.qYJ).toBe(0);
       }
@@ -701,9 +700,7 @@ it('#2316 a zero-weight roof sets the approximate period and member loads', () =
     const direct = INPRES103_SEISMIC.plan(seismicInput, plan.seismicModel!, sink);
     expect(sink.blockedKeys).toEqual([]);
     expect.soft(direct.seismicDetail?.ta).toBeCloseTo(t, 10);
-    const momentOfLoad = (s: number, k: number) =>
-      2 * c * (4 ** (k + 1) - Math.min(4, Math.max(2, s)) ** (k + 1)) / (k + 1);
-    verifyCantilever(model, members, false, h, loads, momentOfLoad);
+    verifyCantilever(model, members, false, h, loads, band.moment);
   }
 });
 
@@ -761,7 +758,7 @@ it('#2316 a massless offset member in the seismic footprint refuses generation',
       }, { generateCombinations: true });
       const baseline = buildLoadPlan(seismicInput);
       const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      verifyRound2Columns(model, byColumn, baseline, rotated, height / 2, w * baseline.seismic!.c, 0, 10);
+      verifyRound2Columns(model, byColumn, baseline, rotated, height / 2, w * baseline.seismic!.c, 10);
 
       atEdge.offset.j = rotated ? { x: -2, y: 0, z: 0 } : { x: 0, y: 2, z: 0 };
       for (const materialId of [2, 1]) {
@@ -884,8 +881,9 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, 
   expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
   expect(plan.cases.filter(c => c.type === 'E')).toHaveLength(1);
 
-  const bands: Array<[number, number, number]> = twoStories ? [[1, 3, 1.5], [3, 4, 3]] : [[2, 4, 2]];
-  const storyForces = bands.map(([lo, hi]) => loads.reduce((sum, part) => {
+  const bands = (twoStories ? [[1, 3, 2, 1.5], [3, 4, 4, 3]] : [[2, 4, 4, 2]])
+    .map(([lo, hi, elevation, q]) => ({ lo: lo!, hi: hi!, ...affineBand(lo!, hi!, elevation!, q!) }));
+  const storyForces = bands.map(({ lo, hi }) => loads.reduce((sum, part) => {
     const member = model.elements.get(part.elementId)!;
     const start = model.nodes.get(member.nodeI)!.z! - base;
     const overlap = Math.max(0, Math.min(hi, start + part.b!) - Math.max(lo, start + part.a!));
@@ -897,9 +895,9 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, 
   for (const member of members) {
     const start = model.nodes.get(member.nodeI)!.z! - base;
     const end = model.nodes.get(member.nodeJ)!.z! - base;
-    const expected = bands.flatMap(([lo, hi, q]) => {
+    const expected = bands.flatMap(({ lo, hi, at }) => {
       const a = Math.max(start, lo), b = Math.min(end, hi);
-      return a < b ? [[a - start, b - start, q, q]] : [];
+      return a < b ? [[a - start, b - start, at(a), at(b)]] : [];
     });
     expect(loads.filter(p => p.elementId === member.id).map(p => {
       expect(p.frame).toBe('global');
@@ -908,8 +906,7 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, 
       return [p.a, p.b, forceComponent(p, rotated), forceComponent(p, rotated, true)];
     }).sort((a, b) => a[0]! - b[0]!)).toEqual(expected);
   }
-  const momentOfLoad = (s: number, k: number) => bands.reduce((sum, [a, b, q]) =>
-    sum + q * (b ** (k + 1) - Math.min(b, Math.max(s, a)) ** (k + 1)) / (k + 1), 0);
+  const momentOfLoad = (s: number, k: number) => bands.reduce((sum, band) => sum + band.moment(s, k), 0);
   verifyCantilever(model, members, rotated, 4, loads, momentOfLoad, base);
 
   const codeInput = request(model, { directions, code: round2Code });
@@ -1067,7 +1064,7 @@ for (const surface of ['quads', 'plates'] as const) {
     expect(plan.factors.seismicWeight?.value).toBeCloseTo(4 + shellArea, 10);
     expect(plan.factors.baseShear?.value).toBeCloseTo(4 + shellArea, 10);
     expect(plan.nodal.filter(load => load.caseType === 'E')).toEqual([]);
-    expect(plan.distributed.filter(load => load.caseType === 'E').map(load => [load.a, load.b, load.qX, load.qXJ])).toEqual([[2, 4, 2, 2]]);
+    expect(plan.distributed.filter(load => load.caseType === 'E').map(load => [load.a, load.b, load.qX, load.qXJ])).toEqual([[2, 4, -4, 8]]);
     const shell = plan.surface.filter(load => load.caseType === 'E');
     expect(shell.length).toBeGreaterThan(0);
     for (const load of shell) expect(load.dir).toEqual([1, 0, 0]);
@@ -1129,7 +1126,7 @@ for (const [label, elevation] of [
     expect(plan.factors.seismicWeight?.value).toBe(expected);
     expect(plan.factors.baseShear?.value).toBe(expected);
     const loads = plan.distributed.filter(d => d.caseType === 'E');
-    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: 2, qXJ: 2 }]);
+    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: -4, qXJ: 8 }]);
 
     const sink = seismicSink();
     const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
@@ -1138,9 +1135,7 @@ for (const [label, elevation] of [
     expect(direct.baseShear?.value).toBe(expected);
     expect(sink.distributed).toEqual(loads.map(p => ({ ...p, caseIndex: 0 })));
 
-    const moment = (station: number, power: number) =>
-      2 * (4 ** (power + 1) - Math.max(2, station) ** (power + 1)) / (power + 1);
-    verifyCantilever(model, [model.elements.get(1)!], false, 4, loads, moment);
+    verifyCantilever(model, [model.elements.get(1)!], false, 4, loads, affineBand(2, 4, 4, 2).moment);
   });
 }
 
@@ -1215,7 +1210,7 @@ it('#2316 accepts a datum reached only through the rigid floor and a massless co
     const loads = plan.distributed.filter(d => d.caseType === 'E');
     const coefficient = plan.seismic!.c;
     expect(plan.factors.baseShear?.value).toBe(4 * coefficient);
-    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: 2 * coefficient, qXJ: 2 * coefficient }]);
+    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: -4 * coefficient, qXJ: 8 * coefficient }]);
     expect(plan.seismicModel!.levels.at(-1)?.planWidth).toEqual({ x: 0, y: 2 });
 
     const sink = seismicSink();
@@ -1256,5 +1251,5 @@ it('#2316 an attached massless beam contributes to accidental eccentricity witho
   const plan = buildLoadPlan(request(model, { torsion: 'medium' }));
   expect(plan.seismicModel!.levels.at(-1)?.planWidth).toEqual({ x: 0, y: 8 });
   const intensity = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-  verifyRound2Columns(model, byColumn, plan, false, height / 2, intensity, 0, 8);
+  verifyRound2Columns(model, byColumn, plan, false, height / 2, intensity, 8);
 });

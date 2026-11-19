@@ -9,8 +9,10 @@ The planner blocks generation when it cannot determine the support datum.
 
 For a 4 m cantilever with uniform self-weight of 2 kN/m and a manual
 coefficient of 1, the seismic weight and base shear are 4 kN at support
-elevations of 0, +10 and −5 m. The upper half carries a uniform horizontal
-load of 2 kN/m in each model. The earlier planner used the global origin
+elevations of 0, +10 and −5 m. This change originally applied 2 kN/m
+uniformly over the upper half in each model. The subsequent story
+overturning correction reshapes that load while keeping the base shear.
+The earlier planner used the global origin
 as the base. At +10 m it reported 8 kN for both seismic weight and base shear.
 At −5 m it generated no seismic action.
 

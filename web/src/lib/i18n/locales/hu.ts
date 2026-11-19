@@ -7263,6 +7263,7 @@ const hu: Translations = {
   "loadPlan.blocked.seismicMass.snow": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. A beszámított hótömeget hordó szerkezeti elemek nem határozhatók meg.",
   "loadPlan.blocked.seismicMass.torsion": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. A véletlen csavaróhatás nem modellezhető a rudak megoszló terheivel.",
   "loadPlan.blocked.seismicMass.weight": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. Érvénytelen tömeg vagy szinterő.",
+  "loadPlan.blocked.seismicMass.overturning": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. A tartóelemekkel nem ábrázolható a szint billentőnyomatéka.",
   "loadPlan.blocked.modalUnavailable": "A modális erőeloszlás javításáig a modális szeizmikus terhek generálása nem érhető el. Használja a statikus módszert.",
   "loadPlan.blocked.seismicBase": "A statikus szeizmikus terhek előállításához a szeizmikus tömeghez kapcsolódó, érvényes magasságú támasz szükséges.",
   "loadPlan.blocked.seismicSteppedBase": "Lépcsőzetes alap esetén nem állíthatók elő statikus szeizmikus terhek. A szeizmikus tömeghez kapcsolódó támaszoknak azonos magasságban kell lenniük.",

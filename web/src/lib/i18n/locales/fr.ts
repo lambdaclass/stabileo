@@ -7525,6 +7525,7 @@ const fr: Translations = {
   'loadPlan.blocked.seismicSteppedBase': "Impossible de générer des charges sismiques statiques sur une base à redans. Les appuis reliés à la masse sismique doivent être à la même cote.",
   'loadPlan.blocked.seismicDisconnected': "Pour générer les charges sismiques statiques, tous les éléments qui contribuent à la masse sismique ou à la largeur en plan doivent appartenir à une même structure connectée comportant au moins un appui.",
   'loadPlan.blocked.seismicMass.weight': "Charge sismique refusée à {elevation} m. Une masse physique ou une force d’étage est invalide.",
+  'loadPlan.blocked.seismicMass.overturning': "Charge sismique refusée à {elevation} m. Les éléments porteurs ne peuvent pas représenter le moment de renversement de l’étage.",
   'loadPlan.blocked.seismicNoR': 'Le tableau 5.1 ne donne pas de coefficient de comportement R pour « {system} ». La ligne 1 donne une expression fondée sur la disposition des voiles plutôt qu\'une valeur ; toute autre ligne manquante correspond à un système qui n\'a pas été identifié. Il n\'y a rien par quoi diviser le spectre.',
   'loadPlan.blocked.roleUnusable': 'Le rôle « {role} » ({name}) n\'est pas utilisable : sélectionnez une norme et complétez ses paramètres.',
   'loadPlan.blocked.windRoleUnusable': 'Des charges de vent ont été demandées mais aucune norme de vent utilisable n\'est affectée.',

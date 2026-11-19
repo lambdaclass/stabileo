@@ -8,9 +8,10 @@ import { createSectionWeight } from '../../section/weight';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
 export type MassLine = {
-  kind: 'line'; elementId: number; nodeI: MassNode; nodeJ: MassNode;
+  kind: 'line'; elementId: number; carrierId: number; nodeI: MassNode; nodeJ: MassNode;
   length: number; a: number; b: number; wi: number; wj: number; width?: number;
 };
+type LineGeometry = Omit<MassLine, 'carrierId' | 'wi' | 'wj'>;
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
 export type SeismicMass = MassLine | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
@@ -18,7 +19,7 @@ type DatumRefusal = 'seismicBase' | 'seismicSteppedBase' | 'seismicDisconnected'
 export type SeismicModel =
   | { levels: SeismicLevel[]; datum: { elevation: number } }
   | { levels: []; datum: { refusal: DatumRefusal } };
-export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight';
+export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight' | 'overturning';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
 export function atLine(line: MassLine, s: number) {
@@ -162,17 +163,17 @@ export function buildSeismicModel(
   snow: { distributed: PlannedDistributed[]; nodal: PlannedNodal[]; index: number; factor: number; panels: boolean } | undefined,
 ): SeismicModel {
   const nodes = new Map([...model.nodes].map(([id, n]) => [id, { ...n, z: n.z ?? 0 }]));
-  const geometry = new Map<number, Omit<MassLine, 'wi' | 'wj'>>();
-  const neighbours = new Map<number, MassNode[]>();
-  const next = (id: number, node: MassNode) => neighbours.set(id, [...(neighbours.get(id) ?? []), node]);
+  const geometry = new Map<number, LineGeometry>();
+  const neighbours = new Map<number, Array<{ node: MassNode; elementId: number }>>();
+  const next = (id: number, node: MassNode, elementId: number) => neighbours.set(id, [...(neighbours.get(id) ?? []), { node, elementId }]);
   for (const e of model.elements.values()) {
     const nodeI = nodes.get(e.nodeI), nodeJ = nodes.get(e.nodeJ);
     if (!nodeI || !nodeJ) continue;
     const length = Math.hypot(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y, nodeJ.z - nodeI.z);
     if (!(Number.isFinite(length) && length > 0)) continue;
     geometry.set(e.id, { kind: 'line', elementId: e.id, a: 0, b: length, length, nodeI, nodeJ });
-    next(e.nodeI, nodeJ);
-    next(e.nodeJ, nodeI);
+    next(e.nodeI, nodeJ, e.id);
+    next(e.nodeJ, nodeI, e.id);
   }
   const shells = [...model.quads?.values() ?? []].map(q => ({ ...q, on: undefined }));
   const plates = [...model.plates?.values() ?? []].map(q => ({ ...q, on: 'plate' as const }));
@@ -194,12 +195,29 @@ export function buildSeismicModel(
   const isCollinearSubdivision = (p: MassNode) => {
     const adjacent = neighbours.get(p.id);
     if (adjacent?.length !== 2) return false;
-    const [a, b] = adjacent;
-    const u = [a!.x - p.x, a!.y - p.y, a!.z - p.z], v = [b!.x - p.x, b!.y - p.y, b!.z - p.z];
+    const a = adjacent[0]!.node, b = adjacent[1]!.node;
+    const u = [a.x - p.x, a.y - p.y, a.z - p.z], v = [b.x - p.x, b.y - p.y, b.z - p.z];
     const scale = Math.hypot(...u) * Math.hypot(...v);
     return u.reduce((s, x, i) => s + x * v[i]!, 0) < 0 &&
       Math.hypot(u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!) <= 64 * Number.EPSILON * scale;
   };
+  const subdivisions = new Set([...nodes.values()].filter(isCollinearSubdivision).map(n => n.id));
+  const carrierByElement = new Map<number, number>();
+  for (const [carrierId, line] of geometry) {
+    if (carrierByElement.has(carrierId) || line.nodeI.z === line.nodeJ.z) continue;
+    const pending = [line];
+    while (pending.length) {
+      const member = pending.pop()!;
+      if (carrierByElement.has(member.elementId)) continue;
+      carrierByElement.set(member.elementId, carrierId);
+      for (const node of [member.nodeI, member.nodeJ]) {
+        if (!subdivisions.has(node.id)) continue;
+        for (const { elementId } of neighbours.get(node.id)!) {
+          if (!carrierByElement.has(elementId)) pending.push(geometry.get(elementId)!);
+        }
+      }
+    }
+  }
   const byElevation = new Map<number, SeismicLevel>();
   const level = (elevation: number) => {
     if (!byElevation.has(elevation)) byElevation.set(elevation, {
@@ -254,7 +272,7 @@ export function buildSeismicModel(
     if (m === null) return;
     l.mass.push(m.kind === 'line' ? { ...m, wi: factor * m.wi, wj: factor * m.wj } : { ...m, density: factor * m.density });
   };
-  const line = (source: Source, g: Omit<MassLine, 'wi' | 'wj'>, wi: number, wj: number, strip?: number) => {
+  const line = (source: Source, g: LineGeometry, wi: number, wj: number, strip?: number) => {
     if (!Number.isFinite(wi) || !Number.isFinite(wj) || wi < 0 || wj < 0) { markMember(g.elementId, 'weight'); return; }
     if ((wi === 0 && wj === 0) || offsetMembers.has(g.elementId)) return;
     if (model.elements.get(g.elementId)!.type === 'truss') {
@@ -264,7 +282,8 @@ export function buildSeismicModel(
     if (!(0 <= g.a && g.a < g.b && g.b <= g.length)) { markMember(g.elementId, 'member'); return; }
     distribute.push(() => {
       const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
-        record(level, source, { ...g, a, b, wi, wj, width: strip }, (b - a) * (wi + wj) / 2);
+        const carrierId = carrierByElement.get(g.elementId) ?? g.elementId;
+        record(level, source, { ...g, carrierId, a, b, wi, wj, width: strip }, (b - a) * (wi + wj) / 2);
       };
       const { nodeI, nodeJ, length } = g;
       if (nodeI.z === nodeJ.z) { add(level(nodeI.z), g.a, g.b, wi, wj); return; }
@@ -386,7 +405,7 @@ export function buildSeismicModel(
   }
   for (const n of nodes.values()) {
     if (!component.nodes.has(n.id)) continue;
-    if (surfaceNodes.has(n.id) || component.storyNodes.has(n.id) || (neighbours.has(n.id) && !isCollinearSubdivision(n))) level(n.z);
+    if (surfaceNodes.has(n.id) || component.storyNodes.has(n.id) || (neighbours.has(n.id) && !subdivisions.has(n.id))) level(n.z);
   }
   for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
   levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);

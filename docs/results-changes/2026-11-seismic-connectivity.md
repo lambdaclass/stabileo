@@ -18,9 +18,10 @@ planner now refuses the detached beam and includes its width when attached.
 A massless column connected to the seismic mass through a rigid floor can now
 supply the datum. In the test model, the cantilever has a line weight of
 2 kN/m over a height of 4 m. The planner accepts the datum at the connected
-column's support and applies 2 kN/m over the upper 2 m of the cantilever at
-a manual coefficient of 1. Unequal elevations at connected supports block
-static load generation.
+column's support and applies 4 kN of horizontal force over the upper 2 m
+of the cantilever at a manual coefficient of 1. The subsequent story
+overturning correction sets the distribution over that band. Unequal
+elevations at connected supports block static load generation.
 
 Regenerate affected E cases and repeat the analyses, combinations and design
 checks that use them. A disconnected-structure refusal means the planner

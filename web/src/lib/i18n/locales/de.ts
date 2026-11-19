@@ -7525,6 +7525,7 @@ const de: Translations = {
   'loadPlan.blocked.seismicSteppedBase': "Bei einer abgestuften Basis können keine statischen Erdbebenlasten erzeugt werden. Die mit der seismischen Masse verbundenen Auflager müssen auf gleicher Höhe liegen.",
   'loadPlan.blocked.seismicDisconnected': "Für statische Erdbebenlasten müssen alle Elemente, die zur seismischen Masse oder zur Grundrissbreite beitragen, zu einem zusammenhängenden Tragwerk mit mindestens einem Auflager gehören.",
   'loadPlan.blocked.seismicMass.weight': "Erdbebenlast auf {elevation} m abgelehnt. Eine Masse oder Geschosskraft ist ungültig.",
+  'loadPlan.blocked.seismicMass.overturning': "Erdbebenlast auf {elevation} m abgelehnt. Die tragenden Bauteile können das Kippmoment des Geschosses nicht abbilden.",
   'loadPlan.blocked.seismicNoR': 'Tabelle 5.1 gibt keinen Verhaltensbeiwert R für „{system}“ an. Zeile 1 enthält statt eines Werts einen Ausdruck zur Wandanordnung; jede andere fehlende Zeile ist ein nicht identifiziertes System. Es gibt nichts, durch das das Spektrum geteilt werden kann.',
   'loadPlan.blocked.roleUnusable': 'Die Rolle „{role}“ ({name}) ist nicht verwendbar: Wählen Sie eine Norm und vervollständigen Sie ihre Einstellungen.',
   'loadPlan.blocked.windRoleUnusable': 'Windlasten wurden angefordert, aber es ist keine verwendbare Windnorm zugewiesen.',

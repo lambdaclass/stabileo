@@ -7534,6 +7534,7 @@ const tr: Translations = {
   'loadPlan.blocked.seismicSteppedBase': "Kademeli bir taban için statik deprem yükleri oluşturulamaz. Sismik kütleye bağlı mesnetler aynı kotta olmalıdır.",
   'loadPlan.blocked.seismicDisconnected': "Statik deprem yüklerinin oluşturulabilmesi için sismik kütleye veya plandaki genişliğe katkıda bulunan tüm elemanlar, en az bir mesnedi olan tek bir bağlantılı yapıya ait olmalıdır.",
   'loadPlan.blocked.seismicMass.weight': "{elevation} m kotunda deprem yükü reddedildi. Bir kütle veya kat kuvveti geçersiz.",
+  'loadPlan.blocked.seismicMass.overturning': "{elevation} m kotunda deprem yükü reddedildi. Taşıyıcı elemanlar katın devrilme momentini temsil edemiyor.",
   'loadPlan.blocked.seismicNoR': 'Tablo 5.1, “{system}” için davranış katsayısı R vermiyor. Satır 1 bir değer yerine perde yerleşimine dayalı bir ifade verir; eksik olan diğer her satır tanımlanmamış bir sistemdir. Spektrumu bölecek bir değer yok.',
   'loadPlan.blocked.roleUnusable': '“{role}” rolü ({name}) kullanılamıyor: bir yönetmelik seçin ve ayarlarını tamamlayın.',
   'loadPlan.blocked.windRoleUnusable': 'Rüzgar yükleri istendi, ancak kullanılabilir bir rüzgar yönetmeliği atanmamış.',
