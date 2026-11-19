@@ -23,7 +23,7 @@
   const plan = $derived.by(() => {
     const pts = rows.flatMap((r) => (r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])).map((m) => ({ r, name: m.name, key: m.key, pier: m.pier, x: m.at.x, y: m.at.y })));
     if (!pts.length) return null;
-    const outlines = rows.filter((r) => r.B > 0 && r.L > 0).map((r) => ({ key: r.key, name: r.name, kind: r.group?.kind ?? (r.combined ? 'combined' : r.edge?.position ?? 'centred'), fail: r.status === 'fail', pts: footingCorners(r) }));
+    const outlines = rows.filter((r) => r.B > 0 && r.L > 0).map((r) => ({ key: r.key, name: r.name, kind: r.cap ? 'pileCap' : r.group?.kind ?? (r.combined ? 'combined' : r.edge?.position ?? 'centred'), fail: r.status === 'fail', pts: footingCorners(r) }));
     const ext = [...pts, ...outlines.flatMap((o) => o.pts)];
     const x0 = Math.min(...ext.map((p) => p.x)), x1 = Math.max(...ext.map((p) => p.x));
     const y0 = Math.min(...ext.map((p) => p.y)), y1 = Math.max(...ext.map((p) => p.y));

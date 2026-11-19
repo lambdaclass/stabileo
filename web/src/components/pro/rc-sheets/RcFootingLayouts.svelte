@@ -7,7 +7,7 @@
   import { modelStore } from '../../../lib/store';
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { findProfile } from '../../../lib/model/geotechnical';
-  import { PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
+  import { PRESUMED_BEARING_RANGE, PRESUMED_PILE_RANGE, presumedPileOf, type PresumedPile } from '../../../lib/model/design-data';
 
   let { layouts, adopted, preview = $bindable() }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -23,6 +23,15 @@
     if (!Number.isFinite(v) || v < PRESUMED_BEARING_RANGE.min || v > PRESUMED_BEARING_RANGE.max) { el.value = String(qadm); return; }
     if (profile && profile.bearing.kind === 'allowablePressure') modelStore.updateSoilProfile(profile.id, { bearing: { ...profile.bearing, allowableBearingKPa: v } });
     else patchDesignData({ presumedBearingKPa: v });
+  }
+  const pile = $derived.by(() => { void modelStore.designData; return presumedPileOf(designData().presumedPile); });
+  const strata = $derived(!!profile?.strata?.length);
+  function setPile(k: keyof PresumedPile, scale: number) {
+    return (e: Event) => {
+      const el = e.currentTarget as HTMLInputElement, v = Number(el.value) / scale, r = PRESUMED_PILE_RANGE[k];
+      if (!Number.isFinite(v) || v < r.min || v > r.max) { el.value = String(pile[k] * scale); return; }
+      patchDesignData({ presumedPile: { ...pile, [k]: v } });
+    };
   }
 </script>
 
@@ -42,6 +51,15 @@
     <span>kPa</span>
     <span class="hint">{profile ? `${t('rcSheets.foundation.qadmProfile')} «${profile.name}»` : t('rcSheets.foundation.qadmPresumed')}</span>
   </label>
+  {#if layouts.some((l) => l.system === 'piles')}
+    <label class="rfl-soil">
+      <span>{t('rcSheets.foundation.pile')}</span>
+      <span>{t('rcSheets.foundation.pileDiameter')}</span><input type="number" min={PRESUMED_PILE_RANGE.diameter.min * 100} max={PRESUMED_PILE_RANGE.diameter.max * 100} step="5" value={pile.diameter * 100} onchange={setPile('diameter', 100)} data-testid="rc-foundation-pile-diameter" /><span>cm</span>
+      <span>{t('rcSheets.foundation.pileLength')}</span><input type="number" min={PRESUMED_PILE_RANGE.length.min} max={PRESUMED_PILE_RANGE.length.max} step="0.5" value={pile.length} onchange={setPile('length', 1)} data-testid="rc-foundation-pile-length" /><span>m</span>
+      {#if !strata}<span>{t('rcSheets.foundation.pileCapacity')}</span><input type="number" min={PRESUMED_PILE_RANGE.capacity.min} max={PRESUMED_PILE_RANGE.capacity.max} step="50" value={pile.capacity} onchange={setPile('capacity', 1)} data-testid="rc-foundation-pile-capacity" /><span>kN</span>{/if}
+      <span class="hint">{strata ? t('rcSheets.foundation.pileStrata') : t('rcSheets.foundation.pilePresumed')}</span>
+    </label>
+  {/if}
   <table>
     <thead><tr><th></th><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
     <tbody>
@@ -52,7 +70,7 @@
           <td class="n">{pct(l.summary.share)}</td>
           <td class="n">{fmt(l.summary.concrete, 1)}</td>
           <td class="n">{fmt(l.summary.steel, 0)}</td>
-          <td>{l.summary.count.footing ? `${l.summary.count.footing} ${t('rcSheets.foundation.footingsShort')}` : ''}{l.summary.count.strip ? ` ${l.summary.count.strip} ${t('rcSheets.footKind.strip')}` : ''}{l.summary.count.mat ? ` ${l.summary.count.mat} ${t('rcSheets.footKind.mat')}` : ''}</td>
+          <td>{l.summary.count.footing ? `${l.summary.count.footing} ${t('rcSheets.foundation.footingsShort')}` : ''}{l.summary.count.strip ? ` ${l.summary.count.strip} ${t('rcSheets.footKind.strip')}` : ''}{l.summary.count.mat ? ` ${l.summary.count.mat} ${t('rcSheets.footKind.mat')}` : ''}{l.summary.count.cap ? ` ${l.summary.count.cap} ${t('rcSheets.footKind.pileCap')}` : ''}</td>
           <td class="n" class:bad={l.summary.failing > 0}>{l.summary.failing}{#if l.summary.needs !== null} <span class="needs" data-testid="rc-foundation-needs-{l.system}">{`qadm ≥ ${fmt(l.summary.needs, 0)} kPa`}</span>{/if}</td>
           <td>{#if adopted !== l.system}<button type="button" class="rcs-btn" onclick={() => setFoundationSystem(l.system)} data-testid="rc-foundation-adopt-{l.system}">{t('rcSheets.foundation.adopt')}</button>{/if}</td>
         </tr>

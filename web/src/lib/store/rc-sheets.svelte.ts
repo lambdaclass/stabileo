@@ -101,7 +101,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, lines: dd.propertyLines ?? null,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, ...(dd.presumedPile ? { pile: dd.presumedPile } : {}), lines: dd.propertyLines ?? null,
     ...((k) => (k ? { criteria: k } : {}))(criteriaKey(dd.designOptions?.criteria)),
   });
 }

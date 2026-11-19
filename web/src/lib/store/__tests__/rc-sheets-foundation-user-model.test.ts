@@ -61,7 +61,24 @@ describe.skipIf(!existsSync(FILE))('the engineer\'s seven-storey building, all f
       expect(r.group!.straps.length, r.name).toBe(r.group!.columns.length);
       expect(r.group!.ties, r.name).toEqual([]);
     }
+    const piles = of('piles');
+    expect(piles.rows.every((r) => r.cap)).toBe(true);
+    expect(piles.rows.some((r) => r.status === 'ok')).toBe(true);
+    for (const r of piles.rows) {
+      expect(Math.max(...r.cap!.piles.map((p) => p.service)), r.name).toBeLessThanOrEqual(r.cap!.capacity + 1e-6);
+      expect(failing(r).every((l) => l === 'rcSheets.v.footOverlap'), `${r.name}: ${failing(r).join(', ')}`).toBe(true);
+    }
     for (const r of strips.rows.filter((x) => x.status === 'fail')) expect(failing(r).every((l) => ['rcSheets.v.footOverlap', 'rcSheets.v.footBearing', 'rcSheets.v.footNeedsSoil'].includes(l)), `${r.name}: ${failing(r).join(', ')}`).toBe(true);
+  }, 900_000);
+
+  it('on a soil too weak for any shallow layout, the recommendation founds on piles', () => {
+    patchDesignData({ propertyLines: ALL, presumedBearingKPa: 60 });
+    setFoundationSystem('auto');
+    const rows = buildSheetRows().footing;
+    expect(rows.every((r) => r.cap)).toBe(true);
+    expect(rows.every((r) => r.verifications[0]!.label === 'rcSheets.foundation.pilesChosen')).toBe(true);
+    patchDesignData({ presumedBearingKPa: 150 });
+    setFoundationSystem(null);
   }, 900_000);
 
   it('on a soil too weak for the plan the lines allow, the mat is designed through and says the allowable pressure it verifies at', () => {

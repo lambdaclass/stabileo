@@ -99,7 +99,7 @@ function footingsInside(rows: SheetRows, bars: readonly Rebar3d[]): number {
         expect(Math.abs(p[0]), r.name).toBeLessThanOrEqual(a.B / 2 - c + TOL);
         expect(Math.abs(p[1]), r.name).toBeLessThanOrEqual(a.L / 2 - c + TOL);
         expect(p[2], r.name).toBeGreaterThanOrEqual(c - TOL);
-        expect(p[2], r.name).toBeLessThanOrEqual(a.h - c + TOL);
+        expect(p[2], r.name).toBeLessThanOrEqual(a.h - (r.cap?.topCover ?? c) + TOL);
         checked++;
       }
     }
@@ -257,6 +257,14 @@ describe('the sheets\' bars in 3D', () => {
     coherent(held, hbars);
     expect(footingsInside(held, hbars)).toBeGreaterThan(100);
     expect(hbars.some((b) => b.kind === 'footingPunch')).toBe(true);
+    patchDesignData({ propertyLines: undefined });
+    setFoundationSystem('piles');
+    const piled = buildSheetRows(), pbars = sheetBars3d(piled);
+    expect(piled.footing.every((r) => r.cap)).toBe(true);
+    coherent(piled, pbars);
+    expect(footingsInside(piled, pbars)).toBeGreaterThan(10);
+    expect(pbars.some((b) => b.kind === 'pileBar') && pbars.some((b) => b.kind === 'pileHoop')).toBe(true);
+    patchDesignData({ propertyLines: { minX: true, maxX: true, minY: true, maxY: true } });
     setFoundationSystem('strips');
     const strapped = buildSheetRows(), sbars = sheetBars3d(strapped);
     expect(strapped.footing.some((r) => r.group?.straps.some((s) => s.line))).toBe(true);

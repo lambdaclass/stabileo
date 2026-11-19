@@ -12,7 +12,7 @@ export type V3 = [number, number, number];
 export interface Frame { o: V3; x: V3; y: V3; z: V3 }
 
 export type RebarTone = 'continuous' | 'support' | 'span' | 'bent' | 'stirrup' | 'column' | 'tie' | 'dowel'
-  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch'
+  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch' | 'pileBar' | 'pileHoop'
   | 'strapMain' | 'strapStirrup';
 
 /** A foundation member's bars (a strap beam, a beam at the footings' level) in the foundations' tones: its stirrups apart from its longitudinal bars. */

@@ -1,6 +1,7 @@
 import { barPositions } from './slab-corner-integrity';
 import { dowelGroupOf, dowelGroups, dowelPlaces, type ColumnAxes } from './footing-dowels';
 import { footingDetail } from './footing-detail';
+import { pileDetail } from './pile-cap-detail';
 import { wallDetail, wallInward } from './wall-detail';
 import { SLAB_FACES, type SlabFace } from './slab-row';
 import { lineBars3d } from './rebar-3d-lines';
@@ -111,6 +112,11 @@ export function footingBars3d(r: FootingRow, all: readonly FootingRow[], columns
         const place = (u: number, v: number): [number, number, number] => (l.dir === 'x' ? [l.from + u, p, l.z + v] : [p, l.from + u, l.z + v]);
         out.push(barOf(l.shape, laid(l.shape, f, place), { ...base, kind, tone: kind, set: `${r.key}:${kind}` }));
       }
+    }
+    const piles = pileDetail(r, R);
+    if (piles) for (const p of piles.piles) {
+      for (const [bx, by] of piles.bar.ring) out.push(barOf(piles.bar.shape, laid(piles.bar.shape, f, (u) => [p.x + bx, p.y + by, piles.bar.z0 + u]), { ...base, kind: 'pileBar', tone: 'pileBar', set: `${r.key}:pileBar` }));
+      for (const z of piles.hoop.zs) out.push(barOf(piles.hoop.shape, laid(piles.hoop.shape, f, (u, v) => [p.x + u, p.y + v, z]), { ...base, kind: 'pileHoop', tone: 'pileHoop', set: `${r.key}:pileHoop` }));
     }
     const rowOf = (key: string | undefined) => columns.find((c) => c.key === key);
     const axesOf = (row: ColumnRow): ColumnAxes | undefined => { const cf = frames.column(row); return cf ? { x: [cf.x[0], cf.x[1]], y: [cf.y[0], cf.y[1]] } : undefined; };

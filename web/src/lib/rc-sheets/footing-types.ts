@@ -75,7 +75,7 @@ export const FOOTING_BALANCES: readonly FootingBalance[] = ['strap', 'eccentric'
  * column on its own footing where it fits, strips along the column lines, or one mat.
  */
 export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat' | 'piles';
-export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat'];
+export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat', 'piles'];
 
 /** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
 export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'presumed'; efficiency: number }
@@ -87,6 +87,8 @@ export interface CapPiles { diameter: number; length: number; at: Array<[number,
 export interface CapResult {
   piles: Array<{ x: number; y: number; service: number; factored: number }>;
   diameter: number; length: number; capacity: number; source: PileSpec['source']; efficiency: number; spacing: number;
+  /** The cap's top cover, m: the footings' own; its bottom bars sit over the pile heads instead (`FootingRow.cover`). */
+  topCover: number;
   group: { service: number; capacity: number };
   /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.3): read by struts and ties (ch. 23). */
   deep: boolean;

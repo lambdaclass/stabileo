@@ -68,6 +68,7 @@
         <text x={PX((st.rect.x0 + st.rect.x1) / 2)} y={PY(st.rect.y1) - 3} class="lbl small">{st.axis === 'x' ? `→ ${st.partner}` : ''}</text>
         {#if st.axis === 'y'}<text x={PX(st.rect.x1) + 3} y={PY((st.rect.y0 + st.rect.y1) / 2)} class="lbl small left">→ {st.partner}</text>{/if}
       {/each}
+      {#each row.adopted.piles?.at ?? [] as q, i (i)}<circle cx={PX(q[0])} cy={PY(q[1])} r={(row.adopted.piles!.diameter / 2) * k} class="pile" data-testid="rc-footing-pile" />{/each}
       {#if det.column}<rect x={PX(det.column.x0)} y={PY(det.column.y1)} width={(det.column.x1 - det.column.x0) * k} height={(det.column.y1 - det.column.y0) * k} class="col" data-testid="rc-footing-column" />{/if}
       {#if det.second}<rect x={PX(det.second.x0)} y={PY(det.second.y1)} width={(det.second.x1 - det.second.x0) * k} height={(det.second.y1 - det.second.y0) * k} class="col" data-testid="rc-footing-column" />{/if}
       {#each det.lines as ln, i (i)}
@@ -120,6 +121,7 @@
 </figure>
 
 <style>
+  .pile { fill: none; stroke: var(--st-text-2); stroke-width: 1; stroke-dasharray: 3 2; }
   .rft { margin: 0; display: inline-flex; flex-direction: column; gap: 4px; padding: 6px 8px; border: 1px solid var(--st-hair); border-radius: 6px; background: var(--st-surface-2); }
   figcaption { font-size: 0.7rem; font-weight: 600; color: var(--st-text-2); }
   .rft-views { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }

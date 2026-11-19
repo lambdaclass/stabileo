@@ -14,7 +14,7 @@ const FIXED = REBAR_FIXED;
 const TOKENS: Partial<Record<RebarTone, [string, string]>> = {
   support: ['--st-danger', '#e0604a'], span: ['--st-ok', '#4fb37a'],
   stirrup: ['--st-text-2', '#9a968e'], tie: ['--st-text-2', '#9a968e'], dowel: ['--st-danger', '#e0604a'],
-  footingX: ['--st-accent', '#e8553a'], footingY: ['--st-warn', '#d9a03c'], footingTop: ['--st-ok', '#4fb37a'], footingPunch: ['--st-danger', '#d6455d'],
+  footingX: ['--st-accent', '#e8553a'], footingY: ['--st-warn', '#d9a03c'], footingTop: ['--st-ok', '#4fb37a'], footingPunch: ['--st-danger', '#d6455d'], pileBar: ['--st-accent', '#c2703d'], pileHoop: ['--st-warn', '#b9893a'],
 };
 
 let probe: CanvasRenderingContext2D | null | undefined;

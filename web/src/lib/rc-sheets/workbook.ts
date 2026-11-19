@@ -74,16 +74,17 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   }
   const punch: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.s.punchPosition'), 'Vu (kN)', 'φVc (kN)', ratio, status]];
   for (const r of rows.punching ?? []) punch.push([safeText(r.name), safeText(r.level ?? ''), r.position === '—' ? '—' : tr(`rcSheets.punchPos.${r.position}`), r2(r.vu), r2(r.phiVc), r3(r.utilization), state(r.status)]);
-  const feet: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.foot.kind'), 'B (cm)', 'L (cm)', 'h (cm)', `${tr('rcSheets.foot.founding')} (m)`, 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.mesh.top'), tr('rcSheets.foot.dowels'), tr('rcSheets.foot.punching'), ratio, status]];
+  const feet: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.foot.kind'), 'B (cm)', 'L (cm)', 'h (cm)', `${tr('rcSheets.foot.founding')} (m)`, 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.mesh.top'), tr('rcSheets.foot.dowels'), tr('rcSheets.foot.punching'), tr('rcSheets.foot.piles'), ratio, status]];
   for (const r of rows.footing ?? []) {
-    const kind = r.group ? tr(`rcSheets.footKind.${r.group.kind}`) : r.combined ? tr('rcSheets.footKind.combined') : tr(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`);
+    const kind = r.cap ? tr('rcSheets.footKind.pileCap') : r.group ? tr(`rcSheets.footKind.${r.group.kind}`) : r.combined ? tr('rcSheets.footKind.combined') : tr(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`);
     const tops = r.adopted.tops ? [r.adopted.tops.x && `X ${meshText(r.adopted.tops.x)}`, r.adopted.tops.y && `Y ${meshText(r.adopted.tops.y)}`].filter(Boolean).join(' · ') : r.adopted.top ? meshText(r.adopted.top) : '—';
     const dowels = r.group
       ? groupDowelRows(r).map((m) => `${m.name} ${dowelsText(m.row)}${m.row.dowels ? ` · ${cm(m.row.dowels.lap)} cm` : ''}`).join(' / ') || '—'
       : r.adopted.dowels && !r.uncovered ? `${dowelsText(r)}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—';
+    const piles = r.adopted.piles ? `${r.adopted.piles.at.length} Ø${Math.round(r.adopted.piles.diameter * 100)} · L ${r2(r.adopted.piles.length)} m · ${r.adopted.piles.bars.count} Ø${r.adopted.piles.bars.dia}` : '—';
     const punch = (r.group?.columns ?? []).filter((k) => k.punching?.fix).map((k) => `${safeText(k.name)}: ${k.punching!.fix!.cage ? `${tr('rcSheets.footFig.cage')} ${cageText(k, fmtOf)}` : `${tr('rcSheets.footFig.drop')} ${dropText(k, fmtOf)}`}`).join(' / ') || '—';
     feet.push([safeText(r.name), safeText(r.level ?? ''), kind, cm(r.B), cm(r.L), cm(r.h), r2(r.founding), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
-      meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, punch, r3(r.utilization), state(r.status)]);
+      meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, punch, piles, r3(r.utilization), state(r.status)]);
   }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },

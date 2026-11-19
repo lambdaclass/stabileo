@@ -21,13 +21,14 @@ import type { WallRow } from '../wall-row';
 import type { FootingRow, StrapResult } from '../footing-types';
 import { footingDetail } from '../footing-detail';
 import { groupDetail, groupDowelRows } from '../footing-group-detail';
+import { pileDetail } from '../pile-cap-detail';
 import { dowelGroups, dowelPlaces } from '../footing-dowels';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch' | 'pileBar' | 'pileHoop';
 
 export interface Piece {
   kind: PieceKind;
@@ -264,12 +265,14 @@ export function ownStrapResults(r: FootingRow, all: readonly FootingRow[]): Stra
 
 const ownStraps = (r: FootingRow, all: readonly FootingRow[]): LineLayout[] => ownStrapResults(r, all).map((s) => s.line!);
 
-/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels by shape (`footing-dowels.ts`), and the strap beams it holds. */
+/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, a pile cap's piles' bars and hoops, its dowels by shape (`footing-dowels.ts`), and the strap beams it holds. */
 function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, columns: readonly ColumnRow[]): ScheduleElement {
   if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: [...(r.uncovered ? [] : groupPieces(r, R, columns)), ...ownStraps(r, all).flatMap((l) => linePieces(l, R).pieces)] };
   const det = footingDetail(r, R);
   const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
   if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
+  const piles = r.uncovered ? null : pileDetail(r, R);
+  if (piles) pieces.push({ kind: 'pileBar', count: piles.piles.length * piles.bar.ring.length, shape: piles.bar.shape }, { kind: 'pileHoop', count: piles.piles.length * piles.hoop.zs.length, shape: piles.hoop.shape });
   if (!r.uncovered) {
     const rowOf = (key: string | undefined) => (key ? columns.find((c) => c.key === key) : undefined);
     const places = dowelPlaces(r, R, { first: rowOf(r.demand.column?.rowKey), second: rowOf(r.demand.carried?.column?.rowKey) });

@@ -55,7 +55,7 @@ describe('the seven-storey foundation', () => {
     expect(rows.foundation).toBeNull();
     expect(rows.footing).toEqual([]);
     expect(rows.column.length).toBeGreaterThan(0);
-    expect(rows.footingLayouts!.map((l) => l.system)).toEqual(['auto', 'footings', 'strips', 'mat']);
+    expect(rows.footingLayouts!.map((l) => l.system)).toEqual(['auto', 'footings', 'strips', 'mat', 'piles']);
     for (const l of rows.footingLayouts!) {
       expect(footingOverlaps(l.rows).pairs, l.system).toEqual([]);
       expect(l.summary.concrete, l.system).toBeGreaterThan(0);

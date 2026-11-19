@@ -47,6 +47,7 @@ export function ghost3d(rows: Rebar3dRows, frames: Rebar3dFrames): Ghost3d[] {
     if (!(r.B > 0)) continue;
     const base: Base = { element: r.key, rows: [r.key], family: 'footing', ...levelOf(r.level) }, a = r.adopted, f = frames.footing(r);
     if (f) push(out, base, f, [-a.B / 2, -a.L / 2, 0], [a.B / 2, a.L / 2, a.h]);
+    if (f && a.piles) for (const [x, y] of a.piles.at) push(out, base, f, [x - a.piles.diameter / 2, y - a.piles.diameter / 2, -a.piles.length], [x + a.piles.diameter / 2, y + a.piles.diameter / 2, 0]);
     if (f) for (const k of r.group?.columns ?? []) {
       const dr = a.punching?.[k.key]?.drop;
       if (!dr) continue;

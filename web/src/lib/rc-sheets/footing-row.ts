@@ -10,6 +10,7 @@ import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, 
 import { tieBars, TIE, tieLimits } from './footing-tie-bars';
 import { combinedRow } from './footing-combined-row';
 import { groupRow } from './footing-group-row';
+import { capRow } from './pile-cap-row';
 import { CRITERION, critOf, type Criteria } from './criteria';
 import { strapDefault } from './footing-strap';
 
@@ -152,6 +153,7 @@ const emptyRow = (d: FootingDemand, c: FootingContext, line: CheckLine, a?: Foot
 export function footingRowFor(code: FootingRowCode): FootingRowFn {
   return (d, c, adopted, fmt, cap) => {
     if (d.footing?.outOfScope) return emptyRow(d, c, check(`rcSheets.v.footOut.${d.footing.outOfScope}`, false));
+    if (d.piles && d.column) return capRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check('rcSheets.v.footNoService', false, { clause: '§13.4.1.1' }));
     if (d.group) return groupRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     if (!d.column) return emptyRow(d, c, check('rcSheets.v.footNoColumn', false));
     if (d.carried) return combinedRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));

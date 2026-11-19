@@ -293,7 +293,7 @@
                 <td class="n">{f1(r.phiVc)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'footing'}
-                <td data-testid="rc-footing-kind" data-kind={r.group ? r.group.kind : r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.group ? t(`rcSheets.footKind.${r.group.kind}`) : r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}{#if r.group}<span class="dim"> · {r.group.columns.length}</span>{/if}</td>
+                <td data-testid="rc-footing-kind" data-kind={r.cap ? 'pileCap' : r.group ? r.group.kind : r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.cap ? t('rcSheets.footKind.pileCap') : r.group ? t(`rcSheets.footKind.${r.group.kind}`) : r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.cap}<span class="dim"> · {r.cap.piles.length} Ø{Math.round(r.cap.diameter * 100)}</span>{/if}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}{#if r.group}<span class="dim"> · {r.group.columns.length}</span>{/if}</td>
                 <td>{r.B > 0 ? `${fmt(r.B * 100, 0)}×${fmt(r.L * 100, 0)}×${fmt(r.h * 100, 0)}` : '—'}</td>
                 <td class="n">{r.demand.service ? f1(r.demand.service.N + (r.demand.carried?.service?.N ?? 0)) : '—'}</td>
                 <td class="n">{r.bearing ? `${fmt(r.bearing.qMax, 0)} / ${r.bearing.allowable ? fmt(r.bearing.allowable, 0) : '—'}` : '—'}</td>

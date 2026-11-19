@@ -91,7 +91,7 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
   }
   if (o.system === 'strips') out = alongLines(out, fixed, pinned, groupRow);
   const merges = o.system === 'auto' || o.system === 'mat';
-  out = layFootings(out, h);
+  if (o.system !== 'piles') out = layFootings(out, h);
   const near = (r: FootingRow) => out.filter((x) => x !== r && !fixed(x) && !pinned(x))
     .map((x) => ({ x, d: Math.hypot(x.demand.at.x - r.demand.at.x, x.demand.at.y - r.demand.at.y) }))
     .sort((p, q) => p.d - q.d)[0]?.x;

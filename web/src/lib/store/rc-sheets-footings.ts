@@ -3,7 +3,8 @@ import { criteriaOf } from '../rc-sheets/criteria';
 import { resultsStore } from './results.svelte';
 import { physicalGroups } from './physical';
 import { designData } from './design-data';
-import { concreteFc } from '../model/design-data';
+import { concreteFc, presumedPileOf } from '../model/design-data';
+import { pileCapacity } from '../model/foundation/piles';
 import { findProfile } from '../model/geotechnical';
 import { columnOn } from '../model/foundation/generate';
 import { planHalf } from '../model/building/build-on-grid';
@@ -21,8 +22,9 @@ import type { DemandSet } from '../rc-sheets/demands';
 import type { Fmt } from '../rc-sheets/format';
 import { FOOTING_BAR_RANGE, listIn, type Adopted } from '../rc-sheets/types';
 import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
-import type { FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingRow, FootingSetup, FootingSizing, FootingSolution, FootingSoil, FoundationSystem, StrapResult } from '../rc-sheets/footing-types';
+import type { FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingRow, FootingSetup, FootingSizing, FootingSolution, FootingSoil, FoundationSystem, PileSpec, StrapResult } from '../rc-sheets/footing-types';
 import { chooseFoundations, groupDemand, lineOf } from '../rc-sheets/footing-choice';
+import { check } from '../rc-sheets/types';
 
 const DEFAULT_FC = 25;
 export const FOOTING_DIAMETERS: readonly number[] = [10, 12, 16, 20, 25];
@@ -44,6 +46,15 @@ export function soilOf(profileId: number | null): FootingSoil {
     ...(p.unitWeightKNm3 ? { unitWeight: p.unitWeightKNm3 } : {}),
     ...(p.subgradeModulusKNm3 && p.subgradeModulusKNm3 > 0 ? { subgrade: p.subgradeModulusKNm3 } : {}),
   };
+}
+
+/** The piles a pile foundation is designed with: the presumed pile's diameter and length, and the allowable load the soil profile's strata give it, else the presumed one; the group's efficiency is the criterion's. */
+export function pileSpec(): PileSpec {
+  const dd = designData(), p = presumedPileOf(dd.presumedPile), geo = modelStore.model.geotechnical;
+  const prof = findProfile(geo, geo?.defaultProfileId ?? null);
+  const cap = prof?.strata?.length ? pileCapacity(prof.strata, p.diameter, p.length) : null;
+  const efficiency = criteriaOf(dd.designOptions?.criteria).footingPileEfficiency;
+  return cap && cap.total > 0 && !cap.beyondStrata ? { diameter: p.diameter, length: p.length, capacity: cap.total, source: 'strata', efficiency } : { diameter: p.diameter, length: p.length, capacity: p.capacity, source: 'presumed', efficiency };
 }
 
 /** Up the column from its foot to the first node a beam or a slab frames into, m. */
@@ -222,12 +233,24 @@ export function foundationRows(feet: readonly FootingDemand[], o: FoundationInpu
   for (;;) { const r = it.next(); if (r.done) return r.value; }
 }
 
-/** `foundationRows` in steps: it yields after every footing it designs and every layout it chooses, so a page can draw between them. */
+/**
+ * `foundationRows` in steps: it yields after every footing it designs and every layout it chooses,
+ * so a page can draw between them. The recommendation founds on piles where some shallow
+ * foundation it came to needs a stronger soil than the one given (GA §8.1, §15.1).
+ */
 export function* foundationRowsSteps(feet: readonly FootingDemand[], o: FoundationInput): Generator<void, FootingRow[]> {
+  const rows = yield* layoutSteps(feet, o);
+  if (o.system !== 'auto' || !rows.some((r) => r.sizing.needs !== undefined)) return rows;
+  const piled = yield* layoutSteps(feet, { ...o, system: 'piles' });
+  return piled.map((r) => ({ ...r, verifications: [check('rcSheets.foundation.pilesChosen', true), ...r.verifications] }));
+}
+
+function* layoutSteps(feet: readonly FootingDemand[], o: FoundationInput): Generator<void, FootingRow[]> {
   const ctx = (d: FootingDemand) => footingContext(d, o.sizing, o.columns);
   const design = (d: FootingDemand, adopted?: FootingAdopted) => o.rules.footingRow(d, ctx(d), adopted, o.fmt);
+  const piles = o.system === 'piles' ? pileSpec() : null;
   const pass = function* (at: (d: FootingDemand) => number | undefined): Generator<void, FootingRow[]> {
-    const ds = withModelGroups(feet).map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; });
+    const ds = withModelGroups(feet).map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; }).map((d) => (piles && !d.footing && !d.group && d.column ? { ...d, piles } : d));
     const rows: FootingRow[] = [];
     for (const d of ds) { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); rows.push(f.row); yield; }
     const chosen = chooseFoundations(rows, {
@@ -309,7 +332,8 @@ export function writeFootingToModel(row: FootingRow): number {
     if (o) for (const f of [...modelStore.model.footings.values()]) if (f.id !== id && (f.nodeId === o.nodeId || f.supportedNodeIds?.includes(o.nodeId))) modelStore.removeFooting(f.id);
     if (id === undefined) id = modelStore.addFooting(d.nodeId, d.name);
     const col = columnOn(d.nodeId);
-    modelStore.updateFooting(id, { ...data, ...(o ? { kind: 'combined' as const, supportedNodeIds: [o.nodeId] } : {}), ...(col !== undefined ? { columnElementId: col } : {}) });
+    const p = a.piles, cap = p ? { kind: 'pileCap' as const, piles: { count: p.at.length, diameter: p.diameter, length: p.length, spacing: row.cap?.spacing ?? 3 * p.diameter } } : {};
+    modelStore.updateFooting(id, { ...data, ...(o ? { kind: 'combined' as const, supportedNodeIds: [o.nodeId] } : {}), ...cap, ...(o && p ? { supportedNodeIds: [o.nodeId] } : {}), ...(col !== undefined ? { columnElementId: col } : {}) });
   });
   return id!;
 }

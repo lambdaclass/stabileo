@@ -19,6 +19,8 @@ import type { SheetCode } from '../types';
 import { HORM, arm, cm, dim, framed, label, pt, rect, seg, type ArmLayer, type PlanCtx } from './draw';
 import { scheduleTables } from './schedule-table';
 import { groupPlans } from './footing-group-plans';
+import { pileDetail } from '../pile-cap-detail';
+import { PILE_COVER, PILE_EMBED } from '../pile-cap';
 
 const K = 1000;
 
@@ -92,15 +94,32 @@ export function footingScheduleRows(row: FootingRow, code: SheetCode): ScheduleR
   return scheduleOf(el, { code, scope: 'element' }).rows;
 }
 
-const scheduleLayer = (r: ScheduleRow): ArmLayer => (r.kind === 'footingX' ? 'INFX' : r.kind === 'footingY' ? 'INFY' : r.kind === 'footingTop' ? 'SUPX' : 'LONG');
+const scheduleLayer = (r: ScheduleRow): ArmLayer => (r.kind === 'footingX' ? 'INFX' : r.kind === 'footingY' ? 'INFY' : r.kind === 'footingTop' ? 'SUPX' : r.kind === 'pileHoop' ? 'EST' : 'LONG');
+
+/** A pile cap's piles: each a circle in plan, named with their bars, and in the section a stretch of each below the cap with its bars and hoops. */
+function pilePrimitives(row: FootingRow, o: FootingPlanOptions): { plan: Primitive[]; section: Primitive[] } {
+  const p = pileDetail(row, rulesFor(o.code).bends);
+  if (!p) return { plan: [], section: [] };
+  const D = p.diameter * K, show = Math.min(p.length, 1.5) * K, a = row.adopted.piles!;
+  const text = `${o.tr('rcSheets.footFig.piles')}: ${p.piles.length} Ø${o.fmt(p.diameter * 100, 0)} · L = ${o.fmt(p.length, 1)} m · ${a.bars.count} Ø${a.bars.dia} · eØ${a.hoop.dia} c/${o.fmt(a.hoop.spacing * 100, 0)}`;
+  const plan: Primitive[] = p.piles.map((q) => ({ kind: 'circle', layer: HORM, c: pt(q.x * K, q.y * K), r: D / 2 }));
+  plan.push(label(pt(-row.B * K / 2, (row.L / 2) * K + 200), text, 2));
+  const section: Primitive[] = [];
+  for (const x of [...new Set(p.piles.map((q) => Math.round(q.x * 1000)))]) {
+    section.push(rect(HORM, x - D / 2, -show, x + D / 2, PILE_EMBED * K));
+    for (const [bx] of p.bar.ring.filter(([, by]) => by >= -1e-9)) section.push(seg(arm('LONG', p.bar.dia), pt(x + bx * K, -show), pt(x + bx * K, (row.h - row.cover) * K), p.bar.dia));
+    for (const z of p.hoop.zs.filter((z) => z * K > -show)) section.push(seg(arm('EST', p.hoop.dia), pt(x - D / 2 + PILE_COVER * K, z * K), pt(x + D / 2 - PILE_COVER * K, z * K), p.hoop.dia));
+  }
+  return { plan, section };
+}
 
 export function footingPlans(row: FootingRow, o: FootingPlanOptions): DrawingInput[] {
   if (row.group) return groupPlans(row, o);
   if (!(row.B > 0) || (row.uncovered && !row.edge?.straps.length)) return [];
-  const det = footingDetail(row, rulesFor(o.code).bends);
+  const det = footingDetail(row, rulesFor(o.code).bends), piles = pilePrimitives(row, o);
   return [
-    framed(`${row.key}:plan`, `${o.tr('rcSheets.footFig.title', { name: row.name })} · ${o.tr('rcSheets.footFig.plan')}`, footingPlanPrimitives(det, o), o.scale, o.group),
-    framed(`${row.key}:sec`, `${row.name} · ${o.tr('rcSheets.footFig.section')}`, footingSectionPrimitives(det, row, o), o.scale, o.group),
+    framed(`${row.key}:plan`, `${o.tr('rcSheets.footFig.title', { name: row.name })} · ${o.tr('rcSheets.footFig.plan')}`, [...footingPlanPrimitives(det, o), ...piles.plan], o.scale, o.group),
+    framed(`${row.key}:sec`, `${row.name} · ${o.tr('rcSheets.footFig.section')}`, [...footingSectionPrimitives(det, row, o), ...piles.section], o.scale, o.group),
     ...scheduleTables(row.key, o.tr('rcSheets.plans.schedule', { name: row.name }), footingScheduleRows(row, o.code), scheduleLayer, o, o.group),
   ];
 }
