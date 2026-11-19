@@ -219,11 +219,12 @@ function createRegulationsStore() {
     requestStack(bindings: Partial<Record<RegulationRole, string | null>>): ChangeRequest {
       const archive = { ...(stored().settingsByCode ?? {}) };
       const next: ProjectRegulations = { ...currentRoles() };
+      const staged = { ...displaced };
       for (const [r, adapterId] of Object.entries(bindings) as Array<[RegulationRole, string | null]>) {
         const previous = currentRoles()[r];
         if (previous.adapterId === adapterId) continue;
         if (previous.adapterId && previous.settings && Object.keys(previous.settings).length) archive[previous.adapterId] = previous.settings;
-        if (displaced[r] === undefined) displaced = { ...displaced, [r]: previous };
+        if (staged[r] === undefined) staged[r] = previous;
         if (adapterId === null) { next[r] = { ...previous, state: 'pending', adapterId: null, nameKey: '', edition: '' }; continue; }
         const opt = findOption(adapterId);
         if (!opt || opt.role !== r) {
@@ -234,6 +235,7 @@ function createRegulationsStore() {
       const v = validateStack(next);
       const blocking = v.problems.filter((p) => p.severity === 'error');
       if (blocking.length > 0) return { kind: 'refused', problems: blocking };
+      displaced = staged;
       writeRoles(next, archive);
       reviewRequested = 'basis';
       return { kind: 'needsLoadReview', role: 'basis', navigateTo: 'loads' };

@@ -37,6 +37,15 @@ describe('choosing a family of load codes', () => {
     expect(sheetCode()).toBe('bs-en1992-1-1');
   });
 
+  it('a stack refused whole leaves nothing staged behind: a later cancel puts back the roles as they are then', () => {
+    expect(regulationsStore.requestStack({ ...FAMILY_STACKS.us, seismic: 'no-such-code' }).kind).toBe('refused');
+    regulationsStore.configureRole('wind', { basicSpeed: 50 }, true);
+    const configured = JSON.stringify(regulationsStore.roles);
+    regulationsStore.requestStack(FAMILY_STACKS.us);
+    regulationsStore.cancelPending();
+    expect(JSON.stringify(regulationsStore.roles)).toBe(configured);
+  });
+
   it('puts every role back when the staged family is cancelled', () => {
     const before = JSON.stringify(regulationsStore.roles);
     regulationsStore.requestStack(FAMILY_STACKS.us);
