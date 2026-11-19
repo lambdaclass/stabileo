@@ -529,3 +529,26 @@ it('#2277 a space transform carries physical Y settlement and rotation about Z',
   expect(turned).toMatchObject({ dx: -legacySettlement, dz: 0, drz: legacyRotation });
   expect(turned?.dy).toBeUndefined();
 });
+
+const issue2294 = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
+issue2294('known wrong result: #2294 copying a bearing alone preserves its restraint or reports a missing frame', () => {
+  const root = modelStore.addNode(0, 0);
+  const bearing = modelStore.addNode(0, 2);
+  modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+  modelStore.addElement(root, bearing);
+  modelStore.addSupportEntry({ nodeId: bearing, type: 'rollerZ', isGlobal: false });
+  const copied = copyTransformed({ nodes: [bearing], elements: [] }, [translation([4, -2, 0])], { withSupports: true });
+  const tip = copied.maps[0]!.nodes.get(bearing)!;
+  if (copied.warnings.supportDropped) {
+    expect(supportAt(tip)).toBeUndefined();
+    return;
+  }
+  modelStore.addElement(root, tip);
+  const force = 1;
+  modelStore.addNodalLoad(bearing, 0, -force);
+  modelStore.addNodalLoad(tip, 0, -force);
+  const result = validateAndSolve2D(modelStore.model);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  expect(result.reactions.find(r => r.nodeId === bearing)?.rz).toBeCloseTo(force, 12);
+  expect(result.reactions.find(r => r.nodeId === tip)?.rz).toBeCloseTo(force, 12);
+});

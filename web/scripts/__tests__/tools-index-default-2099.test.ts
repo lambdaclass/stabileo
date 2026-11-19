@@ -3,10 +3,10 @@ import { publicPaths, POST_LASTMOD } from '../public-paths';
 import reviews from '../../../research/tools/batches/VALIDATION.json';
 import { TOOLS, toolLastmod } from '../../src/components/tools/registry';
 
-afterEach(() => { vi.unstubAllEnvs(); });
+afterEach(() => { vi.unstubAllGlobals(); });
 
 it.each([undefined, '0', '1'])('known wrong result: #2099 — Tools index dates only the built offering with tools=%s', async tools => {
-  vi.stubEnv('VITE_TOOLS', tools);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: tools === '1' });
   await publicPaths();
   const expected = tools === '1'
     ? TOOLS.map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1)

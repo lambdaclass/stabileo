@@ -36,7 +36,7 @@ dependencies = [
 
 [[package]]
 name = "dedaliano-engine"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "num-bigint",
  "num-integer",

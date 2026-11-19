@@ -1,5 +1,4 @@
 <script lang="ts">
-  import '../../tools/register-i18n';
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import ExperimentShell from '../shell/ExperimentShell.svelte';

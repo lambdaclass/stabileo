@@ -131,3 +131,20 @@ describe('reverseElement', () => {
     expect(reactions(after)).toEqual(reactions(before));
   });
 });
+
+const issue2268 = process.env.RUN_KNOWN_WRONG === '2268' ? it : it.skip;
+for (const [qI, qJ] of [[2, 2], [2, 5]] as const) {
+  issue2268(`known wrong result: #2268 a reversed member preserves the physical axial load ${qI} to ${qJ}`, () => {
+    uiStore.analysisMode = '3d';
+    const length = 4;
+    const root = modelStore.addNode(0, 0, 0);
+    const tip = modelStore.addNode(length, 0, 0);
+    const member = modelStore.addElement(root, tip);
+    modelStore.addSupport(root, 'fixed3d');
+    modelStore.addDistributedLoad3D(member, 0, 0, 0, 0, undefined, undefined, undefined, { qXI: qI, qXJ: qJ });
+    const expectedReaction = -length * (qI + qJ) / 2;
+    expect(spaceResults().reactions.find(({ nodeId }) => nodeId === root)?.fx).toBeCloseTo(expectedReaction, 12);
+    modelStore.reverseElement(member);
+    expect(spaceResults().reactions.find(({ nodeId }) => nodeId === root)?.fx).toBeCloseTo(expectedReaction, 12);
+  });
+}

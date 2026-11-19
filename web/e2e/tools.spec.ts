@@ -1,9 +1,9 @@
 import { BUILD_FEATURES, TOOLS_SKIP_REASON } from './build-features';
-import { buildPublicLocales } from '../src/lib/i18n/offered-research';
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { BATCH_IDS } from '../src/components/tools/batch';
 import { TOOL_IDS, formula, format, workedExamples } from '../src/components/tools/calculators';
-import { PUBLIC_LOCALES, isComplete } from '../src/lib/i18n/offered';
+import { isComplete } from '../src/lib/i18n/offered';
 import { TOOLS, TOPICS } from '../src/components/tools/registry';
 
 test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON);
@@ -143,6 +143,26 @@ for (const { id } of TOOLS.filter(tool => tool.kind !== 'page')) test(`@smoke to
   }
 });
 
+for (const id of ['simply-supported-beam', 'cantilever-beam']) {
+  test(`@smoke tools ${id} keeps the SVG coordinate frame in sync with the diagram`, async ({ page }) => {
+    await page.goto(`/en/tools/${id}/?e2e=1`);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 720 });
+      for (const key of FIGURES[id]) {
+        const svg = page.getByTestId(`figure-${key}`).locator('svg');
+        await expect(svg).toBeVisible();
+        await expect.poll(() => svg.evaluate(el => {
+          const node = el as SVGSVGElement;
+          const { x, y, width, height } = node.viewBox.baseVal;
+          return x === 0 && y === 0 && width > 0 && height > 0
+            && width === node.width.baseVal.value && height === node.height.baseVal.value
+            && width === node.parentElement!.clientWidth;
+        }), { message: `${key} uses its rendered dimensions as the SVG coordinate frame` }).toBe(true);
+      }
+    }
+  });
+}
+
 test('@smoke tools a value typed past a slider\'s span stays, and the slider grows to hold it', async ({ page }) => {
   await page.goto('/en/tools/simply-supported-beam/?e2e=1');
   await expect(page.getByTestId('peak-moment')).toBeVisible();
@@ -211,7 +231,7 @@ test('@smoke tools a slider moves every diagram live, and the diagrams never bla
   await expect(page.getByTestId('load')).toHaveValue('30');
 });
 
-for (const locale of buildPublicLocales(BUILD_FEATURES.research)) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
+for (const locale of BUILD_PUBLIC_LOCALES) test(`@smoke tools localized index ${locale}`, async ({ page }) => {
   await page.goto(`/${locale}/tools/`);
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.locator('section.topic')).toHaveCount(TOPICS.length);
@@ -227,7 +247,7 @@ for (const locale of buildPublicLocales(BUILD_FEATURES.research)) test(`@smoke t
   await expect(page.locator('nav [data-nav="tools"]')).toBeVisible();
   await expect(page.locator('nav [data-nav="examples"]')).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `https://stabileo.com/${locale}/tools/`);
-  for (const lang of buildPublicLocales(BUILD_FEATURES.research)) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
+  for (const lang of BUILD_PUBLIC_LOCALES) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveAttribute('href', `https://stabileo.com/${lang}/tools/`);
   for (const lang of ['de', 'fr', 'tr'].filter((l) => !isComplete(l))) await expect(page.locator(`link[hreflang="${lang}"]`)).toHaveCount(0);
 });
 
@@ -252,6 +272,60 @@ for (const id of BATCH_IDS) test(`@smoke tools ${id} prerender and editor handof
   const materials = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'materials'));
   expect(materials[0][1].e).toBe(100000);
 });
+
+for (const toolsEnabled of [true, false]) {
+  for (const id of ['influence-line', 'simply-supported-beam']) {
+    test(`@smoke tools ${id} only offers an editor handoff for the current model (Tools ${toolsEnabled ? 'on' : 'off'})`, async ({ page }) => {
+      const encoderRequested = Promise.withResolvers<void>();
+      const releaseEncoder = Promise.withResolvers<void>();
+      await page.route('**/assets/share-*.js', async route => {
+        encoderRequested.resolve();
+        await releaseEncoder.promise;
+        await route.continue();
+      });
+      const wasmRequested = Promise.withResolvers<void>();
+      const releaseWasm = Promise.withResolvers<void>();
+      await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => {
+        wasmRequested.resolve();
+        await releaseWasm.promise;
+        await route.continue();
+      });
+      await page.addInitScript(enabled => {
+        localStorage.setItem('stabileo-feature-tools', enabled ? '1' : '0');
+      }, toolsEnabled);
+      const link = page.locator('#app').getByRole('link', { name: /^Open in Stabileo/ });
+      const editorUrl = /\/app\/basic\?e2e=1#data=2\./;
+      try {
+        await page.goto(`/en/tools/${id}/?e2e=1`, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#app').getByTestId('agreement')).toBeVisible();
+        await encoderRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseEncoder.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        const initialHref = await link.getAttribute('href');
+
+        const modulus = page.getByTestId('e');
+        await modulus.fill('100000');
+        await wasmRequested.promise;
+        await expect(link).toHaveCount(0);
+        releaseWasm.resolve();
+        await expect(link).toHaveAttribute('href', editorUrl);
+        await expect(link).not.toHaveAttribute('href', initialHref!);
+
+        await modulus.fill('0');
+        await expect(page.locator('#app').getByRole('alert')).toBeVisible();
+        await expect(link).toHaveCount(0);
+        await modulus.fill('100000');
+        await link.click();
+        await expect(page).toHaveURL(editorUrl);
+        await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.entityData('setting', 'materials')?.[0]?.[1]?.e)).toBe(100000);
+      } finally {
+        releaseEncoder.resolve();
+        releaseWasm.resolve();
+      }
+    });
+  }
+}
 
 // Exercise Root's in-place lazy mount separately from the ordinary full-document links.
 test('@smoke tools shared model survives a client-side editor transition', async ({ page }) => {
@@ -317,7 +391,7 @@ test('@smoke tools refuse a decimal comma in span lists', async ({ page }) => {
 for (const id of ['simply-supported-beam', 'beam-natural-frequency']) test(`@smoke tools ${id} localized at 390x844 and 844x390`, async ({ page }) => {
   for (const [width, height] of [[390, 844], [844, 390]]) {
     await page.setViewportSize({ width, height });
-    await page.goto(`/${PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
+    await page.goto(`/${BUILD_PUBLIC_LOCALES.find((l) => l !== 'en')}/tools/${id}/?e2e=1`);
     await expect(page.getByTestId('agreement')).toBeVisible();
     expect(await pageOverflow(page)).toEqual([]);
     if (height <= 400) expect((await page.getByTestId('figures').boundingBox())!.y).toBeLessThan(height - 120);

@@ -26,8 +26,6 @@ web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Bottom Start') || cat.startsWith('Bottom End')) want.add('span');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Support')) { want.add('span'); want.add('start'); want.add('end'); }
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Al Span')) want.add('span');
-web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Support')) want.add('stirSup');
-web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Torsion Span')) want.add('stirSpan');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Support')) want.add('stirSup');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Shear Span')) want.add('stirSpan');
 web/src/lib/engine/design/candidate-enumerate-beam.ts: else if (cat.startsWith('Fit: Bottom') || cat.startsWith('Max steel')) want.add('span');

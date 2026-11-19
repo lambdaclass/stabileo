@@ -92,11 +92,11 @@ describe('flagship 408-member RC frame designs completely', () => {
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
     // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
-    expect(s.verified).toBe(372);   // 383 until main's concrete in the engine, 379 until §9.6.3.1 (header)
+    expect(s.verified).toBe(368);
     // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
     // 22 until the ductility check (header).
     expect(s.sectionInadequate).toBe(0);
-    expect(s.searchExhausted).toBe(23);   // 12 until main's concrete in the engine, 16 until §9.6.3.1 (header)
+    expect(s.searchExhausted).toBe(27);
     expect(s.demandUnavailable).toBe(0);
     /**
      * The 13 biaxial beams: PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
@@ -119,7 +119,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     // 13 + 23 = 36 since main's concrete in the engine (rc-baseline-digest.test.ts); 13 + 12 = 25
     // since the minimum shear reinforcement of §9.6.3.1 (header); 13 + 16 = 29 since the
     // ductility check, 13 + 22 = 35 before.
-    expect(s.provisionalRetained).toBe(36);
+    expect(s.provisionalRetained).toBe(40);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
@@ -164,7 +164,7 @@ describe('flagship 408-member RC frame designs completely', () => {
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
     expect(refused).toBe(13);
-    expect(congested).toBe(23);
+    expect(congested).toBe(27);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

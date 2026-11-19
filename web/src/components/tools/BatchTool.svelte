@@ -1,6 +1,7 @@
 <script lang="ts">
  import { onDestroy, untrack } from 'svelte';
  import PublicLink from '../landing/PublicLink.svelte';
+ import ToolEditorLink from './ToolEditorLink.svelte';
  import ParamRow from '../research/shell/ParamRow.svelte';
  import Sci from '../research/shell/Sci.svelte';
  import FigureBoard from './figures/FigureBoard.svelte';
@@ -17,7 +18,8 @@
  type Field = keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>;
  let {id}:{id:BatchId}=$props();
  let p=$state<BatchParameters>({...DEFAULT_BATCH});
- let result=$state.raw<BatchResult|null>(null), error=$state(''), stale=$state(false), href=$state('');
+ let settled=$state.raw<{result:BatchResult;mass:number}|null>(null), error=$state(''), stale=$state(false);
+ const result=$derived(settled?.result??null);
  const warmSolver=()=>{void import('../../lib/engine/wasm-solver').then(m=>m.initSolver()).catch(()=>{});};
  const number=(n:number,digits=6)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:digits}).format(n);
  const warning=(w:Warning)=>Object.entries(w.values??{}).reduce((text,[k,v])=>text.replace(`{${k}}`,typeof v==='number'?new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:3,notation:v>=1e5?'scientific':'standard'}).format(v):v),t(w.key));
@@ -38,17 +40,16 @@
   (outcome,input)=>{
    stale=false;
    if(!outcome.ok){const e=outcome.error;error=t(e instanceof BatchToolError?e.key:'tools.failed');stale=true;return;}
-   error='';result=outcome.value;recordPrerenderedResult(input.id,input.values,outcome.value);void link(outcome.value,input);
+   error='';settled={result:outcome.value,mass:input.values.mass};recordPrerenderedResult(input.id,input.values,outcome.value);
   },
   {delay:()=>id==='influence-line'||id==='beam-natural-frequency'?SOLVE_DELAY:0});
  onDestroy(()=>solver.stop());
- async function link(answer:BatchResult,input:Input){const {id,values}=input;const {editorUrl}=await import('./share');if(solver.isCurrent(input)&&result===answer)href=editorUrl(answer.model,t(`tools.${id}`),id==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
  $effect(()=>{
   const input={id,values:{...p}};
   const {values}=input;
   untrack(()=>{
    sliders=Object.fromEntries(Object.entries(sliders).map(([key,span])=>[key,widen(span,values[key as Field])]));
-   stale=true;href='';solver.request(input,prerenderedResult<BatchResult>(input.id,values));
+   stale=true;solver.request(input,prerenderedResult<BatchResult>(input.id,values));
   });
  });
  const figures=$derived(result?batchFigures(id,result,t,result.comparisons[0]?.unit==='kN·m'?'m':'1'):[]);
@@ -94,7 +95,7 @@
    {#if id==='truss-2d'}<h2>{t('tools.batch.axial')}</h2><p><span class="tension">{t('tools.batch.tension')}</span> · <span class="compression">{t('tools.batch.compression')}</span></p><div class="force-grid">{#each result.linear.elementForces as ef}<span data-testid="axial-force" class:tension={ef.nStart>=0} class:compression={ef.nStart<0}>N{ef.elementId}: {number(ef.nStart)} kN</span>{/each}</div>{/if}
    <p class="verification" data-testid="agreement" data-difference={result.difference??undefined} data-absolute={result.difference===null&&result.comparisons.length?largest(result):undefined}>{t('tools.comparison')}: {#if result.difference!==null}{t('tools.difference')} <Sci value={result.difference*100} unit="%"/>{:else if result.comparisons.length}{t('tools.batch.zeroReference')} <Sci value={largest(result)} unit={result.comparisons[0].unit}/>{:else}{t('tools.batch.noReference')}{/if}</p>
    {#each result.comparisons as c}<p class="verification">{t(c.label)}: {t('tools.engine')} {number(c.engine)} / {t('tools.batch.method')} {number(c.reference)} {c.unit} · {#if c.absolute}{t('tools.absoluteDifference')} <Sci value={Math.abs(c.engine-c.reference)} unit={c.unit}/>{:else}<Sci value={(c.difference??0)*100} unit="%"/>{/if}</p>{/each}
-   <a class="btn btn-primary open-editor" href={href}>{t('tools.open')} ↗</a>
+   <ToolEditorLink model={stale?null:result.model} name={t(`tools.${id}`)} massPerLength={id==='beam-natural-frequency'?settled?.mass:undefined} />
    {#each solverMessages(result.linear.structuredDiagnostics??[],t) as message}<p class="warning" role="alert">{message}</p>{/each}
   {/if}
   </div>

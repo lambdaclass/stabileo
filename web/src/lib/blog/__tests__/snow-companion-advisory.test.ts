@@ -8,9 +8,9 @@ import type { PublicLocale } from '../../i18n/store.svelte';
 const name = 'SA-2026-082-snow-companion-basis.md';
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 
-it.each<[PublicLocale, string]>([
-  ['en', 'High'], ['es', 'Alta'], ['pt', 'Alta'], ['de', 'Hoch'], ['fr', 'Élevée'], ['tr', 'Yüksek'], ['hu', 'Magas'],
-])('#2211 %s catalogs SA-2026-082 with its localized action and draft status', (locale, severity) => {
+it.each<[PublicLocale, string, string]>([
+  ['en', 'High', 'Fixed in 0.6.2'], ['es', 'Alta', 'Corregido en 0.6.2'], ['pt', 'Alta', 'Corrigido em 0.6.2'], ['de', 'Hoch', 'Behoben in 0.6.2'], ['fr', 'Élevée', 'Corrigé dans 0.6.2'], ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'], ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+])('#2211 %s catalogs SA-2026-082 with its localized action and fixed release', (locale, severity, status) => {
   const blocks = (locale === 'hu' ? hu : findPost('safety-advisories')!.i18n[locale]!).blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
@@ -18,7 +18,7 @@ it.each<[PublicLocale, string]>([
   expect(rows).toHaveLength(1);
   expect(rows[0]![1]).toContain('#2211');
   expect(rows[0]![2]).toBe(severity);
-  expect(rows[0]![3]).toContain('2026-11-16');
+  expect(rows[0]![3]).toBe(status);
   expect(blocks.filter(b => b.k === 'note' && b.t === `SA-2026-082 — ${rows[0]![3]}.`)).toHaveLength(1);
   expect(blocks.filter(b => b.k === 'ext' && b.label === 'SA-2026-082' && b.href.endsWith(`/docs/advisories/${name}`))).toHaveLength(1);
   expect(notice.explanation[locale]).toContain(rows[0]![1]);

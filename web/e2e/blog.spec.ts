@@ -1,8 +1,8 @@
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import { pickLanguage } from './fixtures';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 import { CHANGELOG } from '../src/lib/changelog';
 
 /**
@@ -28,7 +28,7 @@ import { CHANGELOG } from '../src/lib/changelog';
 
 const SLUG = 'the-determinism-boundary';
 
-async function expectChangelogMonths(page: Page, locale: (typeof PUBLIC_LOCALES)[number]) {
+async function expectChangelogMonths(page: Page, locale: (typeof BUILD_PUBLIC_LOCALES)[number]) {
   const months = [...new Set(CHANGELOG.map((entry) => entry.date.slice(0, 7)))];
   const sections = page.locator('.cl-timeline > .cl-month');
   await expect(sections).toHaveCount(months.length);
@@ -69,7 +69,7 @@ async function boot(page: Page, path: string, locale = 'en') {
 }
 
 test.describe('blog', () => {
-  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'es')) {
+  for (const locale of BUILD_PUBLIC_LOCALES.filter((l) => l !== 'es')) {
     test(`@smoke the changelog page in ${locale}: every entry in its language, no raw key, and an alternate per published language`, async ({ page }) => {
       await boot(page, `/${locale}/changelog/`, locale);
       const weeks = page.getByTestId('changelog-entry');
@@ -79,7 +79,7 @@ test.describe('blog', () => {
       await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
       expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
       const alts = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((els) => els.map((e) => e.getAttribute('hreflang')).sort());
-      expect(alts).toEqual([...PUBLIC_LOCALES, 'x-default'].sort());
+      expect(alts).toEqual([...BUILD_PUBLIC_LOCALES, 'x-default'].sort());
     });
   }
 
@@ -584,7 +584,7 @@ test.describe('blog', () => {
     const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu'].filter((l) =>
       existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${SLUG}.ts`, import.meta.url))))];
     expect(alts).toEqual([
-      ...[...PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
+      ...[...BUILD_PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
       // x-default names the English version of THIS POST. English because the
       // root declares /en as its canonical, so pointing the default at the
       // root would name a URL that is not canonical for itself — and this

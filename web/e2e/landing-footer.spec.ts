@@ -1,9 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
+import { BUILD_FEATURES } from './build-features';
+
+const EXAMPLES_LINK = ['Examples', '/en/examples/'] as const;
+const TOOLS_LINK = ['Tools', '/en/tools/'] as const;
+const PRO_CALC_LINK = BUILD_FEATURES.tools ? TOOLS_LINK : EXAMPLES_LINK;
 
 const GROUPS = [
-  { head: 'Product', links: [['Open the editor', null], ['Examples', '/en/examples/'], ['Tools', '/en/tools/'], ['Pricing', '/en/#pricing']] },
+  { head: 'Product', links: [['Open the editor', null], ...(BUILD_FEATURES.tools ? [] : [EXAMPLES_LINK]), TOOLS_LINK, ['Pricing', '/en/#pricing']] },
   { head: 'Verification', links: [['Reliability', '/en/reliability/'], ['Research', '/en/research/'], ['Paper', '/en/paper/'], ['CIRSOC', '/en/cirsoc/'], ['SAP2000 alternative', '/en/sap2000-alternative/'], ['ETABS alternative', '/en/etabs-alternative/']] },
-  { head: 'Project', links: [['Blog', '/en/blog/'], ['Changelog', '/en/changelog/'], ['Documentation', /^https:\/\//], ['GitHub', 'https://github.com/lambdaclass/stabileo']] },
+  { head: 'Project', links: [['Blog', '/en/blog/'], ['Changelog', '/en/changelog/'], ...(BUILD_FEATURES.accounts ? [['Terms', '/en/terms/'], ['Privacy', '/en/privacy/']] as const : []), ['Documentation', /^https:\/\//], ['GitHub', 'https://github.com/lambdaclass/stabileo']] },
 ] as const;
 
 function footerGroups(page: Page) {
@@ -14,7 +19,7 @@ function footerGroups(page: Page) {
 }
 
 test.describe('@smoke landing footer sitemap', () => {
-  for (const path of ['/en/', '/en/tools/', '/en/blog/']) {
+  for (const path of ['/en/', '/en/tools/', '/en/blog/', '/en/research/']) {
     test(`${path} has the three-group footer`, async ({ page }) => {
       await page.goto(path);
       const groups = await footerGroups(page);
@@ -61,7 +66,8 @@ test.describe('@smoke landing footer sitemap', () => {
     await page.goto('/en/');
     const link = (section: string, href: string) => page.locator(`section[data-section="${section}"] a[href="${href}"]`);
     await expect(link('basic', '/en/tools/')).toHaveText('Tools');
-    await expect(link('pro-calc', '/en/examples/')).toHaveText('Examples');
+    await expect(link('pro-calc', PRO_CALC_LINK[1])).toHaveText(PRO_CALC_LINK[0]);
+    await expect(link('pro-calc', (BUILD_FEATURES.tools ? EXAMPLES_LINK : TOOLS_LINK)[1])).toHaveCount(0);
     await expect(link('verification', '/en/reliability/')).toHaveText('Reliability');
     await expect(link('verification', '/en/research/')).toHaveText('Research');
     await link('verification', '/en/research/').click();
@@ -77,7 +83,7 @@ test.describe('@smoke landing footer sitemap', () => {
         const box = el.getBoundingClientRect();
         return { text: el.textContent?.trim(), height: box.height, width: box.width, right: box.right, font: parseFloat(getComputedStyle(el).fontSize) };
       }));
-      expect(links.length).toBe(14 + 2 + 1 + 1 + 4);
+      expect(links.length).toBe(GROUPS.reduce((total, group) => total + group.links.length, 0) + 2 + 1 + 1 + 4);
       for (const l of links) {
         expect(l.height, `${l.text} height`).toBeGreaterThanOrEqual(44);
         expect(l.width, `${l.text} width`).toBeGreaterThanOrEqual(44);

@@ -8,11 +8,10 @@ import { routeKind } from '../../src/lib/public-route';
 import { TOOLS, toolLastmod } from '../../src/components/tools/registry';
 import reviews from '../../../research/tools/batches/VALIDATION.json';
 
-afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+afterEach(() => { setPublicLocale('en'); vi.unstubAllGlobals(); });
 
 it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links follow accounts with accounts=%s', async accounts => {
-  vi.stubEnv('VITE_ACCOUNTS', accounts);
-  vi.stubEnv('DEV', false);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, accounts: accounts === '1' });
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   setPublicLocale('en');
   const body = render(Footer).body;
@@ -31,7 +30,7 @@ it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links
 });
 
 it.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps the latest registry review with tools=%s', async tools => {
-  vi.stubEnv('VITE_TOOLS', tools);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: tools === '1' });
   await publicPaths();
   expect(POST_LASTMOD.get('/tools')).toBe(TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`)).map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1));
   for (const tool of TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`))) {
