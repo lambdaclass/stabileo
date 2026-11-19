@@ -8144,6 +8144,8 @@ const es: Record<string, string> = {
   'loadPlan.gravity.unsupportedStrips': "La cobertura parcial con placas requiere franjas que abarquen toda la luz entre apoyos opuestos de un paño rectangular de vigas.",
   'loadPlan.gravity.stripDirection': "La dirección unidireccional solicitada debe coincidir con la luz de las franjas descubiertas.",
   'loadPlan.gravity.nonplanarShell': "La placa cuadrilateral {id} no es plana. La cobertura gravitatoria con placas requiere placas planas.",
+  'loadPlan.gravity.overlappingShells': "Las placas {first} y {second} se superponen en el mismo plano. No se puede asignar la carga gravitatoria de la zona superpuesta a una sola placa.",
+  'loadPlan.gravity.offsetShellDeck': "La placa {id} está unida rígidamente a un paño de vigas superpuesto y desplazado. No se puede determinar qué superficie recibe la carga de área.",
   'loadPlan.gravity.unresolvedMember': "La barra {id} está cubierta solo en parte por una placa y no se pudo resolver la transferencia de carga del paño.",
   'loadPlan.gravity.differentDeck': "La placa que cubre el paño de vigas debe pertenecer al mismo tablero.",
   'loadPlan.gravity.differentSlopedDeck': "La placa inclinada que cubre el paño de vigas debe pertenecer al mismo tablero.",

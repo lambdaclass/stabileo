@@ -7430,6 +7430,8 @@ const hu: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Részleges héjfedés esetén a sávoknak a téglalap alakú gerendamező szemközti tartói közötti teljes fesztávot át kell hidalniuk.",
   'loadPlan.gravity.stripDirection': "A megadott egyirányú fesztávnak egybe kell esnie a fedetlen sávok fesztávjának irányával.",
   'loadPlan.gravity.nonplanarShell': "A(z) {id} azonosítójú négyszög nem síkbeli. A gravitációs lefedéshez síkbeli héjak szükségesek.",
+  'loadPlan.gravity.overlappingShells': "A(z) {first} és {second} héj ugyanabban a síkban átfedi egymást. Az átfedés gravitációs terhe nem rendelhető egyetlen héjhoz.",
+  'loadPlan.gravity.offsetShellDeck': "A(z) {id} héj mereven kapcsolódik egy eltolt gerendamezőhöz, amelyet a vetülete átfed. Nem határozható meg, melyik felület viseli a felületi terhet.",
   'loadPlan.gravity.unresolvedMember': "A(z) {id} rudat csak részben fedi héj, és a mező teherátadása nem határozható meg.",
   'loadPlan.gravity.differentDeck': "A fedő héjnak és a gerendamezőnek ugyanahhoz a födémhez kell tartoznia.",
   'loadPlan.gravity.differentSlopedDeck': "A ferde fedő héjnak és a gerendamezőnek ugyanahhoz a födémhez kell tartoznia.",

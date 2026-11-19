@@ -7693,6 +7693,8 @@ const fr: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Le recouvrement partiel par des coques exige des bandes couvrant toute la portée entre les appuis opposés d’un panneau rectangulaire de poutres.",
   'loadPlan.gravity.stripDirection': "La direction de portée unidirectionnelle demandée doit correspondre à celle des bandes libres.",
   'loadPlan.gravity.nonplanarShell': "Le quadrilatère {id} n’est pas plan. Le recouvrement par des coques sous gravité exige des coques planes.",
+  'loadPlan.gravity.overlappingShells': "Les coques {first} et {second} se chevauchent dans le même plan. La charge de gravité de la zone commune ne peut pas être attribuée à une seule coque.",
+  'loadPlan.gravity.offsetShellDeck': "La coque {id} est reliée rigidement à un panneau de poutres décalé dont la projection la recouvre. Il est impossible de déterminer quelle surface reçoit la charge surfacique.",
   'loadPlan.gravity.unresolvedMember': "La barre {id} n’est que partiellement recouverte par une coque et le transfert de charge du panneau n’a pas pu être déterminé.",
   'loadPlan.gravity.differentDeck': "La coque qui recouvre le panneau de poutres doit appartenir au même plancher.",
   'loadPlan.gravity.differentSlopedDeck': "La coque inclinée qui recouvre le panneau de poutres doit appartenir au même plancher.",

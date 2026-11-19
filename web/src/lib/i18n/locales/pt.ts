@@ -4398,6 +4398,8 @@ const pt: Translations = {
   'loadPlan.gravity.unsupportedStrips': "A cobertura parcial por cascas exige faixas que percorram todo o vão entre apoios opostos de um painel retangular de vigas.",
   'loadPlan.gravity.stripDirection': "A direção unidirecional solicitada deve coincidir com a direção do vão das faixas descobertas.",
   'loadPlan.gravity.nonplanarShell': "O quadrilátero {id} não é plano. A cobertura gravitacional por cascas exige cascas planas.",
+  'loadPlan.gravity.overlappingShells': "As cascas {first} e {second} se sobrepõem no mesmo plano. Não é possível atribuir a carga gravitacional da sobreposição a uma única casca.",
+  'loadPlan.gravity.offsetShellDeck': "A casca {id} está ligada rigidamente a um painel de vigas sobreposto e deslocado. Não é possível determinar qual superfície recebe a carga de área.",
   'loadPlan.gravity.unresolvedMember': "A barra {id} está coberta apenas parcialmente por uma casca e a transferência de carga do painel não pôde ser determinada.",
   'loadPlan.gravity.differentDeck': "A casca que cobre o painel de vigas deve pertencer ao mesmo tabuleiro.",
   'loadPlan.gravity.differentSlopedDeck': "A casca inclinada que cobre o painel de vigas deve pertencer ao mesmo tabuleiro.",

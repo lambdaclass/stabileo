@@ -7693,6 +7693,8 @@ const de: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Eine teilweise Schalenabdeckung erfordert Streifen über die gesamte Spannweite zwischen gegenüberliegenden Trägern eines rechteckigen Felds.",
   'loadPlan.gravity.stripDirection': "Die gewählte einachsige Spannrichtung muss der Spannrichtung der freien Streifen entsprechen.",
   'loadPlan.gravity.nonplanarShell': "Das Viereck {id} ist nicht eben. Für die Schalenabdeckung unter Schwerkraftlasten sind ebene Schalen erforderlich.",
+  'loadPlan.gravity.overlappingShells': "Die Schalen {first} und {second} überlappen sich in derselben Ebene. Die Schwerkraftlast im Überlappungsbereich lässt sich keiner einzelnen Schale zuordnen.",
+  'loadPlan.gravity.offsetShellDeck': "Schale {id} ist starr mit einem versetzten Trägerfeld verbunden, das sie überlappt. Die tragende Fläche für die Flächenlast ist nicht eindeutig.",
   'loadPlan.gravity.unresolvedMember': "Stab {id} ist nur teilweise von einer Schale bedeckt und die Lastübertragung aus dem Feld ist ungeklärt.",
   'loadPlan.gravity.differentDeck': "Die abdeckende Schale muss zur selben Decke wie das Trägerfeld gehören.",
   'loadPlan.gravity.differentSlopedDeck': "Die geneigte abdeckende Schale muss zur selben Decke wie das Trägerfeld gehören.",
