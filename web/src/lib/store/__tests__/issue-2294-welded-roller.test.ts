@@ -5,8 +5,9 @@ import {
 import { solvePDelta } from '../../engine/wasm-solver';
 import type { Reaction } from '../../engine/types';
 import { t } from '../../i18n';
-import { translation } from '../../model/edit/affine';
+import { compose, reflection, rotation, translation } from '../../model/edit/affine';
 import { detach, fragmentOf, fragmentFromMembers } from '../../model/edit/fragment';
+import { mirrorSelectionInPlace, rotateSelectionInPlace, transformInPlace } from '../../model/edit/transform-in-place';
 import { copyTransformed, insertFragment } from '../../model/edit/transformed-copy';
 import { historyStore } from '../history.svelte';
 import { copySelection, paste } from '../model-clipboard';
@@ -24,6 +25,7 @@ beforeEach(() => {
   uiStore.useNative3DPresentation();
   uiStore.includeSelfWeight = false;
   modelStore.clear();
+  for (const toast of uiStore.toasts) uiStore.dismissToast(toast.id);
 });
 
 afterEach(() => placementStore.cancel());
@@ -48,7 +50,7 @@ function destination(x: number, local = true, sourceRoot?: number) {
   return bearing;
 }
 
-async function expectVerticalReaction(bearing: number) {
+async function expectPlaneReaction(bearing: number, rx = 0, rz = force) {
   const input = buildSolverInput2D(modelStore.model);
   if (!input || typeof input === 'string') throw new Error(String(input));
   const secondOrder = solvePDelta(input);
@@ -66,8 +68,8 @@ async function expectVerticalReaction(bearing: number) {
   for (const result of results) {
     if (!result || typeof result === 'string') throw new Error(String(result));
     const reaction = result.reactions.find((r: Reaction) => r.nodeId === bearing);
-    expect.soft(reaction?.rx).toBeCloseTo(0, 12);
-    expect.soft(reaction?.rz).toBeCloseTo(force, 12);
+    expect.soft(reaction?.rx).toBeCloseTo(rx, 12);
+    expect.soft(reaction?.rz).toBeCloseTo(rz, 12);
   }
 }
 
@@ -82,7 +84,7 @@ for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'paste
     if (entry === 'paste in place') modelStore.clear();
     const inPlace = entry === 'paste in place';
     const bearing = inPlace ? destination(0) : destination(4, true, root);
-    await expectVerticalReaction(bearing);
+    await expectPlaneReaction(bearing);
     historyStore.clear();
     const before = modelStore.snapshot();
     const version = modelStore.modelVersion;
@@ -102,7 +104,7 @@ for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'paste
     expect.soft(modelStore.snapshot()).toEqual(before);
     expect.soft(modelStore.modelVersion).toBe(version);
     expect.soft(historyStore.undoCount).toBe(0);
-    await expectVerticalReaction(bearing);
+    await expectPlaneReaction(bearing);
   });
 }
 
@@ -171,7 +173,7 @@ it('#2294 permits duplicate and same-direction welds at a local roller', async (
   expect(sameDirection.welded).toBe(1);
   expect(sameDirection.elements).toHaveLength(1);
   expect(sameDirection.refused).toBeUndefined();
-  await expectVerticalReaction(bearing);
+  await expectPlaneReaction(bearing);
 });
 
 it('#2294 permits a weld onto a global roller with a unit vertical reaction', async () => {
@@ -181,7 +183,7 @@ it('#2294 permits a weld onto a global roller with a unit vertical reaction', as
   expect(report.welded).toBe(1);
   expect(report.elements).toHaveLength(1);
   expect(report.refused).toBeUndefined();
-  await expectVerticalReaction(bearing);
+  await expectPlaneReaction(bearing);
 });
 
 it('#2294 permits a spatial weld at a roller with explicit global restraints', () => {
@@ -223,3 +225,136 @@ it('plans spatial insertion in the displayed coordinates of an upright plane mod
   const inserted = report.maps[0]!.nodes.get(2)!;
   expect(modelStore.nodes.get(inserted)).toMatchObject({ x: 0, y: 2 });
 });
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
+
+function moveOntoBearing(entry: 'rotate' | 'mirror' | 'move' | 'placement', gap = 0) {
+  const mirror = entry === 'mirror';
+  const movingRoot = modelStore.addNode(mirror ? 5 : 3, mirror ? 1 : 2);
+  const tip = modelStore.addNode(mirror ? 3 : 5, mirror ? 3 : 2);
+  const member = modelStore.addElement(movingRoot, tip);
+  modelStore.addSupportEntry({ nodeId: movingRoot, type: 'fixed' });
+  const bearing = modelStore.addNode((mirror ? 5 : 4) + gap, 3);
+  const fixed = modelStore.addNode(6, 3);
+  modelStore.addElement(bearing, fixed);
+  modelStore.addElement(movingRoot, fixed);
+  modelStore.addSupportEntry({ nodeId: fixed, type: 'fixed' });
+  modelStore.addSupportEntry({ nodeId: bearing, type: 'rollerX', isGlobal: false });
+  modelStore.addNodalLoad(bearing, 0, -force, 0, caseId);
+  return { bearing, movingRoot, tip, set: { nodes: [], elements: [member] } };
+}
+
+for (const entry of ['move', 'rotate', 'mirror', 'placement'] as const) {
+  knownWrong(`known wrong result: #2294 refuses a member moved onto a stationary local roller (${entry})`, async () => {
+    const { bearing, movingRoot, tip, set } = moveOntoBearing(entry);
+    await expectPlaneReaction(bearing);
+    historyStore.clear();
+    const before = modelStore.snapshot();
+    const version = modelStore.modelVersion;
+    if (entry === 'placement') {
+      placementStore.start({ fragment: fragmentOf(set), label: 'Move', mode: 'move', moveSet: set, anchors: [[4, 2, 0]], rotation: 90 });
+      placementStore.commit();
+      expect.soft(placementStore.active).toBe(true);
+    } else {
+      const report = entry === 'rotate' ? rotateSelectionInPlace([movingRoot, tip], 90)
+        : entry === 'mirror' ? mirrorSelectionInPlace([movingRoot, tip], 'x')
+        : transformInPlace(set, rotation([4, 2, 0], [0, 0, 1], 90));
+      expect.soft(report?.refused).toBe('changedSupportFrame');
+      expect.soft(report?.movedNodes).toBe(0);
+      expect.soft(report?.welded).toBe(0);
+    }
+    expect.soft(uiStore.toasts.at(-1)).toMatchObject({ type: 'error', message: t('edit.refused.changedSupportFrame') });
+    expect.soft(modelStore.snapshot()).toEqual(before);
+    expect.soft(modelStore.modelVersion).toBe(version);
+    expect.soft(historyStore.undoCount).toBe(0);
+    await expectPlaneReaction(bearing);
+  });
+}
+
+it('#2294 moves the member when it lands outside the weld tolerance', async () => {
+  const weldTol = 0.01;
+  const { bearing, set } = moveOntoBearing('move', 2 * weldTol);
+  const report = transformInPlace(set, rotation([4, 2, 0], [0, 0, 1], 90), { weldTol });
+  expect(report).toMatchObject({ movedNodes: 2, welded: 0 });
+  expect(report.refused).toBeUndefined();
+  await expectPlaneReaction(bearing);
+});
+
+it('#2294 welds a moved member that points along the existing bearing member', async () => {
+  const { bearing, movingRoot, set } = moveOntoBearing('move');
+  modelStore.updateNode(movingRoot, 8, 2);
+  const report = transformInPlace(set, translation([-1, 1, 0]));
+  expect(report).toMatchObject({ movedNodes: 2, welded: 1 });
+  expect(report.refused).toBeUndefined();
+  await expectPlaneReaction(bearing);
+});
+
+function threeRays() {
+  const bearing = modelStore.addNode(0, 0);
+  const roots = [[2, 0], [2, 2], [-2, 2]].map(([x, y]) => {
+    const root = modelStore.addNode(x!, y!);
+    modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
+    return root;
+  });
+  const elements = roots.map(root => modelStore.addElement(bearing, root));
+  modelStore.addSupportEntry({ nodeId: bearing, type: 'rollerX', isGlobal: false });
+  return { bearing, root: roots[0]!, set: { nodes: [], elements } };
+}
+
+function loadAlongBearing(bearing: number, degrees: number) {
+  const angle = degrees * Math.PI / 180;
+  const rx = force * Math.sin(angle);
+  const rz = force * Math.cos(angle);
+  modelStore.addNodalLoad(bearing, -rx, -rz, 0, caseId);
+  return expectPlaneReaction(bearing, rx, rz);
+}
+
+for (const entry of ['copy', 'detached insertion', 'clipboard placement', 'in place'] as const) {
+  knownWrong(`known wrong result: #2294 refuses a rigid quarter-turn that redirects a local roller (${entry})`, async () => {
+    const { bearing, root, set } = threeRays();
+    const turn = compose(translation([8, 0, 0]), rotation([0, 0, 0], [0, 0, 1], 90));
+    historyStore.clear();
+    const before = modelStore.snapshot();
+    const version = modelStore.modelVersion;
+    let actualBearing: number | undefined;
+    let actualRoot: number | undefined;
+    if (entry === 'in place') {
+      const report = transformInPlace(set, turn);
+      expect.soft(report.refused).toBe('changedSupportFrame');
+      if (report.movedNodes > 0) actualBearing = bearing;
+    } else {
+      const frag = detach(fragmentOf(set, withSupports));
+      if (entry === 'clipboard placement') {
+        placementStore.start({ fragment: frag, label: 'Copy', anchors: [[0, 0, 0]], target: [8, 0, 0], rotation: 90 });
+      }
+      const report = entry === 'copy' ? copyTransformed(set, [turn], withSupports)
+        : entry === 'detached insertion' ? insertFragment(frag, [turn], withSupports) : placementStore.commit();
+      expect.soft(report?.refused).toBe('changedSupportFrame');
+      expect.soft(report?.welded).toBe(0);
+      actualBearing = report?.maps[0]?.nodes.get(bearing);
+      actualRoot = report?.maps[0]?.nodes.get(root);
+    }
+    expect.soft(uiStore.toasts.at(-1)).toMatchObject({ type: 'error', message: t('edit.refused.changedSupportFrame') });
+    expect.soft(modelStore.snapshot()).toEqual(before);
+    expect.soft(modelStore.modelVersion).toBe(version);
+    expect.soft(historyStore.undoCount).toBe(0);
+    if (actualRoot !== undefined) modelStore.addElement(root, actualRoot);
+    await loadAlongBearing(actualBearing ?? bearing, actualBearing === undefined ? 60 : 150);
+  });
+}
+
+for (const [label, makeTransform, degrees] of [
+  ['opposite quarter-turn', () => rotation([0, 0, 0], [0, 0, 1], -90), -30],
+  ['reflection across the X axis', () => reflection([0, 0, 0], [0, 1, 0]), -60],
+] as const) {
+  it(`#2294 preserves a copied local roller’s restraint under the ${label}`, async () => {
+    const { bearing, root, set } = threeRays();
+    const turn = compose(translation([8, 0, 0]), makeTransform());
+    const report = copyTransformed(set, [turn], withSupports);
+    expect(report.refused).toBeUndefined();
+    expect(report.welded).toBe(0);
+    const nodes = report.maps[0]!.nodes;
+    modelStore.addElement(root, nodes.get(root)!);
+    await loadAlongBearing(nodes.get(bearing)!, degrees);
+  });
+}
