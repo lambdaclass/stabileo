@@ -139,7 +139,7 @@ async function runFloorDesign(page: Page) {
   await expect(page.getByTestId('floor-families')).toBeVisible({ timeout: 180_000 });
 }
 
-test('@slow the 3-D workspace opens without freezing the window', async ({ pro: page }) => {
+test('@timing the 3-D workspace opens without freezing the window', async ({ pro: page }) => {
   test.setTimeout(900_000);
   const rows: Array<[string, OpenTiming]> = [];
 

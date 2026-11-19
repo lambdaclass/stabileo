@@ -135,19 +135,20 @@ describe('policy regression cases', () => {
       f({ timeout: 60000, message: '// slow-ok: fake' });
     });`).smokeTimeouts).toHaveLength(3);
   });
-  it('checks shared helpers but leaves explicit slow and flaky scopes alone', () => {
+  it('checks shared helpers but allows overrides in explicit slow, flaky and timing scopes', () => {
     expect(inspectE2E(`
       function shared() { f({ timeout: 60000 }); }
       test('@smoke x', () => {});
       test('@slow y', () => { test.setTimeout(120000); });
+      test('@timing z', () => { test.setTimeout(120000); });
       test.describe('z', { tag: ['@smoke', '@flaky'] }, () => { f({ timeout: 60000 }); });
     `).smokeTimeouts).toHaveLength(1);
     expect(inspectE2E(`// @smoke\nf({ timeout: 60000 });`).smokeTimeouts).toEqual([]);
   });
-  it('routes smoke only once and preserves longer slow/flaky budgets', () => {
+  it('routes smoke only once and preserves longer budgets in other suites', () => {
     expect(SMOKE_TIMEOUT_MS).toBe(45_000);
     expect(SMOKE_PATTERN.test('chromium file @smoke example')).toBe(true);
-    for (const title of ['@slow example', '@smoke @flaky example', '@slow @smoke example', 'untagged']) expect(SMOKE_PATTERN.test(title)).toBe(false);
+    for (const title of ['@slow example', '@smoke @flaky example', '@slow @smoke example', '@smoke @timing example', 'untagged']) expect(SMOKE_PATTERN.test(title)).toBe(false);
     const config = readFileSync(join(web, 'playwright.config.ts'), 'utf8');
     expect(config).toContain("name: 'smoke', grep: SMOKE_PATTERN, timeout: SMOKE_TIMEOUT_MS");
     expect(config).toContain("name: 'chromium', grepInvert: SMOKE_PATTERN");
