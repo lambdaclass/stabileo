@@ -913,22 +913,23 @@ function datumCantilever() {
 }
 
 function expectDatumRefusal(model: LoadModelData, key: string) {
-  const options = request(model, {}, { generateCombinations: true });
-  const plan = buildLoadPlan(options);
-  expect(plan.outcome).toBe('BLOCKED');
-  expect(plan.blockedKeys).toContainEqual({ key });
-  expect(plan.factors.seismicWeight).toBeUndefined();
-  expect(plan.factors.baseShear).toBeUndefined();
-  expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
-  expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
-  expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
-  expect(plan.combinations).toEqual([]);
+  for (const data of [{ coefficient: 1 }, { code: round2Code }]) {
+    const options = request(model, data, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toContainEqual({ key });
+    expect(plan.factors.seismicWeight).toBeUndefined();
+    expect(plan.factors.baseShear).toBeUndefined();
+    expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    expect([...plan.nodal, ...plan.distributed, ...plan.surface].filter(d => d.caseType === 'E')).toEqual([]);
+    expect(plan.combinations).toEqual([]);
 
-  const sink = seismicSink();
-  const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
-  expect(sink).toMatchObject({ blockedKeys: [{ key }], cases: [], nodal: [], distributed: [], surface: [] });
-  expect(direct.seismicWeight).toBeUndefined();
-  expect(direct.baseShear).toBeUndefined();
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect(sink).toMatchObject({ blockedKeys: [{ key }], cases: [], nodal: [], distributed: [], surface: [] });
+    expect(direct.seismicWeight).toBeUndefined();
+    expect(direct.baseShear).toBeUndefined();
+  }
 }
 
 for (const [label, elevation, detachedMember] of [
@@ -1004,4 +1005,80 @@ it('#2316 a stepped frame base refuses static seismic generation', () => {
   model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 2, materialId: 2 });
   model.supports = new Map([[1, { nodeId: 1 }], [3, { nodeId: 3 }]]);
   expectDatumRefusal(model, 'loadPlan.blocked.seismicSteppedBase');
+});
+
+const connectivityRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+const disconnectedSeismic = 'loadPlan.blocked.seismicDisconnected';
+
+for (const surface of ['quads', 'plates'] as const) for (const alsoSupported of [false, true]) {
+  connectivityRegression(`known wrong result: #2316 refuses detached ${surface} mass (separate support: ${alsoSupported})`, () => {
+    const model = mixedSeismicModel(surface);
+    if (alsoSupported) {
+      const root = { ...model.nodes.get(3)!, id: 7, z: 0 };
+      model.nodes.set(root.id, root);
+      model.materials.set(2, { id: 2, rho: 0 });
+      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: root.id, nodeJ: 3, materialId: 2 });
+      model.supports = new Map([[1, { nodeId: 1 }], [root.id, { nodeId: root.id }]]);
+    }
+    expectDatumRefusal(model, disconnectedSeismic);
+  });
+}
+
+function diaphragmColumns() {
+  const model = datumCantilever();
+  model.nodes.set(3, { id: 3, x: 0, y: 2, z: 0 });
+  model.nodes.set(4, { id: 4, x: 0, y: 2, z: 4 });
+  model.nodes.set(5, { id: 5, x: 0, y: 9, z: 4 });
+  model.materials.set(2, { id: 2, rho: 0 });
+  model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4, materialId: 2 });
+  model.constraints = [{ type: 'diaphragm', masterNode: 5, slaveNodes: [2, 4], plane: 'XY' }];
+  return model;
+}
+
+connectivityRegression('known wrong result: #2316 accepts a datum reached only through the rigid floor and a massless column', () => {
+  const model = diaphragmColumns();
+  model.supports = new Map([[3, { nodeId: 3 }]]);
+  for (const data of [{ coefficient: 1 }, { code: round2Code }]) {
+    const options = request(model, data);
+    const plan = buildLoadPlan(options);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.blockedKeys).toEqual([]);
+    expect(plan.unsupportedKeys).toEqual([]);
+    expect(plan.factors.seismicWeight?.value).toBe(4);
+    const loads = plan.distributed.filter(d => d.caseType === 'E');
+    const coefficient = plan.seismic!.c;
+    expect(plan.factors.baseShear?.value).toBe(4 * coefficient);
+    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: 2 * coefficient, qXJ: 2 * coefficient }]);
+    expect(plan.seismicModel!.levels.at(-1)?.planWidth).toEqual({ x: 0, y: 2 });
+
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect(sink.blockedKeys).toEqual([]);
+    expect(direct.seismicWeight?.value).toBe(4);
+    expect(direct.baseShear?.value).toBe(4 * coefficient);
+    expect(sink.distributed).toEqual(loads.map(d => ({ ...d, caseIndex: 0 })));
+  }
+});
+
+connectivityRegression('known wrong result: #2316 includes a diaphragm-connected massless column when checking for a stepped datum', () => {
+  const model = diaphragmColumns();
+  model.nodes.get(3)!.z = 1;
+  model.supports = new Map([[1, { nodeId: 1 }], [3, { nodeId: 3 }]]);
+  expectDatumRefusal(model, 'loadPlan.blocked.seismicSteppedBase');
+});
+
+function seismicWidthWithDetachedBeam() {
+  const { model, byColumn } = round2Columns([0, height], false, false);
+  const [left, right] = byColumn.map(([column]) => column!.nodeJ);
+  const beamStart = { ...model.nodes.get(right!)!, id: 5 };
+  model.nodes.set(beamStart.id, beamStart);
+  model.nodes.set(6, { ...beamStart, id: 6, y: 6 });
+  model.elements.set(3, { ...model.elements.get(1)!, id: 3, nodeI: 5, nodeJ: 6, materialId: 2 });
+  model.constraints = [{ type: 'diaphragm', masterNode: left!, slaveNodes: [right!], plane: 'XY' }];
+  return { model, byColumn };
+}
+
+connectivityRegression('known wrong result: #2316 refuses a disconnected massless beam in the seismic footprint', () => {
+  const { model } = seismicWidthWithDetachedBeam();
+  expectDatumRefusal(model, disconnectedSeismic);
 });
