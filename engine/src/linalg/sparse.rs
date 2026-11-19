@@ -17,6 +17,12 @@ struct Triplet {
     val: f64,
 }
 
+pub(crate) mod assembly;
+
+fn sort_triplets(triplets: &mut [Triplet]) {
+    triplets.sort_unstable_by_key(|t| (t.col, t.row));
+}
+
 impl CscMatrix {
     /// Build CSC from COO triplets (lower triangle only). Duplicates are summed.
     ///
@@ -47,7 +53,7 @@ impl CscMatrix {
         }
 
         // Global sort by (col, row)
-        triplets.sort_unstable_by_key(|t| (t.col, t.row));
+        sort_triplets(&mut triplets);
 
         // Single-pass CSC build with duplicate summing
         let mut col_ptr = vec![0usize; n + 1];

@@ -62,6 +62,20 @@ pub fn transform_stiffness(k_local: &[f64], t: &[f64], n: usize) -> Vec<f64> {
     let temp = mat_mul(k_local, t, n);
     // result = Tᵀ * temp
     let mut result = vec![0.0; n * n];
+    if n >= 12 {
+        for i in 0..n {
+            let dst = &mut result[i * n..(i + 1) * n];
+            for k in 0..n {
+                let coefficient = t[k * n + i];
+                let src = &temp[k * n..(k + 1) * n];
+                // Keep every product, including 0 * infinity, and the original k order.
+                for j in 0..n {
+                    dst[j] += coefficient * src[j];
+                }
+            }
+        }
+        return result;
+    }
     for i in 0..n {
         for j in 0..n {
             let mut sum = 0.0;
@@ -121,6 +135,9 @@ pub fn scatter_subvec(full: &mut [f64], indices: &[usize], sub: &[f64]) {
         full[idx] = sub[i];
     }
 }
+
+#[cfg(test)]
+mod transform_tests;
 
 #[cfg(test)]
 mod tests {
