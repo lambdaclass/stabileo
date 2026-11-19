@@ -473,3 +473,43 @@ it('#2292 nonlinear named combinations refuse complete case cancellation', async
     }
   }
 });
+
+const knownWrongLoadScaling = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+knownWrongLoadScaling('known wrong result: #2292 named 3D solves scale a load once by its net case factor', async () => {
+  const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
+  modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, 'fixed3d');
+  const cases = modelStore.model.loadCases;
+  const caseId = cases[0]!.id;
+  modelStore.addNodalLoad3D(tip, 0, 0, 1.25, 0, 0, 0, caseId);
+  const linear = { ...md(), supports: new Map(modelStore.supports) };
+  const supportId = modelStore.addSupport(tip, 'custom3d', undefined, {
+    dofRestraints: { tx: false, ty: false, tz: false, rx: false, ry: false, rz: false },
+  });
+  modelStore.updateSupport(supportId, { curves: { x: [[0.01, 100], [0.05, 150]] } });
+  const nonlinear = md();
+  const models = [
+    ['linear', linear],
+    ['srss', linear, 'srss'],
+    ['abs', linear, 'abs'],
+    ['pdelta', { ...linear, analysis: { ...linear.analysis, perCombination: 'pdelta' as const } }],
+    ['superpose', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'superpose' as const } }],
+    ['solveEach', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'solveEach' as const } }],
+  ] as const;
+  const big = 2 ** 54;
+  for (const [method, model, combinationMethod] of models) {
+    for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+      const run = async (weights: number[]) => {
+        const result = await solve(model, cases, [{ id: 1, name: 'Scaled load', method: combinationMethod, factors: weights.map(factor => ({ caseId, factor })) }]);
+        return !result || typeof result === 'string' ? result : result.perCombo.get(1)?.displacements;
+      };
+      for (const factor of [-1.5, 1.5, -1, 1]) {
+        const control = await run([factor]);
+        if (!control || typeof control === 'string') throw new Error(String(control));
+        expect(control.find(row => row.nodeId === tip)?.uz).not.toBe(0);
+        expect.soft(await run([big, factor, -big]), method + ' ' + solve.name + ' ' + factor).toStrictEqual(control);
+      }
+    }
+  }
+});

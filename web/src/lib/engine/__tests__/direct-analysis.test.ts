@@ -8,8 +8,10 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
 import { initSolver } from '../wasm-solver';
+import { finishPDelta3D } from '../solve-finish';
+import { solve_pdelta_3d } from '../../wasm/dedaliano_engine.js';
 import { evaluateDiagramAt } from '../diagrams-3d';
-import { runDirectAnalysis, tauBOf, nodeGravity, notionalLoads, mainThreadPDelta } from '../direct-analysis';
+import { runDirectAnalysis, tauBOf, nodeGravity, notionalLoads, mainThreadPDelta, workerPDelta } from '../direct-analysis';
 import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D } from '../solver-service';
 
 beforeAll(async () => { await initSolver(); });
@@ -293,4 +295,40 @@ it('#2292 direct analysis refuses complete case cancellation', async () => {
   const refused = await run([1, -1]);
   expect(typeof refused === 'string' ? refused : refused.perCombo.get(1)?.displacements)
     .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+});
+
+const knownWrongLoadScaling = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+knownWrongLoadScaling('known wrong result: #2292 direct analysis scales a load once by its net case factor', async () => {
+  const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
+  modelStore.addElement(base, tip, 'frame');
+  modelStore.addSupport(base, 'fixed3d');
+  const cases = modelStore.model.loadCases;
+  const caseId = cases[0]!.id;
+  const magnitude = 1.25;
+  modelStore.addNodalLoad3D(tip, 0, 0, magnitude, 0, 0, 0, caseId);
+  const model = data();
+  const caseLoads = caseSolverLoads3D(model, cases, false, false);
+  const big = 2 ** 54;
+  const runners = [
+    ['main thread', mainThreadPDelta],
+    ['worker', workerPDelta(async (wire, maxIter, tol) =>
+      finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]))],
+  ] as const;
+  const combo = (weights: number[]) => ({ id: 1, name: 'Scaled load', factors: weights.map(factor => ({ caseId, factor })) });
+  for (const factor of [-1.5, 1.5, -1, 1]) {
+    const repeated = combo([big, factor, -big]);
+    const loads = comboSolverLoads3D(repeated, caseLoads);
+    const vertical = loads.reduce((sum, load) => load.type === 'nodal' ? sum + load.data.fz : sum, 0);
+    expect.soft(vertical).toBe(magnitude * factor);
+    for (const [runner, run] of runners) {
+      const control = await runDirectAnalysis(model, cases, [combo([factor])], { includeSelfWeight: false, run });
+      if (typeof control === 'string') throw new Error(control);
+      const expected = control.perCombo.get(1)!;
+      expect(expected.displacements.find(row => row.nodeId === tip)?.uz).not.toBe(0);
+      const result = await runDirectAnalysis(model, cases, [repeated], { includeSelfWeight: false, run });
+      expect.soft(typeof result === 'string' ? result : result.perCombo.get(1)?.displacements, runner + ' ' + factor)
+        .toEqual(expected.displacements);
+    }
+  }
 });
