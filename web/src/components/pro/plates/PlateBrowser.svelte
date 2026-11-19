@@ -4,7 +4,7 @@
   import { physicalPlates, plateStatus, platesNeedingMesh } from '../../../lib/store/physical-plates';
   import { plateArea, plateGeometry } from '../../../lib/model/physical/plate';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
-  import { plateMeshState, thicknessText } from './plate-state';
+  import { byLevel, plateLevelKey, plateMeshState, thicknessText } from './plate-state';
   import PlateMeshDialog from './PlateMeshDialog.svelte';
 
   let kind = $state<'all' | 'slab' | 'wall'>('all');
@@ -24,22 +24,16 @@
     return physicalPlates().map((p) => {
       const geo = plateGeometry(modelStore, p.group);
       const status = plateStatus(p.id);
+      const level = plateLevelKey(p.physical.levelFrom, geo?.outer ?? []);
       return {
-        id: p.id, name: p.name, wall: p.physical.kind === 'wall', level: p.physical.levelFrom ?? '', z: zOf(p.physical.levelFrom),
+        id: p.id, name: p.name, wall: p.physical.kind === 'wall', level, z: zOf(level),
         area: geo ? plateArea(geo) : 0, thickness: p.surface.thickness, state: plateMeshState(p, status),
       };
     }).sort((a, b) => a.z - b.z || Number(a.wall) - Number(b.wall) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   });
   const levelIds = $derived([...new Set(rows.map((r) => r.level))]);
   const shown = $derived(rows.filter((r) => (kind === 'all' || (kind === 'wall') === r.wall) && (level === 'all' || r.level === level)));
-  const groups = $derived.by(() => {
-    const out: Array<{ level: string; rows: typeof shown }> = [];
-    for (const r of shown) {
-      const last = out.at(-1);
-      if (last && last.level === r.level) last.rows.push(r); else out.push({ level: r.level, rows: [r] });
-    }
-    return out;
-  });
+  const groups = $derived(byLevel(shown));
   const counts = $derived({ all: rows.length, slab: rows.filter((r) => !r.wall).length, wall: rows.filter((r) => r.wall).length });
   const selected = $derived(uiStore.selectedPlates);
   const allShown = $derived(shown.length > 0 && shown.every((r) => selected.has(r.id)));
