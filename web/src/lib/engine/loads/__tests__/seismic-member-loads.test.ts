@@ -487,6 +487,131 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
   }
 });
 
+const round14Reproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+function masslessRoof(floors: number[], roof?: number, cuts: number[] = [0, ...floors]) {
+  const column = cuts.slice(1).map((z, i) => [[0, 0, cuts[i]!], [0, 0, z]]);
+  if (roof !== undefined) column.push([[0, 0, floors.at(-1)!], [0, 0, roof]]);
+  const model = supportAtZero(mesh([...column, ...floors.map(z => [[0, 0, z], [1, 0, z]])]));
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+  model.materials.set(2, { id: 2, rho: 0 });
+  for (const e of model.elements.values()) {
+    if (e.id > cuts.length - 1) e.materialId = 2;
+  }
+  return { model, members: [...model.elements.values()].slice(0, column.length) };
+}
+
+round14Reproducer('known wrong result: #2316 a zero-weight roof sets the approximate period and member loads', () => {
+  const code = { ...round2Code, periodSystem: 'steelMomentFrame', elastic: true } as const;
+  const { cr, x } = PERIOD_COEFFICIENTS[code.periodSystem];
+  const { ca, cv, t2 } = round2Spectrum;
+  for (const roof of [undefined, 16]) for (const cuts of [[0, 4], [0, 1, 3, 4]]) {
+    const { model, members } = masslessRoof([4], roof, cuts);
+    const seismicInput = request(model, { code });
+    const plan = buildLoadPlan(seismicInput);
+    const h = roof ?? 4, t = cr * h ** x;
+    const c = t <= t2 ? 2.5 * ca : cv / t;
+    expect(plan.outcome).toBe('READY');
+    expect(plan.seismicLevels!.map(l => [l.elevation, l.weightKN])).toEqual(roof ? [[0, 4], [4, 4], [roof, 0]] : [[0, 4], [4, 4]]);
+    expect.soft(plan.seismic?.ta).toBeCloseTo(t, 10);
+    expect.soft(plan.factors.baseShear?.value).toBeCloseTo(4 * c, 10);
+    expect(plan.seismic?.stories).toEqual([{ h: 4, w: 4 }]);
+    expect(plan.nodal.filter(n => n.caseType === 'E')).toEqual([]);
+    const loads = plan.distributed.filter(p => p.caseType === 'E');
+    for (const member of members) {
+      const start = model.nodes.get(member.nodeI)!.z!, end = model.nodes.get(member.nodeJ)!.z!;
+      const parts = loads.filter(p => p.elementId === member.id);
+      const a = Math.max(2, start), b = Math.min(4, end);
+      expect(parts.map(p => [p.a, p.b])).toEqual(a < b ? [[a - start, b - start]] : []);
+      for (const p of parts) {
+        expect(p.frame).toBe('global');
+        expect.soft(p.qX).toBeCloseTo(2 * c, 10);
+        expect.soft(p.qXJ).toBeCloseTo(2 * c, 10);
+        expect(p.qY).toBe(0);
+        expect(p.qYJ).toBe(0);
+      }
+    }
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(seismicInput, plan.seismicLevels!, sink);
+    expect(sink.blockedKeys).toEqual([]);
+    expect.soft(direct.seismicDetail?.ta).toBeCloseTo(t, 10);
+    const momentOfLoad = (s: number, k: number) =>
+      2 * c * (4 ** (k + 1) - Math.min(4, Math.max(2, s)) ** (k + 1)) / (k + 1);
+    verifyCantilever(model, members, false, h, loads, momentOfLoad);
+  }
+});
+
+round14Reproducer('known wrong result: #2316 a zero-weight roof counts toward the static height and story limits', () => {
+  const code = { ...round2Code, group: 'Ao', computedT: round2Period } as const;
+  for (const [floors, roof, blocked] of [
+    [[3, 6], 12.5, false],
+    [[3, 6, 9], 11.5, false],
+    [[3, 6, 9], 12, false],
+    [[3, 6, 9], 12.5, true],
+  ] as const) {
+    const { model } = masslessRoof([...floors], roof);
+    const plan = buildLoadPlan(request(model, { code }));
+    expect.soft(plan.outcome, `roof at ${roof} m, ${floors.length + 1} stories`).toBe(blocked ? 'BLOCKED' : 'READY');
+    if (blocked) {
+      expect.soft(plan.blockedKeys.map(r => r.key)).toEqual(['seismic.blocked.heightOverTable25']);
+      expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    } else {
+      expect(plan.seismicLevels!.at(-1)).toMatchObject({ elevation: roof, weightKN: 0 });
+      expect(plan.seismic?.stories).toHaveLength(floors.length);
+      expect(plan.distributed.some(p => p.caseType === 'E')).toBe(true);
+    }
+  }
+});
+
+round14Reproducer('known wrong result: #2316 a zero-weight roof can require the dynamic method', () => {
+  const code = { ...round2Code, periodSystem: 'steelMomentFrame' } as const;
+  const { cr, x } = PERIOD_COEFFICIENTS[code.periodSystem];
+  const limit = 3 * round2Spectrum.t2;
+  for (const t of [limit * 0.99, limit * 1.01]) {
+    const roof = (t / cr) ** (1 / x);
+    const { model } = masslessRoof([4], roof);
+    const plan = buildLoadPlan(request(model, { code }));
+    expect.soft(plan.outcome).toBe(t <= limit ? 'READY' : 'BLOCKED');
+    if (t <= limit) {
+      expect.soft(plan.seismic?.ta).toBeCloseTo(t, 10);
+      expect.soft(plan.seismic?.topHeavy).toBe(true);
+      expect(plan.seismic?.stories).toEqual([{ h: 4, w: 4 }]);
+    } else {
+      expect.soft(plan.blockedKeys.map(r => r.key)).toEqual(['seismic.blocked.dynamicRequired']);
+      expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    }
+  }
+});
+
+round14Reproducer('known wrong result: #2316 a massless offset member in the seismic footprint refuses generation', () => {
+  for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 1, 3, 4]]) {
+    for (const code of [undefined, round2Code]) {
+      const { model, byColumn } = round2Columns(cuts, rotated, false, 5);
+      const edge = [...model.elements.values()].at(-1)!;
+      const atEdge = { ...edge, offset: { frame: 'global' as const, j: { x: 0, y: 0, z: 0 } } };
+      model.elements.set(edge.id, atEdge);
+      const seismicInput = request(model, {
+        code, torsion: 'medium', directions: { x: !rotated, y: rotated },
+      }, { generateCombinations: true });
+      const baseline = buildLoadPlan(seismicInput);
+      const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      verifyRound2Columns(model, byColumn, baseline, rotated, height / 2, w * baseline.seismic!.c, 0, 10);
+
+      atEdge.offset.j = rotated ? { x: -2, y: 0, z: 0 } : { x: 0, y: 2, z: 0 };
+      for (const materialId of [2, 1]) {
+        atEdge.materialId = materialId;
+        const plan = buildLoadPlan(seismicInput);
+        expect.soft(plan.outcome).toBe('BLOCKED');
+        expect.soft(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.seismicMass.member', params: { elevation: height } }]);
+        expect.soft(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+        expect.soft(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+        expect.soft(plan.combinations).toEqual([]);
+      }
+    }
+  }
+});
+
 function diagonalModalFixture() {
   const model = mesh([
     [[0, 0, 0], [0, 0, 3]], [[0, 0, 3], [0, 0, 6]],
