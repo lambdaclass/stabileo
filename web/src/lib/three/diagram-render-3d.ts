@@ -128,6 +128,10 @@ export function createDiagramGroup3D(
   }
   const size = box.getSize(new THREE.Vector3());
   modelSize = Math.max(size.x, size.y, size.z, 1);
+  // Vertices are float32: they are held from the model's centre, which the group carries in
+  // doubles, so a model far from the origin is drawn as finely as one at it.
+  const origin = box.getCenter(new THREE.Vector3());
+  group.position.copy(origin);
 
   // Target diagram height: ~8% of model size, scaled by user multiplier
   const targetHeight = modelSize * 0.08 * scaleMult;
@@ -183,9 +187,9 @@ export function createDiagramGroup3D(
       const t = pt.t;
 
       // Baseline point (on element axis)
-      const bx = nI.x + t * (nJ.x - nI.x);
-      const by = nI.y + t * (nJ.y - nI.y);
-      const bz = (nI.z ?? 0) + t * ((nJ.z ?? 0) - (nI.z ?? 0));
+      const bx = (nI.x - origin.x) + t * (nJ.x - nI.x);
+      const by = (nI.y - origin.y) + t * (nJ.y - nI.y);
+      const bz = ((nI.z ?? 0) - origin.z) + t * ((nJ.z ?? 0) - (nI.z ?? 0));
 
       const offset = sign * pt.value * scale;
       const dx = bx + perpVec.x * offset;
@@ -372,6 +376,10 @@ export function createEnvelopeDiagramGroup3D(
   }
   const size = box.getSize(new THREE.Vector3());
   modelSize = Math.max(size.x, size.y, size.z, 1);
+  // Vertices are float32: they are held from the model's centre, which the group carries in
+  // doubles, so a model far from the origin is drawn as finely as one at it.
+  const origin = box.getCenter(new THREE.Vector3());
+  group.position.copy(origin);
 
   const targetHeight = modelSize * 0.08 * scaleMult;
   const scale = targetHeight / globalMax;
@@ -426,9 +434,9 @@ export function createEnvelopeDiagramGroup3D(
         const t = envElem.tPositions[j];
         const val = values[j];
 
-        const bx = nI.x + t * (nJ.x - nI.x);
-        const by = nI.y + t * (nJ.y - nI.y);
-        const bz = (nI.z ?? 0) + t * ((nJ.z ?? 0) - (nI.z ?? 0));
+        const bx = (nI.x - origin.x) + t * (nJ.x - nI.x);
+        const by = (nI.y - origin.y) + t * (nJ.y - nI.y);
+        const bz = ((nI.z ?? 0) - origin.z) + t * ((nJ.z ?? 0) - (nI.z ?? 0));
 
         const offset = sign * val * scale;
         const dx = bx + perpVec.x * offset;

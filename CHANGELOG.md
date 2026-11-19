@@ -157,6 +157,16 @@ Release notes cover all 57 results-change notices through results version 95 and
 
 ### Fixed
 
+#### 3D diagrams keep their shape far from the origin (2026-11-19)
+
+A 3D force diagram stored its vertices as single-precision coordinates measured
+from zero. On a model placed at survey coordinates (X = 500,000 m,
+Y = 5,000,000 m) those hold 0.03 m in X and 0.5 m in Y, so a one-metre member's
+diagram was drawn on that grid. A diagram's vertices, outlines, closing
+segments, markers and value labels are now measured from the model's centre,
+which the diagram group carries as its own position. The members, nodes and
+loads of the 3D view are still measured from zero.
+
 #### Mohr calculations and shared links retain small stresses (2026-11-16)
 
 Plane and spatial Mohr calculations preserve small nonzero principal stresses and rotated stress components when other components are much larger. Shared links preserve stresses and angles when reopened in every display unit. Mohr plots select the shear point for the displayed convention. Tool exercises retain authored decimals and bounds, and unloaded truss bars remain unloaded. The flexure article uses actual bar depths and rejects the nonductile example in every published translation.

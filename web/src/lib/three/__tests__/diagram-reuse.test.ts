@@ -28,10 +28,12 @@ it('samples once per member while retaining the diagram scale and geometry', () 
     const mesh = group.children.find(c => c.userData.type === 'diagram3dMesh') as Mesh;
     const positions = mesh.geometry.getAttribute('position');
     expect(positions.count).toBe(42);
-    expect(positions.getZ(0)).toBe(0);
-    expect(positions.getZ(1)).toBeCloseTo(-0.4, 6);
-    expect(positions.getX(40)).toBe(5);
-    expect(positions.getZ(41)).toBeCloseTo(-0.4, 6);
+    // The vertices are held from the group, which stands at the model's centre.
+    expect(group.position.toArray()).toEqual([2.5, 0, 0]);
+    expect(positions.getZ(0) + group.position.z).toBe(0);
+    expect(positions.getZ(1) + group.position.z).toBeCloseTo(-0.4, 6);
+    expect(positions.getX(40) + group.position.x).toBe(5);
+    expect(positions.getZ(41) + group.position.z).toBeCloseTo(-0.4, 6);
   } finally { spy.mockRestore(); disposeObject(group); modelStore.clear(); }
 });
 
@@ -140,9 +142,9 @@ it('keeps markers far from the origin in view: the instanced mesh is culled by w
     const at = new THREE.Matrix4();
     markers.getMatrixAt(0, at);
     const placed = new THREE.Vector3().setFromMatrixPosition(at);
-    const marker = placed.clone().add(markers.position);
-    expect(marker.distanceTo(new THREE.Vector3(5000, 3000, 40))).toBeLessThan(10);
     group.updateMatrixWorld(true);
+    const marker = placed.clone().applyMatrix4(markers.matrixWorld);
+    expect(marker.distanceTo(new THREE.Vector3(5000, 3000, 40))).toBeLessThan(10);
     // What the renderer asks before it draws: a camera looking at the member, the origin 5.8 km behind it.
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
     camera.position.set(marker.x, marker.y - 20, marker.z);
@@ -194,6 +196,55 @@ it('draws a marker round at survey coordinates: the vertex shader adds in single
     const centre = [0, 1, 2].map((axis) => seen.reduce((sum, p) => sum + p[axis]!, 0) / seen.length);
     expect(Math.abs(centre[2]! + 2)).toBeLessThan(0.1);
     expect(Math.hypot(centre[0]!, centre[1]!)).toBeLessThan(1);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('draws a diagram to the millimetre at survey coordinates: its vertices are held from the group, not from zero', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  const a = modelStore.addNode(500_000, 5_000_000, 12), b = modelStore.addNode(500_001, 5_000_000, 12);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    group.updateMatrixWorld(true);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+    camera.position.set(500_000.5, 4_999_998, 12);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(500_000.5, 5_000_000, 12);
+    camera.updateMatrixWorld(true);
+    const f = Math.fround;
+    // The shader's product: a float32 model-view matrix on float32 vertices.
+    const seenBy = (object: InstanceType<typeof THREE.Object3D>, [x, y, z]: number[]) => {
+      const m = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, object.matrixWorld).elements.map(f);
+      return [0, 1, 2].map((r) => f(f(f(f(m[r]! * x!) + f(m[4 + r]! * y!)) + f(m[8 + r]! * z!)) + m[12 + r]!));
+    };
+    const fill = group.children.find((child) => child.userData.type === 'diagram3dMesh') as InstanceType<typeof THREE.Mesh>;
+    const vertices = fill.geometry.getAttribute('position');
+    expect(vertices.count).toBe(42);
+    const baseline = Array.from({ length: 21 }, (_, i) => seenBy(fill, [vertices.getX(2 * i), vertices.getY(2 * i), vertices.getZ(2 * i)]));
+    const curve = Array.from({ length: 21 }, (_, i) => seenBy(fill, [vertices.getX(2 * i + 1), vertices.getY(2 * i + 1), vertices.getZ(2 * i + 1)]));
+    for (let i = 1; i < 21; i++) {
+      // 21 stations a metre apart in all: 50 mm from one to the next, along the camera's x.
+      expect(baseline[i]![0]! - baseline[i - 1]![0]!).toBeCloseTo(0.05, 3);
+      expect(curve[i]![0]! - curve[i - 1]![0]!).toBeCloseTo(0.05, 3);
+    }
+    // The moment is uniform: the curve stands the same 80 mm (8 % of the model's size) off the baseline everywhere.
+    for (let i = 0; i < 21; i++) {
+      expect(Math.hypot(curve[i]![0]! - baseline[i]![0]!, curve[i]![1]! - baseline[i]![1]!, curve[i]![2]! - baseline[i]![2]!)).toBeCloseTo(0.08, 3);
+    }
+    // The outline and the closing segments are held the same way and meet the fill.
+    const outline = group.children.find((child) => child.userData.type === 'diagram3dLine') as unknown as InstanceType<typeof THREE.Mesh>;
+    const drawn = outline.geometry.getAttribute('position');
+    const first = seenBy(outline, [drawn.getX(0), drawn.getY(0), drawn.getZ(0)]);
+    expect(Math.hypot(first[0]! - curve[0]![0]!, first[1]! - curve[0]![1]!, first[2]! - curve[0]![2]!)).toBeLessThan(1e-3);
+    const closing = group.children.find((child) => child.userData.type === 'diagram3dClosing') as unknown as InstanceType<typeof THREE.Mesh>;
+    const ends = closing.geometry.getAttribute('position');
+    const from = seenBy(closing, [ends.getX(0), ends.getY(0), ends.getZ(0)]), to = seenBy(closing, [ends.getX(1), ends.getY(1), ends.getZ(1)]);
+    expect(Math.hypot(from[0]! - baseline[0]![0]!, from[1]! - baseline[0]![1]!, from[2]! - baseline[0]![2]!)).toBeLessThan(1e-3);
+    expect(Math.hypot(to[0]! - curve[0]![0]!, to[1]! - curve[0]![1]!, to[2]! - curve[0]![2]!)).toBeLessThan(1e-3);
+    // In the world the fill is where the member is.
+    const world = new THREE.Vector3(vertices.getX(0), vertices.getY(0), vertices.getZ(0)).applyMatrix4(fill.matrixWorld);
+    expect(world.distanceTo(new THREE.Vector3(500_000, 5_000_000, 12))).toBeLessThan(1e-4);
   } finally { disposeObject(group); modelStore.clear(); }
 });
 

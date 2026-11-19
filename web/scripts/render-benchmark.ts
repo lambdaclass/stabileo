@@ -39,16 +39,26 @@ function materialParts(material: THREE.Material | THREE.Material[] | undefined):
 }
 
 /**
- * What a built group draws, whatever objects it is drawn with: a segment is the same segment as
- * one `Line` of two points or as a pair in a `LineSegments`, and a marker the same marker as its
- * own `Mesh` or as an instance. Every other object is taken whole. The primitives are sorted, so
- * the order of the children is not part of the digest. A marker's position is not in the digest
- * either: an instance is placed from its mesh in float32, so where the markers stand is given
- * apart, as the sums of their coordinates and of their squares, to be compared within rounding.
+ * What a built group draws, whatever objects it is drawn with and wherever its vertices are held
+ * from. `digest` is everything but positions: a segment is the same segment as one `Line` of two
+ * points or as a pair in a `LineSegments`, a marker the same marker as its own `Mesh` or as an
+ * instance, and every other object is its type, data, indices, other attributes (normals apart)
+ * and material.
+ * The primitives are sorted, so the order of the children is not part of it. `placed` is where
+ * things stand in the world: the count of points (vertices, markers, and the positions of
+ * objects with no geometry) and the sums of their coordinates and of their squares, to be
+ * compared within rounding, since a float32 vertex held from a group is not the float32 of the
+ * same point held from zero.
  */
-function digest(root: THREE.Object3D): { digest: string; primitives: number; markers: number[] } {
+function digest(root: THREE.Object3D): { digest: string; primitives: number; placed: number[] } {
+  root.updateMatrixWorld(true);
   const primitives: string[] = [];
-  const markers = [0, 0, 0, 0, 0, 0, 0];
+  const placed = [0, 0, 0, 0, 0, 0, 0];
+  const point = new THREE.Vector3();
+  const place = (world: THREE.Matrix4, x: number, y: number, z: number) => {
+    point.set(x, y, z).applyMatrix4(world);
+    [1, point.x, point.y, point.z, point.x * point.x, point.y * point.y, point.z * point.z].forEach((v, i) => { placed[i]! += v; });
+  };
   const instance = new THREE.Matrix4();
   root.traverse((o) => {
     const type = (o.userData as { type?: unknown }).type;
@@ -56,37 +66,35 @@ function digest(root: THREE.Object3D): { digest: string; primitives: number; mar
     const position = geometry?.attributes?.position as THREE.BufferAttribute | undefined;
     const material = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
     const untyped = type === undefined || type === 'diagram3dClosing' || type === 'diagram3dMarkers';
-    const identity = o.position.lengthSq() === 0 && o.quaternion.w === 1 && o.scale.x === 1 && o.scale.y === 1 && o.scale.z === 1;
-    if (untyped && (o as THREE.Line).isLine && position && identity
+    if (untyped && (o as THREE.Line).isLine && position
       && ((o as THREE.LineSegments).isLineSegments || position.count === 2) && !geometry!.index) {
       const style = hash(materialParts(material));
       for (let i = 0; i + 1 < position.count; i += 2) {
-        primitives.push(`segment ${style} ${o.renderOrder} ` + hash([position.getX(i), position.getY(i), position.getZ(i), position.getX(i + 1), position.getY(i + 1), position.getZ(i + 1)]));
+        primitives.push(`segment ${style} ${o.renderOrder}`);
+        place(o.matrixWorld, position.getX(i), position.getY(i), position.getZ(i));
+        place(o.matrixWorld, position.getX(i + 1), position.getY(i + 1), position.getZ(i + 1));
       }
       return;
     }
     if (untyped && (o as THREE.Mesh).isMesh && geometry?.type === 'SphereGeometry') {
       const sphere = (geometry as THREE.SphereGeometry).parameters;
       const style = hash([...materialParts(material), sphere.radius, sphere.widthSegments, sphere.heightSegments, o.renderOrder]);
-      const marker = (x: number, y: number, z: number) => {
-        primitives.push(`marker ${style}`);
-        [1, x, y, z, x * x, y * y, z * z].forEach((v, i) => { markers[i]! += v; });
-      };
+      if (o.quaternion.w !== 1 || o.scale.x !== 1 || o.scale.y !== 1 || o.scale.z !== 1) throw new Error('a marker that is turned or scaled');
       if ((o as THREE.InstancedMesh).isInstancedMesh) {
-        if (o.quaternion.w !== 1 || o.scale.x !== 1 || o.scale.y !== 1 || o.scale.z !== 1) throw new Error('an instanced marker mesh that is turned or scaled');
         for (let i = 0; i < (o as THREE.InstancedMesh).count; i++) {
           (o as THREE.InstancedMesh).getMatrixAt(i, instance);
           const e = instance.elements;
           if (e[0] !== 1 || e[5] !== 1 || e[10] !== 1 || e[1] !== 0 || e[2] !== 0 || e[4] !== 0 || e[6] !== 0 || e[8] !== 0 || e[9] !== 0) throw new Error('a marker that is turned or scaled');
-          marker(o.position.x + e[12]!, o.position.y + e[13]!, o.position.z + e[14]!);
+          primitives.push(`marker ${style}`);
+          place(o.matrixWorld, e[12]!, e[13]!, e[14]!);
         }
       } else {
-        if (o.quaternion.w !== 1 || o.scale.x !== 1 || o.scale.y !== 1 || o.scale.z !== 1) throw new Error('a marker that is turned or scaled');
-        marker(o.position.x, o.position.y, o.position.z);
+        primitives.push(`marker ${style}`);
+        place(o.matrixWorld, 0, 0, 0);
       }
       return;
     }
-    const parts: (number | string)[] = [o.type, o.name, ...o.position.toArray(), ...o.quaternion.toArray(), ...o.scale.toArray(), o.renderOrder, Number(o.visible)];
+    const parts: (number | string)[] = [o.type, o.name, ...o.quaternion.toArray(), ...o.scale.toArray(), o.renderOrder, Number(o.visible)];
     const data = o.userData as Record<string, unknown>;
     for (const key of Object.keys(data).sort()) {
       const v = data[key];
@@ -95,17 +103,22 @@ function digest(root: THREE.Object3D): { digest: string; primitives: number; mar
     }
     if (geometry?.isBufferGeometry) {
       for (const name of Object.keys(geometry.attributes).sort()) {
-        parts.push(name);
         const array = (geometry.attributes[name] as THREE.BufferAttribute).array as ArrayLike<number>;
+        parts.push(name, array.length);
+        // Normals are derived from the float32 positions and no material here is lit.
+        if (name === 'position' || name === 'normal') continue;
         for (let i = 0; i < array.length; i++) parts.push(array[i]!);
       }
+      if (position) for (let i = 0; i < position.count; i++) place(o.matrixWorld, position.getX(i), position.getY(i), position.getZ(i));
       if (geometry.index) { const array = geometry.index.array; for (let i = 0; i < array.length; i++) parts.push(array[i]!); }
+    } else if (o !== root && !(o as THREE.Group).isGroup) {
+      place(o.matrixWorld, 0, 0, 0);
     }
     parts.push(...materialParts(material));
     primitives.push(`object ${o.type} ` + hash(parts));
   });
   primitives.sort();
-  return { digest: hash(primitives), primitives: primitives.length, markers };
+  return { digest: hash(primitives), primitives: primitives.length, placed };
 }
 
 const KINDS: Diagram3DKind[] = ['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion'];
@@ -137,10 +150,10 @@ export async function benchmark(exampleIds: string[]) {
         steps[`envelope.${kind}`] = () => createEnvelopeDiagramGroup3D(modelStore.elements, modelStore.nodes, envelope, kind, 1, false, false, modelStore.sections);
       }
     }
-    const rows: Record<string, { medianMs: number; digest: string; primitives: number; objects: number; markers: number[] }> = {};
+    const rows: Record<string, { medianMs: number; digest: string; primitives: number; objects: number; placed: number[] }> = {};
     for (const [name, build] of Object.entries(steps)) {
       const times: number[] = [];
-      let signature = '', objects = 0, primitives = 0, markers: number[] = [];
+      let signature = '', objects = 0, primitives = 0, placed: number[] = [];
       for (let round = 0; round < 7; round++) {
         const start = performance.now();
         const built = build();
@@ -151,14 +164,14 @@ export async function benchmark(exampleIds: string[]) {
           if (signature && now.digest !== signature) throw new Error(`${example}.${name}: two builds differ`);
           signature = now.digest;
           primitives = now.primitives;
-          markers = now.markers;
+          placed = now.placed;
           objects = 0;
           built.traverse(() => { objects++; });
           disposeObject(built);
         }
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      rows[name] = { medianMs: +median(times).toFixed(2), digest: signature, primitives, objects, markers };
+      rows[name] = { medianMs: +median(times).toFixed(2), digest: signature, primitives, objects, placed };
     }
     output.push({ example, members: modelStore.elements.size, nodes: modelStore.nodes.size, rows });
   }
