@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { historyStore, modelStore, uiStore } from '..';
-import { adoptCurrentMesh, applyPlateMeshes, coarseAsModelled, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, setPlateMeshSpec } from '../physical-plates';
+import { adoptCurrentMesh, applyPlateMeshes, applyPlateMeshesAsync, coarseAsModelled, createPlate, physicalPlates, planPlateMesh, plateEntry, plateStatus, platesNeedingMesh, preparePlatesForAnalysis, preparePlatesForAnalysisAsync, setPlateMeshSpec } from '../physical-plates';
 import { platesFromShells } from '../plates-from-shells';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 
@@ -68,4 +68,19 @@ describe('a plate meshed beside one shell', () => {
     expect(plateStatus(below)).toBe('current');
     expect(platesNeedingMesh()).toEqual([below]);
   });
+});
+
+it.skip.each([false, true])('known wrong result: #1928 — blocks analysis of a hanging edge with automatic meshing off (async=%s)', async (async) => {
+  const { below, above } = besideShells([0, 4]);
+  const plan = planPlateMesh(above, { size: 0.5, element: 'quad' })!;
+  const result = async ? await applyPlateMeshesAsync([plan]) : applyPlateMeshes([plan]);
+  expect(result.plates).toBe(1);
+  expect(hanging(below)).toBe(true);
+  meshBeforeAnalysis.value = false;
+  try {
+    const preparation = async ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+    expect(preparation).toMatchObject({ ok: false, reason: 'needsMesh' });
+  } finally {
+    meshBeforeAnalysis.value = true;
+  }
 });

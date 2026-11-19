@@ -98,3 +98,13 @@ describe('designing the sheets on asking', () => {
     expect(sheetsStale()).toBe(true);
   });
 });
+
+it.skip('known wrong result: #1928 — discards sheets if design inputs change after starting the run', async () => {
+  solvedFrame();
+  const before = sheetsRun.rows;
+  const pending = designSheets();
+  setSheetCode('aci318-19');
+  await pending;
+  expect(sheetsRun.rows).toBe(before);
+  expect(sheetsRun.progress).toBeNull();
+});

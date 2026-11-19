@@ -289,3 +289,21 @@ describe('the supports and springs a plate\'s mesh was given', () => {
     for (const n of inner) expect(springsAt(n), `node ${n}`).toHaveLength(1);
   });
 });
+
+it.skip('known wrong result: #1928 — preserves pending meshes and applies the completed plate load during interruption', async () => {
+  const [first, second] = slabs(2) as [number, number];
+  const mesh = { size: 2, element: 'quad' } as const;
+  expect(applyPlateMeshes([first, second].map(id => planPlateMesh(id, mesh)!)).plates).toBe(2);
+  const originalSecondShells = plateEntry(second)!.group.members.quads!;
+  for (const id of plateEntry(first)!.group.members.quads!) modelStore.addSurfaceLoad3D(id, 5, 1);
+  const plans = [first, second].map(id => planPlateMesh(id, { ...mesh, size: 1 })!);
+  const report = await applyPlateMeshesAsync(plans, done => {
+    if (done === 1) modelStore.addNode(50, 50, 0);
+  }, 0);
+  expect(report.plates).toBe(1);
+  expect(report.refused).toEqual([{ id: second, reason: 'interrupted' }]);
+  expect(plateEntry(second)!.group.members.quads).toEqual(originalSecondShells);
+  const firstShells = plateEntry(first)!.group.members.quads!;
+  expect(firstShells.length).toBeGreaterThan(0);
+  expect([...shellAreaLoads().keys()].sort()).toEqual(firstShells.map(id => 'q' + id).sort());
+});
