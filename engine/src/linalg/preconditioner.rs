@@ -345,12 +345,120 @@ impl Preconditioner for Ic0Preconditioner {
 /// restored. When no pivot degrades and `shift_rel = 0`, the factor is bitwise
 /// identical to `Ic0Preconditioner`. The caller must still verify the solve
 /// against the true residual — a restored pivot makes M ≠ A by a wider margin.
+///
+/// Restored columns can grow until the factor overflows, as on MITC4 plates. The factor is
+/// then replaced by `scaled_shifted_ic`, which has more entries than the matrix's pattern;
+/// `perturbations()` still counts the pivots the first attempt restored.
 pub struct ShiftedIcPreconditioner {
     n: usize,
     col_ptr: Vec<usize>,
     row_idx: Vec<usize>,
     l_values: Vec<f64>,
     perturbations: usize,
+}
+
+const FIRST_SHIFT: f64 = 1e-3;
+const SHIFT_DOUBLINGS: usize = 60;
+const EXTRA_PER_COLUMN: usize = 10;
+
+type Factor = (Vec<usize>, Vec<usize>, Vec<f64>);
+
+/// Incomplete Cholesky of the matrix scaled to a unit diagonal and shifted by the smallest of
+/// `FIRST_SHIFT·2^k` that factorizes with positive pivots, keeping in each column the largest
+/// entries: as many as the matrix has there plus `EXTRA_PER_COLUMN` (Lin and Moré's ICFS).
+/// Returned unscaled, in the layout `ic_factor_apply` takes. Finite for any input: a matrix no
+/// shift factorizes gets its diagonal alone.
+fn scaled_shifted_ic(a: &CscMatrix, shift_rel: f64) -> Factor {
+    let IcPattern { n, col_ptr, row_idx, l_values, orig_diag, max_diag, .. } = build_ic_pattern(a, shift_rel);
+    let scale: Vec<f64> = orig_diag.iter().map(|&d| if d.is_finite() && d > 0.0 { d.sqrt() } else { max_diag.sqrt() }).collect();
+    let mut columns: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
+    for j in 0..n {
+        let mut column: Vec<(usize, f64)> = (col_ptr[j] + 1..col_ptr[j + 1]).map(|p| (row_idx[p], l_values[p] / (scale[row_idx[p]] * scale[j]))).collect();
+        column.sort_unstable_by_key(|&(row, _)| row);
+        columns.push(column);
+    }
+    let mut shift = FIRST_SHIFT;
+    for _ in 0..SHIFT_DOUBLINGS {
+        if let Some(factor) = limited_memory_ic(n, &columns, 1.0 + shift, EXTRA_PER_COLUMN) {
+            let (mut col_ptr, mut row_idx, mut values) = (vec![0; n + 1], Vec::new(), Vec::new());
+            for (j, column) in factor.iter().enumerate() {
+                for &(row, value) in column {
+                    row_idx.push(row);
+                    values.push(value * scale[row]);
+                }
+                col_ptr[j + 1] = row_idx.len();
+            }
+            if values.iter().all(|v| v.is_finite()) {
+                return (col_ptr, row_idx, values);
+            }
+        }
+        shift *= 2.0;
+    }
+    ((0..=n).collect(), (0..n).collect(), scale)
+}
+
+/// Left-looking incomplete Cholesky with the diagonal `diagonal` everywhere; each returned
+/// column starts with its diagonal entry and has its other rows ascending. `None` on a pivot
+/// that is not positive.
+fn limited_memory_ic(n: usize, columns: &[Vec<(usize, f64)>], diagonal: f64, extra: usize) -> Option<Vec<Vec<(usize, f64)>>> {
+    let mut factor: Vec<Vec<(usize, f64)>> = Vec::with_capacity(n);
+    let mut next_in: Vec<usize> = vec![1; n];
+    let mut waiting: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut work = vec![0.0; n];
+    let mut marked = vec![false; n];
+    let mut rows: Vec<usize> = Vec::new();
+    for j in 0..n {
+        let mut pivot = diagonal;
+        rows.clear();
+        for &(row, value) in &columns[j] {
+            work[row] = value;
+            marked[row] = true;
+            rows.push(row);
+        }
+        let updating = std::mem::take(&mut waiting[j]);
+        for &k in &updating {
+            let column = &factor[k];
+            let at = next_in[k];
+            let ljk = column[at].1;
+            pivot -= ljk * ljk;
+            for &(row, value) in &column[at + 1..] {
+                if !marked[row] {
+                    marked[row] = true;
+                    work[row] = 0.0;
+                    rows.push(row);
+                }
+                work[row] -= ljk * value;
+            }
+            next_in[k] = at + 1;
+            if at + 1 < column.len() {
+                waiting[column[at + 1].0].push(k);
+            }
+        }
+        if !pivot.is_finite() || pivot <= 0.0 {
+            return None;
+        }
+        let ljj = pivot.sqrt();
+        let keep = columns[j].len() + extra;
+        if rows.len() > keep {
+            rows.sort_unstable_by(|&x, &y| work[y].abs().total_cmp(&work[x].abs()).then(x.cmp(&y)));
+            for &row in &rows[keep..] {
+                marked[row] = false;
+            }
+            rows.truncate(keep);
+        }
+        rows.sort_unstable();
+        let mut column = Vec::with_capacity(rows.len() + 1);
+        column.push((j, ljj));
+        for &row in &rows {
+            column.push((row, work[row] / ljj));
+            marked[row] = false;
+        }
+        if column.len() > 1 {
+            waiting[column[1].0].push(j);
+        }
+        factor.push(column);
+    }
+    Some(factor)
 }
 
 impl ShiftedIcPreconditioner {
@@ -410,6 +518,10 @@ impl ShiftedIcPreconditioner {
             }
         }
 
+        if l_values.iter().any(|v| !v.is_finite()) {
+            let (col_ptr, row_idx, l_values) = scaled_shifted_ic(a, shift_rel);
+            return Self { n, col_ptr, row_idx, l_values, perturbations };
+        }
         Self { n, col_ptr, row_idx, l_values, perturbations }
     }
 
@@ -736,6 +848,108 @@ mod tests {
         let mut z = vec![0.0; 2];
         pre.apply(&r, &mut z);
         assert!(z.iter().all(|v| v.is_finite()));
+    }
+
+    fn unit_diagonal_columns(n: usize, reach: usize) -> Vec<Vec<(usize, f64)>> {
+        let mut seed: u64 = 11;
+        (0..n).map(|j| (j + 1..n.min(j + 1 + reach)).filter_map(|i| {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let value = ((seed >> 33) as f64 / (1u64 << 31) as f64 - 0.5) * 0.3;
+            (seed >> 20 & 3 != 0).then_some((i, value))
+        }).collect()).collect()
+    }
+
+    fn rebuilt(n: usize, factor: &[Vec<(usize, f64)>]) -> Vec<f64> {
+        let mut l = vec![0.0; n * n];
+        for (j, column) in factor.iter().enumerate() {
+            for &(i, v) in column { l[i * n + j] = v; }
+        }
+        let mut a = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                a[i * n + j] = (0..n).map(|k| l[i * n + k] * l[j * n + k]).sum();
+            }
+        }
+        a
+    }
+
+    #[test]
+    fn limited_memory_ic_with_room_for_all_fill_is_the_cholesky_factor() {
+        let n = 40;
+        let columns = unit_diagonal_columns(n, 5);
+        let diagonal = 2.5;
+        let factor = limited_memory_ic(n, &columns, diagonal, n).expect("a positive definite matrix");
+        let a = rebuilt(n, &factor);
+        for j in 0..n {
+            assert!((a[j * n + j] - diagonal).abs() <= 1e-12);
+            let mut expected = vec![0.0; n];
+            for &(i, v) in &columns[j] { expected[i] = v; }
+            for i in j + 1..n {
+                assert!((a[i * n + j] - expected[i]).abs() <= 1e-12, "({i},{j}): {} vs {}", a[i * n + j], expected[i]);
+            }
+            assert_eq!(factor[j][0].0, j);
+            assert!(factor[j][1..].windows(2).all(|w| w[0].0 < w[1].0));
+        }
+    }
+
+    #[test]
+    fn limited_memory_ic_keeps_only_the_allowed_entries_and_the_largest_of_them() {
+        let n = 40;
+        let columns = unit_diagonal_columns(n, 5);
+        let full = limited_memory_ic(n, &columns, 2.5, n).unwrap();
+        for extra in [0, 1, 3] {
+            let factor = limited_memory_ic(n, &columns, 2.5, extra).unwrap();
+            for j in 0..n {
+                assert!(factor[j].len() - 1 <= columns[j].len() + extra);
+            }
+            assert_eq!(factor[0], full[0]);
+        }
+        assert!(full.iter().map(|c| c.len()).sum::<usize>() > limited_memory_ic(n, &columns, 2.5, 0).unwrap().iter().map(|c| c.len()).sum::<usize>());
+    }
+
+    #[test]
+    fn limited_memory_ic_refuses_a_matrix_that_is_not_positive_definite() {
+        let columns = vec![vec![(1, 2.0)], vec![]];
+        assert!(limited_memory_ic(2, &columns, 1.0, 2).is_none());
+        assert!(limited_memory_ic(2, &columns, 5.0, 2).is_some());
+        assert!(limited_memory_ic(2, &[vec![(1, f64::NAN)], vec![]], 1.0, 2).is_none());
+    }
+
+    #[test]
+    fn scaled_shifted_ic_is_finite_and_usable_whatever_it_is_given() {
+        let indefinite = CscMatrix::from_triplets(3, &[0, 1, 2, 1, 2], &[0, 1, 2, 0, 1], &[1.0, 1.0, 1.0, 50.0, -70.0]);
+        let poisoned = CscMatrix::from_triplets(3, &[0, 1, 2, 1], &[0, 1, 2, 0], &[1.0, f64::NAN, 4.0, 0.5]);
+        let zero = CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[0.0, 0.0]);
+        for matrix in [&indefinite, &poisoned, &zero] {
+            let (col_ptr, row_idx, values) = scaled_shifted_ic(matrix, 0.0);
+            assert!(values.iter().all(|v| v.is_finite()));
+            let n = matrix.n;
+            for j in 0..n {
+                assert_eq!(row_idx[col_ptr[j]], j);
+                assert!(values[col_ptr[j]] > 0.0);
+            }
+            let mut z = vec![0.0; n];
+            ic_factor_apply(n, &col_ptr, &row_idx, &values, &vec![1.0; n], &mut z);
+            assert!(z.iter().all(|v| v.is_finite()));
+        }
+    }
+
+    #[test]
+    fn scaled_shifted_ic_is_the_scaled_factor_of_a_matrix_shifted_by_a_thousandth() {
+        let n = 12;
+        let a = poisson_1d(n);
+        let (col_ptr, row_idx, values) = scaled_shifted_ic(&a, 0.0);
+        let mut l = vec![0.0; n * n];
+        for j in 0..n {
+            for p in col_ptr[j]..col_ptr[j + 1] { l[row_idx[p] * n + j] = values[p]; }
+        }
+        for i in 0..n {
+            for j in 0..=i {
+                let product: f64 = (0..n).map(|k| l[i * n + k] * l[j * n + k]).sum();
+                let expected = if i == j { 2.0 * (1.0 + FIRST_SHIFT) } else if i == j + 1 { -1.0 } else { 0.0 };
+                assert!((product - expected).abs() <= 1e-12, "({i},{j}): {product} vs {expected}");
+            }
+        }
     }
 
     #[test]
