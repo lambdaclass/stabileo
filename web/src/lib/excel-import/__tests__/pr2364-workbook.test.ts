@@ -115,3 +115,85 @@ it('known wrong result: #1986 framed plane nodal rows reject each nonzero out-of
     }
   }
 });
+
+it.skip('known wrong result: #1986 declared flat support springs use the physical vertical and rotation columns', () => {
+  for (const mode of ['production', 'development']) {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
+    uiStore.analysisMode = '2d';
+    const Supports = [['node', 'type', 'kx', 'kz', 'kry'], [1, 'spring', 11, 13, 17]];
+    const workbook = { ...nodes, Axes: axes(DEFAULT_AXES), Supports };
+    expect(parseWorkbook(workbook).model.supports).toEqual([{ id: 1, nodeId: 1, type: 'spring', kx: 11, ky: 13, kz: 17 }]);
+    expect(applyWorkbook(workbook).loaded.nodes).toBe(1);
+    expect([...modelStore.supports.values()][0]).toMatchObject({ kx: 11, ky: 13, kz: 17 });
+    const legacy = parseWorkbook({ ...nodes, Supports: [['node', 'type', 'kx', 'ky', 'kz'], [1, 'spring', 11, 13, 17]] });
+    expect(legacy.model.supports).toEqual([{ id: 1, nodeId: 1, type: 'spring', kx: 11, ky: 13, kz: 17 }]);
+  }
+});
+
+it.skip('known wrong result: #1986 incompatible flat support components block installation', () => {
+  uiStore.analysisMode = '2d';
+  modelStore.addNode(17, 21);
+  const snapshot = modelStore.snapshot();
+  for (const choice of [DEFAULT_AXES, Y_UP]) {
+    const [depth, horizontal, vertical] = choice === Y_UP ? ['z', 'x', 'y'] : ['y', 'x', 'z'];
+    const base = { Axes: axes(choice), Nodes: [['id', horizontal, vertical], [1, 2, 3]] };
+    for (const column of ['d' + depth, 'k' + depth, 'dr' + horizontal, 'dr' + vertical, 'kr' + horizontal, 'kr' + vertical]) {
+      for (const value of [-2, 2]) {
+        const workbook = { ...base, Supports: [['node', 'type', column], [1, 'fixed', value]] };
+        expect(parseWorkbook(workbook).problems).toEqual([expect.objectContaining({ sheet: 'Supports', row: 2, column })]);
+        expect(applyWorkbook(workbook).loaded.nodes).toBe(0);
+        expect(modelStore.snapshot()).toEqual(snapshot);
+      }
+      const zero = parseWorkbook({ ...base, Supports: [['node', 'type', column], [1, 'fixed', 0]] });
+      expect(zero.problems).toEqual([]);
+      expect(zero.model.supports).toEqual([{ id: 1, nodeId: 1, type: 'fixed' }]);
+    }
+    const spatial = parseWorkbook({
+      ...base, Nodes: [['id', horizontal, vertical, depth], [1, 2, 3, 0]],
+      Supports: [['node', 'type', 'd' + depth], [1, 'fixed3d', 2]],
+    });
+    expect(spatial.problems).toEqual([]);
+    expect(spatial.model.supports[0]).toHaveProperty('dy', choice === Y_UP ? -2 : 2);
+  }
+});
+
+it.skip('known wrong result: #1986 blank LoadData cases resolve to a declared case or block installation', () => {
+  const sheet = (id: number | '') => [longLoads[0]!, ...longLoads.slice(1).map(row => row.with(1, id))];
+  const onlyTwo = { LoadCases: [['id', 'name', 'type'], [2, 'Live', 'L']] };
+  const cantilever = { ...nodes, ...onlyTwo, LoadData: sheet('') };
+  modelStore.addNode(17, 21);
+  const snapshot = modelStore.snapshot();
+  expect(parseWorkbook(cantilever).problems).toEqual(expect.arrayContaining([expect.objectContaining({ sheet: 'LoadData', row: 2 })]));
+  expect(applyWorkbook(cantilever).loaded.nodes).toBe(0);
+  expect(modelStore.snapshot()).toEqual(snapshot);
+  for (const [metadata, id, effective] of [[{}, '', 1], [cases, '', 1], [onlyTwo, 2, 2]] as const) {
+    const parsed = parseWorkbook({ ...nodes, ...metadata, LoadData: sheet(id) });
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.model.loads).toEqual([{ type: 'nodal', data: expect.objectContaining({ caseId: effective, fz: -3 }) }]);
+  }
+});
+
+it.skip('known wrong result: #1986 standalone gravity can accompany only the legacy case weights', () => {
+  const base = {
+    ...nodes,
+    LoadCases: [['id', 'name', 'type'], [1, 'Dead', 'D'], [2, 'Live', 'L'], [3, 'Also dead', 'D']],
+  };
+  const single = ['single', '', 'Z', -1, 'all'];
+  const dead = ['case', 1, 'Z', -1, 'all'], otherDead = ['case', 3, 'Z', -1, 'all'];
+  const workbook = (...rows: unknown[][]) => ({ ...base, SelfWeight: [weight[0]!, ...rows] });
+  modelStore.addNode(17, 21);
+  const snapshot = modelStore.snapshot();
+  for (const mixed of [
+    [single, ['case', 1, 'X', 2, 'all'], otherDead],
+    [dead, single, ['case', 3, 'Z', 0, 'all']],
+    [single, dead, otherDead, ['case', 2, 'Z', -1, 'all']],
+    [single, dead, dead, otherDead],
+    [single, dead],
+  ]) {
+    expect(parseWorkbook(workbook(...mixed)).problems).toEqual(expect.arrayContaining([expect.objectContaining({ sheet: 'SelfWeight' })]));
+    expect(applyWorkbook(workbook(...mixed)).loaded.nodes).toBe(0);
+    expect(modelStore.snapshot()).toEqual(snapshot);
+  }
+  expect(parseWorkbook(workbook(otherDead, single, dead)).problems).toEqual([]);
+  expect(parseWorkbook(workbook(['case', 1, 'X', 2, 'all'])).problems).toEqual([]);
+});

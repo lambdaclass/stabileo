@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fixtureLoadCases, loadFixture, type JSONModel } from '../load-fixture';
@@ -171,3 +172,67 @@ describe('a fixture that brings its own cases', () => {
     expect(combinations).toEqual(defaultCombinations());
   });
 });
+
+it.skip('known wrong result: #1986 fixture replay preserves the start and end stations of partial loads', async () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    for (const mode of ['2d', '3d'] as const) {
+      uiStore.analysisMode = mode;
+      const span = 6, start = 1, end = 4, q = -5;
+      const loads = [
+        { type: 'distributed', data: { elementId: 7, qI: q, qJ: q, a: start, b: end, caseId: 2 } },
+        { type: 'distributed', data: { elementId: 7, qI: q, qJ: q, caseId: 1 } },
+      ];
+      const fixture = replayBeam({ loads, nodes: [{ id: 4, x: 0, y: 0, z: 0 }, { id: 9, x: span, y: 0, z: 0 }] });
+      await modelStore.loadExample('cantilever', async () => fixture);
+      expect(modelStore.loads[0]?.data).toMatchObject({ a: start, b: end, caseId: 2 });
+      expect(modelStore.loads[1]?.data).not.toHaveProperty('b');
+      const result = mode === '2d' ? modelStore.solveCombinations(false) : modelStore.solveCombinations3D(false, false, true);
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      for (const [caseId, expected] of [[1, -q * span], [2, -q * (end - start)]]) {
+        const reaction = result.perCase.get(caseId)?.reactions[0];
+        const vertical = reaction && ('rz' in reaction ? reaction.rz : reaction.fz);
+        expect(vertical).toBeTypeOf('number');
+        expect(vertical!).toBeCloseTo(expected!, 10);
+      }
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it.skip('known wrong result: #1986 fixture replay retains thermal loads in the case used by combinations', async () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    for (const mode of ['2d', '3d'] as const) {
+      uiStore.analysisMode = mode;
+      const dtUniform = 25;
+      const fixture = replayBeam({
+        supports: [{ id: 1, nodeId: 4, type: 'fixed' }, { id: 2, nodeId: 9, type: 'fixed' }],
+        loads: [{ type: 'thermal', data: { elementId: 7, dtUniform, dtGradient: 0, caseId: 2 } }],
+      });
+      await modelStore.loadExample('cantilever', async () => fixture, { keepCombinations: mode === '3d' });
+      expect(modelStore.loads[0]?.data).toMatchObject({ caseId: 2 });
+      const result = mode === '2d' ? modelStore.solveCombinations(false) : modelStore.solveCombinations3D(false, false, true);
+      if (!result || typeof result === 'string') throw new Error(String(result));
+      const axial = (reaction: { rx: number } | { fx: number }) => 'rx' in reaction ? reaction.rx : reaction.fx;
+      const hot = axial(result.perCase.get(2)!.reactions[0]!);
+      expect(Math.abs(hot)).toBeGreaterThan(0);
+      expect(axial(result.perCase.get(1)!.reactions[0]!)).toBe(0);
+      expect(axial(result.perCombo.get(1)!.reactions[0]!)).toBeCloseTo(hot, 10);
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+function replayBeam(overrides: Partial<JSONModel>): JSONModel {
+  return emptyFixture({
+    nodes: [{ id: 4, x: 0, y: 0, z: 0 }, { id: 9, x: 6, y: 0, z: 0 }],
+    elements: [{ id: 7, nodeI: 4, nodeJ: 9, type: 'frame', sectionId: 1, materialId: 1 }],
+    supports: [{ id: 1, nodeId: 4, type: 'fixed' }],
+    loadCases: [{ id: 1, name: 'D', type: 'D' }, { id: 2, name: 'L', type: 'L' }],
+    combinations: [{ id: 1, name: 'L', factors: [{ caseId: 2, factor: 1 }] }],
+    ...overrides,
+  });
+}

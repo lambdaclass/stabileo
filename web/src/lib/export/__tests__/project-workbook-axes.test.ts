@@ -1,3 +1,5 @@
+import type { AnalysisResults3D } from '../../engine/types-3d';
+import type { WorkbookModel } from '../workbook-model';
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
@@ -205,4 +207,37 @@ it('known wrong result: #1986 workbook statics follow the model frame even when 
   expect(sheet(framed, 'Statics')).toEqual(sheet(unconflicted, 'Statics'));
   const explicitlyCanonical = projectWorkbookSheets({ ...input, axes: DEFAULT_AXES, results: { ...input.results, axes: YUP } });
   expect(sheet(explicitlyCanonical, 'Statics')).toEqual(sheet(canonical, 'Statics'));
+});
+
+it.skip('known wrong result: #1986 populated result rows and extrema follow the export frame independently of the UI', () => {
+  const r = {
+    reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }],
+    displacements: [{ nodeId: 1, ux: 0.01, uy: 0.02, uz: 0.03, rx: 0.04, ry: 0.05, rz: 0.06 }],
+    elementForces: [],
+  } as AnalysisResults3D;
+  const model = {
+    analysisMode: 'pro', nodes: new Map(), elements: new Map(), supports: new Map(), sections: new Map(), materials: new Map(),
+    loads: [], loadCases: [], combinations: [],
+  } satisfies WorkbookModel;
+  const exportChoice = { up: '+Y', right: '+X', hand: 'right' } as const;
+  axesStore.choice = YUP;
+  for (const choice of [null, DEFAULT_AXES, exportChoice]) {
+    const f = makeFrame(choice ?? DEFAULT_AXES);
+    const sheets = projectWorkbookSheets({
+      model, solved: null, projectName: 'Probe', meta: { exported: '', commit: '' }, tr: k => k,
+      axes: choice,
+      results: { sources: [{ kind: 'single', id: 0, name: 'One', results: r }], stations: 2, statics: null, axes: YUP },
+    });
+    expect(sheets.some(s => s.name === 'Axes')).toBe(choice === exportChoice);
+    for (const [kind, name, labels, expected] of [
+      ['reactions', 'Reactions', ['Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'], [...toUser(f, [1, 2, 3]), ...pseudoToUser(f, [4, 5, 6])]],
+      ['displacements', 'Displacements', ['ux', 'uy', 'uz', 'θx', 'θy', 'θz'], [...toUser(f, [0.01, 0.02, 0.03]), ...pseudoToUser(f, [0.04, 0.05, 0.06])]],
+    ] as const) {
+      expect(sheet(sheets, name).rows[1]?.slice(4)).toEqual(expected);
+      const extrema = records(sheet(sheets, 'Maxima')).filter(row => row.table === kind);
+      const envelope = records(sheet(sheets, 'Envelope')).filter(row => row.table === kind);
+      expect(extrema.map(row => [row.component, row.extreme, row.value])).toEqual(labels.flatMap((label, i) => ['max', 'min'].map(extreme => [label, extreme, expected[i]])));
+      expect(envelope.map(row => [row.component, row.max, row.min])).toEqual(labels.map((label, i) => [label, expected[i], expected[i]]));
+    }
+  }
 });

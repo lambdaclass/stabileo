@@ -76,8 +76,19 @@ describe('the Add load card types global values in the user frame and stores the
     const e = modelStore.addElement(a, b, 'frame');
     const [q] = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.frame = 'global'; f.q.yI = -10; f.q.zI = 3; }), ctx([e])));
     expect(data(q!)).toMatchObject({ qZI: -10, qZJ: -10, qXI: -3, qXJ: -3, qYI: 0, qYJ: 0 });
-    const tri = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.frame = 'global'; f.shape = 'triangle'; f.peak = 6; f.peakComp = 'z'; }), ctx([e])));
-    expect(tri.every((l) => (data(l).qXI ?? 0) <= 0 && (data(l).qXJ ?? 0) <= 0 && Math.min(data(l).qXI ?? 0, data(l).qXJ ?? 0) === -6)).toBe(true);
+    for (const [peakAt, segments] of [
+      [0, [{ qXI: -6, qXJ: 0 }]],
+      [2, [{ qXI: 0, qXJ: -6, b: 2 }, { qXI: -6, qXJ: 0, a: 2 }]],
+      [4, [{ qXI: 0, qXJ: -6 }]],
+    ] as const) {
+      const tri = loadsOf(buildWrittenLoads(form('distributed', (f) => {
+        f.frame = 'global'; f.shape = 'triangle'; f.peak = 6; f.peakComp = 'z'; f.peakAt = peakAt;
+      }), ctx([e])));
+      expect(tri.map(l => {
+        const { qXI, qXJ, a, b } = data(l);
+        return { qXI, qXJ, ...(a === undefined ? {} : { a }), ...(b === undefined ? {} : { b }) };
+      })).toEqual(segments);
+    }
     const local = loadsOf(buildWrittenLoads(form('distributed', (f) => { f.q.yI = -10; }), ctx([e])));
     expect(data(local[0]!)).toMatchObject({ qYI: -10 });
     const [p] = loadsOf(buildWrittenLoads(form('point', (f) => { f.pFrame = 'global'; f.p.py = -5; f.p.px = 2; f.p.mz = 1; }), ctx([e])));

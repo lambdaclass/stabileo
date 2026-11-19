@@ -84,3 +84,14 @@ describe('small display pieces', () => {
     expect(back.loads[0]!.data).toMatchObject({ fx: 1, fy: 2, fz: -10, my: 0.5 });
   });
 });
+
+it.skip('known wrong result: #1986 mode-less framed shell fragments remain spatial when every third coordinate is omitted', () => {
+  axesStore.choice = { up: '+Y', right: '+X', hand: 'right' };
+  const base = ['stabileo-model 1', 'frame up="+Y" right="+X" hand="right"', 'node 1 2 3', 'node 2 4 3', 'node 3 2 5'];
+  const spatial = fragmentFromCode([...base, 'plate 1 [1,2,3] materialId=1 thickness=0.1'].join('\n'))!;
+  expect(spatial.nodes).toEqual([{ id: 1, x: 2, y: 0, z: 3 }, { id: 2, x: 4, y: 0, z: 3 }, { id: 3, x: 2, y: 0, z: 5 }]);
+  const planar = fragmentFromCode(base.join('\n'))!;
+  expect(planar.nodes[0]).toEqual({ id: 1, x: 2, y: 3, z: 0 });
+  expect(fragmentToCode(spatial)).toMatch(/^mode 3d$/m);
+  expect(fragmentFromCode(fragmentToCode(spatial))!.nodes).toEqual(spatial.nodes);
+});

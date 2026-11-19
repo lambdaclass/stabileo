@@ -310,8 +310,17 @@ describe('explicit planar self-weight rules', () => {
         solveCombinations2D(model, cases.map((c: { name: string }) => ({ ...c, name: 'Same' })), combos),
       ];
       for (const result of results) {
-        if (factor === 0) expect(result).toEqual(expect.objectContaining({}));
-        else expect(result).toEqual(expect.stringMatching(/self-weight.*outside the plane/i));
+        if (factor !== 0) {
+          expect(result).toEqual(expect.stringMatching(/self-weight.*outside the plane/i));
+          continue;
+        }
+        if (!result || typeof result === 'string') throw new Error(String(result));
+        const solved = 'perCase' in result ? result.perCase.get(1) : result;
+        expect(solved?.reactions).toHaveLength(1);
+        const length = model.nodes.get(2)!.x - model.nodes.get(1)!.x;
+        const weight = length * model.sections.get(1)!.a * model.materials.get(1)!.rho;
+        expect(solved!.reactions[0]!.rz).toBeCloseTo(weight, 10);
+        expect(solved!.reactions[0]!.rx).toBe(0);
       }
     }
   });

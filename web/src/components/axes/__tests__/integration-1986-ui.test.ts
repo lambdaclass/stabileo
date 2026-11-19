@@ -1,4 +1,9 @@
-import { afterEach, beforeAll, expect, it } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import LoadsTable from '../../tables/LoadsTable.svelte';
+import Step3Transformation from '../../dsm/Step3Transformation.svelte';
+import { dsmInFrame } from '../../../lib/axes/dsm-frame';
+import { solveDetailed } from '../../../lib/engine/solver-detailed';
+import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
 import LoadSketch from '../../pro/loads/LoadSketch.svelte';
@@ -6,12 +11,17 @@ import SupportsTable from '../../tables/SupportsTable.svelte';
 import ProCaseDetails from '../../pro/loads/ProCaseDetails.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
 import { modelStore, uiStore } from '../../../lib/store';
-import { allChoices, makeFrame } from '../../../lib/axes/frame';
+import { allChoices, DEFAULT_AXES, makeFrame } from '../../../lib/axes/frame';
 import { axesStore } from '../../../lib/axes/axes.svelte';
 import { whatIf } from '../../../lib/store/whatif.svelte';
 import { initSolver } from '../../../lib/engine/wasm-solver';
 import { createArc, addCurveLoad } from '../../../lib/store/curved-members';
 import { renderMemoriaHtml } from '../../../lib/report/memoria/render';
+
+const equations = vi.hoisted(() => [] as string[]);
+vi.mock('../../dsm/MathEquation.svelte', () => ({
+  default: (_: unknown, props: { equation: string }) => { equations.push(props.equation); },
+}));
 
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { whatIf.abandon(); axesStore.reset(); modelStore.clear(); });
@@ -114,5 +124,55 @@ it('known wrong result: #1986 shell point force labels retain the entered user c
     expect(html).toMatch(/Fz = 5(?:\.0+)? kN/);
     const modelX = makeFrame(choice).rows.find(row => row[0] !== 0)![0];
     expect(html).toContain(modelX === 1 ? 'x1="48" y1="70" x2="74"' : 'x1="108" y1="70" x2="82"');
+  }
+});
+
+it.skip('known wrong result: #1986 the production load table exposes existing axial loads at either end', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = '3d';
+    uiStore.unitSystem = 'SI';
+    const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(3, 0, 0);
+    const e = modelStore.addElement(i, j);
+    const id = modelStore.addDistributedLoad3D(e, -5, -5, 0, 0);
+    const html = () => render(LoadsTable).body.replace(/<!--[\s\S]*?-->/g, '');
+    expect(html()).not.toContain('qXI');
+    for (const [qXI, qXJ] of [[6, 0], [0, -8]]) {
+      modelStore.updateLoad(id, { qXI, qXJ });
+      expect(html()).toMatch(new RegExp('qXI.*?value="' + qXI + '"'));
+      expect(html()).toMatch(new RegExp('qXJ.*?value="' + qXJ + '"'));
+    }
+    modelStore.updateLoad(id, { qXI: 0, qXJ: 0, frame: 'global' });
+    expect(html()).toContain('qXI');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it.skip('known wrong result: #1986 the symbolic transformation agrees with its numeric matrix under a Y-up permutation', () => {
+  uiStore.analysisMode = '2d';
+  const i = modelStore.addNode(0, 0), j = modelStore.addNode(3, 0);
+  const id = modelStore.addElement(i, j);
+  modelStore.addSupport(i, 'fixed');
+  modelStore.addNodalLoad(j, 0, -3);
+  const solved = solveDetailed(modelStore.buildSolverInput(false)!);
+  for (const choice of [DEFAULT_AXES, { up: '+Y', right: '+X', hand: 'right' }, { up: '+Z', right: '-X', hand: 'right' }] as const) {
+    axesStore.choice = choice;
+    const data = dsmInFrame(solved, makeFrame(choice));
+    const elem = data.elements.find(e => e.elementId === id)!;
+    equations.length = 0;
+    render(Step3Transformation, { props: { data } });
+    const rows = equations.find(eq => eq.startsWith('[T] = '))?.match(/bmatrix\}(.*?)\\end/)?.[1];
+    expect(rows).toBeDefined();
+    const decoded = rows!.split('\\\\').map(row => row.trim().split(/\s*&\s*/).map(cell => {
+      if (cell === 'c' || cell === '-c') return Math.cos(elem.angle) * (cell.startsWith('-') ? -1 : 1) + 0;
+      if (cell === 's' || cell === '-s') return Math.sin(elem.angle) * (cell.startsWith('-') ? -1 : 1) + 0;
+      return Number(cell);
+    }));
+    expect(decoded).toHaveLength(elem.T.length);
+    decoded.forEach((row, i) => {
+      expect(row).toHaveLength(elem.T[i]!.length);
+      row.forEach((v, j) => expect(v).toBeCloseTo(elem.T[i]![j]!, 12));
+    });
   }
 });
