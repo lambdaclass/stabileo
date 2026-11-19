@@ -8,8 +8,9 @@ import type { SolverInput3D } from '../../types-3d';
 import { designSpectrum, isBlocked, spectralOrdinate } from '../../../codes/cirsoc103/spectrum';
 import { modelStore } from '../../../store';
 import { modesForPlan } from '../../../store/seismic-modes';
+import { INPRES103_SEISMIC } from '../../../codes/families/cirsoc';
 import { bindRole } from '../../../codes/roles';
-import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed } from '../load-plan';
+import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed, type SeismicPlanSink } from '../load-plan';
 import { modalLoadingLevels, modalStoryForces, type ModeShape } from '../seismic-modal';
 import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -773,4 +774,34 @@ it('#2316 a static diagonal-only case still applies the static base shear at 45Â
   const [fx, fy] = windResultants(model, plan.distributed.filter(d => d.caseIndex === caseIndex));
   expect(fx).toBeCloseTo(80 / (0.85 * Math.SQRT2), 10);
   expect(fy).toBeCloseTo(80 / (0.85 * Math.SQRT2), 10);
+});
+
+const refusesModal = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
+
+for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diagonal only'] as const) {
+  refusesModal(`known wrong result: #2319 refuses ${selection} before planning any load cases`, () => {
+    const { model, ...seismic } = diagonalModalFixture();
+    const proposed = selection === 'legacy modes' ? seismic
+      : selection === 'empty modes' ? { ...seismic, modal: { modes: [] } }
+      : { code: seismic.code, method: 'modal' as const };
+    const plan = buildLoadPlan(request(model, {
+      ...proposed,
+      directions: { x: selection !== 'diagonal only', y: false },
+      diagonal: selection === 'diagonal only',
+    }, { generateCombinations: true }));
+    expect(plan.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalUnavailable' }]);
+    expect(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], distributed: [], nodal: [], surface: [], combinations: [] });
+  });
+}
+
+refusesModal('known wrong result: #2319 the seismic code adapter refuses modal requests directly', () => {
+  const { model, ...seismic } = diagonalModalFixture();
+  const levels = buildLoadPlan(request(model)).seismicLevels!;
+  const sink: SeismicPlanSink = {
+    cases: [], nodal: [], distributed: [], surface: [], derivation: [], refs: [],
+    assumptions: [], unsupportedKeys: [], blockedKeys: [], levelRefusals: [],
+  };
+  INPRES103_SEISMIC.plan(request(model, seismic), levels, sink);
+  expect(sink.blockedKeys).toEqual([{ key: 'loadPlan.blocked.modalUnavailable' }]);
+  expect(sink).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [] });
 });

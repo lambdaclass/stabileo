@@ -163,3 +163,16 @@ describe("an edit by hand makes it the user's", () => {
     expect(modelStore.model.combinations.some((c) => c.id === c1!.id)).toBe(false);
   });
 });
+
+const refusesModal = process.env.RUN_KNOWN_WRONG === '2319' ? it : it.skip;
+
+refusesModal('known wrong result: #2319 Apply refuses a READY legacy modal plan', () => {
+  frame();
+  const before = counts();
+  const plan = buildLoadPlan(planInput());
+  plan.cases.push({ type: 'E', nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' }, existingId: null });
+  plan.derivation.push({ key: 'loadPlan.derivation.modal' });
+  applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf });
+  expect(counts()).toEqual(before);
+  expect(modelStore.loadCases.some(c => c.type === 'E')).toBe(false);
+});
