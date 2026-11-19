@@ -439,10 +439,9 @@ it('preserves 2D results after repeated case cancellation in the wrapper and exp
   }
 });
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
 const cancelled = /Repeated load case factors cancel to zero in this combination/;
 
-issue2292('known wrong result: #2292 spatial combination routes refuse complete case cancellation', () => {
+it('#2292 spatial combination routes refuse complete case cancellation', () => {
   const model = readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8');
   for (const result of [solve_3d(JSON.parse(model)), JSON.parse(solve_pdelta_3d(model, 20, 1e-9)).results]) {
     const perCase = new Map([[1, result]]);
@@ -458,7 +457,7 @@ issue2292('known wrong result: #2292 spatial combination routes refuse complete 
   }
 });
 
-issue2292('known wrong result: #2292 planar combination routes refuse complete case cancellation', () => {
+it('#2292 planar combination routes refuse complete case cancellation', () => {
   const model = portalInput('2d');
   for (const result of [solve_2d(JSON.parse(model)), JSON.parse(solve_pdelta_2d(model, 20, 1e-9)).results]) {
     const perCase = new Map([[1, result]]);
@@ -476,5 +475,7 @@ issue2292('known wrong result: #2292 planar combination routes refuse complete c
   }
   for (const net of [netCombinationFactors, net_combination_factors]) {
     expect.soft(() => net(splitFactors([1, -1]))).toThrow(cancelled);
+    expect(net([...splitFactors([1, -1]), { caseId: 2, factor: 1 }]))
+      .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
   }
 });

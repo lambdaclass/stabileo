@@ -304,7 +304,8 @@ impl ResolvedFactors {
             compensated_add(total, factor);
         }
 
-        let terms = ordered_slots.into_iter().filter_map(|slot| {
+        let has_nonzero_factors = !ordered_slots.is_empty();
+        let terms: Vec<_> = ordered_slots.into_iter().filter_map(|slot| {
             let [sum, correction] = totals[slot].unwrap();
             let mut factor = sum + correction;
             if !factor.is_finite() {
@@ -314,6 +315,9 @@ impl ResolvedFactors {
             (factor != 0.0).then_some((factor, slot))
         }).collect();
 
+        if terms.is_empty() && has_nonzero_factors {
+            return Err("Repeated load case factors cancel to zero in this combination.".into());
+        }
         Ok(Self { terms })
     }
 

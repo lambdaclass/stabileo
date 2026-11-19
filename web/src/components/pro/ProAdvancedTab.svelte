@@ -754,7 +754,7 @@
       ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
       if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; if (!knownIssueResultDisposition(res).refused) recheckStore.noteSolved('ssi'); }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, t('pro.unknownError')) });
+      solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: localizeEngineText(errorText(e, t('pro.unknownError'))) });
     }
     solving = false;
   }

@@ -34,7 +34,7 @@ import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
 import { catalogueGradeFamily } from './steel/grade-family';
-import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, orphanLoadRefusal } from './solver-service';
+import { buildSolverInput3D, caseSolverLoads3D, comboSolverLoads3D, imposedRefusal, loadRefusal, netSuperpositionCombinations, orphanLoadRefusal } from './solver-service';
 import { solvableModel } from './member-behaviour';
 import { casesWithDisplacements, imposedOf } from './case-displacements';
 import { collapseVariableResults, variableExpansionFor } from './variable-members';
@@ -234,6 +234,8 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
+  const resolved = netSuperpositionCombinations(combinations, true);
+  if (typeof resolved === 'string') return resolved;
   // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).
   model = withCaseEffects(model, loadCases, { includeSelfWeight: opts.includeSelfWeight, leftHand: opts.leftHand ?? false });
   const settings = { ...(opts.settings ?? DEFAULT_DIRECT_SETTINGS) };

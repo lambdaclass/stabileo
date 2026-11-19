@@ -221,8 +221,7 @@ it.each([false, true])('preserves the planar combination after case cancellation
   expect(run([big, 1, -big])).toStrictEqual(reference);
 });
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-issue2292('known wrong result: #2292 the planar named cantilever combination refuses complete case cancellation', async () => {
+it('#2292 the planar named cantilever combination refuses complete case cancellation', async () => {
   await initSolver();
   const model = beamModel();
   for (const active of [cases, [cases[0], { ...cases[1], name: cases[0].name }]]) {

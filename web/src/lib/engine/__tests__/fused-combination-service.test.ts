@@ -113,8 +113,7 @@ function singleQuad() {
   return cases;
 }
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-issue2292('known wrong result: #2292 the named single quad refuses complete case cancellation', async () => {
+it('#2292 the named single quad refuses complete case cancellation', async () => {
   const cases = singleQuad();
   const caseId = cases[0]!.id;
   for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {

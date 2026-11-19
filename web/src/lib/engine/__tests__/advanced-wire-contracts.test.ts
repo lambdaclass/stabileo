@@ -321,8 +321,7 @@ describe('advanced analyses: the four the engine only has in 2D', () => {
   });
 });
 
-const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-issue2292('known wrong result: #2292 synchronous cable and SSI refuse non-finite optional springs', () => {
+it('#2292 synchronous cable and SSI refuse non-finite optional springs', () => {
   uiStore.analysisMode = 'pro';
   portal3D();
   const input = input3D();
@@ -344,7 +343,7 @@ issue2292('known wrong result: #2292 synchronous cable and SSI refuse non-finite
   }
 });
 
-issue2292('known wrong result: #2292 synchronous 2D cable and SSI refuse non-finite optional springs', () => {
+it('#2292 synchronous 2D cable and SSI refuse non-finite optional springs', () => {
   uiStore.analysisMode = '2d';
   modelStore.clear();
   const start = modelStore.addNode(0, 0);

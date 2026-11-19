@@ -653,7 +653,6 @@ fn combinations_report_spatial_net_factor_overflow_before_recovery() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2292"]
 fn issue_2292_planar_combination_refuses_complete_case_cancellation() {
     let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
     let linear = solve_2d(&model).unwrap();
@@ -678,7 +677,6 @@ fn issue_2292_planar_combination_refuses_complete_case_cancellation() {
 }
 
 #[test]
-#[ignore = "known wrong result: #2292"]
 fn issue_2292_spatial_combination_refuses_complete_case_cancellation() {
     let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
     let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
@@ -701,6 +699,44 @@ fn issue_2292_spatial_combination_refuses_complete_case_cancellation() {
         }
         for refused in combine(&[1.0, -1.0]) {
             assert!(refused.unwrap_err().contains("cancel to zero"));
+        }
+    }
+}
+
+#[test]
+fn issue_2292_native_solvers_validate_optional_support_springs() {
+    use dedaliano_engine::solver::{cable, linear, ssi};
+
+    let mut plane: SolverInput = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let mut space: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    for kx in [None, Some(0.0), Some(1.0), Some(f64::NAN), Some(f64::INFINITY), Some(f64::NEG_INFINITY)] {
+        let mut plane_spring: SolverSupport = serde_json::from_value(serde_json::json!({
+            "id": 2, "nodeId": 2, "type": "spring"
+        })).unwrap();
+        plane_spring.kx = kx;
+        plane.supports.insert("spring".into(), plane_spring);
+        let mut space_spring: SolverSupport3D = serde_json::from_value(serde_json::json!({
+            "nodeId": 5, "rx": false, "ry": false, "rz": false, "rrx": false, "rry": false, "rrz": false
+        })).unwrap();
+        space_spring.kx = kx;
+        space.supports.insert("spring".into(), space_spring);
+
+        let results = [
+            linear::solve_2d(&plane).map(|r| r.displacements.iter().any(|d| d.uz != 0.0)),
+            cable::solve_cable_2d(&plane, &HashMap::new(), 50, 1e-6).map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            ssi::solve_ssi_2d(&ssi::SSIInput { solver: plane.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-4 })
+                .map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            linear::solve_3d(&space).map(|r| r.displacements.iter().any(|d| d.uz != 0.0)),
+            cable::solve_cable_3d(&space, &HashMap::new(), 50, 1e-6).map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: space.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-4 })
+                .map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+        ];
+        for result in results {
+            if kx.is_some_and(|k| !k.is_finite()) {
+                assert!(result.unwrap_err().contains("numeric fields must be finite"));
+            } else {
+                assert!(result.unwrap());
+            }
         }
     }
 }
