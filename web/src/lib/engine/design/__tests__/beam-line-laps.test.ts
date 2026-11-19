@@ -166,3 +166,55 @@ it('#2302 seismic verification blocks a reopened beam line with a short dense ca
   expect(drawn(criticalDistance)).toMatchObject({ ok: false, issues: ['seisDes.issue.hoopZone'] });
   expect(drawn(seismicLength)).toMatchObject({ ok: true, issues: [] });
 });
+
+
+const round2Issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
+round2Issue2296('known wrong result: #2296 a drawn interior gap refuses either shear axis or active torsion', () => {
+  const L = 4;
+  const cage = { diameter: 8, legs: 4, spacing: 0.06 };
+  for (const extracted of [false, true]) for (const axis of ['vz', 'vy', 'torsion'] as const) {
+    const check = (end: number, force: number) => {
+      const barLayout = membersFromLine({
+        version: 1, members: [1], lengths: [L], bars: drawnMainBars.map(bar => ({ ...bar, to: L })),
+        stirrups: [{ ...cage, id: 'left', from: 0, to: end }, { ...cage, id: 'right', from: 1.8, to: L }],
+      }, [{ ...longSpan, L }]).get(1)!;
+      const stations = [0, 1, 2, 3, L].map(x => ({
+        x, t: x / L, my: 0, mz: 0, n: 0, vz: 0, vy: 0, torsion: 0, [axis]: force,
+      }));
+      const result = { elementId: 1, length: L, stationTs: stations.map(s => s.t), comboResults: [{ comboId: 1, comboName: 'C1', stations }] };
+      return verifyProvidedReinforcement(1, 'beam', barLayout, extracted ? extractGoverningDemands(result) : undefined, {},
+        beamConcrete, extracted ? undefined : result, undefined, { axes: beamAxes }).checks;
+    };
+    const demand = axis === 'torsion' ? 6 : 10;
+    expect.soft(check(1.4, demand)).toContainEqual(expect.objectContaining({
+      description: 'diag.rcShearGap', ratio: Infinity, status: 'fail', missingReinforcement: true,
+      demandCategory: axis === 'torsion' ? null : axis === 'vz' ? 'Vz' : 'Vy',
+      stationX: expect.any(Number),
+    }));
+    expect(check(1.8, demand).some(c => c.description === 'diag.rcShearGap')).toBe(false);
+    expect(check(1.4, axis === 'torsion' ? 0.5 : 0).some(c => c.description === 'diag.rcShearGap')).toBe(false);
+  }
+});
+
+const round2Issue2302 = process.env.RUN_KNOWN_WRONG === '2302' ? it : it.skip;
+round2Issue2302('known wrong result: #2302 hoops inside either support do not count toward the dense zone', () => {
+  const L = 5;
+  const h = 0.5;
+  const required = 2 * h;
+  const dense = { diameter: 8, legs: 2, spacing: 0.075 };
+  const faceHalf: [number, number] = [0.2, 0.25];
+  const bars = { count: 2, diameter: 16 };
+  const frame = {
+    ...beamConcrete, b: 0.2, h, L, id: 1, kind: 'beam' as const, role: 'primary' as const,
+    nodeI: 1, nodeJ: 2, faceHalf,
+    r: { top: bars, bottom: bars, regions: { regionT: required / L, stirrupsSupport: dense } },
+  };
+  const check = (from: number, to: number) => seismicFrameChecks({
+    nodes: new Map(), settings: defaultSeismicDesign(),
+    members: [{ ...frame, drawnStirrups: [{ ...dense, from: 0, to: from }, { ...dense, from: L - to, to: L }] }],
+  }).members[0]!;
+  const fullStart = required + faceHalf[0], fullEnd = required + faceHalf[1];
+  expect.soft(check(required, fullEnd).issues).toContain('seisDes.issue.hoopZone');
+  expect.soft(check(fullStart, required).issues).toContain('seisDes.issue.hoopZone');
+  expect(check(fullStart, fullEnd).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
+});

@@ -913,6 +913,46 @@ it('#2310 beams without verified side bars and a fixed wall with scalar steel re
   expect(fixedResult.torsion).toMatchObject({ status: 'fail', ratio: Infinity, refusal: 'diag.rcTorsionPerimeter' });
 });
 
+const round2Issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
+
+round2Issue2310('known wrong result: #2310 fixed beams cannot verify longitudinal torsion from scalar area', () => {
+  const shear = { diameter: 8, legs: 4, spacing: 0.06 };
+  const fixed = { shear, torsion: { AlProv: 100 } };
+  for (const edition of ['2005', '2025'] as const) {
+    const witness = { ...input(0, 6, edition), elementType: 'beam' as const };
+    for (const out of [verifyElement(witness, fixed), prepareElementVerification(witness)(fixed)]) {
+      expect.soft(out.torsion).toMatchObject({
+        status: 'fail', ratio: Infinity, refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked',
+      });
+    }
+    const inactive = { ...input(0, 0.5, edition), elementType: 'beam' as const };
+    expect(verifyElement(inactive, fixed).torsion).toMatchObject({ neglect: true, status: 'ok' });
+  }
+});
+
+round2Issue2310('known wrong result: #2310 inner bars cannot replace perimeter bars that end before the cut', () => {
+  const geometry = { ...section, h: 0.37 };
+  const stirrups = { diameter: 8, legs: 4, spacing: 0.06 };
+  const outer = { ...longitudinal, row: 0 };
+  const inner = { ...longitudinal, row: 1 };
+  for (const extracted of [false, true]) {
+    const check = (continues: boolean) => {
+      const groups = [
+        { layers: [outer], continueStart: true, continueEnd: continues },
+        { layers: [inner], continueStart: true, continueEnd: true },
+      ];
+      return verifyBeamStations(geometry, { regions: {
+        topStartLayers: [outer, inner], topEndLayers: [outer, inner], bottomSpan: longitudinal,
+        topStartGroups: groups, topEndGroups: groups.map(g => ({ ...g, continueStart: g.continueEnd, continueEnd: true })),
+        stirrupsSupport: stirrups, stirrupsSpan: stirrups,
+      } }, 6, [{ name: 'C1', forces: { n: 0, my: 0, vz: 0, torsion: 6 } }], extracted)
+        .checks.find(c => c.category === 'Torsion Al Span (Vz)');
+    };
+    expect.soft(check(false)).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcTorsionPerimeter' });
+    expect(check(true)).toMatchObject({ status: 'ok' });
+  }
+});
+
 it('#2310 longitudinal torsion accepts verified corner coverage on the short side of the perimeter limit', () => {
   const shear = { diameter: 8, legs: 4, spacing: 0.06 };
   const nominal = 0.3 + 2 * (section.cover + shear.diameter / 1000) + longitudinal.diameter / 1000;
