@@ -2037,6 +2037,17 @@ export function verifyProvidedReinforcement(
   // Collect ALL force tuples from station × combo results for sweeping
   type Tuple = ConcurrentDemand;
   const allTuples = complete.values.map(r => r.demand);
+  let orderedCombos: Tuple[][] | undefined;
+  const stationCombos = () => {
+    if (orderedCombos) return orderedCombos;
+    const byCombo = new Map<number, Tuple[]>();
+    for (const t of allTuples) {
+      const combo = byCombo.get(t.comboId);
+      if (combo) combo.push(t);
+      else byCombo.set(t.comboId, [t]);
+    }
+    return orderedCombos = [...byCombo.values()].map(combo => combo.sort((a, b) => a.stationT - b.stationT));
+  };
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2095,15 +2106,10 @@ export function verifyProvidedReinforcement(
     }
     if (end < 1 - 1e-9) gaps.push([end, 1]);
     if (gaps.length) {
-      const byCombo = new Map<number, Tuple[]>();
       for (const t of allTuples) {
         if (!stirrupCoverage.some(({ from, to }) => from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9)) gapTuples.add(t);
-        const combo = byCombo.get(t.comboId);
-        if (combo) combo.push(t);
-        else byCombo.set(t.comboId, [t]);
       }
-      for (const combo of byCombo.values()) {
-        combo.sort((a, b) => a.stationT - b.stationT);
+      for (const combo of stationCombos()) {
         for (let i = 1; i < combo.length; i++) {
           const a = combo[i - 1]!, b = combo[i]!;
           for (const [from, to] of gaps) {
@@ -2315,10 +2321,7 @@ export function verifyProvidedReinforcement(
     };
     const atT = (t: number): Tuple[] => {
       const out: Tuple[] = [];
-      const byCombo = new Map<number, Tuple[]>();
-      for (const x of allTuples) byCombo.set(x.comboId, [...(byCombo.get(x.comboId) ?? []), x]);
-      for (const ts of byCombo.values()) {
-        const sorted = [...ts].sort((p, q) => p.stationT - q.stationT);
+      for (const sorted of stationCombos()) {
         const hi = sorted.findIndex((x) => x.stationT >= t - 1e-9);
         if (hi < 0) continue;
         const b = sorted[hi]!, a = sorted[Math.max(0, hi - 1)]!;
@@ -2342,6 +2345,47 @@ export function verifyProvidedReinforcement(
     const bottomGroups = resolveBarGroups(reg?.bottomGroups, bottomLayers, bottomIntoStart, bottomIntoEnd);
     const topStartGroups = resolveBarGroups(reg?.topStartGroups, topStartLayers, true, topStartIntoSpan);
     const topEndGroups = resolveBarGroups(reg?.topEndGroups, topEndLayers, topEndIntoSpan, true);
+
+    const length = stationResult?.length ?? demands?.length ?? critSections?.L;
+    const groupLimit = (group: LongBarGroup, toward: 'Start' | 'End', origin: number) => {
+      if (group[`continue${toward}`] === false) return origin;
+      const extension = group[`extension${toward}`];
+      if (extension === undefined) return toward === 'Start' ? 0 : 1;
+      if (length === undefined || !(length > 0) || !(extension > 0)) return origin;
+      return toward === 'Start' ? origin - extension / length : origin + extension / length;
+    };
+    const startCoverage = topStartGroups.map(group => ({ group, to: groupLimit(group, 'End', tStartEnd) }));
+    const endCoverage = topEndGroups.map(group => ({ group, from: groupLimit(group, 'Start', tEndStart) }));
+    const bottomCoverage = bottomGroups.map(group => ({
+      group, from: groupLimit(group, 'Start', tStartEnd), to: groupLimit(group, 'End', tEndStart),
+    }));
+    const hasCutoff = (group: LongBarGroup, toward: 'Start' | 'End') =>
+      group[`continue${toward}`] === false || group[`extension${toward}`] !== undefined;
+    const curtailment = topStartGroups.some(g => hasCutoff(g, 'End'))
+      || topEndGroups.some(g => hasCutoff(g, 'Start'))
+      || bottomGroups.some(g => hasCutoff(g, 'Start') || hasCutoff(g, 'End'));
+    const drawnBars = drawing?.bars.map(bar => ({ ...bar, from: bar.from - 1e-9, to: bar.to + 1e-9 }));
+    const cutoffTs = (drawnBars ? drawnBars.flatMap(({ from, to }) => [from, to]) : [
+      ...startCoverage.map(({ to }) => to), ...endCoverage.map(({ from }) => from),
+      ...bottomCoverage.flatMap(({ from, to }) => [from, to]),
+    ]).filter(t => t > 0 && t < 1);
+    const longitudinalCuts: Tuple[] = [];
+    if (elementType === 'beam' && cutoffTs.length && allTuples.some(t => t.tq !== 0)) {
+      const breaks = [...new Set([0, 1, tStartEnd, tEndStart, ...cutoffTs])].sort((a, b) => a - b);
+      const positions = breaks.slice(1).flatMap((to, i) => {
+        const from = breaks[i]!;
+        const step = Math.min((to - from) / 3, Number.EPSILON);
+        return [from + step, to - step].filter(t => t > from && t < to);
+      });
+      for (const combo of stationCombos()) {
+        let hi = 1;
+        for (const t of positions) {
+          while (hi < combo.length && combo[hi]!.stationT < t) hi++;
+          const a = combo[hi - 1], b = combo[hi];
+          if (a && b && a.stationT < t && t < b.stationT) longitudinalCuts.push(a.interpolate(b, t));
+        }
+      }
+    }
 
     const beamL = stationResult?.length ?? critSections?.L ?? 6;
     const startRegLen = tStartEnd * beamL;
@@ -2841,18 +2885,6 @@ export function verifyProvidedReinforcement(
         };
         let tw: TorsionAtStation | undefined;
         let lw: (TorsionAtStation & { need: ReturnType<typeof longitudinalNeed> }) | undefined;
-        const length = stationResult?.length ?? demands?.length ?? critSections?.L;
-        const hasCutoff = (group: LongBarGroup, toward: 'Start' | 'End') =>
-          group[`continue${toward}`] === false || group[`extension${toward}`] !== undefined;
-        const reaches = (group: LongBarGroup, toward: 'Start' | 'End', distance: number) => {
-          if (distance <= 0) return true;
-          if (group[`continue${toward}`] === false) return false;
-          const extension = group[`extension${toward}`];
-          return extension === undefined || (length !== undefined && distance * length <= extension);
-        };
-        const curtailment = topStartGroups.some(g => hasCutoff(g, 'End'))
-          || topEndGroups.some(g => hasCutoff(g, 'Start'))
-          || bottomGroups.some(g => hasCutoff(g, 'Start') || hasCutoff(g, 'End'));
         const groupArea = (groups: LongBarGroup[]) => groups.reduce((sum, g) => sum + layersTotalArea(g.layers), 0);
         const outerRow = (groups: LongBarGroup[], reaching: LongBarGroup[]) => {
           const outer = groups.filter(g => g.layers.some(layer => layer.row === 0 && layer.count > 0));
@@ -2866,8 +2898,8 @@ export function verifyProvidedReinforcement(
         const drawnFace = (face: 'top' | 'bottom', t: Tuple) => {
           const rows = new Map<number, Map<number, number>>();
           let seats = 0;
-          for (const bar of drawing?.bars ?? []) {
-            if (bar.face !== face || t.stationT < bar.from - 1e-9 || t.stationT > bar.to + 1e-9) continue;
+          for (const bar of drawnBars ?? []) {
+            if (bar.face !== face || t.stationT < bar.from || t.stationT > bar.to) continue;
             const row = rows.get(bar.row) ?? new Map<number, number>();
             rows.set(bar.row, row);
             for (const slot of bar.slots) row.set(slot, Math.min(row.get(slot) ?? Infinity, bar.diameter));
@@ -2884,13 +2916,12 @@ export function verifyProvidedReinforcement(
           return { area, perimeter: { count: diameters.length, diameter: Math.min(...diameters), area: areaOf(diameters) } };
         };
         const longitudinalAt = ({ t, cage, r }: TorsionAtStation) => {
-          const fromStart = t.stationT - tStartEnd, fromEnd = tEndStart - t.stationT;
-          const start = topStartGroups.filter(g => reaches(g, 'End', fromStart));
-          const end = topEndGroups.filter(g => reaches(g, 'Start', fromEnd));
-          const bottom = bottomGroups.filter(g => reaches(g, 'Start', -fromStart) && reaches(g, 'End', -fromEnd));
+          const start = startCoverage.filter(({ to }) => t.stationT <= to).map(({ group }) => group);
+          const end = endCoverage.filter(({ from }) => t.stationT >= from).map(({ group }) => group);
+          const bottom = bottomCoverage.filter(({ from, to }) => t.stationT >= from && t.stationT <= to).map(({ group }) => group);
           const nominal = facesAt(t);
           const drawnTop = drawing && drawnFace('top', t), drawnBottom = drawing && drawnFace('bottom', t);
-          const atStart = fromStart <= 0, atEnd = fromEnd <= 0;
+          const atStart = t.stationT <= tStartEnd, atEnd = t.stationT >= tEndStart;
           const topArea = drawnTop?.area ?? (atStart ? groupArea(start) : atEnd ? groupArea(end) : Math.max(groupArea(start), groupArea(end)));
           if ((drawing || curtailment) && (nominal.top > topArea || nominal.bottom > (drawnBottom?.area ?? groupArea(bottom)))) {
             return 'diag.rcTorsionCutoff';
@@ -2912,6 +2943,10 @@ export function verifyProvidedReinforcement(
           return undefined;
         };
         let longitudinalRefusal: { t: Tuple; reason: string } | undefined;
+        const checkLongitudinalEvidence = (x: TorsionAtStation) => {
+          const reason = longitudinalAt(x);
+          if (reason && (!longitudinalRefusal || reason === 'diag.rcTorsionCutoff')) longitudinalRefusal = { t: x.t, reason };
+        };
         let evaluated = 0;
         for (const t of cuts) {
           if (gapTuples.has(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
@@ -2920,19 +2955,27 @@ export function verifyProvidedReinforcement(
           for (const x of active) {
             if (governsTorsion(x, tw)) tw = x;
             if (x.r.refusal || elementType === 'wall') continue;
-            const reason = longitudinalAt(x);
-            if (reason && (!longitudinalRefusal || reason === 'diag.rcTorsionCutoff')) longitudinalRefusal = { t, reason };
+            checkLongitudinalEvidence(x);
             if (longitudinalRefusal) continue;
             const need = longitudinalNeed(x);
             if (!lw || need.u > lw.need.u) lw = { ...x, need };
           }
         }
+        let interpolatedEvaluated = 0;
+        for (const t of longitudinalCuts) {
+          if ((t.stationT <= tStartEnd || t.stationT >= tEndStart) !== support
+            || torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
+          const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
+          if (active.length) interpolatedEvaluated++;
+          for (const x of active) checkLongitudinalEvidence(x);
+        }
         if (tw) pushTorsion(tw, ss.label.replace('Shear', 'Torsion'), ss.tuples.length, ss.range);
         if (tw && elementType === 'wall') longitudinalRefusal = { t: tw.t, reason: 'diag.rcTorsionPerimeter' };
         if (longitudinalRefusal) {
+          checkedAxes.add('T');
           pushStrength({
             category: ss.label.replace('Shear', 'Torsion Al'), demandCategory: null,
-            utilization: Infinity, provided: 0, unit: 'cm²', method: 'area', tuplesChecked: evaluated, regionRange: ss.range,
+            utilization: Infinity, provided: 0, unit: 'cm²', method: 'area', tuplesChecked: evaluated + interpolatedEvaluated, regionRange: ss.range,
             description: longitudinalRefusal.reason,
             comboName: longitudinalRefusal.t.comboName, stationX: longitudinalRefusal.t.stationX, limiting: 'unsupportedCheck',
           });

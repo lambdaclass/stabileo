@@ -249,8 +249,7 @@ it('#2310 drawn perimeter verification uses the corner seats occupied at the cut
   }
 });
 
-const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
-issue2310('known wrong result: #2310 longitudinal torsion detects a corner gap between samples with continuous stirrups', () => {
+it('#2310 longitudinal torsion detects a corner gap between samples with continuous stirrups', () => {
   const L = longSpan.L;
   const geometry = { ...beamConcrete, h: 0.37 };
   const [bottom, top] = drawnMainBars;

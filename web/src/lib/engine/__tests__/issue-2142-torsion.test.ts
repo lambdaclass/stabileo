@@ -8,6 +8,7 @@ import { verifyProvidedReinforcement } from '../station-design-forces';
 import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import { autoVerifyFromResults } from '../auto-verify';
 import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
+import type { ConcurrentSectionDemand } from '../concurrent-demand';
 import type { SolverInput } from '../types';
 import type { SolverInput3D } from '../types-3d';
 
@@ -18,6 +19,15 @@ const selectedBarDiameter = (member: 'beam' | 'column' | 'wall') => member === '
 const torsionFace = secondaryShearFace(p, resolveCage(p, { diameter: p.stirrupDia, legs: 4, spacing: 0.05 }),
   { kind: 'beam-or-wall', diameters: [16] });
 const fixed = { shear: { spacing: 0.05, legs: 4 }, torsion: { AlProv: 100 } };
+const sectionOnly = (demand: ConcurrentSectionDemand, edition: '2005' | '2025', diameter: number) =>
+  checkTorsion(p, demand, edition, secondaryShearFace(p,
+    resolveCage(p, { ...fixed.shear, diameter: p.stirrupDia }), { kind: 'beam-or-wall', diameters: [diameter] }));
+
+function expectRefusal(t: ReturnType<typeof checkTorsion>, refusal: string, phiTn = 0) {
+  expect(t).toMatchObject({ refusal, status: 'fail', ratio: Infinity });
+  expect(t.phiTn).toBeCloseTo(phiTn, 11);
+}
+
 const demand = (primary: number, secondary: number, torque: number, axis: 'My' | 'Mz' = 'My') => declaredTestDemands([
   { comboId: 1, comboName: 'concurrent', forces: { t: 0, x: 0, n: 0,
     my: axis === 'My' ? 20 : 0, mz: axis === 'Mz' ? 20 : 0,
@@ -66,13 +76,26 @@ for (const edition of ['2005', '2025'] as const) {
           if (v) expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
           const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
-          expect(t.phiTn).toBeCloseTo(expected.phiTn, 11);
-          expect(t.ratio).toBeCloseTo(expected.ratio, 12);
+          const fixedWall = elementType === 'wall' && (entry === 'direct' || entry === 'prepared');
+          const depthRefusal = elementType === 'beam' && primary !== 0;
+          const concreteRefusal = factor < 1 && (edition === '2005' || (elementType === 'beam' && entry === 'concurrent'));
+          const refusal = entry === 'torsion' ? undefined
+            : depthRefusal ? 'diag.rcTorsionDepth'
+              : concreteRefusal ? 'diag.rcTorsionConcrete'
+                : fixedWall ? 'diag.rcTorsionPerimeter' : undefined;
+          if (refusal) {
+            expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? expected.phiTn : 0);
+            expect(v?.overallStatus).toBe('fail');
+          }
+          const evaluated = refusal ? sectionOnly(input.demand, edition, diameter) : t;
+          expect(evaluated.refusal).toBeUndefined();
+          expect(evaluated.phiTn).toBeCloseTo(expected.phiTn, 11);
+          expect(evaluated.ratio).toBeCloseTo(expected.ratio, 12);
           if (factor > 1) {
-            expect(t.status).toBe('fail');
+            expect(evaluated.status).toBe('fail');
             if (v) expect(v.overallStatus).toBe('fail');
           } else {
-            expect(t.status).not.toBe('fail');
+            expect(evaluated.status).not.toBe('fail');
           }
         });
       }
@@ -83,10 +106,18 @@ for (const edition of ['2005', '2025'] as const) {
         if (entry !== 'torsion') expect(v?.torsion).toBeDefined();
         const t = entry === 'torsion' ? checkTorsion(p, input.demand, edition, torsionFace) : v!.torsion!;
         const { steps: _steps, status: _status, ...baseline } = main.results[edition].control.torsion;
-        expect(t).toMatchObject(baseline);
-        expect(t.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
-        expect(t.ratio).toBeCloseTo(reference(100, 0, 30).ratio, 12);
-        expect(t.status).not.toBe('fail');
+        const refusal = entry !== 'torsion' && elementType === 'beam' ? 'diag.rcTorsionDepth'
+          : (entry === 'direct' || entry === 'prepared') && elementType === 'wall' ? 'diag.rcTorsionPerimeter' : undefined;
+        if (refusal) {
+          expectRefusal(t, refusal, refusal === 'diag.rcTorsionPerimeter' ? baseline.phiTn : 0);
+          expect(v?.overallStatus).toBe('fail');
+        }
+        const evaluated = refusal ? sectionOnly(input.demand, edition, 16) : t;
+        expect(evaluated.refusal).toBeUndefined();
+        expect(evaluated).toMatchObject(baseline);
+        expect(evaluated.phiTn).toBeCloseTo(reference(100, 0, 30).phiTn, 11);
+        expect(evaluated.ratio).toBeCloseTo(reference(100, 0, 30).ratio, 12);
+        expect(evaluated.status).not.toBe('fail');
       });
     }
   }
@@ -174,10 +205,18 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) {
       expect(d.Tu).toBeCloseTo(57, 10);
       for (const elementType of ['beam', 'column', 'wall'] as const) {
         const input = { ...p, elementId: 1, elementType, demand: d };
-        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), verifyConcurrentElement(ds.map(source => ({ ...p, elementId: 1, elementType, demand: source.section('My') })))]) {
+        const concurrent = verifyConcurrentElement(ds.map(source => ({ ...p, elementId: 1, elementType, demand: source.section('My') })));
+        for (const v of [verifyElement(input, fixed), prepareElementVerification(input)(fixed), concurrent]) {
           const diameter = selectedBarDiameter(elementType);
           expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
-          expect(v.torsion!.ratio).toBeCloseTo(reference(d.Vu, d.VuSecondary, d.Tu, diameter).ratio, 12);
+          const expected = reference(d.Vu, d.VuSecondary, d.Tu, diameter);
+          if (elementType !== 'column' && v !== concurrent) {
+            expectRefusal(v.torsion!, 'diag.rcTorsionPerimeter', expected.phiTn);
+            expect(sectionOnly(d, '2025', diameter).ratio).toBeCloseTo(expected.ratio, 12);
+          } else {
+            expect(v.torsion!.refusal).toBeUndefined();
+            expect(v.torsion!.ratio).toBeCloseTo(expected.ratio, 12);
+          }
           expect(v.torsion!.status).toBe('fail');
           expect(v.overallStatus).toBe('fail');
         }
@@ -202,7 +241,16 @@ for (const nonlinear of [false, true]) for (const compact of [false, true]) for 
       design: () => runCirsocDesign(raw, m, complete.demands, new Map(), null).concrete[0]! }[entry]();
     expect(v.flexureAxis).toBe('My');
     expect(v.flexure.barDia).toBe(selectedBarDiameter('beam'));
-    expect(v.torsion!.ratio).toBeCloseTo(reference(0, 100, 57, selectedBarDiameter('beam')).ratio, 12);
+    const diameter = selectedBarDiameter('beam');
+    const expected = reference(0, 100, 57, diameter);
+    if (nonlinear) {
+      expect(v.torsion!.refusal).toBeUndefined();
+      expect(v.torsion!.ratio).toBeCloseTo(expected.ratio, 12);
+    } else {
+      expectRefusal(v.torsion!, 'diag.rcTorsionDepth');
+      expect(sectionOnly(complete.demands.get(1)!.concurrent![0]!.section('My'), '2025', diameter).ratio)
+        .toBeCloseTo(expected.ratio, 12);
+    }
     expect(v.torsion!.status).toBe('fail');
     expect(v.overallStatus).toBe('fail');
   });

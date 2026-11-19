@@ -120,7 +120,7 @@ describe('designMember — outcomes and budgets', () => {
     expect(o.certificate!.rebarHash).toBe(rebarHash(o.accepted));
     // The verifier id now carries the edition. A v2 certificate did not record which
     // edition produced it, so v2 and v2.<edition> results are not interchangeable.
-    expect(o.certificate!.verifierId).toBe('cirsoc201.provided.v2.2025');
+    expect(o.certificate!.verifierId).toBe('cirsoc201.provided.v3.2025');
     expect(o.certificate!.worstUtilization).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
     expect(o.certificate!.designTarget).toBe(DESIGN_TARGET_UTILIZATION);
     expect(o.certificate!.checkedAxes.length).toBeGreaterThan(0);

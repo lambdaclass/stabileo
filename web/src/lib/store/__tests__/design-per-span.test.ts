@@ -48,7 +48,7 @@ const grid: StructuralGrid = {
 };
 
 /** The building, solved: slabs meshed at `mesh` m (none: no slab, beams loaded along their length). */
-function building(mesh: number | null, o: { flip?: (ids: number[]) => number[] } = {}) {
+function building(mesh: number | null, o: { flip?: (ids: number[]) => number[]; prescribedZeroTorque?: boolean } = {}) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); detailingStore.clear();
   designRunStore.resetMarks();
   uiStore.analysisMode = 'pro';
@@ -78,7 +78,12 @@ function building(mesh: number | null, o: { flip?: (ids: number[]) => number[] }
   if (flipped.length) expect(flipMembers(flipped).flipped).toEqual(flipped);
   const combo = modelStore.solveCombinations3D(true, false, true);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
-  resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  const perCombo = o.prescribedZeroTorque
+    ? new Map([...combo.perCombo].map(([id, res]) => [id, {
+      ...res, elementForces: res.elementForces.map(force => ({ ...force, mxStart: 0, mxEnd: 0 })),
+    }]))
+    : combo.perCombo;
+  resultsStore.setCombinationResults3D(combo.perCase, perCombo, combo.envelope);
   return { flipped };
 }
 
@@ -136,8 +141,8 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     }
   });
 
-  it('the IFC has one beam per span, not one per mesh piece', async () => {
-    building(1);
+  it('the IFC has one beam per span with prescribed zero torque', async () => {
+    building(1, { prescribedZeroTorque: true });
     designRunStore.designFamilies(['column', 'beam']);
     const calls = [
       vi.spyOn(autoVerification, 'autoVerifyFromResults'),
@@ -163,8 +168,8 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect((ifc.match(/IFCCOLUMN\(/g) ?? []).length).toBe(12);
   });
 
-  it('78 pieces in 14 spans, every one verified, and the detailing covers 12 columns and 78 pieces', () => {
-    building(1);
+  it('prescribed zero torque lets all 14 spans verify and detail all 78 pieces', () => {
+    building(1, { prescribedZeroTorque: true });
     designRunStore.designFamilies(['column', 'beam']);
     const beams = beamIds();
     expect(beams).toHaveLength(78);
@@ -265,7 +270,20 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
     expect(got.length).toBe(ref.length);
     got.forEach((combo, k) => combo.forEach((st, i) => st.forEach((v, j) => expect(v).toBeCloseTo(ref[k]![i]![j]!, 6))));
     designRunStore.designFamilies(['column', 'beam']);
-    expect(beamIds().filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
+    const verified = [44, 45, 46, 47, 48, 83, 84, 85, 86, 87];
+    expect(beamIds().filter(id => verificationStore.outcomeFor(id)?.outcome === 'VERIFIED')).toEqual(verified);
+    const owners = new Set((modelStore.model.detailing?.assemblies ?? []).flatMap(a => a.bars.flatMap(b => b.ownerElementIds)));
+    for (const id of beamIds().filter(id => !verified.includes(id))) {
+      const outcome = verificationStore.outcomeFor(id);
+      expect(outcome, `piece ${id}`).toMatchObject({
+        outcome: 'SEARCH_EXHAUSTED', limiting: ['unsupportedCheck'],
+      });
+      expect(outcome?.provisional?.verdict.checks, `piece ${id}`).toContainEqual(expect.objectContaining({
+        status: 'fail', description: 'diag.rcTorsionPerimeter',
+      }));
+      expect(outcome?.certificate, `piece ${id}`).toBeUndefined();
+      expect(owners.has(id), `piece ${id} has beam-owned steel`).toBe(false);
+    }
   }, 120_000);
 
   it('a beam that is one element keeps its own context, exactly as before', () => {

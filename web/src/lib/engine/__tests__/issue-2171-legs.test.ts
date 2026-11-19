@@ -1099,8 +1099,7 @@ it('#2300 longitudinal torsion refuses a top layout that varies with a cutoff', 
   }
 });
 
-const issue2300 = process.env.RUN_KNOWN_WRONG === '2300' ? it : it.skip;
-issue2300('known wrong result: #2300 group cutoffs between sampled support stations block longitudinal torsion', () => {
+it('#2300 group cutoffs between sampled support stations block longitudinal torsion', () => {
   const L = 4;
   const geometry = { ...section, h: 0.37 };
   const extension = 0.6;
@@ -1126,7 +1125,6 @@ issue2300('known wrong result: #2300 group cutoffs between sampled support stati
   }
 });
 
-const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
 for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
   const checkSolvedGap = () => {
     const L = 4;
@@ -1185,6 +1183,6 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
       }
     }
   };
-  if (spatial) issue2310(`known wrong result: #2310 solved beam corner gap (nonlinear=${nonlinear})`, checkSolvedGap);
+  if (spatial) it(`#2310 solved beam corner gap (nonlinear=${nonlinear})`, checkSolvedGap);
   else it(`planar corner gap with zero torsion (nonlinear=${nonlinear})`, checkSolvedGap);
 }

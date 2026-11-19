@@ -13,12 +13,12 @@
     "tr": "Betonda kesme, burulma ve deprem etriyelerinin doğrulama retleri"
   },
   "explanation": {
-    "en": "Some CIRSOC 201 shear, torsion and seismic hoop checks now block verification. Re-run the affected concrete member checks and review the refusal messages.",
-    "es": "Algunos controles de corte, torsión y estribos sísmicos del CIRSOC 201 ahora bloquean la verificación. Volvé a verificar los elementos de hormigón afectados y revisá los motivos del rechazo.",
-    "pt": "Algumas verificações de cisalhamento, torção e estribos sísmicos da CIRSOC 201 agora bloqueiam a aprovação. Refaça as verificações dos elementos de concreto afetados e reveja os motivos da recusa.",
-    "de": "Einige Nachweise für Querkraft, Torsion und Erdbebenbügel nach CIRSOC 201 verhindern nun eine Freigabe. Prüfen Sie die betroffenen Betonbauteile erneut und beachten Sie die angegebenen Gründe.",
-    "fr": "Certains contrôles du cisaillement, de la torsion et des cadres sismiques selon le CIRSOC 201 bloquent désormais la vérification. Recalculez les éléments en béton concernés et consultez les motifs de refus.",
-    "tr": "CIRSOC 201 kapsamındaki bazı kesme, burulma ve deprem etriyesi kontrolleri artık doğrulamayı engelliyor. Etkilenen beton eleman kontrollerini yeniden çalıştırın ve ret gerekçelerini inceleyin."
+    "en": "Some CIRSOC 201 shear, torsion and seismic hoop checks now block verification. The longitudinal torsion check also covers bar cutoffs between sampled sections. Re-run the affected concrete member checks and review the refusal messages.",
+    "es": "Algunos controles de corte, torsión y estribos sísmicos del CIRSOC 201 ahora bloquean la verificación. El control de torsión longitudinal también revisa los cortes de barras entre secciones muestreadas. Volvé a verificar los elementos de hormigón afectados y revisá los motivos del rechazo.",
+    "pt": "Algumas verificações de cisalhamento, torção e estribos sísmicos da CIRSOC 201 agora bloqueiam a aprovação. A verificação da armadura longitudinal de torção também avalia as interrupções de barras entre as seções amostradas. Refaça as verificações dos elementos de concreto afetados e reveja os motivos da recusa.",
+    "de": "Einige Nachweise für Querkraft, Torsion und Erdbebenbügel nach CIRSOC 201 verhindern nun eine Freigabe. Der Längsbewehrungsnachweis für Torsion erfasst auch Stabenden zwischen den ausgewerteten Schnitten. Prüfen Sie die betroffenen Betonbauteile erneut und beachten Sie die angegebenen Gründe.",
+    "fr": "Certains contrôles du cisaillement, de la torsion et des cadres sismiques selon le CIRSOC 201 bloquent désormais la vérification. Le contrôle des armatures longitudinales de torsion couvre aussi les arrêts de barres entre les sections échantillonnées. Recalculez les éléments en béton concernés et consultez les motifs de refus.",
+    "tr": "CIRSOC 201 kapsamındaki bazı kesme, burulma ve deprem etriyesi kontrolleri artık doğrulamayı engelliyor. Boyuna burulma donatısı kontrolü, örneklenen kesitler arasındaki donatı sonlanmalarını da kapsar. Etkilenen beton eleman kontrollerini yeniden çalıştırın ve ret gerekçelerini inceleyin."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-rc-torsion-shear-containment.md",

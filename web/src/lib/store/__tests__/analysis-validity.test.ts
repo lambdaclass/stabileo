@@ -160,6 +160,12 @@ function read(doc: DocumentModel): Readings {
 describe('the span building on 40 × 40 columns: a point joint on every mesh, and every reader says which claim is withheld', () => {
   const MESHES = [6, 2, 1, 0.5] as const;
   const r = new Map<number, Readings>();
+  const reportCounts = {
+    6: { pieces: 26, certificates: 26, issues: 26, share: '100' },
+    2: { pieces: 54, certificates: 18, issues: 14, share: '102,3' },
+    1: { pieces: 90, certificates: 22, issues: 14, share: '58,3' },
+    0.5: { pieces: 168, certificates: 32, issues: 14, share: '14,9' },
+  };
   const paths = new Map<number, ReturnType<typeof currentFloorPaths>>();
   let before: Readings | null = null;
   const progress: boolean[] = [];
@@ -204,15 +210,15 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       // The memoria and the certificates list a span's pieces; the desk (`member-names.ts`) and the
       // IFC one member per span, 26; the memoria's 12 joints read the beams' end forces and are
       // held too.
-      const pieces = x.certificates;
+      const { pieces, certificates, issues } = reportCounts[m];
       expect(x.desk, `mesh ${m}: desk`).toEqual({ ok: 0, d124: 26 });
       expect(x.memoria, `mesh ${m}: memoria`).toBe(pieces + 12);
       expect(x.workbookOk, `mesh ${m}: workbook`).toBe(0);
       expect(x.ifc, `mesh ${m}: IFC`).toEqual({ joint: 26, satisfies: 0 });
-      expect(x.openIssues, `mesh ${m}: open issues`).toBe(26);
+      expect(x.openIssues, `mesh ${m}: open issues`).toBe(issues);
+      expect(x.certificates, `mesh ${m}: certificates`).toBe(certificates);
       expect(x.constructible, `mesh ${m}: assemblies`).toBe(0);
     }
-    expect(MESHES.map((m) => r.get(m)!.certificates)).toEqual([26, 54, 90, 168]);
   });
 
   it('(a) the share is measured on the load the slab carries: direct + jumps is the slab\'s applied load in its combination', () => {
@@ -229,7 +235,11 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
       const x = r.get(m)!;
       expect(x.readiness, `mesh ${m}`).toBe('REVIEW_DRAFT');
       expect(x.summaryKey).toBe('detailing.document.slabColumnPointJoint');
-      expect(x.banner).toMatch(/^BORRADOR DE REVISIÓN — UNIÓN LOSA-COLUMNA EN UN SOLO NUDO EN 26 MIEMBRO\(S\): REPARTO DE LA CARGA DE LA LOSA ENTRE VIGAS Y COLUMNAS NO ESTABLECIDO \(CON ESTA MALLA VA DIRECTO A LAS COLUMNAS EL [\d,]+ %\) — /);
+      const { issues, share } = reportCounts[m];
+      expect(x.banner.startsWith(
+        `BORRADOR DE REVISIÓN — UNIÓN LOSA-COLUMNA EN UN SOLO NUDO EN ${issues} MIEMBRO(S): `
+        + `REPARTO DE LA CARGA DE LA LOSA ENTRE VIGAS Y COLUMNAS NO ESTABLECIDO (CON ESTA MALLA VA DIRECTO A LAS COLUMNAS EL ${share} %) — `,
+      )).toBe(true);
       expect(x.banner).toMatch(/NO APTO PARA CONSTRUCCIÓN/);
       expect(x.banner).not.toMatch(/VALIDAD|PUEDEN TOMAR/);
     }

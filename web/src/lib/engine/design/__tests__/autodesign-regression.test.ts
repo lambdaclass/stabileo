@@ -123,20 +123,25 @@ describe('flagship 408-member RC frame designs completely', () => {
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
+    const otherLimits = new Map([[173, 'anchorage'], [192, 'flexure'], [196, 'anchorage']]);
     let worst = 0;
     let refused = 0;
-    let congested = 0;
+    let exhausted = 0;
     for (const [id, o] of s.outcomes) {
       if (o.outcome === 'SEARCH_EXHAUSTED') {
-        // Refused because no layout of its bars the search enumerates passes the columns' bars
-        // at its joints: never a certificate, the reason stated, and no claim on the section.
         expect(o.elementType, `element ${id}`).toBe('beam');
-        expect(o.limiting, `element ${id}`).toContain('congestion');
+        const expectedLimit = otherLimits.get(id);
+        if (expectedLimit) {
+          expect(o.limiting, `element ${id}`).toEqual([expectedLimit]);
+          otherLimits.delete(id);
+        } else {
+          expect(o.limiting, `element ${id}`).toContain('congestion');
+        }
         expect(o.insufficiency, `element ${id} proof`).toBeUndefined();
         expect(o.exhaustion?.scope, `element ${id} exhaustion`).toBe('implementedAlternatives');
         expect(o.certificate, `element ${id} certificate`).toBeUndefined();
         expect(o.accepted, `element ${id} accepted rebar`).toBeUndefined();
-        congested++;
+        exhausted++;
         continue;
       }
       if (o.outcome !== 'VERIFIED') {
@@ -164,7 +169,8 @@ describe('flagship 408-member RC frame designs completely', () => {
       worst = Math.max(worst, o.certificate!.worstUtilization);
     }
     expect(refused).toBe(13);
-    expect(congested).toBe(27);
+    expect(exhausted).toBe(27);
+    expect(otherLimits.size).toBe(0);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 
