@@ -2,6 +2,7 @@
   import { authStore, initialsOf } from '../../lib/store/auth.svelte';
   import { t } from '../../lib/i18n';
   import AuthDialog from './AuthDialog.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import ProfileDialog from './ProfileDialog.svelte';
 
   let authOpen = $state(false);
@@ -45,6 +46,7 @@
     <span class="acc-name">{account.name}</span>
   </button>
 {:else}
+  {#if accountGate.required}<span class="acc-hint" data-testid="account-signed-out-hint">{t('account.notice.signedOut')}</span>{/if}
   <button
     type="button"
     class="acc-entry"
@@ -107,10 +109,23 @@
 
   .acc-glyph { flex: none; }
 
+  .acc-hint {
+    max-width: 16rem;
+    margin-right: 0.45rem;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    color: var(--st-text-2);
+    text-align: right;
+  }
+
   .acc-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  @media (max-width: 1100px) {
+    .acc-hint { display: none; }
   }
 
   @media (max-width: 768px) {
