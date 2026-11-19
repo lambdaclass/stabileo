@@ -1,14 +1,14 @@
 /**
  * A wall's drawings to scale from its detail (`wallDetail`, as the workspace draws it): the
  * elevation of one face with its verticals, horizontals, edge U-bars, boundary ties and cross
- * ties; the horizontal section with every bar, the U-bars or hooks closing the edges and the
+ * ties, and over a footing the dowels lapped with its verticals; the horizontal section with every bar, the U-bars or hooks closing the edges and the
  * boundary hoops; length, height and thickness dimensioned; the notes; and the bar schedule.
  *
  * Model millimetres: x along the wall from its left end, y up (elevation) or across (section).
  */
 import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
-import { wallDetail, wallLevels } from '../wall-detail';
+import { firstLevel, wallDetail, wallLevels } from '../wall-detail';
 import { wallLabel, type WallRow } from '../wall-row';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
@@ -16,7 +16,7 @@ import type { SheetCode } from '../types';
 import { HORM, arm, cm, dim, framed, label, pt, rect, seg, type ArmLayer, type PlanCtx } from './draw';
 import { scheduleTables } from './schedule-table';
 
-const K = 1000;
+const K = 1000, FOOT = 0.35, FOOT_OUT = 300;
 
 export interface WallPlanOptions extends PlanCtx { code: SheetCode; group: string }
 
@@ -29,18 +29,32 @@ export function wallElevationPrimitives(row: WallRow, o: WallPlanOptions): Primi
   for (const v of face) ps.push(seg(arm(v.boundary ? 'BORDE' : 'VERT', v.dia), pt(v.x * K, 0), pt(v.x * K, H + lapOf(v.dia)), v.dia));
   const first = face.reduce<(typeof face)[number] | undefined>((w, v) => (!w || v.x < w.x ? v : w), undefined);
   if (first && lapOf(first.dia) > 0) ps.push(dim(pt(first.x * K, H), pt(first.x * K, H + lapOf(first.dia)), -3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, lapOf(first.dia) / K) })));
-  const hd = d.horizontals.dia, levels = wallLevels(row.height, d.horizontals.spacing);
+  if (row.onFooting) {
+    const foot = FOOT * K;
+    ps.push(rect(HORM, -FOOT_OUT, -foot, L + FOOT_OUT, 0));
+    for (const v of face) {
+      const lap = (row.vLaps?.find((x) => x.dia === v.dia)?.lap ?? 0) * K, x = v.x * K + v.dia;
+      ps.push(seg(arm('LONG', v.dia), pt(x, -foot + cov), pt(x, Math.min(H, lap)), v.dia));
+    }
+    const f0 = face[0];
+    if (f0) {
+      const lap = (row.vLaps?.find((x) => x.dia === f0.dia)?.lap ?? 0) * K;
+      ps.push(dim(pt(f0.x * K, 0), pt(f0.x * K, Math.min(H, lap)), 3, o.tr('rcSheets.elev.lapLength', { l: cm(o.fmt, lap / K) })));
+      ps.push(label(pt(L / 2, -foot / 2), o.tr('rcSheets.elev.footDowels', { off: o.fmt(f0.dia / 10, 1) }), 2.2));
+    }
+  }
+  const hd = d.horizontals.dia, levels = wallLevels(row.height, d.horizontals.spacing, Infinity, firstLevel(row, d.horizontals.spacing));
   for (const y of levels) ps.push(seg(arm('HOR', hd), pt(cov, y * K), pt(L - cov, y * K), hd));
   if (d.ends.kind === 'ubar') {
     const u = Math.min(d.ends.lap, d.length / 2) * K, lift = 0.6 * s;
     for (const y of levels) ps.push(seg(arm('HOR', hd), pt(cov, y * K + lift), pt(cov + u, y * K + lift), hd), seg(arm('HOR', hd), pt(L - cov, y * K + lift), pt(L - cov - u, y * K + lift), hd));
   }
   const t = d.boundary?.ties;
-  if (t && d.boundary) for (const y of wallLevels(row.height, t.spacing)) {
+  if (t && d.boundary) for (const y of wallLevels(row.height, t.spacing, Infinity, firstLevel(row, t.spacing))) {
     const bl = d.boundary.length * K;
     ps.push(seg(arm('EST', t.dia), pt(cov, y * K), pt(bl, y * K), t.dia), seg(arm('EST', t.dia), pt(L - bl, y * K), pt(L - cov, y * K), t.dia));
   }
-  if (d.crossTies) for (const y of wallLevels(row.height, d.crossTies.up)) for (const x of wallLevels(d.length, d.crossTies.along)) {
+  if (d.crossTies) for (const y of wallLevels(row.height, d.crossTies.up, Infinity, firstLevel(row, d.crossTies.up))) for (const x of wallLevels(d.length, d.crossTies.along)) {
     ps.push({ kind: 'circle', layer: arm('EST', d.crossTies.dia), c: pt(x * K, y * K), r: 0.8 * s, dia: d.crossTies.dia });
   }
   for (const c of d.columns) {

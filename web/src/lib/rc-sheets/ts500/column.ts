@@ -232,6 +232,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: { length: splice, tension } } : {}),
+    ...(stack.onFooting ? { onFooting: true as const } : {}),
     ...(step ? { step } : {}),
     tieFloor: tieFloorOf(c),
     ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),

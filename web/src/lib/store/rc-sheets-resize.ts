@@ -21,6 +21,9 @@ import type { ColumnRow } from '../rc-sheets/column-row';
 import type { WallRow } from '../rc-sheets/wall-row';
 import type { LineLayout } from '../rc-sheets/beam-line';
 import type { CheckLine } from '../rc-sheets/types';
+import type { FootingRow } from '../rc-sheets/footing-types';
+import { onlyOverlaps } from '../rc-sheets/footing-overlaps';
+import type { Redesign } from './rc-sheets.svelte';
 
 const sheetCriteria = (): Criteria => criteriaOf(designData().designOptions?.criteria);
 
@@ -136,6 +139,7 @@ export function resizeHints(row: SheetRow): ResizeHint[] {
         { what: 'punchDrop', direction: 'grow', from: [0, 0], to: dropPanel(row.key, d) },
       ];
     }
+    case 'footing': return [];
   }
 }
 
@@ -206,6 +210,7 @@ export function rowTargets(row: SheetRow | LineLayout): GotoTarget[] {
   if ('spanAdopted' in row) return ['members'];
   if (row.family === 'beam' || row.family === 'column') return ['members'];
   if (row.family === 'punching') return ['plates', 'members'];
+  if (row.family === 'footing') return [];
   return ['plates'];
 }
 
@@ -263,13 +268,22 @@ export function goToRow(row: SheetRow | LineLayout, target: GotoTarget): boolean
 /** A row whose own proposal does not verify: with its section and concrete the sheets find no arrangement. Bars set by hand are the engineer's, not a proposal. */
 export function noArrangement(row: SheetRow | LineLayout, spans: readonly BeamRow[] = []): boolean {
   if ('spanAdopted' in row) return !row.isAdopted && lineRowStatus(row, spans) === 'fail';
-  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted);
+  return row.status === 'fail' && (row.family === 'punching' || !row.isAdopted) && !(row.family === 'footing' && onlyOverlaps(row));
 }
 
 /** An alternative a row verifies with: a section (`what` and its dimensions, m) or a stronger concrete (f'c, MPa, and its class's name). */
 export type Alternative =
   | { kind: 'section'; what: ResizeWhat | 'beam'; from: number[]; to: number[] }
-  | { kind: 'concrete'; from: number; to: number; name: string };
+  | { kind: 'concrete'; from: number; to: number; name: string }
+  | { kind: 'footing'; what: FootingAlternative };
+
+/**
+ * What a footing with no proposal that verifies is offered: another balance of its offset, tried
+ * by designing it again with it; and, where none does or the footings overlap even combined, what
+ * is left to do outside the sheets: a mat or deep foundation, or a soil study for a higher
+ * allowable pressure than the one presumed.
+ */
+export type FootingAlternative = 'strap' | 'tie' | 'eccentric' | 'mat' | 'soil';
 
 /**
  * The beam sections a row is tried at, smallest depth first, by the Stabileo criteria (FIUBA §3.1):
@@ -311,6 +325,7 @@ export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Altern
   const redesign = redesignerOf(row.key);
   if (!redesign) return [];
   const out: Alternative[] = [];
+  if (row.family === 'footing') return footingAlternatives(row, redesign);
   if (row.family === 'beam') {
     const d = row.demand;
     const to = beamSections(d.b, d.h).find(([b, h]) => passes(redesign({ ...d, b, h } as never)));
@@ -321,6 +336,18 @@ export function alternatives(row: SheetRow, fc = concreteOfRow(row.key)): Altern
   const demand = row.demand;
   const stronger = fc !== undefined ? strongerConcretes(fc).find((k) => passes(redesign(demand as never, { fc: k.fc }))) : undefined;
   if (stronger && fc !== undefined) out.push({ kind: 'concrete', from: fc, to: stronger.fc, name: stronger.name });
+  return out;
+}
+
+function footingAlternatives(row: FootingRow, redesign: Redesign): Alternative[] {
+  const out: Alternative[] = [];
+  const d = row.demand, e = d.edge;
+  if (e) for (const balance of ['strap', 'tie', 'eccentric'] as const) {
+    if (balance === e.balance) continue;
+    if (passes(redesign({ ...d, edge: { ...e, balance } } as never))) out.push({ kind: 'footing', what: balance });
+  }
+  if (row.verifications.some((v) => v.label === 'rcSheets.v.footOverlap' && !v.ok)) out.push({ kind: 'footing', what: 'mat' });
+  if (!out.length) out.push({ kind: 'footing', what: d.soil?.presumed ? 'soil' : 'mat' });
   return out;
 }
 

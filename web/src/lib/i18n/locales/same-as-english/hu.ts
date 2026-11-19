@@ -98,6 +98,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   "design.batch.spacing",
   "design.batch.spacingShort",
   "designData.minimum",
+  "designData.presumedBearingSummary",
   "desk.jointLine",
   "desk.resized.row",
   "despiece.basisGlobal",

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { buildSheetRows, setAdopted, type SheetRows } from '../rc-sheets.svelte';
 import { modelFrames, pieceOptions, sheetBars3d, shownBars } from '../rc-rebar-3d.svelte';
+import { setFoundationSystem } from '../rc-sheets-footings';
 import { bentPoints, gaps, local, mismatches, pieceLengths, solvedExample } from './rc-rebar-3d-fixture';
 import type { Rebar3d, V3 } from '../../rc-sheets/rebar-3d';
 import type { ColumnAdopted, SlabAdopted } from '../../rc-sheets/types';
@@ -83,20 +84,41 @@ function wallsInside(rows: SheetRows, bars: readonly Rebar3d[]): number {
   return checked;
 }
 
+function footingsInside(rows: SheetRows, bars: readonly Rebar3d[]): number {
+  const frames = modelFrames(rows);
+  let checked = 0;
+  for (const r of rows.footing) {
+    const f = frames.footing(r)!, a = r.adopted, c = r.cover;
+    for (const b of of(bars, r.key).filter((x) => x.family === 'footing' && x.kind !== 'dowel' && x.tone !== 'stirrup' && x.kind.startsWith('footing'))) {
+      for (const p of points(b).map((q) => local(f, q))) {
+        expect(Math.abs(p[0]), r.name).toBeLessThanOrEqual(a.B / 2 - c + TOL);
+        expect(Math.abs(p[1]), r.name).toBeLessThanOrEqual(a.L / 2 - c + TOL);
+        expect(p[2], r.name).toBeGreaterThanOrEqual(c - TOL);
+        expect(p[2], r.name).toBeLessThanOrEqual(a.h - c + TOL);
+        checked++;
+      }
+    }
+  }
+  return checked;
+}
+
 const topLeg = (b: Rebar3d): [V3, V3] => { const l = b.segments.at(-1)!; return [l.at(-2)!, l.at(-1)!]; };
 const bottomOf = (b: Rebar3d): V3 => b.segments[0]![0]!;
 
 /**
- * Every storey lapped from below gets, beside each of its bars, a bar from below whose last leg
- * stands straight beside it, in contact a bar's diameter in, over the storey's whole lap: no gap
- * between them, and no two bars in one place.
+ * Every storey lapped from below (the footing's dowels at the bottom one) gets, beside each of its
+ * bars, a bar from below whose last leg stands straight beside it, in contact a bar's diameter in,
+ * over the storey's whole lap: no gap between them, and no two bars in one place.
  */
-function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): number {
+function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): { storeys: number; footings: number } {
   const frames = modelFrames(rows);
-  let storeys = 0;
+  let storeys = 0, footings = 0;
   for (const r of rows.column.filter((c) => c.lap && !c.pier && !c.step?.dowels)) {
     const f = frames.column(r)!, [, g, k] = r.key.split(':');
-    const from = of(bars, `column:${g}:${Number(k) - 1}`).filter((b) => b.kind === 'cranked');
+    const footing = rows.footing.find((x) => (x.demand.group ? x.demand.group.members.some((m) => m.column?.rowKey === r.key) : x.demand.column?.rowKey === r.key));
+    const member = footing?.demand.group?.members.find((m) => m.column?.rowKey === r.key);
+    const from = r.onFooting ? (footing ? of(bars, footing.key).filter((b) => b.kind === 'dowel' && (!member || b.set === `${footing.key}:dowel:${member.key}`)) : []) : of(bars, `column:${g}:${Number(k) - 1}`).filter((b) => b.kind === 'cranked');
+    if (r.onFooting && !footing) continue;
     const giving = from.map((b) => { const [p, q] = topLeg(b).map((x) => local(f, x)); return { p: p!, q: q!, dia: b.dia }; });
     const own = of(bars, r.key).filter((b) => b.tone === 'column');
     const firsts = new Map<string, V3>();
@@ -109,9 +131,44 @@ function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): number {
       expect(near.d, `${r.name} beside`).toBeLessThan(0.033);
       expect(Math.min(near.q[2], near.p[2] + 1e9) - Math.max(near.p[2], p[2]), `${r.name} ${r.level} lap`).toBeGreaterThanOrEqual(r.lap!.length - 1e-3);
     }
-    storeys++;
+    if (r.onFooting) footings++; else storeys++;
   }
-  return storeys;
+  return { storeys, footings };
+}
+
+/**
+ * A footing under walls (and a pier's column zones), alone or a core inside a strip or a mat, gives
+ * each of their bottom bars a dowel, one to a bar, standing beside it a bar's diameter in over its
+ * whole lap.
+ */
+function wallDowelsBeside(rows: SheetRows, bars: readonly Rebar3d[]): number {
+  let checked = 0;
+  type Pier = NonNullable<SheetRows['footing'][number]['demand']['pier']>;
+  type Set = { r: SheetRows['footing'][number]; pier: Pier; at: Array<{ lap: number }>; set: string | undefined };
+  const sets = rows.footing.flatMap((r): Set[] => (r.demand.group
+    ? r.demand.group.members.filter((m) => m.pier && m.column?.bars?.at?.length).map((m) => ({ r, pier: m.pier!, at: m.column!.bars!.at!, set: `${r.key}:dowel:${m.key}` }))
+    : r.demand.pier && r.dowels && r.demand.column?.bars?.at?.length ? [{ r, pier: r.demand.pier, at: r.demand.column.bars.at, set: undefined }] : []));
+  for (const { r, pier, at, set } of sets) {
+    const keys = new Set([...pier.walls, ...rows.column.filter((c) => c.pier && pier.nodes.includes(c.demand.nodes?.bottom ?? -1)).map((c) => c.key)]);
+    const firsts = new Map<string, V3>();
+    for (const b of bars.filter((x) => keys.has(x.element) && (x.tone === 'column' || x.kind === 'vertical' || x.kind === 'boundary'))) {
+      const p = bottomOf(b), k = `${p[0].toFixed(3)}|${p[1].toFixed(3)}`;
+      if (!firsts.has(k) || firsts.get(k)![2] > p[2]) firsts.set(k, p);
+    }
+    const dowels = of(bars, r.key).filter((b) => b.kind === 'dowel' && (!set || b.set === set));
+    expect(dowels.length, r.name).toBe(firsts.size);
+    const standing = [...firsts.values()], lap = at.reduce((m, b) => Math.min(m, b.lap), Infinity);
+    for (const d of dowels) {
+      const [p, q] = topLeg(d);
+      const near = standing.map((x) => ({ x, d: Math.hypot(x[0] - q[0], x[1] - q[1]) })).sort((a, b) => a.d - b.d)[0]!;
+      expect(near.d, `${r.name} beside`).toBeGreaterThan(0.008);
+      expect(near.d, `${r.name} beside`).toBeLessThan(0.033);
+      expect(Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]), `${r.name} upright`).toBeLessThan(1e-6);
+      expect(q[2] - Math.max(p[2], near.x[2]), `${r.name} lap`).toBeGreaterThanOrEqual(lap - 1e-3);
+      checked++;
+    }
+  }
+  return checked;
 }
 
 /** A wall's verticals never stand where the bars from the storey below go on over their lap: those are cranked in beside them. */
@@ -154,6 +211,10 @@ function spacingsHold(rows: SheetRows, bars: readonly Rebar3d[]): number {
     if (!k.startsWith(`${w.key}:h:`)) continue;
     for (const g of gaps(set.map((b) => across(b, 2)))) { expect(g, w.name).toBeCloseTo(w.adopted.horizontal.spacing, 6); checked++; }
   }
+  for (const r of rows.footing) for (const dir of ['x', 'y'] as const) {
+    const m = r.adopted[dir], set = sets.get(`${r.key}:footing${dir.toUpperCase()}`) ?? [];
+    for (const g of gaps(set.map((b) => across(b, dir === 'x' ? 1 : 0)))) { expect(g, r.name).toBeLessThanOrEqual(Math.max(m.spacing, m.outer ?? 0) + 1e-6); checked++; }
+  }
   return checked;
 }
 
@@ -168,10 +229,23 @@ describe('the sheets\' bars in 3D', () => {
     expect(columnsInside(rows, bars)).toBeGreaterThan(1000);
     expect(slabsInside(rows, bars, pieceOptions(rows).slabCover)).toBeGreaterThan(1000);
     expect(wallsInside(rows, bars)).toBeGreaterThan(100);
+    expect(footingsInside(rows, bars)).toBeGreaterThan(100);
     expect(spacingsHold(rows, bars)).toBeGreaterThan(1000);
-    expect(lapsBeside(rows, bars)).toBeGreaterThanOrEqual(60);
+    const laps = lapsBeside(rows, bars);
+    expect(laps.footings).toBeGreaterThanOrEqual(11);
+    expect(laps.storeys).toBeGreaterThanOrEqual(60);
+    expect(wallDowelsBeside(rows, bars)).toBe(31);
     expect(wallLapsApart(rows, bars)).toBeGreaterThan(100);
-    expect(rows.column.filter((c) => c.key.endsWith(':0')).every((c) => !c.lap)).toBe(true);
+
+    for (const system of ['strips', 'mat'] as const) {
+      setFoundationSystem(system);
+      const grouped = buildSheetRows(), gbars = sheetBars3d(grouped);
+      expect(grouped.footing.some((r) => r.group), system).toBe(true);
+      coherent(grouped, gbars);
+      expect(lapsBeside(grouped, gbars).footings, system).toBeGreaterThanOrEqual(11);
+      expect(wallDowelsBeside(grouped, gbars), system).toBe(31);
+    }
+    setFoundationSystem('auto');
 
     const panel = rows.slab.find((r) => r.name === 'L1') ?? rows.slab[0]!;
     const col = rows.column[0]!;
@@ -182,7 +256,7 @@ describe('the sheets\' bars in 3D', () => {
     const next = buildSheetRows();
     const moved = sheetBars3d(next);
     coherent(next, moved);
-    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true } });
+    const panelBars = shownBars(moved, { row: { key: panel.key, name: panel.name }, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true } });
     const bx = panelBars.filter((b) => b.tone === 'bottomX');
     expect(bx.length).toBeGreaterThan(0);
     expect(new Set(bx.map((b) => b.dia))).toEqual(new Set([10]));
@@ -195,16 +269,16 @@ describe('the sheets\' bars in 3D', () => {
     setAdopted(col.key, null);
   }, 600_000);
 
-  it('a small frame: the same, its bottom storeys on their supports with nothing lapped, and a line\'s adopted bottom run is drawn as adopted', async () => {
+  it('a small frame on footings: the same, and a line\'s adopted bottom run is drawn as adopted', async () => {
     await solvedExample('pro-rc-frame-area-loads');
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows);
     coherent(rows, bars);
     expect(beamsInside(rows, bars)).toBeGreaterThan(100);
     expect(columnsInside(rows, bars)).toBeGreaterThan(100);
+    expect(footingsInside(rows, bars)).toBeGreaterThan(10);
     expect(spacingsHold(rows, bars)).toBeGreaterThan(100);
-    expect(rows.column.filter((c) => c.key.endsWith(':0')).every((c) => !c.lap)).toBe(true);
-    expect(bars.some((b) => b.kind === 'dowel')).toBe(false);
+    expect(lapsBeside(rows, bars).footings).toBeGreaterThan(0);
     const line = rows.line[0]!;
     const la: LineAdopted = { ...line.adopted, bottom: { dia: 20, count: 3 } };
     setAdopted(line.key, la);
@@ -214,13 +288,21 @@ describe('the sheets\' bars in 3D', () => {
     const run = of(moved, line.key).filter((b) => b.kind === 'continuous' && b.mark === next.line.find((l) => l.key === line.key)!.bars.find((b) => b.kind === 'continuous' && b.face === 'bottom')!.mark);
     expect(run.map((b) => b.dia)).toEqual([20, 20, 20]);
     setAdopted(line.key, null);
+    setFoundationSystem(null);
+    const bare = buildSheetRows();
+    expect(bare.footing).toEqual([]);
+    expect(bare.column.some((c) => c.onFooting)).toBe(false);
+    coherent(bare, sheetBars3d(bare));
+    setFoundationSystem('auto');
   }, 600_000);
 
-  it('the walls of a storehouse: the same', async () => {
+  it('the walls of a storehouse: the same, a dowel from the strip footing beside each vertical', async () => {
     await solvedExample('pro-concrete-wall-storehouse');
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows);
     coherent(rows, bars);
+    expect(rows.wall.every((w) => w.onFooting)).toBe(true);
+    expect(wallDowelsBeside(rows, bars)).toBe(108);
     expect(wallsInside(rows, bars)).toBeGreaterThan(100);
     expect(spacingsHold(rows, bars)).toBeGreaterThan(10);
   }, 600_000);

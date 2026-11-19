@@ -1,5 +1,5 @@
 import { check } from './types';
-import type { FootingRow } from './footing-types';
+import type { FootingDemand, FootingRow } from './footing-types';
 
 type P = { x: number; y: number };
 
@@ -20,7 +20,7 @@ export const footingCorners = (r: Pick<FootingRow, 'B' | 'L' | 'ex' | 'ey'> & { 
   return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => ({ x: cx + (u! * r.B) / 2, y: cy + (v! * r.L) / 2 }));
 };
 
-const underside = (r: FootingRow) => r.demand.footing?.founding ?? r.demand.at.z - r.h;
+const underside = (r: FootingRow) => r.founding;
 
 /** The pairs of footings whose plans overlap at about the same level, and the groups they join into. */
 export function footingOverlaps(rows: readonly FootingRow[], clearance = 0): { pairs: Array<[string, string]>; groups: string[][] } {
@@ -53,4 +53,30 @@ export function withOverlaps(rows: readonly FootingRow[]): FootingRow[] {
     if (!o) return r;
     return { ...r, status: 'fail', verifications: [...r.verifications, check('rcSheets.v.footOverlap', false, { demand: o.join(', ') })] };
   });
+}
+
+/** A footing whose only failing check is that it overlaps another: no reinforcement is missing, the plan is. */
+export const onlyOverlaps = (r: Pick<FootingRow, 'verifications'>): boolean => {
+  const bad = r.verifications.filter((v) => !v.ok);
+  return bad.length > 0 && bad.every((v) => v.label === 'rcSheets.v.footOverlap');
+};
+
+/** The building's plan at its base: the rectangle its columns' and cores' outlines reach, m². */
+export function buildingPlan(demands: readonly Pick<FootingDemand, 'at' | 'column' | 'pier'>[]): { x0: number; x1: number; y0: number; y1: number; area: number } | null {
+  const pts = demands.flatMap((d) => (d.pier?.outline?.length ? d.pier.outline : d.column
+    ? [{ x: d.at.x - d.column.b / 2, y: d.at.y - d.column.h / 2 }, { x: d.at.x + d.column.b / 2, y: d.at.y + d.column.h / 2 }]
+    : [d.at]));
+  if (pts.length < 2) return null;
+  const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x)), y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+  const area = (x1 - x0) * (y1 - y0);
+  return area > 1e-9 ? { x0, x1, y0, y1, area } : null;
+}
+
+/** How much of the building's plan its footings cover: their areas summed over the plan its columns reach (GA §7.1), m². */
+export function footingCover(rows: readonly FootingRow[]): { footings: number; plan: number; share: number } | null {
+  const live = rows.filter((r) => r.B > 0 && r.L > 0);
+  if (!live.length) return null;
+  const plan = buildingPlan(live.flatMap((r) => r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])));
+  const footings = live.reduce((t, r) => t + r.B * r.L, 0);
+  return plan ? { footings, plan: plan.area, share: footings / plan.area } : null;
 }

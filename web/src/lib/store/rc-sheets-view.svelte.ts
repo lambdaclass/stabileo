@@ -18,15 +18,17 @@ import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
 import { decimalFor, makeFmt } from '../rc-sheets/format';
 import { sheetsProgress } from './rc-sheets-progress.svelte';
+import { foundationStamp } from './rc-sheets-footings';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
   results: unknown; perCombo: unknown; groups: unknown;
   /** The design data but the bars adopted in the sheets and how their schedule is ordered. */
   design: string;
-  /** What the sheets set row by row: the rows follow it at once. */
+  /** What the sheets set row by row, and what only the footings read (their layout, position, sizing, property lines, founding level and presumed soil): the rows follow it at once. */
   adopted: string;
   locale: string;
+  foundation: string;
 }
 
 export const sheetsRun = $state<{ rows: SheetRows | null; stamp: Stamp | null; readonly progress: SheetProgress | null }>({
@@ -36,18 +38,18 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, bentLines, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
-  const { rcSheets: _, designOptions, ...own } = designData();
+  const { rcSheets: _, designOptions, propertyLines, foundingElevation, presumedBearingKPa, ...own } = designData();
   const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines }), locale: i18n.locale,
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }
 
-const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design;
+const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design && a.foundation === b.foundation;
 
 /** The rows were designed and something they were designed from has changed since (reactive). */
 export function sheetsStale(): boolean {
@@ -114,16 +116,19 @@ export function clearSheets(): void {
  * component that shows rows is created.
  */
 export function followSheetEdits(): void {
-  $effect(() => {
-    // No results (a project opened, a model cleared): the rows were another model's.
-    if (!resultsStore.results3D) { if (sheetsRun.rows && !sheetsRun.progress) clearSheets(); return; }
-    const s = stampNow();
-    const was = sheetsRun.stamp;
-    if (!was || !sheetsRun.rows || sheetsRun.progress || !sameInputs(was, s)) return;
-    if (was.adopted === s.adopted && was.locale === s.locale) return;
-    sheetsRun.rows = buildSheetRows(makeFmt(decimalFor(s.locale)));
-    sheetsRun.stamp = s;
-  });
+  $effect(refreshSheetEdits);
+}
+
+/** The step `followSheetEdits` takes on every change it reads. */
+export function refreshSheetEdits(): void {
+  // No results (a project opened, a model cleared): the rows were another model's.
+  if (!resultsStore.results3D) { if (sheetsRun.rows && !sheetsRun.progress) clearSheets(); return; }
+  const s = stampNow();
+  const was = sheetsRun.stamp;
+  if (!was || !sheetsRun.rows || sheetsRun.progress || !sameInputs(was, s)) return;
+  if (was.adopted === s.adopted && was.locale === s.locale) return;
+  sheetsRun.rows = buildSheetRows(makeFmt(decimalFor(s.locale)));
+  sheetsRun.stamp = s;
 }
 
 /** What the sheets read, for the note while they are built: combinations, members and shell elements. */

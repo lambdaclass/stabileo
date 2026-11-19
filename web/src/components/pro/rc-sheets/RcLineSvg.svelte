@@ -7,7 +7,7 @@
   import { chartHeight, filled, type ChartKind } from '../../../lib/rc-sheets/line-charts';
   import RcLineCharts from './RcLineCharts.svelte';
 
-  let { line, marks = false, envelope = false, chart = 'moment', onBeam = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; chart?: ChartKind; onBeam?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
+  let { line, marks = false, envelope = false, chart = 'moment', onBeam = false, cuts = [], highlight = [], foundation = false }: { line: LineLayout; marks?: boolean; envelope?: boolean; chart?: ChartKind; onBeam?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[]; foundation?: boolean } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, STUB = 10, TXT = 9.5;
@@ -63,7 +63,7 @@
   {@render txt(d.text, 'small', testid)}
 {/snippet}
 
-<svg class="rcl" viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
+<svg class="rcl" class:found={foundation} viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
   {#each supports as xs, j (j)}
     {@const w = Math.max(8, (line.supportWidths[j] || 0.2) * sx)}
     <rect x={X(xs) - w / 2} y={TOP - STUB} width={w} height={yBeamBottom - TOP + STUB + BELOW} class="col" />
@@ -173,6 +173,8 @@
   .post { fill: rgba(128, 128, 128, 0.18); stroke: var(--st-text-3); stroke-width: 0.8; }
   .axis { stroke: var(--st-text-3); stroke-width: 0.6; stroke-dasharray: 6 3 1 3; }
   .stirrup { stroke: var(--st-text-3); stroke-width: 0.7; opacity: 0.7; }
+  .found .bar, .found .mark { stroke: #b8692e; }
+  .found .stirrup { stroke: #9c8068; opacity: 0.9; }
   .bar { stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
   .bar.continuous { stroke: #6fb3d9; }
   .bar.support { stroke: var(--st-danger); }

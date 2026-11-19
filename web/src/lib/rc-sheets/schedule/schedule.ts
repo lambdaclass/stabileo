@@ -153,7 +153,7 @@ export function scheduleOf(elements: readonly ScheduleElement[], o: Pick<Schedul
   const byDiameter = [...byDia].sort((a, b) => a[0] - b[0]).map(([dia, d]) => ({
     dia, length: d.length, kg: d.kg, withWaste: d.kg * (1 + waste), stockBars: stock.byDiameter.find((x) => x.diameterMm === dia)?.stockBars ?? 0,
   }));
-  const fams: SheetFamily[] = ['beam', 'column', 'slab', 'wall'];
+  const fams: SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
   const byFamily = fams.map((family) => {
     const kg = out.filter((r) => r.family === family).reduce((s, r) => s + r.kg, 0);
     return { family, kg, withWaste: kg * (1 + waste) };

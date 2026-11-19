@@ -24,6 +24,12 @@ import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/l
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
+import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
+import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRows, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
+import { withStrapBeams } from '../rc-sheets/footing-strap';
+import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
+import { leverOf } from '../rc-sheets/footing-design';
 import { sheetStoreys, swayParts } from './rc-sheets-sway';
 import { setBeamAggregate } from '../rc-sheets/bars';
 import { setRowClearFactor } from '../rc-sheets/column-layout';
@@ -39,10 +45,10 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SHEET_FAMILIES, SLAB_BAR_RANGE, listIn, withMissingForces, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
-import { designPierAt, memberAxes, storeyPiers, withApart, withPierColumns, type PierHooks } from './rc-sheets-piers';
+import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, withWallFeet, type PierHooks } from './rc-sheets-piers';
 import { legOfPier, type PierDesign } from '../rc-sheets/pier-row';
 
-export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow;
+export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
 
 export interface SheetRows {
   beam: BeamRow[];
@@ -54,6 +60,12 @@ export interface SheetRows {
   slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
+  /** The adopted foundation layout's footings; none until one is adopted. */
+  footing: FootingRow[];
+  /** Every layout the building's foundation may take, to compare and adopt, the recommendation (`auto`) among them. */
+  footingLayouts?: FoundationLayout[];
+  /** The layout adopted, or none. */
+  foundation?: FoundationSystem | null;
   /** The regulation the rows are computed with. */
   code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
@@ -89,7 +101,7 @@ export function proposalBasis(dd: ProjectDesignData = designData()): string {
   return JSON.stringify({
     fy: dd.rebarFy, stirrup: dd.stirrupDiaMm, covers: dd.covers, control: dd.executionControl !== false, long: dd.longDiametersMm, ties: dd.stirrupDiametersMm,
     slab: dd.slabDiametersMm, floor: dd.minTieSpacingMm, aggregate: dd.maxAggregateMm, wall: dd.wallBarDiaMm, byElement: dd.coverByElement ?? null, slabBase: dd.slabBase ?? null,
-    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null,
+    options: optionsView(dd.designOptions), ends: dd.columnEndZones === true, lateral: dd.lateralSystem ?? null, deflection: dd.designOptions?.deflection ?? null, bearing: dd.presumedBearingKPa, lines: dd.propertyLines ?? null,
     ...((k) => (k ? { criteria: k } : {}))(criteriaKey(dd.designOptions?.criteria)),
   });
 }
@@ -441,7 +453,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const code = sheetCode();
   const rules = rulesFor(code);
   const codeName = SHEET_CODES[code].name;
-  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: codeName, basis, combos: 0 };
+  if (!sets.length) return { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: codeName, basis, combos: 0 };
   const dd = designData();
   const adoptedNow = liveAdopted(rcSheetsData(), code);
   const data = rcSheetsData();
@@ -475,7 +487,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const D = dem;
   const allPiers = storeyPiers(D.walls, D.columns);
   const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length;
+  const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
+  let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + feet.length;
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -543,13 +557,15 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
+  const founded = feet.length > 0 && foundationSystem(data) !== null;
+  const onFooting = new Set(founded ? feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k) : []);
   const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
     const g = Number(d.key.split(':')[1]);
     const prev = below.get(g);
-    const stack: StackPlace = prev ? stackOver(prev, d) : {};
+    const stack: StackPlace = prev ? stackOver(prev, d) : onFooting.has(d.key) ? { fromBelow: true, onFooting: true } : {};
     const row = withMissingForces(withLapFit(cached(d, [code, ctx, a, dec, stack], () => rules.columnRow(d, ctx, a, fmt, stack)), code, fmt), d.missing);
     rowFc.set(d.key, ctx.mat.fc);
     redesigners.set(d.key, ((x: typeof d, o?: RedesignWith) => withMissingForces(withLapFit(rules.columnRow(x, withFc(ctx, o), undefined, fmt, stack), code, fmt), x.missing)) as Redesign);
@@ -649,7 +665,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   if (pierDone.size) {
     column = withPierColumns(D.columns, column, pierDone, pierHooks, (d, before) => { below.set(Number(d.key.split(':')[1]), before); return columnAt(d, new Map()); });
     for (const r of column) if (r.pier) redesigners.delete(r.key);
+    feet = withPierFeet(feet, pierDone, (d) => wallCtxOf(d).mat.fc, dd.covers.wall, fy);
   }
+  feet = withWallFeet(feet, wall);
+  const onFootingWalls = new Set(founded ? feet.flatMap((f) => f.pier?.walls ?? []) : []);
+  wall.forEach((r, i) => { if (onFootingWalls.has(r.key)) wall[i] = { ...r, onFooting: true }; });
   const punching: PunchingRow[] = [];
   for (const d of D.punching) {
     const plan = slabPlans.find((p) => p.level === (d.level ?? ''));
@@ -662,6 +682,35 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const layout = (system: FoundationSystem, own: boolean): FootingRow[] => {
+    const redo = (k: string, f: unknown) => { if (own) redesigners.set(k, f as Redesign); };
+    let rows = foundationRows(feet, {
+      rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo,
+      system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
+    });
+    const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
+    if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
+    const straps = designFootingStraps(rows, {
+      rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
+      ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
+    });
+    rows = rows.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
+    if (own) for (const sd of straps.values()) {
+      if (sd.group === undefined) continue;
+      const g = sd.group;
+      const li = line.findIndex((l) => l.key === `line:${g}`);
+      if (li >= 0) line[li] = sd.line;
+      const bi = beam.findIndex((b) => b.key === sd.beam.key);
+      if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
+      lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
+    }
+    return sort(withOverlaps(rows));
+  };
+  const chosen = feet.length ? foundationSystem(data) : null;
+  const others = new Map(FOUNDATION_SYSTEMS.filter((sys) => feet.length && sys !== chosen).map((sys) => [sys, layout(sys, false)]));
+  const footing = chosen ? layout(chosen, true) : [];
+  const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
+  for (let i = 0; i < feet.length; i++) yield step();
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
   const columnsFinal = column.map((r) => (r.pier ? r : checked.find((x) => x.key === r.key) ?? r));
@@ -670,7 +719,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), code: codeName, basis, combos: sets.length, left };
+  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

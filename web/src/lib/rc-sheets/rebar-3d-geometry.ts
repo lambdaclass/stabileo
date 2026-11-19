@@ -1,4 +1,5 @@
 import type { ColumnRow } from './column-row';
+import type { FootingRow, StrapResult } from './footing-types';
 import type { LineLayout } from './beam-line';
 import type { SlabRow } from './slab-row';
 import type { WallRow } from './wall-row';
@@ -11,7 +12,11 @@ export type V3 = [number, number, number];
 export interface Frame { o: V3; x: V3; y: V3; z: V3 }
 
 export type RebarTone = 'continuous' | 'support' | 'span' | 'bent' | 'stirrup' | 'column' | 'tie' | 'dowel'
-  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie';
+  | 'bottomX' | 'bottomY' | 'topX' | 'topY' | 'vertical' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop'
+  | 'strapMain' | 'strapStirrup';
+
+/** A foundation member's bars (a strap beam, a beam at the footings' level) in the foundations' tones: its stirrups apart from its longitudinal bars. */
+export const asFoundation = (b: Rebar3d): Rebar3d => ({ ...b, tone: b.tone === 'stirrup' ? 'strapStirrup' : 'strapMain' });
 
 export interface Rebar3d {
   element: string;
@@ -31,6 +36,8 @@ export interface Rebar3dFrames {
   line(l: LineLayout): Frame | null;
   column(r: ColumnRow): Frame | null;
   wall(r: WallRow): Frame | null;
+  footing(r: FootingRow): Frame | null;
+  strap(r: FootingRow, s: StrapResult): Frame | null;
   slabSoffit(r: SlabRow): number | null;
 }
 
