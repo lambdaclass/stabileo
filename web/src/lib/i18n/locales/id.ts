@@ -28,6 +28,7 @@ const id: Translations = {
   "loadPlan.blocked.modalUnavailable": "Pembuatan beban gempa modal tidak tersedia hingga distribusi gaya modal diperbaiki. Gunakan metode statik.",
   "loadPlan.blocked.seismicBase": "Pembuatan beban gempa statik memerlukan tumpuan dengan elevasi yang valid dan terhubung ke massa seismik.",
   "loadPlan.blocked.seismicSteppedBase": "Beban gempa statik tidak dapat dibuat untuk dasar bertingkat. Tumpuan yang terhubung ke massa seismik harus berada pada elevasi yang sama.",
+  "loadPlan.blocked.seismicDisconnected": "Untuk menghasilkan beban gempa statik, semua elemen yang menyumbang massa seismik atau lebar denah harus menjadi bagian dari satu struktur terhubung dengan setidaknya satu tumpuan.",
   "loadPlan.blocked.concentratedRule": "{occupancy} memerlukan pemeriksaan beban terpusat menurut CIRSOC 101 {article}. Posisi paling merugikan tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
   "loadPlan.blocked.concentratedLive": "{occupancy} memerlukan pemeriksaan beban hidup terpusat {force} kN menurut CIRSOC 101 §4.4. Posisi paling merugikan dan alternatif beban merata/terpusat tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi ini secara manual.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 mensyaratkan aksi atap terpusat pada posisi paling merugikan, terpisah dari beban hidup atap §4.8. Pemeriksaan ini tidak dievaluasi. Pembuatan otomatis diblokir; modelkan dan periksa aksi atap secara manual.",

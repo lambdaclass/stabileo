@@ -34,10 +34,6 @@ export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: Sei
     if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
-    if ('noMass' in datum) {
-      unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
-      return { seismicWeight, baseShear, seismicDetail };
-    }
     const base = datum.elevation;
     const structuralStories = levels.filter(level => level.elevation > base);
     const massLevels = structuralStories.filter(level => level.weightKN > 0);

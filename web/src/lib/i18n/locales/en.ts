@@ -7982,6 +7982,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.modalUnavailable': "Modal seismic load generation is unavailable until the modal force distribution is corrected. Use the static method.",
   'loadPlan.blocked.seismicBase': "Static seismic load generation requires a support connected to seismic mass at a valid elevation.",
   'loadPlan.blocked.seismicSteppedBase': "Static seismic loads cannot be generated for a stepped base. Supports connected to seismic mass must be at the same elevation.",
+  'loadPlan.blocked.seismicDisconnected': "Static seismic loads require all elements that contribute seismic mass or plan width to belong to one connected structure with a support.",
   'loadPlan.blocked.seismicMass.weight': "Seismic loading refused at {elevation} m. A physical mass or story force is invalid.",
   'loadPlan.blocked.seismicNoR': 'Table 5.1 gives no reduction factor R for "{system}". Row 1 prints an expression on the wall layout rather than a value; any other missing row is a system that was not identified. There is nothing to divide the spectrum by.',
   'loadPlan.blocked.roleUnusable': 'The "{role}" role ({name}) is not usable: select a regulation and complete its settings.',

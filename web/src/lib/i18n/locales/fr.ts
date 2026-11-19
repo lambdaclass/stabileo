@@ -7523,6 +7523,7 @@ const fr: Translations = {
   'loadPlan.blocked.modalUnavailable': "La génération des charges sismiques modales est indisponible tant que la distribution des forces modales n’est pas corrigée. Utilisez la méthode statique.",
   'loadPlan.blocked.seismicBase': "La génération de charges sismiques statiques exige un appui de cote valide relié à la masse sismique.",
   'loadPlan.blocked.seismicSteppedBase': "Impossible de générer des charges sismiques statiques sur une base à redans. Les appuis reliés à la masse sismique doivent être à la même cote.",
+  'loadPlan.blocked.seismicDisconnected': "Pour générer les charges sismiques statiques, tous les éléments qui contribuent à la masse sismique ou à la largeur en plan doivent appartenir à une même structure connectée comportant au moins un appui.",
   'loadPlan.blocked.seismicMass.weight': "Charge sismique refusée à {elevation} m. Une masse physique ou une force d’étage est invalide.",
   'loadPlan.blocked.seismicNoR': 'Le tableau 5.1 ne donne pas de coefficient de comportement R pour « {system} ». La ligne 1 donne une expression fondée sur la disposition des voiles plutôt qu\'une valeur ; toute autre ligne manquante correspond à un système qui n\'a pas été identifié. Il n\'y a rien par quoi diviser le spectre.',
   'loadPlan.blocked.roleUnusable': 'Le rôle « {role} » ({name}) n\'est pas utilisable : sélectionnez une norme et complétez ses paramètres.',

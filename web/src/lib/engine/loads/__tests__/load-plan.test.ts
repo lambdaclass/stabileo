@@ -439,9 +439,11 @@ describe('seismic uses the real level masses', () => {
     // A genuinely massless model: zero density AND a level too narrow to bound a plan, so
     // neither self-weight nor an area load can contribute. The plan must say so rather
     // than fall back to an assumed floor weight.
-    const m = frame();
+    const m = frame(1);
+    const column = m.elements.get(1)!;
+    m.elements = new Map([[column.id, column]]);
+    m.nodes = new Map([column.nodeI, column.nodeJ].map(id => [id, m.nodes.get(id)!]));
     m.materials = new Map([[1, { id: 1, rho: 0 }]]);
-    for (const n of m.nodes.values()) { n.x = 0; n.y = 0; }   // collinear -> plan area 0
     const reg = applied(defaultRegulations());
     reg.seismic = { ...bindRole('seismic', 'inpres103-2018'), configComplete: true, state: 'applied' };
     const p = buildLoadPlan(input({

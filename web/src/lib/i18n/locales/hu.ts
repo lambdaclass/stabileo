@@ -7266,6 +7266,7 @@ const hu: Translations = {
   "loadPlan.blocked.modalUnavailable": "A modális erőeloszlás javításáig a modális szeizmikus terhek generálása nem érhető el. Használja a statikus módszert.",
   "loadPlan.blocked.seismicBase": "A statikus szeizmikus terhek előállításához a szeizmikus tömeghez kapcsolódó, érvényes magasságú támasz szükséges.",
   "loadPlan.blocked.seismicSteppedBase": "Lépcsőzetes alap esetén nem állíthatók elő statikus szeizmikus terhek. A szeizmikus tömeghez kapcsolódó támaszoknak azonos magasságban kell lenniük.",
+  "loadPlan.blocked.seismicDisconnected": "A statikus szeizmikus terhek előállításához a szeizmikus tömeghez vagy az alaprajzi szélességhez hozzájáruló összes elemnek egyetlen összefüggő, legalább egy támasszal rendelkező szerkezethez kell tartoznia.",
   "loadPlan.blocked.seismicNoR": "Az 5.1. táblázat nem ad R csökkentő tényezőt a(z) \"{system}\" rendszerhez. Az 1. sor értéke helyett a falelrendezésre vonatkozó kifejezést ír ki; bármely más hiányzó sor olyan rendszer, amelyet nem azonosítottak. Nincs mivel osztani a spektrumot.",
   "loadPlan.blocked.roleUnusable": "A(z) \"{role}\" szerep ({name}) nem használható: válasszon előírást, és fejezze be a beállításait.",
   "loadPlan.blocked.windRoleUnusable": "Szélterhet kértek, de nincs használható szélteher-előírás hozzárendelve.",

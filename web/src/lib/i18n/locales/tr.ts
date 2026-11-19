@@ -7532,6 +7532,7 @@ const tr: Translations = {
   'loadPlan.blocked.modalUnavailable': "Modal kuvvet dağılımı düzeltilene kadar modal deprem yükleri üretilemez. Statik yöntemi kullanın.",
   'loadPlan.blocked.seismicBase': "Statik deprem yükü üretmek için sismik kütleye bağlı, geçerli kotta bir mesnet gerekir.",
   'loadPlan.blocked.seismicSteppedBase': "Kademeli bir taban için statik deprem yükleri oluşturulamaz. Sismik kütleye bağlı mesnetler aynı kotta olmalıdır.",
+  'loadPlan.blocked.seismicDisconnected': "Statik deprem yüklerinin oluşturulabilmesi için sismik kütleye veya plandaki genişliğe katkıda bulunan tüm elemanlar, en az bir mesnedi olan tek bir bağlantılı yapıya ait olmalıdır.",
   'loadPlan.blocked.seismicMass.weight': "{elevation} m kotunda deprem yükü reddedildi. Bir kütle veya kat kuvveti geçersiz.",
   'loadPlan.blocked.seismicNoR': 'Tablo 5.1, “{system}” için davranış katsayısı R vermiyor. Satır 1 bir değer yerine perde yerleşimine dayalı bir ifade verir; eksik olan diğer her satır tanımlanmamış bir sistemdir. Spektrumu bölecek bir değer yok.',
   'loadPlan.blocked.roleUnusable': '“{role}” rolü ({name}) kullanılamıyor: bir yönetmelik seçin ve ayarlarını tamamlayın.',

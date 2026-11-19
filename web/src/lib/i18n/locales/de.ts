@@ -7523,6 +7523,7 @@ const de: Translations = {
   'loadPlan.blocked.modalUnavailable': "Modale Erdbebenlasten können erst wieder erzeugt werden, wenn die modale Kraftverteilung korrigiert ist. Verwenden Sie das statische Verfahren.",
   'loadPlan.blocked.seismicBase': "Für die Erzeugung statischer Erdbebenlasten ist ein mit der seismischen Masse verbundenes Auflager auf gültiger Höhe erforderlich.",
   'loadPlan.blocked.seismicSteppedBase': "Bei einer abgestuften Basis können keine statischen Erdbebenlasten erzeugt werden. Die mit der seismischen Masse verbundenen Auflager müssen auf gleicher Höhe liegen.",
+  'loadPlan.blocked.seismicDisconnected': "Für statische Erdbebenlasten müssen alle Elemente, die zur seismischen Masse oder zur Grundrissbreite beitragen, zu einem zusammenhängenden Tragwerk mit mindestens einem Auflager gehören.",
   'loadPlan.blocked.seismicMass.weight': "Erdbebenlast auf {elevation} m abgelehnt. Eine Masse oder Geschosskraft ist ungültig.",
   'loadPlan.blocked.seismicNoR': 'Tabelle 5.1 gibt keinen Verhaltensbeiwert R für „{system}“ an. Zeile 1 enthält statt eines Werts einen Ausdruck zur Wandanordnung; jede andere fehlende Zeile ist ein nicht identifiziertes System. Es gibt nichts, durch das das Spektrum geteilt werden kann.',
   'loadPlan.blocked.roleUnusable': 'Die Rolle „{role}“ ({name}) ist nicht verwendbar: Wählen Sie eine Norm und vervollständigen Sie ihre Einstellungen.',

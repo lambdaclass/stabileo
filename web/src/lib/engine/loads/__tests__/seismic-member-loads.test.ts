@@ -33,6 +33,10 @@ function supportAtZero(model: LoadModelData) {
   return model;
 }
 
+function tieFloor(model: LoadModelData, masterNode: number, ...slaveNodes: number[]) {
+  model.constraints = [...model.constraints ?? [], { type: 'diaphragm', masterNode, slaveNodes, plane: 'XY' }];
+}
+
 function request(model: LoadModelData, seismic: Partial<NonNullable<LoadPlanInput['seismic']>> = {}, overrides: Partial<LoadPlanInput> = {}) {
   const result = input(model, {
     dead: [], tributaryWidth: 0,
@@ -158,6 +162,8 @@ function verifyCarrierMechanics() {
   for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
     const { model, sources } = remeshWind(mesh([-2, 2].map(y => [[0, y, 0], [0, y, length]])), variant);
     const rotated = variant === 'rotate';
+    const tops = [...model.nodes.values()].filter(n => n.z === length);
+    tieFloor(model, tops[0]!.id, tops[1]!.id);
     for (const torsion of ['low', 'medium', 'extreme'] as const) {
       const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
       const staticRequest = request(supportAtZero(model), {
@@ -198,7 +204,13 @@ it('#2208 partial carrier pressures reproduce cantilever shear, bending, torsion
 });
 
 it('#2208 keeps supported levels when an eccentric strip requires distributed couples', () => {
-  const model = mesh([[ [0, -2, 0], [0, -2, 3] ], [ [0, 2, 0], [0, 2, 3] ], [ [0, 1, 6], [4, 1, 6] ]]);
+  const model = mesh([
+    [[0, -2, 0], [0, -2, 3]], [[0, 2, 0], [0, 2, 3]], [[0, 2, 6], [4, 2, 6]],
+    [[0, 2, 3], [0, 2, 6]],
+  ]);
+  tieFloor(model, 2, 4);
+  model.materials.set(2, { id: 2, rho: 0 });
+  model.elements.get(4)!.materialId = 2;
   for (const width of [0, Number.EPSILON, 1]) {
     const base = buildLoadPlan(request(supportAtZero(model), {}, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }] }));
     const plan = buildLoadPlan(request(model, { torsion: 'medium' }, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }], generateCombinations: true }));
@@ -230,6 +242,7 @@ it('#2208 flat shell self-weight and superimposed pressure stay on the physical 
     model.quads.set(id, { id, nodes, thickness, materialId: 1 });
   }
   model.materials.set(1, { id: 1, rho: 10 });
+  tieFloor(model, 10, 20);
   const plan = buildLoadPlan(request(supportAtZero(model), {}, { gravity: { mode: 'panels' }, dead: [{ labelKey: 'test', q: 2 }] }));
   expect(plan.outcome).toBe('READY');
   expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
@@ -246,8 +259,11 @@ it('#2208 flat shell self-weight and superimposed pressure stay on the physical 
 it('#2208 keeps the supported level’s exact force when an upper tributary panel cannot be transferred', () => {
   const model = mesh([
     [[0, -2, 0], [0, -2, 3]], [[0, 2, 0], [0, 2, 3]],
-    [[0, 0, 6], [4, 0, 6], [4, 2, 6], [0, 2, 6]],
+    [[0, 0, 6], [4, 0, 6], [4, 2, 6], [0, 2, 6]], [[0, 2, 3], [0, 2, 6]],
   ]);
+  tieFloor(model, 2, 4);
+  model.materials.set(2, { id: 2, rho: 0 });
+  model.elements.get(7)!.materialId = 2;
   const density = model.sections.get(1)!.a * model.materials.get(1)!.rho;
   const roofArea = 4 * 2, roofPerimeter = 2 * (4 + 2);
   const lower = 3 * density, upper = roofPerimeter * density + roofArea;
@@ -407,6 +423,7 @@ function round2Columns(cuts: number[], rotate: boolean, mirror: boolean, perimet
   model.materials.set(2, { id: 2, rho: 0 });
   for (const e of members.slice(2 * (cuts.length - 1), 2 * (cuts.length - 1) + edges.length)) e.materialId = 2;
   supportAtZero(model);
+  tieFloor(model, byColumn[0]!.at(-1)!.nodeJ, byColumn[1]!.at(-1)!.nodeJ);
   return { model, byColumn };
 }
 
@@ -878,11 +895,28 @@ for (const surface of ['quads', 'plates'] as const) {
   it(`#2316 a mixed model refuses a finite sloping ${surface} surface at its elevations`, () => {
     const model = mixedSeismicModel(surface);
     model.nodes.get(3)!.z = 5;
+    tieFloor(model, 2, 4);
     verifyShellGeometryRefusal(model, [4, 5]);
   });
 
-  it(`#2316 a mixed model keeps the correct frame and flat ${surface} seismic actions`, () => {
-    const plan = buildLoadPlan(request(mixedSeismicModel(surface)));
+  for (const alsoSupported of [false, true]) {
+    it(`#2316 refuses detached ${surface} mass (separate support: ${alsoSupported})`, () => {
+      const model = mixedSeismicModel(surface);
+      if (alsoSupported) {
+        const root = { ...model.nodes.get(3)!, id: 7, z: 0 };
+        model.nodes.set(root.id, root);
+        model.materials.set(2, { id: 2, rho: 0 });
+        model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: root.id, nodeJ: 3, materialId: 2 });
+        model.supports = new Map([[1, { nodeId: 1 }], [root.id, { nodeId: root.id }]]);
+      }
+      expectDatumRefusal(model, disconnectedSeismic);
+    });
+  }
+
+  it(`#2316 a mixed model keeps the correct frame and connected flat ${surface} seismic actions`, () => {
+    const model = mixedSeismicModel(surface);
+    tieFloor(model, 2, 4);
+    const plan = buildLoadPlan(request(model));
     const shellArea = surface === 'quads' ? 4 : 2;
     expect(plan.outcome).toBe('READY');
     expect(plan.blockedKeys).toEqual([]);
@@ -912,9 +946,11 @@ function datumCantilever() {
   return model;
 }
 
-function expectDatumRefusal(model: LoadModelData, key: string) {
+const disconnectedSeismic = 'loadPlan.blocked.seismicDisconnected';
+
+function expectDatumRefusal(model: LoadModelData, key: string, seismic: Partial<NonNullable<LoadPlanInput['seismic']>> = {}) {
   for (const data of [{ coefficient: 1 }, { code: round2Code }]) {
-    const options = request(model, data, { generateCombinations: true });
+    const options = request(model, { ...data, ...seismic }, { generateCombinations: true });
     const plan = buildLoadPlan(options);
     expect(plan.outcome).toBe('BLOCKED');
     expect(plan.blockedKeys).toContainEqual({ key });
@@ -932,20 +968,14 @@ function expectDatumRefusal(model: LoadModelData, key: string) {
   }
 }
 
-for (const [label, elevation, detachedMember] of [
-  ['an isolated lower support', -5, false],
-  ['an isolated intermediate support', 3, false],
-  ['a support on a disconnected massless member', -5, true],
+for (const [label, elevation] of [
+  ['an isolated lower support', -5],
+  ['an isolated intermediate support', 3],
 ] as const) {
   it(`#2316 static seismic ignores ${label}`, () => {
     const model = datumCantilever();
     model.nodes.set(3, { id: 3, x: 2, y: 0, z: elevation });
     model.supports = new Map([[3, { nodeId: 3 }], [1, { nodeId: 1 }]]);
-    if (detachedMember) {
-      model.nodes.set(4, { id: 4, x: 2, y: 0, z: elevation + 1 });
-      model.materials.set(2, { id: 2, rho: 0 });
-      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4, materialId: 2 });
-    }
     const options = request(model);
     const plan = buildLoadPlan(options);
     expect(plan.outcome).toBe('READY');
@@ -969,6 +999,16 @@ for (const [label, elevation, detachedMember] of [
     verifyCantilever(model, [model.elements.get(1)!], false, 4, loads, moment);
   });
 }
+
+it('#2316 refuses a disconnected massless member with its own support', () => {
+  const model = datumCantilever();
+  model.nodes.set(3, { id: 3, x: 2, y: 0, z: -5 });
+  model.nodes.set(4, { id: 4, x: 2, y: 0, z: -4 });
+  model.materials.set(2, { id: 2, rho: 0 });
+  model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4, materialId: 2 });
+  model.supports = new Map([[3, { nodeId: 3 }], [1, { nodeId: 1 }]]);
+  expectDatumRefusal(model, disconnectedSeismic);
+});
 
 it('#2316 a detached support cannot supply the seismic datum', () => {
   const model = datumCantilever();
@@ -1007,23 +1047,6 @@ it('#2316 a stepped frame base refuses static seismic generation', () => {
   expectDatumRefusal(model, 'loadPlan.blocked.seismicSteppedBase');
 });
 
-const connectivityRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-const disconnectedSeismic = 'loadPlan.blocked.seismicDisconnected';
-
-for (const surface of ['quads', 'plates'] as const) for (const alsoSupported of [false, true]) {
-  connectivityRegression(`known wrong result: #2316 refuses detached ${surface} mass (separate support: ${alsoSupported})`, () => {
-    const model = mixedSeismicModel(surface);
-    if (alsoSupported) {
-      const root = { ...model.nodes.get(3)!, id: 7, z: 0 };
-      model.nodes.set(root.id, root);
-      model.materials.set(2, { id: 2, rho: 0 });
-      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: root.id, nodeJ: 3, materialId: 2 });
-      model.supports = new Map([[1, { nodeId: 1 }], [root.id, { nodeId: root.id }]]);
-    }
-    expectDatumRefusal(model, disconnectedSeismic);
-  });
-}
-
 function diaphragmColumns() {
   const model = datumCantilever();
   model.nodes.set(3, { id: 3, x: 0, y: 2, z: 0 });
@@ -1035,7 +1058,7 @@ function diaphragmColumns() {
   return model;
 }
 
-connectivityRegression('known wrong result: #2316 accepts a datum reached only through the rigid floor and a massless column', () => {
+it('#2316 accepts a datum reached only through the rigid floor and a massless column', () => {
   const model = diaphragmColumns();
   model.supports = new Map([[3, { nodeId: 3 }]]);
   for (const data of [{ coefficient: 1 }, { code: round2Code }]) {
@@ -1060,7 +1083,7 @@ connectivityRegression('known wrong result: #2316 accepts a datum reached only t
   }
 });
 
-connectivityRegression('known wrong result: #2316 includes a diaphragm-connected massless column when checking for a stepped datum', () => {
+it('#2316 includes a diaphragm-connected massless column when checking for a stepped datum', () => {
   const model = diaphragmColumns();
   model.nodes.get(3)!.z = 1;
   model.supports = new Map([[1, { nodeId: 1 }], [3, { nodeId: 3 }]]);
@@ -1069,16 +1092,25 @@ connectivityRegression('known wrong result: #2316 includes a diaphragm-connected
 
 function seismicWidthWithDetachedBeam() {
   const { model, byColumn } = round2Columns([0, height], false, false);
-  const [left, right] = byColumn.map(([column]) => column!.nodeJ);
-  const beamStart = { ...model.nodes.get(right!)!, id: 5 };
+  const right = byColumn[1]![0]!.nodeJ;
+  const beamStart = { ...model.nodes.get(right)!, id: 5 };
   model.nodes.set(beamStart.id, beamStart);
   model.nodes.set(6, { ...beamStart, id: 6, y: 6 });
   model.elements.set(3, { ...model.elements.get(1)!, id: 3, nodeI: 5, nodeJ: 6, materialId: 2 });
-  model.constraints = [{ type: 'diaphragm', masterNode: left!, slaveNodes: [right!], plane: 'XY' }];
   return { model, byColumn };
 }
 
-connectivityRegression('known wrong result: #2316 refuses a disconnected massless beam in the seismic footprint', () => {
+it('#2316 refuses a disconnected massless beam in the seismic footprint', () => {
   const { model } = seismicWidthWithDetachedBeam();
-  expectDatumRefusal(model, disconnectedSeismic);
+  expectDatumRefusal(model, disconnectedSeismic, { torsion: 'medium' });
+});
+
+it('#2316 an attached massless beam contributes to accidental eccentricity without carrying seismic load', () => {
+  const { model, byColumn } = seismicWidthWithDetachedBeam();
+  model.elements.get(3)!.nodeI = byColumn[1]![0]!.nodeJ;
+  model.nodes.delete(5);
+  const plan = buildLoadPlan(request(model, { torsion: 'medium' }));
+  expect(plan.seismicModel!.levels.at(-1)?.planWidth).toEqual({ x: 0, y: 8 });
+  const intensity = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+  verifyRound2Columns(model, byColumn, plan, false, height / 2, intensity, 0, 8);
 });

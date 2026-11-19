@@ -4342,6 +4342,7 @@ const pt: Translations = {
   'loadPlan.blocked.modalUnavailable': "A geração de cargas sísmicas modais está indisponível até que a distribuição das forças modais seja corrigida. Use o método estático.",
   'loadPlan.blocked.seismicBase': "A geração de cargas sísmicas estáticas requer um apoio com cota válida ligado à massa sísmica.",
   'loadPlan.blocked.seismicSteppedBase': "Não é possível gerar cargas sísmicas estáticas para uma base escalonada. Os apoios ligados à massa sísmica devem estar na mesma cota.",
+  'loadPlan.blocked.seismicDisconnected': "Para gerar cargas sísmicas estáticas, todos os elementos que contribuem para a massa sísmica ou para a largura em planta devem pertencer à mesma estrutura interligada com pelo menos um apoio.",
   'loadPlan.blocked.seismicMass.weight': "A carga sísmica a {elevation} m foi recusada. Uma massa física ou força de pavimento é inválida.",
   'loadPlan.blocked.seismicNoR': 'A Tabela 5.1 não dá fator de redução R para "{system}". A linha 1 imprime uma expressão sobre a disposição das paredes em vez de um valor; qualquer outra linha ausente é um sistema não identificado. Não há por que dividir o espectro.',
   'loadPlan.assumption.liveParticipation': 'A fração de sobrecarga incluída no peso sísmico foi adotada como {fraction}. Depende do uso da construção e o projeto não a indica.',

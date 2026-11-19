@@ -28,6 +28,7 @@ const ko: Translations = {
   "loadPlan.blocked.modalUnavailable": "모드별 힘 분포가 수정될 때까지 모달 지진 하중을 생성할 수 없습니다. 정적 등가 하중법을 사용하세요.",
   "loadPlan.blocked.seismicBase": "정적 지진 하중을 생성하려면 지진 질량에 연결된 유효한 표고의 지점이 필요합니다.",
   "loadPlan.blocked.seismicSteppedBase": "단차가 있는 기초에는 정적 지진 하중을 생성할 수 없습니다. 지진 질량에 연결된 지점은 모두 같은 표고에 있어야 합니다.",
+  "loadPlan.blocked.seismicDisconnected": "정적 지진 하중을 생성하려면 지진 질량이나 평면 폭에 기여하는 모든 요소가 지점이 하나 이상 있는 단일 연결 구조물에 속해야 합니다.",
   "loadPlan.blocked.concentratedRule": "{occupancy}에는 CIRSOC 101 {article}에 따라 집중 하중 검토가 필요합니다. 가장 불리한 위치는 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
   "loadPlan.blocked.concentratedLive": "{occupancy}에는 CIRSOC 101 §4.4에 따라 {force} kN 집중 활하중 검토가 필요합니다. 가장 불리한 위치와 등분포/집중 하중 대안은 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4는 §4.8 지붕 활하중과 별도로 가장 불리한 위치에서의 집중 지붕 작용을 요구합니다. 이러한 검토는 수행되지 않습니다. 자동 생성이 차단되었습니다. 지붕 작용을 수동으로 모델링하고 검토하세요.",

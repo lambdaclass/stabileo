@@ -28,6 +28,7 @@ const ja: Translations = {
   "loadPlan.blocked.modalUnavailable": "モード別の力の分布が修正されるまで、モーダル地震荷重は生成できません。静的等価荷重法を使用してください。",
   "loadPlan.blocked.seismicBase": "静的等価地震荷重を生成するには、地震質量に接続された有効な高さの支点が必要です。",
   "loadPlan.blocked.seismicSteppedBase": "段差のある基部では静的等価地震荷重を生成できません。地震質量に接続された支点は同じ高さになければなりません。",
+  "loadPlan.blocked.seismicDisconnected": "静的等価地震荷重を生成するには、地震質量または平面幅に寄与するすべての要素が、少なくとも一つの支点を持つ一つの連結した構造に属している必要があります。",
   "loadPlan.blocked.concentratedRule": "{occupancy}にはCIRSOC 101 {article}に基づく集中荷重の検討が必要です。最も不利な位置は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
   "loadPlan.blocked.concentratedLive": "{occupancy}には、CIRSOC 101 §4.4に基づく{force} kNの集中積載荷重の検討が必要です。最も不利な位置と等分布荷重・集中荷重の代替条件は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4では、§4.8の屋根積載荷重とは別に、最も不利な位置での集中屋根荷重の検討が必要です。これらは評価されません。自動生成は停止されています。屋根への作用を手動でモデル化して検討してください。",
