@@ -71,6 +71,7 @@ Until one of its targets lands, the job only reads the manifest and builds nothi
 | `differential-full` | nightly.yml cadence | `make test.engine.differential.full` |
 | `mechanism-fuzz` | nightly.yml cadence | `make test.engine.mechanism-fuzz.long DURATION=45m`, from a new seed each day |
 | `containment-audit` | nightly.yml cadence | `make check.containment`: every open wrong-result issue is contained |
+| `engine-benches` | nightly.yml cadence | `make test.engine.benches`: every engine benchmark runs once, untimed, so one whose model the engine has come to refuse is found the next day |
 | `lighthouse` | performance.yml | Lighthouse against the deployed site |
 | `external-references-sampled` | nightly.yml opensees-diff, codeaster-diff | OpenSees and Code_Aster at the daily counts |
 | `other-differential` | differential.yml | Frame3DD, PyNite, Mystran, Kratos, CalculiX |

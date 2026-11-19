@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine test.engine.benches mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web typecheck.web.baseline typecheck.web.units typecheck.web.svelte test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -93,6 +93,7 @@ help:
 	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
 	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
+	@echo "  make test.engine.benches  - Every engine benchmark once, untimed: a model the engine refuses fails here"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] [VITEST_WORKERS=N] - Vitest unit pass"
 	@echo "  make test.web.timing [VITEST_WORKERS=N] - Project-scale timing budgets"
@@ -348,6 +349,12 @@ bench.web.design:
 bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
 	cd engine && $(NIX_RUN) cargo bench --bench solver_bench --bench assembly_bench --bench workflow_bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
+
+ENGINE_BENCHES = solver_bench assembly_bench workflow_bench pcg_bench eigen_bench
+
+## Run every benchmark of every engine bench once, untimed (Criterion's --test): a benchmark whose model the engine has come to refuse fails here
+test.engine.benches:
+	cd engine && $(NIX_RUN) cargo bench $(foreach b,$(ENGINE_BENCHES),--bench $(b)) -- --test
 
 web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
