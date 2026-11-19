@@ -1,0 +1,29 @@
+{
+  "id": "rc-drawn-station-checks",
+  "date": "2026-11-19",
+  "prs": [2338],
+  "area": "design",
+  "when": {
+    "all": ["concreteMembers", "cirsoc201"]
+  },
+  "title": {
+    "en": "RC beam strength at drawn cage transitions and bar cutoffs",
+    "es": "Resistencia de vigas de hormigón en cambios de estribos y cortes de barras",
+    "pt": "Resistência de vigas de concreto nas transições de estribos e nos cortes de barras",
+    "de": "Tragfähigkeit von Stahlbetonbalken an Bügelwechseln und Stabenden",
+    "fr": "Résistance des poutres en béton aux transitions de cadres et aux arrêts de barres",
+    "tr": "Etriye geçişlerinde ve donatı bitişlerinde betonarme kiriş dayanımı"
+  },
+  "explanation": {
+    "en": "CIRSOC beam checks use the stirrups drawn at each section, include both sides of cage transitions and check torsion at interpolated bar cutoffs. Longitudinal torsion bars must meet the minimum diameter for the edition and hoop spacing. Re-run verification on affected beams.",
+    "es": "La verificación CIRSOC usa los estribos dibujados en cada sección, comprueba ambos lados de cada cambio y verifica la torsión en los cortes de barras interpolados. Las barras longitudinales de torsión deben cumplir el diámetro mínimo de la edición y de la separación de estribos. Volvé a verificar las vigas afectadas.",
+    "pt": "A verificação CIRSOC usa os estribos desenhados em cada seção, verifica os dois lados de cada transição e verifica a torção nas seções interpoladas de corte das barras. As barras longitudinais de torção devem atender ao diâmetro mínimo da edição e do espaçamento dos estribos. Verifique novamente as vigas afetadas.",
+    "de": "Der CIRSOC-Nachweis verwendet die eingezeichneten Bügel in jedem Querschnitt, prüft beide Seiten von Bügelwechseln und prüft Torsion an interpolierten Stabenden. Für die Torsionslängsbewehrung gilt der Mindestdurchmesser nach Normausgabe und Bügelabstand. Prüfen Sie die betroffenen Balken erneut.",
+    "fr": "La vérification CIRSOC utilise les cadres dessinés à chaque section, contrôle les deux côtés des transitions et vérifie la torsion aux arrêts de barres interpolés. Les barres longitudinales de torsion doivent respecter le diamètre minimal selon l’édition et l’espacement des cadres. Vérifiez à nouveau les poutres concernées.",
+    "tr": "CIRSOC kiriş kontrolleri her kesitte çizilen etriyeleri kullanır, etriye geçişlerinin iki tarafını da denetler ve enterpolasyonla belirlenen donatı bitişlerinde burulmayı kontrol eder. Boyuna burulma donatısı, yönetmelik sürümüne ve etriye aralığına göre gereken en küçük çapı sağlamalıdır. Etkilenen kirişleri yeniden doğrulayın."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-drawn-station-checks.md",
+    "heading": "RC beam strength at drawn cage transitions and bar cutoffs"
+  }
+}

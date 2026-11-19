@@ -27,7 +27,7 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
 import { drawnBeamReinforcement } from '../design-contract/reinforcement';
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
-import { checkTorsion2025, columnShearTensionRatio, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionActivation, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
+import { checkTorsion2025, columnShearTensionRatio, resolveCage, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionActivation, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -2049,6 +2049,18 @@ function evaluateProvidedReinforcement(
     }
     return orderedCombos = [...byCombo.values()].map(combo => combo.sort((a, b) => a.stationT - b.stationT));
   };
+  const interpolateCuts = (positions: readonly number[]) => {
+    const cuts: Tuple[] = [];
+    for (const combo of stationCombos()) {
+      let hi = 1;
+      for (const t of positions) {
+        while (hi < combo.length && combo[hi]!.stationT < t) hi++;
+        const a = combo[hi - 1], b = combo[hi];
+        if (a && b && a.stationT < t && t < b.stationT) cuts.push(a.interpolate(b, t));
+      }
+    }
+    return cuts;
+  };
   const hasTuples = allTuples.length > 0;
   const M = (t: Tuple) => tupleMoment(t, axes.flexure);
 
@@ -2097,6 +2109,11 @@ function evaluateProvidedReinforcement(
   const drawing = provided[drawnBeamReinforcement];
   const stirrupCoverage = drawing?.stirrups.filter(({ from, to }) =>
     Number.isFinite(from) && Number.isFinite(to) && from < to).sort((a, b) => a.from - b.from);
+  const stirrupsAt = (t: Tuple) => stirrupCoverage?.filter(({ from, to }) =>
+    from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9);
+  const zoneCuts = stirrupCoverage
+    ? interpolateCuts([...new Set(stirrupCoverage.flatMap(({ from, to }) => [from, to]))].sort((a, b) => a - b))
+    : [];
   const gapTuples = new Set<Tuple>();
   if (stirrupCoverage) {
     const gaps: Array<[number, number]> = [];
@@ -2108,7 +2125,7 @@ function evaluateProvidedReinforcement(
     if (end < 1 - 1e-9) gaps.push([end, 1]);
     if (gaps.length) {
       for (const t of allTuples) {
-        if (!stirrupCoverage.some(({ from, to }) => from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9)) gapTuples.add(t);
+        if (!stirrupsAt(t)?.length) gapTuples.add(t);
       }
       for (const combo of stationCombos()) {
         for (let i = 1; i < combo.length; i++) {
@@ -2123,6 +2140,7 @@ function evaluateProvidedReinforcement(
     }
   }
   const gapCuts = [...gapTuples];
+  const isDrawnGap = (t: Tuple) => gapTuples.has(t) || stirrupsAt(t)?.length === 0;
   const regionalStirrups = regions?.stirrupsSupport || regions?.stirrupsSpan
     ? [regions.stirrupsSupport, regions.stirrupsSpan] : [provided.stirrups];
   const cages = section ? weakestMemberCages(section, elementType === 'column' ? [provided.stirrups] : regionalStirrups, rectangular) : [];
@@ -2160,12 +2178,22 @@ function evaluateProvidedReinforcement(
   const endSpacing = provided.stirrups && zones ? Math.min(zones.endSpacing, provided.stirrups.spacing) : undefined;
   const endCages = section && provided.stirrups && endSpacing !== undefined
     ? resolveFaces(weakestMemberCages(section, [{ ...provided.stirrups, spacing: endSpacing }], rectangular)) : secondaryCages;
-  const secondaryCagesAt = (t: Tuple) => atColumnEnd(t) ? endCages : secondaryCages;
+  const drawnCages = section && stirrupCoverage
+    ? new Map(stirrupCoverage.map(stir => [stir, resolveFaces([resolveCage(section, stir, rectangular)])]))
+    : undefined;
+  const missingDrawnCage = section && drawnCages ? resolveFaces([resolveCage(section, undefined, rectangular)]) : [];
+  const secondaryCagesAt = (t: Tuple) => {
+    if (!drawnCages) return atColumnEnd(t) ? endCages : secondaryCages;
+    const stirrups = stirrupsAt(t);
+    return stirrups?.length ? stirrups.flatMap(stir => drawnCages.get(stir)!) : missingDrawnCage;
+  };
   const atTorsion = (t: Tuple, d: number, primaryRhoW: number, primaryDepthLimit?: number) => secondaryCagesAt(t).flatMap(({ cage, face }) => {
     if (!section || t.tq === 0) return [];
+    const depth = drawnCages && cage.kind === 'closed-rectangle' ? d + (section.stirrupDia - cage.diameter) / 1000 : d;
+    const rhoW = depth === d ? primaryRhoW : primaryRhoW * d / depth;
     const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
-      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: primaryRhoW }, primaryDepthLimit });
-    const gap = gapTuples.has(t);
+      demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: rhoW }, primaryDepthLimit });
+    const gap = isDrawnGap(t);
     const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
     if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
     if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
@@ -2187,7 +2215,7 @@ function evaluateProvidedReinforcement(
     checkedAxes.add('T');
   };
   if (section && !(elementType === 'column' && options?.shape)) {
-    const cases = allTuples.filter(t => hasSecondaryShearDemand(V2(t)));
+    const cases = [...allTuples, ...zoneCuts].filter(t => !isDrawnGap(t) && hasSecondaryShearDemand(V2(t)));
     type SecondaryCheck = { t: Tuple; demand: number; capacity: number; ratio: number; reason: string; refusal?: { missing?: true } };
     let worst: SecondaryCheck | undefined;
     const governing = (check: SecondaryCheck, previous: SecondaryCheck | undefined) => {
@@ -2370,7 +2398,7 @@ function evaluateProvidedReinforcement(
       ...startCoverage.map(({ to }) => to), ...endCoverage.map(({ from }) => from),
       ...bottomCoverage.flatMap(({ from, to }) => [from, to]),
     ]).filter(t => t > 0 && t < 1);
-    const longitudinalCuts: Tuple[] = [];
+    let longitudinalCuts: Tuple[] = [];
     if (elementType === 'beam' && cutoffTs.length && allTuples.some(t => t.tq !== 0)) {
       const breaks = [...new Set([0, 1, tStartEnd, tEndStart, ...cutoffTs])].sort((a, b) => a - b);
       const positions = breaks.slice(1).flatMap((to, i) => {
@@ -2378,14 +2406,7 @@ function evaluateProvidedReinforcement(
         const step = Math.min((to - from) / 3, Number.EPSILON);
         return [from + step, to - step].filter(t => t > from && t < to);
       });
-      for (const combo of stationCombos()) {
-        let hi = 1;
-        for (const t of positions) {
-          while (hi < combo.length && combo[hi]!.stationT < t) hi++;
-          const a = combo[hi - 1], b = combo[hi];
-          if (a && b && a.stationT < t && t < b.stationT) longitudinalCuts.push(a.interpolate(b, t));
-        }
-      }
+      longitudinalCuts = interpolateCuts(positions);
     }
 
     const beamL = stationResult?.length ?? critSections?.L ?? 6;
@@ -2776,23 +2797,26 @@ function evaluateProvidedReinforcement(
      * (2025; 2005 §11.5.6.1: Vu > φVc/2), Av,min of §9.6.3.4 (2025: max(0,062·√f'c, 0,35)·bw·s/fyt,
      * as the engine computes it with the project's fyt). An evaluated check: failing, with its row.
      */
-    const minShearThreshold = (phiVc: number) => (spacingRule.edition === '2005'
+    const minShearThreshold = (phiVc: number, depth: number) => (spacingRule.edition === '2005'
       ? 0.5 * phiVc
-      : 0.75 * 0.085 * shearSqrtFc(section.fc) * section.b * d * 1000);
+      : 0.75 * 0.085 * shearSqrtFc(section.fc) * section.b * depth * 1000);
     for (const ss of shearSpecs) {
-      let worst: { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number } | null = null;
+      type ShearAtStation = { ratio: number; Vu: number; phiVn: number; comboName: string; stationX: number; stir: StirrupDef; depth: number };
+      let worst: ShearAtStation | undefined;
+      const worstByStirrup = new Map<StirrupDef, ShearAtStation>();
       let held: ShallowMinShearHold | null = null;
-      let minShort: { Vu: number; threshold: number; AvMin: number; comboName: string; stationX: number } | null = null;
+      let minShort: { Vu: number; threshold: number; AvMin: number; Av: number; stir: StirrupDef; comboName: string; stationX: number } | null = null;
       let count = 0;
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
       const support = ss === shearSpecs[0];
-      const extraCuts = gapCuts.filter(t => (t.stationT <= tStartEnd || t.stationT >= tEndStart) === support);
-      const cuts = new Set([...ss.tuples, ...extraCuts]);
+      const inRegion = (t: Tuple) => (t.stationT <= tStartEnd || t.stationT >= tEndStart) === support;
+      const cuts = new Set([...ss.tuples, ...gapCuts.filter(inRegion), ...zoneCuts.filter(inRegion)]);
       for (const t of cuts) {
         const Vu = Math.abs(V(t));
         if (Vu < 0.001) continue;
         count++;
-        if (!ss.stir || gapTuples.has(t)) {
+        const stirrups = stirrupsAt(t) ?? (ss.stir ? [ss.stir] : []);
+        if (!stirrups.length || gapTuples.has(t)) {
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
@@ -2804,28 +2828,36 @@ function evaluateProvidedReinforcement(
         // + = compression (CIRSOC enhancement) — pass -t.n. Previously
         // compression took the tension branch (Vc reduced to 0 → gross false
         // failures) and tension the enhancement branch (Vc inflated → unsafe).
-        const cap = computeShearCapacity(ss.stir.diameter, ss.stir.legs, ss.stir.spacing, section.b, d, section.fc, section.fy, -t.n,
-          { Ag: section.b * section.h, rhoW: ss.rhoW, h: section.h, edition: spacingRule.edition });
-        const u = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
-        if (!worst || u > worst.ratio) worst = { ratio: u, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX };
-        if (shallowBeam && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
-          && (!held || Vu / Math.max(cap.phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
-          held = {
-            region: ss.label, Vu: +Vu.toFixed(2), phiVc: cap.phiVc,
-            Av: +(ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2)).toFixed(3),
-            AvMin: +(cap.AvMin ?? 0).toFixed(3), spacing: ss.stir.spacing, h: section.h, comboName: t.comboName,
-          };
-        }
-        if (elementType === 'beam' && !shallowBeam && cap.evaluated && cap.avBelowMin) {
-          const threshold = minShearThreshold(cap.phiVc);
-          if (Vu > threshold + 1e-9 && (!minShort || Vu - threshold > minShort.Vu - minShort.threshold)) {
-            minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, comboName: t.comboName, stationX: t.stationX };
+        for (const stir of stirrups) {
+          const depth = stirrupCoverage && bottomLayers.length ? d + (section.stirrupDia - stir.diameter) / 1000 : d;
+          const rhoW = depth === d ? ss.rhoW : ss.rhoW * d / depth;
+          const cap = computeShearCapacity(stir.diameter, stir.legs, stir.spacing, section.b, depth, section.fc, section.fy, -t.n,
+            { Ag: section.b * section.h, rhoW, h: section.h, edition: spacingRule.edition });
+          const ratio = cap.phiVn > 1e-6 ? Vu / cap.phiVn : Number.POSITIVE_INFINITY;
+          const result = { ratio, Vu, phiVn: cap.phiVn, comboName: t.comboName, stationX: t.stationX, stir, depth };
+          if (!worst || ratio > worst.ratio) worst = result;
+          const previous = worstByStirrup.get(stir);
+          if (stirrupCoverage && (!previous || Vu > previous.Vu)) worstByStirrup.set(stir, result);
+          const Av = stir.legs * rebarSpec(stir.diameter).area;
+          if (shallowBeam && cap.evaluated && cap.avBelowMin && Vu > cap.phiVc + 1e-9
+            && (!held || Vu / Math.max(cap.phiVc, 1e-9) > held.Vu / Math.max(held.phiVc, 1e-9))) {
+            held = {
+              region: ss.label, Vu: +Vu.toFixed(2), phiVc: cap.phiVc,
+              Av: +Av.toFixed(3), AvMin: +(cap.AvMin ?? 0).toFixed(3),
+              spacing: stir.spacing, h: section.h, comboName: t.comboName,
+            };
+          }
+          if (elementType === 'beam' && !shallowBeam && cap.evaluated && cap.avBelowMin) {
+            const threshold = minShearThreshold(cap.phiVc, depth);
+            if (Vu > threshold + 1e-9 && (!minShort || Vu - threshold > minShort.Vu - minShort.threshold)) {
+              minShort = { Vu, threshold, AvMin: cap.AvMin ?? 0, Av, stir, comboName: t.comboName, stationX: t.stationX };
+            }
           }
         }
       }
       if (held) shallowMinShear.push(held);
-      if (minShort && ss.stir) {
-        const av = ss.stir.legs * (REBAR_DB.find((r) => r.diameter === ss.stir!.diameter)?.area ?? (Math.PI / 4) * (ss.stir.diameter / 10) ** 2);
+      if (minShort) {
+        const { Av: av, stir } = minShort;
         const clause = spacingRule.edition === '2005' ? '§11.5.6.1' : '§9.6.3.1';
         const rule = spacingRule.edition === '2005' ? 'φVc/2' : 'φ·0,085·√f\'c·bw·d';
         pushStrength({
@@ -2834,7 +2866,7 @@ function evaluateProvidedReinforcement(
           utilization: av > 0 ? minShort.AvMin / av : Number.POSITIVE_INFINITY,
           unit: 'cm²', method: 'area', tuplesChecked: count, regionRange: ss.range,
           description: `Vu = ${minShort.Vu.toFixed(1)} kN > ${rule} = ${minShort.threshold.toFixed(1)} kN: Av,min required (${clause}); `
-            + `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} gives Av = ${av.toFixed(2)} cm² < Av,min = ${minShort.AvMin.toFixed(2)} cm² (${spacingRule.edition === '2005' ? '§11.5.6.3' : '§9.6.3.4'}, fyt = ${section.fy} MPa)`,
+            + `eØ${stir.diameter} ${stir.legs}L c/${(stir.spacing * 100).toFixed(0)} gives Av = ${av.toFixed(2)} cm² < Av,min = ${minShort.AvMin.toFixed(2)} cm² (${spacingRule.edition === '2005' ? '§11.5.6.3' : '§9.6.3.4'}, fyt = ${section.fy} MPa)`,
           comboName: minShort.comboName, stationX: minShort.stationX,
           limiting: 'shear',
         });
@@ -2940,6 +2972,8 @@ function evaluateProvidedReinforcement(
           const side = section.h - inside - (top.diameter + bot.diameter) / 2000;
           const halfAl = Math.max(r.Al, r.AlMin) * 1e4 / 2;
           if (side > 0.3 || [top, bot].some(bar => bar.area < halfAl
+            || bar.diameter < 10 || cage.spacing > (spacingRule.edition === '2005'
+              ? bar.diameter * 24 / 1000 : (bar.diameter / 1000) / 0.042)
             || (section.b - inside - bar.diameter / 1000) / (bar.count - 1) > 0.3)) return 'diag.rcTorsionPerimeter';
           return undefined;
         };
@@ -2949,8 +2983,9 @@ function evaluateProvidedReinforcement(
           if (reason && (!longitudinalRefusal || reason === 'diag.rcTorsionCutoff')) longitudinalRefusal = { t: x.t, reason };
         };
         let evaluated = 0;
-        for (const t of cuts) {
-          if (gapTuples.has(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
+        const torsionCuts = new Set([...cuts, ...longitudinalCuts.filter(inRegion)]);
+        for (const t of torsionCuts) {
+          if (isDrawnGap(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
           const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
           if (active.some(x => !x.r.refusal)) evaluated++;
           for (const x of active) {
@@ -2962,21 +2997,13 @@ function evaluateProvidedReinforcement(
             if (!lw || need.u > lw.need.u) lw = { ...x, need };
           }
         }
-        let interpolatedEvaluated = 0;
-        for (const t of longitudinalCuts) {
-          if ((t.stationT <= tStartEnd || t.stationT >= tEndStart) !== support
-            || torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
-          const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
-          if (active.length) interpolatedEvaluated++;
-          for (const x of active) checkLongitudinalEvidence(x);
-        }
-        if (tw) pushTorsion(tw, ss.label.replace('Shear', 'Torsion'), ss.tuples.length, ss.range);
+        if (tw) pushTorsion(tw, ss.label.replace('Shear', 'Torsion'), torsionCuts.size, ss.range);
         if (tw && elementType === 'wall') longitudinalRefusal = { t: tw.t, reason: 'diag.rcTorsionPerimeter' };
         if (longitudinalRefusal) {
           checkedAxes.add('T');
           pushStrength({
             category: ss.label.replace('Shear', 'Torsion Al'), demandCategory: null,
-            utilization: Infinity, provided: 0, unit: 'cm²', method: 'area', tuplesChecked: evaluated + interpolatedEvaluated, regionRange: ss.range,
+            utilization: Infinity, provided: 0, unit: 'cm²', method: 'area', tuplesChecked: evaluated, regionRange: ss.range,
             description: longitudinalRefusal.reason,
             comboName: longitudinalRefusal.t.comboName, stationX: longitudinalRefusal.t.stationX, limiting: 'unsupportedCheck',
           });
@@ -3007,14 +3034,13 @@ function evaluateProvidedReinforcement(
         });
         continue;
       }
-      if (!ss.stir) continue;
       if (!worst) continue;
       pushStrength({
         category: ss.label, demandCategory: axes.shear === 'Vy' ? 'Vy' : 'Vz',
         demand: +worst.Vu.toFixed(2), capacity: +worst.phiVn.toFixed(2),
         utilization: worst.ratio,
         unit: 'kN', method: 'capacity', tuplesChecked: count, regionRange: ss.range,
-        description: `eØ${ss.stir.diameter} ${ss.stir.legs}L c/${(ss.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
+        description: `eØ${worst.stir.diameter} ${worst.stir.legs}L c/${(worst.stir.spacing * 100).toFixed(0)} [${ss.range[0].toFixed(2)}–${ss.range[1].toFixed(2)}], ${count} tuples`
           + (section.fy > shearFy(section.fy) ? `; Vs with fyt = ${shearFy(section.fy)} MPa (§22.5.3.3)` : '')
           + (Math.sqrt(section.fc) > shearSqrtFc(section.fc) ? `; Vc with √f'c = ${shearSqrtFc(section.fc)} MPa (§22.5.3.1)` : ''),
         comboName: worst.comboName, stationX: worst.stationX,
@@ -3028,46 +3054,48 @@ function evaluateProvidedReinforcement(
       // that forces crossties into wide members and into any member in row 2 whose web is
       // wider than the row-2 limit — a 300 mm web has 242 mm between its two leg centres
       // against a 200 mm row-2 limit, so a third leg is required.
-      const tbl = checkTransverseSpacing(
-        spacingRule.edition,
-        {
-          VsRequired: requiredVsForTable(worst.Vu, section.b, d, section.fc),
-          bw: section.b, d, fc: section.fc,
-          cover: section.cover, stirrupDiaMm: ss.stir.diameter,
-        },
-        { spacing: ss.stir.spacing, legs: ss.stir.legs },
-      );
-      if (!transverseSpacingIsSupported(tbl.limits)) {
-        // Prestressing is the only gap the table has, and it is not silently ignored.
-        pushStrength({
-          category: `${ss.label} s,max`, demandCategory: null,
-          required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
-          unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-          description: `Table 9.7.6.2.2 not evaluated — ${tbl.limits.unsupported.join(', ')}`,
-          limiting: 'unsupportedCheck',
-        });
-      } else {
-        if (!tbl.alongOk) {
+      for (const { Vu, stir, depth } of stirrupCoverage ? worstByStirrup.values() : [worst]) {
+        const tbl = checkTransverseSpacing(
+          spacingRule.edition,
+          {
+            VsRequired: requiredVsForTable(Vu, section.b, depth, section.fc),
+            bw: section.b, d: depth, fc: section.fc,
+            cover: section.cover, stirrupDiaMm: stir.diameter,
+          },
+          { spacing: stir.spacing, legs: stir.legs },
+        );
+        if (!transverseSpacingIsSupported(tbl.limits)) {
+          // Prestressing is the only gap the table has, and it is not silently ignored.
           pushStrength({
             category: `${ss.label} s,max`, demandCategory: null,
-            required: +(tbl.limits.alongMax * 100).toFixed(1),
-            provided: +(ss.stir.spacing * 100).toFixed(1),
-            utilization: tbl.alongUtilization,
+            required: 0, provided: 0, utilization: Number.POSITIVE_INFINITY,
             unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-            description: `stirrup spacing ${(ss.stir.spacing * 100).toFixed(1)} cm exceeds s,max along the member = ${(tbl.limits.alongMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row})`,
-            limiting: 'tieSpacing',
+            description: `Table 9.7.6.2.2 not evaluated — ${tbl.limits.unsupported.join(', ')}`,
+            limiting: 'unsupportedCheck',
           });
-        }
-        if (!tbl.acrossOk) {
-          pushStrength({
-            category: `${ss.label} s,max across`, demandCategory: null,
-            required: +(tbl.limits.acrossMax * 100).toFixed(1),
-            provided: +(tbl.acrossProvided * 100).toFixed(1),
-            utilization: tbl.acrossUtilization,
-            unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
-            description: `leg spacing across the width ${(tbl.acrossProvided * 100).toFixed(1)} cm exceeds ${(tbl.limits.acrossMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row}) — ${ss.stir.legs} legs provided, ${tbl.limits.requiredLegs} required`,
-            limiting: 'tieSpacing',
-          });
+        } else {
+          if (!tbl.alongOk) {
+            pushStrength({
+              category: `${ss.label} s,max`, demandCategory: null,
+              required: +(tbl.limits.alongMax * 100).toFixed(1),
+              provided: +(stir.spacing * 100).toFixed(1),
+              utilization: tbl.alongUtilization,
+              unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
+              description: `stirrup spacing ${(stir.spacing * 100).toFixed(1)} cm exceeds s,max along the member = ${(tbl.limits.alongMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row})`,
+              limiting: 'tieSpacing',
+            });
+          }
+          if (!tbl.acrossOk) {
+            pushStrength({
+              category: `${ss.label} s,max across`, demandCategory: null,
+              required: +(tbl.limits.acrossMax * 100).toFixed(1),
+              provided: +(tbl.acrossProvided * 100).toFixed(1),
+              utilization: tbl.acrossUtilization,
+              unit: 'cm', method: 'area', tuplesChecked: 0, regionRange: ss.range,
+              description: `leg spacing across the width ${(tbl.acrossProvided * 100).toFixed(1)} cm exceeds ${(tbl.limits.acrossMax * 100).toFixed(1)} cm (Table 9.7.6.2.2 ${tbl.limits.row}) — ${stir.legs} legs provided, ${tbl.limits.requiredLegs} required`,
+              limiting: 'tieSpacing',
+            });
+          }
         }
       }
     }

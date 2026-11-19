@@ -782,7 +782,7 @@ for (const nonlinear of [false, true]) {
 
 for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
   for (const axis of spatial ? ['primary', 'secondary'] as const : ['primary'] as const) {
-    it(`#2296 solved beam shear refuses a drawn gap (spatial=${spatial}, nonlinear=${nonlinear}, axis=${axis})`, () => {
+    it(`#2296 solved beam checks drawn gaps and sparse zones (spatial=${spatial}, nonlinear=${nonlinear}, axis=${axis})`, () => {
       const primary = axis === 'primary';
       const L = 4;
       const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
@@ -808,16 +808,20 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
       const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, solverModel);
       const [left, right] = stations.get(1)!.stationTs.filter(t => t > 0.3).slice(0, 2).map(t => t * L);
       const gapStart = (2 * left! + right!) / 3, gapEnd = (left! + 2 * right!) / 3;
-      const check = (from: number, extracted: boolean, interior = false) => {
+      const sparse = { diameter: 10, legs: 2, spacing: 0.25 };
+      const check = (from: number, extracted: boolean, interior = false, middle?: typeof sparse) => {
         const reinforcement = membersFromLine({
           version: 1, members: [1], lengths: [L],
           bars: [{ ...longitudinal, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
             { ...longitudinal, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
-          stirrups: interior ? [{ ...cage, id: 'left', from: 0, to: gapStart }, { ...cage, id: 'right', from: gapEnd, to: L }]
-            : [{ ...cage, id: 'cage', from, to: L }],
+          stirrups: interior ? [
+            { ...cage, id: 'left', from: 0, to: gapStart },
+            ...(middle ? [{ ...middle, id: 'middle', from: gapStart, to: gapEnd }] : []),
+            { ...cage, id: 'right', from: gapEnd, to: L },
+          ] : [{ ...cage, id: 'cage', from, to: L }],
         }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
         return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? demands.get(1) : undefined,
-          {}, section, extracted ? undefined : stations.get(1), undefined, { axes }).checks;
+          {}, section, extracted ? undefined : stations.get(1), undefined, { axes, spacingRule: { edition: middle && !primary ? '2005' : '2025', maxAggregateSizeMm: 20 } }).checks;
       };
       for (const extracted of [false, true]) {
         const gap = check(0.4, extracted);
@@ -831,7 +835,16 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
         expect(interior).toContainEqual(expect.objectContaining({
           demandCategory: primary ? 'Vz' : 'Vy', status: 'fail', description: 'diag.rcShearGap',
         }));
+        const sparseRows = check(0, extracted, true, sparse);
+        const width = primary ? section.b : section.h;
+        const height = primary ? section.h : section.b;
+        const sparseCapacity = shearCapacity(primary ? '2025' : '2005', width, depth(height, sparse.diameter),
+          sparse.diameter, sparse.legs, sparse.spacing);
+        expect.soft(sparseRows.find(row => row.category === (primary ? 'Shear Span (Vz)' : category))).toMatchObject({
+          status: 'ok', capacity: +sparseCapacity.toFixed(2),
+        });
         if (spatial && primary) {
+          expect.soft(sparseRows.find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({ status: 'fail' });
           expect.soft(gap.find(row => row.category === 'Torsion Support (Vz)')).toMatchObject({
             status: 'fail', ratio: Infinity, missingReinforcement: true,
           });
@@ -1187,8 +1200,6 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
   else it(`planar corner gap with zero torsion (nonlinear=${nonlinear})`, checkSolvedGap);
 }
 
-const review2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-
 function checkReviewBeam(
   geometry: typeof section, reinforcement: ProvidedReinforcement, L: number,
   stations: Array<{ t: number; n: number; my: number; vy: number; vz: number; torsion: number }>,
@@ -1201,7 +1212,7 @@ function checkReviewBeam(
     { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition, maxAggregateSizeMm: 20 } }).checks;
 }
 
-review2338('known wrong result: #2338 drawn stirrup strength at both sides of each zone transition', () => {
+it('known wrong result: #2338 drawn stirrup strength at both sides of each zone transition', () => {
   const L = 4;
   const dense = { diameter: 10, legs: 4, spacing: 0.1 };
   const sparse = { diameter: 8, legs: 2, spacing: 0.25 };
@@ -1233,7 +1244,7 @@ review2338('known wrong result: #2338 drawn stirrup strength at both sides of ea
   }
 });
 
-review2338('known wrong result: #2338 an interpolated cutoff can govern torsion with passing sampled stations', () => {
+it('known wrong result: #2338 an interpolated cutoff can govern torsion with passing sampled stations', () => {
   const L = 4;
   const geometry = { ...section, h: 0.37 };
   const transverse = { ...cage, spacing: 0.06 };
@@ -1257,7 +1268,7 @@ review2338('known wrong result: #2338 an interpolated cutoff can govern torsion 
   }
 });
 
-review2338('known wrong result: #2338 every credited torsion bar meets the edition diameter rule', () => {
+it('known wrong result: #2338 every credited torsion bar meets the edition diameter rule', () => {
   const geometry = { ...section, b: 0.84, h: 0.37, stirrupDia: 12 };
   for (const edition of ['2005', '2025'] as const) for (const extracted of [false, true]) for (const draw of [false, true]) {
     const spacingAtTen = edition === '2005' ? 0.24 : 0.01 / 0.042;
