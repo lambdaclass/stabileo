@@ -454,11 +454,12 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     };
     let mark = 0;
     const next = () => String.fromCharCode(65 + (mark++ % 26)) + (mark > 26 ? String(Math.floor((mark - 1) / 26)) : '');
-    const turnOf = (face: 'top' | 'bottom', end: BeamEnd | undefined): 1 | -1 => (face === 'top' || end?.kind === 'column' ? -1 : 1);
+    /** Hooks turn toward the joint's mid-depth (R18.8.5; the course's end support): top bars down, bottom bars up, their tail held to the beam's depth (`tailFor`). */
+    const turnOf = (face: 'top' | 'bottom'): 1 | -1 => (face === 'top' ? -1 : 1);
     const add = (face: 'top' | 'bottom', kind: LineBar['kind'], g: BarGroup, from: number, to: number, hooksAsked: [boolean, boolean], bent?: { shape: BarShape; runs: LineBar['runs'] }) => {
       if (g.count <= 0 || to - from < 1e-6) return;
       const inner = c.cover + sdOf(0) / 1000 + g.dia / 2000;
-      const ends = [turnOf(face, endStart), turnOf(face, endEnd)] as [1 | -1, 1 | -1];
+      const ends = [turnOf(face), turnOf(face)] as [1 | -1, 1 | -1];
       const id = next();
       const hooks: [boolean, boolean] = [...hooksAsked];
       const hook180: [boolean, boolean] = [false, false];

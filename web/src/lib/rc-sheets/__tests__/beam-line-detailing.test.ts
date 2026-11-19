@@ -53,11 +53,12 @@ const lineOf = (spans: SpanSpec[], extra: object = {}, adopted?: LineAdopted, en
 const fixed: LineAdopted = { bottom: { count: 2, dia: 25 }, top: { count: 2, dia: 12 }, supportTop: [{ count: 0, dia: 16 }, { count: 2, dia: 16 }, { count: 0, dia: 16 }], spanBottom: [{ count: 0, dia: 16 }, { count: 0, dia: 16 }] };
 
 describe('hooks of a beam line', () => {
-  it('turns the bottom bars\' end hooks down into the end columns and draws them as long as they are cut', () => {
+  it('turns the bottom bars\' end hooks up into the end joints, toward their mid-depth as the top bars\' turn down, and draws them as long as they are cut', () => {
     const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed);
     const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
-    expect(hookTurn(b, 0)).toBeLessThan(0);
-    expect(hookTurn(b, 1)).toBeLessThan(0);
+    expect(hookTurn(b, 0)).toBeGreaterThan(0);
+    expect(hookTurn(b, 1)).toBeGreaterThan(0);
+    expect(hookTurn(b, 0)).toBeLessThanOrEqual(0.4 + 1e-9);
     const pts = barPolyline(line, b, 0);
     expect(Math.abs(pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookLegOf(b), 6);
     expect((pts[0]!.y - pts[1]!.y) / 1000).toBeCloseTo(hookTurn(b, 0), 6);
@@ -70,7 +71,7 @@ describe('hooks of a beam line', () => {
     const free: BeamEnd = { kind: 'free', half: 0 };
     const { line } = lineOf([{ L: 5, h: 0.4 }, { L: 5, h: 0.4 }], {}, fixed, [column, free]);
     const b = line.bars.find((x) => x.kind === 'continuous' && x.face === 'bottom')!;
-    expect(hookTurn(b, 0)).toBeLessThan(0);
+    expect(hookTurn(b, 0)).toBeGreaterThan(0);
     expect(b.hook180).toEqual([false, true]);
     const rise = (6 * 25 + 25) / 1000;
     expect(hookTurn(b, 1)).toBeCloseTo(rise, 9);
