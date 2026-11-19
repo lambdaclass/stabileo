@@ -82,7 +82,7 @@ test.describe('@smoke loads by code family', () => {
 
   test('no pane of another family shows CIRSOC: each lists its own occupancies, dead load and rules', async ({ pro: page }) => {
     await openDialog(page);
-    const own: Record<string, RegExp> = { eurocode: /^A · /, uk: /^A1 · /, us: /^Access floor/, turkey: /./ };
+    const own: Record<string, RegExp> = { eurocode: /^A · /, uk: /^A1 · /, us: /^Access floor/, turkey: /^Mosques\b/ };
     for (const family of ['eurocode', 'uk', 'us', 'turkey'] as const) {
       await page.getByTestId('al-family').selectOption(family);
       await expect(page.getByTestId('al-family-error')).toHaveCount(0);
@@ -97,6 +97,7 @@ test.describe('@smoke loads by code family', () => {
       const options = await page.getByTestId('al-occupancy').locator('option').allTextContents();
       expect(options.length, family).toBeGreaterThan(1);
       expect(options.some((o) => own[family]!.test(o)), `${family}: ${options[0]}`).toBe(true);
+      if (family === 'turkey') expect(await page.getByTestId('al-occupancy').locator('option').evaluateAll((xs) => xs.map((x) => (x as HTMLOptionElement).value).filter((v) => !v.startsWith('tr_')))).toEqual([]);
       // CIRSOC 101 Tabla 4.1's dwellings row is not among them.
       expect(options.some((o) => o.startsWith('Dwellings — rooms generally'))).toBe(false);
     }
