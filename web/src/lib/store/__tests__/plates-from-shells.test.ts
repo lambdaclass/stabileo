@@ -147,7 +147,7 @@ describe('what a plate selected whole is given beyond its section', () => {
     const { quads } = grid(2, 1);
     const q = modelStore.quads.get(quads[1]!)!;
     modelStore.removeQuad(quads[1]!);
-    modelStore.addQuad([...q.nodes].reverse(), q.materialId, q.thickness);
+    modelStore.addQuad([...q.nodes].reverse() as [number, number, number, number], q.materialId, q.thickness);
     platesFromShells(looseShells());
     expect(looseShells()).toHaveLength(0);
     expect(physicalPlates()).toHaveLength(2);

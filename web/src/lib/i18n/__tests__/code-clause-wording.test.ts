@@ -47,7 +47,7 @@ describe('code clauses as the code words them', () => {
   });
   it('EN 1998-1 §4.3.3.5.2: the vertical component on the whole structure is a modelling choice, not said to be on the safe side', () => {
     for (const [l, s] of each('loads.ec.seismic.verticalWhole')) expect(s, l).not.toMatch(/safe side|lado de la seguridad|favor da segurança|sicheren Seite|sens de la sécurité|güvenli taraf|biztonság javára/);
-    expect(en['loads.ec.seismic.verticalWhole']).toContain('modelling choice');
+    expect(en['loads.ec.seismic.verticalWhole']).toContain('modeling choice');
   });
   it('the load patterns seek the unfavourable moments, with no claim of a complete envelope', () => {
     for (const [l, s] of each('autoLoad.patternsHintCode')) expect(s, l).not.toMatch(/give the larger|dan los momentos|dão os maiores|ergeben die größeren|donnent les plus grands|momentleri verir|adják a nagyobb/);
