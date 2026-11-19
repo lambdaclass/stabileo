@@ -224,3 +224,68 @@ describe('a supported side and the user\'s nodes on it', () => {
     expect(typeOf(c[0]!)).toEqual(['pinned3d']);
   });
 });
+
+describe('the supports and springs a plate\'s mesh was given', () => {
+  const springsAt = (n: number) => [...modelStore.supports.values()].filter((s) => s.nodeId === n && s.type === 'custom3d').map((s) => (s as { kz?: number }).kz ?? 0);
+
+  it('a support the user put in place of the one a held side gave is kept when the mesh goes', () => {
+    fresh();
+    const c = [[0, 0], [4, 0], [4, 3], [0, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.15 }) as { id: number };
+    holdPlateSides(id, [[c[0]!, c[1]!]], 'pinned3d');
+    applyPlateMeshes([planPlateMesh(id, { size: 1 })!]);
+    const given = plateEntry(id)!.surface.meshed!.supported!.find((n) => !c.includes(n))!;
+    expect(given).toBeDefined();
+    const before = [...modelStore.supports.values()].find((s) => s.nodeId === given)!;
+    modelStore.removeSupport(before.id);
+    modelStore.addSupport(given, 'fixed3d');
+    clearPlateMesh(id);
+    expect([...modelStore.supports.values()].filter((s) => s.nodeId === given).map((s) => s.type)).toEqual(['fixed3d']);
+  });
+
+  it('a spring at a node two spring plates share keeps the other plate\'s share when one mesh goes', () => {
+    fresh();
+    const a = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const b = [a[1]!, modelStore.addNode(8, 0, 0), modelStore.addNode(8, 4, 0), a[2]!];
+    const p = (createPlate({ outline: a, materialId: 1, thickness: 0.2 }) as { id: number }).id;
+    const q = (createPlate({ outline: b, materialId: 1, thickness: 0.2 }) as { id: number }).id;
+    const springs = { ks: 20000, uplift: false, holdHorizontal: false };
+    setPlateShellSpec([p, q], { springs });
+    applyPlateMeshes([planPlateMesh(p, { size: 1 })!, planPlateMesh(q, { size: 1 })!]);
+    const shared = [...modelStore.nodes.values()].find((n) => n.x === 4 && n.y === 2)!.id;
+    const both = springsAt(shared);
+    expect(both).toHaveLength(1);
+    clearPlateMesh(p);
+    const left = springsAt(shared);
+    expect(left).toHaveLength(1);
+    expect(left[0]).toBeCloseTo(both[0]! / 2, 6);
+  });
+
+  it('springs taken off a meshed plate leave its mesh, and changed ones are put on it as they are now', () => {
+    fresh();
+    const c = [[0, 0], [4, 0], [4, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const { id } = createPlate({ outline: c, materialId: 1, thickness: 0.2 }) as { id: number };
+    setPlateShellSpec([id], { springs: { ks: 20000, uplift: false, holdHorizontal: false } });
+    applyPlateMeshes([planPlateMesh(id, { size: 1 })!]);
+    const centre = [...modelStore.nodes.values()].find((n) => n.x === 2 && n.y === 2)!.id;
+    const k0 = springsAt(centre)[0]!;
+    expect(k0).toBeCloseTo(20000, 6);
+    setPlateShellSpec([id], { springs: { ks: 40000, uplift: false, holdHorizontal: false } });
+    expect(springsAt(centre)).toEqual([2 * k0]);
+    setPlateShellSpec([id], { springs: null });
+    expect([...modelStore.supports.values()].filter((s) => s.type === 'custom3d')).toEqual([]);
+  });
+
+  it('a run stopped by an edit leaves the plates it meshed with their springs', async () => {
+    const ids = slabs(3);
+    setPlateShellSpec(ids, { springs: { ks: 20000, uplift: false, holdHorizontal: false } });
+    const plans = ids.map((id) => planPlateMesh(id, { size: 0.5, element: 'quad' })!);
+    let added = -1;
+    const r = await applyPlateMeshesAsync(plans, (done) => { if (done > 0 && added < 0) added = modelStore.addNode(50, 50, 0); }, 0);
+    expect(r.refused.map((x) => x.reason)).toContain('interrupted');
+    const first = ids[0]!;
+    const inner = plateLoops(plateEntry(first)!.group).owned;
+    expect(inner.length).toBeGreaterThan(0);
+    for (const n of inner) expect(springsAt(n), `node ${n}`).toHaveLength(1);
+  });
+});
