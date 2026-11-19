@@ -1,9 +1,9 @@
-import { riserTitle } from './card';
+import { riserHook, riserTitle } from './card';
 import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
   title: riserTitle.en,
-  lead: 'An 835 m line lies on the seabed, is pulled by its free end and lifted 186 m. Watch where it leaves the ground and how bending peaks there.',
+  lead: riserHook.en,
   model: 'The model',
   theory: 'A geometrically exact rod: each section moves and rotates freely, and the energy depends on stretch, shear, bending and twist measured in the section’s own frame. Three-node elements with two Gauss points. The seabed is a rigid plane that pushes back with a penalty spring at each node, with Coulomb friction.',
   method: 'We read the reference code’s own input files and solve the same three static steps: self-weight with contact, a 1 MN horizontal pull, then a 186 m lift of the free end. The solver is a new Rust crate, compiled to WASM for this page. Its tangent comes from differentiating the element energy twice, so Newton converges quadratically.',
@@ -45,7 +45,7 @@ type Strings = typeof en;
 
 const es: Strings = {
   title: riserTitle.es,
-  lead: 'Una línea de 835 m apoyada en el fondo se tira desde su extremo libre y se levanta 186 m. Mirá dónde se despega del suelo y cómo ahí la flexión llega a su máximo.',
+  lead: riserHook.es,
   model: 'El modelo',
   theory: 'Una barra geométricamente exacta: cada sección se mueve y gira libremente, y la energía depende del estiramiento, el corte, la flexión y la torsión medidos en el sistema propio de la sección. Elementos de tres nodos con dos puntos de Gauss. El fondo es un plano rígido que empuja con un resorte de penalidad en cada nodo, con fricción de Coulomb.',
   method: 'Leemos los archivos de entrada del código de referencia y resolvemos los mismos tres pasos estáticos: peso propio con contacto, un tiro horizontal de 1 MN y un izado de 186 m del extremo libre. El cálculo es un crate nuevo en Rust, compilado a WASM para esta página. La tangente sale de derivar dos veces la energía del elemento, así que Newton converge cuadráticamente.',
@@ -85,7 +85,7 @@ const es: Strings = {
 
 const pt: Strings = {
   title: riserTitle.pt,
-  lead: 'Uma linha de 835 m apoiada no fundo é puxada pela extremidade livre e levantada 186 m. Veja onde ela se descola do solo e como a flexão atinge o máximo ali.',
+  lead: riserHook.pt,
   model: 'O modelo',
   theory: 'Uma barra geometricamente exata: cada seção se move e gira livremente, e a energia depende do estiramento, do cisalhamento, da flexão e da torção medidos no sistema da própria seção. Elementos de três nós com dois pontos de Gauss. O fundo é um plano rígido que reage com uma mola de penalidade em cada nó, com atrito de Coulomb.',
   method: 'Lemos os arquivos de entrada do código de referência e resolvemos os mesmos três passos estáticos: peso próprio com contato, uma tração horizontal de 1 MN e um içamento de 186 m da extremidade livre. O cálculo é um crate novo em Rust, compilado para WASM nesta página. A tangente vem da derivada segunda da energia do elemento, então Newton converge quadraticamente.',
@@ -125,7 +125,7 @@ const pt: Strings = {
 
 const de: Strings = {
   title: riserTitle.de,
-  lead: 'Eine 835 m lange Leitung liegt auf dem Meeresboden, wird am freien Ende gezogen und 186 m angehoben. Sehen Sie, wo sie vom Boden abhebt und wie dort die Biegung ihr Maximum erreicht.',
+  lead: riserHook.de,
   model: 'Das Modell',
   theory: 'Ein geometrisch exakter Stab: Jeder Querschnitt verschiebt und dreht sich frei, und die Energie hängt von Dehnung, Schub, Biegung und Torsion im eigenen System des Querschnitts ab. Dreiknotige Elemente mit zwei Gaußpunkten. Der Meeresboden ist eine starre Ebene, die an jedem Knoten über eine Penalty-Feder mit Coulomb-Reibung zurückdrückt.',
   method: 'Wir lesen die Eingabedateien des Referenzcodes und lösen dieselben drei statischen Schritte: Eigengewicht mit Kontakt, ein horizontaler Zug von 1 MN und ein Anheben des freien Endes um 186 m. Der Löser ist ein neues Rust-Crate, für diese Seite nach WASM kompiliert. Die Tangente entsteht aus der zweiten Ableitung der Elementenergie, daher konvergiert Newton quadratisch.',
@@ -165,7 +165,7 @@ const de: Strings = {
 
 const fr: Strings = {
   title: riserTitle.fr,
-  lead: 'Une ligne de 835 m posée sur le fond est tirée par son extrémité libre puis soulevée de 186 m. Observez où elle quitte le sol et comment la flexion y atteint son maximum.',
+  lead: riserHook.fr,
   model: 'Le modèle',
   theory: 'Une poutre géométriquement exacte : chaque section se déplace et tourne librement, et l’énergie dépend de l’allongement, du cisaillement, de la flexion et de la torsion mesurés dans le repère propre de la section. Éléments à trois nœuds avec deux points de Gauss. Le fond est un plan rigide qui repousse chaque nœud par un ressort de pénalité, avec un frottement de Coulomb.',
   method: 'Nous lisons les fichiers d’entrée du code de référence et résolvons les mêmes trois pas statiques : poids propre avec contact, une traction horizontale de 1 MN, puis un relevage de 186 m de l’extrémité libre. Le solveur est un nouveau crate Rust, compilé en WASM pour cette page. La tangente provient de la dérivée seconde de l’énergie de l’élément, donc Newton converge quadratiquement.',
@@ -205,7 +205,7 @@ const fr: Strings = {
 
 const tr: Strings = {
   title: riserTitle.tr,
-  lead: 'Deniz tabanında yatan 835 m’lik bir hat serbest ucundan çekilir ve 186 m kaldırılır. Hattın zeminden nerede ayrıldığını ve eğilmenin orada nasıl en büyük değerine ulaştığını izleyin.',
+  lead: riserHook.tr,
   model: 'Model',
   theory: 'Geometrik olarak kesin bir çubuk: her kesit serbestçe yer değiştirir ve döner; enerji, kesitin kendi eksen takımında ölçülen uzama, kayma, eğilme ve burulmaya bağlıdır. İki Gauss noktalı üç düğümlü elemanlar. Deniz tabanı, her düğümü bir ceza yayıyla geri iten ve Coulomb sürtünmesi olan rijit bir düzlemdir.',
   method: 'Referans kodun kendi girdi dosyalarını okuyup aynı üç statik adımı çözüyoruz: temaslı öz ağırlık, 1 MN yatay çekme ve serbest ucun 186 m kaldırılması. Çözücü, bu sayfa için WASM’a derlenmiş yeni bir Rust crate’idir. Teğet, eleman enerjisinin ikinci türevinden gelir; bu yüzden Newton karesel yakınsar.',
@@ -245,7 +245,7 @@ const tr: Strings = {
 
 const hu: Strings = {
   title: riserTitle.hu,
-  lead: 'Egy 835 m hosszú vezeték a tengerfenéken fekszik; szabad végénél fogva meghúzzák, majd 186 m-rel megemelik. Figyelje meg, hol válik el a talajtól, és hogyan éri el ott a hajlítás a csúcsát.',
+  lead: riserHook.hu,
   model: 'A modell',
   theory: 'Geometriailag egzakt rúd: minden keresztmetszet szabadon elmozdul és elfordul, az energia pedig a keresztmetszet saját koordináta-rendszerében mért nyúlástól, nyírástól, hajlítástól és csavarodástól függ. Háromcsomópontos elemek két Gauss-ponttal. A tengerfenék merev sík, amely minden csomópontban büntetőrugóval, Coulomb-súrlódással nyom vissza.',
   method: 'Beolvassuk a referenciakód saját bemeneti fájljait, és ugyanazt a három statikus lépést oldjuk meg: önsúly érintkezéssel, 1 MN vízszintes húzás, majd a szabad vég 186 m-es megemelése. A megoldó egy új Rust-crate, amelyet ehhez az oldalhoz WASM-ra fordítottunk. Az érintőmátrixot az elemenergia kétszeri deriválásával kapjuk, így a Newton-iteráció kvadratikusan konvergál.',

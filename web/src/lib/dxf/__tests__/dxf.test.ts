@@ -199,6 +199,21 @@ describe('DXF Mapper', () => {
     expect(result.supports[1].type).toBe('pinned');
   });
 
+  const issue2278 = process.env.RUN_KNOWN_WRONG === '2278' ? it : it.skip;
+  issue2278('known wrong result: #2278 an unknown support label cannot silently create a pinned support', () => {
+    const unknown = 'ELASTIC_VERTICAL';
+    const parsed = makeParsed({
+      lines: [{ layer: 'BARRAS', start: { x: 0, y: 0 }, end: { x: 5, y: 0 } }],
+      texts: [
+        { layer: 'APOYOS', position: { x: 0, y: 0 }, value: 'EMPOTRADO' },
+        { layer: 'APOYOS', position: { x: 5, y: 0 }, value: unknown },
+      ],
+    });
+    const result = mapDxfToModel(parsed, { unit: 'm', snapTolerance: 0.01 });
+    expect(result.supports.map(support => support.type)).toEqual(['fixed']);
+    expect(result.warnings.join(' ')).toContain(unknown);
+  });
+
   it('should map distributed load text', () => {
     const parsed = makeParsed({
       lines: [

@@ -406,7 +406,7 @@ describe('the same building designed and detailed under four slab meshes', () =>
  * (`design-anchorage-coherence.test.ts`).
  */
 const EXPECTED_ENDS: unknown[] = [
-  [1, { 'end/hook': 66, 'end/straight': 40 }, 0],
+  [1, { 'end/hook': 70, 'end/straight': 40 }, 0],
   [0.5, { 'end/hook': 68, 'end/straight': 40 }, 0],
   [2, { 'end/hook': 62, 'end/straight': 40 }, 0],
   [6, { 'end/hook': 80, 'end/straight': 40 }, 0],

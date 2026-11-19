@@ -639,7 +639,7 @@
 
   async function syncRouteState() {
     const token = ++publicRevision;
-    if (import.meta.env.VITE_TOOLS !== '0') restoreMovedRoute();
+    if (__PUBLIC_FEATURES__.tools) restoreMovedRoute();
     if (location.pathname.startsWith('/hu/')) {
       const { restoreUnpublishedResearchRoute } = await import('./lib/research-fallback');
       if (token !== publicRevision) return;
@@ -747,7 +747,7 @@
   let dxfFileInput: HTMLInputElement;
 
   let showImportDialog = $state(false);
-  const accountsEnabled = accounts();
+  const accountsEnabled = __PUBLIC_FEATURES__.accounts && accounts();
   let importText = $state('');
   let autosaveData = $state<DedalFile | null>(null);
   /** When the offered save was written, and whether it is the newest one that exists. */
@@ -776,9 +776,6 @@
     if (autosaveData) {
       // As a .ded open adopts it (`adoptStoredProject`): its hand edits and exports with it.
       adoptStoredProject(autosaveData.snapshot, autosaveData.name);
-      // Same convention note as a .ded open — an autosave predating the metadata
-      // is restored under the corrected convention, so warn if it's a legacy 3D model.
-      onProjectOpened(autosaveData.snapshot, autosaveData.analysisMode);
       // Restore analysis mode and axis convention from autosave
       if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
       if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
@@ -788,6 +785,7 @@
       if ((autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight !== undefined) uiStore.includeSelfWeight = (autosaveData as { includeSelfWeight?: boolean }).includeSelfWeight!;
       uiStore.selfWeightCaseId = autosaveData.selfWeightCaseId ?? null;
       noteBasicSelfWeightRuleIfNeeded(autosaveData.selfWeightCaseId !== undefined, uiStore.analysisMode);
+      onProjectOpened(autosaveData.snapshot, uiStore.analysisMode);
       // Restoring analysisMode may change the derived appMode (e.g. a legacy
       // PRO autosave restored from a basico banner) — keep the route state in sync.
       currentAppMode = uiStore.appMode;
@@ -948,7 +946,7 @@
 
   onMount(() => {
     if (accountsEnabled) void authStore.init();
-    const stopUsageTracking = import.meta.env.VITE_ACCOUNTS !== '0' ? installUsageTracking() : () => {};
+    const stopUsageTracking = __PUBLIC_FEATURES__.accounts ? installUsageTracking() : () => {};
     currentAppMode = pathToMode(location.pathname);
     if (currentAppMode === 'educativo') {
       uiStore.analysisMode = 'edu';
@@ -1012,7 +1010,7 @@
     if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
     }
-    if (import.meta.env.VITE_TOOLS !== '0') openMohrFromUrl(queryParams);
+    if (__PUBLIC_FEATURES__.tools) openMohrFromUrl(queryParams);
 
     // Landing demo iframe uses ?example=<id> to pre-load a sample structure
     const exampleId = queryParams.get('example');
@@ -1457,7 +1455,7 @@
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
 {#if publicActive}
-  {#if import.meta.env.VITE_ACCOUNTS === '0' || !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
+  {#if !__PUBLIC_FEATURES__.accounts || !isRegisterPath(blogPath)}<SiteHeader path={blogPath} />{/if}
   {#if showLanding}
     <LandingPage />
   {:else if publicPage}
@@ -1595,9 +1593,7 @@
         />
       </div>
 
-      {#if authStore.showAccountEntry}
-        {#if import.meta.env.VITE_ACCOUNTS !== '0'}<AccountButton />{/if}
-      {/if}
+      {#if __PUBLIC_FEATURES__.accounts && authStore.showAccountEntry}<AccountButton />{/if}
 
       <!--
         Settings sits with the other application-level controls — help and
@@ -2214,13 +2210,13 @@
 
   {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
-    {#if import.meta.env.VITE_ACCOUNTS !== '0'}
+    {#if __PUBLIC_FEATURES__.accounts}
       <ResultsDisclaimer />
       <UsageNotice />
       <TermsUpdateDialog />
     {/if}
   {/if}
-  {#if import.meta.env.VITE_ACCOUNTS !== '0' && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
+  {#if __PUBLIC_FEATURES__.accounts && accountsEnabled}<AccountGateDialog /><FeedbackDialog />{/if}
 
   <!--
     Mobile drawers (overlay on top of canvas) — PRO and Education only.
@@ -2403,7 +2399,7 @@
 <RecheckNotice />
 <WorkspaceSaveNotice />
 <ReproduceDialog />
-{#if import.meta.env.VITE_TOOLS !== '0' && mohrPanel.open}
+{#if __PUBLIC_FEATURES__.tools && mohrPanel.open}
   {#await import('./components/mohr/MohrDialog.svelte') then { default: MohrDialog }}<MohrDialog />{/await}
 {/if}
 

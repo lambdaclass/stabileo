@@ -127,14 +127,31 @@ and [SA-2026-068](advisories/SA-2026-068-provided-torsion-stirrups.md) (torsion 
 Re-run affected design checks; regenerate snow loads before re-solving.
 See the [release notes](releases/v0.6.1.md) for every results-change notice and known limitations.
 
-Draft 2026-11-15; fixed in PR #2169, pending merge and release:
-[SA-2026-069](advisories/SA-2026-069-torsion-secondary-shear.md)
-(torsion section limits omitted concurrent secondary shear, #2142).
+Published with 0.6.2 (2026-11-18):
+- [SA-2026-069](advisories/SA-2026-069-torsion-secondary-shear.md)
+- [SA-2026-070](advisories/SA-2026-070-interior-member-couples.md)
+- [SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
+- [SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
+- [SA-2026-073](advisories/SA-2026-073-snow-crossing-moment.md)
+- [SA-2026-074](advisories/SA-2026-074-snow-panel-subdivision.md)
+- [SA-2026-075](advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md)
+- [SA-2026-076](advisories/SA-2026-076-wind-enclosure.md)
+- [SA-2026-077](advisories/SA-2026-077-wind-wall-height-transfer.md)
+- [SA-2026-078](advisories/SA-2026-078-wind-roof-pressure-zones.md)
+- [SA-2026-079](advisories/SA-2026-079-gravity-shell-coverage.md)
+- [SA-2026-080](advisories/SA-2026-080-floor-zone-eccentricity.md)
+- [SA-2026-082](advisories/SA-2026-082-snow-companion-basis.md)
+- [SA-2026-083](advisories/SA-2026-083-concentrated-live-actions.md)
+- [SA-2026-089](advisories/SA-2026-089-roller-z-fixed.md)
 
-Draft 2026-11-15; fixed in PR #2173, pending merge and release:
-[SA-2026-071](advisories/SA-2026-071-incomplete-concurrent-demands.md)
-(member verdicts from incomplete concurrent demands, #2096).
+0.6.2 fixes [SA-2026-084](results-changes/2026-11-fillet-weld-physical-runs.md) for end-loaded fillet welds
+and [SA-2026-085](results-changes/2026-11-fillet-weld-physical-runs.md) for short fillet welds. [PR #2258](https://github.com/lambdaclass/stabileo/pull/2258) records both assignments.
 
-Draft 2026-11-15; fixed in PR #2175, pending merge and release:
-[SA-2026-072](advisories/SA-2026-072-snow-ridge-subdivision.md)
-(unequal roof subdivision moved the snow ridge and changed generated loads, #2144).
+0.6.2 also fixes [SA-2026-088](results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema)
+for combined diagram peaks and [SA-2026-090](results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers)
+for width-mode mass. See [PR #2282](https://github.com/lambdaclass/stabileo/pull/2282) for both assignments.
+
+Re-run affected concrete and steel checks and member-load analyses. Regenerate
+affected generated area, wind and seismic loads before re-solving. Review earlier
+calculations and sizing. The [release notes](releases/v0.6.2.md) list all result
+changes and known open findings.

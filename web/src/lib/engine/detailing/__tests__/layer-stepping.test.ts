@@ -1,25 +1,10 @@
-/**
- * How deep a second layer of bars stands below the first, as the design reads it and as the
- * detailing lays it (§25.2.2, `stackedLayerDepth`).
- *
- * ── The defect ─────────────────────────────────────────────────────
- *
- * The blog's embedded 20×40 beam (`rc-beam-flexure`) designs 6Ø10 at the start top (4 + 2 in a
- * second layer) and 8Ø12 at the end top. The continuous top pair runs support to support at the
- * larger bar, Ø12, in the outer layer (§25.7.1.2). Both the design and the detailing stepped the
- * start's second Ø10 layer from the Ø10 bars beside the pair, 10 + 25 mm, not from the pair: as
- * laid, its centre stood 34,29 mm below the pair's, 1,7 mm short of the 6 + 25 + 5 = 36 mm the
- * clear distance owes, and the repair ladder rightly refused to move it (out of the section, or
- * 3,7 mm off the verified depth). Both members read "No verifica".
- *
- * Every layer now steps from the INNER surface of the layer above, its largest bar's, by the clear
- * owed to the larger bar of the two, and the design's effective depth and the detailing's bar
- * elevations read the same function.
- */
 import { describe, it, expect } from 'vitest';
 import * as spacing from '../../../codes/cirsoc201/spacing';
 import { layerCentroid } from '../../station-design-forces';
 import { modelStore } from '../../../store/model.svelte';
+import { uiStore } from '../../../store/ui.svelte';
+import blogBeam from '../../../templates/fixtures/rc-beam-flexure.json';
+import { publishCombinations3D } from '../../../store/active-results';
 import { resultsStore } from '../../../store/results.svelte';
 import { detailingStore } from '../../../store/detailing.svelte';
 import { designRunStore } from '../../../store/design-run.svelte';
@@ -54,7 +39,7 @@ describe('§25.2.2 stepping, by hand', () => {
     expect(spacing.stackedLayerDepth([[32]], 1, 32, seat)).toBeCloseTo(seat(32) + 0.064, 9);
   });
 
-  it('the design\'s depth reads the pair: the start top of the blog beam, before and after', () => {
+  it('the design\'s depth reads the pair: the start top of the pin–fixed beam, before and after', () => {
     const layers: RebarLayer[] = [{ count: 4, diameter: 10, row: 0 }, { count: 2, diameter: 10, row: 1 }];
     // Without the pair, as the design read it before: (4·36 + 2·71) / 6 mm.
     expect(layerCentroid(layers, 0.025, 6)).toBeCloseTo(0.286 / 6, 9);
@@ -66,18 +51,56 @@ describe('§25.2.2 stepping, by hand', () => {
 
 const turn = () => new Promise<void>((r) => setImmediate(r));
 
-describe('the blog beam, designed and laid as the embed runs it', () => {
-  it('lays the second Ø10 layer 36 mm below the Ø12 pair, the depth the design verified, and conforms', async () => {
-    expect(isSolverReady()).toBe(true);
-    modelStore.clear(); resultsStore.clear(); detailingStore.clear(); designRunStore.resetMarks(); verificationStore.clear();
-    await modelStore.loadExample('rc-beam-flexure');
-    const solved = await modelStore.solveCombinations3DParallel(true, false, true) as { perCase: Map<number, never>; perCombo: Map<number, never>; envelope: never };
-    resultsStore.setCombinationResults3D(solved.perCase as never, solved.perCombo as never, solved.envelope as never);
-    await turn();
-    designRunStore.designFamilies([...DEFAULT_DESIGN_FAMILIES], { verifierId: 'cirsoc201.provided.v2.2025' });
-    await turn();
+function resetDesign() {
+  expect(isSolverReady()).toBe(true);
+  uiStore.analysisMode = 'pro';
+  uiStore.includeSelfWeight = true;
+  modelStore.clear();
+  resultsStore.clear();
+  detailingStore.clear();
+  designRunStore.resetMarks();
+  verificationStore.clear();
+}
 
-    // The design the embed reaches (the design decides; this pins what it decided).
+async function solveAndDesignBeam() {
+  const solved = await modelStore.solveCombinations3DParallel(true, false, true);
+  if (!solved || typeof solved === 'string') throw new Error(String(solved));
+  expect(solved.perCase.size).toBe(modelStore.model.loadCases.length);
+  expect(solved.perCombo.size).toBe(modelStore.model.combinations.length);
+  expect(solved.unstable ?? []).toEqual([]);
+  publishCombinations3D(solved);
+  await turn();
+  designRunStore.designFamilies([...DEFAULT_DESIGN_FAMILIES], { verifierId: 'cirsoc201.provided.v2.2025' });
+  await turn();
+  return solved;
+}
+
+describe('the blog beam, designed and laid as the embed runs it', () => {
+  it('designs the simply supported beam with free end rotations', async () => {
+    resetDesign();
+    await modelStore.loadExample('rc-beam-flexure');
+    const solved = await solveAndDesignBeam();
+    for (const result of [...solved.perCase.values(), ...solved.perCombo.values()]) {
+      expect(result.elementForces.find((f) => f.elementId === 1)!.myStart).toBeCloseTo(0, 9);
+      expect(result.elementForces.find((f) => f.elementId === 2)!.myEnd).toBeCloseTo(0, 9);
+    }
+    expect(verificationStore.getDisplayStatus(1)).toBe('ok');
+    expect(verificationStore.getDisplayStatus(2)).toBe('ok');
+  }, 120_000);
+});
+
+describe('a pin–fixed beam with mixed top layers', () => {
+  it('lays the second Ø10 layer 36 mm below the Ø12 pair, the depth the design verified, and conforms', async () => {
+    resetDesign();
+    await modelStore.loadExample('layer-stepping', async () => ({
+      ...blogBeam,
+      supports: [
+        { id: 1, nodeId: 1, type: 'pinned3d' },
+        { id: 2, nodeId: 3, type: 'fixed3d' },
+      ],
+    }));
+    await solveAndDesignBeam();
+
     const o = verificationStore.outcomeFor(1)!;
     expect(o.outcome).toBe('VERIFIED');
     const reg = o.accepted!.regions!;

@@ -5,6 +5,7 @@
  * with no backend of its own, so posts ship with the application and are as
  * available offline as the solver is.
  */
+import { buildFeatures } from '../../../config/public-features.mjs';
 import { readingMinutes, inLocale, addTranslations, type Post } from './types';
 import type { PublicLocale } from '../i18n/store.svelte';
 import { determinismBoundary } from './posts/determinism-boundary';
@@ -54,7 +55,9 @@ export const POSTS: Post[] = [
   release061,
 ].sort((a, b) => a.order - b.order);
 
-addTranslations(POSTS, (p) => p.slug, import.meta.env.VITE_RESEARCH === '1'
+const researchBuilt = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().research : __PUBLIC_FEATURES__.research;
+
+addTranslations(POSTS, (p) => p.slug, researchBuilt
   ? import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts'], { eager: true, import: 'default' })
   : import.meta.glob(['./translations/*/*.ts', '!./translations/*/page-*.ts', '!./translations/hu/**'], { eager: true, import: 'default' }));
 

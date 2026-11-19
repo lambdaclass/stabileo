@@ -39,11 +39,6 @@
  * combination with H is also emitted without its principal load (1,2 D + 1,6 H, 0,9 D + 1,6 H),
  * and with neither W nor E there, 0,9 D + H is emitted all the same (6 and 7 with W, E not acting).
  *
- * Seismic combinations. INPRES-CIRSOC 103-2018 Parte I §3.7.1 defines the combinations that
- * include the earthquake as [3.16] 1,2 D ± 1,0 E + f1 L + f2 S and [3.17] 0,9 D ± 1,0 E, f1 and
- * f2 from its Tabla 3.3: f2 = 0,70 on a roof that is horizontal or does not shed its snow, where
- * combination 5 above prints 0,2 S. With `seismicCompanions` the companions of combination 5
- * take the larger of the two codes' factors, so the combination satisfies both.
  *
  * The generator runs in the engine (`engine/src/loads/cirsoc101_combinations.rs`); this module
  * is its adapter and renders the result. No store, no runes.
@@ -64,6 +59,7 @@ export type LoadSymbol = 'D' | 'L' | 'Lr' | 'S' | 'R' | 'W' | 'Wa' | 'E' | 'F' |
 export interface CombinationTerm {
   symbol: LoadSymbol;
   factor: number;
+  snowBasis?: 'flatRoof';
 }
 
 export interface LoadCombinationSpec {
@@ -116,11 +112,6 @@ export interface CombinationInputs {
   earthPressureAction?: 'adds' | 'opposes' | 'unknown';
   /** True when H is a permanent load, which allows 0,9 rather than 0 when it opposes. */
   earthPressurePermanent?: boolean;
-  /**
-   * The companions of the seismic combination by INPRES-CIRSOC 103-2018 [3.16] (Tabla 3.3):
-   * f1 for L, f2 for S. Combination 5 takes the larger of these and its own factor for each.
-   * Absent: combination 5 as CIRSOC 101 prints it.
-   */
   seismicCompanions?: { f1?: number; f2?: number };
   /**
    * Also emit each combination without each subset of its companion loads (§2.3.2, "se deberán

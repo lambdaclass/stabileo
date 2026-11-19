@@ -175,14 +175,14 @@ const body: PostBody = {
       "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Méretezés munkaterület, Méretfelvétel lépés, a 20×40-es gerenda kijelölve a számítás és a méretezés után. A rúd paneljén „Ellenőrizve · helyi η 0,90” olvasható a CIRSOC 201 (2025) alatt, 13 ellenőrzéssel az My és Vz tengelyen, 0,900-as legrosszabb kihasználtsággal.",
-      "caption": "A lenti gerenda a „Méretfelvétel…” után: a CIRSOC 201 0,90-es kihasználtsággal ellenőrzi."
+      "alt": "A Stabileo PRO méretezési felülete a kijelölt 20×40-es gerendával.",
+      "caption": "A képernyőkép a támaszok javítása előtt készült. Az alábbi interaktív példában az aktuális eredmény látható."
     },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "A gerenda a Stabileóban, a PRO méretezési munkafolyamatában. Ha a méretezés ki van kapcsolva, nyomja meg az értesítésben a „Méretezés bekapcsolása erre a látogatásra” gombot. Három gomb, ebben a sorrendben: „Igénybevételek számítása”, „Szükséges acél számítása” és „Méretfelvétel…”. Csak a harmadik választja ki a vasakat, és amíg nincs vasalás, nincs mit ellenőrizni: a táblázat „nincs vasalás” értéket mutat. Az 5 m-es fesztáv két elemként van modellezve; mindkettő D/C = 0,90-nel zárul, a mezőbeli nyírás a mértékadó: a hajlítás és a vasak lehorgonyzása alatta marad. Változtassa meg a terhet, és futtassa újra. A szabvány szerinti méretezés a PRO-ban még fejlesztés alatt áll; a betonmodul az a rész, amely implementált és tesztelt."
+      "label": "A gerenda a Stabileóban, a PRO méretezési munkafolyamatában. Ha a méretezés ki van kapcsolva, nyomja meg az értesítésben a „Méretezés bekapcsolása erre a látogatásra” gombot. Három gomb, ebben a sorrendben: „Igénybevételek számítása”, „Szükséges acél számítása” és „Méretfelvétel…”. Csak a harmadik választja ki a vasakat, és amíg nincs vasalás, nincs mit ellenőrizni: a táblázat „nincs vasalás” értéket mutat. Az 5 m-es fesztáv két elemként van modellezve; mindkettő megfelel, D/C = 0,91 értékkel. A mezőbeli pozitív hajlítás (My+) a mértékadó. Változtassa meg a terhet, és futtassa újra. A szabvány szerinti méretezés a PRO-ban még fejlesztés alatt áll; a betonmodul az a rész, amely implementált és tesztelt."
     },
     {
       "k": "h",

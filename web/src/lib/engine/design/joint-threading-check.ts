@@ -43,7 +43,7 @@ export interface JointThreadingVerdict {
  * The columns read are the ones the run has designed (`MemberContext.columnBars`); a column with
  * no design is not detailed and has no bars to pass, as in the detailing.
  */
-export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement, support: EndSupportInput): JointThreadingVerdict[] {
+export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement, support: EndSupportInput, supportPlan?: ReturnType<typeof endSupportPlan>): JointThreadingVerdict[] {
   const md = ctx.modelData as unknown as ModelSlice | undefined;
   const el = md?.elements?.get(ctx.elementId);
   if (!md?.nodes || !el || !md.sections || !ctx.columnBars) return [];
@@ -112,7 +112,7 @@ export function jointThreading(ctx: MemberContext, rebar: ProvidedReinforcement,
   const domain = beamLayoutDomain({
     row, section: ctx.section, cover: ctx.material.cover, stirrupDiaMm,
     edition: ctx.codeEdition, maxAggregateSizeMm: ctx.material.maxAggregateSize.value, placement: 0,
-    obstacles: ends.flatMap((x) => x.keep), maxTopLayers: endSupportPlan(support).maxTopLayers,
+    obstacles: ends.flatMap((x) => x.keep), maxTopLayers: (supportPlan ?? endSupportPlan(support)).maxTopLayers,
   });
   return ends.filter((x) => x.bars > 0).map((x) => {
     const r = domain.length ? threadsJoint(domain, row.dia, x.keep) : { ok: false, worstOverlap: 0 };

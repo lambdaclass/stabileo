@@ -11,11 +11,19 @@ It should capture what changed, not what should be built next.
 
 One file per change in [`changelog.d/`](changelog.d/README.md); `scripts/changelog.py --release` moves them here.
 
+## 0.6.2 (2026-11-18)
+
+Release notes: [`docs/releases/v0.6.2.md`](docs/releases/v0.6.2.md) (also in [Spanish](docs/releases/v0.6.2.es.md), [Portuguese](docs/releases/v0.6.2.pt.md), [German](docs/releases/v0.6.2.de.md), [French](docs/releases/v0.6.2.fr.md), [Turkish](docs/releases/v0.6.2.tr.md) and [Hungarian](docs/releases/v0.6.2.hu.md)).
+
 ### BREAKING (results)
 
 #### Refuse member design with incomplete requested demands (2026-11-15)
 
-Member design and certification now require every active combination, every member in scope and every declared station, including both ends. Missing raw member records also refuse when station demands survive. EC2 peak design and foreign-code consumers preserve the requested active combination inventory. Previously a subset could return a verdict. Re-run saved concrete and steel designs and review refusals and certificates. Grouped beam spans retain each mesh piece’s identity and complete demands, avoiding false refusals. Complete-input numerical rules are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) and [SA-2026-071](docs/advisories/SA-2026-071-incomplete-concurrent-demands.md), draft pending merge and release in PR #2173 (#2096).
+Member design and certification now require every active combination, every member in scope and every declared station, including both ends. Missing raw member records also refuse when station demands survive. EC2 peak design and foreign-code consumers preserve the requested active combination inventory. Previously a subset could return a verdict. Re-run saved concrete and steel designs and review refusals and certificates. Grouped beam spans retain each mesh piece’s identity and complete demands, avoiding false refusals. Complete-input numerical rules are unchanged. See [the results-change record](docs/results-changes/2026-11-shared-demand-completeness.md) and [SA-2026-071](docs/advisories/SA-2026-071-incomplete-concurrent-demands.md), fixed in 0.6.2 by PR #2173 (#2096).
+
+#### Planar displacement recovery retains concentrated couples (2026-11-15)
+
+- Include concentrated member moments in reconstructed 2D displacement curves and diagram-game answers, including released ends. Solver nodal results are unchanged. See [the results-change record](docs/results-changes/2026-11-planar-couple-displacement.md) (#2099).
 
 #### Snow ridges and slopes follow physical roof geometry (2026-11-15)
 
@@ -25,21 +33,90 @@ The shared roof-surface path now derives ridges, slopes and shaped-roof profiles
 from complete physical runs, so inserting nodes does not change that geometry
 (#2144). Each member segment
 uses its own position relative to the stable ridge for side pressure, restoring
-the correct force and moment on members split at the ridge. A member that itself
-crosses the ridge retains its previous uniform treatment, tracked in #2176.
+the correct force and moment on members split at the ridge. Ridge-crossing members also retain the physical load moment through the correction for #2176 in this release.
 Highest profile points are grouped with the existing elevation tolerance, preventing tiny corner-height changes from moving the ridge;
 points above that tolerance remain distinct. Regenerate affected snow loads,
 then rerun analyses, combinations and design checks; re-solving stored generated loads is insufficient.
 See [the results-change record](docs/results-changes/2026-11-snow-ridge-mesh.md).
-See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), pending merge and release.
+See [SA-2026-072](docs/advisories/SA-2026-072-snow-ridge-subdivision.md), fixed in 0.6.2.
+
+#### Snow panels follow physical roof geometry (2026-11-16)
+
+Subdividing sloped rafters no longer turns explicit roof panels into floors
+and silently removes eave snow (#2172). Panel classification uses the physical
+roof envelope. Generated widths retain full precision and snow tributary
+resultants follow complete physical strips. Regenerate all affected generated area loads, then rerun analyses,
+combinations and design checks; re-solving stored loads alone is insufficient.
+See the [results-change record](docs/results-changes/2026-11-snow-panel-geometry.md)
+and [SA-2026-074](docs/advisories/SA-2026-074-snow-panel-subdivision.md). Fixed in 0.6.2.
+
+#### Snow loads retain their ridge-crossing moment (2026-11-16)
+
+Snow loads now split at the physical ridge, preserving force and moment on
+crossing members in projected, width and panel allocation (#2176). Regenerate
+saved snow loads, then rerun analyses, combinations and design checks; re-solving
+stored loads alone is insufficient. See the [results-change record](docs/results-changes/2026-11-snow-crossing-profile.md)
+and [SA-2026-073](docs/advisories/SA-2026-073-snow-crossing-moment.md). Fixed in 0.6.2.
+
+#### Snow tributary intensities retain force and moments (2026-11-16)
+
+Quadratic snow tributary loads now retain force and both plan moments with an explicit pointwise intensity error bound, reported in the derivation. Regenerate affected snow loads, then rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-quadratic-intensity.md).
+
+#### Partial snow remains member loading (2026-11-16)
+
+Inclined members retain axial and transverse snow as projected member loading over the actual interval. Connected panel footprints retain their own roof across panel subdivision. Regenerate affected generated area loads and rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-member-loading.md).
+
+#### Selected snow carriers retain force and plan moments (2026-11-16)
+
+Snow strips now split at the boundaries of selected carriers before loads are approximated. A partial selection on a subdivided roof run retains force and both plan moments. Regenerate affected generated snow loads, then rerun analyses, combinations and design checks. See the [results-change record](docs/results-changes/2026-11-snow-selected-subsets.md).
 
 #### Interior deflection and rotation retain concentrated member couples (2026-11-15)
 
-Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; PR #2170, pending merge and release).
+Member hover readings and deformed shapes now include concentrated couples inside a span. The hover and both spatial bending curves use the engine's shared recovery, including point and distributed loads and released ends. Reopen saved projects with member loads, rerun analysis, and review displayed deflections and serviceability checks. Loaded recovery without sufficient bending stiffness is refused explicitly. Recovered curves also retain shear rigidity and valid spatial stiffness; see [the recovery notice](docs/results-changes/2026-11-member-recovery-round4.md). Nodal solutions and member forces are unchanged. See [the results-change record](docs/results-changes/2026-11-interior-member-couples.md) ([SA-2026-070](docs/advisories/SA-2026-070-interior-member-couples.md), #2143; fixed in 0.6.2).
 
 #### CIRSOC 201 torsion section limits include both concurrent shear axes (2026-11-15)
 
 The solid-section shear–torsion limit now checks both orientations from the complete concurrent demand, for beams, columns and walls in both supported editions. The provided-beam verifier also checks torsion when primary shear is zero or stirrups are absent; non-negligible torsion without stirrups explicitly fails. Previously accepted sections can fail; additional stirrups cannot repair an exceeded concrete-section limit. Re-run saved concrete member designs and review section failures. See the [results-change record](docs/results-changes/2026-11-torsion-secondary-shear.md) and [SA-2026-069](docs/advisories/SA-2026-069-torsion-secondary-shear.md) (#2142, PR #2169).
+
+#### Gravity carrier loads, seismic mass and combined diagram peaks (2026-11-17)
+
+Gravity plans subtract shell footprints in the carrier geometry. Supported uncovered strips apply reactions at their physical stations. Covered, exposed and ambiguous strips follow the deck and roof geometry, including connected lean-tos and offset rafters attached to carrying shells. Unsupported partial coverage or mixed exposure blocks the plan. Floor zones that require eccentric loading refuse the whole definition. A zone that covers an entire bay uses that panel’s ordinary member loads. Regenerate panel-mode gravity loads and review affected floor definitions, then re-run dependent checks. [SA-2026-079](docs/advisories/SA-2026-079-gravity-shell-coverage.md), [SA-2026-080](docs/advisories/SA-2026-080-floor-zone-eccentricity.md), #2199–#2201.
+
+Width-mode seismic mass uses the areas of the loaded carriers. Regenerate gravity plans, seismic weights and seismic actions, including legacy plans with zero member gravity loads. [SA-2026-090](docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers), #2210 and #2269.
+
+Combined 3D ABS and SRSS member diagrams evaluate extrema between load boundaries and both sides of jumps. Recompute diagrams and dependent peak checks. [SA-2026-088](docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema), #2273. All four corrections shipped in 0.6.2 via [#2282](https://github.com/lambdaclass/stabileo/pull/2282).
+
+#### Wind enclosure and pressure transfer follow the physical structure (2026-11-16)
+
+Wind generation classifies the enclosure using openings in every wall and the roof. Pressure integration follows physical zones, bands and carrier widths on walls, roofs, free roofs, towers, chimneys, lattices and signs. It preserves foundation forces and first moments, includes eccentric plan loading and retains the appropriate separate minimum cases. Incomplete or unsupported inputs refuse. Review and reclassify affected enclosures, regenerate W and Wa, and re-run analysis, combinations and design checks. [Results-change record](docs/results-changes/2026-11-wind-physical-pressure-field.md), [SA-2026-076](docs/advisories/SA-2026-076-wind-enclosure.md), [SA-2026-077](docs/advisories/SA-2026-077-wind-wall-height-transfer.md), [SA-2026-078](docs/advisories/SA-2026-078-wind-roof-pressure-zones.md), #2203–#2206.
+
+#### Companion combinations use their own flat-roof snow loading (2026-11-16)
+
+Companion combinations select the required flat-roof member load case. Principal and seismic combinations retain physical snow. The combination builder checks for missing counterparts and refuses ambiguous legacy seismic snow definitions. Regenerate both snow loads and combinations, then re-run analysis and design. [Results-change record](docs/results-changes/2026-11-snow-combination-validation.md), [SA-2026-082](docs/advisories/SA-2026-082-snow-companion-basis.md), #2211.
+
+#### Concentrated live and roof actions must be checked before applying generated loads (2026-11-16)
+
+Automatic CIRSOC 101 generation refuses plans whose governing concentrated actions have not been evaluated. Review affected occupancies and roof uses, then independently model the required actions and governing placements before re-running checks. [Results-change record](docs/results-changes/2026-11-concentrated-live-actions.md), [SA-2026-083](docs/advisories/SA-2026-083-concentrated-live-actions.md), #2207.
+
+#### Distributed member loads keep their intervals and independent equilibrium checks (2026-11-17)
+
+Distributed member loads with unsupported intervals now refuse explicitly, including after remapping or subdivision. Supported automatic member cuts preserve the load geometry and integrals. The equilibrium check derives applied loads independently of assembly and preserves small resultants when large forces cancel. Fiber increments must pass the same equilibrium checks as the final state. Review earlier results for affected partial loads, recreate any load lost in an earlier edit, then re-run analysis and downstream checks. [Results-change record](docs/results-changes/2026-11-narrow-partial-loads.md), [generated cuts](docs/results-changes/2026-11-generated-member-cuts.md), #2222 and #2223.
+
+#### Fillet weld checks use the physical run (2026-11-16)
+
+Continuous fillets retain their effective-length reduction across drawn segments. Short runs enforce the leg limit, zero-size pieces contribute no resistance or stress points, and ambiguous branches refuse evaluation. Re-run affected weld-group checks. [SA-2026-084](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2243) and [SA-2026-085](docs/results-changes/2026-11-fillet-weld-physical-runs.md) (#2244), fixed in 0.6.2 by [#2258](https://github.com/lambdaclass/stabileo/pull/2258).
+
+#### Ambiguous 3D supports require explicit restraints (2026-11-17)
+
+Unmasked 3D `rollerZ` and `custom3d` supports and unrecognized support names no longer act as fixed bearings. New rollers and bundled examples use their stated restraints. Plane roller rotation carries explicit restraints and prescribed movements, and resubmitting an unchanged support type preserves its bearing direction. Confirm intended restraints before re-running saved analyses and design. [Results-change record](docs/results-changes/2026-11-roller-z-fixed.md), [support edits](docs/results-changes/2026-11-support-lifecycle.md), [SA-2026-089](docs/advisories/SA-2026-089-roller-z-fixed.md), #2276.
+
+#### CIRSOC 201 shear and torsion evaluate the actual reinforcement (2026-11-18)
+
+Secondary shear uses the secondary face geometry and reinforcement, including the resolved longitudinal layout. Torsion uses its threshold at the concurrent axial force and checks the evaluated closed cage. The check refuses insufficient reinforcement information and applies the weakest reported stirrup cage along a member when provision varies. Re-run affected concrete beam and column designs and review changed checks and refusals. [Results-change record](docs/results-changes/2026-11-secondary-stirrup-legs.md), [torsion threshold](docs/results-changes/2026-11-cirsoc-axial-torsion-threshold.md), [cage verification](docs/results-changes/2026-11-cirsoc-torsion-cage-verification.md), [SA-2026-075](docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md), #2171.
+
+#### Nonlinear combinations retain the response of the specified cases (2026-11-17)
+
+Empty cases contribute zero rather than duplicating the unloaded response of a pretensioned cable. Screening uses the summed factor per case, and the combination refuses a non-finite net factor. Re-run affected combinations and envelopes. [Empty nonlinear cases](docs/results-changes/2026-11-empty-nonlinear-combination-cases.md), [case screening](docs/results-changes/2026-11-repeated-combination-case-screening.md).
 
 ### Added
 
@@ -52,59 +129,55 @@ results-change notices, and preserves the known open wrong results and limitatio
 Its facts follow `docs/releases/v0.6.1*.md` and the 0.6.1 changelog. Release-note links
 open in the reader's language.
 
+#### An optional game for reading structural diagrams (2026-11-16)
+
+The diagram game asks readers to choose the right diagram, identify the odd one or match a diagram to its structure, with an explanation after each answer. It remains disabled by default alongside the optional tools integration.
+
+#### Hungarian public guidance and translations (2026-11-16)
+
+Hungarian public copy, release notes and saved-project guidance are available. Optional research, tools and diagram-game additions remain disabled by default. Existing public research, calculator and example pages remain available.
+
+#### Audit notice beside generated loads and concrete results (2026-11-16)
+
+Automatically generated loads and reinforced-concrete design and detailing results show a notice linked to the open audit findings. The notice appears in all seven app languages (#2228).
+
+#### Animated structural figures on the landing page (2026-11-18)
+
+The landing page rotates through structural examples. Building and section figures identify the correct force and stress signs, and the displayed mode shapes play at relative speeds consistent with their frequency ratios (#2285). After the first figure, the others load on demand and preload during idle time when data saving is off (#2090).
+
+#### Interactive masonry-arch research (2026-11-16)
+
+The optional research collection adds a circular masonry-arch experiment based on Heyman’s *The Stone Skeleton*, with least thickness, thrust lines and collapse mechanisms (#2257).
+
 ### Changed
 
-#### Test systems gathered under testing/ (2026-11-15)
+#### Release 0.6.2 guidance in seven languages (2026-11-18)
 
-Gather the standalone differential, symbolic, fuzz and test-system scripts under `testing/`, with a checked map of testing techniques. Existing make targets, CI job names, test cases and acceptance limits stay unchanged.
-
-#### Verification documents and testing roadmap gathered under testing/ (2026-11-15)
-
-Move verification documents and data to `testing/docs/`, with one-off investigations in `testing/docs/audits/`, and extract the testing and verification backlog into `testing/ROADMAP.md`. Update references and dashboard output paths, and check local documentation links. Existing make targets, CI job names, tests and acceptance limits stay unchanged.
-
-#### Torsion regression tests require each verification entry point to return its result (2026-11-15)
-
-The section-boundary and zero-secondary-shear regressions now require torsion results from direct, prepared and concurrent verification. Only the standalone torsion entry invokes the torsion checker directly, so a missing wrapper result fails instead of being replaced by a passing fallback (PR #2169, #2142).
+Release notes cover all 57 results-change notices through results version 95 and the advisory fixes since 0.6.1. Re-run affected analyses and member checks, regenerate affected wind, gravity, snow and seismic loads, and regenerate combinations that used the wrong snow basis. Check the intended restraints of ambiguous 3D supports before re-solving.
 
 ### Fixed
 
-#### Teaching shape tests require every recovered sample (2026-11-16)
+#### Mohr calculations and shared links retain small stresses (2026-11-16)
 
-Require all 21 samples in both the loaded teaching displacement sketch and the load-free mode before comparing ordinates, so empty or truncated recovery cannot pass the fixed-fixed couple regression tests (PR #2170). Preserve the member-recovery and snow-ridge advisories and saved-project notices when merging main. Engine results are unchanged.
+Plane and spatial Mohr calculations preserve small nonzero principal stresses and rotated stress components when other components are much larger. Shared links preserve stresses and angles when reopened in every display unit. Mohr plots select the shear point for the displayed convention. Tool exercises retain authored decimals and bounds, and unloaded truss bars remain unloaded. The flexure article uses actual bar depths and rejects the nonductile example in every published translation.
 
-#### Spatial unloaded-shape test uses the required force record (2026-11-15)
+#### Reports reject changed results and teaching explains reactions correctly (2026-11-16)
 
-The 3D deformed-shape test now supplies forces from the same model solved without loads to match the required API signature. The loaded recovery refusal and unloaded zero-displacement assertions are unchanged, restoring the web typecheck without changing engine results (#2143, PR #2170).
+Reports, printable calculations and workbooks reject results changed while signing in. Truss support-reaction explanations now use the correct force signs in all seven languages. Research results identify the inputs that produced them and remain marked when controls change or computation fails. Failed numerical starts are not presented as physical snap events. Project research requires explicit consent, refusal of terms is honored, and account actions retain the current consent choice. Withdrawing advertising consent removes advertising cookies.
 
-#### Member recovery certificate checks build against the fallible shape API (2026-11-15)
+#### Combination envelopes match the entities named in the result (2026-11-17)
 
-The 2D and 3D displayed-result certificate tests now require successful load-free shape recovery before checking the same displacement bounds. Remove the stale fallback allow-list entry, retain validated bending stiffness as an option, select end couples explicitly, and register the shared recovery WASM export as postprocessing. Numerical results, limits and assertions are unchanged (#2143, PR #2170).
-
-#### Saved-project notice expectations retain merged recovery and torsion changes (2026-11-15)
-
-Retain both SA-2026-069 and SA-2026-070 in every localized advisory catalog after merging PR #2169, and update the exact saved-project notice expectations to include member recovery alongside the concurrent torsion change (PR #2170). Engine results are unchanged by this integration update.
-
-#### Modal saved-project notice tests include member recovery (2026-11-16)
-
-Update every affected exact notice list in the results-version tests to include member-recovery-round4 for older modal frame models, with and without the SSI notice registered (PR #2170). Notice applicability and engine results are unchanged.
-
-#### Member recovery preserves shear rigidity and valid spatial stiffness (2026-11-15)
-
-Forward shear rigidity through the planar deflection and rotation adapters, and preserve small scalar span loads when sharing their request builder. Preserve spatial recovery for every finite positive bending stiffness while retaining planar stiffness refusals. Hover displacement now reads the drawing's shared Rust curve evaluation before world coordinates are added, so certificate comparisons avoid coordinate cancellation. These correct regressions on the unmerged #2143 branch (PR #2170); nodal solutions and certificate bounds are unchanged.
-
-#### Reject links satisfied only inside indented fences and retain historical provenance (2026-11-15)
-
-Follow CommonMark fence indentation, matching marker lengths, closing whitespace and end-of-file rules when checking documentation links and anchors. Restore the original read-only source archive paths in staged-rotation replay provenance, add a separate link to the current audit record, and align remaining verification link labels with their testing destinations. Pinned historical audit commands remain unchanged.
-
-#### Preserve audit evidence and release snapshots after the testing documentation move (2026-11-15)
-
-Recognize moved Markdown and JSON documents in the results snapshot build classifier. Preserve release snapshots from pending dashboard branches that still use the old directory. Restore recorded audit bytes changed by the move, check their integrity, and reject documentation links whose anchors appear only in code blocks. Align documentation index labels with their new destinations.
+Envelopes match nodal displacements and reactions by node ID, and member forces by element ID. Mismatched or duplicate IDs cause a refusal. Nonlinear analysis also rejects non-finite inputs sent to the cable and soil–structure solvers and discards superseded results. [Envelope result scope](docs/results-changes/2026-11-envelope-entity-ids.md), #2283.
 
 ### Performance
 
-#### Sample reinforcement coordinates once before projecting the workspace (2026-11-15)
+#### Reinforcement workspace avoids repeated coordinate reads (2026-11-16)
 
-Bar-path sampling now copies source coordinates into plain points before bounds and mesh construction. Opening and reopening the reinforcement workspace no longer carry reactive endpoint objects through those passes, and arc sampling reads each source coordinate once. Sampling tolerance, subdivision counts, geometry and analysis results are unchanged. Regression checks count source reads instead of depending on runner speed; the existing workspace timing budgets are unchanged.
+Opening and reopening the reinforcement workspace samples bar coordinates once before projection. Sampling tolerance, geometry and analysis results are unchanged.
+
+#### Responsive nonlinear solves and less repeated design work (2026-11-17)
+
+Nonlinear solves now report progress and support cancellation. Cases sharing structural inputs reuse the initial factorization. Large 3D combinations and envelopes keep more of their calculation together, and diagram sampling, span rotation, anchorage and plastic stability checks reuse work (#2283).
 
 ## 0.6.1 (2026-11-15)
 

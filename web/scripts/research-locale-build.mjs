@@ -39,13 +39,13 @@ function unusedLocaleInitializers(source, edits) {
   } while (changed);
 }
 
-export function researchLocaleBuildPlugin(environment) {
+export function researchLocaleBuildPlugin(features) {
   return {
     name: 'research-locale-build',
     apply: 'build',
     enforce: 'pre',
     transform(code, id) {
-      if (environment().VITE_RESEARCH === '1' || !/\/src\/components\/(research|tools)\/.*\.ts$/.test(id) || /\.(test|spec)\.ts$/.test(id)) return null;
+      if (features().research || !/\/src\/components\/(research|tools)\/.*\.ts$/.test(id) || /\.(test|spec)\.ts$/.test(id)) return null;
       const source = ts.createSourceFile(id, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
       if (source.parseDiagnostics.length) throw new Error(`Cannot gate research locales in ${id}: invalid TypeScript`);
       const edits = [];

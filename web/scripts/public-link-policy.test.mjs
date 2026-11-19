@@ -7,43 +7,43 @@ import { build as bundle } from 'esbuild';
 import { test } from 'node:test';
 import { chromium } from 'playwright';
 import { build } from 'vite';
+import config from '../config/features.json' with { type: 'json' };
+import { disabledFeatures, withProductionFeatures } from './public-features-test-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 
-for (const research of ['0', '1']) {
-  test(`public locale consumers agree with VITE_RESEARCH=${research}`, async () => {
-    const source = `
-      import { OFFERED_LOCALES, PUBLIC_LOCALES, isComplete } from './src/lib/i18n/offered.ts';
-      import { writtenIn } from './scripts/public-paths.ts';
-      console.log(JSON.stringify({ offered: OFFERED_LOCALES, public: PUBLIC_LOCALES, complete: isComplete('hu'), sitemap: writtenIn('/') }));
-    `;
-    const outfile = resolve(root, `scripts/.policy-node-fixture-${randomUUID()}.mjs`);
-    let result;
-    try {
-      await bundle({ stdin: { contents: source, resolveDir: root }, outfile, bundle: true, platform: 'node', format: 'esm', packages: 'external', external: ['*.svelte'] });
-      result = JSON.parse(execFileSync(process.execPath, [outfile], {
-      cwd: root,
-      env: { ...process.env, VITE_RESEARCH: research, VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_ACCOUNTS: '0' },
-      encoding: 'utf8',
-      }));
-    } finally {
-      rmSync(outfile, { force: true });
-    }
-    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', ...(research === '1' ? ['hu'] : [])];
-    assert.deepEqual([...result.offered].sort(), [...expected].sort());
-    assert.deepEqual(result.public, expected);
-    assert.deepEqual(result.sitemap, expected);
-    assert.equal(result.complete, research === '1');
-  });
+test('Node locale and sitemap consumers agree with the production config', async () => {
+  const { research } = config.production;
+  const source = `
+    import { OFFERED_LOCALES, PUBLIC_LOCALES, isComplete } from './src/lib/i18n/offered.ts';
+    import { writtenIn } from './scripts/public-paths.ts';
+    console.log(JSON.stringify({ offered: OFFERED_LOCALES, public: PUBLIC_LOCALES, complete: isComplete('hu'), sitemap: writtenIn('/') }));
+  `;
+  const outfile = resolve(root, `scripts/.policy-node-fixture-${randomUUID()}.mjs`);
+  let result;
+  try {
+    await bundle({ stdin: { contents: source, resolveDir: root }, outfile, bundle: true, platform: 'node', format: 'esm', packages: 'external', external: ['*.svelte'] });
+    result = JSON.parse(execFileSync(process.execPath, [outfile], {
+    cwd: root,
+    encoding: 'utf8',
+    }));
+  } finally {
+    rmSync(outfile, { force: true });
+  }
+  const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh', ...(research ? ['hu'] : [])];
+  assert.deepEqual([...result.offered].sort(), [...expected].sort());
+  assert.deepEqual(result.public, expected);
+  assert.deepEqual(result.sitemap, expected);
+  assert.equal(result.complete, research);
+});
 
-  test(`PublicLink uses the build policy with VITE_RESEARCH=${research}`, async () => {
-    const keys = ['VITE_ACCOUNTS', 'VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME', 'GITHUB_SHA'];
-    const previous = keys.map(key => process.env[key]);
-    Object.assign(process.env, { VITE_ACCOUNTS: research, VITE_RESEARCH: research, VITE_TOOLS: research, VITE_DIAGRAM_GAME: research, GITHUB_SHA: '000000000000' });
+for (const research of [false, true]) {
+  test(`PublicLink uses the build policy with research=${research}`, async () => {
     let browser;
     try {
-      const result = await build({
+      const result = await withProductionFeatures(Object.fromEntries(Object.keys(disabledFeatures).map(key => [key, research])), configFile => build({
         root,
+        configFile,
         plugins: [{
           name: 'public-link-policy-fixture',
           enforce: 'pre',
@@ -75,7 +75,7 @@ for (const research of ['0', '1']) {
         }],
         build: { write: false, rollupOptions: { input: 'public-link-policy-fixture' } },
         logLevel: 'silent',
-      });
+      }));
       const files = new Map(result.output.map(item => [item.fileName, item.type === 'chunk' ? item.code : item.source]));
       const entry = result.output.find(item => item.type === 'chunk' && item.isEntry).fileName;
       browser = await chromium.launch({ headless: true });
@@ -93,26 +93,22 @@ for (const research of ['0', '1']) {
       await page.goto('http://policy.test/');
       await page.waitForSelector('a[data-nav="/"]');
       assert.equal(await page.locator('a[data-nav="/"]').getAttribute('href'), '/fr/');
-      assert.equal(await page.locator('a[data-nav="/blog/untranslated-policy-fixture"]').getAttribute('href'), research === '1' ? '/en/blog/untranslated-policy-fixture/' : '/fr/blog/untranslated-policy-fixture/');
-      assert.equal(await page.locator('a[data-nav="/examples/beam-frame"]').getAttribute('href'), research === '1' ? '/fr/tools/beam-frame/' : '/fr/examples/beam-frame/');
+      assert.equal(await page.locator('a[data-nav="/blog/untranslated-policy-fixture"]').getAttribute('href'), research ? '/en/blog/untranslated-policy-fixture/' : '/fr/blog/untranslated-policy-fixture/');
+      assert.equal(await page.locator('a[data-nav="/examples/beam-frame"]').getAttribute('href'), research ? '/fr/tools/beam-frame/' : '/fr/examples/beam-frame/');
       await page.locator('a[data-nav="/examples/beam-frame"]').click();
-      assert.equal(await page.evaluate(() => window.nextPath), research === '1' ? '/tools/beam-frame' : '/examples/beam-frame');
-      assert.equal(await page.locator('a[data-nav="/research"]').getAttribute('href'), research === '1' ? '/en/research/' : '/fr/research/');
+      assert.equal(await page.evaluate(() => window.nextPath), research ? '/tools/beam-frame' : '/examples/beam-frame');
+      assert.equal(await page.locator('a[data-nav="/research"]').getAttribute('href'), research ? '/en/research/' : '/fr/research/');
       const policy = await page.evaluate(() => window.policy);
-      assert.equal(policy.public.includes('hu'), research === '1');
-      assert.equal(policy.offered.includes('hu'), research === '1');
-      assert.deepEqual(policy.parsed, research === '1' ? { locale: 'hu', path: '/blog' } : { locale: null, path: '/hu/blog/' });
-      assert.equal(policy.preferred, research === '1' ? 'hu' : 'es');
-      assert.equal(await page.getByTestId('policy-account-action').count(), research === '1' ? 1 : 0);
-      assert.equal(await page.locator('.nav-links').count(), research === '1' ? 0 : 1);
+      assert.equal(policy.public.includes('hu'), research);
+      assert.equal(policy.offered.includes('hu'), research);
+      assert.deepEqual(policy.parsed, research ? { locale: 'hu', path: '/blog' } : { locale: null, path: '/hu/blog/' });
+      assert.equal(policy.preferred, research ? 'hu' : 'es');
+      assert.equal(await page.getByTestId('policy-account-action').count(), research ? 1 : 0);
+      assert.equal(await page.locator('.nav-links').count(), research ? 0 : 1);
       await page.evaluate(() => window.chooseLocale('hu'));
-      assert.equal(await page.evaluate(() => window.activeLocale()), research === '1' ? 'hu' : 'fr');
+      assert.equal(await page.evaluate(() => window.activeLocale()), research ? 'hu' : 'fr');
     } finally {
       await browser?.close();
-      keys.forEach((key, index) => {
-        if (previous[index] === undefined) delete process.env[key];
-        else process.env[key] = previous[index];
-      });
     }
   });
 }

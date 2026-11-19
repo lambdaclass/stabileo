@@ -6,6 +6,7 @@
    * browser (WASM, in a worker). The reference code's own outputs are shown alongside.
    */
   import { onDestroy, onMount } from 'svelte';
+  import { MediaQuery } from 'svelte/reactivity';
   import { snapshots } from './reference-fields';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs } from '../i18n';
@@ -131,8 +132,9 @@
   ]);
   let tab = $state('viewer');
   let flashTab = $state<string | null>(null);
-  let forceH = $state(400);
-  let convH = $state(600);
+  const stickyPane = new MediaQuery('(min-width: 70rem)', false);
+  let forceH = $state(0);
+  let convH = $state(0);
   let flashTimer: ReturnType<typeof setTimeout>;
   function showTab(t: string) {
     playback.interact();
@@ -279,7 +281,7 @@
   {/snippet}
 
   {#snippet app()}
-    <div class="rs-app" lang={paperTextLocale('shauer-2025')} bind:this={pane} data-steps={frames.length} data-source={source}>
+    <div class="rs-app" class:sticky-pane={stickyPane.current} lang={paperTextLocale('shauer-2025')} bind:this={pane} data-steps={frames.length} data-source={source}>
       <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{source === 'replay' ? strings.replaySource : source === 'live' ? strings.liveSource : strings.cachedSource}</p>
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">
@@ -317,7 +319,7 @@
             <Segmented label={strings.view} bind:value={view} options={[{ id: 'plate', label: strings.plate }, { id: 'band', label: strings.crackBand }, { id: 'tip', label: strings.notchTip }]} />
           </div>
           <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onclickcapture={() => playback.interact()}>
-            <StabileoViewer
+            <StabileoViewer plane="elevation"
               editorButton={false}
               xy={nodes}
               cells={elements}
@@ -346,7 +348,7 @@
       <div class="rs-panel" id="rs-panel-force" role="tabpanel" aria-labelledby="rs-tab-force" hidden={tab !== 'force'} bind:clientHeight={forceH}>
         <figure>
           <figcaption>{strings.reactionCaption}</figcaption>
-          <LineChart scrubber series={forceSeries} xLabel={strings.topDisplacementAxis} yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `${strings.step} ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
+          <LineChart scrubber series={forceSeries} xLabel={strings.topDisplacementAxis} yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `${strings.step} ${frame.step.step}` : ''} labels={forceLabels} height={stickyPane.current ? Math.max(170, forceH - 190) : 210} />
           {#if residualSeries.length}
             <LineChart scrubber series={residualSeries} xLabel={strings.topDisplacementAxis} yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: strings.forceComparisonTolerance }]} marker={frame ? frame.step.displacement : null} height={110} />
           {/if}
@@ -373,7 +375,7 @@
           </figure>
           <figure>
             <figcaption>{strings.energies}</figcaption>
-            <LineChart scrubber series={energySeries} xLabel={strings.topDisplacementAxis} yLabel={strings.energyAxis} marker={frame ? frame.step.displacement : null} labels={energyLabels} height={Math.max(150, convH - (comparison ? 420 : 260))} />
+            <LineChart scrubber series={energySeries} xLabel={strings.topDisplacementAxis} yLabel={strings.energyAxis} marker={frame ? frame.step.displacement : null} labels={energyLabels} height={stickyPane.current ? Math.max(150, convH - (comparison ? 420 : 260)) : 180} />
           </figure>
         {/if}
       </div>
@@ -436,26 +438,24 @@
   /* In the sticky pane (wide screens) the app is exactly the pane's height and its panels share
      what is left after the tabs and the step player. Only overflowing panels scroll as a
      fallback on short windows; the article keeps the normal page scroll. */
-  @media (min-width: 70rem) {
-    .rs-app {
-      height: 100%;
-    }
-    .rs-panel {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      scrollbar-width: auto;
-      scrollbar-gutter: stable;
-      scrollbar-color: var(--fg-2) var(--hair);
-    }
-    .rs-panel::-webkit-scrollbar { width: 10px; }
-    .rs-panel::-webkit-scrollbar-track { background: var(--hair); }
-    .rs-panel::-webkit-scrollbar-thumb { background: var(--fg-2); border-radius: 5px; }
-    .rs-viewer-slot {
-      flex: 1 1 auto;
-      height: auto;
-      min-height: 12rem;
-    }
+  .rs-app.sticky-pane {
+    height: 100%;
+  }
+  .sticky-pane .rs-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: auto;
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--fg-2) var(--hair);
+  }
+  .sticky-pane .rs-panel::-webkit-scrollbar { width: 10px; }
+  .sticky-pane .rs-panel::-webkit-scrollbar-track { background: var(--hair); }
+  .sticky-pane .rs-panel::-webkit-scrollbar-thumb { background: var(--fg-2); border-radius: 5px; }
+  .sticky-pane .rs-viewer-slot {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 12rem;
   }
   .rs-stepread {
     font-size: var(--rs-ui);

@@ -40,18 +40,56 @@ fn exception_1_halves_l_at_lo_5_but_not_above() {
 }
 
 #[test]
-fn seismic_companions_take_the_larger_of_101_and_103() {
-    let i = CombinationInputs {
-        present: Present { l: true, s: true, e: true, ..Default::default() },
-        max_lo_knm2: Some(3.0),
-        seismic_companions: Some(SeismicCompanions { f1: Some(0.25), f2: Some(0.7) }),
-        ..Default::default()
-    };
-    let c = generate_combinations(&i);
-    let five = c.iter().find(|c| c.id == "5").unwrap();
-    let f = |s| five.terms.iter().find(|t| t.symbol == s).unwrap().factor;
-    assert_eq!(f(LoadSymbol::L), 0.5);
-    assert_eq!(f(LoadSymbol::S), 0.7);
+fn seismic_companions_keep_flat_roof_and_physical_snow_separate() {
+    for (lo, assembly, f1, live) in [
+        (3.0, false, 0.25, 0.5),
+        (5.0, false, 0.25, 0.5),
+        (5.01, false, 0.25, 1.0),
+        (3.0, true, 0.25, 1.0),
+        (3.0, false, 0.75, 0.75),
+    ] {
+        for f2 in [None, Some(0.2), Some(0.7)] {
+            let i = CombinationInputs {
+                present: Present { l: true, s: true, e: true, ..Default::default() },
+                max_lo_knm2: Some(lo),
+                has_garage_or_public_assembly: assembly,
+                seismic_companions: Some(SeismicCompanions { f1: Some(f1), f2 }),
+                not_acting: Some(false),
+                ..Default::default()
+            };
+            let c = generate_combinations(&i);
+            let terms = |id: &str| serde_json::to_value(&c.iter().find(|c| c.id == id).unwrap().terms).unwrap();
+            assert_eq!(terms("5"), serde_json::json!([
+                { "symbol": "D", "factor": 1.2 },
+                { "symbol": "E", "factor": 1.0 },
+                { "symbol": "L", "factor": live },
+                { "symbol": "S", "factor": 0.2, "snowBasis": "flatRoof" }
+            ]));
+            if let Some(snow) = f2 {
+                assert_eq!(terms("5-seismic"), serde_json::json!([
+                    { "symbol": "D", "factor": 1.2 },
+                    { "symbol": "E", "factor": 1.0 },
+                    { "symbol": "L", "factor": live },
+                    { "symbol": "S", "factor": snow }
+                ]));
+            } else {
+                assert!(!c.iter().any(|c| c.id == "5-seismic"));
+            }
+            assert_eq!(terms("7"), serde_json::json!([
+                { "symbol": "D", "factor": 0.9 },
+                { "symbol": "E", "factor": 1.0 }
+            ]));
+            let without_snow = CombinationInputs { present: Present { s: false, ..i.present }, ..i };
+            let c = generate_combinations(&without_snow);
+            assert!(!c.iter().any(|c| c.id == "5-seismic"));
+            let five = c.iter().find(|c| c.id == "5").unwrap();
+            assert_eq!(serde_json::to_value(&five.terms).unwrap(), serde_json::json!([
+                { "symbol": "D", "factor": 1.2 },
+                { "symbol": "E", "factor": 1.0 },
+                { "symbol": "L", "factor": live }
+            ]));
+        }
+    }
 }
 
 #[test]

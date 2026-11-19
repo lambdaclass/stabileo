@@ -38,24 +38,44 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md", "label": "SA-2026-067", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-068 — Behoben in 0.6.1."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md", "label": "SA-2026-068", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-069 — Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-069 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md", "label": "SA-2026-069", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-070 — Behoben in PR #2170, Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-070 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-070-interior-member-couples.md", "label": "SA-2026-070", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-071 — Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-071 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-071-incomplete-concurrent-demands.md", "label": "SA-2026-071", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-072 — In PR #2175 behoben, Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-072 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-072-snow-ridge-subdivision.md", "label": "SA-2026-072", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-073 — PR #2197; Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-073 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-073-snow-crossing-moment.md", "label": "SA-2026-073", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-074 — PR #2197; Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-074 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-074-snow-panel-subdivision.md", "label": "SA-2026-074", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-076 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-075 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md", "label": "SA-2026-075", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-076 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md", "label": "SA-2026-076", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-077 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-077 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md", "label": "SA-2026-077", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
-    {"k": "note", "t": "SA-2026-078 — In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend."},
+    {"k": "note", "t": "SA-2026-078 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md", "label": "SA-2026-078", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-079 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-080 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-082 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md", "label": "SA-2026-082", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-083 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md", "label": "SA-2026-083", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-084 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-085 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-088 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-089 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-090 — Behoben in 0.6.2."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -219,139 +239,139 @@ const body: PostBody = {
           "SA-2026-025",
           "AISC 360 G2 Querkraft (nur Rechenkern und WASM): ohne Stegfläche mit Ausnutzung 0 bestanden, und zertifiziert",
           "Mittel",
-          "Behoben auf stabileo.com (#1234)"
+          "Behoben in 0.5.0 (#1234)"
         ],
         [
           "SA-2026-026",
           "EC3 6.2.6 Querkraft (nur Rechenkern und WASM): ohne Schubfläche Av = 0,5·A angesetzt, Vpl,Rd bei HEB 300 57 % zu hoch, und zertifiziert",
           "Mittel",
-          "Behoben auf stabileo.com (#1234)"
+          "Behoben in 0.5.0 (#1234)"
         ],
         [
           "SA-2026-027",
           "Schalen-Umhüllende: übernahm die Kombination mit der größten Von-Mises-Spannung statt des Extremwerts jeder Komponente (mx in einem Beispiel 14 % zu niedrig)",
           "Hoch",
-          "Korrektur in Prüfung"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-028",
           "Biegung nach EN 1992-1-1 (andere Normen in PRO, zertifiziert): nahm an, dass der Zugstahl fließt, und iterierte die obere Bewehrung nicht; MRd bis zu 22 % zu hoch",
           "Hoch",
-          "Behoben nach 0.4.0"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-029",
           "3D: CIRSOC-201-Stützen in der App wurden mit Mz über die Querschnittshöhe bemessen (36 % zu wenig Bewehrung in einem Beispiel); die zertifizierten 3D-Nachweise des Rechenkerns lasen die Querkraft Vy als Stegquerkraft",
           "Kritisch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-030",
           "CIRSOC 301 Druck: ein Querschnitt mit einer Fläche kleiner als seine Bleche ergab ein negatives Qa und eine Tragfähigkeit über der vollplastischen Normalkraft und galt als nachgewiesen",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-031",
           "Zeitverlaufsberechnung: eine bei t = 0 auf einen masselosen Freiheitsgrad aufgebrachte Last ging im ersten Schritt verloren (Reziprozität bis zum 33-Fachen verletzt, eine Kette mit zwei Freiheitsgraden um 24 % von ihrer geschlossenen Lösung abweichend)",
           "Mittel",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-032",
           "Modalanalyse: die Eigenform mit Frequenz null eines Mechanismus wurde verworfen und die übrigen Eigenformen als vollständig ausgegeben",
           "Mittel",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-033",
           "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-034",
           "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
           "Mittel",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-035",
           "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-036",
           "Wechsel von 3D zu 2D auf Y–Z oder X–Y: Zwangsbedingungen wurden gelesen, als stünde der Rahmen in X–Z (Verschiebungskopplungen verloren oder außerhalb der Ebene angesetzt)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-037",
           "Korotationale 3D-Analyse: Rotationsvektoren wurden subtrahiert (der Bathe–Bolourchi-Bogen 1,3 % daneben, ohne Besserung bei Netzverfeinerung)",
           "Mittel",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-038",
           "3D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bei einem Stab), und ein nur zwischen seinen Enden gedrückter Stab wurde abgelehnt",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-039",
           "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-040",
           "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
           "Hoch",
-          "In der nächsten Version eingedämmt"
+          "In 0.5.0 eingedämmt"
         ],
         [
           "SA-2026-041",
           "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
           "Hoch",
-          "In der nächsten Version behoben"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-042",
           "2D-Knicken: Der Faktor von Stäben, deren Druck unter Lasten entlang ihrer Achse zunimmt, kam zu hoch heraus (+43 % bis +68 % bei einem Stab)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-043",
           "Harmonische Analyse: Die Korrektur der weggelassenen Moden verlor ihre Stellen, wenn eine Mode viel weicher war als die übrigen (79-fach bei 2,3 Hz in einem Beispiel)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-044",
           "2D-Plastischer Kollaps: Der Kollapsfaktor änderte sich mit Knotennummerierung, Stabrichtung und Einheiten (bis zum 4,6-Fachen bei derselben Struktur)",
           "Hoch",
-          "Traglastberechnung in der nächsten Version behoben; der ebene plastische Kollaps bleibt zurückgehalten, bis #758 geschlossen ist"
+          "In 0.5.0 nicht behoben: Der plastische Kollaps in 2D bleibt gesperrt, bis #758 geschlossen ist. Die Traglastberechnung ist in 0.5.0 enthalten."
         ],
         [
           "SA-2026-045",
           "3D-Plastischer Kollaps: Ein Stab ohne verwendbares plastisches Moment wurde behandelt, als würde er nie plastifizieren (6-fach zu hoch in einem Beispiel, und zertifiziert)",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-046",
           "Harmonische Analyse: Wählte je Last zwischen Modalsuperposition und direkter Lösung, sodass Superposition und Reziprozität versagten (107 % an einem Knoten in einem Beispiel); stabileo.com und Engine-/WASM-Builds von main, vom 5. November 2026 bis zur Korrektur",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-047",
           "Schalen: Ein Lastfall mit eingeprägter Auflagerverschiebung verlor seine Schalenspannungen, und Kombinationen und Umhüllende summierten nur die der anderen Lastfälle (möglicherweise unsicher, ohne Warnung); 0.2.0 bis 0.4.0",
           "Hoch",
-          "Behoben in der nächsten Version"
+          "Behoben in 0.5.0"
         ],
         [
           "SA-2026-048",
@@ -434,15 +454,25 @@ const body: PostBody = {
         ["SA-2026-066", "Cm für Beton konnte trotz Querlast zwischen den Auflagern durch Endmomente reduziert werden (#2089). Schlanke Stützen und Wände, vergrößerte Momente und Bewehrung erneut prüfen.", "Hoch", "Behoben in 0.6.1"],
         ["SA-2026-067", "Eine Grundrissdrehung konnte erzeugte Schneelasten ändern (#2093). Lasten mit der tatsächlichen Dachgeometrie neu erzeugen und Analysen und Nachweise wiederholen; Zurückdrehen repariert alte Ergebnisse nicht.", "Hoch", "Behoben in 0.6.1"],
         ["SA-2026-068", "Der Torsionsnachweis konnte mit unzureichenden bemessenen Bügeln bestehen (#2141). Betonnachweise erneut ausführen und tatsächliche Querbewehrungstragfähigkeit, Bügelabstände und Torsionsversagen prüfen. Ungeprüfte Längsbewehrung bedeutet keinen bestandenen Bewehrungskorb.", "Hoch", "Behoben in 0.6.1"],
-        ["SA-2026-069", "Die Torsionsquerschnittsgrenze ließ die gleichzeitige sekundäre Querkraft aus (#2142). Betonbemessungen erneut ausführen und Querschnittsversagen sowie fehlende Bügel prüfen; zusätzliche Bügel beheben eine überschrittene Querschnittsgrenze nicht.", "Hoch", "Entwurf 2026-11-15; in PR #2169 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-070", "Innere Stabdurchbiegung und Rotation ließen Stablasten aus (#2143). Verformte Linien, Lernanzeigen und Gebrauchstauglichkeitsprüfungen für Stahl und Beton prüfen, einschließlich voller und partieller Trapezlasten. Belastete Stäbe ohne ausreichendes EI werden nun ausdrücklich abgelehnt.", "Hoch", "Behoben in PR #2170, Veröffentlichung ausstehend"],
-        ["SA-2026-071", "Bauteilnachweise konnten mit unvollständigen gleichzeitigen Beanspruchungen bestehen (#2096). Beton- und Stahlbemessungen erneut ausführen und Kombinationen, Bauteile, Stationen sowie Zertifikate prüfen.", "Hoch", "Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-072", "Eine ungleiche Unterteilung der Dachränder konnte den First verschieben und erzeugte Schneelasten ändern (#2144). Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2175 behoben, Veröffentlichung ausstehend"],
-        ["SA-2026-073", "Stäbe über den First erhielten gleichmäßigen Druck und verloren das physikalische Lastmoment. Lasten werden jetzt am geometrischen First geteilt. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2176).", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-074", "Die Unterteilung eines geneigten Sparrens konnte ein explizites Dachfeld als Geschossdecke einstufen und seine Traufschneelast ohne Warnung entfernen. Die Einstufung verwendet jetzt die physischen Feldgrundrisse. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2172). Ein ungeteilter geneigter Sparren über einem separaten tieferen Feld konnte dieses ebenfalls als Dach einstufen, Dach- und Geschossflächenlasten ändern und im Breitenmodus ohne Warnung Schnee hinzufügen.", "Hoch", "PR #2197; Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-076", "Eine offene Wand konnte das Gebäude als offen einstufen und den Innendruck entfallen lassen (#2203). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-077", "Windlasten an Wänden ließen Fundamentkräfte aus und änderten sich bei Unterteilung (#2204). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
-        ["SA-2026-078", "Dachdruckzonen und ihre ersten Momente hingen von der Unterteilung ab (#2205). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "In PR #2220 behoben, Zusammenführung und Veröffentlichung ausstehend"],
+        ["SA-2026-069", "Die Torsionsquerschnittsgrenze ließ die gleichzeitige sekundäre Querkraft aus (#2142). Betonbemessungen erneut ausführen und Querschnittsversagen sowie fehlende Bügel prüfen; zusätzliche Bügel beheben eine überschrittene Querschnittsgrenze nicht.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-070", "Innere Stabdurchbiegung und Rotation ließen Stablasten aus (#2143). Verformte Linien, Lernanzeigen und Gebrauchstauglichkeitsprüfungen für Stahl und Beton prüfen, einschließlich voller und partieller Trapezlasten. Belastete Stäbe ohne ausreichendes EI werden nun ausdrücklich abgelehnt.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-071", "Bauteilnachweise konnten mit unvollständigen gleichzeitigen Beanspruchungen bestehen (#2096). Beton- und Stahlbemessungen erneut ausführen und Kombinationen, Bauteile, Stationen sowie Zertifikate prüfen.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-072", "Eine ungleiche Unterteilung der Dachränder konnte den First verschieben und erzeugte Schneelasten ändern (#2144). Schneelasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-073", "Stäbe über den First erhielten gleichmäßigen Druck und verloren das physikalische Lastmoment. Lasten werden jetzt am geometrischen First geteilt. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2176).", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-074", "Die Unterteilung eines geneigten Sparrens konnte ein explizites Dachfeld als Geschossdecke einstufen und seine Traufschneelast ohne Warnung entfernen. Die Einstufung verwendet jetzt die physischen Feldgrundrisse. Alle betroffenen erzeugten Flächenlasten neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht. (#2172). Ein ungeteilter geneigter Sparren über einem separaten tieferen Feld konnte dieses ebenfalls als Dach einstufen, Dach- und Geschossflächenlasten ändern und im Breitenmodus ohne Warnung Schnee hinzufügen.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-075", "Die Nachweise für sekundäre Querkraft und Torsion nach CIRSOC 201-2005 und 2025 konnten Bügelschenkel und Querschnittsbreite der Hauptrichtung ansetzen. Dadurch konnten Balken und Stützen mit unzureichender Bügelbewehrung in der Sekundärrichtung den Nachweis ohne Warnung bestehen (#2171). Führen Sie nach dem Update die Stahlbetonbemessung erneut durch und beachten Sie den Hinweis zur Neuberechnung des gespeicherten Projekts.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-076", "Eine offene Wand konnte das Gebäude als offen einstufen und den Innendruck entfallen lassen (#2203). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-077", "Windlasten an Wänden ließen Fundamentkräfte aus und änderten sich bei Unterteilung (#2204). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-078", "Dachdruckzonen und ihre ersten Momente hingen von der Unterteilung ab (#2205). Alle Wand- und Dachöffnungen prüfen, neu einstufen, W und Wa neu erzeugen und Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten allein korrigiert sie nicht.", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-079", "Bei teilweiser Schalenabdeckung konnten Eigen- und Nutzlastanteile verloren gehen oder an falschen Stellen wirken. Erzeugen Sie die betroffenen Flächenlasten im Panelmodus neu und wiederholen Sie Berechnung und Bemessung. (#2199, #2200)", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-080", "Lastbereiche mit erforderlichen exzentrischen Stablasten werden abgelehnt. Prüfen Sie die Flächenlastdefinition vor der Berechnung. Ein Lastbereich, der ein ganzes Feld abdeckt, verwendet die üblichen Feldreaktionen. (#2201)", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-082", "Begleitkombinationen verwendeten ohne Warnung neigungsreduzierten Schnee statt Flachdach-Stablasten. Alte Erdbebenspezifikationen können zudem physischen Schnee und Flachdachschnee vermischen. Schneelasten und Kombinationen neu erzeugen, danach Analysen und Nachweise wiederholen. (#2211).", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-083", "SA-2026-083: Die automatische Lasterzeugung nach CIRSOC 101 sperrt konzentrierte Nutzlasten und Dacheinwirkungen, deren maßgebende Laststellungen nicht ausgewertet werden (§4.4). Zuvor erzeugte Flächenlasten können maßgebende Einwirkungen auslassen. Betroffene Modelle prüfen und konzentrierte Einwirkungen vor erneuter Analyse und Bemessung manuell nachweisen. (#2207).", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-084", "Das Unterteilen einer stirnseitig belasteten Kehlnaht konnte die Abminderung ihrer wirksamen Länge aufheben (#2243). Wiederholen Sie die Nachweise betroffener Nahtgruppen.", "—", "Behoben in 0.6.2"],
+        ["SA-2026-085", "Bei einer kurzen Kehlnaht konnte ein zu großes wirksames Schenkelmaß angesetzt werden (#2244). Wiederholen Sie die Nachweise betroffener Nahtgruppen.", "—", "Behoben in 0.6.2"],
+        ["SA-2026-088", "ABS- und SRSS-Stabdiagramme enthalten die Extrema der kombinierten Funktion zwischen Lastgrenzen. Kombinationen, Diagramme und abhängige Nachweise erneut ausführen (#2273).", "—", "Behoben in 0.6.2"],
+        ["SA-2026-089", "Ein 3D-Lager vom Typ rollerZ oder custom3d ohne explizite Bindungen oder ein unbekannter Lagertyp wurde ohne Warnung als vollständig eingespannt berechnet. Prüfen Sie die vorgesehenen Lagerbedingungen und wiederholen Sie Analyse, Kombinationen und Bemessung. (#2276).", "Hoch", "Behoben in 0.6.2"],
+        ["SA-2026-090", "Geschossfläche und Erdbebengewicht im Breitenmodus konnten von den erzeugten Stablasten abweichen, da Knotenausdehnungen verwendet oder geschlossene Flächen verlangt wurden. Nun gelten die Lasteinzugsflächen der belasteten Stäbe. Schwerkraftlastpläne, Erdbebengewichte und Erdbebenlasten neu erzeugen, dann abhängige Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert die Erdbebeneinwirkungen nicht (#2269). (#2210)", "—", "Behoben in 0.6.2"],
       ]
     },
     {

@@ -1,0 +1,117 @@
+{
+  "solver": {
+    "nodes": {
+      "1": {
+        "id": 1,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "2": {
+        "id": 2,
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "3": {
+        "id": 3,
+        "x": 2.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    },
+    "materials": {
+      "1": {
+        "id": 1,
+        "e": 200000.0,
+        "nu": 0.3
+      }
+    },
+    "sections": {
+      "1": {
+        "id": 1,
+        "a": 0.00538,
+        "iy": 1e-10,
+        "iz": 1e-10,
+        "j": 2.01e-07
+      }
+    },
+    "elements": {
+      "1": {
+        "id": 1,
+        "type": "frame",
+        "nodeI": 1,
+        "nodeJ": 2,
+        "materialId": 1,
+        "sectionId": 1
+      },
+      "2": {
+        "id": 2,
+        "type": "frame",
+        "nodeI": 2,
+        "nodeJ": 3,
+        "materialId": 1,
+        "sectionId": 1
+      }
+    },
+    "supports": {
+      "1": {
+        "id": 1,
+        "nodeId": 1,
+        "type": "fixed",
+        "rx": true,
+        "ry": true,
+        "rz": true,
+        "rrx": true,
+        "rry": true,
+        "rrz": true
+      }
+    },
+    "loads": []
+  },
+  "loadCases": [
+    {
+      "name": "A",
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 3,
+            "fx": -3.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "B",
+      "loads": [
+        {
+          "type": "nodal",
+          "data": {
+            "nodeId": 3,
+            "fx": -3.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "combinations": [
+    {
+      "name": "A+B",
+      "factors": {
+        "A": 4.4942328371557893e+307,
+        "B": 4.4942328371557893e+307
+      }
+    }
+  ]
+}

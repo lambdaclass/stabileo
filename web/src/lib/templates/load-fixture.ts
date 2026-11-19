@@ -11,6 +11,7 @@ import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
 import { tp } from '../i18n';
+import { remapSupportElement } from '../model/support-types';
 
 export interface JSONModel {
   name: string;
@@ -51,7 +52,7 @@ export interface JSONModel {
     /** A member of variable section: the section at end J, by the same ids as `sectionId`. */
     variableSection?: { sectionJ: number; segments?: number };
   }>;
-  supports: Array<{ id: number; nodeId: number; type: string; [k: string]: unknown }>;
+  supports: Array<{ id: number; nodeId: number; type: string; dofFrame?: unknown; dofLocalElementId?: unknown; [k: string]: unknown }>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
   plates: Array<{ id: number; nodes: number[]; materialId: number; thickness: number }>;
   quads: Array<{ id: number; nodes: number[]; materialId: number; thickness: number }>;
@@ -74,6 +75,7 @@ export interface JSONModel {
  * (model store, test mock, or solver input builder).
  */
 export interface FixtureLoader {
+  replay?(load: () => void): void;
   addNode(x: number, y: number, z?: number): number;
   addElement(nI: number, nJ: number, type?: 'frame' | 'truss'): number;
   addSupport(nodeId: number, type: string, springK?: Record<string, number>, opts?: Record<string, unknown>): number;
@@ -100,7 +102,7 @@ export interface FixtureLoader {
   // Constraints
   addConstraint?(c: Record<string, unknown>): void;
   // Model metadata
-  model: { name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<{ factors?: ReadonlyArray<{ caseId: number }>; [k: string]: unknown }> };
+  model: { supports: ReadonlyMap<number, object>; name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<{ factors?: ReadonlyArray<{ caseId: number }>; [k: string]: unknown }> };
   nextId: { loadCase: number; combination: number };
 }
 
@@ -110,6 +112,26 @@ export interface FixtureLoader {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean } = {}): void {
+  validateFixtureSupportFrames(json);
+  const load = () => replayFixture(json, api, opts);
+  if (api.replay) api.replay(load);
+  else load();
+}
+
+function fixtureSupportElement(support: JSONModel['supports'][number], elementId: (id: number) => number | undefined): number | undefined {
+  const reference = remapSupportElement(support, elementId);
+  if (reference === null) {
+    throw new Error(`Fixture support ${support.id} has an unresolved local element reference (${String(support.dofLocalElementId)}).`);
+  }
+  return reference;
+}
+
+export function validateFixtureSupportFrames(json: JSONModel): void {
+  const ids = new Set(json.elements.map(e => e.id));
+  for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
+}
+
+function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean }): void {
   const { loadCases, combinations, rebuilt } = opts.keepCombinations ? keptLoadCases(json, api.model) : fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
@@ -209,7 +231,9 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
   const springKeys = new Set(['kx', 'ky', 'kz', 'krx', 'kry', 'krz']);
   for (const s of json.supports) {
     const nodeId = nodeMap.get(s.nodeId)!;
-    const { id: _id, nodeId: _nid, type, ...rest } = s;
+    const { id: _id, nodeId: _nid, type, dofLocalElementId: _reference, ...rest } = s;
+    const reference = fixtureSupportElement(s, id => elemMap.get(id));
+    if (reference !== undefined) rest.dofLocalElementId = reference;
     const springs: Record<string, number> = {};
     const opts: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rest)) {
@@ -218,7 +242,13 @@ export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCom
     }
     const hasSpring = Object.keys(springs).length > 0 ? springs : undefined;
     const hasOpts = Object.keys(opts).length > 0 ? opts : undefined;
-    api.addSupport(nodeId, type, hasSpring, hasOpts);
+    const supportId = api.addSupport(nodeId, type, hasSpring, hasOpts);
+    const created = api.model.supports.get(supportId);
+    if (!created) throw new Error(`Fixture support ${supportId} was not stored.`);
+    for (const field of ['dofRestraints', 'dofFrame', 'dofLocalElementId']) {
+      if (!(field in rest)) delete (created as Record<string, unknown>)[field];
+    }
+    Object.assign(created, structuredClone(rest), { type });
   }
 
   // Loads

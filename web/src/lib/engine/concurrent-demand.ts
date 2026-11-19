@@ -237,3 +237,9 @@ export class ConcurrentSectionDemand {
     return new ConcurrentSectionDemand(this.source, this.axis, Mu, Muy);
   }
 }
+
+const SECONDARY_SHEAR_DEMAND_THRESHOLD_KN = 0.001;
+
+export function hasSecondaryShearDemand(demand: number): boolean {
+  return !(Math.abs(demand) < SECONDARY_SHEAR_DEMAND_THRESHOLD_KN);
+}

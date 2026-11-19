@@ -84,3 +84,39 @@ describe('design spans', () => {
     }
   });
 });
+
+const issue2238 = process.env.RUN_KNOWN_WRONG === '2238' ? it : it.skip;
+issue2238('known wrong result: #2238 reversing every piece keeps the physical hogging and sagging faces', () => {
+  const L = 6;
+  const q = 60;
+  const moment = (x: number) => q * (x * (L - x) / 2 - L ** 2 / 12);
+  for (const reversed of [false, true]) {
+    const structure = model();
+    for (const node of structure.nodes.values()) node.x *= 2;
+    for (const id of [1, 2, 3]) {
+      const member = structure.elements.get(id)!;
+      member.nodeI = reversed ? id : id - 1;
+      member.nodeJ = reversed ? id - 1 : id;
+    }
+    const [span] = designSpans(structure, beams);
+    expect(span?.reversed).toEqual([reversed, reversed, reversed]);
+    const stationTs = [0, 0.5, 1];
+    const merged = mergeSpanStations(structure, span!, id => {
+      const member = structure.elements.get(id)!;
+      const start = structure.nodes.get(member.nodeI)!.x;
+      const end = structure.nodes.get(member.nodeJ)!.x;
+      const length = Math.abs(end - start);
+      return {
+        elementId: id, length, stationTs,
+        comboResults: [{ comboId: 1, comboName: 'U', stations: stationTs.map(t => {
+          const globalX = start + (end - start) * t;
+          return { t, x: t * length, n: 0, my: moment(globalX), mz: 0, vy: 0, vz: q * (L / 2 - globalX), torsion: 0 };
+        }) }],
+      };
+    });
+    const stations = merged!.comboResults[0]!.stations;
+    for (const x of [0, L / 2, L]) {
+      expect.soft(stations.find(s => s.x === x)?.my, `x = ${x} m, reversed = ${reversed}`).toBeCloseTo(moment(x), 12);
+    }
+  }
+});

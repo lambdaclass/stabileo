@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { findPost } from '..';
-import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from '../../../../scripts/public-paths';
 
 const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'zh'] as const;
 const repo = 'https://github.com/lambdaclass/stabileo/blob/main';
@@ -20,24 +19,39 @@ function rows(section: string): string[][] {
     .map(line => line.split('|').slice(1, -1).map(cell => plain(cell.trim())));
 }
 
-describe('0.6.1 release article', () => {
-  it('publishes after 0.6.0 in the same six languages', () => {
+describe.each([false, true])('0.6.1 release article with research=%s', research => {
+  const publishedLocales = [...locales, ...(research ? ['hu'] : [])].sort();
+
+  beforeEach(() => {
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research });
+    vi.resetModules();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('publishes after 0.6.0 in the same languages', async () => {
+    const { findPost } = await import('..');
     const previous = findPost('stabileo-0-6-0')!;
     const post = findPost('stabileo-0-6-1');
     expect(post).toBeDefined();
-    expect(Object.keys(post!.i18n).sort()).toEqual([...locales].sort());
+    expect(Object.keys(post!.i18n).sort()).toEqual(publishedLocales);
     expect(Object.keys(post!.i18n).sort()).toEqual(Object.keys(previous.i18n).sort());
     expect(post!.order).toBeGreaterThan(previous.order);
     expect(post!.date).toBe('2026-11-15');
   });
 
   it('includes the article and publication date in prerender, feed and sitemap metadata', async () => {
+    const { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } = await import('../../../../scripts/public-paths');
     expect(await publicPaths()).toContain(route);
     expect(POST_DATE.get(route)).toBe('2026-11-15');
     expect(POST_LASTMOD.get(route)).toBe('2026-11-15');
-    expect(writtenIn(route).sort()).toEqual([...locales].sort());
+    expect(writtenIn(route).sort()).toEqual(publishedLocales);
   });
+});
 
+describe('0.6.1 release article', () => {
   it.each(locales)('%s leads with rechecking members and regenerating snow, preserving all five fixed advisories', locale => {
     const body = findPost('stabileo-0-6-1')?.i18n[locale];
     expect(body).toBeDefined();

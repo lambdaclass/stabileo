@@ -1,7 +1,7 @@
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 import { unfinishedProClaims, type CopyLocale } from '../src/lib/i18n/pro-copy';
 
 /**
@@ -79,7 +79,7 @@ const POST_TITLE = {
 
 const LOCALES = ['en', 'es', 'pt'] as const;
 type Locale = (typeof LOCALES)[number];
-const PUBLIC = [...PUBLIC_LOCALES].sort();
+const PUBLIC = [...BUILD_PUBLIC_LOCALES].sort();
 
 /** The languages a page names as its alternates: every one for the landing and the blog index, and for a post those it is written in. */
 function writtenIn(path: string): string[] {
@@ -142,7 +142,7 @@ async function expectLinks(page: Page, path: string, locale: Locale) {
 }
 
 test.describe('@smoke prerender', () => {
-  for (const locale of PUBLIC_LOCALES as CopyLocale[]) {
+  for (const locale of BUILD_PUBLIC_LOCALES as CopyLocale[]) {
     test(`/${locale}: what a crawler reads presents PRO as available`, async ({ browser }) => {
       const { page, close } = await crawl(browser, `/${locale}/`);
       try {

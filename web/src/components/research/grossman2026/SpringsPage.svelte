@@ -469,7 +469,7 @@
         </p>
         <div class="sp-viewer" data-nodes={strip?.nodes.length ?? 0}>
           {#if strip}
-                          <StabileoViewer
+                          <StabileoViewer plane="elevation"
                 oninteract={touch}
                 xy={xy}
                 cells={bars}

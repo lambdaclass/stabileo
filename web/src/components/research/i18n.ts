@@ -2350,7 +2350,7 @@ export const STRINGS: Record<'en' | 'es' | 'pt' | 'zh', ResearchStrings> & Parti
       step: "显示的荷载步", reference: "参考值", stabileo: "Stabileo", error: "误差", result: "结果", reset: "重置参数",
     },
   },
-  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: {
+  ...(__PUBLIC_FEATURES__.research ? { hu: {
     maxDamage: "Legnagyobb károsodás",
     forceAxis: "F erő (kN)",
     fractureToleranceNote: "Az 57. lépésben a károsodás tűrése 1e-4, mert a repedés egyetlen növekmény alatt átfut a lemezen; a beállt mezőknél 1e-8. Ezek összehasonlítási küszöbök, nem hibakorlátok.",
@@ -2981,12 +2981,12 @@ export function rs(): ResearchStrings {
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
-  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar' },
-  en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
-  es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
-  pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },
-  zh: { fracture: '断裂与损伤', 'differentiable-fem': '可微分有限元', optimization: '优化', metamaterials: '超材料', constitutive: '本构模型', 'digital-twins': '数字孪生', 'numerical-methods': '数值方法', seismic: '地震与动力学', shells: '壳与屈曲' },
-  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: { fracture: 'Törés és károsodás', 'differentiable-fem': 'Differenciálható VEM', optimization: 'Optimalizálás', metamaterials: 'Metaanyagok', constitutive: 'Anyagmodellek', 'digital-twins': 'Digitális ikrek', 'numerical-methods': 'Numerikus módszerek', seismic: 'Földrengés és dinamika', shells: 'Héjak és stabilitásvesztés' } } : {}),
+  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien', fracture: 'Bruch und Schädigung', 'limit-analysis': 'Traglastverfahren und Mauerwerk' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux', fracture: 'Rupture et endommagement', 'limit-analysis': 'Analyse limite et maçonnerie' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler', fracture: 'Kırılma ve hasar', 'limit-analysis': 'Limit analiz ve yığma yapılar' },
+  en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling', 'limit-analysis': 'Limit analysis and masonry' },
+  es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo', 'limit-analysis': 'Análisis límite y mampostería' },
+  pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem', 'limit-analysis': 'Análise limite e alvenaria' },
+  zh: { fracture: '断裂与损伤', 'differentiable-fem': '可微分有限元', optimization: '优化', metamaterials: '超材料', constitutive: '本构模型', 'digital-twins': '数字孪生', 'numerical-methods': '数值方法', seismic: '地震与动力学', shells: '壳与屈曲', 'limit-analysis': '极限分析与砌体' },
+  ...(__PUBLIC_FEATURES__.research ? { hu: { fracture: 'Törés és károsodás', 'differentiable-fem': 'Differenciálható VEM', optimization: 'Optimalizálás', metamaterials: 'Metaanyagok', constitutive: 'Anyagmodellek', 'digital-twins': 'Digitális ikrek', 'numerical-methods': 'Numerikus módszerek', seismic: 'Földrengés és dinamika', shells: 'Héjak és stabilitásvesztés', 'limit-analysis': 'Határteherbírás és falazott szerkezetek' } } : {}),
 };
 
 export const STATUS_NAMES: Record<string, Record<string, string>> = {
@@ -2994,7 +2994,7 @@ export const STATUS_NAMES: Record<string, Record<string, string>> = {
   es: { proposed: 'Propuesto', 'reference-reproduced': 'Referencia reproducida', 'implementation-in-progress': 'Implementación en curso', 'numerically-validated': 'Validado numéricamente', 'published-figures-compared': 'Comparado con las figuras publicadas', interactive: 'Interactivo' },
   pt: { proposed: 'Proposto', 'reference-reproduced': 'Referência reproduzida', 'implementation-in-progress': 'Implementação em andamento', 'numerically-validated': 'Validado numericamente', 'published-figures-compared': 'Comparado com as figuras publicadas', interactive: 'Interativo' },
   zh: { proposed: '已提议', 'reference-reproduced': '已复现参考结果', 'implementation-in-progress': '实现进行中', 'numerically-validated': '已通过数值验证', 'published-figures-compared': '已与已发表的图比较', interactive: '可交互' },
-  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': 'Közölt ábrákkal összevetve', interactive: 'Interaktív' } } : {}),
+  ...(__PUBLIC_FEATURES__.research ? { hu: { proposed: 'Javasolt', 'reference-reproduced': 'Referencia reprodukálva', 'implementation-in-progress': 'Megvalósítás folyamatban', 'numerically-validated': 'Numerikusan validálva', 'published-figures-compared': 'Közölt ábrákkal összevetve', interactive: 'Interaktív' } } : {}),
 };
 
 export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? FIELD_NAMES.en[f] ?? f;

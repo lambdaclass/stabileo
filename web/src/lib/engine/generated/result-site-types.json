@@ -43,6 +43,22 @@
         }
       }
     ],
+    "BatchCombinationInput3D": [
+      {
+        "origin": "src/postprocess/combinations.rs::BatchCombinationInput3D",
+        "shape": {
+          "fields": {
+            "cases": {
+              "seq": {
+                "ref": "CaseEntry3D"
+              }
+            }
+          },
+          "flatten": [],
+          "kind": "struct"
+        }
+      }
+    ],
     "BeamStationInput": [
       {
         "origin": "src/postprocess/beam_stations.rs::BeamStationInput",

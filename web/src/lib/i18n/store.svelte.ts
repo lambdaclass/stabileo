@@ -9,7 +9,7 @@ import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
 // so a bundled dictionary registered without its steel half shows raw keys instead.
 const PUBLIC_DICTS: Partial<Record<Locale, Translations>> = {
   es: publicEs, en: publicEn, pt: publicPt, de: publicDe, fr: publicFr, tr: publicTr, zh: publicZh,
-  ...(import.meta.env.VITE_RESEARCH === '1' ? { hu: publicHu } : {}),
+  ...(__PUBLIC_FEATURES__.research ? { hu: publicHu } : {}),
 };
 const dicts: Record<string, Translations> = Object.fromEntries(
   OFFERED_LOCALES.map((l) => [l, { ...PUBLIC_DICTS[l] }]),

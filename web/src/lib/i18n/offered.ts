@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../config/public-features.mjs';
 import { COMPLETE as de } from './locales/complete/de';
 import { COMPLETE as fr } from './locales/complete/fr';
 import { COMPLETE as tr } from './locales/complete/tr';
@@ -6,7 +7,7 @@ import { COMPLETE as zh } from './locales/complete/zh';
 
 export type Locale = 'es' | 'en' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh';
 
-const research = (import.meta.env?.VITE_RESEARCH ?? (typeof process === 'undefined' ? undefined : process.env.VITE_RESEARCH)) === '1';
+const research = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().research : __PUBLIC_FEATURES__.research;
 
 const COMPLETE: Partial<Record<Locale, boolean>> = { de, fr, tr, zh, ...(research ? { hu } : {}) };
 

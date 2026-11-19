@@ -61,7 +61,7 @@ declare module 'virtual:result-change-packed' {
 }
 
 interface ImportMetaEnv {
-  readonly VITE_RESEARCH?: string;
-  readonly VITE_TOOLS?: string;
-  readonly VITE_DIAGRAM_GAME?: string;
 }
+
+declare const __PUBLIC_FEATURES__: import('../config/public-features.mjs').BuildFeatures;
+declare const __PUBLIC_FEATURES_COMPILED__: true;

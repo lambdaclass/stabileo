@@ -1,4 +1,4 @@
-import '../../../__tests__/enable-public-features';
+import { buildFeatures } from '../../../../config/public-features.mjs';
 import { expect, it } from 'vitest';
 import { EXPERIMENTS } from '../experiments';
 import { RESEARCH_GALLERY, researchLocales, supportsResearchRoute } from '../locales';
@@ -8,6 +8,7 @@ import { text as andreassen } from '../andreassen2011/i18n';
 import { translations as biggins } from '../biggins2026/strings';
 import { translations as riser } from '../gayNeto2014/strings';
 import { translations as shape } from '../feher2026/strings';
+import { translations as heyman } from '../heyman1966/strings';
 import { translations as cqc } from '../cqc1981/strings';
 import { strings as dadeppo } from '../dadeppo1975/i18n';
 import { translations as fairclough } from '../fairclough2026/translations';
@@ -24,7 +25,10 @@ import { strings as shell } from '../shell1985/i18n';
 import { translations as shellArticle } from '../shell1985/article';
 
 const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'];
-const defined = (...dictionaries: object[]) => ALL.filter((l) => dictionaries.every((d) => l in d));
+const defined = (...dictionaries: object[]) => {
+  const { research } = buildFeatures();
+  return ALL.filter(locale => (locale !== 'hu' || research) && dictionaries.every(dict => locale in dict));
+};
 const either = (base: object, extra: object) => {
   if (ALL.some((l) => l in base && l in extra)) throw new Error('a page dictionary and its extra languages overlap');
   return { ...base, ...extra };
@@ -37,6 +41,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/mechanics/biggins-2026': [biggins],
   '/research/mechanics/gay-neto-2014': [riser],
   '/research/stability/feher-sipos-varkonyi-2026': [shape],
+  '/research/mechanics/heyman-1966': [heyman],
   '/research/benchmarks/cqc-1981': [cqc],
   '/research/benchmarks/dadeppo-arch-1975': [dadeppo],
   '/research/optimisation/fairclough-2026': [fairclough],

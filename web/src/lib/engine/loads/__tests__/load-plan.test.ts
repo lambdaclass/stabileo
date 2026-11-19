@@ -11,6 +11,7 @@ import {
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
 import { modalStoryForces, cqcRho } from '../seismic-modal';
+import { seismicCases } from '../seismic-cases';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -144,8 +145,8 @@ describe('level plan areas come from real geometry', () => {
     const lv = p.levels.find((l) => l.elevation === 3)!;
     // 6 m bay, 4 beams: 4 × 6 × 0.09 × 25 = 54 kN, plus half the columns each side.
     expect(lv.selfWeightKN).toBeGreaterThan(50);
-    expect(lv.superimposedKN).toBeCloseTo(1.8 * 36, 6);
-    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de la extensión real de los nodos/);
+    expect(lv.superimposedKN).toBeCloseTo(1.8 * (4 * 6 * 3), 6);
+    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de las áreas tributarias cargadas/);
   });
 
   it('weighs the slabs and walls drawn as shells, not only the members', () => {
@@ -901,7 +902,8 @@ describe('the companion live load factor reads the roof occupancy too', () => {
   it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
     const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
     const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
     expect(companions.length).toBeGreaterThan(0);
     for (const t of companions) expect(t.factor).toBe(1);
@@ -936,4 +938,45 @@ describe('live load reduction by width (CIRSOC 101-2025 §4.7.2)', () => {
     const live = p.distributed.filter((d) => d.caseType === 'L');
     for (const d of live) expect(Math.abs(d.q)).toBeCloseTo(2 * (0.25 + 4.57 / Math.sqrt(72)) * 6, 6);
   });
+});
+
+const issue2208 = process.env.RUN_KNOWN_WRONG === '2208' ? it : it.skip;
+issue2208('known wrong result: #2208 subdivision preserves the moment about the global origin', () => {
+  const width = 6;
+  const force = 100;
+  const points = [[0, 0], [10, 0], [10, width], [0, width], [0, 1]] as const;
+  const nodes = new Map(points.map(([x, y], i) => [i + 1, { id: i + 1, x, y, z: 3 }]));
+  const loadsAt = (nodeIds: number[]) => seismicCases({
+    nodes,
+    levels: [{ elevation: 3, nodeIds }],
+    forcesX: [force],
+    forcesY: [0],
+    directions: { x: true, y: false },
+  })[0]!.nodal;
+  const moment = (loads: ReturnType<typeof loadsAt>) =>
+    loads.reduce((sum, { nodeId, fx, fy, mz }) => {
+      const { x, y } = nodes.get(nodeId)!;
+      return sum + x * fy - y * fx + mz;
+    }, 0);
+  const corners = loadsAt([1, 2, 3, 4]);
+  const subdivided = loadsAt([1, 2, 3, 4, 5]);
+  const uniformRectangleMoment = -force * (width / 2);
+  expect(corners.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
+  expect(subdivided.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
+  expect(moment(corners)).toBeCloseTo(uniformRectangleMoment, 12);
+  expect(moment(subdivided)).toBeCloseTo(uniformRectangleMoment, 12);
+});
+
+const issue2209 = process.env.RUN_KNOWN_WRONG === '2209' ? it : it.skip;
+issue2209('known wrong result: #2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
+  const shape = new Map([1, 1, 3, 1.5].map((ux, i) => [i + 1, { ux, uy: 0 }]));
+  const calculate = (upperNodes: number[]) => modalStoryForces(
+    [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: upperNodes }],
+    [{ period: 1, shape }], 'x', () => 1,
+  );
+  const endpoints = calculate([2, 3]);
+  const subdivided = calculate([2, 4, 3]);
+  expect.soft(subdivided.forces[0]).toBeCloseTo(endpoints.forces[0]!, 12);
+  expect.soft(subdivided.forces[1]).toBeCloseTo(endpoints.forces[1]!, 12);
+  expect(subdivided.massRatio).toBeCloseTo(endpoints.massRatio, 12);
 });

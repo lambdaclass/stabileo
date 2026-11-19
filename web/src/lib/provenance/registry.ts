@@ -12,6 +12,7 @@
  * change that makes the same saved model give different numbers gets an entry here. The versions
  * in `numbered.json` are frozen; each later merge to main that adds entries takes the next one.
  */
+import { researchBuilt } from '../features';
 import metadata from 'virtual:result-change-metadata';
 import { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
@@ -22,7 +23,7 @@ export type Localised = Record<RegistryLocale, string> & { hu?: string };
 export function registryLocale(locale: string): RegistryLocale;
 export function registryLocale(locale: string, first: Localised, ...rest: Localised[]): RegistryLocale | 'hu';
 export function registryLocale(locale: string, ...texts: Localised[]): RegistryLocale | 'hu' {
-  if (locale === 'hu' && import.meta.env.VITE_RESEARCH === '1' && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
+  if (locale === 'hu' && researchBuilt() && texts.length > 0 && texts.every(text => typeof text.hu === 'string' && !!text.hu.trim())) return 'hu';
   return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
 }
 
@@ -53,6 +54,7 @@ export interface ResultChange {
   date: string;
   prs: number[];
   area: 'analysis' | 'design' | 'loads';
+  requiresLoadRegeneration?: boolean;
   /**
    * Absent for an entry with `scope: 'examples'`, which concerns no saved model and is never
    * shown on opening one.
@@ -104,6 +106,10 @@ export function concernsGeneratedLoads(w: ChangeCondition = {}): boolean {
   return conditionGroups(w).some((g) => g.includes('generatedLoads') || g.includes('generatedWindLoads'));
 }
 
+export function concernsLoadBasis(c: ResultChange): boolean {
+  return c.requiresLoadRegeneration === true || concernsGeneratedLoads(c.when ?? {});
+}
+
 /** Every condition group of an entry, normalised to OR-groups that must all hold. */
 export { conditionGroups } from '../../../scripts/results-snapshot/applicability.mjs';
 
@@ -141,6 +147,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
           || !/^[a-f0-9]{64}$/.test(q.before) || !/^[a-f0-9]{64}$/.test(q.after)))) {
       problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
     }
+    if (c.requiresLoadRegeneration !== undefined && typeof c.requiresLoadRegeneration !== 'boolean') problems.push(`${where}: requiresLoadRegeneration must be a boolean`);
     if (c.scope !== undefined && c.scope !== 'examples') problems.push(`${where}: unknown scope "${c.scope}"`);
     if (c.scope === 'examples') {
       if (c.when !== undefined) problems.push(`${where}: an examples-scoped entry concerns no saved model and takes no when`);

@@ -175,14 +175,14 @@ const body: PostBody = {
       "base": "blog/cirsoc-201-beam",
       "w": 1600,
       "h": 1000,
-      "alt": "Stabileo PRO, Tasarım alanı, Boyutlandırma adımı; çözüm ve tasarımdan sonra 20×40 kiriş seçili. Eleman paneli CIRSOC 201 (2025) ile “doğrulandı, yerel η 0,90” gösteriyor; My ve Vz eksenlerinde 13 kontrol ve en yüksek kullanım oranı 0,900.",
-      "caption": "Aşağıdaki kiriş “Boyutlandır…” sonrasında: CIRSOC 201 onu 0,90 kullanım oranıyla doğruluyor."
+      "alt": "20×40 kiriş seçiliyken Stabileo PRO tasarım kontrolleri.",
+      "caption": "Bu ekran görüntüsü mesnetler düzeltilmeden önce alınmıştır. Aşağıdaki etkileşimli örnek güncel sonucu gösterir."
     },
     {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de açıklıktaki kesme kuvvetinin belirleyici olduğu D/C = 0,90 ile kapanır: eğilme ve donatı ankrajı bunun altında kalır. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
+      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de D/C = 0,91 ile doğrulanır. Açıklıkta pozitif eğilme (My+) belirleyicidir. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
     },
     {
       "k": "h",

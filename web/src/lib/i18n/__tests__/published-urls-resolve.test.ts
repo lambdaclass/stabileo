@@ -53,10 +53,10 @@
  * for exactly this kind of thing.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { searchMetadataSuite } from './search-metadata';
@@ -68,7 +68,14 @@ import { PAPER_LOCALES } from '../../../components/paper/locales';
 import { PUBLIC_LOCALES } from '../offered';
 import { publishedLocales } from '../published';
 import { MOVED_PAGES, movedRoute } from '../../legacy-routes';
-import { buildPublicFeatures } from '../../../../scripts/public-paths';
+
+const flags = await vi.hoisted(async () => {
+  const { featuresForMode } = await import('../../../../config/public-features.mjs');
+  const production = featuresForMode('production');
+  vi.stubGlobal('__PUBLIC_FEATURES__', production);
+  vi.resetModules();
+  return production;
+});
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -155,10 +162,33 @@ describe('every published URL is served, not redirected', () => {
   }, 660_000);
 
   afterAll(() => {
+    vi.unstubAllGlobals();
     if (!SHARED) rmSync(DIST, { recursive: true, force: true });
   });
 
   searchMetadataSuite(DIST);
+
+  it('publishes configured routes and strips disabled account and game UI', () => {
+    const routes = [
+      ['/en/research/', true],
+      ['/hu/research/', flags.research],
+      ['/en/tools/', true],
+      ['/en/tools/mohr-2d/', flags.tools],
+      ['/en/register/', flags.accounts],
+      ['/en/terms/', flags.accounts],
+      ['/en/privacy/', flags.accounts],
+      ['/en/usage-data/', flags.accounts],
+      ['/en/diagram-game/', flags.diagramGame],
+    ] as const;
+    for (const [path, published] of routes) {
+      expect(fileServedWithoutRedirect(path) !== null, path).toBe(published);
+    }
+    const assets = join(DIST, 'assets');
+    const chunks = readdirSync(assets).filter(file => file.endsWith('.js'));
+    const contains = (pattern: RegExp) => chunks.some(file => pattern.test(readFileSync(join(assets, file), 'utf8')));
+    expect(contains(/account\.signInTitle|Sign in to Stabileo|landing\.footAdCookies/)).toBe(flags.accounts);
+    expect(contains(/landing\.navGame/)).toBe(flags.diagramGame);
+  });
 
   it('the build produced a sitemap with URLs in it', () => {
     // Without this the three assertions below would pass vacuously on an empty
@@ -229,7 +259,6 @@ describe('every published URL is served, not redirected', () => {
 
   it('keeps former examples canonical at their built addresses and redirects only when tools are enabled', () => {
     const urls = publishedUrls();
-    const flags = buildPublicFeatures();
     for (const locale of PUBLIC_LOCALES) {
       for (const from of MOVED_PAGES) {
         const file = fileServedWithoutRedirect(`/${locale}${from}/`);
@@ -288,10 +317,10 @@ describe('every published URL is served, not redirected', () => {
 
     it('writes no research page in a language it is not published in', () => {
       const stray = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) =>
-        ['en', 'es', 'pt', 'de', 'fr', 'tr'].filter((l) => !publishedIn(path).includes(l) && existsSync(join(DIST, l, path, 'index.html'))).map((l) => `/${l}${path}/`),
+        ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'].filter((l) => !publishedIn(path).includes(l) && existsSync(join(DIST, l, path, 'index.html'))).map((l) => `/${l}${path}/`),
       );
       expect(stray).toEqual([]);
-      const unlisted = publishedUrls().filter((u) => /\/(de|fr|tr)\/research(\/|$)/.test(u)).filter((u) => {
+      const unlisted = publishedUrls().filter((u) => /\/(de|fr|tr|hu)\/research(\/|$)/.test(u)).filter((u) => {
         const [, locale, path] = new URL(u).pathname.match(/^\/(\w+)(\/research.*?)\/?$/)!;
         return !publishedIn(path).includes(locale);
       });

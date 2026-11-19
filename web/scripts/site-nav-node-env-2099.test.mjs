@@ -5,26 +5,30 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { pathToFileURL } from 'node:url';
+import { disabledFeatures } from './public-features-test-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 
-for (const environment of [undefined, {}, { VITE_TOOLS: '0', VITE_DIAGRAM_GAME: '0', VITE_RESEARCH: '0', VITE_ACCOUNTS: '0' }, { VITE_TOOLS: '1', VITE_DIAGRAM_GAME: '1', VITE_RESEARCH: '1', VITE_ACCOUNTS: '1' }]) {
-  test(`Node navigation accepts environment=${JSON.stringify(environment)}`, async () => {
+for (const [features, expected] of [
+  [undefined, ['basic', 'tools', 'research', 'pricing', 'blog']],
+  [disabledFeatures, ['basic', 'examples', 'tools', 'research', 'pricing', 'blog']],
+  [Object.fromEntries(Object.keys(disabledFeatures).map(key => [key, true])), ['basic', 'tools', 'game', 'research', 'pricing', 'blog']],
+]) {
+  test(`Node navigation uses features=${JSON.stringify(features)}`, async () => {
     const result = await build({
       entryPoints: [resolve(root, 'src/components/site/site-nav.ts')],
       bundle: true,
       write: false,
       format: 'esm',
       platform: 'node',
-      define: environment === undefined ? {} : { 'import.meta.env': JSON.stringify(environment) },
+      define: features === undefined ? {} : { __PUBLIC_FEATURES__: JSON.stringify(features) },
     });
     const directory = mkdtempSync(resolve(root, 'scripts/.node-env-'));
     try {
       const file = resolve(directory, 'site-nav.mjs');
       writeFileSync(file, result.outputFiles[0].text);
       const { SITE_NAV, currentNav } = await import(pathToFileURL(file).href);
-      const enabled = environment?.VITE_TOOLS === '1';
-      assert.deepEqual(SITE_NAV.map(item => item.id), enabled ? ['basic', 'tools', 'game', 'research', 'pricing', 'blog'] : ['basic', 'examples', 'tools', 'research', 'pricing', 'blog']);
+      assert.deepEqual(SITE_NAV.map(item => item.id), expected);
       for (const item of SITE_NAV.filter(item => item.kind === 'page')) assert.equal(currentNav(`${item.to}/nested/`), item.id);
       assert.equal(currentNav('/paper'), 'research');
       assert.equal(currentNav('/changelog'), 'blog');

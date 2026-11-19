@@ -2784,8 +2784,7 @@ mod r3 {
                     my: 0.0,
                 }),
             ];
-            let c = std::f64::consts::FRAC_PI_2.cos();
-            let expected = 1000.0 + c.mul_add(huge, -c * huge);
+            let expected = 1000.0;
             calls.push(serde_json::json!({"api":"solve_2d","input":s,"converged":true,"expectedAppliedSum":[null,expected]}));
             for plane in Plane::ALL {
                 let mut solver = embed_2d(&cantilever(), plane).unwrap();

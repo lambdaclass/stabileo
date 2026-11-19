@@ -16,6 +16,7 @@
  */
 
 import { assertFiniteWire, certificateOnly, isCertifyExport, readCertifyAnswer } from './wasm-solver';
+import { nonlinearWorkerReply, nonlinearWorkerSession } from './nonlinear-worker-session';
 import { finishSolve3D, finishPDelta3D } from './solve-finish';
 
 let solve_2d: ((input: any) => any) | null = null;
@@ -24,6 +25,7 @@ let solve_pdelta_3d: ((json: string, maxIter: number, tol: number) => string) | 
 let certify_linear_2d: ((input: any) => any) | null = null;
 let certify_linear_3d: ((input: any) => any) | null = null;
 let ready = false;
+const nonlinearSessions = new Map<number, ReturnType<typeof nonlinearWorkerSession>>();
 /** The module's exports, for the named `certify` jobs. */
 let wasmExports: Record<string, unknown> = {};
 
@@ -66,6 +68,17 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({ type: 'ready' });
     } catch (err: any) {
       self.postMessage({ type: 'error', message: `Worker init failed: ${err.message}` });
+    }
+    return;
+  }
+
+  if (msg.type === 'nonlinear-step' || msg.type === 'nonlinear-free') {
+    try {
+      if (!ready) throw new Error('Worker not initialized');
+      self.postMessage({ type: 'result', id: msg.id, ...nonlinearWorkerReply(nonlinearSessions, wasmExports, msg) });
+    } catch (err: any) {
+      const cleanup = nonlinearWorkerReply(nonlinearSessions, wasmExports, { type: 'nonlinear-free', sessionId: msg.sessionId });
+      self.postMessage({ type: 'result', id: msg.id, error: err?.message ?? String(err), fatal: cleanup.fatal });
     }
     return;
   }

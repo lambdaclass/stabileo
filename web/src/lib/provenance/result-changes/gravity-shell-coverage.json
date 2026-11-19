@@ -1,0 +1,44 @@
+{
+  "id": "gravity-shell-coverage",
+  "date": "2026-11-17",
+  "prs": [
+    2199,
+    2200,
+    2282
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers",
+      "generatedPanelGravityShells"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Partial shell coverage on beam panels",
+    "es": "Cobertura parcial de placas sobre paños de vigas",
+    "pt": "Cobertura parcial de cascas sobre painéis de vigas",
+    "de": "Teilweise Schalenabdeckung von Trägerfeldern",
+    "fr": "Couverture partielle des panneaux par des coques",
+    "tr": "Kiriş panellerinde kısmi kabuk örtüsü",
+    "hu": "Gerendamezők részleges héjfedése"
+  },
+  "explanation": {
+    "en": "Regenerate gravity for panel-mode models with shells. The uncovered strips take roof or floor pressures according to their exposure. Ambiguous shell deck geometry or mixed exposure blocks the plan. A bare beam ring rejected by deck selection leaves the strip exposed. An attached roof carries a fully covered eave bay even when a connected lean-to descends outside it. The footprint of a member loaded by tributary width also contributes cover. A roof shell also carries gravity for an offset rafter when rigid attachments establish full coverage. Legacy panel-mode plans with shells and stored beam gravity also require regeneration.",
+    "es": "Regenerá la gravedad en modo de paños con placas. Las franjas descubiertas reciben presiones de cubierta o de entrepiso según su exposición. Una geometría ambigua o una exposición mixta bloquea el plan. Un anillo de vigas descartado por la selección de tableros deja la franja expuesta. La cubierta conectada carga todo el paño de alero aunque un faldón unido descienda fuera del paño. La huella de una barra cargada por ancho tributario también aporta cobertura. La placa también toma la gravedad de una barra desplazada cuando sus uniones rígidas demuestran cobertura completa. Regenerá también los planes antiguos en modo de paños con placas y cargas gravitatorias guardadas en vigas.",
+    "pt": "Gere novamente as cargas gravitacionais no modo de painéis com cascas. As faixas descobertas recebem pressões de cobertura ou de piso conforme a exposição. Geometria ambígua ou exposição mista bloqueia o plano. Um anel de vigas rejeitado pela seleção de tabuleiros deixa a faixa exposta. A cobertura ligada às vigas carrega todo o painel do beiral mesmo quando uma água conectada desce fora do painel. A projeção de um elemento carregado por largura tributária também oferece cobertura. A casca também recebe a carga gravitacional de uma viga deslocada quando as ligações rígidas comprovam cobertura integral. Gere novamente também os planos antigos no modo de painéis com cascas e cargas gravitacionais nas vigas.",
+    "de": "Schwerkraftlasten für Felder mit Schalen neu erzeugen. Freie Streifen erhalten je nach Überdeckung Dach- oder Geschosslasten. Mehrdeutige Schalengeometrie oder gemischte Überdeckung blockiert den Lastplan. Ein bei der Deckenauswahl verworfener Trägerring lässt den Streifen frei. Ein angeschlossenes Dach trägt die Last des vollständig überdeckten Trauffelds auch bei einem außen abfallenden Anbaudach. Die Projektion eines über die Lasteinzugsbreite belasteten Stabs trägt ebenfalls zur Überdeckung bei. Bei vollständiger, durch starre Anschlüsse belegter Überdeckung trägt die Dachschale auch die Schwerkraftlast eines versetzten Sparrens. Erzeugen Sie auch ältere Feldlastpläne mit Schalen und gespeicherten Balkenlasten neu.",
+    "fr": "Régénérez les charges de gravité en mode panneaux avec coques. Les bandes reçoivent les charges de toiture ou de plancher selon leur exposition. Une géométrie ambiguë ou une exposition mixte bloque le plan. Un anneau de poutres écarté lors de la sélection des planchers laisse la bande exposée. La toiture raccordée porte toute la charge de la travée de rive même si un appentis attenant descend à l’extérieur de la travée. La projection d’une barre chargée par largeur tributaire contribue aussi à la couverture. La coque porte aussi la charge de gravité du chevron décalé si les liaisons rigides établissent une couverture complète. Régénérez aussi les anciens plans en mode panneaux avec coques et charges de gravité enregistrées sur les poutres.",
+    "tr": "Kabuklu panel modellerinde yerçekimi yüklerini yeniden üretin. Açıkta kalan şeritlere, üzerlerindeki örtüye göre çatı veya döşeme yükleri uygulanır. Belirsiz geometri veya karma örtü yük planını durdurur. Döşeme seçiminde reddedilen çıplak bir kiriş halkası şeridi açıkta bırakır. Bağlı bir sundurma saçak panelinin dışında alçalsa bile, bağlı çatı tamamen örttüğü panelin yükünü taşır. Yük toplama genişliğine göre yüklenen bir elemanın izdüşümü de örtü sağlar. Rijit bağlantılar tam örtüyü doğruladığında, çatı kabuğu ekseni ötelenmiş merteğin yerçekimi yükünü de taşır. Kabukları ve kayıtlı kiriş yerçekimi yükleri olan eski panel modu planlarını da yeniden üretin.",
+    "hu": "Készítse újra a gravitációs terheket héjakkal rendelkező mezőknél. A szabad sávok a fedettségüktől függően kapnak tető- vagy födémterhelést. A bizonytalan héjgeometria vagy a vegyes fedettség leállítja a tervezést. A födémkiválasztáskor elvetett csupasz gerendagyűrű nyitva hagyja a sávot. A csatlakozó tető viseli a teljesen lefedett ereszmező terhét akkor is, ha egy hozzá kapcsolódó félnyeregtető a mezőn kívül lejt. A tehergyűjtő szélesség szerint terhelt rúd vetülete is fedést biztosít. A tetőhéj viseli az eltolt szarufa terhét is, ha a merev kapcsolatok teljes fedettséget igazolnak. Készítse újra a héjakat és tárolt gerendaterheket tartalmazó régi mezőalapú teherterveket is."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-gravity-core.md",
+    "heading": "Partial shell coverage on beam panels"
+  },
+  "requiresLoadRegeneration": true
+}

@@ -1,11 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 
-afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
 
 async function boot(research: '0' | '1') {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
-  vi.stubEnv('DEV', false);
-  vi.stubEnv('VITE_RESEARCH', research);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: research === '1' });
   vi.resetModules();
   const store = await import('../../../lib/i18n/store.svelte');
   const { shapeStrings } = await import('../feher2026/strings');
@@ -16,13 +15,13 @@ async function boot(research: '0' | '1') {
 it('known wrong result: #2099 — Hungarian baseline copy explains the open checks without a hidden next section', async () => {
   const { shapeStrings, publicI18n } = await boot('1');
   expect(publicI18n.locale).toBe('hu');
-  vi.stubEnv('VITE_RESEARCH', '0');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: false });
   const baseline = shapeStrings();
   expect(baseline.openNote).toContain('14,1');
   expect(baseline.openNote).toContain('7,6');
   expect(baseline.openNote).toContain('szerzők');
   expect(baseline.runNote).toContain('Mozgassa');
-  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
   expect(shapeStrings().openNote).toContain('következő rész');
 });
 
