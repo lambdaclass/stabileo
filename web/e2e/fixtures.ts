@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
+import { BUILD_FEATURES } from './build-features';
 
 /**
  * A project a spec writes stands for one made in this build: stamped as solved with it, so opening
@@ -283,6 +284,13 @@ export const test = base.extend<{ pro: Page; appLocale: string; recheckNotice: '
    * `goto` used to find it already installed beside an application that mounted at once.
    */
   page: async ({ page, recheckNotice }, use) => {
+    if (BUILD_FEATURES.accounts) {
+      await page.context().route('**/api/v1/auth/config', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user_login_enabled: false, terms_version: null, usage_telemetry_enabled: false, cloud_projects_enabled: false, save_requires_account: false, google_login: false }),
+      }));
+    }
     if (recheckNotice === 'acknowledge') {
       await page.addLocatorHandler(page.getByTestId('recheck-notice'), async () => {
         await page.getByTestId('recheck-ack').check();
