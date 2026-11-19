@@ -2,9 +2,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, it } from 'vitest';
 import { computeDiagramValueAt } from '../../diagrams';
 import { evaluateDiagramAt } from '../../diagrams-3d';
-import { input2DToWireObject, input3DToWireObject, solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
+import { input2DToWireObject, input3DToWireObject, recoverMember, solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput } from '../../types';
-import type { SolverInput3D } from '../../types-3d';
+import type { AnalysisResults3D, SolverInput3D } from '../../types-3d';
+import { buildSolverLoads3D, type ModelData } from '../../solver-service';
+import type { Load } from '../../../store/model.svelte';
 import { R_ELASTIC } from '../../../codes/cirsoc103/behaviour';
 import { PERIOD_COEFFICIENTS } from '../../../codes/cirsoc103/static-method';
 import { designSpectrum, isBlocked } from '../../../codes/cirsoc103/spectrum';
@@ -1253,3 +1255,147 @@ it('#2316 carrier mass needs a physical attachment at the loaded story', () => {
     }
   }
 });
+
+const issue2316Roof = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+for (const fixed of [false, true]) {
+  issue2316Roof(`known wrong result: #2316 roof inertia produces span bending and deflection (fixed: ${fixed})`, () => {
+    const length = 4, q = 2, ei = 200000 * 1000 * 1e-4;
+    for (const [variant, rotated] of [['base', false], ['uneven', false], ['base', true], ['uneven', true], ['mirror', false]] as const) {
+      const roof = mesh([[[0, 0, 3], [0, length, 3]], [[0, 0, 0], [0, 0, 3]]]);
+      const oriented = rotated ? transform(roof, -Math.PI / 2, 0) : roof;
+      if (rotated) for (const n of oriented.nodes.values()) n.y = 0;
+      const { model, sources } = remeshWind(oriented, variant);
+      model.sections.set(1, { id: 1, a: 0.5 });
+      model.materials.set(1, { id: 1, rho: 4 });
+      model.materials.set(2, { id: 2, rho: 0 });
+      for (const e of model.elements.values()) if (sources.get(e.id) === 2) e.materialId = 2;
+      const direction = rotated ? { x: false, y: true } : { x: true, y: false };
+      const side = (x: number, y: number) => rotated ? x : y;
+      const transverse = (x: number, y: number) => rotated ? y : x;
+      const options = request(supportAtZero(model), { directions: direction }, { generateCombinations: true });
+      const plan = buildLoadPlan(options);
+      const caseIndex = plan.cases.findIndex(c => c.type === 'E');
+      const lines = plan.distributed.filter(p => p.caseIndex === caseIndex && p.caseType === 'E');
+      const points = plan.nodal.filter(p => p.caseIndex === caseIndex && p.caseType === 'E');
+      const sink = seismicSink();
+      INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+      expect(plan.outcome, JSON.stringify(plan.blockedKeys)).toBe('READY');
+      expect(plan.factors.baseShear?.value).toBeCloseTo(q * length, 10);
+      expect(plan.combinations.some(c => c.terms.some(t => t.symbol === 'E'))).toBe(true);
+      expect(sink.distributed).toEqual(lines.map(d => ({ ...d, caseIndex: 0 })));
+      expect.soft(points).toEqual([]);
+
+      const members = [...model.elements.values()].filter(e => sources.get(e.id) === 1);
+      expect.soft(lines.map(p => p.elementId)).toEqual(members.map(e => e.id));
+      for (const p of lines) {
+        const e = model.elements.get(p.elementId)!;
+        const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+        expect(p.frame).toBe('global');
+        expect(p.a ?? 0).toBe(0);
+        expect(p.b ?? Math.hypot(b.x - a.x, b.y - a.y)).toBeCloseTo(Math.hypot(b.x - a.x, b.y - a.y), 10);
+        expect(transverse(p.qX ?? 0, p.qY ?? 0)).toBeCloseTo(q, 10);
+        expect(transverse(p.qXJ ?? p.qX ?? 0, p.qYJ ?? p.qY ?? 0)).toBeCloseTo(q, 10);
+        expect(side(p.qX ?? 0, p.qY ?? 0)).toBe(0);
+        expect(p.q).toBe(0);
+      }
+
+      const nodes = new Map([...model.nodes].filter(([, n]) => n.z === 3).map(([id, n]) => [id, { ...n, z: 3 }]));
+      const elements = new Map(members.map(e => [e.id, { ...e, materialId: 1, type: 'frame' as const,
+        localYx: rotated ? 0 : 1, localYy: rotated ? 1 : 0, localYz: 0,
+        releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+        releaseTStart: false, releaseTEnd: false,
+      }]));
+      const supports = new Map([...nodes].filter(([, n]) => [0, length].includes(side(n.x, n.y))).map(([nodeId]) =>
+        [nodeId, { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: fixed }]));
+      const loads: Load[] = [
+        ...points.map((p, id) => ({ type: 'nodal3d' as const, data: { id, nodeId: p.nodeId, fx: p.fx, fy: p.fy, fz: p.fz, mx: 0, my: 0, mz: p.mz ?? 0 } })),
+        ...lines.map((p, id) => ({ type: 'distributed3d' as const, data: { id: id + points.length, elementId: p.elementId, frame: p.frame,
+          a: p.a, b: p.b, qXI: p.qX, qXJ: p.qXJ ?? p.qX, qYI: p.qY ?? 0, qYJ: p.qYJ ?? p.qY ?? 0, qZI: p.q, qZJ: p.qJ ?? p.q } })),
+      ];
+      const solverModel = { ...model, nodes, elements, supports, loads } as unknown as ModelData;
+      const solver = { ...cantileverSections, nodes, elements, supports, loads: buildSolverLoads3D(solverModel, loads, false, false) };
+      for (const nonlinear of [false, true]) checkCantileverSolve(solver, true, nonlinear, raw => {
+        const result = raw as AnalysisResults3D;
+        expect(result.elementForces.map(f => f.elementId)).toEqual(members.map(e => e.id));
+        for (const f of result.elementForces) {
+          const member = elements.get(f.elementId)!;
+          const i = nodes.get(member.nodeI)!, j = nodes.get(member.nodeJ)!;
+          const start = side(i.x, i.y), end = side(j.x, j.y);
+          for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            const x = start + t * (end - start);
+            expect.soft(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(q * (x - length / 2), 10);
+            expect.soft(evaluateDiagramAt(f, 'momentZ', t)).toBeCloseTo(q * x * (length - x) / 2 - (fixed ? q * length ** 2 / 12 : 0), 10);
+            expect.soft(evaluateDiagramAt(f, 'torsion', t)).toBeCloseTo(0, 10);
+          }
+          const mid = length / 2;
+          if (!(start <= mid && mid <= end)) continue;
+          const di = result.displacements.find(d => d.nodeId === i.id)!, dj = result.displacements.find(d => d.nodeId === j.id)!;
+          const rotation = rotated ? 1 : -1;
+          const sample = recoverMember({
+            space: 'spatial', length: f.length, ei,
+            vI: transverse(di.ux, di.uy), vJ: transverse(dj.ux, dj.uy), rI: rotation * di.rz, rJ: rotation * dj.rz,
+            hingeStart: false, hingeEnd: false, points: [], dist: f.distributedLoadsY ?? [],
+            positions: [(mid - start) / (end - start)],
+          });
+          expect.soft(sample[0]!.v).toBeCloseTo((fixed ? 1 : 5) * q * length ** 4 / (384 * ei), 10);
+        }
+      });
+    }
+  });
+}
+
+for (const torsion of ['medium', 'extreme'] as const) {
+  issue2316Roof(`known wrong result: #2316 45° seismic refuses ${torsion} accidental torsion`, () => {
+    const { model, code } = diagonalModalFixture();
+    const diagnostic = { key: 'loadPlan.blocked.seismicDiagonalTorsion' };
+    for (const withAxes of [false, true]) for (const diagonal of [false, true]) {
+      const options = request(model, { code, diagonal, torsion, directions: { x: withAxes, y: withAxes } },
+        { generateCombinations: true });
+      const plan = buildLoadPlan(options);
+      const sink = seismicSink();
+      INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+      expect.soft(plan.blockedKeys).toEqual(diagonal ? [diagnostic] : []);
+      expect.soft(sink.blockedKeys).toEqual(diagonal ? [diagnostic] : []);
+      expect.soft(plan.outcome).toBe(diagonal ? 'BLOCKED' : 'READY');
+      const names = withAxes && !diagonal ? ['X', 'X', 'Y', 'Y'] : [];
+      expect.soft(plan.cases.filter(c => c.type === 'E').map(c => c.nameParams?.dir)).toEqual(names);
+      expect.soft(sink.cases.map(c => c.nameParams?.dir)).toEqual(names);
+      if (diagonal) expect.soft(plan).toMatchObject({ distributed: [], surface: [], nodal: [], combinations: [] });
+    }
+  });
+}
+
+for (const surface of ['quads', 'plates'] as const) {
+  issue2316Roof(`known wrong result: #2316 story inertia stays on ${surface} as in-plane traction`, () => {
+    const model = mixedSeismicModel(surface);
+    model.materials.set(2, { id: 2, rho: 0 });
+    model.elements.get(1)!.materialId = 2;
+    tieFloor(model, 2, 4);
+    const options = request(model, {}, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.combinations.some(c => c.terms.some(t => t.symbol === 'E'))).toBe(true);
+    const tractions = plan.surface.filter(s => s.caseType === 'E');
+    const shellArea = surface === 'quads' ? 4 : 2;
+    expect(plan.factors.baseShear?.value).toBeCloseTo(shellArea, 10);
+    expect.soft(tractions).toMatchObject([{ quadId: 1, on: surface === 'plates' ? 'plate' : undefined, frame: 'global', dir: [1, 0, 0], q: 1 }]);
+    expect.soft(plan.nodal.filter(n => n.caseType === 'E')).toEqual([]);
+    expect(sink.surface).toEqual(tractions.map(d => ({ ...d, caseIndex: 0 })));
+    const loads: Load[] = tractions.map(({ quadId, on, frame, dir, q }, id) =>
+      ({ type: 'surface3d', data: { id, quadId, on, frame, dir, q } }));
+    const solverLoads = buildSolverLoads3D(model as unknown as ModelData, loads, false, false);
+    const cornerIds = model[surface]!.get(1)!.nodes;
+    expect.soft(solverLoads).toHaveLength(cornerIds.length);
+    for (const l of solverLoads) {
+      expect(l.type).toBe('nodal');
+      if (l.type !== 'nodal') continue;
+      expect(cornerIds).toContain(l.data.nodeId);
+      expect(l.data.fx).toBeCloseTo(shellArea / cornerIds.length, 10);
+      expect(l.data.fy).toBe(0);
+      expect(l.data.fz).toBe(0);
+    }
+  });
+}
