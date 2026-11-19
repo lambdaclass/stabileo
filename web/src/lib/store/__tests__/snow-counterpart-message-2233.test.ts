@@ -49,3 +49,26 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
     });
   }
 }
+
+const knownWrong = process.env.RUN_KNOWN_WRONG === '2233' ? it : it.skip;
+
+knownWrong('known wrong result: #2233 Apply reports the snow refusal before the unverified seismic refusal', () => {
+  modelStore.clear();
+  uiStore.analysisMode = '2d';
+  modelStore.setAnalysis({ perCombination: 'linear' });
+  const base = buildLoadPlan({ model: mesh([[[0, 0, 3], [10, 0, 3]]]), regulations: regulations(), dead: [],
+    occupancyKey: 'vivienda', tributaryWidth: 1, reductionElementKind: 'interiorBeam', floorsSupported: 1,
+    applyLiveReduction: false, generateCombinations: false });
+  expect(base.outcome).toBe('READY');
+  const complete: LoadPlan = { ...base, distributed: [], nodal: [], surface: [], thermal: [],
+    cases: completeSnowPair.map(({ id, name, ...c }) => ({ ...c, existingId: null, nameKey: name })),
+    combinations: [{ id: 'S', label: 'S', refs: [], notes: [], terms: [{ symbol: 'S', factor: 1 }] }] };
+  const incomplete = { ...complete, cases: complete.cases.filter(c => c.nameKey !== 'physical B') };
+  const apply = (p: LoadPlan) => applyLoadPlan(p, { clearExisting: true, bothSenses: false, nameOf: key => key });
+  const before = JSON.stringify(modelStore.snapshot());
+
+  expect.soft(() => apply(incomplete)).toThrow('snow.refused.physicalCase');
+  expect(JSON.stringify(modelStore.snapshot())).toBe(before);
+  expect(apply(complete)).toEqual({ key: 'loadPlan.blocked.modalUnavailable' });
+  expect(JSON.stringify(modelStore.snapshot())).toBe(before);
+});
