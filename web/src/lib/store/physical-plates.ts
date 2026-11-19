@@ -134,10 +134,21 @@ function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
   for (const q of modelStore.quads.values()) if (!myShells.has(`q${q.id}`)) q.nodes.forEach((n) => neighbours.add(n));
   for (const p of modelStore.plates.values()) if (!myShells.has(`p${p.id}`)) p.nodes.forEach((n) => neighbours.add(n));
   const loopNodes = new Set([...loops.outer, ...loops.holes.flat()]);
-  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours }) };
+  const required = new Set<number>();
+  for (const s of modelStore.supports.values()) if (owned.has(s.nodeId)) required.add(s.nodeId);
+  for (const l of modelStore.loads) if ('nodeId' in l.data && owned.has(l.data.nodeId)) required.add(l.data.nodeId);
+  for (const n of constraintNodes(modelStore.model.constraints)) if (owned.has(n)) required.add(n);
+  return { geo, features: externalFeatures(plateModel(), geo, owned, loopNodes, { mine, neighbours, required }) };
 }
 
 let statusMemo: { version: number; groups: unknown; map: Map<number, PlateStatus> } | null = null;
+
+function meshNodes(e: PlateEntry): Set<number> {
+  const nodes = new Set<number>();
+  for (const q of e.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) nodes.add(n);
+  for (const q of e.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) nodes.add(n);
+  return nodes;
+}
 
 /** Whether a plate has a mesh, and whether it is the one its definition asks for now. */
 export function plateStatus(id: number): PlateStatus {
@@ -153,7 +164,14 @@ export function plateStatus(id: number): PlateStatus {
     const shells = (e.group.members.quads?.length ?? 0) + (e.group.members.plates?.length ?? 0);
     if (!f) s = 'invalid';
     else if (!e.surface.meshed || shells === 0) s = 'unmeshed';
-    else s = plateSignature(f.geo, e.surface.mesh, f.features) === e.surface.meshed.signature ? 'current' : 'stale';
+    else {
+      const signature = e.surface.meshed.meshSignature === undefined
+        ? plateSignature(f.geo, e.surface.mesh, f.features)
+        : plateSignature(f.geo, e.surface.mesh, { ...f.features, points: f.features.meshPoints });
+      const nodes = meshNodes(e);
+      s = signature === (e.surface.meshed.meshSignature ?? e.surface.meshed.signature)
+        && f.features.requiredNodes.every((n) => nodes.has(n)) ? 'current' : 'stale';
+    }
   }
   statusMemo.map.set(id, s);
   return s;
@@ -348,6 +366,7 @@ export interface PlateMeshPlan {
   cells: number;
   quality: MeshQuality | null;
   signature: string;
+  meshSignature?: string;
   input: ReturnType<typeof plateMeshInput> | null;
   /** Loads put by hand on shells of the current mesh, which a new mesh cannot carry. */
   localLoads: number;
@@ -420,8 +439,12 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
   const f = featuresOf(e, spec);
   if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
-  const input = plateMeshInput(f.geo, spec, { ...f.features, points: f.features.meshPoints });
   const signature = plateSignature(f.geo, spec, f.features);
+  const meshSignature = plateSignature(f.geo, spec, { ...f.features, points: f.features.meshPoints });
+  const unchanged = e.surface.meshed?.meshSignature === meshSignature;
+  const existingNodes = unchanged ? meshNodes(e) : null;
+  const retainedPoints = existingNodes && f.features.requiredNodes.every((n) => existingNodes.has(n)) ? [] : f.features.retainedPoints;
+  const input = plateMeshInput(f.geo, spec, { ...f.features, points: [...f.features.meshPoints, ...retainedPoints] });
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
   if (estimate > MAX_MESH_CELLS * 1.5) return { ...base, mesh: null, refused: 'tooManyCells', cells: Math.round(estimate), quality: null, signature, input, mixed: false };
@@ -435,12 +458,12 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
     if (!g) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
     if (g.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: g.cells.length, quality: null, signature, input, mixed: false };
     const { gridCells, bandCells, cellA, cellB, ...mesh } = g;
-    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };
+    return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, meshSignature, input, mixed: bandCells > 0, grid: { gridCells, bandCells, cellA, cellB } };
   }
   const mesh = generateMesh(input);
   if (!mesh) return { ...base, mesh: null, refused: 'cannotMesh', cells: 0, quality: null, signature, input, mixed: false };
   if (mesh.cells.length > MAX_MESH_CELLS) return { ...base, mesh: null, refused: 'tooManyCells', cells: mesh.cells.length, quality: null, signature, input, mixed: false };
-  return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, input, mixed: spec.element === 'quad' && !mesh.structured };
+  return { ...base, mesh, cells: mesh.cells.length, quality: meshQuality(mesh), signature, meshSignature, input, mixed: spec.element === 'quad' && !mesh.structured };
 }
 
 function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, spec: PlateMeshSpec): number {
@@ -456,10 +479,20 @@ function plateAreaEstimate(geo: NonNullable<ReturnType<typeof plateGeometry>>, s
  * area loads. One undo step with the caller's.
  */
 export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: number } {
+  return clearMesh(id, true);
+}
+
+function clearMesh(id: number, transferOwnership: boolean): { removedNodes: number; keptNodes: number } {
   const e = plateEntry(id);
   if (!e) return { removedNodes: 0, keptNodes: 0 };
   const loops = plateLoops(e.group);
   const owned = new Set(loops.owned);
+  const recipients = new Map<number, number>();
+  if (transferOwnership) for (const p of physicalPlates()) {
+    if (p.id === id) continue;
+    for (const q of p.group.members.quads ?? []) for (const n of modelStore.quads.get(q)?.nodes ?? []) if (!recipients.has(n)) recipients.set(n, p.id);
+    for (const q of p.group.members.plates ?? []) for (const n of modelStore.plates.get(q)?.nodes ?? []) if (!recipients.has(n)) recipients.set(n, p.id);
+  }
   let removedNodes = 0, keptNodes = 0;
   modelStore.batch(() => {
     for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
@@ -468,13 +501,25 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
     if (cut.length) removedNodes += mergeCollinear(cut).removedNodes;
     const h = held(id);
+    const retained: number[] = [];
+    const transferred = new Map<number, number[]>();
     for (const n of owned) {
       if (!modelStore.nodes.has(n)) continue;
-      if (h.has(n)) { keptNodes++; continue; }
+      if (h.has(n)) {
+        keptNodes++;
+        const recipient = recipients.get(n);
+        if (recipient === undefined) retained.push(n);
+        else (transferred.get(recipient) ?? transferred.set(recipient, []).get(recipient)!).push(n);
+        continue;
+      }
       modelStore.removeNode(n); removedNodes++;
     }
     const g = modelStore.model.groups.get(id)!;
-    modelStore.setGroupMembers(id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat()], quads: [], plates: [] });
+    modelStore.setGroupMembers(id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...retained], quads: [], plates: [] });
+    for (const [recipient, nodes] of transferred) {
+      const other = modelStore.model.groups.get(recipient)!;
+      modelStore.setGroupMembers(recipient, { ...other.members, nodes: [...new Set([...(other.members.nodes ?? []), ...nodes])] });
+    }
     writeSurface(id, (s) => { const { meshed: _m, ...rest } = s; return rest; });
   });
   return { removedNodes, keptNodes };
@@ -482,33 +527,72 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
 
 export interface PlateMeshReport { plates: number; cells: number; refused: Array<{ id: number; reason: string }>; droppedLocalLoads: number; keptNodes: number }
 
+function refreshConformingMeshes(ids: ReadonlySet<number>): number[] {
+  const refused: number[] = [];
+  for (const id of ids) {
+    const e = plateEntry(id);
+    if (!e?.surface.meshed) continue;
+    const f = featuresOf(e);
+    if (!f) continue;
+    const nodes = meshNodes(e);
+    if (!f.features.requiredNodes.every((n) => nodes.has(n))) { refused.push(id); continue; }
+    const meshSignature = plateSignature(f.geo, e.surface.mesh, { ...f.features, points: f.features.meshPoints });
+    if (e.surface.meshed.meshSignature !== meshSignature) writeSurface(id, (s) => ({ ...s, meshed: { ...s.meshed!, meshSignature } }));
+  }
+  return refused;
+}
+
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
 export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshReport {
   const report: PlateMeshReport = { plates: 0, cells: 0, refused: [], droppedLocalLoads: 0, keptNodes: 0 };
   const ok = plans.filter((p) => p.mesh && p.input);
   for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
   if (!ok.length) return report;
+  const current = new Set(physicalPlates().filter((p) => plateStatus(p.id) === 'current').map((p) => p.id));
+  const coordinated = ok.length > 1 && ok.some((p) => {
+    const e = plateEntry(p.id);
+    return e && (['size', 'sizeV', 'element', 'pattern', 'orient', 'followMembers'] as const).some((key) => e.surface.mesh[key] !== p.spec[key]);
+  });
+  const beforeBatch = modelStore.snapshot();
+  const localLoads = new Map(ok.map((p) => { const e = plateEntry(p.id); return [p.id, e ? localLoadsOn(e) : 0]; }));
   modelStore.batch(() => {
-    for (const [k, planned] of ok.entries()) {
-      // After the first, each plate is planned again on the model as it now is, so it meets the
-      // meshes just put in beside it.
-      const p = k === 0 ? planned : (planPlateMesh(planned.id, planned.spec) ?? planned);
-      if (!p.mesh || !p.input) { report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' }); continue; }
-      const e = plateEntry(p.id);
-      if (!e) continue;
-      report.droppedLocalLoads += p.localLoads;
-      const previouslyOwned = new Set(plateLoops(e.group).owned);
-      report.keptNodes += clearPlateMesh(p.id).keptNodes;
-      const before = new Set(modelStore.nodes.keys());
-      const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, p.mesh!);
-      if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); continue; }
-      const owned = [...new Set(r.nodeIds)].filter((n) => !before.has(n) || previouslyOwned.has(n));
-      const g = modelStore.model.groups.get(p.id)!;
-      const loops = plateLoops(g);
-      modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...owned], quads: r.quads, plates: r.plates });
-      writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
-      report.plates++;
-      report.cells += r.quads.length + r.plates.length;
+    try {
+      if (coordinated) for (const p of ok) report.keptNodes += clearPlateMesh(p.id).keptNodes;
+      for (const planned of ok) {
+        const p = planPlateMesh(planned.id, planned.spec);
+        if (!p?.mesh || !p.input) {
+          report.refused.push({ id: planned.id, reason: p?.refused ?? 'cannotMesh' });
+          break;
+        }
+        const e = plateEntry(p.id);
+        if (!e) continue;
+        report.droppedLocalLoads += localLoads.get(p.id) ?? 0;
+        const previouslyOwned = new Set(plateLoops(e.group).owned);
+        if (!coordinated) report.keptNodes += clearMesh(p.id, false).keptNodes;
+        const before = new Set(modelStore.nodes.keys());
+        const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, p.mesh!);
+        if (!r || r.occupied) {
+          report.refused.push({ id: p.id, reason: 'occupied' });
+          break;
+        }
+        const owned = [...new Set(r.nodeIds)].filter((n) => !before.has(n) || previouslyOwned.has(n));
+        const g = modelStore.model.groups.get(p.id)!;
+        const loops = plateLoops(g);
+        modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...owned], quads: r.quads, plates: r.plates });
+        writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, meshSignature: p.meshSignature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
+        current.add(p.id);
+        report.plates++;
+        report.cells += r.quads.length + r.plates.length;
+      }
+      const nonconforming = refreshConformingMeshes(current);
+      if (coordinated && nonconforming.length) report.refused.push(...nonconforming.map((id) => ({ id, reason: 'cannotMesh' })));
+      if (report.plates !== ok.length || (coordinated && nonconforming.length)) {
+        modelStore.restore(beforeBatch);
+        report.plates = report.cells = report.droppedLocalLoads = report.keptNodes = 0;
+      }
+    } catch (error) {
+      modelStore.restore(beforeBatch);
+      throw error;
     }
   });
   return report;

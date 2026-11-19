@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as wasmSolver from '../../engine/wasm-solver';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import { historyStore, modelStore, uiStore } from '..';
@@ -37,8 +37,8 @@ function build(bays = 2, rows = bays) {
   return { ids, originalNodes: [...nodes.values()] };
 }
 
-function mesh(ids: number[], size = 0.5) {
-  const plans = ids.map((id) => planPlateMesh(id, { size, element: 'quad', followMembers: true })!);
+function mesh(ids: number[], size = 0.5, element: 'quad' | 'tri' = 'quad') {
+  const plans = ids.map((id) => planPlateMesh(id, { size, element, followMembers: true })!);
   for (const p of plans) expect(p.mesh, p.refused).not.toBeNull();
   const result = applyPlateMeshes(plans);
   expect(result.refused).toEqual([]);
@@ -55,12 +55,24 @@ function geometry() {
   return {
     nodes: [...modelStore.nodes.keys()].map((id) => JSON.stringify(at(id))).sort(),
     quads: [...modelStore.quads.values()].map((q) => JSON.stringify([q.nodes.map(at), q.materialId, q.thickness])).sort(),
+    plates: [...modelStore.plates.values()].map((q) => JSON.stringify([q.nodes.map(at), q.materialId, q.thickness])).sort(),
     members: [...modelStore.elements.values()].map((e) => JSON.stringify([at(e.nodeI), at(e.nodeJ), e.materialId, e.sectionId])).sort(),
   };
 }
 
 const owned = (id: number) => plateLoops(modelStore.model.groups.get(id)!).owned;
-const shellNodes = (id: number) => new Set(modelStore.model.groups.get(id)!.members.quads!.flatMap((q) => modelStore.quads.get(q)!.nodes));
+const shellNodes = (id: number) => {
+  const g = modelStore.model.groups.get(id)!;
+  return new Set([...(g.members.quads ?? []).flatMap((q) => modelStore.quads.get(q)!.nodes),
+    ...(g.members.plates ?? []).flatMap((q) => modelStore.plates.get(q)!.nodes)]);
+};
+
+function solve() {
+  syncDefinedLoadsForAnalysis();
+  const result = modelStore.solve3D(false, false, true);
+  if (typeof result === 'string') throw new Error(result);
+  return result as AnalysisResults3D;
+}
 
 function expectConnected(ids: number[]) {
   for (const [a, b, axis, value] of [[0, 1, 'x', 6], [2, 3, 'x', 6], [0, 2, 'y', 4], [1, 3, 'y', 4]] as const) {
@@ -77,6 +89,148 @@ describe('remeshing adjacent plates with boundary members', () => {
   });
   beforeEach(() => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro'; meshBeforeAnalysis.value = true;
+  });
+
+  it('preserves generated-node provenance through explicit clear, save and remesh', () => {
+    const { ids } = build();
+    mesh(ids);
+    const before = geometry();
+    clearPlateMesh(ids[0]!);
+    const saved = serializeProject();
+    modelStore.clear();
+    expect(deserializeProject(saved)).toBe(true);
+    mesh([ids[0]!]);
+    expect(geometry()).toEqual(before);
+    expectConnected(ids);
+    expect(ids.map(plateStatus)).toEqual(ids.map(() => 'current'));
+    for (const id of ids) clearPlateMesh(id);
+    expect(modelStore.nodes.size).toBe(9);
+    expect(modelStore.elements.size).toBe(12);
+  });
+
+  it('coarsens the whole batch, preserving shared edges and one undo step', () => {
+    const { ids } = build();
+    mesh(ids);
+    const before = modelStore.snapshot();
+    const history = historyStore.undoCount;
+    expect(mesh(ids, 1).cells).toBe(96);
+    expectConnected(ids);
+    expect(ids.map(plateStatus)).toEqual(ids.map(() => 'current'));
+    const after = modelStore.snapshot();
+    expect(historyStore.undoCount).toBe(history + 1);
+    historyStore.undo();
+    expect(modelStore.snapshot()).toEqual(before);
+    historyStore.redo();
+    expect(modelStore.snapshot()).toEqual(after);
+    expect(mesh(ids, 0.5).cells).toBe(384);
+    expectConnected(ids);
+  });
+
+  it('preserves triangular shared meshes through explicit clearing and batch coarsening', () => {
+    const { ids } = build();
+    expect(mesh(ids, 0.5, 'tri').cells).toBe(768);
+    const before = geometry();
+    clearPlateMesh(ids[0]!);
+    mesh([ids[0]!], 0.5, 'tri');
+    expect(geometry()).toEqual(before);
+    expectConnected(ids);
+    expect(mesh(ids, 1, 'tri').cells).toBe(192);
+    expectConnected(ids);
+    expect(ids.map(plateStatus)).toEqual(ids.map(() => 'current'));
+  });
+
+  it('marks a mesh stale when a removed neighbor releases its imposed spacing', () => {
+    const { ids } = build(2, 1);
+    mesh(ids);
+    expect(mesh([ids[0]!], 1).cells).toBe(48);
+    clearPlateMesh(ids[1]!);
+    expect(plateStatus(ids[0]!)).toBe('stale');
+    expect(planPlateMesh(ids[0]!)!.cells).toBe(24);
+  });
+
+  it('restores the whole model when a coordinated replacement exceeds the mesh budget', () => {
+    const { ids } = build();
+    mesh(ids);
+    const plans = ids.map((id) => planPlateMesh(id, { size: 0.03 })!);
+    expect(plans.every((p) => p.mesh !== null)).toBe(true);
+    const before = modelStore.snapshot();
+    const result = applyPlateMeshes(plans);
+    expect(result.plates).toBe(0);
+    expect(result.refused.length).toBeGreaterThan(0);
+    expect(modelStore.snapshot()).toEqual(before);
+    expectConnected(ids);
+  });
+
+  it('restores shells, loads and provenance if a later replacement is occupied', () => {
+    const { ids } = build(2, 1);
+    mesh(ids);
+    const q = modelStore.quads.get(modelStore.model.groups.get(ids[1]!)!.members.quads![0]!)!;
+    modelStore.addSurfaceLoad3D(q.id, -3);
+    modelStore.addQuad(q.nodes, q.materialId, q.thickness);
+    const plans = ids.map((id) => planPlateMesh(id, { size: 1 })!);
+    const before = modelStore.snapshot();
+    const result = applyPlateMeshes(plans);
+    expect(result).toMatchObject({ plates: 0, cells: 0, droppedLocalLoads: 0, refused: expect.arrayContaining([{ id: ids[1], reason: 'occupied' }]) });
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it('restores the coordinated batch if applying a mesh throws', () => {
+    const { ids } = build();
+    mesh(ids);
+    const plans = ids.map((id) => planPlateMesh(id, { size: 1 })!);
+    const before = modelStore.snapshot();
+    const add = vi.spyOn(modelStore, 'addQuad').mockImplementationOnce(() => { throw new Error('mesh application failed'); });
+    try { expect(() => applyPlateMeshes(plans)).toThrow('mesh application failed'); }
+    finally { add.mockRestore(); }
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it('keeps a loaded generated node in a replacement mesh with a different target size', () => {
+    const { ids } = build(1);
+    mesh(ids);
+    const n = owned(ids[0]!).find((id) => { const p = modelStore.nodes.get(id)!; return Math.abs(p.x - 0.5) < 1e-9 && Math.abs(p.y - 0.5) < 1e-9; })!;
+    expect(n).toBeDefined();
+    modelStore.addNodalLoad3D(n, 0, 0, -7, 0, 0, 0);
+    expect(plateStatus(ids[0]!)).toBe('current');
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    const loads = modelStore.snapshot().loads;
+    mesh(ids, 1);
+    expect(shellNodes(ids[0]!).has(n)).toBe(true);
+    expect(modelStore.snapshot().loads).toEqual(loads);
+    expect(plateStatus(ids[0]!)).toBe('current');
+  });
+
+  it('solves a coarsened loaded batch like a fresh mesh at the same target size', () => {
+    const loaded = () => {
+      const { ids, originalNodes } = build();
+      for (const n of originalNodes) modelStore.addSupport(n, 'pinned3d');
+      for (const id of ids) addPlateLoad(id, 1, 5);
+      modelStore.addDistributedLoad3D([...modelStore.elements.keys()][0]!, 0, 0, -10, -10);
+      return ids;
+    };
+    const response = (r: AnalysisResults3D) => {
+      const at = (id: number) => { const n = modelStore.nodes.get(id)!; return `${n.x},${n.y},${n.z ?? 0}`; };
+      return new Map([
+        ...r.displacements.map((d) => [`d:${at(d.nodeId)}`, [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]] as const),
+        ...r.reactions.map((d) => [`r:${at(d.nodeId)}`, [d.fx, d.fy, d.fz, d.mx, d.my, d.mz]] as const),
+      ]);
+    };
+    const ids = loaded();
+    mesh(ids);
+    expect(mesh(ids, 1).cells).toBe(96);
+    expectConnected(ids);
+    const result = solve();
+    expect(result.reactions.reduce((s, r) => s + r.fz, 0)).toBeCloseTo(540, 6);
+    const actual = response(result), actualGeometry = geometry();
+    modelStore.clear(); historyStore.clear();
+    mesh(loaded(), 1);
+    expect(geometry()).toEqual(actualGeometry);
+    const reference = response(solve());
+    expect([...actual.keys()].sort()).toEqual([...reference.keys()].sort());
+    for (const [key, values] of actual) values.forEach((value, i) => {
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeCloseTo(reference.get(key)![i]!, key.startsWith('d:') ? 10 : 7);
+    });
   });
 
   it('keeps shared-node provenance, geometry and connectivity over repeated remeshes', () => {
@@ -204,10 +358,12 @@ describe('remeshing adjacent plates with boundary members', () => {
     modelStore.addNodalLoad3D(held[1]!, 0, 0, -7, 0, 0, 0);
     modelStore.addConstraint({ type: 'equalDOF', masterNode: originalNodes[0]!, slaveNode: held[2]!, dofs: [0] });
     const before = modelStore.snapshot();
+    const beforeGeometry = geometry();
     for (let round = 0; round < 2; round++) {
       mesh(ids);
       expect(owned(a)).toEqual(expect.arrayContaining(held));
       expect(held.every((n) => shellNodes(a).has(n))).toBe(true);
+      expect(geometry()).toEqual(beforeGeometry);
     }
     clearPlateMesh(a);
     const after = modelStore.snapshot();
@@ -223,12 +379,6 @@ describe('remeshing adjacent plates with boundary members', () => {
     for (const id of ids) addPlateLoad(id, 1, 5);
     const beam = [...modelStore.elements.values()][0]!;
     modelStore.addDistributedLoad3D(beam.id, 0, 0, -10, -10);
-    const solve = () => {
-      syncDefinedLoadsForAnalysis();
-      const r = modelStore.solve3D(false, false, true);
-      if (typeof r === 'string') throw new Error(r);
-      return r as AnalysisResults3D;
-    };
     const displacements = (r: AnalysisResults3D) => new Map(r.displacements.map(({ nodeId, ...d }) => {
       const n = modelStore.nodes.get(nodeId)!;
       return [JSON.stringify([n.x, n.y, n.z ?? 0]), d];
