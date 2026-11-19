@@ -13576,6 +13576,8 @@ const pt: Translations = {
   "rcSheets.s.pierScope": "Não coberto pela verificação do conjunto: esbeltez do conjunto, cortante do pilar transversal a uma parede e a necessidade de elementos de borda, lida parede por parede.",
   "rcSheets.wallFig.n.pier": "Parte de {name}: flexocompressão verificada na seção completa, aproveitamento {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} dentro da parede: {bars}, estribos Ø{tdia} c/{ts} cm; substituem as barras da parede na sua seção",
+  "rcSheets.wallFig.n.dowels": "Esperas da sapata sob cada vertical, do mesmo diâmetro, desviadas 1:6 um diâmetro para dentro e emendadas {lap} cm",
+  "rcSheets.wallFig.n.lapUp": "Verticais desviadas 1:6 um diâmetro para dentro e emendadas {lap} cm com as do pavimento de cima",
   "rcSheets.v.wallMesh": "Malha insuficiente para o momento no plano: refine a parede (elementos ao longo da base)",
   "rcSheets.v.wallBase": "A base da parede se apoia em todo o comprimento (nós apoiados)",
   "rcSheets.code": "Norma",

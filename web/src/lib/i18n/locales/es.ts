@@ -13923,6 +13923,8 @@ const es: Record<string, string> = {
   "rcSheets.s.pierScope": "No cubierto por la verificación del conjunto: esbeltez del conjunto, corte de la columna transversal a un tabique y la necesidad de elementos de borde, que se lee tabique por tabique.",
   "rcSheets.wallFig.n.pier": "Parte de {name}: flexocompresión verificada sobre la sección completa, aprovechamiento {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} dentro del tabique: {bars}, estribos Ø{tdia} c/{ts} cm; reemplazan a las barras del tabique en su sección",
+  "rcSheets.wallFig.n.dowels": "Esperas de la base bajo cada vertical, del mismo diámetro, desviadas 1:6 hacia adentro un diámetro y empalmadas {lap} cm",
+  "rcSheets.wallFig.n.lapUp": "Verticales desviadas 1:6 hacia adentro un diámetro y empalmadas {lap} cm con las del piso de arriba",
   "rcSheets.v.wallMesh": "Malla insuficiente para el momento en el plano: refiná el tabique (elementos a lo largo de la base)",
   "rcSheets.v.wallBase": "La base del tabique apoya en toda su longitud (nodos apoyados)",
   "rcSheets.code": "Norma",

@@ -1,19 +1,17 @@
 import { barPositions } from './slab-corner-integrity';
-import { columnLayout } from './column-layout';
-import { inwardOf } from './column-stack';
+import { dowelGroupOf, dowelGroups, dowelPlaces, type ColumnAxes } from './footing-dowels';
 import { footingDetail } from './footing-detail';
-import { wallDetail } from './wall-detail';
+import { wallDetail, wallInward } from './wall-detail';
 import { SLAB_FACES, type SlabFace } from './slab-row';
 import { lineBars3d } from './rebar-3d-lines';
 import { ownStrapResults, packageShape, slabLayer, wallAbove, wallGrid, wallHoop, wallHorizontalShapes, wallTie, wallVerticalPieces, type PieceOptions } from './schedule/pieces';
-import { barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone } from './rebar-3d-geometry';
+import { asFoundation, barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone } from './rebar-3d-geometry';
 import type { ColumnRow } from './column-row';
 import type { FootingRow } from './footing-types';
 import type { WallRow } from './wall-row';
 import type { BendRules } from './shape';
 
 const WORLD: Frame = { o: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
-const DOWEL_INSET = 0.05;
 
 const levelOf = (level: string | undefined) => (level !== undefined ? { level } : {});
 
@@ -65,12 +63,12 @@ export function wallBars3d(rows: readonly WallRow[], r: WallRow, f: Frame, o: Pi
   const base = { element: r.key, rows: [r.key], family: 'wall' as const, ...levelOf(r.level) };
   const det = wallDetail(r, o.code), up = wallAbove(rows, r), t = r.thickness, c = r.cover, L = r.length;
   for (const v of det.verticals) {
-    const { lap, pieces } = wallVerticalPieces(r, up, v.dia, v.boundary, det.horizontals.dia, R);
-    const towardMiddle = v.x < L / 2 ? 1 : -1;
+    const { lap, crank, pieces } = wallVerticalPieces(r, up, v.dia, v.boundary, det.horizontals.dia, R);
+    const towardMiddle = v.x < L / 2 ? 1 : -1, n = wallInward(v, r);
     let z = 0;
     for (const pc of pieces) for (let k = 0; k < pc.count; k++) {
-      const z0 = z;
-      out.push(barOf(pc.shape, laid(pc.shape, f, (u, w) => [v.x + towardMiddle * w, v.y - t / 2, z0 + u]), { ...base, kind: v.boundary ? 'boundary' : 'vertical', tone: 'vertical' }));
+      const z0 = z, [dx, dy] = crank > 0 && pc === pieces.at(-1) ? n : [towardMiddle, 0];
+      out.push(barOf(pc.shape, laid(pc.shape, f, (u, w) => [v.x + dx * w, v.y - t / 2 + dy * w, z0 + u]), { ...base, kind: v.boundary ? 'boundary' : 'vertical', tone: 'vertical' }));
       z += pc.shape.pts.reduce((m, p) => Math.max(m, p[0]), 0) - lap;
     }
   }
@@ -100,30 +98,6 @@ export function wallBars3d(rows: readonly WallRow[], r: WallRow, f: Frame, o: Pi
   return out;
 }
 
-/** Where each dowel stands in plan and which way is out of the column there: under the column's bars where their count matches, else spread round the column inside its faces. */
-export function dowelPlaces(at: [number, number], size: { b: number; h: number }, count: number, row: ColumnRow | undefined, frame: Frame | null): Array<{ x: number; y: number; out: [number, number] }> {
-  if (row && frame) {
-    const bars = columnLayout(row, row.adopted, row.cover, row.aggregate).bars;
-    if (bars.length === count) return bars.map((p) => {
-      const n = inwardOf(p, row), ox = -(frame.x[0] * n[0] + frame.y[0] * n[1]), oy = -(frame.x[1] * n[0] + frame.y[1] * n[1]), l = Math.hypot(ox, oy) || 1;
-      return { x: at[0] + frame.x[0] * p.x + frame.y[0] * p.y, y: at[1] + frame.x[1] * p.x + frame.y[1] * p.y, out: [ox / l, oy / l] };
-    });
-  }
-  const hx = size.b / 2 - DOWEL_INSET, hy = size.h / 2 - DOWEL_INSET, per = 4 * (hx + hy);
-  return Array.from({ length: count }, (_, i) => {
-    let s = (i / count) * per;
-    const side = [2 * hx, 2 * hy, 2 * hx, 2 * hy];
-    const corners: Array<[number, number, number, number]> = [[-hx, -hy, 1, 0], [hx, -hy, 0, 1], [hx, hy, -1, 0], [-hx, hy, 0, -1]];
-    let p: [number, number] = [0, 0];
-    for (let k = 0; k < 4; k++) {
-      if (s <= side[k]! + 1e-12) { const [x, y, dx, dy] = corners[k]!; p = [x + dx * s, y + dy * s]; break; }
-      s -= side[k]!;
-    }
-    const out: [number, number] = Math.abs(p[0]) >= Math.abs(p[1]) ? [Math.sign(p[0]) || 1, 0] : [0, Math.sign(p[1]) || 1];
-    return { x: at[0] + p[0], y: at[1] + p[1], out };
-  });
-}
-
 export function footingBars3d(r: FootingRow, all: readonly FootingRow[], columns: readonly ColumnRow[], frames: Rebar3dFrames, R: BendRules): Rebar3d[] {
   const out: Rebar3d[] = [];
   if (!(r.B > 0)) return out;
@@ -138,24 +112,18 @@ export function footingBars3d(r: FootingRow, all: readonly FootingRow[], columns
         out.push(barOf(l.shape, laid(l.shape, f, place), { ...base, kind, tone: kind, set: `${r.key}:${kind}` }));
       }
     }
-    const dw = det.dowels;
-    if (dw && det.column) {
-      const rowOf = (key: string | undefined) => columns.find((c) => c.key === key);
-      const sets: Array<{ rect: NonNullable<typeof det.column>; count: number; row?: ColumnRow }> = [{ rect: det.column, count: dw.count, row: rowOf(r.demand.column?.rowKey) }];
-      if (det.second && r.adopted.dowels2?.count) sets.push({ rect: det.second, count: r.adopted.dowels2.count, row: rowOf(r.demand.carried?.column?.rowKey) });
-      for (const s of sets) {
-        const cx = (s.rect.x0 + s.rect.x1) / 2, cy = (s.rect.y0 + s.rect.y1) / 2;
-        const fixed = s === sets[0] ? (r.demand.column?.bars?.at ?? []).slice(0, s.count).map((q) => ({ x: q.x - f.o[0], y: q.y - f.o[1], out: [-q.n[0], -q.n[1]] as [number, number] })) : [];
-        const rest = s.count - fixed.length;
-        for (const p of [...fixed, ...(rest > 0 ? dowelPlaces([cx, cy], { b: s.rect.x1 - s.rect.x0, h: s.rect.y1 - s.rect.y0 }, rest, fixed.length ? undefined : s.row, s.row ? frames.column(s.row) : null) : [])]) {
-          out.push(barOf(dw.shape, laid(dw.shape, f, (u, v) => [p.x + u * p.out[0], p.y + u * p.out[1], dw.z + v]), { ...base, kind: 'dowel', tone: 'dowel' }));
-        }
-      }
+    const rowOf = (key: string | undefined) => columns.find((c) => c.key === key);
+    const axesOf = (row: ColumnRow): ColumnAxes | undefined => { const cf = frames.column(row); return cf ? { x: [cf.x[0], cf.x[1]], y: [cf.y[0], cf.y[1]] } : undefined; };
+    const places = dowelPlaces(r, R, { first: rowOf(r.demand.column?.rowKey), second: rowOf(r.demand.carried?.column?.rowKey), axes: axesOf });
+    const groups = new Map(dowelGroups(r, places, R).map((g) => [g.key, g]));
+    for (const p of places) {
+      const g = groups.get(dowelGroupOf(p))!;
+      out.push(barOf(g.shape, laid(g.shape, f, (u, v) => [p.x + u * p.out[0], p.y + u * p.out[1], g.z + v]), { ...base, kind: 'dowel', tone: 'dowel' }));
     }
   }
   for (const s of ownStrapResults(r, all)) {
     const sf = frames.strap(r, s);
-    if (sf && s.line) out.push(...lineBars3d(s.line, sf, R, base));
+    if (sf && s.line) out.push(...lineBars3d(s.line, sf, R, base).map(asFoundation));
   }
   return out;
 }

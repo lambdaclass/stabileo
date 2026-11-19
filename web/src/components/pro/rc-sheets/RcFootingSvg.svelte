@@ -2,6 +2,7 @@
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { footingDetail } from '../../../lib/rc-sheets/footing-detail';
+  import { dowelsText } from '../../../lib/rc-sheets/footing-dowels';
   import { meshText } from '../../../lib/rc-sheets/footing-mesh';
   import { rulesFor } from '../../../lib/rc-sheets/codes';
   import type { FootingRow } from '../../../lib/rc-sheets/footing-types';
@@ -108,9 +109,9 @@
         {@const dw = det.dowels}
         {#each dw.xs as x, i (i)}
           {@const s = i === 0 ? -1 : 1}
-          <polyline points={dw.shape.pts.map(([u, v]) => `${SX(x + s * u)},${SZ(dw.z + v)}`).join(' ')} class="bar dowel" data-testid="rc-footing-dowel" />
+          <polyline points={(dw.inward[i] ? dw.turned : dw.shape).pts.map(([u, v]) => `${SX(x + s * u)},${SZ(dw.z + v)}`).join(' ')} class="bar dowel" data-testid="rc-footing-dowel" />
         {/each}
-        <text x={SX(dw.xs[1]!) + 4} y={SZ(dw.z + dw.crankAt + lap / 2)} class="lbl small left">{dw.count} Ø{dw.dia} · {cm(lap)}{dw.offset > 0 ? ` · ${tp('rcSheets.footFig.crank', { off: fmt(dw.offset * 100, 1) })}` : ''}</text>
+        <text x={SX(dw.xs[1]!) + 4} y={SZ(dw.z + dw.crankAt + lap / 2)} class="lbl small left">{dowelsText(row)} · {cm(lap)}{dw.offset > 0 ? ` · ${tp('rcSheets.footFig.crank', { off: fmt(dw.offset * 100, 1) })}` : ''}</text>
       {/if}
       <text x={SX(-det.B / 2) - 4} y={SZ(det.h / 2)} class="lbl small right">h {cm(det.h)}</text>
       <text x={SX(det.B / 2) + 2} y={SZ(0) - 2} class="lbl small left">c {fmt(det.cover * 100, 1)}</text>
@@ -132,7 +133,7 @@
   .band { stroke: var(--st-text-3); stroke-width: 1; stroke-dasharray: 4 3; }
   .bar.top { stroke: var(--st-ok); stroke-dasharray: 5 2; }
   .dot.top { fill: var(--st-ok); }
-  .strap { fill: color-mix(in srgb, var(--st-hair-strong) 45%, transparent); stroke: var(--st-text-2); stroke-width: 1; stroke-dasharray: 3 2; }
+  .strap { fill: color-mix(in srgb, #b8692e 14%, transparent); stroke: #b8692e; stroke-width: 1; stroke-dasharray: 3 2; }
   .pline { stroke: var(--st-danger); stroke-width: 1.6; stroke-dasharray: 8 3 2 3; }
   .lbl { font-size: 10px; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }
   .lbl.small { font-size: 9px; fill: var(--st-text-2); }

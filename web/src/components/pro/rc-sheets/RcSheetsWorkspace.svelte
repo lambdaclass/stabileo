@@ -2,6 +2,7 @@
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
+  import { dowelsText } from '../../../lib/rc-sheets/footing-dowels';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -298,7 +299,7 @@
                 <td class="n">{r.bearing ? `${fmt(r.bearing.qMax, 0)} / ${r.bearing.allowable ? fmt(r.bearing.allowable, 0) : '—'}` : '—'}</td>
                 <td>{meshText(r.adopted.x)}</td>
                 <td>{meshText(r.adopted.y)}</td>
-                <td>{r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}` : '—'}</td>
+                <td>{r.adopted.dowels && !r.uncovered ? dowelsText(r) : '—'}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'wall'}
                 <td>{f2(r.length)} m × {fmt(r.thickness * 100, 0)}</td>

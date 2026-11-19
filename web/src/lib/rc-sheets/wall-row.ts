@@ -1,7 +1,7 @@
 import { checkWallInPlaneShear, maxWallSpacing, minimumWallRatios, minimumWallThickness, PHI_WALL_SHEAR } from './wall-design';
 import { wallInPlane, wallOutOfPlane } from './wall-member';
 import { shearFy, shearSqrtFc } from '../engine/codes/argentina/cirsoc201-basis';
-import { tensionLap } from './column-row';
+import { compressionLap, tensionLap } from './column-row';
 import { wallSeismic, type WallSeismic } from './wall-seismic';
 import { barArea, roundDown } from './bars';
 import type { Fmt } from './format';
@@ -61,8 +61,10 @@ export interface WallRow {
   /** Clear cover to the horizontal bars, m, and the tension lap of a horizontal bar, m: what the end U-bars overlap it by. */
   cover: number;
   hLap: number;
-  /** The tension lap of each vertical bar diameter, m: what the bars of the storey above overlap them by. */
-  vLaps?: Array<{ dia: number; lap: number }>;
+  /** The lap of each vertical bar diameter, m, and whether it is a tension lap: what the bars of the storey above, or the footing's dowels, overlap them by. */
+  vLaps?: Array<{ dia: number; lap: number; tension?: boolean }>;
+  /** The bottom storey, on a footing whose dowels its verticals lap with. */
+  onFooting?: true;
   /** Chapter 18, where the sheets apply it. */
   seismic?: WallSeismic;
   /** The storeys of the same wall below and above it, by key (`wallStacks`): its verticals lap into the one above. */
@@ -234,12 +236,30 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     status: allOk ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     cover: c.cover,
     hLap: tensionLap(c.mat, ad.horizontal.diameter),
-    vLaps: [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: tensionLap(c.mat, dia) })),
+    vLaps: verticalLaps(c, ad, !!c.seismic || wallInTension(d)),
     ...(seis ? { seismic: seis } : {}),
     ...(c.tieDiameters ? { tieDiameters: c.tieDiameters } : {}),
     ...(c.minTieSpacing !== undefined ? { minTieSpacing: c.minTieSpacing } : {}),
   };
 }
+
+/** Whether any combination pulls an end of the wall's section: its in-plane force less its moment over the section modulus. */
+export const wallInTension = (d: Pick<WallDemand, 'length' | 'thickness' | 'combos'>): boolean =>
+  d.combos.some((k) => k.pu / (d.length * d.thickness) - (6 * Math.abs(k.mu)) / (d.thickness * d.length ** 2) < -1e-9);
+
+/**
+ * The lap of each vertical bar diameter with the storey above or the footing's dowels, m: §25.5.5.1
+ * in compression (a third longer under 21 MPa), a class B tension lap no shorter where an end is
+ * pulled or chapter 18 applies (§18.10.2.3).
+ */
+export function verticalLaps(c: Pick<WallContext, 'mat'>, ad: WallAdopted, tension: boolean): Array<{ dia: number; lap: number; tension: boolean }> {
+  return [...new Set([ad.vertical.diameter, ...(ad.boundary ? [ad.boundary.diameter] : [])])].map((dia) => ({ dia, lap: verticalLap(c.mat, dia, tension), tension }));
+}
+
+export const verticalLap = (mat: Materials, dia: number, tension: boolean): number => {
+  const compression = compressionLap(mat, dia);
+  return tension ? Math.max(tensionLap(mat, dia), compression) : compression;
+};
 
 /** The bars a wall's boundary takes from the project's list, mm: Ø12 to Ø25, or the whole list when none falls there. */
 export const boundaryBars = (list: readonly number[]): number[] => { const own = list.filter((x) => x >= 12 && x <= 25); return own.length ? own : [...list]; };

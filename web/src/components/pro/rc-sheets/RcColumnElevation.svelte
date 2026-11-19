@@ -49,7 +49,7 @@
       {#each [x0 + inset, x1 - inset] as bx, i (i)}
         {@const inward = i ? -1 : 1}
         {@const low = bx + inward * (lapIn - by)}
-        <polyline points="{low},{Y(-jb)} {low},{Y(end) + rise} {bx + inward * lapIn},{Y(end)} {bx + inward * lapIn},{Y(lt)}" class="bar below" data-testid="rc-elev-lap-bar" />
+        <polyline points="{low},{Y(-jb)} {low},{Y(end) + rise} {bx + inward * lapIn},{Y(end)} {bx + inward * lapIn},{Y(lt)}" class="bar below" class:dowel={row.onFooting} data-testid="rc-elev-lap-bar" />
         <line x1={bx} y1={Y(lf)} x2={bx} y2={Y(layout.clear + jt)} class="bar" />
       {/each}
       <text x={x0 + w / 2} y={Y(-jb / 2) + 3} class="lbl small-note">{row.onFooting ? tp('rcSheets.elev.footDowels', { off: fmt(offCm, 1) }) : row.step ? tp(row.step.dowels ? 'rcSheets.elev.dowels' : 'rcSheets.elev.crank', { off: fmt(row.step.offset * 100, 1) }) : tp('rcSheets.elev.lapCrank', { off: fmt(offCm, 1) })}</text>
@@ -97,9 +97,10 @@
   figcaption { font-size: 0.7rem; font-weight: 600; color: var(--st-text-2); }
   .conc { fill: var(--st-surface-3, rgba(128, 128, 128, 0.12)); stroke: var(--st-text-3); stroke-width: 1; }
   .beam { fill: rgba(128, 128, 128, 0.2); stroke: var(--st-text-3); stroke-width: 1; stroke-dasharray: 3 2; }
-  .bar { stroke: var(--st-text); stroke-width: 2.2; }
+  .bar { stroke: #8f9cf5; stroke-width: 2.2; }
   .bar.face { stroke-width: 1.4; stroke-dasharray: 5 3; opacity: 0.7; }
   .bar.below { stroke: var(--st-text-2); fill: none; }
+  .bar.below.dowel { stroke: var(--st-danger); }
   .tie { stroke: var(--st-accent, #4ecdc4); stroke-width: 1.3; }
   .zone { stroke: var(--st-text-3); stroke-width: 1; }
   .seg-end .zone, .seg-lap .zone, .seg-joint .zone { stroke: var(--st-accent, #4ecdc4); }

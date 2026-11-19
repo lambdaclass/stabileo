@@ -4,16 +4,20 @@ import { footingBars3d, slabBars3d, wallBars3d } from './rebar-3d-plates';
 import { groupFootingBars3d } from './rebar-3d-footing-groups';
 import { rulesFor } from './codes';
 import type { PieceOptions } from './schedule/pieces';
-import type { Rebar3d, Rebar3dFrames, Rebar3dRows } from './rebar-3d-geometry';
+import { asFoundation, type Rebar3d, type Rebar3dFrames, type Rebar3dRows } from './rebar-3d-geometry';
 
 export * from './rebar-3d-geometry';
 
 export function rebar3d(rows: Rebar3dRows, frames: Rebar3dFrames, o: PieceOptions): Rebar3d[] {
   const R = rulesFor(o.code).bends;
   const out: Rebar3d[] = [];
+  const tops = (rows.footing ?? []).flatMap((r) => { const f = frames.footing(r); return f ? [f.o[2] + r.adopted.h] : []; });
+  const footingsTop = tops.length ? Math.max(...tops) : -Infinity;
   for (const l of rows.line) {
     const f = frames.line(l);
-    if (f) out.push(...lineBars3d(l, f, R, { element: l.key, rows: [l.key], family: 'beam', ...(l.level !== undefined ? { level: l.level } : {}) }));
+    if (!f) continue;
+    const bars = lineBars3d(l, f, R, { element: l.key, rows: [l.key], family: 'beam', ...(l.level !== undefined ? { level: l.level } : {}) });
+    out.push(...(f.o[2] <= footingsTop + 1e-3 ? bars.map(asFoundation) : bars));
   }
   for (const r of rows.column) {
     const f = frames.column(r);

@@ -3,6 +3,7 @@ import { footingDetail, type FootingDetail, type FootingLayerBars } from './foot
 import { meshSpan } from './footing-mesh';
 import { extraPositions } from './footing-group';
 import type { FootingMesh, FootingRow, GroupExtra } from './footing-types';
+import type { DowelRow } from './footing-dowels';
 
 export interface GroupLayerBars extends FootingLayerBars {
   face: 'bottom' | 'top';
@@ -23,7 +24,7 @@ type Row = Pick<FootingRow, 'adopted' | 'cover' | 'layers' | 'demand' | 'group' 
  * Each column's dowels as an isolated footing places them.
  */
 export function groupDetail(r: Row, R: BendRules): GroupDetail {
-  const a = r.adopted, c = r.cover, g = r.group!;
+  const a = r.adopted, c = r.cover;
   const lowerDia = (r.layers.lower === 'x' ? a.x.dia : a.y.dia) / 1000;
   const tx = a.tops?.x, ty = a.tops?.y;
   const topLower = a.B >= a.L ? 'x' : 'y';
@@ -55,17 +56,26 @@ export function groupDetail(r: Row, R: BendRules): GroupDetail {
     layers.push({ dir: e.dir, dia: e.mesh.dia, z: zOf(e.dir, e.face, e.mesh.dia), from: -len / 2, to: len / 2, hooked: true, ends: [true, true], shape, face: e.face, set: `extra${i}`, positions, inBand: 0 });
   });
   const dowels: GroupDowels[] = [];
-  for (const k of g.columns) {
+  for (const m of groupDowelRows(r)) {
+    const det = footingDetail({ ...m.row, layers: r.layers, x: null, y: null }, R);
+    if (det.dowels && det.column) dowels.push({ key: m.key, name: m.name, ...(m.rowKey ? { rowKey: m.rowKey } : {}), rect: det.column, dowels: det.dowels });
+  }
+  return { layers, dowels };
+}
+
+/** Each column's or core's dowels on a strip or mat as an isolated footing of the group's plan would take them, centred on it: what `dowelPlaces` lays out one by one. */
+export function groupDowelRows(r: Pick<FootingRow, 'adopted' | 'cover' | 'demand' | 'group'>): Array<{ key: string; name: string; rowKey?: string; row: DowelRow }> {
+  const a = r.adopted, out: Array<{ key: string; name: string; rowKey?: string; row: DowelRow }> = [];
+  for (const k of r.group?.columns ?? []) {
     const m = r.demand.group?.members.find((x) => x.key === k.key);
     const dw = a.columns?.[k.key];
     if (!m?.column || !dw || !(dw.count > 0)) continue;
-    const det = footingDetail({
-      adopted: { ...a, ex: -k.x, ey: -k.y, dowels: dw, top: undefined },
-      cover: c, layers: r.layers, x: null, y: null,
+    const row = {
+      adopted: { ...a, ex: -k.x, ey: -k.y, dowels: dw, top: undefined }, cover: r.cover,
       demand: { ...m, edge: undefined, carried: undefined },
       dowels: k.dowels ? { count: k.dowels.count, dia: k.dowels.dia, ldc: Math.max(k.dowels.ldc, k.dowels.ldh), available: k.dowels.available, lap: k.dowels.lap, tension: k.dowels.tension, above: k.dowels.above, offset: k.dowels.offset } : null,
-    }, R);
-    if (det.dowels && det.column) dowels.push({ key: k.key, name: k.name, ...(m.column.rowKey ? { rowKey: m.column.rowKey } : {}), rect: det.column, dowels: det.dowels });
+    } as DowelRow;
+    out.push({ key: k.key, name: k.name, ...(m.column.rowKey ? { rowKey: m.column.rowKey } : {}), row });
   }
-  return { layers, dowels };
+  return out;
 }

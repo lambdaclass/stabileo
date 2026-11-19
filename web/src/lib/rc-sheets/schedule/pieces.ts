@@ -10,19 +10,20 @@
  */
 import type { LineBar, LineLayout } from '../beam-line';
 import { innerCrossties, type ColumnRow } from '../column-row';
-import { CRANK_LIMIT } from '../column-stack';
-import { STOCK, above, columnBarPieces, columnDowel, columnStorey, stockPieces, storeyBars, storeyRun, straightBar, type ColumnStorey } from '../column-run';
+import { CRANK_LIMIT, CRANK_SLOPE, lapOffset } from '../column-stack';
+import { STOCK, above, columnBarPieces, columnDowel, columnStorey, runPieces, stockPieces, storeyBars, storeyRun, straightBar, type ColumnStorey } from '../column-run';
 import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { SLAB_FACES, type SlabFace, type SlabRow } from '../slab-row';
 import { layerPositions } from '../view-helpers';
 import type { LevelPlan, SlabPackage } from '../slab-plan';
-import { wallDetail, wallLevels, type WallDetail } from '../wall-detail';
+import { firstLevel, wallDetail, wallLevels, type WallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
 import type { FootingRow, StrapResult } from '../footing-types';
 import { footingDetail } from '../footing-detail';
-import { groupDetail } from '../footing-group-detail';
+import { groupDetail, groupDowelRows } from '../footing-group-detail';
+import { dowelGroups, dowelPlaces } from '../footing-dowels';
 import { rulesFor } from '../codes';
-import { closedHoop, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
+import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
@@ -181,11 +182,18 @@ function slabPieces(r: SlabRow, o: PieceOptions, R: BendRules): ScheduleElement 
 
 export const wallAbove = (rows: readonly WallRow[], r: WallRow): WallRow | undefined => (r.stack?.above ? rows.find((x) => x.key === r.stack!.above) : undefined) ?? above(rows, r);
 
-export function wallVerticalPieces(r: WallRow, up: WallRow | undefined, dia: number, boundary: boolean, horizontalDia: number, R: BendRules): { lap: number; pieces: Array<{ shape: BarShape; count: number }> } {
+/**
+ * A wall's vertical bar as its pieces, bottom first: hooked into the slab at the top storey, else on
+ * up through the floor, the top piece cranked in at 1:6 by one bar's diameter (`crank`, m) so it
+ * laps in contact beside the bar above over the larger lap of the two.
+ */
+export function wallVerticalPieces(r: WallRow, up: WallRow | undefined, dia: number, boundary: boolean, horizontalDia: number, R: BendRules): { lap: number; crank: number; pieces: Array<{ shape: BarShape; count: number }> } {
   const own = r.vLaps?.find((x) => x.dia === dia)?.lap ?? r.hLap * dia / Math.max(1, horizontalDia);
   const upDia = up ? (boundary ? up.adopted.boundary?.diameter ?? up.adopted.vertical.diameter : up.adopted.vertical.diameter) : 0;
   const lap = Math.max(own, upDia > dia ? up?.vLaps?.find((x) => x.dia === upDia)?.lap ?? 0 : 0);
-  return { lap, pieces: stockPieces(up ? r.height + lap : r.height - r.cover, lap, dia, R, !up) };
+  if (!up) return { lap, crank: 0, pieces: stockPieces(r.height - r.cover, lap, dia, R, true) };
+  const crank = lapOffset(dia, upDia), mandrel = R.mandrel(dia, 'longitudinal');
+  return { lap, crank, pieces: runPieces(r.height + lap, lap, dia, R, (l) => crankedBar(l - lap, crank, lap, dia, mandrel, 1 / CRANK_SLOPE)) };
 }
 
 export function wallHorizontalShapes(r: WallRow, det: WallDetail, R: BendRules): { horizontal: BarShape; ubar: BarShape | null } {
@@ -205,9 +213,9 @@ export const wallTie = (r: WallRow, det: WallDetail, R: BendRules): BarShape | n
 
 export function wallGrid(r: WallRow, det: WallDetail): { horizontals: number[]; hoops: number[]; ties: { along: number[]; up: number[] } } {
   return {
-    horizontals: wallLevels(r.height, det.horizontals.spacing),
-    hoops: det.boundary?.ties ? wallLevels(r.height, det.boundary.ties.spacing) : [],
-    ties: det.crossTies ? { along: wallLevels(r.length, det.crossTies.along), up: wallLevels(r.height, det.crossTies.up) } : { along: [], up: [] },
+    horizontals: wallLevels(r.height, det.horizontals.spacing, Infinity, firstLevel(r, det.horizontals.spacing)),
+    hoops: det.boundary?.ties ? wallLevels(r.height, det.boundary.ties.spacing, Infinity, firstLevel(r, det.boundary.ties.spacing)) : [],
+    ties: det.crossTies ? { along: wallLevels(r.length, det.crossTies.along), up: wallLevels(r.height, det.crossTies.up, Infinity, firstLevel(r, det.crossTies.up)) } : { along: [], up: [] },
   };
 }
 
@@ -251,23 +259,28 @@ export function ownStrapResults(r: FootingRow, all: readonly FootingRow[]): Stra
 
 const ownStraps = (r: FootingRow, all: readonly FootingRow[]): LineLayout[] => ownStrapResults(r, all).map((s) => s.line!);
 
-/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels with their feet, and the strap beams it holds. */
-function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules): ScheduleElement {
-  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: r.uncovered ? [] : groupPieces(r, R) };
+/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels by shape (`footing-dowels.ts`), and the strap beams it holds. */
+function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, columns: readonly ColumnRow[]): ScheduleElement {
+  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: r.uncovered ? [] : groupPieces(r, R, columns) };
   const det = footingDetail(r, R);
   const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
   if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
-  if (!r.uncovered && det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count + (r.adopted.dowels2?.count ?? 0), shape: det.dowels.shape });
+  if (!r.uncovered) {
+    const rowOf = (key: string | undefined) => (key ? columns.find((c) => c.key === key) : undefined);
+    const places = dowelPlaces(r, R, { first: rowOf(r.demand.column?.rowKey), second: rowOf(r.demand.carried?.column?.rowKey) });
+    for (const g of dowelGroups(r, places, R)) pieces.push({ kind: 'dowel', count: g.count, shape: g.shape });
+  }
   for (const l of ownStraps(r, all)) pieces.push(...linePieces(l, R).pieces);
   return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
 }
 
-/** A strip's or mat's meshes and added bars, bottom and top, and each column's dowels. */
-export function groupPieces(r: FootingRow, R: BendRules): Piece[] {
+/** A strip's or mat's meshes and added bars, bottom and top, and each column's or core's dowels by shape, one under each of its bars. */
+export function groupPieces(r: FootingRow, R: BendRules, columns: readonly ColumnRow[] = []): Piece[] {
   const det = groupDetail(r, R);
+  const dowels = groupDowelRows(r).flatMap((m) => dowelGroups(m.row, dowelPlaces(m.row, R, { first: columns.find((c) => c.key === m.rowKey) }), R));
   return [
     ...det.layers.map((l) => ({ kind: l.face === 'top' ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const, count: l.positions.length, shape: l.shape })),
-    ...det.dowels.map((d) => ({ kind: 'dowel' as const, count: d.dowels.count, shape: d.dowels.shape })),
+    ...dowels.map((g) => ({ kind: 'dowel' as const, count: g.count, shape: g.shape })),
   ];
 }
 
@@ -282,6 +295,6 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
-    ...(rows.footing ?? []).filter((r) => r.B > 0 && (!r.uncovered || ownStraps(r, rows.footing ?? []).length)).map((r) => footingPieces(r, rows.footing ?? [], R)),
+    ...(rows.footing ?? []).filter((r) => r.B > 0 && (!r.uncovered || ownStraps(r, rows.footing ?? []).length)).map((r) => footingPieces(r, rows.footing ?? [], R, rows.column)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

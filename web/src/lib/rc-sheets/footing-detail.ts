@@ -1,5 +1,5 @@
 import { hookedStraight, type BarShape, type BendRules } from './shape';
-import { CRANK_SLOPE } from './column-stack';
+import { DOWEL_INSET, columnRects, dowelShape } from './footing-dowels';
 import { meshSpan, type MeshSpan } from './footing-mesh';
 import type { FootingRow } from './footing-types';
 
@@ -32,13 +32,11 @@ export interface FootingDetail {
   /**
    * One dowel as bent, how many, and where the section along X cuts them, m from the centroid: its
    * foot out along the mesh at `z`, up `rise`, cranked in `offset` at 1:6 to end at `crankAt` over
-   * `z`, where the lap with the column's bars starts. Its shape's first axis points out of the column.
+   * `z`, where the lap with the column's bars starts. Its shape's first axis points out of the column;
+   * `turned`, its foot turned in, for a side of the section where the foot would leave the concrete.
    */
-  dowels: { count: number; dia: number; shape: BarShape; foot: number; rise: number; z: number; offset: number; crankAt: number; xs: number[] } | null;
+  dowels: { count: number; dia: number; shape: BarShape; foot: number; rise: number; z: number; offset: number; crankAt: number; xs: number[]; inward: boolean[]; turned: BarShape } | null;
 }
-
-/** A column's longitudinal bars sit about this far inside its faces, m: where the section draws the dowels. */
-const DOWEL_INSET = 0.05;
 
 /** The footing's bars as they are placed: the lower layer on the cover, the other on it; the dowels standing on both with a foot out of the column, cranked in to lap beside its bars. */
 export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers' | 'x' | 'y' | 'demand' | 'dowels' | 'edge' | 'combined'>, R: BendRules): FootingDetail {
@@ -58,20 +56,16 @@ export function footingDetail(r: Pick<FootingRow, 'adopted' | 'cover' | 'layers'
     return { dir, dia: m.dia, z, from: -len / 2, to: len / 2, hooked: ends[0] || ends[1], ends, shape, ...meshSpan(dir, a, m, c) };
   };
   const layers = [layer('x'), layer('y')].filter((l): l is FootingLayerBars => !!l);
-  const col = r.demand.column;
-  const column = col ? { x0: -a.ex - col.b / 2, x1: -a.ex + col.b / 2, y0: -a.ey - col.h / 2, y1: -a.ey + col.h / 2 } : null;
+  const { column, second } = columnRects(r);
   let dowels: FootingDetail['dowels'] = null;
   const dw = a.dowels;
   if (column && dw && dw.count > 0 && dw.dia > 0) {
-    const db = dw.dia / 1000, z = c + (a.x.dia + a.y.dia) / 1000 + db / 2;
-    const foot = Math.max(0.15, R.extension(dw.dia, 90, 'longitudinal') + R.mandrel(dw.dia, 'longitudinal') / 2 + db);
-    const offset = r.dowels?.offset ?? 0, crankAt = a.h - z + (r.dowels?.above ?? 0), rise = crankAt + (r.dowels?.lap ?? 0);
-    const bend = Math.max(db, crankAt - offset / CRANK_SLOPE);
-    const pts: Array<[number, number]> = offset > 1e-6 ? [[foot, 0], [0, 0], [0, bend], [-offset, crankAt], [-offset, rise]] : [[foot, 0], [0, 0], [0, rise]];
-    dowels = { count: dw.count, dia: dw.dia, shape: { pts, mandrel: R.mandrel(dw.dia, 'longitudinal'), dia: dw.dia }, foot, rise, z, offset, crankAt, xs: [column.x0 + DOWEL_INSET, column.x1 - DOWEL_INSET] };
+    const place = { dia: dw.dia, lap: r.dowels?.lap ?? 0, offset: r.dowels?.offset ?? 0 };
+    const out = dowelShape(r, { ...place, inward: false }, R), turned = dowelShape(r, { ...place, inward: true }, R);
+    const hx = a.B / 2 - c;
+    const xs = [column.x0 + DOWEL_INSET, column.x1 - DOWEL_INSET], inward = xs.map((x, i) => Math.abs(x + (i === 0 ? -1 : 1) * out.foot) > hx + 1e-9);
+    dowels = { count: dw.count, dia: dw.dia, shape: out.shape, turned: turned.shape, foot: out.foot, rise: out.rise, z: out.z, offset: place.offset, crankAt: out.crankAt, xs, inward };
   }
-  const o = r.demand.carried;
-  const second = o?.column ? { x0: o.at.x - r.demand.at.x - a.ex - o.column.b / 2, x1: o.at.x - r.demand.at.x - a.ex + o.column.b / 2, y0: o.at.y - r.demand.at.y - a.ey - o.column.h / 2, y1: o.at.y - r.demand.at.y - a.ey + o.column.h / 2 } : null;
   let top: FootingLayerBars | null = null;
   const t = a.top, axis = r.combined?.axis;
   if (t && axis && t.dia > 0 && t.spacing > 0) {

@@ -364,6 +364,9 @@ export function barsInTension(d: { b: number; h: number }, bars: ReadonlyArray<{
   return demands.some((q) => bars.some((p) => q.pu / ag - (Math.abs(q.mx) * Math.abs(p.y)) / ix - (Math.abs(q.my) * Math.abs(p.x)) / iy < -1e-9));
 }
 
+/** §25.5.5.1's compression lap, m: a third longer under 21 MPa, never under 300 mm. */
+export const compressionLap = (mat: Materials, dia: number): number => compressionLapMm(mat.fy, dia, mat.fc) / 1000;
+
 /** §25.5.5.1 in compression, or where a bar is in tension a class B tension splice (§25.5.2) no shorter than the compression one, the bars compressed under the other combinations. */
 export function columnSplice(c: ColumnContext, dia: number, tension: boolean, layout?: LapLayout): { length: number; tension: boolean } {
   const compression = compressionLapMm(c.mat.fy, dia, c.mat.fc) / 1000;

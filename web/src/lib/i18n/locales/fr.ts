@@ -13774,6 +13774,8 @@ const fr: Translations = {
   "rcSheets.s.pierScope": "Non couvert par la vérification du trumeau : son élancement, l'effort tranchant du poteau perpendiculaire à un voile et le besoin d'éléments de rive, lu voile par voile.",
   "rcSheets.wallFig.n.pier": "Partie de {name} : flexion composée vérifiée sur la section entière, taux de travail {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} dans le voile : {bars}, cadres Ø{tdia} tous les {ts} cm ; ils remplacent les barres du voile dans sa section",
+  "rcSheets.wallFig.n.dowels": "Attentes de la semelle sous chaque barre verticale, de même diamètre, dévoyées à 1:6 d'un diamètre vers l'intérieur et en recouvrement de {lap} cm",
+  "rcSheets.wallFig.n.lapUp": "Barres verticales dévoyées à 1:6 d'un diamètre vers l'intérieur et en recouvrement de {lap} cm avec celles de l'étage supérieur",
   "rcSheets.v.wallMesh": "Maillage insuffisant pour le moment dans le plan : affinez le voile (éléments le long de la base)",
   "rcSheets.v.wallBase": "La base du voile repose sur toute sa longueur (nœuds tenus)",
   "rcSheets.code": "Norme",

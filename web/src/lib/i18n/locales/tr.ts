@@ -13774,6 +13774,8 @@ const tr: Translations = {
   "rcSheets.s.pierScope": "Grup kontrolünün kapsamadıkları: grubun narinliği, kolonun bir perdeye dik kesme kuvveti ve perde perde okunan uç bölge gereksinimi.",
   "rcSheets.wallFig.n.pier": "{name} parçası: bileşik eğilme tüm kesitte kontrol edildi, kullanım oranı {ratio}",
   "rcSheets.wallFig.n.pierColumn": "Perde içindeki {name}: {bars}, etriye Ø{tdia} / {ts} cm; kesitindeki perde donatısının yerini alır",
+  "rcSheets.wallFig.n.dowels": "Her düşey donatının altında aynı çapta temel filizi, 1:6 ile bir çap içeri kırılır ve {lap} cm bindirilir",
+  "rcSheets.wallFig.n.lapUp": "Düşey donatılar 1:6 ile bir çap içeri kırılır ve üst kattakilerle {lap} cm bindirilir",
   "rcSheets.v.wallMesh": "Düzlem içi moment için ağ yetersiz: perdeyi sıklaştırın (taban boyunca eleman)",
   "rcSheets.v.wallBase": "Perdenin tabanı tüm boyunca oturuyor (tutulan düğümler)",
   "rcSheets.code": "Yönetmelik",

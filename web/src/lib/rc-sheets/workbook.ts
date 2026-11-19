@@ -10,6 +10,8 @@ import type { CheckLine } from './types';
 import type { PunchingRow } from './punching-row';
 import type { FootingRow } from './footing-types';
 import { meshText } from './footing-mesh';
+import { dowelsText } from './footing-dowels';
+import { groupDowelRows } from './footing-group-detail';
 import type { BendingSchedule } from './schedule/schedule';
 import { scheduleSheets } from './schedule/exports';
 
@@ -75,8 +77,8 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     const kind = r.group ? tr(`rcSheets.footKind.${r.group.kind}`) : r.combined ? tr('rcSheets.footKind.combined') : tr(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`);
     const tops = r.adopted.tops ? [r.adopted.tops.x && `X ${meshText(r.adopted.tops.x)}`, r.adopted.tops.y && `Y ${meshText(r.adopted.tops.y)}`].filter(Boolean).join(' · ') : r.adopted.top ? meshText(r.adopted.top) : '—';
     const dowels = r.group
-      ? r.group.columns.filter((k) => k.dowels).map((k) => `${k.name} ${k.dowels!.count} Ø${k.dowels!.dia} · ${cm(k.dowels!.lap)} cm`).join(' / ') || '—'
-      : r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—';
+      ? groupDowelRows(r).map((m) => `${m.name} ${dowelsText(m.row)}${m.row.dowels ? ` · ${cm(m.row.dowels.lap)} cm` : ''}`).join(' / ') || '—'
+      : r.adopted.dowels && !r.uncovered ? `${dowelsText(r)}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—';
     feet.push([safeText(r.name), safeText(r.level ?? ''), kind, cm(r.B), cm(r.L), cm(r.h), r2(r.founding), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
       meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, r3(r.utilization), state(r.status)]);
   }

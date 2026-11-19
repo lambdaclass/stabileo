@@ -75,9 +75,13 @@ export function layersOf(a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'x' | 'y'>, c
 /** A column's dowels as read: ldc and ldh against the room in the footing, their lap with the column's bars and how they reach it (`FootingRowDowels`). */
 export interface FootingDowelReading { count: number; dia: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number }
 
-/** The dowels' lap with the column's bars, m: the column's own where its row gives it and the dowels are no thicker than its bars, else the code's for the dowel. */
+/** The dowels' lap with the column's bars, m: a pier's longest where they are its bars', the column's own where its row gives it and the dowels are no thicker than its bars, else the code's for the dowel. */
 export const dowelLap = (an: FootingAnchorage, bars: ColumnBarsAtBase | undefined, mat: Materials, dia: number, tension: boolean): number =>
-  (bars?.lap !== undefined && dia <= bars.dia ? bars.lap : an.lap(mat, dia, tension));
+  (bars?.at?.length ? Math.max(...bars.at.map((b) => b.lap)) : bars?.lap !== undefined && dia <= bars.dia ? bars.lap : an.lap(mat, dia, tension));
+
+/** The dowels' area, cm²: each under its own bar where they are the pier's bars as proposed, else so many of one diameter. */
+export const dowelArea = (bars: ColumnBarsAtBase | undefined, dw: { count: number; dia: number }): number =>
+  (bars?.at && bars.area !== undefined && dw.count === bars.at.length && dw.dia === bars.dia ? bars.area : dw.count * barArea(dw.dia));
 
 /** Where the dowels' lap starts over the footing's top (its pedestal `stub`, m, and where the column's lap starts), and how far they are cranked in to lap beside its bars: one bar's diameter. */
 export const dowelReach = (bars: ColumnBarsAtBase | undefined, dia: number, stub: number): { above: number; offset: number } =>
@@ -174,7 +178,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
     const mat = { fc: c.fc, fy: c.fy };
     const ldc = an.ldc(mat, dw.dia), ldh = tension ? an.ldh(mat, dw.dia) : 0;
     const lap = dowelLap(an, c.columnBars, { fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
-    dowels = { ...dw, area: dw.count * barArea(dw.dia), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(c.columnBars, dw.dia, lever - a.h) };
+    dowels = { ...dw, area: dowelArea(c.columnBars, dw), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(c.columnBars, dw.dia, lever - a.h) };
   }
   return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: slabProvisions(EDITION, c.fy, a.h).sTwoWay, combos };
 }

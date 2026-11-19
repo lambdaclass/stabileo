@@ -13774,6 +13774,8 @@ const de: Translations = {
   "rcSheets.s.pierScope": "Nicht durch den Nachweis des Wandpfeilers abgedeckt: seine Schlankheit, die Querkraft der Stütze quer zu einer Wand und der Bedarf an Randelementen, der Wand für Wand gelesen wird.",
   "rcSheets.wallFig.n.pier": "Teil von {name}: Biegung mit Längskraft am ganzen Querschnitt nachgewiesen, Ausnutzung {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} in der Wand: {bars}, Bügel Ø{tdia} alle {ts} cm; sie ersetzen die Wandstäbe in ihrem Querschnitt",
+  "rcSheets.wallFig.n.dowels": "Anschlussstäbe aus dem Fundament unter jedem Vertikalstab, gleichen Durchmessers, 1:6 um einen Durchmesser nach innen gekröpft und {lap} cm gestoßen",
+  "rcSheets.wallFig.n.lapUp": "Vertikalstäbe 1:6 um einen Durchmesser nach innen gekröpft und {lap} cm mit denen des Geschosses darüber gestoßen",
   "rcSheets.v.wallMesh": "Netz zu grob für das Moment in der Ebene: Wand verfeinern (Elemente entlang des Fußes)",
   "rcSheets.v.wallBase": "Der Wandfuß liegt auf ganzer Länge auf (gehaltene Knoten)",
   "rcSheets.code": "Norm",

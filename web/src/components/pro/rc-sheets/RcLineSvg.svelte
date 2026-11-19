@@ -5,7 +5,7 @@
   import type { LineBar, LineLayout } from '../../../lib/rc-sheets/beam-line';
   import { barTrace, bentLegs, hookBack, hookTurn, lineSupports, markPlaces, placeLabels, setOut as setOutOf, stirrupPositions } from '../../../lib/rc-sheets/line-geometry';
 
-  let { line, marks = false, envelope = false, cuts = [], highlight = [] }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[] } = $props();
+  let { line, marks = false, envelope = false, cuts = [], highlight = [], foundation = false }: { line: LineLayout; marks?: boolean; envelope?: boolean; cuts?: Array<{ x: number; label: string }>; highlight?: string[]; foundation?: boolean } = $props();
   const hl = (b: LineBar) => highlight.includes(b.mark);
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const W = 1200, M = 56, TOP = 40, STUB = 22, ROW = 30;
@@ -98,7 +98,7 @@
   const H = $derived(ySchedule + line.bars.reduce((acc, b) => acc + (b.kind === 'bent' ? 2 * ROW : ROW), 0) + 8);
 </script>
 
-<svg class="rcl" viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
+<svg class="rcl" class:found={foundation} viewBox="0 0 {W} {H}" role="img" aria-label={line.name} data-testid="rc-line-svg">
   {#each supports as xs, j (j)}
     {@const w = Math.max(8, (line.supportWidths[j] || 0.2) * sx)}
     <rect x={X(xs) - w / 2} y={TOP - STUB} width={w} height={yBeamBottom - TOP + STUB + BELOW} class="col" />
@@ -219,8 +219,10 @@
   .col { fill: rgba(128, 128, 128, 0.22); stroke: var(--st-text-3); stroke-width: 0.6; }
   .axis { stroke: var(--st-text-3); stroke-width: 0.6; stroke-dasharray: 6 3 1 3; }
   .stirrup { stroke: var(--st-text-3); stroke-width: 0.7; opacity: 0.7; }
+  .found .bar, .found .mark { stroke: #b8692e; }
+  .found .stirrup { stroke: #9c8068; opacity: 0.9; }
   .bar { stroke-width: 2.2; fill: none; stroke-linecap: round; }
-  .bar.continuous { stroke: var(--st-text); }
+  .bar.continuous { stroke: #6fb3d9; }
   .bar.support { stroke: var(--st-danger); }
   .bar.span { stroke: var(--st-ok); }
   .bar.bent { stroke: #b48cf2; }
@@ -233,7 +235,7 @@
   .small.start { text-anchor: start; }
   .small.end { text-anchor: end; }
   .mark { fill: none; stroke-width: 1.4; }
-  .mark.continuous { stroke: var(--st-text); }
+  .mark.continuous { stroke: #6fb3d9; }
   .mark.support { stroke: var(--st-danger); }
   .mark.span { stroke: var(--st-ok); }
   .markt { font-size: 10px; font-weight: 700; fill: var(--st-text); text-anchor: middle; font-family: var(--st-mono); }

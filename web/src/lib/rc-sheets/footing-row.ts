@@ -2,6 +2,7 @@ import type { Fmt } from './format';
 import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
+import { dowelsText } from './footing-dowels';
 import { footingSteps } from './footing-steps';
 import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult, TieResult } from './footing-types';
@@ -121,7 +122,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
   if (d.column) out.push(check('rcSheets.v.footBearingStrength', bs.pu <= phiBn + 1e-6 || (!!r.dowels && r.dowels.area >= r.dowels.required - 1e-6), { clause: '§22.8', demand: kn(bs.pu), capacity: kn(phiBn), ratio: ratioOf(bs.pu, phiBn) }));
   const dw = r.dowels;
   if (dw) {
-    out.push(check('rcSheets.v.footDowelArea', dw.area >= dw.required - 1e-6, { clause: d.pier ? '§16.3.4.1, §16.3.4.2' : '§16.3.4.1', demand: cm2(dw.required), capacity: `${dw.count} Ø${dw.dia} (${cm2(dw.area)})` }));
+    out.push(check('rcSheets.v.footDowelArea', dw.area >= dw.required - 1e-6, { clause: d.pier ? '§16.3.4.1, §16.3.4.2' : '§16.3.4.1', demand: cm2(dw.required), capacity: `${dowelsText({ adopted: a, demand: d })} (${cm2(dw.area)})` }));
     const need = Math.max(dw.ldc, dw.ldh);
     out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: dw.tension ? `${code.anchorage?.clause.compression}, ${code.anchorage?.clause.hooked}` : code.anchorage?.clause.compression, demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
   } else if (d.column) out.push(check('rcSheets.v.footDowelArea', false, { clause: '§16.3.4.1' }));

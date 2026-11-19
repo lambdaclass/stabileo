@@ -9,6 +9,7 @@
 import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
 import { footingDetail, type FootingDetail, type FootingLayerBars } from '../footing-detail';
+import { dowelsText } from '../footing-dowels';
 import { footingLabel } from '../footing-row';
 import type { FootingRow } from '../footing-types';
 import { rulesFor } from '../codes';
@@ -68,7 +69,7 @@ export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o:
   const dw = det.dowels;
   if (dw) dw.xs.forEach((x, i) => {
     const side = i === 0 ? -1 : 1;
-    ps.push({ kind: 'polyline', layer: arm('LONG', dw.dia), points: dw.shape.pts.map(([u, v]) => pt((x + side * u) * K, (dw.z + v) * K)), dia: dw.dia });
+    ps.push({ kind: 'polyline', layer: arm('LONG', dw.dia), points: (dw.inward[i] ? dw.turned : dw.shape).pts.map(([u, v]) => pt((x + side * u) * K, (dw.z + v) * K)), dia: dw.dia });
   });
   ps.push(dim(pt(-B / 2, 0), pt(B / 2, 0), -6, cm(o.fmt, det.B)), dim(pt(B / 2, 0), pt(B / 2, H), -6, cm(o.fmt, det.h)));
   if (dw && lap > 0) {
@@ -78,7 +79,7 @@ export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o:
   }
   const notes = [
     footingLabel(row.adopted),
-    ...(row.adopted.dowels ? [`${o.tr('rcSheets.foot.dowels')}: ${row.adopted.dowels.count} Ø${row.adopted.dowels.dia}`] : []),
+    ...(row.adopted.dowels ? [`${o.tr('rcSheets.foot.dowels')}: ${dowelsText(row)}`] : []),
     `${o.tr('rcSheets.footFig.cover')}: ${o.fmt(det.cover * 100, 1)} cm`,
     `${o.tr('rcSheets.foot.founding')}: z = ${o.fmt(row.founding, 2)} m${row.pedestal > 1e-3 ? ` · ${o.tr('rcSheets.foot.pedestal')} ${o.fmt(row.pedestal * 100, 0)} cm` : ''}`,
   ];

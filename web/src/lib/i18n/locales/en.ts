@@ -13934,6 +13934,8 @@ const en: Record<string, string> = {
   "rcSheets.s.pierScope": "Not covered by the pier's check: the pier's slenderness, the column's shear across a wall, and the need for boundary elements, read wall by wall.",
   "rcSheets.wallFig.n.pier": "Part of {name}: axial and bending checked on the whole section, utilisation {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} inside the wall: {bars}, ties Ø{tdia} at {ts} cm; they replace the wall's bars within its section",
+  "rcSheets.wallFig.n.dowels": "Footing dowels under every vertical, of its diameter, cranked in one diameter at 1:6 and lapped {lap} cm",
+  "rcSheets.wallFig.n.lapUp": "Verticals cranked in one diameter at 1:6 and lapped {lap} cm with those of the storey above",
   "rcSheets.v.wallMesh": "Mesh too coarse for the in-plane moment: refine the wall (elements along the base)",
   "rcSheets.v.wallBase": "The wall's base rests along its whole length (nodes held)",
   "rcSheets.code": "Code",

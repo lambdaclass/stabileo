@@ -45,7 +45,7 @@ import { makeFmt, type Fmt } from '../rc-sheets/format';
 import { defaultRcSheetsData, RC_SHEETS_LOGIC, SHEET_CODES, SHEET_FAMILIES, SLAB_BAR_RANGE, listIn, withMissingForces, type SheetCode, type Adopted, type BeamAdopted, type ColumnAdopted, type RcSheetsData, type StoredRcSheets, type SheetFamily, type SlabAdopted, type TorsionMode, type WallAdopted } from '../rc-sheets/types';
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { sheetsLeftOut, type LeftOut } from '../rc-sheets/coverage';
-import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, type PierHooks } from './rc-sheets-piers';
+import { designPierAt, foundationPiers, memberAxes, storeyPiers, withApart, withPierColumns, withPierFeet, withWallFeet, type PierHooks } from './rc-sheets-piers';
 import { legOfPier, type PierDesign } from '../rc-sheets/pier-row';
 
 export type SheetRow = BeamRow | ColumnRow | SlabRow | WallRow | PunchingRow | FootingRow;
@@ -557,7 +557,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const below = new Map<number, ColumnRow>();
-  const onFooting = new Set(feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k));
+  const founded = feet.length > 0 && foundationSystem(data) !== null;
+  const onFooting = new Set(founded ? feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k) : []);
   const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
@@ -664,8 +665,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   if (pierDone.size) {
     column = withPierColumns(D.columns, column, pierDone, pierHooks, (d, before) => { below.set(Number(d.key.split(':')[1]), before); return columnAt(d, new Map()); });
     for (const r of column) if (r.pier) redesigners.delete(r.key);
-    feet = withPierFeet(feet, pierDone, (d) => wallCtxOf(d).mat.fc, dd.covers.wall);
+    feet = withPierFeet(feet, pierDone, (d) => wallCtxOf(d).mat.fc, dd.covers.wall, fy);
   }
+  feet = withWallFeet(feet, wall);
+  const onFootingWalls = new Set(founded ? feet.flatMap((f) => f.pier?.walls ?? []) : []);
+  wall.forEach((r, i) => { if (onFootingWalls.has(r.key)) wall[i] = { ...r, onFooting: true }; });
   const punching: PunchingRow[] = [];
   for (const d of D.punching) {
     const plan = slabPlans.find((p) => p.level === (d.level ?? ''));

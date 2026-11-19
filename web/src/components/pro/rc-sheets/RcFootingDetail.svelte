@@ -209,7 +209,7 @@
   {/if}
   {#if row.B > 0}<div class="rcw-secs">{#if row.group}<RcFootingGroupSvg {row} {code} />{:else}<RcFootingSvg {row} {code} />{/if}</div>{/if}
   {#each (row.edge?.straps ?? []).filter((st) => st.line) as st (st.axis)}
-    <div class="rcw-secs" data-testid="rc-footing-strap-line"><RcLineSvg line={st.line!} /></div>
+    <div class="rcw-secs" data-testid="rc-footing-strap-line"><RcLineSvg line={st.line!} foundation /></div>
   {/each}
 </div>
 

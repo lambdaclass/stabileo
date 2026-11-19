@@ -15278,6 +15278,8 @@ const hu: Translations = {
   "rcSheets.s.pierScope": "A falpillér ellenőrzése nem fedi le: a falpillér karcsúságát, az oszlop falra merőleges nyíróerejét és a szegélyelemek szükségességét, amelyet falanként vizsgál.",
   "rcSheets.wallFig.n.pier": "{name} része: normálerő és hajlítás a teljes keresztmetszeten ellenőrizve, kihasználtság {ratio}",
   "rcSheets.wallFig.n.pierColumn": "{name} a falban: {bars}, kengyel Ø{tdia} {ts} cm-enként; a keresztmetszetében a fal rúdjait helyettesítik",
+  "rcSheets.wallFig.n.dowels": "Minden függőleges vas alatt azonos átmérőjű csatlakozóvas az alapból, 1:6 arányban egy átmérővel befelé elhúzva, {lap} cm toldással",
+  "rcSheets.wallFig.n.lapUp": "A függőleges vasak 1:6 arányban egy átmérővel befelé elhúzva, {lap} cm toldással a felette lévő szint vasaihoz",
   "rcSheets.v.wallMesh": "A háló túl durva a síkbeli nyomatékhoz: sűrítse a fal hálóját (elemek a fal talpa mentén)",
   "rcSheets.v.wallBase": "A fal talpa teljes hosszán megtámasztott (megtámasztott csomópontok)",
   "rcSheets.code": "Szabvány",

@@ -50,8 +50,8 @@ export interface FootingColumn {
   storey?: number;
   /** A pier's section area, m², where `b` × `h` is only its box: what bears on the footing and what its dowels are read against. */
   area?: number;
-  /** A pier's vertical bars as the dowels repeat them: how many, the thickest, whether any takes tension at the base, and where each dowel stands in plan with the way in it is cranked to lap beside its bar. */
-  bars?: { count: number; dia: number; tension: boolean; at?: Array<{ x: number; y: number; n: [number, number] }> };
+  /** A pier's vertical bars as the dowels repeat them: how many, the thickest, whether any takes tension at the base, their area, cm², and each dowel where it stands in plan with the way in it is cranked to lap beside its bar, its diameter and its lap, m. */
+  bars?: { count: number; dia: number; tension: boolean; area?: number; at?: Array<{ x: number; y: number; n: [number, number]; dia: number; lap: number }> };
   /** A pier's concrete, MPa. */
   fc?: number;
   /** The least steel across the joint where it is not 0,005·Ag (§16.3.4.1): a pier's, 0,005 of its columns' area and the walls' least vertical ratio over theirs (§16.3.4.2), cm². */
@@ -186,7 +186,7 @@ export interface FootingAdopted {
 }
 
 /** The bars a footing's dowels repeat: how many, the thickest, whether any takes tension at the base, and the column's own lap with them, m, starting `lapFrom` over its foot. */
-export interface ColumnBarsAtBase { count: number; dia: number; tension: boolean; lap?: number; lapFrom?: number }
+export interface ColumnBarsAtBase { count: number; dia: number; tension: boolean; lap?: number; lapFrom?: number; area?: number; at?: NonNullable<FootingColumn['bars']>['at'] }
 
 export interface FootingContext {
   fc: number; fy: number;
