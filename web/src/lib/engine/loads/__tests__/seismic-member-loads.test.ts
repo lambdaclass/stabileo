@@ -5,6 +5,7 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import { input2DToWireObject, input3DToWireObject, solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
+import { PERIOD_COEFFICIENTS } from '../../../codes/cirsoc103/static-method';
 import { designSpectrum, isBlocked } from '../../../codes/cirsoc103/spectrum';
 import { modelStore } from '../../../store';
 import { INPRES103_SEISMIC } from '../../../codes/families/cirsoc';
@@ -75,10 +76,11 @@ function forceComponent(part: PlannedDistributed, rotated: boolean, end = false)
 function verifyCantilever(
   model: LoadModelData, members: Array<{ id: number; nodeI: number; nodeJ: number; sectionId: number }>,
   rotated: boolean, length: number, parts: PlannedDistributed[], momentOfLoad: (station: number, power: number) => number,
+  baseElevation = 0,
 ) {
   const ids = new Set(members.flatMap(e => [e.nodeI, e.nodeJ]));
   const nodes = new Map([...ids].map(id => [id, { id, x: 0, z: model.nodes.get(id)!.z! }]));
-  const base = [...nodes.values()].find(n => n.z === 0)!.id, tip = [...nodes.values()].find(n => n.z === length)!.id;
+  const base = [...nodes.values()].find(n => n.z === baseElevation)!.id, tip = [...nodes.values()].find(n => n.z === baseElevation + length)!.id;
   const component = (part: PlannedDistributed, end = false) => forceComponent(part, rotated, end);
   const common = {
     materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
@@ -100,7 +102,7 @@ function verifyCantilever(
     const verify = (result: ReturnType<typeof solve> | ReturnType<typeof solve3D>) => {
       expect(result.elementForces.map(f => f.elementId).sort()).toEqual(members.map(m => m.id).sort());
       for (const f of result.elementForces) for (const t of [0, 0.2, 0.5, 0.8, 1]) {
-        const s = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z + t * f.length;
+        const s = nodes.get(model.elements.get(f.elementId)!.nodeI)!.z - baseElevation + t * f.length;
         const v = momentOfLoad(s, 0), m = momentOfLoad(s, 1) - s * v;
         if ('vyStart' in f) {
           expect(evaluateDiagramAt(f, 'shearY', t)).toBeCloseTo(-v, 10);
@@ -535,11 +537,130 @@ for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diago
 it('#2319 the seismic code adapter refuses modal requests directly', () => {
   const { model, ...seismic } = diagonalModalFixture();
   const levels = buildLoadPlan(request(model)).levels as SeismicLevel[];
-  const sink: SeismicPlanSink = {
-    cases: [], nodal: [], distributed: [], surface: [], derivation: [], refs: [],
-    assumptions: [], unsupportedKeys: [], blockedKeys: [], levelRefusals: [],
-  };
+  const sink = seismicSink();
   INPRES103_SEISMIC.plan(request(model, seismic), levels, sink);
   expect(sink.blockedKeys).toEqual([{ key: MODAL_SEISMIC_UNAVAILABLE }]);
   expect(sink).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [] });
 });
+
+function seismicSink(): SeismicPlanSink {
+  return {
+    cases: [], nodal: [], distributed: [], surface: [], derivation: [], refs: [],
+    assumptions: [], unsupportedKeys: [], blockedKeys: [], levelRefusals: [],
+  };
+}
+
+function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean) {
+  const cuts = twoStories ? [0, 0.5, 2, 3.5, 4] : [0, 4];
+  const column = mesh(cuts.slice(1).map((z, i) => [[0, 0, base + cuts[i]!], [0, 0, base + z]]));
+  const model: LoadModelData = { ...column, supports: new Map([[1, { nodeId: 1 }]]) };
+  if (twoStories) {
+    const floor = [...model.nodes.values()].find(n => n.z === base + 2)!;
+    const reference = model.nodes.size + 1;
+    model.nodes.set(reference, { id: reference, x: 1, y: 0, z: floor.z });
+    const high = reference + 1;
+    model.nodes.set(high, { id: high, x: 1, y: 0, z: base + 4 });
+    model.supports = new Map([[high, { nodeId: high }], [1, { nodeId: 1 }]]);
+    model.constraints = [{ type: 'diaphragm', masterNode: floor.id, slaveNodes: [reference], plane: 'XY' }];
+  }
+  const area = 0.5, density = 4;
+  model.sections.set(1, { id: 1, a: area });
+  model.materials.set(1, { id: 1, rho: density });
+  const w = twoStories ? 3 * area * density : 2 * area * density;
+  const directions = { x: !rotated, y: rotated };
+  const manual = request(model, { directions });
+  const plan = buildLoadPlan(manual);
+  expect(plan.outcome).toBe('READY');
+  expect(plan.unsupportedKeys).toEqual([]);
+  expect(plan.factors.seismicWeight?.value).toBe(w);
+  expect(plan.factors.baseShear?.value).toBe(w);
+  const loads = plan.distributed.filter(d => d.caseType === 'E');
+  expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
+  expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
+  expect(plan.cases.filter(c => c.type === 'E')).toHaveLength(1);
+
+  const bands: Array<[number, number, number]> = twoStories ? [[1, 3, 1.5], [3, 4, 3]] : [[2, 4, 2]];
+  const storyForces = bands.map(([lo, hi]) => loads.reduce((sum, part) => {
+    const member = model.elements.get(part.elementId)!;
+    const start = model.nodes.get(member.nodeI)!.z! - base;
+    const overlap = Math.max(0, Math.min(hi, start + part.b!) - Math.max(lo, start + part.a!));
+    return sum + overlap * (forceComponent(part, rotated) + forceComponent(part, rotated, true)) / 2;
+  }, 0));
+  expect(storyForces).toEqual(twoStories ? [3, 3] : [4]);
+
+  const members = [...model.elements.values()];
+  for (const member of members) {
+    const start = model.nodes.get(member.nodeI)!.z! - base;
+    const end = model.nodes.get(member.nodeJ)!.z! - base;
+    const expected = bands.flatMap(([lo, hi, q]) => {
+      const a = Math.max(start, lo), b = Math.min(end, hi);
+      return a < b ? [[a - start, b - start, q, q]] : [];
+    });
+    expect(loads.filter(p => p.elementId === member.id).map(p => {
+      expect(p.frame).toBe('global');
+      expect(forceComponent(p, !rotated)).toBe(0);
+      expect(forceComponent(p, !rotated, true)).toBe(0);
+      return [p.a, p.b, forceComponent(p, rotated), forceComponent(p, rotated, true)];
+    }).sort((a, b) => a[0]! - b[0]!)).toEqual(expected);
+  }
+  const momentOfLoad = (s: number, k: number) => bands.reduce((sum, [a, b, q]) =>
+    sum + q * (b ** (k + 1) - Math.min(b, Math.max(s, a)) ** (k + 1)) / (k + 1), 0);
+  verifyCantilever(model, members, rotated, 4, loads, momentOfLoad, base);
+
+  const codeInput = request(model, { directions, code: round2Code });
+  const codePlan = buildLoadPlan(codeInput);
+  expect(codePlan.outcome).toBe('READY');
+  const { cr, x } = PERIOD_COEFFICIENTS[round2Code.periodSystem];
+  expect(codePlan.seismic?.ta).toBeCloseTo(cr * 4 ** x, 10);
+  const c = codePlan.seismic!.c;
+  expect(codePlan.factors.seismicWeight?.value).toBe(w);
+  expect(codePlan.factors.baseShear?.value).toBe(c * w);
+  const codeLoads = codePlan.distributed.filter(p => p.caseType === 'E');
+  expect(codeLoads.map(p => [p.elementId, p.a, p.b])).toEqual(loads.map(p => [p.elementId, p.a, p.b]));
+  for (const [i, part] of codeLoads.entries()) {
+    expect(forceComponent(part, rotated)).toBeCloseTo(c * forceComponent(loads[i]!, rotated), 10);
+    expect(forceComponent(part, rotated, true)).toBeCloseTo(c * forceComponent(loads[i]!, rotated, true), 10);
+  }
+
+  const sink = seismicSink();
+  const direct = INPRES103_SEISMIC.plan(codeInput, codePlan.levels as SeismicLevel[], sink);
+  expect(sink.blockedKeys).toEqual([]);
+  expect(direct.seismicWeight).toEqual(codePlan.factors.seismicWeight);
+  expect(direct.baseShear).toEqual(codePlan.factors.baseShear);
+  expect(sink.distributed).toEqual(codeLoads.map(p => ({ ...p, caseIndex: 0 })));
+}
+
+const knownWrongDatum = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+it('#2316 a supported column at zero retains its static seismic member loads', () => {
+  checkSeismicDatum(0, false, false);
+  checkSeismicDatum(0, true, true);
+});
+
+for (const base of [10, -5]) {
+  knownWrongDatum(`known wrong result: #2316 static seismic member loads are invariant at support elevation ${base}`, () => {
+    checkSeismicDatum(base, false, false);
+  });
+
+  knownWrongDatum(`known wrong result: #2316 static seismic story forces are invariant at support elevation ${base}`, () => {
+    checkSeismicDatum(base, true, true);
+  });
+}
+
+for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
+  knownWrongDatum(`known wrong result: #2316 static seismic refuses a ${kind} support datum`, () => {
+    const model: LoadModelData = mesh([[[0, 0, 0], [0, 0, 4]]]);
+    if (kind !== 'missing') {
+      model.supports = kind === 'empty' ? new Map() : new Map([[1, { nodeId: kind === 'dangling' ? 100 : 1 }]]);
+    }
+    if (kind === 'invalid elevation') model.nodes.get(1)!.z = Number.NaN;
+    const plan = buildLoadPlan(request(model, {}, { generateCombinations: true }));
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toContainEqual({ key: 'loadPlan.blocked.seismicBase' });
+    expect(plan.factors.seismicWeight).toBeUndefined();
+    expect(plan.factors.baseShear).toBeUndefined();
+    expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+    expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+    expect(plan.combinations).toEqual([]);
+  });
+}
