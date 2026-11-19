@@ -25,7 +25,7 @@ it('preserves numeric values and interpolation tokens in research translations',
   try {
     setLocale('en');
     const english = rs();
-    for (const locale of ['es', 'pt', 'hu']) {
+    for (const locale of ['es', 'pt', 'hu', 'zh']) {
       setLocale(locale);
       const translated = rs();
       expect(translated.paperOverview).not.toBe(english.paperOverview);

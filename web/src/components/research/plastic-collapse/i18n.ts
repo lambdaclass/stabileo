@@ -39,7 +39,7 @@ const en = {
 };
 export type PlasticStrings = typeof en;
 
-export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', PlasticStrings> = {
+export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu' | 'zh', PlasticStrings> = {
   en,
   es: {
     publisher: 'Elsevier',
@@ -262,6 +262,43 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr' | 'hu', Pla
     eventsHeading: 'Csuklóképződések', event: 'Esemény', location: 'Csukló helye', moment: 'My · kN·m',
     places: { leftBase: 'Bal oszloptalp', leftCorner: 'Bal felső sarok', midspan: 'Fesztávközép', rightCorner: 'Jobb felső sarok', rightBase: 'Jobb oszloptalp' },
     nodalHeading: 'Csomóponti elmozdulások a(z) {event}. eseménynél · m', node: 'Csomópont',
+  },
+  zh: {
+    publisher: 'Elsevier',
+    title: '经典塑性倒塌',
+    metaTitle: '经典塑性倒塌 — Stabileo Research',
+    metaDescription: '将一个门式刚架与梁机构、侧移机构和组合机构的手算结果进行比较。',
+    thumbnailAlt: '生产环境求解器运行得到的、倒塌时变形的门式刚架',
+    lead: '一个柱脚固定的门式刚架，三个手算机构，以及生产环境的 3D 塑性倒塌求解器。',
+    citation: '」，机构法的算例，依据：',
+    model: '跨度 L = {span} m，高度 h = {height} m，均匀的 Mp = {mp} kN·m。两个柱脚均固定。屋面在左转角处承受向右的 λH = λ × {horizontal} kN，在跨中承受向下的 λV = λ × {vertical} kN。梁在荷载作用点处分段。框架位于 XZ 平面内；不施加平面外荷载。',
+    method: '采用刚性杆件和小转角的虚功原理，给出下面三个上限。组合机构消去左屋面铰：内功为 6Mpθ，外功为 λ(Hh + VL/2)θ。取其最小值控制。轴向变形为弹性；轴力和剪力引起的屈服、强化以及几何失稳不在这个手算范围之内。',
+    provenance: '这三个上限是我们自己用虚功机构法手算推导的，该方法即 Horne 的 Plastic Theory of Structures (1979) 中的方法，我们将其作为背景阅读文献引用：我们没有核对书中的页码或公式编号。尺寸是我们自己的；没有复现书中的图或算例。Crossref 给出了书名和年份，但没有作者；出版社',
+    provenanceEnd: '标明作者为 M. R. Horne。',
+    referenceLabel: '对照手算结果',
+    publishedNote: '未使用书中的图或表：算例及其尺寸是我们自己的，因此以手算结果作为参考。',
+    checksHeading: '检查',
+    checks: {
+      collapse: '倒塌系数与组合机构上限 6Mp / (Hh + VL/2) 的偏差在 1 × 10⁻⁶ 以内。',
+      mechanism: '求解器报告得到完整的机构，且没有警告。',
+      hinges: '两个柱脚、跨中和右屋面转角处形成铰；左屋面转角始终不屈服。',
+      yield: '倒塌时每个杆端均有 |My| ≤ Mp。',
+      equilibrium: '反力与所施加的荷载平衡：ΣFx、ΣFz 和 ΣMy 的偏差在 1 × 10⁻⁹ 以内。',
+      corner: '由静力学，左屋面转角处的弯矩为 3Mp − λHh = {corner} kN·m，且梁的方程 3Mp + M = λVL/2 成立。',
+    },
+    passed: '通过', failed: '未通过',
+    comparison: '手算结果与 Stabileo 对比', mechanism: '机构', reference: '手算 λ', difference: 'Δ（Stabileo − 手算）',
+    beam: '梁', sway: '侧移', combined: '组合',
+    explanation: '只有最小值才是预测的倒塌系数。与另外两个上限的差异是预期之中的，不是求解器的误差。λ 的容差 1 × 10⁻⁶ 是回归界限，不是精度目标：这个小型、条件良好的问题，在原生运行中与组合上限的吻合程度达到 1.4 × 10⁻¹¹。',
+    scope: '范围', limits: ['不是设计验算。', '仅一种荷载比和一种均匀截面；不含轴力–弯矩相互作用、屈曲或大位移。', '这里没有使用 2D 塑性求解器；本页运行的是 3D 求解器（见议题 #758）。', '查看器用直线连接位移后的节点，不绘制铰的符号。'],
+    run: '实时重新计算', stop: '停止', restart: '重新开始', running: '实时计算中…', replay: '预先计算的回放（同一求解器）', live: '实时计算',
+    error: '实时计算失败；正在显示预先计算的回放', errorDetail: '求解器信息',
+    step: '塑性铰事件', displacement: '节点位移',
+    pending: '没有可用的预先计算的运行结果', warning: '求解器警告 / 机构不完整',
+    amplified: '位移 ×{scale}', planeNote: 'XZ 平面按平面绘制：X 向右，Z 向上。',
+    eventsHeading: '塑性铰事件', event: '事件', location: '铰的位置', moment: 'My · kN·m',
+    places: { leftBase: '左柱脚', leftCorner: '左屋面转角', midspan: '跨中', rightCorner: '右屋面转角', rightBase: '右柱脚' },
+    nodalHeading: '事件 {event} 时的节点位移 · m', node: '节点',
   },
 };
 

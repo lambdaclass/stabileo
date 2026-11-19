@@ -182,6 +182,26 @@ export const CHANGELOG: ChangelogEntry[] = [
           'A Research új kísérlete Heyman falazatokról szóló munkája alapján vizsgálja a boltívek legkisebb vastagságát és teher alatti összeomlását.',
         ],
       },
+      zh: {
+        "title": "杆件荷载、重力荷载和 3D 支座已更正",
+        "items": [
+          "杆件悬停读数和变形图通过 2D 和 3D 共用的内力恢复，计入集中力偶和部分分布荷载。抗弯刚度不足时，有荷载的内力恢复会明确拒绝求解。请重新运行受影响的分析，并复核杆件内部挠度和正常使用验算（SA-2026-070）。",
+          "与已释放转动相容的荷载，在旋转或单位换算后仍保持原有结果。相互抵消的节点弯矩得以保留；确实无法承受的残余弯矩仍会被拒绝。请重新运行受影响的分析。",
+          "长度过短区段上的分布荷载会被拒绝，并给出指明杆件和区间的提示。力平衡校核独立计入所施加的荷载。请复核被拒绝的区间，并重新运行受影响的分析。",
+          "ABS 和 SRSS 组合的 3D 杆件内力图计入绘图点之间的峰值以及突变两侧的数值。请重新计算受影响的内力图，并复核使用了其峰值的验算。",
+          "混凝土和钢结构的相关作用验算采用同一组合、同一截面位置的内力。钢结构弯矩梯度系数、混凝土弯矩放大以及实配抗扭箍筋均已更正。请重新运行受影响的杆件设计，并复核控制组合和配筋（SA-2026-064、SA-2026-066、SA-2026-068）。",
+          "CIRSOC 201 剪扭截面限值在梁、柱和墙中同时计入两个方向的同时剪力。以前通过的截面可能不再满足；增加箍筋无法弥补已超出的截面限值。请重新运行受影响的混凝土设计（SA-2026-069）。",
+          "杆件设计和证书在缺少组合、杆件或声明的截面位置时会拒绝，而不再只验算现有的内力需求。截面位置划分不同时，梁线包络仍保留每个组合。请重新运行已保存的混凝土和钢结构设计，并复核拒绝情况和证书（SA-2026-071）。",
+          "坡形受雪屋面上屋面高差处的雪堆积以及屋面宽度，均按实际屋面平面确定，与平面旋转无关。相连的屋面区域保留堆积、滑落和不均匀分布工况。请先重新生成受影响的雪荷载，再重新运行分析、组合和设计验算（SA-2026-065、SA-2026-067）。",
+          "增加节点不再移动雪荷载的屋脊，也不再把细分后的穹顶板件归类为楼板。跨越屋脊的杆件上的荷载，在所选承载构件子集上也保持其合力和合力矩。请重新生成所有受影响的生成面荷载（包括屋面和楼面荷载），然后重新运行分析、组合和设计验算；仅重新求解已存储的荷载是不够的（SA-2026-072、SA-2026-073、SA-2026-074）。",
+          "在含有壳的板块中，梁承受其能够支承的未覆盖条带上的荷载。覆盖情况不明确时，荷载生成会被拒绝。在从属宽度模式下，各楼层面积和地震质量按受荷杆件计算。无法表示其偏心荷载的楼面区域会被拒绝。请先重新生成受影响的重力荷载和地震荷载，再重新运行分析和验算。",
+          "匈牙利语翻译包含版本说明和已保存项目的通知。扩展的 Fehér 研究控件、合并后的工具页、新的 Mohr 入口和弯矩图游戏仍为可选功能，默认关闭。账户和广告效果测量仍默认关闭。",
+          "应力工具保留较小的非零主应力和剪应力，分享的 Mohr 链接保留所输入的应力状态。计算器的结果与当前输入保持一致。打开配筋工作区时重复的几何计算更少，几何和分析结果不变。",
+          "3D 分析拒绝未知的支座类型。方向不明确的滚动支座和自定义支座需要明确的约束。混凝土梁示例使用预期的简支支座。请确认受影响的支座约束哪些位移，然后重新运行分析、组合和设计验算（SA-2026-089）。",
+          "0.6.0 和 0.6.1 的版本说明和博客文章说明了哪些项目需要重新计算、哪些荷载需要重新生成。此处列出的后续修正已在 main 上，等待 0.6.2 版本发布；尚未关闭的审计发现仍在跟踪。",
+          "一个新的 Research 实验基于 Heyman 关于砌体的研究，探讨拱的最小厚度以及拱在荷载下如何倒塌。",
+        ],
+      },
     },
   },
   {
@@ -390,6 +410,34 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A német, a francia és a török nyelv ismét elérhető. A Research egy tengerfenékkel érintkező offshore riserrel és egy hajlított szalag alakszabályozásával bővül, az oldalaikon bemutatott összehasonlításokkal és korlátokkal. A munkaterület mentése megőrzi a méretezett épületeket, és jelzi, ha a böngésző nem tud menteni."
         ]
       },
+      zh: {
+        "title": "求解前先检查稳定性，移动荷载与 P-Δ 已更正，限制更清晰",
+        "items": [
+          "2D 和 3D 线性分析在求解前先检查刚度稳定性。机构、负刚度以及不确定性过大而无法求解的刚度会被拒绝并给出原因，而不再借助人工弹簧或平移来求解。请重新运行受影响的线性分析及其设计验算。",
+          "在刚性约束的自由度上设置弹簧，2D 和 3D 中均会被拒绝。3D 移动荷载可捕捉跨内某一轴下的峰值，包括斜杆上的轴力及其杆端力。请重新运行受影响的移动荷载包络。",
+          "P-Δ 分析在 2D 和 3D 中沿每根杆件对变化的轴力积分，更正了跨间荷载下被低估的放大效应。谐响应分析可完整求解频率，无需有界的模态截断，包括超出稠密规模限制的模型。请重新运行这些分析及相关验算。",
+          "经认证的 3D 塑性倒塌分析会给出其经认证的下限，并拒绝不可靠的证书。塑性分析在分配内存前先检查所需的计算量和内存。纤维荷载控制会限定其极限荷载，而不再给出随步长变化的数值。",
+          "接触分析会拒绝不满足最终接触条件的冻结状态。索单元在专用索分析之外会被拒绝，因为那里无法表示其松弛。这些限制同时适用于原生分析和浏览器内分析。",
+          "壳组合保留强制位移工况产生的应力，并包含四边形单元的节点应力；土-结构相互作用在 2D 和 3D 中返回支座反力。屈曲分析和多工况分析会拒绝非有限结果。已保存的项目会识别出由存在已知错误结果的版本得出的分析，并要求重新运行受影响的分析。",
+          "2D 和 3D 屈曲分析仅在确实耦合的部分内保留轴力的舍入界限。独立结构中的约束不再妨碍另一根柱的求解；耦合部分内不确定的压力仍会被拒绝。请重新运行已保存的屈曲和 P-Δ 分析，以更新 B₂ 系数和稳定性。",
+          "回归检查覆盖了 28 个已报告的模型，这些模型现在会被拒绝并给出原因；经证据审查，25 个候选问题得以关闭。七个旧的壳模型存在面内自由刚体转动：原生测试和浏览器测试确认其被拒绝，并在补上缺失的约束后检验其结果。",
+          "2D 和 3D 分阶段分析与线性分析共用自由转动的处理方式。杆端释放和单位变更不再增加人工转动刚度，支座沉降保持其预期的位移。请重新运行受影响的分阶段分析及相关设计验算（SA-2026-060）。3D 塑性分析中最初的弹性拒绝现在仍是拒绝，不再悄悄变成零倒塌系数（SA-2026-062）。",
+          "对于记录标签与杆件和节点编号不一致的导入模型，塑性平衡检查不再崩溃。塑性证书按实际所需的存储量计数，当可选的细化超出限制时保留最后一个有效界限。此前被拒绝的框架现在可在相同限制内获得认证。",
+          "塑性认证运行更快，结果和资源限制不变。外伸臂示例求解也更快，并保留其经检验的滑块范围。",
+          "2D 和 3D 非线性分析在旋转、镜像和单位变更后，一致地检查物理平衡。P-Δ、强制沉降和土弹簧在不放宽收敛限制的情况下保留可求解的小响应。请重新运行受影响的非线性、P-Δ 和土-结构分析。",
+          "屈曲系数在 2D 和 3D 中由原始刚度矩阵恢复，更正了带约束或曲杆模型中轻微的高估和错误的拒绝。有效的教学振型在不同单位下得以保留。请重新运行受影响的屈曲分析；证书限制不变。",
+          "桁架杆件荷载现在在 2D 和 3D 中都进入平衡检查，因此当等效节点荷载可以求解时，带杆件荷载的有效模型不再被拒绝。请重新运行受影响的桁架分析。",
+          "模态分析在经过约束和斜支座后仍保持质量的物理秩。含无质量方向的模型可以返回其有效的有限模态，而不会因多出一个虚假模态而被拒绝。请重新运行受影响的模态分析及相关的动力响应。",
+          "受约束的约束主节点上的强制沉降和转角，现在可传递到分阶段、Winkler、接触、材料非线性、2D 共旋和弧长分析中的从属节点。索单元分析和线性时程分析会拒绝其无法表示的非零强制支座位移。请重新运行受影响的分析及相关验算（SA-2026-063）。",
+          "弧长法和位移控制在最终荷载系数下恢复支座反力和杆件内力。非线性和分阶段的恢复包含经约束传递的力，不含人工刚度，并采用每根杆件最终的物理状态和杆件坐标系。请重新运行受影响的分析及相关验算（SA-2026-061）。",
+          "P-Δ 分析区分物理残差失败与变位几何上的力矩平衡局限。物理平衡失败时，力和应力暂不提供；后一种局限则保留有效的小位移结果并给出警告。时程分析对不可用的总支座反力和峰值支座反力暂不提供，同时保留位移历程和峰值。请复核已保存的内力（SA-2026-061）。",
+          "在 2D 和 3D 中，移除承受内力的杆件的分阶段历程会被拒绝。荷载或位移之后刚度或支座弹簧的变化，可能使力和应力不可用并给出诊断信息。完全卸载的移除以及仅由约束完全确定的阶段保留其结果；受荷杆件的内力重分布仍未支持（SA-2026-061）。",
+          "土-结构相互作用修正弹性平衡，而不会重启未变化的求解。旋转后或单位缩放后的模型，无论没有土还是土处于初始线性范围，都可在现有容差和迭代次数限制内收敛。请重新运行受影响的土-结构分析。",
+          "旋转或镜像后的带约束框架和桁架，不再因舍入界限而被错误拒绝。2D 和 3D 的线性、分阶段、徐变和 P-Δ 初始求解保留可求解的物理刚度；机构和精度的限制不变。请重新运行受影响的分析。",
+          "CIRSOC 301 钢结构设计从计算引擎读取弯矩梯度和截面特性。弯矩梯度系数包含无支撑段两端的符号变化；受拉净面积检查每一条交错螺栓链，并拒绝腹板或角钢第二肢缺少螺栓的全单元连接。请重新验算受影响的钢构件。",
+          "重新提供德语、法语和土耳其语。Research 新增了带海床接触的海洋立管，以及弯曲板条的形状控制，对比和限制均在各自页面上列出。工作区保存会保留已设计的建筑，并在浏览器无法保存时给出提示。",
+        ]
+      },
     },
   },
   {
@@ -478,6 +526,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A MITC4 és MITC9 héjelemek vetemedett geometrián továbbra is túl hajlékonyak: a 90°-os csavarású benchmarkban az elmozdulások MITC4 esetén mintegy 30%-kal haladták meg a referenciát, MITC9 esetén pedig annak akár 2,4-szeresét is elérték. A hiba a csavarással nő, sík elemeken nem jelentkezik. A formuláció továbbra sincs javítva (#1057). A #1074-es PR a mért határoknál figyelmeztetéseket és elutasításokat vezetett be; ez a korlátozás nem javítja a formulációt.",
           "A PRO számítási jelentése a kiválasztott eredményhalmazt nyomtatja, és ellenőrzi az exportált táblázatait. Vannak mentett nézetek, együtt látható alaprajz és 3D, IFC-referenciák, csak olvasható hivatkozások és több lemezeredmény. Az Excel- és IFC-importálás megtartja a téglalap keresztmetszetek helyes inerciatengelyét.",
           "Visszatért az Alap mód tananyaga statikával, hatásábrákkal, másodrendű analízissel, kihajlással, képlékenységgel és dinamikával. Elérhetők paraméteres példák és egy saját Anthropic- vagy OpenAI-kulccsal működő asszisztens. A Research és a Tools oldalak gyorsabban nyílnak meg telefonon."
+        ]
+      },
+      zh: {
+        "title": "荷载、设计与分析的更正；更多的计算与学习方式",
+        "items": [
+          "生成的荷载在局部覆盖和旋转楼板上保留楼面荷载，并将壳计入地震重量。平衡检查会指出无法求和的荷载。请重新生成受影响的荷载。",
+          "钢结构和混凝土验算更正了抗剪面积、超筋受弯、矩形柱和管截面受压。未验算扭转的连接和构件会说明哪些内容未评估。壳包络的每个分量保留各自的极值。请重新运行受影响的设计。",
+          "2D 屈曲分析沿杆件对轴力积分；刚性约束后的机构会被拒绝，3D 共旋分析可合成大转动。动力分析在无质量节点上保留初始荷载，并拒绝机构。非有限结果会被拒绝并给出原因。",
+          "新增 2D 塑性极限分析，但在 #758 的验证完成之前，塑性倒塌仍暂不提供。3D 屈曲分析区分压力与舍入误差；谐响应分析按模型和频率选择方法，不随荷载而改变。线性分析会对大转动和可能的二阶效应给出警告。",
+          "MITC4 和 MITC9 壳在翘曲几何上仍然过柔：在扭转 90° 的基准算例中，MITC4 的位移比参考值高约 30%，MITC9 最高达参考值的 2.4 倍。误差随扭转增大，平面单元上则不存在。该公式尚未修正（#1057）。PR #1074 按实测限值增加了警告和拒绝；这种遏制并不能修正公式。",
+          "PRO 报告会打印所选的结果集，并检查其导出的表格。新增已保存视图、平面与 3D 组合视图、IFC 引用、只读链接以及更多板结果。Excel 和 IFC 导入会保留矩形截面正确的惯性轴。",
+          "基础课程回归，涵盖静力学、影响线、二阶效应、屈曲、塑性和动力学。提供参数化示例，以及使用您自己的 Anthropic 或 OpenAI 密钥的助手。Research 和 Tools 页面在手机上打开更快。",
         ]
       },
     },
@@ -584,6 +644,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A JAIE 2026 cikk teljes terjedelmében a /paper oldalon, valamint ez a változásnapló."
         ]
       },
+      zh: {
+        "title": "Stabileo Research、Tools，以及德语、法语和土耳其语版本的应用",
+        "items": [
+          "位于 X–Y 平面之外的壳的实体壳应力现已正确；应用会提示您重新运行受影响的项目。",
+          "计算引擎在每次变更时进行不变性检查，并每晚用随机模型测试；三个疑似的引擎错误最终证明是错误的测试模型，现在每个基准算例都需要两个独立的参考、模型检查和一次收敛研究。",
+          "板作为实体对象，在求解时划分网格；曲杆作为单个构件；跨多个标高的 DXF 模板；以及按楼层划分的使用区及其活荷载。",
+          "按输出内容选择导出（结果、计算书、图纸和 IFC），计算书也可导出为带插图的 Word 文件。",
+          "基础模式的复制粘贴与 PRO 一致，并预览落点；Ctrl+S 不再移动 3D 视图，撤销不再把 2D 模型平放进 3D，变形图上的位移可按需显示。",
+          "应用和网站现在也提供德语、法语和土耳其语。",
+          "Stabileo Research：17 篇已发表的论文和经典计算力学基准算例，在浏览器中基于 Stabileo 的引擎运行，每个都说明其对比对象和检验方式。",
+          "Tools：八个免费计算器（梁、悬臂梁、欧拉柱等），在真实的引擎上求解，在结果旁给出经典公式，并可在 Stabileo 中打开模型。",
+          "完整的 JAIE 2026 论文位于 /paper，以及本更新日志。",
+        ]
+      },
     },
   },
   {
@@ -660,6 +734,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Két új blogbejegyzés, megújult tartalomjegyzék, és egy oldal, amely felsorolja, mit ellenőriz a Stabileo az egyes CIRSOC szabványokból."
         ]
       },
+      zh: {
+        "title": "引擎中的设计验算，以及 0.2.0 和 0.3.0 版本",
+        "items": [
+          "钢筋混凝土（CIRSOC 201）和钢结构（CIRSOC 301）的设计规范验算现在在引擎内运行，并配有针对已发表参考模型的验证套件。",
+          "对于允许的结果，引擎使用区间算术计算误差界限。",
+          "发布了 0.2.0 和 0.3.0 版本，附有西班牙语、英语和葡萄牙语的版本说明。当某项变更影响结果时，应用会提示您重新运行已保存的项目。",
+          "落地页新增了一个关于验证的板块，现在加载量为 152 KB，而不是 6.4 MB。",
+          "两篇新博客文章，重新设计的索引，以及一个列出 Stabileo 对每部 CIRSOC 规范检查内容的页面。",
+        ]
+      },
     },
   },
   {
@@ -677,6 +761,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'La boîte de dialogue de la note de calcul du mode Basique, avec la liste des contenus où l\'on choisit ce qu\'elle inclut',
         tr: 'Temel modundaki hesap raporu iletişim kutusu; neyin dahil edileceğini seçmek için içerik listesiyle',
         hu: 'Az Alap mód számítási jelentésének párbeszédablaka a tartalomlistával, amelyből kiválasztható, mi kerüljön bele',
+        zh: '基础模式的计算书对话框，列出可选择包含哪些内容的目录',
       },
     },
     i18n: {
@@ -757,6 +842,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mértékegységek a teljes PRO-ban, valamint exportálás Excelbe, CSV-be, PDF-jelentésbe, DXF-be és képekbe, mindegyik egy párbeszédablakkal, amely megmutatja, mi készül."
         ]
       },
+      zh: {
+        "title": "在基础模式中自行组合的报告，以及 PRO 中的动力荷载",
+        "items": [
+          "从千米到毫米的缩放，选取相互重叠的杆件，隐藏模型的部分内容，以及更易读的标签。",
+          "通过选择包含的内容来生成 PDF 计算书，包括几何组成分析和平衡的隔离体图，图形可直接导出打印。",
+          "一段展示结构逐层建成过程的视频。",
+          "复合荷载工况和参考荷载工况、名义荷载，以及 SRSS 和 ABS 组合。",
+          "动力荷载和移动荷载：项目专用的反应谱和目录中的车辆。",
+          "整个 PRO 中的单位，以及导出为 Excel、CSV、PDF 报告、DXF 和图像，每种导出都配有显示输出内容的对话框。",
+        ]
+      },
     },
   },
   {
@@ -826,6 +922,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egy teljes épület vasbeton méretezése kevesebb mint feleannyi ideig tart, mint korábban."
         ]
       },
+      zh: {
+        "title": "PRO 中基于规范的荷载",
+        "items": [
+          "规范荷载生成器涵盖屋面、雪堆积和荷载布置，并按 CIRSOC 102 计算风阵风系数。",
+          "杆件、节点和板上的荷载可连同方向、变化形式和作用面积一并输入。",
+          "显示单位、变截面杆件以及对截面编辑器的改进。",
+          "整栋建筑的钢筋混凝土设计所需时间不到以往的一半。",
+        ]
+      },
     },
   },
   {
@@ -843,6 +948,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un bâtiment de plusieurs étages modélisé dans le mode PRO, avec grilles et niveaux',
         tr: 'PRO modunda aks ızgaraları ve katlarla modellenmiş çok katlı bir bina',
         hu: 'Többszintes épület a PRO módban modellezve, raszterrel és szintekkel',
+        zh: '在 PRO 模式中建模的多层建筑，带轴网和标高',
       },
     },
     i18n: {
@@ -944,6 +1050,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Megoldó, amely sokkal gyorsabbá teszi a nagy modelleket, és javítás a lemezelemekben."
         ]
       },
+      zh: {
+        "title": "在 PRO 中从练习走向真实项目",
+        "items": [
+          "杆件逐点绘制，可捕捉节点、中点和交点，并询问是否连接相交处。",
+          "涵盖十五种分析方法的分步讲解解答。",
+          "动力分析会绘制各阶模态的振型。",
+          "轴网和标高、可插入模型的结构生成器，以及复制粘贴。",
+          "按从属面积计算楼面荷载、板网格划分、弹性支座和基础。",
+          "结果表、挠度限值、板云图、项目 Excel 工作簿和报告。",
+          "用于绘制组合截面的编辑器，以及搜索满足要求的最轻截面。",
+          "七个已发表的参考结构，经建模用于对照检验结果，以及包含 24 个示例的示例库。",
+          "一个使大型模型快得多的求解器，以及对板单元的一处修复。",
+        ]
+      },
     },
   },
   {
@@ -961,6 +1081,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les armatures dimensionnées d\'une structure en béton armé, vues en 3D dans le mode PRO',
         tr: 'Betonarme bir yapının boyutlandırılmış donatıları, PRO modunda 3B olarak',
         hu: 'Vasbeton szerkezet méretezett vasalása 3D-ben, a PRO módban',
+        zh: '在 PRO 模式中以 3D 显示的钢筋混凝土结构设计配筋',
       },
     },
     i18n: {
@@ -1062,6 +1183,20 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A hibásan felépített modellt az alkalmazás most üzenettel elutasítja ahelyett, hogy nullákat adna vissza."
         ]
       },
+      zh: {
+        "title": "PRO 中的钢筋混凝土设计",
+        "items": [
+          "更简短的落地页，带有定价方案和一个也显示在应用内的联系面板。",
+          "一篇新博客文章，讲述何时用杆件建模、何时用有限元建模，另有用户指南。",
+          "CIRSOC Flex 钢筋混凝土计算器现在会给出钢筋建议，并已对照原始电子表格验证。",
+          "按刚度法和柔度法的分步解答，支持 2D 和 3D。",
+          "所有分析中均支持温度作用。",
+          "教学模式成为基础模式内的一个面板。",
+          "钢筋混凝土设计，以及重新组织的 PRO 界面。",
+          "模型平衡检查，以及动力分析：模态、反应谱和时程分析。",
+          "构建有误的模型现在会被拒绝并给出提示，而不是返回零值。",
+        ]
+      },
     },
   },
   {
@@ -1079,6 +1214,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Le mode Basique sur un téléphone, avec le diagramme des moments d\'un portique',
         tr: 'Telefonda Temel modu; bir çerçevenin eğilme momenti diyagramıyla',
         hu: 'Az Alap mód telefonon, egy keret hajlítónyomatéki ábrájával',
+        zh: '手机上的基础模式，显示框架的弯矩图',
       },
     },
     i18n: {
@@ -1145,6 +1281,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Acélszerkezetek: keresztmetszet- és anyagválasztók, generátorok, acél munkafolyamat és kapcsolatok méretezése."
         ]
       },
+      zh: {
+        "title": "手机上的 Stabileo",
+        "items": [
+          "手机界面，基础模式和 PRO 使用相同的布局。",
+          "从 Excel 导入模型，共享链接再次打开完整的模型。",
+          "按 CIRSOC Flex 进行截面配筋设计，这是阿根廷大多数土木工程师使用的电子表格。",
+          "钢结构：截面和材料选择器、生成器、钢结构工作流程和连接设计。",
+        ]
+      },
     },
   },
   {
@@ -1162,6 +1307,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Une halle industrielle métallique générée à partir de paramètres modifiables',
         tr: 'Düzenlenebilir parametrelerle oluşturulmuş çelik bir endüstriyel yapı',
         hu: 'Szerkeszthető paraméterekből felépített acél ipari csarnok',
+        zh: '由可编辑参数构建的钢结构工业厂房',
       },
     },
     i18n: {
@@ -1228,6 +1374,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Három számítási hiba javítva: a kör keresztmetszetű cső nyírása, a csúcs-nyíróerő, és egy építési fázisokra bontott analízis, amely kihagyta a födémeket és a falakat."
         ]
       },
+      zh: {
+        "title": "钢结构，以及三种语言的网站",
+        "items": [
+          "根据可编辑参数生成桁架、格构柱和工业厂房的生成器，配有带目录和筛选功能的截面选择器。",
+          "落地页和博客提供西班牙语、英语和葡萄牙语版本。网站可被搜索引擎收录，共十八个页面和四篇文章。",
+          "七个简短教程，取代了引导式导览。",
+          "修复了三处计算错误：圆管的剪力、峰值剪力，以及一个遗漏了楼板和墙的分阶段分析。",
+        ]
+      },
     },
   },
   {
@@ -1245,6 +1400,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'L\'analyse de section du mode Basique, avec l\'état de contrainte sur le contour réel du profilé',
         tr: 'Temel modunda kesit analizi; profilin gerçek konturu üzerindeki gerilme durumuyla',
         hu: 'Keresztmetszet-vizsgálat az Alap módban, a feszültségi állapottal a keresztmetszet valós kontúrján',
+        zh: '基础模式的截面分析，应力状态绘制在截面的真实轮廓上',
       },
     },
     i18n: {
@@ -1311,6 +1467,15 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A PRO-t újratervezték, az Alap móddal azonos arculattal."
         ]
       },
+      zh: {
+        "title": "截面分析，以及全新的 PRO 界面",
+        "items": [
+          "点击结构上的任意一点，即可得到实际截面上的应力状态，包括主应力、莫尔圆、截面核心，以及可拖动的荷载点，用来观察偏心的影响。",
+          "面向阿根廷、欧洲、美国和巴西的材料与截面数据库，包含 700 多种已对照其标准检验的截面。",
+          "更易用的选择和移动工具，以及带色标的应力云图。",
+          "PRO 采用与基础模式相同的视觉标识重新设计。",
+        ]
+      },
     },
   },
   {
@@ -1328,6 +1493,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un exercice du mode Enseignement, avec les diagrammes tracés par l\'étudiant corrigés par rapport au calcul',
         tr: 'Eğitim modunda bir alıştırma; öğrencinin çizdiği diyagramlar hesaba göre değerlendiriliyor',
         hu: 'Feladat az Oktatási módban, a hallgató által rajzolt ábrákkal, amelyeket az alkalmazás az analízis alapján értékel',
+        zh: '教学模式中的练习，学生绘制的图形会对照分析结果评分',
       },
     },
     i18n: {
@@ -1401,6 +1567,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a méretezési ellenőrzésekben: a biztonság kárára tévedő alapértékek, hiányzó határállapotok és figyelmen kívül hagyott bemenetek."
         ]
       },
+      zh: {
+        "title": "全新的视觉标识，以及教学模式",
+        "items": [
+          "整个基础界面采用新落地页的视觉标识。",
+          "每个截面都解析为其精确的轮廓。没有轮廓时，应用拒绝计算应力，而不是臆造缺失的厚度。",
+          "教师在应用内创建练习，学生在其中解答；学生绘制的图形会对照分析结果评分。",
+          "钢筋混凝土基础：从配筋设计到 CAD 文件，并附 3D 钢筋表。",
+          "对设计验算的修复：偏不安全的默认值、缺失的极限状态，以及被忽略的输入。",
+        ]
+      },
     },
   },
   {
@@ -1461,6 +1637,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A nyitóoldalt újraépítették: elmagyarázza, mi a Stabileo, mi működik ma és mi van fejlesztés alatt, külön szakaszokkal az Alap, az Oktatási és a PRO mód számára.",
           "Terhek és méretezési ellenőrzések a 2025-ös CIRSOC szabványok szerint, az egyes szabványok kiadásának rögzítésével a projektben.",
           "Gyorsabb utófeldolgozás és 3D megjelenítő nagy modelleken."
+        ]
+      },
+      zh: {
+        "title": "全新的落地页，以及 2025 版 CIRSOC 规范",
+        "items": [
+          "重建了落地页：说明 Stabileo 是什么、目前可用的功能和开发中的功能，并设有基础模式、教学模式和 PRO 板块。",
+          "按 2025 版 CIRSOC 规范进行荷载和设计验算，各规范的版本会记录在项目中。",
+          "大型模型上更快的后处理和 3D 查看器。",
         ]
       },
     },
@@ -1525,6 +1709,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a kényszerekben és a ferde támaszokban."
         ]
       },
+      zh: {
+        "title": "结果始终与模型一致",
+        "items": [
+          "编辑模型会使由此过时的结果和设计验算失效，因此不再适用的结果绝不会显示。",
+          "更快的分析：荷载工况复用分解，组合成批求解，分析在后台运行。",
+          "对约束和斜支座问题的修复。",
+        ]
+      },
     },
   },
   {
@@ -1573,6 +1765,12 @@ export const CHANGELOG: ChangelogEntry[] = [
           "A DXF-rajzimportáló előnézettel és diagnosztikával, mértékegység-kezeléssel, több szinttel és gerendafelismeréssel bővült, áttekinthetőbb varázslóval."
         ]
       },
+      zh: {
+        "title": "DXF 图纸导入器",
+        "items": [
+          "DXF 图纸导入器新增预览和诊断、单位控制、多楼层和梁识别，向导也更清晰。",
+        ]
+      },
     },
   },
   {
@@ -1619,6 +1817,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         "title": "Rudak szabadtest-ábrái az Alap módban",
         "items": [
           "Rudak szabadtest-ábrái 2D-ben és 3D-ben, 2D-ben csúszó csuklókkal, 3D-ben hat szabadságfokú kioldásokkal, és az erővektorokkal minden rúdvégen."
+        ]
+      },
+      zh: {
+        "title": "基础模式中的杆件隔离体图",
+        "items": [
+          "2D 和 3D 中杆件的隔离体图，2D 中带滑动铰，3D 中带六自由度释放，并显示每端的力矢量。",
         ]
       },
     },
@@ -1683,6 +1887,14 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Egységes tengelyek és keresztmetszetek az Alap mód 2D és 3D nézetében."
         ]
       },
+      zh: {
+        "title": "从 CAD 图纸到混凝土模型",
+        "items": [
+          "从 DXF 图纸到钢筋混凝土结构草案：一个对图层分类的向导、一个可下载的模板和示例。",
+          "3D 局部坐标轴的约定已在界面和引擎中统一，已有模型也完成了迁移。",
+          "基础模式的 2D 和 3D 中统一了坐标轴和截面。",
+        ]
+      },
     },
   },
   {
@@ -1700,6 +1912,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Les efforts normaux d\'un bâtiment dans le mode PRO, avec les formes réelles des sections dans la vue 3D',
         tr: 'PRO modunda bir binanın normal kuvvetleri; 3B görüntüleyicide gerçek kesit şekilleriyle',
         hu: 'Normálerők egy épületben a PRO módban, valós keresztmetszet-alakokkal a 3D megjelenítőben',
+        zh: 'PRO 模式中某建筑的轴力，3D 查看器中显示真实的截面形状',
       },
     },
     i18n: {
@@ -1771,6 +1984,16 @@ export const CHANGELOG: ChangelogEntry[] = [
           "3D megjelenítő valós keresztmetszet-alakokkal és helyi tengelyekkel, valamint rúdvégi eltolások az oszlop oldallapjához csatlakozó gerendák modellezéséhez.",
           "Födémek és falak megjelenítéssel, tengelyekkel, főfeszültségekkel és jelentéssel.",
           "Az Alap módot újraírták, világosabb határvonallal közte és a PRO között."
+        ]
+      },
+      zh: {
+        "title": "PRO 中的专业工作流程",
+        "items": [
+          "设计、荷载和计算书在 PRO 中协同工作，设计验算统一。",
+          "按荷载工况、组合和包络给出结果。",
+          "带真实截面形状和局部坐标轴的 3D 查看器，以及用于对梁与柱面相接建模的杆件偏移。",
+          "楼板和墙的显示、坐标轴、主应力和报告。",
+          "基础模式经过重写，与 PRO 的界线更清晰。",
         ]
       },
     },
@@ -1857,6 +2080,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Javítások a mentésben, a megosztott hivatkozásokban és az exportálásban."
         ]
       },
+      zh: {
+        "title": "更流畅的 3D 查看器和更稳固的引擎",
+        "items": [
+          "重新设计的落地页（首页）。",
+          "近一千个新的稳健性测试，并修正了引擎、单元和约束中的精度问题，在分析运行前给出不稳定警告。",
+          "3D 中的铰可在每根杆件的每一端逐轴释放。",
+          "3D 查看器在超过一千个节点的模型上依然流畅：节点一次绘制完成，杆件拾取更快。",
+          "整个应用统一采用 Z 轴向上，并修复了应力和设计验算中的 My 和 Mz 弯矩。",
+          "对保存、共享链接和导出的修复。",
+        ]
+      },
     },
   },
   {
@@ -1875,6 +2109,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique spatial avec son diagramme des moments en 3D',
         tr: '3B eğilme momenti diyagramıyla bir uzay çerçeve',
         hu: 'Térbeli keret a hajlítónyomatéki ábrájával 3D-ben',
+        zh: '带 3D 弯矩图的空间框架',
       },
     },
     i18n: {
@@ -1983,6 +2218,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           "MI-asszisztens, amely beszélgetés alapján épít és szerkeszt modelleket."
         ]
       },
+      zh: {
+        "title": "Rust 引擎、PRO 模式和 Stabileo 之名",
+        "items": [
+          "分析引擎用 Rust 重写，通过 WebAssembly 在浏览器中运行。在取代旧引擎之前，两者在 90 个模型上做过对比。",
+          "超过两千项对照教科书解答和已发表参考算例的验证测试。",
+          "几何非线性和材料非线性分析、模态、反应谱和时程动力分析、板和壳、索、分阶段施工以及弹簧支承的基础。",
+          "稀疏矩阵求解器加快了大型模型：3D 模态分析快了 11.8 倍。",
+          "项目更名为 Stabileo，拥有自己的域名、落地页和 14 种语言的界面。",
+          "PRO 模式，带有按 CIRSOC 201 的钢筋混凝土验算、自动荷载、诊断和计算书。",
+          "钢筋混凝土工作流程：每根杆件的控制组合、自动验算、配筋构造和节点，以及 1005 个节点的体育场等大型示例。",
+          "教学模式，带有逐步检查的引导式练习。",
+          "基础模式新增 3D 视图，以及把 3D 模型转换为 2D 模型。",
+          "一个可通过对话来构建和编辑模型的 AI 助手。",
+        ]
+      },
     },
   },
   {
@@ -2001,6 +2251,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         fr: 'Un portique plan avec son diagramme des moments fléchissants dans le mode Basique',
         tr: 'Temel modunda eğilme momenti diyagramıyla bir düzlem çerçeve',
         hu: 'Síkbeli keret a hajlítónyomatéki ábrájával az Alap módban',
+        zh: '基础模式中带弯矩图的平面框架',
       },
     },
     i18n: {
@@ -2088,6 +2339,18 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Mobil felület, a modellt magukban hordozó megosztott hivatkozások, bemutató túra és billentyűparancsok."
         ]
       },
+      zh: {
+        "title": "开端：浏览器中的结构编辑器",
+        "items": [
+          "2 月 10 日发布的第一个版本：2D 中的杆件、支座和荷载，带反力、内力图和挠曲形状，无需安装任何东西。",
+          "集中荷载、局部分布荷载和移动荷载，荷载工况、组合以及两条曲线的包络。",
+          "带截面构建器的钢截面和混凝土截面，以及按 Navier、Jourawski 和 Von Mises 计算的截面应力。",
+          "斜支座、弹簧和支座沉降，以及杆件自重。",
+          "每个节点六个自由度的 3D 引擎及其查看器，另有 2D 中的 P-Δ、屈曲和影响线。",
+          "一个教学用的几何组成分析，逐杆件解释结构为何是或不是机构。",
+          "手机界面、携带模型的共享链接、引导式导览和键盘快捷键。",
+        ]
+      },
     },
   },
 ];
@@ -2100,6 +2363,7 @@ export const AREA_LABELS: Record<PublicLocale, Record<ChangelogArea, string>> = 
   fr: { basic: 'Basique', pro: 'PRO', edu: 'Enseignement', app: 'Application', engine: 'Moteur', site: 'Site' },
   tr: { basic: 'Temel', pro: 'PRO', edu: 'Eğitim', app: 'Uygulama', engine: 'Motor', site: 'Site' },
   hu: { basic: 'Alap', pro: 'PRO', edu: 'Oktatás', app: 'Alkalmazás', engine: 'Számítómag', site: 'Weboldal' },
+  zh: { basic: '基础', pro: 'PRO', edu: '教学', app: '应用', engine: '计算引擎', site: '网站' },
 };
 
 /** Parsed by parts, so no time zone moves the day back. */

@@ -153,5 +153,27 @@ export const LINK_NAMES: Record<string, Record<string, string>> = {
     "riks-crisfield": "Riks–Crisfield: ívhossz-módszer és átpattanás",
     "newmark-1959": "Newmark-féle időintegrálás: egy szabadságfok",
     "cqc-1981": "SRSS és CQC: modális kombináció"
+  },
+  "zh": {
+    "simply-supported-beam": "简支梁计算器",
+    "cantilever-beam": "悬臂梁挠度计算器",
+    "column-buckling": "Euler 柱屈曲计算器",
+    "continuous-beam": "连续梁计算器",
+    "portal-frame": "门式刚架计算器",
+    "truss-2d": "二维桁架计算器",
+    "influence-line": "影响线计算器",
+    "beam-natural-frequency": "梁自振频率计算器",
+    "macneal-harder-1985": "MacNeal–Harder 有限元基准算例",
+    "navier-plate": "Navier 板弯曲：傅里叶级数基准算例",
+    "mattiasson-elastica": "Mattiasson 弹性曲线：悬臂大挠度",
+    "ferrari-sigmund-2025": "Roorda 框架屈曲：Ferrari–Sigmund",
+    "biggins-2026": "曲率分布诱发拱的突跳屈曲",
+    "lee-frame-1968": "Lee 框架非线性基准算例（1968）",
+    "plastic-collapse": "门式刚架塑性倒塌基准算例",
+    "grossman-2026": "拉胀弹簧网络：Grossman–Boudaoud",
+    "pastrana-2026": "索结构找形：力密度法",
+    "riks-crisfield": "Riks–Crisfield 弧长法与突跳屈曲",
+    "newmark-1959": "Newmark 时间积分：单自由度基准算例",
+    "cqc-1981": "SRSS 与 CQC：模态组合基准算例"
   }
 };

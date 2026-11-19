@@ -25,6 +25,7 @@
     "de": "Schwerkraftlasten erfordern eine eindeutige Schalenabdeckung",
     "fr": "La génération des charges de gravité exige une couverture non ambiguë par les coques",
     "tr": "Yerçekimi yüklerinin üretilmesi için kabuk örtüsü belirli olmalıdır",
+    "zh": "生成重力荷载要求明确的壳单元覆盖关系",
     "hu": "A gravitációs terhek előállításához egyértelmű héjfedés szükséges"
   },
   "explanation": {
@@ -34,6 +35,7 @@
     "de": "Erzeugen Sie die Schwerkraftlasten für Projekte im Feldmodus mit Schalen neu. Überlappende Schalen in derselben Ebene und versetzte Schalendecken, die überlappende belastete Trägerfelder über starre Verbindungen in vertikaler Richtung koppeln, verhindern die Lasterzeugung. Die Prüfung umfasst Fugen, deren deckungsgleiche Knoten in allen sechs Freiheitsgraden gekoppelt sind.",
     "fr": "Régénérez les charges de gravité des projets en mode panneaux avec coques. La génération est bloquée lorsque des coques coplanaires se chevauchent ou que des planchers de coques décalés recouvrent des panneaux de poutres chargés en plan et sont reliés à ces panneaux par des liaisons rigides qui transmettent le déplacement vertical. La vérification inclut les joints dont les nœuds coïncidents sont liés dans les six degrés de liberté.",
     "tr": "Kabuk içeren panel modu projelerinde yerçekimi yüklerini yeniden üretin. Aynı düzlemde çakışan kabuklar ve izdüşümü çakışan yüklü kiriş panellerine düşey yer değiştirmeyi aktaran rijit bağlantılarla bağlanan ötelenmiş kabuk döşemeler yük üretimini engeller. Kontrol, çakışan düğümleri altı serbestlik derecesinin tamamında bağlanan birleşimleri de kapsar.",
+    "zh": "请为采用板块模式且含壳单元的项目重新生成重力荷载。共面壳单元相互重叠，或偏置的壳板通过竖向刚性连接与平面投影重叠且已受荷的梁板区相连时，将阻止生成。检查也涵盖重合节点的六个自由度均被绑定的接缝。",
     "hu": "Készítse újra a gravitációs terheket a héjakat tartalmazó mezőalapú projektekben. Az egy síkban átfedő héjak és a vetületben átfedő, terhelt gerendamezőkhöz függőleges elmozdulást átadó merev kapcsolatokkal csatlakozó eltolt héjfödémek blokkolják a terhek előállítását. Az ellenőrzés azokra a csatlakozásokra is kiterjed, amelyek egybeeső csomópontjai mind a hat szabadságfokban össze vannak kötve."
   },
   "changelog": {

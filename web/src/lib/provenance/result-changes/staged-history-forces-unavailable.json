@@ -27,7 +27,8 @@
     "de": "Bauphasenkräfte ohne unterstützte Ermittlung werden zurückgehalten",
     "fr": "Les efforts par phases sans récupération prise en charge sont retenus",
     "hu": "A fázistörténet erőinek visszatartása nem támogatott helyreállításnál",
-    "tr": "Desteklenmeyen aşama geçmişi kuvvetleri sunulmaz"
+    "tr": "Desteklenmeyen aşama geçmişi kuvvetleri sunulmaz",
+    "zh": "恢复不受支持时，暂不提供分阶段历程内力"
   },
   "explanation": {
     "en": "Changing active members or shells after earlier loading or motion now withholds reactions, member and constraint forces, and shell stresses with structured unavailability warnings. Later stages stay unavailable. Retained incremental displacements are not certified equilibrium results. Unloaded topology changes and unchanged stiffness retain their answers. Re-check saved staged results (#1952, #1996).",
@@ -36,7 +37,8 @@
     "de": "Änderungen aktiver Stäbe oder Schalen nach Belastung oder Bewegung unterdrücken Reaktionen, Kräfte und Spannungen mit strukturierten Hinweisen. Spätere Phasen bleiben unverfügbar. Inkrementelle Verschiebungen bestätigen kein Gleichgewicht. Änderungen vor Belastung und unveränderte Steifigkeit behalten ihre Ergebnisse. Prüfen Sie gespeicherte Bauphasenergebnisse (#1952, #1996).",
     "fr": "Modifier les barres ou coques actives après chargement ou mouvement retient réactions, efforts et contraintes avec avertissements structurés. Les phases suivantes restent indisponibles. Les déplacements incrémentaux ne certifient pas l’équilibre. Les changements avant chargement et la rigidité inchangée conservent leurs résultats. Revérifiez les résultats par phases (#1952, #1996).",
     "hu": "Az aktív rudak vagy héjak korábbi terhelés vagy mozgás utáni változtatása strukturált figyelmeztetéssel visszatartja a reakciókat, rúd- és kényszererőket, valamint héjfeszültségeket. A későbbi fázisok is nem elérhetők. A megőrzött növekményes elmozdulások nem tanúsított egyensúlyi eredmények. A terheletlen topológiaváltozások és a változatlan merevség válaszai megmaradnak. Ellenőrizze újra a mentett fázisos eredményeket (#1952, #1996).",
-    "tr": "Önceki yük veya hareketten sonra etkin eleman ya da kabuk değişince tepkiler, kuvvetler ve gerilmeler yapılandırılmış uyarılarla sunulmaz. Sonraki aşamalar da kullanılamaz. Artımlı yer değiştirmeler dengeyi doğrulamaz. Yüksüz topoloji değişiklikleri ve değişmeyen rijitlik sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952, #1996)."
+    "tr": "Önceki yük veya hareketten sonra etkin eleman ya da kabuk değişince tepkiler, kuvvetler ve gerilmeler yapılandırılmış uyarılarla sunulmaz. Sonraki aşamalar da kullanılamaz. Artımlı yer değiştirmeler dengeyi doğrulamaz. Yüksüz topoloji değişiklikleri ve değişmeyen rijitlik sonuçlarını korur. Kayıtlı aşamalı sonuçları yeniden denetleyin (#1952, #1996).",
+    "zh": "在早先的加载或运动之后更改激活的杆件或壳，现在会暂不提供反力、杆件内力和约束力以及壳应力，并给出结构化的不可用警告。之后的阶段保持不可用。保留下来的增量位移不是经认证的平衡结果。未加载的拓扑变化和未改变的刚度保留其结果。请重新核对已保存的分阶段结果（#1952，#1996）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-pdelta-and-staged-history-certification.md",
