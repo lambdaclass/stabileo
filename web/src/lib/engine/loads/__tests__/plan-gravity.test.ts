@@ -612,11 +612,20 @@ function rectangularShell(model: LoadModelData, id: number, x0: number, x1: numb
   return nodes;
 }
 
+function deadLoadKN(plan: ReturnType<typeof buildLoadPlan>, model: LoadModelData): number {
+  return surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model)
+    - totalKN(plan.distributed.filter(load => load.caseType === 'D'), model)
+    - plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + load.fz, 0);
+}
+
 function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
   for (const loadEveryPanel of [false, true]) {
     const gravity = { mode: 'panels', loadEveryPanel } as const;
     const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
-    expect(plan.outcome).toBe('BLOCKED');
+    const detail = plan.outcome === 'READY'
+      ? JSON.stringify({ appliedDeadKN: deadLoadKN(plan, model), levelDeadKN: plan.levels.map(level => level.superimposedKN), blockedKeys: plan.blockedKeys })
+      : JSON.stringify(plan.blockedKeys);
+    expect(plan.outcome, detail).toBe('BLOCKED');
     expect(plan.blockedKeys).toEqual([reason]);
     expect(teAt(reason, 'en')).not.toBe(reason.key);
     expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
@@ -706,6 +715,94 @@ it('#2299 an independent upper shell and lower deck each carry gravity', () => {
   for (const [id, area] of [[1, 21], [2, 21], [3, 9], [4, 9]]) {
     expect(totalKN(plan.distributed.filter(load => load.caseType === 'D' && load.elementId === id), model)).toBeCloseTo(-area!, 10);
   }
+});
+
+function commonMasterShellBay(z: number, untied?: 'beam' | 'shell') {
+  const model = linkedShellBay(z);
+  model.constraints = (model.constraints ?? []).flatMap(link => {
+    if (link.type !== 'rigidLink') return [];
+    const beam = model.nodes.get(link.masterNode)!;
+    const masterNode = beam.id + 200;
+    model.nodes.set(masterNode, { ...beam, id: masterNode, z: (3 + z) / 2 });
+    return [
+      { ...link, masterNode, slaveNode: beam.id, dofs: untied === 'beam' ? [0, 1] : link.dofs },
+      { ...link, masterNode, dofs: untied === 'shell' ? [0, 1] : link.dofs },
+    ];
+  });
+  return model;
+}
+
+function exteriorStripShellBay(edges: number[], disconnected = false) {
+  const model = floor(1, 1, 10, 6);
+  let previous: number[] | undefined;
+  for (let i = 1; i < edges.length; i++) {
+    const x0 = edges[i - 1]!;
+    const nodes = rectangularShell(model, i, x0, edges[i]!, 3.02);
+    if (i === 1) {
+      model.constraints = [1, 3].map((masterNode, j) => ({
+        type: 'rigidLink', masterNode, slaveNode: nodes[j * 3]!, dofs: [0, 1, 2, 3, 4, 5],
+      }));
+    }
+    if (previous && !(disconnected && x0 === 0)) {
+      model.nodes.delete(nodes[0]!);
+      model.nodes.delete(nodes[3]!);
+      nodes[0] = previous[1]!;
+      nodes[3] = previous[2]!;
+    }
+    previous = nodes;
+  }
+  return model;
+}
+
+const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
+issue2299('known wrong result: #2299 a common rigid master connects the beam and offset shell corners', () => {
+  checkBlockedGravity(commonMasterShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+});
+
+issue2299('known wrong result: #2299 an attached exterior strip is part of the shell deck over the bay', () => {
+  checkBlockedGravity(exteriorStripShellBay([-2, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
+});
+
+issue2299('known wrong result: #2299 subdividing the attached exterior strip preserves the refusal', () => {
+  checkBlockedGravity(exteriorStripShellBay([-2, -1, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 3 } });
+});
+
+it('#2299 common-master shells within the elevation band carry gravity once', () => {
+  const model = commonMasterShellBay(3.001);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual([]);
+  expect(plan.nodal).toEqual([]);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+  expect(deadLoadKN(plan, model)).toBeCloseTo(10 * 6, 10);
+});
+
+it('#2299 breaking vertical coupling on either common-master link keeps separate deck loads', () => {
+  for (const untied of ['beam', 'shell'] as const) {
+    const model = commonMasterShellBay(3.02, untied);
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+    expect(plan.outcome).toBe('READY');
+    expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+    expect(deadLoadKN(plan, model)).toBeCloseTo(2 * 10 * 6, 10);
+  }
+});
+
+it('#2299 a linked strip touching only the bay edge keeps both loads', () => {
+  const model = exteriorStripShellBay([-2, 0]);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+  expect(deadLoadKN(plan, model)).toBeCloseTo((10 + 2) * 6, 10);
+});
+
+it('#2299 an independent shell over the bay stays separate from the attached strip', () => {
+  const model = exteriorStripShellBay([-2, 0, 10], true);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+    [1, 2].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+  );
+  expect(deadLoadKN(plan, model)).toBeCloseTo((2 * 10 + 2) * 6, 10);
 });
 
 const issue2254 = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
