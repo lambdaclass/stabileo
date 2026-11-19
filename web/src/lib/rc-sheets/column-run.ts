@@ -22,15 +22,26 @@ const stackOf = (key: string) => {
   return { group: g ?? key, index: Number(k ?? 0) };
 };
 
-export function above<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
-  const me = stackOf(row.key);
-  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index + 1; });
+const stacks = new WeakMap<readonly { key: string }[], Map<string, { key: string }>>();
+
+function stackIndex<T extends { key: string }>(rows: readonly T[]): Map<string, T> {
+  let m = stacks.get(rows);
+  if (!m) {
+    m = new Map();
+    for (const r of rows) { const s = stackOf(r.key), k = `${s.group}:${s.index}`; if (!m.has(k)) m.set(k, r); }
+    stacks.set(rows, m);
+  }
+  return m as Map<string, T>;
 }
 
-export function below<T extends { key: string }>(rows: readonly T[], row: T): T | undefined {
+const stepOf = <T extends { key: string }>(rows: readonly T[], row: T, by: number): T | undefined => {
   const me = stackOf(row.key);
-  return rows.find((r) => { const s = stackOf(r.key); return s.group === me.group && s.index === me.index - 1; });
-}
+  return stackIndex(rows).get(`${me.group}:${me.index + by}`);
+};
+
+export const above = <T extends { key: string }>(rows: readonly T[], row: T): T | undefined => stepOf(rows, row, 1);
+
+export const below = <T extends { key: string }>(rows: readonly T[], row: T): T | undefined => stepOf(rows, row, -1);
 
 const offsetTo = (r: ColumnRow, up: ColumnRow) => Math.max(0, (r.b - up.b) / 2, (r.h - up.h) / 2);
 

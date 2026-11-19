@@ -63,7 +63,12 @@
   const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
   const rows = $derived(sheetsRun.rows ?? EMPTY);
   const basisText = $derived(rows.basis === 'combinations' ? tpn('rcSheets.basis.combinations', rows.combos) : t(`rcSheets.basis.${rows.basis}`));
-  const spansOf = (l: LineLayout) => rows.beam.filter((r) => r.demand.line?.group === l.group);
+  const spansBy = $derived.by(() => {
+    const m = new Map<number, SheetRows['beam']>();
+    for (const r of rows.beam) { const g = r.demand.line?.group; if (g === undefined) continue; let a = m.get(g); if (!a) m.set(g, (a = [])); a.push(r); }
+    return m;
+  });
+  const spansOf = (l: LineLayout) => spansBy.get(l.group) ?? [];
   const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
   const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });

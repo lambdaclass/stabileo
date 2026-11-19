@@ -38,7 +38,6 @@ type Node = { x: number; y: number; z?: number };
 const v3 = (n: Node): V3 => [n.x, n.y, n.z ?? 0];
 const plus = (a: V3, o: { x: number; y: number; z: number }): V3 => [a[0] + o.x, a[1] + o.y, a[2] + o.z];
 const unit = (a: V3, b: V3): V3 => { const d: V3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(...d) || 1; return [d[0] / l, d[1] / l, d[2] / l]; };
-const groupElements = (g: number) => physicalGroups().find((x) => x.id === g)?.members.elements ?? [];
 
 type ElementLike = NonNullable<ReturnType<typeof modelStore.elements.get>>;
 
@@ -63,13 +62,23 @@ const offsetAt = (elementId: number, node: number) => {
 
 export function modelFrames(rows: SheetRows): Rebar3dFrames {
   const footings = new Map<string, { demand: { at: { x: number; y: number } } }>([...rows.footing.flatMap((r) => (r.demand.group?.members ?? []).map((m) => [m.key, { demand: m }] as const)), ...rows.footing.map((r) => [r.key, r] as const)]);
+  let groups: Map<number, readonly number[]> | undefined, spansBy: Map<number, NonNullable<SheetRows['beam'][number]['demand']['line']>[]> | undefined;
+  const groupElements = (g: number) => (groups ??= new Map(physicalGroups().map((x) => [x.id, x.members.elements ?? []]))).get(g) ?? [];
+  const spansOf = (g: number) => {
+    if (!spansBy) {
+      spansBy = new Map();
+      for (const r of rows.beam) { const l = r.demand.line; if (!l) continue; let a = spansBy.get(l.group); if (!a) spansBy.set(l.group, (a = [])); a.push(l); }
+      for (const a of spansBy.values()) a.sort((p, q) => p.index - q.index);
+    }
+    return spansBy.get(g) ?? [];
+  };
   return {
     line(l) {
-      const spans = rows.beam.filter((r) => r.demand.line?.group === l.group).map((r) => r.demand.line!).sort((p, q) => p.index - q.index);
+      const spans = spansOf(l.group);
       const first = spans[0], last = spans[spans.length - 1];
       const A = first && modelStore.nodes.get(first.startNode), B = last && modelStore.nodes.get(last.endNode);
       if (!first || !last || !A || !B) return null;
-      const e0 = elementsBetween(groupElements(l.group), first.startNode, first.endNode)[0], e1 = elementsBetween(groupElements(l.group), last.startNode, last.endNode).at(-1);
+      const members = groupElements(l.group), e0 = elementsBetween(members, first.startNode, first.endNode)[0], e1 = elementsBetween(members, last.startNode, last.endNode).at(-1);
       const el = e0 === undefined ? undefined : modelStore.elements.get(e0);
       if (!el || e1 === undefined) return null;
       const a = plus(v3(A), offsetAt(el.id, first.startNode)), b = plus(v3(B), offsetAt(e1, last.endNode));
