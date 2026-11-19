@@ -820,13 +820,12 @@ function tiedExteriorStripShellBay(useCommonMaster: boolean, dofs?: number[]) {
 }
 
 const allShellDofs = [0, 1, 2, 3, 4, 5];
-const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
 
-issue2299('known wrong result: #2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
+it('#2299 an offset deck crosses an exterior strip seam tied in all six DOFs', () => {
   checkBlockedGravity(tiedExteriorStripShellBay(false, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
-issue2299('known wrong result: #2299 coincident common masters tie an offset shell seam', () => {
+it('#2299 coincident common masters tie an offset shell seam', () => {
   checkBlockedGravity(tiedExteriorStripShellBay(true, allShellDofs), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 

@@ -191,7 +191,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const roofs = opts.mode === 'panels' ? connectedShellGroups(slopedCarriers) : [];
   if (opts.mode === 'panels') assertDisjointShells(carriers);
   const rigidLinks = opts.mode === 'panels' ? verticalRigidLinks(model) : [];
-  const linkedDecks = linkedShellDecks(carriers, rigidLinks);
+  const linkedDecks = linkedShellDecks(model, carriers, rigidLinks);
   const offsets = directShellOffsets(model, shellNodes, rigidLinks);
   const attachedCoverage = rigidShellCoverage(model, offsets, carriers, out.zOf.keys());
   const shellMembership = new Map<number, boolean>();
@@ -619,8 +619,7 @@ class NodeComponents {
   }
 }
 
-function connectedShellGroups(carriers: ShellCarrier[]): ShellCarrier[][] {
-  const components = new NodeComponents();
+function connectedShellGroups(carriers: ShellCarrier[], components = new NodeComponents()): ShellCarrier[][] {
   for (const shell of carriers) for (const node of shell.nodes.slice(1)) components.join(node, shell.nodes[0]!);
   const groups = new Map<number, ShellCarrier[]>();
   for (const shell of carriers) {
@@ -632,16 +631,27 @@ function connectedShellGroups(carriers: ShellCarrier[]): ShellCarrier[][] {
   return [...groups.values()];
 }
 
+function isCoincidentFullRigidLink(model: GravityModel, { masterNode, slaveNode, dofs }: RigidLinkConstraint): boolean {
+  if (!dofs || ![0, 1, 2, 3, 4, 5].every(dof => dofs.includes(dof))) return false;
+  const master = model.nodes.get(masterNode)!;
+  const slave = model.nodes.get(slaveNode)!;
+  return master.x === slave.x && master.y === slave.y && (master.z ?? 0) === (slave.z ?? 0);
+}
+
 type ShellDecksAtNode = (node: number) => Iterable<ShellCarrier[]>;
 
 function linkedShellDecks(
-  carriers: ShellCarrier[], links: readonly RigidLinkConstraint[],
+  model: GravityModel, carriers: ShellCarrier[], links: readonly RigidLinkConstraint[],
 ): ShellDecksAtNode | undefined {
   if (!carriers.length || !links.length) return;
   const rigid = new NodeComponents();
-  for (const { masterNode, slaveNode } of links) rigid.join(masterNode, slaveNode);
+  const seams = new NodeComponents();
+  for (const link of links) {
+    rigid.join(link.masterNode, link.slaveNode);
+    if (isCoincidentFullRigidLink(model, link)) seams.join(link.masterNode, link.slaveNode);
+  }
   const decksByRoot = new Map<number, Map<ShellCarrier[], Set<number>>>();
-  for (const deck of connectedShellGroups(carriers)) for (const shell of deck) for (const node of shell.nodes) {
+  for (const deck of connectedShellGroups(carriers, seams)) for (const shell of deck) for (const node of shell.nodes) {
     if (!rigid.has(node)) continue;
     const root = rigid.root(node);
     const decks = decksByRoot.get(root) ?? new Map<ShellCarrier[], Set<number>>();
