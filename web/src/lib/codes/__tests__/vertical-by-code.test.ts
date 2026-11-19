@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildLoadPlan } from '../../engine/loads/load-plan';
 import { expandCombinations } from '../../engine/loads/combination-cases';
-import { planInput, SEISMIC_ON } from './family-plan-helpers';
+import { otherRefusals, planInput, SEISMIC_ON } from './family-plan-helpers';
 
 const keys = (p: ReturnType<typeof buildLoadPlan>) => [...p.derivation, ...p.unsupportedKeys].map((m) => m.key);
 
@@ -27,7 +27,7 @@ describe('ASCE 7-22: Ev = 0,2·SDS·D, zero at SDS ≤ 0,125', () => {
   const ci = (sds: number) => ({ 'asce7-22-seismic': { sds, sd1: 0.6 * sds, s1: 0.5 * sds, tl: 8, systemKey: 'steelSMF', periodKey: 'steelMRF' } });
   it('applies Ev from SDS with the CIRSOC toggle off', () => {
     const p = buildLoadPlan(planInput('us', { codeInputs: ci(1.0), seismic: SEISMIC_ON(false) }));
-    expect(p.outcome).toBe('READY');
+    expect(otherRefusals(p)).toEqual([]);
     expect(keys(p)).toContain('loads.asce7.seismic.derivation.ev');
     const withE = p.combinations.find((c) => c.terms.some((t) => t.symbol === 'E') && c.terms.find((t) => t.symbol === 'D')!.factor > 1.2);
     expect(withE?.terms.find((t) => t.symbol === 'D')?.factor).toBeCloseTo(1.2 + 0.2, 9);

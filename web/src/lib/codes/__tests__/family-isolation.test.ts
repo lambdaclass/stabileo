@@ -10,7 +10,7 @@ import type { EngineMessage } from '../message';
 import { FAMILY_STACKS, type LoadFamilyChoice } from '../families/stacks';
 import { findAnyOccupancy, occupancyTableFor } from '../families/occupancy-tables';
 import { loadCodeFor } from '../families';
-import { planInput, SEISMIC_ON } from './family-plan-helpers';
+import { otherRefusals, planInput, SEISMIC_ON } from './family-plan-helpers';
 import { PSF, MPH } from '../asce7/refs';
 
 const WIND = { enabled: true, basicSpeed: 45, exposure: 'B', enclosure: 'enclosed', siteAltitudeM: 0, kzt: 1, kztSurveyed: false, roofSlopeDeg: 0, rigid: true, directions: { x: true, y: true } } as LoadPlanInput['wind'];
@@ -40,9 +40,9 @@ describe.each(Object.keys(INPUTS) as Array<Exclude<LoadFamilyChoice, 'cirsoc'>>)
     roof: { use: 'occupancy', occupancyKey: roof, dead: 2, slopeDeg: 0 }, partitionLive: 0.8, applyLiveReduction: true, patterns: 'all',
     gravity: { mode: 'panels' }, thermal: { dtUniform: 20, dtGradient: 0 }, combinationSet: 'both',
   }));
-  it('is ready', () => {
-    expect(p.blockedKeys).toEqual([]);
-    expect(p.outcome).toBe('READY');
+  it('is ready, or refused only for the concentrated roof load ASCE 7-22 asks for and the generator does not place', () => {
+    expect(otherRefusals(p)).toEqual([]);
+    expect(p.blockedKeys.map((m) => m.key)).toEqual(family === 'us' ? ['loads.asce7.blocked.concentratedRoof'] : []);
   });
   it('no CIRSOC or INPRES ref, message or text', () => {
     expect(p.refs.filter((r) => /^(cirsoc|inpres)/i.test(String(r.regulation)))).toEqual([]);
@@ -67,7 +67,7 @@ describe.each(Object.keys(INPUTS) as Array<Exclude<LoadFamilyChoice, 'cirsoc'>>)
 describe('CIRSOC: no other family', () => {
   const p = buildLoadPlan(planInput('cirsoc', { wind: WIND, snow: SNOW, partitionLive: 0.75, applyLiveReduction: true }));
   it('cites CIRSOC alone', () => {
-    expect(p.outcome).toBe('READY');
+    expect(otherRefusals(p)).toEqual([]);
     expect(p.refs.filter((r) => /EN 19|asce|ts-498|tbdy/i.test(String(r.regulation)))).toEqual([]);
   });
 });

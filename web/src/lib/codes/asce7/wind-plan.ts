@@ -1,13 +1,30 @@
 import type { WindProject } from '../cirsoc102/wind';
 import { derived, type ProvenancedValue } from '../regulation';
 import { msg, round } from '../message';
-import { windLoadCases, type WindAxis, type WindDirection, type WindLevel } from '../../engine/loads/wind-cases';
+import { windLoadCases, type WindAxis, type WindDirection } from '../../engine/loads/wind-cases';
+import { windHeightField, WindPressureRefusal } from '../../engine/loads/wind-pressure-field';
 import type { LevelMass, LoadPlanInput, PlanSink } from '../../engine/loads/load-plan';
 import { ADAPTER, codeInput, WIND_DEFAULTS, type Asce7WindInput } from './inputs';
-import { G_RIGID, KD_BUILDING, MIN_WALL_KNM2, REF, designPressure, gcpi, groundElevationKe, kz, velocityPressure, wallCp } from './wind';
-import { MPH } from './refs';
+import { EXPOSURE_7_22, G_RIGID, KD_BUILDING, MIN_WALL_KNM2, REF, Z_MIN_M, designPressure, gcpi, groundElevationKe, kz, velocityPressure, wallCp } from './wind';
+import { FT, MPH } from './refs';
 
 export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined } {
+  const work: PlanSink = { ...sink, cases: [...sink.cases], nodal: [...sink.nodal], distributed: [...sink.distributed], derivation: [...sink.derivation], refs: [...sink.refs], assumptions: [...sink.assumptions], unsupportedKeys: [...sink.unsupportedKeys], blockedKeys: [...sink.blockedKeys] };
+  try {
+    const result = planUnchecked(input, allLevels, work);
+    for (const key of ['cases', 'nodal', 'distributed', 'derivation', 'refs', 'assumptions', 'unsupportedKeys', 'blockedKeys'] as const) {
+      const target = sink[key] as unknown[];
+      for (let i = target.length; i < work[key].length; i++) target.push(work[key][i]);
+    }
+    return result;
+  } catch (error) {
+    if (!(error instanceof WindPressureRefusal)) throw error;
+    sink.blockedKeys.push(msg(error.message));
+    return { windQh: undefined };
+  }
+}
+
+function planUnchecked(input: LoadPlanInput, allLevels: LevelMass[], sink: PlanSink): { windQh: ProvenancedValue<number> | undefined } {
   const none = { windQh: undefined };
   if (!input.wind?.enabled) return none;
   const ci = codeInput<Asce7WindInput>(input, ADAPTER.wind);
@@ -61,7 +78,6 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
       return (designPressure(mean, qh, cp.windward, 0) - designPressure(qh, qh, cp.leeward, 0)) / 1000;
     };
     const elevated = levels.filter((l) => l.elevation > base + 1e-6);
-    const windLevels: WindLevel[] = [];
     elevated.forEach((lv, i) => {
       const below = i === 0 ? Math.max(base, ...modelElevations.filter((z) => z < lv.elevation - 1e-6)) : elevated[i - 1]!.elevation;
       const above = i === elevated.length - 1 ? lv.elevation : elevated[i + 1]!.elevation;
@@ -74,14 +90,21 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
         unsupportedKeys.push(msg('loads.asce7.wind.minimumGoverns', { dir: axis.toUpperCase(), level: round(lv.elevation, 2), min: round(MIN_WALL_KNM2, 3) }));
         if (!refs.includes(REF.min)) refs.push(REF.min);
       }
-      windLevels.push({ elevation: lv.elevation, nodeIds: lv.nodeIds, force: Math.max(force, minimum), pressureForce: force });
     });
+    // The net wall pressure at each height, carried by the members that stand there over the building's whole height (`windHeightField`).
+    const netAt = (z: number) => (designPressure(velocityPressure(Math.max(z - base, 0), w), qh, cp.windward, 0) - designPressure(qh, qh, cp.leeward, 0)) / 1000;
+    const field = (pressure: (z: number) => number) => windHeightField({
+      model: input.model, axis, from: base, to: base + h, region: region ?? undefined,
+      boundaries: [base + Z_MIN_M, base + EXPOSURE_7_22[exposure].zgFt * FT], pressure, width: across > 0 ? across : input.tributaryWidth,
+    });
+    const pressureField = field(netAt);
+    const minimumField = field(() => MIN_WALL_KNM2);
     const project: WindProject = {
       basicSpeed: V, exposure, siteAltitudeM: ci.groundElevationM ?? 0, kzt, kztSurveyed: kzt !== 1, structureKind: 'building',
       enclosure, meanRoofHeight: Math.max(h, 1), L: Math.max(along, 1), B: Math.max(across, 1), roofSlopeDeg: slope, rigid: true,
     };
     // `wind-cases.ts` reads qh·G·Cp − qh·(GCpi): Kd goes in with qh so its roof loads are Eq. 27.3-1's.
-    axes.push({ axis, across, along, levels: windLevels, project, qhNm2: qh * KD_BUILDING, gcpi: gi, G: G_RIGID });
+    axes.push({ axis, across, along, pressureField, minimumField, project, qhNm2: qh * KD_BUILDING, gcpi: gi, G: G_RIGID });
     derivation.push(msg('loadPlan.derivation.wind', { dir: axis.toUpperCase(), qh: round(qh, 0), net: round(bandNet(h, h), 3), front: round(across, 1) }));
   }
   if (!axes.length) { blockedKeys.push(msg('loads.tr.noDirection')); return none; }
@@ -96,7 +119,7 @@ export function planAsce7Wind(input: LoadPlanInput, allLevels: LevelMass[], sink
     const index = cases.length;
     cases.push({ existingId: null, type: 'W', nameKey: c.nameKey, nameParams: c.nameParams });
     for (const n of c.nodal) nodal.push({ nodeId: n.nodeId, caseType: 'W', caseIndex: index, fx: n.fx, fy: n.fy, fz: 0, mz: n.mz });
-    for (const d of c.distributed) if (inRegion(d.elementId)) distributed.push({ elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
+    for (const d of c.distributed) if (d.facet === -1 || inRegion(d.elementId)) distributed.push({ ...d, elementId: d.elementId, caseType: 'W', caseIndex: index, q: d.q });
   }
   return { windQh: derived(qh, [REF.qz], 'N/m²') };
 }

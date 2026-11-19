@@ -8,6 +8,8 @@ import { asce7Vertical, planAsce7Seismic, STORAGE_SHARE } from './seismic-plan';
 import { ADAPTER, WIND_DEFAULTS } from './inputs';
 import { asce7RoofLive } from './roof-live';
 import { ASCE7_PARTITION_MIN, asce7Partition } from '../families/partitions';
+import { msg, round } from '../message';
+import { A7 } from './refs';
 
 const TITLE = 'ASCE/SEI 7-22';
 const base = { family: 'aci-aisc', edition: '7-22', title: TITLE } as const;
@@ -24,6 +26,13 @@ export const ASCE7_LOADS: ImposedLoadCode = {
   occupancy: (key) => findAsce7Occupancy(key),
   occupancies: () => OCCUPANCY_TABLE_ASCE7_22,
   defaultOccupancy: 'residentialPrivate',
+  generationBlockers({ occupancies, roof }) {
+    const messages = [...new Map(occupancies.map((o) => [o.key, o])).values()]
+      .flatMap((o) => (o.concentratedKN !== null && o.concentratedKN > 0
+        ? [msg('loads.asce7.blocked.concentratedLive', { occupancy: msg(o.labelKey), force: round(o.concentratedKN, 2) })] : []));
+    if (roof || occupancies.some((o) => o.category === 'roof')) messages.push(msg('loads.asce7.blocked.concentratedRoof'));
+    return { messages, refs: messages.length ? [A7('4.4', 'concentrated live loads'), A7('Table 4.3-1', 'concentrated live loads')] : [] };
+  },
   roofOccupancies: () => OCCUPANCY_TABLE_ASCE7_22.filter((o) => o.category === 'roof' && o.key !== 'roofOrdinary' && o.key !== 'awningsFabric'),
   reduce: (o) => reduceAsce7(o),
   partition: asce7Partition,

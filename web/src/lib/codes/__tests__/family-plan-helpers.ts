@@ -45,3 +45,13 @@ export function planInput(family: LoadFamilyChoice, over: Partial<LoadPlanInput>
 
 export const SEISMIC_ON = (vertical: boolean): NonNullable<LoadPlanInput['seismic']> =>
   ({ enabled: true, coefficient: 0, liveParticipation: null, directions: { x: true, y: true }, vertical });
+
+/** The refusals of a concentrated load the code asks for and the generator does not place (CIRSOC 101 §4.4, ASCE 7-22 §4.4). */
+export const CONCENTRATED_REFUSALS: ReadonlySet<string> = new Set([
+  'loadPlan.blocked.concentratedRule', 'loadPlan.blocked.concentratedLive', 'loadPlan.blocked.concentratedRoof',
+  'loads.asce7.blocked.concentratedLive', 'loads.asce7.blocked.concentratedRoof',
+]);
+
+/** What blocks a plan besides those refusals. */
+export const otherRefusals = (p: { blockedKeys: ReadonlyArray<{ key: string }> }): string[] =>
+  p.blockedKeys.map((m) => m.key).filter((k) => !CONCENTRATED_REFUSALS.has(k));

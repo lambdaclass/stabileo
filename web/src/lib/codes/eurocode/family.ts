@@ -8,6 +8,8 @@ import { ecVertical, planEcSeismic, psiE } from './seismic';
 import type { EcFamily } from './refs';
 import { ecRoofLive } from './roof-live';
 import { EC_PARTITIONS, ecPartition } from '../families/partitions';
+import { msg, round } from '../message';
+import { EN1991_1_1 } from './refs';
 
 const TITLES: Readonly<Record<EcFamily, Record<'basis' | 'loads' | 'wind' | 'snow', string>>> = {
   eurocode: { basis: 'EN 1990', loads: 'EN 1991-1-1', wind: 'EN 1991-1-4', snow: 'EN 1991-1-3' },
@@ -40,6 +42,13 @@ function modules(f: EcFamily): AnyLoadCode[] {
     occupancy: (key) => findEcOccupancy(f, key),
     occupancies: () => occupancyTable(f),
     defaultOccupancy: uk ? 'uk-A1' : 'ec-A-floor',
+    /** Qk acts alone, for local verifications (6.2.1(4)): it is not an alternative to qk in the analysis, so it is said and does not block. */
+    generationBlockers({ occupancies }) {
+      const notes = [...new Map(occupancies.map((o) => [o.key, o])).values()]
+        .flatMap((o) => (o.concentratedKN !== null && o.concentratedKN > 0
+          ? [msg('loads.ec.live.localQk', { occupancy: msg(o.labelKey), force: round(o.concentratedKN, 2) })] : []));
+      return { messages: [], refs: notes.length ? [EN1991_1_1('6.2.1(4)', 'concentrated load Qk')] : [], notes };
+    },
     roofOccupancies: () => occupancyTable(f).filter((o) => o.category !== 'roof' && o.category !== 'storage'),
     reduce: (o) => reduceImposed(f, o),
     imposedGroup: (key) => categoryOfOccupancy(key),

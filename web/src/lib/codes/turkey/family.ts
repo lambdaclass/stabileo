@@ -23,6 +23,8 @@ export const TS498_LOADS: ImposedLoadCode = {
   occupancy: (key) => findTrOccupancy(key),
   occupancies: () => TS498_OCCUPANCIES,
   defaultOccupancy: 'tr_residential',
+  /** TS 498 Çizelge 7 gives uniform loads only: no concentrated action is left out. */
+  generationBlockers: () => ({ messages: [], refs: [] }),
   roofOccupancies: () => TS498_OCCUPANCIES.filter((o) => o.category === 'roof'),
   reduce: (o) => ts498Reduce(o),
   partition: ts498Partition,

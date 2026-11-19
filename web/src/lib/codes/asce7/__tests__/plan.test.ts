@@ -3,7 +3,8 @@ import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../../../
 import { bindRole, defaultRegulations, unsetBinding, type ProjectRegulations } from '../../roles';
 import { FAMILY_STACKS } from '../../families/stacks';
 import { ADAPTER } from '../inputs';
-import { kz } from '../wind';
+import { designPressure, kz, wallCp } from '../wind';
+import { otherRefusals } from '../../__tests__/family-plan-helpers';
 import { MPH, PSF } from '../refs';
 import { PERIOD_PARAMETERS, responseCoefficient } from '../seismic';
 
@@ -52,14 +53,28 @@ function input(over: Partial<LoadPlanInput> = {}): LoadPlanInput {
 describe('a plan generated with the ASCE/SEI 7-22 stack', () => {
   const plan = buildLoadPlan(input());
 
-  it('is ready, with the actions of every role', () => {
-    expect(plan.blockedKeys).toEqual([]);
-    expect(plan.outcome).toBe('READY');
+  it('refuses offices by name under §4.4: their 2,000 lb concentrated load is not placed', () => {
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys.map((m) => m.key)).toEqual(['loads.asce7.blocked.concentratedLive']);
+    expect(plan.blockedKeys[0]!.params?.force).toBeCloseTo(2000 * 4.448222e-3, 2);
+    expect(plan.refs.map((r) => r.clause)).toContain('4.4');
+  });
+
+  it('is ready for an occupancy with no concentrated load and no roof, and refuses a roof (Table 4.3-1, 300 lb)', () => {
+    const p = buildLoadPlan(input({ occupancyKey: 'residentialPrivate' }));
+    expect(p.blockedKeys).toEqual([]);
+    expect(p.outcome).toBe('READY');
+    const roofed = buildLoadPlan(input({ occupancyKey: 'residentialPrivate', roof: { use: 'occupancy', occupancyKey: 'roofOrdinary', dead: 1, slopeDeg: 0 } }));
+    expect(roofed.blockedKeys.map((m) => m.key)).toEqual(['loads.asce7.blocked.concentratedRoof']);
+  });
+
+  it('has the actions of every role', () => {
     const count = (t: string) => plan.cases.filter((c) => c.type === t).length;
     expect(count('D')).toBe(1);
     expect(count('L')).toBe(1);
     expect(count('S')).toBe(1);
-    expect(count('W')).toBe(28);
+    expect(count('W')).toBe(32);
+    expect(plan.cases.filter((c) => c.nameKey === 'autoLoad.windMinimumCase')).toHaveLength(4);
     expect(count('E')).toBe(4);
     expect(plan.generatedBy).toBe('asce7-22-basis');
   });
@@ -70,15 +85,18 @@ describe('a plan generated with the ASCE/SEI 7-22 stack', () => {
     expect(Math.max(...live.map((d) => Math.abs(d.q)))).toBeGreaterThan(0);
   });
 
-  it('qh = 0,613 Kz V² at the roof, and the windward + leeward forces of each level', () => {
+  it('qh = 0,613 Kz V² at the roof, and the windward + leeward pressure carried up the columns over the whole height', () => {
     expect(plan.factors.windQh!.value).toBeCloseTo(0.613 * kz(10.5, 'C') * V * V, 6);
-    const first = plan.cases.findIndex((c) => c.type === 'W');
-    const fx = plan.nodal.filter((n) => n.caseType === 'W' && n.caseIndex === first).reduce((s, n) => s + n.fx, 0);
-    expect(fx).toBeGreaterThan(0);
-    const qh = plan.factors.windQh!.value;
-    const roofBand = (0.85 * 0.85 * 0.8 * qh + 0.85 * 0.85 * 0.5 * qh) / 1000 * 6 * 1.75;
-    const top = plan.nodal.filter((n) => n.caseType === 'W' && n.caseIndex === first && plan.levels.find((l) => l.elevation === 10.5)!.nodeIds.includes(n.nodeId));
-    expect(top.reduce((s, n) => s + n.fx, 0)).toBeCloseTo(roofBand, 0);
+    const first = plan.cases.findIndex((c) => c.type === 'W' && c.nameKey.startsWith('autoLoad.windCase1'));
+    expect(plan.nodal.filter((n) => n.caseType === 'W' && n.caseIndex === first)).toEqual([]);
+    const lateral = plan.distributed.filter((d) => d.caseType === 'W' && d.caseIndex === first)
+      .reduce((s, d) => s + ((d.qX ?? 0) + (d.qXJ ?? d.qX ?? 0)) / 2 * ((d.b ?? 0) - (d.a ?? 0)), 0);
+    const qh = plan.factors.windQh!.value, cp = wallCp(1);
+    const net = (z: number) => (designPressure(0.613 * kz(z, 'C') * V * V, qh, cp.windward, 0) - designPressure(qh, qh, cp.leeward, 0)) / 1000;
+    const n = 2000, dz = 10.5 / n;
+    let integral = 0;
+    for (let k = 0; k < n; k++) integral += net((k + 0.5) * dz) * dz;
+    expect(Math.abs(lateral)).toBeCloseTo(integral * 6, 1);
   });
 
   it('V = Cs·W with W of §12.7.2 (no live load for offices), distributed by §12.8.3', () => {
@@ -116,8 +134,8 @@ describe('a plan generated with the ASCE/SEI 7-22 stack', () => {
   it('refuses the seismic plan without S1, which sets categories E and F and Eq. 12.8-6', () => {
     const p = buildLoadPlan(input({ codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, tl: 8 } } }));
     expect(p.outcome).toBe('BLOCKED');
-    expect(p.blockedKeys.map((m) => m.key)).toEqual(['loads.asce7.seismic.blocked.noS1']);
-    expect(buildLoadPlan(input({ codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, s1: 0, tl: 8 } } })).outcome).toBe('READY');
+    expect(otherRefusals(p)).toEqual(['loads.asce7.seismic.blocked.noS1']);
+    expect(otherRefusals(buildLoadPlan(input({ codeInputs: { ...input().codeInputs, [ADAPTER.seismic]: { sds: 1.0, sd1: 0.6, s1: 0, tl: 8 } } })))).toEqual([]);
   });
 
   it('the 30 % companion carries its own accidental torsion, 5 % of the plan across it', () => {

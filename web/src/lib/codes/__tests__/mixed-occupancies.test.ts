@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildLoadPlan, type LoadPlanInput } from '../../engine/loads/load-plan';
 import { expandCombinations } from '../../engine/loads/combination-cases';
-import { planInput, SEISMIC_ON } from './family-plan-helpers';
+import { otherRefusals, planInput, SEISMIC_ON } from './family-plan-helpers';
 import type { LoadFamilyChoice } from '../families/stacks';
 
 const roof = (occupancyKey: string): LoadPlanInput['roof'] => ({ use: 'occupancy', occupancyKey, dead: 2, slopeDeg: 0 });
@@ -83,7 +83,7 @@ describe('TBDY 2018: n by occupancy', () => {
 describe('ASCE 7-22: 25 % in storage areas only', () => {
   it('a light warehouse under a roof used for assembly', () => {
     const p = run('us', 'warehouseLight', 'roofAssembly', { 'asce7-22-seismic': { sds: 1.0, sd1: 0.6, s1: 0.5, tl: 8, systemKey: 'steelSMF', periodKey: 'steelMRF' } });
-    expect(p.outcome).toBe('READY');
+    expect(otherRefusals(p)).toEqual([]);
     const t = top(p);
     expect(t.liveParticipatingKN).toBeCloseTo(0.25 * (t.liveTotalKN - (t.liveRoofKN ?? 0)), 6);
     expect(p.levels[1]!.liveParticipatingKN).toBeCloseTo(0.25 * p.levels[1]!.liveTotalKN, 6);
