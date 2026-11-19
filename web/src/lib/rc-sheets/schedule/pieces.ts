@@ -254,14 +254,19 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
 
 /** A strap beam the footing's row holds itself (the model has no member for it), once for the pair of footings it joins. */
 export function ownStrapResults(r: FootingRow, all: readonly FootingRow[]): StrapResult[] {
-  return (r.edge?.straps ?? []).filter((s) => s.line && s.group === undefined && !(all.some((o) => o.key === s.partnerKey && o.edge?.straps.some((t) => t.partnerKey === r.key)) && s.partnerKey < r.key));
+  const strapsOf = (o: FootingRow) => [...(o.edge?.straps ?? []), ...(o.group?.straps ?? [])];
+  const holds = (o: FootingRow, key: string) => o.key === key || !!o.demand.group?.members.some((m) => m.key === key);
+  return strapsOf(r).filter((s) => {
+    const from = s.holder ?? r.key;
+    return s.line && s.group === undefined && !(all.some((o) => holds(o, s.partnerKey) && strapsOf(o).some((t) => t.partnerKey === from)) && s.partnerKey < from);
+  });
 }
 
 const ownStraps = (r: FootingRow, all: readonly FootingRow[]): LineLayout[] => ownStrapResults(r, all).map((s) => s.line!);
 
 /** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels by shape (`footing-dowels.ts`), and the strap beams it holds. */
 function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, columns: readonly ColumnRow[]): ScheduleElement {
-  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: r.uncovered ? [] : groupPieces(r, R, columns) };
+  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: [...(r.uncovered ? [] : groupPieces(r, R, columns)), ...ownStraps(r, all).flatMap((l) => linePieces(l, R).pieces)] };
   const det = footingDetail(r, R);
   const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
   if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });

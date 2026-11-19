@@ -99,7 +99,16 @@ function steps(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: FootingAd
     ...(s.Lo !== null ? [{ label: 'rcSheets.s.footRigid', formula: 'Lo = (4·E·I/(b·ks))^¼', value: `Lo = ${fmt(s.Lo, 2)} m · L = ${fmt(s.span, 2)} m${s.winkler ? ` · Winkler: y = ${fmt(s.winkler.y * 1000, 1)} mm, q = ${fmt(s.winkler.q, 0)} kPa` : ''}`, ok: s.rigid || !!s.winkler }] : []),
   ]);
   const punch: Step[] = punchingSteps(r.columns, fmt);
-  const ties: Step[] = r.ties.map((t) => ({ label: 'rcSheets.s.footTieT', formula: `${t.column}: Tu = (Pu·e + |w|)/H`, value: `${fmt(t.Tu, 1)} kN (H = ${fmt(t.H, 2)} m) → ${t.count} Ø${t.dia}`, ok: t.asProvided >= t.asReq - 1e-6 }));
+  const ties: Step[] = [
+    ...r.ties.map((t) => ({ label: 'rcSheets.s.footTieT', formula: `${t.column}: Tu = (Pu·e + |w|)/H`, value: `${fmt(t.Tu, 1)} kN (H = ${fmt(t.H, 2)} m) → ${t.count} Ø${t.dia}`, ok: t.asProvided >= t.asReq - 1e-6 })),
+    ...r.straps.flatMap((t): Step[] => [
+      { label: 'rcSheets.s.footStrapGeom', formula: `${t.column} → ${t.partner}: e · L`, value: `${cm(t.e)} · ${cm(t.L)} cm` },
+      { label: 'rcSheets.s.footStrapV', formula: 'V = (P1·e + |w|)/(L − e)', value: `${fmt(t.V, 1)} kN${t.combo ? ` (${t.combo})` : ''}` },
+      { label: 'rcSheets.s.footStrapM', formula: 'M = P1·e + |w|', value: `${fmt(t.M, 1)} kN·m` },
+      { label: 'rcSheets.s.footStrapR1', formula: 'R1 = P1 + V', value: `${fmt(t.P1, 1)} → ${fmt(t.R1, 1)} kN (×${fmt(t.factor, 3)})` },
+      { label: 'rcSheets.s.footStrapSection', formula: 'h ≥ máx(L/8; hbase + 10 cm; 40 cm)', value: `${cm(t.b)} × ${cm(t.h)} cm` },
+    ]),
+  ];
   return [
     { title: 'rcSheets.g.footGroup', steps: size },
     { title: 'rcSheets.g.footGroupStrips', steps: strips },
@@ -146,7 +155,7 @@ export function groupRow(d: FootingDemand, c: FootingContext, adopted: FootingAd
   const group: GroupResult = {
     kind: g.kind, ...(g.axis ? { axis: g.axis } : {}), reason: g.reason, members: g.members.map((x) => x.key), columns: r.columns, strips: r.strips, bands: r.bands,
     anchor: [r.columns.some((k) => k.anchor[0] < 0) ? -1 : r.columns.some((k) => k.anchor[0] > 0) ? 1 : 0, r.columns.some((k) => k.anchor[1] < 0) ? -1 : r.columns.some((k) => k.anchor[1] > 0) ? 1 : 0],
-    ties: r.ties, ks: d.soil?.subgrade ?? null, minSteel: r.minSteel, anchorage: r.anchorage,
+    ties: r.ties, straps: r.straps, ks: d.soil?.subgrade ?? null, minSteel: r.minSteel, anchorage: r.anchorage,
   };
   return {
     family: 'footing', key: d.key, name: d.name, level: d.level, demand: d,

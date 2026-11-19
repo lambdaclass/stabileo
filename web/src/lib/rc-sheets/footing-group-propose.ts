@@ -5,7 +5,7 @@ import { needsOf } from './footing-needs';
 import { designPunchingFix } from './footing-punching';
 import { proposeLayer } from './footing-mesh';
 import { MIN_D, type FootingRowCode } from './footing-design';
-import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers, type GroupAnalysis } from './footing-group';
+import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers, strappedAcross, type GroupAnalysis } from './footing-group';
 import type { FootingAdopted, FootingContext, FootingDowels, FootingGroup, FootingMesh, GroupExtra, PunchingFix } from './footing-types';
 
 const STEP = 0.1, STEP_H = 0.05, MAX_PLAN = 60, MAX_H = 2.5;
@@ -13,6 +13,8 @@ const STEP = 0.1, STEP_H = 0.05, MAX_PLAN = 60, MAX_H = 2.5;
 const OVERHANG = 0.5, PAST_FACE = 0.25;
 /** Beside a strip's columns across its line, m. */
 const SIDE = 0.2;
+/** A strip balanced by straps stops this short of the column its straps run to, m. */
+const STRAP_GAP = 0.3;
 const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 type Axis = 'x' | 'y';
@@ -123,11 +125,13 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
   const ext: Record<Axis, Extent> = { x: extent('x', margin('x')), y: extent('y', margin('y')) };
   const minH = Math.max(0.3, up(MIN_D + c.cover + 0.024));
   let h = minH;
+  const strapped = strappedAcross(g);
+  const widest = strapped ? Math.min(...g.members.map((m) => { const p = m.edge!.partners.find((x) => x.axis === strapped)!; const half = (k: { b: number; h: number } | null | undefined) => (strapped === 'x' ? k?.b ?? 0 : k?.h ?? 0) / 2; return p.L + half(m.column) - half(p.column) - STRAP_GAP; })) : Infinity;
   if (across) {
     const S = ext[g.axis!].hi - ext[g.axis!].lo;
     const qNet = ref.soil.allowable - 25 * h;
     const wide = Math.max(...pts.map((p) => 2 * half(p, across))) + 2 * SIDE;
-    const W = Math.max(up(wide), up(qNet > 0 ? N / qNet / S : wide));
+    const W = Math.min(Math.max(up(wide), up(qNet > 0 ? N / qNet / S : wide)), Math.max(up(wide), widest));
     const held = heldAcross(g);
     const line = held < 0 ? Math.min(...pts.map((p) => p[across] - half(p, across))) : held > 0 ? Math.max(...pts.map((p) => p[across] + half(p, across))) : 0;
     ext[across] = held < 0 ? { lo: line, hi: line + W, heldLo: true, heldHi: false } : held > 0 ? { lo: line - W, hi: line, heldLo: false, heldHi: true } : { lo: res[across] - W / 2, hi: res[across] + W / 2, heldLo: false, heldHi: false };
@@ -141,6 +145,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
     for (const k of axes) {
       const e = ext[k];
       if (e.heldLo && e.heldHi) continue;
+      if (k === strapped && e.hi - e.lo + STEP > widest + 1e-9) continue;
       if (!e.heldLo && !e.heldHi) { e.lo -= STEP / 2; e.hi += STEP / 2; } else if (e.heldLo) e.hi += STEP; else e.lo -= STEP;
       any = true;
     }

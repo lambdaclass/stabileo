@@ -63,6 +63,12 @@ export const CRITERIA = {
   footingWinklerEnds: { family: 'footing', value: 2, min: 1, max: 3, step: 0.1, unit: '·ks', digits: 1 },
   footingWinklerSettlement: { ...cm(1, 0.5, 5, 0.5), family: 'footing', digits: 1 },
   footingMaxSpacing: { ...cm(20, 10, 45, 2.5), family: 'footing', digits: 1 },
+  footingPileSpacing: { family: 'footing', value: 3, min: 2, max: 6, step: 0.25, unit: '·Ø', prefix: 's ≥ ', digits: 2 },
+  footingPileEfficiency: { family: 'footing', value: 70, min: 50, max: 100, step: 5, unit: '%', scale: 100 },
+  footingPileMinCount: { family: 'footing', value: 2, min: 1, max: 4, step: 1, unit: '', integer: true },
+  footingPileLineClear: { ...cm(50, 20, 150, 5), family: 'footing' },
+  footingPileTieShare: { family: 'footing', value: 10, min: 5, max: 25, step: 1, unit: '%', scale: 100 },
+  footingPileMinSteel: { family: 'footing', value: 0.5, min: 0.25, max: 2, step: 0.05, unit: '%', scale: 100, digits: 2 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

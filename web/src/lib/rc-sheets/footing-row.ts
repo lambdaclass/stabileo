@@ -11,6 +11,7 @@ import { tieBars, TIE, tieLimits } from './footing-tie-bars';
 import { combinedRow } from './footing-combined-row';
 import { groupRow } from './footing-group-row';
 import { CRITERION, critOf, type Criteria } from './criteria';
+import { strapDefault } from './footing-strap';
 
 export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, cap?: PlanCap) => FootingRow;
 
@@ -182,17 +183,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
 
 const up5 = (v: number) => Math.ceil(v / 0.05 - 1e-9) * 0.05;
 
-/**
- * A strap beam's section where the model has none: as wide as the column across it (20 cm at
- * least), and as deep as L/8 and 10 cm over the footing, 40 cm at least. Deeper than the footing
- * it balances, it turns with it as one rather than bending under it, as the statics of
- * `strap-footing.ts` assume; L/8 keeps its own deflection, which the footing would follow, small.
- */
-export function strapDefault(d: FootingDemand, a: Pick<FootingAdopted, 'h'>, axis: 'x' | 'y'): { b: number; h: number } {
-  const p = d.edge?.partners.find((x) => x.axis === axis);
-  const across = axis === 'x' ? d.column?.h ?? 0.2 : d.column?.b ?? 0.2;
-  return { b: Math.round(Math.max(0.2, up5(across)) * 1000) / 1000, h: Math.round(Math.max(0.4, up5((p?.L ?? 0) / 8), up5(a.h + 0.1)) * 1000) / 1000 };
-}
+export { strapDefault };
 
 const BEARING_ONLY: FootingRowCode = { ...CIRSOC_ONE_WAY, bearingOnly: true };
 

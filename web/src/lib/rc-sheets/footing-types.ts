@@ -74,8 +74,29 @@ export const FOOTING_BALANCES: readonly FootingBalance[] = ['strap', 'eccentric'
  * A layout for the whole building's foundation: by the selection rule (the recommendation), each
  * column on its own footing where it fits, strips along the column lines, or one mat.
  */
-export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat';
+export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat' | 'piles';
 export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat'];
+
+/** The piles a column is founded on: diameter and length, m, the allowable load of one, kN, from the soil profile's strata or presumed, and the group's efficiency. */
+export interface PileSpec { diameter: number; length: number; capacity: number; source: 'strata' | 'presumed'; efficiency: number }
+
+/** A pile cap's piles as adopted: where each stands from the cap's centroid, m, their diameter and length, and each pile's bars and hoops. */
+export interface CapPiles { diameter: number; length: number; at: Array<[number, number]>; bars: { count: number; dia: number }; hoop: { dia: number; spacing: number } }
+
+/** A pile cap as read: each pile's service and factored load, kN, the group's capacity, the cap's method and each section, and the pile's own section. */
+export interface CapResult {
+  piles: Array<{ x: number; y: number; service: number; factored: number }>;
+  diameter: number; length: number; capacity: number; source: PileSpec['source']; efficiency: number; spacing: number;
+  group: { service: number; capacity: number };
+  /** The cap is deep (every pile within twice the cap's depth over the pile heads of the column's axis, §13.2.6.3): read by struts and ties (ch. 23). */
+  deep: boolean;
+  stm: { z: number; theta: number; tx: number; ty: number; asx: number; asy: number; node: { column: number; columnCap: number; pile: number; pileCap: number } } | null;
+  shear: Array<{ dir: 'x' | 'y'; at: number; vu: number; phiVc: number }>;
+  punching: Array<{ at: string; vu: number; phiVc: number; bo: number; combo: string }>;
+  section: { pu: number; phiPn: number; as: number; asMin: number };
+  /** The ties between caps where no strap balances the cap: their force, kN (a share of the largest column load), and steel, cm². */
+  tie: { force: number; as: number } | null;
+}
 
 /** A column's own foundation over the selection rule: its own footing, one shared with its neighbours, or the mat. */
 export type FootingSolution = 'isolated' | 'combined' | 'mat';
@@ -142,6 +163,8 @@ export interface FootingDemand {
   founding?: number;
   /** A strip or mat: the footings it holds, each a demand of its own, the first the reference `at` and `key` are read from. */
   group?: FootingGroup;
+  /** Founded on piles under a cap: the piles' diameter, length and capacity. */
+  piles?: PileSpec;
   /** The footing of a pier or a wall: every supported node along its base (`nodeId` the one nearest its centre) and its walls by row key. */
   pier?: { key: string; nodes: number[]; walls: string[]; /** Its section in plan, global X and Y, m. */ outline?: Array<{ x: number; y: number }>; /** Where its base nodes stand in plan, m: the axes it holds a property line by. */ points?: Array<{ x: number; y: number }> };
 }
@@ -196,6 +219,8 @@ export interface FootingAdopted {
   columns?: Record<string, FootingDowels>;
   /** A strip's or mat's stirrups or drops for punching, by the row key of each footing it holds. */
   punching?: Record<string, PunchingFix>;
+  /** A pile cap's piles. */
+  piles?: CapPiles;
 }
 
 /** The bars a footing's dowels repeat: how many, the thickest, whether any takes tension at the base, and the column's own lap with them, m, starting `lapFrom` over its foot. */
@@ -288,6 +313,8 @@ export interface FootingRow {
   pedestal: number;
   /** A strip or a mat: its columns, strips and bands. */
   group?: GroupResult;
+  /** A pile cap: its piles and how it reads. */
+  cap?: CapResult;
 }
 
 export interface GroupExtra { dir: 'x' | 'y'; face: 'bottom' | 'top'; lo: number; hi: number; mesh: FootingMesh }
@@ -338,6 +365,8 @@ export interface GroupResult {
   anchor: [number, number];
   /** A strip held along a line: the column ties that take its offset across. */
   ties: GroupTie[];
+  /** A strip held along a line: the strap beams that take its offset across instead, one from each column. */
+  straps: GroupStrap[];
   ks: number | null;
   /** The minimum steel each direction asks over both faces, and what both give, cm². */
   minSteel: { x: number; y: number; xProvided: number; yProvided: number };
@@ -358,7 +387,12 @@ export interface StrapResult {
   /** The model's strap member it is, when there is one. */
   group?: number;
   beam?: BeamRow; line?: LineLayout;
+  /** On a strip, the row key of the footing (column) it starts from, and where that column stands in plan, m. */
+  holder?: string; from?: { x: number; y: number };
 }
+
+/** A strap from one column of a strip held along a line to the footing inward. */
+export type GroupStrap = StrapResult & { column: string };
 
 export interface TieResult {
   axis: 'x' | 'y';

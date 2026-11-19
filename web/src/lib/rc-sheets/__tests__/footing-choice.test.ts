@@ -93,7 +93,8 @@ describe('the foundation in the design data', () => {
     expect(d.rcSheets?.foundationSystem).toBe('mat');
     expect(d.rcSheets?.footingSetup).toEqual({ 'footing:n3': { solution: 'combined' } });
     expect(migrateDesignData({ foundingElevation: 99 }).foundingElevation).toBeUndefined();
-    expect(migrateDesignData({ rcSheets: { adopted: {}, foundationSystem: 'piles' } }).rcSheets?.foundationSystem).toBeUndefined();
+    expect(migrateDesignData({ rcSheets: { adopted: {}, foundationSystem: 'caissons' } }).rcSheets?.foundationSystem).toBeUndefined();
+    expect(migrateDesignData({ rcSheets: { adopted: {}, foundationSystem: 'piles' } }).rcSheets?.foundationSystem).toBe('piles');
     expect(footingSetupOf({ a: { solution: 'isolated', position: 'edge' } })).toEqual({ footingSetup: { a: { position: 'edge', solution: 'isolated' } } });
   });
 });

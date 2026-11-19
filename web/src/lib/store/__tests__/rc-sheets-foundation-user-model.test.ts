@@ -35,7 +35,7 @@ describe.skipIf(!existsSync(FILE))('the engineer\'s seven-storey building, all f
     setSheetCode('cirsoc201-2025');
   }, 600_000);
 
-  it('at 150 kPa every layout keeps its own kind; the recommendation and the mat verify, footings only and strips say what overlaps', () => {
+  it('at 150 kPa every layout keeps its own kind; the recommendation and the mat verify; footings only says what overlaps; the strips at the lines take their offset by strap beams and say what overlaps and the pressure they need', () => {
     patchDesignData({ propertyLines: ALL, presumedBearingKPa: 150 });
     setFoundationSystem(null);
     const layouts = buildSheetRows().footingLayouts!;
@@ -57,7 +57,11 @@ describe.skipIf(!existsSync(FILE))('the engineer\'s seven-storey building, all f
     const strips = of('strips');
     expect(strips.rows.every((r) => r.group?.kind === 'strip')).toBe(true);
     expect(strips.rows.length).toBe(3);
-    for (const r of strips.rows.filter((x) => x.status === 'fail')) expect(failing(r).length, r.name).toBeGreaterThan(0);
+    for (const r of strips.rows.filter((x) => x.group!.anchor[x.group!.axis === 'x' ? 1 : 0] !== 0)) {
+      expect(r.group!.straps.length, r.name).toBe(r.group!.columns.length);
+      expect(r.group!.ties, r.name).toEqual([]);
+    }
+    for (const r of strips.rows.filter((x) => x.status === 'fail')) expect(failing(r).every((l) => ['rcSheets.v.footOverlap', 'rcSheets.v.footBearing', 'rcSheets.v.footNeedsSoil'].includes(l)), `${r.name}: ${failing(r).join(', ')}`).toBe(true);
   }, 900_000);
 
   it('on a soil too weak for the plan the lines allow, the mat is designed through and says the allowable pressure it verifies at', () => {

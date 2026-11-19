@@ -8,7 +8,8 @@ import { meshArea } from './footing-mesh';
 import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, type FootingRowCode } from './footing-design';
 import { tieBars, tieLimits, TIE } from './footing-tie-bars';
 import { winklerStrip } from './footing-winkler';
-import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingLayers, GroupColumn, GroupExtra, GroupStrip, GroupTie } from './footing-types';
+import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingLayers, GroupColumn, GroupExtra, GroupStrap, GroupStrip, GroupTie } from './footing-types';
+import { stripStrapPull, stripStraps } from './footing-group-straps';
 
 const EDITION = '2025' as const;
 type Axis = 'x' | 'y';
@@ -33,8 +34,19 @@ export function heldAcross(g: FootingGroup): -1 | 0 | 1 {
   return sides.size === 1 ? ([...sides][0] as -1 | 0 | 1) : 0;
 }
 
-/** Whether a strip held along a line takes its offset across by ties at the first floor rather than by the soil alone. */
-export const tiedAcross = (g: FootingGroup): boolean => heldAcross(g) !== 0 && g.members.every((m) => m.edge?.balance !== 'eccentric');
+/**
+ * The axis a strip held along a line takes its offset across by strap beams, one from each column
+ * to the footing inward, where every column is balanced by a strap and has a footing to run to
+ * (as a single footing at a line is).
+ */
+export function strappedAcross(g: FootingGroup): Axis | undefined {
+  if (heldAcross(g) === 0 || !g.axis) return undefined;
+  const across = other(g.axis);
+  return g.members.every((m) => m.edge?.balance === 'strap' && m.edge.partners.some((p) => p.axis === across)) ? across : undefined;
+}
+
+/** Whether a strip held along a line takes its offset across by ties at the first floor rather than by straps or the soil alone. */
+export const tiedAcross = (g: FootingGroup): boolean => heldAcross(g) !== 0 && !strappedAcross(g) && g.members.every((m) => m.edge?.balance !== 'eccentric');
 
 /**
  * The members' actions summed about the footing's centroid as one at its reference node; across
@@ -55,6 +67,11 @@ export function summed(cols: readonly Placed[], pick: (d: FootingDemand) => Foot
 
 const centred = (a: Pick<FootingAdopted, 'B' | 'L'>): FootingPlan => ({ B: a.B, L: a.L, xc: 0, yc: 0, b: 0, h: 0 });
 const tiedAxisOf = (g: FootingGroup): Axis | undefined => (tiedAcross(g) && g.axis ? other(g.axis) : undefined);
+/** The axis across which a tie or a strap takes the columns' offset, which the soil then does not see. */
+const balancedAxisOf = (g: FootingGroup): Axis | undefined => tiedAxisOf(g) ?? strappedAcross(g);
+/** What the straps bring down on a strip in one combination, kN, each column's and in all. */
+const strapPulls = (cols: readonly Placed[], pick: (d: FootingDemand) => FootingAction | null | undefined, axis: Axis | undefined, lever: number): number[] =>
+  cols.map((p) => { const q = axis ? pick(p.demand) : null; return q ? stripStrapPull(p, q, axis!, lever)?.V ?? 0 : 0; });
 
 /** The column's place on the footing as punching reads it. */
 const columnPlan = (a: Pick<FootingAdopted, 'B' | 'L'>, p: Placed): FootingPlan => ({ ...centred(a), xc: p.x, yc: p.y, b: p.b, h: p.h, ...(p.demand.column?.area ? { area: p.demand.column.area } : {}) });
@@ -72,9 +89,10 @@ export function dropsVolume(g: FootingGroup, a: Pick<FootingAdopted, 'B' | 'L' |
 
 export function groupBearing(g: FootingGroup, a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'ex' | 'ey' | 'punching'>): ServiceBearing | null {
   const ref = g.members[0]!;
-  const s = summed(placeMembers(g, a), (d) => d.service, 'D + L', tiedAxisOf(g));
+  const cols = placeMembers(g, a);
+  const s = summed(cols, (d) => d.service, 'D + L', balancedAxisOf(g));
   if (!s) return null;
-  const drops = CONCRETE_WEIGHT * dropsVolume(g, a);
+  const drops = CONCRETE_WEIGHT * dropsVolume(g, a) + strapPulls(cols, (d) => d.service, strappedAcross(g), leverOf(ref, a.h)).reduce((t, v) => t + v, 0);
   return serviceBearing(centred(a), { ...s, N: s.N + drops }, a.h, leverOf(ref, a.h), ref.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT);
 }
 
@@ -184,6 +202,7 @@ export interface GroupAnalysis {
   bands: Array<{ column: string; width: number; mu: number; vu: number; asReq: number; asProvided: number; phiMn: number; phiVc: number }>;
   columns: GroupColumn[];
   ties: GroupTie[];
+  straps: GroupStrap[];
   /** Steel each face asks along X and Y over the whole width, cm². */
   need: { bottom: Record<Axis, number>; top: Record<Axis, number> };
   minSteel: { x: number; y: number; xProvided: number; yProvided: number };
@@ -212,7 +231,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const layers = layersOf(a, c.cover);
   const cols = placeMembers(g, a);
   const plan = centred(a);
-  const tied = tiedAxisOf(g);
+  const tied = tiedAxisOf(g), strapped = strappedAcross(g);
   const prov = slabProvisions(EDITION, c.fy, a.h);
   const k = ref.soil?.edgeFactor && ref.soil.edgeFactor > 1 ? ref.soil.edgeFactor : 1;
   const sb = groupBearing(g, a), allowable = ref.soil?.allowable ?? null;
@@ -228,12 +247,15 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const cantAcross = (p: Placed) => { if (!across) return 0; const s = across === 'x' ? p.x : p.y, half = (across === 'x' ? p.b : p.h) / 2; return Math.max(W / 2 - (s + half), s - half + W / 2, 0); };
   const tieForce = cols.map(() => ({ max: 0, byCombo: {} as Record<string, number> }));
   for (const name of ref.combos.map((x) => x.combo)) {
-    const at = summed(cols, (d) => d.combos.find((x) => x.combo === name), name, tied);
-    if (!at || !(at.N > 0)) continue;
+    const pick = (d: FootingDemand) => d.combos.find((x) => x.combo === name);
+    const at0 = summed(cols, pick, name, tied ?? strapped);
+    if (!at0 || !(at0.N > 0)) continue;
+    const pulls = strapPulls(cols, pick, strapped, lever);
+    const at = { ...at0, N: at0.N + pulls.reduce((t, v) => t + v, 0) };
     const f = fieldOf(plan, at, lever);
     const acts = cols.map((p) => p.demand.combos.find((x) => x.combo === name)!);
     bands.forEach((b, i) => {
-      const placed = b.cols.map((p) => { const q = acts[cols.indexOf(p)]!; return { ...p, N: q.N, w: b.dir === 'x' ? q.My + lever * q.Vx : -(q.Mx - lever * q.Vy) }; });
+      const placed = b.cols.map((p) => { const j = cols.indexOf(p), q = acts[j]!; return { ...p, N: q.N + pulls[j]!, w: b.dir === 'x' ? q.My + lever * q.Vx : -(q.Mx - lever * q.Vy) }; });
       const r = bandReading(a, b.dir, b.lo, b.hi, placed, dOf(b.dir));
       const o = read[i]!;
       o.mBottom = Math.max(o.mBottom, r.mBottom); o.mTop = Math.max(o.mTop, r.mTop); o.vu = Math.max(o.vu, r.vu);
@@ -242,7 +264,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
       const q = acts[i]!;
       pu[i] = Math.max(pu[i]!, q.N);
       if (across) {
-        const v = cantAcross(p), qq = q.N / W;
+        const v = cantAcross(p), qq = (q.N + pulls[i]!) / W;
         bandMu[i] = Math.max(bandMu[i]!, (qq * v * v) / 2);
         bandVu[i] = Math.max(bandVu[i]!, qq * Math.max(0, v - dOf(across)));
       }
@@ -332,7 +354,8 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     const b = Math.max(cr.footingTieMinWidth, Math.ceil((2 * c.cover + 2 * TIE.stirrup + perLayer * bars.dia / 1000 + (perLayer - 1) * TIE.gap) / 0.05 - 1e-9) * 0.05);
     return { column: p.demand.name, axis: tied, H, Tu: tieForce[i]!.max, ...bars, e, Ns, Ts, b, h: cr.footingTieMinDepth, mu: lim.mu, byCombo: tieForce[i]!.byCombo, stretch: null };
   }) : [];
-  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, need, minSteel, anchorage, sMax: footingSpacing(c, a.h).s, combos: perCombo, punching: cols.map((_, i) => ({ cases: cases[i]!, site: sites[i]! })) };
+  const straps = strapped ? stripStraps(cols, strapped, lever, a, ref.combos.map((x) => x.combo)) : [];
+  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, straps, need, minSteel, anchorage, sMax: footingSpacing(c, a.h).s, combos: perCombo, punching: cols.map((_, i) => ({ cases: cases[i]!, site: sites[i]! })) };
 }
 
 function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: FootingAdopted, c: FootingContext, lever: number, E: number, ks: number): GroupStrip['winkler'] {

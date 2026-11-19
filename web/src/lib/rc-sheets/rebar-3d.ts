@@ -28,6 +28,6 @@ export function rebar3d(rows: Rebar3dRows, frames: Rebar3dFrames, o: PieceOption
     const f = frames.wall(r);
     if (f) out.push(...wallBars3d(rows.wall, r, f, o, R));
   }
-  for (const r of rows.footing ?? []) out.push(...(r.group ? groupFootingBars3d(r, rows.column, frames, R) : footingBars3d(r, rows.footing ?? [], rows.column, frames, R)));
+  for (const r of rows.footing ?? []) out.push(...(r.group ? groupFootingBars3d(r, rows.footing ?? [], rows.column, frames, R) : footingBars3d(r, rows.footing ?? [], rows.column, frames, R)));
   return out;
 }

@@ -98,7 +98,7 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
     strap(r, s) {
       const other = footings.get(s.partnerKey);
       if (!other || !s.line) return null;
-      const at = r.demand.at, k = s.axis === 'x' ? 0 : 1;
+      const at = s.from ?? r.demand.at, k = s.axis === 'x' ? 0 : 1;
       const toward = Math.sign((k === 0 ? other.demand.at.x - at.x : other.demand.at.y - at.y)) || 1;
       const under = r.founding, hMax = Math.max(...s.line.spans.map((sp) => sp.h));
       const x: V3 = k === 0 ? [toward, 0, 0] : [0, toward, 0];

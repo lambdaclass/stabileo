@@ -319,8 +319,18 @@ export const foundationStamp = (): string =>
   JSON.stringify([[...modelStore.model.footings.values()].map(({ revision: _r, ...f }) => f), modelStore.model.geotechnical ?? null, modelStore.footingMatPreferences()]);
 
 /** Where a strap's beam is found by its footings: the model's member, or one for the pair of footings it joins. */
-export const strapKeyOf = (row: Pick<FootingRow, 'key'>, s: Pick<StrapResult, 'group' | 'partnerKey'>): string =>
-  s.group !== undefined ? `g${s.group}` : `strap:${[row.key, s.partnerKey].sort().join('|')}`;
+export const strapKeyOf = (row: Pick<FootingRow, 'key'>, s: Pick<StrapResult, 'group' | 'partnerKey' | 'holder'>): string =>
+  s.group !== undefined ? `g${s.group}` : `strap:${[s.holder ?? row.key, s.partnerKey].sort().join('|')}`;
+
+/** The footings a row's straps start from: the row itself, or, on a strip, each column's own footing as the strap reads it (its demand, the strip's thickness and level). */
+function strapHolders(row: FootingRow): Array<{ row: FootingRow; s: StrapResult }> {
+  const own = (row.edge?.straps ?? []).map((s) => ({ row, s }));
+  const grouped = (row.group?.straps ?? []).flatMap((s) => {
+    const m = row.demand.group?.members.find((x) => x.key === s.holder);
+    return m ? [{ row: { ...row, key: m.key, name: m.name, demand: m } as FootingRow, s }] : [];
+  });
+  return [...own, ...grouped];
+}
 
 export interface StrapDesign { beam: BeamRow; line: LineLayout; b: number; h: number; group?: number; redo: (b: number, h: number, fc?: number) => { beam: BeamRow; line: LineLayout } }
 
@@ -337,7 +347,7 @@ export function designFootingStraps(rows: readonly FootingRow[], o: {
   adoptedOf: (group: number) => unknown;
 }): Map<string, StrapDesign> {
   const groups = new Map<string, Array<{ row: FootingRow; s: StrapResult }>>();
-  for (const row of rows) for (const s of row.edge?.straps ?? []) {
+  for (const { row, s } of rows.flatMap(strapHolders)) {
     const k = strapKeyOf(row, s);
     groups.set(k, [...(groups.get(k) ?? []), { row, s }]);
   }

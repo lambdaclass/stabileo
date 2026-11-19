@@ -257,6 +257,10 @@ describe('the sheets\' bars in 3D', () => {
     coherent(held, hbars);
     expect(footingsInside(held, hbars)).toBeGreaterThan(100);
     expect(hbars.some((b) => b.kind === 'footingPunch')).toBe(true);
+    setFoundationSystem('strips');
+    const strapped = buildSheetRows(), sbars = sheetBars3d(strapped);
+    expect(strapped.footing.some((r) => r.group?.straps.some((s) => s.line))).toBe(true);
+    coherent(strapped, sbars);
     patchDesignData({ propertyLines: undefined });
     setFoundationSystem('auto');
 

@@ -32,6 +32,13 @@ export function groupPlanPrimitives(row: FootingRow, det: GroupDetail, o: Footin
     ps.push(rect(HORM, (k.x - k.b / 2) * K, (k.y - k.h / 2) * K, (k.x + k.b / 2) * K, (k.y + k.h / 2) * K));
     ps.push(label(pt((k.x + k.b / 2) * K + 50, (k.y + k.h / 2) * K + 50), k.name, 2));
   }
+  for (const s of g.straps) {
+    const k = g.columns.find((c) => c.key === s.holder);
+    if (!k) continue;
+    const i = s.axis === 'x' ? 0 : 1, toward = g.anchor[i] > 0 ? -1 : 1, end = toward * ((s.axis === 'x' ? row.B : row.L) / 2 + 0.4);
+    const r = s.axis === 'x' ? [Math.min(k.x, end), k.y - s.b / 2, Math.max(k.x, end), k.y + s.b / 2] : [k.x - s.b / 2, Math.min(k.y, end), k.x + s.b / 2, Math.max(k.y, end)];
+    ps.push(rect(HORM, r[0]! * K, r[1]! * K, r[2]! * K, r[3]! * K), label(pt((s.axis === 'x' ? end : k.x) * K, (s.axis === 'x' ? k.y : end) * K), `${s.line?.name || o.tr('rcSheets.footFig.strap')} ${Math.round(s.b * 100)}×${Math.round(s.h * 100)} → ${s.partner}`, 1.8));
+  }
   const ext = 300;
   if (g.anchor[0]) { const x = (g.anchor[0] * B) / 2; ps.push(seg(HORM, pt(x, -L / 2 - ext), pt(x, L / 2 + ext)), label(pt(x, L / 2 + ext), o.tr('rcSheets.footFig.line'), 2)); }
   if (g.anchor[1]) { const y = (g.anchor[1] * L) / 2; ps.push(seg(HORM, pt(-B / 2 - ext, y), pt(B / 2 + ext, y)), label(pt(B / 2 + ext, y), o.tr('rcSheets.footFig.line'), 2)); }
