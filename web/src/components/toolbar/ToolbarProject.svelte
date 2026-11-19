@@ -200,7 +200,7 @@
   {/if}
   {#if flat || showProject}
   {#if flat}<h4 class="proj-heading">{t('project.fileSection')}</h4>{/if}
-  {#if locked}<SignInNotice text={t('account.notice.files')} action placement="project_files" />{/if}
+  {#if __PUBLIC_FEATURES__.accounts && locked}<SignInNotice text={t('account.notice.files')} action placement="project_files" />{/if}
   <div class="file-grid" class:locked>
     <button class="file-btn" onclick={() => (showSave = true)} title={t('project.saveTooltip')} data-testid="save-open">
       {t('project.save')}
@@ -311,7 +311,7 @@
     </button>
   {/if}
   {#if flat || showProjectExtras}
-    {#if locked}<SignInNotice text={t('account.notice.io')} placement="project_io" />{/if}
+    {#if __PUBLIC_FEATURES__.accounts && locked}<SignInNotice text={t('account.notice.io')} placement="project_io" />{/if}
     <div class="sub-section-content" class:locked>
       {#snippet helpPanel(key: string, labelKey: string, textKey: string)}
         {#if helpKey === key}
