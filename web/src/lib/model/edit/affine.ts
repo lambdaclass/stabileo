@@ -164,3 +164,7 @@ export function parseSpacings(text: string): number[] | null {
   }
   return out;
 }
+
+export function isTranslation(T: Affine): boolean {
+  return T.A.every((v, i) => Math.abs(v - IDENTITY[i]!) < 1e-12);
+}

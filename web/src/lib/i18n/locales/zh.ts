@@ -6,6 +6,8 @@ const zh: Translations = {
   'loadPlan.gravity.unsupportedStrips': "部分被壳单元覆盖时，条带必须跨越矩形梁格相对支承之间的全跨。",
   'loadPlan.gravity.stripDirection': "指定的单向跨度方向必须与未覆盖条带的跨度方向一致。",
   'loadPlan.gravity.nonplanarShell': "四边形单元 {id} 不共面。重力荷载的壳单元覆盖计算要求使用平面壳单元。",
+  'loadPlan.gravity.overlappingShells': "壳单元 {first} 和 {second} 在同一平面上重叠。无法将重叠区域的重力荷载分配给单一壳单元。",
+  'loadPlan.gravity.offsetShellDeck': "壳单元 {id} 与平面投影重叠的偏置梁板区刚性连接。无法确定哪个表面承受面荷载。",
   'loadPlan.gravity.unresolvedMember': "杆件 {id} 仅被壳单元部分覆盖，且无法确定梁格的荷载传递。",
   'loadPlan.gravity.differentDeck': "覆盖梁格的壳单元必须与梁格属于同一板面。",
   'loadPlan.gravity.differentSlopedDeck': "覆盖梁格的倾斜壳单元必须与梁格属于同一板面。",

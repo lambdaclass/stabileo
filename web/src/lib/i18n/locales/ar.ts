@@ -6,6 +6,8 @@ const ar: Translations = {
   'loadPlan.gravity.unsupportedStrips': "تتطلب التغطية الجزئية بالقشريات شرائط تمتد على كامل البحر بين الحوامل المتقابلة في لوح كمرات مستطيل.",
   'loadPlan.gravity.stripDirection': "يجب أن يتوافق اتجاه البحر الأحادي المطلوب مع اتجاه بحر الشرائط غير المغطاة.",
   'loadPlan.gravity.nonplanarShell': "العنصر الرباعي {id} غير مستوٍ. يتطلب حساب تغطية أحمال الجاذبية قشريات مستوية.",
+  'loadPlan.gravity.overlappingShells': "يتداخل العنصران القشريان {first} و{second} في المستوى نفسه. لا يمكن إسناد حمل الجاذبية في منطقة التداخل إلى عنصر قشري واحد.",
+  'loadPlan.gravity.offsetShellDeck': "العنصر القشري {id} متصل اتصالًا صلبًا بلوحة كمرات مزاحة تتداخل معه في المسقط. لا يمكن تحديد السطح الذي يتحمل الحمل المساحي.",
   'loadPlan.gravity.unresolvedMember': "العنصر {id} مغطى جزئيًا بقشرية ولم يتحدد انتقال الحمل من اللوح.",
   'loadPlan.gravity.differentDeck': "يجب أن تنتمي القشرية التي تغطي لوح الكمرات إلى البلاطة نفسها.",
   'loadPlan.gravity.differentSlopedDeck': "يجب أن تنتمي القشرية المائلة التي تغطي لوح الكمرات إلى البلاطة نفسها.",

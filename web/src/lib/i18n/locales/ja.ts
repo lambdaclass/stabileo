@@ -6,6 +6,8 @@ const ja: Translations = {
   'loadPlan.gravity.unsupportedStrips': "シェルが一部を覆う場合、矩形の梁パネルの向かい合う支持材の間で、帯が全スパンにわたる必要があります。",
   'loadPlan.gravity.stripDirection': "指定した一方向スパンの向きは、被覆されていない帯のスパン方向と一致する必要があります。",
   'loadPlan.gravity.nonplanarShell': "四辺形 {id} は平面ではありません。重力荷重の被覆計算には平面シェルが必要です。",
+  'loadPlan.gravity.overlappingShells': "シェル {first} と {second} が同一平面上で重なっています。重複部分の重力荷重を一方のシェルに割り当てることができません。",
+  'loadPlan.gravity.offsetShellDeck': "シェル {id} は、平面投影が重なる位置の異なる梁パネルに剛結されています。面荷重を受ける面を特定できません。",
   'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
   'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
   'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",

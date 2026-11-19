@@ -117,7 +117,7 @@ class Selection(unittest.TestCase):
                 log = Path(directory) / 'calls'
                 gh = Path(directory) / 'gh'
                 gh.write_text(f"""#!/bin/sh
-echo "$*" >> {log}
+echo "$@" >> {log}
 case "$*" in
   "api repos/o/r/actions/runs/7 --jq"*) echo "{run}" ;;
   "api --paginate"*) [ -n "{failed}" ] && echo "{failed}" ;;
@@ -438,6 +438,7 @@ exit 0
         args = run.call_args.args[0]
         self.assertIn('e2e/basic-pdelta.spec.ts', args)
         self.assertIn('@engine', args[args.index('--grep') + 1])
+        self.assertIn('@timing', args[args.index('--grep-invert') + 1])
         self.assertNotIn('--pass-with-no-tests', args)
 
     def test_typecheck_covers_every_selected_web_scope(self):
@@ -622,7 +623,7 @@ exit 0
             bin_dir = root / 'bin'
             bin_dir.mkdir()
             log = root / 'calls'
-            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> {log}\n')
+            (bin_dir / 'npx').write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" >> {log}\n')
             (bin_dir / 'npx').chmod(0o755)
             env = {**os.environ, 'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'E2E_SUITE': 'slow'}
             for specs, expected in [('["a.spec.ts"]', ['e2e/a.spec.ts']),
@@ -631,8 +632,9 @@ exit 0
                     log.unlink(missing_ok=True)
                     subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/run-area-e2e.py')], cwd=root,
                                    env={**env, 'E2E_SPECS': specs}, check=True)
-                    args = log.read_text().split()
+                    args = log.read_text().splitlines()
                     self.assertEqual([a for a in args if a.startswith('e2e/')], expected)
+                    self.assertIn('@timing', args[args.index('--grep-invert') + 1])
 
 
 if __name__ == '__main__':

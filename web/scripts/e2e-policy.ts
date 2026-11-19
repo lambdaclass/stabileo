@@ -12,7 +12,7 @@ export function inspectE2E(source: string, file = 'spec.ts') {
   const tags = (node: ts.Node): string[] => {
     const found: string[] = [];
     const visit = (n: ts.Node) => {
-      if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) found.push(...(n.text.match(/@(smoke|slow|flaky)\b/g) ?? []));
+      if (ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) found.push(...(n.text.match(/@(smoke|slow|flaky|timing)\b/g) ?? []));
       ts.forEachChild(n, visit);
     };
     visit(node);
@@ -55,7 +55,7 @@ export function inspectE2E(source: string, file = 'spec.ts') {
     }
     if (isScope(node)) {
       const ownTags = scopeTags(node);
-      slow ||= ownTags.includes('@slow') || ownTags.includes('@flaky');
+      slow ||= ownTags.includes('@slow') || ownTags.includes('@flaky') || ownTags.includes('@timing');
     }
     if (fileHasSmoke && !slow) {
       let value: ts.Expression | undefined;

@@ -5,6 +5,8 @@ const it: Translations = {
   'loadPlan.gravity.unsupportedStrips': "La copertura parziale con gusci richiede strisce che coprano l’intera luce tra i sostegni opposti di un pannello rettangolare di travi.",
   'loadPlan.gravity.stripDirection': "La direzione di campata unidirezionale richiesta deve coincidere con quella delle strisce scoperte.",
   'loadPlan.gravity.nonplanarShell': "Il quadrilatero {id} non è piano. La copertura con gusci per i carichi gravitazionali richiede gusci piani.",
+  'loadPlan.gravity.overlappingShells': "I gusci {first} e {second} si sovrappongono sullo stesso piano. Il carico gravitazionale nella zona comune non può essere assegnato a un solo guscio.",
+  'loadPlan.gravity.offsetShellDeck': "Il guscio {id} è collegato rigidamente a un pannello di travi sfalsato la cui proiezione si sovrappone al guscio. Non è possibile stabilire quale superficie riceva il carico distribuito.",
   'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
   'loadPlan.gravity.differentDeck': "Il guscio di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",

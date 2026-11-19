@@ -651,3 +651,156 @@ fn combinations_report_spatial_net_factor_overflow_before_recovery() {
         );
     }
 }
+
+#[test]
+fn issue_2292_planar_combination_refuses_complete_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let input = |weights: &[f64]| CombinationInput {
+            factors: weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect(),
+            cases: vec![CaseEntry { case_id: 1, results: results.clone() }],
+        };
+        let admitted = combine_results_checked(&input(&[1.0])).unwrap().unwrap();
+        assert!(admitted.displacements.iter().any(|d| d.uz != 0.0));
+        for residual in [-f64::EPSILON, f64::EPSILON] {
+            let split = combine_results_checked(&input(&[1.0, -1.0 + residual])).unwrap().unwrap();
+            let single = combine_results_checked(&input(&[residual])).unwrap().unwrap();
+            assert_eq!(serde_json::to_value(split).unwrap(), serde_json::to_value(single).unwrap());
+        }
+        let cancelled = input(&[1.0, -1.0]);
+        assert!(combine_results_checked(&cancelled).unwrap_err().contains("cancel to zero"));
+        assert!(combine_results(&cancelled).is_none());
+        assert!(combine_results_refs(&cancelled.factors, &[(1, &results)]).is_none());
+    }
+}
+
+#[test]
+fn issue_2292_spatial_combination_refuses_complete_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &refs),
+                combine_results_3d_refs_with_thickness(&factors, &refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        for control in combine(&[1.0]) {
+            assert!(control.unwrap().unwrap().displacements.iter().any(|d| d.uz != 0.0));
+        }
+        for refused in combine(&[1.0, -1.0]) {
+            assert!(refused.unwrap_err().contains("cancel to zero"));
+        }
+    }
+}
+
+fn factors_with_unit_residual() -> [f64; 5] {
+    let large = 2.0_f64.powi(110);
+    let middle = 2.0_f64.powi(54);
+    [large, middle, 1.0, -middle, -large]
+}
+
+#[test]
+fn issue_2292_planar_combination_sums_case_factors_exactly() {
+    let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 1, results: results.clone() }] };
+            let checked = combine_results_checked(&input);
+            let owned = combine_results(&input);
+            let borrowed = combine_results_refs(&input.factors, &[(1, &results)]);
+            (checked, owned, borrowed)
+        };
+        let (checked, owned, borrowed) = combine(&[1.0]);
+        assert!(checked.as_ref().unwrap().as_ref().unwrap().displacements.iter().any(|d| d.uz != 0.0));
+        let control = serde_json::to_value((checked, owned, borrowed)).unwrap();
+        let weights = factors_with_unit_residual();
+        let residual = serde_json::to_value(combine(&weights)).unwrap();
+        let (refused, owned, borrowed) = combine(&[weights.as_slice(), &[-1.0]].concat());
+        assert_eq!(refused.as_ref().err().map(String::as_str), Some("Repeated load case factors cancel to zero in this combination."));
+        assert!(owned.is_none());
+        assert!(borrowed.is_none());
+        assert_eq!(residual, control);
+    }
+}
+
+#[test]
+fn issue_2292_spatial_combination_sums_case_factors_exactly() {
+    let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &refs),
+                combine_results_3d_refs_with_thickness(&factors, &refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        let control = combine(&[1.0]);
+        assert!(control.iter().all(|r| r.as_ref().unwrap().as_ref().unwrap().displacements.iter().any(|d| d.uz != 0.0)));
+        let weights = factors_with_unit_residual();
+        let residual = combine(&weights);
+        let refused = combine(&[weights.as_slice(), &[-1.0]].concat());
+        assert_eq!(
+            refused.iter().map(|r| r.as_ref().err().map(String::as_str)).collect::<Vec<_>>(),
+            [Some("Repeated load case factors cancel to zero in this combination."); 4],
+        );
+        assert_eq!(serde_json::to_value(residual).unwrap(), serde_json::to_value(control).unwrap());
+    }
+}
+
+#[test]
+fn issue_2292_native_solvers_validate_optional_support_springs() {
+    use dedaliano_engine::solver::{cable, linear, ssi};
+
+    let mut plane: SolverInput = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let mut space: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    for kx in [None, Some(0.0), Some(1.0), Some(f64::NAN), Some(f64::INFINITY), Some(f64::NEG_INFINITY)] {
+        let mut plane_spring: SolverSupport = serde_json::from_value(serde_json::json!({
+            "id": 2, "nodeId": 2, "type": "spring"
+        })).unwrap();
+        plane_spring.kx = kx;
+        plane.supports.insert("spring".into(), plane_spring);
+        let mut space_spring: SolverSupport3D = serde_json::from_value(serde_json::json!({
+            "nodeId": 5, "rx": false, "ry": false, "rz": false, "rrx": false, "rry": false, "rrz": false
+        })).unwrap();
+        space_spring.kx = kx;
+        space.supports.insert("spring".into(), space_spring);
+
+        let results = [
+            linear::solve_2d(&plane).map(|r| r.displacements.iter().any(|d| d.uz != 0.0)),
+            cable::solve_cable_2d(&plane, &HashMap::new(), 50, 1e-6).map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            ssi::solve_ssi_2d(&ssi::SSIInput { solver: plane.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-4 })
+                .map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            linear::solve_3d(&space).map(|r| r.displacements.iter().any(|d| d.uz != 0.0)),
+            cable::solve_cable_3d(&space, &HashMap::new(), 50, 1e-6).map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+            ssi::solve_ssi_3d(&ssi::SSIInput3D { solver: space.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-4 })
+                .map(|r| r.results.displacements.iter().any(|d| d.uz != 0.0)),
+        ];
+        for result in results {
+            if kx.is_some_and(|k| !k.is_finite()) {
+                assert!(result.unwrap_err().contains("numeric fields must be finite"));
+            } else {
+                assert!(result.unwrap());
+            }
+        }
+    }
+}

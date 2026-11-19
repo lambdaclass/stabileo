@@ -1,10 +1,5 @@
-import { assertFiniteWire } from './wasm-solver';
+import { assertFiniteWire, finiteWireJson } from './wasm-solver';
 import { finishSolve3D } from './solve-finish';
-
-function finiteWireJson(payload: unknown): string {
-  assertFiniteWire(payload);
-  return JSON.stringify(payload);
-}
 
 /** Native operations only. Active-set decisions stay in the shared generator. */
 export function nonlinearWorkerSession(wasm: Record<string, any>) {

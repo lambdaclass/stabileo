@@ -61,7 +61,8 @@ def _reaches_slow(path, seen):
 
 def discover_slow_specs(e2e_dir):
     return tuple(p.name for p in sorted(e2e_dir.glob('*.spec.ts'))
-                 if p.name != 'rc-design-visual.spec.ts' and _reaches_slow(p.resolve(), set()))
+                 if p.name != 'rc-design-visual.spec.ts' and not p.name.endswith('.timing.spec.ts')
+                 and _reaches_slow(p.resolve(), set()))
 
 
 ALL_SLOW_SPECS = discover_slow_specs(REPO_ROOT / 'web/e2e')

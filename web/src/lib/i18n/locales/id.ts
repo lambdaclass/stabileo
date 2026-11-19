@@ -6,6 +6,8 @@ const id: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Cakupan sebagian oleh cangkang memerlukan jalur yang membentang penuh di antara penumpu yang berhadapan pada panel balok persegi panjang.",
   'loadPlan.gravity.stripDirection': "Arah bentang satu arah yang diminta harus searah dengan bentang jalur yang tidak tertutup.",
   'loadPlan.gravity.nonplanarShell': "Segi empat {id} tidak datar. Cakupan cangkang untuk beban gravitasi memerlukan cangkang datar.",
+  'loadPlan.gravity.overlappingShells': "Elemen cangkang {first} dan {second} bertumpang tindih pada bidang yang sama. Beban gravitasi di daerah tumpang tindih tidak dapat dialokasikan ke satu cangkang.",
+  'loadPlan.gravity.offsetShellDeck': "Cangkang {id} terhubung kaku ke panel balok yang bergeser dan bertumpang tindih dalam denah. Permukaan yang menerima beban bidang tidak dapat ditentukan.",
   'loadPlan.gravity.unresolvedMember': "Batang {id} hanya tertutup sebagian oleh cangkang dan penyaluran beban panel belum dapat ditentukan.",
   'loadPlan.gravity.differentDeck': "Cangkang yang menutupi panel balok harus berada pada pelat yang sama.",
   'loadPlan.gravity.differentSlopedDeck': "Cangkang miring yang menutupi panel balok harus berada pada pelat yang sama.",
