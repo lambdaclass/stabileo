@@ -93,7 +93,6 @@ test.describe('@smoke torsion of edge beams under one-sided slab load (#1401)', 
 
 test.describe('@smoke seismic generation', () => {
   test('refuses modal response-spectrum load generation and links the issue', async ({ pro: page }) => {
-    test.skip(process.env.RUN_KNOWN_WRONG !== '2316', 'known wrong result: #2316');
     await loadSeismicFloor(page);
     await openSeismicLoadGenerator(page);
     await dwellingFloorLoads(page);

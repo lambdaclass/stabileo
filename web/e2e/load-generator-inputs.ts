@@ -16,22 +16,33 @@ export async function loadSeismicFloor(page: Page, baseElevation = 0): Promise<v
 }
 
 export async function expectGeneratedSeismicStoryLoads(page: Page): Promise<void> {
-  const cases = await page.evaluate(() => {
+  const { cases, floorNodes, floorBeams, slabId } = await page.evaluate(() => {
     const { snapshot } = JSON.parse(window.__stabileo.serializeProject()) as DedalFile;
-    return (snapshot.loadCases ?? []).filter(c => c.type === 'E').map(c => {
+    const [slabId, slab] = snapshot.quads![0]!;
+    const floorNodes = [...slab.nodes].sort((a, b) => a - b);
+    const floorBeams = snapshot.elements
+      .filter(([, beam]) => floorNodes.includes(beam.nodeI) && floorNodes.includes(beam.nodeJ))
+      .map(([id]) => id).sort((a, b) => a - b);
+    const cases = (snapshot.loadCases ?? []).filter(c => c.type === 'E').map(c => {
       const loads = snapshot.loads.filter(l => l.data.caseId === c.id && l.data.generatedBy);
+      const carrierIds = (type: string, key: string) =>
+        [...new Set(loads.filter(l => l.type === type).map(l => l.data[key]))].sort((a, b) => Number(a) - Number(b));
       return {
         name: c.name,
         types: [...new Set(loads.map(l => l.type))].sort(),
-        nodes: [...new Set(loads.flatMap(l => l.type === 'nodal3d' ? [l.data.nodeId] : []))].sort((a, b) => a - b),
-        shellCorners: snapshot.quads?.[0]?.[1].nodes,
+        nodes: carrierIds('nodal3d', 'nodeId'),
+        beams: carrierIds('distributed3d', 'elementId'),
+        slabs: carrierIds('surface3d', 'quadId'),
       };
     });
+    return { cases, floorNodes, floorBeams, slabId };
   });
   expect(cases.length).toBeGreaterThan(0);
   for (const seismicCase of cases) {
-    expect(seismicCase.types, seismicCase.name).toEqual(['nodal3d']);
-    expect(seismicCase.nodes, seismicCase.name).toEqual(expect.arrayContaining(seismicCase.shellCorners!));
+    expect(seismicCase.types, seismicCase.name).toEqual(['distributed3d', 'nodal3d', 'surface3d']);
+    expect(seismicCase.nodes, seismicCase.name).toEqual(floorNodes);
+    expect(seismicCase.beams, seismicCase.name).toEqual(floorBeams);
+    expect(seismicCase.slabs, seismicCase.name).toEqual([slabId]);
   }
 }
 
