@@ -30,7 +30,7 @@ async function editTimes(page: Page, n = 8): Promise<number> {
   return s[Math.floor(s.length / 2)]!;
 }
 
-test.describe('@slow model fluidity with design', () => {
+test.describe('@timing model fluidity with design', () => {
   test('a node moved on the detailed 7-storey building, wireframe and physical', async ({ pro: page }) => {
     test.setTimeout(600_000);
     await loadModel(page, 'pro-edificio-7p');
