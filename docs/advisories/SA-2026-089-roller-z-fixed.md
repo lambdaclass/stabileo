@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-17; requested for #2276; pending coordinator review, merge and release |
+| Status | Published 2026-11-18; drafted 2026-11-17 |
 | Issue | [#2276](https://github.com/lambdaclass/stabileo/issues/2276) |
-| Fix | Worktree fix for #2276; pending merge and release |
-| Fixed release | Not released |
+| Fix | PR [#2277](https://github.com/lambdaclass/stabileo/pull/2277); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `44d527d64933c07c8a812f04ad2373e4d83eb72c`; unmasked custom3d also confirmed on origin/main `cf92724704aa0e4d15ac9563fb8e52f525909dae`. Historical releases and introduction not assessed |
 | Re-check registry | [`roller-z-fixed`](../../web/src/lib/provenance/result-changes/roller-z-fixed.json), [`roller-z-fixed-design`](../../web/src/lib/provenance/result-changes/roller-z-fixed-design.json) |
 
@@ -47,7 +47,7 @@ match the intended structure.
 
 ## Fixed in
 
-The #2276 worktree correction, pending merge and release. The named switch is exhaustive
+0.6.2 (PR [#2277](https://github.com/lambdaclass/stabileo/pull/2277)). The named switch is exhaustive
 at compile time and refuses unknown runtime values, including values accompanied by a
 mask. The legacy `rollerZ` has contradictory 2D, gizmo and example meanings; genuine 3D
 solves now require explicit restraints for that name and for `custom3d`. The 2D projection remains
@@ -64,14 +64,13 @@ distribution independently. Do not accept a fixed fallback as a slider condition
 ## What to do with results you already have
 
 Review the intended supports before re-solving affected saved projects. After upgrading
-to a release containing the correction, rerun analysis, load cases, combinations and
+to 0.6.2, rerun analysis, load cases, combinations and
 design. Review forces, reactions, deflections, member sizing and prior deliverables
 that relied on the earlier results. The correction does not choose the intended mask
 for an existing ambiguous saved bearing.
 
 ## Credits and references
 
-The task explicitly requested this SA-2026-089 draft. Publication and advisory disposition
-remain with the coordinator. See issue #2276 and the
+See issue #2276 and the
 [results-change record](../results-changes/2026-11-roller-z-fixed.md) for the main-source
-witness, physical derivation and parent-failing regressions. No release claim is made.
+witness, physical derivation and regressions.

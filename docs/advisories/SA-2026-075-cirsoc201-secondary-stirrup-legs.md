@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-18. Fixed in PR #2308, pending merge and release. |
+| Status | Published 2026-11-18; drafted 2026-11-18 |
 | Issue | [#2171](https://github.com/lambdaclass/stabileo/issues/2171) |
-| Fix | PR [#2308](https://github.com/lambdaclass/stabileo/pull/2308) |
-| Fixed release | The release containing PR #2308 |
+| Fix | PR [#2308](https://github.com/lambdaclass/stabileo/pull/2308); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `aa57c566c50daeeb74f651f253a066654a3f3825`. Historical release binaries have not been assessed. |
 | Re-check registry | [`secondary-stirrup-legs`](../../web/src/lib/provenance/result-changes/secondary-stirrup-legs.json), [`secondary-shear-longitudinal`](../../web/src/lib/provenance/result-changes/secondary-shear-longitudinal.json) |
 
@@ -70,7 +70,7 @@ which members need this review.
 
 ## Fixed in
 
-The release containing [PR #2308](https://github.com/lambdaclass/stabileo/pull/2308).
+0.6.2 (PR [#2308](https://github.com/lambdaclass/stabileo/pull/2308)).
 The verifier uses the provided cage to resolve each face's width, effective
 depth and stirrup legs. Secondary shear and combined torsion share the
 resolved secondary face. Active torsion checks the combined minimum on each
@@ -87,7 +87,7 @@ is active, including when secondary shear is zero.
 
 ## What to do with results you already have
 
-After updating to the release containing PR #2308, reopen affected saved
+After updating to 0.6.2, reopen affected saved
 projects and review the recheck notice. Re-run the reinforced-concrete
 design and verification. Review the governing secondary shear and torsion
 checks, the provided reinforcement and any drawings or calculations that

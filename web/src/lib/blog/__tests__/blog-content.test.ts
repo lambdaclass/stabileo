@@ -16,10 +16,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { POSTS, findPost } from '..';
+import huAdvisories from '../translations/hu/safety-advisories';
 import { readingMinutes, wordCount, addTranslations, inLocale, type Block, type Localized, type PostBody } from '../types';
 import { type PublicLocale, dictFor } from '../../i18n/store.svelte';
 import { completeLocales } from '../../i18n/locales/all';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const REQUIRED = completeLocales() as PublicLocale[];
@@ -407,28 +408,47 @@ describe('the safety-advisories post quotes the advisories', () => {
     expect(status.t).toContain(`SA-2026-057 — ${draftStatus}.`);
   });
 
-  it('exists, and lists every advisory in docs/advisories', async () => {
+  it('known wrong result: #1782 — lists every advisory in every written language', () => {
     expect(post).toBeTruthy();
-    const { readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))
-      .map((f) => /^(SA-\d{4}-\d{3})-/.exec(f)?.[1])
-      .filter((x): x is string => !!x)
-      .sort();
-    const summary = post!.i18n.en.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
-    expect(summary.rows.map((r) => r[0]).sort()).toEqual(ids);
-  });
+    const directory = new URL('../../../../../docs/advisories/', import.meta.url);
+    const files = readdirSync(directory)
+      .flatMap(file => /^(SA-\d{4}-\d{3})-/.exec(file)?.[1] ?? []);
+    const index = readFileSync(new URL('README.md', directory), 'utf8');
+    const resultsEntries = Array.from(index.matchAll(/\[(SA-\d{4}-\d{3})\]\(\.\.\/results-changes\//g), entry => entry[1]!);
+    const ids = [...new Set([...files, ...resultsEntries])].sort();
+    const releaseNotes = readFileSync(new URL('../../../../../docs/releases/v0.6.2.md', import.meta.url), 'utf8');
+    const fixed = Array.from(releaseNotes.matchAll(/^\| \[(SA-\d{4}-\d{3})\]\(\.\.\/([^)]*)\)/gm), entry => ({
+      id: entry[1]!,
+      evidence: entry[2]!,
+    }));
 
-  it('known wrong result: #1782 — lists every advisory in every written language', async () => {
-    const { readdirSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const ids = readdirSync(join(__dirname, '../../../../../docs/advisories'))
-      .map((f) => /^(SA-\d{4}-\d{3})-/.exec(f)?.[1])
-      .filter((x): x is string => !!x)
-      .sort();
-    for (const locale of written(post!)) {
-      const summary = post!.i18n[locale]!.blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
+    const fixedStatuses: Record<PublicLocale, string> = {
+      en: 'Fixed in 0.6.2',
+      es: 'Corregido en 0.6.2',
+      pt: 'Corrigido em 0.6.2',
+      de: 'Behoben in 0.6.2',
+      fr: 'Corrigé dans 0.6.2',
+      tr: '0.6.2 sürümünde düzeltildi',
+      hu: 'Javítva a 0.6.2 verzióban',
+    };
+    const fixedIds = fixed.map(({ id }) => id).sort();
+
+    for (const locale of new Set<PublicLocale>([...REQUIRED, 'hu'])) {
+      const body = post!.i18n[locale] ?? (locale === 'hu' ? huAdvisories : undefined);
+      expect(body, `${locale}: advisory post`).toBeDefined();
+      const blocks = body!.blocks;
+      const summary = blocks.find((b) => b.k === 'table') as Extract<Block, { k: 'table' }>;
       expect(summary.rows.map((r) => r[0]).sort(), `${locale}: advisory list`).toEqual(ids);
+      expect(summary.rows.filter((r) => r[3]?.includes('0.6.2')).map((r) => r[0]).sort(), `${locale}: 0.6.2 statuses`)
+        .toEqual(fixedIds);
+      for (const { id, evidence } of fixed) {
+        const status = fixedStatuses[locale];
+        expect(summary.rows.find((r) => r[0] === id)?.[3], `${locale}: ${id} status`).toBe(status);
+        expect(blocks.filter((b) => b.k === 'note' && b.t.startsWith(`${id} — `)), `${locale}: ${id} note`)
+          .toEqual([{ k: 'note', t: `${id} — ${status}.` }]);
+        expect(blocks.filter((b) => b.k === 'ext' && b.label === id), `${locale}: ${id} evidence`)
+          .toEqual([expect.objectContaining({ href: `https://github.com/lambdaclass/stabileo/blob/main/docs/${evidence}` })]);
+      }
     }
   });
 

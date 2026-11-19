@@ -5,6 +5,7 @@ import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
 import { computeStationDemands, setCompactStationTransfer, runUnifiedVerification, runCirsocDesign } from '../verification-service';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import { memberContexts } from '../design/other-codes/run';
+import { momentGradient } from '../steel/moment-gradient';
 
 const model = {
   elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]]),
@@ -82,4 +83,30 @@ it('an empty selection has no station demands', () => {
   const empty = computeStationDemands(new Map(), [], model);
   expect(empty.demands.size).toBe(0);
   expect(empty.stations.size).toBe(0);
+});
+
+const issue2247 = process.env.RUN_KNOWN_WRONG === '2247' ? it : it.skip;
+issue2247('known wrong result: #2247 linear interpolation of sampled moments cannot overstate Cb', () => {
+  const length = 6;
+  const q = 13.4;
+  const section = { id: 1, name: 'IPE 200', shape: 'I', h: 0.2, b: 0.1, tw: 0.0056, tf: 0.0085,
+    a: 28.5e-4, iy: 1943e-8, iz: 142e-8, j: 6.98e-8 };
+  const steel = { ...model,
+    nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: length, y: 0, z: 0 }]]),
+    materials: new Map([[1, { id: 1, name: 'Steel', e: 200_000, nu: 0.3, fy: 235, fu: 360 }]]),
+    sections: new Map([[1, section]]),
+  };
+  const supports = new Map([1, 2].map(id => [id, { nodeId: id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]));
+  const result = solve3D({ ...steel, supports,
+    elements: new Map([[1, { ...steel.elements.get(1)!, type: 'frame', releaseMyStart: false, releaseMyEnd: false,
+      releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+    loads: [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -q, qZJ: -q } }],
+  });
+  if (typeof result === 'string') throw new Error(result);
+  const { stations } = computeStationDemands(new Map([[1, result]]), [{ id: 1, name: 'C1', factors: [] }], steel);
+  const solvedMoments = stations.get(1)!.comboResults[0]!.stations.map(({ t, my }) => ({ t, m: my }));
+  const moment = (x: number) => Math.abs(q * (x * (length - x) / 2 - length ** 2 / 12));
+  const mMax = moment(0);
+  const cbF11 = 12.5 * mMax / (2.5 * mMax + 3 * moment(length / 4) + 4 * moment(length / 2) + 3 * moment(3 * length / 4));
+  expect(momentGradient({ stations: solvedMoments, shape: 'I' }).cb).toBeCloseTo(cbF11, 9);
 });

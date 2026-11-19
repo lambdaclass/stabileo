@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-16; PR #2197; pending merge and release |
+| Status | Published 2026-11-18; drafted 2026-11-16 |
 | Issue | [#2176](https://github.com/lambdaclass/stabileo/issues/2176) |
-| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); pending merge and release |
-| Fixed release | Not released |
+| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on origin/main `9d925a78093db05bf8b50eb125aa829fa5dd955d`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-crossing-profile`](../../web/src/lib/provenance/result-changes/snow-crossing-profile.json) |
 
@@ -44,7 +44,7 @@ ridge-crossing notice.
 
 ## Fixed in
 
-PR #2197; pending merge and release. A shared roof-surface pressure
+Fixed in **0.6.2**, PR #2197. A shared roof-surface pressure
 profile supplies ridge cuts to member and panel allocation. Each interval
 retains its own pressure. Existing engineering and geometric limits are unchanged.
 
@@ -56,7 +56,7 @@ independently verified loads.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction:
+After upgrading to 0.6.2:
 
 Regenerate all affected generated area loads, then rerun analyses, combinations
 and design checks. Re-solving stored
@@ -67,4 +67,4 @@ based on the previous loads.
 
 The coordinator reserved SA-2026-073 for #2176. The
 [results-change record](../results-changes/2026-11-snow-crossing-profile.md)
-contains the independent physical expectation and replay. PR #2197; pending merge and release.
+contains the independent physical expectation and replay. Fixed in **0.6.2**, PR #2197.
