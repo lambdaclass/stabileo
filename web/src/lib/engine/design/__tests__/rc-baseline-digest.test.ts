@@ -34,7 +34,7 @@
 
 import { describe, it, expect } from 'vitest';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
-import { runDesign } from '../candidate-search';
+import { designMember, runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 import { solveFixture, assertRealSolver } from './helpers';
 import type { DesignRunSummary } from '../outcome';
@@ -73,15 +73,59 @@ describe('RC design baseline — the flagship frame, member by member', () => {
   const solved = solveFixture(frame);
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
   const lines = digestLines(summary);
-
-  const containmentTest = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-  containmentTest('known wrong result: #2338 shear-depth containment never reopens an exhausted flagship search', () => {
+  it('#2338 shear-depth containment never reopens an exhausted flagship search', () => {
     assertRealSolver();
     for (const member of [180, 181, 182, 186, 187, 188, 211, 217]) {
       const outcome = summary.outcomes.get(member);
       expect(outcome?.outcome, `member ${member}`).toBe('SEARCH_EXHAUSTED');
       expect(outcome?.certificate, `member ${member}`).toBeUndefined();
       expect(outcome?.accepted, `member ${member}`).toBeUndefined();
+    }
+  });
+
+  it.each(['single member', 'batch'] as const)('checks the selected cage before certification through %s', (entry) => {
+    const design = (id: number) => {
+      const context = solved.contexts.get(id)!;
+      return entry === 'single member'
+        ? designMember(cirsoc201Adapter, context)
+        : runDesign(cirsoc201Adapter, [context]).outcomes.get(id)!;
+    };
+
+    const refused = design(289);
+    expect(refused.outcome).toBe('UNSUPPORTED');
+    expect(refused.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+    expect(refused.certificate).toBeUndefined();
+    expect(refused.accepted).toBeUndefined();
+    const checks = refused.provisional!.verdict.checks.filter((check) => check.description === 'diag.rcShearDepth');
+    expect(checks.map((check) => check.category)).toEqual(['Shear Support (Vz)', 'Shear Span (Vz)']);
+    for (const check of checks) {
+      expect(check.status).toBe('fail');
+      expect(check.capacity).toBe(0);
+      expect(check.ratio).toBe(Infinity);
+    }
+
+    const control = design(310);
+    expect(control.outcome).toBe('VERIFIED');
+    expect(control.certificate?.worstUtilization).toBe(0.9);
+    expect(control.accepted).toBeDefined();
+  });
+
+  it('withholds certification for the exact flagship beams with unsupported shear depth', () => {
+    const held = [...summary.outcomes.values()].filter((outcome) => outcome.outcome === 'UNSUPPORTED');
+    expect(held.map((outcome) => outcome.elementId).sort((a, b) => a - b)).toEqual([
+      173, 174, 175, 176, 192, 193, 194, 195, 200, 201, 202, 203, 204, 205,
+      206, 207, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234,
+      235, 236, 237, 238, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263,
+      264, 265, 266, 267, 268, 269, 285, 286, 287, 288, 289, 290, 291, 292,
+      293, 294, 295, 296, 297, 298, 299, 300, 316, 317, 318, 319, 320, 321,
+      322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 347, 350,
+    ]);
+    for (const outcome of held) {
+      expect(outcome.limiting).toContain('unsupportedCheck');
+      expect(outcome.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(outcome.provisional?.verdict.worstUtilization).toBe(Infinity);
+      expect(outcome.certificate).toBeUndefined();
+      expect(outcome.accepted).toBeUndefined();
     }
   });
 
@@ -116,13 +160,13 @@ describe('RC design baseline — the flagship frame, member by member', () => {
     // 372 and 23 since the design met main's concrete in the engine (see the fingerprint): the
     // columns are read on the engine's load contour and carry bars on every face, and 11 more
     // edge beams find no layout through those cages.
-    expect(summary.verified).toBe(368);
+    expect(summary.verified).toBe(286);
     // The 23 congested beams are an exhausted search, not a proven section (`section-bounds.ts`).
     expect(summary.searchExhausted).toBe(27);
     expect(summary.provisionalBiaxial).toBe(13);
     expect(summary.sectionInadequate).toBe(0);
     expect(summary.demandUnavailable).toBe(0);
-    expect(summary.unsupported).toBe(0);
+    expect(summary.unsupported).toBe(82);
     expect(summary.aborted).toBe(false);
   });
 
@@ -255,7 +299,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
       expect(o.certificate).toBeUndefined();
       expect(o.accepted).toBeUndefined();
     }
-    const refused = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED' && o.outcome !== 'SEARCH_EXHAUSTED');
+    const refused = [...summary.outcomes.values()].filter((o) => o.outcome === 'PROVISIONAL_BIAXIAL');
     expect(refused).toHaveLength(13);
     for (const o of refused) {
       expect(o.outcome).toBe('PROVISIONAL_BIAXIAL');
@@ -422,4 +466,4 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 // and the other seven stay exhausted. 173, 347 and 350 change bars and stay verified (347 and
 // 350: bottom 7Ø12 → 5Ø25). Utilization moved on 85 (57 up, 28 down, −0,224 to +0,032); the
 // worst stays 0,998. The counts are 372 verified, 23 exhausted, 13 provisional.
-const RECORDED_FINGERPRINT = '412d6a20c4170eea';
+const RECORDED_FINGERPRINT = 'd213b9e2e1f52c8a';

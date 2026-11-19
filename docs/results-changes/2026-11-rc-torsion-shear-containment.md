@@ -9,4 +9,6 @@ Previously passing CIRSOC 201 designs can now return a blocking verification res
 - In #2309, the 2005 section checker could pass active torsion using uncapped 500 MPa steel. It now refuses active torsion when the specified yield exceeds the 420 MPa cap in §11.6.3.4. The station path already applies the cap.
 - In #2296, an active cut in a drawn stirrup gap reported 343.10 kN of shear capacity. Verification now checks gaps at sampled cuts and between them under either shear component or active torsion, including secondary shear with zero torque. A hogging cut that uses the larger span depth also blocks when the reinforcement indicates a shallower tension face.
 
+The automatic design search selects reinforcement and settles crossing seats before the shear-depth containment can affect certification. When the selected cage has unsupported effective depth, design withholds its certificate and rechecks surviving selections against the resulting seats without reopening failed searches. On the 408-member flagship, 82 formerly certified beams now refuse on shear depth. The other 326 member fingerprints match the previous record exactly, including every certified utilization retained by containment.
+
 Re-run affected concrete member verification and review any blocked checks before relying on the design or detailing.

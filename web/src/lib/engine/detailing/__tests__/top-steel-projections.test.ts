@@ -60,7 +60,10 @@ describe('top assembly reinforcement, across every projection', { timeout: 60_00
     expect(beams.length).toBeGreaterThan(100);
     const bare = beams.filter((id) =>
       !scene.bars.some((b) => b.elementIds.includes(id) && b.role === 'longitudinal'));
-    expect(bare).toEqual([112, 115, 117, 120, 121, 124, 126, 129, 130, 133, 135, 138, 139, 142, 144, 147, 172, 180, 188, 196]);
+    expect(bare).toEqual([
+      112, 113, 114, 115, 117, 118, 119, 120, 121, 123, 124, 126, 127, 128, 129, 130, 132, 133, 135, 136, 137,
+      138, 139, 141, 142, 144, 145, 146, 147, 172, 175, 176, 177, 178, 179, 180, 185, 187, 188, 193, 196,
+    ]);
     for (const id of bare) {
       expect(verificationStore.outcomeFor(id)?.outcome, `member ${id}`).not.toBe('VERIFIED');
       expect(scene.bars.some((b) => b.elementIds.includes(id) && b.role === 'transverse' && b.piece !== 'jointTie' && b.piece !== 'jointCrosstie'), `member ${id} has no cage either`).toBe(false);

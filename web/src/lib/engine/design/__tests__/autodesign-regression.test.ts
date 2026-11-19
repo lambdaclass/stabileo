@@ -83,8 +83,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     expect(solved.orientationIssues).toEqual([]);
   });
 
-  it('produces VERIFIED for every member whose axes are fully checked, and a marked ' +
-     'PROPOSAL for the 13 BEAM-Y members with unchecked biaxial (Mz/Vy) demand', () => {
+  it('certifies supported members and reports the exact shear, congestion and biaxial outcomes', () => {
     const s = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 120_000 });
     expect(s.total).toBe(408);
     // 13 BEAM-Y members carry Mz/Vy secondary demand above the 10% biaxial
@@ -92,7 +91,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     // refuses rather than falsely certify them (PR78 review fix). 22 until
     // self-weight bent the beams (see the header).
     // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
-    expect(s.verified).toBe(368);
+    expect(s.verified).toBe(286);
     // 16 refused on congestion: an exhausted search, not a proven section (`section-bounds.ts`).
     // 22 until the ductility check (header).
     expect(s.sectionInadequate).toBe(0);
@@ -107,7 +106,7 @@ describe('flagship 408-member RC frame designs completely', () => {
      * missing. These now carry their primary-axis design as an explicit proposal — same
      * threshold, same verifier, nothing assumed for the axis nobody checks.
      */
-    expect(s.unsupported).toBe(0);
+    expect(s.unsupported).toBe(82);
     expect(s.provisionalBiaxial).toBe(13);
     /**
      * `provisionalRetained` counts a different thing and must not move.
@@ -119,29 +118,33 @@ describe('flagship 408-member RC frame designs completely', () => {
     // 13 + 23 = 36 since main's concrete in the engine (rc-baseline-digest.test.ts); 13 + 12 = 25
     // since the minimum shear reinforcement of §9.6.3.1 (header); 13 + 16 = 29 since the
     // ductility check, 13 + 22 = 35 before.
-    expect(s.provisionalRetained).toBe(40);
+    expect(s.provisionalRetained).toBe(122);
     expect(s.aborted).toBe(false);
     expect(s.notReached).toBe(0);
 
-    const otherLimits = new Map([[173, 'anchorage'], [192, 'flexure'], [196, 'anchorage']]);
     let worst = 0;
     let refused = 0;
     let exhausted = 0;
+    let shearDepthRefusals = 0;
     for (const [id, o] of s.outcomes) {
       if (o.outcome === 'SEARCH_EXHAUSTED') {
         expect(o.elementType, `element ${id}`).toBe('beam');
-        const expectedLimit = otherLimits.get(id);
-        if (expectedLimit) {
-          expect(o.limiting, `element ${id}`).toEqual([expectedLimit]);
-          otherLimits.delete(id);
-        } else {
-          expect(o.limiting, `element ${id}`).toContain('congestion');
-        }
+        expect(o.limiting, `element ${id}`).toContain('congestion');
         expect(o.insufficiency, `element ${id} proof`).toBeUndefined();
         expect(o.exhaustion?.scope, `element ${id} exhaustion`).toBe('implementedAlternatives');
         expect(o.certificate, `element ${id} certificate`).toBeUndefined();
         expect(o.accepted, `element ${id} accepted rebar`).toBeUndefined();
         exhausted++;
+        continue;
+      }
+      if (o.outcome === 'UNSUPPORTED') {
+        expect(o.elementType, `element ${id}`).toBe('beam');
+        expect(o.limiting).toContain('unsupportedCheck');
+        expect(o.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+        expect(o.provisional?.verdict.worstUtilization).toBe(Infinity);
+        expect(o.certificate).toBeUndefined();
+        expect(o.accepted).toBeUndefined();
+        shearDepthRefusals++;
         continue;
       }
       if (o.outcome !== 'VERIFIED') {
@@ -170,7 +173,7 @@ describe('flagship 408-member RC frame designs completely', () => {
     }
     expect(refused).toBe(13);
     expect(exhausted).toBe(27);
-    expect(otherLimits.size).toBe(0);
+    expect(shearDepthRefusals).toBe(82);
     expect(worst).toBeLessThanOrEqual(UTIL_FAIL_THRESHOLD);
   }, 180_000);
 

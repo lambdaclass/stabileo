@@ -1901,7 +1901,8 @@ export function prepareColumnCapacity(input: ColumnCapacitySection,
  *   - Continuity-aware multi-span curtailment/lap coordination is out of scope
  *     (next PR); anchorage is checked per member against available extension.
  */
-export function verifyProvidedReinforcement(
+function evaluateProvidedReinforcement(
+  forSelection: boolean,
   elementId: number,
   elementType: 'beam' | 'column' | 'wall',
   provided: ProvidedReinforcement | undefined,
@@ -2795,7 +2796,7 @@ export function verifyProvidedReinforcement(
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
-        if (tensionDepth(t) < d) {
+        if (!forSelection && tensionDepth(t) < d) {
           if (!refusal) refusal = { reason: 'diag.rcShearDepth', Vu, t };
           continue;
         }
@@ -3421,4 +3422,14 @@ export function transverseSpacingFor(
   return transverseSpacingForDemand(edition, {
     Vu, bw: b, d, fc, cover, stirrupDiaMm,
   });
+}
+
+type ProvidedReinforcementArgs = Parameters<typeof evaluateProvidedReinforcement> extends [boolean, ...infer Args] ? Args : never;
+
+export function verifyProvidedReinforcement(...args: ProvidedReinforcementArgs): ProvidedRebarResult {
+  return evaluateProvidedReinforcement(false, ...args);
+}
+
+export function rankProvidedReinforcement(...args: ProvidedReinforcementArgs): { ranking: ProvidedRebarResult } {
+  return { ranking: evaluateProvidedReinforcement(true, ...args) };
 }

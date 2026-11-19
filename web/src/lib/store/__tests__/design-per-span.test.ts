@@ -302,6 +302,14 @@ describe('a beam cut by the slab mesh is designed as its span', () => {
         { b: 0.2, h: 0.5, cover: c.material.cover, stirrupDia: c.material.stirrupDia }));
     }
     designRunStore.designFamilies(['column', 'beam']);
-    expect(beams.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED')).toEqual([]);
+    const refused = beams.filter((id) => verificationStore.outcomeFor(id)?.outcome !== 'VERIFIED');
+    expect(refused).toEqual([8, 18, 20, 23, 25]);
+    for (const id of refused) {
+      const outcome = verificationStore.outcomeFor(id);
+      expect(outcome?.outcome).toBe('UNSUPPORTED');
+      expect(outcome?.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(outcome?.certificate).toBeUndefined();
+      expect(outcome?.accepted).toBeUndefined();
+    }
   }, 120_000);
 });

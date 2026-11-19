@@ -40,7 +40,7 @@ import { detailingReadiness } from '../run-detailing';
 import type { MemberDesignOutcome } from '../../design/outcome';
 
 describe('the 408/373 discrepancy', () => {
-  it('the outcome population is 368 VERIFIED + 40 honest refusals — 373 was a display band', () => {
+  it('the outcome population has 286 verified members and 122 explicit refusals or proposals', () => {
     const { summary } = flagshipRun();
     expect(summary.total).toBe(408);
     // 379 since the ductility check of §9.3.3.1 steers the search off over-reinforced candidates
@@ -48,7 +48,7 @@ describe('the 408/373 discrepancy', () => {
     // autodesign-regression.test.ts, header). 373 until then. 383 since the minimum shear
     // reinforcement of CIRSOC 201-2025 §9.6.3.1 (same header): 165–168 verify.
     // 372 since main's concrete in the engine (rc-baseline-digest.test.ts, fingerprint): the columns read on the load contour carry bars on every face, and 11 more edge beams find no layout through those cages.
-    expect(summary.verified).toBe(368);
+    expect(summary.verified).toBe(286);
 
     // Every member that is not VERIFIED is refused for a stated reason. A member sitting in a
     // low-utilisation display band is NOT one of them, which is the whole point: 373 never was
@@ -64,7 +64,14 @@ describe('the 408/373 discrepancy', () => {
       expect(o.certificate, `member ${o.elementId} carries no certificate`).toBeUndefined();
       expect(o.accepted, `member ${o.elementId} assigns no certified steel`).toBeUndefined();
     }
-    const notVerified = [...summary.outcomes.values()].filter((o) => o.outcome !== 'VERIFIED' && o.outcome !== 'SEARCH_EXHAUSTED');
+    const unsupported = [...summary.outcomes.values()].filter((o) => o.outcome === 'UNSUPPORTED');
+    expect(unsupported).toHaveLength(82);
+    for (const o of unsupported) {
+      expect(o.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
+      expect(o.certificate).toBeUndefined();
+      expect(o.accepted).toBeUndefined();
+    }
+    const notVerified = [...summary.outcomes.values()].filter((o) => o.outcome === 'PROVISIONAL_BIAXIAL');
     expect(notVerified).toHaveLength(13);
     /**
      * PROVISIONAL_BIAXIAL, not UNSUPPORTED and not SEARCH_EXHAUSTED.
