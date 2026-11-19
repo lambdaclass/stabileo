@@ -241,8 +241,7 @@ describe('the span building on 40 × 40 columns: a point joint on every mesh, an
     }
   });
 
-  const pr2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-  pr2338('known wrong result: #2338 the document reports all 26 point joints even when reinforcement verification is refused', () => {
+  it('#2338 the document reports all 26 point joints even when reinforcement verification is refused', () => {
     for (const m of MESHES) {
       const x = r.get(m)!;
       expect.soft(x.openIssues, `mesh ${m}: open issues`).toBe(26);
