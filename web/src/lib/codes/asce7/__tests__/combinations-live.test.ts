@@ -83,6 +83,16 @@ describe('ASCE 7-22 Table 4.3-1 and §4.7', () => {
     expect(reduceAsce7({ ...b, loKNm2: 40 * PSF, passengerGarage: true, floorsSupported: 2 }).lKNm2).toBeCloseTo(32 * PSF, 9);
     expect(reduceAsce7({ ...b, loKNm2: 100 * PSF, publicAssembly: true, floorsSupported: 3 }).lKNm2).toBeCloseTo(100 * PSF, 9);
   });
+
+  it('§4.7.3 and §4.7.4, exception 1: by 20 % at most, and never below L of §4.7.2, so not at all on a small area', () => {
+    const small = { tributaryAreaM2: 3, elementKind: 'interiorBeam' as const, passengerGarage: false, publicAssembly: false, noReduction: false, floorsSupported: 2 };
+    expect(reduceAsce7({ ...small, loKNm2: 125 * PSF }).lKNm2).toBeCloseTo(125 * PSF, 9);
+    expect(reduceAsce7({ ...small, loKNm2: 40 * PSF, passengerGarage: true }).lKNm2).toBeCloseTo(40 * PSF, 9);
+    const mid = { ...small, tributaryAreaM2: 15, elementKind: 'interiorColumn' as const };
+    const l472 = 125 * PSF * (0.25 + 4.57 / Math.sqrt(4 * 15));
+    expect(reduceAsce7({ ...mid, loKNm2: 125 * PSF }).lKNm2).toBeCloseTo(Math.max(0.8 * 125 * PSF, l472), 9);
+    expect(l472).toBeGreaterThan(0.8 * 125 * PSF);
+  });
 });
 
 describe('§4.7.5 and §4.3.2', () => {
