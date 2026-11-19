@@ -8,7 +8,8 @@
 import { describe, it, expect } from 'vitest';
 import { areaAt, barsCarrying, lineLaps, lineMembersOf, lineFromMembers, membersFromLine, type LineMember } from '../beam-line';
 import type { BeamLineReinforcement } from '../../../design-contract/beam-line';
-import { seismicFrameChecks } from '../seismic/frame-checks';
+import { seismicFrameChecks, type FrameMember } from '../seismic/frame-checks';
+import { linePieces } from '../../detailing/line-bars';
 import { defaultSeismicDesign } from '../../../model/seismic-design';
 import { extractGoverningDemands, verifyProvidedReinforcement } from '../../station-design-forces';
 
@@ -219,6 +220,55 @@ it('#2302 hoops inside either support do not count toward the dense zone', () =>
   expect(check(fullStart, fullEnd).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
 });
 
+
+const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
+issue2338.each([
+  ['fewer legs', { legs: 2 }],
+  ['wider spacing', { spacing: 0.08 }],
+  ['different diameter', { diameter: 6 }],
+] as const)('known wrong result: #2338 a fully drawn hoop zone with %s cannot pass', (_change, weak) => {
+  const L = 5, h = 0.5;
+  const dense = { diameter: 8, legs: 4, spacing: 0.075 };
+  const member: LineMember = {
+    ...longSpan, L, faceStart: 0.2, faceEnd: 0.2,
+    reinforcement: { regions: { regionT: 2 * h / L, stirrupsSupport: dense } },
+  };
+  const check = (from: number, to: number, stirrup: typeof dense, useLinePieces: boolean) => {
+    const line: BeamLineReinforcement = {
+      version: 1, members: [member.id], lengths: [L],
+      bars: drawnMainBars.map(bar => ({ ...bar, to: L })),
+      stirrups: [
+        { id: 'left', from: 0, to: from, ...dense },
+        { id: 'middle', from, to, ...stirrup },
+        { id: 'right', from: to, to: L, ...dense },
+      ],
+    };
+    const r = membersFromLine(line, [member]).get(member.id)!;
+    expect(r.regions?.stirrupsSupport).toEqual(dense);
+    const frame: FrameMember = {
+      ...beamConcrete, b: 0.2, h, L, id: member.id, kind: 'beam', role: 'primary', nodeI: 1, nodeJ: 2,
+      r, faceHalf: [member.faceStart, member.faceEnd],
+      criticalSections: {
+        start: { tCritShear: (member.faceStart + 2 * h) / L, tFace: member.faceStart / L, source: 'column' },
+        end: { tCritShear: (member.faceEnd + 2 * h) / L, tFace: member.faceEnd / L, source: 'column' },
+      },
+      ...(useLinePieces ? { drawnStirrups: linePieces(line, [true]).get(member.id)!.stirrups } : {}),
+    };
+    return seismicFrameChecks({ nodes: new Map(), settings: defaultSeismicDesign(), members: [frame] }).members[0];
+  };
+  const start = [0.35, 0.55] as const;
+  const end = [L - start[1], L - start[0]] as const;
+  for (const useLinePieces of [true, false]) {
+    for (const [from, to] of [start, end]) {
+      expect(check(from, to, dense, useLinePieces)).toMatchObject({ ok: true, issues: [] });
+      expect(check(from, to, { ...dense, legs: dense.legs + 1, spacing: dense.spacing / 2 }, useLinePieces))
+        .toMatchObject({ ok: true, issues: [] });
+      expect.soft(check(from, to, { ...dense, ...weak }, useLinePieces)).toMatchObject({
+        ok: false, issues: ['seisDes.issue.hoopZone'], beam: { hoops: { lengthOk: false, spacingOk: true } },
+      });
+    }
+  }
+});
 
 it('#2310 drawn perimeter verification uses the corner seats occupied at the cut', () => {
   const L = 6;

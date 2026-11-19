@@ -13,6 +13,7 @@ import { deskMembers } from '../design-desk';
 import { memoriaInput } from '../memoria-inputs';
 import { designSheets } from '../design-exchange';
 import { projectIfcInput } from '../ifc-export';
+import { memoElementState } from '../../report/memoria/types';
 import * as wasmSolver from '../../engine/wasm-solver';
 import { stateSuiteLateral } from './suite-lateral';
 
@@ -107,21 +108,26 @@ describe('a member whose only issue is its anchorage', () => {
   });
 });
 
+function torsionBeam(q = 10) {
+  modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
+  const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
+  const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
+  const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3);
+  modelStore.addSupport(a, 'fixed3d' as never); modelStore.addSupport(b, 'pinned3d' as never);
+  const e1 = modelStore.addElement(a, b, 'frame');
+  modelStore.updateElementMaterial(e1, mat); modelStore.updateElementSection(e1, sec);
+  modelStore.addDistributedLoad3D(e1, 0, 0, -q, -q, undefined, undefined, 1);
+  modelStore.addNodalLoad3D(b, 0, 0, 0, 6, 0, 0, 1);
+  const combo = modelStore.solveCombinations3D(false, false, true);
+  if (!combo || typeof combo === 'string') throw new Error(String(combo));
+  resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  expect(designRunStore.runCodeCheck().ok).toBe(true);
+  return e1;
+}
+
 describe('the torsion row of the code check', () => {
   it('states φTn of the section, so a member it does not govern does not read 1.00', () => {
-    modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
-    const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
-    const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
-    const a = modelStore.addNode(0, 0, 3), b = modelStore.addNode(6, 0, 3);
-    modelStore.addSupport(a, 'fixed3d' as never); modelStore.addSupport(b, 'pinned3d' as never);
-    const e1 = modelStore.addElement(a, b, 'frame');
-    modelStore.updateElementMaterial(e1, mat); modelStore.updateElementSection(e1, sec);
-    modelStore.addDistributedLoad3D(e1, 0, 0, -10, -10, undefined, undefined, 1);
-    modelStore.addNodalLoad3D(b, 0, 0, 0, 6, 0, 0, 1);
-    const combo = modelStore.solveCombinations3D(false, false, true);
-    if (!combo || typeof combo === 'string') throw new Error(String(combo));
-    resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
-    expect(designRunStore.runCodeCheck().ok).toBe(true);
+    const e1 = torsionBeam();
     const dr = verificationStore.designMap.get(e1)!;
     const t = dr.checks.find((c) => c.name === 'Torsion')!;
     expect(t.demand).toBeCloseTo(8.4, 6);
@@ -134,6 +140,32 @@ describe('the torsion row of the code check', () => {
     expect(verificationStore.getDisplayRatio(e1)).toBeCloseTo(dr.checks.find((c) => c.name === 'Flexure')!.ratio, 9);
     expect(verificationStore.getDisplayRatio(e1)).not.toBe(1);
   });
+});
+
+const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
+issue2338('known wrong result: #2338 a torsion-depth refusal holds the member and project on every design export', () => {
+  const beam = torsionBeam();
+  const result = verificationStore.designMap.get(beam)!;
+  expect(result).toMatchObject({ governingCheck: 'diag.rcTorsionDepth', status: 'fail', utilization: Infinity });
+  expect(result.checks.filter(c => c.status === 'fail')).toEqual([
+    expect.objectContaining({ name: 'diag.rcTorsionDepth', capacity: 0, ratio: Infinity }),
+  ]);
+  expect(result.checks.find(c => c.name === 'diag.rcTorsionDepth')?.demand).toBeCloseTo(7.2, 6);
+  expect(result.checks.some(c => c.name === 'Torsion')).toBe(false);
+  expect(verificationStore.memberVerdict(beam).status).toBe('unavailable');
+  expect(verificationStore.getDisplayRatio(beam)).toBeNull();
+  expect(verificationStore.providedSummary).toMatchObject({ ok: 0, warn: 0, total: 1 });
+
+  const r = readers(beam);
+  expect(r.desk).toMatchObject({ status: 'unavailable', ratio: null });
+  expect(r.mem.rows).toContainEqual(expect.objectContaining({ titleKey: 'check.deflection', status: 'ok' }));
+  expect.soft(r.mem.heldBy ?? []).toContain('diag.rcTorsionDepth');
+  expect.soft(memoElementState(r.mem)).toBe('open');
+  expect.soft(r.wbElement[6]).toBe('memo.state.open');
+  expect.soft(r.ifc.props).toMatchObject({ DesignState: 'not fully verified', HeldBy: 'diag.rcTorsionDepth' });
+  expect(memoriaInput(tr, 'es').verdict?.state).toBe('held');
+  expect(designSheets(tr, 'es').find(s => s.name === 'Design verdict')?.rows[1]?.[0]).toBe('verdict.project.held');
+  expect(projectIfcInput(tr, 'es', 'p').buildingProps?.ProjectDesignState).toBe('not approved: 0 of 1 concrete design members satisfy');
 });
 
 describe('a hook asked for and not on the bars', () => {
