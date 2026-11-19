@@ -415,6 +415,13 @@ const rowFc = new Map<string, number>();
 /** The concrete a row was designed with, MPa, as the last build read it. */
 export const concreteOfRow = (key: string): number | undefined => rowFc.get(key);
 
+/** Drops the redesigners and concretes of the last build, which hold its demands alive. */
+export function forgetRedesigners(): void {
+  redesigners.clear();
+  lineRedesigners.clear();
+  rowFc.clear();
+}
+
 const withFc = <C extends { mat: { fc: number; fy: number } }>(ctx: C, o?: RedesignWith): C => (o?.fc ? { ...ctx, mat: { ...ctx.mat, fc: o.fc } } : ctx);
 
 import type { SheetProgress } from './rc-sheets-progress.svelte';
@@ -508,14 +515,12 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const byLine = new Map<number, BeamRow[]>();
-  for (const r of proposals) { const g = r.demand.line?.group ?? -1; byLine.set(g, [...(byLine.get(g) ?? []), r]); }
+  for (const r of proposals) { const g = r.demand.line?.group ?? -1; let l = byLine.get(g); if (!l) byLine.set(g, (l = [])); l.push(r); }
   const line: LineLayout[] = [];
   const derived = new Map<string, BeamAdopted>();
   const edited = new Set(data.edited ?? []);
   const linesAdopted = new Set<number>();
-  redesigners.clear();
-  lineRedesigners.clear();
-  rowFc.clear();
+  forgetRedesigners();
   for (const [g, rows] of byLine) {
     const first = rows[0]!;
     const ctx = beamCtx(first.demand);
@@ -669,7 +674,8 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
-  const columnsFinal = column.map((r) => (r.pier ? r : checked.find((x) => x.key === r.key) ?? r));
+  const checkedBy = new Map(checked.map((x) => [x.key, x]));
+  const columnsFinal = column.map((r) => (r.pier ? r : checkedBy.get(r.key) ?? r));
   if (seismic) for (const r of checked) jointAwareRedesign(r, checked, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
   const left = leftOut([...beam, ...columnsFinal, ...slab, ...wall].map((r) => r.key), columnsFinal.map((r) => ({
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),

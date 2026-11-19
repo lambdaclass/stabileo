@@ -12,7 +12,7 @@ import { criteriaKey } from '../rc-sheets/criteria';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
 import { nextFrame } from './mesh-progress.svelte';
-import { buildSheetRows, optionsView, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
+import { buildSheetRows, forgetRedesigners, optionsView, rcSheetsData, setSheetCode, sheetCode, sheetRowsSteps, type SheetProgress, type SheetRows } from './rc-sheets.svelte';
 import type { SheetCode } from '../rc-sheets/types';
 import { designData } from './design-data';
 import { activeResultSet3D } from './active-results';
@@ -106,6 +106,7 @@ export async function changeSheetCode(code: SheetCode): Promise<void> {
 export function clearSheets(): void {
   runId++;
   sheetsRun.rows = null; sheetsRun.stamp = null; setProgress(null);
+  forgetRedesigners();
 }
 
 /**

@@ -182,6 +182,8 @@ function methodStep(x: DeflectionInput): Step {
   return { label: `rcSheets.s.defl.method.slab.${strip?.reference ?? 'corners'}`, formula: strip ? `${strip.face}` : '', value: '' };
 }
 
+const spared = (line: CheckLine, depthStep: Step): DeflectionOutcome => ({ line, group: { title: 'rcSheets.g.deflection', steps: [depthStep, { label: 'rcSheets.s.defl.spared', value: '' }] }, ok: true, computed: false });
+
 /** A failing line for a member whose depth does not spare the calculation and whose service response is unknown. */
 function noService(label: string, clause: string, steps: Step[]): DeflectionOutcome {
   return { line: check(label, false, { clause }), group: { title: 'rcSheets.g.deflection', steps: [...steps, { label: 'rcSheets.s.defl.noService', value: '', ok: false }] }, ok: false, computed: false };
@@ -232,10 +234,7 @@ export function aciDeflection(mech: DeflectionMechanics, edition: 'aci' | 'cirso
       const depthStep: Step = { label: 'rcSheets.s.defl.minDepth', formula: `h ≥ ${min.formula} (${min.clause})`, value: `${cm(f, sec.h)} ≥ ${cm(f, min.h)}`, ok: tableOk };
       const why = whyStep(tableOk, s);
       if (!why) {
-        return {
-          line: check('rcSheets.v.deflectionDepth', true, { clause: `${min.clause}, §24.2.1`, demand: `${cm(f, min.h)}`, capacity: `h = ${cm(f, sec.h)}`, ratio: min.h / sec.h }),
-          group: { title: 'rcSheets.g.deflection', steps: [depthStep, { label: 'rcSheets.s.defl.spared', value: '' }] }, ok: true, computed: false,
-        };
+        return spared(check('rcSheets.v.deflectionDepth', true, { clause: `${min.clause}, §24.2.1`, demand: `${cm(f, min.h)}`, capacity: `h = ${cm(f, sec.h)}`, ratio: min.h / sec.h }), depthStep);
       }
       const clause = T('§24.2, Table 24.2.2', '§24.2, Tabla 24.2.2');
       if (!x.service) return noService('rcSheets.v.deflectionNoService', clause, [depthStep, why]);
@@ -270,7 +269,7 @@ export function aciDeflection(mech: DeflectionMechanics, edition: 'aci' | 'cirso
           value: `${mm(f, delta)} ≤ ${mm(f, limit)}`, ok,
         },
         ...courseSteps(dD, dS, f),
-      ].filter((v): v is Step => !!v);
+      ];
       return {
         line: check('rcSheets.v.deflection', ok, { clause, demand: `Δ = ${mm(f, delta)}`, capacity: `≤ ℓ/${nLim} = ${mm(f, limit)}`, ratio: delta / limit }),
         group: { title: 'rcSheets.g.deflection', steps }, ok, computed: true,
@@ -304,12 +303,8 @@ export function ec2Deflection(mech: DeflectionMechanics): DeflectionCode {
         formula: `l/d ≤ K·[11 + 1.5√fck·ρ0/ρ + 3.2√fck·(ρ0/ρ − 1)^1.5]·(310/σs)${flange < 1 ? '·0.8' : ''}${longSpan < 1 ? `·${flat ? '8.5' : '7'}/l` : ''} (7.16a, 7.17); K = ${f(K, 1)}, ρ0 = ${f(rho0 * 100, 2)} %, ρ = ${f(rho * 100, 2)} %, 310/σs = ${f(steel, 2)}`,
         value: `${f(ld, 1)} ≤ ${f(limitLd, 1)}`, ok: tableOk,
       };
-      const spare = tableOk && !s.always;
-      if (spare) {
-        return {
-          line: check('rcSheets.v.deflectionDepth', true, { clause: '7.4.2', demand: `l/d = ${f(ld, 1)}`, capacity: `≤ ${f(limitLd, 1)}`, ratio: ld / limitLd }),
-          group: { title: 'rcSheets.g.deflection', steps: [depthStep, { label: 'rcSheets.s.defl.spared', value: '' }] }, ok: true, computed: false,
-        };
+      if (tableOk && !s.always) {
+        return spared(check('rcSheets.v.deflectionDepth', true, { clause: '7.4.2', demand: `l/d = ${f(ld, 1)}`, capacity: `≤ ${f(limitLd, 1)}`, ratio: ld / limitLd }), depthStep);
       }
       const why: Step = tableOk ? { label: 'rcSheets.s.defl.why.always', value: '' } : { label: 'rcSheets.s.defl.why.short', value: '' };
       const clause = '7.4.1, 7.4.3';
@@ -333,6 +328,7 @@ export function ec2Deflection(mech: DeflectionMechanics): DeflectionCode {
       const okQ = dQ <= limQ + 1e-9, okA = s.supports !== 'fragile' || after <= limA + 1e-9;
       const ok = okQ && okA;
       const ratio = Math.max(dQ / limQ, s.supports === 'fragile' ? after / limA : 0);
+      const afterGoverns = s.supports === 'fragile' && after / limA > dQ / limQ;
       const steps: Step[] = [
         depthStep, why, methodStep(x), loadsStep(x, s, f),
         { label: 'rcSheets.s.defl.ecm', formula: `Ecm = 22·(fcm/10)^0.3; fctm (Tab. 3.1); Ec,eff = Ecm/(1 + φ) (7.20); φ = ${f(s.creep, 2)}`, value: `${f(Ecm / 1000, 0)} · ${f(fctm / 1000, 2)} · ${f(Eeff / 1000, 0)} MPa` },
@@ -344,7 +340,7 @@ export function ec2Deflection(mech: DeflectionMechanics): DeflectionCode {
         ...(s.supports === 'fragile' ? [{ label: 'rcSheets.s.defl.reading.ec2After', formula: 'δ(∞) − δ(G, t0) ≤ l/500 (7.4.1(5))', value: `${mm(f, after)} ≤ ${mm(f, limA)}`, ok: okA }] : []),
       ];
       return {
-        line: check('rcSheets.v.deflection', ok, { clause, demand: `δ = ${mm(f, s.supports === 'fragile' && after / limA > dQ / limQ ? after : dQ)}`, capacity: s.supports === 'fragile' && after / limA > dQ / limQ ? `≤ l/500 = ${mm(f, limA)}` : `≤ l/250 = ${mm(f, limQ)}`, ratio }),
+        line: check('rcSheets.v.deflection', ok, { clause, demand: `δ = ${mm(f, afterGoverns ? after : dQ)}`, capacity: afterGoverns ? `≤ l/500 = ${mm(f, limA)}` : `≤ l/250 = ${mm(f, limQ)}`, ratio }),
         group: { title: 'rcSheets.g.deflection', steps }, ok, computed: true,
       };
     },
@@ -374,10 +370,7 @@ export function ts500Deflection(mech: Pick<DeflectionMechanics, 'crackedInertia'
       const depthStep: Step = min ? { label: 'rcSheets.s.defl.minDepth', formula: `h ≥ ${min.formula}`, value: `${cm(f, sec.h)} ≥ ${cm(f, min.h)}`, ok: tableOk } : { label: 'rcSheets.s.defl.noTable', value: '' };
       const why = min ? whyStep(tableOk, s) : { label: 'rcSheets.s.defl.why.noTable', value: '' };
       if (!why) {
-        return {
-          line: check('rcSheets.ts500.u.deflectionDepth', true, { clause: x.twoWay ? '11.4' : '11.2', demand: cm(f, min!.h), capacity: `h = ${cm(f, sec.h)}`, ratio: min!.h / sec.h }),
-          group: { title: 'rcSheets.g.deflection', steps: [depthStep, { label: 'rcSheets.s.defl.spared', value: '' }] }, ok: true, computed: false,
-        };
+        return spared(check('rcSheets.ts500.u.deflectionDepth', true, { clause: x.twoWay ? '11.4' : '11.2', demand: cm(f, min!.h), capacity: `h = ${cm(f, sec.h)}`, ratio: min!.h / sec.h }), depthStep);
       }
       if (!x.service) return noService('rcSheets.ts500.u.deflectionNoService', '13.2', [depthStep, why]);
       const st = combinedStates(x.service, s.sustained);
@@ -407,7 +400,7 @@ export function ts500Deflection(mech: Pick<DeflectionMechanics, 'crackedInertia'
         { label: 'rcSheets.s.defl.longTerm', formula: "λ = 2 − 1.2·A's/As ≥ 0.6", value: `λ = ${f(lambda, 2)}` },
         { label: `rcSheets.s.defl.reading.${s.supports}`, formula: s.supports === 'none' ? 'Δ(L) ≤ ℓ/360' : `λ·Δ(D + ψL) + [Δ(D + L) − Δ(D + ψL)] ≤ ℓ/${nLim}`, value: `${mm(f, delta)} ≤ ${mm(f, limit)}`, ok },
         ...courseSteps(dD, dS, f),
-      ].filter((v): v is Step => !!v);
+      ];
       return {
         line: check('rcSheets.ts500.u.deflection', ok, { clause: '13.2', demand: `Δ = ${mm(f, delta)}`, capacity: `≤ ℓ/${nLim} = ${mm(f, limit)}`, ratio: delta / limit }),
         group: { title: 'rcSheets.g.deflection', steps }, ok, computed: true,

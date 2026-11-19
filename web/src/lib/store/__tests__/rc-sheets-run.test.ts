@@ -12,7 +12,7 @@ import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
-import { buildSheetRows, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
+import { buildSheetRows, concreteOfRow, lineRedesignerOf, redesignerOf, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
@@ -61,6 +61,20 @@ describe('designing the sheets on asking', () => {
     expect(rows.beam.length).toBeGreaterThan(0);
     expect(rows.column.length).toBeGreaterThan(0);
     expect(rows.beam.map((r) => r.key)).toEqual(buildSheetRows().beam.map((r) => r.key));
+  });
+
+  it('a new project lets go of the last design: no row is designed again from its demands', async () => {
+    solvedFrame();
+    await designSheets();
+    const { beam, column } = sheetsRun.rows!;
+    const group = beam[0]!.demand.line!.group;
+    expect(redesignerOf(column[0]!.key)).toBeDefined();
+    expect(lineRedesignerOf(group)).toBeDefined();
+    expect(concreteOfRow(column[0]!.key)).toBe(30);
+    clearSheets();
+    expect(redesignerOf(column[0]!.key)).toBeUndefined();
+    expect(lineRedesignerOf(group)).toBeUndefined();
+    expect(concreteOfRow(column[0]!.key)).toBeUndefined();
   });
 
   it('the steps count every member up to the total', () => {

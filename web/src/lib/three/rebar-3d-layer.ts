@@ -41,7 +41,7 @@ export function buildRebarGroup(bars: readonly Rebar3d[]): THREE.Group {
   group.name = 'sheetRebar';
   group.userData.noPick = true;
   const byTone = new Map<RebarTone, Rebar3d[]>();
-  for (const b of bars) byTone.set(b.tone, [...(byTone.get(b.tone) ?? []), b]);
+  for (const b of bars) { let l = byTone.get(b.tone); if (!l) byTone.set(b.tone, (l = [])); l.push(b); }
   const geometry = new THREE.CylinderGeometry(1, 1, 1, 8, 1, false);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), d = new THREE.Vector3();
   for (const [tone, list] of byTone) {
