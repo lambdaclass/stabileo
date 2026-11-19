@@ -4,6 +4,7 @@ import type { BeamContext, BeamComboForces, BeamDemand, BeamRow, SectionEnv } fr
 import type { Fmt } from './format';
 import type { FootingAdopted, FootingDemand, FootingRow, StrapResult } from './footing-types';
 import type { SheetRules } from './codes';
+import { designKey, designMemo } from './design-memo';
 
 /** One footing's offset taken by a strap: its column's loads, the offset along the strap and its length, m, and whether the beam runs from the partner to it. */
 export interface StrapLoad { demand: FootingDemand; lever: number; along: number; u: 1 | -1; axis: 'x' | 'y'; L: number; reversed: boolean }
@@ -92,9 +93,20 @@ const up5 = (v: number) => Math.round(Math.ceil(v / 0.05 - 1e-9) * 0.05 * 1000) 
 /**
  * The strap designed as a beam, by the code's own beam rules: its bars and stirrups as a one-span
  * line, every check of a beam. A section the model or the engineer gives stays; the one proposed
- * deepens 5 cm at a time, as far as L/3 or twice itself, until the beam verifies.
+ * takes the shallowest depth, in steps of 5 cm as far as L/3 or twice itself, at which the beam
+ * verifies: its section found by halving (a deeper strap carries more), its bars laid out there
+ * and deeper while the line does not verify, or the deepest where none does.
  */
-export function designStrap(rules: Pick<SheetRules, 'beamRow' | 'beamLine'>, ctx: BeamContext, demand: (b: number, h: number) => BeamDemand, section: { b: number; h: number }, fixed: boolean, fmt: Fmt, adopted?: unknown): { beam: BeamRow; line: LineLayout; b: number; h: number } {
+const strapMemos = new WeakMap<object, ReturnType<typeof designMemo<StrapDesigned>>>();
+type StrapDesigned = { beam: BeamRow; line: LineLayout; b: number; h: number };
+
+export function designStrap(rules: Pick<SheetRules, 'beamRow' | 'beamLine'>, ctx: BeamContext, demand: (b: number, h: number) => BeamDemand, section: { b: number; h: number }, fixed: boolean, fmt: Fmt, adopted?: unknown): StrapDesigned {
+  let memo = strapMemos.get(rules);
+  if (!memo) { memo = designMemo<StrapDesigned>(500); strapMemos.set(rules, memo); }
+  return memo(designKey(fmt, demand(section.b, section.h), ctx, section, fixed, adopted ?? null), () => sizeStrap(rules, ctx, demand, section, fixed, fmt, adopted));
+}
+
+function sizeStrap(rules: Pick<SheetRules, 'beamRow' | 'beamLine'>, ctx: BeamContext, demand: (b: number, h: number) => BeamDemand, section: { b: number; h: number }, fixed: boolean, fmt: Fmt, adopted?: unknown): StrapDesigned {
   const run = (h: number) => {
     const d = demand(section.b, h);
     const beam = rules.beamRow(d, ctx, undefined, fmt);
@@ -102,11 +114,19 @@ export function designStrap(rules: Pick<SheetRules, 'beamRow' | 'beamLine'>, ctx
     const spanned = rules.beamRow(d, ctx, line.spanAdopted[0], fmt);
     return { beam: spanned, line, b: section.b, h };
   };
-  let best = run(section.h);
-  if (fixed) return best;
+  const ok = (r: ReturnType<typeof run>) => lineRowStatus(r.line, [r.beam]) !== 'fail';
+  const holds = (h: number) => rules.beamRow(demand(section.b, h), ctx, undefined, fmt).status !== 'fail';
+  if (fixed) return run(section.h);
+  if (holds(section.h)) { const first = run(section.h); if (ok(first)) return first; }
   const limit = Math.max(section.h, Math.min(2 * section.h, demand(section.b, section.h).length / 3, 2));
-  for (let h = up5(section.h + 0.05); h <= limit + 1e-9 && lineRowStatus(best.line, [best.beam]) === 'fail'; h = up5(h + 0.05)) best = run(h);
-  return best;
+  const hs: number[] = [];
+  for (let h = up5(section.h + 0.05); h <= limit + 1e-9; h = up5(h + 0.05)) hs.push(h);
+  if (!hs.length || !holds(hs[hs.length - 1]!)) return run(hs.length ? hs[hs.length - 1]! : section.h);
+  const search = (from: number, pass: (i: number) => boolean) => { let lo = from - 1, hi = hs.length - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pass(mid)) hi = mid; else lo = mid; } return hi; };
+  const runs = new Map<number, ReturnType<typeof run>>();
+  const full = (i: number) => { if (!runs.has(i)) runs.set(i, run(hs[i]!)); return runs.get(i)!; };
+  const i = search(0, (k) => holds(hs[k]!));
+  return full(ok(full(i)) ? i : search(i + 1, (k) => ok(full(k))));
 }
 
 /** The footing's row with its straps' beams (a strip's, one from each column): each strap's line and span, and a line on the footing for each that says whether its beam verifies. */

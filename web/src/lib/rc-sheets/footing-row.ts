@@ -13,6 +13,7 @@ import { groupRow } from './footing-group-row';
 import { capRow } from './pile-cap-row';
 import { CRITERION, critOf, type Criteria } from './criteria';
 import { strapDefault } from './footing-strap';
+import { designKey, designMemo } from './design-memo';
 
 export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, cap?: PlanCap) => FootingRow;
 
@@ -151,6 +152,12 @@ const emptyRow = (d: FootingDemand, c: FootingContext, line: CheckLine, a?: Foot
 };
 
 export function footingRowFor(code: FootingRowCode): FootingRowFn {
+  const memo = designMemo<FootingRow>();
+  const design = designOf(code);
+  return (d, c, adopted, fmt, cap) => ({ ...memo(designKey(fmt, d, c, adopted ?? null, cap ?? null), () => design(d, c, adopted, fmt, cap)) });
+}
+
+function designOf(code: FootingRowCode): FootingRowFn {
   return (d, c, adopted, fmt, cap) => {
     if (d.footing?.outOfScope) return emptyRow(d, c, check(`rcSheets.v.footOut.${d.footing.outOfScope}`, false));
     if (d.piles && d.column) return capRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check('rcSheets.v.footNoService', false, { clause: '§13.4.1.1' }));
