@@ -47,6 +47,13 @@ export function dofRestraintsOfType3D(type: SupportType): Record<Dof3D, boolean>
   return { tx: d.rx, ty: d.ry, tz: d.rz, rx: d.rrx, ry: d.rry, rz: d.rrz };
 }
 
+export function hasYRollerMaskOnZRoller(support: Support): boolean {
+  const { type, dofRestraints } = support;
+  if (type !== 'rollerZ' || !dofRestraints) return false;
+  const yRoller = dofRestraintsOfType3D('rollerY');
+  return DOF_SPRING.every(([dof]) => dofRestraints[dof] === yRoller[dof]);
+}
+
 type SupportConfiguration = Pick<Support, 'dofRestraints' | 'dofFrame' | 'dofLocalElementId'>;
 
 export function supportConfiguration(

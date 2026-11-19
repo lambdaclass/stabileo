@@ -49,11 +49,10 @@ let ownVersion = -1;
 /** The project's solve stamp when Explore opened, put back when it closes. */
 let stampAtOpen: SolveStamp | undefined;
 
-const snapshotOptions = { preserveSupportTypes: true };
 const ONE: MemberFactors = { e: 1, a: 1, iy: 1 };
 
 function restoreBaseline(snap: ModelSnapshot): void {
-  modelStore.restore(snap, snapshotOptions);
+  modelStore.restore(snap);
   if (snap.presentation3D) uiStore.viewportPresentation3D = snap.presentation3D;
 }
 
@@ -184,7 +183,7 @@ export const whatIf = {
   /** Enter: remember the model and whether live calc was on, and turn it on. */
   open(): void {
     if (baseline) return;
-    baseline = { ...modelStore.snapshot(snapshotOptions), presentation3D: uiStore.viewportPresentation3D };
+    baseline = { ...modelStore.snapshot(), presentation3D: uiStore.viewportPresentation3D };
     stampAtOpen = recheckStore.capture();
     loadFactors = modelStore.model.loads.map(() => 1);
     all = { ...ONE };
