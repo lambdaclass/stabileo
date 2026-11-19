@@ -61,16 +61,16 @@ describe('a plate meshed beside one shell', () => {
     expect(plateStatus(above)).toBe('current');
   });
 
-  it('keeps calling current a plate still on the coarse shells it came with, which meshing before the analysis meshes anyway', () => {
+  it('marks a coarse shell that gains a hanging node stale', () => {
     const { below, above } = besideShells([0, 4]);
     expect(coarseAsModelled(plateEntry(below)!)).toBe(true);
     applyPlateMeshes([planPlateMesh(above, { size: 0.5, element: 'quad' })!]);
-    expect(plateStatus(below)).toBe('current');
+    expect(plateStatus(below)).toBe('stale');
     expect(platesNeedingMesh()).toEqual([below]);
   });
 });
 
-it.skip.each([false, true])('known wrong result: #1928 — blocks analysis of a hanging edge with automatic meshing off (async=%s)', async (async) => {
+it.each([false, true])('#1928 blocks analysis of a hanging edge with automatic meshing off (async=%s)', async (async) => {
   const { below, above } = besideShells([0, 4]);
   const plan = planPlateMesh(above, { size: 0.5, element: 'quad' })!;
   const result = async ? await applyPlateMeshesAsync([plan]) : applyPlateMeshes([plan]);

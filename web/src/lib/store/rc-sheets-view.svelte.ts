@@ -19,7 +19,7 @@ import { sheetsProgress } from './rc-sheets-progress.svelte';
 
 /** What the rows were designed from: what makes them out of date when it changes. */
 interface Stamp {
-  results: unknown; perCombo: unknown; groups: unknown;
+  results: unknown; perCombo: unknown; groups: unknown; modelVersion: number;
   /** The design data but the bars adopted in the sheets. */
   design: string;
   adopted: string;
@@ -38,11 +38,13 @@ function stampNow(): Stamp {
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
+    modelVersion: modelStore.modelVersion,
     design: JSON.stringify({ rest, sheets }), adopted: JSON.stringify(adopted ?? null), locale: i18n.locale,
   };
 }
 
 const sameInputs = (a: Stamp, b: Stamp) => a.results === b.results && a.perCombo === b.perCombo && a.groups === b.groups && a.design === b.design;
+const sameRunInputs = (a: Stamp, b: Stamp) => sameInputs(a, b) && a.modelVersion === b.modelVersion && a.adopted === b.adopted && a.locale === b.locale;
 
 /** The rows were designed and something they were designed from has changed since (reactive). */
 export function sheetsStale(): boolean {
@@ -54,25 +56,27 @@ let runId = 0;
 
 /** Design every member, letting the page draw every ~30 ms; one run at a time, the newest wins. */
 export async function designSheets(): Promise<void> {
+  if (!__PUBLIC_FEATURES__.proRcSheets) return;
   const id = ++runId;
   const stamp = stampNow();
   const it = sheetRowsSteps(makeFmt(decimalFor(stamp.locale)));
   setProgress({ phase: 'demands', done: 0, total: 1 });
   await nextFrame();
   try {
+    if (id !== runId || !sameRunInputs(stamp, stampNow())) return;
     let last = performance.now();
     for (;;) {
-      if (id !== runId) return;
       const r = it.next();
       if (r.done) {
+        if (!sameRunInputs(stamp, stampNow())) return;
         sheetsRun.rows = r.value;
-        // Taken again at the end: reading the forces can settle what the design data hold.
-        sheetsRun.stamp = stampNow();
+        sheetsRun.stamp = stamp;
         break;
       }
       if (performance.now() - last > 30) {
         setProgress(r.value);
         await nextFrame();
+        if (id !== runId || !sameRunInputs(stamp, stampNow())) return;
         last = performance.now();
       }
     }

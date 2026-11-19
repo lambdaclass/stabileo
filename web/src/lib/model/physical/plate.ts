@@ -80,6 +80,7 @@ export interface PlateSurface {
     signature: string; cells: number; quality: MeshQuality;
     /** Mesh nodes given an edge support's type (`edgeSupports`), taken away with the mesh. */
     supported?: number[];
+    supportIds?: number[];
     /** The shells the plate came with, as the model had them: no mesher made them. */
     original?: boolean;
   };

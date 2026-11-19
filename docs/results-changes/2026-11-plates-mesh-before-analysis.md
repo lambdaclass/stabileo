@@ -18,3 +18,9 @@ Results move for the projects that have such plates: displacements, reactions, m
 shell stresses of the meshed plates and of what they carry, such as the seven-storey building and
 the mat foundation examples as the app opens them. The reference corpus records each case as it was
 built, with the option off, so its snapshots do not move.
+
+This behavior is available in builds that enable `proPlatesUnified`. The production setting
+disables it and uses the existing PRO model and solver paths. When an experimental mesh creates
+a hanging shell node, analysis requires a compatible mesh even if “Mesh before analysis” is off.
+An interrupted mesh operation keeps the old meshes of plates it has not processed and applies
+loads and springs to the plates it has completed before yielding.

@@ -488,17 +488,43 @@ export function wallDemands(m: DemandInput): WallDemand[] {
   return out;
 }
 
-export function punchingDemands(m: DemandInput): PunchingDemand[] {
+type PunchingShell = { kind: 'quad' | 'plate'; id: number };
+type SheetPunchingDemand = PunchingDemand & { slab: readonly PunchingShell[] };
+
+export function punchingDemands(m: DemandInput): SheetPunchingDemand[] {
   const inc = incidence(m);
-  const shellsAt = new Map<number, Array<{ id: number; nodes: readonly number[]; thickness: number }>>();
-  for (const map of [m.shells.quads, m.shells.plates]) for (const sh of map?.values() ?? []) {
-    const pts = sh.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p);
-    if (pts.length < 3) continue;
-    const ax = shellLocalAxes(pts.length === 4 ? 'quad' : 'plate', pts);
-    if (!ax || Math.abs(ax.ez[2]) < VERTICAL) continue;
-    for (const n of sh.nodes) { const l = shellsAt.get(n); if (l) l.push(sh); else shellsAt.set(n, [sh]); }
+  type Shell = PunchingShell & { nodes: readonly number[]; thickness: number };
+  const shellsAt = new Map<number, Shell[]>();
+  for (const [kind, map] of [['quad', m.shells.quads], ['plate', m.shells.plates]] as const) {
+    for (const sh of map?.values() ?? []) {
+      const pts = sh.nodes.map(n => m.nodes.get(n)).filter((p): p is Pt => !!p);
+      if (pts.length < 3) continue;
+      const ax = shellLocalAxes(kind, pts);
+      if (!ax || Math.abs(ax.ez[2]) < VERTICAL) continue;
+      const shell = { ...sh, kind };
+      for (const n of sh.nodes) {
+        const local = shellsAt.get(n) ?? [];
+        if (!shellsAt.has(n)) shellsAt.set(n, local);
+        local.push(shell);
+      }
+    }
   }
-  const out: PunchingDemand[] = [];
+  const connected = new Map<Shell, readonly PunchingShell[]>();
+  const slabOf = (shells: Shell[]) => {
+    const first = shells[0]!;
+    const cached = connected.get(first);
+    if (cached) return cached;
+    const members = new Set([first]);
+    for (const shell of members) {
+      for (const n of shell.nodes) {
+        for (const neighbour of shellsAt.get(n) ?? []) members.add(neighbour);
+      }
+    }
+    const slab = [...members].map(({ kind, id }) => ({ kind, id }));
+    for (const shell of members) connected.set(shell, slab);
+    return slab;
+  };
+  const out: SheetPunchingDemand[] = [];
   for (const g of m.groups) {
     if (g.kind !== 'column') continue;
     const run = chain(m, g.elements);
@@ -525,6 +551,7 @@ export function punchingDemands(m: DemandInput): PunchingDemand[] {
       out.push({
         key: `punching:${g.id}:${i}`, name: g.name, level: m.levelAt ? m.levelAt(zOf(p)) : g.level,
         thickness: Math.min(...shells.map((sh) => sh.thickness)),
+        slab: slabOf(shells),
         joint: { nodeId: node, at: { x: p.x, y: p.y }, columnElementId: r.e.id, b: sec?.b ?? 0.3, h: sec?.h ?? 0.3, elementBelow: r.e.id, elementAbove: above?.e.id ?? null, forces },
         adjoining: shells.map((sh) => ({ elementId: sh.id, nodeIds: sh.nodes, points: sh.nodes.map((n) => m.nodes.get(n)!).map((q) => ({ id: q.id, x: q.x, y: q.y, z: q.z ?? 0 })) })),
       });

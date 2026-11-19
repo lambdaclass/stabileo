@@ -170,12 +170,12 @@ export function planTbdy(input: LoadPlanInput, levels: LevelMass[], sink: PlanSi
   }
 
   if (dtsGroup(dts) === 1) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.verticalElements'));
-  if (input.seismic.modal?.modes.length) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.modalIgnored'));
+  if (input.seismic.modal !== undefined) sink.unsupportedKeys.push(msg('loads.tr.seismic.note.modalIgnored'));
   sink.unsupportedKeys.push(msg('loads.tr.seismic.note.base'));
 
   const main = (dirs.x ? byAxis.x : byAxis.y)!;
   const tbdy: TbdyDetail = { spectrum: spec, importance, dts, bys, hn, n, tpa: main.tpa, byAxis };
-  const detail: TbdyPlanDetail = { source: 'manual', c: main.vt / W, t: main.t, ta: main.tpa, r: main.r, tbdy };
+  const detail: TbdyPlanDetail = { source: 'manual', stories: [], c: main.vt / W, t: main.t, ta: main.tpa, r: main.r, tbdy };
   out.seismicWeight = fromProject(W, 'kN');
   out.baseShear = fromProject(main.vt, 'kN');
   out.seismicDetail = detail;

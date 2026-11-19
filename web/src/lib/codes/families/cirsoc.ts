@@ -60,7 +60,7 @@ export const CIRSOC104_SNOW: SnowCode = {
   plan: (input, sink, layout) => planSnow(input, sink, layout),
 };
 
-export const INPRES103_SEISMIC: SeismicCode = {
+export const INPRES103_SEISMIC = {
   adapterId: 'inpres103-2018', role: 'seismic', family: 'cirsoc', edition: '2018', title: 'INPRES-CIRSOC 103-2018',
   plan: planSeismic,
   liveInMass: (occupancy) => SIMULTANEITY_F1[occupancy as OccupancyProbability],
@@ -83,7 +83,7 @@ export const INPRES103_SEISMIC: SeismicCode = {
     return out;
   },
   defaults: { zone: 4, site: 'SD', group: 'B' },
-};
+} satisfies SeismicCode;
 
 export const CIRSOC101_THERMAL: ThermalCode = {
   adapterId: 'cirsoc101-2025-thermal', role: 'thermal', family: 'cirsoc', edition: '2025', title: 'CIRSOC 101-2025',

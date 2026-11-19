@@ -16,7 +16,6 @@ import { meshFloors } from './ifc-floors';
 import { placeFootings } from './ifc-footings';
 import { placeStairs } from './ifc-stairs';
 import { insertFragment } from '../model/edit/transformed-copy';
-import { markLoadedModel } from '../store/loaded-model';
 import { IDENTITY } from '../model/edit/affine';
 import type { Level } from '../model/grid';
 import type { IfcFootingRead, IfcMember, IfcStairRead, IfcStorey, IfcSurface } from './ifc-mapper';
@@ -76,7 +75,6 @@ export function replaceWithIfcBuilding(read: IfcRead, o: IfcImportOptions, name?
     if (name) modelStore.model.name = name;
     if (o.storeysAsLevels && read.storeys.length > 0) modelStore.setGrid({ axes: [], levels: storeyLevels(read.storeys) });
     const r = insertFragment(building.fragment, [{ A: IDENTITY, t: [0, 0, 0] }]);
-    markLoadedModel();
     connectShells(r.quads, r.plates);
     if (floors.length) meshFloors(floors, { meshSize: o.meshSize, declare: o.declare });
     if (o.fixFeet) fixBases();

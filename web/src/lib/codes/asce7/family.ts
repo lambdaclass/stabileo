@@ -42,7 +42,7 @@ export const ASCE7_LOADS: ImposedLoadCode = {
 
 export const ASCE7_WIND: WindCode = {
   ...base, adapterId: ADAPTER.wind, role: 'wind', sections: { site: '§26.5–26.10', pressures: '§27.3', cases: 'Figure 27.3-8' },
-  planFromLevels: (input, levels, sink) => planAsce7Wind(input, levels, sink),
+  plan: (input, levels, sink) => planAsce7Wind(input, levels, sink),
   defaults: { basicSpeed: 0, exposure: WIND_DEFAULTS.exposure, enclosure: WIND_DEFAULTS.enclosure },
 };
 

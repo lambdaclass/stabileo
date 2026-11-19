@@ -394,7 +394,7 @@
       <AiDrawer docked />
     {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
-        {:else if activeTab === 'rcSheets'}
+        {:else if activeTab === 'rcSheets' && __PUBLIC_FEATURES__.proRcSheets}
           <ProRcSheetsTab />
         {/if}
       </svelte:boundary>

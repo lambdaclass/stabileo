@@ -2345,7 +2345,7 @@
 {#if uiStore.toasts.length > 0 || meshProgress.now || sheetsProgress.now}
   <div class="toast-container" class:toast-over-sheet={uiStore.isMobile && uiStore.appMode === 'basico' && basicPanel !== null}>
     <MeshProgressCard />
-    <RcSheetsProgressCard />
+    {#if __PUBLIC_FEATURES__.proRcSheets}<RcSheetsProgressCard />{/if}
     {#each uiStore.toasts as toast}
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>

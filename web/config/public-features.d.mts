@@ -3,6 +3,8 @@ export type BuildFeatures = Readonly<{
   research: boolean;
   tools: boolean;
   diagramGame: boolean;
+  proPlatesUnified: boolean;
+  proRcSheets: boolean;
 }>;
 
 export function validateFeatures(value: unknown, label: string): BuildFeatures;

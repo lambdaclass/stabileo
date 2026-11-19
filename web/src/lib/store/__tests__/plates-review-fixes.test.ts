@@ -290,7 +290,7 @@ describe('the supports and springs a plate\'s mesh was given', () => {
   });
 });
 
-it.skip('known wrong result: #1928 — preserves pending meshes and applies the completed plate load during interruption', async () => {
+it('#1928 preserves pending meshes and applies the completed plate load during interruption', async () => {
   const [first, second] = slabs(2) as [number, number];
   const mesh = { size: 2, element: 'quad' } as const;
   expect(applyPlateMeshes([first, second].map(id => planPlateMesh(id, mesh)!)).plates).toBe(2);

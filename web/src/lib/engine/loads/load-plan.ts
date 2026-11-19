@@ -1084,8 +1084,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const seismicLevels = seismicModel?.levels ?? (seismicCode && 'planFromLevels' in seismicCode
     ? windLevels.map(level => ({ ...level }))
     : undefined);
-  if (snowMass && seismicLevels) {
-    const snow = seismicLevels.reduce((s, l) => s + l.snowWeightKN, 0);
+  if (snowMass && seismicModel) {
+    const snow = seismicModel.levels.reduce((s, l) => s + l.snowWeightKN, 0);
     derivation.push(msg('loadPlan.derivation.seismicSnow', { f2: snowMass.factor, snow: round(snow, 1), added: round(snowMass.factor * snow, 1) }));
   }
   const levelRefusals: EngineMessage[] = [];

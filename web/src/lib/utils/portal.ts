@@ -19,3 +19,14 @@ export function portal(node: HTMLElement) {
     },
   };
 }
+
+export function modalPortal(node: HTMLDialogElement) {
+  const move = portal(node);
+  node.showModal();
+  return {
+    destroy() {
+      node.close();
+      move.destroy();
+    },
+  };
+}

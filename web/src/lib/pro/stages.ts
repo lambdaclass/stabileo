@@ -348,7 +348,9 @@ function allProStages(ctx: ProStageContext): ProStage[] {
           labelKey: 'proRibbon.groupOutput',
           cmds: [
             { id: 'report', labelKey: 'pro.reportBtn', icon: 'project', action: onReport, enabled: () => canReport },
-            { id: 'rcSheets', labelKey: 'rcSheets.cmd', descKey: 'rcSheets.cmdDesc', icon: 'data', tab: 'rcSheets', enabled: () => solved },
+            ...(__PUBLIC_FEATURES__.proRcSheets ? [{
+              id: 'rcSheets', labelKey: 'rcSheets.cmd', descKey: 'rcSheets.cmdDesc', icon: 'data', tab: 'rcSheets', enabled: () => solved,
+            } satisfies ProCmd] : []),
           ],
         },
       ],

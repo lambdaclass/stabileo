@@ -441,8 +441,8 @@ describe('reinforcement sheets from a solved model', () => {
     return e;
   }
 
-  it.skip.each(['cirsoc201-2025', 'aci318-19', 'en1992-1-1', 'ts500-2000'] as const)(
-    'known wrong result: #1928 — %s punching capacity uses the slab rather than stronger column concrete', code => {
+  it.each(['cirsoc201-2025', 'aci318-19', 'en1992-1-1', 'ts500-2000'] as const)(
+    '#1928 %s punching capacity uses the slab rather than stronger column concrete', code => {
       const column = flatPlate(0.2, 0.4, 8);
       setSheetCode(code);
       const before = buildSheetRows().punching;
@@ -455,6 +455,10 @@ describe('reinforcement sheets from a solved model', () => {
       const after = buildSheetRows().punching;
       expect(after).toHaveLength(1);
       expect(after[0]!.phiVc).toBe(before[0]!.phiVc);
+      const corner = modelStore.quads.values().next().value!;
+      modelStore.updateQuad(corner.id, { materialId: stronger });
+      solve();
+      expect(buildSheetRows().punching[0]?.status).toBe('none');
     },
   );
 

@@ -198,7 +198,7 @@ export function planEcSeismic(input: LoadPlanInput, levels: LevelMass[], sink: P
     }
   }
   derivation.push(msg(both ? 'loads.ec.seismic.cases30' : 'loads.ec.seismic.cases', { e: ACCIDENTAL_E * 100 }));
-  const detail: EcSeismicDetail = { source: 'manual', c: Fb / W, t: T1, ...(verticalOn ? { ec: { avg, kv, ...(grouped ? { grouped } : {}) } } : {}) };
+  const detail: EcSeismicDetail = { source: 'manual', stories: [], c: Fb / W, t: T1, ...(verticalOn ? { ec: { avg, kv, ...(grouped ? { grouped } : {}) } } : {}) };
   return { seismicWeight: fromProject(W, 'kN'), baseShear: fromProject(Fb, 'kN'), seismicDetail: detail };
 }
 

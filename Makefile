@@ -186,7 +186,7 @@ check.quick:
 	BASE=$(BASE) scripts/check-quick.sh
 
 check.fast:
-	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts
+	$(MAKE) -j5 --output-sync=target lint.repo check.changelog check.issue-reproducers check.fail-closed typecheck.web test.web.fast test.ci-scripts test.web.pro-plates-switch
 
 test.web.fast:
 	$(MAKE) test.web.unit UNIT_AREA= SHARD= FILTER= FILE='src/lib/i18n/__tests__/locale-coverage.test.ts src/lib/i18n/__tests__/engine-purity.test.ts src/lib/utils/__tests__/harness-architecture.test.ts src/lib/store/__tests__/recheck.test.ts src/lib/legacy-projects/__tests__/judge.test.ts'
@@ -1326,3 +1326,7 @@ test.design.completeness-2096:
 
 test.engine.kinematics-2222:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test integration issue_2222_kinematics_identifies -- --nocapture $(if $(IGNORED),--ignored)
+
+.PHONY: test.web.pro-plates-switch
+test.web.pro-plates-switch:
+	$(NIX_RUN) bash -c 'cd web && node --test scripts/pro-plates-switch.test.mjs'

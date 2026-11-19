@@ -35,7 +35,7 @@ export const TS498_LOADS: ImposedLoadCode = {
 export const TS498_WIND: WindCode = {
   adapterId: TR_WIND, role: 'wind', family: 'turkey', edition: '1997', title: 'TS 498:1997',
   sections: { wind: 'Madde 11, Çizelge 5, Çizelge 6' },
-  planFromLevels: (input, levels, sink) => planTs498Wind(input, levels, sink),
+  plan: (input, levels, sink) => planTs498Wind(input, levels, sink),
   defaults: { basicSpeed: 28, exposure: 'B', enclosure: 'enclosed' },
 };
 

@@ -2,7 +2,6 @@ import { derived, type ProvenancedValue } from '../regulation';
 import { combinationLabel, type LoadCombinationSpec } from '../cirsoc101/combinations';
 import { msg, round } from '../message';
 import { levelLoads } from '../../engine/loads/wind-cases';
-import { seismicCases } from '../../engine/loads/seismic-cases';
 import { snowWeightByLevel, type LevelMass, type LoadPlanInput, type PlanSink, type SeismicPlanDetail } from '../../engine/loads/load-plan';
 import { ADAPTER, codeInput, SEISMIC_DEFAULTS, type Asce7SeismicInput } from './inputs';
 import { STORAGE_OCCUPANCIES } from './live-loads';
@@ -99,9 +98,7 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   if (torsion) refs.push(REF_SEIS.torsion);
   const orthogonal = (ci.orthogonal ?? SEISMIC_DEFAULTS.orthogonal) && dirs.x && dirs.y;
   if ((ci.orthogonal ?? false) && !orthogonal) unsupportedKeys.push(msg('loads.asce7.seismic.note.orthogonalNeedsBoth'));
-  const generated = orthogonal
-    ? orthogonalCases(input, elevated, forces, torsion)
-    : seismicCases({ nodes: input.model.nodes, levels: elevated, forcesX: forces, forcesY: forces, directions: dirs, torsion: torsion ? 'medium' : 'low' });
+  const generated = directionalCases(input, elevated, forces, torsion, dirs, orthogonal);
   if (orthogonal) refs.push(REF_SEIS.orthogonal);
   for (const c of generated) {
     const index = cases.length;
@@ -110,7 +107,7 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   }
 
   const seismicDetail: Asce7Detail = {
-    source: 'manual', c: cs.cs, t, ta, r: sys.r,
+    source: 'manual', stories: [], c: cs.cs, t, ta, r: sys.r,
     asce7: { sds, sd1, ie, rho, cd: sys.cd, omega0: sys.omega0, sdc, k: kExp, cs: cs.cs },
   };
   return { seismicWeight: derived(W, [REF_SEIS.w], 'kN'), baseShear: derived(V, [REF_SEIS.cs], 'kN'), seismicDetail };
@@ -118,20 +115,33 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
 
 type Case = { nameKey: string; nameParams: Record<string, string | number>; nodal: Array<{ nodeId: number; fx: number; fy: number; mz: number }> };
 
-function orthogonalCases(input: LoadPlanInput, levels: LevelMass[], forces: number[], torsion: boolean): Case[] {
+function directionalCases(
+  input: LoadPlanInput, levels: LevelMass[], forces: number[], torsion: boolean,
+  directions: { x: boolean; y: boolean }, orthogonal: boolean,
+): Case[] {
   const nodes = input.model.nodes;
   const extent = (ids: number[], k: 'x' | 'y') => { const v = ids.map((id) => nodes.get(id)?.[k] ?? 0); return v.length ? Math.max(...v) - Math.min(...v) : 0; };
   const out: Case[] = [];
   for (const axis of ['X', 'Y'] as const) {
+    if (!(axis === 'X' ? directions.x : directions.y)) continue;
     for (const s of torsion ? [1, -1] : [0]) {
-      for (const o of [1, -1]) {
+      for (const o of orthogonal ? [1, -1] : [0]) {
         const nodal = levels.flatMap((lv, k) => {
           const F = forces[k] ?? 0;
-          const mt = s * F * ACCIDENTAL * (extent(lv.nodeIds, axis === 'X' ? 'y' : 'x') + 0.3 * extent(lv.nodeIds, axis === 'X' ? 'x' : 'y'));
+          const across = extent(lv.nodeIds, axis === 'X' ? 'y' : 'x');
+          const along = orthogonal ? extent(lv.nodeIds, axis === 'X' ? 'x' : 'y') : 0;
+          const mt = s * F * ACCIDENTAL * (across + 0.3 * along);
           const main = levelLoads(nodes, lv.nodeIds, axis === 'X' ? F : 0, axis === 'Y' ? F : 0, mt);
+          if (o === 0) return main;
           const other = levelLoads(nodes, lv.nodeIds, axis === 'Y' ? 0.3 * o * F : 0, axis === 'X' ? 0.3 * o * F : 0, 0);
           return main.map((n, i) => ({ nodeId: n.nodeId, fx: n.fx + other[i]!.fx, fy: n.fy + other[i]!.fy, mz: n.mz }));
         });
+        if (!orthogonal) {
+          out.push(s === 0
+            ? { nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: axis }, nodal }
+            : { nameKey: 'autoLoad.seismicCaseEcc', nameParams: { dir: axis, sign: s > 0 ? '+' : '−', e: ACCIDENTAL * 100 }, nodal });
+          continue;
+        }
         const otherDir = `${o > 0 ? '+' : '−'}${axis === 'X' ? 'Y' : 'X'}`;
         out.push(s === 0
           ? { nameKey: 'loads.asce7.case.seismicOrth', nameParams: { dir: axis, other: otherDir }, nodal }

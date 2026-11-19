@@ -218,21 +218,6 @@ function plainSupport(n: number) {
   return sp && Object.entries(sp).every(([k, v]) => k === 'id' || k === 'nodeId' || k === 'type' || v === undefined) ? sp.type : undefined;
 }
 
-/** The outline sides whose two ends carry the same plain support: the sides a plate of a model built before `edgeSupports` held all along. */
-export function impliedEdgeSupports(outer: readonly number[]): NonNullable<PlateSurface['edgeSupports']> {
-  return outer.flatMap((a, i) => {
-    const b = outer[(i + 1) % outer.length]!, type = plainSupport(a);
-    return type && plainSupport(b) === type ? [{ from: a, to: b, type }] : [];
-  });
-}
-
-/** Every plate whose definition predates `edgeSupports` gets the sides that rule held, as data; how many. Part of no undo step. */
-export function declareLegacyEdgeSupports(): number {
-  const legacy = physicalPlates().filter((p) => p.surface.edgeSupports === undefined);
-  if (legacy.length) modelStore.withoutUndo(() => { for (const p of legacy) writeSurface(p.id, (s) => ({ ...s, edgeSupports: impliedEdgeSupports(plateLoops(p.group).outer) })); });
-  return legacy.length;
-}
-
 /** The type the plate's held sides give node `n`, if it lies on one. */
 function sideTypeAt(edges: PlateSurface['edgeSupports'], n: number): string | undefined {
   const P = v3(n);
@@ -241,17 +226,18 @@ function sideTypeAt(edges: PlateSurface['edgeSupports'], n: number): string | un
 }
 
 /** The nodes given that are on a held side of the plate and have no support get the side's; returns them. */
-function supportSides(edges: PlateSurface['edgeSupports'], nodes: readonly number[]): number[] {
+function supportSides(edges: PlateSurface['edgeSupports'], nodes: readonly number[]) {
   const supportedNow = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
-  const added: number[] = [];
+  const added: Array<{ id: number; nodeId: number }> = [];
   for (const side of edges ?? []) {
     const A = v3(side.from), B = v3(side.to);
     if (!A || !B) continue;
     for (const n of nodes) {
       const P = v3(n);
       if (!P || supportedNow.has(n) || !strictlyOrAt(P, A, B, true)) continue;
-      modelStore.addSupport(n, side.type as SupportType);
-      added.push(n); supportedNow.add(n);
+      const id = modelStore.addSupport(n, side.type as SupportType);
+      added.push({ id, nodeId: n });
+      supportedNow.add(n);
     }
   }
   return added;
@@ -277,7 +263,11 @@ export function holdPlateSides(id: number, sides: ReadonlyArray<readonly [number
     added = ends.length + onMesh.length;
     writeSurface(id, (s) => ({
       ...s, edgeSupports: [...have, ...fresh],
-      ...(s.meshed && onMesh.length ? { meshed: { ...s.meshed, supported: [...(s.meshed.supported ?? []), ...onMesh] } } : {}),
+      ...(s.meshed && onMesh.length ? { meshed: {
+        ...s.meshed,
+        supported: [...(s.meshed.supported ?? []), ...onMesh.map(support => support.nodeId)],
+        supportIds: [...(s.meshed.supportIds ?? []), ...onMesh.map(support => support.id)],
+      } } : {}),
     }));
   });
   return added;
@@ -308,7 +298,7 @@ export function plateStatus(id: number): PlateStatus {
     const shells = (e.group.members.quads?.length ?? 0) + (e.group.members.plates?.length ?? 0);
     if (!f) s = 'invalid';
     else if (!e.surface.meshed || shells === 0) s = 'unmeshed';
-    else s = signatureOf(e, f, specOf(e)) === e.surface.meshed.signature ? 'current' : 'stale';
+    else s = signatureOf(e, f, specOf(e)) === e.surface.meshed.signature && (e.surface.meshed.original || !meshHangsNeighbours(e, f)) ? 'current' : 'stale';
   }
   statusMemo.map.set(id, s);
   return s;
@@ -788,8 +778,7 @@ function neighbourEdges(e: PlateEntry, f: { geo: { outer: Vec3[]; holes: Vec3[][
 }
 
 /** Whether another plate's shells have a node strictly inside one of this plate's shell edges. */
-function meshHangsNeighbours(e: PlateEntry): boolean {
-  const f = featuresOf(e);
+function meshHangsNeighbours(e: PlateEntry, f = featuresOf(e)): boolean {
   if (!f) return false;
   const loops = [f.geo.outer, ...f.geo.holes];
   const points = [...f.neighbours].map(v3).filter((p): p is Vec3 => !!p && onLoops(loops, p));
@@ -873,17 +862,17 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
   const current = physicalPlates().filter((x) => x.id !== id && plateStatus(x.id) === 'current').map((x) => x.id);
   modelStore.batch(() => {
     untieNodes(owned);
-    const spread = new Set(e.surface.meshed?.supported ?? []);
+    const spread = new Set(e.surface.meshed?.supportIds ?? []);
     // A spread support was only given to a node without one, so it is taken back from the user's nodes too, unless edited since.
     // The foundation springs on the mesh's own nodes go with it, or they would hold those nodes in the model.
-    const unsprung: number[] = [];
+    const springNodes = e.surface.springs ? plateShellKeys(id).flatMap(shellNodes) : [];
     for (const sp of [...modelStore.supports.values()]) {
-      const given = spread.has(sp.nodeId) ? sideTypeAt(e.surface.edgeSupports, sp.nodeId) : undefined;
+      const given = spread.has(sp.id) ? sideTypeAt(e.surface.edgeSupports, sp.nodeId) : undefined;
       if (given !== undefined && plainSupport(sp.nodeId) === given) modelStore.removeSupport(sp.id);
-      else if (owned.has(sp.nodeId) && isSpring(sp as never) && e.surface.springs) { modelStore.removeSupport(sp.id); unsprung.push(sp.nodeId); }
     }
     for (const q of e.group.members.quads ?? []) if (modelStore.quads.has(q)) modelStore.removeQuad(q);
     for (const p of e.group.members.plates ?? []) if (modelStore.plates.has(p)) modelStore.removePlate(p);
+    respringAt(springNodes);
     // The members the mesh cut, whole again where the cut node is the mesh's and holds nothing else.
     const cut = [...modelStore.elements.values()].filter((el) => owned.has(el.nodeI) || owned.has(el.nodeJ)).map((el) => el.id);
     if (cut.length) removedNodes += mergeCollinear(cut).removedNodes;
@@ -897,9 +886,10 @@ export function clearPlateMesh(id: number): { removedNodes: number; keptNodes: n
     modelStore.setGroupMembers(id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat()], quads: [], plates: [] });
     writeSurface(id, (s) => { const { meshed: _m, ...rest } = s; return rest; });
     // A neighbour reads its mesh's nodes against this one's, so taking this one out would put it out of date.
-    for (const x of current) if (plateStatus(x) === 'stale') adoptCurrentMesh(x);
-    // A spring at a node this mesh shared with a spring plate beside it held both: that plate's share stays.
-    if (unsprung.length) respringAt(unsprung);
+    for (const x of current) {
+      const neighbour = plateEntry(x);
+      if (neighbour && plateStatus(x) === 'stale' && !meshHangsNeighbours(neighbour)) adoptCurrentMesh(x);
+    }
   });
   return { removedNodes, keptNodes };
 }
@@ -917,25 +907,22 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
   for (const p of plans) if (!p.mesh) report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' });
   const current = ok.length ? physicalPlates().filter((e) => plateStatus(e.id) === 'current').map((e) => e.id) : [];
   const meshed: number[] = [];
-  let lifted = 0;
+  let loadDefsChanged = false;
+  const clear = (planned: PlateMeshPlan, byShell: ReturnType<typeof shellAreaLoads>) => {
+    const e = plateEntry(planned.id);
+    if (!e) return;
+    const lifted = liftableLoads(e, byShell);
+    if (lifted?.gone.length) {
+      modelStore.removeLoads(lifted.gone);
+      for (const c of lifted.cases) modelStore.addGroup(`${e.name} · q`, 'floorLoad', {}, { data: plateLoadDef(e.id, c.caseId, c.q) as unknown as Record<string, unknown> });
+    }
+    loadDefsChanged ||= plateLoadDefs(e.id).length > 0;
+    report.droppedLocalLoads += planned.localLoads;
+    report.keptNodes += clearPlateMesh(planned.id).keptNodes;
+  };
   const begin = () => {
     const byShell = shellAreaLoads();
-    for (const p of ok) {
-      const e = plateEntry(p.id);
-      const u = e ? liftableLoads(e, byShell) : null;
-      if (!e || !u?.gone.length) continue;
-      modelStore.removeLoads(u.gone);
-      for (const c of u.cases) modelStore.addGroup(`${e.name} · q`, 'floorLoad', {}, { data: plateLoadDef(e.id, c.caseId, c.q) as unknown as Record<string, unknown> });
-      lifted++;
-    }
-    // Every old mesh of the batch goes first: a plate meshed while its neighbour still had the
-    // mesh it is about to lose met that mesh's nodes, and each storey of a stack of walls met more.
-    for (const planned of ok) {
-      const e = plateEntry(planned.id);
-      if (!e) continue;
-      report.droppedLocalLoads += planned.localLoads;
-      report.keptNodes += clearPlateMesh(planned.id).keptNodes;
-    }
+    for (const p of ok) clear(p, byShell);
   };
   const cellsOf = new Map<number, number>();
   const batch = new Set(ok.map((p) => p.id));
@@ -953,45 +940,51 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
     if (fp) tieFootprints(new Set(r.nodeIds), fp.columns);
     const g = modelStore.model.groups.get(p.id)!;
     const loops = plateLoops(g);
-    const edges = e.surface.edgeSupports ?? impliedEdgeSupports(plateLoops(e.group).outer);
-    const supported = supportSides(edges, [...new Set(r.nodeIds)]);
+    const edges = e.surface.edgeSupports ?? [];
+    const supports = supportSides(edges, [...new Set(r.nodeIds)]);
     modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
     if (e.surface.curved) for (const q of r.quads) modelStore.setQuadCurved(q, true);
     if (e.surface.offset) {
       for (const q of r.quads) modelStore.setShellOffset('quad', q, e.surface.offset);
       for (const t of r.plates) modelStore.setShellOffset('plate', t, e.surface.offset);
     }
-    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supported.length ? { supported } : {}) } }));
+    writeSurface(p.id, (s) => ({ ...s, edgeSupports: edges, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality!, ...(supports.length ? {
+      supported: supports.map(support => support.nodeId),
+      supportIds: supports.map(support => support.id),
+    } : {}) } }));
     cellsOf.set(p.id, r.quads.length + r.plates.length);
     report.plates = cellsOf.size;
     report.cells = [...cellsOf.values()].reduce((a, b) => a + b, 0);
     if (!meshed.includes(p.id)) meshed.push(p.id);
   };
-  const finish = () => {
-    // Each mesh after the first met the ones put in before it, which reads them out of date by their neighbours' nodes alone.
-    for (const id of meshed) if (plateStatus(id) === 'stale') adoptCurrentMesh(id);
-    // A plate outside the run that a new node hangs on waits for a mesh, but shells as modelled, coarser than its size, which meshing before the analysis meshes anyway.
-    for (const id of current) {
-      if (meshed.includes(id) || plateStatus(id) !== 'stale') continue;
-      const x = plateEntry(id);
-      if (x && (coarseAsModelled(x) || !meshHangsNeighbours(x))) adoptCurrentMesh(id);
-    }
-    if (lifted) syncDefinedLoads();
-    settle();
-  };
   let sprung = 0;
-  /**
-   * The springs the meshes put in since the last call owe the model, whatever comes next. The loads
-   * lifted onto the plates are definitions, written onto the meshes by `finish` and before every solve.
-   */
-  const settle = () => {
+  const finish = () => {
+    for (const id of new Set([...current, ...meshed])) {
+      if (plateStatus(id) !== 'stale') continue;
+      const e = plateEntry(id);
+      if (e && !meshHangsNeighbours(e)) adoptCurrentMesh(id);
+    }
+    if (loadDefsChanged) syncDefinedLoads();
+    loadDefsChanged = false;
     const springy = meshed.slice(sprung).filter((id) => plateEntry(id)?.surface.springs);
     sprung = meshed.length;
     if (springy.length) respring(springy);
   };
+  const applySlice = (from: number, sliceMs: number) => {
+    const end = performance.now() + sliceMs;
+    const byShell = shellAreaLoads();
+    let done = from;
+    do {
+      const p = ok[done++]!;
+      clear(p, byShell);
+      meshOne(p);
+    } while (done < ok.length && performance.now() < end);
+    finish();
+    return done;
+  };
   const asPlanned = () => ok.every((p) => { const e = plateEntry(p.id); return !e || localLoadsOn(e) <= p.localLoads; });
   const refuseAll = () => { for (const p of ok) report.refused.push({ id: p.id, reason: 'interrupted' }); return report; };
-  return { report, ok, begin, meshOne, finish, settle, asPlanned, refuseAll };
+  return { report, ok, begin, meshOne, finish, applySlice, asPlanned, refuseAll };
 }
 
 /** Put the planned meshes in, replacing each plate's old one, as one undo step. */
@@ -1012,29 +1005,26 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
   if (!run.ok.length) return run.report;
   const total = run.ok.length;
   let done = 0;
-  const before = historyStore.lastStep;
+  const revision = () => [
+    historyStore.lastStep, modelStore.modelVersion, modelStore.model.groups, modelStore.nodes,
+    modelStore.elements, modelStore.quads, modelStore.plates, modelStore.loads, modelStore.supports,
+    modelStore.model.constraints,
+  ];
+  let before = revision();
   onProgress?.(0, total);
-  await nextFrame();
-  if (historyStore.lastStep !== before || !run.asPlanned()) return run.refuseAll();
-  modelStore.batch(() => run.begin());
-  // An edit or an undo between frames puts another step on top: the slices left would land in
-  // it and plan against a model they were not planned for, so the run stops there.
-  const step = historyStore.lastStep;
-  const interrupted = () => {
-    if (historyStore.lastStep === step) return false;
-    for (const p of run.ok.slice(done)) run.report.refused.push({ id: p.id, reason: 'interrupted' });
-    return true;
-  };
   while (done < total) {
     await nextFrame();
-    if (interrupted()) return run.report;
-    const t0 = performance.now();
-    // Each slice leaves the plates it meshed with their springs, so a run an edit stops is whole as far as it got.
-    modelStore.amendLastStep(() => { while (done < total && (performance.now() - t0 < sliceMs || done === 0)) run.meshOne(run.ok[done++]!); run.settle(); });
+    if (revision().some((value, index) => value !== before[index])) {
+      for (const p of run.ok.slice(done)) run.report.refused.push({ id: p.id, reason: 'interrupted' });
+      return run.report;
+    }
+    if (done === 0 && !run.asPlanned()) return run.refuseAll();
+    const apply = () => { done = run.applySlice(done, sliceMs); };
+    if (done === 0) modelStore.batch(apply);
+    else modelStore.amendLastStep(apply);
+    before = revision();
     onProgress?.(done, total);
   }
-  if (interrupted()) return run.report;
-  modelStore.amendLastStep(() => run.finish());
   return run.report;
 }
 /** The plates every shell of which is among `keys`. */
@@ -1048,7 +1038,7 @@ export function platesWholeIn(keys: ReadonlySet<string>): number[] {
  * on its mesh as it is too, a node shared with another spring plate keeping that plate's share.
  */
 export function setPlateShellSpec(ids: readonly number[], patch: { curved?: boolean | null; offset?: PlateSurface['offset'] | null; springs?: PlateSurface['springs'] | null }): void {
-  const sprung = 'springs' in patch ? ids.filter((id) => !!plateEntry(id)?.surface.springs) : [];
+  const springNodes = 'springs' in patch ? ids.flatMap(id => plateShellKeys(id).flatMap(shellNodes)) : [];
   modelStore.batch(() => {
     for (const id of ids) writeSurface(id, (s) => {
       const next = { ...s };
@@ -1059,14 +1049,9 @@ export function setPlateShellSpec(ids: readonly number[], patch: { curved?: bool
       }
       return next;
     });
-    if (!sprung.length) return;
-    const nodes = new Set(sprung.flatMap((id) => plateShellKeys(id).flatMap(shellNodes)));
-    for (const sp of [...modelStore.supports.values()]) if (nodes.has(sp.nodeId) && isSpring(sp as never)) modelStore.removeSupport(sp.id);
-    respringAt([...nodes]);
+    respringAt(springNodes);
   });
 }
-
-const isSpring = (sp: { type?: string; kz?: number }) => sp.type === 'custom3d' && (sp.kz ?? 0) > 0;
 
 /** The foundation springs of the plates given, from their meshes as they are now: one per node, k summed over every spring plate that node belongs to. */
 function respring(ids: readonly number[]): void {
@@ -1089,16 +1074,22 @@ function respringAt(nodes: readonly number[]): void {
       if (!spec.has(n)) spec.set(n, p.surface.springs!);
     }
   }
-  for (const [n, k] of kz) {
-    const old = [...modelStore.supports.values()].find((sp) => sp.nodeId === n);
-    if (old && !isSpring(old as never)) continue;
-    if (old) modelStore.removeSupport(old.id);
-    const sp = spec.get(n)!;
+  const supports = new Map([...modelStore.supports.values()].map(support => [support.nodeId, support]));
+  for (const n of affected) {
+    const old = supports.get(n);
+    if (old && !old.plateSpring) continue;
+    const k = kz.get(n);
+    const sp = spec.get(n);
+    if (k === undefined || !sp) {
+      if (old) modelStore.removeSupport(old.id);
+      continue;
+    }
+    if (old && old.kz === k && !!old.uplift === sp.uplift && old.dofRestraints?.tx === sp.holdHorizontal) continue;
     modelStore.addSupportEntry({
-      nodeId: n, type: 'custom3d',
+      nodeId: n, type: 'custom3d', plateSpring: true,
       dofRestraints: { tx: sp.holdHorizontal, ty: sp.holdHorizontal, tz: false, rx: false, ry: false, rz: false },
       dofFrame: 'global', kz: k, ...(sp.uplift ? { uplift: true } : {}),
-    } as never);
+    });
   }
 }
 
@@ -1130,6 +1121,12 @@ export type PlatePreparation =
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
+function checkPreparedPlates(report: PlateMeshReport): PlatePreparation {
+  const incomplete = new Set([...report.refused.map(({ id }) => id), ...platesNeedingMesh({ coarse: false })]);
+  if (incomplete.size) return { ok: false, reason: 'refused', plates: [...incomplete].map(id => plateEntry(id)?.name ?? `#${id}`) };
+  return { ok: true, meshed: report.plates, cells: report.cells };
+}
+
 /**
  * Mesh what an analysis needs and nothing else: the plates with no mesh or an out-of-date one,
  * each at its own settings, as one undo step. With meshing before the analysis turned off, says
@@ -1148,8 +1145,7 @@ export function preparePlatesForAnalysis(): PlatePreparation {
   const loaded = plans.filter((p) => p.localLoads > 0);
   if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
   const r = applyPlateMeshes(plans);
-  if (r.refused.length) return { ok: false, reason: 'refused', plates: names(r.refused.map((x) => x.id)) };
-  return { ok: true, meshed: r.plates, cells: r.cells };
+  return checkPreparedPlates(r);
 }
 
 /** The same, with a frame between plates so the page can show `meshProgress`: what an analysis the user asked for runs. */
@@ -1167,8 +1163,7 @@ export async function preparePlatesForAnalysisAsync(): Promise<PlatePreparation>
     const loaded = plans.filter((p) => p.localLoads > 0);
     if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
     const r = await applyPlateMeshesAsync(plans, (done, total) => setMeshProgress('meshing', done, total));
-    if (r.refused.length) return { ok: false, reason: 'refused', plates: names(r.refused.map((x) => x.id)) };
-    return { ok: true, meshed: r.plates, cells: r.cells };
+    return checkPreparedPlates(r);
   } finally {
     endMeshProgress();
   }

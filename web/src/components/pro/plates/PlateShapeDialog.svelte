@@ -14,7 +14,7 @@
   import { closePlateHole, cutPlateCells, plateFigure, plateSideShapes, setPlateSideSagitta, type PlateShapeProblem } from '../../../lib/store/plate-shape';
   import { plateGeometry, plateLoops } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
-  import { portal } from '../../../lib/utils/portal';
+  import { modalPortal } from '../../../lib/utils/portal';
   import { meshSizeText } from './plate-state';
 
   let { id, onclose, start = 'holes' }: { id: number; onclose: () => void; start?: 'holes' | 'sides' } = $props();
@@ -125,11 +125,13 @@
   const picked = $derived(side !== null ? sides[side] ?? null : null);
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} onpointermove={moveDrag} onpointerup={endDrag} />
+<svelte:window onpointermove={moveDrag} onpointerup={endDrag} />
 
 <div class="psd-host">
-<div class="psd-overlay" use:portal onclick={onclose} role="presentation">
-  <div class="psd" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('plates.shape.title')} data-testid="plate-shape-dialog" tabindex="-1">
+<dialog class="psd-overlay" use:modalPortal aria-label={t('plates.shape.title')}
+  oncancel={(event) => { event.preventDefault(); onclose(); }}
+  onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
+  <div class="psd" data-testid="plate-shape-dialog">
     <h3>{tp('plates.shape.titleOf', { name: entry?.name ?? '' })}</h3>
     <div class="psd-seg" role="group" aria-label={t('plates.shape.title')}>
       <button class:on={mode === 'holes'} aria-pressed={mode === 'holes'} onclick={() => { mode = 'holes'; side = null; message = null; }} data-testid="plate-shape-holes">{t('plates.holes')}</button>
@@ -192,12 +194,14 @@
     {#if message}<p class="psd-msg" data-testid="plate-shape-message">{message}</p>{/if}
     <div class="psd-actions"><button class="psd-btn" onclick={onclose} data-testid="plate-shape-close">{t('plates.close')}</button></div>
   </div>
-</div>
+</dialog>
 </div>
 
 <style>
   .psd-host { display: contents; }
-  .psd-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+  .psd-overlay { position: fixed; inset: 0; margin: 0; width: 100%; height: 100%; max-width: none; max-height: none; border: 0; background: transparent; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  .psd-overlay[open] { display: flex; }
+  .psd-overlay::backdrop { background: rgba(0, 0, 0, 0.45); }
   .psd { width: min(720px, 100%); max-height: 92vh; overflow: auto; background: var(--st-surface); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.76rem; }
   h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
   .psd-seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); overflow: hidden; }

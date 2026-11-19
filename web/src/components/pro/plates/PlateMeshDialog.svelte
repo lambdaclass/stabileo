@@ -20,7 +20,7 @@
   import { unitQ } from '../../../lib/store/display-units.svelte';
   import { DEFAULT_PLATE_MESH, POOR_MIN_ANGLE } from '../../../lib/model/physical/plate';
   import QuantityInput from '../loads/QuantityInput.svelte';
-  import { portal } from '../../../lib/utils/portal';
+  import { modalPortal } from '../../../lib/utils/portal';
   import { meshSizeText } from './plate-state';
   import { significantNumber } from '../../../lib/utils/unit-format';
 
@@ -112,11 +112,11 @@
   const totalSize = $derived(gridOn && pattern === 'rect' ? `${significantNumber(size, 'length', uiStore.unitSystem, 3)} × ${meshSizeText(sizeV)}` : meshSizeText(size));
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') onclose(); }} />
-
 <div class="pmd-host">
-<div class="pmd-overlay" use:portal onclick={onclose} role="presentation">
-  <div class="pmd" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('plates.meshTitle')} data-testid="plate-mesh-dialog" tabindex="-1">
+<dialog class="pmd-overlay" use:modalPortal aria-label={t('plates.meshTitle')}
+  oncancel={(event) => { event.preventDefault(); onclose(); }}
+  onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
+  <div class="pmd" data-testid="plate-mesh-dialog">
     <h3>{ids.length > 1 ? tp('plates.meshTitleMany', { n: ids.length }) : tp('plates.meshTitleOne', { name: plateEntry(ids[0]!)?.name ?? '' })}</h3>
 
     <div class="pmd-row">
@@ -217,12 +217,14 @@
       </button>
     </div>
   </div>
-</div>
+</dialog>
 </div>
 
 <style>
   .pmd-host { display: contents; }
-  .pmd-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+  .pmd-overlay { position: fixed; inset: 0; margin: 0; width: 100%; height: 100%; max-width: none; max-height: none; border: 0; background: transparent; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  .pmd-overlay[open] { display: flex; }
+  .pmd-overlay::backdrop { background: rgba(0, 0, 0, 0.45); }
   .pmd { width: min(520px, 100%); max-height: 90vh; overflow: auto; background: var(--st-surface); color: var(--st-text-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 0.76rem; }
   h3 { margin: 0; font-size: 0.9rem; color: var(--st-text); }
   .pmd-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

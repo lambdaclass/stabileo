@@ -59,7 +59,7 @@ function modules(f: EcFamily): AnyLoadCode[] {
   const wind: WindCode = {
     adapterId: ID[f].wind, role: 'wind', family: 'eurocode', edition: EDITION[f].wind, title: TITLES[f].wind,
     sections: { site: uk ? 'NA.2.4, 4.3, 4.5' : '4.2, 4.3, 4.5', pressure: '7.2.2' },
-    planFromLevels: (input, levels, sink) => planEcWind(f, input, levels, sink),
+    plan: (input, levels, sink) => planEcWind(f, input, levels, sink),
     defaults: { basicSpeed: 45, exposure: 'B', enclosure: 'enclosed' },
   };
   const snow: SnowCode = {

@@ -1,3 +1,4 @@
+import { proPlatesSource } from './scripts/pro-plates-source.mjs';
 import { featureDefines, featuresForMode, type BuildFeatures } from './config/public-features.mjs';
 import { defineConfig, searchForWorkspaceRoot, type Plugin, type UserConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
@@ -52,6 +53,10 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
     config(_config, { mode, command }) {
       testing = !!process.env.VITEST && command === 'serve';
       features = featuresForMode(testing ? 'test' : mode, featureConfig);
+      if (command === 'build' && mode === 'production' && process.env.VITE_E2E === '1' && featureConfig === undefined) {
+        const { proPlatesUnified, proRcSheets } = featuresForMode('test');
+        features = { ...features, proPlatesUnified, proRcSheets };
+      }
       const define = featureDefines(features, command === 'build');
       if (testing) return { environments: { client: { define } } };
       if (command === 'build' && mode === 'production' && process.env.STABILEO_ROUTE_BUDGET_LEGACY === '1') {
@@ -70,14 +75,14 @@ function publicBuildSwitchesPlugin(featureConfig: unknown) {
   return { plugin, features: () => features, testing: () => testing };
 }
 
-function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean): Plugin {
+function publicI18nPlugin(features: () => BuildFeatures, eager: () => boolean, read: (path: string) => string): Plugin {
   const id = 'virtual:public-i18n';
   const app = 'virtual:app-i18n';
   const offered = (code: string) => buildPublicLocales(features().research).some(locale => locale === code);
   const entries = (loc: string, publicOnly: boolean, watch: (file: string) => void) => {
     const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
     watch(file);
-    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+    const lines = read(file).split('\n').filter((l) => {
       const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
       if (!m) return false;
       if (!eager() && !ADMIN && m[2].startsWith('admin.')) return false;
@@ -269,15 +274,18 @@ const preloads = loadedPreloads();
 
 export function createWebConfig(featureConfig?: unknown): UserConfig {
   const switches = publicBuildSwitchesPlugin(featureConfig);
+  const plates = proPlatesSource(() => switches.features().proPlatesUnified);
   return {
     ...baseConfig,
+    worker: { ...baseConfig.worker, plugins: () => [plates.plugin, wasmStubPlugin()] },
     plugins: [
       switches.plugin,
+      plates.plugin,
       researchLocaleBuildPlugin(switches.features),
       preloads.plugin,
       wasmStubPlugin(),
-      publicI18nPlugin(switches.features, switches.testing),
-      resultChangeMetadataPlugin(),
+      publicI18nPlugin(switches.features, switches.testing, plates.read),
+      resultChangeMetadataPlugin(() => switches.features().proPlatesUnified),
       svelte({ preprocess: { markup: ({ content }) => switches.testing() ? { code: content } : prunePublicBuildBranches(content, switches.features()) } }),
       ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : []),
     ],

@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures';
 
 for (const [label, width, height] of [['phone', 390, 844], ['tablet', 820, 1180]] as const) {
-  test.skip(`@smoke known wrong result: #1928 — the plate mesh dialog accepts a tap on a ${label}`, async ({ pro: page }) => {
+  test(`@smoke #1928 the plate mesh dialog accepts a tap on a ${label}`, async ({ pro: page }) => {
     await page.setViewportSize({ width, height });
     await page.evaluate(() => window.__stabileoActions.openProTab('shells'));
     if (await page.getByTestId('mobile-panel-toggle').isVisible() && !(await page.locator('.pro-content').isVisible())) {

@@ -127,10 +127,15 @@ function orderFromFile(root, fingerprint) {
 }
 
 /** The registry of the checkout at `root`: its files as they are on disk, ordered by its history. */
-export function readRegistry(root = REPO) {
+export function readRegistry(root = REPO, includes) {
   const { numbered, fragments, fingerprint } = readWorkingTree(root);
   const landings = insideGit(root) ? landingsAt(gitIn(root), 'HEAD') : orderFromFile(root, fingerprint);
-  return assemble({ numbered, fragments, landings });
+  if (!includes) return assemble({ numbered, fragments, landings });
+  return assemble({
+    numbered: { ...numbered, changes: numbered.changes.filter(change => includes(change.id)) },
+    fragments: new Map([...fragments].filter(([id]) => includes(id))),
+    landings: landings.map(ids => ids.filter(includes)).filter((ids, i) => ids.length || !landings[i].length),
+  });
 }
 
 /**

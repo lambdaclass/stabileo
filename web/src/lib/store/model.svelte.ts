@@ -2,7 +2,6 @@ import type { SupportType } from '../model/support-types';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
-import { markLoadedModel, takeLoadedModel } from './loaded-model';
 import { migrateStoredDecisions } from '../design-contract/decisions';
 import { migrateArcLocalAxes } from '../model/curved-member';
 import {
@@ -505,6 +504,7 @@ export type ReleaseAxis = 'my' | 'mz' | 't';
 export type { SupportType } from '../model/support-types';
 
 export interface Support {
+  plateSpring?: true;
   id: number;
   nodeId: number;
   type: SupportType;
@@ -3867,7 +3867,6 @@ function createModelStore() {
     },
 
     clear(): void {
-      takeLoadedModel();
       loadEpoch++;
       _onReplaced?.();
       _onNewProject?.();
@@ -4809,7 +4808,6 @@ function createModelStore() {
         // Basic opens an example with load cases and combinations on when it uses more than one case.
         uiStore.loadCasesEnabled = loadCasesInUse(model.loads);
       });
-      markLoadedModel();
     },
 
     // ─── Material CRUD ───

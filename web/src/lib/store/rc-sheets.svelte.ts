@@ -373,8 +373,19 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const punching: PunchingRow[] = [];
+  const slabStrength = new Map<(typeof D.punching)[number]['slab'], number>();
   for (const d of D.punching) {
-    const ctx = { fc: fcOfElement(d.joint.columnElementId), fy, cover: dd.covers.slab, topBarDia: 12 };
+    let fc = slabStrength.get(d.slab);
+    if (fc === undefined) {
+      const strengths = new Set(d.slab.map(({ kind, id }) => {
+        const shell = kind === 'quad' ? modelStore.quads.get(id) : modelStore.plates.get(id);
+        return concreteFc(shell && modelStore.materials.get(shell.materialId));
+      }));
+      const strength = strengths.values().next().value;
+      fc = strengths.size === 1 && strength !== undefined && Number.isFinite(strength) && strength > 0 ? strength : NaN;
+      slabStrength.set(d.slab, fc);
+    }
+    const ctx = { fc, fy, cover: dd.covers.slab, topBarDia: 12 };
     redesigners.set(d.key, ((x: typeof d) => rules.punchingRow(x, ctx, fmt)) as Redesign);
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();

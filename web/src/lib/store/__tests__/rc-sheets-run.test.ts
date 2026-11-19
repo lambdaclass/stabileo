@@ -99,7 +99,7 @@ describe('designing the sheets on asking', () => {
   });
 });
 
-it.skip('known wrong result: #1928 — discards sheets if design inputs change after starting the run', async () => {
+it('#1928 discards sheets if design inputs change after starting the run', async () => {
   solvedFrame();
   const before = sheetsRun.rows;
   const pending = designSheets();

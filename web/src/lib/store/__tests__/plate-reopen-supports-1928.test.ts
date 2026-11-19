@@ -4,7 +4,7 @@ import { deserializeProject, serializeProject } from '../file';
 import { clearPlateMesh, holdPlateSides, createPlate, physicalPlates, planPlateMesh, applyPlateMeshes, setPlateShellSpec } from '../physical-plates';
 import { ensurePlates } from '../plates-from-shells';
 
-it.skip.each(['loose shell', 'old plate'])('known wrong result: #1928 — reopens %s with point supports still at the four corners', kind => {
+it.each(['loose shell', 'old plate'])('#1928 reopens %s with point supports still at the four corners', kind => {
   modelStore.clear();
   historyStore.clear();
   uiStore.analysisMode = 'pro';
@@ -31,7 +31,7 @@ it.skip.each(['loose shell', 'old plate'])('known wrong result: #1928 — reopen
   expect([...modelStore.supports.values()].map(s => s.nodeId).sort((a, b) => a - b)).toEqual(nodes);
 });
 
-it.skip('known wrong result: #1928 — keeps a user replacement of a generated restraint of the same type', () => {
+it('#1928 keeps a user replacement of a generated restraint of the same type', () => {
   modelStore.clear();
   historyStore.clear();
   uiStore.analysisMode = 'pro';
@@ -48,7 +48,7 @@ it.skip('known wrong result: #1928 — keeps a user replacement of a generated r
   expect(modelStore.supports.get(replacementId)?.nodeId).toBe(generated!.nodeId);
 });
 
-it.skip('known wrong result: #1928 — removes only the contribution of a cleared spring plate at its outline nodes', () => {
+it('#1928 removes only the contribution of a cleared spring plate at its outline nodes', () => {
   modelStore.clear();
   historyStore.clear();
   uiStore.analysisMode = 'pro';
