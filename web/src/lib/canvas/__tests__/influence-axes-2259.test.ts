@@ -43,3 +43,20 @@ it('known wrong result: #1986 T108 end actions agree between member and node ins
     expect(inspectNode(local, 1).actions[0]?.components[2]).toEqual({ label: 'M', value: 10 });
   }
 });
+
+it.skip('known wrong result: #1986 each influence envelope uses its own quantity for bounds and title', () => {
+  const fillText = vi.fn();
+  const ctx = new Proxy({}, { get: (_, key) => key === 'fillText' ? fillText : () => {}, set: () => true }) as CanvasRenderingContext2D;
+  const dc = { ctx, worldToScreen: (x: number, y: number) => ({ x, y }), getNode: () => undefined, getElement: () => undefined };
+  const bounds = { elementId: 1, t: [0, 1], max: [0, 9], min: [-2, -3] };
+  for (const choice of allChoices()) for (const quantity of ['N', 'V', 'M'] as const) {
+    axesStore.choice = choice;
+    const env = { quantity, globalMax: 9, members: [bounds] };
+    influenceTool.envelope = env;
+    drawInfluenceLine({ quantity: 'Rz', targetNodeId: 1, points: [{ elementId: 1, t: 0, x: 0, y: 0, value: 1 }] }, dc, 1);
+    const expected = ilShown(quantity).sign < 0 ? { ...bounds, max: [2, 3], min: [0, -9] } : bounds;
+    expect(fillText.mock.lastCall?.[0]).toContain(quantity);
+    expect(vi.mocked(drawIlEnvelope).mock.lastCall?.[0]).toEqual({ ...env, members: [expected] });
+    expect(env.members[0]!.max).toEqual([0, 9]);
+  }
+});

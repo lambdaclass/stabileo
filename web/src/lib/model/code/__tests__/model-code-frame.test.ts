@@ -80,3 +80,29 @@ describe('model code in the user axes', () => {
     expect(r.errors[0].line).toBe(2);
   });
 });
+
+it.skip('known wrong result: #1986 mode-less horizontal spatial fragments retain a third coordinate on re-export', () => {
+  const spatial = 'stabileo-model 1\nnode 1 2 3 0\nnode 2 4 5 0';
+  const planar = 'stabileo-model 1\nnode 1 2 3\nnode 2 4 5';
+  const frame = { up: '+Y', right: '+X', hand: 'right' } as const;
+  for (const fragment of [spatial, planar]) {
+    const original = codeToModel(fragment).snapshot!;
+    const encoded = modelToCode(original as Parameters<typeof modelToCode>[0], frame);
+    const decoded = codeToModel(encoded);
+    expect(decoded.errors).toEqual([]);
+    expect(decoded.snapshot?.nodes).toEqual(original.nodes);
+    expect(modelToCode(decoded.snapshot as Parameters<typeof modelToCode>[0], frame)).toBe(encoded);
+  }
+});
+
+it.skip('known wrong result: #1986 a second frame declaration invalidates the model-code snapshot', () => {
+  const text = 'stabileo-model 1\nframe up="+Z" right="+X" hand="right"\nnode 1 0 0\nload nodal 1 nodeId=1 fz=3';
+  const one = codeToModel(text);
+  expect(one.errors).toEqual([]);
+  expect(one.snapshot?.loads?.[0]?.data).toMatchObject({ fz: 3 });
+  for (const up of ['+Z', '-Z']) {
+    const duplicate = codeToModel(text + '\nframe up="' + up + '" right="+X" hand="right"');
+    expect(duplicate.snapshot).toBeNull();
+    expect(duplicate.errors).toEqual([expect.objectContaining({ line: 5, message: expect.stringContaining('frame') })]);
+  }
+});

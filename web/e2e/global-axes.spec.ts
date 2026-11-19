@@ -143,6 +143,33 @@ if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
     });
   }
 
+  test.skip('@smoke known wrong result: #1986 reflected grid rises physically from a signed base', async ({ pro: page }) => {
+    const openAxes = async () => {
+      const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
+      await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
+    };
+    await openAxes();
+    await page.getByTestId('axes-up--Z').click();
+    await page.getByTestId('axes-done').click();
+    await page.getByTestId('pr-stage-model').click();
+    await page.getByTestId('pr-cmd-grid').click();
+    const base = page.getByTestId('grid-panel').locator('label').filter({ hasText: 'Base elevation' }).locator('input');
+    await base.fill('2');
+    await base.press('Tab');
+    await page.getByTestId('grid-heights').fill('3; 4');
+    await page.getByTestId('grid-generate-levels').click();
+    const height = (i: number) => page.getByTestId('grid-level-N' + i).locator('input').nth(1);
+    await expect(height(0)).toHaveValue(/^2(?:[.,]0+)?$/);
+    await expect(height(1)).toHaveValue(/^-1(?:[.,]0+)?$/);
+    await expect(height(2)).toHaveValue(/^-5(?:[.,]0+)?$/);
+    await openAxes();
+    await page.getByTestId('axes-up-+Z').click();
+    await page.getByTestId('axes-done').click();
+    await expect(height(0)).toHaveValue(/^-2(?:[.,]0+)?$/);
+    await expect(height(1)).toHaveValue(/^1(?:[.,]0+)?$/);
+    await expect(height(2)).toHaveValue(/^5(?:[.,]0+)?$/);
+  });
+
   test('@smoke reflected storey heights remain positive in the displayed coordinates', async ({ pro: page }) => {
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
     await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);

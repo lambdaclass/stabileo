@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
+import LoadSketch, { type SketchInput } from '../../pro/loads/LoadSketch.svelte';
 import SupportsTable from '../../tables/SupportsTable.svelte';
 import ProCaseDetails from '../../pro/loads/ProCaseDetails.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
@@ -93,4 +94,18 @@ it('displays a spectral direction factor with the sign of the actual user axis',
   expect(displayed()).toBe('1');
   axesStore.choice = { up: '+Z', right: '-X', hand: 'left' };
   expect(displayed()).toBe('-1');
+});
+
+it.skip('known wrong result: #1986 shell point force labels retain the entered user components', () => {
+  uiStore.unitSystem = 'SI';
+  const v = { kind: 'shellPoint', shell: { pf: { fx: 2, fy: 3, fz: 5 }, at: { x: 0, y: 0, z: 0 } } } as SketchInput;
+  for (const choice of allChoices()) {
+    axesStore.choice = choice;
+    const html = render(LoadSketch, { props: { v } }).body.replace(/<!--[\s\S]*?-->/g, '');
+    expect(html).toMatch(/Fx = 2(?:\.0+)? kN/);
+    expect(html).toMatch(/Fy = 3(?:\.0+)? kN/);
+    expect(html).toMatch(/Fz = 5(?:\.0+)? kN/);
+    const modelX = makeFrame(choice).rows.find(row => row[0] !== 0)![0];
+    expect(html).toContain(modelX === 1 ? 'x1="48" y1="70" x2="74"' : 'x1="108" y1="70" x2="82"');
+  }
 });

@@ -170,3 +170,33 @@ describe('the flexibility wizard in the user axes', () => {
     expect(componentShown(1, false, true)).toEqual({ name: 'Rz', sign: -1 });
   });
 });
+
+it.skip('known wrong result: #1986 an inclined support normal follows its displayed orientation', () => {
+  const i = modelStore.addNode(0, 0), j = modelStore.addNode(4, 0);
+  modelStore.addElement(i, j);
+  modelStore.addSupport(i, 'fixed');
+  modelStore.addSupport(j, 'inclinedRoller', undefined, { angle: 30, dy: 0.002 });
+  modelStore.addNodalLoad(j, 2, -7);
+  const data = solveDetailed(modelStore.buildSolverInput(false)!);
+  const normal = data.dofNumbering.dofs.find(d => d.nodeId === j && d.localDof === 1)!;
+  const g = normal.globalIndex;
+  const nf = data.dofNumbering.nFree;
+  const angle = data.nodeFrames.find(d => d.nodeId === j)!.angle;
+  const modelNormal = [-Math.sin(angle), Math.cos(angle)];
+  expect(Math.abs(data.reactionsRaw[g - nf]!)).toBeGreaterThan(0);
+  expect(Math.abs(data.uAll[g]!)).toBeGreaterThan(0);
+  for (const choice of FRAMES) {
+    const f = makeFrame(choice);
+    const p = planeSigns(f);
+    const d = dsmInFrame(data, f);
+    const a = d.nodeFrames.find(frame => frame.nodeId === j)!.angle;
+    const userNormal = [-Math.sin(a), Math.cos(a)];
+    for (let k = 0; k < 2; k++) {
+      const sign = k === 0 ? p.sx : p.sz;
+      close(userNormal[k]! * d.reactionsRaw[g - nf]!, sign * modelNormal[k]! * data.reactionsRaw[g - nf]!);
+      close(userNormal[k]! * d.uAll[g]!, sign * modelNormal[k]! * data.uAll[g]!);
+    }
+    const ef = d.elementForces[0]!;
+    d.elements[0]!.T.forEach((row, k) => close(row.reduce((sum, v, l) => sum + v * ef.uGlobal[l]!, 0), ef.uLocal[k]!));
+  }
+});

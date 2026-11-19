@@ -11,7 +11,7 @@
 import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initSolver } from '../wasm-solver';
-import { solveCombinations2D, validateAndSolve2D, type ModelData } from '../solver-service';
+import { buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData } from '../solver-service';
 
 /** Cantilever: fixed at node 1, tip loads at node 2 split across two cases. */
 function beamModel(): ModelData {
@@ -248,4 +248,65 @@ it('#2292 the planar named cantilever combination refuses complete case cancella
 
 it('#2292 the planar named cantilever combination distinguishes exact cancellation from a unit residual', async () => {
   await checkNamedPlanarCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
+});
+
+describe('explicit planar self-weight rules', () => {
+  beforeAll(async () => { await initSolver(); });
+
+  function weightedBeam(): ModelData {
+    const model = beamModel();
+    model.materials.set(1, { ...model.materials.get(1)!, rho: 20 });
+    model.loads = [];
+    return model;
+  }
+
+  it.skip('known wrong result: #1986 batch and fallback use the exact case self-weight in 2D', () => {
+    const model = weightedBeam();
+    model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: -2 }, { caseId: 2, direction: 'X', factor: 3 }] };
+    const first = model.nodes.get(1)!;
+    const last = model.nodes.get(2)!;
+    const weight = (last.x - first.x) * model.materials.get(1)!.rho * model.sections.get(1)!.a;
+    for (const loadCases of [cases, cases.map((c: { name: string }) => ({ ...c, name: 'Same' }))]) {
+      const solved = solveCombinations2D(model, loadCases, combos);
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      const firstReaction = solved.perCase.get(1)!.reactions[0]!;
+      const secondReaction = solved.perCase.get(2)!.reactions[0]!;
+      expect(firstReaction.rx).toBe(0);
+      expect(firstReaction.rz).toBeCloseTo(2 * weight, 10);
+      expect(secondReaction.rx).toBeCloseTo(-3 * weight, 10);
+      expect(secondReaction.rz).toBe(0);
+    }
+  });
+
+  it.skip('known wrong result: #1986 standalone synchronous and async planar solves use the same explicit weight', async () => {
+    const model = weightedBeam();
+    model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: 2, elements: [1] }] };
+    const loads = buildSolverInput2D(model)!.loads;
+    expect(loads).toEqual([{ type: 'distributed', data: { elementId: 1, qI: 0.4, qJ: 0.4 } }]);
+    for (const solved of [validateAndSolve2D(model), await validateAndSolve2DAsync(model)]) {
+      if (!solved || typeof solved === 'string') throw new Error(String(solved));
+      expect(solved.reactions[0]!.rz).toBeCloseTo(-2, 10);
+    }
+    expect(buildSolverInput2D(model, [])!.loads).toEqual([]);
+    expect(buildSolverInput2D({ ...model, analysis: undefined }, true)!.loads).toEqual([
+      { type: 'distributed', data: { elementId: 1, qI: -0.2, qJ: -0.2 } },
+    ]);
+  });
+
+  it.skip('known wrong result: #1986 nonzero out-of-plane case weight is refused and zero remains valid', async () => {
+    const model = weightedBeam();
+    for (const factor of [-1, 0, 1]) {
+      model.analysis = { selfWeight: [
+        { caseId: 1, direction: 'Z', factor: -1 }, { caseId: 1, direction: 'Y', factor },
+      ] };
+      const results = [
+        validateAndSolve2D(model), await validateAndSolve2DAsync(model), solveCombinations2D(model, cases, combos),
+        solveCombinations2D(model, cases.map((c: { name: string }) => ({ ...c, name: 'Same' })), combos),
+      ];
+      for (const result of results) {
+        if (factor === 0) expect(result).toBeTypeOf('object');
+        else expect(result).toMatch(/self-weight.*outside the plane/i);
+      }
+    }
+  });
 });
