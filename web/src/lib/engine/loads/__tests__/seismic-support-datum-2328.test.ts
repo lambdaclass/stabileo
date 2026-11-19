@@ -4,9 +4,7 @@ import { buildLoadPlan } from '../load-plan';
 import { input } from './gravity-width-mass-fixture';
 import { mesh } from './snow-surface-round2-fixture';
 
-const knownWrongDatum = process.env.RUN_KNOWN_WRONG === '2328' ? it : it.skip;
-
-knownWrongDatum('known wrong result: #2328 translating a supported cantilever preserves its static seismic action', () => {
+it('#2328 translating a supported cantilever preserves its static seismic action', () => {
   const length = 4, area = 0.5, density = 4;
   const expected = length * area * density / 2;
   for (const base of [10, -5, 0]) {

@@ -105,7 +105,13 @@ export function buildSeismicLevels(
   }
   const shells = [...model.quads?.values() ?? []].map(q => ({ ...q, on: undefined }));
   const plates = [...model.plates?.values() ?? []].map(q => ({ ...q, on: 'plate' as const }));
-  const storyNodes = new Set([...shells, ...plates].flatMap(q => q.nodes));
+  const surfaces = [...shells, ...plates].map(q => {
+    const corners = q.nodes.map(id => nodes.get(id)).filter((n): n is MassNode => n !== undefined);
+    const valid = q.nodes.length === (q.on ? 3 : 4) && corners.length === q.nodes.length
+      && corners.every(n => [n.x, n.y, n.z].every(Number.isFinite));
+    return { q, corners: valid ? corners : undefined };
+  });
+  const storyNodes = new Set(surfaces.flatMap(({ q }) => q.nodes));
   for (const support of model.supports?.values() ?? []) storyNodes.add(support.nodeId);
   for (const constraint of model.constraints ?? []) {
     if (constraint.type !== 'diaphragm') continue;
@@ -136,9 +142,9 @@ export function buildSeismicLevels(
   const levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);
   for (const n of nodes.values()) byElevation.get(n.z)?.nodeIds.push(n.id);
   const segments: Array<[MassNode, MassNode]> = [...geometry.values()].map(g => [g.nodeI, g.nodeJ]);
-  for (const shell of [...shells, ...plates]) for (const [k, id] of shell.nodes.entries()) {
-    const i = nodes.get(id), j = nodes.get(shell.nodes[(k + 1) % shell.nodes.length]!);
-    if (i && j) segments.push([i, j]);
+  for (const { corners } of surfaces) {
+    if (!corners) continue;
+    for (const [k, corner] of corners.entries()) segments.push([corner, corners[(k + 1) % corners.length]!]);
   }
   setStructuralPlanWidths(levels, segments);
   const nearest = (z: number) => levels.reduce<SeismicLevel | undefined>((best, l) =>
@@ -220,14 +226,17 @@ export function buildSeismicLevels(
     line('selfWeightKN', g, w, w);
   }
   const shellPressures = new Map(layout.shellQuads.map(s => [s.quadId, s]));
-  for (const q of [...shells, ...plates]) {
-    const corners = q.nodes.map(id => nodes.get(id)).filter((n): n is MassNode => !!n);
+  for (const { q, corners } of surfaces) {
+    if (!corners) {
+      for (const l of levels) deny(l, 'shell');
+      continue;
+    }
     const density = q.thickness! * (model.materials.get(q.materialId!)?.rho ?? NaN);
     const p = area.massOfQuad(q.id), shell = q.on ? undefined : shellPressures.get(q.id);
-    if (corners.length !== (q.on ? 3 : 4) || q.curved || hasShellOffset(q) || !Number.isFinite(density) || density < 0 || !(q.thickness! > 0) ||
-      !corners.every(n => Number.isFinite(n.x) && Number.isFinite(n.y) && n.z === corners[0]!.z)) {
+    if (q.curved || hasShellOffset(q) || !Number.isFinite(density) || density < 0 || !(q.thickness! > 0) ||
+      !corners.every(n => n.z === corners[0]!.z)) {
       const lo = Math.min(...corners.map(n => n.z)), hi = Math.max(...corners.map(n => n.z));
-      for (const l of levels) if (!corners.length || (l.elevation >= lo && l.elevation <= hi)) deny(l, 'shell');
+      for (const l of levels) if (l.elevation >= lo && l.elevation <= hi) deny(l, 'shell');
       continue;
     }
     const l = level(corners[0]!.z);

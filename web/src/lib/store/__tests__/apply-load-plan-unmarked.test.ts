@@ -30,7 +30,11 @@ function frame(): void {
   for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
   const at = new Map<string, number>();
   for (const z of [0, 3]) for (let i = 0; i <= 2; i++) at.set(`${i},${z}`, modelStore.addNode(5 * i, 0, z));
-  for (let i = 0; i <= 2; i++) modelStore.addElement(at.get(`${i},0`)!, at.get(`${i},3`)!);
+  for (let i = 0; i <= 2; i++) {
+    const base = at.get(`${i},0`)!;
+    modelStore.addElement(base, at.get(`${i},3`)!);
+    modelStore.addSupport(base, 'fixed3d');
+  }
   for (let i = 0; i < 2; i++) modelStore.addElement(at.get(`${i},3`)!, at.get(`${i + 1},3`)!);
 }
 const planInput = (): LoadPlanInput => ({
@@ -38,6 +42,7 @@ const planInput = (): LoadPlanInput => ({
   model: {
     nodes: modelStore.nodes as never, elements: modelStore.elements as never, sections: modelStore.model.sections as never,
     materials: modelStore.model.materials as never, loadCases: modelStore.model.loadCases, quads: modelStore.model.quads as never,
+    supports: modelStore.supports,
   },
   dead: [{ labelKey: 'a', q: 1.5 }], occupancyKey: 'vivienda', tributaryWidth: 3,
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,

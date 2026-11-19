@@ -727,8 +727,6 @@ function verifyShellGeometryRefusal(model: LoadModelData, elevations: number[]) 
   }
 }
 
-const knownWrongShellGeometry = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
 for (const surface of ['quads', 'plates'] as const) {
   const invalidCoordinates = [
     ['z', NaN], ['z', Infinity],
@@ -736,7 +734,7 @@ for (const surface of ['quads', 'plates'] as const) {
     ['y', NaN], ['y', Infinity], ['y', -Infinity],
   ] as const;
   for (const [coordinate, invalid] of invalidCoordinates) {
-    knownWrongShellGeometry(`known wrong result: #2316 a mixed model refuses ${surface} with ${coordinate} = ${invalid}`, () => {
+    it(`#2316 a mixed model refuses ${surface} with ${coordinate} = ${invalid}`, () => {
       const model = mixedSeismicModel(surface);
       model.nodes.get(3)![coordinate] = invalid;
       verifyShellGeometryRefusal(model, [0, 4]);
@@ -771,7 +769,7 @@ for (const surface of ['quads', 'plates'] as const) {
   });
 }
 
-knownWrongShellGeometry('known wrong result: #2316 a mixed model refuses a shell with an unlocatable corner', () => {
+it('#2316 a mixed model refuses a shell with an unlocatable corner', () => {
   const model = mixedSeismicModel('quads');
   model.nodes.get(3)!.z = NaN;
   model.nodes.delete(4);
