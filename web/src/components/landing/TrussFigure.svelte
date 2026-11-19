@@ -21,10 +21,9 @@
     /** Translation key for the caption shown under a compact still frame. */
     captionKey?: string;
     prefersReducedMotion?: boolean;
-    paused?: boolean;
   };
   let {
-    mode = 'animate', position = 0.5, compact = false, captionKey = '', prefersReducedMotion = false, paused: held = false,
+    mode = 'animate', position = 0.5, compact = false, captionKey = '', prefersReducedMotion = false,
   }: Props = $props();
 
   const REPRESENTATIVE = 0.5;
@@ -40,11 +39,9 @@
 
   let s = $state(mode === 'still' ? position : prefersReducedMotion ? REPRESENTATIVE : SWEEP_MIN);
   let direction = 1;
-  let paused = $state(false);
-  let hovered = $state(false);
   let focused = $state(false);
 
-  const running = $derived(mode === 'animate' && !prefersReducedMotion && !held && !hovered && !focused);
+  const running = $derived(mode === 'animate' && !prefersReducedMotion && !focused);
   const state = $derived(stateAt(mode === 'still' ? position : s));
 
   onMount(() => {
@@ -132,8 +129,6 @@
     viewBox={compact ? '24 8 512 150' : '0 -48 560 270'}
     role="img"
     aria-labelledby="{titleId} {descId}"
-    onpointerenter={(e) => { if (e.pointerType === 'mouse') hovered = true; }}
-    onpointerleave={() => (hovered = false)}
     onfocusin={() => (focused = true)}
     onfocusout={() => (focused = false)}
   >

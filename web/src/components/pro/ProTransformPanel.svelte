@@ -173,6 +173,7 @@
     const leftHand = uiStore.axisConvention3D === 'leftHand';
     if (mode === 'move' || !asCopy) {
       const r = transformInPlace(set, T[0]!, { leftHand });
+      if (r.refused) return;
       message = [
         tp('transform.movedDone', { n: r.movedNodes, stretched: r.stretchedMembers }),
         r.welded > 0 ? tp('transform.welded', { n: r.welded }) : '',
@@ -185,6 +186,7 @@
       link: link && (mode === 'repeat' || mode === 'polar' || mode === 'rotate')
         ? { type: linkType, materialId: linkMaterial, sectionId: linkSection } : null,
     });
+    if (r.refused) return;
     message = [
       tp('transform.copyDone', { n: r.nodes.length, e: r.elements.length, s: r.quads.length + r.plates.length, links: r.links.length }),
       r.welded > 0 ? tp('transform.welded', { n: r.welded }) : '',

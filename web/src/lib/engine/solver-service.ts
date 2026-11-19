@@ -22,7 +22,7 @@ import { repeatedSolve3D } from './repeated-solve-3d';
 import { sectionShearAreas } from '../section/shear-areas';
 import { transverseSign } from './transverse-sign-2d';
 import { SupportMappingError, supportDofs3D } from './support-dofs-3d';
-import { resolvePlaneSupportSettlement } from '../model/support-types';
+import { isPlaneRoller, planeMemberAngle, resolvePlaneSupportSettlement } from '../model/support-types';
 import { solve as solveStructure, solve3D as solve3DEngine, setAdvancedGuards, assertFiniteWire, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope, computeEnvelope3D, solveMultiCase2D, solveMultiCase3D, input2DToWireObject, input3DToWireObject, solvePDelta3D } from './wasm-solver';
 import { solverProperties } from '../section/state';
 import type { SolverInput, SolverSupport, FullEnvelope, AnalysisResults } from './types';
@@ -167,24 +167,6 @@ function is2DSupportType(type: Support['type']): boolean {
 
 // ─── Internal helpers ─────────────────────────────────────────────
 
-/** Compute average element angle at a node (radians). */
-function getElemAngleAtNode(nodeId: number, nodes: Map<number, Node>, elements: Map<number, Element>): number {
-  let sumAngle = 0, count = 0;
-  for (const elem of elements.values()) {
-    if (elem.nodeI === nodeId || elem.nodeJ === nodeId) {
-      const ni = nodes.get(elem.nodeI);
-      const nj = nodes.get(elem.nodeJ);
-      if (!ni || !nj) continue;
-      const angle = elem.nodeI === nodeId
-        ? Math.atan2(nj.y - ni.y, nj.x - ni.x)
-        : Math.atan2(ni.y - nj.y, ni.x - nj.x);
-      sumAngle += angle;
-      count++;
-    }
-  }
-  return count > 0 ? sumAngle / count : 0;
-}
-
 /** Effective bending inertia for a rotated section profile (Mohr's circle).
  *  When the section is rotated by angle α around the bar axis,
  *  the effective inertia for 2D bending is:
@@ -221,13 +203,13 @@ export function spaceBendingInertias(
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
-    const isRoller = s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ';
+    const isRoller = isPlaneRoller(s.type);
     const { dz: supportDz, dry: supportDry } = resolvePlaneSupportSettlement(s);
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
       let effectiveAngleDeg = baseAngleDeg;
       if (s.isGlobal === false) {
-        const elemAngle = getElemAngleAtNode(s.nodeId, model.nodes, model.elements);
+        const elemAngle = planeMemberAngle(s.nodeId, model.nodes, model.elements.values());
         effectiveAngleDeg = (elemAngle * 180 / Math.PI) + baseAngleDeg;
       }
       effectiveAngleDeg += (s.angle ?? 0);
@@ -256,7 +238,7 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
       const baseAngleDeg = 0;
       let effectiveAngleDeg = baseAngleDeg;
       if (s.isGlobal === false) {
-        const elemAngle = getElemAngleAtNode(s.nodeId, model.nodes, model.elements);
+        const elemAngle = planeMemberAngle(s.nodeId, model.nodes, model.elements.values());
         effectiveAngleDeg = elemAngle * 180 / Math.PI;
       }
       effectiveAngleDeg += (s.angle ?? 0);
@@ -1981,7 +1963,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
   try {
     return buildSolverInput3D(...args);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (!(err instanceof SemiRigidError)) throw err;
@@ -2015,7 +1997,7 @@ export function imposedRefusal(model: ModelData): string | null {
     if (bad.length === 0) return null;
     return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     throw err;
   }
 }
@@ -2509,7 +2491,7 @@ export function solveCombinations3D(
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -3082,7 +3064,7 @@ export async function solveCombinations3DParallel(
     checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);

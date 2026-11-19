@@ -46,7 +46,8 @@ import {
 } from './transform-fields';
 import { closure, fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
 import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
-import { NodeIndex } from './node-index';
+import { ambiguousRollerTransform, refuseSupportTransform, type SupportTransformRefusal } from './support-transform-refusal';
+import { changesPlaneRollerFrame, planCopyTopology } from './copy-topology';
 export { NodeIndex } from './node-index';
 
 export { closure, type EntitySet } from './fragment';
@@ -63,6 +64,7 @@ export interface CopyOptions {
 }
 
 export interface EditReport {
+  refused?: SupportTransformRefusal;
   nodes: number[];
   elements: number[];
   quads: number[];
@@ -84,8 +86,6 @@ export interface EditReport {
   warnings: Partial<Record<EditWarning, number>>;
 }
 
-const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`);
-
 /**
  * Add `transforms.length` copies of `set`, copy k under `transforms[k]`.
  *
@@ -95,6 +95,8 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
   if (uiStore.is3DWorkspace && uiStore.viewportPresentation3D === 'upright2dIn3d' && transforms.length > 0) {
     const source = closure(set);
     if (source.nodes.size > 0) {
+      const frag = fragmentOf(source, opts);
+      if (copySupportRefusal(frag, transforms, opts)) return insertFragment(frag, transforms, opts);
       let report!: EditReport;
       modelStore.batch(() => {
         modelStore.ensureSpaceCoordinates();
@@ -107,6 +109,12 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
   return insertFragment(fragmentOf(set, opts), transforms, opts);
 }
 
+function copySupportRefusal(frag: Fragment, transforms: readonly Affine[], opts: CopyOptions): SupportTransformRefusal | undefined {
+  if (!opts.withSupports) return undefined;
+  if (frag.missingSupportMembers) return 'missingSupportMembers';
+  return ambiguousRollerTransform(frag.supports, frag.elements, transforms) ? 'ambiguousRoller' : undefined;
+}
+
 /**
  * Insert `transforms.length` copies of `frag`, copy k under `transforms[k]`, in one batch.
  *
@@ -114,14 +122,42 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
  * only exist when the fragment is `local`).
  */
 export function insertFragment(frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'> = {}): EditReport {
-  const tol = opts.weldTol ?? weldTolerance();
-  const leftHand = opts.leftHand ?? false;
   const report: EditReport = {
     nodes: [], elements: [], quads: [], plates: [], links: [], groups: [], welded: 0, duplicates: 0, supportKept: 0, loadKept: 0,
     added: { materials: 0, sections: 0, loadCases: 0 }, maps: [], warnings: {},
   };
-  const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (frag.nodes.length === 0 || transforms.length === 0) return report;
+  const refusal = copySupportRefusal(frag, transforms, opts);
+  if (refusal) {
+    report.refused = refuseSupportTransform(refusal);
+    return report;
+  }
+
+  if (uiStore.is3DWorkspace && uiStore.viewportPresentation3D === 'upright2dIn3d') {
+    modelStore.batch(() => {
+      modelStore.ensureSpaceCoordinates();
+      insertInModelCoordinates(frag, transforms, opts, report);
+    });
+    return report;
+  }
+  return insertInModelCoordinates(frag, transforms, opts, report);
+}
+
+function insertInModelCoordinates(
+  frag: Fragment, transforms: readonly Affine[], opts: Omit<CopyOptions, 'withGroups'>, report: EditReport,
+): EditReport {
+  const tol = opts.weldTol ?? weldTolerance();
+  const leftHand = opts.leftHand ?? false;
+  const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
+  const topology = planCopyTopology(frag, transforms, modelStore.nodes.values(), modelStore.elements.values(), tol, !!opts.link);
+  const supports0 = opts.withSupports ? frag.supports : [];
+  if (!uiStore.is3DWorkspace
+    && changesPlaneRollerFrame(topology, frag, transforms, modelStore.elements, modelStore.supports.values(), supports0)) {
+    report.refused = refuseSupportTransform('changedSupportFrame');
+    return report;
+  }
+  report.welded = topology.welded;
+  report.duplicates = topology.duplicates;
 
   modelStore.bulkMutate(() => {
     const defs = mapDefinitions(frag);
@@ -130,16 +166,10 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     const sec = (id: number) => defs.section.get(id) ?? id;
     const sourceSection = new Map(frag.sections.map((s) => [s.id, s]));
 
-    const pos = (id: number): Vec3 | undefined => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] : undefined; };
-    const index = new NodeIndex(tol);
-    for (const n of modelStore.nodes.values()) index.add(n.id, [n.x, n.y, n.z ?? 0]);
-    const pairs = new Set<string>();
-    for (const e of modelStore.elements.values()) pairs.add(pairKey(e.nodeI, e.nodeJ));
     let nextArc = Math.max(0, ...[...modelStore.elements.values()].map((e) => e.arc?.id ?? 0)) + 1;
 
     const nodes0 = new Map(frag.nodes.map((n) => [n.id, n]));
     const elements0 = new Map(frag.elements.map((e) => [e.id, e]));
-    const supports0 = opts.withSupports ? frag.supports : [];
     const planeMemberNodes = uiStore.is3DWorkspace ? null
       : new Set(frag.supportNodesWithMembers ?? frag.elements.flatMap(e => [e.nodeI, e.nodeJ]));
     // A definition copied with what it loads writes the copy's loads itself (`defined-loads.ts`):
@@ -158,7 +188,8 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
     const shellKey = (nodes: readonly number[]) => [...nodes].sort((x, y) => x - y).join(',');
     const shells = new Set([...modelStore.quads.values(), ...modelStore.plates.values()].map((s) => shellKey(s.nodes)));
 
-    let prevNodeMap = new Map(frag.nodes.map((n) => [n.id, n.id]));
+    const assignedNodes = new Map<number, number>();
+    const modelNodeId = (id: number) => assignedNodes.get(id) ?? id;
     /** The fragment's node lands where it was: the same position in the model. */
     const fragNode = new Map(frag.nodes.map((n) => [n.id, n]));
     const sameSpot = (fragId: number, modelId: number) => {
@@ -174,27 +205,23 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       const key = loadKey(load);
       return modelStore.loads.some((m) => (m.data as { nodeId?: number }).nodeId === nodeId && loadKey(m) === key);
     };
-    transforms.forEach((T, k) => {
+    topology.copies.forEach((copy, k) => {
+      const T = transforms[k]!;
       const created = new Set<number>();
-      const nodeMap = new Map<number, number>();
-      for (const [id, n] of nodes0) {
-        const p = applyPoint(T, [n.x, n.y, n.z]);
-        const hit = index.find(p, pos);
-        if (hit !== null) { nodeMap.set(id, hit); report.welded++; continue; }
-        const nid = modelStore.addNode(p[0], p[1], p[2]);
-        index.add(nid, p);
-        nodeMap.set(id, nid);
-        report.nodes.push(nid);
-        created.add(nid);
+      for (const [plannedId, p] of copy.created) {
+        const id = modelStore.addNode(...p);
+        assignedNodes.set(plannedId, id);
+        report.nodes.push(id);
+        created.add(id);
       }
+      const nodeMap = new Map([...copy.nodeMap].map(([source, target]) => [source, modelNodeId(target)]));
 
       const elementMap = new Map<number, number>();
       const signs = new Map<number, { sy: 1 | -1; sz: 1 | -1 }>();
       const arcMap = new Map<number, number>();
-      for (const [id, e] of elements0) {
+      for (const id of copy.members) {
+        const e = elements0.get(id)!;
         const i2 = nodeMap.get(e.nodeI)!, j2 = nodeMap.get(e.nodeJ)!;
-        if (i2 === j2) continue;
-        if (pairs.has(pairKey(i2, j2))) { report.duplicates++; continue; }
         const ni = nodes0.get(e.nodeI)!, nj = nodes0.get(e.nodeJ)!;
         const ni2 = modelStore.nodes.get(i2)!, nj2 = modelStore.nodes.get(j2)!;
         const o = carriedOrientation(T, e, ni, nj, ni2, nj2, sourceSection.get(e.sectionId), leftHand);
@@ -217,7 +244,6 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
         }
         const eid = modelStore.addElement(i2, j2, e.type);
         modelStore.updateElement(eid, patch);
-        pairs.add(pairKey(i2, j2));
         elementMap.set(id, eid);
         report.elements.push(eid);
       }
@@ -321,17 +347,13 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
       }
 
       if (opts.link) {
-        for (const [id] of nodes0) {
-          const a = prevNodeMap.get(id)!, b = nodeMap.get(id)!;
-          if (a === b || pairs.has(pairKey(a, b)) || !modelStore.nodes.has(a)) continue;
-          const lid = modelStore.addElement(a, b, opts.link.type);
+        for (const { nodeI, nodeJ } of copy.links) {
+          const lid = modelStore.addElement(modelNodeId(nodeI), modelNodeId(nodeJ), opts.link.type);
           modelStore.updateElement(lid, { materialId: opts.link.materialId, sectionId: opts.link.sectionId });
-          pairs.add(pairKey(a, b));
           report.links.push(lid);
         }
       }
       report.maps.push({ nodes: nodeMap, elements: elementMap });
-      prevNodeMap = nodeMap;
     });
   });
   return report;

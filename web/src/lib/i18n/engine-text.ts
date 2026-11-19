@@ -11,6 +11,7 @@
  * engine knowing either convention exists.
  */
 import { isMessage, type EngineMessage } from '../codes/message';
+import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
 
@@ -97,6 +98,7 @@ export function formatCombinationLabel(
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
   ['Repeated load case factors cancel to zero in this combination.', 'svc.engine.cancelledCombination'],
+  [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],

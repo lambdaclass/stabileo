@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine mutants.engine mutants.safety.report mutants.safety.record \
+       lint.engine gen.result-sites test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.invariance.quick test.engine.mechanism-fuzz.quick test.engine.mechanism-fuzz.long test.engine.mechanism-fuzz.replay test.engine.suite test.engine.differential.quick test.engine.differential.full bench.engine test.engine.benches mutants.engine mutants.safety.report mutants.safety.record \
        web.deps typecheck.web typecheck.web.baseline typecheck.web.units typecheck.web.svelte test.web.unit test.web.build web.build.tested test.web.build.shared test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations check.web.route-size \
@@ -93,6 +93,7 @@ help:
 	@echo "  make test.engine.differential.quick - Cross-method pairs that must agree (per PR)"
 	@echo "  make test.engine.differential.full  - Those plus the parametrised families (nightly)"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
+	@echo "  make test.engine.benches  - Every engine benchmark once, untimed: a model the engine refuses fails here"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
 	@echo "  make test.web.unit [SHARD=1/4] [VITEST_WORKERS=N] - Vitest unit pass"
 	@echo "  make test.web.timing [VITEST_WORKERS=N] - Project-scale timing budgets"
@@ -349,6 +350,12 @@ bench.engine:
 	cd engine && $(NIX_RUN) cargo bench --no-run
 	cd engine && $(NIX_RUN) cargo bench --bench solver_bench --bench assembly_bench --bench workflow_bench -- --sample-size 10 --warm-up-time 1 --measurement-time 3
 
+ENGINE_BENCHES = solver_bench assembly_bench workflow_bench pcg_bench eigen_bench
+
+## Run every benchmark of every engine bench once, untimed (Criterion's --test): a benchmark whose model the engine has come to refuse fails here
+test.engine.benches:
+	cd engine && $(NIX_RUN) cargo bench $(foreach b,$(ENGINE_BENCHES),--bench $(b)) -- --test
+
 web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
@@ -430,13 +437,13 @@ e2e.web.build: test.web.e2e-features
 # SHARD=i/n picks whole spec files balanced by measured duration (web/scripts/e2e-shard.mjs).
 # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by e2e.web.flaky.
 e2e.web.smoke:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert "@flaky|@timing" $(FILE) $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$files) $(FILE)'
+	$(NIX_RUN) bash -c 'cd web && $(if $(SHARD),files=$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))) && if [ -z "$$files" ]; then exit 0; fi && )E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky|@timing" $(if $(SHARD),$$files) $(FILE)'
 
 e2e.web.timing:
-	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
+	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@timing" --grep-invert "@flaky" $(FILE)'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -577,6 +584,7 @@ test.ci-scripts: test.testing-move test.testing-map test.replay-steel-cb test.re
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_route_size_from_base.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_timing_budgets_gate.py
 	python3 -B -I scripts/tests/test_check_quick.py
 	python3 -B -I scripts/tests/test_infra_retry.py
 	python3 -B -I scripts/tests/test_e2e_timings.py
