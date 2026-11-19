@@ -4,6 +4,7 @@ import { compile } from 'svelte/compiler';
 import { describe, it, expect, vi } from 'vitest';
 import { knownIssueResultDisposition } from '../known-issues';
 import { errorText } from '../../utils/error-text';
+import { localizeEngineText } from '../../i18n/engine-text';
 import { eigenRefusalText } from '../finite-spectrum-warning';
 import { timeHistoryRefusal } from '../dynamics/time-history-refusal';
 
@@ -24,7 +25,7 @@ function setup() {
     modalElapsed: null, bucklingElapsed: null, pdeltaElapsed: null, pdeltaRefused: null,
     numModes: 2, numBucklingModes: 2, solveError: null, solving: false,
     buildInput: () => ({}), buildDynamicInput: () => ({ input: {}, densities: new Map() }),
-    modelStore: { modelVersion: 1 }, knownIssueResultDisposition, errorText, eigenRefusalText,
+    modelStore: { modelVersion: 1 }, knownIssueResultDisposition, errorText, eigenRefusalText, localizeEngineText,
     amplification: () => ({ b2: 1.2, stable: true }),
     t: (s: string) => s, tp: (_s: string, p: any) => p.error,
     recheckStore: { noteSolved: vi.fn() },

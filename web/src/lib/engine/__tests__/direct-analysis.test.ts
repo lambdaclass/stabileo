@@ -291,15 +291,13 @@ it('#2292 direct analysis refuses complete case cancellation', async () => {
   expect(control.perCombo.get(1)?.displacements.some(row => row.uz !== 0)).toBe(true);
   const roundoff = await run([2 ** 54, 1, -(2 ** 54)]);
   expect.soft(typeof roundoff === 'string' ? roundoff : roundoff.perCombo.get(1)?.displacements)
-    .toEqual(expect.stringMatching(/Rounding would cancel the load case factors/));
+    .toStrictEqual(control.perCombo.get(1)?.displacements);
   const refused = await run([1, -1]);
   expect(typeof refused === 'string' ? refused : refused.perCombo.get(1)?.displacements)
     .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
 });
 
-const knownWrongLoadScaling = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-knownWrongLoadScaling('known wrong result: #2292 direct analysis scales a load once by its net case factor', async () => {
+it('#2292 direct analysis scales a load once by its net case factor', async () => {
   const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
   modelStore.addElement(base, tip, 'frame');
   modelStore.addSupport(base, 'fixed3d');

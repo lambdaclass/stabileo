@@ -3656,7 +3656,6 @@ const hu: Translations = {
   "svc.errorInCase3d": "Hiba a(z) „{n}” térbeli tehereseteknél: {err}",
   "svc.engine.mechanism": "Szinguláris merevségi mátrix: a szerkezet mechanizmus",
   'svc.engine.cancelledCombination': "Az ismétlődő teheresetek tényezői ebben a kombinációban nullára összegződnek.",
-  'svc.engine.roundedCombination': "A kerekítés kioltaná a teheresetek tényezőit a(z) {name} kombinációban.",
   'svc.engine.nonFiniteNumber': "Nem véges szám ({value}) itt: {path}",
   "svc.engine.zeroDiagonal": "Minden átlóelem nulla: szinguláris mátrix",
   "svc.engine.singular": "Szinguláris merevségi mátrix",

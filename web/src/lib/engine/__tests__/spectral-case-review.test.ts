@@ -376,9 +376,7 @@ describe('around the case', () => {
   });
 });
 
-const knownWrongLoadScaling = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-knownWrongLoadScaling('known wrong result: #2292 a named spectral contribution uses the net case factor', async () => {
+it('#2292 a named spectral contribution uses the net case factor', async () => {
   const grid = frame(1);
   flat();
   const dead = modelStore.addLoadCase('D', 'D');
@@ -386,17 +384,21 @@ knownWrongLoadScaling('known wrong result: #2292 a named spectral contribution u
   const quake = spectral('E', { x: 1, y: 0, z: 0 });
   const spectralResults = results();
   const big = 2 ** 54;
-  for (const solve of [modelStore.solveCombinations3D, modelStore.solveCombinations3DParallel]) {
+  const solvers = [
+    ['sequential', () => modelStore.solveCombinations3D(false, false, true, spectralResults)],
+    ['parallel', () => modelStore.solveCombinations3DParallel(false, false, true, spectralResults)],
+  ] as const;
+  for (const [name, solve] of solvers) {
     const run = async (weights: number[]) => {
       modelStore.model.combinations = [{
         id: 1, name: 'D + E', factors: [{ caseId: dead, factor: 1 }, ...weights.map(factor => ({ caseId: quake, factor }))],
       }];
-      const solved = await solve.call(modelStore, false, false, true, spectralResults);
+      const solved = await solve();
       return !solved || typeof solved === 'string' ? solved : solved.perCombo.get(1)?.displacements;
     };
     const control = await run([-1.5]);
     if (!control || typeof control === 'string') throw new Error(String(control));
     expect(control.some(row => row.ux !== 0)).toBe(true);
-    expect.soft(await run([big, -1.5, -big]), solve.name).toStrictEqual(control);
+    expect.soft(await run([big, -1.5, -big]), name).toStrictEqual(control);
   }
 });

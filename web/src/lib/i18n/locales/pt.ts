@@ -8254,7 +8254,6 @@ const pt: Translations = {
   'svc.errorInCase3d': 'Erro no caso 3D "{n}": {err}',
   'svc.engine.mechanism': "Matriz de rigidez singular: a estrutura é um mecanismo",
   'svc.engine.cancelledCombination': "Os fatores dos casos de carga repetidos se cancelam e resultam em zero nesta combinação.",
-  'svc.engine.roundedCombination': "O arredondamento cancelaria os fatores dos casos de carga na combinação {name}.",
   'svc.engine.nonFiniteNumber': "Número não finito ({value}) em {path}",
   'svc.engine.zeroDiagonal': "Todas as entradas da diagonal são zero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",

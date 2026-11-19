@@ -3851,7 +3851,6 @@ const tr: Translations = {
   'svc.errorInCase3d': '“{n}” 3B yük durumunda hata: {err}',
   'svc.engine.mechanism': 'Tekil rijitlik matrisi: yapı bir mekanizma',
   'svc.engine.cancelledCombination': "Bu birleşimde yinelenen yük durumlarının katsayıları birbirini götürerek sıfır olur.",
-  'svc.engine.roundedCombination': "Yuvarlama, {name} birleşimindeki yük durumu katsayılarını sıfırlayacaktır.",
   'svc.engine.nonFiniteNumber': "{path} alanında Sonlu olmayan sayı ({value})",
   'svc.engine.zeroDiagonal': 'Köşegen terimlerin tümü sıfır: tekil matris',
   'svc.engine.singular': 'Tekil rijitlik matrisi',

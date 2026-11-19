@@ -462,11 +462,7 @@ it('#2292 nonlinear named combinations refuse complete case cancellation', async
       expect(control.perCombo.get(combo!.id)?.displacements.some(row => row.uz !== 0)).toBe(true);
       const roundoff = await run([2 ** 54, 1, -(2 ** 54)]);
       const response = typeof roundoff === 'string' ? roundoff : roundoff?.perCombo.get(combo!.id)?.displacements;
-      if ('combinationMethod' in approach && approach.combinationMethod === 'superpose') {
-        expect(response).toEqual(control.perCombo.get(combo!.id)?.displacements);
-      } else {
-        expect.soft(response, JSON.stringify(approach)).toEqual(expect.stringMatching(/Rounding would cancel the load case factors/));
-      }
+      expect.soft(response, JSON.stringify(approach)).toStrictEqual(control.perCombo.get(combo!.id)?.displacements);
       const refused = await run([1, -1]);
       expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combo!.id)?.displacements, JSON.stringify(approach))
         .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
@@ -474,9 +470,7 @@ it('#2292 nonlinear named combinations refuse complete case cancellation', async
   }
 });
 
-const knownWrongLoadScaling = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
-
-knownWrongLoadScaling('known wrong result: #2292 named 3D solves scale a load once by its net case factor', async () => {
+it('#2292 named 3D solves scale a load once by its net case factor', async () => {
   const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
   modelStore.addElement(base, tip, 'frame');
   modelStore.addSupport(base, 'fixed3d');

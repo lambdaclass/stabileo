@@ -145,30 +145,15 @@ function missingCombinationCaseRefusal(
   return null;
 }
 
-export function netSuperpositionCombinations(combinations: LoadCombination[], keepFactorOrder = false): LoadCombination[] | string {
-  const resolved: LoadCombination[] = [];
-  for (const combo of combinations) {
-    try {
+export function resolveCombinationFactors(combinations: LoadCombination[]): LoadCombination[] | string {
+  try {
+    return combinations.map(combo => {
       const factors = netCombinationFactors(combo.factors);
-      if (factors === combo.factors) {
-        resolved.push(combo);
-        continue;
-      }
-      if (keepFactorOrder || isMagnitudeCombination(combo)) {
-        const totals = new Map<number, number>();
-        for (const { caseId, factor } of combo.factors) totals.set(caseId, (totals.get(caseId) ?? 0) + factor);
-        if (factors.some(({ factor }) => factor !== 0) && [...totals.values()].every(factor => factor === 0)) {
-          return tp('svc.engine.roundedCombination', { name: combo.name });
-        }
-        resolved.push(combo);
-      } else {
-        resolved.push({ ...combo, factors });
-      }
-    } catch (error) {
-      return localizeEngineText(errorText(error, String(error)));
-    }
+      return factors === combo.factors ? combo : { ...combo, factors };
+    });
+  } catch (error) {
+    return localizeEngineText(errorText(error, String(error)));
   }
-  return resolved;
 }
 
 function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
@@ -1256,7 +1241,7 @@ export function solveCombinations2D(
 ): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
   const refused = missingCombinationCaseRefusal(loadCases.map(({ id }) => id), combinations);
   if (refused) return refused;
-  const resolved = netSuperpositionCombinations(combinations);
+  const resolved = resolveCombinationFactors(combinations);
   if (typeof resolved === 'string') return resolved;
   combinations = resolved;
   if (!hasSettlement(model.supports.values())) return solveCombinations2DCore(model, loadCases, combinations, includeSelfWeight);
@@ -2517,10 +2502,12 @@ export function solveCombinations3D(
   const solving = casesToSolve(loadCases, combinations);
   const magnitude = magnitudeRefusal3D(model, combinations, loadCases);
   if (magnitude) return magnitude;
+  const resolved = resolveCombinationFactors(combinations);
+  if (typeof resolved === 'string') return resolved;
   try {
-    const plan = combinationsPlan3D(solvableModel(model), solving, combinations, includeSelfWeight, leftHand);
-    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, plan.combinations, includeSelfWeight, leftHand));
-    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
+    const plan = combinationsPlan3D(solvableModel(model), solving, resolved, includeSelfWeight, leftHand);
+    const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
     if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);
@@ -2547,22 +2534,20 @@ function combinationsPlan3D(
   combinations: LoadCombination[],
   includeSelfWeight: boolean,
   leftHand: boolean,
-): { done: Bundle3D | string | null } | { forces: ModelData; combinations: LoadCombination[]; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
+): { done: Bundle3D | string | null } | { forces: ModelData; finish: (solved: Bundle3D | string | null) => Bundle3D | string | null } {
   if (hasNonlinearBehaviour(model)) return { done: solveCombinations3DNonlinear(model, loadCases, combinations, includeSelfWeight, leftHand) };
-  const pdelta = model.analysis?.perCombination === 'pdelta';
-  const netCombinations = netSuperpositionCombinations(combinations, pdelta);
-  if (typeof netCombinations === 'string') return { done: netCombinations };
-  if (pdelta) return { done: solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand) };
+  if (model.analysis?.perCombination === 'pdelta') {
+    return { done: solveCombinations3DPDelta(model, loadCases, combinations, includeSelfWeight, leftHand) };
+  }
   const imposed = casesWithDisplacements(model.loads);
   const loaded = imposed.size ? { ...model, loads: model.loads.filter((l) => l.type !== 'displacement3d') } : model;
   const settled = hasSettlement(model.supports.values());
   return {
     forces: settled ? { ...loaded, supports: withoutSettlement(model.supports) } : loaded,
-    combinations: netCombinations,
     finish: (solved) => {
-      if (settled && solved && typeof solved !== 'string') solved = withSettlementCase(solved, loaded, netCombinations, leftHand);
+      if (settled && solved && typeof solved !== 'string') solved = withSettlementCase(solved, loaded, combinations, leftHand);
       if (!solved || typeof solved === 'string' || imposed.size === 0) return solved;
-      return withCaseDisplacements(solved, model, netCombinations, leftHand);
+      return withCaseDisplacements(solved, model, combinations, leftHand);
     },
   };
 }
@@ -2837,9 +2822,6 @@ function* nonlinearCombinationSteps(
   noteStructuralSolve();
   if (combinations.length === 0) return t('svc.needCombination');
   const method = model.analysis?.combinationMethod ?? 'solveEach';
-  const netCombinations = netSuperpositionCombinations(combinations, method === 'solveEach');
-  if (typeof netCombinations === 'string') return netCombinations;
-  combinations = netCombinations;
   const settled = hasSettlement(model.supports.values());
   const free = settled ? { ...model, supports: withoutSettlement(model.supports) } : model;
   const base = buildSolveInput3D({ ...free, loads: [] }, [], leftHand);
@@ -2888,7 +2870,7 @@ function* nonlinearCombinationSteps(
     for (const combo of combinations) {
       if (method === 'solveEach') {
         const loads = comboSolverLoads3D(combo, caseLoads);
-        const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+        const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
         const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
         const on = withImposed(baseSettled, model, factorOf);
         if (typeof on === 'string') return on;
@@ -2959,7 +2941,7 @@ function solveCombinations3DPDelta(
   try {
     for (const combo of combinations) {
       const loads = comboSolverLoads3D(combo, caseLoads);
-      const factorOf = (c: number) => combo.factors.filter((f) => f.caseId === c).reduce((sum, f) => sum + f.factor, 0);
+      const factorOf = (c: number) => combo.factors.find((f) => f.caseId === c)?.factor ?? 0;
       const imposedHere = [...imposedCases].some((c) => factorOf(c) !== 0);
       if (loads.length === 0 && !settled && !imposedHere) continue;
       const on = imposedHere ? buildSolveInput3D({ ...model, loads: imposedOf(model.loads, factorOf) }, [], leftHand) : base;
@@ -3034,7 +3016,7 @@ export function caseSolverLoads3D(
 
 /** A combination's own factored loads, for an analysis that cannot superpose. */
 export function comboSolverLoads3D(combo: LoadCombination, caseLoads: Map<number, SolverLoad3D[]>): SolverLoad3D[] {
-  return combo.factors.flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
+  return netCombinationFactors(combo.factors).flatMap((f) => (caseLoads.get(f.caseId) ?? []).map((l) => scaleSolverLoad(l, f.factor)));
 }
 
 /**
@@ -3086,17 +3068,19 @@ export async function solveCombinations3DParallel(
   const solving = casesToSolve(loadCases, combinations);
   const magnitude = magnitudeRefusal3D(model, combinations, loadCases);
   if (magnitude) return magnitude;
+  const resolved = resolveCombinationFactors(combinations);
+  if (typeof resolved === 'string') return resolved;
   try {
     const active = solvableModel(model);
     let solved;
     if (hasNonlinearBehaviour(active)) {
-      solved = await solveCombinations3DNonlinearAsync([active, solving, combinations, includeSelfWeight, leftHand], options);
+      solved = await solveCombinations3DNonlinearAsync([active, solving, resolved, includeSelfWeight, leftHand], options);
     } else {
-      const plan = combinationsPlan3D(active, solving, combinations, includeSelfWeight, leftHand);
-      solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, plan.combinations, includeSelfWeight, leftHand));
+      const plan = combinationsPlan3D(active, solving, resolved, includeSelfWeight, leftHand);
+      solved = 'done' in plan ? plan.done : plan.finish(await solveCombinations3DParallelCore(plan.forces, solving, resolved, includeSelfWeight, leftHand));
     }
     checkSolveCancelled(options);
-    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
+    return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, resolved, magnitudeOptions(model), spectral);
   } catch (err) {
     if (err instanceof SupportMappingError) return err.message;
     const said = loadRefusal(err);

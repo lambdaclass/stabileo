@@ -4234,7 +4234,6 @@ const es: Record<string, string> = {
   'svc.errorInCase3d': 'Error en caso 3D "{n}": {err}',
   'svc.engine.mechanism': "Matriz de rigidez singular: la estructura es un mecanismo",
   'svc.engine.cancelledCombination': "Los factores de los casos de carga repetidos se cancelan y dan cero en esta combinación.",
-  'svc.engine.roundedCombination': "El redondeo cancelaría los factores de los casos de carga en la combinación {name}.",
   'svc.engine.nonFiniteNumber': "Número no finito ({value}) en {path}",
   'svc.engine.zeroDiagonal': "Todas las entradas de la diagonal son cero: matriz singular",
   'svc.engine.singular': "Matriz de rigidez singular",
