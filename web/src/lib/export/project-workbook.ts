@@ -87,13 +87,14 @@ function conventionsSheet(tr: (key: string) => string, axes?: AxesChoice | null)
 /** Every sheet of the workbook, in order, the large result sheets streamed (`StreamedSheet`). */
 export function projectWorkbookParts(input: ProjectWorkbookInput): WorkbookPart[] {
   const warnings = input.include?.results === false ? [] : exportWarnings(input.results.sources.map(s => s.results));
+  const axes = input.axes === undefined ? input.results.axes : input.axes;
   const only = input.include?.sheets;
   const want = (name: string) => !only || only.has(name);
   return [
-    coverSheet(input), conventionsSheet(input.tr, input.axes),
+    coverSheet(input), conventionsSheet(input.tr, axes),
     ...(warnings.length ? [{ name: 'Warnings', rows: warnings.map(message => [safeText(message)]) }] : []),
-    ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want, input.axes)),
-    ...(input.include?.results === false ? [] : resultSheetParts({ ...input.results, axes: input.results.axes ?? input.axes }, want)),
+    ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want, axes)),
+    ...(input.include?.results === false ? [] : resultSheetParts({ ...input.results, axes }, want)),
     ...(input.extra ?? []).filter((s) => want(s.name)),
   ];
 }

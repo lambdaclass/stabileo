@@ -81,7 +81,7 @@ describe('model code in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #1986 mode-less horizontal spatial fragments retain a third coordinate on re-export', () => {
+it('known wrong result: #1986 mode-less horizontal spatial fragments retain a third coordinate on re-export', () => {
   const spatial = 'stabileo-model 1\nnode 1 2 3 0\nnode 2 4 5 0';
   const planar = 'stabileo-model 1\nnode 1 2 3\nnode 2 4 5';
   const frame = { up: '+Y', right: '+X', hand: 'right' } as const;
@@ -95,7 +95,7 @@ it.skip('known wrong result: #1986 mode-less horizontal spatial fragments retain
   }
 });
 
-it.skip('known wrong result: #1986 a second frame declaration invalidates the model-code snapshot', () => {
+it('known wrong result: #1986 a second frame declaration invalidates the model-code snapshot', () => {
   const text = 'stabileo-model 1\nframe up="+Z" right="+X" hand="right"\nnode 1 0 0\nload nodal 1 nodeId=1 fz=3';
   const one = codeToModel(text);
   expect(one.errors).toEqual([]);

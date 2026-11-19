@@ -108,7 +108,7 @@ export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, wa
     if (space) {
       const [x, y, z] = vec(f, way, [n.x, n.y, n.z ?? 0]);
       n.x = x + 0; n.y = y + 0;
-      if (way === 'toUser' || z !== 0) n.z = z + 0; else delete n.z;
+      if (way === 'toUser' || s.analysisMode === undefined || z !== 0) n.z = z + 0; else delete n.z;
     }
     else { n.x = p.h * n.x + 0; n.y = p.v * n.y + 0; }
   }

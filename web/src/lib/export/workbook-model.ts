@@ -94,10 +94,9 @@ function sectionsSheet(m: WorkbookModel, solved: SolverInput3D | null): Workbook
 function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [[
     'node', 'type', 'angle [°]', 'kx [kN/m]', 'ky [kN/m]', 'kz [kN/m]', 'krx [kN·m/rad]', 'kry [kN·m/rad]', 'krz [kN·m/rad]', 'dx [m]', 'dy [m]', 'dz [m]',
-    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift',
+    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]',
   ]];
   const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
-  if (f) rows[0]!.push('drx [rad]', 'dry [rad]', 'drz [rad]');
   const byNode = new Map([...(solved?.supports.values() ?? [])].map((s) => [s.nodeId, s]));
   for (const s of [...m.supports.values()].sort((a, c) => a.nodeId - c.nodeId || a.id - c.id)) {
     const r = byNode.get(s.nodeId);
@@ -109,7 +108,7 @@ function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFr
     const rotation = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.dry ?? s.drz : undefined)) : [opt(s.drx), opt(s.dry), opt(s.drz)];
     rows.push([
       s.nodeId, f ? supportTypeIn(f, s.type, plane === null) : s.type, opt(s.angle), ...spring, ...rotationalSpring, ...settlement,
-      t ? b(t[0]) : '', t ? b(t[1]) : '', t ? b(t[2]) : '', q ? b(q[0]) : '', q ? b(q[1]) : '', q ? b(q[2]) : '', b(s.uplift), ...(f ? rotation : []),
+      t ? b(t[0]) : '', t ? b(t[1]) : '', t ? b(t[2]) : '', q ? b(q[0]) : '', q ? b(q[1]) : '', q ? b(q[2]) : '', b(s.uplift), ...rotation,
     ]);
   }
   return { name: 'Supports', rows };

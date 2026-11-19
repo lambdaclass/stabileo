@@ -29,15 +29,16 @@ export function drawInfluenceLine(
   progressT?: number,
 ): void {
   const { ctx } = dc;
+  const env = influenceTool.envelope;
+  if (env) {
+    const { sign, symbol } = ilShown(env.quantity);
+    drawIlEnvelope(sign === 1 ? env : { ...env, members: env.members.map(m => ({ ...m, max: m.min.map(v => -v + 0), min: m.max.map(v => -v + 0) })) }, dc);
+    drawTitle(ctx, tp('course.influence.load.envelopeTitle', { q: symbol }));
+    return;
+  }
   if (il.points.length === 0) return;
   const shownSign = ilShown(il.quantity).sign;
   if (shownSign !== 1) il = { ...il, points: il.points.map((p) => ({ ...p, value: shownSign * p.value })) };
-  const env = influenceTool.envelope;
-  if (env) {
-    drawIlEnvelope(shownSign === 1 ? env : { ...env, members: env.members.map(m => ({ ...m, max: m.min.map(v => -v + 0), min: m.max.map(v => -v + 0) })) }, dc);
-    drawTitle(ctx, il, dc);
-    return;
-  }
 
   // Find max absolute value for scaling
   let maxAbs = 0;
@@ -288,15 +289,15 @@ export function drawInfluenceLine(
     ctx.fillText(label, s.x + snx * offset * sign, s.y + sny * offset * sign);
   }
 
-  drawTitle(ctx, il, dc);
+  drawTitle(ctx, influenceTitle(il, dc));
 }
 
 /** The line's name in the corner: the quantity and where it is read. */
-function drawTitle(ctx: CanvasRenderingContext2D, il: InfluenceLineResult, dc: DrawContext): void {
+function drawTitle(ctx: CanvasRenderingContext2D, title: string): void {
   ctx.fillStyle = STROKE_COLOR;
   ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(influenceTitle(il, dc), 10, 20);
+  ctx.fillText(title, 10, 20);
 }
 
 export function influenceTitle(il: InfluenceLineResult, dc: Pick<DrawContext, 'getNode' | 'getElement'>): string {

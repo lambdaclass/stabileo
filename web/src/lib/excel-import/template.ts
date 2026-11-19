@@ -100,28 +100,28 @@ function instructionRows(frame: AxesFrame | null = null): Array<Array<string | n
  * place to report the same thing.
  */
 export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>, axes: AxesChoice | null = axesStore.frame.identity ? null : axesStore.choice) {
-  if (!globalAxes()) axes = null;
+  const choice = globalAxes() && axes ? makeFrame(axes) : null;
+  const frame = choice?.identity ? null : choice;
   const wb = XLSX.utils.book_new();
 
-  const help = XLSX.utils.aoa_to_sheet(instructionRows(axes ? makeFrame(axes) : null));
+  const help = XLSX.utils.aoa_to_sheet(instructionRows(frame));
   help['!cols'] = [{ wch: 2 }, { wch: 18 }, { wch: 12 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(wb, help, INSTRUCTIONS_SHEET);
 
   for (const spec of SHEETS) {
-    const sheet = sheetSpec(spec.name, axes !== null)!;
+    const sheet = sheetSpec(spec.name, frame !== null)!;
     const headers = sheet.columns.map(headerFor);
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...(axes ? examplesIn(sheet, makeFrame(axes)) : sheet.examples)]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...(frame ? examplesIn(sheet, frame) : sheet.examples)]);
     ws['!cols'] = widthsFor(headers);
     /* The header row stays put while a long Loads sheet is scrolled. */
     ws['!freeze'] = { xSplit: 0, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws, sheet.name);
   }
-  if (axes) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(axesRows(axes)), AXES_SHEET);
+  if (frame) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(axesRows(frame.choice)), AXES_SHEET);
   return wb;
 }
 
 function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number>> {
-  if (f.identity) return sheet.examples;
   const at = (key: string) => sheet.columns.findIndex((c) => c.key === key);
   const num = (v: string | number | undefined) => (typeof v === 'number' ? v : 0);
   const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2);

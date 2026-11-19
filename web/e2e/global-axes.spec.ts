@@ -143,7 +143,7 @@ if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
     });
   }
 
-  test.skip('@smoke known wrong result: #1986 reflected grid rises physically from a signed base', async ({ pro: page }) => {
+  test('@smoke known wrong result: #1986 reflected grid rises physically from a signed base', async ({ pro: page }) => {
     const openAxes = async () => {
       const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
       await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
@@ -153,7 +153,7 @@ if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
     await page.getByTestId('axes-done').click();
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-grid').click();
-    const base = page.getByTestId('grid-panel').locator('label').filter({ hasText: 'Base elevation' }).locator('input');
+    const base = page.getByTestId('grid-panel').locator('label').filter({ hasText: 'Base' }).locator('input');
     await base.fill('2');
     await base.press('Tab');
     await page.getByTestId('grid-heights').fill('3; 4');
@@ -170,7 +170,7 @@ if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
     await expect(height(2)).toHaveValue(/^5(?:[.,]0+)?$/);
   });
 
-  test('@smoke reflected storey heights remain positive in the displayed coordinates', async ({ pro: page }) => {
+  test('@smoke reflected level coordinates decrease as the storeys rise', async ({ pro: page }) => {
     const triad = (await page.getByTestId('axes-open-3d').boundingBox())!;
     await page.mouse.click(triad.x + triad.width / 2, triad.y + triad.height / 2);
     await page.getByTestId('axes-up--Z').click();
@@ -180,8 +180,8 @@ if (BUILD_FEATURES.globalAxes) test.describe('Global axes enabled', () => {
     await page.getByTestId('grid-heights').fill('3; 3');
     await page.getByTestId('grid-generate-levels').click();
     await expect(page.getByTestId('grid-level-N0').locator('input').nth(1)).toHaveValue(/^0/);
-    await expect(page.getByTestId('grid-level-N1').locator('input').nth(1)).toHaveValue(/^3/);
-    await expect(page.getByTestId('grid-level-N2').locator('input').nth(1)).toHaveValue(/^6/);
+    await expect(page.getByTestId('grid-level-N1').locator('input').nth(1)).toHaveValue(/^-3/);
+    await expect(page.getByTestId('grid-level-N2').locator('input').nth(1)).toHaveValue(/^-6/);
   });
 });
 

@@ -118,12 +118,12 @@ describe('a workbook in the user axes', () => {
     expect((r.model.supports[0] as { angle?: number }).angle).toBe(-30);
   });
 
-  it('refuses a frame it cannot read and falls back to the model axes', () => {
+  it('refuses a frame it cannot read before parsing model geometry', () => {
     const r = parseWorkbook({
       [AXES_SHEET]: [['up', 'right', 'hand'], ['+Y', '+Y', 'right']],
       Nodes: [headers('Nodes'), rowOf('Nodes', { id: 1, x: 1, z: 2 })],
     });
     expect(r.problems.map((p) => p.sheet)).toEqual([AXES_SHEET]);
-    expect(r.model.nodes[0]).toMatchObject({ x: 1, y: 2, z: 0 });
+    expect(r.model.nodes).toEqual([]);
   });
 });

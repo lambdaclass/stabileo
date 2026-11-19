@@ -478,7 +478,8 @@ describe('despiece refinements — remnants, positioning, basis, inspection', ()
     expect(local.ends.map(e => e.end)).toEqual(['I', 'J']);
     expect(local.ends[0].components.map(c => c.label)).toEqual(['N', 'V', 'M']);
     const global = inspectMember({ elements: j.elements, getNode: (id) => j.nodes.get(id), getElementForces: (id) => j.forces.get(id), basis: 'global' }, 1)!;
-    expect(global.ends[0].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'M']);
+    expect(global.ends[0].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'My']);
+    expect(global.ends[1].components.map(c => c.label)).toEqual(['Fx', 'Fz', 'My']);
   });
 
   it('inspectNode returns every connected member-end action at the node', () => {

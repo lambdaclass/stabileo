@@ -96,7 +96,7 @@ it('displays a spectral direction factor with the sign of the actual user axis',
   expect(displayed()).toBe('-1');
 });
 
-it.skip('known wrong result: #1986 shell point force labels retain the entered user components', () => {
+it('known wrong result: #1986 shell point force labels retain the entered user components', () => {
   uiStore.unitSystem = 'SI';
   const v = { kind: 'shellPoint', shell: { pf: { fx: 2, fy: 3, fz: 5 }, at: { x: 0, y: 0, z: 0 } } } as SketchInput;
   for (const choice of allChoices()) {

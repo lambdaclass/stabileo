@@ -1,8 +1,3 @@
-interface FixtureLoadOptions {
-  keepCombinations?: boolean;
-  keepWorkbookLoadFields?: boolean;
-}
-
 /**
  * Load a JSON fixture into the model store via the ExampleAPI.
  *

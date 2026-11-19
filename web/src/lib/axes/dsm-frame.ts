@@ -4,7 +4,6 @@ import { AXIS_NAMES, planeSigns, relabelComponentsWith, toUser, userAxisAlong, t
 const LABELS_3D = ['u', 'v', 'w', 'θx', 'θy', 'θz'];
 const label3D = (nodeId: number, k: number) => `${LABELS_3D[k]}${nodeId}`;
 
-/** Global matrices become Q·K·Q, vectors Q·v and each [T] T·Q; local ones, and a node in its own inclined axes, are left as they are. */
 export function dsmInFrame(d: DSMStepData, f: AxesFrame): DSMStepData {
   if (f.identity) return d;
   const per = d.dofNumbering.dofsPerNode;
@@ -25,7 +24,7 @@ export function dsmInFrame(d: DSMStepData, f: AxesFrame): DSMStepData {
       if (labels[g] === label3D(dof.nodeId, dof.localDof)) labels[g] = label3D(dof.nodeId, user);
       return { ...dof, localDof: user, label: labels[g]! };
     }
-    const twoDSigns = [inclined.has(dof.nodeId) ? 1 : p.sx, inclined.has(dof.nodeId) ? 1 : p.sz, p.sr];
+    const twoDSigns = inclined.has(dof.nodeId) ? [1, p.sx * p.sz, p.sr] : [p.sx, p.sz, p.sr];
     sign[g] = twoDSigns[dof.localDof]!;
     return dof;
   });

@@ -211,7 +211,7 @@ export function codeToModel(text: string): ParseResult {
   };
   const lineOf = new Map<string, number>(); // "family:id" → line, for duplicates and references
   let sawHeader = false;
-  let declared: AxesChoice = DEFAULT_AXES;
+  let declared: AxesChoice | undefined;
 
   const lines = text.split(/\r?\n/);
   lines.forEach((raw, idx) => {
@@ -278,6 +278,7 @@ export function codeToModel(text: string): ParseResult {
       case 'axes': { if (pos[0]) s.localAxisConvention = pos[0]; else err('the axis convention is missing'); return; }
       case 'frame': {
         if (!globalAxes()) { err('unknown line "frame"'); return; }
+        if (declared) { err('the frame is declared more than once'); return; }
         const c = { up: fields.up, right: fields.right, hand: fields.hand } as Partial<AxesChoice>;
         if (validChoice(c)) declared = c; else err('frame needs up, right and hand, e.g. frame up="+Z" right="+X" hand="right", with up and right on different axes');
         return;
@@ -431,5 +432,5 @@ export function codeToModel(text: string): ParseResult {
     soilProfile: Math.max(0, ...((s.geotechnical as { profiles?: Array<{ id: number }> } | undefined)?.profiles ?? []).map((p) => p.id)) + 1,
   };
   for (const k of Object.keys(s)) if (!COVERED_FIELDS.includes(k as never) && k !== 'nextId') delete s[k];
-  return { snapshot: (globalAxes() ? transformSnapshot(s, declared, 'toModel') : s) as Partial<ModelSnapshot>, errors: [] };
+  return { snapshot: (globalAxes() ? transformSnapshot(s, declared ?? DEFAULT_AXES, 'toModel') : s) as Partial<ModelSnapshot>, errors: [] };
 }

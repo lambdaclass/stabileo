@@ -33,7 +33,8 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'axisNamedLoads',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
+  'axisNamedLoads', 'explicitSelfWeight', 'prescribedSupportRotation',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -261,6 +262,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     supportedNodes.set(sp.nodeId, (supportedNodes.get(sp.nodeId) ?? 0) + 1);
     if (isInclined(sp)) f.add('inclinedSupports');
     if (sp.type === 'spring' || sp.type === 'spring3d' || sp.curves || SPRING_KEYS.some((k) => positive(sp[k]))) f.add('springs');
+    if ([sp.drx, sp.dry, sp.drz].some(nonZero)) f.add('prescribedSupportRotation');
     if (SETTLEMENT_KEYS.some((k) => nonZero(sp[k]))) {
       f.add('settlements');
       if (sp.dofRestraints) f.add('settledMaskedSupports');
@@ -281,6 +283,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
   if (cases.some(c => c.axisNamed === true)) f.add('axisNamedLoads');
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
+  if (s.analysis?.selfWeight?.length) f.add('explicitSelfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));
   const loadBasis = s.designData?.loadBasis;
   const loadNoteKeys = new Set(Array.isArray(loadBasis?.derivation) ? loadBasis.derivation.map(n => n?.key) : []);

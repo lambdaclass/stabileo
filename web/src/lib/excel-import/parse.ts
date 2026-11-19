@@ -419,14 +419,18 @@ function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean):
   }
 }
 
-function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
+function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame | null {
   const rows = readSheet(aoa, AXES_SHEET, problems);
-  if (rows.length === 0) return makeFrame(DEFAULT_AXES);
+  const headers = (aoa[0] ?? []).map(keyFromHeader);
+  if (rows.length !== 1 || ['up', 'right', 'hand'].some(key => headers.filter(h => h === key).length !== 1)) {
+    problems.push({ sheet: AXES_SHEET, row: rows[1]?.n ?? 1, message: t('xls.err.oneAxesDeclaration') });
+    return null;
+  }
   const row = rows[0]!;
   const c = { up: str(row.cells.up).toUpperCase(), right: str(row.cells.right).toUpperCase(), hand: str(row.cells.hand).toLowerCase() };
   if (validChoice(c as never)) return makeFrame(c as never);
   problems.push({ sheet: AXES_SHEET, row: row.n, message: tp('xls.err.missing', { k: 'up, right, hand' }) });
-  return makeFrame(DEFAULT_AXES);
+  return null;
 }
 
 function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['region'] {
@@ -475,12 +479,22 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * every row, with missing coordinates filled as zero. A row with neither Y
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
-  const authoredFrame = readAxes(grab(AXES_SHEET), problems);
-  if (!framedImport && !authoredFrame.identity) {
-    problems.push({ sheet: AXES_SHEET, row: 2, message: t('xls.err.axesDisabled') });
+  const axesNames = Object.keys(sheets).filter(name => name.trim().toLowerCase() === AXES_SHEET.toLowerCase());
+  if (axesNames.length > 1) {
+    problems.push({ sheet: AXES_SHEET, row: 1, message: t('xls.err.oneAxesDeclaration') });
     return { model, problems, unknownSheets, counts };
   }
-  const frame = authoredFrame;
+  const declaredAxes = axesNames.length === 1;
+  const frame = declaredAxes ? readAxes(grab(AXES_SHEET), problems) : makeFrame(DEFAULT_AXES);
+  if (!frame) return { model, problems, unknownSheets, counts };
+  if (!framedImport) {
+    if (!frame.identity) problems.push({ sheet: AXES_SHEET, row: 2, message: t('xls.err.axesDisabled') });
+    for (const sheet of ['LoadData', 'SelfWeight']) {
+      const dataRow = grab(sheet).findIndex((row, index) => index > 0 && row.some(cell => str(cell) !== ''));
+      if (dataRow !== -1) problems.push({ sheet, row: dataRow + 1, message: tp('xls.err.loadSheetDisabled', { sheet }) });
+    }
+    if (problems.length) return { model, problems, unknownSheets, counts };
+  }
   const { along, depth, height } = coordinateColumns(frame);
   const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
   const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
@@ -709,7 +723,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      * in `type` would have reached the solver as a silent free node.
      */
     const extra: Record<string, number> = {};
-    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', ...(framedImport ? ['drx', 'dry', 'drz'] : [])]) {
+    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
       const v = num(row.cells[k.toLowerCase()]);
       if (v !== null) extra[k] = v;
     }
@@ -1023,19 +1037,25 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      */
     const n = (k: string) => num(row.cells[k]) ?? 0;
     const data: Record<string, unknown> = { id: loadId++, caseId };
-    if (wantsNode && !frame.identity) {
-      data.nodeId = target;
-      const [fx, fy, fz] = modelVector(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
-      if (type === 'nodal3d') {
-        const [mx, my, mz] = modelRotation(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
-        Object.assign(data, { fx, fy, fz, mx, my, mz });
-      } else {
-        const h = userAxisAlong(frame, 0), v = userAxisAlong(frame, 2), nrm = userAxisAlong(frame, 1);
-        const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? 0;
-        Object.assign(data, {
-          fx: quantityTransform(frame).plane({ kind: 'vector', axis: 'x', value: n(`f${h.name.toLowerCase()}`) }) + 0, fy: 0, fz: quantityTransform(frame).plane({ kind: 'vector', axis: 'z', value: vertical }) + 0,
-          my: quantityTransform(frame).plane({ kind: 'pseudovector', axis: 'rot', value: n(`m${nrm.name.toLowerCase()}`) }) + 0,
+    if (wantsNode && declaredAxes) {
+      const force = [n('fx'), n('fy'), n('fz')] as const;
+      const moment = [n('mx'), n('my'), n('mz')] as const;
+      const [fx, fy, fz] = modelVector(frame, force).map(v => v + 0);
+      const [mx, my, mz] = modelRotation(frame, moment).map(v => v + 0);
+      if (type === 'nodal') {
+        const userName = (axis: 0 | 1 | 2) => userAxisAlong(frame, axis).name.toLowerCase();
+        const outside = [[fy, 'f' + userName(1)], [mx, 'm' + userName(0)], [mz, 'm' + userName(2)]] as const;
+        const invalid = outside.filter(([value]) => value !== 0);
+        if (invalid.length) {
+          for (const [, column] of invalid) problems.push({ sheet: 'Loads', row: row.n, column, message: t('xls.err.nodalOutOfPlane') });
+          continue;
+        }
+        const planeMoment = quantityTransform(frame, 'toModel').plane({
+          kind: 'pseudovector', axis: 'rot', value: n('m' + userName(1)),
         });
+        Object.assign(data, { nodeId: target, fx, fy, fz, my: planeMoment + 0 });
+      } else {
+        Object.assign(data, { nodeId: target, fx, fy, fz, mx, my, mz });
       }
     } else if (wantsNode) {
       Object.assign(data, { nodeId: target, fx: n('fx'), fy: n('fy'), fz: n('fz') });

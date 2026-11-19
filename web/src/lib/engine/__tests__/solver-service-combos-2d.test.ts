@@ -10,7 +10,7 @@
 
 import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { initSolver } from '../wasm-solver';
+import { initSolver, solvePDelta } from '../wasm-solver';
 import { buildSolverInput2D, solveCombinations2D, validateAndSolve2D, validateAndSolve2DAsync, type ModelData } from '../solver-service';
 
 /** Cantilever: fixed at node 1, tip loads at node 2 split across two cases. */
@@ -260,40 +260,46 @@ describe('explicit planar self-weight rules', () => {
     return model;
   }
 
-  it.skip('known wrong result: #1986 batch and fallback use the exact case self-weight in 2D', () => {
+  for (const route of ['batch', 'fallback']) it('known wrong result: #1986 ' + route + ' uses the exact case self-weight in 2D', () => {
     const model = weightedBeam();
     model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: -2 }, { caseId: 2, direction: 'X', factor: 3 }] };
     const first = model.nodes.get(1)!;
     const last = model.nodes.get(2)!;
     const weight = (last.x - first.x) * model.materials.get(1)!.rho * model.sections.get(1)!.a;
-    for (const loadCases of [cases, cases.map((c: { name: string }) => ({ ...c, name: 'Same' }))]) {
-      const solved = solveCombinations2D(model, loadCases, combos);
-      if (!solved || typeof solved === 'string') throw new Error(String(solved));
-      const firstReaction = solved.perCase.get(1)!.reactions[0]!;
-      const secondReaction = solved.perCase.get(2)!.reactions[0]!;
-      expect(firstReaction.rx).toBe(0);
-      expect(firstReaction.rz).toBeCloseTo(2 * weight, 10);
-      expect(secondReaction.rx).toBeCloseTo(-3 * weight, 10);
-      expect(secondReaction.rz).toBe(0);
-    }
+    const loadCases = route === 'batch' ? cases : cases.map((c: { name: string }) => ({ ...c, name: 'Same' }));
+    const solved = solveCombinations2D(model, loadCases, combos);
+    if (!solved || typeof solved === 'string') throw new Error(String(solved));
+    const firstReaction = solved.perCase.get(1)!.reactions[0]!;
+    const secondReaction = solved.perCase.get(2)!.reactions[0]!;
+    expect(firstReaction.rx).toBe(0);
+    expect(firstReaction.rz).toBeCloseTo(2 * weight, 10);
+    expect(secondReaction.rx).toBeCloseTo(-3 * weight, 10);
+    expect(secondReaction.rz).toBe(0);
   });
 
-  it.skip('known wrong result: #1986 standalone synchronous and async planar solves use the same explicit weight', async () => {
+  it('known wrong result: #1986 standalone synchronous and async planar solves use the same explicit weight', async () => {
     const model = weightedBeam();
     model.analysis = { selfWeight: [{ caseId: 1, direction: 'Z', factor: 2, elements: [1] }] };
-    const loads = buildSolverInput2D(model)!.loads;
-    expect(loads).toEqual([{ type: 'distributed', data: { elementId: 1, qI: 0.4, qJ: 0.4 } }]);
+    const input = buildSolverInput2D(model)!;
+    expect(input.loads).toEqual([{ type: 'distributed', data: { elementId: 1, qI: 0.4, qJ: 0.4 } }]);
     for (const solved of [validateAndSolve2D(model), await validateAndSolve2DAsync(model)]) {
       if (!solved || typeof solved === 'string') throw new Error(String(solved));
       expect(solved.reactions[0]!.rz).toBeCloseTo(-2, 10);
     }
-    expect(buildSolverInput2D(model, [])!.loads).toEqual([]);
+    const nonlinear = solvePDelta(input);
+    expect(nonlinear.converged).toBe(true);
+    expect(nonlinear.results.reactions[0]!.rz).toBeCloseTo(-2, 10);
+    expect(buildSolverInput2D({ ...model, analysis: { selfWeight: [] } }, true)!.loads).toEqual([]);
     expect(buildSolverInput2D({ ...model, analysis: undefined }, true)!.loads).toEqual([
       { type: 'distributed', data: { elementId: 1, qI: -0.2, qJ: -0.2 } },
     ]);
+    model.nodes.set(3, { ...model.nodes.get(2)!, id: 3, x: 7 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 });
+    expect(buildSolverInput2D(model)!.loads).toEqual(input.loads);
+
   });
 
-  it.skip('known wrong result: #1986 nonzero out-of-plane case weight is refused and zero remains valid', async () => {
+  it('known wrong result: #1986 nonzero out-of-plane case weight is refused and zero remains valid', async () => {
     const model = weightedBeam();
     for (const factor of [-1, 0, 1]) {
       model.analysis = { selfWeight: [
@@ -304,8 +310,8 @@ describe('explicit planar self-weight rules', () => {
         solveCombinations2D(model, cases.map((c: { name: string }) => ({ ...c, name: 'Same' })), combos),
       ];
       for (const result of results) {
-        if (factor === 0) expect(result).toBeTypeOf('object');
-        else expect(result).toMatch(/self-weight.*outside the plane/i);
+        if (factor === 0) expect(result).toEqual(expect.objectContaining({}));
+        else expect(result).toEqual(expect.stringMatching(/self-weight.*outside the plane/i));
       }
     }
   });

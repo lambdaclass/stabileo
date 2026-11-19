@@ -80,7 +80,7 @@
     const h = readList(heights);
     if (!h) return;
     const verticalSign = sg('z');
-    const lv = levelsFromHeights(h.map(height => verticalSign * height), verticalSign * base, names.split(/[;,]/));
+    const lv = levelsFromHeights(h, verticalSign * base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
   /** Levels some other level repeats. */

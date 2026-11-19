@@ -237,6 +237,7 @@ export const SHEETS: SheetSpec[] = [
       { key: 'dx', unit: 'm', helpKey: 'xls.col.dx', example: '' },
       { key: 'dy', unit: 'm', helpKey: 'xls.col.dy', example: '' },
       { key: 'dz', unit: 'm', helpKey: 'xls.col.dz', example: '' },
+      ...['x', 'y', 'z'].map(axis => ({ key: 'dr' + axis, unit: 'rad', helpKey: 'xls.col.supportRotation', example: '' })),
     ],
     examples: [
       [1, 'fixed', '', '', '', '', '', '', '', '', '', ''],
@@ -446,7 +447,6 @@ const frameColumns: Record<string, ColumnSpec[]> = {
     { key: 'qxi', unit: 'kN/m', helpKey: 'xls.col.qxi', example: '' },
     { key: 'qxj', unit: 'kN/m', helpKey: 'xls.col.qxj', example: '' },
   ],
-  Supports: ['x', 'y', 'z'].map(axis => ({ key: `dr${axis}`, unit: 'rad', helpKey: 'xls.col.supportRotation', example: '' })),
 };
 
 export function sheetSpec(name: string, framed = false): SheetSpec | undefined {

@@ -2,22 +2,30 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 import { DEFAULT_AXES, type AxesChoice } from '../../axes/frame';
 import { modelSheets, type WorkbookModel } from '../../export/workbook-model';
-import { modelStore } from '../../store';
+import { modelStore, uiStore } from '../../store';
 import { applyWorkbook } from '../apply';
 import { parseWorkbook } from '../parse';
 
 const Y_UP = { up: '+Y', right: '-X', hand: 'right' } as const;
-const axes = (choice: AxesChoice) => [ ['up', 'right', 'hand'], [choice.up, choice.right, choice.hand] ];
+const axes = (choice: AxesChoice) => [['up', 'right', 'hand'], [choice.up, choice.right, choice.hand]];
 const nodes = { Nodes: [['id', 'x', 'z'], [1, 2, 3]] };
+const cases = { LoadCases: [['id', 'name', 'type'], [1, 'Dead', 'D']] };
 const longLoads = [
   ['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit'],
+  [1, 1, 'nodal', 1, '', '', 'fx', 0, 'kN'],
   [1, 1, 'nodal', 1, '', '', 'fz', -3, 'kN'],
+  [1, 1, 'nodal', 1, '', '', 'my', 0, 'kN·m'],
 ];
 const weight = [['source', 'case', 'direction', 'factor', 'scope'], ['case', 1, 'Z', -2, 'all']];
 
-afterEach(() => vi.unstubAllGlobals());
+const originalMode = uiStore.analysisMode;
+afterEach(() => {
+  vi.unstubAllGlobals();
+  modelStore.clear();
+  uiStore.analysisMode = originalMode;
+});
 
-it.skip('known wrong result: #1986 a present workbook frame is declared exactly once', () => {
+it('known wrong result: #1986 a present workbook frame is declared exactly once', () => {
   for (const Axes of [[], [axes(DEFAULT_AXES)[0]!], [...axes(DEFAULT_AXES), axes(Y_UP)[1]!]]) {
     const parsed = parseWorkbook({ ...nodes, Axes });
     expect(parsed.problems.some(p => p.sheet === 'Axes')).toBe(true);
@@ -31,10 +39,11 @@ it.skip('known wrong result: #1986 a present workbook frame is declared exactly 
   }
 });
 
-it.skip('known wrong result: #1986 the disabled importer refuses before dropping canonical workbook loads', () => {
+it('known wrong result: #1986 the disabled importer refuses before dropping canonical workbook loads', () => {
+  modelStore.addNode(17, 21);
   for (const [sheet, rows] of [['LoadData', longLoads], ['SelfWeight', weight]] as const) {
-    const workbook = { ...nodes, [sheet]: rows };
-    expect(parseWorkbook(workbook).counts[sheet === 'LoadData' ? 'Loads' : sheet]).toBe(1);
+    const workbook = { ...nodes, ...cases, [sheet]: rows };
+    expect(parseWorkbook(workbook)).toMatchObject({ problems: [], counts: { [sheet === 'LoadData' ? 'Loads' : sheet]: 1 } });
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
     try {
       const before = modelStore.snapshot();
@@ -49,7 +58,7 @@ it.skip('known wrong result: #1986 the disabled importer refuses before dropping
   }
 });
 
-it.skip('known wrong result: #1986 prescribed support rotations survive default and custom workbook frames', () => {
+it('known wrong result: #1986 prescribed support rotations survive default and custom workbook frames', () => {
   for (const [analysisMode, support] of [
     ['2d', { id: 1, nodeId: 1, type: 'fixed', dry: -0.003 }],
     ['pro', { id: 1, nodeId: 1, type: 'fixed3d', drx: 0.001, dry: 0, drz: -0.002 }],
@@ -64,6 +73,12 @@ it.skip('known wrong result: #1986 prescribed support rotations survive default 
       const parsed = parseWorkbook(sheets);
       expect(parsed.problems.filter(p => p.sheet === 'Supports' && p.row > 1)).toEqual([]);
       expect(parsed.model.supports).toEqual([support]);
+      uiStore.analysisMode = analysisMode;
+      expect(applyWorkbook(sheets).loaded.nodes).toBe(1);
+      const applied = [...modelStore.supports.values()][0]!;
+      expect([applied.drx, applied.dry, applied.drz]).toEqual([
+        'drx' in support ? support.drx : undefined, support.dry, 'drz' in support ? support.drz : undefined,
+      ]);
       if (choice === DEFAULT_AXES) {
         vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
         try {
@@ -76,7 +91,7 @@ it.skip('known wrong result: #1986 prescribed support rotations survive default 
   }
 });
 
-it.skip('known wrong result: #1986 framed plane nodal rows reject each nonzero out-of-plane component', () => {
+it('known wrong result: #1986 framed plane nodal rows reject each nonzero out-of-plane component', () => {
   for (const choice of [Y_UP, DEFAULT_AXES]) {
     const yUp = choice === Y_UP;
     const base = {
@@ -87,9 +102,9 @@ it.skip('known wrong result: #1986 framed plane nodal rows reject each nonzero o
     const [permitted, rejected] = yUp ? [[0, 1, 5], [2, 3, 4]] : [[0, 2, 4], [1, 3, 5]];
     const values = columns.map((_, i) => permitted.includes(i) ? i + 1 : 0);
     const read = (type: string, row: number[]) =>
-      parseWorkbook({ ...base, Loads: [['type', 'node', ...columns], [type, 1, ...row]] });
+      parseWorkbook({ ...base, Loads: [['type', 'case', 'node', ...columns], [type, 1, 1, ...row]] });
     expect(read('nodal', values).model.loads).toEqual([
-      { type: 'nodal', data: { id: 1, caseId: 1, nodeId: 1, fx: yUp ? -1 : 1, fy: 0, fz: yUp ? 2 : 3, my: yUp ? 6 : 5 } },
+      { type: 'nodal', data: { id: 1, caseId: 1, nodeId: 1, fx: yUp ? -1 : 1, fy: 0, fz: yUp ? 2 : 3, my: yUp ? -6 : 5 } },
     ]);
     for (const i of rejected) for (const invalid of [-1, 1]) {
       const components = values.with(i, invalid);

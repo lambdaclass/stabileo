@@ -1,0 +1,36 @@
+{
+  "id": "exact-plane-self-weight",
+  "date": "2026-11-19",
+  "prs": [
+    2364
+  ],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "plane2D",
+      "explicitSelfWeight"
+    ]
+  },
+  "title": {
+    "en": "Planar self-weight rules",
+    "es": "Reglas de peso propio en 2D",
+    "pt": "Regras de peso próprio em 2D",
+    "de": "Eigengewichtsregeln für ebene Modelle",
+    "fr": "Règles de poids propre en 2D",
+    "tr": "Düzlem modellerinde öz ağırlık kuralları",
+    "hu": "Síkbeli önsúlyszabályok"
+  },
+  "explanation": {
+    "en": "Planar solves now use the case's signed self-weight factor, direction and scope.",
+    "es": "Los cálculos 2D usan el factor con signo, la dirección y el alcance del peso propio de cada caso.",
+    "pt": "As análises 2D usam o fator com sinal, a direção e o âmbito do peso próprio de cada caso.",
+    "de": "Ebene Berechnungen verwenden den vorzeichenbehafteten Faktor, die Richtung und den Geltungsbereich des Eigengewichts jedes Lastfalls.",
+    "fr": "Les calculs 2D utilisent le facteur signé, la direction et le périmètre du poids propre de chaque cas.",
+    "tr": "Düzlem çözümleri her yük durumunun işaretli öz ağırlık katsayısını, yönünü ve kapsamını kullanır.",
+    "hu": "A síkbeli számítás a tehereset előjeles önsúlytényezőjét, irányát és hatókörét használja."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plane-self-weight-and-workbook-rotations.md",
+    "heading": "Planar self-weight rules"
+  }
+}

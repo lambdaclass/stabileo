@@ -10,7 +10,7 @@ import { drawIlEnvelope } from '../draw-il-envelope';
 vi.mock('../draw-il-envelope', () => ({ drawIlEnvelope: vi.fn() }));
 afterEach(() => { axesStore.reset(); influenceTool.envelope = null; vi.clearAllMocks(); });
 
-it('known wrong result: #1986 influence envelopes negate and exchange bounds with their response', () => {
+it('known wrong result: #1986 a local influence envelope keeps its bounds when the companion global line is reflected', () => {
   const env = { quantity: 'N' as const, globalMax: 9, members: [{ elementId: 1, t: [0, 1], max: [0, 9], min: [-2, -3] }] };
   for (const c of allChoices()) for (const quantity of ['Rx', 'Rz', 'ry', 'N'] as const) {
     axesStore.choice = c;
@@ -18,8 +18,7 @@ it('known wrong result: #1986 influence envelopes negate and exchange bounds wit
     const ctx = new Proxy({}, { get: () => () => {}, set: () => true }) as CanvasRenderingContext2D;
     drawInfluenceLine({ quantity, points: [{ elementId: 1, t: 0, x: 0, y: 0, value: 1 }] } as never,
       { ctx, worldToScreen: (x, y) => ({ x, y }), getNode: () => undefined, getElement: () => undefined }, 1);
-    const want = ilShown(quantity).sign < 0 ? { ...env, members: [{ ...env.members[0]!, max: [2, 3], min: [0, -9] }] } : env;
-    expect(vi.mocked(drawIlEnvelope).mock.lastCall![0]).toEqual(want);
+    expect(vi.mocked(drawIlEnvelope).mock.lastCall![0]).toEqual(env);
     expect(env.members[0]!.max).toEqual([0, 9]);
   }
 });
@@ -44,7 +43,7 @@ it('known wrong result: #1986 T108 end actions agree between member and node ins
   }
 });
 
-it.skip('known wrong result: #1986 each influence envelope uses its own quantity for bounds and title', () => {
+it('known wrong result: #1986 each influence envelope uses its own quantity for bounds and title', () => {
   const fillText = vi.fn();
   const ctx = new Proxy({}, { get: (_, key) => key === 'fillText' ? fillText : () => {}, set: () => true }) as CanvasRenderingContext2D;
   const dc = { ctx, worldToScreen: (x: number, y: number) => ({ x, y }), getNode: () => undefined, getElement: () => undefined };

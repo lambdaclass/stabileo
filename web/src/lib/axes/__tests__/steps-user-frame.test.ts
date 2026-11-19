@@ -171,7 +171,7 @@ describe('the flexibility wizard in the user axes', () => {
   });
 });
 
-it.skip('known wrong result: #1986 an inclined support normal follows its displayed orientation', () => {
+it('known wrong result: #1986 an inclined support normal follows its displayed orientation', () => {
   const i = modelStore.addNode(0, 0), j = modelStore.addNode(4, 0);
   modelStore.addElement(i, j);
   modelStore.addSupport(i, 'fixed');

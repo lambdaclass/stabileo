@@ -132,11 +132,3 @@ export function selfWeightMemberLoads(
   }
   return out;
 }
-
-export function standaloneWeightEnabled(model: Pick<ModelData, 'analysis'>, legacyToggle: boolean): boolean {
-  return model.analysis?.standaloneSelfWeight === 'gravity' || legacyToggle;
-}
-
-export function caseWeightModel<T extends Pick<ModelData, 'analysis'>>(model: T): T {
-  return model.analysis?.standaloneSelfWeight ? { ...model, analysis: { ...model.analysis, standaloneSelfWeight: undefined } } : model;
-}

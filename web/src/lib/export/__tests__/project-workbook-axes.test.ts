@@ -7,11 +7,10 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../../store/active-results';
 import { projectWorkbookSheets } from '../project-workbook';
 import { staticsRows } from '../../store/statics-rows';
-import { DEFAULT_AXES } from '../../axes/frame';
 import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { axesStore } from '../../axes/axes.svelte';
-import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { allChoices, DEFAULT_AXES, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
 import { applyWorkbook } from '../../excel-import/apply';
 import { buildSolverInput2D, buildSolverInput3D } from '../../engine/solver-service';
 import { selfWeightFor } from '../../engine/self-weight';
@@ -192,7 +191,7 @@ it('known wrong result: #2259 imported standalone gravity reaches both solver in
   uiStore.includeSelfWeight = false;
 });
 
-it.skip('known wrong result: #1986 workbook statics follow the model frame even when the result frame differs', () => {
+it('known wrong result: #1986 workbook statics follow the model frame even when the result frame differs', () => {
   portal();
   const input = {
     model: { ...modelStore.model, analysisMode: 'pro' }, solved: null, projectName: 'Portal',
