@@ -21,7 +21,7 @@
   import { copyLoadsToCase, moveLoadsToCase, scaleLoads, removeLoads } from '../../../lib/store/load-ops';
   import { loadedLength } from '../../../lib/model/loads/load-stretch';
   import type { Load, SurfaceLoad3D } from '../../../lib/store/model.svelte';
-  import { editSelfWeightRule, type GlobalAxis, type SelfWeightLoad } from '../../../lib/engine/analysis-settings';
+  import { GRAVITY_SELF_WEIGHT, editSelfWeightRule, type GlobalAxis, type SelfWeightLoad } from '../../../lib/engine/analysis-settings';
   import { shellText, surfaceValueText, surfaceHowText } from '../../../lib/model/loads/surface-load-text';
   import { definitionName, type DefinitionModel } from '../../../lib/model/loads/floor-definitions';
   import { along, modelAxisOf, userRot, userVec } from '../../../lib/axes/display';
@@ -149,9 +149,9 @@
     else el.value = plainNumber(prev, 6);
   }
   function slotKey(keys: readonly string[], i: number, global: boolean, moment = false) {
-    if (!global) return { key: keys[i]!, sign: 1 };
+    if (!global) return { key: keys[i]!, value: (v: number) => v };
     const s = userSlot(i, moment);
-    return { key: keys[s.k]!, sign: s.sign };
+    return { key: keys[s.k]!, value: s.value };
   }
   const swReach = (w: SelfWeightLoad) => (w.groupId !== undefined
     ? tp('loadTables.swGroup', { name: modelStore.model.groups.get(w.groupId)?.name ?? String(w.groupId) })
@@ -224,16 +224,23 @@
   {:else}{#key redraw}<td class="col-num"><QuantityInput value={v ?? 0} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, key, v, si)} /></td>{/key}{/if}
 {/snippet}
 
-{#snippet scell(id: number, s: { key: string; sign: number }, row: object, q: Quantity)}
+{#snippet scell(id: number, s: { key: string; value: (v: number) => number }, row: object, q: Quantity)}
   {@const v = (row as Record<string, number | undefined>)[s.key]}
-  {#if defOf(id) !== undefined}<td class="col-num">{fmtQ(s.sign * (v ?? 0), q)}</td>
-  {:else}{#key redraw}<td class="col-num"><QuantityInput value={s.sign * (v ?? 0)} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, s.key, v, s.sign * si)} /></td>{/key}{/if}
+  {#if defOf(id) !== undefined}<td class="col-num">{fmtQ(s.value(v ?? 0), q)}</td>
+  {:else}{#key redraw}<td class="col-num"><QuantityInput value={s.value(v ?? 0)} quantity={q} cls="inp-cell" showUnit={false} onchange={(si) => setSI(id, s.key, v, s.value(si))} /></td>{/key}{/if}
 {/snippet}
 
 <div class="pro-loads-table-wrap" bind:this={wrap} data-testid="load-tables">
-  {#if swShown.length}
+  {#if swShown.length || modelStore.analysis?.standaloneSelfWeight === 'gravity'}
     <div class="pro-load-section-title">{t('selfWeight.title')}</div>
     <table class="pro-loads-table" data-testid="lt-sw"><thead><tr><th>{t('loadTables.case')}</th><th>{t('selfWeight.direction')}</th><th>{t('selfWeight.factor')}</th><th>{t('selfWeight.scope')}</th><th></th></tr></thead><tbody>
+      {#if modelStore.analysis?.standaloneSelfWeight === 'gravity'}
+        {@const gravity = { caseId: 0, ...GRAVITY_SELF_WEIGHT }}
+        <tr data-testid="sw-standalone">
+          <td>{t('selfWeight.standalone')}</td><td>{swShownDir(gravity)}</td><td class="col-num">{plainNumber(swSign(gravity) * gravity.factor, 6)}</td><td>{t('selfWeight.scopeAll')}</td>
+          <td><button class="pro-delete-btn" onclick={() => { modelStore.setAnalysis({ standaloneSelfWeight: undefined }); uiStore.includeSelfWeight = false; }} aria-label={t('selfWeight.remove')} title={t('selfWeight.remove')}>×</button></td>
+        </tr>
+      {/if}
       {#each swShown as { w, i } (i)}
         <tr data-testid="sw-row">
           <td><select class="inp-cell" value={String(w.caseId)} onchange={(e) => swChange(i, { caseId: Number(e.currentTarget.value) })} data-testid="sw-case">

@@ -13,6 +13,15 @@ describe('a press on the axes gizmo', () => {
     expect(releaseOnGizmo(ev(60, 10), g)).toBe('drag');
   });
 
+  it('keeps interleaved presses independent across viewports', () => {
+    const first = box(0, 0), second = box(500, 0);
+    expect(pressOnGizmo(ev(10, 10), first)).toBe(true);
+    expect(pressOnGizmo(ev(510, 10), second)).toBe(true);
+    expect(releaseOnGizmo(ev(11, 10), first)).toBe('click');
+    expect(releaseOnGizmo(ev(510, 20), second)).toBe('drag');
+    expect(releaseOnGizmo(ev(510, 10), second)).toBe('none');
+  });
+
   it('counts only on the viewport whose gizmo it landed on, and is forgotten when that viewport loses it', () => {
     const a = box(0, 0), b = box(500, 0);
     pressOnGizmo(ev(10, 10), a);

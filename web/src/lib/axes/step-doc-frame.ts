@@ -41,7 +41,7 @@ export function stepTextIn(f: AxesFrame, key: string, text: string): string {
   const to = letters(f);
   if (UPPER_ONLY.has(key)) return text.replace(/(?<![A-Za-z])([XZ])(?![A-Za-z])/g, (l) => to(l));
   if (!STEP_GLOBAL_KEYS.has(key)) return text;
-  return stepTexIn(f, text).replace(/(?<![A-Za-z])([xzXZ])(?![A-Za-z'′])/g, (l) => to(l));
+  return text.replace(new RegExp(`${TEX_GLOBAL.source}|(?<![A-Za-z])([xzXZ])(?![A-Za-z'′])`, 'g'), (_, lead: string | undefined, sub: string | undefined, bare: string | undefined) => lead ? `${lead}${to(sub!)}` : to(bare!));
 }
 
 function sketchIn(f: AxesFrame, s: Sketch, mirror: [number, number] | null): Sketch {

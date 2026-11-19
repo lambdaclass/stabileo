@@ -515,7 +515,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     },
     global: {
       ...(modalRows?.length ? { modal: modalRows } : {}),
-      ...(storeys.length ? { storeyShear: storeys.map((s) => ({ level: s.levelName ?? lv.name(s.level), vx: s.shearX, vy: s.shearY, kx: s.kX, ky: s.kY, soft: s.soft })) } : {}),
+      ...(storeys.length ? { storeyShear: storeys.map((s) => ({ level: s.levelName ?? lv.name(s.level), vxMagnitude: s.shearX, vyMagnitude: s.shearY, kx: s.kX, ky: s.kY, soft: s.soft })) } : {}),
       ...(drifts.drifts && drifts.basis ? { drift: { limit: drifts.basis.limit, cd: drifts.basis.cd, rows: drifts.drifts.map((d) => ({ level: lv.name(d.level), ratioX: d.ratioX, ratioY: d.ratioY, status: d.status })) } } : {}),
     },
     elements,

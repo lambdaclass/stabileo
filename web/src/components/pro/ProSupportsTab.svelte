@@ -10,7 +10,7 @@
   import { resolveTargets } from '../../lib/model/loads/load-targets';
   import WriteCard from './WriteCard.svelte';
   import SupportDofFields from './SupportDofFields.svelte';
-  import { DOF_SPRING } from '../../lib/model/support-3d';
+  import { DOF_SPRING, supportIsLocal } from '../../lib/model/support-3d';
 
   const is3D = $derived(uiStore.is3DWorkspace);
 
@@ -58,7 +58,7 @@
     if (s.type === 'fixed3d' || s.type === 'pinned3d' || !s.dofRestraints && s.type !== 'spring3d') {
       return supportTypes.find((st) => st.value === s.type)?.label ?? s.type;
     }
-    const global = (s as { dofFrame?: string }).dofFrame !== 'local' && (s as { dofLocalElementId?: number }).dofLocalElementId === undefined;
+    const global = !supportIsLocal(s as { dofFrame?: string; dofLocalElementId?: number });
     const held = DOF_SPRING.filter(([d]) => s.dofRestraints?.[d]).map(([d]) => (global ? DOF_NAME(d) : `${d[0] === 't' ? 'F' : 'M'}${d[1]}`));
     const springs = DOF_SPRING.filter(([, k]) => (s[k] ?? 0) > 0).map(([, k]) => (global ? SPRING_NAME(k) : k));
     return [held.join(' '), springs.join(' ')].filter(Boolean).join(' · ') || t('pro.supportFree');

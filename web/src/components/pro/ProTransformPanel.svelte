@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { axesKey } from '../../lib/axes/display';
+  import { reframeDraft } from '../../lib/axes/reframe-draft';
+  import { userComponent, axesKey } from '../../lib/axes/display';
   import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   /**
@@ -21,7 +22,7 @@
   import { onDestroy } from 'svelte';
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import QuantityInput from './loads/QuantityInput.svelte';
-  import { along, axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
+  import { axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
   import { axesStore } from '../../lib/axes/axes.svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
@@ -41,12 +42,21 @@
   let axis = $state<'X' | 'Y' | 'Z' | 'custom'>(axisName(2));
   let axisCustom = $state<Vec3>(userVec(0, 0, 1));
 
+  let previousFrame = axesStore.frame;
   let shownAxes = axesKey();
-  $effect(() => {
+  $effect.pre(() => {
     const k = axesKey();
     if (k === shownAxes) return;
     shownAxes = k;
-    untrack(() => { d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
+    untrack(() => {
+      const reframe = reframeDraft(previousFrame, axesStore.frame);
+      point = reframe.triple(point) as Vec3;
+      d = reframe.triple(d) as Vec3;
+      const kind = mode === 'mirror' ? 'vector' : 'pseudovector';
+      axisCustom = reframe.triple(axisVec, kind) as Vec3;
+      axis = 'custom';
+      previousFrame = axesStore.frame;
+    });
   });
   let angle = $state(90);
   let asCopy = $state(true);
@@ -108,7 +118,7 @@
   }
 
   function transforms(): Affine[] {
-    const dm = modelVec(...d), pm = modelVec(...point), turn = modelRot(...axisVec), normal = modelVec(...axisVec);
+    const dm = modelVec(...d), pm = modelVec(...point), turn = modelRot(...axisVec).map(v => v + 0) as Vec3, normal = modelVec(...axisVec).map(v => v + 0) as Vec3;
     switch (mode) {
       case 'repeat': return repeatOffsets(dm, copies, spacings ?? undefined).map((o) => translation(o));
       case 'polar': return Array.from({ length: copies }, (_, k) => rotation(pm, turn, angle * (k + 1)));
@@ -155,7 +165,7 @@
       if (deg < -180) deg += 360;
       point = userVec(...c!);
       axis = axisName(2);
-      angle = Math.round(axesStore.frame.det * along(2).sign * deg * 1e6) / 1e6;
+      angle = Math.round(userComponent(2, deg, 'pseudovector') * 1e6) / 1e6;
     });
   }
   /** The repeat step, as the vector between two clicked points. */

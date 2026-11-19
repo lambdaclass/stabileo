@@ -10,7 +10,7 @@ import { drawIlEnvelope } from '../draw-il-envelope';
 vi.mock('../draw-il-envelope', () => ({ drawIlEnvelope: vi.fn() }));
 afterEach(() => { axesStore.reset(); influenceTool.envelope = null; vi.clearAllMocks(); });
 
-it.skip('known wrong result: #1986 influence envelopes negate and exchange bounds with their response', () => {
+it('known wrong result: #1986 influence envelopes negate and exchange bounds with their response', () => {
   const env = { quantity: 'N' as const, globalMax: 9, members: [{ elementId: 1, t: [0, 1], max: [0, 9], min: [-2, -3] }] };
   for (const c of allChoices()) for (const quantity of ['Rx', 'Rz', 'ry', 'N'] as const) {
     axesStore.choice = c;
@@ -24,12 +24,12 @@ it.skip('known wrong result: #1986 influence envelopes negate and exchange bound
   }
 });
 
-it.skip('known wrong result: #1986 T108 end actions agree between member and node inspection', () => {
-  const args = {
-    elements: [{ id: 1, nodeI: 1, nodeJ: 2, type: 'frame' }],
+it('known wrong result: #1986 T108 end actions agree between member and node inspection', () => {
+  const args: Omit<Parameters<typeof inspectMember>[0], 'basis'> = {
+    elements: [{ id: 1, nodeI: 1, nodeJ: 2 }],
     getNode: (id: number) => ({ x: id - 1, y: 0 }),
-    getElementForces: () => ({ nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 10, mEnd: 5 }),
-  } as const;
+    getElementForces: () => ({ elementId: 1, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 10, mEnd: 5 }),
+  };
   for (const choice of allChoices()) {
     axesStore.choice = choice;
     const p = planeSigns(makeFrame(choice));

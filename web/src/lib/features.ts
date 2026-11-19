@@ -40,8 +40,12 @@ export function canonicalSections(): boolean {
 }
 
 export const PUBLIC_POLICY_AVAILABLE = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined'
-  ? Object.values(buildFeatures()).some(Boolean)
+  ? (['research', 'tools', 'diagramGame', 'accounts'] as const).some(key => buildFeatures()[key])
   : __PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts;
+
+export function globalAxes(): boolean {
+  return typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().globalAxes : __PUBLIC_FEATURES__.globalAxes;
+}
 
 export function accounts(): boolean {
   const built = typeof __PUBLIC_FEATURES_COMPILED__ === 'undefined' ? buildFeatures().accounts : __PUBLIC_FEATURES__.accounts;

@@ -316,7 +316,7 @@ function createUIStore() {
    */
   let selfWeightCaseId = $state<number | null>(null);
   /** Basic 3D distributed loads: along the global axes (default) or the member's local ones. */
-  let distLoadFrame3D = $state<'global' | 'local'>('global');
+  let distLoadFrame3D = $state<'global' | 'local' | 'projected'>('global');
   let showSupports_basic = $state<boolean>(true);
   let showSupports_pro = $state<boolean>(true);
   /** Size of the text on the drawing (ids, values, labels), 2D and 3D; persisted. */
@@ -1115,7 +1115,7 @@ function createUIStore() {
      * Saved with the project, and reset for a new one.
      */
     get distLoadFrame3D() { return distLoadFrame3D; },
-    set distLoadFrame3D(v: 'global' | 'local') { distLoadFrame3D = v; },
+    set distLoadFrame3D(v: 'global' | 'local' | 'projected') { distLoadFrame3D = v; },
     get selfWeightCaseId() { return selfWeightCaseId; },
     set selfWeightCaseId(v: number | null) { selfWeightCaseId = v; },
 

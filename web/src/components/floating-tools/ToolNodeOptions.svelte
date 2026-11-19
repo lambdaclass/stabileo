@@ -5,7 +5,7 @@
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import { planeLevelAxis, type WorkingPlane3D } from '../../lib/geometry/coordinate-system';
-  import { along, XYZ } from '../../lib/axes/display';
+  import { userComponent, along, XYZ } from '../../lib/axes/display';
   import { modelDofIndex, planeName, relabelAxes } from '../../lib/axes/user-names';
 
   const slideText = (key: string) => (uiStore.jointAxis === 'global' ? relabelAxes(t(key)) : t(key));
@@ -71,7 +71,7 @@
   <span class="ft-sep">|</span>
   <label class="ft-input-group" title={t('float.nodeLevelTooltip')}>
     <span>{t('float.nodeLevel').replace('{axis}', level.name)}</span>
-    <UnitInput value={level.sign * uiStore.nodeCreateZ} qty="length" onchange={(v) => (uiStore.nodeCreateZ = level.sign * v)} unit={false} live />
+    <UnitInput value={userComponent(XYZ.indexOf(planeLevelAxis(uiStore.workingPlane)), uiStore.nodeCreateZ, 'vector')} qty="length" onchange={(v) => (uiStore.nodeCreateZ = userComponent(XYZ.indexOf(planeLevelAxis(uiStore.workingPlane)), v, 'vector'))} unit={false} live />
     <span class="ft-unit">{unitQ('length')}</span>
   </label>
 {/if}

@@ -1,3 +1,6 @@
+import { quantityTransform } from '../../axes/quantity-transform';
+const pseudoToUser = (f: import('../../axes/frame').AxesFrame, values: import('../../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'pseudovector', values });
+const toUser = (f: import('../../axes/frame').AxesFrame, values: import('../../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
 /**
  * The report's project-scale sections: the job on the cover, the summary and the envelope across
  * the result sets (whatever the number of members), the statics check, the deflection check, and
@@ -9,7 +12,7 @@ import type { StaticsRows } from '../../store/statics-rows';
 import { staticsVerdict } from '../statics-check';
 import type { ProjectInfo } from '../../model/project-info';
 import { currentRevision } from '../../model/project-info';
-import { DEFAULT_AXES, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { DEFAULT_AXES, makeFrame, type AxesChoice } from '../../axes/frame';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (v: number, d = 3) => (Number.isFinite(v) ? (Math.abs(v) < 1e-9 ? '0' : Math.abs(v) >= 1e5 || Math.abs(v) < 1e-3 ? v.toExponential(3) : v.toFixed(d)) : '—');

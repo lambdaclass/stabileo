@@ -13,6 +13,7 @@ import { currentRevision } from '../model/project-info';
 import { modelSheets, type WorkbookModel } from './workbook-model';
 import { resultSheetParts, type ResultSheetsInput } from './workbook-results';
 import { materialize, safeText, type WorkbookPart, type WorkbookSheet } from './workbook-cells';
+import { globalAxes } from '../features';
 import type { AxesChoice } from '../axes/frame';
 import { axesStatement } from '../axes/statement';
 import { workbookFrame } from './workbook-frame';
@@ -79,7 +80,7 @@ const CONVENTIONS = [
 
 function conventionsSheet(tr: (key: string) => string, axes?: AxesChoice | null): WorkbookSheet {
   const user = workbookFrame(axes);
-  const text = (k: string) => (k === 'axes' && user ? axesStatement(tr, user.choice) : tr(`wb.conv.${k}`));
+  const text = (k: string) => (k === 'axes' && user ? axesStatement(tr, user.choice) : tr(`wb.conv.${globalAxes() && k === 'selfWeight' ? 'selfWeightImport' : k}`));
   return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(text(k))])] };
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { caseNameShown } from '../../../lib/axes/case-names';
   import { signedAxisText } from '../../../lib/axes/typed-frame';
-  import { modelIndexOfUser } from '../../../lib/axes/display';
+  import { modelAxisOf } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * One case's composition and how it is solved (`engine/case-effects.ts`,
@@ -180,9 +180,10 @@
         <label>{t('spectralCase.scale')} <input type="text" class="cd-num" value={String(sp.scale)} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ scale: v }); }} data-testid="cd-spec-scale" /></label>
       </div>
       <div class="cd-row">
-        {#each ['x', 'y', 'z'] as u, ui (u)}
-          {@const a = 'xyz'[modelIndexOfUser(ui)]!}
-          <label>{u.toUpperCase()} <input type="text" class="cd-num" value={String(sp.factors[a as 'x'])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [a]: v } }); }} data-testid="cd-spec-f{u}" /></label>
+        {#each (['X', 'Y', 'Z'] as const) as u (u)}
+          {@const axis = modelAxisOf(u)}
+          {@const key = (['x', 'y', 'z'] as const)[axis.index]}
+          <label>{u} <input type="text" class="cd-num" value={String(axis.sign * sp.factors[key])} onchange={(e) => { const v = num(e.currentTarget.value); if (v !== null) setSpectral({ factors: { ...sp.factors, [key]: axis.sign * v } }); }} data-testid="cd-spec-f{u.toLowerCase()}" /></label>
         {/each}
         <!-- How the directions add, quantity by quantity (`spectral-case.ts` `directionCombine`). -->
         <label>{t('spectralCase.directions')}

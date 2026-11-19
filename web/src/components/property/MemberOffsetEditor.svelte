@@ -34,7 +34,7 @@
     const vec = e?.offset?.i ?? e?.offset?.j; // editor edits the parallel (i=j) case
     if (e?.offset && vec) {
       frame = e.offset.frame;
-      [ox, oy, oz] = frame === 'global' ? userVec(vec.x, vec.y, vec.z) : [vec.x, vec.y, vec.z];
+      [ox, oy, oz] = e.offset.frame === 'global' ? userVec(vec.x, vec.y, vec.z) : [vec.x, vec.y, vec.z];
     } else {
       ox = 0; oy = 0; oz = 0;
     }

@@ -1,5 +1,6 @@
+import { quantityTransform } from './quantity-transform';
 import { axesStore } from './axes.svelte';
-import { pseudoToModel, pseudoToUser, toModel, toUser, userAxisAlong, type AxisName, type Sign } from './frame';
+import { userAxisAlong, type AxisName, type Sign } from './frame';
 
 type Triple = [number, number, number];
 
@@ -27,33 +28,29 @@ export function isIdentity(): boolean {
   return frame().identity;
 }
 
-export const userVec = (x: number, y: number, z: number): Triple => toUser(frame(), [x, y, z]);
-export const modelVec = (x: number, y: number, z: number): Triple => toModel(frame(), [x, y, z]);
-export const userRot = (x: number, y: number, z: number): Triple => pseudoToUser(frame(), [x, y, z]);
-export const modelRot = (x: number, y: number, z: number): Triple => pseudoToModel(frame(), [x, y, z]);
+export const userVec = (x: number, y: number, z: number): Triple => quantityTransform(frame()).triple({ kind: 'vector', values: [x, y, z] });
+export const modelVec = (x: number, y: number, z: number): Triple => quantityTransform(frame(), 'toModel').triple({ kind: 'vector', values: [x, y, z] });
+export const userRot = (x: number, y: number, z: number): Triple => quantityTransform(frame()).triple({ kind: 'pseudovector', values: [x, y, z] });
+export const modelRot = (x: number, y: number, z: number): Triple => quantityTransform(frame(), 'toModel').triple({ kind: 'pseudovector', values: [x, y, z] });
 
 export function userFlags<T>(x: T, y: T, z: T): [T, T, T] {
-  const m = [x, y, z];
-  return frame().rows.map((r) => m[r.findIndex((c) => c !== 0)]) as [T, T, T];
+  return quantityTransform(frame()).permute([x, y, z]);
 }
 
 export function modelFlags<T>(x: T, y: T, z: T): [T, T, T] {
-  const u = [x, y, z];
-  const out: T[] = [x, y, z];
-  frame().rows.forEach((r, i) => { out[r.findIndex((c) => c !== 0)] = u[i]; });
-  return out as [T, T, T];
+  return quantityTransform(frame(), 'toModel').permute([x, y, z]);
 }
 
 export const twoD = {
   get horizontal(): AxisName { return axisName(0); },
   get vertical(): AxisName { return axisName(2); },
   get normal(): AxisName { return axisName(1); },
-  x: (modelX: number): number => along(0).sign * modelX,
-  z: (modelVertical: number): number => along(2).sign * modelVertical,
-  rot: (modelRotY: number): number => along(0).sign * along(2).sign * modelRotY,
-  fromX: (shown: number): number => along(0).sign * shown,
-  fromZ: (shown: number): number => along(2).sign * shown,
-  fromRot: (shown: number): number => along(0).sign * along(2).sign * shown,
+  x: (modelX: number): number => quantityTransform(frame()).plane({ kind: 'vector', value: modelX, axis: 'x' }),
+  z: (modelVertical: number): number => quantityTransform(frame()).plane({ kind: 'vector', value: modelVertical, axis: 'z' }),
+  rot: (modelRotY: number): number => quantityTransform(frame()).plane({ kind: 'pseudovector', value: modelRotY, axis: 'rot' }),
+  fromX: (shown: number): number => twoD.x(shown),
+  fromZ: (shown: number): number => twoD.z(shown),
+  fromRot: (shown: number): number => twoD.rot(shown),
 };
 
 export function coordLabels(is3D: boolean): string[] {
@@ -96,11 +93,17 @@ export function modelIndexOfUser(userIndex: 0 | 1 | 2 | number): 0 | 1 | 2 {
   return modelAxisOf((['X', 'Y', 'Z'] as const)[userIndex]).index;
 }
 
-export const planeGlobalValue = (v: number): number => along(2).sign * v;
+export const planeGlobalValue = (v: number): number => twoD.z(v);
 export const planeGlobalAngle = (a: number): number => (planeFlipped() ? -a : a);
 
 export function planeDistributedLoad(qI: number, qJ: number, angle: number, global: boolean): { qI: number; qJ: number; angle: number | undefined; isGlobal: true | undefined } {
   const a = global ? planeGlobalAngle(angle) + 0 : angle;
   const q = (v: number) => (global ? planeGlobalValue(v) : v);
   return { qI: q(qI), qJ: q(qJ), angle: a !== 0 ? a : undefined, isGlobal: global ? true : undefined };
+}
+
+export const userComponent = (axis: number, value: number, kind: 'vector' | 'pseudovector' | 'magnitude'): number => quantityTransform(frame()).component(axis, value, kind).value;
+
+export function globalComponent(global: boolean, axis: 0 | 1 | 2, kind: 'vector' | 'pseudovector' | 'magnitude') {
+  return { name: global ? axisName(axis) : 'XYZ'[axis]!, value: (v: number): number => global ? userComponent(axis, v, kind) : v };
 }

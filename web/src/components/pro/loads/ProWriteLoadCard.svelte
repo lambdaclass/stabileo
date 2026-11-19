@@ -29,6 +29,8 @@
   import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../../lib/axes/reframe-draft';
   import { along, axesKey, axisName, modelAxisOf, userVec } from '../../../lib/axes/display';
   import { gravityFactorIn, typedFrame } from '../../../lib/axes/typed-frame';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
@@ -125,11 +127,36 @@
   let swFactor = $state(along(2).sign > 0 ? '-1' : '1');
 
   let shownAxes = axesKey();
-  $effect(() => {
+  let shownFrame = axesStore.frame;
+  $effect.pre(() => {
     const k = axesKey();
+    const next = axesStore.frame;
     if (k === shownAxes) return;
-    shownAxes = k;
-    untrack(() => { swDir = axisName(2); swFactor = along(2).sign > 0 ? '-1' : '1'; hydroAxis = axisName(2); });
+    untrack(() => {
+      const move = reframeDraft(shownFrame, next);
+      f = move.fields(move.fields(f, ['fx', 'fy', 'fz']), ['mx', 'my', 'mz'], 'pseudovector');
+      u = move.fields(move.fields(u, ['dx', 'dy', 'dz']), ['drx', 'dry', 'drz'], 'pseudovector');
+      incFrom = move.fields(incFrom, ['x', 'y', 'z']);
+      if (pFrame === 'global') p = move.fields(move.fields(p, ['px', 'py', 'pz']), ['mx', 'my', 'mz'], 'pseudovector');
+      if (frame !== 'local') {
+        q = move.fields(move.fields(q, ['xI', 'yI', 'zI']), ['xJ', 'yJ', 'zJ']);
+        const pk = move.component(peakComp.toUpperCase() as GlobalAxis, peak);
+        peakComp = pk.axis.toLowerCase() as typeof peakComp;
+        peak = pk.value;
+        const force = move.component(hydroComp.toUpperCase() as GlobalAxis, 1);
+        hydroComp = force.axis.toLowerCase() as typeof hydroComp;
+        if (w1 !== null) w1 *= force.sign;
+        if (w2 !== null) w2 *= force.sign;
+      }
+      const coordinate = move.component(hydroAxis, 1);
+      hydroAxis = coordinate.axis;
+      if (coordinate.sign < 0) [w1, w2] = [w2, w1];
+      const weight = move.component(swDir, parseDecimal(swFactor));
+      swDir = weight.axis;
+      swFactor = weight.value === null ? '' : String(weight.value);
+      shownAxes = k;
+      shownFrame = next;
+    });
   });
 
   let error = $state<string | null>(null);

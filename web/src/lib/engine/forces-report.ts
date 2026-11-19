@@ -40,7 +40,8 @@
  * per-column precision is declared beside the column.
  */
 
-import { userRot, userVec } from '../axes/display';
+import { resultComponents } from '../axes/result-components';
+import { axesStore } from '../axes/axes.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import {
   buildCriticalStations, extractForcesAtStation, type StationForces,
@@ -187,7 +188,7 @@ function reactionRows(blocks: ForcesBlock[], t: Translate): Cell[][] {
   ]];
   for (const b of blocks) {
     for (const r of b.results.reactions) {
-      rows.push([b.label, r.nodeId, ...[...userVec(r.fx, r.fy, r.fz), ...userRot(r.mx, r.my, r.mz)].map((v) => round(v, 3))]);
+      rows.push([b.label, r.nodeId, ...[...resultComponents(axesStore.frame, b.results).vec(r.fx, r.fy, r.fz), ...resultComponents(axesStore.frame, b.results).rot(r.mx, r.my, r.mz)].map((v) => round(v, 3))]);
     }
   }
   return rows;
@@ -203,7 +204,7 @@ function displacementRows(
   for (const b of blocks) {
     for (const d of b.results.displacements) {
       if (nodes && !nodes.has(d.nodeId)) continue;
-      rows.push([b.label, d.nodeId, ...[...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].map((v) => round(v, 6))]);
+      rows.push([b.label, d.nodeId, ...[...resultComponents(axesStore.frame, b.results).vec(d.ux, d.uy, d.uz), ...resultComponents(axesStore.frame, b.results).rot(d.rx, d.ry, d.rz)].map((v) => round(v, 6))]);
     }
   }
   return rows;

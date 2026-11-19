@@ -1,10 +1,11 @@
+import { globalAxes } from '../features';
 import { modelStore } from '../store/model.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { modelVec, userVec } from './display';
 
 export function standingPlane(): boolean {
-  return shouldProjectModelToXZ({
+  return globalAxes() && shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
     viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
@@ -20,6 +21,6 @@ export function nodeShown3D(node: { x: number; y: number; z?: number }, plane = 
 }
 
 export function nodeMoveArgs3D(shown: readonly number[], plane = standingPlane()): [number, number, number] {
-  const [x, y, z] = modelVec(shown[0], shown[1], shown[2]);
+  const [x, y, z] = modelVec(shown[0], shown[1], shown[2]).map(v => v + 0);
   return plane ? [x, z, y] : [x, y, z];
 }

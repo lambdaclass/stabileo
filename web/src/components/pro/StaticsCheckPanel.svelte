@@ -16,7 +16,7 @@
    */
   import { t, tp } from '../../lib/i18n';
   import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
-  import { along } from '../../lib/axes/display';
+  import { userComponent, along } from '../../lib/axes/display';
   import { userSix } from '../../lib/axes/typed-frame';
   import { residualLabel, staticsVerdict, type StaticsCheckRow } from '../../lib/engine/statics-check';
 
@@ -81,8 +81,8 @@
           {@const key = 'comboId' in r ? `c${r.comboId}` : (r.caseId ?? 'single')}
           <tr data-testid="statics-row-{key}" class:sc-combo={'comboId' in r}>
             <td>{r.caseName || t('pro.statics.singleSolve')}{#if r.selfWeightIncluded}<span class="sc-sw"> {t('pro.statics.selfWeightBadge')}</span>{/if}</td>
-            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(ax.sign * r.applied[k])}</td>
-            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(ax.sign * r.reactions[k])}</td>
+            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(userComponent(IDX[k], r.applied[k], 'vector'))}</td>
+            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(userComponent(IDX[k], r.reactions[k], 'vector'))}</td>
             <td class="num">{residualLabel(r.worstRelative, t('pro.statics.notComputable'))}</td>
             <td class="sc-state" class:bad={!ok} data-verdict={verdict}>{ok ? '✓ ' + t('pro.statics.balances') : '⚠ ' + t(verdict === 'partial' ? 'pro.statics.partial' : 'pro.statics.doesNotBalance')}</td>
           </tr>

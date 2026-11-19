@@ -9,7 +9,7 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import type { DistributedLoad, PointLoadOnElement, PointLoadOnElement3D, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
-  import { XYZ, along, modelRot, modelVec, planeGlobalValue, twoD, userRot, userVec } from '../../lib/axes/display';
+  import { globalComponent, XYZ, modelRot, modelVec, planeGlobalValue, twoD, userRot, userVec } from '../../lib/axes/display';
   import { pruneStaleSelection } from '../../lib/store/selection-prune';
   import { setLoadCasesEnabled } from '../../lib/actions/load-cases';
 
@@ -54,7 +54,7 @@
     modelStore.updateLoad(loadId, { [keys[0]]: back[0], [keys[1]]: back[1], [keys[2]]: back[2] });
   }
 
-  const globalAxis = (global: boolean, k: 0 | 1 | 2) => (global ? along(k) : { name: 'XYZ'[k], sign: 1 });
+  const globalAxis = (global: boolean, k: 0 | 1 | 2) => globalComponent(global, k, 'vector');
 </script>
 
 <!--
@@ -165,13 +165,13 @@
             {@const d = load.data as DistributedLoad3D}
             {@const qa = (k: 0 | 1 | 2) => globalAxis(d.frame === 'global' || d.frame === 'projected', k)}
             {#each [[1, 'qYI', d.qYI], [1, 'qYJ', d.qYJ], [2, 'qZI', d.qZI], [2, 'qZJ', d.qZJ]] as const as [k, f, q] (f)}
-              <span class="load-field">q{qa(k).name}{f[2]}<UnitInput value={qa(k).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(k).sign * v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+              <span class="load-field">q{qa(k).name}{f[2]}<UnitInput value={qa(k).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(k).value(v)))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
             {/each}
             <!-- qX loads the member in every frame (along X, or along the member): never hidden while
                  it is not zero. The axes the components are read on, unless the member's own. -->
-            {#if d.frame === 'global' || d.frame === 'projected' || d.qXI || d.qXJ}
+            {#if __PUBLIC_FEATURES__.globalAxes && (d.frame === 'global' || d.frame === 'projected' || d.qXI || d.qXJ)}
               {#each [['qXI', d.qXI ?? 0], ['qXJ', d.qXJ ?? 0]] as const as [f, q] (f)}
-                <span class="load-field">q{qa(0).name}{f[2]}<UnitInput value={qa(0).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(0).sign * v))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
+                <span class="load-field">q{qa(0).name}{f[2]}<UnitInput value={qa(0).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(0).value(v)))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
               {/each}
             {/if}
             {#if d.frame === 'global' || d.frame === 'projected'}
@@ -185,8 +185,8 @@
             <!-- It fell into the plane branch below and showed an empty P. -->
             {@const d = load.data as PointLoadOnElement3D}
             {@const pa = (k: 0 | 1 | 2) => globalAxis(d.frame === 'global', k)}
-            {#each [...(d.frame === 'global' || d.px ? [[0, 'px', d.px ?? 0]] as const : []), [1, 'py', d.py], [2, 'pz', d.pz]] as const as [k, f, p] (f)}
-              <span class="load-field">P{pa(k).name.toLowerCase()}<UnitInput value={pa(k).sign * p} qty="force" onchange={(v) => updateLoadField(d.id, f, String(pa(k).sign * v))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
+            {#each [...(__PUBLIC_FEATURES__.globalAxes && (d.frame === 'global' || d.px) ? [[0, 'px', d.px ?? 0]] as const : []), [1, 'py', d.py], [2, 'pz', d.pz]] as const as [k, f, p] (f)}
+              <span class="load-field">P{pa(k).name.toLowerCase()}<UnitInput value={pa(k).value(p)} qty="force" onchange={(v) => updateLoadField(d.id, f, String(pa(k).value(v)))} unit={false} /><span class="lf-unit">{unitQ('force')}</span></span>
             {/each}
             <span class="load-field">a<UnitInput value={d.a} qty="length" onchange={(v) => updateLoadField(d.id, 'a', String(v))} unit={false} /><span class="lf-unit">{unitQ('length')}</span></span>
           {:else}

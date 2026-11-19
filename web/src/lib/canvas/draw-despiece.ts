@@ -1,3 +1,5 @@
+import { resultComponents } from '../axes/result-components';
+import { axesStore } from '../axes/axes.svelte';
 // Despiece / member free-body view (Basic 2D).
 //
 // Educational, solver-free overlay: each member is pulled away from its joints
@@ -267,9 +269,9 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
     for (const [nodeId, r] of reactions) {
       const node = getNode(nodeId);
       if (!node) continue;
-      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `${TWO_D_REACTION_LABELS.horizontal} ${fmt(twoD.x(r.rx), 'force')}`, color: COL.reaction, nodeId, component: 'Rx' });
-      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `${TWO_D_REACTION_LABELS.vertical} ${fmt(twoD.z(r.rz), 'force')}`, color: COL.reaction, nodeId, component: 'Rz' });
-      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `${TWO_D_REACTION_LABELS.moment} ${fmt(twoD.rot(r.my), 'moment')}`, color: COL.reaction, nodeId, component: 'My' });
+      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `${TWO_D_REACTION_LABELS.horizontal} ${fmt(resultComponents(axesStore.frame, undefined).plane(r.rx, 'x'), 'force')}`, color: COL.reaction, nodeId, component: 'Rx' });
+      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `${TWO_D_REACTION_LABELS.vertical} ${fmt(resultComponents(axesStore.frame, undefined).plane(r.rz, 'z'), 'force')}`, color: COL.reaction, nodeId, component: 'Rz' });
+      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `${TWO_D_REACTION_LABELS.moment} ${fmt(resultComponents(axesStore.frame, undefined).plane(r.my, 'rot'), 'moment')}`, color: COL.reaction, nodeId, component: 'My' });
     }
   }
   return out;
@@ -390,7 +392,7 @@ function endComponents(
     // Use the SAME decomposition as the drawn arrows (forceComponents,
     // endActionVector), so the inspected value always agrees with the arrow.
     const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
-    return [{ label: TWO_D_NODAL_LOAD_LABELS.horizontal, value: twoD.x(fx) }, { label: TWO_D_NODAL_LOAD_LABELS.vertical, value: twoD.z(fz) }, { label: 'M', value: m }];
+    return [{ label: TWO_D_NODAL_LOAD_LABELS.horizontal, value: twoD.x(fx) }, { label: TWO_D_NODAL_LOAD_LABELS.vertical, value: twoD.z(fz) }, { label: __PUBLIC_FEATURES__.globalAxes ? TWO_D_NODAL_LOAD_LABELS.moment : 'M', value: twoD.rot(m) }];
   }
   return [{ label: 'N', value: n }, { label: 'V', value: v }, { label: 'M', value: m }];
 }

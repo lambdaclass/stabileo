@@ -11,7 +11,7 @@
   import { arcThroughThree, chordError } from '../../../lib/model/curved-member';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import QuantityInput from '../loads/QuantityInput.svelte';
-  import { signedModelName } from '../../../lib/axes/display';
+  import { signedModelName, userVec } from '../../../lib/axes/display';
 
   const p = $derived.by(() => { void modelStore.modelVersion; void uiStore.selectedElements; return selectedPiece(); });
   const arc = $derived.by(() => {
@@ -48,7 +48,7 @@
   const dirText = (k: string) => t(`pieces.dir.${k}`).replace(/[+−-][XYZ]/, signedModelName(...DIR_AXIS[k]!));
   const dirLabel = (d: [number, number, number]) => {
     const k = Object.entries(DIRS).find(([, v]) => v.every((x, i) => Math.abs(x - d[i]!) < 1e-9))?.[0];
-    return k ? dirText(k) : `(${d.map((v) => v.toFixed(2)).join(', ')})`;
+    return k ? dirText(k) : `(${userVec(...d).map((v) => v.toFixed(2)).join(', ')})`;
   };
 </script>
 

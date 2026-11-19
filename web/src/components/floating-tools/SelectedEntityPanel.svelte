@@ -5,7 +5,7 @@
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D } from '../../lib/store/model.svelte.ts';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical, TWO_D_NODAL_LOAD_LABELS } from '../../lib/geometry/coordinate-system';
-  import { along, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
+  import { globalComponent, modelIndexOfUser, modelRot, modelVec, planeGlobalAngle, planeGlobalValue, twoD, userRot, userVec, XYZ } from '../../lib/axes/display';
   import { memberLoadPerpComponent } from '../../lib/engine/model-diagnostics';
   import { isDefinedLoad } from '../../lib/model/loads/floor-definitions';
 
@@ -19,7 +19,7 @@
     uiStore.toast(t('floorLoad.readOnlyLoad'), 'info');
     return true;
   }
-  import { dofRestraintsOfType3D } from '../../lib/model/support-3d';
+  import { dofRestraintsOfType3D, supportIsLocal } from '../../lib/model/support-3d';
   import Icon from '../ribbon/Icon.svelte';
   // Values are typed in the unit system chosen under Settings and kept in SI.
   import UnitInput from '../UnitInput.svelte';
@@ -123,7 +123,7 @@
 
   type Dof3D = 'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz';
 
-  function toggleDof3D(sup: typeof selectedSup & {}, dof: Dof3D) {
+  function toggleDof3D(sup: NonNullable<typeof selectedSup>, dof: Dof3D) {
     const r = sup.dofRestraints ?? dofRestraintsOfType3D(sup.type);
     const u = { ...r, [dof]: !r[dof] };
     const allF = u.tx && u.ty && u.tz && u.rx && u.ry && u.rz;
@@ -194,10 +194,11 @@
   });
 </script>
 
-{#snippet frameToggle(id: number, global: boolean)}
+{#snippet frameToggle(id: number, frame: 'global' | 'local' | 'projected')}
   <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
-  <button class="ft-opt-btn ft-coord-btn" class:active={global} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!global} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'global'} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'local'} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
+  {#if frame === 'projected'}<button class="ft-opt-btn ft-coord-btn active" disabled>{t('loads.frame.projected')}</button>{/if}
 {/snippet}
 
 {#if selectedLoad}
@@ -318,17 +319,17 @@
       {/each}
     {:else if selectedLoad.type === 'distributed3d'}
       {@const dl3 = selectedLoad.data as DistributedLoad3D}
-      {@const qa = (k: 0 | 1 | 2) => (dl3.frame === 'global' || dl3.frame === 'projected' ? along(k) : { name: 'XYZ'[k], sign: 1 })}
+      {@const qa = (k: 0 | 1 | 2) => globalComponent(dl3.frame === 'global' || dl3.frame === 'projected', k, 'vector')}
       {#each [[1, 'qYI', dl3.qYI], [1, 'qYJ', dl3.qYJ], [2, 'qZI', dl3.qZI], [2, 'qZJ', dl3.qZJ]] as const as [k, f, q] (f)}
-        <label class="ft-input-group"><span>q{qa(k).name}{f[2]}:</span><UnitInput value={qa(k).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(k).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+        <label class="ft-input-group"><span>q{qa(k).name}{f[2]}:</span><UnitInput value={qa(k).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(k).value(v)))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
       {/each}
       <!-- Along X in Global; in Local, along the member: shown whenever it loads the member. -->
       {#if dl3.frame === 'global' || dl3.frame === 'projected' || dl3.qXI || dl3.qXJ}
         {#each [['qXI', dl3.qXI ?? 0], ['qXJ', dl3.qXJ ?? 0]] as const as [f, q] (f)}
-          <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).sign * q} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).sign * v))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
+          <label class="ft-input-group"><span>q{qa(0).name}{f[2]}:</span><UnitInput value={qa(0).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(dl3.id, f, String(qa(0).value(v)))} unit={false} /><span class="ft-unit">{unitQ('distributedLoad')}</span></label>
         {/each}
       {/if}
-      {@render frameToggle(dl3.id, dl3.frame === 'global')}
+      {@render frameToggle(dl3.id, dl3.frame ?? 'local')}
       {@const len3 = modelStore.getElementLength(dl3.elementId)}
       <label class="ft-input-group"><span>a:</span><UnitInput value={dl3.a ?? 0} qty="length" onchange={(v) => updateLoadField(dl3.id, 'a', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
       <label class="ft-input-group"><span>b:</span><UnitInput value={dl3.b ?? len3} qty="length" onchange={(v) => updateLoadField(dl3.id, 'b', String(v))} unit={false} /><span class="ft-unit">{unitQ('length')}</span></label>
@@ -355,7 +356,7 @@
           <label class="ft-input-group"><span>{String(k).toUpperCase()[0]}{String(k)[1]}:</span><UnitInput value={Number(v)} qty="moment" onchange={(x) => updateLoadField(pl3.id, String(k), String(x))} unit={false} /><span class="ft-unit">{unitQ('moment')}</span></label>
         {/each}
       {/if}
-      {@render frameToggle(pl3.id, pl3.frame === 'global')}
+      {@render frameToggle(pl3.id, pl3.frame ?? 'local')}
     {/if}
     <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')} aria-label={t('selEntity.deleteLoad')} data-testid="edit-delete"><Icon name="trash" size={14} /></button>
     <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')} data-testid="edit-done">✓</button>
@@ -370,12 +371,12 @@
 
 {#if selectedSup}
   <div class="ft-load-edit" class:in-bar={inBar}>
-    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? '')) || supportTypeShown(selectedSup.type)}</span>
+    <span class="ft-load-tag">{t('selEntity.support')} {supportNameShown(selectedSup.type, t(supTypeLabelKeys[selectedSup.type] ?? ''), uiStore.is3DWorkspace) || supportTypeShown(selectedSup.type, uiStore.is3DWorkspace)}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type) || (uiStore.is3DWorkspace && selectedSup.dofRestraints)}
       <!-- 3D per-DOF editing for selected support -->
       {@const dofs = selectedSup.dofRestraints ?? dofRestraintsOfType3D(selectedSup.type)}
-      {@const ix = (i: number) => (selectedSup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
+      {@const ix = (i: number) => (supportIsLocal(selectedSup) ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
       {#each XYZ as a, i (a)}
         <label class="ft-chk"><input type="checkbox" checked={dofs[`t${ix(i)}`]} onchange={() => toggleDof3D(selectedSup, `t${ix(i)}`)} /> <span>F{a}</span></label>
       {/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supportIsLocal } from '../../lib/model/support-3d';
   import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
@@ -34,7 +35,7 @@
   ] as const;
 
   const rows = $derived.by(() => {
-    if (support.dofFrame === 'local' || support.dofLocalElementId !== undefined) return DOF;
+    if (supportIsLocal(support)) return DOF;
     const order = XYZ.map((_, i) => modelIndexOfUser(i));
     return [
       ...order.map((m, i) => ({ ...DOF[m], label: `u${XYZ[i]}` })),

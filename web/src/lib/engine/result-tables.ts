@@ -28,8 +28,9 @@ import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
 import { evaluateDiagramAt } from './diagrams-3d';
-import { userRot, userVec } from '../axes/display';
-import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../axes/frame';
+import { axesStore } from '../axes/axes.svelte';
+import { resultComponents } from '../axes/result-components';
+import { makeFrame, type AxesChoice } from '../axes/frame';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -103,9 +104,7 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
 function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
-  const f = opts.axes ? makeFrame(opts.axes) : null;
-  const vec = (x: number, y: number, z: number) => (f ? toUser(f, [x, y, z]) : userVec(x, y, z));
-  const rot = (x: number, y: number, z: number) => (f ? pseudoToUser(f, [x, y, z]) : userRot(x, y, z));
+  const { vec, rot } = resultComponents(opts.axes ? makeFrame(opts.axes) : axesStore.frame, r);
   if (kind === 'displacements') {
     for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)]));
     return;

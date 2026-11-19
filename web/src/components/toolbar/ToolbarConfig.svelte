@@ -365,9 +365,18 @@
           </select>
         </div>
         <div class="input-group">
+          {#if __PUBLIC_FEATURES__.globalAxes}
           <HelpTip text={t('axes.configTip')}><label>{t('axes.configLabel')}:</label></HelpTip>
           <span class="axes-summary" data-testid="cfg-axes-summary">{axesSummary}</span>
           <button type="button" class="axes-open-btn" data-testid="cfg-axes-open" onclick={() => { axesStore.pickerOpen = true; }}>{t('axes.configOpen')}</button>
+          {:else}
+          <HelpTip text={t('config.tip.axisConvention')}><label>{t('config.localAxes')}:</label></HelpTip>
+          <select bind:value={uiStore.axisConvention3D}>
+            <option value="rightHand">{t('config.rightHand')}</option>
+            <option value="leftHand">{t('config.leftHand')}</option>
+          </select>
+          <span class="help-hint" title={t('config.axisConventionHelp')}>?</span>
+          {/if}
         </div>
         {#if is3Dm}
           <div class="input-group">

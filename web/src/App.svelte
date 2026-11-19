@@ -3,7 +3,7 @@
   import { modelAuditFeatures } from './lib/provenance/under-audit';
   import { verificationStore } from './lib/store/verification.svelte';
   import { accountGate } from './lib/store/account-gate.svelte';
-  import { along, axisName, twoD } from './lib/axes/display';
+  import { userComponent, axisName, twoD } from './lib/axes/display';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
@@ -805,7 +805,7 @@
 
   const pasteAxes = $derived(uiStore.is3DWorkspace ? [axisName(0), axisName(1)] : [twoD.horizontal, twoD.vertical]);
   function pastedPoint(a: number, b: number): [number, number] {
-    return uiStore.is3DWorkspace ? [along(0).sign * a + 0, along(1).sign * b + 0] : [twoD.fromX(a) + 0, twoD.fromZ(b) + 0];
+    return uiStore.is3DWorkspace ? [userComponent(0, a, 'vector') + 0, userComponent(1, b, 'vector') + 0] : [twoD.fromX(a) + 0, twoD.fromZ(b) + 0];
   }
 
   function handleImportCoordinates() {
@@ -2398,7 +2398,7 @@
   viewport-scoped act.
 -->
 <SwitchTo2DDialog bind:open={uiStore.switchTo2DPrompt} />
-<AxesPicker />
+{#if __PUBLIC_FEATURES__.globalAxes}<AxesPicker />{/if}
 
 <!--
   The re-check notice for a project last solved with an older version, and the banner that keeps

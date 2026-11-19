@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../lib/axes/reframe-draft';
   import { selectRow, frameRow, focusRow, rowSelected } from '../../lib/actions/table-row-select';
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -16,6 +19,21 @@
   const is3D = $derived(uiStore.is3DWorkspace);
   const labels = $derived(coordLabels(is3D));
   const upright = $derived(is3D && standingPlane());
+
+  let previousFrame = axesStore.frame;
+  $effect.pre(() => {
+    const frame = axesStore.frame;
+    if (frame === previousFrame) return;
+    untrack(() => {
+      const values = is3D ? [newNodeX, newNodeY, newNodeZ] as const : [newNodeX, 0, newNodeY] as const;
+      const moved = reframeDraft(previousFrame, frame).triple(values);
+      if (is3D) [newNodeX, newNodeY, newNodeZ] = moved as [number, number, number];
+      else {
+        [newNodeX, newNodeY] = reframeDraft(previousFrame, frame).planeVector([newNodeX, newNodeY]);
+      }
+      previousFrame = frame;
+    });
+  });
 
   // The fields show the chosen unit system (UnitInput), so these take SI metres.
   function updateCoord(id: number, axis: number, value: number) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { along, axisName } from '../../../lib/axes/display';
+  import { userComponent, axisName } from '../../../lib/axes/display';
   import { modelAxisText } from '../../../lib/axes/typed-frame';
   import { knownIssueResultDisposition } from '../../../lib/engine/known-issues';
   import { plainNumber } from '../../../lib/utils/units';
@@ -249,7 +249,7 @@
         {#if history}
           <TimeSeriesChart
             times={result.timeSteps}
-            values={history[component].map((v) => along(KX[component]).sign * v)}
+            values={history[component].map((v) => userComponent(KX[component], v, 'vector'))}
             cursor={timeHistoryView.step}
             unitLabel="mm" scale={1000}
             label={tp('pro.th.chartLabel', { node: nodeId ?? '—', component: `u${axisName(KX[component]).toLowerCase()}` })}

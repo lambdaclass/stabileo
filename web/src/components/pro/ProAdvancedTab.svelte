@@ -1,6 +1,7 @@
 <script lang="ts">
+  import ModalResultsTable from './dynamics/ModalResultsTable.svelte';
   import { caseNameShown } from '../../lib/axes/case-names';
-  import { along, axisName, signedModelName } from '../../lib/axes/display';
+  import { axisName, signedModelName } from '../../lib/axes/display';
   import { axisNamesIn, planNamesIn } from '../../lib/axes/typed-frame';
   import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueResultDisposition } from '../../lib/engine/known-issues';
@@ -22,7 +23,7 @@
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
   import {
-    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
+    densityRecord, spectralModesFrom, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
@@ -240,9 +241,9 @@
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
-  let modalAutoNote = $state<string | null>(null);
+  let modalAutoSummary = $state<{ kind: 'mass'; reached: boolean; modes: number; x: number; y: number } | { kind: 'constrained' } | null>(null);
+  const modalAutoNote = $derived(modalAutoSummary === null ? null : modalAutoSummary.kind === 'constrained' ? t('pro.modalAutoConstrained') : planNamesIn(tp(modalAutoSummary.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: modalAutoSummary.modes, x: (modalAutoSummary.x * 100).toFixed(1), y: (modalAutoSummary.y * 100).toFixed(1) })));
 
-  const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
   /*
    * With constraints (rigid links, diaphragms — the building examples have 28), the engine reduces
    * the influence vector as if it were a force, C^T·r, where a rigid translation needs the r_s with
@@ -258,7 +259,7 @@
   function forgetModal() {
     modalResult = null;
     modalModelVersion = null;
-    modalAutoNote = null;
+    modalAutoSummary = null;
     spectralResult = null;
     const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
     advancedResults = rest;
@@ -276,14 +277,14 @@
       let res: any;
       const t0 = performance.now();
       modalConstrained = (input.constraints?.length ?? 0) > 0;
-      modalAutoNote = null;
+      modalAutoSummary = null;
       if (modalAuto && !modalConstrained) {
         const r = modalUntilMass((n) => wasmModal3D(input, densities, n), numModes);
         res = r.result;
-        if (typeof res !== 'string') modalAutoNote = planNamesIn(tp(r.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: r.modes, x: (r.x * 100).toFixed(1), y: (r.y * 100).toFixed(1) }));
+        if (typeof res !== 'string') modalAutoSummary = { kind: 'mass', reached: r.reached, modes: r.modes, x: r.x, y: r.y };
       } else {
         res = wasmModal3D(input, densities, numModes);
-        if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
+        if (modalAuto) modalAutoSummary = { kind: 'constrained' };
       }
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { forgetModal(); solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(res, t('pro.unknownError')), t) }); solving = false; return; }
@@ -302,7 +303,7 @@
             participationX: m.participationX ?? m.partX,
             participationY: m.participationY ?? m.partY,
             participationZ: m.participationZ ?? m.partZ,
-            massRatioX: m.massRatioX, massRatioY: m.massRatioY,
+            massRatioX: m.massRatioX, massRatioY: m.massRatioY, massRatioZ: m.massRatioZ,
           }),
         }));
         advancedResults = { ...advancedResults, modal: { disposition: containment, modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
@@ -1129,31 +1130,9 @@
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
-        <div class="adv-table-scroll">
-          <table class="adv-table modal-table">
-            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} {axisName(0)}</th><th>{t('adv.participationAbbr')} {axisName(1)}</th><th>{t('adv.participationAbbr')} {axisName(2)}</th><th>ΣM {axisName(0)}</th><th>ΣM {axisName(1)}</th></tr></thead>
-            <tbody>
-              {#each modalResult.modes as mode, i}
-                <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                  title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
-                  <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                    onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}>{i + 1}</button></td>
-                  <td class="col-num">{fmtNum(mode.frequency)}</td>
-                  <td class="col-num">{fmtNum(mode.period)}</td>
-                  {#if modalConstrained}
-                    <td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td>
-                  {:else}
-                  <td class="col-num">{fmtNum(along(0).sign * (mode.participationX ?? 0) + 0)}</td>
-                  <td class="col-num">{fmtNum(along(1).sign * (mode.participationY ?? 0) + 0)}</td>
-                  <td class="col-num">{fmtNum(along(2).sign * (mode.participationZ ?? 0) + 0)}</td>
-                  <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
-                  <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
-                  {/if}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+        <ModalResultsTable modes={modalResult.modes} withheld={modalConstrained}
+          activeMode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : undefined}
+          selectMode={(i) => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }} />
       {/if}
     </div>
 
@@ -2078,9 +2057,6 @@
   .modal-group .adv-check { display: flex; align-items: center; }
   .modal-group .adv-row { flex-wrap: wrap; }
   .mode-select { min-width: 44px; min-height: 44px; font-size: 12px; cursor: pointer; color: inherit; background: transparent; border: 1px solid var(--st-hair); border-radius: 3px; }
-  .adv-table.modal-table th, .adv-table.modal-table td { font-size: 12px; padding: 3px 1px; overflow-wrap: anywhere; }
-  .modal-table { table-layout: fixed; }
-  .modal-table th:first-child { width: 46px; }
 
   .adv-table-scroll {
     max-width: 100%;

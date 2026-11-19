@@ -9,8 +9,7 @@ import type { P, Primitive } from '../primitives';
 import { boxOf, drawAxes, rectAt, type PlanAxis } from './plan-common';
 import { drawTable } from './table';
 import type { Tr } from './details';
-import { along } from '../../axes/display';
-import { axesStore } from '../../axes/axes.svelte';
+import { userComponent, along } from '../../axes/display';
 import { planNamesIn } from '../../axes/typed-frame';
 
 type Fmt = (v: number, d: number) => string;
@@ -50,9 +49,9 @@ export function setoutPlan(level: string, cols: readonly SetoutColumn[], axes: r
   if (!withTable) return [plan];
   const ox = ref.kind === 'fixed' ? ref.x : (xs.length ? Math.min(...xs) : 0), oy = ref.kind === 'fixed' ? ref.y : (ys.length ? Math.min(...ys) : 0);
   const [ax, ay] = [along(0), along(1)];
-  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(ax.sign * (c.x - ox) + 0, 3), fmt(ay.sign * (c.y - oy) + 0, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(c.rotDeg, 1)}°` : '0°']);
+  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(userComponent(0, c.x - ox, 'vector') + 0, 3), fmt(userComponent(1, c.y - oy, 'vector') + 0, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(userComponent(0, userComponent(1, c.rotDeg, 'vector'), 'vector'), 1)}°` : '0°']);
   const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: `${ax.name} (m)`, width: 22, align: 'right' }, { label: `${ay.name} (m)`, width: 22, align: 'right' }, { label: tr('plan.setout.section'), width: 20 }, { label: tr('plan.setout.rot'), width: 14, align: 'right' }], rows });
-  const refText = ref.kind === 'fixed' ? planNamesIn(tr('plan.setout.refFixed', { x: fmt(ax.sign * ref.x + 0, 3), y: fmt(ay.sign * ref.y + 0, 3) })) : tr('plan.setout.refAxes');
+  const refText = ref.kind === 'fixed' ? planNamesIn(tr('plan.setout.refFixed', { x: fmt(userComponent(0, ref.x, 'vector') + 0, 3), y: fmt(userComponent(1, ref.y, 'vector') + 0, 3) })) : tr('plan.setout.refAxes');
   return [plan, tableInput(`setout-${level}-table`, `${tr('plan.setout.table', { level })} — ${refText}`, t)];
 }
 
@@ -66,8 +65,7 @@ export function foundationLoadsTable(rows: readonly FoundationLoad[], tr: Tr, fm
   const per = 40, out: DrawingInput[] = [];
   for (let p = 0; p * per < rows.length; p++) {
     const [ax, ay] = [along(0), along(1)];
-    const rot = (a: { sign: number }) => axesStore.frame.det * a.sign;
-    const page = rows.slice(p * per, (p + 1) * per).map((r) => [r.name, r.case, fmt(r.n, 1), fmt(ax.sign * r.vx + 0, 1), fmt(ay.sign * r.vy + 0, 1), fmt(rot(ax) * r.mx + 0, 1), fmt(rot(ay) * r.my + 0, 1)]);
+    const page = rows.slice(p * per, (p + 1) * per).map((r) => [r.name, r.case, fmt(r.n, 1), fmt(userComponent(0, r.vx, 'vector') + 0, 1), fmt(userComponent(1, r.vy, 'vector') + 0, 1), fmt(userComponent(0, r.mx, 'pseudovector') + 0, 1), fmt(userComponent(1, r.my, 'pseudovector') + 0, 1)]);
     const lo = (a: { name: string }) => a.name.toLowerCase();
     const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: tr('plan.fl.case'), width: 40 }, { label: 'N (kN)', width: 20, align: 'right' }, { label: `V${lo(ax)} (kN)`, width: 20, align: 'right' }, { label: `V${lo(ay)} (kN)`, width: 20, align: 'right' }, { label: `M${lo(ax)} (kN·m)`, width: 22, align: 'right' }, { label: `M${lo(ay)} (kN·m)`, width: 22, align: 'right' }], rows: page });
     out.push(tableInput(`fdn-loads-${p + 1}`, tr('plan.fl.title') + (rows.length > per ? ` (${p + 1})` : ''), t));

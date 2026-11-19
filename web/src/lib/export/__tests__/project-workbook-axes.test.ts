@@ -8,7 +8,10 @@ import { publishCombinations3D } from '../../store/active-results';
 import { currentWorkbookSheets } from '../../store/project-workbook';
 import { parseWorkbook } from '../../excel-import/parse';
 import { axesStore } from '../../axes/axes.svelte';
-import { makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { allChoices, makeFrame, pseudoToUser, toUser, type AxesChoice } from '../../axes/frame';
+import { applyWorkbook } from '../../excel-import/apply';
+import { buildSolverInput2D, buildSolverInput3D } from '../../engine/solver-service';
+import { selfWeightFor } from '../../engine/self-weight';
 import { tensorToUser } from '../workbook-frame';
 import type { WorkbookSheet } from '../workbook-cells';
 
@@ -80,6 +83,10 @@ describe('the project workbook in the user axes', () => {
 
     const back = parseWorkbook(asImport(sheets));
     const plainBack = parseWorkbook(asImport(plain));
+    expect(back.model.loads).toHaveLength(modelStore.loads.length);
+    expect(back.model.loads).toEqual(plainBack.model.loads);
+    const nodal = back.model.loads.find(l => l.type === 'nodal3d')!;
+    expect(nodal.data).toMatchObject({ fx: 5, fy: 2, fz: -1, mx: 0.5, my: 0, mz: 1 });
     for (const [a, b] of back.model.nodes.map((n, i) => [n, plainBack.model.nodes[i]!] as const)) {
       expect(a.x).toBeCloseTo(b.x, 12); expect(a.y).toBeCloseTo(b.y, 12); expect(a.z ?? 0).toBeCloseTo(b.z ?? 0, 12);
     }
@@ -94,4 +101,90 @@ describe('the project workbook in the user axes', () => {
     const full = (i: number, j: number) => R[i]!.reduce((s, a, p) => s + R[j]!.reduce((q, b, r) => q + a * b * M[p]![r]!, 0), 0);
     expect(u).toEqual({ xx: full(0, 0), yy: full(1, 1), zz: full(2, 2), xy: full(0, 1), yz: full(1, 2), zx: full(2, 0) });
   });
+});
+
+it('known wrong result: #2259 self-weight directions and signed factors round trip in every frame', () => {
+  portal();
+  const weights = ['X', 'Y', 'Z'].flatMap(direction => [-1, 0, 2].map(factor => ({ caseId: 1, direction, factor })));
+  modelStore.setAnalysis({ selfWeight: weights as never });
+  for (const c of allChoices()) {
+    axesStore.choice = c;
+    const back = parseWorkbook(asImport(currentWorkbookSheets(2, { results: false })));
+    expect(back.model.analysis?.selfWeight).toEqual(weights);
+    expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+    expect(back.unknownSheets).not.toContain('SelfWeight');
+  }
+});
+
+it('self-weight import refuses invalid rules without broadening their scope', () => {
+  const headers = ['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'];
+  const parsed = (row: unknown[]) => parseWorkbook({ SelfWeight: [headers, row] });
+  for (const row of [
+    ['case', 1, 'Q', -1, 'all', '', ''],
+    ['case', 1, 'Z', 'bad', 'all', '', ''],
+    ['case', 9999, 'Z', -1, 'all', '', ''],
+    ['invalid', '', 'Z', -1, 'all', '', ''],
+    ['single', 1, 'Z', -1, 'all', '', ''],
+    ['single', '', 'Z', -1, 'members', 1, ''],
+    ['single', '', 'Z', 0, 'all', '', ''],
+    ['case', 1, 'Z', -1, 'group', '', 1],
+    ['case', 1, 'Z', -1, 'members', '', ''],
+    ['case', 1, 'Z', -1, 'members', 9999, ''],
+    ['case', 1, 'Z', -1, 'all', 1, ''],
+  ]) {
+    const r = parsed(row);
+    expect(r.problems.some(p => p.sheet === 'SelfWeight')).toBe(true);
+    expect(r.model.analysis?.selfWeight).toEqual([]);
+  }
+  for (const factor of [-1, 0, 1]) {
+    const r = parsed(['case', 1, 'Z', factor, 'all', '', '']);
+    expect(r.problems).toEqual([]);
+    expect(r.model.analysis?.selfWeight).toEqual([{ caseId: 1, direction: 'Z', factor }]);
+  }
+});
+
+for (const deadCases of [0, 1, 2]) it(`known wrong result: #2259 standalone gravity round trips independently of ${deadCases} dead cases`, () => {
+  portal();
+  modelStore.setAnalysis({ selfWeight: undefined });
+  modelStore.model.loadCases = Array.from({ length: deadCases }, (_, i) => ({ id: i + 1, name: `D${i}`, type: 'D' as const }));
+  modelStore.model.loadCases.push({ id: deadCases + 1, name: 'Live', type: 'L' });
+  uiStore.includeSelfWeight = true;
+  for (const choice of allChoices()) {
+    axesStore.choice = choice;
+    const back = parseWorkbook(asImport(currentWorkbookSheets(2, { results: false })));
+    expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+    for (const c of [null, ...modelStore.loadCases]) {
+      expect(selfWeightFor(back.model, c, false)).toEqual(selfWeightFor(modelStore.model, c, true));
+    }
+    const weights = selfWeightFor(back.model, null, false);
+    expect(weights).toHaveLength(1);
+  }
+  uiStore.includeSelfWeight = false;
+});
+
+it('known wrong result: #2259 imported standalone gravity reaches both solver input builders and reexports once', () => {
+  modelStore.clear();
+  const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 3, 0);
+  modelStore.addElement(a, b);
+  modelStore.addSupport(a, 'fixed3d');
+  modelStore.setAnalysis({ selfWeight: undefined });
+  uiStore.includeSelfWeight = true;
+  const before2D = buildSolverInput2D(modelStore.model, true)!.loads;
+  const before3D = buildSolverInput3D(modelStore.model, true)!.loads;
+  const sheets = currentWorkbookSheets(2, { results: false });
+  uiStore.includeSelfWeight = false;
+  const imported = applyWorkbook(asImport(sheets));
+  expect(imported.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+  expect(uiStore.includeSelfWeight).toBe(true);
+  expect(buildSolverInput2D(modelStore.model, false)!.loads).toEqual(before2D);
+  expect(buildSolverInput3D(modelStore.model, false)!.loads).toEqual(before3D);
+  const again = currentWorkbookSheets(2, { results: false });
+  expect(sheet(again, 'SelfWeight').rows).toEqual(sheet(sheets, 'SelfWeight').rows);
+  const parsed = parseWorkbook(asImport(again));
+  expect(parsed.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
+  expect(selfWeightFor(parsed.model, null, false)).toHaveLength(1);
+  const duplicate = parseWorkbook({ SelfWeight: [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'], ['single', '', 'Z', -1, 'all', '', ''], ['single', '', 'Z', -1, 'all', '', '']] });
+  expect(duplicate.problems.filter(p => p.sheet === 'SelfWeight')).toHaveLength(1);
+  expect(selfWeightFor(duplicate.model, null, false)).toHaveLength(1);
+  uiStore.includeSelfWeight = false;
 });

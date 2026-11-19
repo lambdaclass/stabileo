@@ -39,7 +39,11 @@ describe('generated case names', () => {
 
   it('a generated combination reads in the user axes until the user renames it', () => {
     axesStore.choice = Y_UP;
-    expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {} })).toBe('1.0 D + 1.6 W (Viento −Z)');
+    modelStore.clear();
+    const d = modelStore.model.loadCases.find(c => c.type === 'D')!.id;
+    const w = modelStore.addLoadCase('Viento +Y', 'W', { axisNamed: true });
+    modelStore.addLoadCase('Viento +X', 'W', { axisNamed: true });
+    expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {}, factors: [{ caseId: d, factor: 1 }, { caseId: w, factor: 1.6 }] })).toBe('1.0 D + 1.6 W (Viento −Z)');
     expect(combinationNameShown({ name: '1.0 D + 1.6 W (Viento +Y)', origin: {}, nameTyped: true })).toBe('1.0 D + 1.6 W (Viento +Y)');
     expect(combinationNameShown({ name: 'Mine Y' })).toBe('Mine Y');
   });
@@ -67,7 +71,7 @@ describe('generated case names', () => {
   });
 
   it('the generators name their cases through the flag, and the lists show them', () => {
-    expect(read('lib/store/apply-load-plan.ts')).toContain('axisNamed: true');
+    expect(read('lib/store/apply-load-plan.ts')).toContain('if (!existingCases.has(id)) modelStore.markLoadCaseAxisNamed(id)');
     for (const f of ['components/pro/ProLoadCases.svelte', 'components/toolbar/ResultsViewPicker.svelte', 'components/tables/LoadsTable.svelte', 'components/pro/ProCombinationsList.svelte', 'lib/pro/export-results.ts', 'lib/engine/pro-report-inputs.ts', 'lib/store/project-workbook.ts', 'lib/pro/dxf-export.ts']) {
       expect(read(f), f).toMatch(/caseNameShown|caseNameIn|combinationNameShown/);
     }
@@ -77,23 +81,23 @@ describe('generated case names', () => {
 describe('support names', () => {
   it('a roller id is shown in the user axes, the 2D ones on the plane', () => {
     axesStore.choice = Y_UP;
-    expect(supportTypeShown('rollerXY')).toBe('rollerXZ');
-    expect(supportTypeShown('rollerYZ')).toBe('rollerYZ');
-    expect(supportTypeShown('rollerX')).toBe('rollerX');
-    expect(supportTypeShown('rollerZ')).toBe('rollerY');
-    expect(supportTypeShown('rollerY')).toBe('rollerY');
-    expect(supportNameShown('rollerXY', 'Roller XY')).toBe('Roller XZ');
-    expect(supportNameShown('rollerZ', 'Roller Y')).toBe('Roller Y');
+    expect(supportTypeShown('rollerXY', false)).toBe('rollerXZ');
+    expect(supportTypeShown('rollerYZ', false)).toBe('rollerYZ');
+    expect(supportTypeShown('rollerX', false)).toBe('rollerX');
+    expect(supportTypeShown('rollerZ', false)).toBe('rollerY');
+    expect(supportTypeShown('rollerY', false)).toBe('rollerY');
+    expect(supportNameShown('rollerXY', 'Roller XY', true)).toBe('Roller XZ');
+    expect(supportNameShown('rollerZ', 'Roller Y', false)).toBe('Roller Y');
     expect(planeLettersShown('Global axes: X horizontal, Z vertical')).toBe('Global axes: X horizontal, Y vertical');
     axesStore.choice = { up: '+X', right: '+Y', hand: 'right' };
-    expect(supportTypeShown('rollerZ')).toBe('rollerX');
+    expect(supportTypeShown('rollerZ', false)).toBe('rollerX');
     expect(planeLettersShown('Restrains vertical displacement (Z reaction). Free in X.')).toBe('Restrains vertical displacement (X reaction). Free in Y.');
   });
 
   it('every place that shows a support type goes through the user names', () => {
-    expect(read('lib/engine/calc-report.ts')).toContain('supportTypeShown(s.type)');
-    expect(read('lib/engine/pro-report.ts')).toContain('supportTypeIn(frame, s.type)');
-    expect(read('lib/export/excel.ts')).toContain('supportTypeShown(sup.type)');
+    expect(read('lib/engine/calc-report.ts')).toContain('supportTypeShown(s.type, data.is3D)');
+    expect(read('lib/engine/pro-report.ts')).toContain('supportTypeIn(frame, s.type, true)');
+    expect(read('lib/export/excel.ts')).toContain('supportTypeShown(sup.type, is3D)');
     expect(read('components/tables/SupportsTable.svelte')).toContain("planeLettersShown(t('table.rollerY'))");
     expect(read('components/floating-tools/SelectedEntityPanel.svelte')).toContain('supportNameShown(selectedSup.type');
     expect(read('lib/ai/capabilities/build-model.ts')).toContain('supportTypeShown(');

@@ -1,8 +1,10 @@
+import { globalAxes } from '../features';
 import { DEFAULT_AXES, makeFrame, validChoice, type AxesChoice, type AxesFrame } from './frame';
 
 const STORAGE_KEY = 'stabileo-axes';
 
 function readStored(): AxesChoice {
+  if (!globalAxes()) return DEFAULT_AXES;
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_AXES;
@@ -22,18 +24,19 @@ function writeStored(c: AxesChoice): void {
 }
 
 let choice = $state<AxesChoice>(readStored());
+const canonicalFrame = makeFrame(DEFAULT_AXES);
 const frame = $derived<AxesFrame>(makeFrame(choice));
 let pickerOpen = $state(false);
 
 export const axesStore = {
-  get choice(): AxesChoice { return choice; },
+  get choice(): AxesChoice { return globalAxes() ? choice : DEFAULT_AXES; },
   set choice(c: AxesChoice) {
-    if (!validChoice(c)) return;
+    if (!globalAxes() || !validChoice(c)) return;
     choice = { ...c };
     writeStored(choice);
   },
-  get frame(): AxesFrame { return frame; },
-  get pickerOpen(): boolean { return pickerOpen; },
-  set pickerOpen(v: boolean) { pickerOpen = v; },
+  get frame(): AxesFrame { return globalAxes() ? frame : canonicalFrame; },
+  get pickerOpen(): boolean { return globalAxes() && pickerOpen; },
+  set pickerOpen(v: boolean) { pickerOpen = globalAxes() && v; },
   reset(): void { this.choice = DEFAULT_AXES; },
 };

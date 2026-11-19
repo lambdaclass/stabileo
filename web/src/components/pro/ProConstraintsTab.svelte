@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../lib/axes/reframe-draft';
   import { axesKey } from '../../lib/axes/display';
   import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
@@ -25,7 +27,7 @@
   // in engine/src/types/input.rs. Both `equalDOF` and `linearMPC` keep
   // the all-caps acronym; using camelCase here surfaces as a runtime
   // `Parse error: unknown variant ...` from the solver.
-  import { modelDof, modelFlags6, modelPlane, typedFrame, userPlane } from '../../lib/axes/typed-frame';
+  import { modelDofValue, modelDof, modelFlags6, modelPlane, typedFrame, userPlane } from '../../lib/axes/typed-frame';
   type ConstraintKind = 'rigidLink' | 'diaphragm' | 'equalDOF' | 'linearMPC' | 'eccentricConnection';
 
   const constraintKinds = $derived([
@@ -53,12 +55,34 @@
   let dSlaves = $state('');
   let dPlane = $state<'XY' | 'XZ' | 'YZ'>(userPlane('XY'));
 
+  let previousFrame = axesStore.frame;
   let shownAxes = axesKey();
-  $effect(() => {
+  $effect.pre(() => {
     const k = axesKey();
     if (k === shownAxes) return;
     shownAxes = k;
-    untrack(() => { dPlane = userPlane('XY'); });
+    untrack(() => {
+      const reframe = reframeDraft(previousFrame, axesStore.frame);
+      dPlane = reframe.plane(dPlane);
+      rlDofs = reframe.flags(rlDofs);
+      eqDofs = reframe.flags(eqDofs);
+      ecReleases = reframe.flags(ecReleases);
+      [ecOffsetX, ecOffsetY, ecOffsetZ] = reframe.triple([ecOffsetX, ecOffsetY, ecOffsetZ]) as [number, number, number];
+      const separator = mpcTerms.includes(';') ? ';' : ',';
+      let valid = true;
+      const terms = mpcTerms.split(separator).map(fragment => {
+        const parts = fragment.split(':');
+        if (fragment.trim() === '') return fragment;
+        if (parts.length !== 3) { valid = false; return fragment; }
+        const dof = /^([ur])([xyz])$/.exec(parts[1]!.trim());
+        const coefficient = parseDecimal(parts[2]!);
+        if (!dof || coefficient === null) { valid = false; return fragment; }
+        const moved = reframe.component(dof[2]!.toUpperCase() as 'X' | 'Y' | 'Z', coefficient, dof[1] === 'r' ? 'pseudovector' : 'vector');
+        return `${parts[0]}:${dof[1]}${moved.axis.toLowerCase()}:${moved.value}`;
+      }).join(separator);
+      mpcTerms = valid ? terms : '';
+      previousFrame = axesStore.frame;
+    });
   });
 
   // Equal DOF state
@@ -182,7 +206,7 @@
       const coefficient = parseNum(parts[2]);
       const dof = modelDof(dofName);
       if (isNaN(nodeId) || isNaN(coefficient) || !dof) return;
-      parsed.push({ nodeId, dof: dof.index, coefficient: dof.sign * coefficient });
+      parsed.push({ nodeId, dof: dof.index, coefficient: modelDofValue(dofName, coefficient) });
     }
     if (parsed.length === 0) return;
     modelStore.addConstraint({

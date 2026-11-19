@@ -453,18 +453,25 @@
       {:else if modelIndex(s.va.axis) === 2}
         <text x={(PL.x0 + PL.x1) / 2} y={(PL.y0 + PL.y1) / 2} class="ls-t" text-anchor="middle">{t('writeLoad.sketch.variesZ').replace(/\bZ\b/, s.va.axis)}</text>
         <text x={(PL.x0 + PL.x1) / 2} y={(PL.y0 + PL.y1) / 2 + 10} class="ls-t" text-anchor="middle">{lbl('q₁', s.va.q1, 'areaLoad')} → {lbl('q₂', s.va.q2, 'areaLoad')}</text>
-      {:else if modelIndex(s.va.axis) === 0}
-        {@const qm = Math.max(mag(s.va.q1), mag(s.va.q2), 1e-9)}
-        <line x1={PL.x0 + 14} y1={PL.y0} x2={PL.x0 + 14} y2={PL.y1} class="ls-guide" /><line x1={PL.x1 - 14} y1={PL.y0} x2={PL.x1 - 14} y2={PL.y1} class="ls-guide" />
-        <polygon points="{PL.x0 + 14},{PL.y1} {PL.x0 + 14},{PL.y1 - 6 - 30 * mag(s.va.q1) / qm} {PL.x1 - 14},{PL.y1 - 6 - 30 * mag(s.va.q2) / qm} {PL.x1 - 14},{PL.y1}" class="ls-diag" />
-        <text x={PL.x0 + 14} y={PL.y1 + 10} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')}</text>
-        <text x={PL.x1 - 14} y={PL.y1 + 20} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')}</text>
-        <text x={PL.x0 + 16} y={PL.y0 + 9} class="ls-t">{lbl('q₁', s.va.q1, 'areaLoad')}</text>
-        <text x={PL.x1 - 16} y={PL.y0 + 18} class="ls-t" text-anchor="end">{lbl('q₂', s.va.q2, 'areaLoad')}</text>
       {:else}
-        <line x1={PL.x0} y1={PL.y1 - 12} x2={PL.x1} y2={PL.y1 - 12} class="ls-guide" /><line x1={PL.x0} y1={PL.y0 + 12} x2={PL.x1} y2={PL.y0 + 12} class="ls-guide" />
-        <text x={PL.x0 + 2} y={PL.y1 - 15} class="ls-t">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')} · {lbl('q₁', s.va.q1, 'areaLoad')}</text>
-        <text x={PL.x0 + 2} y={PL.y0 + 21} class="ls-t">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')} · {lbl('q₂', s.va.q2, 'areaLoad')}</text>
+        {@const forward = modelAxisOf(s.va.axis).sign * ((s.va.c2 ?? 1) - (s.va.c1 ?? 0)) >= 0}
+        {#if modelIndex(s.va.axis) === 0}
+          {@const x1 = forward ? PL.x0 + 14 : PL.x1 - 14}
+          {@const x2 = forward ? PL.x1 - 14 : PL.x0 + 14}
+          {@const qm = Math.max(mag(s.va.q1), mag(s.va.q2), 1e-9)}
+          <line x1={x1} y1={PL.y0} x2={x1} y2={PL.y1} class="ls-guide" /><line x1={x2} y1={PL.y0} x2={x2} y2={PL.y1} class="ls-guide" />
+          <polygon points="{x1},{PL.y1} {x1},{PL.y1 - 6 - 30 * mag(s.va.q1) / qm} {x2},{PL.y1 - 6 - 30 * mag(s.va.q2) / qm} {x2},{PL.y1}" class="ls-diag" />
+          <text x={x1} y={PL.y1 + 10} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')}</text>
+          <text x={x2} y={PL.y1 + 20} class="ls-t" text-anchor="middle">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')}</text>
+          <text x={x1} y={PL.y0 + 9} class="ls-t" text-anchor={forward ? 'start' : 'end'}>{lbl('q₁', s.va.q1, 'areaLoad')}</text>
+          <text x={x2} y={PL.y0 + 18} class="ls-t" text-anchor={forward ? 'end' : 'start'}>{lbl('q₂', s.va.q2, 'areaLoad')}</text>
+        {:else}
+          {@const y1 = forward ? PL.y1 - 12 : PL.y0 + 12}
+          {@const y2 = forward ? PL.y0 + 12 : PL.y1 - 12}
+          <line x1={PL.x0} y1={y1} x2={PL.x1} y2={y1} class="ls-guide" /><line x1={PL.x0} y1={y2} x2={PL.x1} y2={y2} class="ls-guide" />
+          <text x={PL.x0 + 2} y={y1} class="ls-t">{lbl(`${s.va.axis}₁`, s.va.c1, 'length')} · {lbl('q₁', s.va.q1, 'areaLoad')}</text>
+          <text x={PL.x0 + 2} y={y2} class="ls-t">{lbl(`${s.va.axis}₂`, s.va.c2, 'length')} · {lbl('q₂', s.va.q2, 'areaLoad')}</text>
+        {/if}
       {/if}
       {#if s.partial}
         <rect x={PL.x0 + 38} y={PL.y0 + 30} width="34" height="24" class="ls-region" />
@@ -504,7 +511,7 @@
       <circle cx={P0[0] + 14} cy={P0[1] - 14} r="5" class="ls-zsym" />
       {#if sgn(pfModel[2]) >= 0}<circle cx={P0[0] + 14} cy={P0[1] - 14} r="1.4" class="ls-pt" />{:else}<path d="M{P0[0] + 10.5},{P0[1] - 17.5} l7,7 m0,-7 l-7,7" class="ls-load ls-thin" />{/if}
       <!-- The arrows are drawn along the model's axes, so each line names the axis it draws, in the user's letters. -->
-      {#each [0, 1, 2] as const as k (k)}<text x="132" y={44 + 12 * k} class="ls-v">{lbl(`F${axisLetter(k)}`, s.pf[`f${axisLetter(k)}` as 'fx'], 'force')}</text>{/each}
+      {#each [0, 1, 2] as const as k (k)}<text x="132" y={44 + 12 * k} class="ls-v">{lbl(`F${axisLetter(k)}`, pfModel[k], 'force')}</text>{/each}
       <text x="30" y="124" class="ls-t">{t('writeLoad.point')} {pt3(s.at)}</text>
       <text x="4" y="12" class="ls-t">{t('writeLoad.sketch.shared')}</text>
       <line x1="10" y1="118" x2="22" y2="118" class="ls-axis" marker-end="url(#{A}-a)" /><text x="24" y="121" class="ls-ax">{planName(0)}</text>

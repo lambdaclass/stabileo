@@ -17,7 +17,7 @@
   import { axesStore } from '../../lib/axes/axes.svelte';
   import { untrack } from 'svelte';
 
-  let text = $state(modelToCode(modelStore.snapshot(), axesStore.choice));
+  let text = $state(modelToCode(modelStore.snapshot(), axesStore.frame.identity ? undefined : axesStore.choice));
   let generatedFrom = $state(modelStore.modelVersion);
   let lastGenerated = $state(text);
   let errors = $state<CodeError[]>([]);
@@ -33,7 +33,7 @@
   $effect(() => { void axesStore.choice; untrack(() => { if (!dirty) regenerate(); }); });
 
   function regenerate() {
-    text = modelToCode(modelStore.snapshot(), axesStore.choice);
+    text = modelToCode(modelStore.snapshot(), axesStore.frame.identity ? undefined : axesStore.choice);
     lastGenerated = text;
     generatedFrom = modelStore.modelVersion;
     errors = [];

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { reframeDraft } from '../../../lib/axes/reframe-draft';
+  import { axesStore } from '../../../lib/axes/axes.svelte';
   import Hint from '../Hint.svelte';
   /**
    * One template (`store/underlays.ts`): seen or not, its level, lock and strength, and, open,
@@ -12,9 +15,8 @@
   import type { Underlay } from '../../../lib/model/underlay';
   import type { Level } from '../../../lib/model/grid';
   import UnderlayConvertDialog from './UnderlayConvertDialog.svelte';
-  import { along, axisName } from '../../../lib/axes/display';
-  import { axesStore } from '../../../lib/axes/axes.svelte';
-  import { planNamesIn } from '../../../lib/axes/typed-frame';
+  import { userComponent, along, axisName } from '../../../lib/axes/display';
+    import { planNamesIn } from '../../../lib/axes/typed-frame';
 
   let { u, levels }: { u: Underlay; levels: Level[] } = $props();
   let open = $state(false);
@@ -22,11 +24,25 @@
   let message = $state<string | null>(null);
   let pairs = $state([{ fx: '', fy: '', tx: '', ty: '' }, { fx: '', fy: '', tx: '', ty: '' }]);
 
+  let previousFrame = axesStore.frame;
+  $effect.pre(() => {
+    const frame = axesStore.frame;
+    if (frame === previousFrame) return;
+    untrack(() => {
+      const reframe = reframeDraft(previousFrame, frame);
+      pairs = pairs.map(p => {
+        const [tx, ty] = reframe.planText([p.tx, p.ty]);
+        return { ...p, tx, ty };
+      });
+      previousFrame = frame;
+    });
+  });
+
   const edit = (patch: Partial<Underlay>) => { if (!editUnderlay(u.id, patch)) message = t('underlay.lockedRefused'); };
   const atLevel = (id: string) => { const lv = levels.find((l) => l.id === id); if (lv) edit({ levelId: lv.id, z: lv.z }); };
   const num = (s: string) => Number(s.trim().replace(',', '.'));
   const s0 = $derived(along(0).sign), s1 = $derived(along(1).sign);
-  const turn = $derived(axesStore.frame.det * along(2).sign);
+  const turn = $derived(userComponent(2, 1, 'pseudovector'));
   const h0 = $derived(axisName(0).toLowerCase()), h1 = $derived(axisName(1).toLowerCase());
   function align() {
     // The pairs filled in, in drawing metres → model metres.
@@ -54,7 +70,7 @@
   <td><button class="ul-link" onclick={() => (open = !open)} aria-expanded={open} data-testid="underlay-open-{u.name}">{open ? '▾' : '▸'} {u.name}</button></td>
   <td>
     <select value={u.levelId ?? ''} disabled={u.locked} onchange={(e) => atLevel(e.currentTarget.value)}>
-      {#if !u.levelId}<option value="">{axisName(2).toLowerCase()} = {along(2).sign * u.z}</option>{/if}
+      {#if !u.levelId}<option value="">{axisName(2).toLowerCase()} = {userComponent(2, u.z, 'vector')}</option>{/if}
       {#each levels as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
     </select>
   </td>

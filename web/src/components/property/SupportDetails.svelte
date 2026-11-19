@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supportIsLocal } from '../../lib/model/support-3d';
   import { planeLettersShown } from '../../lib/axes/user-names';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -45,7 +46,7 @@
 {#if uiStore.is3DWorkspace}
   <!-- 3D per-DOF editing -->
   {@const dofs = sup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
-  {@const ix = (i: number) => (sup.dofFrame === 'local' ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
+  {@const ix = (i: number) => (supportIsLocal(sup) ? XYZ[i] : XYZ[modelIndexOfUser(i)])}
   <div class="property-row" style="flex-wrap:wrap;gap:4px;">
     {#each ['t', 'r'] as kind (kind)}
       {#each XYZ as a, i (a)}

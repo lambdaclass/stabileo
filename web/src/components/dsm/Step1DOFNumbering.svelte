@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisLetter } from '../../lib/axes/display';
   import FitMath from '../steps/FitMath.svelte';
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
   import { t } from '../../lib/i18n';
@@ -38,13 +39,12 @@
   const lo = (a: string) => a.toLowerCase();
   const eqFrame2D = $derived(`${lead}u_${lo(pl.h)}, \\; u_${lo(pl.v)}, \\; \\theta_${lo(pl.n)}`);
   const eqTruss2D = $derived(`${lead}u_${lo(pl.h)}, \\; u_${lo(pl.v)}`);
-  const eqFrame3D = $derived(`${lead}u_x, \\; u_y, \\; u_z, \\; \\theta_x, \\; \\theta_y, \\; \\theta_z`);
-  const eqTruss3D = $derived(`${lead}u_x, \\; u_y, \\; u_z`);
-
-  // Map local DOF index to display name
+  const spatialAxes = $derived(([0, 1, 2] as const).map(axisLetter));
+  const eqTruss3D = $derived(`${lead}${spatialAxes.map(a => `u_${a}`).join(', \\; ')}`);
+  const eqFrame3D = $derived(`${eqTruss3D}, \\; ${spatialAxes.map(a => `\\theta_${a}`).join(', \\; ')}`);
   const dofName2D = $derived([`u${lo(pl.h)}`, `u${lo(pl.v)}`, `θ${lo(pl.n)}`]);
-  const dofName3D6 = ['ux', 'uy', 'uz', 'θx', 'θy', 'θz'];
-  const dofName3D3 = ['ux', 'uy', 'uz'];
+  const dofName3D3 = $derived(spatialAxes.map(a => `u${a}`));
+  const dofName3D6 = $derived([...dofName3D3, ...spatialAxes.map(a => `θ${a}`)]);
   const dofNames = $derived(is3D ? (dofsPerNode === 6 ? dofName3D6 : dofName3D3) : dofName2D);
 </script>
 

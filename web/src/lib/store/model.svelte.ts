@@ -1,4 +1,6 @@
+import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
@@ -4201,10 +4203,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof'; axisNamed?: boolean } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof' } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}), ...(opts.axisNamed && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(name) ? { axisNamed: true } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
       return id;
     },
 
@@ -4392,12 +4394,12 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof'; axisNamed?: boolean } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof' } = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis, axisNamed: opts.axisNamed });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis });
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
@@ -4422,7 +4424,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc && lc.name !== name) { lc.name = name; delete lc.axisNamed; }
+      if (lc && caseNameShown(lc) !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4452,7 +4454,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined && data.name !== combo.name) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
+      if (data.name !== undefined && data.name !== combinationNameShown(combo)) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
@@ -5108,4 +5110,24 @@ export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' 
       : cases.find((c) => c.type === type && c.name === name && open(c)));
 }
 
-export const modelStore = createModelStore();
+function withAxisNamedCases(store: ReturnType<typeof createModelStore>) {
+  const add = store.addLoadCase.bind(store), ensure = store.ensureLoadCase.bind(store);
+  const mark = (id: number, axisNamed: boolean | undefined) => {
+    const c = store.model.loadCases.find(c => c.id === id);
+    if (globalAxes() && axisNamed && c && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(c.name)) c.axisNamed = true;
+    return id;
+  };
+  return Object.assign(store, {
+    markLoadCaseAxisNamed(id: number): void { mark(id, true); },
+    addLoadCase(name: string, type: LoadCaseType = '', opts: Parameters<typeof store.addLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      return mark(add(name, type, opts), opts.axisNamed);
+    },
+    ensureLoadCase(name: string, type: LoadCaseType, opts: Parameters<typeof store.ensureLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      const found = findPlannedCase(store.model.loadCases, name, type, opts);
+      const id = ensure(name, type, opts);
+      return found ? id : mark(id, opts.axisNamed);
+    },
+  });
+}
+
+export const modelStore = withAxisNamedCases(createModelStore());

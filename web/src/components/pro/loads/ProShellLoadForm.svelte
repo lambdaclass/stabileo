@@ -45,7 +45,17 @@
     const k = axesKey();
     if (k === shownAxes) return;
     shownAxes = k;
-    untrack(() => { dirAxis = twoD.vertical; va = { ...va, axis: twoD.vertical }; rect = { ...rect, plane: ({ Z: 'XY', Y: 'XZ', X: 'YZ' } as const)[twoD.vertical] }; });
+    untrack(() => {
+      q = null;
+      qc = '';
+      dirAxis = twoD.vertical;
+      va = { axis: twoD.vertical, c1: null, q1: null, c2: null, q2: null };
+      rect = { plane: ({ Z: 'XY', Y: 'XZ', X: 'YZ' } as const)[twoD.vertical], u1: null, v1: null, u2: null, v2: null };
+      level = null;
+      inside = { x: null, y: null, z: null };
+      at = { x: null, y: null, z: null };
+      pf = { fx: null, fy: null, fz: null };
+    });
   });
   // ── Fluid ──
   let gamma = $state<N>(10);

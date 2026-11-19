@@ -1575,4 +1575,3 @@ function generateSuggestions(
 
   return suggestions;
 }
-

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { userRot, userVec } from '../../lib/axes/display';
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { axesStore } from '../../lib/axes/axes.svelte';
   import { userDof } from '../../lib/axes/typed-frame';
   import { shellStressInputs } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
@@ -50,6 +51,7 @@
 
 
   const results = $derived(resultsStore.results3D);
+  const components = $derived(resultComponents(axesStore.frame, results));
 
   // Unified shell rows (plates + quads) with derived principal stresses, for
   // the readable split stress / moment tables.
@@ -802,8 +804,8 @@
               {#each results.reactions as r}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(r.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{r.nodeId}</td>
-                  {#each userVec(r.fx, r.fy, r.fz) as c}<td class="col-num">{fmtQ(c, 'force')}</td>{/each}
-                  {#each userRot(r.mx, r.my, r.mz) as c}<td class="col-num">{fmtQ(c, 'moment')}</td>{/each}
+                  {#each components.vec(r.fx, r.fy, r.fz) as c}<td class="col-num">{fmtQ(c, 'force')}</td>{/each}
+                  {#each components.rot(r.mx, r.my, r.mz) as c}<td class="col-num">{fmtQ(c, 'moment')}</td>{/each}
                 </tr>
               {/each}
             </tbody>
@@ -879,8 +881,8 @@
               {#each results.displacements as d}
                 <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(d.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{d.nodeId}</td>
-                  {#each userVec(d.ux, d.uy, d.uz) as c}<td class="col-num">{fmtQ(c, 'displacement')}</td>{/each}
-                  {#each userRot(d.rx, d.ry, d.rz) as c}<td class="col-num">{fmtQ(c, 'rotation')}</td>{/each}
+                  {#each components.vec(d.ux, d.uy, d.uz) as c}<td class="col-num">{fmtQ(c, 'displacement')}</td>{/each}
+                  {#each components.rot(d.rx, d.ry, d.rz) as c}<td class="col-num">{fmtQ(c, 'rotation')}</td>{/each}
                 </tr>
               {/each}
             </tbody>

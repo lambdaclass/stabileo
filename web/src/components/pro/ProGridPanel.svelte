@@ -79,7 +79,8 @@
   function generateLevels() {
     const h = readList(heights);
     if (!h) return;
-    const lv = levelsFromHeights(h, sg('z') * base, names.split(/[;,]/));
+    const verticalSign = sg('z');
+    const lv = levelsFromHeights(h.map(height => verticalSign * height), verticalSign * base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
   /** Levels some other level repeats. */

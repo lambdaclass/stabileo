@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { twoD, userRot, userVec } from '../../lib/axes/display';
-  import { resultCaseName } from '../../lib/engine/settlement-case';
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  const components = $derived(resultComponents(axesStore.frame, uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results));
+    import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { knownIssueMessage } from '../../lib/engine/known-issue-message';
@@ -142,8 +144,8 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
-            {@const u = userVec(d.ux, d.uy, d.uz)}
-            {@const r = userRot(d.rx, d.ry, d.rz)}
+            {@const u = components.vec(d.ux, d.uy, d.uz)}
+            {@const r = components.rot(d.rx, d.ry, d.rz)}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
               {#each u as c}<td class="num">{dsp(c)}</td>{/each}
@@ -160,8 +162,8 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
-            {@const f = userVec(r.fx, r.fy, r.fz)}
-            {@const m = userRot(-r.mx, -r.my, -r.mz)}
+            {@const f = components.vec(r.fx, r.fy, r.fz)}
+            {@const m = components.rot(r.mx, r.my, r.mz, -1)}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
               {#each f as c}<td class="num">{frc(c)}</td>{/each}
@@ -209,9 +211,9 @@
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(twoD.x(d.ux))}</td>
-              <td class="num">{dsp(twoD.z(get2DDisplayDisplacementVertical(d)))}</td>
-              <td class="num">{(twoD.rot(get2DDisplayRotation(d)) * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(components.plane(d.ux, 'x'))}</td>
+              <td class="num">{dsp(components.plane(get2DDisplayDisplacementVertical(d), 'z'))}</td>
+              <td class="num">{(components.plane(get2DDisplayRotation(d), 'rot') * 1000).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>
@@ -226,9 +228,9 @@
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(twoD.x(r.rx))}</td>
-              <td class="num">{frc(twoD.z(get2DDisplayReactionVertical(r)))}</td>
-              <td class="num">{mom(twoD.rot(-get2DDisplayMoment(r)))}</td>
+              <td class="num">{frc(components.plane(r.rx, 'x'))}</td>
+              <td class="num">{frc(components.plane(get2DDisplayReactionVertical(r), 'z'))}</td>
+              <td class="num">{mom(components.plane(get2DDisplayMoment(r), 'rot', -1))}</td>
             </tr>
           {/each}
         </tbody>

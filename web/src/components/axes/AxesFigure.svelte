@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { quantityTransform } from '../../lib/axes/quantity-transform';
   import { t } from '../../lib/i18n';
   import { AXIS_NAMES, gravityLabel, plane2D, type AxesFrame, type Vec3 } from '../../lib/axes/frame';
 
@@ -13,9 +14,10 @@
     return `M${p.x},${p.y} L${q.x},${q.y}`;
   };
 
-  const spaceAxes = $derived(frame.rows.map((row, i) => {
+  const spaceAxes = $derived(AXIS_NAMES.map((name, i) => {
+    const row = quantityTransform(frame, 'toModel').triple({ kind: 'vector', values: [i === 0 ? 1 : 0, i === 1 ? 1 : 0, i === 2 ? 1 : 0] });
     const tip = project(row, row[1] !== 0 ? 70 : 62);
-    return { name: AXIS_NAMES[i], color: COLORS[i], tip, label: project(row, row[1] !== 0 ? 84 : 76) };
+    return { name, color: COLORS[i], tip, label: project(row, row[1] !== 0 ? 84 : 76) };
   }));
 
   // The drawing's box grows to take an axis pointing down, back or left, its head and its letter.
@@ -29,7 +31,7 @@
   const plane = $derived(plane2D(frame));
   const planeBox = $derived(`0 0 200 ${plane.vertical.sign < 0 ? 186 : 150}`);
   const towardViewer = $derived(plane.normal.sign < 0);
-  const ccw = $derived(plane.horizontal.sign * plane.vertical.sign > 0);
+  const ccw = $derived(quantityTransform(frame).component(1, 1, 'pseudovector').value < 0);
 
   const localY = $derived(leftLocal ? -1 : 1);
 </script>

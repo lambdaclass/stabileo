@@ -33,7 +33,7 @@ export const LEGACY_RECORDED_ANALYSES: readonly AnalysisKind[] = ['linear', 'pde
 
 /** Every feature id a registry entry may name. The registry test fails on any other. */
 export const FEATURE_IDS = [
-  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure',
+  'gallery:slab-on-columns:walls', 'example:rc-beam-flexure', 'axisNamedLoads',
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
@@ -84,7 +84,7 @@ interface FeatureSnapshotFields {
   fiberSections?: Record<string, { materials?: Array<{ type?: string }> }>;
   supports?: Entries<Sup>;
   loads?: Array<{ type: string; data?: Record<string, unknown> }>;
-  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string }>;
+  loadCases?: Array<{ id: number; type?: string; spectral?: unknown; alternatives?: string; axisNamed?: boolean }>;
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
@@ -278,6 +278,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const axialMembers = new Set(elements.filter((e) => e.type === 'truss' || e.type === 'cable').map((e) => e.id));
   const cases = Array.isArray(s.loadCases) ? s.loadCases : [];
+  if (cases.some(c => c.axisNamed === true)) f.add('axisNamedLoads');
   if (cases.some((c) => c.alternatives?.startsWith('move:'))) f.add('movingLoads');
   if (s.includeSelfWeight || s.analysis?.selfWeight?.length) f.add('selfWeight');
   const caseType = new Map(cases.map((c) => [c.id, c.type]));

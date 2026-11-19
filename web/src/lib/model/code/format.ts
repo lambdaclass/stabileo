@@ -28,6 +28,7 @@
 
 import type { ModelSnapshot } from '../../store/history.svelte';
 import { COVERED_FIELDS, DERIVED_SUBFIELDS } from './coverage';
+import { globalAxes } from '../../features';
 import { DEFAULT_AXES, validChoice, type AxesChoice } from '../../axes/frame';
 import { FRAME_NOTE, frameLine, transformSnapshot } from './frame';
 
@@ -53,6 +54,7 @@ const NO_RELEASE = JSON.stringify({ my: false, mz: false, t: false });
 const isNoRelease = (r: unknown) => JSON.stringify(r) === NO_RELEASE;
 
 export function modelToCode(snap: ModelSnapshot, axes?: AxesChoice): string {
+  if (!globalAxes()) axes = undefined;
   const s = (axes ? transformSnapshot(snap as unknown as Record<string, any>, axes, 'toUser') : snap) as unknown as Record<string, any>;
   const out: string[] = [`${HEADER} ${CODE_VERSION}`];
   if (axes) out.push(frameLine(axes), FRAME_NOTE);
@@ -275,6 +277,7 @@ export function codeToModel(text: string): ParseResult {
       }
       case 'axes': { if (pos[0]) s.localAxisConvention = pos[0]; else err('the axis convention is missing'); return; }
       case 'frame': {
+        if (!globalAxes()) { err('unknown line "frame"'); return; }
         const c = { up: fields.up, right: fields.right, hand: fields.hand } as Partial<AxesChoice>;
         if (validChoice(c)) declared = c; else err('frame needs up, right and hand, e.g. frame up="+Z" right="+X" hand="right", with up and right on different axes');
         return;
@@ -428,5 +431,5 @@ export function codeToModel(text: string): ParseResult {
     soilProfile: Math.max(0, ...((s.geotechnical as { profiles?: Array<{ id: number }> } | undefined)?.profiles ?? []).map((p) => p.id)) + 1,
   };
   for (const k of Object.keys(s)) if (!COVERED_FIELDS.includes(k as never) && k !== 'nextId') delete s[k];
-  return { snapshot: transformSnapshot(s, declared, 'toModel') as Partial<ModelSnapshot>, errors: [] };
+  return { snapshot: (globalAxes() ? transformSnapshot(s, declared, 'toModel') : s) as Partial<ModelSnapshot>, errors: [] };
 }

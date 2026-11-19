@@ -1,8 +1,10 @@
 import { afterEach, beforeAll, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
+import SupportsTable from '../../tables/SupportsTable.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
 import { modelStore, uiStore } from '../../../lib/store';
+import { allChoices, makeFrame } from '../../../lib/axes/frame';
 import { axesStore } from '../../../lib/axes/axes.svelte';
 import { whatIf } from '../../../lib/store/whatif.svelte';
 import { initSolver } from '../../../lib/engine/wasm-solver';
@@ -12,7 +14,7 @@ import { renderMemoriaHtml } from '../../../lib/report/memoria/render';
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { whatIf.abandon(); axesStore.reset(); modelStore.clear(); });
 
-it.skip('known wrong result: #1986 Explore displays the global plane point load in the user vertical direction', async () => {
+it('known wrong result: #1986 Explore displays the global plane point load in the user vertical direction', async () => {
   uiStore.analysisMode = '2d';
   uiStore.unitSystem = 'SI';
   await modelStore.loadExample('cantilever');
@@ -22,32 +24,57 @@ it.skip('known wrong result: #1986 Explore displays the global plane point load 
   expect(render(WhatIf).body).toContain('P=-7');
 });
 
-it.skip('known wrong result: #1986 custom curve directions are printed in user component order', () => {
+it('known wrong result: #1986 custom curve directions are printed in user component order', () => {
   uiStore.analysisMode = 'pro';
   modelStore.clear();
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
   const members = createArc(a, { x: 2, y: 0, z: 2 }, b, 4);
   expect(members).toHaveLength(4);
   const arcId = modelStore.elements.get(members[0]!)!.arc!.id;
-  addCurveLoad({ arcId, caseId: 1, q: 5, dir: [1, 2, 3] });
+  addCurveLoad({ arcId, caseId: 1, q: 5, dir: [0.6, 0, 0.8] });
   uiStore.selectElements(members);
   axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
-  expect(render(Piece).body).toContain('(2.00, 3.00, -1.00)');
+  expect(render(Piece).body).toContain('(0.00, 0.80, -0.60)');
 });
 
-it.skip('known wrong result: #1986 storey shears use the axis names and signs of their columns', () => {
+it('known wrong result: #1986 storey shear magnitudes use the axis names of their columns', () => {
   axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
   const m = {
     project: { name: 'A', date: '2026-11-16', revision: '' }, codes: [], scope: [],
     hypotheses: { analysis: [], stiffness: [], diaphragms: [], shells: [], supports: [] },
     actions: { cases: [], combinations: [] },
-    global: { storeyShear: [{ level: 'L1', vx: 6, vy: 8, kx: 10, ky: 12, soft: false }] },
+    global: { storeyShear: [{ level: 'L1', vxMagnitude: 6, vyMagnitude: 8, kx: 10, ky: 12, soft: false }] },
     elements: [], notices: { automatic: [], manual: [] },
     quantities: { byLevel: [], byType: [], rebar: [], steel: [], connections: [] },
   };
-  const html = renderMemoriaHtml(m as never, new Set(['global']), { tr: (k) => k, msg: (m) => m.key, fmt: (v, d) => v.toFixed(d) });
+  const html = renderMemoriaHtml(m as never, new Set(['global', 'global.storeyShear']), { tr: (k) => k, msg: (m) => m.key, fmt: (v, d) => v.toFixed(d) });
   expect(html).toContain('Vz (kN)');
   expect(html).toContain('Vx (kN)');
   expect(html).toContain('Kz (kN/m)');
-  expect(html).toContain('<td>-6.0</td>');
+  expect(html).toContain('<td>6.0</td><td>8.0</td>');
+});
+
+it('known wrong result: #2259 Explore maps every spatial roller option to its selected user axis', async () => {
+  uiStore.analysisMode = 'pro';
+  await modelStore.loadExample('3d-portal-frame');
+  whatIf.open();
+  for (const c of allChoices()) {
+    axesStore.choice = c;
+    const f = makeFrame(c);
+    const html = render(WhatIf).body;
+    for (const [index, axis] of ['X', 'Y', 'Z'].entries()) {
+      const shown = 'XYZ'[f.rows.findIndex(row => row[index] !== 0)];
+      expect(html).toMatch(new RegExp(`<option value="roller${axis}"[^>]*>Roller ${shown}</option>`));
+    }
+  }
+});
+
+it('the Basic plane support table labels translation and rotation stiffness by their actual DOFs', () => {
+  uiStore.analysisMode = '2d';
+  const node = modelStore.addNode(0, 0);
+  modelStore.addSupport(node, 'spring', { kx: 13, ky: 17, kz: 19 });
+  axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
+  const html = render(SupportsTable).body.replace(/<!--[\s\S]*?-->/g, '');
+  const labels = [...html.matchAll(/class="load-field[^"]*">([^<]+)/g)].map(match => match[1]);
+  expect(labels).toEqual(['kz', 'ky', 'krx']);
 });

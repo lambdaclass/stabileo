@@ -27,8 +27,7 @@
 //
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
-import { along } from '../axes/display';
-import { axesStore } from '../axes/axes.svelte';
+import { userComponent } from '../axes/display';
 import * as THREE from 'three';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
 import {
@@ -264,7 +263,7 @@ export class LoadArrowsBatched {
       const len = this.len(f.val, maxForce);
       const farEnd = origin.clone().addScaledVector(dir, -len);
       this.arrow(dir, farEnd, len, forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-      this.label(this.format.force(along(f.k).sign * f.val), labelHex, 28,
+      this.label(this.format.force(userComponent(f.k, f.val, 'vector')), labelHex, 28,
         farEnd.clone().addScaledVector(dir, -0.15));
     }
 
@@ -280,7 +279,7 @@ export class LoadArrowsBatched {
       } else {
         this.curvedMomentArrow(origin, m.axis, m.val, COLORS.moment);
       }
-      this.label(this.format.moment(axesStore.frame.det * along(m.k).sign * m.val), '#ffaa44', 24,
+      this.label(this.format.moment(userComponent(m.k, m.val, 'pseudovector')), '#ffaa44', 24,
         origin.clone().addScaledVector(m.axis, 0.35));
     }
   }

@@ -41,6 +41,7 @@ import { caseNameShown, combinationNameShown } from '../axes/case-names';
 function workbookModel(): WorkbookModel {
   const m = modelStore.model;
   return {
+    analysisMode: uiStore.analysisMode,
     nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
     loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
     quads: modelStore.quads, plates: modelStore.plates, constraints: m.constraints,

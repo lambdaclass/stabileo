@@ -17,6 +17,7 @@
  * recover from.
  */
 
+import { globalAxes } from '../features';
 import { modelStore, uiStore } from '../store';
 import { t } from '../i18n';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
@@ -42,7 +43,8 @@ export interface ImportOutcome extends ParseResult {
 export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcome {
   const parsed = parseWorkbook(sheets);
 
-  if (parsed.model.nodes.length === 0) {
+  const refused = parsed.problems.some(problem => ['Axes', 'LoadData', 'SelfWeight'].includes(problem.sheet));
+  if (refused || parsed.model.nodes.length === 0) {
     return { ...parsed, loaded: { nodes: 0, elements: 0, sections: 0 } };
   }
   try {
@@ -56,9 +58,10 @@ export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcom
   modelStore.batch(() => {
     modelStore.clear();
     modelStore.bulkMutate(() => {
-      loadFixture(parsed.model as never, api as never);
+      loadFixture(parsed.model as never, api as never, { keepWorkbookLoadFields: globalAxes() });
     });
   });
+  if (parsed.model.analysis?.standaloneSelfWeight === 'gravity') uiStore.includeSelfWeight = true;
   modelStore.refreshCanonicalSections();
   /*
    * A flat workbook (X and Z, Y blank) is a plane frame, stored the way the app stores one. In

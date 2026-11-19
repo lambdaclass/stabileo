@@ -1,3 +1,9 @@
+import { globalAxes } from '../features';
+import { readLoadData } from './load-data';
+import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
+const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
+const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
+import { quantityTransform } from '../axes/quantity-transform';
 /**
  * A workbook becomes a `JSONModel`, and nothing else.
  *
@@ -32,11 +38,11 @@ import type { JSONModel } from '../templates/load-fixture';
 import { defaultLoadCases } from '../model/default-loads';
 import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
-import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
+import { SHEETS, coordinateColumns, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
-import { DEFAULT_AXES, makeFrame, pseudoToModel, relabelAxesWith, toModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, relabelAxesWith, supportTypeToModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
 import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
@@ -80,6 +86,7 @@ const UNIT_FACTORS: Record<string, Record<string, number>> = {
   'mpa': { mpa: 1, 'n/mm2': 1, gpa: 1000, kpa: 0.001, 'kn/m2': 0.001, pa: 1e-6, 'kgf/cm2': 0.0980665 },
   // Weight per volume. A mass density (7850 kg/m³) is the same number of kgf.
   'kn/m3': { 'kn/m3': 1, 'n/m3': 0.001, 'kgf/m3': 0.00980665, 'kg/m3': 0.00980665, 'tf/m3': 9.80665 },
+  rad: { rad: 1, '°': Math.PI / 180, deg: Math.PI / 180 },
   '°': { '°': 1, deg: 1, grados: 1, grado: 1, graus: 1, grau: 1, degrees: 1, rad: 180 / Math.PI },
   // A temperature difference: a kelvin and a degree Celsius are the same step.
   '°c': { '°c': 1, c: 1, k: 1 },
@@ -202,7 +209,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[]):
   const header = aoa[0] ?? [];
   const keyAt = header.map(keyFromHeader);
 
-  const spec = sheetSpec(sheetName);
+  const spec = sheetSpec(sheetName, globalAxes());
   /** Per column: the factor to the format's unit, or null to leave the column out. */
   const factorAt: Array<number | null> = keyAt.map(() => 1);
   if (spec) {
@@ -383,30 +390,33 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
 
 function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean): void {
   if (flat) {
-    const h = userAxisAlong(f, 0).sign, v = userAxisAlong(f, 2).sign;
-    if (s.dx !== undefined) s.dx = h * s.dx + 0;
-    for (const k of ['dy', 'dz']) if (s[k] !== undefined) s[k] = v * s[k]! + 0;
-    if (s.angle !== undefined) s.angle = h * v * s.angle + 0;
+    const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2), normal = userAxisAlong(f, 1);
+    const src = { ...s };
+    for (const k of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz']) delete s[k];
+    for (const [target, source] of [['kx', `k${h.name.toLowerCase()}`], ['ky', `k${v.name.toLowerCase()}`], ['kz', `kr${normal.name.toLowerCase()}`]]) {
+      if (src[source!] !== undefined) s[target!] = src[source!]!;
+    }
+    if (src[`d${h.name.toLowerCase()}`] !== undefined) s.dx = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: src[`d${h.name.toLowerCase()}`]! }) + 0;
+    if (src[`d${v.name.toLowerCase()}`] !== undefined) s.dz = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: src[`d${v.name.toLowerCase()}`]! }) + 0;
+    const rotation = src[`dr${normal.name.toLowerCase()}`];
+    if (rotation !== undefined) s.dry = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: rotation }) + 0;
+    if (s.angle !== undefined) s.angle = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: s.angle }) + 0;
     return;
   }
   const permute = (keys: readonly [string, string, string]) => {
     const src = keys.map((k) => s[k]);
     if (src.every((x) => x === undefined)) return;
-    f.rows.forEach((row, i) => {
-      const m = row.findIndex((c) => c !== 0);
-      if (src[i] === undefined) delete s[keys[m]!]; else s[keys[m]!] = src[i]!;
-    });
+    const out = quantityTransform(f, 'toModel').permute(src as [number | undefined, number | undefined, number | undefined]);
+    keys.forEach((key, k) => { if (out[k] === undefined) delete s[key]; else s[key] = out[k]!; });
   };
   permute(['kx', 'ky', 'kz']);
   permute(['krx', 'kry', 'krz']);
-  const d = ['dx', 'dy', 'dz'] as const;
-  const had = d.map((k) => s[k] !== undefined);
-  if (!had.some(Boolean)) return;
-  const out = toModel(f, [s.dx ?? 0, s.dy ?? 0, s.dz ?? 0]);
-  f.rows.forEach((row, i) => {
-    const m = row.findIndex((c) => c !== 0);
-    if (had[i] || out[m] !== 0) s[d[m]!] = out[m]! + 0; else delete s[d[m]!];
-  });
+  const t = quantityTransform(f, 'toModel');
+  for (const [kind, keys] of [['vector', ['dx', 'dy', 'dz']], ['pseudovector', ['drx', 'dry', 'drz']]] as const) {
+    const had = t.permute([s[keys[0]] !== undefined, s[keys[1]] !== undefined, s[keys[2]] !== undefined]);
+    const out = t.triple({ kind, values: [s[keys[0]] ?? 0, s[keys[1]] ?? 0, s[keys[2]] ?? 0] });
+    keys.forEach((key, k) => { if (had[k]) s[key] = out[k]! + 0; else delete s[key]; });
+  }
 }
 
 function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
@@ -420,18 +430,7 @@ function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame {
 }
 
 function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['region'] {
-  if (region.kind !== 'box') return region;
-  const out: { kind: 'box'; x?: [number, number]; y?: [number, number]; z?: [number, number] } = { kind: 'box' };
-  const keys = ['x', 'y', 'z'] as const;
-  f.rows.forEach((row, i) => {
-    const range = region[keys[i]!];
-    if (!range) return;
-    const m = row.findIndex((c) => c !== 0);
-    const sign = row[m]!;
-    const a = sign * range[0] + 0, b = sign * range[1] + 0;
-    out[keys[m]!] = a <= b ? [a, b] : [b, a];
-  });
-  return out;
+  return quantityTransform(f, 'toModel').box(region);
 }
 
 /**
@@ -446,9 +445,11 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const model = EMPTY_MODEL();
   const counts: Record<string, number> = {};
 
+  const framedImport = globalAxes();
   const defined = new Set(SHEETS.map((s) => s.name.toLowerCase()));
+  if (framedImport) for (const name of [AXES_SHEET.toLowerCase(), 'selfweight', 'loaddata']) defined.add(name);
   const unknownSheets = Object.keys(sheets).filter(
-    (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones' && n.trim().toLowerCase() !== AXES_SHEET.toLowerCase(),
+    (n) => !defined.has(n.trim().toLowerCase()) && n.trim().toLowerCase() !== 'instrucciones',
   );
 
   /** Find a sheet by the format's name, whatever case the file used. */
@@ -474,9 +475,13 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * every row, with missing coordinates filled as zero. A row with neither Y
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
-  const frame = readAxes(grab(AXES_SHEET), problems);
-  const col = (modelAxis: number): string => userAxisAlong(frame, modelAxis).name.toLowerCase();
-  const along = col(0), depth = col(1), height = col(2);
+  const authoredFrame = readAxes(grab(AXES_SHEET), problems);
+  if (!framedImport && !authoredFrame.identity) {
+    problems.push({ sheet: AXES_SHEET, row: 2, message: t('xls.err.axesDisabled') });
+    return { model, problems, unknownSheets, counts };
+  }
+  const frame = authoredFrame;
+  const { along, depth, height } = coordinateColumns(frame);
   const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
   const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
   const firstNode = idGuard('Nodes', problems);
@@ -498,7 +503,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       continue;
     }
     if (!firstNode(id, row)) continue;
-    const [x, y, z] = toModel(frame, [cell('x') ?? 0, cell('y') ?? 0, cell('z') ?? 0]).map((v) => v + 0);
+    const [x, y, z] = modelVector(frame, [cell('x') ?? 0, cell('y') ?? 0, cell('z') ?? 0]).map((v) => v + 0);
     // Written by `safeText`: a leading "-" went out as "−" and comes back as it was.
     const nodeName = unguardText(str(row.cells.name));
     model.nodes.push({
@@ -704,12 +709,13 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      * in `type` would have reached the solver as a silent free node.
      */
     const extra: Record<string, number> = {};
-    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) {
+    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', ...(framedImport ? ['drx', 'dry', 'drz'] : [])]) {
       const v = num(row.cells[k.toLowerCase()]);
       if (v !== null) extra[k] = v;
     }
     if (!frame.identity) supportToModel(frame, extra, flatFromZ);
-    model.supports.push({ id: supportId++, nodeId, type: canonical, ...extra });
+    const modelType = frame.identity ? canonical : supportTypeToModel(frame, canonical);
+    model.supports.push({ id: supportId++, nodeId, type: modelType, ...extra });
   }
   counts.Supports = model.supports.length;
 
@@ -919,6 +925,40 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   if (massSource) model.massSource = massSource;
   counts.MassSource = massSource ? 1 : 0;
 
+  const weightRows = framedImport ? grab('SelfWeight') : [];
+  if (weightRows.length) {
+    const selfWeight: NonNullable<JSONModel['analysis']>['selfWeight'] = [];
+    const memberIds = new Set(model.elements.map(e => e.id));
+    let standaloneSelfWeight: 'gravity' | undefined;
+    for (const row of readSheet(weightRows, 'SelfWeight', problems)) {
+      const invalid = (field: string) => problems.push({ sheet: 'SelfWeight', row: row.n, column: field, message: tp('xls.err.selfWeightRule', { field }) });
+      const source = str(row.cells.source), scope = str(row.cells.scope);
+      if (source !== 'case' && source !== 'single') { invalid('source'); continue; }
+      if (source === 'single' && str(row.cells.case) !== '') { invalid('case'); continue; }
+      const caseId = source === 'single' ? 0 : reqNum(row, 'case', 'SelfWeight', problems);
+      const factor = reqNum(row, 'factor', 'SelfWeight', problems);
+      if (caseId === null || factor === null) continue;
+      if (source === 'case' && !(caseIds.size ? caseIds : DEFAULT_CASE_IDS).has(caseId)) { invalid('case'); continue; }
+      const dir = str(row.cells.direction);
+      if (!['X', 'Y', 'Z'].includes(dir)) { invalid('direction'); continue; }
+      if (!['all', 'members'].includes(scope) || str(row.cells.group) !== '') { invalid('scope'); continue; }
+      const membersText = str(row.cells.members);
+      const elements = membersText === '' ? [] : membersText.split(/\s+/).map(Number);
+      if (scope === 'members' ? !elements.length || elements.some(id => !memberIds.has(id)) : elements.length > 0) { invalid('members'); continue; }
+      const userIndex = 'XYZ'.indexOf(dir);
+      const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
+      if (source === 'single') {
+        if (scope !== 'all' || mapped.name !== GRAVITY_SELF_WEIGHT.direction || mapped.value !== GRAVITY_SELF_WEIGHT.factor || standaloneSelfWeight !== undefined) { invalid('source'); continue; }
+        standaloneSelfWeight = 'gravity';
+        continue;
+      }
+      selfWeight.push({ caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) });
+    }
+    model.analysis = { ...model.analysis, selfWeight, ...(standaloneSelfWeight ? { standaloneSelfWeight } : {}) };
+    counts.SelfWeight = selfWeight.length + (standaloneSelfWeight ? 1 : 0);
+  }
+
+
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));
   let loadId = 1;
@@ -985,16 +1025,16 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     const data: Record<string, unknown> = { id: loadId++, caseId };
     if (wantsNode && !frame.identity) {
       data.nodeId = target;
-      const [fx, fy, fz] = toModel(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
+      const [fx, fy, fz] = modelVector(frame, [n('fx'), n('fy'), n('fz')]).map((v) => v + 0);
       if (type === 'nodal3d') {
-        const [mx, my, mz] = pseudoToModel(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
+        const [mx, my, mz] = modelRotation(frame, [n('mx'), n('my'), n('mz')]).map((v) => v + 0);
         Object.assign(data, { fx, fy, fz, mx, my, mz });
       } else {
         const h = userAxisAlong(frame, 0), v = userAxisAlong(frame, 2), nrm = userAxisAlong(frame, 1);
-        const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? num(row.cells[`f${nrm.name.toLowerCase()}`]) ?? 0;
+        const vertical = num(row.cells[`f${v.name.toLowerCase()}`]) ?? 0;
         Object.assign(data, {
-          fx: h.sign * n(`f${h.name.toLowerCase()}`) + 0, fy: 0, fz: v.sign * vertical + 0,
-          my: h.sign * v.sign * n(`m${nrm.name.toLowerCase()}`) + 0,
+          fx: quantityTransform(frame).plane({ kind: 'vector', axis: 'x', value: n(`f${h.name.toLowerCase()}`) }) + 0, fy: 0, fz: quantityTransform(frame).plane({ kind: 'vector', axis: 'z', value: vertical }) + 0,
+          my: quantityTransform(frame).plane({ kind: 'pseudovector', axis: 'rot', value: n(`m${nrm.name.toLowerCase()}`) }) + 0,
         });
       }
     } else if (wantsNode) {
@@ -1013,6 +1053,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       }
     } else {
       data.elementId = target;
+      const angle = framedImport ? num(row.cells.angle) : null;
+      const plane = quantityTransform(frame);
+      const transverse = (value: number) => plane.plane({ kind: 'vector', axis: 'z', value }) + 0;
+      const rotation = (value: number) => plane.plane({ kind: 'pseudovector', axis: 'rot', value }) + 0;
       if (type === 'distributed') {
         Object.assign(data, { qI: n('qi'), qJ: n('qj') });
         /*
@@ -1022,12 +1066,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
          * no sign of which happened.
          */
         const dir = str(row.cells.dir).toLowerCase();
+        if (angle !== null) data.angle = dir === 'global' ? rotation(angle) : angle;
         if (dir === 'global') {
           data.isGlobal = true;
           if (!frame.identity) {
-            const sv = userAxisAlong(frame, 2).sign;
-            if (typeof data.qI === 'number') data.qI = sv * data.qI + 0;
-            if (typeof data.qJ === 'number') data.qJ = sv * data.qJ + 0;
+            data.qI = transverse(n('qi'));
+            data.qJ = transverse(n('qj'));
           }
         }
         else if (dir !== '' && dir !== 'local') {
@@ -1053,22 +1097,47 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
           continue;
         }
         Object.assign(data, { qYI: n('qi'), qYJ: n('qj'), qZI: n('qzi'), qZJ: n('qzj') });
+        if (framedImport) {
+          if (n('qxi') !== 0) data.qXI = n('qxi');
+          if (n('qxj') !== 0) data.qXJ = n('qxj');
+        }
         if (dir === 'global' || dir === 'projected') {
           data.frame = dir;
-          if (!frame.identity) {
+          if (framedImport) {
             for (const end of ['I', 'J'] as const) {
-              const [qx, qy, qz] = toModel(frame, [0, data[`qY${end}`] as number, data[`qZ${end}`] as number]).map((v) => v + 0);
+              delete data[`qX${end}`];
+              const [qx, qy, qz] = modelVector(frame, [n(`qx${end.toLowerCase()}`), data[`qY${end}`] as number, data[`qZ${end}`] as number]).map((v) => v + 0);
               Object.assign(data, { [`qY${end}`]: qy, [`qZ${end}`]: qz, ...(qx !== 0 ? { [`qX${end}`]: qx } : {}) });
             }
           }
         }
       } else if (type === 'pointOnElement') {
-        Object.assign(data, { p: n('p'), a: n('a') });
+        const dir = framedImport ? str(row.cells.dir).toLowerCase() : '';
+        if (dir && dir !== 'local' && dir !== 'global') {
+          problems.push({ sheet: 'Loads', row: row.n, column: 'dir', message: tp('xls.err.dirUnknown', { v: dir, list: 'global, local' }) });
+          continue;
+        }
+        const global = dir === 'global';
+        const px = framedImport ? num(row.cells.px) : null;
+        const my = framedImport ? num(row.cells[`m${userAxisAlong(frame, 1).name.toLowerCase()}`]) : null;
+        Object.assign(data, {
+          p: global ? transverse(n('p')) : n('p'), a: n('a'),
+          ...(global ? { isGlobal: true } : {}),
+          ...(angle !== null ? { angle: global ? rotation(angle) : angle } : {}),
+          ...(px !== null ? { px } : {}),
+          ...(my !== null ? { my: rotation(my) } : {}),
+        });
       } else if (type === 'thermal') {
         Object.assign(data, { dtUniform: n('dt'), dtGradient: n('dtg') });
       }
     }
     model.loads.push({ type, data });
+  }
+  if (framedImport && grab('LoadData').length > 1) {
+    if (grab('Loads').length > 1) {
+      problems.push({ sheet: 'LoadData', row: 1, message: 'Use either Loads or LoadData, not both.' });
+      model.loads = [];
+    } else model.loads = readLoadData(grab('LoadData'), frame, flatFromZ ? '2d' : 'pro', model, problems, unitFactor);
   }
   counts.Loads = model.loads.length;
 

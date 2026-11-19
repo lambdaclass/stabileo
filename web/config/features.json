@@ -3,18 +3,21 @@
     "accounts": false,
     "research": true,
     "tools": true,
-    "diagramGame": false
+    "diagramGame": false,
+    "globalAxes": false
   },
   "development": {
     "accounts": true,
     "research": true,
     "tools": true,
-    "diagramGame": true
+    "diagramGame": true,
+    "globalAxes": true
   },
   "test": {
     "accounts": true,
     "research": true,
     "tools": true,
-    "diagramGame": true
+    "diagramGame": true,
+    "globalAxes": true
   }
 }

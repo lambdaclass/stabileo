@@ -16,7 +16,7 @@
   import UnitInput from '../UnitInput.svelte';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import { keepTypedNumber } from '../../lib/utils/unit-input';
-  const qAxis = (k: 1 | 2) => (uiStore.distLoadFrame3D === 'global' ? axisName(k) : k === 1 ? 'Y' : 'Z');
+  const qAxis = (k: 1 | 2) => (uiStore.distLoadFrame3D === 'global' || uiStore.distLoadFrame3D === 'projected' ? axisName(k) : k === 1 ? 'Y' : 'Z');
 
   /*
    * Values are typed in the unit system chosen under Settings and kept in SI
@@ -221,6 +221,8 @@
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.distLoadFrame3D === 'global'} onclick={() => (uiStore.distLoadFrame3D = 'global')}
       title={t('float.distFrameGlobal3D')} data-testid="dist-frame-global">{t('float.frameGlobal')}</button>
+    <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.distLoadFrame3D === 'projected'} onclick={() => (uiStore.distLoadFrame3D = 'projected')}
+      data-testid="dist-frame-projected">{t('loads.frame.projected')}</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.distLoadFrame3D === 'local'} onclick={() => (uiStore.distLoadFrame3D = 'local')}
       title={t('float.distFrameLocal3D')} data-testid="dist-frame-local">{t('float.frameLocal')}</button>
     {@render stretch()}
