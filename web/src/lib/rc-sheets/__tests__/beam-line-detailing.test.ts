@@ -273,7 +273,20 @@ describe('the course notes and CIRSOC 201-2025 on a line', () => {
     const req = Math.max(...rows.map((r) => r.req.bottom));
     const asMin = CIRSOC_LINE.minBottom(bctx, 0.3, 0.75 - 0.025 - 0.008 - 0.01);
     expect(line.adopted.bottom.count).toBeLessThanOrEqual(4);
-    expect(line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2).toBeGreaterThanOrEqual(Math.min(asMin, (4 / 3) * req) - 1e-9);
+    const area = line.adopted.bottom.count * Math.PI * (line.adopted.bottom.dia / 20) ** 2;
+    const need = Math.min(asMin, req);
+    expect(area).toBeGreaterThanOrEqual(need - 1e-9);
+    expect(area - Math.PI * (line.adopted.bottom.dia / 20) ** 2).toBeLessThan(Math.max(need, 2 * Math.PI * (line.adopted.bottom.dia / 20) ** 2));
+  });
+
+  it('takes the rows\' bottom requirement as it is, 4/3·As included once, where 4/3·As is under As,min', () => {
+    const { line, rows } = lineOf([{ L: 6, h: 1 }, { L: 6, h: 1 }, { L: 6, h: 1 }], {}, undefined, undefined, 10);
+    const req = Math.max(...rows.map((r) => r.req.bottom));
+    expect(req).toBeLessThan(CIRSOC_LINE.minBottom(bctx, 0.3, 1 - 0.025 - 0.008 - 0.01) - 1e-6);
+    const bar = Math.PI * (line.adopted.bottom.dia / 20) ** 2;
+    const area = line.adopted.bottom.count * bar;
+    expect(area).toBeGreaterThanOrEqual(req - 1e-9);
+    expect(area).toBeLessThan(Math.max(req, 2 * bar) + bar);
   });
 
   it('carries a third of the span steel and 0.75·Vu/fy into a simple support, a quarter into a column', () => {

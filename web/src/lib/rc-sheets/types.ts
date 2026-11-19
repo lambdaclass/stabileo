@@ -133,7 +133,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 23;
+export const RC_SHEETS_LOGIC = 24;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

@@ -335,7 +335,8 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     return of(near.find(lays) ?? dias.find(lays) ?? dias[dias.length - 1] ?? least);
   };
   const propose = (floor: { top: number; bottom: number }): LineAdopted => {
-    const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), (4 / 3) * Math.max(...sorted.map((r) => r.req.bottom)));
+    // The rows' bottom requirement already includes §9.6.1.3's 4/3·As.
+    const minBottom = Math.min(Math.max(...spans.map((s) => code.minBottom(c, s.b, s.d))), Math.max(...sorted.map((r) => r.req.bottom)));
     const seis = c.seismic ? { top: 0.25 * faceNeg, bottom: 0.5 * faceNeg } : { top: 0, bottom: 0 };
     const comp = sorted.reduce((m, r) => ({ top: Math.max(m.top, r.req.compression?.top ?? 0), bottom: Math.max(m.bottom, r.req.compression?.bottom ?? 0) }), { top: 0, bottom: 0 });
     const aCb = Math.max(minBottom, bottomRunNeed(), seis.bottom, floor.bottom, comp.bottom);
