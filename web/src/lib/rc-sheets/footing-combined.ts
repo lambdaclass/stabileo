@@ -3,7 +3,8 @@ import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
 import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, beyond, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
-import { MIN_D, dowelLap, dowelReach, leverOf, layersOf, type FootingDowelReading, type FootingRowCode } from './footing-design';
+import { needsOf } from './footing-needs';
+import { MIN_D, footingSpacing, dowelLap, dowelReach, leverOf, layersOf, type FootingDowelReading, type FootingRowCode } from './footing-design';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingDowels, FootingLayers, FootingMesh } from './footing-types';
 
 const EDITION = '2025' as const;
@@ -219,7 +220,7 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
   }));
   return {
     axis, plan, lever, layers, cols, bearing, along, across: acrossDir, top, bands, punching: punching.filter(Boolean), bearingStrength: bearingStrengths, dowels,
-    sMax: prov.sTwoWay, combos, closure: line.closure,
+    sMax: footingSpacing(c, a.h).s, combos, closure: line.closure,
   };
 }
 
@@ -264,7 +265,7 @@ export function proposeCombinedDowels(d: FootingDemand, c: FootingContext): Pick
  * Then as thick as shear, punching under each column and the dowels need, and as long and wide
  * as its bars need to anchor past the columns.
  */
-export function proposeCombined(d: FootingDemand, c: FootingContext, code: FootingRowCode): { adopted: FootingAdopted; reached: boolean } | null {
+export function proposeCombined(d: FootingDemand, c: FootingContext, code: FootingRowCode): { adopted: FootingAdopted; reached: boolean; needs?: number } | null {
   const o = d.carried;
   if (!o || !d.column || !o.column || !d.soil || !d.service || !o.service) return null;
   const axis = combinedAxis(d);
@@ -320,7 +321,8 @@ export function proposeCombined(d: FootingDemand, c: FootingContext, code: Footi
     if (W > MAX_PLAN || S > MAX_PLAN || h > MAX_H) break;
   }
   const last = sizeOf();
-  return { adopted: { ...last, ...(code.bearingOnly ? { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : proposeBars(d, c, last, code)) }, reached: false };
+  const sb = combinedBearing(d, last);
+  return { adopted: { ...last, ...(code.bearingOnly ? { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : proposeBars(d, c, last, code)) }, reached: false, ...(sb && !bearingHolds(sb, d.soil.allowable, k) ? needsOf(sb, k) : {}) };
 }
 
 export { holdsThickness as combinedThicknessHolds };

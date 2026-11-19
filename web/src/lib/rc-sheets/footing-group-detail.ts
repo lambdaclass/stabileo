@@ -1,4 +1,6 @@
-import { hookedStraight, type BendRules } from './shape';
+import { crossTie, hookedStraight, type BarShape, type BendRules } from './shape';
+import { cageLegs, dropRect } from './footing-punching';
+import type { FootingPlan } from './footing-mechanics';
 import { footingDetail, type FootingDetail, type FootingLayerBars } from './footing-detail';
 import { meshSpan } from './footing-mesh';
 import { extraPositions } from './footing-group';
@@ -13,7 +15,13 @@ export interface GroupLayerBars extends FootingLayerBars {
 
 export interface GroupDowels { key: string; name: string; rowKey?: string; rect: { x0: number; x1: number; y0: number; y1: number }; dowels: NonNullable<FootingDetail['dowels']> }
 
-export interface GroupDetail { layers: GroupLayerBars[]; dowels: GroupDowels[] }
+/** A column's stirrups for punching as placed: one leg as bent, its foot `z0` over the underside, and every leg in plan with the way its hooks turn, toward the column. */
+export interface GroupCage { key: string; name: string; dia: number; shape: BarShape; z0: number; legs: Array<{ x: number; y: number; toward: [number, number] }> }
+
+/** A drop under a column as placed: its plan, m from the footing's centroid, its depth under the underside and its own mesh, each layer's `z` under the underside negative. */
+export interface GroupDrop { key: string; name: string; rect: { x0: number; x1: number; y0: number; y1: number }; hd: number; layers: GroupLayerBars[] }
+
+export interface GroupDetail { layers: GroupLayerBars[]; dowels: GroupDowels[]; cages: GroupCage[]; drops: GroupDrop[] }
 
 type Row = Pick<FootingRow, 'adopted' | 'cover' | 'layers' | 'demand' | 'group' | 'h'>;
 
@@ -60,7 +68,33 @@ export function groupDetail(r: Row, R: BendRules): GroupDetail {
     const det = footingDetail({ ...m.row, layers: r.layers, x: null, y: null }, R);
     if (det.dowels && det.column) dowels.push({ key: m.key, name: m.name, ...(m.rowKey ? { rowKey: m.rowKey } : {}), rect: det.column, dowels: det.dowels });
   }
-  return { layers, dowels };
+  const cages: GroupCage[] = [], drops: GroupDrop[] = [];
+  for (const k of r.group?.columns ?? []) {
+    const fix = a.punching?.[k.key];
+    if (!fix) continue;
+    const plan: FootingPlan = { B: a.B, L: a.L, xc: k.x, yc: k.y, b: k.b, h: k.h };
+    if (fix.cage) {
+      const dia = fix.cage.dia, db = dia / 1000, len = a.h - 2 * c - db;
+      const shape = crossTie(len, dia, R.mandrel(dia, 'transverse'), [135, 135], [R.extension(dia, 135, 'transverse'), R.extension(dia, 135, 'transverse')]);
+      cages.push({ key: k.key, name: k.name, dia, shape, z0: c + db / 2, legs: cageLegs(plan, r.layers.d, c, fix.cage).flat() });
+    }
+    if (fix.drop) {
+      const rect = dropRect(plan, fix.drop), hd = fix.drop.hd;
+      const own: GroupLayerBars[] = [];
+      for (const [dir, m] of [['x', a.x], ['y', a.y]] as const) {
+        if (!(m.dia > 0) || !(m.spacing > 0)) continue;
+        const db = m.dia / 1000, len = (dir === 'x' ? rect.x1 - rect.x0 : rect.y1 - rect.y0) - 2 * c;
+        if (!(len > 0)) continue;
+        const shape = hookedStraight(0, len, 0, m.dia, R.mandrel(m.dia, 'longitudinal'), [true, true], 1, R.extension(m.dia, 90, 'longitudinal'));
+        const across = { B: rect.x1 - rect.x0, L: rect.y1 - rect.y0, ex: 0, ey: 0 }, mid = dir === 'x' ? (rect.y0 + rect.y1) / 2 : (rect.x0 + rect.x1) / 2;
+        const span = meshSpan(dir, across, { dia: m.dia, spacing: m.spacing }, c);
+        const from = (dir === 'x' ? rect.x0 : rect.y0) + c;
+        own.push({ dir, dia: m.dia, z: -hd + c + (r.layers.lower === dir ? db / 2 : lowerDia + db / 2), from, to: from + len, hooked: true, ends: [true, true], shape, face: 'bottom', set: `drop:${k.key}:${dir}`, positions: span.positions.map((p) => p + mid), inBand: 0 });
+      }
+      drops.push({ key: k.key, name: k.name, rect, hd, layers: own });
+    }
+  }
+  return { layers, dowels, cages, drops };
 }
 
 /** Each column's or core's dowels on a strip or mat as an isolated footing of the group's plan would take them, centred on it: what `dowelPlaces` lays out one by one. */

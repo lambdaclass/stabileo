@@ -27,6 +27,8 @@ interface Stamp {
   design: string;
   /** What the sheets set row by row, and what only the footings read (their layout, position, sizing, property lines, founding level and presumed soil): the rows follow it at once. */
   adopted: string;
+  /** The part of `adopted` only the footings read: a change there designs the four layouts again, in steps with the progress card. */
+  footings: string;
   locale: string;
   foundation: string;
 }
@@ -45,7 +47,8 @@ function stampNow(): Stamp {
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa }), locale: i18n.locale, foundation: foundationStamp(),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa }),
+    footings: JSON.stringify({ footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }
 
@@ -116,17 +119,18 @@ export function clearSheets(): void {
  * component that shows rows is created.
  */
 export function followSheetEdits(): void {
-  $effect(refreshSheetEdits);
+  $effect(() => { void refreshSheetEdits(); });
 }
 
-/** The step `followSheetEdits` takes on every change it reads. */
-export function refreshSheetEdits(): void {
+/** The step `followSheetEdits` takes on every change it reads; a change only the footings read is designed in steps, the promise settling when it is. */
+export function refreshSheetEdits(): Promise<void> | void {
   // No results (a project opened, a model cleared): the rows were another model's.
   if (!resultsStore.results3D) { if (sheetsRun.rows && !sheetsRun.progress) clearSheets(); return; }
   const s = stampNow();
   const was = sheetsRun.stamp;
   if (!was || !sheetsRun.rows || sheetsRun.progress || !sameInputs(was, s)) return;
   if (was.adopted === s.adopted && was.locale === s.locale) return;
+  if (was.footings !== s.footings) return designSheets();
   sheetsRun.rows = buildSheetRows(makeFmt(decimalFor(s.locale)));
   sheetsRun.stamp = s;
 }

@@ -1,10 +1,12 @@
 import { slabProvisions } from '../engine/codes/argentina/losas';
 import { barArea } from './bars';
 import { bearingHolds } from './footing-mechanics';
+import { needsOf } from './footing-needs';
+import { designPunchingFix } from './footing-punching';
 import { proposeLayer } from './footing-mesh';
 import { MIN_D, type FootingRowCode } from './footing-design';
-import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers } from './footing-group';
-import type { FootingAdopted, FootingContext, FootingDowels, FootingGroup, FootingMesh, GroupExtra } from './footing-types';
+import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers, type GroupAnalysis } from './footing-group';
+import type { FootingAdopted, FootingContext, FootingDowels, FootingGroup, FootingMesh, GroupExtra, PunchingFix } from './footing-types';
 
 const STEP = 0.1, STEP_H = 0.05, MAX_PLAN = 60, MAX_H = 2.5;
 /** Past an outer column's axis a free edge runs at least this far, and this far past its face, m. */
@@ -90,10 +92,13 @@ interface Extent { lo: number; hi: number; heldLo: boolean; heldHi: boolean }
  * A strip or a mat for its columns: every edge past the outer columns' faces, centred on the
  * resultant of their service loads where its edges are free (GA §13.1), at a column's outer face
  * where that column stands at a property line (GA §13.3). A strip is as wide across as the soil
- * needs; a mat grows on its free edges. Then as thick as the shear in its strips, punching at
- * every column and the dowels need.
+ * needs; a mat grows on its free edges. Then as thick as the shear in its strips and bands,
+ * d ≥ 150 mm and the dowels need; punching the concrete alone does not carry is taken at each
+ * column by stirrups, else a drop under it, and only where neither does by a thicker base, while
+ * the soil holds it. Where the soil does not at the plan the lines allow, the base is designed
+ * through all the same and `needs` is the allowable pressure it asks of the soil.
  */
-export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRowCode): { adopted: FootingAdopted; reached: boolean } | null {
+export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRowCode): { adopted: FootingAdopted; reached: boolean; needs?: number } | null {
   const ref = g.members[0]!;
   if (!ref.soil || g.members.some((m) => !m.column || !m.service)) return null;
   const pts = g.members.map((m) => ({ x: m.at.x - ref.at.x, y: m.at.y - ref.at.y, b: m.column!.b, h: m.column!.h, N: m.service!.N, anchor: m.edge?.anchor ?? [0, 0] }));
@@ -142,24 +147,56 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
     return any;
   };
   const k = ref.soil.edgeFactor && ref.soil.edgeFactor > 1 ? ref.soil.edgeFactor : 1;
+  const allowable = ref.soil.allowable;
   const growAxes: readonly Axis[] = across ? [across] : ['x', 'y'];
+  const noBars = { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } };
+  let blocked = false;
   for (let step = 0; step < 400; step++) {
     const size = sizeOf();
     const s = groupBearing(g, size);
     if (!s) return null;
-    if (!bearingHolds(s, ref.soil.allowable, k)) {
-      if (!grow(growAxes)) { if (h > minH + 1e-9) h -= STEP_H; break; }
+    if (!blocked && !bearingHolds(s, allowable, k)) {
+      if (grow(growAxes)) { if (ext.x.hi - ext.x.lo > MAX_PLAN || ext.y.hi - ext.y.lo > MAX_PLAN) break; continue; }
+      blocked = true;
     }
+    if (code.bearingOnly) return { adopted: { ...size, ...noBars }, reached: !blocked, ...needsOf(s, k) };
+    const a = { ...size, ...proposeGroupBars(g, c, size, code) };
+    const r = analyseGroup(g, c, a, code);
+    if (!groupThicknessHolds(r, false)) h += STEP_H;
+    else if (!r.anchorage.ok && grow(['x', 'y'])) continue;
     else {
-      if (code.bearingOnly) return { adopted: { ...size, x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } }, reached: true };
-      const a = { ...size, ...proposeGroupBars(g, c, size, code) };
-      const r = analyseGroup(g, c, a, code);
-      if (!groupThicknessHolds(r)) h += STEP_H;
-      else if (!r.anchorage.ok) { if (!grow(['x', 'y'])) return { adopted: a, reached: true }; }
-      else return { adopted: a, reached: true };
+      const fixes = groupPunchingFixes(r, a);
+      if (!fixes) h += STEP_H;
+      else {
+        const done: FootingAdopted = { ...a, ...(Object.keys(fixes).length ? { punching: fixes } : {}) };
+        const sb = groupBearing(g, done)!;
+        if (bearingHolds(sb, allowable, k)) return { adopted: done, reached: true };
+        if (!blocked && grow(growAxes)) continue;
+        return { adopted: done, reached: false, ...needsOf(sb, k) };
+      }
     }
     if (ext.x.hi - ext.x.lo > MAX_PLAN || ext.y.hi - ext.y.lo > MAX_PLAN || h > MAX_H) break;
   }
   const last = sizeOf();
-  return { adopted: { ...last, ...(code.bearingOnly ? { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : proposeGroupBars(g, c, last, code)) }, reached: false };
+  const lastBars = { ...last, ...(code.bearingOnly ? noBars : proposeGroupBars(g, c, last, code)) };
+  const sb = groupBearing(g, last);
+  return { adopted: lastBars, reached: false, ...(sb && !bearingHolds(sb, allowable, k) ? needsOf(sb, k) : {}) };
+}
+
+/**
+ * Each column's stirrups or drop where the concrete alone does not carry its punching at this
+ * thickness (`footing-punching.ts`): stirrups where the base has a top mesh for their hooks to
+ * take, else a drop. Null where some column has neither: the base has to be thicker.
+ */
+export function groupPunchingFixes(r: GroupAnalysis, a: Pick<FootingAdopted, 'tops'>): Record<string, PunchingFix> | null {
+  const out: Record<string, PunchingFix> = {};
+  const stirrups = !!(a.tops?.x || a.tops?.y);
+  for (let i = 0; i < r.columns.length; i++) {
+    const k = r.columns[i]!, p = r.punching[i]!;
+    if (!k.punching || k.punching.utilization <= 1 + 1e-9) continue;
+    const fix = designPunchingFix(p.cases, p.site, stirrups);
+    if (fix === null) return null;
+    if (fix) out[k.key] = fix;
+  }
+  return out;
 }

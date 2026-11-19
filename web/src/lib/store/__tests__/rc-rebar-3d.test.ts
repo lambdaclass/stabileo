@@ -3,6 +3,8 @@ import * as wasmSolver from '../../engine/wasm-solver';
 import { buildSheetRows, setAdopted, type SheetRows } from '../rc-sheets.svelte';
 import { modelFrames, pieceOptions, sheetBars3d, shownBars } from '../rc-rebar-3d.svelte';
 import { setFoundationSystem } from '../rc-sheets-footings';
+import { patchDesignData } from '../design-data';
+import { dropRect } from '../../rc-sheets/footing-punching';
 import { bentPoints, gaps, local, mismatches, pieceLengths, solvedExample } from './rc-rebar-3d-fixture';
 import type { Rebar3d, V3 } from '../../rc-sheets/rebar-3d';
 import type { ColumnAdopted, SlabAdopted } from '../../rc-sheets/types';
@@ -89,8 +91,11 @@ function footingsInside(rows: SheetRows, bars: readonly Rebar3d[]): number {
   let checked = 0;
   for (const r of rows.footing) {
     const f = frames.footing(r)!, a = r.adopted, c = r.cover;
+    const drops = (r.group?.columns ?? []).flatMap((k) => { const dr = a.punching?.[k.key]?.drop; return dr ? [{ ...dropRect({ B: a.B, L: a.L, xc: k.x, yc: k.y, b: k.b, h: k.h }, dr), hd: dr.hd }] : []; });
     for (const b of of(bars, r.key).filter((x) => x.family === 'footing' && x.kind !== 'dowel' && x.tone !== 'stirrup' && x.kind.startsWith('footing'))) {
       for (const p of points(b).map((q) => local(f, q))) {
+        const drop = drops.find((d) => p[0] >= d.x0 + c - TOL && p[0] <= d.x1 - c + TOL && p[1] >= d.y0 + c - TOL && p[1] <= d.y1 - c + TOL && p[2] >= -d.hd + c - TOL && p[2] <= a.h - c + TOL);
+        if (drop) { checked++; continue; }
         expect(Math.abs(p[0]), r.name).toBeLessThanOrEqual(a.B / 2 - c + TOL);
         expect(Math.abs(p[1]), r.name).toBeLessThanOrEqual(a.L / 2 - c + TOL);
         expect(p[2], r.name).toBeGreaterThanOrEqual(c - TOL);
@@ -245,6 +250,14 @@ describe('the sheets\' bars in 3D', () => {
       expect(lapsBeside(grouped, gbars).footings, system).toBeGreaterThanOrEqual(11);
       expect(wallDowelsBeside(grouped, gbars), system).toBe(31);
     }
+    patchDesignData({ propertyLines: { minX: true, maxX: true, minY: true, maxY: true } });
+    setFoundationSystem('mat');
+    const held = buildSheetRows(), hbars = sheetBars3d(held);
+    expect(held.footing.some((r) => r.adopted.punching && Object.values(r.adopted.punching).some((x) => x.cage) && Object.values(r.adopted.punching).some((x) => x.drop))).toBe(true);
+    coherent(held, hbars);
+    expect(footingsInside(held, hbars)).toBeGreaterThan(100);
+    expect(hbars.some((b) => b.kind === 'footingPunch')).toBe(true);
+    patchDesignData({ propertyLines: undefined });
     setFoundationSystem('auto');
 
     const panel = rows.slab.find((r) => r.name === 'L1') ?? rows.slab[0]!;

@@ -1,4 +1,5 @@
 import { footingCover } from './footing-overlaps';
+import { dropsVolume } from './footing-group';
 import { scheduleElements } from './schedule/pieces';
 import { scheduleOf } from './schedule/schedule';
 import type { FootingRow, FoundationSystem } from './footing-types';
@@ -10,6 +11,8 @@ export interface LayoutSummary {
   concrete: number; steel: number;
   count: { footing: number; strip: number; mat: number };
   failing: number;
+  /** The allowable pressure, kPa, the layout verifies at where the soil's does not hold some row of it at the plan the lines allow. */
+  needs: number | null;
   /** The kinds the recommendation came to. */
   kinds: Array<'isolated' | 'combined' | 'strip' | 'mat'>;
 }
@@ -22,8 +25,9 @@ export function layoutSummary(rows: readonly FootingRow[], code: SheetCode | str
   const live = rows.filter((r) => r.B > 0);
   const straps = live.flatMap((r) => (r.edge?.straps ?? []).filter((s) => s.group === undefined).map((s) => ({ key: [r.key, s.partnerKey].sort().join('|'), v: s.b * s.h * Math.max(0, s.L) })));
   const strapVolume = [...new Map(straps.map((s) => [s.key, s.v])).values()].reduce((t, v) => t + v, 0);
-  const concrete = live.reduce((t, r) => t + r.B * r.L * r.h + (r.pedestal > 0 ? (r.group ? r.group.columns.reduce((s, c) => s + c.b * c.h, 0) : (r.demand.column?.b ?? 0) * (r.demand.column?.h ?? 0)) * r.pedestal : 0), 0) + strapVolume;
+  const concrete = live.reduce((t, r) => t + r.B * r.L * r.h + (r.demand.group ? dropsVolume(r.demand.group, r.adopted) : 0) + (r.pedestal > 0 ? (r.group ? r.group.columns.reduce((s, c) => s + c.b * c.h, 0) : (r.demand.column?.b ?? 0) * (r.demand.column?.h ?? 0)) * r.pedestal : 0), 0) + strapVolume;
   const steel = scheduleOf(scheduleElements({ line: [], column: [], slab: [], wall: [], footing: [...live] }, { code: code as SheetCode, slabCover: 0.02 }), { code: code as SheetCode, scope: 'element' }).total.kg;
   const count = { footing: live.filter((r) => !r.group).length, strip: live.filter((r) => r.group?.kind === 'strip').length, mat: live.filter((r) => r.group?.kind === 'mat').length };
-  return { share: footingCover(live)?.share ?? null, concrete, steel, count, failing: rows.filter((r) => r.status === 'fail').length, kinds: [...new Set(live.map(kindOf))] };
+  const needs = rows.flatMap((r) => (r.sizing.needs !== undefined ? [r.sizing.needs] : []));
+  return { share: footingCover(live)?.share ?? null, concrete, steel, count, failing: rows.filter((r) => r.status === 'fail').length, needs: needs.length ? Math.max(...needs) : null, kinds: [...new Set(live.map(kindOf))] };
 }

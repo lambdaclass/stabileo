@@ -26,7 +26,7 @@ import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
 import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
-import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRows, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
 import { leverOf } from '../rc-sheets/footing-design';
@@ -489,7 +489,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const piers = rules.piers ? allPiers.filter((p) => p.columns.length) : [];
   const supported = new Set([...modelStore.supports.values()].map((x) => x.nodeId));
   let feet = withAdoptedCombined(currentFootingDemands(sets, storeyNamer(), foundationPiers(allPiers, D.walls, D.columns, supported)), adoptedNow);
-  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + feet.length;
+  const total = D.beams.length * 2 + D.columns.length + D.slabs.length + D.walls.length + D.punching.length + (feet.length ? FOUNDATION_SYSTEMS.length : 0);
   let done = 0;
   const step = (): SheetProgress => ({ phase: 'design', done: ++done, total });
   const groupsById = new Map(physicalGroups().map((g) => [g.id, g]));
@@ -682,12 +682,14 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     yield step();
   }
   const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-  const layout = (system: FoundationSystem, own: boolean): FootingRow[] => {
+  const layout = function* (system: FoundationSystem, own: boolean): Generator<SheetProgress, FootingRow[]> {
     const redo = (k: string, f: unknown) => { if (own) redesigners.set(k, f as Redesign); };
-    let rows = foundationRows(feet, {
+    const it = foundationRowsSteps(feet, {
       rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo,
       system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
     });
+    let rows: FootingRow[];
+    for (;;) { const r = it.next(); if (r.done) { rows = r.value; break; } yield { phase: 'design', done, total }; }
     const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
     if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
     const straps = designFootingStraps(rows, {
@@ -707,10 +709,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     return sort(withOverlaps(rows));
   };
   const chosen = feet.length ? foundationSystem(data) : null;
-  const others = new Map(FOUNDATION_SYSTEMS.filter((sys) => feet.length && sys !== chosen).map((sys) => [sys, layout(sys, false)]));
-  const footing = chosen ? layout(chosen, true) : [];
+  const footing = chosen ? yield* layout(chosen, true) : [];
+  if (chosen) yield step();
+  const others = new Map<FoundationSystem, FootingRow[]>();
+  for (const sys of FOUNDATION_SYSTEMS) if (feet.length && sys !== chosen) { others.set(sys, yield* layout(sys, false)); yield step(); }
   const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
-  for (let i = 0; i < feet.length; i++) yield step();
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
   const columnsFinal = column.map((r) => (r.pier ? r : checked.find((x) => x.key === r.key) ?? r));

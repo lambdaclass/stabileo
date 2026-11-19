@@ -2,9 +2,10 @@ import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes
 import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
 import { critOf } from './criteria';
-import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, fieldOf, footingPunching, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, CONCRETE_WEIGHT, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { dropRect, punchingReading, type PunchingCase, type PunchingSite } from './footing-punching';
 import { meshArea } from './footing-mesh';
-import { dowelLap, dowelReach, layersOf, leverOf, MIN_D, type FootingRowCode } from './footing-design';
+import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, type FootingRowCode } from './footing-design';
 import { tieBars, tieLimits, TIE } from './footing-tie-bars';
 import { winklerStrip } from './footing-winkler';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingLayers, GroupColumn, GroupExtra, GroupStrip, GroupTie } from './footing-types';
@@ -55,11 +56,26 @@ export function summed(cols: readonly Placed[], pick: (d: FootingDemand) => Foot
 const centred = (a: Pick<FootingAdopted, 'B' | 'L'>): FootingPlan => ({ B: a.B, L: a.L, xc: 0, yc: 0, b: 0, h: 0 });
 const tiedAxisOf = (g: FootingGroup): Axis | undefined => (tiedAcross(g) && g.axis ? other(g.axis) : undefined);
 
-export function groupBearing(g: FootingGroup, a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'ex' | 'ey'>): ServiceBearing | null {
+/** The column's place on the footing as punching reads it. */
+const columnPlan = (a: Pick<FootingAdopted, 'B' | 'L'>, p: Placed): FootingPlan => ({ ...centred(a), xc: p.x, yc: p.y, b: p.b, h: p.h, ...(p.demand.column?.area ? { area: p.demand.column.area } : {}) });
+
+/** The concrete of the drops under the columns, m³. */
+export function dropsVolume(g: FootingGroup, a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey' | 'punching'>): number {
+  if (!a.punching) return 0;
+  return placeMembers(g, a).reduce((t, p) => {
+    const dr = a.punching?.[p.demand.key]?.drop;
+    if (!dr) return t;
+    const r = dropRect(columnPlan(a, p), dr);
+    return t + Math.max(0, r.x1 - r.x0) * Math.max(0, r.y1 - r.y0) * dr.hd;
+  }, 0);
+}
+
+export function groupBearing(g: FootingGroup, a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'ex' | 'ey' | 'punching'>): ServiceBearing | null {
   const ref = g.members[0]!;
   const s = summed(placeMembers(g, a), (d) => d.service, 'D + L', tiedAxisOf(g));
   if (!s) return null;
-  return serviceBearing(centred(a), s, a.h, leverOf(ref, a.h), ref.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT);
+  const drops = CONCRETE_WEIGHT * dropsVolume(g, a);
+  return serviceBearing(centred(a), { ...s, N: s.N + drops }, a.h, leverOf(ref, a.h), ref.soil?.unitWeight ?? ASSUMED_FILL_WEIGHT);
 }
 
 /** Column lines along `dir`: the columns' positions across it, clustered within half a metre; a core falls in the band of the line nearest it. */
@@ -82,6 +98,8 @@ export function bandsAlong(cols: readonly Placed[], dir: Axis, W: number): Array
 }
 
 const SLICES = 96;
+/** A drop under a column runs no farther than this past its faces, nor nearer another column than REACH_GAP, m. */
+const MAX_REACH = 3, REACH_GAP = 0.1;
 
 /**
  * A band along `dir` as a rigid strip (GA §13–§14, §13.3.4): its own columns' loads and moments
@@ -172,6 +190,8 @@ export interface GroupAnalysis {
   anchorage: { ld: number; available: number; ok: boolean };
   sMax: number;
   combos: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; ratio: number }>;
+  /** Each column's combinations and its site, as punching reads them. */
+  punching: Array<{ cases: PunchingCase[]; site: PunchingSite }>;
 }
 
 function stripsOf(g: FootingGroup, cols: readonly Placed[], a: FootingAdopted): Array<{ dir: Axis; lo: number; hi: number; cols: Placed[] }> {
@@ -203,7 +223,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const across = g.kind === 'strip' && g.axis ? other(g.axis) : null;
   const W = across === 'x' ? a.B : a.L;
   const bandMu = cols.map(() => 0), bandVu = cols.map(() => 0), pu = cols.map(() => 0);
-  const punching: Array<GroupColumn['punching']> = cols.map(() => null);
+  const cases: PunchingCase[][] = cols.map(() => []);
   const perCombo: GroupAnalysis['combos'] = [];
   const cantAcross = (p: Placed) => { if (!across) return 0; const s = across === 'x' ? p.x : p.y, half = (across === 'x' ? p.b : p.h) / 2; return Math.max(W / 2 - (s + half), s - half + W / 2, 0); };
   const tieForce = cols.map(() => ({ max: 0, byCombo: {} as Record<string, number> }));
@@ -212,7 +232,6 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     if (!at || !(at.N > 0)) continue;
     const f = fieldOf(plan, at, lever);
     const acts = cols.map((p) => p.demand.combos.find((x) => x.combo === name)!);
-    let ratio = 0;
     bands.forEach((b, i) => {
       const placed = b.cols.map((p) => { const q = acts[cols.indexOf(p)]!; return { ...p, N: q.N, w: b.dir === 'x' ? q.My + lever * q.Vx : -(q.Mx - lever * q.Vy) }; });
       const r = bandReading(a, b.dir, b.lo, b.hi, placed, dOf(b.dir));
@@ -227,9 +246,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
         bandMu[i] = Math.max(bandMu[i]!, (qq * v * v) / 2);
         bandVu[i] = Math.max(bandVu[i]!, qq * Math.max(0, v - dOf(across)));
       }
-      const pp = p.demand.column ? footingPunching(f, { ...plan, xc: p.x, yc: p.y, b: p.b, h: p.h, ...(p.demand.column.area ? { area: p.demand.column.area } : {}) }, layers.d, q, stub, c.fc) : null;
-      if (pp && (!punching[i] || pp.utilization > punching[i]!.utilization)) punching[i] = { vu: pp.vu, phiVc: pp.phiVc, utilization: pp.utilization, bo: pp.bo, position: pp.position, combo: name };
-      if (pp) ratio = Math.max(ratio, pp.utilization);
+      if (p.demand.column) cases[i]!.push({ f, a: q, combo: name });
       if (tied) {
         const H = (p.demand.column?.storey ?? 3) + lever, e = Math.abs(tied === 'x' ? p.x : p.y);
         const w = tied === 'x' ? q.My + lever * q.Vx : q.Mx - lever * q.Vy;
@@ -237,8 +254,17 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
         tieForce[i]!.byCombo[name] = T; tieForce[i]!.max = Math.max(tieForce[i]!.max, T);
       }
     });
-    perCombo.push({ combo: name, N: at.N, mx: at.Mx, my: at.My, qMax: f.qMax, ratio });
+    perCombo.push({ combo: name, N: at.N, mx: at.Mx, my: at.My, qMax: f.qMax, ratio: 0 });
   }
+  const sites: PunchingSite[] = cols.map((p) => {
+    const gaps = cols.filter((o) => o !== p).map((o) => Math.max(Math.abs(o.x - p.x) - (o.b + p.b) / 2, Math.abs(o.y - p.y) - (o.h + p.h) / 2));
+    return { plan: columnPlan(a, p), d: layers.d, stub, fc: c.fc, fy: c.fy, h: a.h, cover: c.cover, reach: Math.max(0, Math.min(MAX_REACH, ...gaps.map((x) => x - REACH_GAP))) };
+  });
+  const punching: Array<GroupColumn['punching']> = cols.map((p, i) => {
+    const pr = punchingReading(cases[i]!, sites[i]!, a.punching?.[p.demand.key]);
+    return pr ? { vu: pr.vu, phiVc: pr.phiVc, utilization: pr.utilization, bo: pr.bo, position: pr.position, combo: pr.combo, sections: pr.sections, ...(pr.fix ? { fix: pr.fix } : {}), ...(pr.vs !== undefined ? { vs: pr.vs, ceiling: pr.ceiling, legs: pr.legs } : {}) } : null;
+  });
+  for (const k of perCombo) k.ratio = Math.max(0, ...cols.map((p, i) => { const one = cases[i]!.filter((x) => x.combo === k.combo); return one.length ? punchingReading(one, sites[i]!, a.punching?.[p.demand.key])?.utilization ?? 0 : 0; }));
   const asOf = (mu: number, width: number, d: number) => (mu > 1e-6 ? computeAsFlexure(mu / width, a.h, d, c.fc, c.fy, EDITION).As * width : 0);
   const capOf = (area: number, width: number, d: number) => (area > 0 ? stripCapacity(area / width, a.h, d, c.fc, c.fy, EDITION) * width : 0);
   const vcOf = (area: number, width: number, d: number) => 0.75 * code.oneWayVc(c.fc, (area * 1e-4) / Math.max(width * d, 1e-9)) * width * d * 1000;
@@ -306,7 +332,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     const b = Math.max(cr.footingTieMinWidth, Math.ceil((2 * c.cover + 2 * TIE.stirrup + perLayer * bars.dia / 1000 + (perLayer - 1) * TIE.gap) / 0.05 - 1e-9) * 0.05);
     return { column: p.demand.name, axis: tied, H, Tu: tieForce[i]!.max, ...bars, e, Ns, Ts, b, h: cr.footingTieMinDepth, mu: lim.mu, byCombo: tieForce[i]!.byCombo, stretch: null };
   }) : [];
-  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, need, minSteel, anchorage, sMax: prov.sTwoWay, combos: perCombo };
+  return { layers, lever, cols, bearing, strips, bands: bandList, columns, ties, need, minSteel, anchorage, sMax: footingSpacing(c, a.h).s, combos: perCombo, punching: cols.map((_, i) => ({ cases: cases[i]!, site: sites[i]! })) };
 }
 
 function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: FootingAdopted, c: FootingContext, lever: number, E: number, ks: number): GroupStrip['winkler'] {
@@ -326,10 +352,10 @@ function winklerOf(b: { dir: Axis; lo: number; hi: number; cols: Placed[] }, a: 
   return { y: s ? Math.max(...s.y) : 0, q: s ? Math.max(...s.q) + weight : 0, mBottom, mTop, vu };
 }
 
-/** What the thickness has to hold: shear in every strip and band, punching at every column, d ≥ 150 mm and the dowels' anchorage. */
-export const groupThicknessHolds = (r: GroupAnalysis): boolean =>
+/** What the thickness has to hold: shear in every strip and band, punching at every column (unless `punching` is false), d ≥ 150 mm and the dowels' anchorage. */
+export const groupThicknessHolds = (r: GroupAnalysis, punching = true): boolean =>
   r.strips.every((s) => s.vu <= s.phiVc + 1e-9) && r.bands.every((b) => b.vu <= b.phiVc + 1e-9)
-  && r.columns.every((k) => !k.punching || k.punching.utilization <= 1 + 1e-9)
+  && (!punching || r.columns.every((k) => !k.punching || k.punching.utilization <= 1 + 1e-9))
   && Math.min(r.layers.dx, r.layers.dy) >= MIN_D - 1e-9
   && r.columns.every((k) => !k.dowels || Math.max(k.dowels.ldc, k.dowels.ldh) <= k.dowels.available + 1e-9);
 

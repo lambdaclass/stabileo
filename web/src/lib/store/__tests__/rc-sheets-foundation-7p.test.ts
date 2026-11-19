@@ -80,11 +80,17 @@ describe('the seven-storey foundation', () => {
     expect(buildSheetRows().footing).toEqual([]);
   }, 600_000);
 
-  it('never overlaps, holds every column once and founds at one level, whatever the lines and the system', () => {
+  it('holds every column once and founds at one level, whatever the lines and the system; the recommendation never overlaps, footings only and strips stay what they are and say what overlaps', () => {
     const cases: Array<[string, PropertyLines | undefined]> = [['none', undefined], ['all four', ALL], ['−Y', { minY: true }], ['−X −Y', { minX: true, minY: true }]];
     for (const system of ['auto', 'footings', 'strips'] as const) for (const [name, lines] of cases) {
       const rows = foundation(lines, system), tag = `${system} · ${name}`;
-      expect(footingOverlaps(rows).pairs, tag).toEqual([]);
+      const { pairs } = footingOverlaps(rows);
+      if (system === 'auto') expect(pairs, tag).toEqual([]);
+      else {
+        expect(rows.some((r) => r.group?.kind === 'mat'), tag).toBe(false);
+        if (system === 'footings') expect(rows.some((r) => r.group), tag).toBe(false);
+        for (const k of new Set(pairs.flat())) expect(rows.find((r) => r.key === k)!.verifications.some((v) => v.label === 'rcSheets.v.footOverlap' && !v.ok), `${tag} ${k}`).toBe(true);
+      }
       const keys = rows.flatMap(members).map((d) => d.key);
       expect(new Set(keys).size, tag).toBe(keys.length);
       expect(keys.length, tag).toBe(12);
@@ -109,7 +115,7 @@ describe('the seven-storey foundation', () => {
     expect(mat.founding).toBeCloseTo(-mat.h, 9);
   }, 600_000);
 
-  it('with all four lines, holds the mat at the lines; only the punching of the corner columns at two lines is left to the engineer', () => {
+  it('with all four lines, holds the mat at the lines and verifies it: stirrups or a drop under the columns the concrete alone does not carry, drawn, scheduled and in 3D', () => {
     const rows = foundation(ALL, 'auto');
     expect(rows).toHaveLength(1);
     const mat = rows[0]!;
@@ -120,9 +126,21 @@ describe('the seven-storey foundation', () => {
     expect(Math.max(...xs)).toBeCloseTo(mat.B / 2, 6);
     expect(Math.min(...ys)).toBeCloseTo(-mat.L / 2, 6);
     expect(Math.max(...ys)).toBeCloseTo(mat.L / 2, 6);
-    const bad = mat.verifications.filter((v) => !v.ok);
-    for (const v of bad) expect(v.label, failing(mat).join('\n')).toBe('rcSheets.v.footPunching');
-    for (const v of bad) expect(mat.group!.columns.find((c) => v.clause?.endsWith(c.name))?.punching?.position).toBe('corner');
+    expect(mat.status, failing(mat).join('\n')).toBe('ok');
+    const fixed = mat.group!.columns.filter((c) => c.punching?.fix);
+    expect(fixed.length).toBeGreaterThan(0);
+    for (const c of fixed) {
+      expect(Object.keys(mat.adopted.punching![c.key]!)).toHaveLength(1);
+      expect(c.punching!.utilization, c.name).toBeLessThanOrEqual(1 + 1e-6);
+    }
+    expect(fixed.some((c) => c.punching!.position === 'corner')).toBe(true);
+    const pieces = scheduleElements({ line: [], column: [], slab: [], wall: [], footing: rows }, { code: 'cirsoc201-2025', slabCover: 0.02 }).flatMap((e) => e.pieces);
+    const cages = fixed.filter((c) => c.punching!.fix!.cage), drops = fixed.filter((c) => c.punching!.fix!.drop);
+    if (cages.length) expect(pieces.some((p) => p.kind === 'footingPunch')).toBe(true);
+    const bars = sheetBars3d({ ...buildSheetRows(), footing: rows });
+    if (cages.length) expect(bars.filter((b) => b.kind === 'footingPunch').length).toBe(pieces.filter((p) => p.kind === 'footingPunch').reduce((t, p) => t + p.count, 0));
+    if (drops.length) expect(bars.some((b) => b.element === mat.key && b.kind === 'footingX' && b.segments.some((g) => g.some((q) => q[2] < mat.founding - 1e-6)))).toBe(true);
+    console.log('all four:', mat.B, mat.L, mat.h, fixed.map((c) => `${c.name} ${JSON.stringify(c.punching!.fix)}`).join(' | '));
   }, 600_000);
 
   it('a row set to the mat in footings only puts those columns on one mat, and the solution is kept with the design data', () => {

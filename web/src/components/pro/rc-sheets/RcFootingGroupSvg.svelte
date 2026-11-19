@@ -19,12 +19,14 @@
   const PY = (y: number) => PAD + (row.L / 2 - y) * k;
   const planW = $derived(2 * PAD + row.B * k), planH = $derived(2 * PAD + row.L * k);
   const above = $derived(row.pedestal + 0.4);
-  const ks = $derived(Math.min(k, 140 / (row.h + above)));
+  const below = $derived(Math.max(0, ...det.drops.map((d) => d.hd)));
+  const ks = $derived(Math.min(k, 140 / (row.h + above + below)));
   const SX = (x: number) => PAD + (x + row.B / 2) * ks;
   const SZ = (z: number) => PAD + (row.h + above - z) * ks;
-  const secW = $derived(2 * PAD + row.B * ks + 24), secH = $derived(2 * PAD + (row.h + above) * ks);
+  const secW = $derived(2 * PAD + row.B * ks + 24), secH = $derived(2 * PAD + (row.h + above + below) * ks);
+  const legXs = (c: (typeof det.cages)[number]) => [...new Set(c.legs.map((q) => Math.round(q.x * 1000) / 1000))];
   const leg = (pts: Array<[number, number]>) => Math.abs(pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0);
-  const cut = $derived(det.layers.filter((l) => l.dir === 'x'));
+  const cut = $derived([...det.layers, ...det.drops.flatMap((d) => d.layers)].filter((l) => l.dir === 'x'));
 </script>
 
 <figure class="rft" data-testid="rc-footing-group-figure">
@@ -44,6 +46,8 @@
           {:else}<line x1={PX(b)} y1={PY(-row.L / 2)} x2={PX(b)} y2={PY(row.L / 2)} class="band" />{/if}
         {/each}
       {/each}
+      {#each det.drops as d (d.key)}<rect x={PX(d.rect.x0)} y={PY(d.rect.y1)} width={(d.rect.x1 - d.rect.x0) * k} height={(d.rect.y1 - d.rect.y0) * k} class="drop" data-testid="rc-footing-drop"><title>{d.name} · {cm(d.hd)} cm</title></rect>{/each}
+      {#each det.cages as c (c.key)}{#each c.legs as q, i (i)}<circle cx={PX(q.x)} cy={PY(q.y)} r="1.6" class="leg" data-testid="rc-footing-leg" />{/each}{/each}
       {#each g.columns as c (c.key)}
         <rect x={PX(c.x - c.b / 2)} y={PY(c.y + c.h / 2)} width={c.b * k} height={c.h * k} class="col" class:fail={!!c.punching && c.punching.utilization > 1 + 1e-6} data-testid="rc-footing-group-column"><title>{c.name}{c.punching ? ` · ${fmt(c.punching.utilization, 2)}` : ''}</title></rect>
         <text x={PX(c.x)} y={PY(c.y + c.h / 2) - 3} class="lbl small">{c.name}</text>
@@ -56,6 +60,8 @@
     </svg>
     <svg width={secW} height={secH} viewBox="0 0 {secW} {secH}" role="img" aria-label={t('rcSheets.footFig.section')} data-testid="rc-footing-group-section">
       <rect x={SX(-row.B / 2)} y={SZ(row.h)} width={row.B * ks} height={row.h * ks} class="conc" />
+      {#each det.drops as d (d.key)}<rect x={SX(d.rect.x0)} y={SZ(0)} width={(d.rect.x1 - d.rect.x0) * ks} height={d.hd * ks} class="conc" />{/each}
+      {#each det.cages as c (c.key)}{#each legXs(c) as x (x)}<line x1={SX(x)} y1={SZ(c.z0)} x2={SX(x)} y2={SZ(row.h - c.z0)} class="leg-s" />{/each}{/each}
       {#each g.columns as c (c.key)}<rect x={SX(c.x - c.b / 2)} y={SZ(row.h + above)} width={c.b * ks} height={above * ks} class="col" />{/each}
       {#each cut as l, i (i)}
         {@const u = leg(l.shape.pts) * (l.face === 'top' ? -1 : 1)}
@@ -76,6 +82,9 @@
   .col { fill: var(--st-hair-strong); stroke: var(--st-text-2); stroke-width: 1; }
   .col.fail { stroke: var(--st-danger); stroke-width: 2; }
   .bar { fill: none; stroke-width: 0.8; }
+  .drop { fill: none; stroke: var(--st-text-2); stroke-width: 1; stroke-dasharray: 4 3; }
+  .leg { fill: var(--st-danger); }
+  .leg-s { stroke: var(--st-danger); stroke-width: 0.8; }
   .bar.x { stroke: var(--st-accent); }
   .bar.y { stroke: var(--st-warn); }
   .bar.top { stroke-dasharray: 5 2; opacity: 0.8; }

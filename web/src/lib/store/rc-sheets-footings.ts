@@ -218,12 +218,19 @@ export const solutionsOf = (setup: Readonly<Record<string, FootingSetup>> | unde
  * rows ask for on each level, the rows designed again at it until it holds still.
  */
 export function foundationRows(feet: readonly FootingDemand[], o: FoundationInput): FootingRow[] {
+  const it = foundationRowsSteps(feet, o);
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
+}
+
+/** `foundationRows` in steps: it yields after every footing it designs and every layout it chooses, so a page can draw between them. */
+export function* foundationRowsSteps(feet: readonly FootingDemand[], o: FoundationInput): Generator<void, FootingRow[]> {
   const ctx = (d: FootingDemand) => footingContext(d, o.sizing, o.columns);
   const design = (d: FootingDemand, adopted?: FootingAdopted) => o.rules.footingRow(d, ctx(d), adopted, o.fmt);
-  const pass = (at: (d: FootingDemand) => number | undefined) => {
+  const pass = function* (at: (d: FootingDemand) => number | undefined): Generator<void, FootingRow[]> {
     const ds = withModelGroups(feet).map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; });
-    const rows = ds.map((d) => { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); return f.row; });
-    return chooseFoundations(rows, {
+    const rows: FootingRow[] = [];
+    for (const d of ds) { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); rows.push(f.row); yield; }
+    const chosen = chooseFoundations(rows, {
       capped: (d, cap) => o.rules.footingRow(d, ctx(d), undefined, o.fmt, cap),
       combine: (a, b) => { const d = { ...a, carried: b }; o.redo(d.key, (x) => design(x)); return design(d); },
       group: (g) => {
@@ -234,16 +241,18 @@ export function foundationRows(feet: readonly FootingDemand[], o: FoundationInpu
         return design(dz, o.adopted[dz.key] as FootingAdopted | undefined);
       },
     }, { system: o.system, solutions: o.solutions, matShare: o.matShare });
+    yield;
+    return chosen;
   };
-  if (o.founding !== undefined) return pass(() => o.founding);
+  if (o.founding !== undefined) return yield* pass(() => o.founding);
   let levels = new Map<string, number>();
-  let rows = pass(() => undefined);
+  let rows = yield* pass(() => undefined);
   for (let k = 0; k < 3; k++) {
     const need = new Map<string, number>();
     for (const r of rows) if (!r.demand.footing && r.B > 0) { const lv = r.demand.level ?? ''; need.set(lv, Math.min(need.get(lv) ?? Infinity, r.demand.at.z - r.h)); }
     if (rows.every((r) => r.demand.footing || r.B <= 0 || Math.abs(r.founding - (need.get(r.demand.level ?? '') ?? r.founding)) < 1e-6)) break;
     levels = need;
-    rows = pass((d) => levels.get(d.level ?? ''));
+    rows = yield* pass((d) => levels.get(d.level ?? ''));
   }
   return rows;
 }

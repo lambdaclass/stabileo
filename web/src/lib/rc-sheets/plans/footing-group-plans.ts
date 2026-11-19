@@ -8,6 +8,7 @@ import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import { scheduleElements } from '../schedule/pieces';
 import { HORM, arm, cm, dim, framed, label, pt, rect, seg, type ArmLayer } from './draw';
 import { scheduleTables } from './schedule-table';
+import { cageText, dropText } from '../footing-punching-row';
 import type { FootingPlanOptions } from './footing-detail';
 
 const K = 1000;
@@ -21,6 +22,8 @@ export function groupPlanPrimitives(row: FootingRow, det: GroupDetail, o: Footin
     const a = arm(layerOf(l.dir, l.face), l.dia);
     for (const p of l.positions) ps.push(l.dir === 'x' ? seg(a, pt(l.from * K, p * K), pt(l.to * K, p * K), l.dia) : seg(a, pt(p * K, l.from * K), pt(p * K, l.to * K), l.dia));
   }
+  for (const d of det.drops) ps.push(rect(HORM, d.rect.x0 * K, d.rect.y0 * K, d.rect.x1 * K, d.rect.y1 * K), label(pt(d.rect.x0 * K + 50, d.rect.y0 * K + 50), `${o.tr('rcSheets.footFig.drop')} ${cm(o.fmt, d.hd)}`, 1.8));
+  for (const c of det.cages) { const a = arm('EST', c.dia); for (const q of c.legs) ps.push({ kind: 'circle', layer: a, c: pt(q.x * K, q.y * K), r: Math.max(c.dia, 25), fill: true, dia: c.dia }); }
   for (const s of g.strips) for (const b of [s.at - s.width / 2, s.at + s.width / 2]) {
     if (Math.abs(Math.abs(b) - (s.dir === 'x' ? row.L : row.B) / 2) < 1e-6) continue;
     ps.push(s.dir === 'x' ? seg(HORM, pt(-B / 2, b * K), pt(B / 2, b * K)) : seg(HORM, pt(b * K, -L / 2), pt(b * K, L / 2)));
@@ -41,7 +44,12 @@ export function groupSectionPrimitives(row: FootingRow, det: GroupDetail, o: Foo
   const s = o.scale, B = row.B * K, H = row.h * K, ped = row.pedestal * K, g = row.group!;
   const ps: Primitive[] = [rect(HORM, -B / 2, 0, B / 2, H)];
   for (const k of g.columns) ps.push(rect(HORM, (k.x - k.b / 2) * K, H, (k.x + k.b / 2) * K, H + ped + 400));
-  for (const l of det.layers) {
+  for (const d of det.drops) ps.push(rect(HORM, d.rect.x0 * K, -d.hd * K, d.rect.x1 * K, 0));
+  for (const c of det.cages) {
+    const a = arm('EST', c.dia);
+    for (const x of new Set(c.legs.map((q) => Math.round(q.x * 1000)))) ps.push(seg(a, pt(x, c.z0 * K), pt(x, (row.h - c.z0) * K), c.dia));
+  }
+  for (const l of [...det.layers, ...det.drops.flatMap((d) => d.layers)]) {
     const a = arm(layerOf(l.dir, l.face), l.dia), z = l.z * K;
     if (l.dir === 'x') {
       const leg = Math.abs(l.shape.pts.find((q) => Math.abs(q[1]) > 1e-9)?.[1] ?? 0) * K * (l.face === 'top' ? -1 : 1);
@@ -54,12 +62,13 @@ export function groupSectionPrimitives(row: FootingRow, det: GroupDetail, o: Foo
   const notes = [
     `${o.tr('rcSheets.foot.mesh.x')}: ${meshText(a.x)}${a.tops?.x ? ` / ${meshText(a.tops.x)}` : ''} · ${o.tr('rcSheets.foot.mesh.y')}: ${meshText(a.y)}${a.tops?.y ? ` / ${meshText(a.tops.y)}` : ''}`,
     `${o.tr('rcSheets.foot.founding')}: z = ${o.fmt(row.founding, 2)} m · ${o.tr('rcSheets.footFig.cover')}: ${o.fmt(row.cover * 100, 1)} cm`,
+    ...g.columns.filter((k) => k.punching?.fix).map((k) => `${k.name}: ${k.punching!.fix!.cage ? `${o.tr('rcSheets.footFig.cage')} ${cageText(k, o.fmt)}` : `${o.tr('rcSheets.footFig.drop')} ${dropText(k, o.fmt)}`}`),
   ];
   notes.forEach((n, i) => ps.push(label(pt(-B / 2, -(14 + i * 4) * s), n, 2.2)));
   return ps;
 }
 
-const scheduleLayer = (r: ScheduleRow): ArmLayer => (r.kind === 'footingX' ? 'INFX' : r.kind === 'footingY' ? 'INFY' : r.kind === 'footingTop' ? 'SUPX' : 'LONG');
+const scheduleLayer = (r: ScheduleRow): ArmLayer => (r.kind === 'footingX' ? 'INFX' : r.kind === 'footingY' ? 'INFY' : r.kind === 'footingTop' ? 'SUPX' : r.kind === 'footingPunch' ? 'EST' : 'LONG');
 
 export function groupPlans(row: FootingRow, o: FootingPlanOptions): DrawingInput[] {
   if (!(row.B > 0) || row.uncovered) return [];

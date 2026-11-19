@@ -62,6 +62,7 @@ export const CRITERIA = {
   footingRigidLength: { family: 'footing', value: 1.57, min: 0.5, max: 3.14, step: 0.01, unit: '·Lo', prefix: 'L ≤ ', digits: 2 },
   footingWinklerEnds: { family: 'footing', value: 2, min: 1, max: 3, step: 0.1, unit: '·ks', digits: 1 },
   footingWinklerSettlement: { ...cm(1, 0.5, 5, 0.5), family: 'footing', digits: 1 },
+  footingMaxSpacing: { ...cm(20, 10, 45, 2.5), family: 'footing', digits: 1 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

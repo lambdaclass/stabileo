@@ -1,6 +1,7 @@
 import type { Fmt } from './format';
-import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
+import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, spacingClause, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
+import { needsLine } from './footing-needs';
 import { meshText } from './footing-mesh';
 import { dowelsText } from './footing-dowels';
 import { footingSteps } from './footing-steps';
@@ -85,7 +86,7 @@ function edgeChecks(ed: FootingEdgeResult, cr: Criteria, fmt: Fmt): CheckLine[] 
   return out;
 }
 
-function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt): CheckLine[] {
+function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt, needs?: number): CheckLine[] {
   const out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
   const b = r.bearing;
@@ -103,6 +104,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
       capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use,
     }));
     out.push(check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }));
+    if (needs !== undefined && !b.ok) out.push(needsLine(needs, b.allowable ?? 0, fmt));
   }
   for (const k of [r.x, r.y]) {
     const X = k.dir.toUpperCase();
@@ -110,7 +112,7 @@ function verifications(d: FootingDemand, r: FootingAnalysis, a: FootingAdopted, 
     out.push(check(`rcSheets.v.footFlexure${X}`, k.mu <= k.phiMn + 1e-6, { clause: '§13.2.7.1', demand: knm(k.mu), capacity: knm(k.phiMn), ratio: ratioOf(k.mu, k.phiMn) }));
     out.push(check(`rcSheets.v.footMin${X}`, k.asProvided >= k.asMin - 1e-6, { clause: '§8.6.1.1', demand: cm2(k.asMin), capacity: cm2(k.asProvided) }));
     const m = k.dir === 'x' ? a.x : a.y;
-    out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= r.sMax + 1e-9 && (m.outer ?? 0) <= r.sMax + 1e-9, { clause: '§8.7.2.2', demand: cm(Math.max(m.spacing, m.outer ?? 0)), capacity: `≤ ${cm(r.sMax)}` }));
+    out.push(check(`rcSheets.v.footSpacing${X}`, m.spacing <= r.sMax + 1e-9 && (m.outer ?? 0) <= r.sMax + 1e-9, { clause: spacingClause(r.sMax, a.h), demand: cm(Math.max(m.spacing, m.outer ?? 0)), capacity: `≤ ${cm(r.sMax)}` }));
     if (k.band) out.push(check(`rcSheets.v.footBand${X}`, k.band.asProvided >= k.band.asReq - 1e-6, { clause: '§13.3.3.3', demand: cm2(k.band.asReq), capacity: cm2(k.band.asProvided) }));
     out.push(check(`rcSheets.v.footShear${X}`, k.vu <= k.phiVc + 1e-6, { clause: `§13.2.7.2, ${code.oneWayClause}`, demand: kn(k.vu), capacity: kn(k.phiVc), ratio: ratioOf(k.vu, k.phiVc) }));
     out.push(check(`rcSheets.v.footAnchor${X}`, k.anchorage.ok, { clause: `§13.2.8, ${k.anchorage.hooked ? code.anchorage?.clause.hooked ?? '' : code.anchorage?.clause.straight ?? ''}`, demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
@@ -157,14 +159,15 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
     if (!a) return emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     const r = analyseFooting(d, c, a, code);
     const edge = edgeResult(d, r, a, c, (axis) => strapDefault(d, a, axis));
-    const v = [...verifications(d, r, a, code, fmt), ...(edge ? edgeChecks(edge, critOf(c), fmt) : [])];
+    const needs = adopted ? undefined : prop?.needs;
+    const v = [...verifications(d, r, a, code, fmt, needs), ...(edge ? edgeChecks(edge, critOf(c), fmt) : [])];
     const ratios = [r.x.mu / Math.max(r.x.phiMn, 1e-9), r.y.mu / Math.max(r.y.phiMn, 1e-9), ratioOf(r.x.vu, r.x.phiVc), ratioOf(r.y.vu, r.y.phiVc), r.punching?.utilization ?? 0, r.bearing?.use ?? 0];
     const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
     const proposed = prop?.adopted ?? a;
     return {
       family: 'footing', key: d.key, name: d.name, level: d.level, demand: d,
       B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, cover: c.cover, proposed, adopted: a, isAdopted: !!adopted,
-      sizing: { mode: c.sizing, reached: prop?.reached ?? false, from: prop?.from ?? 'model' },
+      sizing: { mode: c.sizing, reached: prop?.reached ?? false, from: prop?.from ?? 'model', ...(needs !== undefined ? { needs } : {}) },
       bearing: r.bearing ? { qMax: r.bearing.qMax, qMin: r.bearing.qMin, qMean: r.bearing.qMean, contact: r.bearing.contact, allowable: r.bearing.allowable, edgeFactor: r.bearing.edgeFactor, weight: r.bearing.weight, ex: r.bearing.ex, ey: r.bearing.ey, overturns: r.bearing.overturns, ok: r.bearing.ok, utilization: r.bearing.use } : null,
       layers: r.layers, x: r.x, y: r.y,
       punching: r.punching ? { vu: r.punching.vu, phiVc: r.punching.phiVc, utilization: r.punching.utilization, bo: r.punching.bo, position: r.punching.position } : null,

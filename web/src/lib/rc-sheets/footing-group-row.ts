@@ -1,17 +1,19 @@
 import type { Fmt } from './format';
 import { CRITERION, critOf } from './criteria';
-import { foundingOf, MIN_D, pedestalOf, type FootingRowCode } from './footing-design';
+import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
 import { analyseGroup, type GroupAnalysis } from './footing-group';
-import { proposeGroup, proposeGroupBars, proposeGroupDowels } from './footing-group-propose';
+import { groupPunchingFixes, proposeGroup, proposeGroupBars, proposeGroupDowels } from './footing-group-propose';
 import { tieLimits } from './footing-tie-bars';
+import { punchingChecks, punchingSteps } from './footing-punching-row';
+import { needsLine } from './footing-needs';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingGroup, FootingRow, GroupResult } from './footing-types';
 
 const stripName = (s: GroupAnalysis['strips'][number]) => `${s.dir.toUpperCase()}: ${s.columns.join('–')}`;
 
-function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: FootingAdopted, c: FootingContext, code: FootingRowCode, fmt: Fmt): CheckLine[] {
+function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: FootingAdopted, c: FootingContext, code: FootingRowCode, fmt: Fmt, needs?: number): CheckLine[] {
   const out: CheckLine[] = [];
   const cr = critOf(c);
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`, m = (v: number) => `${fmt(v, 2)} m`;
@@ -23,6 +25,7 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
   else {
     out.push(check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause: '§13.3.1.1, §13.3.4.3', demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }));
     out.push(check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }));
+    if (needs !== undefined && !b.ok) out.push(needsLine(needs, b.allowable ?? 0, fmt));
   }
   for (const s of r.strips) {
     const name = stripName(s);
@@ -49,11 +52,11 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
     const X = dir.toUpperCase(), need = dir === 'x' ? r.minSteel.x : r.minSteel.y, has = dir === 'x' ? r.minSteel.xProvided : r.minSteel.yProvided;
     out.push(check(`rcSheets.v.footMin${X}`, has >= need - 1e-6, { clause: g.kind === 'mat' ? '§8.6.1.1, §13.3.4.4' : '§8.6.1.1', demand: cm2(need), capacity: cm2(has) }));
     const s = Math.max(a[dir].spacing, a.tops?.[dir]?.spacing ?? 0);
-    out.push(check(`rcSheets.v.footSpacing${X}`, s <= r.sMax + 1e-9, { clause: '§8.7.2.2', demand: cm(s), capacity: `≤ ${cm(r.sMax)}` }));
+    out.push(check(`rcSheets.v.footSpacing${X}`, s <= r.sMax + 1e-9, { clause: spacingClause(r.sMax, a.h), demand: cm(s), capacity: `≤ ${cm(r.sMax)}` }));
   }
   out.push(check('rcSheets.v.footGroupAnchor', r.anchorage.ok, { clause: `§13.2.8, ${code.anchorage?.clause.hooked ?? ''}`, demand: `ldh ${cm(r.anchorage.ld)}`, capacity: cm(r.anchorage.available) }));
+  out.push(...punchingChecks(r.columns, fmt));
   for (const k of r.columns) {
-    if (k.punching) out.push(check('rcSheets.v.footPunching', k.punching.utilization <= 1 + 1e-6, { clause: `§22.6, §13.2.6.2(b) · ${k.name}`, demand: `${fmt(k.punching.vu, 3)} MPa`, capacity: `${fmt(k.punching.phiVc, 3)} MPa`, ratio: k.punching.utilization }));
     const dw = k.dowels;
     out.push(check('rcSheets.v.footBearingStrength', k.bearing.pu <= k.bearing.phiBn + 1e-6 || (!!dw && dw.area >= dw.required - 1e-6), { clause: `§22.8 · ${k.name}`, demand: kn(k.bearing.pu), capacity: kn(k.bearing.phiBn), ratio: ratioOf(k.bearing.pu, k.bearing.phiBn) }));
     if (dw) {
@@ -62,7 +65,7 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
       out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: `${code.anchorage?.clause.compression ?? ''} · ${k.name}`, demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
     } else if (code.anchorage) out.push(check('rcSheets.v.footDowelArea', false, { clause: `§16.3.4.1 · ${k.name}` }));
   }
-  const thin = r.columns.filter((k) => k.punching && k.punching.utilization > 1 + 1e-6 && k.punching.position !== 'interior');
+  const thin = r.columns.filter((k) => k.punching && !k.punching.fix && k.punching.utilization > 1 + 1e-6 && k.punching.position !== 'interior');
   if (thin.length) out.push(check('rcSheets.v.footCapital', true, { demand: thin.map((k) => k.name).join(', ') }));
   const lim = tieLimits(critOf(c));
   for (const t of r.ties) {
@@ -95,7 +98,7 @@ function steps(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: FootingAd
     { label: `rcSheets.s.footVu${s.dir.toUpperCase()}`, formula: `${code.oneWayFormula} (${code.oneWayClause})`, value: `${fmt(s.vu, 1)} ≤ ${fmt(s.phiVc, 1)} kN`, ok: s.vu <= s.phiVc + 1e-6 },
     ...(s.Lo !== null ? [{ label: 'rcSheets.s.footRigid', formula: 'Lo = (4·E·I/(b·ks))^¼', value: `Lo = ${fmt(s.Lo, 2)} m · L = ${fmt(s.span, 2)} m${s.winkler ? ` · Winkler: y = ${fmt(s.winkler.y * 1000, 1)} mm, q = ${fmt(s.winkler.q, 0)} kPa` : ''}`, ok: s.rigid || !!s.winkler }] : []),
   ]);
-  const punch: Step[] = r.columns.filter((k) => k.punching).map((k) => ({ label: 'rcSheets.s.footPunchVc', formula: `${k.name} (${k.punching!.position})`, value: `${fmt(k.punching!.vu, 3)} ≤ ${fmt(k.punching!.phiVc, 3)} MPa (${k.punching!.combo})`, ok: k.punching!.utilization <= 1 + 1e-6 }));
+  const punch: Step[] = punchingSteps(r.columns, fmt);
   const ties: Step[] = r.ties.map((t) => ({ label: 'rcSheets.s.footTieT', formula: `${t.column}: Tu = (Pu·e + |w|)/H`, value: `${fmt(t.Tu, 1)} kN (H = ${fmt(t.H, 2)} m) → ${t.count} Ø${t.dia}`, ok: t.asProvided >= t.asReq - 1e-6 }));
   return [
     { title: 'rcSheets.g.footGroup', steps: size },
@@ -118,17 +121,24 @@ const direction = (dir: 'x' | 'y', r: GroupAnalysis, a: FootingAdopted): Footing
   };
 };
 
+/** A base of given size with the stirrups or drops its columns need for punching at its thickness, where they all have one. */
+function withFixes(g: FootingGroup, c: FootingContext, a: FootingAdopted, code: FootingRowCode): FootingAdopted {
+  if (code.bearingOnly) return a;
+  const fixes = groupPunchingFixes(analyseGroup(g, c, a, code), a);
+  return fixes && Object.keys(fixes).length ? { ...a, punching: fixes } : a;
+}
+
 /** A strip's or a mat's row: its columns on one base read by strips both ways (rigid method, §13.3.4), punching at each column and its dowels. */
 export function groupRow(d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, code: FootingRowCode): FootingRow | null {
   const g = d.group!;
   const m = d.footing && d.footing.B > 0 ? d.footing : undefined;
   const prop = adopted || m ? null : proposeGroup(g, c, code);
   const fromModel = m ? { B: m.B, L: m.L, h: m.h, ex: m.ex, ey: m.ey, columns: proposeGroupDowels(g, c) } : null;
-  const proposed: FootingAdopted | undefined = prop?.adopted ?? (fromModel ? { ...fromModel, ...proposeGroupBars(g, c, fromModel, code) } : undefined);
+  const proposed: FootingAdopted | undefined = prop?.adopted ?? (fromModel ? withFixes(g, c, { ...fromModel, ...proposeGroupBars(g, c, fromModel, code) }, code) : undefined);
   const a = adopted ?? proposed;
   if (!a) return null;
   const r = analyseGroup(g, c, a, code);
-  const v = verifications(d, g, r, a, c, code, fmt);
+  const v = verifications(d, g, r, a, c, code, fmt, prop?.needs);
   const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
   const ratios = [...r.strips.flatMap((s) => [ratioOf(s.mBottom, s.phiMnBottom), ratioOf(s.mTop, s.phiMnTop), ratioOf(s.vu, s.phiVc)]), ...r.columns.map((k) => k.punching?.utilization ?? 0), r.bearing?.use ?? 0, ...r.bands.map((k) => ratioOf(k.mu, k.phiMn))];
   const worstPunch = r.columns.filter((k) => k.punching).sort((p, q) => q.punching!.utilization - p.punching!.utilization)[0];
@@ -141,7 +151,7 @@ export function groupRow(d: FootingDemand, c: FootingContext, adopted: FootingAd
   return {
     family: 'footing', key: d.key, name: d.name, level: d.level, demand: d,
     B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, cover: c.cover, proposed: proposed ?? a, adopted: a, isAdopted: !!adopted,
-    sizing: { mode: c.sizing, reached: prop?.reached ?? !!adopted, from: prop ? 'loads' : 'model' },
+    sizing: { mode: c.sizing, reached: prop?.reached ?? !!adopted, from: prop ? 'loads' : 'model', ...(prop?.needs !== undefined && !adopted ? { needs: prop.needs } : {}) },
     bearing: r.bearing ? { qMax: r.bearing.qMax, qMin: r.bearing.qMin, qMean: r.bearing.qMean, contact: r.bearing.contact, allowable: r.bearing.allowable, edgeFactor: r.bearing.edgeFactor, weight: r.bearing.weight, ex: r.bearing.ex, ey: r.bearing.ey, overturns: r.bearing.overturns, ok: r.bearing.ok, utilization: r.bearing.use } : null,
     layers: r.layers, x: direction('x', r, a), y: direction('y', r, a),
     punching: worstPunch ? { vu: worstPunch.punching!.vu, phiVc: worstPunch.punching!.phiVc, utilization: worstPunch.punching!.utilization, bo: worstPunch.punching!.bo, position: worstPunch.punching!.position as 'interior' } : null,

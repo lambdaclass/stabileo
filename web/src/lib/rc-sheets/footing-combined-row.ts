@@ -1,12 +1,13 @@
 import type { Fmt } from './format';
-import { foundingOf, MIN_D, pedestalOf, type FootingRowCode } from './footing-design';
+import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
+import { needsLine } from './footing-needs';
 import { analyseCombined, proposeCombined, type CombinedAnalysis } from './footing-combined';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingRow } from './footing-types';
 
-function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt): CheckLine[] {
+function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted, code: FootingRowCode, fmt: Fmt, needs?: number): CheckLine[] {
   const out: CheckLine[] = [];
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
@@ -16,6 +17,7 @@ function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted,
   else {
     out.push(check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause: '§13.3.1.1', demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }));
     out.push(check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }));
+    if (needs !== undefined && !b.ok) out.push(needsLine(needs, b.allowable ?? 0, fmt));
   }
   const L = r.along, X = L.dir.toUpperCase(), T = r.across.dir.toUpperCase();
   out.push(check(`rcSheets.v.footFlexure${X}`, L.mu <= L.phiMn + 1e-6, { clause: '§13.2.7.1', demand: knm(L.mu), capacity: knm(L.phiMn), ratio: ratioOf(L.mu, L.phiMn) }));
@@ -28,7 +30,7 @@ function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted,
   });
   for (const k of [r.along, r.across]) {
     const m = k.dir === 'x' ? a.x : a.y;
-    out.push(check(`rcSheets.v.footSpacing${k.dir.toUpperCase()}`, m.spacing <= r.sMax + 1e-9, { clause: '§8.7.2.2', demand: cm(m.spacing), capacity: `≤ ${cm(r.sMax)}` }));
+    out.push(check(`rcSheets.v.footSpacing${k.dir.toUpperCase()}`, m.spacing <= r.sMax + 1e-9, { clause: spacingClause(r.sMax, a.h), demand: cm(m.spacing), capacity: `≤ ${cm(r.sMax)}` }));
     out.push(check(`rcSheets.v.footAnchor${k.dir.toUpperCase()}`, k.anchorage.ok, { clause: `§13.2.8, ${k.anchorage.hooked ? code.anchorage?.clause.hooked ?? '' : code.anchorage?.clause.straight ?? ''}`, demand: `${k.anchorage.hooked ? 'ldh' : 'ld'} ${cm(k.anchorage.ld)}`, capacity: cm(k.anchorage.available) }));
   }
   out.push(check(`rcSheets.v.footShear${X}`, L.vu <= L.phiVc + 1e-6, { clause: `§13.2.7.2, ${code.oneWayClause}`, demand: kn(L.vu), capacity: kn(L.phiVc), ratio: ratioOf(L.vu, L.phiVc) }));
@@ -86,7 +88,7 @@ export function combinedRow(d: FootingDemand, c: FootingContext, adopted: Footin
   if (!own) return null;
   const a: FootingAdopted = { ...own, with: d.carried!.key };
   const r = analyseCombined(d, c, a, code);
-  const v = verifications(d, r, a, code, fmt);
+  const v = verifications(d, r, a, code, fmt, adopted ? undefined : prop?.needs);
   const status: RowStatus = v.every((l) => l.ok) ? 'ok' : 'fail';
   const ratios = [r.along.mu / Math.max(r.along.phiMn, 1e-9), r.top.mu / Math.max(r.top.phiMn, 1e-9), ratioOf(r.along.vu, r.along.phiVc), ...r.bands.map((k) => ratioOf(k.mu, k.phiMn)), ...r.punching.map((p) => p.utilization), r.bearing?.use ?? 0];
   const x = r.along.dir === 'x' ? r.along : r.across, y = r.along.dir === 'y' ? r.along : r.across;
@@ -94,7 +96,7 @@ export function combinedRow(d: FootingDemand, c: FootingContext, adopted: Footin
   return {
     family: 'footing', key: d.key, name, level: d.level, demand: d,
     B: a.B, L: a.L, h: a.h, ex: a.ex, ey: a.ey, cover: c.cover, proposed: proposed ? { ...proposed, with: d.carried!.key } : a, adopted: a, isAdopted: !!adopted,
-    sizing: { mode: c.sizing, reached: prop?.reached ?? false, from: prop ? 'loads' : 'model' },
+    sizing: { mode: c.sizing, reached: prop?.reached ?? false, from: prop ? 'loads' : 'model', ...(prop?.needs !== undefined && !adopted ? { needs: prop.needs } : {}) },
     bearing: r.bearing ? { qMax: r.bearing.qMax, qMin: r.bearing.qMin, qMean: r.bearing.qMean, contact: r.bearing.contact, allowable: r.bearing.allowable, edgeFactor: r.bearing.edgeFactor, weight: r.bearing.weight, ex: r.bearing.ex, ey: r.bearing.ey, overturns: r.bearing.overturns, ok: r.bearing.ok, utilization: r.bearing.use } : null,
     layers: r.layers, x, y,
     punching: r.punching[0] ? { vu: r.punching[0].vu, phiVc: r.punching[0].phiVc, utilization: Math.max(...r.punching.map((p) => p.utilization)), bo: r.punching[0].bo, position: r.punching[0].position as 'interior' } : null,

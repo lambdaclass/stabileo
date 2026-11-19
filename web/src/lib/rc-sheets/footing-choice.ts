@@ -1,4 +1,4 @@
-import { buildingPlan, footingOverlaps } from './footing-overlaps';
+import { buildingPlan, footingCorners, footingOverlaps } from './footing-overlaps';
 
 export { buildingPlan };
 import { layFootings, type LayoutHooks } from './footing-layout';
@@ -64,9 +64,11 @@ export function lineOf(ms: readonly FootingDemand[]): Axis | null {
  * overlap are first given room and then share a combined footing (two columns) or a strip
  * (columns in a line); a group that stands on no line, or a strip that does not verify, is a mat
  * under it; and when the footings would cover more than `matShare` of the building's plan, the
- * whole building stands on one mat. The project may ask for footings only or for a mat, and a row
- * for its own footing, a shared one or the mat. Groups are merged until no two foundations
- * overlap. Footings the engineer adopted or the model holds stay as they are.
+ * whole building stands on one mat. Groups are merged until no two foundations overlap. The
+ * project may ask for a mat, for footings only or for strips along the column lines: those two
+ * stay what they are, footings that overlap paired into combined footings and what still overlaps
+ * said so, never merged into a mat. A row may ask for its own footing, a shared one or the mat.
+ * Footings the engineer adopted or the model holds stay as they are.
  */
 export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o: ChoiceOptions): FootingRow[] {
   const solution = (r: FootingRow): FootingSolution | undefined => o.solutions[r.key] ?? membersOf(r).map((m) => o.solutions[m.key]).find(Boolean);
@@ -88,11 +90,13 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
     out = [...out.filter((r) => !matRows.includes(r)), mat];
   }
   if (o.system === 'strips') out = alongLines(out, fixed, pinned, groupRow);
+  const merges = o.system === 'auto' || o.system === 'mat';
   out = layFootings(out, h);
   const near = (r: FootingRow) => out.filter((x) => x !== r && !fixed(x) && !pinned(x))
     .map((x) => ({ x, d: Math.hypot(x.demand.at.x - r.demand.at.x, x.demand.at.y - r.demand.at.y) }))
     .sort((p, q) => p.d - q.d)[0]?.x;
   const asked: Array<[FootingRow, FootingRow]> = out.filter((r) => solution(r) === 'combined' && !r.demand.group && !r.demand.carried && !fixed(r)).flatMap((r) => { const n = near(r); return n ? [[r, n] as [FootingRow, FootingRow]] : []; });
+  if (!merges) return pairedFootings(out, asked, (r) => !fixed(r) && !pinned(r) && !r.demand.group && !r.demand.carried, h);
   for (let round = 0; round < rows.length + 2; round++) {
     const live = out.filter((r) => !fixed(r) && !pinned(r));
     const parent = new Map(live.map((r) => [r.key, r.key]));
@@ -116,6 +120,53 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
       } else next = groupRow(members, 'mat', hasMat ? (comp.find((r) => r.demand.group?.kind === 'mat')!.demand.group!.reason) : 'fallback');
       out = [...out.filter((r) => !comp.includes(r)), next];
     }
+  }
+  return out;
+}
+
+/** Whether a footing stays inside the property lines the rows are held at: the building's plan on each side a footing is held at. */
+function withinLines(rows: readonly FootingRow[]): (r: FootingRow) => boolean {
+  const ms = rows.flatMap(membersOf), plan = buildingPlan(ms);
+  if (!plan) return () => true;
+  const held = (i: 0 | 1, s: number) => ms.some((m) => (m.edge?.anchor[i] ?? 0) * s > 0);
+  const lo = { x: held(0, -1), y: held(1, -1) }, hi = { x: held(0, 1), y: held(1, 1) };
+  return (r) => {
+    const c = footingCorners(r), xs = c.map((p) => p.x), ys = c.map((p) => p.y);
+    return (!lo.x || Math.min(...xs) >= plan.x0 - 1e-6) && (!hi.x || Math.max(...xs) <= plan.x1 + 1e-6) && (!lo.y || Math.min(...ys) >= plan.y0 - 1e-6) && (!hi.y || Math.max(...ys) <= plan.y1 + 1e-6);
+  };
+}
+
+/**
+ * Footings only, or strips: what still overlaps is paired, the nearest single footings first (and
+ * those a row asked to share), into a combined footing where that one verifies, round after round
+ * while a pair is left; nothing becomes a strip or a mat here, and what overlaps after that says
+ * so (`withOverlaps`).
+ */
+function pairedFootings(rows: FootingRow[], asked: ReadonlyArray<[FootingRow, FootingRow]>, single: (r: FootingRow) => boolean, h: ChoiceHooks): FootingRow[] {
+  let out = [...rows];
+  const inside = withinLines(rows);
+  const done = new Set<string>(), wanted = new Set(asked.map(([a, b]) => [a.key, b.key].sort().join('|')));
+  for (let round = 0; round < rows.length; round++) {
+    const live = out.filter(single);
+    const keys = new Set(live.map((r) => r.key));
+    const dist = (a: FootingRow, b: FootingRow) => Math.hypot(a.demand.at.x - b.demand.at.x, a.demand.at.y - b.demand.at.y);
+    const pairs = [
+      ...(round === 0 ? asked.filter(([a, b]) => keys.has(a.key) && keys.has(b.key)).map(([a, b]) => [a.key, b.key] as [string, string]) : []),
+      ...footingOverlaps(live).pairs.filter(([a, b]) => !done.has([a, b].sort().join('|'))),
+    ].map(([a, b]) => [live.find((r) => r.key === a)!, live.find((r) => r.key === b)!] as const)
+      .sort((p, q) => dist(p[0], p[1]) - dist(q[0], q[1]));
+    const used = new Set<string>();
+    let any = false;
+    for (const [a, b] of pairs) {
+      if (used.has(a.key) || used.has(b.key)) continue;
+      used.add(a.key); used.add(b.key); done.add([a.key, b.key].sort().join('|'));
+      const [first, second] = a.demand.nodeId <= b.demand.nodeId ? [a, b] : [b, a];
+      const c = h.combine(first.demand, second.demand);
+      if (c.B <= 0 || (!wanted.has([a.key, b.key].sort().join('|')) && (c.status === 'fail' || !inside(c)))) continue;
+      out = out.filter((x) => x !== second).map((x) => (x === first ? c : x));
+      any = true;
+    }
+    if (!any) break;
   }
   return out;
 }

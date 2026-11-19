@@ -10,7 +10,9 @@ import { bandShare, isBanded, layerAnchorage, meshArea, proposeLayer } from './f
 import type { ColumnBarsAtBase, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh } from './footing-types';
 import type { Materials } from './types';
 import { balanceOf, type Balance } from './footing-balance';
+import { needsOf } from './footing-needs';
 import { lapOffset } from './column-stack';
+import { critOf, withCriterion } from './criteria';
 
 const EDITION = '2025' as const;
 
@@ -48,6 +50,15 @@ export const ACI_ONE_WAY: FootingShear = {
 };
 
 export const MIN_D = 0.15;
+
+/** The bars' largest spacing in a footing, m: the code's (§8.7.2.2) or the criterion's where it is closer (FIUBA Cim. §4, GA §10), and the clause it comes from. */
+/** The clause a footing's largest spacing comes from: the criterion's where it is closer than the code's. */
+export const spacingClause = (sMax: number, h: number): string => (sMax < slabProvisions(EDITION, 420, h).sTwoWay - 1e-9 ? withCriterion('§8.7.2.2') : '§8.7.2.2');
+
+export function footingSpacing(c: Pick<FootingContext, 'fy' | 'criteria'>, h: number): { s: number; clause: string } {
+  const code = slabProvisions(EDITION, c.fy, h).sTwoWay, own = critOf(c).footingMaxSpacing;
+  return own < code - 1e-9 ? { s: own, clause: withCriterion('§8.7.2.2') } : { s: code, clause: '§8.7.2.2' };
+}
 const STEP_PLAN = 0.1, STEP_H = 0.05, MAX_PLAN = 15, MAX_H = 2.5;
 const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
@@ -180,7 +191,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
     const lap = dowelLap(an, c.columnBars, { fc: c.columnFc ?? c.fc, fy: c.fy }, dw.dia, tension);
     dowels = { ...dw, area: dowelArea(c.columnBars, dw), required, ldc, ldh, available: a.h - c.cover - (a.x.dia + a.y.dia) / 1000, lap, tension, ...dowelReach(c.columnBars, dw.dia, lever - a.h) };
   }
-  return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: slabProvisions(EDITION, c.fy, a.h).sTwoWay, combos };
+  return { plan, lever, layers, balance: bal, balanced, bearing, x, y, punching, bearingStrength: { ...bs, pu }, dowels, sMax: footingSpacing(c, a.h).s, combos };
 }
 
 /** What the thickness has to hold: one-way shear both ways, punching, the dowels' anchorage and d ≥ 150 mm (§13.3.1.2). */
@@ -213,7 +224,7 @@ export function proposeMeshes(d: FootingDemand, c: FootingContext, size: Omit<Fo
   return { x, y };
 }
 
-export interface Proposal { adopted: FootingAdopted; from: 'model' | 'loads' | 'none'; reached: boolean }
+export interface Proposal { adopted: FootingAdopted; from: 'model' | 'loads' | 'none'; reached: boolean; /** The allowable pressure, kPa, the footing proposed verifies at, where the soil's does not hold it. */ needs?: number }
 
 /** A cap on the plan along one axis, m: room left by a neighbour, so the footing grows the other way. */
 export interface PlanCap { axis: 'x' | 'y'; max: number }
@@ -284,5 +295,7 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
     }
     if (B > MAX_PLAN || L > MAX_PLAN || h > MAX_H) break;
   }
-  return { adopted: withBars({ B: r3(Math.min(B, MAX_PLAN)), L: r3(Math.min(L, MAX_PLAN)), h: r3(Math.min(h, MAX_H)), ...ecc(B, L) }), from: 'loads', reached: false };
+  const last = withBars({ B: r3(Math.min(B, MAX_PLAN)), L: r3(Math.min(L, MAX_PLAN)), h: r3(Math.min(h, MAX_H)), ...ecc(Math.min(B, MAX_PLAN), Math.min(L, MAX_PLAN)) });
+  const sb = bearingOf(d, last);
+  return { adopted: last, from: 'loads', reached: false, ...(sb && !bearingHolds(sb, soil.allowable, k) ? needsOf(sb, k) : {}) };
 }

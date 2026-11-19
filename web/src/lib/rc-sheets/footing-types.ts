@@ -163,6 +163,17 @@ export interface FootingMesh { dia: number; spacing: number; outer?: number }
 
 export interface FootingDowels { count: number; dia: number }
 
+/** Stirrup legs for punching round a column (§22.6.7): `legs` of `dia` on the first of `lines` lines parallel to its faces, the first `first` from them and the rest `spacing` apart, m. */
+export interface PunchingCage { dia: number; spacing: number; first: number; lines: number; legs: number }
+
+/** A drop under a column (a capital below the base): `w` past its faces and `hd` under the underside, m, with a mesh of its own at its underside. */
+export interface PunchingDrop { w: number; hd: number }
+
+export interface PunchingFix { cage?: PunchingCage; drop?: PunchingDrop }
+
+/** A critical section for punching as read: at d/2 from the column (`column`), past the outermost stirrups (`outer`) or past a drop's edge (`drop`); stresses, MPa, perimeter and depth, m. */
+export interface PunchingSection { at: 'column' | 'outer' | 'drop'; vu: number; phiV: number; bo: number; d: number; combo: string }
+
 export interface FootingAdopted {
   B: number; L: number; h: number;
   ex: number; ey: number;
@@ -183,6 +194,8 @@ export interface FootingAdopted {
   extra?: GroupExtra[];
   /** A strip's or mat's dowels, by the row key of each footing it holds. */
   columns?: Record<string, FootingDowels>;
+  /** A strip's or mat's stirrups or drops for punching, by the row key of each footing it holds. */
+  punching?: Record<string, PunchingFix>;
 }
 
 /** The bars a footing's dowels repeat: how many, the thickest, whether any takes tension at the base, and the column's own lap with them, m, starting `lapFrom` over its foot. */
@@ -251,7 +264,7 @@ export interface FootingRow {
   adopted: FootingAdopted;
   isAdopted: boolean;
   /** How the proposal reached its size. */
-  sizing: { mode: FootingSizing; reached: boolean; from: 'model' | 'loads' | 'none' };
+  sizing: { mode: FootingSizing; reached: boolean; from: 'model' | 'loads' | 'none'; /** The allowable pressure, kPa, the proposal verifies at where the soil's does not hold it at the plan the lines allow. */ needs?: number };
   bearing: FootingBearing | null;
   layers: FootingLayers;
   x: FootingDirection | null; y: FootingDirection | null;
@@ -284,7 +297,11 @@ export interface GroupColumn {
   key: string; name: string;
   x: number; y: number; b: number; h: number;
   N: number;
-  punching: { vu: number; phiVc: number; utilization: number; bo: number; position: string; combo: string } | null;
+  punching: {
+    vu: number; phiVc: number; utilization: number; bo: number; position: string; combo: string;
+    /** What carries what the concrete alone does not, every section it is read at, and with stirrups vs and the ceiling on vu, MPa, and the legs on the line that has fewest. */
+    fix?: PunchingFix; sections?: PunchingSection[]; vs?: number; ceiling?: number; legs?: number;
+  } | null;
   bearing: { pu: number; phiBn: number };
   dowels: { count: number; dia: number; area: number; required: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number } | null;
   /** Its footing would hold it at a line: −1, 0 or 1 along X and Y. */

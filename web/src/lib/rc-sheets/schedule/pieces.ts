@@ -27,7 +27,7 @@ import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStrai
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop' | 'footingPunch';
 
 export interface Piece {
   kind: PieceKind;
@@ -274,12 +274,13 @@ function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, 
   return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
 }
 
-/** A strip's or mat's meshes and added bars, bottom and top, and each column's or core's dowels by shape, one under each of its bars. */
+/** A strip's or mat's meshes and added bars, bottom and top, each drop's own mesh, each column's stirrup legs for punching, and each column's or core's dowels by shape, one under each of its bars. */
 export function groupPieces(r: FootingRow, R: BendRules, columns: readonly ColumnRow[] = []): Piece[] {
   const det = groupDetail(r, R);
   const dowels = groupDowelRows(r).flatMap((m) => dowelGroups(m.row, dowelPlaces(m.row, R, { first: columns.find((c) => c.key === m.rowKey) }), R));
   return [
-    ...det.layers.map((l) => ({ kind: l.face === 'top' ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const, count: l.positions.length, shape: l.shape })),
+    ...[...det.layers, ...det.drops.flatMap((d) => d.layers)].map((l) => ({ kind: l.face === 'top' ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const, count: l.positions.length, shape: l.shape })),
+    ...det.cages.map((k) => ({ kind: 'footingPunch' as const, count: k.legs.length, shape: k.shape })),
     ...dowels.map((g) => ({ kind: 'dowel' as const, count: g.count, shape: g.shape })),
   ];
 }
