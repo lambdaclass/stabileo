@@ -21,7 +21,8 @@ import type { DemandSet } from '../rc-sheets/demands';
 import type { Fmt } from '../rc-sheets/format';
 import { FOOTING_BAR_RANGE, listIn, type Adopted } from '../rc-sheets/types';
 import { rcSheetsData, saveRcSheetsData } from './rc-sheets.svelte';
-import type { FootingAdopted, FootingContext, FootingDemand, FootingRow, FootingSetup, FootingSizing, FootingSoil, StrapResult } from '../rc-sheets/footing-types';
+import type { FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingRow, FootingSetup, FootingSizing, FootingSolution, FootingSoil, FoundationSystem, StrapResult } from '../rc-sheets/footing-types';
+import { chooseFoundations, groupDemand, lineOf } from '../rc-sheets/footing-choice';
 
 const DEFAULT_FC = 25;
 export const FOOTING_DIAMETERS: readonly number[] = [10, 12, 16, 20, 25];
@@ -41,6 +42,7 @@ export function soilOf(profileId: number | null): FootingSoil {
     name: p.name, allowable: p.bearing.allowableBearingKPa,
     ...(p.bearing.edgeFactor ? { edgeFactor: p.bearing.edgeFactor } : {}),
     ...(p.unitWeightKNm3 ? { unitWeight: p.unitWeightKNm3 } : {}),
+    ...(p.subgradeModulusKNm3 && p.subgradeModulusKNm3 > 0 ? { subgrade: p.subgradeModulusKNm3 } : {}),
   };
 }
 
@@ -108,11 +110,19 @@ export function setFootingSizing(mode: FootingSizing): void {
   saveRcSheetsData(mode === 'minimum' ? d : { ...d, footingSizing: mode });
 }
 
+export const foundationSystem = (sheets: { foundationSystem?: FoundationSystem }): FoundationSystem => sheets.foundationSystem ?? 'auto';
+
+/** How the building's foundation is proposed from now on; 'auto' is the default and is not stored. */
+export function setFoundationSystem(mode: FoundationSystem): void {
+  const { foundationSystem: _, ...d } = rcSheetsData();
+  saveRcSheetsData(mode === 'auto' ? d : { ...d, foundationSystem: mode });
+}
+
 /** A footing's position and balance by hand, over the property lines; null clears it. */
 export function setFootingSetup(key: string, setup: FootingSetup | null): void {
   const d = rcSheetsData();
   const all = { ...(d.footingSetup ?? {}) };
-  if (!setup || (!setup.position && !setup.balance)) delete all[key]; else all[key] = setup;
+  if (!setup || (!setup.position && !setup.balance && !setup.solution)) delete all[key]; else all[key] = setup;
   const adopted = { ...d.adopted };
   delete adopted[key];
   saveRcSheetsData({ ...d, adopted, footingSetup: Object.keys(all).length ? all : undefined });
@@ -143,11 +153,28 @@ export function footingContext(d: FootingDemand, sizing: FootingSizing, columns:
   const bars = columnBarsOf(d, columns);
   const o = d.carried;
   const second = o ? { ...((b) => (b ? { columnBars: b } : {}))(columnBarsOf(o, columns)), columnFc: columnFcOf(o) } : undefined;
+  const members = d.group ? Object.fromEntries(d.group.members.map((m) => [m.key, { ...((b) => (b ? { columnBars: b } : {}))(columnBarsOf(m, columns)), columnFc: columnFcOf(m) }])) : undefined;
   return {
     fc: fcOfMaterial(f?.concreteMaterialId) ?? colFc, fy: dd.rebarFy, cover: d.footing?.cover ?? dd.covers.footing, sizing, criteria: criteriaOf(dd.designOptions?.criteria),
     diameters: footingDiameters(dd.longDiametersMm), preferred: { x: prefs.bottomMatDiameterXmm, y: prefs.bottomMatDiameterYmm }, columnFc: colFc,
-    ...(bars ? { columnBars: bars } : {}), ...(second ? { second } : {}),
+    ...(bars ? { columnBars: bars } : {}), ...(second ? { second } : {}), ...(members ? { members } : {}),
   };
+}
+
+/** The model's strips and mats, each one demand for the columns it holds, in place of theirs. */
+export function withModelGroups(demands: readonly FootingDemand[]): FootingDemand[] {
+  const seen = new Set<string>();
+  const out: FootingDemand[] = [];
+  for (const d of demands) {
+    const g = d.footing?.group;
+    if (!g) { out.push(d); continue; }
+    if (seen.has(d.key)) continue;
+    const members = demands.filter((x) => g.members.includes(x.key)).sort((p, q) => p.nodeId - q.nodeId);
+    members.forEach((x) => seen.add(x.key));
+    const axis = g.kind === 'strip' ? lineOf(members) : null;
+    out.push(groupDemand({ kind: g.kind, members, ...(axis ? { axis } : {}), reason: 'model' }));
+  }
+  return out;
 }
 
 /** The demands with the combined footings adopted before: each carrying its second column, whose own footing is then gone. */
@@ -170,6 +197,55 @@ export function footingRowOf(d: FootingDemand, rules: SheetRules, adopted: Recor
 
 export { withOverlaps };
 
+export interface FoundationInput {
+  rules: SheetRules; adopted: Record<string, Adopted>; sizing: FootingSizing; columns: readonly ColumnRow[]; fmt: Fmt;
+  /** Registers how a row is designed again from another demand. */
+  redo(key: string, fn: (x: FootingDemand) => FootingRow): void;
+  system: FoundationSystem; solutions: Readonly<Record<string, FootingSolution>>; matShare: number;
+  /** The founding elevation the project states, m; absent, the one the deepest footing of each level asks for. */
+  founding?: number;
+}
+
+/** Each row's own solution from the rows' setups. */
+export const solutionsOf = (setup: Readonly<Record<string, FootingSetup>> | undefined): Record<string, FootingSolution> =>
+  Object.fromEntries(Object.entries(setup ?? {}).flatMap(([k, v]) => (v.solution ? [[k, v.solution]] : [])));
+
+/**
+ * The building's foundation: every footing proposed, then chosen and grouped by the selection
+ * rule (`chooseFoundations`), all founded at one level: the stated one, else the deepest the
+ * rows ask for on each level, the rows designed again at it until it holds still.
+ */
+export function foundationRows(feet: readonly FootingDemand[], o: FoundationInput): FootingRow[] {
+  const ctx = (d: FootingDemand) => footingContext(d, o.sizing, o.columns);
+  const design = (d: FootingDemand, adopted?: FootingAdopted) => o.rules.footingRow(d, ctx(d), adopted, o.fmt);
+  const pass = (at: (d: FootingDemand) => number | undefined) => {
+    const ds = withModelGroups(feet).map((d) => { const z = at(d); return z === undefined || d.footing ? d : { ...d, founding: z }; });
+    const rows = ds.map((d) => { const f = footingRowOf(d, o.rules, o.adopted, o.sizing, o.columns, o.fmt); o.redo(d.key, f.redo); return f.row; });
+    return chooseFoundations(rows, {
+      capped: (d, cap) => o.rules.footingRow(d, ctx(d), undefined, o.fmt, cap),
+      combine: (a, b) => { const d = { ...a, carried: b }; o.redo(d.key, (x) => design(x)); return design(d); },
+      group: (g) => {
+        const z = at(g.members[0]!);
+        const d = groupDemand(g);
+        const dz = z === undefined || d.footing ? d : { ...d, founding: z };
+        o.redo(dz.key, (x) => design(x));
+        return design(dz, o.adopted[dz.key] as FootingAdopted | undefined);
+      },
+    }, { system: o.system, solutions: o.solutions, matShare: o.matShare });
+  };
+  if (o.founding !== undefined) return pass(() => o.founding);
+  let levels = new Map<string, number>();
+  let rows = pass(() => undefined);
+  for (let k = 0; k < 3; k++) {
+    const need = new Map<string, number>();
+    for (const r of rows) if (!r.demand.footing && r.B > 0) { const lv = r.demand.level ?? ''; need.set(lv, Math.min(need.get(lv) ?? Infinity, r.demand.at.z - r.h)); }
+    if (rows.every((r) => r.demand.footing || r.B <= 0 || Math.abs(r.founding - (need.get(r.demand.level ?? '') ?? r.founding)) < 1e-6)) break;
+    levels = need;
+    rows = pass((d) => levels.get(d.level ?? ''));
+  }
+  return rows;
+}
+
 /** A pier's footing written to the model: one footing at its representative node carrying every other node of its base, a strip under a single wall, in place of any footing those nodes had. */
 function writePierFooting(row: FootingRow, pier: NonNullable<FootingDemand['pier']>): number {
   const a = row.adopted, d = row.demand;
@@ -183,7 +259,7 @@ function writePierFooting(row: FootingRow, pier: NonNullable<FootingDemand['pier
     const col = columnOn(d.nodeId);
     modelStore.updateFooting(id, {
       B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex + dx, eccentricityL: a.ey + dy, cover: row.cover, rotationDeg: 0,
-      ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }),
+      ...(d.footing ? {} : { foundingElevation: row.founding }),
       kind: wallGroupId !== undefined && Number.isFinite(wallGroupId) ? 'strip' as const : 'combined' as const, supportedNodeIds: pier.nodes.filter((n) => n !== d.nodeId),
       ...(wallGroupId !== undefined && Number.isFinite(wallGroupId) ? { wallGroupId } : {}),
       ...(col !== undefined ? { columnElementId: col } : {}),
@@ -192,11 +268,31 @@ function writePierFooting(row: FootingRow, pier: NonNullable<FootingDemand['pier
   return id!;
 }
 
+/** A strip or a mat written to the model: one footing at its first column carrying every other node it holds, in place of any footing those nodes had. */
+function writeGroupFooting(row: FootingRow, g: FootingGroup): number {
+  const a = row.adopted, d = row.demand;
+  const nodes = g.members.flatMap((m) => m.pier?.nodes ?? [m.nodeId]);
+  const at = modelStore.nodes.get(d.nodeId);
+  const dx = at ? d.at.x - at.x : 0, dy = at ? d.at.y - at.y : 0;
+  let id: number | undefined;
+  modelStore.batchFoundation(() => {
+    for (const f of [...modelStore.model.footings.values()]) if (nodes.includes(f.nodeId) || f.supportedNodeIds?.some((n) => nodes.includes(n))) modelStore.removeFooting(f.id);
+    id = modelStore.addFooting(d.nodeId, d.name);
+    const col = columnOn(d.nodeId);
+    modelStore.updateFooting(id, {
+      B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex + dx, eccentricityL: a.ey + dy, cover: row.cover, rotationDeg: 0, foundingElevation: row.founding,
+      kind: g.kind, supportedNodeIds: nodes.filter((n) => n !== d.nodeId), ...(col !== undefined ? { columnElementId: col } : {}),
+    });
+  });
+  return id!;
+}
+
 /** The row's footing written to the model, made where there is none, its top at the column's foot; a combined footing as one carrying both columns, in place of theirs; a pier's as one under its whole base. One undo step. */
 export function writeFootingToModel(row: FootingRow): number {
+  if (row.demand.group) return writeGroupFooting(row, row.demand.group);
   if (row.demand.pier) return writePierFooting(row, row.demand.pier);
   const a = row.adopted, d = row.demand, o = d.carried;
-  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, ...(d.footing ? {} : { foundingElevation: d.at.z - a.h }) };
+  const data = { B: a.B, L: a.L, thickness: a.h, eccentricityB: a.ex, eccentricityL: a.ey, cover: row.cover, rotationDeg: 0, foundingElevation: row.founding, pedestal: row.pedestal > 1e-3 && d.column ? { B: d.column.b, L: d.column.h, height: row.pedestal } : undefined };
   let id = d.footing?.id;
   modelStore.batchFoundation(() => {
     if (o) for (const f of [...modelStore.model.footings.values()]) if (f.id !== id && (f.nodeId === o.nodeId || f.supportedNodeIds?.includes(o.nodeId))) modelStore.removeFooting(f.id);

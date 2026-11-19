@@ -34,6 +34,7 @@ describe('two property lines declared in the design data', () => {
   it('make edge and corner footings with their strap beams, and every row verifies or says what to do', async () => {
     await solveExample('rc-qa-diagnostic');
     setSheetCode('cirsoc201-2025');
+    patchDesignData({ foundingElevation: -1.5 });
     const plain = buildSheetRows().footing;
     expect(plain.every((r) => !r.edge)).toBe(true);
     patchDesignData({ propertyLines: { minX: true, maxY: true } });

@@ -62,7 +62,7 @@ const offsetAt = (elementId: number, node: number) => {
 };
 
 export function modelFrames(rows: SheetRows): Rebar3dFrames {
-  const footings = new Map(rows.footing.map((r) => [r.key, r]));
+  const footings = new Map<string, { demand: { at: { x: number; y: number } } }>([...rows.footing.flatMap((r) => (r.demand.group?.members ?? []).map((m) => [m.key, { demand: m }] as const)), ...rows.footing.map((r) => [r.key, r] as const)]);
   return {
     line(l) {
       const spans = rows.beam.filter((r) => r.demand.line?.group === l.group).map((r) => r.demand.line!).sort((p, q) => p.index - q.index);
@@ -92,7 +92,7 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
       return { o, x, y: [-x[1], x[0], 0], z: [0, 0, 1] };
     },
     footing(r) {
-      const at = r.demand.at, under = r.demand.footing?.founding ?? at.z - r.adopted.h;
+      const at = r.demand.at, under = r.founding;
       return { o: [at.x + r.adopted.ex, at.y + r.adopted.ey, under], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
     },
     strap(r, s) {
@@ -100,7 +100,7 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
       if (!other || !s.line) return null;
       const at = r.demand.at, k = s.axis === 'x' ? 0 : 1;
       const toward = Math.sign((k === 0 ? other.demand.at.x - at.x : other.demand.at.y - at.y)) || 1;
-      const under = r.demand.footing?.founding ?? at.z - r.adopted.h, hMax = Math.max(...s.line.spans.map((sp) => sp.h));
+      const under = r.founding, hMax = Math.max(...s.line.spans.map((sp) => sp.h));
       const x: V3 = k === 0 ? [toward, 0, 0] : [0, toward, 0];
       return { o: [at.x, at.y, under + r.adopted.h - hMax / 2], x, y: [-x[1], x[0], 0], z: [0, 0, 1] };
     },

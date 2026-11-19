@@ -70,10 +70,15 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
   }
   const punch: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.s.punchPosition'), 'Vu (kN)', 'φVc (kN)', ratio, status]];
   for (const r of rows.punching ?? []) punch.push([safeText(r.name), safeText(r.level ?? ''), r.position === '—' ? '—' : tr(`rcSheets.punchPos.${r.position}`), r2(r.vu), r2(r.phiVc), r3(r.utilization), state(r.status)]);
-  const feet: WorkbookSheet['rows'] = [head, [name, level, 'B (cm)', 'L (cm)', 'h (cm)', 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.dowels'), ratio, status]];
+  const feet: WorkbookSheet['rows'] = [head, [name, level, tr('rcSheets.foot.kind'), 'B (cm)', 'L (cm)', 'h (cm)', `${tr('rcSheets.foot.founding')} (m)`, 'N (kN)', 'qmax (kPa)', 'qadm (kPa)', tr('rcSheets.foot.mesh.x'), tr('rcSheets.foot.mesh.y'), tr('rcSheets.foot.mesh.top'), tr('rcSheets.foot.dowels'), ratio, status]];
   for (const r of rows.footing ?? []) {
-    feet.push([safeText(r.name), safeText(r.level ?? ''), cm(r.B), cm(r.L), cm(r.h), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
-      meshText(r.adopted.x), meshText(r.adopted.y), r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—', r3(r.utilization), state(r.status)]);
+    const kind = r.group ? tr(`rcSheets.footKind.${r.group.kind}`) : r.combined ? tr('rcSheets.footKind.combined') : tr(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`);
+    const tops = r.adopted.tops ? [r.adopted.tops.x && `X ${meshText(r.adopted.tops.x)}`, r.adopted.tops.y && `Y ${meshText(r.adopted.tops.y)}`].filter(Boolean).join(' · ') : r.adopted.top ? meshText(r.adopted.top) : '—';
+    const dowels = r.group
+      ? r.group.columns.filter((k) => k.dowels).map((k) => `${k.name} ${k.dowels!.count} Ø${k.dowels!.dia} · ${cm(k.dowels!.lap)} cm`).join(' / ') || '—'
+      : r.adopted.dowels && !r.uncovered ? `${r.adopted.dowels.count} Ø${r.adopted.dowels.dia}${r.dowels ? ` · ${cm(r.dowels.lap)} cm` : ''}` : '—';
+    feet.push([safeText(r.name), safeText(r.level ?? ''), kind, cm(r.B), cm(r.L), cm(r.h), r2(r.founding), r2(r.demand.service?.N ?? 0), r2(r.bearing?.qMax ?? 0), r2(r.bearing?.allowable ?? 0),
+      meshText(r.adopted.x), meshText(r.adopted.y), tops, dowels, r3(r.utilization), state(r.status)]);
   }
   return [
     { name: tr('rcSheets.family.beam'), rows: beams },

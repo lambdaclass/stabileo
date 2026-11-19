@@ -58,13 +58,17 @@ describe('the footing demands', () => {
     expect(D[0]!.combos[0]).toMatchObject({ N: 900, Mx: -12, Vx: -3 });
   });
 
-  it('read the modelled footing at its node, leave the nodes another footing carries to it, and mark what is out of scope', () => {
+  it('read the modelled footing at its node, and a footing under several columns as a strip each of them belongs to', () => {
     const f = { id: 7, name: 'Z7', nodeId: 1, kind: 'isolated', B: 2, L: 2.4, thickness: 0.5, rotationDeg: 0, eccentricityB: 0.1, eccentricityL: 0, cover: 0.05, foundingElevation: -1.5, soilProfileId: 3 };
     const comb = { ...f, id: 8, name: 'Z8', nodeId: 2, kind: 'combined', supportedNodeIds: [3, 4] };
     const D = footingDemands(input({ supportNodes: [1, 2, 3, 4], nodes: new Map([1, 2, 3, 4].map((n) => [n, { x: 3 * n, y: 0, z: 0 }])), columnAt: (n) => ({ b: 0.4, h: 0.4, name: `C${n}` }), footings: [f, comb] }));
-    expect(D.map((d) => d.name)).toEqual(['Z7', 'Z8']);
+    expect(D.map((d) => d.name)).toEqual(['Z7', 'C2', 'C3', 'C4']);
     expect(D[0]!.footing).toMatchObject({ B: 2, L: 2.4, h: 0.5, ex: 0.1, founding: -1.5 });
-    expect(D[1]!.footing!.outOfScope).toBe('kind');
+    for (const d of D.slice(1)) {
+      expect(d.footing!.outOfScope).toBeUndefined();
+      expect(d.footing!.group).toEqual({ kind: 'strip', members: ['footing:n2', 'footing:n3', 'footing:n4'] });
+      expect(d.at.x + d.footing!.ex).toBeCloseTo(6 + 0.1, 9);
+    }
   });
 
   it('read a combined footing of two columns as one carrying its second column, its plan in global axes even turned a quarter', () => {
@@ -147,7 +151,8 @@ describe('the footings in the documents', () => {
     const sheets = rcSheetsWorkbook({ beam: [], column: [], slab: [], wall: [], footing: [r], code: 'CIRSOC 201-2025' }, (k) => k);
     const s = sheets.find((x) => x.name === 'rcSheets.family.footing')!;
     expect(s.rows[2]![0]).toBe(r.name);
-    expect(s.rows[2]![2]).toBe(Math.round(r.B * 100));
+    expect(s.rows[2]![3]).toBe(Math.round(r.B * 100));
+    expect(s.rows[2]![6]).toBe(Math.round(r.founding * 100) / 100);
   });
 
   it('are elements of the memoria with their size, bars and checks', () => {

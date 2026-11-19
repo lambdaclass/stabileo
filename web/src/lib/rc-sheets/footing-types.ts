@@ -18,6 +18,8 @@ export interface FootingSoil {
   unitWeight?: number;
   /** Not the model's soil: the design data's presumed pressure, where the model states none. */
   presumed?: true;
+  /** Winkler subgrade modulus, kN/m³, when the soil states it. */
+  subgrade?: number;
 }
 
 /** The footing the model holds at the node, m: plan B along X and L along Y, its thickness and its centroid's offset from the column axis. */
@@ -32,7 +34,12 @@ export interface ModelledFooting {
   straps?: number[];
   /** Combined, strip, mat, pile cap or turned in plan: what this family does not design. */
   outOfScope?: 'kind' | 'rotated';
+  /** A strip or a mat the sheets wrote under several columns: its kind, its model id and the row keys of the footings it holds; B, L, ex and ey are this column's. */
+  group?: { kind: GroupKind; members: string[] };
 }
+
+/** A footing under several columns: a strip (combined footing of two or more in a line) or a mat under a group of them. */
+export type GroupKind = 'strip' | 'mat';
 
 export interface FootingColumn {
   /** Plan size along X and Y, m. */
@@ -63,8 +70,16 @@ export const FOOTING_POSITIONS: readonly FootingPosition[] = ['centred', 'edge',
 export type FootingBalance = 'strap' | 'eccentric' | 'tie';
 export const FOOTING_BALANCES: readonly FootingBalance[] = ['strap', 'eccentric', 'tie'];
 
-/** A row's own choice of position and balance, over the property lines and the model's footing. */
-export interface FootingSetup { position?: FootingPosition; balance?: FootingBalance }
+/** How the footings of the whole building are proposed: by the selection rule, as footings only, or as one mat. */
+export type FoundationSystem = 'auto' | 'footings' | 'mat';
+export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'mat'];
+
+/** A column's own foundation over the selection rule: its own footing, one shared with its neighbours, or the mat. */
+export type FootingSolution = 'isolated' | 'combined' | 'mat';
+export const FOOTING_SOLUTIONS: readonly FootingSolution[] = ['isolated', 'combined', 'mat'];
+
+/** A row's own choice of position and balance, over the property lines and the model's footing, and of its foundation. */
+export interface FootingSetup { position?: FootingPosition; balance?: FootingBalance; solution?: FootingSolution }
 
 /** The rows' setups as stored, keeping only known values. */
 export function footingSetupOf(raw: unknown): { footingSetup?: Record<string, FootingSetup> } {
@@ -76,8 +91,9 @@ export function footingSetupOf(raw: unknown): { footingSetup?: Record<string, Fo
     const s: FootingSetup = {
       ...(FOOTING_POSITIONS.includes(o.position as FootingPosition) ? { position: o.position as FootingPosition } : {}),
       ...(FOOTING_BALANCES.includes(o.balance as FootingBalance) ? { balance: o.balance as FootingBalance } : {}),
+      ...(FOOTING_SOLUTIONS.includes(o.solution as FootingSolution) ? { solution: o.solution as FootingSolution } : {}),
     };
-    if (s.position || s.balance) out[k] = s;
+    if (s.position || s.balance || s.solution) out[k] = s;
   }
   return Object.keys(out).length ? { footingSetup: out } : {};
 }
@@ -119,8 +135,21 @@ export interface FootingDemand {
   carried?: FootingDemand;
   /** Ties from footings at a line that end at this one (FIUBA Cim. §6.5). */
   pulls?: TiePull[];
+  /** The level the footing's underside is founded at, m: the project's common founding level. Absent: its top at the node. */
+  founding?: number;
+  /** A strip or mat: the footings it holds, each a demand of its own, the first the reference `at` and `key` are read from. */
+  group?: FootingGroup;
   /** The footing of a pier or a wall: every supported node along its base (`nodeId` the one nearest its centre) and its walls by row key. */
   pier?: { key: string; nodes: number[]; walls: string[]; /** Its section in plan, global X and Y, m. */ outline?: Array<{ x: number; y: number }>; /** Where its base nodes stand in plan, m: the axes it holds a property line by. */ points?: Array<{ x: number; y: number }> };
+}
+
+/** What a strip or mat holds and why it was made: footings that overlap, footings that cover more than a mat's share of the plan, a row or the project set by hand, or a group nothing else solved. */
+export interface FootingGroup {
+  kind: GroupKind;
+  members: FootingDemand[];
+  /** A strip's line: the axis its columns lie along. */
+  axis?: 'x' | 'y';
+  reason: 'overlap' | 'cover' | 'row' | 'project' | 'fallback' | 'model';
 }
 
 export type FootingSizing = 'full' | 'minimum' | 'reinforce';
@@ -145,6 +174,12 @@ export interface FootingAdopted {
   with?: string;
   /** The strap beams' sections, m, by axis, where the model has none. */
   straps?: Partial<Record<'x' | 'y', { b: number; h: number }>>;
+  /** A strip's or mat's top bars along X and along Y. */
+  tops?: { x?: FootingMesh; y?: FootingMesh };
+  /** A strip's or mat's bars added over a band, along `dir` on one face, from `lo` to `hi` across, m from the centroid. */
+  extra?: GroupExtra[];
+  /** A strip's or mat's dowels, by the row key of each footing it holds. */
+  columns?: Record<string, FootingDowels>;
 }
 
 /** The bars a footing's dowels repeat: how many, the thickest, whether any takes tension at the base, and the column's own lap with them, m, starting `lapFrom` over its foot. */
@@ -165,6 +200,8 @@ export interface FootingContext {
   columnFc?: number;
   /** A combined footing's second column: its bars and concrete. */
   second?: { columnBars?: ColumnBarsAtBase; columnFc?: number };
+  /** A strip's or mat's columns, by row key: their bars and concrete. */
+  members?: Record<string, { columnBars?: ColumnBarsAtBase; columnFc?: number }>;
 }
 
 /**
@@ -229,6 +266,63 @@ export interface FootingRow {
   edge?: FootingEdgeResult;
   /** A combined footing: the line of its columns and its top bars. */
   combined?: CombinedResult;
+  /** Elevation of the underside, m. */
+  founding: number;
+  /** The column's stretch below its foot down to the footing's top, m: the pedestal the common founding level asks for. */
+  pedestal: number;
+  /** A strip or a mat: its columns, strips and bands. */
+  group?: GroupResult;
+}
+
+export interface GroupExtra { dir: 'x' | 'y'; face: 'bottom' | 'top'; lo: number; hi: number; mesh: FootingMesh }
+
+/** A column a strip or mat holds, from its centroid, m: its service load, punching, bearing and dowels. */
+export interface GroupColumn {
+  key: string; name: string;
+  x: number; y: number; b: number; h: number;
+  N: number;
+  punching: { vu: number; phiVc: number; utilization: number; bo: number; position: string; combo: string } | null;
+  bearing: { pu: number; phiBn: number };
+  dowels: { count: number; dia: number; area: number; required: number; ldc: number; ldh: number; available: number; lap: number; tension: boolean; above: number; offset: number } | null;
+  /** Its footing would hold it at a line: −1, 0 or 1 along X and Y. */
+  anchor: [number, number];
+}
+
+/** One strip of a mat, or a strip footing along its line, read as a beam: the moments, the shear at d from the faces and the steel both faces ask over its width. */
+export interface GroupStrip {
+  dir: 'x' | 'y';
+  /** Its centre across and its width, m from the footing's centroid. */
+  at: number; width: number;
+  columns: string[];
+  mBottom: number; mTop: number; vu: number; phiVc: number; d: number;
+  asBottom: number; asTop: number; asBottomProvided: number; asTopProvided: number;
+  phiMnBottom: number; phiMnTop: number;
+  /** The largest span between columns along it, m, and against the rigid length π/2·Lo when the soil states its subgrade modulus. */
+  span: number; overhang: number;
+  Lo: number | null; rigid: boolean | null;
+  /** On springs (GA §14.3), where it is not rigid: the largest settlement, m, and soil pressure, kPa, in service, and the moments, kN·m, factored. */
+  winkler?: { y: number; q: number; mBottom: number; mTop: number; vu: number };
+}
+
+/** The tie at the first floor that holds a strip along a property line across it, one per column (FIUBA Cim. §6). */
+export type GroupTie = TieResult & { column: string };
+
+export interface GroupResult {
+  kind: GroupKind; axis?: 'x' | 'y'; reason: FootingGroup['reason'];
+  members: string[];
+  columns: GroupColumn[];
+  strips: GroupStrip[];
+  /** A strip footing's bands across under each column. */
+  bands: Array<{ column: string; width: number; mu: number; vu: number; asReq: number; asProvided: number; phiMn: number; phiVc: number }>;
+  /** The sides held at a property line: −1, 0 or 1 along X and Y. */
+  anchor: [number, number];
+  /** A strip held along a line: the column ties that take its offset across. */
+  ties: GroupTie[];
+  ks: number | null;
+  /** The minimum steel each direction asks over both faces, and what both give, cm². */
+  minSteel: { x: number; y: number; xProvided: number; yProvided: number };
+  /** Anchorage of the bars past the outer columns' faces, hooked at the ends. */
+  anchorage: { ld: number; available: number; ok: boolean };
 }
 
 /** A strap beam as designed: its statics in the governing combination and the beam itself. */

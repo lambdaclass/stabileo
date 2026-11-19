@@ -17,6 +17,7 @@ import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
 import type { SheetCode } from '../types';
 import { HORM, arm, cm, dim, framed, label, pt, rect, seg, type ArmLayer, type PlanCtx } from './draw';
 import { scheduleTables } from './schedule-table';
+import { groupPlans } from './footing-group-plans';
 
 const K = 1000;
 
@@ -79,6 +80,7 @@ export function footingSectionPrimitives(det: FootingDetail, row: FootingRow, o:
     footingLabel(row.adopted),
     ...(row.adopted.dowels ? [`${o.tr('rcSheets.foot.dowels')}: ${row.adopted.dowels.count} Ø${row.adopted.dowels.dia}`] : []),
     `${o.tr('rcSheets.footFig.cover')}: ${o.fmt(det.cover * 100, 1)} cm`,
+    `${o.tr('rcSheets.foot.founding')}: z = ${o.fmt(row.founding, 2)} m${row.pedestal > 1e-3 ? ` · ${o.tr('rcSheets.foot.pedestal')} ${o.fmt(row.pedestal * 100, 0)} cm` : ''}`,
   ];
   notes.forEach((n, i) => ps.push(label(pt(-B / 2, -(14 + i * 4) * s), n, 2.2)));
   return ps;
@@ -92,6 +94,7 @@ export function footingScheduleRows(row: FootingRow, code: SheetCode): ScheduleR
 const scheduleLayer = (r: ScheduleRow): ArmLayer => (r.kind === 'footingX' ? 'INFX' : r.kind === 'footingY' ? 'INFY' : r.kind === 'footingTop' ? 'SUPX' : 'LONG');
 
 export function footingPlans(row: FootingRow, o: FootingPlanOptions): DrawingInput[] {
+  if (row.group) return groupPlans(row, o);
   if (!(row.B > 0) || (row.uncovered && !row.edge?.straps.length)) return [];
   const det = footingDetail(row, rulesFor(o.code).bends);
   return [

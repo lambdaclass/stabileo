@@ -20,6 +20,7 @@ import { wallDetail, wallLevels, type WallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
 import type { FootingRow, StrapResult } from '../footing-types';
 import { footingDetail } from '../footing-detail';
+import { groupDetail } from '../footing-group-detail';
 import { rulesFor } from '../codes';
 import { closedHoop, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
@@ -252,12 +253,22 @@ const ownStraps = (r: FootingRow, all: readonly FootingRow[]): LineLayout[] => o
 
 /** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels with their feet, and the strap beams it holds. */
 function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules): ScheduleElement {
+  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: r.uncovered ? [] : groupPieces(r, R) };
   const det = footingDetail(r, R);
   const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
   if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
   if (!r.uncovered && det.dowels) pieces.push({ kind: 'dowel', count: det.dowels.count + (r.adopted.dowels2?.count ?? 0), shape: det.dowels.shape });
   for (const l of ownStraps(r, all)) pieces.push(...linePieces(l, R).pieces);
   return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
+}
+
+/** A strip's or mat's meshes and added bars, bottom and top, and each column's dowels. */
+export function groupPieces(r: FootingRow, R: BendRules): Piece[] {
+  const det = groupDetail(r, R);
+  return [
+    ...det.layers.map((l) => ({ kind: l.face === 'top' ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const, count: l.positions.length, shape: l.shape })),
+    ...det.dowels.map((d) => ({ kind: 'dowel' as const, count: d.dowels.count, shape: d.dowels.shape })),
+  ];
 }
 
 /** Every element's pieces, beams, columns, slabs, walls and footings in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */

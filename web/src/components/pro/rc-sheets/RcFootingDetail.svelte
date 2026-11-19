@@ -6,10 +6,12 @@
   import { groupsLabel, stirrupsLabel } from '../../../lib/rc-sheets/bars';
   import { lineRowStatus } from '../../../lib/rc-sheets/beam-line';
   import RcLineSvg from './RcLineSvg.svelte';
-  import { isBanded } from '../../../lib/rc-sheets/footing-mesh';
+  import { isBanded, meshText } from '../../../lib/rc-sheets/footing-mesh';
   import { FOOTING_BALANCES, FOOTING_POSITIONS, type FootingAdopted, type FootingBalance, type FootingMesh, type FootingPosition, type FootingRow } from '../../../lib/rc-sheets/footing-types';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
   import RcFootingSvg from './RcFootingSvg.svelte';
+  import RcFootingGroupSvg from './RcFootingGroupSvg.svelte';
+  import { FOOTING_SOLUTIONS, type FootingSolution } from '../../../lib/rc-sheets/footing-types';
 
   let { row, code }: { row: FootingRow; code: SheetCode } = $props();
   const DOWELS = [12, 16, 20, 25, 32];
@@ -36,6 +38,13 @@
   const position = $derived<FootingPosition>(row.edge?.position ?? 'centred');
   const setPosition = (v: string) => setFootingSetup(row.key, { ...setup, position: v === 'auto' ? undefined : (v as FootingPosition) });
   const setBalance = (v: string) => setFootingSetup(row.key, { ...setup, balance: v as FootingBalance });
+  const memberKeys = $derived(row.demand.group?.members.map((m) => m.key) ?? (row.demand.carried ? [row.key, row.demand.carried.key] : [row.key]));
+  const solution = $derived.by(() => { void modelStore.designData; const all = rcSheetsData().footingSetup ?? {}; return memberKeys.map((k) => all[k]?.solution).find(Boolean) ?? 'auto'; });
+  function setSolution(v: string) {
+    const all = rcSheetsData().footingSetup ?? {};
+    for (const k of memberKeys) setFootingSetup(k, { ...(all[k] ?? {}), solution: v === 'auto' ? undefined : (v as FootingSolution) });
+    setAdopted(row.key, null);
+  }
   const strapSize = (axis: 'x' | 'y', p: { b?: number; h?: number }) => {
     const s = row.edge?.straps.find((x) => x.axis === axis);
     if (!s) return;
@@ -48,7 +57,22 @@
 </script>
 
 <div class="rfd">
-  {#if row.B > 0 && !row.combined}
+  {#if row.B > 0 && !row.uncovered}
+    <div class="rce" data-testid="rc-footing-solution">
+      <fieldset>
+        <legend>{t('rcSheets.foot.solution')}</legend>
+        <label><span>{t(row.group ? `rcSheets.footKind.${row.group.kind}` : row.combined ? 'rcSheets.footKind.combined' : 'rcSheets.footKind.isolated')}</span>
+          <select value={solution} onchange={(e) => setSolution(e.currentTarget.value)} data-testid="rc-footing-solution-select">
+            <option value="auto">{t('rcSheets.foot.solutionAuto')}</option>
+            {#each FOOTING_SOLUTIONS as s (s)}<option value={s}>{t(`rcSheets.footSol.${s}`)}</option>{/each}
+          </select>
+        </label>
+        {#if row.group}<span class="hint" data-testid="rc-footing-group-why">{t(`rcSheets.footWhy.${row.group.reason}`)}</span>{/if}
+        <span class="hint">{t('rcSheets.foot.founding')} z = {(Math.round(row.founding * 100) / 100).toString()} m{#if row.pedestal > 1e-3} · {t('rcSheets.foot.pedestal')} {cmOf(row.pedestal)} cm{/if}</span>
+      </fieldset>
+    </div>
+  {/if}
+  {#if row.B > 0 && !row.combined && !row.group}
     <div class="rce" data-testid="rc-footing-setup">
       <fieldset>
         <legend>{t('rcSheets.foot.kind')}</legend>
@@ -115,7 +139,7 @@
             <input type="number" min="5" max="40" step="2.5" value={cmOf(m.spacing)} aria-label={t('rcSheets.ed.spacing')} data-testid="rc-footing-s-{dir}" onchange={(e) => mesh(dir, { spacing: num(e) / 100 })} />
             <span>cm</span>
           </label>
-          {#if isBanded(dir, row.adopted.B, row.adopted.L)}
+          {#if isBanded(dir, row.adopted.B, row.adopted.L) && !row.group}
             <label><span>{t('rcSheets.foot.outer')}</span>
               <input type="number" min="5" max="40" step="2.5" value={cmOf(m.outer ?? m.spacing)} onchange={(e) => mesh(dir, { outer: num(e) / 100 })} /><span>cm</span>
             </label>
@@ -136,7 +160,31 @@
           </label>
         </fieldset>
       {/if}
-      {#if row.adopted.dowels}
+      {#if row.group}
+        {#each ['x', 'y'] as const as dir (dir)}
+          {@const tm = row.adopted.tops?.[dir]}
+          {#if tm}
+            <fieldset>
+              <legend>{t('rcSheets.foot.top')} {dir.toUpperCase()}</legend>
+              <label>
+                <select value={tm.dia} aria-label={t('rcSheets.ed.dia')} onchange={(e) => patch({ tops: { ...(row.adopted.tops ?? {}), [dir]: { ...tm, dia: num(e) } } })}>
+                  {#each FOOTING_DIAMETERS as d (d)}<option value={d}>Ø{d}</option>{/each}
+                </select>
+                <span>c/</span>
+                <input type="number" min="5" max="40" step="2.5" value={cmOf(tm.spacing)} aria-label={t('rcSheets.ed.spacing')} onchange={(e) => patch({ tops: { ...(row.adopted.tops ?? {}), [dir]: { ...tm, spacing: num(e) / 100 } } })} />
+                <span>cm</span>
+              </label>
+            </fieldset>
+          {/if}
+        {/each}
+        {#if row.adopted.extra?.length}
+          <fieldset data-testid="rc-footing-extra">
+            <legend>{t('rcSheets.foot.extra')}</legend>
+            {#each row.adopted.extra as e, i (i)}<span class="hint">{e.dir.toUpperCase()} {t(`rcSheets.foot.face.${e.face}`)} · {meshText(e.mesh)} · {cmOf(e.hi - e.lo)} cm</span>{/each}
+          </fieldset>
+        {/if}
+      {/if}
+      {#if row.adopted.dowels && !row.group}
         {@const dw = row.adopted.dowels}
         <fieldset>
           <legend>{t('rcSheets.foot.dowels')}</legend>
@@ -159,7 +207,7 @@
       </div>
     </div>
   {/if}
-  {#if row.B > 0}<div class="rcw-secs"><RcFootingSvg {row} {code} /></div>{/if}
+  {#if row.B > 0}<div class="rcw-secs">{#if row.group}<RcFootingGroupSvg {row} {code} />{:else}<RcFootingSvg {row} {code} />{/if}</div>{/if}
   {#each (row.edge?.straps ?? []).filter((st) => st.line) as st (st.axis)}
     <div class="rcw-secs" data-testid="rc-footing-strap-line"><RcLineSvg line={st.line!} /></div>
   {/each}

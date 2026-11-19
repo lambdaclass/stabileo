@@ -24,9 +24,8 @@ import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/l
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
-import type { FootingDemand, FootingRow } from '../rc-sheets/footing-types';
-import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
-import { layFootings } from '../rc-sheets/footing-layout';
+import type { FootingRow } from '../rc-sheets/footing-types';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRows, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
 import { leverOf } from '../rc-sheets/footing-design';
@@ -672,22 +671,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
-  let footing: FootingRow[] = [];
-  for (const d of feet) {
-    const f = footingRowOf(d, rules, adoptedNow, footingSizing(data), column, fmt);
-    redesigners.set(d.key, f.redo as Redesign);
-    footing.push(f.row);
-    yield step();
-  }
-  const footCtx = (d: FootingDemand) => footingContext(d, footingSizing(data), column);
-  footing = layFootings(footing, {
-    capped: (d, cap) => rules.footingRow(d, footCtx(d), undefined, fmt, cap),
-    combine: (a, b) => {
-      const d = { ...a, carried: b };
-      redesigners.set(d.key, ((x: FootingDemand) => rules.footingRow(x, footCtx(x), undefined, fmt)) as Redesign);
-      return rules.footingRow(d, footCtx(d), undefined, fmt);
-    },
+  let footing: FootingRow[] = foundationRows(feet, {
+    rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo: (k, f) => { redesigners.set(k, f as Redesign); },
+    system: foundationSystem(data), solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
   });
+  for (let i = 0; i < feet.length; i++) yield step();
   const pulls = tiePulls(footing, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
   if (pulls.size) footing = footing.map((r) => {
     const p = pulls.get(r.key);

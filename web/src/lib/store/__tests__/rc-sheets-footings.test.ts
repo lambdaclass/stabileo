@@ -13,7 +13,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, rcSheetsData, setSheetCode } from '../rc-sheets.svelte';
-import { foundationStamp, setFootingSizing, writeFootingToModel } from '../rc-sheets-footings';
+import { foundationStamp, setFootingSizing, setFoundationSystem, writeFootingToModel } from '../rc-sheets-footings';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { FootingRow } from '../../rc-sheets/footing-types';
 import { barsInTension, columnBars } from '../../rc-sheets/column-row';
@@ -100,10 +100,11 @@ describe('the committed footing project', () => {
 });
 
 describe('the seven-storey example', () => {
-  it('designs a footing under each column base on a 200 kPa soil, its dowels lapped in tension under the columns some combination pulls and only those', async () => {
+  it('designs a footing under each column base on a 200 kPa soil when asked for footings only, its dowels lapped in tension under the columns some combination pulls and only those', async () => {
     modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
     await PRO_EXAMPLES.find((e) => e.id === 'pro-edificio-7p')!.load();
     ensurePhysicalModel();
+    setFoundationSystem('footings');
     const soil = modelStore.addSoilProfile('Suelo');
     modelStore.updateSoilProfile(soil, { bearing: { kind: 'allowablePressure', allowableBearingKPa: 200 } });
     solve();

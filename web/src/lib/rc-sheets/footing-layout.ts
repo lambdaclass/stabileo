@@ -16,7 +16,7 @@ export interface LayoutHooks {
 
 /** A footing held at a line along this axis: its side across the line cannot be cut short there. */
 const heldAlong = (r: FootingRow, axis: 'x' | 'y') => !!r.demand.edge?.anchor[axis === 'x' ? 0 : 1];
-const free = (r: FootingRow) => !r.isAdopted && !r.demand.footing && !r.demand.carried && r.B > 0;
+const free = (r: FootingRow) => !r.isAdopted && !r.demand.footing && !r.demand.carried && !r.demand.group && r.B > 0;
 const down5 = (v: number) => Math.round(Math.floor(v / 0.05 + 1e-9) * 50) / 1000;
 
 /**

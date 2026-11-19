@@ -1,12 +1,13 @@
 import type { Fmt } from './format';
-import { analyseFooting, CIRSOC_ONE_WAY, MIN_D, proposeFooting, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
+import { analyseFooting, CIRSOC_ONE_WAY, foundingOf, MIN_D, pedestalOf, proposeFooting, type FootingAnalysis, type FootingRowCode, type PlanCap } from './footing-design';
 import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
 import { footingSteps } from './footing-steps';
 import { check, ratioOf, type CheckLine, type ComboTable, type RowStatus } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingEdgeResult, FootingRow, StrapResult, TieResult } from './footing-types';
-import { barArea } from './bars';
+import { tieBars, TIE, tieLimits } from './footing-tie-bars';
 import { combinedRow } from './footing-combined-row';
+import { groupRow } from './footing-group-row';
 import { CRITERION, critOf, type Criteria } from './criteria';
 
 export type FootingRowFn = (d: FootingDemand, c: FootingContext, adopted: FootingAdopted | undefined, fmt: Fmt, cap?: PlanCap) => FootingRow;
@@ -16,22 +17,7 @@ const sizeOf = (d: FootingDemand): FootingAdopted | null => {
   return f && f.B > 0 && f.L > 0 ? { B: f.B, L: f.L, h: f.h, ex: f.ex, ey: f.ey, x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } } : null;
 };
 
-/** The tie's bars: `fewest` or more of one diameter, an even count, Ast = Tu/(0,90·fy) and never under `least`, cm², half above and half below. */
-export function tieBars(Tu: number, fy: number, diameters: readonly number[], least = 0, fewest = 2): { asReq: number; count: number; dia: number; asProvided: number } {
-  const asReq = Math.max((10 * Tu) / (0.9 * fy), least);
-  const floor = 2 * Math.ceil(fewest / 2);
-  const pick = diameters.map((dia) => ({ dia, count: Math.max(floor, 2 * Math.ceil(asReq / barArea(dia) / 2)) })).find((x) => x.count <= Math.max(8, floor)) ?? { dia: diameters[diameters.length - 1] ?? 16, count: Math.max(floor, 2 * Math.ceil(asReq / barArea(diameters[diameters.length - 1] ?? 16) / 2)) };
-  return { asReq, ...pick, asProvided: pick.count * barArea(pick.dia) };
-}
-
-/** The tie's steel and detailing that no criterion sets: Es, kN/m², the clear gap between its bars and its stirrup, m. */
-export const TIE = { es: 2e8, gap: 0.025, stirrup: 0.008 } as const;
-
-/** The limits of a footing with a tie, by the Stabileo criteria (FIUBA Cim. §6.2, §6.5): Ns, H, e ≤ H/n, μ = tg(2φ/3), the sliding factor and the stretch, ΔL ≤ H/n. */
-export const tieLimits = (cr: Criteria) => ({
-  maxNs: cr.footingTieMaxLoad, minH: cr.footingTieMinArm, maxE: 1 / cr.footingTieOffset, slide: cr.footingTieSlide,
-  mu: Math.tan((2 / 3) * (cr.footingTieFriction * Math.PI) / 180), phi: cr.footingTieFriction, stretch: 1 / cr.footingTieStretch,
-});
+export { tieBars, TIE, tieLimits };
 
 function tieOf(d: FootingDemand, axis: 'x' | 'y', H: number, e: number, t: FootingAnalysis['balanced'][number], c: FootingContext): TieResult {
   const cr = critOf(c), lim = tieLimits(cr);
@@ -155,12 +141,14 @@ const emptyRow = (d: FootingDemand, c: FootingContext, line: CheckLine, a?: Foot
     family: 'footing', key: d.key, name: d.name, level: d.level, demand: d, ...z, cover: c.cover, proposed: z, adopted: z, isAdopted: false,
     sizing: { mode: c.sizing, reached: false, from: 'none' }, bearing: null, layers: { lower: 'x', dx: 0, dy: 0, d: 0 },
     x: null, y: null, punching: null, dowels: null, utilization: 0, verifications: [line], combos: { headers: [], rows: [] }, status: 'none', generous: false, steps: [],
+    founding: foundingOf(d, z.h), pedestal: pedestalOf(d, z.h),
   };
 };
 
 export function footingRowFor(code: FootingRowCode): FootingRowFn {
   return (d, c, adopted, fmt, cap) => {
     if (d.footing?.outOfScope) return emptyRow(d, c, check(`rcSheets.v.footOut.${d.footing.outOfScope}`, false));
+    if (d.group) return groupRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     if (!d.column) return emptyRow(d, c, check('rcSheets.v.footNoColumn', false));
     if (d.carried) return combinedRow(d, c, adopted, fmt, code) ?? emptyRow(d, c, check(d.soil ? 'rcSheets.v.footNoService' : 'rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
     const prop = proposeFooting(d, c, code, cap);
@@ -182,6 +170,7 @@ export function footingRowFor(code: FootingRowCode): FootingRowFn {
       dowels: r.dowels ? { count: r.dowels.count, dia: r.dowels.dia, ldc: Math.max(r.dowels.ldc, r.dowels.ldh), available: r.dowels.available, lap: r.dowels.lap, tension: r.dowels.tension, above: r.dowels.above, offset: r.dowels.offset } : null,
       utilization: Math.max(0, ...ratios.filter(Number.isFinite)), verifications: v, combos: combosOf(r, fmt), status, generous: false,
       steps: footingSteps(d, c, r, a, code, fmt, prop, edge),
+      founding: foundingOf(d, a.h), pedestal: pedestalOf(d, a.h),
       ...(edge ? { edge } : {}),
     };
   };

@@ -20,7 +20,7 @@ describe('a core at the property lines', () => {
 });
 
 describe('footings that do not fit', () => {
-  const row = (x: number, y: number, B: number, checks: Array<{ label: string; ok: boolean }>) => ({ demand: { at: { x, y } }, B, L: B, ex: 0, ey: 0, verifications: checks }) as unknown as FootingRow;
+  const row = (x: number, y: number, B: number, checks: Array<{ label: string; ok: boolean }>) => ({ demand: { at: { x, y }, column: { b: 0.4, h: 0.4 } }, B, L: B, ex: 0, ey: 0, verifications: checks }) as unknown as FootingRow;
 
   it('fail for the plan alone when overlapping is all that fails', () => {
     expect(onlyOverlaps(row(0, 0, 2, [{ label: 'rcSheets.v.footOverlap', ok: false }, { label: 'rcSheets.v.footBearing', ok: true }]))).toBe(true);
@@ -28,10 +28,10 @@ describe('footings that do not fit', () => {
     expect(onlyOverlaps(row(0, 0, 2, []))).toBe(false);
   });
 
-  it('cover a share of the plan their outer edges reach', () => {
-    const c = footingCover([row(0, 0, 2, []), row(4, 0, 2, [])])!;
+  it('cover a share of the building\'s plan, the rectangle its columns reach', () => {
+    const c = footingCover([row(0, 0, 2, []), row(4, 3, 2, [])])!;
     expect(c.footings).toBeCloseTo(8, 9);
-    expect(c.plan).toBeCloseTo(6 * 2, 9);
-    expect(c.share).toBeCloseTo(8 / 12, 9);
+    expect(c.plan).toBeCloseTo(4.4 * 3.4, 9);
+    expect(c.share).toBeCloseTo(8 / (4.4 * 3.4), 9);
   });
 });

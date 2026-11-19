@@ -129,6 +129,13 @@ function pierDemand(p: FootingPier, m: FootingDemandInput): FootingDemand | null
  * the nodes of a pier's base its own footing's, which the model's footing under all of them is.
  */
 export function footingDemands(m: FootingDemandInput): FootingDemand[] {
+  const owner = new Map<number, string>();
+  for (const p of m.piers ?? []) for (const n of p.nodes) owner.set(n, p.key);
+  const groups = m.footings.filter((f) => (f.kind === 'strip' || f.kind === 'mat' || f.kind === 'combined') && !designedCombined(f)
+    && new Set([f.nodeId, ...(f.supportedNodeIds ?? [])].map((n) => owner.get(n) ?? `n${n}`)).size >= 2);
+  const inGroup = new Set(groups.flatMap((f) => [f.nodeId, ...(f.supportedNodeIds ?? [])]));
+  const footings = m.footings.filter((f) => !groups.includes(f));
+  m = { ...m, footings };
   const byNode = new Map<number, FootingRecord>();
   for (const f of [...m.footings].sort((a, b) => a.id - b.id)) if (!byNode.has(f.nodeId)) byNode.set(f.nodeId, f);
   const onPiers = new Set((m.piers ?? []).flatMap((p) => p.nodes));
@@ -147,7 +154,7 @@ export function footingDemands(m: FootingDemandInput): FootingDemand[] {
       service, lateralLeftOut, combos, soil: null,
     };
   };
-  const nodes = [...new Set([...m.supportNodes.filter((n) => m.columnAt(n)), ...byNode.keys()])].filter((n) => !carried.has(n) && m.nodes.has(n));
+  const nodes = [...new Set([...m.supportNodes.filter((n) => m.columnAt(n) || inGroup.has(n)), ...byNode.keys()])].filter((n) => !carried.has(n) && m.nodes.has(n));
   const out: FootingDemand[] = [];
   for (const n of nodes.sort((a, b) => a - b)) {
     const f = byNode.get(n), base = own(n)!;
@@ -159,5 +166,22 @@ export function footingDemands(m: FootingDemandInput): FootingDemand[] {
     });
   }
   for (const p of m.piers ?? []) { const d = pierDemand(p, m); if (d) out.push(d); }
-  return out;
+  return groups.length ? withModelGroups(out, groups, m) : out;
+}
+
+/** The strips and mats the model holds under several footings: each member keeps its own demand with the group's plan read from its own axis. */
+function withModelGroups(out: FootingDemand[], groups: readonly FootingRecord[], m: FootingDemandInput): FootingDemand[] {
+  const held = new Map<string, { footing: ModelledFooting; soil: FootingSoil | null }>();
+  for (const f of groups) {
+    const nodes = new Set([f.nodeId, ...(f.supportedNodeIds ?? [])]);
+    const members = out.filter((d) => (d.pier ? d.pier.nodes.every((n) => nodes.has(n)) : nodes.has(d.nodeId)));
+    const at = m.nodes.get(f.nodeId);
+    if (members.length < 2 || !at) continue;
+    const base = modelled({ ...f, kind: 'isolated', supportedNodeIds: [] }, m.footings);
+    const kind = f.kind === 'mat' ? 'mat' as const : 'strip' as const;
+    const keys = members.map((d) => d.key);
+    const soil = m.soilOf(f.soilProfileId);
+    for (const d of members) { const { outOfScope: _o, ...rest } = base; held.set(d.key, { footing: { ...rest, ex: base.ex + at.x - d.at.x, ey: base.ey + at.y - d.at.y, group: { kind, members: keys } }, soil }); }
+  }
+  return out.map((d) => { const f = held.get(d.key); return f ? { ...d, footing: f.footing, soil: f.soil } : d; });
 }

@@ -32,8 +32,8 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcFootingDetail from './RcFootingDetail.svelte';
   import { meshText } from '../../../lib/rc-sheets/footing-mesh';
-  import { FOOTING_SIZINGS } from '../../../lib/rc-sheets/footing-types';
-  import { footingSizing, setFootingSizing } from '../../../lib/store/rc-sheets-footings';
+  import { FOOTING_SIZINGS, FOUNDATION_SYSTEMS } from '../../../lib/rc-sheets/footing-types';
+  import { footingSizing, foundationSystem, setFootingSizing, setFoundationSystem } from '../../../lib/store/rc-sheets-footings';
   import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
   import RcResize from './RcResize.svelte';
   import { noArrangement } from '../../../lib/store/rc-sheets-resize';
@@ -98,7 +98,8 @@
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
   const matShare = $derived(criteriaOf(designData().designOptions?.criteria).footingMatShare);
-  const matCover = $derived.by(() => { const c = footingCover(rows.footing); return c && c.share > matShare ? c : null; });
+  const matCover = $derived.by(() => { if (rows.footing.some((r) => r.group?.kind === 'mat')) return null; const c = footingCover(rows.footing); return c && c.share > matShare ? c : null; });
+  const system = $derived.by(() => { void modelStore.designData; return foundationSystem(rcSheetsData()); });
   const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
   async function openFromSchedule(el: ElementRef, marks: string[]) {
     const plan = el.key.startsWith('slabplan:');
@@ -220,6 +221,11 @@
             {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
           </select>
         </label>
+        <label class="rcw-ctl rcw-sizing"><span>{t('rcSheets.foundation.label')}</span>
+          <select value={system} onchange={(e) => setFoundationSystem((e.currentTarget as HTMLSelectElement).value as typeof system)} data-testid="rc-foundation-system">
+            {#each FOUNDATION_SYSTEMS as m (m)}<option value={m}>{t(`rcSheets.foundation.${m}`)}</option>{/each}
+          </select>
+        </label>
         <RcPropertyLines rows={rows.footing} />
         {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
       {/if}
@@ -288,7 +294,7 @@
                 <td class="n">{f1(r.phiVc)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'footing'}
-                <td data-testid="rc-footing-kind" data-kind={r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}</td>
+                <td data-testid="rc-footing-kind" data-kind={r.group ? r.group.kind : r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.group ? t(`rcSheets.footKind.${r.group.kind}`) : r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}{#if r.group}<span class="dim"> · {r.group.columns.length}</span>{/if}</td>
                 <td>{r.B > 0 ? `${fmt(r.B * 100, 0)}×${fmt(r.L * 100, 0)}×${fmt(r.h * 100, 0)}` : '—'}</td>
                 <td class="n">{r.demand.service ? f1(r.demand.service.N + (r.demand.carried?.service?.N ?? 0)) : '—'}</td>
                 <td class="n">{r.bearing ? `${fmt(r.bearing.qMax, 0)} / ${r.bearing.allowable ? fmt(r.bearing.allowable, 0) : '—'}` : '—'}</td>

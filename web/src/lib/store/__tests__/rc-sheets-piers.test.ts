@@ -17,7 +17,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
 import { storeyPiers } from '../rc-sheets-piers';
-import { writeFootingToModel } from '../rc-sheets-footings';
+import { setFoundationSystem, writeFootingToModel } from '../rc-sheets-footings';
 import { pierCombos } from '../../rc-sheets/pier-design';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { AnalysisResults3D } from '../../engine/types-3d';
@@ -36,6 +36,7 @@ describe('the seven-storey core as one element', () => {
     publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
 
     setSheetCode('cirsoc201-2025');
+    setFoundationSystem('footings');
     const rows = buildSheetRows();
     const c1 = rows.column.filter((r) => r.name === 'C1');
     expect(c1).toHaveLength(7);

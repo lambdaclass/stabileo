@@ -59,6 +59,9 @@ export const CRITERIA = {
   footingTieMinDepth: { ...cm(30, 15, 100), family: 'footing' },
   footingTieDepthRatio: { family: 'footing', value: 10, min: 4, max: 20, step: 1, unit: '', prefix: 'h ≥ L/' },
   footingMatShare: { family: 'footing', value: 50, min: 20, max: 90, step: 5, unit: '%', scale: 100 },
+  footingRigidLength: { family: 'footing', value: 1.57, min: 0.5, max: 3.14, step: 0.01, unit: '·Lo', prefix: 'L ≤ ', digits: 2 },
+  footingWinklerEnds: { family: 'footing', value: 2, min: 1, max: 3, step: 0.1, unit: '·ks', digits: 1 },
+  footingWinklerSettlement: { ...cm(1, 0.5, 5, 0.5), family: 'footing', digits: 1 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

@@ -52,8 +52,14 @@ const STEP_PLAN = 0.1, STEP_H = 0.05, MAX_PLAN = 15, MAX_H = 2.5;
 const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 
-/** The node's height above the base, m: the modelled footing's founding level, else the footing's own top at the node. */
-export const leverOf = (d: FootingDemand, h: number): number => (d.footing ? Math.max(h, d.at.z - d.footing.founding) : h);
+/** Where the footing's underside is founded, m: the modelled footing's level, else the project's common one, else its top at the node. */
+export const foundingOf = (d: Pick<FootingDemand, 'footing' | 'founding' | 'at'>, h: number): number => d.footing?.founding ?? d.founding ?? d.at.z - h;
+
+/** The node's height above the base, m: from the founding level, never less than the footing itself. */
+export const leverOf = (d: FootingDemand, h: number): number => Math.max(h, d.at.z - foundingOf(d, h));
+
+/** The column's stretch below its node down to the footing's top, m. */
+export const pedestalOf = (d: Pick<FootingDemand, 'footing' | 'founding' | 'at'>, h: number): number => Math.max(0, d.at.z - foundingOf(d, h) - h);
 
 export const planOf = (d: FootingDemand, a: Pick<FootingAdopted, 'B' | 'L' | 'ex' | 'ey'>): FootingPlan =>
   ({ B: a.B, L: a.L, xc: -a.ex, yc: -a.ey, b: d.column?.b ?? 0, h: d.column?.h ?? 0, ...(d.column?.area ? { area: d.column.area } : {}) });

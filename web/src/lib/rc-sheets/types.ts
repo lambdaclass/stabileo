@@ -113,6 +113,8 @@ export interface RcSheetsData {
   slabBentBars?: boolean;
   /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
   footingSizing?: import('./footing-types').FootingSizing;
+  /** How the building's foundation is proposed; absent: by the selection rule. */
+  foundationSystem?: import('./footing-types').FoundationSystem;
   /** Footings set at a line, a corner or centred, and balanced, by row key, over what the property lines say. */
   footingSetup?: Record<string, import('./footing-types').FootingSetup>;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
@@ -135,7 +137,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 20;
+export const RC_SHEETS_LOGIC = 21;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 

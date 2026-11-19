@@ -101,7 +101,7 @@ export function wallBars3d(rows: readonly WallRow[], r: WallRow, f: Frame, o: Pi
 }
 
 /** Where each dowel stands in plan and which way is out of the column there: under the column's bars where their count matches, else spread round the column inside its faces. */
-function dowelPlaces(at: [number, number], size: { b: number; h: number }, count: number, row: ColumnRow | undefined, frame: Frame | null): Array<{ x: number; y: number; out: [number, number] }> {
+export function dowelPlaces(at: [number, number], size: { b: number; h: number }, count: number, row: ColumnRow | undefined, frame: Frame | null): Array<{ x: number; y: number; out: [number, number] }> {
   if (row && frame) {
     const bars = columnLayout(row, row.adopted, row.cover, row.aggregate).bars;
     if (bars.length === count) return bars.map((p) => {

@@ -15,7 +15,7 @@
   import { rcSheetsData, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setTorsionMode, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { DEFLECTION_SUPPORTS, LOAD_MONTHS, optionRule, type DeflectionSupport, type DesignOptionFlag, type DesignOptionKey, type LoadMonths } from '../../../lib/rc-sheets/design-options';
   import { DEFAULT_CREEP, DEFAULT_MONTHS, DEFAULT_SUPPORTS } from '../../../lib/rc-sheets/deflection';
-  import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
+  import { MIN_TIE_SPACING_RANGE, PRESUMED_BEARING_RANGE, FOUNDING_RANGE } from '../../../lib/model/design-data';
   import { AGGREGATE_RANGE } from '../../../lib/rc-sheets/types';
   import { localizeCriterion } from '../../../lib/rc-sheets/criteria';
   import { concreteClasses, DEFAULT_FC_MAX } from '../../../lib/rc-sheets/concrete-classes';
@@ -146,6 +146,12 @@
       <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={d.presumedBearingKPa} onchange={(e) => { const v = Number(e.currentTarget.value); if (v >= PRESUMED_BEARING_RANGE.min && v <= PRESUMED_BEARING_RANGE.max) patchDesignData({ presumedBearingKPa: v }); else e.currentTarget.value = String(d.presumedBearingKPa); }} data-testid="design-data-presumed-bearing" /> {'kPa'}
     </label>
     <Hint text={t('designData.presumedBearingHint')} />
+  </div>
+  <div class="do-opt">
+    <label class="do-inline">{t('designData.foundingElevation')}
+      <input type="number" min={FOUNDING_RANGE.min} max={FOUNDING_RANGE.max} step="0.05" value={d.foundingElevation ?? ''} placeholder={t('designData.foundingAuto')} onchange={(e) => { const raw = e.currentTarget.value.trim(); const v = Number(raw); if (raw === '') patchDesignData({ foundingElevation: undefined }); else if (Number.isFinite(v) && v >= FOUNDING_RANGE.min && v <= FOUNDING_RANGE.max) patchDesignData({ foundingElevation: v }); else e.currentTarget.value = d.foundingElevation === undefined ? '' : String(d.foundingElevation); }} data-testid="design-data-founding" /> {'m'}
+    </label>
+    <Hint text={t('designData.foundingElevationHint')} />
   </div>
   <div class="do-opt">
     <span class="do-inline">{t('fdn.propertyLines')} <PropertyLinesPicker testid="design-data-property-line" /></span>

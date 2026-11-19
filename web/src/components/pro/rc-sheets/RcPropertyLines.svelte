@@ -4,6 +4,7 @@
   import { designData, patchDesignData } from '../../../lib/store/design-data';
   import { PROPERTY_SIDES, type PropertyLines, type PropertySide } from '../../../lib/model/foundation/edges';
   import type { FootingRow } from '../../../lib/rc-sheets/footing-types';
+  import { footingCorners } from '../../../lib/rc-sheets/footing-overlaps';
 
   let { rows }: { rows: readonly FootingRow[] } = $props();
 
@@ -20,24 +21,28 @@
   }
 
   const plan = $derived.by(() => {
-    const pts = rows.map((r) => ({ r, x: r.demand.at.x, y: r.demand.at.y }));
+    const pts = rows.flatMap((r) => (r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])).map((m) => ({ r, name: m.name, key: m.key, pier: m.pier, x: m.at.x, y: m.at.y })));
     if (!pts.length) return null;
-    const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x));
-    const y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+    const outlines = rows.filter((r) => r.B > 0 && r.L > 0).map((r) => ({ key: r.key, name: r.name, kind: r.group?.kind ?? (r.combined ? 'combined' : r.edge?.position ?? 'centred'), fail: r.status === 'fail', pts: footingCorners(r) }));
+    const ext = [...pts, ...outlines.flatMap((o) => o.pts)];
+    const x0 = Math.min(...ext.map((p) => p.x)), x1 = Math.max(...ext.map((p) => p.x));
+    const y0 = Math.min(...ext.map((p) => p.y)), y1 = Math.max(...ext.map((p) => p.y));
     const k = Math.min((W - 2 * PAD) / Math.max(x1 - x0, 1e-6), (H - 2 * PAD) / Math.max(y1 - y0, 1e-6));
     const w = (x1 - x0) * k, h = (y1 - y0) * k;
     const ox = (W - w) / 2, oy = (H - h) / 2;
     const sx = (x: number) => ox + (x - x0) * k, sy = (y: number) => oy + h - (y - y0) * k;
+    const cx0 = Math.min(...pts.map((p) => p.x)), cx1 = Math.max(...pts.map((p) => p.x)), cy0 = Math.min(...pts.map((p) => p.y)), cy1 = Math.max(...pts.map((p) => p.y));
     const sides: Record<PropertySide, [number, number, number, number]> = {
-      minX: [sx(x0), sy(y0), sx(x0), sy(y1)], maxX: [sx(x1), sy(y0), sx(x1), sy(y1)],
-      minY: [sx(x0), sy(y0), sx(x1), sy(y0)], maxY: [sx(x0), sy(y1), sx(x1), sy(y1)],
+      minX: [sx(cx0), sy(cy0), sx(cx0), sy(cy1)], maxX: [sx(cx1), sy(cy0), sx(cx1), sy(cy1)],
+      minY: [sx(cx0), sy(cy0), sx(cx1), sy(cy0)], maxY: [sx(cx0), sy(cy1), sx(cx1), sy(cy1)],
     };
     const dots = pts.map((p) => {
-      const a = p.r.edge?.anchor ?? [0, 0];
-      const outline = p.r.demand.pier?.outline?.map((q) => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ');
-      return { key: p.r.key, name: p.r.name, x: sx(p.x), y: sy(p.y), ax: a[0], ay: -a[1], position: p.r.edge?.position ?? 'centred', byHand: p.r.edge?.source === 'row', ...(outline ? { outline } : {}) };
+      const a = p.r.group ? [0, 0] : p.r.edge?.anchor ?? [0, 0];
+      const outline = p.pier?.outline?.map((q) => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ');
+      return { key: p.key, name: p.name, x: sx(p.x), y: sy(p.y), ax: a[0], ay: -a[1], position: p.r.group ? 'centred' : p.r.edge?.position ?? 'centred', byHand: p.r.edge?.source === 'row', ...(outline ? { outline } : {}) };
     });
-    return { sides, dots };
+    const shapes = outlines.map((o) => ({ ...o, points: o.pts.map((q) => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ') }));
+    return { sides, dots, shapes };
   });
   const counts = $derived({
     edge: rows.filter((r) => r.edge?.position === 'edge').length,
@@ -53,6 +58,9 @@
         <line class="side" class:on={!!lines[k]} x1={s[0]} y1={s[1]} x2={s[2]} y2={s[3]} />
         <line class="hit" x1={s[0]} y1={s[1]} x2={s[2]} y2={s[3]} role="button" tabindex="0" aria-pressed={!!lines[k]} aria-label={tp('rcSheets.footLines.side', { side: SIDE[k] })}
           onclick={() => toggle(k)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(k); } }} data-testid="rc-property-line-{k}"><title>{tp('rcSheets.footLines.side', { side: SIDE[k] })}</title></line>
+      {/each}
+      {#each plan.shapes as f (f.key)}
+        <polygon class="fdn {f.kind}" class:fail={f.fail} points={f.points} data-testid="rc-property-footing" data-kind={f.kind}><title>{f.name}</title></polygon>
       {/each}
       {#each plan.dots as d (d.key)}
         {#if d.outline}
@@ -94,6 +102,9 @@
   .dot.edge rect:first-child, .dot.corner rect:first-child { fill: color-mix(in srgb, var(--st-warn) 30%, transparent); stroke: var(--st-warn); }
   .dot.hand rect:first-child { stroke-dasharray: 2 1.5; }
   .dot rect.col { fill: var(--st-text-2); stroke: none; }
+  .fdn { fill: color-mix(in srgb, var(--st-accent) 10%, transparent); stroke: var(--st-accent); stroke-width: 0.8; }
+  .fdn.mat, .fdn.strip, .fdn.combined { fill: color-mix(in srgb, var(--st-accent) 18%, transparent); stroke-width: 1.2; }
+  .fdn.fail { stroke: var(--st-danger); }
   .pier { fill: color-mix(in srgb, var(--st-text-2) 45%, transparent); stroke: var(--st-text-2); stroke-width: 1; }
   .pier.edge, .pier.corner { stroke: var(--st-warn); }
   .rpl-side { display: flex; flex-direction: column; gap: 6px; max-width: 32ch; }
