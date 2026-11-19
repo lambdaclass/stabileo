@@ -12,7 +12,6 @@ import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from
  * particular was the source of generator/verifier disagreement and never decides
  * pass/fail again.
  *
- * VERIFIER VERSION: 'cirsoc201.provided.v2'.
  *   v1 → v2 corrected the governing-axis selection (beams and columns), turned
  *   missing-reinforcement from a skipped check into an explicit failure, switched
  *   utilization to demand/capacity with a warn band, checked both column shear
@@ -68,7 +67,7 @@ import {
   type DesignCodeAdapter, type DetailingLimits, type InputValidation,
 } from '../code-adapter';
 
-export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v2';
+export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v3';
 
 /**
  * Legacy coarse flags, kept because the UI still reads them.

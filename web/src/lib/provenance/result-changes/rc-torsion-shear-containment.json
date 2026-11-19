@@ -1,7 +1,7 @@
 {
   "id": "rc-torsion-shear-containment",
   "date": "2026-11-19",
-  "prs": [],
+  "prs": [2338],
   "area": "design",
   "when": { "all": ["concreteMembers", "cirsoc201"] },
   "title": {

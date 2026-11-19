@@ -1301,7 +1301,9 @@ export function sharedTorsionReinforcement(results: readonly ElementVerification
   return { shear: { spacing, legs }, requirements };
 }
 
-function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], AlProv: number | undefined, refusal: string | undefined, params: ConcreteDesignParams, edition: RegulationEdition, longitudinalRefusal?: string): TorsionResult {
+type FixedLongitudinalTorsion = { kind: 'column-area'; area: number } | { kind: 'unverified-perimeter' };
+
+function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], longitudinal: FixedLongitudinalTorsion | undefined, refusal: string | undefined, params: ConcreteDesignParams, edition: RegulationEdition): TorsionResult {
   const reason = t.refusal ?? refusal;
   if (!t.neglect && reason) {
     return { ...t, refusal: reason, phiTn: 0, ratio: Infinity, AtOverSProv: 0, reinforcementRatio: Infinity, status: 'fail',
@@ -1313,16 +1315,18 @@ function checkProvidedTorsion(t: TorsionResult, shears: readonly ShearResult[], 
       (provision.transverseProvided * 1e4 - torsionShearReserve(s.Vu, s.phiVc, s.d, params.fy) * 1e4) / 2));
   }));
   const ratio = (required: number, provided: number) => required === 0 ? 0 : provided > 0 ? required / provided : Infinity;
-  const longitudinalRatio = AlProv === undefined || longitudinalRefusal ? 0 : ratio(t.AlReq, AlProv);
+  const area = longitudinal?.kind === 'column-area' ? longitudinal.area : undefined;
+  const longitudinalRatio = area === undefined ? 0 : ratio(t.AlReq, area);
   const reinforcementRatio = t.neglect ? 0 : Math.max(ratio(t.AtOverS, AtOverSProv), longitudinalRatio,
     ...shears.map(s => s.spacing / t.spacingMax!),
     ...shears.map((s, index) => ratio(combinedTransverseMinimum(edition, index === 0 ? params.b : params.h, params.fc, params.fy),
       torsionStirrupProvision(s).transverseProvided)));
-  if (t.neglect && AlProv === undefined) AlProv = 0;
+  const AlProv = area ?? (t.neglect ? 0 : undefined);
   const longitudinalProvision = t.neglect ? 'not-required' : AlProv === undefined ? 'not-checked' : 'checked';
-  if (!t.neglect && longitudinalRefusal) {
+  if (!t.neglect && longitudinal?.kind === 'unverified-perimeter') {
+    const refusal = 'diag.rcTorsionPerimeter';
     return { ...t, ratio: Infinity, AtOverSProv, reinforcementRatio, longitudinalProvision: 'not-checked',
-      status: 'fail', refusal: longitudinalRefusal, steps: [...t.steps, longitudinalRefusal] };
+      status: 'fail', refusal, steps: [...t.steps, refusal] };
   }
   return { ...t, AtOverSProv, AlProv, longitudinalProvision, reinforcementRatio,
     status: !(reinforcementRatio <= 1) ? 'fail' : longitudinalProvision === 'not-checked' && t.status === 'ok' ? 'warn' : t.status,
@@ -1440,10 +1444,12 @@ export function prepareElementVerification(concurrent: ConcurrentVerificationInp
       })
       : undefined;
     const torsionRefusal = cage.kind === 'refusal' ? cage.reason : secondary?.refusal;
-    const longitudinalRefusal = input.elementType === 'wall' && fixed?.torsion ? 'diag.rcTorsionPerimeter' : undefined;
+    const longitudinal: FixedLongitudinalTorsion | undefined = fixed?.torsion && (input.elementType === 'column'
+      ? { kind: 'column-area', area: fixed.torsion.AlProv }
+      : { kind: 'unverified-perimeter' });
     const torsionResult = torsion
       ? checkProvidedTorsion(concurrent.rectangularSection === false ? { ...torsion, neglect: false } : torsion,
-        [shear, ...(secondary && !secondary.refusal ? [secondary] : [])], fixed?.torsion?.AlProv, torsionRefusal, params, edition, longitudinalRefusal)
+        [shear, ...(secondary && !secondary.refusal ? [secondary] : [])], longitudinal, torsionRefusal, params, edition)
       : undefined;
 
     // Overall status

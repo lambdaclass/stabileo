@@ -1,4 +1,4 @@
-import { drawnStirrupCoverage } from '../../design-contract/reinforcement';
+import { drawnBeamReinforcement } from '../../design-contract/reinforcement';
 /**
  * Repeated beam lines: the frames of a building that are the same frame again, on another level
  * or another axis. A beam line is a horizontal frame line (`groupByFrameLine`), its members
@@ -110,8 +110,9 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
     return v;
   };
   const mirrored = walk(r) as ProvidedReinforcement;
-  const coverage = r[drawnStirrupCoverage];
-  if (coverage) mirrored[drawnStirrupCoverage] = coverage.map(({ from, to }) => ({ from: 1 - to, to: 1 - from }));
+  const drawing = r[drawnBeamReinforcement];
+  const reverse = <T extends { from: number; to: number }>(piece: T): T => ({ ...piece, from: 1 - piece.to, to: 1 - piece.from });
+  if (drawing) mirrored[drawnBeamReinforcement] = { stirrups: drawing.stirrups.map(reverse), bars: drawing.bars.map(reverse) };
   return mirrored;
 }
 

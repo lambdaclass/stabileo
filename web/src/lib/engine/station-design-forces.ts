@@ -24,10 +24,10 @@ import { prepareSection, type Bar as SectionBar, type PreparedSection } from './
  *   - Torsion diagram is linear interpolation (no interior load effects)
  */
 
-import { drawnStirrupCoverage } from '../design-contract/reinforcement';
+import { drawnBeamReinforcement } from '../design-contract/reinforcement';
 import { skinMaxSpacing, skinRequired } from '../codes/cirsoc201/skin';
 import { flangedCapacity } from './codes/argentina/cirsoc201-capacity';
-import { checkTorsion2025, columnShearTensionRatio, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
+import { checkTorsion2025, columnShearTensionRatio, secondaryShearFace, secondaryShearMinimumThreshold, secondaryShearSpacingShortfall, torsionActivation, weakestMemberCages, type SecondaryLongitudinalLayout } from '../codes/cirsoc201/torsion';
 import { tensionControlledStrain, shearSqrtFc, shearFy, CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 
 /** fy as Po reads it, kN/m²: CIRSOC 201-2025 §22.4.2.1 limits it to 500 MPa. */
@@ -2082,9 +2082,40 @@ export function verifyProvidedReinforcement(
   const shape = section?.shape ?? (member && modelData?.sections.get(member.sectionId)?.shape);
   const rectangular = !options?.shape && !section?.flange && (shape === undefined || shape === 'rect');
   const regions = provided.regions;
-  const stirrupCoverage = provided[drawnStirrupCoverage];
-  const hasStirrupGap = (t: Tuple) => stirrupCoverage !== undefined
-    && !stirrupCoverage.some(({ from, to }) => from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9);
+  const drawing = provided[drawnBeamReinforcement];
+  const stirrupCoverage = drawing?.stirrups.filter(({ from, to }) =>
+    Number.isFinite(from) && Number.isFinite(to) && from < to).sort((a, b) => a.from - b.from);
+  const gapTuples = new Set<Tuple>();
+  if (stirrupCoverage) {
+    const gaps: Array<[number, number]> = [];
+    let end = 0;
+    for (const { from, to } of stirrupCoverage) {
+      if (from > end + 1e-9) gaps.push([end, from]);
+      end = Math.max(end, to);
+    }
+    if (end < 1 - 1e-9) gaps.push([end, 1]);
+    if (gaps.length) {
+      const byCombo = new Map<number, Tuple[]>();
+      for (const t of allTuples) {
+        if (!stirrupCoverage.some(({ from, to }) => from <= t.stationT + 1e-9 && to >= t.stationT - 1e-9)) gapTuples.add(t);
+        const combo = byCombo.get(t.comboId);
+        if (combo) combo.push(t);
+        else byCombo.set(t.comboId, [t]);
+      }
+      for (const combo of byCombo.values()) {
+        combo.sort((a, b) => a.stationT - b.stationT);
+        for (let i = 1; i < combo.length; i++) {
+          const a = combo[i - 1]!, b = combo[i]!;
+          for (const [from, to] of gaps) {
+            const lo = Math.max(from, a.stationT), hi = Math.min(to, b.stationT);
+            if (hi <= lo + 1e-9) continue;
+            for (const t of [(lo + hi) / 2, lo, hi]) gapTuples.add(a.interpolate(b, t));
+          }
+        }
+      }
+    }
+  }
+  const gapCuts = [...gapTuples];
   const regionalStirrups = regions?.stirrupsSupport || regions?.stirrupsSpan
     ? [regions.stirrupsSupport, regions.stirrupsSpan] : [provided.stirrups];
   const cages = section ? weakestMemberCages(section, elementType === 'column' ? [provided.stirrups] : regionalStirrups, rectangular) : [];
@@ -2127,7 +2158,7 @@ export function verifyProvidedReinforcement(
     if (!section || t.tq === 0) return [];
     const r = checkTorsion2025({ ...section, d, dSecondary: face, stirrupDiaMm: section.stirrupDia, fyt: section.fy,
       demand: t.section(axes.flexure), stirrup: cage, edition: spacingRule.edition, rhoW: { primary: primaryRhoW }, primaryDepthLimit });
-    const gap = hasStirrupGap(t);
+    const gap = gapTuples.has(t);
     const missing = gap || (cage.kind === 'refusal' && cage.missing === true);
     if (gap && !r.neglect) return [{ r: { ...r, ratio: Infinity, refusal: 'diag.rcShearGap' }, t, missing, cage }];
     if (!rectangular && cage.kind === 'refusal') return [{ r: { ...r, neglect: false, ratio: Infinity, refusal: cage.reason }, t, missing, cage }];
@@ -2153,8 +2184,8 @@ export function verifyProvidedReinforcement(
     type SecondaryCheck = { t: Tuple; demand: number; capacity: number; ratio: number; reason: string; refusal?: { missing?: true } };
     let worst: SecondaryCheck | undefined;
     const governing = (check: SecondaryCheck, previous: SecondaryCheck | undefined) => {
-      const rank = Number(check.refusal !== undefined);
-      const previousRank = Number(previous?.refusal !== undefined);
+      const rank = check.refusal?.missing ? 2 : Number(check.refusal !== undefined);
+      const previousRank = previous?.refusal?.missing ? 2 : Number(previous?.refusal !== undefined);
       if (!previous || rank > previousRank || (rank === previousRank
         && (check.ratio > previous.ratio || (check.ratio === previous.ratio && check.demand > previous.demand)))) return check;
       return previous;
@@ -2195,6 +2226,10 @@ export function verifyProvidedReinforcement(
         : minShort ? 'Secondary face is below minimum transverse steel'
         : shortfall ?? `eØ${f.stirrupDia} ${f.legs}L c/${(f.spacing * 100).toFixed(1)} cm; bw = ${(f.b * 100).toFixed(1)} cm, d = ${(f.d * 100).toFixed(1)} cm`;
       worst = governing({ t, demand, capacity, ratio, reason }, worst);
+    }
+    for (const t of gapCuts.filter(t => hasSecondaryShearDemand(V2(t)))) {
+      worst = governing({ t, demand: Math.abs(V2(t)), capacity: 0, ratio: Infinity,
+        reason: 'diag.rcShearGap', refusal: { missing: true } }, worst);
     }
     if (worst) {
       checkedAxes.add(axes.secondaryShear);
@@ -2675,7 +2710,6 @@ export function verifyProvidedReinforcement(
     const rhoOf = (cm2: number) => cm2 / (section.b * d * 1e4);
     const rhoSupport = rhoOf(Math.min(layersTotalArea(topStartLayers), layersTotalArea(topEndLayers)));
     const rhoSpan = rhoOf(layersTotalArea(bottomLayers));
-    const topLayersAt = (t: Tuple) => t.stationT <= tStartEnd ? topStartLayers : t.stationT >= tEndStart ? topEndLayers : undefined;
     const startDepth = topStartLayers.length ? dTopStart : Infinity;
     const endDepth = topEndLayers.length ? dTopEnd : Infinity;
     const tensionDepth = (t: Tuple) => elementType === 'beam' && M(t) < -0.001
@@ -2706,11 +2740,14 @@ export function verifyProvidedReinforcement(
       let minShort: { Vu: number; threshold: number; AvMin: number; comboName: string; stationX: number } | null = null;
       let count = 0;
       let refusal: { reason: string; Vu: number; t: Tuple; missing?: true } | undefined;
-      for (const t of ss.tuples) {
+      const support = ss === shearSpecs[0];
+      const extraCuts = gapCuts.filter(t => (t.stationT <= tStartEnd || t.stationT >= tEndStart) === support);
+      const cuts = new Set([...ss.tuples, ...extraCuts]);
+      for (const t of cuts) {
         const Vu = Math.abs(V(t));
         if (Vu < 0.001) continue;
         count++;
-        if (!ss.stir || hasStirrupGap(t)) {
+        if (!ss.stir || gapTuples.has(t)) {
           if (!refusal?.missing || Vu > refusal.Vu) refusal = { reason: 'diag.rcShearGap', Vu, t, missing: true };
           continue;
         }
@@ -2816,38 +2853,75 @@ export function verifyProvidedReinforcement(
         const curtailment = topStartGroups.some(g => hasCutoff(g, 'End'))
           || topEndGroups.some(g => hasCutoff(g, 'Start'))
           || bottomGroups.some(g => hasCutoff(g, 'Start') || hasCutoff(g, 'End'));
-        const cutoffAt = (t: Tuple) => {
-          if (!curtailment) return false;
-          const { top, bottom } = facesAt(t);
-          const fromStart = t.stationT - tStartEnd, fromEnd = tEndStart - t.stationT;
-          const area = (groups: LongBarGroup[]) => groups.reduce((sum, g) => sum + layersTotalArea(g.layers), 0);
-          return top > area(topStartGroups.filter(g => reaches(g, 'End', fromStart)))
-              + area(topEndGroups.filter(g => reaches(g, 'Start', fromEnd)))
-            || bottom > area(bottomGroups.filter(g => reaches(g, 'Start', -fromStart) && reaches(g, 'End', -fromEnd)));
+        const groupArea = (groups: LongBarGroup[]) => groups.reduce((sum, g) => sum + layersTotalArea(g.layers), 0);
+        const outerRow = (groups: LongBarGroup[], reaching: LongBarGroup[]) => {
+          const outer = groups.filter(g => g.layers.some(layer => layer.row === 0 && layer.count > 0));
+          if (outer.length !== 1 || !reaching.includes(outer[0]!)) return undefined;
+          const layers = outer[0]!.layers.filter(layer => layer.row === 0 && layer.count > 0);
+          const layer = layers[0];
+          if (layers.length !== 1 || !layer || !Number.isSafeInteger(layer.count) || layer.count < 2
+            || !Number.isFinite(layer.diameter) || layer.diameter <= 0) return undefined;
+          return { ...layer, area: layersTotalArea(layers) };
         };
-        const lacksPerimeter = ({ t, cage }: TorsionAtStation) => {
-          if (cage.kind !== 'closed-rectangle') return true;
-          const outer = (layers: RebarLayer[]) => layers.find(layer => layer.row === 0 && layer.count >= 2);
-          const topLayers = topLayersAt(t);
-          const start = outer(topStartLayers), end = outer(topEndLayers);
-          const top = topLayers ? outer(topLayers)
-            : start && end ? { count: 2, diameter: Math.min(start.diameter, end.diameter) } : undefined;
-          const bottom = outer(bottomLayers);
-          if (!top || !bottom) return true;
+        const drawnFace = (face: 'top' | 'bottom', t: Tuple) => {
+          const rows = new Map<number, Map<number, number>>();
+          let seats = 0;
+          for (const bar of drawing?.bars ?? []) {
+            if (bar.face !== face || t.stationT < bar.from - 1e-9 || t.stationT > bar.to + 1e-9) continue;
+            const row = rows.get(bar.row) ?? new Map<number, number>();
+            rows.set(bar.row, row);
+            for (const slot of bar.slots) row.set(slot, Math.min(row.get(slot) ?? Infinity, bar.diameter));
+            if (bar.row === 0) seats = Math.max(seats, bar.seats);
+          }
+          const areaOf = (diameters: Iterable<number>) =>
+            layersTotalArea([...diameters].map(diameter => ({ count: 1, diameter, row: 0 })));
+          const area = [...rows.values()].reduce((sum, row) => sum + areaOf(row.values()), 0);
+          const row = rows.get(0);
+          const left = row?.get(0), right = row?.get(1);
+          if (!left || !right) return { area };
+          const uniform = row?.size === seats && [...row.values()].every(diameter => diameter === left);
+          const diameters = uniform ? [...row!.values()] : [left, right];
+          return { area, perimeter: { count: diameters.length, diameter: Math.min(...diameters), area: areaOf(diameters) } };
+        };
+        const longitudinalAt = ({ t, cage, r }: TorsionAtStation) => {
+          const fromStart = t.stationT - tStartEnd, fromEnd = tEndStart - t.stationT;
+          const start = topStartGroups.filter(g => reaches(g, 'End', fromStart));
+          const end = topEndGroups.filter(g => reaches(g, 'Start', fromEnd));
+          const bottom = bottomGroups.filter(g => reaches(g, 'Start', -fromStart) && reaches(g, 'End', -fromEnd));
+          const nominal = facesAt(t);
+          const drawnTop = drawing && drawnFace('top', t), drawnBottom = drawing && drawnFace('bottom', t);
+          const atStart = fromStart <= 0, atEnd = fromEnd <= 0;
+          const topArea = drawnTop?.area ?? (atStart ? groupArea(start) : atEnd ? groupArea(end) : Math.max(groupArea(start), groupArea(end)));
+          if ((drawing || curtailment) && (nominal.top > topArea || nominal.bottom > (drawnBottom?.area ?? groupArea(bottom)))) {
+            return 'diag.rcTorsionCutoff';
+          }
+
+          const startRow = outerRow(topStartGroups, start), endRow = outerRow(topEndGroups, end);
+          const topRow = atStart ? startRow : atEnd ? endRow : startRow && endRow ? {
+            count: 2, diameter: Math.min(startRow.diameter, endRow.diameter),
+            area: rebarGroupArea({ count: 2, diameter: Math.min(startRow.diameter, endRow.diameter) }),
+          } : undefined;
+          const top = drawnTop ? drawnTop.perimeter : topRow;
+          const bot = drawnBottom ? drawnBottom.perimeter : outerRow(bottomGroups, bottom);
+          if (!top || !bot || cage.kind !== 'closed-rectangle') return 'diag.rcTorsionPerimeter';
           const inside = 2 * (section.cover + cage.diameter / 1000);
-          const side = section.h - inside - (top.diameter + bottom.diameter) / 2000;
-          return side > 0.3 || [top, bottom].some(bar => (section.b - inside - bar.diameter / 1000) / (bar.count - 1) > 0.3);
+          const side = section.h - inside - (top.diameter + bot.diameter) / 2000;
+          const halfAl = Math.max(r.Al, r.AlMin) * 1e4 / 2;
+          if (side > 0.3 || [top, bot].some(bar => bar.area < halfAl
+            || (section.b - inside - bar.diameter / 1000) / (bar.count - 1) > 0.3)) return 'diag.rcTorsionPerimeter';
+          return undefined;
         };
         let longitudinalRefusal: { t: Tuple; reason: string } | undefined;
         let evaluated = 0;
-        for (const t of ss.tuples) {
+        for (const t of cuts) {
+          if (gapTuples.has(t) && torsionActivation(section, spacingRule.edition, t.section(axes.flexure)).neglect) continue;
           const active = atTorsion(t, d, ss.rhoW, tensionDepth(t));
           if (active.some(x => !x.r.refusal)) evaluated++;
           for (const x of active) {
             if (governsTorsion(x, tw)) tw = x;
             if (x.r.refusal || elementType === 'wall') continue;
-            if (cutoffAt(t)) longitudinalRefusal = { t, reason: 'diag.rcTorsionCutoff' };
-            else if (lacksPerimeter(x)) longitudinalRefusal ??= { t, reason: 'diag.rcTorsionPerimeter' };
+            const reason = longitudinalAt(x);
+            if (reason && (!longitudinalRefusal || reason === 'diag.rcTorsionCutoff')) longitudinalRefusal = { t, reason };
             if (longitudinalRefusal) continue;
             const need = longitudinalNeed(x);
             if (!lw || need.u > lw.need.u) lw = { ...x, need };

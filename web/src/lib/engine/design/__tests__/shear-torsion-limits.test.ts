@@ -91,8 +91,12 @@ it('#2309 2005 section torsion refuses active demand above the supported yield l
   const verify = (fy: number, spacing: number) => verifyElement({
     ...beam, fy, elementId: 1, elementType: 'beam', edition: '2005', demand: loads!.section('My'),
   }, { shear: { ...cage, spacing }, torsion: { AlProv: 100 } }).torsion;
-  expect(verify(cirsoc201Section11634YieldLimit, cage.spacing)?.status).toBe('fail');
-  expect(verify(cirsoc201Section11634YieldLimit, 0.1)?.status).toBe('ok');
+  const sparse = verify(cirsoc201Section11634YieldLimit, cage.spacing);
+  const dense = verify(cirsoc201Section11634YieldLimit, 0.1);
+  expect(sparse).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+  expect(sparse!.reinforcementRatio).toBeGreaterThan(1);
+  expect(dense).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+  expect(dense!.reinforcementRatio).toBeLessThanOrEqual(1);
   for (const result of [verify(beam.fy, cage.spacing), verify(beam.fy, 0.1), sectionTorsion(beam, loads!.section('My'))]) {
     expect.soft(result).toMatchObject({ refusal: 'diag.rcTorsionYield', ratio: Infinity, status: 'fail' });
   }

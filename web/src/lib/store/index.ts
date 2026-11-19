@@ -1,4 +1,4 @@
-import { withSavedStirrupCoverage } from './beam-line-store';
+import { withSavedBeamEvidence } from './beam-line-store';
 import { collapseVariableResults, collapseVariableEnvelope, collapseVariablePDelta, collapseVariableModes, variableExpansionFor } from '../engine/variable-members';
 import { clearMaterialChecks } from './material-check.svelte';
 import { modelStore } from './model.svelte';
@@ -213,7 +213,7 @@ resultsStore._setOnResultsPublish(() => {
 // Let verificationStore read the current provided reinforcement without importing
 // modelStore (which would create a circular dependency).
 verificationStore._setReinforcementProvider(
-  (elementId) => withSavedStirrupCoverage(elementId, modelStore.elements.get(elementId)?.reinforcement),
+  (elementId) => withSavedBeamEvidence(elementId, modelStore.elements.get(elementId)?.reinforcement),
 );
 
 // The refusals kept with the project, for a member that has no bars now (an edit after the

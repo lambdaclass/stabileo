@@ -155,21 +155,22 @@ it('#2302 seismic verification blocks a reopened beam line with a short dense ca
   expect(check(critical.tCritShear)).toMatchObject({
     ok: false, issues: ['seisDes.issue.hoopZone'], beam: { hoops: { lengthOk: false, spacingOk: true } },
   });
-  expect(check(seismicLength / L).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
+  expect(check(seismicLength / L).beam?.hoops).toMatchObject({ lengthOk: false, spacingOk: true });
+  expect(check((seismicLength + frame.faceHalf[0]) / L).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
   const drawn = (endLength: number) => seismicFrameChecks({
     nodes: new Map(), settings: defaultSeismicDesign(),
     members: [{
       ...frame,
-      drawnStirrups: [{ ...dense, from: 0, to: seismicLength }, { ...dense, from: L - endLength, to: L }],
+      drawnStirrups: [{ ...dense, from: 0, to: seismicLength + frame.faceHalf[0] }, { ...dense, from: L - endLength, to: L }],
     }],
   }).members[0]!;
   expect(drawn(criticalDistance)).toMatchObject({ ok: false, issues: ['seisDes.issue.hoopZone'] });
-  expect(drawn(seismicLength)).toMatchObject({ ok: true, issues: [] });
+  expect(drawn(seismicLength)).toMatchObject({ ok: false, issues: ['seisDes.issue.hoopZone'] });
+  expect(drawn(seismicLength + frame.faceHalf[1])).toMatchObject({ ok: true, issues: [] });
 });
 
 
-const round2Issue2296 = process.env.RUN_KNOWN_WRONG === '2296' ? it : it.skip;
-round2Issue2296('known wrong result: #2296 a drawn interior gap refuses either shear axis or active torsion', () => {
+it('#2296 a drawn interior gap refuses either shear axis or active torsion', () => {
   const L = 4;
   const cage = { diameter: 8, legs: 4, spacing: 0.06 };
   for (const extracted of [false, true]) for (const axis of ['vz', 'vy', 'torsion'] as const) {
@@ -196,8 +197,7 @@ round2Issue2296('known wrong result: #2296 a drawn interior gap refuses either s
   }
 });
 
-const round2Issue2302 = process.env.RUN_KNOWN_WRONG === '2302' ? it : it.skip;
-round2Issue2302('known wrong result: #2302 hoops inside either support do not count toward the dense zone', () => {
+it('#2302 hoops inside either support do not count toward the dense zone', () => {
   const L = 5;
   const h = 0.5;
   const required = 2 * h;
@@ -217,4 +217,34 @@ round2Issue2302('known wrong result: #2302 hoops inside either support do not co
   expect.soft(check(required, fullEnd).issues).toContain('seisDes.issue.hoopZone');
   expect.soft(check(fullStart, required).issues).toContain('seisDes.issue.hoopZone');
   expect(check(fullStart, fullEnd).beam?.hoops).toMatchObject({ lengthOk: true, spacingOk: true });
+});
+
+
+it('#2310 drawn perimeter verification uses the corner seats occupied at the cut', () => {
+  const L = 6;
+  const geometry = { ...beamConcrete, h: 0.37 };
+  const stirrups = [{ id: 'cage', from: 0, to: L, diameter: 8, legs: 4, spacing: 0.06 }];
+  for (const extracted of [false, true]) {
+    const check = (terminus: number) => {
+      const [bottom, top] = drawnMainBars;
+      const drawing: BeamLineReinforcement = {
+        version: 1, members: [1], lengths: [L], stirrups,
+        bars: [
+          bottom!,
+          { ...top!, id: 'top-left', to: terminus },
+          { ...top!, id: 'top-right', from: L - terminus },
+          { ...top!, id: 'top-inner', row: 1, count: 4 },
+          { ...top!, id: 'mid-inner', row: 2, from: 2, to: 4 },
+        ],
+      };
+      const layout = membersFromLine(drawing, [longSpan]).get(1)!;
+      const stations = [{ t: 0.5, x: 3, my: 0, mz: 0, n: 0, vy: 0, vz: 0, torsion: 6 }];
+      const result = { elementId: 1, length: L, stationTs: [0.5], comboResults: [{ comboId: 1, comboName: 'C1', stations }] };
+      return verifyProvidedReinforcement(1, 'beam', layout, extracted ? extractGoverningDemands(result) : undefined, {},
+        geometry, extracted ? undefined : result, undefined, { axes: { ...beamAxes, hFlex: geometry.h } })
+        .checks.find(row => row.category === 'Torsion Al Span (Vz)');
+    };
+    expect(check(3 - 1e-5)).toMatchObject({ status: 'fail', ratio: Infinity, description: 'diag.rcTorsionPerimeter' });
+    expect(check(3)).toMatchObject({ status: 'ok' });
+  }
 });

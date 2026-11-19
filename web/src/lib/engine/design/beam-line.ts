@@ -1,3 +1,4 @@
+import { drawnBeamEvidence, linePieces } from '../detailing/line-bars';
 /**
  * A beam line's reinforcement as bars along the line, read from its members' three regions and
  * projected back onto them, and the edits the frame editor makes on it.
@@ -12,7 +13,7 @@
  * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
  * The round trip reproduces what the verifier reads.
  */
-import { drawnStirrupCoverage, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -226,6 +227,7 @@ const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diamet
 export function membersFromLine(line: BeamLineReinforcement, members: readonly LineMember[]): Map<number, ProvidedReinforcement> {
   const X = offsets(members);
   const out = new Map<number, ProvidedReinforcement>();
+  const pieces = linePieces(line, members.map(() => true));
   members.forEach((m, k) => {
     const a = X[k]!, b = a + m.L, s = a + m.tStart * m.L, e = b - m.tEnd * m.L, mid = (s + e) / 2;
     const pS = a + Math.max(m.faceStart, 1e-3), pE = b - Math.max(m.faceEnd, 1e-3);
@@ -283,9 +285,8 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     if (skin) regions.skin = { ...skin };
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
-    const coverage = memberStirrupZones(line.stirrups, a, m.L)
-      .map(({ from, to }) => ({ from: from / m.L, to: to / m.L }));
-    out.set(m.id, { regions, [drawnStirrupCoverage]: coverage });
+    const drawn = pieces.get(m.id);
+    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L) });
   });
   return out;
 }

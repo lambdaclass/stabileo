@@ -36,8 +36,12 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
       const need = checkTorsion(params, i.demand, edition);
       const fixed = { shear: { spacing: 0.05, legs: 2 }, torsion: { AlProv: need.AlReq * factor } };
       const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
-      expect(v.torsion).toMatchObject({ AlProv: fixed.torsion.AlProv });
-      expect(v.torsion!.status === 'fail').toBe(factor < 1);
+      if (elementType === 'column') {
+        expect(v.torsion).toMatchObject({ AlProv: fixed.torsion.AlProv });
+        expect(v.torsion!.status === 'fail').toBe(factor < 1);
+      } else {
+        expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked' });
+      }
       expect(v.torsion).toHaveProperty('reinforcementRatio');
     });
   }
@@ -46,10 +50,11 @@ for (const entry of ['direct', 'prepared'] as const) for (const spacing of [0.05
   it(`#2080 ${entry} checks combined shear and torsion against shared stirrups s=${spacing}`, () => {
     const i = inputs('2025', 'My', 'beam', [[300, 30]])[0]!;
     const need = checkTorsion(params, i.demand, '2025');
-    const fixed = { shear: { spacing, legs: 3 }, torsion: { AlProv: need.AlReq } };
+    const flexure = { AsProv: 8.044, barDia: 16, barCount: 4, bars: '4 Ø16', isDoublyReinforced: false };
+    const fixed = { shear: { spacing, legs: 3 }, flexure, torsion: { AlProv: need.AlReq } };
     const v = entry === 'direct' ? verifyElement(i, fixed) : prepareElementVerification(i)(fixed);
-    expect(v.torsion).toHaveProperty('reinforcementRatio');
-    expect(v.torsion!.status === 'fail').toBe(spacing === 0.275);
+    expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+    expect(v.torsion!.reinforcementRatio! > 1).toBe(spacing === 0.275);
   });
 }
 for (const edition of ['2005', '2025'] as const) for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) {
@@ -79,8 +84,8 @@ for (const factor of [1 - 1e-8, 1, 1 + 1e-8]) it(`#2080 shared torsion stirrup s
   const ph = 2 * (params.b + params.h - 4 * params.cover - 2 * params.stirrupDia / 1000);
   const fixed = { shear: { spacing: Math.min(ph / 8, 0.3) * factor, legs: 2 }, torsion: { AlProv: need.AlReq } };
   const v = verifyElement(i, fixed);
-  expect(v.torsion).toHaveProperty('reinforcementRatio');
-  expect(v.torsion!.status === 'fail').toBe(factor > 1);
+  expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+  expect(v.torsion!.reinforcementRatio! > 1).toBe(factor > 1);
 });
 for (const offset of [-1e-8, 1e-8]) it(`section-limit verdict remains at its existing tolerance ${offset}`, () => {
   const base = inputs('2025', 'My', 'beam', [[0, 30]])[0]!;

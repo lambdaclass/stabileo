@@ -36,19 +36,26 @@ for (const edition of ['2005', '2025'] as const) for (const axis of ['My', 'Mz']
     });
   }
   for (const factor of [0, 1 - 1e-8, 1, 1 + 1e-8]) {
-    it(`explicit longitudinal provision retains its boundary ${edition} ${axis} ${elementType} ${factor}`, () => {
+    it(`fixed longitudinal provision verdict ${edition} ${axis} ${elementType} ${factor}`, () => {
       const i = input(6), need = checkTorsion(params, i.demand, edition);
       const v = verifyElement(i, { shear: { spacing: 0.05, legs: 2 }, torsion: { AlProv: need.AlReq * factor } });
-      expect(v.torsion!.AlProv).toBe(need.AlReq * factor);
-      expect(v.torsion!.status === 'fail').toBe(factor < 1);
-      expect(v.torsion!.reinforcementRatio).toBe(factor === 0 ? Infinity : 1 / factor);
       const normalized = normalizeCirsoc201([v], new Map())[0]!;
-      const torsion = normalized.checks.find(c => c.name === 'Torsion')!;
+      const torsion = normalized.checks.find(c => c.name === (elementType === 'column' ? 'Torsion' : 'diag.rcTorsionPerimeter'))!;
       expect(torsion.demand).toBe(Math.abs(v.torsion!.Tu));
       expect(torsion.capacity).toBe(v.torsion!.phiTn);
       expect(torsion.ratio).toBe(v.torsion!.ratio);
-      expect(normalized.status === 'fail').toBe(factor < 1);
-      expect(normalized.status).not.toBe('held');
+      if (elementType === 'column') {
+        expect(v.torsion!.AlProv).toBe(need.AlReq * factor);
+        expect(v.torsion!.status === 'fail').toBe(factor < 1);
+        expect(v.torsion!.reinforcementRatio).toBe(factor === 0 ? Infinity : 1 / factor);
+        expect(normalized.status === 'fail').toBe(factor < 1);
+        expect(normalized.status).not.toBe('held');
+      } else {
+        expect(v.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter', longitudinalProvision: 'not-checked' });
+        expect(v.torsion!.AlProv).toBeUndefined();
+        expect(torsion.ratio).toBe(Infinity);
+        expect(normalized.status).toBe('fail');
+      }
     });
   }
   it(`zero torque keeps the correct answer ${edition} ${axis} ${elementType}`, () => {

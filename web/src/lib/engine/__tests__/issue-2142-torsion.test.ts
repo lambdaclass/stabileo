@@ -60,7 +60,8 @@ for (const edition of ['2005', '2025'] as const) {
           const torque = reference(primary, secondary, 0, diameter).phiTn * factor;
           const expected = reference(primary, secondary, torque, diameter);
           const input = { ...p, edition, elementId: 1, elementType, demand: demand(primary, secondary, torque, axis) };
-          const v = entry === 'direct' ? verifyElement(input, fixed) : entry === 'prepared' ? prepareElementVerification(input)(fixed)
+          const transverse = elementType === 'beam' ? { shear: fixed.shear } : fixed;
+          const v = entry === 'direct' ? verifyElement(input, transverse) : entry === 'prepared' ? prepareElementVerification(input)(transverse)
             : entry === 'concurrent' ? verifyConcurrentElement([input]) : undefined;
           if (v) expect(v.column?.barDia ?? v.flexure.barDia).toBe(diameter);
           if (entry !== 'torsion') expect(v?.torsion).toBeDefined();

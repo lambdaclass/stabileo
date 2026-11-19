@@ -76,9 +76,8 @@ for (const [edition, demand] of [['2005', 220.235], ['2025', 222.18]] as const) 
       for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
         expect(out.shearSecondary?.d).toBeCloseTo(d, 12);
         expect(out.torsion?.AtOverSProv).toBeCloseTo(atProvided * 1e4, 10);
-        expect(out.torsion?.status).toBe(elementType === 'wall' || factor > 1 ? 'fail' : 'ok');
-        if (elementType === 'wall') expect(out.torsion?.refusal).toBe('diag.rcTorsionPerimeter');
-        if (factor > 1) expect(out.torsion?.reinforcementRatio).toBeGreaterThan(1);
+        expect(out.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+        expect(out.torsion!.reinforcementRatio! > 1).toBe(factor > 1);
       }
     }
   });
@@ -596,7 +595,8 @@ it('known wrong result: #2171 primary torsion reserve switches concrete strength
       for (const out of [verifyElement(v, reinforcement), prepareElementVerification(v)(reinforcement)]) {
         expect.soft(out.shear.phiVc).toBeCloseTo(phi * vc, 10);
         expect.soft(out.torsion?.AtOverSProv).toBeCloseTo(available * 1e4, 10);
-        expect.soft(out.torsion?.status).toBe(belowMinimum || factor > 1 ? 'fail' : 'ok');
+        expect.soft(out.torsion).toMatchObject({ status: 'fail', refusal: 'diag.rcTorsionPerimeter' });
+        expect.soft(out.torsion!.reinforcementRatio! > 1).toBe(belowMinimum || factor > 1);
       }
       for (const extracted of [false, true]) {
         const out = provided({ stirrups: shear, bottom: longitudinal }, 'beam', 0, torque, { edition: '2025', geometry, extracted, vz: vu });
@@ -781,54 +781,68 @@ for (const nonlinear of [false, true]) {
 }
 
 for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
-  it(`#2296 solved beam shear refuses a drawn gap (spatial=${spatial}, nonlinear=${nonlinear})`, () => {
-    const L = 4;
-    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
-    const solverModel = { ...model, nodes };
-    let raw: AnalysisResults3D;
-    if (spatial) {
-      const solver: SolverInput3D = { ...solverModel,
-        elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
-          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
-        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
-        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 10, mx: 20, my: 0, mz: 0 } }],
-      };
-      raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
-    } else {
-      const solver: SolverInput = { ...solverModel,
-        nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
-        sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
-        elements: new Map([[1, { ...model.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
-        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 10, my: 0 } }],
-      };
-      raw = planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
-    }
-    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, solverModel);
-    const check = (from: number, extracted: boolean) => {
-      const reinforcement = membersFromLine({
-        version: 1, members: [1], lengths: [L],
-        bars: [{ ...longitudinal, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
-          { ...longitudinal, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
-        stirrups: [{ ...cage, id: 'cage', from, to: L }],
-      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
-      return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? demands.get(1) : undefined,
-        {}, section, extracted ? undefined : stations.get(1), undefined, { axes }).checks;
-    };
-    for (const extracted of [false, true]) {
-      const gap = check(0.4, extracted);
-      const filled = check(0, extracted);
-      expect.soft(gap.find(row => row.category === 'Shear Support (Vz)')).toMatchObject({
-        status: 'fail', ratio: Infinity, missingReinforcement: true, stationX: 0,
-      });
-      expect(filled.find(row => row.category === 'Shear Support (Vz)')).toMatchObject({ status: 'ok' });
+  for (const axis of spatial ? ['primary', 'secondary'] as const : ['primary'] as const) {
+    it(`#2296 solved beam shear refuses a drawn gap (spatial=${spatial}, nonlinear=${nonlinear}, axis=${axis})`, () => {
+      const primary = axis === 'primary';
+      const L = 4;
+      const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+      const solverModel = { ...model, nodes };
+      let raw: AnalysisResults3D;
       if (spatial) {
-        expect.soft(gap.find(row => row.category === 'Torsion Support (Vz)')).toMatchObject({
-          status: 'fail', ratio: Infinity, missingReinforcement: true,
-        });
-        expect(filled.find(row => row.category === 'Torsion Support (Vz)')?.ratio).toBeLessThan(1);
+        const solver: SolverInput3D = { ...solverModel,
+          elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+            releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+          supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+          loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: primary ? 0 : 10, fz: primary ? 10 : 0, mx: primary ? 20 : 0, my: 0, mz: 0 } }],
+        };
+        raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+      } else {
+        const solver: SolverInput = { ...solverModel,
+          nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+          sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+          elements: new Map([[1, { ...model.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
+          loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: 10, my: 0 } }],
+        };
+        raw = planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
       }
-    }
-  });
+      const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, solverModel);
+      const [left, right] = stations.get(1)!.stationTs.filter(t => t > 0.3).slice(0, 2).map(t => t * L);
+      const gapStart = (2 * left! + right!) / 3, gapEnd = (left! + 2 * right!) / 3;
+      const check = (from: number, extracted: boolean, interior = false) => {
+        const reinforcement = membersFromLine({
+          version: 1, members: [1], lengths: [L],
+          bars: [{ ...longitudinal, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
+            { ...longitudinal, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
+          stirrups: interior ? [{ ...cage, id: 'left', from: 0, to: gapStart }, { ...cage, id: 'right', from: gapEnd, to: L }]
+            : [{ ...cage, id: 'cage', from, to: L }],
+        }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+        return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? demands.get(1) : undefined,
+          {}, section, extracted ? undefined : stations.get(1), undefined, { axes }).checks;
+      };
+      for (const extracted of [false, true]) {
+        const gap = check(0.4, extracted);
+        const filled = check(0, extracted);
+        const category = primary ? 'Shear Support (Vz)' : 'Secondary shear (Vy)';
+        expect.soft(gap.find(row => row.category === category)).toMatchObject({
+          status: 'fail', ratio: Infinity, missingReinforcement: true, stationX: 0,
+        });
+        expect(filled.find(row => row.category === category)).toMatchObject({ status: 'ok' });
+        const interior = check(0, extracted, true);
+        expect(interior).toContainEqual(expect.objectContaining({
+          demandCategory: primary ? 'Vz' : 'Vy', status: 'fail', description: 'diag.rcShearGap',
+        }));
+        if (spatial && primary) {
+          expect.soft(gap.find(row => row.category === 'Torsion Support (Vz)')).toMatchObject({
+            status: 'fail', ratio: Infinity, missingReinforcement: true,
+          });
+          expect(filled.find(row => row.category === 'Torsion Support (Vz)')?.ratio).toBeLessThan(1);
+          expect(interior.find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({
+            description: 'diag.rcShearGap', status: 'fail', missingReinforcement: true,
+          });
+        }
+      }
+    });
+  }
 }
 
 const issue2225 = process.env.RUN_KNOWN_WRONG === '2225' ? it : it.skip;
@@ -913,9 +927,7 @@ it('#2310 beams without verified side bars and a fixed wall with scalar steel re
   expect(fixedResult.torsion).toMatchObject({ status: 'fail', ratio: Infinity, refusal: 'diag.rcTorsionPerimeter' });
 });
 
-const round2Issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
-
-round2Issue2310('known wrong result: #2310 fixed beams cannot verify longitudinal torsion from scalar area', () => {
+it('#2310 fixed beams cannot verify longitudinal torsion from scalar area', () => {
   const shear = { diameter: 8, legs: 4, spacing: 0.06 };
   const fixed = { shear, torsion: { AlProv: 100 } };
   for (const edition of ['2005', '2025'] as const) {
@@ -930,7 +942,7 @@ round2Issue2310('known wrong result: #2310 fixed beams cannot verify longitudina
   }
 });
 
-round2Issue2310('known wrong result: #2310 inner bars cannot replace perimeter bars that end before the cut', () => {
+it('#2310 inner bars cannot replace perimeter bars that end before the cut', () => {
   const geometry = { ...section, h: 0.37 };
   const stirrups = { diameter: 8, legs: 4, spacing: 0.06 };
   const outer = { ...longitudinal, row: 0 };

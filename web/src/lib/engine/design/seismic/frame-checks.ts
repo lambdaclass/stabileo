@@ -99,18 +99,22 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
       () => ({ L: m.L, criticalSections: m.criticalSections, reinforcement: m.r }), r => r)).stirrups;
     const matching = hoopZones.filter(z => z.spacing > 0 && z.spacing <= hoopDef.spacing
       && z.diameter === hoopDef.diameter && z.legs >= hoopDef.legs);
-    const continuousLength = (zones: Pick<LineStirrupPiece, 'from' | 'to'>[]) => {
-      let end = 0;
+    const [faceI, faceJ] = m.faceHalf ?? [0, 0];
+    const clearLength = m.L - faceI - faceJ;
+    const continuousLength = (zones: Pick<LineStirrupPiece, 'from' | 'to'>[], face: number) => {
+      let end = face;
       for (const z of zones.sort((a, b) => a.from - b.from)) {
         if (z.from > end + 1e-9) break;
         end = Math.max(end, z.to);
       }
-      return end;
+      return end - face;
     };
     const declaredLength = (m.r.regions?.regionT ?? 0.25) * m.L;
-    const zone = Math.min(declaredLength, continuousLength(matching),
-      continuousLength(matching.map(z => ({ from: m.L - z.to, to: m.L - z.from }))));
-    const ln = Math.max(0.1, m.L - (m.faceHalf?.[0] ?? 0) - (m.faceHalf?.[1] ?? 0));
+    const zone = Number.isFinite(clearLength) && clearLength > 0 && faceI >= 0 && faceJ >= 0
+      ? Math.min(declaredLength, clearLength, continuousLength(matching, faceI),
+        continuousLength(matching.map(z => ({ from: m.L - z.to, to: m.L - z.from })), faceJ))
+      : 0;
+    const ln = Math.max(0.1, clearLength);
     const slab = s.slabFlange ? m.slabTop ?? [0, 0] : [0, 0] as [number, number];
     const r = beamCapacityShear({
       b: m.b, h: m.h, d, dPrime, fc: m.fc, fy: m.fy, fyt: m.fy,
