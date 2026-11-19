@@ -899,3 +899,106 @@ it('#2316 a mixed model refuses a shell with an unlocatable corner', () => {
   model.nodes.delete(6);
   verifyShellGeometryRefusal(model, [0, 4]);
 });
+
+const datumRegression = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+function datumCantilever() {
+  const model = supportAtZero(mesh([[[0, 0, 0], [0, 0, 4]]]));
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+  return model;
+}
+
+function expectDatumRefusal(model: LoadModelData, key: string) {
+  const options = request(model, {}, { generateCombinations: true });
+  const plan = buildLoadPlan(options);
+  expect(plan.outcome).toBe('BLOCKED');
+  expect(plan.blockedKeys).toContainEqual({ key });
+  expect(plan.factors.seismicWeight).toBeUndefined();
+  expect(plan.factors.baseShear).toBeUndefined();
+  expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
+  expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
+  expect(plan.surface.filter(d => d.caseType === 'E')).toEqual([]);
+  expect(plan.combinations).toEqual([]);
+
+  const sink = seismicSink();
+  const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+  expect(sink).toMatchObject({ blockedKeys: [{ key }], cases: [], nodal: [], distributed: [], surface: [] });
+  expect(direct.seismicWeight).toBeUndefined();
+  expect(direct.baseShear).toBeUndefined();
+}
+
+for (const [label, elevation, detachedMember] of [
+  ['isolated lower support', -5, false],
+  ['isolated intermediate support', 3, false],
+  ['support on a disconnected massless member', -5, true],
+] as const) {
+  datumRegression(`known wrong result: #2316 static seismic ignores an ${label}`, () => {
+    const model = datumCantilever();
+    model.nodes.set(3, { id: 3, x: 2, y: 0, z: elevation });
+    model.supports = new Map([[3, { nodeId: 3 }], [1, { nodeId: 1 }]]);
+    if (detachedMember) {
+      model.nodes.set(4, { id: 4, x: 2, y: 0, z: elevation + 1 });
+      model.materials.set(2, { id: 2, rho: 0 });
+      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4, materialId: 2 });
+    }
+    const options = request(model);
+    const plan = buildLoadPlan(options);
+    expect(plan.outcome).toBe('READY');
+    expect(plan.blockedKeys).toEqual([]);
+    expect(plan.unsupportedKeys).toEqual([]);
+    const expected = 4 * 0.5 * 4 / 2;
+    expect(plan.factors.seismicWeight?.value).toBe(expected);
+    expect(plan.factors.baseShear?.value).toBe(expected);
+    const loads = plan.distributed.filter(d => d.caseType === 'E');
+    expect(loads).toMatchObject([{ elementId: 1, a: 2, b: 4, qX: 2, qXJ: 2 }]);
+
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
+    expect(sink.blockedKeys).toEqual([]);
+    expect(direct.seismicWeight?.value).toBe(expected);
+    expect(direct.baseShear?.value).toBe(expected);
+    expect(sink.distributed).toEqual(loads.map(p => ({ ...p, caseIndex: 0 })));
+
+    const moment = (station: number, power: number) =>
+      2 * (4 ** (power + 1) - Math.max(2, station) ** (power + 1)) / (power + 1);
+    verifyCantilever(model, [model.elements.get(1)!], false, 4, loads, moment);
+  });
+}
+
+datumRegression('known wrong result: #2316 a detached support cannot supply the seismic datum', () => {
+  const model = datumCantilever();
+  model.nodes.set(3, { id: 3, x: 2, y: 0, z: -5 });
+  model.supports = new Map([[3, { nodeId: 3 }]]);
+  expectDatumRefusal(model, 'loadPlan.blocked.seismicBase');
+});
+
+for (const surface of ['quads', 'plates'] as const) {
+  datumRegression(`known wrong result: #2316 supports connected through ${surface} must share a seismic datum`, () => {
+    const model = datumCantilever();
+    model.nodes.set(3, { id: 3, x: 2, y: 0, z: 4 });
+    model.nodes.set(4, { id: 4, x: 2, y: 2, z: 4 });
+    model.nodes.set(5, { id: 5, x: 0, y: 2, z: 4 });
+    model.nodes.set(6, { id: 6, x: 2, y: 0, z: 0 });
+    model.materials.set(2, { id: 2, rho: 0 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 6, nodeJ: 3, materialId: 2 });
+    model[surface] = new Map([[1, { id: 1, nodes: surface === 'quads' ? [2, 3, 4, 5] : [2, 3, 4], thickness: 1, materialId: 2 }]]);
+    model.supports = new Map([[1, { nodeId: 1 }], [6, { nodeId: 6 }]]);
+    const plan = buildLoadPlan(request(model));
+    expect(plan.outcome).toBe('READY');
+    expect(plan.factors.seismicWeight?.value).toBe(4);
+    expect(plan.factors.baseShear?.value).toBe(4);
+
+    model.nodes.get(6)!.z = 1;
+    expectDatumRefusal(model, 'loadPlan.blocked.seismicSteppedBase');
+  });
+}
+
+datumRegression('known wrong result: #2316 a stepped frame base refuses static seismic generation', () => {
+  const model = datumCantilever();
+  model.nodes.set(3, { id: 3, x: 2, y: 0, z: 1 });
+  model.materials.set(2, { id: 2, rho: 0 });
+  model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 2, materialId: 2 });
+  model.supports = new Map([[1, { nodeId: 1 }], [3, { nodeId: 3 }]]);
+  expectDatumRefusal(model, 'loadPlan.blocked.seismicSteppedBase');
+});
