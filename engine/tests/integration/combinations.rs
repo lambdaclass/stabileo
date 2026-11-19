@@ -651,3 +651,56 @@ fn combinations_report_spatial_net_factor_overflow_before_recovery() {
         );
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2292"]
+fn issue_2292_planar_combination_refuses_complete_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let input = |weights: &[f64]| CombinationInput {
+            factors: weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect(),
+            cases: vec![CaseEntry { case_id: 1, results: results.clone() }],
+        };
+        let admitted = combine_results_checked(&input(&[1.0])).unwrap().unwrap();
+        assert!(admitted.displacements.iter().any(|d| d.uz != 0.0));
+        for residual in [-f64::EPSILON, f64::EPSILON] {
+            let split = combine_results_checked(&input(&[1.0, -1.0 + residual])).unwrap().unwrap();
+            let single = combine_results_checked(&input(&[residual])).unwrap().unwrap();
+            assert_eq!(serde_json::to_value(split).unwrap(), serde_json::to_value(single).unwrap());
+        }
+        let cancelled = input(&[1.0, -1.0]);
+        assert!(combine_results_checked(&cancelled).unwrap_err().contains("cancel to zero"));
+        assert!(combine_results(&cancelled).is_none());
+        assert!(combine_results_refs(&cancelled.factors, &[(1, &results)]).is_none());
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2292"]
+fn issue_2292_spatial_combination_refuses_complete_case_cancellation() {
+    let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &refs),
+                combine_results_3d_refs_with_thickness(&factors, &refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        for control in combine(&[1.0]) {
+            assert!(control.unwrap().unwrap().displacements.iter().any(|d| d.uz != 0.0));
+        }
+        for refused in combine(&[1.0, -1.0]) {
+            assert!(refused.unwrap_err().contains("cancel to zero"));
+        }
+    }
+}

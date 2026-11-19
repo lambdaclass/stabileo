@@ -220,3 +220,24 @@ it.each([false, true])('preserves the planar combination after case cancellation
   const big = 2 ** 54;
   expect(run([big, 1, -big])).toStrictEqual(reference);
 });
+
+const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+issue2292('known wrong result: #2292 the planar named cantilever combination refuses complete case cancellation', async () => {
+  await initSolver();
+  const model = beamModel();
+  for (const active of [cases, [cases[0], { ...cases[1], name: cases[0].name }]]) {
+    const run = (weights: number[]) => solveCombinations2D(model, active, [
+      { ...combos[0], factors: weights.map(factor => ({ caseId: 1, factor })) },
+    ]);
+    const reference = run([1]);
+    if (!reference || typeof reference === 'string') throw new Error(String(reference));
+    const tip = reference.perCombo.get(combos[0].id)!.displacements.find(row => row.nodeId === 2)!;
+    expect(tip.uz).not.toBe(0);
+    const preserved = run([2 ** 54, 1, -(2 ** 54)]);
+    if (!preserved || typeof preserved === 'string') throw new Error(String(preserved));
+    expect(preserved.perCombo.get(combos[0].id)).toStrictEqual(reference.perCombo.get(combos[0].id));
+    const refused = run([1, -1]);
+    expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combos[0].id)?.displacements)
+      .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+  }
+});

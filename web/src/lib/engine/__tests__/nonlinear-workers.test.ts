@@ -446,3 +446,24 @@ it.each([['cable', 'cable'], ['curves', 'ssi']] as const)('refuses non-finite %s
     await session.free();
   }
 });
+
+const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+issue2292('known wrong result: #2292 nonlinear named combinations refuse complete case cancellation', async () => {
+  beam('curves');
+  const cases = modelStore.model.loadCases;
+  const [combo] = modelStore.model.combinations;
+  const [{ caseId }] = combo!.factors;
+  for (const approach of [{ combinationMethod: 'superpose' }, { combinationMethod: 'solveEach' }, { perCombination: 'pdelta' }] as const) {
+    const model = { ...md(), analysis: { ...md().analysis, ...approach } };
+    if ('perCombination' in approach) model.supports = new Map([...model.supports].map(([id, support]) => [id, { ...support, curves: undefined }]));
+    for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
+      const run = (weights: number[]) => solve(model, cases, [{ ...combo!, factors: weights.map(factor => ({ caseId, factor })) }]);
+      const control = await run([1]);
+      if (!control || typeof control === 'string') throw new Error(String(control));
+      expect(control.perCombo.get(combo!.id)?.displacements.some(row => row.uz !== 0)).toBe(true);
+      const refused = await run([1, -1]);
+      expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(combo!.id)?.displacements, JSON.stringify(approach))
+        .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+    }
+  }
+});

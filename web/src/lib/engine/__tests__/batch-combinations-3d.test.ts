@@ -438,3 +438,43 @@ it('preserves 2D results after repeated case cancellation in the wrapper and exp
     expect(combineResults(splitFactors([big, 1, -big]), perCase)).toStrictEqual(combineResults(splitFactors([1]), perCase));
   }
 });
+
+const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+const cancelled = /Repeated load case factors cancel to zero in this combination/;
+
+issue2292('known wrong result: #2292 spatial combination routes refuse complete case cancellation', () => {
+  const model = readFileSync(new URL('../../../../../engine/tests/fixtures/distorted-single-quad-combination.json', import.meta.url), 'utf8');
+  for (const result of [solve_3d(JSON.parse(model)), JSON.parse(solve_pdelta_3d(model, 20, 1e-9)).results]) {
+    const perCase = new Map([[1, result]]);
+    for (const [path, combine] of Object.entries(combinationPaths3D)) {
+      const run = (weights: number[]) => combine(splitFactors(weights), perCase);
+      expect(run([1]).displacements.some((row: { uz: number }) => row.uz !== 0), path).toBe(true);
+      expect(run([2 ** 54, 1, -(2 ** 54)]), path).toStrictEqual(run([1]));
+      expect(run([1, -1 - Number.EPSILON]), path).toStrictEqual(run([-Number.EPSILON]));
+      expect(run([1, -1 + Number.EPSILON]), path).toStrictEqual(run([Number.EPSILON]));
+      expect(run([0, -0]).displacements.every((row: { uz: number }) => row.uz === 0), path).toBe(true);
+      expect.soft(() => run([1, -1]), path).toThrow(cancelled);
+    }
+  }
+});
+
+issue2292('known wrong result: #2292 planar combination routes refuse complete case cancellation', () => {
+  const model = portalInput('2d');
+  for (const result of [solve_2d(JSON.parse(model)), JSON.parse(solve_pdelta_2d(model, 20, 1e-9)).results]) {
+    const perCase = new Map([[1, result]]);
+    for (const combine of [
+      (weights: number[]) => combineResults(splitFactors(weights), perCase),
+      (weights: number[]) => combine_results_2d({ factors: splitFactors(weights), cases: [{ caseId: 1, results: result }] }),
+    ]) {
+      expect(combine([1]).displacements.some((row: { uz: number }) => row.uz !== 0)).toBe(true);
+      expect(combine([2 ** 54, 1, -(2 ** 54)])).toStrictEqual(combine([1]));
+      expect(combine([1, -1 - Number.EPSILON])).toStrictEqual(combine([-Number.EPSILON]));
+      expect(combine([1, -1 + Number.EPSILON])).toStrictEqual(combine([Number.EPSILON]));
+      expect(combine([0, -0]).displacements.every((row: { uz: number }) => row.uz === 0)).toBe(true);
+      expect.soft(() => combine([1, -1])).toThrow(cancelled);
+    }
+  }
+  for (const net of [netCombinationFactors, net_combination_factors]) {
+    expect.soft(() => net(splitFactors([1, -1]))).toThrow(cancelled);
+  }
+});

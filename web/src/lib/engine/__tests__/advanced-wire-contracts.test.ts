@@ -31,6 +31,7 @@ import { modelStore } from '../../store/model.svelte';
 import { uiStore } from '../../store/ui.svelte';
 import { buildSolverInput3D } from '../solver-service';
 import * as wasmSolver from '../wasm-solver';
+import { refusedWithCode } from '../containment-error';
 import { stagedStagesPayload } from '../advanced-analyses';
 import {
   solveHarmonic3D, solveSSI3D, solveStaged3D, solveCreepShrinkage3D,
@@ -329,14 +330,49 @@ issue2292('known wrong result: #2292 synchronous cable and SSI refuse non-finite
   const solve = [
     (solver: typeof input) => wasmSolver.solveCable3D(solver),
     (solver: typeof input) => solveSSI3D({ solver, soilSprings: [], maxIter: 20, tolerance: 1e-4 }),
+    (solver: typeof input) => solveSSI3D({ solver: wasmSolver.input3DToWireObject(solver), soilSprings: [] }),
   ];
-  input.supports.set(2, freeSpring);
   for (const run of solve) {
-    expect(run(input).results.displacements.length).toBeGreaterThan(0);
+    for (const kx of [undefined, 0, 1]) {
+      input.supports.set(2, { ...freeSpring, kx });
+      expect(run(input).results.displacements.some((d: { ux: number }) => d.ux !== 0)).toBe(true);
+    }
     for (const kx of [Number.NaN, Infinity, -Infinity]) {
       input.supports.set(2, { ...freeSpring, kx });
-      expect.soft(() => run(input), `non-finite kx = ${kx}`).toThrow();
+      expectNonFiniteSpring(() => run(input), kx);
     }
-    input.supports.set(2, freeSpring);
   }
 });
+
+issue2292('known wrong result: #2292 synchronous 2D cable and SSI refuse non-finite optional springs', () => {
+  uiStore.analysisMode = '2d';
+  modelStore.clear();
+  const start = modelStore.addNode(0, 0);
+  const end = modelStore.addNode(4, 0);
+  modelStore.addElement(start, end, 'frame');
+  modelStore.addSupport(start, 'fixed');
+  modelStore.addNodalLoad(end, 0, -10);
+  const input = modelStore.buildSolverInput(false)!;
+  const solve = [
+    () => solveCable2D(input),
+    () => wasmSolver.solveSSI2D({ solver: input, soilSprings: [] }).results,
+    () => wasmSolver.solveSSI2D({ solver: wasmSolver.input2DToWireObject(input), soilSprings: [] }).results,
+  ];
+  for (const run of solve) {
+    for (const kx of [undefined, 0, 1]) {
+      input.supports.set(end, { id: end, nodeId: end, type: 'spring', kx });
+      expect(run().displacements.some((d: { uz: number }) => d.uz !== 0)).toBe(true);
+    }
+    for (const kx of [Number.NaN, Infinity, -Infinity]) {
+      input.supports.set(end, { id: end, nodeId: end, type: 'spring', kx });
+      expectNonFiniteSpring(run, kx);
+    }
+  }
+});
+
+function expectNonFiniteSpring(run: () => unknown, stiffness: number) {
+  let error: unknown;
+  try { run(); } catch (caught) { error = caught; }
+  expect.soft(refusedWithCode(error, 'non_finite_result'), `non-finite kx = ${stiffness}`).toBe(true);
+  expect.soft(String(error)).toMatch(/supports\.\d+\.kx/);
+}
