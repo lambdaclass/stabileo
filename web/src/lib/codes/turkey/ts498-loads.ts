@@ -46,7 +46,7 @@ export const TS498_OCCUPANCIES: readonly TrOccupancy[] = Object.freeze([
   e('tr_corridor_public', 'circulation', 5.0, 'assembly'),
   e('tr_stairs_public', 'circulation', 5.0, 'assembly'),
   e('tr_stand_unfixed', 'assembly', 7.5, 'assembly'),
-  e('tr_garage_2_5t', 'parking', 5.0, 'residential'),
+  e('tr_garage_2_5t', 'parking', 5.0, 'assembly'),
 ]);
 
 export const findTrOccupancy = (key: string) => TS498_OCCUPANCIES.find((o) => o.key === key);

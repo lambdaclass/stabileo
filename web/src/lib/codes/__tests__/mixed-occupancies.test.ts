@@ -80,6 +80,13 @@ describe('TBDY 2018: n by occupancy', () => {
   });
 });
 
+describe('TBDY 2018 Tablo 4.3: a garage takes n = 0,6', () => {
+  it('as schools, shops and halls do, not the 0,3 of dwellings', () => {
+    const p = run('turkey', 'tr_garage_2_5t', 'tr_roof_occasional', { tbdy2018: { ss: 1.0, s1: 0.3, soil: 'ZC', bks: 3, system: 'A11' } });
+    expect(p.levels[1]!.liveParticipatingKN).toBeCloseTo(0.6 * p.levels[1]!.liveTotalKN, 6);
+  });
+});
+
 describe('ASCE 7-22: 25 % in storage areas only', () => {
   it('a light warehouse under a roof used for assembly', () => {
     const p = run('us', 'warehouseLight', 'roofAssembly', { 'asce7-22-seismic': { sds: 1.0, sd1: 0.6, s1: 0.5, tl: 8, systemKey: 'steelSMF', periodKey: 'steelMRF' } });
