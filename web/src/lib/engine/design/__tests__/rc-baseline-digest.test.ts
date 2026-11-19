@@ -74,6 +74,17 @@ describe('RC design baseline — the flagship frame, member by member', () => {
   const summary = runDesign(cirsoc201Adapter, solved.contexts.values(), { maxRunMs: 180_000 });
   const lines = digestLines(summary);
 
+  const containmentTest = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
+  containmentTest('known wrong result: #2338 shear-depth containment never reopens an exhausted flagship search', () => {
+    assertRealSolver();
+    for (const member of [180, 181, 182, 186, 187, 188, 211, 217]) {
+      const outcome = summary.outcomes.get(member);
+      expect(outcome?.outcome, `member ${member}`).toBe('SEARCH_EXHAUSTED');
+      expect(outcome?.certificate, `member ${member}`).toBeUndefined();
+      expect(outcome?.accepted, `member ${member}`).toBeUndefined();
+    }
+  });
+
   it('still designs the same number of members the same ways', () => {
     assertRealSolver();
     // Restated here rather than only in the aggregate suite: if these move, the digest
