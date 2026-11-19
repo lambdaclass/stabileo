@@ -171,7 +171,7 @@ function evaluate(d: BeamDemand, c: BeamContext, a: BeamAdopted, req: Requiremen
     return { s: f.spacing, max: f.limit.maxSpacing, ok: !used || f.ok };
   };
   const hogUsed = req.top > 0;
-  const shear = checkShear(paramsOf(d, c, sd), d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
+  const shear = checkShear(paramsOf(d, c, sd), d.vu.value, d.nAtV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom) }, { legs: a.stirrups.legs, spacing: a.stirrups.spacing });
   const ab = barArea(sd);
   const perLegProvided = a.stirrups.spacing > 0 ? ab / a.stirrups.spacing : 0;
   const legs = Math.max(1, a.stirrups.legs);
@@ -382,7 +382,7 @@ function comboTable(d: BeamDemand, c: BeamContext, a: BeamAdopted, fmt: Fmt): Co
     const mRatio = (m: number, iPos: number, iNeg: number) => (m >= 0 ? ratioOf(m, cap(iPos)) : ratioOf(-m, cap(iNeg)));
     const flex = Math.max(mRatio(k.mStart, o + 3, o + 1), mRatio(k.mSpan, o, o + 5), mRatio(k.mEnd, o + 4, o + 2), ratioOf(k.mPos, cap(o)),
       ratioOf(k.mNeg, Math.min(cap(o + 1), cap(o + 2), cap(o + 5))));
-    const sh = checkShear(p, k.v, k.nV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom), spacing: a.stirrups.spacing, legs: a.stirrups.legs });
+    const sh = checkShear(p, k.v, k.nV, { edition: EDITION, AsTensionCm2: groupsArea(a.bottom) }, { legs: a.stirrups.legs, spacing: a.stirrups.spacing });
     const t = c.torsion === 'compatibility' ? Math.min(k.t, PHI_V * tcr) : k.t;
     const tor = checkTorsion(p, shearTorsion(k.v, t), EDITION);
     const stir = ratioOf((sh.AvOverSReq ?? 0) / legs + (tor.neglect ? 0 : tor.AtOverS), perLegProvided);
