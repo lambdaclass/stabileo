@@ -51,6 +51,46 @@ function onMember(a: Vec3, b: Vec3, members: Array<[Vec3, Vec3]>): boolean {
   });
 }
 
+type Surface = { n: Vec3; o: Vec3; u: Vec3; v: Vec3; poly: Array<[number, number]>; lo: Vec3; hi: Vec3 };
+
+function surfaceIndex(): (p: Vec3) => Surface[] {
+  const CELL = 2;
+  const cells = new Map<string, Surface[]>();
+  const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
+  for (const sh of shells) {
+    if (sh.nodes.some((n) => !modelStore.nodes.has(n))) continue;
+    const pts = sh.nodes.map(pos);
+    const f = frameOfLoop(pts);
+    if (!f) continue;
+    const lo = [0, 1, 2].map((i) => Math.min(...pts.map((p) => p[i]!)) - 1e-3) as Vec3, hi = [0, 1, 2].map((i) => Math.max(...pts.map((p) => p[i]!)) + 1e-3) as Vec3;
+    const surf: Surface = { ...f, poly: pts.map((p) => { const d = sub(p, f.o); return [dot(d, f.u), dot(d, f.v)] as [number, number]; }), lo, hi };
+    for (let i = Math.floor(lo[0] / CELL); i <= Math.floor(hi[0] / CELL); i++) for (let j = Math.floor(lo[1] / CELL); j <= Math.floor(hi[1] / CELL); j++) for (let k = Math.floor(lo[2] / CELL); k <= Math.floor(hi[2] / CELL); k++) {
+      const key = `${i},${j},${k}`;
+      (cells.get(key) ?? cells.set(key, []).get(key)!).push(surf);
+    }
+  }
+  return (p) => cells.get(`${Math.floor(p[0] / CELL)},${Math.floor(p[1] / CELL)},${Math.floor(p[2] / CELL)}`) ?? [];
+}
+
+function onSurface(s: Surface, p: Vec3): boolean {
+  const d = sub(p, s.o);
+  if (Math.abs(dot(d, s.n)) > 1e-4) return false;
+  const x = dot(d, s.u), y = dot(d, s.v);
+  let inside = false;
+  for (let i = 0, j = s.poly.length - 1; i < s.poly.length; j = i++) {
+    const [xi, yi] = s.poly[i]!, [xj, yj] = s.poly[j]!;
+    const ex = xi - xj, ey = yi - yj, L = Math.hypot(ex, ey);
+    if (L > 0 && Math.abs((x - xj) * ey - (y - yj) * ex) / L < 1e-6 && (x - xj) * ex + (y - yj) * ey >= -1e-9 && (x - xj) * ex + (y - yj) * ey <= L * L + 1e-9) return true;
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function crossedBy(a: Vec3, b: Vec3, n: Vec3, surfaces: (p: Vec3) => Surface[]): boolean {
+  const m: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  return surfaces(m).some((s) => Math.abs(dot(s.n, n)) < 1 - 1e-6 && onSurface(s, m));
+}
+
 /** The panels of shells that make one plate each. */
 export function shellPanels(keys: readonly string[]): Shell[][] {
   const shells = keys.map(shellOf).filter((s): s is Shell => !!s && plateOfShell(s.key) === null);
@@ -64,6 +104,7 @@ export function shellPanels(keys: readonly string[]): Shell[][] {
   const parent = shells.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
   const edges = new Map<string, number[]>();
+  let surfaces: ((p: Vec3) => Surface[]) | undefined;
   shells.forEach((s, i) => s.nodes.forEach((a, k) => {
     const b = s.nodes[(k + 1) % s.nodes.length]!;
     const key = a < b ? `${a}-${b}` : `${b}-${a}`;
@@ -78,7 +119,9 @@ export function shellPanels(keys: readonly string[]): Shell[][] {
     const gs = groupOf.get(s.key), gt = groupOf.get(t.key);
     // A plate has one offset, given to every mesh it gets: shells set apart by theirs stay apart.
     const same = s.materialId === t.materialId && Math.abs(s.thickness - t.thickness) < 1e-9 && s.offset === t.offset && gs === gt;
-    if (coplanar && same && (gs !== undefined || !onMember(pos(a), pos(b), members))) parent[find(i)] = find(j);
+    if (!coplanar || !same) continue;
+    if (gs === undefined && (onMember(pos(a), pos(b), members) || crossedBy(pos(a), pos(b), s.n, surfaces ??= surfaceIndex()))) continue;
+    parent[find(i)] = find(j);
   }
   const sets = new Map<number, Shell[]>();
   shells.forEach((s, i) => (sets.get(find(i)) ?? sets.set(find(i), []).get(find(i))!).push(s));

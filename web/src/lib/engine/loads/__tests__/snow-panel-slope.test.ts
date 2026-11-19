@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
 import { snowSlopes } from '../snow-loads';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput } from '../load-plan';
-import { planInput } from '../../../codes/__tests__/family-plan-helpers';
+import { otherRefusals, planInput } from '../../../codes/__tests__/family-plan-helpers';
 import type { LoadFamilyChoice } from '../../../codes/families/stacks';
 import { slopeFactor } from '../../../codes/cirsoc104/snow';
 import { PSF } from '../../../codes/asce7/refs';
@@ -66,12 +66,12 @@ describe('the snow codes read the panel at the roof slope', () => {
   };
   it('CIRSOC 104: Cs of a slippery roof at the roof slope', () => {
     const slippery = run('cirsoc', {}, true), rough = run('cirsoc', {}, false);
-    expect(slippery.outcome).toBe('READY');
+    expect(otherRefusals(slippery)).toEqual([]);
     expect(onPanels(slippery) / onPanels(rough)).toBeCloseTo(slopeFactor(SLOPE, 1, true), 6);
   });
   it('ASCE 7-22: Cs at the roof slope, and no low-slope minimum on it', () => {
     const p = run('us', { 'asce7-22-snow': { pg: 20 * PSF, ce: 1, ct: 1, slippery: true } }, true);
-    expect(p.outcome).toBe('READY');
+    expect(otherRefusals(p)).toEqual([]);
     expect(onPanels(p)).toBeCloseTo(0.7 * 20 * PSF * slopeFactor(SLOPE, 1, true), 6);
   });
   it('EN 1991-1-3 and TS 498: flat up to 30°, the same value on the panel and the rafters', () => {

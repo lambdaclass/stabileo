@@ -339,6 +339,10 @@ describe('every shell a plate in PRO', () => {
     expect(plates.every((p) => p.physical.provenance === 'inferred')).toBe(true);
     expect(plates.every((p) => /^[LM]\d+$/.test(p.name) && (p.name[0] === 'M') === (p.physical.kind === 'wall'))).toBe(true);
     expect(plates.every((p) => !!p.physical.levelFrom && !!p.physical.levelTo)).toBe(true);
+    const z = (id?: string) => Number(id!.slice(2));
+    const walls = plates.filter((p) => p.physical.kind === 'wall');
+    expect(walls).toHaveLength(21);
+    expect(walls.every((p) => z(p.physical.levelTo) - z(p.physical.levelFrom) <= 3.5 + 1e-9)).toBe(true);
     const kinds = new Set(physicalGroups().map((g) => g.physical.kind));
     expect([...kinds].sort()).toEqual(expect.arrayContaining(['beam', 'column', 'slab', 'wall']));
     expect(planRecognition().changes).toBe(false);
@@ -394,5 +398,28 @@ describe('every shell a plate in PRO', () => {
     applyPlateMeshes([planPlateMesh(p!.id, { size: 1, pattern: 'square' })!]);
     expect(modelStore.model.groups.get(p!.id)!.members.quads).toHaveLength(12);
     expect(plateStatus(p!.id)).toBe('current');
+  });
+});
+
+describe('a wall running past a floor', () => {
+  function stack(slab: boolean) {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const at = (x: number, z: number) => modelStore.addNode(x, 0, z);
+    const [a, b, c, d, e, f] = [at(0, 0), at(2, 0), at(2, 3), at(0, 3), at(2, 6), at(0, 6)] as [number, number, number, number, number, number];
+    const keys = [`q${modelStore.addQuad([a, b, c, d], 1, 0.2)}`, `q${modelStore.addQuad([d, c, e, f], 1, 0.2)}`];
+    if (slab) {
+      const s = [[-1, -1], [3, -1], [3, 3], [-1, 3]].map(([x, y]) => modelStore.addNode(x!, y!, 3));
+      keys.push(`q${modelStore.addQuad(s as [number, number, number, number], 1, 0.15)}`);
+    }
+    platesFromShells(keys);
+    return physicalPlates().filter((p) => Math.abs(modelStore.nodes.get(p.group.members.nodes![0]!)!.y) < 1e-9 && p.group.members.nodes!.every((n) => modelStore.nodes.get(n)!.y === 0));
+  }
+
+  it('is one plate a storey where a slab meets it with no beam, as where a beam runs', () => {
+    expect(stack(true)).toHaveLength(2);
+  });
+
+  it('stays one plate where nothing meets it', () => {
+    expect(stack(false)).toHaveLength(1);
   });
 });
