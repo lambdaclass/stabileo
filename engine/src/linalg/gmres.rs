@@ -18,8 +18,21 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
+/// Scaled by the largest entry: the plain sum of squares takes [1e-200] for zero and [1e200]
+/// for infinite.
 fn norm(a: &[f64]) -> f64 {
-    dot(a, a).sqrt()
+    if a.iter().any(|v| v.is_nan()) {
+        return f64::NAN;
+    }
+    let largest = a.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    if largest == 0.0 || largest.is_infinite() {
+        return largest;
+    }
+    largest * a.iter().map(|v| (v / largest) * (v / largest)).sum::<f64>().sqrt()
+}
+
+fn finite(a: &[f64]) -> bool {
+    a.iter().all(|v| v.is_finite())
 }
 
 /// Solve A·x = b by GMRES(`restart`) from x₀ = 0, right-preconditioned: the Krylov space is that
@@ -29,7 +42,8 @@ fn norm(a: &[f64]) -> f64 {
 /// from `x` is within `tol`; a zero right-hand side returns x = 0. The solve stops unconverged
 /// when `max_iter` operator applications are spent, when a cycle fails to reduce the true
 /// residual (restarted GMRES can stagnate for ever, and does on a singular inconsistent system),
-/// or when the operator or the preconditioner returns a non-finite number.
+/// or when the operator or the preconditioner returns a non-finite number. `x` is then the last
+/// iterate that reduced the residual, and is always finite. Panics when `restart` is zero.
 pub fn gmres_solve(
     apply: &dyn Fn(&[f64], &mut [f64]),
     b: &[f64],
@@ -52,6 +66,7 @@ pub fn gmres_solve(
 
     let mut r = b.to_vec();
     let mut rel = 1.0;
+    let mut beta = bnorm;
     let (mut iterations, mut cycles) = (0, 0);
     let mut z = vec![0.0; n];
     let mut w = vec![0.0; n];
@@ -63,7 +78,6 @@ pub fn gmres_solve(
             return unconverged(x, iterations, cycles, rel);
         }
         cycles += 1;
-        let beta = rel * bnorm;
         let mut basis: Vec<Vec<f64>> = vec![r.iter().map(|v| v / beta).collect()];
         let mut upper: Vec<Vec<f64>> = Vec::new();
         let mut rotations: Vec<(f64, f64)> = Vec::new();
@@ -71,6 +85,9 @@ pub fn gmres_solve(
         while upper.len() < restart && iterations < max_iter {
             let j = upper.len();
             pre.apply(&basis[j], &mut z);
+            if !finite(&z) {
+                return unconverged(x, iterations, cycles, rel);
+            }
             apply(&z, &mut w);
             iterations += 1;
             let mut h = Vec::with_capacity(j + 2);
@@ -116,18 +133,21 @@ pub fn gmres_solve(
             combination.iter_mut().zip(v).for_each(|(a, b)| *a += coefficient * b);
         }
         pre.apply(&combination, &mut z);
-        x.iter_mut().zip(&z).for_each(|(a, b)| *a += b);
-
-        apply(&x, &mut w);
-        r.iter_mut().zip(b.iter().zip(&w)).for_each(|(ri, (bi, wi))| *ri = bi - wi);
-        let reduced = norm(&r) / bnorm;
-        if !reduced.is_finite() {
-            return unconverged(x, iterations, cycles, f64::INFINITY);
+        let candidate: Vec<f64> = x.iter().zip(&z).map(|(a, b)| a + b).collect();
+        if !finite(&candidate) {
+            return unconverged(x, iterations, cycles, rel);
         }
-        if k == 0 || (reduced >= rel && reduced > tol) {
-            return unconverged(x, iterations, cycles, reduced);
+        apply(&candidate, &mut w);
+        let residual: Vec<f64> = b.iter().zip(&w).map(|(bi, wi)| bi - wi).collect();
+        let remaining = norm(&residual);
+        let reduced = remaining / bnorm;
+        if !reduced.is_finite() || reduced >= rel {
+            return unconverged(x, iterations, cycles, rel);
         }
+        x = candidate;
+        r = residual;
         rel = reduced;
+        beta = remaining;
     }
 }
 
@@ -365,6 +385,120 @@ mod tests {
             let a = convection_diffusion(n, 0.2);
             assert!(!gmres_solve(&dense(&a, n), &poisoned, &IdentityPreconditioner, n, 1e-10, 100).converged);
         }
+    }
+
+    #[test]
+    fn the_norm_survives_entries_whose_squares_do_not() {
+        assert!((norm(&[3e-200, 4e-200]) / 5e-200 - 1.0).abs() <= 1e-15);
+        assert!((norm(&[3e200, -4e200]) / 5e200 - 1.0).abs() <= 1e-15);
+        assert_eq!(norm(&[0.0, 0.0]), 0.0);
+        assert_eq!(norm(&[]), 0.0);
+        assert_eq!(norm(&[1.0, f64::INFINITY]), f64::INFINITY);
+        assert!(norm(&[f64::NAN]).is_nan());
+        assert!(norm(&[1.0, f64::NAN, f64::INFINITY]).is_nan());
+        assert!((norm(&[1.0, 2.0, 2.0]) - 3.0).abs() <= 1e-15);
+    }
+
+    #[test]
+    fn a_tiny_right_hand_side_is_not_taken_for_zero() {
+        let identity = |v: &[f64], out: &mut [f64]| out.copy_from_slice(v);
+        let result = gmres_solve(&identity, &[1e-200], &IdentityPreconditioner, 1, 1e-10, 10);
+        assert!(result.converged);
+        assert_eq!(result.x, vec![1e-200]);
+        assert_eq!((result.iterations, result.final_rel_residual), (1, 0.0));
+
+        let n = 12;
+        let a = convection_diffusion(n, 0.3);
+        let unit = direct(&a, &ramp(n), n);
+        for factor in [1e-170, 1e-250, 1e200] {
+            let b: Vec<f64> = ramp(n).iter().map(|v| v * factor).collect();
+            let result = gmres_solve(&dense(&a, n), &b, &IdentityPreconditioner, n, 1e-12, 10 * n);
+            assert!(result.converged, "{factor}: {}", result.final_rel_residual);
+            assert!(result.iterations > 1);
+            for (got, want) in result.x.iter().zip(&unit) {
+                assert!((got / factor - want).abs() <= 1e-9 * want.abs().max(1.0), "{factor}: {got} vs {want}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_tiny_operator_leaves_residuals_that_are_not_taken_for_zero() {
+        let n = 12;
+        let unit = convection_diffusion(n, 0.3);
+        let exact = direct(&unit, &ramp(n), n);
+        for factor in [1e-170, 1e170] {
+            let a: Vec<f64> = unit.iter().map(|v| v * factor).collect();
+            let b = ramp(n);
+            let result = gmres_solve(&dense(&a, n), &b, &IdentityPreconditioner, n, 1e-12, 10 * n);
+            assert!(result.converged, "{factor}: {}", result.final_rel_residual);
+            assert!(result.iterations > 1);
+            for (got, want) in result.x.iter().zip(&exact) {
+                assert!((got * factor - want).abs() <= 1e-9 * want.abs().max(1.0), "{factor}: {got} vs {want}");
+            }
+        }
+    }
+
+    struct Poisoned {
+        component: usize,
+        from_call: usize,
+        calls: std::cell::Cell<usize>,
+    }
+
+    impl Preconditioner for Poisoned {
+        fn apply(&self, r: &[f64], z: &mut [f64]) {
+            z.copy_from_slice(r);
+            self.calls.set(self.calls.get() + 1);
+            if self.calls.get() >= self.from_call {
+                z[self.component] = f64::NAN;
+            }
+        }
+        fn name(&self) -> &'static str {
+            "poisoned"
+        }
+    }
+
+    #[test]
+    fn a_non_finite_preconditioner_in_a_component_the_operator_ignores_is_not_a_solution() {
+        let apply = |v: &[f64], out: &mut [f64]| {
+            out[0] = v[0] + 0.5 * v[1];
+            out[1] = 3.0 * v[1];
+            out[2] = 0.0;
+        };
+        let b = [1.0, 2.0, 0.0];
+        let sound = gmres_solve(&apply, &b, &IdentityPreconditioner, 3, 1e-12, 30);
+        assert!(sound.converged && finite(&sound.x));
+        for from_call in [1, 2, 3] {
+            let pre = Poisoned { component: 2, from_call, calls: std::cell::Cell::new(0) };
+            let result = gmres_solve(&apply, &b, &pre, 3, 1e-12, 30);
+            assert!(!result.converged, "poisoned from call {from_call}");
+            assert!(finite(&result.x), "poisoned from call {from_call}: {:?}", result.x);
+            let mut ax = [0.0; 3];
+            apply(&result.x, &mut ax);
+            let r: Vec<f64> = b.iter().zip(&ax).map(|(bi, ai)| bi - ai).collect();
+            assert_eq!(result.final_rel_residual, norm(&r) / norm(&b));
+        }
+    }
+
+    #[test]
+    fn a_cycle_that_does_not_help_leaves_the_last_good_iterate() {
+        let n = 6;
+        let mut a = vec![0.0; n * n];
+        for i in 0..n - 1 {
+            a[i * n + i] = 1.0 + i as f64;
+        }
+        let mut b = ramp(n);
+        b[n - 1] = 5.0;
+        let result = gmres_solve(&dense(&a, n), &b, &IdentityPreconditioner, 2, 1e-10, 1000);
+        assert!(!result.converged);
+        assert_eq!(result.final_rel_residual, residual(&a, n, &result.x, &b));
+        let further = gmres_solve(&dense(&a, n), &b, &IdentityPreconditioner, 2, 1e-10, result.iterations + 2);
+        assert_eq!(further.x, result.x);
+    }
+
+    #[test]
+    #[should_panic(expected = "restart length must be positive")]
+    fn a_zero_restart_length_panics() {
+        gmres_solve(&|v: &[f64], out: &mut [f64]| out.copy_from_slice(v), &[1.0], &IdentityPreconditioner, 0, 1e-10, 10);
     }
 
     #[test]
