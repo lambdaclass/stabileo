@@ -184,7 +184,7 @@ const words: Translations = {
   "course.dynamics.mdof.shape.drawn": "被凝聚的自由度用 T 恢复，振型图由直线连接各节点绘出。",
   "course.dynamics.mdof.orth.lead": "各振型关于 M 和 K 正交。因此这两个矩阵在模态坐标中都变为对角矩阵。",
   "course.dynamics.mdof.orth.check": "ΦᵀMΦ 中最大的非对角项为对角项的 {m} 倍，ΦᵀKΦ 中为 {k} 倍：在舍入误差范围内它们是对角矩阵。",
-  "course.dynamics.mdof.orth.tableCaption": "广义质量和广义刚度；二者之比为 ω_i²。",
+  "course.dynamics.mdof.orth.tableCaption": "各振型的广义质量 M_i 和广义刚度 K_i，满足 ω_i² = K_i/M_i。",
   "course.dynamics.mdof.orth.why": "正交性来源于 M 和 K 的对称性，以及每对振型的频率不同。频率重复时，其振型的任意组合也是振型，因此它们本身不一定正交：需要选取成正交的。",
   "course.dynamics.mdof.part.lead": "振型参与系数 Γ_i 衡量当所有自由度沿同一方向一起运动（如地震）时，第 i 振型被激发的程度。有效质量 M_ef,i 是在该振型中振动的那部分总质量。",
   "course.dynamics.mdof.part.r": "r 是影响向量：在所研究方向的平动上取 1，其余取 0。",

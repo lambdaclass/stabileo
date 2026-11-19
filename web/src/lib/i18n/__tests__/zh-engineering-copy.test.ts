@@ -21,7 +21,7 @@ const copyCases: [string, string | undefined, RegExp][] = [
   ['Maxwell projection and downward sign', influence['course.influence.doc.maxwell.principle'], /投影.*向下.*−u_z/],
   ['signed plastic hinge', plastic['course.plastic.trace.hinge'], /±Mp.*屈服时.*符号/],
   ['signed axial yield', plastic['course.plastic.trace.yield'], /±Np.*屈服时.*符号/],
-  ['absolute Cb moments and full-segment peak', steel['steel.cb.reason.computed'], /最大绝对值.*整个无支撑段|整个无支撑段.*最大绝对值.*\|MA\|.*\|MB\|.*\|MC\|/],
+  ['absolute Cb moments and full-segment peak', steel['steel.cb.reason.computed'], /3·\|MA\| \+ 4·\|MB\| \+ 3·\|MC\|.*整个无支撑段.*最大绝对值/],
   ['E.4.3 torsion constant in numerator', steel['steel.e4.gap.torsionalConstant'], /分子.*G·J|G·J.*分子/],
   ['gross section yield conversion', steel['steel.tc.calc.yield'], /\{Fy\}·\{Ag\}.*10⁻³.*kN/],
   ['net section rupture conversion', steel['steel.tc.calc.rupture'], /\{Fu\}·\{Ae\}.*10⁻³.*kN/],
@@ -32,22 +32,22 @@ const copyCases: [string, string | undefined, RegExp][] = [
   ['weak-axis plastic cap', steel['c301.f.weakMp'], /Mp = min\(Fy·Zy, 1\.5·Fy·Sy\) = \{Mp\}/],
   ['fixed-end signed transverse equilibrium', steps['steps.fem.check'], /ΣRᵧ \+ ΣFᵧ = 0/],
   ['overhang signed load transfer', steps['steps.continuous.overhangShear'], /带符号的.*合力.*传递.*支座/],
-  ['signed shell displacement', bars.blocks.find(b => b.k === 'embed' && b.query === 'example=deep-beam-shell' && b.label)?.label, /[−-]5\.19e[−-]5.*−0\.0519 mm/],
+  ['signed shell displacement', bars.blocks.flatMap(b => b.k === 'embed' && b.query === 'example=deep-beam-shell' ? [b.label] : []).join('\n'), /[−-]5\.19e[−-]5.*−0\.0519 mm/],
   ['beam midspan moment balance', determinism.blocks.map(b => b.k === 'p' ? b.t : '').join('\n'), /M_mid − \(M_L \+ M_R\)\/2 = qL²\/8 = 135 kN·m/],
   ['global static force equilibrium', determinism.blocks.flatMap(b => b.k === 'ul' ? b.items : []).join('\n'), /∑𝐑 \+ ∑𝐏 = 𝟎/],
 ];
 
-it.skip.each(copyCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
+it.each(copyCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
   expect(copy).toMatch(expected);
 });
 
-it.skip('known wrong result: #2360 — separates the snow factor from the snow load', () => {
-  const copy = changes.find(c => c.explanation.en.includes('f2 = 0.70 S'))?.explanation.zh;
+it('known wrong result: #2360 — separates the snow factor from the snow load', () => {
+  const copy = changes.find(c => c.id === 'cirsoc-combinations-and-loads')?.explanation.zh;
   expect(copy).toMatch(/f2 = 0\.70[，；）。]/);
   expect(copy).toContain('f2·S = 0.70 S');
 });
 
-it.skip('known wrong result: #2360 — uses square-root pressure units for the shear limit', () => {
-  const copy = changes.find(c => c.explanation.en.includes("√f'c ≤ 8.3 MPa"))?.explanation.zh;
+it('known wrong result: #2360 — uses square-root pressure units for the shear limit', () => {
+  const copy = changes.find(c => c.id === 'cirsoc201-strain-compatibility')?.explanation.zh;
   expect(copy).toContain('√f′c ≤ 8.3 √MPa');
 });
