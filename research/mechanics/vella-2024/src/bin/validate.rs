@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use snap_symmetry_vella_2024::study::{study, Study, ASYMMETRIC};
 use std::{fs, path::Path};
 
@@ -171,12 +171,54 @@ fn compare(a: &Value, b: &Value, path: &str, band: Option<f64>, out: &mut Vec<St
             }
             let observed_band = x.get("tolerance").and_then(Value::as_f64).filter(|_| x.contains_key("observed")).map(|t| 1e-3 * t);
             for (k, v) in x.iter().filter(|(k, _)| y.contains_key(*k)) {
-                compare(v, &y[k], &format!("{path}.{k}"), if k == "observed" { observed_band } else { None }, out);
+                let path = format!("{path}.{k}");
+                if let Some(bands) = extrapolation_bands(x, y, k) {
+                    for (field, band) in [("value", None), ("order", Some(bands.0)), ("correction", Some(bands.1))] {
+                        compare(&v[field], &y[k][field], &format!("{path}.{field}"), band, out);
+                    }
+                    continue;
+                }
+                let band = if k == "observed" { observed_band } else { spectrum_band(x, y, k) };
+                compare(v, &y[k], &path, band, out);
             }
         }
         _ if a == b => {}
         _ => out.push(format!("{path}: {} vs {}", short(a), short(b))),
     }
+}
+
+/// An eigenvalue's round-off error scales with the matrix, not with the eigenvalue (Weyl), so each
+/// ω² and each stiffness is compared relative to the larger of its symmetric/antisymmetric pair.
+fn spectrum_band(x: &Map<String, Value>, y: &Map<String, Value>, key: &str) -> Option<f64> {
+    let kind = key.strip_suffix("_symmetric").or_else(|| key.strip_suffix("_antisymmetric")).filter(|k| ["omega2", "stiffness"].contains(k))?;
+    let scale = [x, y]
+        .iter()
+        .flat_map(|m| ["symmetric", "antisymmetric"].map(|s| m.get(&format!("{kind}_{s}")).and_then(Value::as_f64)))
+        .collect::<Option<Vec<f64>>>()?
+        .into_iter()
+        .fold(0.0_f64, |m, v| m.max(v.abs()));
+    Some(1e-8 + 1e-6 * scale)
+}
+
+/// Bands for the Richardson order and correction of `key` in a mesh study: the first-order
+/// propagation of the three mesh values' actual drift through d₁ = f₂ − f₁ and d₂ = f₃ − f₂,
+/// doubled, plus round-off. The mesh values themselves are compared under the usual band.
+fn extrapolation_bands(x: &Map<String, Value>, y: &Map<String, Value>, key: &str) -> Option<(f64, f64)> {
+    let field = match key {
+        "mu_a" | "mu_star" => key,
+        "omega" => "omega_antisymmetric",
+        _ => return None,
+    };
+    let values = |m: &Map<String, Value>| -> Option<Vec<f64>> { m.get("meshes")?.as_array()?.iter().rev().take(3).rev().map(|p| p[field].as_f64()).collect() };
+    let (f, g) = (values(x)?, values(y)?);
+    let drift: Vec<f64> = f.iter().zip(&g).map(|(a, b)| (a - b).abs()).collect();
+    let (d1, d2) = (f[1] - f[0], f[2] - f[1]);
+    let order = x.get(key)?["order"].as_f64()?;
+    let correction = x.get(key)?["correction"].as_f64()?;
+    let order_band = ((drift[0] + drift[1]) / d1.abs() + (drift[1] + drift[2]) / d2.abs()) / std::f64::consts::LN_2;
+    let growth = 2f64.powf(order);
+    let correction_band = correction.abs() * ((drift[1] + drift[2]) / d2.abs() + growth * std::f64::consts::LN_2 * order_band / (growth - 1.0));
+    Some((2.0 * order_band + 1e-12 * order.abs(), 2.0 * correction_band + 1e-12 * correction.abs()))
 }
 
 fn short(v: &Value) -> String {
@@ -213,4 +255,38 @@ fn main() {
     }
     assert!(stale.is_empty(), "{} stored numbers differ from a fresh run (first ones above)", stale.len());
     println!("evidence {}", if write { "written" } else { "matches a fresh run" });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use snap_symmetry_vella_2024::study::richardson;
+
+    fn study_of(omegas: [f64; 3]) -> Value {
+        let r = richardson(omegas[0], omegas[1], omegas[2]);
+        json!({"meshes": omegas.map(|w| json!({"omega_antisymmetric": w})), "omega": {"value": r.value, "order": r.order, "correction": r.correction}})
+    }
+
+    fn stale(fresh: &Value, stored: &Value) -> Vec<String> {
+        let mut out = vec![];
+        compare(fresh, stored, "s", None, &mut out);
+        out
+    }
+
+    #[test]
+    fn richardson_outputs_move_with_their_inputs_only() {
+        let stored = study_of([57.33200338881681, 57.03146301259986, 56.95607084918148]);
+        let fresh = study_of([57.33200338881681 + 3e-8, 57.03146301259986 - 5e-8, 56.95607084918148 + 7e-8]);
+        assert!(stale(&fresh, &stored).is_empty(), "{:?}", stale(&fresh, &stored));
+        let mut edited = stored.clone();
+        edited["omega"]["order"] = json!(stored["omega"]["order"].as_f64().unwrap() + 1e-9);
+        assert_eq!(stale(&edited, &stored).len(), 1);
+    }
+
+    #[test]
+    fn eigenvalues_are_compared_against_their_spectrum() {
+        let spectrum = |s: f64| json!({"omega2_symmetric": s, "omega2_antisymmetric": -195.13210150663298, "stiffness_symmetric": 1e-4, "stiffness_antisymmetric": -0.081});
+        assert!(stale(&spectrum(0.07153081671261309), &spectrum(0.07152997994083818)).is_empty());
+        assert_eq!(stale(&spectrum(0.0725), &spectrum(0.07152997994083818)).len(), 1);
+    }
 }

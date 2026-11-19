@@ -210,10 +210,22 @@ The catalogue area is `metamaterials`, the area of the catalogue's two other sna
   round-off amplified through Newton and the integrator: raising the dynamics' Newton floor by 37 %
   moved every dynamic number by at most 10⁻⁷ relative, and on Linux CI the Fig. 2c transition moved
   by 7 × 10⁻⁹. The absolute floor covers numbers that are round-off themselves, such as the
-  10⁻¹¹ rad asymmetry of the unseeded runs. A check's `observed` is a difference of close numbers,
-  so it may move by 10⁻³ of that check's tolerance, which cannot turn a verdict unless it sits
-  within 0.1 % of the threshold; the verdicts themselves, the counts of points and every
-  non-number must match exactly.
+  10⁻¹¹ rad asymmetry of the unseeded runs. Three kinds of number are worse conditioned and get
+  bands from their conditioning instead:
+  - A check's `observed` is a difference of close numbers; it may move by 10⁻³ of that check's
+    tolerance, which cannot turn a verdict unless it sits within 0.1 % of the threshold.
+  - Eigenvalues (ω² and the stiffnesses of the spectra): round-off moves an eigenvalue by an
+    amount set by the matrix, not by the eigenvalue (Weyl's inequality), so near the fold, where
+    ω²_S passes through zero, its relative error is large (on Linux CI ω²_S = 0.0715 moved by
+    8 × 10⁻⁷). Each is compared to 10⁻⁸ plus 10⁻⁶ of the larger of its symmetric/antisymmetric
+    pair (195 there).
+  - Richardson order and correction divide by differences of nearly equal mesh results (for ω,
+    d₂ = 0.075 against values of 57; on Linux CI the order moved by 3 × 10⁻⁶ and the correction by
+    1.4 × 10⁻⁷). Their band is twice the first-order propagation of the three mesh values' actual
+    drift through d₁ and d₂, plus 10⁻¹² relative; the mesh values themselves are compared under
+    the usual band, so a stale order with unchanged inputs still fails.
+
+  The verdicts themselves, the counts of points and every non-number must match exactly.
 
 ## Reproduce
 
