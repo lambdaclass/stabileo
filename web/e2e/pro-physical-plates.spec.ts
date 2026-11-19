@@ -206,7 +206,10 @@ test('@smoke an example\'s slabs and walls are plates as loaded, keep their mesh
   await page.getByTestId('plate-mesh-size').press('Tab');
   await expect(page.getByTestId('plate-mesh-apply')).toBeEnabled();
   await page.getByTestId('plate-mesh-apply').click();
-  await expect.poll(async () => (await plates(page)).find((p) => p.id === a!.id)!.shells, { timeout: 30_000 }).toBeGreaterThan(a!.shells);
-  expect((await plates(page)).every((p) => p.status === 'current')).toBe(true);
+  for (const p of [a!, b!]) {
+    await expect.poll(async () => (await plates(page)).find((q) => q.id === p.id)!.shells, { timeout: 30_000 }).toBeGreaterThan(p.shells);
+  }
+  const after = await plates(page);
+  expect(after.every((p) => p.status === 'current')).toBe(true);
   expect(await page.evaluate(() => window.__stabileo.quadIds().length)).toBeGreaterThan(before);
 });
