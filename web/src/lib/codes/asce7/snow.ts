@@ -70,7 +70,19 @@ export function planAsce7Snow(input: LoadPlanInput, sink: PlanSink, layout?: Gra
   const p = r.balanced;
   const index = cases.length;
   cases.push({ existingId: null, type: 'S', nameKey: 'snow.case.balanced', nameParams: { ps: +p.toFixed(3), pf: +r.pf.toFixed(3) } });
-  const put = (d: { elementId: number; q: number; qJ?: number; a?: number; b?: number; frame?: 'projected' }) => distributed.push({ ...d, caseType: 'S', caseIndex: index });
+  // §12.7.2(4) weighs pf, not the sloped balanced load each piece carries: each piece keeps its ratio.
+  const flat = new WeakMap<object, number>();
+  sink.snowFlat = { caseIndex: index, pf: r.pf, ratio: flat };
+  const put = (d: { elementId: number; q: number; qJ?: number; a?: number; b?: number; frame?: 'projected' }, p: number) => {
+    const x = { ...d, caseType: 'S' as const, caseIndex: index };
+    distributed.push(x);
+    flat.set(x, r.pf / p);
+  };
+  const pushNode = (n: Omit<(typeof nodal)[number], 'caseType' | 'caseIndex'>, p: number) => {
+    const x = { ...n, caseType: 'S' as const, caseIndex: index };
+    nodal.push(x);
+    flat.set(x, r.pf / p);
+  };
   const finish = () => {
     // The surfaces of another slope than the roof's, each with its own Cs and pm.
     for (const [deg, x] of [...bySlope].sort((u, v) => u[0] - v[0])) {
@@ -85,19 +97,19 @@ export function planAsce7Snow(input: LoadPlanInput, sink: PlanSink, layout?: Gra
     for (const pc of layout.pieces) {
       if (!mine(pc.elementId, pc.roof)) continue;
       const q = pOf(pc.elementId, pc.panel);
-      if (q > 0) put({ elementId: pc.elementId, q: -q * pc.wI, qJ: -q * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' });
+      if (q > 0) put({ elementId: pc.elementId, q: -q * pc.wI, qJ: -q * pc.wJ, ...(pc.a !== undefined ? { a: pc.a, b: pc.b } : {}), frame: 'projected' }, q);
     }
     for (const wm of layout.widthMembers) {
       if (chosen ? !chosen.has(wm.elementId) : !layout.roof.has(wm.elementId)) continue;
       const q = pOf(wm.elementId);
       if (!(q > 0)) continue;
-      if (!wm.spans) { put({ elementId: wm.elementId, q: -q * input.tributaryWidth, frame: 'projected' }); continue; }
-      for (const s of wm.spans) put({ elementId: wm.elementId, q: -q * s.width, a: s.t0 * wm.length, b: s.t1 * wm.length, frame: 'projected' });
+      if (!wm.spans) { put({ elementId: wm.elementId, q: -q * input.tributaryWidth, frame: 'projected' }, q); continue; }
+      for (const s of wm.spans) put({ elementId: wm.elementId, q: -q * s.width, a: s.t0 * wm.length, b: s.t1 * wm.length, frame: 'projected' }, q);
     }
     for (const pt of layout.points) {
       if (!mine(pt.elementId, pt.roof)) continue;
       const q = pOf(pt.elementId, pt.panel);
-      if (q > 0) nodal.push({ nodeId: pt.nodeId, caseType: 'S', caseIndex: index, fx: 0, fy: 0, fz: -q * pt.w, carrier: pt.elementId });
+      if (q > 0) pushNode({ nodeId: pt.nodeId, fx: 0, fy: 0, fz: -q * pt.w, carrier: pt.elementId }, q);
     }
     return finish();
   }
@@ -109,9 +121,9 @@ export function planAsce7Snow(input: LoadPlanInput, sink: PlanSink, layout?: Gra
     const pm = pOf(m.id);
     if (!(pm > 0)) continue;
     const cos = m.lh / L, wq = pm * input.tributaryWidth;
-    put({ elementId: m.id, q: -wq * cos * cos });
+    put({ elementId: m.id, q: -wq * cos * cos }, pm);
     const fAx = -wq * m.lh * (m.dz / L);
-    if (Math.abs(fAx) > 1e-9) for (const id of [e.nodeI, e.nodeJ]) nodal.push({ nodeId: id, caseType: 'S', caseIndex: index, fx: (fAx / 2) * (m.dx / L), fy: (fAx / 2) * (m.dy / L), fz: (fAx / 2) * ((Z(b) - Z(a)) / L) });
+    if (Math.abs(fAx) > 1e-9) for (const id of [e.nodeI, e.nodeJ]) pushNode({ nodeId: id, fx: (fAx / 2) * (m.dx / L), fy: (fAx / 2) * (m.dy / L), fz: (fAx / 2) * ((Z(b) - Z(a)) / L) }, pm);
   }
   return finish();
 }

@@ -64,8 +64,10 @@ export function planAsce7Seismic(input: LoadPlanInput, levels: LevelMass[], sink
   // §12.7.2(2): partitions in the floor loads, or a partition weight typed here, bring at least the minimum.
   const partition = (input.partitionLive ?? 0) > 0 || (ci.partitionKNm2 ?? 0) > 0 ? Math.max(ci.partitionKNm2 ?? 0, PARTITION_MIN_KNM2) : 0;
   const snowCase = cases.findIndex((c) => c.type === 'S' && c.nameKey === 'snow.case.balanced');
-  const pf = snowCase >= 0 ? Number(cases[snowCase]!.nameParams?.pf ?? 0) : 0;
-  const snowByLevel = pf > SNOW_IN_W_LIMIT_KNM2 ? snowWeightByLevel(input.model, sink.distributed, nodal, snowCase, levels.map((l) => l.elevation)) : null;
+  // §12.7.2(4): 20 % of the uniform design snow load whatever the slope, pf, where pf exceeds 30 psf; pf as computed, not as named.
+  const flat = sink.snowFlat?.caseIndex === snowCase ? sink.snowFlat : undefined;
+  const pf = flat?.pf ?? (snowCase >= 0 ? Number(cases[snowCase]!.nameParams?.pf ?? 0) : 0);
+  const snowByLevel = pf > SNOW_IN_W_LIMIT_KNM2 ? snowWeightByLevel(input.model, sink.distributed, nodal, snowCase, levels.map((l) => l.elevation), (x) => flat?.ratio.get(x) ?? 1) : null;
   for (const lv of elevated) {
     const k = levels.indexOf(lv);
     const parts = (input.roof && Math.abs(lv.elevation - top) < 1e-6 ? 0 : partition) * lv.planAreaM2;

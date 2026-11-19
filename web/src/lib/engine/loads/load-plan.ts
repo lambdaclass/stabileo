@@ -370,6 +370,8 @@ export interface PlanSink {
    * "cubiertas que no permitan la evacuación de la nieve" of INPRES-CIRSOC 103 Tabla 3.3.
    */
   snowRetains?: boolean;
+  /** Set by a snow module whose seismic weight reads the flat-roof load: its case, pf unrounded, and pf over the load each planned item carries. */
+  snowFlat?: { caseIndex: number; pf: number; ratio: WeakMap<object, number> };
 }
 
 export interface LevelMass {
@@ -1216,7 +1218,7 @@ export { describePlanDelta, type CaseAction, type CaseDisposition, type PlanDelt
  */
 export function snowWeightByLevel(
   model: LoadModelData, distributed: readonly PlannedDistributed[], nodal: readonly PlannedNodal[],
-  caseIndex: number, elevations: readonly number[],
+  caseIndex: number, elevations: readonly number[], scale: (item: object) => number = () => 1,
 ): number[] {
   const out = elevations.map(() => 0);
   if (caseIndex < 0 || elevations.length === 0) return out;
@@ -1237,12 +1239,12 @@ export function snowWeightByLevel(
     const q = Math.abs((d.q + (d.qJ ?? d.q)) / 2);
     // Per metre of member along local z or global Z: its vertical resultant is q over the span's
     // horizontal projection; per metre of projection, the same.
-    out[nearest(((a.z ?? 0) + (b.z ?? 0)) / 2)]! += q * span * (Lh / L);
+    out[nearest(((a.z ?? 0) + (b.z ?? 0)) / 2)]! += q * span * (Lh / L) * scale(d);
   }
   for (const n of nodal) {
     if (n.caseType !== 'S' || n.caseIndex !== caseIndex) continue;
     const node = model.nodes.get(n.nodeId);
-    if (node) out[nearest(node.z ?? 0)]! += Math.abs(n.fz);
+    if (node) out[nearest(node.z ?? 0)]! += Math.abs(n.fz) * scale(n);
   }
   return out;
 }

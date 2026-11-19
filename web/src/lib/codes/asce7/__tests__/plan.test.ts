@@ -7,6 +7,7 @@ import { designPressure, kz, wallCp } from '../wind';
 import { otherRefusals } from '../../__tests__/family-plan-helpers';
 import { MPH, PSF } from '../refs';
 import { PERIOD_PARAMETERS, responseCoefficient } from '../seismic';
+import { SNOW_IN_W_LIMIT_KNM2 } from '../seismic-plan';
 
 function frame(storeys = 3, bay = 6, h = 3.5): LoadModelData {
   const nodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
@@ -122,6 +123,21 @@ describe('a plan generated with the ASCE/SEI 7-22 stack', () => {
   it('pm of §7.3.4 governs the flat roof: 30 psf for Risk Category II', () => {
     const s = plan.cases.find((c) => c.type === 'S')!;
     expect(Number(s.nameParams!.ps)).toBeCloseTo(30 * PSF, 3);
+  });
+
+  it('§12.7.2(4) weighs 20 % of pf as computed, just over 30 psf, not as rounded for its name', () => {
+    const W = (pg: number) => buildLoadPlan(input({ occupancyKey: 'residentialPrivate', codeInputs: { ...input().codeInputs, [ADAPTER.snow]: { pg, ce: 1, ct: 1 } } })).factors.seismicWeight!.value;
+    const pgAt = (pf: number) => pf / 0.7;
+    const over = W(pgAt(SNOW_IN_W_LIMIT_KNM2 + 4e-5)), under = W(pgAt(SNOW_IN_W_LIMIT_KNM2 - 4e-5));
+    expect(over - under).toBeGreaterThan(0.2 * SNOW_IN_W_LIMIT_KNM2 * 30);
+  });
+
+  it('§12.7.2(4) takes pf whatever the slope: a slippery roof\'s smaller ps does not lower the weight', () => {
+    const W = (slippery: boolean) => {
+      const p = buildLoadPlan(input({ occupancyKey: 'residentialPrivate', codeInputs: { ...input().codeInputs, [ADAPTER.snow]: { pg: 60 * PSF, ce: 1, ct: 1, slippery, cs: slippery ? 0.5 : 1 } } }));
+      return p.factors.seismicWeight!.value;
+    };
+    expect(W(true)).toBeCloseTo(W(false), 6);
   });
 
   it('blocks by name when a required value is missing', () => {
