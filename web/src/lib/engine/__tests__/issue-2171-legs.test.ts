@@ -1098,3 +1098,93 @@ it('#2300 longitudinal torsion refuses a top layout that varies with a cutoff', 
     });
   }
 });
+
+const issue2300 = process.env.RUN_KNOWN_WRONG === '2300' ? it : it.skip;
+issue2300('known wrong result: #2300 group cutoffs between sampled support stations block longitudinal torsion', () => {
+  const L = 4;
+  const geometry = { ...section, h: 0.37 };
+  const extension = 0.6;
+  const layer = { ...longitudinal, row: 0 };
+  const stationTs = [0, 0.25, 0.75, 1];
+  const result = { elementId: 1, length: L, stationTs, comboResults: [{
+    comboId: 1, comboName: 'active',
+    stations: stationTs.map(t => ({ t, x: t * L, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: 6 })),
+  }] };
+  for (const extracted of [false, true]) {
+    const check = (length: number) => verifyProvidedReinforcement(1, 'beam', {
+      stirrups: { ...cage, spacing: 0.06 },
+      regions: {
+        regionT: 0.25, bottomSpan: longitudinal, topStart: longitudinal, topEnd: longitudinal,
+        topStartGroups: [{ layers: [layer], extensionEnd: length }],
+        topEndGroups: [{ layers: [layer], extensionStart: length }],
+      },
+    }, extracted ? extractGoverningDemands(result) : undefined, {}, geometry, extracted ? undefined : result, undefined,
+    { axes: { ...axes, hFlex: geometry.h } }).checks;
+    const cutoff = check(extension).find(row => row.category === 'Torsion Al Span (Vz)');
+    expect.soft(cutoff).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter', comboName: 'active' });
+    expect(check(2).find(row => row.category === 'Torsion Al Support (Vz)')).toMatchObject({ status: 'ok' });
+  }
+});
+
+const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
+for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
+  const checkSolvedGap = () => {
+    const L = 4;
+    const geometry = { ...section, h: 0.37 };
+    const nodes = new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]);
+    const solverModel = { ...model, nodes };
+    let raw: AnalysisResults3D;
+    if (spatial) {
+      const solver: SolverInput3D = { ...solverModel,
+        elements: new Map([[1, { ...model.elements.get(1)!, releaseMyStart: false, releaseMyEnd: false,
+          releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false }]]),
+        supports: new Map([[1, { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: 6, my: 0, mz: 0 } }],
+      };
+      raw = nonlinear ? solvePDelta3D(solver).results : solve3D(solver);
+    } else {
+      const solver: SolverInput = { ...solverModel,
+        nodes: new Map([...nodes].map(([id, { x, z }]) => [id, { id, x, z }])),
+        sections: new Map([[1, { ...model.sections.get(1)!, iz: model.sections.get(1)!.iy }]]),
+        elements: new Map([[1, { ...model.elements.get(1)!, hingeStart: false, hingeEnd: false }]]),
+        loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: -10, my: 0 } }],
+      };
+      raw = planarResultForDesign(nonlinear ? solvePDelta(solver).results : solve(solver));
+    }
+    const { demands, stations } = computeStationDemands(new Map([[1, raw]]), combos, solverModel);
+    const [left, right] = stations.get(1)!.stationTs.filter(t => t > 0.3 && t < 0.7).slice(0, 2).map(t => t * L);
+    const cutoff = (2 * left! + right!) / 3, restart = (left! + 2 * right!) / 3;
+    const check = (to: number, extracted: boolean) => {
+      const top = { count: 3, diameter: 16, face: 'top' as const, row: 0, role: 'mounting' as const };
+      const reinforcement = membersFromLine({
+        version: 1, members: [1], lengths: [L],
+        bars: [
+          { ...top, id: 'left', from: 0, to },
+          ...(to < L ? [{ ...top, id: 'right', from: restart, to: L }] : []),
+          { ...top, id: 'inner', row: 1, count: 4, from: 0, to: L },
+          { ...top, id: 'mid-inner', row: 2, from: 0.26 * L, to: 0.74 * L },
+          { ...top, id: 'bottom', face: 'bottom', from: 0, to: L },
+        ],
+        stirrups: [{ ...cage, spacing: 0.06, id: 'cage', from: 0, to: L }],
+      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+      return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? demands.get(1) : undefined,
+        {}, geometry, extracted ? undefined : stations.get(1), undefined, { axes: { ...axes, hFlex: geometry.h } }).checks;
+    };
+    expect(cutoff).toBeLessThan(restart);
+    const longitudinal = (rows: ReturnType<typeof check>) => rows.find(row => row.category === 'Torsion Al Span (Vz)');
+    for (const extracted of [false, true]) {
+      if (spatial) {
+        expect.soft(longitudinal(check(cutoff, extracted))).toMatchObject({
+          status: 'fail', ratio: Infinity, description: 'diag.rcTorsionPerimeter',
+        });
+        expect(longitudinal(check(L, extracted))).toMatchObject({ status: 'ok' });
+      } else {
+        const rows = check(cutoff, extracted);
+        expect(longitudinal(rows)).toBeUndefined();
+        expect(rows.find(row => row.category === 'Shear Span (Vz)')).toMatchObject({ status: 'ok' });
+      }
+    }
+  };
+  if (spatial) issue2310(`known wrong result: #2310 solved beam corner gap (nonlinear=${nonlinear})`, checkSolvedGap);
+  else it(`planar corner gap with zero torsion (nonlinear=${nonlinear})`, checkSolvedGap);
+}

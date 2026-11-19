@@ -248,3 +248,56 @@ it('#2310 drawn perimeter verification uses the corner seats occupied at the cut
     expect(check(3)).toMatchObject({ status: 'ok' });
   }
 });
+
+const issue2310 = process.env.RUN_KNOWN_WRONG === '2310' ? it : it.skip;
+issue2310('known wrong result: #2310 longitudinal torsion detects a corner gap between samples with continuous stirrups', () => {
+  const L = longSpan.L;
+  const geometry = { ...beamConcrete, h: 0.37 };
+  const [bottom, top] = drawnMainBars;
+  const cut = 2.6, restart = 3.4;
+  const check = (end: number, extracted: boolean, torque: number) => {
+    const drawing: BeamLineReinforcement = {
+      version: 1, members: [1], lengths: [L],
+      stirrups: [{ id: 'cage', from: 0, to: L, diameter: 8, legs: 4, spacing: 0.06 }],
+      bars: [
+        bottom!,
+        { ...top!, id: 'top-left', to: end },
+        { ...top!, id: 'top-right', from: restart },
+        { ...top!, id: 'top-inner', row: 1, count: 4 },
+        { ...top!, id: 'mid-inner', row: 2, from: 2, to: 4 },
+      ],
+    };
+    const stationTs = [0, 0.35, 0.65, 1];
+    const comboResults = [
+      { comboId: 1, comboName: 'inactive', torque: 0 },
+      { comboId: 2, comboName: 'active', torque },
+    ].map(c => ({ ...c, stations: stationTs.map(t => ({
+      t, x: t * L, n: 0, my: 0, mz: 0, vy: 0, vz: 0, torsion: c.torque * (t + 0.5),
+    })) }));
+    const result = { elementId: 1, length: L, stationTs, comboResults };
+    return verifyProvidedReinforcement(1, 'beam', membersFromLine(drawing, [longSpan]).get(1)!,
+      extracted ? extractGoverningDemands(result) : undefined, {}, geometry, extracted ? undefined : result, undefined,
+      { axes: { ...beamAxes, hFlex: geometry.h } }).checks;
+  };
+  for (const extracted of [false, true]) {
+    const gap = check(cut, extracted, 6);
+    const blocked = gap.find(row => row.category === 'Torsion Al Span (Vz)');
+    expect.soft(blocked).toMatchObject({
+      status: 'fail', ratio: Infinity, description: 'diag.rcTorsionPerimeter', comboName: 'active',
+    });
+    expect.soft(blocked?.stationX).toBeGreaterThan(cut);
+    expect.soft(blocked?.stationX).toBeLessThan(restart);
+    expect(gap.find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({ status: 'ok' });
+    expect(check(restart, extracted, 6).find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ status: 'ok' });
+    expect(check(cut, extracted, 0).some(row => row.category.startsWith('Torsion'))).toBe(false);
+    const phiTth = 0.75 * 0.083 * Math.sqrt(geometry.fc) * 1000
+      * (geometry.b * geometry.h) ** 2 / (2 * (geometry.b + geometry.h));
+    const slopeAt = (t: number) => phiTth / (0.5 + t);
+    const justInside = check(cut, extracted, slopeAt(restart / L - 1e-5));
+    const justOutside = check(cut, extracted, slopeAt(restart / L + 1e-5));
+    expect(justInside.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({
+      status: 'fail', description: 'diag.rcTorsionPerimeter',
+    });
+    expect(justOutside.find(row => row.category === 'Torsion Al Span (Vz)')).toMatchObject({ status: 'ok' });
+  }
+});
