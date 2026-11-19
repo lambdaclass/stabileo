@@ -1190,6 +1190,9 @@ fn certified_top(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, estimate: f64) -> Op
         .find(|&upper| upper.is_finite() && upper > 0.0 && positive_definite(s, sym, -1.0, upper))
 }
 
+const FAST_WIDENINGS: [f64; 3] = [1.0, 1e2, 1e4];
+const ESTIMATE_SLACK: f64 = 8.0;
+
 fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64, amplification: f64) -> Option<f64> {
     let mut rows = vec![0.0; s.n];
     for j in 0..s.n {
@@ -1200,13 +1203,19 @@ fn fast_sparse_bound(s: &CscMatrix, sym: &Rc<SymbolicCholesky>, anisotropy: f64,
         }
     }
     let upper = (1.0 + CERTIFY) * rows.into_iter().fold(0.0f64, f64::max);
-    let lower = upper / RESOLVABLE.sqrt();
-    let kappa = upper / lower;
-    if !upper.is_finite() || lower <= 0.0 || !kappa.is_finite()
-        || kappa * anisotropy > RESOLVABLE || kappa * amplification > RESOLVABLE {
-        return None;
+    if !upper.is_finite() { return None; }
+    let mut below_upper = None;
+    for widening in FAST_WIDENINGS {
+        let lower = upper / (RESOLVABLE.sqrt() * widening);
+        let kappa = upper / lower;
+        let slack = if widening > 1.0 { ESTIMATE_SLACK } else { 1.0 };
+        if lower <= 0.0 || !kappa.is_finite() || slack * kappa * anisotropy > RESOLVABLE || slack * kappa * amplification > RESOLVABLE {
+            return None;
+        }
+        if !*below_upper.get_or_insert_with(|| positive_definite(s, sym, -1.0, upper)) { return None; }
+        if positive_definite(s, sym, 1.0, -lower) { return Some(kappa); }
     }
-    (positive_definite(s, sym, -1.0, upper) && positive_definite(s, sym, 1.0, -lower)).then_some(kappa)
+    None
 }
 
 fn spectrum(s: &CscMatrix, anisotropy: f64, amplification: f64, symbolic: Option<&Rc<SymbolicCholesky>>) -> (f64, Option<Vec<f64>>, bool) {
@@ -1984,6 +1993,83 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn sparse_fast_bound_widens_to_a_bound_the_spectrum_confirms() {
+        let n = FULL_SPECTRUM + 17;
+        let diagonal_with = |tail: f64| {
+            let mut diagonal = vec![1.0; n];
+            diagonal[n / 2] = tail;
+            let indices: Vec<_> = (0..n).collect();
+            CscMatrix::from_triplets(n, &indices, &indices, &diagonal)
+        };
+        let first = RESOLVABLE.sqrt();
+        for (tail, widening) in [(1e-5, 1.0), (1e-7, 1e2), (3e-8, 1e2), (1e-9, 1e4), (2e-10, 1e4)] {
+            let matrix = diagonal_with(tail);
+            let symbolic = Rc::new(symbolic_cholesky(&matrix));
+            LANCZOS_RUNS.with(|count| count.set(0));
+            let fast = fast_sparse_bound(&matrix, &symbolic, 1.0, 1.0).expect("a certified bound");
+            assert_eq!(LANCZOS_RUNS.with(|count| count.get()), 0);
+            let upper = 1.0 + CERTIFY;
+            assert_eq!(fast, upper / (upper / (first * widening)), "tail {tail}");
+            let (tight, _, indefinite) = spectrum(&matrix, 1.0, 1.0, Some(&symbolic));
+            assert!(!indefinite);
+            assert!(tight >= 1.0 / tail && tight <= fast, "tail {tail}: {tight} vs {fast}");
+        }
+        for (tail, anisotropy, amplification) in [(5e-11, 1.0, 1.0), (1e-7, 1e5, 1.0), (1e-7, 1.0, 1e5), (1e-9, 1e3, 1.0), (-1e-7, 1.0, 1.0), (0.0, 1.0, 1.0)] {
+            let matrix = diagonal_with(tail);
+            let symbolic = Rc::new(symbolic_cholesky(&matrix));
+            assert_eq!(fast_sparse_bound(&matrix, &symbolic, anisotropy, amplification), None, "tail {tail}");
+        }
+        let matrix = diagonal_with(1e-7);
+        let symbolic = Rc::new(symbolic_cholesky(&matrix));
+        assert!(fast_sparse_bound(&matrix, &symbolic, 1.2e3, 1.2e3).is_some());
+        assert_eq!(fast_sparse_bound(&matrix, &symbolic, 1.3e3, 1.0), None);
+        assert_eq!(fast_sparse_bound(&matrix, &symbolic, 1.0, 1.3e3), None);
+        let first_rung = diagonal_with(1e-5);
+        let symbolic = Rc::new(symbolic_cholesky(&first_rung));
+        assert!(fast_sparse_bound(&first_rung, &symbolic, 1e6 * 0.99, 1.0).is_some());
+    }
+
+    #[test]
+    fn sparse_fast_bound_accepts_only_what_the_spectrum_accepts() {
+        let mut state = 0x2545_F491_4F6C_DD1Du64;
+        let mut unit = || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let (mut widened, mut refused) = (0, 0);
+        for n in [70, 90, 120, 160, 210, 270, 330] {
+            let (mut rows, mut cols, mut values) = (Vec::new(), Vec::new(), Vec::new());
+            let shift = 10f64.powf(-5.0 - 5.0 * unit());
+            for i in 0..n {
+                for (offset, stencil) in [(0, 6.0 + shift), (1, -4.0), (2, 1.0)] {
+                    if i + offset >= n { continue; }
+                    rows.push(i + offset);
+                    cols.push(i);
+                    values.push(stencil);
+                }
+            }
+            let matrix = CscMatrix::from_triplets(n, &rows, &cols, &values);
+            let symbolic = Rc::new(symbolic_cholesky(&matrix));
+            let (tight, _, indefinite) = spectrum(&matrix, 1.0, 1.0, Some(&symbolic));
+            assert!(!indefinite && tight.is_finite());
+            let edge = RESOLVABLE / tight;
+            let factors: Vec<f64> = [1e-6, 1e-3, 0.02, 0.1, 0.5, 0.9, 1.0, 1.1, 2.0].into_iter().chain((0..12).map(|_| 10f64.powf(-4.0 * unit()))).collect();
+            for factor in factors {
+                for (anisotropy, amplification) in [(edge * factor, 1.0), (1.0, edge * factor), (edge * factor, edge * factor)] {
+                    if anisotropy < 1.0 || amplification < 1.0 { continue; }
+                    let Some(fast) = fast_sparse_bound(&matrix, &symbolic, anisotropy, amplification) else { refused += 1; continue };
+                    assert!(fast >= tight / (1.0 + 3e-3), "n {n}: {fast} vs {tight}");
+                    assert!(tight * anisotropy <= RESOLVABLE && tight * amplification <= RESOLVABLE, "n {n}: {tight} at {anisotropy}, {amplification}");
+                    if fast > RESOLVABLE.sqrt() * 1.5 { widened += 1; }
+                }
+            }
+        }
+        assert!(widened >= 20 && refused >= 20, "{widened} widened, {refused} refused");
     }
 
     #[test]
