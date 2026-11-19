@@ -440,6 +440,7 @@ pub(crate) fn numeric_cholesky_with_workspace(sym: &Rc<SymbolicCholesky>, a: &Cs
     workspace.map_gen.fill(0);
     let NumericCholeskyWorkspace { panel, map_pos, map_gen, pair_k, pair_j } = workspace;
     let mut gen = 0usize;
+    // Maximal stretches of the pairs over which both positions advance by one: (first, end).
     let mut runs: Vec<(usize, usize)> = Vec::new();
 
     for t in 0..ns {
