@@ -449,7 +449,7 @@ describe('reinforcement sheets from a solved model', () => {
       expect(before).toHaveLength(1);
       expect(before[0]!.phiVc).toBeGreaterThan(0);
       const current = modelStore.materials.get(modelStore.elements.get(column)!.materialId)!;
-      const stronger = modelStore.addMaterial({ ...current, name: 'Column concrete', fc: current.fc! * 2 });
+      const stronger = modelStore.addMaterial({ name: 'Column concrete', e: current.e, nu: current.nu, rho: current.rho, fy: current.fy, fc: current.fc! * 2 });
       modelStore.updateElementMaterial(column, stronger);
       solve();
       const after = buildSheetRows().punching;
