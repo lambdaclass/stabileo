@@ -3368,7 +3368,8 @@ const en: Record<string, string> = {
   // ─── Stress State Details ───
   'stress.stressState': 'Stress state',
   'stress.sigmaBiaxHelp': 'Biaxial normal stress (Navier):\n\u03C3 = N/A \u2212 My\u00B7y/Iy + Mz\u00B7z/Iz\n\nPositive = tension (red)\nNegative = compression (blue)\n\nDepends on selected fiber (y, z).',
-  'stress.tauTotalHelp': 'Total combined shear stress:\n\u03C4 = \u221A(\u03C4Vy\u00B2 + \u03C4Vz\u00B2 + \u03C4T\u00B2)\n\nIncludes shear from Vy (XY plane), Vz (XZ plane) and torsion.',
+  'stress.tauTotalHelp': 'Magnitude of the transverse shear alone or the torsional shear alone.',
+  'stress.combinedShearRefused': 'Combined shear, derived stresses and the pass/fail verdict are unavailable where torsional and transverse shear are both nonzero.',
   'stress.vonMisesHelp': 'Von Mises criterion (distortion energy):\n\u03C3vm = \u221A(\u03C3\u00B2 + 3\u03C4\u00B2)\n\nPreferred for steel and ductile metals.\nPercentage shows fy capacity usage.',
   'stress.trescaHelp': 'Tresca criterion (max. shear stress):\n\u03C4max = \u221A((\u03C3/2)\u00B2 + \u03C4\u00B2)\n\n~15% conservative vs Von Mises.\nEquivalent: 2\u03C4max \u2264 fy',
   'stress.rankineHelp': 'Rankine criterion (max. normal stress):\nmax(|\u03C3\u2081|, |\u03C3\u2083|) \u2264 fy\n\nAppropriate for brittle materials (concrete, rock).\nFor steel, prefer Von Mises.',

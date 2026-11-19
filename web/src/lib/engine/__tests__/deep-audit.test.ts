@@ -387,8 +387,12 @@ describe('PART D — 3D section stress (sigma/tau)', { timeout: 60_000 }, () => 
       try {
         const stress = analyzeSectionStress3D(ef3d, sec, mat.fy, 0.5);
         expect(Number.isFinite(stress.sigmaAtFiber), `${name} elem ${ef.elementId}: sigma NaN`).toBe(true);
-        expect(Number.isFinite(stress.tauTotal), `${name} elem ${ef.elementId}: tau NaN`).toBe(true);
-        expect(Number.isFinite(stress.mohr.center), `${name} elem ${ef.elementId}: Mohr center NaN`).toBe(true);
+        if (stress.refusal) {
+          expect(stress).toMatchObject({ tauTotal: null, mohr: null, failure: null });
+        } else {
+          expect(Number.isFinite(stress.tauTotal), `${name} elem ${ef.elementId}: tau NaN`).toBe(true);
+          expect(Number.isFinite(stress.mohr?.center), `${name} elem ${ef.elementId}: Mohr center NaN`).toBe(true);
+        }
         tested++;
       } catch (e: any) {
         // WASM shape field or geometry resolution failures — not a product bug

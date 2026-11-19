@@ -116,6 +116,20 @@ describe('a transverse load off the shear centre twists the member', () => {
     expect(resolveEccentric({ vz: 100, at: [0.25, 0] }, sc).forces.t).toBeCloseTo(20, 9);
   });
 
+  it('#2366 refuses combined shear for an eccentric planar force routed through the biaxial API', () => {
+    const S = rect();
+    const point: [number, number] = [0.05, 0];
+    const centered = toDiagram(S, resolveEccentric({ vz: 100, at: [0, 0] }).forces, point);
+    const offset = toDiagram(S, resolveEccentric({ vz: 100, at: point }).forces, point);
+    expect(offset.tauVzAtFiber).toBe(centered.tauVzAtFiber);
+    expect(offset.tauTorsion).not.toBe(0);
+    expect(offset).toMatchObject({
+      refusal: 'combinedTorsionAndTransverseShear', tauTotal: null, mohr: null, failure: null,
+    });
+    expect(centered.refusal).toBeNull();
+    expect(centered.tauTotal).toBe(centered.tauVzAtFiber);
+  });
+
   it('a horizontal transverse load twists about the other arm, with opposite sense', () => {
     const t = resolveEccentric({ vy: 100, at: [0, 0.1] }, [0, 0]).forces.t;
     expect(t).toBeCloseTo(-10, 9); // -vy · z

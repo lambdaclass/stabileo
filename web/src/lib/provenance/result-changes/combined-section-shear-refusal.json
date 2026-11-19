@@ -1,0 +1,42 @@
+{
+  "id": "combined-section-shear-refusal",
+  "date": "2026-11-19",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "frameMembers"
+    ]
+  },
+  "quantities": [
+    "sectionStress.tauTotal",
+    "sectionStress.vonMises",
+    "sectionStress.mohr",
+    "sectionStress.failure",
+    "sectionStress.distributionY",
+    "sectionStress.distributionZ"
+  ],
+  "title": {
+    "en": "Refusal for combined torsional and transverse shear",
+    "es": "Rechazo del corte combinado por torsión y fuerza transversal",
+    "pt": "Recusa do cisalhamento combinado por torção e força transversal",
+    "de": "Keine kombinierte Schubspannung aus Torsion und Querkraft",
+    "fr": "Refus du cisaillement combiné de torsion et transversal",
+    "hu": "A csavarási és keresztirányú nyírás együttes értékelésének elutasítása",
+    "tr": "Burulma ve enine kaymanın birlikte değerlendirilmesi reddediliyor"
+  },
+  "explanation": {
+    "en": "Combined shear, derived stresses and the pass/fail verdict are unavailable where torsional and transverse shear are both nonzero.",
+    "es": "El corte combinado, las tensiones derivadas y el veredicto de cumplimiento no están disponibles donde coinciden el corte por torsión y el corte transversal.",
+    "pt": "O cisalhamento combinado, as tensões derivadas e o resultado da verificação ficam indisponíveis onde o cisalhamento por torção e o transversal são ambos diferentes de zero.",
+    "de": "Die kombinierte Schubspannung, die daraus abgeleiteten Spannungen und das Prüfergebnis sind an Stellen mit Schub aus Torsion und Querkraft nicht verfügbar.",
+    "fr": "Le cisaillement combiné, les contraintes dérivées et le résultat de la vérification sont indisponibles là où coexistent le cisaillement de torsion et le cisaillement transversal.",
+    "hu": "Az eredő nyírófeszültség, a belőle származtatott feszültségek és az ellenőrzés eredménye nem érhető el ott, ahol a csavarási és a keresztirányú nyírófeszültség egyaránt nem nulla.",
+    "tr": "Burulma ve enine kayma gerilmelerinin ikisinin de sıfırdan farklı olduğu yerlerde birleşik kayma, türetilen gerilmeler ve kontrol sonucu verilemez."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-combined-section-shear-refusal.md",
+    "heading": "Refusal for combined torsional and transverse shear"
+  }
+}

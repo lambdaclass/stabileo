@@ -1338,21 +1338,22 @@
 
       <!-- Stress and strain tensors. Above Mohr on purpose: the circle is a
            construction on this state, so the state comes first. -->
-      <StressTensorDetails
-        bind:showTensors
-        tensors={activeState?.tensors ?? null}
-        fy={stateInputs?.fy}
-      />
+      {#if !analysis3D?.refusal}
+        <StressTensorDetails
+          bind:showTensors
+          tensors={activeState?.tensors ?? null}
+          fy={stateInputs?.fy}
+        />
 
-      <!-- Mohr's circle -->
-      <MohrCircleDisplay
-        bind:showMohr
-        {mohrData}
-        {mohrSigma}
-        {mohrTau}
-        tauComponents={activeState?.tauComponents}
-        spaceMode={uses3DPath}
-      />
+        <MohrCircleDisplay
+          bind:showMohr
+          {mohrData}
+          {mohrSigma}
+          {mohrTau}
+          tauComponents={activeState?.tauComponents}
+          spaceMode={uses3DPath}
+        />
+      {/if}
 
       <!-- How the centroid and the shear centre are found. Next to the core,
            which is the other purely geometric property here — none of the three

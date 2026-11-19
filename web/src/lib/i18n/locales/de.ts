@@ -3003,7 +3003,8 @@ const de: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': 'Spannungszustand',
   'stress.sigmaBiaxHelp': 'Zweiachsige Normalspannung (Navier):\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPositiv = Zug (rot)\nNegativ = Druck (blau)\n\nAbhängig von der gewählten Faser (y, z).',
-  'stress.tauTotalHelp': 'Gesamte kombinierte Schubspannung:\nτ = √(τVy² + τVz² + τT²)\n\nUmfasst Schub aus Vy (XY-Ebene), Vz (XZ-Ebene) und Torsion.',
+  'stress.tauTotalHelp': 'Betrag der Schubspannung allein aus Querkraft oder allein aus Torsion.',
+  'stress.combinedShearRefused': 'Die kombinierte Schubspannung, die daraus abgeleiteten Spannungen und das Prüfergebnis sind an Stellen mit Schub aus Torsion und Querkraft nicht verfügbar.',
   'stress.vonMisesHelp': 'Von-Mises-Kriterium (Gestaltänderungsenergie):\nσvm = √(σ² + 3τ²)\n\nBevorzugt für Stahl und duktile Metalle.\nDer Prozentsatz zeigt die Ausnutzung von fy.',
   'stress.trescaHelp': 'Tresca-Kriterium (max. Schubspannung):\nτmax = √((σ/2)² + τ²)\n\n~15 % konservativer als Von Mises.\nÄquivalent: 2τmax ≤ fy',
   'stress.rankineHelp': 'Rankine-Kriterium (max. Normalspannung):\nmax(|σ₁|, |σ₃|) ≤ fy\n\nGeeignet für spröde Materialien (Beton, Gestein).\nFür Stahl ist Von Mises vorzuziehen.',

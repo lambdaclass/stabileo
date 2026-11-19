@@ -1376,7 +1376,8 @@ const id: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': 'Keadaan tegangan',
   'stress.sigmaBiaxHelp': 'Tegangan normal biaksial (Navier):\nσ = N/A + Mz·y/Iz - My·z/Iy\n\nPositif = tarik (merah)\nNegatif = tekan (biru)\n\nBergantung pada serat (y, z) yang dipilih.',
-  'stress.tauTotalHelp': 'Tegangan tangensial total gabungan:\nτ = √(τVy² + τVz² + τT²)\n\nTermasuk geser oleh Vy (bidang XY), Vz (bidang XZ) dan torsi.',
+  'stress.tauTotalHelp': 'Besar tegangan geser transversal saja atau tegangan geser akibat torsi saja.',
+  'stress.combinedShearRefused': 'Tegangan geser gabungan, tegangan turunannya, dan hasil pemeriksaan tidak tersedia di titik dengan tegangan geser akibat torsi dan tegangan geser transversal yang sama-sama tidak nol.',
   'stress.vonMisesHelp': 'Kriteria Von Mises (energi distorsi):\nσvm = √(σ² + 3τ²)\n\nDigunakan untuk baja dan logam duktil.\nPersentase menunjukkan pemanfaatan kapasitas fy.',
   'stress.trescaHelp': 'Kriteria Tresca (tegangan tangensial maks.):\nτmax = √((σ/2)² + τ²)\n\nKonservatif ~15% dibanding Von Mises.\nEkuivalen: 2τmax ≤ fy',
   'stress.rankineHelp': 'Kriteria Rankine (tegangan normal maks.):\nmax(|σ₁|, |σ₃|) ≤ fy\n\nSesuai untuk material getas (beton, batu).\nUntuk baja, lebih baik Von Mises.',
