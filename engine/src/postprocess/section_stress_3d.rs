@@ -417,3 +417,88 @@ fn compute_neutral_axis_3d(n: f64, my: f64, mz: f64, rs: &ResolvedSection) -> Op
 
     Some(NeutralAxis3D { y1, z1, y2, z2 })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, to_value, Value};
+    use std::f64::consts::PI;
+
+    const RADIUS: f64 = 0.100;
+    const WALL: f64 = 0.001;
+    const TORQUE: f64 = 0.2009999494975003;
+    const FY: f64 = 9.0;
+
+    fn chs() -> SectionGeometry {
+        let inner = RADIUS - WALL;
+        let i = PI / 4.0 * (RADIUS.powi(4) - inner.powi(4));
+        SectionGeometry {
+            shape: "CHS".into(),
+            a: PI * (RADIUS.powi(2) - inner.powi(2)),
+            iy: i,
+            iz: i,
+            j: Some(2.0 * i),
+            h: 2.0 * RADIUS,
+            b: 2.0 * RADIUS,
+            tw: None,
+            tf: None,
+            t: Some(WALL),
+        }
+    }
+
+    fn station(vy: f64, vz: f64, mx: f64, y: f64, z: f64) -> SectionStressInput3D {
+        serde_json::from_value(json!({
+            "elementForces": {
+                "elementId": 1, "length": 1.0,
+                "nStart": 0.0, "nEnd": 0.0,
+                "vyStart": vy, "vyEnd": vy, "vzStart": vz, "vzEnd": vz,
+                "mxStart": mx, "mxEnd": mx,
+                "myStart": 0.0, "myEnd": vz, "mzStart": 0.0, "mzEnd": -vy,
+                "qYI": 0.0, "qYJ": 0.0, "qZI": 0.0, "qZJ": 0.0,
+                "distributedLoadsY": [], "distributedLoadsZ": [],
+                "pointLoadsX": [], "pointLoadsY": [], "pointLoadsZ": []
+            },
+            "section": chs(), "t": 0.0, "fy": FY, "yFiber": y, "zFiber": z
+        })).unwrap()
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2366"]
+    fn issue_2366_selected_fibre_refuses_combined_shear_for_either_axis_and_sign() {
+        let midwall = RADIUS - WALL / 2.0;
+        for (vy, vz, y, z) in [(0.0, 1.0, 0.0, midwall), (1.0, 0.0, midwall, 0.0)] {
+            for mx in [TORQUE, -TORQUE] {
+                let raw = compute_stress_3d_from_raw(0.0, vy, vz, mx, 0.0, 0.0, &chs(), Some(FY), Some(y), Some(z));
+                let interpolated = compute_section_stress_3d(&station(vy, vz, mx, y, z));
+                for result in [raw, interpolated] {
+                    let result = to_value(result).unwrap();
+                    assert_eq!(
+                        result["tauTotal"], Value::Null,
+                        "tauTotal = {}, failure = {}", result["tauTotal"], result["failure"],
+                    );
+                    assert_eq!(result["mohr"], Value::Null);
+                    assert_eq!(result["failure"], Value::Null);
+                    assert_eq!(result["refusal"], "combinedTorsionAndTransverseShear");
+                }
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2366"]
+    fn issue_2366_cuts_refuse_only_where_torsion_and_transverse_shear_are_nonzero() {
+        let result = to_value(compute_section_stress_3d(&station(1.0, 1.0, TORQUE, RADIUS, 0.0))).unwrap();
+        for cut in ["distributionY", "distributionZ"] {
+            let points = result[cut].as_array().unwrap();
+            let middle = &points[points.len() / 2];
+            assert_eq!(middle["tauTotal"], Value::Null, "{cut}: {middle}");
+            assert_eq!(middle["vonMises"], Value::Null);
+            assert_eq!(middle["refusal"], "combinedTorsionAndTransverseShear");
+            for edge in [&points[0], points.last().unwrap()] {
+                assert_eq!(edge["tauTotal"], edge["tauT"]);
+                assert!(edge["vonMises"].is_number());
+                assert_eq!(edge["refusal"], Value::Null);
+            }
+        }
+    }
+}
