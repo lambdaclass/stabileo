@@ -298,9 +298,9 @@ export function plateKindOf(geo: PlateGeometry): 'slab' | 'wall' {
  * back together through the nodes the mesh created, so the answer does not change once a mesh is
  * in. Members in the plate's plane come back as segments the mesh follows; members crossing the
  * plane inside the plate come back as the point where they cross; nodes of other things on the
- * plate as points. `owned` are the nodes the plate's own mesh created, which do not count.
+ * plate as points.
  */
-export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number> } = {}): { points: Vec3[]; segments: Array<[Vec3, Vec3]> } {
+export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: ReadonlySet<number>, loopNodes: ReadonlySet<number>, opts: { mine?: ReadonlySet<number>; neighbours?: ReadonlySet<number> } = {}): { points: Vec3[]; meshPoints: Vec3[]; segments: Array<[Vec3, Vec3]> } {
   // Members by node, to walk through the mesh's own nodes.
   const at = new Map<number, number[]>();
   for (const e of m.elements.values()) {
@@ -356,16 +356,18 @@ export function externalFeatures(m: PlateModel, geo: PlateGeometry, owned: Reado
     const p = pos(id);
     if (inPlane(p) && insidePlate(geo, p)) points.push(p);
   }
-  // The mesh of a plate beside this one: its nodes on this plate's outline are where this mesh
-  // meets it, so the two share them (`opts.mine`, this plate's own mesh nodes, do not count).
+  const meshPoints = [...points];
   for (const id of opts.neighbours ?? []) {
-    if (opts.mine?.has(id) || loopNodes.has(id) || external.has(id)) continue;
+    if (loopNodes.has(id) || (external.has(id) && !opts.mine?.has(id))) continue;
     const n = m.nodes.get(id);
     if (!n) continue;
     const p = v3(n);
-    if (inPlane(p) && onOutline(geo, p)) points.push(p);
+    if (inPlane(p) && onOutline(geo, p)) {
+      meshPoints.push(p);
+      if (!opts.mine?.has(id)) points.push(p);
+    }
   }
-  return { points, segments };
+  return { points, meshPoints, segments };
 }
 
 /** Whether a point of the plate's plane lies on its outline or a hole's edge (within the plane tolerance). */

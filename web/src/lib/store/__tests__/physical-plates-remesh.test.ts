@@ -10,7 +10,7 @@ import {
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { deserializeProject, serializeProject } from '../file';
 
-function build() {
+function build(bays = 2, rows = bays) {
   const nodes = new Map<string, number>();
   const edges = new Set<string>();
   const ids: number[] = [];
@@ -20,7 +20,7 @@ function build() {
     return nodes.get(key)!;
   };
   modelStore.batch(() => {
-    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+    for (let y = 0; y < rows; y++) for (let x = 0; x < bays; x++) {
       const outline = [node(x * 6, y * 4), node((x + 1) * 6, y * 4),
         node((x + 1) * 6, (y + 1) * 4), node(x * 6, (y + 1) * 4)];
       for (let k = 0; k < 4; k++) {
@@ -120,6 +120,7 @@ describe('remeshing adjacent plates with boundary members', () => {
     expect(geometry()).toEqual(before);
     expectConnected(ids);
     mesh([ids[0]!], 1);
+    expectConnected(ids);
     for (const id of ids) expect(owned(id).every((n) => shellNodes(id).has(n))).toBe(true);
     expect(loops[0]!.owned.some((n) => !modelStore.nodes.has(n))).toBe(true);
     for (const id of ids) clearPlateMesh(id);
@@ -136,6 +137,58 @@ describe('remeshing adjacent plates with boundary members', () => {
     expect(plan.mesh).toBeNull();
     expect(applyPlateMeshes([plan])).toMatchObject({ plates: 0, cells: 0, refused: [{ id: ids[0], reason: 'tooManyCells' }] });
     expect(modelStore.snapshot()).toEqual(before);
+  });
+
+  it.each([1, 0.25])('keeps shared edges connected when remeshing their original owner at size %s', (size) => {
+    const { ids } = build();
+    mesh(ids);
+    const before = geometry();
+    const neighbours = ids.slice(1).map((id) => modelStore.model.groups.get(id)!.members.quads!.map((q) => modelStore.quads.get(q)));
+    for (let round = 0; round < 2; round++) {
+      mesh([ids[0]!], size);
+      expectConnected(ids);
+      expect(geometry()).toEqual(before);
+      expect(ids.slice(1).map((id) => modelStore.model.groups.get(id)!.members.quads!.map((q) => modelStore.quads.get(q)))).toEqual(neighbours);
+      expect(ids.map(plateStatus)).toEqual(ids.map(() => 'current'));
+      expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    }
+  });
+
+  it('allows an isolated plate to coarsen without retaining its old boundary spacing', () => {
+    const { ids } = build(1);
+    expect(mesh(ids).cells).toBe(96);
+    expect(mesh(ids, 1).cells).toBe(24);
+    expect(plateStatus(ids[0]!)).toBe('current');
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+  });
+
+  it.each([[1, 48], [0.25, 192]])('changes unconstrained spacing at size %s while retaining the shared edge', (size, cells) => {
+    const { ids } = build(2, 1);
+    mesh(ids);
+    const [a, b] = ids as [number, number];
+    const edge = (id: number) => [...shellNodes(id)].filter((n) => modelStore.nodes.get(n)!.x === 6).sort((a, b) => a - b);
+    const shared = edge(b);
+    const before = modelStore.snapshot();
+    expect(mesh([a], size).cells).toBe(cells);
+    expect(edge(a)).toEqual(shared);
+    expect(edge(b)).toEqual(shared);
+    expect(ids.map(plateStatus)).toEqual(['current', 'current']);
+    const after = modelStore.snapshot();
+    historyStore.undo();
+    expect(modelStore.snapshot()).toEqual(before);
+    historyStore.redo();
+    expect(modelStore.snapshot()).toEqual(after);
+    expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+  });
+
+  it('releases the shared-edge spacing after the neighboring mesh is cleared', () => {
+    const { ids } = build(2, 1);
+    mesh(ids);
+    expect(mesh([ids[0]!], 1).cells).toBe(48);
+    clearPlateMesh(ids[1]!);
+    expect(mesh([ids[0]!], 1).cells).toBe(24);
+    expect(plateStatus(ids[0]!)).toBe('current');
+    expect(plateStatus(ids[1]!)).toBe('unmeshed');
   });
 
   it('keeps supported, loaded and constrained generated nodes when replacing and clearing a mesh', () => {
@@ -164,7 +217,7 @@ describe('remeshing adjacent plates with boundary members', () => {
     expect(held.every((n) => modelStore.nodes.has(n))).toBe(true);
   });
 
-  it('preserves area and member loads, equilibrium and solved displacements after remeshing', () => {
+  it('preserves loads, equilibrium and solved displacements through changes in target size at shared edges', () => {
     const { ids, originalNodes } = build();
     for (const n of originalNodes) modelStore.addSupport(n, 'pinned3d');
     for (const id of ids) addPlateLoad(id, 1, 5);
@@ -183,8 +236,9 @@ describe('remeshing adjacent plates with boundary members', () => {
     mesh(ids);
     const first = solve();
     const reference = displacements(first);
-    for (let round = 0; round < 2; round++) {
-      mesh(ids);
+    for (const size of [0.5, 1, 0.25]) {
+      mesh([ids[0]!], size);
+      expectConnected(ids);
       const result = solve();
       const current = displacements(result);
       expect([...current.keys()].sort()).toEqual([...reference.keys()].sort());

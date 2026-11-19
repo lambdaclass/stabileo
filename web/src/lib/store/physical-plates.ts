@@ -420,7 +420,7 @@ export function planPlateMesh(id: number, specOverride?: Partial<PlateMeshSpec>)
   const base = { id, name: e.name, spec, localLoads: localLoadsOn(e), keptNodes: keptMeshNodes(e) };
   const f = featuresOf(e, spec);
   if (!f) return { ...base, mesh: null, refused: 'invalid', cells: 0, quality: null, signature: '', input: null, mixed: false };
-  const input = plateMeshInput(f.geo, spec, f.features);
+  const input = plateMeshInput(f.geo, spec, { ...f.features, points: f.features.meshPoints });
   const signature = plateSignature(f.geo, spec, f.features);
   // A plate far past the cap would be a long wait for a refusal: estimate from the area first.
   const estimate = plateAreaEstimate(f.geo, spec);
