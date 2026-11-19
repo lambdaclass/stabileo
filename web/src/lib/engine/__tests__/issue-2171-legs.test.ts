@@ -1186,3 +1186,99 @@ for (const nonlinear of [false, true]) for (const spatial of [false, true]) {
   if (spatial) it(`#2310 solved beam corner gap (nonlinear=${nonlinear})`, checkSolvedGap);
   else it(`planar corner gap with zero torsion (nonlinear=${nonlinear})`, checkSolvedGap);
 }
+
+const review2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
+
+function checkReviewBeam(
+  geometry: typeof section, reinforcement: ProvidedReinforcement, L: number,
+  stations: Array<{ t: number; n: number; my: number; vy: number; vz: number; torsion: number }>,
+  extracted: boolean, edition: Edition,
+) {
+  const layout = { elementId: 1, length: L, stationTs: stations.map(s => s.t),
+    comboResults: [{ comboId: 1, comboName: 'Review', stations: stations.map(s => ({ ...s, x: s.t * L, mz: 0 })) }] };
+  return verifyProvidedReinforcement(1, 'beam', reinforcement, extracted ? extractGoverningDemands(layout) : undefined,
+    {}, geometry, extracted ? undefined : layout, undefined,
+    { axes: { ...axes, bFlex: geometry.b, hFlex: geometry.h }, spacingRule: { edition, maxAggregateSizeMm: 20 } }).checks;
+}
+
+review2338('known wrong result: #2338 drawn stirrup strength at both sides of each zone transition', () => {
+  const L = 4;
+  const dense = { diameter: 10, legs: 4, spacing: 0.1 };
+  const sparse = { diameter: 8, legs: 2, spacing: 0.25 };
+  const geometry = { ...section, stirrupDia: dense.diameter };
+  const capacity = shearCapacity('2025', geometry.b, depth(geometry.h, sparse.diameter),
+    sparse.diameter, sparse.legs, sparse.spacing);
+  for (const reverse of [false, true]) for (const extracted of [false, true]) {
+    const from = reverse ? 0.60 : 0.32, to = reverse ? 0.68 : 0.40;
+    const governingT = reverse ? to : from;
+    const check = (cageBetween: typeof sparse, factor: number) => {
+      const drawn = membersFromLine({
+        version: 1, members: [1], lengths: [L],
+        bars: [{ ...longitudinal, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
+          { ...longitudinal, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
+        stirrups: [{ ...dense, id: 'start', from: 0, to: from * L },
+          { ...cageBetween, id: 'middle', from: from * L, to: to * L },
+          { ...dense, id: 'end', from: to * L, to: L }],
+      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+      expect(drawn.regions?.stirrupsSpan).toEqual(dense);
+      return checkReviewBeam(geometry, drawn, L, [0, 0.28, 0.5, 0.72, 1].map(t => ({
+        t, n: 0, my: 0, vy: 0, vz: capacity * factor + 25 * (reverse ? t - to : from - t), torsion: 0,
+      })), extracted, '2025').find(row => row.category === 'Shear Span (Vz)');
+    };
+    expect(check(dense, 1.01)?.ratio).toBeLessThan(1);
+    expect.soft(check(sparse, 0.99)).toMatchObject({ capacity: +capacity.toFixed(2), ratio: 0.99 });
+    expect.soft(check(sparse, 1.01)).toMatchObject({
+      capacity: +capacity.toFixed(2), ratio: 1.01, status: 'fail', stationX: governingT * L,
+    });
+  }
+});
+
+review2338('known wrong result: #2338 an interpolated cutoff can govern torsion with passing sampled stations', () => {
+  const L = 4;
+  const geometry = { ...section, h: 0.37 };
+  const transverse = { ...cage, spacing: 0.06 };
+  const outside = { ...longitudinal, row: 0 };
+  const inside = { ...longitudinal, row: 1 };
+  const stations = [0, 1].map(t => ({ t, n: 0, my: t === 0 ? 2 : -10, vy: 0, vz: 10, torsion: 6 }));
+  for (const extracted of [false, true]) {
+    const check = (bottomLayers: typeof outside[], withCutoff: boolean) => checkReviewBeam(geometry, {
+      stirrups: transverse,
+      regions: {
+        topStartLayers: [outside, inside], topEndLayers: [outside], bottomSpanLayers: bottomLayers,
+        topStartGroups: [{ layers: [outside] }, { layers: [inside], ...(withCutoff ? { extensionEnd: 1 } : {}) }],
+      },
+    }, L, stations, extracted, '2025');
+    const sampled = check([outside], false);
+    expect(sampled.find(row => row.category === 'Torsion Support (Vz)')?.ratio).toBeLessThan(1);
+    expect.soft(check([outside], true).find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({
+      status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcTorsionDepth',
+    });
+    expect.soft(check([outside, inside], true).find(row => row.category === 'Torsion Span (Vz)')).toMatchObject({ status: 'ok' });
+  }
+});
+
+review2338('known wrong result: #2338 every credited torsion bar meets the edition diameter rule', () => {
+  const geometry = { ...section, b: 0.84, h: 0.37, stirrupDia: 12 };
+  for (const edition of ['2005', '2025'] as const) for (const extracted of [false, true]) for (const draw of [false, true]) {
+    const spacingAtTen = edition === '2005' ? 0.24 : 0.01 / 0.042;
+    const check = (diameter: number, spacing: number, torque = 15) => {
+      const bar = { count: 12, diameter };
+      const stirrups = { diameter: geometry.stirrupDia, legs: 6, spacing };
+      const L = 4;
+      const provided = !draw ? { top: bar, bottom: bar, stirrups } : membersFromLine({
+        version: 1, members: [1], lengths: [L],
+        bars: [{ ...bar, id: 'top', face: 'top', row: 0, role: 'main', from: 0, to: L },
+          { ...bar, id: 'bottom', face: 'bottom', row: 0, role: 'main', from: 0, to: L }],
+        stirrups: [{ ...stirrups, id: 'hoops', from: 0, to: L }],
+      }, [{ id: 1, L, tStart: 0.25, tEnd: 0.25, faceStart: 0, faceEnd: 0 }]).get(1)!;
+      return checkReviewBeam(geometry, provided, L, [0, 0.5, 1].map(t => ({
+        t, n: 0, my: 0, vy: 0, vz: 0, torsion: torque,
+      })), extracted, edition).find(row => row.category === 'Torsion Al Support (Vz)');
+    };
+    expect(check(10, spacingAtTen * 0.999)).toMatchObject({ status: 'ok' });
+    expect(check(10, spacingAtTen)).toMatchObject({ status: 'ok' });
+    expect.soft(check(10, spacingAtTen * 1.001)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter' });
+    expect.soft(check(8, 0.06)).toMatchObject({ status: 'fail', description: 'diag.rcTorsionPerimeter' });
+    expect(check(8, 0.06, 0)).toBeUndefined();
+  }
+});
