@@ -1148,6 +1148,7 @@ fn bench_staged(c: &mut Criterion) {
                     elements_added: (1..=half).collect(),
                     elements_removed: vec![],
                     load_indices: (0..half).collect(),
+                    // Every support from the first stage: one that appears later is refused.
                     supports_added: vec![1, 2, 3],
                     supports_removed: vec![],
                     prestress_loads: vec![],
