@@ -53,7 +53,7 @@
           <td class="n">{fmt(l.summary.concrete, 1)}</td>
           <td class="n">{fmt(l.summary.steel, 0)}</td>
           <td>{l.summary.count.footing ? `${l.summary.count.footing} ${t('rcSheets.foundation.footingsShort')}` : ''}{l.summary.count.strip ? ` ${l.summary.count.strip} ${t('rcSheets.footKind.strip')}` : ''}{l.summary.count.mat ? ` ${l.summary.count.mat} ${t('rcSheets.footKind.mat')}` : ''}</td>
-          <td class="n" class:bad={l.summary.failing > 0}>{l.summary.failing}{#if l.summary.needs !== null} <span class="needs" data-testid="rc-foundation-needs-{l.system}">qadm ≥ {fmt(l.summary.needs, 0)} kPa</span>{/if}</td>
+          <td class="n" class:bad={l.summary.failing > 0}>{l.summary.failing}{#if l.summary.needs !== null} <span class="needs" data-testid="rc-foundation-needs-{l.system}">{`qadm ≥ ${fmt(l.summary.needs, 0)} kPa`}</span>{/if}</td>
           <td>{#if adopted !== l.system}<button type="button" class="rcs-btn" onclick={() => setFoundationSystem(l.system)} data-testid="rc-foundation-adopt-{l.system}">{t('rcSheets.foundation.adopt')}</button>{/if}</td>
         </tr>
       {/each}
