@@ -56,18 +56,19 @@ function remeshIfMeshed(id: number): void {
   if (plan?.mesh && plan.localLoads === 0) applyPlateMeshes([plan]);
 }
 
-/** Outward in the plate's plane, square to side a→b. */
-function outward(frame: PlateFrame, a: Vec3, b: Vec3, centroid: Vec3): Vec3 {
+/** Outward in the plate's plane, square to side a→b of the outline wound `turn` about the plate's normal (+1 counter-clockwise). */
+function outward(frame: PlateFrame, a: Vec3, b: Vec3, turn: 1 | -1): Vec3 {
   const d = cross(sub(b, a), frame.n);
-  const l = len(d) || 1;
-  const n: Vec3 = [d[0] / l, d[1] / l, d[2] / l];
-  const m: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
-  return dot(n, sub(m, centroid)) >= 0 ? n : [-n[0], -n[1], -n[2]];
+  const l = (len(d) || 1) * turn;
+  return [d[0] / l, d[1] / l, d[2] / l];
 }
 
-function centroidOf(ids: number[]): Vec3 {
+/** How the outline winds about the plate's normal, from its signed area: +1 counter-clockwise. */
+function windingOf(frame: PlateFrame, ids: number[]): 1 | -1 {
   const ps = ids.map(pos).filter((p): p is Vec3 => !!p);
-  return ps.reduce<Vec3>((s, p) => [s[0] + p[0] / ps.length, s[1] + p[1] / ps.length, s[2] + p[2] / ps.length], [0, 0, 0]);
+  let area: Vec3 = [0, 0, 0];
+  ps.forEach((p, i) => { const c = cross(p, ps[(i + 1) % ps.length]!); area = [area[0] + c[0], area[1] + c[1], area[2] + c[2]]; });
+  return dot(area, frame.n) >= 0 ? 1 : -1;
 }
 
 /** Each outline side: its corners, length, and sagitta (positive bulging out, 0 straight); whether it follows a curved member. */
@@ -75,13 +76,13 @@ export function plateSideShapes(id: number): Array<{ from: number; to: number; m
   const e = plateEntry(id);
   const geo = e ? plateGeometry(modelStore, e.group) : null;
   if (!e || !geo) return [];
-  const c = centroidOf(plateLoops(e.group).outer);
+  const turn = windingOf(geo.frame, plateLoops(e.group).outer);
   return plateSides(id).map((s) => {
     const a = pos(s.from)!, b = pos(s.to)!;
     const m: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
     const mid = s.mid !== null ? pos(s.mid) : null;
     return {
-      ...s, length: len(sub(b, a)), sagitta: mid ? dot(sub(mid, m), outward(geo.frame, a, b, c)) : 0,
+      ...s, length: len(sub(b, a)), sagitta: mid ? dot(sub(mid, m), outward(geo.frame, a, b, turn)) : 0,
       followsMember: s.mid !== null && !!arcEdgeBetween(s.from, s.to),
     };
   });
@@ -117,7 +118,7 @@ export function setPlateSideSagitta(id: number, side: number, sagitta: number | 
     if (Math.abs(s) < 1e-6) {
       problem = setPlateSideArc(id, side, null);
     } else {
-      const n = outward(geo.frame, a, b, centroidOf(plateLoops(e.group).outer));
+      const n = outward(geo.frame, a, b, windingOf(geo.frame, plateLoops(e.group).outer));
       const p: Vec3 = [(a[0] + b[0]) / 2 + n[0] * s, (a[1] + b[1]) / 2 + n[1] * s, (a[2] + b[2]) / 2 + n[2] * s];
       const mid = modelStore.addNode(p[0], p[1], p[2]);
       problem = setPlateSideArc(id, side, mid);

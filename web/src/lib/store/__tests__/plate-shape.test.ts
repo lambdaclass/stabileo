@@ -132,6 +132,21 @@ describe('a side curved by its sagitta', () => {
     expect(modelStore.nodes.has(secondMid)).toBe(false);
   });
 
+  it('bulges out of a concave outline too: a positive sagitta on the side of a U\'s notch grows the plate', () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    const u = [[0, 0], [6, 0], [6, 4], [4, 4], [4, 1], [2, 1], [2, 4], [0, 4]].map(([x, y]) => modelStore.addNode(x!, y!, 0));
+    const r = createPlate({ outline: u, materialId: 1, thickness: 0.15 });
+    const id = (r as { id: number }).id;
+    const before = area(id);
+    const k = plateSideShapes(id).findIndex((sd) => sd.from === u[3] && sd.to === u[4]);
+    expect(k).toBeGreaterThanOrEqual(0);
+    expect(setPlateSideSagitta(id, k, 0.4)).toBeNull();
+    const mid = modelStore.nodes.get(plateSideShapes(id)[k]!.mid!)!;
+    expect(mid.x).toBeCloseTo(3.6, 9);
+    expect(area(id)).toBeGreaterThan(before);
+    expect(plateSideShapes(id)[k]!.sagitta).toBeCloseTo(0.4, 9);
+  });
+
   it('is refused at half the side or deeper', () => {
     const id = slab(false);
     const L = plateSideShapes(id)[0]!.length;
