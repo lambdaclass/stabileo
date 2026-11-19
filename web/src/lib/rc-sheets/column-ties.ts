@@ -87,7 +87,10 @@ export function columnTieLayout(row: ColumnRow, code: SheetCode, opts: { endZone
     const lo = Math.min(row.confinement.lo, clear / 2);
     middle(Math.min(0.006 * thinnest, 0.15, row.checks.tieMax), '§18.7.5.5', '§22.5');
     zones.push({ kind: 'end', from: 0, to: lo, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true }, { kind: 'end', from: clear - lo, to: clear, spacing: s, clause: '§18.7.5.1, §18.7.5.3', confined: true });
-    if (row.lap) {
+    if (row.lap && row.confinement.lapAtFloor) {
+      lap = { from: 0, to: Math.min(row.lap.length, clear), fits: row.lap.length <= clear + 1e-6 };
+      zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.14.3' });
+    } else if (row.lap) {
       const l = Math.min(row.lap.length, clear / 2);
       lap = { from: clear / 2 - l / 2, to: clear / 2 + l / 2, fits: row.lap.length <= clear / 2 + 1e-6 };
       zones.push({ kind: 'lap', from: lap.from, to: lap.to, spacing: s, clause: '§18.7.4.3' });
@@ -175,7 +178,7 @@ export function tieSegments(layout: ColumnTieLayout): TieZone[] {
 export function lapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): CheckLine | null {
   if (!row.lap) return null;
   const fam = family(code), clear = Math.max(0.1, row.demand.lu);
-  const middle = fam === 'aci' && !!row.confinement;
+  const middle = fam === 'aci' && !!row.confinement && !row.confinement.lapAtFloor;
   const room = middle ? clear / 2 : clear;
   const clause = fam === 'aci' ? (middle ? '§18.7.4.3' : row.lap.tension ? '§25.5.2' : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
   return check('rcSheets.v.colLapFit', row.lap.length <= room + 1e-6, { clause, demand: `${fmt(row.lap.length * 100, 0)} cm`, capacity: `≤ ${fmt(room * 100, 0)} cm`, ratio: row.lap.length / room });

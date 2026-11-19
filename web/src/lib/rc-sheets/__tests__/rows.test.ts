@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { beamRow, type BeamDemand, type SectionEnv } from '../beam-row';
 import { beamLine } from '../beam-line';
 import { columnRow, columnArea, columnSplice, type ColumnDemand } from '../column-row';
+import { columnTieLayout } from '../column-ties';
 import { slabRow } from '../slab-row';
 import { wallRow, type WallDemand } from '../wall-row';
 import { makeFmt } from '../format';
@@ -232,6 +233,20 @@ describe('seismic provisions', () => {
     expect(plain.lap!.tension).toBe(false);
     expect(seis.verifications.some((v) => v.label === 'rcSheets.v.colSpliceT')).toBe(true);
     expect(columnRow(col, ctx, undefined, f).lap).toBeUndefined();
+  });
+
+  it('laps in the middle half in the seismic system (§18.7.4.3), and from the floor outside it (§18.14), confined either way', () => {
+    const col: ColumnDemand = { key: 'column:1:1', name: 'C1', b: 0.4, h: 0.4, length: 3, lu: 2.7, psiTop: 1.5, psiBot: 1.5, cases: [{ combo: 'U', pu: 1400, mxTop: 80, mxBot: -40, myTop: 25, myBot: -10, vx: 40, vy: 12 }] };
+    const ctx = { mat: { fc: 30, fy: 420 }, cover: 0.03, tieDia: 8, diameters: [12, 16, 20, 25] };
+    const frame = columnRow(col, { ...ctx, seismic: { overstrength: 1.25 } }, undefined, f, { fromBelow: true });
+    const gravity = columnRow(col, { ...ctx, seismic: { overstrength: 1.25, gravity: true } }, undefined, f, { fromBelow: true });
+    const lapOf = (r: typeof frame) => columnTieLayout(r, 'cirsoc201-2025').zones.find((z) => z.kind === 'lap')!;
+    expect(lapOf(frame).from).toBeGreaterThan(0.5);
+    expect(lapOf(frame).clause).toBe('§18.7.4.3');
+    expect(lapOf(gravity).from).toBe(0);
+    expect(lapOf(gravity).clause).toBe('§18.14.3');
+    expect(gravity.confinement!.lo).toBeCloseTo(frame.confinement!.lo, 9);
+    expect(columnTieLayout(gravity, 'cirsoc201-2025').zones.some((z) => z.kind === 'end' && z.confined)).toBe(true);
   });
 });
 
