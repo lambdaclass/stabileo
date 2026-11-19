@@ -72,8 +72,8 @@ export function rcSheetsWorkbook(rows: { beam: BeamRow[]; line?: LineLayout[]; c
     { name: tr('rcSheets.family.beam'), rows: beams },
     { name: tr('rcSheets.sheet.schedule'), rows: schedule },
     { name: tr('rcSheets.family.column'), rows: columns },
-    { name: tr('rcSheets.family.slab'), rows: slabs },
     { name: tr('rcSheets.family.wall'), rows: walls },
+    { name: tr('rcSheets.family.slab'), rows: slabs },
     ...((rows.punching ?? []).length ? [{ name: tr('rcSheets.family.punching'), rows: punch }] : []),
     ...(bending?.rows.length ? scheduleSheets(bending, tr, rows.code) : []),
   ];

@@ -8,7 +8,7 @@
   import { designSheets, followSheetEdits, sheetSize, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
   import RcCoversNotice from './RcCoversNotice.svelte';
-  import { SHEET_FAMILIES, type SheetFamily } from '../../../lib/rc-sheets/types';
+  import { SHEET_TABS, TAB_FAMILIES, type SheetTab } from '../../../lib/rc-sheets/types';
   import { DESIGN_OPTION_FLAGS, optionRule } from '../../../lib/rc-sheets/design-options';
   import { tick } from 'svelte';
   import RcLeftOut from './RcLeftOut.svelte';
@@ -24,7 +24,7 @@
 
   let open = $state(false);
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
-  let family = $state<SheetFamily>('beam');
+  let tab = $state<SheetTab>('beam');
 
   const solved = $derived(!!resultsStore.results3D);
   const hasPhysical = $derived.by(() => { void modelStore.model.groups; return sheetsHavePhysical(); });
@@ -48,7 +48,7 @@
   async function editDesignData() { ddOpen = true; await tick(); ddBox?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
   const stat = (list: SheetRow[]) => ({ n: list.length, ok: list.filter((r) => r.status !== 'fail').length, fail: list.filter((r) => r.status === 'fail').length });
 
-  function openAt(f: SheetFamily) { family = f; open = true; }
+  function openAt(k: SheetTab) { tab = k; open = true; }
   let solving = $state(false);
   const wallsToMesh = $derived.by(() => { void modelStore.modelVersion; void modelStore.model.groups; return wallsToMeshForSheets().length; });
   async function meshWalls() {
@@ -97,18 +97,18 @@
     </p>
     <RcLeftOut left={rows.left ?? []} />
     <ul class="rcp-fams">
-      {#each SHEET_FAMILIES as f (f)}
-        {@const s = stat(f === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : rows[f] as SheetRow[])}
+      {#each SHEET_TABS as k (k)}
+        {@const s = stat(k === 'beam' ? rows.line.map((l) => ({ status: l.status === 'fail' || rows.beam.some((r) => r.demand.line?.group === l.group && r.status === 'fail') ? 'fail' : 'ok' })) as never : TAB_FAMILIES[k].flatMap((f) => rows[f] as SheetRow[]))}
         <li>
-          <button type="button" onclick={() => openAt(f)} disabled={!s.n} data-testid={`rc-open-${f}`}>
-            <span>{t(`rcSheets.family.${f}`)}</span>
+          <button type="button" onclick={() => openAt(k)} disabled={!s.n} data-testid={`rc-open-${k}`}>
+            <span>{t(`rcSheets.tab.${k}`)}</span>
             <span class="cnt">{s.n ? `${tpn('rcSheets.countMembers', s.n)} · ${tpn('rcSheets.countFailing', s.fail)}` : '—'}</span>
           </button>
         </li>
       {/each}
     </ul>
     <div class="rcp-actions">
-      <button type="button" class="rcs-btn primary" onclick={() => openAt(family)} data-testid="rc-open">{t('rcSheets.open')}</button>
+      <button type="button" class="rcs-btn primary" onclick={() => openAt(tab)} data-testid="rc-open">{t('rcSheets.open')}</button>
       <button type="button" class="rcs-btn" onclick={() => downloadRcSheets(rows, t)} disabled={stale} title={stale ? t('rcSheets.exportStale') : undefined} data-testid="rc-export-workbook">{t('rcSheets.export')}</button>
     </div>
     <RcRebar3d {rows} />
@@ -124,7 +124,7 @@
 </div>
 
 {#if open}
-  <RcSheetsWorkspace bind:family onclose={() => (open = false)} />
+  <RcSheetsWorkspace bind:tab onclose={() => (open = false)} />
 {/if}
 
 <style>

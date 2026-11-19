@@ -198,7 +198,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
     {
       title: 'rcSheets.g.interaction',
       steps: [
-        { label: 'rcSheets.ts500.s.method', formula: 'εcu = 3 ‰; 0.85·fcd over k1·c; σs = Es·εs ≤ fyd (7.1)', value: '' },
+        { label: 'rcSheets.ts500.s.method', formula: 'εcu = 3 ‰; 0.85·fcd (a = k1·c); σs = Es·εs ≤ fyd (7.1)', value: '' },
         { label: 'rcSheets.s.tuples', formula: (gov?.x.slender || gov?.y.slender) ? '(Nd, β·Mx, β·My), M ≥ Nd·emin' : '(Nd, Mx, My) i · j, M ≥ Nd·emin', value: String(all.length) },
         { label: 'rcSheets.ts500.s.emin', formula: 'emin = 15 mm + 0.03·h', value: `${fmt((gov?.x.emin ?? 0) * 1000, 0)} · ${fmt((gov?.y.emin ?? 0) * 1000, 0)} mm` },
         { label: 'rcSheets.s.rhoReq', formula: 'ρ = Ast/Ac (Nd, Mx, My)', value: `${fmt(ast / (Ag * 1e4) * 100, 2)} % → ${fmt(ast)} cm²`, ok: !impossible },
@@ -213,14 +213,14 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
       steps: [
         { label: 'rcSheets.s.tieDia', formula: 'Øt ≥ Øl,max/3 (7.4.1)', value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(12·Øl,min; 200 mm) (7.4.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
-        { label: 'rcSheets.s.crossties', formula: 's(held bars) ≤ 300 mm (7.4.1)', value: ctText, ok: ct.ok },
+        { label: 'rcSheets.s.crossties', formula: 's ≤ 300 mm (7.4.1)', value: ctText, ok: ct.ok },
         { label: 'rcSheets.s.colShear', formula: 'Vr = 0.8·Vcr(Nd) + Asw·fywd·d/s ≤ 0.22·fcd·bw·d', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
         { label: U(tension ? 'rcSheets.v.colSpliceT' : 'rcSheets.v.colSpliceC'), formula: tension ? 'ℓo = 1.8·lb' : 'ℓo = lb', value: `${fmt(splice * 100, 0)} cm` },
       ],
     },
     {
       title: 'rcSheets.g.proposal',
-      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → bars → (Nd, Mx, My) ≤ 1; Vd ≤ Vr', value: String(first.iterations) }],
+      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → nØ → (Nd, Mx, My) ≤ 1; Vd ≤ Vr', value: String(first.iterations) }],
     },
   ];
 
@@ -241,7 +241,7 @@ export function columnRow(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdop
 function slenderSteps(g: CaseResult, f: Fmt): StepGroup {
   const ax = (name: string, r: AxisResult): Step[] => [
     { label: 'rcSheets.s.slenderness', formula: `${name}: k = ${f(r.k, 2)}; ℓk/i = ℓk/(0.3·h)`, value: `${f(r.lambda, 1)} ≤ ${f(r.lim, 1)}?`, ok: !r.slender },
-    { label: 'rcSheets.ts500.s.limit', formula: 'λ ≤ 34 − 12·M1/M2 (M1/M2 > 0 in single curvature)', value: `M1 = ${f(r.m1)} · M2 = ${f(r.m2)} kN·m` },
+    { label: 'rcSheets.ts500.s.limit', formula: 'λ ≤ 34 − 12·M1/M2', value: `M1 = ${f(r.m1)} · M2 = ${f(r.m2)} kN·m` },
     ...(r.slender ? [{ label: 'rcSheets.s.magnifier', formula: 'β = Cm/(1 − 1.3·Nd/Nk) ≥ 1; Nk = π²·0.4·Ec·Ic/((1 + Rm)·ℓk²)', value: `Cm = ${f(r.cm, 2)} · Nk = ${f(r.nk, 0)} kN · β = ${f(r.beta, 3)}` }] : []),
   ];
   return { title: 'rcSheets.g.slenderness', steps: [{ label: 'rcSheets.s.governs', formula: '', value: g.c.combo }, ...ax('x', g.x), ...ax('y', g.y)] };

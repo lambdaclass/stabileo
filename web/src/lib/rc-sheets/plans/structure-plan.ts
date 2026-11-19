@@ -45,6 +45,6 @@ export function structurePlanPrimitives(plan: StructurePlan, c: PlanCtx): Primit
 }
 
 export function structurePlanDrawing(plan: StructurePlan, o: StructurePlanOptions): DrawingInput {
-  const title = o.tr('rcSheets.structPlan.title', { family: o.tr(`rcSheets.family.${plan.family}`), level: plan.level || '—' });
+  const title = o.tr('rcSheets.structPlan.title', { family: o.tr(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`), level: plan.level || '—' });
   return framed(`structplan:${plan.family}:${plan.level}`, title, structurePlanPrimitives(plan, o), o.scale, o.group);
 }

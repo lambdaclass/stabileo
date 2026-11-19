@@ -547,7 +547,7 @@ describe('reinforcement sheets from a solved model', () => {
   it('exports a sheet per family with a row per element', () => {
     frame(); solve();
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);
-    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall']);
+    expect(sheets.map((s) => s.name)).toEqual(['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.wall', 'rcSheets.family.slab']);
     expect(sheets[1]!.rows.length).toBeGreaterThan(3);
     expect(sheets[0]!.rows[0]![0]).toContain('CIRSOC 201-2025');
     expect(sheets[0]!.rows).toHaveLength(4);

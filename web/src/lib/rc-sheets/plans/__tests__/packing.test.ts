@@ -86,7 +86,7 @@ describe('dense sheets', () => {
 
   it('draw a column with its section and schedule on one sheet', () => {
     const cols = columnStack();
-    const { drawings, levels } = planDrawings({ line: [], beam: [], column: [cols[0]!], slab: [], slabPlan: [], wall: [] }, { families: ['column'], levels: null }, o);
+    const { drawings, levels } = planDrawings({ line: [], beam: [], column: [cols[0]!], slab: [], slabPlan: [], wall: [] }, { families: ['vertical'], levels: null }, o);
     expect(planSheets(drawings, levels, 'A3', project, tr)).toHaveLength(1);
   });
 });

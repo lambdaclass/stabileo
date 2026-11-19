@@ -17,6 +17,7 @@ import { tieDiaFor, tieSpacingLimit } from './column-row';
 import type { WallRow } from './wall-row';
 import { allowedTie, tieDiametersOf, type SheetCode } from './types';
 import { inPierColumn, type WallPier } from './pier-row';
+import type { P } from './piers';
 
 export interface WallDetailNote { key: string; clause: string; params?: Record<string, string | number> }
 
@@ -38,6 +39,16 @@ const family = (code: SheetCode): 'aci' | 'ec2' | 'ts500' => (code === 'en1992-1
 const floorTo = (x: number, step: number) => Math.round(Math.max(step, Math.floor(x / step + 1e-9) * step) * 1e6) / 1e6;
 /** At most `limit`, on the grid of `step` where `step` fits under it, else on 25 mm: never above the limit. */
 const notAbove = (limit: number, step: number) => (step <= limit + 1e-9 ? floorTo(limit, step) : floorTo(limit, 0.025));
+
+export function columnSize(outline: readonly P[]): { b: number; h: number } {
+  const [p0, p1, p2] = outline as [P, P, P];
+  return { b: Math.hypot(p1.x - p0.x, p1.y - p0.y), h: Math.hypot(p2.x - p1.x, p2.y - p1.y) };
+}
+
+export const columnTag = (c: Pick<WallPier['columns'][number], 'name' | 'outline'>): string => {
+  const { b, h } = columnSize(c.outline);
+  return `${c.name} ${Math.round(b * 100)}×${Math.round(h * 100)}`;
+};
 
 export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   const fam = family(code);
@@ -113,7 +124,7 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   }
   const columns = row.pier?.columns ?? [];
   if (row.pier) notes.push({ key: 'rcSheets.wallFig.n.pier', clause: '§22.4', params: { name: row.pier.name, ratio: row.pier.ratio.toFixed(2) } });
-  for (const c of columns) notes.push({ key: 'rcSheets.wallFig.n.pierColumn', clause: '', params: { name: c.name, bars: c.label, tdia: c.tieDia, ts: Math.round(c.tieSpacing * 1000) / 10 } });
+  for (const c of columns) notes.push({ key: 'rcSheets.wallFig.n.pierColumn', clause: '', params: { name: columnTag(c), bars: c.label, tdia: c.tieDia, ts: Math.round(c.tieSpacing * 1000) / 10 } });
   return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, columns, notes };
 }
 

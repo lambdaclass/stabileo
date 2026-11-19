@@ -545,14 +545,14 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
         { label: 'rcSheets.s.tieDia', formula: `${code.tie.formula} (${code.tie.clause})`, value: `Ø${a.tieDia}`, ok: tieDiaOk },
         { label: 'rcSheets.s.tieSpacing', formula: 's ≤ min(16·db; 48·de; b) (§25.7.2.1)', value: `${tieLabel(a)} ≤ ${fmt(tieMax * 100, 0)} cm`, ok: a.tieSpacing <= tieMax + 1e-6 },
         { label: 'rcSheets.s.tieFloor', formula: 's ≥ s,min; (4/3)·dagg (§25.7.2.1(a))', value: `${fmt(floor * 100, 1)} cm`, ok: a.tieSpacing >= floor - 1e-6 },
-        { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm), every other bar (§25.7.2.3)', value: ctText },
+        { label: 'rcSheets.s.crossties', formula: '≤ min(15·dbe; 150 mm) (§25.7.2.3)', value: ctText },
         { label: 'rcSheets.s.colShear', formula: 'φVn = φ·(Vc(Nu) + Av·fyt·d/s)', value: `${fmt(Math.max(shearX, shearY), 3)}`, ok: shearX <= 1 + 1e-6 && shearY <= 1 + 1e-6 },
       ],
     },
     ...(seis ? [{ title: 'rcSheets.g.seismic', steps: seis.steps }] : []),
     {
       title: 'rcSheets.g.proposal',
-      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → bars → (Pu, Mx, My) ≤ φ; V ≤ φVn', value: String(iterations) }],
+      steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'ρ → nØ → (Pu, Mx, My) ≤ φ; V ≤ φVn', value: String(iterations) }],
     },
   ];
 
@@ -647,7 +647,7 @@ function swayStep(d: ColumnDemand, results: readonly CaseResult[], sways: boolea
   const delta = worst && Number.isFinite(worst.sway.deltaS) ? `δs = ${f(worst.sway.deltaS, 3)} (${worst.c.combo})` : 'δs = ∞';
   return {
     label: 'rcSheets.s.storeySway',
-    formula: `${q} > 0.05; ${kText}; k·lu/r = ${f(klr.x, 1)} · ${f(klr.y, 1)} > 22 → M = Mns + δs·Ms; δs = 1/(1 − Q) ≤ 1.5, or 1/(1 − ΣPu/(0.75·ΣPc)) (§6.6.4.6)`,
+    formula: `${q} > 0.05; ${kText}; k·lu/r = ${f(klr.x, 1)} · ${f(klr.y, 1)} > 22 → M = Mns + δs·Ms; δs = 1/(1 − Q) ≤ 1.5 | 1/(1 − ΣPu/(0.75·ΣPc)) (§6.6.4.6)`,
     value: delta, ok: !!worst && Number.isFinite(worst.sway.deltaS),
   };
 }

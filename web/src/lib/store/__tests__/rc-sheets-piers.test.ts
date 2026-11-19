@@ -18,6 +18,8 @@ import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setSheetCode } from '../rc-sheets.svelte';
 import { storeyPiers } from '../rc-sheets-piers';
 import { pierCombos } from '../../rc-sheets/pier-design';
+import { verticalItems } from '../../rc-sheets/vertical-list';
+import { pierSection } from '../../rc-sheets/pier-section';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 
@@ -82,6 +84,26 @@ describe('the seven-storey core as one element', () => {
       near(k.mx, Mx, lever + 0.02 * Math.abs(Mx));
       near(k.my, My, lever + 0.02 * Math.abs(My));
     }
+
+    const items = verticalItems(rows.column, rows.wall);
+    const piers = items.filter((it) => it.kind === 'pier');
+    expect(piers).toHaveLength(7);
+    expect(items.some((it) => it.kind === 'row' && it.row.name === 'C1')).toBe(false);
+    for (const it of piers) {
+      expect(it.rows.filter((r) => r.family === 'wall')).toHaveLength(3);
+      expect(it.rows.filter((r) => r.family === 'column').map((r) => r.name)).toEqual(['C1']);
+      expect(new Set(it.rows.map((r) => r.level))).toEqual(new Set([it.pier.level]));
+    }
+    const levelOrder = [...new Set(items.map((it) => (it.kind === 'row' ? it.row.level : it.pier.level)))];
+    expect(levelOrder).toEqual([...new Set(rows.column.map((r) => r.level))]);
+    const section = pierSection(n0, 'cirsoc201-2025');
+    const drawn = section.columns.find((x) => x.name === 'C1')!;
+    const side = (i: number) => Math.hypot(drawn.outline[(i + 1) % 4]!.x - drawn.outline[i]!.x, drawn.outline[(i + 1) % 4]!.y - drawn.outline[i]!.y);
+    expect(side(0)).toBeCloseTo(c1[0]!.b, 6);
+    expect(side(1)).toBeCloseTo(c1[0]!.h, 6);
+    const centre = drawn.outline.reduce((q, x) => ({ x: q.x + x.x / 4, y: q.y + x.y / 4 }), { x: 0, y: 0 }), foot = modelStore.nodes.get(c1[0]!.demand.nodes!.bottom)!;
+    expect(Math.hypot(centre.x - foot.x, centre.y - foot.y)).toBeLessThan(0.05);
+    for (const b of drawn.bars) expect(b.x >= Math.min(...drawn.outline.map((q) => q.x)) && b.x <= Math.max(...drawn.outline.map((q) => q.x))).toBe(true);
 
     setSheetCode('ts500-2000');
     const apart = buildSheetRows();

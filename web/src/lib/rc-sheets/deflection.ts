@@ -335,7 +335,7 @@ export function ec2Deflection(mech: DeflectionMechanics): DeflectionCode {
       const ratio = Math.max(dQ / limQ, s.supports === 'fragile' ? after / limA : 0);
       const steps: Step[] = [
         depthStep, why, methodStep(x), loadsStep(x, s, f),
-        { label: 'rcSheets.s.defl.ecm', formula: `Ecm = 22·(fcm/10)^0.3; fctm (Table 3.1); Ec,eff = Ecm/(1 + φ) (7.20); φ = ${f(s.creep, 2)}`, value: `${f(Ecm / 1000, 0)} · ${f(fctm / 1000, 2)} · ${f(Eeff / 1000, 0)} MPa` },
+        { label: 'rcSheets.s.defl.ecm', formula: `Ecm = 22·(fcm/10)^0.3; fctm (Tab. 3.1); Ec,eff = Ecm/(1 + φ) (7.20); φ = ${f(s.creep, 2)}`, value: `${f(Ecm / 1000, 0)} · ${f(fctm / 1000, 2)} · ${f(Eeff / 1000, 0)} MPa` },
         { label: 'rcSheets.s.defl.mcr', formula: 'Mcr = fctm·Ig/yt', value: `${f(Mcr, 1)} kN·m${x.member === 'slab' ? '/m' : ''}` },
         { label: 'rcSheets.s.defl.icr', formula: `As = ${f(sec.As * 1e4, 2)} cm², A's = ${f(sec.AsPrime * 1e4, 2)} cm², d = ${cm(f, sec.d)}`, value: `III(Ec,eff) = ${f(IIeff * 1e8, 0)}; III(Ecm) = ${f(II0 * 1e8, 0)} cm⁴` },
         { label: 'rcSheets.s.defl.zeta', formula: 'δ = ζ·δII + (1 − ζ)·δI; ζ = 1 − β·(Mcr/M)² (7.18, 7.19)', value: `ζ(qp, β = 0.5) = ${f(zQ, 2)}; ζ(G, β = 1) = ${f(zD, 2)}` },

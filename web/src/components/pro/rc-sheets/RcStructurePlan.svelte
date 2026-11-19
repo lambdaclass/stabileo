@@ -34,7 +34,7 @@
   const tip = (it: PlanItem) => `${it.name} · ${t(`rcSheets.status.${it.status}`)} — ${checkText(it.check)}`;
   const shown = $derived(plan.items.find((it) => it.key === hovered));
   const onkey = (e: KeyboardEvent, key: string) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onopen(key); } };
-  const family = $derived(t(`rcSheets.family.${plan.family}`));
+  const family = $derived(t(plan.family === 'vertical' ? 'rcSheets.tab.vertical' : `rcSheets.family.${plan.family}`));
 </script>
 
 <figure class="rst" data-testid="rc-struct-plan" data-family={plan.family} data-level={plan.level}>

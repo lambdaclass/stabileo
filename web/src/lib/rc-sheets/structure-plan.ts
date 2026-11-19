@@ -15,10 +15,11 @@ import type { WallRow } from './wall-row';
 import type { LevelPlan, PlanRect } from './slab-plan';
 import type { Box } from './slab-plan-labels';
 import type { CheckLine, ColumnAdopted } from './types';
+import { verticalLevels } from './vertical-list';
 
 export type Pt = [number, number];
-export type StructureFamily = 'beam' | 'column' | 'wall';
-export const STRUCTURE_FAMILIES: readonly StructureFamily[] = ['beam', 'column', 'wall'];
+export type StructureFamily = 'beam' | 'column' | 'wall' | 'vertical';
+export const STRUCTURE_FAMILIES: readonly StructureFamily[] = ['beam', 'vertical'];
 export type PlanStatus = 'ok' | 'warn' | 'fail';
 
 interface ItemBase { key: string; name: string; status: PlanStatus; bars: string; check?: CheckLine }
@@ -178,6 +179,7 @@ export function itemPoints(it: PlanItem): Pt[] {
 
 /** The levels a family's rows stand on, in the order the list gives them. */
 export function familyLevels(family: StructureFamily, rows: Pick<StructureRows, 'line' | 'column' | 'wall'>): string[] {
+  if (family === 'vertical') return verticalLevels(rows.column, rows.wall);
   const list: ReadonlyArray<{ level?: string }> = family === 'beam' ? rows.line : family === 'column' ? rows.column : rows.wall;
   return [...new Set(list.map((r) => r.level ?? ''))];
 }
@@ -185,7 +187,9 @@ export function familyLevels(family: StructureFamily, rows: Pick<StructureRows, 
 /** The plan of one family on one level, over its level's slabs or, on a level with none, the first level's. Axes run 1 m past what is drawn at both ends. */
 export function structurePlan(family: StructureFamily, level: string, rows: StructureRows, m: StructureModel): StructurePlan {
   const unplaced: string[] = [];
-  const items: PlanItem[] = family === 'beam' ? beamItems(rows, level, m, unplaced) : family === 'column' ? columnItems(rows, level, m, unplaced) : wallItems(rows, level, unplaced);
+  const items: PlanItem[] = family === 'beam' ? beamItems(rows, level, m, unplaced)
+    : family === 'vertical' ? [...wallItems(rows, level, unplaced), ...columnItems(rows, level, m, unplaced)]
+    : family === 'column' ? columnItems(rows, level, m, unplaced) : wallItems(rows, level, unplaced);
   const slabs = (rows.slabPlan.find((p) => p.level === level && p.panels.length) ?? rows.slabPlan.find((p) => p.panels.length))?.panels.map((p) => p.rect) ?? [];
   const pts = [...items.flatMap(itemPoints), ...slabs.flatMap((r) => [[r.x0, r.y0], [r.x1, r.y1]] as Pt[])];
   const inner: Box = pts.length
