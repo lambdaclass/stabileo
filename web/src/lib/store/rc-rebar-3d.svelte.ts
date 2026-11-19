@@ -24,12 +24,12 @@ export function saveGhostPreference(on: boolean): void {
   try { globalThis.localStorage?.setItem(GHOST_KEY, on ? '1' : '0'); } catch { return; }
 }
 
-export const rebarView = $state<{ on: boolean; row: { key: string; name: string } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
+export const rebarView = $state<{ on: boolean; row: { key: string; name: string; keys?: readonly string[] } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
   on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true }, ghost: readGhostPreference(),
 });
 
-export function showRebarOf(row: { key: string; name: string }): void {
-  rebarView.row = { key: row.key, name: row.name };
+export function showRebarOf(row: { key: string; name: string; keys?: readonly string[] }): void {
+  rebarView.row = { key: row.key, name: row.name, ...(row.keys ? { keys: [...row.keys] } : {}) };
   rebarView.level = '';
   rebarView.on = true;
 }
@@ -136,7 +136,10 @@ type Shown = Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level'>;
 type ViewFilter = Pick<typeof rebarView, 'row' | 'level' | 'families'>;
 
 export function shownBars<T extends Shown>(bars: readonly T[], v: ViewFilter): T[] {
-  if (v.row) return bars.filter((b) => b.rows.includes(v.row!.key) || b.element === v.row!.key);
+  if (v.row) {
+    const keys = v.row.keys ?? [v.row.key];
+    return bars.filter((b) => keys.some((k) => b.rows.includes(k) || b.element === k));
+  }
   return bars.filter((b) => b.family !== 'punching' && v.families[b.family] && (!v.level || (b.level ?? '') === v.level));
 }
 

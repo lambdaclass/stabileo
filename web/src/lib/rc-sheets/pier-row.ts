@@ -93,11 +93,11 @@ export function pierSteps(p: PierDesign, fmt: Fmt): StepGroup {
     steps: [
       { label: 'rcSheets.s.pierMembers', formula: p.pier.name, value: '' },
       { label: 'rcSheets.s.pierSection', formula: 'A · (xG; yG)', value: `${fmt(p.pier.area, 3)} m² · (${fmt(p.pier.centroid.x, 2)}; ${fmt(p.pier.centroid.y, 2)}) m` },
-      { label: 'rcSheets.s.pierForces', formula: 'N = Σ Nwall + Σ Ncol; M = Σ (M + N·e) about G', value: k ? `${k.combo}: N = ${fmt(k.n, 0)} kN · Mx = ${fmt(k.mx, 0)} · My = ${fmt(k.my, 0)} kN·m` : '' },
+      { label: 'rcSheets.s.pierForces', formula: 'N = Σ Ni; M_G = Σ (Mi + Ni·ei)', value: k ? `${k.combo}: N = ${fmt(k.n, 0)} kN · Mx = ${fmt(k.mx, 0)} · My = ${fmt(k.my, 0)} kN·m` : '' },
       ...p.zones.map((z) => ({ label: 'rcSheets.s.pierZone', formula: `${z.name}: ${columnLabel(z.adopted)}`, value: `${z.isAdopted ? '' : CRITERION}` })),
       ...(p.boundary ? [{ label: 'rcSheets.s.pierBoundary', formula: `${p.boundary.count} Ø${p.boundary.diameter}`, value: CRITERION }] : []),
-      { label: 'rcSheets.s.pierCheck', formula: 'φMn(Pu) along (Mx; My) ≥ Mu (§22.4)', value: `${fmt(p.check.ratio, 3)} (${p.check.combo})`, ok: p.check.ok },
-      { label: 'rcSheets.s.pierOverlap', formula: 'Vcol ∩ walls', value: `${fmt(vol, 3)} m³` },
+      { label: 'rcSheets.s.pierCheck', formula: 'φMn(Pu; My/Mx) ≥ Mu (§22.4)', value: `${fmt(p.check.ratio, 3)} (${p.check.combo})`, ok: p.check.ok },
+      { label: 'rcSheets.s.pierOverlap', formula: 'Σ (Acol ∩ Aw) · hw', value: `${fmt(vol, 3)} m³` },
       { label: 'rcSheets.s.pierScope', value: '' },
     ],
   };

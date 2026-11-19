@@ -134,7 +134,7 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   await expect(view).toHaveAttribute('data-view', 'element');
   await view.getByTestId('rc-bbs-view-unified').click();
   await view.locator('[data-testid="rc-bbs-use"][data-family="column"]').first().click();
-  await expect(ws.getByTestId('rc-tab-column')).toHaveAttribute('aria-selected', 'true');
+  await expect(ws.getByTestId('rc-tab-vertical')).toHaveAttribute('aria-selected', 'true');
   await expect(ws.locator('[data-testid="rc-row"].open')).toBeVisible();
   await ws.getByTestId('rc-tab-schedule').click();
   await expect(view).toHaveAttribute('data-view', 'unified');

@@ -70,14 +70,14 @@ test.describe('@smoke design data with design off', () => {
     await expect(page.getByTestId('rc-dd-summary')).toContainText('35 mm');
 
     await page.getByTestId('rc-design').click();
-    await expect(page.getByTestId('rc-open-column')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
+    await expect(page.getByTestId('rc-open-vertical')).toBeEnabled({ timeout: 120_000 }); // slow-ok: the sheets design every member and combination before the families open
     const before = await page.getByTestId('rc-dd-summary').textContent();
     await setDesignOption(page, 'seismic');
     await expect(page.getByTestId('rc-dd-summary')).not.toHaveText(before ?? '');
     await expect(page.getByTestId('rc-stale')).toBeVisible();
     await page.getByTestId('rc-redesign').click();
     await expect(page.getByTestId('rc-stale')).toHaveCount(0, { timeout: 120_000 }); // slow-ok: chapter 18 designs every column against the joints' beams again
-    await page.getByTestId('rc-open-column').click();
+    await page.getByTestId('rc-open-vertical').click();
     const ws = page.getByTestId('rc-sheets-workspace');
     await ws.getByTestId('rc-row').first().click();
     await expect(ws.getByTestId('rc-checks').first()).toContainText('§18.7.5');

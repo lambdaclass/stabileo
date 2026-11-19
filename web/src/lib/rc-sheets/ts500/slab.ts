@@ -107,7 +107,7 @@ export function slabRow(d: SlabDemand, c: SlabContext, adopted: SlabAdopted | un
         sp.step ?? { label: oneWay ? 'rcSheets.s.oneWay' : 'rcSheets.s.twoWay', formula: 'ℓl/ℓs > 2', value: fmt(short > 0 ? long / short : 0) },
         ...materialSteps(t, fmt),
         oneWay
-          ? { label: U('rcSheets.s.slabMin'), formula: `ρ ≥ ${fmt(mins.main, 3)} (main); As ≥ As,main/5 (distribution); ρ = As/(b·h)`, value: `${fmt(mins.main * d.h * 1e4)} cm²/m` }
+          ? { label: U('rcSheets.s.slabMin'), formula: `ρ ≥ ${fmt(mins.main, 3)}; As⊥ ≥ As/5; ρ = As/(b·h)`, value: `${fmt(mins.main * d.h * 1e4)} cm²/m` }
           : { label: 'rcSheets.s.slabMin', formula: `ρx + ρy ≥ ${fmt(mins.sum, 4)}; ρx, ρy ≥ ${fmt(mins.each, 4)}; ρ = As/(b·h)`, value: `${fmt(sumMin)} · ${fmt(mins.each * d.h * 1e4)} cm²/m` },
         { label: oneWay ? U('rcSheets.s.sMax') : 'rcSheets.s.sMax', formula: oneWay ? 'ℓs ≤ min(1.5·h; 200 mm); ℓl ≤ 300 mm' : 'ℓs ≤ min(1.5·h; 200 mm); ℓl ≤ 250 mm', value: '' },
       ],

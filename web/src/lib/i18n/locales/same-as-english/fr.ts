@@ -527,6 +527,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'prop.section',
   'prop.type',
   'provenance.title',
+  'rcSheets.col.section',
+  'rcSheets.col.type',
   'rcSheets.country.EU',
   'rcSheets.g.torsion',
   'rcSheets.plans.tb.date',

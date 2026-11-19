@@ -247,7 +247,7 @@ export function makeColumnRow(set: Ec2Set) {
       },
       {
         title: 'rcSheets.g.proposal',
-        steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'As → bars → (NEd, MEd,x, MEd,y) ≤ 1; VEd ≤ VRd', value: String(first.iterations) }],
+        steps: [adopted ? { label: 'rcSheets.s.adoptedByUser', value: '' } : { label: 'rcSheets.s.iterations', formula: 'As → nØ → (NEd, MEd,x, MEd,y) ≤ 1; VEd ≤ VRd', value: String(first.iterations) }],
       },
     ];
 
@@ -271,7 +271,7 @@ function ec2SwayStep(d: ColumnDemand, f: Fmt): Step {
   const s = d.sway;
   if (!s) return { label: 'rcSheets.s.nonSway', value: '' };
   const q = `Q = ${f(s.Q, 3)}${s.combo ? ` (${s.combo})` : ''}`;
-  if (s.Q <= UNBRACED_Q + 1e-12) return { label: 'rcSheets.s.storeyBraced', formula: 'Q = ΣNEd·Δ/(VEd·h) ≤ 1/11: second order under 10 % (5.8.2(6))', value: q, ok: true };
+  if (s.Q <= UNBRACED_Q + 1e-12) return { label: 'rcSheets.s.storeyBraced', formula: 'Q = ΣNEd·Δ/(VEd·h) ≤ 1/11 → ΔM < 10 % (5.8.2(6))', value: q, ok: true };
   if (s.secondOrder) return { label: 'rcSheets.s.storeySecondOrder', formula: 'Q > 1/11 (5.8.2(6)); P-Delta (5.8.6)', value: q };
   return { label: 'rcSheets.ec2.s.unbraced', formula: 'Q > 1/11 (5.8.2(6)): l0 by Eq. 5.16, C = 0.7, MEd = M02 + M2 (5.8.3.1, 5.8.8.2)', value: q };
 }

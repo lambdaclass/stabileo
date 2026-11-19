@@ -140,7 +140,7 @@ describe('the footing bars', () => {
     const rows = { line: [], beam: [], column: [], slab: [], slabPlan: [], wall: [], footing: [r] };
     const sel = planDrawings(rows, { families: ['footing'], levels: null }, { format: 'A3', scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025', endZones: false, slabCover: 0.02, fmt, tr });
     expect(sel.drawings.some((d) => d.key === `${r.key}:sec`)).toBe(true);
-    expect(planDrawings(rows, { families: ['wall'], levels: null }, { format: 'A3', scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025', endZones: false, slabCover: 0.02, fmt, tr }).drawings).toHaveLength(0);
+    expect(planDrawings(rows, { families: ['vertical'], levels: null }, { format: 'A3', scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025', endZones: false, slabCover: 0.02, fmt, tr }).drawings).toHaveLength(0);
   });
 });
 

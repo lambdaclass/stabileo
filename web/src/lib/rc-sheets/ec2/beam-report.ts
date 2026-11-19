@@ -198,8 +198,8 @@ function torsionSteps(d: BeamDemand, req: BeamReq, e: BeamEval, a: BeamAdopted, 
 function crackSteps(req: BeamReq, e: BeamEval, f: Fmt): StepGroup {
   const face = (label: string, c: BeamEval['crackBottom']): Step[] => (c.used ? [
     { label, formula: 'σs = fyd·(As,req/As,prov)/γG, γG = 1.35', value: `${f(c.sigma, 0)} MPa` },
-    { label: 'rcSheets.ec2.s.crackSpacing', formula: `s ≤ s,max (Table 7.3N, wk = 0.3 mm)`, value: `${f(c.s, 0)} ≤ ${f(c.sMax, 0)} mm`, ok: c.s <= c.sMax + 1e-6 },
-    { label: 'rcSheets.ec2.s.crackDia', formula: 'Ø ≤ φs*·(fct,eff/2.9)·kc·hcr/(2(h − d)) (Table 7.2N, 7.6N)', value: `Ø${c.dia} ≤ ${f(c.diaMax, 1)} mm`, ok: c.dia <= c.diaMax + 1e-6 },
+    { label: 'rcSheets.ec2.s.crackSpacing', formula: `s ≤ s,max (Tab. 7.3N, wk = 0.3 mm)`, value: `${f(c.s, 0)} ≤ ${f(c.sMax, 0)} mm`, ok: c.s <= c.sMax + 1e-6 },
+    { label: 'rcSheets.ec2.s.crackDia', formula: 'Ø ≤ φs*·(fct,eff/2.9)·kc·hcr/(2(h − d)) (Tab. 7.2N, 7.6N)', value: `Ø${c.dia} ≤ ${f(c.diaMax, 1)} mm`, ok: c.dia <= c.diaMax + 1e-6 },
   ] : []);
   return {
     title: 'rcSheets.ec2.g.crack',

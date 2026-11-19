@@ -256,7 +256,7 @@ function flexureSteps(title: string, t: Ts500Mat, need: SectionNeed, bars: BarGr
   const steps: Step[] = [
     { label: `rcSheets.sec.${need.s}`, formula: `Md = ${f(need.env.value)} kN·m; Nd = ${f(need.n)} kN`, value: need.env.source?.combo ?? '' },
     { label: 'rcSheets.s.d', formula: 'd = h − c − Øw − Ø/2', value: `${f(r.d * 100, 1)} cm` },
-    { label: 'rcSheets.ts500.s.block', formula: `εcu = 3 ‰; 0.85·fcd over k1·c; k1 = 0.85 − 0.006·(fck − 25) = ${f(t.k1, 3)}`, value: '' },
+    { label: 'rcSheets.ts500.s.block', formula: `εcu = 3 ‰; 0.85·fcd (a = k1·c); k1 = 0.85 − 0.006·(fck − 25) = ${f(t.k1, 3)}`, value: '' },
   ];
   if (need.env.value <= 1e-6) steps.push({ label: 'rcSheets.s.noMoment', value: '' });
   else {
@@ -288,7 +288,7 @@ function shearSteps(d: BeamDemand, e: Evaluation, st: Stirrups, f: Fmt): StepGro
       { label: 'rcSheets.s.vc', formula: 'Vc = 0.8·Vcr (8.1.4)', value: `${f(s.vc)} kN` },
       { label: 'rcSheets.ts500.v.shearMax', formula: 'Vd ≤ 0.22·fcd·bw·d', value: `${f(s.vmax)} kN`, ok: e.ok.vmax },
       { label: 'rcSheets.s.avMin', formula: 'Asw/s ≥ 0.3·(fctd/fywd)·bw (8.1.5)', value: `${f(s.swMin)} cm²/m` },
-      { label: 'rcSheets.s.avReq', formula: s.vd > s.vcr ? 'Asw/s = (Vd − Vc)/(fywd·d)' : 'Vd ≤ Vcr → minimum', value: `${f(s.swReq)} cm²/m` },
+      { label: 'rcSheets.s.avReq', formula: s.vd > s.vcr ? 'Asw/s = (Vd − Vc)/(fywd·d)' : 'Vd ≤ Vcr → Asw,min', value: `${f(s.swReq)} cm²/m` },
       { label: 'rcSheets.ts500.s.spacing', formula: s.dense ? 'Vd > 3·Vcr: s ≤ min(d/4; 300 mm)' : 's ≤ min(d/2; 600 mm)', value: `${f(e.sMax * 100, 1)} cm` },
       { label: 'rcSheets.s.stirrups', formula: stirrupsLabel(st), value: '' },
       { label: 'rcSheets.s.verifyShear', formula: 'Vr = Vc + Asw·fywd·d/s', value: `${f(e.vr)} ≥ Vd = ${f(d.vu.value)} kN`, ok: e.ok.shear },
@@ -301,7 +301,7 @@ function torsionSteps(c: BeamContext, e: Evaluation, a: BeamAdopted, f: Fmt): St
   const steps: Step[] = [
     { label: 'rcSheets.ts500.s.tcr', formula: 'Tcr = 1.35·fctd·Se; Se = x²·y/3', value: `${f(r.tcr)} kN·m` },
     ...(c.torsion === 'compatibility' && r.tdDesign < r.td - 1e-9 ? [{ label: 'rcSheets.ts500.s.compatibility', formula: 'Td ≤ Tcr', value: `${f(r.tdDesign)} kN·m` }] : []),
-    { label: 'rcSheets.ts500.s.interaction', formula: '(Vd/Vcr)² + (Td/Tcr)² ≤ 1 → minimum', value: f(r.interaction, 3) },
+    { label: 'rcSheets.ts500.s.interaction', formula: '(Vd/Vcr)² + (Td/Tcr)² ≤ 1 → Asw,min', value: f(r.interaction, 3) },
   ];
   if (r.design) {
     steps.push(

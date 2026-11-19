@@ -38,7 +38,7 @@ export function footingSteps(d: FootingDemand, c: FootingContext, r: FootingAnal
       { label: 'rcSheets.s.footEcc', formula: 'e = M/(N + G)', value: `${fmt(b.ex * 100, 1)} · ${fmt(b.ey * 100, 1)} cm` },
       { label: 'rcSheets.s.footPressure', formula: 'qmáx · qmín · qmed', value: `${fmt(b.qMax, 0)} · ${fmt(b.qMin, 0)} · ${fmt(b.qMean, 0)} kPa`, ok: b.ok },
       { label: 'rcSheets.s.footAllowable', formula: 'qadm · k·qadm', value: b.allowable ? `${fmt(b.allowable, 0)} · ${fmt(b.edgeFactor * b.allowable, 0)} kPa${d.soil?.presumed ? ' *' : ` (${d.soil?.name ?? ''})`}` : '—' },
-      { label: 'rcSheets.s.footContactShare', formula: 'A contacto / A', value: `${fmt(b.contact * 100, 0)} %` },
+      { label: 'rcSheets.s.footContactShare', formula: 'A′ / A', value: `${fmt(b.contact * 100, 0)} %` },
     ] : []),
   ];
   const size: Step[] = [

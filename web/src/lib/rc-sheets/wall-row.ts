@@ -212,7 +212,7 @@ export function wallRow(d: WallDemand, c: WallContext, adopted: WallAdopted | un
     {
       title: 'rcSheets.g.wallFlexure',
       steps: [
-        { label: 'rcSheets.s.wallBoundary', formula: 'As extremos (Pu, Mu)', value: boundaryLabel },
+        { label: 'rcSheets.s.wallBoundary', formula: 'As,ext (Pu, Mu)', value: boundaryLabel },
         ...(c.pier ? [] : [{ label: 'rcSheets.s.wallPM', formula: 'φMn(Pu) ≥ Mu', value: `${fmt(Math.max(0, ...ev.pm), 3)} (${d.combos[ipm]?.combo ?? ''})`, ok: ev.pm.every(ok1) }]),
         { label: 'rcSheets.s.wallOut', formula: 'Mv, Mh ≤ φMn (b = 1 m)', value: `${fmt(Math.max(0, ...ev.out), 3)}`, ok: ev.out.every(ok1) },
       ],

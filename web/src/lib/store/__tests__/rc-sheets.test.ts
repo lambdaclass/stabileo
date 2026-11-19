@@ -547,7 +547,7 @@ describe('reinforcement sheets from a solved model', () => {
 
   it('exports a sheet per family with a row per element, the footings only once a foundation layout is adopted', () => {
     frame(); solve();
-    const families = ['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.slab', 'rcSheets.family.wall'];
+    const families = ['rcSheets.family.beam', 'rcSheets.sheet.schedule', 'rcSheets.family.column', 'rcSheets.family.wall', 'rcSheets.family.slab'];
     expect(rcSheetsWorkbook(buildSheetRows(), (k) => k).map((s) => s.name)).toEqual(families);
     setFoundationSystem('footings');
     const sheets = rcSheetsWorkbook(buildSheetRows(), (k) => k);

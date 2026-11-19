@@ -49,7 +49,7 @@ test('@smoke the sheets say what they need before they design, and what they lea
   const rows = left.locator('[data-testid="rc-left-out-row"][data-reason="layout"]');
   expect(await rows.count()).toBeGreaterThan(0);
   for (const text of await rows.allTextContents()) expect(text).toMatch(/^.+ \(.+\): sus barras no forman una columna continua que las planillas puedan armar/);
-  await expect(page.getByTestId('rc-open-column')).toBeDisabled();
+  await expect(page.getByTestId('rc-open-vertical')).toBeDisabled();
   await expect(page.getByTestId('rc-limits-note')).toContainText('índice de estabilidad de cada piso');
 
   await page.getByTestId('rc-open-beam').click();

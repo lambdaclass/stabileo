@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import DxfParser from 'dxf-parser';
 import { unzipSync } from 'fflate';
-import { DEFAULT_PLAN_SCALES, planDownload, planDrawings, planFiles, planSheets, type PlanFormat } from '../sheets';
+import { DEFAULT_PLAN_SCALES, planDownload, planDrawings, planFiles, planSheets, type PlanFamily, type PlanFormat } from '../sheets';
 import { columnStack, fmt, level, tr, twoSpanLine, wall } from './fixtures';
 
 const latin1 = (b: Uint8Array) => Array.from(b, (c) => String.fromCharCode(c)).join('');
@@ -15,7 +15,7 @@ const { line, rows } = twoSpanLine();
 const pr = { line: [line], beam: rows, column: columnStack(), slab: level().rows, slabPlan: [level().plan], wall: [wall()] };
 const project = { name: 'Edificio', author: 'B. P.', licence: '1234', date: '2026-11-15' };
 
-function sheetsOf(format: PlanFormat, families: Array<'beam' | 'column' | 'slab' | 'wall'> = ['beam']) {
+function sheetsOf(format: PlanFormat, families: PlanFamily[] = ['beam']) {
   const o = { format, scales: DEFAULT_PLAN_SCALES, code: 'cirsoc201-2025' as const, endZones: false, slabCover: 0.02, fmt, tr };
   const { drawings, levels } = planDrawings(pr, { families, levels: null }, o);
   return planSheets(drawings, levels, format, project, tr);
@@ -95,7 +95,7 @@ describe('the drawings as PDF', () => {
 
 describe('the download', () => {
   it('is the file itself when there is one, and a zip of them all when there are several', () => {
-    const sheets = sheetsOf('A1', ['column']);
+    const sheets = sheetsOf('A1', ['vertical']);
     const one = planDownload(planFiles(sheets.slice(0, 1), { dxf: false, pdf: true }, 'C', 'C'), 'C')!;
     expect(one.name).toBe('C.pdf');
     expect(one.mime).toBe('application/pdf');

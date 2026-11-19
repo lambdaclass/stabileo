@@ -3,6 +3,11 @@ import type { WallReinforcement } from '../design-contract/reinforcement';
 export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing';
 export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
 
+export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching' | 'footing';
+export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching', 'footing'];
+export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'], footing: ['footing'] };
+export const tabOf = (f: SheetFamily): SheetTab => (f === 'column' || f === 'wall' ? 'vertical' : f);
+
 export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
 /** The codes the sheets design to, in the order they are offered. */
 export const SHEET_CODE_LIST: readonly SheetCode[] = ['cirsoc201-2025', 'aci318-19', 'en1992-1-1', 'bs-en1992-1-1', 'ts500-2000'];

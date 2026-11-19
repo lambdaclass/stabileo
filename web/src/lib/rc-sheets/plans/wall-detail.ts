@@ -8,7 +8,7 @@
  */
 import type { DrawingInput } from '../../sheets/compose';
 import type { Primitive } from '../../sheets/primitives';
-import { firstLevel, wallDetail, wallLevels } from '../wall-detail';
+import { columnTag, firstLevel, wallDetail, wallLevels } from '../wall-detail';
 import { wallLabel, type WallRow } from '../wall-row';
 import { scheduleElements } from '../schedule/pieces';
 import { scheduleOf, type ScheduleRow } from '../schedule/schedule';
@@ -96,6 +96,8 @@ export function wallSectionPrimitives(row: WallRow, o: WallPlanOptions): Primiti
   for (const c of d.columns) {
     ps.push({ kind: 'polyline', layer: HORM, points: [...c.outline, c.outline[0]!].map((q) => pt(q.x * K, q.y * K)) });
     for (const b of c.bars) ps.push({ kind: 'circle', layer: arm('BORDE', b.dia), c: pt(b.x * K, b.y * K), r: b.dia / 2, fill: true, dia: b.dia });
+    const xs = c.outline.map((q) => q.x * K);
+    ps.push(label(pt((Math.min(...xs) + Math.max(...xs)) / 2, Math.max(...c.outline.map((q) => q.y * K)) + 2 * s), columnTag(c), 2.2, 'center'));
   }
   ps.push(dim(pt(0, 0), pt(L, 0), -6, o.fmt(d.length, 2)), dim(pt(L, 0), pt(L, T), -6, cm(o.fmt, d.thickness)));
   const local = (p: Record<string, string | number>) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' && !Number.isInteger(v) ? o.fmt(v, 1) : typeof v === 'string' && /^\d+\.\d+$/.test(v) ? o.fmt(Number(v), v.split('.')[1]!.length) : v]));

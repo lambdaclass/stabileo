@@ -205,7 +205,7 @@ describe('scales and sheets', () => {
   });
 
   it('fills the title block with the project, level, scale, sheet number, date and the author and licence fields', () => {
-    const { drawings, levels } = planDrawings(pr, { families: ['column'], levels: ['N1'] }, o);
+    const { drawings, levels } = planDrawings(pr, { families: ['vertical'], levels: ['N1'] }, o);
     const sheets = planSheets(drawings, levels, 'A3', { name: 'Edificio', author: 'B. P.', licence: '', date: '2026-11-15' }, tr);
     expect(sheets.map((s) => s.number)).toEqual(sheets.map((_, i) => `E-${String(i + 1).padStart(2, '0')}`));
     const t = sheets[0]!.primitives.filter((p) => p.kind === 'text').map((p) => (p as { text: string }).text);
@@ -219,7 +219,7 @@ describe('scales and sheets', () => {
   });
 
   it('picks by family and level, or one element alone', () => {
-    const cols = planDrawings(pr, { families: ['column'], levels: ['N0'] }, o).drawings;
+    const cols = planDrawings(pr, { families: ['vertical'], levels: ['N0'] }, o).drawings;
     expect(new Set(cols.map((d) => d.key.split(':').slice(0, 3).join(':').replace(/-bbs.*$/, '')))).toEqual(new Set(['column:1:0']));
     const one = planDrawings(pr, { families: [], levels: null, element: line.key }, o).drawings;
     expect(one.every((d) => d.key.startsWith(line.key))).toBe(true);
