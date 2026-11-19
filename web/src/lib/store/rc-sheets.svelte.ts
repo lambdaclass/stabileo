@@ -24,7 +24,8 @@ import { developsAtFace, lateralReadingOf, spanLateralReading } from '../model/l
 import { beamDemands, columnDemands, levelGeometry, punchingDemands, slabDemands, wallDemands, type DemandGroup, type DemandInput, type DemandSet } from '../rc-sheets/demands';
 import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-plan';
 import type { PunchingRow } from '../rc-sheets/punching-row';
-import type { FootingRow } from '../rc-sheets/footing-types';
+import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
+import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
 import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRows, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
@@ -59,7 +60,12 @@ export interface SheetRows {
   slabPlan: LevelPlan[];
   wall: WallRow[];
   punching: PunchingRow[];
+  /** The adopted foundation layout's footings; none until one is adopted. */
   footing: FootingRow[];
+  /** Every layout the building's foundation may take, to compare and adopt, the recommendation (`auto`) among them. */
+  footingLayouts?: FoundationLayout[];
+  /** The layout adopted, or none. */
+  foundation?: FoundationSystem | null;
   /** The regulation the rows are computed with. */
   code: string;
   /** Where the forces came from: the design combinations, or the result on screen when none is solved. */
@@ -671,43 +677,52 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     punching.push(cached(d, [code, ctx, dec], () => rules.punchingRow(d, ctx, fmt)));
     yield step();
   }
-  let footing: FootingRow[] = foundationRows(feet, {
-    rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo: (k, f) => { redesigners.set(k, f as Redesign); },
-    system: foundationSystem(data), solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
-  });
+  const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const layout = (system: FoundationSystem, own: boolean): FootingRow[] => {
+    const redo = (k: string, f: unknown) => { if (own) redesigners.set(k, f as Redesign); };
+    let rows = foundationRows(feet, {
+      rules, adopted: adoptedNow, sizing: footingSizing(data), columns: column, fmt, redo,
+      system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
+    });
+    const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
+    if (pulls.size) rows = rows.map((r) => {
+      const p = pulls.get(r.key);
+      if (!p) return r;
+      const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt);
+      redo(r.key, f.redo);
+      return f.row;
+    });
+    const straps = designFootingStraps(rows, {
+      rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
+      ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
+    });
+    rows = rows.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
+    if (own) for (const sd of straps.values()) {
+      if (sd.group === undefined) continue;
+      const g = sd.group;
+      const li = line.findIndex((l) => l.key === `line:${g}`);
+      if (li >= 0) line[li] = sd.line;
+      const bi = beam.findIndex((b) => b.key === sd.beam.key);
+      if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
+      lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
+    }
+    return sort(withOverlaps(rows));
+  };
+  const chosen = feet.length ? foundationSystem(data) : null;
+  const footingLayouts = feet.length ? FOUNDATION_SYSTEMS.filter((sys) => sys !== chosen).map((sys) => ({ system: sys, rows: layout(sys, false) })) : [];
+  const footing = chosen ? layout(chosen, true) : [];
+  if (chosen) footingLayouts.push({ system: chosen, rows: footing });
+  footingLayouts.sort((a, b) => FOUNDATION_SYSTEMS.indexOf(a.system) - FOUNDATION_SYSTEMS.indexOf(b.system));
   for (let i = 0; i < feet.length; i++) yield step();
-  const pulls = tiePulls(footing, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
-  if (pulls.size) footing = footing.map((r) => {
-    const p = pulls.get(r.key);
-    if (!p) return r;
-    const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt);
-    redesigners.set(r.key, f.redo as Redesign);
-    return f.row;
-  });
-  const straps = designFootingStraps(footing, {
-    rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
-    ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
-  });
-  footing = footing.map((r) => withStrapBeams(r, straps, (s) => strapKeyOf(r, s)));
-  for (const sd of straps.values()) {
-    if (sd.group === undefined) continue;
-    const g = sd.group;
-    const li = line.findIndex((l) => l.key === `line:${g}`);
-    if (li >= 0) line[li] = sd.line;
-    const bi = beam.findIndex((b) => b.key === sd.beam.key);
-    if (bi >= 0) beam[bi] = { ...sd.beam, isAdopted: !!adoptedNow[`line:${g}`] };
-    lineRedesigners.set(g, (o) => { const r = sd.redo(o.b ?? sd.b, o.h ?? sd.h, o.fc); return { line: r.line, spans: [r.beam], status: lineRowStatus(r.line, [r.beam]) }; });
-  }
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;
   const columnsFinal = column.map((r) => (r.pier ? r : checked.find((x) => x.key === r.key) ?? r));
   if (seismic) for (const r of checked) jointAwareRedesign(r, checked, beam, (rows, beams) => jointChecks(rows, beams, modelStore.nodes, fmt, joint));
-  const sort = <T extends { level?: string; name: string }>(rows: T[]) => rows.sort((a, b) => (a.level ?? '').localeCompare(b.level ?? '', undefined, { numeric: true }) || a.name.localeCompare(b.name, undefined, { numeric: true }));
   const left = leftOut([...beam, ...columnsFinal, ...slab, ...wall].map((r) => r.key), columnsFinal.map((r) => ({
     name: r.name, level: r.level, b: r.b, h: r.h, fc: fcOfElement(groupOf(r.key)?.members.elements?.[0]), tu: Math.max(0, ...r.demand.cases.map((c) => c.tu ?? 0)),
   })));
   const apart = rules.piers ? [] : allPiers;
-  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), footing: sort(withOverlaps(footing)), code: codeName, basis, combos: sets.length, left };
+  return { beam: sort(beam), line: sort(line), column: sort(withApart(columnsFinal, apart)), slab: sort(slab), slabPlan: slabPlans.sort((a, b) => a.level.localeCompare(b.level, undefined, { numeric: true })), wall: sort(withApart(wall, apart)), punching: sort(punching), footing, footingLayouts: footingLayouts.map((l) => ({ ...l, summary: layoutSummary(l.rows, code) })), foundation: chosen, code: codeName, basis, combos: sets.length, left };
 }
 
 function leftOut(rowKeys: string[], columns: Parameters<typeof sheetsLeftOut>[0]['columns']): LeftOut[] {

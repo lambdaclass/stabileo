@@ -21,6 +21,9 @@ import { footingOverlaps } from '../../rc-sheets/footing-overlaps';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import type { PropertyLines } from '../../model/foundation/edges';
 import type { FootingRow, FoundationSystem } from '../../rc-sheets/footing-types';
+import { sheetBars3d, pieceOptions } from '../rc-rebar-3d.svelte';
+import { scheduleElements } from '../../rc-sheets/schedule/pieces';
+import { rcSheetsWorkbook } from '../../rc-sheets/workbook';
 
 beforeAll(async () => {
   await wasmSolver.initSolver();
@@ -33,6 +36,7 @@ beforeAll(async () => {
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
   setSheetCode('cirsoc201-2025');
+  setFoundationSystem(null);
 }, 600_000);
 
 const ALL: PropertyLines = { minX: true, maxX: true, minY: true, maxY: true };
@@ -46,9 +50,37 @@ function foundation(lines: PropertyLines | undefined, system: FoundationSystem):
 }
 
 describe('the seven-storey foundation', () => {
+  it('is a step apart: with none adopted the structure is complete and nothing of the foundation is drawn, scheduled or exported; four layouts are offered to compare', () => {
+    const rows = buildSheetRows();
+    expect(rows.foundation).toBeNull();
+    expect(rows.footing).toEqual([]);
+    expect(rows.column.length).toBeGreaterThan(0);
+    expect(rows.footingLayouts!.map((l) => l.system)).toEqual(['auto', 'footings', 'strips', 'mat']);
+    for (const l of rows.footingLayouts!) {
+      expect(footingOverlaps(l.rows).pairs, l.system).toEqual([]);
+      expect(l.summary.concrete, l.system).toBeGreaterThan(0);
+      expect(l.summary.steel, l.system).toBeGreaterThan(0);
+      console.log(l.system, JSON.stringify(l.summary));
+    }
+    expect(sheetBars3d(rows).some((b) => b.family === 'footing')).toBe(false);
+    expect(scheduleElements(rows, pieceOptions(rows)).some((e) => e.family === 'footing')).toBe(false);
+    expect(rcSheetsWorkbook(rows, (k) => k).some((x) => x.name === 'rcSheets.family.footing')).toBe(false);
+
+    setFoundationSystem('strips');
+    const adopted = buildSheetRows();
+    expect(adopted.foundation).toBe('strips');
+    expect(designData().rcSheets?.foundationSystem).toBe('strips');
+    expect(adopted.footing.length).toBeGreaterThan(0);
+    expect(adopted.footing.some((r) => r.group?.kind === 'strip' && r.group.columns.some((c) => c.name === 'C8') && r.group.columns.some((c) => c.name === 'C12'))
+      || adopted.footing.some((r) => r.group?.kind === 'mat')).toBe(true);
+    expect(sheetBars3d(adopted).some((b) => b.family === 'footing')).toBe(true);
+    setFoundationSystem(null);
+    expect(buildSheetRows().footing).toEqual([]);
+  }, 600_000);
+
   it('never overlaps, holds every column once and founds at one level, whatever the lines and the system', () => {
     const cases: Array<[string, PropertyLines | undefined]> = [['none', undefined], ['all four', ALL], ['−Y', { minY: true }], ['−X −Y', { minX: true, minY: true }]];
-    for (const system of ['auto', 'footings'] as const) for (const [name, lines] of cases) {
+    for (const system of ['auto', 'footings', 'strips'] as const) for (const [name, lines] of cases) {
       const rows = foundation(lines, system), tag = `${system} · ${name}`;
       expect(footingOverlaps(rows).pairs, tag).toEqual([]);
       const keys = rows.flatMap(members).map((d) => d.key);
@@ -57,6 +89,7 @@ describe('the seven-storey foundation', () => {
       const levels = new Set(rows.map((r) => Math.round(r.founding * 1000)));
       expect(levels.size, `${tag}: ${[...levels].join(', ')}`).toBe(1);
       for (const r of rows) expect(r.pedestal, `${tag} ${r.name}`).toBeCloseTo(r.demand.at.z - r.founding - r.h, 9);
+      expect(rows.length, tag).toBeGreaterThan(0);
       console.log(tag, rows.map((r) => `${r.name} [${r.group?.kind ?? (r.combined ? 'combined' : r.edge?.position ?? 'centred')}] ${r.B}×${r.L}×${r.h} ${r.status}${r.status === 'fail' ? ` ${failing(r).join('; ')}` : ''}`).join(' | '));
     }
     setFoundationSystem('auto');

@@ -110,12 +110,14 @@ export function setFootingSizing(mode: FootingSizing): void {
   saveRcSheetsData(mode === 'minimum' ? d : { ...d, footingSizing: mode });
 }
 
-export const foundationSystem = (sheets: { foundationSystem?: FoundationSystem }): FoundationSystem => sheets.foundationSystem ?? 'auto';
+/** The layout adopted for the building's foundation: the one stored, else the recommendation where the model already holds footings, else none. */
+export const foundationSystem = (sheets: { foundationSystem?: FoundationSystem }, modelHasFootings = modelStore.model.footings.size > 0): FoundationSystem | null =>
+  sheets.foundationSystem ?? (modelHasFootings ? 'auto' : null);
 
-/** How the building's foundation is proposed from now on; 'auto' is the default and is not stored. */
-export function setFoundationSystem(mode: FoundationSystem): void {
+/** Adopts a layout for the building's foundation, or none: the footings leave the drawings, the schedule and the 3D view. */
+export function setFoundationSystem(mode: FoundationSystem | null): void {
   const { foundationSystem: _, ...d } = rcSheetsData();
-  saveRcSheetsData(mode === 'auto' ? d : { ...d, foundationSystem: mode });
+  saveRcSheetsData(mode ? { ...d, foundationSystem: mode } : d);
 }
 
 /** A footing's position and balance by hand, over the property lines; null clears it. */

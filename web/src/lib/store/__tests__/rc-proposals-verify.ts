@@ -17,6 +17,7 @@ import { alternatives, lineAlternatives, noArrangement } from '../rc-sheets-resi
 import { lineRowStatus } from '../../rc-sheets/beam-line';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
 import { SHEET_CODE_LIST, type SheetCode } from '../../rc-sheets/types';
+import { setFoundationSystem } from '../rc-sheets-footings';
 
 export async function solveExample(id: string): Promise<void> {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
@@ -27,6 +28,7 @@ export async function solveExample(id: string): Promise<void> {
   syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
+  setFoundationSystem('auto');
 }
 
 /** The rows that do not verify under `code`, by name, each checked to say it has no reinforcement and to offer an alternative. */

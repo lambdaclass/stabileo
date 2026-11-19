@@ -23,6 +23,31 @@ export interface ChoiceOptions {
 /** The members' demands of the rows given, a group row standing for all it holds. */
 const membersOf = (r: FootingRow): FootingDemand[] => r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand]);
 
+/**
+ * Strips along the column lines the way that gives the fewest lines, each line of two columns or
+ * more on one strip; a core joins the line it stands across.
+ */
+function alongLines(rows: FootingRow[], fixed: (r: FootingRow) => boolean, pinned: (r: FootingRow) => boolean, make: (ms: FootingDemand[], kind: GroupKind, reason: FootingGroup['reason']) => FootingRow): FootingRow[] {
+  const free = rows.filter((r) => !fixed(r) && !pinned(r) && !r.demand.group && !r.demand.carried);
+  const linesOf = (k: Axis) => {
+    const across: Axis = k === 'x' ? 'y' : 'x';
+    const plain = free.filter((r) => !r.demand.pier).sort((p, q) => p.demand.at[across] - q.demand.at[across]);
+    const out: FootingRow[][] = [];
+    for (const r of plain) { const last = out[out.length - 1]; if (last && r.demand.at[across] - last[last.length - 1]!.demand.at[across] <= 0.5) last.push(r); else out.push([r]); }
+    for (const r of free.filter((x) => x.demand.pier)) {
+      const half = (across === 'x' ? r.demand.column?.b ?? 0 : r.demand.column?.h ?? 0) / 2;
+      const near = out.map((l) => ({ l, d: Math.abs(l[0]!.demand.at[across] - r.demand.at[across]) })).sort((p, q) => p.d - q.d)[0];
+      if (near && near.d <= half + 0.5) near.l.push(r); else out.push([r]);
+    }
+    return out;
+  };
+  const ways = (['x', 'y'] as const).map((k) => ({ k, lines: linesOf(k).filter((l) => l.length > 1) }));
+  const best = ways.sort((p, q) => p.lines.length - q.lines.length || q.lines.reduce((s, l) => s + l.length, 0) - p.lines.reduce((s, l) => s + l.length, 0))[0]!;
+  let out = [...rows];
+  for (const l of best.lines) out = [...out.filter((r) => !l.includes(r)), make(l.flatMap(membersOf), 'strip', 'project')];
+  return out;
+}
+
 /** The line a set of columns stands on, when they do: the axis they spread along, every one within half a metre across. */
 export function lineOf(ms: readonly FootingDemand[]): Axis | null {
   if (ms.length < 2) return null;
@@ -62,6 +87,7 @@ export function chooseFoundations(rows: readonly FootingRow[], h: ChoiceHooks, o
     const mat = groupRow(matRows.flatMap(membersOf), 'mat', reason);
     out = [...out.filter((r) => !matRows.includes(r)), mat];
   }
+  if (o.system === 'strips') out = alongLines(out, fixed, pinned, groupRow);
   out = layFootings(out, h);
   const near = (r: FootingRow) => out.filter((x) => x !== r && !fixed(x) && !pinned(x))
     .map((x) => ({ x, d: Math.hypot(x.demand.at.x - r.demand.at.x, x.demand.at.y - r.demand.at.y) }))

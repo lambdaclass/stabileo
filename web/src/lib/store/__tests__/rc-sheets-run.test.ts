@@ -14,7 +14,7 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, refreshSheetEdits, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
-import { setFootingSetup, setFootingSizing } from '../rc-sheets-footings';
+import { setFootingSetup, setFootingSizing, setFoundationSystem } from '../rc-sheets-footings';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
 
@@ -94,6 +94,7 @@ describe('designing the sheets on asking', () => {
 
   it('a footing set at a corner or sized otherwise is the sheets\' own edit: the rows follow it at once', async () => {
     solvedFrame();
+    setFoundationSystem('footings');
     await designSheets();
     const key = sheetsRun.rows!.footing![0]!.key;
     expect(sheetsRun.rows!.footing![0]!.edge).toBeUndefined();

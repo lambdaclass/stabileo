@@ -62,6 +62,8 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
       out.push(check('rcSheets.v.footDowelAnchor', need <= dw.available + 1e-9, { clause: `${code.anchorage?.clause.compression ?? ''} · ${k.name}`, demand: `${dw.tension && dw.ldh > dw.ldc ? 'ldh' : 'ldc'} ${cm(need)}`, capacity: cm(dw.available) }));
     } else if (code.anchorage) out.push(check('rcSheets.v.footDowelArea', false, { clause: `§16.3.4.1 · ${k.name}` }));
   }
+  const thin = r.columns.filter((k) => k.punching && k.punching.utilization > 1 + 1e-6 && k.punching.position !== 'interior');
+  if (thin.length) out.push(check('rcSheets.v.footCapital', true, { demand: thin.map((k) => k.name).join(', ') }));
   const lim = tieLimits(critOf(c));
   for (const t of r.ties) {
     out.push(

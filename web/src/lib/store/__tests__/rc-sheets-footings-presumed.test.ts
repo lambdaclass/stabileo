@@ -11,6 +11,7 @@ import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows } from '../rc-sheets.svelte';
 import { designData, patchDesignData } from '../design-data';
 import { PRO_EXAMPLES } from '../../data/pro-examples';
+import { setFoundationSystem } from '../rc-sheets-footings';
 import { PRESUMED_BEARING_RANGE, migrateDesignData } from '../../model/design-data';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
@@ -22,6 +23,7 @@ async function openSolved() {
   syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
+  setFoundationSystem('auto');
 }
 
 const presumedLine = (r: { verifications: Array<{ label: string; demand?: string }> }) => r.verifications.find((v) => v.label === 'rcSheets.v.footPresumedSoil');

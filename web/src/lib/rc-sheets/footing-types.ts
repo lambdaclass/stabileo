@@ -70,9 +70,12 @@ export const FOOTING_POSITIONS: readonly FootingPosition[] = ['centred', 'edge',
 export type FootingBalance = 'strap' | 'eccentric' | 'tie';
 export const FOOTING_BALANCES: readonly FootingBalance[] = ['strap', 'eccentric', 'tie'];
 
-/** How the footings of the whole building are proposed: by the selection rule, as footings only, or as one mat. */
-export type FoundationSystem = 'auto' | 'footings' | 'mat';
-export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'mat'];
+/**
+ * A layout for the whole building's foundation: by the selection rule (the recommendation), each
+ * column on its own footing where it fits, strips along the column lines, or one mat.
+ */
+export type FoundationSystem = 'auto' | 'footings' | 'strips' | 'mat';
+export const FOUNDATION_SYSTEMS: readonly FoundationSystem[] = ['auto', 'footings', 'strips', 'mat'];
 
 /** A column's own foundation over the selection rule: its own footing, one shared with its neighbours, or the mat. */
 export type FootingSolution = 'isolated' | 'combined' | 'mat';

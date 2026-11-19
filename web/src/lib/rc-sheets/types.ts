@@ -113,7 +113,7 @@ export interface RcSheetsData {
   slabBentBars?: boolean;
   /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
   footingSizing?: import('./footing-types').FootingSizing;
-  /** How the building's foundation is proposed; absent: by the selection rule. */
+  /** The foundation layout adopted for the building; absent: none yet, the superstructure stands alone and no footing enters the drawings, the schedule or the 3D view. */
   foundationSystem?: import('./footing-types').FoundationSystem;
   /** Footings set at a line, a corner or centred, and balanced, by row key, over what the property lines say. */
   footingSetup?: Record<string, import('./footing-types').FootingSetup>;

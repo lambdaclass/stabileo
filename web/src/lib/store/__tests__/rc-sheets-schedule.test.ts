@@ -12,6 +12,7 @@ import { rowsCode, scheduleSettings, scheduleViewChoice, setScheduleSettings, se
 import { SCHEDULE_VIEWS, scheduleView } from '../../rc-sheets/schedule/views';
 import { designData } from '../design-data';
 import { migrateDesignData } from '../../model/design-data';
+import { setFoundationSystem } from '../rc-sheets-footings';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -60,6 +61,7 @@ describe('the bending schedule of the sheets', () => {
 
   it('schedules the beams\', columns\' and footings\' bars of a solved frame, with the waste set on the order', () => {
     frame();
+    setFoundationSystem('auto');
     const rows = buildSheetRows();
     expect(rowsCode(rows)).toBe('cirsoc201-2025');
     setScheduleSettings({ waste: 0.2 });

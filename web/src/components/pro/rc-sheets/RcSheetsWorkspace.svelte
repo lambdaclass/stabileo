@@ -32,8 +32,9 @@
   import RcPunchingSvg from './RcPunchingSvg.svelte';
   import RcFootingDetail from './RcFootingDetail.svelte';
   import { meshText } from '../../../lib/rc-sheets/footing-mesh';
-  import { FOOTING_SIZINGS, FOUNDATION_SYSTEMS } from '../../../lib/rc-sheets/footing-types';
-  import { footingSizing, foundationSystem, setFootingSizing, setFoundationSystem } from '../../../lib/store/rc-sheets-footings';
+  import { FOOTING_SIZINGS, type FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { footingSizing, setFootingSizing } from '../../../lib/store/rc-sheets-footings';
+  import RcFootingLayouts from './RcFootingLayouts.svelte';
   import { rcSheetsData } from '../../../lib/store/rc-sheets.svelte';
   import RcResize from './RcResize.svelte';
   import { noArrangement } from '../../../lib/store/rc-sheets-resize';
@@ -76,12 +77,14 @@
   const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
   const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
-  const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : rows[family]) as ListRow[]);
+  let preview = $state<FoundationSystem>('auto');
+  const footingView = $derived(rows.foundation ? rows.footing : rows.footingLayouts?.find((l) => l.system === preview)?.rows ?? []);
+  const all = $derived((family === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : family === 'footing' ? footingView : rows[family]) as ListRow[]);
   const levels = $derived([...new Set(all.map((r) => r.level ?? ''))]);
   const edited = $derived.by(() => { void modelStore.designData; return editedKeys(); });
   const shown = $derived(all.filter((r) => (!level || (r.level ?? '') === level) && (!failingOnly || r.status === 'fail') && (!editedOnly || edited.has(r.key))));
   const counts = $derived(Object.fromEntries(SHEET_FAMILIES.map((f) => {
-    const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : rows[f]) as Array<{ status: string }>;
+    const list = (f === 'beam' ? rows.line.map((l) => ({ status: lineStatus(l) })) : f === 'footing' ? footingView : rows[f]) as Array<{ status: string }>;
     return [f, { n: list.length, fail: list.filter((r) => r.status === 'fail').length }];
   })) as Record<SheetFamily, { n: number; fail: number }>);
   const planFamily = $derived(family === 'beam' || family === 'column' || family === 'wall' ? family : null);
@@ -98,8 +101,7 @@
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
   const matShare = $derived(criteriaOf(designData().designOptions?.criteria).footingMatShare);
-  const matCover = $derived.by(() => { if (rows.footing.some((r) => r.group?.kind === 'mat')) return null; const c = footingCover(rows.footing); return c && c.share > matShare ? c : null; });
-  const system = $derived.by(() => { void modelStore.designData; return foundationSystem(rcSheetsData()); });
+  const matCover = $derived.by(() => { if (footingView.some((r) => r.group?.kind === 'mat')) return null; const c = footingCover(footingView); return c && c.share > matShare ? c : null; });
   const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
   async function openFromSchedule(el: ElementRef, marks: string[]) {
     const plan = el.key.startsWith('slabplan:');
@@ -221,12 +223,8 @@
             {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
           </select>
         </label>
-        <label class="rcw-ctl rcw-sizing"><span>{t('rcSheets.foundation.label')}</span>
-          <select value={system} onchange={(e) => setFoundationSystem((e.currentTarget as HTMLSelectElement).value as typeof system)} data-testid="rc-foundation-system">
-            {#each FOUNDATION_SYSTEMS as m (m)}<option value={m}>{t(`rcSheets.foundation.${m}`)}</option>{/each}
-          </select>
-        </label>
-        <RcPropertyLines rows={rows.footing} />
+        {#if rows.footingLayouts?.length}<RcFootingLayouts layouts={rows.footingLayouts} adopted={rows.foundation ?? null} bind:preview />{/if}
+        <RcPropertyLines rows={footingView} />
         {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
       {/if}
       {#if family === 'slab' && slabView === 'plan'}
