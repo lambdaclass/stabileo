@@ -22,6 +22,9 @@ def lines(data):
 
 
 def main(base):
+    flags = json.loads(git('show', f'{base}:web/config/features.json'))
+    if any('proPlatesUnified' in row for row in flags.values()):
+        raise SystemExit('The disabled profile requires a main revision from before the unified plates integration.')
     paths = git('diff', '--name-status', '--no-renames', '-z', base, '--', 'web/src').decode().split('\0')
     entries = {}
     for status, path in zip(paths[0:-1:2], paths[1:-1:2], strict=True):

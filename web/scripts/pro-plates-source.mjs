@@ -24,7 +24,7 @@ export function readProPlatesProfile(enabled) {
       continue;
     }
     const source = readFileSync(resolve(root, name), 'utf8');
-    if (sha(source) !== entry.source) throw new Error(`Unified PRO plates off profile is stale for ${name}. Regenerate it against the current main after reviewing the change.`);
+    if (sha(source) !== entry.source) throw new Error(`Unified PRO plates off profile is stale for ${name}. Review the changes to both profiles before updating the manifest.`);
     const lines = source.split('\n');
     for (const [at, count, text] of entry.changes.toReversed()) lines.splice(at, count, ...text);
     const original = lines.join('\n');
