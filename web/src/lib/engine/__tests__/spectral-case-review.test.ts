@@ -15,6 +15,7 @@
  *    whose scale the regulation no longer gives is said; "All loads" does not add a spectral case;
  *    the statics check does not flag spectral cases or the combinations taking them.
  */
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -376,14 +377,13 @@ describe('around the case', () => {
   });
 });
 
-it('#2292 a named spectral contribution uses the net case factor', async () => {
+async function checkSpectralResidual(factor: number, weights: number[], cancelledWeights?: number[]) {
   const grid = frame(1);
   flat();
   const dead = modelStore.addLoadCase('D', 'D');
   modelStore.addNodalLoad3D(grid[1]![0]!, 0, 0, -1.25, 0, 0, 0, dead);
   const quake = spectral('E', { x: 1, y: 0, z: 0 });
   const spectralResults = results();
-  const big = 2 ** 54;
   const solvers = [
     ['sequential', () => modelStore.solveCombinations3D(false, false, true, spectralResults)],
     ['parallel', () => modelStore.solveCombinations3DParallel(false, false, true, spectralResults)],
@@ -396,9 +396,25 @@ it('#2292 a named spectral contribution uses the net case factor', async () => {
       const solved = await solve();
       return !solved || typeof solved === 'string' ? solved : solved.perCombo.get(1)?.displacements;
     };
-    const control = await run([-1.5]);
+    const control = await run([factor]);
     if (!control || typeof control === 'string') throw new Error(String(control));
     expect(control.some(row => row.ux !== 0)).toBe(true);
-    expect.soft(await run([big, -1.5, -big]), name).toStrictEqual(control);
+    expect.soft(await run(weights), name).toStrictEqual(control);
+    if (cancelledWeights) {
+      const absent = await run([0]);
+      expect.soft(absent, name).not.toEqual(control);
+      expect.soft(await run(cancelledWeights), name).toStrictEqual(absent);
+    }
   }
+}
+
+it('#2292 a named spectral contribution uses the net case factor', async () => {
+  const big = 2 ** 54;
+  await checkSpectralResidual(-1.5, [big, -1.5, -big]);
+});
+
+const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+exactFactorTest('known wrong result: #2292 a named spectral contribution distinguishes exact cancellation from a unit residual', async () => {
+  await checkSpectralResidual(1, factorsWithUnitResidual, factorsWithExactCancellation);
 });

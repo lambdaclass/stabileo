@@ -1,3 +1,4 @@
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { modelStore, uiStore } from '../../store';
 import * as solver from '../wasm-solver';
@@ -113,7 +114,7 @@ function singleQuad() {
   return cases;
 }
 
-it('#2292 the named single quad refuses complete case cancellation', async () => {
+async function checkNamedQuadCancellation(residual: number[], cancelledWeights: number[]) {
   const cases = singleQuad();
   const caseId = cases[0]!.id;
   for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
@@ -123,8 +124,21 @@ it('#2292 the named single quad refuses complete case cancellation', async () =>
     const control = await run([1]);
     if (!control || typeof control === 'string') throw new Error(String(control));
     expect(control.perCombo.get(1)?.displacements.some(row => row.uz !== 0)).toBe(true);
-    const refused = await run([1, -1]);
+    const preserved = await run(residual);
+    expect.soft(typeof preserved === 'string' ? preserved : preserved?.perCombo.get(1)?.displacements)
+      .toStrictEqual(control.perCombo.get(1)?.displacements);
+    const refused = await run(cancelledWeights);
     expect.soft(typeof refused === 'string' ? refused : refused?.perCombo.get(1)?.displacements)
       .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
   }
+}
+
+it('#2292 the named single quad refuses complete case cancellation', async () => {
+  await checkNamedQuadCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
+});
+
+const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+exactFactorTest('known wrong result: #2292 the named single quad distinguishes exact cancellation from a unit residual', async () => {
+  await checkNamedQuadCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
 });

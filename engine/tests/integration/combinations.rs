@@ -703,6 +703,72 @@ fn issue_2292_spatial_combination_refuses_complete_case_cancellation() {
     }
 }
 
+fn factors_with_unit_residual() -> [f64; 5] {
+    let large = 2.0_f64.powi(110);
+    let middle = 2.0_f64.powi(54);
+    [large, middle, 1.0, -middle, -large]
+}
+
+#[test]
+#[ignore = "known wrong result: #2292"]
+fn issue_2292_planar_combination_sums_case_factors_exactly() {
+    let model = serde_json::from_str(include_str!("../fixtures/ex-portal-frame-input.json")).unwrap();
+    let linear = solve_2d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_2d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let input = CombinationInput { factors, cases: vec![CaseEntry { case_id: 1, results: results.clone() }] };
+            let checked = combine_results_checked(&input);
+            let owned = combine_results(&input);
+            let borrowed = combine_results_refs(&input.factors, &[(1, &results)]);
+            (checked, owned, borrowed)
+        };
+        let (checked, owned, borrowed) = combine(&[1.0]);
+        assert!(checked.as_ref().unwrap().as_ref().unwrap().displacements.iter().any(|d| d.uz != 0.0));
+        let control = serde_json::to_value((checked, owned, borrowed)).unwrap();
+        let weights = factors_with_unit_residual();
+        let residual = serde_json::to_value(combine(&weights)).unwrap();
+        let (refused, owned, borrowed) = combine(&[weights.as_slice(), &[-1.0]].concat());
+        assert_eq!(refused.as_ref().err().map(String::as_str), Some("Repeated load case factors cancel to zero in this combination."));
+        assert!(owned.is_none());
+        assert!(borrowed.is_none());
+        assert_eq!(residual, control);
+    }
+}
+
+#[test]
+#[ignore = "known wrong result: #2292"]
+fn issue_2292_spatial_combination_sums_case_factors_exactly() {
+    let model = serde_json::from_str(include_str!("../fixtures/distorted-single-quad-combination.json")).unwrap();
+    let linear = dedaliano_engine::solver::linear::solve_3d(&model).unwrap();
+    let nonlinear = dedaliano_engine::solver::pdelta::solve_pdelta_3d(&model, 20, 1e-9).unwrap().results;
+    for results in [linear, nonlinear] {
+        let combine = |weights: &[f64]| {
+            let factors: Vec<_> = weights.iter().map(|&factor| CombinationFactor { case_id: 1, factor }).collect();
+            let cases = vec![CaseEntry3D { case_id: 1, results: results.clone() }];
+            let refs = [(1, &results)];
+            [
+                combine_results_3d(&CombinationInput3D { factors: factors.clone(), cases: cases.clone(), plate_thicknesses: vec![] }),
+                combine_results_3d_refs(&factors, &refs),
+                combine_results_3d_refs_with_thickness(&factors, &refs, &PlateThicknesses::new()),
+                combine_results_batch_3d(&BatchCombinationInput3D { combinations: vec![factors], cases, plate_thicknesses: vec![] })
+                    .map(|mut batch| batch.pop().unwrap()),
+            ]
+        };
+        let control = combine(&[1.0]);
+        assert!(control.iter().all(|r| r.as_ref().unwrap().as_ref().unwrap().displacements.iter().any(|d| d.uz != 0.0)));
+        let weights = factors_with_unit_residual();
+        let residual = combine(&weights);
+        let refused = combine(&[weights.as_slice(), &[-1.0]].concat());
+        assert_eq!(
+            refused.iter().map(|r| r.as_ref().err().map(String::as_str)).collect::<Vec<_>>(),
+            [Some("Repeated load case factors cancel to zero in this combination."); 4],
+        );
+        assert_eq!(serde_json::to_value(residual).unwrap(), serde_json::to_value(control).unwrap());
+    }
+}
+
 #[test]
 fn issue_2292_native_solvers_validate_optional_support_springs() {
     use dedaliano_engine::solver::{cable, linear, ssi};

@@ -1,3 +1,4 @@
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { beforeAll, expect, it } from 'vitest';
 import { initSolver, solve3D, netCombinationFactors, combineResults, combineResults3D, combineResultsBatch3D, combineResultsEnvelope3D, computeEnvelope3D } from '../wasm-solver';
 import type { AnalysisResults3D, SolverInput3D } from '../types-3d';
@@ -476,6 +477,57 @@ it('#2292 planar combination routes refuse complete case cancellation', () => {
   for (const net of [netCombinationFactors, net_combination_factors]) {
     expect.soft(() => net(splitFactors([1, -1]))).toThrow(cancelled);
     expect(net([...splitFactors([1, -1]), { caseId: 2, factor: 1 }]))
+      .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
+  }
+});
+
+function resultOrRefusal<T>(run: () => T): T | string {
+  try { return run(); } catch (error) { return String(error); }
+}
+
+const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+exactFactorTest('known wrong result: #2292 WASM combination routes distinguish exact cancellation from a unit residual', () => {
+  const models = [
+    [portalInput('2d'), solve_2d, solve_pdelta_2d],
+    [portalInput('3d'), solve_3d, solve_pdelta_3d],
+  ] as const;
+  for (const [index, [model, linear, nonlinear]] of models.entries()) {
+    for (const result of [linear(JSON.parse(model)), JSON.parse(nonlinear(model, 20, 1e-9)).results]) {
+      const perCase = new Map([[1, result]]);
+      const paths = index === 0 ? {
+        'planar wrapper': (weights: number[]) => combineResults(splitFactors(weights), perCase),
+        'planar export': (weights: number[]) => combine_results_2d({ factors: splitFactors(weights), cases: [{ caseId: 1, results: result }] }),
+      } : Object.fromEntries(Object.entries(combinationPaths3D).map(([path, combine]) => [
+        path, (weights: number[]) => combine(splitFactors(weights), perCase),
+      ]));
+      for (const [path, run] of Object.entries(paths)) {
+        const control = run([1]);
+        expect(control.displacements.some((row: { uz: number }) => row.uz !== 0), path).toBe(true);
+        expect.soft(() => run(factorsWithExactCancellation), path).toThrow(cancelled);
+        expect.soft(resultOrRefusal(() => run(factorsWithUnitResidual)), path).toStrictEqual(control);
+      }
+    }
+  }
+});
+
+exactFactorTest('known wrong result: #2292 case-factor resolution preserves exact signed residuals and rounds once', () => {
+  const subnormal = Number.MIN_VALUE;
+  const halfUlp = Number.EPSILON / 2;
+  const halfMaxUlp = 2 ** 970;
+  for (const resolver of [net_combination_factors, netCombinationFactors]) {
+    const run = (weights: number[]) => resolver(splitFactors(weights));
+    expect.soft(() => run(factorsWithExactCancellation)).toThrow(cancelled);
+    expect.soft(resultOrRefusal(() => run(factorsWithUnitResidual))).toStrictEqual(splitFactors([1]));
+    expect.soft(run([...factorsWithUnitResidual, -2])).toStrictEqual(splitFactors([-1]));
+    const tinyResidual = factorsWithUnitResidual.map((factor, index) => index === 2 ? subnormal : factor);
+    expect.soft(resultOrRefusal(() => run(tinyResidual))).toStrictEqual(splitFactors([subnormal]));
+    expect.soft(resultOrRefusal(() => run(tinyResidual.map(factor => -factor)))).toStrictEqual(splitFactors([-subnormal]));
+    expect(run([1, halfUlp])).toStrictEqual(splitFactors([1]));
+    expect(run([1 + Number.EPSILON, halfUlp])).toStrictEqual(splitFactors([1 + 2 * Number.EPSILON]));
+    expect(run([Number.MAX_VALUE, halfMaxUlp - 2 ** 917])).toStrictEqual(splitFactors([Number.MAX_VALUE]));
+    expect(failure(() => run([Number.MAX_VALUE, halfMaxUlp]))).toBe(netFactorOverflow);
+    expect.soft(resolver([...splitFactors(factorsWithExactCancellation), { caseId: 2, factor: 1 }]))
       .toStrictEqual([{ caseId: 2, factor: 1 }, { caseId: 1, factor: 0 }]);
   }
 });

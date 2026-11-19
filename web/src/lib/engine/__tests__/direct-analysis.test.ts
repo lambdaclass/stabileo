@@ -4,6 +4,7 @@
  * shared to the nodes by statics; and notional loads that follow the lateral load only past a
  * drift ratio of 1.7.
  */
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import '../../store/index';
@@ -276,25 +277,39 @@ describe('the direct analysis takes the loads the linear solve takes', () => {
   });
 });
 
-it('#2292 direct analysis refuses complete case cancellation', async () => {
+async function checkDirectAnalysisCancellation(residual: number[], cancelledWeights: number[]) {
   const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 4);
   modelStore.addElement(a, b, 'frame');
   modelStore.addSupport(a, 'fixed3d');
   const cases = modelStore.model.loadCases;
   const caseId = cases[0]!.id;
   modelStore.addNodalLoad3D(b, 0, 0, -10, 0, 0, 0, caseId);
-  const run = (weights: number[]) => runDirectAnalysis(data(), cases, [
+  const run = (weights: number[], run: typeof mainThreadPDelta) => runDirectAnalysis(data(), cases, [
     { id: 1, name: 'Gravity', factors: weights.map(factor => ({ caseId, factor })) },
-  ], { includeSelfWeight: false });
-  const control = await run([1]);
-  if (typeof control === 'string') throw new Error(control);
-  expect(control.perCombo.get(1)?.displacements.some(row => row.uz !== 0)).toBe(true);
-  const roundoff = await run([2 ** 54, 1, -(2 ** 54)]);
-  expect.soft(typeof roundoff === 'string' ? roundoff : roundoff.perCombo.get(1)?.displacements)
-    .toStrictEqual(control.perCombo.get(1)?.displacements);
-  const refused = await run([1, -1]);
-  expect(typeof refused === 'string' ? refused : refused.perCombo.get(1)?.displacements)
-    .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+  ], { includeSelfWeight: false, run });
+  const worker = workerPDelta(async (wire, maxIter, tol) =>
+    finishPDelta3D(JSON.parse(solve_pdelta_3d(JSON.stringify(wire), maxIter, tol)), wire as Parameters<typeof finishPDelta3D>[1]));
+  for (const runner of [mainThreadPDelta, worker]) {
+    const control = await run([1], runner);
+    if (typeof control === 'string') throw new Error(control);
+    expect(control.perCombo.get(1)?.displacements.some(row => row.uz !== 0)).toBe(true);
+    const roundoff = await run(residual, runner);
+    expect.soft(typeof roundoff === 'string' ? roundoff : roundoff.perCombo.get(1)?.displacements)
+      .toStrictEqual(control.perCombo.get(1)?.displacements);
+    const refused = await run(cancelledWeights, runner);
+    expect.soft(typeof refused === 'string' ? refused : refused.perCombo.get(1)?.displacements)
+      .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
+  }
+}
+
+it('#2292 direct analysis refuses complete case cancellation', async () => {
+  await checkDirectAnalysisCancellation([2 ** 54, 1, -(2 ** 54)], [1, -1]);
+});
+
+const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+exactFactorTest('known wrong result: #2292 direct analysis distinguishes exact cancellation from a unit residual', async () => {
+  await checkDirectAnalysisCancellation(factorsWithUnitResidual, factorsWithExactCancellation);
 });
 
 it('#2292 direct analysis scales a load once by its net case factor', async () => {

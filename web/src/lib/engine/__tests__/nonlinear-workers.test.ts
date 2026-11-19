@@ -1,3 +1,4 @@
+import { factorsWithExactCancellation, factorsWithUnitResidual } from './combination-factor-fixture';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import * as native from '../../wasm/dedaliano_engine.js';
 import { initSolver } from '../wasm-solver';
@@ -470,7 +471,7 @@ it('#2292 nonlinear named combinations refuse complete case cancellation', async
   }
 });
 
-it('#2292 named 3D solves scale a load once by its net case factor', async () => {
+async function checkNamed3DResiduals(weightsByResidual: [number, number[]][], cancelledWeights?: number[]) {
   const base = modelStore.addNode(0, 0, 0), tip = modelStore.addNode(0, 0, 4);
   modelStore.addElement(base, tip, 'frame');
   modelStore.addSupport(base, 'fixed3d');
@@ -491,19 +492,33 @@ it('#2292 named 3D solves scale a load once by its net case factor', async () =>
     ['superpose', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'superpose' as const } }],
     ['solveEach', { ...nonlinear, analysis: { ...linear.analysis, combinationMethod: 'solveEach' as const } }],
   ] as const;
-  const big = 2 ** 54;
   for (const [method, model, combinationMethod] of models) {
     for (const solve of [solveCombinations3D, solveCombinations3DParallel]) {
       const run = async (weights: number[]) => {
         const result = await solve(model, cases, [{ id: 1, name: 'Scaled load', method: combinationMethod, factors: weights.map(factor => ({ caseId, factor })) }]);
         return !result || typeof result === 'string' ? result : result.perCombo.get(1)?.displacements;
       };
-      for (const factor of [-1.5, 1.5, -1, 1]) {
+      for (const [factor, weights] of weightsByResidual) {
         const control = await run([factor]);
         if (!control || typeof control === 'string') throw new Error(String(control));
         expect(control.find(row => row.nodeId === tip)?.uz).not.toBe(0);
-        expect.soft(await run([big, factor, -big]), method + ' ' + solve.name + ' ' + factor).toStrictEqual(control);
+        expect.soft(await run(weights), method + ' ' + solve.name + ' ' + factor).toStrictEqual(control);
+      }
+      if (cancelledWeights) {
+        expect.soft(await run(cancelledWeights), method + ' ' + solve.name)
+          .toEqual(expect.stringMatching(/Repeated load case factors cancel to zero in this combination/));
       }
     }
   }
+}
+
+it('#2292 named 3D solves scale a load once by its net case factor', async () => {
+  const big = 2 ** 54;
+  await checkNamed3DResiduals([-1.5, 1.5, -1, 1].map(factor => [factor, [big, factor, -big]]));
+});
+
+const exactFactorTest = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+
+exactFactorTest('known wrong result: #2292 named 3D methods distinguish exact cancellation from a unit residual', async () => {
+  await checkNamed3DResiduals([[1, factorsWithUnitResidual]], factorsWithExactCancellation);
 });
