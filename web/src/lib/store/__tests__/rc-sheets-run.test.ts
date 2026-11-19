@@ -15,6 +15,7 @@ import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
 import { changeSheetCode, clearSheets, designSheets, refreshSheetEdits, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
 import { setFootingSetup, setFootingSizing, setFoundationSystem } from '../rc-sheets-footings';
+import { patchDesignData } from '../design-data';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
 
@@ -106,6 +107,22 @@ describe('designing the sheets on asking', () => {
     expect(Math.abs(corner.ex) + Math.abs(corner.ey)).toBeGreaterThan(0);
     setFootingSizing('full');
     expect(sheetsStale()).toBe(false);
+  });
+
+  it('a foundation layout adopted, a founding level or a presumed soil pressure is the sheets\' own edit: the rows follow it at once', async () => {
+    solvedFrame();
+    await designSheets();
+    expect(sheetsRun.rows!.footing).toHaveLength(0);
+    setFoundationSystem('footings');
+    expect(sheetsStale()).toBe(false);
+    refreshSheetEdits();
+    const first = sheetsRun.rows!.footing;
+    expect(first.length).toBeGreaterThan(0);
+    patchDesignData({ presumedBearingKPa: 300 });
+    expect(sheetsStale()).toBe(false);
+    refreshSheetEdits();
+    const firm = sheetsRun.rows!.footing;
+    expect(firm[0]!.B * firm[0]!.L).toBeLessThan(first[0]!.B * first[0]!.L);
   });
 
   it('out of date when the deflection settings or the alternatives options change', async () => {

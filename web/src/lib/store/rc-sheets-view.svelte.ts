@@ -25,7 +25,7 @@ interface Stamp {
   results: unknown; perCombo: unknown; groups: unknown;
   /** The design data but the bars adopted in the sheets and how their schedule is ordered. */
   design: string;
-  /** What the sheets set row by row (bars, bent lines, the footings' position, sizing and property lines): the rows follow it at once. */
+  /** What the sheets set row by row, and what only the footings read (their layout, position, sizing, property lines, founding level and presumed soil): the rows follow it at once. */
   adopted: string;
   locale: string;
   foundation: string;
@@ -38,14 +38,14 @@ const setProgress = (p: SheetProgress | null) => { sheetsProgress.now = p; };
 
 function stampNow(): Stamp {
   void modelStore.designData;
-  const { adopted, bentLines, footingSetup, footingSizing, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
+  const { adopted, bentLines, footingSetup, footingSizing, foundationSystem, edited: _edited, adoptedCode: _adoptedCode, adoptedSeismic: _adoptedSeismic, adoptedLogic: _adoptedLogic, adoptedBasis: _adoptedBasis, schedule: _schedule, code: _code, ...sheets } = rcSheetsData();
   // The options as the design reads them: an option stated at its default is no change.
-  const { rcSheets: _, designOptions, propertyLines, ...own } = designData();
+  const { rcSheets: _, designOptions, propertyLines, foundingElevation, presumedBearingKPa, ...own } = designData();
   const rest = { ...own, designOptions: { ...optionsView(designOptions), criteria: criteriaKey(designOptions?.criteria), deflection: designOptions?.deflection ?? null, alternatives: designOptions?.alternatives ?? null } };
   return {
     // The result shown is a view of these, not an input: the combinations', or with none the one set designed.
     results: resultsStore.perCombo3D.size ? resultsStore.perCase3D : activeResultSet3D(), perCombo: resultsStore.perCombo3D, groups: modelStore.model.groups,
-    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines }), locale: i18n.locale, foundation: foundationStamp(),
+    design: JSON.stringify({ rest, sheets, code: sheetCode() }), adopted: JSON.stringify({ adopted: adopted ?? null, bentLines, footingSetup, footingSizing, propertyLines, foundationSystem, foundingElevation, presumedBearingKPa }), locale: i18n.locale, foundation: foundationStamp(),
   };
 }
 

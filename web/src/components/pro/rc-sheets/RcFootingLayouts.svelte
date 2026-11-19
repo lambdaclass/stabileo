@@ -4,10 +4,26 @@
   import { setFoundationSystem } from '../../../lib/store/rc-sheets-footings';
   import type { FoundationLayout } from '../../../lib/rc-sheets/footing-layouts';
   import type { FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { modelStore } from '../../../lib/store';
+  import { designData, patchDesignData } from '../../../lib/store/design-data';
+  import { findProfile } from '../../../lib/model/geotechnical';
+  import { PRESUMED_BEARING_RANGE } from '../../../lib/model/design-data';
 
   let { layouts, adopted, preview = $bindable() }: { layouts: readonly FoundationLayout[]; adopted: FoundationSystem | null; preview: FoundationSystem } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
   const pct = (v: number | null) => (v === null ? '—' : `${fmt(v * 100, 0)} %`);
+  const profile = $derived.by(() => {
+    const geo = modelStore.model.geotechnical;
+    const p = findProfile(geo, geo?.defaultProfileId ?? null);
+    return p && p.bearing.kind === 'allowablePressure' && p.bearing.allowableBearingKPa > 0 ? p : null;
+  });
+  const qadm = $derived.by(() => { void modelStore.designData; return profile && profile.bearing.kind === 'allowablePressure' ? profile.bearing.allowableBearingKPa : designData().presumedBearingKPa; });
+  function setQadm(e: Event) {
+    const el = e.currentTarget as HTMLInputElement, v = Number(el.value);
+    if (!Number.isFinite(v) || v < PRESUMED_BEARING_RANGE.min || v > PRESUMED_BEARING_RANGE.max) { el.value = String(qadm); return; }
+    if (profile && profile.bearing.kind === 'allowablePressure') modelStore.updateSoilProfile(profile.id, { bearing: { ...profile.bearing, allowableBearingKPa: v } });
+    else patchDesignData({ presumedBearingKPa: v });
+  }
 </script>
 
 <div class="rfl" data-testid="rc-footing-layouts">
@@ -20,6 +36,12 @@
       <span class="rfl-state" data-testid="rc-foundation-none">{t('rcSheets.foundation.none')}</span>
     {/if}
   </div>
+  <label class="rfl-soil">
+    <span>{t('rcSheets.foundation.qadm')}</span>
+    <input type="number" min={PRESUMED_BEARING_RANGE.min} max={PRESUMED_BEARING_RANGE.max} step="10" value={qadm} onchange={setQadm} data-testid="rc-foundation-qadm" />
+    <span>kPa</span>
+    <span class="hint">{profile ? `${t('rcSheets.foundation.qadmProfile')} «${profile.name}»` : t('rcSheets.foundation.qadmPresumed')}</span>
+  </label>
   <table>
     <thead><tr><th></th><th>{t('rcSheets.foundation.label')}</th><th class="n">{t('rcSheets.foundation.share')}</th><th class="n">m³</th><th class="n">kg</th><th>{t('rcSheets.foundation.parts')}</th><th class="n">{t('rcSheets.foundation.failing')}</th><th></th></tr></thead>
     <tbody>
@@ -54,4 +76,6 @@
   .bad { color: var(--st-danger); font-weight: 600; }
   .hint { margin: 0; color: var(--st-text-3); }
   .rcs-btn { font-size: 0.7rem; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
+  .rfl-soil { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; font-size: 0.78rem; }
+  .rfl-soil input { width: 6em; }
 </style>
