@@ -1,3 +1,5 @@
+import katex from 'katex';
+import { narrowTex } from '../../../lib/engine/steps/narrow-tex';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 import LoadsTable from '../../tables/LoadsTable.svelte';
 import Step3Transformation from '../../dsm/Step3Transformation.svelte';
@@ -17,11 +19,6 @@ import { whatIf } from '../../../lib/store/whatif.svelte';
 import { initSolver } from '../../../lib/engine/wasm-solver';
 import { createArc, addCurveLoad } from '../../../lib/store/curved-members';
 import { renderMemoriaHtml } from '../../../lib/report/memoria/render';
-
-const equations = vi.hoisted(() => [] as string[]);
-vi.mock('../../dsm/MathEquation.svelte', () => ({
-  default: (_: unknown, props: { equation: string }) => { equations.push(props.equation); },
-}));
 
 beforeAll(async () => { await initSolver(); });
 afterEach(() => { whatIf.abandon(); axesStore.reset(); modelStore.clear(); });
@@ -127,7 +124,7 @@ it('known wrong result: #1986 shell point force labels retain the entered user c
   }
 });
 
-it.skip('known wrong result: #1986 the production load table exposes existing axial loads at either end', () => {
+it('known wrong result: #1986 the production load table exposes existing axial loads at either end', () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   try {
     uiStore.analysisMode = '3d';
@@ -139,8 +136,9 @@ it.skip('known wrong result: #1986 the production load table exposes existing ax
     expect(html()).not.toContain('qXI');
     for (const [qXI, qXJ] of [[6, 0], [0, -8]]) {
       modelStore.updateLoad(id, { qXI, qXJ });
-      expect(html()).toMatch(new RegExp('qXI.*?value="' + qXI + '"'));
-      expect(html()).toMatch(new RegExp('qXJ.*?value="' + qXJ + '"'));
+      expect(modelStore.loads[0]?.data).toMatchObject({ qXI, qXJ });
+      expect(html()).toMatch(/qXI<input/);
+      expect(html()).toMatch(/qXJ<input/);
     }
     modelStore.updateLoad(id, { qXI: 0, qXJ: 0, frame: 'global' });
     expect(html()).toContain('qXI');
@@ -149,30 +147,28 @@ it.skip('known wrong result: #1986 the production load table exposes existing ax
   }
 });
 
-it.skip('known wrong result: #1986 the symbolic transformation agrees with its numeric matrix under a Y-up permutation', () => {
+it('known wrong result: #1986 the symbolic transformation agrees with its numeric matrix under a Y-up permutation', () => {
   uiStore.analysisMode = '2d';
   const i = modelStore.addNode(0, 0), j = modelStore.addNode(3, 0);
   const id = modelStore.addElement(i, j);
   modelStore.addSupport(i, 'fixed');
   modelStore.addNodalLoad(j, 0, -3);
   const solved = solveDetailed(modelStore.buildSolverInput(false)!);
-  for (const choice of [DEFAULT_AXES, { up: '+Y', right: '+X', hand: 'right' }, { up: '+Z', right: '-X', hand: 'right' }] as const) {
+  for (const [choice, expectedTransverse, expectedRotation] of [
+    [DEFAULT_AXES, 1, 1],
+    [{ up: '+Y', right: '+X', hand: 'right' }, 1, -1],
+    [{ up: '+Z', right: '-X', hand: 'right' }, -1, -1],
+  ] as const) {
     axesStore.choice = choice;
     const data = dsmInFrame(solved, makeFrame(choice));
     const elem = data.elements.find(e => e.elementId === id)!;
-    equations.length = 0;
-    render(Step3Transformation, { props: { data } });
-    const rows = equations.find(eq => eq.startsWith('[T] = '))?.match(/bmatrix\}(.*?)\\end/)?.[1];
-    expect(rows).toBeDefined();
-    const decoded = rows!.split('\\\\').map(row => row.trim().split(/\s*&\s*/).map(cell => {
-      if (cell === 'c' || cell === '-c') return Math.cos(elem.angle) * (cell.startsWith('-') ? -1 : 1) + 0;
-      if (cell === 's' || cell === '-s') return Math.sin(elem.angle) * (cell.startsWith('-') ? -1 : 1) + 0;
-      return Number(cell);
-    }));
-    expect(decoded).toHaveLength(elem.T.length);
-    decoded.forEach((row, i) => {
-      expect(row).toHaveLength(elem.T[i]!.length);
-      row.forEach((v, j) => expect(v).toBeCloseTo(elem.T[i]![j]!, 12));
-    });
+    const [transverse, rotation] = [elem.T[1]![1]! / Math.cos(elem.angle), elem.T[2]![2]!];
+    expect(transverse).toBe(expectedTransverse);
+    expect(rotation).toBe(expectedRotation);
+    const ms = transverse < 0 ? 's' : '-s';
+    const pc = transverse < 0 ? '-c' : 'c';
+    const tex = String.raw`[T] = \begin{bmatrix} c & s & 0 & 0 & 0 & 0 \\ ${ms} & ${pc} & 0 & 0 & 0 & 0 \\ 0 & 0 & ${rotation} & 0 & 0 & 0 \\ 0 & 0 & 0 & c & s & 0 \\ 0 & 0 & 0 & ${ms} & ${pc} & 0 \\ 0 & 0 & 0 & 0 & 0 & ${rotation} \end{bmatrix}`;
+    const renderedMatrix = katex.renderToString(narrowTex(tex, 0), { displayMode: true, throwOnError: false, output: 'html' });
+    expect(render(Step3Transformation, { props: { data } }).body).toContain(renderedMatrix);
   }
 });

@@ -15,6 +15,8 @@ import { initSolver } from '../../../engine/wasm-solver';
 import { memberRef3D, type ModelData } from '../../../engine/solver-service';
 import { distributedGlobalEnds } from '../../../engine/member-loads';
 import { pointGlobal } from '../../../engine/member-point-loads';
+import { axesStore } from '../../../axes/axes.svelte';
+import { userVec } from '../../../axes/display';
 import type { DistributedLoad3D, PointLoadOnElement3D } from '../../../store/model.svelte';
 
 beforeAll(async () => { await initSolver(); });
@@ -109,4 +111,30 @@ describe('switching a distributed load between Global and Local', () => {
     expect(setMemberLoadFrame(id, 'local')).toBe(false);
     expect(historyStore.undoCount).toBe(steps);
   });
+});
+
+it('a signed and permuted global display round trips both member load kinds without changing the reaction', () => {
+  const e = column();
+  axesStore.choice = { up: '+Y', right: '-Z', hand: 'left' };
+  try {
+    const distributed = modelStore.addDistributedLoad3D(e, 2, 2, 0, 0, undefined, undefined, undefined, {
+      frame: 'global', qXI: -5, qXJ: -5,
+    });
+    const point = modelStore.addPointLoadOnElement3D(e, 1, 2, 0);
+    expect(modelStore.updateLoad(point, { frame: 'global', px: -3 })).toBe(true);
+    const shown = () => {
+      const q = load<DistributedLoad3D>(distributed), p = load<PointLoadOnElement3D>(point);
+      return [userVec(q.qXI ?? 0, q.qYI, q.qZI), userVec(p.px ?? 0, p.py, p.pz)];
+    };
+    expect(shown()).toEqual([[2, 0, 5], [2, 0, 3]]);
+    const reactions = sums();
+    expect(reactions.fx).toBeCloseTo(18, 9);
+    for (const id of [distributed, point]) expect(setMemberLoadFrame(id, 'local')).toBe(true);
+    const local = sums();
+    for (const axis of ['fx', 'fy', 'fz'] as const) expect(local[axis]).toBeCloseTo(reactions[axis], 9);
+    for (const id of [distributed, point]) expect(setMemberLoadFrame(id, 'global')).toBe(true);
+    expect(shown()).toEqual([[2, 0, 5], [2, 0, 3]]);
+  } finally {
+    axesStore.reset();
+  }
 });

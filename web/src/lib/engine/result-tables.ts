@@ -28,9 +28,8 @@ import { csvCell } from './result-query';
 import type { ElementDesignDemands, GoverningDemand } from './station-design-forces';
 import { stationTs, type StationSpec } from './station-forces';
 import { evaluateDiagramAt } from './diagrams-3d';
-import { axesStore } from '../axes/axes.svelte';
 import { resultComponents } from '../axes/result-components';
-import { makeFrame, type AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, makeFrame, type AxesChoice } from '../axes/frame';
 
 export type TableKind = 'displacements' | 'reactions' | 'forces';
 
@@ -69,7 +68,6 @@ export interface TableOptions {
    * (`station-forces.ts#buildCriticalStations`). 2 (or absent): the ends.
    */
   stations?: StationSpec;
-  /** The axes global components are written in: these, rather than the user's current ones. */
   axes?: AxesChoice;
 }
 
@@ -104,7 +102,7 @@ export interface Row { entity: number; end?: 'i' | 'j'; x?: number; values: numb
 function eachRow(kind: TableKind, r: AnalysisResults3D, opts: TableOptions, visit: (entity: number, end: 'i' | 'j' | undefined, x: number | undefined, values: number[]) => void): void {
   const keep = (id: number) => !opts.entities || opts.entities.has(id);
   const fin = (v: number[]) => (opts.resultant ? withResultants(kind, v) : v);
-  const { vec, rot } = resultComponents(opts.axes ? makeFrame(opts.axes) : axesStore.frame, r);
+  const { vec, rot } = resultComponents(makeFrame(opts.axes ?? DEFAULT_AXES), r);
   if (kind === 'displacements') {
     for (const d of r.displacements) if (keep(d.nodeId)) visit(d.nodeId, undefined, undefined, fin([...vec(d.ux, d.uy, d.uz), ...rot(d.rx, d.ry, d.rz)]));
     return;

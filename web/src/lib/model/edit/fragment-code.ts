@@ -8,6 +8,8 @@
  */
 import type { ModelSnapshot } from '../../store/history.svelte';
 import type { Element, Load, LoadCase, Material, ModelGroup, Plate, Quad, Section, Support } from '../../store/model.svelte';
+import { snapshotHasSpatialRecords } from '../code/frame';
+import { globalAxes } from '../../features';
 import { codeToModel, modelToCode } from '../code/format';
 import type { Fragment } from './fragment';
 import type { JSONModel } from '../../templates/load-fixture';
@@ -17,6 +19,7 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 export function fragmentToSnapshot(frag: Fragment): Partial<ModelSnapshot> {
   return {
+    ...(globalAxes() && frag.analysisMode ? { analysisMode: frag.analysisMode } : {}),
     nodes: frag.nodes.map((n) => [n.id, { id: n.id, x: n.x, y: n.y, z: n.z }]),
     materials: frag.materials.map((m) => [m.id, clone(m)]) as ModelSnapshot['materials'],
     sections: frag.sections.map((s) => [s.id, clone(s)]) as ModelSnapshot['sections'],
@@ -33,7 +36,9 @@ export function fragmentToSnapshot(frag: Fragment): Partial<ModelSnapshot> {
 /** Everything a snapshot holds that a fragment can carry, detached from its ids. */
 export function fragmentFromSnapshot(s: Partial<ModelSnapshot>): Fragment {
   const vals = <T>(list: Array<[number, unknown]> | undefined) => (list ?? []).map(([, v]) => clone(v) as T);
+  const analysisMode = s.analysisMode ?? (snapshotHasSpatialRecords(s) ? '3d' : undefined);
   return {
+    ...(analysisMode ? { analysisMode } : {}),
     nodes: (s.nodes ?? []).map(([, n]) => ({ id: n.id, x: n.x, y: n.y, z: n.z ?? 0 })),
     elements: vals<Element>(s.elements as Array<[number, unknown]>),
     quads: vals<Quad>(s.quads as Array<[number, unknown]>),

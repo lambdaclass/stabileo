@@ -195,7 +195,6 @@
 </script>
 
 {#snippet frameToggle(id: number, frame: 'global' | 'local' | 'projected')}
-  <!-- The axes the values are along: switching re-reads the same numbers in the other axes. -->
   <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'global'} onclick={() => setLoadFrame(id, 'global')} title={relabelAxes(t('float.loadFrameGlobalTip'))}>{t('float.frameGlobal')}</button>
   <button class="ft-opt-btn ft-coord-btn" class:active={frame === 'local'} onclick={() => setLoadFrame(id, 'local')} title={t('float.loadFrameLocalTip')}>{t('float.frameLocal')}</button>
   {#if frame === 'projected'}<button class="ft-opt-btn ft-coord-btn active" disabled>{t('loads.frame.projected')}</button>{/if}

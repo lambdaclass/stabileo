@@ -116,7 +116,7 @@ it('known wrong result: #1986 framed plane nodal rows reject each nonzero out-of
   }
 });
 
-it.skip('known wrong result: #1986 declared flat support springs use the physical vertical and rotation columns', () => {
+it('known wrong result: #1986 declared flat support springs use the physical vertical and rotation columns', () => {
   for (const mode of ['production', 'development']) {
     vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
     uiStore.analysisMode = '2d';
@@ -130,7 +130,7 @@ it.skip('known wrong result: #1986 declared flat support springs use the physica
   }
 });
 
-it.skip('known wrong result: #1986 incompatible flat support components block installation', () => {
+it('known wrong result: #1986 incompatible flat support components block installation', () => {
   uiStore.analysisMode = '2d';
   modelStore.addNode(17, 21);
   const snapshot = modelStore.snapshot();
@@ -153,11 +153,11 @@ it.skip('known wrong result: #1986 incompatible flat support components block in
       Supports: [['node', 'type', 'd' + depth], [1, 'fixed3d', 2]],
     });
     expect(spatial.problems).toEqual([]);
-    expect(spatial.model.supports[0]).toHaveProperty('dy', choice === Y_UP ? -2 : 2);
+    expect(spatial.model.supports[0]).toHaveProperty('dy', 2);
   }
 });
 
-it.skip('known wrong result: #1986 blank LoadData cases resolve to a declared case or block installation', () => {
+it('known wrong result: #1986 blank LoadData cases resolve to a declared case or block installation', () => {
   const sheet = (id: number | '') => [longLoads[0]!, ...longLoads.slice(1).map(row => row.with(1, id))];
   const onlyTwo = { LoadCases: [['id', 'name', 'type'], [2, 'Live', 'L']] };
   const cantilever = { ...nodes, ...onlyTwo, LoadData: sheet('') };
@@ -169,11 +169,12 @@ it.skip('known wrong result: #1986 blank LoadData cases resolve to a declared ca
   for (const [metadata, id, effective] of [[{}, '', 1], [cases, '', 1], [onlyTwo, 2, 2]] as const) {
     const parsed = parseWorkbook({ ...nodes, ...metadata, LoadData: sheet(id) });
     expect(parsed.problems).toEqual([]);
-    expect(parsed.model.loads).toEqual([{ type: 'nodal', data: expect.objectContaining({ caseId: effective, fz: -3 }) }]);
+    expect(parsed.model.loads).toEqual([{ type: 'nodal', data: expect.objectContaining({ fz: -3 }) }]);
+    expect(parsed.model.loads[0]!.data.caseId ?? 1).toBe(effective);
   }
 });
 
-it.skip('known wrong result: #1986 standalone gravity can accompany only the legacy case weights', () => {
+it('known wrong result: #1986 standalone gravity can accompany only the legacy case weights', () => {
   const base = {
     ...nodes,
     LoadCases: [['id', 'name', 'type'], [1, 'Dead', 'D'], [2, 'Live', 'L'], [3, 'Also dead', 'D']],

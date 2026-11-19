@@ -5,7 +5,7 @@
   import { dsmStepsStore } from '../../lib/store';
   import MatrixDisplay from './MatrixDisplay.svelte';
   import { axesStore } from '../../lib/axes/axes.svelte';
-  import { planeSigns } from '../../lib/axes/frame';
+  import { dsmPlaneSigns } from '../../lib/axes/dsm-frame';
 
   let { data, editable = false }: { data: DSMStepData; editable?: boolean } = $props();
 
@@ -22,11 +22,11 @@
 
   const cosVal = $derived(elem ? Math.cos(elem.angle).toFixed(4) : '0');
   const sinVal = $derived(elem ? Math.sin(elem.angle).toFixed(4) : '0');
-  // With one of the user's plane axes reversed, the member's local y and θ (turned from +x′) are the mirror of the global ones.
-  const mirrored = $derived(planeSigns(axesStore.frame).sr < 0);
+  const signs = $derived(dsmPlaneSigns(axesStore.frame));
+  const mirrored = $derived(signs.transverse < 0);
   const ms = $derived(mirrored ? 's' : '-s');
   const pc = $derived(mirrored ? '-c' : 'c');
-  const one = $derived(mirrored ? '-1' : '1');
+  const one = $derived(String(signs.sr));
 </script>
 
 <div class="step">

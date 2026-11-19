@@ -4,11 +4,16 @@ import { AXIS_NAMES, planeSigns, relabelComponentsWith, toUser, userAxisAlong, t
 const LABELS_3D = ['u', 'v', 'w', 'θx', 'θy', 'θz'];
 const label3D = (nodeId: number, k: number) => `${LABELS_3D[k]}${nodeId}`;
 
+export function dsmPlaneSigns(f: AxesFrame) {
+  const p = planeSigns(f);
+  return { ...p, transverse: p.sx * p.sz, sr: f.det * userAxisAlong(f, 1).sign };
+}
+
 export function dsmInFrame(d: DSMStepData, f: AxesFrame): DSMStepData {
   if (f.identity) return d;
   const per = d.dofNumbering.dofsPerNode;
   const space = per > 3;
-  const p = planeSigns(f);
+  const p = dsmPlaneSigns(f);
   const inclined = new Set([...d.nodeFrames.map((x) => x.nodeId), ...(d.nodeFrames3D ?? []).map((x) => x.nodeId)]);
   const n = d.dofNumbering.nTotal;
   const sign: number[] = new Array(n).fill(1);
@@ -24,7 +29,7 @@ export function dsmInFrame(d: DSMStepData, f: AxesFrame): DSMStepData {
       if (labels[g] === label3D(dof.nodeId, dof.localDof)) labels[g] = label3D(dof.nodeId, user);
       return { ...dof, localDof: user, label: labels[g]! };
     }
-    const twoDSigns = inclined.has(dof.nodeId) ? [1, p.sx * p.sz, p.sr] : [p.sx, p.sz, p.sr];
+    const twoDSigns = inclined.has(dof.nodeId) ? [1, p.transverse, p.sr] : [p.sx, p.sz, p.sr];
     sign[g] = twoDSigns[dof.localDof]!;
     return dof;
   });

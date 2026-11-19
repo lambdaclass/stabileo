@@ -1,6 +1,7 @@
 import { globalAxes } from '../features';
 import { readLoadData } from './load-data';
 import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
+import { selfWeightFor } from '../engine/self-weight';
 const modelVector = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'vector', values });
 const modelRotation = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toModel').triple({ kind: 'pseudovector', values });
 import { quantityTransform } from '../axes/quantity-transform';
@@ -119,6 +120,7 @@ export interface RowProblem {
   row: number;
   column?: string;
   message: string;
+  blocking?: true;
 }
 
 export interface ParseResult {
@@ -388,21 +390,37 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
   return preset ? { kind: 'preset', presetId, params, ...withW } : { kind: 'custom', factors, ...withW };
 }
 
-function supportToModel(f: AxesFrame, s: Record<string, number>, flat: boolean): void {
-  if (flat) {
-    const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2), normal = userAxisAlong(f, 1);
-    const src = { ...s };
-    for (const k of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz']) delete s[k];
-    for (const [target, source] of [['kx', `k${h.name.toLowerCase()}`], ['ky', `k${v.name.toLowerCase()}`], ['kz', `kr${normal.name.toLowerCase()}`]]) {
-      if (src[source!] !== undefined) s[target!] = src[source!]!;
+const SUPPORT_COMPONENTS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz'] as const;
+
+function planeSupportToModel(f: AxesFrame, s: Record<string, number>, row: number, problems: RowProblem[]): boolean {
+  const h = userAxisAlong(f, 0).name.toLowerCase();
+  const v = userAxisAlong(f, 2).name.toLowerCase();
+  const normal = userAxisAlong(f, 1).name.toLowerCase();
+  const p = quantityTransform(f, 'toModel');
+  const fields = [
+    ['kx', 'k' + h, 1], ['ky', 'k' + v, 1], ['kz', 'kr' + normal, 1],
+    ['dx', 'd' + h, p.plane({ kind: 'vector', axis: 'x', value: 1 })],
+    ['dz', 'd' + v, p.plane({ kind: 'vector', axis: 'z', value: 1 })],
+    ['dry', 'dr' + normal, p.plane({ kind: 'pseudovector', axis: 'rot', value: 1 })],
+  ] as const;
+  const present = new Set<string>(fields.map(([, source]) => source));
+  const outside = SUPPORT_COMPONENTS.filter(key => !present.has(key) && (s[key] ?? 0) !== 0);
+  if (outside.length) {
+    for (const column of outside) {
+      problems.push({ sheet: 'Supports', row, column, message: t('xls.err.supportOutOfPlane'), blocking: true });
     }
-    if (src[`d${h.name.toLowerCase()}`] !== undefined) s.dx = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: src[`d${h.name.toLowerCase()}`]! }) + 0;
-    if (src[`d${v.name.toLowerCase()}`] !== undefined) s.dz = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: src[`d${v.name.toLowerCase()}`]! }) + 0;
-    const rotation = src[`dr${normal.name.toLowerCase()}`];
-    if (rotation !== undefined) s.dry = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: rotation }) + 0;
-    if (s.angle !== undefined) s.angle = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: s.angle }) + 0;
-    return;
+    return false;
   }
+  const src = { ...s };
+  for (const key of SUPPORT_COMPONENTS) delete s[key];
+  for (const [target, source, sign] of fields) {
+    if (src[source] !== undefined) s[target] = sign * src[source] + 0;
+  }
+  if (s.angle !== undefined) s.angle = p.plane({ kind: 'pseudovector', axis: 'rot', value: s.angle }) + 0;
+  return true;
+}
+
+function spatialSupportToModel(f: AxesFrame, s: Record<string, number>): void {
   const permute = (keys: readonly [string, string, string]) => {
     const src = keys.map((k) => s[k]);
     if (src.every((x) => x === undefined)) return;
@@ -723,11 +741,12 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
      * in `type` would have reached the solver as a silent free node.
      */
     const extra: Record<string, number> = {};
-    for (const k of ['angle', 'kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz']) {
+    for (const k of ['angle', ...SUPPORT_COMPONENTS]) {
       const v = num(row.cells[k.toLowerCase()]);
       if (v !== null) extra[k] = v;
     }
-    if (!frame.identity) supportToModel(frame, extra, flatFromZ);
+    if (declaredAxes && flatFromZ && !planeSupportToModel(frame, extra, row.n, problems)) continue;
+    if (!flatFromZ && !frame.identity) spatialSupportToModel(frame, extra);
     const modelType = frame.identity ? canonical : supportTypeToModel(frame, canonical);
     model.supports.push({ id: supportId++, nodeId, type: modelType, ...extra });
   }
@@ -943,7 +962,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   if (weightRows.length) {
     const selfWeight: NonNullable<JSONModel['analysis']>['selfWeight'] = [];
     const memberIds = new Set(model.elements.map(e => e.id));
-    let standaloneSelfWeight: 'gravity' | undefined;
+    let standaloneGravityRow: number | undefined;
     for (const row of readSheet(weightRows, 'SelfWeight', problems)) {
       const invalid = (field: string) => problems.push({ sheet: 'SelfWeight', row: row.n, column: field, message: tp('xls.err.selfWeightRule', { field }) });
       const source = str(row.cells.source), scope = str(row.cells.scope);
@@ -962,14 +981,23 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       const userIndex = 'XYZ'.indexOf(dir);
       const mapped = quantityTransform(frame, 'toModel').component(userIndex, factor, 'vector');
       if (source === 'single') {
-        if (scope !== 'all' || mapped.name !== GRAVITY_SELF_WEIGHT.direction || mapped.value !== GRAVITY_SELF_WEIGHT.factor || standaloneSelfWeight !== undefined) { invalid('source'); continue; }
-        standaloneSelfWeight = 'gravity';
+        if (scope !== 'all' || mapped.name !== GRAVITY_SELF_WEIGHT.direction || mapped.value !== GRAVITY_SELF_WEIGHT.factor || standaloneGravityRow !== undefined) { invalid('source'); continue; }
+        standaloneGravityRow = row.n;
         continue;
       }
       selfWeight.push({ caseId, direction: mapped.name, factor: mapped.value, ...(scope === 'members' ? { elements } : {}) });
     }
-    model.analysis = { ...model.analysis, selfWeight, ...(standaloneSelfWeight ? { standaloneSelfWeight } : {}) };
-    counts.SelfWeight = selfWeight.length + (standaloneSelfWeight ? 1 : 0);
+    if (standaloneGravityRow !== undefined && selfWeight.length > 0) {
+      const cases = model.loadCases.length ? model.loadCases : defaultLoadCases();
+      const expected = new Set(cases.flatMap(c => selfWeightFor({}, c, true)).map(rule => rule.caseId));
+      const valid = selfWeight.every(rule => rule.direction === GRAVITY_SELF_WEIGHT.direction
+        && rule.factor === GRAVITY_SELF_WEIGHT.factor && rule.elements === undefined && expected.delete(rule.caseId));
+      if (!valid || expected.size > 0) {
+        problems.push({ sheet: 'SelfWeight', row: standaloneGravityRow, column: 'source', message: t('xls.err.mixedStandaloneWeight') });
+      }
+    }
+    model.analysis = { ...model.analysis, selfWeight, ...(standaloneGravityRow !== undefined ? { standaloneSelfWeight: 'gravity' as const } : {}) };
+    counts.SelfWeight = selfWeight.length + (standaloneGravityRow !== undefined ? 1 : 0);
   }
 
 

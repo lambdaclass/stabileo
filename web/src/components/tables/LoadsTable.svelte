@@ -169,7 +169,7 @@
             {/each}
             <!-- qX loads the member in every frame (along X, or along the member): never hidden while
                  it is not zero. The axes the components are read on, unless the member's own. -->
-            {#if __PUBLIC_FEATURES__.globalAxes && (d.frame === 'global' || d.frame === 'projected' || d.qXI || d.qXJ)}
+            {#if d.frame === 'global' || d.qXI || d.qXJ || (__PUBLIC_FEATURES__.globalAxes && d.frame === 'projected')}
               {#each [['qXI', d.qXI ?? 0], ['qXJ', d.qXJ ?? 0]] as const as [f, q] (f)}
                 <span class="load-field">q{qa(0).name}{f[2]}<UnitInput value={qa(0).value(q)} qty="distributedLoad" onchange={(v) => updateLoadField(d.id, f, String(qa(0).value(v)))} unit={false} /><span class="lf-unit">{unitQ('distributedLoad')}</span></span>
               {/each}

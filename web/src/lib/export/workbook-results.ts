@@ -10,7 +10,7 @@
  * Signs are the solver's everywhere, which is also what the screen shows; the Conventions sheet
  * states them.
  */
-import { rowsOf, summaryRows, envelopeRows, beatsExtreme, COLUMNS, type Source, type TableKind } from '../engine/result-tables';
+import { rowsOf, summaryRows, envelopeRows, beatsExtreme, COLUMNS, type Source, type TableKind, type TableOptions } from '../engine/result-tables';
 import { stationTs, type StationSpec } from '../engine/station-forces';
 import { memberStationStresses, type SectionStressModel } from '../engine/member-stresses';
 import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engine/types-3d';
@@ -21,7 +21,7 @@ import { materialize, safeText, type StreamedSheet, type WorkbookPart, type Work
 import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
 import type { ShellEnvelopeKey, ShellEnvelopeSource } from '../engine/types-3d';
-import type { AxesChoice } from '../axes/frame';
+import { DEFAULT_AXES, type AxesChoice } from '../axes/frame';
 import { rotToUser, tensorToUser, vecToUser, workbookFrame } from './workbook-frame';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */
@@ -62,19 +62,19 @@ const head = (kind: TableKind) => COLUMNS[kind].map((c, i) => `${c.key === 'mx' 
 const SOURCE = ['source', 'sourceId', 'sourceName'];
 const src = (s: WorkbookSource) => [s.kind, s.id, safeText(s.name)];
 
-function nodeSheet(name: string, kind: 'displacements' | 'reactions', sources: readonly WorkbookSource[]): StreamedSheet {
+function nodeSheet(name: string, kind: 'displacements' | 'reactions', sources: readonly WorkbookSource[], opts: TableOptions): StreamedSheet {
   return {
     name, header: [...SOURCE, 'node', ...head(kind)],
     count: () => sources.reduce((n, s) => n + s.results[kind].length, 0),
-    *body() { for (const s of sources) for (const r of rowsOf(kind, s.results)) yield [...src(s), r.entity, ...r.values]; },
+    *body() { for (const s of sources) for (const r of rowsOf(kind, s.results, opts)) yield [...src(s), r.entity, ...r.values]; },
   };
 }
 
-function endForcesSheet(sources: readonly WorkbookSource[]): StreamedSheet {
+function endForcesSheet(sources: readonly WorkbookSource[], opts: TableOptions): StreamedSheet {
   return {
     name: 'EndForces', header: [...SOURCE, 'member', 'end', 'x [m]', ...head('forces')],
     count: () => sources.reduce((n, s) => n + 2 * s.results.elementForces.length, 0),
-    *body() { for (const s of sources) for (const r of rowsOf('forces', s.results)) yield [...src(s), r.entity, r.end ?? '', r.x ?? 0, ...r.values]; },
+    *body() { for (const s of sources) for (const r of rowsOf('forces', s.results, opts)) yield [...src(s), r.entity, r.end ?? '', r.x ?? 0, ...r.values]; },
   };
 }
 
@@ -86,14 +86,14 @@ const stationRows = (sources: readonly WorkbookSource[], stations: StationSpec, 
   return per * sources.length;
 };
 
-function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec): StreamedSheet {
+function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec, opts: TableOptions): StreamedSheet {
   return {
     name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...head('forces')],
     count: () => stationRows(sources, stations),
     *body() {
       for (const s of sources) {
         let last = -1, k = 0;
-        for (const r of rowsOf('forces', s.results, { stations })) {
+        for (const r of rowsOf('forces', s.results, { ...opts, stations })) {
           k = r.entity === last ? k + 1 : 1;
           last = r.entity;
           yield [...src(s), r.entity, k, r.x ?? 0, ...r.values];
@@ -277,11 +277,11 @@ function governing(sources: readonly WorkbookSource[]): WorkbookSource[] {
 }
 const asSource = (s: WorkbookSource): Source & { kind: string } => ({ id: s.id, name: s.name, results: s.results, kind: s.kind });
 
-function maximaSheet(input: ResultSheetsInput): WorkbookSheet {
+function maximaSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'component', 'unit', 'extreme', 'value', 'entity', 'end', 'x [m]', 'source', 'sourceId', 'sourceName']];
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
-    summaryRows(kind, sources, kind === 'forces' ? { stations: input.stations } : {}).forEach((r, c) => {
+    summaryRows(kind, sources, { ...opts, stations: input.stations }).forEach((r, c) => {
       for (const [extreme, e] of [['max', r.max], ['min', r.min]] as const) {
         if (!e) continue;
         const s = e.source as Source & { kind: string };
@@ -293,12 +293,12 @@ function maximaSheet(input: ResultSheetsInput): WorkbookSheet {
   return { name: 'Maxima', rows };
 }
 
-function envelopeSheet(input: ResultSheetsInput): WorkbookSheet {
+function envelopeSheet(input: ResultSheetsInput, opts: TableOptions): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['table', 'entity', 'end', 'x [m]', 'component', 'unit', 'max', 'maxSourceId', 'maxSourceName', 'min', 'minSourceId', 'minSourceName']];
   const sources = governing(input.sources).map(asSource);
   for (const kind of ['reactions', 'displacements', 'forces'] as const) {
     // At the same stations as Maxima, so the two sheets read the same members the same way.
-    for (const e of envelopeRows(kind, sources, kind === 'forces' ? { stations: input.stations } : {})) {
+    for (const e of envelopeRows(kind, sources, { ...opts, stations: input.stations })) {
       head(kind).forEach((h, c) => {
         const mx = e.max[c]!, mn = e.min[c]!;
         rows.push([kind, e.entity, e.end ?? '', e.x ?? '', h.replace(/ \[.*$/, ''), UNITS[kind][c]!, mx.value, mx.source.id, safeText(mx.source.name), mn.value, mn.source.id, safeText(mn.source.name)]);
@@ -420,15 +420,16 @@ function deferred(name: string, columns: number, build: () => WorkbookSheet, cou
  */
 export function resultSheetParts(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookPart[] {
   const shells = !!input.shells && hasShells(input);
+  const opts = { axes: workbookFrame(input.axes)?.choice ?? DEFAULT_AXES };
   const all: Array<[string, () => WorkbookPart | null]> = [
-    ['Reactions', () => nodeSheet('Reactions', 'reactions', input.sources)],
-    ['Displacements', () => nodeSheet('Displacements', 'displacements', input.sources)],
-    ['EndForces', () => endForcesSheet(input.sources)],
-    ['Stations', () => stationsSheet(input.sources, input.stations)],
+    ['Reactions', () => nodeSheet('Reactions', 'reactions', input.sources, opts)],
+    ['Displacements', () => nodeSheet('Displacements', 'displacements', input.sources, opts)],
+    ['EndForces', () => endForcesSheet(input.sources, opts)],
+    ['Stations', () => stationsSheet(input.sources, input.stations, opts)],
     ['Deflections', () => deflectionsSheet(input)],
     ['Stresses', () => stressesSheet(input)],
-    ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
-    ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input), () => {
+    ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input, opts), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
+    ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input, opts), () => {
       const sources = governing(input.sources);
       const g = sources[0];
       if (!g) return 0;

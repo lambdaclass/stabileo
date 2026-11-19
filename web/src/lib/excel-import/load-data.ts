@@ -1,3 +1,4 @@
+import { t, tp } from '../i18n';
 import { defaultLoadCases } from '../model/default-loads';
 import { parseDecimal } from '../utils/numeric-input';
 import type { JSONModel } from '../templates/load-fixture';
@@ -36,18 +37,21 @@ export function readLoadData(
     if (index === 0 || row.every(v => v === '' || v === null || v === undefined)) continue;
     const cell = (key: string) => row[headers.indexOf(key)];
     const text = (key: string) => unguardText(String(cell(key) ?? '')).trim();
-    const id = numberCell(cell('load')), caseId = numberCell(cell('case')), type = text('type');
+    const defaultCase = text('case') === '';
+    const id = numberCell(cell('load')), caseId = defaultCase ? 1 : numberCell(cell('case')), type = text('type');
     const spec = Object.hasOwn(specs, type) ? specs[type] : undefined;
     const target = numberCell(cell(spec?.target === 'nodeId' ? 'node' : 'member'));
     const metadata = JSON.stringify(['case', 'type', 'node', 'member', 'shell'].map(cell));
     const key = String(id);
     let group = groups.get(key);
     if (!group) {
-      group = { row: index + 1, metadata, type, data: { id, ...(text('case') === '' ? {} : { caseId }), ...(spec ? { [spec.target]: target } : {}) }, fields: new Set(), invalid: false };
+      group = { row: index + 1, metadata, type, data: { id, ...(defaultCase ? {} : { caseId }), ...(spec ? { [spec.target]: target } : {}) }, fields: new Set(), invalid: false };
       groups.set(key, group);
     }
     const reject = (message: string) => { group!.invalid = true; fail(index + 1, message); };
-    if (!Number.isSafeInteger(id) || id <= 0 || (text('case') !== '' && (!Number.isSafeInteger(caseId) || caseId <= 0 || !cases.has(caseId)))) { reject('Invalid load or case identifier.'); continue; }
+    if (!Number.isSafeInteger(id) || id <= 0) { reject(t('xls.err.loadDataId')); continue; }
+    if (!Number.isSafeInteger(caseId) || caseId <= 0) { reject(t('xls.err.loadDataCaseId')); continue; }
+    if (!cases.has(caseId)) { reject(tp('xls.err.caseMissing', { id: caseId })); continue; }
     if (!spec) { reject(`Unsupported LoadData type: ${type}.`); continue; }
     if (group.metadata !== metadata) { reject('Conflicting metadata for one load.'); continue; }
     if (!Number.isSafeInteger(target) || !(spec.target === 'nodeId' ? nodes : members).has(target)

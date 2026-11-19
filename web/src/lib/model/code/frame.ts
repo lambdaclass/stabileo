@@ -1,4 +1,5 @@
-import { supportIsLocal } from '../support-3d';
+import { is3DSupportType, supportIsLocal } from '../support-3d';
+import type { SupportType } from '../../store/model.svelte';
 import {
   makeFrame,
   type AxesChoice, type AxesFrame, type Vec3,
@@ -96,12 +97,19 @@ function transformConstraint(f: AxesFrame, way: Way, c: Obj): void {
   }
 }
 
+export function snapshotHasSpatialRecords(s: Obj): boolean {
+  return !!(s.plates?.length || s.quads?.length
+    || s.loads?.some((load: Obj) => load.type.endsWith('3d'))
+    || s.supports?.some(([, support]: [number, Obj]) => support.dofRestraints
+      || (typeof support.type === 'string' && (support.type.endsWith('3d') || is3DSupportType(support.type as SupportType)))));
+}
+
 export function transformSnapshot<T extends Obj>(snap: T, choice: AxesChoice, way: Way): T {
   const f = makeFrame(choice);
   if (f.identity) return snap;
   const s = JSON.parse(JSON.stringify(snap)) as Obj;
   const space = s.analysisMode === undefined
-    ? (s.nodes ?? []).some(([, n]: [number, Obj]) => n.z !== undefined)
+    ? snapshotHasSpatialRecords(s) || (s.nodes ?? []).some(([, n]: [number, Obj]) => n.z !== undefined)
     : is3DWorkspace(s.analysisMode);
   const p = plane(f);
   for (const [, n] of (s.nodes ?? []) as Array<[number, Obj]>) {

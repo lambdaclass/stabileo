@@ -9,7 +9,7 @@
   import { dsmGicBlocks } from '../../lib/engine/steps/dsm-kinematics';
   import type { Block } from '../../lib/engine/steps/doc';
   import { axesStore } from '../../lib/axes/axes.svelte';
-  import { planeSigns } from '../../lib/axes/frame';
+  import { dsmPlaneSigns } from '../../lib/axes/dsm-frame';
 
   let { data }: { data: DSMStepData } = $props();
 
@@ -35,7 +35,7 @@
   // DOF name labels per type
   // The lead-in is prose inside KaTeX, so it comes from the dictionary like any other label.
   const lead = $derived(`\\text{${t('dsm.step1.eachNodeHas').trim()} } `);
-  const pl = $derived(planeSigns(axesStore.frame));
+  const pl = $derived(dsmPlaneSigns(axesStore.frame));
   const lo = (a: string) => a.toLowerCase();
   const eqFrame2D = $derived(`${lead}u_${lo(pl.h)}, \\; u_${lo(pl.v)}, \\; \\theta_${lo(pl.n)}`);
   const eqTruss2D = $derived(`${lead}u_${lo(pl.h)}, \\; u_${lo(pl.v)}`);

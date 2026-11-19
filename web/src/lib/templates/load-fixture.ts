@@ -108,7 +108,6 @@ export interface FixtureLoader {
 
 interface FixtureLoadOptions {
   keepCombinations?: boolean;
-  keepWorkbookLoadFields?: boolean;
 }
 
 /**
@@ -264,7 +263,7 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
         api.addDistributedLoad?.(
           elemMap.get(d.elementId as number)!, d.qI as number, d.qJ as number,
           d.angle as number | undefined, d.isGlobal as boolean | undefined, d.caseId as number | undefined,
-          ...(opts.keepWorkbookLoadFields ? [d.a as number | undefined, d.b as number | undefined] as const : []),
+          d.a as number | undefined, d.b as number | undefined,
         );
         break;
       }
@@ -285,7 +284,7 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOpt
       }
       case 'thermal': {
         api.addThermalLoad?.(elemMap.get(d.elementId as number)!, d.dtUniform as number, d.dtGradient as number,
-          ...(opts.keepWorkbookLoadFields ? [d.caseId as number | undefined] as const : []));
+          d.caseId as number | undefined);
         break;
       }
       case 'distributed3d': {

@@ -1,0 +1,31 @@
+{
+  "id": "fixture-replay-and-framed-import",
+  "date": "2026-11-19",
+  "prs": [2364],
+  "area": "analysis",
+  "when": {
+    "any": ["partialDistributedMemberLoads", "memberThermalLoads"]
+  },
+  "title": {
+    "en": "Fixture replay and framed model import",
+    "es": "Carga de ejemplos e importación con ejes declarados",
+    "pt": "Carregamento de exemplos e importação com eixos declarados",
+    "de": "Laden von Beispielen und Import mit deklarierten Achsen",
+    "fr": "Chargement des exemples et import dans un repère déclaré",
+    "tr": "Örnek yükleme ve tanımlı eksenlerle içe aktarma",
+    "hu": "Példák betöltése és import megadott tengelyekkel"
+  },
+  "explanation": {
+    "en": "Replaying fixtures preserves partial load spans and thermal load cases. Framed imports preserve planar spring directions and spatial fragment coordinates. Reload affected source models and recompute.",
+    "es": "La carga de ejemplos conserva los intervalos de las cargas parciales y los casos de las cargas térmicas. La importación con ejes conserva las direcciones de los resortes planos y las coordenadas de los fragmentos espaciales. Vuelva a cargar los modelos de origen afectados y recalcule.",
+    "pt": "O carregamento de exemplos preserva os trechos das cargas parciais e os casos das cargas térmicas. A importação com eixos preserva as direções das molas planas e as coordenadas dos fragmentos espaciais. Volte a carregar os modelos de origem afetados e recalcule.",
+    "de": "Beim Laden von Beispielen bleiben die Abschnitte von Teillasten und die Lastfälle von Temperaturlasten erhalten. Der Import mit deklarierten Achsen erhält die Richtungen ebener Federn und die Koordinaten räumlicher Fragmente. Laden Sie betroffene Ausgangsmodelle erneut und berechnen Sie sie neu.",
+    "fr": "Le chargement des exemples conserve les intervalles des charges partielles et les cas des charges thermiques. L’import dans un repère déclaré conserve les directions des ressorts plans et les coordonnées des fragments spatiaux. Rechargez les modèles sources concernés et recalculez.",
+    "tr": "Örnekler yüklenirken kısmi yük aralıkları ve sıcaklık yüklerinin durumları korunur. Tanımlı eksenlerle içe aktarma, düzlem yaylarının yönlerini ve uzaysal parçaların koordinatlarını korur. Etkilenen kaynak modelleri yeniden yükleyip hesaplayın.",
+    "hu": "A példák betöltése megőrzi a részleges terhek szakaszait és a hőterhek tehereseteit. A megadott tengelyekkel végzett import megőrzi a síkbeli rugók irányát és a térbeli töredékek koordinátáit. Töltse be újra az érintett forrásmodelleket, és számítsa újra az eredményeket."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-fixture-replay-and-framed-import.md",
+    "heading": "Fixture loads"
+  }
+}

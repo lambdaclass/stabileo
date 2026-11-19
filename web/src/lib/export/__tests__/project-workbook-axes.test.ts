@@ -209,7 +209,7 @@ it('known wrong result: #1986 workbook statics follow the model frame even when 
   expect(sheet(explicitlyCanonical, 'Statics')).toEqual(sheet(canonical, 'Statics'));
 });
 
-it.skip('known wrong result: #1986 populated result rows and extrema follow the export frame independently of the UI', () => {
+it('known wrong result: #1986 populated result rows and extrema follow the export frame independently of the UI', () => {
   const r = {
     reactions: [{ nodeId: 1, fx: 1, fy: 2, fz: 3, mx: 4, my: 5, mz: 6 }],
     displacements: [{ nodeId: 1, ux: 0.01, uy: 0.02, uz: 0.03, rx: 0.04, ry: 0.05, rz: 0.06 }],

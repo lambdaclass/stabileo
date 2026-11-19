@@ -127,7 +127,7 @@ describe('the stiffness wizard in the user axes', () => {
       // The reactions are the app's: horizontal, vertical and moment with the user's signs.
       for (const dof of d.dofNumbering.dofs) {
         if (dof.isFree) continue;
-        const s = [p.sx, p.sz, p.sr][dof.localDof]!;
+        const s = [p.sx, p.sz, pseudoToUser(f, [0, 1, 0])['XYZ'.indexOf(p.n)]][dof.localDof]!;
         close(d.reactionsRaw[dof.globalIndex - nf]!, s * data.reactionsRaw[dof.globalIndex - nf]!);
       }
     }
