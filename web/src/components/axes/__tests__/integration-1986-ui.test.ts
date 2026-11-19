@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
-import LoadSketch, { type SketchInput } from '../../pro/loads/LoadSketch.svelte';
+import LoadSketch from '../../pro/loads/LoadSketch.svelte';
 import SupportsTable from '../../tables/SupportsTable.svelte';
 import ProCaseDetails from '../../pro/loads/ProCaseDetails.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
@@ -98,7 +98,14 @@ it('displays a spectral direction factor with the sign of the actual user axis',
 
 it('known wrong result: #1986 shell point force labels retain the entered user components', () => {
   uiStore.unitSystem = 'SI';
-  const v = { kind: 'shellPoint', shell: { pf: { fx: 2, fy: 3, fz: 5 }, at: { x: 0, y: 0, z: 0 } } } as SketchInput;
+  const v = {
+    kind: 'shellPoint',
+    shell: {
+      dirMode: 'global' as const, dirAxis: 'Z' as const, field: 'uniform' as const, q: null, corners: [],
+      va: { axis: 'X' as const, c1: null, q1: null, c2: null, q2: null },
+      partial: false, gamma: null, level: null, at: { x: 0, y: 0, z: 0 }, pf: { fx: 2, fy: 3, fz: 5 },
+    },
+  };
   for (const choice of allChoices()) {
     axesStore.choice = choice;
     const html = render(LoadSketch, { props: { v } }).body.replace(/<!--[\s\S]*?-->/g, '');

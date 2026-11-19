@@ -175,7 +175,7 @@ it('known wrong result: #1986 an inclined support normal follows its displayed o
   const i = modelStore.addNode(0, 0), j = modelStore.addNode(4, 0);
   modelStore.addElement(i, j);
   modelStore.addSupport(i, 'fixed');
-  modelStore.addSupport(j, 'inclinedRoller', undefined, { angle: 30, dy: 0.002 });
+  modelStore.addSupport(j, 'rollerX', undefined, { angle: 30, dz: 0.002 });
   modelStore.addNodalLoad(j, 2, -7);
   const data = solveDetailed(modelStore.buildSolverInput(false)!);
   const normal = data.dofNumbering.dofs.find(d => d.nodeId === j && d.localDof === 1)!;
