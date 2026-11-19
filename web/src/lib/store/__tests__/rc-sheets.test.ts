@@ -224,7 +224,6 @@ describe('reinforcement sheets from a solved model', () => {
     const rows = buildSheetRows();
     expect(rows.slab).toHaveLength(1);
     const s = rows.slab[0]!;
-    console.log('DBG', JSON.stringify(s.verifications.map((v) => [v.label, v.ok, v.demand, v.capacity])), rows.punching.length, rows.punching[0]?.status);
     expect(s.demand.m.bottomX.value).toBeGreaterThan(6);
     expect(s.demand.m.bottomX.value).toBeCloseTo(s.demand.m.bottomY.value, 6);
     expect(s.demand.m.topX.value).toBeGreaterThan(0);
