@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SectionStressResult } from '../../lib/engine/section-stress';
   import type { SectionStressResult3D } from '../../lib/engine/section-stress-3d';
-  import { t, tp } from '../../lib/i18n';
+  import { i18n, t, tp } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -18,10 +18,19 @@
     analysis3D.distributionY.some(point => point.refusal) ||
     analysis3D.distributionZ.some(point => point.refusal)
   ));
+  const notices = $derived(hasRefusedStress ? import('../../lib/provenance/applicability') : null);
 </script>
 
 {#if hasRefusedStress}
-  <p class="ssp-stress-refusal" role="alert">{t('stress.combinedShearRefused')}</p>
+  <p class="ssp-stress-refusal" role="alert">
+    {#await notices}
+      {t('stress.combinedShearRefused')}
+    {:then loaded}
+      {loaded?.combinedSectionShearExplanation(i18n.locale) ?? t('stress.combinedShearRefused')}
+    {:catch}
+      {t('stress.combinedShearRefused')}
+    {/await}
+  </p>
 {/if}
 
 <!-- Stress state -->

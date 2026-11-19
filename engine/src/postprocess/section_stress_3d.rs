@@ -256,24 +256,10 @@ fn compute_qy_and_width(z: f64, rs: &ResolvedSection) -> (f64, f64) {
     }
 }
 
-fn combined_shear(tau_vy: f64, tau_vz: f64, tau_t: f64) -> Result<f64, CombinedStressRefusal> {
-    if tau_t != 0.0 && (tau_vy != 0.0 || tau_vz != 0.0) {
-        return Err(CombinedStressRefusal::CombinedTorsionAndTransverseShear);
-    }
-    Ok((tau_vy * tau_vy + tau_vz * tau_vz + tau_t * tau_t).sqrt())
-}
-
-impl StressPoint3D {
-    fn new(y: f64, z: f64, sigma: f64, tau_vy: f64, tau_vz: f64, tau_t: f64) -> Self {
-        let combined = combined_shear(tau_vy, tau_vz, tau_t);
-        let tau_total = combined.ok();
-        Self {
-            y, z, sigma, tau_vy, tau_vz, tau_t,
-            tau_total,
-            von_mises: tau_total.map(|tau| (sigma * sigma + 3.0 * tau * tau).sqrt()),
-            refusal: combined.err(),
-        }
-    }
+enum StressSample {
+    Fibre,
+    DepthCut,
+    WidthCut,
 }
 
 // ==================== Resolve Section ====================
@@ -355,34 +341,52 @@ pub fn compute_stress_3d_from_raw(
     let z = z_fiber.unwrap_or(0.0);
     let tau_torsion = torsion_shear(mx, &resolved);
 
-    // Y-axis distribution (DEPTH cut, z=0). Shear here is the vertical shear Vz (strong axis).
-    let distribution_y: Vec<StressPoint3D> = {
-        let span = resolved.y_max - resolved.y_min;
-        (0..NUM_POINTS_3D).map(|i| {
-            let yi = resolved.y_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
-            let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, yi, 0.0);
-            StressPoint3D::new(yi, 0.0, sigma, 0.0, shear_stress_depth(vz, yi, &resolved), tau_torsion)
-        }).collect()
+    let stress_at = |y, z, sample| {
+        let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
+        let tau_vy = shear_stress_width(vy, z, &resolved);
+        let tau_vz = shear_stress_depth(vz, y, &resolved);
+        let refusal = (tau_torsion != 0.0 && (tau_vy != 0.0 || tau_vz != 0.0))
+            .then_some(CombinedStressRefusal::CombinedTorsionAndTransverseShear);
+        let (tau_vy, tau_vz) = match sample {
+            StressSample::Fibre => (tau_vy, tau_vz),
+            StressSample::DepthCut => (0.0, tau_vz),
+            StressSample::WidthCut => (tau_vy, 0.0),
+        };
+        let tau_total = refusal.is_none().then(|| {
+            (tau_vy * tau_vy + tau_vz * tau_vz + tau_torsion * tau_torsion).sqrt()
+        });
+
+        StressPoint3D {
+            y,
+            z,
+            sigma,
+            tau_vy,
+            tau_vz,
+            tau_t: tau_torsion,
+            tau_total,
+            von_mises: tau_total.map(|tau| (sigma * sigma + 3.0 * tau * tau).sqrt()),
+            refusal,
+        }
     };
 
-    // Z-axis distribution (WIDTH cut, y=0). Shear here is the lateral shear Vy (weak axis).
-    let distribution_z: Vec<StressPoint3D> = {
-        let span = resolved.z_max - resolved.z_min;
-        (0..NUM_POINTS_3D).map(|i| {
-            let zi = resolved.z_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
-            let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, 0.0, zi);
-            StressPoint3D::new(0.0, zi, sigma, shear_stress_width(vy, zi, &resolved), 0.0, tau_torsion)
-        }).collect()
-    };
+    let distribution_y = (0..NUM_POINTS_3D)
+        .map(|i| {
+            let span = resolved.y_max - resolved.y_min;
+            let y = resolved.y_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
+            stress_at(y, 0.0, StressSample::DepthCut)
+        })
+        .collect();
+    let distribution_z = (0..NUM_POINTS_3D)
+        .map(|i| {
+            let span = resolved.z_max - resolved.z_min;
+            let z = resolved.z_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
+            stress_at(0.0, z, StressSample::WidthCut)
+        })
+        .collect();
 
-    // Stress at selected point
-    let sigma_at_fiber = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
-    let tau_vy_at_fiber = shear_stress_width(vy, z, &resolved); // from Vy, at width z
-    let tau_vz_at_fiber = shear_stress_depth(vz, y, &resolved); // from Vz, at depth y
-    let combined = combined_shear(tau_vy_at_fiber, tau_vz_at_fiber, tau_torsion);
-    let tau_total = combined.ok();
-    let mohr = tau_total.map(|tau| compute_mohr_circle(sigma_at_fiber, tau));
-    let failure = tau_total.map(|tau| check_failure(sigma_at_fiber, tau, fy));
+    let fibre = stress_at(y, z, StressSample::Fibre);
+    let mohr = fibre.tau_total.map(|tau| compute_mohr_circle(fibre.sigma, tau));
+    let failure = fibre.tau_total.map(|tau| check_failure(fibre.sigma, tau, fy));
 
     // Neutral axis
     let neutral_axis = compute_neutral_axis_3d(n, my, mz, &resolved);
@@ -394,14 +398,14 @@ pub fn compute_stress_3d_from_raw(
         iz,
         distribution_y,
         distribution_z,
-        sigma_at_fiber,
-        tau_vy_at_fiber,
-        tau_vz_at_fiber,
+        sigma_at_fiber: fibre.sigma,
+        tau_vy_at_fiber: fibre.tau_vy,
+        tau_vz_at_fiber: fibre.tau_vz,
         tau_torsion,
-        tau_total,
+        tau_total: fibre.tau_total,
         mohr,
         failure,
-        refusal: combined.err(),
+        refusal: fibre.refusal,
         neutral_axis,
     }
 }
@@ -504,8 +508,18 @@ mod tests {
 
     #[test]
     fn issue_2366_cuts_refuse_only_where_torsion_and_transverse_shear_are_nonzero() {
-        let result = to_value(compute_section_stress_3d(&station(1.0, 1.0, TORQUE, RADIUS, 0.0))).unwrap();
+        let biaxial = to_value(compute_section_stress_3d(&station(1.0, 1.0, TORQUE, RADIUS, 0.0))).unwrap();
         for cut in ["distributionY", "distributionZ"] {
+            let points = biaxial[cut].as_array().unwrap();
+            assert_eq!(points.len(), NUM_POINTS_3D);
+            for point in points {
+                assert_eq!(point["tauTotal"], Value::Null);
+                assert_eq!(point["vonMises"], Value::Null);
+                assert_eq!(point["refusal"], "combinedTorsionAndTransverseShear");
+            }
+        }
+        for (cut, vy, vz) in [("distributionY", 0.0, 1.0), ("distributionZ", 1.0, 0.0)] {
+            let result = to_value(compute_section_stress_3d(&station(vy, vz, TORQUE, RADIUS, 0.0))).unwrap();
             let points = result[cut].as_array().unwrap();
             let middle = &points[points.len() / 2];
             assert_eq!(middle["tauTotal"], Value::Null, "{cut}: {middle}");
@@ -526,7 +540,9 @@ mod tests {
             for result in [raw, interpolated] {
                 let result = to_value(result).unwrap();
                 assert_eq!(result["refusal"], "combinedTorsionAndTransverseShear");
-                for point in result[cut].as_array().unwrap() {
+                let points = result[cut].as_array().unwrap();
+                assert_eq!(points.len(), NUM_POINTS_3D);
+                for point in points {
                     assert_eq!(point["refusal"], result["refusal"], "{cut}: {point}");
                     assert_eq!(point["tauTotal"], Value::Null);
                     assert_eq!(point["vonMises"], Value::Null);
@@ -536,19 +552,16 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "known wrong result: #2366"]
     fn issue_2366_y_cut_refuses_vy_with_torsion() {
         assert_cross_cut_refuses(1.0, 0.0, "distributionY");
     }
 
     #[test]
-    #[ignore = "known wrong result: #2366"]
     fn issue_2366_z_cut_refuses_vz_with_torsion() {
         assert_cross_cut_refuses(0.0, 1.0, "distributionZ");
     }
 
     #[test]
-    #[ignore = "known wrong result: #2366"]
     fn issue_2366_refuses_shear_from_linear_and_pdelta_member_forces() {
         let section = chs();
         let input: SolverInput3D = serde_json::from_value(json!({

@@ -116,8 +116,7 @@ describe('a transverse load off the shear centre twists the member', () => {
     expect(resolveEccentric({ vz: 100, at: [0.25, 0] }, sc).forces.t).toBeCloseTo(20, 9);
   });
 
-  const issue2366 = process.env.RUN_KNOWN_WRONG === '2366' ? it : it.skip;
-  issue2366('known wrong result: #2366 refuses combined shear for an eccentric planar force routed through the biaxial API', () => {
+  it('#2366 refuses combined shear for an eccentric planar force routed through the biaxial API', () => {
     const S = rect();
     const point: [number, number] = [0.05, 0];
     const centered = toDiagram(S, resolveEccentric({ vz: 100, at: [0, 0] }).forces, point);

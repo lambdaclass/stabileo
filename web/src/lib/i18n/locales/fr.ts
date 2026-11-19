@@ -3004,7 +3004,7 @@ const fr: Translations = {
   'stress.stressState': 'État de contrainte',
   'stress.sigmaBiaxHelp': 'Contrainte normale biaxiale (Navier) :\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPositive = traction (rouge)\nNégative = compression (bleu)\n\nDépend de la fibre sélectionnée (y, z).',
   'stress.tauTotalHelp': 'Amplitude du cisaillement transversal seul ou du cisaillement de torsion seul.',
-  'stress.combinedShearRefused': 'Le cisaillement combiné, les contraintes dérivées et le résultat de la vérification sont indisponibles là où coexistent le cisaillement de torsion et le cisaillement transversal.',
+  'stress.combinedShearRefused': 'Les cisaillements de torsion et transversal coexistent. Les contraintes combinées ne sont pas affichées.',
   'stress.vonMisesHelp': 'Critère de Von Mises (énergie de distorsion) :\nσvm = √(σ² + 3τ²)\n\nÀ privilégier pour l\'acier et les métaux ductiles.\nLe pourcentage indique l\'utilisation de la capacité fy.',
   'stress.trescaHelp': 'Critère de Tresca (cisaillement maximal) :\nτmax = √((σ/2)² + τ²)\n\n~15 % du côté de la sécurité par rapport à Von Mises.\nÉquivalent : 2τmax ≤ fy',
   'stress.rankineHelp': 'Critère de Rankine (contrainte normale maximale) :\nmax(|σ₁|, |σ₃|) ≤ fy\n\nAdapté aux matériaux fragiles (béton, roche).\nPour l\'acier, préférez Von Mises.',

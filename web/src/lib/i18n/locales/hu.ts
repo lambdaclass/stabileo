@@ -2880,7 +2880,7 @@ const hu: Translations = {
   "stress.stressState": "Feszültségállapot",
   "stress.sigmaBiaxHelp": "Kétirányú normálfeszültség (Navier):\nσ = N/A − My·y/Iy + Mz·z/Iz\n\nPozitív = húzás (piros)\nNegatív = nyomás (kék)\n\nA kiválasztott száltól (y, z) függ.",
   "stress.tauTotalHelp": "A keresztirányú vagy a csavarási nyírófeszültség nagysága önmagában.",
-  "stress.combinedShearRefused": "Az eredő nyírófeszültség, a belőle származtatott feszültségek és az ellenőrzés eredménye nem érhető el ott, ahol a csavarási és a keresztirányú nyírófeszültség egyaránt nem nulla.",
+  "stress.combinedShearRefused": "A csavarási és a keresztirányú nyírás egy helyen lép fel. Az eredő feszültségek nem jelennek meg.",
   "stress.vonMisesHelp": "Von Mises-kritérium (alakváltozási energia):\nσvm = √(σ² + 3τ²)\n\nAcélhoz és képlékeny fémekhez ajánlott.\nA százalék az fy kihasználtságát mutatja.",
   "stress.trescaHelp": "Tresca-kritérium (legnagyobb nyírófeszültség):\nτmax = √((σ/2)² + τ²)\n\n~15%-kal konzervatívabb a von Mises-nél.\nEgyenértékű: 2τmax ≤ fy",
   "stress.rankineHelp": "Rankine-kritérium (legnagyobb normálfeszültség):\nmax(|σ₁|, |σ₃|) ≤ fy\n\nRideg anyagokhoz (beton, kőzet) megfelelő.\nAcélhoz inkább a von Mises-t használja.",

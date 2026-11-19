@@ -8203,7 +8203,7 @@ const pt: Translations = {
   'stress.tauOn': 'Alternar para: ocultar τ (Jourawski)',
   'stress.tauThinHelp': 'Tensão de cisalhamento (Jourawski):\nτ = V·Q(y) / (I·b)\n\nQ(y) = momento estático acima de y.\nMáximo no eixo neutro, zero nas bordas livres.\n\nPara perfis de parede fina a hipótese de\nτ uniforme na espessura é muito precisa.',
   'stress.tauTotalHelp': 'Magnitude apenas do cisalhamento transversal ou apenas do cisalhamento por torção.',
-  'stress.combinedShearRefused': 'O cisalhamento combinado, as tensões derivadas e o resultado da verificação ficam indisponíveis onde o cisalhamento por torção e o transversal são ambos diferentes de zero.',
+  'stress.combinedShearRefused': 'O cisalhamento por torção e o transversal coincidem. Os resultados de tensão combinada são omitidos.',
   'stress.tensorPoissonNote': "As deformações transversais são a contração de Poisson: a seção estreita quando a fibra se alonga.",
   'stress.tensorStrain': "Tensor de deformações",
   'stress.tensorStress': "Tensor de tensões",
