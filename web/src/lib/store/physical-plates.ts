@@ -551,9 +551,9 @@ export function plateLoadDef(id: number, caseId: number, q: number): FloorLoadDe
   return { caseId, q, target: { by: 'group', groupId: id }, distribution: 'slab' };
 }
 
-/** One definition per plate picked whole, as the floor-load panel adds them. */
-export function pickedPlateDefs(ids: readonly number[], caseId: number, q: number, perPlanArea: boolean): Array<{ id: number; def: FloorLoadDef }> {
-  return ids.map((id) => ({ id, def: { ...plateLoadDef(id, caseId, q), ...(perPlanArea ? { perPlanArea: true } : {}) } }));
+/** One definition per plate picked whole, as the floor-load panel adds them: the panel's own, distribution and span included, aimed at each plate. */
+export function pickedPlateDefs(ids: readonly number[], def: FloorLoadDef): Array<{ id: number; def: FloorLoadDef }> {
+  return ids.map((id) => ({ id, def: { ...def, target: { by: 'group', groupId: id } } }));
 }
 
 /** What those definitions write together, previewed before they are added. */

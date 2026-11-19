@@ -118,7 +118,7 @@
   const def = $derived<FloorLoadDef | null>(caseId === null || target === null ? null : {
     caseId, q, target, distribution, ...(distribution === 'oneWay' ? { spanAxis } : {}), ...(perPlanArea ? { perPlanArea } : {}),
   });
-  const plateDefs = $derived(targetKey === 'plates' && def ? pickedPlateDefs(pickedPlates, def.caseId, def.q, !!def.perPlanArea) : []);
+  const plateDefs = $derived(targetKey === 'plates' && def ? pickedPlateDefs(pickedPlates, def) : []);
   const preview = $derived(def && q !== 0
     ? targetKey === 'plates'
       ? previewPlateDefs(plateDefs, { leftHand: uiStore.axisConvention3D === 'leftHand' })

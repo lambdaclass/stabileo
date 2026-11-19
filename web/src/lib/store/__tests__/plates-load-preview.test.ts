@@ -15,14 +15,24 @@ describe('the floor-load panel with several plates picked whole', () => {
 
   it('previews every plate it adds, not only the first', () => {
     const a = plate(0, 2, 2), b = plate(10, 3, 2);
-    const one = (id: number) => previewPlateDefs(pickedPlateDefs([id], 1, 4, false), { leftHand: false }).loads.length;
+    const slab = { caseId: 1, q: 4, target: { by: 'own' }, distribution: 'slab' } as const;
+    const one = (id: number) => previewPlateDefs(pickedPlateDefs([id], slab), { leftHand: false }).loads.length;
     expect(one(a)).toBeGreaterThan(0);
     expect(one(b)).toBeGreaterThan(one(a));
-    const both = previewPlateDefs(pickedPlateDefs([a, b], 1, 4, false), { leftHand: false });
+    const both = previewPlateDefs(pickedPlateDefs([a, b], slab), { leftHand: false });
     expect(both.loads.length).toBe(one(a) + one(b));
     expect(both.problem).toBeUndefined();
-    const defs = pickedPlateDefs([a, b], 1, 4, true);
+    const defs = pickedPlateDefs([a, b], { ...slab, perPlanArea: true });
     expect(defs.map((d) => d.def.target)).toEqual([{ by: 'group', groupId: a }, { by: 'group', groupId: b }]);
     expect(defs.every((d) => d.def.perPlanArea === true && d.def.distribution === 'slab')).toBe(true);
+  });
+
+  it('adds to each plate the distribution and span chosen, not a slab load in their place', () => {
+    const a = plate(0, 2, 2), b = plate(10, 3, 2);
+    const defs = pickedPlateDefs([a, b], { caseId: 1, q: 4, target: { by: 'own' }, distribution: 'oneWay', spanAxis: 'y' });
+    expect(defs.map((d) => [d.def.target, d.def.distribution, d.def.spanAxis])).toEqual([
+      [{ by: 'group', groupId: a }, 'oneWay', 'y'],
+      [{ by: 'group', groupId: b }, 'oneWay', 'y'],
+    ]);
   });
 });
