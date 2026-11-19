@@ -75,7 +75,7 @@ describe('a storey whose faces step in', () => {
     }
   });
 
-  it('draws the bars from below cranked into the storey, the slope 1:6, by the step and one bar\'s diameter in, and the footing\'s dowels under the bottom storey', () => {
+  it('draws the bars from below cranked into the storey, the slope 1:6, by the step and one bar\'s diameter in', () => {
     const below = columnRow(storey(0.4, 900, 20), ctx, undefined, f);
     const row = columnRow(storey(0.35, 700, 15), ctx, undefined, f, stackOver(below, { b: 0.35, h: 0.35 }));
     const opts = { scale: 25, fmt: f, tr: (k: string) => k, code: 'cirsoc201-2025', endZones: false, group: 'g' } as never;
@@ -86,12 +86,6 @@ describe('a storey whose faces step in', () => {
       expect(Math.abs(p.b.x - p.a.x)).toBeCloseTo(by, 6);
       expect(Math.abs(p.b.y - p.a.y)).toBeCloseTo(6 * by, 6);
     }
-    const bottom = columnRow({ ...storey(0.4, 900, 20), joints: { bottom: 0, top: 0.5 } }, ctx, undefined, f, { fromBelow: true, onFooting: true });
-    expect(bottom.onFooting).toBe(true);
-    const labels = columnElevationPrimitives(bottom, opts).filter((p) => p.kind === 'text').map((p) => (p as { text: string }).text);
-    expect(labels).toContain('rcSheets.elev.footDowels');
-    for (const p of inclinedOf(bottom)) expect(Math.abs(p.b.y - p.a.y)).toBeCloseTo(6 * Math.abs(p.b.x - p.a.x), 6);
-    expect(inclinedOf(bottom).length).toBe(2);
   });
 });
 

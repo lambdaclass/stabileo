@@ -114,10 +114,8 @@ export interface ColumnRow {
   status: RowStatus;
   generous: boolean;
   steps: StepGroup[];
-  /** The splice of the bars from the storey below (or the footing's dowels), just above its floor; `from`: where it starts over the face of the joint below, m, as the elevation draws it. */
+  /** The splice of the bars from the storey below, just above its floor; `from`: where it starts over the face of the joint below, m, as the elevation draws it. */
   lap?: { length: number; tension?: boolean; from?: number };
-  /** The bottom storey, whose bars lap with its footing's dowels. */
-  onFooting?: true;
   /** Where its faces step in over the storey below: the bars from below cranked into it, or separate dowels. */
   step?: StackStep;
   /** Chapter 18: the length lo from each joint face and the hoop spacing so in it. */
@@ -321,8 +319,6 @@ export interface StackPlace {
   pattern?: { nx: number; ny: number; maxDia: number; inner?: { nx: number; ny: number; rows?: number } }; fromBelow?: boolean; offset?: number;
   /** The largest bar of the storey below, mm, which the lap with this storey's reads. */
   belowDia?: number;
-  /** The bottom storey, on a footing whose dowels its bars lap with. */
-  onFooting?: true;
 }
 
 /** The pattern a storey's bars set for the storey above: its counts on each face and inside, and its thickest bar. */
@@ -568,7 +564,6 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     verifications, combos,
     status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
     ...(stack.fromBelow ? { lap: splice } : {}),
-    ...(stack.onFooting ? { onFooting: true as const } : {}),
     ...(step ? { step } : {}),
     ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
     tieFloor: floor,

@@ -258,7 +258,6 @@ export function makeColumnRow(set: Ec2Set) {
       checks: { ratio, ok, area, spacingOk, tieOk, tieMax, crossties: { ...ct, ...(ict.x + ict.y ? { inner: { x: ict.x, y: ict.y } } : {}) }, rhoOk, shearX, shearY },
       verifications, combos, status: ok ? (generous ? 'warn' : 'ok') : 'fail', generous, steps,
       ...(stack.fromBelow ? { lap: { length: lap } } : {}),
-      ...(stack.onFooting ? { onFooting: true as const } : {}),
       ...(step ? { step } : {}),
       tieFloor: tieFloorOf(c),
       ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),

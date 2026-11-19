@@ -50,12 +50,12 @@ export interface SheetRules {
 /** CIRSOC 201-2025's mandrels and hooks, and for bent-up bars the Stabileo criterion's 9·db, 12·db and 15·db (FIUBA §11.4), which the code does not give. */
 export const CIRSOC_BENDS: BendRules = { ...ACI_BENDS, bentMandrel: bentBarMandrel, clause: withCriterion('§25.3.1, §25.3.2') };
 
-/** CIRSOC 201-2025 chapter 25, which ACI 318-19 shares: ld by §25.4.2.4 (ψt = 1, bottom bars), ldh by §25.4.3, ldc by §25.4.9, §25.5.5.1 in compression and a class B tension lap no shorter where a bar is in tension. */
+/** CIRSOC 201-2025 chapter 25, which ACI 318-19 shares: ld by §25.4.2.4 (ψt = 1, bottom bars), ldh by §25.4.3, ldc by §25.4.9, a class B tension lap or §25.5.5.1 in compression. */
 export const CIRSOC_FOOTING_ANCHORAGE: FootingAnchorage = {
   ld: (mat, dia, h, layout) => cirsocSlabDevelopment(mat, dia, false, h, layout).ldM,
   ldh: (mat, dia) => deriveHookedDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, edition: '2025' }).ldhM,
   ldc: (mat, dia) => deriveCompressionDevelopment({ diameterMm: dia, fy: mat.fy, fc: mat.fc, edition: '2025' }).ldcM,
-  lap: (mat, dia, tension) => Math.max(tension ? tensionLap(mat, dia) : 0, compressionLapMm(mat.fy, dia, mat.fc) / 1000),
+  lap: (mat, dia, tension) => (tension ? tensionLap(mat, dia) : compressionLapMm(mat.fy, dia) / 1000),
   clause: { straight: '§25.4.2', hooked: '§25.4.3', compression: '§25.4.9' },
 };
 

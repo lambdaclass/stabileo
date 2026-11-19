@@ -4,13 +4,12 @@ import { buildSheetRows, type SheetRows } from '../rc-sheets.svelte';
 import { modelFrames, sheetBars3d, sheetGhosts3d, shownBars, shownGhosts, REBAR_FAMILIES } from '../rc-rebar-3d.svelte';
 import { bentPoints, local, solvedExample } from './rc-rebar-3d-fixture';
 import type { Ghost3d } from '../../rc-sheets/rebar-3d-ghost';
-import { ownStrapResults } from '../../rc-sheets/schedule/pieces';
 import type { Frame, Rebar3d } from '../../rc-sheets/rebar-3d';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
 const TOL = 1e-6;
-const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true } };
+const ALL = { row: null, level: '', families: { beam: true, column: true, slab: true, wall: true } };
 const own = (ghosts: readonly Ghost3d[], key: string, family: Ghost3d['family']) => ghosts.filter((g) => g.element === key && g.family === family);
 const size = (g: Ghost3d) => g.to.map((v, i) => v - g.from[i]!);
 
@@ -32,7 +31,7 @@ function inside(g: Ghost3d, bars: readonly Rebar3d[], along: 0 | 2): number {
   return n;
 }
 
-function oneGhostEach(rows: SheetRows, ghosts: readonly Ghost3d[], bars: readonly Rebar3d[]): void {
+function oneGhostEach(rows: SheetRows, ghosts: readonly Ghost3d[], bars: readonly Rebar3d[], least = 10_000): void {
   const frames = modelFrames(rows);
   let held = 0;
   for (const l of rows.line) {
@@ -69,15 +68,7 @@ function oneGhostEach(rows: SheetRows, ghosts: readonly Ghost3d[], bars: readonl
     sameFrame(g!.frame, frames.wall(w));
     expect(size(g!)).toEqual([w.length, w.thickness, w.height].map((v) => expect.closeTo(v, 9)));
   }
-  for (const r of rows.footing.filter((f) => f.B > 0)) {
-    const [g, ...straps] = own(ghosts, r.key, 'footing');
-    expect(straps.length, r.name).toBe(ownStrapResults(r, rows.footing).reduce((n, s) => n + (s.line?.spans.length ?? 0), 0));
-    sameFrame(g!.frame, frames.footing(r));
-    expect(g!.from).toEqual([-r.adopted.B / 2, -r.adopted.L / 2, 0]);
-    expect(g!.to).toEqual([r.adopted.B / 2, r.adopted.L / 2, r.adopted.h]);
-    held += inside(g!, bars.filter((b) => b.element === r.key && b.kind.startsWith('footing')), 2);
-  }
-  expect(held).toBeGreaterThan(10_000);
+  expect(held).toBeGreaterThan(least);
 }
 
 describe('the concrete ghost of the sheets\' bars', () => {
@@ -86,7 +77,7 @@ describe('the concrete ghost of the sheets\' bars', () => {
     const rows = buildSheetRows();
     const bars = sheetBars3d(rows), ghosts = sheetGhosts3d(rows);
     expect(sheetGhosts3d(rows)).toBe(ghosts);
-    for (const f of REBAR_FAMILIES) expect(ghosts.some((g) => g.family === f), f).toBe(f !== 'footing' || rows.footing.length > 0);
+    for (const f of REBAR_FAMILIES) expect(ghosts.some((g) => g.family === f), f).toBe(true);
     oneGhostEach(rows, ghosts, bars);
 
     const every = shownGhosts(ghosts, shownBars(bars, ALL), ALL);
@@ -111,11 +102,9 @@ describe('the concrete ghost of the sheets\' bars', () => {
     expect(shownGhosts(ghosts, [], ALL)).toEqual([]);
   }, 600_000);
 
-  it('a small frame on footings: its footings and strap beams have their ghosts', async () => {
+  it('a small frame: one ghost per element, the bars inside it', async () => {
     await solvedExample('pro-rc-frame-area-loads');
     const rows = buildSheetRows();
-    const bars = sheetBars3d(rows), ghosts = sheetGhosts3d(rows);
-    expect(rows.footing.length).toBeGreaterThan(0);
-    oneGhostEach(rows, ghosts, bars);
+    oneGhostEach(rows, sheetGhosts3d(rows), sheetBars3d(rows), 100);
   }, 600_000);
 });

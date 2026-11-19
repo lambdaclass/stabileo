@@ -93,7 +93,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'defl.limits.dirShort.localZ',
   'design.batch.spacing',
   'designData.minimum',
-  'designData.presumedBearingSummary',
   'desk.tab.plan',
   'despiece.basisGlobal',
   'despiece.basisGlobalShort',

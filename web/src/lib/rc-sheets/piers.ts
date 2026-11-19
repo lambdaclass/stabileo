@@ -7,8 +7,7 @@
  * thickness so a corner is filled as it is cast, and of the columns' sections.
  *
  * A wall with no column inside is designed as before; a pier with a column in it is designed as
- * one section (`pier-design.ts`), the column marking where its concentrated bars go. At the
- * foundation every group of walls that meet, columns inside or not, stands on one footing.
+ * one section (`pier-design.ts`), the column marking where its concentrated bars go.
  */
 import polygonClipping, { type MultiPolygon, type Polygon } from 'polygon-clipping';
 
@@ -176,22 +175,4 @@ export function insideConvex(p: P, poly: readonly P[], margin = 0): boolean {
     if (sign * d < margin - 1e-12) return false;
   }
   return true;
-}
-
-/** Second moments of an outline about its centroid, m⁴: Ix about the axis along X, Iy about the axis along Y. */
-export function outlineInertia(o: Pier['outline'], c: P): { ix: number; iy: number } {
-  let ix = 0, iy = 0;
-  const add = (r: readonly P[], s: number) => {
-    let a = 0, jx = 0, jy = 0;
-    for (let i = 0; i < r.length; i++) {
-      const p = { x: r[i]!.x - c.x, y: r[i]!.y - c.y }, q = { x: r[(i + 1) % r.length]!.x - c.x, y: r[(i + 1) % r.length]!.y - c.y };
-      const k = p.x * q.y - q.x * p.y;
-      a += k; jx += (p.y * p.y + p.y * q.y + q.y * q.y) * k; jy += (p.x * p.x + p.x * q.x + q.x * q.x) * k;
-    }
-    const sg = Math.sign(a) * s;
-    ix += sg * jx / 12; iy += sg * jy / 12;
-  };
-  add(o.outer, 1);
-  for (const h of o.holes) add(h, -1);
-  return { ix: Math.abs(ix), iy: Math.abs(iy) };
 }

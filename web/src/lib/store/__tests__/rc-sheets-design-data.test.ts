@@ -4,7 +4,6 @@
  * date, and proposals adopted under the old data are proposed again.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { modelStore } from '../model.svelte';
 import { resultsStore } from '../results.svelte';
 import { uiStore } from '../ui.svelte';
@@ -15,7 +14,6 @@ import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
-import { deserializeProject } from '../file';
 import { adoptAll, buildSheetRows, rcSheetsData, setAdopted, setColumnEndZones, setRcOption, setSheetCode, setTorsionMode, type SheetRows } from '../rc-sheets.svelte';
 import { designSheets, sheetsStale } from '../rc-sheets-view.svelte';
 import { sheetCoverShortfalls } from '../rc-sheets-covers';
@@ -218,16 +216,6 @@ describe('the project\'s design data in the sheets', () => {
     expect(w.adopted.vertical.diameter).toBe(10);
     const det = wallDetail(w, 'cirsoc201-2025');
     for (const d of [det.boundary?.ties?.dia, det.crossTies?.dia]) if (d !== undefined) expect(d).toBeGreaterThanOrEqual(10);
-  });
-
-  it('longDiametersMm: the footings\' mats take their bars from the list within Ø10 to Ø25', () => {
-    expect(deserializeProject(readFileSync(new URL('../../export/__fixtures__/rc-footing-cad-poc.ded.json', import.meta.url), 'utf8'))).toBe(true);
-    uiStore.analysisMode = 'pro';
-    solve();
-    patchDesignData({ longDiametersMm: [16, 32] });
-    const rows = buildSheetRows().footing;
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => [r.adopted.x.dia, r.adopted.y.dia].every((d) => d === 0 || d === 16))).toBe(true);
   });
 
   it('a change of any of them leaves the rows out of date, and proposes again what was adopted from a proposal', async () => {

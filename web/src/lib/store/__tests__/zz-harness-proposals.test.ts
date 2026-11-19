@@ -37,7 +37,7 @@ describe('harness', () => {
       const t0 = Date.now();
       const rows = buildSheetRows();
       const fam: Record<string, unknown> = { ms: Date.now() - t0, basis: rows.basis, code: rows.code, sample: rows.beam[0]?.verifications?.slice(0, 3).map((v) => v.clause ?? v.label) };
-      for (const f of ['beam', 'line', 'column', 'slab', 'wall', 'punching', 'footing'] as const) {
+      for (const f of ['beam', 'line', 'column', 'slab', 'wall', 'punching'] as const) {
         const list = rows[f] as Array<{ name?: string; key?: string; level?: string; status: string; verifications?: Array<{ label: string; ok: boolean; demand?: string; capacity?: string; ratio?: number }> }>;
         const fails = list.filter((r) => r.status === 'fail').map((r) => ({
           name: r.name ?? r.key, level: r.level,

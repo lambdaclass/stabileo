@@ -16,18 +16,14 @@ import { columnTieLayout, confinedTieCount } from '../column-ties';
 import { SLAB_FACES, type SlabFace, type SlabRow } from '../slab-row';
 import { layerPositions } from '../view-helpers';
 import type { LevelPlan, SlabPackage } from '../slab-plan';
-import { firstLevel, wallDetail, wallLevels, type WallDetail } from '../wall-detail';
+import { wallDetail, wallLevels, type WallDetail } from '../wall-detail';
 import type { WallRow } from '../wall-row';
-import type { FootingRow, StrapResult } from '../footing-types';
-import { footingDetail } from '../footing-detail';
-import { groupDetail, groupDowelRows } from '../footing-group-detail';
-import { dowelGroups, dowelPlaces } from '../footing-dowels';
 import { rulesFor } from '../codes';
 import { closedHoop, crankedBar, crossTie, developedLength, hookLeg, hookedStraight, uBar, type BarShape, type BendRules } from '../shape';
 import type { SheetCode, SheetFamily, Stirrups } from '../types';
 
 export type PieceKind = LineBar['kind'] | 'stirrup' | 'stirrupTie' | 'hanger' | 'column' | 'cranked' | 'dowel' | 'hoop' | 'crossTie'
-  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie' | 'footingX' | 'footingY' | 'footingTop';
+  | 'slabBottom' | 'slabTop' | 'vertical' | 'boundary' | 'horizontal' | 'ubar' | 'wallTie';
 
 export interface Piece {
   kind: PieceKind;
@@ -39,7 +35,7 @@ export interface Piece {
 
 export interface ScheduleElement { key: string; name: string; level?: string; family: SheetFamily; pieces: Piece[] }
 
-export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[]; footing?: readonly FootingRow[] }
+export interface PieceRows { line: LineLayout[]; column: ColumnRow[]; slab: SlabRow[]; wall: WallRow[]; slabPlan?: readonly LevelPlan[] }
 
 export interface PieceOptions {
   code: SheetCode;
@@ -213,9 +209,9 @@ export const wallTie = (r: WallRow, det: WallDetail, R: BendRules): BarShape | n
 
 export function wallGrid(r: WallRow, det: WallDetail): { horizontals: number[]; hoops: number[]; ties: { along: number[]; up: number[] } } {
   return {
-    horizontals: wallLevels(r.height, det.horizontals.spacing, Infinity, firstLevel(r, det.horizontals.spacing)),
-    hoops: det.boundary?.ties ? wallLevels(r.height, det.boundary.ties.spacing, Infinity, firstLevel(r, det.boundary.ties.spacing)) : [],
-    ties: det.crossTies ? { along: wallLevels(r.length, det.crossTies.along), up: wallLevels(r.height, det.crossTies.up, Infinity, firstLevel(r, det.crossTies.up)) } : { along: [], up: [] },
+    horizontals: wallLevels(r.height, det.horizontals.spacing),
+    hoops: det.boundary?.ties ? wallLevels(r.height, det.boundary.ties.spacing) : [],
+    ties: det.crossTies ? { along: wallLevels(r.length, det.crossTies.along), up: wallLevels(r.height, det.crossTies.up) } : { along: [], up: [] },
   };
 }
 
@@ -252,39 +248,7 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
   return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
 }
 
-/** A strap beam the footing's row holds itself (the model has no member for it), once for the pair of footings it joins. */
-export function ownStrapResults(r: FootingRow, all: readonly FootingRow[]): StrapResult[] {
-  return (r.edge?.straps ?? []).filter((s) => s.line && s.group === undefined && !(all.some((o) => o.key === s.partnerKey && o.edge?.straps.some((t) => t.partnerKey === r.key)) && s.partnerKey < r.key));
-}
-
-const ownStraps = (r: FootingRow, all: readonly FootingRow[]): LineLayout[] => ownStrapResults(r, all).map((s) => s.line!);
-
-/** A footing's two bottom layers, hooked up where they need it, a combined footing's top bars, its dowels by shape (`footing-dowels.ts`), and the strap beams it holds. */
-function footingPieces(r: FootingRow, all: readonly FootingRow[], R: BendRules, columns: readonly ColumnRow[]): ScheduleElement {
-  if (r.group) return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces: r.uncovered ? [] : groupPieces(r, R, columns) };
-  const det = footingDetail(r, R);
-  const pieces: Piece[] = r.uncovered ? [] : det.layers.map((l) => ({ kind: l.dir === 'x' ? 'footingX' : 'footingY', count: l.positions.length, shape: l.shape }));
-  if (!r.uncovered && det.top) pieces.push({ kind: 'footingTop', count: det.top.positions.length, shape: det.top.shape });
-  if (!r.uncovered) {
-    const rowOf = (key: string | undefined) => (key ? columns.find((c) => c.key === key) : undefined);
-    const places = dowelPlaces(r, R, { first: rowOf(r.demand.column?.rowKey), second: rowOf(r.demand.carried?.column?.rowKey) });
-    for (const g of dowelGroups(r, places, R)) pieces.push({ kind: 'dowel', count: g.count, shape: g.shape });
-  }
-  for (const l of ownStraps(r, all)) pieces.push(...linePieces(l, R).pieces);
-  return { key: r.key, name: r.name, level: r.level, family: 'footing', pieces };
-}
-
-/** A strip's or mat's meshes and added bars, bottom and top, and each column's or core's dowels by shape, one under each of its bars. */
-export function groupPieces(r: FootingRow, R: BendRules, columns: readonly ColumnRow[] = []): Piece[] {
-  const det = groupDetail(r, R);
-  const dowels = groupDowelRows(r).flatMap((m) => dowelGroups(m.row, dowelPlaces(m.row, R, { first: columns.find((c) => c.key === m.rowKey) }), R));
-  return [
-    ...det.layers.map((l) => ({ kind: l.face === 'top' ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const, count: l.positions.length, shape: l.shape })),
-    ...dowels.map((g) => ({ kind: 'dowel' as const, count: g.count, shape: g.shape })),
-  ];
-}
-
-/** Every element's pieces, beams, columns, slabs, walls and footings in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
+/** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
   const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
@@ -295,6 +259,5 @@ export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElem
     ...(rows.slabPlan ?? []).filter((p) => planned.has(p.level)).map(levelPieces),
     ...rows.slab.filter((r) => !inPlan.has(r.key)).map((r) => slabPieces(r, o, R)),
     ...rows.wall.map((r) => wallPieces(rows.wall, r, o, R)),
-    ...(rows.footing ?? []).filter((r) => r.B > 0 && (!r.uncovered || ownStraps(r, rows.footing ?? []).length)).map((r) => footingPieces(r, rows.footing ?? [], R, rows.column)),
   ].map((e) => ({ ...e, pieces: e.pieces.filter((p) => p.count > 0) }));
 }

@@ -2,7 +2,7 @@
  * The criteria Stabileo takes where the code leaves room, every one within what the code asks: a
  * criterion only adds a rule, it never relaxes a check. Each is a number the project may state in
  * its design data (`designOptions.criteria`), in the unit it is shown in; what it leaves out is
- * read at its default. Most come from the FIUBA reinforced-concrete and foundations course notes;
+ * read at its default. Most come from the FIUBA reinforced-concrete course notes;
  * the sheets cite them as `CRITERION`, which the views translate.
  */
 
@@ -15,8 +15,8 @@ export const withCriterion = (clause?: string): string => (clause ? `${clause}; 
 export const localizeCriterion = (s: string | undefined, tr: (key: string) => string): string =>
   s ? s.split(CRITERION).join(tr('rcSheets.criterion')) : '';
 
-export type CriterionFamily = 'beam' | 'column' | 'slab' | 'footing';
-export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab', 'footing'];
+export type CriterionFamily = 'beam' | 'column' | 'slab';
+export const CRITERION_FAMILIES: readonly CriterionFamily[] = ['beam', 'column', 'slab'];
 
 /**
  * One criterion: its family, its default and range as stated, the unit it is stated in, an
@@ -48,20 +48,6 @@ export const CRITERIA = {
   slabBendOneWay: { family: 'slab', value: 7, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabBendTwoWay: { family: 'slab', value: 8, min: 5, max: 12, step: 0.5, unit: '', prefix: 'ln/', digits: 1 },
   slabMinThickness: { ...cm(8, 5, 30), family: 'slab' },
-  footingTieMaxLoad: { family: 'footing', value: 1200, min: 100, max: 10000, step: 50, unit: 'kN' },
-  footingTieMinArm: { family: 'footing', value: 1.5, min: 0.5, max: 6, step: 0.1, unit: 'm', digits: 2 },
-  footingTieOffset: { family: 'footing', value: 4, min: 2, max: 10, step: 0.5, unit: '', prefix: 'e ≤ H/', digits: 1 },
-  footingTieFriction: { family: 'footing', value: 30, min: 10, max: 45, step: 1, unit: '°', prefix: 'φ = ' },
-  footingTieSlide: { family: 'footing', value: 1.5, min: 1, max: 3, step: 0.1, unit: '', digits: 2 },
-  footingTieStretch: { family: 'footing', value: 1000, min: 200, max: 5000, step: 50, unit: '', prefix: 'ΔL ≤ H/' },
-  footingTieMinBars: { family: 'footing', value: 2, min: 2, max: 8, step: 2, unit: '', integer: true },
-  footingTieMinWidth: { ...cm(15, 10, 60), family: 'footing' },
-  footingTieMinDepth: { ...cm(30, 15, 100), family: 'footing' },
-  footingTieDepthRatio: { family: 'footing', value: 10, min: 4, max: 20, step: 1, unit: '', prefix: 'h ≥ L/' },
-  footingMatShare: { family: 'footing', value: 50, min: 20, max: 90, step: 5, unit: '%', scale: 100 },
-  footingRigidLength: { family: 'footing', value: 1.57, min: 0.5, max: 3.14, step: 0.01, unit: '·Lo', prefix: 'L ≤ ', digits: 2 },
-  footingWinklerEnds: { family: 'footing', value: 2, min: 1, max: 3, step: 0.1, unit: '·ks', digits: 1 },
-  footingWinklerSettlement: { ...cm(1, 0.5, 5, 0.5), family: 'footing', digits: 1 },
 } as const satisfies Record<string, CriterionSpec>;
 
 export type CriterionId = keyof typeof CRITERIA;

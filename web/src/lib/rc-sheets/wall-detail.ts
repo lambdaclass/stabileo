@@ -107,10 +107,9 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
     notes.push({ key: 'rcSheets.wallFig.n.noTies', clause: '§11.7.4.1', params: { rho: (rhoV * 100).toFixed(2) } });
   }
   const vl = row.vLaps?.find((x) => x.dia === a.vertical.diameter);
-  if (vl && (row.onFooting || row.stack?.above)) {
+  if (vl && row.stack?.above) {
     const clause = fam === 'aci' ? (vl.tension ? (seis ? '§25.5.2, §18.10.2.3' : '§25.5.2') : '§25.5.5.1') : fam === 'ec2' ? '8.7.3' : '9.3';
-    if (row.onFooting) notes.push({ key: 'rcSheets.wallFig.n.dowels', clause, params: { lap: Math.round(vl.lap * 100) } });
-    if (row.stack?.above) notes.push({ key: 'rcSheets.wallFig.n.lapUp', clause, params: { lap: Math.round(vl.lap * 100) } });
+    notes.push({ key: 'rcSheets.wallFig.n.lapUp', clause, params: { lap: Math.round(vl.lap * 100) } });
   }
   const columns = row.pier?.columns ?? [];
   if (row.pier) notes.push({ key: 'rcSheets.wallFig.n.pier', clause: '§22.4', params: { name: row.pier.name, ratio: row.pier.ratio.toFixed(2) } });
@@ -118,11 +117,11 @@ export function wallDetail(row: WallRow, code: SheetCode): WallDetail {
   return { length: L, thickness: t, cover, verticals, horizontals: { dia: a.horizontal.diameter, spacing: a.horizontal.spacing, y: hy }, ends, boundary, crossTies, columns, notes };
 }
 
-/** Bars at a spacing up a height (or along a length), the first `first` in (half a spacing unless given); one kept in so many past `maxLines`. */
-export function wallLevels(span: number, s: number, maxLines = Infinity, first = s / 2): number[] {
-  const n = Math.max(1, Math.floor((span - first) / s) + 1);
+/** Bars at a spacing up a height (or along a length), from half a spacing in; one kept in so many past `maxLines`. */
+export function wallLevels(span: number, s: number, maxLines = Infinity): number[] {
+  const n = Math.max(1, Math.floor((span - s / 2) / s) + 1);
   const every = Number.isFinite(maxLines) ? Math.ceil(n / maxLines) : 1;
-  return Array.from({ length: Math.ceil(n / every) }, (_, i) => first + i * every * s);
+  return Array.from({ length: Math.ceil(n / every) }, (_, i) => s / 2 + i * every * s);
 }
 
 /** Which way a wall's vertical is cranked in to lap beside the bar above it, along and across the wall: toward the middle plane, or for a single curtain along it toward the wall's middle. */
@@ -130,6 +129,3 @@ export function wallInward(v: { x: number; y: number }, r: Pick<WallRow, 'length
   const across = v.y - r.thickness / 2;
   return Math.abs(across) > 1e-4 ? [0, -Math.sign(across)] : [v.x < r.length / 2 ? 1 : -1, 0];
 }
-
-/** Where a wall's first horizontal or hoop goes up its storey, m: over a footing min(5 cm; s/2) above its top, as a column's first tie; over a floor half a spacing above the floor's mid-plane. */
-export const firstLevel = (r: Pick<WallRow, 'onFooting'>, s: number): number => (r.onFooting ? Math.min(0.05, s / 2) : s / 2);

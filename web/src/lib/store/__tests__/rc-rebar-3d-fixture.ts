@@ -9,7 +9,6 @@ import { PRO_EXAMPLES } from '../../data/pro-examples';
 import { bar3dLength, type Frame, type Rebar3d, type V3 } from '../../rc-sheets/rebar-3d';
 import { scheduleElements, type PieceOptions, type PieceRows } from '../../rc-sheets/schedule/pieces';
 import { developedLength } from '../../rc-sheets/shape';
-import { setFoundationSystem } from '../rc-sheets-footings';
 
 export async function solvedExample(id: string): Promise<void> {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); uiStore.analysisMode = 'pro';
@@ -20,7 +19,6 @@ export async function solvedExample(id: string): Promise<void> {
   syncDefinedLoadsForAnalysis(); recognizePhysicalElements();
   resultsStore.setResults3D(modelStore.solve3D(false, false, true) as never);
   publishCombinations3D(modelStore.solveCombinations3D(false, false, true) as never);
-  setFoundationSystem('auto');
 }
 
 const keyOf = (element: string, kind: string, dia: number) => `${element} · ${kind} · Ø${dia}`;

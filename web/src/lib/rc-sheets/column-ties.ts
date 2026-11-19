@@ -181,7 +181,7 @@ export function lapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): CheckLine | n
   return check('rcSheets.v.colLapFit', row.lap.length <= room + 1e-6, { clause, demand: `${fmt(row.lap.length * 100, 0)} cm`, capacity: `≤ ${fmt(room * 100, 0)} cm`, ratio: row.lap.length / room });
 }
 
-/** A column row with its lap's room checked (one that does not fit fails the row) and where the lap starts over the joint below, which its footing's dowels read. */
+/** A column row with its lap's room checked (one that does not fit fails the row) and where the lap starts over the joint below. */
 export function withLapFit(row: ColumnRow, code: SheetCode, fmt: Fmt): ColumnRow {
   const v = lapFit(row, code, fmt);
   if (!v || !row.lap) return row;

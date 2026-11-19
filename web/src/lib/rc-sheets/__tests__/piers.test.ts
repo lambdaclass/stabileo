@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { columnCorners, recognizePiers, type PierColumn, type PierWall } from '../piers';
 import { checkPier, legDemand, pierBars, pierCombos } from '../pier-design';
-import { summedAction } from '../footing-demands';
 import { wallDetail } from '../wall-detail';
 import type { ColumnDemand } from '../column-row';
 import type { WallDemand, WallRow } from '../wall-row';
@@ -42,7 +41,7 @@ describe('pier recognition', () => {
     expect(p!.columns[0]!.overlap).toBeCloseTo(0.08, 9);
   });
 
-  it('reads a closed core as an outline with its hole, and keeps groups of walls with no column for the foundation', () => {
+  it('reads a closed core as an outline with its hole, and keeps groups of walls with no column', () => {
     const box = [wall('a', 0, 0, 3, 0), wall('b', 3, 0, 3, 3), wall('c2', 3, 3, 0, 3), wall('d', 0, 3, 0, 0)];
     const [p] = recognizePiers(box, []);
     expect(p!.columns).toEqual([]);
@@ -105,21 +104,5 @@ describe('pier forces and section', () => {
     const inPier = wallDetail({ ...row, pier: { key: 'p', name: 'W1 + C1', ratio: 0.5, ok: true, combo: 'U', columns: [{ key: 'c', name: 'C1', host: true, outline, bars: [], tieDia: 8, tieSpacing: 0.2, label: '' }] } }, 'aci318-19');
     expect(inPier.verticals.length).toBe(plain.verticals.filter((v) => v.x > 0.2).length);
     expect(inPier.columns).toHaveLength(1);
-  });
-});
-
-describe('a pier\'s footing', () => {
-  it('takes the reactions of every node of its base as one action, in equilibrium about its centre', () => {
-    const rs = [
-      { nodeId: 1, x: 0, y: 0, fx: 1, fy: 2, fz: 300, mx: 4, my: -5, mz: 0 },
-      { nodeId: 2, x: 3, y: 0, fx: -2, fy: 1, fz: 500, mx: 0, my: 2, mz: 0 },
-      { nodeId: 3, x: 3, y: 2, fx: 0, fy: 0, fz: 200, mx: 1, my: 0, mz: 0 },
-    ];
-    const a = summedAction('U', rs, { x: 1.5, y: 1 });
-    expect(a.N).toBeCloseTo(1000, 9);
-    expect(a.Vx).toBeCloseTo(1, 9);
-    expect(a.Vy).toBeCloseTo(-3, 9);
-    expect(-a.Mx).toBeCloseTo(4 + 1 + (0 - 1) * 300 + (0 - 1) * 500 + (2 - 1) * 200, 9);
-    expect(-a.My).toBeCloseTo(-5 + 2 - (0 - 1.5) * 300 - (3 - 1.5) * 500 - (3 - 1.5) * 200, 9);
   });
 });

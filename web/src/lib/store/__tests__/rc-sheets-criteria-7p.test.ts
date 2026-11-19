@@ -40,7 +40,7 @@ describe('the seven-storey example', () => {
       expect(text, code).not.toMatch(/FIUBA/);
       for (const k of ['bentBars', 'slabBentBars', 'alternatives'] as const) expect(optionRule(k, code).clause, code).not.toMatch(/FIUBA/);
       expect(rulesFor(code).bends.clause, code).not.toMatch(/FIUBA/);
-      const checks = [...rows.beam, ...rows.line, ...rows.column, ...rows.slab, ...rows.footing].flatMap((r) => r.verifications);
+      const checks = [...rows.beam, ...rows.line, ...rows.column, ...rows.slab].flatMap((r) => r.verifications);
       if (code === 'cirsoc201-2025') {
         expect(text).toContain(CRITERION);
         expect(rows.slabPlan.some((p) => p.rules.clause.bendAt === CRITERION)).toBe(true);

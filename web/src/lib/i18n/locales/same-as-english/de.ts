@@ -133,7 +133,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'design.stageCard.optional',
   'design.table.status',
   'designData.minimum',
-  'designData.presumedBearingSummary',
   'desk.guide.state.optional',
   'despiece.basisGlobal',
   'despiece.basisGlobalShort',

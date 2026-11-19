@@ -12,7 +12,7 @@ import type { PieceOptions } from '../rc-sheets/schedule/pieces';
 import type { SheetFamily } from '../rc-sheets/types';
 
 export type Rebar3dFamily = Exclude<SheetFamily, 'punching'>;
-export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'footing'];
+export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall'];
 
 const GHOST_KEY = 'stabileo-rc-rebar-3d-ghost';
 
@@ -25,7 +25,7 @@ export function saveGhostPreference(on: boolean): void {
 }
 
 export const rebarView = $state<{ on: boolean; row: { key: string; name: string } | null; level: string; families: Record<Rebar3dFamily, boolean>; ghost: boolean }>({
-  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true, footing: true }, ghost: readGhostPreference(),
+  on: false, row: null, level: '', families: { beam: true, column: true, slab: true, wall: true }, ghost: readGhostPreference(),
 });
 
 export function showRebarOf(row: { key: string; name: string }): void {
@@ -62,7 +62,6 @@ const offsetAt = (elementId: number, node: number) => {
 };
 
 export function modelFrames(rows: SheetRows): Rebar3dFrames {
-  const footings = new Map<string, { demand: { at: { x: number; y: number } } }>([...rows.footing.flatMap((r) => (r.demand.group?.members ?? []).map((m) => [m.key, { demand: m }] as const)), ...rows.footing.map((r) => [r.key, r] as const)]);
   return {
     line(l) {
       const spans = rows.beam.filter((r) => r.demand.line?.group === l.group).map((r) => r.demand.line!).sort((p, q) => p.index - q.index);
@@ -90,19 +89,6 @@ export function modelFrames(rows: SheetRows): Rebar3dFrames {
       if (!p) return null;
       const o: V3 = [p.x1, p.y1, r.demand.z ?? 0], x = unit(o, [p.x2, p.y2, o[2]]);
       return { o, x, y: [-x[1], x[0], 0], z: [0, 0, 1] };
-    },
-    footing(r) {
-      const at = r.demand.at, under = r.founding;
-      return { o: [at.x + r.adopted.ex, at.y + r.adopted.ey, under], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
-    },
-    strap(r, s) {
-      const other = footings.get(s.partnerKey);
-      if (!other || !s.line) return null;
-      const at = r.demand.at, k = s.axis === 'x' ? 0 : 1;
-      const toward = Math.sign((k === 0 ? other.demand.at.x - at.x : other.demand.at.y - at.y)) || 1;
-      const under = r.founding, hMax = Math.max(...s.line.spans.map((sp) => sp.h));
-      const x: V3 = k === 0 ? [toward, 0, 0] : [0, toward, 0];
-      return { o: [at.x, at.y, under + r.adopted.h - hMax / 2], x, y: [-x[1], x[0], 0], z: [0, 0, 1] };
     },
     slabSoffit(r) {
       return r.demand.bounds ? r.demand.bounds.z - r.h / 2 : null;

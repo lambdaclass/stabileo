@@ -164,7 +164,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'design.forcesReport.format',
   'design.memo.torsion',
   'designData.minimum',
-  'designData.presumedBearingSummary',
   'desk.tab.arch',
   'despiece.basisGlobal',
   'despiece.basisLocal',
@@ -769,6 +768,4 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.bvbs',
   'rcSheets.col.slabKind',
   'rcSheets.coversNotice.buttonItem',
-  'rcSheets.foot.kind',
-  'rcSheets.foot.position',
 ];

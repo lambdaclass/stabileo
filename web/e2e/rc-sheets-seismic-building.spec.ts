@@ -61,7 +61,7 @@ test('@slow the gallery\'s seven-storey building designs with the seismic provis
 
   await designSeismic(page);
 
-  for (const f of ['beam', 'column', 'wall', 'footing']) {
+  for (const f of ['beam', 'column', 'wall']) {
     const open = page.getByTestId(`rc-open-${f}`);
     if (!(await open.isEnabled())) continue;
     await expect(open, `${f} rows`).toContainText(/\b0 failing/);
@@ -83,7 +83,7 @@ test('@slow the seven-storey building as tests load it fails at its unheld core 
   await loadModel(page, 'pro-edificio-7p');
   await solveModel(page);
   await designSeismic(page);
-  for (const f of ['beam', 'column', 'footing']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);
+  for (const f of ['beam', 'column']) await expect(page.getByTestId(`rc-open-${f}`), `${f} rows`).toContainText(/\b0 failing/);
   await expect(page.getByTestId('rc-open-wall')).toContainText(/\b3 failing/);
   await balconiesFailOnDeflection(page);
 
