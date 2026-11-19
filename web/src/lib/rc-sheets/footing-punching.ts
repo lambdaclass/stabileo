@@ -2,7 +2,7 @@ import type { PressureField } from '../engine/foundation/pressure-field';
 import { designPunchingReinforcement, gammaV, type Side } from '../engine/detailing/punching-moment';
 import { PHI_SHEAR, sqrtFcCapped } from '../engine/detailing/punching-shear';
 import { barArea } from './bars';
-import { footingPunching, type FootingPlan } from './footing-mechanics';
+import { alphaOfSides, ceilTo, footingPunching, plainPunchingVc, r3, soilInside, type FootingPlan } from './footing-mechanics';
 import type { FootingAction, PunchingCage, PunchingDrop, PunchingFix, PunchingSection } from './footing-types';
 
 /** One combination as a column punches its footing: the soil under the whole base and the column's action at its node. */
@@ -30,8 +30,6 @@ const MIN_GAP = 0.1;
 /** A leg stands this far inside the footing's sides past the cover, m: within the meshes' outer bars. */
 export const LEG_INSET = 0.05;
 const MAX_LINES = 40, MAX_DROP = 1.5, STEP = 0.05;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
-const up = (v: number) => Math.ceil(v / STEP - 1e-9) * STEP;
 
 export const columnRect = (p: FootingPlan): Rect => ({ x0: p.xc - p.b / 2, x1: p.xc + p.b / 2, y0: p.yc - p.h / 2, y1: p.yc + p.h / 2 });
 const grow = (r: Rect, a: number): Rect => ({ x0: r.x0 - a, x1: r.x1 + a, y0: r.y0 - a, y1: r.y1 + a });
@@ -79,20 +77,10 @@ export function sectionStress(sides: readonly Side[], d: number, Vu: number, Mx:
   return { vu: (Vu / (bo * d) + vMy + vMx) / 1000, bo };
 }
 
-/** The soil's push inside a rectangle of the plan, kN. */
-function soilInside(f: PressureField, r: Rect): number {
-  const n = 12, w = r.x1 - r.x0, l = r.y1 - r.y0;
-  if (!(w > 0) || !(l > 0)) return 0;
-  let q = 0;
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) q += f.at(r.x0 + ((i + 0.5) * w) / n, r.y0 + ((j + 0.5) * l) / n);
-  return (q / (n * n)) * w * l;
-}
-
 /** vc of Table 22.6.5.2 for a loaded area of these proportions and a section of these sides, MPa (λs = 1, §13.2.6.2(b)). */
 const plainVc = (fc: number, r: Rect, sides: readonly Side[], d: number, bo: number): number => {
   const beta = Math.max(r.x1 - r.x0, r.y1 - r.y0) / Math.max(1e-9, Math.min(r.x1 - r.x0, r.y1 - r.y0));
-  const alpha = sides.length >= 4 ? 40 : sides.length === 3 ? 30 : 20;
-  return Math.min(0.33, 0.17 * (1 + 2 / beta), 0.083 * (2 + (alpha * d) / bo)) * sqrtFcCapped(fc);
+  return plainPunchingVc(fc, beta, alphaOfSides(sides.length), d, bo);
 };
 
 /** A section `dist` past a loaded area's faces (the column's, or a drop's), read in every combination: the worst against φ·vc, vc given by `vcOf`. */
@@ -212,7 +200,7 @@ export function designDrop(cases: readonly PunchingCase[], s: PunchingSite): Pun
   for (let hd = 0.1; hd <= MAX_DROP + 1e-9; hd = r3(hd + STEP)) {
     const inner = punchingReading(cases, s, { drop: { w: s.reach, hd } });
     if (!inner || inner.sections[0]!.vu > inner.sections[0]!.phiV + 1e-9) continue;
-    for (let w = up((s.d + hd) / 2); w <= s.reach + 1e-9; w = r3(w + STEP)) {
+    for (let w = ceilTo((s.d + hd) / 2, STEP); w <= s.reach + 1e-9; w = r3(w + STEP)) {
       const rd = punchingReading(cases, s, { drop: { w, hd } });
       if (rd && rd.utilization <= 1 + 1e-9) return { w, hd };
     }

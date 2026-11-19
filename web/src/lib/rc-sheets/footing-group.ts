@@ -1,12 +1,12 @@
-import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes/argentina/losas';
+import { slabProvisions } from '../engine/codes/argentina/losas';
 import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
 import { critOf } from './criteria';
-import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, CONCRETE_WEIGHT, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { ASSUMED_FILL_WEIGHT, bearingReading, bearingStrength, cantileverAcross, CONCRETE_WEIGHT, centred, fieldOf, serviceBearing, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { dropRect, punchingReading, type PunchingCase, type PunchingSite } from './footing-punching';
 import { meshArea } from './footing-mesh';
-import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, type FootingRowCode } from './footing-design';
-import { tieBars, tieLimits, TIE } from './footing-tie-bars';
+import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, MIN_D, stripReading, type FootingRowCode } from './footing-design';
+import { tieBars, tieLimits, tieWidth } from './footing-tie-bars';
 import { winklerStrip } from './footing-winkler';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingGroup, FootingLayers, GroupColumn, GroupExtra, GroupStrap, GroupStrip, GroupTie } from './footing-types';
 import { stripStrapPull, stripStraps } from './footing-group-straps';
@@ -65,7 +65,6 @@ export function summed(cols: readonly Placed[], pick: (d: FootingDemand) => Foot
   return t;
 }
 
-const centred = (a: Pick<FootingAdopted, 'B' | 'L'>): FootingPlan => ({ B: a.B, L: a.L, xc: 0, yc: 0, b: 0, h: 0 });
 const tiedAxisOf = (g: FootingGroup): Axis | undefined => (tiedAcross(g) && g.axis ? other(g.axis) : undefined);
 /** The axis across which a tie or a strap takes the columns' offset, which the soil then does not see. */
 const balancedAxisOf = (g: FootingGroup): Axis | undefined => tiedAxisOf(g) ?? strappedAcross(g);
@@ -233,9 +232,8 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const plan = centred(a);
   const tied = tiedAxisOf(g), strapped = strappedAcross(g);
   const prov = slabProvisions(EDITION, c.fy, a.h);
-  const k = ref.soil?.edgeFactor && ref.soil.edgeFactor > 1 ? ref.soil.edgeFactor : 1;
-  const sb = groupBearing(g, a), allowable = ref.soil?.allowable ?? null;
-  const bearing = sb ? { ...sb, allowable, edgeFactor: k, use: allowable ? bearingUse(sb, allowable, k) : 0, ok: allowable ? bearingHolds(sb, allowable, k) : false } : null;
+  const sb = groupBearing(g, a);
+  const bearing = sb ? bearingReading(sb, ref.soil) : null;
   const dOf = (dir: Axis) => (dir === 'x' ? layers.dx : layers.dy);
   const bands = stripsOf(g, cols, a);
   const read = bands.map(() => ({ mBottom: 0, mTop: 0, vu: 0 }));
@@ -244,7 +242,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
   const bandMu = cols.map(() => 0), bandVu = cols.map(() => 0), pu = cols.map(() => 0);
   const cases: PunchingCase[][] = cols.map(() => []);
   const perCombo: GroupAnalysis['combos'] = [];
-  const cantAcross = (p: Placed) => { if (!across) return 0; const s = across === 'x' ? p.x : p.y, half = (across === 'x' ? p.b : p.h) / 2; return Math.max(W / 2 - (s + half), s - half + W / 2, 0); };
+  const cantAcross = (p: Placed) => (across ? cantileverAcross(p, across, W) : 0);
   const tieForce = cols.map(() => ({ max: 0, byCombo: {} as Record<string, number> }));
   for (const name of ref.combos.map((x) => x.combo)) {
     const pick = (d: FootingDemand) => d.combos.find((x) => x.combo === name);
@@ -287,9 +285,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     return pr ? { vu: pr.vu, phiVc: pr.phiVc, utilization: pr.utilization, bo: pr.bo, position: pr.position, combo: pr.combo, sections: pr.sections, ...(pr.fix ? { fix: pr.fix } : {}), ...(pr.vs !== undefined ? { vs: pr.vs, ceiling: pr.ceiling, legs: pr.legs } : {}) } : null;
   });
   for (const k of perCombo) k.ratio = Math.max(0, ...cols.map((p, i) => { const one = cases[i]!.filter((x) => x.combo === k.combo); return one.length ? punchingReading(one, sites[i]!, a.punching?.[p.demand.key])?.utilization ?? 0 : 0; }));
-  const asOf = (mu: number, width: number, d: number) => (mu > 1e-6 ? computeAsFlexure(mu / width, a.h, d, c.fc, c.fy, EDITION).As * width : 0);
-  const capOf = (area: number, width: number, d: number) => (area > 0 ? stripCapacity(area / width, a.h, d, c.fc, c.fy, EDITION) * width : 0);
-  const vcOf = (area: number, width: number, d: number) => 0.75 * code.oneWayVc(c.fc, (area * 1e-4) / Math.max(width * d, 1e-9)) * width * d * 1000;
+  const { asOf, capOf, vcOf } = stripReading(c, a.h, code);
   const flat = { B: a.B, L: a.L, ex: 0, ey: 0 };
   const perM = (m: FootingAdopted['x'] | undefined, dir: Axis) => (m && m.dia > 0 ? meshArea(dir, flat, { dia: m.dia, spacing: m.spacing }, c.cover).area / (dir === 'x' ? a.L : a.B) : 0);
   const bottomPerM = { x: perM(a.x, 'x'), y: perM(a.y, 'y') }, topPerM = { x: perM(a.tops?.x, 'x'), y: perM(a.tops?.y, 'y') };
@@ -350,8 +346,7 @@ export function analyseGroup(g: FootingGroup, c: FootingContext, a: FootingAdopt
     const Ns = p.demand.service?.N ?? 0, sw = p.demand.service ? (tied === 'x' ? p.demand.service.My + lever * p.demand.service.Vx : p.demand.service.Mx - lever * p.demand.service.Vy) : 0;
     const Ts = (Ns * e + Math.abs(sw)) / H;
     const bars = tieBars(tieForce[i]!.max, c.fy, c.diameters, 0, cr.footingTieMinBars);
-    const perLayer = Math.max(1, bars.count / 2);
-    const b = Math.max(cr.footingTieMinWidth, Math.ceil((2 * c.cover + 2 * TIE.stirrup + perLayer * bars.dia / 1000 + (perLayer - 1) * TIE.gap) / 0.05 - 1e-9) * 0.05);
+    const b = tieWidth(c.cover, bars, cr.footingTieMinWidth);
     return { column: p.demand.name, axis: tied, H, Tu: tieForce[i]!.max, ...bars, e, Ns, Ts, b, h: cr.footingTieMinDepth, mu: lim.mu, byCombo: tieForce[i]!.byCombo, stretch: null };
   }) : [];
   const straps = strapped ? stripStraps(cols, strapped, lever, a, ref.combos.map((x) => x.combo)) : [];

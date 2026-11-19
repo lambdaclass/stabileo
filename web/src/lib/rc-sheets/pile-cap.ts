@@ -1,11 +1,10 @@
-import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes/argentina/losas';
-import { sqrtFcCapped } from '../engine/detailing/punching-shear';
+import { slabProvisions } from '../engine/codes/argentina/losas';
 import { pileCentres } from '../model/foundation/piles';
 import { barArea } from './bars';
 import { critOf } from './criteria';
 import { shiftAt } from './footing-balance';
-import { dowelLap, dowelReach, footingSpacing, leverOf, type FootingRowCode } from './footing-design';
-import { bearingStrength, CONCRETE_WEIGHT } from './footing-mechanics';
+import { dowelLap, dowelReach, footingSpacing, layersOf, leverOf, stripReading, type FootingRowCode } from './footing-design';
+import { alphaOfSides, bearingStrength, ceilTo, CONCRETE_WEIGHT, plainPunchingVc, r3 } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { sectionStress, sidesIn } from './footing-punching';
 import type { CapPiles, CapResult, FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingLayers, FootingMesh, PileSpec } from './footing-types';
@@ -22,8 +21,6 @@ const STEP_H = 0.05, MAX_H = 3;
 const PILE_BARS = [12, 16, 20, 25];
 /** A hooked bottom bar rises about this many of its diameters over its axis: its bend and the hook's leg, which must stay under the cap's top cover. */
 const HOOK_RISE = 17;
-const up = (v: number) => Math.ceil(v / 0.05 - 1e-9) * 0.05;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
 type Axis = 'x' | 'y';
 type P2 = [number, number];
 
@@ -84,7 +81,7 @@ export function capPlan(cols: readonly CapColumn[], pattern: readonly P2[], spec
     let hi = Math.max(...piles.map((p) => p[k] + edge), ...cols.map((c) => pos(c) + half(c) + 0.1));
     if (l.lo !== null) lo = l.lo;
     if (l.hi !== null) hi = l.hi;
-    const len = l.lo !== null && l.hi !== null ? hi - lo : up(hi - lo);
+    const len = l.lo !== null && l.hi !== null ? hi - lo : ceilTo(hi - lo);
     if (l.hi !== null && l.lo === null) lo = hi - len; else hi = lo + len;
     ext[k === 0 ? 'x' : 'y'] = { lo, hi };
   }
@@ -136,17 +133,11 @@ export interface CapAnalysis {
   strap: { V: number; service: number } | null;
 }
 
-const layersOfCap = (a: FootingAdopted, cover: number): FootingLayers => {
-  const lower = a.B >= a.L ? 'x' : 'y', dbL = (lower === 'x' ? a.x.dia : a.y.dia) / 1000, dbU = (lower === 'x' ? a.y.dia : a.x.dia) / 1000;
-  const dLow = a.h - cover - dbL / 2, dUp = a.h - cover - dbL - dbU / 2;
-  return { lower, dx: lower === 'x' ? dLow : dUp, dy: lower === 'x' ? dUp : dLow, d: (dLow + dUp) / 2 };
-};
-
 /** Every reading of a pile cap with these dimensions, piles and bars (CIRSOC 201 / ACI 318 §13.4, ch. 23). */
 export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopted & { piles: CapPiles }, code: FootingRowCode): CapAnalysis {
   const spec = d.piles!, cr = critOf(c), cover = capCover(c.cover);
   const cols = placed(capColumns(d), a), lever = leverOf(d, a.h), stub = lever - a.h;
-  const layers = layersOfCap(a, cover), dd = layers.d, D = spec.diameter, piles = a.piles.at;
+  const layers = layersOf(a, cover), dd = layers.d, D = spec.diameter, piles = a.piles.at;
   const weight = CONCRETE_WEIGHT * a.B * a.L * a.h;
   const balance = capBalance(d);
   const sv = pileLoads(cols, cols.map((k) => k.demand.service ?? undefined), piles, weight, balance, lever);
@@ -154,8 +145,8 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
   const byCombo = names.map((n) => ({ combo: n, acts: cols.map((k) => k.demand.combos.find((q) => q.combo === n)) })).filter((k) => k.acts.every(Boolean))
     .map((k) => ({ combo: k.combo, acts: k.acts as FootingAction[], R: pileLoads(cols, k.acts, piles, CAP_WEIGHT_FACTOR * weight, balance, lever).R }));
   const factored = piles.map((_, i) => Math.max(0, ...byCombo.map((k) => k.R[i]!)));
-  const root = sqrtFcCapped(c.fc), phi = 0.75;
-  const plainVc = (beta: number, sides: number, bo: number) => Math.min(0.33, 0.17 * (1 + 2 / beta), 0.083 * (2 + ((sides >= 4 ? 40 : sides === 3 ? 30 : 20) * dd) / bo)) * root;
+  const phi = 0.75, strip = stripReading(c, a.h, code);
+  const plainVc = (beta: number, sides: number, bo: number) => plainPunchingVc(c.fc, beta, alphaOfSides(sides), dd, bo);
   const punching: CapResult['punching'] = [];
   let columnPunching: CapAnalysis['columnPunching'] = null;
   cols.forEach((col) => {
@@ -200,9 +191,9 @@ export function analyseCap(d: FootingDemand, c: FootingContext, a: FootingAdopte
       if (Math.abs(sv2) < S / 2 - 1e-6) { const v = planeShear(dir, sv2, sd, k); if (v > vu) { vu = v; at = sv2; } }
     }
     const pArea = meshArea(dir, { B: a.B, L: a.L, ex: 0, ey: 0 }, m, cover).area;
-    const asFlex = mu > 1e-6 ? computeAsFlexure(mu / W, a.h, dD, c.fc, c.fy, '2025').As * W : 0;
-    const asMin = prov.AsMin * W, phiMn = pArea > 0 ? stripCapacity(pArea / W, a.h, dD, c.fc, c.fy, '2025') * W : 0;
-    const phiVc = phi * code.oneWayVc(c.fc, (pArea * 1e-4) / Math.max(W * dD, 1e-9)) * W * dD * 1000;
+    const asFlex = strip.asOf(mu, W, dD);
+    const asMin = prov.AsMin * W, phiMn = strip.capOf(pArea, W, dD);
+    const phiVc = strip.vcOf(pArea, W, dD);
     if (!deep) shear.push({ dir, at, vu, phiVc });
     const cant = Math.min(...cols.map((col) => Math.min(S / 2 - (along(dir, col) + (dir === 'x' ? col.b : col.h) / 2), along(dir, col) - (dir === 'x' ? col.b : col.h) / 2 + S / 2)));
     const anchorage = layerAnchorage(code.anchorage, { fc: c.fc, fy: c.fy }, m, a.h, cover, Math.max(cant, 0));
@@ -291,4 +282,4 @@ export function capMeshes(d: FootingDemand, c: FootingContext, a: FootingAdopted
   return { x, y };
 }
 
-export { STEP_H as CAP_STEP_H, MAX_H as CAP_MAX_H, COUNTS as PILE_COUNTS, up as upCap, r3 as r3Cap };
+export { STEP_H as CAP_STEP_H, MAX_H as CAP_MAX_H, COUNTS as PILE_COUNTS, ceilTo as upCap, r3 as r3Cap };

@@ -3,7 +3,7 @@ import { sqrtFcCapped } from '../engine/detailing/punching-shear';
 import { presizeFooting } from '../model/foundation/presize';
 import { barArea } from './bars';
 import {
-  ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, faceReading, fieldOf, footingPunching, serviceBearing,
+  ASSUMED_FILL_WEIGHT, bearingHolds, bearingReading, bearingStrength, ceilTo, edgeFactorOf, faceReading, r3, fieldOf, footingPunching, serviceBearing,
   type FootingPlan, type FootingPunching, type ServiceBearing,
 } from './footing-mechanics';
 import { bandShare, isBanded, layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
@@ -60,8 +60,24 @@ export function footingSpacing(c: Pick<FootingContext, 'fy' | 'criteria'>, h: nu
   return own < code - 1e-9 ? { s: own, clause: withCriterion('§8.7.2.2') } : { s: code, clause: '§8.7.2.2' };
 }
 const STEP_PLAN = 0.1, STEP_H = 0.05, MAX_PLAN = 15, MAX_H = 2.5;
-const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/** The bar diameters to try one way, the preferred first and then those larger. */
+export const preferredDiameters = (c: Pick<FootingContext, 'preferred' | 'diameters'>, dir: 'x' | 'y'): number[] => {
+  const pref = c.preferred?.[dir];
+  return pref && c.diameters.includes(pref) ? [pref, ...c.diameters.filter((x) => x > pref)] : [...c.diameters];
+};
+
+/** The thinnest footing, m: the least effective depth past the cover and two layers of bars. */
+export const minThickness = (cover: number): number => Math.max(0.3, ceilTo(MIN_D + cover + 0.024));
+
+/** A strip's steel for a moment, its flexural capacity and its one-way φVc, each for a width and an effective depth. */
+export function stripReading(c: Pick<FootingContext, 'fc' | 'fy'>, h: number, code: FootingShear) {
+  return {
+    asOf: (mu: number, width: number, depth: number) => (mu > 1e-6 ? computeAsFlexure(mu / width, h, depth, c.fc, c.fy, EDITION).As * width : 0),
+    capOf: (area: number, width: number, depth: number) => (area > 0 ? stripCapacity(area / width, h, depth, c.fc, c.fy, EDITION) * width : 0),
+    vcOf: (area: number, width: number, depth: number) => 0.75 * code.oneWayVc(c.fc, (area * 1e-4) / Math.max(width * depth, 1e-9)) * width * depth * 1000,
+  };
+}
 
 /** Where the footing's underside is founded, m: the modelled footing's level, else the project's common one, else its top at the node. */
 export const foundingOf = (d: Pick<FootingDemand, 'footing' | 'founding' | 'at'>, h: number): number => d.footing?.founding ?? d.founding ?? d.at.z - h;
@@ -119,13 +135,13 @@ const fillWeight = (d: FootingDemand) => d.soil?.unitWeight ?? ASSUMED_FILL_WEIG
 function direction(dir: 'x' | 'y', c: FootingContext, a: FootingAdopted, code: FootingRowCode, depth: number, mu: number, vu: number, cantilevers: number[], lineEnd: -1 | 0 | 1, carried: boolean): FootingDirection {
   const W = dir === 'x' ? a.L : a.B, m = dir === 'x' ? a.x : a.y;
   const prov = slabProvisions(EDITION, c.fy, a.h);
-  const asStrength = mu > 1e-6 ? computeAsFlexure(mu / W, a.h, depth, c.fc, c.fy, EDITION).As * W : 0;
+  const strip = stripReading(c, a.h, code);
+  const asStrength = strip.asOf(mu, W, depth);
   const asMin = prov.AsMin * W;
   const asReq = Math.max(asStrength, asMin);
   const p = meshArea(dir, a, m, c.cover);
-  const phiMn = p.area > 0 ? stripCapacity(p.area / W, a.h, depth, c.fc, c.fy, EDITION) * W : 0;
-  const rho = p.area * 1e-4 / Math.max(W * depth, 1e-9);
-  const phiVc = 0.75 * code.oneWayVc(c.fc, rho) * W * depth * 1000;
+  const phiMn = strip.capOf(p.area, W, depth);
+  const phiVc = strip.vcOf(p.area, W, depth);
   const loaded = cantilevers.filter((x) => x > c.cover + 1e-3);
   const anchorage = layerAnchorage(code.anchorage, { fc: c.fc, fy: c.fy }, m, a.h, c.cover, loaded.length ? Math.min(...loaded) : Infinity);
   const banded = isBanded(dir, a.B, a.L) && !!m.outer;
@@ -146,8 +162,7 @@ export function analyseFooting(d: FootingDemand, c: FootingContext, a: FootingAd
   let bearing: FootingAnalysis['bearing'] = null;
   if (d.service) {
     const s = serviceBearing(bal.soilPlan, bal.soil(d.service, lever), a.h, lever, fillWeight(d));
-    const allowable = d.soil?.allowable ?? null, k = d.soil?.edgeFactor && d.soil.edgeFactor > 1 ? d.soil.edgeFactor : 1;
-    bearing = { ...s, allowable, edgeFactor: k, use: allowable ? bearingUse(s, allowable, k) : 0, ok: allowable ? bearingHolds(s, allowable, k) : false };
+    bearing = bearingReading(s, d.soil);
   }
   let mx = 0, vx = 0, my = 0, vy = 0, pu = 0;
   let cx: number[] = [0, 0], cy: number[] = [0, 0];
@@ -210,10 +225,7 @@ export function proposeDowels(d: FootingDemand, c: FootingContext): FootingAdopt
 
 /** Both bottom layers for a footing of this size, the depths read again from the bars chosen. */
 export function proposeMeshes(d: FootingDemand, c: FootingContext, size: Omit<FootingAdopted, 'x' | 'y'>, code: FootingRowCode): { x: FootingMesh; y: FootingMesh } {
-  const pick = (dir: 'x' | 'y') => {
-    const pref = c.preferred?.[dir];
-    return pref && c.diameters.includes(pref) ? [pref, ...c.diameters.filter((x) => x > pref)] : [...c.diameters];
-  };
+  const pick = (dir: 'x' | 'y') => preferredDiameters(c, dir);
   let x: FootingMesh = { dia: pick('x')[0] ?? 12, spacing: 0.2 }, y: FootingMesh = { dia: pick('y')[0] ?? 12, spacing: 0.2 };
   for (let k = 0; k < 3; k++) {
     const r = analyseFooting(d, c, { ...size, x, y }, code);
@@ -262,14 +274,14 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
   const anchor = d.edge?.anchor ?? m?.anchor ?? d.footing?.anchor;
   const held = !!anchor && (anchor[0] !== 0 || anchor[1] !== 0);
   const alone = held && d.edge?.balance === 'eccentric';
-  const minH = Math.max(0.3, up(MIN_D + c.cover + 0.024));
+  const minH = minThickness(c.cover);
   let h = c.sizing === 'minimum' && m ? Math.max(minH, m.h) : minH;
   const pre = presizeFooting({ kind: 'isolated', loads: [{ x: 0, y: 0, axial: service.N }], allowableKPa: soil.allowable, thickness: h, column: { x: col.b, y: col.h }, ...(held ? { anchor } : {}) });
-  let B = 'refused' in pre ? Math.max(0.6, up(col.b + 0.4)) : pre.B, L = 'refused' in pre ? Math.max(0.6, up(col.h + 0.4)) : pre.L;
+  let B = 'refused' in pre ? Math.max(0.6, ceilTo(col.b + 0.4)) : pre.B, L = 'refused' in pre ? Math.max(0.6, ceilTo(col.h + 0.4)) : pre.L;
   const first = (k: 'x' | 'y') => (c.preferred && c.diameters.includes(c.preferred[k]) ? c.preferred[k] : Math.min(...c.diameters));
   const hook = code.anchorage && c.diameters.length ? code.anchorage.ldh({ fc: c.fc, fy: c.fy }, Math.max(first('x'), first('y'))) + c.cover : 0;
-  if (alone && anchor![0] && !anchor![1]) B = Math.max(0.6, up(1.5 * col.b), up(col.b + hook));
-  if (alone && anchor![1] && !anchor![0]) L = Math.max(0.6, up(1.5 * col.h), up(col.h + hook));
+  if (alone && anchor![0] && !anchor![1]) B = Math.max(0.6, ceilTo(1.5 * col.b), ceilTo(col.b + hook));
+  if (alone && anchor![1] && !anchor![0]) L = Math.max(0.6, ceilTo(1.5 * col.h), ceilTo(col.h + hook));
   if (c.sizing === 'minimum' && m) { B = Math.max(B, m.B); L = Math.max(L, m.L); }
   if (cap) { if (cap.axis === 'x') B = Math.min(B, cap.max); else L = Math.min(L, cap.max); }
   const grows = { x: !(alone && anchor![0] && !anchor![1]) && !(cap?.axis === 'x'), y: !(alone && anchor![1] && !anchor![0]) && !(cap?.axis === 'y') };
@@ -277,7 +289,7 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
   const ecc = (b: number, l: number) => (held
     ? { ex: anchor![0] ? -anchor![0] * (b / 2 - col.b / 2) : 0, ey: anchor![1] ? -anchor![1] * (l / 2 - col.h / 2) : 0 }
     : c.sizing === 'minimum' && m ? { ex: m.ex, ey: m.ey } : { ex: 0, ey: 0 });
-  const k = soil.edgeFactor && soil.edgeFactor > 1 ? soil.edgeFactor : 1;
+  const k = edgeFactorOf(soil);
   for (let step = 0; step < 300; step++) {
     const size = { B: r3(B), L: r3(L), h: r3(h), ...ecc(B, L) };
     const s = bearingOf(d, size)!;

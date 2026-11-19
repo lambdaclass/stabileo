@@ -176,7 +176,8 @@ export function groupDemand(g: FootingGroup): FootingDemand {
   const ref = g.members[0]!;
   const cols = placeMembers(g, { ex: 0, ey: 0 });
   const names = g.members.map((m) => m.name);
-  const combos = ref.combos.flatMap((k) => { const a = summed(cols, (d) => d.combos.find((x) => x.combo === k.combo), k.combo); return a ? [a] : []; });
+  const byCombo = new Map(g.members.map((m) => { const own = new Map<string, FootingDemand['combos'][number]>(); for (const x of m.combos) if (!own.has(x.combo)) own.set(x.combo, x); return [m, own] as const; }));
+  const combos = ref.combos.flatMap((k) => { const a = summed(cols, (d) => byCombo.get(d)?.get(k.combo), k.combo); return a ? [a] : []; });
   const model = ref.footing?.group && g.members.every((m) => new Set(m.footing?.group?.members ?? []).has(m.key)) ? ref.footing : undefined;
   return {
     key: `footing:${g.kind}:${g.members.map((m) => m.key.replace(/^footing:/, '')).join('+')}`,

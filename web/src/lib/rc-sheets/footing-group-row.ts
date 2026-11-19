@@ -1,13 +1,12 @@
 import type { Fmt } from './format';
 import { CRITERION, critOf } from './criteria';
 import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
-import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
 import { analyseGroup, type GroupAnalysis } from './footing-group';
 import { groupPunchingFixes, proposeGroup, proposeGroupBars, proposeGroupDowels } from './footing-group-propose';
 import { tieLimits } from './footing-tie-bars';
 import { punchingChecks, punchingSteps } from './footing-punching-row';
-import { needsLine } from './footing-needs';
+import { soilChecks } from './footing-needs';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingGroup, FootingRow, GroupResult } from './footing-types';
 
@@ -17,16 +16,10 @@ function verifications(d: FootingDemand, g: FootingGroup, r: GroupAnalysis, a: F
   const out: CheckLine[] = [];
   const cr = critOf(c);
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`, m = (v: number) => `${fmt(v, 2)} m`;
-  out.push(check(`rcSheets.v.footGroup.${g.reason}`, true, { clause: g.reason === 'cover' ? CRITERION : g.kind === 'mat' ? '§13.3.4' : '§13.3.4', demand: g.members.map((x) => x.name).join(', ') }));
+  out.push(check(`rcSheets.v.footGroup.${g.reason}`, true, { clause: g.reason === 'cover' ? CRITERION : '§13.3.4', demand: g.members.map((x) => x.name).join(', ') }));
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
   const b = r.bearing;
-  if (!d.soil) out.push(check('rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
-  else if (!b) out.push(check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' }));
-  else {
-    out.push(check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause: '§13.3.1.1, §13.3.4.3', demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }));
-    out.push(check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }));
-    if (needs !== undefined && !b.ok) out.push(needsLine(needs, b.allowable ?? 0, fmt));
-  }
+  out.push(...soilChecks(d, b, fmt, needs, '§13.3.1.1, §13.3.4.3'));
   for (const s of r.strips) {
     const name = stripName(s);
     out.push(check('rcSheets.v.footStripBottom', s.mBottom <= s.phiMnBottom + 1e-6, { clause: `§13.3.4.1, §13.2.7.1 · ${name}`, demand: `${knm(s.mBottom)} · ${cm2(s.asBottom)}`, capacity: `${knm(s.phiMnBottom)} · ${cm2(s.asBottomProvided)}`, ratio: ratioOf(s.mBottom, s.phiMnBottom) }));

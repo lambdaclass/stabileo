@@ -14,7 +14,6 @@
   const det = $derived(footingDetail(row, rulesFor(code).bends));
 
   const SIZE = 240, PAD = 26;
-  // The plan's extent: the footing, and the strap beams past its edge toward their partners.
   const box = $derived.by(() => {
     const xs = [-det.B / 2, det.B / 2, ...det.straps.flatMap((s) => [s.rect.x0, s.rect.x1])], ys = [-det.L / 2, det.L / 2, ...det.straps.flatMap((s) => [s.rect.y0, s.rect.y1])];
     return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };

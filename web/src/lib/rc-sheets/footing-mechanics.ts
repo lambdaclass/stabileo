@@ -1,7 +1,7 @@
 import { pressureField, type PressureField } from '../engine/foundation/pressure-field';
 import { criticalGeometry, eccentricShear } from '../engine/detailing/punching-moment';
 import { ALPHA_S, PHI_SHEAR, sqrtFcCapped, type ColumnPosition } from '../engine/detailing/punching-shear';
-import type { FootingAction } from './footing-types';
+import type { FootingAction, FootingSoil } from './footing-types';
 
 export const CONCRETE_WEIGHT = 25;
 export const ASSUMED_FILL_WEIGHT = 18;
@@ -9,7 +9,34 @@ export const ASSUMED_FILL_WEIGHT = 18;
 export const MIN_CONTACT = 0.5;
 
 /** A footing's plan and where its column stands, m: the column centre at (xc, yc) from the centroid, b along X, h along Y. */
+export const ceilTo = (v: number, step = 0.05): number => Math.ceil(v / step - 1e-9) * step;
+export const r3 = (v: number): number => Math.round(v * 1000) / 1000;
+
 export interface FootingPlan { B: number; L: number; xc: number; yc: number; b: number; h: number; /** What bears on the footing where it is less than b × h (a pier's section), m². */ area?: number }
+
+export const centred = (a: Pick<FootingPlan, 'B' | 'L'>): FootingPlan => ({ B: a.B, L: a.L, xc: 0, yc: 0, b: 0, h: 0 });
+
+/** The longer cantilever past a column's faces across a strip W wide, m, axes from the strip's centre line. */
+export const cantileverAcross = (p: { x: number; y: number; b: number; h: number }, across: 'x' | 'y', W: number): number => {
+  const s = across === 'x' ? p.x : p.y, half = (across === 'x' ? p.b : p.h) / 2;
+  return Math.max(W / 2 - (s + half), s - half + W / 2, 0);
+};
+
+/** The soil's push inside a rectangle of the plan, kN. */
+export function soilInside(f: PressureField, r: { x0: number; x1: number; y0: number; y1: number }): number {
+  const n = 12, w = r.x1 - r.x0, l = r.y1 - r.y0;
+  if (!(w > 0) || !(l > 0)) return 0;
+  let q = 0;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) q += f.at(r.x0 + ((i + 0.5) * w) / n, r.y0 + ((j + 0.5) * l) / n);
+  return (q / (n * n)) * w * l;
+}
+
+/** vc of Table 22.6.5.2 with λs = 1 (§13.2.6.2(b)), MPa. */
+export const plainPunchingVc = (fc: number, beta: number, alphaS: number, d: number, bo: number): number =>
+  Math.min(0.33, 0.17 * (1 + 2 / beta), 0.083 * (2 + (alphaS * d) / bo)) * sqrtFcCapped(fc);
+
+/** αs of Table 22.6.5.2 for a critical section of this many sides. */
+export const alphaOfSides = (sides: number): number => (sides >= 4 ? 40 : sides === 3 ? 30 : 20);
 
 /**
  * The resultant on the base of an action given at the support node, `lever` above the base, as
@@ -85,17 +112,11 @@ export function footingPunching(f: PressureField, p: FootingPlan, d: number, a: 
   const position: ColumnPosition = nearX && nearY ? 'corner' : nearX || nearY ? 'edge' : 'interior';
   const edgeAxis = nearX ? 'x' as const : 'y' as const;
   const g = criticalGeometry(p.b, p.h, d, position, edgeAxis);
-  const x0 = Math.max(-p.B / 2, p.xc - (p.b + d) / 2), x1 = Math.min(p.B / 2, p.xc + (p.b + d) / 2);
-  const y0 = Math.max(-p.L / 2, p.yc - (p.h + d) / 2), y1 = Math.min(p.L / 2, p.yc + (p.h + d) / 2);
-  const n = 12;
-  let q = 0;
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) q += f.at(x0 + ((i + 0.5) * (x1 - x0)) / n, y0 + ((j + 0.5) * (y1 - y0)) / n);
-  const inside = (q / (n * n)) * Math.max(0, x1 - x0) * Math.max(0, y1 - y0);
+  const inside = soilInside(f, { x0: Math.max(-p.B / 2, p.xc - (p.b + d) / 2), x1: Math.min(p.B / 2, p.xc + (p.b + d) / 2), y0: Math.max(-p.L / 2, p.yc - (p.h + d) / 2), y1: Math.min(p.L / 2, p.yc + (p.h + d) / 2) });
   const Vu = Math.max(0, a.N - inside);
   const ecc = eccentricShear({ b: p.b, h: p.h, d, position, edgeAxis, Vu, Mx: a.Mx - stub * a.Vy, My: a.My + stub * a.Vx });
   const beta = Math.max(p.b, p.h) / Math.max(1e-9, Math.min(p.b, p.h));
-  const root = sqrtFcCapped(fc);
-  const vc = Math.min(0.33, 0.17 * (1 + 2 / beta), 0.083 * (2 + (ALPHA_S[position] * d) / g.bo)) * root;
+  const vc = plainPunchingVc(fc, beta, ALPHA_S[position], d, g.bo);
   const phiVc = PHI_SHEAR * vc;
   return { vu: ecc.vu, Vu, phiVc, vc, utilization: ecc.vu / phiVc, bo: g.bo, beta, position };
 }
@@ -122,5 +143,13 @@ export function serviceBearing(p: FootingPlan, a: FootingAction, h: number, leve
 export const bearingUse = (s: ServiceBearing, allowable: number, edgeFactor: number): number =>
   s.overturns ? Infinity : Math.max(s.qMean / allowable, s.qMax / (edgeFactor * allowable));
 
+export const edgeFactorOf = (soil: Pick<FootingSoil, 'edgeFactor'> | null | undefined): number => (soil?.edgeFactor && soil.edgeFactor > 1 ? soil.edgeFactor : 1);
+
 export const bearingHolds = (s: ServiceBearing, allowable: number, edgeFactor: number): boolean =>
   !s.overturns && s.contact >= MIN_CONTACT - 1e-9 && bearingUse(s, allowable, edgeFactor) <= 1 + 1e-9;
+
+/** A service bearing read against the soil's allowable pressure; failing where the soil states none. */
+export function bearingReading(s: ServiceBearing, soil: Pick<FootingSoil, 'allowable' | 'edgeFactor'> | null | undefined): ServiceBearing & { allowable: number | null; edgeFactor: number; use: number; ok: boolean } {
+  const allowable = soil?.allowable ?? null, k = edgeFactorOf(soil);
+  return { ...s, allowable, edgeFactor: k, use: allowable ? bearingUse(s, allowable, k) : 0, ok: allowable ? bearingHolds(s, allowable, k) : false };
+}

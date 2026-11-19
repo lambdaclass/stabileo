@@ -1,10 +1,10 @@
 import { slabProvisions } from '../engine/codes/argentina/losas';
 import { barArea } from './bars';
-import { bearingHolds } from './footing-mechanics';
+import { bearingHolds, ceilTo, edgeFactorOf, r3 } from './footing-mechanics';
 import { needsOf } from './footing-needs';
 import { designPunchingFix } from './footing-punching';
 import { proposeLayer } from './footing-mesh';
-import { MIN_D, type FootingRowCode } from './footing-design';
+import { minThickness, preferredDiameters, type FootingRowCode } from './footing-design';
 import { analyseGroup, extraPositions, groupBearing, groupRoom, groupThicknessHolds, heldAcross, placeMembers, strappedAcross, type GroupAnalysis } from './footing-group';
 import type { FootingAdopted, FootingContext, FootingDowels, FootingGroup, FootingMesh, GroupExtra, PunchingFix } from './footing-types';
 
@@ -15,8 +15,6 @@ const OVERHANG = 0.5, PAST_FACE = 0.25;
 const SIDE = 0.2;
 /** A strip balanced by straps stops this short of the column its straps run to, m. */
 const STRAP_GAP = 0.3;
-const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
 type Axis = 'x' | 'y';
 
 export function proposeGroupDowels(g: FootingGroup, c: FootingContext): Record<string, FootingDowels> {
@@ -40,7 +38,7 @@ const down25 = (v: number) => Math.floor(v / 0.025 + 1e-9) * 0.025;
  * strips ask, and bars added over the band of each strip that asks for more.
  */
 export function proposeGroupBars(g: FootingGroup, c: FootingContext, size: Omit<FootingAdopted, 'x' | 'y'>, code: FootingRowCode): Pick<FootingAdopted, 'x' | 'y' | 'tops' | 'extra'> {
-  const pick = (k: Axis) => { const pref = c.preferred?.[k]; return pref && c.diameters.includes(pref) ? [pref, ...c.diameters.filter((x) => x > pref)] : [...c.diameters]; };
+  const pick = (k: Axis) => preferredDiameters(c, k);
   const room = groupRoom(placeMembers(g, size), size, c.cover);
   const fits = (dia: number) => !code.anchorage || code.anchorage.ldh({ fc: c.fc, fy: c.fy }, dia) <= room + 1e-9;
   const bottomPick = (k: Axis) => { const all = pick(k), ok = all.filter(fits); return ok.length ? ok : all; };
@@ -123,7 +121,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
   };
   const margin = (k: Axis) => (p: typeof pts[number]) => Math.max(OVERHANG, half(p, k) + PAST_FACE);
   const ext: Record<Axis, Extent> = { x: extent('x', margin('x')), y: extent('y', margin('y')) };
-  const minH = Math.max(0.3, up(MIN_D + c.cover + 0.024));
+  const minH = minThickness(c.cover);
   let h = minH;
   const strapped = strappedAcross(g);
   const widest = strapped ? Math.min(...g.members.map((m) => { const p = m.edge!.partners.find((x) => x.axis === strapped)!; const half = (k: { b: number; h: number } | null | undefined) => (strapped === 'x' ? k?.b ?? 0 : k?.h ?? 0) / 2; return p.L + half(m.column) - half(p.column) - STRAP_GAP; })) : Infinity;
@@ -131,13 +129,13 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
     const S = ext[g.axis!].hi - ext[g.axis!].lo;
     const qNet = ref.soil.allowable - 25 * h;
     const wide = Math.max(...pts.map((p) => 2 * half(p, across))) + 2 * SIDE;
-    const W = Math.min(Math.max(up(wide), up(qNet > 0 ? N / qNet / S : wide)), Math.max(up(wide), widest));
+    const W = Math.min(Math.max(ceilTo(wide), ceilTo(qNet > 0 ? N / qNet / S : wide)), Math.max(ceilTo(wide), widest));
     const held = heldAcross(g);
     const line = held < 0 ? Math.min(...pts.map((p) => p[across] - half(p, across))) : held > 0 ? Math.max(...pts.map((p) => p[across] + half(p, across))) : 0;
     ext[across] = held < 0 ? { lo: line, hi: line + W, heldLo: true, heldHi: false } : held > 0 ? { lo: line - W, hi: line, heldLo: false, heldHi: true } : { lo: res[across] - W / 2, hi: res[across] + W / 2, heldLo: false, heldHi: false };
   }
   const dowels = proposeGroupDowels(g, c);
-  const len = (e: Extent) => (e.heldLo && e.heldHi ? e.hi - e.lo : up(e.hi - e.lo));
+  const len = (e: Extent) => (e.heldLo && e.heldHi ? e.hi - e.lo : ceilTo(e.hi - e.lo));
   const mid = (e: Extent) => (e.heldHi && !e.heldLo ? e.hi - len(e) / 2 : e.lo + len(e) / 2);
   const sizeOf = (): Omit<FootingAdopted, 'x' | 'y'> => ({ B: r3(len(ext.x)), L: r3(len(ext.y)), h: r3(h), ex: r3(mid(ext.x)), ey: r3(mid(ext.y)), columns: dowels });
   const grow = (axes: readonly Axis[]): boolean => {
@@ -151,7 +149,7 @@ export function proposeGroup(g: FootingGroup, c: FootingContext, code: FootingRo
     }
     return any;
   };
-  const k = ref.soil.edgeFactor && ref.soil.edgeFactor > 1 ? ref.soil.edgeFactor : 1;
+  const k = edgeFactorOf(ref.soil);
   const allowable = ref.soil.allowable;
   const growAxes: readonly Axis[] = across ? [across] : ['x', 'y'];
   const noBars = { x: { dia: 0, spacing: 0 }, y: { dia: 0, spacing: 0 } };

@@ -1,8 +1,7 @@
 import type { Fmt } from './format';
 import { foundingOf, MIN_D, pedestalOf, spacingClause, type FootingRowCode } from './footing-design';
-import { MIN_CONTACT } from './footing-mechanics';
 import { meshText } from './footing-mesh';
-import { needsLine } from './footing-needs';
+import { soilChecks } from './footing-needs';
 import { analyseCombined, proposeCombined, type CombinedAnalysis } from './footing-combined';
 import { check, ratioOf, type CheckLine, type RowStatus, type Step, type StepGroup } from './types';
 import type { FootingAdopted, FootingContext, FootingDemand, FootingRow } from './footing-types';
@@ -12,13 +11,7 @@ function verifications(d: FootingDemand, r: CombinedAnalysis, a: FootingAdopted,
   const kn = (v: number) => `${fmt(v, 1)} kN`, knm = (v: number) => `${fmt(v, 1)} kN·m`, cm2 = (v: number) => `${fmt(v, 2)} cm²`, cm = (v: number) => `${fmt(v * 100, 1)} cm`;
   if (d.soil?.presumed) out.push(check('rcSheets.v.footPresumedSoil', true, { demand: `qadm = ${fmt(d.soil.allowable, 0)} kPa` }));
   const b = r.bearing;
-  if (!d.soil) out.push(check('rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' }));
-  else if (!b) out.push(check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' }));
-  else {
-    out.push(check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause: '§13.3.1.1', demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }));
-    out.push(check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }));
-    if (needs !== undefined && !b.ok) out.push(needsLine(needs, b.allowable ?? 0, fmt));
-  }
+  out.push(...soilChecks(d, b, fmt, needs));
   const L = r.along, X = L.dir.toUpperCase(), T = r.across.dir.toUpperCase();
   out.push(check(`rcSheets.v.footFlexure${X}`, L.mu <= L.phiMn + 1e-6, { clause: '§13.2.7.1', demand: knm(L.mu), capacity: knm(L.phiMn), ratio: ratioOf(L.mu, L.phiMn) }));
   out.push(check(`rcSheets.v.footMin${X}`, L.asProvided >= L.asMin - 1e-6, { clause: '§8.6.1.1', demand: cm2(L.asMin), capacity: cm2(L.asProvided) }));

@@ -26,7 +26,8 @@ import { slabPlan, type LevelGeometry, type LevelPlan } from '../rc-sheets/slab-
 import type { PunchingRow } from '../rc-sheets/punching-row';
 import { FOUNDATION_SYSTEMS, type FootingRow, type FoundationSystem } from '../rc-sheets/footing-types';
 import { layoutSummary, type FoundationLayout } from '../rc-sheets/footing-layouts';
-import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined, withOverlaps } from './rc-sheets-footings';
+import { currentFootingDemands, designFootingStraps, footingContext, footingRowOf, footingSizing, foundationRowsSteps, foundationSystem, solutionsOf, strapKeyOf, withAdoptedCombined } from './rc-sheets-footings';
+import { withOverlaps } from '../rc-sheets/footing-overlaps';
 import { withStrapBeams } from '../rc-sheets/footing-strap';
 import { tiePulls, withPulls } from '../rc-sheets/footing-ties';
 import { leverOf } from '../rc-sheets/footing-design';

@@ -1,10 +1,10 @@
-import { computeAsFlexure, slabProvisions, stripCapacity } from '../engine/codes/argentina/losas';
+import { slabProvisions } from '../engine/codes/argentina/losas';
 import { pressureField } from '../engine/foundation/pressure-field';
 import { barArea } from './bars';
-import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingStrength, bearingUse, beyond, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
+import { ASSUMED_FILL_WEIGHT, bearingHolds, bearingReading, bearingStrength, beyond, cantileverAcross, ceilTo, centred, edgeFactorOf, r3, footingPunching, serviceBearing, strips, type FootingPlan, type ServiceBearing } from './footing-mechanics';
 import { layerAnchorage, meshArea, proposeLayer } from './footing-mesh';
 import { needsOf } from './footing-needs';
-import { MIN_D, footingSpacing, dowelLap, dowelReach, leverOf, layersOf, type FootingDowelReading, type FootingRowCode } from './footing-design';
+import { MIN_D, footingSpacing, dowelLap, dowelReach, leverOf, layersOf, minThickness, preferredDiameters, stripReading, type FootingDowelReading, type FootingRowCode } from './footing-design';
 import type { FootingAction, FootingAdopted, FootingContext, FootingDemand, FootingDirection, FootingDowels, FootingLayers, FootingMesh } from './footing-types';
 
 const EDITION = '2025' as const;
@@ -13,8 +13,6 @@ const STEP = 0.1, STEP_H = 0.05, MAX_PLAN = 15, MAX_H = 2.5;
 const OVERHANG = 0.5;
 /** Beside the columns across the line, m. */
 const SIDE = 0.2;
-const up = (v: number, step = 0.05) => Math.ceil(v / step - 1e-9) * step;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
 
 export type Axis = 'x' | 'y';
 export interface PlacedColumn { demand: FootingDemand; x: number; y: number; b: number; h: number }
@@ -47,7 +45,6 @@ export function atCentroid(cols: readonly PlacedColumn[], pick: (d: FootingDeman
   return { combo, N, My: my, Mx: mx, Vx: 0, Vy: 0 };
 }
 
-const centred = (a: Pick<FootingAdopted, 'B' | 'L'>): FootingPlan => ({ B: a.B, L: a.L, xc: 0, yc: 0, b: 0, h: 0 });
 
 export function combinedBearing(d: FootingDemand, a: Pick<FootingAdopted, 'B' | 'L' | 'h' | 'ex' | 'ey'>): ServiceBearing | null {
   if (!d.service || !d.carried?.service) return null;
@@ -123,10 +120,8 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
   const layers = layersOf(a, c.cover);
   const cols = columnsOf(d, a);
   const plan = centred(a);
-  const k = d.soil?.edgeFactor && d.soil.edgeFactor > 1 ? d.soil.edgeFactor : 1;
   const sb = combinedBearing(d, a);
-  const allowable = d.soil?.allowable ?? null;
-  const bearing = sb ? { ...sb, allowable, edgeFactor: k, use: allowable ? bearingUse(sb, allowable, k) : 0, ok: allowable ? bearingHolds(sb, allowable, k) : false } : null;
+  const bearing = sb ? bearingReading(sb, d.soil) : null;
   const dAlong = axis === 'x' ? layers.dx : layers.dy, dAcross = axis === 'x' ? layers.dy : layers.dx;
   const S = axis === 'x' ? a.B : a.L, W = axis === 'x' ? a.L : a.B;
   const prov = slabProvisions(EDITION, c.fy, a.h);
@@ -136,7 +131,7 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
   const punching: CombinedAnalysis['punching'] = [];
   const perCombo: Array<{ combo: string; N: number; mx: number; my: number; qMax: number; parts: number[] }> = [];
   const pu = [0, 0];
-  const across = (p: PlacedColumn) => { const s = cross === 'x' ? p.x : p.y, half = (cross === 'x' ? p.b : p.h) / 2; return Math.max(W / 2 - (s + half), s - half + W / 2, 0); };
+  const across = (p: PlacedColumn) => cantileverAcross(p, cross, W);
   const bandWidth = (p: PlacedColumn) => Math.min(S, (axis === 'x' ? p.b : p.h) + dAcross);
   for (const name of d.combos.map((x) => x.combo)) {
     const acts = cols.map((p) => p.demand.combos.find((x) => x.combo === name));
@@ -160,9 +155,7 @@ export function analyseCombined(d: FootingDemand, c: FootingContext, a: FootingA
     });
     perCombo.push({ combo: name, N: at.N, mx: at.Mx, my: at.My, qMax: f.qMax, parts: [lr.mBottom, lr.mTop, lr.vu, ...parts] });
   }
-  const asOf = (mu: number, width: number, depth: number) => (mu > 1e-6 ? computeAsFlexure(mu / width, a.h, depth, c.fc, c.fy, EDITION).As * width : 0);
-  const capOf = (area: number, width: number, depth: number) => (area > 0 ? stripCapacity(area / width, a.h, depth, c.fc, c.fy, EDITION) * width : 0);
-  const vcOf = (area: number, width: number, depth: number) => 0.75 * code.oneWayVc(c.fc, (area * 1e-4) / Math.max(width * depth, 1e-9)) * width * depth * 1000;
+  const { asOf, capOf, vcOf } = stripReading(c, a.h, code);
   const sizeOf = { B: a.B, L: a.L, ex: 0, ey: 0 };
   const pAlong = meshArea(axis, sizeOf, { ...meshAlong, outer: undefined }, c.cover);
   const pAcross = meshArea(cross, sizeOf, { ...meshAcross, outer: undefined }, c.cover);
@@ -232,7 +225,7 @@ const holdsThickness = (r: CombinedAnalysis): boolean =>
 
 function proposeBars(d: FootingDemand, c: FootingContext, size: Omit<FootingAdopted, 'x' | 'y'>, code: FootingRowCode): Pick<FootingAdopted, 'x' | 'y' | 'top'> {
   const axis = combinedAxis(d), cross: Axis = axis === 'x' ? 'y' : 'x';
-  const pick = (k: Axis) => { const pref = c.preferred?.[k]; return pref && c.diameters.includes(pref) ? [pref, ...c.diameters.filter((x) => x > pref)] : [...c.diameters]; };
+  const pick = (k: Axis) => preferredDiameters(c, k);
   const flat = { B: size.B, L: size.L, ex: 0, ey: 0 };
   const layer = (k: Axis, asReq: number, s: number): FootingMesh => { const m = proposeLayer(k, flat, asReq, s, pick(k), c.cover, true); return { dia: m.dia, spacing: m.spacing }; };
   let bars: Pick<FootingAdopted, 'x' | 'y' | 'top'> = { x: { dia: pick('x')[0] ?? 12, spacing: 0.2 }, y: { dia: pick('y')[0] ?? 12, spacing: 0.2 }, top: { dia: pick(axis)[0] ?? 12, spacing: 0.2 } };
@@ -289,13 +282,13 @@ export function proposeCombined(d: FootingDemand, c: FootingContext, code: Footi
   };
   const cross: Axis = axis === 'x' ? 'y' : 'x';
   const e1 = extent(axis, OVERHANG), e2 = extent(cross, 0);
-  let S = up(e1.hi - e1.lo);
+  let S = ceilTo(e1.hi - e1.lo);
   const cAlongOf = () => (e1.at < 0 ? e1.lo + S / 2 : e1.at > 0 ? e1.hi - S / 2 : (e1.lo + e1.hi) / 2);
   const minW = e2.hi - e2.lo + 2 * SIDE;
-  const minH = Math.max(0.3, up(MIN_D + c.cover + 0.024));
+  const minH = minThickness(c.cover);
   let h = minH;
   const qNet = d.soil.allowable - 25 * h;
-  let W = Math.max(up(minW), up(qNet > 0 ? N / qNet / S : minW));
+  let W = Math.max(ceilTo(minW), ceilTo(qNet > 0 ? N / qNet / S : minW));
   const crossCentre = () => (e2.at < 0 ? e2.lo + W / 2 : e2.at > 0 ? e2.hi - W / 2 : res[cross]);
   const dowels = proposeCombinedDowels(d, c);
   const sizeOf = () => {
@@ -304,7 +297,7 @@ export function proposeCombined(d: FootingDemand, c: FootingContext, code: Footi
     const centre = axis === 'x' ? { x: cAlong, y: cCross } : { x: cCross, y: cAlong };
     return { B: r3(axis === 'x' ? S : W), L: r3(axis === 'x' ? W : S), h: r3(h), ex: r3(centre.x), ey: r3(centre.y), ...dowels };
   };
-  const k = d.soil.edgeFactor && d.soil.edgeFactor > 1 ? d.soil.edgeFactor : 1;
+  const k = edgeFactorOf(d.soil);
   for (let step = 0; step < 300; step++) {
     const size = sizeOf();
     const s = combinedBearing(d, size)!;

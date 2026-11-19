@@ -7,11 +7,10 @@
   import { lineRowStatus } from '../../../lib/rc-sheets/beam-line';
   import RcLineSvg from './RcLineSvg.svelte';
   import { isBanded, meshText } from '../../../lib/rc-sheets/footing-mesh';
-  import { FOOTING_BALANCES, FOOTING_POSITIONS, type FootingAdopted, type FootingBalance, type FootingMesh, type FootingPosition, type FootingRow } from '../../../lib/rc-sheets/footing-types';
+  import { FOOTING_BALANCES, FOOTING_POSITIONS, FOOTING_SOLUTIONS, type FootingAdopted, type FootingBalance, type FootingMesh, type FootingPosition, type FootingRow, type FootingSolution } from '../../../lib/rc-sheets/footing-types';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
   import RcFootingSvg from './RcFootingSvg.svelte';
   import RcFootingGroupSvg from './RcFootingGroupSvg.svelte';
-  import { FOOTING_SOLUTIONS, type FootingSolution } from '../../../lib/rc-sheets/footing-types';
 
   let { row, code }: { row: FootingRow; code: SheetCode } = $props();
   const DOWELS = [12, 16, 20, 25, 32];

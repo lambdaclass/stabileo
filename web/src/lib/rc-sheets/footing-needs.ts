@@ -1,7 +1,8 @@
 import type { Fmt } from './format';
 import { withCriterion } from './criteria';
 import { check, type CheckLine } from './types';
-import { MIN_CONTACT, type ServiceBearing } from './footing-mechanics';
+import { MIN_CONTACT, type bearingReading, type ServiceBearing } from './footing-mechanics';
+import type { FootingDemand } from './footing-types';
 
 /** The allowable pressure a foundation needs where the soil's does not hold it at the plan the lines allow: what to ask the soil study for, or found deep instead (GA §4, §15.1). */
 export const needsLine = (needs: number, allowable: number, fmt: Fmt): CheckLine =>
@@ -11,4 +12,15 @@ export const needsLine = (needs: number, allowable: number, fmt: Fmt): CheckLine
 export function needsOf(s: ServiceBearing, edgeFactor: number): { needs?: number } {
   if (s.overturns || s.contact < MIN_CONTACT - 1e-9) return {};
   return { needs: Math.ceil(Math.max(s.qMean, s.qMax / edgeFactor) / 5 - 1e-9) * 5 };
+}
+
+/** The soil's lines for a base: no soil, no service load, or its bearing and contact, and the pressure it would need. */
+export function soilChecks(d: Pick<FootingDemand, 'soil'>, b: ReturnType<typeof bearingReading> | null, fmt: Fmt, needs: number | undefined, clause = '§13.3.1.1'): CheckLine[] {
+  if (!d.soil) return [check('rcSheets.v.footNoSoil', false, { clause: '§13.3.1.1' })];
+  if (!b) return [check('rcSheets.v.footNoService', false, { clause: '§13.3.1.1' })];
+  return [
+    check('rcSheets.v.footBearing', !b.overturns && b.use <= 1 + 1e-9, { clause, demand: `${fmt(b.qMax, 0)} · ${fmt(b.qMean, 0)} kPa`, capacity: `${fmt(b.edgeFactor * (b.allowable ?? 0), 0)} · ${fmt(b.allowable ?? 0, 0)} kPa`, ratio: b.use }),
+    check('rcSheets.v.footContact', !b.overturns && b.contact >= MIN_CONTACT - 1e-9, { clause: '§13.2.6.1', demand: `${fmt(b.contact * 100, 0)} %`, capacity: `≥ ${fmt(MIN_CONTACT * 100, 0)} %` }),
+    ...(needs !== undefined && !b.ok ? [needsLine(needs, b.allowable ?? 0, fmt)] : []),
+  ];
 }
