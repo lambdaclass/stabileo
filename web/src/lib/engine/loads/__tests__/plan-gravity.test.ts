@@ -9,6 +9,8 @@ import { G } from '../../dynamics/requests';
 import { buildLoadPlan, roofWeightFor, type LoadModelData, type LoadPlanInput } from '../load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../../codes/roles';
 import { snowDriftRefusal } from '../snow-drift-loads';
+import type { EngineMessage } from '../../../codes/message';
+import { offsetRoof } from './gravity-offset-roof-fixture';
 
 /** A level of `nx` × `ny` bays of `bx` × `by` m at height `z`, beams on every grid line. */
 function floor(nx: number, ny: number, bx: number, by: number, z = 3): GravityModel & LoadModelData {
@@ -610,20 +612,22 @@ function rectangularShell(model: LoadModelData, id: number, x0: number, x1: numb
   return nodes;
 }
 
-function checkSingleDeadLoad(model: LoadModelData, expected: number) {
-  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
-  if (plan.outcome === 'BLOCKED') {
-    expect(plan.blockedKeys.length).toBeGreaterThan(0);
-    expect(plan.distributed).toEqual([]);
-    expect(plan.surface).toEqual([]);
-    return;
+function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
+  for (const loadEveryPanel of [false, true]) {
+    const gravity = { mode: 'panels', loadEveryPanel } as const;
+    const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }], gravity }));
+    expect(plan.outcome).toBe('BLOCKED');
+    expect(plan.blockedKeys).toEqual([reason]);
+    expect(teAt(reason, 'en')).not.toBe(reason.key);
+    expect(plan).toMatchObject({ cases: [], distributed: [], nodal: [], surface: [], levels: [] });
+    expect(() => gravityLayout(model, { ...gravity, tributaryWidth: 3 })).toThrow(expect.objectContaining(reason));
+    expect(() => roofWeightFor(model, gravity, 3, 1)).toThrow(expect.objectContaining(reason));
   }
-  expect(plan.outcome).toBe('READY');
-  const distributed = totalKN(plan.distributed.filter(load => load.caseType === 'D'), model);
-  const surface = surfaceKN(plan.surface.filter(load => load.caseType === 'D'), model);
-  const nodal = plan.nodal.filter(load => load.caseType === 'D').reduce((sum, load) => sum + (load.fz ?? 0), 0);
-  expect.soft(surface - distributed - nodal).toBeCloseTo(expected, 10);
-  expect.soft(plan.levels.reduce((sum, level) => sum + level.superimposedKN, 0)).toBeCloseTo(expected, 10);
+  expect(() => snowDriftRefusal(model)).toThrow(expect.objectContaining(reason));
+  const width = buildLoadPlan(planInput(model, { gravity: { mode: 'width' } }));
+  expect(width.outcome).toBe('READY');
+  expect(width.surface).toEqual([]);
+  expect(width.distributed.length).toBeGreaterThan(0);
 }
 
 const issue2284 = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
@@ -631,17 +635,79 @@ issue2284('known wrong result: #2284 overlapping coplanar shells load the bay on
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 0, 4, 3);
   rectangularShell(model, 2, 2, 6, 3);
-  checkSingleDeadLoad(model, 1 * 10 * 6);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
 });
+
+issue2284('known wrong result: #2284 overlapping sloped shells also block gravity', () => {
+  const model = floor(1, 0, 10, 6);
+  rectangularShell(model, 1, 0, 5, 6, 8);
+  rectangularShell(model, 2, 2, 6, 6, 8);
+  for (const n of model.nodes.values()) {
+    const { x, y } = n;
+    n.x = x * Math.cos(0.37) + y * Math.sin(0.37);
+    n.y = x * Math.sin(0.37) - y * Math.cos(0.37);
+  }
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
+});
+
+it('#2284 touching coplanar shell edges and separate levels keep their surface pressure', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 0, 4, 3);
+  rectangularShell(model, 2, 4, 10, 3);
+  rectangularShell(model, 3, 0, 10, 6);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual([]);
+  expect(plan.nodal).toEqual([]);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual(
+    [1, 2, 3].map(quadId => ({ quadId, caseType: 'D', q: 1 })),
+  );
+  expect(plan.levels.map(level => [level.elevation, level.superimposedKN])).toEqual([[3, 60], [6, 60]]);
+});
+
+it('#2291 a detached sloped shell starting at bay level blocks gravity', () => {
+  const model = floor(1, 1, 10, 6);
+  rectangularShell(model, 1, 0, 10, 3, 6);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.differentSlopedDeck' });
+});
+
+it('#2295 a rigidly linked rafter under a centered shell gap blocks gravity', () => {
+  const { model } = offsetRoof(0.02, 0, 1, false, [4, 6]);
+  checkBlockedGravity(model, { key: 'loadPlan.gravity.unresolvedMember', params: { id: 1 } });
+});
+
+function linkedShellBay(z: number, dofs = [0, 1, 2, 3, 4, 5]) {
+  const model = floor(1, 1, 10, 6);
+  const shell = rectangularShell(model, 1, 0, 10, z);
+  model.constraints = [1, 2, 4, 3].map((masterNode, i) => ({
+    type: 'rigidLink', masterNode, slaveNode: shell[i]!, dofs,
+  }));
+  return model;
+}
 
 const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
 issue2299('known wrong result: #2299 a rigidly linked shell and beam bay receive one dead load', () => {
-  const model = floor(1, 1, 10, 6);
-  const shell = rectangularShell(model, 1, 0, 10, 3.02);
-  model.constraints = [1, 2, 4, 3].map((masterNode, i) => ({
-    type: 'rigidLink', masterNode, slaveNode: shell[i]!, dofs: [0, 1, 2, 3, 4, 5],
-  }));
-  checkSingleDeadLoad(model, 1 * 10 * 6);
+  checkBlockedGravity(linkedShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
+});
+
+it('#2299 a linked shell within the bay elevation band keeps the load on the shell', () => {
+  const model = linkedShellBay(3.001);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.distributed).toEqual([]);
+  expect(plan.nodal).toEqual([]);
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+});
+
+it('#2299 an independent upper shell and lower deck each carry gravity', () => {
+  const model = linkedShellBay(3.02, [0, 1]);
+  const plan = buildLoadPlan(planInput(model, { dead: [{ labelKey: 'a', q: 1 }] }));
+  expect(plan.outcome).toBe('READY');
+  expect(plan.surface.filter(load => load.caseType === 'D')).toEqual([{ quadId: 1, caseType: 'D', q: 1 }]);
+  expect(plan.nodal).toEqual([]);
+  for (const [id, area] of [[1, 21], [2, 21], [3, 9], [4, 9]]) {
+    expect(totalKN(plan.distributed.filter(load => load.caseType === 'D' && load.elementId === id), model)).toBeCloseTo(-area!, 10);
+  }
 });
 
 const issue2254 = process.env.RUN_KNOWN_WRONG === '2254' ? it : it.skip;
