@@ -1253,3 +1253,149 @@ it('#2316 an attached massless beam contributes to accidental eccentricity witho
   const intensity = model.sections.get(1)!.a * model.materials.get(1)!.rho;
   verifyRound2Columns(model, byColumn, plan, false, height / 2, intensity, 8);
 });
+
+const storyReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+for (const levels of [1, 2]) {
+  storyReproducer(`known wrong result: #2316 ${levels}-story static actions are applied at the loaded floor nodes`, () => {
+    const elevations = levels === 1 ? [4] : [2, 4];
+    const forces = levels === 1 ? [4] : [3, 3];
+    const offsets = levels === 1 ? [0] : [-2, 2];
+    for (const rotated of [false, true]) for (const subdivided of [false, true]) {
+      const cuts = [0, ...elevations.flatMap(z => subdivided ? [z - 0.5, z] : [z])];
+      const at = (y: number, z: number) => rotated ? [-y, 0, z] : [0, y, z];
+      const model = supportAtZero(mesh(offsets.flatMap(y =>
+        cuts.slice(1).map((z, k) => [at(y, cuts[k]!), at(y, z)]))));
+      model.sections.set(1, { id: 1, a: 0.5 });
+      model.materials.set(1, { id: 1, rho: 4 });
+      for (const z of elevations) {
+        const ids = [...model.nodes.values()].filter(n => n.z === z).map(n => n.id);
+        if (ids.length === 2) tieFloor(model, ids[0]!, ids[1]!);
+      }
+      const options = request(model, { directions: { x: !rotated, y: rotated } }, { generateCombinations: true });
+      const plan = buildLoadPlan(options);
+      const loads = plan.nodal.filter(p => p.caseType === 'E');
+      expect(plan.outcome).toBe('READY');
+      expect.soft(plan.distributed.filter(p => p.caseType === 'E')).toEqual([]);
+      expect.soft(plan.surface.filter(p => p.caseType === 'E')).toEqual([]);
+      expect.soft(plan.combinations.some(c => c.terms.some(t => t.symbol === 'E'))).toBe(true);
+      const sink = seismicSink();
+      INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+      expect(sink.levelRefusals).toEqual([]);
+      expect(sink.nodal).toEqual(loads.map(p => ({ ...p, caseIndex: 0 })));
+      expect.soft(sink.distributed).toEqual([]);
+      expect.soft(loads).toHaveLength(elevations.length * offsets.length);
+      for (const node of model.nodes.values()) {
+        const k = elevations.indexOf(node.z!);
+        const atNode = loads.filter(p => p.nodeId === node.id);
+        if (k === -1) expect.soft(atNode).toEqual([]);
+        else expect.soft(atNode).toMatchObject([{ fx: rotated ? 0 : forces[k], fy: rotated ? forces[k] : 0, fz: 0 }]);
+      }
+      const sectionActions = [0, ...elevations].map(z => loads.reduce(([v, m], p) => {
+        const h = model.nodes.get(p.nodeId)!.z!;
+        const f = rotated ? p.fy : p.fx;
+        return h > z ? [v + f, m + f * (h - z)] : [v, m];
+      }, [0, 0]));
+      expect.soft(sectionActions).toEqual(levels === 1 ? [[4, 16], [0, 0]] : [[12, 36], [6, 12], [0, 0]]);
+    }
+  });
+}
+
+storyReproducer('known wrong result: #2316 a raked carrier retains its mass centroid in plan at roof level', () => {
+  for (const variant of ['base', 'uneven', 'rotate', 'mirror'] as const) {
+    const reflection = variant === 'mirror' ? -1 : 1;
+    const { model, back } = remeshWind(mesh([[[0, 0, 0], [0, 3 * reflection, 4]]]), variant === 'mirror' ? 'base' : variant);
+    model.sections.set(1, { id: 1, a: 0.5 });
+    model.materials.set(1, { id: 1, rho: 4 });
+    const rotated = variant === 'rotate';
+    const plan = buildLoadPlan(request(supportAtZero(model), { directions: { x: !rotated, y: rotated } }));
+    const roof = [...model.nodes.values()].find(n => n.z === 4)!;
+    const loads = plan.nodal.filter(p => p.caseType === 'E');
+    expect(plan.outcome).toBe('READY');
+    expect.soft(loads.map(p => p.nodeId)).toEqual([roof.id]);
+    const lines = plan.distributed.filter(p => p.caseType === 'E');
+    const resultant = windResultants(model, lines, loads.map(p => ({ ...p, mz: reflection * (p.mz ?? 0) })), reflection < 0 ? (x, y) => [x, -y] : back);
+    expect.soft(resultant[0]).toBeCloseTo(5, 10);
+    expect.soft(resultant[4]).toBeCloseTo(20, 10);
+    expect.soft(resultant[5]).toBeCloseTo(-11.25, 10);
+    expect.soft(lines).toEqual([]);
+  }
+});
+
+for (const surface of ['quads', 'plates'] as const) {
+  storyReproducer(`known wrong result: #2316 a suspended ${surface} floor below the datum refuses static generation`, () => {
+    for (const [elevation, density, refused] of [
+      [-1, 4, true], [-Number.EPSILON, 4, true], [0, 4, false], [1, 4, false], [-1, 0, false],
+    ] as const) {
+      const model = datumCantilever();
+      model.materials.set(2, { id: 2, rho: 0 });
+      model.materials.set(3, { id: 3, rho: density });
+      const corners = [[1, 0], [3, 0], [3, 2], [1, 2]].slice(0, surface === 'plates' ? 3 : 4);
+      for (const [[x, y], k] of corners.map((point, k) => [point, k] as const)) {
+        const id = k + 3;
+        model.nodes.set(id, { id, x: x!, y: y!, z: elevation });
+      }
+      model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 1, nodeJ: 3, materialId: 2 });
+      if (elevation > 0) {
+        model.nodes.set(7, { id: 7, x: 0, y: 0, z: elevation });
+        model.elements.get(1)!.nodeJ = 7;
+        model.elements.get(2)!.nodeI = 7;
+        model.elements.set(3, { ...model.elements.get(1)!, id: 3, nodeI: 7, nodeJ: 2 });
+      }
+      model[surface] = new Map([[1, { id: 1, nodes: corners.map((_, k) => k + 3), thickness: 0.25, materialId: 3 }]]);
+      if (refused) {
+        expectDatumRefusal(model, 'loadPlan.blocked.seismicBelowDatum');
+      } else {
+        const options = request(model);
+        const plan = buildLoadPlan(options);
+        expect(plan.outcome).toBe('READY');
+        const weight = elevation === 1 ? 7 + (surface === 'quads' ? 4 : 2) : 4;
+        expect(plan.factors.baseShear?.value).toBeCloseTo(weight, 10);
+        const actions = windResultants(model, plan.distributed.filter(p => p.caseType === 'E'), plan.nodal.filter(p => p.caseType === 'E'));
+        if (elevation <= 0) {
+          expect(actions[0]).toBeCloseTo(4, 10);
+          expect(actions[4]).toBeCloseTo(16, 10);
+        }
+      }
+    }
+  });
+}
+
+storyReproducer('known wrong result: #2316 a weighted member below the datum refuses even inside the base band', () => {
+  for (const participating of [true, false]) {
+    const model = datumCantilever();
+    model.nodes.set(3, { id: 3, x: 0, y: 0, z: -0.01 });
+    model.materials.set(2, { id: 2, rho: 0 });
+    model.elements.set(2, { ...model.elements.get(1)!, id: 2, nodeI: 1, nodeJ: 3, materialId: participating ? 1 : 2 });
+    if (participating) expectDatumRefusal(model, 'loadPlan.blocked.seismicBelowDatum');
+    else expect(buildLoadPlan(request(model)).factors.baseShear?.value).toBe(4);
+  }
+});
+
+storyReproducer('known wrong result: #2316 carrier mass needs a physical attachment at the loaded story', () => {
+  for (const [subdivide, attach] of [[false, false], [true, false], [true, true]] as const) {
+    const column = subdivide ? [[[0, 0, 0], [0, 0, 2], [0, 0, 4]]] : [[[0, 0, 0], [0, 0, 4]]];
+    const model = supportAtZero(mesh([...column, [[0, 2, 0], [0, 2, 2], [0, 2, 4]]]));
+    const at = (y: number, z: number) => [...model.nodes.values()].find(n => n.y === y && n.z === z)!.id;
+    tieFloor(model, at(0, 4), at(2, 4));
+    model.nodes.set(10, { id: 10, x: 1, y: 2, z: 2 });
+    tieFloor(model, at(2, 2), 10, ...(attach ? [at(0, 2)] : []));
+    const options = request(model, {}, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
+    const sink = seismicSink();
+    INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+    const refusal = { key: 'loadPlan.blocked.seismicMass.storyNode', params: { elevation: 2 } };
+    expect.soft(plan.outcome).toBe(attach ? 'READY' : 'BLOCKED');
+    expect.soft(plan.blockedKeys).toEqual(attach ? [] : [refusal]);
+    expect.soft(sink.levelRefusals).toEqual(attach ? [] : [refusal]);
+    const atFloor = plan.nodal.filter(p => p.caseType === 'E' && model.nodes.get(p.nodeId)!.z === 2);
+    if (attach) {
+      const weightPerMetre = model.sections.get(1)!.a * model.materials.get(1)!.rho;
+      expect.soft(atFloor.map(p => p.nodeId)).toEqual([at(0, 2), at(2, 2)]);
+      for (const p of atFloor) expect.soft(p.fx).toBeCloseTo(1.5 * weightPerMetre, 10);
+    } else {
+      expect.soft(atFloor).toEqual([]);
+      expect.soft(plan.combinations).toEqual([]);
+    }
+  }
+});
