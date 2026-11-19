@@ -497,14 +497,15 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
       const e = plateEntry(p.id);
       if (!e) continue;
       report.droppedLocalLoads += p.localLoads;
+      const previouslyOwned = new Set(plateLoops(e.group).owned);
       report.keptNodes += clearPlateMesh(p.id).keptNodes;
       const before = new Set(modelStore.nodes.keys());
       const r = applyMesh(p.input!, { materialId: e.surface.materialId, thickness: e.surface.thickness, splitBeams: p.spec.followMembers }, p.mesh!);
       if (!r || r.occupied) { report.refused.push({ id: p.id, reason: 'occupied' }); continue; }
-      const created = [...new Set(r.nodeIds)].filter((n) => !before.has(n));
+      const owned = [...new Set(r.nodeIds)].filter((n) => !before.has(n) || previouslyOwned.has(n));
       const g = modelStore.model.groups.get(p.id)!;
       const loops = plateLoops(g);
-      modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...created], quads: r.quads, plates: r.plates });
+      modelStore.setGroupMembers(p.id, { ...g.members, nodes: [...loops.outer, ...loops.holes.flat(), ...owned], quads: r.quads, plates: r.plates });
       writeSurface(p.id, (s) => ({ ...s, mesh: p.spec, meshed: { signature: p.signature, cells: r.quads.length + r.plates.length, quality: p.quality! } }));
       report.plates++;
       report.cells += r.quads.length + r.plates.length;
