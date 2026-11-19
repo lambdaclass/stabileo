@@ -3506,7 +3506,7 @@ fn validate_distributed_load(
     components: impl IntoIterator<Item = (f64, f64)>,
 ) -> Result<(), String> {
     let (a, b) = (a.unwrap_or(0.0), b.unwrap_or(length));
-    crate::element::validate_member_load_interval(&format!("Element {id}"), length, a, b)?;
+    crate::element::validate_member_load_interval(format_args!("Element {id}"), length, a, b)?;
     for (qi, qj) in components {
         if !qi.is_finite() || !qj.is_finite()
             || !crate::element::distributed_resultant(qi, qj, a, b).is_finite()

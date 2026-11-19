@@ -1156,7 +1156,7 @@ mod recovery_round4_2143 {
 
 pub fn validate_diagram_loads_2d(ef: &ElementForces) -> Result<(), String> {
     for d in ef.distributed_loads.iter().chain(&ef.distributed_loads_x) {
-        crate::element::validate_member_load_interval(&format!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
+        crate::element::validate_member_load_interval(format_args!("Element {}", ef.element_id), ef.length, d.a, d.b)?;
     }
     Ok(())
 }
