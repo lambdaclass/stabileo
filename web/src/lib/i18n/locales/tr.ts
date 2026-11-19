@@ -1112,6 +1112,11 @@ const tr: Translations = {
   'flex.out.barsCompLevel': 'A′s sırasındaki çubuklar',
 
   // ─── Excel import (lib/excel-import) ───
+  'xls.col.loadAngle': "Seçilen yük referans sisteminde çubuk yükünün açısı.",
+  'xls.col.axialPoint': "Çubuk ekseni boyunca noktasal kuvvet.",
+  'xls.col.qxi': "Çubuğun başlangıcındaki X yayılı yük bileşeni.",
+  'xls.col.qxj': "Çubuğun sonundaki X yayılı yük bileşeni.",
+  'xls.col.supportRotation': "Bu eksen etrafındaki öngörülen dönme.",
   'xls.err.axesDisabled': 'Bu çalışma kitabı bir genel koordinat sistemi bildiriyor. Bu sürümde genel eksenler devre dışı.',
   'xls.sheet.plates': 'Üçgen veya dörtgen kabuklar.',
   'xls.sheet.quads': 'Dört düğümlü kabuklar.',

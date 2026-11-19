@@ -2,6 +2,7 @@ import { afterEach, beforeAll, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import WhatIf from '../../WhatIfPanel.svelte';
 import SupportsTable from '../../tables/SupportsTable.svelte';
+import ProCaseDetails from '../../pro/loads/ProCaseDetails.svelte';
 import Piece from '../../pro/pieces/PiecePanel.svelte';
 import { modelStore, uiStore } from '../../../lib/store';
 import { allChoices, makeFrame } from '../../../lib/axes/frame';
@@ -77,4 +78,19 @@ it('the Basic plane support table labels translation and rotation stiffness by t
   const html = render(SupportsTable).body.replace(/<!--[\s\S]*?-->/g, '');
   const labels = [...html.matchAll(/class="load-field[^"]*">([^<]+)/g)].map(match => match[1]);
   expect(labels).toEqual(['kz', 'ky', 'krx']);
+});
+
+it('displays a spectral direction factor with the sign of the actual user axis', () => {
+  const id = modelStore.addLoadCase('Spectral', 'E');
+  modelStore.updateLoadCaseFields(id, {
+    spectral: { source: { kind: 'code' }, scale: 1, xi: 0.05, rule: 'srss', factors: { x: 1, y: 0, z: 0 } },
+  });
+  const lc = modelStore.model.loadCases.find(c => c.id === id)!;
+  const displayed = () => {
+    const html = render(ProCaseDetails, { props: { lc } }).body;
+    return html.match(/<input[^>]*value="([^"]+)"[^>]*data-testid="cd-spec-fx"/)?.[1];
+  };
+  expect(displayed()).toBe('1');
+  axesStore.choice = { up: '+Z', right: '-X', hand: 'left' };
+  expect(displayed()).toBe('-1');
 });

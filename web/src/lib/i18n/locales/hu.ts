@@ -1,6 +1,11 @@
 import type { Translations } from '../types';
 
 const hu: Translations = {
+  'xls.col.loadAngle': "A rúdon ható teher szöge a kiválasztott rendszerben.",
+  'xls.col.axialPoint': "Pontszerű erő a rúd tengelye mentén.",
+  'xls.col.qxi': "Az X irányú megoszló teher a rúd elején.",
+  'xls.col.qxj': "Az X irányú megoszló teher a rúd végén.",
+  'xls.col.supportRotation': "Előírt elfordulás e tengely körül.",
   'xls.err.axesDisabled': 'Ez a munkafüzet globális koordináta-rendszert ad meg. A globális tengelyek ebben a verzióban ki vannak kapcsolva.',
   'engine.memberLoad.geometryOrdering': "A létrehozott rúd geometriájának sorrendje érvénytelen",
   'engine.memberLoad.geometryLine': "A létrehozott rúd geometriája eltér a forrás vonalától",

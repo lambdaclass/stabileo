@@ -62,7 +62,8 @@ function instructionRows(frame: AxesFrame | null = null): Array<Array<string | n
     [],
   ];
 
-  for (const sheet of SHEETS) {
+  for (const spec of SHEETS) {
+    const sheet = sheetSpec(spec.name, frame !== null)!;
     rows.push([`── ${sheet.name} — ${t(sheet.titleKey)}`]);
     for (const col of sheet.columns) {
       rows.push([

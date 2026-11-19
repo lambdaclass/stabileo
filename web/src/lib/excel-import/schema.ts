@@ -441,12 +441,12 @@ export const INSTRUCTIONS_SHEET = 'Instrucciones';
 /** Look a sheet up by its stable name. */
 const frameColumns: Record<string, ColumnSpec[]> = {
   Loads: [
-    { key: 'angle', unit: '°', helpKey: 'float.loadAngle', example: '' },
-    { key: 'px', unit: 'kN', helpKey: 'xls.col.fx', example: '' },
-    { key: 'qxi', unit: 'kN/m', helpKey: 'xls.col.qzi', example: '' },
-    { key: 'qxj', unit: 'kN/m', helpKey: 'xls.col.qzj', example: '' },
+    { key: 'angle', unit: '°', helpKey: 'xls.col.loadAngle', example: '' },
+    { key: 'px', unit: 'kN', helpKey: 'xls.col.axialPoint', example: '' },
+    { key: 'qxi', unit: 'kN/m', helpKey: 'xls.col.qxi', example: '' },
+    { key: 'qxj', unit: 'kN/m', helpKey: 'xls.col.qxj', example: '' },
   ],
-  Supports: ['x', 'y', 'z'].map(axis => ({ key: `dr${axis}`, unit: 'rad', helpKey: 'float.supportAngle', example: '' })),
+  Supports: ['x', 'y', 'z'].map(axis => ({ key: `dr${axis}`, unit: 'rad', helpKey: 'xls.col.supportRotation', example: '' })),
 };
 
 export function sheetSpec(name: string, framed = false): SheetSpec | undefined {
