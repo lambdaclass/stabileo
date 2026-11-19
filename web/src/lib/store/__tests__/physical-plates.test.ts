@@ -165,7 +165,7 @@ describe('a physical plate', () => {
   it('meshes before an analysis only when asked to, and once', () => {
     const { id } = build();
     meshBeforeAnalysis.value = false;
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['P1'] });
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'needsMesh', plates: ['L1'] });
     meshBeforeAnalysis.value = true;
     const r = preparePlatesForAnalysis();
     expect(r.ok && r.meshed).toBe(1);
@@ -182,19 +182,19 @@ describe('a physical plate', () => {
     expect(plateStatus(id)).toBe('stale');
     meshBeforeAnalysis.value = true;
     const loads = modelStore.loads.length, quads = modelStore.quads.size;
-    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'localLoads', plates: ['P1'] });
+    expect(preparePlatesForAnalysis()).toEqual({ ok: false, reason: 'localLoads', plates: ['L1'] });
     expect(modelStore.loads.length).toBe(loads);
     expect(modelStore.quads.size).toBe(quads);
   });
 
-  it('names a new plate after the ones left, never twice', () => {
+  it('names a new plate L when a slab, by the lowest number no group has, never twice', () => {
     modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
     const sq = (x: number) => [[x, 0], [x + 2, 0], [x + 2, 2], [x, 2]].map(([a, b]) => modelStore.addNode(a!, b!, 0));
     const a = createPlate({ outline: sq(0), materialId: 1, thickness: 0.2 }) as { id: number };
     createPlate({ outline: sq(3), materialId: 1, thickness: 0.2 });
     deletePlate(a.id);
     createPlate({ outline: sq(6), materialId: 1, thickness: 0.2 });
-    expect(physicalPlates().map((p) => p.name).sort()).toEqual(['P2', 'P3']);
+    expect(physicalPlates().map((p) => p.name).sort()).toEqual(['L1', 'L2']);
   });
 
   it('undoes and redoes its creation and its mesh without orphans', () => {

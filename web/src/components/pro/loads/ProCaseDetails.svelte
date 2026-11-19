@@ -21,7 +21,8 @@
   import { addsLoop, caseOrder } from '../../../lib/engine/case-effects';
   import { symbolOfType } from '../../../lib/engine/loads/combination-cases';
   import { caseReduction, caseReductionRefusal, holdsGeneratorReducedLoads } from '../../../lib/engine/loads/case-reduction';
-  import { OCCUPANCY_TABLE_2025, type ElementKind } from '../../../lib/codes/cirsoc101/live-loads';
+  import type { ElementKind } from '../../../lib/codes/cirsoc101/live-loads';
+  import { occupancyTableFor } from '../../../lib/codes/families/occupancy-tables';
   import { loadCodeFor } from '../../../lib/codes/families';
   import { regulationsStore } from '../../../lib/store/regulations.svelte';
   import type { LoadCase } from '../../../lib/store/model.svelte';
@@ -82,7 +83,9 @@
   let floors = $state(String(lc.reduction?.floorsSupported ?? 1));
   // Lo and the row's exclusions: the occupancy stated, else the project's (the generator's).
   let occupancyKey = $state(lc.reduction?.occupancyKey ?? String((regulationsStore.binding('loads')?.settings as Record<string, unknown> | undefined)?.occupancyKey ?? 'vivienda'));
-  const occupancies = OCCUPANCY_TABLE_2025.filter((o) => o.uniformKNm2 !== null);
+  // The rows of the project's loads code, never another family's (`occupancy-tables.ts`).
+  const occupancies = $derived(occupancyTableFor(loadsBinding?.adapterId).filter((o) => o.uniformKNm2 !== null));
+  $effect(() => { if (occupancies.length && !occupancies.some((o) => o.key === occupancyKey)) occupancyKey = occupancies[0]!.key; });
   const imposedCode = $derived(loadCodeFor(loadsBinding?.adapterId));
   const reductionRefused = $derived(caseReductionRefusal(lc.type, holdsGeneratorReducedLoads(modelStore.loads, lc.id, loadsBinding?.settings as Record<string, unknown> | undefined)));
   const reductionPreview = $derived.by(() => {

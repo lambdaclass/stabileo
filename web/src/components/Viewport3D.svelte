@@ -4,6 +4,7 @@
   import { is3DWorkspace } from '../lib/utils/workspace';
   import { displayUnits, fmtCoord, unitQ } from '../lib/store/display-units.svelte';
   import QuickInfoCard from './viewport/QuickInfoCard.svelte';
+  import PlateSelectionCard from './viewport/PlateSelectionCard.svelte';
   import { syncViewOverlays } from '../lib/viewport3d/view-overlays';
   import { deformedView } from '../lib/store/deformed-view.svelte';
   import { focusNodeIds } from '../lib/model/select-like';
@@ -1498,8 +1499,8 @@
 
   // Meshed plates as pieces or with their mesh: only the drawing changes.
   $effect(() => {
-    void uiStore.platesShowMesh;
-    syncShells();
+    void uiStore.platesShowMesh; void resultsStore.results3D;
+    untrack(() => { syncShells(); syncNodes(); syncLoads(); syncLabels3D(); });
     invalidate();
   });
 
@@ -4696,6 +4697,7 @@
   <!-- Shell contour legend (visible only while a shell contour map is active) -->
   <ShellContourLegend />
   <QuickInfoCard />
+  <PlateSelectionCard />
 </div>
 {#if splitOn && scene}
   <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />

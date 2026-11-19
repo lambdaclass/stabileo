@@ -83,16 +83,17 @@ test.describe('@smoke PRO click selection and the quick editor', () => {
     await card.getByTestId('qe-flip').click();
     const [n0, n1, n2, n3] = t0.nodes;
     await expect(card.getByTestId('qe-shell-nodes')).toHaveValue([n0, n3, n2, n1].join(', '));
-    const before = quads.length;
-    await card.getByTestId('qe-mesh-size').fill('0.25');
-    await card.getByTestId('qe-mesh').click();
-    await expect.poll(async () => (await page.evaluate(() => window.__stabileo.quadIds())).length).toBeGreaterThan(before);
+    await card.getByTestId('qe-mesh-plate').click();
+    await expect(page.getByTestId('plate-mesh-dialog')).toBeVisible();
+    await expect(page.getByTestId('plate-mesh-dialog').locator('h3')).toHaveText(/^Mesh (?!\d+ plates$)/);
+    await expect(page.getByTestId('plate-mesh-plan')).toBeVisible();
   });
 
   test("the shells list edits a quad's nodes, and refuses three", async ({ pro: page }) => {
     await loadModel(page, 'mat-foundation');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();
+    await page.getByTestId('plates-scope-element').click();
     const q = (await page.evaluate(() => window.__stabileo.entityData('setting', 'quads') as Array<[number, { nodes: number[] }]>))[0]!;
     const input = page.getByTestId(`plate-nodes-q${q[0]}`);
     const [a, b, c, d] = q[1].nodes;

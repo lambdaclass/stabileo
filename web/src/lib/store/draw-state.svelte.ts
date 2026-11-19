@@ -192,8 +192,23 @@ export type ShellError = 'pro.shellNeedNodes' | 'pro.errNodesExist' | 'pro.errNo
  * One function for both ways in, typed corners in the panel and corners clicked in the model, so
  * the two cannot check different things.
  */
+/** How far a quad's fourth corner sits off the plane of the other three, m; null when those three are in a line. */
+export function quadOutOfPlane(ids: readonly number[]): number | null {
+  const p = ids.map((id) => modelStore.nodes.get(id));
+  if (p.length !== 4 || p.some((n) => !n)) return null;
+  const [a, b, c, d] = p.map((n) => ({ x: n!.x, y: n!.y ?? 0, z: n!.z ?? 0 })) as [{ x: number; y: number; z: number }, { x: number; y: number; z: number }, { x: number; y: number; z: number }, { x: number; y: number; z: number }];
+  const u = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z }, v = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+  const n = { x: u.y * v.z - u.z * v.y, y: u.z * v.x - u.x * v.z, z: u.x * v.y - u.y * v.x };
+  const len = Math.hypot(n.x, n.y, n.z);
+  if (len < 1e-12) return null;
+  return Math.abs(((d.x - a.x) * n.x + (d.y - a.y) * n.y + (d.z - a.z) * n.z) / len);
+}
+
+/** A quad whose corners are this far off one plane is solved as a curved shell unless told otherwise, m. */
+export const CURVED_QUAD_TOL = 1e-3;
+
 export function addShellOnCorners(
-  ids: number[], materialId: number, thickness: number, curved = false,
+  ids: number[], materialId: number, thickness: number, curved?: boolean,
 ): { key: string } | { error: ShellError } {
   if (ids.length < 3 || ids.length > 4) return { error: 'pro.shellNeedNodes' };
   if (ids.some((n) => !Number.isFinite(n) || !modelStore.nodes.has(n))) return { error: 'pro.errNodesExist' };
@@ -206,6 +221,6 @@ export function addShellOnCorners(
   const id = modelStore.addQuad(ids as [number, number, number, number], materialId, thickness);
   /* A curved quad goes to the solver as a degenerated continuum rather than a flat MITC4. */
   const q = modelStore.model.quads.get(id);
-  if (q && curved) q.curved = true;
+  if (q && (curved ?? (quadOutOfPlane(ids) ?? 0) > CURVED_QUAD_TOL)) q.curved = true;
   return { key: 'q' + id };
 }
