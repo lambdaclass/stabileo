@@ -114,8 +114,9 @@ function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): { storeys: numbe
   let storeys = 0, footings = 0;
   for (const r of rows.column.filter((c) => c.lap && !c.pier && !c.step?.dowels)) {
     const f = frames.column(r)!, [, g, k] = r.key.split(':');
-    const footing = rows.footing.find((x) => x.demand.column?.rowKey === r.key);
-    const from = r.onFooting ? (footing ? of(bars, footing.key).filter((b) => b.kind === 'dowel') : []) : of(bars, `column:${g}:${Number(k) - 1}`).filter((b) => b.kind === 'cranked');
+    const footing = rows.footing.find((x) => (x.demand.group ? x.demand.group.members.some((m) => m.column?.rowKey === r.key) : x.demand.column?.rowKey === r.key));
+    const member = footing?.demand.group?.members.find((m) => m.column?.rowKey === r.key);
+    const from = r.onFooting ? (footing ? of(bars, footing.key).filter((b) => b.kind === 'dowel' && (!member || b.set === `${footing.key}:dowel:${member.key}`)) : []) : of(bars, `column:${g}:${Number(k) - 1}`).filter((b) => b.kind === 'cranked');
     if (r.onFooting && !footing) continue;
     const giving = from.map((b) => { const [p, q] = topLeg(b).map((x) => local(f, x)); return { p: p!, q: q!, dia: b.dia }; });
     const own = of(bars, r.key).filter((b) => b.tone === 'column');
@@ -137,11 +138,14 @@ function lapsBeside(rows: SheetRows, bars: readonly Rebar3d[]): { storeys: numbe
 /** Each dowel of a pier's footing stands, over its lap, beside a bar of the pier's bottom storey, a wall's or a column zone's. */
 function pierDowelsBeside(rows: SheetRows, bars: readonly Rebar3d[]): number {
   let checked = 0;
-  for (const r of rows.footing.filter((x) => x.demand.pier && x.dowels)) {
-    const pier = r.demand.pier!, lap = r.dowels!.lap;
+  type PierDowels = { r: SheetRows['footing'][number]; pier: NonNullable<SheetRows['footing'][number]['demand']['pier']>; lap: number; set: string | undefined };
+  const sets = rows.footing.flatMap((r): PierDowels[] => (r.demand.group
+    ? r.demand.group.members.filter((m) => m.pier).flatMap((m) => { const k = r.group?.columns.find((c) => c.key === m.key); return k?.dowels ? [{ r, pier: m.pier!, lap: k.dowels.lap, set: `${r.key}:dowel:${m.key}` }] : []; })
+    : r.demand.pier && r.dowels ? [{ r, pier: r.demand.pier, lap: r.dowels.lap, set: undefined }] : []));
+  for (const { r, pier, lap, set } of sets) {
     const keys = new Set([...pier.walls, ...rows.column.filter((c) => c.pier && pier.nodes.includes(c.demand.nodes?.bottom ?? -1)).map((c) => c.key)]);
     const standing = bars.filter((b) => keys.has(b.element) && (b.tone === 'column' || b.kind === 'vertical' || b.kind === 'boundary')).map((b) => bottomOf(b));
-    for (const d of of(bars, r.key).filter((b) => b.kind === 'dowel')) {
+    for (const d of of(bars, r.key).filter((b) => b.kind === 'dowel' && (!set || b.set === set))) {
       const [p, q] = topLeg(d);
       const near = standing.map((x) => ({ x, d: Math.hypot(x[0] - q[0], x[1] - q[1]) })).sort((a, b) => a.d - b.d)[0]!;
       expect(near.d, `${r.name} beside`).toBeGreaterThan(0.008);

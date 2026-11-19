@@ -71,8 +71,10 @@ describe('the seven-storey foundation', () => {
     expect(adopted.foundation).toBe('strips');
     expect(designData().rcSheets?.foundationSystem).toBe('strips');
     expect(adopted.footing.length).toBeGreaterThan(0);
-    expect(adopted.footing.some((r) => r.group?.kind === 'strip' && r.group.columns.some((c) => c.name === 'C8') && r.group.columns.some((c) => c.name === 'C12'))
-      || adopted.footing.some((r) => r.group?.kind === 'mat')).toBe(true);
+    const stripOf = (n: string) => adopted.footing.find((r) => r.group?.kind === 'strip' && r.group.columns.some((c) => c.name === n));
+    expect(stripOf('C8')?.group!.columns.map((c) => c.name)).toEqual(['C5', 'C6', 'C7', 'C8']);
+    expect(stripOf('C12')?.group!.columns.map((c) => c.name)).toEqual(['C9', 'C10', 'C11', 'C12']);
+    for (const r of adopted.footing) expect(r.status, `${r.name}: ${failing(r).join('; ')}`).toBe('ok');
     expect(sheetBars3d(adopted).some((b) => b.family === 'footing')).toBe(true);
     setFoundationSystem(null);
     expect(buildSheetRows().footing).toEqual([]);

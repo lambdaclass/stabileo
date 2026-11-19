@@ -685,13 +685,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
       system, solutions: solutionsOf(data.footingSetup), matShare: crit.footingMatShare, ...(dd.foundingElevation !== undefined ? { founding: dd.foundingElevation } : {}),
     });
     const pulls = tiePulls(rows, (q, H, from) => q.column?.storey ?? Math.max(0, H - leverOf(from.demand, from.adopted.h)), feet);
-    if (pulls.size) rows = rows.map((r) => {
-      const p = pulls.get(r.key);
-      if (!p) return r;
-      const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt);
-      redo(r.key, f.redo);
-      return f.row;
-    });
+    if (pulls.size) rows = rows.map((r) => { const p = pulls.get(r.key); if (!p) return r; const f = footingRowOf(withPulls(r.demand, p), rules, adoptedNow, footingSizing(data), column, fmt); redo(r.key, f.redo); return f.row; });
     const straps = designFootingStraps(rows, {
       rules, fmt, baseOf: (k) => D.beams.find((b) => b.key === k), adoptedOf: (g) => adoptedNow[`line:${g}`],
       ctxOf: (base, r) => (base ? beamCtx(base) : { mat: { fc: footingContext(r.demand, footingSizing(data), column).fc, fy }, cover: dd.covers.footing, stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...coverTable, ...defl, criteria: crit }),
@@ -709,10 +703,9 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     return sort(withOverlaps(rows));
   };
   const chosen = feet.length ? foundationSystem(data) : null;
-  const footingLayouts = feet.length ? FOUNDATION_SYSTEMS.filter((sys) => sys !== chosen).map((sys) => ({ system: sys, rows: layout(sys, false) })) : [];
+  const others = new Map(FOUNDATION_SYSTEMS.filter((sys) => feet.length && sys !== chosen).map((sys) => [sys, layout(sys, false)]));
   const footing = chosen ? layout(chosen, true) : [];
-  if (chosen) footingLayouts.push({ system: chosen, rows: footing });
-  footingLayouts.sort((a, b) => FOUNDATION_SYSTEMS.indexOf(a.system) - FOUNDATION_SYSTEMS.indexOf(b.system));
+  const footingLayouts = FOUNDATION_SYSTEMS.flatMap((sys) => { const rows = sys === chosen ? footing : others.get(sys); return rows ? [{ system: sys, rows }] : []; });
   for (let i = 0; i < feet.length; i++) yield step();
   const framed = column.filter((r) => !r.pier);
   const checked = seismic ? jointChecks(framed, beam, modelStore.nodes, fmt, joint) : framed;

@@ -22,8 +22,11 @@ export function groupFootingBars3d(r: FootingRow, columns: readonly ColumnRow[],
   for (const d of det.dowels) {
     const row = columns.find((c) => c.key === d.rowKey);
     const cx = (d.rect.x0 + d.rect.x1) / 2, cy = (d.rect.y0 + d.rect.y1) / 2, dw = d.dowels;
-    for (const p of dowelPlaces([cx, cy], { b: d.rect.x1 - d.rect.x0, h: d.rect.y1 - d.rect.y0 }, dw.count, row, row ? frames.column(row) : null)) {
-      out.push(barOf(dw.shape, laid(dw.shape, f, (u, v) => [p.x + u * p.out[0], p.y + u * p.out[1], dw.z + v]), { ...base, kind: 'dowel', tone: 'dowel' }));
+    const member = r.demand.group?.members.find((m) => m.key === d.key);
+    const fixed = (member?.column?.bars?.at ?? []).slice(0, dw.count).map((q) => ({ x: q.x - f.o[0], y: q.y - f.o[1], out: [-q.n[0], -q.n[1]] as [number, number] }));
+    const rest = dw.count - fixed.length;
+    for (const p of [...fixed, ...(rest > 0 ? dowelPlaces([cx, cy], { b: d.rect.x1 - d.rect.x0, h: d.rect.y1 - d.rect.y0 }, rest, fixed.length ? undefined : row, row ? frames.column(row) : null) : [])]) {
+      out.push(barOf(dw.shape, laid(dw.shape, f, (u, v) => [p.x + u * p.out[0], p.y + u * p.out[1], dw.z + v]), { ...base, kind: 'dowel', tone: 'dowel', set: `${r.key}:dowel:${d.key}` }));
     }
   }
   return out;

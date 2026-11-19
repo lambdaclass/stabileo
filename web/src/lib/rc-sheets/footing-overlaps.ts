@@ -75,7 +75,7 @@ export function buildingPlan(demands: readonly Pick<FootingDemand, 'at' | 'colum
 /** How much of the building's plan its footings cover: their areas summed over the plan its columns reach (GA §7.1), m². */
 export function footingCover(rows: readonly FootingRow[]): { footings: number; plan: number; share: number } | null {
   const live = rows.filter((r) => r.B > 0 && r.L > 0);
-  if (live.length < 2) return null;
+  if (!live.length) return null;
   const plan = buildingPlan(live.flatMap((r) => r.demand.group?.members ?? (r.demand.carried ? [r.demand, r.demand.carried] : [r.demand])));
   const footings = live.reduce((t, r) => t + r.B * r.L, 0);
   return plan ? { footings, plan: plan.area, share: footings / plan.area } : null;
