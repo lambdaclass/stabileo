@@ -89,7 +89,6 @@ web/src/lib/engine/design/candidate-search.ts: limiting: limiting.includes(bound
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage')) { gaps.add('headedBars'); gaps.add('mechanicalAnchorage'); gaps.add('columnCageChange'); }
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('anchorage') && ctx.elementType === 'beam' && (ctx.lateral?.role ?? 'undeclared') === 'undeclared') gaps.add('lateralRoleUndeclared');
 web/src/lib/engine/design/candidate-search.ts: if (limiting.includes('congestion') && ctx.elementType !== 'column') gaps.add('columnCageChange');
-web/src/lib/engine/design/candidate-search.ts: const refusedOnAnchorage = (x: MemberDesignOutcome) => x.elementType === 'beam' && x.outcome !== 'VERIFIED' && x.limiting.includes('anchorage');
 web/src/lib/engine/design/final-geometry-feedback.ts: if (stats.truncated && !limiting.includes('searchBudget')) limiting.push('searchBudget');
 web/src/lib/engine/detailing/element-status.ts: && EXPLAINS_ITS_OWN_FAILURE.includes(summary.outcome);
 web/src/lib/engine/known-issues.ts: const data = JSON.parse(error.slice(error.indexOf('{')));

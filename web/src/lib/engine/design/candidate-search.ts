@@ -731,7 +731,8 @@ function* settleCrossingSeats(
   corners: Map<number, BeamCornerRecord>, absent: Set<number>,
   o: { budget?: SearchBudget; clock: Clock; cancelled: () => boolean },
 ): Generator<void, boolean, void> {
-  const refusedOnAnchorage = (x: MemberSelection) => x.elementType === 'beam' && x.outcome !== 'SELECTED' && x.limiting.includes('anchorage');
+  const refusedOnAnchorage = (x: MemberSelection) => x.elementType === 'beam' && x.outcome !== 'SELECTED'
+    && x.limiting.some((limit) => limit === 'anchorage');
   const pieces = (c: MemberContext) => c.span?.elements ?? [c.elementId];
   const record = (i: number) => recordBeamSeats(list[i]!, selectedReinforcement(outcomes[i]!), corners, absent);
   const withSeats = (ctx: MemberContext, guess?: Parameters<typeof withDesignSeats>[5]) =>
