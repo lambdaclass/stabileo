@@ -640,7 +640,7 @@
     {/if}
 
     <!-- Results tables — each collapsible -->
-    <div class="pro-res-scroll">
+    <div>
       <PlateResults />
       <PieceResults />
 
@@ -1165,7 +1165,7 @@
   .pro-seg-btn:hover { background: var(--st-surface-3); color: var(--st-text); }
   .pro-seg-btn.on { background: var(--st-selected-bg); color: var(--st-accent); }
 
-  .pro-res { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .pro-res { display: flex; flex-direction: column; }
 
   .pro-res-header {
     padding: 8px 10px;
@@ -1307,13 +1307,6 @@
     color: var(--st-text-2);
     cursor: pointer;
     margin-left: 4px;
-  }
-
-  /* Scrollable results area */
-  .pro-res-scroll {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
   }
 
   /* Collapsible result sections */

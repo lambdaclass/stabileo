@@ -62,7 +62,7 @@ export const CIRSOC104_SNOW: SnowCode = {
 
 export const INPRES103_SEISMIC: SeismicCode = {
   adapterId: 'inpres103-2018', role: 'seismic', family: 'cirsoc', edition: '2018', title: 'INPRES-CIRSOC 103-2018',
-  plan: (input, levels, sink) => planSeismic(input, levels, sink),
+  plan: planSeismic,
   liveInMass: (occupancy) => SIMULTANEITY_F1[occupancy as OccupancyProbability],
   /** E = EH ± EV, EV = (Ca/2)·γr·D (§3.5.2): each seismic combination twice, D's factor ± (Ca/2)·γr. */
   vertical(combinations, detail, sink) {

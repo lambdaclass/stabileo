@@ -33,7 +33,8 @@
   import ProSeismicMethod from './ProSeismicMethod.svelte';
   import ProWindStructure from './ProWindStructure.svelte';
   import ProSpecialLoadsSection from './ProSpecialLoadsSection.svelte';
-  import { modesForPlan, windFrequenciesForPlan } from '../../lib/store/seismic-modes';
+  import { windFrequenciesForPlan } from '../../lib/store/seismic-modes';
+  import { MODAL_SEISMIC_ISSUE_URL, MODAL_SEISMIC_UNAVAILABLE } from '../../lib/engine/loads/seismic-generation';
   import ProWindDynamics from './ProWindDynamics.svelte';
   import { autoLoadsDefaults, autoLoadsMemory } from './auto-loads-memory';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -369,18 +370,6 @@
     if (!open) untrack(() => { plan = null; delta = null; applyError = null; });
   });
 
-
-  // The old seismic preview computed floor weights as
-  //   (totalDead + 0.25 * occupancyQ) * 50   // "rough 50m2 per floor"
-  // with 50 m2 a literal, so every floor of every building weighed the same regardless of
-  // its plan. It is gone. The preview now comes from the plan, whose level masses are
-  // built from member self-weight plus applied loads over each level's TRUE plan extent.
-  const seismicPreview = $derived(plan?.factors.baseShear ? {
-    W: plan.factors.seismicWeight?.value ?? 0,
-    V0: plan.factors.baseShear.value,
-    levels: plan.levels.filter(l => l.elevation > 0),
-  } : null);
-
   function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
     const w = windStructure;
     switch (w.kind) {
@@ -406,6 +395,8 @@
       materials: modelStore.model.materials as never,
       loadCases: modelStore.model.loadCases,
       quads: modelStore.model.quads as never,
+      plates: modelStore.model.plates as never,
+      supports: modelStore.supports,
       constraints: modelStore.model.constraints,
     };
   }
@@ -460,7 +451,7 @@
       seismic: enableSeismic ? {
         /* `coefficient` is the fallback the plan uses only when `code` is absent or
            blocked; the 103 path below is what normally produces C. */
-        enabled: true, coefficient: 0,
+        enabled: true, coefficient: 0, method: seismicMethod.method,
         code: {
           zone: seismicZone, site: siteClass, group: destinationGroup,
           systemKey, periodSystem, regularity, occupancy: seismicOccupancy,
@@ -556,16 +547,15 @@
     applyError = null;
     recordRoleConfiguration();
     const windModes = enableWind && windDyn.n1Source === 'modal' && !windLowRise;
-    const seismicModes = enableSeismic && seismicMethod.method === 'modal';
-    const total = 2 + (windModes ? 1 : 0) + (seismicModes ? 1 : 0);
+    const total = 2 + (windModes ? 1 : 0);
     let at = 1;
     working = null;
     try {
       if (!(await stepTo(t('autoLoad.work.plan'), at++, total))) return;
       let p = buildLoadPlan(planInput());
       // A member's design live-load reduction does not reduce the mass that moves with the
-      // floor. Both modal methods must use Lo at the stated participation.
-      const massPlan = p.outcome === 'READY' && (windModes || seismicModes) && applyLiveReduction
+      // floor.
+      const massPlan = p.outcome === 'READY' && windModes && applyLiveReduction
         ? buildLoadPlan({ ...planInput(), applyLiveReduction: false }) : p;
       // A frequency from the modal analysis under the plan's own masses (§1.9.2, `seismic-modes.ts`).
       if (windModes && p.outcome === 'READY') {
@@ -574,13 +564,6 @@
         if ('error' in f) { applyError = tp('autoLoad.windDyn.modalFailed', { error: f.error }); plan = null; delta = null; return; }
         windModal = f;
         p = buildLoadPlan(planInput());
-      }
-      if (seismicModes && p.outcome === 'READY') {
-        if (!(await stepTo(t('autoLoad.work.seismicModes'), at++, total))) return;
-        const m = modesForPlan(massPlan, SIMULTANEITY_F1[seismicOccupancy]);
-        if ('error' in m) { applyError = tp('autoLoad.seismic.modalFailed', { error: m.error }); plan = null; delta = null; return; }
-        const base = planInput();
-        p = buildLoadPlan({ ...base, seismic: base.seismic ? { ...base.seismic, modal: { modes: m.modes } } : undefined });
       }
       if (!(await stepTo(t('autoLoad.work.compare'), total, total))) return;
       plan = p;
@@ -649,7 +632,13 @@
     const count = p.distributed.length + p.nodal.length + p.surface.length + p.thermal.length;
     if (!(await stepTo(tp('autoLoad.work.apply', { n: count }), 1, 2))) { working = null; return; }
 
-    applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
+    const refusal = applyLoadPlan(p, { clearExisting, alsoUnmarked: clearExisting && alsoUnmarked, bothSenses, patternsInCompanions, nameOf: (key, params) => tp(key, params) });
+
+    if (refusal) {
+      applyError = te(refusal);
+      working = null;
+      return;
+    }
 
     // Commit the staged regulation change, then invalidate exactly what moved.
     if (regulationsStore.pending.length > 0) {
@@ -751,7 +740,13 @@
               <ul class="al-list">
                 <!-- Same class as the footing-issue crash: two blocked entries can share a key
                      and differ only in their params. -->
-                {#each identifyMessages(plan.blockedKeys) as b (b.id)}<li>{te(b.message)}</li>{/each}
+                {#each identifyMessages(plan.blockedKeys) as b (b.id)}
+                  <li>{te(b.message)}
+                    {#if b.message.key === MODAL_SEISMIC_UNAVAILABLE}
+                      <a href={MODAL_SEISMIC_ISSUE_URL} target="_blank" rel="noopener noreferrer">#2319</a>
+                    {/if}
+                  </li>
+                {/each}
               </ul>
             {:else}
               <!-- The one decision that changes what Apply does: here, beside what it changes. -->
@@ -812,10 +807,9 @@
                   w: (plan.factors.seismicWeight?.value ?? 0).toFixed(1),
                   v: plan.factors.baseShear.value.toFixed(1) })}</p>
               {/if}
-              <!-- The seismic figures come from the PLAN, whose level masses are real. -->
-              {#if seismicPreview}
+              {#if plan.seismic}
                 <div class="al-readout" data-testid="al-seismic-preview">
-                  {#if plan.seismic?.source === 'cirsoc103'}
+                  {#if plan.seismic.source === 'cirsoc103'}
                     <div data-testid="al-seismic-coefficient">
                       {tp('autoLoad.coefficientLine', {
                         c: plan.seismic.c.toFixed(4), t: (plan.seismic.t ?? 0).toFixed(3), ta: (plan.seismic.ta ?? 0).toFixed(3),
@@ -823,11 +817,11 @@
                       })}
                     </div>
                   {/if}
-                  {#each seismicPreview.levels as lv (lv.elevation)}
-                    <div>+{lv.elevation.toFixed(2)} m · Wi = {lv.weightKN.toFixed(1)} kN</div>
+                  {#each plan.seismic.stories as { h, w }}
+                    <div>+{h.toFixed(2)} m · Wi = {w.toFixed(1)} kN</div>
                   {/each}
                 </div>
-                {#if plan.seismic?.source === 'cirsoc103'}
+                {#if plan.seismic.source === 'cirsoc103'}
                   {#if plan.seismic.periodCapped}<p class="al-hint">{t('autoLoad.periodCapped')}</p>{/if}
                   {#if plan.seismic.floorApplied === 'nearFault'}<p class="al-hint">{t('autoLoad.floorNearFault')}</p>
                   {:else if plan.seismic.floorApplied === 'lowZone'}<p class="al-hint">{t('autoLoad.floorLowZone')}</p>{/if}
