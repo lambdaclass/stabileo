@@ -206,6 +206,10 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-085 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-086 — Javítva a #2316 módosításban, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-086-seismic-static-story-forces.md", "label": "SA-2026-086", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-087 — A terhek előállítását a #2316 módosítás letiltja, kiadásra vár."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-087-seismic-modal-load-generation.md", "label": "SA-2026-087", "t": "Érintett modellek és szükséges teendők."},
     {"k": "note", "t": "SA-2026-088 — Javítva a 0.6.2 verzióban."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Érintett modellek és szükséges teendők."},
     {
@@ -726,6 +730,8 @@ const body: PostBody = {
         ],
         ["SA-2026-084", "A végterhelt sarokvarrat felosztása megszüntethette a hatásos hossz csökkentését (#2243). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
         ["SA-2026-085", "Rövid sarokvarratnál túl nagy hatásos szármérettel számolhatott az ellenőrzés (#2244). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-086", "A generált statikus földrengésterhek hibás szintenkénti erőket és rúdigénybevételeket eredményezhettek. Generálja újra az érintett terheket, és ismételje meg az elemzést és a méretezést.", "Magas", "Javítva a #2316 módosításban, kiadásra vár"],
+        ["SA-2026-087", "A modális földrengésterhek előállítása hibás rúdigénybevételeket eredményezhetett. Ha alkalmazható, generálja újra a terheket a statikus módszerrel, vagy várja meg a #2319 megoldását.", "Magas", "A terhek előállítását a #2316 módosítás letiltja, kiadásra vár"],
         ["SA-2026-088", "Az ABS és SRSS rúddiagramok tartalmazzák a kombinált függvény teherhatárok közötti szélsőértékeit. Ismételje meg a kombinációkat, diagramokat és kapcsolódó ellenőrzéseket (#2273).", "—", "Javítva a 0.6.2 verzióban"],
         [
           "SA-2026-089",
