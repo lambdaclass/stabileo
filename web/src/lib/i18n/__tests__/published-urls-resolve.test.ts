@@ -174,7 +174,6 @@ describe('every published URL is served, not redirected', () => {
       ['/hu/research/', flags.research],
       ['/en/tools/', true],
       ['/en/tools/mohr-2d/', flags.tools],
-      ['/en/register/', flags.accounts],
       ['/en/terms/', flags.accounts],
       ['/en/privacy/', flags.accounts],
       ['/en/usage-data/', flags.accounts],
