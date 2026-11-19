@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
   import PublicLink from '../landing/PublicLink.svelte';
+  import ToolEditorLink from './ToolEditorLink.svelte';
   import ParamRow from '../research/shell/ParamRow.svelte';
   import Sci from '../research/shell/Sci.svelte';
   import FigureBoard from './figures/FigureBoard.svelte';
@@ -23,7 +24,6 @@
   let result = $state.raw<Result | null>(null);
   let error = $state('');
   let stale = $state(false);
-  let href = $state('');
   const column = $derived(id === 'column-buckling');
   const title = $derived(t(`tools.${id}`));
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
@@ -48,21 +48,15 @@
       error = '';
       result = outcome.value;
       recordPrerenderedResult(input.id, input.values, outcome.value);
-      void link(outcome.value, input);
     },
   );
   onDestroy(() => solver.stop());
-  async function link(answer: Result, input: Input) {
-    const { editorUrl } = await import('./share');
-    if (solver.isCurrent(input) && result === answer) href = editorUrl(answer.model, title);
-  }
   $effect(() => {
     const input = { id, values: { ...p } };
     const { values } = input;
     untrack(() => {
       spans = { length: widen(spans.length, values.length), load: widen(spans.load, values.load) };
       stale = true;
-      href = '';
       solver.request(input, prerenderedResult<Result>(input.id, values));
     });
   });
@@ -155,7 +149,7 @@
             {/if}
           </div>
           <p class="verification" data-testid="agreement" data-difference={result.difference} data-absolute={result.absolute}>{t('tools.comparison')}: {expression} · {#if result.absolute}{t('tools.absoluteDifference')} <Sci value={result.difference} unit="m" />{:else}{t('tools.difference')} <Sci value={result.difference * 100} unit="%" />{/if}</p>
-          <a class="btn btn-primary open-editor" href={href}>{t('tools.open')} ↗</a>
+          <ToolEditorLink model={stale ? null : result.model} name={title} />
           {#each solverMessages([...(result.linear.structuredDiagnostics ?? []), ...(result.buckling?.structuredDiagnostics ?? [])], t) as message, k (k)}<p class="warning" role="alert">{message}</p>{/each}
         {/if}
       </div>

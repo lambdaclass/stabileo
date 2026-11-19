@@ -12,10 +12,9 @@ import ShapePage from '../components/research/feher2026/ShapePage.svelte';
 
 const off = () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
-  vi.stubEnv('DEV', false);
-  for (const key of ['VITE_RESEARCH', 'VITE_TOOLS', 'VITE_DIAGRAM_GAME']) vi.stubEnv(key, '');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { accounts: false, research: false, tools: false, diagramGame: false });
 };
-afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetModules(); });
+afterEach(() => { setPublicLocale('en'); vi.unstubAllGlobals(); vi.resetModules(); });
 
 it('known wrong result: #1950 — switches off preserve main public routes, nav and prerender pages exactly', async () => {
   off();
@@ -41,7 +40,7 @@ it('known wrong result: #1916 — keeps Fehér main controls and hides only adde
   const body = render(ShapePage).body;
   for (const id of ['shape-theta', 'shape-delta']) expect(body).toContain(`id="${id}"`);
   for (const id of ['shape-q', 'shape-members', 'why']) expect(body).not.toContain(`id="${id}"`);
-  vi.stubEnv('VITE_RESEARCH', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
   expect(publishedLocales('/research').includes('hu')).toBe(PUBLIC_LOCALES.includes('hu'));
   const enabled = render(ShapePage).body;
   for (const id of ['shape-q', 'shape-members', 'why']) expect(enabled).toContain(`id="${id}"`);
@@ -49,9 +48,9 @@ it('known wrong result: #1916 — keeps Fehér main controls and hides only adde
 
 it('known wrong result: #1950 — switches on publish added routes and consolidation without changing calculator corrections', async () => {
   off();
-  vi.stubEnv('VITE_TOOLS', '1');
-  vi.stubEnv('VITE_RESEARCH', '1');
-  vi.stubEnv('VITE_DIAGRAM_GAME', '1');
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: true });
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, diagramGame: true });
   const paths = await publicPaths();
   for (const path of ['/tools/mohr-2d', '/tools/mohr-3d', '/tools/beam-frame', '/diagram-game']) {
     expect(paths).toContain(path);
@@ -67,7 +66,7 @@ it('known wrong result: #1950 — switches on publish added routes and consolida
 it.each(Array.from({ length: 8 }, (_, mask) => mask))('known wrong result: #1950 — publication uses build flags consistently for combination %i', async mask => {
   off();
   const flags = { research: !!(mask & 1), tools: !!(mask & 2), diagramGame: !!(mask & 4), accounts: false };
-  for (const [key, enabled] of Object.entries(flags)) vi.stubEnv(`VITE_${key === 'diagramGame' ? 'DIAGRAM_GAME' : key.toUpperCase()}`, enabled ? '1' : '0');
+  vi.stubGlobal('__PUBLIC_FEATURES__', flags);
   const paths = await publicPaths();
   const models = ['beam-frame', 'slab-on-columns', 'earthquake-frame', 'rc-column', 'outrigger', 'tower'].map(id => `/tools/${id}`);
   const expected = [...main.routes.filter(path => !flags.tools || !path.startsWith('/examples')), ...(flags.tools ? [...models, '/tools/mohr-2d', '/tools/mohr-3d'] : []), ...(flags.diagramGame ? ['/diagram-game'] : [])].sort();
@@ -86,9 +85,9 @@ it('known wrong result: #1916 — unpublished Hungarian research addresses fall 
   for (const path of main.research) {
     const location = { pathname: `/hu${path}/`, search: '?round=2', hash: '#checks' };
     expect(unpublishedResearchAddress(location)).toBe(`/en${path}/?round=2#checks`);
-    vi.stubEnv('VITE_RESEARCH', '1');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: true });
     expect(unpublishedResearchAddress(location)).toBeNull();
-    vi.stubEnv('VITE_RESEARCH', '0');
+    vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, research: false });
   }
   for (const path of ['/hu/', '/hu/tools/', '/en/research/', '/hu/researching/']) expect(unpublishedResearchAddress({ pathname: path, search: '', hash: '' })).toBeNull();
 });

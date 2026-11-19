@@ -3,23 +3,24 @@ import { expect, it } from 'vitest';
 import { findPost } from '..';
 import hu from '../translations/hu/safety-advisories';
 import notice from '../../provenance/result-changes/concentrated-live-actions.json';
-import { PUBLIC_LOCALES, type PublicLocale } from '../../i18n/store.svelte';
+import { buildPublicLocales } from '../../i18n/offered-research';
+import type { PublicLocale } from '../../i18n/store.svelte';
 
 const document = (path: string) => readFileSync(new URL(`../../../../../docs/${path}`, import.meta.url), 'utf8');
 const advisoryId = 'SA-2026-083';
 const filename = `${advisoryId}-concentrated-live-actions.md`;
 const locales: [PublicLocale, string, string][] = [
-  ['en', 'High', 'PR #2236; pending merge and release'],
-  ['es', 'Alta', 'PR #2236; pendiente de integración y publicación'],
-  ['pt', 'Alta', 'PR #2236; aguardando integração e publicação'],
-  ['de', 'Hoch', 'PR #2236; Zusammenführung und Veröffentlichung ausstehend'],
-  ['fr', 'Élevée', 'PR #2236; fusion et publication en attente'],
-  ['tr', 'Yüksek', 'PR #2236; birleştirme ve yayın bekleniyor'],
-  ['hu', 'Magas', 'PR #2236; egyesítésre és kiadásra vár'],
+  ['en', 'High', 'Fixed in 0.6.2'],
+  ['es', 'Alta', 'Corregido en 0.6.2'],
+  ['pt', 'Alta', 'Corrigido em 0.6.2'],
+  ['de', 'Hoch', 'Behoben in 0.6.2'],
+  ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
+  ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
+  ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
 ];
 
 it('#2207 covers every public advisory locale', () => {
-  expect(locales.map(([locale]) => locale).sort()).toEqual([...PUBLIC_LOCALES, 'hu'].sort());
+  expect(locales.map(([locale]) => locale).sort()).toEqual([...buildPublicLocales(false), 'hu'].sort());
 });
 
 it.each(locales)('#2207 %s lists the assigned advisory and manual review action', (locale, severity, status) => {
@@ -40,7 +41,7 @@ it('#2207 records the silent main witness and requires correcting loads before s
   const advisory = document(`advisories/${filename}`);
   const structure = (text: string) => text.split('\n').filter(line => line.startsWith('## ') || /^\| [A-Z][^|]+ \|/.test(line)).map(line => line.startsWith('## ') ? line : line.split('|')[1]!.trim());
   expect(structure(advisory)).toEqual(structure(document('advisories/SA-2026-073-snow-crossing-moment.md')));
-  expect(advisory).toContain('| Fix | PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236); pending merge and release |');
+  expect(advisory).toContain('| Fix | PR [#2236](https://github.com/lambdaclass/stabileo/pull/2236); released in 0.6.2 |');
   expect(advisory).toContain('historical release binaries not assessed');
   expect(advisory).toContain('0c375732c8d533b984e6d68f0cddc792f5a6a594');
   expect(advisory).toContain('concentrated-live-actions.json');

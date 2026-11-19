@@ -319,3 +319,24 @@ describe('advanced analyses: the four the engine only has in 2D', () => {
     expect(res.kReduced.length).toBeGreaterThan(0);
   });
 });
+
+const issue2292 = process.env.RUN_KNOWN_WRONG === '2292' ? it : it.skip;
+issue2292('known wrong result: #2292 synchronous cable and SSI refuse non-finite optional springs', () => {
+  uiStore.analysisMode = 'pro';
+  portal3D();
+  const input = input3D();
+  const freeSpring = { nodeId: 2, rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
+  const solve = [
+    (solver: typeof input) => wasmSolver.solveCable3D(solver),
+    (solver: typeof input) => solveSSI3D({ solver, soilSprings: [], maxIter: 20, tolerance: 1e-4 }),
+  ];
+  input.supports.set(2, freeSpring);
+  for (const run of solve) {
+    expect(run(input).results.displacements.length).toBeGreaterThan(0);
+    for (const kx of [Number.NaN, Infinity, -Infinity]) {
+      input.supports.set(2, { ...freeSpring, kx });
+      expect.soft(() => run(input), `non-finite kx = ${kx}`).toThrow();
+    }
+    input.supports.set(2, freeSpring);
+  }
+});
