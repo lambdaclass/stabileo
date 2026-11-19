@@ -192,7 +192,6 @@ it('#2277 a recorded plane roller retains its plane and embedded answers', async
   }
 });
 
-const issue2304 = process.env.RUN_KNOWN_WRONG === '2304' ? it : it.skip;
 const yRoller = { tx: true, ty: false, tz: true, rx: true, ry: true, rz: false };
 const loadCase = { id: 1, type: 'D' as const, name: 'Applied load' };
 const combination = { id: 1, name: 'Applied load only', factors: [{ caseId: loadCase.id, factor: 1 }] };
@@ -214,7 +213,7 @@ function tipReaction(tip: number): number {
   return solved.reactions.find(reaction => reaction.nodeId === tip)?.fz ?? 0;
 }
 
-issue2304('known wrong result: #2304 a native Y roller survives a snapshot and can be edited to release global Z', () => {
+it('#2304 a native Y roller survives a snapshot and can be edited to release global Z', () => {
   const { tip, id } = nativeBearing();
   expect(supportAt(tip).type).toBe('rollerY');
   expect(tipReaction(tip)).toBeCloseTo(-appliedZ, 12);
@@ -229,7 +228,7 @@ issue2304('known wrong result: #2304 a native Y roller survives a snapshot and c
 });
 
 for (const nonlinear of [false, true]) {
-  issue2304(`known wrong result: #2304 a type-only Z edit refuses an old relabelled snapshot (nonlinear=${nonlinear})`, async () => {
+  it(`#2304 a type-only Z edit refuses an old relabelled snapshot (nonlinear=${nonlinear})`, async () => {
     const { tip, id } = nativeBearing(nonlinear);
     const snapshot = modelStore.snapshot();
     snapshot.supports = snapshot.supports.map(([key, support]) =>

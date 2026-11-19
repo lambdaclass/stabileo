@@ -57,11 +57,11 @@
       uiStore.selectElement(ctx.elementId);
     } else if (action === 'mirror-x' || action === 'mirror-y') {
       // The edit layer's in-place mirror: member frames, offsets and local loads follow.
-      mirrorSelectionInPlace(uiStore.selectedNodes, action === 'mirror-x' ? 'x' : 'y', { leftHand: uiStore.axisConvention3D === 'leftHand' });
-      resultsStore.clear();
+      const report = mirrorSelectionInPlace(uiStore.selectedNodes, action === 'mirror-x' ? 'x' : 'y', { leftHand: uiStore.axisConvention3D === 'leftHand' });
+      if (!report?.refused) resultsStore.clear();
     } else if (action === 'rotate-90' || action === 'rotate-neg90') {
-      rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
-      resultsStore.clear();
+      const report = rotateSelectionInPlace(uiStore.selectedNodes, action === 'rotate-90' ? 90 : -90, { leftHand: uiStore.axisConvention3D === 'leftHand' });
+      if (!report?.refused) resultsStore.clear();
     } else if (action === 'spec-element' && ctx.elementId != null) {
       // Everything the member is told beyond geometry, section and material, in its one editor.
       uiStore.specSection = 'members';

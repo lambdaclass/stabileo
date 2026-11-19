@@ -46,6 +46,7 @@ import {
 } from './transform-fields';
 import { closure, fragmentOf, mapDefinitions, type EntitySet, type Fragment } from './fragment';
 import { copyGeneratedMetadata, generatedMetadata } from './generated-metadata';
+import { ambiguousRollerTransform, refuseSupportTransform, type SupportTransformRefusal } from './support-transform-refusal';
 import { NodeIndex } from './node-index';
 export { NodeIndex } from './node-index';
 
@@ -63,6 +64,7 @@ export interface CopyOptions {
 }
 
 export interface EditReport {
+  refused?: SupportTransformRefusal;
   nodes: number[];
   elements: number[];
   quads: number[];
@@ -95,6 +97,8 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
   if (uiStore.is3DWorkspace && uiStore.viewportPresentation3D === 'upright2dIn3d' && transforms.length > 0) {
     const source = closure(set);
     if (source.nodes.size > 0) {
+      const frag = fragmentOf(source, opts);
+      if (copySupportRefusal(frag, transforms, opts)) return insertFragment(frag, transforms, opts);
       let report!: EditReport;
       modelStore.batch(() => {
         modelStore.ensureSpaceCoordinates();
@@ -105,6 +109,12 @@ export function copyTransformed(set: EntitySet, transforms: readonly Affine[], o
     return insertFragment(fragmentOf(source, opts), transforms, opts);
   }
   return insertFragment(fragmentOf(set, opts), transforms, opts);
+}
+
+function copySupportRefusal(frag: Fragment, transforms: readonly Affine[], opts: CopyOptions): SupportTransformRefusal | undefined {
+  if (!opts.withSupports) return undefined;
+  if (frag.missingSupportMembers) return 'missingSupportMembers';
+  return ambiguousRollerTransform(frag.supports, frag.elements, transforms) ? 'ambiguousRoller' : undefined;
 }
 
 /**
@@ -122,6 +132,11 @@ export function insertFragment(frag: Fragment, transforms: readonly Affine[], op
   };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (frag.nodes.length === 0 || transforms.length === 0) return report;
+  const refusal = copySupportRefusal(frag, transforms, opts);
+  if (refusal) {
+    report.refused = refuseSupportTransform(refusal);
+    return report;
+  }
 
   modelStore.bulkMutate(() => {
     const defs = mapDefinitions(frag);

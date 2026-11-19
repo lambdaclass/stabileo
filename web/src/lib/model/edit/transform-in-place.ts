@@ -16,12 +16,14 @@ import { carryPointLoad, carryThermal, carryPrestress, carrySurface } from '../l
 import { applyAxial, applyPoint, applyVector, compose, isReflection, reflection, rotation, type Affine } from './affine';
 import { generatedMetadata } from './generated-metadata';
 import { carriedJoint, carriedOffset, carriedOrientation, carriedSupport, type EditWarning } from './transform-fields';
+import { ambiguousRollerTransform, refuseSupportTransform, type SupportTransformRefusal } from './support-transform-refusal';
 import { closure, type EntitySet } from './fragment';
 import { coincidentNodeGroups, mergeNodesInto } from './cleanup';
 import { weldTolerance } from '../weld-tolerance';
 import { carriedTarget, targetNodes, type DefinitionModel, type FloorLoadDef } from '../loads/floor-definitions';
 
 export interface InPlaceReport {
+  refused?: SupportTransformRefusal;
   movedNodes: number;
   /** Moved nodes that landed on a node that stayed, and became it. */
   welded: number;
@@ -35,6 +37,11 @@ export function transformInPlace(set: EntitySet, T: Affine, opts: { leftHand?: b
   const report: InPlaceReport = { movedNodes: 0, welded: 0, rigidMembers: 0, stretchedMembers: 0, warnings: {} };
   const warn = (w: EditWarning) => { report.warnings[w] = (report.warnings[w] ?? 0) + 1; };
   if (src.nodes.size === 0) return report;
+  const supports = [...modelStore.supports.values()].filter(s => src.nodes.has(s.nodeId));
+  if (ambiguousRollerTransform(supports, modelStore.elements.values(), [T])) {
+    report.refused = refuseSupportTransform('ambiguousRoller');
+    return report;
+  }
 
   modelStore.batch(() => {
     // Every node is read before any moves: a standing plane model is rewritten

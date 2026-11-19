@@ -11,6 +11,7 @@
  * engine knowing either convention exists.
  */
 import { isMessage, type EngineMessage } from '../codes/message';
+import { AMBIGUOUS_ROLLER_Z } from '../engine/support-dofs-3d';
 import type { StructuredDiagnostic } from '../engine/types';
 import { i18n, tAt } from './store.svelte';
 
@@ -96,6 +97,7 @@ export function formatCombinationLabel(
  * they appear in a message; anything else is left as it is.
  */
 const ENGINE_SENTENCES: ReadonlyArray<[string, string]> = [
+  [AMBIGUOUS_ROLLER_Z, 'svc.engine.ambiguousRollerZ'],
   ['exact plastic LP resource budget exceeded', 'plasticDiag.resourceBudget'],
   ['Singular stiffness matrix — structure is a mechanism', 'svc.engine.mechanism'],
   ['All diagonal entries are zero — singular matrix', 'svc.engine.zeroDiagonal'],

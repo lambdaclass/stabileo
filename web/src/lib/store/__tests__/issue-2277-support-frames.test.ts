@@ -531,10 +531,9 @@ it('#2277 a space transform carries physical Y settlement and rotation about Z',
   expect(turned?.dy).toBeUndefined();
 });
 
-const issue2289 = process.env.RUN_KNOWN_WRONG === '2289' ? it : it.skip;
 for (const mode of ['3d', 'pro'] as const) {
   for (const operation of ['in place', 'copy', 'detached copy'] as const) {
-    issue2289(`known wrong result: #2289 refuses a memberless roller quarter-turn (${mode}, ${operation})`, () => {
+    it(`#2289 refuses a memberless roller quarter-turn (${mode}, ${operation})`, () => {
       uiStore.analysisMode = mode;
       const root = modelStore.addNode(0, 0, 0);
       const other = modelStore.addNode(0, 0, 2);
@@ -551,7 +550,8 @@ for (const mode of ['3d', 'pro'] as const) {
         : insertFragment(detach(fragmentOf(set, { withSupports: true })), [turn], { withSupports: true });
       expect.soft(report).toMatchObject({ refused: 'ambiguousRoller' });
       expect.soft(modelStore.snapshot()).toEqual(before);
-      expect(validateAndSolve3D(modelStore.model)).toMatch(/rollerZ.*ambiguous.*explicit/i);
+      expect(() => buildSolverInput3D(modelStore.model)).toThrow(/rollerZ.*ambiguous.*explicit/i);
+      expect(validateAndSolve3D(modelStore.model)).toMatch(/not connected to any member/i);
     });
   }
 }
@@ -559,13 +559,13 @@ for (const mode of ['3d', 'pro'] as const) {
 it('#2289 a memberless 3D roller can be translated and can turn with an explicit mask', () => {
   uiStore.analysisMode = '3d';
   const root = modelStore.addNode(0, 0, 0);
-  const tip = modelStore.addNode(2, 1, 0);
+  const tip = modelStore.addNode(2, 0, 0);
   modelStore.addSupport(root, 'fixed3d');
-  const id = modelStore.addSupportEntry({ nodeId: tip, type: 'rollerZ' });
+  modelStore.addSupportEntry({ nodeId: tip, type: 'rollerZ' });
   const set = { nodes: [tip], elements: [] };
   expect(transformInPlace(set, translation([1, 0, 0])).movedNodes).toBe(1);
   expect(supportAt(tip).dofRestraints).toBeUndefined();
-  modelStore.updateSupport(id, { dofRestraints: { ...noRestraints, tx: true } });
+  modelStore.updateSupport(supportAt(tip).id, { dofRestraints: { ...noRestraints, tx: true } });
   expect(transformInPlace(set, rotation([0, 0, 0], [0, 0, 1], 90)).movedNodes).toBe(1);
   modelStore.addElement(root, tip);
   modelStore.addNodalLoad3D(tip, 1, 1, 0, 0, 0, 0);
@@ -585,8 +585,7 @@ function verticalLocalBearing() {
   return { root, bearing, member };
 }
 
-const issue2294 = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
-issue2294('known wrong result: #2294 copying a bearing alone preserves its restraint or reports a missing frame', () => {
+it('#2294 copying a bearing alone preserves its restraint or reports a missing frame', () => {
   const { bearing } = verticalLocalBearing();
   const before = modelStore.snapshot();
   const copied = copyTransformed({ nodes: [bearing], elements: [] }, [translation([4, -2, 0])], { withSupports: true });
@@ -595,7 +594,7 @@ issue2294('known wrong result: #2294 copying a bearing alone preserves its restr
 });
 
 for (const operation of ['detached copy', 'upright copy', 'clipboard'] as const) {
-  issue2294(`known wrong result: #2294 refuses a node-only bearing selection (${operation})`, () => {
+  it(`#2294 refuses a node-only bearing selection (${operation})`, () => {
     const { bearing } = verticalLocalBearing();
     const set = { nodes: [bearing], elements: [] };
     if (operation === 'clipboard') {
@@ -616,7 +615,7 @@ for (const operation of ['detached copy', 'upright copy', 'clipboard'] as const)
   });
 }
 
-issue2294('known wrong result: #2294 copying one of several bearing members refuses the partial frame', () => {
+it('#2294 copying one of several bearing members refuses the partial frame', () => {
   const { bearing, member } = verticalLocalBearing();
   modelStore.addElement(bearing, modelStore.addNode(2, 2));
   const before = modelStore.snapshot();
@@ -626,9 +625,10 @@ issue2294('known wrong result: #2294 copying one of several bearing members refu
 });
 
 it('#2294 copying a complete member frame preserves the vertical bearing reaction', () => {
-  const { bearing, member } = verticalLocalBearing();
+  const { root, bearing, member } = verticalLocalBearing();
   const copied = copyTransformed({ nodes: [], elements: [member] }, [translation([4, -2, 0])], { withSupports: true });
   const tip = copied.maps[0]!.nodes.get(bearing)!;
+  modelStore.addElement(root, copied.maps[0]!.nodes.get(root)!);
   const force = 1;
   modelStore.addNodalLoad(bearing, 0, -force);
   modelStore.addNodalLoad(tip, 0, -force);

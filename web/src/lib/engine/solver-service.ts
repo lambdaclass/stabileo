@@ -1977,7 +1977,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
   try {
     return buildSolverInput3D(...args);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (!(err instanceof SemiRigidError)) throw err;
@@ -2011,7 +2011,7 @@ export function imposedRefusal(model: ModelData): string | null {
     if (bad.length === 0) return null;
     return tp('svc.imposedUnsupported', { list: bad.slice(0, 6).map((b) => `${b.nodeId} (${b.field})`).join(', ') });
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     throw err;
   }
 }
@@ -2503,7 +2503,7 @@ export function solveCombinations3D(
     const solved = 'done' in plan ? plan.done : plan.finish(solveCombinations3DCore(plan.forces, solving, plan.combinations, includeSelfWeight, leftHand));
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
@@ -3077,7 +3077,7 @@ export async function solveCombinations3DParallel(
     checkSolveCancelled(options);
     return finishBundle(withDeclaredInactiveBundle(solved, model), loadCases, combinations, magnitudeOptions(model), spectral);
   } catch (err) {
-    if (err instanceof SupportMappingError) return err.message;
+    if (err instanceof SupportMappingError) return localizeEngineText(err.message);
     const said = loadRefusal(err);
     if (said) return said;
     if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);

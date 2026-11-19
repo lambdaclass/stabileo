@@ -24,7 +24,7 @@ import {
   type Footing, type FootingMatPreferences,
 } from '../model/footing';
 import { DEFAULT_COVER } from '../engine/design/member-context';
-import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, type SpringKey } from '../model/support-3d';
+import { DOF_SPRING, dofRestraintsOfType3D, supportConfiguration, is3DSupportType, hasYRollerMaskOnZRoller, type SpringKey } from '../model/support-3d';
 import {
   emptyGeotechnical, migrateGeotechnical, newSoilProfile,
   type ProjectGeotechnical, type SoilProfile,
@@ -1614,7 +1614,6 @@ function createModelStore() {
     }
   }
 
-  type SupportSnapshotOptions = { preserveSupportTypes?: boolean };
   type SupportSprings = { kx?: number; ky?: number; kz?: number; krx?: number; kry?: number; krz?: number };
   type SupportOpts = { angle?: number; isGlobal?: boolean; dx?: number; dy?: number; dz?: number; drx?: number; dry?: number; drz?: number; dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean }; dofFrame?: 'global' | 'local'; dofLocalElementId?: number };
 
@@ -2164,7 +2163,7 @@ function createModelStore() {
     get geotechnical() { return model.geotechnical; },
     get kinematicResult() { return lastKinematicResult; },
 
-    snapshot(options?: SupportSnapshotOptions): ModelSnapshot {
+    snapshot(): ModelSnapshot {
       // $state.snapshot() is the official Svelte 5 API to deeply unwrap reactive proxies
       // into plain JavaScript objects. This avoids all proxy-related serialization issues.
       // The detailing is left out of it and copied once per version (`detailingSnapshot`): it is
@@ -2193,7 +2192,6 @@ function createModelStore() {
         }]) as ModelSnapshot['elements'],
         supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
           ...v,
-          type: options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type),
           dz: canonicalSupportDz(v),
           dry: canonicalSupportDry(v),
         }]) as ModelSnapshot['supports'],
@@ -2339,7 +2337,7 @@ function createModelStore() {
       _captureProvenance = fn;
     },
 
-    restore(rawSnapshot: ModelSnapshot, options?: SupportSnapshotOptions): void {
+    restore(rawSnapshot: ModelSnapshot): void {
       loadEpoch++;
       _onReplaced?.();
       // ── Why the incoming snapshot is unwrapped before anything reads it ──────────
@@ -2391,8 +2389,7 @@ function createModelStore() {
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
       const supEntries = s.supports.map(([k, v]) => {
-        const type = options?.preserveSupportTypes ? v.type : normalize2DSupportType(v.type as SupportType);
-        const sup = { ...v, type } as Support;
+        const sup = v as Support;
         return [k, { ...sup, dz: canonicalSupportDz(sup), dry: canonicalSupportDry(sup) }] as [number, Support];
       });
       const seenNodes = new Set<number>();
@@ -3673,7 +3670,9 @@ function createModelStore() {
       if (!current) return;
       const typeInWorkspace = uiStore.is3DWorkspace ? (type: SupportType) => type : normalize2DSupportType;
       const requestedType = typeInWorkspace(data.type ?? current.type);
-      const changedType = requestedType !== typeInWorkspace(current.type) ? requestedType : undefined;
+      const reselectsRelabelledRoller = uiStore.is3DWorkspace
+        && data.type === 'rollerZ' && !data.dofRestraints && hasYRollerMaskOnZRoller(current);
+      const changedType = requestedType !== typeInWorkspace(current.type) || reselectsRelabelledRoller ? requestedType : undefined;
       if (needsSpaceForSupport(changedType, data.dofRestraints)) this.ensureSpaceCoordinates();
       const sup = model.supports.get(id);
       if (!sup) return;
