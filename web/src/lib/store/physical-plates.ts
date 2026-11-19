@@ -976,12 +976,15 @@ function meshingRun(plans: readonly PlateMeshPlan[]) {
       const x = plateEntry(id);
       if (x && (coarseAsModelled(x) || !meshHangsNeighbours(x))) adoptCurrentMesh(id);
     }
+    if (lifted) syncDefinedLoads();
     settle();
   };
   let sprung = 0;
-  /** What the meshes put in since the last call owe the model whatever comes next: the lifted loads on them and their springs. */
+  /**
+   * The springs the meshes put in since the last call owe the model, whatever comes next. The loads
+   * lifted onto the plates are definitions, written onto the meshes by `finish` and before every solve.
+   */
   const settle = () => {
-    if (lifted) syncDefinedLoads();
     const springy = meshed.slice(sprung).filter((id) => plateEntry(id)?.surface.springs);
     sprung = meshed.length;
     if (springy.length) respring(springy);
@@ -1026,7 +1029,7 @@ export async function applyPlateMeshesAsync(plans: readonly PlateMeshPlan[], onP
     await nextFrame();
     if (interrupted()) return run.report;
     const t0 = performance.now();
-    // Each slice leaves the plates it meshed with their loads and springs, so a run an edit stops is whole as far as it got.
+    // Each slice leaves the plates it meshed with their springs, so a run an edit stops is whole as far as it got.
     modelStore.amendLastStep(() => { while (done < total && (performance.now() - t0 < sliceMs || done === 0)) run.meshOne(run.ok[done++]!); run.settle(); });
     onProgress?.(done, total);
   }
