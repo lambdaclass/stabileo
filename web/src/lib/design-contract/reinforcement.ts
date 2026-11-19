@@ -211,8 +211,14 @@ export interface SlabPanelReinforcement {
 
 export const drawnBeamReinforcement = Symbol('drawnBeamReinforcement');
 
+export interface StirrupInterval extends StirrupDef {
+  from: number;
+  to: number;
+}
+
 interface DrawnBeamReinforcement {
-  stirrups: ReadonlyArray<{ from: number; to: number }>;
+  memberLength: number;
+  stirrups: readonly StirrupInterval[];
   bars: ReadonlyArray<{
     face: 'top' | 'bottom'; row: number; diameter: number; from: number; to: number;
     seats: number; slots: readonly number[];

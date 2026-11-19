@@ -108,7 +108,7 @@ describe('a member whose only issue is its anchorage', () => {
   });
 });
 
-function torsionBeam(q = 10) {
+function torsionBeam(combineActions = true) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
   const mat = modelStore.addMaterial({ name: 'H-25', e: 23500, nu: 0.2, rho: 25, fy: 25, fc: 25 });
   const sec = modelStore.addSection({ name: '30×60', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.0037, b: 0.3, h: 0.6, shape: 'rect' } as never);
@@ -116,8 +116,10 @@ function torsionBeam(q = 10) {
   modelStore.addSupport(a, 'fixed3d' as never); modelStore.addSupport(b, 'pinned3d' as never);
   const e1 = modelStore.addElement(a, b, 'frame');
   modelStore.updateElementMaterial(e1, mat); modelStore.updateElementSection(e1, sec);
-  modelStore.addDistributedLoad3D(e1, 0, 0, -q, -q, undefined, undefined, 1);
-  modelStore.addNodalLoad3D(b, 0, 0, 0, 6, 0, 0, 1);
+  const torsionCase = combineActions ? 1 : modelStore.addLoadCase('Torsion only');
+  if (!combineActions) modelStore.addCombination('1.4T', [{ caseId: torsionCase, factor: 1.4 }]);
+  modelStore.addDistributedLoad3D(e1, 0, 0, -10, -10, undefined, undefined, 1);
+  modelStore.addNodalLoad3D(b, 0, 0, 0, 6, 0, 0, torsionCase);
   const combo = modelStore.solveCombinations3D(false, false, true);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
   resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
@@ -127,7 +129,7 @@ function torsionBeam(q = 10) {
 
 describe('the torsion row of the code check', () => {
   it('states φTn of the section, so a member it does not govern does not read 1.00', () => {
-    const e1 = torsionBeam();
+    const e1 = torsionBeam(false);
     const dr = verificationStore.designMap.get(e1)!;
     const t = dr.checks.find((c) => c.name === 'Torsion')!;
     expect(t.demand).toBeCloseTo(8.4, 6);
@@ -142,8 +144,7 @@ describe('the torsion row of the code check', () => {
   });
 });
 
-const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-issue2338('known wrong result: #2338 a torsion-depth refusal holds the member and project on every design export', () => {
+it('#2338 a torsion-depth refusal holds the member and project on every design export', () => {
   const beam = torsionBeam();
   const result = verificationStore.designMap.get(beam)!;
   expect(result).toMatchObject({ governingCheck: 'diag.rcTorsionDepth', status: 'fail', utilization: Infinity });
@@ -159,10 +160,10 @@ issue2338('known wrong result: #2338 a torsion-depth refusal holds the member an
   const r = readers(beam);
   expect(r.desk).toMatchObject({ status: 'unavailable', ratio: null });
   expect(r.mem.rows).toContainEqual(expect.objectContaining({ titleKey: 'check.deflection', status: 'ok' }));
-  expect.soft(r.mem.heldBy ?? []).toContain('diag.rcTorsionDepth');
-  expect.soft(memoElementState(r.mem)).toBe('open');
-  expect.soft(r.wbElement[6]).toBe('memo.state.open');
-  expect.soft(r.ifc.props).toMatchObject({ DesignState: 'not fully verified', HeldBy: 'diag.rcTorsionDepth' });
+  expect(r.mem.heldBy ?? []).toContain('diag.rcTorsionDepth');
+  expect(memoElementState(r.mem)).toBe('open');
+  expect(r.wbElement[6]).toBe('memo.state.open');
+  expect(r.ifc.props).toMatchObject({ DesignState: 'not fully verified', HeldBy: 'diag.rcTorsionDepth' });
   expect(memoriaInput(tr, 'es').verdict?.state).toBe('held');
   expect(designSheets(tr, 'es').find(s => s.name === 'Design verdict')?.rows[1]?.[0]).toBe('verdict.project.held');
   expect(projectIfcInput(tr, 'es', 'p').buildingProps?.ProjectDesignState).toBe('not approved: 0 of 1 concrete design members satisfy');

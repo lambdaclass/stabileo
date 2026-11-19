@@ -22,7 +22,7 @@
  * Pure: no store, no runes.
  */
 import type { BeamLineBar, BeamLineReinforcement, BeamStirrupZone } from '../../design-contract/beam-line';
-import { drawnBeamReinforcement, type ProvidedReinforcement } from '../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement, type StirrupInterval } from '../../design-contract/reinforcement';
 import { lineLaps, memberStirrupZones, type LineLap } from '../design/beam-line';
 
 export { lineLaps };
@@ -56,7 +56,7 @@ export interface LineBarPiece {
   place?: { seats: number; slots: number[]; besideMm?: number; mirrored?: boolean };
 }
 
-export interface LineStirrupPiece { from: number; to: number; diameter: number; legs: number; spacing: number }
+export type LineStirrupPiece = StirrupInterval;
 
 export type { LineLap };
 
@@ -134,9 +134,10 @@ function linePlaces(line: BeamLineReinforcement, laps: readonly LineLap[]): Map<
 
 export function drawnBeamEvidence(pieces: { bars: readonly LineBarPiece[]; stirrups: readonly LineStirrupPiece[] }, length: number): NonNullable<ProvidedReinforcement[typeof drawnBeamReinforcement]> {
   return {
+    memberLength: length,
     stirrups: pieces.stirrups.filter(({ diameter, legs, spacing }) => Number.isFinite(diameter) && diameter > 0
       && Number.isSafeInteger(legs) && legs > 0 && Number.isFinite(spacing) && spacing > 0)
-      .map(({ from, to }) => ({ from: from / length, to: to / length })),
+      .map(zone => ({ ...zone, from: zone.from / length, to: zone.to / length })),
     bars: pieces.bars.flatMap(({ face, row, diameterMm, from, to, place }) => !place || place.besideMm ? [] : [{
       face, row, diameter: diameterMm, from: from / length, to: to / length, seats: place.seats, slots: place.slots,
     }]),

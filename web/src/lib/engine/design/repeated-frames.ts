@@ -112,7 +112,7 @@ export function mirrorReinforcement(r: ProvidedReinforcement): ProvidedReinforce
   const mirrored = walk(r) as ProvidedReinforcement;
   const drawing = r[drawnBeamReinforcement];
   const reverse = <T extends { from: number; to: number }>(piece: T): T => ({ ...piece, from: 1 - piece.to, to: 1 - piece.from });
-  if (drawing) mirrored[drawnBeamReinforcement] = { stirrups: drawing.stirrups.map(reverse), bars: drawing.bars.map(reverse) };
+  if (drawing) mirrored[drawnBeamReinforcement] = { ...drawing, stirrups: drawing.stirrups.map(reverse), bars: drawing.bars.map(reverse) };
   return mirrored;
 }
 

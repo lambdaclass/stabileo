@@ -221,12 +221,11 @@ it('#2302 hoops inside either support do not count toward the dense zone', () =>
 });
 
 
-const issue2338 = process.env.RUN_KNOWN_WRONG === '2338' ? it : it.skip;
-issue2338.each([
+it.each([
   ['fewer legs', { legs: 2 }],
   ['wider spacing', { spacing: 0.08 }],
   ['different diameter', { diameter: 6 }],
-] as const)('known wrong result: #2338 a fully drawn hoop zone with %s cannot pass', (_change, weak) => {
+] as const)('#2338 a fully drawn hoop zone with %s cannot pass', (_change, weak) => {
   const L = 5, h = 0.5;
   const dense = { diameter: 8, legs: 4, spacing: 0.075 };
   const member: LineMember = {

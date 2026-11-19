@@ -15,7 +15,7 @@
  */
 import { lineFromMembers, lineMembersOf, type LineMemberSource } from '../beam-line';
 import type { LineStirrupPiece } from '../../detailing/line-bars';
-import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
 import { layersTotalArea, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
@@ -95,10 +95,15 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     if (m.role !== 'primary' || !m.r) { members.push({ id: m.id, kind: 'beam', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
     const st = beamSteel(m.r), { d, dPrime } = beamDepths(m, st.minDia);
     const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
-    const hoopZones = m.drawnStirrups ?? lineFromMembers(lineMembersOf({ members: [m.id], forward: [true] },
+    const drawing = m.r[drawnBeamReinforcement];
+    const hoopZones = m.drawnStirrups ?? drawing?.stirrups.map(zone => ({
+      ...zone, from: zone.from * drawing.memberLength, to: zone.to * drawing.memberLength,
+    })) ?? lineFromMembers(lineMembersOf({ members: [m.id], forward: [true] },
       () => ({ L: m.L, criticalSections: m.criticalSections, reinforcement: m.r }), r => r)).stirrups;
-    const matching = hoopZones.filter(z => z.spacing > 0 && z.spacing <= hoopDef.spacing
-      && z.diameter === hoopDef.diameter && z.legs >= hoopDef.legs);
+    const matching = hoopZones.filter(z => Number.isFinite(z.from) && Number.isFinite(z.to) && z.from < z.to
+      && Number.isFinite(z.spacing) && z.spacing > 0 && z.spacing <= hoopDef.spacing
+      && Number.isFinite(z.diameter) && z.diameter > 0 && z.diameter === hoopDef.diameter
+      && Number.isSafeInteger(z.legs) && z.legs > 0 && z.legs >= hoopDef.legs);
     const [faceI, faceJ] = m.faceHalf ?? [0, 0];
     const clearLength = m.L - faceI - faceJ;
     const continuousLength = (zones: Pick<LineStirrupPiece, 'from' | 'to'>[], face: number) => {
