@@ -558,4 +558,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.bvbs',
   'rcSheets.bbs.kind.horizontal',
   'rcSheets.coversNotice.buttonItem',
+  'rcSheets.foundation.pileDiameter',
 ];

@@ -371,4 +371,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.csv',
   'rcSheets.bbs.bvbs',
   'rcSheets.coversNotice.buttonItem',
+  'rcSheets.foundation.pileDiameter',
 ];

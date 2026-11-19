@@ -771,4 +771,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.coversNotice.buttonItem',
   'rcSheets.foot.kind',
   'rcSheets.foot.position',
+  'rcSheets.foundation.pileDiameter',
 ];
