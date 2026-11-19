@@ -6,7 +6,11 @@ import { layoutDias } from './column-layout';
 import { BEAM_BAR_RANGE, check, inRange, ratioOf, type BarGroup, type BeamAdopted, type CheckLine, type ColumnAdopted, type Step } from './types';
 
 /** Chapter 18 as the project sets it: λo, the probable over nominal strength of the bars. */
-export interface Seismic { overstrength: number }
+export interface Seismic {
+  overstrength: number;
+  /** A member declared outside the seismic-force-resisting system (§18.14): it keeps its confinement but not the special frame's lap rule. */
+  gravity?: true;
+}
 
 /**
  * The bars a special moment frame's beams choose from: those whose 6·db (§18.6.4.4) leaves room for

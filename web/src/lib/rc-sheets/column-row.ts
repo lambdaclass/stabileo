@@ -121,7 +121,8 @@ export interface ColumnRow {
   /** Where its faces step in over the storey below: the bars from below cranked into it, or separate dowels. */
   step?: StackStep;
   /** Chapter 18: the length lo from each joint face and the hoop spacing so in it. */
-  confinement?: { lo: number; so: number };
+  /** Chapter 18's column confinement; `lapAtFloor` for a column outside the seismic system, which laps from the floor (§18.14) instead of in the middle half (§18.7.4.3). */
+  confinement?: { lo: number; so: number; lapAtFloor?: true };
   /** The closest spacing its ties were proposed at, m (`TransverseList`). */
   tieFloor?: number;
   /** The largest aggregate its bars were laid for, mm (`ColumnContext`): the drawing and the schedule lay them alike. */
@@ -570,7 +571,7 @@ function designColumn(d: ColumnDemand, c: ColumnContext, adopted: ColumnAdopted 
     ...(stack.fromBelow ? { lap: splice } : {}),
     ...(stack.onFooting ? { onFooting: true as const } : {}),
     ...(step ? { step } : {}),
-    ...(seis ? { confinement: { lo: seis.lo, so: seis.so } } : {}),
+    ...(seis ? { confinement: { lo: seis.lo, so: seis.so, ...(c.seismic?.gravity ? { lapAtFloor: true as const } : {}) } } : {}),
     tieFloor: floor,
     ...(c.aggregate !== undefined ? { aggregate: c.aggregate } : {}),
   };

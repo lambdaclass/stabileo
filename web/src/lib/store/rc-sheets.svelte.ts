@@ -508,6 +508,11 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
     const g = groupOf(key);
     return developsAtFace(spanLateralReading((g?.members.elements ?? []).map((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'beam' }))));
   };
+  /** A column declared outside the lateral system (§18.14); one not declared is read as part of it. */
+  const lateralColumn = (key: string) => {
+    const g = groupOf(key);
+    return (g?.members.elements ?? []).some((id) => lateralReadingOf(dd.lateralSystem, id, { physicalId: g!.id, kind: 'column' }).role !== 'gravity');
+  };
   const defl = dd.designOptions?.deflection ? { deflection: dd.designOptions.deflection } : {};
   const beamCtx = (d: (typeof D.beams)[number]) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('beam', d.key), stirrupDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, torsion: data.torsion, ...(seismic && lateralBeam(d.key) ? { seismic } : {}), ...(bentIn(d) ? { bentBars: true } : {}), ...coverTable, ...defl, criteria: crit });
   const proposals: BeamRow[] = [];
@@ -559,7 +564,7 @@ export function* sheetRowsSteps(fmt: Fmt = makeFmt(',')): Generator<SheetProgres
   const below = new Map<number, ColumnRow>();
   const founded = feet.length > 0 && foundationSystem(data) !== null;
   const onFooting = new Set(founded ? feet.flatMap((f) => [f.column?.rowKey, f.carried?.column?.rowKey]).filter((k): k is string => !!k) : []);
-  const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
+  const columnCtxOf = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number> = new Map()) => ({ mat: { fc: fcOfElement(groupOf(d.key)?.members.elements?.[0]), fy }, cover: coverOf('column', d.key), tieDia: dd.stirrupDiaMm, diameters: dd.longDiametersMm, ...ties, seismic: seismic && !lateralColumn(d.key) ? { ...seismic, gravity: true as const } : seismic, ...coverTable, ...(minMn.has(d.key) ? { minMn: minMn.get(d.key) } : {}), criteria: crit });
   const columnAt = (d: (typeof D.columns)[number], minMn: ReadonlyMap<string, number>): ColumnRow => {
     const ctx = columnCtxOf(d, minMn);
     const a = adoptedNow[d.key] as ColumnAdopted | undefined;
