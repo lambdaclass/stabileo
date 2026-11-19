@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from 'vitest';
 import { modelStore, uiStore } from '..';
+import { copySelection } from '../model-clipboard';
 import { hasNonlinearBehaviour } from '../../engine/member-behaviour';
 import {
   buildSolverInput2D, buildSolverInput3D, solveCombinations2D, solveCombinations3D, solveCombinations3DParallel,
@@ -530,20 +531,104 @@ it('#2277 a space transform carries physical Y settlement and rotation about Z',
   expect(turned?.dy).toBeUndefined();
 });
 
-const issue2294 = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
-issue2294('known wrong result: #2294 copying a bearing alone preserves its restraint or reports a missing frame', () => {
+const issue2289 = process.env.RUN_KNOWN_WRONG === '2289' ? it : it.skip;
+for (const mode of ['3d', 'pro'] as const) {
+  for (const operation of ['in place', 'copy', 'detached copy'] as const) {
+    issue2289(`known wrong result: #2289 refuses a memberless roller quarter-turn (${mode}, ${operation})`, () => {
+      uiStore.analysisMode = mode;
+      const root = modelStore.addNode(0, 0, 0);
+      const other = modelStore.addNode(0, 0, 2);
+      modelStore.addElement(root, other);
+      modelStore.addSupport(root, 'fixed3d');
+      const node = modelStore.addNode(2, 1, 0);
+      modelStore.addSupportEntry({ nodeId: node, type: 'rollerZ' });
+      modelStore.addNodalLoad3D(node, 1, 1, 0, 0, 0, 0);
+      const set = { nodes: [node], elements: [] };
+      const turn = rotation([0, 0, 0], [0, 0, 1], 90);
+      const before = modelStore.snapshot();
+      const report = operation === 'in place' ? transformInPlace(set, turn)
+        : operation === 'copy' ? copyTransformed(set, [turn], { withSupports: true })
+        : insertFragment(detach(fragmentOf(set, { withSupports: true })), [turn], { withSupports: true });
+      expect.soft(report).toMatchObject({ refused: 'ambiguousRoller' });
+      expect.soft(modelStore.snapshot()).toEqual(before);
+      expect(validateAndSolve3D(modelStore.model)).toMatch(/rollerZ.*ambiguous.*explicit/i);
+    });
+  }
+}
+
+it('#2289 a memberless 3D roller can be translated and can turn with an explicit mask', () => {
+  uiStore.analysisMode = '3d';
+  const root = modelStore.addNode(0, 0, 0);
+  const tip = modelStore.addNode(2, 1, 0);
+  modelStore.addSupport(root, 'fixed3d');
+  const id = modelStore.addSupportEntry({ nodeId: tip, type: 'rollerZ' });
+  const set = { nodes: [tip], elements: [] };
+  expect(transformInPlace(set, translation([1, 0, 0])).movedNodes).toBe(1);
+  expect(supportAt(tip).dofRestraints).toBeUndefined();
+  modelStore.updateSupport(id, { dofRestraints: { ...noRestraints, tx: true } });
+  expect(transformInPlace(set, rotation([0, 0, 0], [0, 0, 1], 90)).movedNodes).toBe(1);
+  modelStore.addElement(root, tip);
+  modelStore.addNodalLoad3D(tip, 1, 1, 0, 0, 0, 0);
+  const result = validateAndSolve3D(modelStore.model);
+  if (!result || typeof result === 'string') throw new Error(String(result));
+  const reaction = result.reactions.find(r => r.nodeId === tip)!;
+  expect(reaction.fx).toBeCloseTo(0, 12);
+  expect(reaction.fy).toBeCloseTo(-1, 12);
+});
+
+function verticalLocalBearing() {
   const root = modelStore.addNode(0, 0);
   const bearing = modelStore.addNode(0, 2);
   modelStore.addSupportEntry({ nodeId: root, type: 'fixed' });
-  modelStore.addElement(root, bearing);
+  const member = modelStore.addElement(root, bearing);
   modelStore.addSupportEntry({ nodeId: bearing, type: 'rollerZ', isGlobal: false });
+  return { root, bearing, member };
+}
+
+const issue2294 = process.env.RUN_KNOWN_WRONG === '2294' ? it : it.skip;
+issue2294('known wrong result: #2294 copying a bearing alone preserves its restraint or reports a missing frame', () => {
+  const { bearing } = verticalLocalBearing();
+  const before = modelStore.snapshot();
   const copied = copyTransformed({ nodes: [bearing], elements: [] }, [translation([4, -2, 0])], { withSupports: true });
+  expect.soft(copied).toMatchObject({ refused: 'missingSupportMembers' });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+for (const operation of ['detached copy', 'upright copy', 'clipboard'] as const) {
+  issue2294(`known wrong result: #2294 refuses a node-only bearing selection (${operation})`, () => {
+    const { bearing } = verticalLocalBearing();
+    const set = { nodes: [bearing], elements: [] };
+    if (operation === 'clipboard') {
+      uiStore.setSelection(new Set(set.nodes), new Set(), false);
+      expect(copySelection()).toBe(false);
+      return;
+    }
+    if (operation === 'upright copy') {
+      uiStore.analysisMode = 'pro';
+      uiStore.useUpright2DIn3DPresentation();
+    }
+    const before = modelStore.snapshot();
+    const T = translation([4, -2, 0]);
+    const copied = operation === 'upright copy' ? copyTransformed(set, [T], { withSupports: true })
+      : insertFragment(detach(fragmentOf(set, { withSupports: true })), [T], { withSupports: true });
+    expect.soft(copied).toMatchObject({ refused: 'missingSupportMembers' });
+    expect(modelStore.snapshot()).toEqual(before);
+  });
+}
+
+issue2294('known wrong result: #2294 copying one of several bearing members refuses the partial frame', () => {
+  const { bearing, member } = verticalLocalBearing();
+  modelStore.addElement(bearing, modelStore.addNode(2, 2));
+  const before = modelStore.snapshot();
+  const copied = copyTransformed({ nodes: [], elements: [member] }, [translation([4, -2, 0])], { withSupports: true });
+  expect.soft(copied).toMatchObject({ refused: 'missingSupportMembers' });
+  expect(modelStore.snapshot()).toEqual(before);
+});
+
+it('#2294 copying a complete member frame preserves the vertical bearing reaction', () => {
+  const { bearing, member } = verticalLocalBearing();
+  const copied = copyTransformed({ nodes: [], elements: [member] }, [translation([4, -2, 0])], { withSupports: true });
   const tip = copied.maps[0]!.nodes.get(bearing)!;
-  if (copied.warnings.supportDropped) {
-    expect(supportAt(tip)).toBeUndefined();
-    return;
-  }
-  modelStore.addElement(root, tip);
   const force = 1;
   modelStore.addNodalLoad(bearing, 0, -force);
   modelStore.addNodalLoad(tip, 0, -force);
@@ -551,4 +636,14 @@ issue2294('known wrong result: #2294 copying a bearing alone preserves its restr
   if (!result || typeof result === 'string') throw new Error(String(result));
   expect(result.reactions.find(r => r.nodeId === bearing)?.rz).toBeCloseTo(force, 12);
   expect(result.reactions.find(r => r.nodeId === tip)?.rz).toBeCloseTo(force, 12);
+});
+
+it('#2294 a node-only copy can omit supports or carry a global bearing', () => {
+  const { bearing } = verticalLocalBearing();
+  const set = { nodes: [bearing], elements: [] };
+  const omitted = copyTransformed(set, [translation([4, 0, 0])], { withSupports: false });
+  expect(supportAt(omitted.maps[0]!.nodes.get(bearing)!)).toBeUndefined();
+  modelStore.updateSupport(supportAt(bearing).id, { isGlobal: true });
+  const global = copyTransformed(set, [translation([6, 0, 0])], { withSupports: true });
+  expect(supportAt(global.maps[0]!.nodes.get(bearing)!)).toMatchObject({ type: 'rollerZ', isGlobal: true });
 });
