@@ -7699,6 +7699,8 @@ const tr: Translations = {
   'loadPlan.gravity.unsupportedStrips': "Kısmi kabuk örtüsü, dikdörtgen kiriş panelinin karşılıklı taşıyıcıları arasındaki açıklığın tamamını geçen şeritler gerektirir.",
   'loadPlan.gravity.stripDirection': "İstenen tek doğrultulu açıklık yönü, açıkta kalan şeritlerin açıklık yönüyle aynı olmalıdır.",
   'loadPlan.gravity.nonplanarShell': "{id} numaralı dörtgen düzlemsel değil. Yerçekimi yüklerinde kabuk örtüsü düzlemsel kabuklar gerektirir.",
+  'loadPlan.gravity.overlappingShells': "{first} ve {second} numaralı kabuklar aynı düzlemde çakışıyor. Çakışan alanın yerçekimi yükü tek bir kabuğa atanamıyor.",
+  'loadPlan.gravity.offsetShellDeck': "{id} numaralı kabuk, izdüşümü çakışan ötelenmiş bir kiriş paneline rijit bağlı. Alan yükünü hangi yüzeyin taşıdığı belirlenemiyor.",
   'loadPlan.gravity.unresolvedMember': "{id} numaralı eleman bir kabukla kısmen örtülü ve panelden yük aktarımı belirlenemedi.",
   'loadPlan.gravity.differentDeck': "Örten kabuk, kiriş paneliyle aynı döşemeye ait olmalıdır.",
   'loadPlan.gravity.differentSlopedDeck': "Örten eğimli kabuk, kiriş paneliyle aynı döşemeye ait olmalıdır.",

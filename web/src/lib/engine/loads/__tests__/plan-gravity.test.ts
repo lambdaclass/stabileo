@@ -630,15 +630,14 @@ function checkBlockedGravity(model: LoadModelData, reason: EngineMessage) {
   expect(width.distributed.length).toBeGreaterThan(0);
 }
 
-const issue2284 = process.env.RUN_KNOWN_WRONG === '2284' ? it : it.skip;
-issue2284('known wrong result: #2284 overlapping coplanar shells load the bay only once', () => {
+it('#2284 overlapping coplanar shells load the bay only once', () => {
   const model = floor(1, 1, 10, 6);
   rectangularShell(model, 1, 0, 4, 3);
   rectangularShell(model, 2, 2, 6, 3);
   checkBlockedGravity(model, { key: 'loadPlan.gravity.overlappingShells', params: { first: 1, second: 2 } });
 });
 
-issue2284('known wrong result: #2284 overlapping sloped shells also block gravity', () => {
+it('#2284 overlapping sloped shells also block gravity', () => {
   const model = floor(1, 0, 10, 6);
   rectangularShell(model, 1, 0, 5, 6, 8);
   rectangularShell(model, 2, 2, 6, 6, 8);
@@ -685,8 +684,7 @@ function linkedShellBay(z: number, dofs = [0, 1, 2, 3, 4, 5]) {
   return model;
 }
 
-const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
-issue2299('known wrong result: #2299 a rigidly linked shell and beam bay receive one dead load', () => {
+it('#2299 a rigidly linked shell and beam bay receive one dead load', () => {
   checkBlockedGravity(linkedShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
 });
 

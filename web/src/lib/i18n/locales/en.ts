@@ -8148,6 +8148,8 @@ const en: Record<string, string> = {
   'loadPlan.gravity.unsupportedStrips': "Partial shell coverage requires full-span strips between opposite carriers of a rectangular beam panel.",
   'loadPlan.gravity.stripDirection': "The requested one-way span must align with the span of the uncovered shell strips.",
   'loadPlan.gravity.nonplanarShell': "Quad {id} is nonplanar. Gravity shell coverage requires a planar shell.",
+  'loadPlan.gravity.overlappingShells': "Shells {first} and {second} overlap in the same plane. Gravity cannot assign the overlap to a single shell.",
+  'loadPlan.gravity.offsetShellDeck': "Shell {id} is rigidly linked to an overlapping beam panel at an offset. Gravity cannot determine which surface carries the area load.",
   'loadPlan.gravity.unresolvedMember': "Member {id} is only partly covered by a shell and has no resolved panel transfer.",
   'loadPlan.gravity.differentDeck': "A covering shell must represent the same deck as the beam panel.",
   'loadPlan.gravity.differentSlopedDeck': "A sloped covering shell must represent the same deck as the beam panel.",

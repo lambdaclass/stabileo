@@ -6,6 +6,8 @@ const ko: Translations = {
   'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",
   'loadPlan.gravity.stripDirection': "요청한 일방향 경간은 피복되지 않은 띠의 경간 방향과 일치해야 합니다.",
   'loadPlan.gravity.nonplanarShell': "사각형 {id}이 평면이 아닙니다. 중력 하중의 피복 계산에는 평면 쉘이 필요합니다.",
+  'loadPlan.gravity.overlappingShells': "셸 {first}과 {second}이 같은 평면에서 겹칩니다. 겹치는 영역의 중력 하중을 한 셸에 배정할 수 없습니다.",
+  'loadPlan.gravity.offsetShellDeck': "셸 {id}이 평면 투영이 겹치는 이격된 보 패널에 강결되어 있습니다. 면하중을 받는 표면을 결정할 수 없습니다.",
   'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
   'loadPlan.gravity.differentDeck': "보 패널을 덮는 쉘은 패널과 같은 데크에 속해야 합니다.",
   'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",
