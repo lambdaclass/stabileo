@@ -28,7 +28,7 @@ import type { RecheckAssessment } from '../provenance/applicability';
 import type { Advisory } from '../provenance/advisories';
 import { analysesContext, freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
 import { RESULTS_VERSION } from '../provenance/registry';
-import { loadsGeneratedWith, modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
+import { loadsGeneratedWith, modelFeatures, UNVERIFIED_SEISMIC_FEATURE, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
 /**
  * Independent of the latest solve: retained until the original notice is read, and saved after
@@ -96,8 +96,9 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
       assessedStampId = original.id;
       currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
       const loadsVersion = loadsGeneratedWith(snapshot);
-      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION || loadsVersion < RESULTS_VERSION;
       const currentFeatures = modelFeatures(snapshot, { analysisMode, ...analysesContext(stored) });
+      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION ||
+        loadsVersion < RESULTS_VERSION || currentFeatures.has(UNVERIFIED_SEISMIC_FEATURE);
       // Capture before attempting the lazy import. Solves and edits must not replace
       // the version or applicability of the notice the engineer has yet to read.
       outstanding = pending ? {
@@ -109,7 +110,7 @@ export function createRecheckStore(load = () => import('../provenance/applicabil
             ? savedNotice.features
             : modelFeatures(snapshot, { analysisMode, ...analysesContext(original) })),
           ...currentFeatures,
-        ])],
+        ])].filter(feature => feature !== UNVERIFIED_SEISMIC_FEATURE || currentFeatures.has(feature)),
       } : undefined;
       loadFailed = false;
       assessment = {

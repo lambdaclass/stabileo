@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-15; fixed in PR #2169, pending merge and release |
+| Status | Published 2026-11-18; drafted 2026-11-15 |
 | Issue | [#2142](https://github.com/lambdaclass/stabileo/issues/2142) |
-| Fix | PR [#2169](https://github.com/lambdaclass/stabileo/pull/2169); pending merge and release |
-| Fixed release | Pending |
+| Fix | PR [#2169](https://github.com/lambdaclass/stabileo/pull/2169); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on main `44966b6e75f72ce268ec87798d5cd880a6dba144`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`torsion-secondary-shear`](../../web/src/lib/provenance/result-changes/torsion-secondary-shear.json) |
 
@@ -56,7 +56,7 @@ conservatively selects concrete members.
 
 ## Fixed in
 
-PR #2169 is pending merge and release. The shared torsion module requires the
+Fixed in **0.6.2**, PR #2169. The shared torsion module requires the
 complete concurrent section demand and both effective depths. Every caller
 checks both section orientations with their concurrent torque. The
 provided-beam sweep reaches this same checker independently of primary shear
@@ -70,7 +70,7 @@ native torsion capability disclosures.
 
 ## Workaround
 
-Until the fix is merged and released, independently check the concrete
+Until you upgrade to 0.6.2, independently check the concrete
 shear–torsion section limit in both orientations using concurrent demands.
 Check the actual transverse cage and longitudinal torsion reinforcement.
 Do not accept a member solely because its earlier torsion status passed or
@@ -78,8 +78,7 @@ because the provided-beam report omitted a torsion row.
 
 ## What to do with results you already have
 
-Re-run saved concrete member designs after upgrading to a version containing
-PR #2169. Review torsion section failures, actual stirrup provision and
+Re-run saved concrete member designs after upgrading to 0.6.2. Review torsion section failures, actual stirrup provision and
 longitudinal reinforcement. Revisit member sizing, calculations and
 deliverables based on a previous passing result; additional stirrups cannot
 repair a concrete section that exceeds its limit.

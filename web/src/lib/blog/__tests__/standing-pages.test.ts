@@ -1,3 +1,4 @@
+import { buildFeatures } from '../../../../config/public-features.mjs';
 import { describe, it, expect } from 'vitest';
 import { cirsocPage } from '../pages/cirsoc';
 import { STANDING_PAGES } from '../pages';
@@ -96,7 +97,9 @@ describe('the obsolete-pricing patterns', () => {
 
 describe('the standing page paths', () => {
   it('name exactly the standing pages, so the public router needs no page content', () => {
-    expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map((p) => p.path));
+    const { accounts } = buildFeatures();
+    const legal = ['/terms', '/privacy', '/usage-data'];
+    expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map(page => page.path).filter(path => accounts || !legal.includes(path)));
   });
 
   it('match with or without a trailing slash, and nothing else', () => {

@@ -9,6 +9,8 @@ import { historyStore, modelStore, resultsStore, uiStore } from '../../../store'
 import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import { jointChecks } from '../../../store/joint-checks';
+import { modelJointChecks } from '../joint-check';
+import type { ElementForces3D } from '../../types-3d';
 import * as wasmSolver from '../../wasm-solver';
 
 beforeAll(async () => {
@@ -49,4 +51,41 @@ describe('beam-column joints checked for shear', () => {
     expect(j.check.Vu).toBeCloseTo(beamM / jd - Vcol, 6);
     expect(j.check.utilization).toBeCloseTo(Math.abs(j.check.Vu) / 600, 9);
   });
+});
+
+const issue2242 = process.env.RUN_KNOWN_WRONG === '2242' ? it : it.skip;
+issue2242('known wrong result: #2242 rotating a beam and column together preserves joint shear failure', () => {
+  const side = 0.4;
+  const depth = 0.45;
+  const fc = 30;
+  const endMoment = 400;
+  const demand = endMoment / (0.875 * depth);
+  const cirsoc201UnconfinedCapacity = 0.75 * Math.sqrt(fc) * side ** 2 * 1000;
+  expect(demand).toBeGreaterThan(cirsoc201UnconfinedCapacity);
+  const forceRecord = (elementId: number, length: number, myStart: number): ElementForces3D => ({
+    elementId, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0,
+    mxStart: 0, mxEnd: 0, myStart, myEnd: 0, mzStart: 0, mzEnd: 0,
+    releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false,
+    releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0,
+    distributedLoadsY: [], distributedLoadsZ: [], pointLoadsY: [], pointLoadsZ: [],
+  });
+  for (const rollAngle of [0, 90, 25, 26, 45]) {
+    const angle = rollAngle * Math.PI / 180;
+    const checks = modelJointChecks({
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [2, { id: 2, x: 0, y: 0, z: 3 }],
+        [3, { id: 3, x: 5 * Math.cos(angle), y: 5 * Math.sin(angle), z: 3 }],
+      ]),
+      elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, rollAngle }], [2, { id: 2, nodeI: 2, nodeJ: 3 }]]),
+      members: new Map([
+        [1, { id: 1, kind: 'column', b: side, h: side, d: 0.35, fc, axis: 'My' }],
+        [2, { id: 2, kind: 'beam', b: 0.3, h: 0.5, d: depth, fc, axis: 'My' }],
+      ]),
+      perCombo: new Map([[1, { displacements: [], reactions: [], elementForces: [forceRecord(1, 3, 0), forceRecord(2, 5, endMoment)] }]]),
+    });
+    expect.soft(checks.map(({ check }) => check), `plan rotation ${rollAngle} degrees`).toEqual([
+      expect.objectContaining({ Vu: expect.closeTo(demand, 9), phiVn: expect.closeTo(cirsoc201UnconfinedCapacity, 9), status: 'FAIL' }),
+    ]);
+  }
 });

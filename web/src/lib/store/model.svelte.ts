@@ -715,7 +715,7 @@ export interface ThermalLoadQuad3D {
   caseId?: number;
 }
 
-export type Load =
+export type Load = (
   | { type: 'nodal'; data: NodalLoad }
   | { type: 'distributed'; data: DistributedLoad }
   | { type: 'pointOnElement'; data: PointLoadOnElement }
@@ -726,7 +726,8 @@ export type Load =
   | { type: 'surface3d'; data: SurfaceLoad3D }
   | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D }
   | { type: 'prestress3d'; data: PrestressLoad3D }
-  | { type: 'displacement3d'; data: NodeDisplacement3D };
+  | { type: 'displacement3d'; data: NodeDisplacement3D }
+) & { data: { seismicGeneration?: 'static' | 'unverified' } };
 
 /**
  * What each type of load stands on, by the number it carries: a node (`nodeId`), a member

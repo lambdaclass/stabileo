@@ -24,7 +24,7 @@ function shed(): LoadModelData {
     [4, { id: 4, nodeI: 5, nodeJ: 4, sectionId: 1, materialId: 1 }],
   ]);
   return {
-    nodes, elements, sections: new Map([[1, { id: 1, a: 0.005 }]]), materials: new Map([[1, { id: 1, rho: 78.5 }]]),
+    nodes, elements, supports: new Map([[1, { nodeId: 1 }], [2, { nodeId: 2 }]]), sections: new Map([[1, { id: 1, a: 0.005 }]]), materials: new Map([[1, { id: 1, rho: 78.5 }]]),
     loadCases: [{ id: 1, type: 'D', name: 'D' }],
   };
 }

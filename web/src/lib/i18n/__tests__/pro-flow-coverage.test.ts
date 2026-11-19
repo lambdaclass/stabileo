@@ -34,7 +34,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { allDictFor as dictFor, completeLocales } from '../locales/all';
+import { allDictFor as dictFor, allShippedLocales, completeLocales } from '../locales/all';
 const OFFERED_LOCALES = completeLocales();
 
 const SRC = new URL('../../..', import.meta.url).pathname;
@@ -187,4 +187,11 @@ describe('the PRO workflow speaks every language it is offered in', () => {
     }
     expect(wrong).toEqual([]);
   });
+});
+
+it('#2319 every shipped dictionary translates the modal generation refusal', () => {
+  const key = 'loadPlan.blocked.modalUnavailable';
+  const missing = allShippedLocales().filter(locale => !dictFor(locale)[key]?.trim() ||
+    (locale !== 'en' && dictFor(locale)[key] === dictFor('en')[key]));
+  expect(missing).toEqual([]);
 });

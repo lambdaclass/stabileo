@@ -547,15 +547,6 @@ test-skip web/e2e/f3-sheet-geometry.spec.ts: test.skip(s.circles.length === 0, '
 ## This browser spec requires the account routes from the accounts build variant.
 test-skip web/e2e/landing-footer-accounts.spec.ts: test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON)
 
-## The existing assertion targets one of the two navigation layouts selected at build time.
-test-skip web/e2e/landing-nav.spec.ts: test.skip(switched !== (BUILD_FEATURES.tools || BUILD_FEATURES.diagramGame), 'Navigation expectation for a different build switch configuration')
-
-## The Hungarian pricing case requires the research locale enabled in the build.
-test-skip web/e2e/landing-pricing-cases.ts: test.skip(locale === 'hu' && !BUILD_FEATURES.research, RESEARCH_SKIP_REASON)
-
-## A locale absent from this build redirects to English and cannot exercise localized pricing.
-test-skip web/e2e/landing-pricing-cases.ts: test.skip(!buildPublicLocales(BUILD_FEATURES.research).includes(locale), `${locale} is not published; its landing redirects to English`)
-
 ## The selected locale is withheld by the publication policy tracked in #1628.
 test-skip web/e2e/landing.spec.ts: test.skip(!isComplete('de'), 'German is not offered until a native speaker checks it (#1628)')
 

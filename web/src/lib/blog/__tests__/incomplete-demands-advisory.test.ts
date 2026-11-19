@@ -8,17 +8,17 @@ import witness from '../../../../../docs/results-changes/2096-main-partial-witne
 
 const filename = 'SA-2026-071-incomplete-concurrent-demands.md';
 const advisory = readFileSync(new URL(`../../../../../docs/advisories/${filename}`, import.meta.url), 'utf8');
-const status = 'Draft 2026-11-15; fixed in PR #2173, pending merge and release';
+const status = 'Fixed in 0.6.2';
 
 it.each<[PublicLocale, string, string]>([
   ['en', 'High', status],
-  ['es', 'Alta', 'Borrador 2026-11-15; corregido en PR #2173, pendiente de integración y publicación'],
-  ['pt', 'Alta', 'Rascunho 2026-11-15; corrigido no PR #2173, aguardando integração e lançamento'],
-  ['de', 'Hoch', 'Entwurf 2026-11-15; in PR #2173 behoben, Zusammenführung und Veröffentlichung ausstehend'],
-  ['fr', 'Élevée', 'Brouillon 2026-11-15 ; corrigé dans la PR #2173, fusion et publication en attente'],
-  ['hu', 'Magas', 'Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár'],
-  ['tr', 'Yüksek', 'Taslak 2026-11-15; PR #2173 ile düzeltildi, birleştirme ve yayın bekleniyor'],
-])('#2096 %s lists the incomplete-demand advisory and pending fix', (locale, severity, translatedStatus) => {
+  ['es', 'Alta', 'Corregido en 0.6.2'],
+  ['pt', 'Alta', 'Corrigido em 0.6.2'],
+  ['de', 'Hoch', 'Behoben in 0.6.2'],
+  ['fr', 'Élevée', 'Corrigé dans 0.6.2'],
+  ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+  ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
+])('#2096 %s lists the incomplete-demand advisory and released fix', (locale, severity, translatedStatus) => {
   const blocks = (locale === 'hu' ? huBody : findPost('safety-advisories')!.i18n[locale]!).blocks;
   const table = blocks.find(b => b.k === 'table');
   if (table?.k !== 'table') throw new Error('Missing advisory table');
@@ -34,12 +34,12 @@ it.each<[PublicLocale, string, string]>([
 it('#2096 retains the advisory structure, status, catalog and results registry', () => {
   const template = readFileSync(new URL('../../../../../docs/advisories/SA-2026-068-provided-torsion-stirrups.md', import.meta.url), 'utf8');
   expect(advisory.match(/^## .+$/gm)).toEqual(template.match(/^## .+$/gm));
-  expect(advisory).toContain(`| Status | ${status} |`);
+  expect(advisory).toContain(`| Status | Published 2026-11-18; drafted 2026-11-15 |`);
   expect(advisory).toContain(`| Affected versions | Confirmed on main \`${witness.main}\``);
-  expect(advisory).toContain('| Fixed release | Pending |');
+  expect(advisory).toContain('| Fixed release | 0.6.2 |');
   const catalog = readFileSync(new URL('../../../../../docs/advisories/README.md', import.meta.url), 'utf8');
   expect(catalog).toContain(`| [SA-2026-071](${filename}) |`);
-  expect(catalog).toContain(`| Pending | ${status} |`);
+  expect(catalog).toContain(`| 0.6.2 | Published 2026-11-18; drafted 2026-11-15 |`);
   const index = readFileSync(new URL('../../../../../docs/SAFETY_ADVISORIES.md', import.meta.url), 'utf8');
   expect(index).toContain(`[SA-2026-071](advisories/${filename})`);
   expect(notice.prs).toEqual([2173]);

@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Severity | High |
-| Status | Draft 2026-11-16; pending merge and release |
-| Issue | [#2211](https://github.com/lambdaclass/stabileo/issues/2211); review [#2233](https://github.com/lambdaclass/stabileo/issues/2233) |
-| Fix | Local branch fix/audit-snow; pending merge and release (#2233) |
-| Fixed release | Not released |
+| Status | Published 2026-11-18; drafted 2026-11-16 |
+| Issue | [#2211](https://github.com/lambdaclass/stabileo/issues/2211) |
+| Fix | PR [#2233](https://github.com/lambdaclass/stabileo/pull/2233); released in 0.6.2 |
+| Fixed release | 0.6.2 |
 | Affected versions | Confirmed on main `7170713acf5c52e0cb83d31c4572da382781bee5`; earlier introduction and historical release binaries not assessed |
 | Re-check registry | [`snow-companion-basis`](../../web/src/lib/provenance/result-changes/snow-companion-basis.json), [`snow-combination-validation`](../../web/src/lib/provenance/result-changes/snow-combination-validation.json) |
 
@@ -35,7 +35,7 @@ seismic specification carrying the flat-roof note and raised f2=0.7 was
 reinterpreted as 0.7*pf, losing the physical 0.7*S requirement. A specification
 requesting pf with no S cases could also be silently omitted before validation.
 Those review defects are reproduced in the
-[round-2 tests](../../web/src/lib/engine/loads/__tests__/snow-legacy-2233.test.ts);
+[legacy seismic specification tests](../../web/src/lib/engine/loads/__tests__/snow-legacy-2233.test.ts);
 the unmerged-branch reinterpretation is not claimed as a released defect.
 
 ## How to tell if your model is affected
@@ -48,7 +48,7 @@ or matching total resultant does not establish correct member loading.
 
 ## Fixed in
 
-Local branch fix/audit-snow; pending merge and release (#2233). The typed snow
+0.6.2 (PR [#2233](https://github.com/lambdaclass/stabileo/pull/2233)). The typed snow
 basis selects a separate pf member-loading case. Physical snow remains in
 principal and seismic combinations and mass. The shared expander refuses
 ambiguous legacy seismic specifications until combinations are regenerated,
@@ -63,15 +63,15 @@ combinations with the correction; regenerating snow loads alone is insufficient.
 
 ## What to do with results you already have
 
-After upgrading to a release containing the correction, regenerate snow loads
+After upgrading to 0.6.2, regenerate snow loads
 and combinations, then rerun analyses and design checks. Re-solving stored loads
 alone does not correct them. Review sizing, calculations and deliverables based
 on earlier combinations.
 
 ## Credits and references
 
-The coordinator assigned SA-2026-082 to #2211 in the #2233 round-2 task.
+The coordinator assigned SA-2026-082 to #2211.
 The [original results-change record](../results-changes/2026-11-snow-companion-basis.md)
-and [round-2 record](../results-changes/2026-11-snow-combination-validation.md)
+and [combination validation record](../results-changes/2026-11-snow-combination-validation.md)
 contain the scope, independent expectations and replay evidence. The separate
 step-drift transfer issue #2218 remains unresolved by this correction.

@@ -1,0 +1,37 @@
+{
+  "id": "seismic-modal-generation-unavailable",
+  "date": "2026-11-19",
+  "prs": [
+    2316,
+    2319
+  ],
+  "area": "loads",
+  "when": {
+    "all": [
+      "unverifiedGeneratedSeismicLoads"
+    ]
+  },
+  "requiresLoadRegeneration": true,
+  "title": {
+    "en": "Review earlier generated seismic loads",
+    "es": "Revisá las cargas sísmicas generadas anteriormente",
+    "pt": "Revise as cargas sísmicas geradas anteriormente",
+    "de": "Früher erzeugte Erdbebenlasten prüfen",
+    "fr": "Vérifiez les charges sismiques générées précédemment",
+    "tr": "Daha önce üretilen deprem yüklerini inceleyin",
+    "hu": "Ellenőrizze a korábban generált szeizmikus terheket"
+  },
+  "explanation": {
+    "en": "Earlier versions could distribute modal seismic forces incorrectly. Review these seismic cases and regenerate them using the static method where it applies before repeating analyses and design checks (#2319).",
+    "es": "Las versiones anteriores podían distribuir incorrectamente las fuerzas sísmicas modales. Revisá estos casos y volvé a generarlos con el método estático donde corresponda antes de repetir los análisis y las verificaciones (#2319).",
+    "pt": "Versões anteriores podiam distribuir incorretamente as forças sísmicas modais. Revise esses casos e gere-os novamente pelo método estático quando aplicável, antes de repetir as análises e verificações (#2319).",
+    "de": "Frühere Versionen konnten modale Erdbebenkräfte falsch verteilen. Prüfen Sie diese Lastfälle und erzeugen Sie sie, soweit zulässig, mit dem statischen Verfahren neu, bevor Sie Analysen und Nachweise wiederholen (#2319).",
+    "fr": "Les versions précédentes pouvaient répartir les forces sismiques modales de manière incorrecte. Vérifiez ces cas et régénérez-les avec la méthode statique lorsqu’elle est applicable avant de reprendre les analyses et les vérifications (#2319).",
+    "tr": "Önceki sürümler modal deprem kuvvetlerini hatalı dağıtabiliyordu. Analizleri ve tasarım kontrollerini tekrarlamadan önce bu yük durumlarını inceleyin ve uygunsa statik yöntemle yeniden üretin (#2319).",
+    "hu": "A korábbi verziók hibásan oszthatták el a modális szeizmikus erőket. Az elemzések és ellenőrzések megismétlése előtt vizsgálja felül ezeket a tehereseteket, és ahol alkalmazható, generálja őket újra a statikus módszerrel (#2319)."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-seismic-modal-generation.md",
+    "heading": "Modal seismic load generation is unavailable"
+  }
+}

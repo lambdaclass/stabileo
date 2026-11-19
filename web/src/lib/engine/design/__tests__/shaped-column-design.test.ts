@@ -15,7 +15,7 @@ beforeAll(async () => {
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
 });
 
-function portal(colSec: Record<string, unknown>, load: [number, number, number] = [20, 10, -400]) {
+function portal(colSec: Record<string, unknown>, load: [number, number, number] = [20, 0, -400]) {
   modelStore.clear(); historyStore.clear(); resultsStore.clear(); verificationStore.clear(); uiStore.analysisMode = 'pro';
   // The reading of the beam's role in the lateral system this suite was written under (`suite-lateral.ts`).
   stateSuiteLateral();

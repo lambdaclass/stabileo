@@ -260,9 +260,11 @@ describe('column tie checks use the per-axis effective depth', () => {
     expect(primary!.capacity).toBeCloseTo(
       computeShearCapacity(8, 2, 0.15, 0.6, dTieFor(0.3), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
     );
-    expect(secondary!.capacity).toBeCloseTo(
-      computeShearCapacity(8, 2, 0.15, 0.3, dTieFor(0.6), 25, 420, 500, { Ag: 0.6 * 0.3 }).phiVn, 1,
-    );
+    const dSecondary = section.b - section.cover - reinf.stirrups!.diameter / 1000 - reinf.column!.cornerDia / 2000;
+    const bw = section.h;
+    const vc = (0.17 * Math.sqrt(section.fc) * 1000 + 500 / (6 * section.b * section.h)) * bw * dSecondary;
+    const vs = 2 * 0.503e-4 * section.fy * 1000 * dSecondary / reinf.stirrups!.spacing;
+    expect(secondary!.capacity).toBeCloseTo(0.75 * (vc + vs), 1);
   });
 });
 

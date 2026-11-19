@@ -58,14 +58,15 @@ describe('closing the dialog', () => {
   });
 });
 
-describe('the modes of the modal method', () => {
-  it.each(['modesForPlan', 'windFrequenciesForPlan'])('%s uses the level weights, whose live load is unreduced', (method) => {
-    // The plan's level weights carry Lo; modes under the §4.7.2-reduced loads had a lighter mass
-    // than the forces were spread over (see the consistency test in plan-gravity.test.ts).
-    const call = dialog.match(new RegExp(`${method}\\((\\w+),`));
-    expect(call).not.toBeNull();
-    expect(dialog).toMatch(new RegExp(`const ${call![1]} = [^;]*applyLiveReduction: false`));
-  });
+it('passes the selected seismic method to the planner without requesting modes for automatic loads', () => {
+  expect(dialog).toMatch(/seismic: enableSeismic \? \{[\s\S]*?method: seismicMethod\.method/);
+  expect(dialog).not.toMatch(/\bmodesForPlan\b/);
+});
+
+it('windFrequenciesForPlan uses the level weights, whose live load is unreduced', () => {
+  const call = dialog.match(/windFrequenciesForPlan\((\w+),/);
+  expect(call).not.toBeNull();
+  expect(dialog).toMatch(new RegExp(`const ${call![1]} = [^;]*applyLiveReduction: false`));
 });
 
 describe('the wind dynamics block (CIRSOC 102-2025 §1.9)', () => {

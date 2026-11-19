@@ -33,8 +33,7 @@ try {
   await build({
     plugins: [{ name: 'route-size-engine-stub', enforce: 'pre', configResolved(config) {
       for (const feature of ['research', 'tools']) {
-        const key = `VITE_${feature.toUpperCase()}`;
-        featureSwitches[feature] = JSON.parse(config.define[`import.meta.env.${key}`]);
+        featureSwitches[feature] = JSON.parse(config.define[`__PUBLIC_FEATURES__.${feature}`]);
       }
     }, resolveId(id) {
       if (id.includes('dedaliano_engine_bg.wasm')) return '\0route-size-wasm';
@@ -109,10 +108,10 @@ try {
     },
   };
   for (const [feature, routes] of Object.entries(featureRoutes)) {
-    const expanded = featureSwitches[feature] !== '0';
+    const expanded = featureSwitches[feature];
     for (const [route, details] of Object.entries(routes)) {
       const detail = expanded ? details.expanded : details.published;
-      if (detail === undefined) console.log(`${route}: skipped (VITE_${feature.toUpperCase()}=0)`);
+      if (detail === undefined) console.log(`${route}: skipped (${feature}=false)`);
       else measured[route] = footprint(false, feature, detail);
     }
   }

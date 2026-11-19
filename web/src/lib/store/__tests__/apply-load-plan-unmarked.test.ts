@@ -14,7 +14,11 @@ import { modelStore, type Load } from '../model.svelte';
 import '../index';
 import { applyLoadPlan, loadStateForPlan, replaceScope } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
-import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
+import { assessProject } from '../../provenance/applicability';
+import { RESULTS_VERSION } from '../../provenance/registry';
+import { stampSolve } from '../../provenance/solve-stamp';
+import { patchDesignData } from '../design-data';
+import { bindRole, defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import es from '../../i18n/locales/es';
 
 const nameOf = (key: string, params?: Record<string, string | number>) =>
@@ -29,7 +33,11 @@ function frame(): void {
   for (const c of [...modelStore.model.combinations]) modelStore.removeCombination(c.id);
   const at = new Map<string, number>();
   for (const z of [0, 3]) for (let i = 0; i <= 2; i++) at.set(`${i},${z}`, modelStore.addNode(5 * i, 0, z));
-  for (let i = 0; i <= 2; i++) modelStore.addElement(at.get(`${i},0`)!, at.get(`${i},3`)!);
+  for (let i = 0; i <= 2; i++) {
+    const base = at.get(`${i},0`)!;
+    modelStore.addElement(base, at.get(`${i},3`)!);
+    modelStore.addSupport(base, 'fixed3d');
+  }
   for (let i = 0; i < 2; i++) modelStore.addElement(at.get(`${i},3`)!, at.get(`${i + 1},3`)!);
 }
 const planInput = (): LoadPlanInput => ({
@@ -37,6 +45,7 @@ const planInput = (): LoadPlanInput => ({
   model: {
     nodes: modelStore.nodes as never, elements: modelStore.elements as never, sections: modelStore.model.sections as never,
     materials: modelStore.model.materials as never, loadCases: modelStore.model.loadCases, quads: modelStore.model.quads as never,
+    supports: modelStore.supports,
   },
   dead: [{ labelKey: 'a', q: 1.5 }], occupancyKey: 'vivienda', tributaryWidth: 3,
   reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true,
@@ -162,4 +171,60 @@ describe("an edit by hand makes it the user's", () => {
     expect(modelStore.model.combinations.some((c) => c.id === c2!.id)).toBe(true);
     expect(modelStore.model.combinations.some((c) => c.id === c1!.id)).toBe(false);
   });
+});
+
+
+it('#2319 Apply refuses a READY legacy modal plan', () => {
+  frame();
+  const before = counts();
+  const plan = buildLoadPlan(planInput());
+  plan.cases.push({ type: 'E', nameKey: 'autoLoad.seismicCaseDir', nameParams: { dir: 'X' }, existingId: null });
+  plan.derivation.push({ key: 'loadPlan.derivation.modal' });
+  expect(applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf })).toEqual({ key: 'loadPlan.blocked.modalUnavailable' });
+  expect(counts()).toEqual(before);
+  expect(modelStore.loadCases.some(c => c.type === 'E')).toBe(false);
+});
+
+it('#2319 appending static loads keeps the saved-load notice until earlier generated loads are replaced', () => {
+  frame();
+  const seismic = modelStore.addLoadCase('E X', 'E');
+  modelStore.addNodalLoad3D([...modelStore.nodes.keys()][0]!, 1, 0, 0, 0, 0, 0, seismic);
+  modelStore.replaceLoads(modelStore.loads.map(l => ({ ...l, data: { ...l.data, generatedBy: 'load-plan' } } as Load)));
+  const input = planInput();
+  input.regulations.seismic = { ...bindRole('seismic', 'inpres103-2018'), configComplete: true, state: 'applied' };
+  input.seismic = { enabled: true, method: 'static', coefficient: 1, liveParticipation: 0, directions: { x: true, y: false } };
+  const notice = () => assessProject(JSON.parse(JSON.stringify(modelStore.snapshot())), null).changes.some(c => c.id === 'seismic-modal-generation-unavailable');
+  expect(notice()).toBe(true);
+
+  const plan = buildLoadPlan(input);
+  expect(plan.outcome).toBe('READY');
+  expect(applyLoadPlan(plan, { clearExisting: false, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.loads.some(l => l.data.seismicGeneration === 'static')).toBe(true);
+  expect(notice()).toBe(true);
+
+  expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  expect(modelStore.loads.some(l => l.data.seismicGeneration === 'static')).toBe(true);
+  expect(notice()).toBe(false);
+});
+
+it('#2316 applying wind preserves the legacy E notice independently from the wind basis', () => {
+  frame();
+  patchDesignData({ loadBasis: {
+    at: '2026-11-19T00:00:00Z', resultsVersion: 0, factors: {}, levels: [],
+    derivation: [{ key: 'loadPlan.derivation.modal' }], assumptions: [], refs: [],
+  } });
+  const seismic = modelStore.addLoadCase('E X', 'E');
+  modelStore.addNodalLoad3D([...modelStore.nodes.keys()][0]!, 1, 0, 0, 0, 0, 0, seismic);
+  const initial = buildLoadPlan(planInput());
+  const wind: typeof initial = {
+    ...initial, cases: [{ type: 'W', nameKey: 'W X', existingId: null }],
+    distributed: [{ caseIndex: 0, caseType: 'W', elementId: [...modelStore.elements.keys()][0]!, frame: 'global', q: 0, qX: 1 }],
+    derivation: [{ key: 'loadPlan.derivation.wind' }], nodal: [], surface: [], combinations: [],
+  };
+  expect(applyLoadPlan(wind, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const saved = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  expect.soft(saved.designData.loadBasis.resultsVersion).toBe(RESULTS_VERSION);
+  expect.soft(saved.loads.find((l: Load) => l.data.caseId === seismic)?.data.seismicGeneration).toBe('unverified');
+  expect(assessProject(saved, stampSolve('linear', null), 'pro').changes.map(change => change.id))
+    .toEqual(['seismic-modal-generation-unavailable']);
 });

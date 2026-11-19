@@ -4,9 +4,8 @@ import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, type ModelData } from '../../../../lib/engine/solver-service';
 import { initSolver, solveCorotational2D } from '../../../../lib/engine/wasm-solver';
-import '../../../tools/register-i18n';
 import { tAt } from '../../../../lib/i18n/store.svelte';
-import { toolTranslations } from '../../../tools/translations';
+import { scalarViewerTranslations } from '../../../viewport/scalar-viewer-i18n';
 import { strings } from '../i18n';
 import LZString from 'lz-string';
 
@@ -125,7 +124,7 @@ describe('Mattiasson evidence', () => {
 
 it('registers viewer strings for a fresh research visit in every locale', () => {
   for (const locale of Object.keys(strings)) {
-    for (const key of Object.keys(toolTranslations.en).filter(key => key.startsWith('scalarViewer.'))) {
+    for (const key of Object.keys(scalarViewerTranslations.en)) {
       expect(tAt(key, locale)).not.toBe(key);
     }
   }

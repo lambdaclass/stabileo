@@ -1,5 +1,6 @@
 import { verifyElement as verifyConcurrent } from '../codes/argentina/cirsoc201';
 import { checkTorsion } from '../codes/argentina/cirsoc201';
+import { resolveCage, secondaryShearFace } from '../../codes/cirsoc201/torsion';
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults, type AutoVerifyModelData } from '../auto-verify';
 import { extractGoverningDemands, computeColumnLayout, computeColumnCapacity, computeBiaxialCapacity, type ElementStationResult, type StationForces } from '../station-design-forces';
@@ -110,7 +111,12 @@ describe('concurrent design demands #1316', () => {
       expect(normalizeCirsoc201([v], new Map())[0]!.checks.every(c => !c.comboName?.startsWith('N '))).toBe(true);
       const own = (esr.comboResults).map(cr => cr.stations[0]!);
       const params = { b: v.b, h: v.h, fc: v.fc, fy: v.fy, cover: v.cover, stirrupDia: 8 };
-      const expectedTorsion = own.map(s => checkTorsion(params, extractGoverningDemands(stations([[s]])).concurrent![0]!.section(v.flexureAxis!), '2025').ratio);
+      const cage = resolveCage(params, { diameter: params.stirrupDia, legs: v.shear.stirrupLegs, spacing: v.shear.spacing });
+      const face = secondaryShearFace(params, cage, beam
+        ? { kind: 'beam-or-wall', diameters: [v.flexure.barDia, ...(v.flexure.barDiaComp ? [v.flexure.barDiaComp] : [])] }
+        : { kind: 'column', diameters: [v.column!.barDia], totalAreaCm2: v.column!.AsProv });
+      expect(face.kind).toBe('secondary-face');
+      const expectedTorsion = own.map(s => checkTorsion(params, extractGoverningDemands(stations([[s]])).concurrent![0]!.section(v.flexureAxis!), '2025', face).ratio);
       expect(v.torsion!.ratio).toBe(Math.max(...expectedTorsion));
       if (!beam) {
         const c = v.column!, layout = computeColumnLayout(c.barCount, c.barDia, v.b, v.h, v.cover, 8);

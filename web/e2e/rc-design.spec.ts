@@ -479,9 +479,9 @@ test.describe('@slow RC design at scale', () => {
      * that moves on this branch is member 185's.
      */
     const counts = (await page.evaluate(() => window.__stabileo.runCounts()))!;
-    expect(counts.verified).toBe(359);
+    expect(counts.verified).toBe(353);
     expect(counts.sectionInadequate, 'nothing is called inadequate without a proof').toBe(0);
-    expect(counts.searchExhausted, 'the members no implemented layout threads and anchors').toBe(36);
+    expect(counts.searchExhausted, 'the members for which the bounded search found no verified candidate').toBe(42);
     expect(counts.unsupported, 'and nothing is refused outright any more').toBe(0);
     expect(counts.provisionalBiaxial, 'the 13 are proposals').toBe(13);
     expect(counts.aborted).toBe(0);
@@ -601,13 +601,13 @@ test.describe('@slow RC design at scale', () => {
      * 36 refused, member 185 among them, read unavailable.
      */
     const display = await page.evaluate(() => window.__stabileo.counts());
-    expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(359);
+    expect(display.ok + display.warn + display.fail, 'the fully checked members').toBe(353);
     expect(display.provisional, 'the proposals, named as proposals').toBe(13);
-    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(289);
-    expect(display.unavailable, 'only the refused members are left without steel').toBe(36);
+    expect(display.fail, 'and only what the detailing could not build is called a failure').toBe(284);
+    expect(display.unavailable, 'only the refused members are left without steel').toBe(42);
     // A proposal is never folded into the passes. This is the assertion that would catch the
     // exception being widened into a way of making red things green.
-    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(70);
+    expect(display.ok + display.warn, 'proposals are not counted as verified').toBe(69);
     // Every member lands in exactly one display bucket. A member missing from all of them
     // would be a row the summary bar does not describe.
     expect(display.ok + display.warn + display.fail + display.provisional

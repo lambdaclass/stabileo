@@ -10,7 +10,7 @@
  */
 import { concernsLoadBasis, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
-import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, type FeatureSnapshot } from './model-features';
+import { LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, UNVERIFIED_SEISMIC_FEATURE, type FeatureSnapshot } from './model-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
 import { advisoriesFor, type Advisory } from './advisories';
 
@@ -47,7 +47,8 @@ export function assessProject(
   const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, ...(stamp ? analysesContext(stamp) : { analysesRun: null }) });
   const changes = registry.changes
     .filter((c) => c.resultsVersion <= currentVersion && c.scope !== 'examples')
-    .filter((c) => c.resultsVersion > solvedVersion || (c.resultsVersion > loadsVersion && concernsLoadBasis(c)))
+    .filter((c) => c.resultsVersion > solvedVersion || (concernsLoadBasis(c) &&
+      (c.resultsVersion > loadsVersion || c.when?.all?.includes(UNVERIFIED_SEISMIC_FEATURE))))
     .filter((c) => conditionHolds(c.when ?? {}, features))
     .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const advisories = advisoriesFor(solvedVersion, (w) => conditionHolds(w, features), registry);

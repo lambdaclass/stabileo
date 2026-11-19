@@ -92,3 +92,17 @@ describe('placement tolerance widens the drawing, it never vetoes the code', () 
     }
   });
 });
+
+const issue2212 = process.env.RUN_KNOWN_WRONG === '2212' ? it : it.skip;
+issue2212('known wrong result: #2212 a corner and its face bar must have enough clear spacing', () => {
+  const diameter = 20;
+  const cage = { cornerDia: diameter, faceDia: diameter, nBottom: 1, nRight: 1, nTop: 1, nLeft: 0 };
+  const rule = { edition: '2025', maxAggregateSizeMm: 20 } as const;
+  const seated = computeColumnLayout(7, diameter, 0.2, 0.2, 0.025, 8, cage, rule);
+  const clearDistances = seated.bars.flatMap((a, i) => seated.bars.slice(i + 1)
+    .map(b => 1000 * Math.hypot(a.x - b.x, a.y - b.y) - diameter));
+  const cirsoc201Section2523 = Math.max(40, 1.5 * diameter, 4 * rule.maxAggregateSizeMm / 3);
+  expect(Math.min(...clearDistances)).toBeLessThan(cirsoc201Section2523);
+  expect(computeColumnLayout(4, diameter, 0.2, 0.2, 0.025, 8, undefined, rule).constructible).toBe(true);
+  expect(seated.constructible).toBe(false);
+});

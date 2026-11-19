@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeDiagram3D, computeGlobalMax3D, type Diagram3DKind } from '../diagrams-3d';
+import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
 import { solve3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
@@ -412,4 +412,20 @@ describe('formatDiagramValue3D: the sign a label shows', () => {
     const { formatDiagramValue3D } = await import('../diagrams-3d');
     expect(formatDiagramValue3D(-3, 'axial')).toBe('-3.00 kN');
   });
+});
+
+const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+issue2226('known wrong result: #2226 spatial shear jumps immediately after a concentrated force', () => {
+  const length = 3;
+  const station = 1.5;
+  const force = 1;
+  const result = solve3D(buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+    [{ type: 'pointOnElement', data: { elementId: 1, a: station, py: 0, pz: force } }],
+  ));
+  assertSuccess(result);
+  const endForces = getEF(result, 1);
+  expect(evaluateDiagramAt(endForces, 'shearZ', station / length)).toBeCloseTo(-force, 12);
+  expect(evaluateDiagramAt(endForces, 'shearZ', (station + 5e-11) / length)).toBeCloseTo(0, 12);
 });
