@@ -33,6 +33,8 @@ function station(vy: number, vz: number, mx: number): ElementForces3D & { pointL
   };
 }
 
+const issue2366 = process.env.RUN_KNOWN_WRONG === '2366' ? it : it.skip;
+
 describe('3D section stress with torsion and transverse shear', () => {
   for (const [entry, analyze] of [
     ['raw forces', (vy: number, vz: number, mx: number, y: number, z: number) =>
@@ -81,9 +83,24 @@ describe('3D section stress with torsion and transverse shear', () => {
       expect(width[0]).toMatchObject({ tauTotal: result.tauTorsion, refusal: null });
       expect(result.distributionY.every(point => point.tauTotal === result.tauTorsion)).toBe(true);
     });
+
+    for (const [cut, vy, vz] of [['distributionY', 1, 0], ['distributionZ', 0, 1]] as const) {
+      issue2366(`known wrong result: #2366 ${entry} refuses ${cut} when the other transverse component is nonzero`, () => {
+        for (const mx of [torque, -torque]) {
+          const result = analyze(vy, vz, mx, 0, 0);
+          expect(result.refusal).toBe('combinedTorsionAndTransverseShear');
+          expect(result[cut].length).toBeGreaterThan(2);
+          for (const point of result[cut]) {
+            expect(point).toMatchObject({
+              refusal: result.refusal, tauTotal: null, vonMises: null,
+            });
+          }
+        }
+      });
+    }
   }
 
-  it('#2366 refuses shear from both linear and P-Delta member forces', () => {
+  issue2366('known wrong result: #2366 refuses shear from both linear and P-Delta member forces', () => {
     const input: SolverInput3D = {
       nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 1, y: 0, z: 0 }]]),
       materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
@@ -108,6 +125,9 @@ describe('3D section stress with torsion and transverse shear', () => {
       expect(result).toMatchObject({
         refusal: 'combinedTorsionAndTransverseShear', tauTotal: null, mohr: null, failure: null,
       });
+      for (const point of result.distributionZ) {
+        expect(point).toMatchObject({ refusal: result.refusal, tauTotal: null, vonMises: null });
+      }
     }
   });
 

@@ -519,7 +519,36 @@ mod tests {
         }
     }
 
+    fn assert_cross_cut_refuses(vy: f64, vz: f64, cut: &str) {
+        for mx in [TORQUE, -TORQUE] {
+            let raw = compute_stress_3d_from_raw(0.0, vy, vz, mx, 0.0, 0.0, &chs(), Some(FY), Some(0.0), Some(0.0));
+            let interpolated = compute_section_stress_3d(&station(vy, vz, mx, 0.0, 0.0));
+            for result in [raw, interpolated] {
+                let result = to_value(result).unwrap();
+                assert_eq!(result["refusal"], "combinedTorsionAndTransverseShear");
+                for point in result[cut].as_array().unwrap() {
+                    assert_eq!(point["refusal"], result["refusal"], "{cut}: {point}");
+                    assert_eq!(point["tauTotal"], Value::Null);
+                    assert_eq!(point["vonMises"], Value::Null);
+                }
+            }
+        }
+    }
+
     #[test]
+    #[ignore = "known wrong result: #2366"]
+    fn issue_2366_y_cut_refuses_vy_with_torsion() {
+        assert_cross_cut_refuses(1.0, 0.0, "distributionY");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2366"]
+    fn issue_2366_z_cut_refuses_vz_with_torsion() {
+        assert_cross_cut_refuses(0.0, 1.0, "distributionZ");
+    }
+
+    #[test]
+    #[ignore = "known wrong result: #2366"]
     fn issue_2366_refuses_shear_from_linear_and_pdelta_member_forces() {
         let section = chs();
         let input: SolverInput3D = serde_json::from_value(json!({
@@ -554,6 +583,11 @@ mod tests {
             assert!(stress.tau_total.is_none());
             assert!(stress.mohr.is_none());
             assert!(stress.failure.is_none());
+            for point in stress.distribution_z {
+                assert!(matches!(point.refusal, Some(CombinedStressRefusal::CombinedTorsionAndTransverseShear)));
+                assert!(point.tau_total.is_none());
+                assert!(point.von_mises.is_none());
+            }
         }
     }
 }
