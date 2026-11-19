@@ -2,16 +2,17 @@ import type { Page } from '@playwright/test';
 import { alSection, designPlace, expect, loadModel } from './fixtures';
 import type { DedalFile } from '../src/lib/store/file';
 
-export async function loadSeismicFloor(page: Page): Promise<void> {
+export async function loadSeismicFloor(page: Page, baseElevation = 0): Promise<void> {
   await loadModel(page, 'rc-design-qa-8');
-  expect(await page.evaluate(() => {
+  expect(await page.evaluate(baseElevation => {
     const file = JSON.parse(window.__stabileo.serializeProject()) as DedalFile;
     const { snapshot } = file;
+    for (const [, node] of snapshot.nodes) node.z = (node.z ?? 0) + baseElevation;
     snapshot.quads = [[1, { id: 1, nodes: [5, 6, 8, 7], materialId: 1, thickness: 0.18 }]];
     const gravityCases = new Set(snapshot.loadCases?.filter(c => c.type === 'D' || c.type === 'L').map(c => c.id));
     snapshot.loads = snapshot.loads.filter(l => !gravityCases.has(Number(l.data.caseId)));
     return window.__stabileoActions.loadProject({ ...file });
-  })).toBe(true);
+  }, baseElevation)).toBe(true);
 }
 
 export async function expectGeneratedSeismicCarriers(page: Page): Promise<void> {
