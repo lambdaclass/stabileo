@@ -348,7 +348,7 @@ impl Preconditioner for Ic0Preconditioner {
 ///
 /// Restored columns can grow until the factor overflows, as on MITC4 plates. The factor is
 /// then replaced by `scaled_shifted_ic`, which has more entries than the matrix's pattern;
-/// `perturbations()` still counts the pivots the first attempt restored.
+/// `perturbations()` is then the pivots restored up to the overflow, and at least one.
 pub struct ShiftedIcPreconditioner {
     n: usize,
     col_ptr: Vec<usize>,
@@ -378,7 +378,8 @@ fn scaled_shifted_ic(a: &CscMatrix, shift_rel: f64) -> Factor {
         columns.push(column);
     }
     let mut shift = FIRST_SHIFT;
-    for _ in 0..SHIFT_DOUBLINGS {
+    let attempts = if columns.iter().flatten().all(|&(_, v)| v.is_finite()) { SHIFT_DOUBLINGS } else { 0 };
+    for _ in 0..attempts {
         if let Some(factor) = limited_memory_ic(n, &columns, 1.0 + shift, EXTRA_PER_COLUMN) {
             let (mut col_ptr, mut row_idx, mut values) = (vec![0; n + 1], Vec::new(), Vec::new());
             for (j, column) in factor.iter().enumerate() {
@@ -440,7 +441,9 @@ fn limited_memory_ic(n: usize, columns: &[Vec<(usize, f64)>], diagonal: f64, ext
         let ljj = pivot.sqrt();
         let keep = columns[j].len() + extra;
         if rows.len() > keep {
-            rows.sort_unstable_by(|&x, &y| work[y].abs().total_cmp(&work[x].abs()).then(x.cmp(&y)));
+            if keep > 0 {
+                rows.select_nth_unstable_by(keep - 1, |&x, &y| work[y].abs().total_cmp(&work[x].abs()).then(x.cmp(&y)));
+            }
             for &row in &rows[keep..] {
                 marked[row] = false;
             }
@@ -475,6 +478,7 @@ impl ShiftedIcPreconditioner {
         let soft_threshold = 1e-8 * max_diag;
 
         let mut perturbations = 0usize;
+        let mut overflowed = false;
         let mut pos_of = vec![usize::MAX; n];
         for j in 0..n {
             let (cs, ce) = (col_ptr[j], col_ptr[j + 1]);
@@ -516,11 +520,15 @@ impl ShiftedIcPreconditioner {
             for v in &mut l_values[(cs + 1)..ce] {
                 *v /= ljj;
             }
+            if l_values[cs..ce].iter().any(|v| !v.is_finite()) {
+                overflowed = true;
+                break;
+            }
         }
 
-        if l_values.iter().any(|v| !v.is_finite()) {
+        if overflowed {
             let (col_ptr, row_idx, l_values) = scaled_shifted_ic(a, shift_rel);
-            return Self { n, col_ptr, row_idx, l_values, perturbations };
+            return Self { n, col_ptr, row_idx, l_values, perturbations: perturbations.max(1) };
         }
         Self { n, col_ptr, row_idx, l_values, perturbations }
     }
@@ -932,6 +940,19 @@ mod tests {
             ic_factor_apply(n, &col_ptr, &row_idx, &values, &vec![1.0; n], &mut z);
             assert!(z.iter().all(|v| v.is_finite()));
         }
+    }
+
+    #[test]
+    fn limited_memory_ic_keeps_the_largest_entries_whatever_order_they_come_in() {
+        for (toward_2, toward_3, kept) in [(0.5, 0.3, 2), (0.3, 0.5, 3), (-0.5, 0.3, 2), (0.3, -0.5, 3)] {
+            let columns = vec![vec![(1, 0.1), (2, toward_2), (3, toward_3)], vec![], vec![], vec![]];
+            let factor = limited_memory_ic(4, &columns, 1.0, 1).unwrap();
+            assert_eq!(factor[1].iter().map(|&(row, _)| row).collect::<Vec<_>>(), vec![1, kept]);
+            assert_eq!(limited_memory_ic(4, &columns, 1.0, 0).unwrap()[1].len(), 1);
+            assert_eq!(limited_memory_ic(4, &columns, 1.0, 2).unwrap()[1].len(), 3);
+        }
+        let tie = vec![vec![(1, 0.1), (2, 0.4), (3, 0.4)], vec![], vec![], vec![]];
+        assert_eq!(limited_memory_ic(4, &tie, 1.0, 1).unwrap()[1][1].0, 2);
     }
 
     #[test]
