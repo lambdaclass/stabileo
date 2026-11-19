@@ -133,6 +133,25 @@ describe('what a plate selected whole is given beyond its section', () => {
     expect(s.curved).toBe(true);
     expect(s.offset).toEqual({ frame: 'local', x: 0, y: 0, z: 0.05 });
   });
+
+  it('keeps shells set apart by different offsets in plates of their own, each with its offset', () => {
+    const { quads } = grid(2, 1);
+    modelStore.setShellOffset('quad', quads[0]!, { frame: 'local', x: 0, y: 0, z: 0.05 });
+    modelStore.setShellOffset('quad', quads[1]!, { frame: 'local', x: 0, y: 0, z: 0.1 });
+    platesFromShells(looseShells());
+    expect(looseShells()).toHaveLength(0);
+    expect(physicalPlates().map((e) => e.surface.offset?.z).sort()).toEqual([0.05, 0.1]);
+  });
+
+  it('makes plates of two shells beside each other wound opposite ways, instead of leaving both out', () => {
+    const { quads } = grid(2, 1);
+    const q = modelStore.quads.get(quads[1]!)!;
+    modelStore.removeQuad(quads[1]!);
+    modelStore.addQuad([...q.nodes].reverse(), q.materialId, q.thickness);
+    platesFromShells(looseShells());
+    expect(looseShells()).toHaveLength(0);
+    expect(physicalPlates()).toHaveLength(2);
+  });
 });
 
 describe('plates side by side', () => {

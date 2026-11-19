@@ -20,7 +20,7 @@ import { takeLoadedModel } from './loaded-model';
 import { applyRecognition, planRecognition } from './physical-recognition';
 
 const TOL = 1e-6;
-type Shell = { key: string; kind: 'quad' | 'plate'; id: number; nodes: number[]; materialId: number; thickness: number; n: Vec3; o: Vec3 };
+type Shell = { key: string; kind: 'quad' | 'plate'; id: number; nodes: number[]; materialId: number; thickness: number; n: Vec3; o: Vec3; offset: string };
 
 const pos = (id: number): Vec3 => { const p = modelStore.nodes.get(id)!; return [p.x, p.y, p.z ?? 0]; };
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -35,7 +35,8 @@ function shellOf(key: string): Shell | null {
   if (!kind || !sh || sh.nodes.some((n) => !modelStore.nodes.has(n))) return null;
   const f = frameOfLoop(sh.nodes.map(pos));
   if (!f) return null;
-  return { key, kind, id, nodes: [...sh.nodes], materialId: sh.materialId, thickness: sh.thickness, n: f.n, o: f.o };
+  const offset = (sh as { offset?: PlateSurface['offset'] }).offset;
+  return { key, kind, id, nodes: [...sh.nodes], materialId: sh.materialId, thickness: sh.thickness, n: f.n, o: f.o, offset: offset ? JSON.stringify(offset) : '' };
 }
 
 /** Whether the segment a–b lies along a member, which a panel does not cross. */
@@ -72,9 +73,11 @@ export function shellPanels(keys: readonly string[]): Shell[][] {
     if (list.length !== 2) continue;
     const [i, j] = list as [number, number], s = shells[i]!, t = shells[j]!;
     const [a, b] = key.split('-').map(Number) as [number, number];
-    const coplanar = Math.abs(dot(s.n, t.n)) > 1 - 1e-6 && Math.abs(dot(sub(t.o, s.o), s.n)) < 1e-4;
+    // Same side up: a panel's loops follow its shells' directed sides, and its loads their normals.
+    const coplanar = dot(s.n, t.n) > 1 - 1e-6 && Math.abs(dot(sub(t.o, s.o), s.n)) < 1e-4;
     const gs = groupOf.get(s.key), gt = groupOf.get(t.key);
-    const same = s.materialId === t.materialId && Math.abs(s.thickness - t.thickness) < 1e-9 && gs === gt;
+    // A plate has one offset, given to every mesh it gets: shells set apart by theirs stay apart.
+    const same = s.materialId === t.materialId && Math.abs(s.thickness - t.thickness) < 1e-9 && s.offset === t.offset && gs === gt;
     if (coplanar && same && (gs !== undefined || !onMember(pos(a), pos(b), members))) parent[find(i)] = find(j);
   }
   const sets = new Map<number, Shell[]>();
