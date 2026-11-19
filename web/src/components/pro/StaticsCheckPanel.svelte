@@ -15,7 +15,9 @@
    * carries them all.
    */
   import { t, tp } from '../../lib/i18n';
-    import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
+  import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
+  import { along } from '../../lib/axes/display';
+  import { userSix } from '../../lib/axes/typed-frame';
   import { residualLabel, staticsVerdict, type StaticsCheckRow } from '../../lib/engine/statics-check';
 
   const all = $derived(staticsRows());
@@ -40,7 +42,8 @@
     const m = Math.max(Math.abs(a.fx), Math.abs(a.fy), Math.abs(a.fz));
     return m === Math.abs(a.fz) ? 'fz' : m === Math.abs(a.fx) ? 'fx' : 'fy';
   }
-  const AXIS = { fx: 'Fx', fy: 'Fy', fz: 'Fz' } as const;
+  const IDX = { fx: 0, fy: 1, fz: 2 } as const;
+  const axisOf = (k: 'fx' | 'fy' | 'fz') => along(IDX[k]);
 
   const fmt = (v: number) => (Math.abs(v) < 5e-4 ? '0' : plainNumber(v, 2));
 </script>
@@ -72,27 +75,31 @@
           {@const verdict = staticsVerdict(r, BALANCED)}
           {@const ok = verdict === 'balances'}
           {@const k = dominant(r)}
+          {@const ax = axisOf(k)}
+          {@const ua = userSix(r.applied)}
+          {@const ur = userSix(r.reactions)}
           {@const key = 'comboId' in r ? `c${r.comboId}` : (r.caseId ?? 'single')}
           <tr data-testid="statics-row-{key}" class:sc-combo={'comboId' in r}>
             <td>{r.caseName || t('pro.statics.singleSolve')}{#if r.selfWeightIncluded}<span class="sc-sw"> {t('pro.statics.selfWeightBadge')}</span>{/if}</td>
-            <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.applied[k])}</td>
-            <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.reactions[k])}</td>
+            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(ax.sign * r.applied[k])}</td>
+            <td class="num"><span class="sc-ax">F{ax.name.toLowerCase()}</span> {fmt(ax.sign * r.reactions[k])}</td>
             <td class="num">{residualLabel(r.worstRelative, t('pro.statics.notComputable'))}</td>
             <td class="sc-state" class:bad={!ok} data-verdict={verdict}>{ok ? '✓ ' + t('pro.statics.balances') : '⚠ ' + t(verdict === 'partial' ? 'pro.statics.partial' : 'pro.statics.doesNotBalance')}</td>
           </tr>
           {#if full}
             <tr class="sc-detail sc-six">
               <td colspan="5"><div class="sc-sixrow">
-                {#each K as c (c)}<span><b>Σ{c.toUpperCase()}</b> {fmt(r.applied[c])} / {fmt(r.reactions[c])}</span>{/each}
+                {#each K as c (c)}<span><b>Σ{c.toUpperCase()}</b> {fmt(ua[c])} / {fmt(ur[c])}</span>{/each}
               </div></td>
             </tr>
           {/if}
           {#if verdict === 'unbalanced'}
+            {@const d = userSix(r.difference)}
             <tr class="sc-detail">
               <td colspan="5">
                 {tp('pro.statics.residualDetail', {
-                  fx: fmt(r.difference.fx), fy: fmt(r.difference.fy), fz: fmt(r.difference.fz),
-                  mx: fmt(r.difference.mx), my: fmt(r.difference.my), mz: fmt(r.difference.mz),
+                  fx: fmt(d.fx), fy: fmt(d.fy), fz: fmt(d.fz),
+                  mx: fmt(d.mx), my: fmt(d.my), mz: fmt(d.mz),
                 })}
               </td>
             </tr>

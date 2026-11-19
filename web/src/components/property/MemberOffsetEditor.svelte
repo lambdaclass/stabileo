@@ -5,6 +5,7 @@
   import type { MemberOffset } from '../../lib/model/element-3d-metadata';
   import { unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from '../pro/loads/QuantityInput.svelte';
+  import { modelVec, userVec } from '../../lib/axes/display';
 
   // Analytical member offset editor. Applies a single parallel offset vector to
   // BOTH ends (i = j) — the supported "parallel member offset" case. Works on the
@@ -33,7 +34,7 @@
     const vec = e?.offset?.i ?? e?.offset?.j; // editor edits the parallel (i=j) case
     if (e?.offset && vec) {
       frame = e.offset.frame;
-      ox = vec.x; oy = vec.y; oz = vec.z;
+      [ox, oy, oz] = frame === 'global' ? userVec(vec.x, vec.y, vec.z) : [vec.x, vec.y, vec.z];
     } else {
       ox = 0; oy = 0; oz = 0;
     }
@@ -50,7 +51,7 @@
   }));
 
   function apply() {
-    const x = ox, y = oy, z = oz;
+    const [x, y, z] = frame === 'global' ? modelVec(ox, oy, oz) : [ox, oy, oz];
     // Invalid input must NOT silently coerce to 0 — all-zeros clears the
     // member's existing offset, so a parse failure would delete data.
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;

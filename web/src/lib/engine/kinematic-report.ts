@@ -13,6 +13,8 @@ import { countStaticDegree2D, analyzeKinematics, DOF_LABEL_KEY } from './kinemat
 import { ghReport } from './static-degree';
 import { countStaticDegree3D, supportRestraints3D, analyzeKinematics3D } from './kinematic-3d';
 import { t, inSentence } from '../i18n';
+import { TWO_D_DISPLACEMENT_LABELS } from '../geometry/coordinate-system';
+import { relabelAxes, shownDof, shownDofSymbol } from '../axes/user-names';
 
 // ─── Public interfaces ─────────────────────────────────────────
 
@@ -20,7 +22,8 @@ export interface SupportDetail {
   nodeId: number;
   type: string;           // Spanish label: "Empotramiento", "Articulación fija", etc.
   dofs: number;           // restrained DOF count
-  restrainedDofs: string; // "ux, uz, θy"
+  restrainedDofs: string;
+  restrained?: DofLabel[];
 }
 
 export interface HingeDetail {
@@ -74,6 +77,14 @@ export interface NodeConstraintInfo {
 // ─── Per-DOF breakdown interfaces ────────────────────────────────
 
 export type DofLabel = 'ux' | 'uz' | 'θy';
+
+export function kinDofSymbol(d: DofLabel): string {
+  return d === 'ux' ? TWO_D_DISPLACEMENT_LABELS.horizontal : d === 'uz' ? TWO_D_DISPLACEMENT_LABELS.vertical : TWO_D_DISPLACEMENT_LABELS.rotation;
+}
+
+function kinDofList(ds: readonly DofLabel[]): string {
+  return ds.map(kinDofSymbol).join(', ');
+}
 
 /** Single constraint source for a specific DOF */
 export interface DofConstraintSource {
@@ -183,10 +194,10 @@ export interface KinematicReport {
 
 function getSupportLabels(): Record<string, { label: string; dofs: number; restrained: string }> {
   return {
-    fixed:    { label: t('kin.supFixed'), dofs: 3, restrained: 'ux, uz, θy' },
-    pinned:   { label: t('kin.supPinned'), dofs: 2, restrained: 'ux, uz' },
-    rollerX:  { label: t('kin.supRollerX'), dofs: 1, restrained: 'uz' },
-    rollerZ:  { label: t('kin.supRollerY'), dofs: 1, restrained: 'ux' },
+    fixed:    { label: t('kin.supFixed'), dofs: 3, restrained: kinDofList(['ux', 'uz', 'θy']) },
+    pinned:   { label: t('kin.supPinned'), dofs: 2, restrained: kinDofList(['ux', 'uz']) },
+    rollerX:  { label: t('kin.supRollerX'), dofs: 1, restrained: kinDofList(['uz']) },
+    rollerZ:  { label: t('kin.supRollerY'), dofs: 1, restrained: kinDofList(['ux']) },
     inclinedRoller: { label: t('kin.supInclinedRoller'), dofs: 1, restrained: 'u_n' },
   };
 }
@@ -214,6 +225,7 @@ function getSupportDofs(): Record<string, ReadonlySet<DofLabel>> {
 /** Parse a SupportDetail into the set of DofLabels it constrains */
 function parseSupportDofs(sup: SupportDetail): Set<DofLabel> {
   const supportDofs = getSupportDofs();
+  if (sup.restrained) return new Set(sup.restrained);
   const preset = supportDofs[sup.type];
   if (preset) return new Set(preset);
   // Spring or unknown: parse from restrainedDofs string
@@ -268,23 +280,26 @@ export function generateKinematicReport(
         nodeId: sup.nodeId,
         type: preset.label,
         dofs: ignored ? preset.dofs - 1 : preset.dofs,
-        restrainedDofs: ignored ? `ux, uz — ${t('kin.rotNotCountedTrussNode')}` : preset.restrained,
+        restrainedDofs: ignored ? `${kinDofList(['ux', 'uz'])} — ${t('kin.rotNotCountedTrussNode')}` : preset.restrained,
       });
       totalR += ignored ? preset.dofs - 1 : preset.dofs;
     } else if (st === 'spring') {
       const parts: string[] = [];
+      const restrained: DofLabel[] = [];
       let d = 0;
-      if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
-      if (sup.ky && sup.ky > 0) { parts.push('uz'); d++; }
+      if (sup.kx && sup.kx > 0) { parts.push(kinDofSymbol('ux')); restrained.push('ux'); d++; }
+      if (sup.ky && sup.ky > 0) { parts.push(kinDofSymbol('uz')); restrained.push('uz'); d++; }
       if (sup.kz && sup.kz > 0) {
-        if (rotIgnored) parts.push(`θy — ${t('kin.rotNotCountedTrussNode')}`);
-        else { parts.push('θy'); d++; }
+        restrained.push('θy');
+        if (rotIgnored) parts.push(`${kinDofSymbol('θy')} — ${t('kin.rotNotCountedTrussNode')}`);
+        else { parts.push(kinDofSymbol('θy')); d++; }
       }
       supportDetails.push({
         nodeId: sup.nodeId,
         type: t('kin.supSpring'),
         dofs: d,
         restrainedDofs: parts.join(', ') || t('kin.noStiffness'),
+        restrained,
       });
       totalR += d;
     }
@@ -351,7 +366,8 @@ export function generateKinematicReport(
   // member-local x/z) selects WHICH translation is freed, not the count.
   const slideDetails: SlideDetail[] = [];
   for (const sj of slidingJoints) {
-    const dir = t(sj.kind === 'x' ? 'kin.slideDirX' : 'kin.slideDirZ');
+    const dirText = t(sj.kind === 'x' ? 'kin.slideDirX' : 'kin.slideDirZ');
+    const dir = sj.axis === 'global' ? relabelAxes(dirText) : dirText;
     const ax = t(sj.axis === 'local' ? 'kin.slideAxisLocal' : 'kin.slideAxisGlobal');
     slideDetails.push({
       elemId: sj.elemId, end: sj.end, kind: sj.kind, axis: sj.axis, ci: 1,
@@ -458,7 +474,6 @@ function classifyReport(degree: number, hasHiddenMechanism: boolean, mechanismMo
 
 // ─── 3D report ──────────────────────────────────────────────────
 
-const ROT3D_LABEL: Record<string, string> = { rx: 'θx', ry: 'θy', rz: 'θz' };
 
 /**
  * The kinematic report of a space structure: the same steps as the plane
@@ -488,8 +503,8 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
       : translations.length === 3 && rotations.length === 3 ? t('kin.supFixed')
       : translations.length === 3 && rotations.length === 0 ? t('kin.supPinned')
       : t('kin.sup3dPartial');
-    const rot = rotations.map((r) => ROT3D_LABEL[r]).join(', ');
-    const parts = [...translations];
+    const rot = rotations.map((r) => shownDofSymbol(r)).join(', ');
+    const parts = translations.map(shownDofSymbol);
     if (rot) parts.push(trussOnly ? `${rot} — ${t('kin.rotNotCountedTrussNode')}` : rot);
     const dofs = translations.length + (trussOnly ? 0 : rotations.length);
     supportDetails.push({ nodeId: sup.nodeId, type, dofs, restrainedDofs: parts.join(', ') });
@@ -558,7 +573,7 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
   const nFreeDofs = Math.max(0, nNodes * dofsPerNode - restrained);
 
   const unconstrainedDofs: UnconstrainedDofDetail[] = kin.unconstrainedDofs.map((ud) => {
-    const dofName = DOF_LABEL_KEY[ud.dof] ? t(DOF_LABEL_KEY[ud.dof]) : ud.dof;
+    const dofName = DOF_LABEL_KEY[shownDof(ud.dof)] ? t(DOF_LABEL_KEY[shownDof(ud.dof)]) : ud.dof;
     return {
       nodeId: ud.nodeId,
       dof: ud.dof,
@@ -992,14 +1007,14 @@ function buildDofBreakdown(
   let summary: string;
   if (status === 'mechanism') {
     if (freeDofs.length > 0) {
-      summary = t('kin.summMechMissing').replaceAll('{dofs}', freeDofs.join(', '));
+      summary = t('kin.summMechMissing').replaceAll('{dofs}', kinDofList(freeDofs));
     } else {
       summary = t('kin.summMech');
     }
   } else if (status === 'hyperstatic') {
     const overDofs = lines.filter(l => l.sources.length > 1 && !l.sources.every(s => s.implicit)).map(l => l.dof);
     if (overDofs.length > 0) {
-      summary = t('kin.summHyperOver').replaceAll('{dofs}', overDofs.join(', '));
+      summary = t('kin.summHyperOver').replaceAll('{dofs}', kinDofList(overDofs));
     } else {
       summary = t('kin.summHyper');
     }
@@ -1036,14 +1051,14 @@ function generatePerElementAnalysis(
       });
       supportedNodes.add(sup.nodeId);
     } else if (st === 'spring') {
-      const parts: string[] = [];
-      let d = 0;
-      if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
-      if (sup.ky && sup.ky > 0) { parts.push('uz'); d++; }
-      if (sup.kz && sup.kz > 0) { parts.push('\u03b8y'); d++; }
+      const restrained: DofLabel[] = [];
+      if (sup.kx && sup.kx > 0) restrained.push('ux');
+      if (sup.ky && sup.ky > 0) restrained.push('uz');
+      if (sup.kz && sup.kz > 0) restrained.push('θy');
+      const d = restrained.length;
       if (d > 0) {
         supportByNode.set(sup.nodeId, {
-          nodeId: sup.nodeId, type: t('kin.supSpring'), dofs: d, restrainedDofs: parts.join(', '),
+          nodeId: sup.nodeId, type: t('kin.supSpring'), dofs: d, restrainedDofs: kinDofList(restrained), restrained,
         });
         supportedNodes.add(sup.nodeId);
       }
@@ -1560,3 +1575,4 @@ function generateSuggestions(
 
   return suggestions;
 }
+

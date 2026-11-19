@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { axesKey } from '../../lib/axes/display';
+  import { untrack } from 'svelte';
   import Hint from './Hint.svelte';
   /**
    * Repeat, polar repeat, mirror, rotate and move — one panel over one edit layer.
@@ -19,6 +21,8 @@
   import { onDestroy } from 'svelte';
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { along, axisName, modelRot, modelVec, userVec } from '../../lib/axes/display';
+  import { axesStore } from '../../lib/axes/axes.svelte';
 
   type Mode = 'repeat' | 'polar' | 'mirror' | 'rotate' | 'move';
   const MODES: Mode[] = ['repeat', 'polar', 'mirror', 'rotate', 'move'];
@@ -32,10 +36,18 @@
   // Typed in the display units, read back to SI.
   const spacings = $derived(mode === 'repeat' && spacingText.trim()
     ? parseSpacings(spacingText)?.map((v) => fromDisplay(v, 'length', uiStore.unitSystem)) ?? null : null);
-  let d = $state<Vec3>([0, 0, 3]);
+  let d = $state<Vec3>(userVec(0, 0, 3));
   let point = $state<Vec3>([0, 0, 0]);
-  let axis = $state<'X' | 'Y' | 'Z' | 'custom'>('Z');
-  let axisCustom = $state<Vec3>([0, 0, 1]);
+  let axis = $state<'X' | 'Y' | 'Z' | 'custom'>(axisName(2));
+  let axisCustom = $state<Vec3>(userVec(0, 0, 1));
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { d = userVec(0, 0, 3); axis = axisName(2); axisCustom = userVec(0, 0, 1); });
+  });
   let angle = $state(90);
   let asCopy = $state(true);
   let withLoads = $state(true);
@@ -92,18 +104,19 @@
     if (pts.length === 0) return;
     const c: Vec3 = [0, 0, 0];
     for (const n of pts) { c[0] += n!.x; c[1] += n!.y; c[2] += n!.z ?? 0; }
-    point = [c[0] / pts.length, c[1] / pts.length, c[2] / pts.length];
+    point = userVec(c[0] / pts.length, c[1] / pts.length, c[2] / pts.length);
   }
 
   function transforms(): Affine[] {
+    const dm = modelVec(...d), pm = modelVec(...point), turn = modelRot(...axisVec), normal = modelVec(...axisVec);
     switch (mode) {
-      case 'repeat': return repeatOffsets(d, copies, spacings ?? undefined).map((o) => translation(o));
-      case 'polar': return Array.from({ length: copies }, (_, k) => rotation(point, axisVec, angle * (k + 1)));
-      case 'mirror': return [reflection(point, axisVec)];
+      case 'repeat': return repeatOffsets(dm, copies, spacings ?? undefined).map((o) => translation(o));
+      case 'polar': return Array.from({ length: copies }, (_, k) => rotation(pm, turn, angle * (k + 1)));
+      case 'mirror': return [reflection(pm, normal)];
       case 'rotate': return asCopy
-        ? Array.from({ length: copies }, (_, k) => rotation(point, axisVec, angle * (k + 1)))
-        : [rotation(point, axisVec, angle)];
-      case 'move': return [translation(d)];
+        ? Array.from({ length: copies }, (_, k) => rotation(pm, turn, angle * (k + 1)))
+        : [rotation(pm, turn, angle)];
+      case 'move': return [translation(dm)];
     }
   }
 
@@ -121,16 +134,16 @@
   const pickLabel = (key: string) => (k: number) => tp(key, { k });
   /** The axis or plane point, with one click. */
   function pickPoint() {
-    placementStore.pickPoints(1, pickLabel('transform.pick.point'), ([p]) => { point = p!; });
+    placementStore.pickPoints(1, pickLabel('transform.pick.point'), ([p]) => { point = userVec(...p!); });
   }
   /** A mirror plane through two clicked points, standing vertical. */
   function pickMirror() {
     placementStore.pickPoints(2, pickLabel('transform.pick.mirror'), ([a, b]) => {
       const dx = b![0] - a![0], dy = b![1] - a![1];
       if (Math.hypot(dx, dy) < 1e-9) return;
-      point = a!;
+      point = userVec(...a!);
       axis = 'custom';
-      axisCustom = [dy, -dx, 0];
+      axisCustom = userVec(dy, -dx, 0).map((v) => (v === 0 ? 0 : v)) as Vec3;
     });
   }
   /** A rotation about a vertical axis: centre, then from, then to. */
@@ -140,15 +153,15 @@
       let deg = ((a2 - a1) * 180) / Math.PI;
       if (deg > 180) deg -= 360;
       if (deg < -180) deg += 360;
-      point = c!;
-      axis = 'Z';
-      angle = Math.round(deg * 1e6) / 1e6;
+      point = userVec(...c!);
+      axis = axisName(2);
+      angle = Math.round(axesStore.frame.det * along(2).sign * deg * 1e6) / 1e6;
     });
   }
   /** The repeat step, as the vector between two clicked points. */
   function pickOffset() {
     placementStore.pickPoints(2, pickLabel('transform.pick.offset'), ([a, b]) => {
-      d = [b![0] - a![0], b![1] - a![1], b![2] - a![2]].map((v) => Math.round(v * 1e6) / 1e6) as Vec3;
+      d = userVec(b![0] - a![0], b![1] - a![1], b![2] - a![2]).map((v) => Math.round(v * 1e6) / 1e6) as Vec3;
     });
   }
   /** Move by two points: the base, then where it goes. Ctrl or Cmd on the second click copies. */

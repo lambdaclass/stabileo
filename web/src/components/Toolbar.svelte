@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planeName, relabelAxes } from '../lib/axes/user-names';
   import { uiStore, historyStore } from '../lib/store';
   import { loadFile } from '../lib/store/file';
   import { t } from '../lib/i18n';
@@ -136,8 +137,8 @@
         {@const n = planeCollapsed[id as DrawPlane]}
         <button class="plane-btn" class:plane-btn-warn={n > 0}
           onclick={() => selectPlane(id as DrawPlane)}>
-          <span class="plane-label">{label}</span>
-          <span class="plane-desc">{n > 0 ? `~${n} ${t('toolbar.planeModal.simplified')}` : desc}</span>
+          <span class="plane-label">{planeName(label)}</span>
+          <span class="plane-desc">{n > 0 ? `~${n} ${t('toolbar.planeModal.simplified')}` : relabelAxes(desc)}</span>
         </button>
       {/each}
     </div>

@@ -67,15 +67,17 @@ const naming = (shells: readonly ShellRef[]) => shells.map((s) => `${s.on ? 'p' 
 export function buildShellLoads(
   kind: ShellLoadKind, f: ShellLoadFields, shells: readonly ShellRef[], caseId: number | undefined,
   cornerSI: (v: number) => number = (v) => v,
+  toModel: (v: Vec3) => Vec3 = (v) => v,
 ): WriteOutcome | WriteRefusal {
+  const T = (v: Vec3): Vec3 => toModel(v).map((x) => (x === 0 ? 0 : x)) as unknown as Vec3;
   if (!shells.length) return { error: 'writeLoad.noTarget' };
   if (kind === 'surface' && f.field === 'corners' && cornerTexts(f.qc).some(unreadable)) return UNREADABLE;
   const c = caseId !== undefined ? { caseId } : {};
 
   if (kind === 'shellPoint') {
-    const F: Vec3 = [num(f.pf.fx), num(f.pf.fy), num(f.pf.fz)];
+    const F: Vec3 = T([num(f.pf.fx), num(f.pf.fy), num(f.pf.fz)]);
     if (F.every((v) => v === 0)) return ZERO;
-    const nodal = shellPointNodalLoads(shells, [num(f.at.x), num(f.at.y), num(f.at.z)], F);
+    const nodal = shellPointNodalLoads(shells, T([num(f.at.x), num(f.at.y), num(f.at.z)]), F);
     if (!nodal) return { error: 'writeLoad.shell.pointOutside' };
     return { loads: nodal.map((n) => ({ type: 'nodal3d', data: { id: 0, ...n, ...c } }) as Load) };
   }
@@ -86,7 +88,7 @@ export function buildShellLoads(
     const pt = [opt(f.inside.x), opt(f.inside.y), opt(f.inside.z)];
     const given = pt.filter((v) => v !== null).length;
     if (given !== 0 && given !== 3) return { error: 'writeLoad.shell.insideIncomplete' };
-    const r = hydrostaticSurfaceLoads(shells, g, z, given === 3 ? (pt as Vec3) : undefined);
+    const r = hydrostaticSurfaceLoads(shells, g, z, given === 3 ? T(pt as Vec3) : undefined);
     if ('refused' in r) return { error: 'writeLoad.shell.hydroSideUnknown', params: { list: naming(r.shells) } };
     if (!r.loads.length) return { error: 'writeLoad.shell.hydroNothing' };
     return { loads: r.loads.map((l) => ({ type: 'surface3d', data: { id: 0, ...l, ...c } }) as Load) };
@@ -94,7 +96,7 @@ export function buildShellLoads(
 
   const extra: Partial<SurfaceLoad3D> = {};
   if (f.dirMode !== 'down') extra.frame = f.dirMode;
-  if (f.dirMode === 'global' || f.dirMode === 'projected') extra.dir = AXIS[f.dirAxis];
+  if (f.dirMode === 'global' || f.dirMode === 'projected') extra.dir = T(AXIS[f.dirAxis]);
   let qv = 0;
   if (f.field === 'uniform') {
     qv = num(f.q);
@@ -113,7 +115,7 @@ export function buildShellLoads(
     const [q1, q2] = [num(f.va.q1), num(f.va.q2)];
     if (c1 === null || c2 === null || c1 === c2) return { error: 'writeLoad.shell.varyIncomplete' };
     if (q1 === 0 && q2 === 0) return ZERO;
-    extra.vary = { dir: AXIS[f.va.axis], c1, q1, c2, q2 };
+    extra.vary = { dir: T(AXIS[f.va.axis]), c1, q1, c2, q2 };
   }
   if (f.partial) {
     // The rectangle as a region: its plane's two axes, projected along the third.
@@ -122,7 +124,7 @@ export function buildShellLoads(
     if (u1 === null || v1 === null || u2 === null || v2 === null || u1 === u2 || v1 === v2) return { error: 'writeLoad.shell.rectIncomplete' };
     const put = (u: number, v: number): Vec3 => (plane === 'XY' ? [u, v, 0] : plane === 'XZ' ? [u, 0, v] : [0, u, v]);
     const normal: Vec3 = plane === 'XY' ? [0, 0, 1] : plane === 'XZ' ? [0, 1, 0] : [1, 0, 0];
-    extra.region = { normal, points: [put(u1, v1), put(u2, v1), put(u2, v2), put(u1, v2)] };
+    extra.region = { normal: T(normal), points: [put(u1, v1), put(u2, v1), put(u2, v2), put(u1, v2)].map(T) };
   }
   return {
     loads: shells.map((s) => ({

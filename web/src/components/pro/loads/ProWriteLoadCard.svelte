@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   /**
    * Write a load: its kind, its values, and what it goes on (`LoadTargetPicker`), added in one undo
    * step to the active case. What the form describes is `model/loads/write-load.ts`'s: the numbers
@@ -28,6 +29,8 @@
   import LoadSketch, { type SketchInput } from './LoadSketch.svelte';
   import { fmtQ, unitQ } from '../../../lib/store/display-units.svelte';
   import ProShellLoadForm from './ProShellLoadForm.svelte';
+  import { along, axesKey, axisName, modelAxisOf, userVec } from '../../../lib/axes/display';
+  import { gravityFactorIn, typedFrame } from '../../../lib/axes/typed-frame';
   import type { ShellRef } from '../../../lib/model/loads/shell-load-tools';
 
   type Kind = 'nodal' | 'displacement' | 'distributed' | 'point' | 'thermal' | 'strain' | 'prestress' | 'surface' | 'hydro' | 'shellPoint' | 'thermalQuad' | 'selfWeight';
@@ -85,7 +88,9 @@
   function incOrigin(): { x: number; y: number; z?: number } | null {
     if (incFromKind === 'node') return modelStore.nodes.get(Number(incFromNode)) ?? null;
     const p = incFrom;
-    return p.x === null && p.y === null && p.z === null ? null : { x: num(p.x), y: num(p.y), z: num(p.z) };
+    if (p.x === null && p.y === null && p.z === null) return null;
+    const [x, y, z] = typedFrame.vec([num(p.x), num(p.y), num(p.z)]);
+    return { x, y, z };
   }
   /** The force at the loaded node `at`, from the origin toward it; null when they make no direction. */
   function inclinedAt(at: { x: number; y: number; z?: number }, F: number) {
@@ -100,7 +105,7 @@
   let q = $state<Record<'xI' | 'xJ' | 'yI' | 'yJ' | 'zI' | 'zJ', N>>({ xI: null, xJ: null, yI: null, yJ: null, zI: null, zJ: null });
   let qa = $state<N>(null), qb = $state<N>(null);
   let peak = $state<N>(null), peakAt = $state<N>(null), peakComp = $state<'x' | 'y' | 'z'>('z');
-  let w1 = $state<N>(null), w2 = $state<N>(null), hydroAxis = $state<GlobalAxis>('Z'), hydroComp = $state<'x' | 'y' | 'z'>('x');
+  let w1 = $state<N>(null), w2 = $state<N>(null), hydroAxis = $state<GlobalAxis>(axisName(2)), hydroComp = $state<'x' | 'y' | 'z'>('x');
   // ── Point ──
   let pFrame = $state<'local' | 'global'>('local');
   let p = $state<Record<'px' | 'py' | 'pz' | 'mx' | 'my' | 'mz', N>>({ px: null, py: null, pz: null, mx: null, my: null, mz: null });
@@ -116,8 +121,16 @@
   // ── Slabs ──
   let tq = $state<Record<'dt' | 'g', N>>({ dt: null, g: null });
   // ── Self-weight ──
-  let swDir = $state<SwAxis>('Z');
-  let swFactor = $state('-1');
+  let swDir = $state<SwAxis>(axisName(2));
+  let swFactor = $state(along(2).sign > 0 ? '-1' : '1');
+
+  let shownAxes = axesKey();
+  $effect(() => {
+    const k = axesKey();
+    if (k === shownAxes) return;
+    shownAxes = k;
+    untrack(() => { swDir = axisName(2); swFactor = along(2).sign > 0 ? '-1' : '1'; hydroAxis = axisName(2); });
+  });
 
   let error = $state<string | null>(null);
   let done = $state<string | null>(null);
@@ -172,6 +185,7 @@
       element: (id) => modelStore.elements.get(id),
       axes: (id) => memberRef3D(modelStore.model as never, id)?.axes ?? null,
       length: (id) => loadedLength(modelStore.model as never, id),
+      toModel: typedFrame,
     });
   }
 
@@ -183,7 +197,8 @@
       : target.by === 'group' ? { groupId: target.groupId }
       : { elements: resolveTargets('members', target as never, modelStore.model as never, sel()) };
     if (reach.elements?.length === 0 || (reach.groupId !== undefined && !modelStore.model.groups.has(reach.groupId))) { error = t('writeLoad.noTarget'); done = null; return; }
-    const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: swDir, factor: f, ...reach };
+    const m = modelAxisOf(swDir);
+    const rule: SelfWeightLoad = { caseId: caseId ?? modelStore.model.loadCases[0]?.id ?? 1, direction: (['X', 'Y', 'Z'] as const)[m.index], factor: m.sign * f, ...reach };
     const key = (r: SelfWeightLoad) => JSON.stringify([r.caseId, r.direction, r.groupId ?? null, r.elements ? [...r.elements].sort((a, b) => a - b) : null]);
     const now = modelStore.analysis?.selfWeight ?? [];
     const same = now.findIndex((r) => key(r) === key(rule));
@@ -208,7 +223,8 @@
     const first = [...uiStore.selectedNodes][0];
     const at = first !== undefined ? modelStore.nodes.get(first) : undefined;
     const F = opt(incF);
-    return F && at ? inclinedAt(at, F) : null;
+    const v = F && at ? inclinedAt(at, F) : null;
+    return v ? userVec(v[0], v[1], v[2]) : null;
   });
 </script>
 
@@ -217,7 +233,7 @@
   <div class="wl-head">
     <div class="fg-r"><span class="fg-l">{t('pro.writeLoadCase')}</span>
       <select class="fg-wide" bind:value={uiStore.activeLoadCaseId} data-testid="write-load-case">
-        {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        {#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
       </select></div>
     <div class="fg-r"><span class="fg-l">{t('writeLoad.kindShort')}</span>
       <select class="fg-wide" value={kind} onchange={(e) => pick(e.currentTarget.value as Kind)} aria-label={t('writeLoad.kind')} data-testid="wl-kind">
@@ -339,7 +355,7 @@
   {:else if kind === 'selfWeight'}
     <div class="fg-r"><span class="fg-l">{t('selfWeight.direction')}</span><select class="fg-in" bind:value={swDir} data-testid="wl-sw-dir"><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></div>
     <div class="fg-r"><span class="fg-l">{t('selfWeight.factor')}</span><input type="text" inputmode="decimal" bind:value={swFactor} class="fg-in" data-testid="wl-sw-factor" /></div>
-    <p class="wl-hint fg-full">{t('writeLoad.swHint')}</p>
+    <p class="wl-hint fg-full">{gravityFactorIn(t('writeLoad.swHint'))}</p>
   {:else if kind === 'surface' || kind === 'hydro' || kind === 'shellPoint'}
     {#key kind}<ProShellLoadForm {kind} bind:this={shellForm} bind:sketch={shellSketch} />{/key}
   {:else}

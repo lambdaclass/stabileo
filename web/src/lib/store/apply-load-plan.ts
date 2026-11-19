@@ -203,7 +203,7 @@ export function applyLoadPlan(p: LoadPlan, opts: ApplyLoadPlanOptions) {
     const caseIdByType = new Map<string, number[]>();
     for (const pc of p.cases) {
       const name = opts.nameOf(pc.nameKey, pc.nameParams);
-      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, snowBasis: pc.snowBasis });
+      const id = modelStore.ensureLoadCase(name, pc.type, { existingId: pc.existingId, alternatives: pc.alternatives, pattern: pc.pattern, category: pc.category, own: pc.own, reduced: pc.reduced, axisNamed: true, snowBasis: pc.snowBasis });
       if (pc.snowBasis === 'flatRoof') modelStore.updateLoadCaseFields(id, { solve: false });
       caseIds.push(id);
       const list = caseIdByType.get(pc.type) ?? [];

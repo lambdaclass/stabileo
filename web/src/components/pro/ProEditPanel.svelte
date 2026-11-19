@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { axisNamesIn } from '../../lib/axes/typed-frame';
   import Hint from './Hint.svelte';
   import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { untrack } from 'svelte';
@@ -273,8 +274,8 @@
     <h4 class="pk-heading">{t('edit.renumberTitle')}</h4>
     <div class="pk-row ep-row">
       <select bind:value={order} aria-label={t('edit.order')}>
-        <option value="zyx">{t('edit.order.zyx')}</option><option value="zxy">{t('edit.order.zxy')}</option>
-        <option value="xyz">{t('edit.order.xyz')}</option><option value="yxz">{t('edit.order.yxz')}</option>
+        <option value="zyx">{axisNamesIn(t('edit.order.zyx'))}</option><option value="zxy">{axisNamesIn(t('edit.order.zxy'))}</option>
+        <option value="xyz">{axisNamesIn(t('edit.order.xyz'))}</option><option value="yxz">{axisNamesIn(t('edit.order.yxz'))}</option>
       </select>
       <label class="pk-check"><input type="checkbox" bind:checked={renumberNodes} /> {t('edit.renumberNodes')}</label>
       <label class="pk-check"><input type="checkbox" bind:checked={renumberMembers} /> {t('edit.renumberMembers')}</label>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../../lib/axes/case-names';
   import { modelStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 </script>
@@ -12,7 +13,7 @@
         <tr>
           <td class="id-cell">{lc.id}</td>
           <td><input type="text" value={lc.type} placeholder="&mdash;" style="width:36px;text-align:center" onchange={(e) => { modelStore.updateLoadCaseType(lc.id, e.currentTarget.value); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }} /></td>
-          <td><input type="text" value={lc.name} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
+          <td><input type="text" value={caseNameShown(lc)} onchange={(e) => modelStore.updateLoadCase(lc.id, e.currentTarget.value)} /></td>
           <td><button class="del" onclick={() => { modelStore.removeLoadCase(lc.id); if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true; }}>&#10005;</button></td>
         </tr>
       {/each}
@@ -29,11 +30,11 @@
       {#each modelStore.combinations as combo}
         <tr>
           <td class="id-cell">{combo.id}</td>
-          <td><input type="text" value={combo.name} onchange={(e) => modelStore.updateCombination(combo.id, { name: e.currentTarget.value })} /></td>
+          <td><input type="text" value={combinationNameShown(combo)} onchange={(e) => modelStore.updateCombination(combo.id, { name: e.currentTarget.value })} /></td>
           <td class="load-values">
             {#each modelStore.loadCases as lc}
               {@const existing = combo.factors.find(f => f.caseId === lc.id)}
-              <span class="load-field">{lc.type || lc.name}<input type="number" step="0.1" value={existing?.factor ?? 0} onchange={(e) => {
+              <span class="load-field">{lc.type || caseNameShown(lc)}<input type="number" step="0.1" value={existing?.factor ?? 0} onchange={(e) => {
                 const val = parseFloat(e.currentTarget.value) || 0;
                 const newFactors = modelStore.loadCases.map(c => {
                   if (c.id === lc.id) return { caseId: c.id, factor: val };

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { twoD, userRot, userVec } from '../../lib/axes/display';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
@@ -141,14 +142,12 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
+            {@const u = userVec(d.ux, d.uy, d.uz)}
+            {@const r = userRot(d.rx, d.ry, d.rz)}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(d.ux)}</td>
-              <td class="num">{dsp(d.uy)}</td>
-              <td class="num">{dsp(d.uz)}</td>
-              <td class="num">{(d.rx * 1000).toFixed(4)}</td>
-              <td class="num">{(d.ry * 1000).toFixed(4)}</td>
-              <td class="num">{(d.rz * 1000).toFixed(4)}</td>
+              {#each u as c}<td class="num">{dsp(c)}</td>{/each}
+              {#each r as c}<td class="num">{(c * 1000).toFixed(4)}</td>{/each}
             </tr>
           {/each}
         </tbody>
@@ -161,14 +160,12 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
+            {@const f = userVec(r.fx, r.fy, r.fz)}
+            {@const m = userRot(-r.mx, -r.my, -r.mz)}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(r.fx)}</td>
-              <td class="num">{frc(r.fy)}</td>
-              <td class="num">{frc(r.fz)}</td>
-              <td class="num">{mom(-r.mx)}</td>
-              <td class="num">{mom(-r.my)}</td>
-              <td class="num">{mom(-r.mz)}</td>
+              {#each f as c}<td class="num">{frc(c)}</td>{/each}
+              {#each m as c}<td class="num">{mom(c)}</td>{/each}
             </tr>
           {/each}
         </tbody>
@@ -212,9 +209,9 @@
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(d.ux)}</td>
-              <td class="num">{dsp(get2DDisplayDisplacementVertical(d))}</td>
-              <td class="num">{(get2DDisplayRotation(d) * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(twoD.x(d.ux))}</td>
+              <td class="num">{dsp(twoD.z(get2DDisplayDisplacementVertical(d)))}</td>
+              <td class="num">{(twoD.rot(get2DDisplayRotation(d)) * 1000).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>
@@ -229,9 +226,9 @@
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(r.rx)}</td>
-              <td class="num">{frc(get2DDisplayReactionVertical(r))}</td>
-              <td class="num">{mom(-get2DDisplayMoment(r))}</td>
+              <td class="num">{frc(twoD.x(r.rx))}</td>
+              <td class="num">{frc(twoD.z(get2DDisplayReactionVertical(r)))}</td>
+              <td class="num">{mom(twoD.rot(-get2DDisplayMoment(r)))}</td>
             </tr>
           {/each}
         </tbody>

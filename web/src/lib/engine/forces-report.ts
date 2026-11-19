@@ -40,6 +40,7 @@
  * per-column precision is declared beside the column.
  */
 
+import { userRot, userVec } from '../axes/display';
 import type { AnalysisResults3D } from './types-3d';
 import {
   buildCriticalStations, extractForcesAtStation, type StationForces,
@@ -186,11 +187,7 @@ function reactionRows(blocks: ForcesBlock[], t: Translate): Cell[][] {
   ]];
   for (const b of blocks) {
     for (const r of b.results.reactions) {
-      rows.push([
-        b.label, r.nodeId,
-        round(r.fx, 3), round(r.fy, 3), round(r.fz, 3),
-        round(r.mx, 3), round(r.my, 3), round(r.mz, 3),
-      ]);
+      rows.push([b.label, r.nodeId, ...[...userVec(r.fx, r.fy, r.fz), ...userRot(r.mx, r.my, r.mz)].map((v) => round(v, 3))]);
     }
   }
   return rows;
@@ -206,11 +203,7 @@ function displacementRows(
   for (const b of blocks) {
     for (const d of b.results.displacements) {
       if (nodes && !nodes.has(d.nodeId)) continue;
-      rows.push([
-        b.label, d.nodeId,
-        round(d.ux, 6), round(d.uy, 6), round(d.uz, 6),
-        round(d.rx, 6), round(d.ry, 6), round(d.rz, 6),
-      ]);
+      rows.push([b.label, d.nodeId, ...[...userVec(d.ux, d.uy, d.uz), ...userRot(d.rx, d.ry, d.rz)].map((v) => round(v, 6))]);
     }
   }
   return rows;

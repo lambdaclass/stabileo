@@ -38,6 +38,8 @@
 // joint of the view balance, whichever way the member was drawn.
 
 import { computeLoadDirection } from './draw-loads';
+import { twoD } from '../axes/display';
+import { TWO_D_NODAL_LOAD_LABELS, TWO_D_REACTION_LABELS } from '../geometry/coordinate-system';
 import { transverseSign } from '../engine/transverse-sign-2d';
 import { pointResultants } from '../engine/member-loads';
 
@@ -167,7 +169,7 @@ interface ComputeArgs {
   fmt: (v: number, q?: 'force' | 'moment') => string;
 }
 
-interface ForceComp { label: string; value: number; dirx: number; diry: number; }
+interface ForceComp { label: string; key: string; value: number; dirx: number; diry: number; }
 
 /** End force components in the requested basis (world-space direction, sign baked in). */
 function forceComponents(
@@ -187,13 +189,13 @@ function forceComponents(
   if (basis === 'global') {
     const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
     return [
-      { label: 'Fx', value: fx, dirx: Math.sign(fx) || 1, diry: 0 },
-      { label: 'Fz', value: fz, dirx: 0, diry: Math.sign(fz) || 1 },
+      { label: TWO_D_NODAL_LOAD_LABELS.horizontal, key: 'Fx', value: twoD.x(fx), dirx: Math.sign(fx) || 1, diry: 0 },
+      { label: TWO_D_NODAL_LOAD_LABELS.vertical, key: 'Fz', value: twoD.z(fz), dirx: 0, diry: Math.sign(fz) || 1 },
     ];
   }
   return [
-    { label: 'N', value: n, dirx: -ax.ux * Math.sign(n) * towardJ, diry: -ax.uy * Math.sign(n) * towardJ },
-    { label: 'V', value: v, dirx: ax.px * ax.zs * Math.sign(v) * towardJ, diry: ax.py * ax.zs * Math.sign(v) * towardJ },
+    { label: 'N', key: 'N', value: n, dirx: -ax.ux * Math.sign(n) * towardJ, diry: -ax.uy * Math.sign(n) * towardJ },
+    { label: 'V', key: 'V', value: v, dirx: ax.px * ax.zs * Math.sign(v) * towardJ, diry: ax.py * ax.zs * Math.sign(v) * towardJ },
   ];
 }
 
@@ -237,14 +239,14 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
         ? (() => {
             const { fx, fy } = endActionVector(ax, towardJ, n, v);
             const mag = Math.hypot(fx, fy);
-            return mag > 1e-6 ? [{ label: 'F', value: mag, dirx: fx / mag, diry: fy / mag }] : [];
+            return mag > 1e-6 ? [{ label: 'F', key: 'F', value: mag, dirx: fx / mag, diry: fy / mag }] : [];
           })()
         : forceComponents(ax, towardJ, n, v, basis);
       for (const c of comps) {
         if (Math.abs(c.value) <= 1e-6) continue;
         const color = c.label === 'V' ? COL.shear : COL.axial;
-        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.label });
-        if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value, 'force')}` : '', color, elementId: el.id, end, nodeId, component: c.label });
+        if (wantMember) out.push({ side: 'member', glyph: 'force', origin: memberEnd, dirx: c.dirx, diry: c.diry, outx: mOutx, outy: mOuty, perpSign: 1, value: c.value, labelText: `${c.label} ${fmt(c.value, 'force')}`, color, elementId: el.id, end, nodeId, component: c.key });
+        if (wantNode) out.push({ side: 'node', glyph: 'force', origin: nodeAnchor, dirx: -c.dirx, diry: -c.diry, outx: nOutx, outy: nOuty, perpSign: -1, value: c.value, labelText: labelNode ? `${c.label} ${fmt(c.value, 'force')}` : '', color, elementId: el.id, end, nodeId, component: c.key });
       }
 
       if (Math.abs(m) > 1e-6) {
@@ -265,9 +267,9 @@ export function computeDespieceVectors(args: ComputeArgs): DespieceVector[] {
     for (const [nodeId, r] of reactions) {
       const node = getNode(nodeId);
       if (!node) continue;
-      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `Rx ${fmt(r.rx, 'force')}`, color: COL.reaction, nodeId, component: 'Rx' });
-      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `Rz ${fmt(r.rz, 'force')}`, color: COL.reaction, nodeId, component: 'Rz' });
-      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `My ${fmt(r.my, 'moment')}`, color: COL.reaction, nodeId, component: 'My' });
+      if (Math.abs(r.rx) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: Math.sign(r.rx), diry: 0, perpSign: 0, value: r.rx, labelText: `${TWO_D_REACTION_LABELS.horizontal} ${fmt(twoD.x(r.rx), 'force')}`, color: COL.reaction, nodeId, component: 'Rx' });
+      if (Math.abs(r.rz) > 1e-6) out.push({ side: 'reaction', glyph: 'force', origin: node, dirx: 0, diry: Math.sign(r.rz), perpSign: 0, value: r.rz, labelText: `${TWO_D_REACTION_LABELS.vertical} ${fmt(twoD.z(r.rz), 'force')}`, color: COL.reaction, nodeId, component: 'Rz' });
+      if (Math.abs(r.my) > 1e-6) out.push({ side: 'reaction', glyph: 'moment', origin: node, ccw: r.my > 0, value: r.my, labelText: `${TWO_D_REACTION_LABELS.moment} ${fmt(twoD.rot(r.my), 'moment')}`, color: COL.reaction, nodeId, component: 'My' });
     }
   }
   return out;
@@ -388,7 +390,7 @@ function endComponents(
     // Use the SAME decomposition as the drawn arrows (forceComponents,
     // endActionVector), so the inspected value always agrees with the arrow.
     const { fx, fy: fz } = endActionVector(ax, towardJ, n, v);
-    return [{ label: 'Fx', value: fx }, { label: 'Fz', value: fz }, { label: 'M', value: m }];
+    return [{ label: TWO_D_NODAL_LOAD_LABELS.horizontal, value: twoD.x(fx) }, { label: TWO_D_NODAL_LOAD_LABELS.vertical, value: twoD.z(fz) }, { label: 'M', value: m }];
   }
   return [{ label: 'N', value: n }, { label: 'V', value: v }, { label: 'M', value: m }];
 }

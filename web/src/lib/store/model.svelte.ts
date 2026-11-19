@@ -802,6 +802,8 @@ export interface LoadCase {
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
+  /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */
+  axisNamed?: boolean;
 }
 
 export interface LoadCombination {
@@ -815,6 +817,8 @@ export interface LoadCombination {
   method?: 'linear' | 'srss' | 'abs';
   /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
   origin?: import('../codes/families/origin').CombinationOrigin;
+  /** Renamed by the user: a generated combination's name is otherwise shown in the user's axes (`axes/case-names.ts`). */
+  nameTyped?: boolean;
 }
 
 /**
@@ -4197,10 +4201,10 @@ function createModelStore() {
     },
 
     // ─── Load Case / Combination CRUD ───
-    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof' } = {}): number {
+    addLoadCase(name: string, type: LoadCaseType = '', opts: { alternatives?: string; pattern?: boolean; category?: LoadCase['category']; generated?: boolean; snowBasis?: 'flatRoof'; axisNamed?: boolean } = {}): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.loadCase++;
-      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}) });
+      model.loadCases.push({ id, type, name, ...(opts.alternatives ? { alternatives: opts.alternatives } : {}), ...(opts.pattern ? { pattern: true } : {}), ...(opts.category ? { category: opts.category } : {}), ...(opts.generated ? { generated: true } : {}), ...(opts.snowBasis ? { snowBasis: opts.snowBasis } : {}), ...(opts.axisNamed && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(name) ? { axisNamed: true } : {}) });
       return id;
     },
 
@@ -4388,12 +4392,12 @@ function createModelStore() {
      * `reduced`: the loads come reduced already (the generator's live load), and a case reduced by
      * hand (`LoadCase.reduction`) is never the one they go into, whatever its name.
      */
-    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof' } = {}): number {
+    ensureLoadCase(name: string, type: LoadCaseType, opts: { existingId?: number | null; alternatives?: string; pattern?: boolean; own?: boolean; reduced?: boolean; category?: LoadCase['category']; snowBasis?: 'flatRoof'; axisNamed?: boolean } = {}): number {
       const found = findPlannedCase(model.loadCases, name, type, opts);
       if (!found) {
         let fresh = name;
         for (let k = 2; opts.own && model.loadCases.some((c) => c.type === type && c.name === fresh); k++) fresh = `${name} (${k})`;
-        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis });
+        return this.addLoadCase(fresh, type, { alternatives: opts.alternatives, pattern: opts.pattern, category: opts.category, snowBasis: opts.snowBasis, axisNamed: opts.axisNamed });
       }
       if (opts.category && found.category !== opts.category) {
         if (!_undoBatching) _pushUndo?.();
@@ -4418,7 +4422,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc) lc.name = name;
+      if (lc && lc.name !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4448,7 +4452,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined) combo.name = data.name;
+      if (data.name !== undefined && data.name !== combo.name) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a

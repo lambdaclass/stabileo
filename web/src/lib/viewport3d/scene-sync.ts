@@ -4,6 +4,7 @@
 // These functions reconcile the Three.js scene graph with the model store:
 //   - syncNodes(), syncElements(), syncSupports(), syncLoads(), syncSelection()
 
+import { userVecParts } from '../axes/user-names';
 import { meshHidden, meshOnlyNodes, syncShellMembers } from './shell-members';
 import { shellLoadExtent, shellLoadSamples } from '../engine/shell-load-integration';
 import { distributedGlobalEnds } from '../engine/member-loads';
@@ -1130,8 +1131,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (Math.hypot(u.x, u.y, u.z) > 0) batch.addPointer(p, u, 0.6 * uiStore.loadArrowScale, cc);
       // In the displacement and rotation units the results use, with the reader's decimals.
       const text = [
-        ...(['dx', 'dy', 'dz'] as const).filter((k) => d[k]).map((k) => `${k} ${withUnit(d[k]!, 'displacement')}`),
-        ...(['drx', 'dry', 'drz'] as const).filter((k) => d[k]).map((k) => `${k} ${withUnit(d[k]!, 'rotation')}`),
+        ...userVecParts('d', [d.dx ?? 0, d.dy ?? 0, d.dz ?? 0]).filter((c) => c.value).map((c) => `${c.name} ${withUnit(c.value, 'displacement')}`),
+        ...userVecParts('dr', [d.drx ?? 0, d.dry ?? 0, d.drz ?? 0], true).filter((c) => c.value).map((c) => `${c.name} ${withUnit(c.value, 'rotation')}`),
       ].join(' · ');
       batch.addTag({ x: p.x, y: p.y, z: p.z - 0.3 }, text, cc);
     }

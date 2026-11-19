@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { along, axisName } from '../../../lib/axes/display';
   import Hint from '../Hint.svelte';
   /**
    * Converting part of a template into members (`model/underlay-convert.ts`): the layers that hold
@@ -46,7 +47,7 @@
 <div class="cv-overlay" onclick={onclose} role="presentation">
   <div class="cv" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1" aria-label={t('convert.title')} data-testid="underlay-convert-dialog">
     <h3>{tp('convert.titleOf', { name: u.name })}</h3>
-    <p class="cv-hint">{tp('convert.where', { level: levels.find((l) => l.id === u.levelId)?.name ?? `z = ${u.z}`, below: below?.name ?? t('convert.noLevelBelow') })}</p>
+    <p class="cv-hint">{tp('convert.where', { level: levels.find((l) => l.id === u.levelId)?.name ?? `${axisName(2).toLowerCase()} = ${along(2).sign * u.z}`, below: below?.name ?? t('convert.noLevelBelow') })}</p>
     <div class="cv-cols">
       <fieldset><legend>{t('convert.memberLayers')}</legend>
         {#each layers as l (l)}<label><input type="checkbox" checked={memberLayers.includes(l)} onchange={() => (memberLayers = toggle(memberLayers, l))} data-testid="convert-member-{l}" /> {l}</label>{/each}

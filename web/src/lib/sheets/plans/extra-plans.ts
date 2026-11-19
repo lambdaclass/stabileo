@@ -9,6 +9,9 @@ import type { P, Primitive } from '../primitives';
 import { boxOf, drawAxes, rectAt, type PlanAxis } from './plan-common';
 import { drawTable } from './table';
 import type { Tr } from './details';
+import { along } from '../../axes/display';
+import { axesStore } from '../../axes/axes.svelte';
+import { planNamesIn } from '../../axes/typed-frame';
 
 type Fmt = (v: number, d: number) => string;
 const k = 1000;
@@ -46,9 +49,10 @@ export function setoutPlan(level: string, cols: readonly SetoutColumn[], axes: r
   const plan: DrawingInput = { key: `setout-${level}`, title: tr('plan.setout.title', { level }), primitives: out, width: all.x1 - all.x0, height: all.y1 - all.y0, origin: { x: all.x0, y: all.y0 }, scale: s };
   if (!withTable) return [plan];
   const ox = ref.kind === 'fixed' ? ref.x : (xs.length ? Math.min(...xs) : 0), oy = ref.kind === 'fixed' ? ref.y : (ys.length ? Math.min(...ys) : 0);
-  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(c.x - ox, 3), fmt(c.y - oy, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(c.rotDeg, 1)}°` : '0°']);
-  const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: 'X (m)', width: 22, align: 'right' }, { label: 'Y (m)', width: 22, align: 'right' }, { label: tr('plan.setout.section'), width: 20 }, { label: tr('plan.setout.rot'), width: 14, align: 'right' }], rows });
-  const refText = ref.kind === 'fixed' ? tr('plan.setout.refFixed', { x: fmt(ref.x, 3), y: fmt(ref.y, 3) }) : tr('plan.setout.refAxes');
+  const [ax, ay] = [along(0), along(1)];
+  const rows = [...cols].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((c) => [c.name, fmt(ax.sign * (c.x - ox) + 0, 3), fmt(ay.sign * (c.y - oy) + 0, 3), `${Math.round(c.b * 100)}×${Math.round(c.h * 100)}`, c.rotDeg ? `${fmt(c.rotDeg, 1)}°` : '0°']);
+  const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: `${ax.name} (m)`, width: 22, align: 'right' }, { label: `${ay.name} (m)`, width: 22, align: 'right' }, { label: tr('plan.setout.section'), width: 20 }, { label: tr('plan.setout.rot'), width: 14, align: 'right' }], rows });
+  const refText = ref.kind === 'fixed' ? planNamesIn(tr('plan.setout.refFixed', { x: fmt(ax.sign * ref.x + 0, 3), y: fmt(ay.sign * ref.y + 0, 3) })) : tr('plan.setout.refAxes');
   return [plan, tableInput(`setout-${level}-table`, `${tr('plan.setout.table', { level })} — ${refText}`, t)];
 }
 
@@ -61,8 +65,11 @@ export function foundationLoadsTable(rows: readonly FoundationLoad[], tr: Tr, fm
   if (!rows.length) return [];
   const per = 40, out: DrawingInput[] = [];
   for (let p = 0; p * per < rows.length; p++) {
-    const page = rows.slice(p * per, (p + 1) * per).map((r) => [r.name, r.case, fmt(r.n, 1), fmt(r.vx, 1), fmt(r.vy, 1), fmt(r.mx, 1), fmt(r.my, 1)]);
-    const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: tr('plan.fl.case'), width: 40 }, { label: 'N (kN)', width: 20, align: 'right' }, { label: 'Vx (kN)', width: 20, align: 'right' }, { label: 'Vy (kN)', width: 20, align: 'right' }, { label: 'Mx (kN·m)', width: 22, align: 'right' }, { label: 'My (kN·m)', width: 22, align: 'right' }], rows: page });
+    const [ax, ay] = [along(0), along(1)];
+    const rot = (a: { sign: number }) => axesStore.frame.det * a.sign;
+    const page = rows.slice(p * per, (p + 1) * per).map((r) => [r.name, r.case, fmt(r.n, 1), fmt(ax.sign * r.vx + 0, 1), fmt(ay.sign * r.vy + 0, 1), fmt(rot(ax) * r.mx + 0, 1), fmt(rot(ay) * r.my + 0, 1)]);
+    const lo = (a: { name: string }) => a.name.toLowerCase();
+    const t = drawTable({ columns: [{ label: tr('plan.setout.col'), width: 18 }, { label: tr('plan.fl.case'), width: 40 }, { label: 'N (kN)', width: 20, align: 'right' }, { label: `V${lo(ax)} (kN)`, width: 20, align: 'right' }, { label: `V${lo(ay)} (kN)`, width: 20, align: 'right' }, { label: `M${lo(ax)} (kN·m)`, width: 22, align: 'right' }, { label: `M${lo(ay)} (kN·m)`, width: 22, align: 'right' }], rows: page });
     out.push(tableInput(`fdn-loads-${p + 1}`, tr('plan.fl.title') + (rows.length > per ? ` (${p + 1})` : ''), t));
   }
   return out;
