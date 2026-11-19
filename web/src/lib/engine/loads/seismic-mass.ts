@@ -141,12 +141,6 @@ export function buildSeismicLevels(
   for (const g of geometry.values()) if (g.nodeI.z === g.nodeJ.z) level(g.nodeI.z);
   const levels = [...byElevation.values()].sort((a, b) => a.elevation - b.elevation);
   for (const n of nodes.values()) byElevation.get(n.z)?.nodeIds.push(n.id);
-  const segments: Array<[MassNode, MassNode]> = [...geometry.values()].map(g => [g.nodeI, g.nodeJ]);
-  for (const { corners } of surfaces) {
-    if (!corners) continue;
-    for (const [k, corner] of corners.entries()) segments.push([corner, corners[(k + 1) % corners.length]!]);
-  }
-  setStructuralPlanWidths(levels, segments);
   const nearest = (z: number) => levels.reduce<SeismicLevel | undefined>((best, l) =>
     !best || Math.abs(l.elevation - z) < Math.abs(best.elevation - z) ? l : best, undefined);
   const deny = (l: SeismicLevel, reason: MassRefusal, unresolvedWeight = true) => {
@@ -170,6 +164,21 @@ export function buildSeismicLevels(
       for (const l of levels) deny(l, reason);
     }
   };
+  const offsetMembers = new Set<number>();
+  const segments: Array<[MassNode, MassNode]> = [];
+  for (const g of geometry.values()) {
+    if (hasMemberOffset(model.elements.get(g.elementId)!)) {
+      offsetMembers.add(g.elementId);
+      markMember(g.elementId, 'member');
+      continue;
+    }
+    segments.push([g.nodeI, g.nodeJ]);
+  }
+  for (const { corners } of surfaces) {
+    if (!corners) continue;
+    for (const [k, corner] of corners.entries()) segments.push([corner, corners[(k + 1) % corners.length]!]);
+  }
+  setStructuralPlanWidths(levels, segments);
   type Source = 'selfWeightKN' | 'superimposedKN' | 'liveTotalKN' | 'snow';
   const record = (l: SeismicLevel, source: Source, m: SeismicMass | null, weight: number) => {
     if (!Number.isFinite(weight) || weight < 0) { deny(l, 'weight'); return; }
@@ -185,9 +194,8 @@ export function buildSeismicLevels(
   };
   const line = (source: Source, g: Omit<MassLine, 'wi' | 'wj'>, wi: number, wj: number, strip?: number) => {
     if (!Number.isFinite(wi) || !Number.isFinite(wj) || wi < 0 || wj < 0) { markMember(g.elementId, 'weight'); return; }
-    if (wi === 0 && wj === 0) return;
-    const element = model.elements.get(g.elementId)!;
-    if (element.type === 'truss' || hasMemberOffset(element as Parameters<typeof hasMemberOffset>[0])) {
+    if ((wi === 0 && wj === 0) || offsetMembers.has(g.elementId)) return;
+    if (model.elements.get(g.elementId)!.type === 'truss') {
       markMember(g.elementId, 'member');
       return;
     }
@@ -211,14 +219,15 @@ export function buildSeismicLevels(
 
   const selfWeight = createSectionWeight(model.materials);
   for (const e of model.elements.values()) {
+    if (offsetMembers.has(e.id)) continue;
     const g = geometry.get(e.id), section = model.sections.get(e.sectionId);
-    const features = e as { variableSection?: unknown; offset?: Parameters<typeof hasMemberOffset>[0]['offset'] };
+    const features = e as { variableSection?: unknown };
     if (!section || !(section.a > 0)) { markMember(e.id, 'member'); continue; }
     let w: number;
     try { w = selfWeight(section, e.materialId); }
     catch { markMember(e.id, 'weight'); continue; }
     if (w === 0) continue;
-    if (!g || features.variableSection || hasMemberOffset(features) || e.type === 'truss') {
+    if (!g || features.variableSection || e.type === 'truss') {
       markMember(e.id, 'member');
       continue;
     }

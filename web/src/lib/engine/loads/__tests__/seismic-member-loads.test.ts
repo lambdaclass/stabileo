@@ -5,6 +5,7 @@ import { evaluateDiagramAt } from '../../diagrams-3d';
 import { input2DToWireObject, input3DToWireObject, solve, solve3D, solvePDelta, solvePDelta3D } from '../../wasm-solver';
 import type { SolverInput } from '../../types';
 import type { SolverInput3D } from '../../types-3d';
+import { R_ELASTIC } from '../../../codes/cirsoc103/behaviour';
 import { PERIOD_COEFFICIENTS } from '../../../codes/cirsoc103/static-method';
 import { designSpectrum, isBlocked } from '../../../codes/cirsoc103/spectrum';
 import { modelStore } from '../../../store';
@@ -487,8 +488,6 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
   }
 });
 
-const round14Reproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
 function masslessRoof(floors: number[], roof?: number, cuts: number[] = [0, ...floors]) {
   const column = cuts.slice(1).map((z, i) => [[0, 0, cuts[i]!], [0, 0, z]]);
   if (roof !== undefined) column.push([[0, 0, floors.at(-1)!], [0, 0, roof]]);
@@ -502,7 +501,7 @@ function masslessRoof(floors: number[], roof?: number, cuts: number[] = [0, ...f
   return { model, members: [...model.elements.values()].slice(0, column.length) };
 }
 
-round14Reproducer('known wrong result: #2316 a zero-weight roof sets the approximate period and member loads', () => {
+it('#2316 a zero-weight roof sets the approximate period and member loads', () => {
   const code = { ...round2Code, periodSystem: 'steelMomentFrame', elastic: true } as const;
   const { cr, x } = PERIOD_COEFFICIENTS[code.periodSystem];
   const { ca, cv, t2 } = round2Spectrum;
@@ -511,7 +510,7 @@ round14Reproducer('known wrong result: #2316 a zero-weight roof sets the approxi
     const seismicInput = request(model, { code });
     const plan = buildLoadPlan(seismicInput);
     const h = roof ?? 4, t = cr * h ** x;
-    const c = t <= t2 ? 2.5 * ca : cv / t;
+    const c = (t <= t2 ? 2.5 * ca : cv / t) / R_ELASTIC;
     expect(plan.outcome).toBe('READY');
     expect(plan.seismicLevels!.map(l => [l.elevation, l.weightKN])).toEqual(roof ? [[0, 4], [4, 4], [roof, 0]] : [[0, 4], [4, 4]]);
     expect.soft(plan.seismic?.ta).toBeCloseTo(t, 10);
@@ -542,7 +541,7 @@ round14Reproducer('known wrong result: #2316 a zero-weight roof sets the approxi
   }
 });
 
-round14Reproducer('known wrong result: #2316 a zero-weight roof counts toward the static height and story limits', () => {
+it('#2316 a zero-weight roof counts toward the static height and story limits', () => {
   const code = { ...round2Code, group: 'Ao', computedT: round2Period } as const;
   for (const [floors, roof, blocked] of [
     [[3, 6], 12.5, false],
@@ -564,7 +563,7 @@ round14Reproducer('known wrong result: #2316 a zero-weight roof counts toward th
   }
 });
 
-round14Reproducer('known wrong result: #2316 a zero-weight roof can require the dynamic method', () => {
+it('#2316 a zero-weight roof can require the dynamic method', () => {
   const code = { ...round2Code, periodSystem: 'steelMomentFrame' } as const;
   const { cr, x } = PERIOD_COEFFICIENTS[code.periodSystem];
   const limit = 3 * round2Spectrum.t2;
@@ -584,7 +583,7 @@ round14Reproducer('known wrong result: #2316 a zero-weight roof can require the 
   }
 });
 
-round14Reproducer('known wrong result: #2316 a massless offset member in the seismic footprint refuses generation', () => {
+it('#2316 a massless offset member in the seismic footprint refuses generation', () => {
   for (const rotated of [false, true]) for (const cuts of [[0, 4], [0, 1, 3, 4]]) {
     for (const code of [undefined, round2Code]) {
       const { model, byColumn } = round2Columns(cuts, rotated, false, 5);

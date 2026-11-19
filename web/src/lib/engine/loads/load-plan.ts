@@ -60,6 +60,7 @@ type PlanShell = { id: number; nodes: number[]; thickness?: number; materialId?:
 export interface LoadModelData extends GravityModel {
   elements: Map<number, {
     id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss';
+    offset?: import('../../model/element-3d-metadata').MemberOffset;
   }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**

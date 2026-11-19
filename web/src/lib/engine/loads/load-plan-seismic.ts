@@ -46,8 +46,9 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
-    const storyLevels = levels.filter(level => level.elevation > base && level.weightKN > 0);
-    const stories = storyLevels.map(level => ({ h: level.elevation - base, w: level.weightKN }));
+    const structuralStories = levels.filter(level => level.elevation > base);
+    const massLevels = structuralStories.filter(level => level.weightKN > 0);
+    const stories = massLevels.map(level => ({ h: level.elevation - base, w: level.weightKN }));
     const W = stories.reduce((sum, story) => sum + story.w, 0);
     if (W <= 0) {
       unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
@@ -64,7 +65,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
           blockedKeys.push(spectrum.blocked);
           refs.push(...spectrum.refs);
         } else {
-          const H = stories.reduce((max, story) => Math.max(max, story.h), 0);
+          const H = structuralStories.reduce((max, story) => Math.max(max, story.elevation - base), 0);
           const period = designPeriod(
             { heightM: H, system: code.periodSystem, computedT: code.computedT },
             spectrum.as,
@@ -75,7 +76,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
           t2 = spectrum.t2;
 
           const applicability = staticMethodApplicable({
-            zone: code.zone, group: code.group, heightM: H, levels: stories.length,
+            zone: code.zone, group: code.group, heightM: H, levels: structuralStories.length,
             regularity: code.regularity, t: uncappedT, t2,
           });
           refs.push(...applicability.refs);
@@ -125,7 +126,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       }
       if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
       for (const c of staticSeismicCases({
-        levels: storyLevels, forces: staticForces, diagonal: input.seismic.diagonal,
+        levels: massLevels, forces: staticForces, diagonal: input.seismic.diagonal,
         directions: input.seismic.directions, torsion,
       }, refuse)) {
         const index = cases.length;
