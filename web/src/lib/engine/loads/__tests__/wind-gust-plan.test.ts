@@ -290,9 +290,7 @@ describe('where n₁, B and β come from (C 1.9, C 1.1.2)', () => {
   });
 });
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
-
-knownWrong('known wrong result: #2316 enabling seismic leaves wind levels, frequencies and member loads unchanged', async () => {
+it('#2316 enabling seismic leaves wind levels, frequencies and member loads unchanged', async () => {
   await initSolver();
   modelStore.clear();
   uiStore.analysisMode = 'pro';
@@ -356,4 +354,8 @@ knownWrong('known wrong result: #2316 enabling seismic leaves wind levels, frequ
   expect(windOnly.levels.map(l => l.selfWeightKN)).toEqual(
     [endShare, 3 * storyHeight + floorBeams, endShare + floorBeams].map(length => length * 0.25 * 25));
   expect(combined.levels).toStrictEqual(windOnly.levels);
+  expect(combined.levels).toStrictEqual(plan(approximate, model).levels);
+  const quarter = storyHeight / 2;
+  expect(combined.seismicLevels!.map(l => l.selfWeightKN)).toEqual(
+    [endShare - quarter, 4 * storyHeight + floorBeams, endShare - quarter + floorBeams].map(length => length * 0.25 * 25));
 });

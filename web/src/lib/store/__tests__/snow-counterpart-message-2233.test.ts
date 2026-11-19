@@ -50,9 +50,7 @@ for (const mode of ['2d', '3d', 'pro'] as const) for (const analysis of ['linear
   }
 }
 
-const knownWrong = process.env.RUN_KNOWN_WRONG === '2233' ? it : it.skip;
-
-knownWrong('known wrong result: #2233 Apply reports the snow refusal before the unverified seismic refusal', () => {
+it('#2233 Apply reports the snow refusal before the unverified seismic refusal', () => {
   modelStore.clear();
   uiStore.analysisMode = '2d';
   modelStore.setAnalysis({ perCombination: 'linear' });

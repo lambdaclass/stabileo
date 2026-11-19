@@ -33,7 +33,7 @@ import type { WindCaseSet, WindDirection } from './wind-cases';
 import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
-import { buildSeismicLevels } from './seismic-mass';
+import { buildSeismicLevels, type SeismicLevel } from './seismic-mass';
 import { modalSeismicRefusal } from './seismic-generation';
 import type { TorsionalIrregularity } from './seismic-cases';
 import { planAreaLoads, type RoofLoads } from './plan-area-loads';
@@ -430,6 +430,7 @@ export interface LoadPlan {
     baseShear?: ProvenancedValue<number>;
   };
   levels: LevelMass[];
+  seismicLevels?: SeismicLevel[];
   /** The weight class of the roof §4.8.1 used: the one given, or the one `roofWeightOf` found. */
   roofWeight?: RoofWeight;
   /** The 103 derivation, when the code path produced the coefficient. */
@@ -445,6 +446,8 @@ export interface LoadPlan {
   /** Reasons the plan is BLOCKED. */
   blockedKeys: EngineMessage[];
 }
+
+const DEFAULT_LIVE_PARTICIPATION = 0.25;
 
 const R101 = (c: string, l?: string) => clause('cirsoc-101', '2025', c, l);
 
@@ -915,7 +918,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     : codeF1 !== undefined
       ? fromCode(codeF1, [clause('inpres-cirsoc-103-i', '2018', 'Tabla 3.3',
           'factor de simultaneidad para sobrecargas')])
-      : assumed(0.25, msg('loadPlan.assumption.liveParticipation', { fraction: 0.25 }),
+      : assumed(DEFAULT_LIVE_PARTICIPATION, msg('loadPlan.assumption.liveParticipation', { fraction: DEFAULT_LIVE_PARTICIPATION }),
           [clause('inpres-cirsoc-103-i', '2018', '3.6', 'acciones gravitatorias para la acción sísmica')]);
   if (participation.origin === 'assumed' && input.seismic?.enabled) {
     assumptions.push(participation.assumption!);
@@ -943,9 +946,9 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     level.dead += shell.area / shell.cos * pressures.dead;
     level.live += shell.area * pressures.live;
   }
-  const levels: LevelMass[] = levelsRaw.map((lv, i) => {
+  const windLevels: LevelMass[] = levelsRaw.map((lv, i) => {
     const { area, dead: superimposed, live: liveTotal } = byArea[i]!;
-    const liveP = liveTotal * participation.value;
+    const liveP = liveTotal * DEFAULT_LIVE_PARTICIPATION;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
       selfWeightKN: sw.weights[i], superimposedKN: superimposed,
@@ -959,7 +962,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const nodal: PlannedNodal[] = area.nodal.map(({ arrangement, ...n }) =>
     ({ ...n, fx: 0, fy: 0, ...(arrangement !== undefined ? { caseIndex: arrangementCase[arrangement]! } : {}) }));
   const sink: PlanSink = { cases, nodal, distributed, derivation, refs, assumptions, unsupportedKeys, blockedKeys };
-  const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, levels, sink) : { windQh: undefined, windGust: undefined };
+  const { windQh, windGust } = codes.wind && input.wind?.enabled ? codes.wind.plan(input, windLevels, sink) : { windQh: undefined, windGust: undefined };
 
   // ── Snow (load-plan-snow.ts) ──
   const snowPlanned = codes.snow ? codes.snow.plan(input, sink, panelMode ? layout : undefined) : false;
@@ -1021,7 +1024,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    */
   if (blockedKeys.length > 0) return empty;
 
-  for (const lv of seismicLevels ?? levels) {
+  for (const lv of seismicLevels ?? windLevels) {
     derivation.push(msg('loadPlan.derivation.level', {
       elevation: round(lv.elevation, 2), area: round(lv.planAreaM2, 1),
       selfWeight: round(lv.selfWeightKN, 1), superimposed: round(lv.superimposedKN, 1),
@@ -1122,7 +1125,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       ...(partitionAsked > 0 ? { partitionLive: fromProject(partitionQ, 'kN/m²') } : {}),
       windQh, ...(windGust ? { windGust } : {}), seismicWeight, baseShear,
     },
-    levels: seismicLevels ?? levels,
+    levels: windLevels,
+    ...(seismicLevels ? { seismicLevels } : {}),
     ...(roofWeight ? { roofWeight } : {}),
     seismic: seismicDetail,
     ...(cases.some(c => c.type === 'E') ? { seismicGeneration: 'static' as const } : {}),

@@ -9,8 +9,9 @@ import type { LoadPlan } from '../engine/loads/load-plan';
 import { fundamentalFrequencies } from '../engine/loads/wind-dynamics';
 
 const DEAD = -1, LIVE = -2;
+type WindModalLoads = Pick<LoadPlan, 'distributed' | 'surface'>;
 
-export function planModalResult(plan: LoadPlan, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
+export function planModalResult(plan: WindModalLoads, liveParticipation: number): { result: unknown; reached: boolean } | { error: string } {
   if (modelHasMemberOffsets(modelStore.elements.values()) || modelHasShellOffsets(modelStore.plates, modelStore.quads)) {
     return { error: t('advanced.offsetsUnsupported') };
   }
@@ -51,7 +52,7 @@ export function planModalResult(plan: LoadPlan, liveParticipation: number): { re
  * the lowest mode with a tenth of the mass along it (`wind-dynamics.ts`). The live load at the seismic
  * participation is in the mass: more mass lowers n₁ and raises G_f, the safe side.
  */
-export function windFrequenciesForPlan(plan: LoadPlan, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {
+export function windFrequenciesForPlan(plan: WindModalLoads, liveParticipation: number): ReturnType<typeof fundamentalFrequencies> | { error: string } {
   const r = planModalResult(plan, liveParticipation);
   if ('error' in r) return r;
   const modes = ((r.result as { modes?: Array<{ frequency: number; massRatioX?: number; massRatioY?: number }> }).modes ?? []);

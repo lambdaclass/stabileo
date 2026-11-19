@@ -11,7 +11,6 @@ import { modelStore } from '../../../store';
 import { INPRES103_SEISMIC } from '../../../codes/families/cirsoc';
 import { bindRole } from '../../../codes/roles';
 import { buildLoadPlan, type LoadModelData, type LoadPlanInput, type PlannedDistributed, type SeismicPlanSink } from '../load-plan';
-import type { SeismicLevel } from '../seismic-mass';
 import { MODAL_SEISMIC_UNAVAILABLE } from '../seismic-generation';
 import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
@@ -306,7 +305,7 @@ function verifyColumnStoryPartition(cuts: number[], rotated: boolean, floorRole:
   const plan = buildLoadPlan(request(model, { directions }));
   const hasFloor = floorRole !== 'none';
   expect(plan.outcome).toBe('READY');
-  expect.soft(plan.levels.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
+  expect.soft(plan.seismicLevels!.map(l => [l.elevation, l.weightKN])).toEqual(hasFloor ? [[0, 2], [2, 4], [4, 2]] : [[0, 4], [4, 4]]);
   expect.soft(plan.factors.seismicWeight!.value).toBe(hasFloor ? 6 : 4);
   expect(plan.cases.filter(c => c.type === 'E')).toHaveLength(1);
   expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
@@ -549,7 +548,7 @@ for (const selection of ['legacy modes', 'empty modes', 'explicit modal', 'diago
 
 it('#2319 the seismic code adapter refuses modal requests directly', () => {
   const { model, ...seismic } = diagonalModalFixture();
-  const levels = buildLoadPlan(request(model)).levels as SeismicLevel[];
+  const levels = buildLoadPlan(request(model)).seismicLevels!;
   const sink = seismicSink();
   INPRES103_SEISMIC.plan(request(model, seismic), levels, sink);
   expect(sink.blockedKeys).toEqual([{ key: MODAL_SEISMIC_UNAVAILABLE }]);
@@ -639,7 +638,7 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, 
   }
 
   const sink = seismicSink();
-  const direct = INPRES103_SEISMIC.plan(codeInput, codePlan.levels as SeismicLevel[], sink);
+  const direct = INPRES103_SEISMIC.plan(codeInput, codePlan.seismicLevels!, sink);
   expect(sink.blockedKeys).toEqual([]);
   expect(direct.seismicWeight).toEqual(codePlan.factors.seismicWeight);
   expect(direct.baseShear).toEqual(codePlan.factors.baseShear);
@@ -685,7 +684,7 @@ for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
     expect(plan.combinations).toEqual([]);
 
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(options, plan.levels as SeismicLevel[], sink);
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
     expect(sink).toMatchObject({ blockedKeys: [{ key: 'loadPlan.blocked.seismicBase' }], cases: [], nodal: [], distributed: [], surface: [] });
     expect(direct.seismicWeight).toBeUndefined();
     expect(direct.baseShear).toBeUndefined();
@@ -720,7 +719,7 @@ function verifyShellGeometryRefusal(model: LoadModelData, elevations: number[]) 
     expect(plan.combinations).toEqual([]);
 
     const sink = seismicSink();
-    const direct = INPRES103_SEISMIC.plan(options, plan.levels as SeismicLevel[], sink);
+    const direct = INPRES103_SEISMIC.plan(options, plan.seismicLevels!, sink);
     expect(sink).toMatchObject({ levelRefusals: diagnostics, cases: [], nodal: [], distributed: [], surface: [] });
     expect(direct.seismicWeight).toBeUndefined();
     expect(direct.baseShear).toBeUndefined();

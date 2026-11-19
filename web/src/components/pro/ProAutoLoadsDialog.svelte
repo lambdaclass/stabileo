@@ -379,7 +379,7 @@
   const seismicPreview = $derived(plan?.factors.baseShear ? {
     W: plan.factors.seismicWeight?.value ?? 0,
     V0: plan.factors.baseShear.value,
-    levels: plan.levels.filter(l => l.elevation > 0),
+    levels: plan.seismicLevels?.filter(l => l.elevation > 0) ?? [],
   } : null);
 
   function windStructurePlan(): NonNullable<LoadPlanInput['wind']>['structure'] {
