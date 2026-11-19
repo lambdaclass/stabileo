@@ -81,6 +81,7 @@ describe('EN 1991-1-1, category H', () => {
   it('the plan writes 0.4 × 3 = 1.2 kN/m on each top beam, with no CIRSOC heavy or light roof', () => {
     const p = plan('eurocode', { use: 'maintenance', dead: 1, slopeDeg: 0 });
     expect(p.blockedKeys).toEqual([]);
+    expect(lrOnBeams(p).length).toBe(4);
     for (const q of lrOnBeams(p)) expect(q).toBeCloseTo(1.2, 9);
     expect(cites(p, 'EN 1991-1-1', 'Table 6.10')).toBe(true);
     expect(cites(p, 'cirsoc-101', '4.8')).toBe(false);
@@ -112,6 +113,7 @@ describe('TS 498', () => {
 describe('CIRSOC 101 keeps §4.8.1', () => {
   it('a heavy flat roof over 9 m² is 0.96 kN/m², cited to §4.8.1', () => {
     const p = plan('cirsoc', { use: 'maintenance', dead: 1, slopeDeg: 0 });
+    expect(lrOnBeams(p).length).toBe(4);
     for (const q of lrOnBeams(p)) expect(q).toBeCloseTo(0.96 * 3, 9);
     expect(cites(p, 'cirsoc-101', '4.8.1')).toBe(true);
   });
