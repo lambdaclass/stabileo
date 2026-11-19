@@ -155,7 +155,7 @@ describe('the explained document', () => {
     expect(area && area.kind === 'calc' && area.result).toContain('A^+ = 8');
   });
 
-  it.skip('known wrong result: #2360 — an upward release gives a positive left reaction ordinate under a downward unit load', () => {
+  it('known wrong result: #2360 — an upward release gives a positive left reaction ordinate under a downward unit load', () => {
     const model = simpleBeam(8) as never;
     const target = { kind: 'node', nodeId: 1 } as const;
     const doc = docFor(model, 'Rz', target);

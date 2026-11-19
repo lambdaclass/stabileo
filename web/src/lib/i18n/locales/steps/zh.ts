@@ -62,7 +62,7 @@ const stepsZh: Translations = {
   "steps.fem.moments": "固端弯矩",
   "steps.fem.shears": "固端反力（剪力）",
   "steps.fem.superpose": "叠加：问题是线性的，因此各作用的效应可以叠加。",
-  "steps.fem.check": "按局部 +y 方向取符号，固端横向反力与跨内横向荷载满足 ΣRᵧ + ΣFᵧ = 0。上式中的 R 沿局部 −y 计量，因此 R = −ΣFᵧ。",
+  "steps.fem.check": "按局部 +y 方向取符号，固端横向反力与跨内横向荷载满足 ΣRᵧ + ΣFᵧ = 0。R 是沿局部 −y 取正的荷载合力，因此 R = Vᵢⱼ + Vⱼᵢ，其中两端反力 V 均沿局部 +y 取正。向下荷载对应向上反力。",
   "steps.fem.none": "该跨不承受荷载：其固端弯矩为零。",
   "steps.req.noMembers": "模型中没有杆件。",
   "steps.req.is2D": "此方法适用于 2D 模式。",

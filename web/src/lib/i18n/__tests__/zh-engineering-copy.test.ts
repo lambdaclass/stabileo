@@ -44,7 +44,7 @@ const reviewCases: [string, string | undefined, RegExp][] = [
   ['frame stiffness is expressed as a ratio to the shell', bars.blocks.map(b => b.k === 'p' ? b.t : '').join('\n'), /刚度约为壳模型的 2\.23 倍/],
 ];
 
-it.skip.each(reviewCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
+it.each(reviewCases)('known wrong result: #2360 — %s', (_name, copy, expected) => {
   expect(copy).toMatch(expected);
 });
 
