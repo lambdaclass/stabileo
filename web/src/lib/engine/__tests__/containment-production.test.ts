@@ -104,10 +104,11 @@ describe('production containment', () => {
     expect(resultsStore.knownIssues3D.refused).toBe(false);
   });
 
-  it('Basic plastic refuses before displaying or tagging a legacy result', async () => {
+  it('Basic plastic refuses before displaying or tagging a result the exact certificate does not confirm', async () => {
     modelStore.clear();
     uiStore.analysisMode = '2d';
     await modelStore.loadExample('cantilever-point');
+    modelStore.addConstraint({ type: 'equalDOF', masterNode: 1, slaveNode: 2, dofs: [0] });
     resultsStore.clear();
     const certify = vi.spyOn(wasm, 'callCertify');
     expect(() => runPlasticCollapse()).toThrow(/#758/);

@@ -272,8 +272,8 @@ export function syncElements(ctx: SceneSyncContext): void {
        * these colours; `syncColorMap3D` sets them and turning the map off
        * restores the type default on the next sync.
        */
-      const mapDt = resultsStore.diagramType;
-      const mapOwnsColors = resultsStore.results3D != null
+      const mapDt = resultsStore.screen.diagram;
+      const mapOwnsColors = resultsStore.screen.results3D != null
         && (mapDt === 'axialColor' || mapDt === 'colorMap' || mapDt === 'verification');
       if (!mapOwnsColors) {
         const baseColor = memberBaseColour(elem, renderMode === 'wireframe', groupOf);
@@ -687,10 +687,10 @@ function syncShellsNow(ctx: SceneSyncContext): void {
 /** True when a shell result contour owns the shell face colours (so selection
  *  highlight must not repaint faces). */
 function shellContourActive(): boolean {
-  if (resultsStore.diagramType !== 'colorMap') return false;
+  if (resultsStore.screen.diagram !== 'colorMap') return false;
   const k = resultsStore.colorMapKind;
   if (k !== 'shellVonMises' && k !== 'shellBending') return false;
-  const r = resultsStore.results3D;
+  const r = resultsStore.screen.results3D;
   return !!(r && ((r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0));
 }
 
@@ -751,7 +751,7 @@ export function loadsSignature(project2D: boolean): string {
     uiStore.showLoads3D ? 1 : 0,
     uiStore.hideLoadsWithDiagram ? 1 : 0,
     String(uiStore.momentStyle3D),
-    resultsStore.diagramType,
+    resultsStore.screen.diagram,
     (uiStore.visibleLoadCases3D ?? []).join(','),
     project2D ? 1 : 0,
     viewVisibility.version,
@@ -1251,8 +1251,8 @@ export function syncSelection(ctx: SceneSyncContext): void {
   applyShellSelection(ctx);
 
   // Re-apply color map if active (syncSelection overwrites element colors)
-  const dt = resultsStore.diagramType;
-  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
+  const dt = resultsStore.screen.diagram;
+  if (resultsStore.screen.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
     // Import dynamically avoided — call syncColorMap3D from Viewport3D after syncSelection
     // The caller is responsible for re-applying color map.
     // We just set a flag so the caller knows.

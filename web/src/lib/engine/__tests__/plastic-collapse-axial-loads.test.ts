@@ -9,7 +9,7 @@
  *   collapse.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticCollapse2D, loadsOffRemoved } from '../plastic-collapse';
+import { plasticHistory2D, loadsOffRemoved } from '../plastic-collapse';
 import { buildKinematics, workRow } from '../plastic/kinematics';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -31,7 +31,7 @@ describe('plastic collapse under loads along members', () => {
     const m = model(4, [1], 'truss', [[1, 'fixed'], [2, 'fixed']], [
       { type: 'axialDistributed', data: { elementId: 1, qI: 10, qJ: -10, a: 1.8, b: 2.2 } },
     ]);
-    const r = plasticCollapse2D(m, { mp: () => Infinity, np: () => 1 });
+    const r = plasticHistory2D(m, { mp: () => Infinity, np: () => 1 });
     expect(r.collapseFactor).toBeCloseTo(15 / 14, 6);
     expect(r.hinges[0].kind).toBe('axial');
     expect(r.hinges[0].x).toBeCloseTo(2, 6);
@@ -48,7 +48,7 @@ describe('plastic collapse under loads along members', () => {
       const m = model(6, [1, 2], type, [[1, 'pinned'], [2, 'rollerX']], [
         { type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: 20 } },
       ]);
-      const r = plasticCollapse2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
+      const r = plasticHistory2D(m, { mp: () => Infinity, np: (id) => (id === 1 ? 10 : 100) });
       expect(r.hinges.map((h) => [h.elementId, h.kind])).toEqual([[1, 'axial'], [2, 'axial']]);
       expect(r.hinges[0].loadFactor).toBeCloseTo(2 / 3, 6);
       expect(r.collapseFactor).toBeCloseTo(31 / 3, 6);
@@ -71,7 +71,7 @@ describe('the unloading check counts the loads a yielded bar left on its nodes',
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
       loads: [{ type: 'pointOnElement', data: { elementId: 2, a: 2 * Math.SQRT2, p: P } }],
     } as unknown as SolverInput;
-    const r = plasticCollapse2D(m, { mp: () => MP, np: (id: number) => (id === 2 ? NP : Infinity) });
+    const r = plasticHistory2D(m, { mp: () => MP, np: (id: number) => (id === 2 ? NP : Infinity) });
     expect(r.unresolved).toBeFalsy();
     expect(r.hinges.map((h) => h.kind).sort()).toEqual(['axial', 'bending']);
     const fx = (lambda: number) => lambda * (P / 2) * Math.SQRT1_2;
@@ -85,7 +85,7 @@ describe('a frame member that yields axially while it carries a transverse span 
       { type: 'nodal', data: { nodeId: 2, fx: 10, fz: 0, my: 0 } },
       { type: 'distributed', data: { elementId: 1, qI: -1, qJ: -1 } },
     ] as SolverLoad[]);
-    const r = plasticCollapse2D(m, { mp: () => 1e6, np: () => 30 });
+    const r = plasticHistory2D(m, { mp: () => 1e6, np: () => 30 });
     expect(r.isMechanism).toBe(true);
     expect(r.collapseFactor).toBeCloseTo(3, 10);
     expect(r.steps).toHaveLength(1);
@@ -110,7 +110,7 @@ describe('the drawn mechanism after a bar yields under its own transverse load',
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
       loads: [{ type: 'pointOnElement', data: { elementId: 2, a: 2 * Math.SQRT2, p: P } }],
     } as unknown as SolverInput;
-    const r = plasticCollapse2D(m, { mp: () => 20, np: (id: number) => (id === 2 ? 5 : Infinity) });
+    const r = plasticHistory2D(m, { mp: () => 20, np: (id: number) => (id === 2 ? 5 : Infinity) });
     const view = collapseMechanism(m, r);
     expect(view).not.toBeNull();
     const work = dot(view!.km.work, view!.d);

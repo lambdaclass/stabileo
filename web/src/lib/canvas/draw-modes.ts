@@ -1,6 +1,7 @@
 // Drawing mode shapes (modal analysis) and buckling modes on the canvas
 
 import type { PlasticResult } from '../engine/result-types';
+import { hingePlaceAt } from '../engine/plastic/hinge-place';
 import { computeDeformedShape } from '../engine/diagrams';
 
 /** What the mode drawing reads of a member: its ends, and whether they carry moment. */
@@ -182,7 +183,7 @@ export function drawPlasticHinges(
     const ni = nodes.get(elem.nodeI);
     const nj = nodes.get(elem.nodeJ);
     if (!ni || !nj) continue;
-    const pos = h.position ?? (h.end === 'start' ? 0 : 1);
+    const pos = hingePlaceAt(h, stepIndex).position;
     const s = worldToScreen(ni.x + (nj.x - ni.x) * pos, ni.y + (nj.y - ni.y) * pos);
     const current = h.step === stepIndex;
     const axial = (h as { kind?: string }).kind === 'axial';

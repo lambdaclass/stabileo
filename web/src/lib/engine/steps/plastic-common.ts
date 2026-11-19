@@ -17,6 +17,7 @@ import { limitModel, asMechanism, type LimitModel, type Mechanism, type Elementa
 import { workRow, dot } from '../plastic/kinematics';
 import { checkPoints, momentAt } from '../plastic/sections';
 import { plasticCollapse2D } from '../plastic-collapse';
+import { plasticLimit2D } from '../wasm-solver';
 
 export const MAX_SECTIONS = 20;
 export const MAX_MECHANISMS = 10;
@@ -42,7 +43,18 @@ export function plasticApplies(ctx: MethodContext): Applicability {
   const lm = limitModel(input, mp);
   if (lm.N > MAX_SECTIONS) return no('course.plastic.req.size', { n: lm.N, max: MAX_SECTIONS });
   if (lm.m > MAX_MECHANISMS) return no('course.plastic.req.mechanisms', { n: lm.m, max: MAX_MECHANISMS });
-  return { ok: false, reason: tx('knownIssue.PL-2D-INVARIANCE'), issue: 758 };
+  if (!certifiedCollapse(input, mp)) return { ok: false, reason: tx('knownIssue.PL-2D-INVARIANCE'), issue: 758 };
+  return { ok: true };
+}
+
+/** Whether the engine releases the collapse factor these methods are compared against (#758). */
+function certifiedCollapse(input: MethodContext['input'], mp: (member: number) => number): boolean {
+  const frames = [...input.elements.values()].filter((e) => e.type === 'frame');
+  try {
+    return plasticLimit2D(input, new Map(frames.map((e) => [e.id, mp(e.id)])), new Map()).confirmation.kind === 'exact';
+  } catch {
+    return false;
+  }
 }
 
 export interface PlasticCase {

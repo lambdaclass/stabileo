@@ -1,5 +1,8 @@
 defmodule StabileoUtils.Plugs.RateLimit do
-  @moduledoc "Mount after `StabileoRepo.Plugs.RequestMetadata`: it limits by `conn.assigns.client_ip`."
+  @moduledoc """
+  Limits by `conn.assigns.client_ip` (mount after `StabileoRepo.Plugs.RequestMetadata`), or with
+  `key: :account` by `conn.assigns.current_account.id` (mount after the authentication plug).
+  """
 
   import Plug.Conn
 
@@ -9,12 +12,13 @@ defmodule StabileoUtils.Plugs.RateLimit do
     %{
       bucket: Keyword.fetch!(opts, :bucket),
       limit: Keyword.fetch!(opts, :limit),
-      period_ms: Keyword.fetch!(opts, :period_ms)
+      period_ms: Keyword.fetch!(opts, :period_ms),
+      key: Keyword.get(opts, :key, :ip)
     }
   end
 
-  def call(conn, %{bucket: bucket, limit: limit, period_ms: period_ms}) do
-    case RateLimit.hit(bucket, conn.assigns[:client_ip], limit, period_ms) do
+  def call(conn, %{bucket: bucket, limit: limit, period_ms: period_ms, key: key}) do
+    case RateLimit.hit(bucket, key(conn, key), limit, period_ms) do
       :ok ->
         conn
 
@@ -29,4 +33,7 @@ defmodule StabileoUtils.Plugs.RateLimit do
         |> halt()
     end
   end
+
+  defp key(conn, :ip), do: conn.assigns[:client_ip]
+  defp key(conn, :account), do: conn.assigns.current_account.id
 end
