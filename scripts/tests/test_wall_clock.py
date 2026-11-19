@@ -22,6 +22,28 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
                       dry_run('e2e.web.slow'))
 
+    @unittest.skip("known wrong result: #2314")
+    def test_timing_only_specs_are_absent_from_both_shared_shard_plans(self):
+        for suite in ('smoke', 'slow'):
+            result = subprocess.run(
+                ['node', 'scripts/e2e-shard.mjs', '--suite', suite, '1', '1'],
+                cwd=ROOT / 'web', check=True, capture_output=True, text=True,
+            )
+            files = {pathlib.PurePath(file).name for file in result.stdout.splitlines()}
+            for spec in ('model-fluidity', 'rebar-workspace-open'):
+                self.assertNotIn(f'{spec}.spec.ts', files)
+                self.assertNotIn(f'{spec}.timing.spec.ts', files)
+            self.assertIn('project-restore.spec.ts', files)
+
+    @unittest.skip("known wrong result: #2314")
+    def test_timing_job_uses_the_dedicated_pool_for_trusted_runs(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        job = workflow.split('\n  timing-budgets:\n', 1)[1].split('\n\n  ', 1)[0]
+        self.assertIn('["self-hosted","stabileo-timing"]', job)
+        self.assertIn("vars.STABILEO_TIMING_POOL == 'true'", job)
+        self.assertIn("github.event_name == 'merge_group'", job)
+        self.assertIn("|| 'ubuntu-24.04' }}", job)
+
     def test_only_the_wall_clock_asserts_of_the_e2e_specs_are_gated(self):
         gated = {'rebar-workspace-open.spec.ts': 3, 'model-fluidity.spec.ts': 1}
         for name, count in gated.items():
