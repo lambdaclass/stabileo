@@ -4,7 +4,7 @@ import { woodArmer } from '../engine/wood-armer';
 import { effectiveFlange, type FlangeSide } from '../codes/cirsoc201/effective-flange';
 import { wallBaseResultants } from './wall-design';
 import type { AnalysisResults3D, ElementForces3D } from '../engine/types-3d';
-import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv } from './beam-row';
+import type { BeamComboForces, BeamDemand, BeamEnd, SectionEnv, SupportPost } from './beam-row';
 import type { ColumnCase, ColumnDemand, ColumnSway } from './column-row';
 import type { StoreyStability } from '../engine/design/sway';
 import type { SlabComboForces, SlabDemand, SlabFace } from './slab-row';
@@ -226,9 +226,18 @@ function endOf(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>
   return { kind: 'free', half: 0 };
 }
 
+function postAt(m: DemandInput, inc: Map<number, El[]>, mine: ReadonlySet<number>, node: number, named: ReadonlyMap<number, string>): SupportPost | undefined {
+  const posts = (inc.get(node) ?? []).filter((o) => !mine.has(o.id) && isVertical(m, o));
+  const zn = zOf(m.nodes.get(node));
+  const post = posts.find((o) => zOf(m.nodes.get(o.nodeI === node ? o.nodeJ : o.nodeI)) < zn - 1e-6) ?? posts[0];
+  const sec = post ? m.sections.get(post.sectionId) : undefined;
+  return post && sec?.b && sec?.h ? { name: named.get(post.id) ?? '', b: sec.b, h: sec.h } : undefined;
+}
+
 export function beamDemands(m: DemandInput): BeamDemand[] {
   const inc = incidence(m);
   const walls = wallNodes(m);
+  const named = new Map(m.groups.filter((g) => g.kind !== 'beam').flatMap((g) => g.elements.map((id) => [id, g.name] as const)));
   const out: BeamDemand[] = [];
   for (const g of m.groups) {
     if (g.kind !== 'beam') continue;
@@ -307,6 +316,7 @@ export function beamDemands(m: DemandInput): BeamDemand[] {
         ...(m.faceOffset ? { supportHalf: { start: m.faceOffset(first.id, span[0]!.forward ? 'i' : 'j'), end: m.faceOffset(lastEl.e.id, lastEl.forward ? 'j' : 'i') } } : {}),
         line: { group: g.id, index: k, spans: spans.length, startNode: span[0]!.forward ? first.nodeI : first.nodeJ, endNode: lastEl.forward ? lastEl.e.nodeJ : lastEl.e.nodeI, lineName: g.name },
         ends: { start: endS, end: endE },
+        ...((ps, pe) => (ps || pe ? { posts: { ...(ps ? { start: ps } : {}), ...(pe ? { end: pe } : {}) } } : {}))(postAt(m, inc, mine, startNode, named), postAt(m, inc, mine, endNode, named)),
         ...(m.slabSides ? { perimeter: span.some(({ e }) => m.slabSides!(e.id) < 2) } : {}),
         env,
         ...((fl) => (fl ? { flange: fl } : {}))(m.flangeSides && !turned ? flangeOf(m, span, sec.b, x1 - x0) : null),

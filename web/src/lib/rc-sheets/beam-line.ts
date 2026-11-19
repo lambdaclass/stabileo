@@ -6,8 +6,9 @@ import { evaluateBeamSections } from '../engine/codes/argentina/cirsoc201-beam-k
 import { minFlexuralSteelCm2, shearFy } from '../engine/codes/argentina/cirsoc201-basis';
 import { barArea, faceBars, faceLayout, groupsArea, groupsLabel, moreStirrup, roundDown, stirrupsLabel } from './bars';
 import { hangerArea } from '../engine/design/beam-hangers';
+import { requiredAreas, withMinimum, type SteelStation } from './line-steel';
 import { beamSeismic, faceRule } from './seismic';
-import { beamContext, beamRow, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow } from './beam-row';
+import { beamContext, beamRow, phiMnOf, sectionQuery, type BeamContext, type BeamDemand, type BeamEnd, type BeamRow, type SupportPost } from './beam-row';
 import type { Fmt } from './format';
 import { CRITERION, critOf } from './criteria';
 import { developedLength, hookedStraight, shapeWeight, type BarShape } from './shape';
@@ -174,6 +175,7 @@ export interface LineLayout {
   spans: Array<{ name: string; x0: number; x1: number; b: number; h: number }>;
   /** Each support's extent along the line, m (0 where unknown). */
   supportWidths: number[];
+  posts?: Array<SupportPost | null>;
   /** Clear cover to the stirrups, m. */
   cover: number;
   proposed: LineAdopted; adopted: LineAdopted; isAdopted: boolean; iterations: number;
@@ -190,6 +192,7 @@ export interface LineLayout {
   cutoffs: Array<{ mark: string; face: 'top' | 'bottom'; x: number; legality: CutoffLegality }>;
   anchorage: Array<{ dia: number; ld: number; ldTop: number; ldh: number; lap: number }>;
   envelope: Array<{ x: number; pos: number; neg: number; phiPos: number; phiNeg: number }>;
+  steel?: SteelStation[];
   /** Shear along the line over all combinations, and the design capacity of the stirrups there, kN. */
   shear: Array<{ x: number; v: number; vPos: number; vNeg: number; phiVn: number; /** Within the stretch the shear is verified over. */ checked?: boolean }>;
   /** Where the bars that reach each end of the line stop, m along it (negative before the first axis), and what holds that end. */
@@ -667,18 +670,40 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     return groups;
   };
 
-  const verify = (a: LineAdopted, bars: LineBar[]) => {
+  const stations = () => {
     const pts: Array<{ k: number; i: number; xl: number; pos: number; neg: number; nPos: number; nNeg: number }> = [];
     spans.forEach((s, k) => (s.row.demand.env ?? []).forEach((e, i) => pts.push({ k, i, xl: s.x0 + e.x, pos: e.pos, neg: e.neg, nPos: e.nPos ?? 0, nNeg: e.nNeg ?? 0 })));
+    return pts;
+  };
+  const stationBars = (a: LineAdopted, bars: LineBar[], p: { k: number; xl: number }) => {
+    const s = spans[p.k]!, sd = a.stirrups?.[p.k]?.dia ?? c.stirrupDia;
+    const layerOf = (face: 'top' | 'bottom') => ({ count: bars.filter((b) => barActsAt(b, face, p.xl)).reduce((n, b) => n + b.bars.count, 0), width: s.b });
+    return { s, sd, bot: effective(bars, 'bottom', p.xl, (g) => dev(c, g.dia, false, s.h, layerOf('bottom'))), top: effective(bars, 'top', p.xl, (g) => dev(c, g.dia, true, s.h, layerOf('top'))) };
+  };
+  const verify = (a: LineAdopted, bars: LineBar[]) => {
+    const pts = stations();
     const qs: LineQuery[] = [];
     for (const p of pts) {
-      const s = spans[p.k]!, sd = a.stirrups?.[p.k]?.dia ?? c.stirrupDia;
-      const layerOf = (face: 'top' | 'bottom') => ({ count: bars.filter((b) => barActsAt(b, face, p.xl)).reduce((n, b) => n + b.bars.count, 0), width: s.b });
-      const bot = effective(bars, 'bottom', p.xl, (g) => dev(c, g.dia, false, s.h, layerOf('bottom'))), top = effective(bars, 'top', p.xl, (g) => dev(c, g.dia, true, s.h, layerOf('top')));
+      const { s, sd, bot, top } = stationBars(a, bars, p);
       qs.push(query(s, bot.length ? bot : [{ count: 0, dia: 10 }], top, sd, true, p.nPos), query(s, top.length ? top : [{ count: 0, dia: 10 }], bot, sd, false, p.nNeg));
     }
     const cap = capQueries(qs);
     return pts.map((p, n) => ({ ...p, phiPos: cap[2 * n] ?? 0, phiNeg: cap[2 * n + 1] ?? 0 }));
+  };
+  const steelOf = (a: LineAdopted, bars: LineBar[]): SteelStation[] => {
+    const pts = stations();
+    const at = pts.map((p) => ({ p, ...stationBars(a, bars, p) }));
+    const asks = at.flatMap(({ p, bot, top }) => [{ mu: p.pos, tension: bot, dia: a.bottom.dia }, { mu: p.neg, tension: top, dia: a.top.dia }]);
+    const req = requiredAreas(asks, (list) => capQueries(list.map(({ i, tension }) => {
+      const { p, s, sd, bot, top } = at[Math.floor(i / 2)]!;
+      return i % 2 === 0 ? query(s, tension, top, sd, true, p.nPos) : query(s, tension, bot, sd, false, p.nNeg);
+    })));
+    const present = (face: 'top' | 'bottom', x: number) => groupsArea(bars.filter((b) => barActsAt(b, face, x)).map((b) => b.bars));
+    return at.map(({ p, s }, n) => {
+      const min = code.minBottom(c, s.b, s.d);
+      const face = (strength: number, provided: number) => ({ provided, strength, withMin: withMinimum(strength, min) });
+      return { x: p.xl, bottom: face(req[2 * n]!, present('bottom', p.xl)), top: face(req[2 * n + 1]!, present('top', p.xl)) };
+    });
   };
 
   /** The positive bars' ld against Mn/Vu + ℓa at every point of inflection (§9.7.3.8.3(b)), the continuous bars running ℓa = max(d; 12·db) past it. */
@@ -1206,8 +1231,9 @@ export function beamLine(rows: BeamRow[], given: BeamContext, adopted: LineAdopt
     spans: spans.map((s) => ({ name: s.row.name, x0: s.x0, x1: s.x0 + s.L, b: s.b, h: s.h })),
     cover: c.cover,
     supportWidths: supports.map((_, j) => 2 * Math.max(spans[j - 1]?.row.demand.supportHalf?.end ?? 0, spans[j]?.row.demand.supportHalf?.start ?? 0)),
+    posts: supports.map((_, j) => spans[j - 1]?.row.demand.posts?.end ?? spans[j]?.row.demand.posts?.start ?? null),
     proposed, adopted: a, isAdopted: !!adopted, iterations: adopted ? 0 : iterations, bars, zones, splices, joined: lastJoined, hangers, cutoffs: lastCuts, anchorage,
-    envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })), shear,
+    envelope: env.map((e) => ({ x: e.xl, pos: e.pos, neg: e.neg, phiPos: e.phiPos, phiNeg: e.phiNeg })), shear, steel: steelOf(a, bars),
     ends: { from: Math.min(xFrom, ...bars.map((b) => b.from)), to: Math.max(xTo, ...bars.map((b) => b.to)), ...(endStart ? { start: endStart } : {}), ...(endEnd ? { end: endEnd } : {}) },
     spanAdopted, verifications, bentNotes: adopted ? adoptedBentNotes() : bentNotes, utilization: worst, status: ok ? (isGenerous(verifications) ? 'warn' : 'ok') : 'fail', steps,
   };

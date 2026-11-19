@@ -63,10 +63,10 @@ describe('a beam\'s drawings', () => {
     expect(layers).toEqual(new Set(line.zones.map((z) => `ST-ARM-EST-Ø${z.stirrups.dia}`)));
   });
 
-  it('go on two A3 sheets at 1:20, the long elevation cut once at its middle axis', () => {
+  it('go on three A3 sheets at 1:20, the long elevation cut once at its middle axis, each half with its bars on tracks', () => {
     const { drawings: ds, levels } = planDrawings({ line: [line], beam: rows, column: [], slab: [], slabPlan: [], wall: [] }, { families: ['beam'], levels: null }, o);
     expect(ds.filter((d) => /:elev-\d$/.test(d.key))).toHaveLength(2);
-    expect(planSheets(ds, levels, 'A3', project, tr).length).toBeLessThanOrEqual(2);
+    expect(planSheets(ds, levels, 'A3', project, tr).length).toBeLessThanOrEqual(3);
   });
 });
 

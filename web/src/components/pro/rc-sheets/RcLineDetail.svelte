@@ -11,6 +11,7 @@
   import RcSectionSvg from './RcSectionSvg.svelte';
   import RcResize from './RcResize.svelte';
   import { lineSections } from '../../../lib/rc-sheets/line-geometry';
+  import type { ChartKind } from '../../../lib/rc-sheets/line-charts';
 
   let { line, spans, onleave = () => {}, highlight = [] }: { line: LineLayout; spans: BeamRow[]; onleave?: () => void; highlight?: string[] } = $props();
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
@@ -21,6 +22,12 @@
   const ENV_KEY = 'stabileo-rc-envelope';
   let showEnvelope = $state((() => { try { return localStorage.getItem(ENV_KEY) !== '0'; } catch { return true; } })());
   function setEnvelope(on: boolean) { showEnvelope = on; try { localStorage.setItem(ENV_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
+  const CHART_KEY = 'stabileo-rc-chart';
+  let chart = $state<ChartKind>((() => { try { return localStorage.getItem(CHART_KEY) === 'steel' ? 'steel' : 'moment'; } catch { return 'moment'; } })());
+  function setChart(k: ChartKind) { chart = k; try { localStorage.setItem(CHART_KEY, k); } catch { /* lasts the session */ } }
+  const ON_BEAM_KEY = 'stabileo-rc-envelope-beam';
+  let onBeam = $state((() => { try { return localStorage.getItem(ON_BEAM_KEY) === '1'; } catch { return false; } })());
+  function setOnBeam(on: boolean) { onBeam = on; try { localStorage.setItem(ON_BEAM_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
   const CUTS_KEY = 'stabileo-rc-cuts';
   let showCuts = $state((() => { try { return localStorage.getItem(CUTS_KEY) !== '0'; } catch { return true; } })());
   function setCuts(on: boolean) { showCuts = on; try { localStorage.setItem(CUTS_KEY, on ? '1' : '0'); } catch { /* lasts the session */ } }
@@ -34,9 +41,14 @@
 <div class="rcd-toggles">
   <label class="rcd-marks"><input type="checkbox" checked={showMarks} onchange={(e) => setMarks(e.currentTarget.checked)} data-testid="rc-marks-toggle" /> {t('rcSheets.line.showMarks')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showEnvelope} onchange={(e) => setEnvelope(e.currentTarget.checked)} data-testid="rc-envelope-toggle" /> {t('rcSheets.line.showEnvelope')}</label>
+  <select class="rcd-chart" value={chart} disabled={!showEnvelope} onchange={(e) => setChart(e.currentTarget.value as ChartKind)} aria-label={t('rcSheets.line.showEnvelope')} data-testid="rc-chart-kind">
+    <option value="moment">{t('rcSheets.line.chart.moment')}</option>
+    <option value="steel">{t('rcSheets.line.chart.steel')}</option>
+  </select>
+  <label class="rcd-marks"><input type="checkbox" checked={onBeam} onchange={(e) => setOnBeam(e.currentTarget.checked)} data-testid="rc-envelope-beam-toggle" /> {t('rcSheets.line.showOnBeam')}</label>
   <label class="rcd-marks"><input type="checkbox" checked={showCuts} onchange={(e) => setCuts(e.currentTarget.checked)} data-testid="rc-cuts-toggle" /> {t('rcSheets.line.showCuts')}</label>
 </div>
-<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
+<RcLineSvg {line} marks={showMarks || highlight.length > 0} {highlight} envelope={showEnvelope} {chart} {onBeam} cuts={showCuts ? sections.flatMap((g) => g.at.map((x) => ({ x, label: g.label }))) : []} />
 <h5 class="rcd-h">{t('rcSheets.sections')}</h5>
 <div class="rcd-secs">
   {#each sections as g (g.key)}
@@ -94,5 +106,6 @@
   .rcd-secs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .rcd-note { margin: 2px 0 4px; font-size: 0.7rem; color: var(--st-text-2); }
   .rcd-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .rcd-chart { font-size: 0.7rem; padding: 0 4px; background: var(--st-surface-2); color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 4px; }
   .rcd-marks { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--st-text-2); margin: 2px 0 4px; cursor: pointer; }
 </style>

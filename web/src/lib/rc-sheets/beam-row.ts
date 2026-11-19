@@ -67,11 +67,14 @@ export interface BeamDemand {
   supportHalf?: { start: number; end: number };
   /** What holds each end of the span: a column or wall, a support alone, a beam it frames into, or nothing (a cantilever's tip). */
   ends?: { start: BeamEnd; end: BeamEnd };
+  posts?: { start?: SupportPost; end?: SupportPost };
   /** Slab on one side of it at most: an edge beam, held to the integrity rules of perimeter beams (§9.7.7.1); absent, taken as one. */
   perimeter?: boolean;
   /** The combinations whose results lack a force of this span: its demand is incomplete. */
   missing?: string[];
 }
+
+export interface SupportPost { name: string; b: number; h: number }
 
 export interface BeamEnd { kind: 'column' | 'support' | 'beam' | 'free'; /** Half the holding member's extent along the beam, m: at a support with none of its own, the beam crossing it there. */ half: number; /** A column that stops at the joint: a frame corner, where the bars turn round it. */ corner?: boolean }
 
