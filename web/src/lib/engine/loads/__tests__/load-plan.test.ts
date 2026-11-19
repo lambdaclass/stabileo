@@ -33,7 +33,7 @@ function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
     }
   }
   return {
-    nodes, elements,
+    nodes, elements, supports: new Map(grid[0]!.map(id => [id, { nodeId: id }])),
     sections: new Map([[1, { id: 1, a: 0.09 }]]),
     materials: new Map([[1, { id: 1, rho: 25 }]]),
     loadCases: [{ id: 1, type: 'D', name: 'Dead' }, { id: 2, type: 'L', name: 'Live' }],
@@ -929,6 +929,9 @@ it('#2208 subdivision preserves the moment about the global origin', () => {
   const perimeter = 2 * (10 + width);
   const resultants = (ring: number[][]) => {
     const model = mesh([ring]);
+    const base = model.nodes.size + 1;
+    model.nodes.set(base, { id: base, x: 0, y: 0, z: 0 });
+    model.supports = new Map([[base, { nodeId: base }]]);
     model.sections.set(1, { id: 1, a: 1 });
     model.materials.set(1, { id: 1, rho: 1 });
     const plan = carrierPlan(model, force / perimeter);

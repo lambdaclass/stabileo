@@ -26,6 +26,7 @@ const ko: Translations = {
   "engine.memberLoad.geometryLimit": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 상대 기하 한계 {limit}보다 작습니다",
 
   "loadPlan.blocked.modalUnavailable": "모드별 힘 분포가 수정될 때까지 모달 지진 하중을 생성할 수 없습니다. 정적 등가 하중법을 사용하세요.",
+  "loadPlan.blocked.seismicBase": "정적 지진 하중을 생성하려면 유효한 표고의 절점에 지점이 있어야 합니다.",
   "loadPlan.blocked.concentratedRule": "{occupancy}에는 CIRSOC 101 {article}에 따라 집중 하중 검토가 필요합니다. 가장 불리한 위치는 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
   "loadPlan.blocked.concentratedLive": "{occupancy}에는 CIRSOC 101 §4.4에 따라 {force} kN 집중 활하중 검토가 필요합니다. 가장 불리한 위치와 등분포/집중 하중 대안은 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
   "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4는 §4.8 지붕 활하중과 별도로 가장 불리한 위치에서의 집중 지붕 작용을 요구합니다. 이러한 검토는 수행되지 않습니다. 자동 생성이 차단되었습니다. 지붕 작용을 수동으로 모델링하고 검토하세요.",

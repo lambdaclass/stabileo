@@ -5,9 +5,21 @@ import { designSpectrum, isBlocked, SIMULTANEITY_F1 } from '../../codes/cirsoc10
 import { designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable } from '../../codes/cirsoc103/static-method';
 import { findBehaviour, R_ELASTIC } from '../../codes/cirsoc103/behaviour';
 import { msg, round } from '../../codes/message';
-import { findCase, type LoadPlanInput, type SeismicPlanSink, type SeismicPlanDetail } from './load-plan';
+import { findCase, type LoadModelData, type LoadPlanInput, type SeismicPlanSink, type SeismicPlanDetail } from './load-plan';
 
 import type { MassRefusal, SeismicLevel } from './seismic-mass';
+
+function seismicBaseElevation(model: LoadModelData): number | undefined {
+  let base = Infinity;
+  for (const { nodeId } of model.supports?.values() ?? []) {
+    const node = model.nodes.get(nodeId);
+    if (!node) return undefined;
+    const z = node.z ?? 0;
+    if (!Number.isFinite(z)) return undefined;
+    base = Math.min(base, z);
+  }
+  return Number.isFinite(base) ? base : undefined;
+}
 
 export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: SeismicPlanSink): {
   seismicWeight: ProvenancedValue<number> | undefined; baseShear: ProvenancedValue<number> | undefined; seismicDetail: SeismicPlanDetail | undefined;
@@ -22,6 +34,11 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     return { seismicWeight, baseShear, seismicDetail };
   }
   if (input.seismic?.enabled) {
+    const base = seismicBaseElevation(input.model);
+    if (base === undefined) {
+      blockedKeys.push(msg('loadPlan.blocked.seismicBase'));
+      return { seismicWeight, baseShear, seismicDetail };
+    }
     const refuse = (level: SeismicLevel, reason: MassRefusal) => {
       levelRefusals.push(msg(`loadPlan.blocked.seismicMass.${reason}`, { elevation: round(level.elevation, 3) }));
     };
@@ -29,8 +46,11 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
     if (levels.some(l => l.unresolvedWeight)) {
       return { seismicWeight, baseShear, seismicDetail };
     }
-    const elevated = levels.filter(l => l.elevation > 0 && l.weightKN > 0);
-    const W = elevated.reduce((s, l) => s + l.weightKN, 0);
+    const stories = levels.flatMap(level => {
+      const h = level.elevation - base;
+      return h > 0 && level.weightKN > 0 ? [{ level, h, w: level.weightKN }] : [];
+    });
+    const W = stories.reduce((sum, story) => sum + story.w, 0);
     if (W <= 0) {
       unsupportedKeys.push(msg('loadPlan.unsupported.noSeismicMass'));
     } else {
@@ -46,7 +66,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
           blockedKeys.push(spectrum.blocked);
           refs.push(...spectrum.refs);
         } else {
-          const H = Math.max(...elevated.map((l) => l.elevation), 0);
+          const H = stories.reduce((max, story) => Math.max(max, story.h), 0);
           const period = designPeriod(
             { heightM: H, system: code.periodSystem, computedT: code.computedT },
             spectrum.as,
@@ -57,7 +77,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
           t2 = spectrum.t2;
 
           const applicability = staticMethodApplicable({
-            zone: code.zone, group: code.group, heightM: H, levels: elevated.length,
+            zone: code.zone, group: code.group, heightM: H, levels: stories.length,
             regularity: code.regularity, t: uncappedT, t2,
           });
           refs.push(...applicability.refs);
@@ -95,13 +115,11 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       seismicWeight = fromProject(W, 'kN');
       baseShear = fromProject(V0, 'kN');
 
-      const dist = distributeInHeight(
-        elevated.map((l) => ({ h: l.elevation, w: l.weightKN })), V0, uncappedT, t2,
-      );
+      const dist = distributeInHeight(stories.map(({ h, w }) => ({ h, w })), V0, uncappedT, t2);
       refs.push(...dist.refs);
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
-      const staticForces = elevated.map((_, k) => dist.forces[k]?.f ?? 0);
+      const staticForces = stories.map((_, k) => dist.forces[k]?.f ?? 0);
       const torsion = input.seismic.torsion ?? 'low';
       if (torsion !== 'low') {
         refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
@@ -109,7 +127,7 @@ export function planSeismic(input: LoadPlanInput, levels: SeismicLevel[], sink: 
       }
       if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
       for (const c of staticSeismicCases({
-        levels: elevated, forces: staticForces, diagonal: input.seismic.diagonal,
+        levels: stories.map(story => story.level), forces: staticForces, diagonal: input.seismic.diagonal,
         directions: input.seismic.directions, torsion,
       }, refuse)) {
         const index = cases.length;

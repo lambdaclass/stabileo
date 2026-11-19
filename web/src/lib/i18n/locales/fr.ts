@@ -7521,6 +7521,7 @@ const fr: Translations = {
   'loadPlan.blocked.seismicMass.snow': "Charge sismique refusée à {elevation} m. Les supports de la masse de neige participante n’ont pas pu être établis.",
   'loadPlan.blocked.seismicMass.torsion': "Charge sismique refusée à {elevation} m. Le champ de charges sur les barres ne représente pas la torsion accidentelle.",
   'loadPlan.blocked.modalUnavailable': "La génération des charges sismiques modales est indisponible tant que la distribution des forces modales n’est pas corrigée. Utilisez la méthode statique.",
+  'loadPlan.blocked.seismicBase': "La génération de charges sismiques statiques exige des appuis associés à des nœuds de cote valide.",
   'loadPlan.blocked.seismicMass.weight': "Charge sismique refusée à {elevation} m. Une masse physique ou une force d’étage est invalide.",
   'loadPlan.blocked.seismicNoR': 'Le tableau 5.1 ne donne pas de coefficient de comportement R pour « {system} ». La ligne 1 donne une expression fondée sur la disposition des voiles plutôt qu\'une valeur ; toute autre ligne manquante correspond à un système qui n\'a pas été identifié. Il n\'y a rien par quoi diviser le spectre.',
   'loadPlan.blocked.roleUnusable': 'Le rôle « {role} » ({name}) n\'est pas utilisable : sélectionnez une norme et complétez ses paramètres.',

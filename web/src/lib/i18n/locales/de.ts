@@ -7521,6 +7521,7 @@ const de: Translations = {
   'loadPlan.blocked.seismicMass.snow': "Erdbebenlast auf {elevation} m abgelehnt. Die Träger der wirksamen Schneemasse konnten nicht bestimmt werden.",
   'loadPlan.blocked.seismicMass.torsion': "Erdbebenlast auf {elevation} m abgelehnt. Das Stablastfeld konnte die zufällige Torsion nicht abbilden.",
   'loadPlan.blocked.modalUnavailable': "Modale Erdbebenlasten können erst wieder erzeugt werden, wenn die modale Kraftverteilung korrigiert ist. Verwenden Sie das statische Verfahren.",
+  'loadPlan.blocked.seismicBase': "Für die Erzeugung statischer Erdbebenlasten sind Auflager an Knoten mit gültigen Höhen erforderlich.",
   'loadPlan.blocked.seismicMass.weight': "Erdbebenlast auf {elevation} m abgelehnt. Eine Masse oder Geschosskraft ist ungültig.",
   'loadPlan.blocked.seismicNoR': 'Tabelle 5.1 gibt keinen Verhaltensbeiwert R für „{system}“ an. Zeile 1 enthält statt eines Werts einen Ausdruck zur Wandanordnung; jede andere fehlende Zeile ist ein nicht identifiziertes System. Es gibt nichts, durch das das Spektrum geteilt werden kann.',
   'loadPlan.blocked.roleUnusable': 'Die Rolle „{role}“ ({name}) ist nicht verwendbar: Wählen Sie eine Norm und vervollständigen Sie ihre Einstellungen.',

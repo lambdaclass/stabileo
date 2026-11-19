@@ -17,6 +17,18 @@ import { input } from './gravity-width-mass-fixture';
 import { mesh, transform } from './snow-surface-round2-fixture';
 import { windResultants, remeshWind } from './wind-integration-fixture';
 
+function supportAtZero(model: LoadModelData) {
+  const baseNodes = [...model.nodes.values()].filter(n => n.z === 0);
+  if (baseNodes.length === 0) {
+    const id = Math.max(0, ...model.nodes.keys()) + 1;
+    const base = { id, x: 0, y: 0, z: 0 };
+    model.nodes.set(id, base);
+    baseNodes.push(base);
+  }
+  model.supports = new Map(baseNodes.map(({ id }) => [id, { nodeId: id }]));
+  return model;
+}
+
 function request(model: LoadModelData, seismic: Partial<NonNullable<LoadPlanInput['seismic']>> = {}, overrides: Partial<LoadPlanInput> = {}) {
   const result = input(model, {
     dead: [], tributaryWidth: 0,
@@ -32,7 +44,7 @@ it('#2208 an edge subdivision does not move the force away from the mass centroi
     const ring = [[0, 0, 3], [10, 0, 3], [10, 6, 3], [0, 6, 3]];
     if (subdivide) ring.push([0, 1, 3]);
     const model = transform(mesh([ring]), angle, 0, mirror);
-    const plan = buildLoadPlan(request(model));
+    const plan = buildLoadPlan(request(supportAtZero(model)));
     expect(plan.outcome).toBe('READY');
     const lines = plan.distributed.filter(p => p.caseType === 'E');
     const points = plan.nodal.filter(p => p.caseType === 'E');
@@ -143,7 +155,7 @@ function verifyCarrierMechanics() {
     const rotated = variant === 'rotate';
     for (const torsion of ['low', 'medium', 'extreme'] as const) {
       const weightPerLength = model.sections.get(1)!.a * model.materials.get(1)!.rho;
-      const staticRequest = request(model, {
+      const staticRequest = request(supportAtZero(model), {
         torsion, directions: { x: !rotated, y: rotated },
       });
       const plan = buildLoadPlan(staticRequest);
@@ -183,7 +195,7 @@ it('#2208 partial carrier pressures reproduce cantilever shear, bending, torsion
 it('#2208 keeps supported levels when an eccentric strip requires distributed couples', () => {
   const model = mesh([[ [0, -2, 0], [0, -2, 3] ], [ [0, 2, 0], [0, 2, 3] ], [ [0, 1, 6], [4, 1, 6] ]]);
   for (const width of [0, Number.EPSILON, 1]) {
-    const base = buildLoadPlan(request(model, {}, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }] }));
+    const base = buildLoadPlan(request(supportAtZero(model), {}, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }] }));
     const plan = buildLoadPlan(request(model, { torsion: 'medium' }, { tributaryWidth: width, dead: [{ labelKey: 'test', q: 1 }], generateCombinations: true }));
     const lines = plan.distributed.filter(d => d.caseType === 'E');
     expect(lines.some(d => d.elementId === 1)).toBe(true);
@@ -213,7 +225,7 @@ it('#2208 flat shell self-weight and superimposed pressure stay on the physical 
     model.quads.set(id, { id, nodes, thickness, materialId: 1 });
   }
   model.materials.set(1, { id: 1, rho: 10 });
-  const plan = buildLoadPlan(request(model, {}, { gravity: { mode: 'panels' }, dead: [{ labelKey: 'test', q: 2 }] }));
+  const plan = buildLoadPlan(request(supportAtZero(model), {}, { gravity: { mode: 'panels' }, dead: [{ labelKey: 'test', q: 2 }] }));
   expect(plan.outcome).toBe('READY');
   expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
   expect(plan.nodal.filter(d => d.caseType === 'E')).toEqual([]);
@@ -234,7 +246,7 @@ it('#2208 keeps the supported level’s exact force when an upper tributary pane
   const density = model.sections.get(1)!.a * model.materials.get(1)!.rho;
   const roofArea = 4 * 2, roofPerimeter = 2 * (4 + 2);
   const lower = 3 * density, upper = roofPerimeter * density + roofArea;
-  const plan = buildLoadPlan(request(model, {}, {
+  const plan = buildLoadPlan(request(supportAtZero(model), {}, {
     gravity: { mode: 'panels', loadEveryPanel: true }, dead: [{ labelKey: 'test', q: 1 }], generateCombinations: true,
   }));
   expect(plan.outcome).toBe('BLOCKED');
@@ -389,6 +401,7 @@ function round2Columns(cuts: number[], rotate: boolean, mirror: boolean, perimet
   const byColumn = [members.slice(0, cuts.length - 1), members.slice(cuts.length - 1, 2 * (cuts.length - 1))];
   model.materials.set(2, { id: 2, rho: 0 });
   for (const e of members.slice(2 * (cuts.length - 1), 2 * (cuts.length - 1) + edges.length)) e.materialId = 2;
+  supportAtZero(model);
   return { model, byColumn };
 }
 
@@ -459,7 +472,7 @@ it('#2316 a nonzero structural width with no polar mass refuses accidental torsi
     model.materials.set(2, { id: 2, rho: 0 });
     const edge = model.elements.get(2);
     if (edge) edge.materialId = 2;
-    const plan = buildLoadPlan(request(model, { torsion: 'medium' }, { generateCombinations: true }));
+    const plan = buildLoadPlan(request(supportAtZero(model), { torsion: 'medium' }, { generateCombinations: true }));
     expect(plan.outcome).toBe(width === 0 ? 'READY' : 'BLOCKED');
     if (width === 0) {
       const w = model.sections.get(1)!.a * model.materials.get(1)!.rho;
@@ -550,16 +563,19 @@ function seismicSink(): SeismicPlanSink {
   };
 }
 
-function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean) {
-  const cuts = twoStories ? [0, 0.5, 2, 3.5, 4] : [0, 4];
+function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean, subdivided: boolean) {
+  const storyCuts = twoStories ? [0, 2, 4] : [0, 4];
+  const cuts = subdivided
+    ? storyCuts.flatMap((z, i) => i === 0 ? [z] : [z - (i === 1 ? 1.5 : 0.5), z])
+    : storyCuts;
   const column = mesh(cuts.slice(1).map((z, i) => [[0, 0, base + cuts[i]!], [0, 0, base + z]]));
   const model: LoadModelData = { ...column, supports: new Map([[1, { nodeId: 1 }]]) };
   if (twoStories) {
     const floor = [...model.nodes.values()].find(n => n.z === base + 2)!;
     const reference = model.nodes.size + 1;
-    model.nodes.set(reference, { id: reference, x: 1, y: 0, z: floor.z });
+    model.nodes.set(reference, { id: reference, x: rotated ? 0 : 1, y: rotated ? 1 : 0, z: floor.z });
     const high = reference + 1;
-    model.nodes.set(high, { id: high, x: 1, y: 0, z: base + 4 });
+    model.nodes.set(high, { id: high, x: rotated ? 0 : 1, y: rotated ? 1 : 0, z: base + 4 });
     model.supports = new Map([[high, { nodeId: high }], [1, { nodeId: 1 }]]);
     model.constraints = [{ type: 'diaphragm', masterNode: floor.id, slaveNodes: [reference], plane: 'XY' }];
   }
@@ -630,31 +646,36 @@ function checkSeismicDatum(base: number, twoStories: boolean, rotated: boolean) 
   expect(sink.distributed).toEqual(codeLoads.map(p => ({ ...p, caseIndex: 0 })));
 }
 
-const knownWrongDatum = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+function checkSeismicDatumVariants(base: number, twoStories: boolean) {
+  for (const rotated of [false, true]) for (const subdivided of [false, true]) {
+    checkSeismicDatum(base, twoStories, rotated, subdivided);
+  }
+}
 
 it('#2316 a supported column at zero retains its static seismic member loads', () => {
-  checkSeismicDatum(0, false, false);
-  checkSeismicDatum(0, true, true);
+  checkSeismicDatumVariants(0, false);
+  checkSeismicDatumVariants(0, true);
 });
 
 for (const base of [10, -5]) {
-  knownWrongDatum(`known wrong result: #2316 static seismic member loads are invariant at support elevation ${base}`, () => {
-    checkSeismicDatum(base, false, false);
+  it(`#2316 static seismic member loads are invariant at support elevation ${base}`, () => {
+    checkSeismicDatumVariants(base, false);
   });
 
-  knownWrongDatum(`known wrong result: #2316 static seismic story forces are invariant at support elevation ${base}`, () => {
-    checkSeismicDatum(base, true, true);
+  it(`#2316 static seismic story forces are invariant at support elevation ${base}`, () => {
+    checkSeismicDatumVariants(base, true);
   });
 }
 
 for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
-  knownWrongDatum(`known wrong result: #2316 static seismic refuses a ${kind} support datum`, () => {
+  it(`#2316 static seismic refuses the ${kind} support datum`, () => {
     const model: LoadModelData = mesh([[[0, 0, 0], [0, 0, 4]]]);
     if (kind !== 'missing') {
       model.supports = kind === 'empty' ? new Map() : new Map([[1, { nodeId: kind === 'dangling' ? 100 : 1 }]]);
     }
     if (kind === 'invalid elevation') model.nodes.get(1)!.z = Number.NaN;
-    const plan = buildLoadPlan(request(model, {}, { generateCombinations: true }));
+    const options = request(model, {}, { generateCombinations: true });
+    const plan = buildLoadPlan(options);
     expect(plan.outcome).toBe('BLOCKED');
     expect(plan.blockedKeys).toContainEqual({ key: 'loadPlan.blocked.seismicBase' });
     expect(plan.factors.seismicWeight).toBeUndefined();
@@ -662,5 +683,11 @@ for (const kind of ['missing', 'empty', 'dangling', 'invalid elevation']) {
     expect(plan.cases.filter(c => c.type === 'E')).toEqual([]);
     expect(plan.distributed.filter(d => d.caseType === 'E')).toEqual([]);
     expect(plan.combinations).toEqual([]);
+
+    const sink = seismicSink();
+    const direct = INPRES103_SEISMIC.plan(options, plan.levels as SeismicLevel[], sink);
+    expect(sink).toMatchObject({ blockedKeys: [{ key: 'loadPlan.blocked.seismicBase' }], cases: [], nodal: [], distributed: [], surface: [] });
+    expect(direct.seismicWeight).toBeUndefined();
+    expect(direct.baseShear).toBeUndefined();
   });
 }

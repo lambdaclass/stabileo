@@ -7980,6 +7980,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.seismicMass.snow': "Seismic loading refused at {elevation} m. The physical carriers of the participating snow mass could not be established.",
   'loadPlan.blocked.seismicMass.torsion': "Seismic loading refused at {elevation} m. Accidental torsion could not be represented by the member pressure field.",
   'loadPlan.blocked.modalUnavailable': "Modal seismic load generation is unavailable until the modal force distribution is corrected. Use the static method.",
+  'loadPlan.blocked.seismicBase': "Static seismic load generation requires supports attached to nodes with valid elevations.",
   'loadPlan.blocked.seismicMass.weight': "Seismic loading refused at {elevation} m. A physical mass or story force is invalid.",
   'loadPlan.blocked.seismicNoR': 'Table 5.1 gives no reduction factor R for "{system}". Row 1 prints an expression on the wall layout rather than a value; any other missing row is a system that was not identified. There is nothing to divide the spectrum by.',
   'loadPlan.blocked.roleUnusable': 'The "{role}" role ({name}) is not usable: select a regulation and complete its settings.',
