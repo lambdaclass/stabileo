@@ -367,6 +367,27 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.register).toHaveLength(1);
   });
 
+  test('signed out, the project panel says what needs an account and signs in from there', async ({ page }) => {
+    const backend = await boot(page, { saveRequiresAccount: true });
+    await page.getByTestId('usage-notice-share').click();
+    await expect(page.getByTestId('account-signed-out-hint')).toBeVisible();
+    await page.getByTestId('hdr-project').click();
+    await expect(page.getByTestId('signin-notice-project_files')).toBeVisible();
+    await expect(page.getByTestId('signin-notice-project_io')).toBeVisible();
+    await expect(page.locator('.file-grid.locked')).toHaveCount(1);
+
+    await page.getByTestId('signin-notice-button-project_files').click();
+    await continueWithGoogle(page);
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    expect(backend.register).toHaveLength(1);
+    await expect(page.locator('[data-testid^="signin-notice-"]')).toHaveCount(0);
+    await expect(page.locator('.locked')).toHaveCount(0);
+    await expect(page.getByTestId('account-signed-out-hint')).toHaveCount(0);
+  });
+
   test('with files behind an account, closing the request saves, opens, imports and exports nothing', async ({ page }) => {
     await boot(page, { saveRequiresAccount: true });
     await page.getByTestId('usage-notice-share').click();

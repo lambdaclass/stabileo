@@ -20,7 +20,7 @@
   import { modeToPath } from '../../lib/app-mode';
   import { enterApp } from '../landing/landing-utils';
   import Eyebrow from '../landing/Eyebrow.svelte';
-  import TrussFigure from '../landing/TrussFigure.svelte';
+  import HeroFigures from '../landing/HeroFigures.svelte';
   import SiteHeader from '../site/SiteHeader.svelte';
   import RegisterFigure from './RegisterFigure.svelte';
   import GoogleMark from './GoogleMark.svelte';
@@ -147,7 +147,7 @@
 {/snippet}
 
 <div class="landing rg" data-testid="register-page">
-  <SiteHeader>
+  <SiteHeader path="/register">
     {#snippet actions()}
       {#if !signedIn && accountsOn}
         <button type="button" class="btn btn-ghost btn-sm" onclick={() => start('header')} data-testid="register-signin">{t('register.signIn')}</button>
@@ -155,21 +155,25 @@
     {/snippet}
   </SiteHeader>
 
-  <section class="sec sec--ink hero" aria-labelledby="rg-title">
+  <section class="sec sec--ink hero" data-section="hero" aria-labelledby="rg-title">
     <div class="wrap hero-grid">
-      <div class="hero-copy">
+      <div class="hero-heading">
         <Eyebrow n={t('register.eyebrowFree')} label={t('register.eyebrowLabel')} />
         <h1 id="rg-title">{t('register.title')}</h1>
+      </div>
+
+      <div class="hero-figure">
+        <HeroFigures {prefersReducedMotion} />
+      </div>
+
+      <div class="hero-copy">
         <p class="lead">{t('register.lead')}</p>
         <div class="hero-ctas">{@render googleButton('hero', 'lg')}</div>
         {#if error}<p class="rg-error" role="alert" data-testid="register-error">{error}</p>{/if}
-        <ul class="hero-modes rg-features">
-          <li><span class="hero-mode-name">{t('register.feature1')}</span><span class="hero-mode-st hero-mode-st-today">{t('register.tagWithAccount')}</span></li>
-          <li><span class="hero-mode-name">{t('register.feature2')}</span><span class="hero-mode-st hero-mode-st-today">{t('register.tagFree')}</span></li>
+        <ul class="rg-features">
+          <li><span>{t('register.feature1')}</span><span class="rg-tag">{t('register.tagWithAccount')}</span></li>
+          <li><span>{t('register.feature2')}</span><span class="rg-tag">{t('register.tagFree')}</span></li>
         </ul>
-      </div>
-      <div class="hero-figure">
-        <TrussFigure mode="animate" {prefersReducedMotion} />
       </div>
     </div>
   </section>
@@ -269,7 +273,9 @@
 
 <style>
   .rg-google { gap: 0.8rem; }
-  .hero-modes.rg-features { flex-direction: column; }
+  .rg-features { list-style: none; margin: 0; padding: 1.4rem 0 0; border-top: 1px solid var(--hair); display: flex; flex-direction: column; gap: 0.55rem; }
+  .rg-features li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; color: var(--fg); font-size: 0.95rem; }
+  .rg-tag { font-family: var(--lp-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text, var(--lp-accent)); }
   .rg-google--lg { padding: 0.45rem 1.4rem 0.45rem 0.45rem; }
   .rg-google--md { padding: 0.4rem 1.1rem 0.4rem 0.4rem; }
   .rg-google-mark { width: 2.1rem; height: 2.1rem; background: #fff; border-radius: 2px; display: flex; align-items: center; justify-content: center; flex: none; }
