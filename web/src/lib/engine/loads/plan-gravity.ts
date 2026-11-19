@@ -41,7 +41,7 @@ import { physicalRoofRuns, snowCoordinate } from './physical-roof-geometry';
 import polygonClipping, { type Polygon } from 'polygon-clipping';
 import { physicalFloorLoad as floorLoad, type FloorBeam, type FloorPanel, type SideStretch } from './floor-loads';
 import { EngineMessageError, msg, round, type EngineMessage } from '../../codes/message';
-import type { Constraint3D } from '../types-3d';
+import type { Constraint3D, RigidLinkConstraint } from '../types-3d';
 
 export interface GravityModel {
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
@@ -188,10 +188,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     } else if (cos > Math.cos((80 * Math.PI) / 180)) steep.push(q.id);
   }
   const carriers = [...levelCarriers, ...slopedCarriers];
-  const roofs = opts.mode === 'panels' ? connectedShellRoofs(slopedCarriers) : [];
+  const roofs = opts.mode === 'panels' ? connectedShellGroups(slopedCarriers) : [];
   if (opts.mode === 'panels') assertDisjointShells(carriers);
-  const rigidLinks = opts.mode === 'panels' ? rigidShellLinks(model, shellNodes) : new Map<number, RigidShellLink[]>();
-  const attachedCoverage = rigidShellCoverage(model, rigidLinks, carriers, out.zOf.keys());
+  const rigidLinks = opts.mode === 'panels' ? verticalRigidLinks(model) : [];
+  const linkedDecks = linkedShellDecks(carriers, rigidLinks);
+  const offsets = directShellOffsets(model, shellNodes, rigidLinks);
+  const attachedCoverage = rigidShellCoverage(model, offsets, carriers, out.zOf.keys());
   const shellMembership = new Map<number, boolean>();
   const inShell = (e: { id: number; nodeI: number; nodeJ: number }): boolean => {
     if (opts.mode !== 'panels' || !carriers.length) return false;
@@ -395,7 +397,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     unresolved += res.skipped.unresolved;
     let overhead: ReturnType<typeof higherFootprints> | undefined;
     for (const { panel, own: one, why, strips, region, footprint } of selectedPanels.get(z) ?? []) {
-      assertNoOffsetShellDeck(model, panel, footprint, z, carriers, rigidLinks);
+      if (linkedDecks) assertNoOffsetShellDeck(model, panel, footprint, z, linkedDecks);
       if (why === 'lowHeadroom') fringes++;
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
       if (strips) partly++;
@@ -484,36 +486,43 @@ const FRINGE_BINS = 200;
 export const MAX_DECK_SPAN = 12;
 
 type ShellCoverage = 'none' | 'partial' | 'full';
-type RigidShellLink = { offset: Segment[0]; error: number; shellNode: number };
+type ShellOffset = { offset: Segment[0]; error: number };
 type ShellAttachment = { offset: Segment[0]; anchors: Set<number>; error: number };
 
 function attachmentPoint(point: { x: number; y: number; z?: number }, [dx, dy, dz]: Segment[0]): Segment[0] {
   return [point.x + dx, point.y + dy, (point.z ?? 0) + dz];
 }
 
-function rigidShellLinks(model: GravityModel, shellNodes: Set<number>): Map<number, RigidShellLink[]> {
-  const offsets = new Map<number, RigidShellLink[]>();
-  for (const link of model.constraints ?? []) {
-    if (link.type !== 'rigidLink' || (link.dofs?.length && !link.dofs.includes(2))) continue;
+function verticalRigidLinks(model: GravityModel): RigidLinkConstraint[] {
+  return (model.constraints ?? []).filter((link): link is RigidLinkConstraint =>
+    link.type === 'rigidLink' && (!link.dofs?.length || link.dofs.includes(2))
+    && model.nodes.has(link.masterNode) && model.nodes.has(link.slaveNode),
+  );
+}
+
+function directShellOffsets(
+  model: GravityModel, shellNodes: ReadonlySet<number>, links: readonly RigidLinkConstraint[],
+): Map<number, ShellOffset[]> {
+  const offsets = new Map<number, ShellOffset[]>();
+  for (const link of links) {
     const masterIsShell = shellNodes.has(link.masterNode), slaveIsShell = shellNodes.has(link.slaveNode);
     if (masterIsShell === slaveIsShell) continue;
     const frameNode = masterIsShell ? link.slaveNode : link.masterNode;
     const shellNode = masterIsShell ? link.masterNode : link.slaveNode;
-    const member = model.nodes.get(frameNode), shell = model.nodes.get(shellNode);
-    if (!member || !shell) continue;
+    const member = model.nodes.get(frameNode)!, shell = model.nodes.get(shellNode)!;
     const mz = member.z ?? 0, sz = shell.z ?? 0;
     const offset: Segment[0] = [shell.x - member.x, shell.y - member.y, sz - mz];
     const error = 64 * Number.EPSILON * Math.max(Math.abs(member.x), Math.abs(member.y), Math.abs(mz), Math.abs(shell.x), Math.abs(shell.y), Math.abs(sz));
     if (Math.hypot(...offset) <= error) continue;
     const entries = offsets.get(frameNode) ?? [];
-    entries.push({ offset, error, shellNode });
+    entries.push({ offset, error });
     offsets.set(frameNode, entries);
   }
   return offsets;
 }
 
 function rigidShellCoverage(
-  model: GravityModel, offsets: ReadonlyMap<number, RigidShellLink[]>, carriers: ShellCarrier[], members: Iterable<number>,
+  model: GravityModel, offsets: ReadonlyMap<number, ShellOffset[]>, carriers: ShellCarrier[], members: Iterable<number>,
 ): Map<number, ShellCoverage> {
   const byMember = new Map<number, ShellCoverage>();
   if (!offsets.size) return byMember;
@@ -585,41 +594,80 @@ function shellCoverage([p, q]: Segment, carriers: ShellCarrier[], requireCoplana
   return classes.has(true) ? 'full' : 'none';
 }
 
-function connectedShellRoofs(sloped: ShellCarrier[]): ShellCarrier[][] {
-  const parent = sloped.map((_, i) => i);
-  const root = (i: number): number => parent[i] === i ? i : (parent[i] = root(parent[i]!));
-  const byNode = new Map<number, number>();
-  sloped.forEach((carrier, i) => {
-    for (const id of carrier.nodes) {
-      const other = byNode.get(id);
-      if (other === undefined) byNode.set(id, i);
-      else parent[root(i)] = root(other);
+class NodeComponents {
+  private readonly parent = new Map<number, number>();
+
+  has(node: number): boolean {
+    return this.parent.has(node);
+  }
+
+  root(node: number): number {
+    let parent = this.parent.get(node);
+    while (parent !== undefined && parent !== node) {
+      const next = this.parent.get(parent)!;
+      this.parent.set(node, next);
+      node = parent;
+      parent = next;
     }
-  });
+    return node;
+  }
+
+  join(a: number, b: number): void {
+    const root = this.root(b);
+    if (!this.parent.has(root)) this.parent.set(root, root);
+    this.parent.set(this.root(a), root);
+  }
+}
+
+function connectedShellGroups(carriers: ShellCarrier[]): ShellCarrier[][] {
+  const components = new NodeComponents();
+  for (const shell of carriers) for (const node of shell.nodes.slice(1)) components.join(node, shell.nodes[0]!);
   const groups = new Map<number, ShellCarrier[]>();
-  sloped.forEach((carrier, i) => {
-    const id = root(i);
+  for (const shell of carriers) {
+    const id = components.root(shell.nodes[0]!);
     const group = groups.get(id) ?? [];
-    group.push(carrier);
+    group.push(shell);
     groups.set(id, group);
-  });
+  }
   return [...groups.values()];
 }
 
+type ShellDecksAtNode = (node: number) => Iterable<ShellCarrier[]>;
+
+function linkedShellDecks(
+  carriers: ShellCarrier[], links: readonly RigidLinkConstraint[],
+): ShellDecksAtNode | undefined {
+  if (!carriers.length || !links.length) return;
+  const rigid = new NodeComponents();
+  for (const { masterNode, slaveNode } of links) rigid.join(masterNode, slaveNode);
+  const decksByRoot = new Map<number, Map<ShellCarrier[], Set<number>>>();
+  for (const deck of connectedShellGroups(carriers)) for (const shell of deck) for (const node of shell.nodes) {
+    if (!rigid.has(node)) continue;
+    const root = rigid.root(node);
+    const decks = decksByRoot.get(root) ?? new Map<ShellCarrier[], Set<number>>();
+    const anchors = decks.get(deck) ?? new Set<number>();
+    anchors.add(node);
+    decks.set(deck, anchors);
+    decksByRoot.set(root, decks);
+  }
+  return function* (node) {
+    for (const [deck, anchors] of decksByRoot.get(rigid.root(node)) ?? []) {
+      if (anchors.size > 1 || !anchors.has(node)) yield deck;
+    }
+  };
+}
+
 function assertNoOffsetShellDeck(
-  model: GravityModel, panel: FloorPanel, footprint: Region, z: number,
-  carriers: ShellCarrier[], links: ReadonlyMap<number, RigidShellLink[]>,
+  model: GravityModel, panel: FloorPanel, footprint: Region, z: number, linkedDecks: ShellDecksAtNode,
 ): void {
-  if (!links.size) return;
-  const linkedShellNodes = new Set<number>();
+  const decks = new Set<ShellCarrier[]>();
   for (const id of panel.members ?? []) {
     const { nodeI, nodeJ } = model.elements.get(id)!;
-    for (const node of [nodeI, nodeJ]) for (const link of links.get(node) ?? []) linkedShellNodes.add(link.shellNode);
+    for (const node of [nodeI, nodeJ]) for (const deck of linkedDecks(node)) decks.add(deck);
   }
-  if (!linkedShellNodes.size) return;
-  for (const shell of carriers) {
+  for (const deck of decks) for (const shell of deck) {
     if (shell.pts.every(p => atDeckLevel(p[2], z))) continue;
-    if (shell.nodes.some(node => linkedShellNodes.has(node)) && footprintsOverlap(footprint, [shell.poly])) {
+    if (footprintsOverlap(footprint, [shell.poly])) {
       refuseGravityGeometry(msg('loadPlan.gravity.offsetShellDeck', { id: shell.id }));
     }
   }

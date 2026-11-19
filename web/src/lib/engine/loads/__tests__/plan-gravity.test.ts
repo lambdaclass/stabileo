@@ -754,16 +754,15 @@ function exteriorStripShellBay(edges: number[], disconnected = false) {
   return model;
 }
 
-const issue2299 = process.env.RUN_KNOWN_WRONG === '2299' ? it : it.skip;
-issue2299('known wrong result: #2299 a common rigid master connects the beam and offset shell corners', () => {
+it('#2299 a common rigid master connects the beam and offset shell corners', () => {
   checkBlockedGravity(commonMasterShellBay(3.02), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 1 } });
 });
 
-issue2299('known wrong result: #2299 an attached exterior strip is part of the shell deck over the bay', () => {
+it('#2299 an attached exterior strip is part of the shell deck over the bay', () => {
   checkBlockedGravity(exteriorStripShellBay([-2, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 2 } });
 });
 
-issue2299('known wrong result: #2299 subdividing the attached exterior strip preserves the refusal', () => {
+it('#2299 subdividing the attached exterior strip preserves the refusal', () => {
   checkBlockedGravity(exteriorStripShellBay([-2, -1, 0, 10]), { key: 'loadPlan.gravity.offsetShellDeck', params: { id: 3 } });
 });
 

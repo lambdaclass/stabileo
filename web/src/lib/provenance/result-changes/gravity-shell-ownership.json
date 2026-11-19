@@ -3,7 +3,8 @@
   "date": "2026-11-19",
   "prs": [
     2284,
-    2299
+    2299,
+    2339
   ],
   "area": "loads",
   "when": {
@@ -27,13 +28,13 @@
     "hu": "A gravitációs terhek előállításához egyértelmű héjfedés szükséges"
   },
   "explanation": {
-    "en": "Regenerate gravity for panel-mode projects with shells. Coplanar shell overlaps and offset shells rigidly linked to overlapping loaded beam panels block generation.",
-    "es": "Regenerá la gravedad en proyectos en modo de paños con placas. La generación se bloquea si hay placas coplanares superpuestas o placas desplazadas unidas rígidamente a paños de vigas cargados que se superponen.",
-    "pt": "Gere novamente as cargas gravitacionais em projetos no modo de painéis com cascas. A geração é bloqueada quando há cascas coplanares sobrepostas ou cascas deslocadas ligadas rigidamente a painéis de vigas carregados que se sobrepõem.",
-    "de": "Erzeugen Sie die Schwerkraftlasten für Projekte im Feldmodus mit Schalen neu. Überlappende Schalen in derselben Ebene und versetzte Schalen mit starrer Verbindung zu überlappenden belasteten Trägerfeldern verhindern die Lasterzeugung.",
-    "fr": "Régénérez les charges de gravité des projets en mode panneaux avec coques. La génération est bloquée lorsque des coques coplanaires se chevauchent ou que des coques décalées sont reliées rigidement à des panneaux de poutres chargés qui les recouvrent en plan.",
-    "tr": "Kabuk içeren panel modu projelerinde yerçekimi yüklerini yeniden üretin. Aynı düzlemde çakışan kabuklar ve izdüşümü çakışan yüklü kiriş panellerine rijit bağlı ötelenmiş kabuklar yük üretimini engeller.",
-    "hu": "Készítse újra a gravitációs terheket a héjakat tartalmazó mezőalapú projektekben. Az egy síkban átfedő héjak és a vetületben átfedő, terhelt gerendamezőkhöz mereven kapcsolt eltolt héjak blokkolják a terhek előállítását."
+    "en": "Regenerate gravity for panel-mode projects with shells. Coplanar shell overlaps and offset shell decks connected by vertical rigid links to overlapping loaded beam panels block generation.",
+    "es": "Regenerá la gravedad en proyectos en modo de paños con placas. La generación se bloquea si hay placas coplanares superpuestas o losas desplazadas de placas que se superponen a paños de vigas cargados y están conectadas a ellos por vínculos rígidos que transmiten el desplazamiento vertical.",
+    "pt": "Gere novamente as cargas gravitacionais em projetos no modo de painéis com cascas. A geração é bloqueada quando há cascas coplanares sobrepostas ou lajes deslocadas de cascas que se sobrepõem a painéis de vigas carregados e estão ligadas a eles por vínculos rígidos que transmitem o deslocamento vertical.",
+    "de": "Erzeugen Sie die Schwerkraftlasten für Projekte im Feldmodus mit Schalen neu. Überlappende Schalen in derselben Ebene und versetzte Schalendecken, die überlappende belastete Trägerfelder über starre Verbindungen in vertikaler Richtung koppeln, verhindern die Lasterzeugung.",
+    "fr": "Régénérez les charges de gravité des projets en mode panneaux avec coques. La génération est bloquée lorsque des coques coplanaires se chevauchent ou que des planchers de coques décalés recouvrent des panneaux de poutres chargés en plan et sont reliés à ces panneaux par des liaisons rigides qui transmettent le déplacement vertical.",
+    "tr": "Kabuk içeren panel modu projelerinde yerçekimi yüklerini yeniden üretin. Aynı düzlemde çakışan kabuklar ve izdüşümü çakışan yüklü kiriş panellerine düşey yer değiştirmeyi aktaran rijit bağlantılarla bağlanan ötelenmiş kabuk döşemeler yük üretimini engeller.",
+    "hu": "Készítse újra a gravitációs terheket a héjakat tartalmazó mezőalapú projektekben. Az egy síkban átfedő héjak és a vetületben átfedő, terhelt gerendamezőkhöz függőleges elmozdulást átadó merev kapcsolatokkal csatlakozó eltolt héjfödémek blokkolják a terhek előállítását."
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-gravity-shell-ownership.md",
