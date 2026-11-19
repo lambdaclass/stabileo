@@ -1081,7 +1081,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
       L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
       W: !!input.wind?.enabled && [...nodal, ...distributed].some((n) => n.caseType === 'W'),
       Wa: [...nodal, ...distributed].some((n) => n.caseType === 'Wa'),
-      E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
+      E: !!input.seismic?.enabled && [nodal, distributed, surface].some(loads => loads.some(load => load.caseType === 'E')),
       F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
       T: special.thermal.length > 0,
     };

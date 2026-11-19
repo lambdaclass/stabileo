@@ -1,5 +1,5 @@
 import { modalSeismicRefusal } from './seismic-generation';
-import { staticSeismicCases, ACCIDENTAL_ECCENTRICITY } from './seismic-cases';
+import { staticSeismicCases, staticSeismicSelection, ACCIDENTAL_ECCENTRICITY } from './seismic-cases';
 import { clause, fromProject, type ProvenancedValue } from '../../codes/regulation';
 import { designSpectrum, isBlocked, SIMULTANEITY_F1 } from '../../codes/cirsoc103/spectrum';
 import { designPeriod, designSeismicCoefficient, distributeInHeight, staticMethodApplicable } from '../../codes/cirsoc103/static-method';
@@ -12,7 +12,7 @@ import type { MassRefusal, SeismicLevel, SeismicModel } from './seismic-mass';
 export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: SeismicPlanSink): {
   seismicWeight: ProvenancedValue<number> | undefined; baseShear: ProvenancedValue<number> | undefined; seismicDetail: SeismicPlanDetail | undefined;
 } {
-  const { cases, nodal, derivation, refs, assumptions, unsupportedKeys, blockedKeys, levelRefusals } = sink;
+  const { cases, nodal, distributed, surface, derivation, refs, assumptions, unsupportedKeys, blockedKeys, levelRefusals } = sink;
   let seismicWeight: ProvenancedValue<number> | undefined;
   let baseShear: ProvenancedValue<number> | undefined;
   let seismicDetail: SeismicPlanDetail | undefined;
@@ -22,6 +22,11 @@ export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: Sei
     return { seismicWeight, baseShear, seismicDetail };
   }
   if (input.seismic?.enabled) {
+    const selection = staticSeismicSelection(input.seismic);
+    if ('blocked' in selection) {
+      blockedKeys.push(selection.blocked);
+      return { seismicWeight, baseShear, seismicDetail };
+    }
     const { datum, levels } = model;
     if ('refusal' in datum) {
       blockedKeys.push(msg(`loadPlan.blocked.${datum.refusal}`));
@@ -108,20 +113,21 @@ export function planSeismic(input: LoadPlanInput, model: SeismicModel, sink: Sei
       derivation.push(dist.derivation);
       if (seismicDetail) seismicDetail.topHeavy = dist.topHeavy;
       const staticForces = stories.map((_, k) => dist.forces[k]?.f ?? 0);
-      const torsion = input.seismic.torsion ?? 'low';
+      const { torsion, diagonal } = selection;
       if (torsion !== 'low') {
         refs.push(clause('inpres-cirsoc-103-i', '2018', '6.2.4.2', 'torsión accidental'));
         derivation.push(msg('loadPlan.derivation.accidentalTorsion', { e: ACCIDENTAL_ECCENTRICITY[torsion] * 100 }));
       }
-      if (input.seismic.diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
+      if (diagonal) refs.push(clause('inpres-cirsoc-103-i', '2018', '3.2', 'direcciones de análisis'));
       for (const c of staticSeismicCases({
-        levels: massLevels, forces: staticForces, diagonal: input.seismic.diagonal,
-        directions: input.seismic.directions, torsion,
+        levels: massLevels, forces: staticForces, selection,
       }, refuse)) {
         const index = cases.length;
         const plain = c.nameKey === 'autoLoad.seismicCaseDir' && c.axis !== 'diagonal';
         cases.push({ existingId: plain ? findCase(input.model, 'E', c.axis) : null, type: 'E', nameKey: c.nameKey, nameParams: c.nameParams });
         for (const n of c.nodal) nodal.push({ ...n, caseType: 'E', caseIndex: index });
+        for (const d of c.distributed) distributed.push({ ...d, caseType: 'E', caseIndex: index });
+        for (const s of c.surface) surface.push({ ...s, caseType: 'E', caseIndex: index });
       }
 
       derivation.push(msg('loadPlan.derivation.seismic', {

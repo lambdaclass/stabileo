@@ -7980,6 +7980,7 @@ const en: Record<string, string> = {
   'loadPlan.blocked.seismicMass.snow': "Seismic loading refused at {elevation} m. The physical carriers of the participating snow mass could not be established.",
   'loadPlan.blocked.seismicMass.torsion': "Seismic loading refused at {elevation} m. Accidental torsion could not be represented by the member pressure field.",
   'loadPlan.blocked.modalUnavailable': "Modal seismic load generation is unavailable until the modal force distribution is corrected. Use the static method.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "The 45° seismic case is unavailable with accidental torsion.",
   'loadPlan.blocked.seismicBase': "Static seismic load generation requires a support connected to seismic mass at a valid elevation.",
   'loadPlan.blocked.seismicSteppedBase': "Static seismic loads cannot be generated for a stepped base. Supports connected to seismic mass must be at the same elevation.",
   'loadPlan.blocked.seismicBelowDatum': "Static seismic loads cannot be generated when participating seismic mass lies below the support datum.",

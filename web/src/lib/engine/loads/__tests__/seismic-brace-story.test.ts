@@ -40,13 +40,15 @@ regression('known wrong result: #2330 a connected X brace intersection is not a 
   expect.soft(plan.factors.baseShear?.value).toBeCloseTo(roofForce, 10);
 
   const nodal = plan.nodal.filter(load => load.caseType === 'E');
-  expect.soft(plan.distributed.filter(load => load.caseType === 'E')).toEqual([]);
+  expect.soft(plan.distributed.filter(load => load.caseType === 'E')).toMatchObject([
+    { elementId: 3, q: 0, qX: 2, qXJ: 2, frame: 'global' },
+  ]);
   expect.soft(plan.surface.filter(load => load.caseType === 'E')).toEqual([]);
   expect.soft(nodal.map(load => load.nodeId)).toEqual([3, 4]);
-  for (const load of nodal) expect.soft(load.fx).toBeCloseTo(roofForce / 2, 10);
+  for (const load of nodal) expect.soft(load.fx).toBeCloseTo((roofForce - 8) / 2, 10);
 
   for (const elevation of [0, 2, 3]) {
     const shear = nodal.reduce((sum, load) => sum + (model.nodes.get(load.nodeId)!.z! > elevation ? load.fx : 0), 0);
-    expect.soft(shear).toBeCloseTo(roofForce, 10);
+    expect.soft(shear + 8).toBeCloseTo(roofForce, 10);
   }
 });

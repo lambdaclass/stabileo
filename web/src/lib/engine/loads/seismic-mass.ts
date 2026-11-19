@@ -7,13 +7,12 @@ import { pressureQuadrature } from './wind-pressure-field';
 import { createSectionWeight } from '../../section/weight';
 
 export type MassNode = { id: number; x: number; y: number; z: number };
-export type MassLine = {
-  kind: 'line'; elementId: number; nodes: [MassNode] | [MassNode, MassNode]; nodeI: MassNode; nodeJ: MassNode;
-  length: number; a: number; b: number; wi: number; wj: number; width?: number;
-};
-type LineGeometry = Omit<MassLine, 'nodes' | 'wi' | 'wj'>;
+type LineGeometry = { elementId: number; nodeI: MassNode; nodeJ: MassNode; length: number; a: number; b: number };
+type LineWeight = LineGeometry & { wi: number; wj: number; width?: number };
+export type MassMember = LineWeight & { kind: 'member' };
+type MassAtNode = LineWeight & { kind: 'nodal'; node: MassNode };
 export type MassShell = { kind: 'shell'; quadId: number; on?: 'plate'; nodes: MassNode[]; density: number };
-export type SeismicMass = MassLine | MassShell;
+export type SeismicMass = MassMember | MassAtNode | MassShell;
 export type SeismicLevel = LevelMass & { mass: SeismicMass[]; planWidth: { x: number; y: number }; snowWeightKN: number; unresolvedWeight: boolean; refusals: Set<MassRefusal> };
 type DatumRefusal = 'seismicBase' | 'seismicSteppedBase' | 'seismicDisconnected' | 'seismicBelowDatum';
 export type SeismicModel =
@@ -22,42 +21,16 @@ export type SeismicModel =
 export type MassRefusal = 'member' | 'shell' | 'panel' | 'eccentric' | 'snow' | 'torsion' | 'weight' | 'storyNode';
 
 const interpolate = (a: number, b: number, t: number) => a + (b - a) * t;
-type MassSample = (weight: number, x: number, y: number, nodes: readonly MassNode[], shape: readonly number[]) => void;
-
-function lineShape(mass: MassLine, s: number) {
-  const [i, j] = mass.nodes;
-  if (!j) return [1];
-  const axis = Math.abs(j.x - i.x) >= Math.abs(j.y - i.y) ? 'x' : 'y';
-  const span = j[axis] - i[axis], t = s / mass.length;
-  const fromI = interpolate(mass.nodeI[axis] - i[axis], mass.nodeJ[axis] - i[axis], t);
-  const fromJ = interpolate(j[axis] - mass.nodeI[axis], j[axis] - mass.nodeJ[axis], t);
-  return [fromJ / span, fromI / span];
-}
-
-export function massTributaries(mass: SeismicMass, add: (node: MassNode, weight: number) => void) {
-  if (mass.kind === 'line') {
-    const i = lineShape(mass, mass.a), j = lineShape(mass, mass.b);
-    for (const [k, node] of mass.nodes.entries()) {
-      const mid = (i[k]! + j[k]!) / 2;
-      const density = (mass.wi + mass.wj) / 2;
-      const gradient = (mass.wj - mass.wi) * (j[k]! - i[k]!) / 12;
-      add(node, (mass.b - mass.a) * (density * mid + gradient));
-    }
-    return;
-  }
-  massSamples(mass, (weight, _x, _y, nodes, shape) => {
-    for (const [k, node] of nodes.entries()) add(node, weight * shape[k]!);
-  });
-}
+type MassSample = (weight: number, x: number, y: number) => void;
 
 export function massSamples(mass: SeismicMass, sample: MassSample) {
-  if (mass.kind === 'line') {
+  if (mass.kind !== 'shell') {
     for (const [u, w] of pressureQuadrature) {
       const t = (1 + u) / 2, s = interpolate(mass.a, mass.b, t);
       const x = interpolate(mass.nodeI.x, mass.nodeJ.x, s / mass.length);
       const y = interpolate(mass.nodeI.y, mass.nodeJ.y, s / mass.length);
       const weight = w * (mass.b - mass.a) * interpolate(mass.wi, mass.wj, t) / 2;
-      sample(weight, x, y, mass.nodes, lineShape(mass, s));
+      sample(weight, x, y);
     }
     return;
   }
@@ -67,7 +40,7 @@ export function massSamples(mass: SeismicMass, sample: MassSample) {
     for (const i of [0, 1, 2]) {
       const shape = [0, 1, 2].map(j => i === j ? 2 / 3 : 1 / 6);
       const point = (key: 'x' | 'y') => a![key] + mass.nodes.reduce((v, n, j) => v + shape[j]! * (n[key] - a![key]), 0);
-      sample(size * mass.density / 3, point('x'), point('y'), mass.nodes, shape);
+      sample(size * mass.density / 3, point('x'), point('y'));
     }
     return;
   }
@@ -79,7 +52,7 @@ export function massSamples(mass: SeismicMass, sample: MassSample) {
     ];
     const [xr, xs] = derivatives('x'), [yr, ys] = derivatives('y');
     const point = (key: 'x' | 'y') => a![key] + mass.nodes.reduce((v, n, i) => v + shape[i]! * (n[key] - a![key]), 0);
-    sample(wr * ws * Math.abs(xr! * ys! - xs! * yr!) * mass.density, point('x'), point('y'), mass.nodes, shape);
+    sample(wr * ws * Math.abs(xr! * ys! - xs! * yr!) * mass.density, point('x'), point('y'));
   }
 }
 
@@ -191,7 +164,7 @@ export function buildSeismicModel(
     if (!nodeI || !nodeJ) continue;
     const length = Math.hypot(nodeJ.x - nodeI.x, nodeJ.y - nodeI.y, nodeJ.z - nodeI.z);
     if (!(Number.isFinite(length) && length > 0)) continue;
-    geometry.set(e.id, { kind: 'line', elementId: e.id, a: 0, b: length, length, nodeI, nodeJ });
+    geometry.set(e.id, { elementId: e.id, a: 0, b: length, length, nodeI, nodeJ });
     next(e.nodeI, nodeJ, e.id);
     next(e.nodeJ, nodeI, e.id);
   }
@@ -225,32 +198,21 @@ export function buildSeismicModel(
   const storyNodes = new Set([...nodes.values()].filter(n => component.nodes.has(n.id) &&
     (surfaceNodes.has(n.id) || component.storyNodes.has(n.id) || (neighbours.has(n.id) && !subdivisions.has(n.id))))
     .map(n => n.id));
-  type Carrier = { ends: [MassNode, MassNode]; atStory: Map<number, [MassNode]> };
-  const carrierByElement = new Map<number, Carrier>();
+  const attachments = new Map<number, Map<number, MassNode>>();
   for (const [id, line] of geometry) {
-    if (carrierByElement.has(id)) continue;
-    const carrier: Carrier = { ends: [line.nodeI, line.nodeJ], atStory: new Map() };
+    if (line.nodeI.z === line.nodeJ.z || attachments.has(id)) continue;
+    const atStory = new Map<number, MassNode>();
     const pending = [line];
-    const horizontal = line.nodeI.z === line.nodeJ.z;
-    const axis = Math.abs(line.nodeJ.x - line.nodeI.x) >= Math.abs(line.nodeJ.y - line.nodeI.y) ? 'x' : 'y';
-    if (carrier.ends[0][axis] > carrier.ends[1][axis]) carrier.ends.reverse();
     while (pending.length) {
       const member = pending.pop()!;
-      if (carrierByElement.has(member.elementId)) continue;
-      carrierByElement.set(member.elementId, carrier);
+      if (attachments.has(member.elementId)) continue;
+      attachments.set(member.elementId, atStory);
       for (const node of [member.nodeI, member.nodeJ]) {
-        if (horizontal) {
-          if (node[axis] < carrier.ends[0][axis]) carrier.ends[0] = node;
-          if (node[axis] > carrier.ends[1][axis]) carrier.ends[1] = node;
-        }
-        if (storyNodes.has(node.id)) {
-          carrier.atStory.set(node.z, [node]);
-          if (horizontal) continue;
-        }
+        if (storyNodes.has(node.id)) atStory.set(node.z, node);
         if (!subdivisions.has(node.id)) continue;
         for (const { elementId } of neighbours.get(node.id)!) {
           const adjacent = geometry.get(elementId)!;
-          if (!carrierByElement.has(elementId) && horizontal === (adjacent.nodeI.z === adjacent.nodeJ.z)) pending.push(adjacent);
+          if (!attachments.has(elementId) && adjacent.nodeI.z !== adjacent.nodeJ.z) pending.push(adjacent);
         }
       }
     }
@@ -309,7 +271,7 @@ export function buildSeismicModel(
     l.weightKN += factor * weight;
     if (!Number.isFinite(l.weightKN)) { deny(l, 'weight'); return; }
     if (m === null) return;
-    l.mass.push(m.kind === 'line' ? { ...m, wi: factor * m.wi, wj: factor * m.wj } : { ...m, density: factor * m.density });
+    l.mass.push(m.kind === 'shell' ? { ...m, density: factor * m.density } : { ...m, wi: factor * m.wi, wj: factor * m.wj });
   };
   const line = (source: Source, g: LineGeometry, wi: number, wj: number, strip?: number) => {
     if (!Number.isFinite(wi) || !Number.isFinite(wj) || wi < 0 || wj < 0) { markMember(g.elementId, 'weight'); return; }
@@ -322,16 +284,19 @@ export function buildSeismicModel(
     const elevationAt = (s: number) => s === 0 ? g.nodeI.z
       : s === g.length ? g.nodeJ.z : interpolate(g.nodeI.z, g.nodeJ.z, s / g.length);
     if (factorOf(source) > 0 && Math.min(elevationAt(g.a), elevationAt(g.b)) < component.elevation) belowDatum = true;
-    const carrier = carrierByElement.get(g.elementId)!;
     distribute.push(() => {
-      const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
-        const nodes = g.nodeI.z === g.nodeJ.z ? carrier.ends : carrier.atStory.get(level.elevation);
-        const weight = (b - a) * (wi + wj) / 2;
-        if (!nodes && level.elevation > component.elevation && factorOf(source) > 0 && weight > 0) deny(level, 'storyNode', false);
-        record(level, source, nodes ? { ...g, nodes, a, b, wi, wj, width: strip } : null, weight);
-      };
       const { nodeI, nodeJ, length } = g;
-      if (nodeI.z === nodeJ.z) { add(level(nodeI.z), g.a, g.b, wi, wj); return; }
+      if (nodeI.z === nodeJ.z) {
+        record(level(nodeI.z), source, { ...g, kind: 'member', wi, wj, width: strip }, (g.b - g.a) * (wi + wj) / 2);
+        return;
+      }
+      const atStory = attachments.get(g.elementId)!;
+      const add = (level: SeismicLevel, a: number, b: number, wi: number, wj: number) => {
+        const node = atStory.get(level.elevation);
+        const weight = (b - a) * (wi + wj) / 2;
+        if (!node && level.elevation > component.elevation && factorOf(source) > 0 && weight > 0) deny(level, 'storyNode', false);
+        record(level, source, node ? { ...g, kind: 'nodal', node, a, b, wi, wj, width: strip } : null, weight);
+      };
       const dz = nodeJ.z - nodeI.z;
       const cuts = [g.a, g.b, ...levels.slice(1).map((l, i) =>
         ((l.elevation + levels[i]!.elevation) / 2 - nodeI.z) * length / dz,

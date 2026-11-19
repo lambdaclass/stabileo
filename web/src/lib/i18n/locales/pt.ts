@@ -4340,6 +4340,7 @@ const pt: Translations = {
   'loadPlan.blocked.seismicMass.snow': "A carga sísmica a {elevation} m foi recusada. Não foi possível determinar os elementos portantes da massa de neve participante.",
   'loadPlan.blocked.seismicMass.torsion': "A carga sísmica a {elevation} m foi recusada. O campo de pressões das barras não pôde representar a torção acidental.",
   'loadPlan.blocked.modalUnavailable': "A geração de cargas sísmicas modais está indisponível até que a distribuição das forças modais seja corrigida. Use o método estático.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "O caso sísmico a 45° não está disponível com torção acidental.",
   'loadPlan.blocked.seismicBase': "A geração de cargas sísmicas estáticas requer um apoio com cota válida ligado à massa sísmica.",
   'loadPlan.blocked.seismicSteppedBase': "Não é possível gerar cargas sísmicas estáticas para uma base escalonada. Os apoios ligados à massa sísmica devem estar na mesma cota.",
   'loadPlan.blocked.seismicBelowDatum': "Não é possível gerar cargas sísmicas estáticas quando há massa sísmica participante abaixo da cota dos apoios.",

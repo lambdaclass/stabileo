@@ -7265,6 +7265,7 @@ const hu: Translations = {
   "loadPlan.blocked.seismicMass.weight": "A szeizmikus terhelés meghatározása {elevation} m magasságban leállt. Érvénytelen tömeg vagy szinterő.",
   "loadPlan.blocked.seismicMass.storyNode": "A szeizmikus terhelés meghatározása {elevation} m magasságban sikertelen. Egy tömeget hordozó elemnek nincs csatlakozási csomópontja ezen a szinten.",
   "loadPlan.blocked.modalUnavailable": "A modális erőeloszlás javításáig a modális szeizmikus terhek generálása nem érhető el. Használja a statikus módszert.",
+  "loadPlan.blocked.seismicDiagonalTorsion": "A 45°-os szeizmikus tehereset véletlen csavarás mellett nem érhető el.",
   "loadPlan.blocked.seismicBase": "A statikus szeizmikus terhek előállításához a szeizmikus tömeghez kapcsolódó, érvényes magasságú támasz szükséges.",
   "loadPlan.blocked.seismicSteppedBase": "Lépcsőzetes alap esetén nem állíthatók elő statikus szeizmikus terhek. A szeizmikus tömeghez kapcsolódó támaszoknak azonos magasságban kell lenniük.",
   "loadPlan.blocked.seismicBelowDatum": "Nem hozható létre statikus földrengésteher, ha a figyelembe vett szeizmikus tömeg a támaszszint alatt van.",

@@ -7973,6 +7973,7 @@ const es: Record<string, string> = {
   'loadPlan.blocked.seismicMass.snow': "Se rechazó la carga sísmica a {elevation} m. No se pudieron determinar los elementos portantes de la masa de nieve participante.",
   'loadPlan.blocked.seismicMass.torsion': "Se rechazó la carga sísmica a {elevation} m. El campo de presiones sobre las barras no pudo representar la torsión accidental.",
   'loadPlan.blocked.modalUnavailable': "La generación de cargas sísmicas modales está deshabilitada hasta que se corrija la distribución de fuerzas modales. Usá el método estático.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "El caso sísmico a 45° no está disponible con torsión accidental.",
   'loadPlan.blocked.seismicBase': "La generación de cargas sísmicas estáticas requiere un apoyo con cota válida conectado a la masa sísmica.",
   'loadPlan.blocked.seismicSteppedBase': "No se pueden generar cargas sísmicas estáticas para una base escalonada. Los apoyos conectados a la masa sísmica deben estar a la misma cota.",
   'loadPlan.blocked.seismicBelowDatum': "No se pueden generar cargas sísmicas estáticas si hay masa sísmica participante por debajo de la cota de apoyo.",

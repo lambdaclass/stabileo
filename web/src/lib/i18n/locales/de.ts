@@ -7521,6 +7521,7 @@ const de: Translations = {
   'loadPlan.blocked.seismicMass.snow': "Erdbebenlast auf {elevation} m abgelehnt. Die Träger der wirksamen Schneemasse konnten nicht bestimmt werden.",
   'loadPlan.blocked.seismicMass.torsion': "Erdbebenlast auf {elevation} m abgelehnt. Das Stablastfeld konnte die zufällige Torsion nicht abbilden.",
   'loadPlan.blocked.modalUnavailable': "Modale Erdbebenlasten können erst wieder erzeugt werden, wenn die modale Kraftverteilung korrigiert ist. Verwenden Sie das statische Verfahren.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "Der seismische Lastfall bei 45° ist mit zufälliger Torsion nicht verfügbar.",
   'loadPlan.blocked.seismicBase': "Für die Erzeugung statischer Erdbebenlasten ist ein mit der seismischen Masse verbundenes Auflager auf gültiger Höhe erforderlich.",
   'loadPlan.blocked.seismicSteppedBase': "Bei einer abgestuften Basis können keine statischen Erdbebenlasten erzeugt werden. Die mit der seismischen Masse verbundenen Auflager müssen auf gleicher Höhe liegen.",
   'loadPlan.blocked.seismicBelowDatum': "Statische Erdbebenlasten können bei mitwirkender seismischer Masse unterhalb der Auflagerhöhe nicht erzeugt werden.",

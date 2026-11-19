@@ -7530,6 +7530,7 @@ const tr: Translations = {
   'loadPlan.blocked.seismicMass.snow': "{elevation} m kotunda deprem yükü reddedildi. Katılan kar kütlesinin taşıyıcıları belirlenemedi.",
   'loadPlan.blocked.seismicMass.torsion': "{elevation} m kotunda deprem yükü reddedildi. Çubuk yükü alanı tesadüfi burulmayı temsil edemedi.",
   'loadPlan.blocked.modalUnavailable': "Modal kuvvet dağılımı düzeltilene kadar modal deprem yükleri üretilemez. Statik yöntemi kullanın.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "Tesadüfi burulma ile 45° deprem yük durumu oluşturulamaz.",
   'loadPlan.blocked.seismicBase': "Statik deprem yükü üretmek için sismik kütleye bağlı, geçerli kotta bir mesnet gerekir.",
   'loadPlan.blocked.seismicSteppedBase': "Kademeli bir taban için statik deprem yükleri oluşturulamaz. Sismik kütleye bağlı mesnetler aynı kotta olmalıdır.",
   'loadPlan.blocked.seismicBelowDatum': "Katılan sismik kütle mesnet kotunun altında olduğunda statik deprem yükleri oluşturulamaz.",

@@ -7521,6 +7521,7 @@ const fr: Translations = {
   'loadPlan.blocked.seismicMass.snow': "Charge sismique refusée à {elevation} m. Les supports de la masse de neige participante n’ont pas pu être établis.",
   'loadPlan.blocked.seismicMass.torsion': "Charge sismique refusée à {elevation} m. Le champ de charges sur les barres ne représente pas la torsion accidentelle.",
   'loadPlan.blocked.modalUnavailable': "La génération des charges sismiques modales est indisponible tant que la distribution des forces modales n’est pas corrigée. Utilisez la méthode statique.",
+  'loadPlan.blocked.seismicDiagonalTorsion': "Le cas sismique à 45° est indisponible avec la torsion accidentelle.",
   'loadPlan.blocked.seismicBase': "La génération de charges sismiques statiques exige un appui de cote valide relié à la masse sismique.",
   'loadPlan.blocked.seismicSteppedBase': "Impossible de générer des charges sismiques statiques sur une base à redans. Les appuis reliés à la masse sismique doivent être à la même cote.",
   'loadPlan.blocked.seismicBelowDatum': "Impossible de générer des charges sismiques statiques si une masse sismique participante se trouve sous la cote des appuis.",
