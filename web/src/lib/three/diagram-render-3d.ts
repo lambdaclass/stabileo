@@ -323,9 +323,13 @@ function addShared(group: THREE.Group, style: ReturnType<typeof diagramStyle>): 
   const count = style.markers.length / 3;
   if (count > 0) {
     const markers = new THREE.InstancedMesh(new THREE.SphereGeometry(style.markerRadius, 12, 8), style.markerMaterial, count);
+    // An instance matrix is float32 and the shader adds it to the sphere's vertices before the
+    // view transform: the instances are placed from the first marker, which the mesh itself carries.
+    const [ox, oy, oz] = [style.markers[0]!, style.markers[1]!, style.markers[2]!];
+    markers.position.set(ox, oy, oz);
     const at = new THREE.Matrix4();
     for (let i = 0; i < count; i++) {
-      markers.setMatrixAt(i, at.makeTranslation(style.markers[3 * i]!, style.markers[3 * i + 1]!, style.markers[3 * i + 2]!));
+      markers.setMatrixAt(i, at.makeTranslation(style.markers[3 * i]! - ox, style.markers[3 * i + 1]! - oy, style.markers[3 * i + 2]! - oz));
     }
     markers.instanceMatrix.needsUpdate = true;
     markers.renderOrder = 1;

@@ -103,8 +103,12 @@ it('draws every member of a group with one set of materials and one marker geome
     for (let member = 0; member < 3; member++) {
       markers[0]!.getMatrixAt(member, at);
       const curve = fills[member]!.geometry.getAttribute('position');
-      // Each member's largest moment is at its start: the marker stands on the curve there.
-      expect([at.elements[12], at.elements[13], at.elements[14]]).toEqual([curve.getX(1), curve.getY(1), curve.getZ(1)]);
+      // Each member's largest moment is at its start: the marker stands on the curve there, the
+      // mesh at the first marker and each instance placed from it.
+      const origin = markers[0]!.position;
+      [origin.x + at.elements[12]!, origin.y + at.elements[13]!, origin.z + at.elements[14]!]
+        .forEach((v, axis) => expect(v).toBeCloseTo([curve.getX(1), curve.getY(1), curve.getZ(1)][axis]!, 5));
+      if (member === 0) expect([at.elements[12], at.elements[13], at.elements[14]]).toEqual([0, 0, 0]);
       expect([at.elements[0], at.elements[5], at.elements[10]]).toEqual([1, 1, 1]);
     }
     expect(group.children.length).toBe(3 + 3 + 1 + 1);
@@ -135,7 +139,8 @@ it('keeps markers far from the origin in view: the instanced mesh is culled by w
     const markers = group.children.find((child) => child.userData.type === 'diagram3dMarkers') as InstanceType<typeof THREE.InstancedMesh>;
     const at = new THREE.Matrix4();
     markers.getMatrixAt(0, at);
-    const marker = new THREE.Vector3().setFromMatrixPosition(at);
+    const placed = new THREE.Vector3().setFromMatrixPosition(at);
+    const marker = placed.clone().add(markers.position);
     expect(marker.distanceTo(new THREE.Vector3(5000, 3000, 40))).toBeLessThan(10);
     group.updateMatrixWorld(true);
     // What the renderer asks before it draws: a camera looking at the member, the origin 5.8 km behind it.
@@ -147,7 +152,48 @@ it('keeps markers far from the origin in view: the instanced mesh is culled by w
     const frustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
     expect(frustum.intersectsObject(markers)).toBe(true);
     expect(frustum.containsPoint(new THREE.Vector3(0, 0, 0))).toBe(false);
-    expect(markers.boundingSphere!.containsPoint(marker)).toBe(true);
+    expect(markers.boundingSphere!.containsPoint(placed)).toBe(true);
+  } finally { disposeObject(group); modelStore.clear(); }
+});
+
+it('draws a marker round at survey coordinates: the vertex shader adds in single precision', async () => {
+  const THREE = await import('three');
+  modelStore.clear();
+  // A one-metre member where a float32 holds X to 0.03 m and Y to 0.5 m.
+  const a = modelStore.addNode(500_000, 5_000_000, 12), b = modelStore.addNode(500_001, 5_000_000, 12);
+  const id = modelStore.addElement(a, b);
+  const group = createDiagramGroup3D(modelStore.elements, modelStore.nodes, [{ ...force(), elementId: id }], 'momentY', 1, false);
+  try {
+    const markers = group.children.find((child) => child.userData.type === 'diagram3dMarkers') as InstanceType<typeof THREE.InstancedMesh>;
+    const radius = (markers.geometry as InstanceType<typeof THREE.SphereGeometry>).parameters.radius;
+    expect(radius).toBeCloseTo(0.008, 9);
+    group.updateMatrixWorld(true);
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100);
+    camera.position.set(500_000.5, 4_999_998, 12);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(500_000.5, 5_000_000, 12);
+    camera.updateMatrixWorld(true);
+    // As three.js gives them to the shader: the model-view product formed in doubles and
+    // uploaded as float32, the instance matrix and the vertices float32 from the start.
+    const f = Math.fround;
+    const modelView = new THREE.Matrix4().multiplyMatrices(camera.matrixWorldInverse, markers.matrixWorld).elements.map(f);
+    const instance = Array.from(markers.instanceMatrix.array.slice(0, 16));
+    const transform = (m: ArrayLike<number>, [x, y, z]: number[]) => [0, 1, 2].map((r) =>
+      f(f(f(f(m[r]! * x!) + f(m[4 + r]! * y!)) + f(m[8 + r]! * z!)) + m[12 + r]!));
+    const vertices = markers.geometry.getAttribute('position');
+    const seen: number[][] = [];
+    for (let i = 0; i < vertices.count; i++) {
+      seen.push(transform(modelView, transform(instance, [vertices.getX(i), vertices.getY(i), vertices.getZ(i)])));
+    }
+    // In view space the sphere is still a sphere: its extent along each axis is its diameter.
+    for (const axis of [0, 1, 2]) {
+      const along = seen.map((p) => p[axis]!);
+      expect(Math.max(...along) - Math.min(...along)).toBeCloseTo(2 * radius, 3);
+    }
+    // And it stands where the member's diagram has its largest value, 2 m in front of the camera.
+    const centre = [0, 1, 2].map((axis) => seen.reduce((sum, p) => sum + p[axis]!, 0) / seen.length);
+    expect(Math.abs(centre[2]! + 2)).toBeLessThan(0.1);
+    expect(Math.hypot(centre[0]!, centre[1]!)).toBeLessThan(1);
   } finally { disposeObject(group); modelStore.clear(); }
 });
 
