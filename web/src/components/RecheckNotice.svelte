@@ -2,7 +2,7 @@
   import { saveWorkspaceSettled, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, concernsGeneratedLoads, registryLocale, type ResultChange } from '../lib/provenance/registry';
+  import { changelogUrl, concernsLoadBasis, registryLocale, type ResultChange } from '../lib/provenance/registry';
   import { advisoryName, type Advisory } from '../lib/provenance/advisories';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
@@ -33,8 +33,8 @@
 
   const a = $derived(recheckStore.assessment);
   const open = $derived((recheckStore.noticeOpen && (details || loadFailed || checkingLong)) || reviewing);
-  const regenerate = $derived(!!a?.changes.some((c) => concernsGeneratedLoads(c.when)));
-  const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
+  const regenerate = $derived(!!a?.changes.some((c) => concernsLoadBasis(c)));
+  const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsLoadBasis(c)));
   const changeLocale = (c: ResultChange) => registryLocale(i18n.locale, c.title, c.explanation);
   const advisoryLocale = (x: Advisory) => registryLocale(i18n.locale, x.title, ...(x.ifUsed ? [x.ifUsed] : []));
   const openAdvisories = $derived(recheckStore.openAdvisories);

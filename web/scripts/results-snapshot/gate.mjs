@@ -312,7 +312,11 @@ export async function readCaseFeatures(files, base, at, root) {
     });
     const request = join(dir, 'request.json');
     writeFileSync(request, JSON.stringify({ cases, output }));
-    const run = spawnSync('npx', ['--no-install', 'vitest', 'run', '--project', 'results', 'src/lib/results-snapshot/__tests__/applicability-context.test.ts'], { cwd: `${root}/web`, env: { ...process.env, SNAPSHOT_FEATURES: request }, stdio: 'inherit' });
+    const run = spawnSync('npx', [
+      '--no-install', 'vitest', 'run', '--project', 'results',
+      'src/lib/results-snapshot/__tests__/applicability-context.test.ts',
+      '-t', 'opens corpus models for result applicability',
+    ], { cwd: `${root}/web`, env: { ...process.env, SNAPSHOT_FEATURES: request }, stdio: 'inherit' });
     if (run.status !== 0) throw new Error('Could not open the corpus models for applicability');
     return JSON.parse(readFileSync(output, 'utf8'));
   } finally {

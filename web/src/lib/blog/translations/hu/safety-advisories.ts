@@ -14,7 +14,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "Állapot 2026. november 10-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-054 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-059 – Javítva a #1921-es PR-ben, kiadásra vár."
+      "t": "Állapot 2026. november 12-én: az SA-2026-001–020 a 0.3.0-s, az SA-2026-021–024 a 0.4.0-s, az SA-2026-025–047 pedig a 0.5.0-s verzióban javult (az SA-2026-040 kezelve van: az ellenőrzés hiányosként van jelölve), kivéve az SA-2026-044-et: a 2D képlékeny tönkremenetel számítását a program a #758 lezárásáig elutasítja. Az SA-2026-048 a 0.5.0-s verzió után javult, és 2026. november 8. óta él a stabileo.com-on. Az SA-2026-049, az SA-2026-050, az SA-2026-051, az SA-2026-052 és az SA-2026-053 a 0.5.0-s verzió után javult, és 2026. november 9. óta él a stabileo.com-on. A közzétételük annak része, ahogyan az eredményeket ellenőrizzük, nem annak jele, hogy még nyitottak. Egy figyelmeztetés akkor számít javítottnak, amikor a javítás élesben fut a stabileo.com-on, nem akkor, amikor a módosítás elkészült. Amíg egy figyelmeztetés nyitott, alkalmazza a benne leírt kerülőmegoldást, és aláírás előtt ellenőrizze kézzel az érintett eredményt. SA-2026-054 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-055 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-056 – Tervezet: megoldatlan; javítás még nincs beolvasztva és élesítve. SA-2026-057 – Tervezet: a javítás még nincs beolvasztva és élesítve. SA-2026-059 – Javítva a #1921-es PR-ben, kiadásra vár. SA-2026-060 – Tervezet: a helyi javítás felülvizsgálatra és kiadásra vár. SA-2026-062 – Tervezet: a helyi javítás felülvizsgálatra és kiadásra vár."
     },
     {
       "k": "note",
@@ -30,7 +30,67 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-070 — Javítva a #2170 PR-ben, kiadásra vár."
+      "t": "SA-2026-064 — Javítva a 0.6.1-es verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-064-steel-cb-combination.md",
+      "label": "SA-2026-064",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-065 — Javítva a 0.6.1-es verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-065-snow-roof-step.md",
+      "label": "SA-2026-065",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-066 — Javítva a 0.6.1-es verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-066-cirsoc201-transverse-cm.md",
+      "label": "SA-2026-066",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-067 — Javítva a 0.6.1-es verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-067-snow-roof-rotation.md",
+      "label": "SA-2026-067",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-068 — Javítva a 0.6.1-es verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-068-provided-torsion-stirrups.md",
+      "label": "SA-2026-068",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-069 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-069-torsion-secondary-shear.md",
+      "label": "SA-2026-069",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-070 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -40,7 +100,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-071 — Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár."
+      "t": "SA-2026-071 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -50,7 +110,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-072 — Javítva a #2175 PR-ben, kiadásra vár."
+      "t": "SA-2026-072 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -60,7 +120,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-073 — PR #2197; egyesítésre és kiadásra vár."
+      "t": "SA-2026-073 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -70,7 +130,7 @@ const body: PostBody = {
     },
     {
       "k": "note",
-      "t": "SA-2026-074 — PR #2197; egyesítésre és kiadásra vár."
+      "t": "SA-2026-074 — Javítva a 0.6.2 verzióban."
     },
     {
       "k": "ext",
@@ -78,6 +138,88 @@ const body: PostBody = {
       "label": "SA-2026-074",
       "t": "Érintett modellek és szükséges teendők."
     },
+    {
+      "k": "note",
+      "t": "SA-2026-075 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-075-cirsoc201-secondary-stirrup-legs.md",
+      "label": "SA-2026-075",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-076 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-076-wind-enclosure.md",
+      "label": "SA-2026-076",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-077 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-077-wind-wall-height-transfer.md",
+      "label": "SA-2026-077",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-078 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-078-wind-roof-pressure-zones.md",
+      "label": "SA-2026-078",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {"k": "note", "t": "SA-2026-079 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-079-gravity-shell-coverage.md", "label": "SA-2026-079", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-080 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-080-floor-zone-eccentricity.md", "label": "SA-2026-080", "t": "Érintett modellek és szükséges teendők."},
+    {
+      "k": "note",
+      "t": "SA-2026-082 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-082-snow-companion-basis.md",
+      "label": "SA-2026-082",
+      "t": "Érintett bemenetek és szükséges teendők."
+    },
+    {
+      "k": "note",
+      "t": "SA-2026-083 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-083-concentrated-live-actions.md",
+      "label": "SA-2026-083",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {"k": "note", "t": "SA-2026-084 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-084", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-085 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-fillet-weld-physical-runs.md", "label": "SA-2026-085", "t": "Érintett modellek és szükséges teendők."},
+    {"k": "note", "t": "SA-2026-088 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#combined-member-diagram-extrema", "label": "SA-2026-088", "t": "Érintett modellek és szükséges teendők."},
+    {
+      "k": "note",
+      "t": "SA-2026-089 — Javítva a 0.6.2 verzióban."
+    },
+    {
+      "k": "ext",
+      "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md",
+      "label": "SA-2026-089",
+      "t": "Érintett modellek és szükséges teendők."
+    },
+    {"k": "note", "t": "SA-2026-090 — Javítva a 0.6.2 verzióban."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Érintett modellek és szükséges teendők."},
     {
       "k": "img",
       "base": "blog/recheck-stale",
@@ -100,6 +242,126 @@ const body: PostBody = {
         "Állapot"
       ],
       "rows": [
+        [
+          "SA-2026-001",
+          "A generált kombinációk és terhek (CIRSOC 101, 102, 103) a biztonság kárára tévedtek",
+          "Magas",
+          "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-002",
+          "A betonellenőrzések (CIRSOC 201, ACI 318) túlbecsülték a teherbírást",
+          "Kritikus",
+          "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-003",
+          "Az acél-, hidegen alakított szelvényű és kapcsolati ellenőrzések túlbecsülték a teherbírást",
+          "Kritikus",
+          "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-004",
+          "A modell egy részét figyelmen kívül hagyó számítások (dinamika, kihajlás, képlékeny tönkremenetel)",
+          "Kritikus",
+          "Javítva: 0.2.0"
+        ],
+        [
+          "SA-2026-005",
+          "Ferde 2D rudak: normálerő a teher rúdirányú összetevője nélkül",
+          "Magas",
+          "Javítva: 2026. október 21."
+        ],
+        [
+          "SA-2026-006",
+          "3D-ben számított síkbeli modell: a csomóponti nyomatékok és az előírt elfordulások előjele megfordult",
+          "Magas",
+          "Javítva: 2026. október 21."
+        ],
+        [
+          "SA-2026-007",
+          "3D kihajlás csavarási és hajlító-csavaró kihajlási alakok nélkül",
+          "Magas",
+          "Javítva: 2026. október 21."
+        ],
+        [
+          "SA-2026-008",
+          "Válaszspektrum: CQC mellett SRSS szerinti talpnyíróerő; a részvételi tényezők a támaszokhoz kapcsolt tömeg nélkül",
+          "Magas",
+          "Javítva: 2026. október 21."
+        ],
+        [
+          "SA-2026-009",
+          "Az SHB8 tömör héjelem vékonylemez-hajlításban 22 %-kal túl merev (a lehajlások 18 %-kal kisebbek)",
+          "Közepes (statikailag határozatlan szerkezetekben magasabb)",
+          "Javítva: 2026. október 19."
+        ],
+        [
+          "SA-2026-010",
+          "A spektrális tanúsítvány nem véges eredményeket is elfogadott",
+          "Közepes",
+          "Javítva: 2026. október 19."
+        ],
+        [
+          "SA-2026-011",
+          "Rugóból befogásra vagy csuklóra átállított 3D támasz rugóként számítva",
+          "Magas",
+          "Javítva: 2026. október 20."
+        ],
+        [
+          "SA-2026-012",
+          "Anyagi nemlinearitást figyelembe vevő analízis (csak motor és WASM): rugalmas rúderők a megfolyás után",
+          "Közepes",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-013",
+          "Görbült héjak: a hajlítónyomatékok nullaként jelentek meg; a feszültségek megtartották a szabad hőmérsékleti alakváltozást",
+          "Magas",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-014",
+          "3D képlékeny tönkremenetel: a tényező az elemek számozásától függött (akár a tönkremeneteli teher 2,4-szerese)",
+          "Magas",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-015",
+          "Önsúllyal terhelt kötelek túl kis húzóerőt kaptak statikailag határozatlan szerkezetekben",
+          "Magas",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-016",
+          "Ívek (a motor görbe rúdjai, az alkalmazás ív eszköze): Iy és Iz felcserélve a közel függőleges szakaszokon",
+          "Közepes",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-017",
+          "Talaj–szerkezet kölcsönhatás: a p-y, t-z és q-z görbék eltértek a hivatkozott forrásoktól",
+          "Magas",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-018",
+          "MITC9 héjak (csak motor és WASM) görbült geometrián merevtest-mozgásból alakváltozást kaptak",
+          "Közepes",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-019",
+          "Rudak hőmérsékleti terhei (motor és WASM; az alkalmazás 2026.10.07. óta kompenzálta): az acél α-ja és egy tömör téglalap magassága",
+          "Közepes",
+          "Javítva: 0.3.0"
+        ],
+        [
+          "SA-2026-020",
+          "3D anyagi nemlinearitást figyelembe vevő analízis (csak motor és WASM): a folyási felület kevésbé konzervatív, mint 2D-ben",
+          "Közepes",
+          "Javítva: 0.3.0"
+        ],
         [
           "SA-2026-021",
           "Szabadon álló tetők: gerincirányú szél nem volt, keresztirányban pedig kevesebb a §2.1.5 szerinti minimumnál (20 m/s-nál annak 17 %-a)",
@@ -125,9 +387,15 @@ const body: PostBody = {
           "Javítva: 0.4.0"
         ],
         [
-          "SA-2026-039",
-          "Excel- és IFC-import: a téglalap- és csőszelvények Iy és Iz értéke fel volt cserélve (egy 20 × 40-es konzol 4-szer túl hajlékony, egy 40 × 20-as 4-szer túl merev)",
-          "Magas",
+          "SA-2026-025",
+          "AISC 360 G2 nyírás (csak motor és WASM): gerincterület nélkül 0 kihasználtsággal megfelelt, és tanúsított volt",
+          "Közepes",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 nyírás (csak motor és WASM): nyírt terület nélkül Av = 0,5·A-t vett fel, HEB 300-nál Vpl,Rd 57 %-kal nagyobb, és tanúsított",
+          "Közepes",
           "Javítva: 0.5.0"
         ],
         [
@@ -167,8 +435,44 @@ const body: PostBody = {
           "Javítva: 0.5.0"
         ],
         [
+          "SA-2026-033",
+          "Tehergenerátor: az a födém, amelynek egy része fölött egy alacsony rúd haladt, a teljes felületi terhét elvesztette (egy példában egy 6 × 6 m-es födém 36 m²-e); a rácsos tartók nem számítottak tetőszerkezetnek",
+          "Magas",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-034",
+          "Az egyensúlyi ellenőrzés egyezőnek jelezte a terheket és a támaszerőket olyan eseteknél is, amelyeknél az ellenőrzés terheket hagyott ki; a hasonló emeletek szerkesztése a másik típus rúdjaira is hatott, a másolatok pedig elvesztették a csuklóikat",
+          "Közepes",
+          "Javítva: 0.5.0"
+        ],
+        [
           "SA-2026-035",
           "3D-ről 2D-re váltás: a metszet a rudakat a keresztmetszet rossz tengelye körül hajlította (egy Y–Z síkú portálkeret 13,5-szer túl merev)",
+          "Magas",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-036",
+          "3D-ről 2D-re váltás Y–Z vagy X–Y síkban: a kényszereket úgy olvasta, mintha a keret az X–Z síkban állna (az oldalirányú kapcsolatok kimaradtak vagy síkon kívül hatottak)",
+          "Magas",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-037",
+          "3D korotációs analízis: az elfordulásvektorokat kivonta egymásból (a Bathe–Bolourchi-féle ív 1,3 %-kal eltért, és sűrítéssel sem csökkent)",
+          "Közepes",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-038",
+          "3D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43 %), a csak a végei között nyomott rudat pedig elutasította",
+          "Magas",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-039",
+          "Excel- és IFC-import: a téglalap- és csőszelvények Iy és Iz értéke fel volt cserélve (egy 20 × 40-es konzol 4-szer túl hajlékony, egy 40 × 20-as 4-szer túl merev)",
           "Magas",
           "Javítva: 0.5.0"
         ],
@@ -185,26 +489,14 @@ const body: PostBody = {
           "Javítva: 0.5.0"
         ],
         [
-          "SA-2026-033",
-          "Tehergenerátor: az a födém, amelynek egy része fölött egy alacsony rúd haladt, a teljes felületi terhét elvesztette (egy példában egy 6 × 6 m-es födém 36 m²-e); a rácsos tartók nem számítottak tetőszerkezetnek",
-          "Magas",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-034",
-          "Az egyensúlyi ellenőrzés egyezőnek jelezte a terheket és a támaszerőket olyan eseteknél is, amelyeknél az ellenőrzés terheket hagyott ki; a hasonló emeletek szerkesztése a másik típus rúdjaira is hatott, a másolatok pedig elvesztették a csuklóikat",
-          "Közepes",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-038",
-          "3D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43 %), a csak a végei között nyomott rudat pedig elutasította",
-          "Magas",
-          "Javítva: 0.5.0"
-        ],
-        [
           "SA-2026-042",
           "2D kihajlás: azoknál a rudaknál, amelyekben a tengelyirányú terhek miatt a nyomóerő a rúd mentén nő, a tényező túl nagy lett (egy rúdnál +43 % és +68 % között)",
+          "Magas",
+          "Javítva: 0.5.0"
+        ],
+        [
+          "SA-2026-043",
+          "Harmonikus analízis: az elhagyott rezgésalakok korrekciója elvesztette a pontosságát, ha egy rezgésalak sokkal hajlékonyabb volt a többinél (egy példában 79-szeres eltérés 2,3 Hz-en)",
           "Magas",
           "Javítva: 0.5.0"
         ],
@@ -213,12 +505,6 @@ const body: PostBody = {
           "2D képlékeny tönkremenetel: a tönkremeneteli tényező változott a csomópontok számozásával, a rúdirányokkal és a mértékegységekkel (ugyanazon a szerkezeten akár 4,6-szeresére)",
           "Magas",
           "A 0.5.0-ban nincs javítva: a 2D képlékeny tönkremenetel a #758 lezárásáig nem érhető el; a határteherbírás-számítás benne van a 0.5.0-ban"
-        ],
-        [
-          "SA-2026-043",
-          "Harmonikus analízis: az elhagyott rezgésalakok korrekciója elvesztette a pontosságát, ha egy rezgésalak sokkal hajlékonyabb volt a többinél (egy példában 79-szeres eltérés 2,3 Hz-en)",
-          "Magas",
-          "Javítva: 0.5.0"
         ],
         [
           "SA-2026-045",
@@ -311,160 +597,16 @@ const body: PostBody = {
           "Javítva a #1921-es PR-ben, kiadásra vár"
         ],
         [
-          "SA-2026-037",
-          "3D korotációs analízis: az elfordulásvektorokat kivonta egymásból (a Bathe–Bolourchi-féle ív 1,3 %-kal eltért, és sűrítéssel sem csökkent)",
-          "Közepes",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-036",
-          "3D-ről 2D-re váltás Y–Z vagy X–Y síkban: a kényszereket úgy olvasta, mintha a keret az X–Z síkban állna (az oldalirányú kapcsolatok kimaradtak vagy síkon kívül hatottak)",
+          "SA-2026-060",
+          "A fázisos analízis egységváltás után vagy támaszrugós, kioldott rúdvégeknél észrevétlenül merevíthette a valós forgásokat; ellenőrizze újra a rúdkioldásokat tartalmazó fázisos modelleket.",
           "Magas",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-013",
-          "Görbült héjak: a hajlítónyomatékok nullaként jelentek meg; a feszültségek megtartották a szabad hőmérsékleti alakváltozást",
-          "Magas",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-014",
-          "3D képlékeny tönkremenetel: a tényező az elemek számozásától függött (akár a tönkremeneteli teher 2,4-szerese)",
-          "Magas",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-015",
-          "Önsúllyal terhelt kötelek túl kis húzóerőt kaptak statikailag határozatlan szerkezetekben",
-          "Magas",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-011",
-          "Rugóból befogásra vagy csuklóra átállított 3D támasz rugóként számítva",
-          "Magas",
-          "Javítva: 2026. október 20."
-        ],
-        [
-          "SA-2026-017",
-          "Talaj–szerkezet kölcsönhatás: a p-y, t-z és q-z görbék eltértek a hivatkozott forrásoktól",
-          "Magas",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-008",
-          "Válaszspektrum: CQC mellett SRSS szerinti talpnyíróerő; a részvételi tényezők a támaszokhoz kapcsolt tömeg nélkül",
-          "Magas",
-          "Javítva: 2026. október 21."
-        ],
-        [
-          "SA-2026-007",
-          "3D kihajlás csavarási és hajlító-csavaró kihajlási alakok nélkül",
-          "Magas",
-          "Javítva: 2026. október 21."
-        ],
-        [
-          "SA-2026-006",
-          "3D-ben számított síkbeli modell: a csomóponti nyomatékok és az előírt elfordulások előjele megfordult",
-          "Magas",
-          "Javítva: 2026. október 21."
-        ],
-        [
-          "SA-2026-005",
-          "Ferde 2D rudak: normálerő a teher rúdirányú összetevője nélkül",
-          "Magas",
-          "Javítva: 2026. október 21."
-        ],
-        [
-          "SA-2026-019",
-          "Rudak hőmérsékleti terhei (motor és WASM; az alkalmazás 2026.10.07. óta kompenzálta): az acél α-ja és egy tömör téglalap magassága",
-          "Közepes",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-012",
-          "Anyagi nemlinearitást figyelembe vevő analízis (csak motor és WASM): rugalmas rúderők a megfolyás után",
-          "Közepes",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-016",
-          "Ívek (a motor görbe rúdjai, az alkalmazás ív eszköze): Iy és Iz felcserélve a közel függőleges szakaszokon",
-          "Közepes",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-018",
-          "MITC9 héjak (csak motor és WASM) görbült geometrián merevtest-mozgásból alakváltozást kaptak",
-          "Közepes",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-020",
-          "3D anyagi nemlinearitást figyelembe vevő analízis (csak motor és WASM): a folyási felület kevésbé konzervatív, mint 2D-ben",
-          "Közepes",
-          "Javítva: 0.3.0"
-        ],
-        [
-          "SA-2026-025",
-          "AISC 360 G2 nyírás (csak motor és WASM): gerincterület nélkül 0 kihasználtsággal megfelelt, és tanúsított volt",
-          "Közepes",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-026",
-          "EC3 6.2.6 nyírás (csak motor és WASM): nyírt terület nélkül Av = 0,5·A-t vett fel, HEB 300-nál Vpl,Rd 57 %-kal nagyobb, és tanúsított",
-          "Közepes",
-          "Javítva: 0.5.0"
-        ],
-        [
-          "SA-2026-010",
-          "A spektrális tanúsítvány nem véges eredményeket is elfogadott",
-          "Közepes",
-          "Javítva: 2026. október 19."
-        ],
-        [
-          "SA-2026-009",
-          "Az SHB8 tömör héjelem vékonylemez-hajlításban 22 %-kal túl merev (a lehajlások 18 %-kal kisebbek)",
-          "Közepes (statikailag határozatlan szerkezetekben magasabb)",
-          "Javítva: 2026. október 19."
-        ],
-        [
-          "SA-2026-004",
-          "A modell egy részét figyelmen kívül hagyó számítások (dinamika, kihajlás, képlékeny tönkremenetel)",
-          "Kritikus",
-          "Javítva: 0.2.0"
-        ],
-        [
-          "SA-2026-003",
-          "Az acél-, hidegen alakított szelvényű és kapcsolati ellenőrzések túlbecsülték a teherbírást",
-          "Kritikus",
-          "Javítva: 0.2.0"
-        ],
-        [
-          "SA-2026-002",
-          "A betonellenőrzések (CIRSOC 201, ACI 318) túlbecsülték a teherbírást",
-          "Kritikus",
-          "Javítva: 0.2.0"
-        ],
-        [
-          "SA-2026-001",
-          "A generált kombinációk és terhek (CIRSOC 101, 102, 103) a biztonság kárára tévedtek",
-          "Magas",
-          "Javítva: 0.2.0"
+          "Tervezet: a helyi javítás felülvizsgálatra és közzétételre vár"
         ],
         [
           "SA-2026-061",
           "Az ívhossz- és elmozdulásvezérlés kihagyta a reakciókat, és skálázatlan rúdterheket használt; a 2D/3D kényszeres, Guyan-, fázisos és időtörténeti eredmények hiányai is felülvizsgálatot igényelnek. Futtassa újra az érintett eredményeket, vagy ellenőrizze őket függetlenül; a 0.2.0–0.5.0 és az azt követő érintett main-verziók.",
           "Magas",
           "Javítva a #1952 PR-ben, közzétételre vár"
-        ],
-        [
-          "SA-2026-060",
-          "A fázisos analízis egységváltás után vagy támaszrugós, kioldott rúdvégeknél észrevétlenül merevíthette a valós forgásokat; ellenőrizze újra a rúdkioldásokat tartalmazó fázisos modelleket.",
-          "Magas",
-          "Tervezet: a helyi javítás felülvizsgálatra és közzétételre vár"
         ],
         [
           "SA-2026-062",
@@ -479,35 +621,119 @@ const body: PostBody = {
           "Javítva a #2009 PR-ben, közzétételre vár"
         ],
         [
+          "SA-2026-064",
+          "Az acél Cb tényezője származhatott másik teherkombinációból vagy egy rövid, ismeretlen helyű megtámasztatlan szakaszból (#1316, #2088). Futtassa újra a CIRSOC 301 szerinti acélellenőrzéseket, és vizsgálja felül a hajlítási teherbírást, az interakciós kihasználtságot és a mértékadó teherkombinációkat.",
+          "Magas",
+          "Javítva a 0.6.1-es verzióban"
+        ],
+        [
+          "SA-2026-065",
+          "A tetőszintkülönbségnél kialakuló hótorlasz kimaradhatott, ha a fogadó tető lejtős volt (#2082). Generálja újra a CIRSOC 104 szerinti hóterheket, majd futtassa újra az érintett analíziseket és méretezési ellenőrzéseket.",
+          "Magas",
+          "Javítva a 0.6.1-es verzióban"
+        ],
+        [
+          "SA-2026-066",
+          "A beton Cm tényezőjének számítása figyelembe vehette a végnyomatékok kedvező hatását akkor is, ha a támaszok között keresztirányú teher hatott (#2089). Ellenőrizze újra a karcsú betonoszlopokat és falakat, a felnagyított nyomatékokat és a vasalást.",
+          "Magas",
+          "Javítva a 0.6.1-es verzióban"
+        ],
+        [
+          "SA-2026-067",
+          "Az alaprajzi elforgatás megváltoztathatta a generált hóterheket (#2093). Generálja újra a terheket a tényleges tetőgeometriából, majd futtassa újra az analíziseket és ellenőrzéseket. A régi modell visszaforgatása nem javítja a hibát.",
+          "Magas",
+          "Javítva a 0.6.1-es verzióban"
+        ],
+        [
+          "SA-2026-068",
+          "A csavarási ellenőrzés elégtelen megadott kengyelezéssel is megfelelést jelezhetett (#2141). Futtassa újra a beton méretezési ellenőrzéseit, és vizsgálja felül a tényleges keresztirányú teherbírást, a kengyeltávolságot és a csavarási nemmegfeleléseket. A nem ellenőrzött hosszvasalás nem igazolja a vasalás megfelelőségét.",
+          "Magas",
+          "Javítva a 0.6.1-es verzióban"
+        ],
+        [
+          "SA-2026-069",
+          "A csavarási keresztmetszeti határ ellenőrzése kihagyta az egyidejű másodlagos nyíróerőt (#2142). Futtassa újra a betonméretezést, és ellenőrizze a keresztmetszeti nemmegfeleléseket és a hiányzó kengyeleket. Kengyelek hozzáadása nem orvosolja a keresztmetszeti határ túllépését.",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
           "SA-2026-070",
           "A rúdon belüli lehajlás és elfordulás számítása kihagyta a rúd menti terheket, köztük a rúd belsejében ható koncentrált erőpárokat (#2143). Ellenőrizze újra a deformált alakokat, az oktatási kijelzéseket és az acél- és betonszerkezetek használhatósági ellenőrzéseit, a teljes és részleges trapézterheket is beleértve. Terhelt rúd esetén a program elegendő EI hajlítási merevség hiányában most kifejezetten elutasítja a belső elmozdulás és elfordulás számítását.",
           "Magas",
-          "Javítva a #2170 PR-ben, kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-071",
           "A rúdelemek ellenőrzése hiányos egyidejű igénybevételekkel is megfelelt eredményt adhatott (#2096). Számítsa újra a beton- és acélszerkezetek méretezését, és ellenőrizze a teherkombinációkat, a rúdelemeket, a vizsgált szelvényeket és a tanúsítványokat.",
           "Magas",
-          "Tervezet 2026-11-15; javítva a #2173 PR-ben, beolvasztásra és kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-072",
           "A tetőélek egyenlőtlen felosztása eltolhatta a gerinc helyzetét és megváltoztathatta a generált hóterheket (#2144). Generálja újra a hóterheket, majd ismételje meg az analíziseket, a teherkombinációkat és a méretezési ellenőrzéseket. A mentett terhek puszta újraszámítása nem javítja ki őket.",
           "Magas",
-          "Javítva a #2175 PR-ben, kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-073",
           "A hógerincet keresztező rudak egyetlen egyenletes nyomást kaptak, így elveszett a fizikai teher nyomatéka. A terhek most a fizikai gerincnél oszlanak meg. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2176).",
           "Magas",
-          "PR #2197; egyesítésre és kiadásra vár"
+          "Javítva a 0.6.2 verzióban"
         ],
         [
           "SA-2026-074",
           "A ferde szarufa felosztása a megadott tetőpanelt födémmé minősíthette, és figyelmeztetés nélkül eltüntethette az eresz hóterhét. Az osztályozás most a panelek fizikai alaprajzát használja. Állítsa elő újra az összes érintett generált felületi terhet, majd futtassa újra az analíziseket, kombinációkat és méretezési ellenőrzéseket. A tárolt terhek újraszámítása önmagában nem javítja őket. (#2172). Egy különálló alsó panel fölötti felosztatlan ferde szarufa is tetőnek minősíthette a panelt, megváltoztatva a tető és födém felületi terheit, és szélességalapú módban figyelmeztetés nélkül hóterhet adhatott hozzá.",
           "Magas",
-          "PR #2197; egyesítésre és kiadásra vár"
-        ]
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
+          "SA-2026-075",
+          "A CIRSOC 201-2005 és 2025 szerinti másodlagos nyírási és csavarási ellenőrzések a főirány kengyelszárait és keresztmetszeti szélességét vehették figyelembe. Emiatt a gerendák és oszlopok elégtelen másodlagos irányú vasalással is figyelmeztetés nélkül megfelelhettek (#2171). Frissítés után futtassa újra a vasbeton méretezést, és tekintse át a mentett projekt újraszámítási értesítését.",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
+          "SA-2026-076",
+          "Egy nyitott fal az egész épületet nyitottnak minősíthette, elhagyva a belső nyomást (#2203). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
+          "SA-2026-077",
+          "A falak szélterhéből hiányzott az alapra jutó erőrész, és a teher a felosztástól függött (#2204). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
+          "SA-2026-078",
+          "A tető nyomászónái és első nyomatékai a felosztástól függtek (#2205). Ellenőrizze minden fal és a tető nyílásait, sorolja be újra az épületet, állítsa elő újra a W és Wa terheket, majd ismételje meg az elemzéseket, kombinációkat és méretezési ellenőrzéseket. A mentett terhek újraszámítása nem javítja ki őket.",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        ["SA-2026-079", "A részleges héjfedés miatt gravitációs teher veszhetett el vagy rossz helyre kerülhetett. Állítsa elő újra a héjas modellek panelmódú gravitációs terheit, majd ismételje meg az elemzést és a méretezést. (#2199, #2200)", "Magas", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-080", "A külpontos rúdterhet igénylő zónák nem használhatók. Számítás előtt ellenőrizze a födémteher meghatározását. A teljes mezőt lefedő zóna a mező szokásos támaszreakcióit adja. (#2201)", "Magas", "Javítva a 0.6.2 verzióban"],
+        [
+          "SA-2026-082",
+          "A kísérő kombinációk figyelmeztetés nélkül a lejtéssel csökkentett havat használták a lapos tető rúdterhe helyett. A régi földrengési előírások a fizikai havat és a lapos tető havát is összekeverhetik. Generálja újra a hóterheket és a kombinációkat, majd futtassa újra az analíziseket és ellenőrzéseket. (#2211).",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        [
+          "SA-2026-083",
+          "SA-2026-083: A CIRSOC 101 automatikus tehergenerálása letiltja azokat a koncentrált használati és tetőterheket, amelyek legkedvezőtlenebb helyzetét nem értékeli (§4.4). A korábban generált egyenletes terhekből hiányozhatnak mértékadó hatások. Vizsgálja felül az érintett modelleket, és ellenőrizze kézzel a koncentrált terheket az analízis és a méretezés megismétlése előtt. (#2207).",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        ["SA-2026-084", "A végterhelt sarokvarrat felosztása megszüntethette a hatásos hossz csökkentését (#2243). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-085", "Rövid sarokvarratnál túl nagy hatásos szármérettel számolhatott az ellenőrzés (#2244). Ellenőrizze újra az érintett varratcsoportokat.", "—", "Javítva a 0.6.2 verzióban"],
+        ["SA-2026-088", "Az ABS és SRSS rúddiagramok tartalmazzák a kombinált függvény teherhatárok közötti szélsőértékeit. Ismételje meg a kombinációkat, diagramokat és kapcsolódó ellenőrzéseket (#2273).", "—", "Javítva a 0.6.2 verzióban"],
+        [
+          "SA-2026-089",
+          "A megadott megfogások nélküli rollerZ vagy custom3d típusú 3D támaszt, illetve az ismeretlen támasztípust a program figyelmeztetés nélkül teljesen befogottként számított. Ellenőrizze a támaszok tervezett megfogásait, majd ismételje meg az analízist, a kombinációkat és a méretezést. (#2276).",
+          "Magas",
+          "Javítva a 0.6.2 verzióban"
+        ],
+        ["SA-2026-090", "Szélességalapú módban a szintterület és a szeizmikus súly eltérhetett a generált rúdterhektől, mert csomóponti kiterjedést használt vagy zárt tartományt igényelt. Most a terhelt rudak hatásterületeit használja. Generálja újra a gravitációs terveket, szeizmikus súlyokat és terheket, majd ismételje meg a kapcsolódó elemzéseket, kombinációkat és ellenőrzéseket. A mentett terhek újraszámítása nem javítja a szeizmikus hatásokat (#2269). (#2210)", "—", "Javítva a 0.6.2 verzióban"]
       ]
     },
     {

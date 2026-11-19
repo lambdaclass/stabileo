@@ -47,8 +47,8 @@
   };
   let { to, class: cls = '', children, ...rest }: Props = $props();
 
-  const target = $derived(import.meta.env.VITE_TOOLS !== '0' ? movedRoute(to) ?? to : to);
-  const href = $derived(publicHref(target, import.meta.env.VITE_RESEARCH === '1' ? publishedLocale(target, publicI18n.locale) : publicI18n.locale));
+  const target = $derived(__PUBLIC_FEATURES__.tools ? movedRoute(to) ?? to : to);
+  const href = $derived(publicHref(target, __PUBLIC_FEATURES__.research ? publishedLocale(target, publicI18n.locale) : publicI18n.locale));
 
   function onclick(e: MouseEvent) {
     // Anything but a plain left click belongs to the browser.
@@ -58,6 +58,6 @@
   }
 </script>
 
-{#if (import.meta.env.VITE_RESEARCH === '1' || import.meta.env.VITE_TOOLS !== '0' || import.meta.env.VITE_DIAGRAM_GAME !== '0' || import.meta.env.VITE_ACCOUNTS !== '0') ? publicFeatureEnabled(target) : true}
+{#if (__PUBLIC_FEATURES__.research || __PUBLIC_FEATURES__.tools || __PUBLIC_FEATURES__.diagramGame || __PUBLIC_FEATURES__.accounts) ? publicFeatureEnabled(target) : true}
 <a use:prefetchPublicLink={target} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
 {/if}

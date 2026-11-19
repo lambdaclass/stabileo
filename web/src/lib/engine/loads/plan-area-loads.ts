@@ -127,7 +127,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     for (const p of layout.pieces) {
       if (arrangement !== undefined && !arrangement.loads({ panel: p.panel })) continue;
       const q = qOf(p.elementId, !!roof && p.roof);
-      if (Math.abs(q * Math.max(p.wI, p.wJ)) <= 1e-3) continue;
+      if (q === 0 || (p.wI === 0 && p.wJ === 0)) continue;
       out.distributed.push({ elementId: p.elementId, caseType, q: -q * p.wI, qJ: -q * p.wJ, ...(p.a !== undefined ? { a: p.a, b: p.b } : {}), frame: 'global', ...arr, ...(roof && p.roof ? { roof: true as const } : {}) });
       if (arrangement === undefined) out.planned.add(caseType);
     }
@@ -144,7 +144,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
       // horizontal thrust, and the live loads per sloped metre instead of per metre of plan.
       for (const s of widthSpans(m, i.tributaryWidth)) {
         const q = -qOf(m.elementId, isRoof(m.elementId)) * s.width;
-        if (Math.abs(q) <= 1e-3) continue;
+        if (q === 0) continue;
         const span = m.spans ? { a: s.t0 * m.length, b: s.t1 * m.length } : {};
         out.distributed.push({ elementId: m.elementId, caseType, q, ...span, frame: perProjection ? 'projected' : 'global', ...arr, ...(isRoof(m.elementId) ? { roof: true as const } : {}) });
         if (arrangement === undefined) out.planned.add(caseType);
@@ -155,7 +155,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     for (const sq of layout.shellQuads) {
       // `SurfaceLoad3D` is per m² of shell: a load per plan m² on a sloped one is scaled by cos.
       const q = qOfQuad(sq.quadId) * (perProjection ? sq.cos : 1);
-      if (q > 1e-6) { out.surface.push({ quadId: sq.quadId, caseType, q, ...(isRoofQuad(sq.quadId) ? { roof: true as const } : {}) }); out.planned.add(caseType); }
+      if (q > 0) { out.surface.push({ quadId: sq.quadId, caseType, q, ...(isRoofQuad(sq.quadId) ? { roof: true as const } : {}) }); out.planned.add(caseType); }
     }
   };
 

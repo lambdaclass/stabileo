@@ -185,6 +185,33 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
     ]);
   });
 
+  it('the corner bars provide concrete secondary shear capacity in both spans', () => {
+    for (const { ctx, span } of t.spans) {
+      const { b, h } = ctx.section;
+      const { fc, cover } = ctx.material;
+      const cageDiameter = 0.006;
+      const cornerDiameter = 0.012;
+      const d = 2 * b / 3;
+      expect(b - cover - cageDiameter - cornerDiameter / 2).toBeGreaterThan(d);
+      expect(h - 2 * cover - cageDiameter).toBeGreaterThan(b - cover - cageDiameter - cornerDiameter / 2);
+      const rho = 1.131e-4 / (h * d);
+      const vcStress = 0.66 * Math.cbrt(rho) * Math.sqrt(fc) * 1000;
+      const minimumThreshold = 0.75 * 0.085 * Math.sqrt(fc) * 1000 * h * d;
+      const checked = ctx.stations!.comboResults.flatMap(combo => combo.stations)
+        .filter(station => Math.abs(station.vy) >= 0.001)
+        .map(station => {
+          const demand = Math.abs(station.vy);
+          const capacity = 0.75 * (vcStress - station.n / (6 * b * h)) * h * d;
+          expect(demand).toBeLessThan(Math.min(capacity, minimumThreshold));
+          return { capacity, ratio: demand / capacity };
+        }).sort((a, b) => b.ratio - a.ratio);
+      expect(checked[0]!.ratio).toBeGreaterThan(0);
+      expect(verificationStore.providedFor(span.representative)?.checks.find(c => c.demandCategory === 'Vy')).toMatchObject({
+        capacity: +checked[0]!.capacity.toFixed(2), ratio: +checked[0]!.ratio.toFixed(3), status: 'ok',
+      });
+    }
+  });
+
   it('the designed steel, its regions, and the verifier reading the anchorage along the span', () => {
     const steel = t.spans.map((p) => {
       const g = p.reinf.regions!;
@@ -192,8 +219,8 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
     });
     const st = { diameter: 6, legs: 2, spacing: STIRRUP_SPACING };
     expect(steel).toEqual([
-      ['V2-1', { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, st, st, [0.659, 4.682, 0.659]],
-      ['V2-2', { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, { count: 3, diameter: 16 }, st, st, [0.659, 4.682, 0.659]],
+      ['V2-1', { count: 4, diameter: 12 }, { count: 4, diameter: 12 }, { count: 4, diameter: 12 }, st, st, [0.659, 4.682, 0.659]],
+      ['V2-2', { count: 4, diameter: 12 }, { count: 4, diameter: 12 }, { count: 4, diameter: 12 }, st, st, [0.659, 4.682, 0.659]],
     ]);
     for (const p of t.spans) {
       expect([p.cs.start.source, p.cs.end.source, p.cs.start.halfDepth, p.cs.end.halfDepth]).toEqual(['column', 'column', FACE, FACE]);
@@ -345,30 +372,25 @@ describe('trace of one physical beam: the X beam on axis 1 at N1, slab mesh 1 m'
   });
 });
 
-/**
- * The bars as traced on the span fixture, mesh 1 m (positions from column A's axis).
- *
- * The marks moved three on (B13–B19 → B16–B22): the schedule numbers the level's rows in order,
- * and three more rows come ahead of the beam's since the columns' lifts are laid about the nodes
- * as the beams are (`generate-column` `jointBand`) and their ties stop clear of the beams' mats.
- * The beam's longitudinal bars are the same bars, at the same lengths.
- */
 const EXPECTED_BARS: unknown[] = [
   // id, mark, face, Ø, cut, run from, run to; then each end in a support:
   // [support, solution, available, rule, required, end cover, hook [°, bend Ø, tail, tail past the near face]]
-  ['e32-bot-cont-0+e49-bot-cont-0', 'B21', 'bottom', 16, 11.9, 0.05, 11.95, ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null], ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null]],
-  ['e32-bot-cont-1+e49-bot-cont-1', 'B21', 'bottom', 16, 11.9, 0.05, 11.95, ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null], ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null]],
-  ['e32-bot-cut-0', 'B17', 'bottom', 16, 3.006, 1.467, 4.473, null, null],
-  ['e32-topI-1', 'B16', 'top', 16, 1.89, -0.047, 1.563, ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]], null],
-  ['e32-topJ-1+e49-topI-1', 'B18', 'top', 16, 3.726, 4.137, 7.863, null, null],
-  ['e32-topRun-0+e49-topRun-0', 'B22', 'top', 16, 12.654, -0.047, 12.047, ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]], ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]]],
-  ['e32-topRun-1+e49-topRun-1', 'B22', 'top', 16, 12.654, -0.047, 12.047, ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]], ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]]],
-  ['e49-bot-cut-0', 'B17', 'bottom', 16, 3.006, 7.527, 10.533, null, null],
-  ['e49-topJ-1', 'B16', 'top', 16, 1.89, 10.437, 12.047, null, ['end', 'hook', 0.311, 'ldh', 0.294, 0.089, [90, 0.096, 0.192, 0.303]]],
+  ['e32-bot-cut-0', 'B16', 'bottom', 12, 3.277, 1.241, 4.519, null, null],
+  ['e32-bot-cut-1', 'B16', 'bottom', 12, 3.277, 1.241, 4.519, null, null],
+  ['e32-topI-1', 'B14', 'top', 12, 1.837, -0.063, 1.564, ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]], null],
+  ['e32-topI-3', 'B13', 'top', 12, 1.78, -0.006, 1.564, ['end', 'hook', 0.254, 'ldh', 0.221, 0.146, [90, 0.072, 0.144, 0.248]], null],
+  ['e32-bot-cont-0+e49-bot-cont-0', 'B19', 'bottom', 12, 11.9, 0.05, 11.95, ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null], ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null]],
+  ['e32-bot-cont-1+e49-bot-cont-1', 'B19', 'bottom', 12, 11.9, 0.05, 11.95, ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null], ['end', 'straight', 0.15, '9.7.3.8.2', 0.15, 0.25, null]],
+  ['e49-bot-cut-0', 'B16', 'bottom', 12, 3.277, 7.481, 10.759, null, null],
+  ['e49-bot-cut-1', 'B16', 'bottom', 12, 3.277, 7.481, 10.759, null, null],
+  ['e32-topRun-0+e49-topRun-0', 'B20', 'top', 12, 12.546, -0.063, 12.063, ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ['e32-topRun-1+e49-topRun-1', 'B20', 'top', 12, 12.546, -0.063, 12.063, ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]], ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ['e32-topJ-1+e49-topI-1', 'B17', 'top', 12, 3.727, 4.136, 7.864, null, null],
+  ['e32-topJ-3+e49-topI-3', 'B17', 'top', 12, 3.727, 4.136, 7.864, null, null],
+  ['e49-topJ-1', 'B14', 'top', 12, 1.837, 10.436, 12.063, null, ['end', 'hook', 0.311, 'ldh', 0.221, 0.089, [90, 0.072, 0.144, 0.305]]],
+  ['e49-topJ-3', 'B13', 'top', 12, 1.78, 10.436, 12.006, null, ['end', 'hook', 0.254, 'ldh', 0.221, 0.146, [90, 0.072, 0.144, 0.248]]],
 ];
-// 133,609 kg before: the stirrups are now laid between the mats as the joint ranks lower and
-// raise them (1,347 → 1,290 m each), so their bends hold the bars they enclose.
-const EXPECTED_MASS = 132.064;
+const EXPECTED_MASS = 101.326;
 /** Zone, Ø, stations, first and last station (m from A), widest spacing. */
 // The first stirrup at each support stands 13 mm inside the face (`stirrupInsetI`): its legs keep
 // the column's 40 mm from the 40×40 column's Ø16 face bars (§25.2.3); at the face they came 29,7

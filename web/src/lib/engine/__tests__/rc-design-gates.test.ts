@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyProvidedReinforcement } from '../station-design-forces';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => readFileSync(resolve(__dirname, p), 'utf8');
@@ -106,9 +107,34 @@ describe('GATE: verification is axis-agnostic', () => {
   });
 
   it('column ties check BOTH shear components', () => {
-    expect(sdf).toContain('axes.secondaryShear');
-    expect(sdf).toContain("{ axis: axes.shear, read: V, width: section.b, dTie: dTieFor(section.h) }");
-    expect(sdf).toContain("{ axis: axes.secondaryShear, read: V2, width: section.h, dTie: dTieFor(section.b) }");
+    const section = { b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8 };
+    const stirrups = { legs: 4, diameter: 8, spacing: 0.1 };
+    const strength = (width: number, depth: number, legs: number) => {
+      const d = depth - section.cover - stirrups.diameter / 1000 - 0.008;
+      return 0.75 * d * (Math.sqrt(section.fc) / 6 * 1000 * width + legs * 0.503e-4 * section.fy * 1000 / stirrups.spacing);
+    };
+    const primary = strength(section.b, section.h, 4);
+    const secondary = strength(section.h, section.b, 2);
+    for (const flexure of ['My', 'Mz'] as const) {
+      const usingMy = flexure === 'My';
+      const shear = usingMy ? 'Vz' : 'Vy';
+      const secondaryFlexure = usingMy ? 'Mz' : 'My';
+      const secondaryShear = usingMy ? 'Vy' : 'Vz';
+      const stations = [0, 0.5, 1].map(t => ({
+        t, x: 4 * t, n: 0, my: 0, mz: 0, torsion: 0,
+        vy: usingMy ? 1.05 * secondary : 0.85 * primary,
+        vz: usingMy ? 0.85 * primary : 1.05 * secondary,
+      }));
+      const result = verifyProvidedReinforcement(1, 'column', { stirrups, longitudinal: { count: 4, diameter: 16 } },
+        undefined, {}, section, { elementId: 1, length: 4, stationTs: [0, 0.5, 1], comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+        undefined, { spacingRule: { edition: '2005', maxAggregateSizeMm: 0 },
+          axes: { flexure, shear, secondaryFlexure, secondaryShear, bFlex: section.b, hFlex: section.h, biaxial: false,
+            sagCategory: `${flexure}+`, hogCategory: `${flexure}-`, basis: 'stress-proxy', secondaryRatio: 0 } });
+      expect(result.checks.find(c => c.demandCategory === shear))
+        .toMatchObject({ category: `Ties (${shear})`, capacity: +primary.toFixed(2), ratio: 0.85, status: 'ok' });
+      expect(result.checks.find(c => c.demandCategory === secondaryShear))
+        .toMatchObject({ category: `Ties (${secondaryShear})`, capacity: +secondary.toFixed(2), ratio: 1.05, status: 'fail' });
+    }
   });
 
   it('slenderness magnification reaches the verifier', () => {

@@ -24,6 +24,7 @@ import steelEn from '../locales/steel/en';
 import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
+import * as viewerTranslations from '../../../components/viewport/scalar-viewer-translations';
 import { toolTranslations } from '../../../components/tools/translations';
 import { batchTranslations } from '../../../components/tools/batch-i18n';
 import { hubTranslations } from '../../../components/tools/hub-i18n';
@@ -38,9 +39,9 @@ import { adConsentTranslations } from '../../tracking/ad-consent-i18n';
  */
 // This source scan also visits public tools, the sign-up page and the advertising banner; their companion dictionaries load only with them.
 const merged = {
-  en: { ...en, ...steelEn, ...stepsEn, ...batchTranslations.en, ...toolTranslations.en, ...hubTranslations.en, ...aiTranslations.en, ...registerTranslations.en, ...adConsentTranslations.en },
-  es: { ...es, ...steelEs, ...stepsEs, ...batchTranslations.es, ...toolTranslations.es, ...hubTranslations.es, ...aiTranslations.es, ...registerTranslations.es, ...adConsentTranslations.es },
-  pt: { ...pt, ...steelPt, ...stepsPt, ...batchTranslations.pt, ...toolTranslations.pt, ...hubTranslations.pt, ...aiTranslations.pt, ...registerTranslations.pt, ...adConsentTranslations.pt },
+  en: { ...en, ...steelEn, ...stepsEn, ...viewerTranslations.en, ...batchTranslations.en, ...toolTranslations.en, ...hubTranslations.en, ...aiTranslations.en, ...registerTranslations.en, ...adConsentTranslations.en },
+  es: { ...es, ...steelEs, ...stepsEs, ...viewerTranslations.es, ...batchTranslations.es, ...toolTranslations.es, ...hubTranslations.es, ...aiTranslations.es, ...registerTranslations.es, ...adConsentTranslations.es },
+  pt: { ...pt, ...steelPt, ...stepsPt, ...viewerTranslations.pt, ...batchTranslations.pt, ...toolTranslations.pt, ...hubTranslations.pt, ...aiTranslations.pt, ...registerTranslations.pt, ...adConsentTranslations.pt },
 };
 
 const SRC = join(import.meta.dirname, '../../..');

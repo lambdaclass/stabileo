@@ -37,6 +37,8 @@
  * Pure: no store.
  */
 
+import type { ModelData } from '../../engine/solver-service';
+import { shouldEmbedFlat2DModelIn3D } from '../../engine/model-embedding';
 import { computeLocalAxes3D } from '../../engine/local-axes-3d';
 import { offsetVecToSolver } from '../../engine/member-offsets';
 
@@ -44,6 +46,7 @@ import type {
   Element, Load, Release, DistributedLoad, PointLoadOnElement, ThermalLoad,
   DistributedLoad3D, PointLoadOnElement3D, PrestressLoad3D,
 } from '../../store/model.svelte';
+import { canonicalSpanLoad, generatedMemberBounds, remapSpanInterval, spanMeasure, type SpanMeasure, type MemberEndpoints } from '../../engine/member-span-loads';
 import { tendonStretch } from '../../engine/prestress';
 
 const EPS = 1e-9;
@@ -55,7 +58,7 @@ export function segmentBounds(L: number, ts: readonly number[]): number[] {
 }
 
 function lerp(qa: number, qb: number, a: number, b: number, s: number): number {
-  return b - a > EPS ? qa + (qb - qa) * (s - a) / (b - a) : qa;
+  return s === a ? qa : s === b ? qb : qa + (qb - qa) * ((s - a) / (b - a));
 }
 
 /**
@@ -65,16 +68,15 @@ function lerp(qa: number, qb: number, a: number, b: number, s: number): number {
  * clipping serves the 2D load (one component) and the 3D one (two).
  */
 function clipTrapezoid(
-  a: number, b: number, values: ReadonlyArray<readonly [number, number]>, s0: number, s1: number,
+  a: number, b: number, values: ReadonlyArray<readonly [number, number]>, s0: number, s1: number, id: number, length: number, measure: SpanMeasure,
 ): { a?: number; b?: number; values: Array<[number, number]> } | null {
-  const lo = Math.max(a, s0), hi = Math.min(b, s1);
-  if (hi - lo <= EPS) return null;
-  const segL = s1 - s0;
-  const out: { a?: number; b?: number; values: Array<[number, number]> } = {
-    values: values.map(([qa, qb]) => [lerp(qa, qb, a, b, lo), lerp(qa, qb, a, b, hi)]),
+  const interval = remapSpanInterval(id, a, b, s0, s1, length, measure);
+  if (!interval) return null;
+  const { lo, hi } = interval;
+  const out = {
+    a: interval.a, b: interval.b,
+    values: values.map(([qa, qb]): [number, number] => [lerp(qa, qb, a, b, lo) * interval.scale, lerp(qa, qb, a, b, hi) * interval.scale]),
   };
-  if (lo - s0 > EPS) out.a = lo - s0;
-  if (segL - (hi - s0) > EPS) out.b = hi - s0;
   return out;
 }
 
@@ -93,24 +95,30 @@ const segmentOf = (bounds: readonly number[], x: number): number => {
 export function splitElementLoads(
   loads: readonly Load[],
   elementId: number,
-  bounds: readonly number[],
+  sourceBounds: readonly number[] | (() => readonly number[]),
   segmentIds: readonly number[],
   newId: () => number,
+  segmentLengths: readonly number[],
+  points?: MemberEndpoints,
 ): { kept: Load[]; added: Load[] } {
   const kept: Load[] = [];
   const added: Load[] = [];
-  const L = bounds[bounds.length - 1]!;
   const onThis = (l: Load) => (l.data as { elementId?: number }).elementId === elementId
     && (l.type === 'distributed' || l.type === 'pointOnElement' || l.type === 'thermal'
       || l.type === 'distributed3d' || l.type === 'pointOnElement3d' || l.type === 'prestress3d');
+
+  if (!loads.some(onThis)) return { kept: [...loads], added };
+  const bounds = typeof sourceBounds === 'function' ? sourceBounds() : sourceBounds;
+  const L = bounds[bounds.length - 1]!;
 
   for (const l of loads) {
     if (!onThis(l)) { kept.push(l); continue; }
     switch (l.type) {
       case 'distributed': {
         const d = l.data as DistributedLoad;
+        const source = canonicalSpanLoad(elementId, d.a ?? 0, d.b ?? L, L, [[d.qI, d.qJ]], points);
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qI, d.qJ]], bounds[k]!, bounds[k + 1]!);
+          const c = clipTrapezoid(source.a, source.b, source.values, bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!, spanMeasure(d));
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qI: _qi, qJ: _qj, ...meta } = d;
           const data: DistributedLoad = { ...meta, id: newId(), elementId: segmentIds[k]!, qI: c.values[0]![0], qJ: c.values[0]![1] };
@@ -122,8 +130,9 @@ export function splitElementLoads(
       }
       case 'distributed3d': {
         const d = l.data as DistributedLoad3D;
+        const source = canonicalSpanLoad(elementId, d.a ?? 0, d.b ?? L, L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], points);
         for (let k = 0; k < segmentIds.length; k++) {
-          const c = clipTrapezoid(d.a ?? 0, d.b ?? L, [[d.qYI, d.qYJ], [d.qZI, d.qZJ], [d.qXI ?? 0, d.qXJ ?? 0]], bounds[k]!, bounds[k + 1]!);
+          const c = clipTrapezoid(source.a, source.b, source.values, bounds[k]!, bounds[k + 1]!, segmentIds[k]!, segmentLengths[k]!, spanMeasure(d));
           if (!c) continue;
           const { id: _id, elementId: _e, a: _a, b: _b, qXI: _xi, qXJ: _xj, ...meta } = d;
           const data: DistributedLoad3D = {
@@ -224,12 +233,12 @@ export function segmentFields(elem: Element, k: number, count: number, t0 = k / 
 }
 
 /** Loads are measured along the flexible segment, which may differ from the node-to-node line. */
-export function flexibleMemberLength(
+function flexibleMemberEnds(
   elem: Element,
   ni: { id: number; x: number; y: number; z?: number },
   nj: { id: number; x: number; y: number; z?: number },
   sectionRotation = 0,
-): number {
+) {
   const a = { ...ni, z: ni.z ?? 0 }, b = { ...nj, z: nj.z ?? 0 };
   if (elem.offset) {
     const localY = elem.localYx === undefined ? undefined
@@ -241,5 +250,33 @@ export function flexibleMemberLength(
       point.x += v.x; point.y += v.y; point.z += v.z;
     }
   }
-  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  return [a, b] as const;
+}
+
+export function memberLoadGeometry(model: ModelData) {
+  const embedded = shouldEmbedFlat2DModelIn3D(model);
+  const ends = (elem: Element, nodes: ModelData['nodes']) => flexibleMemberEnds(
+    embedded ? { ...elem, offset: undefined } : elem,
+    nodes.get(elem.nodeI)!, nodes.get(elem.nodeJ)!, model.sections.get(elem.sectionId)?.rotation,
+  );
+  const measuredLength = ([a, b]: ReturnType<typeof flexibleMemberEnds>) => {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  };
+  return {
+    length: (elem: Element) => measuredLength(ends(elem, model.nodes)),
+    partition: (elem: Element, nodes: ModelData['nodes'], elements: ReadonlyMap<number, Element>, ids: readonly number[]) => {
+      const children = ids.map(id => ends(elements.get(id)!, nodes));
+      const lengths = children.map(measuredLength);
+      const source = ends(elem, nodes);
+      return {
+        lengths,
+        points: [[source[0].x, source[0].y, source[0].z], [source[1].x, source[1].y, source[1].z]] as MemberEndpoints,
+        bounds: () => {
+          return generatedMemberBounds(measuredLength(source), lengths,
+            [source[0], ...children.flat(), source[1]].map(p => [p.x, p.y, p.z]));
+        },
+      };
+    },
+  };
 }

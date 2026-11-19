@@ -137,6 +137,16 @@ export const EXPERIMENTS: Experiment[] = [
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/stability/feher-sipos-varkonyi-2026',
   },
   {
+    paperId: 'heyman-1966',
+    path: '/research/mechanics/heyman-1966',
+    name: 'How thin can a stone arch be?',
+    hook: 'Rigid voussoirs, no tension: the least thickness of a circular arch and the collapse load of a ring, with a linear program and every hinge mechanism.',
+    thumbnail: 'research-thumbs/heyman-1966.svg',
+    thumbnailAlt: 'A semicircular arch of voussoirs at its least thickness from our run, with the line of thrust touching the five hinges',
+    thumbnailQuery: '',
+    code: 'https://github.com/lambdaclass/stabileo/tree/main/research/mechanics/heyman-1966',
+  },
+  {
     paperId: 'gay-neto-2014',
     path: '/research/mechanics/gay-neto-2014',
     name: 'A riser lifted off the seabed',

@@ -55,6 +55,14 @@ function gitIn(root) {
  * introduced the numbered file on. A fragment added twice counts at its last addition.
  */
 export function landingsAt(git, rev) {
+  let releaseBase;
+  try { releaseBase = git('show', `${rev}:web/.result-change-release-base`).trim(); } catch {}
+  if (releaseBase !== undefined) {
+    if (!/^[0-9a-f]{40}$/.test(releaseBase)) throw new Error(`${rev}: invalid release results base`);
+    git('merge-base', '--is-ancestor', releaseBase, rev);
+    const firstParent = git('rev-list', '--first-parent', rev).split('\n');
+    if (!firstParent.includes(releaseBase)) rev = releaseBase;
+  }
   const log = git('log', '--first-parent', '--diff-merges=first-parent', '--no-renames', '--reverse',
     '--diff-filter=A', '--name-only', '--format=%x00%H', rev, '--', DIR);
   const commits = log.split('\0').filter((c) => c.trim()).map((block) => {

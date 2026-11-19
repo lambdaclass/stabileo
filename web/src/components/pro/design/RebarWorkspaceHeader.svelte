@@ -1,4 +1,5 @@
 <script lang="ts">
+  import OutdatedNotice from './OutdatedNotice.svelte';
   /**
    * The workspace's top bar: title, readiness, summary, and the four controls.
    *
@@ -92,6 +93,7 @@
     ✕ {t('detailing.scene.workspace.close')}
   </button>
 </header>
+<OutdatedNotice audit={['rc-detailing']} />
 
 <style>
   .topbar {

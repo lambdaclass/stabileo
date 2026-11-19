@@ -8,11 +8,10 @@ import { routeKind } from '../../src/lib/public-route';
 import { TOOLS, toolLastmod } from '../../src/components/tools/registry';
 import reviews from '../../../research/tools/batches/VALIDATION.json';
 
-afterEach(() => { setPublicLocale('en'); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+afterEach(() => { setPublicLocale('en'); vi.unstubAllGlobals(); });
 
 it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links follow accounts with accounts=%s', async accounts => {
-  vi.stubEnv('VITE_ACCOUNTS', accounts);
-  vi.stubEnv('DEV', false);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, accounts: accounts === '1' });
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {} });
   setPublicLocale('en');
   const body = render(Footer).body;
@@ -31,11 +30,26 @@ it.each([undefined, '0', '1'])('known wrong result: #2099 — footer legal links
 });
 
 it.each([undefined, '0', '1'])('known wrong result: #2099 — tools index keeps the latest registry review with tools=%s', async tools => {
-  vi.stubEnv('VITE_TOOLS', tools);
+  vi.stubGlobal('__PUBLIC_FEATURES__', { ...__PUBLIC_FEATURES__, tools: tools === '1' });
   await publicPaths();
   expect(POST_LASTMOD.get('/tools')).toBe(TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`)).map(tool => toolLastmod(tool, reviews.batches)).sort().at(-1));
   for (const tool of TOOLS.filter(tool => publicFeatureEnabled(`/tools/${tool.id}`))) {
     expect(POST_LASTMOD.get(`/tools/${tool.id}`), tool.id).toBe(toolLastmod(tool, reviews.batches));
   }
   expect(POST_LASTMOD.get('/blog')).toBe([...POST_LASTMOD].filter(([path]) => path.startsWith('/blog/')).map(([, date]) => date).sort().at(-1));
+});
+
+it.each(['0001-01-01', '9999-12-31'])('known wrong result: #2099 — blog metadata ignores unrelated route dates (%s)', async date => {
+  await publicPaths();
+  const expected = [...POST_LASTMOD].filter(([path]) => path.startsWith('/blog/')).map(([, day]) => day).sort().at(-1);
+  expect(expected).toBeDefined();
+  POST_LASTMOD.set('/metadata-regression', date);
+  try {
+    for (let pass = 0; pass < 2; pass++) {
+      await publicPaths();
+      expect(POST_LASTMOD.get('/blog')).toBe(expected);
+    }
+  } finally {
+    POST_LASTMOD.delete('/metadata-regression');
+  }
 });

@@ -145,6 +145,7 @@ function panelLoads(model: WindModel, layout: GravityLayout, tributaryWidth: num
 export function snowLoadCases(input: SnowCasesInput): {
   result: SnowResult; geometry: RoofGeometry; cases: SnowCaseLoads[]; derivation: EngineMessage[]; refs: ClauseRef[];
   surfaces: Array<{ slopeDeg: number; cs: number; ps: number }>;
+  flatRoof?: SnowCaseLoads;
 } | null {
   const chosen = input.snow.roof ? new Set(input.snow.roof) : undefined;
   const surfaceModel = roofSurfaceModel(input.model, chosen);
@@ -312,5 +313,12 @@ export function snowLoadCases(input: SnowCasesInput): {
   const surfaces = [...bySlope.entries()].filter(([key, value]) => used.has(key) && Math.abs(value.result.ps - result.ps) > 1e-9)
     .map(([, value]) => ({ slopeDeg: value.slopeDeg, cs: value.result.cs, ps: value.result.ps })).sort((a, b) => a.slopeDeg - b.slopeDeg);
   if (surfaceModel.approximation.maxAbsoluteError > 0) derivation.push(msg('snow.derivation.intensityBound', { relativePercent: 100 * SNOW_INTENSITY_RELATIVE_ERROR, absolute: surfaceModel.approximation.maxAbsoluteError }));
-  return { result, geometry, cases, derivation, refs, surfaces: shaped ? [] : surfaces };
+  const flatRoof: SnowCaseLoads = {
+    nameKey: 'snow.case.flatRoof', nameParams: {},
+    ...on((id, unit) => {
+      const ps = localSurfaces(id, unit);
+      return ps.reduce((sum, p) => { const r = localResult(p); return sum + r.pf + r.rainOnSnow; }, 0) / ps.length;
+    }),
+  };
+  return { result, geometry, cases, derivation, refs, surfaces: shaped ? [] : surfaces, flatRoof };
 }

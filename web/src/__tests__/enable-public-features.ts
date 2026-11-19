@@ -1,9 +1,3 @@
-import { afterAll, vi } from 'vitest';
+import { featuresForMode } from '../../config/public-features.mjs';
 
-vi.stubEnv('VITE_RESEARCH', '1');
-vi.stubEnv('VITE_TOOLS', '1');
-vi.stubEnv('VITE_DIAGRAM_GAME', '1');
-
-vi.stubEnv('VITE_ACCOUNTS', '1');
-
-afterAll(() => vi.unstubAllEnvs());
+Object.assign(globalThis, { __PUBLIC_FEATURES__: featuresForMode('test') });

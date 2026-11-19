@@ -1,6 +1,33 @@
 import type { Translations } from '../types';
 
 const ko: Translations = {
+  'loadPlan.gravity.coveragePrecision': "쉘 피복 좌표가 지원되는 부재 구간 정밀도를 초과합니다.",
+  'loadPlan.gravity.partitionFailed': "쉘 투영 영역을 분할하지 못했습니다: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "부분 쉘 피복에서는 띠가 직사각형 보 패널의 마주 보는 지지부 사이 전 경간에 걸쳐야 합니다.",
+  'loadPlan.gravity.stripDirection': "요청한 일방향 경간은 피복되지 않은 띠의 경간 방향과 일치해야 합니다.",
+  'loadPlan.gravity.nonplanarShell': "사각형 {id}이 평면이 아닙니다. 중력 하중의 피복 계산에는 평면 쉘이 필요합니다.",
+  'loadPlan.gravity.unresolvedMember': "부재 {id}는 쉘에 일부만 덮여 있으며 패널의 하중 전달을 결정할 수 없습니다.",
+  'loadPlan.gravity.differentDeck': "보 패널을 덮는 쉘은 패널과 같은 데크에 속해야 합니다.",
+  'loadPlan.gravity.differentSlopedDeck': "보 패널을 덮는 경사 쉘은 패널과 같은 데크에 속해야 합니다.",
+  'loadPlan.gravity.deckCheckFailed': "쉘의 데크 피복을 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "피복되지 않은 띠의 노출을 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.mixedExposure': "피복되지 않은 띠에 지붕과 바닥 영역이 모두 포함되어 있습니다.",
+  'loadPlan.gravity.stripSpan': "피복되지 않은 띠가 데크의 최대 경간을 초과합니다.",
+  'loadPlan.gravity.headroomCheckFailed': "피복되지 않은 띠의 유효 높이를 확인하지 못했습니다: {detail}",
+  'loadPlan.gravity.stripHeadroom': "피복되지 않은 띠의 층 유효 높이가 부족하거나 결정되지 않았습니다.",
+  'loadPlan.gravity.stripInterval': "부재 {id}의 중력 하중 띠가 지원되는 하중 구간보다 짧습니다.",
+  'engine.memberLoad.geometryOrdering': "생성된 부재 형상의 순서가 올바르지 않습니다",
+  'engine.memberLoad.geometryLine': "생성된 부재 형상이 원래 선에서 벗어납니다",
+  'engine.memberLoad.invalidGeometry': "생성된 부재 형상이 올바르지 않습니다",
+  'engine.memberLoad.geometryPartition': "생성된 형상이 원래 부재를 분할하지 않습니다",
+  'engine.memberLoad.invalidPiece': "생성된 부재 하중 구간이 올바르지 않습니다",
+  'engine.memberLoad.geometrySpan': "요소 {id}: 생성된 형상이 원래 구간 {span}을 길이 {length}로 변경합니다. 분포 하중의 크기를 재조정할 수 없습니다",
+  "engine.memberLoad.invalidInterval": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 유효하지 않습니다",
+  "engine.memberLoad.geometryLimit": "부재 {id}: 길이 {length}에 대한 분포하중 구간 [{a}, {b}]이 상대 기하 한계 {limit}보다 작습니다",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy}에는 CIRSOC 101 {article}에 따라 집중 하중 검토가 필요합니다. 가장 불리한 위치는 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
+  "loadPlan.blocked.concentratedLive": "{occupancy}에는 CIRSOC 101 §4.4에 따라 {force} kN 집중 활하중 검토가 필요합니다. 가장 불리한 위치와 등분포/집중 하중 대안은 평가되지 않습니다. 자동 생성이 차단되었습니다. 이러한 작용을 수동으로 모델링하고 검토하세요.",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4는 §4.8 지붕 활하중과 별도로 가장 불리한 위치에서의 집중 지붕 작용을 요구합니다. 이러한 검토는 수행되지 않습니다. 자동 생성이 차단되었습니다. 지붕 작용을 수동으로 모델링하고 검토하세요.",
   "account.err.invalid_credentials": "이메일 또는 비밀번호가 올바르지 않습니다.",
   // ─── Auth / Login ───
 

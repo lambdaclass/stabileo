@@ -18,7 +18,7 @@ import { meshDeferredSlabs, representFootprints } from '../model/building/deferr
 import { ensurePhysicalModel } from '../store/plates-from-shells';
 import { physicalPlates, platesNeedingMesh, preparePlatesForAnalysisAsync } from '../store/physical-plates';
 import { noteBaseSolveInput } from '../store/result-provenance';
-import { syncDefinedLoadsForAnalysis } from '../store/defined-loads';
+import { floorLoadBlockMessage, syncDefinedLoadsForAnalysis } from '../store/defined-loads';
 import { spectralOrSay } from '../actions/solve';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
@@ -117,7 +117,17 @@ export async function runLiveCalc(analysisMode: string, axisConvention3D: string
   if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   // Floor loads kept as definitions, current before the guard is taken: the edit that started this
   // solve may not have been rewritten yet (`store/defined-loads.ts`).
-  if (is3DWorkspace(analysisMode)) { ensurePhysicalModel(); syncDefinedLoadsForAnalysis(); }
+  if (is3DWorkspace(analysisMode)) {
+    ensurePhysicalModel();
+    const blocked = floorLoadBlockMessage();
+    if (blocked) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.liveCalcError = blocked;
+      return;
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   const isStale = nextSolveGuard();
   try {
     if (is3DWorkspace(analysisMode)) {
@@ -170,7 +180,7 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
     uiStore.liveCalcError = tp('plates.liveNeedsMesh', { n: unmeshed.length });
     return;
   }
-  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+  const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, { isCancelled: isStale });
   if (isStale()) return;
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
@@ -193,7 +203,10 @@ async function liveCalc3D(axisConvention: string, isStale: () => boolean): Promi
    */
   const v = resultsStore.pendingView;
   if (v && modelStore.model.combinations.length > 0 && (v.view !== 'single' || v.caseId !== null)) {
-    const combo = modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    const combo = hasNonlinearBehaviour(modelStore.model)
+      ? await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro, undefined, { isCancelled: isStale })
+      : modelStore.solveCombinations3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
+    if (isStale()) return;
     if (typeof combo === 'string' || !combo) {
       uiStore.liveCalcError = errorText(combo, t('results.emptyModelError'));
       return;
@@ -293,7 +306,16 @@ export async function runGlobalSolve(options: { directBase?: boolean } = {}): Pr
   }
   // Floor loads kept as definitions are rewritten first when the model moved under them, so the
   // guard below starts from the model that is solved (`store/defined-loads.ts`).
-  if (uiStore.is3DWorkspace) syncDefinedLoadsForAnalysis();
+  if (uiStore.is3DWorkspace) {
+    const error = floorLoadBlockMessage();
+    if (error) {
+      nextSolveGuard();
+      resultsStore.clear3D();
+      uiStore.toast(error, 'error');
+      return { ok: false, error };
+    }
+    syncDefinedLoadsForAnalysis();
+  }
   // Supersede any in-flight solve (live calc or an earlier manual solve).
   const isStale = nextSolveGuard();
   const input = solveInputKey();
@@ -380,7 +402,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
   const failed = (error: string): GlobalSolveOutcome => ({ ok: false, error });
 
   const runSingleSolve = async (announceSuccess = true): Promise<GlobalSolveOutcome> => {
-    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+    const r = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof r === 'string') {
       uiStore.toast(knownIssueRefusal(r) ?? localizeEngineText(r), 'error', solveErrorAction(r));
@@ -416,7 +438,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     // edit already cleared. Discard silently instead (no fallback re-solve, no
     // toast): the next live-calc pass / manual solve will pick up the new model.
     const solveEpoch = modelStore.modelVersion;
-    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined);
+    const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro, isPro ? spectralOrSay() : undefined, { isCancelled: isStale });
     if (isStale()) return stale;
     if (typeof comboResult === 'string') return comboResult;
     if (!comboResult) return t('results.emptyModelError');
@@ -439,7 +461,7 @@ async function globalSolve3D(isStale: () => boolean, directBase: boolean): Promi
     const factors = caseIds.map((caseId) => ({ caseId, factor: listedFactors?.get(caseId) ?? 1 })).filter((f) => f.factor !== 0);
     let firstCaseResult;
     if (listedFactors === null || factors.length === 0) {
-      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro);
+      const single = await modelStore.solve3DAsync(uiStore.includeSelfWeight, leftHand, isPro, { isCancelled: isStale });
       if (isStale() || modelStore.modelVersion !== solveEpoch) return stale;
       if (typeof single === 'string') return single;
       firstCaseResult = single;

@@ -73,7 +73,7 @@ function verifyConcurrentCases(complete: CompleteDemandSet<{ elementId: number; 
   const maxCompression = preliminary.reduce((a, b) => (b.flexure.AsComp ?? 0) > (a.flexure.AsComp ?? 0) ? b : a).flexure;
   const flexure = Object.assign(copyVerificationCheck(maxFlexure), { AsComp: maxCompression.AsComp, barCountComp: maxCompression.barCountComp,
     barDiaComp: maxCompression.barDiaComp, barsComp: maxCompression.barsComp, isDoublyReinforced: maxCompression.isDoublyReinforced });
-  const { shear, requirements } = sharedTorsionReinforcement(preliminary);
+  const { shear, requirements } = sharedTorsionReinforcement(preliminary, first.edition ?? '2025');
   const fixed = prepared.map(verify => verify({ column: fixedColumn, flexure, shear }));
   const used = new Set<number>();
   const checked = new Map<number, ElementVerification>();

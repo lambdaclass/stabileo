@@ -1,6 +1,33 @@
 import type { Translations } from '../types';
 
 const ja: Translations = {
+  'loadPlan.gravity.coveragePrecision': "シェルの被覆座標が部材区間で対応できる精度を超えています。",
+  'loadPlan.gravity.partitionFailed': "シェルの投影範囲を分割できませんでした：{detail}",
+  'loadPlan.gravity.unsupportedStrips': "シェルが一部を覆う場合、矩形の梁パネルの向かい合う支持材の間で、帯が全スパンにわたる必要があります。",
+  'loadPlan.gravity.stripDirection': "指定した一方向スパンの向きは、被覆されていない帯のスパン方向と一致する必要があります。",
+  'loadPlan.gravity.nonplanarShell': "四辺形 {id} は平面ではありません。重力荷重の被覆計算には平面シェルが必要です。",
+  'loadPlan.gravity.unresolvedMember': "部材 {id} はシェルに一部だけ覆われており、パネルからの荷重伝達を特定できません。",
+  'loadPlan.gravity.differentDeck': "梁パネルを覆うシェルは、梁パネルと同じデッキに属する必要があります。",
+  'loadPlan.gravity.differentSlopedDeck': "梁パネルを覆う傾斜シェルは、梁パネルと同じデッキに属する必要があります。",
+  'loadPlan.gravity.deckCheckFailed': "シェルによるデッキの被覆を確認できませんでした：{detail}",
+  'loadPlan.gravity.exposureCheckFailed': "被覆されていない帯の上部の覆いを確認できませんでした：{detail}",
+  'loadPlan.gravity.mixedExposure': "被覆されていない帯には屋根と床の両方の領域があります。",
+  'loadPlan.gravity.stripSpan': "被覆されていない帯がデッキの最大スパンを超えています。",
+  'loadPlan.gravity.headroomCheckFailed': "被覆されていない帯の有効高さを確認できませんでした：{detail}",
+  'loadPlan.gravity.stripHeadroom': "被覆されていない帯の階の有効高さが不足しているか、特定できません。",
+  'loadPlan.gravity.stripInterval': "部材 {id} の重力荷重の帯が対応可能な荷重区間より短くなっています。",
+  'engine.memberLoad.geometryOrdering': "生成部材の形状の順序が無効です",
+  'engine.memberLoad.geometryLine': "生成部材の形状が元の直線から外れています",
+  'engine.memberLoad.invalidGeometry': "生成部材の形状が無効です",
+  'engine.memberLoad.geometryPartition': "生成形状が元の部材を分割していません",
+  'engine.memberLoad.invalidPiece': "生成部材の荷重区間が無効です",
+  'engine.memberLoad.geometrySpan': "要素 {id}: 生成形状が元の区間 {span} を長さ {length} に変更します。分布荷重は再スケーリングできません",
+  "engine.memberLoad.invalidInterval": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] が無効です",
+  "engine.memberLoad.geometryLimit": "部材 {id}: 長さ {length} に対する分布荷重区間 [{a}, {b}] は相対幾何限界 {limit} 未満です",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy}にはCIRSOC 101 {article}に基づく集中荷重の検討が必要です。最も不利な位置は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
+  "loadPlan.blocked.concentratedLive": "{occupancy}には、CIRSOC 101 §4.4に基づく{force} kNの集中積載荷重の検討が必要です。最も不利な位置と等分布荷重・集中荷重の代替条件は評価されません。自動生成は停止されています。これらの作用を手動でモデル化して検討してください。",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4では、§4.8の屋根積載荷重とは別に、最も不利な位置での集中屋根荷重の検討が必要です。これらは評価されません。自動生成は停止されています。屋根への作用を手動でモデル化して検討してください。",
   "account.err.invalid_credentials": "メールアドレスまたはパスワードが正しくありません。",
   // ─── Auth / Login ───
 

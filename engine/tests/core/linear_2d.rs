@@ -425,3 +425,33 @@ fn fully_restrained_2node_beam_no_load() {
         assert_close(r.my, 0.0, 0.01, &format!("node {} my", r.node_id));
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2262"]
+fn issue_2262_independent_equilibrium_keeps_the_transverse_residual() {
+    let dx: f64 = 0.6;
+    let dz: f64 = 0.8;
+    let length = dx.hypot(dz);
+    let transverse = 0.1;
+    let loads = [(1e16, transverse), (-1e16, 0.0)]
+        .into_iter()
+        .map(|(px, p)| SolverLoad::PointOnElement(SolverPointLoadOnElement {
+            element_id: 1, a: length / 2.0, p, px: Some(px), my: None,
+        }))
+        .collect();
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, dx, dz)],
+        vec![(1, E, 0.3)],
+        vec![(1, A, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        loads,
+    );
+    let solved = linear::solve_2d(&input).unwrap();
+    let actual = solved.equilibrium.unwrap().applied_force_sum;
+    let transverse_resultant = [-dz / length * transverse, dx / length * transverse];
+    assert!(
+        actual.iter().zip(transverse_resultant).all(|(a, e)| (a - e).abs() < 1e-14),
+        "applied force {actual:?} kN, expected {transverse_resultant:?} kN",
+    );
+}

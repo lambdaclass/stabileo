@@ -43,9 +43,9 @@ for (const width of [390, 1440]) {
     if (width === 1440) {
       const article = (await page.locator('.rs-shell-article').boundingBox())!;
       const app = (await page.locator('.rs-shell-app').boundingBox())!;
-      expect(Math.abs(article.y - app.y)).toBeLessThanOrEqual(1);
       const heading = (await page.locator('.rs-shell-head').boundingBox())!;
-      expect(app.y - heading.y - heading.height).toBeLessThan(40);
+      expect(Math.abs(app.y - heading.y)).toBeLessThanOrEqual(1);
+      expect(article.y).toBeGreaterThanOrEqual(heading.y + heading.height);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });

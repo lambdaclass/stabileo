@@ -50,7 +50,7 @@ on:
         required: false
         default: ""
       mutants_total:
-        description: "Mutants: total number of shards (default 512)"
+        description: "Mutants: total number of shards (default 2560)"
         required: false
         default: ""
       pool:
@@ -122,8 +122,8 @@ jobs:
           TIERS: ${{ inputs.tiers }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
-          MUTANTS_TOTAL: 512
-          MUTANTS_SLOTS: 32
+          MUTANTS_TOTAL: 2560
+          MUTANTS_SLOTS: 160
           SAFETY_TOTAL: 24
           FORCE_FAILURE: ${{ inputs.force_failure }}
           EVENT: ${{ github.event_name }}

@@ -1,3 +1,4 @@
+import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
@@ -71,8 +72,11 @@ let wasmAnalyzeKinematics3d: ((json: string) => string) | null = null;
 let wasmReviewModelSanity: ((json: string) => string) | null = null;
 
 // Combinations & Envelope
+let wasmNetCombinationFactors: ((input: unknown) => unknown) | null = null;
 let wasmCombineResults2d: ((input: any) => any) | null = null;
 let wasmCombineResults3d: ((input: any) => any) | null = null;
+let wasmCombineResultsBatch3d: ((input: any) => any) | null = null;
+let wasmCombineResultsEnvelope3d: ((input: any) => any) | null = null;
 let wasmComputeEnvelope2d: ((input: any) => any) | null = null;
 let wasmComputeEnvelope3d: ((input: any) => any) | null = null;
 
@@ -237,6 +241,7 @@ export async function initSolver(): Promise<void> {
       noteEngineBuild(bytes, engineInfoOf(wasm));
     }
     registerCollisionKernel(wasm.CollisionGeometry ?? null);
+    registerMemberIntervalKernel(wasm.canonical_member_load_interval ?? null);
     registerCirsoc201Engine({
       Section: wasm.Cirsoc201SectionKernel, basis: wasm.cirsoc201_basis, phi: wasm.cirsoc201_phi,
       designBeam: wasm.cirsoc201_design_beam, slabProvisions: wasm.cirsoc201_slab_provisions,
@@ -273,8 +278,11 @@ export async function initSolver(): Promise<void> {
     wasmAnalyzeKinematics3d = wasm.analyze_kinematics_3d;
 
     // Combinations & Envelope
+    wasmNetCombinationFactors = wasm.net_combination_factors;
     wasmCombineResults2d = wasm.combine_results_2d;
     wasmCombineResults3d = wasm.combine_results_3d;
+    wasmCombineResultsBatch3d = wasm.combine_results_batch_3d;
+    wasmCombineResultsEnvelope3d = wasm.combine_results_envelope_3d;
     wasmComputeEnvelope2d = wasm.compute_envelope_2d;
     wasmComputeEnvelope3d = wasm.compute_envelope_3d;
 
@@ -1472,16 +1480,26 @@ export function analyzeKinematics3D(input: SolverInput3D) {
 
 // ─── Combinations & Envelope ─────────────────────────────────────
 
+function combinationCases<T>(factors: Array<{ caseId: number }>, perCase: Map<number, T>) {
+  return [...new Set(factors.map(f => f.caseId))]
+    .filter(caseId => perCase.has(caseId))
+    .map(caseId => ({ caseId, results: perCase.get(caseId)! }));
+}
+
+export function netCombinationFactors(factors: Array<{ caseId: number; factor: number }>): typeof factors {
+  if (factors.length <= 1 || new Set(factors.map(f => f.caseId)).size === factors.length) return factors;
+  if (!wasmNetCombinationFactors) throw new Error('WASM solver not initialized.');
+  assertFiniteWire(factors);
+  return wasmNetCombinationFactors(factors) as typeof factors;
+}
+
 /** Combine 2D results with factors via WASM. JsValue in/out — no JSON round trip. */
 export function combineResults(
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, AnalysisResults>,
 ): AnalysisResultsWire | null {
   if (!wasmReady || !wasmCombineResults2d) throw new Error('WASM solver not initialized.');
-  const cases = factors
-    .filter(f => perCase.has(f.caseId))
-    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
-  if (cases.length === 0) return null;
+  const cases = combinationCases(factors, perCase);
   // Guard the FACTORS only (user data, cheap). The per-case results are solver
   // output — produced after the input-side guard already rejected non-finite
   // model data — so re-walking multi-MB result trees per combo was pure cost.
@@ -1500,14 +1518,41 @@ export function combineResults3D(
   plates: PlateThickness,
 ): AnalysisResults3DWire | null {
   if (!wasmReady || !wasmCombineResults3d) throw new Error('WASM solver not initialized.');
-  const cases = factors
-    .filter(f => perCase.has(f.caseId))
-    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
-  if (cases.length === 0) return null;
+  const cases = combinationCases(factors, perCase);
   // Same rationale as combineResults: guard factors (cheap), trust solver output.
   assertFiniteWire(factors);
   const combined = wasmCombineResults3d({ factors, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]) });
   return combined === null ? null : results3DFromWasm(combined);
+}
+
+export function combineResultsBatch3D(
+  combinations: Array<Array<{ caseId: number; factor: number }>>,
+  perCase: Map<number, AnalysisResults3D>,
+  plates: PlateThickness,
+): Array<AnalysisResults3DWire | null> {
+  if (!wasmReady || !wasmCombineResultsBatch3d) throw new Error('WASM solver not initialized.');
+  assertFiniteWire(combinations);
+  const ids = new Set(combinations.flatMap(factors => factors.map(f => f.caseId)));
+  const cases = [...perCase].filter(([id]) => ids.has(id)).map(([caseId, results]) => ({ caseId, results }));
+  const results: Array<any | null> = wasmCombineResultsBatch3d({
+    combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
+  });
+  return results.map(result => result == null ? null : results3DFromWasm(result));
+}
+
+export function combineResultsEnvelope3D(
+  combinations: Array<Array<{ caseId: number; factor: number }>>,
+  perCase: Map<number, AnalysisResults3D>,
+  plates: PlateThickness,
+): { combinations: Array<AnalysisResults3DWire | null>; envelope: FullEnvelope3D | null } {
+  if (!wasmReady || !wasmCombineResultsEnvelope3d) throw new Error('WASM solver not initialized.');
+  assertFiniteWire(combinations);
+  const ids = new Set(combinations.flatMap(factors => factors.map(f => f.caseId)));
+  const cases = [...perCase].filter(([id]) => ids.has(id)).map(([caseId, results]) => ({ caseId, results }));
+  const [results, envelope]: [Array<unknown | null>, FullEnvelope3D | null] = wasmCombineResultsEnvelope3d({
+    combinations, cases, plateThicknesses: [...plates].map(([id, p]) => [id, p.thickness]),
+  });
+  return { combinations: results.map(result => result == null ? null : results3DFromWasm(result)), envelope };
 }
 
 /** Compute 2D envelope via WASM. JsValue in/out — no JSON round trip. */

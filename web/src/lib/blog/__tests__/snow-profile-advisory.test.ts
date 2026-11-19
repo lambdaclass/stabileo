@@ -20,9 +20,9 @@ const document = (path: string) => readFileSync(new URL(`../../../../../docs/${p
 
 for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-moment', crossing], [2172, 'SA-2026-074', 'snow-panel-subdivision', panel]] as const) {
   it.each<[PublicLocale, string, string]>([
-    ['en', 'High', 'PR #2197; pending merge and release'], ['es', 'Alta', 'PR #2197; pendiente de integración y publicación'], ['pt', 'Alta', 'PR #2197; aguardando integração e publicação'],
-    ['hu', 'Magas', 'PR #2197; egyesítésre és kiadásra vár'],
-    ['de', 'Hoch', 'PR #2197; Zusammenführung und Veröffentlichung ausstehend'], ['fr', 'Élevée', 'PR #2197; fusion et publication en attente'], ['tr', 'Yüksek', 'PR #2197; birleştirme ve yayın bekleniyor'],
+    ['en', 'High', 'Fixed in 0.6.2'], ['es', 'Alta', 'Corregido en 0.6.2'], ['pt', 'Alta', 'Corrigido em 0.6.2'],
+    ['hu', 'Magas', 'Javítva a 0.6.2 verzióban'],
+    ['de', 'Hoch', 'Behoben in 0.6.2'], ['fr', 'Élevée', 'Corrigé dans 0.6.2'], ['tr', 'Yüksek', '0.6.2 sürümünde düzeltildi'],
   ])(`#${issue} %s has the assigned advisory and regeneration notice`, (locale, severity, status) => {
     const blocks = (locale === 'hu' ? hu : findPost('safety-advisories')!.i18n[locale]!).blocks;
     const table = blocks.find(b => b.k === 'table');
@@ -44,7 +44,7 @@ for (const [issue, sa, name, notice] of [[2176, 'SA-2026-073', 'snow-crossing-mo
     expect(blocks.some(b => b.k === 'ext' && b.label === sa && b.href.endsWith(`/docs/advisories/${sa}-${name}.md`))).toBe(true);
     expect(notice.explanation[locale]).toContain(sa);
     expect(notice.when).toEqual({ all: issue === 2172 ? ['generatedLoads'] : ['snow', 'generatedLoads'] });
-    expect(document(`advisories/${sa}-${name}.md`)).toContain('| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); pending merge and release |');
+    expect(document(`advisories/${sa}-${name}.md`)).toContain('| Fix | PR [#2197](https://github.com/lambdaclass/stabileo/pull/2197); released in 0.6.2 |');
     expect(document('advisories/README.md')).toContain(`[${sa}](${sa}-${name}.md)`);
     expect(document(notice.changelog.file.replace('docs/', ''))).toContain(`#${issue}`);
   });

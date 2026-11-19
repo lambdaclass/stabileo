@@ -59,6 +59,7 @@ export interface ImposedLoadCode extends CodeModule {
   defaultOccupancy?: string;
   /** The code's table of occupancies, as the dialog lists them. Absent: CIRSOC 101 Table 4.1. */
   occupancies?(): readonly OccupancyEntry[];
+  generationBlockers(input: { occupancies: readonly OccupancyEntry[]; roof: boolean }): { messages: EngineMessage[]; refs: ClauseRef[] };
   reduce(o: {
     loKNm2: number; tributaryAreaM2: number; elementKind: ElementKind; floorsSupported: number;
     passengerGarage: boolean; publicAssembly: boolean; noReduction: boolean;

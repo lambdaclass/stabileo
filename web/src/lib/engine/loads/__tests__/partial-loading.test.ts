@@ -254,7 +254,8 @@ const planIn = (over: Partial<LoadPlanInput> = {}): LoadPlanInput => ({
 describe('partial loading through the plan', () => {
   it('adjacent-span arrangements of L and Lr are pattern cases of their groups', () => {
     const p = buildLoadPlan(planIn({ patterns: 'all' }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const adjacent = p.cases.filter((c) => c.nameKey === 'autoLoad.liveCaseAdjacent');
     // Three spans along X give two interior lines. Two along Y give one, whose two spans are the
     // whole floor: the full load, not an arrangement.
@@ -281,4 +282,18 @@ describe('partial loading through the plan', () => {
     expect(buildLoadPlan(planIn({ patterns: 'checkerboard' })).cases.filter((c) => c.pattern)).toHaveLength(4);
     expect(buildLoadPlan(planIn({ patterns: 'none' })).cases.filter((c) => c.pattern)).toHaveLength(0);
   });
+});
+
+const issue2202 = process.env.RUN_KNOWN_WRONG === '2202' ? it : it.skip;
+issue2202('known wrong result: #2202 flat ridge tops cap snow pressure in the intervening valley', () => {
+  const profile = [[0, 3], [2, 3.2], [3, 3.2], [5, 3], [7, 3.2], [8, 3.2], [10, 3]] as const;
+  const roof = profile.flatMap(([x, z]) => [0, 4].map(y => ({ x, y, z })));
+  const pg = 2;
+  const pf = 0.7 * pg;
+  const gamma = 0.426 * pg + 2.2;
+  const ce = 1;
+  const result = shapedSnow(roof, { kind: 'multiple', pf, ce, ct: 1, slippery: false, gamma, axis: 'x' });
+  const valley = { x: 5, y: 2, z: 3 };
+  const cirsoc104Section63 = Math.min(2 * pf / ce, 0.5 * pf + gamma * (3.2 - valley.z));
+  expect(result?.unbalanced[0]?.at(valley)).toBeCloseTo(cirsoc104Section63, 12);
 });

@@ -25,7 +25,7 @@ describe('SA-2026-064 steel combination Cb', () => {
     expect(rows[0]![1]).toContain('Cb');
     expect(blocks.some(b => b.k === 'note' && b.t === `SA-2026-064 — ${status}.`)).toBe(true);
     expect(notice.explanation[locale]).toContain('SA-2026-064');
-    expect(post.updated).toBe('2026-11-15');
+    expect(post.updated).toBe('2026-11-18');
   });
 
   it('retains a silent certified understatement and distinguishes the warned failure-side case', () => {

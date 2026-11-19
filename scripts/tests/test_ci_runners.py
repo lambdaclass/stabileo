@@ -267,7 +267,7 @@ class CiRunners(unittest.TestCase):
             fake.chmod(0o755)
             output = pathlib.Path(directory) / 'output'
             env = {**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GITHUB_OUTPUT': str(output), 'EVENT': event,
-                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '512', 'MUTANTS_SLOTS': '32',
+                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '2560', 'MUTANTS_SLOTS': '160',
                    'FORCE_FAILURE': 'false'}
             result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -343,6 +343,9 @@ class CiRunners(unittest.TestCase):
                     self.assertIn("github.event_name != 'pull_request'", condition.group(1))
                     self.assertNotIn('||', condition.group(1))
         self.assertGreater(found, 20)
+
+    def test_the_deploy_build_does_not_start_magic_nix_cache(self):
+        self.assertNotIn('magic-nix-cache-action', (WORKFLOWS / 'deploy.yml').read_text())
 
     def test_superseded_runs_cancel_but_the_merge_queue_never_does(self):
         for workflow in ['research.yml', 'supply-chain.yml']:

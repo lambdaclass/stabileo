@@ -16,6 +16,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  computeElementDiagram,
   computeMomentDiagram,
   computeShearDiagram,
   computeAxialDiagram,
@@ -376,4 +377,40 @@ describe('a point couple on a member', () => {
     expect(computeDiagramValueAt('moment', 0.41, ef)).toBeCloseTo(-1.2 * 2.05 + 6, 9);
     expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(0, 9);
   });
+});
+
+const issue2226 = process.env.RUN_KNOWN_WRONG === '2226' ? it : it.skip;
+issue2226('known wrong result: #2226 planar shear and moment jump immediately after a concentrated action', () => {
+  const length = 3;
+  const station = 1.5;
+  const force = 1;
+  const couple = 2;
+  const endForces = {
+    length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: -force, vEnd: 0,
+    mStart: -force * station - couple, mEnd: 0,
+    pointLoads: [{ a: station, p: force, my: couple }],
+  };
+  expect(computeDiagramValueAt('shear', station / length, endForces)).toBe(-force);
+  expect(computeDiagramValueAt('moment', station / length, endForces)).toBe(-couple);
+  const justAfter = (station + 5e-11) / length;
+  expect.soft(computeDiagramValueAt('shear', justAfter, endForces)).toBe(0);
+  expect.soft(computeDiagramValueAt('moment', justAfter, endForces)).toBeCloseTo(0, 12);
+});
+
+const issue2250 = process.env.RUN_KNOWN_WRONG === '2250' ? it : it.skip;
+issue2250('known wrong result: #2250 planar shear diagram includes the peak inside a partial load', () => {
+  const length = 100;
+  const a = 1;
+  const b = 2;
+  const qI = 1;
+  const qJ = -1;
+  const endForces = {
+    length, qI: 0, qJ: 0, nStart: 0, nEnd: 0, vStart: 0, vEnd: 0,
+    mStart: (b - a) ** 2 / 6, mEnd: 0,
+    distributedLoads: [{ a, b, qI, qJ }],
+  };
+  const zeroOfLoad = (a + b) / 2;
+  const integratedTriangle = (zeroOfLoad - a) * qI / 2;
+  expect(computeDiagramValueAt('shear', zeroOfLoad / length, endForces)).toBeCloseTo(integratedTriangle, 12);
+  expect(computeElementDiagram('shear', endForces, 0, 0, length, 0).maxAbsValue).toBeCloseTo(integratedTriangle, 12);
 });

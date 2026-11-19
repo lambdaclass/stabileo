@@ -1,5 +1,32 @@
 import type { Translations } from '../types';
 const hi: Translations = {
+  'loadPlan.gravity.coveragePrecision': "शेल आवरण के निर्देशांक सदस्य खंडों की समर्थित सटीकता सीमा से बाहर हैं।",
+  'loadPlan.gravity.partitionFailed': "शेल के प्रक्षेपित क्षेत्र का विभाजन विफल रहा: {detail}",
+  'loadPlan.gravity.unsupportedStrips': "आंशिक शेल आवरण में पट्टियाँ आयताकार बीम पैनल के विपरीत धारकों के बीच पूरे स्पैन तक होनी चाहिए।",
+  'loadPlan.gravity.stripDirection': "अनुरोधित एकदिशीय स्पैन की दिशा खुली पट्टियों के स्पैन की दिशा से मिलनी चाहिए।",
+  'loadPlan.gravity.nonplanarShell': "चतुर्भुज {id} समतलीय नहीं है। गुरुत्व भार के लिए शेल आवरण में समतलीय शेल आवश्यक हैं।",
+  'loadPlan.gravity.unresolvedMember': "सदस्य {id} पर शेल का आवरण आंशिक है और पैनल से भार का हस्तांतरण निर्धारित नहीं हो सका।",
+  'loadPlan.gravity.differentDeck': "बीम पैनल को ढकने वाला शेल उसी डेक का हिस्सा होना चाहिए।",
+  'loadPlan.gravity.differentSlopedDeck': "बीम पैनल को ढकने वाला ढलवाँ शेल उसी डेक का हिस्सा होना चाहिए।",
+  'loadPlan.gravity.deckCheckFailed': "डेक पर शेल आवरण की जाँच विफल रही: {detail}",
+  'loadPlan.gravity.exposureCheckFailed': "खुली शेल पट्टियों के ऊपर आवरण की जाँच विफल रही: {detail}",
+  'loadPlan.gravity.mixedExposure': "खुली पट्टियों में छत और फर्श दोनों के क्षेत्र हैं।",
+  'loadPlan.gravity.stripSpan': "खुली पट्टी डेक के अधिकतम स्पैन से लंबी है।",
+  'loadPlan.gravity.headroomCheckFailed': "खुली पट्टी की मुक्त ऊँचाई की जाँच विफल रही: {detail}",
+  'loadPlan.gravity.stripHeadroom': "खुली पट्टी में मंज़िल की मुक्त ऊँचाई अपर्याप्त है या निर्धारित नहीं हो सकी।",
+  'loadPlan.gravity.stripInterval': "सदस्य {id} पर गुरुत्व भार की पट्टी समर्थित भार खंड से छोटी है।",
+  'engine.memberLoad.geometryOrdering': "उत्पन्न सदस्य की ज्यामिति का क्रम अमान्य है",
+  'engine.memberLoad.geometryLine': "उत्पन्न सदस्य की ज्यामिति मूल रेखा से बाहर जाती है",
+  'engine.memberLoad.invalidGeometry': "उत्पन्न सदस्य की ज्यामिति अमान्य है",
+  'engine.memberLoad.geometryPartition': "उत्पन्न ज्यामिति मूल सदस्य को विभाजित नहीं करती",
+  'engine.memberLoad.invalidPiece': "उत्पन्न सदस्य भार का खंड अमान्य है",
+  'engine.memberLoad.geometrySpan': "तत्व {id}: उत्पन्न ज्यामिति मूल खंड {span} को लंबाई {length} में बदलती है; वितरित भारों का पुनर्मापन नहीं किया जा सकता",
+  "engine.memberLoad.invalidInterval": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] अमान्य है",
+  "engine.memberLoad.geometryLimit": "सदस्य {id}: लंबाई {length} पर वितरित भार का अंतराल [{a}, {b}] सापेक्ष ज्यामितीय सीमा {limit} से कम है",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy} के लिए CIRSOC 101 {article} के अनुसार केंद्रित भार की जाँच आवश्यक है। सबसे प्रतिकूल स्थितियों का मूल्यांकन नहीं किया जाता। स्वचालित निर्माण अवरुद्ध है; इन क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
+  "loadPlan.blocked.concentratedLive": "{occupancy} के लिए CIRSOC 101 §4.4 के अनुसार {force} kN केंद्रित उपयोगी भार की जाँच आवश्यक है। सबसे प्रतिकूल स्थितियों और समान रूप से वितरित/केंद्रित भार के विकल्प का मूल्यांकन नहीं किया जाता। स्वचालित निर्माण अवरुद्ध है; इन क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4 के अनुसार §4.8 के छत उपयोगी भार से अलग, सबसे प्रतिकूल स्थितियों में केंद्रित छत क्रियाएँ आवश्यक हैं। इनकी जाँच नहीं की जाती। स्वचालित निर्माण अवरुद्ध है; छत की क्रियाओं को मैन्युअल रूप से मॉडल करके जाँचें।",
   "account.err.invalid_credentials": "ईमेल या पासवर्ड गलत है।",
   // ─── Auth / Login ───
 

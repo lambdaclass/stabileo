@@ -75,7 +75,8 @@ for (const mode of ['panels', 'width'] as const) for (const offset of [0.049, 0.
 for (const mode of ['panels', 'width'] as const) regression(`#2197 full planner excludes snow on the covered lower ${mode}`, () => {
   const { model, targets, area } = witness(mode);
   const out = buildLoadPlan({ regulations: regulations(), model, dead: [{ labelKey: 'test', q: 1 }], occupancyKey: 'vivienda', reductionElementKind: 'interiorBeam', floorsSupported: 1, applyLiveReduction: false, generateCombinations: true, gravity: { mode, loadEveryPanel: true }, tributaryWidth: 1, roof: { dead: 3, use: 'occupancy', occupancyKey: 'vivienda', slopeDeg: 0 }, snow: { ...snow, roofKind: 'mono', enabled: true, source: 'site' } });
-  expect(out.outcome).toBe('READY');
+  expect(out.outcome).toBe('BLOCKED');
+  expect(out.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
   const snowCases = new Set(out.cases.flatMap((c, i) => c.type === 'S' ? [i] : []));
   expect(snowCases.size).toBeGreaterThan(0);
   expect(out.distributed.filter(d => d.caseIndex !== undefined && snowCases.has(d.caseIndex) && targets.has(d.elementId))).toHaveLength(0);

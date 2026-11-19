@@ -10,7 +10,7 @@ import {
   groupTopRow, inflectionAnchorage, planSupportEnd, supportPlanes, supportRows, topLayout, faceDevelopment,
   SUPPORT_EMBED_M, type SupportCage, type SupportBar,
 } from '../support-anchorage';
-import { endSupportPlan } from '../../design/end-support-anchorage';
+import { endSupportPlan, inflectionChecks } from '../../design/end-support-anchorage';
 import { deriveHookedDevelopment } from '../../../codes/cirsoc201/anchorage';
 
 const cage = (o: Partial<SupportCage> = {}): SupportCage => ({
@@ -182,4 +182,36 @@ describe('§9.7.3.8.3 at a point of inflection', () => {
     expect(r.holds).toBe(true);
     expect(inflectionAnchorage({ ld: 2.0, asCm2: as, fy: 420, fc: 30, b: 0.2, d: 0.45, diameterMm: 16, vu: 60 }).holds).toBe(false);
   });
+});
+
+const issue2249 = process.env.RUN_KNOWN_WRONG === '2249' ? it : it.skip;
+issue2249('known wrong result: #2249 a station at moment zero still triggers inflection anchorage', () => {
+  const section = { b: 0.3, h: 0.2, fc: 30, fy: 420, cover: 0.025, stirrupDia: 8 };
+  const L = 6;
+  const diameter = 16;
+  const end = cage({ continues: true });
+  const axes = {
+    flexure: 'My', shear: 'Vz', secondaryFlexure: 'Mz', secondaryShear: 'Vy',
+    bFlex: section.b, hFlex: section.h, biaxial: false, sagCategory: 'My+', hogCategory: 'My-',
+    basis: 'stress-proxy', secondaryRatio: 0,
+  } as const;
+  const check = (samples: Array<[number, number]>) => {
+    const stations = samples.map(([x, my]) => ({ x, t: x / L, my, mz: 0, vz: 100, vy: 0, n: 0, torsion: 0 }));
+    return inflectionChecks({
+      section, L, axes, rebar: { bottom: { count: 3, diameter } }, edition: '2025',
+      seat: { stirrupDiaMm: 8, maxAggregateSizeMm: 20 }, cages: { start: end, end },
+      stations: { elementId: 1, length: L, stationTs: stations.map(s => s.t), comboResults: [{ comboId: 1, comboName: 'C1', stations }] },
+    });
+  };
+  const barArea = 2 * Math.PI * (diameter / 1000) ** 2 / 4;
+  const d = section.h - section.cover - (section.stirrupDia + diameter / 2) / 1000;
+  const block = barArea * section.fy / (0.85 * section.fc * section.b);
+  const mn = barArea * section.fy * 1000 * (d - block / 2);
+  const permitted = mn / 100 + Math.max(d, 12 * diameter / 1000);
+  const required = section.fy * diameter / 1000 / (2.1 * Math.sqrt(section.fc));
+  expect(required).toBeGreaterThan(permitted);
+  const verdict = { stationX: 3, status: 'fail' };
+  expect(check([[2.9, -10], [3.1, 10]])).toMatchObject([verdict]);
+  expect(check([[2.9, 10], [3.1, 10]])).toEqual([]);
+  expect(check([[2.9, -10], [3, 0], [3.1, 10]])).toMatchObject([verdict]);
 });

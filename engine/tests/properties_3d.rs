@@ -1266,3 +1266,26 @@ proptest! {
         })?;
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2227"]
+fn issue_2227_prescribed_translation_recovers_the_support_reaction() {
+    let mut input = equilibrium_oracle_input();
+    input.loads.clear();
+    let dx = 1e-16;
+    input.supports.get_mut("2").unwrap().dx = Some(dx);
+
+    let result = solve(&input).unwrap();
+    let section = &input.sections["1"];
+    let elastic_modulus = input.materials["1"].e * 1000.0;
+    let height = input.nodes["2"].z - input.nodes["1"].z;
+    let fixed_end_shear = 12.0 * elastic_modulus * section.iy * dx / height.powi(3);
+    let recovered_shear = result.element_forces[0].vz_start.abs();
+    assert!((recovered_shear / fixed_end_shear - 1.0).abs() < 1e-12);
+    let support = result.reactions.iter().find(|reaction| reaction.node_id == 2).unwrap();
+    assert!(
+        (support.fx / fixed_end_shear - 1.0).abs() < 1e-12,
+        "support X reaction {} kN, expected {fixed_end_shear} kN",
+        support.fx,
+    );
+}

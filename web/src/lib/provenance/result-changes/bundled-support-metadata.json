@@ -1,0 +1,36 @@
+{
+  "id": "bundled-support-metadata",
+  "date": "2026-11-17",
+  "prs": [],
+  "area": "analysis",
+  "when": {
+    "all": [
+      "space3D",
+      "rollerSupports"
+    ]
+  },
+  "quantities": [
+    "*",
+    "solve.ok"
+  ],
+  "title": {
+    "en": "Bundled models retain their explicit support restraints",
+    "es": "Los modelos incluidos conservan sus restricciones explícitas",
+    "pt": "Os modelos incluídos mantêm as restrições explícitas",
+    "de": "Mitgelieferte Modelle behalten ihre expliziten Lagerbindungen",
+    "fr": "Les modèles fournis conservent leurs blocages explicites",
+    "tr": "Hazır modeller açık mesnet kısıtlarını koruyor"
+  },
+  "explanation": {
+    "en": "Bundled model loading now preserves explicit support restraints across fixture adapters. Adapters that previously dropped these fields could refuse a roller or solve different restraints. Review support restraints and rerun analysis, combinations and design. Saved ambiguous rollers still require an explicit choice.",
+    "es": "La carga de modelos incluidos conserva ahora las restricciones explícitas en todos los adaptadores. Los adaptadores que omitían estos campos podían rechazar un rodillo o resolver otras restricciones. Revise los apoyos y repita análisis, combinaciones y diseño. Los rodillos guardados ambiguos aún requieren una selección explícita.",
+    "pt": "O carregamento dos modelos incluídos agora preserva as restrições explícitas em todos os adaptadores. Adaptadores que omitiam esses campos podiam recusar um apoio móvel ou resolver outras restrições. Revise os apoios e repita análise, combinações e dimensionamento. Apoios salvos ambíguos ainda exigem uma escolha explícita.",
+    "de": "Das Laden mitgelieferter Modelle erhält nun explizite Lagerbindungen über alle Adapter hinweg. Adapter, die diese Felder verwarfen, konnten Rollenlager ablehnen oder andere Bindungen berechnen. Prüfen Sie die Lager und wiederholen Sie Analyse, Kombinationen und Bemessung. Gespeicherte mehrdeutige Rollenlager erfordern weiterhin eine explizite Auswahl.",
+    "fr": "Le chargement des modèles fournis préserve désormais les blocages explicites dans tous les adaptateurs. Les adaptateurs qui perdaient ces champs pouvaient refuser un appui à rouleaux ou calculer d’autres blocages. Vérifiez les appuis et relancez analyse, combinaisons et dimensionnement. Les appuis enregistrés ambigus exigent toujours un choix explicite.",
+    "tr": "Hazır model yükleme artık tüm bağdaştırıcılarda açık mesnet kısıtlarını koruyor. Bu alanları kaybeden bağdaştırıcılar kayıcı mesnedi reddedebilir veya farklı kısıtlarla çözebilirdi. Mesnetleri gözden geçirip analiz, kombinasyon ve tasarımı yeniden çalıştırın. Kaydedilmiş belirsiz kayıcı mesnetler hâlâ açık bir seçim gerektirir."
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-bundled-support-metadata.md",
+    "heading": "Bundled models retain their explicit support restraints"
+  }
+}

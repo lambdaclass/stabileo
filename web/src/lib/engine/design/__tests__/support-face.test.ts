@@ -8,11 +8,13 @@
  * not depend on the bars, and a 3 m cantilever's 90 kN·m root has no top arrangement whose hooks
  * this column holds (`end-support-anchorage.ts`), so the design refuses it.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '../../../store';
 import { designRunStore } from '../../../store/design-run.svelte';
 import { verificationStore } from '../../../store/verification.svelte';
 import * as wasmSolver from '../../wasm-solver';
+import * as anchorage from '../end-support-anchorage';
+import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -48,6 +50,26 @@ function cantilever(roll: number) {
 }
 
 describe('support moments at the column face', () => {
+  it('reuses one support plan for reach and anchorage checks within a verification', () => {
+    const b = cantilever(0);
+    const column = [...modelStore.elements.keys()].find(id => id !== b)!;
+    const ctx = { ...verificationStore.contextFor(b)!, columnBars: new Map([[column, { count: 4, diameterMm: 16 }]]) };
+    const rebar = modelStore.elements.get(b)!.reinforcement!;
+    const input = anchorage.supportInputOf(ctx, rebar)!;
+    const expected = anchorage.endSupportPlan(input);
+    expect(anchorage.bottomReach(input, expected)).toEqual(anchorage.bottomReach(input));
+    const spy = vi.spyOn(anchorage, 'endSupportPlan');
+    try {
+      const result = cirsoc201Adapter.verify(ctx, rebar);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(result.supportAnchorage).toEqual(expected.verdicts);
+      const changed = structuredClone(rebar);
+      changed.regions!.topStart = { count: 2, diameter: 12 };
+      changed.regions!.topStartLayers = [{ count: 2, diameter: 12, row: 0 }];
+      cirsoc201Adapter.verify(ctx, changed);
+      expect(spy).toHaveBeenCalledTimes(2);
+    } finally { spy.mockRestore(); }
+  });
   it('the face follows the column extent along the beam, and the hogging is taken there', () => {
     const faces: number[] = [];
     for (const roll of [0, 90]) {

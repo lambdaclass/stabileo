@@ -47,15 +47,6 @@ export function imposedOf(loads: readonly Load[], factorOf: (caseId: number) => 
   return out;
 }
 
-/** Restraints of a support, by direction: its own per-direction ones, or its type's. */
-function restrains(s: Support, project2DToXZ: boolean): Record<'rx' | 'ry' | 'rz' | 'rrx' | 'rry' | 'rrz', boolean> {
-  if (s.dofRestraints) {
-    const r = s.dofRestraints;
-    return { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
-  }
-  return supportDofs3D(s, project2DToXZ);
-}
-
 /** Every imposed displacement with nothing to impose it: no support at the node, or a free direction. */
 export function imposedUnsupported(
   supports: ReadonlyMap<number, Support>, loads: readonly Load[], project2DToXZ = false,
@@ -65,7 +56,7 @@ export function imposedUnsupported(
   for (const l of loads) {
     if (!isImposed(l)) continue;
     const s = byNode.get(l.data.nodeId);
-    const r = s ? restrains(s, project2DToXZ) : null;
+    const r = s ? supportDofs3D(s, project2DToXZ) : null;
     // A support in local axes imposes along those; a global displacement is not one of them.
     const local = s?.dofFrame === 'local';
     for (const f of IMPOSED_FIELDS) {

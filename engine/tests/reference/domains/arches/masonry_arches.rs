@@ -34,21 +34,27 @@ fn assert_close(got: f64, expected: f64, rel_tol: f64, label: &str) {
 // 1. Semicircular Arch Thrust Line — Minimum Thickness
 // ================================================================
 //
-// For a semicircular arch of radius R under self-weight, Heyman showed
-// the minimum thickness ratio t/R for a thrust line to fit within the
-// arch is approximately:
+// For a semicircular arch of centreline radius R under self-weight, the
+// minimum thickness ratio t/R for a line of thrust to fit within the arch
+// is approximately:
 //   t/R ≈ 0.1075
+// This is the Milankovitch solution (true voussoir weights, t/R = 0.107478;
+// the CCR solution with the weight on the centreline gives 0.107426).
+// Heyman's closed form, which makes the resultant rather than the line of
+// thrust tangent to the intrados, gives the thinner t/R = 0.105965.
 //
 // This means an arch thinner than ~10.75% of its radius will collapse.
-// The horizontal thrust for the minimum thickness case:
-//   H_min ≈ 0.622 w R   (w = weight per unit arc length)
+// The horizontal thrust for the minimum thickness case (Milankovitch):
+//   H_min ≈ 0.621 w R   (H/(wR) = 0.620881, w = weight per unit arc length)
 //
-// Reference: Heyman, "The Masonry Arch", Table 1
+// Reference: Rizzi, Cocchetti, Colasante & Rusconi (2010), "Analytical and
+// numerical analysis on the collapse mode of circular masonry arches",
+// Adv. Mater. Res. 133-134, 467-472, doi:10.4028/www.scientific.net/AMR.133-134.467, Table 1
 
 #[test]
 fn validation_semicircular_arch_minimum_thickness() {
     let r: f64 = 5.0;     // m, radius
-    let t_ratio: f64 = 0.1075; // minimum t/R ratio (Heyman)
+    let t_ratio: f64 = 0.1075; // minimum t/R ratio (Milankovitch)
 
     let t_min: f64 = t_ratio * r;
     assert_close(t_min, 0.5375, 1e-10, "Minimum thickness t = 0.1075R");

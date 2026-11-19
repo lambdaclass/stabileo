@@ -1,3 +1,4 @@
+import { windEndResultants } from './wind-integration-fixture';
 import { expandCombinations } from '../combination-cases';
 import { describe, it, expect } from 'vitest';
 import { teAllAt, teAt } from '../../../i18n/engine-text';
@@ -10,6 +11,7 @@ import {
 } from '../../../codes/roles';
 import { computeWindPressures, velocityPressure, G_RIGID } from '../../../codes/cirsoc102/wind';
 import { modalStoryForces, cqcRho } from '../seismic-modal';
+import { seismicCases } from '../seismic-cases';
 
 /** Two-storey 6×6 frame with real sections and density. */
 function frame(storeys = 2, bay = 6, h = 3): LoadModelData {
@@ -143,8 +145,8 @@ describe('level plan areas come from real geometry', () => {
     const lv = p.levels.find((l) => l.elevation === 3)!;
     // 6 m bay, 4 beams: 4 × 6 × 0.09 × 25 = 54 kN, plus half the columns each side.
     expect(lv.selfWeightKN).toBeGreaterThan(50);
-    expect(lv.superimposedKN).toBeCloseTo(1.8 * 36, 6);
-    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de la extensión real de los nodos/);
+    expect(lv.superimposedKN).toBeCloseTo(1.8 * (4 * 6 * 3), 6);
+    expect(teAllAt(p.derivation, 'es').join(' ')).toMatch(/de las áreas tributarias cargadas/);
   });
 
   it('weighs the slabs and walls drawn as shells, not only the members', () => {
@@ -312,9 +314,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     },
   }));
 
-  it('produces nodal wind forces and a q_h factor', () => {
+  it('produces member wind forces and a q_h factor', () => {
     const p = windOn();
-    expect(p.nodal.some((n) => n.caseType === 'W')).toBe(true);
+    expect(p.distributed.some((n) => n.caseType === 'W')).toBe(true);
     expect(p.factors.windQh?.value).toBeGreaterThan(0);
   });
 
@@ -345,11 +347,9 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
   });
 
   it('loads each level with the velocity pressure at its own height', () => {
-    // A 10-storey, 30 m frame in exposure B, where K_z grows from 0.57 at 5 m to ~1.0 at
-    // 30 m. The generator used to apply the windward pressure at z = 5 m to every level.
     const bay = 6;
     const p = buildLoadPlan(input({
-      model: frame(10, bay, 3),
+      model: frame(11, bay, 3),
       wind: {
         enabled: true, basicSpeed: 45, exposure: 'B', enclosure: 'enclosed',
         siteAltitudeM: 0, kzt: 1, kztSurveyed: true, roofSlopeDeg: 0, rigid: true,
@@ -357,10 +357,10 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
       },
     }));
     const byLevel = new Map<number, number>();
-    const zOf = new Map([...frame(10, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
+    const zOf = new Map([...frame(11, bay, 3).nodes.values()].map((n) => [n.id, n.z ?? 0]));
     // Case 1 from +X only: the plan now also carries −X and cases 2 to 4.
     const first = p.cases.findIndex((c) => c.nameKey.startsWith('autoLoad.windCase1') && c.nameParams?.dir === '+X');
-    for (const n of p.nodal.filter((x) => x.caseType === 'W' && x.caseIndex === first)) {
+    for (const n of windEndResultants(frame(11, bay, 3), p.distributed.filter(x => x.caseType === 'W' && x.caseIndex === first), p.nodal.filter(x => x.caseType === 'W' && x.caseIndex === first))) {
       const z = zOf.get(n.nodeId)!;
       byLevel.set(z, (byLevel.get(z) ?? 0) + n.fx);
     }
@@ -368,23 +368,24 @@ describe('wind uses the CIRSOC 102-2025 engine', () => {
     const perM = (z: number) => byLevel.get(z)! / 3 / bay;   // kPa
     const project = {
       basicSpeed: 45, exposure: 'B' as const, siteAltitudeM: 0, kzt: 1, kztSurveyed: true,
-      structureKind: 'building' as const, enclosure: 'enclosed' as const, meanRoofHeight: 30,
+      structureKind: 'building' as const, enclosure: 'enclosed' as const, meanRoofHeight: 33,
       L: bay, B: bay, roofSlopeDeg: 0, rigid: true,
     };
     const res = computeWindPressures(project);
     const cpW = res.pressures.find((x) => x.surface === 'windwardWall')!.cp;
     const cpL = res.pressures.find((x) => x.surface === 'leewardWall')!.cp;
-    const expected = (z0: number, z1: number) => {
-      // The band's mean q_z, by a fine rectangle rule: independent of the generator's Simpson.
+    const expected = (z: number) => {
       let sum = 0; const n = 600;
-      for (let k = 0; k < n; k++) sum += velocityPressure(z0 + (k + 0.5) * (z1 - z0) / n, project);
-      return (sum / n * G_RIGID * cpW - res.qhNm2 * G_RIGID * cpL) / 1000;
+      for (let k = 0; k < n; k++) {
+        const at = z - 3 + (k + 0.5) * 6 / n;
+        const pressure = (velocityPressure(at, project) * G_RIGID * cpW - res.qhNm2 * G_RIGID * cpL) / 1000;
+        sum += Math.max(pressure, 0.75) * (1 - Math.abs(at - z) / 3);
+      }
+      return sum / n * 2;
     };
-    for (const z of [6, 15, 27]) {
-      expect(perM(z) / expected(z - 1.5, z + 1.5)).toBeCloseTo(1, 4);
-    }
+    for (const z of [6, 15, 30]) expect(perM(z) / expected(z)).toBeCloseTo(1, 4);
     // And the top storeys carry clearly more than the lower ones.
-    expect(perM(27) / perM(6)).toBeGreaterThan(1.25);
+    expect(perM(30) / perM(6)).toBeGreaterThan(1.25);
   });
 
   it('adds a wind case per requested direction, and the cases of Fig. 2.4-8 on request', () => {
@@ -901,7 +902,8 @@ describe('the companion live load factor reads the roof occupancy too', () => {
   it('floors of dwellings under a public roof terrace (§4.8.2): L enters the companions at 1,0, not 0,5', () => {
     const roof = { use: 'occupancy' as const, occupancyKey: 'azotea_publica', weight: 'heavy' as const, dead: 1, slopeDeg: 0 };
     const p = buildLoadPlan(input({ gravity: { mode: 'panels' }, roof, wind }));
-    expect(p.outcome).toBe('READY');
+    expect(p.outcome).toBe('BLOCKED');
+    expect(p.blockedKeys.map(m => m.key)).toEqual(['loadPlan.blocked.concentratedRoof']);
     const companions = p.combinations.flatMap((c) => c.terms.filter((t) => t.symbol === 'L' && t.factor < 1.6));
     expect(companions.length).toBeGreaterThan(0);
     for (const t of companions) expect(t.factor).toBe(1);
@@ -936,4 +938,45 @@ describe('live load reduction by width (CIRSOC 101-2025 §4.7.2)', () => {
     const live = p.distributed.filter((d) => d.caseType === 'L');
     for (const d of live) expect(Math.abs(d.q)).toBeCloseTo(2 * (0.25 + 4.57 / Math.sqrt(72)) * 6, 6);
   });
+});
+
+const issue2208 = process.env.RUN_KNOWN_WRONG === '2208' ? it : it.skip;
+issue2208('known wrong result: #2208 subdivision preserves the moment about the global origin', () => {
+  const width = 6;
+  const force = 100;
+  const points = [[0, 0], [10, 0], [10, width], [0, width], [0, 1]] as const;
+  const nodes = new Map(points.map(([x, y], i) => [i + 1, { id: i + 1, x, y, z: 3 }]));
+  const loadsAt = (nodeIds: number[]) => seismicCases({
+    nodes,
+    levels: [{ elevation: 3, nodeIds }],
+    forcesX: [force],
+    forcesY: [0],
+    directions: { x: true, y: false },
+  })[0]!.nodal;
+  const moment = (loads: ReturnType<typeof loadsAt>) =>
+    loads.reduce((sum, { nodeId, fx, fy, mz }) => {
+      const { x, y } = nodes.get(nodeId)!;
+      return sum + x * fy - y * fx + mz;
+    }, 0);
+  const corners = loadsAt([1, 2, 3, 4]);
+  const subdivided = loadsAt([1, 2, 3, 4, 5]);
+  const uniformRectangleMoment = -force * (width / 2);
+  expect(corners.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
+  expect(subdivided.reduce((sum, load) => sum + load.fx, 0)).toBe(force);
+  expect(moment(corners)).toBeCloseTo(uniformRectangleMoment, 12);
+  expect(moment(subdivided)).toBeCloseTo(uniformRectangleMoment, 12);
+});
+
+const issue2209 = process.env.RUN_KNOWN_WRONG === '2209' ? it : it.skip;
+issue2209('known wrong result: #2209 sampling an unchanged linear mode at quarter span preserves story forces', () => {
+  const shape = new Map([1, 1, 3, 1.5].map((ux, i) => [i + 1, { ux, uy: 0 }]));
+  const calculate = (upperNodes: number[]) => modalStoryForces(
+    [{ elevation: 3, weightKN: 100, nodeIds: [1] }, { elevation: 6, weightKN: 100, nodeIds: upperNodes }],
+    [{ period: 1, shape }], 'x', () => 1,
+  );
+  const endpoints = calculate([2, 3]);
+  const subdivided = calculate([2, 4, 3]);
+  expect.soft(subdivided.forces[0]).toBeCloseTo(endpoints.forces[0]!, 12);
+  expect.soft(subdivided.forces[1]).toBeCloseTo(endpoints.forces[1]!, 12);
+  expect(subdivided.massRatio).toBeCloseTo(endpoints.massRatio, 12);
 });

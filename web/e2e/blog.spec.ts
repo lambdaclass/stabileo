@@ -1,8 +1,8 @@
+import { BUILD_PUBLIC_LOCALES } from './build-locales';
 import { test, expect, type Page } from '@playwright/test';
 import { pickLanguage } from './fixtures';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PUBLIC_LOCALES } from '../src/lib/i18n/offered';
 import { CHANGELOG } from '../src/lib/changelog';
 
 /**
@@ -28,6 +28,33 @@ import { CHANGELOG } from '../src/lib/changelog';
 
 const SLUG = 'the-determinism-boundary';
 
+async function expectChangelogMonths(page: Page, locale: (typeof BUILD_PUBLIC_LOCALES)[number]) {
+  const months = [...new Set(CHANGELOG.map((entry) => entry.date.slice(0, 7)))];
+  const sections = page.locator('.cl-timeline > .cl-month');
+  await expect(sections).toHaveCount(months.length);
+  for (const [index, month] of months.entries()) {
+    const entries = CHANGELOG.filter((entry) => entry.date.startsWith(month));
+    const section = sections.nth(index);
+    await expect(section).toHaveAttribute('id', `m-${month}`);
+    await expect(section.getByTestId('changelog-entry')).toHaveCount(entries.length);
+    await expect(section.getByRole('heading', { level: 3 })).toHaveText(entries.map((entry) => entry.i18n[locale].title));
+    const expected = entries.map((entry) => ({
+      date: entry.date,
+      groups: [...new Set(entry.areas)].map((area) => ({
+        area,
+        items: entry.i18n[locale].items.filter((_, index) => entry.areas[index] === area),
+      })),
+    }));
+    await expect.poll(() => section.getByTestId('changelog-entry').evaluateAll((articles) => articles.map((article) => ({
+      date: article.getAttribute('data-date'),
+      groups: [...article.querySelectorAll('.cl-group')].map((group) => ({
+        area: group.querySelector('h4')?.getAttribute('data-area'),
+        items: [...group.querySelectorAll('li')].map((item) => item.textContent),
+      })),
+    })))).toEqual(expected);
+  }
+}
+
 async function boot(page: Page, path: string, locale = 'en') {
   await page.addInitScript((l) => {
     try {
@@ -42,16 +69,17 @@ async function boot(page: Page, path: string, locale = 'en') {
 }
 
 test.describe('blog', () => {
-  for (const locale of PUBLIC_LOCALES.filter((l) => l !== 'es')) {
+  for (const locale of BUILD_PUBLIC_LOCALES.filter((l) => l !== 'es')) {
     test(`@smoke the changelog page in ${locale}: every entry in its language, no raw key, and an alternate per published language`, async ({ page }) => {
       await boot(page, `/${locale}/changelog/`, locale);
       const weeks = page.getByTestId('changelog-entry');
       await expect(weeks).toHaveCount(CHANGELOG.length);
+      await expectChangelogMonths(page, locale);
       await expect(weeks.first().getByRole('heading', { level: 3 })).toHaveText(CHANGELOG[0].i18n[locale].title);
       await expect(weeks.last().locator('li').first()).toHaveText(CHANGELOG.at(-1)!.i18n[locale].items[0]);
       expect(await page.locator('main, body').first().innerText()).not.toMatch(/\b(changelog|landing|blog)\.[a-zA-Z]/);
       const alts = await page.locator('link[rel="alternate"][hreflang]').evaluateAll((els) => els.map((e) => e.getAttribute('hreflang')).sort());
-      expect(alts).toEqual([...PUBLIC_LOCALES, 'x-default'].sort());
+      expect(alts).toEqual([...BUILD_PUBLIC_LOCALES, 'x-default'].sort());
     });
   }
 
@@ -68,6 +96,7 @@ test.describe('blog', () => {
     await expect(weeks.first().getByRole('heading', { level: 4 }).first()).toHaveText('Motor');
     await expect(weeks.first().locator('li').first()).toHaveText(CHANGELOG[0].i18n.es.items[0]);
     await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
+    await expectChangelogMonths(page, 'es');
     const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
     await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
     const chipCounts = await page.locator('.cl-filter .cl-chip-n').allInnerTexts();
@@ -392,8 +421,8 @@ test.describe('blog', () => {
     await embed.scrollIntoViewIfNeeded();
     // The numbers read back below are the ones the caption quotes.
     const caption = await embed.locator('figcaption').innerText();
-    expect(caption).toContain('D/C = 0,90');
-    expect(caption).toContain('gobernados por el corte en el tramo');
+    expect(caption).toContain('D/C = 0,91');
+    expect(caption).toContain('Gobierna la flexión positiva en el tramo (My+).');
     await embed.locator('.post-embed-start').click();
 
     const app = page.frameLocator('.post-embed iframe');
@@ -412,16 +441,13 @@ test.describe('blog', () => {
     await app.getByTestId('cmd-autodesign').click();
     await app.getByTestId('desk-run').click();
 
-    // Verified, not "sin verificar" nor "No verifica", and at the utilisation the caption quotes.
-    // Both rows read 0.90 governed by shear in the span: the 5 m span is designed as one. They
-    // read "No verifica" while the support's second Ø10 layer was stepped from the Ø10 bars and
-    // not from the Ø12 pair above it, 1,7 mm inside the pair's clear distance as laid; and the
-    // caption quoted 0.89 and 0.87 by anchorage, which the table no longer showed.
     const table = app.locator('body');
     for (const id of [1, 2]) {
-      await expect(app.getByTestId(`row-util-${id}`)).toContainText('0.90', { timeout: 90_000 });
-      await expect(app.getByTestId(`row-status-${id}`)).toContainText('Verificada');
-      await expect(app.getByTestId(`design-row-${id}`)).toContainText('Shear Span (Vz)');
+      const row = app.getByTestId('design-row-' + id);
+      await expect(app.getByTestId('row-util-' + id)).toHaveText('0.91', { timeout: 90_000 });
+      await expect(row).toHaveAttribute('data-util', '0.908');
+      await expect(app.getByTestId('row-status-' + id)).toContainText('Verificada');
+      await expect(row.getByText('Bottom Span (My+)', { exact: true })).toBeVisible();
     }
     await expect(table).not.toContainText('sin armadura');
   });
@@ -558,7 +584,7 @@ test.describe('blog', () => {
     const written = ['en', 'es', 'pt', ...['de', 'fr', 'tr', 'hu'].filter((l) =>
       existsSync(fileURLToPath(new URL(`../src/lib/blog/translations/${l}/${SLUG}.ts`, import.meta.url))))];
     expect(alts).toEqual([
-      ...[...PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
+      ...[...BUILD_PUBLIC_LOCALES].sort().filter((l) => written.includes(l)).map((l) => `${l} https://stabileo.com/${l}/blog/${SLUG}/`),
       // x-default names the English version of THIS POST. English because the
       // root declares /en as its canonical, so pointing the default at the
       // root would name a URL that is not canonical for itself — and this

@@ -21,13 +21,6 @@
  * side-effect free; `describePlanDelta` diffs it against what the model already has; the
  * caller applies it only after the user confirms.
  *
- * ── Floor mass ─────────────────────────────────────────────────
- *
- * Seismic weight comes from real geometry: member self-weight from length × section area
- * × density, plus the applied area loads over each level's true tributary plan area
- * computed from the node extents at that level. There is no assumed floor area anywhere
- * in this file.
- *
  * Pure: no store, no runes. Forces kN, lengths m, pressures kPa.
  */
 
@@ -37,7 +30,7 @@ import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../c
 import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { gravityLayout, widthSpans, type GravityLayout } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import type { ModeShape } from './seismic-modal';
@@ -61,8 +54,7 @@ import type { DrawnSection } from '../../section/drawn';
 
 // ─── Model slice ─────────────────────────────────────────────────
 
-export interface LoadModelData {
-  nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
+export interface LoadModelData extends GravityModel {
   elements: Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; materialId: number; type?: 'frame' | 'truss' }>;
   sections: Map<number, { id: number; a: number; drawn?: DrawnSection }>;
   /**
@@ -284,6 +276,7 @@ export function windDirectionsOf(w: { directions: { x: boolean; y: boolean }; bo
 // ─── Plan ────────────────────────────────────────────────────────
 
 export interface PlannedCase {
+  snowBasis?: 'flatRoof';
   /** Existing case id when one matches, else null → a new case is needed. */
   existingId: number | null;
   type: 'D' | 'L' | 'Lr' | 'S' | 'W' | 'Wa' | 'E' | 'T' | 'H' | 'F';
@@ -330,9 +323,10 @@ export interface PlannedDistributed {
   a?: number;
   b?: number;
   frame?: 'local' | 'global' | 'projected';
-  /** With a global frame, the X and Y components, kN/m, uniform. */
   qX?: number;
+  qXJ?: number;
   qY?: number;
+  qYJ?: number;
 }
 
 /** An area load on a quad, kN/m², positive downward (`SurfaceLoad3D`). */
@@ -381,7 +375,6 @@ export interface PlanSink {
 export interface LevelMass {
   elevation: number;
   nodeIds: number[];
-  /** Tributary plan area computed from the node extents at this level, m². */
   planAreaM2: number;
   selfWeightKN: number;
   superimposedKN: number;
@@ -936,17 +929,6 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     assumptions.push(participation.assumption!);
   }
 
-  /*
-   * What the area loads add to each level's mass. By area, each member and slab brings the area
-   * it carries, at the dead and live load of the floor or roof it belongs to, measured as its case
-   * applies it: the dead load of a member loaded by width per metre of its length (the D case is
-   * per metre of member, along global Z), the live loads per metre of plan. A level that carries
-   * no area (the nodes where a column is split, the supports) adds none: it used to fall back to
-   * the extent of its nodes, and a split column weighed a whole phantom floor.
-   *
-   * By width, the extent of the level's nodes, at the roof's loads when every member there is a
-   * roof member.
-   */
   const levelIndexOf = (z: number) => {
     let best = 0;
     levelsRaw.forEach((lv, k) => { if (Math.abs(lv.elevation - z) < Math.abs(levelsRaw[best]!.elevation - z)) best = k; });
@@ -955,36 +937,26 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   const byArea = levelsRaw.map(() => ({ area: 0, dead: 0, live: 0, liveRoof: 0 }));
   /** A roof's live load is of its own occupancy only when it has one: else the roof is weighed as a floor. */
   const roofOwnLive = roofLoads?.use === 'occupancy';
-  if (panelMode) {
-    // Sloped length over plan length of the members loaded by width; 1 for the rest.
-    const slopeOf = new Map(layout.widthMembers.map((m) => [m.elementId, m.horizontalLength > 0 ? m.length / m.horizontalLength : 1]));
-    for (const [areas, m, atRoof] of [[layout.areaOf, area.floorMass, false], [layout.roofAreaOf, area.roofMass, true]] as const) {
-      for (const [id, a] of areas) {
-        const k = levelIndexOf(layout.zOf.get(id) ?? 0);
-        byArea[k]!.area += a; byArea[k]!.dead += a * (slopeOf.get(id) ?? 1) * m.dead; byArea[k]!.live += a * m.live;
-        if (atRoof && roofOwnLive) byArea[k]!.liveRoof += a * m.live;
-      }
-    }
-    // A sloped shell's dead load is per m² of its surface, its live load per m² of plan.
-    for (const sq of layout.shellQuads) {
-      const k = levelIndexOf(sq.z), m = area.massOfQuad(sq.quadId);
-      byArea[k]!.area += sq.area; byArea[k]!.dead += (sq.area / sq.cos) * m.dead; byArea[k]!.live += sq.area * m.live;
-      if (roofOwnLive && layout.roofQuads.has(sq.quadId)) byArea[k]!.liveRoof += sq.area * m.live;
+  const slopeOf = new Map(layout.widthMembers.map(m => [m.elementId, m.length / m.horizontalLength]));
+  for (const [areas, pressures, atRoof] of [[layout.areaOf, area.floorMass, false], [layout.roofAreaOf, area.roofMass, true]] as const) {
+    for (const [id, carried] of areas) {
+      const level = byArea[levelIndexOf(layout.zOf.get(id) ?? 0)]!;
+      level.area += carried;
+      level.dead += carried * (slopeOf.get(id) ?? 1) * pressures.dead;
+      level.live += carried * pressures.live;
+      if (atRoof && roofOwnLive) level.liveRoof += carried * pressures.live;
     }
   }
-  const roofLevel = (k: number) => {
-    if (!roofLoads) return false;
-    const ids = [...layout.zOf].filter(([, z]) => levelIndexOf(z) === k).map(([id]) => id);
-    return ids.length > 0 && ids.every((id) => layout.roof.has(id));
-  };
+  for (const shell of layout.shellQuads) {
+    const level = byArea[levelIndexOf(shell.z)]!;
+    const pressures = area.massOfQuad(shell.quadId);
+    level.area += shell.area;
+    level.dead += shell.area / shell.cos * pressures.dead;
+    level.live += shell.area * pressures.live;
+    if (roofOwnLive && layout.roofQuads.has(shell.quadId)) level.liveRoof += shell.area * pressures.live;
+  }
   const levels: LevelMass[] = levelsRaw.map((lv, i) => {
-    const ba = byArea[i]!;
-    const byExtent = !panelMode;
-    const atRoof = byExtent && roofLevel(i);
-    const area = byExtent ? lv.planAreaM2 : ba.area;
-    const superimposed = byExtent ? (atRoof ? roofLoads!.dead : deadTotal) * area : ba.dead;
-    const liveTotal = byExtent ? (atRoof ? (roofLoads!.use === 'occupancy' ? roofLoads!.lo ?? 0 : 0) : floorLo) * area : ba.live;
-    const liveRoof = byExtent ? (atRoof && roofOwnLive ? liveTotal : 0) : ba.liveRoof;
+    const { area, dead: superimposed, live: liveTotal, liveRoof } = byArea[i]!;
     const liveP = liveTotal * participation.value;
     return {
       elevation: lv.elevation, nodeIds: lv.nodeIds, planAreaM2: area,
@@ -1155,8 +1127,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
   if (input.generateCombinations) {
     const present: CombinationInputs['present'] = {
       L: area.planned.has('L') || !input.roof, Lr: area.planned.has('Lr'), S: snowPlanned, R: false,
-      W: !!input.wind?.enabled && nodal.some((n) => n.caseType === 'W'),
-      Wa: nodal.some((n) => n.caseType === 'Wa'),
+      W: !!input.wind?.enabled && [...nodal, ...distributed].some((n) => n.caseType === 'W'),
+      Wa: [...nodal, ...distributed].some((n) => n.caseType === 'Wa'),
       E: !!input.seismic?.enabled && nodal.some((n) => n.caseType === 'E'),
       F: special.fluid.length > 0 || special.fluidBottom.length > 0, H: special.soil.length > 0,
       T: special.thermal.length > 0,
@@ -1203,10 +1175,14 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     }
   }
 
+  const limits = codes.loads.generationBlockers({ occupancies: [occ, ...(roofOccupancy ? [roofOccupancy] : [])], roof: input.roof !== undefined });
+  blockedKeys.push(...limits.messages);
+  refs.push(...limits.refs);
+
   // Each case with the action category of its type, as the basis code reads it.
   for (const c of cases) if (!c.category) c.category = codes.basis.categoryOf(String(c.type));
   return {
-    outcome: 'READY',
+    outcome: blockedKeys.length ? 'BLOCKED' : 'READY',
     cases, distributed, nodal, surface, thermal, combinations,
     factors: {
       occupancy: fromProject(lo, 'kN/m²'),
@@ -1220,7 +1196,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     seismic: seismicDetail,
     generatedBy: codes.basis.adapterId,
     assumptions: dedupeMessages(assumptions),
-    unsupportedKeys, refs, derivation, blockedKeys: [],
+    unsupportedKeys, refs, derivation, blockedKeys,
   };
 }
 

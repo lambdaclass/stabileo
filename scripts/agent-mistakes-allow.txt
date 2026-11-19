@@ -1,0 +1,752 @@
+# One entry per existing occurrence. Each entry needs its own one-line reason.
+# Remove the entry when its fallback or skip is removed. Checked by make lint.repo.
+
+## Differential fixture oracle uses this branch for its circular outline; production analysis is separate.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc201-section.test.ts: halfX = halfY = (s.h / 2 - cover) / Math.SQRT2
+
+## Differential fixture oracle uses this branch for its circular outline; production analysis is separate.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc201-section.test.ts: halfY = (s.h / 2 - cover) / Math.SQRT2
+
+## Differential fixture oracle uses this branch for its circular outline; production analysis is separate.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc201-section.test.ts: outline = { kind: 'circle', D: s.h, Dint: s.h * s.holeFrac }
+
+## The differential oracle returns a missing result for an unsupported shape or calculation.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-oracle.ts: return null;
+
+## The differential oracle returns a missing result for an unsupported shape or calculation.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-oracle.ts: return null;
+
+## Differential fixture oracle uses this branch for the rectangular test section.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-steel.test.ts: A = b * h
+
+## Differential fixture oracle uses this branch for the rectangular test section.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-steel.test.ts: Iy = h * b ** 3 / 12
+
+## Differential fixture oracle uses this branch for the rectangular test section.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-steel.test.ts: Iz = b * h ** 3 / 12
+
+## Differential fixture oracle uses this branch for the rectangular test section.
+switch-default web/src/lib/engine/__tests__/differential/cirsoc301-steel.test.ts: J = Iy
+
+## The differential oracle reports an unknown shape family as unknown.
+switch-default web/src/lib/engine/__tests__/differential/moment-gradient-oracle.ts: return 'unknown';
+
+## The differential oracle uses this rectangular expression for the remaining fixture family.
+switch-default web/src/lib/engine/__tests__/differential/section-stress-oracle.ts: return { Q, width: rs.h };
+
+## Existing #2276 fixture helper reproduces the embedded support mapping; remove with the support-mapping cleanup.
+switch-default web/src/lib/engine/__tests__/embed-2d-in-3d.test.ts: return { ...base, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+
+## A null section capacity is an unsupported-section result and is surfaced by the steel check.
+switch-default web/src/lib/engine/codes/argentina/cirsoc301.ts: return null;
+
+## ec2Psi2 documents treating unclassified actions as permanent for the governing creep combination.
+switch-default web/src/lib/engine/design/eurocode/ec2-params.ts: return 1;
+
+## Existing independent-member relation skips pair competition after each member has cleared the joint keep-outs.
+switch-default web/src/lib/engine/detailing/coordination-search.ts: return { ok: true, worstOverlap: 0 };
+
+## Sheet rendering uses a missing label or an explicit review-draft banner for the remaining document kinds.
+switch-default web/src/lib/engine/detailing/document-render.ts: return '—';
+
+## Sheet rendering uses a missing label or an explicit review-draft banner for the remaining document kinds.
+switch-default web/src/lib/engine/detailing/document-render.ts: return es ? `BORRADOR DE REVISIÓN — ${joint}${doc.openConflicts.length} CONFLICTO(S) SIN RESOLVER — NO APTO PARA CONSTRUCCIÓN` : `REVIEW DRAFT — ${joint}${doc.openConflicts.length} UNRESOLVED CONFLICT(S) — NOT FOR CONSTRUCTION`;
+
+## An unmatched rule cannot license column reinforcement; false refuses that rule match.
+switch-default web/src/lib/engine/detailing/generate-column.ts: return false;
+
+## Drawing mesh triangulation uses the remaining corner topology for its rendering coordinates.
+switch-default web/src/lib/engine/detailing/slab-wall-drawings.ts: return [ne, se, sw];
+
+## Drawing mesh triangulation uses the remaining corner topology for its rendering coordinates.
+switch-default web/src/lib/engine/detailing/slab-wall-drawings.ts: return [nw, ne, se, sw];
+
+## Null indicates that the requested mass preset is unavailable.
+switch-default web/src/lib/engine/dynamics/mass-presets.ts: return null;
+
+## An unrecognized support yields no restraints in the teaching primary-system helper.
+switch-default web/src/lib/engine/force-method/primary.ts: return [false, false, false];
+
+## The influence UI uses these labels, axis conversions or empty restraint indicators for the remaining quantities.
+switch-default web/src/lib/engine/influence/quantities.ts: return 'kN';
+
+## The influence UI uses these labels, axis conversions or empty restraint indicators for the remaining quantities.
+switch-default web/src/lib/engine/influence/quantities.ts: return 'kN/kN';
+
+## The influence UI uses these labels, axis conversions or empty restraint indicators for the remaining quantities.
+switch-default web/src/lib/engine/influence/quantities.ts: return [false, false, false];
+
+## The influence UI uses these labels, axis conversions or empty restraint indicators for the remaining quantities.
+switch-default web/src/lib/engine/influence/quantities.ts: return canonicalQuantity(q);
+
+## A non-applicable model finding returns null.
+switch-default web/src/lib/engine/model-findings.ts: return null;
+
+## A missing result query is represented by null.
+switch-default web/src/lib/engine/result-query.ts: return null;
+
+## Existing section postprocessing uses rectangular or general-section approximations for remaining section shapes.
+switch-default web/src/lib/engine/section-stress.ts: return Math.min(h, b) > 0 ? (h * b * Math.min(h, b) * Math.min(h, b)) / 30 : 1e-10;
+
+## Existing section postprocessing uses rectangular or general-section approximations for remaining section shapes.
+switch-default web/src/lib/engine/section-stress.ts: return b > 0 && h > 0 ? Iz * (h / b) * (h / b) : Iz;
+
+## Existing section postprocessing uses rectangular or general-section approximations for remaining section shapes.
+switch-default web/src/lib/engine/section-stress.ts: return sfRect(absV, rs);
+
+## Existing section postprocessing uses rectangular or general-section approximations for remaining section shapes.
+switch-default web/src/lib/engine/section-stress.ts: return { Q, bAtY: rs.b };
+
+## Existing section postprocessing uses rectangular or general-section approximations for remaining section shapes.
+switch-default web/src/lib/engine/section-stress.ts: return { vertices: [ { ez: 0, ey: eyPos }, { ez: ezPos, ey: 0 }, { ez: 0, ey: -eyNeg }, { ez: -ezNeg, ey: 0 }, ], eyMax, ezMax, };
+
+## The teaching decomposition uses one rectangle or marks the derivation as numeric for the remaining shapes.
+switch-default web/src/lib/engine/section-teaching.ts: return [rectPart('teach.part.whole', b || h, h, (b || h) / 2, h / 2)];
+
+## The teaching decomposition uses one rectangle or marks the derivation as numeric for the remaining shapes.
+switch-default web/src/lib/engine/section-teaching.ts: return { rule: 'numeric', ez: 0, ey: 0, outsideSection: false, terms: [], labelKey: 'teach.sc.numeric', };
+
+## Existing shell contour fallback returns zero for a non-inventoried component; retained for separate result-path review.
+switch-default web/src/lib/engine/shell-stress.ts: return 0;
+
+## NaN marks an unavailable shell envelope component.
+switch-default web/src/lib/engine/shell-stress.ts: return NaN;
+
+## The detailed trace marks unknown diagnostic categories as unmatched.
+switch-default web/src/lib/engine/solver-detailed-3d.ts: return false;
+
+## The detailed trace marks unknown diagnostic categories as unmatched.
+switch-default web/src/lib/engine/solver-detailed.ts: return false;
+
+## The preliminary support-rank check gives the remaining support types no candidate restraint columns.
+switch-default web/src/lib/engine/solver-service.ts: return [];
+
+## Null means flange local buckling is unsupported for that shape.
+switch-default web/src/lib/engine/steel/flange-local-buckling.ts: return null;
+
+## The dimensional validation returns a user-facing missing-dimensions refusal.
+switch-default web/src/lib/engine/steel/tension-connection.ts: return 'faltan h, b, tw o tf de la seccion';
+
+## Unsupported section families are classified as unknown.
+switch-default web/src/lib/engine/steel/torsional-buckling.ts: return 'unknown';
+
+## The plane teaching model uses a free restraint mask for the remaining support kinds.
+switch-default web/src/lib/engine/steps/plane-model.ts: return { ux: false, uz: false, ry: false };
+
+## Known wrong on origin/main under #2276; the separately tracked support-mapping fix owns the removal of this fallback.
+
+## Existing torsion postprocessing uses its rectangular shape approximation for the remaining resolved sections.
+switch-default web/src/lib/engine/torsion-flow.ts: return [[rs.h, rs.tw || rs.t]];
+
+## Existing torsion postprocessing uses its rectangular shape approximation for the remaining resolved sections.
+switch-default web/src/lib/engine/torsion-flow.ts: return solidRect(absT, rs);
+
+## The existing section warping coordinate helper uses zero for shapes without a supported warping diagram.
+switch-default web/src/lib/engine/warping.ts: return 0;
+
+## Untranslated constraint labels display the original kind verbatim.
+switch-default web/src/lib/model/constraint-labels.ts: return type;
+
+## Model editing reports an unmapped load or handles the remaining node- and member-owned load shapes by their ids.
+switch-default web/src/lib/model/edit/transform-fields.ts: return null;
+
+## Model editing reports an unmapped load or handles the remaining node- and member-owned load shapes by their ids.
+switch-default web/src/lib/model/edit/transform-fields.ts: return to === undefined ? null : { load: { ...l, data: { ...l.data, elementId: to } } as Load };
+
+## Model editing reports an unmapped load or handles the remaining node- and member-owned load shapes by their ids.
+switch-default web/src/lib/model/edit/transform-fields.ts: return to === undefined ? null : { load: { ...l, data: { ...l.data, nodeId: to } } as Load };
+
+## Model editing reports an unmapped load or handles the remaining node- and member-owned load shapes by their ids.
+switch-default web/src/lib/model/edit/transform-fields.ts: return { warning: 'loadDropped' };
+
+## Null refuses an unsupported spatial transform.
+switch-default web/src/lib/model/edit/transform-in-place.ts: return null;
+
+## Underlay import counts omitted entities and returns null for shapes with no region.
+switch-default web/src/lib/model/underlay-regions.ts: leftOut[e.kind] = (leftOut[e.kind] ?? 0) + 1
+
+## Underlay import counts omitted entities and returns null for shapes with no region.
+switch-default web/src/lib/model/underlay-regions.ts: return null;
+
+## Existing test-side support map mirrors the legacy support behavior and is independent of the solver implementation.
+switch-default web/src/lib/store/__tests__/model-3d.test.ts: return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+
+## A plane-support set guard currently limits callers to the cases above; #2276 consolidates this duplicate support table.
+
+## Null refuses an unsupported model record in this conversion.
+switch-default web/src/lib/store/model.svelte.ts: return null;
+
+## The result store falls back to checking the display mode against its allow set and the presence of results.
+switch-default web/src/lib/store/results.svelte.ts: return (d === 'despiece' || valid.includes(d)) && (is3D ? results3D : results) !== null;
+
+## Loads without an orientation-dependent shape survive reversal verbatim.
+switch-default web/src/lib/store/reverse-element.ts: return l;
+
+## The remaining constraint variants have a master and slave rather than a multi-node list.
+switch-default web/src/lib/store/switch-2d.ts: return [c.masterNode, c.slaveNode];
+
+## An unmatched verification state is counted as unavailable.
+switch-default web/src/lib/store/verification.svelte.ts: counts.unavailable++
+
+## Unrecognized load kinds are ineligible for wind reversal.
+switch-default web/src/lib/store/wind-reversal.ts: return false;
+
+## This dated audit utility selects a named corpus member or the ordinary audit subset for manual recording.
+test-env testing/docs/audits/soundness-regression-audit-2026-11-11/capture.test.ts: for (const c of manifest.filter(c => process.env.AUDIT_CASE ? c.name === process.env.AUDIT_CASE : !large.has(c.name))) { it(c.name, async () => { try { const snapshot = await captu … [9076b12419d16e32]
+
+## This dated site audit utility records only the cases supplied by its audit driver.
+test-env testing/docs/audits/soundness-regression-audit-2026-11-11/site-gallery.test.ts: for (const c of cases) { it(c.name, () => { const example = EXAMPLES.find(e => e.id === c.id)!; let model: unknown; let outcome: unknown; try { model = example.build(c.values); out … [30ab5495b56bc758]
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-env web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('dynamics'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-env web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('influence'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-env web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('plastic'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-env web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('second'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-env web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('statics'))
+
+## The legacy-project capture driver supplies the list of examples for an explicit capture run.
+test-env web/scripts/legacy-projects/in-version.capture.ts: for (const ex of plan.examples) { it(ex.id, async () => { reset(ex.workspace); await modelStore.loadExample(ex.id); const values: Values = { 'model.nodes': modelStore.nodes.size, ' … [8cf5d2adb2ef1118]
+
+## Existing sweep diagnostic exports findings only when a dump path is supplied; core invariants are asserted separately.
+test-env web/src/lib/engine/__tests__/advanced-sweep-2d.test.ts: if (!process.env.SWEEP_DUMP) return;
+
+## The existing numerical sweep debug mode exposes expected failures; ordinary assertions stay in the standard mode.
+test-env web/src/lib/engine/__tests__/advanced-sweep-2d.test.ts: process.env.SWEEP_SHOW_FAILS ? it : it.fails
+
+## Legacy debugging alias selects expected-failure mode; the file currently registers its tests directly.
+test-env web/src/lib/engine/codes/argentina/__tests__/flex-robustness.test.ts: process.env.FLEX_SHOW_DEFECTS ? it : it.fails
+
+## The snapshot gate invokes this existing fixture reader with a manifest; ordinary runs assert committed corpus cases.
+
+## The snapshot gate invokes an existing corpus adapter with its explicit examples list.
+test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: for (const item of cases) { it(`${item.case}: the example as it was gives the numbers it gave`, async () => { const c = CORPUS.find((x) => x.name === item.case); expect(c, item.cas … [202b9f0c6b68e4b9]
+
+## The snapshot gate invokes an existing corpus adapter with its explicit examples list.
+test-env web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: if (!LIST) it.skip('runs only from the snapshot gate (EXAMPLES_EQUIVALENCE)', () => {});
+
+## An explicit snapshot update mode writes artifacts; ordinary invocations use the same group to verify committed values.
+test-env web/src/lib/results-snapshot/run-group.ts: if (UPDATE) { mkdirSync(SNAPSHOT_DIR, { recursive: true }); writeFileSync(snapshotFile(c.name), serialiseSnapshot({ ...fresh, values: mergeValues(committed?.values ?? null, fresh.values) })); return; }
+
+## An explicit snapshot update mode writes artifacts; ordinary invocations use the same group to verify committed values.
+test-env web/src/lib/results-snapshot/run-group.ts: if (process.env.CONTAINMENT_UPDATE_DIAGNOSTICS === '1') { expect(committed).not.toBeNull(); const diff = compareValues(committed!.values, fresh.values); expect(diff.removed).toEqua … [85d5a164f32530d1]
+
+## Existing fine-mesh diagnostic is opt-in because of its cost; the test file also runs routine mesh cases.
+test-env web/src/lib/store/__tests__/analysis-validity.test.ts: it.runIf(!!process.env.SPAN_FINE)
+
+## Existing fine-mesh convergence run has a separate manual runtime budget; regular meshes retain the main assertions.
+test-env web/src/lib/store/__tests__/slab-column-footprint-reference.test.ts: describe.runIf(FINE)
+
+## Existing Rust test annotation records wall clock: runs alone in Engine Gates (make test.engine.gates).
+test-skip engine/src/element/solid_shell.rs: #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"] fn test_centroid_stress_timing_budget
+
+## Existing Rust test annotation records wall clock: runs alone in Engine Gates (make test.engine.gates).
+test-skip engine/src/section/poisson.rs: #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"] fn sparse_path_scales_better_than_cubically
+
+## Existing Rust test annotation records wall clock: runs alone in Engine Gates (make test.engine.gates).
+test-skip engine/src/solver/constraints.rs: #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"] fn validate_constraints_reads_the_nodes_once_not_once_per_constraint
+
+## Existing Rust test annotation records wall clock: runs alone in Engine Gates (make test.engine.gates).
+test-skip engine/src/solver/dynamic_validation.rs: #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"] fn area_mass_validation_is_linear_in_the_number_of_shells
+
+## Existing Rust test annotation records NEW, reported: legacy triplet assemblers (benches only) drop truss member and thermal loads and connectors.
+test-skip engine/tests/assembly_paths.rs: #[ignore = "NEW, reported: legacy triplet assemblers (benches only) drop truss member and thermal loads and connectors"] fn reported_legacy_triplet_assemblers
+
+## Existing Rust test annotation records debugging aid.
+test-skip engine/tests/assembly_paths.rs: #[ignore = "debugging aid"] fn oracle_one
+
+## Existing Rust test annotation records large sweep, run nightly with --release.
+test-skip engine/tests/assembly_paths.rs: #[ignore = "large sweep, run nightly with --release"] fn assembly_paths_agree_large
+
+## Manually selected assembly profiling probe.
+test-skip engine/tests/bench_phases.rs: #[ignore] fn profile_dense_asm
+
+## Manually selected assembly profiling probe.
+test-skip engine/tests/bench_phases.rs: #[ignore] fn profile_sparse_asm
+
+## The pre-existing large 3D certification corpus is opt-in because of its cost.
+test-skip engine/tests/certify.rs: #[ignore] fn certify_3d_fixtures_large
+
+## Opt-in measurement of certificate overhead.
+test-skip engine/tests/certify.rs: #[ignore] fn overhead
+
+## Opt-in export of large certification bundles used for artifact inspection.
+test-skip engine/tests/certify_bundle.rs: #[ignore] fn export_large_bundles
+
+## Opt-in end-to-end replay reads externally supplied certification inputs.
+test-skip engine/tests/certify_end_to_end.rs: #[ignore] fn e2e_dir
+
+## Opt-in end-to-end replay reads externally supplied certification inputs.
+test-skip engine/tests/certify_end_to_end.rs: #[ignore] fn e2e_one
+
+## Opt-in end-to-end replay reads externally supplied certification inputs.
+test-skip engine/tests/certify_end_to_end.rs: #[ignore] fn stable_one
+
+## Existing Rust test annotation records minutes at opt-level 1; nightly certify-large runs it in release.
+test-skip engine/tests/certify_plastic_3d.rs: #[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"] fn random_plane_frames_in_space_agree_with_solver
+
+## Existing Rust test annotation records minutes at opt-level 1; nightly certify-large runs it in release.
+test-skip engine/tests/certify_plastic_3d.rs: #[ignore = "minutes at opt-level 1; nightly certify-large runs it in release"] fn random_space_frames_solver_is_safe
+
+## Existing Rust test annotation records open question AC-10: settlement on a spring DOF is silently ignored.
+test-skip engine/tests/derivation_assembly_constraints.rs: #[ignore = "open question AC-10: settlement on a spring DOF is silently ignored"] fn settlement_on_spring_dof_is_not_silently_dropped
+
+## Existing Rust test annotation records open question AC-3: default rigid-link DOFs tie the rotation in 2D but not in 3D.
+test-skip engine/tests/derivation_assembly_constraints.rs: #[ignore = "open question AC-3: default rigid-link DOFs tie the rotation in 2D but not in 3D"] fn rigid_link_default_dofs_agree_2d_3d
+
+## Existing Rust test annotation records open question AC-5: 2D \"XY\" diaphragm is an in-plane rigid body, 3D \"XY\" is a floor.
+test-skip engine/tests/derivation_assembly_constraints.rs: #[ignore = "open question AC-5: 2D \"XY\" diaphragm is an in-plane rigid body, 3D \"XY\" is a floor"] fn floor_diaphragm_agrees_2d_3d
+
+## Existing Rust test annotation records open question AC-7: Winkler member-end forces omit the foundation term K_f u.
+test-skip engine/tests/derivation_assembly_constraints.rs: #[ignore = "open question AC-7: Winkler member-end forces omit the foundation term K_f u"] fn winkler_member_end_forces_include_foundation
+
+## Existing Rust test annotation records open question NL-10: notional loads read only nodal loads; member (distributed/point) gravity loads are ignored.
+test-skip engine/tests/derivation_nonlinear.rs: #[ignore = "open question NL-10: notional loads read only nodal loads; member (distributed/point) gravity loads are ignored"] fn nl_notional_loads_include_member_gravity_loads
+
+## Existing Rust test annotation records open question NL-11: residual-stress helpers set a transient strain; the stress is gone at the next material call.
+test-skip engine/tests/derivation_nonlinear.rs: #[ignore = "open question NL-11: residual-stress helpers set a transient strain; the stress is gone at the next material call"] fn nl_residual_stress_survives_the_first_evaluation
+
+## Existing Rust test annotation records open question NL-5: yielding replaces EI by alpha*EI over the whole member (secant), the load-deflection curve jumps at first yield.
+test-skip engine/tests/derivation_nonlinear.rs: #[ignore = "open question NL-5: yielding replaces EI by alpha*EI over the whole member (secant), the load-deflection curve jumps at first yield"] fn nl_material_2d_response_is_continuous_at_first_yield
+
+## Existing Rust test annotation records open question NL-8: line_search::directional_derivative is -R.du, not the slope of 0.5*|R|^2.
+test-skip engine/tests/derivation_nonlinear.rs: #[ignore = "open question NL-8: line_search::directional_derivative is -R.du, not the slope of 0.5*|R|^2"] fn nl_line_search_slope_is_the_derivative_of_the_residual_energy
+
+## Existing Rust test annotation records open question NL-9: NotionalLoadDef.gravity_axis defaults to 1 = Y in 3D, so default 3D notional loads are empty.
+test-skip engine/tests/derivation_nonlinear.rs: #[ignore = "open question NL-9: NotionalLoadDef.gravity_axis defaults to 1 = Y in 3D, so default 3D notional loads are empty"] fn nl_notional_loads_3d_default_gravity_is_z
+
+## Existing Rust test annotation records open question SH-1: DKMT shear B uses the wrong rotation signs and adds stiffness instead of flexibility.
+test-skip engine/tests/derivation_shells.rs: #[ignore = "open question SH-1: DKMT shear B uses the wrong rotation signs and adds stiffness instead of flexibility"] fn sh1_dkmt_thick_triangle_annihilates_rigid_motions
+
+## Existing Rust test annotation records open question SH-9: solid shell has Poisson thickness locking for nu > 0 (no EAS on the thickness strain).
+test-skip engine/tests/derivation_shells.rs: #[ignore = "open question SH-9: solid shell has Poisson thickness locking for nu > 0 (no EAS on the thickness strain)"] fn sh9_solid_shell_strip_does_not_poisson_lock
+
+## Existing Rust test annotation records open question SP-10: parabolic_ordinate is mirrored about the chord relative to catenary_ordinate.
+test-skip engine/tests/derivation_special_elements.rs: #[ignore = "open question SP-10: parabolic_ordinate is mirrored about the chord relative to catenary_ordinate"] fn parabolic_and_catenary_ordinates_agree_for_shallow_cable
+
+## Existing Rust test annotation records open question SP-17: 3D connector local axes are discontinuous at |dir_x| = 0.9 and not user-settable.
+test-skip engine/tests/derivation_special_elements.rs: #[ignore = "open question SP-17: 3D connector local axes are discontinuous at |dir_x| = 0.9 and not user-settable"] fn connector_3d_axes_are_continuous_in_direction
+
+## Existing Rust test annotation records open question SP-18: fiber solvers return no reactions.
+test-skip engine/tests/derivation_special_elements.rs: #[ignore = "open question SP-18: fiber solvers return no reactions"] fn fiber_solver_reports_reactions
+
+## Existing Rust test annotation records nightly: make test.engine.differential.full.
+test-skip engine/tests/differential/modal_vs_direct.rs: #[ignore = "nightly: make test.engine.differential.full"] fn harmonic_modal_matches_direct_on_frame_family
+
+## Existing Rust test annotation records nightly: make test.engine.differential.full.
+test-skip engine/tests/differential/nonlinear_limit.rs: #[ignore = "nightly: make test.engine.differential.full"] fn nonlinear_converges_to_linear_on_frame_family
+
+## Existing Rust test annotation records nightly: make test.engine.differential.full.
+test-skip engine/tests/differential/planar.rs: #[ignore = "nightly: make test.engine.differential.full"] fn planar_2d_matches_3d_on_frame_family
+
+## Existing Rust test annotation records nightly: make test.engine.differential.full.
+test-skip engine/tests/differential/plastic_bounds.rs: #[ignore = "nightly: make test.engine.differential.full"] fn portal_collapse_matches_neal_mechanisms_across_load_ratios
+
+## Existing Rust test annotation records nightly: make test.engine.differential.full.
+test-skip engine/tests/differential/substructures.rs: #[ignore = "nightly: make test.engine.differential.full"] fn substructures_on_frame_family
+
+## Existing Rust test annotation records run by issue_1760_plastic_input_finishes_in_a_fresh_process in a limited subprocess.
+test-skip engine/tests/fuzz_regressions.rs: #[ignore = "run by issue_1760_plastic_input_finishes_in_a_fresh_process in a limited subprocess"] fn issue_1760_plastic_input_in_a_fresh_process
+
+## Existing Rust test annotation records run by plastic_3d_certificate_nightly_inputs_finish in a limited subprocess.
+test-skip engine/tests/fuzz_regressions.rs: #[ignore = "run by plastic_3d_certificate_nightly_inputs_finish in a limited subprocess"] fn plastic_3d_certificate_of_one_nightly_input
+
+## Existing Rust test annotation records wall-clock budget: run by make test.engine.gates.
+test-skip engine/tests/fuzz_regressions.rs: #[ignore = "wall-clock budget: run by make test.engine.gates"] fn a_blocking_child_is_killed_at_its_timeout
+
+## Generated buckling coverage is assigned to its nightly tier.
+test-skip engine/tests/fuzz_regressions.rs: #[ignore] fn generated_buckling_certificate_invariant_nightly
+
+## Existing Rust test annotation records wall clock: runs alone in Engine Gates (make test.engine.gates).
+test-skip engine/tests/integration/postprocess_scaling.rs: #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"] fn rc_check_scales_linearly_in_member_count
+
+## Existing Rust test annotation records wall-clock budget: run by make test.engine.gates.
+test-skip engine/tests/known_issues.rs: #[ignore = "wall-clock budget: run by make test.engine.gates"] fn distorted_mesh_guard_indexes_the_mesh_once_per_solve
+
+## Opt-in large-frame conditioning cost probe.
+test-skip engine/tests/known_issues.rs: #[ignore] fn conditioning_cost_large_frame
+
+## Mechanism fuzz tier is selected explicitly by its matching Make target.
+test-skip engine/tests/mechanism_fuzz/main.rs: #[ignore] fn mechanism_fuzz_long
+
+## Mechanism fuzz tier is selected explicitly by its matching Make target.
+test-skip engine/tests/mechanism_fuzz/main.rs: #[ignore] fn mechanism_fuzz_quick
+
+## Mechanism fuzz tier is selected explicitly by its matching Make target.
+test-skip engine/tests/mechanism_fuzz/main.rs: #[ignore] fn mechanism_fuzz_replay
+
+## Existing Rust test annotation records large deterministic seed sweep.
+test-skip engine/tests/metamorphic/generated.rs: #[ignore = "large deterministic seed sweep"] fn metamorphic_nightly_generated
+
+## Opt-in seeded harmonic coverage sweep kept apart from the regular test tier.
+test-skip engine/tests/metamorphic/harmonic_coverage.rs: #[ignore] fn seeded_harmonic_symmetry_coverage
+
+## Opt-in seeded harmonic coverage sweep kept apart from the regular test tier.
+test-skip engine/tests/metamorphic/harmonic_coverage.rs: #[ignore] fn seeded_supported_harmonic_symmetry_coverage
+
+## Nightly metamorphic sweep or replay is selected by its dedicated runner.
+test-skip engine/tests/metamorphic/main.rs: #[ignore] fn metamorphic_nightly_2d
+
+## Nightly metamorphic sweep or replay is selected by its dedicated runner.
+test-skip engine/tests/metamorphic/main.rs: #[ignore] fn metamorphic_nightly_3d
+
+## Nightly metamorphic sweep or replay is selected by its dedicated runner.
+test-skip engine/tests/metamorphic/main.rs: #[ignore] fn metamorphic_replay
+
+## Extended sampled accuracy sweep kept apart from the regular test tier.
+test-skip engine/tests/metamorphic/nightly_tolerances.rs: #[ignore] fn analysis_accuracy_200_seed_sweep
+
+## Extended sampled accuracy sweep kept apart from the regular test tier.
+test-skip engine/tests/metamorphic/nightly_tolerances.rs: #[ignore] fn analysis_accuracy_dynamic_3d_mirror_coverage
+
+## Existing Rust test annotation records per-PR tier: make test.engine.invariance.quick.
+test-skip engine/tests/metamorphic/quick.rs: #[ignore = "per-PR tier: make test.engine.invariance.quick"] fn invariance_quick
+
+## Diagnostic probe prints the scale and stiffness evidence on demand.
+test-skip engine/tests/metamorphic/regressions.rs: #[ignore] fn probe_krx
+
+## Diagnostic probe prints the scale and stiffness evidence on demand.
+test-skip engine/tests/metamorphic/regressions.rs: #[ignore] fn probe_units_3d
+
+## Existing Rust test annotation records withheld by PL-2D-INVARIANCE; #1447's limit analysis is checked by issue_758_*.
+test-skip engine/tests/metamorphic/safety_cases.rs: #[ignore = "withheld by PL-2D-INVARIANCE; #1447's limit analysis is checked by issue_758_*"] fn plastic_rigid_link_invariance
+
+## Existing Rust test annotation records exhaustive priority invariances and stiffness scaling.
+test-skip engine/tests/metamorphic/stiffness.rs: #[ignore = "exhaustive priority invariances and stiffness scaling"] fn metamorphic_nightly_priority
+
+## Opt-in incomplete-Cholesky dispatch diagnostic.
+test-skip engine/tests/pcg_solver_tests.rs: #[ignore] fn diagnose_ics_dispatch
+
+## Wall-clock comparison depends on an isolated runner.
+test-skip engine/tests/perf_regression_gates.rs: #[ignore] fn sparse_not_slower_than_dense_3d
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_ic0_ordering
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_ic0_shift_sweep
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_ic_restore_policy
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_pcg_attempt_overhead
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_pcg_plateau_length
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_pcg_stall_curve
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_precond_sweep
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_shifted_ic_breakdown
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn diagnose_shifted_ic_sweep
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn guyan_single_factorization
+
+## Opt-in sparse-shell performance or preconditioner diagnostic.
+test-skip engine/tests/sparse_shell_gates.rs: #[ignore] fn sparse_faster_than_dense
+
+## Manual replay probe requires a locally supplied plastic input file.
+test-skip engine/tests/unrefused/metamorphic_plastic.rs: #[ignore] fn probe_plastic_file
+
+## Existing Rust test annotation records #810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate.
+test-skip engine/tests/validation/benchmarks/shell_benchmark.rs: #[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"] fn research_cylinder_12
+
+## Existing Rust test annotation records #810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate.
+test-skip engine/tests/validation/benchmarks/shell_benchmark.rs: #[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"] fn research_cylinder_16
+
+## Existing Rust test annotation records #810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate.
+test-skip engine/tests/validation/benchmarks/shell_benchmark.rs: #[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"] fn research_cylinder_6
+
+## Existing Rust test annotation records #810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate.
+test-skip engine/tests/validation/benchmarks/shell_benchmark.rs: #[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"] fn research_cylinder_8
+
+## This browser spec requires the account routes from the accounts build variant.
+test-skip web/e2e/accounts-legal-usage.spec.ts: test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON)
+
+## This browser spec requires the account routes from the accounts build variant.
+test-skip web/e2e/ads-register.spec.ts: test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON)
+
+## Existing browser fixture precondition for this interaction: this model coordinated cleanly.
+test-skip web/e2e/detailing.spec.ts: test.skip(/CONSTRUCTIBLE|REVIEWED/i.test(state), 'this model coordinated cleanly')
+
+## Existing browser fixture precondition for this interaction: no lock control rendered for this assembly.
+test-skip web/e2e/detailing.spec.ts: test.skip(await lock.count() === 0, 'no lock control rendered for this assembly')
+
+## Existing browser fixture precondition for this interaction: this model hit no unsupported condition.
+test-skip web/e2e/detailing.spec.ts: test.skip(idx < 0, 'this model hit no unsupported condition')
+
+## Existing browser fixture precondition for this interaction: this model produced no constructible assembly.
+test-skip web/e2e/detailing.spec.ts: test.skip(idx < 0, 'this model produced no constructible assembly')
+
+## Existing browser fixture precondition for this interaction: this model produced no constructible assembly.
+test-skip web/e2e/detailing.spec.ts: test.skip(idx < 0, 'this model produced no constructible assembly')
+
+## Existing browser fixture precondition for this interaction: needs at least two assemblies.
+test-skip web/e2e/detailing.spec.ts: test.skip(n < 2, 'needs at least two assemblies')
+
+## Existing browser fixture precondition for this interaction: this model produced no provisional items.
+test-skip web/e2e/detailing.spec.ts: test.skip(n === 0, 'this model produced no provisional items')
+
+## Existing browser fixture precondition for this interaction: this model produced no provisional work.
+test-skip web/e2e/detailing.spec.ts: test.skip(provisional.length === 0, 'this model produced no provisional work')
+
+## Existing browser fixture precondition for this interaction: this model coordinated cleanly.
+test-skip web/e2e/detailing.spec.ts: test.skip(withConflicts < 0, 'this model coordinated cleanly')
+
+## This browser spec requires the diagram game build variant.
+test-skip web/e2e/diagram-game.spec.ts: test.skip(!BUILD_FEATURES.diagramGame, GAME_SKIP_REASON)
+
+## The existing browser spec targets the matching Tools build variant.
+test-skip web/e2e/examples.spec.ts: test.skip(BUILD_FEATURES.tools, 'The enabled Tools build moves examples to tools; covered by tools-models.spec.ts')
+
+## Existing browser fixture precondition for this interaction: this model has one level.
+test-skip web/e2e/f3-edit-retroactive.spec.ts: test.skip(before.length < 2, 'this model has one level')
+
+## Existing browser fixture precondition for this interaction: this level had earned no state to lose.
+test-skip web/e2e/f3-edit-retroactive.spec.ts: test.skip(owner.state === 'DRAFT' || owner.state === 'VERIFIED', 'this level had earned no state to lose')
+
+## Existing browser fixture precondition for this interaction: no bar to pin on this assembly.
+test-skip web/e2e/f3-export-log.spec.ts: test.skip(await lock.count() === 0, 'no bar to pin on this assembly')
+
+## Existing browser fixture precondition for this interaction: no bar to lock on this member.
+test-skip web/e2e/f3-product-decisions.spec.ts: test.skip(!(await lockMember(page, beam)), 'no bar to lock on this member')
+
+## Existing browser fixture precondition for this interaction: no bar to lock on this member.
+test-skip web/e2e/f3-product-decisions.spec.ts: test.skip(!(await lockMember(page, beam)), 'no bar to lock on this member')
+
+## Existing browser fixture precondition for this interaction: no bar to lock on this member.
+test-skip web/e2e/f3-product-decisions.spec.ts: test.skip(!(await lockMember(page, beam)), 'no bar to lock on this member')
+
+## Existing browser fixture precondition for this interaction: no room to move the station.
+test-skip web/e2e/f3-product-decisions.spec.ts: test.skip(!Number.isFinite(max) || max <= first, 'no room to move the station')
+
+## Existing browser fixture precondition for this interaction: this level has only straight bars.
+test-skip web/e2e/f3-product-decisions.spec.ts: test.skip(await bent.count() === 0, 'this level has only straight bars')
+
+## Existing browser fixture precondition for this interaction: needs at least three rows to walk.
+test-skip web/e2e/f3-selection-to-viewer.spec.ts: test.skip(ids.length < 3, 'needs at least three rows to walk')
+
+## Existing browser fixture precondition for this interaction: the default station cuts no bars in this model.
+test-skip web/e2e/f3-sheet-geometry.spec.ts: test.skip(s.circles.length === 0, 'the default station cuts no bars in this model')
+
+## This browser spec requires the account routes from the accounts build variant.
+test-skip web/e2e/landing-footer-accounts.spec.ts: test.skip(!BUILD_FEATURES.accounts, ACCOUNTS_SKIP_REASON)
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/landing.spec.ts: test.skip(!isComplete('de'), 'German is not offered until a native speaker checks it (#1628)')
+
+## Existing browser fixture precondition for this interaction: this joint has a single member, so there is nothing to switch to.
+test-skip web/e2e/m2-weld-battens.spec.ts: test.skip(!isSelect, 'this joint has a single member, so there is nothing to switch to')
+
+## Existing browser fixture precondition for this interaction: every member at this joint is the same length.
+test-skip web/e2e/m2-weld-battens.spec.ts: test.skip(distinct.size < 2, 'every member at this joint is the same length')
+
+## This browser assertion requires a route from the Tools build variant.
+test-skip web/e2e/mohr-tools.spec.ts: test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON)
+
+## The selected regulations section has no occupancy control for this browser interaction.
+test-skip web/e2e/regulations.spec.ts: test.skip() via await occ.count() === 0
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/research-benchmarks.spec.ts: test.skip(!isComplete('de'), 'German is not offered until a native speaker checks it (#1628)')
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/research-cqc.spec.ts: test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)')
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/research-navier.spec.ts: test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)')
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/research-plastic-collapse.spec.ts: test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)')
+
+## This browser assertion requires a route from the research build variant.
+test-skip web/e2e/research-shape-control.spec.ts: test.skip(!BUILD_FEATURES.research, RESEARCH_SKIP_REASON)
+
+## The selected locale is withheld by the publication policy tracked in #1628.
+test-skip web/e2e/research-topopt.spec.ts: test.skip(!isComplete(locale), 'not offered until a native speaker checks it (#1628)')
+
+## This browser assertion requires a route from the Tools build variant.
+test-skip web/e2e/site-header.spec.ts: test.skip(path === '/en/tools/beam-frame/' && !BUILD_FEATURES.tools, TOOLS_SKIP_REASON)
+
+## The existing browser spec targets the matching Tools build variant.
+test-skip web/e2e/tools-main.spec.ts: test.skip(BUILD_FEATURES.tools, 'The enabled Tools build has new figures and layout; covered by tools.spec.ts')
+
+## This browser assertion requires a route from the Tools build variant.
+test-skip web/e2e/tools-models.spec.ts: test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON)
+
+## This browser assertion requires a route from the Tools build variant.
+test-skip web/e2e/tools.spec.ts: test.skip(!BUILD_FEATURES.tools, TOOLS_SKIP_REASON)
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('dynamics'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('influence'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('plastic'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('second'))
+
+## The existing manual course viewport capture selects a subset of available course modules.
+test-skip web/e2e/zz-course-viewport.spec.ts: test.skip(!MODULES.includes('statics'))
+
+## Only published Ferrari research locales have an English fallback page to render.
+test-skip web/src/components/research/ferrari2025/__tests__/page.test.ts: it.skipIf(!PUBLIC_LOCALES.includes(locale))(`renders English copy with ${locale} numbers`)
+
+## The real DXF samples are local, non-distributed fixtures; checked-in synthetic coverage runs independently.
+test-skip web/src/lib/cad/__tests__/cad-real-dxf.test.ts: describe.skipIf(!HAS_V1)(`real DXF V1 — shipped path${HAS_V1 ? '' : ABSENT}`)
+
+## The real DXF samples are local, non-distributed fixtures; checked-in synthetic coverage runs independently.
+test-skip web/src/lib/cad/__tests__/cad-real-dxf.test.ts: describe.skipIf(!HAS_V2)(`real DXF V2 — shipped path${HAS_V2 ? '' : ABSENT}`)
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/data/__tests__/en-hem-angles.test.ts: d('sourced HE M and unequal angles') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Known #798 containment withholds the distorted shell mesh used by this example.
+test-skip web/src/lib/data/__tests__/pro-examples-solve.test.ts: it.skip('solves every combination its card builds (skipped: #798 SH-MITC4-DISTORTION withholds its distorted shell mesh)', solvesAndCloses, 600_000)
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/advanced-analyses-numeric.test.ts: it.skip('a fixed-fixed beam under UDL collapses at 16 Mp/L² (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/advanced-analyses-numeric.test.ts: it.skip('hinges form at the fixed ends first, then in the span (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/plastic-moments-rotation.test.ts: it.skip('plastic collapse of the rotated cantilever: first hinge at λ = fy·Zp,weak/(P·L) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/plastic-moments.test.ts: it.skip('the cantilever-point example: first hinge at λ = Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## Existing mechanism regression is parked pending the pre-solve kinematic mechanism check.
+test-skip web/src/lib/engine/__tests__/solver-mechanism.test.ts: it.skip('overhinged node: double-hinged elem + single-hinged elem at same node → mechanism')
+
+## Existing mechanism regression is parked pending the pre-solve kinematic mechanism check.
+test-skip web/src/lib/engine/__tests__/solver-mechanism.test.ts: it.skip('portal frame with pinned bases + double-hinged beam → mechanism')
+
+## Existing collinear-hinge mechanism regression is parked pending the pre-solve kinematic check.
+test-skip web/src/lib/engine/__tests__/split-element.test.ts: it.skip('double hinge at unsupported collinear node: mechanism')
+
+## Existing collinear-hinge mechanism regression is parked pending the pre-solve kinematic check.
+test-skip web/src/lib/engine/__tests__/split-element.test.ts: it.skip('single hinge at internal collinear node of simply-supported beam: mechanism')
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/thermal-advanced-closed-forms.test.ts: it.skip(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)`)
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/thermal-audit.test.ts: it.skip('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## The #758 containment withholds this 2D plastic result; this existing numerical test remains parked.
+test-skip web/src/lib/engine/__tests__/thermal-audit.test.ts: it.skip('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)')
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/profiles/__tests__/csv-sections.test.ts: (hasCanonicalGeometryExport() ? describe : describe.skip)('a row named like a catalogue profile') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/profiles/__tests__/csv-sections.test.ts: (hasCanonicalGeometryExport() ? describe : describe.skip)('sections CSV into the project') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## The default placeholder reports that the equivalence adapter requires a snapshot manifest.
+test-skip web/src/lib/results-snapshot/__tests__/examples-equivalence.test.ts: it.skip('runs only from the snapshot gate (EXAMPLES_EQUIVALENCE)') via !LIST
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('CHS resolves to the exact annulus') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('IPE / HEA / HEB resolve to canonical geometry with root fillets') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('IPN, UPN and L are geometry-backed and reproduce their published properties') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('a properties-only refusal distinguishes a data gap from a shapeless section') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('axial and unsymmetrical bending through the web boundary') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('custom geometry is canonical by definition') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('drawing and numerical analysis prove they share one geometry') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('every profile in the catalogue has exact geometry') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('identity is dimensional, never the display name') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/canonical.test.ts: describeCanonical('incomplete rolled families stay properties-only') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/declared-section.test.ts: describe.skipIf(!hasCanonicalGeometryExport())('a declared section')
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawing.test.ts: describeCanonical('canonical geometry maps into the drawing frame') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawing.test.ts: describeCanonical('digest identity is enforced, and the guard can actually fail') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawing.test.ts: describeCanonical('drawing consumes the canonical polygons') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawing.test.ts: describeCanonical('properties-only sections get no detailed drawing') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawing.test.ts: describeCanonical('the drawing does not depend on the display name') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawn-design.test.ts: d('drawn sections for design') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawn-failed-torsion.test.ts: d('a drawn section whose J cannot be computed') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawn-store.test.ts: d('drawn sections in the model') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawn.test.ts: d('drawn sections through the engine') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/drawn.test.ts: d('stress in a section of several materials') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/precision.test.ts: describeCanonical('canonical engine vs published tables') via hasCanonical ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/section-replacement.test.ts: d('a section replaced through the store') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/stress-state.test.ts: describeField('the cached field path agrees with the per-point solves') via hasSectionFieldExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/template-geometry.test.ts: describeCanonical('section templates against their canonical outline') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/section/__tests__/variable.test.ts: d('variable sections') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Existing hinge-curvature case is marked skipped and retained as coverage debt.
+test-skip web/src/lib/three/__tests__/deformed-shape-3d.test.ts: it.skip('produces correct curvature at hinged connection')
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/three/__tests__/drawn-section-extrusion.test.ts: d('drawn sections in the 3D view') via hasCanonicalGeometryExport() ? describe : describe.skip
+
+## Needs a compatible WASM section export; vitest.setup.ts fails the CI run when that export is absent.
+test-skip web/src/lib/three/__tests__/drawn-section-extrusion.test.ts: d('members of variable section in the 3D view') via hasCanonicalGeometryExport() ? describe : describe.skip

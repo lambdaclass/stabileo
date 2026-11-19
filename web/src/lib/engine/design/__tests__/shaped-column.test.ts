@@ -172,3 +172,13 @@ describe('shaped columns', () => {
     expect(out.find((c) => c.category === 'Spiral pitch')!.utilization).toBeLessThan(1);
   });
 });
+
+const issue2215 = process.env.RUN_KNOWN_WRONG === '2215' ? it : it.skip;
+issue2215('known wrong result: #2215 the T-column cage uses the supplied bar count', () => {
+  const shape = { kind: 'tee', bf: 0.6, hf: 0.2, bw: 0.2, h: 0.6 } as const;
+  const suppliedBars = 4;
+  const diameter = 28;
+  const positions = shapedBarPositions(shape, suppliedBars, diameter, 0.025, 8);
+  expect(shapedBarPositions(shape, 8, diameter, 0.025, 8)).toHaveLength(8);
+  expect(positions).toHaveLength(suppliedBars);
+});

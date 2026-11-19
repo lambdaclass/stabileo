@@ -21,17 +21,17 @@ it.each([
 
 it.each(['browser', 'Node'] as const)('%s locale initialization handles absent, disabled and enabled research', async runtime => {
   for (const flag of [undefined, '0', '1']) {
-    const env = flag === undefined ? {} : { VITE_RESEARCH: flag };
+    const research = flag === undefined || flag === '1';
     const built = await build({
       entryPoints: ['src/lib/i18n/offered.ts'], bundle: true, write: false,
       format: 'iife', globalName: 'offering', platform: 'neutral',
-      define: { 'import.meta.env': runtime === 'browser' ? JSON.stringify(env) : 'undefined' },
+      define: flag === undefined ? {} : { __PUBLIC_FEATURES__: JSON.stringify({ ...__PUBLIC_FEATURES__, research }) },
     });
-    const offering = runInNewContext(`${built.outputFiles[0].text}\noffering`, runtime === 'Node' ? { process: { env } } : {}) as typeof import('../../src/lib/i18n/offered');
-    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', ...(flag === '1' ? ['hu'] : [])].sort();
+    const offering = runInNewContext(`${built.outputFiles[0].text}\noffering`, runtime === 'Node' ? { process: { env: {} } } : {}) as typeof import('../../src/lib/i18n/offered');
+    const expected = ['en', 'es', 'pt', 'de', 'fr', 'tr', ...(research ? ['hu'] : [])].sort();
     expect([...offering.OFFERED_LOCALES].sort(), `${runtime}: ${flag}`).toEqual(expected);
     expect([...offering.PUBLIC_LOCALES].sort(), `${runtime}: ${flag}`).toEqual(expected);
-    expect(offering.isComplete('hu'), `${runtime}: ${flag}`).toBe(flag === '1');
+    expect(offering.isComplete('hu'), `${runtime}: ${flag}`).toBe(research);
     expect(offering.isComplete('en')).toBe(true);
   }
 });

@@ -1,6 +1,33 @@
 import type { Translations } from '../types';
 
 const zh: Translations = {
+  'loadPlan.gravity.coveragePrecision': "壳单元覆盖坐标超出了杆件区间所支持的精度。",
+  'loadPlan.gravity.partitionFailed': "壳单元投影区域划分失败：{detail}",
+  'loadPlan.gravity.unsupportedStrips': "部分被壳单元覆盖时，条带必须跨越矩形梁格相对支承之间的全跨。",
+  'loadPlan.gravity.stripDirection': "指定的单向跨度方向必须与未覆盖条带的跨度方向一致。",
+  'loadPlan.gravity.nonplanarShell': "四边形单元 {id} 不共面。重力荷载的壳单元覆盖计算要求使用平面壳单元。",
+  'loadPlan.gravity.unresolvedMember': "杆件 {id} 仅被壳单元部分覆盖，且无法确定梁格的荷载传递。",
+  'loadPlan.gravity.differentDeck': "覆盖梁格的壳单元必须与梁格属于同一板面。",
+  'loadPlan.gravity.differentSlopedDeck': "覆盖梁格的倾斜壳单元必须与梁格属于同一板面。",
+  'loadPlan.gravity.deckCheckFailed': "板面壳单元覆盖检查失败：{detail}",
+  'loadPlan.gravity.exposureCheckFailed': "未覆盖条带的暴露情况检查失败：{detail}",
+  'loadPlan.gravity.mixedExposure': "未覆盖条带同时包含屋面区和楼面区。",
+  'loadPlan.gravity.stripSpan': "未覆盖条带超过板面允许的最大跨度。",
+  'loadPlan.gravity.headroomCheckFailed': "未覆盖条带的净空检查失败：{detail}",
+  'loadPlan.gravity.stripHeadroom': "未覆盖条带的楼层净高不足或无法确定。",
+  'loadPlan.gravity.stripInterval': "杆件 {id} 上的重力荷载条带短于所支持的荷载区间。",
+  'engine.memberLoad.geometryOrdering': "生成杆件的几何顺序无效",
+  'engine.memberLoad.geometryLine': "生成杆件的几何形状偏离了原始直线",
+  'engine.memberLoad.invalidGeometry': "生成杆件的几何形状无效",
+  'engine.memberLoad.geometryPartition': "生成的几何形状未完整分割原始杆件",
+  'engine.memberLoad.invalidPiece': "生成杆件的荷载区段无效",
+  'engine.memberLoad.geometrySpan': "单元 {id}：生成的几何形状将原始区段 {span} 改为长度 {length}；无法重新缩放分布荷载",
+  "engine.memberLoad.invalidInterval": "杆件 {id}：长度 {length} 上的分布荷载区间 [{a}, {b}] 无效",
+  "engine.memberLoad.geometryLimit": "杆件 {id}：长度 {length} 上的分布荷载区间 [{a}, {b}] 小于相对几何限值 {limit}",
+
+  "loadPlan.blocked.concentratedRule": "{occupancy}需要按CIRSOC 101 {article}验算集中荷载。目前不评估最不利位置。自动生成已被阻止；请手动建模并验算这些作用。",
+  "loadPlan.blocked.concentratedLive": "{occupancy}需要按CIRSOC 101 §4.4验算{force} kN集中活荷载。目前不评估最不利位置以及均布荷载与集中荷载的替代工况。自动生成已被阻止；请手动建模并验算这些作用。",
+  "loadPlan.blocked.concentratedRoof": "CIRSOC 101 §4.4要求在最不利位置考虑集中屋面作用，并与§4.8的屋面活荷载分别验算。目前不执行这些验算。自动生成已被阻止；请手动建模并验算屋面作用。",
   "account.err.invalid_credentials": "电子邮箱或密码不正确。",
   // ─── Auth / Login ───
 

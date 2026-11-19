@@ -1,5 +1,4 @@
 <script lang="ts">
-  import '../../tools/register-i18n';
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
@@ -78,7 +77,7 @@
     <div class="benchmark-pane" bind:this={pane}>
       <PaneTabs tabs={[{ id: 'viewer', label: s.viewer }, { id: 'results', label: s.results }]} bind:active={tab} />
       <div id="rs-panel-viewer" role="tabpanel" aria-labelledby="rs-tab-viewer" hidden={tab !== 'viewer'}>
-        <ScalarFieldViewer {...view} cellSize={2} deformScale={1} showMesh={true} title={moment ? s.moment : s.force} unit="m" height="max(280px, min(23rem, 48svh))" onOpenEditor={open} />
+        <ScalarFieldViewer plane="elevation" {...view} cellSize={2} deformScale={1} showMesh={true} title={moment ? s.moment : s.force} unit="m" height="max(280px, min(23rem, 48svh))" onOpenEditor={open} />
         <label><input type="checkbox" bind:checked={moment} /> {s.moment}</label>
         <label>{s.select}: {fmt(forceCase.parameter)} <input aria-label={s.select} aria-valuetext={`${s.force}: PL²/EI = ${fmt(forceCase.parameter)}`} type="range" min="0" max={forceCases.length - 1} value={playback.shown} disabled={moment} oninput={e => playback.seek(Number(e.currentTarget.value))} /></label>
         <p data-testid="mattiasson-step">{moment ? s.moment : s.force}: {current.id}</p>
