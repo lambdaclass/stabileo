@@ -15,6 +15,9 @@ import '../index';
 import { applyLoadPlan, loadStateForPlan, replaceScope } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
 import { assessProject } from '../../provenance/applicability';
+import { RESULTS_VERSION } from '../../provenance/registry';
+import { stampSolve } from '../../provenance/solve-stamp';
+import { patchDesignData } from '../design-data';
 import { bindRole, defaultRegulations, type ProjectRegulations } from '../../codes/roles';
 import es from '../../i18n/locales/es';
 
@@ -202,4 +205,28 @@ it('#2319 appending static loads keeps the saved-load notice until earlier gener
   expect(applyLoadPlan(plan, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
   expect(modelStore.loads.some(l => l.data.seismicGeneration === 'static')).toBe(true);
   expect(notice()).toBe(false);
+});
+
+const windApplyReproducer = process.env.RUN_KNOWN_WRONG === '2316' ? it : it.skip;
+
+windApplyReproducer('known wrong result: #2316 applying wind preserves the legacy E notice independently from the wind basis', () => {
+  frame();
+  patchDesignData({ loadBasis: {
+    at: '2026-11-19T00:00:00Z', resultsVersion: 0, factors: {}, levels: [],
+    derivation: [{ key: 'loadPlan.derivation.modal' }], assumptions: [], refs: [],
+  } });
+  const seismic = modelStore.addLoadCase('E X', 'E');
+  modelStore.addNodalLoad3D([...modelStore.nodes.keys()][0]!, 1, 0, 0, 0, 0, 0, seismic);
+  const initial = buildLoadPlan(planInput());
+  const wind: typeof initial = {
+    ...initial, cases: [{ type: 'W', nameKey: 'W X', existingId: null }],
+    distributed: [{ caseIndex: 0, caseType: 'W', elementId: [...modelStore.elements.keys()][0]!, frame: 'global', q: 0, qX: 1 }],
+    derivation: [{ key: 'loadPlan.derivation.wind' }], nodal: [], surface: [], combinations: [],
+  };
+  expect(applyLoadPlan(wind, { clearExisting: true, bothSenses: true, nameOf })).toBeUndefined();
+  const saved = JSON.parse(JSON.stringify(modelStore.snapshot()));
+  expect.soft(saved.designData.loadBasis.resultsVersion).toBe(RESULTS_VERSION);
+  expect.soft(saved.loads.find((l: Load) => l.data.caseId === seismic)?.data.seismicGeneration).toBe('unverified');
+  expect(assessProject(saved, stampSolve('linear', null), 'pro').changes.map(change => change.id))
+    .toEqual(['seismic-modal-generation-unavailable']);
 });
