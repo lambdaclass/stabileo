@@ -21,16 +21,6 @@ import { quantityTransform } from '../axes/quantity-transform';
  * by the time anyone downstream sees them, so a bug can only be in the
  * reading.
  *
- * ── Rows fail, files do not ────────────────────────────────────────
- *
- * A spreadsheet filled in by hand has typos in it. Refusing the whole file for
- * one bad cell means the reader fixes one mistake per import and learns about
- * the next one on the following attempt — for a 200-node frame that is an
- * afternoon. Every row is read independently, every failure names its sheet,
- * its row number and what it wanted, and the import returns both the model and
- * the list. The caller decides whether a partial model is worth loading; this
- * file's job is to make that decision possible rather than to make it.
- *
  * Row numbers are the ones Excel shows — header is row 1, first data row is 2
  * — because a diagnostic the reader cannot find is not a diagnostic.
  */
@@ -39,12 +29,11 @@ import type { JSONModel } from '../templates/load-fixture';
 import { defaultLoadCases } from '../model/default-loads';
 import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
-import { SHEETS, coordinateColumns, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
+import { AXES_SHEET, IMPORT_SHEET_NAMES, INSTRUCTIONS_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, coordinateColumns, importColumns, keyFromHeader, planeSpringColumns, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
 import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
 import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
 import { DEFAULT_AXES, makeFrame, relabelAxesWith, supportTypeToModel, userAxisAlong, validChoice, type AxesFrame } from '../axes/frame';
-import { AXES_SHEET } from './schema';
 
 const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
 
@@ -111,7 +100,8 @@ function unitFromHeader(header: unknown): string | null {
 function unitFactor(wanted: string, given: string): number | null {
   const w = unitKey(wanted), g = unitKey(given);
   if (w === g) return 1;
-  return UNIT_FACTORS[w]?.[g] ?? null;
+  const conversions = Object.hasOwn(UNIT_FACTORS, w) ? UNIT_FACTORS[w]! : {};
+  return Object.hasOwn(conversions, g) ? conversions[g]! : null;
 }
 
 export interface RowProblem {
@@ -133,7 +123,7 @@ export interface ParseResult {
 }
 
 /** A sheet read into `{key: value}` rows, with its Excel row number kept. */
-interface Row {
+export interface Row {
   n: number;
   cells: Record<string, unknown>;
 }
@@ -205,75 +195,86 @@ const NOT_IMPORTABLE: Record<string, () => string> = {
   thermalQuad3d: () => tp('xls.err.quadLoad', { v: 'thermalQuad3d' }),
 };
 
-/** Rows of a sheet, keyed by the columns the format knows. Blank rows dropped. */
-function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[], declaredAxes = false): Row[] {
+function isRedundantReportCell(sheet: string, key: string, value: unknown, hinge: unknown): boolean {
+  if (sheet === 'Members') {
+    if (key === 'length') return true;
+    if (['releasestartmy', 'releaseendmy', 'releasestartt', 'releaseendt'].includes(key)) return num(value) === 0;
+    if (key === 'releasestartmz' || key === 'releaseendmz') return num(value) === Number(truthy(hinge));
+  }
+  if (sheet === 'Supports') {
+    if (/^restrained[ur][xyz]$/.test(key)) return true;
+    if (key === 'uplift') return num(value) === 0;
+  }
+  return sheet === 'Combinations' && key === 'id';
+}
+
+function readSheet(aoa: unknown[][], sheet: string, problems: RowProblem[], declaredAxes = false): Row[] {
   if (aoa.length === 0) return [];
   const header = aoa[0] ?? [];
-  const keyAt = header.map(keyFromHeader);
+  const body = aoa.slice(1);
+  const keys = header.map(keyFromHeader);
+  const columns = new Map(importColumns(sheet, globalAxes()).map(column => [column.key.toLowerCase(), column]));
+  const seen = new Set<string>();
+  const start = problems.length;
+  const fields = keys.flatMap((key, index) => {
+    if (!key) return [];
+    if (seen.has(key)) {
+      problems.push({ sheet, row: 1, column: key, message: tp('xls.err.duplicateColumn', { k: key }), blocking: true });
+      return [];
+    }
+    seen.add(key);
+    const column = columns.get(key);
+    if (!column) return [];
+    const strictNumber = !!column.strictNumber || (declaredAxes && !!column.unit);
+    const given = unitFromHeader(header[index]);
+    const factor = column.unit && given ? unitFactor(column.unit, given) : 1;
+    if (factor === null) {
+      const blocking = strictNumber || column.strictUnit || body.some(row => str(row?.[index]) !== '');
+      problems.push({
+        sheet, row: 1, column: key, message: tp('xls.err.unitUnknown', { k: key, u: given!, want: column.unit! }),
+        ...(blocking ? { blocking: true } : {}),
+      });
+      return [];
+    }
+    return [{ key, index, strictNumber, factor }];
+  });
+  if (problems.slice(start).some(problem => problem.blocking)) return [];
 
-  const spec = sheetSpec(sheetName, globalAxes());
-  const columns = keyAt.map(k => spec?.columns.find(col => col.key.toLowerCase() === k));
-  const strictNumbers = columns.map(column =>
-    !!column?.strictNumber || (declaredAxes && !!column?.unit),
-  );
-  const physicalKeys = new Set<string>();
-  let ambiguousHeader = false;
-  /** Per column: the factor to the format's unit, or null to leave the column out. */
-  const factorAt: Array<number | null> = keyAt.map(() => 1);
-  if (spec) {
-    keyAt.forEach((k, c) => {
-      if (!k) return;
-      const column = columns[c];
-      if (!column) {
-        problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.unknownColumn', { k }) });
-        return;
-      }
-      const want = column.unit;
-      if (strictNumbers[c]) {
-        if (physicalKeys.has(k)) {
-          problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.duplicatePhysicalColumn', { k }), blocking: true });
-          ambiguousHeader = true;
-          return;
-        }
-        physicalKeys.add(k);
-      }
-      const given = unitFromHeader(header[c]);
-      if (!want || !given) return;
-      const f = unitFactor(want, given);
-      factorAt[c] = f;
-      if (f === null) {
-        problems.push({
-          sheet: sheetName, row: 1, column: k, message: tp('xls.err.unitUnknown', { k, u: given, want }),
-          ...(strictNumbers[c] ? { blocking: true } : {}),
-        });
-      }
-    });
-  }
-
-  if (ambiguousHeader) return [];
+  const ignoredColumns = new Set<number>();
   const rows: Row[] = [];
-  for (let i = 1; i < aoa.length; i++) {
-    const raw = aoa[i] ?? [];
-    const cells: Record<string, unknown> = {};
+  const startHinge = keys.indexOf('hingestart'), endHinge = keys.indexOf('hingeend');
+  for (const [index, raw] of body.entries()) {
+    if (!raw) continue;
+    const row = index + 2;
     let any = false;
-    for (let c = 0; c < keyAt.length; c++) {
-      const k = keyAt[c];
-      if (!k) continue;
-      const v = raw[c];
-      const filled = str(v) !== '';
-      if (filled) any = true;
-      const f = factorAt[c];
-      if (f === null) continue;
-      const strict = strictNumbers[c];
-      const n = f === 1 && !strict ? null : num(v);
-      const converted = n === null ? null : n * f;
-      if (filled && strict && (converted === null || !Number.isFinite(converted))) {
-        problems.push({ sheet: sheetName, row: i + 1, column: k, message: t('xls.err.notANumber'), blocking: true });
+    for (const [c, value] of raw.entries()) {
+      if (str(value) === '') continue;
+      const key = keys[c];
+      if (key && columns.has(key)) { any = true; continue; }
+      const hinge = raw[key === 'releasestartmz' ? startHinge : endHinge];
+      if (ignoredColumns.has(c) || (key && isRedundantReportCell(sheet, key, value, hinge))) continue;
+      ignoredColumns.add(c);
+      problems.push(key
+        ? { sheet, row: 1, column: key, message: tp('xls.err.populatedColumn', { k: key }), blocking: true }
+        : { sheet, row, message: tp('xls.err.unnamedColumn', { c: c + 1 }), blocking: true });
+    }
+    if (!any) continue;
+    const cells: Record<string, unknown> = Object.create(null);
+    for (const { key, index: c, strictNumber, factor } of fields) {
+      const value = raw[c];
+      const n = factor === 1 && !strictNumber ? null : num(value);
+      const converted = n === null ? null : n * factor;
+      if (str(value) !== '' && strictNumber && (converted === null || !Number.isFinite(converted))) {
+        problems.push({ sheet, row, column: key, message: t('xls.err.notANumber'), blocking: true });
         continue;
       }
-      cells[k] = converted ?? v;
+      cells[key] = converted ?? value;
     }
-    if (any) rows.push({ n: i + 1, cells });
+    rows.push({ n: row, cells });
+  }
+  if (sheet === 'LoadData' && body.length
+    && (header.length !== LOAD_DATA_COLUMNS.length || header.some(value => !LOAD_DATA_COLUMNS.includes(str(value).toLowerCase())))) {
+    problems.push({ sheet, row: 1, message: t('xls.err.loadDataColumns'), blocking: true });
   }
   return rows;
 }
@@ -418,12 +419,13 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
 const SUPPORT_COMPONENTS = ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'drx', 'dry', 'drz'] as const;
 
 function planeSupportToModel(f: AxesFrame, s: Record<string, number>, row: number, problems: RowProblem[]): boolean {
+  const springs = planeSpringColumns(f);
   const h = userAxisAlong(f, 0).name.toLowerCase();
   const v = userAxisAlong(f, 2).name.toLowerCase();
   const normal = userAxisAlong(f, 1).name.toLowerCase();
   const p = quantityTransform(f, 'toModel');
   const fields = [
-    ['kx', 'k' + h, 1], ['ky', 'k' + v, 1], ['kz', 'kr' + normal, 1],
+    ['kx', springs.kx, 1], ['ky', springs.ky, 1], ['kz', springs.kz, 1],
     ['dx', 'd' + h, p.plane({ kind: 'vector', axis: 'x', value: 1 })],
     ['dz', 'd' + v, p.plane({ kind: 'vector', axis: 'z', value: 1 })],
     ['dry', 'dr' + normal, p.plane({ kind: 'pseudovector', axis: 'rot', value: 1 })],
@@ -462,10 +464,18 @@ function spatialSupportToModel(f: AxesFrame, s: Record<string, number>): void {
   }
 }
 
+const MOMENT_COLUMNS = ['mx', 'my', 'mz'] as const;
+
+function rejectLoadComponents(row: Row, columns: readonly string[], message: string, problems: RowProblem[]): boolean {
+  const outside = columns.filter(column => str(row.cells[column]) !== '' && num(row.cells[column]) !== 0);
+  for (const column of outside) problems.push({ sheet: 'Loads', row: row.n, column, message, blocking: true });
+  return outside.length > 0;
+}
+
 function readAxes(aoa: unknown[][], problems: RowProblem[]): AxesFrame | null {
   const rows = readSheet(aoa, AXES_SHEET, problems);
-  const headers = (aoa[0] ?? []).map(keyFromHeader);
-  if (rows.length !== 1 || ['up', 'right', 'hand'].some(key => headers.filter(h => h === key).length !== 1)) {
+  if (problems.some(problem => problem.blocking)) return null;
+  if (rows.length !== 1) {
     problems.push({ sheet: AXES_SHEET, row: rows[1]?.n ?? 1, message: t('xls.err.oneAxesDeclaration') });
     return null;
   }
@@ -488,6 +498,10 @@ function boxToModel(f: AxesFrame, region: MassWeight['region']): MassWeight['reg
  * tested without loading it.
  */
 export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult {
+  return parseWorkbookSheets(Object.keys(sheets), name => sheets[name]!);
+}
+
+export function parseWorkbookSheets(names: readonly string[], read: (name: string) => unknown[][]): ParseResult {
   const problems: RowProblem[] = [];
   const model = EMPTY_MODEL();
   const counts: Record<string, number> = {};
@@ -495,22 +509,26 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   const framedImport = globalAxes();
   const loadSheetNames = ['LoadData', 'SelfWeight'];
   const sheetKey = (name: string) => name.trim().toLowerCase();
-  const defined = new Set(SHEETS.map(s => sheetKey(s.name)));
-  if (framedImport) for (const name of [AXES_SHEET, ...loadSheetNames]) defined.add(sheetKey(name));
-  const names = Object.keys(sheets);
-  const unknownSheets = names.filter(name => !defined.has(sheetKey(name)) && sheetKey(name) !== 'instrucciones');
-
-  const matchingSheets = (name: string) => names.filter(candidate => sheetKey(candidate) === sheetKey(name));
-  for (const sheet of [AXES_SHEET, ...loadSheetNames]) {
-    if (matchingSheets(sheet).length <= 1) continue;
-    const message = sheet === AXES_SHEET ? t('xls.err.oneAxesDeclaration') : tp('xls.err.duplicateLoadSheet', { sheet });
-    problems.push({ sheet, row: 1, message, blocking: true });
+  const canonical = new Map(IMPORT_SHEET_NAMES.map(name => [sheetKey(name), name]));
+  const sheetIndex = new Map<string, string>();
+  const unknownSheets: string[] = [];
+  for (const name of names) {
+    const sheet = canonical.get(sheetKey(name));
+    if (!sheet || (!framedImport && [AXES_SHEET, ...loadSheetNames].includes(sheet))) {
+      if (sheetKey(name) !== sheetKey(INSTRUCTIONS_SHEET)) unknownSheets.push(name);
+    }
+    if (!sheet) continue;
+    if (sheetIndex.has(sheet)) {
+      problems.push({ sheet, row: 1, message: tp('xls.err.duplicateSheet', { sheet }), blocking: true });
+    } else {
+      sheetIndex.set(sheet, name);
+    }
   }
   if (problems.length) return { model, problems, unknownSheets, counts };
 
-  const grab = (name: string): unknown[][] => {
-    const [hit] = matchingSheets(name);
-    return hit ? sheets[hit] : [];
+  const grab = (sheet: string): unknown[][] => {
+    const name = sheetIndex.get(sheet);
+    return name === undefined ? [] : read(name);
   };
 
   /*
@@ -530,19 +548,22 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
    * every row, with missing coordinates filled as zero. A row with neither Y
    * nor Z is invalid; a nonempty coordinate must be numeric.
    */
-  const declaredAxes = matchingSheets(AXES_SHEET).length === 1;
+  const declaredAxes = sheetIndex.has(AXES_SHEET);
   const frame = declaredAxes ? readAxes(grab(AXES_SHEET), problems) : makeFrame(DEFAULT_AXES);
   if (!frame) return { model, problems, unknownSheets, counts };
   if (!framedImport) {
     if (!frame.identity) problems.push({ sheet: AXES_SHEET, row: 2, message: t('xls.err.axesDisabled') });
     for (const sheet of loadSheetNames) {
-      const dataRow = grab(sheet).findIndex((row, index) => index > 0 && row.some(cell => str(cell) !== ''));
+      const raw = grab(sheet);
+      const dataRow = raw.findIndex((row, index) => index > 0 && row.some(cell => str(cell) !== ''));
       if (dataRow !== -1) problems.push({ sheet, row: dataRow + 1, message: tp('xls.err.loadSheetDisabled', { sheet }) });
+      else readSheet(raw, sheet, problems);
     }
     if (problems.length) return { model, problems, unknownSheets, counts };
   }
   const { along, depth, height } = coordinateColumns(frame);
   const nodeRows = readSheet(grab('Nodes'), 'Nodes', problems);
+  if (nodeRows.length === 0 && problems.some(problem => problem.blocking)) return { model, problems, unknownSheets, counts };
   const flatFromZ = nodeRows.every((row) => str(row.cells[depth]) === '');
   const firstNode = idGuard('Nodes', problems);
   for (const row of nodeRows) {
@@ -772,6 +793,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     for (const k of ['angle', ...SUPPORT_COMPONENTS]) {
       const v = num(row.cells[k.toLowerCase()]);
       if (v !== null) extra[k] = v;
+    }
+    const rotation = num(row.cells[PLANE_SPRING_ROTATION.key]);
+    if (rotation !== null) {
+      const column = PLANE_SPRING_ROTATION.key;
+      if (declaredAxes || canonical !== 'spring' || extra.kz !== undefined) {
+        problems.push({ sheet: 'Supports', row: row.n, column, message: t('xls.err.planeSpringRotation'), blocking: true });
+        continue;
+      }
+      extra.kz = rotation;
     }
     if (declaredAxes && flatFromZ && !planeSupportToModel(frame, extra, row.n, problems)) continue;
     if (!flatFromZ && !frame.identity) spatialSupportToModel(frame, extra);
@@ -1032,7 +1062,8 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));
   let loadId = 1;
-  for (const row of readSheet(grab('Loads'), 'Loads', problems, declaredAxes)) {
+  const loads = grab('Loads');
+  for (const row of readSheet(loads, 'Loads', problems, declaredAxes)) {
     const rawType = str(row.cells.type);
     const type = LOAD_TYPES.find((t) => t.toLowerCase() === rawType.toLowerCase()) as
       | LoadTypeName
@@ -1100,12 +1131,8 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       const [mx, my, mz] = modelRotation(frame, moment).map(v => v + 0);
       if (type === 'nodal') {
         const userName = (axis: 0 | 1 | 2) => userAxisAlong(frame, axis).name.toLowerCase();
-        const outside = [[fy, 'f' + userName(1)], [mx, 'm' + userName(0)], [mz, 'm' + userName(2)]] as const;
-        const invalid = outside.filter(([value]) => value !== 0);
-        if (invalid.length) {
-          for (const [, column] of invalid) problems.push({ sheet: 'Loads', row: row.n, column, message: t('xls.err.nodalOutOfPlane'), blocking: true });
-          continue;
-        }
+        const outside = ['f' + userName(1), 'm' + userName(0), 'm' + userName(2)];
+        if (rejectLoadComponents(row, outside, t('xls.err.nodalOutOfPlane'), problems)) continue;
         const planeMoment = quantityTransform(frame, 'toModel').plane({
           kind: 'pseudovector', axis: 'rot', value: n('m' + userName(1)),
         });
@@ -1124,8 +1151,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
          * (canonicalLoadFz is `fz ?? fy ?? 0`), so the column is honoured
          * here the same way rather than dropped.
          */
-        const fz2d = num(row.cells.fz) ?? num(row.cells.fy) ?? 0;
-        Object.assign(data, { fz: fz2d, my: n('mz') });
+        const fz = num(row.cells.fz);
+        const outside = fz === null ? ['mx', 'my'] : ['mx', 'my', 'fy'];
+        if (rejectLoadComponents(row, outside, t('xls.err.nodalOutOfPlane'), problems)) continue;
+        Object.assign(data, { fz: fz ?? n('fy'), my: n('mz') });
       }
     } else {
       data.elementId = target;
@@ -1188,14 +1217,29 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
           }
         }
       } else if (type === 'pointOnElement') {
-        const dir = framedImport ? str(row.cells.dir).toLowerCase() : '';
-        if (dir && dir !== 'local' && dir !== 'global') {
-          problems.push({ sheet: 'Loads', row: row.n, column: 'dir', message: tp('xls.err.dirUnknown', { v: dir, list: 'global, local' }) });
-          continue;
+        const start = problems.length;
+        const direction = str(row.cells.dir).toLowerCase();
+        const directions = framedImport ? ['local', 'global'] : ['local'];
+        if (direction && !directions.includes(direction)) {
+          problems.push({
+            sheet: 'Loads', row: row.n, column: 'dir',
+            message: tp('xls.err.dirUnknown', { v: direction, list: directions.join(', ') }), blocking: true,
+          });
         }
-        const global = dir === 'global';
+        const moment = framedImport ? 'm' + userAxisAlong(frame, 1).name.toLowerCase() : null;
+        const outside = MOMENT_COLUMNS.filter(column => column !== moment);
+        rejectLoadComponents(row, outside, t('xls.err.pointMomentUnsupported'), problems);
+        const allowed = new Set(['type', 'case', 'member', 'p', 'a', 'dir', ...MOMENT_COLUMNS, ...(framedImport ? ['angle', 'px'] : [])]);
+        for (const [column, value] of Object.entries(row.cells)) {
+          if (!allowed.has(column) && str(value) !== '') {
+            problems.push({ sheet: 'Loads', row: row.n, column, message: tp('xls.err.populatedColumn', { k: column }), blocking: true });
+          }
+        }
+        if (problems.length !== start) continue;
+
+        const global = direction === 'global';
         const px = framedImport ? num(row.cells.px) : null;
-        const my = framedImport ? num(row.cells[`m${userAxisAlong(frame, 1).name.toLowerCase()}`]) : null;
+        const my = moment ? num(row.cells[moment]) : null;
         Object.assign(data, {
           p: global ? transverse(n('p')) : n('p'), a: n('a'),
           ...(global ? { isGlobal: true } : {}),
@@ -1209,11 +1253,15 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
     model.loads.push({ type, data });
   }
-  if (framedImport && grab('LoadData').length > 1) {
-    if (grab('Loads').length > 1) {
+  const rawLoadData = framedImport ? grab('LoadData') : [];
+  const loadData = readSheet(rawLoadData, 'LoadData', problems);
+  if (rawLoadData.length > 1) {
+    if (loads.length > 1) {
       problems.push({ sheet: 'LoadData', row: 1, message: 'Use either Loads or LoadData, not both.' });
       model.loads = [];
-    } else model.loads = readLoadData(grab('LoadData'), frame, flatFromZ ? '2d' : 'pro', model, problems, unitFactor);
+    } else if (!problems.some(problem => problem.sheet === 'LoadData' && problem.blocking)) {
+      model.loads = readLoadData(loadData, frame, flatFromZ ? '2d' : 'pro', model, problems, unitFactor);
+    }
   }
   counts.Loads = model.loads.length;
 

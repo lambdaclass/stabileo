@@ -22,7 +22,7 @@ import { t } from '../i18n';
 import { shouldProjectModelToXZ } from '../geometry/coordinate-system';
 import { fixtureLoadCases, loadFixture } from '../templates/load-fixture';
 import { defaultCombinations, defaultLoadCases } from '../model/default-loads';
-import { parseWorkbook, type ParseResult } from './parse';
+import { parseWorkbook, parseWorkbookSheets, type ParseResult } from './parse';
 import { unzipSync } from 'fflate';
 
 export interface ImportOutcome extends ParseResult {
@@ -40,8 +40,10 @@ export interface ImportOutcome extends ParseResult {
  * either way, which is what the caller shows.
  */
 export function applyWorkbook(sheets: Record<string, unknown[][]>): ImportOutcome {
-  const parsed = parseWorkbook(sheets);
+  return installWorkbook(parseWorkbook(sheets));
+}
 
+function installWorkbook(parsed: ParseResult): ImportOutcome {
   const refused = parsed.problems.some(problem => problem.blocking || ['Axes', 'LoadData', 'SelfWeight'].includes(problem.sheet));
   if (refused || parsed.model.nodes.length === 0) {
     return { ...parsed, loaded: { nodes: 0, elements: 0, sections: 0 } };
@@ -144,24 +146,9 @@ export async function importExcelFile(file: File): Promise<ImportOutcome | null>
   const bytes = new Uint8Array(await file.arrayBuffer());
   checkWorkbookArchive(bytes);
   const wb = XLSX.read(bytes, { type: 'array' });
-  // No prototype: sheet names are the file's, and a sheet called `__proto__` assigned into a
-  // plain object would replace that object's prototype instead of adding a key.
-  const sheets: Record<string, unknown[][]> = Object.create(null);
-  for (const name of wb.SheetNames) {
-    /*
-     * `header: 1` gives arrays rather than objects keyed by header, which is
-     * what lets a duplicate or blank header be reported instead of silently
-     * overwriting its twin. `defval: ''` keeps the columns aligned: without
-     * it a row whose middle cells are empty comes back short, and every value
-     * after the gap lands under the wrong key.
-     */
-    sheets[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], {
-      header: 1,
-      defval: '',
-      blankrows: false,
-    }) as unknown[][];
-  }
-  return applyWorkbook(sheets);
+  return installWorkbook(parseWorkbookSheets(wb.SheetNames, name =>
+    XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', blankrows: false }) as unknown[][],
+  ));
 }
 
 /**

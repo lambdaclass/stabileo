@@ -2,13 +2,6 @@ import { loadFieldUnit } from '../model/load-field-unit';
 /**
  * The model sheets of the project workbook.
  *
- * Where the importer has a sheet (`excel-import/schema.ts`), this writes it under the importer's
- * name and column keys, units in brackets, so the model part of an exported workbook opens in the
- * importer. What the importer does not read is added as further columns it skips: the releases
- * about each axis, member offsets, local axes, shear areas, restraints as solved. Loads have
- * more fields than the importer's fixed columns carry, so they go to a long sheet of their own,
- * one row per field, under a name the importer does not read.
- *
  * Section properties are the ones the engine was given (`buildSolverInput3D`), which for a
  * section with a drawn or catalogue geometry are its polygons' rather than the declared values:
  * the workbook records what was solved.
@@ -22,7 +15,7 @@ import type { MassSource, PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 import { AXIS_NAMES, planeSigns, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
 import { axisToUser, boxToUser, flagsToUser, isPlaneWorkbook, modelToUser, workbookFrame } from './workbook-frame';
-import { AXES_SHEET } from '../excel-import/schema';
+import { AXES_SHEET, LOAD_DATA_COLUMNS, PLANE_SPRING_ROTATION, headerFor, planeSpringColumns } from '../excel-import/schema';
 import { caseNameIn, combinationNameIn } from '../axes/case-names';
 
 export interface WorkbookModel extends ModelData {
@@ -95,21 +88,28 @@ function sectionsSheet(m: WorkbookModel, solved: SolverInput3D | null): Workbook
 function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [[
     'node', 'type', 'angle [°]', 'kx [kN/m]', 'ky [kN/m]', 'kz [kN/m]', 'krx [kN·m/rad]', 'kry [kN·m/rad]', 'krz [kN·m/rad]', 'dx [m]', 'dy [m]', 'dz [m]',
-    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]',
+    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]', headerFor(PLANE_SPRING_ROTATION),
   ]];
   const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
+  const planeSprings = plane && f ? planeSpringColumns(f) : null;
   const byNode = new Map([...(solved?.supports.values() ?? [])].map((s) => [s.nodeId, s]));
   for (const s of [...m.supports.values()].sort((a, c) => a.nodeId - c.nodeId || a.id - c.id)) {
     const r = byNode.get(s.nodeId);
     const t = r ? (f ? flagsToUser(f, [r.rx, r.ry, r.rz]) : [r.rx, r.ry, r.rz]) : null;
     const q = r ? (f ? flagsToUser(f, [r.rrx, r.rry, r.rrz]) : [r.rrx, r.rry, r.rrz]) : null;
-    const spring = plane ? AXIS_NAMES.map(axis => opt(axis === plane.h ? s.kx : axis === plane.v ? s.ky : undefined)) : [opt(s.kx), opt(s.ky), opt(s.kz)];
-    const rotationalSpring = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.kz : undefined)) : [opt(s.krx), opt(s.kry), opt(s.krz)];
+    const unframedPlaneSpring = !f && s.type === 'spring' && !s.dofRestraints;
+    let spring = [opt(s.kx), opt(s.ky), opt(unframedPlaneSpring ? undefined : s.kz)];
+    let rotationalSpring = [opt(s.krx), opt(s.kry), opt(s.krz)];
+    if (planeSprings) {
+      const values = new Map([[planeSprings.kx, opt(s.kx)], [planeSprings.ky, opt(s.ky)], [planeSprings.kz, opt(s.kz)]]);
+      spring = AXIS_NAMES.map(axis => values.get('k' + axis.toLowerCase()) ?? '');
+      rotationalSpring = AXIS_NAMES.map(axis => values.get('kr' + axis.toLowerCase()) ?? '');
+    }
     const settlement = plane ? AXIS_NAMES.map(axis => opt(axis === plane.h ? s.dx : axis === plane.v ? s.dz ?? s.dy : undefined)) : [opt(s.dx), opt(s.dy), opt(s.dz)];
     const rotation = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.dry ?? s.drz : undefined)) : [opt(s.drx), opt(s.dry), opt(s.drz)];
     rows.push([
       s.nodeId, f ? supportTypeIn(f, s.type, plane === null) : s.type, opt(s.angle), ...spring, ...rotationalSpring, ...settlement,
-      t ? b(t[0]) : '', t ? b(t[1]) : '', t ? b(t[2]) : '', q ? b(q[0]) : '', q ? b(q[1]) : '', q ? b(q[2]) : '', b(s.uplift), ...rotation,
+      t ? b(t[0]) : '', t ? b(t[1]) : '', t ? b(t[2]) : '', q ? b(q[0]) : '', q ? b(q[1]) : '', q ? b(q[2]) : '', b(s.uplift), ...rotation, opt(unframedPlaneSpring ? s.kz : undefined),
     ]);
   }
   return { name: 'Supports', rows };
@@ -179,7 +179,7 @@ function massSourceSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet |
  * is mostly blank cells nobody can tell from zeros.
  */
 function loadsSheet(m: WorkbookModel): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [['load', 'case', 'type', 'node', 'member', 'shell', 'field', 'value', 'unit']];
+  const rows: WorkbookSheet['rows'] = [[...LOAD_DATA_COLUMNS]];
   m.loads.forEach((l, i) => {
     const d = l.data as unknown as Record<string, unknown>;
     const node = typeof d.nodeId === 'number' ? d.nodeId : '';
