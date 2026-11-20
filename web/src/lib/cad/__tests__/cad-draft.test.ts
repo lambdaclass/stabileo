@@ -358,3 +358,20 @@ describe('generateRcDraft — the draft solves', () => {
     }
   });
 });
+
+const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
+
+issue2409.each([
+  { meshMode: 'fixedDivisions' },
+  { meshMode: 'targetSize', meshTargetSize: 0 },
+] as const)('known wrong result: #2409 a CAD draft shares its slab and wall stations in $meshMode mode', options => {
+  const draft = generateRcDraft(fixturePlan(), assumptions(options), SOURCE);
+  const model = snapshotToModelShape(draft.snapshot);
+  const ids = (quads: typeof draft.snapshot.quads) => new Set((quads ?? []).flatMap(([, q]) => q.nodes)
+    .filter(id => model.nodes.get(id)!.z === 3 && model.nodes.get(id)!.y === 2.1));
+  const slabs = ids(draft.snapshot.quads!.slice(0, draft.counts.slabQuads));
+  const walls = ids(draft.snapshot.quads!.slice(draft.counts.slabQuads));
+  expect(slabs.size).toBeGreaterThan(2);
+  expect(slabs).toEqual(walls);
+  expect(buildSolverInput3D(model as never)).not.toBeNull();
+});
