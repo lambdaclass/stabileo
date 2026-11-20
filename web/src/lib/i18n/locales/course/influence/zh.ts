@@ -62,6 +62,7 @@ const words: Translations = {
   "course.influence.load.drawEnvelope": "在杆件上绘制包络图",
   "course.influence.load.hideEnvelope": "隐藏包络图",
   "course.influence.load.drawing": "计算中…",
+  "course.influence.load.envelopeTitle": "影响线包络图（{q}）",
   "course.influence.load.envelopeNote": "每个截面都按各自的影响线加载。红色曲线为最大值，蓝色曲线为最小值；M 绘制在受拉侧。",
   "course.influence.states.title": "荷载工况与包络图",
   "course.influence.states.help": "把荷载分成若干工况（恒载、活载、风荷载），按系数组合，并查看包络图：即每个截面在所有组合中的最大值和最小值。它还显示每根杆件由哪个组合控制。",

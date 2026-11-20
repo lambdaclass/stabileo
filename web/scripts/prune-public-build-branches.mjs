@@ -5,7 +5,7 @@ export function prunePublicBuildBranches(content, features) {
   const unknown = Symbol();
   const changes = [];
   function value(node) {
-    const key = /^__PUBLIC_FEATURES__\.(accounts|research|tools|diagramGame)$/.exec(content.slice(node.start, node.end));
+    const key = /^__PUBLIC_FEATURES__\.(accounts|research|tools|diagramGame|globalAxes)$/.exec(content.slice(node.start, node.end));
     if (key) return features[key[1]];
     if (node.type === 'Literal') return node.value;
     if (node.type === 'UnaryExpression' && node.operator === '!') {

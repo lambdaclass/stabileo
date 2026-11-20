@@ -1,4 +1,8 @@
 <script lang="ts">
+  import ModalResultsTable from './dynamics/ModalResultsTable.svelte';
+  import { caseNameShown } from '../../lib/axes/case-names';
+  import { axisName, signedModelName } from '../../lib/axes/display';
+  import { axisNamesIn, planNamesIn } from '../../lib/axes/typed-frame';
   import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueResultDisposition } from '../../lib/engine/known-issues';
   import Hint from './Hint.svelte';
@@ -19,7 +23,7 @@
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
   import {
-    densityRecord, spectralModesFrom, cumulativeMassRatios, HORIZONTAL_DIRECTIONS, modalUntilMass,
+    densityRecord, spectralModesFrom, HORIZONTAL_DIRECTIONS, modalUntilMass,
   } from '../../lib/engine/dynamics/requests';
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
@@ -237,9 +241,9 @@
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
-  let modalAutoNote = $state<string | null>(null);
+  let modalAutoSummary = $state<{ kind: 'mass'; reached: boolean; modes: number; x: number; y: number } | { kind: 'constrained' } | null>(null);
+  const modalAutoNote = $derived(modalAutoSummary === null ? null : modalAutoSummary.kind === 'constrained' ? t('pro.modalAutoConstrained') : planNamesIn(tp(modalAutoSummary.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: modalAutoSummary.modes, x: (modalAutoSummary.x * 100).toFixed(1), y: (modalAutoSummary.y * 100).toFixed(1) })));
 
-  const modalCum = $derived(cumulativeMassRatios(modalResult?.modes ?? []));
   /*
    * With constraints (rigid links, diaphragms — the building examples have 28), the engine reduces
    * the influence vector as if it were a force, C^T·r, where a rigid translation needs the r_s with
@@ -255,7 +259,7 @@
   function forgetModal() {
     modalResult = null;
     modalModelVersion = null;
-    modalAutoNote = null;
+    modalAutoSummary = null;
     spectralResult = null;
     const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
     advancedResults = rest;
@@ -273,14 +277,14 @@
       let res: any;
       const t0 = performance.now();
       modalConstrained = (input.constraints?.length ?? 0) > 0;
-      modalAutoNote = null;
+      modalAutoSummary = null;
       if (modalAuto && !modalConstrained) {
         const r = modalUntilMass((n) => wasmModal3D(input, densities, n), numModes);
         res = r.result;
-        if (typeof res !== 'string') modalAutoNote = tp(r.reached ? 'pro.modalAutoReached' : 'pro.modalAutoShort', { n: r.modes, x: (r.x * 100).toFixed(1), y: (r.y * 100).toFixed(1) });
+        if (typeof res !== 'string') modalAutoSummary = { kind: 'mass', reached: r.reached, modes: r.modes, x: r.x, y: r.y };
       } else {
         res = wasmModal3D(input, densities, numModes);
-        if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
+        if (modalAuto) modalAutoSummary = { kind: 'constrained' };
       }
       const elapsed = performance.now() - t0;
       if (typeof res === 'string') { forgetModal(); solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(res, t('pro.unknownError')), t) }); solving = false; return; }
@@ -299,7 +303,7 @@
             participationX: m.participationX ?? m.partX,
             participationY: m.participationY ?? m.partY,
             participationZ: m.participationZ ?? m.partZ,
-            massRatioX: m.massRatioX, massRatioY: m.massRatioY,
+            massRatioX: m.massRatioX, massRatioY: m.massRatioY, massRatioZ: m.massRatioZ,
           }),
         }));
         advancedResults = { ...advancedResults, modal: { disposition: containment, modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
@@ -621,7 +625,7 @@
       const base = buildInput({ caseDisplacements: true });
       // Loads that would move nothing are refused, not solved and shown as the imperfect structure.
       const refusal = notionalLoadsRefusal(base, imperfRatio, imperfDir);
-      if (refusal) throw new Error(t(refusal === 'noGravity' ? 'adv.imperfNoGravity' : 'adv.imperfRestrained').replace('{dir}', imperfDir));
+      if (refusal) throw new Error(axisNamesIn(t(refusal === 'noGravity' ? 'adv.imperfNoGravity' : 'adv.imperfRestrained')).replace('{dir}', signedModelName(imperfDir === 'X' ? 0 : 1, 1)));
       const { input: withN, totalH } = withNotionalLoads(base, imperfRatio, imperfDir);
       // Shown in this panel only; see `handleStaged` for why it is not published.
       imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
@@ -1114,7 +1118,7 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
-      <Hint text={t('adv.help.modal')} />
+      <Hint text={axisNamesIn(t('adv.help.modal'))} />
       {#each knownIssueResultDisposition(modalResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if modalResult && !knownIssueResultDisposition(modalResult).refused}
         <ModalCertificate result={resultsStore.modalResult3D ?? modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
@@ -1126,31 +1130,9 @@
         {#if modalConstrained}<div class="adv-hint" data-testid="modal-constrained">{t('pro.modalConstrained')}</div>{/if}
         {#if modalAutoNote}<div class="adv-hint" data-testid="modal-auto-note">{modalAutoNote}</div>{/if}
         <ProRecordVideo testid="modal-record" />
-        <div class="adv-table-scroll">
-          <table class="adv-table modal-table">
-            <thead><tr><th>{t('adv.mode')}</th><th>f (Hz)</th><th>T (s)</th><th>{t('adv.participationAbbr')} X</th><th>{t('adv.participationAbbr')} Y</th><th>{t('adv.participationAbbr')} Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead>
-            <tbody>
-              {#each modalResult.modes as mode, i}
-                <tr class="adv-mode-row" class:adv-mode-on={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                  title={t('pro.showMode')} data-testid="adv-modal-row-{i}">
-                  <td class="col-id"><button class="mode-select" aria-label={`${t('pro.showMode')} ${i + 1}`} aria-pressed={resultsStore.diagramType === 'modeShape' && resultsStore.activeModeIndex === i}
-                    onclick={() => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }}>{i + 1}</button></td>
-                  <td class="col-num">{fmtNum(mode.frequency)}</td>
-                  <td class="col-num">{fmtNum(mode.period)}</td>
-                  {#if modalConstrained}
-                    <td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td><td class="col-num">—</td>
-                  {:else}
-                  <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
-                  <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
-                  <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
-                  <td class="col-num" class:cum-warn={modalCum.x[i] < 0.9} class:cum-ok={modalCum.x[i] >= 0.9}>{(modalCum.x[i] * 100).toFixed(1)}%</td>
-                  <td class="col-num" class:cum-warn={modalCum.y[i] < 0.9} class:cum-ok={modalCum.y[i] >= 0.9}>{(modalCum.y[i] * 100).toFixed(1)}%</td>
-                  {/if}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+        <ModalResultsTable modes={modalResult.modes} withheld={modalConstrained}
+          activeMode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : undefined}
+          selectMode={(i) => { resultsStore.activeModeIndex = i; resultsStore.diagramType = 'modeShape'; }} />
       {/if}
     </div>
 
@@ -1214,13 +1196,13 @@
       {#each knownIssueResultDisposition(spectralResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if spectralResult && !knownIssueResultDisposition(spectralResult).refused}
         <div class="adv-inline" data-testid="spectral-base-shear">
-          Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
+          Vb: {axisName(0)}={fmtNum(spectralResult.X?.baseShear ?? 0)}, {axisName(1)}={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
-        <SpectralCertificate result={spectralResult.X} label="X" />
-        <SpectralCertificate result={spectralResult.Y} label="Y" />
+        <SpectralCertificate result={spectralResult.X} label={axisName(0)} />
+        <SpectralCertificate result={spectralResult.Y} label={axisName(1)} />
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>{t('adv.mode')}</th><th>T (s)</th><th>Sa (g)</th><th>Vb X (kN)</th><th>Vb Y (kN)</th></tr></thead>
+            <thead><tr><th>{t('adv.mode')}</th><th>T (s)</th><th>Sa (g)</th><th>Vb {axisName(0)} (kN)</th><th>Vb {axisName(1)} (kN)</th></tr></thead>
             <tbody>
               {#each (spectralResult.X?.perMode ?? []) as pm, i}
                 <tr>
@@ -1316,7 +1298,7 @@
           <label class="adv-label">f max (Hz): <input type="number" class="adv-num" bind:value={harmFMax} min={0.1} max={500} step={1} /></label>
           <label class="adv-label">{t('adv.points')}: <input type="number" class="adv-num" bind:value={harmNPoints} min={10} max={2000} step={10} /></label>
           <label class="adv-label">&#x03BE;: <input type="number" class="adv-num" bind:value={harmDamping} min={0} max={1} step={0.01} /></label>
-          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={harmDir}><option value="X">X</option><option value="Y">Y</option><option value="Z">Z</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={harmDir}><option value="X">{axisName(0)}</option><option value="Y">{axisName(1)}</option><option value="Z">{axisName(2)}</option></select></label>
           <!-- The sweep is read at ONE node: without it the engine has nothing to report. -->
           <label class="adv-label">{t('pro.responseNode')}:
             <select class="adv-sel" bind:value={harmNodeId}>
@@ -1371,9 +1353,9 @@
               </select>
             </label>
             {#if pushPattern === 'case'}
-              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select>
+              <select class="adv-sel" bind:value={pushCase}>{#each modelStore.model.loadCases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}</select>
             {:else if pushPattern !== 'loads'}
-              <select class="adv-sel" bind:value={pushDir} data-testid="push-dir"><option value="X">X</option><option value="Y">Y</option></select>
+              <select class="adv-sel" bind:value={pushDir} data-testid="push-dir"><option value="X">{signedModelName(0, 1)}</option><option value="Y">{signedModelName(1, 1)}</option></select>
             {/if}
             <label class="adv-label">{t('pushover.target')}:
               <select class="adv-sel" bind:value={pushTargetKind} data-testid="push-target-kind">
@@ -1429,7 +1411,7 @@
       <div class="adv-panel">
         <div class="adv-form">
           <label class="adv-label">{t('pro.imperfRatio')}: <input type="number" class="adv-num adv-num-wide" bind:value={imperfRatio} min={0.0001} max={0.1} step={0.0005} /></label>
-          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={imperfDir}><option value="X">X</option><option value="Y">Y</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={imperfDir}><option value="X">{signedModelName(0, 1)}</option><option value="Y">{signedModelName(1, 1)}</option></select></label>
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
@@ -1510,7 +1492,7 @@
               {#each nodeIds as nid}<option value={nid}>{nid}</option>{/each}
             </select>
           </label>
-          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={ssiDirection}><option value="Y">Y</option><option value="Z">Z</option></select></label>
+          <label class="adv-label">{t('adv.direction')}: <select class="adv-sel" bind:value={ssiDirection}><option value="Y">{axisName(1)}</option><option value="Z">{axisName(2)}</option></select></label>
           <label class="adv-label">{t('pro.ssiCurve')}:
             <select class="adv-sel" bind:value={ssiCurveType}>
               <option value="softClay">{t('pro.softClay')}</option>
@@ -1631,7 +1613,7 @@
               <span class="adv-label">{t('adv.stageCases')}:
                 {#each modelStore.model.loadCases as lc (lc.id)}
                   <label class="adv-check"><input type="checkbox" checked={stage.caseIds.includes(lc.id)}
-                    onchange={(e) => { const on = (e.target as HTMLInputElement).checked; stage.caseIds = on ? [...stage.caseIds, lc.id] : stage.caseIds.filter((c) => c !== lc.id); stages = [...stages]; }} /> {lc.name}</label>
+                    onchange={(e) => { const on = (e.target as HTMLInputElement).checked; stage.caseIds = on ? [...stage.caseIds, lc.id] : stage.caseIds.filter((c) => c !== lc.id); stages = [...stages]; }} /> {caseNameShown(lc)}</label>
                 {/each}
               </span>
             </div>
@@ -1710,7 +1692,7 @@
               <option value="moment">My</option>
               <option value="shear">Vz</option>
               <option value="axial">N</option>
-              <option value="reaction">Rz</option>
+              <option value="reaction">R{axisName(2).toLowerCase()}</option>
             </select>
           </label>
           <!-- Internal forces are read at a point ON a member; a reaction is
@@ -2075,9 +2057,6 @@
   .modal-group .adv-check { display: flex; align-items: center; }
   .modal-group .adv-row { flex-wrap: wrap; }
   .mode-select { min-width: 44px; min-height: 44px; font-size: 12px; cursor: pointer; color: inherit; background: transparent; border: 1px solid var(--st-hair); border-radius: 3px; }
-  .adv-table.modal-table th, .adv-table.modal-table td { font-size: 12px; padding: 3px 1px; overflow-wrap: anywhere; }
-  .modal-table { table-layout: fixed; }
-  .modal-table th:first-child { width: 46px; }
 
   .adv-table-scroll {
     max-width: 100%;

@@ -112,16 +112,16 @@ describe('a 2D point load on a member names every component', () => {
     const e = modelStore.addElement(a, b);
     modelStore.addPointLoadOnElement(e, 1.5, -10, { px: 2, my: 5 });
     const l = modelStore.loads.find((x) => x.type === 'pointOnElement')!;
-    expect(pointOnElementText(l.data as never, words)).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
+    expect(pointOnElementText(l.data as never, words, 'SI', [1, 0])).toBe('P=-10 kN, Px=2 kN, My=5 kN·m, a=1.5 m');
   });
 
-  it('rounded, with the legacy moment alias, the angle and the axes', () => {
-    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words))
-      .toBe('P=0.3333 kN, My=1 kN·m, a=0.6667 m, θ=45°, global axes');
+  it('rounded global components include the legacy moment alias and the axes', () => {
+    expect(pointOnElementText({ a: 2 / 3, p: 1 / 3, mz: 1, angle: 45, isGlobal: true }, words, 'SI', [1, 0]))
+      .toBe('Px=0.2357 kN, Pz=0.2357 kN, My=1 kN·m, a=0.6667 m, global axes');
   });
 
   it('a load with every component zero gives nothing, which the dialog says in words', () => {
-    expect(pointOnElementText({ a: 1, p: 0 }, words)).toBe('');
+    expect(pointOnElementText({ a: 1, p: 0 }, words, 'SI', [1, 0])).toBe('');
   });
 });
 

@@ -8,7 +8,9 @@ import reactionRecoveryChange from '../result-changes/arc-length-reactions.json'
 import { fieldCovered } from '../../../../scripts/results-snapshot/applicability.mjs';
 import { RESULT_CHANGES } from '../full-registry';
 import declaredQuantities from 'virtual:result-change-quantities';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { featuresForMode } from '../../../../config/public-features.mjs';
+import { GRAVITY_SELF_WEIGHT } from '../../engine/analysis-settings';
 import { assessProject, conditionHolds } from '../applicability';
 import { modelFeatures, type FeatureSnapshot } from '../model-features';
 import { RESULTS_VERSION, type ResultChangeRegistry } from '../registry';
@@ -1119,5 +1121,33 @@ it('#2074: release basis notice covers spatial releases and excludes planar and 
       expect(ids(snapshot, before).includes(entry.id)).toBe(analysisMode === 'pro' && released);
       expect(ids(snapshot, { ...before, resultsVersion: entry.resultsVersion })).not.toContain(entry.id);
     }
+  }
+});
+
+it.each(['production', 'test'] as const)('#2364 uses stable self-weight and settlement evidence in the %s build', mode => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(mode));
+  try {
+    const base = model({ analysisMode: '2d', supports: [[1, { nodeId: 1, type: 'fixed', drz: 0 }]] });
+    const changeIds = ['exact-plane-self-weight', 'workbook-support-rotations', 'global-axes-inputs'];
+    const relevant = (snapshot: FeatureSnapshot) => ids(snapshot).filter(id => changeIds.includes(id));
+
+    const marked = { ...base, loadCases: [{ id: 1, type: 'D', axisNamed: true }] };
+    const withToggle = { ...marked, includeSelfWeight: true };
+    const withRule = { ...marked, analysis: { selfWeight: [{ caseId: 1, ...GRAVITY_SELF_WEIGHT }] } };
+    const withRotation: FeatureSnapshot = {
+      ...marked, supports: [[1, { nodeId: 1, type: 'fixed', drz: Math.PI / 180 }]],
+    };
+    const axesIds = mode === 'test' ? ['global-axes-inputs'] : [];
+    expect(relevant(base)).toEqual([]);
+    expect(modelFeatures(withToggle)).toContain('selfWeight');
+    expect(modelFeatures(withRule)).toContain('selfWeight');
+    expect(modelFeatures(withRotation)).toContain('settlements');
+    expect(modelFeatures(marked)).not.toContain('settlements');
+    expect(relevant(marked)).toEqual(axesIds);
+    expect(relevant(withToggle)).toEqual(axesIds);
+    expect(relevant(withRule)).toEqual(axesIds);
+    expect(relevant(withRotation)).toEqual(mode === 'test' ? [...axesIds, 'workbook-support-rotations'] : []);
+  } finally {
+    vi.unstubAllGlobals();
   }
 });

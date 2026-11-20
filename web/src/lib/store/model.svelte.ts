@@ -1,4 +1,6 @@
+import { globalAxes } from '../features';
 import type { SupportType } from '../model/support-types';
+import { caseNameShown, combinationNameShown } from '../axes/case-names';
 import { te } from '../i18n/engine-text';
 import type { NonlinearSolveOptions } from '../engine/solver-pool';
 import { migrateDesignData } from '../model/design-data';
@@ -802,6 +804,8 @@ export interface LoadCase {
   reduction?: { ratio: number; tributaryAreaM2: number; elementKind: string; floorsSupported: number; occupancyKey?: string };
   /** A response spectrum as this case's result (`engine/spectral-case.ts`): no loads of its own. */
   spectral?: import('../engine/spectral-case').SpectralCaseDef;
+  /** Named by Stabileo with model axis letters ("Viento +X"): shown in the user's (`axes/case-names.ts`) until renamed. */
+  axisNamed?: boolean;
 }
 
 export interface LoadCombination {
@@ -815,6 +819,8 @@ export interface LoadCombination {
   method?: 'linear' | 'srss' | 'abs';
   /** The code, edition, rule and purpose of a generated combination: what design reads to know it is its own. */
   origin?: import('../codes/families/origin').CombinationOrigin;
+  /** Renamed by the user: a generated combination's name is otherwise shown in the user's axes (`axes/case-names.ts`). */
+  nameTyped?: boolean;
 }
 
 /**
@@ -4418,7 +4424,7 @@ function createModelStore() {
     updateLoadCase(id: number, name: string): void {
       if (!_undoBatching) _pushUndo?.();
       const lc = model.loadCases.find(c => c.id === id);
-      if (lc) lc.name = name;
+      if (lc && caseNameShown(lc) !== name) { lc.name = name; delete lc.axisNamed; }
     },
 
     updateLoadCaseType(id: number, type: LoadCaseType): void {
@@ -4448,7 +4454,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const combo = model.combinations.find(c => c.id === id);
       if (!combo) return;
-      if (data.name !== undefined) combo.name = data.name;
+      if (data.name !== undefined && data.name !== combinationNameShown(combo)) { combo.name = data.name; if (combo.origin) combo.nameTyped = true; }
       if (data.factors !== undefined) {
         // Factors edited by hand make the combination the user's: "replace generated loads" takes
         // back only what a code wrote, and deleted the edit with it. It keeps its purpose, so a
@@ -5104,4 +5110,24 @@ export function findPlannedCase<C extends Pick<LoadCase, 'id' | 'type' | 'name' 
       : cases.find((c) => c.type === type && c.name === name && open(c)));
 }
 
-export const modelStore = createModelStore();
+function withAxisNamedCases(store: ReturnType<typeof createModelStore>) {
+  const add = store.addLoadCase.bind(store), ensure = store.ensureLoadCase.bind(store);
+  const mark = (id: number, axisNamed: boolean | undefined) => {
+    const c = store.model.loadCases.find(c => c.id === id);
+    if (globalAxes() && axisNamed && c && /(?<![A-Za-z])[XYZ](?![A-Za-z])/.test(c.name)) c.axisNamed = true;
+    return id;
+  };
+  return Object.assign(store, {
+    markLoadCaseAxisNamed(id: number): void { mark(id, true); },
+    addLoadCase(name: string, type: LoadCaseType = '', opts: Parameters<typeof store.addLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      return mark(add(name, type, opts), opts.axisNamed);
+    },
+    ensureLoadCase(name: string, type: LoadCaseType, opts: Parameters<typeof store.ensureLoadCase>[2] & { axisNamed?: boolean } = {}): number {
+      const found = findPlannedCase(store.model.loadCases, name, type, opts);
+      const id = ensure(name, type, opts);
+      return found ? id : mark(id, opts.axisNamed);
+    },
+  });
+}
+
+export const modelStore = withAxisNamedCases(createModelStore());

@@ -30,3 +30,12 @@ it('packs a fully translated notice without a research translation', () => {
   const { hu: _explanation, ...explanation } = entry.explanation;
   expect(packNotice({ ...entry, title, explanation })).toMatch(/^export default "[A-Za-z0-9+/=]+";$/);
 });
+
+it('the shipped result-change notices include Chinese copy', async () => {
+  const { RESULT_CHANGES } = await import('../full-registry');
+  for (const id of ['exact-plane-self-weight', 'fixture-replay-and-framed-import', 'global-axes-inputs', 'workbook-support-rotations']) {
+    const entry = RESULT_CHANGES.changes.find(change => change.id === id);
+    expect(entry?.title.zh?.trim()).toBeTruthy();
+    expect(entry?.explanation.zh?.trim()).toBeTruthy();
+  }
+});

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { planNamesIn } from '../../../lib/axes/typed-frame';
   import Hint from '../Hint.svelte';
   /**
    * Mesh one plate or many (`store/physical-plates.ts`): the settings they share, a plan of each
@@ -117,7 +118,7 @@
           <label>{t('plates.orient')}
             <select bind:value={orient} data-testid="plate-mesh-orient">
               <option value="plate">{t('plates.orientPlate')}</option>
-              <option value="globalX">{t('plates.orientX')}</option>
+              <option value="globalX">{planNamesIn(t('plates.orientX'))}</option>
             </select>
           </label>
         {/if}

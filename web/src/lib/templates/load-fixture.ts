@@ -85,10 +85,10 @@ export interface FixtureLoader {
   updateElementMaterial(elemId: number, matId: number): void;
   updateElementSection(elemId: number, secId: number): void;
   // 2D loads
-  addDistributedLoad?(elemId: number, qI: number, qJ?: number, angle?: number, isGlobal?: boolean, caseId?: number): number;
+  addDistributedLoad?(elemId: number, qI: number, qJ?: number, angle?: number, isGlobal?: boolean, caseId?: number, a?: number, b?: number): number;
   addNodalLoad?(nodeId: number, fx: number, fy: number, mz?: number, caseId?: number): number;
   addPointLoadOnElement?(elementId: number, a: number, p: number, opts?: Record<string, unknown>): number;
-  addThermalLoad?(elemId: number, dtUniform: number, dtGradient: number): number;
+  addThermalLoad?(elemId: number, dtUniform: number, dtGradient: number, caseId?: number): number;
   toggleHinge?(elemId: number, end: 'start' | 'end'): void;
   toggleRelease?(elemId: number, end: 'i' | 'j', axis: 'my' | 'mz' | 't'): void;
   // 3D loads
@@ -106,12 +106,16 @@ export interface FixtureLoader {
   nextId: { loadCase: number; combination: number };
 }
 
+interface FixtureLoadOptions {
+  keepCombinations?: boolean;
+}
+
 /**
  * Load a JSON fixture into the given API target.
  * Replays all the creation calls in the correct order:
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
-export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean } = {}): void {
+export function loadFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions = {}): void {
   validateFixtureSupportFrames(json);
   const load = () => replayFixture(json, api, opts);
   if (api.replay) api.replay(load);
@@ -131,7 +135,7 @@ export function validateFixtureSupportFrames(json: JSONModel): void {
   for (const support of json.supports) fixtureSupportElement(support, id => ids.has(id) ? id : undefined);
 }
 
-function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean }): void {
+function replayFixture(json: JSONModel, api: FixtureLoader, opts: FixtureLoadOptions): void {
   const { loadCases, combinations, rebuilt } = opts.keepCombinations ? keptLoadCases(json, api.model) : fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
@@ -259,6 +263,7 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinat
         api.addDistributedLoad?.(
           elemMap.get(d.elementId as number)!, d.qI as number, d.qJ as number,
           d.angle as number | undefined, d.isGlobal as boolean | undefined, d.caseId as number | undefined,
+          d.a as number | undefined, d.b as number | undefined,
         );
         break;
       }
@@ -278,7 +283,8 @@ function replayFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinat
         break;
       }
       case 'thermal': {
-        api.addThermalLoad?.(elemMap.get(d.elementId as number)!, d.dtUniform as number, d.dtGradient as number);
+        api.addThermalLoad?.(elemMap.get(d.elementId as number)!, d.dtUniform as number, d.dtGradient as number,
+          d.caseId as number | undefined);
         break;
       }
       case 'distributed3d': {

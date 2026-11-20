@@ -1,3 +1,4 @@
+import { loadFieldUnit } from '../model/load-field-unit';
 /**
  * The model sheets of the project workbook.
  *
@@ -16,10 +17,16 @@ import type { ModelData } from '../engine/solver-service';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import { selfWeightFor } from '../engine/self-weight';
+import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
 import type { MassSource, PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
+import { AXIS_NAMES, planeSigns, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
+import { axisToUser, boxToUser, flagsToUser, isPlaneWorkbook, modelToUser, workbookFrame } from './workbook-frame';
+import { AXES_SHEET } from '../excel-import/schema';
+import { caseNameIn, combinationNameIn } from '../axes/case-names';
 
 export interface WorkbookModel extends ModelData {
+  analysisMode?: string;
   loadCases: readonly LoadCase[];
   combinations: readonly LoadCombination[];
   /** Legacy self-weight toggle; explicit analysis.selfWeight takes precedence. */
@@ -33,9 +40,12 @@ export interface WorkbookModel extends ModelData {
 const b = (v: boolean | undefined) => (v ? 1 : 0);
 const opt = (v: number | undefined | null) => (typeof v === 'number' && Number.isFinite(v) ? v : '');
 
-function nodesSheet(m: WorkbookModel): WorkbookSheet {
+function nodesSheet(m: WorkbookModel, plane: ReturnType<typeof planeSigns> | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['id', 'x [m]', 'y [m]', 'z [m]', 'name']];
-  for (const n of [...m.nodes.values()].sort((a, c) => a.id - c.id)) rows.push([n.id, n.x, n.y, n.z ?? 0, safeText((n as { name?: string }).name ?? '')]);
+  for (const n of [...m.nodes.values()].sort((a, c) => a.id - c.id)) {
+    const coordinates = plane ? AXIS_NAMES.map(axis => axis === plane.h ? n.x : axis === plane.v ? n.y : '') : [n.x, n.y, n.z ?? 0];
+    rows.push([n.id, ...coordinates, safeText((n as { name?: string }).name ?? '')]);
+  }
   return { name: 'Nodes', rows };
 }
 
@@ -82,30 +92,37 @@ function sectionsSheet(m: WorkbookModel, solved: SolverInput3D | null): Workbook
   return { name: 'Sections', rows };
 }
 
-function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null): WorkbookSheet {
+function supportsSheet(m: WorkbookModel, solved: SolverInput3D | null, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [[
     'node', 'type', 'angle [°]', 'kx [kN/m]', 'ky [kN/m]', 'kz [kN/m]', 'krx [kN·m/rad]', 'kry [kN·m/rad]', 'krz [kN·m/rad]', 'dx [m]', 'dy [m]', 'dz [m]',
-    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift',
+    'restrainedUx', 'restrainedUy', 'restrainedUz', 'restrainedRx', 'restrainedRy', 'restrainedRz', 'uplift', 'drx [rad]', 'dry [rad]', 'drz [rad]',
   ]];
+  const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
   const byNode = new Map([...(solved?.supports.values() ?? [])].map((s) => [s.nodeId, s]));
   for (const s of [...m.supports.values()].sort((a, c) => a.nodeId - c.nodeId || a.id - c.id)) {
     const r = byNode.get(s.nodeId);
+    const t = r ? (f ? flagsToUser(f, [r.rx, r.ry, r.rz]) : [r.rx, r.ry, r.rz]) : null;
+    const q = r ? (f ? flagsToUser(f, [r.rrx, r.rry, r.rrz]) : [r.rrx, r.rry, r.rrz]) : null;
+    const spring = plane ? AXIS_NAMES.map(axis => opt(axis === plane.h ? s.kx : axis === plane.v ? s.ky : undefined)) : [opt(s.kx), opt(s.ky), opt(s.kz)];
+    const rotationalSpring = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.kz : undefined)) : [opt(s.krx), opt(s.kry), opt(s.krz)];
+    const settlement = plane ? AXIS_NAMES.map(axis => opt(axis === plane.h ? s.dx : axis === plane.v ? s.dz ?? s.dy : undefined)) : [opt(s.dx), opt(s.dy), opt(s.dz)];
+    const rotation = plane ? AXIS_NAMES.map(axis => opt(axis === plane.n ? s.dry ?? s.drz : undefined)) : [opt(s.drx), opt(s.dry), opt(s.drz)];
     rows.push([
-      s.nodeId, s.type, opt(s.angle), opt(s.kx), opt(s.ky), opt(s.kz), opt(s.krx), opt(s.kry), opt(s.krz), opt(s.dx), opt(s.dy), opt(s.dz),
-      r ? b(r.rx) : '', r ? b(r.ry) : '', r ? b(r.rz) : '', r ? b(r.rrx) : '', r ? b(r.rry) : '', r ? b(r.rrz) : '', b(s.uplift),
+      s.nodeId, f ? supportTypeIn(f, s.type, plane === null) : s.type, opt(s.angle), ...spring, ...rotationalSpring, ...settlement,
+      t ? b(t[0]) : '', t ? b(t[1]) : '', t ? b(t[2]) : '', q ? b(q[0]) : '', q ? b(q[1]) : '', q ? b(q[2]) : '', b(s.uplift), ...rotation,
     ]);
   }
   return { name: 'Supports', rows };
 }
 
-function casesSheet(m: WorkbookModel): WorkbookSheet {
-  return { name: 'LoadCases', rows: [['id', 'name', 'type'], ...m.loadCases.map((c) => [c.id, safeText(c.name), c.type])] };
+function casesSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet {
+  return { name: 'LoadCases', rows: [['id', 'name', 'type'], ...m.loadCases.map((c) => [c.id, safeText(f ? caseNameIn(f, c) : c.name), c.type])] };
 }
 
 /** Long form, as the importer reads it: one row per combination and case. */
-function combinationsSheet(m: WorkbookModel): WorkbookSheet {
+function combinationsSheet(m: WorkbookModel, frame: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['combination', 'case', 'factor', 'id']];
-  for (const c of m.combinations) for (const f of c.factors) rows.push([safeText(c.name), f.caseId, f.factor, c.id]);
+  for (const c of m.combinations) for (const f of c.factors) rows.push([safeText(frame ? combinationNameIn(frame, c) : c.name), f.caseId, f.factor, c.id]);
   return { name: 'Combinations', rows };
 }
 
@@ -141,7 +158,7 @@ function pointMassesSheet(m: WorkbookModel): WorkbookSheet | null {
 }
 
 /** Long form, as the importer reads it: the source, then a preset's parameters, a table's factors and the weights. */
-function massSourceSheet(m: WorkbookModel): WorkbookSheet | null {
+function massSourceSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet | null {
   const ms = m.massSource;
   if (!ms) return null;
   const rows: WorkbookSheet['rows'] = [['item', 'key', 'value', 'case', 'factor', 'on', 'w', 'region']];
@@ -152,21 +169,8 @@ function massSourceSheet(m: WorkbookModel): WorkbookSheet | null {
     rows.push(['source', 'custom', '', '', '', '', '', '']);
     for (const f of ms.factors) rows.push(['factor', '', '', f.caseId, f.factor, '', '', '']);
   }
-  for (const w of ms.weights ?? []) rows.push(['weight', '', '', '', '', w.on, w.w, w.region.kind === 'all' ? 'all' : safeText(JSON.stringify(w.region))]);
+  for (const w of ms.weights ?? []) rows.push(['weight', '', '', '', '', w.on, w.w, w.region.kind === 'all' ? 'all' : safeText(JSON.stringify(f ? boxToUser(f, w.region) : w.region))]);
   return { name: 'MassSource', rows };
-}
-
-/** The unit of a load field, by the model's naming. Empty where the field has none. */
-function loadFieldUnit(type: string, field: string): string {
-  const f = field.toLowerCase();
-  if (/^(fx|fy|fz|p|px|py|pz)$/.test(f)) return 'kN';
-  if (/^(mx|my|mz)$/.test(f)) return 'kN·m';
-  if (/^q/.test(f)) return type === 'surface3d' ? 'kN/m²' : 'kN/m';
-  if (f === 'pressure') return 'kN/m²';
-  if (/^(a|b|x|position|start|end|length)$/.test(f)) return 'm';
-  if (/^(dt|dtg|dtuniform|dtgradient|dty|dtz)$/.test(f)) return '°C';
-  if (f === 'angle') return '°';
-  return '';
 }
 
 /**
@@ -185,7 +189,7 @@ function loadsSheet(m: WorkbookModel): WorkbookSheet {
     for (const [field, value] of Object.entries(d)) {
       if (['id', 'caseId', 'nodeId', 'elementId', 'quadId', 'plateId'].includes(field) || value === undefined || value === null) continue;
       const cell = typeof value === 'number' ? value : typeof value === 'boolean' ? b(value) : safeText(typeof value === 'string' ? value : JSON.stringify(value));
-      rows.push([id, typeof d.caseId === 'number' ? d.caseId : 1, l.type, node, member, shell, field, cell, loadFieldUnit(l.type, field)]);
+      rows.push([id, typeof d.caseId === 'number' ? d.caseId : '', l.type, node, member, shell, field, cell, loadFieldUnit(l.type, field)]);
     }
   });
   return { name: 'LoadData', rows };
@@ -203,20 +207,23 @@ function groupsSheet(m: WorkbookModel): WorkbookSheet | null {
 /** Explicit weights belong to cases and are also included in a standalone all-loads solve.
  * Legacy weights are recorded separately for cases and the standalone solve, matching the
  * solver's rule without assigning the standalone weight to an arbitrary dead-load case. */
-function selfWeightSheet(m: WorkbookModel): WorkbookSheet {
+function selfWeightSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group']];
   const stated = m.analysis?.selfWeight;
   const entries = stated !== undefined
-    ? stated.map((s) => ({ source: 'case', load: s }))
+    ? [...stated.map((s) => ({ source: 'case', load: s })), ...(m.analysis?.standaloneSelfWeight === 'gravity' ? [{ source: 'single', load: { caseId: 0, ...GRAVITY_SELF_WEIGHT } }] : [])]
     : [
       ...m.loadCases.flatMap((c) => selfWeightFor(m, c, m.includeSelfWeight ?? false).map((s) => ({ source: 'case', load: s }))),
       ...selfWeightFor(m, null, m.includeSelfWeight ?? false).map((s) => ({ source: 'single', load: s })),
     ];
-  for (const { source, load: s } of entries) rows.push([
-    source, source === 'case' ? s.caseId : '', s.direction, s.factor,
+  for (const { source, load: s } of entries) {
+    const d = f ? axisToUser(f, s.direction, s.factor) : { direction: s.direction, factor: s.factor };
+    rows.push([
+    source, source === 'case' ? s.caseId : '', d.direction, d.factor,
     s.groupId !== undefined ? 'group' : s.elements !== undefined ? 'members' : 'all',
     s.elements?.join(' ') ?? '', s.groupId ?? '',
-  ]);
+    ]);
+  }
   return { name: 'SelfWeight', rows };
 }
 
@@ -226,14 +233,18 @@ export const MODEL_SHEET_NAMES = [
 ] as const;
 
 /** The model's sheets, in the order a reader looks for them; `want` leaves sheets out by name. */
-export function modelSheets(m: WorkbookModel, solved: SolverInput3D | null, want: (name: string) => boolean = () => true): WorkbookSheet[] {
+export function modelSheets(model: WorkbookModel, solved: SolverInput3D | null, want: (name: string) => boolean = () => true, axes: AxesChoice | null = null): WorkbookSheet[] {
+  const f = workbookFrame(axes);
+  const m = f ? modelToUser(model, f) : model;
+  const plane = f && isPlaneWorkbook(m) ? planeSigns(f) : null;
   const all: Array<[string, () => WorkbookSheet | WorkbookSheet[] | null]> = [
-    ['Nodes', () => nodesSheet(m)], ['Members', () => membersSheet(m)], ['Materials', () => materialsSheet(m)],
-    ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved)],
-    ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m)], ['LoadData', () => loadsSheet(m)],
-    ['SelfWeight', () => selfWeightSheet(m)], ['Combinations', () => combinationsSheet(m)],
+    ['Nodes', () => nodesSheet(m, plane)], ['Members', () => membersSheet(m)], ['Materials', () => materialsSheet(m)],
+    ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved, f)],
+    ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m, f)], ['LoadData', () => loadsSheet(m)],
+    ['SelfWeight', () => selfWeightSheet(model, f)], ['Combinations', () => combinationsSheet(m, f)],
     ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)],
-    ['MassSource', () => massSourceSheet(m)], ['Groups', () => groupsSheet(m)],
+    ['MassSource', () => massSourceSheet(m, f)], ['Groups', () => groupsSheet(m)],
   ];
-  return all.filter(([name]) => want(name)).flatMap(([, build]) => build() ?? []);
+  const sheets = all.filter(([name]) => want(name)).flatMap(([, build]) => build() ?? []);
+  return f ? [{ name: AXES_SHEET, rows: [['up', 'right', 'hand'], [f.choice.up, f.choice.right, f.choice.hand]] }, ...sheets] : sheets;
 }

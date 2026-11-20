@@ -62,6 +62,7 @@ const words: Translations = {
   'course.influence.load.pAt': 'P im Stab {e} bei {pct} %',
   'course.influence.load.direct': 'Direkte Berechnung mit diesen Lasten: {v}',
   'course.influence.load.drawEnvelope': 'Umhüllende auf den Stäben zeichnen',
+  'course.influence.load.envelopeTitle': 'Einflusslinienumhüllende ({q})',
   'course.influence.load.hideEnvelope': 'Umhüllende ausblenden',
   'course.influence.load.drawing': 'Wird berechnet…',
   'course.influence.load.envelopeNote': 'Jeder Schnitt wurde mit seiner eigenen Linie belastet. Die rote Kurve ist das Maximum, die blaue das Minimum; M wird auf der Zugseite gezeichnet.',

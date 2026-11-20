@@ -30,7 +30,7 @@ import { stabiliseOrphanRotations3D, unheldNodalMoment3D, exactOrphanRotations3D
 import { unheldNodalMoment2D } from './orphan-rotations-2d';
 import { computeLocalAxes3D, memberRoll } from './local-axes-3d';
 import { distributedGlobalEnds, globalDistributedToSolver, transverseToNodes, memberFrame3D, takesNoBending as memberTakesNoBending, type MemberRef } from './member-loads';
-import { selfWeightFor, selfWeightSolverLoads } from './self-weight';
+import { selfWeightFor, selfWeightScope, selfWeightSolverLoads } from './self-weight';
 import type { SelfWeightLoad } from './analysis-settings';
 import type { SolverInput3D, SolverSection3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D, NonlinearReport } from './types-3d';
 import { analyzeKinematics, type KinematicResult } from './kinematic-2d';
@@ -254,7 +254,9 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
 /** Build only the solver loads array for a 2D input. Shared by
  *  validateAndSolve2D and the multi-case combo path so both produce
  *  identical per-case loads on the wire. */
-function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: boolean): SolverInput['loads'] {
+class PlaneSelfWeightError extends Error {}
+
+function buildSolverLoads2D(model: ModelData, loads: Load[], weights: readonly SelfWeightLoad[]): SolverInput['loads'] {
   /*
    * One builder for every 2D path. The linear solve and the combinations had
    * their own, which passed a distributed or point load's value straight to
@@ -405,9 +407,14 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
     }
   }
 
-  if (includeSelfWeight) {
-    const sectionWeight = createSectionWeight(model.materials);
+  const sectionWeight = createSectionWeight(model.materials);
+  for (const weight of weights) {
+    if (!Number.isFinite(weight.factor)) throw new PlaneSelfWeightError(t('svc.selfWeightNonFinite'));
+    if (weight.factor === 0) continue;
+    if (weight.direction === 'Y') throw new PlaneSelfWeightError(t('svc.selfWeightOutsidePlane'));
+    const { members } = selfWeightScope(model, weight);
     for (const elem of model.elements.values()) {
+      if (members && !members.has(elem.id)) continue;
       const mat = model.materials.get(elem.materialId);
       const sec = model.sections.get(elem.sectionId);
       const ni = model.nodes.get(elem.nodeI);
@@ -417,12 +424,12 @@ function buildSolverLoads2D(model: ModelData, loads: Load[], includeSelfWeight: 
       const L = Math.sqrt(dx * dx + dy * dy);
       if (L < 1e-10) continue;
       const sinTheta = dy / L, cosTheta = dx / L;
-      const w = sectionWeight(sec, elem.materialId);
-      const qPerp = -w * cosTheta;
+      const w = sectionWeight(sec, elem.materialId) * weight.factor;
+      const qPerp = weight.direction === 'X' ? w * -sinTheta : w * cosTheta;
       if (Math.abs(qPerp) > 1e-10) {
         solverLoads.push({ type: 'distributed' as const, data: { elementId: elem.id, qI: qPerp, qJ: qPerp } });
       }
-      const qTangent = -w * sinTheta;
+      const qTangent = weight.direction === 'X' ? w * cosTheta : w * sinTheta;
       if (Math.abs(qTangent) > 1e-10) {
         solverLoads.push({ type: 'axialDistributed' as const, data: { elementId: elem.id, qI: qTangent, qJ: qTangent } });
       }
@@ -869,7 +876,7 @@ export function advancedRefusal2D(input: SolverInput): string | null {
  */
 function prepareSolve2D(
   model: ModelData,
-  includeSelfWeight = false,
+  weights: readonly SelfWeightLoad[],
   onKinematic?: (k: KinematicResult | null) => void,
 ): Solve2DPreparation | string | null {
   if (model.nodes.size < 2 || model.elements.size < 1) {
@@ -909,7 +916,7 @@ function prepareSolve2D(
 
   // Build solver loads array (shared with the multi-case combo path)
   let input: SolverInput;
-  try { input = { ...frame, loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) }; }
+  try { input = { ...frame, loads: buildSolverLoads2D(model, model.loads, weights) }; }
   catch (error) {
     const refusal = loadRefusal(error);
     if (refusal) return refusal;
@@ -1082,7 +1089,15 @@ export function validateAndSolve2D(
   includeSelfWeight = false,
   onKinematic?: (k: KinematicResult | null) => void,
 ): AnalysisResults | string | null {
-  const prep = prepareSolve2D(model, includeSelfWeight, onKinematic);
+  return solveWithWeights2D(model, selfWeightFor(model, null, includeSelfWeight), onKinematic);
+}
+
+function solveWithWeights2D(
+  model: ModelData,
+  weights: readonly SelfWeightLoad[],
+  onKinematic?: (k: KinematicResult | null) => void,
+): AnalysisResults | string | null {
+  const prep = prepareSolve2D(model, weights, onKinematic);
   if (prep === null || typeof prep === 'string') return prep;
 
   try {
@@ -1169,7 +1184,7 @@ export async function validateAndSolve2DAsync(
   includeSelfWeight = false,
   onKinematic?: (k: KinematicResult | null) => void,
 ): Promise<AnalysisResults | string | null> {
-  const prep = prepareSolve2D(model, includeSelfWeight, onKinematic);
+  const prep = prepareSolve2D(model, selfWeightFor(model, null, includeSelfWeight), onKinematic);
   if (prep === null || typeof prep === 'string') return prep;
 
   const cacheKey = prep.wireKey;
@@ -1205,7 +1220,7 @@ export async function validateAndSolve2DAsync(
 export function buildSolverInput2D(model: ModelData, includeSelfWeight = false): SolverInput | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
   // The same builder as every 2D path, material α included (buildSolverLoads2D).
-  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, includeSelfWeight) };
+  return { ...solverFrame2D(model), loads: buildSolverLoads2D(model, model.loads, selfWeightFor(model, null, includeSelfWeight)) };
 }
 
 // ─── 2D: solveCombinations2D ─────────────────────────────────────
@@ -1232,7 +1247,7 @@ export function solveCombinations2D(
   // Through the same solve as the load cases (validateAndSolve2D): sliding joints expanded,
   // helper nodes pruned, the model checks run. A bare solve of the input treated a sliding
   // joint as rigid, so the settlement acted on a different structure than the loads.
-  const settlement = validateAndSolve2D({ ...model, loads: [] }, false);
+  const settlement = solveWithWeights2D({ ...model, loads: [] }, []);
   if (!settlement) return t('svc.emptyModel');
   if (typeof settlement === 'string') return t('svc.errorInCase').replace('{n}', t('svc.settlementCase')).replace('{err}', settlement);
   return addSettlementCase2D(solved, settlement, combinations) ?? t('svc.envelopeError');
@@ -1274,8 +1289,7 @@ function solveCombinations2DCore(
   }
 
   // Build base solver input once (structural data without loads)
-  const baseInput = buildSolverInput2D({ ...model, loads: [] }, false);
-  if (!baseInput) return t('svc.emptyModel');
+  const baseInput = solverFrame2D(model);
 
   // Build per-case load arrays — reuse baseInput structure, only build loads per case
   const mcLoadCases: Array<{ name: string; loads: SolverInput['loads'] }> = [];
@@ -1283,8 +1297,14 @@ function solveCombinations2DCore(
 
   for (const lc of loadCases) {
     const caseLoads = model.loads.filter(l => (l.data.caseId ?? 1) === lc.id);
-    const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight).length > 0);
-    mcLoadCases.push({ name: lc.name, loads });
+    try {
+      const loads = buildSolverLoads2D(model, caseLoads, selfWeightFor(model, lc, includeSelfWeight));
+      mcLoadCases.push({ name: lc.name, loads });
+    } catch (error) {
+      const refusal = loadRefusal(error);
+      if (refusal) return tp('svc.errorInCase', { n: lc.name, err: refusal });
+      throw error;
+    }
     caseNameToId.set(lc.name, lc.id);
   }
 
@@ -1364,7 +1384,7 @@ function solveCombinations2DFallback(
   for (const lc of loadCases) {
     // Filter loads for this case instead of mutating model.loads
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
-    const result = validateAndSolve2D(caseModel, selfWeightFor(model, lc, includeSelfWeight).length > 0);
+    const result = solveWithWeights2D(caseModel, selfWeightFor(model, lc, includeSelfWeight));
     if (typeof result === 'string') {
       return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', localizeEngineText(result));
     }
@@ -1974,6 +1994,7 @@ function buildSolveInput3D(...args: Parameters<typeof buildSolverInput3D>): Solv
 /** A load the solve cannot place, said by name: a moment on a member that takes no bending. */
 export function loadRefusal(err: unknown): string | null {
   if (err instanceof MemberLoadIntervalError) return err.message;
+  if (err instanceof PlaneSelfWeightError) return err.message;
   return err instanceof PointLoadNeedsCut ? tp('svc.pointMomentOnTruss', { n: err.elementId }) : null;
 }
 
