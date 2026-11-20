@@ -3390,3 +3390,15 @@ fn issue_1782_endpoint_3d_reference_obeys_equilibrium() {
         for value in values { assert!(value.abs() < 1e-9, "support carries endpoint loads: {value}"); }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #1782"]
+fn issue_1782_planar_thermal_moving_limits_match_position_solves() {
+    let case = cases_2d().into_iter().find(|c| c.feature == "thermal load" && c.variant == "free cantilever").unwrap();
+    let analysis = other_rows_2d().into_iter().find(|a| a.name == "moving loads").unwrap();
+    let cell = run_2d(&case, &analysis);
+    assert_eq!(
+        cell.verdict, Verdict::Supported, "{}: computed {:?}, reference {:?}",
+        cell.note, (analysis.run)(&case.with, &case), moving_reference_2d(analysis.name, &case),
+    );
+}
