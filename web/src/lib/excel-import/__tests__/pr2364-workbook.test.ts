@@ -1,9 +1,10 @@
+import * as XLSX from 'xlsx';
 import { afterEach, expect, it, vi } from 'vitest';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 import { DEFAULT_AXES, type AxesChoice } from '../../axes/frame';
 import { modelSheets, type WorkbookModel } from '../../export/workbook-model';
 import { modelStore, uiStore } from '../../store';
-import { applyWorkbook } from '../apply';
+import { applyWorkbook, importExcelFile } from '../apply';
 import { parseWorkbook } from '../parse';
 
 const Y_UP = { up: '+Y', right: '-X', hand: 'right' } as const;
@@ -197,4 +198,120 @@ it('known wrong result: #1986 standalone gravity can accompany only the legacy c
   }
   expect(parseWorkbook(workbook(otherDead, single, dead)).problems).toEqual([]);
   expect(parseWorkbook(workbook(['case', 1, 'X', 2, 'all'])).problems).toEqual([]);
+});
+
+it.skip('known wrong result: #2364 a declared plane nodal row with a nonzero normal component cannot replace a model', () => {
+  for (const [build, choice, workspace] of [
+    ['production', DEFAULT_AXES, '2d'],
+    ['production', DEFAULT_AXES, '3d'],
+    ['production', DEFAULT_AXES, 'pro'],
+    ['development', DEFAULT_AXES, '2d'],
+    ['development', Y_UP, '2d'],
+  ] as const) {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(build));
+    uiStore.analysisMode = workspace;
+    modelStore.clear();
+    modelStore.addNode(17, 21);
+    const before = modelStore.snapshot();
+    const custom = choice === Y_UP;
+    const columns = custom ? ['fx', 'fy', 'mz', 'fz', 'mx', 'my'] : ['fx', 'fz', 'my', 'fy', 'mx', 'mz'];
+    const coordinates = custom ? ['id', 'x', 'y'] : ['id', 'x', 'z'];
+    const workbook = (values: number[]) => ({
+      Axes: axes(choice),
+      Nodes: [coordinates, [1, 2, 3]],
+      Loads: [['type', 'case', 'node', ...columns], ['nodal', 1, 1, ...values]],
+    });
+    const valid = [2, -3, 4, 0, 0, 0];
+    for (const i of [3, 4, 5]) {
+      for (const value of [-1, 1]) {
+        const outcome = applyWorkbook(workbook(valid.with(i, value)));
+        expect(outcome.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+        expect(outcome.problems).toEqual([
+          expect.objectContaining({ sheet: 'Loads', row: 2, column: columns[i], blocking: true }),
+        ]);
+        expect(outcome.model.loads).toEqual([]);
+        expect(modelStore.snapshot()).toEqual(before);
+      }
+    }
+    const accepted = applyWorkbook(workbook(valid));
+    expect(accepted.problems).toEqual([]);
+    expect(accepted.loaded.nodes).toBe(1);
+    expect(modelStore.loads).toEqual([
+      { type: 'nodal', data: expect.objectContaining({ fx: custom ? -2 : 2, fz: -3, my: custom ? -4 : 4 }) },
+    ]);
+  }
+});
+
+it.skip('known wrong result: #2364 malformed prescribed rotations cannot replace a model', () => {
+  for (const [build, flat] of [['production', true], ['production', false], ['development', false]] as const) {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(build));
+    uiStore.analysisMode = flat ? '2d' : 'pro';
+    modelStore.clear();
+    modelStore.addNode(17, 21);
+    const before = modelStore.snapshot();
+    const base = flat ? nodes : { Nodes: [['id', 'x', 'y', 'z'], [1, 2, 3, 4]] };
+    const type = flat ? 'fixed' : 'fixed3d';
+    for (const declaration of [{}, { Axes: axes(DEFAULT_AXES) }]) {
+      for (const column of ['drx', 'dry', 'drz']) {
+        const workbook = { ...base, ...declaration, Supports: [['node', 'type', column], [1, type, 'bad']] };
+        const outcome = applyWorkbook(workbook);
+        expect(outcome.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+        expect(outcome.problems).toEqual([
+          expect.objectContaining({ sheet: 'Supports', row: 2, column, blocking: true }),
+        ]);
+        expect(modelStore.snapshot()).toEqual(before);
+      }
+    }
+  }
+});
+
+it.skip('known wrong result: #2364 incompatible prescribed rotation units cannot replace a model', () => {
+  for (const workspace of ['2d', 'pro'] as const) {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+    uiStore.analysisMode = workspace;
+    modelStore.clear();
+    modelStore.addNode(17, 21);
+    const before = modelStore.snapshot();
+    const base = workspace === '2d' ? nodes : { Nodes: [['id', 'x', 'y', 'z'], [1, 2, 3, 4]] };
+    const type = workspace === '2d' ? 'fixed' : 'fixed3d';
+    for (const column of ['drx', 'dry', 'drz']) {
+      const workbook = { ...base, Supports: [['node', 'type', column + ' [mm]'], [1, type, 1]] };
+      const outcome = applyWorkbook(workbook);
+      expect(outcome.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+      expect(outcome.problems).toEqual([
+        expect.objectContaining({ sheet: 'Supports', row: 1, column, blocking: true }),
+      ]);
+      expect(modelStore.snapshot()).toEqual(before);
+    }
+    const headers = ['node', 'type', 'drx [rad]', 'dry [deg]', 'drz'];
+    const rotation = workspace === '2d' ? ['', -180, ''] : [0, -180, 1];
+    const accepted = applyWorkbook({ ...base, Supports: [headers, [1, type, ...rotation]] });
+    expect(accepted.problems).toEqual([]);
+    expect(accepted.loaded.nodes).toBe(1);
+    const support = [...modelStore.supports.values()][0]!;
+    expect([support.drx, support.dry, support.drz]).toEqual(workspace === '2d'
+      ? [undefined, -Math.PI, undefined] : [0, -Math.PI, 1]);
+  }
+});
+
+it.skip('known wrong result: #2364 workbook file import refuses a partially invalid load or prescribed rotation', async () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  uiStore.analysisMode = '2d';
+  modelStore.addNode(17, 21);
+  const before = modelStore.snapshot();
+  for (const [sheet, rows] of [
+    ['Loads', [['type', 'case', 'node', 'fz', 'fy'], ['nodal', 1, 1, -3, 1]]],
+    ['Supports', [['node', 'type', 'dry'], [1, 'fixed', 'bad']]],
+  ] as const) {
+    const book = XLSX.utils.book_new();
+    const workbook = { ...nodes, Axes: axes(DEFAULT_AXES), [sheet]: rows };
+    for (const [name, data] of Object.entries(workbook)) {
+      XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(data.map(row => [...row])), name);
+    }
+    const file = new File([XLSX.write(book, { type: 'array', bookType: 'xlsx' })], 'invalid.xlsx');
+    const outcome = await importExcelFile(file);
+    expect(outcome?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+    expect(outcome?.problems).toEqual([expect.objectContaining({ sheet, row: 2, blocking: true })]);
+    expect(modelStore.snapshot()).toEqual(before);
+  }
 });
