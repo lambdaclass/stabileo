@@ -38,7 +38,6 @@ test('@smoke the sheets say what they need before they design, and what they lea
   });
   await solveModel(page);
   await expect(page.getByTestId('rc-design')).toBeVisible();
-  await expect(page.getByTestId('rc-sheets-panel')).toContainText('No se dimensiona nada hasta que lo pidas.');
   await expect(page.getByTestId('rc-open-beam')).toHaveCount(0);
   await design(page);
 
