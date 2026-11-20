@@ -15,8 +15,9 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { modelStore } from '..';
 import { verificationStore } from '../verification.svelte';
 import * as wasmSolver from '../../engine/wasm-solver';
-import { building, designAndDocumentUnder, forcesByPlace, physicalBeams } from './span-fixture';
+import { building, contextsUnder, designAndDocumentUnder, forcesByPlace, physicalBeams } from './span-fixture';
 import { cirsoc201Adapter } from '../../engine/design/adapters/cirsoc201-adapter';
+import type { MemberContext } from '../../engine/design/member-context';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import '../../engine/design/adapters/unsupported-adapter';
 
@@ -30,13 +31,15 @@ const g = (x: Groups) => (x ?? []).map((l) => `${l.count}Ø${l.diameter}`).join(
 
 describe('the span building on the 6 m mesh under the 0,5 m forces: mirror-image beams, the same steel', () => {
   let doc: DocumentModel;
+  let torsionContexts: ReadonlyMap<number, MemberContext>;
   beforeAll(() => {
-    // The 0,5 m solve's forces, read by the 6 m model's design (`designAndDocumentUnder`), as the
-    // mesh guard's second block does.
     building(0.5, { columnSide: 0.4 });
     const forces = forcesByPlace();
+    building(0.5, { columnSide: 0.4, prescribedZeroBeamTorque: true });
+    const zeroTorqueForces = forcesByPlace();
     building(6, { columnSide: 0.4 });
-    doc = designAndDocumentUnder(forces);
+    torsionContexts = contextsUnder(forces);
+    doc = designAndDocumentUnder(zeroTorqueForces);
   }, 300_000);
 
   /** Each span of a beam, from x = 0: its bottom, top-start and top-end layers. */
@@ -45,6 +48,8 @@ describe('the span building on the 6 m mesh under the 0,5 m forces: mirror-image
     .sort((p, q) => p.x - q.x)
     .map(({ id }) => {
       const r = modelStore.elements.get(id)!.reinforcement?.regions as Record<string, Groups> | undefined;
+      expect(verificationStore.outcomeFor(id)?.outcome, `${name} e${id}`).toBe('VERIFIED');
+      expect(r?.bottomSpanLayers?.length, `${name} e${id}`).toBeGreaterThan(0);
       return `${g(r?.bottomSpanLayers)} / ${g(r?.topStartLayers)} / ${g(r?.topEndLayers)}`;
     });
 
@@ -64,19 +69,24 @@ describe('the span building on the 6 m mesh under the 0,5 m forces: mirror-image
       return doc.assemblies.flatMap((a) => a.bars)
         .filter((b) => b.role === 'longitudinal' && b.ownerElementIds.every((id) => ids.has(id))).length;
     };
+    expect(count('V2')).toBeGreaterThan(0);
+    expect(count('V7')).toBeGreaterThan(0);
     expect(count('V3')).toBe(count('V2'));
     expect(count('V8')).toBe(count('V7'));
   });
 
-  it('a candidate passes or fails the torsion longitudinal check alike on a span and its mirror image', () => {
+  it('both candidate cages refuse longitudinal torsion on a span and its mirror image', () => {
     const [e2] = physicalBeams().find((b) => b.name === 'V2')!.elements;
     const [e3] = physicalBeams().find((b) => b.name === 'V3')!.elements;
     const accepted = verificationStore.runSummary!.outcomes.get(e2!)!.accepted!;
     for (const bottom of [{ count: 3, diameter: 12 }, { count: 2, diameter: 16 }]) {
       const rebar = { ...accepted, regions: { ...accepted.regions, bottomSpanLayers: [{ ...bottom, row: 0 }], bottomSpan: bottom } };
       const al = (id: number) => {
-        const v = cirsoc201Adapter.verify(verificationStore.contextFor(id)!, { ...rebar, elementId: id } as never);
-        const c = (v.checks as Array<{ category: string; status: string; ratio?: number }>).find((x) => x.category.startsWith('Torsion Al Span'));
+        const v = cirsoc201Adapter.verify(torsionContexts.get(id)!, { ...rebar, elementId: id });
+        const c = v.checks.find(row => row.category.startsWith('Torsion Al Span'));
+        expect(c, `e${id}`).toMatchObject({
+          status: 'fail', ratio: Infinity, limiting: 'unsupportedCheck', description: 'diag.rcTorsionPerimeter',
+        });
         return `${c?.status} ${c?.ratio}`;
       };
       expect(al(e3!), `${bottom.count}Ø${bottom.diameter}`).toBe(al(e2!));

@@ -36,7 +36,7 @@ beforeAll(async () => {
 const tr = (k: string) => k;
 const MESHES = [1, 0.5, 2, 6] as const;
 
-describe('the span fixture on 40×40 columns: its laps as built', () => {
+describe('the span fixture on 40×40 columns with prescribed zero beam torque: its laps as built', () => {
   const runs = new Map<number, {
     laps: number; open: Array<[string, number[], unknown, unknown, unknown, unknown]>;
     states: Array<[string, string, boolean]>; upperLifts: number[]; draft: boolean;
@@ -45,7 +45,7 @@ describe('the span fixture on 40×40 columns: its laps as built', () => {
   }>();
   beforeAll(() => {
     for (const mesh of MESHES) {
-      building(mesh, { columnSide: 0.4 });
+      building(mesh, { columnSide: 0.4, prescribedZeroBeamTorque: true });
       const doc = designAndDocument();
       // The persisted assemblies, as the memoria and the desk read them.
       const assemblies = modelStore.model.detailing?.assemblies ?? [];
@@ -85,6 +85,7 @@ describe('the span fixture on 40×40 columns: its laps as built', () => {
   it('the beams lap nowhere; the six stacks lap at the first floor, every pair in contact', () => {
     for (const mesh of MESHES) {
       const r = runs.get(mesh)!;
+      expect(r.states.length, `mesh ${mesh}`).toBeGreaterThan(0);
       expect(r.laps, `mesh ${mesh}`).toBe(0);
       expect(r.open, `mesh ${mesh}`).toEqual([]);
       expect(r.upperLifts, `mesh ${mesh}`).toEqual([]);
