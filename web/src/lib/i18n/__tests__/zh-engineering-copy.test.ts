@@ -132,27 +132,32 @@ const releaseNotices = [
 function expectReleaseNotices(release: string) {
   const notices = release.split('\n').filter(line => /^\| (91|93) \|/.test(line));
   expect(notices).toHaveLength(new Set(notices).size);
-  expect(release).toContain('#compensated-force-totals-and-remapped-load-refusal-round-67-2223');
-  expect(release).toContain('#custom-supports-require-an-explicit-mask');
+  for (const { version, title, link } of releaseNotices) {
+    const versionPrefix = `| ${version} | `;
+    const titleCell = `[${title}]`;
+    const linkSuffix = `(${link}) |`;
+    const rows = notices.filter(line =>
+      line.startsWith(versionPrefix) && (line.startsWith(versionPrefix + titleCell) || line.endsWith(linkSuffix)),
+    );
+    expect(rows).toEqual([versionPrefix + titleCell + linkSuffix]);
+  }
 }
 
 it('#2360 — Chinese release notes distinguish repeated result notice titles', () => {
   expectReleaseNotices(releaseNotes);
 });
 
-const issue2360 = process.env.RUN_KNOWN_WRONG === '2360' ? it : it.skip;
-
-issue2360('known wrong result: #2360 — release-note validation rejects identical titles across versions', () => {
+it('#2360 — release-note validation rejects identical titles across versions', () => {
   const release = releaseNotes.replace(releaseNotices[1].title, releaseNotices[0].title);
   expect(() => expectReleaseNotices(release)).toThrow();
 });
 
-issue2360('known wrong result: #2360 — release-note validation rejects missing versions even when their anchors remain', () => {
+it('#2360 — release-note validation rejects missing versions even when their anchors remain', () => {
   const release = releaseNotes.replace(/^\| (91|93) \|/gm, '| 94 |');
   expect(() => expectReleaseNotices(release)).toThrow();
 });
 
-issue2360('known wrong result: #2360 — release-note validation rejects duplicate anchors within a version', () => {
+it('#2360 — release-note validation rejects duplicate anchors within a version', () => {
   const { version, link } = releaseNotices[0];
   const release = releaseNotes + `\n| ${version} | [另一条说明](${link}) |\n`;
   expect(() => expectReleaseNotices(release)).toThrow();
