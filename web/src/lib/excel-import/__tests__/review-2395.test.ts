@@ -2,8 +2,8 @@ import * as XLSX from 'xlsx';
 import { afterEach, expect, it, vi } from 'vitest';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 import { modelStore, uiStore } from '../../store';
-import { buildSolverInput3D } from '../../engine/solver-service';
-import { solve3D, solvePDelta3D } from '../../engine/wasm-solver';
+import { buildSolverInput2D, buildSolverInput3D } from '../../engine/solver-service';
+import { solve, solve3D, solvePDelta, solvePDelta3D } from '../../engine/wasm-solver';
 import { modelSheets } from '../../export/workbook-model';
 import { projectWorkbookSheets } from '../../export/project-workbook';
 import { t, tp } from '../../i18n';
@@ -349,3 +349,129 @@ for (const [entry, install] of entries) {
     }
   }
 }
+
+const finalRegression = process.env.RUN_KNOWN_WRONG === '2395' ? it : it.skip;
+const cyclicAxes = { up: '+Y', right: '+Z', hand: 'right' } as const;
+
+function planeResponses(input: NonNullable<ReturnType<typeof buildSolverInput2D>>) {
+  const linear = solve(input);
+  const pDelta = solvePDelta(input);
+  expect(linear.displacements).toHaveLength(2);
+  expect(pDelta.converged).toBe(true);
+  return [linear, pDelta].map(({ displacements, reactions, elementForces }) => ({ displacements, reactions, elementForces }));
+}
+
+for (const [entry, install] of entries) {
+  finalRegression(`known wrong result: #2395 ${entry} exports planar restraint triplets in workbook axes`, async () => {
+    vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+    priorModel('2d');
+    const original = await install({
+      ...plane, ...member,
+      Loads: [['type', 'case', 'node', 'fx [kN]'], ['nodal', 1, 1, -3]],
+      Supports: [['node', 'type'], [1, 'rollerX'], [2, 'fixed']],
+    });
+    expect(original?.problems).toEqual([]);
+    const model = { ...modelStore.model, analysisMode: '2d' };
+    const roller = [...model.supports.values()].find(support => support.type === 'rollerX')!;
+    const mask = { tx: false, ty: true, tz: true, rx: true, ry: false, rz: true };
+    const explicit = { ...roller, dofRestraints: mask };
+    const input = buildSolverInput2D(model, false)!;
+    const solved = buildSolverInput3D(model, false)!;
+    const answer = planeResponses(input);
+    const want = (name: string) => ['Nodes', 'Supports'].includes(name);
+    for (const [axes, expected, sparse] of [
+      [null, [0, 1, 1, 1, 0, 1], [0, 1, '', '', 0, 1]],
+      [cyclicAxes, [1, 1, 0, 0, 1, 1], [1, '', 0, 0, 1, '']],
+    ] as const) {
+      const restraintCells = (rows: unknown[][]) => flags.map(flag => rows[1]![rows[0]!.indexOf(flag)]);
+      const partial = { ...mask };
+      Reflect.deleteProperty(partial, 'tz');
+      Reflect.deleteProperty(partial, 'rx');
+      for (const [support, analysis, cells] of [
+        [roller, solved, expected],
+        [explicit, null, expected],
+        [explicit, solved, expected],
+        [{ ...explicit, dofRestraints: partial }, solved, sparse],
+      ] as const) {
+        const sheets = modelSheets({ ...model, supports: new Map(model.supports).set(roller.id, support) }, analysis, want, axes);
+        const book = Object.fromEntries(sheets.map(sheet => [sheet.name, sheet.rows]));
+        expect(restraintCells(book.Supports!)).toEqual(cells);
+        const reimport = await install({
+          ...member, ...book,
+          Loads: [['type', 'case', 'node', axes ? 'fz [kN]' : 'fx [kN]'], ['nodal', 1, 1, -3]],
+        });
+        expect(reimport?.problems).toEqual([]);
+        expect(reimport?.model.supports).toEqual(original?.model.supports);
+        expect(planeResponses(buildSolverInput2D(modelStore.model, false)!)).toEqual(answer);
+      }
+    }
+  });
+
+  for (const [mode, nodes] of geometries) {
+    finalRegression(`known wrong result: #2395 ${entry} ${mode} requires a complete kr unit suffix`, async () => {
+      for (const featureMode of ['production', 'development'] as const) {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(featureMode));
+        const book = (header: string, value: number) => ({
+          ...nodes, Supports: [['node', 'type', header], [1, 'spring', value]],
+        });
+        const before = priorModel(mode);
+        const problem = { sheet: 'Supports', row: 1, column: 'kr', blocking: true };
+        for (const suffix of [' [N·m/rad', ' []', ' [ ]', ' [[N·m/rad]', ' [N·m/rad] text', ' [N·m/rad] [kN·m/rad]', ' [m]']) {
+          const workbook = book('kr' + suffix, 7000);
+          expectRefusal(await install(workbook), before, problem);
+          expect(parseWorkbook(workbook).problems).toEqual([expect.objectContaining(problem)]);
+        }
+        for (const [header, value] of [['kr', 7], ['kr [kN·m/rad]', 7], [' KR [ N·m/rad ] ', 7000]] as const) {
+          const outcome = await install(book(header, value));
+          expect(outcome?.problems).toEqual([]);
+          expect(outcome?.loaded.nodes).toBe(2);
+          expect(outcome?.model.supports).toEqual([{ id: 1, nodeId: 1, type: 'spring', kz: 7 }]);
+        }
+      }
+    });
+
+    finalRegression(`known wrong result: #2395 ${entry} ${mode} requires headers on a populated Loads sheet`, async () => {
+      for (const featureMode of ['production', 'development'] as const) {
+        vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode(featureMode));
+        const before = priorModel(mode);
+        const book = (Loads: unknown[][]) => ({ ...nodes, ...member, Loads });
+        for (const [rows, missing] of [
+          [[['nodal', 1, 2, -3]], ['type', 'case']],
+          [[['nodal', 1, 2, -3], ['nodal', 1, 1, -4]], ['type', 'case']],
+          [[['type', 'node', 'fz']], ['case']],
+          [[['type', 'node', 'fz'], ['nodal', 2, -3]], ['case']],
+        ] as const) {
+          const workbook = book(rows.map(row => [...row]));
+          const expected = missing.map(column => expect.objectContaining({ sheet: 'Loads', row: 1, column, blocking: true }));
+          const outcome = await install(workbook);
+          expect(outcome?.problems, JSON.stringify(outcome?.loaded)).toEqual(expected);
+          expect(outcome?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+          expect(modelStore.snapshot()).toEqual(before);
+          expect(parseWorkbook(workbook).problems).toEqual(expected);
+        }
+        const header = ['type', 'case', 'node', 'fz [kN]'];
+        for (const rows of [[], [['', '', '', '']], [header], [header, ['', '', '', '']]]) {
+          const outcome = await install(book(rows));
+          expect(outcome?.problems).toEqual([]);
+          expect(outcome?.loaded.nodes).toBe(2);
+          expect(outcome?.model.loads).toEqual([]);
+        }
+        const outcome = await install(book([header, ['nodal', 1, 2, -3]]));
+        expect(outcome?.problems).toEqual([]);
+        expect(outcome?.loaded.nodes).toBe(2);
+        expect(outcome?.model.loads).toMatchObject([{ type: 'nodal', data: { caseId: 1, nodeId: 2, fz: -3 } }]);
+      }
+    });
+  }
+}
+
+finalRegression('known wrong result: #2395 recognized populated sheets require their declared headers', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('development'));
+  for (const { name, columns } of SHEETS) {
+    const required = columns.filter(column => column.required).map(column => column.key.toLowerCase());
+    const result = parseWorkbook({ [name]: [[42]] });
+    expect(result.problems, name).toEqual(required.map(column => expect.objectContaining({
+      sheet: name, row: 1, column, blocking: true,
+    })));
+  }
+});
