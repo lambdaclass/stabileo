@@ -6,6 +6,7 @@ import fr from '../../i18n/locales/fr';
 import hu from '../../i18n/locales/hu';
 import pt from '../../i18n/locales/pt';
 import tr from '../../i18n/locales/tr';
+import zh from '../../i18n/locales/zh';
 
 const locales = [
   { lang: 'de', dict: de, garage: 'Parkhäuser' },
@@ -31,4 +32,14 @@ it.each(locales)('$lang preserves the UK National Annex altitude term and TBDY c
   expect(dict['loads.tr.seismic.use.residential']).toContain(garage);
   expect(dict['loads.tr.seismic.use.residential']).toMatch(/n = 0[.,]30/);
   expect(dict['loads.tr.seismic.use.assembly']).not.toContain(garage);
+});
+
+it.skip.each([
+  ...locales.map(({ lang, dict }) => ({ lang, dict })),
+  { lang: 'zh', dict: zh },
+])('known wrong result: #1928 — $lang gives the whole EC2 punching reinforcement averaging width', ({ dict }) => {
+  const label = dict['rcSheets.ec2.v.punchingRho'] ?? en['rcSheets.ec2.v.punchingRho'];
+  expect(label).toContain('c + 6d');
+  expect(label).toContain('3d');
+  expect(label).not.toContain('c + 3d');
 });

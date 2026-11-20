@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>PRO mesher input fixture</title></head>
+  <body>
+    <main></main>
+    <script type="module">
+      import { mount } from 'svelte';
+      import ProMesher from '../../../src/components/pro/ProMesher.svelte';
+      import { modelStore, uiStore } from '../../../src/lib/store';
+      import { setLocale } from '../../../src/lib/i18n';
+      import '../../../src/lib/i18n/full-dictionaries';
+
+      modelStore.clear();
+      uiStore.analysisMode = 'pro';
+      setLocale('en');
+      for (const [x, y] of [[0, 0], [4, 0], [4, 4], [0, 4], [1, 1], [2, 1], [2, 2], [1, 2]]) {
+        modelStore.addNode(x, y, 0);
+      }
+      window.mesherFixture = {
+        unified: __PUBLIC_FEATURES__.proPlatesUnified,
+        area() {
+          const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
+          return shells.reduce((sum, shell) => {
+            const points = shell.nodes.map(id => modelStore.nodes.get(id));
+            const twice = points.reduce((total, p, index) => {
+              const q = points[(index + 1) % points.length];
+              return total + p.x * q.y - p.y * q.x;
+            }, 0);
+            return sum + Math.abs(twice) / 2;
+          }, 0);
+        },
+      };
+      mount(ProMesher, { target: document.querySelector('main') });
+    </script>
+  </body>
+</html>
