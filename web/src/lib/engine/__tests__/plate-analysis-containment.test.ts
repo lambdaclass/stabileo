@@ -310,3 +310,43 @@ it('#2388 the seven-storey gallery slabs share the reported wall stations and so
     for (const id of [wallX, center, wallY]) expect(Number.isFinite(answer.displacements.find(d => d.nodeId === id)?.uz)).toBe(true);
   }
 });
+
+const issue2409 = process.env.RUN_KNOWN_WRONG === '2409' ? it : it.skip;
+
+issue2409.each(['linear', 'pdelta'] as const)('known wrong result: #2409 gallery admits signed %s combinations', async method => {
+  await modelStore.loadExample('pro-edificio-7p');
+  modelStore.setAnalysis({ perCombination: method });
+  const answer = await modelStore.solveCombinations3DParallel(true, false, true);
+  if (!answer || typeof answer === 'string') throw new Error(String(answer));
+  expect([...answer.perCombo.keys()]).toEqual(modelStore.model.combinations.map(c => c.id));
+});
+
+function constrainedWallJoint(dofs: readonly number[], weights: readonly [number, number]) {
+  wallSlabJoint('wall');
+  const [a, b] = modelStore.quads.get(1)!.nodes;
+  const wallNode = modelStore.quads.get(2)!.nodes[1]!;
+  for (const dof of dofs) {
+    modelStore.addConstraint({
+      type: 'linearMPC', terms: [
+        { nodeId: wallNode, dof, coefficient: 2 },
+        { nodeId: a!, dof, coefficient: -2 * weights[0] },
+        { nodeId: b!, dof, coefficient: -2 * weights[1] },
+      ],
+    });
+  }
+}
+
+issue2409.each(entries)('known wrong result: #2409 the %s entry accepts a fully tied shell edge', async (_entry, solve) => {
+  constrainedWallJoint([0, 1, 2, 3, 4, 5], [0.5, 0.5]);
+  const answer = await solve();
+  expect(answer, String(answer)).not.toBeNull();
+  expect(typeof answer, String(answer)).toBe('object');
+});
+
+it.each([
+  [[0, 1, 2, 3, 4], [0.5, 0.5]],
+  [[0, 1, 2, 3, 4, 5], [0.25, 0.75]],
+] as const)('#2388 refuses a shell edge with incomplete or incorrect compatibility (%j, %j)', (dofs, weights) => {
+  constrainedWallJoint(dofs, weights);
+  expect(modelStore.solve3D(false, false, true)).toEqual(expect.stringMatching(/wall.*slab/i));
+});
