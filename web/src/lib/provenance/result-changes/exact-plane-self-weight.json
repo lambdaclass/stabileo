@@ -8,7 +8,7 @@
   "when": {
     "all": [
       "plane2D",
-      "explicitSelfWeight"
+      "selfWeight"
     ]
   },
   "title": {

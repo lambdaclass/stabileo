@@ -128,8 +128,7 @@ for (const mode of ['2d', '3d'] as const) {
   });
 }
 
-const noticeParity = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
-noticeParity('known wrong result: #2364 saves the same notice stamp and features as main with global axes off', () => {
+it('#2364 saves the same notice stamp and features as main with global axes off', () => {
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
   const stamp = unknownStamp();
   const store = createRecheckStore();
