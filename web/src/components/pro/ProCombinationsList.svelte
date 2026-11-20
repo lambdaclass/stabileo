@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown, combinationNameShown } from '../../lib/axes/case-names';
   import Hint from './Hint.svelte';
   /**
    * The model's combinations, one row each, and the ways to make more.
@@ -77,7 +78,7 @@
     {@const tag = tagOf(combo.name)}
     <div class="cb-row" class:open={isOpen} data-testid="combo-row">
       <div class="cb-head">
-        <button type="button" class="cb-toggle" aria-expanded={isOpen} onclick={() => toggle(combo.id)} title={combo.name} data-testid="combo-toggle">
+        <button type="button" class="cb-toggle" aria-expanded={isOpen} onclick={() => toggle(combo.id)} title={combinationNameShown(combo)} data-testid="combo-toggle">
           <span class="cb-chev" aria-hidden="true">▸</span>
           {#if tag}<span class="cb-tag">{tag}</span>{/if}
           {#if combo.method === 'srss' || combo.method === 'abs'}<span class="cb-tag" data-testid="combo-method-tag">{combo.method.toUpperCase()}</span>{/if}
@@ -88,7 +89,7 @@
       {#if isOpen}
         <div class="cb-body">
           <label class="cb-name"><span class="pk-label">{t('pro.lcName')}</span>
-            <input type="text" value={combo.name} onchange={(e) => modelStore.updateCombination(combo.id, { name: e.currentTarget.value })} data-testid="combo-name" />
+            <input type="text" value={combinationNameShown(combo)} onchange={(e) => modelStore.updateCombination(combo.id, { name: e.currentTarget.value })} data-testid="combo-name" />
           </label>
           <!-- How the factored cases add: linear, or as magnitudes (`combination-methods.ts`). -->
           <label class="cb-name"><span class="pk-label">{t('combos.method')}</span>
@@ -120,9 +121,9 @@
               {#each loadCases as lc (lc.id)}
                 <tr>
                   <td class="cb-f"><input inputmode="decimal" value={combo.factors.find((f) => f.caseId === lc.id)?.factor ?? 0}
-                    onchange={(e) => setFactor(combo.id, lc.id, e.currentTarget.value)} aria-label={`${lc.name} · ${combo.name}`} data-testid="combo-factor-{lc.id}" /></td>
+                    onchange={(e) => setFactor(combo.id, lc.id, e.currentTarget.value)} aria-label={`${caseNameShown(lc)} · ${combinationNameShown(combo)}`} data-testid="combo-factor-{lc.id}" /></td>
                   <td class="cb-mult">×</td>
-                  <td><span class="cb-sym">{lc.type || '—'}</span> {lc.name}</td>
+                  <td><span class="cb-sym">{lc.type || '—'}</span> {caseNameShown(lc)}</td>
                 </tr>
               {/each}
             </tbody>

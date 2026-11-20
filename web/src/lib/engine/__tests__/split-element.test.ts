@@ -45,8 +45,8 @@ function makeInput(opts: {
   };
 }
 
-function nodalLoad(nodeId: number, fx: number, fy: number, mz = 0): SolverLoad {
-  return { type: 'nodal', data: { nodeId, fx, fy, mz } };
+function nodalLoad(nodeId: number, fx: number, fz: number, my = 0): SolverLoad {
+  return { type: 'nodal', data: { nodeId, fx, fz, my } };
 }
 
 function distLoad(elementId: number, qI: number, qJ?: number): SolverLoad {

@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { resultCaseName } from '../../lib/engine/settlement-case';
+  import { resultComponents } from '../../lib/axes/result-components';
+  import { axesStore } from '../../lib/axes/axes.svelte';
+  const components = $derived(resultComponents(axesStore.frame, uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results));
+    import { resultCaseName } from '../../lib/engine/settlement-case';
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { knownIssueMessage } from '../../lib/engine/known-issue-message';
@@ -141,14 +144,12 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
+            {@const u = components.vec(d.ux, d.uy, d.uz)}
+            {@const r = components.rot(d.rx, d.ry, d.rz)}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(d.ux)}</td>
-              <td class="num">{dsp(d.uy)}</td>
-              <td class="num">{dsp(d.uz)}</td>
-              <td class="num">{(d.rx * 1000).toFixed(4)}</td>
-              <td class="num">{(d.ry * 1000).toFixed(4)}</td>
-              <td class="num">{(d.rz * 1000).toFixed(4)}</td>
+              {#each u as c}<td class="num">{dsp(c)}</td>{/each}
+              {#each r as c}<td class="num">{(c * 1000).toFixed(4)}</td>{/each}
             </tr>
           {/each}
         </tbody>
@@ -161,14 +162,12 @@
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
+            {@const f = components.vec(r.fx, r.fy, r.fz)}
+            {@const m = components.rot(r.mx, r.my, r.mz, -1)}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(r.fx)}</td>
-              <td class="num">{frc(r.fy)}</td>
-              <td class="num">{frc(r.fz)}</td>
-              <td class="num">{mom(-r.mx)}</td>
-              <td class="num">{mom(-r.my)}</td>
-              <td class="num">{mom(-r.mz)}</td>
+              {#each f as c}<td class="num">{frc(c)}</td>{/each}
+              {#each m as c}<td class="num">{mom(c)}</td>{/each}
             </tr>
           {/each}
         </tbody>
@@ -212,9 +211,9 @@
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
-              <td class="num">{dsp(d.ux)}</td>
-              <td class="num">{dsp(get2DDisplayDisplacementVertical(d))}</td>
-              <td class="num">{(get2DDisplayRotation(d) * 1000).toFixed(4)}</td>
+              <td class="num">{dsp(components.plane(d.ux, 'x'))}</td>
+              <td class="num">{dsp(components.plane(get2DDisplayDisplacementVertical(d), 'z'))}</td>
+              <td class="num">{(components.plane(get2DDisplayRotation(d), 'rot') * 1000).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>
@@ -229,9 +228,9 @@
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
-              <td class="num">{frc(r.rx)}</td>
-              <td class="num">{frc(get2DDisplayReactionVertical(r))}</td>
-              <td class="num">{mom(-get2DDisplayMoment(r))}</td>
+              <td class="num">{frc(components.plane(r.rx, 'x'))}</td>
+              <td class="num">{frc(components.plane(get2DDisplayReactionVertical(r), 'z'))}</td>
+              <td class="num">{mom(components.plane(get2DDisplayMoment(r), 'rot', -1))}</td>
             </tr>
           {/each}
         </tbody>

@@ -14,6 +14,7 @@
  * into another project does not point a member at whatever section happens to carry its old id.
  */
 import { modelStore } from '../../store/model.svelte';
+import { uiStore, type AnalysisMode } from '../../store/ui.svelte';
 import { isLocalPlaneRoller } from '../support-types';
 import { generatedMetadata } from './generated-metadata';
 import type {
@@ -40,6 +41,7 @@ export function closure(set: EntitySet): { nodes: Set<number>; elements: Set<num
 export interface FragmentNode { id: number; x: number; y: number; z: number }
 
 export interface Fragment {
+  analysisMode?: AnalysisMode;
   nodes: FragmentNode[];
   elements: Element[];
   quads: Quad[];
@@ -77,6 +79,7 @@ export interface FragmentOptions {
 export function fragmentOf(set: EntitySet, opts: FragmentOptions = {}): Fragment {
   const { nodes, elements, quads, plates } = closure(set);
   const frag: Fragment = {
+    analysisMode: uiStore.viewportPresentation3D === 'upright2dIn3d' ? '2d' : uiStore.analysisMode,
     nodes: [...nodes].map((id) => modelStore.nodes.get(id)).filter(Boolean).map((n) => ({ id: n!.id, x: n!.x, y: n!.y, z: n!.z ?? 0 })),
     elements: [...elements].map((id) => modelStore.elements.get(id)).filter(Boolean).map((e) => clone(e!)),
     quads: [...quads].map((id) => modelStore.quads.get(id)).filter(Boolean).map((q) => clone(q!)),

@@ -10,7 +10,7 @@ import {
   groupTopRow, inflectionAnchorage, planSupportEnd, supportPlanes, supportRows, topLayout, faceDevelopment,
   SUPPORT_EMBED_M, type SupportCage, type SupportBar,
 } from '../support-anchorage';
-import { endSupportPlan, inflectionChecks } from '../../design/end-support-anchorage';
+import { endSupportChecks, endSupportPlan, inflectionChecks } from '../../design/end-support-anchorage';
 import { deriveHookedDevelopment } from '../../../codes/cirsoc201/anchorage';
 
 const cage = (o: Partial<SupportCage> = {}): SupportCage => ({
@@ -214,4 +214,22 @@ issue2249('known wrong result: #2249 a station at moment zero still triggers inf
   expect(check([[2.9, -10], [3.1, 10]])).toMatchObject([verdict]);
   expect(check([[2.9, 10], [3.1, 10]])).toEqual([]);
   expect(check([[2.9, -10], [3, 0], [3.1, 10]])).toMatchObject([verdict]);
+});
+
+it('known wrong result: #2338 embedment rows report the checked length ratio', () => {
+  const support = cage();
+  const faceAtLimit = support.face + (SUPPORT_EMBED_M - support.face - supportPlanes(support).straight) / 2;
+  for (const change of [-0.001, 0, 0.001]) {
+    const geometry = cage({ face: faceAtLimit + change });
+    const plan = planSupportEnd(geometry, bar({ need: 'embed' }))!;
+    expect(plan.record.rule).toBe('9.7.3.8.2');
+    const available = SUPPORT_EMBED_M + 2 * Math.min(change, 0);
+    expect(plan.record.available).toBeCloseTo(available, 12);
+    expect.soft(endSupportChecks([{
+      ...plan.record, end: 'start', position: 'bottom', row: 0, diameterMm: 10,
+      count: 2, continuousPair: false, cause: plan.cause, cage: geometry,
+    }])).toEqual([expect.objectContaining({
+      status: change < 0 ? 'fail' : 'ok', ratio: r3(SUPPORT_EMBED_M / available),
+    })]);
+  }
 });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { caseNameShown } from '../../../lib/axes/case-names';
   import Hint from '../Hint.svelte';
   /**
    * The physical plates selected whole (`store/physical-plates.ts`): what each one is, its holes,
@@ -164,7 +165,7 @@
         {/each}
         <div class="pp-line">
           <select bind:value={loadCase} data-testid="plate-load-case">
-            {#each cases as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+            {#each cases as c (c.id)}<option value={c.id}>{caseNameShown(c)}</option>{/each}
           </select>
           <QuantityInput value={loadQ} quantity="areaLoad" cls="pp-num" testid="plate-load-q" onchange={(v) => (loadQ = v)} />
           <button class="pp-btn" onclick={addLoad} data-testid="plate-load-add">{t('plates.addLoad')}</button>

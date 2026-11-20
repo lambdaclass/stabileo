@@ -14,6 +14,9 @@
  * model. That is what makes it worth carrying rather than re-deriving.
  */
 
+import { userVec } from '../axes/display';
+import { planeName, shownDof } from '../axes/user-names';
+
 /** 3D DOF order MUST mirror `EccentricConnectionConstraint.releases` in
  *  `engine/src/types/input.rs`: 3D = [ux, uy, uz, rx, ry, rz]. */
 export const DOF_LABELS = ['ux', 'uy', 'uz', 'rx', 'ry', 'rz'] as const;
@@ -24,8 +27,8 @@ export type Translate = (key: string) => string;
 export function dofIndicesToNames(dofs: unknown, t: Translate): string {
   if (!Array.isArray(dofs) || dofs.length === 0) return t('pro.allDofs');
   return dofs.map((d: unknown) => {
-    if (typeof d === 'number') return DOF_LABELS[d] ?? String(d);
-    return String(d);
+    if (typeof d === 'number') return DOF_LABELS[d] ? shownDof(DOF_LABELS[d]) : String(d);
+    return shownDof(String(d));
   }).join(',');
 }
 
@@ -54,7 +57,7 @@ export function constraintLabel(c: Record<string, unknown>, t: Translate): strin
   }
   if (c.type === 'diaphragm') {
     return t('pro.constraintDiaph')
-      .replace('{plane}', s('plane') || 'XZ')
+      .replace('{plane}', planeName(s('plane') || 'XZ'))
       .replace('{master}', s('masterNode'))
       .replace('{n}', String((c.slaveNodes as unknown[] | undefined)?.length ?? 0));
   }
@@ -69,9 +72,9 @@ export function constraintLabel(c: Record<string, unknown>, t: Translate): strin
       .replace('{n}', String((c.terms as unknown[] | undefined)?.length ?? 0));
   }
   if (c.type === 'eccentricConnection') {
-    const offset = `(${n('offsetX')}, ${n('offsetY')}, ${n('offsetZ')})`;
+    const offset = `(${userVec(n('offsetX'), n('offsetY'), n('offsetZ')).map((v) => v + 0).join(', ')})`;
     const released = ((c.releases as boolean[] | undefined) ?? [])
-      .map((r, i) => (r ? DOF_LABELS[i] : null))
+      .map((r, i) => (r && DOF_LABELS[i] ? shownDof(DOF_LABELS[i]) : null))
       .filter(Boolean)
       .join(',');
     return t('pro.constraintEcc')

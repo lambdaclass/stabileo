@@ -38,7 +38,8 @@
     "de": "Anfängliche plastische Ablehnungen und unbelastete Bauphasendrehungen",
     "fr": "Refus plastiques initiaux et rotations sans charge par phases",
     "hu": "Kezdeti képlékeny elutasítások és terheletlen fázisforgások",
-    "tr": "Başlangıç plastik retleri ve yüksüz aşamalı dönmeler"
+    "tr": "Başlangıç plastik retleri ve yüksüz aşamalı dönmeler",
+    "zh": "初始塑性的拒绝求解与无荷载分阶段转动"
   },
   "explanation": {
     "en": "Initial 3D plastic states now propagate regular elastic refusals instead of reporting collapse through the hinge fallback. Staged member removal accepts rotations with exactly zero accumulated load and zero physical stiffness, while retaining nonzero-load refusals. Re-run affected plastic and staged histories (PR #1943).",
@@ -47,7 +48,8 @@
     "de": "Anfängliche plastische 3D-Zustände geben elastische Ablehnungen weiter, statt über das Gelenkverfahren Kollaps zu melden. Stabentfernung in Bauphasen erlaubt Drehungen mit exakt null kumulierter Last und physischer Steifigkeit; Lasten ungleich null werden weiter abgelehnt. Betroffene Verläufe neu berechnen (PR #1943).",
     "fr": "Les états plastiques 3D initiaux transmettent les refus élastiques au lieu de déclarer un effondrement par le calcul des rotules. Le retrait de barres par phases accepte les rotations à charge cumulée et rigidité physique exactement nulles ; les charges non nulles restent refusées. Recalculer les historiques concernés (PR #1943).",
     "hu": "A kezdeti 3D képlékeny állapotok továbbadják a szabályos rugalmas elutasításokat, a csuklós kerülőút által jelzett összeomlás helyett. A fázisos elemeltávolítás elfogadja a pontosan nulla összegzett terhű és nulla fizikai merevségű forgásokat, miközben a nem nulla terhek elutasítása megmarad. Futtassa újra az érintett képlékeny és fázisos történeteket (PR #1943).",
-    "tr": "Başlangıç 3D plastik durumları mafsal hesabıyla göçme bildirmek yerine elastik retleri iletir. Aşamalı eleman kaldırma, birikmiş yükü ve fiziksel rijitliği tam sıfır olan dönmeleri kabul eder; sıfır olmayan yükler reddedilmeye devam eder. Etkilenen geçmişleri yeniden çözün (PR #1943)."
+    "tr": "Başlangıç 3D plastik durumları mafsal hesabıyla göçme bildirmek yerine elastik retleri iletir. Aşamalı eleman kaldırma, birikmiş yükü ve fiziksel rijitliği tam sıfır olan dönmeleri kabul eder; sıfır olmayan yükler reddedilmeye devam eder. Etkilenen geçmişleri yeniden çözün (PR #1943).",
+    "zh": "初始 3D 塑性状态现在会传递常规的弹性拒绝求解，而不是通过铰回退报告倒塌。分阶段移除杆件时，接受累积荷载恰为零且物理刚度为零的转动，同时保留荷载非零时的拒绝求解。请重新运行受影响的塑性和分阶段历程（PR #1943）。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-initial-plastic-refusals-and-stage-cancellation.md",

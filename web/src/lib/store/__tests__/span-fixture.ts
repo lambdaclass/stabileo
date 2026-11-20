@@ -25,6 +25,7 @@ import { PHYSICAL_GROUP_KIND } from '../../model/physical/types';
 import { bendingSchedule } from '../../sheets/plans/bending-schedule';
 import { extractGoverningDemands, type ElementStationResult } from '../../engine/station-design-forces';
 import { resolveDesignAxes } from '../../engine/design/design-axes';
+import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { MemberContext } from '../../engine/design/member-context';
 import type { DocumentModel } from '../../engine/detailing/document-model';
 import type { StructuralGrid } from '../../model/grid';
@@ -46,7 +47,7 @@ export const grid: StructuralGrid = {
  * under (`suite-lateral.ts`, outside the system); `null`, none declared.
  */
 export function building(mesh: number | null, o: {
-  columnSide?: number; lateral?: LateralRole | null;
+  columnSide?: number; lateral?: LateralRole | null; prescribedZeroBeamTorque?: boolean; surfaceLoadFactor?: number;
   /** Tie each column's section to the slab as a rigid body (`tieColumnFootprints`): the reference joint. */
   footprint?: boolean;
   /** Multiply the beams' modulus (a material of their own), for the reference's stiffness study. */
@@ -69,7 +70,11 @@ export function building(mesh: number | null, o: {
   placeFrame(grid, { x: ['A', 'C'], y: ['1', '2'], levels: ['N0', 'N2'], columns: S(col), beamsX: S(bm, beamMat), beamsY: S(bm, beamMat) }, { fixBase: true });
   if (mesh !== null) {
     placeSlabs(grid, { levels: ['N1', 'N2'], thickness: 0.15, materialId: mat, meshSize: mesh, typology: 'solid' });
-    for (const q of modelStore.quads.values()) { modelStore.addSurfaceLoad3D(q.id, 1.5, 1); modelStore.addSurfaceLoad3D(q.id, 2, 2); }
+    const factor = o.surfaceLoadFactor ?? 1;
+    for (const q of modelStore.quads.values()) {
+      modelStore.addSurfaceLoad3D(q.id, 1.5 * factor, 1);
+      modelStore.addSurfaceLoad3D(q.id, 2 * factor, 2);
+    }
   } else {
     for (const e of modelStore.elements.values()) {
       const a = modelStore.nodes.get(e.nodeI)!, b = modelStore.nodes.get(e.nodeJ)!;
@@ -82,7 +87,16 @@ export function building(mesh: number | null, o: {
   if (o.footprint) tieColumnFootprints(side);
   const combo = modelStore.solveCombinations3D(true, false, true);
   if (!combo || typeof combo === 'string') throw new Error(String(combo));
-  resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+  const perCombo = o.prescribedZeroBeamTorque ? withZeroBeamTorque(combo.perCombo) : combo.perCombo;
+  resultsStore.setCombinationResults3D(combo.perCase, perCombo, combo.envelope);
+}
+
+export function withZeroBeamTorque(perCombo: ReadonlyMap<number, AnalysisResults3D>): Map<number, AnalysisResults3D> {
+  const beamIds = new Set(physicalBeams().flatMap(beam => beam.elements));
+  return new Map([...perCombo].map(([id, result]) => [id, {
+    ...result,
+    elementForces: result.elementForces.map(force => beamIds.has(force.elementId) ? { ...force, mxStart: 0, mxEnd: 0 } : force),
+  }]));
 }
 
 /**
@@ -166,6 +180,18 @@ export function forcesByPlace(compute = true): Map<string, PrescribedForces> {
  * the same steps as `designFamilies(['column', 'beam'])`: code check, design, detailing.
  */
 export function designAndDocumentUnder(forces: ReadonlyMap<string, PrescribedForces>): DocumentModel {
+  const next = contextsUnder(forces);
+  verificationStore.setDemandData(next, verificationStore.orientationIssues);
+  expect(designRunStore.runCodeCheck().ok).toBe(true);
+  const ids = [...next.values()].filter((c) => c.elementType === 'beam' || c.elementType === 'column').map((c) => c.elementId);
+  expect(designRunStore.autoDesign(ids, { deferDetailing: true }).ok).toBe(true);
+  detailingStore.generate({});
+  const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
+  expect(doc, 'document built').toBeTruthy();
+  return doc!;
+}
+
+export function contextsUnder(forces: ReadonlyMap<string, PrescribedForces>): Map<number, MemberContext> {
   designRunStore.computeDemands();
   const next = new Map<number, MemberContext>();
   const transferred = new Map<number, { context: MemberContext; forces: PrescribedForces; stations: ElementStationResult }>();
@@ -186,14 +212,7 @@ export function designAndDocumentUnder(forces: ReadonlyMap<string, PrescribedFor
       slenderDeltaNs: f!.slenderDeltaNs, slenderDeltaS: f!.slenderDeltaS,
     });
   }
-  verificationStore.setDemandData(next, verificationStore.orientationIssues);
-  expect(designRunStore.runCodeCheck().ok).toBe(true);
-  const ids = [...next.values()].filter((c) => c.elementType === 'beam' || c.elementType === 'column').map((c) => c.elementId);
-  expect(designRunStore.autoDesign(ids, { deferDetailing: true }).ok).toBe(true);
-  detailingStore.generate({});
-  const doc = detailingStore.buildDocument({ author: 'test', at: '2026-10-11T00:00:00Z' });
-  expect(doc, 'document built').toBeTruthy();
-  return doc!;
+  return next;
 }
 
 export interface PhysicalBeam { id: string; name: string; elements: number[] }

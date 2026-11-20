@@ -13,7 +13,9 @@
  * (`model/lateral-system.ts`); one whose role is not declared is checked as primary and says so
  * (`assumed`), whatever the geometry suggests. Pure: the store gathers the input.
  */
-import type { ProvidedReinforcement } from '../../../design-contract/reinforcement';
+import { lineFromMembers, lineMembersOf, type LineMemberSource } from '../beam-line';
+import type { LineStirrupPiece } from '../../detailing/line-bars';
+import { drawnBeamReinforcement, type ProvidedReinforcement } from '../../../design-contract/reinforcement';
 import type { SeismicDesignSettings, SeismicRole } from '../../../model/seismic-design';
 import { layersTotalArea, resolveLayers, resolveColumnReinf } from '../../station-design-forces';
 import type { Bar, Outline } from '../../codes/argentina/cirsoc201-section';
@@ -35,6 +37,8 @@ export interface FrameMember {
   section?: { outline: Outline; bars: Bar[] };
   /** Beams: half the column depth at each end, m; gravity shear at each end, kN; slab bars in the flange, cm². */
   faceHalf?: [number, number]; vg?: [number, number]; slabTop?: [number, number];
+  criticalSections?: LineMemberSource['criticalSections'];
+  drawnStirrups?: readonly LineStirrupPiece[];
   /** Columns: factored axial over the seismic combinations (compression positive), and the analysis shear. */
   axial?: { min: number; max: number }; vu?: number;
 }
@@ -91,8 +95,31 @@ export function seismicFrameChecks(i: { nodes: ReadonlyMap<number, P>; members: 
     if (m.role !== 'primary' || !m.r) { members.push({ id: m.id, kind: 'beam', role: m.role, ...(m.assumed ? { assumed: true } : {}), ok: true, issues: [] }); continue; }
     const st = beamSteel(m.r), { d, dPrime } = beamDepths(m, st.minDia);
     const hoopDef = m.r.regions?.stirrupsSupport ?? m.r.stirrups ?? { diameter: m.stirrupDia, legs: 2, spacing: 0.2 };
-    const zone = (m.r.regions?.regionT ?? 0.25) * m.L;
-    const ln = Math.max(0.1, m.L - (m.faceHalf?.[0] ?? 0) - (m.faceHalf?.[1] ?? 0));
+    const drawing = m.r[drawnBeamReinforcement];
+    const hoopZones = m.drawnStirrups ?? drawing?.stirrups.map(zone => ({
+      ...zone, from: zone.from * drawing.memberLength, to: zone.to * drawing.memberLength,
+    })) ?? lineFromMembers(lineMembersOf({ members: [m.id], forward: [true] },
+      () => ({ L: m.L, criticalSections: m.criticalSections, reinforcement: m.r }), r => r)).stirrups;
+    const matching = hoopZones.filter(z => Number.isFinite(z.from) && Number.isFinite(z.to) && z.from < z.to
+      && Number.isFinite(z.spacing) && z.spacing > 0 && z.spacing <= hoopDef.spacing
+      && Number.isFinite(z.diameter) && z.diameter > 0 && z.diameter === hoopDef.diameter
+      && Number.isSafeInteger(z.legs) && z.legs > 0 && z.legs >= hoopDef.legs);
+    const [faceI, faceJ] = m.faceHalf ?? [0, 0];
+    const clearLength = m.L - faceI - faceJ;
+    const continuousLength = (zones: Pick<LineStirrupPiece, 'from' | 'to'>[], face: number) => {
+      let end = face;
+      for (const z of zones.sort((a, b) => a.from - b.from)) {
+        if (z.from > end + 1e-9) break;
+        end = Math.max(end, z.to);
+      }
+      return end - face;
+    };
+    const declaredLength = (m.r.regions?.regionT ?? 0.25) * m.L;
+    const zone = Number.isFinite(clearLength) && clearLength > 0 && faceI >= 0 && faceJ >= 0
+      ? Math.min(declaredLength, clearLength, continuousLength(matching, faceI),
+        continuousLength(matching.map(z => ({ from: m.L - z.to, to: m.L - z.from })), faceJ))
+      : 0;
+    const ln = Math.max(0.1, clearLength);
     const slab = s.slabFlange ? m.slabTop ?? [0, 0] : [0, 0] as [number, number];
     const r = beamCapacityShear({
       b: m.b, h: m.h, d, dPrime, fc: m.fc, fy: m.fy, fyt: m.fy,

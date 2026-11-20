@@ -3,6 +3,7 @@ export type BuildFeatures = Readonly<{
   research: boolean;
   tools: boolean;
   diagramGame: boolean;
+  globalAxes: boolean;
 }>;
 
 export function validateFeatures(value: unknown, label: string): BuildFeatures;

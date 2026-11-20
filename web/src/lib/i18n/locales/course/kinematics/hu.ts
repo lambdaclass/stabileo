@@ -52,7 +52,7 @@ const words: Translations = {
   "course.kinematics.gic.cmp.disp": "Az elmozdulásmódszernek itt kevesebb egyenlet kell: {gic} a {gh} helyett.",
   "course.kinematics.gic.cmp.equal": "Mindkét módszernek ugyanannyi egyenlet kell: {gh}.",
   "course.kinematics.dm.intro": "Az ismeretlenek a csomóponti elmozdulások: elfordulások és eltolódások. Mindegyiket fiktív kényszerekkel rögzítjük, így oldjuk meg a terheket (0. állapot), majd minden ismeretlennek külön egységnyi értéket adunk (1…n. állapot). Ha megköveteljük, hogy a fiktív kényszerek végül ne viseljenek erőt, a K·D = −R⁰ rendszert kapjuk.",
-  "course.kinematics.dm.introStates": "Minden állapotban a rudak a végeiken befogottként, vagy ahol csuklósak, ott csuklósként működnek, így a nyomatékaik ismert együtthatókból adódnak: 4EI/L és 2EI/L elfordulásra, 6EI/L² keresztirányú eltolódásra, 3EI/L, ha a túlsó vég csuklós, és EA/L megnyúlásra.",
+  "course.kinematics.dm.introStates": "Minden állapotban a rudak a végeiken befogottként, vagy ahol csuklósak, ott csuklósként működnek, így a nyomatékaik ismert együtthatókból adódnak: 4EI/L és 2EI/L elfordulásra, 6EI/L² keresztirányú eltolódásra, 3EI/L, ha a túlsó vég csuklós. Ha figyelembe vesszük a tengelyirányú alakváltozást, az N = (EA/L)·ΔL normálerőt a ΔL megnyúlásból számítjuk.",
   "course.kinematics.dm.introRigid": "A rudakat normálirányban merevnek vesszük: megtartják a hosszukat. A kéterős rudak ezzel szemben EA/L normálirányú rugóként nyúlnak meg.",
   "course.kinematics.dm.introAxial": "A rudaknak EA/L normálmerevségük van: megnyúlhatnak, és minden csomópont minden szabad eltolódása ismeretlen. Az eredmény ekkor megegyezik a mátrixos megoldással.",
   "course.kinematics.dm.membersCaption": "Rudak: hossz és merevségek.",

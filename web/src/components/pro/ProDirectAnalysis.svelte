@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { signedAxisText, signedNamesIn } from '../../lib/axes/typed-frame';
   import Hint from './Hint.svelte';
   /**
    * The direct analysis method, run and read: its settings, a row per combination saying where the
@@ -15,7 +16,7 @@
 </script>
 
 <div class="da" data-testid="direct-analysis">
-  <Hint text={t('direct.note')} />
+  <Hint text={signedNamesIn(t('direct.note'))} />
   <div class="pk-row da-settings">
     <label>{t('direct.notional')}
       <input type="number" min="0" max="0.01" step="0.001" bind:value={directAnalysis.settings.notional} data-testid="direct-notional" />
@@ -42,7 +43,7 @@
         {#each rows as r (r.comboId)}
           <tr class:bad={!r.stable}>
             <td>{comboName(r.comboId)}</td>
-            <td>{t(`direct.dir.${r.notional}`)}</td>
+            <td>{signedAxisText(t(`direct.dir.${r.notional}`))}</td>
             <td class="num">{Number.isFinite(r.b2) ? r.b2.toFixed(3) : '∞'}</td>
             <td class="num">{r.tauB.size}</td>
             <td>{!r.stable ? t('direct.state.unstable') : r.converged ? t('direct.state.ok') : t('direct.state.notConverged')}</td>

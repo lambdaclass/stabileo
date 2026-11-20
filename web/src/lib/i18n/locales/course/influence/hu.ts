@@ -60,6 +60,7 @@ const words: Translations = {
   "course.influence.load.pAt": "P a(z) {e} rúdon, {pct} %-nál",
   "course.influence.load.direct": "Közvetlen megoldás ezekkel a terhekkel: {v}",
   "course.influence.load.drawEnvelope": "A burkoló megrajzolása a rudakon",
+  'course.influence.load.envelopeTitle': 'Hatásvonal-burkoló ({q})',
   "course.influence.load.hideEnvelope": "A burkoló elrejtése",
   "course.influence.load.drawing": "Számítás…",
   "course.influence.load.envelopeNote": "Minden keresztmetszetet a saját vonalán terheltünk meg. A piros görbe a maximum, a kék a minimum; az M a húzott oldalon van megrajzolva.",

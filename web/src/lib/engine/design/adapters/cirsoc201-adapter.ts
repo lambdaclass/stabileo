@@ -12,7 +12,6 @@ import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from
  * particular was the source of generator/verifier disagreement and never decides
  * pass/fail again.
  *
- * VERIFIER VERSION: 'cirsoc201.provided.v2'.
  *   v1 → v2 corrected the governing-axis selection (beams and columns), turned
  *   missing-reinforcement from a skipped check into an explicit failure, switched
  *   utilization to demand/capacity with a warn band, checked both column shear
@@ -20,7 +19,7 @@ import { IncompleteConcurrentDemandError, type IncompleteDemandDiagnostic } from
  *   are NOT comparable with v2 — v1 issued false passes.
  */
 
-import { verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
+import { rankProvidedReinforcement, verifyProvidedReinforcement, requiredLd, requiredLdh } from '../../station-design-forces';
 import { concreteBelowTopBars } from '../../../codes/cirsoc201/anchorage';
 import type { ProvidedRebarResult } from '../../station-design-forces';
 import type { ProvidedReinforcement } from '../../../store/model.svelte';
@@ -68,7 +67,7 @@ import {
   type DesignCodeAdapter, type DetailingLimits, type InputValidation,
 } from '../code-adapter';
 
-export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v2';
+export const CIRSOC_VERIFIER_ID = 'cirsoc201.provided.v3';
 
 /**
  * Legacy coarse flags, kept because the UI still reads them.
@@ -186,54 +185,11 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
   },
 
   verify(ctx: MemberContext, rebar: ProvidedReinforcement): ProvidedRebarResult {
-    const support = supportInputOf(ctx, rebar);
-    const supportPlan = support ? endSupportPlan(support) : null;
-    const res = verifyProvidedReinforcement(
-      ctx.elementId,
-      ctx.elementType,
-      rebar,
-      ctx.demands,
-      {
-        // Area-based fallbacks are only used when no station data exists; the
-        // capacity path is preferred and is what actually decides the verdict.
-        flexure: { AsReq: 0 },
-        shear: { AvOverS: 0, AvOverSMin: 0 },
-      },
-      {
-        b: ctx.axes.bFlex, h: ctx.axes.hFlex,
-        fc: ctx.material.fc, fy: ctx.material.fy,
-        cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
-      },
-      ctx.stations,
-      ctx.modelData as never,
-      {
-        axes: ctx.axes,
-        // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
-        slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
-        ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
-        ...(ctx.shape ? { shape: ctx.shape } : {}),
-        spacingRule: {
-          edition: ctx.codeEdition,
-          maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
-        },
-        // Present only after coordination has moved this member's steel. It shifts the
-        // layer centroids and nothing else — the section and its true cover are unchanged.
-        finalGeometry: ctx.finalGeometry,
-        // The bottom bars' ends as the detailing lays them: the region rows measure to there.
-        ...(support && supportPlan ? { bottomReach: bottomReach(support, supportPlan) } : {}),
-      },
-    );
-    if (support && supportPlan && res.hasProvided) return withSupportAnchorage(ctx, support, res, supportPlan);
-    // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
-    if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
-    const { b, h } = ctx.section;
-    const vu = h >= b ? peakVz(ctx.demands) : peakVy(ctx.demands);
-    const extra = wallMemberMinimumChecks(rebar, { b, h, L: ctx.L, fc: ctx.material.fc, fy: ctx.material.fy, vu });
-    if (!extra.length) return res;
-    const checks = [...res.checks, ...extra];
-    const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
-    const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
-    return { ...res, checks, overallStatus };
+    return evaluateCirsocReinforcement(ctx, rebar, verifyProvidedReinforcement);
+  },
+
+  rankCandidate(ctx: MemberContext, rebar: ProvidedReinforcement): { ranking: ProvidedRebarResult } {
+    return { ranking: evaluateCirsocReinforcement(ctx, rebar, (...args) => rankProvidedReinforcement(...args).ranking) };
   },
 
   classifyFailure(v: ProvidedRebarResult, ctx: MemberContext): LimitingConstraint[] {
@@ -351,6 +307,59 @@ function makeAdapter(edition: RegulationEdition): DesignCodeAdapter {
 }
 
 /** CIRSOC 201-2025 — the edition in force. Default for new projects. */
+function evaluateCirsocReinforcement(ctx: MemberContext, rebar: ProvidedReinforcement,
+  evaluate: typeof verifyProvidedReinforcement,
+): ProvidedRebarResult {
+  const support = supportInputOf(ctx, rebar);
+  const supportPlan = support ? endSupportPlan(support) : null;
+  const res = evaluate(
+    ctx.elementId,
+    ctx.elementType,
+    rebar,
+    ctx.demands,
+    {
+      // Area-based fallbacks are only used when no station data exists; the
+      // capacity path is preferred and is what actually decides the verdict.
+      flexure: { AsReq: 0 },
+      shear: { AvOverS: 0, AvOverSMin: 0 },
+    },
+    {
+      b: ctx.axes.bFlex, h: ctx.axes.hFlex,
+      fc: ctx.material.fc, fy: ctx.material.fy,
+      cover: ctx.material.cover, stirrupDia: ctx.material.stirrupDia,
+    },
+    ctx.stations,
+    ctx.modelData as never,
+    {
+      axes: ctx.axes,
+      // A sway storey's δs magnifies the column's moments too (§6.6.4.6), on top of δns.
+      slenderDeltaNs: ctx.slenderDeltaNs * (ctx.slenderDeltaS ?? 1),
+      ...(ctx.torsionStiffness !== undefined ? { torsionStiffness: ctx.torsionStiffness } : {}),
+      ...(ctx.shape ? { shape: ctx.shape } : {}),
+      spacingRule: {
+        edition: ctx.codeEdition,
+        maxAggregateSizeMm: ctx.material.maxAggregateSize.value,
+      },
+      // Present only after coordination has moved this member's steel. It shifts the
+      // layer centroids and nothing else — the section and its true cover are unchanged.
+      finalGeometry: ctx.finalGeometry,
+      // The bottom bars' ends as the detailing lays them: the region rows measure to there.
+      ...(support && supportPlan ? { bottomReach: bottomReach(support, supportPlan) } : {}),
+    },
+  );
+  if (support && supportPlan && res.hasProvided) return withSupportAnchorage(ctx, support, res, supportPlan);
+  // A wall's own minimum, Tabla 11.6.1 (or §11.6.2), besides the flexural one of the beam path.
+  if (ctx.elementType !== 'wall' || !res.hasProvided) return res;
+  const { b, h } = ctx.section;
+  const vu = h >= b ? peakVz(ctx.demands) : peakVy(ctx.demands);
+  const extra = wallMemberMinimumChecks(rebar, { b, h, L: ctx.L, fc: ctx.material.fc, fy: ctx.material.fy, vu });
+  if (!extra.length) return res;
+  const checks = [...res.checks, ...extra];
+  const rank = { none: -1, ok: 0, warn: 1, fail: 2 } as const;
+  const overallStatus = checks.reduce<ProvidedRebarResult['overallStatus']>((w, c) => (rank[c.status] > rank[w] ? c.status : w), res.overallStatus);
+  return { ...res, checks, overallStatus };
+}
+
 export const cirsoc201Adapter2025: DesignCodeAdapter = makeAdapter('2025');
 
 /**

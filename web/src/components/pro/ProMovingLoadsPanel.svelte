@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { gravityNameIn } from '../../lib/axes/typed-frame';
   import { knownIssueResultDisposition } from "../../lib/engine/known-issues";
   import Hint from './Hint.svelte';
   import { downloadResultText } from '../../lib/export/provenance-attach';
@@ -204,7 +205,7 @@
 </script>
 
 <div class="ml" data-testid="moving-panel">
-  <Hint text={t('moving.hint')} />
+  <Hint text={gravityNameIn(t('moving.hint'))} />
   <div class="ml-row">
     <label>{t('moving.train')}
       <select value={preset} onchange={(e) => usePreset(Number(e.currentTarget.value))} data-testid="moving-preset">

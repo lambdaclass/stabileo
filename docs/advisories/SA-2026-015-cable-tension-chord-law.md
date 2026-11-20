@@ -95,8 +95,8 @@ pass (determinate tensions unchanged).
 
 ## Workaround
 
-Check the governing cable and anchorage forces by hand or with the cable's weight left out (no
-density on its material): without weight the law was right.
+Independently verify the governing cable and anchorage forces with the cable self-weight
+included. Re-run the analysis in a fixed version.
 
 ## What to do with results you already have
 

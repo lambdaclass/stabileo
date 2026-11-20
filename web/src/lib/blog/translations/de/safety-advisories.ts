@@ -80,6 +80,12 @@ const body: PostBody = {
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-089-roller-z-fixed.md", "label": "SA-2026-089", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "note", "t": "SA-2026-090 — Behoben in 0.6.2."},
     {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/results-changes/2026-11-gravity-core.md#width-mode-level-mass-follows-loaded-carriers", "label": "SA-2026-090", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-091 — In #2338 abgesichert, Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-091-rc-torsion-shear-verification.md", "label": "SA-2026-091", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
+    {"k": "note", "t": "SA-2026-092 — Kombinierter Fall in #2372 gesperrt, Schnitte in #2382 korrigiert, Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md", "label": "SA-2026-092", "t": "Das Beispiel mit dem dünnwandigen Rohr gibt die Faser in lokalen Stabachsen an (y = 0,0995 m, z = 0). Die frühere Berechnung ergab 4,5697 MPa Gesamtschubspannung und 7,9149 MPa von-Mises-Spannung. Der Nachweis war bei beiden Vorzeichen des Torsionsmoments erfüllt. Bei gleichgerichteten Beiträgen ergibt die vorzeichenrichtige Summe der Schubspannungen 6,4625 MPa. Die zugehörige von-Mises-Spannung von 11,1934 MPa überschreitet die Streckgrenze von 9 MPa. Heben sich die Beiträge gegenseitig auf, liegt die von-Mises-Spannung nahe null und der Nachweis ist erfüllt."},
+    {"k": "note", "t": "SA-2026-093 — Behoben in #2381, Veröffentlichung ausstehend."},
+    {"k": "ext", "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-093-plane-moving-load-axial-force.md", "label": "SA-2026-093", "t": "Betroffene Eingaben und erforderliche Maßnahmen."},
     {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO mit einem Stahlbetonrahmen, gespeichert, bevor Ergebnisse versioniert wurden. Ein Hinweis unten meldet veraltete Ergebnisse: Das Projekt wurde mit einer älteren Version gelöst, und 19 registrierte Änderungen betreffen es; daneben die Schaltflächen, um die Änderungen zu sehen und neu zu rechnen.", "caption": "Wie eine Korrektur ein gespeichertes Projekt erreicht: Bis es neu gelöst ist, bleiben seine Ergebnisse als veraltet markiert, und die Änderungen, die es betreffen, sind einen Klick entfernt."},
     {
       "k": "h",
@@ -479,6 +485,9 @@ const body: PostBody = {
         ["SA-2026-088", "ABS- und SRSS-Stabdiagramme enthalten die Extrema der kombinierten Funktion zwischen Lastgrenzen. Kombinationen, Diagramme und abhängige Nachweise erneut ausführen (#2273).", "—", "Behoben in 0.6.2"],
         ["SA-2026-089", "Ein 3D-Lager vom Typ rollerZ oder custom3d ohne explizite Bindungen oder ein unbekannter Lagertyp wurde ohne Warnung als vollständig eingespannt berechnet. Prüfen Sie die vorgesehenen Lagerbedingungen und wiederholen Sie Analyse, Kombinationen und Bemessung. (#2276).", "Hoch", "Behoben in 0.6.2"],
         ["SA-2026-090", "Geschossfläche und Erdbebengewicht im Breitenmodus konnten von den erzeugten Stablasten abweichen, da Knotenausdehnungen verwendet oder geschlossene Flächen verlangt wurden. Nun gelten die Lasteinzugsflächen der belasteten Stäbe. Schwerkraftlastpläne, Erdbebengewichte und Erdbebenlasten neu erzeugen, dann abhängige Analysen, Kombinationen und Nachweise wiederholen. Erneutes Lösen gespeicherter Lasten korrigiert die Erdbebeneinwirkungen nicht (#2269). (#2210)", "—", "Behoben in 0.6.2"],
+        ["SA-2026-091", "Querkraft-, Torsions- und Erdbebenbügelnachweise für Stahlbeton konnten ohne ausreichende Bewehrungsgrundlage bestehen. Wiederholen Sie zertifizierte Bemessungen und prüfen Sie die maßgebenden Schnitte, Bewehrungspläne und Berichte.", "Hoch", "In #2338 abgesichert, Veröffentlichung ausstehend"],
+        ["SA-2026-092", "Die detaillierte Querschnittsauswertung konnte die Gesamtschub- und von-Mises-Spannung unterschätzen und ein Bestehen melden. Berechnen Sie betroffene Spannungen neu und prüfen Sie Diagramme, Nachweise und Berichte.", "Hoch", "Kombinierter Fall in #2372 gesperrt, Schnitte in #2382 korrigiert, Veröffentlichung ausstehend"],
+        ["SA-2026-093", "Wanderlasten in ebenen Rahmen konnten Normalkraftsprünge an konzentrierten Achslasten verwischen. Berechnen Sie betroffene Einhüllende und Normalkraft-Einflusslinien neu und prüfen Sie die darauf gestützten Berichte.", "Hoch", "Behoben in #2381, Veröffentlichung ausstehend"]
       ]
     },
     {
@@ -803,7 +812,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Wie Sie es erkennen: Das Modell hat Stäbe mit dem Verhalten „Seil“, ihr Material hat eine Dichte, und das Seil ist nicht der einzige Lastpfad.",
-        "Was zu tun ist: Prüfen Sie die maßgebenden Seil- und Verankerungskräfte von Hand, oder berechnen Sie ohne Dichte im Seilmaterial (ohne Gewicht war das Gesetz richtig); sobald die Korrektur veröffentlicht ist, berechnen Sie neu.",
+        "Was zu tun ist: Prüfen Sie die maßgebenden Seil- und Verankerungskräfte unabhängig und berücksichtigen Sie dabei das Eigengewicht des Seils. Rechnen Sie mit einer korrigierten Version erneut.",
         "Status: behoben in 0.3.0. Die Seilberechnung löst jetzt das Sehnengesetz selbst mit einer Newton-Iteration."
       ]
     },

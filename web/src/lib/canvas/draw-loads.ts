@@ -1,5 +1,7 @@
 // Render loads on Canvas 2D
 import { transverseSign } from '../engine/transverse-sign-2d';
+import { planeFlipped, twoD } from '../axes/display';
+import { TWO_D_NODAL_LOAD_LABELS } from '../geometry/coordinate-system';
 import { createLabelCollector, type LabelCollector, type SegmentObstacle } from './label-layout';
 
 import { canvasTheme } from './theme';
@@ -71,9 +73,9 @@ interface PointLoadOnElemInfo {
 export function axesLabel(isGlobal: boolean, angle: number): string {
   const a = ((angle % 360) + 360) % 360;
   if (isGlobal) {
-    if (a === 0) return ' [Z]';
-    if (a === 90 || a === 270) return ' [X]';
-    return ` [Z ${angle}°]`;
+    if (a === 0) return ` [${twoD.vertical}]`;
+    if (a === 90 || a === 270) return ` [${twoD.horizontal}]`;
+    return ` [${twoD.vertical} ${planeFlipped() ? -angle : angle}°]`;
   }
   return angle !== 0 ? ` [⊥ ${angle}°]` : '';
 }
@@ -644,7 +646,7 @@ export function drawPointLoadsOnElements(
       const { fromX, fromY } = drawForceArrow(ctx, base.x, base.y, snX, snY, ARROW_PX, ptColor);
       labels.block({ x1: base.x, y1: base.y, x2: fromX, y2: fromY });
 
-      const axLabel = loadIsGlobal ? 'Fx' : 'Fi';
+      const axLabel = loadIsGlobal ? TWO_D_NODAL_LOAD_LABELS.horizontal : 'Fi';
       labels.add({
         text: `${ptCasePrefix}${axLabel}=${fixedQuantity(Math.abs(px), 'force', 1, canvasUnitSystem())}`,
         colour: ptColor,
@@ -666,7 +668,7 @@ export function drawPointLoadsOnElements(
 
       const yOff = (Math.abs(load.p) > 1e-10 ? 14 : 0) + (Math.abs(px) > 1e-10 ? 14 : 0);
       labels.add({
-        text: `${ptCasePrefix}My=${fixedQuantity(Math.abs(my), 'moment', 1, canvasUnitSystem())}`,
+        text: `${ptCasePrefix}${TWO_D_NODAL_LOAD_LABELS.moment}=${fixedQuantity(Math.abs(my), 'moment', 1, canvasUnitSystem())}`,
         colour: ptColor,
         font: '12px sans-serif',
         box: {

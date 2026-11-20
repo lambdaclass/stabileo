@@ -13,9 +13,35 @@
  * each is now also an open `detailing.lapCheck.unarranged` condition naming the lap.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { flagshipDetailing } from './helpers/flagship';
+import { FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS } from '../../design/__tests__/helpers';
+import { detailableReinforcement } from '../../design/outcome';
+import { reviewRank } from '../assembly';
+import { flagshipDetailing, flagshipRun } from './helpers/flagship';
 import { CONTACT_ALLOWANCE } from '../classify';
 import { lapGeometry } from '../splice-checks';
+
+const EXPECTED_LAPS_BY_MEMBER_PAIR = [
+  [177, 178, 9],
+  [178, 179, 8],
+  [189, 190, 9],
+  [190, 191, 8],
+  [212, 213, 9],
+  [214, 215, 5],
+  [215, 216, 8],
+  [218, 219, 9],
+  [359, 360, 10],
+  [361, 362, 10],
+  [363, 364, 8],
+  [364, 365, 2],
+  [366, 367, 2],
+  [367, 368, 2],
+  [369, 370, 3],
+  [370, 371, 3],
+  [372, 373, 2],
+  [373, 374, 2],
+  [375, 376, 8],
+  [376, 377, 2],
+] as const;
 
 describe('the flagship\'s laps, after the materialiser keeps its records current', () => {
   beforeAll(() => { flagshipDetailing(); }, 600_000);
@@ -24,8 +50,44 @@ describe('the flagship\'s laps, after the materialiser keeps its records current
     const r = flagshipDetailing();
     const ids = new Set(r.assemblies.flatMap((a) => a.bars.map((b) => b.id)));
     const lost = r.lapping.laps.filter((l) => !ids.has(l.fromBarId) || !ids.has(l.toBarId));
-    expect(r.lapping.laps.length).toBeGreaterThan(500);
     expect(lost.map((l) => `${l.jointId} ${l.fromBarId}/${l.toBarId}`)).toEqual([]);
+  });
+
+  it('builds the exact laps for members with available reinforcement', () => {
+    const { summary } = flagshipRun();
+    expect(summary).toMatchObject({ aborted: false, notReached: 0 });
+    const eligible = new Set([...summary.outcomes.values()]
+      .filter((outcome) => detailableReinforcement(outcome) !== null)
+      .map((outcome) => outcome.elementId));
+    const ineligiblePairs = EXPECTED_LAPS_BY_MEMBER_PAIR.filter(([from, to]) => !eligible.has(from) || !eligible.has(to));
+    expect(ineligiblePairs).toEqual([]);
+    const laps = flagshipDetailing().lapping.laps;
+    expect(laps).toHaveLength(EXPECTED_LAPS_BY_MEMBER_PAIR.reduce((total, [, , count]) => total + count, 0));
+
+    const actualByPair = new Map<string, number>();
+    for (const lap of laps) {
+      const pair = `${lap.fromElementId}/${lap.toElementId}`;
+      actualByPair.set(pair, (actualByPair.get(pair) ?? 0) + 1);
+    }
+    expect(actualByPair).toEqual(new Map(EXPECTED_LAPS_BY_MEMBER_PAIR.map(([from, to, count]) => [`${from}/${to}`, count])));
+  });
+
+  it('gives no laps or approved assembly to refused members', () => {
+    const { summary } = flagshipRun();
+    const outcomes = [...summary.outcomes.values()];
+    const unsupported = outcomes.filter((outcome) => outcome.outcome === 'UNSUPPORTED');
+    expect(unsupported.map((outcome) => outcome.elementId).sort((a, b) => a - b))
+      .toEqual(FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
+    const refused = new Set(outcomes
+      .filter((outcome) => detailableReinforcement(outcome) === null)
+      .map((outcome) => outcome.elementId));
+    const { lapping: { laps }, assemblies } = flagshipDetailing();
+    expect(laps.filter((lap) => lap.fromElementId === undefined || lap.toElementId === undefined
+      || refused.has(lap.fromElementId) || refused.has(lap.toElementId))).toEqual([]);
+    expect(assemblies.flatMap((assembly) => assembly.bars)
+      .flatMap((bar) => bar.ownerElementIds.filter((id) => refused.has(id)))).toEqual([]);
+    expect(assemblies.filter((assembly) => reviewRank(assembly.state) >= reviewRank('VERIFIED')
+      && assembly.elementIds.some((id) => refused.has(id))).map((assembly) => assembly.id)).toEqual([]);
   });
 
   it('no pair of lap partners is judged as a clear-spacing conflict', () => {

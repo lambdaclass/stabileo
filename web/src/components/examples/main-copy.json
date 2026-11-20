@@ -166,5 +166,29 @@
     "outrigger.subtitle": "Betonmag egy outriggerrel két szélső oszlophoz kötve: mozgassa az outriggert, és figyelje a tetőeltolódást a teljes magasság mentén, a zárt megoldással összevetve.",
     "tower.title": "Acéltorony: rezgésalakok és kihajlás",
     "tower.subtitle": "Csőszelvényű acélkonzol választható csúcstömeggel: az első három hajlítási rezgésalak és a kihajlási teher, mindegyik a pontos megoldással összevetve."
+  },
+  "zh": {
+    "index.title": "在浏览器中实时求解的结构示例",
+    "index.lead": "拖动滑块，Stabileo 计算引擎就会在您的浏览器中重新求解模型。每个示例都注明验证它的校核，并把设置保存在可分享的链接中；框架模型也可以在编辑器中打开。",
+    "index.meta": "由 Stabileo 计算引擎在浏览器中实时求解的参数化结构模型：梁与框架、柱支承楼板、地震时程分析、钢筋混凝土柱、伸臂桁架位置扫描，以及钢塔的振型与屈曲。",
+    "open": "打开示例",
+    "back": "全部示例",
+    "parameters": "参数",
+    "beam-frame.title": "梁与框架演练场",
+    "beam-frame.subtitle": "调整钢梁或门式刚架的支座、跨度和荷载，弯矩、剪力和挠度随之实时更新，全部由 Stabileo 计算引擎在浏览器中求解。",
+    "slab-on-columns.title": "柱网支承的混凝土平板楼板",
+    "slab-on-columns.subtitle": "柱网上的平板混凝土楼板，以 MITC4 壳单元划分网格；每次调整参数，挠度场都会在浏览器中重新求解并实时显示。",
+    "earthquake-frame.title": "地震作用下框架的时程分析",
+    "earthquake-frame.subtitle": "底部受地面震动激励的钢筋混凝土框架，在浏览器中采用 Newmark 平均加速度法逐步积分，求解其随时间变化的动力响应。",
+    "legend.title": "图例",
+    "legend.undeformed": "未变形",
+    "legend.deformed": "变形 ×{scale}",
+    "legend.mode": "振型，已归一化",
+    "rc-column.title": "钢筋混凝土柱：截面与相互作用图",
+    "rc-column.subtitle": "配箍筋的矩形柱：按比例绘制截面和箍筋，给出按 CIRSOC 201 计算的相互作用图，并验算一组荷载是否落在图内。",
+    "outrigger.title": "高层核心筒的伸臂桁架位置扫描",
+    "outrigger.subtitle": "混凝土核心筒通过一道伸臂桁架连接两根外围柱：移动伸臂桁架，观察全高范围内的顶点位移，并与解析解对比。",
+    "tower.title": "钢塔：振型与屈曲",
+    "tower.subtitle": "顶部可附加质量的钢管悬臂：前三阶弯曲振型和屈曲荷载，每一项结果都与精确解并列对比，便于检验计算引擎。"
   }
 }

@@ -27,6 +27,7 @@
 //
 // Reactions/constraint forces keep using create-load-arrow.ts (few per model).
 
+import { userComponent } from '../axes/display';
 import * as THREE from 'three';
 import { COLORS, createTextSpriteCached } from './selection-helpers';
 import {
@@ -251,9 +252,9 @@ export class LoadArrowsBatched {
     const labelHex = '#' + new THREE.Color(forceColor).getHexString();
 
     const forces = [
-      { val: fx, dir: GLOBAL_X.clone() },
-      { val: fy, dir: GLOBAL_Y.clone() },
-      { val: fz, dir: GLOBAL_Z.clone() },
+      { val: fx, dir: GLOBAL_X.clone(), k: 0 as const },
+      { val: fy, dir: GLOBAL_Y.clone(), k: 1 as const },
+      { val: fz, dir: GLOBAL_Z.clone(), k: 2 as const },
     ];
     for (const f of forces) {
       if (Math.abs(f.val) < 1e-10) continue;
@@ -262,14 +263,14 @@ export class LoadArrowsBatched {
       const len = this.len(f.val, maxForce);
       const farEnd = origin.clone().addScaledVector(dir, -len);
       this.arrow(dir, farEnd, len, forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH);
-      this.label(this.format.force(f.val), labelHex, 28,
+      this.label(this.format.force(userComponent(f.k, f.val, 'vector')), labelHex, 28,
         farEnd.clone().addScaledVector(dir, -0.15));
     }
 
     const moments = [
-      { val: mx, axis: GLOBAL_X.clone() },
-      { val: my, axis: GLOBAL_Y.clone() },
-      { val: mz, axis: GLOBAL_Z.clone() },
+      { val: mx, axis: GLOBAL_X.clone(), k: 0 as const },
+      { val: my, axis: GLOBAL_Y.clone(), k: 1 as const },
+      { val: mz, axis: GLOBAL_Z.clone(), k: 2 as const },
     ];
     for (const m of moments) {
       if (Math.abs(m.val) < 1e-10) continue;
@@ -278,7 +279,7 @@ export class LoadArrowsBatched {
       } else {
         this.curvedMomentArrow(origin, m.axis, m.val, COLORS.moment);
       }
-      this.label(this.format.moment(m.val), '#ffaa44', 24,
+      this.label(this.format.moment(userComponent(m.k, m.val, 'pseudovector')), '#ffaa44', 24,
         origin.clone().addScaledVector(m.axis, 0.35));
     }
   }

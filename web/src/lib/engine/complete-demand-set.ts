@@ -67,6 +67,7 @@ export class DemandInventory {
   readonly #cells: ReadonlyMap<number, ReadonlyMap<number, ReadonlySet<number>>>;
   readonly #members: ReadonlyMap<number, DemandScope>;
   readonly #coverages: ReadonlyMap<number, DemandCoverage>;
+  #containsOwnScope: boolean | undefined;
   private constructor(scope: DemandScope) {
     this.scope = Object.freeze({ combinations: Object.freeze(scope.combinations.map(c => Object.freeze({ ...c,
       members: Object.freeze(c.members.map(m => Object.freeze({ ...m, stationTs: Object.freeze([...m.stationTs]) }))) }))),
@@ -123,10 +124,14 @@ export class DemandInventory {
   }
 
   private contains(b: DemandScope): boolean {
-    return (b.missingMembers ?? []).every(id => this.scope.missingMembers?.includes(id)) && b.combinations.every(c => {
+    const ownScope = b === this.scope;
+    if (ownScope && this.#containsOwnScope !== undefined) return this.#containsOwnScope;
+    const contained = (b.missingMembers ?? []).every(id => this.scope.missingMembers?.includes(id)) && b.combinations.every(c => {
       const members = this.#cells.get(c.comboId);
       return members !== undefined && c.members.every(m => { const ts = members.get(m.elementId); return ts !== undefined && m.stationTs.every(t => ts.has(t)); });
     });
+    if (ownScope) this.#containsOwnScope = contained;
+    return contained;
   }
 }
 

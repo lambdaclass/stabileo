@@ -1,10 +1,14 @@
 <script lang="ts" module>
+  import { untrack } from 'svelte';
   import type { TargetSpec as Spec } from '../../../lib/model/loads/load-targets';
   /** A target, or the selected members taken as one physical member. */
   export type PickedSpec = Spec | { by: 'chain' };
 </script>
 
 <script lang="ts">
+  import { axesStore } from '../../../lib/axes/axes.svelte';
+  import { reframeDraft } from '../../../lib/axes/reframe-draft';
+  import { axesKey, axisName, modelAxisOf } from '../../../lib/axes/display';
   /**
    * What a load or a support goes on, the same choice everywhere (`model/loads/load-targets.ts`):
    * the selection, ids, a group, a range of coordinates, a section, a kind of member, for a member
@@ -45,7 +49,23 @@
   $effect.pre(() => { const kept = keepTargetMode(by, modes); if (kept !== by) by = kept; });
   let idsText = $state('');
   let groupId = $state<number | null>(null);
-  let axis = $state<'X' | 'Y' | 'Z'>('Z');
+  let axis = $state<'X' | 'Y' | 'Z'>(axisName(2));
+
+  let shownAxes = axesKey();
+  let shownFrame = axesStore.frame;
+  $effect.pre(() => {
+    const k = axesKey();
+    const next = axesStore.frame;
+    if (k === shownAxes) return;
+    untrack(() => {
+      const moved = reframeDraft(shownFrame, next).range(axis, min, max);
+      axis = moved.axis;
+      min = moved.min;
+      max = moved.max;
+      shownAxes = k;
+      shownFrame = next;
+    });
+  });
   let min = $state(0);
   let max = $state(0);
   let sectionId = $state<number | null>(null);
@@ -62,7 +82,11 @@
       case 'all': case 'selection': case 'chain': spec = { by: mode }; break;
       case 'ids': spec = { by: 'ids', text: idsText }; break;
       case 'group': spec = { by: 'group', groupId: groupId ?? groups[0]?.id ?? -1 }; break;
-      case 'range': spec = { by: 'range', axis, min, max }; break;
+      case 'range': {
+        const m = modelAxisOf(axis);
+        spec = { by: 'range', axis: (['X', 'Y', 'Z'] as const)[m.index], min: m.sign > 0 ? min : -max, max: m.sign > 0 ? max : -min };
+        break;
+      }
       case 'section': spec = { by: 'section', sectionId: sectionId ?? sections[0]?.id ?? -1 }; break;
       case 'kind': spec = { by: 'kind', kind }; break;
     }

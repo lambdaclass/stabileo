@@ -1,0 +1,31 @@
+{
+  "id": "rc-beam-line-check-parity",
+  "date": "2026-11-20",
+  "prs": [2338],
+  "area": "design",
+  "when": {
+    "all": ["concreteMembers", "cirsoc201"]
+  },
+  "title": {
+    "en": "Consistent RC beam-line and member checks",
+    "es": "Verificación coherente de líneas de vigas y miembros de hormigón",
+    "pt": "Verificação consistente de linhas de vigas e elementos de concreto",
+    "de": "Einheitliche Nachweise für Balkenzüge und Stahlbetonbauteile",
+    "fr": "Vérifications cohérentes des files de poutres et des éléments en béton armé",
+    "tr": "Betonarme kiriş hatları ve elemanları için tutarlı kontroller",
+    "zh": "钢筋混凝土梁线与杆件采用一致的验算"
+  },
+  "explanation": {
+    "en": "CIRSOC primary shear checks use the actual stirrup diameter in both the beam line and member. Support embedment reports the required-to-available length ratio, and layouts that clear the joint report zero interference. Re-run verification on affected beams.",
+    "es": "La verificación CIRSOC de corte principal usa el diámetro real del estribo en la línea de vigas y en el miembro. El empotramiento de la barra en el apoyo indica la relación entre la longitud requerida y la disponible, y las disposiciones que pasan por el nudo indican interferencia nula. Volvé a verificar las vigas afectadas.",
+    "pt": "A verificação CIRSOC de cisalhamento principal usa o diâmetro real do estribo na linha de vigas e no elemento. A inserção da barra no apoio mostra a razão entre o comprimento exigido e o disponível, e os arranjos que passam pelo nó indicam interferência nula. Verifique novamente as vigas afetadas.",
+    "de": "Der CIRSOC-Querkraftnachweis in Hauptrichtung verwendet im Balkenzug und im Bauteil den tatsächlichen Bügeldurchmesser. Die Einbindelänge am Auflager wird als Verhältnis der erforderlichen zur verfügbaren Länge angegeben. Kollisionsfreie Anordnungen am Knoten weisen keine Überschneidung auf. Prüfen Sie die betroffenen Balken erneut.",
+    "fr": "La vérification CIRSOC de l’effort tranchant principal utilise le diamètre réel du cadre dans la file de poutres et dans l’élément. La pénétration de la barre dans l’appui est indiquée par le rapport entre la longueur requise et la longueur disponible. Les dispositions qui franchissent le nœud affichent une interférence nulle. Vérifiez à nouveau les poutres concernées.",
+    "tr": "CIRSOC ana kesme kontrolü, kiriş hattında ve elemanda gerçek etriye çapını kullanır. Mesnede giren donatı için gerekli uzunluğun mevcut uzunluğa oranı verilir. Birleşimden çakışmadan geçen donatı düzenlerinde çakışma sıfır olarak gösterilir. Etkilenen kirişleri yeniden doğrulayın.",
+    "zh": "CIRSOC 主方向抗剪验算在梁线和单根杆件中均采用实际箍筋直径。支座内埋入长度验算显示所需长度与可用长度之比。可无干涉通过节点的布筋方案显示干涉量为零。请重新验算受影响的梁。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-rc-beam-line-check-parity.md",
+    "heading": "Consistent RC beam-line and member checks"
+  }
+}

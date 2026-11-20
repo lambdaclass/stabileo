@@ -424,6 +424,12 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     const held = holds.map((h) => holdText(h, tr));
     // A design read on results that have since changed is open, as the screen shows it: never «Cumple».
     if (verdict.status === 'stale') held.push(holdText({ key: 'verdict.hold.stale' }, tr));
+    if (own && verdict.status === 'unavailable' && !held.length) {
+      const baseline = verificationStore.designMap.get(id);
+      const reason = baseline?.status === 'fail' && baseline.governingCheck.startsWith('diag.')
+        ? baseline.governingCheck : 'design.status.unavailable';
+      held.push(tr(reason));
+    }
     if (held.length) el.heldBy = held;
   }
 
@@ -515,7 +521,7 @@ export function memoriaInput(tr: Tr, locale: string): MemoriaInput {
     },
     global: {
       ...(modalRows?.length ? { modal: modalRows } : {}),
-      ...(storeys.length ? { storeyShear: storeys.map((s) => ({ level: s.levelName ?? lv.name(s.level), vx: s.shearX, vy: s.shearY, kx: s.kX, ky: s.kY, soft: s.soft })) } : {}),
+      ...(storeys.length ? { storeyShear: storeys.map((s) => ({ level: s.levelName ?? lv.name(s.level), vxMagnitude: s.shearX, vyMagnitude: s.shearY, kx: s.kX, ky: s.kY, soft: s.soft })) } : {}),
       ...(drifts.drifts && drifts.basis ? { drift: { limit: drifts.basis.limit, cd: drifts.basis.cd, rows: drifts.drifts.map((d) => ({ level: lv.name(d.level), ratioX: d.ratioX, ratioY: d.ratioY, status: d.status })) } } : {}),
     },
     elements,

@@ -1,3 +1,4 @@
+import { drawnBeamEvidence, linePieces } from '../detailing/line-bars';
 /**
  * A beam line's reinforcement as bars along the line, read from its members' three regions and
  * projected back onto them, and the edits the frame editor makes on it.
@@ -12,7 +13,7 @@
  * support stirrups are the weaker of its two end zones, so the check never credits the stronger.
  * The round trip reproduces what the verifier reads.
  */
-import type { ProvidedReinforcement, LongBarGroup, RebarLayer, StirrupDef } from '../../design-contract/reinforcement';
+import { drawnBeamReinforcement, type ProvidedReinforcement, type LongBarGroup, type RebarLayer, type StirrupDef } from '../../design-contract/reinforcement';
 import { BEAM_LINE_VERSION, type BeamLineBar, type BeamLineReinforcement, type BeamStirrupZone } from '../../design-contract/beam-line';
 import { resolveBarGroups, resolveLayers } from '../station-design-forces';
 
@@ -69,6 +70,14 @@ const offsets = (ms: readonly { L: number }[]): number[] => {
 
 let seq = 0;
 const nextId = (p: string) => `${p}${Date.now().toString(36)}${(++seq).toString(36)}`;
+
+export function memberStirrupZones(stirrups: readonly BeamStirrupZone[], offset: number, length: number, forward = true) {
+  return stirrups.flatMap(({ from, to, diameter, legs, spacing }) => {
+    const start = Math.max(0, from - offset), end = Math.min(length, to - offset);
+    if (end - start < EPS) return [];
+    return [{ from: forward ? start : length - end, to: forward ? end : length - start, diameter, legs, spacing }];
+  }).sort((a, b) => a.from - b.from);
+}
 
 /** Read a line from its members' regions. */
 export function lineFromMembers(members: readonly LineMember[]): BeamLineReinforcement {
@@ -218,6 +227,7 @@ const stirrupOf = (z?: BeamStirrupZone): StirrupDef | undefined => (z ? { diamet
 export function membersFromLine(line: BeamLineReinforcement, members: readonly LineMember[]): Map<number, ProvidedReinforcement> {
   const X = offsets(members);
   const out = new Map<number, ProvidedReinforcement>();
+  const pieces = linePieces(line, members.map(() => true));
   members.forEach((m, k) => {
     const a = X[k]!, b = a + m.L, s = a + m.tStart * m.L, e = b - m.tEnd * m.L, mid = (s + e) / 2;
     const pS = a + Math.max(m.faceStart, 1e-3), pE = b - Math.max(m.faceEnd, 1e-3);
@@ -275,7 +285,8 @@ export function membersFromLine(line: BeamLineReinforcement, members: readonly L
     if (skin) regions.skin = { ...skin };
     const prior = m.reinforcement?.regions?.regionT;
     if (prior !== undefined) regions.regionT = prior;
-    out.set(m.id, { regions });
+    const drawn = pieces.get(m.id);
+    out.set(m.id, { regions, [drawnBeamReinforcement]: drawnBeamEvidence(drawn ?? { bars: [], stirrups: [] }, m.L) });
   });
   return out;
 }

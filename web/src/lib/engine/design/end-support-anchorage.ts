@@ -335,7 +335,8 @@ export function lateralReadingNote(r: LateralReading | undefined): string {
 export function endSupportChecks(verdicts: readonly SupportAnchorageVerdict[], lateral?: LateralReading): ProvidedRebarCheck[] {
   // An end left to the line's laps is the lap's to check; a bar with nothing to develop has no row.
   return verdicts.filter((v) => v.solution !== 'pending' && v.rule !== 'none').map((v) => {
-    const fails = v.solution === 'unresolved';
+    const ratio = v.available > 0 ? v.required / v.available : Number.POSITIVE_INFINITY;
+    const fails = v.solution === 'unresolved' || !Number.isFinite(ratio);
     const cm = (x: number) => (x * 100).toFixed(1);
     return {
       /*
@@ -347,8 +348,7 @@ export function endSupportChecks(verdicts: readonly SupportAnchorageVerdict[], l
       category: `Anchorage at support (${v.end}, ${v.position}${v.row > 0 ? ` row ${v.row + 1}` : ''}${v.continuousPair ? ', continuous pair' : ''})`,
       demandCategory: null,
       required: +cm(v.required), provided: +cm(v.available),
-      // §9.7.3.8's 150 mm is where the bar is cut, not a length it develops: no utilization to state.
-      ratio: v.rule === '9.7.3.8.2' ? Number.NaN : v.available > 0 ? +(v.required / v.available).toFixed(3) : Number.POSITIVE_INFINITY,
+      ratio: +ratio.toFixed(3),
       status: fails ? 'fail' : 'ok',
       unit: 'cm', method: 'area', tuplesChecked: 0,
       description: `${v.count}Ø${v.diameterMm} ${v.solution}: ${cm(v.available)} cm available vs ${v.rule} ${cm(v.required)} cm (${v.cage.source}, column face ${cm(v.cage.face)} cm, Ø${v.cage.barDiaMm} cage)`

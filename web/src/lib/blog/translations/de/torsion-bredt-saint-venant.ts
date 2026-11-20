@@ -74,7 +74,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Bredt liegt in allen vier Fällen zu tief. Bei einem Rohr mit 5 mm Wand und 50 mm mittlerem Radius, das nach der üblichen Faustregel noch als dünnwandig gilt, ist die tatsächliche Spannung 4,5 % höher als die berechnete. Bei 10 mm Wand sind es 8,2 %."
+      "t": "Bredt liegt in allen vier Fällen zu tief. Bei einem Rohr mit 5 mm Wand und 50 mm mittlerem Radius, das nach der üblichen Faustregel noch als dünnwandig gilt, ist die tatsächliche Spannung 4,7 % höher als die berechnete. Bei 10 mm Wand sind es 8,9 %."
     },
     {
       "k": "quote",

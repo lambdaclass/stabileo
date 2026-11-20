@@ -1,3 +1,6 @@
+import { quantityTransform } from '../axes/quantity-transform';
+const pseudoToUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'pseudovector', values });
+const toUser = (f: import('../axes/frame').AxesFrame, values: import('../axes/frame').Vec3) => quantityTransform(f, 'toUser').triple({ kind: 'vector', values });
 /**
  * The empty workbook a reader downloads to find out what to fill in.
  *
@@ -26,7 +29,11 @@
 import { loadXlsxModule, saveWorkbook } from '../export/excel';
 import { t } from '../i18n';
 import { uiStore } from '../store';
-import { SHEETS, INSTRUCTIONS_SHEET, headerFor, LOAD_TYPES } from './schema';
+import { sheetSpec, SHEETS, coordinateColumns, INSTRUCTIONS_SHEET, AXES_SHEET, headerFor, LOAD_TYPES } from './schema';
+import { globalAxes } from '../features';
+import { axesStore } from '../axes/axes.svelte';
+import { makeFrame, relabelAxesWith, userAxisAlong, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
+import type { SheetSpec } from './schema';
 
 /** Column widths, so a header is readable without dragging anything. */
 function widthsFor(headers: string[]): Array<{ wch: number }> {
@@ -41,7 +48,7 @@ function widthsFor(headers: string[]): Array<{ wch: number }> {
  * `schema.ts`. A reader gets the explanation in Spanish and the keys in the
  * one spelling every version of the importer will accept.
  */
-function instructionRows(): Array<Array<string | number>> {
+function instructionRows(frame: AxesFrame | null = null): Array<Array<string | number>> {
   const rows: Array<Array<string | number>> = [
     [t('xls.tpl.title')],
     [],
@@ -55,14 +62,16 @@ function instructionRows(): Array<Array<string | number>> {
     [],
   ];
 
-  for (const sheet of SHEETS) {
+  for (const spec of SHEETS) {
+    const sheet = sheetSpec(spec.name, frame !== null)!;
     rows.push([`── ${sheet.name} — ${t(sheet.titleKey)}`]);
     for (const col of sheet.columns) {
       rows.push([
         '',
         headerFor(col),
-        col.required ? t('xls.tpl.required') : t('xls.tpl.optionalMark'),
-        t(col.helpKey),
+        (frame && sheet.name === 'Nodes' && ['x', 'y', 'z'].includes(col.key)
+          ? col.key === coordinateColumns(frame).along : col.required) ? t('xls.tpl.required') : t('xls.tpl.optionalMark'),
+        frame ? columnHelpIn(frame, col.helpKey) : t(col.helpKey),
       ]);
     }
     rows.push([]);
@@ -90,23 +99,98 @@ function instructionRows(): Array<Array<string | number>> {
  * deal with the load failing and a second failure path here would be a second
  * place to report the same thing.
  */
-export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>) {
+export function buildTemplateWorkbook(XLSX: NonNullable<Awaited<ReturnType<typeof loadXlsxModule>>>, axes: AxesChoice | null = axesStore.frame.identity ? null : axesStore.choice) {
+  const choice = globalAxes() && axes ? makeFrame(axes) : null;
+  const frame = choice?.identity ? null : choice;
   const wb = XLSX.utils.book_new();
 
-  const help = XLSX.utils.aoa_to_sheet(instructionRows());
+  const help = XLSX.utils.aoa_to_sheet(instructionRows(frame));
   help['!cols'] = [{ wch: 2 }, { wch: 18 }, { wch: 12 }, { wch: 90 }];
   XLSX.utils.book_append_sheet(wb, help, INSTRUCTIONS_SHEET);
 
-  for (const sheet of SHEETS) {
+  for (const spec of SHEETS) {
+    const sheet = sheetSpec(spec.name, frame !== null)!;
     const headers = sheet.columns.map(headerFor);
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...sheet.examples]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...(frame ? examplesIn(sheet, frame) : sheet.examples)]);
     ws['!cols'] = widthsFor(headers);
     /* The header row stays put while a long Loads sheet is scrolled. */
     ws['!freeze'] = { xSplit: 0, ySplit: 1 };
     XLSX.utils.book_append_sheet(wb, ws, sheet.name);
   }
+  if (frame) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(axesRows(frame.choice)), AXES_SHEET);
   return wb;
 }
+
+function examplesIn(sheet: SheetSpec, f: AxesFrame): Array<Array<string | number>> {
+  const at = (key: string) => sheet.columns.findIndex((c) => c.key === key);
+  const num = (v: string | number | undefined) => (typeof v === 'number' ? v : 0);
+  const h = userAxisAlong(f, 0), v = userAxisAlong(f, 2);
+  const lower = (a: { name: string }) => a.name.toLowerCase();
+  return sheet.examples.flatMap((example) => {
+    const row = [...example];
+    if (sheet.name === 'Nodes') {
+      const [x, z] = [num(example[at('x')]), num(example[at('z')])];
+      for (const k of ['x', 'y', 'z']) row[at(k)] = '';
+      row[at(lower(h))] = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: x }) + 0;
+      row[at(lower(v))] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: z }) + 0;
+    } else if (sheet.name === 'Supports') {
+      row[at('type')] = supportTypeIn(f, String(example[at('type')]), false);
+      for (const key of ['kx', 'ky', 'kz', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz']) row[at(key)] = '';
+      const normal = userAxisAlong(f, 1);
+      for (const [source, target, sign] of [
+        ['kx', `k${lower(h)}`, 1], ['ky', `k${lower(v)}`, 1], ['kz', `kr${lower(normal)}`, 1],
+        ['dx', `d${lower(h)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: 1 })], ['dy', `d${lower(v)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: 1 })], ['dz', `d${lower(v)}`, quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: 1 })],
+      ] as const) if (example[at(source)] !== '' && example[at(source)] !== undefined) row[at(target)] = sign * num(example[at(source)]) + 0;
+      if (example[at('angle')] !== '') row[at('angle')] = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: num(example[at('angle')]) }) + 0;
+    } else if (sheet.name === 'Loads' && example[0] === 'nodal') {
+      const fx = num(example[at('fx')]), fz = num(example[at('fz')]) || num(example[at('fy')]);
+      for (const k of ['fx', 'fy', 'fz']) row[at(k)] = '';
+      row[at(`f${lower(h)}`)] = quantityTransform(f).plane({ kind: 'vector', axis: 'x', value: fx }) + 0;
+      row[at(`f${lower(v)}`)] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: fz }) + 0;
+      const normal = userAxisAlong(f, 1);
+      const moment = num(example[at('mz')]);
+      for (const key of ['mx', 'my', 'mz']) row[at(key)] = '';
+      row[at(`m${lower(normal)}`)] = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: moment }) + 0;
+    } else if (sheet.name === 'Loads' && example[0] === 'nodal3d') {
+      const F = toUser(f, [num(example[at('fx')]), num(example[at('fy')]), num(example[at('fz')])]);
+      const M = pseudoToUser(f, [num(example[at('mx')]), num(example[at('my')]), num(example[at('mz')])]);
+      ['fx', 'fy', 'fz'].forEach((k, i) => { row[at(k)] = F[i]! + 0; });
+      ['mx', 'my', 'mz'].forEach((k, i) => { row[at(k)] = M[i]! + 0; });
+    } else if (sheet.name === 'Loads' && example[0] === 'distributed' && String(example[at('dir')]).toLowerCase() === 'global') {
+      for (const k of ['qi', 'qj']) if (example[at(k)] !== '') row[at(k)] = quantityTransform(f).plane({ kind: 'vector', axis: 'z', value: num(example[at(k)]) }) + 0;
+      const angle = example[at('angle')];
+      if (typeof angle === 'number') row[at('angle')] = quantityTransform(f).plane({ kind: 'pseudovector', axis: 'rot', value: angle }) + 0;
+    } else if (sheet.name === 'Loads' && example[0] === 'pointOnElement') {
+      const plane = quantityTransform(f);
+      const normal = userAxisAlong(f, 1);
+      const couple = example[at('my')];
+      row[at('my')] = '';
+      if (typeof couple === 'number') row[at(`m${lower(normal)}`)] = plane.plane({ kind: 'pseudovector', axis: 'rot', value: couple }) + 0;
+      if (example[at('dir')] === 'global') {
+        row[at('P')] = plane.plane({ kind: 'vector', axis: 'z', value: num(example[at('P')]) }) + 0;
+        const angle = example[at('angle')];
+        if (typeof angle === 'number') row[at('angle')] = plane.plane({ kind: 'pseudovector', axis: 'rot', value: angle }) + 0;
+      }
+    } else if (sheet.name === 'Loads' && example[0] === 'distributed3d' && example[at('dir')] !== 'local') {
+      const I = toUser(f, [0, num(example[at('qi')]), num(example[at('qzi')])]);
+      const J = toUser(f, [0, num(example[at('qj')]), num(example[at('qzj')])]);
+      row[at('qxi')] = I[0]! + 0; row[at('qxj')] = J[0]! + 0;
+      row[at('qi')] = I[1]! + 0; row[at('qzi')] = I[2]! + 0;
+      row[at('qj')] = J[1]! + 0; row[at('qzj')] = J[2]! + 0;
+    }
+    return [row];
+  });
+}
+
+/** A user-axis column's help is the help of the model axis it stands for, renamed: user Y under Y up is the height. */
+export function columnHelpIn(frame: AxesFrame, helpKey: string): string {
+  const m = /^(xls\.col\.(?:|f|m|k|kr|d))([xyz])$/.exec(helpKey);
+  if (!m) return t(helpKey);
+  const model = quantityTransform(frame, 'toModel').component('xyz'.indexOf(m[2]!), 1, 'vector').index;
+  return relabelAxesWith(frame, t(`${m[1]}${'xyz'[model]}`));
+}
+
+export const axesRows = (axes: AxesChoice): Array<Array<string>> => [['up', 'right', 'hand'], [axes.up, axes.right, axes.hand]];
 
 export async function downloadTemplate(): Promise<boolean> {
   const XLSX = await loadXlsxModule();
