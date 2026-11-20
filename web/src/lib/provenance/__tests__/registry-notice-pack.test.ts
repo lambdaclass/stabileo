@@ -31,7 +31,7 @@ it('packs a fully translated notice without a research translation', () => {
   expect(packNotice({ ...entry, title, explanation })).toMatch(/^export default "[A-Za-z0-9+/=]+";$/);
 });
 
-it.skip('known wrong result: #2364 — the shipped result-change notices include Chinese copy', async () => {
+it('the shipped result-change notices include Chinese copy', async () => {
   const { RESULT_CHANGES } = await import('../full-registry');
   for (const id of ['exact-plane-self-weight', 'fixture-replay-and-framed-import', 'global-axes-inputs', 'workbook-support-rotations']) {
     const entry = RESULT_CHANGES.changes.find(change => change.id === id);

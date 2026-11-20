@@ -19,7 +19,8 @@
     "de": "Eigengewichtsregeln für ebene Modelle",
     "fr": "Règles de poids propre en 2D",
     "tr": "Düzlem modellerinde öz ağırlık kuralları",
-    "hu": "Síkbeli önsúlyszabályok"
+    "hu": "Síkbeli önsúlyszabályok",
+    "zh": "平面模型的自重规则"
   },
   "explanation": {
     "en": "Planar solves now use the case's signed self-weight factor, direction and scope.",
@@ -28,7 +29,8 @@
     "de": "Ebene Berechnungen verwenden den vorzeichenbehafteten Faktor, die Richtung und den Geltungsbereich des Eigengewichts jedes Lastfalls.",
     "fr": "Les calculs 2D utilisent le facteur signé, la direction et le périmètre du poids propre de chaque cas.",
     "tr": "Düzlem çözümleri her yük durumunun işaretli öz ağırlık katsayısını, yönünü ve kapsamını kullanır.",
-    "hu": "A síkbeli számítás a tehereset előjeles önsúlytényezőjét, irányát és hatókörét használja."
+    "hu": "A síkbeli számítás a tehereset előjeles önsúlytényezőjét, irányát és hatókörét használja.",
+    "zh": "平面分析现在采用各荷载工况自重的带符号系数、方向和作用范围。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-plane-self-weight-and-workbook-rotations.md",
