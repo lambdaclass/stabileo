@@ -17,7 +17,7 @@ const ef: ElementForces3D = {
   elementId: 1, length: 4,
   nStart: -120, nEnd: -120,
   vyStart: 3, vyEnd: 3, vzStart: 12, vzEnd: -12,
-  mxStart: 0.4, mxEnd: 0.4,
+  mxStart: 0, mxEnd: 0,
   myStart: -8, myEnd: 8, mzStart: 1.5, mzEnd: -1.5,
   hingeStart: false, hingeEnd: false,
   qYI: 0, qYJ: 0, distributedLoadsY: [], pointLoadsY: [],
@@ -47,7 +47,7 @@ describe('3D section stress across the WASM boundary, sections without a shape',
       const atCentroid = analyzeSectionStress3D(ef, sec, 250, 0.5, 0, 0);
       expect(atCentroid.sigmaAtFiber).toBeCloseTo(-120 / sec.a / 1000, 3);
       expect(r.distributionY.length).toBeGreaterThan(2);
-      expect(Number.isFinite(r.failure?.ratioVM ?? 0)).toBe(true);
+      expect(Number.isFinite(r.failure?.ratioVM)).toBe(true);
     });
 
     it(`${sec.name}: analyzeSectionStressFromForces answers`, () => {

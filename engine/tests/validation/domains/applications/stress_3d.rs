@@ -291,7 +291,7 @@ fn validation_stress_3d_von_mises() {
     // At neutral axis: σ ≈ 0 (no bending), τ ≈ max
     // Von Mises at centroid: σ_vm = √(σ² + 3·τ²) ≈ √(3)·|τ|
     let sigma = result.sigma_at_fiber;
-    let tau = result.tau_total;
+    let tau = result.tau_total.expect("pure transverse shear");
     let vm_expected = (sigma * sigma + 3.0 * tau * tau).sqrt();
 
     // Check Von Mises in distribution
@@ -299,9 +299,10 @@ fn validation_stress_3d_von_mises() {
         .min_by(|a, b| a.y.abs().partial_cmp(&b.y.abs()).unwrap())
         .unwrap();
 
-    assert_close(center_pt.von_mises, vm_expected, 0.05,
+    let von_mises = center_pt.von_mises.expect("pure transverse shear");
+    assert_close(von_mises, vm_expected, 0.05,
         "Von Mises at centroid");
-    assert!(center_pt.von_mises > 0.0, "Von Mises should be positive");
+    assert!(von_mises > 0.0, "Von Mises should be positive");
 }
 
 // ================================================================
