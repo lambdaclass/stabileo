@@ -13685,6 +13685,7 @@ const fr: Translations = {
   "rcSheets.v.seisScwb": "Poteau fort–poutre faible",
   "rcSheets.v.seisJoint": "Effort tranchant dans le nœud",
   "rcSheets.family.punching": "Poinçonnement",
+  "rcSheets.storey.foundations": "Fondations",
   "rcSheets.empty.punching": "Il n'y a pas de liaisons dalle-poteau sans poutres.",
   "rcSheets.g.punching": "Poinçonnement",
   "rcSheets.s.punchPosition": "Position",

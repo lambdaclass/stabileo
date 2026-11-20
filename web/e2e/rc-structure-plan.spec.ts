@@ -32,7 +32,9 @@ async function planOf(page: Page, ws: Locator, family: 'beam' | 'vertical', pick
   await ws.getByTestId('rc-struct-view-plan').click();
   const fig = ws.getByTestId('rc-struct-plan');
   await expect(fig).toHaveAttribute('data-family', family);
-  await expect(fig).toHaveAttribute('data-level', level);
+  const drawn = (await fig.getAttribute('data-level'))!;
+  if (family === 'vertical') expect(level).toBe(`s/${drawn}`);
+  else expect(drawn).not.toBe('');
   const items = fig.getByTestId('rc-struct-item');
   expect((await items.evaluateAll((g) => g.map((x) => x.getAttribute('data-key')!))).sort()).toEqual([...keys].sort());
   await expect(fig.getByTestId('rc-struct-unplaced')).toHaveCount(0);

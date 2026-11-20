@@ -24,6 +24,8 @@ export interface Rebar3d {
   rows: string[];
   family: SheetFamily;
   level?: string;
+  /** The storey it is read in (`storeys.ts`), where the view knows the levels. */
+  storey?: string;
   kind: PieceKind;
   tone: RebarTone;
   mark?: string;

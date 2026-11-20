@@ -12,6 +12,7 @@
   import RcBarSketch from './RcBarSketch.svelte';
   import RcExportLog from './RcExportLog.svelte';
   import { sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
+  import { storeyLabel, storeyOf } from '../../../lib/rc-sheets/storeys';
 
   let { rows, onopen = () => {} }: { rows: SheetRows; onopen?: (el: ElementRef, marks: string[]) => void } = $props();
   const COMPACT = 3;
@@ -48,10 +49,10 @@
     const x = Number((e.currentTarget as HTMLInputElement).value);
     if (Number.isFinite(x)) setScheduleSettings({ waste: x / 100 });
   }
-  const groupTitle = (g: ViewGroup) => (g.family && view === 'family' ? t(`rcSheets.family.${g.family}`) : g.title || '—');
+  const groupTitle = (g: ViewGroup) => (g.family && view === 'family' ? t(`rcSheets.family.${g.family}`) : g.storey !== undefined ? storeyLabel(g.storey, t) : g.title || '—');
   const openUse = (u: BarUse) => onopen(u, u.elevation);
   const rowId = (g: ViewGroup, r: ViewRow) => `${g.id}#${r.key}#${r.marks.join()}`;
-  const levelOf = (u: ElementRef) => (view !== 'level' && u.level && u.level !== u.name ? u.level : '');
+  const levelOf = (u: ElementRef) => (view !== 'level' && u.level && u.level !== u.name ? storeyLabel(storeyOf(u.family, u.level, rows.levels ?? []), t) : '');
 </script>
 
 <section class="rcs-bbs" style="--bbs-bar: {Math.max(0, barH - 8)}px" data-testid="rc-schedule-view" data-view={view}>

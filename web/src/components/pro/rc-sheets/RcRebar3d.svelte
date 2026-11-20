@@ -7,6 +7,7 @@
   import { createRebarLayer } from '../../../lib/three/rebar-3d-layer';
   import { createGhostLayer } from '../../../lib/three/rebar-ghost-layer';
   import Icon from '../../ribbon/Icon.svelte';
+  import { storeyLabel, storeysUp } from '../../../lib/rc-sheets/storeys';
 
   let { rows }: { rows: SheetRows | null } = $props();
 
@@ -14,7 +15,7 @@
   const ghostLayer = createGhostLayer();
 
   const all = $derived(rebarView.on && rows ? sheetBars3d(rows) : []);
-  const levels = $derived([...new Set(all.map((b) => b.level ?? ''))].sort((p, q) => p.localeCompare(q, undefined, { numeric: true })));
+  const levels = $derived(storeysUp(all.map((b) => b.storey ?? b.level ?? ''), rows?.levels ?? []));
   const shown = $derived(rebarView.on ? shownBars(all, rebarView) : []);
   const ghosts = $derived(rebarView.on && rebarView.ghost && rows ? shownGhosts(sheetGhosts3d(rows), shown, rebarView) : []);
 
@@ -56,7 +57,7 @@
           <span>{t('rcSheets.r3d.level')}</span>
           <select bind:value={rebarView.level} data-testid="rc-rebar-3d-level">
             <option value="">{t('rcSheets.r3d.allLevels')}</option>
-            {#each levels.filter(Boolean) as l (l)}<option value={l}>{l}</option>{/each}
+            {#each levels.filter(Boolean) as l (l)}<option value={l}>{storeyLabel(l, t)}</option>{/each}
           </select>
         </label>
         <div class="r3d-fams">

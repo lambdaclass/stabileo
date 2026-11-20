@@ -40,7 +40,7 @@ export const rowsCode = (rows: Pick<SheetRows, 'code'>): SheetCode => SHEET_CODE
 
 export function sheetsSchedule(rows: SheetRows): BendingSchedule {
   const dd = designData();
-  return bendingSchedule(rows, { code: rowsCode(rows), slabCover: dd.covers.slab, endZones: dd.columnEndZones === true, ...scheduleSettings() });
+  return { ...bendingSchedule(rows, { code: rowsCode(rows), slabCover: dd.covers.slab, endZones: dd.columnEndZones === true, ...scheduleSettings() }), ...(rows.levels ? { levels: rows.levels } : {}) };
 }
 
 const baseName = () => (modelStore.model.name || 'stabileo').replace(/[^\w.-]+/g, '-');

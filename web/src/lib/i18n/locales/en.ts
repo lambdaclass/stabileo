@@ -13845,6 +13845,7 @@ const en: Record<string, string> = {
   "rcSheets.v.seisScwb": "Strong column–weak beam",
   "rcSheets.v.seisJoint": "Joint shear",
   "rcSheets.family.punching": "Punching",
+  "rcSheets.storey.foundations": "Foundations",
   "rcSheets.empty.punching": "There are no slab–column joints without beams.",
   "rcSheets.g.punching": "Punching",
   "rcSheets.s.punchPosition": "Position",

@@ -13685,6 +13685,7 @@ const de: Translations = {
   "rcSheets.v.seisScwb": "Starke Stütze–schwacher Balken",
   "rcSheets.v.seisJoint": "Knotenquerkraft",
   "rcSheets.family.punching": "Durchstanzen",
+  "rcSheets.storey.foundations": "Fundamente",
   "rcSheets.empty.punching": "Es gibt keine Platten-Stützen-Knoten ohne Balken.",
   "rcSheets.g.punching": "Durchstanzen",
   "rcSheets.s.punchPosition": "Lage",

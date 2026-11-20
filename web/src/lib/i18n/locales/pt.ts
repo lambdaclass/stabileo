@@ -13487,6 +13487,7 @@ const pt: Translations = {
   "rcSheets.v.seisScwb": "Pilar forte e viga fraca",
   "rcSheets.v.seisJoint": "Cortante no nó",
   "rcSheets.family.punching": "Punção",
+  "rcSheets.storey.foundations": "Fundações",
   "rcSheets.empty.punching": "Não há ligações laje-pilar sem vigas.",
   "rcSheets.g.punching": "Punção",
   "rcSheets.s.punchPosition": "Posição",

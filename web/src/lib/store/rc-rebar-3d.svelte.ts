@@ -10,6 +10,7 @@ import { rebar3d, type Frame, type Rebar3d, type Rebar3dFrames, type V3 } from '
 import { ghost3d, type Ghost3d } from '../rc-sheets/rebar-3d-ghost';
 import type { PieceOptions } from '../rc-sheets/schedule/pieces';
 import type { SheetFamily } from '../rc-sheets/types';
+import { storeyOf } from '../rc-sheets/storeys';
 
 export type Rebar3dFamily = SheetFamily;
 export const REBAR_FAMILIES: readonly Rebar3dFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
@@ -128,12 +129,15 @@ export const pieceOptions = (rows: SheetRows): PieceOptions => {
   return { code: rowsCode(rows), slabCover: dd.covers.slab, endZones: dd.columnEndZones === true };
 };
 
+const withStoreys = <T extends Pick<Rebar3d, 'family' | 'level' | 'storey'>>(items: T[], rows: Pick<SheetRows, 'levels'>): T[] =>
+  items.map((b) => ({ ...b, storey: storeyOf(b.family, b.level, rows.levels ?? []) }));
+
 let memo: { rows: SheetRows; key: string; bars: Rebar3d[] } | null = null;
 
 export function sheetBars3d(rows: SheetRows): Rebar3d[] {
   const o = pieceOptions(rows), key = JSON.stringify(o);
   if (memo && memo.rows === rows && memo.key === key) return memo.bars;
-  const bars = rebar3d(rows, modelFrames(rows), o);
+  const bars = withStoreys(rebar3d(rows, modelFrames(rows), o), rows);
   memo = { rows, key, bars };
   return bars;
 }
@@ -141,11 +145,11 @@ export function sheetBars3d(rows: SheetRows): Rebar3d[] {
 let ghostMemo: { rows: SheetRows; ghosts: Ghost3d[] } | null = null;
 
 export function sheetGhosts3d(rows: SheetRows): Ghost3d[] {
-  if (ghostMemo?.rows !== rows) ghostMemo = { rows, ghosts: ghost3d(rows, modelFrames(rows)) };
+  if (ghostMemo?.rows !== rows) ghostMemo = { rows, ghosts: withStoreys(ghost3d(rows, modelFrames(rows)), rows) };
   return ghostMemo.ghosts;
 }
 
-type Shown = Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level'>;
+type Shown = Pick<Rebar3d, 'element' | 'rows' | 'family' | 'level' | 'storey'>;
 type ViewFilter = Pick<typeof rebarView, 'row' | 'level' | 'families'>;
 
 export function shownBars<T extends Shown>(bars: readonly T[], v: ViewFilter): T[] {
@@ -153,7 +157,7 @@ export function shownBars<T extends Shown>(bars: readonly T[], v: ViewFilter): T
     const keys = v.row.keys ?? [v.row.key];
     return bars.filter((b) => keys.some((k) => b.rows.includes(k) || b.element === k));
   }
-  return bars.filter((b) => v.families[b.family] && (!v.level || (b.level ?? '') === v.level));
+  return bars.filter((b) => v.families[b.family] && (!v.level || (b.storey ?? b.level ?? '') === v.level));
 }
 
 export function shownGhosts(ghosts: readonly Ghost3d[], bars: readonly Shown[], v: ViewFilter): Ghost3d[] {

@@ -64,6 +64,8 @@ export interface BendingSchedule {
   clause: string;
   /** An i18n key, when the code's bending rules are assumed. */
   confirm?: string;
+  /** The levels from the lowest up, where the rows know them: the level view groups by storey (`storeys.ts`). */
+  levels?: string[];
 }
 
 export const letterMark = (i: number): string => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26)) : '');

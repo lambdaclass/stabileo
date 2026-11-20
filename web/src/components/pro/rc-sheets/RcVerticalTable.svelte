@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { storeyLabel } from '../../../lib/rc-sheets/storeys';
   import { t, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
   import { columnLabel, crosstiesText, tieLabel } from '../../../lib/rc-sheets/column-row';
@@ -33,7 +34,7 @@
   <tr class="row st-{r.status}" class:member class:open={openKey === r.key} class:none={nothingFits(r)} onclick={() => toggle(r.key)} data-testid="rc-row" data-key={r.key} data-family={r.family}>
     <td class="nm">{#if member}<span class="branch" aria-hidden="true">└</span>{/if}{r.name}{#if nothingFits(r)}<span class="tag none" title={t('rcSheets.alt.closest')} data-testid="rc-no-arrangement-tag">✕</span>{:else if !r.isAdopted}<span class="tag" title={t('rcSheets.showingProposal')}>P</span>{:else if edited.has(r.key)}<span class="tag" title={t('rcSheets.editedByHand')} data-testid="rc-edited-tag">✎</span>{/if}</td>
     <td class="ty">{typeOf(r)}</td>
-    <td>{r.level ?? ''}</td>
+    <td>{storeyLabel(r.level ?? '', t)}</td>
     {#if r.family === 'column'}
       {@const cs = r.demand.cases}
       <td>{fmt(r.b * 100, 0)}×{fmt(r.h * 100, 0)}</td>
@@ -77,7 +78,7 @@
         <tr class="row pier st-{p.status}" class:open={openKey === p.key} onclick={() => toggle(p.key)} data-testid="rc-pier-row" data-key={p.key}>
           <td class="nm">{p.name}</td>
           <td class="ty">{t('rcSheets.vtype.pier')}</td>
-          <td>{p.level ?? ''}</td>
+          <td>{storeyLabel(p.level ?? '', t)}</td>
           <td class="dim">{p.columns.map((c) => `${c.name} ${fmt(c.b * 100, 0)}×${fmt(c.h * 100, 0)}`).join(' · ')}</td>
           <td class="n"></td><td class="n"></td><td class="n"></td><td class="n"></td>
           <td colspan="2" class="dim">{zones(p)}</td>

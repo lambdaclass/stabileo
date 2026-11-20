@@ -13685,6 +13685,7 @@ const tr: Translations = {
   "rcSheets.v.seisScwb": "Güçlü kolon–zayıf kiriş",
   "rcSheets.v.seisJoint": "Birleşim kesmesi",
   "rcSheets.family.punching": "Zımbalama",
+  "rcSheets.storey.foundations": "Temeller",
   "rcSheets.empty.punching": "Kirişsiz döşeme-kolon birleşimi yok.",
   "rcSheets.g.punching": "Zımbalama",
   "rcSheets.s.punchPosition": "Konum",
