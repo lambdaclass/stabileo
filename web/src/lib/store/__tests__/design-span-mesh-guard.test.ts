@@ -482,7 +482,8 @@ describe('the same forces under the four meshes: the same design, the same sched
   beforeAll(() => {
     building(0.5, FRAME);
     const forces = forcesByPlace();
-    for (const m of MESHES) t.set(m, tally(m, forces));
+    for (const m of MESHES.filter((mesh) => mesh !== 6)) t.set(m, tally(m, forces));
+    t.set(6, tally(6, forces));
     if (!PRINT) return;
     for (const x of t.values()) {
       console.log(`PRESCRIBED ${x.mesh}: ` + x.beams.map((b) => `${b.name} ${b.stirrups}/${b.longitudinal}/${r1(b.mass)}`).join(' '));
@@ -541,9 +542,11 @@ describe('the same forces under the four meshes: the same design, the same sched
     // numbered above every column (the order the cut meshes give: their spans are new pieces),
     // and with every column above every beam. The bars, read back under the model's own ids,
     // are the same three times.
-    building(6, FRAME);
-    designAndDocumentUnder(t.get(6)!.forces);
-    const kinds = new Map([...verificationStore.contexts.values()].map((c) => [c.elementId, c.elementType]));
+    const contexts = [...verificationStore.contexts.values()];
+    const beams = contexts.filter((c) => c.elementType === 'beam');
+    expect(beams).toHaveLength(t.get(6)!.pieces);
+    expect(beams.some((c) => c.span)).toBe(false);
+    const kinds = new Map(contexts.map((c) => [c.elementId, c.elementType]));
     const asIs = detailNumbered(() => 0);
     for (const [id, k] of kinds) {
       if (k !== 'beam') continue;
