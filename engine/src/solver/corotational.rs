@@ -6,7 +6,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
-pub use super::nonlinear::IterationMethod;
+pub use super::nonlinear::{IterationMethod, LoadStepping};
 use super::sparse_tangent::{
     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -380,6 +380,21 @@ pub fn solve_corotational_2d_from(
     solve_corotational_2d_by(input, start, max_iter, tolerance, n_increments, method)
 }
 
+/// [`solve_corotational_2d_by`] with the load stepping chosen. With adaptive stepping
+/// `n_increments` sets the first increment's size and the result's `load_increments` is the
+/// number that converged.
+pub fn solve_corotational_2d_stepped(
+    input: &SolverInput,
+    start: Option<&CorotationalStart2D>,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+    stepping: LoadStepping,
+) -> Result<CorotationalResult, String> {
+    corotational_2d(input, start, max_iter, tolerance, n_increments, method, stepping)
+}
+
 /// [`solve_corotational_2d_from`] with the iteration that converges each increment chosen.
 /// `max_iter` bounds the linearizations of an increment, a line search's trials among them.
 pub fn solve_corotational_2d_by(
@@ -389,6 +404,18 @@ pub fn solve_corotational_2d_by(
     tolerance: f64,
     n_increments: usize,
     method: IterationMethod,
+) -> Result<CorotationalResult, String> {
+    corotational_2d(input, start, max_iter, tolerance, n_increments, method, LoadStepping::Equal)
+}
+
+fn corotational_2d(
+    input: &SolverInput,
+    start: Option<&CorotationalStart2D>,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+    stepping: LoadStepping,
 ) -> Result<CorotationalResult, String> {
     if let IterationMethod::Anderson { depth } = method {
         if depth == 0 {
@@ -494,7 +521,7 @@ pub fn solve_corotational_2d_by(
         trip_cols: Vec::new(),
         trip_vals: Vec::new(),
     };
-    let outcome = super::nonlinear::solve_by_load_increments_with(&mut problem, method, n_increments, tolerance, max_iter)?;
+    let outcome = super::nonlinear::solve_stepped(&mut problem, method, stepping, n_increments, tolerance, max_iter)?;
     let Corotational2D { u_full, conditioning, .. } = problem;
     let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
 
@@ -520,7 +547,7 @@ pub fn solve_corotational_2d_by(
         results,
         iterations: total_iterations,
         converged,
-        load_increments: n_increments,
+        load_increments: if stepping == LoadStepping::Adaptive { outcome.increments } else { n_increments },
         load_factor: converged_factor,
         max_displacement,
     })
@@ -1681,6 +1708,19 @@ pub fn solve_corotational_3d(
     solve_corotational_3d_by(input, max_iter, tolerance, n_increments, method)
 }
 
+/// [`solve_corotational_3d_by`] with the load stepping chosen, as in
+/// [`solve_corotational_2d_stepped`].
+pub fn solve_corotational_3d_stepped(
+    input: &SolverInput3D,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+    stepping: LoadStepping,
+) -> Result<CorotationalResult3D, String> {
+    corotational_3d(input, max_iter, tolerance, n_increments, method, stepping)
+}
+
 /// [`solve_corotational_3d`] with the iteration that converges each increment chosen.
 /// `max_iter` bounds the linearizations of an increment, a line search's trials among them.
 pub fn solve_corotational_3d_by(
@@ -1689,6 +1729,17 @@ pub fn solve_corotational_3d_by(
     tolerance: f64,
     n_increments: usize,
     method: IterationMethod,
+) -> Result<CorotationalResult3D, String> {
+    corotational_3d(input, max_iter, tolerance, n_increments, method, LoadStepping::Equal)
+}
+
+fn corotational_3d(
+    input: &SolverInput3D,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+    stepping: LoadStepping,
 ) -> Result<CorotationalResult3D, String> {
     if let IterationMethod::Anderson { depth } = method {
         if depth == 0 {
@@ -1797,7 +1848,7 @@ pub fn solve_corotational_3d_by(
         trip_cols: Vec::new(),
         trip_vals: Vec::new(),
     };
-    let outcome = super::nonlinear::solve_by_load_increments_with(&mut problem, method, n_increments, tolerance, max_iter)?;
+    let outcome = super::nonlinear::solve_stepped(&mut problem, method, stepping, n_increments, tolerance, max_iter)?;
     let Corotational3D { u_full, u_converged, naturals, conditioning, .. } = problem;
     let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
 
@@ -1822,7 +1873,7 @@ pub fn solve_corotational_3d_by(
         results,
         iterations: total_iterations,
         converged,
-        load_increments: n_increments,
+        load_increments: if stepping == LoadStepping::Adaptive { outcome.increments } else { n_increments },
         load_factor: converged_factor,
         max_displacement,
     })
@@ -4134,6 +4185,35 @@ mod shared_driver_equivalence {
     }
 
     #[test]
+    fn adaptive_steps_carry_newton_to_the_solution_of_many_small_increments() {
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                for method in [IterationMethod::Newton, IterationMethod::NewtonLineSearch] {
+                    let stepped = solve_corotational_2d_stepped(&input, None, 20, 1e-8, 4, method, LoadStepping::Adaptive).unwrap();
+                    assert!(stepped.converged && stepped.load_factor == 1.0, "n {n}, rise {rise}, {method:?}");
+                    assert!(stepped.load_increments >= 1 && stepped.load_increments <= 400, "{}", stepped.load_increments);
+                    assert!(apart(&stepped, &reference) <= 1e-7, "n {n}, rise {rise}, {method:?}: {}", apart(&stepped, &reference));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn equal_steps_through_the_stepped_entry_point_are_the_plain_solve() {
+        let input = frame(12, 0.4, Some("pinned"));
+        let plain = solve_corotational_2d(&input, 50, 1e-8, 4, false).unwrap();
+        let stepped = solve_corotational_2d_stepped(&input, None, 50, 1e-8, 4, IterationMethod::Newton, LoadStepping::Equal).unwrap();
+        assert_eq!(serde_json::to_string(&plain).unwrap(), serde_json::to_string(&stepped).unwrap());
+        let short = solve_corotational_2d_stepped(&input, None, 1, 1e-8, 4, IterationMethod::Newton, LoadStepping::Adaptive).unwrap();
+        assert!(!short.converged);
+        assert_eq!((short.load_factor, short.load_increments), (0.0, 0));
+        assert!(short.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0));
+    }
+
+    #[test]
     fn anderson_converges_propped_arches_that_modified_newton_does_not() {
         for n in [4, 12, 30] {
             let input = frame(n, 0.4, Some("pinned"));
@@ -4506,6 +4586,21 @@ mod shared_driver_equivalence_3d {
         let largest = b.results.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()));
         a.results.displacements.iter().zip(&b.results.displacements)
             .fold(0.0f64, |m, (x, y)| m.max((x.ux - y.ux).abs()).max((x.uy - y.uy).abs()).max((x.uz - y.uz).abs())) / largest
+    }
+
+    #[test]
+    fn adaptive_steps_reach_the_3d_solution_equal_steps_reach() {
+        for n in [4, 12] {
+            for (rise, propped) in [(0.0, false), (0.3, true)] {
+                let input = frame(n, rise, propped, 0.05);
+                let equal = solve_corotational_3d_by(&input, 100, 1e-9, 4, IterationMethod::Newton).unwrap();
+                assert!(equal.converged);
+                let stepped = solve_corotational_3d_stepped(&input, 100, 1e-9, 4, IterationMethod::Newton, LoadStepping::Adaptive).unwrap();
+                assert!(stepped.converged && stepped.load_factor == 1.0, "n {n}");
+                assert!(stepped.load_increments >= 1);
+                assert!(apart(&stepped, &equal) <= 1e-7, "n {n}: {}", apart(&stepped, &equal));
+            }
+        }
     }
 
     #[test]
