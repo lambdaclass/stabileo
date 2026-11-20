@@ -36,7 +36,7 @@ import { describe, it, expect } from 'vitest';
 import frame from '../../../templates/fixtures/rc-design-frame.json';
 import { designMember, runDesign } from '../candidate-search';
 import { cirsoc201Adapter } from '../adapters/cirsoc201-adapter';
-import { solveFixture, assertRealSolver } from './helpers';
+import { solveFixture, assertRealSolver, FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS } from './helpers';
 import type { DesignRunSummary } from '../outcome';
 
 /**
@@ -112,14 +112,7 @@ describe('RC design baseline — the flagship frame, member by member', () => {
 
   it('withholds certification for the exact flagship beams with unsupported shear depth', () => {
     const held = [...summary.outcomes.values()].filter((outcome) => outcome.outcome === 'UNSUPPORTED');
-    expect(held.map((outcome) => outcome.elementId).sort((a, b) => a - b)).toEqual([
-      173, 174, 175, 176, 192, 193, 194, 195, 200, 201, 202, 203, 204, 205,
-      206, 207, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234,
-      235, 236, 237, 238, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263,
-      264, 265, 266, 267, 268, 269, 285, 286, 287, 288, 289, 290, 291, 292,
-      293, 294, 295, 296, 297, 298, 299, 300, 316, 317, 318, 319, 320, 321,
-      322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 347, 350,
-    ]);
+    expect(held.map((outcome) => outcome.elementId).sort((a, b) => a - b)).toEqual(FLAGSHIP_GRAVITY_SHEAR_DEPTH_REFUSALS);
     for (const outcome of held) {
       expect(outcome.limiting).toContain('unsupportedCheck');
       expect(outcome.reasons).toContainEqual({ key: 'diag.rcShearDepth' });
