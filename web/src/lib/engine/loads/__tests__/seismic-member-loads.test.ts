@@ -1676,9 +1676,7 @@ it('#2332 projected plane solves retain the rafter axial and transverse span loa
   }
 });
 
-const roofReviewRegression = process.env.RUN_KNOWN_WRONG === '2332' ? it : it.skip;
-
-roofReviewRegression('known wrong result: #2332 a diaphragm floor ends a continuous inclined run', () => {
+it('#2332 a diaphragm floor ends a continuous inclined run', () => {
   const length = Math.sqrt(5);
   for (const subdivided of [false, true]) for (const rotated of [false, true]) {
     const { base, tip, plan, sink, spatial } = gableCantilever(rotated, subdivided, 0, false, false, true);
@@ -1706,7 +1704,7 @@ roofReviewRegression('known wrong result: #2332 a diaphragm floor ends a continu
   }
 });
 
-roofReviewRegression('known wrong result: #2332 a longitudinal ridge beam needs independent floor evidence at both ends', () => {
+it('#2332 a longitudinal ridge beam needs independent floor evidence at both ends', () => {
   for (const mode of ['none', 'vertical', 'one end', 'sloped deck', 'horizontal deck', 'both ends'] as const) {
     const bay = (y: number) => [
       [[0, y, 0], [0, y, 2]], [[4, y, 0], [4, y, 2]],

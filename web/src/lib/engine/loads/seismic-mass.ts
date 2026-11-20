@@ -213,25 +213,37 @@ export function buildSeismicModel(
   if ('refusal' in component) return { levels: [], datum: component };
 
   const evidenced = new Set(component.storyNodes);
+  for (const { corners } of surfaces) {
+    if (!corners?.every(n => n.z === corners[0]!.z)) continue;
+    for (const node of corners) evidenced.add(node.id);
+  }
+  const horizontalJoints = new Set<number>();
   for (const [a, b] of segments) {
     if (a.z !== b.z) continue;
-    evidenced.add(a.id);
-    evidenced.add(b.id);
+    horizontalJoints.add(a.id);
+    horizontalJoints.add(b.id);
   }
   const subdivisions = new Set<number>();
   const storyNodes = new Set(evidenced);
   for (const [id, adjacent] of neighbours) {
+    if (evidenced.has(id)) continue;
     const node = nodes.get(id)!;
     const connected = adjacent.map(edge => edge.node);
-    const joint = connected.length === 2 ? lineJoint(connected[0]!, node, connected[1]!) : 'corner';
-    if (joint === 'straight') subdivisions.add(id);
-    if (evidenced.has(id)) continue;
-    if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
-    if (joint === 'straight') continue;
     const below = connected.filter(n => n.z < node.z);
-    const rises = connected.some(n => n.z > node.z);
     const descendingSlopes = below.filter(n => n.x !== node.x || n.y !== node.y);
-    if (node.z > component.elevation && ((below.length && rises) || descendingSlopes.length >= 2)) {
+    const ridge = node.z > component.elevation && descendingSlopes.length >= 2;
+    if (!ridge && horizontalJoints.has(id)) {
+      evidenced.add(id);
+      storyNodes.add(id);
+      continue;
+    }
+    const joint = connected.length === 2 ? lineJoint(connected[0]!, node, connected[1]!) : 'corner';
+    if (joint === 'unresolved') return { levels: [], datum: { refusal: 'seismicStoryPrecision' } };
+    if (joint === 'straight') {
+      subdivisions.add(id);
+      continue;
+    }
+    if (ridge || (node.z > component.elevation && below.length && connected.some(n => n.z > node.z))) {
       return { levels: [], datum: { refusal: 'seismicAmbiguousStory' } };
     }
     storyNodes.add(id);
@@ -252,7 +264,10 @@ export function buildSeismicModel(
       for (const node of [member.nodeI, member.nodeJ]) {
         if (node.z < low.z) low = node;
         if (node.z > high.z) high = node;
-        if (storyNodes.has(node.id)) run.atStory.set(node.z, node);
+        if (storyNodes.has(node.id)) {
+          run.atStory.set(node.z, node);
+          continue;
+        }
         if (!subdivisions.has(node.id)) continue;
         for (const { elementId } of neighbours.get(node.id)!) {
           const adjacent = geometry.get(elementId)!;
