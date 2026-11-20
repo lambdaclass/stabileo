@@ -1407,3 +1407,41 @@ for (const surface of ['quads', 'plates'] as const) {
     }
   });
 }
+
+const storyRoundingRegression = process.env.RUN_KNOWN_WRONG === '2331' ? it : it.skip;
+
+storyRoundingRegression('known wrong result: #2331 a translated straight subdivision preserves its story and action', () => {
+  const shift = 1_000_000, length = Math.sqrt(10), weight = length;
+  const model = supportAtZero(mesh([
+    [[shift, 0, 0], [shift + 1 / 3, 0, 1]],
+    [[shift + 1 / 3, 0, 1], [shift + 1, 0, 3]],
+  ]));
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+  const options = request(model);
+  const plan = buildLoadPlan(options);
+  const sink = seismicSink();
+  INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+  expect.soft(plan.outcome).toBe('READY');
+  expect.soft(plan.seismicModel?.levels.map(l => l.elevation)).toEqual([0, 3]);
+  expect.soft(plan.factors.baseShear?.value).toBeCloseTo(weight, 10);
+  expect.soft(sink.nodal.map(l => l.nodeId)).toEqual([3]);
+  expect.soft(sink.nodal[0]?.fx).toBeCloseTo(weight, 10);
+});
+
+const slopedRoofRegression = process.env.RUN_KNOWN_WRONG === '2332' ? it : it.skip;
+
+slopedRoofRegression('known wrong result: #2332 refuses rafter inertia when its story assignment is ambiguous', () => {
+  const model = supportAtZero(mesh([
+    [[0, 0, 0], [0, 0, 2]], [[4, 0, 0], [4, 0, 2]],
+    [[0, 0, 2], [2, 0, 3]], [[2, 0, 3], [4, 0, 2]],
+  ]));
+  model.sections.set(1, { id: 1, a: 0.5 });
+  model.materials.set(1, { id: 1, rho: 4 });
+  const options = request(model, {}, { generateCombinations: true });
+  const plan = buildLoadPlan(options);
+  const sink = seismicSink();
+  INPRES103_SEISMIC.plan(options, plan.seismicModel!, sink);
+  expect.soft(plan).toMatchObject({ outcome: 'BLOCKED', cases: [], nodal: [], distributed: [], surface: [], combinations: [] });
+  expect.soft(sink).toMatchObject({ cases: [], nodal: [], distributed: [], surface: [] });
+});
