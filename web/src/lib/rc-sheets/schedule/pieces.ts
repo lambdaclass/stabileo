@@ -251,7 +251,6 @@ function levelPieces(plan: LevelPlan): ScheduleElement {
   return { key: `slabplan:${plan.level}`, name: plan.level, level: plan.level, family: 'slab', pieces };
 }
 
-/** Every element's pieces, beams, columns, slabs and walls in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 /** A punching stirrup's leg: through the slab between its top and bottom bars, hooked over both. */
 export const punchingLeg = (r: PunchingRow, o: Pick<PieceOptions, 'slabCover'>, R: BendRules): BarShape | null => {
   const s = r.figure?.reinforcement;
@@ -263,6 +262,7 @@ function punchingPieces(r: PunchingRow, o: PieceOptions, R: BendRules): Schedule
   return { key: r.key, name: r.name, ...(r.level !== undefined ? { level: r.level } : {}), family: 'punching', pieces: shape && r.figure ? [{ kind: 'punchingLeg', count: punchingLegs(r.figure).length, shape }] : [] };
 }
 
+/** Every element's pieces, beams, columns, slabs, walls and punching joints in that order, each family in the rows' order; a level with a slab plan gives its packages instead of its panels' layers. */
 export function scheduleElements(rows: PieceRows, o: PieceOptions): ScheduleElement[] {
   const R = rulesFor(o.code).bends;
   const planned = new Set((rows.slabPlan ?? []).filter((p) => p.packages.length).map((p) => p.level));
