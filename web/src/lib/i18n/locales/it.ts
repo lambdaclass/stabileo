@@ -7,6 +7,8 @@ const it: Translations = {
   'loadPlan.gravity.nonplanarShell': "Il quadrilatero {id} non è piano. La copertura con gusci per i carichi gravitazionali richiede gusci piani.",
   'loadPlan.gravity.overlappingShells': "I gusci {first} e {second} si sovrappongono sullo stesso piano. Il carico gravitazionale nella zona comune non può essere assegnato a un solo guscio.",
   'loadPlan.gravity.offsetShellDeck': "Il guscio {id} è collegato rigidamente a un pannello di travi sfalsato la cui proiezione si sovrappone al guscio. Non è possibile stabilire quale superficie riceva il carico distribuito.",
+  'loadPlan.gravity.memberSlopeLimit': "L’asta {id} è troppo vicina al limite di pendenza per stabilire se porta i carichi gravitazionali. Definisci esplicitamente i suoi carichi.",
+  'snow.refused.stepDriftTransfer': "La generazione dei carichi da neve non può trasferire in modo affidabile l’accumulo sul salto di quota della copertura alle aste portanti. Definisci esplicitamente i carichi da neve.",
   'loadPlan.gravity.unresolvedMember': "L’elemento {id} è coperto solo in parte da un guscio e il trasferimento di carico del pannello è indeterminato.",
   'loadPlan.gravity.differentDeck': "Il guscio di copertura deve appartenere allo stesso impalcato del pannello di travi.",
   'loadPlan.gravity.differentSlopedDeck': "Il guscio inclinato di copertura deve appartenere allo stesso impalcato del pannello di travi.",
