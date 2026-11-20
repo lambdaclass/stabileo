@@ -132,7 +132,7 @@ test('production imports the IFC wall with its original mesh and fixed base', as
 });
 
 for (const unified of [false, true]) {
-  test.skip(`known wrong result: #2365 — PRO mesher places circular outlines and holes in the user frame with unified plates ${unified}`, async (t) => {
+  test(`PRO mesher places circular outlines and holes in the user frame with unified plates ${unified}`, async (t) => {
     const production = { ...featuresForMode('production'), globalAxes: true, proPlatesUnified: unified };
     await withProductionFeatures(production, async configFile => {
       const server = await createServer({ root, configFile, mode: 'production', server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
@@ -141,15 +141,19 @@ for (const unified of [false, true]) {
         const browser = await chromium.launch();
         try {
           const url = new URL(fixture, server.resolvedUrls.local[0]);
+          async function openMesher(page, framed) {
+            if (framed) {
+              await page.addInitScript(() => localStorage.setItem('stabileo-axes', JSON.stringify({ up: '+Y', right: '+X', hand: 'right' })));
+            }
+            await page.goto(url.href);
+            await expect(page.getByTestId('mesher')).toBeVisible();
+            assert.equal(await page.evaluate(() => window.mesherFixture.unified), unified);
+          }
+
           async function mesh({ framed, hole }) {
             const page = await browser.newPage();
             try {
-              if (framed) {
-                await page.addInitScript(() => localStorage.setItem('stabileo-axes', JSON.stringify({ up: '+Y', right: '+X', hand: 'right' })));
-              }
-              await page.goto(url.href);
-              await expect(page.getByTestId('mesher')).toBeVisible();
-              assert.equal(await page.evaluate(() => window.mesherFixture.unified), unified);
+              await openMesher(page, framed);
               if (hole) {
                 await page.getByTestId('ms-outline').fill('1, 2, 3, 4');
                 await page.getByTestId('ms-add-hole').click();
@@ -182,6 +186,29 @@ for (const unified of [false, true]) {
               if (!hole) assert.ok(canonical.flat().every(([, , z]) => z === 2));
               const transformed = await mesh({ framed: true, hole });
               assert.equal(JSON.stringify(transformed) === JSON.stringify(canonical), true, 'applied cell coordinates differ');
+            });
+          }
+
+          if (unified) {
+            await t.test('stores a user-frame offset on the whole plate and its replacement mesh', async () => {
+              const page = await browser.newPage();
+              try {
+                await openMesher(page, true);
+                await page.evaluate(() => window.mesherFixture.showPlateSpecifications());
+                const spec = page.getByTestId('spec-surfaces');
+                await spec.locator('select').first().selectOption('global');
+                await spec.getByRole('textbox', { name: 'X', exact: true }).fill('0.1');
+                await spec.getByRole('textbox', { name: 'Y', exact: true }).fill('0.2');
+                await spec.getByRole('textbox', { name: 'Z', exact: true }).fill('-0.3');
+                await spec.getByTestId('shell-offset-apply').click();
+                const offsets = await page.evaluate(() => window.mesherFixture.remeshPlate(0.5));
+                const canonical = { frame: 'global', x: 0.1, y: 0.3, z: 0.2 };
+                assert.deepEqual(offsets.plate, canonical);
+                assert.ok(offsets.shells.length > 0);
+                for (const offset of offsets.shells) assert.deepEqual(offset, canonical);
+              } finally {
+                await page.close();
+              }
             });
           }
         } finally {

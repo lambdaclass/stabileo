@@ -625,7 +625,7 @@
       ]
     },
     "src/components/pro/ProMesher.svelte": {
-      "source": "a1c51cd6139aab915a9b09dd982d893b44b0151e383a06a4534832a7c3daa849",
+      "source": "b70a21e6698fb40a6f087c64cd7ead01fd50fdd3b1af1b4289cb5ef65d74756a",
       "original": "fef4315f60a196e8c2a803e8b79d2314bffd81cfc74c6af0199aebabe0aa4bcc",
       "changes": [
         [
@@ -646,12 +646,19 @@
           ]
         ],
         [
-          17,
+          15,
+          0,
+          [
+            "  import type { Vec3 } from '../../lib/model/edit/affine';"
+          ]
+        ],
+        [
+          16,
           1,
           []
         ],
         [
-          34,
+          33,
           26,
           [
             "  const num = (s: string) => Number(s.trim().replace(',', '.'));",
@@ -667,7 +674,7 @@
           ]
         ],
         [
-          64,
+          63,
           1,
           [
             "  const outlineIds = $derived(outerKind === 'polygon' ? ids(outlineText) : []);",
@@ -675,7 +682,7 @@
           ]
         ],
         [
-          66,
+          65,
           2,
           [
             "    const n = outerKind === 'polygon' ? outlineIds.length : 0;",
@@ -683,7 +690,7 @@
           ]
         ],
         [
-          71,
+          70,
           8,
           [
             "    let outer: Loop2;",
@@ -697,7 +704,7 @@
           ]
         ],
         [
-          80,
+          79,
           1,
           [
             "    const hs: Loop2[] = [];",
@@ -709,14 +716,14 @@
           ]
         ],
         [
-          82,
+          81,
           7,
           [
             "  const mesh = $derived(input && size > 0 ? generateMesh({ ...input, fixedPoints: modelPoints() }) : null);"
           ]
         ],
         [
-          91,
+          90,
           2,
           [
             "    if (!input || !mesh) return;",
@@ -724,21 +731,21 @@
           ]
         ],
         [
-          98,
+          97,
           0,
           [
             "  // ── Flat preview ──"
           ]
         ],
         [
-          122,
+          121,
           1,
           [
             "    {#if sides.length > 0}"
           ]
         ],
         [
-          171,
+          170,
           1,
           [
             "  {:else if input}"

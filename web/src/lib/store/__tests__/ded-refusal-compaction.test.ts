@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { axesStore } from '../../axes/axes.svelte';
+import { DEFAULT_AXES, type AxesChoice } from '../../axes/frame';
 import type { AnalysisResults } from '../../engine/types';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { PDeltaResult, PDeltaResult3D } from '../../engine/result-types';
@@ -115,14 +117,25 @@ describe('#2365 shared refusal evidence in portable projects', () => {
     for (const outcome of outcomes) expect(storedRefusal(outcome.elementId)).toEqual(outcome);
   });
 
+  afterEach(() => axesStore.reset());
+
+  const frames = [
+    { frame: 'canonical axes', choice: DEFAULT_AXES },
+    { frame: 'reflected axes', choice: { up: '-Y', right: '-X', hand: 'left' } satisfies AxesChoice },
+  ];
+  const framedOpeners = frames.flatMap(({ frame, choice }) =>
+    openers.map(([opener, open]) => ({ opener, open, frame, choice })),
+  );
   for (const [mode, example] of [['2d', 'continuous-beam'], ['3d', '3d-portal-frame']] as const) {
-    it.each(openers)(`%s preserves ${mode} linear and P-Delta results across 2.0 and 2.1`, async (_name, open) => {
+    it.each(framedOpeners)(`$opener preserves ${mode} linear and P-Delta results across 2.0 and 2.1 with $frame`, async ({ open, choice }) => {
       const legacy = readFileSync(new URL(`../../../../legacy-projects/v0.2.0/${example}.ded`, import.meta.url), 'utf8');
       expect(JSON.parse(legacy).version).toBe('2.0');
       await open(legacy);
       expect(uiStore.analysisMode).toBe(mode);
       expect(JSON.parse(serializeProject()).version).toBe('2.0');
       const before = solveSavedModel();
+      axesStore.choice = choice;
+      expect(axesStore.choice).toEqual(choice);
       const evidence = 'Shared refusal for split pieces'.repeat(128);
       const members = [...modelStore.elements.keys()].slice(0, 2);
       expect(members).toHaveLength(2);
@@ -134,6 +147,7 @@ describe('#2365 shared refusal evidence in portable projects', () => {
 
       await open(compact);
       expect(uiStore.analysisMode).toBe(mode);
+      expect(axesStore.choice).toEqual(choice);
       expect(solveSavedModel()).toEqual(before);
       for (const outcome of refusals) expect(storedRefusal(outcome.elementId)).toEqual(outcome);
     });

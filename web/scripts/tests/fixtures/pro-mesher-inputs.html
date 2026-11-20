@@ -18,6 +18,22 @@
       }
       window.mesherFixture = {
         unified: __PUBLIC_FEATURES__.proPlatesUnified,
+        async showPlateSpecifications() {
+          const { default: SpecSurfaces } = await import('../../../src/components/pro/spec/SpecSurfaces.svelte');
+          const { createPlate, planPlateMesh, applyPlateMeshes, plateEntry, plateShellKeys } = await import('../../../src/lib/store/physical-plates.ts');
+          const { id } = createPlate({ outline: [1, 2, 3, 4], materialId: 1, thickness: 0.2 });
+          this.remeshPlate = size => {
+            const report = applyPlateMeshes([planPlateMesh(id, { size })]);
+            if (report.plates !== 1 || report.refused.length) throw new Error(JSON.stringify(report));
+            return {
+              plate: plateEntry(id).surface.offset,
+              shells: [...modelStore.quads.values(), ...modelStore.plates.values()].map(shell => shell.offset),
+            };
+          };
+          this.remeshPlate(1);
+          for (const key of plateShellKeys(id)) uiStore.selectShell(key, true);
+          mount(SpecSurfaces, { target: document.querySelector('main') });
+        },
         area() {
           const shells = [...modelStore.quads.values(), ...modelStore.plates.values()];
           const boundary = new Map();

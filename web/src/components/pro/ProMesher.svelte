@@ -13,7 +13,6 @@
   import { t, tp } from '../../lib/i18n';
   import { generateMesh, type Loop2, type MeshInput, type SideSpec } from '../../lib/model/edit/mesher';
   import { applyMesh, modelPoints } from '../../lib/model/edit/mesh-apply';
-  import type { Vec3 } from '../../lib/model/edit/affine';
   import { fromDisplay, unitLabel } from '../../lib/utils/units';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   import QuantityInput from './loads/QuantityInput.svelte';
@@ -54,7 +53,7 @@
     const [x, y, z, ...extra] = text.split(';').map(parseDecimal);
     if (x == null || y == null || z == null || extra.length || !Number.isFinite(radius) || radius <= 0) return null;
     const length = (value: number) => fromDisplay(value, 'length', uiStore.unitSystem);
-    const center: Vec3 = [length(x), length(y), length(z)];
+    const center = modelVec(length(x), length(y), length(z));
     return { kind: 'circle', center, radius };
   }
 
