@@ -115,17 +115,51 @@ it('#2360 — torsion error percentages use the exact stress as denominator', ()
   expect(explanation).toMatchObject({ k: 'p', t: expect.stringMatching(/以精确值为基准.*低 4\.5%.*低 8\.2%/) });
 });
 
-it('#2360 — Chinese release notes distinguish repeated result notice titles', () => {
-  const release = readFileSync(new URL('../../../../../docs/releases/v0.6.2.zh.md', import.meta.url), 'utf8');
+const releaseNotes = readFileSync(new URL('../../../../../docs/releases/v0.6.2.zh.md', import.meta.url), 'utf8');
+const releaseNotices = [
+  {
+    version: 91,
+    title: '平面塑性分析拒绝小于限值的杆件荷载区间',
+    link: '../results-changes/2026-11-narrow-partial-loads.md#compensated-force-totals-and-remapped-load-refusal-round-67-2223',
+  },
+  {
+    version: 93,
+    title: '3D 支座约束含义不明时拒绝截面设计',
+    link: '../results-changes/2026-11-roller-z-fixed.md#custom-supports-require-an-explicit-mask',
+  },
+] as const;
+
+function expectReleaseNotices(release: string) {
   const notices = release.split('\n').filter(line => /^\| (91|93) \|/.test(line));
   expect(notices).toHaveLength(new Set(notices).size);
   expect(release).toContain('#compensated-force-totals-and-remapped-load-refusal-round-67-2223');
   expect(release).toContain('#custom-supports-require-an-explicit-mask');
+}
+
+it('#2360 — Chinese release notes distinguish repeated result notice titles', () => {
+  expectReleaseNotices(releaseNotes);
+});
+
+const issue2360 = process.env.RUN_KNOWN_WRONG === '2360' ? it : it.skip;
+
+issue2360('known wrong result: #2360 — release-note validation rejects identical titles across versions', () => {
+  const release = releaseNotes.replace(releaseNotices[1].title, releaseNotices[0].title);
+  expect(() => expectReleaseNotices(release)).toThrow();
+});
+
+issue2360('known wrong result: #2360 — release-note validation rejects missing versions even when their anchors remain', () => {
+  const release = releaseNotes.replace(/^\| (91|93) \|/gm, '| 94 |');
+  expect(() => expectReleaseNotices(release)).toThrow();
+});
+
+issue2360('known wrong result: #2360 — release-note validation rejects duplicate anchors within a version', () => {
+  const { version, link } = releaseNotices[0];
+  const release = releaseNotes + `\n| ${version} | [另一条说明](${link}) |\n`;
+  expect(() => expectReleaseNotices(release)).toThrow();
 });
 
 it('#2360 — concentrated live load guidance formats the advisory reference for each page', () => {
-  const release = readFileSync(new URL('../../../../../docs/releases/v0.6.2.zh.md', import.meta.url), 'utf8');
-  const row = release.split('\n').find(line => line.startsWith('| [SA-2026-083]'));
+  const row = releaseNotes.split('\n').find(line => line.startsWith('| [SA-2026-083]'));
   expect.soft(row?.split('|')[3]).toMatch(/^ CIRSOC 101 自动荷载生成/);
   const description = advisory.blocks.flatMap(block => block.k === 'table' ? block.rows : [])
     .find(columns => columns[0] === 'SA-2026-083')?.[1];
