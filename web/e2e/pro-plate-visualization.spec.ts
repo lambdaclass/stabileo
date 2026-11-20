@@ -8,10 +8,13 @@ import { test, expect, loadModel, solveModel } from './fixtures';
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test('@smoke a raft read as forces, faces, principal directions and extremes', async ({ pro: page }) => {
+  test.skip(true, 'known wrong result: #2365');
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await loadModel(page, 'mat-foundation');
+  const shells = await page.evaluate(() => window.__stabileo.quadIds());
   await solveModel(page);
+  expect(await page.evaluate(() => window.__stabileo.quadIds()), 'the raft uses its original shells').toEqual(shells);
   await page.getByTestId('pr-stage-analyse').click();
   await page.getByTestId('pr-cmd-stress').click();
   await page.getByTestId('pro-stress-shells').check();

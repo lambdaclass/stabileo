@@ -1,4 +1,4 @@
-import { test, expect, loadModel, loadPlateMeshExample } from './fixtures';
+import { test, expect, loadModel, loadPlateMeshExample, solveModel } from './fixtures';
 
 type Page = import('@playwright/test').Page;
 
@@ -119,6 +119,12 @@ test('@smoke an analysis meshes the plate first, and stops when told not to', as
   await page.getByTestId('pr-cmd-solve').click();
   await expect.poll(async () => (await plates(page))[0]!.status).toBe('unmeshed');
   expect(await quads(page)).toBe(0);
+
+  await test.step.skip('known wrong result: #2365', async () => {
+    const [plate] = await plates(page);
+    await expect(solveModel(page)).rejects.toThrow(`These plates have no mesh or an out-of-date one: ${plate!.name}.`);
+    expect(await page.evaluate(() => window.__stabileo.solveCount())).toBe(0);
+  });
 
   await page.getByTestId('analysis-mesh-auto').check();
   await page.getByTestId('pr-cmd-solve').click();
