@@ -12,7 +12,8 @@
     "pt": "Resistência de vigas de concreto nas transições de estribos e nos cortes de barras",
     "de": "Tragfähigkeit von Stahlbetonbalken an Bügelwechseln und Stabenden",
     "fr": "Résistance des poutres en béton aux transitions de cadres et aux arrêts de barres",
-    "tr": "Etriye geçişlerinde ve donatı bitişlerinde betonarme kiriş dayanımı"
+    "tr": "Etriye geçişlerinde ve donatı bitişlerinde betonarme kiriş dayanımı",
+    "zh": "在图示箍筋布置变化处和纵筋截断处验算钢筋混凝土梁承载力"
   },
   "explanation": {
     "en": "CIRSOC beam checks use the stirrups drawn at each section, include both sides of cage transitions and check torsion at interpolated bar cutoffs. Longitudinal torsion bars must meet the minimum diameter for the edition and hoop spacing. Re-run verification on affected beams.",
@@ -20,7 +21,8 @@
     "pt": "A verificação CIRSOC usa os estribos desenhados em cada seção, verifica os dois lados de cada transição e verifica a torção nas seções interpoladas de corte das barras. As barras longitudinais de torção devem atender ao diâmetro mínimo da edição e do espaçamento dos estribos. Verifique novamente as vigas afetadas.",
     "de": "Der CIRSOC-Nachweis verwendet die eingezeichneten Bügel in jedem Querschnitt, prüft beide Seiten von Bügelwechseln und prüft Torsion an interpolierten Stabenden. Für die Torsionslängsbewehrung gilt der Mindestdurchmesser nach Normausgabe und Bügelabstand. Prüfen Sie die betroffenen Balken erneut.",
     "fr": "La vérification CIRSOC utilise les cadres dessinés à chaque section, contrôle les deux côtés des transitions et vérifie la torsion aux arrêts de barres interpolés. Les barres longitudinales de torsion doivent respecter le diamètre minimal selon l’édition et l’espacement des cadres. Vérifiez à nouveau les poutres concernées.",
-    "tr": "CIRSOC kiriş kontrolleri her kesitte çizilen etriyeleri kullanır, etriye geçişlerinin iki tarafını da denetler ve enterpolasyonla belirlenen donatı bitişlerinde burulmayı kontrol eder. Boyuna burulma donatısı, yönetmelik sürümüne ve etriye aralığına göre gereken en küçük çapı sağlamalıdır. Etkilenen kirişleri yeniden doğrulayın."
+    "tr": "CIRSOC kiriş kontrolleri her kesitte çizilen etriyeleri kullanır, etriye geçişlerinin iki tarafını da denetler ve enterpolasyonla belirlenen donatı bitişlerinde burulmayı kontrol eder. Boyuna burulma donatısı, yönetmelik sürümüne ve etriye aralığına göre gereken en küçük çapı sağlamalıdır. Etkilenen kirişleri yeniden doğrulayın.",
+    "zh": "CIRSOC 梁验算采用各截面图示的箍筋，在箍筋布置变化处验算两侧，并在通过插值确定的纵筋截断位置验算扭转。纵向抗扭钢筋必须满足相应规范版本和箍筋间距所要求的最小直径。请重新验算受影响的梁。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-rc-drawn-station-checks.md",

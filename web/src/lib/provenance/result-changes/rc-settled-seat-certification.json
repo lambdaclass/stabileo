@@ -10,7 +10,8 @@
     "pt": "Verificação de vigas de concreto nos encontros definitivos",
     "de": "Nachweis von Stahlbetonträgern an endgültigen Kreuzungspunkten",
     "fr": "Vérification des poutres en béton aux croisements définitifs",
-    "tr": "Betonarme kirişlerin kesinleşen birleşimlerde doğrulanması"
+    "tr": "Betonarme kirişlerin kesinleşen birleşimlerde doğrulanması",
+    "zh": "按交叉梁钢筋的最终位置验算钢筋混凝土梁"
   },
   "explanation": {
     "en": "Automatic design checks the selected cage against the final positions of the crossing beams’ bars before certifying it. A refusal can remove an obstruction or a continuation, so the run checks the remaining cages again. Re-run automatic design and review the reported findings.",
@@ -18,7 +19,8 @@
     "pt": "O dimensionamento automático verifica a armadura selecionada com as posições finais das barras das vigas que se cruzam. Quando uma armadura é recusada, as demais são verificadas novamente. Execute novamente o dimensionamento automático e reveja os resultados.",
     "de": "Die automatische Bemessung prüft die gewählte Bewehrung anhand der endgültigen Stablagen der kreuzenden Träger. Wird eine Bewehrung abgelehnt, werden die übrigen erneut geprüft. Führen Sie die automatische Bemessung erneut aus und prüfen Sie die Ergebnisse.",
     "fr": "Le dimensionnement automatique vérifie les armatures sélectionnées avec les positions définitives des barres des poutres qui se croisent. Si une cage est refusée, les autres sont vérifiées à nouveau. Relancez le dimensionnement automatique et examinez les résultats.",
-    "tr": "Otomatik tasarım, seçilen donatı kafesini kesişen kirişlerin donatılarının kesin konumlarına göre kontrol eder. Bir kafes reddedilirse kalan kafesler yeniden doğrulanır. Otomatik tasarımı yeniden çalıştırın ve sonuçları inceleyin."
+    "tr": "Otomatik tasarım, seçilen donatı kafesini kesişen kirişlerin donatılarının kesin konumlarına göre kontrol eder. Bir kafes reddedilirse kalan kafesler yeniden doğrulanır. Otomatik tasarımı yeniden çalıştırın ve sonuçları inceleyin.",
+    "zh": "签发验算证书前，自动设计会按交叉梁钢筋的最终位置检查选定的钢筋笼。撤下无法验算的钢筋笼可能消除障碍或中断钢筋的连续布置，因此程序会重新验算其余钢筋笼。请重新运行自动设计并查看报告。"
   },
   "changelog": {
     "file": "docs/results-changes/2026-11-rc-settled-seat-certification.md",
