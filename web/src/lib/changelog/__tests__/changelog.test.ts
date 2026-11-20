@@ -22,9 +22,9 @@ const changelogPage = findStandingPage('/changelog')!;
 const SCREENSHOTS = resolve(__dirname, '../../../../public/screenshots');
 
 describe('the changelog', () => {
-  it('runs newest first: a month at a time from February to May, then weekly reports and the current week', () => {
+  it('runs newest first: a month at a time from February to May, then weekly reports and the November 16 interim report', () => {
     const dates = CHANGELOG.map((e) => e.date);
-    expect(dates.slice(0, 2)).toEqual(['2026-11-16', '2026-11-13']);
+    expect(dates.slice(0, 3)).toEqual(['2026-11-20', '2026-11-16', '2026-11-13']);
     expect([...dates].sort().reverse()).toEqual(dates);
     expect(new Set(dates).size).toBe(dates.length);
     expect(CHANGELOG.at(-1)!.date).toBe('2026-02-01');
@@ -36,7 +36,7 @@ describe('the changelog', () => {
         expect(entry.date < '2026-06-01', entry.date).toBe(true);
       } else {
         if (entry.date === '2026-11-16') {
-          expect(entry).toBe(CHANGELOG[0]);
+          expect(entry).toBe(CHANGELOG[1]);
           expect(new Date(Date.UTC(y, m - 1, d)).getUTCDay()).toBe(1);
         } else {
           expect(new Date(Date.UTC(y, m - 1, d)).getUTCDay(), entry.date).toBe(5);
@@ -69,8 +69,8 @@ describe('the changelog', () => {
     expect(warning, locale).toMatch(/2[.,]4/);
   });
 
-  it.each(LOCALES)('known wrong result: #2234 the current report starts with engine changes and keeps source order in %s', (locale) => {
-    const entry = CHANGELOG[0];
+  it.each(LOCALES)('known wrong result: #2234 the November 16 report starts with engine changes and keeps source order in %s', (locale) => {
+    const entry = CHANGELOG.find((e) => e.date === '2026-11-16')!;
     const groups = itemsByArea(entry, locale);
     expect(groups.map((g) => g.area)).toEqual(['engine', 'pro', 'app', 'site']);
     expect(groups.flatMap((g) => g.items)).toEqual(entry.i18n[locale].items);
@@ -155,7 +155,7 @@ describe('the changelog helpers', () => {
     const months = changelogByMonth(CHANGELOG);
     expect(months.map((m) => m.key)).toEqual(['2026-11', '2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-04', '2026-03', '2026-02']);
     expect(months.flatMap((m) => m.entries)).toEqual(CHANGELOG);
-    expect(months[0].entries.map((e) => e.date)).toEqual(['2026-11-16', '2026-11-13', '2026-11-06']);
+    expect(months[0].entries.map((e) => e.date)).toEqual(['2026-11-20', '2026-11-16', '2026-11-13', '2026-11-06']);
     expect(months[1].entries.map((e) => e.date)).toEqual(['2026-10-30', '2026-10-23', '2026-10-16', '2026-10-09', '2026-10-02']);
   });
 
