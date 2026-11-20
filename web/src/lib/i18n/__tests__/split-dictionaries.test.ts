@@ -29,6 +29,10 @@ import { isComplete } from '../offered';
 const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu', 'zh'] as const;
 const LAZY = ['de', 'fr', 'tr', 'hu', 'zh'] as const;
 
+it.skip('known wrong result: #2399 retains the diagram-game navigation label in the eager dictionary', () => {
+  expect(publicEntries.en['landing.navGame']).toBe(en['landing.navGame']);
+});
+
 it.each(LOCALES.filter(isComplete))('%s dictionary split preserves every translation exactly once', locale => {
   expect(Object.keys(appEntries[locale]).filter(key => key in publicEntries[locale])).toEqual([]);
   expect({ ...publicEntries[locale], ...appEntries[locale] }).toEqual({ en, es, pt, de, fr, tr, hu, zh }[locale]);
