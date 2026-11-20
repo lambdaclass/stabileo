@@ -50,10 +50,10 @@ function hoverAtCenter(type: 'support' | 'element', support = gridBeams.supports
   });
 }
 
-it.skip.each([
+it.each([
   { globalAxes: false, rollerLabel: 'rollerY' },
   { globalAxes: true, rollerLabel: 'rollerX' },
-])('known wrong result: #2364 shows the grid-beams support tooltip with globalAxes=$globalAxes', ({ globalAxes, rollerLabel }) => {
+])('shows the grid-beams support tooltip with globalAxes=$globalAxes', ({ globalAxes, rollerLabel }) => {
   vi.stubGlobal('__PUBLIC_FEATURES__', { ...featuresForMode('production'), globalAxes });
   axesStore.choice = { up: '+Y', right: '+Z', hand: 'right' };
 
