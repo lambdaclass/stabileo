@@ -28,6 +28,7 @@ mod harmonic_direct;
 pub mod load_cases;
 pub mod winkler;
 pub mod line_search;
+pub(crate) mod nonlinear;
 pub mod adaptive_stepping;
 pub mod contact;
 pub mod soil_curves;
