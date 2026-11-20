@@ -4,6 +4,16 @@ import { fileURLToPath } from 'node:url';
 import { deflateRawSync } from 'node:zlib';
 import { readRegistry } from './result-changes/registry.mjs';
 
+export function readProfileResultChanges(proPlatesUnified) {
+  return readRegistry(undefined, id => proPlatesUnified || id !== 'plates-coarse-as-modelled-meshed');
+}
+
+export function packResultChangeNotices(registry) {
+  const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
+  const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+  return { shipped, packed };
+}
+
 /** @returns {import('vite').Plugin} */
 export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
   const ids = ['virtual:result-change-metadata', 'virtual:result-change-packed', 'virtual:result-change-quantities'];
@@ -16,10 +26,9 @@ export function resultChangeMetadataPlugin(proPlatesUnified = () => true) {
       if (resolved[0] !== '\0' || !ids.includes(id)) return null;
       for (const name of readdirSync(dir)) if (name.endsWith('.json')) this.addWatchFile(join(dir, name));
       /** @type {import('../src/lib/provenance/registry').ResultChangeRegistry} */
-      const registry = readRegistry(undefined, id => proPlatesUnified() || id !== 'plates-coarse-as-modelled-meshed');
+      const registry = readProfileResultChanges(proPlatesUnified());
       if (id === 'virtual:result-change-packed') {
-        const shipped = { ...registry, changes: registry.changes.map(({ quantities: _, ...change }) => change) };
-        const packed = deflateRawSync(JSON.stringify(shipped), { level: 9 }).toString('base64');
+        const { packed } = packResultChangeNotices(registry);
         return `export default ${JSON.stringify(packed)};`;
       }
       if (id === 'virtual:result-change-quantities') {

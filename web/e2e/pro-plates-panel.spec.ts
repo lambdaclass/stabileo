@@ -1,15 +1,9 @@
-/**
- * The plates panel of PRO on the seven-storey building: a list that says what each plate is and
- * whether a mesher meshed it, a batch of plates meshed from the editor under the list, and the
- * panel switched to the mesh's elements and back with the selection carried over.
- */
-import { test, expect, loadModel } from './fixtures';
+import { test, expect, loadPlateMeshExample } from './fixtures';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test('@smoke plates are listed by level with their kind and mesh, meshed in a batch, and the panel switches to their elements and back', async ({ pro: page }) => {
-  test.fixme(true, 'known wrong result: #2365');
-  await loadModel(page, 'pro-edificio-7p');
+  await loadPlateMeshExample(page);
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-shells').click();
   const plates = await page.evaluate(() => window.__stabileo.plates());
@@ -45,8 +39,7 @@ test('@smoke plates are listed by level with their kind and mesh, meshed in a ba
 });
 
 test('@smoke a batch meshed from its dialog shows its progress at the viewer\'s foot, and the analysis keeps that mesh', async ({ pro: page }) => {
-  test.fixme(true, 'known wrong result: #2365');
-  await loadModel(page, 'pro-edificio-7p');
+  await loadPlateMeshExample(page);
   await page.getByTestId('pr-stage-model').click();
   await page.getByTestId('pr-cmd-shells').click();
   const slabs = (await page.evaluate(() => window.__stabileo.plates())).filter((p) => p.name.startsWith('L'));

@@ -13,6 +13,7 @@ import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
+import { plateMeshExample } from './fixtures/plate-mesh-example';
 
 beforeAll(async () => { await wasmSolver.initSolver(); });
 
@@ -80,6 +81,26 @@ describe('mesh before analysis', () => {
     expect(modelStore.quads.size).toBeGreaterThan(coarse.length * 10);
   }, 300000);
 
+  it.each([false, true])('blocks analysis after a partial remesh leaves original shell edges hanging (async=%s)', async asynchronous => {
+    await building();
+    const [first, second, neighbour] = physicalPlates().filter(plate => plate.name.startsWith('L'));
+    const original = neighbour!.group.members.quads;
+    const plans = [first!, second!].map(plate => planPlateMesh(plate.id, { size: 0.5 })!);
+    const report = asynchronous ? await applyPlateMeshesAsync(plans) : applyPlateMeshes(plans);
+    expect(report).toMatchObject({ plates: 2, refused: [] });
+    expect(plateStatus(first!.id)).toBe('current');
+    expect(plateStatus(second!.id)).toBe('current');
+    expect(physicalPlates().find(plate => plate.id === neighbour!.id)!.group.members.quads).toEqual(original);
+    expect(plateStatus(neighbour!.id)).toBe('stale');
+    meshBeforeAnalysis.value = false;
+    try {
+      const result = asynchronous ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+      expect(result).toMatchObject({ ok: false, reason: 'needsMesh', plates: expect.arrayContaining([neighbour!.name]) });
+    } finally {
+      meshBeforeAnalysis.value = true;
+    }
+  });
+
   it('turned off, solves those plates as they came instead of stopping', async () => {
     await building();
     meshBeforeAnalysis.value = false;
@@ -128,8 +149,10 @@ describe('mesh before analysis', () => {
     expect(platesNeedingMesh()).toEqual([]);
   });
 
-  it.skip('does not mesh again the plates meshed from their dialog, and the dialog\'s meshing shows the same progress card (known wrong result: #2365)', async () => {
-    await building();
+  it('does not mesh again the plates meshed from their dialog, and the dialog\'s meshing shows the same progress card', async () => {
+    modelStore.clear(); historyStore.clear(); uiStore.analysisMode = 'pro';
+    await modelStore.loadExample('plate-mesh-example', async () => plateMeshExample());
+    ensurePhysicalModel();
     meshBeforeAnalysis.value = true;
     const ids = physicalPlates().map((p) => p.id);
     const plans = (await planPlateMeshes(ids, { size: 0.5, element: 'quad', pattern: 'square' }))!;

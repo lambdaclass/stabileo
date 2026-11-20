@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test as base, expect, type Page } from '@playwright/test';
+import { plateMeshExample } from '../src/lib/store/__tests__/fixtures/plate-mesh-example';
 
 /**
  * A project a spec writes stands for one made in this build: stamped as solved with it, so opening
@@ -173,6 +174,7 @@ export interface TestHooks {
 export interface TestActions {
   seedSelfCheckWarning(count?: number, cases?: number): void;
   loadExample(name: string): Promise<void>;
+  loadModelData(json: Record<string, unknown>): void;
   /** Open a project from its `.ded` JSON, as File → Open does. False when refused. */
   loadProject(file: Record<string, unknown>): boolean;
   solve(): Promise<void>;
@@ -374,6 +376,10 @@ export async function placeSlabsFromGrid(page: Page): Promise<void> {
   await page.getByTestId('building-tab-slabs').click();
   await page.getByTestId('building-place-slabs').click();
   await expect(page.getByTestId('building-result')).toBeVisible();
+}
+
+export async function loadPlateMeshExample(page: Page): Promise<void> {
+  await withCrashGuard(page, page.evaluate(model => window.__stabileoActions.loadModelData(model), plateMeshExample()));
 }
 
 export async function loadModel(page: Page, name: string): Promise<number[]> {
