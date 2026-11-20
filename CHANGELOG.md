@@ -163,6 +163,10 @@ Bringing the mouse over a figure on the landing froze it, which read as a broken
 
 [SA-2026-091](docs/advisories/SA-2026-091-rc-torsion-shear-verification.md) covers blocked concrete shear, torsion and seismic hoop checks. [SA-2026-092](docs/advisories/SA-2026-092-section-stress-shear.md) explains the combined shear refusal and corrected section stress cuts. [SA-2026-093](docs/advisories/SA-2026-093-plane-moving-load-axial-force.md) covers axial force jumps in plane moving loads and influence lines. Re-run affected checks and analyses and review the reports that depend on them.
 
+#### Thin-tube stress values in the safety advisory post
+
+The safety advisories post now labels the signed shear sum and the corresponding von Mises stress in all eight translations of the [SA-2026-092 thin-tube example](docs/advisories/SA-2026-092-section-stress-shear.md#thin-tube-worked-example) and compares the von Mises stress with the yield strength.
+
 #### Section stress advisory worked example
 
 [SA-2026-092](docs/advisories/SA-2026-092-section-stress-shear.md#thin-tube-worked-example) now identifies the thin-tube fibre in both member-local and section-drawing coordinates and gives the replayed von Mises verdicts for both torque signs.

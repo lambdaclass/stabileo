@@ -108,7 +108,7 @@ describe('safety-advisories SA-2026-061', () => {
 });
 
 describe('safety-advisories SA-2026-092', () => {
-  it.skip.each<[PublicLocale, string, string, string]>([
+  it.each<[PublicLocale, string, string, string]>([
     ['en', '4.5697 MPa total shear and 7.9149 MPa von Mises', 'signed shear sum is 6.4625 MPa', 'von Mises stress is 11.1934 MPa, which exceeds the 9 MPa yield strength'],
     ['es', '4,5697 MPa de corte total y 7,9149 MPa de tensión de von Mises', 'suma con signo de las tensiones de corte es de 6,4625 MPa', 'tensión de von Mises correspondiente es de 11,1934 MPa y supera el límite de fluencia de 9 MPa'],
     ['pt', '4,5697 MPa de tensão de cisalhamento total e 7,9149 MPa de tensão de von Mises', 'soma com sinal das tensões de cisalhamento é de 6,4625 MPa', 'tensão de von Mises correspondente é de 11,1934 MPa e supera o limite de escoamento de 9 MPa'],

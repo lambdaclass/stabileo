@@ -306,7 +306,7 @@ const body: PostBody = {
       "k": "ext",
       "href": "https://github.com/lambdaclass/stabileo/blob/main/docs/advisories/SA-2026-092-section-stress-shear.md",
       "label": "SA-2026-092",
-      "t": "薄壁圆管算例采用杆件局部坐标，所选纤维位于 y = 0.0995 m、z = 0。旧版对两种扭矩方向都给出 7.91 MPa 的 von Mises 等效应力，均通过验算。剪应力同向叠加时，带符号相加得到 11.19 MPa，超过 9 MPa 的屈服强度，验算不通过。剪应力相互抵消时，等效应力接近零，验算通过。"
+      "t": "薄壁圆管算例采用杆件局部坐标，所选纤维位于 y = 0.0995 m、z = 0。旧版在两种扭矩方向下算得的总剪应力为 4.5697 MPa，von Mises 等效应力为 7.9149 MPa，均通过验算。同向叠加时，剪应力的带符号和为 6.4625 MPa。对应的 von Mises 等效应力为 11.1934 MPa，超过 9 MPa 的屈服强度，验算不通过。剪应力相互抵消时，von Mises 等效应力接近零，验算通过。"
     },
     {
       "k": "note",
