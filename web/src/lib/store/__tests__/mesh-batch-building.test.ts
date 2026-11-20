@@ -12,6 +12,7 @@ import { ensurePhysicalModel } from '../plates-from-shells';
 import { syncDefinedLoadsForAnalysis } from '../defined-loads';
 import { meshBeforeAnalysis } from '../mesh-policy.svelte';
 import { meshProgress } from '../mesh-progress.svelte';
+import { meshWallsForSheets, wallsToMeshForSheets } from '../rc-sheets.svelte';
 import { meshPlatesInModel } from '../mesh-apply';
 import { plateMeshExample } from './fixtures/plate-mesh-example';
 
@@ -114,6 +115,21 @@ describe('mesh before analysis', () => {
       meshBeforeAnalysis.value = true;
     }
   });
+
+  it.skip('leaves no adjacent slab stale after the RC sheets wall remesh (known wrong result: #2365)', async () => {
+    await building();
+    meshBeforeAnalysis.value = false;
+    try {
+      const walls = wallsToMeshForSheets();
+      expect(walls).toHaveLength(21);
+      expect(meshWallsForSheets()).toBe(walls.length);
+      expect(wallsToMeshForSheets()).toEqual([]);
+      expect(platesNeedingMesh({ coarse: false }).map(id => physicalPlates().find(p => p.id === id)?.name)).toEqual([]);
+      expect(preparePlatesForAnalysis()).toEqual({ ok: true, meshed: 0, cells: 0 });
+    } finally {
+      meshBeforeAnalysis.value = true;
+    }
+  }, 300000);
 
   it('turned off, solves those plates as they came instead of stopping', async () => {
     await building();
