@@ -60,6 +60,20 @@ describe('the seven-storey building meshed whole', () => {
 });
 
 describe('mesh before analysis', () => {
+  it.skip.each([false, true])('meshes every wall of the seven-storey example before analysis (async=%s; known wrong result: #2365)', async asynchronous => {
+    await building();
+    const walls = physicalPlates().filter(p => p.physical.kind === 'wall');
+    expect(walls.map(p => p.name)).toEqual(expect.arrayContaining(['M1', 'M2', 'M3', 'M10', 'M11', 'M12']));
+    meshBeforeAnalysis.value = true;
+    const result = asynchronous ? await preparePlatesForAnalysisAsync() : preparePlatesForAnalysis();
+    expect(result).toMatchObject({ ok: true });
+    expect(platesNeedingMesh()).toEqual([]);
+    for (const wall of walls) {
+      expect(plateStatus(wall.id), wall.name).toBe('current');
+      expect(cellsOf(wall.name), wall.name).toBeGreaterThan(1);
+    }
+  });
+
   it('reports the incompatible walls when remeshing the coarse gallery building before analysis', async () => {
     await building();
     const all = physicalPlates();
