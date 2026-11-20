@@ -11,8 +11,7 @@ const invalidInputs = [
 ] as const;
 
 for (const [label, outline, center, hole] of invalidInputs) {
-  test(`@smoke known wrong result: #2376 the mesher refuses an ${label}`, async ({ pro: page }) => {
-    test.skip(process.env.STABILEO_REPRODUCE_PLATES !== '1', 'known wrong result: #2376');
+  test.skip(`known wrong result: #2376 @smoke the mesher refuses ${label}`, async ({ pro: page }) => {
     if (outline) await loadModel(page, '3d-portal-frame');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-shells').click();

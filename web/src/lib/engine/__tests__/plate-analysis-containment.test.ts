@@ -5,7 +5,8 @@ import { runGlobalSolve } from '../live-calc';
 import type { AnalysisResults3D } from '../types-3d';
 import { initSolver } from '../wasm-solver';
 
-const reproduce = process.env.STABILEO_REPRODUCE_PLATES === '1' ? it : it.skip;
+const reproduce2368 = process.env.RUN_KNOWN_WRONG === '2368' ? it : it.skip;
+const reproduce2388 = process.env.RUN_KNOWN_WRONG === '2388' ? it : it.skip;
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -54,14 +55,14 @@ function addPDeltaCombination() {
   modelStore.setAnalysis({ perCombination: 'pdelta' });
 }
 
-reproduce.each([true, false])('known wrong result: #2368 preparation names the invalid plate with automatic meshing %s', auto => {
+reproduce2368.each([true, false])('known wrong result: #2368 preparation names the invalid plate with automatic meshing %s', auto => {
   loadedSlab();
   missingFloor();
   meshBeforeAnalysis.value = auto;
   expect(preparePlatesForAnalysis()).toMatchObject({ ok: false, plates: ['missing floor'] });
 });
 
-reproduce('known wrong result: #2368 the global solve refuses the invalid plate and publishes no results', async () => {
+reproduce2368('known wrong result: #2368 the global solve refuses the invalid plate and publishes no results', async () => {
   loadedSlab();
   missingFloor();
   const outcome = await runGlobalSolve({ directBase: true });
@@ -69,7 +70,7 @@ reproduce('known wrong result: #2368 the global solve refuses the invalid plate 
   expect(resultsStore.results3D).toBeNull();
 });
 
-reproduce.each(entries)('known wrong result: #2368 the %s entry refuses the invalid plate', async (_entry, solve) => {
+reproduce2368.each(entries)('known wrong result: #2368 the %s entry refuses the invalid plate', async (_entry, solve) => {
   loadedSlab();
   missingFloor();
   addPDeltaCombination();
@@ -107,13 +108,13 @@ function wallSlabJoint(stations: 'wall' | 'slab' | 'both' | 'neither' | 'separat
   }
 }
 
-reproduce.each(['wall', 'slab'] as const)('known wrong result: #2388 refuses a hanging %s node where the wall meets the slab', async stations => {
+reproduce2388.each(['wall', 'slab'] as const)('known wrong result: #2388 refuses a hanging %s node where the wall meets the slab', async stations => {
   wallSlabJoint(stations);
   expect(await runGlobalSolve({ directBase: true })).toEqual({ ok: false, error: expect.any(String) });
   expect(resultsStore.results3D).toBeNull();
 });
 
-reproduce.each(entries)('known wrong result: #2388 the %s entry refuses a nonconforming wall–slab joint', async (_entry, solve) => {
+reproduce2388.each(entries)('known wrong result: #2388 the %s entry refuses a nonconforming wall–slab joint', async (_entry, solve) => {
   wallSlabJoint('wall');
   addPDeltaCombination();
   expect(await solve()).toEqual(expect.stringMatching(/wall.*slab|slab.*wall/i));
@@ -124,7 +125,7 @@ it.each(['both', 'neither', 'separate'] as const)('solves a wall and slab with %
   expectLoadedSlab(modelStore.solve3D(false, false, true));
 });
 
-reproduce('known wrong result: #2388 the seven-storey gallery slabs share the reported wall stations and solve', async () => {
+reproduce2388('known wrong result: #2388 the seven-storey gallery slabs share the reported wall stations and solve', async () => {
   await modelStore.loadExample('pro-edificio-7p');
   expect(preparePlatesForAnalysis().ok).toBe(true);
   const answer = modelStore.solve3D(true, false, true);
