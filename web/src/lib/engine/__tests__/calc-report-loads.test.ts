@@ -5,12 +5,13 @@
  * names (fy, mz) when the store writes fx, fz, my; and a line load dropped when its I end was
  * zero, which is every triangular load that starts at nothing.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
 import { loadComponentsText, reportNumber, distributedText, pointOnElementText, thermalText } from '../calc-report-loads';
 import { serializeLoads } from '../pro-report-inputs';
+import { featuresForMode } from '../../../../config/public-features.mjs';
 
 beforeEach(() => { historyStore.clear(); modelStore.clear(); });
 
@@ -174,4 +175,31 @@ describe('the load list follows the report units', () => {
     expect(thermalText({ dtUniform: 20, dtGradient: -10 }, 'SI', 'pro')).toBe('ΔT=20°C, ΔTgz=-10°C');
     expect(thermalText({ dtUniform: 0, dtGradient: 0, dtGradientY: 5 }, 'SI', 'pro')).toBe('ΔT=0°C, ΔTgz=0°C, ΔTgy=5°C');
   });
+});
+
+const runReproducer = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
+
+runReproducer('known wrong result: #2370 the PRO report resolves a global planar point load with member-local axial force', () => {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = '2d';
+    const base = modelStore.addNode(0, 0), top = modelStore.addNode(0, 4), right = modelStore.addNode(3, 0);
+    const vertical = modelStore.addElement(base, top);
+    const reversed = modelStore.addElement(top, right);
+    const horizontal = modelStore.addElement(base, right);
+    modelStore.addPointLoadOnElement(vertical, 1, 0, { px: 10, isGlobal: true });
+    modelStore.addPointLoadOnElement(reversed, 2, -3, { px: 10, angle: 90, isGlobal: true, my: 5 });
+    modelStore.addPointLoadOnElement(horizontal, 1, -4, { isGlobal: true });
+    const values = serializeLoads(key => key).map(row => row.values);
+    expect(values[0]).toContain('Pz=10 kN');
+    expect(values[0]).not.toContain('Px');
+    expect(values[1]).toContain('Px=3');
+    expect(values[1]).toContain('Pz=-8');
+    expect(values[1]).toContain('My=5 kN·m');
+    expect(values[1]).not.toContain('θ=');
+    expect(values[2]).toContain('Pz=-4 kN');
+    expect(values.every(value => value.includes('report.loadGlobal'))).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
