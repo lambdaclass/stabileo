@@ -18,7 +18,7 @@ import type { Block, StepDoc } from '../../steps/doc';
 import type { InfluenceQuantity } from '../../../store/model.svelte';
 import type { IlTarget } from '../quantities';
 import zh from '../../../i18n/locales/course/influence/zh';
-import { simpleBeam, threeSpan, twoSpan } from './fixtures';
+import { cantilever, simpleBeam, threeSpan, twoSpan } from './fixtures';
 
 beforeAll(async () => { await initSolver(); });
 const DOWN = { x: 0, z: -1 };
@@ -126,12 +126,12 @@ describe('picking the section', () => {
   });
 });
 
-function docFor(model: never, q: InfluenceQuantity, target: IlTarget): StepDoc {
+function docFor(model: never, q: InfluenceQuantity, target: IlTarget, dir = DOWN, vertical = true): StepDoc {
   const input = buildSolverInput2D(model, false)!;
   const unit = unitSolver(input);
-  const points = computePoints(unit, q, target, 20, DOWN, 'vertical');
+  const points = computePoints(unit, q, target, 20, dir, vertical ? 'vertical' : 'horizontal');
   return buildInfluenceDoc({
-    unit, pm: pmOf(input), quantity: q, target, points, dir: DOWN, vertical: true,
+    unit, pm: pmOf(input), quantity: q, target, points, dir, vertical,
     loads: { g: 10, q: 5, P: 20 }, placement: 'zones', loadedIds: [...unit.elements.keys()], gh: target.kind === 'node' ? 1 : 0, defaulted: false,
   });
 }
@@ -171,6 +171,15 @@ describe('the explained document', () => {
     const work = doc.steps[0].blocks[1];
     expect(principle.kind === 'p' && zh[principle.text.key]).toContain('投影取反');
     expect(work.kind === 'eq' && work.note && zh[work.note.key]).toContain('投影的相反数');
+  });
+
+  const issue2360 = process.env.RUN_KNOWN_WRONG === '2360' ? it : it.skip;
+
+  issue2360('known wrong result: #2360 — the Chinese axial influence document prescribes relative closure', () => {
+    const target = { kind: 'section', elementId: 1, t: 0.5 } as const;
+    const doc = docFor(cantilever(4), 'N', target, { x: 1, z: 0 }, false);
+    const release = doc.steps[0].blocks[2];
+    expect(release.kind === 'p' && zh[release.text.key]).toContain('单位相对闭合位移');
   });
 
   it('a displacement line: Maxwell, with the reciprocity check', () => {

@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { STRINGS } from '../../../components/research/i18n';
+import reliability from '../../blog/translations/zh/page-reliability';
+import torsion from '../../blog/translations/zh/torsion-bredt-saint-venant';
+import advisory from '../../blog/translations/zh/safety-advisories';
+import { sheetSpec } from '../../excel-import/schema';
 import bars from '../../blog/translations/zh/bars-or-finite-elements';
 import determinism from '../../blog/translations/zh/the-determinism-boundary';
 import { changes } from '../../provenance/result-changes/numbered.json';
@@ -61,4 +66,69 @@ it('known wrong result: #2360 — separates the snow factor from the snow load',
 it('known wrong result: #2360 — uses square-root pressure units for the shear limit', () => {
   const copy = changes.find(c => c.id === 'cirsoc201-strain-compatibility')?.explanation.zh;
   expect(copy).toContain('√f′c ≤ 8.3 √MPa');
+});
+
+const issue2360 = process.env.RUN_KNOWN_WRONG === '2360' ? it : it.skip;
+
+issue2360.each([
+  ['clockwise command', zh['ctx.rotate90cw'], /^顺时针旋转 90° ↻$/],
+  ['counterclockwise command', zh['ctx.rotate90ccw'], /^逆时针旋转 90° ↺$/],
+  ['displayed bending moment signs use different local axes', zh['stress.moments3dHelp'], /显示的 My 为正时.*局部 \+z.*受拉.*显示的 Mz 为正时.*局部 −y.*受拉/s],
+  ['the Navier formula uses the solver moment signs', zh['stress.sigmaBiaxHelp'], /式中弯矩取求解器符号，与面板上方所显示的弯矩符号相反/],
+  ['dynamic amplification tends to zero as β increases', dynamics['course.dynamics.sdof.harm.above'], /D = 1.*频率比 β 趋于 √2.*β.*增大.*D 趋于零/],
+  ['zonal envelope dead load covers eligible members at both extremes', influence['course.influence.doc.use.worst.zones'], /求最大值和最小值时，g 均布置在所有允许加载的杆件上/],
+  ['whole-member envelope dead load covers eligible members at both extremes', influence['course.influence.doc.use.worst.spans'], /求最大值和最小值时，g 均布置在所有允许加载的杆件上/],
+  ['worked compression converts N to kN', steel['c301.e.pn'], /\{Fcr\}·\{Ag\} × 10⁻³ = \{Pn\} kN/],
+  ['worked shear converts N to kN', steel['c301.g.vn'], /0\.6·\{Fy\}·\{Aw\}·\{Cv\} × 10⁻³ = \{Vn\} kN/],
+  ['moment distribution excludes released far ends from carry-over', steps['steps.frames.cross.distIntro'], /远端固结.*传递一半.*远端为铰.*传递量为零/],
+  ['inextensible mixed frames retain span-load effects on hinged members', steps['steps.trusses.compat.inext.mixed'], /两端弯矩为零.*跨内横向荷载.*剪力和弯矩/],
+  ['compatibility releases remove end moments and retain span-load effects', steps['steps.trusses.compat.hinges'], /两端弯矩为零.*跨内横向荷载.*剪力和弯矩/],
+] as const)('known wrong result: #2360 — %s', (_name, copy, expected) => {
+  expect(copy).toMatch(expected);
+});
+
+issue2360('known wrong result: #2360 — material strength and nodal force have distinct Excel help', () => {
+  const material = sheetSpec('Materials')!;
+  const materialFy = material.columns.find(column => column.key === 'fy')!;
+  const loadFy = sheetSpec('Loads')!.columns.find(column => column.key === 'fy')!;
+  expect(loadFy.unit).toBe('kN');
+  expect(zh[loadFy.helpKey]).toBe('沿 Y 方向的力。');
+  expect(materialFy.unit).toBe('MPa');
+  expect(materialFy.helpKey).not.toBe(loadFy.helpKey);
+  expect(zh[materialFy.helpKey]).toMatch(/屈服强度.*混凝土.*f′c.*MPa/);
+});
+
+issue2360('known wrong result: #2360 — cable advice retains self-weight in the independent check', () => {
+  const heading = advisory.blocks.findIndex(block => block.k === 'h' && block.t.startsWith('SA-2026-015'));
+  const advice = advisory.blocks[heading + 2];
+  expect(advice.k === 'ul' && advice.items[1]).toMatch(/独立复核.*索力和锚固力.*计入索的自重/);
+  expect(advice.k === 'ul' && advice.items[1]).not.toContain('不设密度');
+});
+
+issue2360('known wrong result: #2360 — reliability points readers to current advisory statuses', () => {
+  expect(reliability.faq?.find(entry => entry.q === '已发布的公告都修复了吗？')?.a)
+    .toMatch(/仍有问题尚未修复.*安全公告.*最新状态/);
+  expect(reliability.blocks).toContainEqual(expect.objectContaining({ k: 'link', slug: 'safety-advisories' }));
+});
+
+issue2360('known wrong result: #2360 — torsion error percentages use the exact stress as denominator', () => {
+  const explanation = torsion.blocks.find(block => block.k === 'p' && block.t.startsWith('在这四种情形中'));
+  expect(explanation).toMatchObject({ k: 'p', t: expect.stringMatching(/以精确值为基准.*低 4\.5%.*低 8\.2%/) });
+});
+
+issue2360('known wrong result: #2360 — Chinese release notes distinguish repeated result notice titles', () => {
+  const release = readFileSync(new URL('../../../../../docs/releases/v0.6.2.zh.md', import.meta.url), 'utf8');
+  const notices = release.split('\n').filter(line => /^\| (91|93) \|/.test(line));
+  expect(notices).toHaveLength(new Set(notices).size);
+  expect(release).toContain('#compensated-force-totals-and-remapped-load-refusal-round-67-2223');
+  expect(release).toContain('#custom-supports-require-an-explicit-mask');
+});
+
+issue2360('known wrong result: #2360 — concentrated live load guidance formats the advisory reference for each page', () => {
+  const release = readFileSync(new URL('../../../../../docs/releases/v0.6.2.zh.md', import.meta.url), 'utf8');
+  const row = release.split('\n').find(line => line.startsWith('| [SA-2026-083]'));
+  expect.soft(row?.split('|')[3]).toMatch(/^ CIRSOC 101 自动荷载生成/);
+  const description = advisory.blocks.flatMap(block => block.k === 'table' ? block.rows : [])
+    .find(columns => columns[0] === 'SA-2026-083')?.[1];
+  expect.soft(description).toMatch(/^SA-2026-083：CIRSOC 101 自动荷载生成/);
 });
