@@ -180,9 +180,7 @@ it('#2360 — concentrated live load guidance formats the advisory reference for
   expect.soft(description).toMatch(/^SA-2026-083：CIRSOC 101 自动荷载生成/);
 });
 
-const engineeringCopy = process.env.RUN_KNOWN_WRONG === '2384' ? it : it.skip;
-
-engineeringCopy('known wrong result: #2384 — the modal warning uses the material unit weight', () => {
+it('#2384 — the modal warning uses the material unit weight', () => {
   const unit = sheetSpec('Materials')!.columns.find(column => column.key === 'rho')!.unit;
   expect(unit).toBe('kN/m³');
   expect.soft(zh['modal.noDensity']).toMatch(/重度.*重度/);
@@ -193,7 +191,7 @@ engineeringCopy('known wrong result: #2384 — the modal warning uses the materi
   }
 });
 
-engineeringCopy('known wrong result: #2384 — the beam, frame and influence tools describe the signed shear on both cut faces', async () => {
+it('#2384 — the beam, frame and influence tools describe the signed shear on both cut faces', async () => {
   const beam = await calculate('simply-supported-beam', EXAMPLE);
   const [beamX, beamV] = beam.charts.shear.find(([x]) => x > 0)!;
   expect(beamX).toBeLessThan(EXAMPLE.length / 2);
@@ -227,7 +225,7 @@ engineeringCopy('known wrong result: #2384 — the beam, frame and influence too
   }
 });
 
-engineeringCopy('known wrong result: #2384 — underdamped settling depends on the permitted residual amplitude', () => {
+it('#2384 — underdamped settling depends on the permitted residual amplitude', () => {
   const key = 'course.dynamics.sdof.total.why';
   expect.soft(dynamics[key]).toMatch(/e\^\(−ξωt\).*允许的残余幅值比例.*ln\(1\/ε\)\/\(ξω\)/);
   expect.soft(dynamics[key]).not.toContain('经过几个周期后只剩稳态');
@@ -235,20 +233,20 @@ engineeringCopy('known wrong result: #2384 — underdamped settling depends on t
   expect.soft(ALL_DICTS.en[key]).not.toContain('after a few cycles');
 });
 
-engineeringCopy('known wrong result: #2384 — the plastic lesson defines its axis and reconciles the influence-line axis', () => {
+it('#2384 — the plastic lesson defines its axis and reconciles the influence-line axis', () => {
   const key = 'course.plastic.doc.signs';
-  expect.soft(plastic[key]).toMatch(/局部 x 轴.*起始节点.*终止节点.*局部 y 轴.*逆时针.*局部 −y.*局部 −z/);
-  expect.soft(ALL_DICTS.en[key]).toMatch(/local x.*start node.*end node.*local y.*counterclockwise.*local −y.*local −z/);
+  expect.soft(plastic[key]).toMatch(/局部 x 轴.*起始节点.*终止节点.*局部 y 轴.*逆时针.*局部 −y.*从左向右.*局部 −z/);
+  expect.soft(ALL_DICTS.en[key]).toMatch(/local x.*start node.*end node.*local y.*counterclockwise.*local −y.*from left to right.*local −z/);
   expect(influence['course.influence.doc.sign.M']).toMatch(/局部 −z.*受拉时为正/);
 });
 
-engineeringCopy('known wrong result: #2384 — axial stiffness times elongation gives axial force', () => {
+it('#2384 — axial stiffness times elongation gives axial force', () => {
   const key = 'course.kinematics.dm.introStates';
   expect.soft(kinematics[key]).toMatch(/弯矩[^。]*。[^。]*轴力 N = \(EA\/L\)·ΔL.*伸长/);
   expect.soft(ALL_DICTS.en[key]).toMatch(/moments[^.]*\. [^.]*axial force N = \(EA\/L\)·ΔL.*elongation/);
 });
 
-engineeringCopy('known wrong result: #2384 — the Castigliano option integrates axial strain energy along the member', () => {
+it('#2384 — the Castigliano option integrates axial strain energy along the member', () => {
   const key = 'steps.m.castigliano.opt.axial.label';
   expect.soft(steps[key]).toContain('轴向应变能');
   expect.soft(ALL_DICTS.en[key]).toContain('axial strain energy');

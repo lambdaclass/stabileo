@@ -4190,7 +4190,7 @@ const en: Record<string, string> = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'No free degrees of freedom',
   'modal.modelTooLarge': 'Model too large for modal analysis (max ~3000 free DOFs)',
-  'modal.noDensity': 'No material has density assigned. Assign density (kg/m³) to the materials for modal analysis.',
+  'modal.noDensity': 'No material has a unit weight assigned. Enter the material unit weight (kN/m³) for modal analysis.',
   'modal.zeroMassMatrix': 'Mass matrix is zero — assign density to the materials',
   'modal.choleskyError': 'Cholesky decomposition of the mass matrix failed',
   'modal.noModesFound': 'No valid modes found',

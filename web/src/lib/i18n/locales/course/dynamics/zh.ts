@@ -75,7 +75,7 @@ const words: Translations = {
   "course.dynamics.sdof.total.transient": "瞬态",
   "course.dynamics.sdof.total.steady": "稳态",
   "course.dynamics.sdof.total.caption": "总响应 u(t) 及其两个组成部分。",
-  "course.dynamics.sdof.total.why": "欠阻尼（0 < ξ < 1）时，瞬态按 e^(−ξωt) 衰减，经过几个周期后只剩稳态。当 ξ = 1 时，它通过特征方程的重根，按 (A + Bt)·e^(−ωt) 不振荡地衰减；当 ξ > 1 时，它通过两个实根不振荡地衰减。当 ξ = 0 时，它永不衰减：自由振动永远保留在响应中。",
+  "course.dynamics.sdof.total.why": "欠阻尼（0 < ξ < 1）时，瞬态幅值的包络按 e^(−ξωt) 衰减。若 ε（0 < ε < 1）是相对于初始幅值允许的残余幅值比例，则包络在 t = ln(1/ε)/(ξω) 时达到该阈值。当 ξ = 1 时，它通过特征方程的重根，按 (A + Bt)·e^(−ωt) 不振荡地衰减；当 ξ > 1 时，它通过两个实根不振荡地衰减。当 ξ = 0 时，它永不衰减：自由振动永远保留在响应中。",
   "course.dynamics.sdof.total.whyResonant": "在无阻尼的共振状态下，幅值无限增长。在实际结构中，阻尼和非线性行为会限制它。",
   "course.dynamics.sdof.engine.lead": "同一体系由分析引擎以矩阵方式求解：一根轴向刚度为 k 的无质量杆，质量 m 位于其端部。ω 与模态分析对比，X 与谐响应分析对比，u(t) 与逐步时间积分对比。",
   "course.dynamics.sdof.engine.how": "引擎采用平均加速度法在时间上积分，并把阻尼建模为 c = a_0·m + a_1·k。对于一个自由度，a_0 和 a_1 给出相同的比值 ξ = c/(2√(km))，因此差异来自时间步长。",

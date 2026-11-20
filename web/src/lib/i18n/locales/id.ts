@@ -2130,7 +2130,7 @@ const id: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'Tidak ada derajat kebebasan bebas',
   'modal.modelTooLarge': 'Model terlalu besar untuk analisis modal (maks ~500 DK bebas)',
-  'modal.noDensity': 'Tidak ada material yang memiliki massa jenis. Tetapkan massa jenis (kg/m³) ke material untuk analisis modal.',
+  'modal.noDensity': 'Belum ada material yang diberi berat volume. Masukkan berat volume (kN/m³) material untuk analisis modal.',
   'modal.zeroMassMatrix': 'Matriks massa nol — tetapkan massa jenis ke material',
   'modal.choleskyError': 'Gagal dekomposisi Cholesky matriks massa',
   'modal.noModesFound': 'Tidak ditemukan mode yang valid',

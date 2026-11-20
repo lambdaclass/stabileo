@@ -22,7 +22,7 @@ const words: Translations = {
   "course.plastic.req.size": "共有 {n} 个控制截面；手算最多 {max} 个。",
   "course.plastic.req.mechanisms": "共有 {n} 个独立机构；手算最多 {max} 个。",
   "course.plastic.doc.assumptions": "刚塑性材料：每个截面在弯矩达到 Mp 之前保持刚性，之后在弯矩保持为 Mp 的情况下自由转动（塑性铰）。忽略与轴力和剪力的相互作用、二阶效应以及铰的卸载。",
-  "course.plastic.doc.signs": "使底面受拉的弯矩为正，杆件按从起始节点到终止节点的方向读取（局部 −y 面）。当杆件按正弯矩所致的方向折转时，铰转角 θ 为正；在每个铰处，M·θ 是其耗散的功。",
+  "course.plastic.doc.signs": "在本课的平面塑性分析中，局部 x 轴从起始节点指向终止节点，局部 y 轴由 x 轴逆时针旋转 90° 得到。正弯矩使局部 −y 面受拉，对从左向右绘制的梁，这一面对应影响线课程中的局部 −z 面。当杆件按正弯矩所致的方向折转时，铰转角 θ 为正；在每个铰处，M·θ 是其耗散的功。",
   "course.plastic.doc.mpCaption": "每根杆件的塑性弯矩，Mp = fy·Zp。",
   "course.plastic.doc.gh": "超静定次数",
   "course.plastic.doc.axialRedundant": "其中 {s} 个多余未知力不参与弯曲（没有机构会调动的轴力）。机构按 GH = {gh} 计数。",

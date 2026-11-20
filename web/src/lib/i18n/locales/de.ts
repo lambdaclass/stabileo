@@ -3791,7 +3791,7 @@ const de: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'Keine freien Freiheitsgrade',
   'modal.modelTooLarge': 'Modell zu groß für die Modalanalyse (max. ~3000 freie FHG)',
-  'modal.noDensity': 'Kein Material hat eine Dichte zugewiesen. Weisen Sie den Materialien eine Dichte (kg/m³) für die Modalanalyse zu.',
+  'modal.noDensity': 'Für kein Material ist eine Wichte angegeben. Geben Sie für die Modalanalyse die Wichte (kN/m³) der Materialien an.',
   'modal.zeroMassMatrix': 'Massenmatrix ist null — weisen Sie den Materialien Dichte zu',
   'modal.choleskyError': 'Cholesky-Zerlegung der Massenmatrix fehlgeschlagen',
   'modal.noModesFound': 'Keine gültigen Eigenformen gefunden',

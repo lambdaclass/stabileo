@@ -3791,7 +3791,7 @@ const fr: Translations = {
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'Aucun degré de liberté libre',
   'modal.modelTooLarge': 'Modèle trop grand pour l\'analyse modale (max ~3000 DDL libres)',
-  'modal.noDensity': 'Aucun matériau n\'a de masse volumique. Affectez une masse volumique (kg/m³) aux matériaux pour l\'analyse modale.',
+  'modal.noDensity': 'Aucun matériau ne possède de poids volumique renseigné. Renseignez le poids volumique (kN/m³) des matériaux pour l’analyse modale.',
   'modal.zeroMassMatrix': 'La matrice de masse est nulle : affectez une masse volumique aux matériaux',
   'modal.choleskyError': 'La décomposition de Cholesky de la matrice de masse a échoué',
   'modal.noModesFound': 'Aucun mode valide trouvé',

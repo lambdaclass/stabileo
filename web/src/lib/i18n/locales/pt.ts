@@ -4825,7 +4825,7 @@ const pt: Translations = {
   'mobile.values': 'Valores',
   'modal.choleskyError': 'A decomposição de Cholesky da matriz de massa falhou',
   'modal.modelTooLarge': 'Modelo muito grande para análise modal (máx. ~3000 GDL livres)',
-  'modal.noDensity': 'Nenhum material possui densidade atribuída. Atribua densidade (kg/m³) aos materiais para análise modal.',
+  'modal.noDensity': 'Nenhum material tem peso específico atribuído. Informe o peso específico (kN/m³) dos materiais para a análise modal.',
   'modal.noFreeDofs': 'Sem graus de liberdade livres',
   'modal.noModesFound': 'Nenhum modo válido encontrado',
   'modal.zeroMassMatrix': 'Matriz de massa é zero — atribua densidade aos materiais',
