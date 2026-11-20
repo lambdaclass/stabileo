@@ -2,8 +2,8 @@ import type { StandingPage } from '../../pages';
 import { COMPANY } from '../../pages/legal-company';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Stabileo 使用条款",
-  "description": "使用 Stabileo 的条件：服务提供方、对结果的专业责任、您的账户和您的项目。",
+  "title": "Stabileo 结构分析应用使用条款",
+  "description": "使用 Stabileo 的条件：服务提供方、对结果的专业责任、您的账户和您的项目。适用于 stabileo.com 上的结构分析应用。",
   "eyebrow": "法律",
   "lead": "本条款适用于 Stabileo 的使用。Stabileo 是 Stabileo SAS 在 stabileo.com 提供的结构分析应用。本条款自 2026 年 10 月 27 日起适用。您在创建账户时即表示接受本条款；如果条款发生变更，我们会请您在继续使用之前重新接受。",
   "blocks": [
