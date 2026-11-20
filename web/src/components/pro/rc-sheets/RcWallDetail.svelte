@@ -2,7 +2,7 @@
   /** A wall's bars in elevation and in a horizontal cut, as `rc-sheets/wall-detail.ts` lays them out, each kind switched on and off on its own. */
   import { t, tp, i18n } from '../../../lib/i18n';
   import { decimalFor, makeFmt } from '../../../lib/rc-sheets/format';
-  import { columnTag, wallDetail, wallLevels } from '../../../lib/rc-sheets/wall-detail';
+  import { columnTag, firstLevel, wallDetail, wallLevels } from '../../../lib/rc-sheets/wall-detail';
   import type { WallRow } from '../../../lib/rc-sheets/wall-row';
   import type { SheetCode } from '../../../lib/rc-sheets/types';
 
@@ -17,10 +17,11 @@
   const ew = $derived(d.length * ke), eh = $derived(row.height * ke);
   const EX = (x: number) => PAD + x * ke, EY = (y: number) => PAD + eh - y * ke;
   const face = $derived(d.verticals.filter((v) => Math.abs(v.y - Math.min(...d.verticals.map((q) => q.y))) < 1e-6));
-  const levels = (span: number, s: number) => wallLevels(span, s, MAXLINES);
-  const hLevels = $derived(levels(row.height, d.horizontals.spacing));
-  const tieLevels = $derived(d.boundary?.ties ? levels(row.height, d.boundary.ties.spacing) : []);
-  const crossGrid = $derived(d.crossTies ? { xs: levels(d.length, d.crossTies.along), ys: levels(row.height, d.crossTies.up) } : null);
+  const levels = (span: number, s: number, up = false) => wallLevels(span, s, MAXLINES, up ? firstLevel(row, s) : s / 2);
+  const hLevels = $derived(levels(row.height, d.horizontals.spacing, true));
+  const tieLevels = $derived(d.boundary?.ties ? levels(row.height, d.boundary.ties.spacing, true) : []);
+  const crossGrid = $derived(d.crossTies ? { xs: levels(d.length, d.crossTies.along), ys: levels(row.height, d.crossTies.up, true) } : null);
+  const dowelLap = (dia: number) => row.vLaps?.find((x) => x.dia === dia)?.lap ?? 0;
 
   const PW = 380, PAD2 = 18, TOP = 14, MIN_T_PX = 36, DETAIL_H = 150;
   type View = { id: string; k: number; wx0: number; wx1: number; clip: boolean };
@@ -83,6 +84,11 @@
       <g class="v" data-testid="rc-wall-elev-vertical">
         {#each face as v, i (i)}<line x1={EX(v.x)} y1={EY(0)} x2={EX(v.x)} y2={EY(row.height)} class:bnd={v.boundary} />{/each}
       </g>
+      {#if row.onFooting}
+        <g class="dw" data-testid="rc-wall-elev-dowels">
+          {#each face as v, i (i)}<line x1={EX(v.x) + 2} y1={EY(0) + 8} x2={EX(v.x) + 2} y2={EY(Math.min(row.height, dowelLap(v.dia)))} />{/each}
+        </g>
+      {/if}
     {/if}
     {#if on.horizontal}
       <g class="h" data-testid="rc-wall-elev-horizontal">
@@ -203,6 +209,8 @@
   .v circle { fill: var(--c); }
   .v circle.bnd { fill: var(--st-text); }
   .h line { stroke: var(--c); stroke-width: 1; }
+  .dw { --c: #e8705f; }
+  .dw line { stroke: var(--c); stroke-width: 1.2; }
   .u line, .u path { stroke: var(--c); stroke-width: 1.6; fill: none; }
   .t line, .t rect, .x line { stroke: var(--c); stroke-width: 1.2; fill: none; }
   .x circle { fill: var(--c); }

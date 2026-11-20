@@ -133,6 +133,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'design.stageCard.optional',
   'design.table.status',
   'designData.minimum',
+  'designData.presumedBearingSummary',
   'desk.guide.state.optional',
   'despiece.basisGlobal',
   'despiece.basisGlobalShort',
@@ -557,4 +558,5 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'rcSheets.bbs.bvbs',
   'rcSheets.bbs.kind.horizontal',
   'rcSheets.coversNotice.buttonItem',
+  'rcSheets.foundation.pileDiameter',
 ];

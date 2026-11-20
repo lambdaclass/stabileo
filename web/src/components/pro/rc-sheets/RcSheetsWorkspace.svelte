@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { shownFootings } from '../../../lib/rc-sheets/footing-layouts';
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
+  import { dowelsText } from '../../../lib/rc-sheets/footing-dowels';
   import { adoptAll, downloadRcSheets, type SheetRow, type SheetRows } from '../../../lib/store/rc-sheets.svelte';
   import { designSheets, followSheetEdits, sheetsRun, sheetsStale } from '../../../lib/store/rc-sheets-view.svelte';
   import RcSheetsProgress from './RcSheetsProgress.svelte';
@@ -24,13 +26,20 @@
   import RcRowDetail from './RcRowDetail.svelte';
   import RcVerticalTable from './RcVerticalTable.svelte';
   import { verticalItems } from '../../../lib/rc-sheets/vertical-list';
+  import { meshText } from '../../../lib/rc-sheets/footing-mesh';
+  import { FOOTING_SIZINGS, type FoundationSystem } from '../../../lib/rc-sheets/footing-types';
+  import { footingSizing, setFootingSizing } from '../../../lib/store/rc-sheets-footings';
+  import RcFootingLayouts from './RcFootingLayouts.svelte';
+  import RcPropertyLines from './RcPropertyLines.svelte';
+  import { footingCover, onlyOverlaps } from '../../../lib/rc-sheets/footing-overlaps';
+  import { criteriaOf } from '../../../lib/rc-sheets/criteria';
   import { levelOfStorey, storeyLabel, storeyOf, storeysUp, type StoreyFamily } from '../../../lib/rc-sheets/storeys';
   import RcScheduleView from './RcScheduleView.svelte';
   import RcPlansExport from './RcPlansExport.svelte';
   import { rebarView, showRebarOf } from '../../../lib/store/rc-rebar-3d.svelte';
   import type { ElementRef } from '../../../lib/rc-sheets/schedule/views';
   import { tick } from 'svelte';
-  import { editedKeys, sheetCode } from '../../../lib/store/rc-sheets.svelte';
+  import { editedKeys, rcSheetsData, sheetCode } from '../../../lib/store/rc-sheets.svelte';
   import { designData } from '../../../lib/store/design-data';
   import { modelStore, resultsStore } from '../../../lib/store';
   import { sheetsSolve, solveAndDesign } from '../../../lib/store/rc-sheets-solve.svelte';
@@ -48,10 +57,11 @@
   let highlight = $state<string[]>([]);
 
   const fmt = $derived(makeFmt(decimalFor(i18n.locale)));
-  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], code: '', basis: 'combinations', combos: 0 };
+  const EMPTY: SheetRows = { beam: [], line: [], column: [], slab: [], slabPlan: [], wall: [], punching: [], footing: [], code: '', basis: 'combinations', combos: 0 };
   followSheetEdits();
   const stale = $derived(sheetsStale());
   const code = $derived.by(() => { void modelStore.designData; return sheetCode(); });
+  const sizing = $derived.by(() => { void modelStore.designData; return footingSizing(rcSheetsData()); });
   const slabCover = $derived.by(() => { void modelStore.designData; return designData().covers.slab; });
   const endZones = $derived.by(() => { void modelStore.designData; return designData().columnEndZones === true; });
   const rows = $derived(sheetsRun.rows ?? EMPTY);
@@ -65,7 +75,9 @@
   const lineStatus = (l: LineLayout) => lineRowStatus(l, spansOf(l));
   const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
-  const tabRows = (k: SheetTab) => (k === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : TAB_FAMILIES[k].flatMap((f) => rows[f] as ListRow[])) as ListRow[];
+  let preview = $state<FoundationSystem>('auto');
+  const footingView = $derived(shownFootings(rows, preview));
+  const tabRows = (k: SheetTab) => (k === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : k === 'footing' ? footingView : TAB_FAMILIES[k].flatMap((f) => rows[f] as ListRow[])) as ListRow[];
   const all = $derived(tabRows(tab));
   const vlevels = $derived(verticalItems(rows.column, rows.wall).map((it) => (it.kind === 'row' ? it.row.level : it.pier.level) ?? ''));
   const order = $derived(rows.levels ?? []);
@@ -93,7 +105,9 @@
   function onkey(e: KeyboardEvent) { if (e.key !== 'Escape') return; if (plansOpen) plansOpen = false; else onclose(); }
   const openRow = $derived(openKey ? shown.find((r) => r.key === openKey) : undefined);
   const pick = () => { highlight = []; };
-  const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length > 0);
+  const matShare = $derived(criteriaOf(designData().designOptions?.criteria).footingMatShare);
+  const matCover = $derived.by(() => { if (footingView.some((r) => r.group?.kind === 'mat')) return null; const c = footingCover(footingView); return c && c.share > matShare ? c : null; });
+  const drawable = $derived(rows.line.length + rows.column.length + rows.wall.length + rows.slabPlan.length + rows.footing.length > 0);
   async function openFromSchedule(el: ElementRef, marks: string[]) {
     const plan = el.key.startsWith('slabplan:');
     schedule = false;
@@ -172,7 +186,7 @@
       <button type="button" class="rcs-btn" title={t('rcSheets.adoptAll')} onclick={() => adoptAll(shown.filter((r): r is Exclude<ListRow, { family: 'punching' }> => r.family !== 'punching'))} disabled={!shown.length}><span class="wide">{t('rcSheets.adoptAll')}</span><span class="narrow">{t('rcSheets.adoptAllShort')}</span></button>
       <button type="button" class="rcs-btn" title={t('rcSheets.plans.export')} onclick={() => (plansOpen = true)} disabled={!sheetsRun.rows || !drawable} data-testid="rc-plans-export"><span class="wide">{t('rcSheets.plans.export')}</span><span class="narrow">{t('rcSheets.plans.exportShort')}</span></button>
       <button type="button" class="rcs-btn" onclick={() => { rebarView.row = null; rebarView.level = ''; rebarView.on = true; onclose(); }} disabled={!drawable} data-testid="rc-view-3d-all">{t('rcSheets.r3d.title')}</button>
-      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
+      <button type="button" class="rcs-btn" title={t('rcSheets.export')} onclick={() => downloadRcSheets(rows, t)} data-testid="rc-export-workbook" disabled={stale || !rows.beam.length && !rows.column.length && !rows.slab.length && !rows.wall.length && !rows.punching.length && !rows.footing.length}><span class="wide">{t('rcSheets.export')}</span><span class="narrow">{t('rcSheets.exportShort')}</span></button>
     </div>
     <button type="button" class="rcs-btn rcw-close" onclick={onclose} aria-label={t('rcSheets.close')} data-testid="rc-close">✕</button>
   </header>
@@ -208,6 +222,16 @@
           <button type="button" role="tab" aria-selected={structView === 'plan'} class:on={structView === 'plan'} onclick={() => { structView = 'plan'; if (!level && levels.length) level = levels[0]!; }} data-testid="rc-struct-view-plan">{t('rcSheets.slabView.plan')}</button>
         </div>
       {/if}
+      {#if tab === 'footing'}
+        <label class="rcw-ctl rcw-sizing"><span>{t('rcSheets.footSizing.label')}</span>
+          <select value={sizing} onchange={(e) => setFootingSizing((e.currentTarget as HTMLSelectElement).value as typeof sizing)} data-testid="rc-footing-sizing">
+            {#each FOOTING_SIZINGS as m (m)}<option value={m}>{t(`rcSheets.footSizing.${m}`)}</option>{/each}
+          </select>
+        </label>
+        {#if rows.footingLayouts?.length}<RcFootingLayouts layouts={rows.footingLayouts} adopted={rows.foundation ?? null} bind:preview />{/if}
+        <RcPropertyLines rows={footingView} />
+        {#if matCover}<p class="rcw-mat" data-testid="rc-footing-mat">{tp('rcSheets.foot.matCover', { share: Math.round(matCover.share * 100), limit: Math.round(matShare * 100), footings: Math.round(matCover.footings), plan: Math.round(matCover.plan) })}</p>{/if}
+      {/if}
       {#if tab === 'slab' && slabView === 'plan'}
         {#if levelPlan}{#key levelPlan.level}<RcSlabPlan plan={levelPlan} {highlight} />{/key}{/if}
       {:else if structPlan}
@@ -222,6 +246,9 @@
               <th>{t('rcSheets.line.runBottom')}</th><th>{t('rcSheets.line.runTop')}</th><th>{t('rcSheets.line.supports')}</th><th>{t('rcSheets.line.spans')} +</th><th>{t('rcSheets.col.stirrups')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else if tab === 'punching'}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.s.punchPosition')}</th><th class="n">Vu</th><th class="n">φVc</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
+          {:else if tab === 'footing'}
+            <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.foot.kind')}</th><th>B × L × h</th><th class="n">N</th><th class="n">{t('rcSheets.foot.soil')}</th>
+              <th>{t('rcSheets.foot.mesh.x')}</th><th>{t('rcSheets.foot.mesh.y')}</th><th>{t('rcSheets.foot.dowels')}</th><th class="n">{t('rcSheets.col.ratio')}</th><th>{t('rcSheets.col.status')}</th></tr>
           {:else}
             <tr><th>{t('rcSheets.col.name')}</th><th>{t('rcSheets.col.level')}</th><th>{t('rcSheets.col.slabKind')}</th><th class="n">h</th><th>Lx × Ly</th>
               {#each SLAB_FACES as f (f)}<th>{t(`rcSheets.face.${f}`)}</th>{/each}<th>{t('rcSheets.col.status')}</th></tr>
@@ -257,6 +284,15 @@
                 <td class="n">{f1(r.vu)}</td>
                 <td class="n">{f1(r.phiVc)}</td>
                 <td class="n">{fmt(r.utilization, 2)}</td>
+              {:else if r.family === 'footing'}
+                <td data-testid="rc-footing-kind" data-kind={r.cap ? 'pileCap' : r.group ? r.group.kind : r.combined ? 'combined' : r.edge?.position ?? 'centred'}>{r.cap ? t('rcSheets.footKind.pileCap') : r.group ? t(`rcSheets.footKind.${r.group.kind}`) : r.combined ? t('rcSheets.footKind.combined') : t(`rcSheets.footPos.${r.edge?.position ?? 'centred'}`)}{#if r.cap}<span class="dim"> · {r.cap.piles.length} Ø{Math.round(r.cap.diameter * 100)}</span>{/if}{#if r.edge}<span class="dim"> · {t(`rcSheets.footBal.short.${r.edge.balance}`)}</span>{/if}{#if r.group}<span class="dim"> · {r.group.columns.length}</span>{/if}</td>
+                <td>{r.B > 0 ? `${fmt(r.B * 100, 0)}×${fmt(r.L * 100, 0)}×${fmt(r.h * 100, 0)}` : '—'}</td>
+                <td class="n">{r.demand.service ? f1(r.demand.service.N + (r.demand.carried?.service?.N ?? 0)) : '—'}</td>
+                <td class="n">{r.bearing ? `${fmt(r.bearing.qMax, 0)} / ${r.bearing.allowable ? fmt(r.bearing.allowable, 0) : '—'}` : '—'}</td>
+                <td>{meshText(r.adopted.x)}</td>
+                <td>{meshText(r.adopted.y)}</td>
+                <td>{r.adopted.dowels && !r.uncovered ? dowelsText(r) : '—'}</td>
+                <td class="n">{fmt(r.utilization, 2)}</td>
               {:else if r.family === 'slab'}
                 {@const kind = slabSpanKind(r, rows.slabPlan)}
                 <td title={t(`rcSheets.slabKind.${kind}.long`)} data-testid="rc-slab-kind" data-kind={kind}>{t(`rcSheets.slabKind.${kind}`)}</td>
@@ -266,7 +302,7 @@
                   <td><span class="need">{f2(r.faces[f].asReq)}</span> {r.adopted[f].dia ? meshLabel(r.adopted[f]) : '—'} <span class="dim">({f2(meshArea(r.adopted[f]))})</span></td>
                 {/each}
               {/if}
-              <td class="stc" data-testid="rc-row-status">{t(nothingFits(r) ? 'rcSheets.status.noArrangement' : `rcSheets.status.${r.status}`)}</td>
+              <td class="stc" data-testid="rc-row-status">{t(nothingFits(r) ? 'rcSheets.status.noArrangement' : r.family === 'footing' && onlyOverlaps(r) ? 'rcSheets.status.overlap' : `rcSheets.status.${r.status}`)}</td>
             </tr>
             {#if openKey === r.key}
               <tr class="detail">
@@ -350,4 +386,6 @@
   .rcw-views button { border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text-2); border-radius: 4px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; }
   .rcw-views button.on { background: var(--st-accent, var(--st-surface-3)); color: var(--st-on-accent, var(--st-text)); }
   .rcw-views button:disabled { opacity: 0.5; cursor: default; }
+  .rcw-sizing { margin-bottom: 6px; }
+  .rcw-mat { margin: 6px 0; font-size: 0.75rem; color: var(--st-warn); max-width: 90ch; }
 </style>

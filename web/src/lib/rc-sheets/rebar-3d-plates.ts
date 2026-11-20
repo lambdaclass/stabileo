@@ -1,8 +1,14 @@
 import { barPositions } from './slab-corner-integrity';
+import { dowelGroupOf, dowelGroups, dowelPlaces, type ColumnAxes } from './footing-dowels';
+import { footingDetail } from './footing-detail';
+import { pileDetail } from './pile-cap-detail';
 import { wallDetail, wallInward } from './wall-detail';
 import { SLAB_FACES, type SlabFace } from './slab-row';
-import { packageShape, slabLayer, wallAbove, wallGrid, wallHoop, wallHorizontalShapes, wallTie, wallVerticalPieces, type PieceOptions } from './schedule/pieces';
-import { barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone, WORLD } from './rebar-3d-geometry';
+import { lineBars3d } from './rebar-3d-lines';
+import { ownStrapResults, packageShape, slabLayer, wallAbove, wallGrid, wallHoop, wallHorizontalShapes, wallTie, wallVerticalPieces, type PieceOptions } from './schedule/pieces';
+import { asFoundation, barOf, laid, type Frame, type Rebar3d, type Rebar3dFrames, type Rebar3dRows, type RebarTone, WORLD } from './rebar-3d-geometry';
+import type { ColumnRow } from './column-row';
+import type { FootingRow } from './footing-types';
 import type { WallRow } from './wall-row';
 import type { BendRules } from './shape';
 
@@ -88,6 +94,41 @@ export function wallBars3d(rows: readonly WallRow[], r: WallRow, f: Frame, o: Pi
   if (tie) {
     const len = t - 2 * c - hd;
     for (const z of grid.ties.up) for (const x of grid.ties.along) out.push(barOf(tie, laid(tie, f, (u, w) => [x, -len / 2 + u, z + w]), { ...base, kind: 'wallTie', tone: 'wallTie' }));
+  }
+  return out;
+}
+
+export function footingBars3d(r: FootingRow, all: readonly FootingRow[], columns: readonly ColumnRow[], frames: Rebar3dFrames, R: BendRules): Rebar3d[] {
+  const out: Rebar3d[] = [];
+  if (!(r.B > 0)) return out;
+  const base = { element: r.key, rows: [r.key], family: 'footing' as const, ...levelOf(r.level) };
+  const f = frames.footing(r);
+  if (f && !r.uncovered) {
+    const det = footingDetail(r, R);
+    for (const l of [...det.layers, ...(det.top ? [det.top] : [])]) {
+      const kind = l === det.top ? 'footingTop' as const : l.dir === 'x' ? 'footingX' as const : 'footingY' as const;
+      for (const p of l.positions) {
+        const place = (u: number, v: number): [number, number, number] => (l.dir === 'x' ? [l.from + u, p, l.z + v] : [p, l.from + u, l.z + v]);
+        out.push(barOf(l.shape, laid(l.shape, f, place), { ...base, kind, tone: kind, set: `${r.key}:${kind}` }));
+      }
+    }
+    const piles = pileDetail(r, R);
+    if (piles) for (const p of piles.piles) {
+      for (const [bx, by] of piles.bar.ring) out.push(barOf(piles.bar.shape, laid(piles.bar.shape, f, (u) => [p.x + bx, p.y + by, piles.bar.z0 + u]), { ...base, kind: 'pileBar', tone: 'pileBar', set: `${r.key}:pileBar` }));
+      for (const z of piles.hoop.zs) out.push(barOf(piles.hoop.shape, laid(piles.hoop.shape, f, (u, v) => [p.x + u, p.y + v, z]), { ...base, kind: 'pileHoop', tone: 'pileHoop', set: `${r.key}:pileHoop` }));
+    }
+    const rowOf = (key: string | undefined) => columns.find((c) => c.key === key);
+    const axesOf = (row: ColumnRow): ColumnAxes | undefined => { const cf = frames.column(row); return cf ? { x: [cf.x[0], cf.x[1]], y: [cf.y[0], cf.y[1]] } : undefined; };
+    const places = dowelPlaces(r, R, { first: rowOf(r.demand.column?.rowKey), second: rowOf(r.demand.carried?.column?.rowKey), axes: axesOf });
+    const groups = new Map(dowelGroups(r, places, R).map((g) => [g.key, g]));
+    for (const p of places) {
+      const g = groups.get(dowelGroupOf(p))!;
+      out.push(barOf(g.shape, laid(g.shape, f, (u, v) => [p.x + u * p.out[0], p.y + u * p.out[1], g.z + v]), { ...base, kind: 'dowel', tone: 'dowel' }));
+    }
+  }
+  for (const s of ownStrapResults(r, all)) {
+    const sf = frames.strap(r, s);
+    if (sf && s.line) out.push(...lineBars3d(s.line, sf, R, base).map(asFoundation));
   }
   return out;
 }

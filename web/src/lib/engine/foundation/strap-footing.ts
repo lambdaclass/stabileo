@@ -75,6 +75,20 @@ function decompose(v: V2, basis: readonly V2[]): { c: number[]; rest: V2 } {
   return { c: [cross(v, w) / det, cross(u, v) / det], rest: { x: 0, y: 0 } };
 }
 
+/**
+ * One load through its straps: P the column's axial (its magnitude), `along` each strap's offset of
+ * the footing's centre toward its partner, m, `w` the column's moment along each as the shift it
+ * gives the load, kN·m, `L` each distance between the columns, m. Each strap's end force, the
+ * partner's relief and the strap's moment at the column.
+ */
+export function strapForces(P: number, along: readonly number[], w: readonly number[], L: readonly number[]): { force: number[]; relief: number[]; moment: number[] } {
+  return {
+    force: L.map((l, k) => (Math.abs(P * along[k]!) + Math.abs(w[k]!)) / (l - along[k]!)),
+    relief: L.map((l, k) => (P * along[k]! - Math.abs(w[k]!)) / (l - along[k]!)),
+    moment: L.map((_, k) => Math.abs(P * along[k]!) + Math.abs(w[k]!)),
+  };
+}
+
 export function strapAdjust(footings: readonly Footing[], nodes: ReadonlyMap<number, FootingNode>, reactions: ReadonlyMap<number, NodeReactions>): StrapAdjusted {
   const out: StrapAdjusted = { footings: [...footings], reactions: new Map(reactions), straps: [], balanced: [], refused: [] };
   const replace = (id: number, patch: Partial<Footing>) => { out.footings = out.footings.map((x) => (x.id === id ? { ...x, ...patch } : x)); };
@@ -143,9 +157,7 @@ export function strapAdjust(footings: readonly Footing[], nodes: ReadonlyMap<num
       const P = Math.abs(c.fz), sg = c.fz < 0 ? -1 : 1;
       // The moments as the shift they give the load: my along x, mx along y.
       const w = decompose({ x: c.my, y: c.mx }, basis);
-      const force = pair.map((p, k) => (Math.abs(P * along.c[k]!) + Math.abs(w.c[k]!)) / (p.L - along.c[k]!));
-      const relief = pair.map((p, k) => (P * along.c[k]! - Math.abs(w.c[k]!)) / (p.L - along.c[k]!));
-      const moment = pair.map((_, k) => Math.abs(P * along.c[k]!) + Math.abs(w.c[k]!));
+      const { force, relief, moment } = strapForces(P, along.c, w.c, pair.map((p) => p.L));
       return { own: { ...c, fz: sg * (P + force.reduce((s, x) => s + x, 0)), mx: w.rest.y, my: w.rest.x }, force, relief, moment, sg, P };
     };
     const r1 = reactions.get(f.nodeId);

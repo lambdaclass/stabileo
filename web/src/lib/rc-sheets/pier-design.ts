@@ -13,6 +13,7 @@ import { CIRSOC201_DESIGN_EDITION } from '../engine/codes/argentina/cirsoc201-ba
 import { barArea } from './bars';
 import { barClearance, columnLayout, growColumn, rowClear } from './column-layout';
 import { tieDiaFor, tieSpacingLimit, type ColumnDemand } from './column-row';
+import { inwardOf } from './column-stack';
 import { wallVerticalBars } from './wall-member';
 import { insideConvex, overlapArea, wallCorners, type P, type Pier, type PierWall } from './piers';
 import { allowedTie, tieDiametersOf, type ColumnAdopted, type Materials, type TransverseList, type WallAdopted } from './types';
@@ -104,6 +105,32 @@ export function pierBars(pier: Pick<Pier, 'centroid'>, legs: readonly LegBars[],
     placed.push(b);
   }
   return placed.map((b) => ({ x: b.x - pier.centroid.x, y: b.y - pier.centroid.y, area: barArea(b.dia) * 1e-4 }));
+}
+
+/**
+ * Where a pier's bars stand in plan, as `pierBars` keeps them, the thickest first, each with the
+ * way in that a dowel from its footing is cranked to lap beside it: a column's bar as in a column,
+ * a wall's toward its middle plane, a single curtain's toward the wall's middle.
+ */
+export function pierDowelPlaces(legs: readonly (LegBars & { key?: string })[], zones: readonly ZoneBars[]): Array<P & { dia: number; n: [number, number]; leg?: string }> {
+  const placed: Array<P & { dia: number; n: [number, number]; leg?: string }> = zones.flatMap((z) => {
+    const p = planOf(z.column), lb = Math.hypot(...p.ey) || 1, lh = Math.hypot(...p.ez) || 1;
+    return columnLayout(z.column, z.adopted, z.cover, z.aggregate).bars.map((b) => {
+      const m = inwardOf(b, z.column), nx = (m[0] * p.ey[0]) / lb + (m[1] * p.ez[0]) / lh, ny = (m[0] * p.ey[1]) / lb + (m[1] * p.ez[1]) / lh, l = Math.hypot(nx, ny) || 1;
+      return { x: p.x + (b.x * p.ey[0]) / lb + (b.y * p.ez[0]) / lh, y: p.y + (b.x * p.ey[1]) / lb + (b.y * p.ez[1]) / lh, dia: b.dia, n: [nx / l, ny / l] as [number, number] };
+    });
+  });
+  for (const l of legs) {
+    const { u, n, mid } = unit(l.wall);
+    for (const b of legBarsInPlan(l)) {
+      if (zones.some((z) => insideConvex(b, z.corners))) continue;
+      if (placed.some((q) => Math.hypot(q.x - b.x, q.y - b.y) < (q.dia + b.dia) / 2000)) continue;
+      const across = (b.x - mid.x) * n.x + (b.y - mid.y) * n.y, along = (b.x - mid.x) * u.x + (b.y - mid.y) * u.y;
+      const dir: [number, number] = Math.abs(across) > 1e-4 ? [-Math.sign(across) * n.x, -Math.sign(across) * n.y] : [-(Math.sign(along) || 1) * u.x, -(Math.sign(along) || 1) * u.y];
+      placed.push({ x: b.x, y: b.y, dia: b.dia, n: dir, ...(l.key ? { leg: l.key } : {}) });
+    }
+  }
+  return placed.map((b, i) => ({ b, i })).sort((p, q) => q.b.dia - p.b.dia || p.i - q.i).map((x) => x.b);
 }
 
 /** Demand over capacity of each combination on the whole section: the axial limits, then φMn along the demand's own moment direction at its axial load. */

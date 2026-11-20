@@ -1,3 +1,5 @@
+import { ownStrapResults } from './schedule/pieces';
+import { dropRect } from './footing-punching';
 import type { LineLayout } from './beam-line';
 import type { Frame, Rebar3d, Rebar3dFrames, Rebar3dRows, V3 } from './rebar-3d-geometry';
 import { WORLD } from './rebar-3d-geometry';
@@ -40,6 +42,22 @@ export function ghost3d(rows: Rebar3dRows, frames: Rebar3dFrames): Ghost3d[] {
   for (const r of rows.wall) {
     const f = frames.wall(r);
     if (f) push(out, { element: r.key, rows: [r.key], family: 'wall', ...levelOf(r.level) }, f, [0, -r.thickness / 2, 0], [r.length, r.thickness / 2, r.height]);
+  }
+  for (const r of rows.footing ?? []) {
+    if (!(r.B > 0)) continue;
+    const base: Base = { element: r.key, rows: [r.key], family: 'footing', ...levelOf(r.level) }, a = r.adopted, f = frames.footing(r);
+    if (f) push(out, base, f, [-a.B / 2, -a.L / 2, 0], [a.B / 2, a.L / 2, a.h]);
+    if (f && a.piles) for (const [x, y] of a.piles.at) push(out, base, f, [x - a.piles.diameter / 2, y - a.piles.diameter / 2, -a.piles.length], [x + a.piles.diameter / 2, y + a.piles.diameter / 2, 0]);
+    if (f) for (const k of r.group?.columns ?? []) {
+      const dr = a.punching?.[k.key]?.drop;
+      if (!dr) continue;
+      const q = dropRect({ B: a.B, L: a.L, xc: k.x, yc: k.y, b: k.b, h: k.h }, dr);
+      push(out, base, f, [q.x0, q.y0, -dr.hd], [q.x1, q.y1, 0]);
+    }
+    for (const s of ownStrapResults(r, rows.footing ?? [])) {
+      const sf = frames.strap(r, s);
+      if (sf && s.line) lineGhosts(out, s.line, sf, base);
+    }
   }
   return out;
 }

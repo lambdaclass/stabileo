@@ -1,11 +1,11 @@
 import type { WallReinforcement } from '../design-contract/reinforcement';
 
-export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching';
-export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching'];
+export type SheetFamily = 'beam' | 'column' | 'slab' | 'wall' | 'punching' | 'footing';
+export const SHEET_FAMILIES: readonly SheetFamily[] = ['beam', 'column', 'slab', 'wall', 'punching', 'footing'];
 
-export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching';
-export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching'];
-export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'] };
+export type SheetTab = 'beam' | 'vertical' | 'slab' | 'punching' | 'footing';
+export const SHEET_TABS: readonly SheetTab[] = ['beam', 'vertical', 'slab', 'punching', 'footing'];
+export const TAB_FAMILIES: Record<SheetTab, readonly SheetFamily[]> = { beam: ['beam'], vertical: ['column', 'wall'], slab: ['slab'], punching: ['punching'], footing: ['footing'] };
 export const tabOf = (f: SheetFamily): SheetTab => (f === 'column' || f === 'wall' ? 'vertical' : f);
 
 export type SheetCode = 'cirsoc201-2025' | 'aci318-19' | 'en1992-1-1' | 'bs-en1992-1-1' | 'ts500-2000';
@@ -120,6 +120,10 @@ export interface RcSheetsData {
   slabBentBars?: boolean;
   /** How the footings are sized: from the loads, never under the modelled footing ('minimum' when absent), or as modelled with only their bars designed. */
   footingSizing?: import('./footing-types').FootingSizing;
+  /** The foundation layout adopted for the building; absent: none yet, the superstructure stands alone and no footing enters the drawings, the schedule or the 3D view. */
+  foundationSystem?: import('./footing-types').FoundationSystem;
+  /** Footings set at a line, a corner or centred, and balanced, by row key, over what the property lines say. */
+  footingSetup?: Record<string, import('./footing-types').FootingSetup>;
   /** The bending schedule: waste on the order (a fraction, 0.1 when absent) and where equal bars share a mark ('element' when absent). */
   schedule?: { waste?: number; scope?: MarkScope };
   /** Adopted bars by row key. */
@@ -140,7 +144,7 @@ export interface RcSheetsData {
 export type StoredRcSheets = Omit<RcSheetsData, 'torsion' | 'faces' | 'flange' | 'seismic' | 'bentBars' | 'slabBentBars'>;
 
 /** Raised whenever what the proposals propose changes, so the proposals adopted before it are proposed again. */
-export const RC_SHEETS_LOGIC = 25;
+export const RC_SHEETS_LOGIC = 27;
 
 export const defaultRcSheetsData = (): RcSheetsData => ({ version: 1, torsion: 'equilibrium', adopted: {} });
 
@@ -174,6 +178,7 @@ export interface DemandSource { combo: string; x?: number }
 export interface Signed { value: number; source?: DemandSource }
 
 export interface Materials { fc: number; fy: number }
+
 
 export const check = (label: string, ok: boolean, o: Omit<CheckLine, 'label' | 'ok'> = {}): CheckLine => ({ label, ok, ...o });
 

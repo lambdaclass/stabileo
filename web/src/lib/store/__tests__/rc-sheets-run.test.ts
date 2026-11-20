@@ -13,7 +13,9 @@ import { initSolver } from '../../engine/wasm-solver';
 import { publishCombinations3D } from '../active-results';
 import { recognizePhysicalElements } from '../physical';
 import { buildSheetRows, concreteOfRow, lineRedesignerOf, redesignerOf, setAdopted, setAlternativeOptions, setColumnEndZones, setDeflectionSettings, setRcOption, setSheetCode, setTorsionMode, sheetRowsSteps } from '../rc-sheets.svelte';
-import { changeSheetCode, clearSheets, designSheets, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { changeSheetCode, clearSheets, designSheets, refreshSheetEdits, sheetsRun, sheetsStale } from '../rc-sheets-view.svelte';
+import { setFootingSetup, setFootingSizing, setFoundationSystem } from '../rc-sheets-footings';
+import { patchDesignData } from '../design-data';
 import { solveAndDesign } from '../rc-sheets-solve.svelte';
 import { setScheduleSettings } from '../rc-sheets-schedule';
 
@@ -77,7 +79,7 @@ describe('designing the sheets on asking', () => {
     expect(concreteOfRow(column[0]!.key)).toBeUndefined();
   });
 
-  it('the steps count every member up to the total', () => {
+  it('the steps count every member up to the total, one at a time, a foundation layout yielding between its footings without counting', () => {
     solvedFrame();
     const it = sheetRowsSteps();
     const steps = [];
@@ -85,7 +87,7 @@ describe('designing the sheets on asking', () => {
     for (; !r.done; r = it.next()) steps.push(r.value);
     const design = steps.filter((s) => s.phase === 'design');
     expect(design.length).toBeGreaterThan(0);
-    expect(design.map((s) => s.done)).toEqual(design.map((_, k) => k + 1));
+    expect(design.every((s, k) => s.done - (k ? design[k - 1]!.done : 0) <= 1 && s.done >= (k ? design[k - 1]!.done : 1))).toBe(true);
     expect(design[design.length - 1]!.done).toBe(design[0]!.total);
     expect(r.value.beam.length).toBeGreaterThan(0);
   });
@@ -103,6 +105,38 @@ describe('designing the sheets on asking', () => {
     await designSheets();
     expect(sheetsStale()).toBe(false);
     expect(sheetsRun.rows!.code).not.toBe(before!.code);
+  });
+
+  it('a footing set at a corner or sized otherwise is the sheets\' own edit: the rows follow it at once', async () => {
+    solvedFrame();
+    setFoundationSystem('footings');
+    await designSheets();
+    const key = sheetsRun.rows!.footing![0]!.key;
+    expect(sheetsRun.rows!.footing![0]!.edge).toBeUndefined();
+    setFootingSetup(key, { position: 'corner' });
+    expect(sheetsStale()).toBe(false);
+    await refreshSheetEdits();
+    const corner = sheetsRun.rows!.footing!.find((r) => r.key === key)!;
+    expect(corner.edge!.position).toBe('corner');
+    expect(Math.abs(corner.ex) + Math.abs(corner.ey)).toBeGreaterThan(0);
+    setFootingSizing('full');
+    expect(sheetsStale()).toBe(false);
+  });
+
+  it('a foundation layout adopted, a founding level or a presumed soil pressure is the sheets\' own edit: the rows follow it at once', async () => {
+    solvedFrame();
+    await designSheets();
+    expect(sheetsRun.rows!.footing).toHaveLength(0);
+    setFoundationSystem('footings');
+    expect(sheetsStale()).toBe(false);
+    await refreshSheetEdits();
+    const first = sheetsRun.rows!.footing;
+    expect(first.length).toBeGreaterThan(0);
+    patchDesignData({ presumedBearingKPa: 300 });
+    expect(sheetsStale()).toBe(false);
+    await refreshSheetEdits();
+    const firm = sheetsRun.rows!.footing;
+    expect(firm[0]!.B * firm[0]!.L).toBeLessThan(first[0]!.B * first[0]!.L);
   });
 
   it('out of date when the deflection settings or the alternatives options change', async () => {

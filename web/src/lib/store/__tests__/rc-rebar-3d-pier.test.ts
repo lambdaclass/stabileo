@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { shownBars } from '../rc-rebar-3d.svelte';
 
 const bar = (element: string, family: 'column' | 'wall' | 'beam', rows: string[] = []) => ({ element, family, rows, level: 'N0' });
-const families = { beam: true, column: true, slab: true, wall: true, punching: true };
+const families = { beam: true, column: true, slab: true, wall: true, footing: true, punching: true };
 
 describe('the 3D view of one element', () => {
   const bars = [bar('wall:M1', 'wall'), bar('wall:M2', 'wall'), bar('column:C1', 'column', ['wall:M1']), bar('column:C2', 'column'), bar('beam:V1', 'beam')];
