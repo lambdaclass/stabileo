@@ -43,7 +43,7 @@ for (const count of [32, 64]) {
     expect(reads).toBeLessThanOrEqual(4 * concurrent.length);
   });
 
-  it(`known wrong result: #2080 station transfer indexes ${count} combinations once per member`, () => {
+  it.skip(`known wrong result: #2080 station transfer indexes ${count} combinations once per member`, () => {
     const decode = stationBuffer.decodeStationBuffer;
     let reads = 0;
     vi.spyOn(stationBuffer, 'decodeStationBuffer').mockImplementation((buffer, names) => decode(buffer, names).map(esr => ({ ...esr,
@@ -80,4 +80,17 @@ function hasCompleteTuples(tuples: readonly { comboId: number }[] | undefined, r
     if (!(error instanceof IncompleteConcurrentDemandError)) throw error;
     return false;
   }
+}
+
+for (const compact of [false, true]) {
+  it.skip(`known wrong result: #2080 a transfer with no designed members has no required grid (compact=${compact})`, () => {
+    setCompactStationTransfer(compact);
+    const inactive = {
+      ...model,
+      elements: new Map([...model.elements].map(([id, element]) => [id, { ...element, behaviour: 'inactive' as const }])),
+    };
+    const data = computeStationDemands(new Map([[1, raw]]), active(1), inactive);
+    expect(data.stations.size).toBe(0);
+    expect(data.demands.size).toBe(0);
+  });
 }

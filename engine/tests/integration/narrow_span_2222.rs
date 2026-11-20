@@ -657,3 +657,29 @@ fn check_saved_diagrams_2223(uniform: bool) {
         }
     }
 }
+
+#[test]
+#[ignore = "known wrong result: #2250"]
+fn issue_2250_near_balanced_trapezoid_keeps_its_envelope() {
+    let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0, "y": 0, "z": 0}, "2": {"id": 2, "x": 10, "y": 0, "z": 0}},
+        "materials": {"1": {"id": 1, "e": 200000, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 0.0001, "iz": 0.0001, "j": 0.00001}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": [{"type": "distributed", "data": {"elementId": 1, "qYI": -4, "qYJ": 4.0 + 1e-13,
+            "qZI": -4, "qZJ": 4.0 + 1e-13, "a": 2, "b": 8}}]
+    })).unwrap();
+    let nonlinear = pdelta::solve_pdelta_3d(&input, 20, 1e-9).unwrap();
+    assert!(nonlinear.converged);
+    for result in [linear::solve_3d(&input).unwrap(), nonlinear.results] {
+        let ef = &result.element_forces[0];
+        let load = &ef.distributed_loads_z[0];
+        let width = load.b - load.a;
+        let load_moment = load.a * width * (load.q_i + load.q_j) / 2.0
+            + width * width * (load.q_i + 2.0 * load.q_j) / 6.0;
+        let envelope = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result]).unwrap();
+        near(envelope.moment_y.global_max, load_moment);
+        near(envelope.moment_z.global_max, load_moment);
+    }
+}
