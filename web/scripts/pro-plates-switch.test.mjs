@@ -3,10 +3,11 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { build } from 'vite';
+import { build, resolveConfig } from 'vite';
 import { readProPlatesProfile } from './pro-plates-source.mjs';
 import { readRegistryAt } from './result-changes/registry.mjs';
 import { featuresForMode } from '../config/public-features.mjs';
+import { withProductionFeatures } from './public-features-test-fixture.mjs';
 
 test('#1928 production keeps unified PRO plates disabled', () => {
   assert.equal(featuresForMode('production').proPlatesUnified, false);
@@ -56,4 +57,37 @@ test('disabled builds load the main solver and results version and the validated
   assert.equal(source, git('show', `${base}:web/src/lib/engine/live-calc.ts`));
   assert.equal(version, readRegistryAt(base).currentResultsVersion);
   assert.equal(mesher, readFileSync(new URL('../src/components/pro/ProMesher.svelte', import.meta.url), 'utf8'));
+});
+
+test('mesher translations are lazy in the unified profile and keep main’s dictionaries in production', { skip: 'known wrong result: #2365' }, async () => {
+  const production = featuresForMode('production');
+  const locales = ['en', 'es', 'pt', 'de', 'fr', 'tr', 'hu'];
+  for (const enabled of [true, false]) {
+    await withProductionFeatures({ ...production, proPlatesUnified: enabled }, async configFile => {
+      const config = await resolveConfig({ root, configFile }, 'build', 'production');
+      const dictionary = config.plugins.find(plugin => plugin.name === 'public-i18n');
+      const load = id => dictionary.load.call({ addWatchFile() {} }, '\0virtual:' + id);
+      const app = load('app-i18n');
+      const mesher = load('mesher-i18n');
+      if (enabled) {
+        assert.doesNotMatch(app, /['"]mesher\./);
+        assert.doesNotMatch(load('public-i18n'), /['"]mesher\./);
+        const { default: translations } = await import('data:text/javascript;base64,' + Buffer.from(mesher).toString('base64'));
+        assert.deepEqual(Object.keys(translations), locales);
+        for (const locale of locales) {
+          for (const key of ['mesher.summary', 'mesher.summaryStructured']) {
+            assert.match(translations[locale][key], /\{cells\}.*\{points\}/, locale);
+          }
+          assert.ok(translations[locale]['mesher.failed'], locale);
+        }
+      } else {
+        assert.equal(mesher, null);
+        for (const locale of locales) {
+          const previous = git('show', `${base}:web/src/lib/i18n/locales/${locale}.ts`);
+          const lines = text => text.split('\n').filter(line => /^\s*['"]mesher\./.test(line));
+          assert.deepEqual(lines(load('app-i18n/' + locale)), lines(previous), locale);
+        }
+      }
+    });
+  }
 });
