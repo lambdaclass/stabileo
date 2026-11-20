@@ -301,8 +301,9 @@ export function proposeFooting(d: FootingDemand, c: FootingContext, code: Footin
       if (code.bearingOnly) return { adopted: a, from: 'loads', reached: true };
       const r = analyseFooting(d, c, a, code);
       const across = alone && !grows.x ? r.x : alone && !grows.y ? r.y : null;
+      const unanchored = across && !across.anchorage.ok ? across : [r.x, r.y].find((k) => !k.anchorage.ok && (k.dir === 'x' ? grows.x : grows.y));
       if (!thicknessHolds(r)) h += STEP_H;
-      else if (across && !across.anchorage.ok) { if (across.dir === 'x') B += STEP_H; else L += STEP_H; }
+      else if (unanchored) { if (unanchored.dir === 'x') B += STEP_H; else L += STEP_H; }
       else return { adopted: a, from: 'loads', reached: true };
     }
     if (B > MAX_PLAN || L > MAX_PLAN || h > MAX_H) break;
