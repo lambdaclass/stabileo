@@ -12,7 +12,8 @@ function packNotice(change: ResultChange) {
   vi.mocked(readRegistry).mockReturnValue({ schema: 1, currentResultsVersion: 1, changes: [change] });
   const { load } = resultChangeMetadataPlugin();
   if (typeof load !== 'function') throw new Error('Missing result-change metadata load hook');
-  return load.call({ addWatchFile: vi.fn() } as ThisParameterType<typeof load>, '\0virtual:result-change-packed');
+  const context: Pick<ThisParameterType<typeof load>, 'addWatchFile'> = { addWatchFile: vi.fn() };
+  return load.call(context as ThisParameterType<typeof load>, '\0virtual:result-change-packed');
 }
 
 it('refuses to pack a notice without its Chinese title or explanation', () => {
