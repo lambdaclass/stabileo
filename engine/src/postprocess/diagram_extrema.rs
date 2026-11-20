@@ -328,4 +328,27 @@ mod round3_tests {
             assert_eq!(peak, f64::from(steps) / 4.0);
         }
     }
+
+    #[test]
+    #[ignore = "known wrong result: #2250"]
+    fn issue_2250_rounded_terminal_shear_uses_interval_change() {
+        let loads = [
+            DistributedLoadInfo { a: 0.0, b: 2.25, q_i: 0.0, q_j: -5.625 },
+            DistributedLoadInfo { a: 2.25, b: 4.5, q_i: -5.625, q_j: 0.0 },
+            DistributedLoadInfo { a: 2.95286, b: 4.5, q_i: -3.86788, q_j: 4.440892099e-16 },
+            DistributedLoadInfo { a: 0.0, b: 2.95286, q_i: 0.0, q_j: -3.86788 },
+        ];
+        let curve = Curve {
+            length: 4.5,
+            start: 9.675214761921413,
+            change: 0.0,
+            slope: 0.0,
+            response: Response::Force(1.0),
+            distributed: loads.into_iter(),
+            points: std::iter::empty(),
+        };
+        let cuts = curve.critical_cuts().unwrap();
+        assert_eq!(cuts.last().unwrap().t, 1.0);
+        assert_eq!(cuts.iter().filter(|cut| cut.t == 1.0).count(), 1);
+    }
 }
