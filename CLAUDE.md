@@ -116,7 +116,26 @@ path, so engine, web, backend and AI-backend jobs run only when their files (or
 `flake.*`, `Makefile`, `ci.yml`) change. Engine CI targets: `lint.engine`,
 `test.engine.gates` (also checks the acceptance models against their generators),
 `test.engine.metamorphic`, `test.engine.suite SHARD=i/4`. Web: `typecheck.web`,
-`test.web.unit SHARD=i/4`, `test.web.build`, `test.web.determinism` (WASM
-bit-identical in Node, Chromium, Firefox and WebKit), `e2e.web.smoke SHARD=i/10`. Backend:
+`test.web.unit.production SHARD=i/8`, `test.web.build`, `test.web.determinism` (WASM
+bit-identical in Node, Chromium, Firefox and WebKit), `e2e.web.smoke.production SHARD=i/10`. Backend:
 `lint.backend`, `test.backend`, plus migration safety and immutability checks.
 Dependabot opens security updates only.
+
+Required web tests use the `production` profile from `web/config/features.json`.
+Run `make test.web.unit.production`, or `make e2e.web.build.production` followed
+by `make e2e.web.smoke.production E2E_PREBUILT=1`. The corresponding
+`.switch-on` targets use the `test` profile. Their CI jobs run on every PR
+and report failures outside `CI OK`. Name unit tests that require the enabled
+profile `*.switch-on.test.ts`. The switch-on E2E job selects specs with
+additional enabled cases. Tag cases that exercise a different enabled
+implementation with `@switch-on` when their titles and skip status are the
+same in both profiles.
+
+For a switch-only change, add a `Production-Parity: required` commit trailer.
+Parity also runs automatically when a nonproduction profile newly enables
+a switch that is off in production. It builds against the current base and
+compares every emitted production file. In a mixed change, name each intended
+production path in a `Production-Change: <repo-relative path>` trailer. CI
+applies those paths to the reference before building. Run this check locally
+with `make check.web.production-parity` after preparing web and browser
+dependencies. It uses `origin/main` by default, or the revision given in `BASE`.
