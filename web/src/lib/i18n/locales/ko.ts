@@ -1376,7 +1376,8 @@ const ko: Translations = {
   // ─── Stress State Details ───
   'stress.stressState': '응력 상태',
   'stress.sigmaBiaxHelp': '이축 수직 응력 (나비에):\nσ = N/A + Mz·y/Iz - My·z/Iy\n\n양수 = 인장 (빨강)\n음수 = 압축 (파랑)\n\n선택된 섬유(y, z)에 따라 다릅니다.',
-  'stress.tauTotalHelp': '전체 조합 전단 응력:\nτ = √(τVy² + τVz² + τT²)\n\nVy에 의한 전단(XY 평면), Vz(XZ 평면), 비틀림을 포함합니다.',
+  'stress.tauTotalHelp': '횡전단 응력만 또는 비틀림 전단 응력만의 크기입니다.',
+  'stress.combinedShearRefused': '비틀림 전단 응력과 횡전단 응력이 모두 0이 아닌 위치에서는 합성 전단 응력, 파생 응력 및 합격 여부를 표시할 수 없습니다.',
   'stress.vonMisesHelp': '폰 미세스 기준 (변형 에너지):\nσvm = √(σ² + 3τ²)\n\n강재 및 연성 금속에 적합합니다.\n백분율은 fy 용량의 사용률을 나타냅니다.',
   'stress.trescaHelp': '트레스카 기준 (최대 전단 응력):\nτmax = √((σ/2)² + τ²)\n\n폰 미세스 대비 약 15% 보수적입니다.\n등가식: 2τmax ≤ fy',
   'stress.rankineHelp': '랭킨 기준 (최대 수직 응력):\nmax(|σ₁|, |σ₃|) ≤ fy\n\n취성 재료(콘크리트, 암석)에 적합합니다.\n강재에는 폰 미세스를 권장합니다.',

@@ -8,8 +8,8 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { concernsLoadBasis, type ResultChange, type ResultChangeRegistry } from './registry';
 import { globalAxes } from '../features';
+import { concernsLoadBasis, registryLocale, type ResultChange, type ResultChangeRegistry } from './registry';
 import { RESULT_CHANGES } from './full-registry';
 import { GLOBAL_AXES_EVIDENCE, LEGACY_RECORDED_ANALYSES, loadsGeneratedWith, modelFeatures, UNVERIFIED_SEISMIC_FEATURE, type FeatureSnapshot } from './model-features';
 import { analysesContext, type SolveStamp } from './solve-stamp';
@@ -33,6 +33,11 @@ export interface RecheckAssessment {
   advisories: Advisory[];
   /** The advisories whose analysis the stamp does not record, or whose `certain` condition the model does not meet: their results may be affected. */
   maybe: string[];
+}
+
+export function combinedSectionShearExplanation(locale: string): string | undefined {
+  const notice = RESULT_CHANGES.changes.find(change => change.id === 'combined-section-shear-refusal');
+  return notice ? notice.explanation[registryLocale(locale, notice.explanation)] : undefined;
 }
 
 export function assessProject(

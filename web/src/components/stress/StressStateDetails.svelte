@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SectionStressResult } from '../../lib/engine/section-stress';
   import type { SectionStressResult3D } from '../../lib/engine/section-stress-3d';
-  import { t, tp } from '../../lib/i18n';
+  import { i18n, t, tp } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -13,7 +13,25 @@
   }
 
   let { showTensional = $bindable(), is3D, isMassive, analysis2D, analysis3D }: Props = $props();
+  const hasRefusedStress = $derived(is3D && analysis3D && (
+    analysis3D.refusal ||
+    analysis3D.distributionY.some(point => point.refusal) ||
+    analysis3D.distributionZ.some(point => point.refusal)
+  ));
+  const notices = $derived(hasRefusedStress ? import('../../lib/provenance/applicability') : null);
 </script>
+
+{#if hasRefusedStress}
+  <p class="ssp-stress-refusal" role="alert">
+    {#await notices}
+      {t('stress.combinedShearRefused')}
+    {:then loaded}
+      {loaded?.combinedSectionShearExplanation(i18n.locale) ?? t('stress.combinedShearRefused')}
+    {:catch}
+      {t('stress.combinedShearRefused')}
+    {/await}
+  </p>
+{/if}
 
 <!-- Stress state -->
 <button class="ssp-section-toggle" onclick={() => showTensional = !showTensional}>
@@ -48,55 +66,58 @@
           <span class="ssp-stress-hint">({tp('stress.torsionTheory', { theory: analysis3D.resolved.shape === 'RHS' || analysis3D.resolved.shape === 'CHS' ? 'Bredt' : 'St-Venant' })})</span>
         </div>
       {/if}
-      <div class="ssp-stress-row">
-        <span>&tau;<sub>total</sub> =</span>
-        <span class="ssp-stress-val">{fmt(analysis3D.tauTotal)} MPa</span>
-        <span class="ssp-help" title={t('stress.tauTotalHelp')}>?</span>
-      </div>
-      <div class="ssp-divider"></div>
-      <div class="ssp-stress-row">
-        <span>&sigma;<sub>vm</sub> =</span>
-        <span class="ssp-stress-val">{fmt(analysis3D.failure.vonMises)} MPa</span>
-        {#if analysis3D.failure.ratioVM !== null}
-          <span class="ssp-ratio" class:ok={analysis3D.failure.ok} class:fail={!analysis3D.failure.ok}>
-            ({(analysis3D.failure.ratioVM * 100).toFixed(1)}% f<sub>y</sub>)
-          </span>
-        {/if}
-        <span class="ssp-help" title={t('stress.vonMisesHelp')}>?</span>
-      </div>
-      <div class="ssp-stress-row">
-        <span>Tresca:</span>
-        <span class="ssp-stress-val">&tau;<sub>max</sub> = {fmt(analysis3D.mohr.tauMax)} MPa</span>
-        {#if analysis3D.failure.ratioTresca !== null}
-          <span class="ssp-ratio" class:ok={analysis3D.failure.ratioTresca <= 1} class:fail={analysis3D.failure.ratioTresca > 1}>
-            ({(analysis3D.failure.ratioTresca * 100).toFixed(1)}% f<sub>y</sub>)
-          </span>
-        {/if}
-        <span class="ssp-help" title={t('stress.trescaHelp')}>?</span>
-      </div>
-      <div class="ssp-stress-row">
-        <span>Rankine:</span>
-        <span class="ssp-stress-val">&sigma;<sub>max</sub> = {fmt(analysis3D.failure.rankine)} MPa</span>
-        {#if analysis3D.failure.ratioRankine !== null}
-          <span class="ssp-ratio" class:ok={analysis3D.failure.ratioRankine <= 1} class:fail={analysis3D.failure.ratioRankine > 1}>
-            ({(analysis3D.failure.ratioRankine * 100).toFixed(1)}% f<sub>y</sub>)
-          </span>
-        {/if}
-        <span class="ssp-help" title={t('stress.rankineHelp')}>?</span>
-      </div>
-      {#if analysis3D.failure.fy}
-        <div class="ssp-fy-bar">
-          <div
-            class="ssp-fy-fill"
-            class:ok={analysis3D.failure.ok}
-            class:fail={!analysis3D.failure.ok}
-            style="width: {Math.min(100, (analysis3D.failure.ratioVM ?? 0) * 100)}%"
-          ></div>
+      {#if !analysis3D.refusal && analysis3D.failure && analysis3D.mohr && analysis3D.tauTotal !== null}
+        {@const { failure, mohr, tauTotal } = analysis3D}
+        <div class="ssp-stress-row">
+          <span>&tau;<sub>total</sub> =</span>
+          <span class="ssp-stress-val">{fmt(tauTotal)} MPa</span>
+          <span class="ssp-help" title={t('stress.tauTotalHelp')}>?</span>
         </div>
-        <div class="ssp-fy-legend">
-          <span>0</span>
-          <span>f<sub>y</sub> = {analysis3D.failure.fy} MPa</span>
+        <div class="ssp-divider"></div>
+        <div class="ssp-stress-row">
+          <span>&sigma;<sub>vm</sub> =</span>
+          <span class="ssp-stress-val">{fmt(failure.vonMises)} MPa</span>
+          {#if failure.ratioVM !== null}
+            <span class="ssp-ratio" class:ok={failure.ok} class:fail={!failure.ok}>
+              ({(failure.ratioVM * 100).toFixed(1)}% f<sub>y</sub>)
+            </span>
+          {/if}
+          <span class="ssp-help" title={t('stress.vonMisesHelp')}>?</span>
         </div>
+        <div class="ssp-stress-row">
+          <span>Tresca:</span>
+          <span class="ssp-stress-val">&tau;<sub>max</sub> = {fmt(mohr.tauMax)} MPa</span>
+          {#if failure.ratioTresca !== null}
+            <span class="ssp-ratio" class:ok={failure.ratioTresca <= 1} class:fail={failure.ratioTresca > 1}>
+              ({(failure.ratioTresca * 100).toFixed(1)}% f<sub>y</sub>)
+            </span>
+          {/if}
+          <span class="ssp-help" title={t('stress.trescaHelp')}>?</span>
+        </div>
+        <div class="ssp-stress-row">
+          <span>Rankine:</span>
+          <span class="ssp-stress-val">&sigma;<sub>max</sub> = {fmt(failure.rankine)} MPa</span>
+          {#if failure.ratioRankine !== null}
+            <span class="ssp-ratio" class:ok={failure.ratioRankine <= 1} class:fail={failure.ratioRankine > 1}>
+              ({(failure.ratioRankine * 100).toFixed(1)}% f<sub>y</sub>)
+            </span>
+          {/if}
+          <span class="ssp-help" title={t('stress.rankineHelp')}>?</span>
+        </div>
+        {#if failure.fy}
+          <div class="ssp-fy-bar">
+            <div
+              class="ssp-fy-fill"
+              class:ok={failure.ok}
+              class:fail={!failure.ok}
+              style="width: {Math.min(100, (failure.ratioVM ?? 0) * 100)}%"
+            ></div>
+          </div>
+          <div class="ssp-fy-legend">
+            <span>0</span>
+            <span>f<sub>y</sub> = {failure.fy} MPa</span>
+          </div>
+        {/if}
       {/if}
       <!-- Neutral axis info -->
       {#if analysis3D.neutralAxis.exists}
@@ -200,6 +221,12 @@
 {/if}
 
 <style>
+  .ssp-stress-refusal {
+    color: var(--st-accent);
+    font-size: 0.72rem;
+    margin: 6px 0;
+  }
+
   .ssp-section-toggle {
     display: flex;
     align-items: center;

@@ -803,7 +803,7 @@ const body: PostBody = {
       "k": "ul",
       "items": [
         "Comment le savoir : le modèle comporte des barres avec le comportement « câble », leur matériau a une masse volumique, et le câble n'est pas le seul cheminement des charges.",
-        "Que faire : vérifiez à la main les efforts déterminants dans les câbles et les ancrages, ou calculez sans masse volumique pour le matériau du câble (sans poids, la loi était juste) ; une fois la correction publiée, relancez le calcul.",
+        "Que faire : Vérifiez indépendamment les efforts déterminants dans les câbles et les ancrages en tenant compte du poids propre du câble. Relancez le calcul avec une version corrigée.",
         "État : corrigé dans la 0.3.0. L'analyse des câbles résout désormais la loi de corde elle-même par itération de Newton."
       ]
     },
