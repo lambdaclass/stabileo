@@ -54,6 +54,13 @@ import {
 import '../../engine/design/adapters/cirsoc201-adapter';
 import '../../engine/design/adapters/unsupported-adapter';
 
+vi.mock(import('../../engine/design/candidate-search'), async (importOriginal) => {
+  const actual = await importOriginal();
+  const runDesign: typeof actual.runDesign = (adapter, contexts, options) =>
+    actual.runDesign(adapter, contexts, { ...options, clock: () => 0 });
+  return { ...actual, runDesign };
+});
+
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
   expect(wasmSolver.isSolverReady(), 'real WASM solver required').toBe(true);
@@ -125,14 +132,18 @@ const FRAME = { columnSide: 0.4 } as const;
 function tally(mesh: number, prescribed?: ReadonlyMap<string, PrescribedForces>): Tally {
   building(mesh, FRAME);
   const doc: DocumentModel = prescribed ? designAndDocumentUnder(prescribed) : designAndDocument();
+  expect(verificationStore.runSummary, `complete design at mesh ${mesh}`).toMatchObject({
+    aborted: false, notReached: 0,
+  });
   const forces = new Map(prescribed ?? forcesByPlace(false));
   const designs: Record<string, string> = {};
   const refusedDesigns = new Map<string, MemberDesignOutcome>();
   for (const c of verificationStore.contexts.values()) {
     const key = `${c.elementType} ${designPlace(c)}`;
     const outcome = verificationStore.outcomeFor(c.elementId);
-    designs[key] = `${outcome?.outcome} ${JSON.stringify(modelStore.elements.get(c.elementId)?.reinforcement ?? null)}`;
-    if (c.elementType === 'beam' && outcome && !detailableReinforcement(outcome)) refusedDesigns.set(key, outcome);
+    if (!outcome) throw new Error(`Missing design outcome for ${key} at mesh ${mesh}`);
+    designs[key] = `${outcome.outcome} ${JSON.stringify(modelStore.elements.get(c.elementId)?.reinforcement ?? null)}`;
+    if (c.elementType === 'beam' && !detailableReinforcement(outcome)) refusedDesigns.set(key, outcome);
   }
   const problems: string[] = [];
   const beams = [...verificationStore.contexts.values()].filter((c) => c.elementType === 'beam').map((c) => c.elementId);
@@ -336,7 +347,7 @@ function expectTorsionRefusal(outcome: MemberDesignOutcome) {
 }
 
 function expectRefusedBeams(t: Tally, names: readonly string[]) {
-  expect(t.beams.filter((b) => b.refusals.length).map((b) => b.name)).toEqual(names);
+  expect(t.beams.filter((b) => b.refusals.length).map((b) => b.name), `mesh ${t.mesh}`).toEqual(names);
   for (const b of t.beams) {
     if (!b.refusals.length) continue;
     expect(b.refusals).toHaveLength(b.pieces);
@@ -347,8 +358,8 @@ function expectRefusedBeams(t: Tally, names: readonly string[]) {
   }
 }
 
-it.skipIf(process.env.RUN_KNOWN_WRONG !== '2338').each(['solved', 'prescribed'] as const)(
-  'known wrong result: #2338 — the mesh guard reaches V10 under %s forces after a scheduling delay',
+it.each(['solved', 'prescribed'] as const)(
+  '#2338: the mesh guard reaches V10 under %s forces after a scheduling delay',
   (source) => {
     let prescribed: ReadonlyMap<string, PrescribedForces> | undefined;
     if (source === 'prescribed') {
@@ -364,7 +375,6 @@ it.skipIf(process.env.RUN_KNOWN_WRONG !== '2338').each(['solved', 'prescribed'] 
     try {
       const t = tally(0.5, prescribed);
       expectRefusedBeams(t, REFUSED_BEAMS);
-      expect(verificationStore.runSummary).toMatchObject({ aborted: false, notReached: 0 });
     } finally {
       clock.mockRestore();
     }
