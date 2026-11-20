@@ -10,6 +10,7 @@ import { modelStore } from '../../store/model.svelte';
 import { historyStore } from '../../store/history.svelte';
 import { uiStore } from '../../store';
 import { loadComponentsText, reportNumber, distributedText, pointOnElementText, thermalText } from '../calc-report-loads';
+import { solve, solve3D, solvePDelta, solvePDelta3D } from '../wasm-solver';
 import { serializeLoads } from '../pro-report-inputs';
 import { featuresForMode } from '../../../../config/public-features.mjs';
 
@@ -256,3 +257,76 @@ it('#2370 a legacy planar point load in a native spatial model uses the solver X
     vi.unstubAllGlobals();
   }
 });
+
+const issue2370 = process.env.RUN_KNOWN_WRONG === '2370' ? it : it.skip;
+
+for (const nonlinear of [false, true]) {
+  for (const isGlobal of [false, true]) {
+    const scenario = `global=${isGlobal}, P-Delta=${nonlinear}`;
+
+    issue2370(`known wrong result: #2370 PRO reports the embedded XZ point couple in spatial axes (${scenario})`, () => {
+      expectProPointCouple('embedded', isGlobal, nonlinear, 'y', -5, 'z', -5);
+    });
+
+    if (isGlobal) {
+      it(`PRO reports the native XY global point couple about Z (${scenario})`, () => {
+        expectProPointCouple('native', true, nonlinear, 'z', 5, 'y', -5);
+      });
+    } else {
+      issue2370(`known wrong result: #2370 PRO reports the native XY local point couple about Z (${scenario})`, () => {
+        expectProPointCouple('native', false, nonlinear, 'z', 5, 'y', -5);
+      });
+    }
+
+    it(`PRO keeps the 2D point couple in the planar convention (${scenario})`, () => {
+      expectProPointCouple('planar', isGlobal, nonlinear, 'y', 5, 'z', -5);
+    });
+  }
+}
+
+function expectProPointCouple(
+  plane: 'planar' | 'embedded' | 'native', isGlobal: boolean, nonlinear: boolean,
+  axis: 'y' | 'z', moment: number, reflectedAxis: 'y' | 'z', reflectedMoment: number,
+) {
+  vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('production'));
+  try {
+    uiStore.analysisMode = plane === 'planar' ? '2d' : 'pro';
+    const i = modelStore.addNode(0, 0, 0), j = modelStore.addNode(0, 4, 0);
+    const member = modelStore.addElement(i, j, 'frame');
+    modelStore.addSupport(i, plane === 'native' ? 'fixed3d' : 'fixed');
+    modelStore.addPointLoadOnElement(member, 1, 0, { my: 5, isGlobal });
+
+    let reactions: number[];
+    if (plane === 'planar') {
+      const input = modelStore.buildSolverInput()!;
+      const result = nonlinear ? solvePDelta(input) : undefined;
+      if (result) expect(result.converged).toBe(true);
+      const { rx, rz, my } = (result?.results ?? solve(input)).reactions.find(r => r.nodeId === i)!;
+      expect(rx).toBeCloseTo(0, 10);
+      expect(rz).toBeCloseTo(0, 10);
+      reactions = [my];
+    } else {
+      const input = modelStore.buildSolverInput3D()!;
+      const result = nonlinear ? solvePDelta3D(input) : undefined;
+      if (result) expect(result.converged).toBe(true);
+      const { fx, fy, fz, mx, my, mz } = (result?.results ?? solve3D(input)).reactions.find(r => r.nodeId === i)!;
+      for (const force of [fx, fy, fz]) expect(force).toBeCloseTo(0, 10);
+      reactions = [mx, my, mz];
+    }
+
+    const axes = plane === 'planar' ? ['y'] : ['x', 'y', 'z'];
+    const row = serializeLoads(key => key)[0]!.values;
+    const expectedRow = (axis: string, value: number) =>
+      `${isGlobal ? '' : '0 kN, '}M${axis}=${value} kN·m, a=1 m${isGlobal ? ', report.loadGlobal' : ''}`;
+    for (const [index, name] of axes.entries()) {
+      expect(reactions[index]!).toBeCloseTo(name === axis ? -moment : 0, 10);
+      const applied = Number(row.match(new RegExp(`M${name}=([^ ]+)`))?.[1] ?? 0);
+      expect.soft(reactions[index]! + applied).toBeCloseTo(0, 10);
+    }
+    expect.soft(row).toBe(expectedRow(axis, moment));
+    const reflected = serializeLoads(key => key, { up: '+Y', right: '-X', hand: 'left' })[0]!.values;
+    expect(reflected).toBe(expectedRow(reflectedAxis, reflectedMoment));
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
