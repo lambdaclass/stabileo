@@ -214,7 +214,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[], 
   const spec = sheetSpec(sheetName, globalAxes());
   const columns = keyAt.map(k => spec?.columns.find(col => col.key.toLowerCase() === k));
   const strictNumbers = columns.map(column =>
-    !!column?.strictNumber || (declaredAxes && sheetName === 'Loads' && !!column?.unit),
+    !!column?.strictNumber || (declaredAxes && !!column?.unit),
   );
   const physicalKeys = new Set<string>();
   let ambiguousHeader = false;
@@ -229,7 +229,7 @@ function readSheet(aoa: unknown[][], sheetName: string, problems: RowProblem[], 
         return;
       }
       const want = column.unit;
-      if (strictNumbers[c] || (declaredAxes && sheetName === 'Supports' && want)) {
+      if (strictNumbers[c]) {
         if (physicalKeys.has(k)) {
           problems.push({ sheet: sheetName, row: 1, column: k, message: tp('xls.err.duplicatePhysicalColumn', { k }), blocking: true });
           ambiguousHeader = true;

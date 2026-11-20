@@ -41,7 +41,6 @@ async function importFile(sheets: Record<string, unknown[][]>) {
   return importExcelFile(new File([XLSX.write(book, { type: 'array', bookType: 'xlsx' })], 'model.xlsx'));
 }
 
-const issue2364 = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
 const supportComponents = ['kz', 'kx', 'ky', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'angle'] as const;
 const invalidSupportCells = [
   ...supportComponents.flatMap(column => [
@@ -57,7 +56,7 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
     const type = flat ? 'spring' : 'spring3d';
 
     for (const { column, header, value, row, kind } of invalidSupportCells) {
-      issue2364(`known wrong result: #2364 ${entry} blocks ${kind} in declared ${workspace} support ${column}`, async () => {
+      it(`#2364 ${entry} blocks ${kind} in declared ${workspace} support ${column}`, async () => {
         const before = priorModel(workspace);
         const other = column === 'kry' ? 'kx' : 'kry';
         const workbook = {
@@ -65,11 +64,11 @@ for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', i
           Supports: [['node', 'type', header, other], [1, type, value, 7]],
         };
         const problems = [expect.objectContaining({ sheet: 'Supports', row, column, blocking: true })];
-        expect(parseWorkbook(workbook).problems).toEqual(problems);
         const out = await install(workbook);
-        expect(out?.problems).toEqual(problems);
         expect(out?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+        expect(out?.problems).toEqual(problems);
         expect(modelStore.snapshot()).toEqual(before);
+        expect(parseWorkbook(workbook).problems).toEqual(problems);
       });
     }
 
