@@ -1,3 +1,5 @@
+import { invalidPlateDefinition, physicalPlateProblems } from '../model/physical/plate-analysis';
+import { wallSlabRefusal } from '../engine/plate-analysis-refusal';
 /**
  * Physical plates in the model (`model/physical/plate.ts`): made from an outline, meshed on demand
  * one at a time or many together, meshed again without leaving anything behind, and made ready
@@ -123,6 +125,7 @@ function meshSampler(size: number): ArcSampler {
  * node.
  */
 function featuresOf(e: PlateEntry, spec: PlateMeshSpec = e.surface.mesh) {
+  if (invalidPlateDefinition(modelStore.model, e.group)) return null;
   const geo = plateGeometry(plateModel(), e.group, meshSampler(spec.size));
   if (!geo) return null;
   const loops = plateLoops(e.group);
@@ -492,10 +495,10 @@ export function applyPlateMeshes(plans: readonly PlateMeshPlan[]): PlateMeshRepo
     for (const [k, planned] of ok.entries()) {
       // After the first, each plate is planned again on the model as it now is, so it meets the
       // meshes just put in beside it.
-      const p = k === 0 ? planned : (planPlateMesh(planned.id, planned.spec) ?? planned);
-      if (!p.mesh || !p.input) { report.refused.push({ id: p.id, reason: p.refused ?? 'cannotMesh' }); continue; }
+      const p = k === 0 ? planned : planPlateMesh(planned.id, planned.spec);
+      if (!p?.mesh || !p.input) { report.refused.push({ id: planned.id, reason: p?.refused ?? 'cannotMesh' }); continue; }
       const e = plateEntry(p.id);
-      if (!e) continue;
+      if (!e) { report.refused.push({ id: p.id, reason: 'invalid' }); continue; }
       report.droppedLocalLoads += p.localLoads;
       report.keptNodes += clearPlateMesh(p.id).keptNodes;
       const before = new Set(modelStore.nodes.keys());
@@ -532,7 +535,8 @@ export function deletePlate(id: number): void {
 
 export type PlatePreparation =
   | { ok: true; meshed: number; cells: number }
-  | { ok: false; reason: 'needsMesh'; plates: string[] }
+  | { ok: false; reason: 'needsMesh' | 'invalid'; plates: string[] }
+  | { ok: false; reason: 'wallSlab'; error: string }
   | { ok: false; reason: 'refused'; plates: string[] }
   | { ok: false; reason: 'localLoads'; plates: string[] };
 
@@ -542,18 +546,33 @@ export type PlatePreparation =
  * which plates stop it instead. Runs once per solve, before its inputs are taken.
  */
 export function preparePlatesForAnalysis(): PlatePreparation {
+  const { invalid } = physicalPlateProblems(modelStore.model);
+  if (invalid.length) return { ok: false, reason: 'invalid', plates: invalid };
+  const checked = (meshed: number, cells: number): PlatePreparation => {
+    if (meshed) {
+      const { invalid, unmeshed } = physicalPlateProblems(modelStore.model);
+      if (invalid.length || unmeshed.length) return { ok: false, reason: 'invalid', plates: [...invalid, ...unmeshed] };
+    }
+    const error = wallSlabRefusal(modelStore.model);
+    return error ? { ok: false, reason: 'wallSlab', error } : { ok: true, meshed, cells };
+  };
   const need = platesNeedingMesh();
-  if (!need.length) return { ok: true, meshed: 0, cells: 0 };
+  if (!need.length) return checked(0, 0);
   const names = (ids: number[]) => ids.map((id) => plateEntry(id)?.name ?? `#${id}`);
   if (!meshBeforeAnalysis.value) return { ok: false, reason: 'needsMesh', plates: names(need) };
-  const plans = need.map((id) => planPlateMesh(id)).filter((p): p is PlateMeshPlan => !!p);
+  const plans: PlateMeshPlan[] = [];
+  for (const id of need) {
+    const plan = planPlateMesh(id);
+    if (!plan) return { ok: false, reason: 'invalid', plates: names([id]) };
+    plans.push(plan);
+  }
   // Loads put by hand on the old mesh's elements cannot follow a new mesh: the plate is meshed
   // from its panel, whose plan lists them, never here where they would vanish unseen.
   const loaded = plans.filter((p) => p.localLoads > 0);
   if (loaded.length) return { ok: false, reason: 'localLoads', plates: names(loaded.map((p) => p.id)) };
   const r = applyPlateMeshes(plans);
   if (r.refused.length) return { ok: false, reason: 'refused', plates: names(r.refused.map((x) => x.id)) };
-  return { ok: true, meshed: r.plates, cells: r.cells };
+  return checked(r.plates, r.cells);
 }
 
 /**

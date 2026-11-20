@@ -30,6 +30,7 @@
  *
  * Pure of stores: the model and its combinations come in, results go out.
  */
+import { plateAnalysisRefusal } from './plate-analysis-refusal';
 import type { ModelData } from './solver-service';
 import { requireCableAnalysis } from './analysis-validity';
 import { materialFamilyOf } from './steel/material-family';
@@ -234,6 +235,8 @@ export async function runDirectAnalysis(
   combinations: LoadCombination[],
   opts: { includeSelfWeight: boolean; leftHand?: boolean; settings?: DirectAnalysisSettings; run?: PDeltaRunner },
 ): Promise<DirectAnalysisResult | string> {
+  const plateRefusal = plateAnalysisRefusal(model);
+  if (plateRefusal) return plateRefusal;
   const resolved = resolveCombinationFactors(combinations);
   if (typeof resolved === 'string') return resolved;
   // Each case with what it takes in, its notional loads and its reduction (`case-effects.ts`).

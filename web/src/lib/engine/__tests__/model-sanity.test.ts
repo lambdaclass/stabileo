@@ -18,7 +18,7 @@ import { PRO_EXAMPLES } from '../../data/pro-examples';
 import { CODE_EXAMPLES } from '../../templates/examples';
 import { INTENTIONALLY_UNSOLVABLE } from '../../templates/fixture-index';
 import { reviewModelSanity, sanityDiagnostics, type SanityReport } from '../model-sanity';
-import { setLocale, t } from '../../i18n';
+import { setLocale, t, tp } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
 afterAll(() => setLocale('en'));
@@ -86,6 +86,13 @@ describe('repository examples: no errors but the known-broken, every warning jus
 
   it.each(fixtures)('fixture %s', async (id) => {
     await modelStore.loadExample(id);
+    if (id === 'cad-arch-only-dxf') {
+      const refusal = tp('plates.analysisWallSlab', { wall: 'q601', slab: 'q3', node: 266 });
+      expect(modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true)).toBe(refusal);
+      expect(modelStore.solve3D(uiStore.includeSelfWeight, false, true)).toBe(refusal);
+      expect(resultsStore.results3D).toBeNull();
+      return;
+    }
     solve();
     expectOnly(id, review());
   }, 600_000);

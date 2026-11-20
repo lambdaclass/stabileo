@@ -31,9 +31,9 @@
       "id": 1,
       "name": "IPN 300",
       "a": 0.0069,
-      "iy": 0.000098,
-      "iz": 0.00000451,
-      "j": 1e-7,
+      "iy": 9.8e-05,
+      "iz": 4.51e-06,
+      "j": 1e-07,
       "b": 0.125,
       "h": 0.3
     },
@@ -5208,6 +5208,258 @@
         "mz": 0,
         "caseId": 7
       }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 197,
+        "quadId": 78,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 198,
+        "quadId": 78,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 199,
+        "quadId": 79,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 200,
+        "quadId": 79,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 201,
+        "quadId": 80,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 202,
+        "quadId": 80,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 203,
+        "quadId": 81,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 204,
+        "quadId": 81,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 205,
+        "quadId": 82,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 206,
+        "quadId": 82,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 207,
+        "quadId": 83,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 208,
+        "quadId": 83,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 209,
+        "quadId": 84,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 210,
+        "quadId": 84,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 211,
+        "quadId": 85,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 212,
+        "quadId": 85,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 213,
+        "quadId": 86,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 214,
+        "quadId": 86,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 215,
+        "quadId": 87,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 216,
+        "quadId": 87,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 217,
+        "quadId": 88,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 218,
+        "quadId": 88,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 219,
+        "quadId": 89,
+        "q": 2.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 220,
+        "quadId": 89,
+        "q": 2,
+        "caseId": 2
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 221,
+        "quadId": 90,
+        "q": 1.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 222,
+        "quadId": 90,
+        "q": 1,
+        "caseId": 5
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 223,
+        "quadId": 91,
+        "q": 1.5,
+        "caseId": 1
+      }
+    },
+    {
+      "type": "surface3d",
+      "data": {
+        "id": 224,
+        "quadId": 91,
+        "q": 1,
+        "caseId": 5
+      }
     }
   ],
   "plates": [],
@@ -5216,9 +5468,9 @@
       "id": 1,
       "nodes": [
         13,
-        14,
-        19,
-        18
+        121,
+        122,
+        123
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5304,9 +5556,9 @@
       "id": 9,
       "nodes": [
         28,
-        29,
-        34,
-        33
+        124,
+        125,
+        126
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5392,9 +5644,9 @@
       "id": 17,
       "nodes": [
         43,
-        44,
-        49,
-        48
+        127,
+        128,
+        129
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5480,9 +5732,9 @@
       "id": 25,
       "nodes": [
         58,
-        59,
-        64,
-        63
+        130,
+        131,
+        132
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5568,9 +5820,9 @@
       "id": 33,
       "nodes": [
         73,
-        74,
-        79,
-        78
+        133,
+        134,
+        135
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5656,9 +5908,9 @@
       "id": 41,
       "nodes": [
         88,
-        89,
-        94,
-        93
+        136,
+        137,
+        138
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -5744,9 +5996,9 @@
       "id": 49,
       "nodes": [
         103,
-        104,
-        109,
-        108
+        139,
+        140,
+        141
       ],
       "materialId": 2,
       "thickness": 0.15
@@ -6058,114 +6310,163 @@
       ],
       "materialId": 2,
       "thickness": 0.2
+    },
+    {
+      "id": 78,
+      "nodes": [
+        121,
+        14,
+        19,
+        122
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 79,
+      "nodes": [
+        122,
+        19,
+        18,
+        123
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 80,
+      "nodes": [
+        124,
+        29,
+        34,
+        125
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 81,
+      "nodes": [
+        125,
+        34,
+        33,
+        126
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 82,
+      "nodes": [
+        127,
+        44,
+        49,
+        128
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 83,
+      "nodes": [
+        128,
+        49,
+        48,
+        129
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 84,
+      "nodes": [
+        130,
+        59,
+        64,
+        131
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 85,
+      "nodes": [
+        131,
+        64,
+        63,
+        132
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 86,
+      "nodes": [
+        133,
+        74,
+        79,
+        134
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 87,
+      "nodes": [
+        134,
+        79,
+        78,
+        135
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 88,
+      "nodes": [
+        136,
+        89,
+        94,
+        137
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 89,
+      "nodes": [
+        137,
+        94,
+        93,
+        138
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 90,
+      "nodes": [
+        139,
+        104,
+        109,
+        140
+      ],
+      "materialId": 2,
+      "thickness": 0.15
+    },
+    {
+      "id": 91,
+      "nodes": [
+        140,
+        109,
+        108,
+        141
+      ],
+      "materialId": 2,
+      "thickness": 0.15
     }
   ],
   "constraints": [
-    {
-      "type": "rigidLink",
-      "masterNode": 13,
-      "slaveNode": 121
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 13,
-      "slaveNode": 122
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 13,
-      "slaveNode": 123
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 28,
-      "slaveNode": 124
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 28,
-      "slaveNode": 125
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 28,
-      "slaveNode": 126
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 43,
-      "slaveNode": 127
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 43,
-      "slaveNode": 128
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 43,
-      "slaveNode": 129
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 58,
-      "slaveNode": 130
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 58,
-      "slaveNode": 131
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 58,
-      "slaveNode": 132
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 73,
-      "slaveNode": 133
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 73,
-      "slaveNode": 134
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 73,
-      "slaveNode": 135
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 88,
-      "slaveNode": 136
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 88,
-      "slaveNode": 137
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 88,
-      "slaveNode": 138
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 103,
-      "slaveNode": 139
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 103,
-      "slaveNode": 140
-    },
-    {
-      "type": "rigidLink",
-      "masterNode": 103,
-      "slaveNode": 141
-    },
     {
       "type": "diaphragm",
       "masterNode": 13,

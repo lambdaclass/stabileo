@@ -15,6 +15,7 @@ import { hasModalSeismicDerivation } from '../engine/loads/seismic-generation';
  *
  * Pure: no store, no runes.
  */
+import { plateAnalysisIssue, type PlateAnalysisModel } from '../model/physical/plate-analysis';
 import { materialFamilyOf } from '../engine/steel/material-family';
 import { catalogueGradeFamily } from '../engine/steel/grade-family';
 import { is3DWorkspace } from '../utils/workspace';
@@ -42,7 +43,7 @@ export const FEATURE_IDS = [
   'plane2D', 'space3D', 'members', 'cableMembers', 'contactElements', 'frameMembers', 'trussMembers', 'hinges', 'arcMembers', 'shearAreas', 'thermalAtRelease',
   'steelMembers', 'steelCirsoc301', 'steelTensionWithoutConnection', 'steelDeclaredUnbracedLength', 'steelStaggeredOrUnboltedWebEnd', 'timberOrAluminiumMembers',
   'concreteMembers', 'fiberMembers', 'hognestadFiberMembers', 'cirsoc201', 'aci318', 'footings', 'jointDesigns',
-  'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
+  'shells', 'plateAnalysisIssue', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'bareRollerZ', 'bareCustom3D', 'localPlaneRoller', 'unknownSupportType', 'rollerSupports', 'namedSupportRestraintMasks', 'settlements', 'settledMaskedSupports', 'caseDisplacements',
   'connectors', 'connectorsWithShear', 'pathAnalysis',
   'stagedConstruction', 'generatedStructures', 'nodalMoments', 'trussMemberLoads', 'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads', 'generatedWindLoads', 'generatedSeismicLoads', 'unverifiedGeneratedSeismicLoads',
@@ -78,11 +79,14 @@ interface Sup {
 }
 
 /** What `modelFeatures` reads: the snapshot shape, loosely, so a file from any version is read. */
+type ShellSnapshot = { id?: number; nodes?: number[]; curved?: boolean; offset?: Offset3 };
+
 interface FeatureSnapshotFields {
   analysisMode?: string;
   gapElements?: unknown[];
   nodeToSurfacePairs?: unknown[];
   upliftSupports?: unknown[];
+  nodes?: Entries<{ x: number; y: number; z?: number }>;
   materials?: Entries<Mat>;
   elements?: Entries<Elem>;
   sections?: Entries<{ id: number; shearAreas?: unknown }>;
@@ -93,13 +97,13 @@ interface FeatureSnapshotFields {
   combinations?: unknown[];
   combinationRules?: unknown[];
   solidShells?: Entries<unknown>;
-  plates?: Entries<{ id?: number; offset?: Offset3 }>;
-  quads?: Entries<{ id?: number; curved?: boolean; offset?: Offset3 }>;
+  plates?: Entries<ShellSnapshot>;
+  quads?: Entries<ShellSnapshot>;
   constraints?: Array<Record<string, unknown>>;
   connectors?: Entries<{ kShear?: number; kShearZ?: number }>;
   footings?: Entries<unknown>;
   jointDesigns?: unknown;
-  groups?: Entries<{ kind?: string; data?: unknown }>;
+  groups?: Entries<{ name?: string; kind?: string; data?: unknown; members?: { nodes?: number[]; quads?: number[]; plates?: number[] } }>;
   regulations?: { roles?: Record<string, { adapterId?: string | null; settings?: Record<string, unknown> } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
@@ -188,6 +192,23 @@ function isStandardGravityRule(rule: unknown): boolean {
     && elements === undefined && groupId === undefined;
 }
 
+function plateAnalysisModel(s: FeatureSnapshot): PlateAnalysisModel {
+  const shells = (entries: Entries<ShellSnapshot>) => new Map((entries ?? []).flatMap(([id, shell]) =>
+    Array.isArray(shell?.nodes) ? [[id, { id, nodes: shell.nodes }]] as const : []));
+  const groups: NonNullable<PlateAnalysisModel['groups']> = new Map((s.groups ?? []).flatMap(([id, group]) => {
+    if (!group?.data || typeof group.data !== 'object') return [];
+    return [[id, { id, name: group.name, members: group.members ?? {}, data: group.data as Record<string, unknown> }]] as const;
+  }));
+  return {
+    nodes: new Map(s.nodes),
+    elements: new Map(s.elements),
+    materials: s.materials && new Map(s.materials),
+    plates: shells(s.plates),
+    quads: shells(s.quads),
+    groups,
+  };
+}
+
 /** The features of one saved model. */
 export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set<FeatureId> {
   const f = new Set<FeatureId>();
@@ -257,6 +278,10 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
 
   const quads = values(s.quads);
   if (quads.length || values(s.plates).length || values(s.solidShells).length) f.add('shells');
+  if (f.has('space3D') && (f.has('shells') || s.groups?.length)) {
+    const issue = plateAnalysisIssue(plateAnalysisModel(s));
+    if (issue && issue.kind !== 'unmeshed') f.add('plateAnalysisIssue');
+  }
   if (quads.some((q) => q?.curved)) f.add('curvedShells');
   if ([...quads, ...values(s.plates)].some((q) => offsetMoves(q?.offset))) f.add('eccentricities');
 

@@ -1,0 +1,32 @@
+{
+  "id": "plate-analysis-conformity",
+  "date": "2026-11-20",
+  "prs": [2368, 2376, 2388],
+  "area": "analysis",
+  "when": { "all": ["plateAnalysisIssue"] },
+  "quantities": ["*", "solve.ok"],
+  "title": {
+    "en": "Physical plate and wall–slab mesh checks",
+    "es": "Verificación de placas físicas y uniones muro–losa",
+    "pt": "Verificação de placas físicas e ligações parede–laje",
+    "de": "Prüfung von Flächenelementen und Wand-Decken-Anschlüssen",
+    "fr": "Vérification des plaques et des jonctions voile–dalle",
+    "tr": "Fiziksel plak ve perde–döşeme ağı denetimi",
+    "hu": "Lemezek és fal–födém csatlakozások hálójának ellenőrzése",
+    "zh": "物理板与墙板交界网格检查"
+  },
+  "explanation": {
+    "en": "Analysis now stops when a physical plate is invalid or a wall and slab do not share an interior edge node. Repair the plate or remesh the junction and solve again. The seven-storey gallery example now uses shared wall and slab nodes.",
+    "es": "El análisis se detiene si una placa física no es válida o si el muro y la losa no comparten un nodo interior de borde. Repará la placa o volvé a mallar la unión y calculá de nuevo. El ejemplo de siete pisos ahora usa nodos compartidos.",
+    "pt": "A análise é interrompida se uma placa física for inválida ou se a parede e a laje não compartilharem um nó interno de borda. Corrija a placa ou refaça a malha da ligação e calcule novamente. O exemplo de sete pavimentos agora usa nós compartilhados.",
+    "de": "Die Berechnung stoppt bei einem ungültigen Flächenelement oder einem fehlenden gemeinsamen inneren Randknoten von Wand und Decke. Korrigieren Sie das Flächenelement oder vernetzen Sie den Anschluss neu und berechnen Sie erneut. Das siebengeschossige Beispiel verwendet jetzt gemeinsame Knoten.",
+    "fr": "Le calcul s’arrête si une plaque physique est invalide ou si le voile et la dalle ne partagent pas un nœud intérieur du bord. Corrigez la plaque ou refaites le maillage de la jonction et relancez le calcul. L’exemple à sept étages utilise désormais des nœuds communs.",
+    "tr": "Fiziksel plak geçersizse veya perde ile döşeme bir kenar iç düğümünü paylaşmıyorsa analiz durur. Plağı düzeltin veya birleşim ağını yenileyip çözümü tekrarlayın. Yedi katlı örnek artık ortak düğümler kullanıyor.",
+    "hu": "A számítás leáll, ha egy lemez érvénytelen, vagy ha a fal és a födém egyik belső élcsomópontja nem közös. Javítsa ki a lemezt vagy hálózza újra a csatlakozást, majd számítsa újra a modellt. A hétszintes példa már közös csomópontokat használ.",
+    "zh": "物理板无效，或墙与楼板未共享边内部的节点时，分析会停止。请修正板或重新划分交界网格，然后再次求解。七层建筑示例现已采用共享节点。"
+  },
+  "changelog": {
+    "file": "docs/results-changes/2026-11-plate-analysis-conformity.md",
+    "heading": "Invalid plates and nonconforming wall–slab meshes"
+  }
+}
