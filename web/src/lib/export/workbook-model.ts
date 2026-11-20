@@ -17,6 +17,7 @@ import type { ModelData } from '../engine/solver-service';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import { selfWeightFor } from '../engine/self-weight';
+import { GRAVITY_SELF_WEIGHT } from '../engine/analysis-settings';
 import type { MassSource, PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 import { AXIS_NAMES, planeSigns, supportTypeIn, type AxesChoice, type AxesFrame } from '../axes/frame';
@@ -210,7 +211,7 @@ function selfWeightSheet(m: WorkbookModel, f: AxesFrame | null): WorkbookSheet {
   const rows: WorkbookSheet['rows'] = [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group']];
   const stated = m.analysis?.selfWeight;
   const entries = stated !== undefined
-    ? [...stated.map((s) => ({ source: 'case', load: s })), ...(m.analysis?.standaloneSelfWeight ? selfWeightFor(m, null, false).map(s => ({ source: 'single', load: s })) : [])]
+    ? [...stated.map((s) => ({ source: 'case', load: s })), ...(m.analysis?.standaloneSelfWeight === 'gravity' ? [{ source: 'single', load: { caseId: 0, ...GRAVITY_SELF_WEIGHT } }] : [])]
     : [
       ...m.loadCases.flatMap((c) => selfWeightFor(m, c, m.includeSelfWeight ?? false).map((s) => ({ source: 'case', load: s }))),
       ...selfWeightFor(m, null, m.includeSelfWeight ?? false).map((s) => ({ source: 'single', load: s })),

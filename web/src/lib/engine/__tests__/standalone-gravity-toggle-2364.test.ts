@@ -5,7 +5,7 @@ import { globalAxes } from '../../features';
 import { assessProject } from '../../provenance/applicability';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import { stampSolve } from '../../provenance/solve-stamp';
-import { modelStore, uiStore } from '../../store';
+import { modelStore, resultsStore, uiStore } from '../../store';
 import { NO_RELEASE } from '../../store/model.svelte';
 import { displayedLoads3D } from '../../store/displayed-loads-3d';
 import { deserializeProject, serializeProject } from '../../store/file';
@@ -17,7 +17,6 @@ import {
 import { appliedResultant } from '../statics-check';
 import { initSolver, solvePDelta, solvePDelta3D } from '../wasm-solver';
 
-const reproduce = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
 const length = 2;
 const density = 20;
 const area = 0.025;
@@ -53,8 +52,8 @@ afterEach(() => {
 });
 
 for (const caseWeights of [false, true]) {
-  reproduce.each(['sync', 'async', 'P-Delta'] as const)(
-    `known wrong result: #2364 2D %s honors standalone gravity off (case rules: ${caseWeights})`, async (entry) => {
+  it.each(['sync', 'async', 'P-Delta'] as const)(
+    `#2364 2D %s honors standalone gravity off (case rules: ${caseWeights})`, async (entry) => {
       const model = cantilever('2D', caseWeights);
       const reaction = async (include: boolean) => {
         if (entry === 'P-Delta') {
@@ -69,8 +68,8 @@ for (const caseWeights of [false, true]) {
       expect(await reaction(false)).toBeCloseTo(tipForce, 10);
     });
 
-  reproduce.each(['sync', 'async', 'nonlinear sync', 'nonlinear async', 'P-Delta'] as const)(
-    `known wrong result: #2364 3D %s honors standalone gravity off (case rules: ${caseWeights})`, async (entry) => {
+  it.each(['sync', 'async', 'nonlinear sync', 'nonlinear async', 'P-Delta'] as const)(
+    `#2364 3D %s honors standalone gravity off (case rules: ${caseWeights})`, async (entry) => {
       const model = cantilever('3D', caseWeights);
       const nonlinear = entry.startsWith('nonlinear');
       if (nonlinear) model.supports.get(1)!.uplift = true;
@@ -91,7 +90,7 @@ for (const caseWeights of [false, true]) {
     });
 }
 
-reproduce('known wrong result: #2364 production reopens an imported model with standalone gravity off', () => {
+it('#2364 production reopens an imported model with standalone gravity off', () => {
   uiStore.analysisMode = '3d';
   vi.stubGlobal('__PUBLIC_FEATURES__', featuresForMode('test'));
   const workbook = {
@@ -120,20 +119,22 @@ reproduce('known wrong result: #2364 production reopens an imported model with s
 
   const off = solved(modelStore.solve3D(uiStore.includeSelfWeight));
   expect(off.reactions[0]!.fz).toBeCloseTo(tipForce, 10);
-  expect(displayedLoads3D(off)).toEqual(modelStore.loads);
+  resultsStore.setResults3D(off);
+  expect(displayedLoads3D()).toEqual(modelStore.loads);
   uiStore.includeSelfWeight = true;
   const on = solved(modelStore.solve3D(uiStore.includeSelfWeight));
   expect(on.reactions[0]!.fz).toBeCloseTo(tipForce + density * area * (length + 1), 10);
-  expect(displayedLoads3D(on).filter(load => load.type === 'distributed3d')).toHaveLength(2);
+  resultsStore.setResults3D(on);
+  expect(displayedLoads3D().filter(load => load.type === 'distributed3d')).toHaveLength(2);
 });
 
-reproduce('known wrong result: #2364 exported linear input honors standalone gravity off', () => {
+it('#2364 exported linear input honors standalone gravity off', () => {
   const model = cantilever('3D', true);
   const baseline = { ...model, analysis: { selfWeight: [] } };
   expect(solved(linearSolveInput3D(model, false)).wire()).toEqual(solved(linearSolveInput3D(baseline, false)).wire());
 });
 
-reproduce('known wrong result: #2364 the statics result uses the standalone toggle', () => {
+it('#2364 the statics result uses the standalone toggle', () => {
   const model = cantilever('3D', true);
   for (const includeSelfWeight of [false, true]) {
     const resultant = appliedResultant(model, null, { includeSelfWeight });
@@ -142,7 +143,7 @@ reproduce('known wrong result: #2364 the statics result uses the standalone togg
   }
 });
 
-reproduce('known wrong result: #2364 recheck covers saved projects whose marker could override gravity off', () => {
+it('#2364 recheck covers saved projects whose marker could override gravity off', () => {
   const change = RESULT_CHANGES.changes.find(entry => entry.id === 'standalone-gravity-toggle');
   expect(change).toBeDefined();
   const stamp = { ...stampSolve('linear', null), resultsVersion: change!.resultsVersion - 1 };

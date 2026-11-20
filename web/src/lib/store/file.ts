@@ -391,10 +391,11 @@ export function onProjectOpened(snap: ModelSnapshot | undefined, analysisMode: s
     // changes the snapshot. Provenance still belongs to the opened project, not
     // the previous project's session state captured by modelStore.snapshot().
     const current = modelStore.snapshot();
-    const usesLegacySelfWeight = analysisMode !== 'pro' || current.analysis?.selfWeight === undefined;
+    const usesSelfWeightToggle = analysisMode !== 'pro' || current.analysis?.selfWeight === undefined
+      || current.analysis.standaloneSelfWeight === 'gravity';
     recheckStore.openProject({
       ...current,
-      includeSelfWeight: usesLegacySelfWeight && uiStore.includeSelfWeight,
+      includeSelfWeight: usesSelfWeightToggle && uiStore.includeSelfWeight,
       solvedWith: snap.solvedWith,
       pendingRecheckNotice: snap.pendingRecheckNotice,
     } as never, analysisMode);

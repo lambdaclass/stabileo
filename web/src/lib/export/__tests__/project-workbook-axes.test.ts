@@ -158,9 +158,9 @@ for (const deadCases of [0, 1, 2]) it(`known wrong result: #2259 standalone grav
     const back = parseWorkbook(asImport(currentWorkbookSheets(2, { results: false })));
     expect(back.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
     for (const c of [null, ...modelStore.loadCases]) {
-      expect(selfWeightFor(back.model, c, false)).toEqual(selfWeightFor(modelStore.model, c, true));
+      expect(selfWeightFor(back.model, c, c === null)).toEqual(selfWeightFor(modelStore.model, c, true));
     }
-    const weights = selfWeightFor(back.model, null, false);
+    const weights = selfWeightFor(back.model, null, true);
     expect(weights).toHaveLength(1);
   }
   uiStore.includeSelfWeight = false;
@@ -180,16 +180,16 @@ it('known wrong result: #2259 imported standalone gravity reaches both solver in
   const imported = applyWorkbook(asImport(sheets));
   expect(imported.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
   expect(uiStore.includeSelfWeight).toBe(true);
-  expect(buildSolverInput2D(modelStore.model, false)!.loads).toEqual(before2D);
-  expect(buildSolverInput3D(modelStore.model, false)!.loads).toEqual(before3D);
+  expect(buildSolverInput2D(modelStore.model, uiStore.includeSelfWeight)!.loads).toEqual(before2D);
+  expect(buildSolverInput3D(modelStore.model, uiStore.includeSelfWeight)!.loads).toEqual(before3D);
   const again = currentWorkbookSheets(2, { results: false });
   expect(sheet(again, 'SelfWeight').rows).toEqual(sheet(sheets, 'SelfWeight').rows);
   const parsed = parseWorkbook(asImport(again));
   expect(parsed.problems.filter(p => p.sheet === 'SelfWeight')).toEqual([]);
-  expect(selfWeightFor(parsed.model, null, false)).toHaveLength(1);
+  expect(selfWeightFor(parsed.model, null, true)).toHaveLength(1);
   const duplicate = parseWorkbook({ SelfWeight: [['source', 'case', 'direction', 'factor', 'scope', 'members', 'group'], ['single', '', 'Z', -1, 'all', '', ''], ['single', '', 'Z', -1, 'all', '', '']] });
   expect(duplicate.problems.filter(p => p.sheet === 'SelfWeight')).toHaveLength(1);
-  expect(selfWeightFor(duplicate.model, null, false)).toHaveLength(1);
+  expect(selfWeightFor(duplicate.model, null, true)).toHaveLength(1);
   uiStore.includeSelfWeight = false;
 });
 

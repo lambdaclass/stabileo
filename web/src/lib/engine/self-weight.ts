@@ -27,9 +27,9 @@ export function selfWeightFor(
   caseRef: { id: number; type?: string; includes?: ReadonlyArray<unknown> } | null,
   includeSelfWeight: boolean,
 ): SelfWeightLoad[] {
-  if (!caseRef && model.analysis?.standaloneSelfWeight === 'gravity') return [{ caseId: 0, ...GRAVITY_SELF_WEIGHT }];
+  const usesStandaloneToggle = caseRef === null && model.analysis?.standaloneSelfWeight === 'gravity';
   const stated = model.analysis?.selfWeight;
-  if (stated) return caseRef ? stated.filter((s) => s.caseId === caseRef.id) : stated;
+  if (!usesStandaloneToggle && stated) return caseRef ? stated.filter((s) => s.caseId === caseRef.id) : stated;
   if (!includeSelfWeight) return [];
   // A composite case typed D has it through the cases it takes in (`case-effects.ts`).
   if (caseRef && (caseRef.type !== 'D' || isCompositeCase(caseRef))) return [];
