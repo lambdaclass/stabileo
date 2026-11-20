@@ -61,6 +61,43 @@ describe('a plate meshed beside one shell', () => {
     expect(plateStatus(above)).toBe('current');
   });
 
+  it.skip.each([
+    ['synchronous', preparePlatesForAnalysis],
+    ['asynchronous', preparePlatesForAnalysisAsync],
+  ] as const)('meshes a neighbour made stale during the same analysis preparation (%s) [known wrong result: #2365]', async (_mode, prepare) => {
+    const { below, above } = besideShells([0, 4]);
+    setPlateMeshSpec([below], { size: 3 });
+    adoptCurrentMesh(below);
+    expect(plateStatus(below)).toBe('current');
+    expect(platesNeedingMesh()).toEqual([above]);
+    meshBeforeAnalysis.value = true;
+    expect(await prepare()).toMatchObject({ ok: true, meshed: 2 });
+    expect(hanging(below)).toBe(false);
+    expect(plateStatus(below)).toBe('current');
+    expect(plateStatus(above)).toBe('current');
+    historyStore.undo();
+    expect(plateStatus(below)).toBe('current');
+    expect(plateStatus(above)).toBe('unmeshed');
+  });
+
+  it.skip.each([
+    ['synchronous', preparePlatesForAnalysis],
+    ['asynchronous', preparePlatesForAnalysisAsync],
+  ] as const)('refuses a newly stale neighbour with local shell loads (%s) [known wrong result: #2365]', async (_mode, prepare) => {
+    const { below, above } = besideShells([0, 4]);
+    setPlateMeshSpec([below], { size: 3 });
+    adoptCurrentMesh(below);
+    const [quad] = plateEntry(below)!.group.members.quads!;
+    modelStore.addThermalLoadQuad3D(quad!, 10);
+    const loads = [...modelStore.loads];
+    expect(platesNeedingMesh()).toEqual([above]);
+    meshBeforeAnalysis.value = true;
+    expect(await prepare()).toEqual({ ok: false, reason: 'localLoads', plates: [plateEntry(below)!.name] });
+    expect(modelStore.loads).toEqual(loads);
+    expect(plateEntry(below)!.group.members.quads).toEqual([quad]);
+    expect(hanging(below)).toBe(true);
+  });
+
   it('marks a coarse shell that gains a hanging node stale', () => {
     const { below, above } = besideShells([0, 4]);
     expect(coarseAsModelled(plateEntry(below)!)).toBe(true);
