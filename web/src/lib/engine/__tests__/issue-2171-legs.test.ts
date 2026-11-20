@@ -92,8 +92,7 @@ it('known wrong result: #2171 fixed cage uses the declared primary count', () =>
   expect(out.shear.status).toBe('fail');
 });
 
-const issue2364 = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
-issue2364('known wrong result: #2364 span torsion sizing leaves primary and secondary shear report steps deferred', () => {
+it('span torsion sizing leaves primary and secondary shear report steps deferred', () => {
   const value = verifyElement(input(40, 30, '2025'));
   expect(value.torsion).toMatchObject({ neglect: false });
   expect(value.torsion?.refusal).toBeUndefined();
@@ -102,8 +101,8 @@ issue2364('known wrong result: #2364 span torsion sizing leaves primary and seco
   const secondary = vi.spyOn(value.shearSecondary!, 'steps', 'get');
   const shared = sharedTorsionReinforcement([value], '2025');
   expect(shared.requirements).toEqual({ AtOverS: value.torsion!.AtOverS, AlReq: value.torsion!.AlReq, index: 0 });
-  expect.soft(primary).not.toHaveBeenCalled();
-  expect.soft(secondary).not.toHaveBeenCalled();
+  expect(primary).not.toHaveBeenCalled();
+  expect(secondary).not.toHaveBeenCalled();
 });
 
 const axes: DesignAxes = { flexure: 'My', shear: 'Vz', secondaryFlexure: 'Mz', secondaryShear: 'Vy', bFlex: section.b,
