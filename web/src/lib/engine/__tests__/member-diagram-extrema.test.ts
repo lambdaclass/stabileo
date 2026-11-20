@@ -1,7 +1,6 @@
 import { expect, it } from 'vitest';
 import { computeElementDiagram } from '../diagrams';
-import { computeDiagram3D, type Diagram3DKind } from '../diagrams-3d';
-import { criticalDiagramStations3D } from '../diagrams-3d';
+import { computeDiagram3D, criticalDiagramStations3D, type Diagram3DKind } from '../diagrams-3d';
 import type { ElementForces3D } from '../types-3d';
 
 it('covers the dense independent maxima of variable partial loads, forces and couples', () => {
@@ -95,9 +94,7 @@ it('#2250 refuses an interior shear peak when the enclosing normalized cuts are 
   expect(diagram(4).maxValue).toBe(1);
 });
 
-const round3 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-
-round3('known wrong result: #2250 preserves an interval-local shear peak in both dimensions and refuses an inexact tuple', () => {
+it('known wrong result: #2250 preserves an interval-local shear peak in both dimensions and refuses an inexact tuple', () => {
   const length = 3, a = 1.75, b = a + 6 * Number.EPSILON;
   const qI = 2 ** 52, qJ = -0.75 * qI;
   const distributedLoads = [{ a, b, qI, qJ }];

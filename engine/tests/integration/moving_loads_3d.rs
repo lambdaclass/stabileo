@@ -751,61 +751,51 @@ fn check_endpoint_3d(at_end: bool, axis: usize) {
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_axial_start_obeys_equilibrium() {
     check_endpoint_2d(false, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_axial_end_obeys_equilibrium() {
     check_endpoint_2d(true, true);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_shear_start_obeys_equilibrium() {
     check_endpoint_2d(false, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_2d_shear_end_obeys_equilibrium() {
     check_endpoint_2d(true, false);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_axial_start_obeys_equilibrium() {
     check_endpoint_3d(false, 0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_axial_end_obeys_equilibrium() {
     check_endpoint_3d(true, 0);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_y_start_obeys_equilibrium() {
     check_endpoint_3d(false, 1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_y_end_obeys_equilibrium() {
     check_endpoint_3d(true, 1);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_z_start_obeys_equilibrium() {
     check_endpoint_3d(false, 2);
 }
 
 #[test]
-#[ignore = "known wrong result: #1782"]
 fn issue_1782_endpoint_3d_shear_z_end_obeys_equilibrium() {
     check_endpoint_3d(true, 2);
 }

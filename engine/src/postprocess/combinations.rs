@@ -1,7 +1,7 @@
 use crate::types::*;
 use super::diagram_extrema::{distributed_actions, sort_cuts, uniform_cuts};
-use super::diagrams::{diagram_critical_cuts_2d, evaluate_diagram_cut_2d, sorted_point_loads};
-use super::diagrams_3d::{diagram_critical_cuts_3d, evaluate_diagram_cut_3d};
+use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads};
+use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d};
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
@@ -625,21 +625,22 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Result<FullEnvelope, Str
             for (res, spl) in results.iter().zip(&sorted_pls) {
                 stations.extend(diagram_critical_cuts_2d(&res.element_forces[e_idx], kind, spl).map_err(|e| format!("Cannot compute the envelope: {e}"))?);
             }
-            sort_cuts(&mut stations);
+            sort_cuts(&mut stations).map_err(|e| format!("Cannot compute the envelope: Element {elem_id} {kind}: {e}"))?;
 
-            for cut in stations {
-                let t = cut.t;
+            for cuts in stations.chunk_by(|a, b| a.t == b.t && a.right == b.right) {
+                let t = cuts[0].t;
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
-
-                for (r_idx, res) in results.iter().enumerate() {
-                    let val = evaluate_diagram_cut_2d(kind, cut, &res.element_forces[e_idx], &sorted_pls[r_idx]);
-                    if !val.is_finite() {
-                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                for &cut in cuts {
+                    for (r_idx, res) in results.iter().enumerate() {
+                        let val = try_evaluate_diagram_cut_2d(kind, cut, &res.element_forces[e_idx], &sorted_pls[r_idx])?;
+                        if !val.is_finite() {
+                            return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                        }
+                        if val > max_pos { max_pos = val; }
+                        if val < max_neg { max_neg = val; }
                     }
-                    if val > max_pos { max_pos = val; }
-                    if val < max_neg { max_neg = val; }
                 }
 
                 pos_values.push(max_pos);
@@ -1046,20 +1047,21 @@ pub(crate) fn compute_envelope_3d_checked(results: &[AnalysisResults3D]) -> Resu
             for &(_, ef) in &element_cases {
                 stations.extend(diagram_critical_cuts_3d(ef, kind).map_err(|e| format!("Cannot compute the envelope: {e}"))?);
             }
-            sort_cuts(&mut stations);
-            for cut in stations {
-                let t = cut.t;
+            sort_cuts(&mut stations).map_err(|e| format!("Cannot compute the envelope: Element {elem_id} {kind}: {e}"))?;
+            for cuts in stations.chunk_by(|a, b| a.t == b.t && a.right == b.right) {
+                let t = cuts[0].t;
                 t_positions.push(t);
                 let mut max_pos = 0.0f64;
                 let mut max_neg = 0.0f64;
-
-                for &(r_idx, ef) in &element_cases {
-                    let val = evaluate_diagram_cut_3d(ef, kind, cut);
-                    if !val.is_finite() {
-                        return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                for &cut in cuts {
+                    for &(r_idx, ef) in &element_cases {
+                        let val = try_evaluate_diagram_cut_3d(ef, kind, cut)?;
+                        if !val.is_finite() {
+                            return Err(envelope_station_overflow(kind, elem_id, t, r_idx, val));
+                        }
+                        if val > max_pos { max_pos = val; }
+                        if val < max_neg { max_neg = val; }
                     }
-                    if val > max_pos { max_pos = val; }
-                    if val < max_neg { max_neg = val; }
                 }
 
                 pos_values.push(max_pos);

@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, solve, solvePDelta } from '../wasm-solver';
+import { computeDiagramValueAtWasm, computeDiagrams2D, computeEnvelope, extractBeamStations, extractBeamStationsGrouped, solve, solveMovingLoads, solvePDelta } from '../wasm-solver';
 import type { AnalysisResults, SolverInput } from '../types';
 import {
   computeElementDiagram,
@@ -480,4 +480,41 @@ it('#2226 refuses aliased axial cuts in planar web and WASM queries', () => {
   ef.pointLoads[1]!.a = a + 2 * Number.EPSILON;
   expect(computeDiagramValueAtWasm('axial', a / length, ef)).toBe(0);
   expect(computeDiagramValueAtWasm('axial', ef.pointLoads[1]!.a / length, ef)).toBe(2);
+});
+
+it('#2250 planar WASM station tuples refuse distinct aliased cuts and retain a resolved intermediate section', () => {
+  const length = 3, a = 1.75, force = 40;
+  for (const b of [a + Number.EPSILON, a + 2 * Number.EPSILON]) {
+    const ef = { elementId: 1, length, qI: 0, qJ: 0, nStart: 0, nEnd: -force, vStart: force, vEnd: 0, mStart: 0, mEnd: 0,
+      distributedLoads: [], hingeStart: false, hingeEnd: false, pointLoads: [{ a, p: 0, px: force }, { a: b, p: -force }] };
+    const input = { members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: { displacements: [], reactions: [], elementForces: [ef] } }] };
+    if (a / length === b / length) {
+      expect.soft(() => extractBeamStations(input)).toThrow(/normalized station/i);
+      expect.soft(() => extractBeamStationsGrouped(input)).toThrow(/normalized station/i);
+    } else {
+      const concurrent = ({ n, v }: { n: number; v: number }) => n === -force && v === force;
+      expect(extractBeamStations(input).stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+      expect(extractBeamStationsGrouped(input).members[0]!.stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+    }
+  }
+});
+
+it('#1782 the planar WASM moving envelope uses the in-member shear at either end', () => {
+  const length = 8, force = 40;
+  for (const reverse of [false, true]) for (const atRoot of [false, true]) {
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: length, z: 0 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 0.0001 }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: reverse ? 2 : 1, nodeJ: reverse ? 1 : 2,
+        sectionId: 1, materialId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [{ type: 'pointOnElement', data: { elementId: 1, a: reverse === atRoot ? length : 0, p: force } }],
+    };
+    const envelope = solveMovingLoads({ solver: input, train: { name: 'static control', axles: [] }, step: length }).elements['1'];
+    const want = atRoot ? 0 : (reverse ? force : -force);
+    expect.soft(envelope.vMaxNeg).toBeCloseTo(Math.min(want, 0), 12);
+    expect.soft(envelope.vMaxPos).toBeCloseTo(Math.max(want, 0), 12);
+  }
 });

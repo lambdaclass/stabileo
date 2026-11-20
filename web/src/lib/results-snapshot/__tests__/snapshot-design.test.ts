@@ -10,9 +10,7 @@ import { runGroup, snapshotFile } from '../run-group';
 beforeAll(async () => { await initSolver(); });
 runGroup('design');
 
-const round3 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-
-round3('design-rc-qa-diagnostic e26 records the positive moment at its stationary point', async () => {
+it('design-rc-qa-diagnostic e26 records the positive moment at its stationary point', async () => {
   const name = 'design-rc-qa-diagnostic';
   await capture(CORPUS.find(c => c.name === name)!);
   const member = resultsStore.envelope3D!.momentY.elements.find(e => e.elementId === 26)!;

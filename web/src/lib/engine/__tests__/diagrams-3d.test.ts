@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, evaluateDiagramAt, type Diagram3DKind } from '../diagrams-3d';
-import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, solve3D, solveMovingLoads3D, solvePDelta3D } from '../wasm-solver';
+import { computeDiagramValueAt3DWasm, computeDiagrams3D, computeEnvelope3D, extractBeamStations3D, extractBeamStationsGrouped3D, solve3D, solveMovingLoads3D, solvePDelta3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,
@@ -514,4 +514,44 @@ it('#2250 the WASM moving envelope includes the inside limit beside a retained t
   const moving = solveMovingLoads3D({ solver: input, train: { name: 'static control', axles: [] }, step: length });
   expect(moving.elements['1'].vzMaxNeg).toBeCloseTo(intensity * length, 12);
   expect(moving.elements['1'].vzMaxPos).toBeCloseTo(0, 12);
+});
+
+it('#2250 spatial WASM station tuples refuse distinct aliased cuts and retain a resolved intermediate section', () => {
+  const length = 3, a = 1.75, force = 40;
+  const input = buildInput(
+    [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+    [frameElement(1, 1, 2)], [fixedSupport(1)],
+  );
+  const nonlinear = solvePDelta3D(input, 20, 1e-10);
+  expect(nonlinear.converged).toBe(true);
+  for (const result of [solve3D(input), nonlinear.results as AnalysisResults3D]) {
+    const ef = getEF(result, 1);
+    ef.vzStart = force;
+    ef.nEnd = -force;
+    ef.pointLoadsX = [{ a, p: force }];
+    ef.pointLoadsZ = [{ a: a + Number.EPSILON, p: -force }];
+    const stations = { members: [{ elementId: 1, length, sectionId: 1, materialId: 1 }],
+      combinations: [{ comboId: 1, results: result }] };
+    expect.soft(() => extractBeamStations3D(stations)).toThrow(/normalized station/i);
+    expect.soft(() => extractBeamStationsGrouped3D(stations)).toThrow(/normalized station/i);
+    ef.pointLoadsZ[0]!.a = a + 2 * Number.EPSILON;
+    const concurrent = ({ n, vz }: { n: number; vz: number }) => n === -force && vz === force;
+    expect(extractBeamStations3D(stations).stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+    expect(extractBeamStationsGrouped3D(stations).members[0]!.stations.some(s => s.comboForces.some(concurrent))).toBe(true);
+  }
+});
+
+it('#1782 the spatial WASM moving envelope uses the in-member shear at either end', () => {
+  const length = 8, force = 40;
+  for (const reverse of [false, true]) for (const atRoot of [false, true]) {
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: length, y: 0, z: 0 }],
+      [frameElement(1, reverse ? 2 : 1, reverse ? 1 : 2)], [fixedSupport(1)],
+      [{ type: 'pointOnElement', data: { elementId: 1, a: reverse === atRoot ? length : 0, py: 0, pz: force } }],
+    );
+    const envelope = solveMovingLoads3D({ solver: input, train: { name: 'static control', axles: [] }, step: length }).elements['1'];
+    const want = atRoot ? 0 : (reverse ? force : -force);
+    expect.soft(envelope.vzMaxNeg).toBeCloseTo(Math.min(want, 0), 12);
+    expect.soft(envelope.vzMaxPos).toBeCloseTo(Math.max(want, 0), 12);
+  }
 });

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::diagram_extrema::{sort_cuts, uniform_cuts};
-use super::diagrams::{diagram_critical_cuts_2d, evaluate_diagram_cut_2d, sorted_point_loads, DIAGRAM_KINDS_2D};
-use super::diagrams_3d::{diagram_critical_cuts_3d, evaluate_diagram_cut_3d, DIAGRAM_KINDS_3D};
+use super::diagrams::{diagram_critical_cuts_2d, try_evaluate_diagram_cut_2d, sorted_point_loads, DIAGRAM_KINDS_2D};
+use super::diagrams_3d::{diagram_critical_cuts_3d, try_evaluate_diagram_cut_3d, DIAGRAM_KINDS_3D};
 
 fn default_schema_version() -> u32 { 1 }
 
@@ -361,11 +361,11 @@ pub(crate) fn try_extract_beam_stations(input: &BeamStationInput) -> Result<Beam
                     }
                 }
             }
-            sort_cuts(&mut cuts);
+            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
         }
         for (s_idx, cut) in cuts.into_iter().enumerate() {
             let t = cut.t;
-            let station_x = t * member.length;
+            let station_x = cut.station_x(member.length);
 
             let mut gov_moment = GoverningBuilder::new();
             let mut gov_shear = GoverningBuilder::new();
@@ -380,9 +380,9 @@ pub(crate) fn try_extract_beam_stations(input: &BeamStationInput) -> Result<Beam
                 let ef = &combo.results.element_forces[ef_idx];
                 let spl = &sorted_pls[c_idx][&member.element_id];
 
-                let m = evaluate_diagram_cut_2d("moment", cut, ef, spl);
-                let v = evaluate_diagram_cut_2d("shear", cut, ef, spl);
-                let n = evaluate_diagram_cut_2d("axial", cut, ef, spl);
+                let m = try_evaluate_diagram_cut_2d("moment", cut, ef, spl)?;
+                let v = try_evaluate_diagram_cut_2d("shear", cut, ef, spl)?;
+                let n = try_evaluate_diagram_cut_2d("axial", cut, ef, spl)?;
 
                 gov_moment.update(combo.combo_id, m, combo.combo_name.as_deref());
                 gov_shear.update(combo.combo_id, v, combo.combo_name.as_deref());
@@ -461,11 +461,11 @@ pub(crate) fn try_extract_beam_stations_3d(input: &BeamStationInput3D) -> Result
                     }
                 }
             }
-            sort_cuts(&mut cuts);
+            sort_cuts(&mut cuts).map_err(|e| format!("Element {}: {e}", member.element_id))?;
         }
         for (s_idx, cut) in cuts.into_iter().enumerate() {
             let t = cut.t;
-            let station_x = t * member.length;
+            let station_x = cut.station_x(member.length);
 
             let mut gov_axial = GoverningBuilder::new();
             let mut gov_shear_y = GoverningBuilder::new();
@@ -482,12 +482,12 @@ pub(crate) fn try_extract_beam_stations_3d(input: &BeamStationInput3D) -> Result
                 };
                 let ef = &combo.results.element_forces[ef_idx];
 
-                let n = evaluate_diagram_cut_3d(ef, "axial", cut);
-                let vy = evaluate_diagram_cut_3d(ef, "shearY", cut);
-                let vz = evaluate_diagram_cut_3d(ef, "shearZ", cut);
-                let my = evaluate_diagram_cut_3d(ef, "momentY", cut);
-                let mz = evaluate_diagram_cut_3d(ef, "momentZ", cut);
-                let torsion = evaluate_diagram_cut_3d(ef, "torsion", cut);
+                let n = try_evaluate_diagram_cut_3d(ef, "axial", cut)?;
+                let vy = try_evaluate_diagram_cut_3d(ef, "shearY", cut)?;
+                let vz = try_evaluate_diagram_cut_3d(ef, "shearZ", cut)?;
+                let my = try_evaluate_diagram_cut_3d(ef, "momentY", cut)?;
+                let mz = try_evaluate_diagram_cut_3d(ef, "momentZ", cut)?;
+                let torsion = try_evaluate_diagram_cut_3d(ef, "torsion", cut)?;
 
                 gov_axial.update(combo.combo_id, n, combo.combo_name.as_deref());
                 gov_shear_y.update(combo.combo_id, vy, combo.combo_name.as_deref());
@@ -1479,7 +1479,6 @@ mod round3_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2250"]
     fn round3_concurrent_stations_validate_cuts_across_components() {
         let a = 1.75_f64;
         let adjacent = f64::from_bits(a.to_bits() + 1);

@@ -1,6 +1,6 @@
 import { computeDiagram3D } from './diagrams-3d';
 import { unavailableDiagramExtrema } from './member-diagram';
-import { collapseVariableEnvelope, reexpandVariableResults } from './variable-member-results';
+import { collapseVariableEnvelope, reexpandVariableResults, sameVariableLayout } from './variable-member-results';
 import { registerMemberIntervalKernel } from './member-interval-kernel';
 import { CodedRefusal, asCodedRefusal, isContainmentRefusal, refusedWithCode } from './containment-error';
 import { element3DToWire, results3DFromWasm, resultsFromWasm, type AnalysisResultsWire, type AnalysisResults3DWire, load3DToWire, loadToWire, materialToWire, node3DToWire, nodeToWire, section3DToWire, sectionToWire, support3DToWire, supportToWire, type Element3DWire, type ElasticMaterialWire, type ElasticSection3DWire, type ElasticSectionWire, type Load3DWire, type LoadWire, type Node3DWire, type NodeWire, type Support3DWire, type SupportWire } from './unit-types';
@@ -1580,8 +1580,14 @@ export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D 
   if (!results.some(r => r.elementForces.some(f => f.pieces?.length))) return wasmComputeEnvelope3d(results);
   const expanded = results.map(reexpandVariableResults);
   if (expanded.some(r => r.results.elementForces.some(f => f.pieces?.length))) throw unavailableDiagramExtrema();
+  const reference = expanded[0]!;
+  if (!reference.exp) throw unavailableDiagramExtrema();
+  const layout = reference.exp;
+  const lengths = new Map(reference.results.elementForces.map(ef => [ef.elementId, ef.length]));
+  if (expanded.some(({ results, exp }) => !sameVariableLayout(layout, exp) ||
+    results.elementForces.some(ef => lengths.get(ef.elementId) !== ef.length))) throw unavailableDiagramExtrema();
   const raw = wasmComputeEnvelope3d(expanded.map(r => r.results));
-  return raw && collapseVariableEnvelope(raw, expanded.find(r => r.exp)?.exp);
+  return raw && collapseVariableEnvelope(raw, layout);
 }
 
 // ─── Influence Lines ─────────────────────────────────────────────

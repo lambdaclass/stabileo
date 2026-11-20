@@ -1,6 +1,6 @@
 # Diagram section limits and governing claims
 
-Moving-load envelopes take the extrema of both the stored end forces and the recovered sections. They include the loaded side of a concentrated force at its physical cut. A load one floating-point step inside an end is treated as an interior load. The planar axial jump uses the same equilibrium sign as the spatial axial jump.
+Moving-load envelopes take the extrema of the recovered sections, including both limits at an interior concentrated force and the inside limits at the member ends. A load one floating-point step inside an end is treated as an interior load. The planar axial jump uses the same equilibrium sign as the spatial axial jump.
 
 The extrema evaluator partitions at physical load coordinates and forms its derivative on each interval. If an interior extremum changes an ordinate and the normalized station rounds to an enclosing cut, recovery refuses the result. A point query also refuses a normalized coordinate shared by distinct cuts. A nested ABS or SRSS result that supplies an upper bound can only be ruled out of the governing search when an attained peak reaches or exceeds that bound.
 

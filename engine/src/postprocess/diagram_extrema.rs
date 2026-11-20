@@ -1,19 +1,37 @@
-use crate::element::distributed_load_terms;
+use crate::element::{distributed_load_terms, distributed_load_terms_at_distance};
 use crate::types::DistributedLoadInfo;
+
+const ALIASED_CUTS: &str = "distinct member diagram cuts share a normalized station";
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Location {
+    Grid,
+    Boundary(f64),
+    Interior { start: f64, end: f64, u: f64 },
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Cut {
     pub t: f64,
     pub right: bool,
+    location: Location,
 }
 
 impl Cut {
     pub fn left(t: f64) -> Self {
-        Self { t, right: false }
+        Self { t, right: false, location: Location::Grid }
     }
 
-    pub fn right(t: f64) -> Self {
-        Self { t, right: true }
+    fn boundary(t: f64, x: f64, right: bool) -> Self {
+        Self { t, right, location: Location::Boundary(x) }
+    }
+
+    pub fn station_x(self, length: f64) -> f64 {
+        match self.location {
+            Location::Grid => self.t * length,
+            Location::Boundary(x) => x,
+            Location::Interior { start, end, u } => start + (end - start) * u,
+        }
     }
 
     fn includes(self, t: f64) -> bool {
@@ -21,9 +39,33 @@ impl Cut {
     }
 }
 
-pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) {
+pub(crate) fn sort_cuts(cuts: &mut Vec<Cut>) -> Result<(), &'static str> {
     cuts.sort_by(|a, b| a.t.total_cmp(&b.t).then(a.right.cmp(&b.right)));
-    cuts.dedup();
+    let mut merged = Vec::with_capacity(cuts.len());
+    for station in cuts.chunk_by(|a, b| a.t == b.t) {
+        let mut boundaries = station.iter().filter_map(|cut| match cut.location {
+            Location::Boundary(x) => Some(x),
+            _ => None,
+        });
+        if let Some(x) = boundaries.next() {
+            if boundaries.any(|other| other != x) {
+                return Err(ALIASED_CUTS);
+            }
+        }
+        for side in station.chunk_by(|a, b| a.right == b.right) {
+            let first = merged.len();
+            for cut in side.iter().filter(|cut| cut.location != Location::Grid) {
+                if !merged[first..].contains(cut) {
+                    merged.push(*cut);
+                }
+            }
+            if merged.len() == first {
+                merged.push(side[0]);
+            }
+        }
+    }
+    *cuts = merged;
+    Ok(())
 }
 
 pub(crate) fn uniform_cuts(count: usize) -> impl Iterator<Item = Cut> {
@@ -69,32 +111,44 @@ where
     D: Iterator<Item = DistributedLoadInfo> + Clone,
     P: Iterator<Item = PointAction> + Clone,
 {
-    pub fn value(&self, cut: Cut) -> f64 {
-        self.checked_value(cut).unwrap_or_else(|error| panic!("{error}"))
-    }
-
     pub fn checked_value(&self, cut: Cut) -> Result<f64, &'static str> {
-        let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
-        let exact = hits.next();
-        if let Some(x) = exact {
-            if hits.any(|a| a != x) || (cut.t == 0.0 && x != 0.0) || (cut.t == 1.0 && x != self.length) {
-                return Err("distinct member diagram cuts share a normalized station");
+        let (x, offset, t) = match cut.location {
+            Location::Grid => {
+                let mut hits = self.action_distances().filter(|a| a / self.length == cut.t);
+                let exact = hits.next();
+                if let Some(x) = exact {
+                    if hits.any(|a| a != x) || (cut.t == 0.0 && x != 0.0) || (cut.t == 1.0 && x != self.length) {
+                        return Err(ALIASED_CUTS);
+                    }
+                }
+                (exact.unwrap_or(cut.t * self.length), 0.0, cut.t)
             }
+            Location::Boundary(x) => (x, 0.0, cut.t),
+            Location::Interior { start, end, u } => (start, (end - start) * u, start / self.length),
+        };
+        let distance = |a| (x - a) + offset;
+        let mut value = self.start + self.slope * x + self.change * t;
+        if offset != 0.0 {
+            value += self.slope * offset + self.change * (offset / self.length);
         }
-        let x = exact.unwrap_or(cut.t * self.length);
-        let mut value = self.start + self.slope * x + self.change * cut.t;
         for d in self.distributed.clone() {
-            let (force, moment) = distributed_load_terms(d.q_i, d.q_j, d.a, d.b, x);
+            let (force, moment) = distributed_load_terms_at_distance(d.q_i, d.q_j, d.b - d.a, distance(d.a));
             value += match self.response {
                 Response::Force(sign) => sign * force,
                 Response::Moment(sign) => sign * moment,
             };
         }
         for p in self.points.clone() {
-            let t = p.a / self.length;
-            if cut.includes(t) {
-                if p.slope != 0.0 && cut.t != t {
-                    value += p.slope * (x - p.a);
+            let dx = distance(p.a);
+            let point_t = p.a / self.length;
+            let included = if cut.location == Location::Grid {
+                cut.includes(point_t)
+            } else {
+                dx > 0.0 || (cut.right && dx == 0.0)
+            };
+            if included {
+                if p.slope != 0.0 && (cut.location != Location::Grid || cut.t != point_t) {
+                    value += p.slope * dx;
                 }
                 value += p.jump;
             }
@@ -115,7 +169,7 @@ where
         distances.sort_by(f64::total_cmp);
         distances.dedup();
         if distances.windows(2).any(|w| w[0] / self.length == w[1] / self.length) {
-            return Err("distinct member diagram cuts share a normalized station");
+            return Err(ALIASED_CUTS);
         }
         Ok(distances)
     }
@@ -124,11 +178,11 @@ where
         let at = |x: f64| (x + 0.0) / self.length;
         let boundaries = self.boundaries()?;
         let mut cuts = Vec::new();
-        for &t in &boundaries {
-            cuts.push(Cut::left(at(t)));
+        for &x in &boundaries {
+            cuts.push(Cut::boundary(at(x), x, false));
         }
-        cuts.extend(self.points.clone().filter(|p| p.jump != 0.0).map(|p| at(p.a))
-            .filter(|t| (0.0..1.0).contains(t)).map(Cut::right));
+        cuts.extend(self.points.clone().filter(|p| p.jump != 0.0 && (0.0..self.length).contains(&p.a))
+            .map(|p| Cut::boundary(at(p.a), p.a, true)));
         for segment in boundaries.windows(2) {
             let [x0, x1] = [segment[0], segment[1]];
             let [lo, hi] = [at(x0), at(x1)];
@@ -137,25 +191,43 @@ where
                 if u > 0.0 && u < 1.0 {
                     let t = lo + (hi - lo) * u;
                     if !(lo < t && t < hi) {
-                        let base = self.value(Cut::right(lo));
+                        let base = self.checked_value(Cut::boundary(lo, x0, true))?;
                         let value = |x| base + x * (linear + x * (quadratic + x * cubic));
                         if value(u) != value(if t == lo { 0.0 } else { 1.0 }) {
                             return Err("interior member diagram extremum has no distinct normalized station");
                         }
+                        continue;
                     }
-                    cuts.push(Cut::left(t));
+                    cuts.push(Cut { t, right: false, location: Location::Interior { start: x0, end: x1, u } });
                 }
             }
         }
-        sort_cuts(&mut cuts);
+        sort_cuts(&mut cuts)?;
         Ok(cuts)
     }
 
     pub fn diagram_cuts(&self, count: usize) -> Result<Vec<Cut>, &'static str> {
         let mut cuts = self.critical_cuts()?;
         cuts.extend(uniform_cuts(count));
-        sort_cuts(&mut cuts);
+        sort_cuts(&mut cuts)?;
         Ok(cuts)
+    }
+
+    pub fn interior_range(&self) -> Result<(f64, f64), &'static str> {
+        let ends = [Cut::boundary(0.0, 0.0, true), Cut::boundary(1.0, self.length, false)];
+        let critical = self.critical_cuts()?;
+        let cuts = ends.into_iter().chain(critical.into_iter().filter(|cut| cut.t > 0.0 && cut.t < 1.0));
+        let mut lo = f64::INFINITY;
+        let mut hi = f64::NEG_INFINITY;
+        for cut in cuts {
+            let value = self.checked_value(cut)?;
+            if !value.is_finite() {
+                return Err("non-finite moving load member diagram");
+            }
+            lo = lo.min(value);
+            hi = hi.max(value);
+        }
+        Ok((lo, hi))
     }
 
     fn segment_change(&self, x: f64, end: f64) -> [f64; 3] {
@@ -224,7 +296,6 @@ mod round3_tests {
     use super::*;
 
     #[test]
-    #[ignore = "known wrong result: #2250"]
     fn round3_shear_peak_uses_interval_local_coordinate() {
         let a = 1.5_f64;
         let ulp = f64::from_bits(a.to_bits() + 1) - a;
@@ -238,7 +309,7 @@ mod round3_tests {
                 points: std::iter::empty(),
             };
             let peak = curve.diagram_cuts(21).unwrap().into_iter()
-                .map(|cut| curve.value(cut)).fold(f64::NEG_INFINITY, f64::max);
+                .map(|cut| curve.checked_value(cut).unwrap()).fold(f64::NEG_INFINITY, f64::max);
             assert_eq!(peak, f64::from(steps) / 4.0);
         }
     }

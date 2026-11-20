@@ -140,6 +140,16 @@ function computeStationDemandsWasm(
   }
 
   const complete = (data: StationDemandData): StationDemandData => {
+    const rows = [...data.stations.values()];
+    CompleteDemandSet.require({
+      combinations: combinations.map(({ id: comboId, name: comboName }) => ({
+        comboId, comboName,
+        members: members.map(({ elementId }) => ({ elementId, stationTs: requestedStationTs })),
+      })),
+    }, rows.flatMap(member => member.comboResults.flatMap(combo =>
+      combo.stations.map(station => ({ elementId: member.elementId, comboId: combo.comboId, stationT: station.t })))));
+    for (const row of rows) data.stations.set(row.elementId, withLoading(row));
+
     const inventory = ConcurrentDemand.inventoryForStations(members.map(member => data.stations.get(member.elementId) ?? {
       elementId: member.elementId, length: member.length, expectedCombinationIds: combinations.map(c => c.id),
       stationTs: requestedStationTs, comboResults: [],
@@ -166,11 +176,7 @@ function computeStationDemandsWasm(
     if (buffer) {
       const stations = new Map<number, ElementStationResult>();
       const demands = new Map<number, ElementDesignDemands>();
-      for (const decoded of decodeStationBuffer(buffer, comboNameMap)) {
-        const esr = withLoading(decoded);
-        stations.set(esr.elementId, esr);
-
-      }
+      for (const row of decodeStationBuffer(buffer, comboNameMap)) stations.set(row.elementId, row);
       return complete({ demands, stations });
     }
   }
@@ -191,9 +197,7 @@ function computeStationDemandsWasm(
   const stationMap = new Map<number, ElementStationResult>();
 
   for (const member of grouped.members) {
-    const esr = withLoading(wasmMemberToStationResult(member, comboNameMap));
-    stationMap.set(member.memberId, esr);
-
+    stationMap.set(member.memberId, wasmMemberToStationResult(member, comboNameMap));
   }
 
   return complete({ demands, stations: stationMap });

@@ -2,7 +2,7 @@
 // Given end forces and distributed load, compute intermediate values
 
 import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
-import { curveStations, diagramCurvePoints, distributedActionTerms, fullSpanFallback, memberDiagram } from './member-diagram';
+import { curveExtrema, diagramCurvePoints, distributedActionTerms, fullSpanFallback, memberDiagram } from './member-diagram';
 
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
@@ -62,7 +62,7 @@ function buildDiagram(
   let maxVal = -Infinity, minVal = Infinity;
   let maxAbsT = 0, maxAbsValue = 0;
 
-  for (const { t, value } of diagramCurvePoints(curve, curveStations(curve))) {
+  for (const { t, value } of diagramCurvePoints(curve, curveExtrema(curve, ef.length))) {
     const x = nodeIx + t * (nodeJx - nodeIx);
     const y = nodeIy + t * (nodeJy - nodeIy);
 

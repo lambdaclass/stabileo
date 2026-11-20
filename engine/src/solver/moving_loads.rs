@@ -1,3 +1,4 @@
+use crate::postprocess::{diagrams::member_diagram_range_2d, diagrams_3d::member_diagram_range_3d};
 use crate::types::*;
 use crate::solver::linear::{prepare_static_2d, prepare_static_3d, solve_2d, solve_3d};
 use std::collections::HashMap;
@@ -158,9 +159,9 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
                 // Along the member, not only at its ends: under a span load M peaks inside the
                 // span, and under a sign-changing axial span load so does N.
-                let (m_min, m_max) = diagram_range_2d(ef, "moment", ef.m_start, ef.m_end)?;
-                let (v_min, v_max) = diagram_range_2d(ef, "shear", ef.v_start, ef.v_end)?;
-                let (n_min, n_max) = diagram_range_2d(ef, "axial", ef.n_start, ef.n_end)?;
+                let (m_min, m_max) = member_diagram_range_2d(ef, "moment")?;
+                let (v_min, v_max) = member_diagram_range_2d(ef, "shear")?;
+                let (n_min, n_max) = member_diagram_range_2d(ef, "axial")?;
 
                 env.m_max_pos = env.m_max_pos.max(m_max);
                 env.m_max_neg = env.m_max_neg.min(m_min);
@@ -295,31 +296,6 @@ fn find_segment<'a>(path: &'a [PathSegment], global_pos: f64) -> Option<(&'a Pat
         }
     }
     None
-}
-
-fn diagram_range_2d(ef: &ElementForces, kind: &str, start: f64, end: f64) -> Result<(f64, f64), String> {
-    use crate::postprocess::diagrams::{diagram_critical_cuts_2d, evaluate_diagram_cut_2d, sorted_point_loads};
-    let points = sorted_point_loads(ef);
-    let cuts = diagram_critical_cuts_2d(ef, kind, &points)?;
-    diagram_range(start, end, cuts.into_iter().map(|cut| evaluate_diagram_cut_2d(kind, cut, ef, &points)))
-}
-
-fn diagram_range(start: f64, end: f64, values: impl Iterator<Item = f64>) -> Result<(f64, f64), String> {
-    let (mut lo, mut hi) = (start.min(end), start.max(end));
-    for value in values {
-        if !value.is_finite() {
-            return Err("non-finite moving load member diagram".into());
-        }
-        lo = lo.min(value);
-        hi = hi.max(value);
-    }
-    Ok((lo, hi))
-}
-
-fn diagram_range_3d(ef: &ElementForces3D, kind: &str, start: f64, end: f64) -> Result<(f64, f64), String> {
-    use crate::postprocess::diagrams_3d::{diagram_critical_cuts_3d, evaluate_diagram_cut_3d};
-    let cuts = diagram_critical_cuts_3d(ef, kind)?;
-    diagram_range(start, end, cuts.into_iter().map(|cut| evaluate_diagram_cut_3d(ef, kind, cut)))
 }
 
 /// The permanent loads, all of them: every load in the input is permanent (the train's axle
@@ -465,22 +441,22 @@ pub fn solve_moving_loads_3d(input: &MovingLoadInput3D) -> Result<MovingLoadEnve
         crate::known_issues::attach(&mut structured_diagnostics, results.structured_diagnostics.clone());
         for ef in &results.element_forces {
             if let Some(env) = envelopes.get_mut(&ef.element_id.to_string()) {
-                let (lo, hi) = diagram_range_3d(ef, "axial", ef.n_start, ef.n_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "axial")?;
                 env.n_max_pos = env.n_max_pos.max(hi);
                 env.n_max_neg = env.n_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "shearY", ef.vy_start, ef.vy_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "shearY")?;
                 env.vy_max_pos = env.vy_max_pos.max(hi);
                 env.vy_max_neg = env.vy_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "shearZ", ef.vz_start, ef.vz_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "shearZ")?;
                 env.vz_max_pos = env.vz_max_pos.max(hi);
                 env.vz_max_neg = env.vz_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "momentY", ef.my_start, ef.my_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "momentY")?;
                 env.my_max_pos = env.my_max_pos.max(hi);
                 env.my_max_neg = env.my_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "momentZ", ef.mz_start, ef.mz_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "momentZ")?;
                 env.mz_max_pos = env.mz_max_pos.max(hi);
                 env.mz_max_neg = env.mz_max_neg.min(lo);
-                let (lo, hi) = diagram_range_3d(ef, "torsion", ef.mx_start, ef.mx_end)?;
+                let (lo, hi) = member_diagram_range_3d(ef, "torsion")?;
                 env.mx_max_pos = env.mx_max_pos.max(hi);
                 env.mx_max_neg = env.mx_max_neg.min(lo);
             }
@@ -682,9 +658,9 @@ mod diagram_limit_tests {
             "qZI": -1.0, "qZJ": -1.0, "distributedLoadsY": [], "distributedLoadsZ": [],
             "pointLoadsY": [], "pointLoadsZ": [{"a": 10.0, "p": 10.0}]
         })).unwrap();
-        assert_eq!(diagram_range_3d(&ef, "shearZ", ef.vz_start, ef.vz_end).unwrap(), (-10.0, 0.0));
+        assert_eq!(member_diagram_range_3d(&ef, "shearZ").unwrap(), (-10.0, 0.0));
         ef.point_loads_z[0].a = f64::from_bits(10.0_f64.to_bits() - 1);
-        let range = diagram_range_3d(&ef, "shearZ", ef.vz_start, ef.vz_end).unwrap();
+        let range = member_diagram_range_3d(&ef, "shearZ").unwrap();
         assert!(range.0 > -10.0 && range.0 < -9.0, "{range:?}");
     }
 }

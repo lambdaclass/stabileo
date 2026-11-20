@@ -74,8 +74,17 @@ pub fn checked_diagram_value_3d(ef: &ElementForces3D, kind: &str, t: f64) -> Res
 }
 
 pub(crate) fn evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> f64 {
-    if let Err(error) = validate_diagram_loads_3d(ef) { panic!("{error}"); }
-    spatial_curve(ef, kind).value(cut)
+    try_evaluate_diagram_cut_3d(ef, kind, cut).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_evaluate_diagram_cut_3d(ef: &ElementForces3D, kind: &str, cut: Cut) -> Result<f64, String> {
+    validate_diagram_loads_3d(ef)?;
+    spatial_curve(ef, kind).checked_value(cut).map_err(str::to_owned)
+}
+
+pub(crate) fn member_diagram_range_3d(ef: &ElementForces3D, kind: &str) -> Result<(f64, f64), String> {
+    validate_diagram_loads_3d(ef)?;
+    spatial_curve(ef, kind).interior_range().map_err(str::to_owned)
 }
 
 fn spatial_curve<'a>(
@@ -130,7 +139,7 @@ fn compute_single_diagram_3d(
     let cuts = curve.diagram_cuts(21).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
     for cut in cuts {
         let t = cut.t;
-        let value = curve.value(cut);
+        let value = curve.checked_value(cut).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
         if !value.is_finite() {
             return Err(format!("Element {} {kind}: non-finite diagram at t={t}", ef.element_id));
         }

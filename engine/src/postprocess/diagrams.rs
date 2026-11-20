@@ -129,8 +129,17 @@ pub fn checked_diagram_value_2d(kind: &str, t: f64, ef: &ElementForces) -> Resul
 }
 
 pub(crate) fn evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> f64 {
-    if let Err(error) = validate_diagram_loads_2d(ef) { panic!("{error}"); }
-    planar_curve(ef, kind, sorted_pl).value(cut)
+    try_evaluate_diagram_cut_2d(kind, cut, ef, sorted_pl).unwrap_or_else(|error| panic!("{error}"))
+}
+
+pub(crate) fn try_evaluate_diagram_cut_2d(kind: &str, cut: Cut, ef: &ElementForces, sorted_pl: &[PointLoadInfo]) -> Result<f64, String> {
+    validate_diagram_loads_2d(ef)?;
+    planar_curve(ef, kind, sorted_pl).checked_value(cut).map_err(str::to_owned)
+}
+
+pub(crate) fn member_diagram_range_2d(ef: &ElementForces, kind: &str) -> Result<(f64, f64), String> {
+    validate_diagram_loads_2d(ef)?;
+    planar_curve(ef, kind, &sorted_point_loads(ef)).interior_range().map_err(str::to_owned)
 }
 
 // ==================== 2D Diagrams ====================
@@ -154,7 +163,7 @@ fn compute_single_diagram(
 
     for cut in positions {
         let t = cut.t;
-        let value = curve.value(cut);
+        let value = curve.checked_value(cut).map_err(|e| format!("Element {} {kind}: {e}", ef.element_id))?;
         if !value.is_finite() {
             return Err(format!("Element {} {kind}: non-finite diagram at t={t}", ef.element_id));
         }

@@ -74,6 +74,20 @@ export function reexpandVariableResults(r: AnalysisResults3D): { results: Analys
   return { results: { ...r, elementForces: forces, displacements }, exp };
 }
 
+export function sameVariableLayout(reference: VariableExpansion, other: VariableExpansion | undefined): boolean {
+  if (!other || reference.members.size !== other.members.size) return false;
+  for (const [id, member] of reference.members) {
+    const candidate = other.members.get(id);
+    if (!candidate || member.length !== candidate.length || member.pieces.length !== candidate.pieces.length) return false;
+    if (member.pieces.some((piece, i) => {
+      const next = candidate.pieces[i]!;
+      return piece.id !== next.id || piece.x0 !== next.x0 || piece.x1 !== next.x1 ||
+        piece.nodeI !== next.nodeI || piece.nodeJ !== next.nodeJ;
+    })) return false;
+  }
+  return true;
+}
+
 function collapseDiagram(d: EnvelopeDiagramData3D, exp: VariableExpansion): EnvelopeDiagramData3D {
   const byId = new Map(d.elements.map((e) => [e.elementId, e]));
   const pieceIds = new Set<number>();

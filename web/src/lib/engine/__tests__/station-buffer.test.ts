@@ -126,9 +126,7 @@ it('#2250 both production design station transfers retain the concurrent tuple a
   }
 });
 
-const round3 = process.env.RUN_KNOWN_WRONG === '2403' ? it : it.skip;
-
-round3('refuses variable member envelopes whose shared piece IDs represent different cuts', () => {
+it('refuses variable member envelopes whose shared piece IDs represent different cuts', () => {
   const displacement = (nodeId: number) => ({ nodeId, ux: 0, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 });
   const plain = { ...force(1, 0), length: 10, distributedLoadsX: [], distributedLoadsY: [], distributedLoadsZ: [],
     pointLoadsY: [], pointLoadsZ: [] };
@@ -146,6 +144,10 @@ round3('refuses variable member envelopes whose shared piece IDs represent diffe
     expect.soft(() => computeEnvelope3D(layouts)).toThrow(/extrema/i);
   }
   const first = split(4, 0), second = split(4, 40);
+  const incompatibleLength = split(4, 40);
+  incompatibleLength.elementForces[0]!.pieces![0]!.forces.length = 6;
+  expect.soft(() => computeEnvelope3D([first, incompatibleLength])).toThrow(/extrema/i);
+  expect.soft(() => computeEnvelope3D([first, results([plain])])).toThrow(/extrema/i);
   const envelope = computeEnvelope3D([first, second])?.shearZ.elements.find(e => e.elementId === 1);
   expect(envelope?.tPositions.filter((t, i) => t === 0.4 && envelope.posValues[i] === 40)).toHaveLength(1);
 });
