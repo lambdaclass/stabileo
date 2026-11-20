@@ -41,7 +41,59 @@ async function importFile(sheets: Record<string, unknown[][]>) {
   return importExcelFile(new File([XLSX.write(book, { type: 'array', bookType: 'xlsx' })], 'model.xlsx'));
 }
 
+const issue2364 = process.env.RUN_KNOWN_WRONG === '2364' ? it : it.skip;
+const supportComponents = ['kz', 'kx', 'ky', 'krx', 'kry', 'krz', 'dx', 'dy', 'dz', 'angle'] as const;
+const invalidSupportCells = [
+  ...supportComponents.flatMap(column => [
+    { column, header: column, value: 'bad', row: 2, kind: 'malformed number' },
+    { column, header: column + ' [s]', value: 5, row: 1, kind: 'incompatible unit' },
+  ]),
+  { column: 'kz', header: 'kz [kN/mm]', value: 1e308, row: 2, kind: 'nonfinite conversion' },
+];
+
 for (const [entry, install] of [['sheet arrays', applyWorkbook], ['XLSX file', importFile]] as const) {
+  for (const { workspace, geometry } of types) {
+    const flat = workspace === '2d';
+    const type = flat ? 'spring' : 'spring3d';
+
+    for (const { column, header, value, row, kind } of invalidSupportCells) {
+      issue2364(`known wrong result: #2364 ${entry} blocks ${kind} in declared ${workspace} support ${column}`, async () => {
+        const before = priorModel(workspace);
+        const other = column === 'kry' ? 'kx' : 'kry';
+        const workbook = {
+          ...geometry, ...axes,
+          Supports: [['node', 'type', header, other], [1, type, value, 7]],
+        };
+        const problems = [expect.objectContaining({ sheet: 'Supports', row, column, blocking: true })];
+        expect(parseWorkbook(workbook).problems).toEqual(problems);
+        const out = await install(workbook);
+        expect(out?.problems).toEqual(problems);
+        expect(out?.loaded).toEqual({ nodes: 0, elements: 0, sections: 0 });
+        expect(modelStore.snapshot()).toEqual(before);
+      });
+    }
+
+    it(`${entry} installs valid declared ${workspace} stiffnesses and settlements`, async () => {
+      for (const vertical of ['', 0, 5000] as const) {
+        priorModel(workspace);
+        const workbook = {
+          ...geometry, ...axes,
+          Supports: [
+            ['node', 'type', 'kx [N/m]', 'kz [N/m]', 'kry [N·m/rad]', 'dx [mm]', 'dz [mm]', 'angle [deg]'],
+            [1, type, 2000, vertical, 7000, -10, 0, 15],
+          ],
+        };
+        const stiffness = vertical === '' ? {} : { [flat ? 'ky' : 'kz']: vertical / 1000 };
+        const expected = { kx: 2, ...(flat ? { kz: 7 } : { kry: 7 }), ...stiffness, dx: -0.01, dz: 0, angle: 15 };
+        const out = await install(workbook);
+        expect(out?.problems).toEqual([]);
+        expect(out?.loaded.nodes).toBe(1);
+        expect(out?.model.supports).toEqual([{ id: 1, nodeId: 1, type, ...expected }]);
+        expect([...modelStore.supports.values()]).toEqual([expect.objectContaining(expected)]);
+      }
+    });
+  }
+
   it.each(types)(`known wrong result: #2364 ${entry} blocks malformed declared $workspace load components`, async ({ workspace, geometry, loadType }) => {
     const before = priorModel(workspace);
     const workbook = (header: string, value: unknown) => ({
