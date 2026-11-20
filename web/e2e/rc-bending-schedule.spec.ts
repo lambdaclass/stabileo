@@ -21,6 +21,10 @@ test('@smoke the sheets\' bending schedule switches views, downloads CSV and BVB
   await page.getByTestId('rc-open-beam').click();
 
   const ws = page.getByTestId('rc-sheets-workspace');
+  // The frame models no footing: the recommended layout is adopted so its footings enter the schedule.
+  await ws.getByTestId('rc-tab-footing').click();
+  await ws.getByTestId('rc-foundation-adopt-auto').click();
+  await expect(ws.getByTestId('rc-foundation-adopted')).toBeVisible();
   await ws.getByTestId('rc-tab-schedule').click();
   const view = ws.getByTestId('rc-schedule-view');
   await expect(view).toBeVisible();

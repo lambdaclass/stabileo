@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shownFootings } from '../../../lib/rc-sheets/footing-layouts';
   import { t, tp, i18n, tpn } from '../../../lib/i18n';
   import { fullScreenWorkspace } from '../../../lib/store/fullscreen-workspace.svelte';
   import { extraBarsText } from '../../../lib/rc-sheets/line-geometry';
@@ -75,7 +76,7 @@
   const nothingFits = (r: ListRow) => noArrangement(r, r.family === 'line' ? spansOf(r) : []);
   type ListRow = SheetRow | (LineLayout & { family: 'line'; status: 'ok' | 'warn' | 'fail' });
   let preview = $state<FoundationSystem>('auto');
-  const footingView = $derived(rows.foundation ? rows.footing : rows.footingLayouts?.find((l) => l.system === preview)?.rows ?? []);
+  const footingView = $derived(shownFootings(rows, preview));
   const tabRows = (k: SheetTab) => (k === 'beam' ? rows.line.map((l) => ({ ...l, family: 'line' as const, status: lineStatus(l) })) : k === 'footing' ? footingView : TAB_FAMILIES[k].flatMap((f) => rows[f] as ListRow[])) as ListRow[];
   const all = $derived(tabRows(tab));
   const vlevels = $derived(verticalItems(rows.column, rows.wall).map((it) => (it.kind === 'row' ? it.row.level : it.pier.level) ?? ''));

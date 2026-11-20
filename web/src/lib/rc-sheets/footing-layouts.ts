@@ -19,6 +19,10 @@ export interface LayoutSummary {
 
 export interface FoundationLayout { system: FoundationSystem; rows: FootingRow[]; summary: LayoutSummary }
 
+/** The footings a family shows: the adopted layout's, else the previewed one's, the recommendation unless another is picked. */
+export const shownFootings = (rows: { foundation?: FoundationSystem | null; footing: FootingRow[]; footingLayouts?: readonly FoundationLayout[] }, preview: FoundationSystem = 'auto'): FootingRow[] =>
+  rows.foundation ? rows.footing : rows.footingLayouts?.find((l) => l.system === preview)?.rows ?? [];
+
 const kindOf = (r: FootingRow) => (r.cap ? 'pileCap' as const : r.group?.kind ?? (r.combined ? 'combined' : 'isolated'));
 const pilesVolume = (r: FootingRow) => (r.adopted.piles ? r.adopted.piles.at.length * Math.PI * r.adopted.piles.diameter ** 2 / 4 * r.adopted.piles.length : 0);
 
