@@ -6,6 +6,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::constraints::{FreeConstraintSystem, MasterMotion};
 use super::linear::SPARSE_THRESHOLD;
+pub use super::nonlinear::IterationMethod;
 use super::sparse_tangent::{
     cached_symbolic, solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
@@ -89,6 +90,7 @@ struct Corotational2D<'a> {
     support_step: Option<Vec<f64>>,
     cached_factor: Option<CachedTangentFactor>,
     r_f: Vec<f64>,
+    unbalance: Vec<f64>,
     k_t: Vec<f64>,
     trip_rows: Vec<usize>,
     trip_cols: Vec<usize>,
@@ -168,7 +170,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
 
             // Rotate K_T/f_int back into the rotated (tangent, normal) basis
             // at inclined-support DOFs so they stay consistent with self.f_ext
-            // (already rotated by assemble_2d above) for the residual/solve
+            // (which assemble_2d already rotated) for the residual/solve
             // below — without this, the tangent-stiffness system enforces
             // "restrain literal global Z" instead of "restrain normal to
             // the incline," silently solving the wrong physical problem.
@@ -187,6 +189,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         let r_f: Vec<f64> = residual[..nf].to_vec();
         let rel_error = metric.continuation_residual(&residual,&self.f_ext,&self.active_supports,&f_base,&start_internal,cs.as_ref());
 
+        self.unbalance.clone_from(&r_f);
         self.r_f = r_f;
         self.k_t = k_t;
         self.trip_rows = trip_rows;
@@ -195,7 +198,7 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
         Ok(super::nonlinear::Linearization { measure: rel_error, forced: self.support_step.is_some() })
     }
 
-    fn correct(&mut self, modified_nr: bool) -> Result<(), String> {
+    fn correction(&mut self, modified_nr: bool) -> Result<Vec<f64>, String> {
         let (dof_num, cs) = (self.dof_num, self.cs);
         let (n, nf, ns) = (dof_num.n_total, dof_num.n_free, self.ns);
         let sparse_tangent = ns >= SPARSE_THRESHOLD;
@@ -301,7 +304,11 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
             delta_u_indep
         };
 
-        // Update displacements (free DOFs only)
+        Ok(delta_u_f)
+    }
+
+    fn advance(&mut self, delta_u_f: &[f64]) {
+        let nf = self.dof_num.n_free;
         for i in 0..nf {
             self.u_full[i] += delta_u_f[i];
         }
@@ -310,7 +317,18 @@ impl super::nonlinear::IncrementalProblem for Corotational2D<'_> {
                 self.u_full[nf + r] += du;
             }
         }
-        Ok(())
+    }
+
+    fn state(&self) -> Vec<f64> {
+        self.u_full[..self.dof_num.n_free].to_vec()
+    }
+
+    fn work(&self, step: &[f64]) -> f64 {
+        -super::line_search::directional_derivative(&self.unbalance, step, self.dof_num.n_free)
+    }
+
+    fn set_state(&mut self, state: &[f64]) {
+        self.u_full[..self.dof_num.n_free].copy_from_slice(state);
     }
 
     fn commit(&mut self) {
@@ -357,6 +375,25 @@ pub fn solve_corotational_2d_from(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult, String> {
+    let method = if modified_nr { IterationMethod::ModifiedNewton } else { IterationMethod::Newton };
+    solve_corotational_2d_by(input, start, max_iter, tolerance, n_increments, method)
+}
+
+/// [`solve_corotational_2d_from`] with the iteration that converges each increment chosen.
+/// `max_iter` bounds the linearizations of an increment, a line search's trials among them.
+pub fn solve_corotational_2d_by(
+    input: &SolverInput,
+    start: Option<&CorotationalStart2D>,
+    max_iter: usize,
+    tolerance: f64,
+    n_increments: usize,
+    method: IterationMethod,
+) -> Result<CorotationalResult, String> {
+    if let IterationMethod::Anderson { depth } = method {
+        if depth == 0 {
+            return Err("Anderson acceleration needs a depth of at least 1".into());
+        }
+    }
     let canonical_input = super::member_loads::plane_input(input);
     let input = canonical_input.as_ref();
 
@@ -450,12 +487,13 @@ pub fn solve_corotational_2d_from(
         support_step: None,
         cached_factor: None,
         r_f: Vec::new(),
+        unbalance: Vec::new(),
         k_t: Vec::new(),
         trip_rows: Vec::new(),
         trip_cols: Vec::new(),
         trip_vals: Vec::new(),
     };
-    let outcome = super::nonlinear::solve_by_load_increments(&mut problem, &super::nonlinear::Newton { lag_tangent: modified_nr }, n_increments, tolerance, max_iter)?;
+    let outcome = super::nonlinear::solve_by_load_increments_with(&mut problem, method, n_increments, tolerance, max_iter)?;
     let Corotational2D { u_full, conditioning, .. } = problem;
     let (total_iterations, converged, converged_factor) = (outcome.iterations, outcome.converged, outcome.load_factor);
 
@@ -3974,6 +4012,68 @@ mod shared_driver_equivalence {
                 same(&next, Some(&start), 2, 3, modified);
             }
         }
+    }
+
+    fn apart(a: &CorotationalResult, b: &CorotationalResult) -> f64 {
+        let largest = b.results.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()));
+        a.results.displacements.iter().zip(&b.results.displacements)
+            .fold(0.0f64, |m, (x, y)| m.max((x.ux - y.ux).abs()).max((x.uz - y.uz).abs())) / largest
+    }
+
+    #[test]
+    fn the_line_search_reaches_the_solution_of_many_small_increments_where_newton_does_not() {
+        let (mut newton_elsewhere, mut newton_lost) = (0, 0);
+        for n in [4, 12, 30] {
+            for (rise, far_support) in [(0.0, None), (0.4, None), (0.4, Some("pinned"))] {
+                let input = frame(n, rise, far_support);
+                let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+                assert!(reference.converged);
+                let stepped = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::Newton).unwrap();
+                if stepped.converged {
+                    assert!(apart(&reference, &stepped) <= 1e-8, "n {n}: {}", apart(&reference, &stepped));
+                }
+                for n_increments in [1, 4] {
+                    let searched = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, IterationMethod::NewtonLineSearch).unwrap();
+                    assert!(searched.converged && searched.load_factor == 1.0, "n {n}, rise {rise}, {n_increments} increments");
+                    assert!(apart(&searched, &reference) <= 1e-8, "n {n}, rise {rise}, {n_increments} increments: {}", apart(&searched, &reference));
+                    assert!(searched.iterations <= 60, "{}", searched.iterations);
+                    let plain = solve_corotational_2d_by(&input, None, 200, 1e-8, n_increments, IterationMethod::Newton).unwrap();
+                    if !plain.converged {
+                        newton_lost += 1;
+                    } else if apart(&plain, &reference) > 1e-3 {
+                        newton_elsewhere += 1;
+                    }
+                }
+            }
+        }
+        assert!(newton_lost >= 4 && newton_elsewhere >= 2, "{newton_lost} unconverged, {newton_elsewhere} on another solution");
+    }
+
+    #[test]
+    fn anderson_converges_propped_arches_that_modified_newton_does_not() {
+        for n in [4, 12, 30] {
+            let input = frame(n, 0.4, Some("pinned"));
+            let reference = solve_corotational_2d_by(&input, None, 200, 1e-8, 40, IterationMethod::NewtonLineSearch).unwrap();
+            let modified = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::ModifiedNewton).unwrap();
+            assert!(!modified.converged);
+            let accelerated = solve_corotational_2d_by(&input, None, 200, 1e-8, 4, IterationMethod::Anderson { depth: 6 }).unwrap();
+            assert!(accelerated.converged && accelerated.load_factor == 1.0, "n {n}");
+            assert!(accelerated.iterations < 4 * 200);
+            assert!(apart(&accelerated, &reference) <= 1e-8, "n {n}: {}", apart(&accelerated, &reference));
+        }
+    }
+
+    #[test]
+    fn an_iteration_that_does_not_converge_reports_the_last_increment_that_did() {
+        let input = frame(12, 0.0, None);
+        for method in [IterationMethod::Anderson { depth: 3 }, IterationMethod::NewtonLineSearch, IterationMethod::ModifiedNewton] {
+            let result = solve_corotational_2d_by(&input, None, 3, 1e-8, 4, method).unwrap();
+            assert!(!result.converged, "{method:?}");
+            assert_eq!(result.load_factor, 0.0, "{method:?}");
+            assert!(result.results.displacements.iter().all(|d| d.ux == 0.0 && d.uz == 0.0), "{method:?}");
+        }
+        let refused = solve_corotational_2d_by(&input, None, 50, 1e-8, 4, IterationMethod::Anderson { depth: 0 });
+        assert_eq!(refused.err().as_deref(), Some("Anderson acceleration needs a depth of at least 1"));
     }
 
     #[test]
